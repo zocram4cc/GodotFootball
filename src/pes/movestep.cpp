@@ -2,6 +2,7 @@
 
 #include "pes/exe.hpp"
 #include <cmath>
+#include <cstring>
 
 namespace pes {
 namespace {
@@ -58,8 +59,8 @@ float TurnPlayback(float g, float p, const PlaybackConstants& k) {
   return p * p * k.turnP2 + k.stepBase + PlaybackRamp(g, k) * k.turnT;
 }
 
-bool RunRateAllowed(float rate, float rateCeiling, const PlaybackConstants& k) {
-  return rate <= k.stepBase * rateCeiling;
+bool RunRateAllowed(float rate, float rateCeiling, float stepBase) {
+  return rate <= stepBase * rateCeiling;
 }
 
 void ApplyTransition(MoveStepRecord& rec, MoveReq& req) {
@@ -179,5 +180,125 @@ int AngleBucket(const AngleBucketConstants& k, float angleDeg, int currentBucket
   return 0;  // FUN_1406b9b20's miss
 }
 }  // namespace movestep
+
+namespace {
+// Group C's install tables and scalars (STEP_LOOP, STEP_LOOP_CHANGE, TURN_STOP and the transitions).
+// Each VA is the target of one instruction a handler reads, so a different executable fails the load
+// rather than reading wrong numbers.
+constexpr uint64_t STEP_COLUMN_TABLE_VA = 0x1425dd988;    // STEP_LOOP 0x1406c5d82, TURN_STOP 0x1406cb36e
+constexpr uint64_t STEP_GRID_TABLE_VA = 0x1425dd9b0;      // STEP_LOOP 0x1406c5d8e, TURN_STOP 0x1406cb37f
+constexpr uint64_t STEP_STYLE_TABLE_VA = 0x1425ddcf0;     // STEP_LOOP 0x1406c58ba
+constexpr uint64_t STEP_BUCKET_DEGREES_VA = 0x1425dd960;  // TURN_STOP entry 0x1406d2d8e
+
+#define STEP_FIELD(a) &StepScalars::a
+const struct {
+  uint64_t va;
+  float StepScalars::* field;
+} STEP_SCALAR_SITES[] = {
+    {0x14256ae1c, STEP_FIELD(one)},
+    {0x142565600, STEP_FIELD(half)},
+    {0x14259858c, STEP_FIELD(full)},
+    {0x142598598, STEP_FIELD(wrapFull)},
+    {0x142598580, STEP_FIELD(halfTurn)},
+    {0x142588218, STEP_FIELD(negOne)},
+    {0x14259a764, STEP_FIELD(ticks60)},
+    {0x14256ae34, STEP_FIELD(scale1000)},
+    {0x14259be10, STEP_FIELD(kmh16)},
+    {0x14259222c, STEP_FIELD(kmh5)},
+    {0x14259bdfc, STEP_FIELD(kmh11)},
+    {0x14259bdf4, STEP_FIELD(kmh8)},
+    {0x1425a1ffc, STEP_FIELD(kmh13p5)},
+    {0x1425c48c0, STEP_FIELD(kmh22)},
+    {0x14259d618, STEP_FIELD(deg22p5)},
+    {0x1425cc680, STEP_FIELD(deg11p25)},
+    {0x1425cc688, STEP_FIELD(deg33p75)},
+    {0x1425cca34, STEP_FIELD(deg67p5)},
+    {0x14259be5c, STEP_FIELD(deg90)},
+    {0x14259be60, STEP_FIELD(deg135)},
+    {0x1425cb30c, STEP_FIELD(deg112p5)},
+    {0x1425c8380, STEP_FIELD(deg175)},
+    {0x1425ddf84, STEP_FIELD(deg5p625)},
+    {0x1425ddf94, STEP_FIELD(deg28p125)},
+    {0x1425ddf8c, STEP_FIELD(deg16p875)},
+    {0x1425ddfcc, STEP_FIELD(deg168p75)},
+    {0x1425ddfbc, STEP_FIELD(deg146p25)},
+    {0x1425ddfb8, STEP_FIELD(deg140p625)},
+    {0x1425ddfd4, STEP_FIELD(sq1139)},
+    {0x1425ddfd8, STEP_FIELD(sq2025)},
+    {0x1425ddfd0, STEP_FIELD(deg174p375)},
+    {0x1425a2008, STEP_FIELD(deg270)},
+    {0x1425cb494, STEP_FIELD(sq8100)},
+    {0x1425ddf98, STEP_FIELD(deg31p64)},
+    {0x1425c5958, STEP_FIELD(neg90)},
+    {0x1425aa1c8, STEP_FIELD(neg45)},
+    {0x1425dbdb8, STEP_FIELD(neg67p5)},
+    {0x1425dbdbc, STEP_FIELD(neg112p5)},
+    {0x1425ddffc, STEP_FIELD(neg180)},
+    {0x14259be30, STEP_FIELD(deg45)},
+    {0x14259be1c, STEP_FIELD(kmh20)},
+    {0x14258c264, STEP_FIELD(dist3)},
+    {0x14258c260, STEP_FIELD(rate0p9)},
+    {0x14257a190, STEP_FIELD(s0p6)},
+    {0x14259b89c, STEP_FIELD(s0p4)},
+    {0x142590d98, STEP_FIELD(s0p3)},
+    {0x1425ddf4c, STEP_FIELD(s0p1333)},
+    {0x1425ddf50, STEP_FIELD(s0p1667)},
+    {0x142598578, STEP_FIELD(s0p2)},
+    {0x142592228, STEP_FIELD(s0p25)},
+    {0x1425ddf60, STEP_FIELD(s0p35)},
+    {0x14259bddc, STEP_FIELD(dist1p5)},
+    {0x14259bdd8, STEP_FIELD(dist1p25)},
+    {0x142572348, STEP_FIELD(clamp0p8)},
+    {0x1425a8a28, STEP_FIELD(step0p05)},
+    {0x14259bdc4, STEP_FIELD(eps1e7)},
+    {0x14259ce38, STEP_FIELD(kmh3p6)},
+    {0x1425ab124, STEP_FIELD(rate0p95)},
+    {0x142588210, STEP_FIELD(deg10)},
+    {0x14259be50, STEP_FIELD(deg78p75)},
+    {0x1425ab120, STEP_FIELD(s0p85)},
+    {0x14259bdec, STEP_FIELD(six)},
+    {0x14259bdd4, STEP_FIELD(threeQuarters)},
+    {0x14257a194, STEP_FIELD(rate1p6)},
+};
+#undef STEP_FIELD
+
+bool ReadI32Array(const PeImage& exe, uint64_t va, int32_t* out, size_t n) {
+  return exe.ReadVa(va, 4 * n, reinterpret_cast<uint8_t*>(out));
+}
+}  // namespace
+
+std::optional<StepTables> LoadStepTables(const PeImage& exe, std::string* error) {
+  StepTables t;
+  if (!ReadI32Array(exe, STEP_COLUMN_TABLE_VA, t.bucketColumn.data(), t.bucketColumn.size())) {
+    *error = "movestep step: the bucket->column table is unreadable";
+    return std::nullopt;
+  }
+  if (!ReadI32Array(exe, STEP_GRID_TABLE_VA, t.kindBandRow.data(), t.kindBandRow.size())) {
+    *error = "movestep step: the kind/band grid is unreadable";
+    return std::nullopt;
+  }
+  uint8_t degrees[sizeof(t.bucketDegrees)];
+  if (!exe.ReadVa(STEP_BUCKET_DEGREES_VA, sizeof degrees, degrees)) {
+    *error = "movestep step: the bucket->degrees table is unreadable";
+    return std::nullopt;
+  }
+  std::memcpy(t.bucketDegrees.data(), degrees, sizeof degrees);
+  if (!ReadI32Array(exe, STEP_STYLE_TABLE_VA, t.styleMotion.data(), t.styleMotion.size())) {
+    *error = "movestep step: the style/class motion table is unreadable";
+    return std::nullopt;
+  }
+  return t;
+}
+
+std::optional<StepScalars> LoadStepScalars(const PeImage& exe, std::string* error) {
+  StepScalars s;
+  for (const auto& site : STEP_SCALAR_SITES) {
+    if (!exe.ReadVa(site.va, sizeof(float), reinterpret_cast<uint8_t*>(&(s.*site.field)))) {
+      *error = "movestep step: a scalar is unreadable";
+      return std::nullopt;
+    }
+  }
+  return s;
+}
 
 }  // namespace pes

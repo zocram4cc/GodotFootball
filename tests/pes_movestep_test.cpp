@@ -105,10 +105,10 @@ TEST(PlaybackInstall, LoadsTheExeConstantsWithTheirRelations) {
 
 TEST(RunRateGuard, AllowsARunOnlyUpToStepBaseOfTheCeiling) {
   const auto k = Synthetic();  // stepBase = 0.5 in the synthetic set
-  EXPECT_TRUE(pes::RunRateAllowed(0.5f, 1.0f, k));    // rate equals 0.5 * ceiling
-  EXPECT_TRUE(pes::RunRateAllowed(0.3f, 1.0f, k));
-  EXPECT_FALSE(pes::RunRateAllowed(0.6f, 1.0f, k));   // above the floor: no run
-  EXPECT_FALSE(pes::RunRateAllowed(0.4f, 0.5f, k));   // a lower ceiling forbids the same rate
+  EXPECT_TRUE(pes::RunRateAllowed(0.5f, 1.0f, k.stepBase));   // rate equals 0.5 * ceiling
+  EXPECT_TRUE(pes::RunRateAllowed(0.3f, 1.0f, k.stepBase));
+  EXPECT_FALSE(pes::RunRateAllowed(0.6f, 1.0f, k.stepBase));  // above the floor: no run
+  EXPECT_FALSE(pes::RunRateAllowed(0.4f, 0.5f, k.stepBase));  // a lower ceiling forbids the same rate
 }
 
 TEST(MoveReqFields, FloatsAndBytesShareTheirWord) {
@@ -266,4 +266,34 @@ TEST(AngleBucketInstall, LoadsTheExeWindowsWithTheirRelations) {
   }
   for (int i = 0; i < 10; ++i) EXPECT_EQ(seen[i], 1) << "bucket " << i;
   EXPECT_FLOAT_EQ(k->hysteresisDown, -k->hysteresisUp);
+}
+
+TEST(StepScalarsInstall, LoadsTheGroupCScalarsWithTheirRelations) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  auto s = pes::LoadStepScalars(*exe, &err);
+  ASSERT_TRUE(s.has_value()) << err;
+  EXPECT_FLOAT_EQ(s->one, 1.0f);
+  EXPECT_FLOAT_EQ(s->negOne, -1.0f);
+  EXPECT_FLOAT_EQ(s->full, 2.0f * s->halfTurn);
+  EXPECT_FLOAT_EQ(s->halfTurn, 2.0f * s->deg90);
+  EXPECT_FLOAT_EQ(s->deg90, 2.0f * s->deg45);
+  EXPECT_FLOAT_EQ(s->neg180, -s->halfTurn);
+}
+
+TEST(StepTablesInstall, LoadsTheBucketColumnsWithinTheAnimetable) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  auto t = pes::LoadStepTables(*exe, &err);
+  ASSERT_TRUE(t.has_value()) << err;
+  for (int column : t->bucketColumn) {
+    EXPECT_GE(column, 0);
+    EXPECT_LT(column, 18);  // the Animetable has 18 angle columns (A-AN9)
+  }
 }

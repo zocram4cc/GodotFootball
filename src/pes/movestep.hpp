@@ -153,6 +153,7 @@ inline constexpr int kRootFacingAngle = 0x3b;  // req[0x3b]: the wrapped root-fa
 inline constexpr int kSlipActive = 0xe8;       // req[0xe8] byte: slip damping is active (OBS: FUN_1406c2f80)
 inline constexpr int kSlipAngle = 0xec;        // req[0xec]: the damped facing, degrees (OBS). The adapter copies it to P+0xbec.
 inline constexpr int kLiveKind = 0x1e;        // req[0x1e]: the live clip's kind; FUN_1406d5d60 writes it (OBS per MovestepRun)
+inline constexpr int kStopBand = 0x51;        // req[0x51] (req+0x144): the band FUN_1406d5d60 reads for its stop-row picker (OBS per MovestepRun)
 }  // namespace moveword
 
 // The move request. Typed views over the same words; PES's bit patterns are kept exact.
@@ -191,6 +192,37 @@ struct MoveCell {
 // What the move machine reads from its player and the match. The sim adapter implements it;
 // tests implement it with synthetic values. Each method names the PES read it stands for.
 struct AngleBucketConstants;  // defined below, with the shared helpers
+struct StepScalars;  // group C's install scalars, defined by its loader in movestep_step.hpp
+struct RunConstants;  // group B's install scalars, defined by movestep_run.hpp's loader
+struct RunTables;     // group B's install tables, defined by movestep_run.hpp's loader
+
+// Group C's install tables (STEP_LOOP, STEP_LOOP_CHANGE, TURN_STOP, the transitions), read by
+// LoadStepTables from the exe at the VAs in movestep.cpp.
+struct StepTables {
+  std::array<int32_t, 10> bucketColumn;  // 0x1425dd988: bucket -> Animetable column
+  std::array<int32_t, 16> kindBandRow;   // 0x1425dd9b0: kind + band * 8 -> Animetable row
+  std::array<float, 10> bucketDegrees;   // 0x1425dd960: bucket -> degrees (TURN_STOP entry)
+  std::array<int32_t, 12> styleMotion;   // 0x1425ddcf0: class + style * 4 -> representative motion
+};
+std::optional<StepTables> LoadStepTables(const PeImage& exe, std::string* error);
+
+// Group C's install scalars: the .rdata / .data floats the handlers compare against. Each name carries
+// its meaning; its VA is in movestep.cpp's table, pinned to the instruction that reads it.
+struct StepScalars {
+  float one, half, full, wrapFull, halfTurn, negOne;
+  float ticks60, scale1000, four, kmh5;
+  float kmh8, kmh11, kmh13p5, kmh16, kmh20, kmh22, kmh3p6, kmh28;
+  float deg5p625, deg10, deg11p25, deg16p875, deg22p5, deg28p125, deg31p64, deg33p75;
+  float deg45, deg67p5, deg78p75, deg90, deg112p5, deg135, deg140p625, deg146p25, deg168p75;
+  float deg174p375, deg175, deg270;
+  float neg45, neg67p5, neg90, neg112p5, neg180;
+  float dist1p25, dist1p5, dist3, eps1e7, threeQuarters, rate1p6;
+  float rate0p9, rate0p95, clamp0p8, six;
+  float s0p1333, s0p15, s0p1667, s0p2, s0p25, s0p3, s0p35, s0p4, s0p6, s0p85;
+  float sq1139, sq2025, sq8100, step0p05;
+};
+std::optional<StepScalars> LoadStepScalars(const PeImage& exe, std::string* error);
+
 
 // A motion request for the anime interface (PES's vt+0x10: SetMotion when group < 0, else
 // SetParametric). The fields are PES's arguments in the order of its call sites (FUN_1406b8340's
@@ -254,6 +286,32 @@ class MoveHost {
   virtual void SetRecordF0bec(float value) = 0;
   // The angle-bucket install tables of FUN_1406b9b20 (see AngleBucketConstants).
   virtual const AngleBucketConstants& AngleBuckets() const = 0;
+  // Group C's install scalars (STEP_LOOP, STEP_LOOP_CHANGE, TURN_STOP and the transitions), read from
+  // the exe by VA by the group's loader (movestep_step.hpp).
+  virtual const StepScalars& StepConstants() const = 0;
+  // The band's natural speed (km/h) of the anime info record, times 3.6 into req[0x1d] (the parametric
+  // member's speed). PES reads the record region of the anime interface (the table at 0x1425e35d0,
+  // slots 0x1cb4..0x1d0c; its writer is not decoded). ponytail: the adapter supplies the GF stand-in
+  // until that writer is ported.
+  virtual float BandSpeedKmh(int band, float g) const = 0;
+  // FUN_140a62960's answer for this player's record: the mirror bit for the side. ponytail: the adapter
+  // supplies the GF stand-in until the record writer is ported.
+  virtual bool MirrorChoice(bool sameTeam) const = 0;
+  // The foot / start band of the record, P+0x245b: the action setter FUN_1406eebb0 stores it from
+  // anime vt+0x78. It is the foot argument of the run entry (FUN_1406d2030) and of SetParametric.
+  virtual int FootBand() const = 0;
+  // Group B's install views (RUN_LOOP, GOTO_RUN, STOP, ACCELERATE, DECELERATE and the run entry), read
+  // from the exe by VA by the group's loader (movestep_run.hpp).
+  virtual const RunConstants& RunConstantsView() const = 0;
+  virtual const RunTables& RunTablesView() const = 0;
+  // Group C's install tables (StepTables, the scalars are StepConstants above). The view is named
+  // StepTablesView because StepTables is the type.
+  virtual const StepTables& StepTablesView() const = 0;
+  // (&DAT_1425dd950)[bucket]: whether the bucket's side is the left one (AS 2.2).
+  virtual bool BucketIsLeft(int bucket) const = 0;
+  // The playback constants (FUN_1406ba070 / FUN_1406e9f10 and the run guard's 0.95), read from the exe.
+  // Named PlaybackConstantsView because PlaybackConstants is the type.
+  virtual const PlaybackConstants& PlaybackConstantsView() const = 0;
 
   // FUN_141eb50b0(P, out, index): index 0 or 1 is the last-tick displacement (pos - prev, per axis).
   // index >= 2 reads the position history ring at P+0x304 (its writer is not decoded yet).
@@ -275,7 +333,7 @@ void ApplyTransition(MoveStepRecord& rec, MoveReq& req);       // req[0x38] set 
 // FUN_1406d2030's run guard: a run may start only while the rate is at most stepBase (0.95,
 // DAT_1425ab124, the playback floor) times the rate ceiling (P+0x377c, rateMax). Every entry
 // that starts a run calls this one guard; no state keeps its own copy.
-bool RunRateAllowed(float rate, float rateCeiling, const PlaybackConstants& k);
+bool RunRateAllowed(float rate, float rateCeiling, float stepBase);  // stepBase: the install 0.95 (DAT_1425ab124)
 
 // ---------------------------------------------------------------------------------------------
 // A-AN6: the action's speed class (P+0x245a), stored by the action setter FUN_1406eebb0 from
