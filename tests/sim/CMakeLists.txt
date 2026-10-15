@@ -134,3 +134,7 @@ gtest_discover_tests(pes_clips_test PROPERTIES TIMEOUT 1800)
 add_executable(pes_offball_test pes_offball_test.cpp)
 target_link_libraries(pes_offball_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_offball_test)
+
+add_executable(pes_mover_test pes_mover_test.cpp)
+target_link_libraries(pes_mover_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_mover_test)
