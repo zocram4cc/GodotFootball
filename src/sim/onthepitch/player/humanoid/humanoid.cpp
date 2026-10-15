@@ -23,6 +23,7 @@
 #include "simcontext.hpp"
 #include "../../AIsupport/AIfunctions.hpp"
 #include "../../match.hpp"
+#include "../../pesclips.hpp"
 #include "../../peskeeper.hpp"
 #include "../../penaltyshootoutcontroller.hpp"
 #include "../../team.hpp"
@@ -2181,6 +2182,14 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
   // below still decide whether the move fits.
   const bool trick =
       command.useSpecialVar1 && command.desiredFunctionType == e_FunctionType_BallControl;
+  // A PES clip (dodge, tackle), counted below when it actually plays.
+  // ponytail: GF's pose matching (velocity, body direction, side) still vetoes
+  // 85% of these requests on seed 7, although PES chose the clip by its own
+  // situation lookup. Relaxing it lets ~5,000 dodges per match play and the
+  // stalemate count nearly triples, because the dodge predicates' eligibility
+  // gates (FUN_140a07bf0, FUN_140a0b350) are not ported; relax it together
+  // with them.
+  const bool pesClip = command.useSpecialVar1 && pes::IsPesClipFamily(command.specialVar1);
   if (command.useSpecialVar1)
     query.properties.Set("specialvar1", command.specialVar1);
   if (command.useSpecialVar2)
@@ -2691,6 +2700,8 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
   // make it so
 
   if (selectedAnimID != -1) {
+    if (pesClip)
+      match->GetMatchData()->AddPesClipPlayed(CastPlayer()->GetTeamID(), command.specialVar1);
     // Which animation actually won, for the non-movement families. Imported
     // clips live or die on being selected at all, and nothing else in the
     // engine says whether they were: the collection loads them either way.

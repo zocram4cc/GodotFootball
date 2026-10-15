@@ -184,3 +184,27 @@ TEST(PesClipsInstall, ASpecialQueryNamesExactlyOneTackleClip) {
 }
 
 }  // namespace
+
+// A PES clip played through a Special command is the action its family names:
+// the contact layer must see the dodger as DODGING and the tackler as
+// TACKLING, or PES's dodge rules and the challenge count never apply to them.
+TEST(PesClips, ASpecialClipCarriesItsFamilysContactAction) {
+  using A = pes::ContactAction;
+  EXPECT_EQ(pes::SpecialClipAction(int(pes::PesClipFamily::kDodge), A::kDodge), A::kDodge);
+  EXPECT_EQ(pes::SpecialClipAction(int(pes::PesClipFamily::kTackle), A::kTackle), A::kTackle);
+  // Any other special animation (celebrations, GF's own) is not a challenge,
+  // whatever the player's last challenge was.
+  EXPECT_EQ(pes::SpecialClipAction(0, A::kTackle), A::kOther);
+  EXPECT_EQ(pes::SpecialClipAction(7, A::kDodge), A::kOther);
+}
+
+// The clip families PES chose by situation (Animetable row/column): GF must not
+// veto them on its own pose-matching heuristics, so the selector asks this
+// predicate before relaxing the velocity, body and side filters.
+TEST(PesClips, OnlyPesFamiliesAreNamedClips) {
+  EXPECT_TRUE(pes::IsPesClipFamily(int(pes::PesClipFamily::kDodge)));
+  EXPECT_TRUE(pes::IsPesClipFamily(int(pes::PesClipFamily::kTackle)));
+  EXPECT_FALSE(pes::IsPesClipFamily(0));
+  EXPECT_FALSE(pes::IsPesClipFamily(99));
+  EXPECT_FALSE(pes::IsPesClipFamily(102));
+}

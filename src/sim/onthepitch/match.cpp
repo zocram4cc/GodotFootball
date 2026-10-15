@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdlib>
 #include <stdexcept>
 
 #include "../data/playerskills.hpp"
@@ -17,6 +18,7 @@
 #include "base/log.hpp"
 #include "matchduration.hpp"
 #include "matchreport.hpp"
+#include "pesclips.hpp"
 #include "pesstoppage.hpp"
 #include "player/playerofficial.hpp"
 #include "simcontext.hpp"
@@ -1458,6 +1460,10 @@ pes::ContactAction Match::PesActionOf(Player* p) const {
                  : A::kFall;
     case e_FunctionType_Sliding: return A::kSlide;
     case e_FunctionType_Interfere: return p->GetPesChallenge();
+    case e_FunctionType_Special:
+      return pes::SpecialClipAction(
+          std::atoi(p->GetCurrentAnim()->anim->GetVariable("specialvar1").c_str()),
+          p->GetPesChallenge());
     case e_FunctionType_Trap: return A::kTrap;
     case e_FunctionType_BallControl:
       // A feint is a DRIBBLE action in PES (feint_through clips).

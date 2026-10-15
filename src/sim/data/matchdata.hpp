@@ -294,6 +294,15 @@ public:
   int GetChanceRuns(int teamID) const { return chanceRuns[teamID]; }
   // The dodge reaction (pesdodge.hpp), one per action the chooser commits, so
   // the report can say whether the dodges fire at all.
+  // A PES clip (family 100 dodge, 101 tackle) the animation layer actually
+  // selected, as against the command asking for it: the two differ whenever
+  // GF's selector finds no candidate, and only this one says the clip played.
+  void AddPesClipPlayed(int teamID, int family) {
+    if (family == 100 || family == 101) pesClipsPlayed[teamID][family - 100]++;
+  }
+  int GetPesClipsPlayed(int teamID, int family) const {
+    return (family == 100 || family == 101) ? pesClipsPlayed[teamID][family - 100] : 0;
+  }
   enum { kDodgeKinds = 4 };  // ball, goal net, goal post, human (kind 4 is not a selector)
   void AddDodge(int teamID, int kind) {
     if (kind < 0 || kind >= kDodgeKinds) return;
@@ -850,6 +859,7 @@ protected:
   int clearances[2];
   int chanceRuns[2] = {0, 0};
   int dodges[2][kDodgeKinds] = {};
+  int pesClipsPlayed[2][2] = {};
   int tackleSubKinds[2][kTackleKinds] = {};
   int maskWalks[2] = {0, 0};
   int maskRejects[2][kMaskRejectCount] = {};

@@ -76,6 +76,11 @@ void PrintMatchReport(Match& match, FILE* out) {
   // no clip. The net dodge's own gate and the post dodge's geometry are the
   // two that were merged, so both being non-zero is what "fires" means here.
   static const char* const kDodgeNames[] = {"ball", "net", "post", "human"};
+  // Commands above, clips below: a requested PES clip only plays when the
+  // animation layer selects it.
+  std::fprintf(out, "[pes-clips] played dodge %i-%i tackle %i-%i\n",
+               matchData->GetPesClipsPlayed(0, 100), matchData->GetPesClipsPlayed(1, 100),
+               matchData->GetPesClipsPlayed(0, 101), matchData->GetPesClipsPlayed(1, 101));
   std::fprintf(out, "[dodge]");
   for (int kind = 0; kind < MatchData::kDodgeKinds; kind++)
     std::fprintf(out, " %s %i-%i", kDodgeNames[kind], matchData->GetDodgeCount(0, kind),

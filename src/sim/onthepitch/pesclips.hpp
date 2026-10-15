@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "onthepitch/pescontact.hpp"
 #include "pes/exe.hpp"
 #include "pes/gani.hpp"
 #include "pes/vfs.hpp"
@@ -49,5 +50,18 @@ std::optional<PesClipSet> LoadPesClips(const PeImage& exe, const PesVfs& vfs, st
 // One clip as engine .anim text (the format Animation::LoadText reads), at the
 // engine's 10 ms frame.
 std::string PesClipAnimText(const PesClip& clip, const pesrig::Rig& rig);
+
+// The contact action of a player whose current clip is a Special command:
+// a PES clip is the action its family names (the player carries which one in
+// his PES challenge - SetPesChallenge at the command), and every other special
+// animation is not a challenge. Without this the contact layer sees a dodger or
+// a PES tackler as OTHER, so PES's dodge rules and the challenge count skip them.
+inline bool IsPesClipFamily(int specialVar1) {
+  return specialVar1 == int(PesClipFamily::kDodge) || specialVar1 == int(PesClipFamily::kTackle);
+}
+
+inline ContactAction SpecialClipAction(int specialVar1, ContactAction challenge) {
+  return IsPesClipFamily(specialVar1) ? challenge : ContactAction::kOther;
+}
 
 }  // namespace pes
