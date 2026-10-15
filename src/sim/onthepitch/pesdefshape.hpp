@@ -26,13 +26,10 @@ namespace pes {
 
 using blunted::Vector3;
 
-// PES's FieldInfo scalars the shape reads (report 6). PES's pitch is 105.12 x
-// 68.12 and GF's is 105 x 68, so these are derived from GF's own pitch by the
-// same offsets rather than transcribed; the 6 cm difference is the line's own
-// width and is below the port's resolution.
+// PES's FieldInfo scalars the shape reads (report 6), from the FieldInfo table.
 struct ShapeField {
-  float halfLength_m;  // F[0], centre to the goal line
-  float halfWidth_m;   // F[1], centre to the touchline
+  float halfLength_m;  // F[0], to the outer edge of the goal line
+  float halfWidth_m;   // F[1], to the outer edge of the touchline
   float ownBox_m;      // F[6], the own penalty-area line
   float ownGoalArea_m;  // F[4], the deepest the line may sit
   float eleven_m;      // F[8], 11 m from the own goal line

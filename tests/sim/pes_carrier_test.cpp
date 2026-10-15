@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <vector>
 
+#include "gametypes.hpp"
 #include "onthepitch/pescarrier.hpp"
 
 namespace {
@@ -708,3 +709,10 @@ TEST(PesCarrierInstall, TheZonesAndLaddersAreTheGamesOwn) {
 }
 
 }  // namespace
+
+TEST(PassForward, MarksDefaultToTheFieldInfoTable) {
+  const pes::PassForwardInput in;
+  EXPECT_FLOAT_EQ(in.halfLen_m, pesFieldHalfLength);
+  EXPECT_FLOAT_EQ(in.goalHalfWidth_m, pesGoalInnerHalfWidth);
+  EXPECT_FLOAT_EQ(in.goalAreaHalfWidth_m, pesGoalAreaHalfWidth);
+}

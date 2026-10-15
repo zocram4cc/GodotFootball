@@ -170,7 +170,7 @@ struct PitchSpot {
   float x, z;
 };
 
-// The four FieldInfo values the referee reads (*(G+0x2aa8) F[0], F[5..7]).
+// The four FieldInfo values the referee reads: F0 and F5..F7 (gametypes.hpp).
 struct FieldMarks {
   float halfLength_m;        // F[0]
   float goalAreaHalfWidth_m;  // F[5]

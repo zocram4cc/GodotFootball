@@ -2023,7 +2023,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
                              PlayerSkills::Has(skills, PlayerSkills::Skill::DippingShots);
   const pes::ShootZone zone = pes::ComputeShootZone(ballPos.coords[0], ballPos.coords[1],
                                                    attackSign, finishing, longShotSkill,
-                                                   pitchHalfW, goalHalfWidth, carrier);
+                                                   pesFieldHalfLength, pesGoalInnerHalfWidth, carrier);
 
   if (rethink) {
     // The plan (report 4.4): rolled whenever its own conditions hold, in the
@@ -2174,8 +2174,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
                               // stands in for it.
     in.imageState = 0;  // ponytail: the image state (+0x32B0+8) has no GF
                         // counterpart; state 0 is the neutral one.
-    in.halfLen_m = pitchHalfW;
-    in.goalHalfWidth_m = goalHalfWidth;
+    in.halfLen_m = pesFieldHalfLength;
+    in.goalHalfWidth_m = pesGoalInnerHalfWidth;
     in.goalAreaHalfWidth_m = SetPieceLaws::kAreaHalfWidth;
     in.mateLaneOk = true;  // ponytail: 0x140a4c8e0 is not decoded.
 

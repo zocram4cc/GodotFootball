@@ -663,8 +663,8 @@ void Referee::PrepareSetPiece(e_SetPiece setPiece) {
   // wipe (docs/re/pes-re-setpiece-choreography.md 8.2); a throw-in has no wipe,
   // so there he walks. The box is this engine's Law 16 box, 14 cm short of
   // PES's FieldInfo marks (docs/re/pes-re-fieldinfo.md).
-  const pes::FieldMarks field{pesFieldHalfLength, pesGoalAreaHalfWidth,
-                              pitchHalfW - SetPieceLaws::kAreaDepth, SetPieceLaws::kAreaHalfWidth};
+  const pes::FieldMarks field{pesFieldHalfLength, pesGoalAreaHalfWidth, pesPenaltyAreaLineX,
+                              pesPenaltyAreaHalfWidth};
   const auto mark = pes::ChiefRefereeSpot(
       setPiece, {buffer.restartPos.coords[0], -buffer.restartPos.coords[1]},
       -match->GetTeam(buffer.teamID)->GetSide(), field, match->GetPesJudgeConstants().refereeSpot);

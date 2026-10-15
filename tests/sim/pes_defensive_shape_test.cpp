@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "data/matchdata.hpp"
+#include "gametypes.hpp"
 #include "onthepitch/match.hpp"
 #include "onthepitch/matchreport.hpp"
 #include "onthepitch/matchsetup.hpp"
@@ -599,3 +600,13 @@ TEST_F(DefensiveShapeMatchTest, LineStaysBehindTheBallAndInsideOurHalf) {
 }
 
 }  // namespace
+
+TEST(DefensiveShape, FieldIsTheFieldInfoTable) {
+  const pes::ShapeField f = pes::ShapeFieldFromPitch();
+  EXPECT_FLOAT_EQ(f.halfLength_m, pesFieldHalfLength);
+  EXPECT_FLOAT_EQ(f.halfWidth_m, pesFieldHalfWidth);
+  EXPECT_FLOAT_EQ(f.ownBox_m, pesPenaltyAreaLineX);
+  EXPECT_FLOAT_EQ(f.ownGoalArea_m, pesGoalAreaLineX);
+  EXPECT_FLOAT_EQ(f.eleven_m, pesPenaltySpotX);
+  EXPECT_FLOAT_EQ(f.goalAreaFloor_m, pesCircleRadius);
+}
