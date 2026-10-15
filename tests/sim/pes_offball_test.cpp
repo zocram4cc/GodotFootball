@@ -1031,6 +1031,37 @@ TEST(OffBallMaskTrace, TheTeamHeadIsSharedByEverySlot) {
   EXPECT_EQ(kMaskPass, TeamChanceMayRunReject(w, 0));
 }
 
+// FUN_140593430's head (raw 0x140593430-0x1405934d4) tests the carrier first
+// and only falls back to the holder (MA+0x2483c) when the carrier is invalid, so
+// a valid carrier does not also veto the fallback player.
+TEST(OffBallMaskTrace, TheCarrierGateDoesNotAlsoVetoTheFallbackPlayer) {
+  const OffBallConstants k = Synthetic();
+  RunWorld w = Running();
+  PlayerFacts& r = w.p[kRunner];
+  r.state = kBasePosition;
+  r.t = 1e9f;
+  r.position = 12;
+  r.pos = {10.0f, 0.0f};
+  r.aim = {20.0f, 0.0f};
+  w.p[0].pos = w.ball = {0.0f, 0.0f};
+  w.lineX[1] = 25.0f;
+  // With a valid carrier, only that carrier is vetoed: the fallback player
+  // (w.receiver, which BuildRunWorld sets to the last toucher when nobody holds)
+  // stays a candidate.
+  for (int i = 0; i < kSlots; ++i) w.p[i].position = 12;  // no keepers in this fixture
+  w.carrier = 0;
+  w.receiver[0] = 1;
+  EXPECT_EQ(kMaskCarrierOrReceiver, ChanceMaskReject(k, w, 0, ~0u, 2, false, 50.0f, true));
+  EXPECT_EQ(kMaskPass, ChanceMaskReject(k, w, 1, ~0u, 2, false, 50.0f, true));
+  // With no carrier, the fallback player is vetoed as well.
+  w.carrier = -1;
+  EXPECT_EQ(kMaskCarrierOrReceiver, ChanceMaskReject(k, w, 1, ~0u, 2, false, 50.0f, true));
+  // The keeper is excluded either way.
+  w.receiver[0] = -1;
+  w.p[2].position = 0;
+  EXPECT_EQ(kMaskCarrierOrReceiver, ChanceMaskReject(k, w, 2, ~0u, 2, false, 50.0f, true));
+}
+
 TEST(OffBallInstall, CapsAndLimitFromTheInstall) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT unset";
