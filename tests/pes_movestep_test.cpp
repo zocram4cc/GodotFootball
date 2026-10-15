@@ -212,3 +212,58 @@ TEST(SpeedClassInstall, LoadsTheExeTableWithItsRelations) {
   for (size_t i = 0; i < k->sinQuarter.size(); ++i)
     EXPECT_NEAR(k->sinQuarter[i], std::sin(double(i) * kHalfPi / 512.0), 1e-5) << "entry " << i;
 }
+
+namespace {
+pes::AngleBucketConstants SyntheticBuckets() {
+  pes::AngleBucketConstants k{};
+  k.wide = {-100, -80, -60, -40, -20, 0, 20, 40, 60, 80, 100};  // synthetic edges
+  k.narrow = {-100, -90, -60, -40, -10, 0, 10, 40, 60, 90, 100};
+  for (int i = 0; i < 10; ++i) k.bucket[i] = i;  // synthetic identity map
+  k.hysteresisUp = 3.0f;                         // synthetic magnitude (the exe's is 5)
+  k.hysteresisDown = -3.0f;
+  return k;
+}
+}  // namespace
+
+TEST(AngleBucket, PicksTheWindowThatHoldsTheAngleWithoutACurrentBucket) {
+  const auto k = SyntheticBuckets();
+  const int kNone = 10;  // FUN_1406b9b20 is called with 10 when no bucket is current
+  EXPECT_EQ(pes::movestep::AngleBucket(k, 10.0f, kNone, false), 5);   // [0, 20]
+  EXPECT_EQ(pes::movestep::AngleBucket(k, -50.0f, kNone, false), 2);  // [-60, -40]
+  EXPECT_EQ(pes::movestep::AngleBucket(k, 15.0f, kNone, true), 6);    // narrow [10, 40]
+  EXPECT_EQ(pes::movestep::AngleBucket(k, -2.0f, kNone, false), 4);   // [-20, 0]
+}
+
+TEST(AngleBucket, TheCurrentBucketWidensAndItsNeighbourShrinksByTheHysteresis) {
+  const auto k = SyntheticBuckets();
+  EXPECT_EQ(pes::movestep::AngleBucket(k, -2.0f, 5, false), 5);   // window 5 widens down to -3
+  EXPECT_EQ(pes::movestep::AngleBucket(k, -4.0f, 5, false), 4);   // window 4 ends at -3 now
+  EXPECT_EQ(pes::movestep::AngleBucket(k, 22.0f, 5, false), 5);   // window 5 widens up to 23
+  EXPECT_EQ(pes::movestep::AngleBucket(k, 22.0f, 10, false), 6);  // without hysteresis it is window 6
+}
+
+TEST(AngleBucketInstall, LoadsTheExeWindowsWithTheirRelations) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  auto k = pes::LoadAngleBucketConstants(*exe, &err);
+  ASSERT_TRUE(k.has_value()) << err;
+  for (size_t i = 0; i < 11; ++i) {
+    EXPECT_FLOAT_EQ(k->wide[i], -k->wide[10 - i]) << "wide edge " << i;
+    EXPECT_FLOAT_EQ(k->narrow[i], -k->narrow[10 - i]) << "narrow edge " << i;
+  }
+  for (size_t i = 0; i + 1 < 11; ++i) {
+    EXPECT_LT(k->wide[i], k->wide[i + 1]);
+    EXPECT_LT(k->narrow[i], k->narrow[i + 1]);
+  }
+  int seen[10] = {};
+  for (int b : k->bucket) {
+    ASSERT_GE(b, 0);
+    ASSERT_LT(b, 10);
+    ++seen[b];
+  }
+  for (int i = 0; i < 10; ++i) EXPECT_EQ(seen[i], 1) << "bucket " << i;
+  EXPECT_FLOAT_EQ(k->hysteresisDown, -k->hysteresisUp);
+}

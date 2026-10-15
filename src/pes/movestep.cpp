@@ -144,4 +144,40 @@ int SpeedClassOf(float desiredKmh, float deltaDeg, const SpeedClassConstants& k)
   return 2;
 }
 
+std::optional<AngleBucketConstants> LoadAngleBucketConstants(const PeImage& exe, std::string* error) {
+  constexpr uint64_t WIDE_VA = 0x1425ddeb0;  // FUN_1406b9b20's wide windows
+  constexpr uint64_t NARROW_VA = 0x1425ddee0;
+  constexpr uint64_t BUCKET_VA = 0x1425ddf10;
+  constexpr uint64_t HYST_UP_VA = 0x14259222c;
+  constexpr uint64_t HYST_DOWN_VA = 0x14259be7c;
+  AngleBucketConstants k{};
+  if (!exe.ReadVa(WIDE_VA, sizeof k.wide, reinterpret_cast<uint8_t*>(k.wide.data())) ||
+      !exe.ReadVa(NARROW_VA, sizeof k.narrow, reinterpret_cast<uint8_t*>(k.narrow.data())) ||
+      !exe.ReadVa(BUCKET_VA, sizeof k.bucket, reinterpret_cast<uint8_t*>(k.bucket.data())) ||
+      !exe.ReadVa(HYST_UP_VA, sizeof(float), reinterpret_cast<uint8_t*>(&k.hysteresisUp)) ||
+      !exe.ReadVa(HYST_DOWN_VA, sizeof(float), reinterpret_cast<uint8_t*>(&k.hysteresisDown))) {
+    *error = "angle bucket constants: .rdata unreadable";
+    return std::nullopt;
+  }
+  return k;
+}
+
+namespace movestep {
+int AngleBucket(const AngleBucketConstants& k, float angleDeg, int currentBucket, bool narrow) {
+  const auto& edges = narrow ? k.narrow : k.wide;
+  for (int w = 0; w < 10; ++w) {
+    const int bucket = k.bucket[w];
+    float low = 0.0f, high = 0.0f;  // this window's hysteresis
+    if (bucket == currentBucket) {
+      low = k.hysteresisDown;  // the current window widens on both sides
+      high = k.hysteresisUp;
+    } else if (w + 1 < 10 && k.bucket[w + 1] == currentBucket) {
+      high = k.hysteresisDown;  // the window just below the current one shrinks at its top
+    }
+    if (edges[w] + low <= angleDeg && angleDeg <= edges[w + 1] + high) return bucket;
+  }
+  return 0;  // FUN_1406b9b20's miss
+}
+}  // namespace movestep
+
 }  // namespace pes

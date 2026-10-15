@@ -189,6 +189,8 @@ struct MoveCell {
 
 // What the move machine reads from its player and the match. The sim adapter implements it;
 // tests implement it with synthetic values. Each method names the PES read it stands for.
+struct AngleBucketConstants;  // defined below, with the shared helpers
+
 class MoveHost {
  public:
   virtual ~MoveHost() = default;
@@ -222,6 +224,18 @@ class MoveHost {
 
   // The start time of a motion in its clip (FUN_1406b97d0: a per-motion constant).
   virtual float MotionStartTime(int motionNo) const = 0;
+
+  // P+0x2468 (float): FUN_1406eb670 sets it to 1.0; FUN_1406b8340 stores it from RBP+0x44.
+  virtual float RecordF2468() const = 0;
+  // P+0x245d: the state before the current one (FUN_1406b8340's tail writes it).
+  virtual int MoveStatePrevious() const = 0;
+  // P+0xbec (float): two PES writers. The yaw helpers FUN_1406cbb00 and FUN_1406cba60 write it
+  // through this host; the slip damping FUN_1406c2f80 writes req[0xec], which the adapter copies
+  // to P+0xbec after Dispatch.
+  virtual float RecordF0bec() const = 0;
+  virtual void SetRecordF0bec(float value) = 0;
+  // The angle-bucket install tables of FUN_1406b9b20 (see AngleBucketConstants).
+  virtual const AngleBucketConstants& AngleBuckets() const = 0;
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -263,6 +277,19 @@ float TableSinDeg(float x, float s, const SpeedClassConstants& k);
 float WrapHalfTurn(float deltaDeg, const SpeedClassConstants& k);
 // FUN_14081e340's tail: the class 0..4 of a desired speed (km/h) at a turn (heading minus facing, degrees).
 int SpeedClassOf(float desiredKmh, float deltaDeg, const SpeedClassConstants& k);
+
+// FUN_1406b9b20's install tables: the window edges of the wide and the narrow variant (11 each),
+// the window -> bucket map (10 entries), and the hysteresis of the current bucket: +5 widens its
+// upper edge, -5 widens its lower edge and shrinks the window below it at its top. Read from the
+// exe at runtime by VA.
+struct AngleBucketConstants {
+  std::array<float, 11> wide;      // 0x1425ddeb0: -180 .. 180 with the ±22.5 / ±157.5 windows
+  std::array<float, 11> narrow;    // 0x1425ddee0: the variant with ±10 and ±170
+  std::array<int32_t, 10> bucket;  // 0x1425ddf10: window -> bucket
+  float hysteresisUp;              // 0x14259222c: +5 degrees
+  float hysteresisDown;            // 0x14259be7c: -5 degrees
+};
+std::optional<AngleBucketConstants> LoadAngleBucketConstants(const PeImage& exe, std::string* error);
 
 // Per-state handlers. Each takes the host and the request, returns nothing, and never touches
 // MoveStepRecord: a state change is RequestState(req, next). The VA of each PES handler is in
@@ -332,8 +359,9 @@ void AccelerationRamp(MoveHost& host, MoveReq& req);
 void LateralDamping(MoveHost& host, MoveReq& req);
 // FUN_1406ce550(ap, req): the out-of-play pre-empt (AS 2.1). true = the tick was taken by dm_oop.
 bool OutOfPlayPreempt(MoveHost& host, MoveReq& req);
-// FUN_1406b9b20(_, angle, buckets, narrow): the 10-way angle bucket (AS 2.2); narrow = the ±10 / ±170 variant.
-int AngleBucket(float angleDeg, int buckets, bool narrow);
+// FUN_1406b9b20: the 10-way angle bucket of an angle in degrees, with the hysteresis of the current
+// bucket (10 = no current bucket). narrow selects the ±10 / ±170 windows.
+int AngleBucket(const AngleBucketConstants& k, float angleDeg, int currentBucket, bool narrow);
 }  // namespace movestep
 
 }  // namespace pes
