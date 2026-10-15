@@ -470,9 +470,10 @@ float veloExpFactor(float velo) {
   return pow(clamp(velo / sprintVelocity, 0.0f, 1.0f), 2.5f) * 3.0f;
 }
 
-void AI_GetBestDribbleMovement(Match* match, int thisPlayerID, const MentalImage* mentalImage,
-                               Vector3& desiredDirection, float& desiredVelocity,
-                               const TeamTactics& teamTactics) {
+// The pace he carries it at: the force field's magnitude, as GF has always set it.
+// The heading is PES's dribble search (ElizaController::GetOnTheBallCommands).
+void AI_GetDribbleVelocity(Match* match, int thisPlayerID, const MentalImage* mentalImage,
+                           float& desiredVelocity, const TeamTactics& teamTactics) {
   Player* player = match->GetPlayer(thisPlayerID);
   Vector3 myPos = player->GetPosition();
   Vector3 myMov = player->GetMovement();
@@ -565,7 +566,6 @@ void AI_GetBestDribbleMovement(Match* match, int thisPlayerID, const MentalImage
   Vector3 forceFieldMovement =
       AI_GetForceFieldMovement(forceField, myPos + myMov * future_sec, 1.0f);
 
-  desiredDirection = forceFieldMovement.GetNormalized(player->GetDirectionVec());
   desiredVelocity = clamp(forceFieldMovement.GetLength() * distanceToVelocityMultiplier,
                           idleVelocity, sprintVelocity);
   desiredVelocity = RangeVelocity(PlayingStyles::GetDribbleVelocity(style, comStyles, desiredVelocity));

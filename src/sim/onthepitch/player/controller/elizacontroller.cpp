@@ -2300,9 +2300,36 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     }
   }
 
-  e_Velocity enumVelocity = e_Velocity_Idle;
-  AI_GetBestDribbleMovement(match, player->GetID(), _mentalImage, rawInputDirection,
-                            rawInputVelocityFloat, team->GetTeamData()->GetTactics());
+  // PES's Dribble unit (report 1, 1.1): the carrier's heading is the cheapest
+  // of 72 rays out to 15 steps, the attack direction the wanted one.
+  // ponytail: the image state is not tracked in GF. W is fixed at 1.0 (the
+  // states 2-4 value) while R_o takes state 0's f = 1, as PassForward does; the
+  // wanted heading is the attack direction (the plan's +0xC0 is not decoded,
+  // report 9.3); the five nearest opponents stand in for the unit's list,
+  // predicted to stay put (pred = pos); busy opponents (R_o 1.0) are not told
+  // apart from the rest.
+  pes::DribbleInput dribble;
+  dribble.ball = {carrierPos.coords[0], carrierPos.coords[1]};
+  dribble.desired_deg = attackSign > 0.0f ? 90.0f : 270.0f;
+  dribble.weight = 1.0f;
+  dribble.halfLen_m = pitchHalfW;
+  dribble.halfWid_m = pitchHalfH;
+  std::vector<Player*> nearOpponents;
+  AI_GetClosestPlayers(match->GetTeam(abs(team->GetID() - 1)), carrierPos, nearOpponents, 5);
+  for (Player* opp : nearOpponents) {
+    const Vector3 p = _mentalImage->GetPlayerImage(opp->GetID()).position;
+    const bool isKeeper = opp == keeper;
+    dribble.opponents.push_back({{p.coords[0], p.coords[1]}, {p.coords[0], p.coords[1]},
+                                 pes::DribbleOpponentReach(isKeeper, carrier), isKeeper});
+  }
+  const float headingDeg = pes::DribbleDirection(dribble, carrier);
+  const float headingRad = headingDeg / degreesPerRadian;
+  rawInputDirection = Vector3(std::sin(headingRad), std::cos(headingRad), 0.0f);
+  // The pace is GF's own: the force field's magnitude, as GF has always set it.
+  // ponytail: PES's requested speed for a dribble is not decoded (carrier-ai 5.4
+  // gives the direction and the DRIBBLE mode only).
+  AI_GetDribbleVelocity(match, player->GetID(), _mentalImage, rawInputVelocityFloat,
+                        team->GetTeamData()->GetTactics());
 }
 
 void ElizaController::_AddPass(std::vector<PlayerCommand>& commandQueue, Player* target,

@@ -111,7 +111,7 @@ float GetPassTypeBias(Player style, ComMask com, e_FunctionType passType);
 // spot to move into.
 float GetSpaceRatingWeight(Player style, float baseWeight);
 
-// --- Dribbling (AI_GetBestDribbleMovement) ---
+// --- Dribbling (AI_GetDribbleVelocity: the force field's pace) ---
 
 // Attraction towards the opponent goal.
 float GetDribbleDrive(Player style, ComMask com, float baseDrive);

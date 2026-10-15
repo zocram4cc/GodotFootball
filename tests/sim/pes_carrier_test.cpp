@@ -152,6 +152,8 @@ pes::CarrierConstants Synthetic() {
   k.threatFullDist_m = 5.0f;
   k.threatFalloff = -0.25f;
   k.threatPushSq_m2 = 0.444444f;
+  k.opponentReach_m = 9.0f;
+  k.keeperReach_m = 4.0f;
   return k;
 }
 
@@ -641,21 +643,32 @@ TEST(PesCarrierDribble, WithNoOpponentsItFollowsTheDesiredHeading) {
 }
 
 TEST(PesCarrierDribble, ATouchlineBandKeepsHimOffTheLine) {
-  // 0.8 m inside the +z touchline and wanting to run into it. Any heading that
-  // runs at the line pays the edge cost; running along the line does not.
-  const pes::CarrierConstants k = Synthetic();
-  pes::DribbleInput in = OpenPitch(90.0f);
-  in.ball = {0.0f, 33.2f};
-  const float ans = pes::DribbleDirection(in, k);
-  EXPECT_LT(std::sin(ans * kRadPerDeg), 0.45f);
-}
-
-TEST(PesCarrierDribble, AManAheadTurnsHimAway) {
-  // A man 2 m dead ahead: the cheapest heading leaves the desired line by more
-  // than 90 degrees (the reference model picks 160).
+  // 0.8 m inside the +z touchline and wanting to run into it (bearing 0 is +z).
+  // Running at the line pays the edge cost; running along it does not, so the
+  // +z component (cos of the bearing) stays small.
   const pes::CarrierConstants k = Synthetic();
   pes::DribbleInput in = OpenPitch(0.0f);
+  in.ball = {0.0f, 33.2f};
+  const float ans = pes::DribbleDirection(in, k);
+  EXPECT_LT(std::cos(ans * kRadPerDeg), 0.45f);
+}
+
+TEST(PesCarrierDribble, AManDeadAheadAlongPlusXTurnsHimAway) {
+  // A man 2 m dead ahead along +x (bearing 90) against a carrier wanting +x: the
+  // cheapest heading leaves the desired line by more than 90 degrees. Swapping
+  // the step's axes puts the wanted ray on the empty +z line and must fail this.
+  const pes::CarrierConstants k = Synthetic();
+  pes::DribbleInput in = OpenPitch(90.0f);
   in.opponents.push_back({{2.0f, 0.0f}, {2.0f, 0.0f}, k.dribbleRange_m, false});
+  EXPECT_GT(OffAxis(pes::DribbleDirection(in, k), 90.0f), 90.0f);
+}
+
+TEST(PesCarrierDribble, AManDeadAheadAlongPlusZTurnsHimAway) {
+  // The mirror: a man 2 m dead ahead along +z (bearing 0) against a carrier
+  // wanting +z.
+  const pes::CarrierConstants k = Synthetic();
+  pes::DribbleInput in = OpenPitch(0.0f);
+  in.opponents.push_back({{0.0f, 2.0f}, {0.0f, 2.0f}, k.dribbleRange_m, false});
   EXPECT_GT(OffAxis(pes::DribbleDirection(in, k), 0.0f), 90.0f);
 }
 
@@ -670,6 +683,15 @@ TEST(PesCarrierThreat, ReachGateAndKeeperDoubling) {
   EXPECT_NEAR(keeper, 2.0f * near, 1e-4f);
   const float far = pes::DribbleThreat(ball, ball, {{{25.0f, 0.0f}, {25.0f, 0.0f}, 10.0f, false}}, k);
   EXPECT_EQ(far, 0.0f);
+}
+
+TEST(PesCarrierThreat, OpponentReachIsTheInstallsFigureForEachKind) {
+  // R_o of an outfield man is 10/f at image state 0 (f = 1); a keeper's is his
+  // own 5 (the keeper branch of 0x14212e110). The wiring takes both from the
+  // install, never from literals.
+  const pes::CarrierConstants k = Synthetic();
+  EXPECT_FLOAT_EQ(pes::DribbleOpponentReach(false, k), k.opponentReach_m);
+  EXPECT_FLOAT_EQ(pes::DribbleOpponentReach(true, k), k.keeperReach_m);
 }
 
 // --- the install: read the constants out of the user's own exe ---
@@ -705,6 +727,8 @@ TEST(PesCarrierInstall, TheZonesAndLaddersAreTheGamesOwn) {
   EXPECT_FLOAT_EQ(std::fmod(360.0f, k->dribbleDirections), 0.0f);
   EXPECT_LT(k->threatFalloff, 0.0f);
   EXPECT_GT(k->threatReachFloor_m, 0.0f);
+  EXPECT_GT(k->opponentReach_m, 0.0f);
+  EXPECT_GT(k->keeperReach_m, 0.0f);
 }
 
 }  // namespace

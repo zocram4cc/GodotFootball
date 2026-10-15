@@ -190,6 +190,9 @@ struct CarrierConstants {
   float threatFullDist_m = 0.0f;      // 5, 0x14259222c: the carrier-opponent distance at w = 0
   float threatFalloff = 0.0f;         // -0.25, 0x1425c48ec: w = (d - 5) * falloff
   float threatPushSq_m2 = 0.0f;       // 0.444444, 0x142bf0a88: squared push-out radius
+  // --- the reach R_o of each opponent the threat sees (report 1.1) ---
+  float opponentReach_m = 0.0f;   // 10, 0x142588210: an outfield man, 10/f at image state 0 (f = 1)
+  float keeperReach_m = 0.0f;     // 5, 0x14259222c: the keeper's R_o (0x14212e110's keeper branch)
 
   bool operator==(const CarrierConstants&) const = default;
 };
@@ -226,9 +229,12 @@ struct DribbleOpponent {
   bool keeper = false;
 };
 
+// R_o for an opponent: the keeper's own figure, else an outfield man's.
+float DribbleOpponentReach(bool keeper, const CarrierConstants& k);
+
 struct DribbleInput {
   CarrierPoint ball;
-  float desired_deg = 0.0f;   // the heading he wants, degrees, PES frame (x, z)
+  float desired_deg = 0.0f;   // the heading he wants: PES's bearing, degrees from +z
   float weight = 0.0f;        // the image-state preference weight W, 0..1
   float halfLen_m = 0.0f;     // pitch half-length along x (the goal axis)
   float halfWid_m = 0.0f;     // pitch half-width along z (the touchlines)
@@ -239,8 +245,8 @@ struct DribbleInput {
 float DribbleThreat(CarrierPoint ball, CarrierPoint p, const std::vector<DribbleOpponent>& opponents,
                     const CarrierConstants& k);
 
-// The heading (degrees, [0, 360)) the cheapest 15-step ray costs, out of
-// dribbleDirections equal headings (report 1).
+// The bearing (degrees from +z, [0, 360)) the cheapest 15-step ray costs, out of
+// dribbleDirections equal bearings (report 1).
 float DribbleDirection(const DribbleInput& in, const CarrierConstants& k);
 
 bool InShootRange(const ShootZone& z);   // 0x1406997e0

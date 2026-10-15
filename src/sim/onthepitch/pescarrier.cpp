@@ -157,6 +157,10 @@ float DribbleThreat(CarrierPoint ball, CarrierPoint p, const std::vector<Dribble
   return total;
 }
 
+float DribbleOpponentReach(bool keeper, const CarrierConstants& k) {
+  return keeper ? k.keeperReach_m : k.opponentReach_m;
+}
+
 float DribbleDirection(const DribbleInput& in, const CarrierConstants& k) {
   const float u = Clamp01((in.weight - kWeightFloor) * 2.0f);
   const float expo = kExpFloor + kExpSpan * u;
@@ -171,7 +175,8 @@ float DribbleDirection(const DribbleInput& in, const CarrierConstants& k) {
     float cost = 0.0f;
     for (int j = 1; j <= kDribbleSteps; ++j) {
       const float r = j * k.dribbleStep_m;
-      const CarrierPoint p{in.ball.x + r * std::cos(rad), in.ball.z + r * std::sin(rad)};
+      // PES's step (0x140a8f7c0): x += r sin(heading), z += r cos(heading).
+      const CarrierPoint p{in.ball.x + r * std::sin(rad), in.ball.z + r * std::cos(rad)};
       const float margin = std::min(in.halfLen_m - std::fabs(p.x), in.halfWid_m - std::fabs(p.z));
       const float edge = margin <= k.dribbleEdgeMargin_m ? k.dribbleEdgeCost : 0.0f;
       float pref = 0.0f;
@@ -260,6 +265,7 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x14259222c, &k.threatReachFloor_m},  {0x142565604, &k.threatReachScale},
       {0x142565604, &k.threatKeeperScale},   {0x14259222c, &k.threatFullDist_m},
       {0x1425c48ec, &k.threatFalloff},       {0x142bf0a88, &k.threatPushSq_m2},
+      {0x142588210, &k.opponentReach_m},     {0x14259222c, &k.keeperReach_m},
   };
   for (const auto& r : rdata) ok &= ReadVa(exe, r.first, r.second, error);
   // The turn term's span, from the same instruction that loads its 130 top.
