@@ -171,12 +171,24 @@ ClockLiveRE scratch dir. Prior report: the ClockRecordRE clock-record report.
 
 ### 8.2 The fix (OBS live, verified)
 
-- Both constants raised to 1e12 (stored f32 `999999995904.0`). The gate is never
-  true: watched past 45:00 with period 1, `116c` = 1, `gate=False` at every 1 Hz
-  sample, ball in play (screenshots `w7-watch-*` in the ClockFreeze scratch).
-- The HUD clock keeps counting: no clean freeze of the displayed clock was found
-  (the HUD source is decode(ring) + F at gain 10, and neither term is a single
-  safe knob). The endless match is the time-up gate, not the display.
+- Both constants raised to 1e12 (stored f32 `999999995904.0`). Evidence:
+  - Period 1 at HUD ≈40:01 and again after the 75:14 frame, so no half
+    transition happened between them. No sample covers 45:00 itself.
+  - A 1 Hz watcher, spanning ~858 s from about 75:00, read period 1, `116c` = 1
+    and `gate=False` at every sample.
+  - Screenshots show play at 90:13 and 107:04, after which the match keeps running.
+- The HUD clock keeps counting. No clean freeze of the displayed clock was found.
+  The decoded period clock (ring stamp + `F`) does not track the HUD, so `F` is not
+  the display clock. The endless match comes from the time-up gate, not the display.
+- **Unverified side effects (INF).** The same constants are also read through:
+  - `FUN_140a6ba90`, called from `FUN_14044ce80`;
+  - the `0x142647c68` reader `FUN_140a6bed0`, whose callers are `FUN_1420c5c30`,
+    `FUN_1420c9080`, `FUN_140512550`, `FUN_1405b0620` and the site `0x140521211`
+    (the minute-change gate per the match-management report).
+
+  `FUN_140a6bef0` has one more caller, `FUN_14042d9e0`, which has not been read.
+  Stoppages and restarts looked normal in the watch log. Those readers' behaviour
+  past 90:00 has not been traced.
 
 ### 8.3 What NOT to write (OBS live, each cost a match)
 
