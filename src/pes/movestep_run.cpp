@@ -1759,5 +1759,121 @@ void Decelerate(MoveHost& host, MoveReq& req) {
   // Slot 0 of the +0xac0 interface is FUN_1406d2030 (group B's run entry).
   movestep::EnterRun(host, req, foot, false);
 }
+
+// ---------------------------------------------------------------------------------------------
+// FUN_1406c0170, the RUN_LOOP handler (mv2.a.c:6659). One tick of the running phase. Its
+// decompile's running branch, in PES's own order:
+//
+//   1. the turn-lock re-plan: one of the words 0x3d/0x3e/0x3f set, the class above 1 (or the
+//      0x3f byte), the rate word at or below 0.6 and the precise word clear, re-plans through
+//      the GOTO_RUN entry;
+//   2. the ACCELERATE pre-empt (FUN_1406ccd00) and the DECELERATE pre-empt (FUN_1406cdaf0);
+//   3. the re-plan term: the precise word clear, the class above 2, the rate word at or below
+//      0.225 (or the ground speed under 11 km/h with the turn past 78.75 degrees), the look
+//      distance over 3 m and the turn past 56.25 degrees, re-plans through the GOTO_RUN
+//      entry;
+//   4. the RUN_TURN_STEP pre-empt: the threshold (rate ceiling - 0.6) / 2, and the
+//      keeper-kind arm's turn bearing at 45 degrees instead of 56.25, with the bucket's
+//      0/1/5/6 shape and the rate / look-distance gates deciding the entries;
+//   5. the style block: the rate read (FUN_1406b9ff0's, with the class word 9), the style
+//      (FUN_1406ba2f0's), the representative motion from the style table, the mirror masks
+//      and the request words' dwell and style writes, with no state change.
+//
+// The class -1 / out-of-play branch (the state picker, the keeper / mode arm, the swing arm
+// and the 0x662 / 0x661 rows) is the decompile's second half. PES guards it with
+// `class != -1 || (precise != 1 && match phase == 1)`, which is the `running` test below.
+// ponytail: that half's state picker and swing arm are the foundation's event store; the port
+// keeps the running branch's own arms here and names where the other half stands.
+// ---------------------------------------------------------------------------------------------
+void RunLoop(MoveHost& host, MoveReq& req) {
+  const RunConstants& k = host.RunConstantsView();
+  const RunTables& t = host.RunTablesView();
+  const int cls = static_cast<int>(req.U(moveword::kCommandSpeedClass));
+  const int kind = static_cast<int>(req.U(moveword::kKind));
+  const int band = static_cast<int>(req.U(moveword::kRateBand));
+  // PES's bVar22: the class below 1 with the kind 3 or 6 (the keeper kinds).
+  const bool keeperKind = cls < 1 && (kind == 3 || kind == 6);
+  const bool running = cls != -1 || (req.U(moveword::kPrecise) != 1u && host.MatchPhase() == 1);
+  if (!running) {
+    // ponytail: the no-class arm's body (the state picker, the keeper / mode arm, the swing
+    // arm and the 0x662 / 0x661 rows) is not ported; its state request is TURN_STOP, which
+    // the running branch's own row pick also reaches.
+  }
+
+  // Arm 1: the turn-lock re-plan.
+  if ((req.Flag(moveword::kTurnLockFlag) || req.U(moveword::kTurnLockTicks) != 0u ||
+       req.Flag(moveword::kTurnLockDir)) &&
+      (1 < cls || req.Flag(moveword::kTurnLockDir)) &&
+      req.F(moveword::kRate) <= k.rate06 && req.U(moveword::kPrecise) == 0u) {
+    EnterGotoRun(host, req, false);
+    return;
+  }
+
+  // Arm 2: the ACCELERATE and DECELERATE pre-empts.
+  if (EnterAccelerate(host, req)) return;
+  if (EnterDecelerate(host, req)) return;
+
+  // Arm 3: the re-plan term.
+  const float ground = GroundSpeedKmh(host, k);
+  const float turn = req.F(moveword::kTurn);
+  const bool rateLow =
+      req.F(moveword::kRate) <= k.rate0225 && req.F(moveword::kRate) != k.rate0225;
+  if (req.U(moveword::kPrecise) == 0u && 2 < cls &&
+      (rateLow || (ground < k.kmh11 && k.deg7875 < turn)) &&
+      k.quota3 < req.F(moveword::kDistToTarget) && k.deg5625 < turn) {
+    EnterGotoRun(host, req, false);
+    return;
+  }
+
+  // Arm 4: the RUN_TURN_STEP pre-empt, then the keeper-kind arm.
+  const float ceiling = host.RateCeiling();
+  const float threshold = (ceiling - k.rate06) * k.half;
+  if (EnterRunTurnStep(host, req, threshold)) return;
+  float turnGate = k.deg5625;
+  if (keeperKind) turnGate = k.deg45;
+  const int bucket = static_cast<int>(req.U(moveword::kMoveBucket));
+  const bool bucketShape = bucket == 0 || bucket == 1 || bucket == 5 || bucket == 6;
+  if (keeperKind && bucketShape && req.F(moveword::kRate) < k.blend3) {
+    if (req.F(moveword::kDistToTarget) <= k.speed2) {
+      EnterTurnStop(host, req);
+      return;
+    }
+    EnterRunTurnRun(host, req);
+    return;
+  }
+  if (!keeperKind && bucketShape && turnGate < turn) {
+    // The run-turn arm's row pick: the bucket's angle clamped into the +/-110 window, the row
+    // at kind + band*8 and the TURN_STOP state request.
+    const int rowBand = req.F(moveword::kRate) < k.rate06 ? 2 : Clamp03(band);
+    const int rowBucket = (bucket == 4) ? 3 : ((bucket == 9) ? 8 : bucket);
+    const MoveCell cell = host.Cell(GotoRowFor(kind, rowBand, t), rowBucket, false);
+    host.Issue(MotionRequest{cell.motionNo, cell.mirror, 0, k.blend1667,
+                             host.MotionStartTime(cell.motionNo), 0.0f});
+    RequestState(req, MoveState::kTurnStop);
+    return;
+  }
+
+  // Arm 5: the style block.
+  const float rate = RequestedRate(host, req, t);
+  req.SetF(moveword::kRate, rate);
+  const int style = LocomotionStyle(host, static_cast<int>(req.U(moveword::kCommandId)), rate, req);
+  req.SetU(moveword::kStyle, static_cast<uint32_t>(style));
+  req.SetU(moveword::kMotion,
+           static_cast<uint32_t>(t.styleGroup[Clamp03(style) * 4 + Clamp03(band) / 4]));
+  if (style < 13 && ((0x1028u >> (style & 31)) & 1u) != 0) {
+    req.SetByte(moveword::kMirror, 1);
+  } else if (style < 12 && ((0x814u >> (style & 31)) & 1u) != 0) {
+    req.SetByte(moveword::kMirror, 0);
+  }
+  req.SetF(moveword::kDuration, k.blend2);
+  req.SetF(moveword::kPlayback, k.one);
+  req.SetF(moveword::kStartTime, 0.0f);
+  req.SetF(moveword::kDwellElapsed, 0.0f);
+  req.SetF(moveword::kDwellElapsed2, 0.0f);
+  req.SetF(moveword::kDwellLimit2, 0.0f);
+  req.SetF(moveword::kDwellLimit, 0.2f);
+  req.SetByte(moveword::kTurnLockDir, 0);
+}
+
 }  // namespace movestep
 }  // namespace pes

@@ -35,6 +35,8 @@ extern bool runTurnStepAnswer;
 extern int stepTurnRunCalls;
 extern bool stepTurnRunAnswer;
 extern int issueCount;
+extern int accelEntryCalls;
+extern int decelEntryCalls;
 void Reset();
 }  // namespace probe
 }  // namespace pes
@@ -1029,4 +1031,53 @@ TEST(Decelerate, TakesTheStepTurnRunEntryThroughTheAllowanceArm) {
   EXPECT_GE(pes::probe::stepTurnRunCalls, 1);
   EXPECT_EQ(req.U(pes::moveword::kRateBand), 0u);
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 5.0f);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The RUN_LOOP handler's decision arms (FUN_1406c0170). Its decompile's flow, from the
+// request's own class -1 branch and the running branch:
+//   1. the no-class arm (class -1, or the out-of-play phase without the precise word): the
+//      look bucket is the precise word's second bucket (or the first), the turn bearing is
+//      the look delta, the look distance over 2 m grows the allowance, the state picker's
+//      override (the ball-line point, the team record and its frame) and the keeper / mode
+//      arm with the 45 / 22.5 look clamps, then the row pick (kind + band*8) and the swing
+//      arm, ending in row 0x662 / 0x661, the playback and the start time, the dwell words
+//      and the transition to TURN_STOP (word 6).
+//   2. the running arm: the re-plan term (the class above 2 with the rate at or below 0.225
+//      or the turn past 78.75 degrees with the speed under 11, the distance over 3 m and the
+//      turn past 56.25), the ACCELERATE and DECELERATE pre-empts, the RUN_TURN_STEP
+//      pre-empt, and the state arm's own row pick with the band/speed/class triple and the
+//      vtable +0x10 issue.
+// The test pack below states the running arm's re-plan gate and the state arm's writes.
+// ---------------------------------------------------------------------------------------------
+
+// The re-plan gate: with the class above 2, the rate word at or below 0.225, the look
+// distance over 3 m and the turn past 56.25 degrees, the handler re-plans into GOTO_RUN.
+TEST(RunLoop, RePlansIntoGotoRunWhenTheClassIsHighAndTheRateIsLow) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 0;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);  // above 2
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetF(pes::moveword::kRate, 0.2f);             // at or below 0.225
+  req.SetF(pes::moveword::kDistToTarget, 5.0f);     // over 3 m
+  req.SetF(pes::moveword::kTurn, 60.0f);            // past 56.25
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 60.0f);
+  req.SetF(pes::moveword::kRecordStampB, 60.0f);
+  req.SetF(pes::moveword::kLookHeading, 60.0f);
+  req.SetF(pes::moveword::kLookDelta, 60.0f);
+  req.SetF(pes::moveword::kFacingError, 60.0f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::RunLoop(h, req);
+  // The re-plan's exit is the GOTO_RUN entry's own transition, word 7 (ACCELERATE).
+  EXPECT_EQ(req.U(pes::moveword::kNextState), 7u);
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
 }

@@ -38,6 +38,8 @@ bool stepTurnRunAnswer = false;
 int issueCount = 0;
 std::vector<int> enterStopCalls;
 std::vector<int> enterGotoRunCalls;
+int accelEntryCalls = 0;
+int decelEntryCalls = 0;
 
 void Reset() {
   idleRowCalls = 0;
@@ -58,6 +60,8 @@ void Reset() {
   stepTurnRunCalls = 0;
   stepTurnRunAnswer = false;
   issueCount = 0;
+  accelEntryCalls = 0;
+  decelEntryCalls = 0;
   enterStopCalls.clear();
   enterGotoRunCalls.clear();
 }
@@ -97,6 +101,13 @@ bool OutOfPlayPreempt(MoveHost& /*host*/, MoveReq& /*req*/) {
   ++probe::outOfPlayCalls;
   return probe::outOfPlayAnswer;
 }
+
+
+// FUN_1406ccd00 (group B's ACCELERATE entry) and FUN_1406cdaf0 (group B's DECELERATE entry):
+// the port's next pieces. Until their bodies land the probe returns PES's "no write"
+// answer, so the arms that call them take their no-branch.
+bool EnterAccelerate(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::accelEntryCalls; return false; }
+bool EnterDecelerate(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::decelEntryCalls; return false; }
 
 }  // namespace movestep
 
