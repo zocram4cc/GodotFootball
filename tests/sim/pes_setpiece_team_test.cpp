@@ -11,6 +11,7 @@
 #include <memory>
 #include <string>
 
+#include "gametypes.hpp"
 #include "onthepitch/pessetpieceteam.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
@@ -68,7 +69,7 @@ const pes::SetPieceTeamCounts kCounts;
 // penalty line and half-width. GF's pitch is the 105 x 68 standard these were
 // authored on (gametypes.hpp), so the numbers stand in for it.
 constexpr float kPitchHalfW = 52.5f;
-constexpr float kGoalHalfWidth = 3.66f;
+constexpr float kGoalHalfWidth = pesGoalInnerHalfWidth;
 constexpr float kPenaltyX = 36.0f;
 constexpr float kPenaltyHalfZ = 20.15f;
 

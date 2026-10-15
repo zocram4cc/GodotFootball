@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <string>
 
+#include "gametypes.hpp"
 #include "onthepitch/pesball.hpp"
 #include "onthepitch/pesballcollision.hpp"
 #include "pes/exe.hpp"
@@ -190,7 +191,8 @@ TEST(PesBallCollisionInstall, ReplaysTheLiveCrossbarHit) {
   pes::PesBallConstants c;
   c.image = *image;
   // PES's live FieldInfo and event B of docs/re/pes-re-ball-collision.md 7.2.
-  constexpr pesball::GoalFrame PES_FRAME{52.56f, 3.66f, 2.44f, 0.12f, 0.12f};
+  constexpr pesball::GoalFrame PES_FRAME{pesFieldHalfLength, pesGoalInnerHalfWidth,
+                                         pesGoalInnerHeight, pesCrossbarThickness, pesPostThickness};
   const Vec3 p1(52.440f, 2.420f, 2.338f), v(11.208f, -1.804f, 6.340f);
   const Vec3 p0 = Sub(p1, v * (1.0f / c.image.tickHz));
   const auto hit = pesball::GoalFrameHit(PES_FRAME, c.image.ballRadius, p0, p1, v);

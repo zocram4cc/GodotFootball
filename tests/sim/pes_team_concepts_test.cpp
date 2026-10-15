@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdlib>
 
+#include "gametypes.hpp"
 #include "onthepitch/pesteamconcepts.hpp"
 
 namespace {
@@ -13,8 +14,8 @@ namespace {
 using blunted::Vector3;
 
 constexpr float kHalfLength = 52.5f;  // gametypes pitchHalfW
-constexpr float kBoxLine = 36.14f;    // F6
-constexpr float kBoxHalfWidth = 20.12f;  // F7
+constexpr float kBoxLine = pesPenaltyAreaLineX;  // F6
+constexpr float kBoxHalfWidth = pesPenaltyAreaHalfWidth;  // F7
 
 pes::TeamConceptConstants Synthetic() {
   pes::TeamConceptConstants k{};

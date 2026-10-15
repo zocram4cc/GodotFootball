@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <string>
 
+#include "sim/gametypes.hpp"
 #include "pes/camera.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
@@ -136,8 +137,8 @@ TEST(DynamicWideInstall, ReproducesTheLiveCamera) {
   auto p = pes::LoadDynamicWide(*pe, vfs, &err);
   ASSERT_TRUE(p) << err;
   constexpr float LIVE_ZOOM = 0.79f, LIVE_HEIGHT = 0.20f, LIVE_K = 1.001f;
-  constexpr float FIELD_HALF_WIDTH_M = 34.06f;  // FieldInfo +0x08, live
-  constexpr float FIELD_HALF_LENGTH_M = 52.56f; // FieldInfo +0x00, live
+  constexpr float FIELD_HALF_WIDTH_M = pesFieldHalfWidth;    // FieldInfo F1, live
+  constexpr float FIELD_HALF_LENGTH_M = pesFieldHalfLength;  // FieldInfo F0, live
   auto shot = pes::DynamicWideShot(*p, LIVE_ZOOM, LIVE_HEIGHT, -8.00f, FIELD_HALF_WIDTH_M, p->liftNumerator / p->fpsRef);
   auto pose = pes::FramePose(shot, -5.31f, -8.00f, 0.0f, LIVE_K, FIELD_HALF_LENGTH_M, FIELD_HALF_WIDTH_M);
   EXPECT_NEAR(pose.vfovDeg, 23.26f, 0.05f);
@@ -162,8 +163,8 @@ TEST(DynamicWideInstall, MatchesTheLiveBroadcastSample) {
   auto p = pes::LoadDynamicWide(*pe, vfs, &err);
   ASSERT_TRUE(p) << err;
   constexpr float LIVE_ZOOM = 0.80f, LIVE_HEIGHT = 0.20f;
-  constexpr float FIELD_HALF_WIDTH_M = 34.06f;   // FieldInfo +0x08, live
-  constexpr float FIELD_HALF_LENGTH_M = 52.56f;  // FieldInfo +0x00, live
+  constexpr float FIELD_HALF_WIDTH_M = pesFieldHalfWidth;    // FieldInfo F1, live
+  constexpr float FIELD_HALF_LENGTH_M = pesFieldHalfLength;  // FieldInfo F0, live
   auto shot = pes::DynamicWideShot(*p, LIVE_ZOOM, LIVE_HEIGHT, -8.00f, FIELD_HALF_WIDTH_M, p->liftNumerator / p->fpsRef);
   // The ball-height lift sees the raw focus y; the live ball is on the ground
   // with the focus at/below -4 m, so the lift clamps to 0 (report item 1).
@@ -309,7 +310,7 @@ TEST(DynamicWide, LeadPullsTheFocusTowardsTheBall) {
 TEST(DynamicWide, ClampsBlendFromTheWideBoundsByK) {
   const auto p = Synthetic();
   auto shot = pes::DynamicWideShot(p, 1.0f, 0.0f, 0.0f, HALF_WIDTH_M, LIFT_SCALE);
-  constexpr float L = 52.56f, W = 34.06f;
+  constexpr float L = pesFieldHalfLength, W = pesFieldHalfWidth;
   const auto at = [&](float k, float z) { return pes::FramePose(shot, 1000.0f, z, 0.0f, k, L, W); };
   const auto settled = at(1.0f, -1000.0f);
   EXPECT_FLOAT_EQ(settled.tx, shot.record.xLimit);
