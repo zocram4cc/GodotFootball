@@ -2278,11 +2278,14 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
   };
   for (int t = 0; t < 2; ++t) {
     TeamAIController* ctl = match->GetTeam(t)->GetController();
+    // PES action 5 (PASS_GET): the team's receiver, gated on play as Team's own use is.
+    Player* passGetReceiver = match->IsInPlay() ? match->GetTeam(t)->PassGetReceiver() : nullptr;
     for (size_t i = 0; i < (*ids)[t].size(); ++i) {
       Player* pl = (*ids)[t][i];
       ob::PlayerFacts& f = w.p[t * ob::kSlots + i];
       f.active = true;
       f.goalie = pl->GetFormationEntry().role == e_PlayerRole_GK;
+      f.passGet = pl == passGetReceiver;
       f.pos = Flat(pl->GetPosition());
       f.vel = Flat(pl->GetMovement());
       f.facing = pesDeg(pl->GetDirectionVec());

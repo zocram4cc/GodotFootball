@@ -1749,14 +1749,37 @@ MaskReject ChanceMaskReject(const OffBallConstants& k, const RunWorld& w, int id
                                                                            : kMaskGeneric;
 }
 
+namespace {
+// FUN_140a51320 (raw 0x140a51320-0x140a5139f): the latest ball event's kind when
+// its target is a player on the pitch, else the PES frames since the kick. With
+// no event the age is its default, far past one frame.
+// ponytail: PES counts whole frames; the age is continuous, so "above one"
+// compares the continuous age.
+float PassGetFigure(const RunWorld& w) {
+  const bool targetOnPitch = w.ev.valid && w.ev.target >= 0;
+  return targetOnPitch ? static_cast<float>(w.ev.kind) : w.ev.age;
+}
+}  // namespace
+
 bool RunStop(const RunWorld& w, int id, int run) {
   const PlayerFacts& me = w.p[id];
-  // Selector stop tests' own heads (off-ball 2.2).
+  // The head PES runs before anything else (0x140607a60; 0x14060b410 and
+  // 0x1406118e0 open the same way): pad control, the carrier, the PASS_GET
+  // receiver while the pass figure is above one, and only then the run's
+  // minimum time. ponytail: gfsim has no pad-driven player (every player runs
+  // through ElizaController), so the pad clause stays false.
+  if (me.humanControlled) return true;
+  // ponytail: PES stops the carrier only when his action byte (player record
+  // +1) lacks action-property bit 16 (FUN_140a6e340). GF carries no action
+  // bytes, so the carrier always stops.
+  if (w.carrier == id) return true;
+  if (me.passGet && PassGetFigure(w) > 1.0f) return true;
   const float minFrames = run == kSecondLine ? kPesFps : kChanceMinFrames;
   if (me.t < minFrames) return false;
-  if (me.humanControlled || w.carrier == id) return true;
   if (run == kCounter && CommonStop(w, id, run)) return true;
   if (run == kCounter) return w.s[TeamOf(id)] * me.pos.x > kF8;
+  // Chance's AI class 0x13 veto (0x140607a60) is not reached: GF's aiClass is
+  // the role class, 0..9.
   return CommonStop(w, id, run);
 }
 

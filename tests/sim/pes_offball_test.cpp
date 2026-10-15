@@ -288,10 +288,51 @@ TEST(OffBallStop, ChanceKeepsItsMinimumRunTimeThenTheCommonTestDecides) {
   w.carrier = kRunner;
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
   w.p[kRunner].t = 5.0f;
-  EXPECT_FALSE(RunStop(w, kRunner, kChance));  // under 11 frames nothing stops it
+  EXPECT_TRUE(RunStop(w, kRunner, kChance));  // 0x140607a60: the carrier test is ahead of the minimum
+  w.carrier = 0;
+  EXPECT_FALSE(RunStop(w, kRunner, kChance));  // under 11 frames the common test cannot stop him
   w = Running();
   w.possession = {false, true};
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
+}
+
+TEST(OffBallStop, ChanceStopsAPadControlledRunnerBeforeTheMinimum) {
+  // 0x140607a60 tests pad control before the minimum run time.
+  RunWorld w = Running();
+  w.p[kRunner].humanControlled = true;
+  w.p[kRunner].t = 2.0f;
+  EXPECT_TRUE(RunStop(w, kRunner, kChance));
+}
+
+TEST(OffBallStop, ChanceStopsAPassGetRunnerOnceThePassFigureExceedsOne) {
+  // 0x140607a60: PASS_GET (action 5) with FUN_140a51320 > 1 stops, ahead of the
+  // minimum. A through pass to a mate gives the figure 2 (its kind).
+  RunWorld w = Running();
+  w.p[kRunner].passGet = true;
+  w.p[kRunner].t = 2.0f;
+  w.ev = {true, 2, 1.0f, {0.0f, 0.0f}, 5};
+  EXPECT_TRUE(RunStop(w, kRunner, kChance));
+  w.ev.kind = 1;  // a short pass gives 1, which is not above one
+  EXPECT_FALSE(RunStop(w, kRunner, kChance));
+}
+
+TEST(OffBallStop, ThePassGetFigureFallsBackToFramesSinceTheKickWithNoTargetPlayer) {
+  // FUN_140a51320's other branch: with no valid target player the figure is the
+  // PES frames since the kick.
+  RunWorld w = Running();
+  w.p[kRunner].passGet = true;
+  w.p[kRunner].t = 2.0f;
+  w.ev = {true, 1, 0.5f, {0.0f, 0.0f}, -1};
+  EXPECT_FALSE(RunStop(w, kRunner, kChance));
+  w.ev.age = 3.0f;
+  EXPECT_TRUE(RunStop(w, kRunner, kChance));
+}
+
+TEST(OffBallStop, OnlyTheRunnerInPassGetIsStoppedByThePassFigure) {
+  RunWorld w = Running();
+  w.p[kRunner].t = 2.0f;
+  w.ev = {true, 2, 1.0f, {0.0f, 0.0f}, 5};
+  EXPECT_FALSE(RunStop(w, kRunner, kChance));
 }
 
 TEST(OffBallStop, ReleasedPastTheLineOrNearTheGoalLine) {

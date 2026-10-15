@@ -171,6 +171,7 @@ struct PlayerFacts {
   bool active = false;
   bool goalie = false;
   bool humanControlled = false;
+  bool passGet = false;  // PES action 5 (PASS_GET, player+0x5d0): Team::PassGetReceiver() is him
   Vec2f pos, vel;        // m, m/s
   float facing = 0.0f;   // +0x554, body facing
   int state = kNothing;  // T+0xa2a0
