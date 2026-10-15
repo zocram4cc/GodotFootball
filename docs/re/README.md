@@ -123,6 +123,12 @@ address given.
 |`pes-re-pose-veto.md`|5-seed veto on/off table; the veto stays until the human gate's roster-slot tail (`FUN_140a0b350` / `FUN_140a6ce10`, `team+0x6a4`) is ported|
 |`pes-re-net-dodge.md`|Net dodge gate `FUN_140a07e40` ported: dodger-only inputs (no ball, no 12 m window); rate set by the 1 m goal-line edge test. Supersedes the net bullets of `pes-re-dodge-gates.md`|
 |`pes-re-foundation.md`|**Foundation inventory**: 34 PES runtime-state structures (219 fields: 12 faithful / 94 stand-in / 111 absent), 80 gates mapped to the structures they need, dependency graph, and the eight-wave build order. Start here before porting any gate.|
+|`pes-re-ball-track.md`|Wave 1 MB-F: PES 250-record ball track as the AI prediction; the floor-read defect (52% zero intercept movement) and its fix; tick mismatch (GF 10 ms vs PES 1/54 s) is the open decision|
+|`pes-re-movestep-wave1.md`|Wave 1 A-MOV: MOVESTEP contract v0.11, record/playback writers, run-rate guard, speed class, yaw lock after nine states, L4/D1 open items|
+|`pes-re-tick-order.md`|Wave 1 MB-H: H1 setup rating; team-tick caller chain (FUN_140a8eff0 via the MatchSub listener); the 10-step record switch|
+|`pes-re-live-teamplayer.md`|Live: 17 team/player rows; instruction table MA-relative; T+0x6a4 countdown; 48 possession flips graded, 41/41 exact-state agree|
+|`pes-re-live-matchball.md`|Live: MI/event-ring/FieldInfo rows; the event store chain; F10-F12 values|
+|`pes-re-possession-latch.md`|PoseVeto: the human dodge gate, the T+0x255 possession latch FUN_1404fe9c0 (restart rule R + cascade), event kinds, reaction countdown|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
