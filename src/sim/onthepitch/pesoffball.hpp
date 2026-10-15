@@ -279,7 +279,19 @@ enum MaskReject {
   kMaskRankAngle,
   kMaskGeneric,
   kMaskRunCooldown,
+  // The per-team head, asked once per tick rather than once per slot.
+  kMaskNoReceiver,
 };
+
+// The per-team pre-conditions the Chance mask reads: `T+0x255` (in possession)
+// and a valid receiver/carrier (off-ball 2.1). Both are team flags - the same
+// answer for every slot of the team in a tick - so the caller asks them once per
+// tick instead of once per slot. A result other than kMaskPass means the mask
+// was not walked at all; the returned reason is filed in the histogram once for
+// the team. `openPlay` (MI+0x116c) is the caller's own guard and is not
+// re-tested here.
+MaskReject TeamChanceMayRunReject(const RunWorld& w, int team);
+bool TeamChanceMayRun(const RunWorld& w, int team);
 MaskReject ChanceMaskReject(const OffBallConstants& k, const RunWorld& w, int id,
                             uint32_t slotMask, int attackLevel, bool buildUpLong, float awareness);
 

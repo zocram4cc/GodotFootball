@@ -295,7 +295,7 @@ public:
 
   // pes::offball::MaskReject's width (pesoffball.hpp); duplicated here so this
   // header stays free of the exe reader.
-  static constexpr int kMaskRejectCount = 17;
+  static constexpr int kMaskRejectCount = 18;
   // The Chance mask trace (pesoffball.hpp): one entry per (tick, slot) the
   // candidate mask walked, filed under the gate that decided it. Read by
   // tools/offball_trace.py to find which gate admits or kills the runs.

@@ -2142,10 +2142,6 @@ namespace ob = pes::offball;
 constexpr float kPesFps = 54.0f;  // FUN_141e532d0 = [0x14351ae54]
 // Positions the target builder predicts: int(fps·0.3+0.5) = 16 frames (0x14059bbe4).
 constexpr float kRunPredictFrames = 16.0f;
-// Step 2's re-run block: int(fps·2+0.5) PES frames (off-ball 1.2), and the
-// decrement one manager tick represents (the manager ticks every other frame).
-constexpr long kReRunBlock_ms = 2L * 1000L;
-constexpr long kCooldownStep_ms = static_cast<long>(2000.0f / kPesFps + 0.5f);
 // The supporter search predicts int(fps·0.35+0.5) = 19 frames (FUN_1405eb980).
 constexpr float kSupporterPredictFrames = 19.0f;
 
@@ -2302,8 +2298,6 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
         f.state = run->second.state;
         f.t = (now - run->second.start_ms) * kPesFps / 1000.0f;
         f.aim = Flat(run->second.target);
-        // Step 2's A[s]: the manager tick's per-slot re-run block.
-        f.runCooldown = static_cast<int>(run->second.cooldown_ms * kPesFps / 1000.0f);
       } else {
         f.state = ob::kBasePosition;
         f.t = 1e9f;
@@ -2359,35 +2353,13 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   const std::vector<Player*>& slots = ids[team->GetID()];
   const int base = team->GetID() * ob::kSlots;
 
-  // Step 2 of the manager tick (off-ball 1.2): A[s] counts down every tick and
-  // is cleared when the slot is the pass receiver. A released run therefore
-  // keeps its record with state NOTHING while its cooldown runs, so the mask
-  // still sees the block.
-  const int receiver = world.receiver[team->GetID()];
-  for (auto& [pl, rec] : runs) {
-    const auto at = std::find(slots.begin(), slots.end(), pl);
-    const int pid = at == slots.end() ? -1 : base + static_cast<int>(at - slots.begin());
-    if (pid >= 0 && pid == receiver) {
-      rec.cooldown_ms = 0;
-    } else if (rec.cooldown_ms > 0) {
-      rec.cooldown_ms -= kCooldownStep_ms;
-      if (rec.cooldown_ms < 0) rec.cooldown_ms = 0;
-    }
-  }
-
   // Stop pass: every *running* slot whose stop test says so goes back to
-  // NOTHING, and its re-run block starts. A record that is already NOTHING is
-  // only carrying the block, so it is neither stop-tested nor counted as a fire
-  // - it is dropped once the block has run out.
+  // NOTHING and its record is dropped, exactly as pass 2 had it. The 2 s
+  // re-run block A[s] that step 2 also maintains is SecondLine's gate in PES
+  // (off-ball 2.3: the Chance mask's raw body never reads ctx+0x38), so it is
+  // not kept or applied on the Chance path - see RunCooldownBlocks's note and
+  // the fitness test that pins it to SecondLine.
   for (auto it = runs.begin(); it != runs.end();) {
-    if (it->second.state == ob::kNothing) {
-      if (it->second.cooldown_ms <= 0) {
-        it = runs.erase(it);
-        continue;
-      }
-      it = std::next(it);
-      continue;
-    }
     const auto at = std::find(slots.begin(), slots.end(), it->first);
     if (at == slots.end()) {
       it = runs.erase(it);
@@ -2396,12 +2368,10 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
     const int id = base + static_cast<int>(at - slots.begin());
     if (ob::RunStop(world, id, it->second.state)) {
       match->GetMatchData()->AddStopFire(team->GetID());
-      it->second.state = ob::kNothing;
-      it->second.cooldown_ms = kReRunBlock_ms;
+      it = runs.erase(it);
+    } else {
       it = std::next(it);
-      continue;
     }
-    it = std::next(it);
   }
 
   // Select pass. Overlap (registered first) and the selectors after Chance are
@@ -2452,6 +2422,24 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   // cap simply holds.
   const uint32_t slotMask = ob::AttackSlotMask(world, team->GetID(), level);
   const bool buildUpLong = teamSheet.toggles[pes::kBuildUp] == 0;
+  // The per-team heads (off-ball 2.1: open play, T+0x255, T+0xa508, a valid
+  // receiver/carrier) are the same answer for every slot of the team in a tick,
+  // so they are asked once here instead of eleven times below. When they fail
+  // the mask is not walked at all: the histogram records the reason once, and
+  // no slot is scored, so no run can start this tick.
+  const int teamGate = ob::TeamChanceMayRunReject(world, team->GetID());
+  if (teamGate != ob::kMaskPass) {
+    match->GetMatchData()->AddMaskReject(team->GetID(), teamGate);
+    // A lowered cap still releases runners, exactly as the select pass does.
+    for (int excess = runningAtStart - cap; excess > 0;) {
+      auto it = std::find_if(slots.begin(), slots.end(),
+                             [&](Player* p) { return GetRunState(p) == ob::kChance; });
+      if (it == slots.end()) break;
+      runs.erase(*it);
+      --excess;
+    }
+    return;
+  }
   std::array<float, ob::kSlots> scores{};
   std::array<Vector3, ob::kSlots> targets;
   for (size_t i = 0; running < cap && i < slots.size() && i < ob::kSlots; ++i) {
