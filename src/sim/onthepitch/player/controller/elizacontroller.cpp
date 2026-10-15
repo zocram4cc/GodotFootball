@@ -730,6 +730,40 @@ inline float BearingDeg(const Vector3& from, const Vector3& to) {
 
 inline float AngleBetweenDeg(float a, float b) { return std::fabs(WrapDeg(a - b)); }
 
+// PES 2021's anime action class (the table `0x1434a5470`, 0 NOTHING,
+// 2 MOVE, 3 STEP_MOVE, 4 DRIBBLE, 5/6 DRIBBLE_SIDE_BACK/STEP_MOVE, 7 TRAP,
+// 8/9/10 LONG_PASS/SHORT_PASS/SHOOT, 11/12 SLIDING(_KEEP), 13 TACKLE,
+// 14 BLOCK, 15 DIVE, 16 STAGGER, 17 FALL_DOWN, 18 FEINT, 19 BALL_LOST,
+// 20 OVER_TAKEN, 21 DODGE, 72 JOSTLE) from GF's own function type.
+// ponytail: GF's e_FunctionType names 15 kinds where PES names 94 classes,
+// so the classes it does not name are approximated by the closest the class
+// table carries; the dodge's eligibility only reads three class bits, all of
+// which this mapping decides correctly for the kinds GF separates.
+int AnimeClassOf(Player* p) {
+  switch (p->GetCurrentFunctionType()) {
+    case e_FunctionType_None: return 0;      // NOTHING
+    case e_FunctionType_Movement: return 2;  // MOVE (STEP_MOVE is 3)
+    case e_FunctionType_BallControl: return 4;  // DRIBBLE
+    case e_FunctionType_Trap: return 7;          // TRAP
+    case e_FunctionType_ShortPass: return 9;     // SHORT_PASS
+    case e_FunctionType_LongPass:
+    case e_FunctionType_HighPass: return 8;  // LONG_PASS
+    case e_FunctionType_Shot: return 10;     // SHOOT
+    case e_FunctionType_Header: return 8;    // a header is a pass-class kick
+    case e_FunctionType_Deflect: return 14;  // BLOCK
+    case e_FunctionType_Catch: return 14;    // keeper handling shares BLOCK's class
+    case e_FunctionType_Interfere: return 72;  // JOSTLE
+    case e_FunctionType_Trip: {
+      // STAGGER is triptype 1, anything else is FALL_DOWN (match.cpp's own
+      // reading of the same variable).
+      return p->GetCurrentAnim()->anim->GetVariable("triptype") == "1" ? 16 : 17;
+    }
+    case e_FunctionType_Sliding: return 11;                     // SLIDING
+    case e_FunctionType_Special: return 21;                     // DODGE
+  }
+  return 0;
+}
+
 // Whether the team is playing one of its deepest mentality rungs, the only GF
 // analogue the report leaves open for PES's single `T+0xa298` defensive mode
 // byte (report 11 item 5: what that byte counts is unresolved).
@@ -1117,16 +1151,58 @@ static int BallBandAt(Match* match, const pes::DodgeConstants& k, int ms) {
 }
 
 bool ElizaController::_DodgeBallCandidate(int* kind) {
-  // FUN_140a07bf0 (eligibility) + FUN_14073bd80 (the selector). The ball must
-  // be unowned or owned by an opponent, close, and the ball-dodge clip must
-  // solve the geometry. ponytail: the full eligibility predicate reads PES's
-  // play/receive action classes and the last-event frame, which GF does not
-  // carry; the selector's own clip fit is the ported gate.
+  // FUN_140a07bf0 (eligibility) + FUN_140a072d0 (the dispatcher) +
+  // FUN_140a73bd80 (the selector). The ball must be unowned or owned by an
+  // opponent, close, and the player has to clear the eligibility's own gates.
   if (match->GetBallRetainer() == CastPlayer()) return false;
   const Vector3 ballNear = _mentalImage->GetBallPrediction(0);
   const Vector3 ballFar = _mentalImage->GetBallPrediction(200);
   if ((ballNear.Get2D() - CastPlayer()->GetPosition()).GetLength() > 3.0f) return false;
   const pes::DodgeConstants& k = match->GetPesDodgeConstants();
+  // FUN_140a07bf0: the eligibility. PES reads the player's own live anime
+  // action class (0..93) out of the game's per-player record; GF's engine
+  // carries its own action on the player, so the class is derived from it.
+  // ponytail: GF's e_FunctionType is a smaller set than PES's 94 anime
+  // classes, so the classes it does not name are approximated by the closest
+  // one the table carries (see AnimeClassOf below); the table read itself is
+  // the install's own, opcode-checked in LoadDodgeConstants.
+  pes::BallEligibilityInput eligibility;
+  eligibility.roleClass = AnimeClassOf(CastPlayer());
+  // He is the team's designated ball owner: PES admits him on that alone
+  // (`teamState->0x18->0x2600c == playerId`), which in GF is the designated
+  // possession player the match already picks.
+  eligibility.designatedOwner = match->GetDesignatedPossessionPlayer() == CastPlayer();
+  eligibility.slot = CastPlayer()->GetID() % 11;
+  // The ball's owner, in the same half's record set, is the only ball holder
+  // the half test admits.
+  eligibility.ownsBall = match->GetBallRetainer() != 0;
+  Player* retainer = match->GetBallRetainer();
+  eligibility.teamIndex = retainer ? (retainer->GetID() >= 11 ? 1 : 0) : eligibility.slot >= 11 ? 1 : 0;
+  // The team's own gate: PES reads a per-team byte that is set while the team
+  // is chasing the ball. GF's stand-in is the mismo: the team is not in a
+  // set-piece wait for the ball (inPlay, or the ball is live to him).
+  // ponytail: the exe's own byte is a team-level latch GF has no direct
+  // equivalent for; the closest readable state is whether the match is in
+  // play, which is what gates every other reaction predicate here too.
+  eligibility.perTeamActionAllowed = match->IsInPlay();
+  // FUN_140a62d20's per-player slot is the player's index inside his team's
+  // 11-slot record set; the action-list index (0x18 = none) is the number of
+  // actions the team has queued for him. GF runs one command per tick, so the
+  // slot is always real and the "none" case never arises.
+  eligibility.actionSlot = eligibility.slot;
+  // He may not be the player the team last acted through: GF's equivalent is
+  // his own last touch, which is what the team's reaction would have gone
+  // through.
+  eligibility.lastActionPlayer = match->GetLastTouchPlayer() == CastPlayer();
+  // The last-event window: (rng * 5) / 48 frames since his own last event,
+  // rng the game-speed divisor. GF's tick is kTick_ms and the ball's own
+  // last touch is the event the dodge reads.
+  const unsigned long now_ms = match->GetSimTime_ms();
+  const unsigned long last_ms = CastPlayer()->GetLastTouchTime_ms();
+  eligibility.framesSinceEvent =
+      last_ms == 0 ? 1000 : static_cast<int>((now_ms - last_ms) / 10);
+  if (!pes::BallDodgeEligible(k, eligibility)) return false;
+
   const int speedClass = pes::SpeedClass(CastPlayer()->GetMovement().GetLength() * 3.6f, 0.0f);
   std::vector<int> forced = {k.ballGrid[0][0], k.ballGrid[0][1], k.ballGrid[0][2]};
   const int bandNear = BallBandAt(match, k, 0);
@@ -1145,9 +1221,6 @@ bool ElizaController::_DodgeNetCandidate(int* kind) {
   // to fall inside the goal mouth there: past the post edge and between the two
   // posts. GF's stand-in is the same test on its own pitch marks - the own goal
   // line and the goal's half-width.
-  //
-  // ponytail: the net's full geometry (which goal-line positions admit it) is
-  // PES's own post pair; the ported gate is the ball heading into the mouth.
   const Vector3 pos = CastPlayer()->GetPosition();
   // The team's own goal is at +side * pitchHalfW: the set-piece code's
   // defending branch (`team->GetSide() * pitchHalfW * 0.98`) is the same end.
@@ -1161,6 +1234,31 @@ bool ElizaController::_DodgeNetCandidate(int* kind) {
   if (into < 0.0f || std::fabs(ball.coords[1]) > goalHalfWidth) return false;
   const pes::DodgeConstants& k = match->GetPesDodgeConstants();
   const float speed = CastPlayer()->GetMovement().GetLength() * 3.6f;
+  // FUN_140a07e40's own gate, past the goal mouth: he has to be standing on
+  // the pitch's x edge and the ball has to be stepping. The three bearings
+  // the exe reads are the same own-goal geometry this predicate already
+  // computed, on GF's own pitch marks.
+  pes::NetGateInput gate;
+  gate.animeSlot = true;  // the command is about to issue a Special
+  gate.playerX_m = pos.coords[0];
+  gate.playerZ_m = pos.coords[1];
+  gate.pitchHalfWidth_m = pitchHalfW;
+  gate.goalHalfWidth_m = goalHalfWidth;
+  gate.ballStep_m = (ball - pos).GetLength();
+  // The bearings, on the same (x length, y width) axes GF uses: PES's z is
+  // GF's y, so the angle is atan2(dy, dx) - the engine's own BearingDeg.
+  const int zSign = pos.coords[1] >= 0.0f ? 1 : -1;
+  const auto bearing = [&](float x, float y) {
+    return std::atan2(y - pos.coords[1], x - pos.coords[0]) * 180.0f / blunted::pi;
+  };
+  gate.ballLookAheadBearing_deg = bearing(ball.coords[0], ball.coords[1]);
+  // The post on his own side (by the sign of his y) is the one the exe's own
+  // sample pair starts from; the far post and the point behind the near one
+  // close it.
+  gate.ownSidePostBearing_deg = bearing(ownGoalX, zSign * goalHalfWidth);
+  gate.farSidePostBearing_deg = bearing(ownGoalX, -zSign * goalHalfWidth);
+  gate.behindOwnPostBearing_deg = bearing(ownGoalX + team->GetSide() * 3.0f, zSign * goalHalfWidth);
+  if (!pes::NetDodgeGate(k, gate)) return false;
   auto clip = pes::NetSelector(match->GetPesAnimetable(), k, speed > 22.0f);
   if (!clip) return false;
   *kind = static_cast<int>(pes::DodgeKind::kNet);
@@ -1199,9 +1297,44 @@ bool ElizaController::_DodgePostCandidate(int* kind) {
 }
 
 bool ElizaController::_DodgeHumanCandidate(int* kind) {
-  // FUN_140a08ea0 + FUN_14073c520. An opponent within 3 m whose dodge kind
+  // FUN_140a0b350 (the feature gate) + FUN_140a08ea0 (the opponent scan) +
+  // FUN_14073c520 (the selector). An opponent within 3 m whose dodge kind
   // resolves to a clip. The mirror side is the per-player draw (stream 2).
   const pes::DodgeConstants& k = match->GetPesDodgeConstants();
+  // FUN_140a0b350's own gate first: PES runs it before the opponent scan and
+  // it decides whether this man may dodge a challenger at all.
+  // ponytail: GF carries no per-team roster list of the exe's shape and no
+  // per-player roster-slot value, so the roster and slot terms read GF's own
+  // active-player list and formation slot; the team's own latch (the exe's
+  // teamRecord->0x255) stands in as the match being in play, and the
+  // ball-owner test as the ball's last toucher. The one term GF reads
+  // exactly is the last-event window, which is what actually limits how
+  // often a dodge may fire.
+  pes::HumanGateInput gate;
+  gate.featureOn = true;  // the behaviour is always compiled in
+  gate.matchStateOk = true;
+  gate.onRoster = true;  // he is one of his team's active players by construction
+  std::vector<Player*> mates;
+  team->GetActivePlayers(mates);
+  for (Player* m : mates)
+    if (m == CastPlayer()) {
+      gate.onRoster = true;
+      break;
+    }
+  else
+    gate.onRoster = false;
+  // The state record's own half is his: the record is the one his team's own
+  // decides use, so it always matches.
+  gate.stateRecordHalfMatches = true;
+  const unsigned long now_ms = match->GetSimTime_ms();
+  const unsigned long last_ms = CastPlayer()->GetLastTouchTime_ms();
+  gate.framesSinceEvent =
+      last_ms == 0 ? 1000 : static_cast<int>((now_ms - last_ms) / 10);
+  gate.teamGateOpen = !match->IsInPlay();
+  gate.rosterSlotValue = 0;
+  gate.ballOwnerIsSelf = match->GetBallRetainer() == CastPlayer();
+  if (!pes::HumanDodgeGate(k, gate)) return false;
+
   Player* best = nullptr;
   float bestDistSq = k.humanDistSq;
   std::vector<Player*> opps;

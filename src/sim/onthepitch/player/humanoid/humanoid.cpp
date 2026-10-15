@@ -2184,11 +2184,12 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
       command.useSpecialVar1 && command.desiredFunctionType == e_FunctionType_BallControl;
   // A PES clip (dodge, tackle), counted below when it actually plays.
   // ponytail: GF's pose matching (velocity, body direction, side) still vetoes
-  // 85% of these requests on seed 7, although PES chose the clip by its own
-  // situation lookup. Relaxing it lets ~5,000 dodges per match play and the
-  // stalemate count nearly triples, because the dodge predicates' eligibility
-  // gates (FUN_140a07bf0, FUN_140a0b350) are not ported; relax it together
-  // with them.
+  // most of these requests, although PES chose the clip by its own situation
+  // lookup. Seed 7, 20 min, with the dodge eligibility gates in: veto on -
+  // played dodges 1162-1129, forced 11305, passes 56-47; veto off (drop
+  // byIncomingVelocity/bySide/byIncomingBodyDirection for pesClip, as for
+  // tricks) - played 1753-1456, forced 12093, passes 39-35. Held on because of
+  // the pass drop on one seed; decide it over more seeds.
   const bool pesClip = command.useSpecialVar1 && pes::IsPesClipFamily(command.specialVar1);
   if (command.useSpecialVar1)
     query.properties.Set("specialvar1", command.specialVar1);

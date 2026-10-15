@@ -17,6 +17,7 @@
 // except the row ids the kind->row and ball-grid tables themselves carry.
 
 #include <array>
+#include <cstdint>
 #include <optional>
 #include <vector>
 
@@ -82,6 +83,41 @@ struct DodgeConstants {
   float bearingAngle_deg = 0.0f;  // 45
   // FUN_1406e6bf0: the human selector's per-player draw modulus (stream 2).
   int humanDrawModulus = 1000;
+  // The ball dodge's eligibility and its two sub-tests (FUN_140a07bf0,
+  // FUN_140a07570, FUN_140a07880).
+  // The class table's bit word per action class, the table FUN_140a6e470 and
+  // its two siblings read (0x1426484f0, 94 u32s).
+  std::array<uint32_t, 94> roleBits{};
+  // FUN_140a07bf0's last-event window: the frame the eligibility waits is
+  // (rng * 5) / 48, with rng the game-speed divisor (gsInt, 54).
+  int lastEventFramesPerRoll = 5;   // `lea ecx,[rax+rax*4]` @0x140a07da3
+  int lastEventRollDivisor = 48;    // `mul ecx, 0xaaaaaaab; shr edx,5` @0x140a07da6
+  // FUN_140a07570's ball-speed floor (DAT_14263f000, m/s).
+  float ballSpeedFloor_mps = 0.0f;
+  // FUN_140a07570's reach test: the look-ahead height against the player's
+  // reach (0x14256ae18 m per reach unit) plus the 0x142590d98 margin.
+  float ballReachPerUnit_m = 0.0f;
+  float ballReachMargin_m = 0.0f;
+  // FUN_140a07570's two window tests: the bearing window off his heading
+  // (0x142588210, deg) and the same window on the defend-goal axis
+  // (0x14259be5c, deg).
+  float ballWindowHeading_deg = 0.0f;
+  float ballWindowGoal_deg = 0.0f;
+  // FUN_140a07880's goal-mouth window: the three x at the mouth's edges
+  // (0x14259bde8 = the post offset past the line, 0x14259bdd0 the look-ahead
+  // seconds) and the two kinds that read the mouth (8..10).
+  float goalMouthPostOffset_m = 0.0f;
+  float goalMouthLookAhead_s = 0.0f;
+  // FUN_140a07e40's own gate (the net dodge).
+  // The player has to be inside this much of the pitch's x edge
+  // (DAT_14256ae1c = 1).
+  float netEdgeMargin_m = 0.0f;
+  // The ball's step has to clear 100 / (gs * 72) (gs = 54).
+  float netStepDivisor = 72.0f;  // DAT_1425cb47c
+  float netStepNumerator = 100.0f;  // DAT_14253ee30
+  // The last rejection: the residual bearing past the edge has to clear this
+  // (DAT_14259be0c).
+  float netEdgeRejection_deg = 0.0f;
 };
 
 std::optional<DodgeConstants> LoadDodgeConstants(const PeImage& exe, std::string* error);
@@ -136,7 +172,113 @@ int KindRow(const Animetable& t, const Mbinfo& mb, const DodgeConstants& k, int 
 // FUN_140736d30: the speed class 0/1/2.
 int SpeedClass(float speed_kmh, float headingDelta_deg);
 
-// FUN_140a6d380: the ball-height band.
+// FUN_140a7d380: the ball-height band.
 int BallBand(const DodgeConstants& k, float height_m, float bodyScale);
+
+// FUN_140a07bf0: the ball dodge's eligibility. PES reads the player's action
+// class from the role-property table and his team's records; here the class is
+// an input because GF's own anime layer names it, and the two team records
+// come from the caller (the designated ball-owner slot and the last-action
+// player), which GF carries as the designated possession player.
+struct BallEligibilityInput {
+  int roleClass = -1;        // the player's action class (0..93), the table's index
+  bool designatedOwner = false;  // +0x18->0x2600c == playerId: he is the team's designated owner
+  int slot = -1;             // FUN_140a62d20's per-player slot; < 0 when he has none
+  bool ownsBall = false;     // +0xe0->0x4: he holds the ball
+  int teamIndex = -1;        // 0 or 1, which half of the pitch's record set is his
+  bool perTeamActionAllowed = false;  // teamRecord->0x255: the team's own gate
+  int actionSlot = -1;       // FUN_14043b870's action-list index (0x18 = none)
+  int stateAction = -1;      // stateRecord->0x5d0
+  bool lastActionPlayer = false;  // teamRecord->0x78 == playerId
+  int framesSinceEvent = 0;  // (currentFrame - stateRecord->0x10), the last event
+};
+
+// The three PES class tests the eligibility's head runs (FUN_140a6e470 /
+// 140a6e3f0 / 140a6e5e0 over the role table at 0x1426484f0), as one function
+// over the raw class bit word so the caller reads the table once.
+bool BallClassAdmits(const DodgeConstants& k, int roleClass);
+
+bool BallDodgeEligible(const DodgeConstants& k, const BallEligibilityInput& in);
+
+// FUN_140a07570 / FUN_140a07880: the two sub-tests the ball dodge's own
+// dispatcher (FUN_140a072d0) runs between the eligibility and the selector.
+// The caller supplies the angles and times the exe reads itself, so the port
+// stays a pure function.
+struct BallSubTestInput {
+  // FUN_140a07570.
+  float ballStep_m = 0.0f;      // |+0x2948..+0x2950| : the ball's per-frame step
+  float frameY_m = 0.0f;        // the rolled frame record's +4
+  float reach_m = 0.0f;         // the player's reach byte at +0x12a7
+  int recordHalf = -1;          // record0->+4 : which half the record's own team is
+  bool keeperSaveFlag = false;  // record0->+0x2c
+  int liveAction = -1;          // record0->+0 : the player's live anime action
+  int lastTouchSlot = -1;       // the slot of the player who touched the ball last
+  int selfSlot = -1;            // his own slot
+  float selfHeading_deg = 0.0f;         // teamList[selfSlot + 0x247d4]
+  float defendGoalAngle_deg = 0.0f;    // record->0x554 : the goal he defends
+  float otherHeading_deg = 0.0f;       // teamList[lastTouchSlot + 0x247d4]
+  float bearingToBall_deg = 0.0f;      // the bearing from him to the ball
+  float selfTimeToBall_s = 0.0f;       // FUN_14044e0d0(teamList)
+  float otherTimeToBall_s = 0.0f;      // FUN_14044e0d0(teamList, lastTouchSlot)
+  bool hasAnimeSlot = false;     // FUN_1406b4580(ap, 0x15, ...): the anime layer's slot
+  // FUN_140a07880's goal mouth.
+  int targetAction = -1;         // the class of the player the dispatcher picked
+  float ballBearing_deg = 0.0f;  // the bearing from him to the ball's look-ahead
+  float mouthMidAngle_deg = 0.0f;   // the bearing to the mouth's mid sample
+  float mouthFarAngle_deg = 0.0f;   // the bearing to the mouth's far sample
+};
+
+// FUN_140a07570: the ball's step and the look-ahead frame pass, and the
+// heading/window geometry on the ball's last toucher admits him.
+bool BallDodgeSubTestFast(const DodgeConstants& k, const BallSubTestInput& in);
+
+// FUN_140a07880: the goal-mouth window, only for the dodge kinds whose class
+// is 8, 9 or 10 (the kicks).
+bool BallDodgeSubTestMouth(const DodgeConstants& k, const BallSubTestInput& in);
+
+// FUN_140a07e40: the net dodge's own gate. Beyond the goal mouth GF already
+// reads, PES requires the man to be standing on the pitch's x edge, the ball
+// to be stepping, and the ball's bearing to sit inside the wedge the pitch's
+// two corners span.
+struct NetGateInput {
+  bool animeSlot = false;        // FUN_1406b4c10(ap, 0x15)
+  float playerX_m = 0.0f;        // his own x
+  float playerZ_m = 0.0f;        // his own z (PES's pitch is x length, z width)
+  float pitchHalfWidth_m = 0.0f;  // pitch bounds +0
+  float goalHalfWidth_m = 0.0f;   // pitch bounds +2 (the post)
+  float ballStep_m = 0.0f;       // |the ball's look-ahead position|
+  float ballLookAheadBearing_deg = 0.0f;  // the ball's bearing at the look-ahead
+  // The three samples the exe builds, all on the own goal line: the post on
+  // his own side, the post across, and the point directly behind the first.
+  float ownSidePostBearing_deg = 0.0f;
+  float farSidePostBearing_deg = 0.0f;
+  float behindOwnPostBearing_deg = 0.0f;
+};
+
+bool NetDodgeGate(const DodgeConstants& k, const NetGateInput& in);
+
+// FUN_140a0b350: the human dodge's own feature gate, which runs before the
+// opponent scan (FUN_140a08ea0) and decides whether the man may dodge a
+// challenger at all.
+struct HumanGateInput {
+  // The window the exe's last branch tests: the frames since his own last
+  // event, against gs * 0.2 (54 * 0.2 = 10 frames).
+  int framesSinceEvent = 0;
+  // The three gates ahead of it, all of which the exe reads from state GF
+  // carries directly or approximates:
+  bool featureOn = false;      // the behaviour's own on byte
+  bool matchStateOk = true;    // the state that switches the behaviour off
+  bool onRoster = false;       // his slot is on the team's own roster list
+  bool teamGateOpen = false;   // teamRecord->+0x255: the team's own latch
+  bool stateRecordHalfMatches = false;  // the record's own half is his
+  int rosterSlotValue = 0;     // teamRecord[+0x6a4 + (id % 11) * 4]
+  bool ballOwnerIsSelf = false;  // FUN_140a6ce10's ball-owner test
+};
+
+// The last-event window alone, as its own term, so the caller can apply the
+// part GF reads without guessing the rest of the exe's state machine.
+int HumanLastEventFrames(const DodgeConstants& k);
+
+bool HumanDodgeGate(const DodgeConstants& k, const HumanGateInput& in);
 
 }  // namespace pes

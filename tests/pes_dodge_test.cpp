@@ -365,3 +365,435 @@ TEST(PesDodgeGoalSign, TheOwnGoalIsOnTheSidesEnd) {
 }
 
 }  // namespace
+// (FUN_140a07570 / FUN_140a07880). GF has no synthetic exe, so the constants
+// are hand-built and only the install test exercises the table reads.
+namespace {
+
+// The role-class bits, by the three predicates the exe's head runs. Built by
+// hand from the install's own 0x1426484f0 table: class 4 DRIBBLE admits, class
+// 7 TRAP is out on the bit-5 test, class 8 LONG_PASS is out on bit 25, and
+// class 99 is out of range entirely.
+pes::DodgeConstants BallConstants() {
+  pes::DodgeConstants k = Constants();
+  for (auto& b : k.roleBits) b = 0x610003bu;  // a play/receive class by default
+  k.roleBits[4] = 0x00004008u;   // DRIBBLE: admits
+  k.roleBits[7] = 0x00004020u;   // TRAP: bit 5 set -> out
+  k.roleBits[8] = 0x02000000u;   // LONG_PASS: bit 25 set -> out
+  // The last-event window: (54 * 5) / 48 = 5 frames.
+  k.lastEventRollDivisor = 54;
+  k.lastEventFramesPerRoll = 5;
+  k.ballSpeedFloor_mps = 0.8f;
+  k.ballReachPerUnit_m = 0.01f;
+  k.ballReachMargin_m = 0.3f;
+  k.ballWindowHeading_deg = 10.0f;
+  k.ballWindowGoal_deg = 90.0f;
+  // The net gate's own constants (FUN_140a07e40).
+  k.netEdgeMargin_m = 1.0f;
+  k.netStepNumerator = 100.0f;
+  k.netStepDivisor = 72.0f;
+  k.netEdgeRejection_deg = 15.0f;
+  return k;
+}
+
+TEST(PesDodgeBallGate, TheHeadRunsTheThreeClassPredicates) {
+  const pes::DodgeConstants k = BallConstants();
+  EXPECT_TRUE(pes::BallClassAdmits(k, 4));    // DRIBBLE
+  EXPECT_FALSE(pes::BallClassAdmits(k, 7));   // TRAP: bit 5
+  EXPECT_FALSE(pes::BallClassAdmits(k, 8));   // LONG_PASS: bit 25
+  EXPECT_FALSE(pes::BallClassAdmits(k, 99));  // past the table
+  EXPECT_FALSE(pes::BallClassAdmits(k, -1));  // before it
+  // A class whose word carries none of the play bits is out too.
+  pes::DodgeConstants k2 = BallConstants();
+  k2.roleBits[4] = 0x02000000u;  // bit 25 only: admits nothing
+  EXPECT_FALSE(pes::BallClassAdmits(k2, 4));
+}
+
+TEST(PesDodgeBallGate, TheDesignatedOwnerIsAdmittedOutright) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::BallEligibilityInput in;
+  in.roleClass = 4;
+  in.designatedOwner = true;  // the +0x18->0x2600c test: he owns it, done
+  EXPECT_TRUE(pes::BallDodgeEligible(k, in));
+}
+
+TEST(PesDodgeBallGate, TheLastEventWindowHasToClearFiveFrames) {
+  const pes::DodgeConstants k = BallConstants();  // (54*5)/48 = 5
+  pes::BallEligibilityInput in;
+  in.roleClass = 4;
+  in.slot = 3;
+  in.perTeamActionAllowed = true;
+  in.actionSlot = 5;
+  in.framesSinceEvent = 5;
+  EXPECT_TRUE(pes::BallDodgeEligible(k, in));
+  // One frame short: the exe's window is inclusive of the boundary.
+  in.framesSinceEvent = 4;
+  EXPECT_FALSE(pes::BallDodgeEligible(k, in));
+}
+
+TEST(PesDodgeBallGate, TheTeamsOwnActionGateAndTheLastActionPlayer) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::BallEligibilityInput in;
+  in.roleClass = 4;
+  in.slot = 3;
+  in.actionSlot = 5;
+  in.framesSinceEvent = 20;
+  // The team's own gate (teamRecord->0x255) closed: no dodge at all.
+  in.perTeamActionAllowed = false;
+  EXPECT_FALSE(pes::BallDodgeEligible(k, in));
+  // Open, but he is the player the team last acted through.
+  in.perTeamActionAllowed = true;
+  in.lastActionPlayer = true;
+  EXPECT_FALSE(pes::BallDodgeEligible(k, in));
+}
+
+TEST(PesDodgeBallGate, TheActionSlotHasToBeHis) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::BallEligibilityInput in;
+  in.roleClass = 4;
+  in.slot = 3;
+  in.perTeamActionAllowed = true;
+  in.framesSinceEvent = 20;
+  // No slot at all (FUN_140a62d20's 0): the eligibility stops before the
+  // window test.
+  in.slot = -1;
+  in.actionSlot = 5;
+  EXPECT_FALSE(pes::BallDodgeEligible(k, in));
+  in.slot = 3;
+  in.actionSlot = 0x18;  // the "none" index
+  EXPECT_FALSE(pes::BallDodgeEligible(k, in));
+  // 0x18 is accepted when his own state is already a dodge (5).
+  in.stateAction = 5;
+  EXPECT_TRUE(pes::BallDodgeEligible(k, in));
+}
+
+TEST(PesDodgeBallGate, ABallHolderHasToBeInHisOwnHalf) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::BallEligibilityInput in;
+  in.roleClass = 4;
+  in.slot = 3;
+  in.perTeamActionAllowed = true;
+  in.actionSlot = 5;
+  in.framesSinceEvent = 20;
+  // A ball holder on the other half's record set is out (FUN_140a63830's
+  // half test).
+  in.ownsBall = true;
+  in.teamIndex = 1;  // slot 3 is the home half
+  EXPECT_FALSE(pes::BallDodgeEligible(k, in));
+  in.teamIndex = 0;
+  EXPECT_TRUE(pes::BallDodgeEligible(k, in));
+  // Not holding the ball, the half test does not apply.
+  in.ownsBall = false;
+  in.teamIndex = 1;
+  EXPECT_TRUE(pes::BallDodgeEligible(k, in));
+}
+
+TEST(PesDodgeBallGate, SubTestFastRunsTheStepAndTheReachFirst) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::BallSubTestInput in;
+  in.ballStep_m = 1.0f;
+  in.frameY_m = 1.0f;
+  in.reach_m = 200.0f;  // 200 * 0.01 + 0.3 = 2.3 m
+  in.recordHalf = 0;
+  in.selfSlot = 3;
+  in.lastTouchSlot = 3;
+  in.selfHeading_deg = 0.0f;
+  in.bearingToBall_deg = 0.0f;
+  in.hasAnimeSlot = true;
+  EXPECT_TRUE(pes::BallDodgeSubTestFast(k, in));
+  in.ballStep_m = 0.5f;  // under the 0.8 step floor
+  EXPECT_FALSE(pes::BallDodgeSubTestFast(k, in));
+  in.ballStep_m = 1.0f;
+  in.frameY_m = 2.4f;  // past his reach
+  EXPECT_FALSE(pes::BallDodgeSubTestFast(k, in));
+  in.frameY_m = 1.0f;
+  in.recordHalf = 1;  // the wrong half's record
+  EXPECT_FALSE(pes::BallDodgeSubTestFast(k, in));
+  in.recordHalf = 0;
+  in.keeperSaveFlag = true;  // the save flag bypasses the half test
+  EXPECT_TRUE(pes::BallDodgeSubTestFast(k, in));
+  in.keeperSaveFlag = false;
+  in.selfHeading_deg = 40.0f;  // the ball well off his heading
+  in.defendGoalAngle_deg = 90.0f;
+  EXPECT_FALSE(pes::BallDodgeSubTestFast(k, in));
+}
+
+TEST(PesDodgeBallGate, SubTestFastReadsHisHeadingOrTheGoalHeDefends) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::BallSubTestInput in;
+  in.ballStep_m = 1.0f;
+  in.frameY_m = 1.0f;
+  in.reach_m = 200.0f;
+  in.recordHalf = 0;
+  in.selfSlot = 3;
+  in.lastTouchSlot = 3;  // he touched it last
+  in.hasAnimeSlot = true;
+  // Within 10 deg off his heading.
+  in.selfHeading_deg = 0.0f;
+  in.defendGoalAngle_deg = 170.0f;
+  in.bearingToBall_deg = 9.0f;
+  EXPECT_TRUE(pes::BallDodgeSubTestFast(k, in));
+  // Off both, but inside the wrap: 179 deg apart is really 1 deg.
+  in.bearingToBall_deg = 181.0f;
+  EXPECT_FALSE(pes::BallDodgeSubTestFast(k, in));
+  // Off his heading, but on the goal he defends.
+  in.selfHeading_deg = 90.0f;
+  in.defendGoalAngle_deg = -170.0f;
+  in.bearingToBall_deg = -179.0f;
+  EXPECT_TRUE(pes::BallDodgeSubTestFast(k, in));
+}
+
+TEST(PesDodgeBallGate, SubTestFastTakesTheTimeToBallWhenSomebodyElseTouched) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::BallSubTestInput in;
+  in.ballStep_m = 1.0f;
+  in.frameY_m = 1.0f;
+  in.reach_m = 200.0f;
+  in.recordHalf = 1;
+  in.selfSlot = 14;
+  in.lastTouchSlot = 5;
+  in.otherHeading_deg = 0.0f;
+  in.bearingToBall_deg = 45.0f;
+  in.hasAnimeSlot = true;
+  EXPECT_TRUE(pes::BallDodgeSubTestFast(k, in));
+  // They get there first.
+  in.selfTimeToBall_s = 3.0f;
+  in.otherTimeToBall_s = 1.0f;
+  EXPECT_FALSE(pes::BallDodgeSubTestFast(k, in));
+  // He gets there first, but the ball is off their heading by more than 90.
+  in.selfTimeToBall_s = 1.0f;
+  in.otherTimeToBall_s = 3.0f;
+  in.otherHeading_deg = 0.0f;
+  in.bearingToBall_deg = 180.0f;
+  EXPECT_FALSE(pes::BallDodgeSubTestFast(k, in));
+}
+
+TEST(PesDodgeBallGate, SubTestFastFallsThroughWhenNobodyTouched) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::BallSubTestInput in;
+  in.ballStep_m = 1.0f;
+  in.frameY_m = 1.0f;
+  in.reach_m = 200.0f;
+  in.recordHalf = 0;
+  in.selfSlot = 3;
+  in.lastTouchSlot = 22;  // the 0x16 "no player" answer
+  in.hasAnimeSlot = true;
+  in.liveAction = 5;  // DRIBBLE_SIDE_BACK
+  EXPECT_TRUE(pes::BallDodgeSubTestFast(k, in));
+  // The locos and STAGGER are out.
+  for (int a : {1, 2, 3, 0x10}) {
+    in.liveAction = a;
+    EXPECT_FALSE(pes::BallDodgeSubTestFast(k, in)) << "action " << a;
+  }
+  in.liveAction = 0x15;  // already dodging: falls through, but no anime slot
+  in.hasAnimeSlot = false;
+  EXPECT_FALSE(pes::BallDodgeSubTestFast(k, in));
+}
+
+TEST(PesDodgeBallGate, SubTestMouthOnlyRunsForTheKickClasses) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::BallSubTestInput in;
+  in.mouthMidAngle_deg = -10.0f;
+  in.mouthFarAngle_deg = 10.0f;
+  in.ballBearing_deg = 0.0f;  // inside the wedge
+  // Only 8, 9 and 10 (the kicks) read the mouth.
+  for (int a : {8, 9, 10}) {
+    in.targetAction = a;
+    EXPECT_TRUE(pes::BallDodgeSubTestMouth(k, in)) << "action " << a;
+  }
+  // Outside the band the mouth is not read at all, so a ball far outside the
+  // wedge still passes.
+  in.ballBearing_deg = 90.0f;
+  for (int a : {4, 5, 6, 7, 11, 12}) {
+    in.targetAction = a;
+    EXPECT_TRUE(pes::BallDodgeSubTestMouth(k, in)) << "action " << a;
+  }
+  // Inside the band, the wedge bounds it.
+  in.ballBearing_deg = 0.0f;
+  in.targetAction = 9;
+  EXPECT_TRUE(pes::BallDodgeSubTestMouth(k, in));
+  in.ballBearing_deg = 30.0f;  // past the far edge
+  EXPECT_FALSE(pes::BallDodgeSubTestMouth(k, in));
+  in.ballBearing_deg = -30.0f;  // past the mid edge
+  EXPECT_FALSE(pes::BallDodgeSubTestMouth(k, in));
+}
+
+
+// The net dodge's own gate (FUN_140a07e40), past the goal mouth GF already
+// reads: he has to be on the pitch's x edge, the ball has to be stepping, and
+// its bearing has to sit inside the sample pair the exe picks.
+TEST(PesDodgeNetGate, HeHasToStandOnThePitchsXEdge) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::NetGateInput in;
+  in.animeSlot = true;
+  in.pitchHalfWidth_m = 52.5f;
+  in.goalHalfWidth_m = 3.7f;
+  in.playerX_m = 52.5f;   // right on the edge
+  in.playerZ_m = 0.0f;
+  in.ballStep_m = 1.0f;
+  in.ballLookAheadBearing_deg = 100.0f;
+  in.ownSidePostBearing_deg = 80.0f;
+  in.farSidePostBearing_deg = 100.0f;
+  EXPECT_TRUE(pes::NetDodgeGate(k, in));
+  // Mid-pitch: the edge test fails.
+  in.playerX_m = 30.0f;
+  EXPECT_FALSE(pes::NetDodgeGate(k, in));
+  // Exactly one metre inside the edge still passes (|x| >= halfW - 1).
+  in.playerX_m = 51.6f;
+  EXPECT_TRUE(pes::NetDodgeGate(k, in));
+  in.playerX_m = 51.4f;
+  EXPECT_FALSE(pes::NetDodgeGate(k, in));
+  // Without the anime layer's slot the gate stops before the geometry.
+  in.playerX_m = 52.5f;
+  in.animeSlot = false;
+  EXPECT_FALSE(pes::NetDodgeGate(k, in));
+}
+
+TEST(PesDodgeNetGate, TheBallsStepHasToClearTheFloor) {
+  const pes::DodgeConstants k = BallConstants();  // 100 / (54 * 72) = 0.0257
+  pes::NetGateInput in;
+  in.animeSlot = true;
+  in.pitchHalfWidth_m = 52.5f;
+  in.goalHalfWidth_m = 3.7f;
+  in.playerX_m = 52.5f;
+  in.playerZ_m = 6.0f;  // wide of the goal: the behind-post pair
+  in.ballStep_m = 0.05f;
+  in.ballLookAheadBearing_deg = 90.0f;
+  in.ownSidePostBearing_deg = 80.0f;
+  in.behindOwnPostBearing_deg = 100.0f;
+  in.farSidePostBearing_deg = 0.0f;  // unused in this branch
+  EXPECT_TRUE(pes::NetDodgeGate(k, in));
+  in.ballStep_m = 0.02f;  // under 100/(54*72)
+  EXPECT_FALSE(pes::NetDodgeGate(k, in));
+}
+
+TEST(PesDodgeNetGate, InLineWithTheGoalTheBallHasToBeBetweenThePosts) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::NetGateInput in;
+  in.animeSlot = true;
+  in.pitchHalfWidth_m = 52.5f;
+  in.goalHalfWidth_m = 3.7f;
+  in.playerX_m = 52.5f;
+  in.playerZ_m = 0.0f;  // in line with the goal: the post pair
+  in.ballStep_m = 1.0f;
+  in.ownSidePostBearing_deg = -10.0f;
+  in.farSidePostBearing_deg = 10.0f;
+  in.behindOwnPostBearing_deg = 90.0f;  // unused in this branch
+  in.ballLookAheadBearing_deg = 0.0f;  // inside
+  EXPECT_TRUE(pes::NetDodgeGate(k, in));
+  in.ballLookAheadBearing_deg = 15.0f;  // past the far post
+  EXPECT_FALSE(pes::NetDodgeGate(k, in));
+  in.ballLookAheadBearing_deg = -15.0f;  // past the near post
+  EXPECT_FALSE(pes::NetDodgeGate(k, in));
+}
+
+TEST(PesDodgeNetGate, WideOfTheGoalTheBallHasToBePastThePost) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::NetGateInput in;
+  in.animeSlot = true;
+  in.pitchHalfWidth_m = 52.5f;
+  in.goalHalfWidth_m = 3.7f;
+  in.playerX_m = 52.5f;
+  in.playerZ_m = 8.0f;  // wide of the goal: the behind-post pair
+  in.ballStep_m = 1.0f;
+  // The behind-post pair spans [-10, 20] and the post pair [20, 80]: a ball
+  // bearing inside one and outside the other tells the two branches apart.
+  in.ownSidePostBearing_deg = 20.0f;
+  in.behindOwnPostBearing_deg = -10.0f;
+  in.farSidePostBearing_deg = 80.0f;  // unused in this branch
+  in.ballLookAheadBearing_deg = 10.0f;  // inside the behind-post pair only
+  EXPECT_TRUE(pes::NetDodgeGate(k, in));
+  in.ballLookAheadBearing_deg = 50.0f;  // inside the post pair only
+  EXPECT_FALSE(pes::NetDodgeGate(k, in));
+}
+
+TEST(PesDodgeNetGate, TheResidualBearingHasToClearFifteenDeg) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::NetGateInput in;
+  in.animeSlot = true;
+  in.pitchHalfWidth_m = 52.5f;
+  in.goalHalfWidth_m = 3.7f;
+  in.playerX_m = 52.0f;  // inside the edge: the residual test applies
+  in.playerZ_m = 0.0f;
+  in.ballStep_m = 1.0f;
+  in.ownSidePostBearing_deg = 60.0f;
+  in.farSidePostBearing_deg = 120.0f;
+  in.behindOwnPostBearing_deg = 0.0f;  // unused in this branch
+  in.ballLookAheadBearing_deg = 90.0f;  // 30 deg off his own post
+  EXPECT_TRUE(pes::NetDodgeGate(k, in));
+  in.ballLookAheadBearing_deg = 65.0f;  // only 5 deg off it
+  EXPECT_FALSE(pes::NetDodgeGate(k, in));
+  // Past the edge the residual test does not run.
+  in.playerX_m = 52.5f;
+  in.ballLookAheadBearing_deg = 65.0f;
+  EXPECT_TRUE(pes::NetDodgeGate(k, in));
+}
+
+
+// The human dodge's feature gate (FUN_140a0b350): the match-state gates, the
+// roster, the team latch and the last-event window.
+TEST(PesDodgeHumanGate, TheLastEventWindowIsGsTimesAPointTwo) {
+  const pes::DodgeConstants k = BallConstants();  // gs = 54
+  EXPECT_EQ(pes::HumanLastEventFrames(k), 10);    // 54 * 0.2 = 10.8 -> 10
+  pes::HumanGateInput in;
+  in.featureOn = true;
+  in.onRoster = true;
+  in.stateRecordHalfMatches = true;
+  in.framesSinceEvent = 10;
+  EXPECT_TRUE(pes::HumanDodgeGate(k, in));
+  in.framesSinceEvent = 9;
+  EXPECT_FALSE(pes::HumanDodgeGate(k, in));
+}
+
+TEST(PesDodgeHumanGate, TheMatchStateAndTheFeatureSwitchItOff) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::HumanGateInput in;
+  in.featureOn = true;
+  in.onRoster = true;
+  in.stateRecordHalfMatches = true;
+  in.framesSinceEvent = 50;
+  EXPECT_TRUE(pes::HumanDodgeGate(k, in));
+  in.featureOn = false;
+  EXPECT_FALSE(pes::HumanDodgeGate(k, in));
+  in.featureOn = true;
+  in.matchStateOk = false;  // the state that switches the behaviour off
+  EXPECT_FALSE(pes::HumanDodgeGate(k, in));
+}
+
+TEST(PesDodgeHumanGate, TheRosterAndTheTeamsLatch) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::HumanGateInput in;
+  in.featureOn = true;
+  in.onRoster = true;
+  in.stateRecordHalfMatches = true;
+  in.framesSinceEvent = 50;
+  EXPECT_TRUE(pes::HumanDodgeGate(k, in));
+  in.onRoster = false;
+  EXPECT_FALSE(pes::HumanDodgeGate(k, in));
+  in.onRoster = true;
+  in.stateRecordHalfMatches = false;
+  EXPECT_FALSE(pes::HumanDodgeGate(k, in));
+  in.stateRecordHalfMatches = true;
+  in.teamGateOpen = true;  // the team's own latch closed
+  EXPECT_FALSE(pes::HumanDodgeGate(k, in));
+}
+
+TEST(PesDodgeHumanGate, TheBallOwnerTestOnlyRunsOnAPopulatedSlot) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::HumanGateInput in;
+  in.featureOn = true;
+  in.onRoster = true;
+  in.stateRecordHalfMatches = true;
+  in.framesSinceEvent = 50;
+  // An empty roster slot never runs the ball-owner test.
+  in.rosterSlotValue = 0;
+  in.ballOwnerIsSelf = true;
+  EXPECT_TRUE(pes::HumanDodgeGate(k, in));
+  // A populated one does.
+  in.rosterSlotValue = 5;
+  in.ballOwnerIsSelf = true;
+  EXPECT_FALSE(pes::HumanDodgeGate(k, in));
+  in.ballOwnerIsSelf = false;
+  EXPECT_TRUE(pes::HumanDodgeGate(k, in));
+}
+
+}  // namespace

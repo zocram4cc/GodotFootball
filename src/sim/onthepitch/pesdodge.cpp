@@ -12,6 +12,14 @@
 namespace pes {
 namespace {
 
+// The exe's own 360 wrap (FUN_14043a0a0), for the dodge's angle differences.
+float Wrap180Deg(float a) {
+  while (a > 180.0f) a -= 360.0f;
+  while (a <= -180.0f) a += 360.0f;
+  return a;
+}
+
+
 // Each constant is read through an opcode-checked instruction that references
 // it, so a different executable fails the load instead of silently reading the
 // wrong numbers (the animetable/mbinfo pattern, animetable.cpp's Imm table).
@@ -27,6 +35,8 @@ constexpr Imm KIND_TABLE = {0x14073a076, {0x4c, 0x8d, 0x05}, 3, 3, 4};
 constexpr Imm BALL_GRID = {0x14073593e, {0x66, 0x0f, 0x6f, 0x05}, 4, 4, 4};
 // FUN_140a6d383: LEA RCX,[RIP+disp32] -> 0x14264866c (band table).
 constexpr Imm BAND_TABLE = {0x140a6d383, {0x48, 0x8d, 0x0d}, 3, 3, 4};
+// FUN_140a6e470's LEA RCX,[RIP+disp32] -> 0x1426484f0 (the role table).
+constexpr Imm ROLE_BITS = {0x140a6e47b, {0x48, 0x8d, 0x0d}, 3, 3, 4};
 // FUN_1407368d0's post grid: the MOVDQA XMM2,[RIP+disp32] at 0x140736a72.
 constexpr Imm POST_GRID = {0x140736a72, {0x66, 0x0f, 0x6f, 0x15}, 4, 4, 4};
 
@@ -54,6 +64,21 @@ constexpr uint64_t SPEED_CLASS_1_VA = 0x1425a1ffc;
 constexpr uint64_t POST_SPEED_FLOOR_VA = 0x14259bdf4, POST_SIDE_VA = 0x142591140,
                    POST_NEAR_VA = 0x14259be30, POST_COL_TOP_VA = 0x14259be60,
                    POST_FAR_LO_VA = 0x14259a764, POST_FAR_HI_VA = 0x14256ae30;
+// The ball dodge's eligibility and its two sub-tests (FUN_140a07bf0,
+// FUN_140a07570, FUN_140a07880).
+constexpr uint64_t GAME_SPEED_VA = 0x14351ae50;           // 54, gsInt (pesstamina.cpp)
+constexpr uint64_t BALL_SPEED_VA = 0x14263f000;           // 0.8, m/s
+constexpr uint64_t BALL_REACH_VA = 0x14256ae18;           // 0.01, m per reach unit
+constexpr uint64_t BALL_MARGIN_VA = 0x142590d98;          // 0.3, m
+constexpr uint64_t BALL_WINDOW_HEADING_VA = 0x142588210;  // 10, deg off the heading
+constexpr uint64_t BALL_WINDOW_GOAL_VA = 0x14259be5c;     // 90, deg off the goal axis
+constexpr uint64_t GOAL_POST_OFFSET_VA = 0x14259bde8;     // the post past the goal line
+constexpr uint64_t GOAL_LOOKAHEAD_VA = 0x14259bdd0;       // the look-ahead seconds
+// FUN_140a07e40's own gate (the net dodge).
+constexpr uint64_t NET_EDGE_VA = 0x14256ae1c;         // 1, the edge margin
+constexpr uint64_t NET_STEP_NUM_VA = 0x14253ee30;      // 100
+constexpr uint64_t NET_STEP_DIV_VA = 0x1425cb47c;      // 72
+constexpr uint64_t NET_REJECT_VA = 0x14259be0c;        // the residual bearing floor
 
 bool ReadImm32(const PeImage& exe, const Imm& imm, int64_t* out) {
   uint8_t code[4] = {};
@@ -80,6 +105,11 @@ bool ReadRipTarget(const PeImage& exe, const Imm& imm, uint64_t* target) {
 }
 
 bool ReadF32(const PeImage& exe, uint64_t va, float* out) {
+  return exe.ReadVa(va, 4, reinterpret_cast<uint8_t*>(out));
+}
+
+// The game-speed divisor is a plain int32 in .data (pesstamina.cpp's read).
+bool ReadI32(const PeImage& exe, uint64_t va, int32_t* out) {
   return exe.ReadVa(va, 4, reinterpret_cast<uint8_t*>(out));
 }
 
@@ -191,6 +221,40 @@ std::optional<DodgeConstants> LoadDodgeConstants(const PeImage& exe, std::string
   if (!ReadF32(exe, HUMAN_DIST_VA, &k.humanDistSq) || !ReadF32(exe, BEHIND_VA, &k.behindAngle_deg) ||
       !ReadF32(exe, BEARING_VA, &k.bearingAngle_deg)) {
     *error = "dodge: human distances unreadable";
+    return std::nullopt;
+  }
+  // The action-class table (0x1426484f0), read through FUN_140a6e470's own
+  // LEA so a different executable fails instead of reading the wrong bits.
+  uint64_t roleVa = 0;
+  if (!ReadRipTarget(exe, ROLE_BITS, &roleVa)) {
+    *error = "dodge: role table reference is not the PES 2021 instruction this was found in";
+    return std::nullopt;
+  }
+  for (int i = 0; i < 94; ++i) {
+    uint8_t b[4] = {};
+    if (!exe.ReadVa(roleVa + 4 * i, 4, b)) {
+      *error = "dodge: role table unreadable";
+      return std::nullopt;
+    }
+    std::memcpy(&k.roleBits[i], b, 4);
+  }
+  if (!ReadI32(exe, GAME_SPEED_VA, &k.lastEventRollDivisor) || k.lastEventRollDivisor < 0) {
+    *error = "dodge: game speed divisor unreadable";
+    return std::nullopt;
+  }
+  k.lastEventFramesPerRoll = 5;  // `lea ecx,[rax+rax*4]` @0x140a07da3
+  if (!ReadF32(exe, BALL_SPEED_VA, &k.ballSpeedFloor_mps) ||
+      !ReadF32(exe, BALL_REACH_VA, &k.ballReachPerUnit_m) ||
+      !ReadF32(exe, BALL_MARGIN_VA, &k.ballReachMargin_m) ||
+      !ReadF32(exe, BALL_WINDOW_HEADING_VA, &k.ballWindowHeading_deg) ||
+      !ReadF32(exe, BALL_WINDOW_GOAL_VA, &k.ballWindowGoal_deg) ||
+      !ReadF32(exe, GOAL_POST_OFFSET_VA, &k.goalMouthPostOffset_m) ||
+      !ReadF32(exe, GOAL_LOOKAHEAD_VA, &k.goalMouthLookAhead_s) ||
+      !ReadF32(exe, NET_EDGE_VA, &k.netEdgeMargin_m) ||
+      !ReadF32(exe, NET_STEP_NUM_VA, &k.netStepNumerator) ||
+      !ReadF32(exe, NET_STEP_DIV_VA, &k.netStepDivisor) ||
+      !ReadF32(exe, NET_REJECT_VA, &k.netEdgeRejection_deg)) {
+    *error = "dodge: ball gate constants unreadable";
     return std::nullopt;
   }
   return k;
@@ -338,6 +402,143 @@ PostAngles PostAnglesFor(int side, float playerX, float playerY, float ballX, fl
   while (a.approachRel_deg > 180.0f) a.approachRel_deg -= 360.0f;
   while (a.approachRel_deg <= -180.0f) a.approachRel_deg += 360.0f;
   return a;
+}
+
+bool BallClassAdmits(const DodgeConstants& k, int roleClass) {
+  // FUN_140a07bf0's head, three predicates over the role table at 0x1426484f0:
+  // FUN_140a6e470 (bit 25) must be clear, FUN_140a6e3f0 (any of bits 0,1,4,5
+  // and 0x6100000) must be set, FUN_140a6e5e0 (bit 5) must be clear. Roles
+  // past the 94-entry table answer false, exactly as the exe's bounds check.
+  if (roleClass < 0 || roleClass >= 94) return false;
+  const uint32_t bits = k.roleBits[roleClass];
+  if ((bits >> 25) & 1u) return false;
+  if ((bits & 0x610003bu) == 0) return false;
+  if ((bits >> 5) & 1u) return false;
+  return true;
+}
+
+bool BallDodgeEligible(const DodgeConstants& k, const BallEligibilityInput& in) {
+  // FUN_140a07bf0, in the exe's order.
+  if (!BallClassAdmits(k, in.roleClass)) return false;
+  // He is the team's designated ball owner: the eligibility admits him outright.
+  if (in.designatedOwner) return true;
+  if (in.slot < 0) return false;
+  // A ball holder has to be in the same half's record set as the slot.
+  if (in.ownsBall && in.teamIndex != (in.slot >= 11 ? 1 : 0)) return false;
+  if (!in.perTeamActionAllowed) return false;
+  // The action-list slot must be a real one (0x18 is "none"), or his state is
+  // already a dodge (5).
+  if (in.actionSlot == 0x18 && in.stateAction != 5) return false;
+  // He may not be the player the team last acted through.
+  if (in.lastActionPlayer) return false;
+  // The last-event window: the frames since his own last event have to clear
+  // (rng * 5) / 48, rng being the game-speed divisor the exe rolls.
+  const int framesNeeded =
+      (k.lastEventRollDivisor * k.lastEventFramesPerRoll) / 48;
+  return in.framesSinceEvent >= framesNeeded;
+}
+
+bool BallDodgeSubTestFast(const DodgeConstants& k, const BallSubTestInput& in) {
+  // FUN_140a07570, in the exe's order.
+  // The ball has to be stepping (0.8) and the rolled frame's height under his
+  // reach (the reach byte * 0.01 + the 0.3 margin).
+  if (in.ballStep_m < k.ballSpeedFloor_mps) return false;
+  if (in.frameY_m >= in.reach_m * k.ballReachPerUnit_m + k.ballReachMargin_m) return false;
+  // The record's own half has to be his, or the keeper save flag is set
+  // (`record0->+4 == (id >= 11) || record0->+0x2c`).
+  if (!in.keeperSaveFlag && in.recordHalf != ((in.selfSlot >= 11) ? 1 : 0)) return false;
+  // Who touched the ball last picks the branch.
+  if (in.lastTouchSlot == in.selfSlot) {
+    // The bearing to the ball within 10 deg of his heading, or of the goal he
+    // defends (rec->0x554). Either admits him.
+    if (std::fabs(Wrap180Deg(in.selfHeading_deg - in.bearingToBall_deg)) < k.ballWindowHeading_deg)
+      return true;
+    return std::fabs(Wrap180Deg(in.defendGoalAngle_deg - in.bearingToBall_deg)) <
+           k.ballWindowHeading_deg;
+  }
+  if (in.lastTouchSlot >= 0 && in.lastTouchSlot < 22) {
+    // Somebody else touched it: he has to reach the ball no later than they
+    // did, and the bearing off THEIR heading is inside 90 deg.
+    if (in.selfTimeToBall_s > in.otherTimeToBall_s) return false;
+    return std::fabs(Wrap180Deg(in.otherHeading_deg - in.bearingToBall_deg)) <=
+           k.ballWindowGoal_deg;
+  }
+  // Nobody (>= 22): the live action decides. The locos and STAGGER are out;
+  // everything else passes the geometry and falls through to the anime slot.
+  if (in.liveAction >= 1 && in.liveAction <= 3) return false;
+  return in.liveAction != 0x10 && in.hasAnimeSlot;
+}
+
+bool BallDodgeSubTestMouth(const DodgeConstants& k, const BallSubTestInput& in) {
+  // FUN_140a07880. Only the kinds whose class is 8, 9 or 10 (the kicks) read
+  // the goal mouth; the rest fall through to the selector.
+  if (in.targetAction < 8 || in.targetAction > 10) return true;
+  // The exe builds three sample x on the goal line: the mouth's edge past the
+  // post (the pitch's z edge + the post offset, times his side), the pitch's
+  // own far x edge, and the third on the opposite side. The ball's bearing to
+  // its look-ahead position has to sit inside the wedge two of them span:
+  // signedAngle(near, ball) >= 0 and signedAngle(far, ball) <= 0.
+  return Wrap180Deg(in.ballBearing_deg - in.mouthMidAngle_deg) >= 0.0f &&
+         Wrap180Deg(in.ballBearing_deg - in.mouthFarAngle_deg) <= 0.0f;
+}
+
+bool NetDodgeGate(const DodgeConstants& k, const NetGateInput& in) {
+  // FUN_140a07e40, in the exe's order.
+  // He has to stand on the pitch's x edge: |x| >= halfWidth - 1.
+  if (std::fabs(in.playerX_m) < in.pitchHalfWidth_m - k.netEdgeMargin_m) return false;
+  // The anime layer has to have the dodge slot.
+  if (!in.animeSlot) return false;
+  // The ball's step over the look-ahead has to clear 100 / (gs * 72).
+  const float floor_m = k.netStepNumerator / (k.lastEventRollDivisor * k.netStepDivisor);
+  if (in.ballStep_m <= floor_m) return false;
+  // The exe picks two samples by which side of the goal half-width his z is
+  // on. In line with the goal they are the two posts: the ball's bearing has
+  // to sit between them, i.e. it is heading into the mouth. Wide of the goal
+  // they are the post on his side and the point directly behind it: the ball
+  // is heading out past the post instead.
+  const bool wide = std::fabs(in.playerZ_m) > in.goalHalfWidth_m;
+  const float lo = wide ? std::min(in.ownSidePostBearing_deg, in.behindOwnPostBearing_deg)
+                        : std::min(in.ownSidePostBearing_deg, in.farSidePostBearing_deg);
+  const float hi = wide ? std::max(in.ownSidePostBearing_deg, in.behindOwnPostBearing_deg)
+                        : std::max(in.ownSidePostBearing_deg, in.farSidePostBearing_deg);
+  const float ball = Wrap180Deg(in.ballLookAheadBearing_deg);
+  if (ball < lo || ball > hi) return false;
+  // Standing inside the pitch's edge, the residual bearing from the ball to
+  // the post on his own side has to clear 15 deg.
+  if (std::fabs(in.playerX_m) < in.pitchHalfWidth_m) {
+    const float residual = Wrap180Deg(ball - in.ownSidePostBearing_deg);
+    if (std::fabs(residual) < k.netEdgeRejection_deg) return false;
+  }
+  return true;
+}
+
+int HumanLastEventFrames(const DodgeConstants& k) {
+  // FUN_140a0b350's window: `gs * DAT_142598578` frames, with gs the
+  // game-speed divisor. 54 * 0.2 = 10 frames (the exe divides by 48's
+  // equivalent through the float path, so the compare is a float one).
+  return static_cast<int>(k.lastEventRollDivisor * 0.2f);
+}
+
+bool HumanDodgeGate(const DodgeConstants& k, const HumanGateInput& in) {
+  // FUN_140a0b350, in the exe's order.
+  // The behaviour has to be enabled and the match not in the state that
+  // switches it off.
+  if (!in.featureOn) return false;
+  if (!in.matchStateOk) return false;
+  // He has to be on the team's own roster list.
+  if (!in.onRoster) return false;
+  // The state record's own half has to be his, which is the half the
+  // challenger scan (FUN_140a08ea0) runs for.
+  if (!in.stateRecordHalfMatches) return false;
+  // The last-event window: the frames since his own last event have to clear
+  // gs * 0.2.
+  if (in.framesSinceEvent < HumanLastEventFrames(k)) return false;
+  // The team's own latch has to be closed.
+  if (in.teamGateOpen) return false;
+  // When his own team's roster slot carries a value, the ball-owner test
+  // decides; otherwise the gate is open.
+  if (in.rosterSlotValue != 0 && in.ballOwnerIsSelf) return false;
+  return true;
 }
 
 }  // namespace pes
