@@ -68,9 +68,11 @@ void PrintMatchReport(Match& match, FILE* out) {
   std::fprintf(out, "[balance-passing] passes %i-%i | accuracy %i%%-%i%% | clean %i%%-%i%% | clearances %i-%i\n",
          passes1, passes2, passAccuracy1, passAccuracy2, cleanPct1, cleanPct2,
          matchData->GetClearances(0), matchData->GetClearances(1));
-  std::fprintf(out, "[offball] chance runs %i-%i | mask walks %i-%i | stop fires %i-%i\n",
-         matchData->GetChanceRuns(0), matchData->GetChanceRuns(1), matchData->GetMaskWalks(0),
-         matchData->GetMaskWalks(1), matchData->GetStopFires(0), matchData->GetStopFires(1));
+  std::fprintf(out,
+         "[offball] chance runs %i-%i | team ticks %i-%i | mask walks %i-%i | stop fires %i-%i\n",
+         matchData->GetChanceRuns(0), matchData->GetChanceRuns(1), matchData->GetTeamTicks(0),
+         matchData->GetTeamTicks(1), matchData->GetMaskWalks(0), matchData->GetMaskWalks(1),
+         matchData->GetStopFires(0), matchData->GetStopFires(1));
   // The dodge reaction, per PES kind, home first. A kind that reads 0 is not
   // necessarily silent: its predicate may never fire, or its selector may find
   // no clip. The net dodge's own gate and the post dodge's geometry are the

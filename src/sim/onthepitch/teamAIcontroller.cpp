@@ -2428,6 +2428,7 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   // slot: it is evaluated once here and passed down. When it fails the mask is
   // not walked at all, the histogram files the reason once, and the lowered-cap
   // release still runs.
+  match->GetMatchData()->AddTeamTick(team->GetID());
   const int teamGate = ob::TeamChanceMayRunReject(world, team->GetID());
   const bool teamMayRun = teamGate == ob::kMaskPass;
   if (!teamMayRun) {
