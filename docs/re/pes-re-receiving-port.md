@@ -69,10 +69,15 @@ The final code (with the arbitration correction below) has run seed 7 only: 80/7
   - What I found: the readers of trap.o (registry 0x3e), 13 call sites. `FUN_14084bbd0` reads offsetPos_Dash/Idle/Run, `FUN_140857840` reads `+0xd5`, `FUN_140862530` reads ballControlRate, `FUN_140862370` reads `+0x40`.
   - The ball push itself was not traced. GF's touch physics stays.
 - **The 22-player conflict loop** (`FUN_1409fa720` tail) and **`FUN_1409f9600`**: not reduced.
-- **The throw-in stall.**
-  - The open-play limit on PASS_GET is still in place.
-  - Facts: the stall sat at a throw-in with the ball 8 m outside the touch line, inPlay 1, setPiece 1, the taker forced from 0.3 m.
-  - `Match::ResetSituation` clears the event ring and the pass targets, so a stale pass cannot be the cause.
+- ~~**The throw-in stall.**~~ **Closed, and it was never a stale pass.** Two
+  commits later the cause was found: the ball was bumped off the throw-in spot
+  during the restart hold, past the line where every touch anim is refused as out
+  of bounds, so the taker never threw and the referee never ended the restart
+  (`f69aa74`). With that fixed the open-play limit on PASS_GET was removed too -
+  the movement selector's state 2 reads only "the team's pass target is this
+  player", with no restart condition, and the pass target is cleared when a
+  restart is set up. Full gate 644/644, smoke exit 0, accuracy unchanged within
+  noise. The limit's own note said it was a workaround; it is gone.
   - I suspect the kick scatter on throw-ins that Main fixed [INFERENCE]. That run with the gate removed was killed by the stop order, so the cause is unconfirmed.
 - **Reaction order docs.** The defender port's map row still says "receive" comes first; it should read tackle, slide, then receive (entry 3).
 
