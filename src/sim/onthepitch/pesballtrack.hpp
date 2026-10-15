@@ -2,6 +2,7 @@
 #define _HPP_ONTHEPITCH_PESBALLTRACK
 
 #include <array>
+#include <cmath>
 
 #include "onthepitch/pesball.hpp"
 #include "onthepitch/pesballcollision.hpp"
@@ -23,10 +24,26 @@ const T& TrackRecord(const std::array<T, kTrackLength>& track, unsigned n) {
   return track[n < kTrackLength ? n : kTrackLength - 1];
 }
 
-// The record a time in GF milliseconds reads. PES's records fall on its 54 Hz
-// ticks, so a time takes the last record at or before it.
-inline unsigned TrackIndexForMs(unsigned ms) {
-  return ms * static_cast<unsigned>(pes::kPesTickHz) / static_cast<unsigned>(pes::kMilliPerUnit);
+// The track at a GF time in milliseconds, linearly interpolated between the two PES records
+// that bracket it. PES's readers take whole frames; GF's AI asks in milliseconds. A read that
+// floors to a frame turns a 10 ms finite difference into zero for about half its calls, so the
+// AI reads between the records instead.
+// ponytail: linear interpolation between PES's own records stands in for a frame-exact read,
+// which PES's AI never needs. The error is the curvature across one 18.5 ms record.
+template <class V>
+V TrackAt(const std::array<V, kTrackLength>& track, double ms) {
+  const double x = ms * pes::kPesTickHz / pes::kMilliPerUnit;  // records since record 0
+  const double base = std::floor(x);
+  const unsigned n = base < 0.0 ? 0u : static_cast<unsigned>(base);
+  const float f = static_cast<float>(x - base);
+  return TrackRecord(track, n) * (1.0f - f) + TrackRecord(track, n + 1) * f;
+}
+
+// GF's AI horizon: a read past ballPredictionSize_ms - 10 takes the horizon's last sample, as
+// the 10 ms grid always did.
+inline double ClampToAiHorizon(double ms, double predictionSizeMs) {
+  const double horizon = predictionSizeMs - 10.0;
+  return ms < horizon ? ms : horizon;
 }
 
 struct TrackStart {

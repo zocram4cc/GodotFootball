@@ -1,14 +1,15 @@
 #include <gtest/gtest.h>
 
-#include "onthepitch/ball.hpp"
+#include <array>
+
 #include "onthepitch/pesball.hpp"
 #include "onthepitch/pesballphysics.hpp"
 #include "onthepitch/pesballtrack.hpp"
 #include "pes_synthetic_ball.hpp"
 
-// PES's ball prediction sampler (docs/re/pes-re-officials-ball.md 5.3): BallInfo
-// holds 250 future records, one per PES tick. The pure rules are tested against
-// synthetic constants; no install is needed.
+// PES's ball prediction sampler (docs/re/pes-re-officials-ball.md 5.3): BallInfo holds 250
+// future records, one per PES tick. The pure rules are tested against synthetic constants;
+// no install is needed.
 namespace {
 
 using pes::PesBallConstants;
@@ -16,6 +17,8 @@ using pes::Vec3;
 using pesball::BallState;
 using pesball::GoalFrame;
 using pesball::TrackStart;
+
+constexpr double kPredictionSizeMs = 3000.0;  // ballPredictionSize_ms
 
 // A goal frame far from every test ball, so the frame response never fires.
 GoalFrame FarGoal() { return GoalFrame{100.0f, 3.0f, 2.0f, 0.1f, 0.1f}; }
@@ -28,21 +31,47 @@ TrackStart StartAt(Vec3 position, Vec3 velocity) {
   return start;
 }
 
-TEST(PesBallTrack, IndexMapsGfMillisecondsOntoPesTicksByFlooring) {
-  EXPECT_EQ(pesball::TrackIndexForMs(0), 0u);
-  EXPECT_EQ(pesball::TrackIndexForMs(18), 0u);     // 0.97 of a tick
-  EXPECT_EQ(pesball::TrackIndexForMs(19), 1u);     // 1.03 ticks
-  EXPECT_EQ(pesball::TrackIndexForMs(200), 10u);   // 10.8 ticks
-  EXPECT_EQ(pesball::TrackIndexForMs(1000), 54u);  // one second is 54 ticks
+// Record k sits at x = perRecord * k, so a read's value says where along the track it is.
+std::array<Vec3, pesball::kTrackLength> RampTrack(float perRecord) {
+  std::array<Vec3, pesball::kTrackLength> track{};
+  for (unsigned k = 0; k < pesball::kTrackLength; ++k) track[k] = Vec3(perRecord * k, 0.0f, 0.0f);
+  return track;
 }
 
-TEST(PesBallTrack, TimesPastTheAiHorizonReadItsLastSlot) {
-  // GF's AI horizon is 3 s, whose last 10 ms slot is 2.99 s: record 161. Times
-  // past the horizon, 3 s and 4 s, read that same record.
-  EXPECT_EQ(Ball::TrackIndexForAi(1000), 54u);
-  EXPECT_EQ(Ball::TrackIndexForAi(2990), 161u);
-  EXPECT_EQ(Ball::TrackIndexForAi(3000), 161u);
-  EXPECT_EQ(Ball::TrackIndexForAi(4000), 161u);
+// The GF time (ms) of PES record `records`, which is records * 1/54 s.
+double RecordMs(double records) { return records * 1000.0 / 54.0; }
+
+TEST(PesBallTrack, ReadsAtAPesTickReturnThatRecord) {
+  const auto track = RampTrack(1.0f);
+  for (unsigned k : {0u, 1u, 27u, 54u, 161u}) {
+    EXPECT_NEAR(pesball::TrackAt(track, RecordMs(k)).x, static_cast<float>(k), 1e-3f)
+        << "record " << k;
+  }
+}
+
+TEST(PesBallTrack, ReadsBetweenTwoRecordsInterpolateLinearly) {
+  const auto track = RampTrack(1.0f);
+  EXPECT_NEAR(pesball::TrackAt(track, RecordMs(10.5)).x, 10.5f, 1e-3f);
+  EXPECT_NEAR(pesball::TrackAt(track, RecordMs(0.25)).x, 0.25f, 1e-3f);
+}
+
+TEST(PesBallTrack, TenMillisecondDifferenceOfAMovingBallIsNeverZero) {
+  // A ball at 20 m/s moves 20/54 m per record, so the AI's 10 ms difference is 0.2 m at every
+  // read. A floored read gives zero for about half of them.
+  const auto track = RampTrack(20.0f / 54.0f);
+  for (double ms = 40.0; ms < 2980.0; ms += 10.0) {
+    const float d = pesball::TrackAt(track, ms + 10.0).x - pesball::TrackAt(track, ms).x;
+    EXPECT_NEAR(d, 0.2f, 1e-4f) << "at " << ms << " ms";
+  }
+}
+
+TEST(PesBallTrack, AiHorizonClampsTo2990Milliseconds) {
+  EXPECT_DOUBLE_EQ(pesball::ClampToAiHorizon(4000.0, kPredictionSizeMs), 2990.0);
+  EXPECT_DOUBLE_EQ(pesball::ClampToAiHorizon(3000.0, kPredictionSizeMs), 2990.0);
+  EXPECT_DOUBLE_EQ(pesball::ClampToAiHorizon(2980.0, kPredictionSizeMs), 2980.0);
+  EXPECT_DOUBLE_EQ(pesball::ClampToAiHorizon(0.0, kPredictionSizeMs), 0.0);
+  // 2990 ms is record 161.46: the last read is interpolated like any other.
+  EXPECT_NEAR(pesball::TrackAt(RampTrack(1.0f), 2990.0).x, 161.46f, 1e-3f);
 }
 
 TEST(PesBallTrack, RecordReadClampsToTheLastRecordAsFun140a6cf70Does) {
@@ -67,10 +96,9 @@ TEST(PesBallTrack, ALyingBallHoldsEveryRecordAtItsPosition) {
 }
 
 TEST(PesBallTrack, RecordsAreSpacedOnPesTicksOfOneFiftyFourthOfASecond) {
-  // Free fall from 20 m at rest. Record 27 is half a second on and record 54 is
-  // one second on, so the fall is g*t^2/2 at those times. Drag at these speeds is
-  // small. A track stepped on GF's 10 ms tick would put record 54 at 0.54 s, a
-  // fall of 1.4 m instead of 4.9 m.
+  // Free fall from 20 m at rest. Record 27 is half a second on and record 54 is one second on,
+  // so the fall is g*t^2/2 at those times. Drag at these speeds is small. A track stepped on
+  // GF's 10 ms tick would put record 54 at 0.54 s, a fall of 1.4 m instead of 4.9 m.
   const PesBallConstants c = SyntheticConstants();
   const float g = c.image.gravity;
   const TrackStart start = StartAt(Vec3(0.0f, 20.0f, 0.0f), Vec3(0.0f, 0.0f, 0.0f));
