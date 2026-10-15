@@ -76,22 +76,22 @@ const float lineHalfW = 0.06f;
 // docs/re/pes-re-fieldinfo.md section 1. Metres; x runs along the pitch from the
 // centre, z across it. Each comment gives the index PES's code uses (F[k] sits at
 // block + 4 + 4k).
-constexpr float pesFieldHalfLength = 52.56f;      // F0: centre to the outer edge of the goal line
-constexpr float pesFieldHalfWidth = 34.06f;       // F1: centre to the outer edge of the touchline
+constexpr float pesFieldHalfLength = 52.5599976f;  // F0 (0x42523D70): centre to the outer edge of the goal line
+constexpr float pesFieldHalfWidth = 34.0599976f;   // F1 (0x42083D70): centre to the outer edge of the touchline
 constexpr float pesGoalInnerHalfWidth = 3.66f;    // F2: centre to the inside of a post
 constexpr float pesGoalInnerHeight = 2.44f;       // F3: ground to the underside of the bar
-constexpr float pesGoalAreaLineX = 47.06f;        // F4: goal-area line, F0 - 5.5
+constexpr float pesGoalAreaLineX = 47.0599976f;    // F4 (0x423C3D70): goal-area line, F0 - 5.5
 constexpr float pesGoalAreaHalfWidth = 9.16f;     // F5: goal-area half-width, F2 + 5.5
 constexpr float pesPenaltyAreaLineX = 36.14f;     // F6: penalty-area line, 16.42 m from the goal line
-constexpr float pesPenaltyAreaHalfWidth = 20.12f; // F7: penalty-area half-width
-constexpr float pesPenaltySpotX = 41.56f;         // F8: penalty mark, F0 - 11
+constexpr float pesPenaltyAreaHalfWidth = 20.1199989f;  // F7 (0x41A0F5C2): penalty-area half-width
+constexpr float pesPenaltySpotX = 41.5599976f;      // F8 (0x42263D70): penalty mark, F0 - 11
 constexpr float pesNetHeight = 2.5f;              // F9: net height, F3 + F15 / 2
 // F10..F12: open. No reader in the image yet; see docs/re/pes-re-fieldinfo.md FI-01.
 constexpr float pesFieldF10 = 1.109375f;
 constexpr float pesFieldF11 = 2.33984375f;
 constexpr float pesFieldF12 = 51.171875f;
 constexpr float pesNetRoofBackX = 54.3203125f;    // F13: the net's roof-back x
-constexpr float pesNetFloorBackX = 54.43359f;     // F14: the net's floor-back x, the net gate's behind-the-post point
+constexpr float pesNetFloorBackX = 54.43359375f;    // F14 (0x4259BC00): the net's floor-back x, the net gate's behind-the-post point
 constexpr float pesCrossbarThickness = 0.12f;     // F15
 constexpr float pesPostThickness = 0.12f;         // F16
 constexpr float pesCircleRadius = 9.15f;          // F17: centre circle and the penalty arc
