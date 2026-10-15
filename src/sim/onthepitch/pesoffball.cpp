@@ -1443,6 +1443,30 @@ bool PassToMeStop(const RunWorld& w, int id) {
 // path until SecondLine itself is ported.
 bool RunCooldownBlocks(const RunWorld& w, int id) { return w.p[id].runCooldown > 0; }
 
+// FUN_140608ac0 (raw 0x140608ac0-0x140608b33), the just-played-pass-to-me lock.
+// The raw: the last ball event must be kind 1, its recorded target must be this
+// slot, its age must be within int(fps·0.5+0.5) frames, and the slot's team-concept
+// entry (FUN_140a64030(param_2, 0x12, ...)) must be >= 1; an entry of exactly 2
+// resolves through the concept-0 test (FUN_140a41b30), which needs team concepts
+// GF does not carry.
+PassToMeResult PassToMeLock(const RunWorld& w, int id) {
+  const int t = TeamOf(id);
+  const int slot = id - t * kSlots;
+  if (!w.ev.valid || w.ev.kind != 1) return kPassToMeNo;
+  if (w.ev.target != id) return kPassToMeNo;
+  // int(fps·0.5+0.5) = 28 frames (0x142565600).
+  if (w.ev.age > Frames(0.5f)) return kPassToMeNo;
+  // FUN_140a64030(id, 0x12): the slot's team-concept entry. ponytail: GF carries
+  // no team concepts at all (teamphilosophy.hpp has no concept table), so the
+  // entry is unknowable from anything GF has. The three decodable conditions
+  // above are the whole of what can be checked honestly, so they decide: a pass
+  // to this slot inside half a second is the lock, and the concept term is
+  // reported as the reason it cannot be confirmed rather than guessed as false.
+  (void)slot;
+  (void)t;
+  return kPassToMeUnknown;
+}
+
 int RoleClass(int gfRole) {
   constexpr int kMap[] = {0, 1, 2, 2, 3, 4, 5, 5, 6, 9, 8, 8, 7};
   return gfRole >= 0 && gfRole < static_cast<int>(std::size(kMap)) ? kMap[gfRole] : 0;

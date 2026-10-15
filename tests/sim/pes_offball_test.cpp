@@ -1062,6 +1062,42 @@ TEST(OffBallMaskTrace, TheCarrierGateDoesNotAlsoVetoTheFallbackPlayer) {
   EXPECT_EQ(kMaskCarrierOrReceiver, ChanceMaskReject(k, w, 2, ~0u, 2, false, 50.0f, true));
 }
 
+// FUN_140608ac0 (raw 0x140608ac0-0x140608b33), the just-played-pass-to-me lock
+// PES applies between FUN_140593430 and the T+0xb8b8 slot mask. Its three
+// decodable conditions are all observable in GF; the fourth, the slot's
+// team-concept entry (FUN_140a64030 kind 0x12), is not, because GF carries no
+// concept table. So a pass to this slot inside half a second reads as UNKNOWN
+// rather than a guessed yes or no, and every other case reads as no.
+TEST(OffBallCorridor, APassToMeInsideHalfASecondIsSeenButNotDecidable) {
+  RunWorld w = Running();
+  PlayerFacts& r = w.p[kRunner];
+  r.state = kBasePosition;
+  r.t = 1e9f;
+  r.position = 12;
+  r.pos = {10.0f, 0.0f};
+  r.aim = {20.0f, 0.0f};
+  // No event at all: no lock.
+  EXPECT_EQ(kPassToMeNo, PassToMeLock(w, kRunner));
+  // A ground pass (kind 1) to this runner, 10 frames old: the decodable part
+  // holds, so the result is the concept term's unknown.
+  w.ev = {true, 1, 10.0f, {0.0f, 0.0f}, kRunner};
+  EXPECT_EQ(kPassToMeUnknown, PassToMeLock(w, kRunner));
+  // A through pass (kind 2) is not the lock's kind: no.
+  w.ev.kind = 2;
+  EXPECT_EQ(kPassToMeNo, PassToMeLock(w, kRunner));
+  w.ev.kind = 1;
+  // Aged past int(fps·0.5+0.5) = 28 frames: no.
+  w.ev.age = 40.0f;
+  EXPECT_EQ(kPassToMeNo, PassToMeLock(w, kRunner));
+  // A pass to somebody else: no.
+  w.ev.age = 10.0f;
+  w.ev.target = 7;
+  EXPECT_EQ(kPassToMeNo, PassToMeLock(w, kRunner));
+  // Back to this runner: unknown again.
+  w.ev.target = kRunner;
+  EXPECT_EQ(kPassToMeUnknown, PassToMeLock(w, kRunner));
+}
+
 TEST(OffBallInstall, CapsAndLimitFromTheInstall) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT unset";
