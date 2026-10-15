@@ -1229,10 +1229,9 @@ bool ElizaController::_DodgeNetCandidate(int* kind) {
   gate.moveX_mps = mov.coords[0];
   gate.moveY_mps = mov.coords[1];
   gate.moveZ_mps = mov.coords[2];
-  // FieldInfo F[0], F[2] and F[14] (pes-re-fieldinfo.md §1): the goal line's
-  // outer edge is the half length plus half a line, the posts are the goal's
-  // inner half-width, and the net's back is pesNetFloorBackX.
-  const pes::GoalMarks marks{pitchHalfW + lineHalfW, goalInnerHalfWidth, pesNetFloorBackX};
+  // FieldInfo F[0], F[2] and F[14] (pes-re-fieldinfo.md §1): the goal line's outer
+  // edge, the posts' inner half-width, and the net's floor-back x.
+  const pes::GoalMarks marks{pesFieldHalfLength, pesGoalInnerHalfWidth, pesNetFloorBackX};
   if (!pes::NetDodgeGate(k, marks, gate)) return false;
   const float speed = mov.GetLength() * 3.6f;
   auto clip = pes::NetSelector(match->GetPesAnimetable(), k, speed > 22.0f);
@@ -1269,7 +1268,7 @@ bool ElizaController::_DodgePostCandidate(int* kind) {
   const Vector3 ballNow = _mentalImage->GetBallPrediction(0).Get2D();
   gate.ballX_m = ballNow.coords[0];
   gate.ballY_m = ballNow.coords[1];
-  const pes::GoalMarks marks{pitchHalfW + lineHalfW, goalInnerHalfWidth, pesNetFloorBackX};
+  const pes::GoalMarks marks{pesFieldHalfLength, pesGoalInnerHalfWidth, pesNetFloorBackX};
   if (!pes::PostDodgeGate(k, marks, gate)) return false;
 
   // The selector is unchanged in this commit: its own-post anchor and the

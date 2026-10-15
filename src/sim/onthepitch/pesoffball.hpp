@@ -78,9 +78,6 @@ inline constexpr int kChancePerTick = 11;
 // counts in this header's reports are expressed against it.
 inline constexpr float kPesFps = 54.0f;
 
-// FieldInfo F1, the half-width to the outer line edge (pes-re-fieldinfo.md).
-inline constexpr float kFieldHalfWidth_m = 34.06f;
-
 struct OffBallConstants {
   uint8_t offerNum[kCapRunCount][kAttackLevels];  // selectorVision.o offerNum_*
   int chanceScoreLimit;                           // spaceRun.o chanceScore (low byte)

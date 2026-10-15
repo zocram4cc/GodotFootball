@@ -1233,7 +1233,7 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       const float zSign = ballPos.coords[1] >= 0.0f ? 1.0f : -1.0f;
       const Vector3 nearMark(goalSign * (pitchHalfW - 0.5f), zSign * 3.35f, 0);
       const Vector3 farMark(goalSign * (pitchHalfW - 0.5f),
-                            zSign * -(goalInnerHalfWidth - 0.7f), 0);
+                            zSign * -(pesGoalInnerHalfWidth - 0.7f), 0);
 
       for (unsigned int i = 0; i < players.size(); i++) {
         if (players.at(i) == nearPost) {
@@ -1387,7 +1387,7 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
         // the near post on the ball's side (0x14259bdd8).
         const int ballSide = ballPos.coords[1] >= 0.0f ? 1 : -1;
         Vector3 aim(goalX, 0, 0);
-        if (wallSize > 1) aim = Vector3(goalX, ballSide * (goalInnerHalfWidth + spk.wallNearPost_m), 0);
+        if (wallSize > 1) aim = Vector3(goalX, ballSide * (pesGoalInnerHalfWidth + spk.wallNearPost_m), 0);
         Vector3 toAim = aim - ballPos;
         toAim.Normalize(0);
         // The wall's yaw is perpendicular to the ball's bearing, and the members

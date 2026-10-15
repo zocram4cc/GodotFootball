@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cmath>
 
+#include "gametypes.hpp"
 #include "onthepitch/pesoffball.hpp"
 
 namespace {
@@ -130,7 +131,7 @@ TEST(OffBallLane, TargetsTheLineInTheFreeLaneNotIntoTheDefenders) {
   ASSERT_TRUE(t.has_value());
   EXPECT_FLOAT_EQ(t->x, 25.0f);
   // Lanes are 2 m apart from the touchline: z = F1 - 2 - 2k.
-  const float lane = (kFieldHalfWidth_m - 2.0f - t->z) / 2.0f;
+  const float lane = (pesFieldHalfWidth - 2.0f - t->z) / 2.0f;
   EXPECT_NEAR(lane, std::round(lane), 1e-4f);
   // The defenders at z = 0..1 empty the S table there: not that lane.
   EXPECT_GT(std::fabs(t->z), 2.0f);

@@ -662,8 +662,8 @@ void Referee::PrepareSetPiece(e_SetPiece setPiece) {
   // The chief referee's mark. PES teleports the officials under the restart's
   // wipe (docs/re/pes-re-setpiece-choreography.md 8.2); a throw-in has no wipe,
   // so there he walks. The box is this engine's Law 16 box, 14 cm short of
-  // PES's FieldInfo line (docs/re/pes-re-stadium-camera.md 2).
-  const pes::FieldMarks field{pitchHalfW + lineHalfW, goalAreaHalfWidth,
+  // PES's FieldInfo marks (docs/re/pes-re-fieldinfo.md).
+  const pes::FieldMarks field{pesFieldHalfLength, pesGoalAreaHalfWidth,
                               pitchHalfW - SetPieceLaws::kAreaDepth, SetPieceLaws::kAreaHalfWidth};
   const auto mark = pes::ChiefRefereeSpot(
       setPiece, {buffer.restartPos.coords[0], -buffer.restartPos.coords[1]},
