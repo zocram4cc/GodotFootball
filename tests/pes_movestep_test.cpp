@@ -6,6 +6,8 @@
 
 #include <cstdlib>
 #include <string>
+#include <cmath>
+#include <cstring>
 
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
@@ -107,4 +109,106 @@ TEST(RunRateGuard, AllowsARunOnlyUpToStepBaseOfTheCeiling) {
   EXPECT_TRUE(pes::RunRateAllowed(0.3f, 1.0f, k));
   EXPECT_FALSE(pes::RunRateAllowed(0.6f, 1.0f, k));   // above the floor: no run
   EXPECT_FALSE(pes::RunRateAllowed(0.4f, 0.5f, k));   // a lower ceiling forbids the same rate
+}
+
+TEST(MoveReqFields, FloatsAndBytesShareTheirWord) {
+  pes::MoveReq req;
+  req.SetF(pes::moveword::kDuration, 0.25f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDuration), 0.25f);
+  const float value = 0.25f;
+  uint32_t bits;
+  std::memcpy(&bits, &value, sizeof bits);
+  EXPECT_EQ(req.U(pes::moveword::kDuration), bits);
+  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
+  req.SetByte(pes::moveword::kChangeState, 1);
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+}
+
+TEST(ApplyTransition, EntersTheRequestedStateOnlyWhenTheFlagIsSet) {
+  pes::MoveStepRecord r;
+  r.Enter(pes::MoveState::kIdle);
+  pes::MoveReq req;
+  pes::ApplyTransition(r, req);
+  EXPECT_EQ(r.state, pes::MoveState::kIdle);
+  pes::RequestState(req, pes::MoveState::kRunLoop);
+  pes::ApplyTransition(r, req);
+  EXPECT_EQ(r.state, pes::MoveState::kRunLoop);
+  EXPECT_EQ(r.previous, pes::MoveState::kIdle);
+}
+
+namespace {
+pes::SpeedClassConstants SyntheticSpeed() {
+  pes::SpeedClassConstants k{};
+  k.full = 360.0f;
+  k.wrapFull = -360.0f;
+  k.half = 180.0f;
+  k.wrapHalf = -180.0f;
+  k.neg = -1.0f;
+  k.one = 1.0f;
+  k.quarter = 90.0f;
+  k.tabScale = 512.0f;
+  k.lo0 = 1.0f;  // synthetic class bounds, not PES's values
+  k.lo1 = 2.0f;
+  k.hi0 = 3.0f;
+  k.hi1 = 4.0f;
+  const double kHalfPi = 1.5707963267948966;
+  for (int i = 0; i <= 512; ++i) k.sinQuarter[i] = float(std::sin(i * kHalfPi / 512.0));
+  return k;
+}
+}  // namespace
+
+TEST(TableSinDeg, IsSineOverTheFullTurnWithTheSignOfTheHalfTurn) {
+  const auto k = SyntheticSpeed();
+  EXPECT_NEAR(pes::TableSinDeg(30.0f, 1.0f, k), 0.5f, 1e-3f);
+  EXPECT_NEAR(pes::TableSinDeg(150.0f, 1.0f, k), 0.5f, 1e-3f);
+  EXPECT_NEAR(pes::TableSinDeg(200.0f, 1.0f, k), -0.342f, 1e-3f);
+  EXPECT_NEAR(pes::TableSinDeg(90.0f, 2.0f, k), 2.0f, 1e-3f);
+  EXPECT_NEAR(pes::TableSinDeg(-30.0f, 1.0f, k), -0.5f, 1e-3f);
+}
+
+TEST(WrapHalfTurn, FoldsAnAngleDifferenceIntoMinusHalfToHalfTurn) {
+  const auto k = SyntheticSpeed();
+  EXPECT_FLOAT_EQ(pes::WrapHalfTurn(190.0f, k), -170.0f);
+  EXPECT_FLOAT_EQ(pes::WrapHalfTurn(-190.0f, k), 170.0f);
+  EXPECT_FLOAT_EQ(pes::WrapHalfTurn(45.0f, k), 45.0f);
+  EXPECT_FLOAT_EQ(pes::WrapHalfTurn(180.0f, k), 180.0f);
+}
+
+TEST(SpeedClassOf, ClassifiesTheCosineOfTheTurnAgainstTheBounds) {
+  const auto k = SyntheticSpeed();
+  EXPECT_EQ(pes::SpeedClassOf(0.5f, 0.0f, k), 0);
+  EXPECT_EQ(pes::SpeedClassOf(1.5f, 0.0f, k), 1);
+  EXPECT_EQ(pes::SpeedClassOf(2.5f, 0.0f, k), 2);
+  EXPECT_EQ(pes::SpeedClassOf(3.5f, 0.0f, k), 3);
+  EXPECT_EQ(pes::SpeedClassOf(5.0f, 0.0f, k), 4);
+  EXPECT_EQ(pes::SpeedClassOf(5.0f, 90.0f, k), 0);
+  EXPECT_EQ(pes::SpeedClassOf(4.0f, 60.0f, k), 1);
+  EXPECT_EQ(pes::SpeedClassOf(5.0f, 180.0f, k), 0);
+}
+
+TEST(SpeedClassBounds, EachBoundBelongsToTheLowerClass) {
+  const auto k = SyntheticSpeed();
+  EXPECT_EQ(pes::SpeedClassOf(1.0f, 0.0f, k), 0);  // v == lo0: class 0
+  EXPECT_EQ(pes::SpeedClassOf(2.0f, 0.0f, k), 1);  // v == lo1: class 1
+  EXPECT_EQ(pes::SpeedClassOf(3.0f, 0.0f, k), 2);  // v == hi0: class 2
+  EXPECT_EQ(pes::SpeedClassOf(4.0f, 0.0f, k), 3);  // v == hi1: class 3
+}
+
+TEST(SpeedClassInstall, LoadsTheExeTableWithItsRelations) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  auto k = pes::LoadSpeedClassConstants(*exe, &err);
+  ASSERT_TRUE(k.has_value()) << err;
+  EXPECT_FLOAT_EQ(k->half, 2.0f * k->quarter);
+  EXPECT_FLOAT_EQ(k->full, 2.0f * k->half);
+  EXPECT_FLOAT_EQ(k->tabScale, float(k->sinQuarter.size() - 1));
+  EXPECT_LT(k->lo0, k->lo1);
+  EXPECT_LT(k->lo1, k->hi0);
+  EXPECT_LT(k->hi0, k->hi1);
+  const double kHalfPi = 1.5707963267948966;
+  for (size_t i = 0; i < k->sinQuarter.size(); ++i)
+    EXPECT_NEAR(k->sinQuarter[i], std::sin(double(i) * kHalfPi / 512.0), 1e-5) << "entry " << i;
 }

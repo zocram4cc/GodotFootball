@@ -105,7 +105,8 @@ void StoreRateCeiling(MoveStepRecord& r, int tick, float ceiling);
 // Words 0x17..0x2e, 0x4b and 0x50 are copied in from and back to the player record
 // (P+0x2770..P+0x27d4, P+0x3750, P+0x27b1); the adapter does that, handlers see plain words.
 // ---------------------------------------------------------------------------------------------
-inline constexpr int kMoveReqWords = 0x51;
+// The fill (FUN_1406b7560) writes words up to req[0x1a8], so the block spans them all.
+inline constexpr int kMoveReqWords = 0x1b0;
 
 namespace moveword {
 inline constexpr int kKind = 0x00;             // req[0]: move kind 0..7 (cmd[0x16]; 8 maps to 2) (OBS)
@@ -146,6 +147,11 @@ inline constexpr int kNextState = 0x39;        // req[0x39]: the state entered w
 inline constexpr int kRate = 0x4a;             // req[0x4a]: parametric rate (OBS; AS 1)
 inline constexpr int kPlaybackDefault = 0x4b;  // req[0x4b]: P+0x3750, default 1.0 (OBS copy-in)
 inline constexpr int kStartRate = 0x4f;        // req[0x4f]: start phase, the normalised foot phase (AS 1)
+inline constexpr int kFootBandSide = 0x7c;     // req[0x7c]: foot band side (OBS: FUN_1406c2f80 reads it; INIT writes 1)
+inline constexpr int kRootFacing = 0x3a;       // req[0x3a] byte: a root-facing write is due (OBS: FUN_1406c14c0 rate tail)
+inline constexpr int kRootFacingAngle = 0x3b;  // req[0x3b]: the wrapped root-facing angle, degrees (OBS)
+inline constexpr int kSlipActive = 0xe8;       // req[0xe8] byte: slip damping is active (OBS: FUN_1406c2f80)
+inline constexpr int kSlipAngle = 0xec;        // req[0xec]: the damped facing, degrees (OBS). The adapter copies it to P+0xbec.
 }  // namespace moveword
 
 // The move request. Typed views over the same words; PES's bit patterns are kept exact.
@@ -229,6 +235,35 @@ void ApplyTransition(MoveStepRecord& rec, MoveReq& req);       // req[0x38] set 
 // that starts a run calls this one guard; no state keeps its own copy.
 bool RunRateAllowed(float rate, float rateCeiling, const PlaybackConstants& k);
 
+// ---------------------------------------------------------------------------------------------
+// A-AN6: the action's speed class (P+0x245a), stored by the action setter FUN_1406eebb0 from
+// FUN_14081e340: the command's desired speed times the cosine of the turn, against four bounds.
+// FUN_140a92c80 is the angle helper: s * sin(x), a 512-step table of sin over 0..90 degrees with a
+// mirror fold. The scalars and the table are read from the exe at runtime.
+// ---------------------------------------------------------------------------------------------
+struct SpeedClassConstants {
+  float full;      // 360 degrees (0x14259858c): the turn wraps modulo this
+  float wrapFull;  // -360 (0x142598598): FUN_140a92c80's first fold
+  float half;      // 180 (0x142598580)
+  float wrapHalf;  // -180 (0x1425ddffc): FUN_140a92c80's second fold
+  float neg;       // -1 (0x142588218): the sign of the second half turn
+  float one;       // 1 (0x14256ae1c)
+  float quarter;   // 90 (0x14259be5c): the table covers 0..90 degrees
+  float tabScale;  // 512 (0x1426550e8): table steps per quarter turn
+  float lo0;       // 3.5 km/h (0x14259bde8): class 0 at or below
+  float lo1;       // 8 km/h (0x14259bdf4): class 1 at or below
+  float hi0;       // 13.5 km/h (0x1425a1ffc): class 2 at or below
+  float hi1;       // 22 km/h (0x1425c48c0): class 3 at or below, else 4
+  std::array<float, 513> sinQuarter;  // FUN_140a92c80's table at 0x142655950
+};
+std::optional<SpeedClassConstants> LoadSpeedClassConstants(const PeImage& exe, std::string* error);
+// FUN_140a92c80: s * sin(x) with x in degrees, the table linearly interpolated.
+float TableSinDeg(float x, float s, const SpeedClassConstants& k);
+// The fold of FUN_14081e340 and FUN_1406e4230: an angle difference wrapped into [-180, 180].
+float WrapHalfTurn(float deltaDeg, const SpeedClassConstants& k);
+// FUN_14081e340's tail: the class 0..4 of a desired speed (km/h) at a turn (heading minus facing, degrees).
+int SpeedClassOf(float desiredKmh, float deltaDeg, const SpeedClassConstants& k);
+
 // Per-state handlers. Each takes the host and the request, returns nothing, and never touches
 // MoveStepRecord: a state change is RequestState(req, next). The VA of each PES handler is in
 // the comment; the owning group is in the file header of its .cpp.
@@ -271,7 +306,11 @@ void EnterStop(MoveHost& host, MoveReq& req);          // FUN_1406d5d60 (group B
 void EnterAccelerate(MoveHost& host, MoveReq& req);    // FUN_1406ccd00 (group B)
 void EnterDecelerate(MoveHost& host, MoveReq& req);    // FUN_1406cdaf0 (group B)
 void EnterRunTurnRun(MoveHost& host, MoveReq& req);    // FUN_1406d6780 (group D)
-void EnterRunTurnStep(MoveHost& host, MoveReq& req);   // FUN_1406d2f60 (group D)
+// FUN_1406d2f60 (group D): the entry takes a float threshold and returns whether it wrote the
+// request. true = the request is written and RUN_TURN_STEP is entered (RequestState); false = the
+// calling state keeps the tick. Callers: RUN_TURN_STEP twice (threshold 0), RUN_LOOP (rateMax term),
+// INIT (computed from the rate ceiling and the turn factor).
+bool EnterRunTurnStep(MoveHost& host, MoveReq& req, float threshold);
 void EnterStepTurnRun(MoveHost& host, MoveReq& req);   // FUN_1406d38d0 (group D)
 
 // Shared helpers, defined in movestep_common.cpp (owned by the dispatcher port). Arguments
