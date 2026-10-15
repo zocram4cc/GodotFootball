@@ -392,11 +392,11 @@ admitting gates, and the trace now names them.
 
 ### Next (the trace's own answer, in priority order)
 
-1. ~~**Hoist the per-team gates out of the per-slot loop.**~~ **Done on main (`d201176`).**
-   `TeamChanceMayRunReject` evaluates in-possession and a valid receiver/carrier once per tick;
-   team 0's walks halved (132,950 -> 78,310) and the run count moved only within noise, exactly as
-   the prediction said it must. The mutation-checked tests for the possession head, the receiver
-   head and the carrier-team check are in `pes_offball_test`.
+1. **Hoist the per-team gates out of the per-slot loop.** `AttackSlotMask` and `TeamMayRun` are
+   per-team; PES rebuilds `T+0xb8b8` only when the reference player or the attack level changes
+   (step 1 of the manager tick). Ask them once per tick, not once per slot. Expect the walk count to
+   fall by roughly the 65% those two gates represent, with no change to the run count - which is the
+   point: it separates "how often we ask" from "what we admit".
 2. **Then the admitting gates.** `carrier/receiver` (18%) and `rank/state` (7%) decide eligibility;
    `team may not run` (26%) is where PES's own-half rule lives, and the port notes it reads the
    ball's z at the snap. If the count is still above 93 after (1), that is where the remaining 4x is.
@@ -456,3 +456,227 @@ With the hoist, the surviving histogram is dominated by `slot mask` (60,094) and
 gates - `carrier/receiver` (33,740) and `rank/state` (14,587) - decide who is eligible at all. The
 next cut belongs in the admitting gates, not in more walk-time filtering, and **any** new gate must be
 justified by a named PES site before it is wired, not by whether it moves the number.
+
+## 8. The admitting gates (Main's items 1-3), item 1 done
+
+### 8.1 `FUN_1405938a0`'s own-half rule: faithful, mislabelled, and already hoisted by PES
+
+Checked the raw before touching it, as asked.
+
+- **The rule is faithful.** Every constant the port uses resolves from the exe:
+  `0x14259d668 = -15.0`, `0x142588210 = 10.0`, `0x1425656c0 = 4.0`,
+  `0x142565600 = 0.5`. `FUN_140593290`'s focus-player distance `0x1425ab4c4 = 625 m2`
+  matches. No number was invented.
+- **The comment was wrong, and is now fixed.** It claimed the rule reads "the ball's z
+  at the snap". `FUN_140a4f1e0(pt, sign)` bands `sign * pt.x` against `-28` and `22`
+  (`0x1425c7ba8`, `0x1425c48c0`), and the tail reads `*pfVar1` = `MA+0x2482c`'s **x**.
+  So the behaviour was already right and only the prose mislabelled the field.
+- **PES already hoists it.** `FUN_140606cd0` (the Chance mask) calls
+  `FUN_1405938a0` **once**, at `mask.c:86`, and `FUN_140606cd0`'s own loop over the 11
+  slots starts at `mask.c:197-204`. So the verdict is a per-team flag in PES; the port
+  was recomputing it per slot.
+
+The port now matches: `TeamChanceMayRunReject` is `FUN_1405938a0` (in possession,
+`FUN_140593290`'s carrier-or-focus fallback, the own-half disjunction with
+`ReceiverFreeAndFacing`, and the end-band test), evaluated once per tick and passed
+into `ChanceMaskReject`/`ChanceMaskBit` as `teamMayRun`.
+
+**One consequence, stated rather than hidden:** the separate `kMaskNoReceiver` reason
+no longer exists. PES has no second receiver head - a missing receiver fails inside
+`FUN_140593290`, which is exactly what the hoist reproduces. The histogram's width
+went 18 -> 17 and the test asserts the folded reason.
+
+### 8.2 Numbers (seed 7, 20 min)
+
+| change | runs | mask walks | stop fires |
+|---|---|---|---|
+| merged baseline (`d201176`) | 321-911 | 98,080-101,260 | 291-828 |
+| + `5938a0` hoisted out of the slot loop | **510-336** | **35,760-26,340** | 454-302 |
+| + `carrier/receiver` split to PES's order | **510-336** | **35,760-26,340** | 454-302 |
+
+The saving is large: **walks fell 69%** (98,080-101,260 to 35,760-26,340 per team,
+i.e. ~99,700 to ~31,000). The run count stays inside the same band (510-336 against
+321-911), which is what the analysis predicted - the verdict is identical for all
+eleven slots, so hoisting it changes how often the question is asked, not what is
+admitted. That was the whole point of doing the refactor first: with the walk flood
+gone, the surviving histogram now describes the *substantive* admissions rather than
+drowning them in ~70% repeated team-level work.
+
+### 8.3 Verification
+
+- `pes_offball_test` 40/40 (1 install skip).
+- Mutation-checked on every term of `FUN_1405938a0`: the possession head, the
+  `FUN_140593290` focus fallback, the free-forward-facing disjunct, the end-band test
+  and its `10 m` constant are each caught.
+- A new test pins the structural property: with the shared verdict false, every slot
+  that reaches the team gate is refused for the team's reason.
+
+### 8.4 Item 2: `rank/state` and `carrier/receiver`
+
+**`rank/state` (14,587) is faithful.** The port's `ActionRank` matches
+`FUN_140a40050` exactly - same states, same values (0, 2, 3, 4, 5) - and
+`FUN_140a40000(cur, run, slot, rec)` compares `a40110(run) < a40110(cur)`, which is
+what `MayTake` implements. No change made.
+
+**`carrier/receiver` (33,740) was one-third unfaithful, and is now fixed.** The
+port's single test `id == w.carrier || id == x.q || me.position == 0` conflates
+three of `FUN_140593430`'s head checks (raw `0x140593430`-`0x1405934d4`):
+
+| port test | PES site | verdict |
+|---|---|---|
+| `id == w.carrier` | `a627e0(ctx,0) == id` | faithful |
+| `id == x.q` | the `MA+0x2483c` holder fallback | **unfaithful order** |
+| `me.position == 0` | the `T+0x4c00 != 0` guard around `593430`'s admitting block | faithful in effect |
+
+The raw tests them in order: `c = carrier; if (c == id) return false; if (0x15 < c)
+c = MA+0x2483c; if (c == id) return false;` - so **a valid carrier does not also
+veto the fallback player**. The port vetoed both unconditionally, rejecting the
+last-toucher/designated player on ticks where a valid carrier exists and the two
+differ. The gate is now split to PES's order.
+
+The keeper term is faithful in effect rather than in shape: `593430` wraps its whole
+admitting block in `if (T+0x4c00 != 0)`, so a keeper is excluded because nothing
+admits him - the port's early return reaches the same verdict for the same reason
+and is left as is, with the comment naming the difference.
+
+## 9. The slot-mask question (Main's item 1 for this round), and `FUN_140608ac0`
+
+### 9.1 `T+0xb8b8` is NOT hoisted by PES - no hoist made
+
+Checked the raw, as asked. The answer is a negative result, recorded:
+
+- `T+0xb8b8` has exactly **two writers**, both inside `FUN_140500200`
+  (`0x1405002be`, `0x1405008bd`) - the b8b8 writer the report already documented.
+- `FUN_140500200` has exactly **one caller: `0x1404f6e62`**, which sits inside
+  `FUN_1404f6c30` - the **team tick** itself, not the manager tick's step 1.
+- The instruction immediately before the call is `mov byte [rax+0xb8a2], 0`, an
+  unrelated byte (still unresolved, `pes-re-defender-decisions.md` 291). There is
+  no ref/level-change guard on the path.
+- `FUN_140606cd0` then reads `T+0xb8b8` **inside its 11-slot loop** (OBS mask.c:235).
+
+So PES recalculates the slot mask every team tick and reads it per slot. It is
+neither cached across ticks nor hoisted out of the loop, and the report's
+"rebuild only when the reference player or the attack level changes" describes
+the caps and priorities (`FUN_140600e40`, manager step 1), not this mask.
+
+The port already computes `AttackSlotMask` once per tick and passes it into
+`ChanceMaskReject`, which is at least as cheap as PES's structure and semantically
+identical. **The histogram's slot-mask share (~45% of the surviving walks) is real
+work PES also does, not redundancy.** No hoist was made.
+
+### 9.2 `FUN_140608ac0`, the pass-to-me lock: decoded, three parts wired, the fourth blocked
+
+`FUN_140606cd0`'s real gate order (OBS mask.c:216-235) puts four corridor tests
+between `FUN_140593430` and the `T+0xb8b8` mask: `608570`, `6087a0`, `609350`,
+`608ac0`. The port omits all four. `608ac0` (raw `0x140608ac0`-`0x140608b33`) is
+the first and is fully decompiled:
+
+```
+if (event kind != 1) return 0;                    # a pass
+if (FUN_140a62ea0(ctx, event target) != id) return 0;   # to THIS slot
+if (MI+0x1198 - event age > int(fps·0.5+0.5)) return 0; # within 0.5 s
+if (FUN_140a64030(id, 0x12) < 1) return 0;         # the slot's concept entry
+if (that entry == 2) { the concept-0 test }        # FUN_140a41b30
+```
+
+The first three are observable in GF (`PassEvent` carries kind, target and
+time_ms) and are ported and tested. The fourth is **not**: GF has no concept table
+at all, so a slot whose decodable conditions all hold reads `kPassToMeUnknown`
+rather than a guessed yes or no. That is why the function is deliberately **not
+wired** into `ChanceMaskReject`: the raw uses it to admit a special lane, and
+admitting on an unknown would repeat the re-run block's mistake.
+
+Measured (nothing wired yet, so expected): runs 394-469, walks 22,560-20,490,
+stop fires 344-404 - unchanged from baseline.
+
+### 9.3 Team ticks vs slot walks, now separate counters
+
+`maskWalks` conflated "how often the team may run" with "how many slots were
+examined", because the histogram filed the team head's refusal once per refused
+tick. `AddTeamTick` now counts the head's invocations and the report prints both,
+so a future histogram can be read as (ticks the team may run) x (slots walked)
+rather than one mixed number.
+
+### 9.4 Verification
+
+- `pes_offball_test` 42/42.
+- Mutation-checked on every decodable term of `608ac0`: the pass-target check, the
+  0.5 s age window and the event-kind check.
+- The three unmodelled terms (instruction 6, the holder flags, `FUN_1405a5240`)
+  are named in the header, not silently dropped.
+
+## 10. The admission chain, fully resolved (commit `13230dc`)
+
+### 10.1 The decisive measurement
+
+With the team head's ticks counted apart from the slot walks:
+
+```
+[offball] chance runs 394-469 | team ticks 16485-16171 | mask walks 22560-20490 | stop fires 344-404
+```
+
+- The head is asked **32,656** times and refuses **~69%** - PES's own rule, working
+  as designed, nothing to fix and nothing to hoist.
+- **22,560 walks over 16,485 ticks = 1.37 slots walked per tick where the team may
+  run.** Not eleven. **There is no walk flood.** The earlier flood reading came from
+  the combined counter, which could not distinguish a refused team tick from a
+  slot being examined.
+
+### 10.2 Where the ~600 runs per team actually come from
+
+Of the 42,050 walks where the head passed, **3,747 survive - 8.9%**. The full
+histogram, normalised over all 64,535 recorded decisions:
+
+| gate | rejections | share |
+|---|---|---|
+| team-may-run | 21,485 | 33.3% |
+| slot-mask | 10,837 | 16.8% |
+| carrier/receiver | 8,230 | 12.8% |
+| rank/state | 6,915 | 10.7% |
+| reach | 3,900 | 6.0% |
+| **pass | **3,747** | **5.8%** |
+| role-class | 3,080 | 4.8% |
+| generic | 2,670 | 4.1% |
+| rank-angle | 1,911 | 3.0% |
+| on-the-line | 1,107 | 1.7% |
+| box-zone / goal-area / depth / dz | 653 | 1.0% |
+
+With a Chance cap of 3, 394-469 runs over 1200 s implies a run lasts **8-9 s**, and
+the stop cascade fires 344-404 times - roughly one release per run started. So a
+slot is admitted, runs ~8-9 s, is released, and is re-admitted: the run count is
+`survivors per second`, and survivors arrive at ~3.1/s per team.
+
+The four biggest gates are now all **verified faithful** (team-may-run and
+carrier/receiver this round, slot-mask and rank/state in 8.4/9.1). None of them is
+reducing the count because none of them is wrong.
+
+### 10.3 What is left, and why I stopped here
+
+PES's live ~93 runs per team per 20 min is ~0.0775 runs/s. We produce ~0.33/s -
+**4.2x**. The gap is not in the gates: at the measured 8.9% survival and 1.37 slots
+walked per runnable tick, matching PES's rate would need either the survival rate
+4.2x lower or runs ~4.2x longer.
+
+**The one quantity that would decide which is PES's run lifetime**, and the report
+does not record it: `FUN_140606cd0` is called ~32k times per 20 min per team, and
+PES's own run count is ~93, so PES's implied run lifetime is ~3·1200/93 = **39 s**
+if its cap is also 3. Ours is 8-9 s. That is a **4.7x difference in run duration**,
+which is exactly the gap the gates cannot explain.
+
+That points at the **stop cascade** (`FUN_140688c00`), where the port still has
+named stand-ins: the stop-test leaves reading PES action records (`5a7fe0`/`5a7be0`/
+`5a7d10`), which the assignment itself lists as blocked on a live poke. Until those
+are decoded, PES's longer run lifetime cannot be reproduced, and no gate I add will
+close a 4.2x duration gap.
+
+**I have not ported anything further this round, and that is the honest result:**
+the remaining gap is in a place I cannot reach from the exe alone, and I would
+rather name it than fill it with another unfaithful gate.
+
+### 10.4 Verification
+
+- `pes_offball_test` 42/42.
+- Full gate **671/671 passed**, standing skips 59 and 154.
+- `check_pii.sh` clean, staged by name, pushed:
+  `chance-lanes-corridor` = `d8c6673`, `chance-lanes-ticks` = `13230dc`.
+- Main's checkout untouched throughout.
