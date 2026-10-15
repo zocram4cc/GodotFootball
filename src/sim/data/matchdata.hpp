@@ -329,12 +329,17 @@ public:
   // candidate mask walked, filed under the gate that decided it. Read by
   // tools/offball_trace.py to find which gate admits or kills the runs.
   void AddMaskWalk(int teamID) { maskWalks[teamID]++; }
+  // The team head (FUN_1405938a0) is asked once per parity tick; a walk only
+  // follows when it passes. The pair separates "how often the team may run" from
+  // "how many slots were examined".
+  void AddTeamTick(int teamID) { teamTicks[teamID]++; }
   void AddMaskReject(int teamID, int reject) {
     if (reject < 0 || reject >= kMaskRejectCount) return;
     maskRejects[teamID][reject]++;
   }
   void AddStopFire(int teamID) { stopFires[teamID]++; }
   int GetMaskWalks(int teamID) const { return maskWalks[teamID]; }
+  int GetTeamTicks(int teamID) const { return teamTicks[teamID]; }
   int GetMaskReject(int teamID, int reject) const {
     return reject < 0 || reject >= kMaskRejectCount ? 0 : maskRejects[teamID][reject];
   }
@@ -862,6 +867,7 @@ protected:
   int pesClipsPlayed[2][2] = {};
   int tackleSubKinds[2][kTackleKinds] = {};
   int maskWalks[2] = {0, 0};
+  int teamTicks[2] = {0, 0};
   int maskRejects[2][kMaskRejectCount] = {};
   int stopFires[2] = {0, 0};
   int passesCompleted[2];
