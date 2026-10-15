@@ -174,11 +174,12 @@ ranks lower (`FUN_140a40000`), (e) for Chance/Counter/LineBreak the one-two test
 
 ### 2.2 Duration: the stop tests (OBS; frames at 54 fps; `t` = frames in the current state from the slot timer block
 `T+0xa2cc+0x34·s`, ring of 4 × {state, start, now})
-| run | minimum before any stop | stop rule (true → released to NOTHING) |
+| run | head first, then the minimum | stop rule (true → released to NOTHING) |
 |---|---|---|
-| Chance `0x140607a60` | `t < int(fps·0.2+0.5)` = **11 f** → keep | pad-controlled; became carrier; PASS_GET with `FUN_140a51320 > 1`; AI class `≠ 0x13` and common test `FUN_140688c00(…,0x1e)` |
-| Counter `0x14060b410` | 11 f | as Chance, then common test, else stop when `s·x > F[8]` (41.56, penalty spot) |
-| SecondLine `0x1406118e0` | `t < fps` = **54 f** | as Chance, then common test |
+| head, all three runs | — | in this order: pad-controlled → stop; carrier → stop (Chance only when his action byte lacks bit 16, `FUN_140a6e340`); PASS_GET (action 5) with `FUN_140a51320 > 1` → stop. Verified: Chance `0x140607a60` (`b4a.c:321-337`), Counter `0x14060b410` (`b4a.c:360-409`), SecondLine `0x1406118e0` (`b4a.c:412-454`) |
+| Chance `0x140607a60` | then `t < int(fps·0.2+0.5)` = **11 f** → keep | AI class `≠ 0x13` and common test `FUN_140688c00(…,0x1e)` |
+| Counter `0x14060b410` | then 11 f → keep | common test, else stop when `s·x > F[8]` (41.56, penalty spot) |
+| SecondLine `0x1406118e0` | then `t < fps` = **54 f** → keep | common test |
 | LineBreak `0x140612830` | 54 f | carrier; PASS_GET; predicted-position test `FUN_1405a0ec0`; after 54 f the common test or the ball-line test `FUN_140a4c720(ball.x, x, s, −1.8)` …; reached target (< 1 m) |
 | Diagonal `0x140615090` | 11 f | not open play / not in possession / designated player → stop; then `FUN_140695800` |
 | PullAway `0x14061e1e0` | — | pad; `s·x > F[8]`; else stop when `t > 4·fps` = **216 f (4 s)** |
