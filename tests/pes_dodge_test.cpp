@@ -328,6 +328,23 @@ TEST(PesDodgeInstall, TheUsersTablesAndRows) {
   EXPECT_TRUE(t->Populated(0x316, 9));
 }
 
+TEST(PesDodgeInstall, TheNetGateConstantsAreTheExesOwn) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  auto k = pes::LoadDodgeConstants(*exe, &err);
+  ASSERT_TRUE(k.has_value()) << err;
+  // FUN_140a07e40's own constants: the edge margin (0x14256ae1c), the residual
+  // (0x14259be0c), and the step numerator (0x14253ee30) over the divisor
+  // (0x1425cb47c).
+  EXPECT_FLOAT_EQ(k->netEdgeMargin_m, 1.0f);
+  EXPECT_FLOAT_EQ(k->netEdgeRejection_deg, 15.0f);
+  EXPECT_FLOAT_EQ(k->netStepNumerator, 100.0f);
+  EXPECT_FLOAT_EQ(k->netStepDivisor, 72.0f);
+}
+
 // The dodge's goal-sign convention, pinned because it is load-bearing and a
 // silent re-inversion would move both near-goal dodges to the wrong end.
 //
@@ -618,114 +635,97 @@ TEST(PesDodgeBallGate, SubTestMouthOnlyRunsForTheKickClasses) {
 }
 
 
-// The net dodge's own gate (FUN_140a07e40), past the goal mouth GF already
-// reads: he has to be on the pitch's x edge, the ball has to be stepping, and
-// its bearing has to sit inside the sample pair the exe picks.
-TEST(PesDodgeNetGate, HeHasToStandOnThePitchsXEdge) {
-  const pes::DodgeConstants k = BallConstants();
+// The net dodge's own gate (FUN_140a07e40). It reads the dodger's own record
+// only, against the goal marks. The synthetic marks here: a 50 goal line,
+// 1.0 m posts and a net back at 52.0 (none of them PES's values).
+pes::NetGoalMarks NetMarks() { return {50.0f, 1.0f, 52.0f}; }
+
+pes::NetGateInput RunningAt(float x, float y, float vx, float vy) {
   pes::NetGateInput in;
   in.animeSlot = true;
-  in.pitchHalfWidth_m = 52.5f;
-  in.goalHalfWidth_m = 3.7f;
-  in.playerX_m = 52.5f;   // right on the edge
-  in.playerZ_m = 0.0f;
-  in.ballStep_m = 1.0f;
-  in.ballLookAheadBearing_deg = 100.0f;
-  in.ownSidePostBearing_deg = 80.0f;
-  in.farSidePostBearing_deg = 100.0f;
-  EXPECT_TRUE(pes::NetDodgeGate(k, in));
-  // Mid-pitch: the edge test fails.
-  in.playerX_m = 30.0f;
-  EXPECT_FALSE(pes::NetDodgeGate(k, in));
-  // Exactly one metre inside the edge still passes (|x| >= halfW - 1).
-  in.playerX_m = 51.6f;
-  EXPECT_TRUE(pes::NetDodgeGate(k, in));
-  in.playerX_m = 51.4f;
-  EXPECT_FALSE(pes::NetDodgeGate(k, in));
+  in.x_m = x;
+  in.y_m = y;
+  in.moveX_mps = vx;
+  in.moveY_mps = vy;
+  return in;
+}
+
+TEST(PesDodgeNetGate, ThePesBearingIsAtan2DxDzWithZeroAlongGfY) {
+  // The gate compares bearings numerically, so the convention is pinned: 0 deg
+  // along +GF y (PES's +z), 90 deg along +GF x, wrapped to [0, 360).
+  EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, 0.0f, 1.0f), 0.0f, 1e-3f);
+  EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, 1.0f, 0.0f), 90.0f, 1e-3f);
+  EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, 0.0f, -1.0f), 180.0f, 1e-3f);
+  EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, -1.0f, 0.0f), 270.0f, 1e-3f);
+  EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, 1.0f, 1.0f), 45.0f, 1e-3f);
+  EXPECT_NEAR(pes::PesBearingDeg(2.0f, 3.0f, 2.0f, 4.0f), 0.0f, 1e-3f);
+}
+
+TEST(PesDodgeNetGate, HeHasToStandWithinTheEdgeMarginOfHisGoalLine) {
+  const pes::DodgeConstants k = BallConstants();
+  // The margin is inclusive: 49.0 = 50 - 1.0.
+  EXPECT_TRUE(pes::NetDodgeGate(k, NetMarks(), RunningAt(49.0f, 0.0f, 2.0f, 0.0f)));
+  EXPECT_FALSE(pes::NetDodgeGate(k, NetMarks(), RunningAt(48.9f, 0.0f, 2.0f, 0.0f)));
+  EXPECT_FALSE(pes::NetDodgeGate(k, NetMarks(), RunningAt(30.0f, 0.0f, 2.0f, 0.0f)));
+  // Either end of the pitch: the goal he stands at is the one that counts.
+  EXPECT_TRUE(pes::NetDodgeGate(k, NetMarks(), RunningAt(-49.0f, 0.0f, -2.0f, 0.0f)));
   // Without the anime layer's slot the gate stops before the geometry.
-  in.playerX_m = 52.5f;
-  in.animeSlot = false;
-  EXPECT_FALSE(pes::NetDodgeGate(k, in));
+  pes::NetGateInput noSlot = RunningAt(49.0f, 0.0f, 2.0f, 0.0f);
+  noSlot.animeSlot = false;
+  EXPECT_FALSE(pes::NetDodgeGate(k, NetMarks(), noSlot));
 }
 
-TEST(PesDodgeNetGate, TheBallsStepHasToClearTheFloor) {
-  const pes::DodgeConstants k = BallConstants();  // 100 / (54 * 72) = 0.0257
-  pes::NetGateInput in;
-  in.animeSlot = true;
-  in.pitchHalfWidth_m = 52.5f;
-  in.goalHalfWidth_m = 3.7f;
-  in.playerX_m = 52.5f;
-  in.playerZ_m = 6.0f;  // wide of the goal: the behind-post pair
-  in.ballStep_m = 0.05f;
-  in.ballLookAheadBearing_deg = 90.0f;
-  in.ownSidePostBearing_deg = 80.0f;
-  in.behindOwnPostBearing_deg = 100.0f;
-  in.farSidePostBearing_deg = 0.0f;  // unused in this branch
-  EXPECT_TRUE(pes::NetDodgeGate(k, in));
-  in.ballStep_m = 0.02f;  // under 100/(54*72)
-  EXPECT_FALSE(pes::NetDodgeGate(k, in));
-}
-
-TEST(PesDodgeNetGate, InLineWithTheGoalTheBallHasToBeBetweenThePosts) {
+TEST(PesDodgeNetGate, HisSpeedHasToClearTheFloor) {
+  // 100 / 72 m/s: the exe's 100 / (gs * 72) per frame, gs = 54, in m/s.
   const pes::DodgeConstants k = BallConstants();
-  pes::NetGateInput in;
-  in.animeSlot = true;
-  in.pitchHalfWidth_m = 52.5f;
-  in.goalHalfWidth_m = 3.7f;
-  in.playerX_m = 52.5f;
-  in.playerZ_m = 0.0f;  // in line with the goal: the post pair
-  in.ballStep_m = 1.0f;
-  in.ownSidePostBearing_deg = -10.0f;
-  in.farSidePostBearing_deg = 10.0f;
-  in.behindOwnPostBearing_deg = 90.0f;  // unused in this branch
-  in.ballLookAheadBearing_deg = 0.0f;  // inside
-  EXPECT_TRUE(pes::NetDodgeGate(k, in));
-  in.ballLookAheadBearing_deg = 15.0f;  // past the far post
-  EXPECT_FALSE(pes::NetDodgeGate(k, in));
-  in.ballLookAheadBearing_deg = -15.0f;  // past the near post
-  EXPECT_FALSE(pes::NetDodgeGate(k, in));
+  EXPECT_TRUE(pes::NetDodgeGate(k, NetMarks(), RunningAt(49.0f, 0.0f, 1.5f, 0.0f)));
+  EXPECT_FALSE(pes::NetDodgeGate(k, NetMarks(), RunningAt(49.0f, 0.0f, 1.2f, 0.0f)));
 }
 
-TEST(PesDodgeNetGate, WideOfTheGoalTheBallHasToBePastThePost) {
+TEST(PesDodgeNetGate, InLineWithTheGoalHisHeadingHasToBeBetweenThePosts) {
   const pes::DodgeConstants k = BallConstants();
-  pes::NetGateInput in;
-  in.animeSlot = true;
-  in.pitchHalfWidth_m = 52.5f;
-  in.goalHalfWidth_m = 3.7f;
-  in.playerX_m = 52.5f;
-  in.playerZ_m = 8.0f;  // wide of the goal: the behind-post pair
-  in.ballStep_m = 1.0f;
-  // The behind-post pair spans [-10, 20] and the post pair [20, 80]: a ball
-  // bearing inside one and outside the other tells the two branches apart.
-  in.ownSidePostBearing_deg = 20.0f;
-  in.behindOwnPostBearing_deg = -10.0f;
-  in.farSidePostBearing_deg = 80.0f;  // unused in this branch
-  in.ballLookAheadBearing_deg = 10.0f;  // inside the behind-post pair only
-  EXPECT_TRUE(pes::NetDodgeGate(k, in));
-  in.ballLookAheadBearing_deg = 50.0f;  // inside the post pair only
-  EXPECT_FALSE(pes::NetDodgeGate(k, in));
+  // From (49, 0) the posts stand at 45 and 135 deg. Running along +x heads 90
+  // deg, between them; running sideways heads 0 deg, running away 270.
+  EXPECT_TRUE(pes::NetDodgeGate(k, NetMarks(), RunningAt(49.0f, 0.0f, 2.0f, 0.0f)));
+  EXPECT_FALSE(pes::NetDodgeGate(k, NetMarks(), RunningAt(49.0f, 0.0f, 0.0f, 2.0f)));
+  EXPECT_FALSE(pes::NetDodgeGate(k, NetMarks(), RunningAt(49.0f, 0.0f, -2.0f, 0.0f)));
 }
 
-TEST(PesDodgeNetGate, TheResidualBearingHasToClearFifteenDeg) {
+TEST(PesDodgeNetGate, InsideTheEdgeHisHeadingHasToClearFifteenDegOfHisPost) {
   const pes::DodgeConstants k = BallConstants();
-  pes::NetGateInput in;
-  in.animeSlot = true;
-  in.pitchHalfWidth_m = 52.5f;
-  in.goalHalfWidth_m = 3.7f;
-  in.playerX_m = 52.0f;  // inside the edge: the residual test applies
-  in.playerZ_m = 0.0f;
-  in.ballStep_m = 1.0f;
-  in.ownSidePostBearing_deg = 60.0f;
-  in.farSidePostBearing_deg = 120.0f;
-  in.behindOwnPostBearing_deg = 0.0f;  // unused in this branch
-  in.ballLookAheadBearing_deg = 90.0f;  // 30 deg off his own post
-  EXPECT_TRUE(pes::NetDodgeGate(k, in));
-  in.ballLookAheadBearing_deg = 65.0f;  // only 5 deg off it
-  EXPECT_FALSE(pes::NetDodgeGate(k, in));
-  // Past the edge the residual test does not run.
-  in.playerX_m = 52.5f;
-  in.ballLookAheadBearing_deg = 65.0f;
-  EXPECT_TRUE(pes::NetDodgeGate(k, in));
+  // The own post stands at 45 deg from (49, 0). Heading 50 is between the posts
+  // but 5 deg off that one.
+  EXPECT_FALSE(pes::NetDodgeGate(k, NetMarks(), RunningAt(49.0f, 0.0f, 1.532f, 1.286f)));
+  EXPECT_TRUE(pes::NetDodgeGate(k, NetMarks(), RunningAt(49.0f, 0.0f, 2.0f, 0.0f)));
+  // Past the goal line the residual does not run: from (50.2, 0) heading 50 is
+  // outside the posts' pair.
+  EXPECT_TRUE(pes::NetDodgeGate(k, NetMarks(), RunningAt(50.2f, 0.0f, 1.532f, 1.286f)));
+}
+
+TEST(PesDodgeNetGate, BehindTheGoalLineHeMustNotBeRunningBackThroughTheMouth) {
+  const pes::DodgeConstants k = BallConstants();
+  // Past the line at (51.5, 0) the posts stand at 236.3 and 303.7 deg. Running
+  // deeper into the net (heading 90) is in; running back out through the mouth
+  // (heading 270) is out.
+  EXPECT_TRUE(pes::NetDodgeGate(k, NetMarks(), RunningAt(51.5f, 0.0f, 2.0f, 0.0f)));
+  EXPECT_FALSE(pes::NetDodgeGate(k, NetMarks(), RunningAt(51.5f, 0.0f, -2.0f, 0.0f)));
+}
+
+TEST(PesDodgeNetGate, WideOfTheGoalHisHeadingHasToBeBetweenTheNetBackAndHisPost) {
+  const pes::DodgeConstants k = BallConstants();
+  // At (50.0, 2.0), wide of the posts: the own post stands at 180 deg and the
+  // net back behind it at 116.6 deg. Heading 150 is between them; heading 110
+  // is outside, though it would be inside a 3.0 m offset to the back (108.4).
+  EXPECT_TRUE(pes::NetDodgeGate(k, NetMarks(), RunningAt(50.0f, 2.0f, 1.0f, -1.732f)));
+  EXPECT_FALSE(pes::NetDodgeGate(k, NetMarks(), RunningAt(50.0f, 2.0f, 1.879f, -0.684f)));
+}
+
+TEST(PesDodgeNetGate, ThePostsAreTheMarksPostHalfWidth) {
+  const pes::DodgeConstants k = BallConstants();
+  // With posts at 2.0 m, from (51.0, 0) the pair spans 206.6 to 333.4 deg, so
+  // heading 200 is outside it. GF's 3.7 m goal would put 200 inside [195.1, 344.9].
+  const pes::NetGoalMarks wider{50.0f, 2.0f, 52.0f};
+  EXPECT_TRUE(pes::NetDodgeGate(k, wider, RunningAt(51.0f, 0.0f, -0.684f, -1.879f)));
 }
 
 

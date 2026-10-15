@@ -1216,49 +1216,25 @@ bool ElizaController::_DodgeBallCandidate(int* kind) {
 }
 
 bool ElizaController::_DodgeNetCandidate(int* kind) {
-  // FUN_140a07e40 + FUN_14073c5d0. PES's net gate reads the player's own team's
-  // post (the own goal line) and then requires the ball's predicted position
-  // to fall inside the goal mouth there: past the post edge and between the two
-  // posts. GF's stand-in is the same test on its own pitch marks - the own goal
-  // line and the goal's half-width.
-  const Vector3 pos = CastPlayer()->GetPosition();
-  // The team's own goal is at +side * pitchHalfW: the set-piece code's
-  // defending branch (`team->GetSide() * pitchHalfW * 0.98`) is the same end.
-  const float ownGoalX = team->GetSide() * pitchHalfW;
-  // Near his own goal line, where PES's post-edge test admits the dodge.
-  if (std::fabs(pos.coords[0] - ownGoalX) > 12.0f) return false;
-  // The ball's predicted position has to be going into the mouth: past the
-  // goal line and between the posts.
-  const Vector3 ball = _mentalImage->GetBallPrediction(200).Get2D();
-  const float into = (ball.coords[0] - ownGoalX) * -team->GetSide();
-  if (into < 0.0f || std::fabs(ball.coords[1]) > goalHalfWidth) return false;
+  // FUN_140a07dd0 (the entry, feature 0x23) + FUN_140a07e40 (the gate) +
+  // FUN_14073c5d0 (the selector). The gate reads the dodger's own record and
+  // the goal marks only: no ball, and no window on his own goal line.
   const pes::DodgeConstants& k = match->GetPesDodgeConstants();
-  const float speed = CastPlayer()->GetMovement().GetLength() * 3.6f;
-  // FUN_140a07e40's own gate, past the goal mouth: he has to be standing on
-  // the pitch's x edge and the ball has to be stepping. The three bearings
-  // the exe reads are the same own-goal geometry this predicate already
-  // computed, on GF's own pitch marks.
+  const Vector3 pos = CastPlayer()->GetPosition();
+  const Vector3 mov = CastPlayer()->GetMovement();
   pes::NetGateInput gate;
   gate.animeSlot = true;  // the command is about to issue a Special
-  gate.playerX_m = pos.coords[0];
-  gate.playerZ_m = pos.coords[1];
-  gate.pitchHalfWidth_m = pitchHalfW;
-  gate.goalHalfWidth_m = goalHalfWidth;
-  gate.ballStep_m = (ball - pos).GetLength();
-  // The bearings, on the same (x length, y width) axes GF uses: PES's z is
-  // GF's y, so the angle is atan2(dy, dx) - the engine's own BearingDeg.
-  const int zSign = pos.coords[1] >= 0.0f ? 1 : -1;
-  const auto bearing = [&](float x, float y) {
-    return std::atan2(y - pos.coords[1], x - pos.coords[0]) * 180.0f / blunted::pi;
-  };
-  gate.ballLookAheadBearing_deg = bearing(ball.coords[0], ball.coords[1]);
-  // The post on his own side (by the sign of his y) is the one the exe's own
-  // sample pair starts from; the far post and the point behind the near one
-  // close it.
-  gate.ownSidePostBearing_deg = bearing(ownGoalX, zSign * goalHalfWidth);
-  gate.farSidePostBearing_deg = bearing(ownGoalX, -zSign * goalHalfWidth);
-  gate.behindOwnPostBearing_deg = bearing(ownGoalX + team->GetSide() * 3.0f, zSign * goalHalfWidth);
-  if (!pes::NetDodgeGate(k, gate)) return false;
+  gate.x_m = pos.coords[0];
+  gate.y_m = pos.coords[1];
+  gate.moveX_mps = mov.coords[0];
+  gate.moveY_mps = mov.coords[1];
+  gate.moveZ_mps = mov.coords[2];
+  // FieldInfo F[0], F[2] and F[14] (pes-re-fieldinfo.md §1): the goal line's
+  // outer edge is the half length plus half a line, the posts are the goal's
+  // inner half-width, and the net's back is pesNetFloorBackX.
+  const pes::NetGoalMarks marks{pitchHalfW + lineHalfW, goalInnerHalfWidth, pesNetFloorBackX};
+  if (!pes::NetDodgeGate(k, marks, gate)) return false;
+  const float speed = mov.GetLength() * 3.6f;
   auto clip = pes::NetSelector(match->GetPesAnimetable(), k, speed > 22.0f);
   if (!clip) return false;
   *kind = static_cast<int>(pes::DodgeKind::kNet);

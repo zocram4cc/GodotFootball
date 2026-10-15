@@ -112,7 +112,8 @@ struct DodgeConstants {
   // The player has to be inside this much of the pitch's x edge
   // (DAT_14256ae1c = 1).
   float netEdgeMargin_m = 0.0f;
-  // The ball's step has to clear 100 / (gs * 72) (gs = 54).
+  // His speed has to clear 100 / (gs * 72) per frame (DAT_14253ee30 over
+  // DAT_1425cb47c, gs = 54): 100 / 72 m/s once the gs cancels.
   float netStepDivisor = 72.0f;  // DAT_1425cb47c
   float netStepNumerator = 100.0f;  // DAT_14253ee30
   // The last rejection: the residual bearing past the edge has to clear this
@@ -236,26 +237,32 @@ bool BallDodgeSubTestFast(const DodgeConstants& k, const BallSubTestInput& in);
 // is 8, 9 or 10 (the kicks).
 bool BallDodgeSubTestMouth(const DodgeConstants& k, const BallSubTestInput& in);
 
-// FUN_140a07e40: the net dodge's own gate. Beyond the goal mouth GF already
-// reads, PES requires the man to be standing on the pitch's x edge, the ball
-// to be stepping, and the ball's bearing to sit inside the wedge the pitch's
-// two corners span.
-struct NetGateInput {
-  bool animeSlot = false;        // FUN_1406b4c10(ap, 0x15)
-  float playerX_m = 0.0f;        // his own x
-  float playerZ_m = 0.0f;        // his own z (PES's pitch is x length, z width)
-  float pitchHalfWidth_m = 0.0f;  // pitch bounds +0
-  float goalHalfWidth_m = 0.0f;   // pitch bounds +2 (the post)
-  float ballStep_m = 0.0f;       // |the ball's look-ahead position|
-  float ballLookAheadBearing_deg = 0.0f;  // the ball's bearing at the look-ahead
-  // The three samples the exe builds, all on the own goal line: the post on
-  // his own side, the post across, and the point directly behind the first.
-  float ownSidePostBearing_deg = 0.0f;
-  float farSidePostBearing_deg = 0.0f;
-  float behindOwnPostBearing_deg = 0.0f;
+// PES's bearing (FUN_140439e50 over FUN_140a92d40): atan2(dx, dz) in degrees,
+// wrapped to [0, 360), with 0 deg = +GF y (PES's +z) and 90 deg = +GF x. The
+// net gate compares bearings numerically, so this convention is load-bearing.
+float PesBearingDeg(float fromX, float fromY, float toX, float toY);
+
+// FUN_140a07e40: the net dodge's own gate. It reads the dodger's own record
+// only: his position and his movement, against three FieldInfo marks the exe
+// loads through the block at G+0x2aa8 (F[0] at 0x140a07ec5, F[2] at
+// 0x140a08013, F[14] at 0x140a08019). The ball does not enter: the dodge is a
+// man running into the net. The caller names the marks from gametypes.hpp.
+struct NetGoalMarks {
+  float goalLineX_m = 0.0f;      // F[0]: the goal line's outer edge
+  float postHalfWidth_m = 0.0f;  // F[2]: the goal's inner half-width, the posts' z
+  float netBackX_m = 0.0f;       // F[14]: the net's floor-back x
 };
 
-bool NetDodgeGate(const DodgeConstants& k, const NetGateInput& in);
+struct NetGateInput {
+  bool animeSlot = false;  // FUN_1406b4c10(ap, 0x15)
+  float x_m = 0.0f;        // his x (PES +0x55c: the pitch's length)
+  float y_m = 0.0f;        // his z (PES +0x564: GF's y is PES's z)
+  float moveX_mps = 0.0f;  // his movement (PES +0x574, per frame in the exe)
+  float moveY_mps = 0.0f;  // lateral (PES +0x57c)
+  float moveZ_mps = 0.0f;  // height (PES +0x578)
+};
+
+bool NetDodgeGate(const DodgeConstants& k, const NetGoalMarks& marks, const NetGateInput& in);
 
 // FUN_140a0b350: the human dodge's own feature gate, which runs before the
 // opponent scan (FUN_140a08ea0) and decides whether the man may dodge a

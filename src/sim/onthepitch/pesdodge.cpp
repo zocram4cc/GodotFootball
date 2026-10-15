@@ -1,5 +1,6 @@
 #include "onthepitch/pesdodge.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstring>
@@ -18,7 +19,6 @@ float Wrap180Deg(float a) {
   while (a <= -180.0f) a += 360.0f;
   return a;
 }
-
 
 // Each constant is read through an opcode-checked instruction that references
 // it, so a different executable fails the load instead of silently reading the
@@ -482,31 +482,65 @@ bool BallDodgeSubTestMouth(const DodgeConstants& k, const BallSubTestInput& in) 
          Wrap180Deg(in.ballBearing_deg - in.mouthFarAngle_deg) <= 0.0f;
 }
 
-bool NetDodgeGate(const DodgeConstants& k, const NetGateInput& in) {
-  // FUN_140a07e40, in the exe's order.
-  // He has to stand on the pitch's x edge: |x| >= halfWidth - 1.
-  if (std::fabs(in.playerX_m) < in.pitchHalfWidth_m - k.netEdgeMargin_m) return false;
+// PES's bearing (FUN_140439e50 over FUN_140a92d40); see pesdodge.hpp.
+float PesBearingDeg(float fromX, float fromY, float toX, float toY) {
+  float a = std::atan2(toX - fromX, toY - fromY) * (180.0f / blunted::pi);
+  if (a < 0.0f) a += 360.0f;
+  return a;
+}
+
+bool NetDodgeGate(const DodgeConstants& k, const NetGoalMarks& marks, const NetGateInput& in) {
+  // FUN_140a07e40, in the exe's order. Every term reads the dodger's own record
+  // and the goal marks; the ball does not enter.
+  const float ax = std::fabs(in.x_m);
+  // He has to stand within the edge margin of his goal line: |x| >= F[0] - 1.
+  if (ax < marks.goalLineX_m - k.netEdgeMargin_m) return false;
   // The anime layer has to have the dodge slot.
   if (!in.animeSlot) return false;
-  // The ball's step over the look-ahead has to clear 100 / (gs * 72).
-  const float floor_m = k.netStepNumerator / (k.lastEventRollDivisor * k.netStepDivisor);
-  if (in.ballStep_m <= floor_m) return false;
-  // The exe picks two samples by which side of the goal half-width his z is
-  // on. In line with the goal they are the two posts: the ball's bearing has
-  // to sit between them, i.e. it is heading into the mouth. Wide of the goal
-  // they are the post on his side and the point directly behind it: the ball
-  // is heading out past the post instead.
-  const bool wide = std::fabs(in.playerZ_m) > in.goalHalfWidth_m;
-  const float lo = wide ? std::min(in.ownSidePostBearing_deg, in.behindOwnPostBearing_deg)
-                        : std::min(in.ownSidePostBearing_deg, in.farSidePostBearing_deg);
-  const float hi = wide ? std::max(in.ownSidePostBearing_deg, in.behindOwnPostBearing_deg)
-                        : std::max(in.ownSidePostBearing_deg, in.farSidePostBearing_deg);
-  const float ball = Wrap180Deg(in.ballLookAheadBearing_deg);
-  if (ball < lo || ball > hi) return false;
-  // Standing inside the pitch's edge, the residual bearing from the ball to
-  // the post on his own side has to clear 15 deg.
-  if (std::fabs(in.playerX_m) < in.pitchHalfWidth_m) {
-    const float residual = Wrap180Deg(ball - in.ownSidePostBearing_deg);
+  // He has to be moving. The exe's step is 100 / (gs * 72) per frame; per
+  // second the gs cancels, so the floor is 100 / 72 m/s.
+  // ponytail: the exe's movement-state branch (+0x5b0) is not carried; the
+  // speed floor stands in for it.
+  const float speed = std::sqrt(in.moveX_mps * in.moveX_mps + in.moveY_mps * in.moveY_mps +
+                                in.moveZ_mps * in.moveZ_mps);
+  if (speed <= k.netStepNumerator / k.netStepDivisor) return false;
+  // The heading is his movement's bearing (FUN_140458740 over the record's velocity).
+  const float heading = PesBearingDeg(0.0f, 0.0f, in.moveX_mps, in.moveY_mps);
+  // The goal he stands at is the one on his end: the sign of his x.
+  const float sx = in.x_m < 0.0f ? -1.0f : 1.0f;
+  const float sz = in.y_m < 0.0f ? -1.0f : 1.0f;
+  const float goalX = sx * marks.goalLineX_m;
+  const float ownPost = PesBearingDeg(in.x_m, in.y_m, goalX, sz * marks.postHalfWidth_m);
+  const bool wide = std::fabs(in.y_m) > marks.postHalfWidth_m;
+  // Wide of the posts: his own post and the point behind it at the net's back.
+  // In line: the two posts across the mouth, the back x only once he is past it.
+  float a = 0.0f;
+  float b = 0.0f;
+  if (wide) {
+    a = ownPost;
+    b = PesBearingDeg(in.x_m, in.y_m, sx * marks.netBackX_m, sz * marks.postHalfWidth_m);
+  } else {
+    const float mouthX = ax > marks.netBackX_m ? sx * marks.netBackX_m : goalX;
+    a = PesBearingDeg(in.x_m, in.y_m, mouthX, marks.postHalfWidth_m);
+    b = PesBearingDeg(in.x_m, in.y_m, mouthX, -marks.postHalfWidth_m);
+  }
+  const float lo = std::min(a, b);
+  const float hi = std::max(a, b);
+  // Level with the goal line, or wide of the posts, his heading sits between
+  // them; past the line it sits outside them.
+  // ponytail: the exe's outside branch also yields to the anime state byte 2
+  // (hu(i)+0x4c), which GF does not carry.
+  const bool inside = ax <= marks.goalLineX_m || wide;
+  if (inside) {
+    if (heading < lo || heading > hi) return false;
+  } else if (heading > lo && heading < hi) {
+    return false;
+  }
+  // Inside the edge, his heading has to clear his own post by the rejection angle.
+  if (ax < marks.goalLineX_m) {
+    float residual = ownPost - heading;
+    if (residual > 180.0f) residual -= 360.0f;
+    if (residual < -180.0f) residual += 360.0f;
     if (std::fabs(residual) < k.netEdgeRejection_deg) return false;
   }
   return true;

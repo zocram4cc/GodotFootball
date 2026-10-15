@@ -97,5 +97,8 @@ const float pesPenaltyAreaLineX = 36.14f;      // F6
 const float pesPenaltyAreaHalfWidth = 20.12f;  // F7
 const float pesPenaltySpotX = 41.56f;          // F8
 const float pesCircleRadius = 9.15f;           // F17: centre circle and the box arc
+// F14: the net's floor-back x, the far end of the goal net's slab (the net
+// gate's behind-the-post point).
+const float pesNetFloorBackX = 54.43359f;
 
 #endif
