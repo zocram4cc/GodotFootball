@@ -2206,11 +2206,19 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
   //        tackles 4-1 / 5-3 / 2-2 / 4-2 / 4-2; fouls 14-8 / 9-7 / 9-9 / 6-4 / 10-9
   //        goals 1-5 / 1-3 / 3-0 / 0-1 / 0-2 (16); shots 4-18 / 7-7 / 8-4 / 2-6 / 4-8 (68)
   // Passes fall on every seed. Decide again once the roster-slot term is ported.
-  const bool pesClip = command.useSpecialVar1 && pes::IsPesClipFamily(command.specialVar1);
+  const bool pesClip = command.useSpecialVar1 && (pes::IsPesClipFamily(command.specialVar1) ||
+                                                  pes::IsPesLocomotionFamily(command.specialVar1));
   if (command.useSpecialVar1)
     query.properties.Set("specialvar1", command.specialVar1);
   if (command.useSpecialVar2)
     query.properties.Set("specialvar2", command.specialVar2);
+  // Locomotion clips are PES's own choice (A-MOV's MOVESTEP), so GF's pose matching does not veto
+  // them; the dodge and tackle families keep it (the ponytail note above).
+  if (pesClip && !pes::PesFamilyPoseMatched(command.specialVar1)) {
+    query.byIncomingVelocity = false;
+    query.byIncomingBodyDirection = false;
+    query.bySide = false;
+  }
   if (trick) {
     query.incomingVelocity_Strict = false;
     query.incomingVelocity_ForceLinearity = false;
