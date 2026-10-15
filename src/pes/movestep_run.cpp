@@ -65,6 +65,13 @@ constexpr RunScalar RUN_SCALARS[] = {
     {0x1425a358c, &RunConstants::rate055},
     {0x14259bdd4, &RunConstants::foot075},
     {0x1425ddfe8, &RunConstants::foot027},
+    {0x14259be2c, &RunConstants::rec40},
+    {0x1425cb2fc, &RunConstants::rec59},
+    {0x1425c48cc, &RunConstants::rec99},
+    {0x14259be34, &RunConstants::frame50},
+    {0x1425c594c, &RunConstants::frame95},
+    {0x14256b140, &RunConstants::replay45},
+    {0x1425ddfbc, &RunConstants::deg146p25},
     {0x1425a3590, &RunConstants::dist110},
     {0x1425ddf8c, &RunConstants::turn16875},
     {0x1425ddf50, &RunConstants::blend1667},
@@ -195,6 +202,14 @@ float FirstAngle(float a, float /*b*/, const RunConstants& /*k*/) { return a; }
 // is zero and the handlers' hit loops stay empty exactly as they do for a clip without hit
 // records. ponytail: the AnimePlayer hit records (A-AN13) supply this.
 int HitRecordCount() { return 0; }
+
+// PES's player record's class-17 byte (P+0x2458), which the no-class branch reads twice
+// (the AI target's rank test and the set-piece kind fold) and the entries read for their
+// own record chains. GF's shared MoveHost contract does not carry it yet.
+// ponytail: the shared contract adds the accessor when the record writer is ported (A-AN);
+// until then the port stands it at PES's "no record" answer, which is the byte's zero.
+int RecordClass17Byte() { return 0; }
+
 
 // The group-C helpers' stand-ins, defined here because group C's signatures carry its own
 // TurnDistances and the shared contract names neither. Both return PES's "no" answer, so the
@@ -1770,6 +1785,12 @@ void Decelerate(MoveHost& host, MoveReq& req) {
   movestep::EnterRun(host, req, foot, false);
 }
 
+// The +0xac0 interface's slot 0x60, which every branch uses to turn an angle into a bucket:
+// FUN_1406b9b20, the port's shared AngleBucket.
+int SwingBucketAngle(const MoveHost& host, float angleDeg) {
+  return AngleBucket(host.AngleBuckets(), angleDeg, 10, false);
+}
+
 // ---------------------------------------------------------------------------------------------
 // FUN_1406c0170, the RUN_LOOP handler (mv2.a.c:6659). One tick of the running phase. Its
 // decompile's running branch, in PES's own order:
@@ -1861,6 +1882,216 @@ void RunLoop(MoveHost& host, MoveReq& req) {
                              host.MotionStartTime(cell.motionNo), 0.0f});
     RequestState(req, MoveState::kTurnStop);
     return;
+  }
+
+  // The no-class branch (PES's second half, mv2.a.c:494 onward). PES reaches it when the
+  // request's class word is -1, or when the match phase is 1 without the precise word; it is
+  // the arm that picks the turn-stop row and issues the swing clip.
+  if (!running) {
+    // The playback read through the +0xac0 interface's slot 0x30 (FUN_140a62960's mirror
+    // argument) and slot 0x50's answer.
+    // ponytail: the interface's slot pair is the anime player's own; the port uses the
+    // request's playback default, which is what the pair writes.
+    // The playback word is PES's own read here; the port leaves it as the request holds it.
+    // The look bucket and the facing error PES selects: word 0xd with word 7 for the
+    // out-of-play phase, else word 0xc with word 5.
+    int lookBucket = static_cast<int>(req.U(moveword::kLookBucketAlt));
+    float lookError = req.F(moveword::kFacingError);
+    if (-1 < cls && req.U(moveword::kPrecise) == 0u) {
+      lookBucket = static_cast<int>(req.U(moveword::kLookBucket));
+      lookError = req.F(moveword::kLookDelta);
+    }
+    // The band word clamped to 0..3.
+    int bandWord = band;
+    if (bandWord > 3) bandWord = 3;
+    if (bandWord < 0) bandWord = 0;
+
+    // The state picker: the match phase 1 with the look bucket at 4 or 9 and the facing
+    // error's magnitude past 146.25 degrees takes the AI target's own heading, folds it
+    // against the player's facing, and rewrites the look bucket and the second word.
+    if (host.MatchPhase() == 1 && (lookBucket - 3 < 2u || lookBucket - 8 < 2u) &&
+        k.deg146p25 < std::fabs(lookError)) {
+      // ponytail: FUN_140a6cf70's point, FUN_140a627e0's rank and FUN_140439e50's
+      // re-planting are the foundation's event store; the port takes the request's own
+      // word 3, which is PES's answer for an unset target.
+      float target = req.F(moveword::kLookHeading);
+      // PES's 20-in-0x15 test over the record's rank (FUN_140a627e0) picks the AI target's
+      // own heading; the port takes the request's word 3, which is PES's unset-target
+      // answer for a rank the record chain does not carry.
+      float folded = target;
+      if (folded < 0.0f) {
+        folded += k.full;
+      } else if (k.full <= folded) {
+        folded += k.wrapFull;
+      }
+      float delta = folded - FoldFull(req.F(moveword::kFacing), k);
+      if (k.half_turn < delta) {
+        const float sign = delta < 0.0f ? k.neg : k.one;
+        delta -= sign * k.full;
+      }
+      // The body's own turn (P+0x28 against P+0x20) against the 22.5 / 11.25 pair.
+      float bodyTurn = req.F(moveword::kBodyDirection) - req.F(moveword::kFacing);
+      if (k.half_turn < bodyTurn) {
+        const float sign = bodyTurn < 0.0f ? k.neg : k.one;
+        bodyTurn -= sign * k.full;
+      }
+      float scale = k.deg225;
+      if (k.deg225 < std::fabs(bodyTurn)) {
+        const float a = bodyTurn < 0.0f ? k.neg : k.one;
+        const float b = delta < 0.0f ? k.neg : k.one;
+        if (a == b) scale = k.deg1125;
+      }
+      if (scale < std::fabs(delta) && std::fabs(delta) < k.half_turn - scale) {
+        const float a = lookError < 0.0f ? k.neg : k.one;
+        const float b = delta < 0.0f ? k.neg : k.one;
+        if (a != b) {
+          // PES writes the swapped pair straight into the request: the second word's
+          // 180 / -180 and the look bucket's 4 / 9.
+          lookError = (lookBucket - 3 < 2u) ? k.wrapHalf : k.half_turn;
+          lookBucket = (lookBucket - 3 < 2u) ? 9 : 4;
+          req.SetF(moveword::kLookDelta, lookError);
+          req.SetU(moveword::kLookBucketAlt, static_cast<uint32_t>(lookBucket));
+        }
+      }
+    }
+
+    // The swing arm's bearing: the body's own turn, the live clip's motion family and the
+    // +/-90 / +/-45 / 180 clamps PES writes into the bucket word.
+    float bodyTurn = req.F(moveword::kBodyDirection) - req.F(moveword::kFacing);
+    if (k.half_turn < bodyTurn) {
+      const float sign = bodyTurn < 0.0f ? k.neg : k.one;
+      bodyTurn -= sign * k.full;
+    }
+    const int motion2 = host.CurrentMotion();
+    if (motion2 > 0xb48) {
+      if (motion2 == 0xb4f || motion2 == 0xb52 || motion2 == 0xb5a || motion2 == 0xbc3 ||
+          motion2 == 0xc05 || motion2 == 0xc3d) {
+        // The 33.75 / 22.5 family's clamp.
+        if (k.deg3375 < std::fabs(bodyTurn)) goto swing_180;
+        if (k.deg225 < std::fabs(bodyTurn)) {
+          const float card = (0.0f < bodyTurn) ? k.deg90 : -k.deg90;
+          const float a = lookError < 0.0f ? k.neg : k.one;
+          const float b = card < 0.0f ? k.neg : k.one;
+          if (a != b) lookBucket = SwingBucketAngle(host, -card);
+        }
+        goto swing_write;
+      }
+    } else if (motion2 == 0xb48) {
+      goto swing_180_check;
+    } else if (motion2 < 0x4f) {
+      // The 0x25..0x4e family's mask, decoded as the wide range PES's own bit test reads.
+      if (motion2 - 0x25 < 0x2au && ((0x24800000001ULL >> (motion2 - 0x25)) & 1) != 0) {
+        goto swing_180_check;
+      }
+    } else if (motion2 > 0x8b4 && motion2 < 0x8ba) {
+      goto swing_180_check;
+    } else if (motion2 == 0x8c7) {
+      // The 0x8c7 family: the +/-45 card against the second word's magnitude, and the 45
+      // degree gate on the card.
+      const float card = (0.0f < lookError) ? k.deg45 : -k.deg45;
+      if (k.deg45 < std::fabs(lookError)) {
+        lookBucket = SwingBucketAngle(host, card);
+        goto swing_write;
+      }
+    } else if (motion2 == 0x8ca) {
+      goto swing_180_check;
+    }
+    lookBucket = SwingBucketAngle(host, lookError);
+    goto swing_write;
+
+  swing_180_check:
+    if (k.deg3375 < std::fabs(bodyTurn)) {
+    swing_180:
+      // The 180 / -45 pair: the 146.25 gate on the second word.
+      float card = k.wrapHalf;
+      float half = -k.deg45;
+      if (0.0f < bodyTurn) {
+        card = k.half_turn;
+        half = k.deg45;
+      }
+      if (k.deg146p25 <= std::fabs(lookError)) {
+        const float a = lookError < 0.0f ? k.neg : k.one;
+        const float b = half < 0.0f ? k.neg : k.one;
+        if (a != b) {
+          lookBucket = SwingBucketAngle(host, card);
+          goto swing_write;
+        }
+      } else {
+        const float a = lookError < 0.0f ? k.neg : k.one;
+        const float b = half < 0.0f ? k.neg : k.one;
+        if (a != b) {
+          lookBucket = SwingBucketAngle(host, -half);
+          goto swing_write;
+        }
+      }
+    } else if (k.deg225 < std::fabs(bodyTurn)) {
+      const float card = (0.0f < bodyTurn) ? k.deg90 : -k.deg90;
+      const float a = lookError < 0.0f ? k.neg : k.one;
+      const float b = card < 0.0f ? k.neg : k.one;
+      if (a != b) lookBucket = SwingBucketAngle(host, -card);
+    }
+  swing_write : {
+    // The bucket's own folds (4 -> 3, 9 -> 8) and the kind word's set-piece fold.
+    if (lookBucket == 4) lookBucket = 3;
+    if (lookBucket == 9) lookBucket = 8;
+    int rowKind = kind;
+    if (RecordClass17Byte() < 0x16 &&
+        ((req.U(moveword::kCommandId) - 0x33u < 2u || req.U(moveword::kCommandId) == 0x4du) &&
+         rowKind - 2u < 2u)) {
+      rowKind = 1;
+    }
+    // The row pick through the +0xac0 interface's slot 0xd0 - FUN_1406ba900's own row
+    // selector, whose arguments are the playback struct, the band word, the kind word, the
+    // bucket word, the command word and the live clip's motion. The port's GotoRowFor is
+    // the same table's reader (kind + class*8), which PES's own FUN_1406b9bd0 uses.
+    const int row = GotoRowFor(rowKind, bandWord, t);
+    const MoveCell cell = host.Cell(row, lookBucket, false);
+    // The swing clip's duration and playback: 0.1667 by default, 0.2 with the 22.5 /
+    // bearing-sign pair for the 0xbee..0xc23 / 0xbc2 / 0xb45 family, 0.25 for the 0xe2d
+    // family whose foot test decides the mirror.
+    float duration = k.blend1667;
+    bool mirror = cell.mirror;
+    const int cellMotion = static_cast<int>(cell.motionNo);
+    if ((static_cast<uint32_t>(cellMotion - 0xbee) < 0x36u) ||
+        cellMotion == 0xbc2 || (static_cast<uint32_t>(cellMotion - 0xb45) < 2u)) {
+      duration = k.blend2;
+      if (k.deg225 < std::fabs(bodyTurn) &&
+          ((0.0f < bodyTurn && mirror) || (bodyTurn < 0.0f && !mirror))) {
+        duration = k.rampSlope;  // 0.15 (0x1425c48a0)
+      }
+    } else if (cellMotion == 0xe2d) {
+      // The 0xe2d family's foot test over the bones 3 and 6.
+      float footA[3] = {0.0f, 0.0f, 0.0f};
+      float footB[3] = {0.0f, 0.0f, 0.0f};
+      host.PositionAt(3, footA);
+      host.PositionAt(6, footB);
+      const float dx = footA[0] - footB[0];
+      const float dy = footA[1] - footB[1];
+      const float dz = footA[2] - footB[2];
+      (void)dx;
+      (void)dz;
+      mirror = !(dy <= 0.0f);
+    }
+    host.Issue(MotionRequest{cell.motionNo, mirror, 0, duration,
+                              req.F(moveword::kPlaybackDefault), 0.0f});
+    RequestState(req, MoveState::kTurnStop);
+    // The turned heading: the bucket's own centre angle with the 11.25 allowance for the
+    // buckets 3 and 8, clamped to the swing bearing when it sits inside the window, and
+    // added to the request's own word 2.
+    float allowance = 0.0f;
+    if (lookBucket - 3u < 2u || lookBucket - 8u < 2u) allowance = k.deg1125;
+    const float centre = host.StepTablesView().bucketDegrees[lookBucket];
+    float turned = centre + allowance;
+    if (bodyTurn <= turned && (centre - allowance) <= bodyTurn) turned = bodyTurn;
+    req.SetF(moveword::kRecordStampC, turned + req.F(moveword::kFacing));
+    req.SetU(moveword::kBandTarget, static_cast<uint32_t>(bandWord));
+    req.SetF(moveword::kSpeedBand, req.F(moveword::kSpeedBand));
+    req.SetU(moveword::kPrevBucket, static_cast<uint32_t>(lookBucket));
+    req.SetU(moveword::kMoveBucket, static_cast<uint32_t>(lookBucket));
+    req.SetU(moveword::kLiveKind, static_cast<uint32_t>(kind));
+    req.SetByte(moveword::kTurnLockDir, 0);
+    return;
+  }
   }
 
   // Arm 5: the style block.

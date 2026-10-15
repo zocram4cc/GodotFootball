@@ -215,6 +215,26 @@ pes::RunConstants SyntheticRun() {
   k.quota75 = 75.0f;
   k.quota80 = 80.0f;
   k.quota3 = 3.0f;
+  // The constants the no-class branch, the two entries and the shared band/speed block read,
+  // each the install's own value (the install-relations test checks the real ones).
+  k.deg3375 = 33.75f;         // 0x1425cc688
+  k.deg5p625 = 5.625f;        // 0x1425ddf84
+  k.deg84375 = 84.375f;       // 0x14259be54
+  k.deg123p5 = 123.5f;        // 0x1425ddfb0
+  k.deg163p125 = 163.125f;    // 0x1425ddfc4
+  k.deg146p25 = 146.25f;      // 0x1425ddfbc
+  k.kmh172 = 17.2f;           // 0x1425ddf90
+  k.kmh1475b = 14.75f;        // 0x1425ddf88
+  k.rate055 = 0.55f;          // 0x1425a358c
+  k.foot075 = 0.75f;          // 0x14259bdd4
+  k.foot027 = -0.27f;         // 0x1425ddfe8
+  k.dist110 = 1.1f;           // 0x1425a3590
+  k.rec40 = 40.0f;            // 0x14259be2c
+  k.rec59 = 59.0f;            // 0x1425cb2fc
+  k.rec99 = 99.0f;            // 0x1425c48cc
+  k.frame50 = 50.0f;          // 0x14259be34
+  k.frame95 = 95.0f;          // 0x1425c594c
+  k.replay45 = 0.45f;         // 0x14256b140
   return k;
 }
 
@@ -1216,4 +1236,111 @@ TEST(EnterDecelerate, WritesTheBandWordOneAndTheStateWordTen) {
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 11.0f);
   EXPECT_EQ(req.U(pes::moveword::kNextState), 10u);
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+}
+
+// The no-class branch: with the class word at -1 and the match phase 1, the swing arm picks
+// the turn-stop row and issues the clip, and the request is written with the bucket word,
+// the turned heading and the state word 6 (TURN_STOP).
+TEST(RunLoop, TakesTheSwingArmWhenTheClassWordIsMinusOne) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 0;
+  h.phase = 1;  // the match phase the no-class branch needs
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);  // class -1
+  req.SetU(pes::moveword::kPrecise, 1u);  // the precise word set: the no-class branch
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kMoveBucket, 0u);
+  req.SetU(pes::moveword::kCommandId, 0u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 12.0f);
+  req.SetF(pes::moveword::kLookBucket, 0u);
+  req.SetF(pes::moveword::kLookBucketAlt, 0u);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  h.bandSpeeds[0] = 4.0f;
+  h.bandSpeeds[1] = 8.0f;
+  h.bandSpeeds[2] = 14.0f;
+  h.bandSpeeds[3] = 22.0f;
+  // The bucket -> degrees table the swing arm reads for its centre angle (the install's
+  // own table, which the install-relations test checks).
+  h.stepTables.bucketDegrees = {0.0f, 45.0f, 90.0f, 135.0f, 135.0f,
+                                0.0f, -45.0f, -90.0f, -135.0f, -135.0f};
+  pes::probe::Reset();
+  pes::movestep::RunLoop(h, req);
+  // The swing arm's exit is the TURN_STOP state request, and the bucket word is the one the
+  // swing arm's own picker wrote.
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kTurnStop));
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_GE(h.issues, 1);
+  // The swing arm's writes: the bucket word it picked, the turned heading and the previous
+  // bucket. The allowance is 11.25 for the buckets 3 and 8, and 0 for the others, so the
+  // heading is the bucket's own centre angle plus the allowance plus the request's word 2.
+  const int swingBucket = static_cast<int>(req.U(pes::moveword::kMoveBucket));
+  const float allowance =
+      (static_cast<unsigned>(swingBucket) - 3u < 2u || static_cast<unsigned>(swingBucket) - 8u < 2u)
+          ? 11.25f
+          : 0.0f;
+  const float centre = h.stepTables.bucketDegrees[swingBucket];
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRecordStampC), centre + allowance + 10.0f);
+  EXPECT_EQ(req.U(pes::moveword::kPrevBucket), static_cast<uint32_t>(swingBucket));
+  // The swing arm's issue: the row's own cell, the 0.1667 duration (the 0xbee..0xc23 /
+  // 0xbc2 / 0xb45 family's 0.2 is not this cell) and the request's playback.
+  ASSERT_GE(h.issues, 1);
+  EXPECT_EQ(h.issued.motion, 0x100 + SyntheticTables().gotoRow[2 + 1 * 8]);
+  EXPECT_FLOAT_EQ(h.issued.duration, 1.0f / 6.0f);
+  EXPECT_FLOAT_EQ(h.issued.playback, 1.0f);
+}
+
+// The no-class branch's state picker: with the look bucket at 4, the match phase 1 and the
+// facing error's magnitude past 146.25 degrees, the second word is swapped to -180 and the
+// look bucket to 9 - PES's own fold, which the swing arm then reads.
+TEST(RunLoop, FoldsTheSecondWordWhenTheStatePickersFacingErrorIsPast146) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 0;
+  h.phase = 1;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);
+  req.SetU(pes::moveword::kPrecise, 1u);  // the precise word set: the no-class branch
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kMoveBucket, 0u);
+  req.SetU(pes::moveword::kCommandId, 0u);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  // The AI target's own heading, which the state picker reads as the desired angle: 150
+  // degrees off the facing is inside the 22.5..157.5 window the fold's gate reads, and its
+  // sign is opposite the facing error's, which is the fold's own second condition.
+  req.SetF(pes::moveword::kLookHeading, 150.0f);
+  req.SetU(pes::moveword::kLookBucketAlt, 4u);  // the look bucket at 4
+  req.SetF(pes::moveword::kFacingError, -150.0f);  // past 146.25 degrees, opposite sign
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::RunLoop(h, req);
+  // The state picker's fold is visible in the look bucket it rewrote (4 -> 9), and the tick
+  // still ends in the swing arm's TURN_STOP request.
+  EXPECT_EQ(req.U(pes::moveword::kLookBucketAlt), 9u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kLookDelta), -180.0f);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kTurnStop));
 }
