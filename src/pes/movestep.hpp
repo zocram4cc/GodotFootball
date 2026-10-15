@@ -419,18 +419,25 @@ void StepTurnStep(MoveHost& host, MoveReq& req);       // 19 FUN_1406c8d80
 
 // Entries: the code that sets a state's request when another state (or INIT) moves into it.
 // The run entry FUN_1406d2030 holds the run-rate guard (RunRateAllowed, below).
-void EnterRun(MoveHost& host, MoveReq& req);           // FUN_1406d2030 (group B)
-void EnterGotoRun(MoveHost& host, MoveReq& req);       // FUN_1406ce820 (group B)
+// FUN_1406d2030 (group B). PES takes two more arguments, (int foot, byte flag), which the caller passes;
+// the port reads the foot from FootBand() and names the flag when group B decodes it.
+void EnterRun(MoveHost& host, MoveReq& req);
+// FUN_1406ce820 (group B). PES takes one more argument, a byte flag (char) that the caller passes; group B
+// names it when it decodes the caller.
+void EnterGotoRun(MoveHost& host, MoveReq& req);
 void EnterStop(MoveHost& host, MoveReq& req);          // FUN_1406d5d60 (group B)
-void EnterAccelerate(MoveHost& host, MoveReq& req);    // FUN_1406ccd00 (group B)
-void EnterDecelerate(MoveHost& host, MoveReq& req);    // FUN_1406cdaf0 (group B)
+// FUN_1406ccd00 (group B): returns whether it wrote the request (undefined8 in PES; 1 on success, 0 on each refusal).
+bool EnterAccelerate(MoveHost& host, MoveReq& req);
+// FUN_1406cdaf0 (group B): returns whether it wrote the request (undefined8 in PES).
+bool EnterDecelerate(MoveHost& host, MoveReq& req);
 void EnterRunTurnRun(MoveHost& host, MoveReq& req);    // FUN_1406d6780 (group D)
 // FUN_1406d2f60 (group D): the entry takes a float threshold and returns whether it wrote the
 // request. true = the request is written and RUN_TURN_STEP is entered (RequestState); false = the
 // calling state keeps the tick. Callers: RUN_TURN_STEP twice (threshold 0), RUN_LOOP (rateMax term),
 // INIT (computed from the rate ceiling and the turn factor).
 bool EnterRunTurnStep(MoveHost& host, MoveReq& req, float threshold);
-void EnterStepTurnRun(MoveHost& host, MoveReq& req);   // FUN_1406d38d0 (group D)
+// FUN_1406d38d0 (group D): returns whether it wrote the request (undefined8 in PES).
+bool EnterStepTurnRun(MoveHost& host, MoveReq& req);
 
 // Shared helpers, defined in movestep_common.cpp (owned by the dispatcher port). Arguments
 // follow the PES call order; PES's player pointer (the anime interface) is the MoveHost.
