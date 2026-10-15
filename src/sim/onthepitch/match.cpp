@@ -375,11 +375,13 @@ void Match::GetOfficialPlayers(std::vector<PlayerBase*>& players) {
 std::shared_ptr<const MentalImage> Match::GetMentalImageOwned(int history_ms) {
   if (mentalImages.empty()) return nullptr;
 
-  int index = int(round((float)history_ms / 10.0));
+  // The ring holds one snapshot per tick (Milestone A1: 1/54 s), so an age in
+  // milliseconds is a count of them, not of 10 ms steps.
+  int index = int(round((float)history_ms / kTick_ms));
   if (index >= (signed int)mentalImages.size()) index = mentalImages.size() - 1;
   if (index < 0) index = 0;
 
-  mentalImages.at(index)->SetTimeStampNeg_ms(index * 10.0f);
+  mentalImages.at(index)->SetTimeStampNeg_ms(static_cast<unsigned int>(index * kTick_ms));
   return mentalImages.at(index);
 }
 
@@ -389,13 +391,15 @@ const MentalImage* Match::GetMentalImage(int history_ms) {
   // match pointer the caller then reads through.
   if (mentalImages.empty()) return nullptr;
 
-  int index = int(round((float)history_ms / 10.0));
+  // The ring holds one snapshot per tick (Milestone A1: 1/54 s), so an age in
+  // milliseconds is a count of them, not of 10 ms steps.
+  int index = int(round((float)history_ms / kTick_ms));
   if (index >= (signed int)mentalImages.size())
     index = mentalImages.size() - 1;
   if (index < 0)
     index = 0;
 
-  mentalImages.at(index)->SetTimeStampNeg_ms(index * 10.0f);
+  mentalImages.at(index)->SetTimeStampNeg_ms(static_cast<unsigned int>(index * kTick_ms));
 
   return mentalImages.at(index).get();
 }

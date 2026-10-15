@@ -345,3 +345,51 @@ TEST(PesA1Sim, TheAiReadsTheBallsRecordAtItsOwnTime) {
   EXPECT_GT(speed, 1.0f) << "the ball must be moving for the difference to mean anything";
   EXPECT_NEAR((next - now).GetLength() * pes::kPesTickHz, speed, speed * 0.05f);
 }
+
+// --- the clocks the sim keeps on the tick ----------------------------------
+
+TEST(PesA1Sim, ThePossessionWindowCountsSecondsNotTenMillisecondSteps) {
+  REQUIRE_PES_MATCH();
+  MatchData* data = match->GetMatchData();
+  ASSERT_TRUE(data);
+  // The 60-second window holds seconds of possession, so a second of ticks moves
+  // the factor by 0.5 / 60. Main's AddPossessionTime_10ms added 0.01 per 10 ms -
+  // 1.0 a second - and a tick is 18.5 ms now, not 10.
+  const float before = data->GetPossessionFactor_60seconds();
+  for (unsigned long i = 0; i < Match::kFramesPerSecond; ++i)
+    data->AddPossessionTime(1, Match::kTick_ms);
+  EXPECT_NEAR(data->GetPossessionFactor_60seconds() - before, 0.5f / 60.0f, 2e-5f)
+      << "one second of ticks is one second of the window";
+  // Team 0 drains the same window by the same amount.
+  for (unsigned long i = 0; i < Match::kFramesPerSecond; ++i)
+    data->AddPossessionTime(0, Match::kTick_ms);
+  EXPECT_NEAR(data->GetPossessionFactor_60seconds(), before, 2e-5f)
+      << "a second of the other team's possession cancels it";
+}
+
+TEST(PesA1Sim, TheImageSomeMillisecondsAgoIsThatAgeNotGridStepsOfTen) {
+  REQUIRE_PES_MATCH();
+  // A snapshot per tick, so entry i of the ring is i ticks old and the milliseconds
+  // a read asks for are an age, not a count on a 10 ms grid. The ball is the
+  // witness: held still in the air and one metre further along x each tick, so an
+  // image's ball track carries the tick that took it - the tracks are frozen at
+  // their own tick, and a held ball's track does not move along x by itself.
+  Ball* ball = match->GetBall();
+  ASSERT_TRUE(ball);
+  const int ticks = 12;
+  for (int tick = 0; tick < ticks; ++tick) {
+    ball->SetPosition(Vector3(static_cast<float>(tick), 5.0f, 0.0f));
+    ball->SetMomentum(Vector3(0.0f, 0.0f, 0.0f));
+    match->Process();
+  }
+  const auto ballXOfAge = [&](int ageTicks) {
+    const int ms = static_cast<int>(ageTicks * Match::kTick_ms + 0.5);
+    const MentalImage* image = match->GetMentalImage(ms);
+    EXPECT_TRUE(image);
+    return image->GetBallPrediction(0).coords[0];
+  };
+  // Entry i is i ticks old, so the two reads are one metre apart on the ramp. The
+  // 10 ms grid would have read 19 ms as entry 2 and 37 ms as entry 4 - two metres.
+  EXPECT_NEAR(ballXOfAge(1) - ballXOfAge(2), 1.0f, 0.15f)
+      << "the read of 19 ms and the read of 37 ms are one entry apart, not three";
+}
