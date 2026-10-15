@@ -39,6 +39,14 @@ add_executable(pes_fieldinfo_test pes_fieldinfo_test.cpp)
 target_link_libraries(pes_fieldinfo_test PRIVATE gfsim GTest::gtest_main)
 gtest_discover_tests(pes_fieldinfo_test)
 
+add_executable(pes_ball_track_test pes_ball_track_test.cpp)
+target_link_libraries(pes_ball_track_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_ball_track_test)
+
+add_executable(pes_mover_test pes_mover_test.cpp)
+target_link_libraries(pes_mover_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_mover_test)
+
 add_executable(pes_judge_test pes_judge_test.cpp)
 target_link_libraries(pes_judge_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_judge_test)
@@ -134,7 +142,3 @@ gtest_discover_tests(pes_clips_test PROPERTIES TIMEOUT 1800)
 add_executable(pes_offball_test pes_offball_test.cpp)
 target_link_libraries(pes_offball_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_offball_test)
-
-add_executable(pes_mover_test pes_mover_test.cpp)
-target_link_libraries(pes_mover_test PRIVATE gfsim pesfmt GTest::gtest_main)
-gtest_discover_tests(pes_mover_test)

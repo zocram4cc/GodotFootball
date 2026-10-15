@@ -38,10 +38,6 @@ Ball::Ball(Match* match) : match(match) {
 
 Ball::~Ball() {}
 
-void Ball::GetPredictionArray(Vector3* target) {
-  std::copy_n(predictions, ballPredictionSize_ms / 10, target);
-}
-
 Vector3 Ball::GetMovement() {
   // meters / sec
   return momentum;
@@ -183,9 +179,12 @@ BallSpatialInfo Ball::CalculatePrediction() {
 
   // PES applies its per-tick factors once per 1/54 s and integrates its
   // accelerations over that step. GF ticks every 10 ms, so every per-tick keep
-  // factor is converted with <func>KeepFactorPerGfTick</func> (a factor k per
+  // factor is converted with <func>KeepFactorPerStep</func> (a factor k per
   // PES tick becomes k^(0.01*54) per GF tick) and the accelerations are
   // integrated with dt = timeStep. Both are applied inside the pesball calls.
+
+  // The state the sampler starts from: the same one this loop starts from.
+  const pesball::TrackStart trackStart{fox, contactTicks, recentHit};
 
   for (unsigned int predictTime_ms = int(timeStep * 1000.0f);
        predictTime_ms < ballPredictionSize_ms; predictTime_ms += int(timeStep * 1000.0f)) {
@@ -206,7 +205,7 @@ BallSpatialInfo Ball::CalculatePrediction() {
       // This predictor runs one 10 ms step per outcome, so it does the same here
       // - the contact rewrites the velocity and then the position follows,
       // which is what PES's next-tick flight step does with it.
-      pesball::ContactTick(pc, &fox, contactTicks, true, false);
+      pesball::ContactTick(pc, &fox, contactTicks, true, false, timeStep);
       ++contactTicks;
       fox.position = pes::Vec3(fox.position.x + fox.velocity.x * timeStep,
                                fox.position.y + fox.velocity.y * timeStep,
@@ -288,6 +287,12 @@ BallSpatialInfo Ball::CalculatePrediction() {
     }
   }
 
+  // PES's sampler, run from the state this loop started from on PES's own tick.
+  const pesball::Track sampled = pesball::BuildTrack(pc, trackStart, kGoalFrame);
+  for (unsigned k = 0; k < pesball::kTrackLength; ++k) {
+    track[k] = Vector3(sampled[k].x, -sampled[k].z, sampled[k].y);
+  }
+
   return BallSpatialInfo(newMomentum, newRotation_ms);
 }
 
@@ -332,6 +337,7 @@ void Ball::ResetSituation(const Vector3& focusPos) {
   for (unsigned int i = 0; i < ballPredictionSize_ms / 10; i++) {
     predictions[i] = Vector3(focusPos + Vector3(0, 0, 0.11));
   }
+  for (auto& record : track) record = Vector3(focusPos + Vector3(0, 0, 0.11));
   orientPrediction = QUATERNION_IDENTITY;
   ballPosHistory.clear();
   previousMomentum = Vector3(0);
