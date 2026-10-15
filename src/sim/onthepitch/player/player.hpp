@@ -146,9 +146,20 @@ public:
   void SetPesTackleSubKind(int kind) { pesTackleSubKind = kind; }
   int GetPesTackleSubKind() const { return pesTackleSubKind; }
 
+  // PES's carrier Intention (BallPlayer+0x32B0+8, the ratchet its own thinker
+  // writes at 0x1421197b0): what the carrier is trying to do, 1 when he has
+  // just got the ball and rising to 4. The image units read it as a gate -
+  // Breakthrough and the curve shot from 3 up, MiddleShot below 3, the feint
+  // at exactly 3 - and it is the pass layer's image state.
+  void SetPesIntention(int state) { pesIntention = state; }
+  int GetPesIntention() const { return pesIntention; }
+
 protected:
   pes::ContactAction pesChallenge = pes::ContactAction::kTackle;
   int pesTackleSubKind = 7;
+  // 1 on a fresh player: the reset 0x14210e5f0 clears the member through
+  // 0x1415595d0, which writes 1.
+  int pesIntention = 1;
   FormState::Arrow conditionArrow = FormState::Arrow::Normal;
   void _CalculateTacticalSituation();
 

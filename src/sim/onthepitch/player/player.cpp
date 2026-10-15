@@ -624,6 +624,10 @@ void Player::ResetSituation(const Vector3& focusPos) {
   tacticalSituation.forwardSpaceRating = 0;
   tacticalSituation.toGoalSpaceRating = 0;
   tacticalSituation.spaceRating = 0;
+
+  // A fresh situation is a fresh Intention: PES clears the member through
+  // 0x14210e5f0, which writes 1.
+  pesIntention = 1;
 }
 
 void Player::_CalculateTacticalSituation() {

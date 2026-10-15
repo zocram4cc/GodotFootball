@@ -1901,8 +1901,11 @@ Vector3 ElizaController::GetSupportPosition_ForceField(const MentalImage* mental
 void ElizaController::Reset() {
   lastDesiredDirection = Vector3(0);
   lastDesiredVelocity = 0;
-  carrierPlan = 0;
-  carrierPlanStamp = 0;
+  // ponytail: PES clears the image selection itself when the restart state
+  // gMatchContext+4460 reads 2 and +4564 is non-zero (0x14211e2d0); GF has no
+  // manager-side clear, and its referee buffer takes the place of that state,
+  // so the drop happens here, on the situation reset the restarts all run.
+  carrierImage = pes::CarrierImageSelection();
   carrierBusyStamp = 0;
   keeperRushing = false;
 }
@@ -2024,6 +2027,33 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
                                                    attackSign, finishing, longShotSkill,
                                                    pesFieldHalfLength, pesGoalInnerHalfWidth, carrier);
 
+  // The Intention ratchet (report 5, 0x1421197b0): one step a tick while he is
+  // on the ball. Every gate the image units and the feint read comes from it.
+  {
+    const Vector3 facingNow = CastPlayer()->GetDirectionVec();
+    const float facingNowAngle =
+        std::atan2(-facingNow.coords[1], -facingNow.coords[0]) * degreesPerRadian;
+    pes::IntentionInput intent;
+    intent.closeBand = pes::IsClose(zone);  // pred+0x9cc
+    // ponytail: the pair PES diffs at a3+0x10 and a3+0x30 is not decoded; the
+    // carrier's facing against the direction he is attacking stands in.
+    intent.headingDiff_deg = WrapDeg(facingNowAngle - (attackSign < 0.0f ? 180.0f : 0.0f));
+    // ponytail: (a4+0x14) * (a5+0x40) against pitch[6] - the carrier's advance
+    // against the penalty line, which is the pitch mark GF carries.
+    intent.attackDot = attackSign * carrierPos.coords[0];
+    intent.penaltyLine_m = pesFieldHalfLength - SetPieceLaws::kAreaDepth;
+    // ponytail: a5+0xB58 and a5+0xB3C are the two stored ball leads PES
+    // compares, one of which GF does not carry; the ball's distance from him
+    // stands in, against a zero limit.
+    intent.ballLead_m = (ballPos - carrierPos).GetLength();
+    // ponytail: the corridor block (a6+4's guard, the two queries of
+    // 0x1421b7d40 and its own gate at 0x142119c9a) has no GF counterpart, so
+    // all three read false and the ratchet latches at 2 while he holds the ball.
+    CastPlayer()->SetPesIntention(
+        pes::NextIntention(CastPlayer()->GetPesIntention(), intent, carrier));
+  }
+  const int intention = CastPlayer()->GetPesIntention();
+
   if (rethink) {
     // The plan (report 4.4): rolled whenever its own conditions hold, in the
     // dispatcher's priority order kPlanPriorityOrder (9, 8, 2, 3, 1, 4, 5, 6,
@@ -2046,15 +2076,17 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     const PlanChoice choices[] = {
         {pes::kPlanMiddleShot, carrier.middleShotSeedK,
          pes::PlanStartProbability(pes::kPlanMiddleShot, carrier, finishing, longShotSkill, false,
-                                   false),
-         // MiddleShot needs the mid band (or the far sector past the line).
-         pes::IsMid(zone)},
+                                   intention == 2),
+         // MiddleShot needs the mid band (or the far sector past the line), and
+         // an Intention below 3 (0x14211b4eb).
+         pes::IsMid(zone) && intention < 3},
         {pes::kPlanBreakthrough, carrier.breakthroughSeedK,
          pes::PlanStartProbability(pes::kPlanBreakthrough, carrier, statBreakthrough,
                                    skillBreakthrough, comBreakthrough, false),
          // Breakthrough needs the mid band or a spot past the penalty-area
-         // line (report 4.4's start conditions).
-         pes::IsMid(zone) || carrierX > SetPieceLaws::kAreaDepth},
+         // line (report 4.4's start conditions), and an Intention of 3 or more
+         // (0x14211a887).
+         (pes::IsMid(zone) || carrierX > SetPieceLaws::kAreaDepth) && intention >= 3},
         {pes::kPlanCross, carrier.crossSeedK,
          pes::PlanStartProbability(
              pes::kPlanCross, carrier, finishing,
@@ -2068,27 +2100,57 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
                                    false),
          true},
     };
-    // The walk is PES's plan table, so the tried-before order is the table's
-    // and not this array's: an id with no entry above (CurveShot, PassThrough,
-    // SideChange, ShotPassFromGoal, BackDFLine) is simply not rolled yet.
-    int chosen = pes::kPlanBasic;
-    for (const int planId : pes::kPlanPriorityOrder) {
-      const PlanChoice* c = nullptr;
-      for (const PlanChoice& candidate : choices) {
-        if (candidate.plan == planId) {
-          c = &candidate;
-          break;
-        }
+    const auto planChoice = [&](int plan) -> const PlanChoice* {
+      for (const PlanChoice& c : choices) {
+        if (c.plan == plan) return &c;
       }
-      if (c == nullptr || !c->eligible || c->probability <= 0.0f) continue;
-      if (pes::PlanRoll(nowFrame, c->seedK, match->GetPesRngConstants(), carrier) <=
-          static_cast<int>(c->probability)) {
-        chosen = c->plan;
-        break;
+      return nullptr;
+    };
+    // The curve shot (0x14211af20) is its own evaluator: its score is the
+    // admission threshold and its own gates are inside the score.
+    pes::CurveShotInput curveShot;
+    curveShot.intention = intention;
+    curveShot.incisiveRun =
+        PlayingStyles::Has(comStyles, PlayingStyles::Com::IncisiveRun);
+    // ponytail: the byte+0x40 bit 7 the base and the final gate both read; GF's
+    // EDIT bit order puts skill 7 at Scotch Move.
+    curveShot.skill7 = PlayerSkills::Has(skills, PlayerSkills::Skill::ScotchMove);
+    curveShot.kickingPower = CastPlayer()->GetStat("physical_shotpower");
+    curveShot.finishing = finishing;
+    // ponytail: a2[3]+0xB40 (0x14211afb9) and the side check's three scalars
+    // (0x14211afd8..0x14211b040) read a PES record GF does not carry; the
+    // trajectory is reported clear and the side scalars stay zero, which is the
+    // combination that accepts.
+    curveShot.trajectory_m = 0.0f;
+    curveShot.fullAttack = false;  // ponytail: TeamData+0xB8A2 (47266)
+
+    // The image manager (report 4, 0x14211e2d0): the selected plan's own cancel
+    // test runs first, then admission in the priority order and only while
+    // nothing is selected, so the selection persists across rethinks.
+    const auto cancel = [&](int plan) {
+      const PlanChoice* c = planChoice(plan);
+      return pes::ImagePlanCancelled(plan, intention, c != nullptr && c->eligible);
+    };
+    const auto admit = [&](int plan) {
+      if (plan == pes::kPlanCurveShot) {
+        const int draw = pes::PlanRoll(nowFrame, carrier.curveShotSeedK,
+                                       match->GetPesRngConstants(), carrier);
+        return pes::CurveShotAdmitted(curveShot, draw, carrier);
       }
-    }
-    carrierPlan = chosen;
-    carrierPlanStamp = nowFrame;
+      const PlanChoice* c = planChoice(plan);
+      // ponytail: 7, 8 and 9 are not ported, so they are never admitted.
+      if (c == nullptr || !c->eligible || c->probability <= 0.0f) return false;
+      return pes::PlanRoll(nowFrame, c->seedK, match->GetPesRngConstants(), carrier) <=
+             static_cast<int>(c->probability);
+    };
+    const auto image = [&](int plan) {
+      // ponytail: the manager copies the heading its unit published (+0xC0) and
+      // passes the unit its eval byte +0x6f (the mode-1 rule of 0x14211e0f0);
+      // GF publishes no heading, and the byte stands in as false.
+      return pes::PlanImage{pes::PlanImageMode(plan, carrierImage.mode, false, carrierX, carrier),
+                            0.0f};
+    };
+    pes::AdvanceImageSelection(carrierImage, cancel, admit, image);
   }
 
   // The shoot decision (report 5.1): the shoot zone, the "just shoot" rule
@@ -2103,7 +2165,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   shoot.ballHeight_m = ballHeight;
   shoot.height_m = CastPlayer()->GetStat("physical_height") * 100.0f;
   shoot.owned = CastPlayer()->GetPossessionDuration_ms() > 0;
-  shoot.planId = carrierPlan;
+  shoot.planId = carrierImage.id;
   shoot.aimVsFacing_deg = aimVsFacing;
   shoot.keeperPresent = keeper != nullptr;
   shoot.keeperSettled =
@@ -2182,8 +2244,9 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     in.planAngle_deg = 0.0f;  // ponytail: the plan's desired angle (+0xC0) is
                               // not decoded (report 9.3); the attack direction
                               // stands in for it.
-    in.imageState = 0;  // ponytail: the image state (+0x32B0+8) has no GF
-                        // counterpart; state 0 is the neutral one.
+    // The Intention ratchet itself (0x1421197b0), not a stand-in: the pass
+    // layer's image-state branches read the same member the ratchet writes.
+    in.imageState = intention;
     in.halfLen_m = pesFieldHalfLength;
     in.goalHalfWidth_m = pesGoalInnerHalfWidth;
     in.goalAreaHalfWidth_m = SetPieceLaws::kAreaHalfWidth;

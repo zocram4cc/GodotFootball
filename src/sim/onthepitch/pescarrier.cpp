@@ -262,6 +262,11 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x14259222c, &k.threatReachFloor_m},  {0x142565604, &k.threatReachScale},
       {0x142565604, &k.threatKeeperScale},   {0x14259222c, &k.threatFullDist_m},
       {0x1425c48ec, &k.threatFalloff},       {0x142bf0a88, &k.threatPushSq_m2},
+      // The curve shot's stat gain is the same 10.0 the dribble search uses;
+      // the ratchet's window and lead and the sticky mode's half line are
+      // 0x14253ee30, 0x142588210 and 0x142565600.
+      {0x142588210, &k.curveShotStatGain},   {0x14253ee30, &k.intentionClose_deg},
+      {0x142588210, &k.intentionLead_m},     {0x142565600, &k.imageHalfLine},
   };
   for (const auto& r : rdata) ok &= ReadVa(exe, r.first, r.second, error);
   // The turn term's span, from the same instruction that loads its 130 top.
@@ -296,6 +301,23 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
   imm32(0x14211b289, 1, &k.longBasePressed);
   imm32(0x14211b2a9, 1, &k.longBaseFree);
   imm32(0x14211b2c5, 1, &k.longBaseMid);
+  // The curve shot's two 30s, its floor and its cap are byte immediates: the
+  // `and ecx, 0x1e` at 0x14211b052, the `lea ebx, [rcx + 0x1e]` displacement at
+  // 0x14211b05e, the `mov eax, 5` at 0x14211b106 and the `cmp ebx, 0x46` at
+  // 0x14211b0fa.
+  uint8_t immByte = 0;
+  auto imm8 = [&](uint64_t va, size_t opcodeLen, float* out) {
+    if (!exe.ReadVa(va + opcodeLen, sizeof immByte, &immByte)) {
+      *error = "carrier constant: immediate unreadable";
+      ok = false;
+      return;
+    }
+    *out = static_cast<float>(immByte);
+  };
+  imm8(0x14211b052, 2, &k.curveShotComBase);
+  imm8(0x14211b05e, 2, &k.curveShotSkillBase);
+  imm8(0x14211b106, 1, &k.curveShotFloor);
+  imm8(0x14211b0fa, 2, &k.curveShotCap);
   // The caps and floors that are not immediates: Breakthrough's is the
   // `cmp ebx, 0x46; cmova ebx, edx(0)` of 0x14211aa7e, MiddleShot's floor the
   // -5 comparison at 0x14259be7c, and its stat gain the 15 of 0x14259be0c.
@@ -627,6 +649,105 @@ int PlanRoll(int carrierClock, float seedK, const RngConstants& rng, const Carri
   Random draw(rng);
   draw.SetSeed(k.planRollSlot, static_cast<uint32_t>(static_cast<int>(static_cast<float>(carrierClock) * seedK)));
   return draw.RangeRaw(k.planRollSlot, k.planRollModulus);
+}
+
+float CurveShotScore(const CurveShotInput& in, const CarrierConstants& k) {
+  // The head gates, in the order 0x14211af20 takes them.
+  if (in.intention < 3) return -1.0f;        // 0x14211afa1, `cmp eax, 3; jl`
+  if (in.trajectory_m > 0.0f) return -1.0f;  // 0x14211afb9, `comiss; ja`
+  if (in.fullAttack) return -1.0f;           // 0x14211afc6, `cmp [rbp+0xb8a2], 0; jnz`
+  // The two threshold ratios against the self scalar (0x14211afe6, 0x14211aff4):
+  // the pair -1/+1 is selected twice and the score only continues when both
+  // pick the same one (0x14211b000). With eval+0x48 != 1 the second threshold
+  // is eval+0x14 negated (0x14211b028). (Report 6.4.2 reads the fields as a
+  // stronger-foot test; the comparison itself is all that is decoded.)
+  const float secondThreshold = in.sideFlag ? in.sideA : -in.sideA;
+  if ((in.sideSelf > in.sideB) != (in.sideSelf > secondThreshold)) return -1.0f;
+
+  // The base (0x14211b046): 30 for COM 4, 30 more for the skill bit 7.
+  int base = 0;
+  if (in.incisiveRun) base += static_cast<int>(k.curveShotComBase);   // 0x14211b052
+  if (in.skill7) base += static_cast<int>(k.curveShotSkillBase);      // 0x14211b05e
+
+  // Each stat adds gain * clamp01((stat - floor)/span) to the running integer
+  // as a float and truncates that step (0x14211b0b8, 0x14211b0f5), so the
+  // fractions are discarded between the two stats. Kicking Power (+0x2a) comes
+  // first (0x14211b064), Finishing (+0x1a) second (0x14211b0bd).
+  const auto statStep = [&](float stat) {
+    return k.curveShotStatGain * Clamp01((stat - k.statFloor) / k.statSpan);
+  };
+  float acc = static_cast<float>(base);
+  acc = std::trunc(acc + statStep(in.kickingPower));  // +0x2A first
+  acc = std::trunc(acc + statStep(in.finishing));     // then +0x1A
+  // Floor 5 then cap 70 (0x14211b0fa..0x14211b110).
+  acc = std::min(acc, k.curveShotCap);
+  acc = std::max(acc, k.curveShotFloor);
+  return acc;
+}
+
+bool CurveShotAdmitted(const CurveShotInput& in, int draw, const CarrierConstants& k) {
+  const float score = CurveShotScore(in, k);
+  if (score < 0.0f) return false;  // a head gate
+  // `cmp ebx, eax; jae` at 0x14211b159: the score against the draw.
+  if (draw > static_cast<int>(score)) return false;
+  // The final gate (0x14211b176, 0x14211b18e): the skill 7 card admits, the COM
+  // 4 card admits, neither does not. The binary's third arm - team flag
+  // 0xb8a2 set accepts (0x14211b169) - sits behind the head gate's reject at
+  // 0x14211afc6, so it can never be reached.
+  return in.skill7 || in.incisiveRun;
+}
+
+int NextIntention(int state, const IntentionInput& in, const CarrierConstants& k) {
+  if (state == 4) return 4;  // 0x142119862, absorbing
+  if (in.closeBand &&
+      std::fabs(WrapDeg(in.headingDiff_deg)) < k.intentionClose_deg) {
+    return 4;  // 0x1421198f7, `comiss xmm3(100), |d|; jbe` skips
+  }
+  if (state == 3 || in.attackDot > in.penaltyLine_m ||
+      in.ballLead_m + k.intentionLead_m > in.ballLimit_m) {
+    return 3;  // 0x142119909..0x142119938
+  }
+  // The corridor block (0x142119960): behind its guard, and only after both of
+  // its queries answer, the state is 1 or 0; every other outcome leaves it
+  // latched at 2 (0x142119ad9, 0x142119c94).
+  if (state == 2 || !in.corridorGuard || !in.corridorAnswered) return 2;
+  return in.corridorState1 ? 1 : 0;
+}
+
+bool ImagePlanCancelled(int planId, int intention, bool stillEligible) {
+  // Breakthrough's own cancel test (0x14211a550): the Intention below 3 stops
+  // it, `cmp eax, 3; setl`.
+  if (planId == kPlanBreakthrough && intention < 3) return true;
+  // ponytail: no other unit's vtable[3] is decoded, so a plan whose own start
+  // conditions have gone is dropped instead of persisting until its own cancel
+  // test would have fired.
+  return !stillEligible;
+}
+
+int PlanImageMode(int planId, int previousMode, bool receiving, float carrierX_m,
+                  const CarrierConstants& k) {
+  switch (planId) {
+    case kPlanCross:
+      return 4;  // 0x140e8cff0, always the cross mode
+    case kPlanBreakthrough:
+    case kPlanMiddleShot:
+    case kPlanShotPassFromGoal:
+      return 1;  // 0x140a4c0f0
+    case kPlanCurveShot:
+      // The sticky mode (0x14211e0f0): the ball coming at him, or a position
+      // past half of the half line, pins 1; otherwise it keeps what it had.
+      if (receiving) return 1;
+      if (carrierX_m > k.imageHalfLine * pesFieldHalfLength) return 1;
+      return previousMode;
+    case kPlanBackDFLine:
+      return 2;  // 0x141f05c10
+    default:
+      // ponytail: Long and SideChange answer 8 or 2 from their unit's own
+      // pending-ball count (0x14211e140), PassThrough 1 or 2 (0x14211e160) and
+      // Basic 1, 2 or 3 with its Intention-4 override (0x14211dc00); GF carries
+      // none of those fields, so the manager's own mode stands in.
+      return previousMode;
+  }
 }
 
 }  // namespace pes

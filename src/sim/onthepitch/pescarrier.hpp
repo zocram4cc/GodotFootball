@@ -180,6 +180,16 @@ struct CarrierConstants {
   float longBaseMid = 0.0f;          // 60, 0x14211b2c5
   float longBaseFree = 0.0f;         // 80, 0x14211b2a9
   float longStatGain = 0.0f;         // 10, report 4.4
+  // --- the curve shot (report 6.4, 0x14211af20) ---
+  float curveShotComBase = 0.0f;    // 30, `and ecx, 0x1e` at 0x14211b052
+  float curveShotSkillBase = 0.0f;  // 30, `lea ebx, [rcx + 0x1e]` at 0x14211b05e
+  float curveShotStatGain = 0.0f;   // 10, 0x142588210
+  float curveShotFloor = 0.0f;      // 5, `mov eax, 5` at 0x14211b106
+  float curveShotCap = 0.0f;        // 70, `cmp ebx, 0x46` at 0x14211b0fa
+  // --- the Intention ratchet (report 5, 0x1421197b0) and the image manager ---
+  float intentionClose_deg = 0.0f;  // 100, 0x14253ee30
+  float intentionLead_m = 0.0f;     // 10, 0x142588210
+  float imageHalfLine = 0.0f;       // 0.5, 0x142565600
   // --- the dribble direction search (report 1; addresses in the loader) ---
   float dribbleEdgeCost = 0.0f;       // 100, 0x14253ee30: a band cell's cost
   float dribbleEdgeMargin_m = 0.0f;   // 0.5, 0x142565600: the touchline band
@@ -384,9 +394,9 @@ enum CarrierPlan {
   kPlanBackDFLine = 9
 };
 
-// The priority order the plan chooser walks: the eight dwords at 0x142bf02c0
-// (9, 8, 2, 3, 1, 4, 5, 6) plus the 7 the dispatcher writes inline at
-// 0x14211e35d, else Basic.
+// The priority order the manager's admission walk uses: the eight dwords at
+// 0x142bf02c0 (9, 8, 2, 3, 1, 4, 5, 6) plus the 7 the dispatcher
+// (0x14211e2d0) writes inline at 0x14211e35d, else Basic.
 constexpr int kPlanPriorityOrder[] = {9, 8, 2, 3, 1, 4, 5, 6, 7};
 
 // One plan's rolled start probability, the P table of report 4.4. Returns a
@@ -402,6 +412,111 @@ float PlanStartProbability(int planId, const CarrierConstants& k, float stat, bo
 // int(carrierClock * K) and draws one RangeRaw(slot 2, 100)
 // (0x14211a89..0x14211aac2). Returns the drawn 0..99.
 int PlanRoll(int carrierClock, float seedK, const RngConstants& rng, const CarrierConstants& k);
+
+// --- the curve shot (report 6.4, 0x14211af20) ---
+//
+// The Incisive Run (COM 4) ImageUnit: past its head gates its score is a
+// percent, 0/30/30/60 from the COM card and skill 7, plus 10 per stat over the
+// ramp, floored at 5 and capped at 70. The caller owns the draw, so the
+// evaluator stays pure.
+struct CurveShotInput {
+  int intention = 1;        // the BallPlayer+0x32B0+8 ratchet
+  float trajectory_m = 0.0f;  // a2[3]+0xB40: the gate wants it non-positive
+  bool fullAttack = false;  // team+0xB8A2 (PES's 47266)
+  float sideSelf = 0.0f;    // the scalar the two thresholds are compared against
+  bool sideFlag = false;    // eval+0x48
+  float sideA = 0.0f;       // eval+0x14, the two fields the side check reads
+  float sideB = 0.0f;       // eval+0x20
+  bool incisiveRun = false;  // +0x4C bit 4, the COM card
+  bool skill7 = false;       // +0x40 bit 7
+  float kickingPower = 0.0f;  // +0x2A
+  float finishing = 0.0f;     // +0x1A
+};
+
+// The score, or a negative value when a head gate rejects: the Intention below
+// 3 (0x14211afa1), a positive trajectory (0x14211afb9), the full-attack flag
+// (0x14211afc6) or the side check (0x14211afd8).
+float CurveShotScore(const CurveShotInput& in, const CarrierConstants& k);
+
+// The admission: the draw against the score (`cmp ebx, eax; jae` at
+// 0x14211b159) and the final gate, the skill 7 or the COM 4 card
+// (0x14211b176..0x14211b19d).
+bool CurveShotAdmitted(const CurveShotInput& in, int draw, const CarrierConstants& k);
+
+// --- the Intention ratchet (report 5, 0x1421197b0) ---
+//
+// BallPlayer+0x32B0+8, one per player, 1 on a fresh one (the reset
+// 0x14210e5f0 -> 0x1415595d0 writes 1) and only ever rising within a
+// possession. The gates that read it: Breakthrough and the curve shot want 3
+// or more, MiddleShot wants less than 3, the feint wants exactly 3.
+struct IntentionInput {
+  bool closeBand = false;      // IsClose(pred+0x9cc), 0x140699820
+  float headingDiff_deg = 0.0f;  // a3+0x10 minus a3+0x30, wrapped
+  float attackDot = 0.0f;      // (a4+0x14) * (a5+0x40)
+  float penaltyLine_m = 0.0f;   // pitch[6], the mark the caller reads
+  float ballLead_m = 0.0f;     // a5+0xB58
+  float ballLimit_m = 0.0f;    // a5+0xB3C
+  // The corridor block (0x142119960). Its guard is `a6+4 < 2` with the state
+  // not already 2 (0x142119944); inside, the first query 0x1421b7d40 must
+  // answer and its second answer must exceed 1 (0x142119c91), otherwise the
+  // state is 2; when both hold the state is 1 if the block's own gate holds and
+  // 0 if it does not (0x142119cb8).
+  bool corridorGuard = false;    // a6+4 < 2
+  bool corridorAnswered = false;  // both corridor queries above their marks
+  bool corridorState1 = false;   // 0x142119c9a: TeamData+308 >= 3,
+                                 // 0x140a62180 != 1, or 2*GameSpeed <= a4+16
+};
+
+int NextIntention(int state, const IntentionInput& in, const CarrierConstants& k);
+
+// --- the image manager (report 4, 0x14211e2d0) ---
+//
+// The carrier's selected plan, persisted across ticks at BallPlayer+0x32B0:
+// +0xA0 the selected id (0 = Basic), +0xA4 frames since the last change, +0xC0
+// the heading its producer published and +0xC4 the mode.
+struct CarrierImageSelection {
+  int id = kPlanBasic;
+  int framesSinceChange = 0;
+  int mode = 2;
+  float heading_deg = 0.0f;
+};
+
+// What a plan's own producer answers (vtable[6], `unit+0xC`).
+struct PlanImage {
+  int mode = 2;
+  float heading_deg = 0.0f;
+};
+
+// The selected plan's own cancel test (vtable[3]); `stillEligible` is its
+// admission predicate now.
+bool ImagePlanCancelled(int planId, int intention, bool stillEligible);
+
+// A plan's image mode (vtable[6]).
+int PlanImageMode(int planId, int previousMode, bool receiving, float carrierX_m,
+                  const CarrierConstants& k);
+
+// The manager's tick. `cancel` is the selected unit's vtable[3] and `admit` its
+// vtable[2], consulted only while nothing is selected - in
+// `kPlanPriorityOrder`, so a plan rolls its dice only when its turn comes - and
+// `image` fills the mode and heading of whichever plan ends up selected.
+template <typename CancelFn, typename AdmitFn, typename ImageFn>
+void AdvanceImageSelection(CarrierImageSelection& sel, CancelFn cancel, AdmitFn admit,
+                           ImageFn image) {
+  if (sel.id != 0 && cancel(sel.id)) sel.id = 0;
+  if (sel.id == 0) {
+    for (const int plan : kPlanPriorityOrder) {
+      if (!admit(plan)) continue;
+      sel.id = plan;
+      break;
+    }
+  }
+  if (sel.id == 0) return;
+  const PlanImage now = image(sel.id);
+  ++sel.framesSinceChange;
+  if (now.mode != sel.mode) sel.framesSinceChange = 0;
+  sel.mode = now.mode;
+  sel.heading_deg = now.heading_deg;
+}
 
 // The think cadence (report 2): PES's re-think gate, `frame - busyStamp > 5`,
 // converted to this engine's 10 ms tick the way pesballphysics.hpp converts
