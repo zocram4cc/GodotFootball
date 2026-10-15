@@ -11,6 +11,7 @@
 #include "../../data/formstate.hpp"
 #include "../pescontact.hpp"
 #include "../pesrandom.hpp"
+#include "pes/movestep.hpp"
 
 #include <memory>
 
@@ -99,6 +100,8 @@ public:
   // 6, 9.2): every per-player draw (kick error, success rolls, picks) is its
   // slot 2. Built on first use from the match's generator constants.
   pes::Random& GetPesRandom();
+  // PES's MOVESTEP fields of this player: locomotion state, rate ceiling, playback.
+  pes::MoveStepRecord& GetMoveStep() { return moveStep; }
 
   const TacticalPlayerSituation& GetTacticalSituation() { return tacticalSituation; }
 
@@ -187,6 +190,7 @@ protected:
   unsigned long cardEffectiveTime_ms;
 
   std::unique_ptr<pes::Random> pesRandom;
+  pes::MoveStepRecord moveStep;
 };
 
 #endif
