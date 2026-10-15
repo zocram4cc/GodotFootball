@@ -172,9 +172,10 @@ ClockLiveRE scratch dir. Prior report: the ClockRecordRE clock-record report.
 ### 8.2 The fix (OBS live, verified)
 
 - Both constants raised to 1e12 (stored f32 `999999995904.0`). Evidence:
-  - Period 1 at HUD ≈40:01 and again after the 75:14 frame, so no half
-    transition happened between them. No sample covers 45:00 itself.
-  - A 1 Hz watcher, spanning ~858 s from about 75:00, read period 1, `116c` = 1
+  - Period 1 at HUD 40:01 (measured) and at every later sample. Screenshots show
+    play at 45:50, 47:01, 47:28, 48:50 and 50:11, with no half-time screen. The
+    45:00 crossing itself fell inside a goal replay (HUD hidden), so it is not imaged.
+  - A 1 Hz watcher, spanning ~858 s from about 75:00 (the start time is estimated), read period 1, `116c` = 1
     and `gate=False` at every sample.
   - Screenshots show play at 90:13 and 107:04, after which the match keeps running.
 - The HUD clock keeps counting. No clean freeze of the displayed clock was found.
