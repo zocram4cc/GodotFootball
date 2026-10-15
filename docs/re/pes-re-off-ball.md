@@ -176,7 +176,7 @@ ranks lower (`FUN_140a40000`), (e) for Chance/Counter/LineBreak the one-two test
 `T+0xa2cc+0x34·s`, ring of 4 × {state, start, now})
 | run | head first, then the minimum | stop rule (true → released to NOTHING) |
 |---|---|---|
-| head, all three runs | — | in this order: pad-controlled → stop; carrier → stop (Chance only when his action byte lacks bit 16, `FUN_140a6e340`); PASS_GET (action 5) with `FUN_140a51320 > 1` → stop. Verified: Chance `0x140607a60` (`b4a.c:321-337`), Counter `0x14060b410` (`b4a.c:360-409`), SecondLine `0x1406118e0` (`b4a.c:412-454`) |
+| head, all three runs | — | in this order: pad-controlled → stop; carrier → stop (Chance only when his action byte lacks bit 16, `FUN_140a6e340`); PASS_GET (action 5) with `FUN_140a51320 > 1` → stop. Verified from `dec.sh` output of `0x140607a60`, `0x14060b410`, `0x1406118e0` (Unpacker project) |
 | Chance `0x140607a60` | then `t < int(fps·0.2+0.5)` = **11 f** → keep | AI class `≠ 0x13` and common test `FUN_140688c00(…,0x1e)` |
 | Counter `0x14060b410` | then 11 f → keep | common test, else stop when `s·x > F[8]` (41.56, penalty spot) |
 | SecondLine `0x1406118e0` | then `t < fps` = **54 f** → keep | common test |
