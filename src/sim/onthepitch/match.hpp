@@ -43,9 +43,12 @@ struct PlayerBounce {
 
 class Match {
 public:
-  // One simulation tick, the engine's fixed physics step (GF main.cpp
-  // "physics_frametime_ms" default).
-  static constexpr unsigned long kTick_ms = 10;
+  // One simulation tick = one PES logic frame (Milestone A1): 1/54 s. PES's own
+  // rate, from the ball image constants (.rdata 0x14259d624, read into
+  // pes::PesBallConstants::image.tickHz). The sim used to step 10 ms, so one
+  // match now takes 1.85x as many ticks; GF's render side interpolates instead
+  // (godot/match/match.gd keeps its own accumulator).
+  static constexpr double kTick_ms = 1000.0 * pesball::kPesTick_s;
 
   // `config` replaces the process-wide configuration (GetConfiguration()) for
   // the life of this match. Seeds the shared random engines from setup.seed, so
@@ -153,7 +156,7 @@ public:
   };
   void PushBallEvent(Player* player, int teamID, pes::BallEventKind kind) {
     ballEvents[1] = ballEvents[0];
-    ballEvents[0] = {player, teamID, kind, actualTime_ms, GetPesFrame()};
+    ballEvents[0] = {player, teamID, kind, static_cast<unsigned long>(actualTime_ms), GetPesFrame()};
   }
   const BallEvent& GetBallEvent(int age) const { return ballEvents[age]; }
   int GetLastTouchTeamID(e_TouchType touchType) const { return lastTouchTeamIDs[touchType]; }
@@ -293,17 +296,28 @@ public:
   // stopped (report 3.3: a stoppage adds no time).
   void AdvanceMatchSeconds(float gameSeconds);
 
-  unsigned long GetMatchTime_ms() const { return matchTime_ms; }
-  unsigned long GetActualTime_ms() const { return actualTime_ms; }
+  unsigned long GetMatchTime_ms() const { return static_cast<unsigned long>(matchTime_ms); }
+  unsigned long GetActualTime_ms() const { return static_cast<unsigned long>(actualTime_ms); }
   // The simulation clock: ticks processed so far times kTick_ms. Everything
-  // that GF timed on the wall clock is timed on this instead.
-  unsigned long GetSimTime_ms() const { return iterations * kTick_ms; }
+  // that GF timed on the wall clock is timed on this instead. Exact, because
+  // kTick_ms is 1000/54 and never divides a millisecond evenly.
+  double GetSimTime_ms() const { return iterations * kTick_ms; }
+  // PES's logic-frame counter (MI+0x1198): the ticks processed so far. Every timer
+  // PES counts in frames is converted at its call site with this.
+  unsigned long GetSimFrame() const { return iterations; }
+  // Whether this tick is the first logic frame of a new frame-second: PES's
+  // once-per-second gates run on its 54 frames, not on a millisecond modulo
+  // (Milestone A1: kTick_ms is 1000/54 and divides no millisecond evenly).
+  bool IsFrameSecond() const { return iterations % kFramesPerSecond == 0; }
+  // PES's logic frames per second (the install's own game speed, 54).
+  static constexpr unsigned long kFramesPerSecond =
+      static_cast<unsigned long>(pes::kPesTickHz);
 
   void GameOver();
   bool IsGameOver() const { return gameOver; }
 
-  // Player IDs phase per-player work ((time + id * 10) % 100), so they are
-  // numbered per match: a process-wide counter made a second match diverge.
+  // Player IDs phase per-player work ((frame + id) % 10 in Player::Process), so
+  // they are numbered per match: a process-wide counter made a second match diverge.
   int AllocatePlayerID() { return nextPlayerID++; }
 
   // One simulation tick: AI, physics, rules, and the pose of every body for
@@ -463,20 +477,22 @@ protected:
   int nextPlayerID = 0;
   // The seed this match was set up with (MatchSetup::seed). Kept so per-match
   // generators can be seeded from it: a static or a surviving instance would
-  // make a second match in the same process replay the first one's stream.
+  // make a second match in a process replay the first one's stream.
   unsigned int matchSeed = 0;
-  unsigned long matchTime_ms = 0;
+  // Wall-clock style times are kept exact, because the tick is 1000/54 ms and
+  // never divides a millisecond evenly (Milestone A1).
+  double matchTime_ms = 0;
   // Stalemate recovery: how many ticks have forced the ball to go to the
   // nearest man because nobody was playing it, and when that was last printed.
   unsigned long stalemateCount = 0;
-  unsigned long stalemateLastRealAction_ms = 0;
+  double stalemateLastRealAction_ms = 0;
   Vector3 stalemateLastBallPosition;
   // What the stalemate policy decided this tick. The controllers read it.
   GameplayTuning::StalemateRecovery stalemateRecovery = GameplayTuning::StalemateRecovery::none;
-  unsigned long stalemateLastReport_ms = 0;
+  double stalemateLastReport_ms = 0;
   double matchTimeExact_ms = 0.0;
-  unsigned long actualTime_ms = 0;
-  unsigned long goalScoredTimer = 0;
+  double actualTime_ms = 0;
+  double goalScoredTimer = 0;
 
   // Initialised: Team::GetSide() reads the phase while the constructor activates
   // players, before SetMatchPhase runs; a stale 2nd-half value left on the heap

@@ -22,18 +22,22 @@
 
 namespace pesball {
 
-// GF's tick: Match::kTick_ms = 10 ms.
-inline constexpr float kGfTick_s = 0.01f;
 // PES's tick: 1/54 s (report 7.3, live DAT_14351ad20; the rate itself comes from
 // .rdata 0x14259d624, read into pes::PesBallConstants::image.tickHz).
 inline constexpr float kPesTick_s = 1.0f / 54.0f;
+// GF's logic tick is PES's own (Milestone A1): 1/54 s. The live ball, the AI's
+// finite differences and every frame-counted timer run on it. `kGfTickHz` is the
+// same rate under the name the call sites use; GF's 10 ms step is gone from the
+// sim and stays only as render interpolation in the Godot glue.
+inline constexpr float kGfTick_s = kPesTick_s;
+inline constexpr float kGfTickHz = pes::kPesTickHz;
 
 // A per-PES-tick keep factor k applies over a step of step_s seconds as
-// k^(step_s/kPesTick_s). PES steps on its own 1/54 s tick, where the factor is k
-// itself. GF's live ball steps on its 10 ms tick, where one step is 0.54 of a PES
-// tick and must lose less - pow(k, 0.54) > k. A second of GF steps is then a
-// second of PES ticks: 100 * 0.54 = 54. The accelerations (gravity, drag, Magnus)
-// are not converted this way: they are integrated with dt = step_s.
+// k^(step_s/kPesTick_s). The sim's own tick is PES's 1/54 s (Milestone A1), so
+// the factor is k itself; a step of any other length still converts exactly,
+// which is what the render side's own sub-tick would need. The accelerations
+// (gravity, drag, Magnus) are not converted this way: they are integrated with
+// dt = step_s.
 inline float KeepFactorPerStep(float perPesTick, float step_s) {
   return std::pow(perPesTick, step_s / kPesTick_s);
 }
@@ -127,8 +131,8 @@ float SpinCapScale(const pes::PesBallConstants& c, int mode, float spinRad);
 // tangential rewrite and the spin rebuild/cap/stop, per reports 2-3. `t` is the
 // ball's own contact tick counter, `airborne` PES's r15b (was not resting),
 // `quatIntegrate` its r12b (render path). `step_s` is the tick the per-tick factors
-// are applied over: kPesTick_s for PES's own tick, kGfTick_s for the live ball.
-// On return `state` holds the new state.
+// are applied over: kPesTick_s for the sim's own tick. On return `state` holds the
+// new state.
 void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tickIndex, bool airborne,
                  bool quatIntegrate, float step_s);
 

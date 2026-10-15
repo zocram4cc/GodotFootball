@@ -24,19 +24,37 @@ const T& TrackRecord(const std::array<T, kTrackLength>& track, unsigned n) {
   return track[n < kTrackLength ? n : kTrackLength - 1];
 }
 
-// The track at a GF time in milliseconds, linearly interpolated between the two PES records
-// that bracket it. PES's readers take whole frames; GF's AI asks in milliseconds. A read that
-// floors to a frame turns a 10 ms finite difference into zero for about half its calls, so the
-// AI reads between the records instead.
-// ponytail: linear interpolation between PES's own records stands in for a frame-exact read,
-// which PES's AI never needs. The error is the curvature across one 18.5 ms record.
+// The record `records` further on than index n, again clamped: a finite difference
+// taken over the track's own tick spacing.
+template <class T>
+const T& TrackRecord(const std::array<T, kTrackLength>& track, unsigned n, unsigned records) {
+  return TrackRecord(track, n + records);
+}
+
+// The record index a GF time in milliseconds reads: floor(ms * 54 / 1000), clamped to
+// the last record the way FUN_140a6cf70 clamps it.
+inline unsigned TrackIndexForMs(double ms);
+
+// GF's AI horizon: a read past ballPredictionSize_ms - 10 takes the horizon's last sample, as
+// the 10 ms grid always did.
+inline double ClampToAiHorizon(double ms, double predictionSizeMs);
+
+// The track read at a GF time in milliseconds. The live ball now steps on PES's own
+// 1/54 s tick (Milestone A1), so the ball is stair-stepped between records and a read
+// floors to the record PES's own reader takes: FUN_140a6cf70(p, n) is record n, and a
+// GF time maps onto n = floor(ms * 54 / 1000). The interpolated read that stood in for
+// the floored one (faae222) is removed with the mismatch that needed it: with the ball
+// on the tick, the record is the ball.
 template <class V>
 V TrackAt(const std::array<V, kTrackLength>& track, double ms) {
-  const double x = ms * pes::kPesTickHz / pes::kMilliPerUnit;  // records since record 0
-  const double base = std::floor(x);
-  const unsigned n = base < 0.0 ? 0u : static_cast<unsigned>(base);
-  const float f = static_cast<float>(x - base);
-  return TrackRecord(track, n) * (1.0f - f) + TrackRecord(track, n + 1) * f;
+  return TrackRecord(track, TrackIndexForMs(ms));
+}
+
+inline unsigned TrackIndexForMs(double ms) {
+  const double records = ms * pes::kPesTickHz / pes::kMilliPerUnit;
+  const double floored = std::floor(records);
+  const double base = floored < 0.0 ? 0.0 : floored;
+  return static_cast<unsigned>(base);
 }
 
 // GF's AI horizon: a read past ballPredictionSize_ms - 10 takes the horizon's last sample, as
@@ -44,6 +62,13 @@ V TrackAt(const std::array<V, kTrackLength>& track, double ms) {
 inline double ClampToAiHorizon(double ms, double predictionSizeMs) {
   const double horizon = predictionSizeMs - 10.0;
   return ms < horizon ? ms : horizon;
+}
+
+// The record an AI read of a GF time in milliseconds takes, with GF's 3 s AI horizon.
+// A read past ballPredictionSize_ms - 10 takes the horizon's last sample, as the
+// 10 ms grid always did.
+inline unsigned TrackIndexForAiMs(double ms, double predictionSizeMs) {
+  return TrackIndexForMs(ClampToAiHorizon(ms, predictionSizeMs));
 }
 
 struct TrackStart {

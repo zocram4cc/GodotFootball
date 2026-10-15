@@ -324,43 +324,42 @@ TEST(PesBallContact, RollingDecelerationIsAboutTwoMetresPerSecondSquared) {
 
 // --- the 10 ms conversion ---
 
-TEST(PesBallConversion, KeepFactorMapsOntoTheGfTick) {
-  // PES applies K once per 1/54 s; GF ticks every 10 ms. One GF tick is 0.54 of
-  // a PES tick, so the per-GF-tick factor is K^0.54 - and 54 of them is not
-  // K^54 but K^(54*0.54) = K^(54*0.54).
+TEST(PesBallConversion, KeepFactorIsItselfOnTheSimsOwnTick) {
+  // PES applies K once per 1/54 s, and the sim's tick is PES's own 1/54 s
+  // (Milestone A1), so the per-tick factor is K itself: a second of ticks is
+  // exactly 54 applications of K.
   const float perPesTick = 0.981f;
   const float perGfTick = pesball::KeepFactorPerStep(perPesTick, pesball::kGfTick_s);
-  EXPECT_NEAR(perGfTick, std::pow(perPesTick, 0.01f / (1.0f / 54.0f)), 1e-6);
-  EXPECT_LT(perGfTick, 1.0f);
-  EXPECT_GT(perGfTick, perPesTick) << "a shorter step loses less";
-  // A second of GF ticks now equals a second of PES ticks to within float
-  // precision: 0.01*100 ticks of K^(0.54) == 0.0185*54 ticks of K.
+  EXPECT_NEAR(perGfTick, perPesTick, 1e-6);
+  EXPECT_NEAR(perGfTick, std::pow(perPesTick, 1.0f), 1e-6);
   float gf = 1.0f, pes = 1.0f;
-  for (int i = 0; i < 100; ++i) gf *= perGfTick;
+  for (int i = 0; i < 54; ++i) gf *= perGfTick;
   for (int i = 0; i < 54; ++i) pes *= perPesTick;
-  // 100 GF ticks and 54 PES ticks are both one second of sim time.
-  EXPECT_NEAR(gf, pes, 1e-3);
+  EXPECT_FLOAT_EQ(gf, pes);
+  // A step of any other length still converts exactly, so the render side's own
+  // sub-tick would stay PES.
+  EXPECT_NEAR(pesball::KeepFactorPerStep(perPesTick, 0.01f), std::pow(perPesTick, 0.54f), 1e-6);
 }
 
-TEST(PesBallConversion, FlightTickUsesTheGfStep) {
-  // The flight model is an acceleration, integrated with dt = 0.01 s: one GF
-  // tick at 10 ms is 0.54 of a PES tick's worth of acceleration.
+TEST(PesBallConversion, FlightTickIntegratesTheAccelerationOverTheTickStep) {
+  // The flight model is an acceleration, integrated with dt = the sim's tick
+  // (Milestone A1: one PES tick, 1/54 s).
   const PesBallConstants c = SyntheticConstants();
   BallState s;
   s.position = pes::Vec3(0, 1.0f, 0);
   s.velocity = pes::Vec3(0, 0, 20.0f);  // 72 km/h, above the crisis band
-  // One GF tick is the acceleration at the tick's entry velocity held across the
+  // One tick is the acceleration at the tick's entry velocity held across the
   // step: semi-implicit Euler integrates the acceleration first.
   const pes::Vec3 a = pesball::FlightAcceleration(c, s, 0, 0, 0, false);
   const float v0 = s.velocity.z;
-  pesball::FlightTick(c, &s, 0.01f, false);
+  pesball::FlightTick(c, &s, pesball::kGfTick_s, false);
   const float dv = s.velocity.z - v0;
   EXPECT_LT(dv, 0.0f) << "drag slows the ball down";
-  EXPECT_NEAR(dv, a.z * 0.01f, 1e-6);
+  EXPECT_NEAR(dv, a.z * pesball::kGfTick_s, 1e-6);
   // Gravity is applied on top: after a second of ticks the ball has fallen.
   BallState falling;
   falling.position = pes::Vec3(0, 5.0f, 0);
-  for (int i = 0; i < 100; ++i) pesball::FlightTick(c, &falling, 0.01f, false);
+  for (int i = 0; i < 54; ++i) pesball::FlightTick(c, &falling, pesball::kGfTick_s, false);
   EXPECT_LT(falling.position.y, 5.0f);
 }
 
@@ -560,7 +559,7 @@ TEST(PesBallShot, GroundShotFromThePenaltySpotCrossesTheGoalPlane) {
   // gametypes.hpp: the goal plane is pitchHalfW + lineHalfW + ballRadius
   // (CheckForGoal's triangles). goalHalfWidth is lateral, not longitudinal.
   const float goalPlane = 52.5f + 0.06f + c.image.ballRadius;
-  const float kDt = 0.01f;  // Match::kTick_ms / 1000
+  const float kDt = pesball::kGfTick_s;  // one tick of ball.cpp's own loop
 
   // The penalty spot is 11 m out; a 25 m/s shot (90 km/h) is a struck penalty.
   BallState s;
@@ -585,9 +584,9 @@ TEST(PesBallShot, GroundShotFromThePenaltySpotCrossesTheGoalPlane) {
                        << "(it reached x = " << s.position.x << " of " << goalPlane << " m)";
 }
 
-// One second of GF ticks must lose the same speed PES loses in a second of its
-// own ticks: the per-tick factors are converted, not re-applied.
-TEST(PesBallConversion, ASecondOfGfTicksIsASecondOfPesTicksWhileRolling) {
+// One second of the sim's ticks must lose the same speed PES loses in a second of
+// its own ticks: the per-tick factors are converted, not re-applied.
+TEST(PesBallConversion, ASecondOfSimTicksIsASecondOfPesTicksWhileRolling) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set: the ball constants come from the install";
   std::string err;
@@ -599,11 +598,12 @@ TEST(PesBallConversion, ASecondOfGfTicksIsASecondOfPesTicksWhileRolling) {
   ASSERT_TRUE(cc.has_value()) << err;
   const PesBallConstants c = *cc;
 
-  // The same rolling ball, one second of PES ticks and one second of GF ticks,
+  // The same rolling ball, one second of PES ticks and one second of the sim's
+  // ticks - 54 of each, since the sim ticks on PES's own frame (Milestone A1) -
   // in the dry-normal contact mode this engine plays by default (report 3.2).
   float vPes = 10.0f, vGf = 10.0f;
   for (int i = 0; i < 54; ++i) vPes *= pesball::RollingKeepFactor(c, pesball::ClampMode(c.contactMode), vPes);
-  for (int i = 0; i < 100; ++i) {
+  for (int i = 0; i < 54; ++i) {
     BallState s;
     s.position = pes::Vec3(0, c.image.ballRadius, 0);
     s.velocity = pes::Vec3(vGf, 0.0f, 0.0f);
@@ -611,7 +611,7 @@ TEST(PesBallConversion, ASecondOfGfTicksIsASecondOfPesTicksWhileRolling) {
     vGf = s.velocity.x;
   }
   EXPECT_NEAR(vGf, vPes, vPes * 0.05)
-      << "100 GF ticks and 54 PES ticks are both one second: " << vGf << " vs " << vPes;
+      << "54 sim ticks and 54 PES ticks are both one second: " << vGf << " vs " << vPes;
 }
 
 }  // namespace

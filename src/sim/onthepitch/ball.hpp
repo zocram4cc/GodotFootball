@@ -45,21 +45,13 @@ public:
   Ball(Match* match);
   virtual ~Ball();
 
-  inline Vector3 Predict(int predictTime_ms) const {
-    unsigned int index = predictTime_ms > 0 ? static_cast<unsigned int>(predictTime_ms) : 0;
-    if (index >= ballPredictionSize_ms)
-      index = ballPredictionSize_ms - 10;
-    index = index / 10;
-    return predictions[index];
+  // PES's track read at a GF time in milliseconds: one record per PES tick, floored
+  // (Milestone A1). The live ball steps on that same tick, so this is the ball.
+  Vector3 Predict(unsigned int predictTime_ms) const {
+    return pesball::TrackAt(track, predictTime_ms);
   }
-
-  // The prediction the AI reads: PES's track at the GF time asked for, interpolated between
-  // PES's 54 Hz records. Predict() stays on GF's 10 ms grid for the match rules.
+  // The prediction the AI copies per tick: PES's 250 records, one per PES tick.
   const std::array<Vector3, pesball::kTrackLength>& GetTrack() const { return track; }
-  // ponytail: GF's 3 s AI horizon; PES's sampler holds 250 records (4.6 s), reads use 162 of them.
-  Vector3 PredictTrack(unsigned predictTime_ms) const {
-    return pesball::TrackAt(track, pesball::ClampToAiHorizon(predictTime_ms, ballPredictionSize_ms));
-  }
   Vector3 GetMovement();
   void Touch(const Vector3& target);
   void SetPosition(const Vector3& target);
@@ -67,7 +59,7 @@ public:
   void SetRotation(radian x, radian y, radian z,
                    float bias = 1.0);                      // radians per second for each axis
   void SetRotation(const Vector3& rot, float bias = 1.0);  // radians per second for each axis
-  BallSpatialInfo CalculatePrediction();                   // returns momentum in 10ms
+  BallSpatialInfo CalculatePrediction();  // one PES tick of the live ball, plus the track
   Vector3 GetPositionBuffer() const { return positionBuffer; }
 
   bool BallTouchesNet() { return ballTouchesNet; }
@@ -87,8 +79,8 @@ protected:
   Vector3 momentum;
   Quaternion rotation_ms;
 
-  Vector3 predictions[ballPredictionSize_ms / 10];
-  // PES's prediction sampler, one record per PES tick (pesballtrack.hpp).
+  // PES's prediction sampler, one record per PES tick (pesballtrack.hpp). Record 0
+  // is where the ball is now and record k is k ticks of 1/54 s on.
   std::array<Vector3, pesball::kTrackLength> track;
   Quaternion orientPrediction;
 

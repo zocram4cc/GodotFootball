@@ -604,11 +604,8 @@ TEST(PesCarrierPlan, TheRollIsSlotTwoModulusOneHundred) {
 // --- the think cadence (report 2) ---
 
 TEST(PesCarrierCadence, TheRethinkGateIsFivePesFrames) {
-  // One GF tick is 0.54 of a PES tick, so PES's 5-frame gate (92.6 ms) is
-  // 9.26 GF ticks, truncated to 9: the re-think may not run before that.
-  EXPECT_EQ(pes::PesFramesToGfTicks(5), 9);
-  EXPECT_EQ(pes::PesFramesToGfTicks(27), 50);  // the 27-frame touch window
-  EXPECT_EQ(pes::PesFramesToGfTicks(54), 100);
+  // Milestone A1: this engine's tick IS PES's logic frame, so the 5-frame gate
+  // (92.6 ms) is 5 ticks, not 9.26 of GF's old 10 ms ones.
   // `frame - busyStamp > 5`: on the 6th frame after leaving a committed action.
   EXPECT_FALSE(pes::RethinkDue(5, 0));
   EXPECT_TRUE(pes::RethinkDue(6, 0));

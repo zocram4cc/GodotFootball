@@ -541,7 +541,9 @@ void Team::Process() {
     // rebuilt it every 400 ms, which let a run go unmarked for half a second.
     teamController->CalculateManMarking();
 
-    if ((match->GetActualTime_ms() + 200 * id) % 400 == 0) {
+    // The cadence PES re-decides at, in logic frames (Milestone A1): GF ran it
+    // every 40 ticks, phase-shifted per side.
+    if ((match->GetSimFrame() + 20 * id) % 40 == 0) {
       teamController->CalculateDynamicRoles();
       // printf("dynamic roles calc team %i\n", id);
     }

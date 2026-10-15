@@ -15,7 +15,9 @@ namespace godot {
 namespace {
 
 constexpr int TEAMS = 2;
-constexpr float TICK_S = 0.01f;  // GF's 10 ms step (Match::kTick_ms)
+// PES's logic frame (Milestone A1): GfMatch.step() is one 1/54 s tick. The render
+// side interpolates between the two ticks a frame straddles, as match.gd does.
+constexpr float TICK_S = 1.0f / 54.0f;
 
 // GF is Z up with the pitch in XY; Fox/Godot is Y up: (x, y, z) -> (x, z, -y).
 Vector3 ToFox(const blunted::Vector3& v) { return Vector3(v.coords[0], v.coords[2], -v.coords[1]); }
@@ -32,6 +34,9 @@ void GfMatch::_bind_methods() {
   ClassDB::bind_method(D_METHOD("is_over"), &GfMatch::is_over);
   ClassDB::bind_method(D_METHOD("player_count"), &GfMatch::player_count);
   ClassDB::bind_method(D_METHOD("player_position", "index"), &GfMatch::player_position);
+  ClassDB::bind_method(D_METHOD("player_position_previous", "index"),
+                       &GfMatch::player_position_previous);
+  ClassDB::bind_method(D_METHOD("ball_position_previous"), &GfMatch::ball_position_previous);
   ClassDB::bind_method(D_METHOD("player_facing", "index"), &GfMatch::player_facing);
   ClassDB::bind_method(D_METHOD("player_velocity", "index"), &GfMatch::player_velocity);
   ClassDB::bind_method(D_METHOD("player_team", "index"), &GfMatch::player_team);
@@ -103,9 +108,27 @@ void GfMatch::RefreshPlayers() {
   }
 }
 
+Vector3 GfMatch::player_position_previous(int index) const {
+  // The position at the previous logic frame, from the snapshot the previous step()
+  // left. The render side lerps towards player_position().
+  if (index < 0 || index >= player_count()) return Vector3();
+  if (previousValid_ && index < previousPlayers_.size()) return ToFox(previousPlayers_[index]);
+  return player_position(index);
+}
+
+Vector3 GfMatch::ball_position_previous() const {
+  return match_ ? ToFox(previousBall_) : Vector3();
+}
+
 void GfMatch::step() {
   if (!match_ || match_->IsGameOver()) return;
   SetDB(db_.get());  // the engine reads the global database; another match may have set it
+  // The snapshot the render side interpolates from: taken before the step, so it is
+  // the previous logic frame's pose (Milestone A1).
+  previousPlayers_.clear();
+  for (Player* p : players_) previousPlayers_.push_back(p->GetPosition());
+  previousBall_ = match_->GetBall()->GetPositionBuffer();
+  previousValid_ = true;
   match_->Process();
   RefreshPlayers();  // substitutions change the active set
 }

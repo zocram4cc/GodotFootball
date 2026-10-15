@@ -868,11 +868,19 @@ unsigned int AI_GetToBallMovement(Match* match, const MentalImage* mentalImage, 
       GetFrontOfFootOffsetRel(desiredVelocityFloat * 0.2f + player->GetFloatVelocity() * 0.8f, 0, 0)
           .GetLength();
 
+  // The ball's movement over the intercept horizon, as GF's AI wants it: metres per
+  // second. GF took a 10 ms difference of two 10 ms grid samples and scaled it by
+  // 100; with the ball on PES's 1/54 s tick (Milestone A1) the 10 ms spacing
+  // straddles at most one record and mostly none, so the difference is taken over
+  // one PES tick and scaled by the tick's rate in Hz instead. The records are
+  // stair-stepped, so this is the ball's own speed.
   Vector3 ballMovementRough =
-      (mentalImage->GetBallPrediction(player->GetTimeNeededToGetToBall_ms() + 10) -
-       mentalImage->GetBallPrediction(player->GetTimeNeededToGetToBall_ms()))
+      (mentalImage->GetBallPredictionAtRecord(
+           player->GetTimeNeededToGetToBall_ms(), 1) -
+       mentalImage->GetBallPredictionAtRecord(
+           player->GetTimeNeededToGetToBall_ms(), 0))
           .Get2D() *
-      100.0f;
+      pes::kPesTickHz;
   float desiredBallDot = ballMovementRough.GetNormalized(0).GetDotProduct(adaptedDesiredDirection);
   Vector3 ballDirectionRough = ballMovementRough.GetNormalized(adaptedDesiredDirection);
 
@@ -1127,7 +1135,12 @@ bool AI_HasPossession(Ball* ball, Player* player) {
     distanceOK = false;
 
   bool movementOK = true;
-  Vector3 ballMovement3D = (ball->Predict(10) - ball->Predict(0)) * 100.0f;
+  // The ball's movement across one PES tick (Milestone A1: the 10 ms difference
+  // became a record difference times the tick's rate in Hz).
+  Vector3 ballMovement3D =
+      (pesball::TrackRecord(ball->GetTrack(), pesball::TrackIndexForMs(10.0), 1) -
+       ball->Predict(0)) *
+      pes::kPesTickHz;
   if ((ballMovement3D - playerMovement).GetLength() > 6.0f)
     movementOK = false;
 

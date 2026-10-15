@@ -27,6 +27,16 @@ Vector3 CalculateMovementAtFrame(const std::vector<Vector3>& positions, unsigned
                                  unsigned int smoothFrames = 0);
 Vector3 GetFrontOfFootOffsetRel(float velocity, radian bodyAngleRel, float height);
 bool NeedDefendingMovement(int mySide, const Vector3& position, const Vector3& target);
+
+// The anim layer's requeue cadence (Humanoid::Process's frameNumPredicate): an anim
+// may requeue on every `every`th logic frame of the match, phase-shifted per side by
+// `phaseFrames` so the two teams' squads do not requeue on the same frame. The old
+// form was a millisecond modulo on the 10 ms tick ((t + id * 10) % 20); one logic
+// frame is one tick now (Milestone A1), so the millisecond counts are frame counts.
+inline bool RequeueOnFrame(unsigned long frame, int teamID, unsigned long every,
+                           unsigned long phaseFrames) {
+  return (frame + static_cast<unsigned long>(teamID) * phaseFrames) % every == 0;
+}
 float StretchSprintTo(const float& inputVelocity, float inputSpaceMaxVelocity,
                       float targetMaxVelocity);
 void GetDifficultyFactors(Match* match, Player* player, const Vector3& positionOffset,

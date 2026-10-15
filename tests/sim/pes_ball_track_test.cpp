@@ -49,19 +49,29 @@ TEST(PesBallTrack, ReadsAtAPesTickReturnThatRecord) {
   }
 }
 
-TEST(PesBallTrack, ReadsBetweenTwoRecordsInterpolateLinearly) {
+TEST(PesBallTrack, ReadsBetweenTwoRecordsFloorToTheEarlierRecord) {
+  // Milestone A1: the live ball steps on PES's 1/54 s tick, so the records are the
+  // ball's own states and a read between them floors, as FUN_140a6cf70 does. The
+  // interpolated read faae222 stood in for the floored one while the ball ran on
+  // GF's 10 ms integrator; the mismatch that needed it is gone.
   const auto track = RampTrack(1.0f);
-  EXPECT_NEAR(pesball::TrackAt(track, RecordMs(10.5)).x, 10.5f, 1e-3f);
-  EXPECT_NEAR(pesball::TrackAt(track, RecordMs(0.25)).x, 0.25f, 1e-3f);
+  EXPECT_NEAR(pesball::TrackAt(track, RecordMs(10.5)).x, 10.0f, 1e-3f);
+  EXPECT_NEAR(pesball::TrackAt(track, RecordMs(0.25)).x, 0.0f, 1e-3f);
+  EXPECT_NEAR(pesball::TrackAt(track, RecordMs(0.99)).x, 0.0f, 1e-3f);
+  EXPECT_NEAR(pesball::TrackAt(track, RecordMs(1.0)).x, 1.0f, 1e-3f);
 }
 
-TEST(PesBallTrack, TenMillisecondDifferenceOfAMovingBallIsNeverZero) {
-  // A ball at 20 m/s moves 20/54 m per record, so the AI's 10 ms difference is 0.2 m at every
-  // read. A floored read gives zero for about half of them.
+TEST(PesBallTrack, OneRecordDifferenceOfAMovingBallIsNeverZero) {
+  // A ball at 20 m/s moves 20/54 m per record, so a difference over one record is
+  // that distance at every read. A 10 ms difference of the floored records is zero
+  // for about half of them, which is what the floored read gave the intercept
+  // optimiser (52% zero); with the difference taken over one record instead, it is
+  // never zero.
   const auto track = RampTrack(20.0f / 54.0f);
-  for (double ms = 40.0; ms < 2980.0; ms += 10.0) {
-    const float d = pesball::TrackAt(track, ms + 10.0).x - pesball::TrackAt(track, ms).x;
-    EXPECT_NEAR(d, 0.2f, 1e-4f) << "at " << ms << " ms";
+  for (unsigned k = 0; k + 1 < 161u; ++k) {
+    const unsigned now = pesball::TrackIndexForAiMs(RecordMs(k), kPredictionSizeMs);
+    const float d = pesball::TrackRecord(track, now, 1).x - pesball::TrackRecord(track, now).x;
+    EXPECT_NEAR(d, 20.0f / 54.0f, 1e-4f) << "at record " << k;
   }
 }
 
@@ -70,8 +80,8 @@ TEST(PesBallTrack, AiHorizonClampsTo2990Milliseconds) {
   EXPECT_DOUBLE_EQ(pesball::ClampToAiHorizon(3000.0, kPredictionSizeMs), 2990.0);
   EXPECT_DOUBLE_EQ(pesball::ClampToAiHorizon(2980.0, kPredictionSizeMs), 2980.0);
   EXPECT_DOUBLE_EQ(pesball::ClampToAiHorizon(0.0, kPredictionSizeMs), 0.0);
-  // 2990 ms is record 161.46: the last read is interpolated like any other.
-  EXPECT_NEAR(pesball::TrackAt(RampTrack(1.0f), 2990.0).x, 161.46f, 1e-3f);
+  // 2990 ms is record 161.46: the last read floors to record 161, like any other.
+  EXPECT_NEAR(pesball::TrackAt(RampTrack(1.0f), 2990.0).x, 161.0f, 1e-3f);
 }
 
 TEST(PesBallTrack, RecordReadClampsToTheLastRecordAsFun140a6cf70Does) {

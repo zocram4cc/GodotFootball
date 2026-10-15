@@ -21,8 +21,8 @@ inline float ToKmh(const pes::PesBallConstants& c, float mps) { return mps * c.i
 
 // 100.0 (.rdata 0x14253ee30): the per-cent divisor of the add-rate fields.
 constexpr float kPercent = 100.0f;
-// 0.01 s: this engine's tick, and also the |vy| blend divisor
-// (.rdata 0x14256ae18) and the km/h->m/s of the stop gate's inner form.
+// 0.01 s: PES's own |vy| blend divisor (.rdata 0x14256ae18) and the km/h->m/s of
+// the stop gate's inner form. It is PES's constant, not this engine's tick.
 constexpr float kStopBlend_s = 0.01f;
 
 }  // namespace
@@ -301,10 +301,9 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
       c.image.spinScale;
 
   // Report 2.4: the per-tick keep K, over the pre-contact 3-D speed. PES applies
-  // it once per 1/54 s; this engine ticks every 10 ms, so the factor is raised
-  // to <func>KeepFactorPerStep</func> over the step before it is used - without that one
-  // GF tick lost 1.85x the speed PES loses per second (0.972^100 vs 0.972^54),
-  // and a 25 m/s shot stopped 8 m short of the goal instead of passing it.
+  // it once per 1/54 s and this engine ticks at that same rate (Milestone A1), so
+  // <func>KeepFactorPerStep</func> raises it to the power 1; the conversion is kept
+  // so a caller stepping any other length stays exact.
   const float speed3d = std::sqrt(horizontal * horizontal + vy * vy);
   float keep = KeepFactorPerStep(RollingKeepFactor(c, mode, speed3d), step_s);
   float speed = horizontal;

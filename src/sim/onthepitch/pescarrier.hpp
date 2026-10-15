@@ -399,18 +399,9 @@ float PlanStartProbability(int planId, const CarrierConstants& k, float stat, bo
 // (0x14211a89..0x14211aac2). Returns the drawn 0..99.
 int PlanRoll(int carrierClock, float seedK, const RngConstants& rng, const CarrierConstants& k);
 
-// The think cadence (report 2): PES's re-think gate, `frame - busyStamp > 5`,
-// converted to this engine's 10 ms tick the way pesballphysics.hpp converts
-// the ball's per-tick factors - one GF tick is 0.54 of a PES tick, so a PES
-// frame count becomes GF ticks by dividing by that ratio.
-inline constexpr float kGfTicksPerPesTick = 0.01f / (1.0f / 54.0f);
-
-inline int PesFramesToGfTicks(int pesFrames) {
-  return static_cast<int>(static_cast<float>(pesFrames) / kGfTicksPerPesTick + 0.5f);
-}
-
 // Whether a think may run this tick: the carrier has been free of a committed
-// action for longer than the gate.
+// action for longer than the gate. PES's frames and this engine's ticks are the
+// same step (Milestone A1), so both operands are logic frames.
 inline bool RethinkDue(int nowFrame, int busyStampFrame, int gateFrames = 5) {
   return nowFrame - busyStampFrame > gateFrames;
 }

@@ -26,7 +26,9 @@ public:
   TeamData* GetTeamData(int id) { return teamData[id].get(); }
   int GetGoalCount(int id) { return goalCount[id]; }
   void SetGoalCount(int id, int amount) { goalCount[id] = amount; }
-  void AddPossessionTime_10ms(int teamID);  // also advances the debug match clock
+  // Advances the possession clock and the debug match clock by one simulation
+  // tick (Milestone A1: 1/54 s, not GF's 10 ms).
+  void AddPossessionTime(int teamID, double tick_ms);
   unsigned long GetPossessionTime_ms(int teamID) { return possessionTime_ms[teamID]; }
   float GetPossessionFactor_60seconds() {
     return possession60seconds / 60.0f * 0.5f + 0.5f;
@@ -420,8 +422,9 @@ public:
       // the last team to touch the ball cleanCompletionWindow_ms later; see
       // ResolveExpiredCleanChecks. This runs in release too, since it feeds
       // the [balance-passing] accuracy line rather than debug instrumentation.
-      pendingCleanChecks.push_back(
-          {receivingTeamID, matchTime_ms + cleanCompletionWindow_ms, matchTime_ms});
+      pendingCleanChecks.push_back({receivingTeamID,
+                                    static_cast<unsigned long>(matchTime_ms + cleanCompletionWindow_ms),
+                                    static_cast<unsigned long>(matchTime_ms)});
       wonFromOpponent = false;
     } else if (pendingPassTeamID >= 0) {
       // The ball was cut out of a pass in flight: an interception for whoever
@@ -829,13 +832,13 @@ protected:
   unsigned long pendingOwnThirdTime_ms = 0;
   // How long the intercepting side has to make the giveaway count as danger.
   static constexpr unsigned long ownThirdGiveawayWindow_ms = 12000;
-  // Monotonic stand-in for the match clock, advanced by AddPossessionTime_10ms:
+  // Monotonic stand-in for the match clock, advanced by AddPossessionTime:
   // keeps this data layer engine-independent so tests need no Match object.
-  unsigned long matchTime_ms = 0;
+  double matchTime_ms = 0;
   // Match clock at the last deliberate act on the ball. Equal to matchTime_ms at
   // kickoff, so a match that never gets going reads as idle immediately.
   unsigned long lastBallActionTime_ms = 0;
-  unsigned long possessionTime_ms[2];
+  double possessionTime_ms[2];
   float possession60seconds;  // -600 to 600 for possession of team 1 / 2 respectively
 
   int shots[2];

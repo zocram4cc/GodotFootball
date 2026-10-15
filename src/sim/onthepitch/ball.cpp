@@ -133,20 +133,16 @@ BallSpatialInfo Ball::CalculatePrediction() {
   Vector3 newMomentum;
   Quaternion newRotation_ms;
 
-  // fill predictions
-
   Vector3 nextPos = positionBuffer;
   Quaternion nextOrientation = orientationBuffer;
   Vector3 momentumPredict = momentum;
 
-  predictions[0] = nextPos;
-
-  bool netting_enabled = true;
-
-  // GF's tick: Match::kTick_ms = 10 ms, this loop's fixed step.
-  const float timeStep = 0.01f;
-
   ballTouchesNet = false;
+
+  // Milestone A1: the live ball integrates on PES's own 1/54 s tick, and PES's track
+  // is rebuilt from the same state each tick. Both loops are the same integration:
+  // the live step is record 1 and the sampler runs on from there.
+  const float timeStep = pesball::kPesTick_s;
 
   // PES 2021's ball physics (docs/re/pes-re-ball-contact.md). The state is
   // carried in Fox space (Y up) because that is where every rule in the report
@@ -178,16 +174,12 @@ BallSpatialInfo Ball::CalculatePrediction() {
   }
 
   // PES applies its per-tick factors once per 1/54 s and integrates its
-  // accelerations over that step. GF ticks every 10 ms, so every per-tick keep
-  // factor is converted with <func>KeepFactorPerStep</func> (a factor k per
-  // PES tick becomes k^(0.01*54) per GF tick) and the accelerations are
-  // integrated with dt = timeStep. Both are applied inside the pesball calls.
+  // accelerations over that step, and the live ball now runs on that same tick, so
+  // every per-tick keep factor is applied as itself (KeepFactorPerStep's exponent
+  // is 1) and the accelerations are integrated with dt = timeStep. Both are applied
+  // inside the pesball calls.
 
-  // The state the sampler starts from: the same one this loop starts from.
-  const pesball::TrackStart trackStart{fox, contactTicks, recentHit};
-
-  for (unsigned int predictTime_ms = int(timeStep * 1000.0f);
-       predictTime_ms < ballPredictionSize_ms; predictTime_ms += int(timeStep * 1000.0f)) {
+  for (unsigned int tick = 1; tick < pesball::kTrackLength; ++tick) {
     const pes::Vec3 stepStart = fox.position;
 
     if (pesball::IsResting(pc, fox)) {
@@ -202,17 +194,21 @@ BallSpatialInfo Ball::CalculatePrediction() {
       // tangential rewrite, the spin rebuild and the stop gate. PES integrates
       // no position on a contact tick: its own loop re-tests next tick and
       // lets the *flight* branch carry the ball forward on the new velocity.
-      // This predictor runs one 10 ms step per outcome, so it does the same here
-      // - the contact rewrites the velocity and then the position follows,
+      // This predictor runs one PES tick step per outcome, so it does the same
+      // here - the contact rewrites the velocity and then the position follows,
       // which is what PES's next-tick flight step does with it.
       pesball::ContactTick(pc, &fox, contactTicks, true, false, timeStep);
-      ++contactTicks;
+      // Only the ball's own tick counts (MB-F 6: this counter was advanced once
+      // per predicted record, so one call advanced it by up to 249). The
+      // prediction's own ticks carry the sampler's copy of the counter, which it
+      // increments itself; the live one advances once, with the ball.
+      if (tick == 1) ++contactTicks;
       fox.position = pes::Vec3(fox.position.x + fox.velocity.x * timeStep,
                                fox.position.y + fox.velocity.y * timeStep,
                                fox.position.z + fox.velocity.z * timeStep);
     } else {
       // Report 6.3: flight - gravity, drag with the drag-crisis band and
-      // Magnus, integrated with dt = 0.01 s.
+      // Magnus, integrated with dt = one PES tick (1/54 s).
       pesball::FlightTick(pc, &fox, timeStep, false);
     }
 
@@ -238,36 +234,32 @@ BallSpatialInfo Ball::CalculatePrediction() {
         fox.velocity.x * fox.velocity.x + fox.velocity.y * fox.velocity.y +
             fox.velocity.z * fox.velocity.z,
         timeStep);
-    if (predictTime_ms == 10) recentHitNext = recentHitPredict;
-    const float ballRadius = pc.image.ballRadius;
+    // The live step is tick 1: the ball's own next tick, which is what Process
+    // moves it to, so the netting and the rotation are taken from it.
+    if (tick == 1) {
+      recentHitNext = recentHitPredict;
 
-    // netting
-
-    if (predictTime_ms <= 10 && netting_enabled) {
+      // Netting: the live ball's own net response, on the first step as before.
+      // ponytail: PES's cloth-net response is not decoded; GF's stand-in runs on
+      // the tick the ball first crosses the net, and the track records carry the
+      // result forward. Add PES's response to the sampler when it is ported.
       GoalNettingConfig nettingConfig;
       nettingConfig.pitchHalfW = pitchHalfW;
       nettingConfig.goalDepth = goalDepth;
       nettingConfig.goalHeight = goalHeight;
       nettingConfig.goalHalfWidth = goalHalfWidth;
-      nettingConfig.ballRadius = ballRadius;
+      nettingConfig.ballRadius = pc.image.ballRadius;
 
       BallPhysicsState nettingState{nextPos, momentumPredict};
-      const GoalNettingResult nettingResult = ApplyGoalNettingCollision(
-          nettingState, match->IsBallInGoal(), nettingConfig, timeStep);
+      const GoalNettingResult nettingResult =
+          ApplyGoalNettingCollision(nettingState, match->IsBallInGoal(), nettingConfig, timeStep);
       nextPos = nettingState.position;
       momentumPredict = nettingState.momentum;
+      ballTouchesNet = nettingResult.touchedNet;
+      fox.position = pes::Vec3(nextPos.coords[0], nextPos.coords[2], -nextPos.coords[1]);
       fox.velocity = pes::Vec3(momentumPredict.coords[0], momentumPredict.coords[2],
                                -momentumPredict.coords[1]);
 
-      if (predictTime_ms == 10 && nettingResult.touchedNet)
-        ballTouchesNet = true;
-    }
-
-    if (predictTime_ms % 10 == 0) {
-      predictions[predictTime_ms / 10] = nextPos;
-    }
-
-    if (predictTime_ms == 10) {
       newMomentum = momentumPredict;
       // PES keeps the spin in a raw vector; GF keeps a quaternion. The render
       // orientation is the ball rolling about its spin axis at |w| rad/s.
@@ -285,25 +277,30 @@ BallSpatialInfo Ball::CalculatePrediction() {
       }
       orientPrediction = nextOrientation;
     }
+
+    // PES's sampler, rebuilt from the live state on PES's own tick: record k is
+    // where the ball is k ticks of 1/54 s from now (docs/re/pes-re-officials-ball.md
+    // 5.3, the rebuild-per-tick GapsMatch settled). Records 0..250, 40-byte stride.
+    track[tick] = nextPos;
   }
 
-  // PES's sampler, run from the state this loop started from on PES's own tick.
-  const pesball::Track sampled = pesball::BuildTrack(pc, trackStart, kGoalFrame);
-  for (unsigned k = 0; k < pesball::kTrackLength; ++k) {
-    track[k] = Vector3(sampled[k].x, -sampled[k].z, sampled[k].y);
-  }
+  track[0] = positionBuffer;
 
   return BallSpatialInfo(newMomentum, newRotation_ms);
 }
 
 Vector3 Ball::GetAveragePosition(unsigned int duration_ms) const {
   std::list<Vector3>::const_reverse_iterator iter = ballPosHistory.rbegin();
+  // One entry is one PES tick (Milestone A1): the average runs back duration_ms
+  // of them, as it always ran back duration_ms of 10 ms entries.
+  const unsigned int ticks =
+      static_cast<unsigned int>(static_cast<double>(duration_ms) / (pesball::kPesTick_s * 1000.0));
   unsigned int total = 0;
   Vector3 averageVec;
   while (iter != ballPosHistory.rend()) {
     averageVec += *iter;
     total++;
-    if (total * 10 > duration_ms)
+    if (total >= ticks)
       break;
     iter++;
   }
@@ -320,7 +317,10 @@ void Ball::Process() {
   rotation_ms = spatialInfo.rotation_ms;
   recentHit = recentHitNext;
 
-  positionBuffer = Predict(10);
+  // The ball's own next tick is record 1 of the track it just wrote: the live step
+  // and the sampler's first step are the same integration, so the ball lands on the
+  // record every AI read takes for "now" (Milestone A1).
+  positionBuffer = track[1];
   orientationBuffer = orientPrediction;
 
   ballPosHistory.push_back(positionBuffer);
@@ -334,9 +334,6 @@ void Ball::Process() {
 void Ball::ResetSituation(const Vector3& focusPos) {
   momentum = Vector3(0);
   rotation_ms = QUATERNION_IDENTITY;
-  for (unsigned int i = 0; i < ballPredictionSize_ms / 10; i++) {
-    predictions[i] = Vector3(focusPos + Vector3(0, 0, 0.11));
-  }
   for (auto& record : track) record = Vector3(focusPos + Vector3(0, 0, 0.11));
   orientPrediction = QUATERNION_IDENTITY;
   ballPosHistory.clear();

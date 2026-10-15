@@ -26,11 +26,16 @@ class GfMatch : public RefCounted {
 
   Error start(const Ref<PesLibrary>& library, const String& db_sql, const String& anims_dir, int home, int away,
               int seed, int minutes);
-  void step();  // one 10 ms simulation tick
+  void step();  // one 1/54 s PES logic frame
   bool is_over() const;
 
   int player_count() const;
   Vector3 player_position(int index) const;
+  // The positions at the previous logic frame, so the render side interpolates
+  // between the two frames a render frame straddles (Milestone A1: the sim steps
+  // 1/54 s, which is no longer every render frame's worth of time).
+  Vector3 player_position_previous(int index) const;
+  Vector3 ball_position_previous() const;
   Vector3 player_facing(int index) const;    // body direction, horizontal unit vector
   Vector3 player_velocity(int index) const;  // m/s
   int player_team(int index) const;          // 0 home, 1 away
@@ -51,6 +56,10 @@ class GfMatch : public RefCounted {
   std::unique_ptr<Match> match_;
   std::vector<Player*> players_;  // home then away, active players only
   std::vector<int> teamOf_;
+  // The previous logic frame's pose, for the render side's interpolation.
+  std::vector<blunted::Vector3> previousPlayers_;
+  blunted::Vector3 previousBall_;
+  bool previousValid_ = false;
 };
 
 }  // namespace godot

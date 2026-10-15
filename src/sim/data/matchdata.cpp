@@ -54,12 +54,12 @@ MatchData::MatchData(int team1DatabaseID, int team2DatabaseID) {
   historySaved = false;
 }
 
-void MatchData::AddPossessionTime_10ms(int teamID) {
-  possessionTime_ms[teamID] += 10;
+void MatchData::AddPossessionTime(int teamID, double tick_ms) {
+  possessionTime_ms[teamID] += tick_ms;
   // The match clock: the own-third giveaway window (debug-only) and the
   // clean-completion window (release-safe, see ResolveExpiredCleanChecks)
   // are both measured against it.
-  matchTime_ms += 10;
+  matchTime_ms += tick_ms;
   if (teamID == 0)
     possession60seconds = std::max(possession60seconds - 0.01f, -60.0f);
   else if (teamID == 1)

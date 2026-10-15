@@ -41,8 +41,10 @@ uint64_t DeterminismHashSeed() {
 }
 
 uint64_t FoldDeterminism(uint64_t hash, Match& match) {
-  const uint64_t tick = match.GetSimTime_ms() / Match::kTick_ms;
-  hash = FoldBytes(hash, &tick, sizeof(tick));
+  // The tick the sim is on: PES's logic frames (Milestone A1), not a millisecond
+  // division of the clock.
+  const uint64_t frame = static_cast<uint64_t>(match.GetSimFrame());
+  hash = FoldBytes(hash, &frame, sizeof(frame));
   hash = FoldVector(hash, match.GetBall()->Predict(0));
   for (int teamID = 0; teamID < 2; teamID++) {
     std::vector<Player*> players;

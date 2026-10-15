@@ -47,6 +47,12 @@ add_executable(pes_mover_test pes_mover_test.cpp)
 target_link_libraries(pes_mover_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_mover_test)
 
+add_executable(pes_tick_a1_test pes_tick_a1_test.cpp)
+target_link_libraries(pes_tick_a1_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_tick_a1_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+# Three of the tests build a whole match to reach the live ball and the AI.
+gtest_discover_tests(pes_tick_a1_test PROPERTIES TIMEOUT 1800)
+
 add_executable(pes_judge_test pes_judge_test.cpp)
 target_link_libraries(pes_judge_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_judge_test)
