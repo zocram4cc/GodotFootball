@@ -12,6 +12,7 @@
 #include "AIsupport/AIfunctions.hpp"
 #include "match.hpp"
 #include "offsiderule.hpp"
+#include "pespossession.hpp"
 #include "pesstamina.hpp"
 #include "player/humanoid/pesplayernode.hpp"
 #include "referee.hpp"
@@ -50,6 +51,8 @@ Team::Team(int id, Match* match, TeamData* teamData) : id(id), match(match), tea
 
   timeNeededToGetToBall_ms = 100;
   hasPossession = false;
+  pesPossession = false;
+  pesLatchFrame = -1;
 
   teamPossessionAmount = 1.0;
   fadingTeamPossessionAmount = 1.0;
@@ -430,7 +433,86 @@ void Team::ResetSituation(const Vector3& focusPos) {
   GetController()->Reset();
 }
 
+// PES's team-possession latch (FUN_1404fe9c0), evaluated once per PES logic frame, as the
+// team tick runs once per frame. Each ponytail below names the PES site it stands in for.
+void Team::UpdatePesPossession() {
+  // ponytail: PES's frame counter (MI+0x1198) has no GF counterpart; the real-time logic
+  // frame at the game speed stands in for it (Match::GetPesFrame).
+  const int frame = match->GetPesFrame();
+  if (frame == pesLatchFrame) return;
+  pesLatchFrame = frame;
+  const int gs = static_cast<int>(match->GetPesClockConstants().gameSpeed);
+
+  pes::PossessionLatchInput in;
+  in.team = id;
+  in.old = pesPossession;
+  in.frame = frame;
+  in.gs = gs;
+
+  // Rule R. ponytail: PES's restart state MI+0x116c (2 or 3 while a restart is awarded)
+  // and MI+0x1558 (the side taking it). GF's referee buffer is active from the award to
+  // the kick (referee.cpp, buffer.active and buffer.teamID). PES's 2-or-3 split and
+  // MI+0x1574 have no GF counterpart: a live restart reads as state 3, which is R on.
+  const RefereeBuffer& buffer = match->GetRefereeBuffer();
+  if (buffer.active) {
+    in.restartState = 3;
+    in.restartTeam = buffer.teamID;
+  }
+
+  // Ranked-list heads. ponytail: PES's heads (u32 at MA+0x24840 + 0x58*side, valid
+  // below 22) read PES's analysis object, which GF does not carry. Stand-in: a team with
+  // an active player has a head.
+  in.ownHeadValid = GetActivePlayerCount() > 0;
+  in.otherHeadValid = match->GetTeam(1 - id)->GetActivePlayerCount() > 0;
+
+  // Step 1. ponytail: PES's carrier (MA+0x2601c, FUN_140a627e0(ctx, 0)) is GF's ball
+  // retainer.
+  Player* carrier = match->GetBallRetainer();
+  in.carrierValid = carrier != nullptr;
+  in.carrierSide = carrier ? carrier->GetTeamID() : 0;
+
+  // The newest event (E+0x180698). GF's default event (no touch yet) reads as no event:
+  // kind 0 at frame 0, which is PES's zeroed record. ponytail: GF's four kinds stand in
+  // for PES's numbered kinds (pes::PesEventKindOf). ponytail: PES's sub-kind (+0x40),
+  // flag byte (+0x2d) and field (+0x1c) have no GF counterpart: zero, clear and zero, so
+  // step 3a is off, and the sub-3 exclusion is inert (GF has no kind 3).
+  const Match::BallEvent& event = match->GetBallEvent(0);
+  if (event.teamID != -1) {
+    in.newestKind = pes::PesEventKindOf(event.kind);
+    in.newestFrame = event.pesFrame;
+  }
+  in.actorValid = event.player != nullptr;
+  in.actorSide = event.player ? event.player->GetTeamID() : 0;
+  in.newestSubKind = 0;
+  in.newestFlag2d = false;
+  in.newestField1c = 0;
+
+  // ponytail: MI+0x119c, the raw kick sum that step 3a reads, has no GF counterpart. PES's
+  // value at the graded flips was at least 231 (3 * gs is 162); the stand-in is 0, so the sum
+  // clause holds. 3a stays off, because GF never sets newestFlag2d.
+  in.ballSumRaw = 0;
+  // ponytail: G+0x40+0x80, no GF counterpart. Its only effect here is the sub-3 exclusion.
+  in.stateFlag40_80 = false;
+
+  // Step 3b. ponytail: the holder (MA+0x2483c) is GF's designated possession player.
+  Player* holder = match->GetDesignatedPossessionPlayer();
+  in.holderValid = holder != nullptr;
+  in.holderSide = holder ? holder->GetTeamID() : 0;
+  // ponytail: the chase predicate FUN_1404f4be0 reads anime classes and arrival tables
+  // GF does not carry. Stand-in: not blocked.
+  in.chaseBlocked = false;
+  // The holder's side's latch as it stands now (the other team's value is this frame's if
+  // that team's update ran first).
+  in.holderTeamLatch = holder != nullptr && match->GetTeam(in.holderSide)->IsPesPossession();
+  // ponytail: FUN_140a489f0(G, other head).+0x1470 == 0 has no GF counterpart. Stand-in:
+  // flag set, so 3b needs the holder's team latch.
+  in.otherHeadFlagClear = false;
+
+  pesPossession = pes::TeamPossessionLatch(in);
+}
+
 void Team::Process() {
+  UpdatePesPossession();
   teamPossessionAmount =
       (float)(match->GetTeam(abs(GetID() - 1))->GetTimeNeededToGetToBall_ms() + 1500) /
       (float)(GetTimeNeededToGetToBall_ms() + 1500);

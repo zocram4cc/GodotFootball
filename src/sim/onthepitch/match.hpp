@@ -149,10 +149,11 @@ public:
     int teamID = -1;
     pes::BallEventKind kind = pes::BallEventKind::kTouch;
     unsigned long time_ms = 0;
+    int pesFrame = 0;  // the logic frame of the touch (GetPesFrame)
   };
   void PushBallEvent(Player* player, int teamID, pes::BallEventKind kind) {
     ballEvents[1] = ballEvents[0];
-    ballEvents[0] = {player, teamID, kind, actualTime_ms};
+    ballEvents[0] = {player, teamID, kind, actualTime_ms, GetPesFrame()};
   }
   const BallEvent& GetBallEvent(int age) const { return ballEvents[age]; }
   int GetLastTouchTeamID(e_TouchType touchType) const { return lastTouchTeamIDs[touchType]; }
@@ -284,6 +285,10 @@ public:
   }
   const pes::PesClock& GetPesClock() const { return *pesClock; }
   pes::PesClock& GetPesClock() { return *pesClock; }
+  // PES's logic frame (MI+0x1198): the logic steps 54 times per real second, so this is
+  // actual time at the game speed. ponytail: PES's counter also holds in its halted states
+  // (the half-time screen, a pinned clock; docs/re/pes-re-clock-live.md); GF's does not.
+  int GetPesFrame() const;
   // Advances the match clock by elapsed game-seconds, frozen while play is
   // stopped (report 3.3: a stoppage adds no time).
   void AdvanceMatchSeconds(float gameSeconds);
