@@ -392,11 +392,11 @@ admitting gates, and the trace now names them.
 
 ### Next (the trace's own answer, in priority order)
 
-1. **Hoist the per-team gates out of the per-slot loop.** `AttackSlotMask` and `TeamMayRun` are
-   per-team; PES rebuilds `T+0xb8b8` only when the reference player or the attack level changes
-   (step 1 of the manager tick). Ask them once per tick, not once per slot. Expect the walk count to
-   fall by roughly the 65% those two gates represent, with no change to the run count - which is the
-   point: it separates "how often we ask" from "what we admit".
+1. ~~**Hoist the per-team gates out of the per-slot loop.**~~ **Done on main (`d201176`).**
+   `TeamChanceMayRunReject` evaluates in-possession and a valid receiver/carrier once per tick;
+   team 0's walks halved (132,950 -> 78,310) and the run count moved only within noise, exactly as
+   the prediction said it must. The mutation-checked tests for the possession head, the receiver
+   head and the carrier-team check are in `pes_offball_test`.
 2. **Then the admitting gates.** `carrier/receiver` (18%) and `rank/state` (7%) decide eligibility;
    `team may not run` (26%) is where PES's own-half rule lives, and the port notes it reads the
    ball's z at the snap. If the count is still above 93 after (1), that is where the remaining 4x is.
