@@ -2026,9 +2026,10 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
 
   if (rethink) {
     // The plan (report 4.4): rolled whenever its own conditions hold, in the
-    // priority order 9, 8, 2, 3, 1, 4, 5, 6, else Basic. Each plan's roll is
-    // its own throw-away generator seeded with int(carrierClock * K) on slot
-    // 2 and drawn once through RangeRaw(2, 100) (0x14211a89..0x14211aac2).
+    // dispatcher's priority order kPlanPriorityOrder (9, 8, 2, 3, 1, 4, 5, 6,
+    // 7), else Basic. Each plan's roll is its own throw-away generator seeded
+    // with int(carrierClock * K) on slot 2 and drawn once through
+    // RangeRaw(2, 100) (0x14211a89..0x14211aac2).
     struct PlanChoice {
       int plan;
       float seedK;
@@ -2043,17 +2044,17 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
         PlayingStyles::Has(comStyles, PlayingStyles::Com::IncisiveRun);
     const float carrierX = attackSign * carrierPos.coords[0];
     const PlanChoice choices[] = {
+        {pes::kPlanMiddleShot, carrier.middleShotSeedK,
+         pes::PlanStartProbability(pes::kPlanMiddleShot, carrier, finishing, longShotSkill, false,
+                                   false),
+         // MiddleShot needs the mid band (or the far sector past the line).
+         pes::IsMid(zone)},
         {pes::kPlanBreakthrough, carrier.breakthroughSeedK,
          pes::PlanStartProbability(pes::kPlanBreakthrough, carrier, statBreakthrough,
                                    skillBreakthrough, comBreakthrough, false),
          // Breakthrough needs the mid band or a spot past the penalty-area
          // line (report 4.4's start conditions).
          pes::IsMid(zone) || carrierX > SetPieceLaws::kAreaDepth},
-        {pes::kPlanMiddleShot, carrier.middleShotSeedK,
-         pes::PlanStartProbability(pes::kPlanMiddleShot, carrier, finishing, longShotSkill, false,
-                                   false),
-         // MiddleShot needs the mid band (or the far sector past the line).
-         pes::IsMid(zone)},
         {pes::kPlanCross, carrier.crossSeedK,
          pes::PlanStartProbability(
              pes::kPlanCross, carrier, finishing,
@@ -2067,12 +2068,22 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
                                    false),
          true},
     };
+    // The walk is PES's plan table, so the tried-before order is the table's
+    // and not this array's: an id with no entry above (CurveShot, PassThrough,
+    // SideChange, ShotPassFromGoal, BackDFLine) is simply not rolled yet.
     int chosen = pes::kPlanBasic;
-    for (const PlanChoice& c : choices) {
-      if (!c.eligible || c.probability <= 0.0f) continue;
-      if (pes::PlanRoll(nowFrame, c.seedK, match->GetPesRngConstants(), carrier) <=
-          static_cast<int>(c.probability)) {
-        chosen = c.plan;
+    for (const int planId : pes::kPlanPriorityOrder) {
+      const PlanChoice* c = nullptr;
+      for (const PlanChoice& candidate : choices) {
+        if (candidate.plan == planId) {
+          c = &candidate;
+          break;
+        }
+      }
+      if (c == nullptr || !c->eligible || c->probability <= 0.0f) continue;
+      if (pes::PlanRoll(nowFrame, c->seedK, match->GetPesRngConstants(), carrier) <=
+          static_cast<int>(c->probability)) {
+        chosen = c->plan;
         break;
       }
     }

@@ -157,11 +157,14 @@ struct CarrierConstants {
   float longSeedK = 0.0f;          // 1600.0
   int planRollModulus = 100;       // `mov edx, 0x64`
   int planRollSlot = 2;            // `mov edx, 2`
-  // The stat term every rolled plan adds: N * clamp01((x - 70)/29).
+  // The stat term every rolled plan adds: gain * clamp01((x - 70)/span). The
+  // span is per plan: Breakthrough's ramp saturates at stat 90 (divisor 20),
+  // the other plans' at 99 (29).
   float statFloor = 0.0f;     // 70.0, 0x14211a9bb
   float statSpan = 0.0f;      // 29.0, 0x14211acc4
   float breakthroughBase = 0.0f;   // 70, 0x14211a956 `mov edx, 0x46`
   float breakthroughComBase = 0.0f;  // 20, 0x14211a991 `mov ebx, 0x14`
+  float breakthroughStatSpan = 0.0f;  // 20, 0x14259be1c
   float breakthroughStatGain = 0.0f;  // 15, 0x14211a9db
   float breakthroughCap = 0.0f;       // 70, `cmp ebx, 0x46`
   float middleShotBase = 0.0f;       // 70, 0x14211b628
@@ -170,7 +173,7 @@ struct CarrierConstants {
   float middleShotFloor = 0.0f;      // 5, 0x14259be7c's -5 max
   float middleShotCap = 0.0f;        // 80, 0x14211b716
   float crossBase = 0.0f;            // 50, 0x14211ac86
-  float crossStatGain = 0.0f;        // 20, 0x14259be2c
+  float crossStatGain = 0.0f;        // 20, 0x14259be1c
   float crossFloor = 0.0f;           // 40, 0x14211ad5e
   float crossCap = 0.0f;             // 80, 0x14211ad57
   float longBasePressed = 0.0f;      // 30, 0x14211b289
@@ -381,9 +384,10 @@ enum CarrierPlan {
   kPlanBackDFLine = 9
 };
 
-// The priority order the plan chooser walks (0x142bf02c0): 9, 8, 2, 3, 1, 4,
-// 5, 6, else Basic.
-constexpr int kPlanPriorityOrder[] = {9, 8, 2, 3, 1, 4, 5, 6};
+// The priority order the plan chooser walks: the eight dwords at 0x142bf02c0
+// (9, 8, 2, 3, 1, 4, 5, 6) plus the 7 the dispatcher writes inline at
+// 0x14211e35d, else Basic.
+constexpr int kPlanPriorityOrder[] = {9, 8, 2, 3, 1, 4, 5, 6, 7};
 
 // One plan's rolled start probability, the P table of report 4.4. Returns a
 // negative value when the plan cannot start from this state. `stat` is the

@@ -254,6 +254,8 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x14260ba7c, &k.middleShotSeedK},      {0x14260b388, &k.curveShotSeedK},
       {0x1425e9094, &k.crossSeedK},           {0x14259ce40, &k.longSeedK},
       {0x14259be4c, &k.statFloor},            {0x1425a9460, &k.statSpan},
+      {0x14259be0c, &k.breakthroughStatGain}, {0x14259be1c, &k.breakthroughStatSpan},
+      {0x14259be1c, &k.crossStatGain},
       {0x14253ee30, &k.dribbleEdgeCost},     {0x142565600, &k.dribbleEdgeMargin_m},
       {0x14257a190, &k.dribblePrefGain},     {0x142588210, &k.dribbleRange_m},
       {0x14258d10c, &k.dribbleStep_m},       {0x1425cb47c, &k.dribbleDirections},
@@ -574,12 +576,13 @@ PassAnswer PassForward(const std::vector<PassCandidate>& mates,
 }
 
 // The rolled start probabilities of report 4.4's P table. Each plan's base is
-// its own instruction's immediate; every plan then adds the same stat term,
-// N * clamp01((x - 70)/29), and clamps to its own window. `skill`/`com` are the
-// plan's skill and COM triggers and `state2` MiddleShot's image-state-2 bonus.
+// its own instruction's immediate; every plan then adds its own stat term,
+// gain * clamp01((x - 70)/span), and clamps to its own window. `skill`/`com`
+// are the plan's skill and COM triggers and `state2` MiddleShot's
+// image-state-2 bonus.
 float PlanStartProbability(int planId, const CarrierConstants& k, float stat, bool skill, bool com,
                            bool state2) {
-  const float statTerm = [&]() {
+  const float gain = [&]() {
     switch (planId) {
       case kPlanBreakthrough: return k.breakthroughStatGain;
       case kPlanMiddleShot: return k.middleShotStatGain;
@@ -587,7 +590,11 @@ float PlanStartProbability(int planId, const CarrierConstants& k, float stat, bo
       case kPlanLong: return k.longStatGain;
       default: return 0.0f;
     }
-  }() * Clamp01((stat - k.statFloor) / k.statSpan);
+  }();
+  // The ramp's divisor is per plan (report 3.17): Breakthrough saturates at
+  // stat 90 (divisor 20, 0x14259be1c), the other plans at 99 (29, 0x1425a9460).
+  const float span = planId == kPlanBreakthrough ? k.breakthroughStatSpan : k.statSpan;
+  const float statTerm = gain * Clamp01((stat - k.statFloor) / span);
 
   switch (planId) {
     case kPlanBreakthrough: {
