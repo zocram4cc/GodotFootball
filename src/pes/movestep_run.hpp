@@ -31,11 +31,21 @@ inline constexpr int kTurnLockDir = 0x3f;    // req[0x3f] byte: the lock's direc
 inline constexpr int kStyle = 0x50;          // req[0x50] byte: the current locomotion style (OBS: FUN_1406c0170)
 }  // namespace moveword
 
+// The interface's table readers, declared here so the tests can check their arithmetic directly.
+int CommandClassFor(int command, const RunTables& t);      // FUN_1406b8de0, 0x1425ddcd8
+float BandRateFor(int band, int kind, const RunTables& t);  // FUN_1406b9e50, 0x1425dde10
+int ClassForRateFor(float rate, const RunTables& t);        // FUN_1406ba030, 0x1425dde20
+
 // The interface's row pickers, declared here so the tests can check the index order directly
 // (FUN_1406ce820 writes the same order inline at d_1406ce820.c:321). Defined in movestep_run.cpp.
 int StopRowFor(int kind, int cls, const RunTables& t);    // FUN_1406b9d80, 0x1425ddad0
 int GotoRowFor(int kind, int cls, const RunTables& t);    // FUN_1406b9bd0, 0x1425dda50
 int TurnStopRowFor(int kind, int cls, const RunTables& t);  // FUN_1406ba0d0, 0x1425ddb50
+
+// The step rows are read beside RunTables and kept with the other install constants, so a host
+// that supplies RunConstantsView() supplies these too: LoadStepRows fills the same handle the
+// adapter keeps. ponytail: adding `std::array<int32_t, 32> stepRow;` to RunTables removes this
+// table, its loader and the handle.
 
 // This group's loaders, defined in movestep_run.cpp. They read the shared header's RunConstants
 // and RunTables from the exe by the VAs in the file; tests skip without PES21_ROOT.

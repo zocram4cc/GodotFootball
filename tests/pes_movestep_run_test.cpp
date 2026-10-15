@@ -322,3 +322,59 @@ TEST(TurnStopRowIndex, UsesKindPlusClassTimesEight) {
   const pes::RunTables t = SyntheticTables();
   EXPECT_EQ(pes::TurnStopRowFor(2, 1, t), 0x58e + 2 + 1 * 8);
 }
+
+// ---------------------------------------------------------------------------------------------
+// The interface functions' arithmetic over their tables. FUN_1406b8de0 (the command classes),
+// FUN_1406b9e50 (the band rates) and FUN_1406ba030 (the rate ladder) are the three the running
+// phase reads directly; each is a table read with one documented special case.
+// ---------------------------------------------------------------------------------------------
+
+TEST(CommandClass, MapsTheFiveCommandNumbersAndFallsOffToOne) {
+  const pes::RunTables t = SyntheticTables();
+  // FUN_1406b8de0: commands 1..5 map through the table; everything else is -1 (the "no class"
+  // sentinel the handlers test as a class of -1).
+  EXPECT_EQ(pes::CommandClassFor(0, t), -1);
+  EXPECT_EQ(pes::CommandClassFor(1, t), 0);
+  EXPECT_EQ(pes::CommandClassFor(2, t), 1);
+  EXPECT_EQ(pes::CommandClassFor(3, t), 2);
+  EXPECT_EQ(pes::CommandClassFor(4, t), 3);
+  EXPECT_EQ(pes::CommandClassFor(5, t), -1);
+  EXPECT_EQ(pes::CommandClassFor(6, t), -1);
+  EXPECT_EQ(pes::CommandClassFor(9, t), -1);
+}
+
+TEST(BandRate, RisesWithTheBandAndDropsToZeroForTheKeeperKindsAtBandZero) {
+  const pes::RunTables t = SyntheticTables();
+  // FUN_1406b9e50: the table's four bands, and band 0 with kind 3 or 6 has no rate (AS 3.1).
+  EXPECT_FLOAT_EQ(pes::BandRateFor(0, 2, t), 0.15f);
+  EXPECT_FLOAT_EQ(pes::BandRateFor(1, 2, t), 0.30f);
+  EXPECT_FLOAT_EQ(pes::BandRateFor(2, 2, t), 0.60f);
+  EXPECT_FLOAT_EQ(pes::BandRateFor(3, 2, t), 1.00f);
+  EXPECT_FLOAT_EQ(pes::BandRateFor(0, 3, t), 0.0f);
+  EXPECT_FLOAT_EQ(pes::BandRateFor(0, 6, t), 0.0f);
+}
+
+TEST(ClassForRate, TakesTheFirstLadderEntryTheRateIsBelow) {
+  const pes::RunTables t = SyntheticTables();
+  // FUN_1406ba030: the ladder {0.29, 0.59, 0.70, 1.0} with the answer table {0, 1, 2, 3}; a rate
+  // at or above the last entry takes the last class.
+  EXPECT_EQ(pes::ClassForRateFor(0.10f, t), 0);
+  EXPECT_EQ(pes::ClassForRateFor(0.29f, t), 1);  // at the first entry: not below it
+  EXPECT_EQ(pes::ClassForRateFor(0.45f, t), 1);
+  EXPECT_EQ(pes::ClassForRateFor(0.60f, t), 2);
+  EXPECT_EQ(pes::ClassForRateFor(0.80f, t), 3);
+  EXPECT_EQ(pes::ClassForRateFor(1.00f, t), 3);
+}
+
+TEST(RunRateGuard, StoresTheRateOnlyWhenItIsAtMostStepBaseOfTheCeiling) {
+  // FUN_1406d2030's guard, in the port's exact form: the requested rate survives only when it is
+  // at most 0.95 of the ceiling and non-negative, else the word is 0.
+  const pes::PlaybackConstants k{};  // stepBase's value is not used by the port's own guard
+  const float ceiling = 1.0f;
+  const float stepBase = 0.95f;
+  EXPECT_TRUE(pes::RunRateAllowed(0.95f, ceiling, stepBase));
+  EXPECT_TRUE(pes::RunRateAllowed(0.50f, ceiling, stepBase));
+  EXPECT_FALSE(pes::RunRateAllowed(0.96f, ceiling, stepBase));
+  EXPECT_FALSE(pes::RunRateAllowed(1.00f, ceiling, stepBase));
+  (void)k;
+}

@@ -130,29 +130,6 @@ constexpr float SECOND_DWELL = 14.0f / 60.0f;  // FUN_1406d5d60, the second dwel
 // The interface functions, ported from the pointer table at 0x1425e35d0.
 // ---------------------------------------------------------------------------------------------
 
-// FUN_1406b8de0(_, command): the command's speed class from table UNK_1425ddcd8.
-int CommandClassOf(int command, const pes::RunTables& t) {
-  if (static_cast<uint32_t>(command - 1) < 5u) return t.commandClass[command];
-  return -1;
-}
-
-// FUN_1406b9e50(_, band, kind): the band's rate from table UNK_1425dde10; band 0 with kind 3
-// or 6 has no rate (AS 3.1).
-float BandRateOf(int band, int kind, const pes::RunTables& t) {
-  if (band == 0 && (kind == 3 || kind == 6)) return 0.0f;
-  if (band < 0) return t.bandRate[0];
-  if (band > 3) return t.bandRate[3];
-  return t.bandRate[band];
-}
-
-// FUN_1406ba030(_, rate): the first ladder entry the rate is below, else the last class.
-int ClassForRateOf(float rate, const pes::RunTables& t) {
-  for (int i = 0; i < 4; ++i) {
-    if (rate < t.rateLadder[i]) return t.rateClass[i];
-  }
-  return t.rateClass[3];
-}
-
 
 // FUN_14043a0a0(a, b): the angle difference a - b wrapped to (-180, 180].
 float AngleDiffDeg(float a, float b, const RunConstants& k) {
@@ -184,7 +161,7 @@ float RequestedRate(MoveHost& host, MoveReq& req, const pes::RunTables& t) {
   const bool useClass = req.Flag(moveword::kUseClassRate);
   const int cls = static_cast<int>(req.U(moveword::kCommandSpeedClass));
   const int kind = static_cast<int>(req.U(moveword::kKind));
-  if (useClass) return BandRateOf(cls, kind, t);
+  if (useClass) return BandRateFor(cls, kind, t);
   if (cls == 0 && (kind == 3 || kind == 6)) return 0.0f;
   return pes::movestep::SpeedToRate(host, req.F(moveword::kDesiredSpeedKmh), 0);
 }
@@ -198,6 +175,29 @@ float ClampSpeedKmh(float v, const RunConstants& k) {
 }
 
 }  // namespace
+
+// FUN_1406b8de0(_, command): the command's speed class from table UNK_1425ddcd8.
+int CommandClassFor(int command, const pes::RunTables& t) {
+  if (static_cast<uint32_t>(command - 1) < 5u) return t.commandClass[command];
+  return -1;
+}
+
+// FUN_1406b9e50(_, band, kind): the band's rate from table UNK_1425dde10; band 0 with kind 3
+// or 6 has no rate (AS 3.1).
+float BandRateFor(int band, int kind, const pes::RunTables& t) {
+  if (band == 0 && (kind == 3 || kind == 6)) return 0.0f;
+  if (band < 0) return t.bandRate[0];
+  if (band > 3) return t.bandRate[3];
+  return t.bandRate[band];
+}
+
+// FUN_1406ba030(_, rate): the first ladder entry the rate is below, else the last class.
+int ClassForRateFor(float rate, const pes::RunTables& t) {
+  for (int i = 0; i < 4; ++i) {
+    if (rate < t.rateLadder[i]) return t.rateClass[i];
+  }
+  return t.rateClass[3];
+}
 
 // FUN_1406b9bd0's table, which the GOTO_RUN entry itself writes inline at d_1406ce820.c:321:
 // `DAT_1425dda50 + ((longlong)(int)*param_2 + (longlong)(int)param_2[9] * 8) * 4` — the request's
@@ -291,7 +291,7 @@ void EnterRun(MoveHost& host, MoveReq& req, int footIn, bool rateHeld) {
   // shape), then the ceiling guard and the [0, rate] clamp.
   float rate = 0.0f;
   if (req.Flag(moveword::kUseClassRate)) {
-    rate = BandRateOf(cls, kind, t);
+    rate = BandRateFor(cls, kind, t);
   } else if (cls == 0 && (kind == 3 || kind == 6)) {
     rate = 0.0f;
   } else {
