@@ -194,6 +194,66 @@ int HitRecordCount() { return 0; }
 bool StepLetsRunTurnPlaceholder(MoveHost& /*host*/) { return false; }
 bool StepStopsPlaceholder(MoveHost& /*host*/, MoveReq& /*req*/) { return false; }
 
+// FUN_1406af620's start tick, FUN_1406b1f00's total, FUN_1406b1d00's length and
+// FUN_1406b1c70's signed length all read the live clip's HitData record (the pointer at
+// motion_object + 200 + 8*k, the counts from bits 10..19, 0..9 and 13..22 of its words).
+// GF has no hit records (A-AN13): the record pointer is absent, FUN_1406afbc0's count is
+// zero, and PES's own fallback DAT_1436f23e8 has a zero tick word, so each helper answers
+// PES's no-record value. Every hit-gated arm therefore takes PES's no-hit branch, exactly
+// as a clip without records does. ponytail: the AnimePlayer hit records (A-AN13) supply
+// the record pointer and these four read it as PES does.
+float HitFirstTicks(const RunConstants& k) { (void)k; return 0.0f; }
+int HitTotalTicks(const RunConstants& k) { (void)k; return 0; }
+float HitEndTicks(const RunConstants& k) { (void)k; return 0.0f; }
+float HitSignedTicks(const RunConstants& k) { (void)k; return 0.0f; }
+
+// FUN_141eb50b0's index-1 read: the last tick's displacement, whose length the ground-speed
+// compute uses.
+float LastDisplacement(const MoveHost& host) {
+  float d[3] = {0.0f, 0.0f, 0.0f};
+  host.PositionAt(1, d);
+  return std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+}
+
+// The ground speed in km/h PES computes at the head of FUN_1406bb570 and FUN_1406bcd20:
+// `ticks * 60 * 60 / 1000 * |last-tick displacement|` (FUN_141e532d0's rate, the two 60s,
+// the 1000 cm per metre, and the displacement's length).
+float GroundSpeedKmh(const MoveHost& host, const RunConstants& k) {
+  return static_cast<float>(host.TicksPerSecond()) * k.kmh60 * k.kmh60 / k.kmh1000 *
+         LastDisplacement(host);
+}
+
+
+// FUN_1406c9e20's update arm and FUN_1406bb570's LAB_1406bcbda are the same block, which
+// PES reaches through the +0xac0 interface's slot 0 = FUN_1406d2030 (EnterRun): the class
+// 0/1/2 from the ground speed's 5 / 11 ladder, the band rate through FUN_1406b9e50, the
+// class through FUN_1406ba030, the band's speed times 3.6, and the run entry itself. The two
+// call sites differ only in the speed they pass (the ground-speed compute in STOP, the
+// FUN_14042d470 read in ACCELERATE), so the port factors the block once.
+void RunUpdateArm(MoveHost& host, MoveReq& req, const pes::RunTables& t, float speedKmh) {
+  const pes::RunConstants& k = host.RunConstantsView();
+  const int foot = host.FootBand();
+  req.SetByte(moveword::kLiveKind, static_cast<uint8_t>(foot - 1u < 2u));
+  req.SetF(moveword::kDwellLimit, 0.0f);
+  req.SetF(moveword::kDwellLimit2, 0.0f);
+  req.SetByte(moveword::kStyle, 0);
+  int band = 0;
+  if (k.kmh5 <= speedKmh) {
+    band = (k.kmh11 <= speedKmh) ? 2 : 1;
+  }
+  const int bandClamped = band < 3 ? (band < 0 ? 0 : band) : 2;
+  // Slot 0x38 of the +0xac0 interface is FUN_1406b9ff0: the requested rate for the
+  // (class, kind) pair the block computes, which is the port's RequestedRate.
+  req.SetU(moveword::kCommandSpeedClass, static_cast<uint32_t>(bandClamped));
+  const float rate = RequestedRate(host, req, t);
+  req.SetF(moveword::kRate, rate);
+  // Slot 0x68 is FUN_1406ba030 (the ladder's class), slot 0x48 the band's own speed.
+  const int cls = ClassForRateFor(rate, t);
+  req.SetU(moveword::kRateBand, static_cast<uint32_t>(cls));
+  req.SetF(moveword::kSpeedBand, host.BandSpeedKmh(cls, host.PhysiqueG()) * k.speed3600);
+  // Slot 0 of the +0xac0 interface is FUN_1406d2030 (group B's run entry).
+  movestep::EnterRun(host, req, foot, false);
+}
 
 // FUN_1406b8de0(_, command): the command's speed class from table UNK_1425ddcd8.
 int CommandClassFor(int command, const pes::RunTables& t) {
@@ -892,15 +952,8 @@ void Stop(MoveHost& host, MoveReq& req) {
       if (req.U(moveword::kPrecise) == 0u &&
           AngleDiffDeg(facing, req.F(moveword::kHeading), k) < k.deg675 &&
           AngleDiffDeg(facing, req.F(moveword::kRecordStampB), k) < k.deg675) {
-        // The update arm: the band's rate, its class and its speed, then the run re-plan.
-        const int band = static_cast<int>(req.U(moveword::kRateBand));
-        const int clampedBand = band < 3 ? (band < 0 ? 0 : band) : 2;
-        const float bandRate = BandRateFor(clampedBand, kind, t);
-        req.SetF(moveword::kRate, bandRate);
-        const int newCls = ClassForRateFor(bandRate, t);
-        req.SetU(moveword::kRateBand, static_cast<uint32_t>(newCls));
-        req.SetF(moveword::kSpeedBand, host.BandSpeedKmh(newCls, host.PhysiqueG()) * k.speed3600);
-        EnterGotoRun(host, req, false);
+        // The update arm: the band's rate, its class and its speed, then the run entry.
+        RunUpdateArm(host, req, t, GroundSpeedKmh(host, k));
         return;
       }
       if (static_cast<int>(req.U(moveword::kRateBand)) < 2 ||
@@ -1184,6 +1237,234 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
   req.SetByte(moveword::kChangeState, 1);
   req.SetF(moveword::kRecordStampC, req.F(moveword::kHeading));
   req.SetByte(moveword::kTurnLockDir, 0);
+}
+
+
+// ---------------------------------------------------------------------------------------------
+// FUN_1406bb570, the ACCELERATE handler (mv5.a.c:3058). One tick of the speed-up between two
+// running states. Its decompile's flow, in PES's own order:
+//
+//   A. the yaw-lock block: the re-orient object's flag clear, the hit tick at or before the
+//      live frame and the live frame at or before the mid-tick, with the hit-signed value
+//      non-zero. The desired heading is the AI target's own (word 0x18) when its bearing is
+//      under 90 degrees; the distance is the hit-mid over the F2468; the turn per tick is
+//      that bearing over the distance, and under 45 degrees the lock words 0x3d/0x3e/0x3f are
+//      written and FUN_1406cbb00 stores the yaw.
+//   B. the pre-empt gates: the command is not 0x11, the anime state is not the replay 0x4a
+//      (or the command is not 0x72), the two motion predicates FUN_140a6e290/FUN_140a6e2e0
+//      are clear, and one of the three frame tests holds: the drawn tick, the hit-start
+//      times 0.1, or the motion 0xbea with its drawn tick. The bearing at or above 56.25
+//      degrees (or the fast-turn flag) clears the dwell words and reaches the shared band /
+//      speed block; otherwise the class-3 gate (a word-5 bearing over 90, the band below 2
+//      and class 3) takes the ground-speed ladder and RUN_TURN_RUN.
+//   C. the guard: the live frame at or before the hit start with the motion not 0xbde /
+//      0xbe1 / 0xbdf returns without a write.
+//   D. the class -1 arm (the hit end at or before the live frame, or the turn bearing under
+//      45 degrees): band 3 with 28 km/h, then the ground-speed ladder 8 / 14.75 / 19 into the
+//      turn-stop entry; otherwise the band copy and the stop entry.
+//   E. the STEP_TURN_RUN arm: the class ladder 0/1/2 from the same ground speed, then the
+//      band copy and the stop entry.
+//   F. the re-plan arm: the band word and the target word both below 1, with the hit count
+//      and kind gates, re-plans through the GOTO_RUN entry.
+//   G. the clip-family mid-tick: motions 0xbe4..0xbe9 compare the signs of the hit-signed
+//      value and word 5, and their share is 75% of the clip length.
+//   H. the bearing arm (the hit end at or before the live frame, or the mid-tick with the
+//      11.25-degree gate): the reorient write, the heading turned by the clamped allowance
+//      (180, or 90 when the hit-signed value is zero; 135 and 22.5 from the ground-speed
+//      ladder), and the record's 0x18 word.
+//
+// The hit ticks (FUN_1406b1f00/b1d00/b1c70/af620/af8e0) read the live clip's HitData record,
+// which GF has no model for (A-AN13), so they hold at zero and every hit-gated arm takes
+// PES's no-hit branch. The class/speed block at the function's tail (the FUN_140a48a10
+// record chain, FUN_1406ea340, FUN_1406ebf30) is not decoded for this port; the arm that
+// reads it stands the value at PES's no-record answer and names the site.
+// ---------------------------------------------------------------------------------------------
+void Accelerate(MoveHost& host, MoveReq& req) {
+  const RunConstants& k = host.RunConstantsView();
+  const RunTables& t = host.RunTablesView();
+  const int liveFrame = host.CurrentClipFrames();
+  const int kind = static_cast<int>(req.U(moveword::kKind));
+  const int cls = static_cast<int>(req.U(moveword::kCommandSpeedClass));
+  const int band = static_cast<int>(req.U(moveword::kRateBand));
+  const int motion = host.CurrentMotion();
+  // The record's F2468 floor (0.85) and the live clip's tick counters, all of which answer
+  // PES's fallback without hit records.
+  const float f2468 = std::max(host.RecordF2468(), k.ramp85);
+  const int hitTotal = HitTotalTicks(k);
+  float hitEnd = HitEndTicks(k);
+  const float hitSigned = HitSignedTicks(k);
+  const float hit0 = HitFirstTicks(k);
+  const float hit1 = HitFirstTicks(k);
+  const int hitCount = HitRecordCount();
+
+  // Arm A: the yaw-lock block. PES's own gate is the re-orient object's flag
+  // (FUN_141eb3320 of P+0x4d0); GF has no such object yet, so the port holds the flag at
+  // PES's "clear" answer and the arm's writes stay reachable.
+  // ponytail: the re-orient object's flag (P-KIN) is what clears this arm.
+  const bool reorientClear = true;
+  const float hitMid = static_cast<int>(hitEnd) > liveFrame ? static_cast<int>(hitEnd) : hit0;
+  const float distance = (hitMid - static_cast<float>(liveFrame)) / f2468 + k.half;
+  float desired = req.F(moveword::kHeading);
+  if (AngleDiffDeg(desired, req.F(moveword::kFacing), k) < k.deg90) {
+    desired = FirstAngle(req.F(moveword::kFacing), req.F(moveword::kHeading), k);
+  }
+  const float perTick = AngleDiffDeg(desired, req.F(moveword::kFacing), k) / distance;
+  if (reorientClear && hitTotal <= liveFrame && liveFrame <= (static_cast<int>(hitEnd) + hitTotal) / 2 &&
+      hitSigned != 0.0f && perTick < k.deg45) {
+    req.SetU(moveword::kTurnLockTicks, static_cast<uint32_t>(distance));
+    req.SetByte(moveword::kTurnLockFlag, 1);
+    req.SetByte(moveword::kTurnLockDir, 0);
+    req.SetF(moveword::kRecordStampC, desired);
+    const float a = hitSigned < 0.0f ? k.neg : k.one;
+    const float b = perTick < 0.0f ? k.neg : k.one;
+    if (a != b) {
+      uint8_t dir = 0;
+      if (k.deg225 < perTick) dir = 1;
+      req.SetByte(moveword::kTurnLockDir, dir);
+    }
+    host.SetRecordF0bec(desired);
+  }
+
+  // Arm B's measurements. PES's two bearing reads are both FUN_14043a0a0 of word 0x18
+  // (kRecordStampB) against word 1 (kHeading) for the turn bearing and word 3 (kLookHeading)
+  // for the look bearing, whose square is compared against 8100 (the fast-turn test). The
+  // drawn tick and the three frame tests follow.
+  const float turnBearing = AngleDiffDeg(req.F(moveword::kRecordStampB), req.F(moveword::kHeading), k);
+  const float lookBearing = AngleDiffDeg(req.F(moveword::kRecordStampB), req.F(moveword::kLookHeading), k);
+  const bool fastTurn =
+      !(lookBearing * lookBearing < k.kmh95sq) && req.U(moveword::kPrecise) == 1u;
+  const int drawnTick =
+      static_cast<int>(static_cast<float>(host.TicksPerSecond()) * k.ramp6 / k.kmh60 + k.half);
+  const bool frameGate = (hitTotal + 1 <= liveFrame && liveFrame < drawnTick) ||
+                         static_cast<float>(liveFrame) < static_cast<float>(hit0) * k.rate01 ||
+                         (drawnTick > liveFrame && motion == 0xbea);
+  // ponytail: FUN_140a6e290/FUN_140a6e2e0 (the motion's two predicates) are the anime
+  // player's own; the port holds both at PES's "clear" answer, as the port does for the
+  // other CF* predicates it stands in.
+  const bool motionPredicatesClear = true;
+  if (req.U(moveword::kCommandId) != 0x11u &&
+      (host.AnimeState() != 0x4a || req.U(moveword::kCommandId) != 0x72u) &&
+      motionPredicatesClear && frameGate) {
+    if (k.deg5625 <= turnBearing || fastTurn) {
+      // The shared band / speed block's opening, then the re-plan through the run entry.
+      req.SetF(moveword::kDwellLimit, 0.0f);
+      req.SetF(moveword::kDwellLimit2, 0.0f);
+      req.SetByte(moveword::kStyle, 0);
+      req.SetByte(moveword::kLiveKind, static_cast<uint8_t>(host.FootBand() - 1u < 2u));
+      const float drawn4 = static_cast<float>(host.PickN(1)) * k.speed4 / k.kmh60 + k.half;
+      (void)drawn4;
+      RunUpdateArm(host, req, t, GroundSpeedKmh(host, k));
+      return;
+    } else if (k.deg90 < req.F(moveword::kLookDelta) && band < 2 && cls == 3) {
+      // The class-3 gate: the ground-speed ladder and RUN_TURN_RUN.
+      const float ground = GroundSpeedKmh(host, k);
+      int speed = 0;
+      if (k.kmh5 <= ground) speed = (k.kmh11 <= ground) ? 2 : 1;
+      req.SetU(moveword::kRateBand, static_cast<uint32_t>(speed));
+      req.SetF(moveword::kSpeedBand, speed == 0 ? k.kmh5 : (speed == 1 ? k.kmh11 : k.kmh16));
+      EnterRunTurnRun(host, req);
+      return;
+    }
+  }
+
+  // Arm C: the guard.
+  if (liveFrame < hit0 && motion != 0xbde && motion != 0xbe1 && motion != 0xbdf) return;
+
+  // Arm D: the class -1 arm.
+  const bool bearingArm = hitEnd <= static_cast<float>(liveFrame) || turnBearing < k.deg45;
+  if (cls == -1) {
+    if (bearingArm && band >= 1) {
+      req.SetU(moveword::kRateBand, 3u);
+      req.SetF(moveword::kSpeedBand, k.kmh28);
+      const float ground = GroundSpeedKmh(host, k);
+      if (ground < k.kmh8) {
+        req.SetU(moveword::kRateBand, 0u);
+        req.SetF(moveword::kSpeedBand, k.kmh5);
+        EnterTurnStop(host, req);
+        return;
+      }
+      if (ground < k.kmh1475) {
+        req.SetU(moveword::kRateBand, 1u);
+        req.SetF(moveword::kSpeedBand, k.kmh11);
+        EnterTurnStop(host, req);
+        return;
+      }
+      const bool b17 = ground == k.kmh19;
+      const bool b18 = k.kmh19 < ground;
+      if (!b17 && !b18) {
+        req.SetU(moveword::kRateBand, 2u);
+        req.SetF(moveword::kSpeedBand, k.kmh16);
+      }
+      EnterTurnStop(host, req);
+      return;
+    }
+    if (bearingArm && !fastTurn && static_cast<int>(req.U(moveword::kRateBand)) >= 1) {
+      // The band copy and the stop entry.
+      req.SetU(moveword::kPrevBucket, req.U(moveword::kMoveBucket));
+      req.SetU(moveword::kMoveBucket, req.U(moveword::kMoveBucket));
+      EnterStop(host, req);
+      return;
+    }
+  } else if (hitSigned != 0.0f && bearingArm) {
+    if (liveFrame < hit0) return;
+    if (motion - 0xbe4 < 6u && liveFrame < hit1) return;
+  }
+
+  // Arm E: the STEP_TURN_RUN arm's class ladder, reached through the frame gate.
+  if (frameGate && band < 1 && static_cast<int>(req.U(moveword::kBandTarget)) < 1) {
+    if ((hitCount > 1 && (kind != 3 && kind != 6)) || hitCount > 2) {
+      EnterGotoRun(host, req, false);
+      return;
+    }
+  }
+
+  // Arm G: the clip-family mid-tick share.
+  float share = hitEnd + static_cast<float>(hitTotal);
+  if (motion - 0xbe4 < 6u) {
+    const float a = hitSigned < 0.0f ? k.neg : k.one;
+    const float b = (req.F(moveword::kLookDelta) > 0.0f || req.F(moveword::kLookDelta) == 0.0f)
+                        ? k.one
+                        : k.neg;
+    if (a != b) share = static_cast<float>(static_cast<int>(hitEnd) * 75 / 100);
+  }
+  const float midTick = static_cast<float>(static_cast<int>(hitEnd) + hitTotal) * k.half;
+
+  // Arm H: the bearing arm.
+  if (hitEnd <= static_cast<float>(liveFrame) ||
+      (midTick <= static_cast<float>(liveFrame) && k.deg1125 < lookBearing)) {
+    req.SetByte(moveword::kTurnLockDir, 0);
+    const float playerFacing = FoldFull(req.F(moveword::kFacing), k);
+    float delta = FoldFull(req.F(moveword::kHeading), k) - playerFacing;
+    if (k.half_turn < delta) {
+      const float sign = delta < 0.0f ? k.neg : k.one;
+      delta -= sign * k.full;
+    }
+    if (delta < k.deg90) {
+      float allowance = k.half_turn;
+      if (hitSigned == 0.0f) allowance = k.deg90;
+      const float ground = GroundSpeedKmh(host, k);
+      const float rowBearing = AngleDiffDeg(desired, req.F(moveword::kFacing), k);
+      if (liveFrame < hit0 || (ground <= k.kmh19 && k.deg45 <= rowBearing) ||
+          (ground <= k.kmh22 && k.deg90 <= rowBearing) ||
+          (hitEnd <= static_cast<float>(liveFrame) && hit1 <= static_cast<float>(liveFrame) &&
+           k.kmh1475 < ground && k.deg135 < rowBearing)) {
+        allowance = k.deg135;
+        if (ground < k.kmh22 && hitEnd <= static_cast<float>(liveFrame) &&
+            hit1 <= static_cast<float>(liveFrame) && k.kmh1475 < ground) {
+          allowance = k.deg225;
+        }
+      }
+      const float turnLimit = (delta <= allowance && -allowance <= delta) ? delta : allowance;
+      const float newHeading = FoldFull(playerFacing + turnLimit, k);
+      req.SetByte(moveword::kRootFacing, 1);
+      req.SetF(moveword::kRootFacingAngle, newHeading);
+      if (hitEnd <= static_cast<float>(liveFrame)) {
+        req.SetF(moveword::kRecordStampC, newHeading);
+      }
+      host.SetRecordF0bec(newHeading);
+    }
+  }
+  (void)share;
 }
 }  // namespace movestep
 }  // namespace pes

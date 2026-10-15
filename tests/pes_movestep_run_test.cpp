@@ -607,6 +607,100 @@ TEST(Stop, KeepsTheTickWhenTheGroundSpeedIsAtOrAboveSixteen) {
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
 }
 
+// ---------------------------------------------------------------------------------------------
+// The ACCELERATE handler's decision arms (FUN_1406bb570). Its decompile's five arms:
+//   1. the turn-motion arm (the live clip at motion 0xbe0): the 15/60 draw against the clip's
+//      own tick, the 0.45 / 0.65 / 1.2 rate ladder and the stop-row issue, ending in the
+//      state words 0x1f = 3 and 0x1d = 28 km/h;
+//   2. the yaw-lock arm: the +0x4d0 interface's flag clear, the hit tick at or below the
+//      live frame and the frame at or below the mid-tick, with the turn bearing under 90
+//      degrees, writes the lock words 0x3d/0x3e/0x3f and calls FUN_1406cbb00;
+//   3. the fast-turn arm (the precise word 1 and a look bearing at or above 90 degrees, or
+//      the two 0xbe0-family motions): the speed ladder gives the turn allowance, the bearing
+//      is turned against the AI target and the root-facing pair is written;
+//   4. the STEP_TURN_RUN / re-plan arm (words 0x1f and 0x24 both below 1 with the hit count
+//      and kind gates);
+//   5. the state-word arm (the 0xbe0-family motions with the 0.25 rate, or the swing row with
+//      the bearing under 45 degrees): the class/speed/band triple from the interface, then
+//      the vtable +0x10 issue and the state words.
+// ---------------------------------------------------------------------------------------------
+
+// Arm 4's shape: with the class word 1 at or above 1 the arm does not fire, so the handler
+// falls to the state-word arm, whose observable writes are the rate tail, the band words
+// and the ISSUED motion.
+TEST(Accelerate, RewritesTheClassAndBandWordsWhenTheClassIsNotBelowOne) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;  // a turn-family motion, not the 0xbe0 clip
+  h.currentClipFrames = 2;  // the frame gate is `hitTotal+1 <= liveFrame < ticks*6/60 + 0.5`
+  h.rateCeiling = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);  // at 1: arm 4's gate fails
+  req.SetU(pes::moveword::kRateBand, 0u);
+  req.SetU(pes::moveword::kMoveBucket, 0u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 70.0f);
+  // The turn bearing is word 0x18 against word 1; 130 - 70 = 60 degrees is past the 56.25
+  // pre-empt gate.
+  req.SetF(pes::moveword::kRecordStampB, 130.0f);
+  req.SetF(pes::moveword::kLookHeading, 130.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::Accelerate(h, req);
+  // Arm B's class/speed block writes the class/band words and re-plans through the run
+  // entry FUN_1406d2030, whose transition is state 3 (RUN_LOOP). PES's own EnterRun writes
+  // the request words; the motion is issued by the dispatcher's tail, so no Issue call is
+  // expected here.
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
+  EXPECT_EQ(req.U(pes::moveword::kBandTarget), 0u);
+  EXPECT_LE(req.U(pes::moveword::kRateBand), 2u);
+}
+
+// Arm B's class-3 gate: with the turn bearing under 56.25 degrees the class/speed block is
+// not taken, and the arm instead checks word 5's bearing past 90 degrees, the band below 2
+// and class 3. When those hold the ground-speed ladder's class 2 is written and
+// RUN_TURN_RUN is entered.
+TEST(Accelerate, TakesTheRunTurnRunEntryThroughTheClassThreeGate) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  h.rateCeiling = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 70.0f);
+  req.SetF(pes::moveword::kRecordStampB, 75.0f);  // a 5-degree turn bearing: under 56.25
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 100.0f);  // word 5's bearing past 90 degrees
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::Accelerate(h, req);
+  // The ground-speed ladder gives class 0 at zero ground speed, with band 0 and 5 km/h.
+  EXPECT_EQ(req.U(pes::moveword::kRateBand), 0u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 5.0f);
+  EXPECT_GE(pes::probe::runTurnRunCalls, 1);
+}
+
 // The IDLE arm (E): a stop whose first dwell is still below its scaled limit (the turn is
 // small so the ramp is 0 and the gate is `dwellElapsed < 0`) goes to the IDLE arm; with the
 // bucket 0 and the stay decision false it issues the idle row.
@@ -654,10 +748,17 @@ TEST(Stop, SetsTheBandSentinelAndRePlansWhenTheStayDecisionIsTrue) {
   h.runConstants = SyntheticRun();
   h.runTables = SyntheticTables();
   h.currentKmh = 0.0f;
+  h.bandSpeeds[0] = 4.0f;  // the band's own speeds in km/h, as the anime info record holds
+  h.bandSpeeds[1] = 8.0f;
+  h.bandSpeeds[2] = 14.0f;
+  h.bandSpeeds[3] = 22.0f;
   pes::MoveReq req;
   req.SetU(pes::moveword::kKind, 2u);
   req.SetU(pes::moveword::kCommandSpeedClass, 1u);
   req.SetU(pes::moveword::kRateBand, 1u);
+  // The shared block's rate read is FUN_1406b9ff0, whose class path the port takes when the
+  // request's word 0xb (the class-rate flag) is set; the block passes the band as the class.
+  req.SetByte(pes::moveword::kUseClassRate, 1);
   req.SetU(pes::moveword::kMoveBucket, 0u);
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kHeading, 12.0f);
@@ -671,11 +772,13 @@ TEST(Stop, SetsTheBandSentinelAndRePlansWhenTheStayDecisionIsTrue) {
   pes::probe::stayAnswer = true;
   pes::movestep::Stop(h, req);
   // The stay-decision-true arm writes the -1 sentinel into the band word and re-plans
-  // through the GOTO_RUN entry, which itself writes the band word from the class (cls 1
-  // gives band 0). The observable end state is therefore the entry's own write, and the
-  // speed word it leaves is the request's desired speed clamped to [5, 16] km/h.
+  // through the shared band/speed block, whose exit is the run entry FUN_1406d2030: the
+  // band's class rate (0.15 at band 0), its class (0 on the ladder), the band's own speed
+  // times 3.6 and the state word 3 (RUN_LOOP), the run entry's own transition.
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), 0.15f);
   EXPECT_EQ(req.U(pes::moveword::kRateBand), 0u);
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 16.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 4.0f * 3.6f);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
 }
 
 // The update arm's condition (D): the stay decision true and the group-C step-stop false,
@@ -693,26 +796,28 @@ TEST(Stop, RewritesTheBandAndSpeedWordsThroughTheTablesInTheUpdateArm) {
   pes::MoveReq req;
   req.SetU(pes::moveword::kKind, 2u);
   req.SetU(pes::moveword::kCommandSpeedClass, 1u);
-  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kRateBand, 2u);
+  // The update arm's rate read is FUN_1406b9ff0, whose class path the port takes when the
+  // request's word 0xb (the class-rate flag) is set; the block passes the band as the class.
+  req.SetByte(pes::moveword::kUseClassRate, 1);
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kHeading, 12.0f);
   req.SetF(pes::moveword::kTurn, 2.0f);
   req.SetF(pes::moveword::kFacingError, 2.0f);
-  req.SetF(pes::moveword::kRecordStampB, 12.0f);
-  // The dwell is short of its limit (the turn block's gate sends the tick here), and the two
-  // bearings are under 67.5 degrees, so the arm takes the update path.
   req.SetF(pes::moveword::kDwellElapsed, 0.0f);
   req.SetF(pes::moveword::kDwellLimit, 5.0f);
   pes::probe::Reset();
   pes::probe::stayAnswer = true;
   pes::movestep::Stop(h, req);
-  // The update arm writes the band's rate, its class and its own speed, then re-plans
-  // through the GOTO_RUN entry, whose last writes are the band word from the class, the
-  // speed word clamped to [5, 16] km/h and the state word 7 (ACCELERATE). The intermediate
-  // writes are PES's own and are visible in the entry's answers.
-  EXPECT_EQ(req.U(pes::moveword::kNextState), 7u);
+  // The update arm takes the band's rate through FUN_1406b9ff0's class path (band 0 gives
+  // 0.15), its class through FUN_1406ba030 (ladder {0.29, 0.59, 0.70, 1.0} gives 0), the
+  // band's own speed times 3.6 (4 km/h at band 0), then the run entry FUN_1406d2030, whose
+  // transition is state 3 (RUN_LOOP).
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), 0.15f);
+  EXPECT_EQ(req.U(pes::moveword::kRateBand), 0u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 4.0f * 3.6f);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 16.0f);
 }
 
 // The turn block's gate (D): when the dwell is past its limit the turn ramp scales it, and
