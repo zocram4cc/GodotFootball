@@ -18,7 +18,7 @@ constexpr float kBoxHalfWidth = 20.12f;  // F7
 
 pes::TeamConceptConstants Synthetic() {
   pes::TeamConceptConstants k{};
-  k.defaultSupportRange = 5, k.defaultDefensiveLine = 5, k.defaultCompactness = 5;
+  k.defaultSliders.fill(5);
   k.enabled.fill(true);
   k.endTestAfter_s = 0.1f;
   k.chaseWindow_s = 3, k.chaseThirdMargin_m = 10, k.chaseWideMargin_m = 2;
@@ -186,15 +186,176 @@ TEST(PesForeCheck, LineDownStartsOnAnUncoveredCarrierFacingOurGoal) {
 }
 
 TEST(PesTeamSheet, GatesFollowTheToggles) {
-  pes::TeamSheet s{};
-  s.toggles[pes::kDefensiveStyle] = 0;
-  s.toggles[pes::kAttackingStyle] = 0;
+  pes::TeamSheet s;
+  s.SetToggle(pes::kDefensiveStyle, 0);
+  s.SetToggle(pes::kAttackingStyle, 0);
   EXPECT_TRUE(pes::ConceptGate(pes::kConceptTransitionChase, s));
   EXPECT_TRUE(pes::ConceptGate(pes::kConceptSideCounter, s));
-  s.toggles[pes::kDefensiveStyle] = 1;  // All-out Defence: no fore-check family
-  s.toggles[pes::kAttackingStyle] = 1;  // Possession Game: no counters
+  s.SetToggle(pes::kDefensiveStyle, 1);  // All-out Defence: no fore-check family
+  s.SetToggle(pes::kAttackingStyle, 1);  // Possession Game: no counters
   EXPECT_FALSE(pes::ConceptGate(pes::kConceptTransitionChase, s));
   EXPECT_FALSE(pes::ConceptGate(pes::kConceptSideCounter, s));
+}
+
+// The sheet is PES's block S = T+0x8e08. Each accessor reads the offset its PES
+// function reads and refuses what that function refuses; plan 3 is the current
+// plan (the index stored at S+0, FUN_1408c5e20).
+TEST(PesTeamSheet, PlanThreeIsTheStoredPlanAndExplicitPlansStayIndependent) {
+  pes::TeamSheet s;
+  s.SetSlider(0, 7, 0);
+  s.SetSlider(0, 4, 2);
+  s.SetPlan(2);
+  EXPECT_EQ(s.Plan(), 2);
+  EXPECT_EQ(s.Slider(0), 4);
+  EXPECT_EQ(s.Slider(0, 0), 7);
+  s.SetPlan(3);  // FUN_1408c5e20 refuses anything above 2
+  EXPECT_EQ(s.Plan(), 2);
+}
+
+TEST(PesTeamSheet, SlidersKeepAnyByteAndRefuseAnOutOfRangeSliderOrPlan) {
+  pes::TeamSheet s;
+  s.SetSlider(4, 255, 1);
+  EXPECT_EQ(s.Slider(4, 1), 255);
+  s.SetSlider(5, 9, 1);
+  EXPECT_EQ(s.Slider(5, 1), 0);
+  s.SetSlider(0, 9, 3);
+  EXPECT_EQ(s.Slider(0, 0), 9);
+}
+
+TEST(PesTeamSheet, TogglesStoreOneForAnyValueAboveOne) {
+  pes::TeamSheet s;
+  s.SetToggle(pes::kPressuring, 5, 0);
+  EXPECT_EQ(s.Toggle(pes::kPressuring, 0), 1);
+  s.SetToggle(pes::kPressuring, 0, 0);
+  EXPECT_EQ(s.Toggle(pes::kPressuring, 0), 0);
+}
+
+TEST(PesTeamSheet, RolesAcceptBelowThirteenAndReadTwelveOutOfRange) {
+  pes::TeamSheet s;
+  EXPECT_EQ(s.Role(3, 1, 0), 0);
+  s.SetRole(3, 12, 1, 0);
+  EXPECT_EQ(s.Role(3, 1, 0), 12);
+  s.SetRole(3, 13, 1, 0);
+  EXPECT_EQ(s.Role(3, 1, 0), 12);
+  EXPECT_EQ(s.Role(11, 0, 0), 12);
+  EXPECT_EQ(s.RegisteredRole(11, 0, 0), 12);
+}
+
+TEST(PesTeamSheet, CoordinatesStoreBothAxesWithinPesBounds) {
+  pes::TeamSheet s;
+  s.SetCoord(9, 48, 104, 2, 1);
+  EXPECT_EQ(s.CoordX(9, 2, 1), 48);
+  EXPECT_EQ(s.CoordY(9, 2, 1), 104);
+  s.SetCoord(9, 49, 0, 2, 1);
+  EXPECT_EQ(s.CoordX(9, 2, 1), 48);
+  s.SetCoord(10, 1, 1, 0, 0);
+  EXPECT_EQ(s.CoordX(10, 0, 0), 0);
+}
+
+TEST(PesTeamSheet, SlotTargetsAreSlotsOrNone) {
+  pes::TeamSheet s;
+  s.SetSlotTarget(4, 10, 0);
+  EXPECT_EQ(s.SlotTarget(4, 0), 10);
+  s.SetSlotTarget(4, 11, 0);
+  EXPECT_EQ(s.SlotTarget(4, 0), 10);
+  s.SetSlotTarget(4, 0xff, 0);
+  EXPECT_EQ(s.SlotTarget(4, 0), 0xff);
+}
+
+TEST(PesTeamSheet, CaptainDesignatedAndTakersAreRosterIndicesOrNone) {
+  pes::TeamSheet s;
+  s.SetCaptain(5);
+  EXPECT_EQ(s.Captain(), 5);
+  s.SetCaptain(pes::kSheetRosterBound);  // FUN_1408c5c50 refuses 0x28
+  EXPECT_EQ(s.Captain(), 5);
+  s.SetDesignated(5, 7);
+  EXPECT_EQ(s.Designated(5), 7);
+  EXPECT_EQ(s.Designated(6), 0xff);
+  s.SetTaker(2, 3);
+  EXPECT_EQ(s.Taker(2), 3);
+  EXPECT_EQ(s.Taker(3), 0xff);
+}
+
+TEST(PesTeamSheet, SlotRecordBStoresTwelveBytesPerSlotPhaseAndPlan) {
+  pes::TeamSheet s;
+  const std::array<uint32_t, 3> rec{11, 22, 33};
+  s.SetSlotRecordB(6, 1, rec, 2);
+  EXPECT_EQ(s.SlotRecordB(6, 1, 2), rec);
+  EXPECT_EQ(s.SlotRecordB(6, 1, 0), (std::array<uint32_t, 3>{}));
+}
+
+TEST(PesTeamSheet, InstructionWriterKeepsIdArgumentParamAndFlag) {
+  pes::TeamSheet s;
+  s.SetInstruction(1, 0x5, 7, 4, 0, 1);
+  EXPECT_EQ(s.InstructionId(1, 0), 5);
+  EXPECT_EQ(s.InstructionArg(1, 0), 0xff);  // only id 0xe stores the argument
+  EXPECT_EQ(s.InstructionParam(1, 0), 4);
+  EXPECT_EQ(s.InstructionFlag(1, 0), 1);
+  s.SetInstruction(1, 0xe, 7, 4, 0, 0);
+  EXPECT_EQ(s.InstructionArg(1, 0), 7);
+  EXPECT_EQ(s.InstructionFlag(1, 0), 0);
+  s.SetInstruction(1, 0x11, 3, 4, 0, 1);  // FUN_140a42600 refuses id 0x11
+  EXPECT_EQ(s.InstructionId(1, 0), 0xe);
+}
+
+TEST(PesTeamSheet, InstructionIdsEightTenAndFifteenFlagTheArgumentSlot) {
+  pes::TeamSheet s;
+  s.SetInstruction(0, 0xf, 13, 0, 0, 0);  // 13 % 11 = slot 2
+  EXPECT_EQ(s.InstructionSlotFlag(0, 2, 0), 1);
+  EXPECT_EQ(s.InstructionSlotFlag(0, 1, 0), 0);
+  s.SetInstruction(0, 0x8, 21, 0, 0, 0);  // 21 % 11 = slot 10
+  EXPECT_EQ(s.InstructionSlotFlag(0, 10, 0), 1);
+  s.SetInstruction(0, 0xa, 22, 0, 0, 0);  // argument 22 is refused
+  EXPECT_EQ(s.InstructionSlotFlag(0, 10, 0), 0);
+}
+
+TEST(PesTeamSheet, IdZeroLeavesTheFlagByteAlone) {
+  pes::TeamSheet s;
+  s.SetInstruction(2, 0x3, 0, 0, 1, 1);
+  s.SetInstruction(2, 0x0, 0, 0, 1, 0);
+  EXPECT_EQ(s.InstructionFlag(2, 1), 1);
+}
+
+TEST(PesTeamSheet, OutOfRangeRecordIndexWritesRecordZero) {
+  pes::TeamSheet s;
+  s.SetInstructionByte30(4, 9, 0);
+  EXPECT_EQ(s.InstructionByte30(0, 0), 9);
+  EXPECT_EQ(s.InstructionByte30(1, 0), 0);
+}
+
+TEST(PesTeamSheet, ResetPutsARecordBackToThePesResetState) {
+  pes::TeamSheet s;
+  s.SetInstruction(3, 0xe, 9, 5, 2, 1);
+  s.SetInstructionByte30(3, 7, 2);
+  s.ResetInstruction(3, 2);
+  EXPECT_EQ(s.InstructionId(3, 2), 0);
+  EXPECT_EQ(s.InstructionArg(3, 2), 0xff);
+  EXPECT_EQ(s.InstructionParam(3, 2), 0);
+  EXPECT_EQ(s.InstructionByte30(3, 2), 0);
+  EXPECT_EQ(s.InstructionFlag(3, 2), 0);
+  EXPECT_EQ(s.InstructionSlotFlag(3, 9, 2), 0);
+}
+
+TEST(PesTeamSheetDefaults, DefaultsAreTheConstructorStoresFromTheInstall) {
+  pes::TeamConceptConstants k;
+  k.defaultSliders[pes::kSliderSupportRange] = 6;
+  k.defaultSliders[pes::kSliderDefensiveLine] = 6;
+  k.defaultSliders[pes::kSliderCompactness] = 7;
+  k.defaultCaptain = 9;
+  k.defaultDesignated = {8, 8, 8, 8, 8, 8};
+  k.defaultTaker = {0xff, 0xff, 0xff};
+  k.defaultSlotTarget = 0xff;
+  const pes::TeamSheet s = pes::DefaultTeamSheet(k);
+  EXPECT_EQ(s.Plan(), 0);
+  EXPECT_EQ(s.Slider(pes::kSliderSupportRange), 6);
+  EXPECT_EQ(s.Slider(pes::kSliderDefensiveLine), 6);
+  EXPECT_EQ(s.Slider(pes::kSliderCompactness), 7);
+  EXPECT_EQ(s.Captain(), 9);
+  EXPECT_EQ(s.Designated(5), 8);
+  EXPECT_EQ(s.Taker(0), 0xff);
+  EXPECT_EQ(s.SlotTarget(10, 2), 0xff);
+  EXPECT_EQ(s.Role(10, 2, 2), 0);
+  EXPECT_EQ(s.CoordX(9, 2, 2), 0);
 }
 
 // A wide carrier in our attacking third, the chaser goal-side and inside him,
@@ -345,10 +506,13 @@ TEST(PesTeamConceptsInstall, LoadsRelations) {
   ASSERT_TRUE(vfs.Mount(root, &err)) << err;
   auto k = pes::LoadTeamConceptConstants(*exe, vfs, &err);
   ASSERT_TRUE(k) << err;
-  for (int v : {k->defaultSupportRange, k->defaultDefensiveLine, k->defaultCompactness}) {
-    EXPECT_GE(v, 1);
+  for (int v : k->defaultSliders) {
+    EXPECT_GE(v, 0);
     EXPECT_LE(v, 10);
   }
+  EXPECT_TRUE(k->defaultCaptain < pes::kSheetRosterBound || k->defaultCaptain == 0xff);
+  for (int v : k->defaultDesignated)
+    EXPECT_TRUE(v < pes::kSheetRosterBound || v == 0xff);
   EXPECT_GT(k->chaseSecondRangeSq_m2, k->chaseRangeSq_m2);
   EXPECT_LT(k->chaseInsideMin_deg, k->chaseGoalSideMax_deg);
   EXPECT_GT(k->counterKickoffGuard_s, k->counterWindow_s);

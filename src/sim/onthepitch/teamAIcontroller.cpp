@@ -51,14 +51,20 @@ TeamAIController::TeamAIController(Team* team) : team(team) {
   {
     const Properties& t = team->GetTeamData()->GetTactics().userProperties;
     teamSheet = pes::DefaultTeamSheet(match->GetPesTeamConceptConstants());
-    teamSheet.supportRange = static_cast<int>(t.GetReal("support_range", teamSheet.supportRange));
-    teamSheet.defensiveLine = static_cast<int>(t.GetReal("defensive_line", teamSheet.defensiveLine));
-    teamSheet.compactness = static_cast<int>(t.GetReal("compactness", teamSheet.compactness));
+    const auto real = [&t](const char* key, int current) {
+      return static_cast<int>(t.GetReal(key, current));
+    };
+    teamSheet.SetSlider(pes::kSliderSupportRange,
+                        real("support_range", teamSheet.Slider(pes::kSliderSupportRange)));
+    teamSheet.SetSlider(pes::kSliderDefensiveLine,
+                        real("defensive_line", teamSheet.Slider(pes::kSliderDefensiveLine)));
+    teamSheet.SetSlider(pes::kSliderCompactness,
+                        real("compactness", teamSheet.Slider(pes::kSliderCompactness)));
     static const char* kToggleKeys[pes::kSheetToggleCount] = {
         "attacking_style", "build_up",        "attacking_area", "positioning",
         "defensive_style", "containment_area", "pressuring"};
     for (int k = 0; k < pes::kSheetToggleCount; ++k)
-      teamSheet.toggles[k] = static_cast<int>(t.GetReal(kToggleKeys[k], teamSheet.toggles[k]));
+      teamSheet.SetToggle(k, real(kToggleKeys[k], teamSheet.Toggle(k)));
   }
 
   depth = 0.45f;
@@ -387,15 +393,15 @@ void TeamAIController::CalculateDefensiveShape() {
   // The team sheet's own bytes (tactics 1, 4): Defensive Style, Defensive Line,
   // Compactness, and Pressuring = Conservative, which gives the marker 2 m more
   // room (FUN_140623750).
-  const int style = teamSheet.toggles[pes::kDefensiveStyle];
-  const float lineSlider = static_cast<float>(teamSheet.defensiveLine);
-  const float compactSlider = static_cast<float>(teamSheet.compactness);
+  const int style = teamSheet.Toggle(pes::kDefensiveStyle);
+  const float lineSlider = static_cast<float>(teamSheet.Slider(pes::kSliderDefensiveLine));
+  const float compactSlider = static_cast<float>(teamSheet.Slider(pes::kSliderCompactness));
 
   defensiveStyle = style;
   defensiveAttackLevel = attackLevel;
   defensiveLineSlider = lineSlider;
   defensiveCompactSlider = compactSlider;
-  defensivePressing = teamSheet.toggles[pes::kPressuring] == 1;
+  defensivePressing = teamSheet.Toggle(pes::kPressuring) == 1;
 
   float ownFrameLine =
       pes::DefensiveLineHeight(k, field, facts, lineSlider, style, attackLevel, match->IsInPlay(),
@@ -1459,11 +1465,10 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
   }
 
   if (isTakerTeam) {
-    // Who takes it (kicker report 1): the team sheet's taker where GF has one,
-    // otherwise the best set-piece suitability. GF carries no sheet of
-    // designated takers (PES T+0x8e08) and no per-player set-piece ratings
-    // (playerdata+0x96), so the suitability below is this engine's nearest
-    // standing for it.
+    // Who takes it (kicker report 1): PES reads the sheet's designated takers (TeamSheet::
+    // Taker, T+0x1454) first. GF's sheet carries that record, but no tactics import fills it
+    // yet, and no per-player set-piece ratings (playerdata+0x96) exist, so the suitability
+    // below is this engine's nearest standing for it.
     // ponytail: PES rates six kinds per player. GF's nearest stats stand in -
     // long free kick -> curl, short -> short pass, the second kicker -> tight
     // possession, both corners -> curl, penalty -> set piece - so a player who
@@ -1766,7 +1771,7 @@ pes::SideCounterInput TeamAIController::CounterInput(std::vector<Player*>* men) 
   for (Player* o : opponents)
     if (o->GetFormationEntry().role != e_PlayerRole_GK && std::fabs(o->GetPosition().coords[1]) <= pitchHalfH)
       in.opponents.push_back(o->GetPosition());
-  in.attackingArea = teamSheet.toggles[pes::kAttackingArea];
+  in.attackingArea = teamSheet.Toggle(pes::kAttackingArea);
   team->GetActivePlayers(*men);
   for (Player* p : *men) {
     pes::CounterMan m;
@@ -2234,8 +2239,8 @@ void TeamAIController::ProcessDesignatedSupporter(Player* carrier) {
   const float bearing = std::atan2(toMate.coords[1], toMate.coords[0] * s) * 180.0f / pi;
   ob::SupportDistanceInput in;
   // Support Range and Build Up from the team sheet (tactics 4.1).
-  in.supportRange = teamSheet.supportRange;
-  in.buildUpLong = teamSheet.toggles[pes::kBuildUp] == 0;
+  in.supportRange = teamSheet.Slider(pes::kSliderSupportRange);
+  in.buildUpLong = teamSheet.Toggle(pes::kBuildUp) == 0;
   const Vector3 ball = match->GetBall()->Predict(0);
   in.ballX = s * ball.coords[0];
   in.ballZ = ball.coords[1];
@@ -2424,7 +2429,7 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   // 5ab990). ponytail: those gates are undecoded, so no swap happens; the
   // cap simply holds.
   const uint32_t slotMask = ob::AttackSlotMask(world, team->GetID(), level);
-  const bool buildUpLong = teamSheet.toggles[pes::kBuildUp] == 0;
+  const bool buildUpLong = teamSheet.Toggle(pes::kBuildUp) == 0;
   // FUN_1405938a0, the Chance mask's team head. The raw calls it once per
   // FUN_140606cd0, before that function's own loop over the 11 slots
   // (OBS mask.c:86, loop at mask.c:197-204), so its verdict is shared by every

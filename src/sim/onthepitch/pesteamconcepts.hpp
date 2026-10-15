@@ -14,6 +14,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -38,13 +39,115 @@ enum SheetToggle {
   kSheetToggleCount,
 };
 
-// The sheet values the AI reads (tactics 1, 4): Support Range, Defensive Line
-// and Compactness run 1..10; the two sliders with no AI effect are not kept.
-struct TeamSheet {
-  int supportRange = 0;
-  int defensiveLine = 0;
-  int compactness = 0;
-  std::array<int, kSheetToggleCount> toggles{};
+// PES 2021's team sheet S = T+0x8e08 (tactics 1, 14.6), kept in PES's own byte
+// layout: each accessor reads the offset of the PES function named beside it and
+// refuses what that function refuses. `plan` 0..2 picks one of the three stored
+// plans; kCurrentPlan (3) is PES's "current" argument, the index stored at S+0.
+// Constants below are PES's accessor bounds (named where they are read).
+inline constexpr int kCurrentPlan = 3;
+inline constexpr int kSheetPlans = 3;
+inline constexpr int kSheetSlots = 11;
+inline constexpr int kSheetPhases = 3;
+inline constexpr int kSheetOutfield = 10;        // coordinate rows i < 10 (FUN_1408c5130)
+inline constexpr int kSheetSliders = 5;          // FUN_1408c52e0: k < 5
+inline constexpr int kSheetRosterBound = 0x28;   // roster index < 40, or none (FUN_1408c5c50)
+inline constexpr int kSheetNone = 0xff;          // "no roster index / no slot target"
+inline constexpr int kSheetRoleBound = 0xd;      // roles 0..12 (FUN_1408c5e90)
+inline constexpr int kSheetRoleDefault = 0xc;    // readers' value out of range (FUN_1408c51b0)
+inline constexpr int kSheetCoordXBound = 0x31;   // FUN_1408c5d50: x < 49
+inline constexpr int kSheetCoordYBound = 0x69;   // FUN_1408c5d50: y < 105
+inline constexpr int kSheetTargetBound = 0xb;    // FUN_1408c5d10: slot target < 11, or none
+inline constexpr int kSheetDesignated = 6;       // FUN_1408c5080: k < 6
+inline constexpr int kSheetTakers = 3;           // FUN_1408c5060: k < 3
+inline constexpr int kSheetInstructionsPerPlan = 4;
+inline constexpr int kSheetInstructionBytes = 0x70;   // FUN_1408c6430: 0x1c dwords
+inline constexpr int kSheetArgBound = 0x16;      // FUN_140a42600: instruction argument < 22
+inline constexpr int kSheetRefusedInstructionId = 0x11;  // FUN_140a42600 returns at once
+inline constexpr int kInstrIdOffset = 0x00;      // u32 id (FUN_140a42600 param_3)
+inline constexpr int kInstrSlotFlagOffset = 0x04;  // u8[11]: flag at +4 + (arg % 11)
+inline constexpr int kInstrArgOffset = 0x2c;     // u32 argument, 0xff unless id 0xe (FUN_140a42600)
+inline constexpr int kInstrByte30Offset = 0x30;  // u8 (FUN_140a42880 param_3)
+inline constexpr int kInstrParamOffset = 0x34;   // u32 (FUN_140a42600 param_5)
+inline constexpr int kInstrResetNoneOffset = 0x38;  // u32 0xff in the reset (FUN_140a42430)
+inline constexpr int kInstrFlagOffset = 0x6c;    // u8 (FUN_140a42600 param_7)
+// Byte offsets of the fields in S. The writer named is the one decoded; "reader
+// open" marks a field whose PES reader has not been found yet.
+inline constexpr int kSheetPlanOffset = 0x000;            // u32; FUN_1408c5e20 (plan < 3)
+inline constexpr int kSheetSliderOffset = 0x004;          // u8[3][5]; FUN_1408c52e0 / FUN_1408c5df0
+inline constexpr int kSheetToggleOffset = 0x013;          // u8[3][7]; FUN_1408c5030 / FUN_1408c5c70
+inline constexpr int kSheetRegisteredRoleOffset = 0x028;  // u32[3][11][3]; FUN_1408c51b0 (writer open)
+inline constexpr int kSheetCoordXOffset = 0x1b4;          // u16[3][10][3]; FUN_1408c5130 / FUN_1408c5d50
+inline constexpr int kSheetCoordYOffset = 0x268;          // u16[3][10][3]; FUN_1408c5170 / FUN_1408c5d50
+inline constexpr int kSheetSlotRecordAOffset = 0x31c;     // 12 B[3][11][3]; FUN_1408c50e0 (writer open)
+inline constexpr int kSheetSlotTargetOffset = 0x844;      // u32[3][11]; FUN_1408c50a0 / FUN_1408c5d10
+inline constexpr int kSheetRoleOffset = 0x8c8;            // u32[3][11][3]; FUN_1408c5310 / FUN_1408c5e90
+inline constexpr int kSheetSlotRecordBOffset = 0xa54;     // 12 B[3][11][3]; FUN_1408c5e30 (reader open)
+inline constexpr int kSheetInstructionOffset = 0xef8;     // 0x70 B[3][4]; FUN_1408c6430
+inline constexpr int kSheetCaptainOffset = 0x1438;        // u32; FUN_1408c5020 / FUN_1408c5c50
+inline constexpr int kSheetDesignatedOffset = 0x143c;     // u32[6]; FUN_1408c5080 / FUN_1408c5cf0
+inline constexpr int kSheetTakerOffset = 0x1454;          // u32[3]; FUN_1408c5060 / FUN_1408c5cb0
+inline constexpr int kSheetBytes = 0x1488;                // the ctor's last store is at +0x1486
+
+// Slider indices with an AI reader (sliders k1 and k4 have none, tactics 4).
+inline constexpr int kSliderSupportRange = 0;   // tactics 4.1
+inline constexpr int kSliderDefensiveLine = 2;  // tactics 4.2
+inline constexpr int kSliderCompactness = 3;    // defensive-shape 6
+
+// One team's sheet. Refused writes change nothing; refused reads return PES's value.
+class TeamSheet {
+ public:
+  TeamSheet() = default;  // zero image; DefaultTeamSheet applies the constructor stores
+
+  int Plan() const;
+  void SetPlan(int plan);
+  int Slider(int k, int plan = kCurrentPlan) const;
+  void SetSlider(int k, int value, int plan = kCurrentPlan);
+  int Toggle(int k, int plan = kCurrentPlan) const;
+  void SetToggle(int k, int value, int plan = kCurrentPlan);
+  // FUN_1408c51b0 (registered role) and FUN_1408c5310 (role); both read 12 when refused.
+  int RegisteredRole(int slot, int phase, int plan = kCurrentPlan) const;
+  int Role(int slot, int phase, int plan = kCurrentPlan) const;
+  void SetRole(int slot, int role, int phase, int plan = kCurrentPlan);
+  // FUN_1408c5130 / FUN_1408c5170 read, FUN_1408c5d50 writes both axes together.
+  int CoordX(int i, int phase, int plan = kCurrentPlan) const;
+  int CoordY(int i, int phase, int plan = kCurrentPlan) const;
+  void SetCoord(int i, int x, int y, int phase, int plan = kCurrentPlan);
+  // The two 12-byte per-slot records. FUN_1408c50e0 returns record 0 when refused.
+  std::array<uint32_t, 3> SlotRecordA(int slot, int phase, int plan = kCurrentPlan) const;
+  std::array<uint32_t, 3> SlotRecordB(int slot, int phase, int plan = kCurrentPlan) const;
+  void SetSlotRecordB(int slot, int phase, const std::array<uint32_t, 3>& rec,
+                      int plan = kCurrentPlan);
+  // Slot target: a slot 0..10 or kSheetNone (FUN_1408c50a0 reads kSheetNone when refused).
+  int SlotTarget(int slot, int plan = kCurrentPlan) const;
+  void SetSlotTarget(int slot, int target, int plan = kCurrentPlan);
+  // Captain, designated and taker: roster indices below kSheetRosterBound, or none.
+  int Captain() const;
+  void SetCaptain(int roster);
+  int Designated(int k) const;
+  void SetDesignated(int k, int roster);
+  int Taker(int k) const;
+  void SetTaker(int k, int roster);
+
+  // Instruction records, four per plan. A record index outside 0..3 or a plan
+  // outside 0..2 addresses record 0 of the plan (FUN_1408c6430 returns its base).
+  int InstructionId(int i, int plan) const;
+  int InstructionSlotFlag(int i, int slot, int plan) const;
+  int InstructionArg(int i, int plan) const;
+  int InstructionParam(int i, int plan) const;
+  int InstructionByte30(int i, int plan) const;
+  int InstructionFlag(int i, int plan) const;
+  void SetInstruction(int i, int id, int arg, int param, int plan, int flag);  // FUN_140a42600
+  void SetInstructionByte30(int i, int value, int plan);                      // FUN_140a42880
+  void ResetInstruction(int i, int plan);                                     // FUN_140a42430
+
+ private:
+  int ResolvePlan(int plan) const;
+  int RecordOffset(int i, int plan) const;
+  uint32_t ReadU32(int offset) const;
+  void WriteU32(int offset, uint32_t value);
+  uint16_t ReadU16(int offset) const;
+  void WriteU16(int offset, uint16_t value);
+  std::array<uint8_t, kSheetBytes> bytes_{};
 };
 
 inline constexpr int kConceptCount = 48;          // FUN_140579e10's ids 0..47
@@ -57,8 +160,15 @@ inline constexpr int kConceptTransitionChase = 0x24;
 inline constexpr int kConceptRetreatBlockCreate = 0x25;
 
 struct TeamConceptConstants {
-  // Sheet ctor FUN_1408c5390 defaults; the toggles default to 0 (xor esi,esi).
-  int defaultSupportRange = 0, defaultDefensiveLine = 0, defaultCompactness = 0;
+  // Sheet ctor FUN_1408c5390 stores, read from the install (plan 0, the current plan
+  // at construction): the five sliders, the captain, the six designated and three
+  // taker roster indices, and the slot-target sentinel. The constructor zeroes the
+  // toggles, roles, coordinates and records, so the zero image needs no read.
+  std::array<int, kSheetSliders> defaultSliders{};
+  int defaultCaptain = 0;
+  std::array<int, kSheetDesignated> defaultDesignated{};
+  std::array<int, kSheetTakers> defaultTaker{};
+  int defaultSlotTarget = 0;
   // team/subConcept.json (constant_team.bin subConcept.o): an id <= 0 is skipped.
   std::array<bool, kConceptCount> enabled{};
   float endTestAfter_s = 0;  // 0.1 (0x142588200): slot 3 runs once a concept is older

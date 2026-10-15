@@ -202,9 +202,10 @@ int PickBySuitability(const std::vector<SetPieceCandidate>& candidates) {
 int FreeKickTaker(const std::vector<SetPieceCandidate>& candidates, float ballX, float ballZ,
                   float dir, float attackedGoalX, float ownGoalX, float penaltyX,
                   float penaltyHalfZ, const SetPieceTeamConstants& k) {
-  // FUN_1404a8ad0's waterfall without its first branch: GF carries no team sheet
-  // of designated takers (PES T+0x8e08), so "the sheet's free-kick taker" has
-  // nothing to read. What is left is the keeper, the own-half defender, the
+  // FUN_1404a8ad0's waterfall without its first branch: the sheet's designated takers
+  // (TeamSheet::Designated, T+0x143c) are carried but not imported, and the index-to-kick
+  // map is not ported, so "the sheet's free-kick taker" is not read. What is left is the
+  // keeper, the own-half defender, the
   // long-range midfielder and the rating fallback.
   const float goalDx = ballX - attackedGoalX;
   const float goalD = std::sqrt(goalDx * goalDx + ballZ * ballZ);
