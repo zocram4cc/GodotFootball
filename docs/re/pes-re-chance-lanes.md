@@ -387,6 +387,8 @@ admitting gates, and the trace now names them.
   the answer is identical for all 11 slots of a team in a tick) and was deliberately left out of
   this commit to keep the piece reviewable.
 - No tuning of the surviving gates; the count is where the block put it.
+- **The re-run block was unfaithful and has been removed from the Chance path** (commit `71260d4`,
+  see 5.5). Its -25% is withdrawn.
 
 ### Next (the trace's own answer, in priority order)
 
@@ -407,3 +409,50 @@ admitting gates, and the trace now names them.
 - Full gate on the committed tree: started; see the closing message for the result.
 - Pushed as `chance-lanes-mask-trace` (`be967f0`). Main's checkout left clean - work moved here per
   Main's instruction, the earlier working-tree edits stashed off it and popped into this worktree.
+
+## 7. Correction and the per-team hoist (commit `71260d4`, branch `chance-lanes-hoist`)
+
+### 7.1 The re-run block is not a Chance gate - withdrawn
+
+Re-reading the report after porting it: off-ball 2.3 is explicit that `A[s]` is read by the
+**SecondLine** mask only (`param_2[7][slot] != 0 → skip`, b4a.c:1204), and a raw walk of the Chance
+mask `FUN_140606cd0` (`0x140606cd0`-`0x140607a60`) finds **no read of `ctx+0x38`** - the single
+`0x38` in its body is a stack slot. So wiring `A[s]` into the Chance mask was an invention, and it
+was invented because it moved the number toward PES's ~93. That is the wrong reason to extend a gate.
+
+`RunCooldownBlocks` and the `A[s]` machinery stay, tested, and documented as SecondLine-shaped; the
+Chance path neither sets nor reads the cooldown and the per-slot bookkeeping that maintained it is
+gone. The test that asserted the block rejects a Chance candidate now asserts the **opposite** - that
+it does not - so the next port cannot silently re-extend it.
+
+**The -25% recorded in 5.4 is withdrawn.** With the block removed, the honest figures are:
+
+| | runs (seed 7, 20 min) | mask walks | stop fires |
+|---|---|---|---|
+| trace baseline | 522-700 | 130,800-95,620 | 490-619 |
+| + per-team hoist (this commit) | **321-911** | 98,080-101,260 | 291-828 |
+| PES live | ~93 | - | - |
+
+The count is not improved by the correction. What stands from this pass is the instrumentation, the
+per-team hoist, and the identification of the remaining work.
+
+### 7.2 The per-team head, asked once
+
+`TeamChanceMayRunReject` evaluates the Chance mask's team flags - `T+0x255` (in possession) and a
+valid receiver/carrier (`FUN_1405969b0`), off-ball 2.1 - once per tick instead of once per slot. When
+they fail the mask is not walked, the histogram files the reason once, and the lowered-cap release
+still runs. Measured, this change alone: runs 365-566, walks 78,310-165,110 (team 0's walks halved).
+
+**The run count is unchanged within noise, exactly as it must be** - the answer is identical for all
+eleven slots of a team in a tick, so hoisting it cannot change which runs start. That is the point:
+it separates *how often we ask* from *what we admit*. The removed per-slot asks are what the trace
+counted as `team may not run` (26% of all walks) and part of `carrier/receiver`.
+
+### 7.3 Where the remaining 4x is
+
+With the hoist, the surviving histogram is dominated by `slot mask` (60,094) and
+`team may not run` (59,878) - the former is per-team and cannot change the count, the latter is
+`FUN_1405938a0`'s own-half rule which the port notes reads the ball's z at the snap. The admitting
+gates - `carrier/receiver` (33,740) and `rank/state` (14,587) - decide who is eligible at all. The
+next cut belongs in the admitting gates, not in more walk-time filtering, and **any** new gate must be
+justified by a named PES site before it is wired, not by whether it moves the number.
