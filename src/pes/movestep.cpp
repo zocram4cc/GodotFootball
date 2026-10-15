@@ -57,4 +57,8 @@ float TurnPlayback(float g, float p, const PlaybackConstants& k) {
   return p * p * k.turnP2 + k.stepBase + PlaybackRamp(g, k) * k.turnT;
 }
 
+bool RunRateAllowed(float rate, float rateCeiling, const PlaybackConstants& k) {
+  return rate <= k.stepBase * rateCeiling;
+}
+
 }  // namespace pes

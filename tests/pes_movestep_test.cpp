@@ -100,3 +100,11 @@ TEST(PlaybackInstall, LoadsTheExeConstantsWithTheirRelations) {
   EXPECT_GT(pes::StepPlayback(k->gLow, *k), pes::StepPlayback(k->gHigh, *k))
       << "playback falls as the physique scale rises";
 }
+
+TEST(RunRateGuard, AllowsARunOnlyUpToStepBaseOfTheCeiling) {
+  const auto k = Synthetic();  // stepBase = 0.5 in the synthetic set
+  EXPECT_TRUE(pes::RunRateAllowed(0.5f, 1.0f, k));    // rate equals 0.5 * ceiling
+  EXPECT_TRUE(pes::RunRateAllowed(0.3f, 1.0f, k));
+  EXPECT_FALSE(pes::RunRateAllowed(0.6f, 1.0f, k));   // above the floor: no run
+  EXPECT_FALSE(pes::RunRateAllowed(0.4f, 0.5f, k));   // a lower ceiling forbids the same rate
+}

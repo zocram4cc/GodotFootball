@@ -224,6 +224,10 @@ class MoveHost {
 // ---------------------------------------------------------------------------------------------
 void Dispatch(MoveState state, MoveHost& host, MoveReq& req);  // the switch: case k calls its handler
 void ApplyTransition(MoveStepRecord& rec, MoveReq& req);       // req[0x38] set -> rec.Enter(req[0x39])
+// FUN_1406d2030's run guard: a run may start only while the rate is at most stepBase (0.95,
+// DAT_1425ab124, the playback floor) times the rate ceiling (P+0x377c, rateMax). Every entry
+// that starts a run calls this one guard; no state keeps its own copy.
+bool RunRateAllowed(float rate, float rateCeiling, const PlaybackConstants& k);
 
 // Per-state handlers. Each takes the host and the request, returns nothing, and never touches
 // MoveStepRecord: a state change is RequestState(req, next). The VA of each PES handler is in
