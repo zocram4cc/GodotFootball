@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdlib>
+#include <set>
 
 #include "onthepitch/pesrandom.hpp"
 #include "onthepitch/pesstrategy.hpp"
@@ -61,7 +62,7 @@ TEST(PesStrategy, KickoffPickFollowsTheStrengthRowAndDrawsBothLimits) {
   pes::Random rng(SyntheticRng());
   pes::StrategyState s;
   pes::StrategyInputs in = At(P::FirstHalf, 0, 0, 0);
-  in.strengthDiff = 2.0f;  // stronger: every draw lands on attacking
+  in.ownStrength = 2.0f;  // stronger: every draw lands on attacking
   pes::StrategyStep(k, in, rng, &s);
   EXPECT_EQ(s.strategy, pes::kStrategyAttacking);
   EXPECT_GE(s.holdUntilMinute, k.attackHoldFrom);
@@ -72,14 +73,14 @@ TEST(PesStrategy, KickoffPickFollowsTheStrengthRowAndDrawsBothLimits) {
   constexpr int kDraws = 50;
   bool sawDefensive = false, sawBalanced = false, sawZeroWeightAttack = false;
   for (int i = 0; i < kDraws; ++i) {
-    in.strengthDiff = -2.0f;  // weaker: never balanced
+    in.ownStrength = 0.0f, in.oppStrength = 2.0f;  // weaker: never balanced
     pes::StrategyStep(k, in, rng, &s);
     EXPECT_NE(s.strategy, pes::kStrategyBalanced);
     if (s.strategy == pes::kStrategyDefensive) {
       sawDefensive = true;
       EXPECT_GE(s.holdUntilMinute, k.defendHoldFrom);
     }
-    in.strengthDiff = 0.5f;  // inside the margin: never defensive
+    in.ownStrength = 0.5f, in.oppStrength = 0.0f;  // inside the margin: never defensive
     pes::StrategyStep(k, in, rng, &s);
     EXPECT_NE(s.strategy, pes::kStrategyDefensive);
     if (s.strategy == pes::kStrategyBalanced) {
@@ -91,6 +92,33 @@ TEST(PesStrategy, KickoffPickFollowsTheStrengthRowAndDrawsBothLimits) {
   EXPECT_TRUE(sawDefensive);
   EXPECT_TRUE(sawBalanced);
   EXPECT_TRUE(sawZeroWeightAttack) << "a draw of 0 attacks even on a zero attacking weight";
+}
+
+// PES's decider compares the two team ratings: d = strength(own) - strength(opp),
+// and only a difference past the margin picks a row. FUN_14051e970 draws with
+// `<=`, so a draw of 0 is attacking whatever the row: each case therefore checks
+// which picks can occur over many fresh draws, not one.
+TEST(PesStrategy, KickoffRowIsChosenByTheDifferenceOfTheTwoRatings) {
+  const auto k = Synthetic();
+  pes::Random rng(SyntheticRng());
+  auto picks = [&](float own, float opp) {
+    std::set<int> seen;
+    for (int i = 0; i < 50; ++i) {
+      pes::StrategyInputs in = At(P::FirstHalf, 0, 0, 0);
+      in.ownStrength = own, in.oppStrength = opp;
+      pes::StrategyState s;  // fresh: an earlier pick's hold would keep its row
+      pes::StrategyStep(k, in, rng, &s);
+      seen.insert(s.strategy);
+    }
+    return seen;
+  };
+  EXPECT_EQ(picks(52.0f, 50.0f), (std::set<int>{pes::kStrategyAttacking}));  // d = 2: stronger
+  EXPECT_EQ(picks(50.0f, 52.0f),
+            (std::set<int>{pes::kStrategyAttacking, pes::kStrategyDefensive}));  // d = -2: weaker
+  EXPECT_EQ(picks(51.0f, 50.0f),
+            (std::set<int>{pes::kStrategyAttacking, pes::kStrategyBalanced}));  // d = 1: even
+  EXPECT_EQ(picks(52.0f, 52.0f),
+            (std::set<int>{pes::kStrategyAttacking, pes::kStrategyBalanced}));  // d = 0: even
 }
 
 // Inside the hold the pick gives up only against the run of the score.
@@ -155,6 +183,17 @@ TEST(PesStrategy, AttackLevelIsTheStrategyExceptBalancedCoversTheRest) {
   EXPECT_EQ(pes::StrategyAttackLevel(2), 2);
   EXPECT_EQ(pes::StrategyAttackLevel(7), 2);
   EXPECT_EQ(pes::StrategyAttackLevel(-1), 2);
+}
+
+// PES keeps one rating per team in the match setup, written at match load
+// (G+0x2ad0+0xc404+side*0x2804) and read by the decider every tick. GF has no
+// such rating in its data, so the mean overall of the starting eleven on PES's
+// 0..99 scale stands in. Synthetic overalls pin its shape: a mean, scaled, and
+// zero for a side with nobody on the pitch.
+TEST(PesStrategy, SetupStrengthIsTheMeanOverallOnTheRatingScale) {
+  EXPECT_NEAR(pes::SetupStrength({0.5f, 0.7f}), 60.0f, 1e-4f);
+  EXPECT_NEAR(pes::SetupStrength({0.9f}), 90.0f, 1e-4f);
+  EXPECT_FLOAT_EQ(pes::SetupStrength({}), 0.0f);
 }
 
 TEST(PesStrategyInstall, LoadsTheDrawLiteralsFromTheExe) {

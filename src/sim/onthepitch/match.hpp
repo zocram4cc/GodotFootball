@@ -10,6 +10,7 @@
 #include <map>
 #include <memory>
 #include <vector>
+#include <array>
 
 #include "../data/matchanalytics.hpp"
 #include "../data/matchdata.hpp"
@@ -254,6 +255,9 @@ public:
   }
   // PES 2021's CPU strategy decider (docs/re/pes-re-match-management.md 1).
   const pes::StrategyConstants& GetPesStrategyConstants() const { return pesStrategyConstants; }
+  // PES's per-team setup rating (pes::SetupStrength over the starting eleven),
+  // written once at match load: the strategy decider compares the two sides.
+  float GetTeamSetupStrength(int teamID) const { return teamSetupStrength[teamID]; }
   // PES 2021's team sheet defaults and concepts (docs/re/pes-re-tactics.md 2).
   const pes::TeamConceptConstants& GetPesTeamConceptConstants() const { return pesTeamConceptConstants; }
   // PES 2021's generator constants (docs/re/pes-re-rng.md 1): the values the
@@ -517,6 +521,7 @@ protected:
   PassEvent lastPassEvent;
   pes::offball::OffBallConstants pesOffBallConstants{};
   pes::StrategyConstants pesStrategyConstants{};
+  std::array<float, 2> teamSetupStrength{};
   pes::TeamConceptConstants pesTeamConceptConstants{};
   pes::SubstitutionConstants pesSubstitutionConstants{};
   pes::SetPieceTakerConstants pesSetPieceTakerConstants{};

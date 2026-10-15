@@ -9,6 +9,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "pes/exe.hpp"
 #include "pesrandom.hpp"
@@ -50,7 +51,9 @@ struct StrategyInputs {
   StrategyPeriod period = StrategyPeriod::FirstHalf;
   int minute = 0;  // the displayed match minute
   int ownGoals = 0, oppGoals = 0;
-  float strengthDiff = 0.0f;  // own team rating minus the opponent's
+  // Each side's rating from the match setup (SetupStrength). The decider takes
+  // their difference, as FUN_14051e970 does: d = strength(own) - strength(opp).
+  float ownStrength = 0.0f, oppStrength = 0.0f;
 };
 
 // One call of the decider; PES runs it every team tick while the ball is dead.
@@ -62,5 +65,13 @@ void StrategyStep(const StrategyConstants& k, const StrategyInputs& in, Random& 
 // (0/1/3/4 one-to-one, anything else 2); the level itself only moves while the
 // ball is in play.
 int StrategyAttackLevel(int strategy);
+
+// PES's per-team rating, written once at match load (G+0x2ad0+0xc404+side*0x2804,
+// docs/re/pes-re-match-management.md 1.1). GF has no such rating in its data, so
+// the mean overall of the starting eleven stands in: each overall is 0..1 and
+// the rating runs 0..100 (PES's 0..99 scale).
+// ponytail: mean starting-eleven overall stands in for PES's setup rating.
+inline constexpr float kRatingPerOverall = 100.0f;
+float SetupStrength(const std::vector<float>& overalls);
 
 }  // namespace pes

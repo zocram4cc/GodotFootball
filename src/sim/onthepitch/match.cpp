@@ -268,6 +268,16 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   teams[1] = std::make_unique<Team>(1, this, matchData->GetTeamData(1));
   teams[0]->InitPlayers();
   teams[1]->InitPlayers();
+  // PES reads each side's rating from the match setup, which the match load
+  // writes once: the starting eleven is active now (Team::InitPlayers).
+  for (int side = 0; side < 2; side++) {
+    std::vector<Player*> starters;
+    GetActiveTeamPlayers(side, starters);
+    std::vector<float> overalls;
+    overalls.reserve(starters.size());
+    for (Player* p : starters) overalls.push_back(p->GetPlayerData()->GetAverageStat());
+    teamSetupStrength[side] = pes::SetupStrength(overalls);
+  }
 
   std::vector<Player*> activePlayers;
   teams[0]->GetActivePlayers(activePlayers);
