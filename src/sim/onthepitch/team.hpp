@@ -51,6 +51,9 @@ public:
   int GetTimeNeededToGetToBall_ms() const;
   signed int GetBestPossessionPlayerID();
   Player* GetDesignatedTeamPossessionPlayer() { return designatedTeamPossessionPlayer; }
+  // PES's team-possession latch (T+0x255; pespossession.hpp), updated once per PES frame
+  // at the start of the team's tick.
+  bool IsPesPossession() const { return pesPossession; }
   // PES's team pass target T+0x78 (pes-re-receiving.md §2), written by the pass.
   void SetPassTarget(Player* player) { passTarget = player; }
   Player* GetPassTarget() const { return passTarget; }
@@ -99,6 +102,11 @@ protected:
   TeamData* teamData;
 
   bool hasPossession;
+  // PES's team-possession latch (T+0x255), evaluated by UpdatePesPossession once per PES frame.
+  bool pesPossession;
+  // The PES frame the latch was last evaluated on.
+  int pesLatchFrame;
+  void UpdatePesPossession();
   int timeNeededToGetToBall_ms;
   Player* designatedTeamPossessionPlayer;
 
