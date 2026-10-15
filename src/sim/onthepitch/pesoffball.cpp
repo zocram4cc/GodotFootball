@@ -1655,7 +1655,14 @@ MaskReject ChanceMaskReject(const OffBallConstants& k, const RunWorld& w, int id
   const PlayerFacts& me = x.me;
   // Pre-gates: rank (or OVERLAP_SB) and FUN_140593430.
   if (!(MayTake(kChance, me.state) || me.state == kOverlap)) return kMaskRankOrState;
-  if (id == w.carrier || id == x.q || me.position == 0) return kMaskCarrierOrReceiver;
+  // FUN_140593430's head (raw 0x140593430-0x1405934d4): the slot may not be
+  // the carrier, and when the carrier is invalid it may not be the holder
+  // fallback either (MA+0x2483c) - the raw tests them in that order, so a valid
+  // carrier does NOT also veto the fallback player. The keeper is excluded by
+  // the T+0x4c00 != 0 guard that wraps 593430's admitting block.
+  if (id == w.carrier) return kMaskCarrierOrReceiver;
+  if (!Valid(w.carrier) && id == w.receiver[x.t]) return kMaskCarrierOrReceiver;
+  if (me.position == 0) return kMaskCarrierOrReceiver;
   if (IsRun(me.state)) return kMaskAlreadyRunning;  // 593430: a running slot only from PULL_AWAY
   // 593430 (raw 0x1405935c4: k = -0.1 @0x14259d648): not already on the line.
   if (Beyond2(w, id, -0.1f)) return kMaskOnTheLine;
