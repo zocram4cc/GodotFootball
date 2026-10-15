@@ -131,8 +131,9 @@ float JogFraction(float budget_s, float dist_m, const SetPieceTeamConstants& k);
 // a keeper is never in the running.
 int PickBySuitability(const std::vector<SetPieceCandidate>& candidates);
 
-// FUN_1404a8ad0's waterfall as far as GF can reach it: GF carries no team sheet
-// of designated takers (PES T+0x8e08), so that branch is not representable. What
+// FUN_1404a8ad0's waterfall as far as GF can reach it. The sheet's designated takers
+// (TeamSheet::Designated, T+0x143c) are carried, but nothing imports them yet and the
+// index-to-kick map is not ported, so that branch is not taken. What
 // is left is the keeper near the own goal, the own-half defender, the
 // long-range midfielder and the rating fallback. All distances in metres.
 int FreeKickTaker(const std::vector<SetPieceCandidate>& candidates, float ballX, float ballZ,
