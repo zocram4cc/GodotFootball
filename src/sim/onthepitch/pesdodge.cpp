@@ -79,6 +79,10 @@ constexpr uint64_t NET_EDGE_VA = 0x14256ae1c;         // 1, the edge margin
 constexpr uint64_t NET_STEP_NUM_VA = 0x14253ee30;      // 100
 constexpr uint64_t NET_STEP_DIV_VA = 0x1425cb47c;      // 72
 constexpr uint64_t NET_REJECT_VA = 0x14259be0c;        // the residual bearing floor
+// FUN_140a084d0's distances (the post dodge's gate).
+constexpr uint64_t POST_PROXIMITY_VA = 0x14259222c;  // 5, the distance to the post
+constexpr uint64_t POST_RESIDUAL_VA = 0x142565600;   // 0.5, the per-axis admission
+constexpr uint64_t POST_BALL_NEAR_VA = 0x142565604;  // 2, the ball near the post
 
 bool ReadImm32(const PeImage& exe, const Imm& imm, int64_t* out) {
   uint8_t code[4] = {};
@@ -253,7 +257,10 @@ std::optional<DodgeConstants> LoadDodgeConstants(const PeImage& exe, std::string
       !ReadF32(exe, NET_EDGE_VA, &k.netEdgeMargin_m) ||
       !ReadF32(exe, NET_STEP_NUM_VA, &k.netStepNumerator) ||
       !ReadF32(exe, NET_STEP_DIV_VA, &k.netStepDivisor) ||
-      !ReadF32(exe, NET_REJECT_VA, &k.netEdgeRejection_deg)) {
+      !ReadF32(exe, NET_REJECT_VA, &k.netEdgeRejection_deg) ||
+      !ReadF32(exe, POST_PROXIMITY_VA, &k.postProximity_m) ||
+      !ReadF32(exe, POST_RESIDUAL_VA, &k.postResidualProximity_m) ||
+      !ReadF32(exe, POST_BALL_NEAR_VA, &k.postBallNear_m)) {
     *error = "dodge: ball gate constants unreadable";
     return std::nullopt;
   }
@@ -489,7 +496,7 @@ float PesBearingDeg(float fromX, float fromY, float toX, float toY) {
   return a;
 }
 
-bool NetDodgeGate(const DodgeConstants& k, const NetGoalMarks& marks, const NetGateInput& in) {
+bool NetDodgeGate(const DodgeConstants& k, const GoalMarks& marks, const NetGateInput& in) {
   // FUN_140a07e40, in the exe's order. Every term reads the dodger's own record
   // and the goal marks; the ball does not enter.
   const float ax = std::fabs(in.x_m);
@@ -542,6 +549,52 @@ bool NetDodgeGate(const DodgeConstants& k, const NetGoalMarks& marks, const NetG
     if (residual > 180.0f) residual -= 360.0f;
     if (residual < -180.0f) residual += 360.0f;
     if (std::fabs(residual) < k.netEdgeRejection_deg) return false;
+  }
+  return true;
+}
+
+bool PostDodgeGate(const DodgeConstants& k, const GoalMarks& marks, const PostGateInput& in) {
+  // FUN_140a084d0, in the exe's order. The keeper and newest-event exits are
+  // early returns; the rest is a conjunction, with the ball clause last.
+  if (in.keeper || in.newestTouch) return false;
+  // He stands within the edge margin of his goal line: |x| >= F[0] - 1.
+  const float ax = std::fabs(in.x_m);
+  if (marks.goalLineX_m - ax > k.netEdgeMargin_m) return false;
+  // His z sits within the edge margin of his post: | |z| - F[2] | <= 1.
+  const float dz = std::fabs(in.y_m) - marks.postHalfWidth_m;
+  if (dz > k.netEdgeMargin_m || dz < -k.netEdgeMargin_m) return false;
+  if (!in.animeSlot) return false;
+  // He is moving above the step floor, the same 100 / (gs * 72) per frame as
+  // the net gate: 100 / 72 m/s once gs cancels.
+  // ponytail: the exe also reads the movement state (+0x5b0); the floor stands in.
+  const float speed = std::sqrt(in.moveX_mps * in.moveX_mps + in.moveY_mps * in.moveY_mps +
+                                in.moveZ_mps * in.moveZ_mps);
+  if (speed <= k.netStepNumerator / k.netStepDivisor) return false;
+  // The post is at the goal line of his end of the pitch and on his side (the
+  // signs are his own, as the exe's `x <= 0` / `z <= 0` tests take them).
+  const float sx = in.x_m < 0.0f ? -1.0f : 1.0f;
+  const float sz = in.y_m < 0.0f ? -1.0f : 1.0f;
+  const float postX = sx * marks.goalLineX_m;
+  const float postY = sz * marks.postHalfWidth_m;
+  // The residual: his bearing to the post less his heading, folded to (-180, 180].
+  const float heading = PesBearingDeg(0.0f, 0.0f, in.moveX_mps, in.moveY_mps);
+  float residual = PesBearingDeg(in.x_m, in.y_m, postX, postY) - heading;
+  if (std::fabs(residual) > 180.0f) residual -= residual >= 0.0f ? 360.0f : -360.0f;
+  // Heading at the post (within the rejection angle), or within the admission
+  // distance of it on either axis.
+  const bool onTheBearing = std::fabs(residual) <= k.netEdgeRejection_deg;
+  const bool nearOnX = std::fabs(in.x_m - postX) <= k.postResidualProximity_m;
+  const bool nearOnY = std::fabs(in.y_m - postY) <= k.postResidualProximity_m;
+  if (!onTheBearing && !nearOnX && !nearOnY) return false;
+  // And within postProximity_m of the post.
+  const float toPost = std::hypot(in.x_m - postX, in.y_m - postY);
+  if (toPost > k.postProximity_m) return false;
+  // The designated man stays out of a ball that is at the post and nearer him
+  // than the post is. ponytail: T+0x78 only; PES's MA+0x2470c table is not carried.
+  if (in.designatedMan && std::fabs(in.ballX_m) < marks.goalLineX_m) {
+    const float ballToPost = std::hypot(in.ballX_m - postX, in.ballY_m - postY);
+    const float toBall = std::hypot(in.x_m - in.ballX_m, in.y_m - in.ballY_m);
+    if (ballToPost < k.postBallNear_m && toPost > toBall) return false;
   }
   return true;
 }

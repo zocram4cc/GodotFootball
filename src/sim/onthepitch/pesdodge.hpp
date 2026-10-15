@@ -108,17 +108,24 @@ struct DodgeConstants {
   // seconds) and the two kinds that read the mouth (8..10).
   float goalMouthPostOffset_m = 0.0f;
   float goalMouthLookAhead_s = 0.0f;
-  // FUN_140a07e40's own gate (the net dodge).
-  // The player has to be inside this much of the pitch's x edge
-  // (DAT_14256ae1c = 1).
+  // FUN_140a07e40's and FUN_140a084d0's own edge (both gates read
+  // DAT_14256ae1c = 1): the dodger stands within this of his goal line, and
+  // his z within this of his post.
   float netEdgeMargin_m = 0.0f;
   // His speed has to clear 100 / (gs * 72) per frame (DAT_14253ee30 over
-  // DAT_1425cb47c, gs = 54): 100 / 72 m/s once the gs cancels.
+  // DAT_1425cb47c, gs = 54): 100 / 72 m/s once the gs cancels. Both gates.
   float netStepDivisor = 72.0f;  // DAT_1425cb47c
   float netStepNumerator = 100.0f;  // DAT_14253ee30
-  // The last rejection: the residual bearing past the edge has to clear this
-  // (DAT_14259be0c).
+  // The residual bearing past the edge (DAT_14259be0c). The net rejects a
+  // residual below it; the post admits a residual at or below it.
   float netEdgeRejection_deg = 0.0f;
+  // FUN_140a084d0's distances: he must be within postProximity_m of the post
+  // (DAT_14259222c = 5); within postResidualProximity_m of it on either axis
+  // (DAT_142565600 = 0.5) admits him without the bearing test; a ball at the
+  // post within postBallNear_m (DAT_142565604 = 2) keeps the designated man out.
+  float postProximity_m = 0.0f;
+  float postResidualProximity_m = 0.0f;
+  float postBallNear_m = 0.0f;
 };
 
 std::optional<DodgeConstants> LoadDodgeConstants(const PeImage& exe, std::string* error);
@@ -242,17 +249,19 @@ bool BallDodgeSubTestMouth(const DodgeConstants& k, const BallSubTestInput& in);
 // net gate compares bearings numerically, so this convention is load-bearing.
 float PesBearingDeg(float fromX, float fromY, float toX, float toY);
 
-// FUN_140a07e40: the net dodge's own gate. It reads the dodger's own record
-// only: his position and his movement, against three FieldInfo marks the exe
-// loads through the block at G+0x2aa8 (F[0] at 0x140a07ec5, F[2] at
-// 0x140a08013, F[14] at 0x140a08019). The ball does not enter: the dodge is a
-// man running into the net. The caller names the marks from gametypes.hpp.
-struct NetGoalMarks {
+// The goal marks both goal gates read (FieldInfo, pes-re-fieldinfo.md §1); the
+// caller names them from gametypes.hpp. F[0] at 0x140a07ec5 is the goal line
+// (both gates' edge), F[2] at 0x140a08013 the posts' z, and F[14] at
+// 0x140a08019 the net's floor-back x (the net gate only).
+struct GoalMarks {
   float goalLineX_m = 0.0f;      // F[0]: the goal line's outer edge
   float postHalfWidth_m = 0.0f;  // F[2]: the goal's inner half-width, the posts' z
   float netBackX_m = 0.0f;       // F[14]: the net's floor-back x
 };
 
+// FUN_140a07e40: the net dodge's own gate. It reads the dodger's own record
+// only: his position and his movement, against the goal marks. The ball does
+// not enter: the dodge is a man running into the net.
 struct NetGateInput {
   bool animeSlot = false;  // FUN_1406b4c10(ap, 0x15)
   float x_m = 0.0f;        // his x (PES +0x55c: the pitch's length)
@@ -262,7 +271,25 @@ struct NetGateInput {
   float moveZ_mps = 0.0f;  // height (PES +0x578)
 };
 
-bool NetDodgeGate(const DodgeConstants& k, const NetGoalMarks& marks, const NetGateInput& in);
+bool NetDodgeGate(const DodgeConstants& k, const GoalMarks& marks, const NetGateInput& in);
+
+// FUN_140a084d0: the post dodge's gate. Every term reads the dodger's own
+// record; the ball enters only the clause PES reads it in.
+struct PostGateInput {
+  bool animeSlot = false;                    // FUN_1406b4c10(ap, 0x15)
+  bool keeper = false;                       // FUN_140a62690: he is his team's keeper
+  bool newestTouch = false;                  // FUN_140a60300: the newest event is his
+  bool designatedMan = false;                // T+0x78 == him (MA+0x2470c is not carried)
+  float x_m = 0.0f;                          // his x (PES +0x55c)
+  float y_m = 0.0f;                          // his z (PES +0x564)
+  float moveX_mps = 0.0f;                    // his movement (PES +0x574, m/tick)
+  float moveY_mps = 0.0f;                    // lateral (PES +0x57c)
+  float moveZ_mps = 0.0f;                    // height (PES +0x578)
+  float ballX_m = 0.0f;                      // the ball now (FUN_140a57800, ring 0)
+  float ballY_m = 0.0f;
+};
+
+bool PostDodgeGate(const DodgeConstants& k, const GoalMarks& marks, const PostGateInput& in);
 
 // FUN_140a0b350: the human dodge's own feature gate, which runs before the
 // opponent scan (FUN_140a08ea0) and decides whether the man may dodge a

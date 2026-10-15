@@ -1232,7 +1232,7 @@ bool ElizaController::_DodgeNetCandidate(int* kind) {
   // FieldInfo F[0], F[2] and F[14] (pes-re-fieldinfo.md §1): the goal line's
   // outer edge is the half length plus half a line, the posts are the goal's
   // inner half-width, and the net's back is pesNetFloorBackX.
-  const pes::NetGoalMarks marks{pitchHalfW + lineHalfW, goalInnerHalfWidth, pesNetFloorBackX};
+  const pes::GoalMarks marks{pitchHalfW + lineHalfW, goalInnerHalfWidth, pesNetFloorBackX};
   if (!pes::NetDodgeGate(k, marks, gate)) return false;
   const float speed = mov.GetLength() * 3.6f;
   auto clip = pes::NetSelector(match->GetPesAnimetable(), k, speed > 22.0f);
@@ -1242,29 +1242,43 @@ bool ElizaController::_DodgeNetCandidate(int* kind) {
 }
 
 bool ElizaController::_DodgePostCandidate(int* kind) {
-  // FUN_140a08340 + FUN_14073c9c0. PES's post predicate reads the player's OWN
-  // team's post (the one at the goal line he defends) and its eligibility gate
-  // (FUN_140a084d0) checks that post sits at the field edge within 1.0 m in
-  // both axes. GF carries no per-post object, so the port's anchor is the own
-  // goal line's post: x = -side * pitchHalfW and the goal's half-width, both
-  // gametypes.hpp's own marks. Which of the two posts it is comes from the
-  // ball's side, as PES's +0x55c x test picks the one on the ball's half.
-  //
-  // ponytail: PES's own-post geometry (the 20-unit out step toward the touch
-  // line, FUN_140a8f7c0) is the part not carried; the ported gate is the own
-  // goal band and the selector's clip fit.
+  // FUN_140a08340 (the predicate) + FUN_140a084d0 (the gate) + FUN_14073c9c0
+  // (the selector). The gate reads the dodger's own record and the goal marks,
+  // with no window on his own goal line: PES's edge is the goal line on
+  // whichever end he stands. The ball enters only the clause PES reads it in.
+  const pes::DodgeConstants& k = match->GetPesDodgeConstants();
   const Vector3 pos = CastPlayer()->GetPosition();
-  // The team's own goal is at +side * pitchHalfW (the set-piece code's
-  // defending branch is the same end), and the goal line's outward normal is
-  // that direction, so the selector's reference is 180 there.
-  // Only near his own goal line: the post's own neighbourhood.
-  if (std::fabs(pos.coords[0] - team->GetSide() * pitchHalfW) > 12.0f) return false;
+  const Vector3 mov = CastPlayer()->GetMovement();
+  pes::PostGateInput gate;
+  // ponytail: FUN_1406b4c10(ap, 0x15), the anime layer's start test, is not
+  // carried; the slot stands open as the net gate's does.
+  gate.animeSlot = true;
+  gate.keeper = CastPlayer()->GetFormationEntry().role == e_PlayerRole_GK;  // FUN_140a62690
+  // ponytail: FUN_140a60300 compares the newest ring event's player; GF's last
+  // touch stands in for it.
+  gate.newestTouch = match->GetLastTouchPlayer() == CastPlayer();
+  // ponytail: T+0x78 is GF's designated possession player; the MA+0x2470c
+  // table PES also admits is not carried.
+  gate.designatedMan = team->GetDesignatedTeamPossessionPlayer() == CastPlayer();
+  gate.x_m = pos.coords[0];
+  gate.y_m = pos.coords[1];
+  gate.moveX_mps = mov.coords[0];
+  gate.moveY_mps = mov.coords[1];
+  gate.moveZ_mps = mov.coords[2];
+  // FUN_140a57800: the ball now (ring index 0).
+  const Vector3 ballNow = _mentalImage->GetBallPrediction(0).Get2D();
+  gate.ballX_m = ballNow.coords[0];
+  gate.ballY_m = ballNow.coords[1];
+  const pes::GoalMarks marks{pitchHalfW + lineHalfW, goalInnerHalfWidth, pesNetFloorBackX};
+  if (!pes::PostDodgeGate(k, marks, gate)) return false;
+
+  // The selector is unchanged in this commit: its own-post anchor and the
+  // 200 ms ball approach are the next item (pes-re-NetDodge.md).
   const Vector3 ball = _mentalImage->GetBallPrediction(200).Get2D();
   const pes::PostAngles angles =
       pes::PostAnglesFor(team->GetSide(), pos.coords[0], pos.coords[1], ball.coords[0], ball.coords[1],
                          pitchHalfW, goalHalfWidth);
-  const pes::DodgeConstants& k = match->GetPesDodgeConstants();
-  const float speed = CastPlayer()->GetMovement().GetLength() * 3.6f;
+  const float speed = mov.GetLength() * 3.6f;
   auto clip = pes::PostSelector(match->GetPesAnimetable(), k, angles.bearing_deg, angles.refAngle_deg,
                                 angles.approachRel_deg, speed);
   if (!clip) return false;
