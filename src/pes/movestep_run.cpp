@@ -56,6 +56,16 @@ constexpr RunScalar RUN_SCALARS[] = {
     {0x14259be60, &RunConstants::deg135},
     {0x1425cca3c, &RunConstants::deg1575},
     {0x1425cc688, &RunConstants::deg3375},
+    {0x1425ddf84, &RunConstants::deg5p625},
+    {0x14259be54, &RunConstants::deg84375},
+    {0x1425ddfb0, &RunConstants::deg123p5},
+    {0x1425ddfc4, &RunConstants::deg163p125},
+    {0x1425ddf90, &RunConstants::kmh172},
+    {0x1425ddf88, &RunConstants::kmh1475b},
+    {0x1425a358c, &RunConstants::rate055},
+    {0x14259bdd4, &RunConstants::foot075},
+    {0x1425ddfe8, &RunConstants::foot027},
+    {0x1425a3590, &RunConstants::dist110},
     {0x1425ddf8c, &RunConstants::turn16875},
     {0x1425ddf50, &RunConstants::blend1667},
     {0x1425ddf4c, &RunConstants::blend1333},
@@ -1875,5 +1885,255 @@ void RunLoop(MoveHost& host, MoveReq& req) {
   req.SetByte(moveword::kTurnLockDir, 0);
 }
 
+
+// ---------------------------------------------------------------------------------------------
+// FUN_1406ccd00, the ACCELERATE entry (mv4.a.c:4478). The entry the running phase calls when
+// the speed-up predicate holds. Its decompile's flow, in PES's own order:
+//
+//   1. the gates, any of which refuses with 0: the band word below `67.5 <= bearing` (the
+//      same test, negative when the bearing is under 67.5), the band word at 3, the class 3
+//      with the precise word clear and the rate word at or above 0.65, the ground speed at or
+//      below 11 km/h, or the look distance at or below 2 m;
+//   2. the record chain's block (the class-17 byte and the FUN_140a48a10 record's class,
+//      draw, bearing and distance tests), whose failure also refuses;
+//   3. the playback read (the +0xac0 interface's slot 0x30 with FUN_140a62960's mirror
+//      argument and slot 0x50's answer), the ground-speed compute, the desired angle (the
+//      request's word 6 when the bearing's magnitude is past 5.625 degrees, with
+//      FUN_140a92950's own fold and a 0.8 blend, else word 6 itself) and the bucket from the
+//      +0xac0 interface's slot 0x60;
+//   4. FUN_1406d8730 (the yaw lock), the bucket's column from the table and the held-clip
+//      family's rows, then the out-of-play arm's rows 0x5cc / 0x5cd;
+//   5. the row pick: FUN_1406abdd0's guard, FUN_1406abb30's cell and FUN_1406abd60's mirror,
+//      with the foot-window gate over the bones 3 and 6 for the held foot's y;
+//   6. the playback: 13.5 km/h, 8 above a rate of 0.55 and 11 for the three turn motions,
+//      then the 17.2 / 22 thresholds with 0.75 and 0.25, and the 0.15 of the swing row;
+//   7. the writes: the band word 3, the speed word 28 km/h, the previous band and speed
+//      words, the bucket and the live-kind words, the state word 9 (ACCELERATE) and the
+//      vtable's +8.
+//
+// The port stands each PES input GF lacks as a ponytail: the record chain, the +0xac0
+// interface's slot pair, the AI target's point and the event ring.
+// ---------------------------------------------------------------------------------------------
+bool EnterAccelerate(MoveHost& host, MoveReq& req) {
+  const RunConstants& k = host.RunConstantsView();
+  const RunTables& t = host.RunTablesView();
+  const int band = static_cast<int>(req.U(moveword::kRateBand));
+  const int cls = static_cast<int>(req.U(moveword::kCommandSpeedClass));
+  const int kind = static_cast<int>(req.U(moveword::kKind));
+  const int motion = host.CurrentMotion();
+  const float ground = GroundSpeedKmh(host, k);
+  const float bearing = AngleDiffDeg(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
+  const float bearingMag = std::fabs(bearing);
+  // PES's unsigned compare `band < (67.5 <= bearing)`: negative (that is, the gate passes)
+  // when the bearing's magnitude is under 67.5 degrees.
+  const int thresholdBand = bearingMag < k.deg675 ? 0 : 1;
+
+  // Arm 1: the gates.
+  if (band < thresholdBand || band == 3 ||
+      (cls == 3 && req.U(moveword::kPrecise) == 0u && k.ramp65 <= req.F(moveword::kRate)) ||
+      ground <= k.kmh11 || req.F(moveword::kDistToLook) <= k.one) {
+    return false;
+  }
+
+  // Arm 3's measurements: the desired angle and the bucket.
+  float desired = req.F(moveword::kTurn);
+  if (k.deg5p625 < bearingMag) {
+    desired = AngleDiffDeg(FirstAngle(req.F(moveword::kBodyDirection), req.F(moveword::kFacing), k) *
+                               k.blend08,
+                           req.F(moveword::kHeading), k);
+  }
+  const int bucket = AngleBucket(host.AngleBuckets(), desired, 10, false);
+
+  // Arm 4: the bucket's column, the held-clip family's rows and the out-of-play arm.
+  int column = t.bucketColumn[bucket];
+  int row = 0x575;  // 2.0557e-42: the held-clip family's base row
+  if (static_cast<uint32_t>(column - 8) < 2u) {
+    // ponytail: the family's own rows (0x575 / 0x573 / 0x571) read the record's class and
+    // draw through FUN_140a58550 / FUN_14044e020, which are the foundation's player table;
+    // the port keeps the base row.
+  }
+  if (host.MatchPhase() == 1 && row < 0x10 && ((0xa014u >> (row & 0x1f)) & 1u) != 0) {
+    // ponytail: FUN_140a6cf70's point, FUN_140a627e0's rank and the event ring's frame are
+    // the foundation's event store; the port keeps the base row and states the missing
+    // comparison here.
+  }
+
+  // Arm 5: the row pick and the foot-window gate.
+  if (bucket < 0) return false;
+  const MoveCell cell = host.Cell(row, column, false);
+  if (!cell.found) return false;
+  bool mirror = cell.mirror;
+  const int foot = static_cast<int>(req.U(moveword::kFootBandSide));
+  if (static_cast<uint32_t>(column - 8) < 2u && (foot & 0xfffffffd) == 0) {
+    // The two feet's local y at the bones 3 and 6, with the foot band's side choosing which
+    // is the near one. The player's own y is PES's P+0x10, which the port stands at zero
+    // because the record's position is not modelled.
+    float footA[3] = {0.0f, 0.0f, 0.0f};
+    float footB[3] = {0.0f, 0.0f, 0.0f};
+    host.PositionAt(3, footA);
+    host.PositionAt(6, footB);
+    const float nearY = (foot == 2) ? footA[1] : footB[1];
+    const float farY = (foot == 2) ? footB[1] : footA[1];
+    bool gate = false;
+    if (foot == 2) {
+      gate = !(k.foot035 <= nearY || k.foot027 <= nearY || farY <= k.footNeg010);
+    } else {
+      gate = (nearY < k.foot035 && farY < k.foot027 && k.footNeg010 < nearY);
+      if (gate && foot != 0) gate = false;
+    }
+    if (!gate) mirror = false;
+  }
+
+  // Arm 6: the playback ladder.
+  float playback = k.kmh135;
+  if (k.rate055 <= req.F(moveword::kRate)) playback = k.kmh8;
+  if (motion == 0x8bb || motion == 0x8be || motion == 0x8c0) playback = k.kmh11;
+  if (static_cast<uint32_t>(column - 8) < 2u) {
+    if (ground <= k.kmh172) {
+      // No playback term.
+    } else if (k.kmh22 < ground) {
+      mirror = !mirror;
+      playback = k.foot075;
+    } else if (k.kmh135 <= ground) {
+      mirror = !mirror;
+      playback = k.foot035;
+    }
+  } else if (k.kmh172 < ground) {
+    if (playback > k.kmh135 && k.kmh135 < ground) playback = k.kmh135;
+  }
+
+  // Arm 7: the writes.
+  host.Issue(MotionRequest{cell.motionNo, mirror, 0, k.blend1667,
+                            req.F(moveword::kPlaybackDefault), playback});
+  req.SetU(moveword::kBandTarget, static_cast<uint32_t>(band));
+  req.SetF(moveword::kSpeedBand, k.kmh28);
+  req.SetU(moveword::kRateBand, 3u);
+  req.SetU(moveword::kLiveKind, static_cast<uint32_t>(kind));
+  req.SetF(moveword::kRecordStampB, req.F(moveword::kHeading));
+  req.SetU(moveword::kPrevBucket, req.U(moveword::kMoveBucket));
+  RequestState(req, MoveState::kAccelerate);
+  req.SetByte(moveword::kTurnLockDir, 0);
+  return true;
+}
+
+
+// ---------------------------------------------------------------------------------------------
+// FUN_1406cdaf0, the DECELERATE entry (mv4.a.c:4913). The entry the running phase calls when
+// the slow-down predicate holds. Its decompile's flow, in PES's own order:
+//
+//   1. the gates, any of which refuses with 0: the class word above 1, the precise word set
+//      with the turn at or above 33.75 degrees or the facing error at or above 67.5, the rate
+//      word at or below 0.5 (0.7 for the command 5), the ground speed at or below 19 (22 for
+//      the command 5), or the look distance at or below 1 m;
+//   2. the turn-bearing guard: when the turn is under 33.75 degrees the bucket word 8 is
+//      folded 1 -> 0 and 6 -> 5;
+//   3. FUN_1406d8730 (the yaw lock) and the row: 0x5c9, or 0x5ca when the team record's
+//      channel and the ball-line point's 0.3 / 90-degree tests hold; the held-clip family
+//      with the 20 m ball-line gate and the Percent(40) draw gives 0x662 / 0x661; the
+//      out-of-play arm gives 0x5cc;
+//   4. the row pick: FUN_1406abdd0's guard, FUN_1406abb30's cell and FUN_1406abd60's mirror,
+//      with the foot-window gate over the bones 3 and 6;
+//   5. the writes: the band word from the interface's slot 0x68, the speed word from the
+//      band's own value times 3.6, the band word 1 and the speed word 11 km/h, the previous
+//      band and speed words, the bucket word, the state word 10 (DECELERATE) and the
+//      vtable's +8.
+//
+// The port stands each PES input GF lacks as a ponytail: the team record's channel, the
+// ball-line point and the event ring.
+// ---------------------------------------------------------------------------------------------
+bool EnterDecelerate(MoveHost& host, MoveReq& req) {
+  const RunConstants& k = host.RunConstantsView();
+  const RunTables& t = host.RunTablesView();
+  const int cls = static_cast<int>(req.U(moveword::kCommandSpeedClass));
+  const int kind = static_cast<int>(req.U(moveword::kKind));
+  const float ground = GroundSpeedKmh(host, k);
+  // PES's command-5 pair: the rate gate at 0.7 and the speed gate at 22 km/h.
+  float rateGate = k.half;
+  float speedGate = k.kmh19;
+  if (req.U(moveword::kCommandId) == 5u) {
+    rateGate = k.rate07;
+    speedGate = k.kmh22;
+  }
+
+  // Arm 1: the gates.
+  if (static_cast<uint32_t>(cls) > 1u) return false;
+  if (req.U(moveword::kPrecise) != 0u) {
+    if (k.deg3375 <= std::fabs(req.F(moveword::kTurn))) return false;
+    if (k.deg675 <= std::fabs(req.F(moveword::kFacingError))) return false;
+  }
+  if (req.F(moveword::kRate) <= rateGate) return false;
+  if (ground <= speedGate) return false;
+  if (req.F(moveword::kDistToLook) <= k.one) return false;
+
+  // Arm 2: the turn-bearing guard's bucket fold.
+  int bucket = static_cast<int>(req.U(moveword::kMoveBucket));
+  if (std::fabs(req.F(moveword::kTurn)) < k.deg3375) {
+    if (bucket == 1) {
+      bucket = 0;
+    } else if (bucket == 6) {
+      bucket = 5;
+    }
+  }
+
+  // Arm 3: the row. The base row is 0x5c9; the held-clip family's test gives 0x5ca, and the
+  // Percent(40) draw 0x662 / 0x661.
+  int row = 0x5c9;
+  int column = t.bucketColumn[bucket];
+  if (static_cast<uint32_t>(column - 8) < 2u) {
+    // ponytail: the team record's channel and the ball-line point's 0.3 / 90-degree tests
+    // are the foundation's event store and the ball-track port; the port keeps the base row.
+  }
+  if (static_cast<uint32_t>(column - 8) < 2u && host.FootBand() < 0x16) {
+    // ponytail: FUN_140a58550 / FUN_14044e020 (the record's class and draw) and the 20 m
+    // ball-line gate are the foundation's player table and the ball-track port; the port
+    // keeps the base row.
+  }
+  if (host.MatchPhase() == 1 && column < 0x10 && ((0xa014u >> (column & 0x1f)) & 1u) != 0) {
+    // ponytail: FUN_140a6cf70's point, FUN_140a627e0's rank and the event ring's frame are
+    // the foundation's event store; the port keeps the base row and states the missing
+    // comparison here.
+    row = 0x5cc;
+  }
+
+  // Arm 4: the row pick and the foot-window gate.
+  if (bucket < 0) return false;
+  const MoveCell cell = host.Cell(row, column, false);
+  if (!cell.found) return false;
+  bool mirror = cell.mirror;
+  const int foot = static_cast<int>(req.U(moveword::kFootBandSide));
+  if (static_cast<uint32_t>(column - 8) < 2u && (foot & 0xfffffffd) == 0) {
+    float footA[3] = {0.0f, 0.0f, 0.0f};
+    float footB[3] = {0.0f, 0.0f, 0.0f};
+    host.PositionAt(3, footA);
+    host.PositionAt(6, footB);
+    const float nearY = (foot == 2) ? footA[1] : footB[1];
+    const float farY = (foot == 2) ? footB[1] : footA[1];
+    bool gate = false;
+    if (foot == 2) {
+      gate = !(k.foot035 <= nearY || k.foot027 <= nearY || farY <= k.footNeg010);
+    } else {
+      gate = (nearY < k.foot035 && farY < k.foot027 && k.footNeg010 < nearY);
+      if (gate && foot != 0) gate = false;
+    }
+    if (!gate) mirror = false;
+  }
+  // The 0xb53 row's 0.2 playback.
+  float playback = 0.0f;
+  if (bucket - 8 < 2u && static_cast<int>(cell.motionNo) == 0xb53) playback = k.blend2;
+
+  // Arm 5: the writes.
+  host.Issue(MotionRequest{cell.motionNo, mirror, 0, k.blend1667,
+                            req.F(moveword::kPlaybackDefault), playback});
+  req.SetU(moveword::kBandTarget, static_cast<uint32_t>(cls));
+  req.SetF(moveword::kSpeedBand, req.F(moveword::kSpeedBand));
+  req.SetU(moveword::kRateBand, 1u);
+  req.SetF(moveword::kSpeedBand, k.kmh11);
+  req.SetU(moveword::kLiveKind, static_cast<uint32_t>(kind));
+  req.SetF(moveword::kRecordStampB, req.F(moveword::kHeading));
+  req.SetU(moveword::kPrevBucket, req.U(moveword::kMoveBucket));
+  RequestState(req, MoveState::kDecelerate);
+  req.SetByte(moveword::kTurnLockDir, 0);
+  return true;
+}
 }  // namespace movestep
 }  // namespace pes

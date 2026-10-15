@@ -1081,3 +1081,139 @@ TEST(RunLoop, RePlansIntoGotoRunWhenTheClassIsHighAndTheRateIsLow) {
   EXPECT_EQ(req.U(pes::moveword::kNextState), 7u);
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
 }
+
+// ---------------------------------------------------------------------------------------------
+// The two entries' decision arms. EnterAccelerate (FUN_1406ccd00) refuses before writing
+// when any of its gates fails: the band word at or above the bearing's 67.5 threshold, the
+// band at 3, the class 3 with the rate word above 0.65, the ground speed at or below 11
+// km/h, or the look distance at or below 2 m. Its success path writes the band word 3, the
+// speed word 28 km/h, the previous band and speed words, the bucket word and the state word
+// 9 (ACCELERATE). EnterDecelerate (FUN_1406cdaf0) has the same gates' shape with the speed
+// ladder of its own and writes the state word 10 (DECELERATE).
+// ---------------------------------------------------------------------------------------------
+
+// EnterAccelerate's refusal: with the look distance at or below 2 m the entry returns false
+// and writes nothing.
+TEST(EnterAccelerate, RefusesToWriteWhenTheLookDistanceIsBelowTwo) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 1.0f);  // at or below 2 m: the gate refuses
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  pes::probe::Reset();
+  EXPECT_FALSE(pes::movestep::EnterAccelerate(h, req));
+  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
+}
+
+// EnterAccelerate's success: with every gate past, the entry writes the band word 3, the
+// speed word 28 km/h and the state word 9 (ACCELERATE), and returns true.
+TEST(EnterAccelerate, WritesTheBandWordThreeAndTheStateWordNine) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  h.positions[1][0] = 1.0f;  // a 194.4 km/h ground speed: past the 11 km/h gate
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 3.0f);  // over 2 m
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  req.SetU(pes::moveword::kMoveBucket, 3u);  // a bucket whose column is 13
+  pes::probe::Reset();
+  EXPECT_TRUE(pes::movestep::EnterAccelerate(h, req));
+  EXPECT_EQ(req.U(pes::moveword::kRateBand), 3u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 28.0f);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), 9u);
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+}
+
+// EnterDecelerate (FUN_1406cdaf0): with the class word above 1 the entry refuses outright.
+TEST(EnterDecelerate, RefusesToWriteWhenTheClassWordIsAboveOne) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  h.positions[1][0] = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);  // above 1: the first gate refuses
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 3.0f);
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  pes::probe::Reset();
+  EXPECT_FALSE(pes::movestep::EnterDecelerate(h, req));
+  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
+}
+
+// EnterDecelerate's success: with every gate past, the entry writes the band word 1, the
+// speed word 11 km/h and the state word 10 (DECELERATE).
+TEST(EnterDecelerate, WritesTheBandWordOneAndTheStateWordTen) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  h.positions[1][0] = 1.0f;  // a 194.4 km/h ground speed: past the 22 km/h gate
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);  // at or below 1: the gate passes
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 3.0f);  // over 1 m
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  req.SetU(pes::moveword::kMoveBucket, 3u);
+  pes::probe::Reset();
+  EXPECT_TRUE(pes::movestep::EnterDecelerate(h, req));
+  EXPECT_EQ(req.U(pes::moveword::kRateBand), 1u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 11.0f);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), 10u);
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+}

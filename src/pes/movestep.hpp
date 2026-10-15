@@ -214,6 +214,16 @@ struct RunConstants {
   float deg135;       // 135   (0x14259be60)
   float deg1575;      // 157.5 (0x1425cca3c)
   float deg3375;      // 33.75 (0x1425cc688): STOP's idle-arm facing-error gate
+  float deg5p625;     // 5.625 (0x1425ddf84): EnterAccelerate's desired-angle gate
+  float deg84375;     // 84.375 (0x14259be54): the entries' out-of-play turn allowance
+  float deg123p5;     // 123.5 (0x1425ddfb0): the entries' out-of-play mirror gate
+  float deg163p125;   // 163.125 (0x1425ddfc4): the entries' out-of-play window
+  float kmh172;       // 17.2  (0x1425ddf90): EnterAccelerate's playback ladder's first rung
+  float kmh1475b;     // 14.75 (0x1425ddf88): EnterDecelerate's speed ladder's rung
+  float rate055;      // 0.55  (0x1425a358c): EnterAccelerate's playback rate gate
+  float foot075;      // 0.75  (0x14259bdd4): the entries' playback at a fast ground speed
+  float foot027;      // -0.27 (0x1425ddfe8): the entries' foot-window gate's far bound
+  float dist110;      // 1.1   (0x1425a3590): the entries' record chain's distance gate
   float turn16875;    // 16.875 (0x1425ddf8c)
   float blend1667;    // 1/6   (0x1425ddf50)
   float blend1333;    // 2/15  (0x1425ddf4c)

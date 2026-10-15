@@ -106,8 +106,7 @@ bool OutOfPlayPreempt(MoveHost& /*host*/, MoveReq& /*req*/) {
 // FUN_1406ccd00 (group B's ACCELERATE entry) and FUN_1406cdaf0 (group B's DECELERATE entry):
 // the port's next pieces. Until their bodies land the probe returns PES's "no write"
 // answer, so the arms that call them take their no-branch.
-bool EnterAccelerate(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::accelEntryCalls; return false; }
-bool EnterDecelerate(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::decelEntryCalls; return false; }
+
 
 }  // namespace movestep
 
