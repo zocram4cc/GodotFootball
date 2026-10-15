@@ -193,8 +193,95 @@ struct MoveCell {
 // tests implement it with synthetic values. Each method names the PES read it stands for.
 struct AngleBucketConstants;  // defined below, with the shared helpers
 struct StepScalars;  // group C's install scalars, defined by its loader in movestep_step.hpp
-struct RunConstants;  // group B's install scalars, defined by movestep_run.hpp's loader
-struct RunTables;     // group B's install tables, defined by movestep_run.hpp's loader
+// Group B's install scalars and tables (RUN_LOOP, GOTO_RUN, STOP, ACCELERATE, DECELERATE and the run
+// entry), read by LoadRunConstants / LoadRunTables from the exe at the VAs in movestep_run.cpp.
+struct RunConstants {
+  float one;          // 1.0   (0x14256ae1c)
+  float neg;          // -1.0  (0x142588218)
+  float half;         // 0.5   (0x142565600)
+  float wrapHalf;     // -180  (0x1425ddffc)
+  float full;         // 360   (0x14259858c)
+  float wrapFull;     // -360  (0x142598598)
+  float half_turn;    // 180   (0x142598580)
+  float deg1125;      // 11.25 (0x1425cc680)
+  float deg225;       // 22.5  (0x14259d618)
+  float deg45;        // 45    (0x14259be30)
+  float deg5625;      // 56.25 (0x14259be3c)
+  float deg675;       // 67.5  (0x1425cca34)
+  float deg7875;      // 78.75 (0x14259be50)
+  float deg90;        // 90    (0x14259be5c)
+  float deg1125b;     // 112.5 (0x1425cb30c)
+  float deg135;       // 135   (0x14259be60)
+  float deg1575;      // 157.5 (0x1425cca3c)
+  float turn16875;    // 16.875 (0x1425ddf8c)
+  float blend1667;    // 1/6   (0x1425ddf50)
+  float blend1333;    // 2/15  (0x1425ddf4c)
+  float blend2;       // 0.2   (0x142598578)
+  float blend3;       // 0.3   (0x142590d98)
+  float blend05;      // 0.05  (0x1425a8a28)
+  float blend08;      // 0.8   (0x142572348)
+  float rate06;       // 0.6   (0x14257a190)
+  float rate07;       // 0.7   (0x14257a194)
+  float rate095;      // 0.95  (0x1425ab124)
+  float rate0225;     // 0.225 (0x1425ddf54)
+  float rate01;       // 0.1   (0x1425ddf48)
+  float rate05;       // 0.5   (0x142565600)
+  float kmh5;         // 5     (0x14259222c)
+  float kmh8;         // 8     (0x14259bdf4)
+  float kmh11;        // 11    (0x14259bdfc)
+  float kmh135;       // 13.5  (0x1425a1ffc)
+  float kmh1475;      // 14.75 (0x1425ddf88)
+  float kmh16;        // 16    (0x14259be10)
+  float kmh19;        // 19    (0x1425c65e8)
+  float kmh22;        // 22    (0x1425c48c0)
+  float kmh25;        // 25    (0x14259be20)
+  float kmh28;        // 28    (0x1425a2004)
+  float kmh60;        // 60    (0x14259a764)
+  float kmh1000;      // 1000  (0x14256ae34)
+  float kmh95sq;      // 8100 = 90^2 (0x1425ddfd8)
+  float dist1m5;      // 1.5   (0x14259bddc)
+  float dist11;       // 1.1   (0x1425a3590)
+  float speed3600;    // 3.6   (0x14259ce38)
+  float speed2;       // 2     (0x142565604)
+  float speed4;       // 4     (0x1425656c0)
+  float ramp15;       // 15    (0x14259be0c)
+  float ramp6;        // 6     (0x14259bdec)
+  float ramp12;       // 12    (0x14259be04)
+  float ramp45;       // 0.45  (0x14256b140)
+  float ramp65;       // 0.65  (0x14259d5d0)
+  float ramp120;      // 1.2   (0x14259d5d4)
+  float ramp85;       // 0.85  (0x1425ab120)
+  float blend04;      // 0.4   (0x14259b89c)
+  float neg45;        // -45   (0x1425aa1c8)
+  float cm100;        // 100   (0x14253ee30)
+  float foot035;      // 0.35  (0x14259d5c8): the foot-placement window, FUN_1406d2030
+  float footNeg010;   // -0.1  (0x14259d648)
+  float footNeg035;   // -0.35 (0x1425ddfec)
+  float negHalf;      // -0.5  (0x14258d694)
+  float bias5;        // 5     (0x14259be7c): FUN_1406b9b20's hysteresis bias
+  float rampFloor;    // 0.001 (0x14259bdc4): FUN_1406eab00's tau floor
+  float rampSlope;    // 0.15  (0x1425c48a0): FUN_1406b9aa0's rate floor
+  float turnP2;       // 0.1   (0x142588210): the turn playback's p^2 term
+  float foxTime;      // 300.0 (0x1425a266c): the Fox time unit of the parametric startTime
+  float pct50;        // 50    percent test (FUN_1406ebf30's argument, no exe float)
+  float quota75;      // 0x4b = 75, the (t * 0x4b) / 100 share
+  float quota80;      // 8, the (t * 8) / 10 share
+  float quota3;       // 3, the (a + b * 2) / 3 share
+};
+
+// Group B's install tables: the anime interface's tables (the dispatch table at 0x1425e35d0, decoded for
+// the port) and the stop, goto and turn-stop row grids (kind + class * 8).
+struct RunTables {
+  std::array<int32_t, 8> commandClass;    // FUN_1406b8de0, 0x1425ddcd8
+  std::array<float, 4> bandRate;          // FUN_1406b9e50, 0x1425dde10
+  std::array<float, 4> rateLadder;        // FUN_1406ba030, 0x1425dde20
+  std::array<int32_t, 4> rateClass;       // FUN_1406ba030's answers, 0x1425dde00
+  std::array<int32_t, 32> stopRow;        // FUN_1406b9d80, kind + class*8, 0x1425ddad0
+  std::array<int32_t, 32> gotoRow;        // FUN_1406b9bd0, kind + class*8, 0x1425dda50
+  std::array<int32_t, 32> turnStopRow;    // FUN_1406ba0d0, kind + class*8, 0x1425ddb50
+  std::array<int32_t, 10> bucketColumn;   // FUN_1406b9b20's columns, 0x1425dd988
+  std::array<int32_t, 16> styleGroup;     // FUN_1406d2030's representative motion, DAT_1425ddcf0 (style*4 + band/4)
+};
 
 // Group C's install tables (STEP_LOOP, STEP_LOOP_CHANGE, TURN_STOP, the transitions), read by
 // LoadStepTables from the exe at the VAs in movestep.cpp.
@@ -421,10 +508,10 @@ void StepTurnStep(MoveHost& host, MoveReq& req);       // 19 FUN_1406c8d80
 // The run entry FUN_1406d2030 holds the run-rate guard (RunRateAllowed, below).
 // FUN_1406d2030 (group B). PES takes two more arguments, (int foot, byte flag), which the caller passes;
 // the port reads the foot from FootBand() and names the flag when group B decodes it.
-void EnterRun(MoveHost& host, MoveReq& req);
+void EnterRun(MoveHost& host, MoveReq& req, int foot, bool rateHeld);
 // FUN_1406ce820 (group B). PES takes one more argument, a byte flag (char) that the caller passes; group B
 // names it when it decodes the caller.
-void EnterGotoRun(MoveHost& host, MoveReq& req);
+void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant);
 void EnterStop(MoveHost& host, MoveReq& req);          // FUN_1406d5d60 (group B)
 // FUN_1406ccd00 (group B): returns whether it wrote the request (undefined8 in PES; 1 on success, 0 on each refusal).
 bool EnterAccelerate(MoveHost& host, MoveReq& req);
