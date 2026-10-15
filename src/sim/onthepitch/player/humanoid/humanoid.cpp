@@ -2183,13 +2183,29 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
   const bool trick =
       command.useSpecialVar1 && command.desiredFunctionType == e_FunctionType_BallControl;
   // A PES clip (dodge, tackle), counted below when it actually plays.
-  // ponytail: GF's pose matching (velocity, body direction, side) still vetoes
-  // most of these requests, although PES chose the clip by its own situation
-  // lookup. Seed 7, 20 min, with the dodge eligibility gates in: veto on -
-  // played dodges 1162-1129, forced 11305, passes 56-47; veto off (drop
-  // byIncomingVelocity/bySide/byIncomingBodyDirection for pesClip, as for
-  // tricks) - played 1753-1456, forced 12093, passes 39-35. Held on because of
-  // the pass drop on one seed; decide it over more seeds.
+  // ponytail: GF's pose matching (velocity, body direction, side) vetoes the clip the PES
+  // selector chose. The decoded dodge selectors compare no incoming clip or body direction
+  // (docs/re/pes-re-dodge-port.md), so the filter has no PES counterpart. It stays because
+  // lifting it exposes the human-dodge gate's unported terms: the roster-slot term of
+  // FUN_140a0b350 (team+0x6a4[slot] != 0, the AI reaction-delay counter of
+  // docs/re/pes-re-duels-fouls.md 1.1) with the busy test on the newest ball event
+  // (FUN_140a6ce10, kinds 9-14). GF stands the slot at 0 and has no PES event kinds for the
+  // test, so the carrier and his teammates human-dodge in possession.
+  // Veto on (main) vs off (drop byIncomingVelocity, bySide, byIncomingBodyDirection for
+  // pesClip), 20 min, seeds 7 / 8 / 9 / 11 / 1000:
+  //   on:  dodge 1162-1129 / 1177-1083 / 890-1156 / 1216-1439 / 1059-1184
+  //        tackle 4-6 / 8-8 / 6-4 / 5-9 / 6-4
+  //        passes 56-47 / 51-43 / 37-49 / 55-52 / 53-38 (481 total)
+  //        forced 11305 / 13895 / 16492 / 17945 / 13888
+  //        tackles 0-0 / 1-1 / 0-1 / 2-2 / 2-2; fouls 11-19 / 14-19 / 16-11 / 12-16 / 15-15
+  //        goals 2-5 / 3-6 / 7-4 / 7-6 / 7-2 (49); shots 11-15 / 10-15 / 23-8 / 24-18 / 19-12 (155)
+  //   off: dodge 1753-1456 / 1735-1532 / 1582-1658 / 1440-1253 / 1342-1323
+  //        tackle 17-13 / 23-19 / 16-13 / 9-13 / 17-15
+  //        passes 39-35 / 33-33 / 24-23 / 15-17 / 37-34 (290 total)
+  //        forced 12093 / 14159 / 10798 / 15124 / 11556
+  //        tackles 4-1 / 5-3 / 2-2 / 4-2 / 4-2; fouls 14-8 / 9-7 / 9-9 / 6-4 / 10-9
+  //        goals 1-5 / 1-3 / 3-0 / 0-1 / 0-2 (16); shots 4-18 / 7-7 / 8-4 / 2-6 / 4-8 (68)
+  // Passes fall on every seed. Decide again once the roster-slot term is ported.
   const bool pesClip = command.useSpecialVar1 && pes::IsPesClipFamily(command.specialVar1);
   if (command.useSpecialVar1)
     query.properties.Set("specialvar1", command.specialVar1);
