@@ -104,6 +104,10 @@ TEST(PesStrategy, KickoffRowIsChosenByTheDifferenceOfTheTwoRatings) {
   auto picks = [&](float own, float opp) {
     std::set<int> seen;
     for (int i = 0; i < 50; ++i) {
+      // The synthetic generator alternates high and low draws, and a balanced pick consumes
+      // two draws, so every trial would land on the same parity. Burning one draw on odd
+      // trials lets both the 0 draw and a non-zero draw reach the pick.
+      if (i % 2) rng.RangeRaw(k.rngSlot, 1);
       pes::StrategyInputs in = At(P::FirstHalf, 0, 0, 0);
       in.ownStrength = own, in.oppStrength = opp;
       pes::StrategyState s;  // fresh: an earlier pick's hold would keep its row

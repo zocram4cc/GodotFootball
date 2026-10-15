@@ -129,6 +129,19 @@ address given.
 |`pes-re-live-teamplayer.md`|Live: 17 team/player rows; instruction table MA-relative; T+0x6a4 countdown; 48 possession flips graded, 41/41 exact-state agree|
 |`pes-re-live-matchball.md`|Live: MI/event-ring/FieldInfo rows; the event store chain; F10-F12 values|
 |`pes-re-possession-latch.md`|PoseVeto: the human dodge gate, the T+0x255 possession latch FUN_1404fe9c0 (restart rule R + cascade), event kinds, reaction countdown|
+|`pes-re-fieldinfo-consolidation.md`|Wave 1 MB-G: the 18 FieldInfo values in one table at PES bits; duplicates removed; F10-F12 reader search; `G+0x2aa8` is the FieldInfoRef cache slot|
+|`pes-re-attack-decisions.md`|Attacking decisions: offside detection, open carrier units, off-ball run scorers|
+|`pes-re-ball-collision-netbody.md`|Net and player-body collisions: portable rebuild|
+|`pes-re-defender-decisions-port.md`|Port: engaging-defender decisions|
+|`pes-re-defensive-shape-port.md`|Port: open-play defensive line, team length/width and marking|
+|`pes-re-run-targets-b1.md`|Chance-run lane commit leaves, batch b1|
+|`pes-re-run-targets-b2.md`|Chance-run lane commit leaves, batch b2|
+|`pes-re-run-targets-b3.md`|Chance-run lane commit leaves, batch b3|
+|`pes-re-run-targets-b4.md`|Chance-run lane commit leaves, batch b4|
+|`pes-re-run-targets-h1.md`|Chance-run shared helpers, batch h1|
+|`pes-re-run-targets-s1.md`|Chance-run stop-test leaves, batch s1|
+|`pes-re-run-targets-s2.md`|Chance-run stop-test leaves, batch s2|
+|`pes-re-run-targets-s3.md`|Chance-run stop-test leaves, batch s3|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
