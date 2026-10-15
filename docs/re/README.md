@@ -120,6 +120,7 @@ address given.
 |`pes-re-post-dodge.md`|the post dodge selector `FUN_1407368d0` decoded and ported, the goal-sign and net-gate fixes that made it fire (post 0 -> 717), and the unresolved `>135` band column (17 vs the install's 16)|
 |`pes-re-dodge-gates.md`|the dodge eligibility gates (`FUN_140a07bf0`, `FUN_140a07e40`, `FUN_140a0b350`) ported, their stand-ins, the GF pose veto on PES clips measured on and off, and why it stays on|
 |`pes-re-livepoke.md`|Live reads: press hook `0x1425301f0` = ucrtbase `sqrtf` (flag A = distance < 4 m); Chance stop-leaf record fields; PES Chance runs last median 1.58 s (GF 8-9 s)|
+|`pes-re-pose-veto.md`|5-seed veto on/off table; the veto stays until the human gate's roster-slot tail (`FUN_140a0b350` / `FUN_140a6ce10`, `team+0x6a4`) is ported|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
