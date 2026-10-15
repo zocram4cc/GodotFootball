@@ -273,6 +273,28 @@ void EnterDecelerate(MoveHost& host, MoveReq& req);    // FUN_1406cdaf0 (group B
 void EnterRunTurnRun(MoveHost& host, MoveReq& req);    // FUN_1406d6780 (group D)
 void EnterRunTurnStep(MoveHost& host, MoveReq& req);   // FUN_1406d2f60 (group D)
 void EnterStepTurnRun(MoveHost& host, MoveReq& req);   // FUN_1406d38d0 (group D)
+
+// Shared helpers, defined in movestep_common.cpp (owned by the dispatcher port). Arguments
+// follow the PES call order; PES's player pointer (the anime interface) is the MoveHost.
+// FUN_1406b93a0(ap, req): the idle row id for the request (AS 2.4).
+int IdleRow(MoveHost& host, MoveReq& req);
+// FUN_1406b6bb0(ap, req): INIT's stay decision (AS 2.3); true = stay idle.
+bool StayDecision(MoveHost& host, MoveReq& req);
+// FUN_1406b97d0(motion): a motion's start time in its clip, seconds (AS 2.3, a per-motion constant).
+float MotionStartSeconds(uint16_t motionNo);
+// FUN_1406b9e80(interface, speed km/h, table selector): the playback rate for a speed (AS 3.2).
+// The third argument selects the table row; its meaning is INF until the port verifies it.
+float SpeedToRate(MoveHost& host, float speedKmh, int tableSelector);
+// FUN_1406ba2f0(ap, command id, requested rate, req): the locomotion style group (AS 3.3).
+int LocomotionStyle(MoveHost& host, int commandId, float rateRequested, MoveReq& req);
+// FUN_1406cbf70(ap, req): the acceleration ramp of the rate, per tick in RUN_LOOP and STEP_TO_RUN (AS 3.6).
+void AccelerationRamp(MoveHost& host, MoveReq& req);
+// FUN_1406cbc10(ap, req): the lateral drift damping, run_2_4_000 and rate >= 0.3 (AS 1, step 5).
+void LateralDamping(MoveHost& host, MoveReq& req);
+// FUN_1406ce550(ap, req): the out-of-play pre-empt (AS 2.1). true = the tick was taken by dm_oop.
+bool OutOfPlayPreempt(MoveHost& host, MoveReq& req);
+// FUN_1406b9b20(_, angle, buckets, narrow): the 10-way angle bucket (AS 2.2); narrow = the ±10 / ±170 variant.
+int AngleBucket(float angleDeg, int buckets, bool narrow);
 }  // namespace movestep
 
 }  // namespace pes
