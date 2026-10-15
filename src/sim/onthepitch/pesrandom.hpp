@@ -70,4 +70,9 @@ class Random {
 // The kick-off seeding of the match generator (report 2.1).
 void SeedAtKickoff(Random& rng, uint32_t t);
 
+// A player's own generator (slot 2 of player+0x32d0) is seeded once, at the player's
+// construction, with (t + slot) % 10000 (FUN_1406eb670, rng 2.4). `t` is the clock reading
+// PES takes there; `slot` is the player's AI record index (P+0x2458).
+uint32_t PlayerSeed(uint32_t t, int slot);
+
 }  // namespace pes
