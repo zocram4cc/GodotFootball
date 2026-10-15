@@ -191,6 +191,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES off-ball constants missing: read them from the install with "
         "pes::offball::LoadOffBallConstants into MatchSetup::pesOffBallConstants");
   pesOffBallConstants = *setup.pesOffBallConstants;
+  if (setup.pesPressConstants == nullptr)
+    throw std::runtime_error(
+        "PES press constants missing: read them from the install with "
+        "pes::LoadPressConstants into MatchSetup::pesPressConstants");
+  pesPressConstants = *setup.pesPressConstants;
   // PES 2021's CPU strategy decider (docs/re/pes-re-match-management.md 1).
   if (setup.pesStrategyConstants == nullptr)
     throw std::runtime_error(

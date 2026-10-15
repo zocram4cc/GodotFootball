@@ -150,6 +150,9 @@ int main(int argc, char** argv) {
   // PES 2021's off-ball run manager (docs/re/pes-re-off-ball.md).
   auto offBallConstants = pes::offball::LoadOffBallConstants(*exe, vfs, &err);
   if (!offBallConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  // PES 2021's presser constants (docs/re/pes-re-press-layer-port.md), read from the image.
+  auto pressConstants = pes::LoadPressConstants(*exe, &err);
+  if (!pressConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
 
   blunted::Database db;
   if (!db.LoadSqlScript(dbSql)) return std::fprintf(stderr, "cannot load %s\n", dbSql.c_str()), 1;
@@ -186,6 +189,7 @@ int main(int argc, char** argv) {
   setup.pesTeamConceptConstants = &*teamConceptConstants;
   setup.pesSubstitutionConstants = &*substitutionConstants;
   setup.pesOffBallConstants = &*offBallConstants;
+  setup.pesPressConstants = &*pressConstants;
 
   Match match(new MatchData(home, away), setup, config);  // Match owns the MatchData
   while (!match.IsGameOver()) match.Process();

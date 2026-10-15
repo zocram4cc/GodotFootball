@@ -19,6 +19,7 @@
 #include "onthepitch/pessubs.hpp"
 #include "onthepitch/pesball.hpp"
 #include "onthepitch/pesjudge.hpp"
+#include "onthepitch/pespress.hpp"
 #include "onthepitch/peskeeper.hpp"
 #include "onthepitch/pesstamina.hpp"
 #include "onthepitch/pessetpiecetaker.hpp"
@@ -156,6 +157,7 @@ class PesLibrary : public RefCounted {
   const pes::offball::OffBallConstants* off_ball_constants() const {
     return offBallConstants_ ? &*offBallConstants_ : nullptr;
   }
+  const pes::PressConstants* press_constants() const { return pressConstants_ ? &*pressConstants_ : nullptr; }
 
  protected:
   static void _bind_methods();
@@ -191,6 +193,7 @@ class PesLibrary : public RefCounted {
   std::optional<pes::StoppageConstants> stoppageConstants_;
   std::optional<pes::KickErrorConstants> kickErrorConstants_;
   std::optional<pes::offball::OffBallConstants> offBallConstants_;
+  std::optional<pes::PressConstants> pressConstants_;
   std::optional<pes::SetPieceTakerConstants> setPieceTakerConstants_;
   std::optional<pes::SetPieceTeamConstants> setPieceTeamConstants_;
 };

@@ -45,29 +45,7 @@ struct TacticalOpponentInfo {
 };
 
 bool SortTacticalOpponentInfo(const TacticalOpponentInfo& a, const TacticalOpponentInfo& b);
-namespace pes {
-// Per-team presser state the press picker (pespress.hpp) reads and the tick
-// writes. One owner: TeamAIController. Men are side-local indices 0..10 in
-// each side's block (the picker's `g = side*11 + i`). Only the fields the
-// picker reads are here; the rest of PES's T+0xa2a0 record lands with the
-// writer.
-struct TeamPressState {
-  // Role-table entry per man (PES T+0xa2a0): kPresserRole marks the presser.
-  int role[22] = {};
-  // Per-man recent-action stamps (PES T+0xa2cc + k*0x34, FUN_140a40200).
-  std::array<PressStampRing, 22> actionRing{};
-  // The four press slots, as man indices; -1 when empty (PES T+0xa548).
-  int pressSlot[4] = {-1, -1, -1, -1};
 
-  // FUN_140a42940 (action part): store the man's action and stamp it at time `t`.
-  // ponytail: the 0x40-byte per-man record it also clears (PES T+0x28c) has no GF
-  // reader yet; add it when the writer's tail reads that record.
-  void SetAction(int g, int action, uint32_t t) {
-    role[g] = action;
-    PressStampPush(actionRing[g], action, t);
-  }
-};
-}  // namespace pes
 
 class TeamAIController {
 public:
@@ -146,6 +124,10 @@ public:
   // PES's PRESS state, the block-radius input (defender decisions): while the
   // team's ForeCheckPress runs, its MATCH_UP man presses.
   bool IsPressing(const Player* player) const;
+  // The press writer (FUN_140536fc0) for this team, run on the team's tick.
+  void ProcessPressWriter();
+  // Side-local press index 0..10 of a player (roster order over the active men), or -1.
+  int PressRosterIndex(const Player* player) const;
   // PES's presser (T+0xa548 slot 0). The writer FUN_140536fc0 is not ported,
   // so while the ForeCheckPress concept runs the team's pressure man is its
   // designated possession player - the same stand-in IsPressing uses.

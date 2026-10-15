@@ -28,6 +28,7 @@
 #include "pesdodge.hpp"
 #include "pestackle.hpp"
 #include "pesoffball.hpp"
+#include "pespress.hpp"
 #include "penaltyshootoutcontroller.hpp"
 #include "player/humanoid/animcollection.hpp"
 #include "referee.hpp"
@@ -249,6 +250,7 @@ public:
   // per-kind group tables and the readiness mask's constants.
   const pes::TackleConstants& GetPesTackleConstants() const { return pesTackleConstants; }
   // PES 2021's off-ball run manager (docs/re/pes-re-off-ball.md).
+  const pes::PressConstants& GetPesPressConstants() const { return pesPressConstants; }
   const pes::offball::OffBallConstants& GetPesOffBallConstants() const {
     return pesOffBallConstants;
   }
@@ -516,6 +518,7 @@ protected:
   pes::ContactConstants pesContactConstants{};
   PassEvent lastPassEvent;
   pes::offball::OffBallConstants pesOffBallConstants{};
+  pes::PressConstants pesPressConstants{};
   pes::StrategyConstants pesStrategyConstants{};
   pes::TeamConceptConstants pesTeamConceptConstants{};
   pes::SubstitutionConstants pesSubstitutionConstants{};

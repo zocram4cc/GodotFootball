@@ -57,6 +57,11 @@ struct PressConstants {
   float secPerMinute;         // 0x14259a764 (60)
   float metresPerKm;          // 0x14256ae34 (1000)
   float framesPerSec;         // 0x14351ae54 (54): .data initializer, read as the image holds it
+  float slotStepDeg;          // 0x14259be5c (90): FUN_140535260's per-slot phase step
+  float pressTargetDistSq;    // 0x14259bdf4 (8): sqrt(table d^2) below this keeps the press target
+  float pickNearSq_m2;        // 0x14259be44 (64): concept pick branch: d^2 at or below this goes to the slot test
+  float pickAngleHi_deg;      // 0x1425c6784 (155): concept pick branch: upper angle bound
+  float fillReachSq_m2;       // 0x1425cee20 (462.25): FUN_140639830 carrier-to-man reach, squared
 };
 
 // Role-class table at 0x1426484f0 (94 u32 entries). Bits read by the writer:
@@ -108,6 +113,9 @@ struct PressCandidate {
 inline constexpr int kPressNoMan = 0xff;
 // The role-table value that marks the presser (FUN_140639a20 compares to 0x3a).
 inline constexpr int kPresserRole = 0x3a;
+// The per-man actions the writer stores (PES T+0xa2a0): DELAY 0x33, PRESS 0x34.
+inline constexpr int kDelayAction = 0x33;
+inline constexpr int kPressAction = 0x34;
 
 std::optional<PressConstants> LoadPressConstants(const PeImage& exe, std::string* error);
 
@@ -206,9 +214,71 @@ struct PressFillResult {
   bool flagA = false;          // a passer has sqrt(tableDistSq) < 4.0 (0x1425656c0)
   bool flagB = false;          // a passer has angleCode 0
   std::array<bool, 4> slotSet{};  // angle codes used by passers
+  std::array<int, 11> manCode{{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}};  // aiStack_200[4+k]
 };
 
 // Gate and tally for FUN_140639830 over the side's 11 men (local index k).
 PressFillResult PressCandidateFill(const PressConstants& c, const std::array<PressFillMan, 11>& mans);
+
+
+// Per-team presser state the press picker reads and the writer writes. One owner:
+// TeamAIController. Men are side-local indices 0..10 in each side's block. Field names
+// follow PES: role = T+0xa2a0 (FUN_140a42940 stores it with a stamp), recordAction =
+// T+0x278 (FUN_140a42b80 stores it without one), pressSlot = T+0xa548, arrivalDeg =
+// T+0xa55c.
+struct TeamPressState {
+  int role[22] = {};
+  std::array<PressStampRing, 22> actionRing{};
+  std::array<int, 22> recordAction{};
+  int pressSlot[4] = {-1, -1, -1, -1};
+  float arrivalDeg[4] = {0, 0, 0, 0};
+  bool armed = false;  // T+0xf1: set when the event walk sees event type 7
+
+  // FUN_140a42940: store the action and stamp it at time t.
+  // ponytail: the 0x40-byte per-man record it also clears (T+0x28c) has no GF reader.
+  void SetAction(int g, int action, uint32_t t) {
+    role[g] = action;
+    PressStampPush(actionRing[g], action, t);
+  }
+  // FUN_140a42b80: the role-less store (T+0x278).
+  void SetRecordAction(int g, int action) { recordAction[g] = action; }
+};
+
+// FUN_140639600 for man `man` (team index) with press slot `slot` (-1 none): the angle code of
+// the bearing from the ball to the man, against the side reference in `in`.
+int PressManAngleCodeAt(const PressConstants& c, const PressPickInput& in, int man, int slot);
+
+// Inputs of the writer FUN_140536fc0 for one side. The entry gates (B) and the
+// armed and referee tests (D) arrive as booleans: their PES sources are listed in
+// docs/re/pes-re-press-layer-port.md, and GF maps them at the call site.
+struct PressWriterInput {
+  PressPickInput pick;                         // side geometry, role table, slot pins
+  std::array<PressFillMan, 11> fill{};         // FUN_140639830 gates per local man
+  std::array<bool, 22> slotRecordIdle{};       // FUN_140479470: slot record exists, +0xd == 0
+  std::array<float, 22> tableDistSq{};         // MA+0x24710 d^2 of each man (FUN_14044e0d0 = sqrt)
+  std::array<bool, 11> pickBlocked{};          // T+0x87d0[u*8] != 0
+  float ballHeadingDeg = 0.0f;                 // FUN_1404a53e0(FUN_140a57720): stand-in, see .cpp
+  int oldPressTarget = kPressNoMan;            // T+0xa558 before the writer ran
+  bool entryOk = false;                        // B: the entry gates passed
+  bool armed = false;                          // D: T+0xf1 || T+0xb712 || T+0xb715
+  bool refBlocks = false;                      // D: referee check says exit
+  bool refPhase16 = false;                     // D: referee phase 0x10 (cStack_258)
+  bool teamGateOpen = false;                   // T+0xb70c == 0
+  bool looseBallFar = false;                   // D: no owner and ball d^2 > 169
+  bool eventAllows = true;                     // D: FUN_140a6ce10 on the newest event
+  bool conceptPick = false;                    // T+0xb709: the second pick branch
+};
+
+struct PressWriterOutput {
+  bool ran = false;          // the writer got past the gates
+  int count = 0;             // FUN_140639830 passers plus slots assigned (iStack_204)
+  bool flagA = false;
+  bool flagB = false;
+};
+
+// FUN_140536fc0 for one side, with its PRESS/DELAY actions and slot writes applied to
+// `state` at time `now` (frames). Steps A-H as docs/re/pes-re-press-layer-port.md.
+PressWriterOutput RunPressWriter(const PressConstants& c, const PressWriterInput& in, int side,
+                                 TeamPressState& state, uint32_t now);
 
 }  // namespace pes

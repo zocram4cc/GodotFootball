@@ -27,6 +27,7 @@ struct Rig;
 #include "pesstoppage.hpp"
 #include "peskickerror.hpp"
 #include "pesoffball.hpp"
+#include "pespress.hpp"
 #include "pesstamina.hpp"
 // PES 2021's ball-carrier decision layer (docs/re/pes-re-carrier-ai.md).
 #include "pescarrier.hpp"
@@ -152,6 +153,8 @@ struct MatchSetup {
   // the Chance lane search and its limit. Required: runs without them would
   // be capped and aimed by invented numbers.
   const pes::offball::OffBallConstants* pesOffBallConstants = nullptr;
+  // PES 2021's presser (docs/re/pes-re-press-layer-port.md): the press writer and picker.
+  const pes::PressConstants* pesPressConstants = nullptr;
 };
 
 #endif

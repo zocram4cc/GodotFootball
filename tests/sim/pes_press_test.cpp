@@ -44,6 +44,10 @@ pes::PressConstants Synthetic() {
   c.pass2ZeroRoleDistSq = 81.0f;
   c.pass2SameCodeAdd = 8.0f;
   c.pass2ActionAdd = 4.0f;
+  c.slotStepDeg = 90.0f;
+  c.pressTargetDistSq = 8.0f;
+  c.pickNearSq_m2 = 64.0f;
+  c.pickAngleHi_deg = 155.0f;
   return c;
 }
 
@@ -464,9 +468,101 @@ TEST(PressConstantsLoader, ImageRelationsHold) {
   EXPECT_FLOAT_EQ(c->carrierRampSpan_m, c->carrierRampEnd_m - c->carrierRampStart_m);
   EXPECT_FLOAT_EQ(c->pass2Div, c->pass2Lo - c->pass2Hi);
   EXPECT_FLOAT_EQ(c->slot3Hi_deg, -c->slot1Hi_deg);
+  // 8.0 at 0x14259bdf4 is both the press-target distance and the pass-2 same-code add.
+  EXPECT_FLOAT_EQ(c->pressTargetDistSq, c->pass2SameCodeAdd);
   EXPECT_FLOAT_EQ(c->framesPerSec, 54.0f);
   EXPECT_FLOAT_EQ(c->secPerMinute, 60.0f);
   EXPECT_FLOAT_EQ(c->metresPerKm, 1000.0f);
 }
 
 }  // namespace
+
+// ---- RunPressWriter (FUN_140536fc0, steps A-H) -------------------------------------
+
+// A writer input where every gate passes and no man is on the picker's pass-1 bucket,
+// so only the fill's passers act.
+static pes::PressWriterInput OpenWriter() {
+  pes::PressWriterInput in;
+  in.entryOk = true;
+  in.armed = true;
+  in.teamGateOpen = true;
+  in.fill[2] = Passer(1, 9.0f);  // a passer with code 1, 3 m away
+  return in;
+}
+
+TEST(PressWriter, ClosedEntryGateClearsSlotsAndWritesNothing) {
+  pes::PressConstants c = Synthetic();
+  pes::TeamPressState st;
+  st.pressSlot[0] = 5;
+  pes::PressWriterInput in = OpenWriter();
+  in.entryOk = false;
+  pes::PressWriterOutput o = pes::RunPressWriter(c, in, 0, st, 100);
+  EXPECT_FALSE(o.ran);
+  for (int slot : st.pressSlot) EXPECT_EQ(slot, pes::kPressNoMan);  // step A runs first
+  for (int r : st.role) EXPECT_EQ(r, 0);
+}
+
+TEST(PressWriter, UnarmedWriterRunsNothing) {
+  pes::PressConstants c = Synthetic();
+  pes::TeamPressState st;
+  pes::PressWriterInput in = OpenWriter();
+  in.armed = false;
+  EXPECT_FALSE(pes::RunPressWriter(c, in, 0, st, 100).ran);
+  for (int r : st.role) EXPECT_EQ(r, 0);
+}
+
+TEST(PressWriter, RefereeAndTeamGatesExit) {
+  pes::PressConstants c = Synthetic();
+  pes::TeamPressState st;
+  pes::PressWriterInput in = OpenWriter();
+  in.refBlocks = true;
+  EXPECT_FALSE(pes::RunPressWriter(c, in, 0, st, 100).ran);
+  in = OpenWriter();
+  in.teamGateOpen = false;
+  EXPECT_FALSE(pes::RunPressWriter(c, in, 0, st, 100).ran);
+  in = OpenWriter();
+  in.looseBallFar = true;
+  EXPECT_FALSE(pes::RunPressWriter(c, in, 0, st, 100).ran);
+  in = OpenWriter();
+  in.eventAllows = false;
+  EXPECT_FALSE(pes::RunPressWriter(c, in, 0, st, 100).ran);
+}
+
+TEST(PressWriter, PasserPressesAndTakesItsAngleSlot) {
+  pes::PressConstants c = Synthetic();
+  pes::TeamPressState st;
+  pes::PressWriterInput in = OpenWriter();
+  pes::PressWriterOutput o = pes::RunPressWriter(c, in, 1, st, 100);
+  ASSERT_TRUE(o.ran);
+  EXPECT_EQ(o.count, 1);
+  // Local man 2 of side 1 is team index 13; its code 1 is press slot 1.
+  EXPECT_EQ(st.role[2], 0x34);
+  EXPECT_EQ(st.pressSlot[1], 13);
+  EXPECT_EQ(st.pressSlot[0], pes::kPressNoMan);
+  EXPECT_NEAR(st.arrivalDeg[1], 90.0f, 1e-3f);  // man on the ball: bearing 0, plus code*90
+}
+
+TEST(PressWriter, ArrivalAddsTheSlotStep) {
+  pes::PressConstants c = Synthetic();
+  pes::TeamPressState st;
+  pes::PressWriterInput in = OpenWriter();
+  in.pick.posX[2] = 5.0f;  // man 2 is due +x of the ball: bearing 90
+  in.pick.posZ[2] = 0.0f;
+  pes::RunPressWriter(c, in, 0, st, 100);
+  EXPECT_NEAR(st.arrivalDeg[1], 90.0f + 90.0f, 1e-3f);  // wrap(bearing + code*90)
+}
+
+TEST(PressWriter, ThreePassersStopBeforeThePicker) {
+  pes::PressConstants c = Synthetic();
+  pes::TeamPressState st;
+  pes::PressWriterInput in = OpenWriter();
+  in.fill[3] = Passer(2, 9.0f);
+  in.fill[4] = Passer(3, 9.0f);
+  // A man on the pass-1 bucket must not be picked once the count reaches 3.
+  in.pick.onField[7] = true;
+  in.pick.posX[7] = 1.0f;
+  pes::PressWriterOutput o = pes::RunPressWriter(c, in, 0, st, 100);
+  ASSERT_TRUE(o.ran);
+  EXPECT_EQ(o.count, 3);
+  EXPECT_EQ(st.role[7], 0);
+}

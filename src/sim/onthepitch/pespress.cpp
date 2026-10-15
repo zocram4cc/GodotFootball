@@ -51,6 +51,11 @@ constexpr PressVa kPressVas[] = {
     {0x1425c6780, &PressConstants::pass2ZeroRoleDistSq},
     {0x14259bdf4, &PressConstants::pass2SameCodeAdd},
     {0x1425656c0, &PressConstants::pass2ActionAdd},
+    {0x14259be5c, &PressConstants::slotStepDeg},
+    {0x14259bdf4, &PressConstants::pressTargetDistSq},
+    {0x14259be44, &PressConstants::pickNearSq_m2},
+    {0x1425c6784, &PressConstants::pickAngleHi_deg},
+    {0x1425cee20, &PressConstants::fillReachSq_m2},
 };
 
 }  // namespace
@@ -215,6 +220,11 @@ int PressManAngleCode(const PressConstants& c, const PressPickInput& in, int man
 }
 
 }  // namespace
+
+int PressManAngleCodeAt(const PressConstants& c, const PressPickInput& in, int man, int slot) {
+  return PressManAngleCode(c, in, man, 0.0f, slot);
+}
+
 std::vector<PressCandidate> RunPresserPass1(const PressConstants& c, const PressPickInput& in,
                                             int side) {
   std::vector<PressCandidate> out;
@@ -316,8 +326,197 @@ PressFillResult PressCandidateFill(const PressConstants& c, const std::array<Pre
     if (std::sqrt(m.tableDistSq) < c.pass2ActionAdd) r.flagA = true;
     if (m.angleCode == 0) r.flagB = true;
     if (m.angleCode >= 0 && m.angleCode < 4) r.slotSet[m.angleCode] = true;
+    r.manCode[k] = m.angleCode;
   }
   return r;
+}
+
+}  // namespace pes
+
+namespace pes {
+namespace {
+
+constexpr int kRoleCountLocal = 11;  // men per side
+
+float Sq(float v) { return v * v; }
+
+}  // namespace
+
+PressWriterOutput RunPressWriter(const PressConstants& c, const PressWriterInput& in, int side,
+                                 TeamPressState& st, uint32_t now) {
+  PressWriterOutput out;
+  // A: the press slots and the old target are cleared whatever the gates say.
+  for (int& slot : st.pressSlot) slot = kPressNoMan;
+  const int oldTarget = in.oldPressTarget;
+
+  // B: the entry gates (MI+0x78, FUN_141b92460, FUN_140a53f90, FUN_140a62690, MI+0x116c,
+  // FUN_140a51320 / FUN_140a6ce10) arrive as one boolean; see pespress.hpp.
+  if (!in.entryOk) return out;
+  // C: a man with a clip countdown in the window exits; the caller folds it into entryOk.
+  // D: the armed gate, the referee check, the team gate, the loose-ball and event tests.
+  if (!in.armed) return out;
+  if (in.refBlocks) return out;
+  const bool refPhase16 = in.refPhase16;  // cStack_258
+  if (!in.teamGateOpen) return out;
+  if (in.looseBallFar) return out;
+  if (!in.eventAllows) return out;
+  out.ran = true;
+
+  // E: candidate fill (FUN_140639830). Passers get a code and count toward slots.
+  const PressFillResult fr = PressCandidateFill(c, in.fill);
+  int count = fr.count;
+  bool flagA = fr.flagA;
+  bool flagB = fr.flagB;
+  std::array<bool, 4> slotSet = fr.slotSet;
+  std::array<int, 11> manCode = fr.manCode;
+
+  // F: each passer presses (FUN_140a42940 0x34 on local man k), owns slot code, and
+  // the arrival phase FUN_140535260 is written for that slot.
+  for (int k = 0; k < kRoleCountLocal; ++k) {
+    const int code = manCode[k];
+    if (code < 0) continue;
+    const int man = side * kRoleCountLocal + k;
+    st.SetAction(k, kPressAction, now);
+    st.pressSlot[code] = man;
+    const float bearing = PressBearingDeg(c, in.pick.ballX, in.pick.ballZ, in.pick.posX[man],
+                                          in.pick.posZ[man]);
+    st.arrivalDeg[code] = PressWrapDeg(c, bearing + code * c.slotStepDeg);  // ponytail: FUN_140535260 direction
+  }
+
+  out.count = count;
+  out.flagA = flagA;
+  out.flagB = flagB;
+  if (count >= 3) return out;
+
+  // G: pass-2 picker on the side's 11 men, then the press-target loop over its bucket.
+  PressPickInput pick = in.pick;
+  for (int i = 0; i < 4; ++i) pick.pressSlotMan[i] = st.pressSlot[i];
+  for (int i = 0; i < kRoleCountLocal; ++i) pick.role[i] = st.role[i];
+  PressPickState ps;
+  ps.codeTaken = {};
+  for (int i = 0; i < 4; ++i) ps.codeTaken[i] = slotSet[i] ? 1 : 0;
+  ps.zeroCodeFlag = flagB;
+  for (int k = 0; k < kRoleCountLocal; ++k) ps.pressCode[k] = manCode[k];
+  const std::vector<PressCandidate> pass1 = RunPresserPass1(c, pick, side);
+  const std::vector<PressCandidate> bucket = RunPresserPicker(c, pick, pass1, ps);
+
+  int presserTarget = kPressNoMan;   // uStack_248: the presser kept on role 0x3a
+  int delayTarget = kPressNoMan;     // uStack_254: the DELAY man
+  int oldHit = kPressNoMan;          // uStack_24c: the old target still close enough
+
+  for (const PressCandidate& e : bucket) {
+    const int man = e.man;
+    if (man > 0x15) break;
+    const int u = man % kRoleCountLocal;  // man < 0x16 here
+    int code = manCode[u];
+    const float d2 = Sq(in.pick.posX[man] - in.pick.ballX) + Sq(in.pick.posZ[man] - in.pick.ballZ);
+    bool toFlagTest = false;  // true: LAB_1405375f5 (the record and slot tests)
+    if (!(flagB == false && code != 2)) {
+      // LAB_1405375e9: a code already in use skips this man unless the count allows the slot.
+      if (code < 0) {
+        // ponytail: aiStack_200[-1] is an out-of-bounds read in PES; the entry is not written
+        // here (no GF reader for that aliasing). Counted in unresolved, not in the output.
+        continue;
+      }
+      if (!slotSet[code]) {
+        toFlagTest = true;
+      } else {
+        if (count > 2) break;
+        continue;
+      }
+    } else {
+      if (d2 >= c.pass2ZeroRoleDistSq && st.role[u] != kPresserRole) {
+        // d^2 at or beyond 81 and not the presser role: LAB_1405375e9.
+        if (code < 0) continue;
+        if (!slotSet[code]) {
+          toFlagTest = true;
+        } else {
+          if (count > 2) break;
+          continue;
+        }
+      } else {
+        code = 0;
+        flagB = true;
+        toFlagTest = true;
+      }
+    }
+    if (!toFlagTest) continue;
+
+    // LAB_1405375f5: the slot record test (FUN_140479470 == 1 skips the man).
+    if (in.slotRecordIdle[man]) continue;
+    const float fVar31 = (oldTarget == man) ? c.pass2Lo : 0.0f;
+    bool bVar4;
+    if (!refPhase16) {
+      // ponytail: the ball heading is FUN_140a57720(G+0x40) through FUN_1404a53e0; the caller
+      // supplies the bearing until the vector read is decoded.
+      const bool outside = PressAngleOutsideBand(c, in.ballHeadingDeg, 60.0f);
+      if (outside) {
+        bVar4 = true;
+      } else if (code == 0) {
+        bVar4 = Sq(fVar31 + c.pass2ActionAdd) <= d2;
+      } else {
+        bVar4 = true;
+      }
+    } else {
+      bVar4 = true;
+    }
+
+    bool toSlot = false;
+    if (!in.conceptPick) {
+      toSlot = true;
+    } else {
+      // The concept pick branch: a pick-blocked man or one within 8 m goes to the slot test;
+      // otherwise the bearing from the man to the ball decides.
+      if (in.pickBlocked[u] || d2 <= c.pickNearSq_m2) {
+        toSlot = true;
+      } else {
+        const float bearing = PressBearingDeg(c, in.pick.posX[man], in.pick.posZ[man],
+                                              in.pick.ballX, in.pick.ballZ);
+        const float ang = PressSideAngleDeg(c, c.slotStepDeg, bearing);
+        toSlot = ang <= c.carrierRampEnd_m || ang >= c.pickAngleHi_deg;
+      }
+    }
+    if (!toSlot) continue;
+
+    // The slot test (LAB_140537749).
+    if (code == 0 && st.role[u] == kPresserRole && !refPhase16) {
+      st.SetRecordAction(u, 0);
+      presserTarget = man;
+    } else if (bVar4) {
+      if (st.role[u] == kPresserRole && !refPhase16)
+        st.SetRecordAction(u, kPressAction);
+      else
+        st.SetAction(u, kPressAction, now);
+    } else {
+      if (st.role[u] == kPresserRole)
+        st.SetRecordAction(u, kDelayAction);
+      else
+        st.SetAction(u, kDelayAction, now);
+      delayTarget = man;
+    }
+    if (oldTarget == man && std::sqrt(in.tableDistSq[man]) < c.pressTargetDistSq) oldHit = man;
+
+    st.pressSlot[code] = man;
+    const float bearing = PressBearingDeg(c, in.pick.ballX, in.pick.ballZ, in.pick.posX[man],
+                                          in.pick.posZ[man]);
+    st.arrivalDeg[code] = PressWrapDeg(c, bearing + code * c.slotStepDeg);
+    slotSet[code] = true;
+    count++;
+    if (count > 2) break;
+  }
+
+  // H: the tail. A presser left without a second slot presses, and the DELAY and PRESS
+  // targets of the old target are swapped in.
+  if (st.armed && count < 2 && presserTarget < 0x16) st.SetRecordAction(presserTarget % kRoleCountLocal, kPressAction);
+  if (oldHit < 0x16 && delayTarget < 0x16 && oldHit != delayTarget) {
+    st.SetAction(oldHit % kRoleCountLocal, kDelayAction, now);
+    st.SetAction(delayTarget % kRoleCountLocal, kPressAction, now);
+  }
+
+  out.count = count;
+  out.flagA = flagA;
+  out.flagB = flagB;
+  return out;
 }
 
 }  // namespace pes

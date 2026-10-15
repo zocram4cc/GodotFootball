@@ -1834,8 +1834,108 @@ pes::DefenceConceptInput TeamAIController::DefenceInput() {
 }
 
 bool TeamAIController::IsPressing(const Player* player) const {
-  return conceptRunning[pes::kConceptForeCheckPress] && player == team->GetDesignatedTeamPossessionPlayer();
+  // PES's per-man press state (T+0xa2a0): PRESS or DELAY. The safety veto and the tackle
+  // ball gate exempt both (pes-re-press-layer-port.md, GF gap).
+  const int g = PressRosterIndex(player);
+  if (g < 0) return false;
+  const int action = pressState.role[g];
+  return action == pes::kPressAction || action == pes::kDelayAction;
 }
+
+int TeamAIController::PressRosterIndex(const Player* player) const {
+  // Side-local index: the first eleven active men in roster order (as ProcessPressWriter).
+  int index = 0;
+  for (const auto& p : team->GetAllPlayers()) {
+    if (!p->IsActive()) continue;
+    if (p.get() == player) return index;
+    if (++index == 11) break;
+  }
+  return -1;
+}
+
+namespace {
+// The PES bearing of a GF direction (BuildRunWorld's pesDeg).
+float PesBearingOf(const Vector3& v) {
+  if (v.coords[0] == 0.0f && v.coords[1] == 0.0f) return 0.0f;
+  return std::fmod(std::atan2(v.coords[0], v.coords[1]) * 180.0f / pi + 360.0f, 360.0f);
+}
+}  // namespace
+
+void TeamAIController::ProcessPressWriter() {
+  const pes::PressConstants& k = match->GetPesPressConstants();
+  const int side = team->GetID();
+  const int opp = abs(side - 1);
+  const Vector3 ball = match->GetBall()->Predict(0);
+  pes::PressWriterInput in;
+  in.pick.ballX = ball.coords[0];
+  in.pick.ballZ = ball.coords[1];
+  // ponytail: FUN_140a71540, the side reference, is taken as the attack bearing (+x = 90 deg).
+  const float attackSign = -static_cast<float>(team->GetSide());  // BuildRunWorld's s[t]
+  in.pick.referenceDeg = attackSign > 0.0f ? 90.0f : 270.0f;
+  // ponytail: FUN_140a57720 on the ball object is undecoded; the ball's velocity bearing stands in.
+  in.ballHeadingDeg = PesBearingOf(match->GetBall()->GetMovement());
+
+  // The side's active men in roster order, with their own role (PES T+0xa2a0).
+  std::vector<Player*> men;
+  for (const auto& p : team->GetAllPlayers()) {
+    if (!p->IsActive()) continue;
+    men.push_back(p.get());
+    if (men.size() == 11) break;
+  }
+  for (size_t i = 0; i < men.size(); ++i) {
+    const int g = side * 11 + static_cast<int>(i);
+    const Vector3 pos = men[i]->GetPosition();
+    in.pick.onField[g] = true;
+    in.pick.posX[g] = pos.coords[0];
+    in.pick.posZ[g] = pos.coords[1];
+    in.pick.role[i] = pressState.role[i];
+    in.pick.action[g] = pressState.role[i];  // ponytail: PES's +0x5d0 action; the press role stands in
+  }
+  // The excluded man (FUN_140a62690) is the first on-field keeper-class man.
+  std::array<int, 11> category{};
+  for (size_t i = 0; i < men.size(); ++i)
+    category[i] = men[i]->GetFormationEntry().role == e_PlayerRole_GK ? 0 : 1;
+  const int excluded = pes::PressExcludedMan(side, in.pick.onField, category);
+
+  // The ball holder on this team, as the carrier (FUN_140a627e0).
+  Player* owner = match->GetDesignatedPossessionPlayer();
+  int carrier = -1;
+  if (owner && owner->HasPossession() && owner->GetTeam() == team) carrier = PressRosterIndex(owner);
+
+  for (size_t i = 0; i < men.size(); ++i) {
+    const int g = side * 11 + static_cast<int>(i);
+    const float dx = in.pick.posX[g] - in.pick.ballX;
+    const float dz = in.pick.posZ[g] - in.pick.ballZ;
+    const float d2 = dx * dx + dz * dz;
+    int slot = -1;
+    for (int s = 0; s < 4; ++s)
+      if (pressState.pressSlot[s] == g) slot = s;
+    pes::PressFillMan& fm = in.fill[i];
+    fm.onField = true;
+    fm.excluded = g == excluded;
+    fm.inDistance = d2 <= k.fillReachSq_m2;
+    // ponytail: carrier+0x5d0 == 0x34 (the carrier's action) stands in with his press role.
+    fm.carrierTagged = carrier >= 0 && pressState.role[carrier] == pes::kPressAction;
+    fm.inStampedSet = slot >= 0;
+    fm.notInA558 = true;       // T+0xa558 is cleared at the writer's head
+    fm.teamFlagZero = true;    // ponytail: T+0xb88c has no GF field
+    fm.gate479470 = true;      // ponytail: the 24-row slot record table (+0x20) has no GF field
+    fm.angleCode = pes::PressManAngleCodeAt(k, in.pick, g, slot);
+    fm.tableDistSq = d2;       // the table d^2 is the squared ball distance (verified live)
+    in.tableDistSq[g] = d2;
+  }
+  in.oldPressTarget = pes::kPressNoMan;
+  in.entryOk = match->IsInPlay() && !match->IsInSetPiece();  // ponytail: B's other gates
+  // ponytail: T+0xf1 is set by PES's event walk on event type 7; GF stands in with a
+  // last touch by the opposing team.
+  in.armed = match->GetLastTouchTeamID() == opp;
+  in.teamGateOpen = true;    // ponytail: T+0xb70c has no GF field
+  in.eventAllows = true;     // ponytail: FUN_140a6ce10 on the newest event is not mapped
+
+  const uint32_t now = static_cast<uint32_t>(match->GetActualTime_ms() * pes::offball::kPesFps / 1000.0f);
+  pes::RunPressWriter(k, in, side, pressState, now);
+}
+
 
 Player* TeamAIController::GetTeamPressurePlayer() {
   return conceptRunning[pes::kConceptForeCheckPress] ? team->GetDesignatedTeamPossessionPlayer()
@@ -2189,6 +2289,7 @@ void TeamAIController::ProcessOffBall() {
   // manager's parity tick.
   ProcessDesignatedSupporter(carrier);
   ProcessRunManager(carrier);
+  ProcessPressWriter();
 }
 
 void TeamAIController::ProcessDesignatedSupporter(Player* carrier) {
