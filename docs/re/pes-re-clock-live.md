@@ -149,3 +149,59 @@ ClockLiveRE scratch dir. Prior report: the ClockRecordRE clock-record report.
 - Process state: PES2021.exe + Wine exited after full time (90:16 + ET +4, natural);
   no sampler/perf process outstanding; final match state unrecoverable — next steps
   need a new match.
+
+## 8. Endless match: SOLVED (15-10-26, OBS live)
+
+> **Supersedes §6 item 3 and §7.** The match never ends: half-time and full time
+> never fire, play is untouched. Reproduce with
+> `sudo python3 tools/dev/pes_endless_match.py` during a match (`--revert` undoes it).
+> Session-only: restarting PES2021.exe restores the stock values.
+
+### 8.1 The time-up gate (OBS static + live)
+
+- The referee's time-up test is `FUN_14050b9b0`. It reads `clock = FUN_140a3c050(R)`
+  (decode of the period record's ring stamp plus `F`) and calls the gate
+  `FUN_140a6bef0(clock, LIMIT, flag)` with `flag = period ∈ {5, 7}`.
+- Threshold = `(flag ? FLAG : BASE) + floor(LIMIT / 3600) · 3600`.
+  `BASE` = 162000.0 at `.rdata 0x142647c68`, `FLAG` = 54000.0 at `.rdata 0x142647c64`.
+- The period record is `MI+0x1168`: period, play state, `LIMIT` (f32, `+0x1170`),
+  `F` (f32, `+0x1174`, constant in play, +0.5/frame in stoppage), an FNV
+  checksum (`+0x1178`), a key (`+0x1180`), a ring index (`+0x1184`) and ring slots
+  (`+0x1188…0x1194`, the "wall-µs stamps" of §5). `FUN_140a3c050` = decode(ring[idx]) + F.
+
+### 8.2 The fix (OBS live, verified)
+
+- Both constants raised to 1e12 (stored f32 `999999995904.0`). The gate is never
+  true: watched past 45:00 with period 1, `116c` = 1, `gate=False` at every 1 Hz
+  sample, ball in play (screenshots `w7-watch-*` in the ClockFreeze scratch).
+- The HUD clock keeps counting: no clean freeze of the displayed clock was found
+  (the HUD source is decode(ring) + F at gain 10, and neither term is a single
+  safe knob). The endless match is the time-up gate, not the display.
+
+### 8.3 What NOT to write (OBS live, each cost a match)
+
+|write|effect|
+|---|---|
+|pin `MI+0x1168` (period)|clock unaffected|
+|pin `MI+0x1168/0x116c` = 3/1|clock unaffected|
+|pin `MI+0x1168/0x116c/0x1574` = 1/1/0|**wedged the match**: the ball dead, players drifting, the clock running|
+|`E+0x58` (clock divisor) 10.0 → 1e-6|the HUD jumped to 869:37, time-up fired, full time, penalties; the game restored the value itself|
+
+Never pin the period/phase fields `MI+0x1168/0x116c/0x1574`: the stop sequencer
+reads them.
+
+### 8.4 Reviving a wedged match (OBS live, verified)
+
+Cause of the wedge: at a stop the whistle builds the sequencer program
+(`FUN_14044eb10` → `FUN_140444d20` → program `[0x18]`). Step 0x18 (`FUN_14044dda0`)
+returns at once when `MI+0x116c == 1` and otherwise calls the builder gate
+`FUN_1404507d0`, which appends the restart. Pinning `116c = 1` ended step 0x18
+early: the sequencer went idle (index 1 = 0x48), nothing built the restart, and the
+match sat in stoppage (`116c = 2`).
+
+Fix: on the Flow object (the sequencer, found through the match context; in that
+session `Flow` = `MC`'s sequencer at `0x277256b0`) set the byte `Flow+0x8f0` (read
+index) from 1 to 0, while the program still holds 0x18 at index 0 and
+`Flow+0x8f1 >= 1`. Step 0x18 re-runs from sub-state 0 with `116c = 2`, the gate
+appends the restart (`3 5 45 10 1d 1f 45 23 16 12 13 17 14 15 d 34 19 1a`), and the
+restart ends in play (program `[0x1c]`, `116c = 1`).
