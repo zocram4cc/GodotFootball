@@ -83,8 +83,9 @@ void MentalImage::UpdateBallPredictions() {
 }
 
 Vector3 MentalImage::GetBallPrediction(unsigned int time_ms) const {
-  Vector3 mentalResult =
-      pesball::TrackRecord(ballPredictions, Ball::TrackIndexForAi(time_ms + timeStampNeg_ms));
+  Vector3 mentalResult = pesball::TrackAt(
+      ballPredictions,
+      pesball::ClampToAiHorizon(static_cast<double>(time_ms) + timeStampNeg_ms, ballPredictionSize_ms));
   // The match tears its ball down before the graphics thread has finished its
   // last put, so on the way out there is nothing real left to blend towards.
   if (!match->GetBall()) return mentalResult;

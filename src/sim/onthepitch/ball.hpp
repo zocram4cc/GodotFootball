@@ -53,18 +53,12 @@ public:
     return predictions[index];
   }
 
-  // The prediction the AI reads: PES's track, one record per PES tick. Predict() stays
-  // on GF's 10 ms grid for the match rules.
+  // The prediction the AI reads: PES's track at the GF time asked for, interpolated between
+  // PES's 54 Hz records. Predict() stays on GF's 10 ms grid for the match rules.
   const std::array<Vector3, pesball::kTrackLength>& GetTrack() const { return track; }
+  // ponytail: GF's 3 s AI horizon; PES's sampler holds 250 records (4.6 s), reads use 162 of them.
   Vector3 PredictTrack(unsigned predictTime_ms) const {
-    return pesball::TrackRecord(track, TrackIndexForAi(predictTime_ms));
-  }
-  // Times past the AI horizon (ballPredictionSize_ms) read its last slot, as Predict()
-  // always has, and that slot is PES's record at that time.
-  // ponytail: GF's 3 s AI horizon; PES's sampler holds 250 records (4.6 s).
-  static unsigned TrackIndexForAi(unsigned predictTime_ms) {
-    if (predictTime_ms >= ballPredictionSize_ms) predictTime_ms = ballPredictionSize_ms - 10;
-    return pesball::TrackIndexForMs(predictTime_ms);
+    return pesball::TrackAt(track, pesball::ClampToAiHorizon(predictTime_ms, ballPredictionSize_ms));
   }
   Vector3 GetMovement();
   void Touch(const Vector3& target);
