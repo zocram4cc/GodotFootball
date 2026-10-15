@@ -92,6 +92,8 @@ struct DodgeConstants {
   // (rng * 5) / 48, with rng the game-speed divisor (gsInt, 54).
   int lastEventFramesPerRoll = 5;   // `lea ecx,[rax+rax*4]` @0x140a07da3
   int lastEventRollDivisor = 48;    // `mul ecx, 0xaaaaaaab; shr edx,5` @0x140a07da6
+  // The human gate's window factor (DAT_142598578 = 0.2, FUN_140a0b350).
+  float lastEventWindowFactor = 0.0f;
   // FUN_140a07570's ball-speed floor (DAT_14263f000, m/s).
   float ballSpeedFloor_mps = 0.0f;
   // FUN_140a07570's reach test: the look-ahead height against the player's
@@ -295,9 +297,10 @@ bool PostDodgeGate(const DodgeConstants& k, const GoalMarks& marks, const PostGa
 // opponent scan (FUN_140a08ea0) and decides whether the man may dodge a
 // challenger at all.
 struct HumanGateInput {
-  // The window the exe's last branch tests: the frames since his own last
-  // event, against gs * 0.2 (54 * 0.2 = 10 frames).
-  int framesSinceEvent = 0;
+  // The window (FUN_140a0b350, decompile lines 64-73): whether the match's
+  // newest ball event is his team's, and how long ago it was, in ms.
+  bool newestEventIsOwnTeam = false;
+  float newestEventAge_ms = 0.0f;
   // The three gates ahead of it, all of which the exe reads from state GF
   // carries directly or approximates:
   bool featureOn = false;      // the behaviour's own on byte
@@ -309,9 +312,8 @@ struct HumanGateInput {
   bool ballOwnerIsSelf = false;  // FUN_140a6ce10's ball-owner test
 };
 
-// The last-event window alone, as its own term, so the caller can apply the
-// part GF reads without guessing the rest of the exe's state machine.
-int HumanLastEventFrames(const DodgeConstants& k);
+// The window's frame count: gs * DAT_142598578 (0.2), gs = 54 from the install.
+float HumanLastEventWindowFrames(const DodgeConstants& k);
 
 bool HumanDodgeGate(const DodgeConstants& k, const HumanGateInput& in);
 

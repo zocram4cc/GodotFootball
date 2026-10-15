@@ -67,6 +67,8 @@ constexpr uint64_t POST_SPEED_FLOOR_VA = 0x14259bdf4, POST_SIDE_VA = 0x142591140
 // The ball dodge's eligibility and its two sub-tests (FUN_140a07bf0,
 // FUN_140a07570, FUN_140a07880).
 constexpr uint64_t GAME_SPEED_VA = 0x14351ae50;           // 54, gsInt (pesstamina.cpp)
+// The human gate's window factor, 0.2 (DAT_142598578, FUN_140a0b350).
+constexpr uint64_t LAST_EVENT_WINDOW_VA = 0x142598578;
 constexpr uint64_t BALL_SPEED_VA = 0x14263f000;           // 0.8, m/s
 constexpr uint64_t BALL_REACH_VA = 0x14256ae18;           // 0.01, m per reach unit
 constexpr uint64_t BALL_MARGIN_VA = 0x142590d98;          // 0.3, m
@@ -244,6 +246,10 @@ std::optional<DodgeConstants> LoadDodgeConstants(const PeImage& exe, std::string
   }
   if (!ReadI32(exe, GAME_SPEED_VA, &k.lastEventRollDivisor) || k.lastEventRollDivisor < 0) {
     *error = "dodge: game speed divisor unreadable";
+    return std::nullopt;
+  }
+  if (!ReadF32(exe, LAST_EVENT_WINDOW_VA, &k.lastEventWindowFactor)) {
+    *error = "dodge: last-event window factor unreadable";
     return std::nullopt;
   }
   k.lastEventFramesPerRoll = 5;  // `lea ecx,[rax+rax*4]` @0x140a07da3
@@ -599,11 +605,9 @@ bool PostDodgeGate(const DodgeConstants& k, const GoalMarks& marks, const PostGa
   return true;
 }
 
-int HumanLastEventFrames(const DodgeConstants& k) {
-  // FUN_140a0b350's window: `gs * DAT_142598578` frames, with gs the
-  // game-speed divisor. 54 * 0.2 = 10 frames (the exe divides by 48's
-  // equivalent through the float path, so the compare is a float one).
-  return static_cast<int>(k.lastEventRollDivisor * 0.2f);
+float HumanLastEventWindowFrames(const DodgeConstants& k) {
+  // FUN_140a0b350 (decompile line 70): `(float)(MI.frame - ev.frame) < gs * DAT_142598578`.
+  return static_cast<float>(k.lastEventRollDivisor) * k.lastEventWindowFactor;
 }
 
 bool HumanDodgeGate(const DodgeConstants& k, const HumanGateInput& in) {
@@ -617,9 +621,12 @@ bool HumanDodgeGate(const DodgeConstants& k, const HumanGateInput& in) {
   // The state record's own half has to be his, which is the half the
   // challenger scan (FUN_140a08ea0) runs for.
   if (!in.stateRecordHalfMatches) return false;
-  // The last-event window: the frames since his own last event have to clear
-  // gs * 0.2.
-  if (in.framesSinceEvent < HumanLastEventFrames(k)) return false;
+  // The window (FUN_140a0b350, decompile lines 64-73): his team's newest ball
+  // event holds him while it is younger than gs * 0.2 frames. The age is in ms
+  // and the exe's frame counter runs at gs per second, so frames = ms * gs / 1000.
+  const float ageFrames =
+      in.newestEventAge_ms * static_cast<float>(k.lastEventRollDivisor) / 1000.0f;
+  if (in.newestEventIsOwnTeam && ageFrames < HumanLastEventWindowFrames(k)) return false;
   // The team's own latch has to be closed.
   if (in.teamGateOpen) return false;
   // When his own team's roster slot carries a value, the ball-owner test

@@ -30,9 +30,11 @@ wired into the matching predicate in `elizacontroller.cpp`.
 - `actionSlot` ← the player's own slot (GF runs one command per tick, so PES's
   `0x18` "none" never arises).
 - `framesSinceEvent` ← `(simTime − lastTouchTime)/10`.
-- `teamGateOpen` ← `!IsInPlay()`; `ballOwnerIsSelf` ← `GetBallRetainer() ==
-  self`; `rosterSlotValue` ← 0 (GF has no per-team roster-slot array). The
-  human gate is therefore effectively its frame window alone.
+- `teamGateOpen` ← `!IsInPlay()` (the team latch stand-in, until the possession
+  latch is ported); `ballOwnerIsSelf` ← `GetBallRetainer() == self`;
+  `rosterSlotValue` ← 0 (GF has no per-team roster-slot array, so the slot tail
+  never fires). The window is PES's: `newestEventIsOwnTeam` and
+  `newestEventAge_ms` from `GetBallEvent(0)` (GF records its 4 touch kinds).
 - Net gate bearings from GF's own-goal marks (`ownGoalX = side·pitchHalfW`,
   `goalHalfWidth`), PES's z read as GF's y.
 
@@ -57,6 +59,7 @@ carries the numbers.
    gate is faithful; check whether GF's `goalHalfWidth` (3.7) matches PES's
    `pitch[2]` and whether the predicate's own `|x − ownGoalX| ≤ 12` window is
    PES's.
-3. The human gate's stand-ins never fire; only the `gs·0.2` window acts.
+3. The human gate's roster-slot tail never fires; the `!IsInPlay()` latch and the
+   `gs·0.2` window (newest team event) act.
 4. The human dodge kind (`FUN_14073a3d0`) still reads geometry only, not PES's
    per-part contact record.

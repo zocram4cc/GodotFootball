@@ -250,6 +250,8 @@ TEST(PesDodgeInstall, TheUsersTablesAndRows) {
   ASSERT_TRUE(vfs.Mount(root, &err)) << err;
   auto k = pes::LoadDodgeConstants(*exe, &err);
   ASSERT_TRUE(k.has_value()) << err;
+  EXPECT_EQ(k->lastEventRollDivisor, 54);           // gs: GAME_SPEED_VA, 0x14351ae50
+  EXPECT_FLOAT_EQ(k->lastEventWindowFactor, 0.2f);  // DAT_142598578
   auto t = pes::LoadAnimetable(*exe, vfs, &err);
   ASSERT_TRUE(t.has_value()) << err;
   auto mb = pes::LoadMbinfo(vfs, &err);
@@ -403,6 +405,7 @@ pes::DodgeConstants BallConstants() {
   k.roleBits[8] = 0x02000000u;   // LONG_PASS: bit 25 set -> out
   // The last-event window: (54 * 5) / 48 = 5 frames.
   k.lastEventRollDivisor = 54;
+  k.lastEventWindowFactor = 0.2f;  // the human gate's window (DAT_142598578)
   k.lastEventFramesPerRoll = 5;
   k.ballSpeedFloor_mps = 0.8f;
   k.ballReachPerUnit_m = 0.01f;
@@ -848,16 +851,33 @@ TEST(PesDodgePostGate, TheBallClauseNeedsTheBallOnThePitchAndNearThePost) {
 
 // The human dodge's feature gate (FUN_140a0b350): the match-state gates, the
 // roster, the team latch and the last-event window.
-TEST(PesDodgeHumanGate, TheLastEventWindowIsGsTimesAPointTwo) {
-  const pes::DodgeConstants k = BallConstants();  // gs = 54
-  EXPECT_EQ(pes::HumanLastEventFrames(k), 10);    // 54 * 0.2 = 10.8 -> 10
+TEST(PesDodgeHumanGate, TheWindowIsGsTimesAPointTwoFramesOfTheNewestEvent) {
+  const pes::DodgeConstants k = BallConstants();  // gs = 54, factor 0.2
+  EXPECT_FLOAT_EQ(pes::HumanLastEventWindowFrames(k), 10.8f);
   pes::HumanGateInput in;
   in.featureOn = true;
   in.onRoster = true;
   in.stateRecordHalfMatches = true;
-  in.framesSinceEvent = 10;
+  in.newestEventIsOwnTeam = true;
+  // 199 ms is 10.75 frames at 54 Hz: inside the window.
+  in.newestEventAge_ms = 199.0f;
+  EXPECT_FALSE(pes::HumanDodgeGate(k, in));
+  // 200 ms is 10.8 frames: FUN_140a0b350 compares with a strict <, so it clears.
+  in.newestEventAge_ms = 200.0f;
   EXPECT_TRUE(pes::HumanDodgeGate(k, in));
-  in.framesSinceEvent = 9;
+}
+
+TEST(PesDodgeHumanGate, TheWindowOnlyHoldsHimForHisTeamsNewestEvent) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::HumanGateInput in;
+  in.featureOn = true;
+  in.onRoster = true;
+  in.stateRecordHalfMatches = true;
+  in.newestEventAge_ms = 50.0f;
+  // The other side's touch, however recent, does not hold him.
+  in.newestEventIsOwnTeam = false;
+  EXPECT_TRUE(pes::HumanDodgeGate(k, in));
+  in.newestEventIsOwnTeam = true;
   EXPECT_FALSE(pes::HumanDodgeGate(k, in));
 }
 
@@ -867,7 +887,6 @@ TEST(PesDodgeHumanGate, TheMatchStateAndTheFeatureSwitchItOff) {
   in.featureOn = true;
   in.onRoster = true;
   in.stateRecordHalfMatches = true;
-  in.framesSinceEvent = 50;
   EXPECT_TRUE(pes::HumanDodgeGate(k, in));
   in.featureOn = false;
   EXPECT_FALSE(pes::HumanDodgeGate(k, in));
@@ -882,7 +901,6 @@ TEST(PesDodgeHumanGate, TheRosterAndTheTeamsLatch) {
   in.featureOn = true;
   in.onRoster = true;
   in.stateRecordHalfMatches = true;
-  in.framesSinceEvent = 50;
   EXPECT_TRUE(pes::HumanDodgeGate(k, in));
   in.onRoster = false;
   EXPECT_FALSE(pes::HumanDodgeGate(k, in));
@@ -900,7 +918,6 @@ TEST(PesDodgeHumanGate, TheBallOwnerTestOnlyRunsOnAPopulatedSlot) {
   in.featureOn = true;
   in.onRoster = true;
   in.stateRecordHalfMatches = true;
-  in.framesSinceEvent = 50;
   // An empty roster slot never runs the ball-owner test.
   in.rosterSlotValue = 0;
   in.ballOwnerIsSelf = true;
