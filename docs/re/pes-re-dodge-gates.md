@@ -1,3 +1,5 @@
+> **Superseded in part (15-10-26):** the net gate and its stand-ins are now ported as decoded; see `pes-re-net-dodge.md`.
+
 # Dodge eligibility gates
 
 Closes the two gaps `pes-re-dodge-port.md` §5 left open (ball eligibility, net
