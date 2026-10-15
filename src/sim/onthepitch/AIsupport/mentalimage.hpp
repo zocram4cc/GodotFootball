@@ -8,6 +8,8 @@
 
 #include "../../gamedefines.hpp"
 #include "base/math/vector3.hpp"
+#include <array>
+#include "../pesballtrack.hpp"
 #include "defines.hpp"
 
 using namespace blunted;
@@ -35,7 +37,7 @@ protected:
   Match* match;
 
   std::vector<PlayerImage> players;
-  Vector3 ballPredictions[ballPredictionSize_ms / 10];
+  std::array<Vector3, pesball::kTrackLength> ballPredictions;
 
   unsigned int timeStampNeg_ms;
 

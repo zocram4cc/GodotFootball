@@ -22,7 +22,10 @@
 #include "../gamedefines.hpp"
 #include "../utils.hpp"
 #include "defines.hpp"
+#include <array>
+
 #include "pesball.hpp"
+#include "pesballtrack.hpp"
 
 using namespace blunted;
 
@@ -50,7 +53,19 @@ public:
     return predictions[index];
   }
 
-  void GetPredictionArray(Vector3* target);
+  // The prediction the AI reads: PES's track, one record per PES tick. Predict() stays
+  // on GF's 10 ms grid for the match rules.
+  const std::array<Vector3, pesball::kTrackLength>& GetTrack() const { return track; }
+  Vector3 PredictTrack(unsigned predictTime_ms) const {
+    return pesball::TrackRecord(track, TrackIndexForAi(predictTime_ms));
+  }
+  // Times past the AI horizon (ballPredictionSize_ms) read its last slot, as Predict()
+  // always has, and that slot is PES's record at that time.
+  // ponytail: GF's 3 s AI horizon; PES's sampler holds 250 records (4.6 s).
+  static unsigned TrackIndexForAi(unsigned predictTime_ms) {
+    if (predictTime_ms >= ballPredictionSize_ms) predictTime_ms = ballPredictionSize_ms - 10;
+    return pesball::TrackIndexForMs(predictTime_ms);
+  }
   Vector3 GetMovement();
   void Touch(const Vector3& target);
   void SetPosition(const Vector3& target);
@@ -79,6 +94,8 @@ protected:
   Quaternion rotation_ms;
 
   Vector3 predictions[ballPredictionSize_ms / 10];
+  // PES's prediction sampler, one record per PES tick (pesballtrack.hpp).
+  std::array<Vector3, pesball::kTrackLength> track;
   Quaternion orientPrediction;
 
   std::list<Vector3> ballPosHistory;
