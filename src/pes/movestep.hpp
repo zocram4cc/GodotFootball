@@ -213,6 +213,7 @@ struct RunConstants {
   float deg1125b;     // 112.5 (0x1425cb30c)
   float deg135;       // 135   (0x14259be60)
   float deg1575;      // 157.5 (0x1425cca3c)
+  float deg3375;      // 33.75 (0x1425cc688): STOP's idle-arm facing-error gate
   float turn16875;    // 16.875 (0x1425ddf8c)
   float blend1667;    // 1/6   (0x1425ddf50)
   float blend1333;    // 2/15  (0x1425ddf4c)

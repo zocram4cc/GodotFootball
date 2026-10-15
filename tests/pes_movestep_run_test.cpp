@@ -12,6 +12,33 @@
 #include "pes/movestep.hpp"
 #include "pes/movestep_run.hpp"
 
+// The group-B test probe's stand-ins for the symbols other groups own (see
+// movestep_probe_stubs.cpp). They record the call and return the neutral answer, so a test
+// states which exit PES took without the real body's arithmetic.
+namespace pes {
+namespace probe {
+extern int idleRowCalls;
+extern int stayCalls;
+extern bool stayAnswer;
+extern int speedToRateCalls;
+extern float speedToRateAnswer;
+extern int styleCalls;
+extern int styleAnswer;
+extern int rampCalls;
+extern int dampingCalls;
+extern int outOfPlayCalls;
+extern bool outOfPlayAnswer;
+extern int turnStopCalls;
+extern int runTurnRunCalls;
+extern int runTurnStepCalls;
+extern bool runTurnStepAnswer;
+extern int stepTurnRunCalls;
+extern bool stepTurnRunAnswer;
+extern int issueCount;
+void Reset();
+}  // namespace probe
+}  // namespace pes
+
 namespace {
 
 // A minimal MoveHost for the tests that need one: every read returns a fixed synthetic value, so
@@ -457,4 +484,262 @@ TEST(GotoRun, ClampsTheBodyTurnToTheLookLimitBeforeTurning) {
   // request is not; the written angle must be the heading turned by the clamped 180 limit.
   EXPECT_LE(rootFacing, 180.0f);
   EXPECT_GE(rootFacing, -180.0f);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The STOP handler's decision arms (FUN_1406c9e20). Its decompile's five exits are:
+//   1. the re-plan into GOTO_RUN (the turn lock words set, a band below 3, a speed under
+//      16 km/h and the stay decision true);
+//   2. STEP_TURN_RUN through FUN_1406d38d0 (the second-dwell draw, a positive class and band);
+//   3. the run-turn / turn-stop block (the small-turn arm, the 45+22.5-per-look-distance
+//      re-plan, and the RUN_TURN_RUN / TURN_STOP / RUN_TURN_STEP entries);
+//   4. the update arm that rewrites the request words (the style, band, speed and dwell);
+//   5. the stop into IDLE, through the stay decision and the 33.75-degree facing error.
+// A host stands each cross-group entry in so the test states which exit PES takes.
+// ---------------------------------------------------------------------------------------------
+
+// FUN_1406c9e20's rate tail: the word is lowered by 0.05, and the MAXSS keeps the larger of
+// the two, so a word already at 0.3 stays at 0.3.
+TEST(Stop, LowersTheRateWordByFiftyMillisecondsAndKeepsItsFloor) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  // A starting rate of 0.5: the arithmetic gives 0.45, and PES's MAXSS keeps the larger of
+  // the two, so a word already at 0.3 stays at 0.3 and a word below it is lowered by 0.05.
+  req.SetF(pes::moveword::kRate, 0.50f);
+  req.SetF(pes::moveword::kDwellElapsed, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 0.05f);
+  req.SetF(pes::moveword::kDwellElapsed2, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 0.2f);
+  pes::movestep::Stop(h, req);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), 0.45f);
+}
+
+// The rate word's arithmetic (arm A of FUN_1406c9e20): PES's own sequence is the single
+// SUBSS `word - 0.05`; the compare `word > word - 0.05` always holds, so the 0.3
+// substitution the decompile shows is dead code in the shipped binary.
+TEST(Stop, FloorsTheRateWordAtThirtyCentiWhenTheWordIsAlreadyThere) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kRate, 0.30f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  req.SetF(pes::moveword::kDwellLimit, 0.05f);
+  pes::movestep::Stop(h, req);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), 0.25f);
+}
+
+// The re-plan arm (B): the turn-lock words set, the band below 3, the ground speed under
+// 16 km/h and the stay decision true, with the precise flag clear, re-plan into GOTO_RUN.
+TEST(Stop, RePlansIntoGotoRunWhenTheTurnLockWordsAreSetAndTheStayDecisionHolds) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 2u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  // The turn-lock words 0x3d/0x3e: one of them set is enough for the arm.
+  req.SetByte(pes::moveword::kTurnLockFlag, 1);
+  // The ground speed under 16 km/h: the host's last-tick displacement stays zero.
+  h.currentKmh = 0.0f;
+  pes::probe::Reset();
+  pes::probe::stayAnswer = true;
+  pes::movestep::Stop(h, req);
+  // The exit is the GOTO_RUN re-plan: the entry writes the state word 7 (ACCELERATE) and
+  // issues its motion, so the test checks that the arm was taken rather than the words a
+  // different exit would leave.
+  EXPECT_EQ(req.U(pes::moveword::kNextState), 7u);
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_GE(pes::probe::stayCalls, 1);
+}
+
+// The same arm's speed gate: with the ground speed at or above 16 km/h the re-plan does not
+// fire, and the tick falls through to the turn block instead. The host's last-tick
+// displacement drives PES's own ground-speed compute (`ticks * 60 * 60 / 1000 * |disp|`,
+// 194.4 km/h per metre at 54 ticks).
+TEST(Stop, KeepsTheTickWhenTheGroundSpeedIsAtOrAboveSixteen) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.positions[1][0] = 1.0f;  // 194.4 km/h at 54 ticks
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 2u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 150.0f);  // 140 degrees: the turn block idles
+  req.SetF(pes::moveword::kTurn, 140.0f);
+  req.SetF(pes::moveword::kFacingError, 140.0f);
+  req.SetByte(pes::moveword::kTurnLockFlag, 1);
+  // The first dwell past its limit, so the tick reaches the IDLE arm rather than the turn
+  // block's re-plans.
+  req.SetF(pes::moveword::kDwellElapsed, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 0.05f);
+  req.SetF(pes::moveword::kDwellElapsed2, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 0.05f);
+  pes::probe::Reset();
+  pes::probe::stayAnswer = false;
+  pes::movestep::Stop(h, req);
+  // The re-plan arm is not taken (the ground speed is at or above 16 km/h): the turn block
+  // idles at a bearing of 140 degrees and the IDLE arm's state word is requested instead.
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+}
+
+// The IDLE arm (E): a stop whose first dwell is still below its scaled limit (the turn is
+// small so the ramp is 0 and the gate is `dwellElapsed < 0`) goes to the IDLE arm; with the
+// bucket 0 and the stay decision false it issues the idle row.
+TEST(Stop, IssuesTheIdleRowWhenTheDwellHasElapsedAndTheBucketIsStraightAhead) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.percent = false;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 2u);  // band 2: the dwell scale is 0.8
+  req.SetU(pes::moveword::kMoveBucket, 0u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  // The first dwell is past its limit scaled by the turn ramp (0 bytes of turn, so the
+  // scale is the band's own 0.8), and the second dwell is past its limit too: the IDLE arm's
+  // gate is `dwell scale * dwell limit < dwell elapsed`, which this satisfies.
+  req.SetF(pes::moveword::kDwellElapsed, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 0.05f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.1f);
+  req.SetF(pes::moveword::kDwellLimit2, 0.05f);
+  pes::probe::Reset();
+  pes::movestep::Stop(h, req);
+  // The IDLE exit: the state is requested and the motion is stored from the cell at
+  // (row, 9), with the mirror from Percent(50) (kinds 3/6 take the cell's own mirror).
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  // The idle row came from the shared IdleRow picker (probe stub), and the cell was read
+  // at column 9 for kinds other than 3/6 through Percent(50).
+  EXPECT_EQ(pes::probe::idleRowCalls, 1);
+  EXPECT_EQ(req.U(pes::moveword::kMotion), uint32_t(0x100 + 0x5a1));
+  // The IDLE arm's own stay-decision read is the last one before it; the re-plan arm (B)
+  // also reads it when the turn-lock words are set, which they are not here.
+  EXPECT_GE(pes::probe::stayCalls, 1);
+}
+
+// The IDLE arm's guard: with the stay decision true the arm takes the GOTO_RUN re-plan
+// instead, and the band becomes the -1 sentinel.
+TEST(Stop, SetsTheBandSentinelAndRePlansWhenTheStayDecisionIsTrue) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kMoveBucket, 0u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  req.SetF(pes::moveword::kDwellLimit, 0.05f);
+  req.SetF(pes::moveword::kDwellElapsed2, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 0.2f);
+  pes::probe::Reset();
+  pes::probe::stayAnswer = true;
+  pes::movestep::Stop(h, req);
+  // The stay-decision-true arm writes the -1 sentinel into the band word and re-plans
+  // through the GOTO_RUN entry, which itself writes the band word from the class (cls 1
+  // gives band 0). The observable end state is therefore the entry's own write, and the
+  // speed word it leaves is the request's desired speed clamped to [5, 16] km/h.
+  EXPECT_EQ(req.U(pes::moveword::kRateBand), 0u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 16.0f);
+}
+
+// The update arm's condition (D): the stay decision true and the group-C step-stop false,
+// the precise flag clear, and the two bearings under 67.5 degrees, writes the band's rate,
+// its class and its speed through the tables.
+TEST(Stop, RewritesTheBandAndSpeedWordsThroughTheTablesInTheUpdateArm) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.bandSpeeds[0] = 4.0f;
+  h.bandSpeeds[1] = 8.0f;
+  h.bandSpeeds[2] = 14.0f;
+  h.bandSpeeds[3] = 22.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  // The dwell is short of its limit (the turn block's gate sends the tick here), and the two
+  // bearings are under 67.5 degrees, so the arm takes the update path.
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  req.SetF(pes::moveword::kDwellLimit, 5.0f);
+  pes::probe::Reset();
+  pes::probe::stayAnswer = true;
+  pes::movestep::Stop(h, req);
+  // The update arm writes the band's rate, its class and its own speed, then re-plans
+  // through the GOTO_RUN entry, whose last writes are the band word from the class, the
+  // speed word clamped to [5, 16] km/h and the state word 7 (ACCELERATE). The intermediate
+  // writes are PES's own and are visible in the entry's answers.
+  EXPECT_EQ(req.U(pes::moveword::kNextState), 7u);
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 16.0f);
+}
+
+// The turn block's gate (D): when the dwell is past its limit the turn ramp scales it, and
+// the port reaches the IDLE arm instead of the update arm. The test states that the arm is
+// chosen by the dwell, by the words only the IDLE arm writes.
+TEST(Stop, FallsThroughToTheIdleArmWhenTheFirstDwellSitsBelowItsScaledLimit) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kMoveBucket, 0u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  // The turn block's gate: the first dwell sits above its limit scaled by the band's own
+  // 0.7 (the turn is small so the ramp adds nothing), so the tick goes to the IDLE arm.
+  req.SetF(pes::moveword::kDwellElapsed, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 0.5f);
+  req.SetF(pes::moveword::kDwellElapsed2, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 0.2f);
+  pes::probe::Reset();
+  pes::probe::stayAnswer = false;
+  pes::movestep::Stop(h, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
 }

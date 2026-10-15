@@ -105,7 +105,7 @@ add_executable(pes_movestep_test pes_movestep_test.cpp)
 target_link_libraries(pes_movestep_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_movestep_test)
 
-add_executable(pes_movestep_run_test pes_movestep_run_test.cpp)
+add_executable(pes_movestep_run_test pes_movestep_run_test.cpp movestep_probe_stubs.cpp)
 target_link_libraries(pes_movestep_run_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_movestep_run_test)
 
