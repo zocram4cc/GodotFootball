@@ -4,6 +4,7 @@
 // clip families.
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 
@@ -328,7 +329,7 @@ TEST(PesDodgeInstall, TheUsersTablesAndRows) {
   EXPECT_TRUE(t->Populated(0x316, 9));
 }
 
-TEST(PesDodgeInstall, TheNetGateConstantsAreTheExesOwn) {
+TEST(PesDodgeInstall, TheGoalGateConstantsAreTheExesOwn) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
   std::string err;
@@ -336,13 +337,17 @@ TEST(PesDodgeInstall, TheNetGateConstantsAreTheExesOwn) {
   ASSERT_TRUE(exe.has_value()) << err;
   auto k = pes::LoadDodgeConstants(*exe, &err);
   ASSERT_TRUE(k.has_value()) << err;
-  // FUN_140a07e40's own constants: the edge margin (0x14256ae1c), the residual
-  // (0x14259be0c), and the step numerator (0x14253ee30) over the divisor
-  // (0x1425cb47c).
+  // FUN_140a07e40's and FUN_140a084d0's own constants: the edge margin
+  // (0x14256ae1c), the residual (0x14259be0c), and the step numerator
+  // (0x14253ee30) over the divisor (0x1425cb47c).
   EXPECT_FLOAT_EQ(k->netEdgeMargin_m, 1.0f);
   EXPECT_FLOAT_EQ(k->netEdgeRejection_deg, 15.0f);
   EXPECT_FLOAT_EQ(k->netStepNumerator, 100.0f);
   EXPECT_FLOAT_EQ(k->netStepDivisor, 72.0f);
+  // FUN_140a084d0's distances: 5.0 (0x14259222c), 0.5 (0x142565600), 2.0 (0x142565604).
+  EXPECT_FLOAT_EQ(k->postProximity_m, 5.0f);
+  EXPECT_FLOAT_EQ(k->postResidualProximity_m, 0.5f);
+  EXPECT_FLOAT_EQ(k->postBallNear_m, 2.0f);
 }
 
 // The dodge's goal-sign convention, pinned because it is load-bearing and a
@@ -404,11 +409,14 @@ pes::DodgeConstants BallConstants() {
   k.ballReachMargin_m = 0.3f;
   k.ballWindowHeading_deg = 10.0f;
   k.ballWindowGoal_deg = 90.0f;
-  // The net gate's own constants (FUN_140a07e40).
+  // The goal gates' own constants (FUN_140a07e40, FUN_140a084d0).
   k.netEdgeMargin_m = 1.0f;
   k.netStepNumerator = 100.0f;
   k.netStepDivisor = 72.0f;
   k.netEdgeRejection_deg = 15.0f;
+  k.postProximity_m = 5.0f;
+  k.postResidualProximity_m = 0.5f;
+  k.postBallNear_m = 2.0f;
   return k;
 }
 
@@ -635,10 +643,9 @@ TEST(PesDodgeBallGate, SubTestMouthOnlyRunsForTheKickClasses) {
 }
 
 
-// The net dodge's own gate (FUN_140a07e40). It reads the dodger's own record
-// only, against the goal marks. The synthetic marks here: a 50 goal line,
-// 1.0 m posts and a net back at 52.0 (none of them PES's values).
-pes::NetGoalMarks NetMarks() { return {50.0f, 1.0f, 52.0f}; }
+// The goal marks both gates' tests run on: a 50 goal line, 1.0 m posts and a
+// net back at 52.0 (none of them PES's values; the posts sit at (+-50, +-1)).
+pes::GoalMarks NetMarks() { return {50.0f, 1.0f, 52.0f}; }
 
 pes::NetGateInput RunningAt(float x, float y, float vx, float vy) {
   pes::NetGateInput in;
@@ -724,8 +731,118 @@ TEST(PesDodgeNetGate, ThePostsAreTheMarksPostHalfWidth) {
   const pes::DodgeConstants k = BallConstants();
   // With posts at 2.0 m, from (51.0, 0) the pair spans 206.6 to 333.4 deg, so
   // heading 200 is outside it. GF's 3.7 m goal would put 200 inside [195.1, 344.9].
-  const pes::NetGoalMarks wider{50.0f, 2.0f, 52.0f};
+  const pes::GoalMarks wider{50.0f, 2.0f, 52.0f};
   EXPECT_TRUE(pes::NetDodgeGate(k, wider, RunningAt(51.0f, 0.0f, -0.684f, -1.879f)));
+}
+
+// FUN_140a084d0, the post dodge's gate. The marks are NetMarks()'s, so the post
+// sits at (+-50, +-1). The ball starts far from the post, so the designated
+// clause stays out unless a test moves it.
+static pes::PostGateInput PostAt(float x, float y, float vx, float vy) {
+  pes::PostGateInput in;
+  in.animeSlot = true;
+  in.x_m = x;
+  in.y_m = y;
+  in.moveX_mps = vx;
+  in.moveY_mps = vy;
+  in.ballX_m = 30.0f;
+  in.ballY_m = 0.0f;
+  return in;
+}
+
+TEST(PesDodgePostGate, HeHasToStandWithinTheEdgeMarginOfHisGoalLine) {
+  const pes::DodgeConstants k = BallConstants();
+  // 49.0 = 50 - 1.0 is inside the margin; 48.9 is not.
+  EXPECT_TRUE(pes::PostDodgeGate(k, NetMarks(), PostAt(49.0f, 0.5f, 2.0f, 0.0f)));
+  EXPECT_FALSE(pes::PostDodgeGate(k, NetMarks(), PostAt(48.9f, 0.5f, 2.0f, 0.0f)));
+  // Either end of the pitch: the goal he stands at is the one that counts.
+  EXPECT_TRUE(pes::PostDodgeGate(k, NetMarks(), PostAt(-49.0f, -0.5f, -2.0f, 0.0f)));
+  EXPECT_FALSE(pes::PostDodgeGate(k, NetMarks(), PostAt(-48.9f, -0.5f, -2.0f, 0.0f)));
+  // Without the anime layer's slot the gate stops before the geometry.
+  pes::PostGateInput noSlot = PostAt(49.0f, 0.5f, 2.0f, 0.0f);
+  noSlot.animeSlot = false;
+  EXPECT_FALSE(pes::PostDodgeGate(k, NetMarks(), noSlot));
+}
+
+TEST(PesDodgePostGate, HisZMustSitWithinOneMetreOfThePost) {
+  const pes::DodgeConstants k = BallConstants();
+  // ||z| - 1| <= 1: z = 0 and z = 2 are on the band's edges, 2.1 is off it.
+  EXPECT_TRUE(pes::PostDodgeGate(k, NetMarks(), PostAt(49.5f, 0.0f, 2.0f, 0.0f)));
+  EXPECT_TRUE(pes::PostDodgeGate(k, NetMarks(), PostAt(49.5f, 2.0f, 2.0f, 0.0f)));
+  EXPECT_FALSE(pes::PostDodgeGate(k, NetMarks(), PostAt(49.5f, 2.1f, 2.0f, 0.0f)));
+  EXPECT_FALSE(pes::PostDodgeGate(k, NetMarks(), PostAt(49.5f, -2.1f, -2.0f, 0.0f)));
+}
+
+TEST(PesDodgePostGate, TheZBandHasItsInnerEdgeToo) {
+  const pes::DodgeConstants k = BallConstants();
+  // With posts at 3.0 m, z = 1.5 is 1.5 m inside the band; z = 2.2 is in it.
+  const pes::GoalMarks wide{50.0f, 3.0f, 52.0f};
+  EXPECT_FALSE(pes::PostDodgeGate(k, wide, PostAt(49.5f, 1.5f, 2.0f, 0.0f)));
+  EXPECT_TRUE(pes::PostDodgeGate(k, wide, PostAt(49.5f, 2.2f, 2.0f, 0.0f)));
+}
+
+TEST(PesDodgePostGate, HeHasToBeMovingAboveTheStepFloor) {
+  const pes::DodgeConstants k = BallConstants();  // 100 / 72 m/s
+  EXPECT_TRUE(pes::PostDodgeGate(k, NetMarks(), PostAt(49.5f, 0.5f, 1.5f, 0.0f)));
+  EXPECT_FALSE(pes::PostDodgeGate(k, NetMarks(), PostAt(49.5f, 0.5f, 1.2f, 0.0f)));
+}
+
+TEST(PesDodgePostGate, TheKeeperAndTheNewestToucherAreLeftOut) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::PostGateInput in = PostAt(49.5f, 0.5f, 2.0f, 0.0f);
+  ASSERT_TRUE(pes::PostDodgeGate(k, NetMarks(), in));
+  in.keeper = true;
+  EXPECT_FALSE(pes::PostDodgeGate(k, NetMarks(), in));
+  in.keeper = false;
+  in.newestTouch = true;
+  EXPECT_FALSE(pes::PostDodgeGate(k, NetMarks(), in));
+}
+
+TEST(PesDodgePostGate, HeadingAtThePostOrHalfAMetreOfItAdmitsHim) {
+  const pes::DodgeConstants k = BallConstants();
+  // From (49.2, 0) the post at (50, 1) lies at atan2(0.8, 1). Running that way
+  // the bearing admits him; running straight along +x he is 0.8 m and 1.0 m
+  // from the post on x and z, beyond the half-metre admission.
+  const float c = std::sqrt(1.64f);
+  EXPECT_TRUE(pes::PostDodgeGate(k, NetMarks(), PostAt(49.2f, 0.0f, 2.0f * 0.8f / c, 2.0f / c)));
+  EXPECT_FALSE(pes::PostDodgeGate(k, NetMarks(), PostAt(49.2f, 0.0f, 2.0f, 0.0f)));
+  // Half a metre on x admits him without the bearing: 49.5 is 0.5 m from x = 50.
+  EXPECT_TRUE(pes::PostDodgeGate(k, NetMarks(), PostAt(49.5f, 0.0f, 2.0f, 0.0f)));
+}
+
+TEST(PesDodgePostGate, TheFiveMetreCapBoundsHim) {
+  const pes::DodgeConstants k = BallConstants();
+  // (55, 1) is 5.0 m from the post at (50, 1): inside the cap. (56, 1) is 6 m,
+  // outside, though level with the post on z.
+  EXPECT_TRUE(pes::PostDodgeGate(k, NetMarks(), PostAt(55.0f, 1.0f, 2.0f, 0.0f)));
+  EXPECT_FALSE(pes::PostDodgeGate(k, NetMarks(), PostAt(56.0f, 1.0f, 2.0f, 0.0f)));
+}
+
+TEST(PesDodgePostGate, TheDesignatedManIsKeptOffABallNearerHimThanThePost) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::PostGateInput in = PostAt(49.5f, 0.5f, 2.0f, 0.0f);
+  ASSERT_TRUE(pes::PostDodgeGate(k, NetMarks(), in));
+  // The ball at (49.6, 0.4) is 0.72 m from the post and 0.14 m from him, nearer
+  // than the post's 0.71 m: the designated man stays out, anyone else dodges.
+  in.ballX_m = 49.6f;
+  in.ballY_m = 0.4f;
+  in.designatedMan = true;
+  EXPECT_FALSE(pes::PostDodgeGate(k, NetMarks(), in));
+  in.designatedMan = false;
+  EXPECT_TRUE(pes::PostDodgeGate(k, NetMarks(), in));
+}
+
+TEST(PesDodgePostGate, TheBallClauseNeedsTheBallOnThePitchAndNearThePost) {
+  const pes::DodgeConstants k = BallConstants();
+  pes::PostGateInput in = PostAt(49.5f, 0.5f, 2.0f, 0.0f);
+  in.designatedMan = true;
+  // Past the goal line the clause does not apply.
+  in.ballX_m = 50.5f;
+  in.ballY_m = 0.4f;
+  EXPECT_TRUE(pes::PostDodgeGate(k, NetMarks(), in));
+  // Far from the post it does not either.
+  in.ballX_m = 30.0f;
+  EXPECT_TRUE(pes::PostDodgeGate(k, NetMarks(), in));
 }
 
 
