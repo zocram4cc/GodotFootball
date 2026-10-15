@@ -455,6 +455,8 @@ constexpr float kRad = 57.2957795f;
 // pred(p, n): n = int(fps·0.3+0.5) = 16 frames (0x14059bbe4).
 constexpr float kRunPredictFrames = 16.0f;
 constexpr int kNoId = -1;
+// FUN_140593290's focus-player distance to the ball (0x1425ab4c4).
+constexpr float k593290Focus_m2 = 625.0f;
 // Field marks F1, F2, F8 (pes-re-fieldinfo.md).
 constexpr float kF1 = kFieldHalfWidth_m;
 constexpr float kF2 = 3.66f;
@@ -1441,23 +1443,6 @@ bool PassToMeStop(const RunWorld& w, int id) {
 // path until SecondLine itself is ported.
 bool RunCooldownBlocks(const RunWorld& w, int id) { return w.p[id].runCooldown > 0; }
 
-// FUN_140606cd0's per-team head: `T+0xa508 != 0`, `T+0x255` (in possession) and
-// a valid receiver/carrier (`FUN_1405969b0`), off-ball 2.1. All three are team
-// flags - the same answer for every slot of the team in a tick - so the caller
-// asks them once per tick rather than once per slot.
-MaskReject TeamChanceMayRunReject(const RunWorld& w, int team) {
-  if (!w.possession[team]) return kMaskTeamMayNotRun;
-  // T+0xa508, the latched special counter: not modelled in GF, so it cannot
-  // veto here. ponytail: taken as set, matching the port's other a508 sites.
-  const int q = w.receiver[team];
-  const bool hasCarrier = Valid(w.carrier) && TeamOf(w.carrier) == team;
-  if (!hasCarrier && !Valid(q)) return kMaskNoReceiver;
-  return kMaskPass;
-}
-bool TeamChanceMayRun(const RunWorld& w, int team) {
-  return TeamChanceMayRunReject(w, team) == kMaskPass;
-}
-
 int RoleClass(int gfRole) {
   constexpr int kMap[] = {0, 1, 2, 2, 3, 4, 5, 5, 6, 9, 8, 8, 7};
   return gfRole >= 0 && gfRole < static_cast<int>(std::size(kMap)) ? kMap[gfRole] : 0;
@@ -1520,31 +1505,44 @@ bool ReceiverFreeAndFacing(const RunWorld& w, int t) {
 }
 // FUN_1405938a0(team, 0x7e) with FUN_140593290 (decompiled for this port):
 // the team may start Chance runs at all.
-bool TeamMayRun(const RunWorld& w, int t) {
-  if (!w.possession[t]) return false;
-  const float s = w.s[t];
-  // 593290: a carrier on the team; else its focus player within 25 m
-  // (625 m², 0x1425ab4c4) of the ball and the last kick at least 4 frames old.
-  if (Valid(w.carrier)) {
-    if (TeamOf(w.carrier) != t) return false;
-  } else {
-    const int q = w.receiver[t];
-    if (!Valid(q) || Dist2(w.p[q].pos, w.ball) > 625.0f) return false;
-    if (w.ev.valid && w.ev.age < 4.0f) return false;
-  }
-  // a4c930(receiver, ball.x): the ball in the team's own half.
-  const bool ownHalf = s > 0.0f ? w.ball.x <= 0.0f : w.ball.x >= 0.0f;
-  // ponytail: the a4c720 test on MA+0x3c+0x14t (arguments dropped by the
-  // decompile) and the holder flags (a50250) are taken false; T+0xa508 == 2
-  // (the latched special counter) is not modelled.
-  constexpr float kOwnHalfLimit_m = -15.0f;  // 0x14259d668
-  const bool open = ReceiverFreeAndFacing(w, t) || !ownHalf ||
-                    (s * w.ball.x >= kOwnHalfLimit_m && w.possessionAge[t] >= Frames(4.0f));
-  if (!open) return false;
-  constexpr float kEndBand_m = 10.0f;  // F0 - 10, 0x142588210
-  return s * w.ball.x <= kF0 - kEndBand_m || std::fabs(w.ball.z) <= kF7;
-}
 }  // namespace
+
+// FUN_1405938a0 (raw 0x1405938a0-0x140593930), the Chance mask's team head,
+// called once per FUN_140606cd0 before that function's own 11-slot loop. The
+// caller therefore evaluates it once per tick, and passes the result down.
+//
+// Terms GF cannot model are named and taken false: instruction 6 (a63950), the
+// holder flags (a50250), FUN_1405a5240, FUN_1404c8e60's facing test, and
+// T+0xa508 == 2.
+MaskReject TeamChanceMayRunReject(const RunWorld& w, int team) {
+  if (!w.possession[team]) return kMaskTeamMayNotRun;
+  const float s = w.s[team];
+  // FUN_140593290: a carrier on the team, else its focus player within 625 m²
+  // (0x1425ab4c4) of the ball and the last kick at least 4 frames old.
+  if (Valid(w.carrier)) {
+    if (TeamOf(w.carrier) != team) return kMaskTeamMayNotRun;
+  } else {
+    const int q = w.receiver[team];
+    if (!Valid(q) || Dist2(w.p[q].pos, w.ball) > k593290Focus_m2) return kMaskTeamMayNotRun;
+    if (w.ev.valid && w.ev.age < Frames(4.0f)) return kMaskTeamMayNotRun;
+  }
+  // a4c930(receiver, ball.x): the ball in the team's own half. Note the raw
+  // reads MA+0x2482c's x (a4f1e0's band is over `sign * pt.x` against -28/22),
+  // *not* a z at the snap - the port's earlier comment was mislabelled.
+  const bool ownHalf = s > 0.0f ? w.ball.x <= 0.0f : w.ball.x >= 0.0f;
+  constexpr float kOwnHalfLimit_m = -15.0f;  // 0x14259d668
+  const bool open = ReceiverFreeAndFacing(w, team) || !ownHalf ||
+                    (s * w.ball.x >= kOwnHalfLimit_m && w.possessionAge[team] >= Frames(4.0f));
+  if (!open) return kMaskTeamMayNotRun;
+  // The end-band test: `s·MA+0x2482c.x <= MA+0x2aa8 - 10` (0x142588210), where
+  // MA+0x2aa8's entry is the pitch half length (F0).
+  constexpr float kEndBand_m = 10.0f;  // 0x142588210
+  if (s * w.ball.x > kF0 - kEndBand_m && std::fabs(w.ball.z) > kF7) return kMaskTeamMayNotRun;
+  return kMaskPass;
+}
+bool TeamChanceMayRun(const RunWorld& w, int team) {
+  return TeamChanceMayRunReject(w, team) == kMaskPass;
+}
 
 // FUN_140606cd0's rank > 1 angle sub-test, raw 0x140607741-0x140607814. The
 // rank byte is the attacking team's line-list position of the runner
@@ -1644,13 +1642,14 @@ uint32_t AttackSlotMask(const RunWorld& w, int team, int L) {
 }
 
 bool ChanceMaskBit(const OffBallConstants& k, const RunWorld& w, int id, uint32_t slotMask,
-                   int attackLevel, bool buildUpLong, float awareness) {
-  return ChanceMaskReject(k, w, id, slotMask, attackLevel, buildUpLong, awareness) == kMaskPass;
+                   int attackLevel, bool buildUpLong, float awareness, bool teamMayRun) {
+  return ChanceMaskReject(k, w, id, slotMask, attackLevel, buildUpLong, awareness, teamMayRun) ==
+         kMaskPass;
 }
 
 // FUN_140606cd0's gates in walk order, naming the one that rejected `id`.
 MaskReject ChanceMaskReject(const OffBallConstants& k, const RunWorld& w, int id, uint32_t slotMask,
-                            int attackLevel, bool buildUpLong, float awareness) {
+                            int attackLevel, bool buildUpLong, float awareness, bool teamMayRun) {
   const Ctx x(w, id);
   const int slot = id - x.t * kSlots;
   const PlayerFacts& me = x.me;
@@ -1670,7 +1669,10 @@ MaskReject ChanceMaskReject(const OffBallConstants& k, const RunWorld& w, int id
   // Generic lane: the attack-slot mask and the depth limit.
   if (me.state == kOverlap || !((slotMask >> slot) & 1u)) return kMaskSlotMask;
   if (x.s * x.P.x > kF8) return kMaskDepth;
-  if (!TeamMayRun(w, x.t)) return kMaskTeamMayNotRun;
+  // FUN_1405938a0 is the mask's *team head*: the raw calls it once, before this
+  // function's 11-slot loop (OBS mask.c:86, loop at mask.c:197-204), so its
+  // verdict is shared by every slot. `teamMayRun` is the caller's result.
+  if (!teamMayRun) return kMaskTeamMayNotRun;
   const int rank = LineRank(w, id);
   // ponytail: MA+0x68/+0x60 team ints unknown; taken 0 (this gate passes).
   const int pos = me.position;

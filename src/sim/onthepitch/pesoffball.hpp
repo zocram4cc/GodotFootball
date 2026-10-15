@@ -253,8 +253,10 @@ bool RankAngleOk(const RunWorld& w, int id, int attackLevel);
 
 // FUN_140606cd0's generic-lane path for slot `id` (decompiled for this port):
 // true sets his candidate bit. `awareness` is the reach byte (0..99).
+// `teamMayRun` is FUN_1405938a0's verdict, which the raw computes once per mask
+// call (before the slot loop) rather than per slot.
 bool ChanceMaskBit(const OffBallConstants& k, const RunWorld& w, int id, uint32_t slotMask,
-                   int attackLevel, bool buildUpLong, float awareness);
+                   int attackLevel, bool buildUpLong, float awareness, bool teamMayRun);
 
 // Which named gate of FUN_140606cd0 rejected slot `id`, in the order the mask
 // walks them. `kMaskPass` means the bit is set. Order is the raw 0x14060724d
@@ -279,21 +281,33 @@ enum MaskReject {
   kMaskRankAngle,
   kMaskGeneric,
   kMaskRunCooldown,
-  // The per-team head, asked once per tick rather than once per slot.
-  kMaskNoReceiver,
 };
 
-// The per-team pre-conditions the Chance mask reads: `T+0x255` (in possession)
-// and a valid receiver/carrier (off-ball 2.1). Both are team flags - the same
-// answer for every slot of the team in a tick - so the caller asks them once per
-// tick instead of once per slot. A result other than kMaskPass means the mask
-// was not walked at all; the returned reason is filed in the histogram once for
-// the team. `openPlay` (MI+0x116c) is the caller's own guard and is not
-// re-tested here.
+MaskReject ChanceMaskReject(const OffBallConstants& k, const RunWorld& w, int id,
+                            uint32_t slotMask, int attackLevel, bool buildUpLong, float awareness,
+                            bool teamMayRun);
+
+
+// FUN_1405938a0 (raw 0x1405938a0-0x140593930), the Chance mask's team head. The
+// raw calls it ONCE per FUN_140606cd0 - before FUN_140606cd0's own loop over the
+// 11 slots (OBS mask.c:86, loop head at mask.c:197-204) - so its answer is a
+// per-team flag, and the port asks it once per tick for the same reason. The
+// mask passes `run = 0x7e`, which takes the own-half branch (`run != 0x1f`).
+//
+// Order as the raw: T+0x255; then FUN_140593290 (a carrier on the team, else
+// its focus player within 625 m2 of the ball and the last kick 4 frames old);
+// then the instruction-6 cone branch (a63950(.,6,0xff) with a4f1e0's ball-x
+// band and a4c720 on the own team's line), then the broadcast-open disjunction
+// - FUN_1405a5240, the Counter flag, a4c930(receiver, ball.x), a50250's holder
+// flags, `s·ball.x >= -15` with possession age >= int(fps·4+0.5) - and the
+// end-band test `s·MA+0x2482c.x >= MA+0x2aa8 - 10` (0x142588210).
+//
+// Not modelled, named here: instruction 6 (a63950), the holder flags (a50250),
+// FUN_1405a5240, FUN_1404c8e60's facing test and T+0xa508 == 2 - GF carries no
+// instructions or holder flags, so those terms are false.
 MaskReject TeamChanceMayRunReject(const RunWorld& w, int team);
 bool TeamChanceMayRun(const RunWorld& w, int team);
-MaskReject ChanceMaskReject(const OffBallConstants& k, const RunWorld& w, int id,
-                            uint32_t slotMask, int attackLevel, bool buildUpLong, float awareness);
+
 
 // Step 2 of the manager tick (off-ball 1.2): A[s] is set to int(fps·2+0.5)
 // frames when a slot newly enters a run state, counts down otherwise, and is

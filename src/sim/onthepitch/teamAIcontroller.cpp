@@ -2422,13 +2422,15 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   // cap simply holds.
   const uint32_t slotMask = ob::AttackSlotMask(world, team->GetID(), level);
   const bool buildUpLong = teamSheet.toggles[pes::kBuildUp] == 0;
-  // The per-team heads (off-ball 2.1: open play, T+0x255, T+0xa508, a valid
-  // receiver/carrier) are the same answer for every slot of the team in a tick,
-  // so they are asked once here instead of eleven times below. When they fail
-  // the mask is not walked at all: the histogram records the reason once, and
-  // no slot is scored, so no run can start this tick.
+  // FUN_1405938a0, the Chance mask's team head. The raw calls it once per
+  // FUN_140606cd0, before that function's own loop over the 11 slots
+  // (OBS mask.c:86, loop at mask.c:197-204), so its verdict is shared by every
+  // slot: it is evaluated once here and passed down. When it fails the mask is
+  // not walked at all, the histogram files the reason once, and the lowered-cap
+  // release still runs.
   const int teamGate = ob::TeamChanceMayRunReject(world, team->GetID());
-  if (teamGate != ob::kMaskPass) {
+  const bool teamMayRun = teamGate == ob::kMaskPass;
+  if (!teamMayRun) {
     match->GetMatchData()->AddMaskReject(team->GetID(), teamGate);
     // A lowered cap still releases runners, exactly as the select pass does.
     for (int excess = runningAtStart - cap; excess > 0;) {
@@ -2451,7 +2453,7 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
     // Weighted Pass +10.
     const float awareness = p->GetStat("mental_offensivepositioning") * 100.0f;
     const int reject = ob::ChanceMaskReject(k, world, base + static_cast<int>(i), slotMask, level,
-                                            buildUpLong, awareness);
+                                            buildUpLong, awareness, teamMayRun);
     match->GetMatchData()->AddMaskWalk(team->GetID());
     match->GetMatchData()->AddMaskReject(team->GetID(), reject);
     if (reject != ob::kMaskPass) continue;
