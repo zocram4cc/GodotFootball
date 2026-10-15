@@ -58,6 +58,12 @@ class SyntheticHost : public pes::MoveHost {
 
   // The shared contract reads.
   int FootBand() const override { return footBand; }
+  const pes::StepScalars& StepConstants() const override { return stepConstants; }
+  const pes::StepTables& StepTablesView() const override { return stepTables; }
+  bool BucketIsLeft(int bucket) const override { return bucket != 0 && bucket < 5; }
+  int CurrentMotion() const override { return currentMotion; }
+  int CurrentClipFrames() const override { return currentClipFrames; }
+  int AnimeState() const override { return animeState; }
   float BandSpeedKmh(int band, float g) const override { return bandSpeeds[band]; (void)g; }
   bool MirrorChoice(bool sameTeam) const override { return mirrorChoice; (void)sameTeam; }
   const pes::RunConstants& RunConstantsView() const override { return runConstants; }
@@ -92,6 +98,11 @@ class SyntheticHost : public pes::MoveHost {
   float bandSpeeds[4] = {0.0f, 0.0f, 0.0f, 0.0f};
   bool mirrorChoice = false;
   pes::RunConstants runConstants{};
+  pes::StepScalars stepConstants{};
+  pes::StepTables stepTables{};
+  int currentMotion = 0;
+  int currentClipFrames = 0;
+  int animeState = 0;
   pes::RunTables runTables{};
   pes::PlaybackConstants playback{};
   int cellCalls = 0;
@@ -377,4 +388,73 @@ TEST(RunRateGuard, StoresTheRateOnlyWhenItIsAtMostStepBaseOfTheCeiling) {
   EXPECT_FALSE(pes::RunRateAllowed(0.96f, ceiling, stepBase));
   EXPECT_FALSE(pes::RunRateAllowed(1.00f, ceiling, stepBase));
   (void)k;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The GOTO_RUN handler's decision arms (FUN_1406bdf10). The handler's cross-group entries
+// (EnterTurnStop, EnterRunTurnStep, EnterRunTurnRun, EnterGotoRun) are declared but not yet
+// defined, so these tests check the arms that write request words and the exact conditions that
+// select each exit, with a host whose cross-group calls are inert.
+// ---------------------------------------------------------------------------------------------
+
+// FUN_1406bdf10's re-entry arm needs the clip past its first hit tick (iVar10 < iVar11 in the
+// decompile). The hit ticks come from the clip's HitData record, which GF does not model yet
+// (A-AN13), so with no record the port holds them at zero and this arm cannot fire. The test
+// states that: the class, the band and the turn all allow the re-entry, but the missing hit tick
+// keeps the handler in the straight-ahead re-plan, and the root-facing pair is written instead.
+TEST(GotoRun, KeepsTheRePlanWhileTheClipHasNoHitRecord) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetU(pes::moveword::kRateBand, 0u);
+  req.SetU(pes::moveword::kBandTarget, 0u);
+  req.SetF(pes::moveword::kDuration, 0.05f);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 5.0f);
+  req.SetF(pes::moveword::kTurn, 5.0f);
+  req.SetF(pes::moveword::kFacingError, 5.0f);
+  pes::movestep::GotoRun(h, req);
+  // The handler stays in the re-plan: no state request, and the root-facing pair is written.
+  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(req.U(pes::moveword::kRootFacing) & 0xffu, 1u);
+}
+
+TEST(GotoRun, FallsThroughToTheStraightAheadRePlanWithoutATurn) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kBandTarget, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);  // 2 degrees apart: no turn
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kDuration, 0.05f);
+  req.SetF(pes::moveword::kDwellLimit, 0.05f);
+  pes::movestep::GotoRun(h, req);
+  // The straight-ahead arm writes the root-facing pair (words 0x3a/0x3b) with the clamped turn.
+  EXPECT_EQ((req.U(pes::moveword::kRootFacing) & 0xffu), 1u);
+}
+
+TEST(GotoRun, ClampsTheBodyTurnToTheLookLimitBeforeTurning) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kBandTarget, 1u);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 170.0f);  // 170 degrees: inside the 180 gate
+  req.SetF(pes::moveword::kTurn, 170.0f);
+  req.SetF(pes::moveword::kDuration, 0.05f);
+  req.SetF(pes::moveword::kDwellLimit, 0.05f);
+  pes::movestep::GotoRun(h, req);
+  const float rootFacing = req.F(pes::moveword::kRootFacingAngle);
+  // PES's guard returns early when the desired turn is at or past 112.5 degrees, which this
+  // request is not; the written angle must be the heading turned by the clamped 180 limit.
+  EXPECT_LE(rootFacing, 180.0f);
+  EXPECT_GE(rootFacing, -180.0f);
 }

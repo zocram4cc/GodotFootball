@@ -20,6 +20,7 @@ namespace pes {
 namespace moveword {
 // The request words group B reads or writes that the shared contract does not name yet. Each is
 // a PES req word; the byte flags are the low byte of the word.
+inline constexpr int kRateBand = 0x1f;       // req[0x1f]: the running speed band 0..2 (OBS: FUN_1406bdf10/FUN_1406bb570 write 0/1/2 here; FUN_1406c9e20 reads it)
 inline constexpr int kSpeedBand = 0x22;      // req[0x22]: the band the run starts in (OBS: FUN_1406ce820 writes clamp(req[0xa], 5, 16); RUN_LOOP copies it to 0x1d)
 inline constexpr int kBandTarget = 0x24;     // req[0x24]: the band to run at (OBS: FUN_1406ce820 writes clamp(req[9], 0, 3))
 inline constexpr int kPrevBucket = 0x25;     // req[0x25]: the previous angle bucket (OBS: FUN_1406bdf10 saves 0x20 here before re-picking)
@@ -46,6 +47,18 @@ int TurnStopRowFor(int kind, int cls, const RunTables& t);  // FUN_1406ba0d0, 0x
 // that supplies RunConstantsView() supplies these too: LoadStepRows fills the same handle the
 // adapter keeps. ponytail: adding `std::array<int32_t, 32> stepRow;` to RunTables removes this
 // table, its loader and the handle.
+
+// The group-B file-local helpers, defined in namespace pes beside the loaders (their callers
+// are the handlers in namespace pes::movestep, which see them through pes::).
+bool TurnLockEligible(MoveHost& host, MoveReq& req);       // FUN_1406d01d0
+float FirstAngle(float a, float b, const RunConstants& k);  // FUN_140a92950
+int HitRecordCount();                                      // FUN_1406afbc0
+
+// The cross-group entries group B's handlers call, each with its PES VA. The declarations live in
+// the owning group's file; group B only calls them, as PES does.
+// ponytail: the contract declares EnterTurnStop when group C lands; until then this declaration
+// keeps group B compiling and is the single place to reconcile.
+void EnterTurnStop(MoveHost& host, MoveReq& req);  // FUN_1406d2590 (group C)
 
 // This group's loaders, defined in movestep_run.cpp. They read the shared header's RunConstants
 // and RunTables from the exe by the VAs in the file; tests skip without PES21_ROOT.
