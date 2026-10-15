@@ -133,9 +133,10 @@ void StrategyStep(const StrategyConstants& k, const StrategyInputs& in, Random& 
   }
   // First half.
   if (in.minute == 0) {
-    const int* w = in.strengthDiff > k.strengthMargin    ? k.weightsStronger
-                   : -in.strengthDiff > k.strengthMargin ? k.weightsWeaker
-                                                         : k.weightsEven;
+    const float d = in.ownStrength - in.oppStrength;
+    const int* w = d > k.strengthMargin    ? k.weightsStronger
+                   : -d > k.strengthMargin ? k.weightsWeaker
+                                           : k.weightsEven;
     const int r = rng.RangeRaw(k.rngSlot, w[kAttack] + w[kDefend] + w[kBalance]);
     int from = 0, to = 0;
     if (r <= w[kAttack]) {
@@ -162,6 +163,13 @@ void StrategyStep(const StrategyConstants& k, const StrategyInputs& in, Random& 
       (s->strategy >= kStrategyAttacking && s->strategy <= kStrategyAllOut && g > 0) ||
       s->strategy < 0 || s->strategy > kStrategyAllOut)
     s->strategy = kStrategyBalanced;
+}
+
+float SetupStrength(const std::vector<float>& overalls) {
+  if (overalls.empty()) return 0.0f;
+  float sum = 0.0f;
+  for (float overall : overalls) sum += overall;
+  return sum * kRatingPerOverall / static_cast<float>(overalls.size());
 }
 
 int StrategyAttackLevel(int strategy) {

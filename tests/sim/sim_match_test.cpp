@@ -457,3 +457,28 @@ TEST(SimMatch, FullMatchRunsToTheWhistle) {
       << o.report;
   EXPECT_NE(o.report.find("[determinism] "), std::string::npos);
 }
+
+// The strategy decider reads each side's rating from the match setup, which is
+// written once at match load (pes::SetupStrength over the starting eleven). It
+// is in place before the first tick, so the decider never sees a stale zero.
+TEST(SimMatch, SetupStrengthIsWrittenAtMatchLoadFromTheStartingEleven) {
+  REQUIRE_RIG();
+  blunted::Database db;
+  ASSERT_TRUE(db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql"));
+  SetDB(&db);
+  MatchSetup setup = MakeSetup(SEED, SHORT_MATCH_MINUTES);
+  pestest::FillMissingPesConstants(&setup);
+  {
+    Match match(new MatchData(HOME_TEAM, AWAY_TEAM), setup, Properties());
+    for (int side = 0; side < 2; side++) {
+      std::vector<Player*> starters;
+      match.GetActiveTeamPlayers(side, starters);
+      ASSERT_EQ(starters.size(), 11u);
+      std::vector<float> overalls;
+      for (Player* p : starters) overalls.push_back(p->GetPlayerData()->GetAverageStat());
+      EXPECT_FLOAT_EQ(match.GetTeamSetupStrength(side), pes::SetupStrength(overalls));
+      EXPECT_GT(match.GetTeamSetupStrength(side), 0.0f);
+    }
+  }
+  SetDB(nullptr);
+}

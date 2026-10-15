@@ -2084,18 +2084,10 @@ void TeamAIController::UpdateStrategy() {
   const int own = team->GetID(), opp = 1 - own;
   in.ownGoals = match->GetMatchData()->GetGoalCount(own);
   in.oppGoals = match->GetMatchData()->GetGoalCount(opp);
-  // PES reads a per-team rating out of the match setup (G+0x2ad0+0xc404).
-  // ponytail: GF has none; the mean overall of the starting eleven on PES's
-  // 0..99 scale stands in. Its only use is the minute-0 row choice.
-  constexpr float kStatPerUnit = 100.0f;
-  auto rating = [&](int id) {
-    std::vector<Player*> players;
-    match->GetActiveTeamPlayers(id, players);
-    float sum = 0.0f;
-    for (Player* p : players) sum += p->GetPlayerData()->GetAverageStat();
-    return players.empty() ? 0.0f : sum * kStatPerUnit / players.size();
-  };
-  in.strengthDiff = rating(own) - rating(opp);
+  // PES reads each side's rating from the match setup, written once at match
+  // load (Match's constructor). Replaces the per-tick mean-overall lambda.
+  in.ownStrength = match->GetTeamSetupStrength(own);
+  in.oppStrength = match->GetTeamSetupStrength(opp);
   // PES seeds the decider's GameRandom once per match from the clock
   // (0x14051e400); GF seeds it from the match seed so a replay replays.
   if (!strategyRng) {
