@@ -216,6 +216,93 @@ class FakeHost : public MoveHost {
 };
 
 // -------------------------------------------------------------------------------------
+// STEP_LOOP, FUN_1406c4c10: the band walk and the tick-keeping tail.
+// -------------------------------------------------------------------------------------
+
+// The band walk: with the band 0, the previous band 1, and the second dwell past its threshold
+// (0.6 s, or 0.4 s at kind 7), the band becomes 1 and the speed comes back from req[0x22].
+TEST(StepLoop, WalksTheBandDownWhenThePreviousBandWasOne) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kBand, 0);
+  req.SetU(pes::moveword::kBandPrev, 1);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.70f);  // past 0.6 * 1.0
+  req.SetF(pes::moveword::kBandSpeed, 0.0f);
+  req.SetF(pes::moveword::kBandSpeedCopy, 12.0f);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  // A moving player, so the stop helper does not fire before the walk is observable.
+  host.displacement[0] = 0.5f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 2.0f;
+  StepLoop(host, req);
+  // The walk itself: the band becomes 1 and the speed comes back from req[0x22]. The tail then
+  // records the stepped band, so the restored speed carries through the blend's 0.5/0.5 mix.
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit2), 0.0f);
+  EXPECT_NEAR(req.F(pes::moveword::kBandSpeed), 12.0f, 1e-3f);
+}
+
+// The walk's threshold at kind 7 is 0.4 s instead of 0.6 s, so an elapsed of 0.5 walks the band
+// down at kind 7 while it would not at kind 2.
+TEST(StepLoop, WalksTheBandDownAfterTheShorterKeeperThreshold) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 7);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kBand, 0);
+  req.SetU(pes::moveword::kBandPrev, 1);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.50f);  // past 0.4, under 0.6
+  req.SetF(pes::moveword::kBandSpeed, 0.0f);
+  req.SetF(pes::moveword::kBandSpeedCopy, 12.0f);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  host.displacement[0] = 0.5f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 2.0f;
+  StepLoop(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kBandSpeed), 12.0f, 1e-3f);
+}
+
+// The slow-player re-plan: with the arrival flag req[0x3f] set, a live band below 3, no precise
+// arrival and the ground speed under 16 km/h, the handler re-plans through GOTO_RUN.
+TEST(StepLoop, RePlansASlowPlayerThroughGotoRun) {
+  FakeHost host;
+  MoveReq req;
+  host.displacement[0] = 0.0f;  // a stationary player: the ground speed is 0
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.0f;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kBand, 2);
+  req.SetU(pes::moveword::kBandPrev, 2);
+  req.SetF(pes::moveword::kDwellLimit2, 0.0f);
+  req.SetU(0x3f, 1);  // the arrival flag
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  StepLoop(host, req);
+  EXPECT_EQ(requested, MoveState::kGotoRun);
+}
+
+// -------------------------------------------------------------------------------------
 // STEP_TO_RUN, FUN_1406c6f80.
 // -------------------------------------------------------------------------------------
 
@@ -396,6 +483,49 @@ TEST(RunToStep, KeepsTheTickWhileBlendingTheHeading) {
   RunToStep(host, req);
   EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
   EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+}
+
+// -------------------------------------------------------------------------------------
+// TURN_STOP, FUN_1406cab20: the rate scale and the dwell-return gate.
+// -------------------------------------------------------------------------------------
+
+// The rate is scaled by 0.9 (DAT_14258c260) at the top of the tick, so a request entering with
+// a rate of 1.0 leaves it at 0.9.
+TEST(TurnStop, ScalesTheRateByTheRecordConstant) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kBand, 2);
+  req.SetF(pes::moveword::kRate, 1.0f);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.10f);  // not out: the handler keeps the tick
+  TurnStop(host, req);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), 0.9f);
+}
+
+// The dwell gate: with the second dwell unfinished the handler returns without a state change.
+TEST(TurnStop, KeepsTheTickWhileTheSecondDwellRuns) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kBand, 2);
+  req.SetF(pes::moveword::kRate, 1.0f);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.60f);  // under the limit: the tick is kept
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.10f);   // and the first dwell has not run out
+  TurnStop(host, req);
+  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
 }
 
 }  // namespace
