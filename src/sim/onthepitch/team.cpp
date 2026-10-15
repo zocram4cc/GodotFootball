@@ -474,8 +474,16 @@ void Team::Process() {
   // PES's movement selector (pes-re-receiving.md §2) sends the PASS_GET
   // receiver to the ball while a pass is in flight; GF's time-to-ball rating
   // below covers the loose balls PES's undecoded race selectors handle.
-  if (Player* receiver =
-          match->IsInPlay() && !match->IsInSetPiece() ? PassGetReceiver() : nullptr) {
+  //
+  // No set-piece gate: the movement selector picks state 2 purely from "the
+  // team's pass target T+0x78 is this player" (FUN_140931c60), and the pass
+  // target is cleared when a restart is set up, so a live pass target is by
+  // definition not a stale one. The `!IsInSetPiece()` this replaces was a
+  // workaround for the throw-in stall, whose real cause - a restart taken past
+  // the lines, so no kick anim could reach the ball - is fixed elsewhere
+  // (OffsideRule::RestartPosition folds the spot inside the pitch). Keeping it
+  // would have left PASS_GET ineligible exactly when PES grants it.
+  if (Player* receiver = match->IsInPlay() ? PassGetReceiver() : nullptr) {
     designatedTeamPossessionPlayer = receiver;
     return;
   }
