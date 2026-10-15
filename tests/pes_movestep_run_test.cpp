@@ -848,3 +848,185 @@ TEST(Stop, FallsThroughToTheIdleArmWhenTheFirstDwellSitsBelowItsScaledLimit) {
   pes::movestep::Stop(h, req);
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
 }
+
+// ---------------------------------------------------------------------------------------------
+// The DECELERATE handler's decision arms (FUN_1406bcd20). Its decompile's flow:
+//   1. the yaw-lock block: the re-orient object's flag clear, the hit tick at or before the
+//      live frame and the live frame at or before the mid-tick; the lock words 0x3d/0x3e/0x3f
+//      are written with the per-tick turn under 45 degrees and FUN_1406cbb00's yaw store.
+//   2. the pre-empt gates (the same shape as ACCELERATE's, with the two 0xc3a/0xc3b motions
+//      as the extra flag): the first bearing past 56.25 degrees (or the fast-turn flag)
+//      clears the dwell words and takes the band/speed block; otherwise the class-3 gate (a
+//      word-5 bearing past 90, the band below 2 and class 3) takes the ground-speed ladder
+//      and RUN_TURN_RUN; otherwise the 5/11 ladder block writes the class and speed words.
+//   3. the class -1 arm (the fast-turn flag and a positive band): band 3 with 28 km/h, the
+//      ground-speed ladder 8 / 14.75 / 19 and the turn-stop entry; otherwise the band copy
+//      and the stop entry.
+//   4. the allowance arm (the look distance over 2 m, with its 22.5-per-unit term, and the
+//      45-degree floor, past the look bearing, or the fast-turn flag): the turn-stop entry
+//      through STEP_TURN_RUN's draw, or the band/speed block with the precise word's gate.
+//   5. the bearing arm (the look bearing under 45 degrees or the 0xc2b motion): the reorient
+//      write and the yaw store with the 180/90 allowance and the 22.5 / 0.25 clamps.
+//   6. the state arm: the look distance over 2 m past 45 degrees, or the bearing under 45
+//      degrees with the band 3 and word 8 above 1, re-plans into GOTO_RUN; otherwise the
+//      speed ladder and the run entry, with the class 3 / 19 / 22 ladder of the tail.
+// ---------------------------------------------------------------------------------------------
+
+// The state arm's re-plan (FUN_1406bd8b9): with the class word 2, the band word 0 and word 8
+// above 1 - the three terms of PES's ladder `classWord < 3 && bandWord < 1 && classWord > 1`
+// - the handler writes the band word 0 and the speed 5 km/h and re-plans into GOTO_RUN.
+TEST(Decelerate, RePlansIntoGotoRunWhenTheClassWordIsTwoAndTheBandIsZero) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);  // class word 2: inside the ladder
+  req.SetU(pes::moveword::kRateBand, 0u);           // band word 0: below 1
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 1.0f);
+  req.SetF(pes::moveword::kRate, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::Decelerate(h, req);
+  // The re-plan's exit is the GOTO_RUN entry's own transition, word 7 (ACCELERATE).
+  EXPECT_EQ(req.U(pes::moveword::kNextState), 7u);
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+}
+
+// The class -1 arm's fast-turn path: the fast-turn flag with a positive band takes band 3
+// with 28 km/h, then the ground-speed ladder 8 / 14.75 / 19 and the turn-stop entry.
+TEST(Decelerate, TakesTheTurnStopEntryThroughTheClassMinusOneLadder) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);  // class -1
+  req.SetU(pes::moveword::kRateBand, 2u);
+  req.SetU(pes::moveword::kPrecise, 1u);  // the fast-turn flag's second term
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 400.0f);  // a look bearing past 90 degrees
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 1.0f);
+  req.SetF(pes::moveword::kRate, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::Decelerate(h, req);
+  // Band 3 with 28 km/h first, then the ground-speed ladder's 0 (the speed is zero here)
+  // leaves the band at 0 and the speed at 5 km/h; the entry is the turn-stop one.
+  EXPECT_EQ(req.U(pes::moveword::kRateBand), 0u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 5.0f);
+  EXPECT_GE(pes::probe::turnStopCalls, 1);
+}
+
+// The same ladder's lower bound: with the class word 1 (not above 1) the re-plan does not
+// fire, and the tick falls through to the speed ladder and the run entry, whose transition
+// is state 3 (RUN_LOOP).
+TEST(Decelerate, KeepsTheTickWhenTheClassWordIsNotAboveOne) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);  // class word 1: not above 1
+  req.SetU(pes::moveword::kRateBand, 0u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 1.0f);
+  req.SetF(pes::moveword::kRate, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::Decelerate(h, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
+}
+
+// The class -1 arm's band-copy path is unreachable without hit records: PES's own guard
+// is `hitEnd <= liveFrame || secondBearing < 45`, and with no records hitEnd is zero, so
+// the first term always holds. The test states that, which is the same situation
+// GotoRun's re-entry arm has, and checks the ladder the arm therefore takes.
+TEST(Decelerate, KeepsTheBandCopyPathOutOfReachWithoutHitRecords) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);  // class -1
+  req.SetU(pes::moveword::kRateBand, 2u);
+  req.SetU(pes::moveword::kMoveBucket, 6u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 72.0f);  // a 60-degree second bearing
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 1.0f);
+  req.SetF(pes::moveword::kRate, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::Decelerate(h, req);
+  // The turn-stop ladder ran, not the band copy: the rate word stays untouched (the copy
+  // arm writes 0.6 before the stop entry) and the turn-stop entry took the tick.
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), 0.0f);
+  EXPECT_GE(pes::probe::turnStopCalls, 1);
+  EXPECT_EQ(req.U(pes::moveword::kRateBand), 0u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 5.0f);
+}
+
+// The allowance arm: with the look distance at 3 m (one unit, allowance 22.5 + 45 = 67.5)
+// and the second bearing past it, the arm takes the precise word's gate and the
+// STEP_TURN_RUN entry, then the band/speed words and the stop entry.
+TEST(Decelerate, TakesTheStepTurnRunEntryThroughTheAllowanceArm) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 300.0f);  // a 72-degree second bearing: past 67.5
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 3.0f);  // one unit over 2 m: allowance 22.5 + 45
+  req.SetF(pes::moveword::kRate, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::Decelerate(h, req);
+  // The precise arm's gate held (the look distance is under 3 m and the turn is under
+  // 112.5 degrees), so the STEP_TURN_RUN entry's threshold is computed and the entry took
+  // the tick. The band/speed words are the ladder's own for a zero ground speed.
+  EXPECT_GE(pes::probe::stepTurnRunCalls, 1);
+  EXPECT_EQ(req.U(pes::moveword::kRateBand), 0u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 5.0f);
+}
