@@ -547,6 +547,7 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   const float desired = req.F(moveword::kDesiredSpeedKmh);
   float speed = k.kmh16;
   if (desired <= k.kmh16 && k.kmh5 <= desired) speed = desired;
+  // PES reads `param_2[0x1f]` at each use, so the band walk above is visible here.
   const int liveBand = int(req.U(moveword::kBand));
   int nextBand = classBand;
   if (liveBand != classBand) nextBand = classBand <= liveBand ? liveBand + 1 : liveBand - 1;
