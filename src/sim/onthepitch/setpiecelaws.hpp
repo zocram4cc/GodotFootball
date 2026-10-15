@@ -23,7 +23,7 @@ namespace SetPieceLaws {
 const float kAreaDepth = pitchHalfW - pesPenaltyAreaLineX;
 const float kAreaHalfWidth = pesPenaltyAreaHalfWidth;
 const float kGoalAreaDepth = pitchHalfW - pesGoalAreaLineX;
-const float kGoalAreaHalfWidth = goalAreaHalfWidth;  // F5
+const float kGoalAreaHalfWidth = pesGoalAreaHalfWidth;  // F5
 
 // How far outside the line a cleared player is sent. Standing exactly on it is legal
 // and looks like cheating, and a man drifting a step back would be inside again.

@@ -127,10 +127,9 @@ void Ball::SetRotation(const Vector3& rot, float bias) {  // radians per second 
 }
 
 namespace {
-// PES's FieldInfo goal values, from this engine's Law-1 constants.
-const pesball::GoalFrame kGoalFrame{pitchHalfW + lineHalfW, goalInnerHalfWidth,
-                                        goalInnerHeight, goalFrameThickness,
-                                        goalFrameThickness};
+// PES's FieldInfo goal frame: the outer goal line, and the frame's inside size and thickness.
+const pesball::GoalFrame kGoalFrame{pesFieldHalfLength, pesGoalInnerHalfWidth,
+                                    pesGoalInnerHeight, pesCrossbarThickness, pesPostThickness};
 }  // namespace
 
 BallSpatialInfo Ball::CalculatePrediction() {

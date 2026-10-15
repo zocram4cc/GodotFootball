@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstring>
 
+#include "gametypes.hpp"
 #include "pes/uniform.hpp"
 
 namespace pes::offball {
@@ -25,12 +26,6 @@ constexpr float kNearDx_m = 4.0f;            // step 6: |dx| <= 4 -> k = 10
 constexpr float kNearDxFar_m = 10.0f;        // step 6: ramp to 0 at 10 m
 constexpr float kNearK_m = 10.0f;
 constexpr float kWideDz_m = 43.0f;           // step 13: |P.z - ball.z| > 43
-// FieldInfo F0, F4, F5, F6 (pes-re-fieldinfo.md; also gametypes.hpp).
-constexpr float kFieldHalfLength_m = 52.56f;
-constexpr float kGoalAreaLineX_m = 47.06f;
-constexpr float kGoalAreaHalfWidth_m = 9.16f;
-constexpr float kPenaltyAreaLineX_m = 36.14f;
-constexpr float kPenaltyAreaHalfWidth_m = 20.12f;  // F7
 // Lanes (FUN_140a71990): z_k = F1 - 2 - 2k, k = 0..32.
 constexpr int kLaneCount = 33;
 constexpr float kLaneSpacing_m = 2.0f;
@@ -117,7 +112,7 @@ float Ramp(float v, float a, float b) {
   return std::clamp((v - a) / (b - a), 0.0f, 1.0f);
 }
 
-float LaneZ(int k) { return kFieldHalfWidth_m - kLaneSpacing_m - kLaneSpacing_m * k; }
+float LaneZ(int k) { return pesFieldHalfWidth - kLaneSpacing_m - kLaneSpacing_m * k; }
 
 bool ReadF(const PeImage& exe, uint64_t va, float* out, bool* ok) {
   *ok &= exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out));
@@ -127,16 +122,16 @@ bool ReadF(const PeImage& exe, uint64_t va, float* out, bool* ok) {
 // The S table cell (FUN_140a77130 + FUN_140462470): the 1 m disc around
 // (x, z) on team t's occupancy grid, mean of the cells, 100 when empty.
 int LaneFreedom(const OffBallConstants& k, const std::vector<Vec2f>& players, float x, float z) {
-  const float cw = 2.0f * kFieldHalfLength_m / k.gridCellsX;
-  const float ch = 2.0f * kFieldHalfWidth_m / k.gridCellsZ;
+  const float cw = 2.0f * pesFieldHalfLength / k.gridCellsX;
+  const float ch = 2.0f * pesFieldHalfWidth / k.gridCellsZ;
   const int nx = static_cast<int>(k.gridCellsX), nz = static_cast<int>(k.gridCellsZ);
-  const float cx = std::clamp(x, -kFieldHalfLength_m, kFieldHalfLength_m);
+  const float cx = std::clamp(x, -pesFieldHalfLength, pesFieldHalfLength);
   int sum = 0, count = 0;
-  const int i0 = std::max(0, static_cast<int>((cx + kFieldHalfLength_m) / cw) - 2);
-  const int j0 = std::max(0, static_cast<int>((z + kFieldHalfWidth_m) / ch) - 2);
+  const int i0 = std::max(0, static_cast<int>((cx + pesFieldHalfLength) / cw) - 2);
+  const int j0 = std::max(0, static_cast<int>((z + pesFieldHalfWidth) / ch) - 2);
   for (int i = i0; i < std::min(nx, i0 + 5); ++i) {
     for (int j = j0; j < std::min(nz, j0 + 5); ++j) {
-      const Vec2f c{-kFieldHalfLength_m + (i + 0.5f) * cw, -kFieldHalfWidth_m + (j + 0.5f) * ch};
+      const Vec2f c{-pesFieldHalfLength + (i + 0.5f) * cw, -pesFieldHalfWidth + (j + 0.5f) * ch};
       if (Dist2(c, {cx, z}) > kLaneDiscRadius_m * kLaneDiscRadius_m) continue;
       int v = kLaneEmpty;
       for (const Vec2f& p : players) {
@@ -350,8 +345,8 @@ std::optional<Vec2f> ChanceLaneTarget(const OffBallConstants& k, const LaneSearc
   // ponytail: FUN_140664ee0's ~95 leaves; its two head gates and the far-lane
   // leaf FUN_14066d720 are ported (the leaf's holder flags, its allClear term
   // and its possession-time accept are taken as 0).
-  const bool boxZone = std::fabs(in.ball.z) < kPenaltyAreaHalfWidth_m &&
-                       s * in.ball.x > kPenaltyAreaLineX_m - kFarLaneBoxMargin_m;
+  const bool boxZone = std::fabs(in.ball.z) < pesPenaltyAreaHalfWidth &&
+                       s * in.ball.x > pesPenaltyAreaLineX - kFarLaneBoxMargin_m;
   auto commits = [&](Vec2f C) {
     if (std::fabs(Fold180(Bearing(in.ball, C) - in.teamDir_deg)) > kCommitDev_deg ||
         std::fabs(in.ball.z - C.z) > kCommitDz_m)
@@ -375,7 +370,7 @@ std::optional<Vec2f> ChanceLaneTarget(const OffBallConstants& k, const LaneSearc
     if (in.hasReceiver) {
       const float d = std::fabs(C.z - in.receiver.z);
       if (d > kRecvGap_m && std::fabs(C.z - in.ball.z) < std::fabs(in.receiver.z - in.ball.z) &&
-          std::fabs(C.z) < kGoalAreaHalfWidth_m)
+          std::fabs(C.z) < pesGoalAreaHalfWidth)
         score += static_cast<int>(std::min(1.0f, (d - kRecvGap_m) / kRecvRamp_m) * kRecvRampScore) +
                  kRecvBonus;
     }
@@ -418,7 +413,7 @@ std::optional<Vec2f> ChanceLaneTarget(const OffBallConstants& k, const LaneSearc
     }
     score += pen;
     if (std::fabs(C.z) > kWideLane_m)
-      score -= static_cast<int>(kWidePen * Ramp(s * in.ball.x, kWideBallFrom_m, kPenaltyAreaLineX_m) *
+      score -= static_cast<int>(kWidePen * Ramp(s * in.ball.x, kWideBallFrom_m, pesPenaltyAreaLineX) *
                                 Ramp(std::fabs(in.ball.z - C.z), kWideDzFrom_m, kWideDzTo_m));
     // ponytail: the sec/595ab0 test, the teammate-claim gates and the tie-break
     // are not ported (ties keep the first lane found).
@@ -457,12 +452,6 @@ constexpr float kRunPredictFrames = 16.0f;
 constexpr int kNoId = -1;
 // FUN_140593290's focus-player distance to the ball (0x1425ab4c4).
 constexpr float k593290Focus_m2 = 625.0f;
-// Field marks F1, F2, F8 (pes-re-fieldinfo.md).
-constexpr float kF1 = kFieldHalfWidth_m;
-constexpr float kF2 = 3.66f;
-constexpr float kF8 = 41.56f;
-constexpr float kF0 = kFieldHalfLength_m, kF4 = kGoalAreaLineX_m, kF5 = kGoalAreaHalfWidth_m,
-                kF6 = kPenaltyAreaLineX_m, kF7 = kPenaltyAreaHalfWidth_m;
 // fps-derived frame counts int(fps·x + 0.5).
 constexpr float Frames(float sec) { return static_cast<float>(static_cast<int>(kPesFps * sec + 0.5f)); }
 // Speeds the reports give as 100/(fps·T) m/frame (T seconds per 100 m) or as
@@ -615,8 +604,8 @@ bool LooseKick(const Ctx& x) {
 
 // s1 #1, step 4.
 bool L68f600(const Ctx& x) {
-  if (x.s * x.P.x > kF4 + 1.5f) return true;
-  if (x.s * x.P.x < kF4 - 3.0f) return false;
+  if (x.s * x.P.x > pesGoalAreaLineX + 1.5f) return true;
+  if (x.s * x.P.x < pesGoalAreaLineX - 3.0f) return false;
   if (!A720(x.B.x, x.P.x, x.s, 0.2f)) return false;
   const float a = Ad(x.dir, PBrg(x.B, x.me.aim));
   if (a < 22.0f || ConeOpp(x.w, x.id, x.dir, 50.0f, 20.0f)) return true;
@@ -669,12 +658,12 @@ bool L68a730(const Ctx& x, int run) {
     if (std::fabs(dx) > 12.0f && !A720(x.P.x, x.B.x, x.s, 0.0f)) return false;
   }
   if (OppNear(x.w, x.id, 3.2f)) return false;
-  return x.s * x.P.x <= kF6 + 2.0f;
+  return x.s * x.P.x <= pesPenaltyAreaLineX + 2.0f;
 }
 // s1 #7: exemption.
 bool L68a8c0(const Ctx& x, bool intercept) {
   if (intercept) return false;
-  if (std::fabs(x.P.z) > kF5 + 2.0f || !Beyond(x.w, x.id, -2.0f)) return false;
+  if (std::fabs(x.P.z) > pesGoalAreaHalfWidth + 2.0f || !Beyond(x.w, x.id, -2.0f)) return false;
   const Vec2f A = x.me.aim;
   if (Dist2(A, x.B) > 729.0f) return false;
   if (!Valid(x.q) || Dist2(x.w.p[x.q].pos, x.B) > 12.25f) return false;
@@ -806,10 +795,10 @@ bool L68d920(const Ctx& x) {
 }
 // s1 #20.
 bool L68b070(const Ctx& x) {
-  if (x.s * x.B.x < kF4 - 3.0f) return false;
+  if (x.s * x.B.x < pesGoalAreaLineX - 3.0f) return false;
   if (std::fabs(x.P.x - x.B.x) > 6.0f || std::fabs(x.P.z - x.B.z) > 7.0f) return false;
-  if (std::fabs(x.P.z) < kF5) return false;
-  return x.s * x.P.x >= kF8 + 1.5f;
+  if (std::fabs(x.P.z) < pesGoalAreaHalfWidth) return false;
+  return x.s * x.P.x >= pesPenaltySpotX + 1.5f;
 }
 // s1 #21. a57800's point taken as the opponents' goal centre (INF goal point).
 bool L692c50(const Ctx& x) {
@@ -817,7 +806,7 @@ bool L692c50(const Ctx& x) {
   if (Dist2(x.P, x.me.aim) < 16.0f) return false;
   const float a1 = Fold180(x.dir - PBrg(x.P, x.me.aim));
   if (std::fabs(a1) < 75.0f) return false;
-  const Vec2f g{x.s * kF0, 0.0f};
+  const Vec2f g{x.s * pesFieldHalfLength, 0.0f};
   const float a2 = Fold180(x.dir - PBrg(g, x.B));
   if (std::fabs(a2) < 45.0f || std::fabs(a2) > 135.0f) return false;
   if (Sgn(a1) == Sgn(a2)) return false;
@@ -825,19 +814,21 @@ bool L692c50(const Ctx& x) {
   return true;
 }
 // s1 #22. a72e70 bit 12 taken as "inside the penalty area".
-bool InBox(float s, Vec2f p) { return s * p.x >= kF6 && std::fabs(p.z) <= kF7; }
+bool InBox(float s, Vec2f p) {
+  return s * p.x >= pesPenaltyAreaLineX && std::fabs(p.z) <= pesPenaltyAreaHalfWidth;
+}
 bool L643f50(const RunWorld& w, int team);
 bool L68b920(const Ctx& x) {
   if (!InBox(x.s, x.B) || !InBox(x.s, x.P)) return false;
-  if (x.D2() > 144.0f || x.s * x.B.x < kF6) return false;
+  if (x.D2() > 144.0f || x.s * x.B.x < pesPenaltyAreaLineX) return false;
   if (A720(x.B.x, x.P.x, x.s, 3.0f)) return false;
-  return L643f50(x.w, x.t) || x.s * x.B.x >= kF8;
+  return L643f50(x.w, x.t) || x.s * x.B.x >= pesPenaltySpotX;
 }
 // s2 #1. marks = 0, cls = 0.
 bool L691ef0(const Ctx& x) {
   if (!Valid(x.c)) return false;
   if (Dist2(x.P, x.w.p[x.c].pos) > 121.0f) return false;
-  const Vec2f G{x.s * kF0, 0.0f};
+  const Vec2f G{x.s * pesFieldHalfLength, 0.0f};
   if (Dist2(G, x.B) >= 1024.0f) return false;
   const float gB = PBrg(x.B, G);
   if (Ad(x.dir, gB) > 47.0f || ConeOpp(x.w, x.c, gB, 50.0f, 4.5f)) return false;
@@ -852,20 +843,21 @@ bool L691ef0(const Ctx& x) {
     if (Sgn(Fold180(x.dir - bc)) != Sgn(d)) return false;
   }
   const float bP = PBrg(x.B, x.P);
-  const float a1 = PBrg(x.B, {G.x, kF2 + 0.5f}), a2 = PBrg(x.B, {G.x, -(kF2 + 0.5f)});
+  const float a1 = PBrg(x.B, {G.x, pesGoalInnerHalfWidth + 0.5f}),
+                 a2 = PBrg(x.B, {G.x, -(pesGoalInnerHalfWidth + 0.5f)});
   auto within = [&](float a, float b) { return bP >= std::min(a, b) && bP <= std::max(a, b); };
   return within(a1, gB) || within(a2, gB);
 }
 // s2 #2. Z = the slot point.
 bool L692fe0(const Ctx& x) {
-  if (std::fabs(x.B.z - x.P.z) < 13.0f || std::fabs(x.P.z) < kF7 - 5.0f) return false;
-  if (x.s * x.P.x < kF6 - 10.0f) return false;
+  if (std::fabs(x.B.z - x.P.z) < 13.0f || std::fabs(x.P.z) < pesPenaltyAreaHalfWidth - 5.0f) return false;
+  if (x.s * x.P.x < pesPenaltyAreaLineX - 10.0f) return false;
   if (!Valid(x.q)) return true;
   const PlayerFacts& q = x.w.p[x.q];
   const float b = PBrg(q.pos, x.P);
   if (Ad(q.facing, b) < 55.0f || Ad(q.facing, x.dir) > 135.0f) return false;
   const Vec2f Z = x.me.slotPoint;
-  if (std::fabs(Z.z) > kF5 || std::fabs(Z.z - x.B.z) > 12.0f) return false;
+  if (std::fabs(Z.z) > pesGoalAreaHalfWidth || std::fabs(Z.z - x.B.z) > 12.0f) return false;
   if (!A720(x.B.x, Z.x, x.s, 3.0f)) return false;
   const std::vector<int> near = OppByDist(x.w, x.id);
   if (!near.empty() && Dist2(x.w.p[near[0]].pos, x.P) > 196.0f) return false;
@@ -873,36 +865,41 @@ bool L692fe0(const Ctx& x) {
 }
 // s2 #3.
 bool L690b90(const Ctx& x) {
-  if (std::fabs(x.B.z) > kF5 || x.s * x.B.x < kF6 || std::fabs(x.P.z) < kF7) return false;
-  const float r = Ramp(std::fabs(x.P.x), kF6, kF8);
+  if (std::fabs(x.B.z) > pesGoalAreaHalfWidth || x.s * x.B.x < pesPenaltyAreaLineX ||
+      std::fabs(x.P.z) < pesPenaltyAreaHalfWidth)
+    return false;
+  const float r = Ramp(std::fabs(x.P.x), pesPenaltyAreaLineX, pesPenaltySpotX);
   return std::fabs(x.B.z - x.P.z) >= 17.0f - 7.0f * r;
 }
 // s2 #4.
 bool L690630(const Ctx& x) {
-  if (x.s * x.B.x < kF8 || x.s * x.P.x < kF6) return false;
-  if (Sgn(x.P.z) == Sgn(x.B.z) && std::fabs(x.B.z) < std::fabs(x.P.z) && std::fabs(x.P.z) > kF5 &&
+  if (x.s * x.B.x < pesPenaltySpotX || x.s * x.P.x < pesPenaltyAreaLineX) return false;
+  if (Sgn(x.P.z) == Sgn(x.B.z) && std::fabs(x.B.z) < std::fabs(x.P.z) &&
+      std::fabs(x.P.z) > pesGoalAreaHalfWidth &&
       std::fabs(x.P.z - x.B.z) < 14.0f)
-    if (A720(x.s * kF4, x.P.x, x.s, -3.0f) || A720(x.s * kF4, x.B.x, x.s, -3.0f)) return true;
-  if (x.s * x.P.x < kF8 && !A720(x.B.x, x.P.x, x.s, -8.0f)) {
+    if (A720(x.s * pesGoalAreaLineX, x.P.x, x.s, -3.0f) ||
+        A720(x.s * pesGoalAreaLineX, x.B.x, x.s, -3.0f))
+      return true;
+  if (x.s * x.P.x < pesPenaltySpotX && !A720(x.B.x, x.P.x, x.s, -8.0f)) {
     const float tz = x.me.aim.z;
-    if (std::fabs(tz) < kF5 && std::fabs(tz - x.B.z) < 22.0f) return false;
+    if (std::fabs(tz) < pesGoalAreaHalfWidth && std::fabs(tz - x.B.z) < 22.0f) return false;
   }
   const float z = x.P.z;
-  return (std::fabs(z) >= kF7 || std::fabs(z - x.B.z) >= 20.0f) && std::fabs(x.B.z - z) >= 10.0f &&
-         Sgn(z) == Sgn(x.B.z);
+  return (std::fabs(z) >= pesPenaltyAreaHalfWidth || std::fabs(z - x.B.z) >= 20.0f) &&
+         std::fabs(x.B.z - z) >= 10.0f && Sgn(z) == Sgn(x.B.z);
 }
 // s2 #5. R = the run target.
 bool L690400(const Ctx& x) {
-  if (x.s * x.B.x < kF8 || std::fabs(x.B.z) < kF5 - 1.0f) return false;
-  if (Sgn(x.P.z) != Sgn(x.B.z) || std::fabs(x.P.z) > kF7) return false;
+  if (x.s * x.B.x < pesPenaltySpotX || std::fabs(x.B.z) < pesGoalAreaHalfWidth - 1.0f) return false;
+  if (Sgn(x.P.z) != Sgn(x.B.z) || std::fabs(x.P.z) > pesPenaltyAreaHalfWidth) return false;
   const Vec2f R = x.me.aim;
   if (Sgn(x.B.z) == Sgn(R.z) && std::fabs(x.B.z) <= std::fabs(R.z) && std::fabs(x.P.z) <= std::fabs(R.z))
-    return std::fabs(R.z) >= kF5 + 3.0f;
+    return std::fabs(R.z) >= pesGoalAreaHalfWidth + 3.0f;
   return false;
 }
 // s2 #6.
 bool L690cf0(const Ctx& x) {
-  if (x.tt < Frames(1.8f) || x.s * x.P.x < kF6 - 2.0f) return false;
+  if (x.tt < Frames(1.8f) || x.s * x.P.x < pesPenaltyAreaLineX - 2.0f) return false;
   if (Len(x.me.vel) > 0.9f * Per100(22.5f)) return false;
   if (x.D2() > 400.0f) return false;
   for (int o : OppByDist(x.w, x.id))
@@ -913,13 +910,13 @@ bool L690cf0(const Ctx& x) {
 }
 // s2 #7.
 bool L694650(const Ctx& x) {
-  if (x.s * x.P.x < kF6 || std::fabs(x.P.z) > kF2 + 2.0f) return false;
+  if (x.s * x.P.x < pesPenaltyAreaLineX || std::fabs(x.P.z) > pesGoalInnerHalfWidth + 2.0f) return false;
   if (Ad(x.dir, PVec(x.me.vel)) > 32.0f) return false;
   const float vMin = 0.8f * Per100(12.9f);
   if (Len(x.me.vel) < vMin || !Valid(x.q)) return false;
   if (Dist2(x.w.p[x.q].pos, x.B) > 9.0f) return false;
   if (std::fabs(x.P.z - x.B.z) < 5.0f) return false;
-  if (x.s * x.B.x < kF8 - 2.5f || x.D2() > 400.0f) return false;
+  if (x.s * x.B.x < pesPenaltySpotX - 2.5f || x.D2() > 400.0f) return false;
   if (A720(x.B.x, x.P.x, x.s, 1.0f)) return false;
   const int m = x.me.marker;
   if (!Valid(m)) return false;
@@ -940,8 +937,8 @@ bool L694650(const Ctx& x) {
 bool L693a20(const Ctx& x) {
   if (x.tt < Frames(1.2f) || !Beyond2(x.w, x.id, -3.5f)) return false;
   const Vec2f R = x.me.aim;
-  if (std::fabs(x.P.z) < kF7 + 3.0f) {
-    if (std::fabs(x.P.z - x.B.z) > 4.0f || std::fabs(x.P.z) < kF7 - 1.0f) return false;
+  if (std::fabs(x.P.z) < pesPenaltyAreaHalfWidth + 3.0f) {
+    if (std::fabs(x.P.z - x.B.z) > 4.0f || std::fabs(x.P.z) < pesPenaltyAreaHalfWidth - 1.0f) return false;
     if (std::fabs(x.P.z - R.z) > 4.0f && Sgn(R.z - x.P.z) == Sgn(-x.P.z)) return false;
   }
   if (std::fabs(x.P.x - x.B.x) < 8.0f || !A720(x.B.x, x.P.x, x.s, 0.0f)) return false;
@@ -956,7 +953,7 @@ bool L693a20(const Ctx& x) {
 }
 bool L693730(const Ctx& x, bool flag) {
   if (!flag || x.tt < Frames(2.2f) || !Beyond2(x.w, x.id, -2.5f)) return false;
-  if (x.D2() < 289.0f || std::fabs(x.P.z) < kF7 - 2.0f) return false;
+  if (x.D2() < 289.0f || std::fabs(x.P.z) < pesPenaltyAreaHalfWidth - 2.0f) return false;
   if (std::fabs(x.P.x - x.B.x) < 10.0f || !A720(x.B.x, x.P.x, x.s, 0.0f)) return false;
   const int m = x.me.marker;
   if (!Valid(m) || !A53da0(x.w, m, x.P, x.dir, 200.0f, 8.0f, 0.0f)) return false;
@@ -989,9 +986,9 @@ bool L68c050(const Ctx& x) { return x.tt >= Frames(2.5f) && std::sqrt(x.D2()) >=
 // s2 #16.
 bool L692ea0(const Ctx& x) {
   const float bx = x.s * x.B.x;
-  if (bx < kF6 - 5.0f) return false;
-  const float r = Ramp(bx, kF6 - 5.0f, kF6 + 2.0f);
-  if (std::fabs(x.me.aim.z) < kF7 - (3.0f * r + 3.0f)) return false;
+  if (bx < pesPenaltyAreaLineX - 5.0f) return false;
+  const float r = Ramp(bx, pesPenaltyAreaLineX - 5.0f, pesPenaltyAreaLineX + 2.0f);
+  if (std::fabs(x.me.aim.z) < pesPenaltyAreaHalfWidth - (3.0f * r + 3.0f)) return false;
   return std::fabs(x.B.z - x.P.z) >= 18.0f;
 }
 // s2 #18 / #19: SecondLine only.
@@ -1004,12 +1001,12 @@ bool L691a80(const Ctx& x) {
 // s2 #21.
 bool L68d0b0(const Ctx& x, bool flag) {
   if (!L643f50(x.w, x.t)) return false;
-  if (x.s * x.P.x < kF6 - 1.0f || std::fabs(x.P.z) < kF5 + 2.0f || std::fabs(x.me.aim.z) < kF5)
+  if (x.s * x.P.x < pesPenaltyAreaLineX - 1.0f || std::fabs(x.P.z) < pesGoalAreaHalfWidth + 2.0f || std::fabs(x.me.aim.z) < pesGoalAreaHalfWidth)
     return false;
-  if (flag && (std::fabs(x.P.z) < kF7 || A720(x.B.x, x.P.x, x.s, 7.0f) || x.D2() > 144.0f))
+  if (flag && (std::fabs(x.P.z) < pesPenaltyAreaHalfWidth || A720(x.B.x, x.P.x, x.s, 7.0f) || x.D2() > 144.0f))
     return false;
   if (std::fabs(x.P.z - x.B.z) < 3.0f || std::fabs(x.B.z) < std::fabs(x.P.z) ||
-      std::fabs(x.B.z) < kF7 + 1.5f || x.s * x.B.x > kF8)
+      std::fabs(x.B.z) < pesPenaltyAreaHalfWidth + 1.5f || x.s * x.B.x > pesPenaltySpotX)
     return true;
   // ponytail: 44e020 (the T+0xc060 per-player value) is undecoded; taken as
   // 60, so this test passes on.
@@ -1026,9 +1023,9 @@ bool L68d0b0(const Ctx& x, bool flag) {
       for (int j = x.t * kSlots; j < x.t * kSlots + kSlots; ++j) {
         if (j == x.id || j == r || !x.w.p[j].active) continue;
         const Vec2f jp = x.w.p[j].pos;
-        if (x.s * jp.x < kF6 - 5.0f) return true;
+        if (x.s * jp.x < pesPenaltyAreaLineX - 5.0f) return true;
         if (Sgn(x.P.z - x.B.z) == Sgn(jp.z - x.B.z) &&
-            (x.w.p[j].state == kCenteringGet || (x.s * jp.x > kF6 && std::fabs(jp.z) < kF5)))
+            (x.w.p[j].state == kCenteringGet || (x.s * jp.x > pesPenaltyAreaLineX && std::fabs(jp.z) < pesGoalAreaHalfWidth)))
           return false;
       }
       return true;
@@ -1052,7 +1049,7 @@ bool L690960(const Ctx& x) {
 }
 // s3 #8 (cls != 0x13).
 bool L693ef0(const Ctx& x) {
-  if (x.s * x.P.x < kF8 || std::fabs(x.P.z) < kF2 + 1.5f) return false;
+  if (x.s * x.P.x < pesPenaltySpotX || std::fabs(x.P.z) < pesGoalInnerHalfWidth + 1.5f) return false;
   if (std::fabs(x.B.z) > std::fabs(x.P.z) || std::fabs(x.P.z - x.B.z) < 6.0f) return false;
   std::vector<int> mates;
   for (int j = x.t * kSlots; j < x.t * kSlots + kSlots; ++j)
@@ -1068,32 +1065,32 @@ bool L693ef0(const Ctx& x) {
 }
 // s3 #10.
 bool L68d730(const Ctx& x) {
-  if (x.s * x.B.x < kF8 || std::fabs(x.B.z) < kF5 || std::fabs(x.B.z) > kF7) return false;
+  if (x.s * x.B.x < pesPenaltySpotX || std::fabs(x.B.z) < pesGoalAreaHalfWidth || std::fabs(x.B.z) > pesPenaltyAreaHalfWidth) return false;
   const float n = Frames(0.3f) / kPesFps;
   const Vec2f Q{x.P.x + n * x.me.vel.x, x.P.z + n * x.me.vel.z};
   if (Sgn(Q.z) != Sgn(x.B.z)) return false;
   auto inChannel = [&](Vec2f v) {
-    return x.s * v.x > kF8 && std::fabs(v.z) > kF5 && std::fabs(v.z) < kF7;
+    return x.s * v.x > pesPenaltySpotX && std::fabs(v.z) > pesGoalAreaHalfWidth && std::fabs(v.z) < pesPenaltyAreaHalfWidth;
   };
   return inChannel(Q) || inChannel(x.me.aim);
 }
 // s3 #11.
 bool L68fc70(const Ctx& x) {
-  if (x.s * x.B.x < kF8) return false;
+  if (x.s * x.B.x < pesPenaltySpotX) return false;
   const Vec2f A = x.me.aim;
   if (Sgn(A.z) == Sgn(x.B.z)) return false;
-  return std::fabs(A.z) >= kF5 && std::fabs(x.B.z - A.z) >= 8.0f;
+  return std::fabs(A.z) >= pesGoalAreaHalfWidth && std::fabs(x.B.z - A.z) >= 8.0f;
 }
 // s3 #12: the c064 value taken as 0 (passes).
 bool L68cde0(const Ctx& x) {
   const Vec2f A = x.me.aim;
-  if (std::fabs(A.z) < kF7 - 2.0f) return false;
+  if (std::fabs(A.z) < pesPenaltyAreaHalfWidth - 2.0f) return false;
   for (int j = x.t * kSlots; j < x.t * kSlots + kSlots; ++j) {
     if (j == x.id || !x.w.p[j].active || x.w.p[j].state != kOverlap) continue;
     const Vec2f jp = x.w.p[j].pos;
     if (Sgn(jp.z) == Sgn(A.z)) {
       if (std::fabs(jp.x - x.P.x) >= 6.0f && !Beyond(x.w, j, -7.0f))
-        return kF6 - 10.0f < x.s * jp.x;
+        return pesPenaltyAreaLineX - 10.0f < x.s * jp.x;
       return true;
     }
   }
@@ -1101,13 +1098,13 @@ bool L68cde0(const Ctx& x) {
 }
 // s3 #13 (marks 0).
 bool L68cc40(const Ctx& x) {
-  if (x.tt < Frames(0.3f) || x.s * x.P.x < kF6) return false;
+  if (x.tt < Frames(0.3f) || x.s * x.P.x < pesPenaltyAreaLineX) return false;
   if (!A720(x.B.x, x.P.x, x.s, 3.0f) || x.D2() < 144.0f) return false;
   return Beyond(x.w, x.id, -1.0f);
 }
 // b4 #15 -> 694ee0 (decompiled for this port).
 bool L694ee0(const Ctx& x, bool flag) {
-  if (!Valid(x.q) || std::fabs(x.B.z) < kF7) return false;
+  if (!Valid(x.q) || std::fabs(x.B.z) < pesPenaltyAreaHalfWidth) return false;
   const PlayerFacts& q = x.w.p[x.q];
   const float k = flag ? 0.8f : 0.0f, a = flag ? 2.0f : 0.0f;
   if (Ad(x.dir, PVec(q.vel)) > 85.0f || Ad(x.dir, q.facing) > 85.0f) return false;
@@ -1116,12 +1113,12 @@ bool L694ee0(const Ctx& x, bool flag) {
          !ConeOpp(x.w, x.q, x.dir, a + 120.0f, k + 6.0f);
 }
 bool L68ac40(const Ctx& x, Vec2f pos, bool flag) {
-  if (!Valid(x.q) || std::fabs(x.B.z) < kF7) return false;
+  if (!Valid(x.q) || std::fabs(x.B.z) < pesPenaltyAreaHalfWidth) return false;
   if (Sgn(x.P.z) != Sgn(x.B.z) || std::fabs(x.P.z) > std::fabs(x.B.z)) return false;
   const float k = flag ? 0.8f : 0.0f;
   if (A720(x.B.x, x.P.x, x.s, 5.0f + k) && !A720(x.w.lineX[x.opp], x.B.x, x.s, -10.0f - k))
     return false;
-  const float lim = x.s * x.B.x <= kF6 - 12.0f ? kF7 + 0.8f - k : kF5 + 0.8f - k;
+  const float lim = x.s * x.B.x <= pesPenaltyAreaLineX - 12.0f ? pesPenaltyAreaHalfWidth + 0.8f - k : pesGoalAreaHalfWidth + 0.8f - k;
   if (std::fabs(pos.z) < lim) return false;
   return L694ee0(x, flag);
 }
@@ -1134,7 +1131,7 @@ bool L643f50(const RunWorld& w, int team) {
   if (!Valid(c) || TeamOf(c) != team) return false;
   const float s = w.s[team];
   const Vec2f cp = w.p[c].pos;
-  if ((!L643a30(w, team, c) && s * cp.x < kF6 - 6.0f) || std::fabs(cp.z) < kF7 + 2.0f) return false;
+  if ((!L643a30(w, team, c) && s * cp.x < pesPenaltyAreaLineX - 6.0f) || std::fabs(cp.z) < pesPenaltyAreaHalfWidth + 2.0f) return false;
   const float dir = TDir(w, team);
   if (ConeOpp(w, c, dir, 110.0f, 15.0f) || ConeOpp(w, c, dir, 165.0f, 5.5f) ||
       ConeOpp(w, c, dir, 220.0f, 3.0f) || ConeOpp(w, c, dir, 265.0f, 2.2f))
@@ -1149,8 +1146,8 @@ bool L643a30(const RunWorld& w, int team, int) {
   const float s = w.s[team];
   const float A = TDir(w, team);
   const float vb = PVec(w.p[c].vel);
-  if (s * w.ball.x < kF6 && Ad(vb, A) > 65.0f) return false;
-  if (s * w.ball.x < kF6 && std::fabs(w.ball.z) < kF7) return false;
+  if (s * w.ball.x < pesPenaltyAreaLineX && Ad(vb, A) > 65.0f) return false;
+  if (s * w.ball.x < pesPenaltyAreaLineX && std::fabs(w.ball.z) < pesPenaltyAreaHalfWidth) return false;
   return true;
 }
 
@@ -1162,7 +1159,7 @@ bool CommonStop(const RunWorld& w, int id, int run) {
   // Head (off-ball 2.2).
   if (!w.openPlay || !w.possession[x.t]) return true;
   if (w.carrier == id) return true;
-  if (x.s * x.P.x > kF4 + 2.5f) return true;
+  if (x.s * x.P.x > pesGoalAreaLineX + 2.5f) return true;
   // 1: the last ball event is a pass to him.
   if (EvKick(w.ev) && w.ev.target == id) {
     if (w.ev.kind != 2) return true;
@@ -1561,7 +1558,7 @@ MaskReject TeamChanceMayRunReject(const RunWorld& w, int team) {
   // The end-band test: `s·MA+0x2482c.x <= MA+0x2aa8 - 10` (0x142588210), where
   // MA+0x2aa8's entry is the pitch half length (F0).
   constexpr float kEndBand_m = 10.0f;  // 0x142588210
-  if (s * w.ball.x > kF0 - kEndBand_m && std::fabs(w.ball.z) > kF7) return kMaskTeamMayNotRun;
+  if (s * w.ball.x > pesFieldHalfLength - kEndBand_m && std::fabs(w.ball.z) > pesPenaltyAreaHalfWidth) return kMaskTeamMayNotRun;
   return kMaskPass;
 }
 bool TeamChanceMayRun(const RunWorld& w, int team) {
@@ -1622,7 +1619,7 @@ uint32_t AttackSlotMask(const RunWorld& w, int team, int L) {
   const float s = w.s[team];
   int beyond = 0;
   for (int i : FrontFirst(w, team)) {
-    if (s * w.p[i].pos.x < kPenaltyAreaLineX_m) break;
+    if (s * w.p[i].pos.x < pesPenaltyAreaLineX) break;
     ++beyond;
   }
   ahead = std::max(ahead, beyond);
@@ -1652,7 +1649,7 @@ uint32_t AttackSlotMask(const RunWorld& w, int team, int L) {
       mask |= 1u << slot;
       continue;
     }
-    float v = kFieldHalfLength_m - s * w.p[i].pos.x;
+    float v = pesFieldHalfLength - s * w.p[i].pos.x;
     const float d = std::sqrt(Dist2(w.p[i].pos, w.ball));
     const float near = d <= 10.0f ? 1.0f : d < 25.0f ? (d - 25.0f) / -15.0f : 0.0f;
     v -= near * 5.0f;
@@ -1691,15 +1688,15 @@ MaskReject ChanceMaskReject(const OffBallConstants& k, const RunWorld& w, int id
   // 593430 (raw 0x1405935c4: k = -0.1 @0x14259d648): not already on the line.
   if (Beyond2(w, id, -0.1f)) return kMaskOnTheLine;
   // Inside the box zone only with an opponent within 6.5 m (raw 0x14059373d).
-  if (!(x.s * x.P.x <= kF6 - 3.0f || std::fabs(x.P.z) >= kF5 + 1.5f || OppNear(w, id, 6.5f)))
+  if (!(x.s * x.P.x <= pesPenaltyAreaLineX - 3.0f || std::fabs(x.P.z) >= pesGoalAreaHalfWidth + 1.5f || OppNear(w, id, 6.5f)))
     return kMaskBoxZone;
-  if (x.s * x.P.x > kF4) return kMaskGoalArea;
+  if (x.s * x.P.x > pesGoalAreaLineX) return kMaskGoalArea;
   if (!L596240(x)) return kMaskRoleClass;
   // ponytail: 5a7d10 (carrier pass-aim records) is not applied; the special
   // lanes 60a750/608570/87a0/9350/8ac0 are not ported.
   // Generic lane: the attack-slot mask and the depth limit.
   if (me.state == kOverlap || !((slotMask >> slot) & 1u)) return kMaskSlotMask;
-  if (x.s * x.P.x > kF8) return kMaskDepth;
+  if (x.s * x.P.x > pesPenaltySpotX) return kMaskDepth;
   // FUN_1405938a0 is the mask's *team head*: the raw calls it once, before this
   // function's 11-slot loop (OBS mask.c:86, loop at mask.c:197-204), so its
   // verdict is shared by every slot. `teamMayRun` is the caller's result.
@@ -1777,7 +1774,7 @@ bool RunStop(const RunWorld& w, int id, int run) {
   const float minFrames = run == kSecondLine ? kPesFps : kChanceMinFrames;
   if (me.t < minFrames) return false;
   if (run == kCounter && CommonStop(w, id, run)) return true;
-  if (run == kCounter) return w.s[TeamOf(id)] * me.pos.x > kF8;
+  if (run == kCounter) return w.s[TeamOf(id)] * me.pos.x > pesPenaltySpotX;
   // Chance's AI class 0x13 veto (0x140607a60) is not reached: GF's aiClass is
   // the role class, 0..9.
   return CommonStop(w, id, run);
@@ -1798,11 +1795,11 @@ float SupportDistance_m(const SupportDistanceInput& in) {
   const float back = Ramp(180.0f - a, kSupportFwdFull_deg, kSupportFwdZero_deg);
   float d = kSupportBase_m + kSupportRangeGain_m * s + kSupportDeep_m * deep +
             (in.buildUpLong ? kSupportLong_m : 0.0f) * fwd * deep +
-            Ramp(in.ballX, kPenaltyAreaLineX_m, -kFieldHalfWidthHalf * kFieldHalfWidth_m) * back +
+            Ramp(in.ballX, pesPenaltyAreaLineX, -kFieldHalfWidthHalf * pesFieldHalfWidth) * back +
             kSupportWide_m *
-                Ramp(std::fabs(in.ballZ), kPenaltyAreaHalfWidth_m - kSupportWideBand_m,
-                     kPenaltyAreaHalfWidth_m + kSupportWideBand_m) *
-                Ramp(in.ballX, kPenaltyAreaLineX_m - kSupportBoxBand_m, kPenaltyAreaLineX_m);
+                Ramp(std::fabs(in.ballZ), pesPenaltyAreaHalfWidth - kSupportWideBand_m,
+                     pesPenaltyAreaHalfWidth + kSupportWideBand_m) *
+                Ramp(in.ballX, pesPenaltyAreaLineX - kSupportBoxBand_m, pesPenaltyAreaLineX);
   // ponytail: the holder-state min 5 and the f0/f1 (+5 floor 9 / -5) flags are
   // undecoded (O5); the plain floor applies.
   return std::max(d, kSupportFloor_m);

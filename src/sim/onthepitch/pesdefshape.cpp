@@ -24,8 +24,8 @@ struct ShapeVa {
 
 ShapeField ShapeFieldFromPitch() {
   ShapeField f{};
-  f.halfLength_m = pitchHalfW;
-  f.halfWidth_m = pitchHalfH;
+  f.halfLength_m = pesFieldHalfLength;
+  f.halfWidth_m = pesFieldHalfWidth;
   // F[6]: the own penalty-area line.
   f.ownBox_m = pesPenaltyAreaLineX;
   // F[4]: the goal-area line - the deepest the line is ever allowed to sit.

@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cmath>
 
+#include "gametypes.hpp"
 #include "onthepitch/peskeeper.hpp"
 
 namespace {
@@ -620,4 +621,15 @@ TEST(PesKeeper, LoadsTheRealValuesFromTheInstall) {
   // needs the biggest win before he will go, an Offensive GK (1.1) the least.
   EXPECT_LT(k->rushOffensiveFactor, k->rushNoStyleFactor);
   EXPECT_LT(k->rushNoStyleFactor, k->rushDefensiveFactor);
+}
+
+// The keeper's marks are the FieldInfo table, not copies of GF's own geometry.
+TEST(PesKeeper, FieldMarksAreTheFieldInfoTable) {
+  const pes::KeeperFieldMarks marks = pes::KeeperFieldMarksFromFieldInfo();
+  EXPECT_FLOAT_EQ(marks.halfLength_m, pesFieldHalfLength);
+  EXPECT_FLOAT_EQ(marks.goalHalfWidth_m, pesGoalInnerHalfWidth);
+  EXPECT_FLOAT_EQ(marks.goalAreaLineX_m, pesGoalAreaLineX);
+  EXPECT_FLOAT_EQ(marks.goalAreaHalfWidth_m, pesGoalAreaHalfWidth);
+  EXPECT_FLOAT_EQ(marks.boxLineX_m, pesPenaltyAreaLineX);
+  EXPECT_FLOAT_EQ(marks.boxHalfWidth_m, pesPenaltyAreaHalfWidth);
 }

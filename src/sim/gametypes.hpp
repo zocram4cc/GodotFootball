@@ -70,35 +70,40 @@ const float pitchFullHalfW = 60;  // including 'rim'
 const float pitchFullHalfH = 40;
 const float lineHalfW = 0.06f;
 
-// Checked against PES's live FieldInfo (docs/re/pes-re-stadium-camera.md 2):
-// PES gives 52.56 / 34.06 to the outer line edge, i.e. 52.5 / 34 line centres
-// with 0.12 m lines; goal 3.66 inner half-width and 2.44 height, i.e. 3.72 and
-// 2.50 to post/crossbar centres, which these values approximate. Goal depth
-// differs: PES's frame is 2.14 m deep and its net 2.90 m (goal.fmdl / net
-// AABBs), GF 2.55; revisit with the PES ball/net model.
-const float goalDepth = 2.55f;
-const float goalHeight = 2.5f;
+// PES 2021's FieldInfo: the 18 floats F0..F17 the Denuvo VM builds at match
+// start. This is the one table: every PES-derived pitch, goal and net mark reads
+// these names, and no copy is kept elsewhere. The record and its live proof are in
+// docs/re/pes-re-fieldinfo.md section 1. Metres; x runs along the pitch from the
+// centre, z across it. Each comment gives the index PES's code uses (F[k] sits at
+// block + 4 + 4k).
+constexpr float pesFieldHalfLength = 52.5599976f;  // F0 (0x42523D70): centre to the outer edge of the goal line
+constexpr float pesFieldHalfWidth = 34.0599976f;   // F1 (0x42083D70): centre to the outer edge of the touchline
+constexpr float pesGoalInnerHalfWidth = 3.66f;    // F2: centre to the inside of a post
+constexpr float pesGoalInnerHeight = 2.44f;       // F3: ground to the underside of the bar
+constexpr float pesGoalAreaLineX = 47.0599976f;    // F4 (0x423C3D70): goal-area line, F0 - 5.5
+constexpr float pesGoalAreaHalfWidth = 9.16f;     // F5: goal-area half-width, F2 + 5.5
+constexpr float pesPenaltyAreaLineX = 36.14f;     // F6: penalty-area line, 16.42 m from the goal line
+constexpr float pesPenaltyAreaHalfWidth = 20.1199989f;  // F7 (0x41A0F5C2): penalty-area half-width
+constexpr float pesPenaltySpotX = 41.5599976f;      // F8 (0x42263D70): penalty mark, F0 - 11
+constexpr float pesNetHeight = 2.5f;              // F9: net height, F3 + F15 / 2
+// F10..F12: open. No reader in the image yet; see docs/re/pes-re-fieldinfo.md FI-01.
+constexpr float pesFieldF10 = 1.109375f;
+constexpr float pesFieldF11 = 2.33984375f;
+constexpr float pesFieldF12 = 51.171875f;
+constexpr float pesNetRoofBackX = 54.3203125f;    // F13: the net's roof-back x
+constexpr float pesNetFloorBackX = 54.43359375f;    // F14 (0x4259BC00): the net's floor-back x, the net gate's behind-the-post point
+constexpr float pesCrossbarThickness = 0.12f;     // F15
+constexpr float pesPostThickness = 0.12f;         // F16
+constexpr float pesCircleRadius = 9.15f;          // F17: centre circle and the penalty arc
+
+// GF's own goal geometry, which stands in for PES inputs the table does not feed yet.
+// ponytail: the net's post centre. PES's posts are F2 (inner, 3.66) and F2 + F16/2
+// (centre, 3.72); the ball, keeper and net gates move to the table in the net-model commit.
 const float goalHalfWidth = 3.7f;
-// Law 1: the goal area runs 5.5 m beyond the inside of each post of a 7.32 m
-// goal; PES's FieldInfo +0x18 holds the same 9.16.
-const float goalAreaHalfWidth = 9.16f;
-// Law 1's goal: 7.32 x 2.44 m inside the frame, posts and bar 12 cm thick.
-// PES's FieldInfo F2/F3/F15/F16 hold exactly these; the ball's frame
-// collision (pesballcollision.hpp) is built from them.
-const float goalInnerHalfWidth = 3.66f;
-const float goalInnerHeight = 2.44f;
-const float goalFrameThickness = 0.12f;
-// PES 2021's FieldInfo marks (docs/re/pes-re-fieldinfo.md 2, 5), as x along
-// the pitch from the centre. FieldInfo is built at run time by the Denuvo VM
-// and no VA holds it (report 4), so these are named constants, read live.
-// The penalty area is 8 cm inside Law 1 on both axes in PES.
-const float pesGoalAreaLineX = 47.06f;         // F4
-const float pesPenaltyAreaLineX = 36.14f;      // F6
-const float pesPenaltyAreaHalfWidth = 20.12f;  // F7
-const float pesPenaltySpotX = 41.56f;          // F8
-const float pesCircleRadius = 9.15f;           // F17: centre circle and the box arc
-// F14: the net's floor-back x, the far end of the goal net's slab (the net
-// gate's behind-the-post point).
-const float pesNetFloorBackX = 54.43359f;
+// ponytail: GF's net depth. PES's net backs are F13 and F14, 1.76 m and 1.87 m behind
+// the goal line; replaced by the table in the net-model commit.
+const float goalDepth = 2.55f;
+// The crossbar top: F3 + F15 / 2, which equals F9.
+constexpr float goalHeight = pesGoalInnerHeight + pesCrossbarThickness * 0.5f;
 
 #endif

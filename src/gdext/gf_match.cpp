@@ -136,7 +136,7 @@ Vector3 GfMatch::ball_position() const { return match_ ? ToFox(match_->GetBall()
 int GfMatch::match_time_ms() const { return match_ ? int(match_->GetMatchTime_ms()) : 0; }
 int GfMatch::score(int team) const { return match_ && (team == 0 || team == 1) ? match_->GetScore(team) : 0; }
 
-double GfMatch::field_half_width() const { return pitchHalfH + lineHalfW; }
-double GfMatch::field_half_length() const { return pitchHalfW + lineHalfW; }
+double GfMatch::field_half_width() const { return pesFieldHalfWidth; }
+double GfMatch::field_half_length() const { return pesFieldHalfLength; }
 
 }  // namespace godot

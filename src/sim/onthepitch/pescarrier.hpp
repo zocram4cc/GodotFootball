@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include "gametypes.hpp"
 #include "pes/exe.hpp"
 #include "pesrandom.hpp"
 
@@ -333,9 +334,9 @@ struct PassForwardInput {
   float planAngle_deg = 0.0f;    // plan.+0xC0
   float attackAngle_deg = 0.0f;  // team+0x250
   float attackSign = 1.0f;
-  float halfLen_m = 52.5f;
-  float goalHalfWidth_m = 3.7f;
-  float goalAreaHalfWidth_m = 9.16f;
+  float halfLen_m = pesFieldHalfLength;
+  float goalHalfWidth_m = pesGoalInnerHalfWidth;
+  float goalAreaHalfWidth_m = pesGoalAreaHalfWidth;
   float planWideSide = 0;  // plan+0xC4 == 3: the same-touchline-side condition
   // 0x140a4c8e0's answer for the target mate: whether he can be reached on the
   // ground at all. ponytail: the helper itself is not decoded; the caller sets

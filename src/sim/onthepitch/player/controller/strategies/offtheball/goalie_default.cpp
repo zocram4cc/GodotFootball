@@ -163,12 +163,7 @@ void GoalieDefaultStrategy::RequestInput(const MentalImage* mentalImage, Vector3
         // The shuffle's Range0(6) on slot 1 of this keeper's own generator.
         KeeperShuffleDraw(),
     };
-    const pes::KeeperFieldMarks marks{pitchHalfW,
-                                      goalHalfWidth,
-                                      pitchHalfW - SetPieceLaws::kGoalAreaDepth,
-                                      SetPieceLaws::kGoalAreaHalfWidth,
-                                      pitchHalfW - SetPieceLaws::kAreaDepth,
-                                      SetPieceLaws::kAreaHalfWidth};
+    const pes::KeeperFieldMarks marks = pes::KeeperFieldMarksFromFieldInfo();
     const pes::KeeperSpot spot =
         pes::PesKeeperBasePosition(in, marks, match->GetPesKeeperConstants());
     targetPos = Vector3(spot.x, spot.z, 0.0f);

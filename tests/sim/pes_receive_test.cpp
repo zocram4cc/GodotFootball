@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <vector>
 
+#include "gametypes.hpp"
 #include "onthepitch/pesreceive.hpp"
 
 namespace {
@@ -139,7 +140,7 @@ TEST(PesReceiveShotThrough, AFastShotAtTheGoalIsLetThrough) {
   in.ballX = 0.0f;
   in.ballY = 0.0f;
   in.goalX = 50.0f;
-  in.goalHalfWidth = 3.66f;
+  in.goalHalfWidth = pesGoalInnerHalfWidth;
   in.ballVelX = 20.0f;
   in.ballVelY = 0.0f;
   EXPECT_TRUE(pes::ShotRunsThrough(c, in));

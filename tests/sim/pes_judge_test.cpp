@@ -5,6 +5,7 @@
 
 #include <cstdlib>
 
+#include "gametypes.hpp"
 #include "onthepitch/pesjudge.hpp"
 
 namespace {
@@ -316,7 +317,8 @@ TEST(PesRefereeSpotInstall, ReproducesTheLiveMarks) {
   // PES's live FieldInfo (docs/re/pes-re-stadium-camera.md 2) and the live
   // restarts of docs/re/pes-re-setpiece-choreography.md 8.2 and
   // pes-re-protection.md 3.3, to the centimetre they were sampled at.
-  constexpr pes::FieldMarks PES_FIELD{52.56f, 9.16f, 36.14f, 20.12f};
+  constexpr pes::FieldMarks PES_FIELD{pesFieldHalfLength, pesGoalAreaHalfWidth,
+                                      pesPenaltyAreaLineX, pesPenaltyAreaHalfWidth};
   constexpr float SAMPLE_TOLERANCE_M = 0.01f;
   const auto at = [&](e_SetPiece kind, pes::PitchSpot restart, int dir) {
     return *pes::ChiefRefereeSpot(kind, restart, dir, PES_FIELD, k->refereeSpot);

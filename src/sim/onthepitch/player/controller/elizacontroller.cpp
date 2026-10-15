@@ -322,12 +322,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         // goal attacks +x, so his own half is -x: the marks are magnitudes and
         // `attackDir` carries the sign.
         const int attackDir = -team->GetSide();
-        const pes::KeeperFieldMarks marks{pitchHalfW,
-                                          goalHalfWidth,
-                                          pitchHalfW - SetPieceLaws::kGoalAreaDepth,
-                                          SetPieceLaws::kGoalAreaHalfWidth,
-                                          pitchHalfW - SetPieceLaws::kAreaDepth,
-                                          SetPieceLaws::kAreaHalfWidth};
+        const pes::KeeperFieldMarks marks = pes::KeeperFieldMarksFromFieldInfo();
         const pes::DistributionPoint carry = pes::PesAfterCatchCarry(
             player->GetPosition().coords[0], player->GetPosition().coords[1], attackDir, marks,
             keeperConstants);
@@ -549,12 +544,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
                                    keeperConstants);
     // The lateral limit on the point where he meets the ball: F5 for a
     // Defensive GK, F7 for an Offensive one, the midpoint for no style.
-    const pes::KeeperFieldMarks marks{pitchHalfW,
-                                      goalHalfWidth,
-                                      pitchHalfW - SetPieceLaws::kGoalAreaDepth,
-                                      SetPieceLaws::kGoalAreaHalfWidth,
-                                      pitchHalfW - SetPieceLaws::kAreaDepth,
-                                      SetPieceLaws::kAreaHalfWidth};
+    const pes::KeeperFieldMarks marks = pes::KeeperFieldMarksFromFieldInfo();
     const float lateralLimit_m =
         pes::PesKeeperRushLateralLimit_m(offensiveStyle, defensiveStyle, marks);
     keeperRushing = rushing;
@@ -1229,10 +1219,9 @@ bool ElizaController::_DodgeNetCandidate(int* kind) {
   gate.moveX_mps = mov.coords[0];
   gate.moveY_mps = mov.coords[1];
   gate.moveZ_mps = mov.coords[2];
-  // FieldInfo F[0], F[2] and F[14] (pes-re-fieldinfo.md §1): the goal line's
-  // outer edge is the half length plus half a line, the posts are the goal's
-  // inner half-width, and the net's back is pesNetFloorBackX.
-  const pes::GoalMarks marks{pitchHalfW + lineHalfW, goalInnerHalfWidth, pesNetFloorBackX};
+  // FieldInfo F[0], F[2] and F[14] (pes-re-fieldinfo.md §1): the goal line's outer
+  // edge, the posts' inner half-width, and the net's floor-back x.
+  const pes::GoalMarks marks{pesFieldHalfLength, pesGoalInnerHalfWidth, pesNetFloorBackX};
   if (!pes::NetDodgeGate(k, marks, gate)) return false;
   const float speed = mov.GetLength() * 3.6f;
   auto clip = pes::NetSelector(match->GetPesAnimetable(), k, speed > 22.0f);
@@ -1269,7 +1258,7 @@ bool ElizaController::_DodgePostCandidate(int* kind) {
   const Vector3 ballNow = _mentalImage->GetBallPrediction(0).Get2D();
   gate.ballX_m = ballNow.coords[0];
   gate.ballY_m = ballNow.coords[1];
-  const pes::GoalMarks marks{pitchHalfW + lineHalfW, goalInnerHalfWidth, pesNetFloorBackX};
+  const pes::GoalMarks marks{pesFieldHalfLength, pesGoalInnerHalfWidth, pesNetFloorBackX};
   if (!pes::PostDodgeGate(k, marks, gate)) return false;
 
   // The selector is unchanged in this commit: its own-post anchor and the
@@ -2034,7 +2023,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
                              PlayerSkills::Has(skills, PlayerSkills::Skill::DippingShots);
   const pes::ShootZone zone = pes::ComputeShootZone(ballPos.coords[0], ballPos.coords[1],
                                                    attackSign, finishing, longShotSkill,
-                                                   pitchHalfW, goalHalfWidth, carrier);
+                                                   pesFieldHalfLength, pesGoalInnerHalfWidth, carrier);
 
   if (rethink) {
     // The plan (report 4.4): rolled whenever its own conditions hold, in the
@@ -2185,8 +2174,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
                               // stands in for it.
     in.imageState = 0;  // ponytail: the image state (+0x32B0+8) has no GF
                         // counterpart; state 0 is the neutral one.
-    in.halfLen_m = pitchHalfW;
-    in.goalHalfWidth_m = goalHalfWidth;
+    in.halfLen_m = pesFieldHalfLength;
+    in.goalHalfWidth_m = pesGoalInnerHalfWidth;
     in.goalAreaHalfWidth_m = SetPieceLaws::kAreaHalfWidth;
     in.mateLaneOk = true;  // ponytail: 0x140a4c8e0 is not decoded.
 

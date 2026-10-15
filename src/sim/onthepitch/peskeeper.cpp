@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include "gametypes.hpp"
 
 namespace pes {
 namespace {
@@ -356,6 +357,11 @@ bool PesKeeperRushRaceWins(float keeperTime_s, float opponentTime_s, bool rushin
   // OBS 0x1425c4c10; the 250-frame bound is looser).
   if (k.rushMaxBallTime_s < keeperTime_s) return false;
   return opponentTime_s > factor * keeperTime_s - (rushing ? k.rushHysteresis_s : 0.0f);
+}
+
+KeeperFieldMarks KeeperFieldMarksFromFieldInfo() {
+  return KeeperFieldMarks{pesFieldHalfLength,  pesGoalInnerHalfWidth, pesGoalAreaLineX,
+                          pesGoalAreaHalfWidth, pesPenaltyAreaLineX,  pesPenaltyAreaHalfWidth};
 }
 
 }  // namespace pes
