@@ -322,12 +322,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         // goal attacks +x, so his own half is -x: the marks are magnitudes and
         // `attackDir` carries the sign.
         const int attackDir = -team->GetSide();
-        const pes::KeeperFieldMarks marks{pitchHalfW,
-                                          goalHalfWidth,
-                                          pitchHalfW - SetPieceLaws::kGoalAreaDepth,
-                                          SetPieceLaws::kGoalAreaHalfWidth,
-                                          pitchHalfW - SetPieceLaws::kAreaDepth,
-                                          SetPieceLaws::kAreaHalfWidth};
+        const pes::KeeperFieldMarks marks = pes::KeeperFieldMarksFromFieldInfo();
         const pes::DistributionPoint carry = pes::PesAfterCatchCarry(
             player->GetPosition().coords[0], player->GetPosition().coords[1], attackDir, marks,
             keeperConstants);
@@ -549,12 +544,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
                                    keeperConstants);
     // The lateral limit on the point where he meets the ball: F5 for a
     // Defensive GK, F7 for an Offensive one, the midpoint for no style.
-    const pes::KeeperFieldMarks marks{pitchHalfW,
-                                      goalHalfWidth,
-                                      pitchHalfW - SetPieceLaws::kGoalAreaDepth,
-                                      SetPieceLaws::kGoalAreaHalfWidth,
-                                      pitchHalfW - SetPieceLaws::kAreaDepth,
-                                      SetPieceLaws::kAreaHalfWidth};
+    const pes::KeeperFieldMarks marks = pes::KeeperFieldMarksFromFieldInfo();
     const float lateralLimit_m =
         pes::PesKeeperRushLateralLimit_m(offensiveStyle, defensiveStyle, marks);
     keeperRushing = rushing;

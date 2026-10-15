@@ -153,7 +153,7 @@ struct DistributionPoint {
   float z;
 };
 
-// The FieldInfo marks the keeper reads (report 10: F[i] = *(G+0x2aa8) + 4*i).
+// The FieldInfo marks the keeper reads (report 10), taken from the FieldInfo table.
 struct KeeperFieldMarks {
   float halfLength_m;         // F0 52.56
   float goalHalfWidth_m;      // F2  3.66
@@ -162,6 +162,9 @@ struct KeeperFieldMarks {
   float boxLineX_m;           // F6 36.14
   float boxHalfWidth_m;       // F7 20.12
 };
+
+// The keeper's marks from the FieldInfo table (gametypes.hpp): F0, F2, F4..F7.
+KeeperFieldMarks KeeperFieldMarksFromFieldInfo();
 
 // Where he carries the caught ball first (report 10.6.2's first two lines):
 // 4 m up-field, never nearer than 1 m inside the box line, and pulled 2 m toward
