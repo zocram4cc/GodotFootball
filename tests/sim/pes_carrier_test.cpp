@@ -125,6 +125,7 @@ pes::CarrierConstants Synthetic() {
   k.statSpan = 29.0f;
   k.breakthroughBase = 70.0f;
   k.breakthroughComBase = 20.0f;
+  k.breakthroughStatSpan = 20.0f;
   k.breakthroughStatGain = 15.0f;
   k.breakthroughCap = 70.0f;
   k.middleShotBase = 70.0f;
@@ -532,10 +533,10 @@ TEST(PesCarrierPassForward, GateOnPressureAndTheCloseBand) {
 
 // --- the plan order and its roll (report 4.4) ---
 
-TEST(PesCarrierPlan, PriorityOrderIsNineEightTwoThreeOneFourFiveSix) {
-  constexpr int EXPECTED[] = {9, 8, 2, 3, 1, 4, 5, 6};
-  static_assert(sizeof(pes::kPlanPriorityOrder) / sizeof(int) == 8);
-  for (int i = 0; i < 8; ++i) EXPECT_EQ(pes::kPlanPriorityOrder[i], EXPECTED[i]);
+TEST(PesCarrierPlan, PriorityOrderIsNineEightTwoThreeOneFourFiveSixSeven) {
+  constexpr int EXPECTED[] = {9, 8, 2, 3, 1, 4, 5, 6, 7};
+  static_assert(sizeof(pes::kPlanPriorityOrder) / sizeof(int) == 9);
+  for (int i = 0; i < 9; ++i) EXPECT_EQ(pes::kPlanPriorityOrder[i], EXPECTED[i]);
 }
 
 TEST(PesCarrierPlan, StartProbabilitiesFollowThePTable) {
@@ -706,6 +707,26 @@ TEST(PesCarrierInstall, TheZonesAndLaddersAreTheGamesOwn) {
   EXPECT_FLOAT_EQ(std::fmod(360.0f, k->dribbleDirections), 0.0f);
   EXPECT_LT(k->threatFalloff, 0.0f);
   EXPECT_GT(k->threatReachFloor_m, 0.0f);
+  // The plan P table's stat gains are read from the image, not left at zero:
+  // the synthetic set assigns them, so only this loader test can catch a
+  // missing load. At stat = floor + span the ramp is saturated, so each plan's
+  // score is its base plus exactly its own gain.
+  EXPECT_GT(k->breakthroughStatGain, 0.0f);
+  EXPECT_GT(k->crossStatGain, 0.0f);
+  EXPECT_FLOAT_EQ(pes::PlanStartProbability(pes::kPlanBreakthrough, *k, k->statFloor + k->statSpan,
+                                            false, true, false),
+                  k->breakthroughComBase + k->breakthroughStatGain);
+  EXPECT_FLOAT_EQ(pes::PlanStartProbability(pes::kPlanCross, *k, k->statFloor + k->statSpan, true,
+                                            false, false),
+                  k->crossBase + k->crossStatGain);
+  // Breakthrough's ramp divisor is its own (0x14259be1c, where the shared
+  // span is 0x1425a9460): its term saturates at stat 90, the shared span's at
+  // 99, so only Breakthrough is at full gain by stat 90.
+  EXPECT_LT(k->breakthroughStatSpan, k->statSpan);
+  EXPECT_FLOAT_EQ(pes::PlanStartProbability(pes::kPlanBreakthrough, *k,
+                                            k->statFloor + k->breakthroughStatSpan, false, true,
+                                            false),
+                  k->breakthroughComBase + k->breakthroughStatGain);
 }
 
 }  // namespace
