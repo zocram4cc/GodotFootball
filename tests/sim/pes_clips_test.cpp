@@ -208,3 +208,11 @@ TEST(PesClips, OnlyPesFamiliesAreNamedClips) {
   EXPECT_FALSE(pes::IsPesClipFamily(99));
   EXPECT_FALSE(pes::IsPesClipFamily(102));
 }
+
+TEST(PesClips, LocomotionIsPlayedAsPesPicksItAndIsNeverAChallenge) {
+  EXPECT_TRUE(pes::IsPesLocomotionFamily(int(pes::PesClipFamily::kLocomotion)));
+  EXPECT_FALSE(pes::PesFamilyPoseMatched(int(pes::PesClipFamily::kLocomotion)));
+  EXPECT_TRUE(pes::PesFamilyPoseMatched(int(pes::PesClipFamily::kDodge)));
+  EXPECT_TRUE(pes::PesFamilyPoseMatched(int(pes::PesClipFamily::kTackle)));
+  EXPECT_FALSE(pes::IsPesClipFamily(int(pes::PesClipFamily::kLocomotion)));
+}

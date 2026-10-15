@@ -101,6 +101,10 @@ add_executable(pes_locomotion_test pes_locomotion_test.cpp)
 target_link_libraries(pes_locomotion_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_locomotion_test)
 
+add_executable(pes_movestep_test pes_movestep_test.cpp)
+target_link_libraries(pes_movestep_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_movestep_test)
+
 add_executable(pes_camera_test pes_camera_test.cpp)
 target_link_libraries(pes_camera_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_camera_test)

@@ -81,6 +81,13 @@ TEST(PesRandom, KickoffSeedsThreeConsecutiveValuesAndKeepsTheWeakDefault) {
   EXPECT_EQ(r.State(3), k.defaultSeeds[3]);
 }
 
+TEST(PesRandom, PlayerSeedIsTheClockPlusTheSlotModTenThousand) {
+  // FUN_1406eb670: slot 2 of player+0x32d0 is seeded with (t + slot) % 10000.
+  EXPECT_EQ(pes::PlayerSeed(7, 3), 10u);
+  EXPECT_EQ(pes::PlayerSeed(9999, 2), 1u);
+  EXPECT_EQ(pes::PlayerSeed(10000, 21), 21u);
+}
+
 TEST(PesRandomInstall, LoadsTheStockGeneratorFromTheExe) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";

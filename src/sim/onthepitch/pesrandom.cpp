@@ -110,4 +110,9 @@ void SeedAtKickoff(Random& rng, uint32_t t) {
   for (int slot = 0; slot < kWeakSlot; ++slot) rng.SetSeed(slot, t + static_cast<uint32_t>(slot));
 }
 
+uint32_t PlayerSeed(uint32_t t, int slot) {
+  constexpr uint64_t SEED_MODULUS = 10000;  // FUN_1406eb670's `% 10000`
+  return static_cast<uint32_t>((uint64_t(t) + uint64_t(slot)) % SEED_MODULUS);
+}
+
 }  // namespace pes

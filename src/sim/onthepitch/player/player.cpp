@@ -433,11 +433,12 @@ float Player::GetClosestOpponentDistance() const {
 pes::Random& Player::GetPesRandom() {
   if (!pesRandom) {
     pesRandom = std::make_unique<pes::Random>(match->GetPesRngConstants());
-    // ponytail: PES seeds slot 2 once per player from its own source
-    // (0x1406eb670, derivation unproven - rng 2.4); match seed + player id keeps
-    // one stream per player and SameSeedPlaysTheSameMatch.
+    // PES seeds slot 2 once per player at construction (0x1406eb670): (t + slot) % 10000,
+    // t the kick-off clock and slot the AI record index (rng 2.4). ponytail: the match seed
+    // stands in for the clock so a seed replays the same match (SameSeedPlaysTheSameMatch),
+    // and GetID() stands in for the AI record index P+0x2458.
     constexpr int kPerPlayerSlot = 2;
-    pesRandom->SetSeed(kPerPlayerSlot, match->GetMatchSeed() + static_cast<unsigned int>(GetID()));
+    pesRandom->SetSeed(kPerPlayerSlot, pes::PlayerSeed(match->GetMatchSeed(), GetID()));
   }
   return *pesRandom;
 }
