@@ -251,6 +251,15 @@ bool SubKindTwoStop(const RunWorld& w, int id);
 // k = 0; a = 15 and k = -30 with instruction 2, which GF does not carry).
 bool RankAngleOk(const RunWorld& w, int id, int attackLevel);
 
+// FUN_140608ac0 (raw 0x140608ac0-0x140608b33), the "just-played pass to me"
+// lock PES applies between FUN_140593430 and the T+0xb8b8 slot mask: a runner
+// takes a special lane when the last ball event was a pass to *this* slot within
+// int(fps·0.5+0.5) frames and the slot's team-concept entry (FUN_140a64030, kind
+// 0x12) is >= 1, with kind 2 resolving through the concept-0 test. GF carries no
+// team concepts, so the kind-2 branch is modelled as unknown.
+enum PassToMeResult { kPassToMeNo = 0, kPassToMeYes = 1, kPassToMeUnknown = 2 };
+PassToMeResult PassToMeLock(const RunWorld& w, int id);
+
 // FUN_140606cd0's generic-lane path for slot `id` (decompiled for this port):
 // true sets his candidate bit. `awareness` is the reach byte (0..99).
 // `teamMayRun` is FUN_1405938a0's verdict, which the raw computes once per mask
@@ -281,6 +290,7 @@ enum MaskReject {
   kMaskRankAngle,
   kMaskGeneric,
   kMaskRunCooldown,
+  kMaskPassToMeUnknown,
 };
 
 MaskReject ChanceMaskReject(const OffBallConstants& k, const RunWorld& w, int id,
