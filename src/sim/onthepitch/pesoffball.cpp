@@ -1429,11 +1429,34 @@ bool PassToMeStop(const RunWorld& w, int id) {
   return lead >= mine + static_cast<int>(kPesFps * 0.15f + 0.5f);
 }
 
-// Step 2 of the manager tick (off-ball 1.2): the per-slot re-run block. A slot
-// on cooldown is not a candidate; being the pass receiver clears it, and being
-// on a run does not - a slot can be running and still blocked by the timer,
-// which PES reads as "this slot has just finished a run".
+// Step 2 of the manager tick (off-ball 1.2): the per-slot re-run block.
+//
+// CORRECTION, recorded rather than quietly kept: the report is explicit that
+// `A[s]` is read by the **SecondLine** mask only (off-ball 2.3, b4a.c:1204), and
+// a raw walk of the Chance mask FUN_140606cd0 (0x140606cd0-0x140607a60) finds no
+// read of ctx+0x38 - the single `0x38` in its body is a stack slot. So the block
+// is NOT a Chance gate in PES. It was wired into Chance here because it moved
+// the run count toward PES, which is exactly the wrong reason to extend a gate.
+// It stays as a SecondLine-shaped predicate, tested, and unused by the Chance
+// path until SecondLine itself is ported.
 bool RunCooldownBlocks(const RunWorld& w, int id) { return w.p[id].runCooldown > 0; }
+
+// FUN_140606cd0's per-team head: `T+0xa508 != 0`, `T+0x255` (in possession) and
+// a valid receiver/carrier (`FUN_1405969b0`), off-ball 2.1. All three are team
+// flags - the same answer for every slot of the team in a tick - so the caller
+// asks them once per tick rather than once per slot.
+MaskReject TeamChanceMayRunReject(const RunWorld& w, int team) {
+  if (!w.possession[team]) return kMaskTeamMayNotRun;
+  // T+0xa508, the latched special counter: not modelled in GF, so it cannot
+  // veto here. ponytail: taken as set, matching the port's other a508 sites.
+  const int q = w.receiver[team];
+  const bool hasCarrier = Valid(w.carrier) && TeamOf(w.carrier) == team;
+  if (!hasCarrier && !Valid(q)) return kMaskNoReceiver;
+  return kMaskPass;
+}
+bool TeamChanceMayRun(const RunWorld& w, int team) {
+  return TeamChanceMayRunReject(w, team) == kMaskPass;
+}
 
 int RoleClass(int gfRole) {
   constexpr int kMap[] = {0, 1, 2, 2, 3, 4, 5, 5, 6, 9, 8, 8, 7};
@@ -1645,7 +1668,6 @@ MaskReject ChanceMaskReject(const OffBallConstants& k, const RunWorld& w, int id
   // ponytail: 5a7d10 (carrier pass-aim records) is not applied; the special
   // lanes 60a750/608570/87a0/9350/8ac0 are not ported.
   // Generic lane: the attack-slot mask and the depth limit.
-  if (RunCooldownBlocks(w, id)) return kMaskRunCooldown;
   if (me.state == kOverlap || !((slotMask >> slot) & 1u)) return kMaskSlotMask;
   if (x.s * x.P.x > kF8) return kMaskDepth;
   if (!TeamMayRun(w, x.t)) return kMaskTeamMayNotRun;

@@ -911,11 +911,11 @@ TEST(OffBallMaskTrace, TheClassifierNamesTheReachRejection) {
 }
 
 // Step 2 of the manager tick (off-ball 1.2): A[s] = int(fps·2+0.5) frames when
-// a slot newly enters a run state, counting down otherwise and cleared when the
-// slot is the pass receiver. While it is nonzero the slot is not a candidate -
-// the 2 s re-run block, which is what keeps a released runner from being taken
-// again on the very next tick.
-TEST(OffBallMaskTrace, ASlotOnTheTwoSecondRerunBlockIsNotACandidate) {
+// a slot newly enters a run state. PES reads it in the SecondLine mask only
+// (off-ball 2.3, b4a.c:1204) - the Chance mask's raw body never touches ctx+0x38
+// - so this predicate is SecondLine-shaped and the Chance path must not use it.
+// It is tested here for the SecondLine port that will consume it.
+TEST(OffBallMaskTrace, TheRerunBlockIsASecondLineGateNotAChanceOne) {
   const OffBallConstants k = Synthetic();
   RunWorld w = Running();
   PlayerFacts& r = w.p[kRunner];
@@ -928,13 +928,40 @@ TEST(OffBallMaskTrace, ASlotOnTheTwoSecondRerunBlockIsNotACandidate) {
   w.lineX[1] = 25.0f;
   w.carrier = 0;
   EXPECT_EQ(kMaskPass, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f));
-  // On cooldown: the block gate stops him before the slot mask.
+  // On cooldown the Chance mask must NOT stop him: the block is SecondLine's.
   r.runCooldown = 1;
-  EXPECT_EQ(kMaskRunCooldown, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f));
-  EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f));
-  // Counted down to zero: a candidate again.
-  r.runCooldown = 0;
+  EXPECT_TRUE(RunCooldownBlocks(w, kRunner));
   EXPECT_EQ(kMaskPass, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f));
+  EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f));
+  // Counted down to zero the predicate clears either way.
+  r.runCooldown = 0;
+  EXPECT_FALSE(RunCooldownBlocks(w, kRunner));
+  EXPECT_EQ(kMaskPass, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f));
+}
+
+// The per-team head (off-ball 2.1): T+0x255 (in possession) and a valid
+// receiver/carrier are the same answer for every slot of the team in a tick, so
+// the caller asks them once. The returned reason is what the histogram files
+// when the mask is not walked at all.
+TEST(OffBallMaskTrace, TheTeamHeadIsAskedOnceAndNamesItsReason) {
+  RunWorld w = Running();
+  // The fixture's team 0 is in open play, in possession, with a carrier.
+  EXPECT_EQ(kMaskPass, TeamChanceMayRunReject(w, 0));
+  EXPECT_TRUE(TeamChanceMayRun(w, 0));
+  // Open play is the caller's own guard (MI+0x116c), not re-tested here: the
+  // per-team head is about possession and the receiver only.
+  // Not in possession.
+  w.possession = {false, true};
+  EXPECT_EQ(kMaskTeamMayNotRun, TeamChanceMayRunReject(w, 0));
+  w.possession = {true, false};
+  // With no carrier, the focus player stands in - unless there is none.
+  w.carrier = -1;
+  EXPECT_EQ(kMaskPass, TeamChanceMayRunReject(w, 0));  // w.receiver[0] = 0 is valid
+  w.receiver[0] = -1;
+  EXPECT_EQ(kMaskNoReceiver, TeamChanceMayRunReject(w, 0));
+  w.receiver[0] = 0;
+  // The other team, which holds no possession in the fixture.
+  EXPECT_EQ(kMaskTeamMayNotRun, TeamChanceMayRunReject(w, 1));
 }
 
 TEST(OffBallInstall, CapsAndLimitFromTheInstall) {

@@ -120,7 +120,7 @@ TEST(PesChallengeCounters, TheReportLineCarriesBothTeamsOrdered) {
 }
 
 // The Chance mask trace: the histogram's width matches pes::offball::MaskReject's
-// last member (kMaskRunCooldown, not kMaskGeneric), each walked slot is filed
+// last member (kMaskNoReceiver), each walked slot is filed
 // under the gate that decided it, and a reject the enum does not name is dropped
 // rather than written out of bounds.
 TEST(PesChallengeCounters, TheMaskHistogramFilesEachGateAndDropsOutOfRange) {
@@ -129,7 +129,7 @@ TEST(PesChallengeCounters, TheMaskHistogramFilesEachGateAndDropsOutOfRange) {
   r.Play(1001, 1);
   if (!r.match) GTEST_SKIP() << "constants unavailable";
   MatchData& d = *r.data;
-  EXPECT_EQ(pes::offball::kMaskRunCooldown + 1, MatchData::kMaskRejectCount);
+  EXPECT_EQ(pes::offball::kMaskNoReceiver + 1, MatchData::kMaskRejectCount);
   // Snapshot: a played match already filled the histogram, so every check is a
   // delta against what the match itself produced.
   const int baseWalks[2] = {d.GetMaskWalks(0), d.GetMaskWalks(1)};
