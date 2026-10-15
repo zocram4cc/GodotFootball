@@ -200,7 +200,7 @@ struct RunTables;     // group B's install tables, defined by movestep_run.hpp's
 // LoadStepTables from the exe at the VAs in movestep.cpp.
 struct StepTables {
   std::array<int32_t, 10> bucketColumn;  // 0x1425dd988: bucket -> Animetable column
-  std::array<int32_t, 16> kindBandRow;   // 0x1425dd9b0: kind + band * 8 -> Animetable row
+  std::array<int32_t, 64> kindBandRow;  // 0x1425dd9b0: kind + band * 8 -> Animetable row; 8 bands x 8 kinds (verified: 64 rows, 1325..1385)
   std::array<float, 10> bucketDegrees;   // 0x1425dd960: bucket -> degrees (TURN_STOP entry)
   std::array<int32_t, 12> styleMotion;   // 0x1425ddcf0: class + style * 4 -> representative motion
 };
@@ -312,6 +312,12 @@ class MoveHost {
   // The playback constants (FUN_1406ba070 / FUN_1406e9f10 and the run guard's 0.95), read from the exe.
   // Named PlaybackConstantsView because PlaybackConstants is the type.
   virtual const PlaybackConstants& PlaybackConstantsView() const = 0;
+  // The +0xab8 anime interface: the current motion number (vt+0x18, PES's motion id).
+  virtual int CurrentMotion() const = 0;
+  // The current clip's frame count (vt+0x38 of the +0xab8 interface).
+  virtual int CurrentClipFrames() const = 0;
+  // The anime state (vt+0x28 of the +0xab8 interface). IsReplay() is AnimeState() == 0x4a.
+  virtual int AnimeState() const = 0;
 
   // FUN_141eb50b0(P, out, index): index 0 or 1 is the last-tick displacement (pos - prev, per axis).
   // index >= 2 reads the position history ring at P+0x304 (its writer is not decoded yet).
