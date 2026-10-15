@@ -259,6 +259,8 @@ const struct {
     {0x14259bdec, STEP_FIELD(six)},
     {0x14259bdd4, STEP_FIELD(threeQuarters)},
     {0x14257a194, STEP_FIELD(rate1p6)},
+    {0x1425656c0, STEP_FIELD(four)},   // FUN_1406c6480: comiss at 0x1406c6b18
+    {0x1425c48a0, STEP_FIELD(s0p15)},  // FUN_1406c6480: movss at 0x1406c6bb8
 };
 #undef STEP_FIELD
 

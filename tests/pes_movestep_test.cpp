@@ -282,6 +282,9 @@ TEST(StepScalarsInstall, LoadsTheGroupCScalarsWithTheirRelations) {
   EXPECT_FLOAT_EQ(s->halfTurn, 2.0f * s->deg90);
   EXPECT_FLOAT_EQ(s->deg90, 2.0f * s->deg45);
   EXPECT_FLOAT_EQ(s->neg180, -s->halfTurn);
+  // A field with no loader site reads zero; both of these are read by the STEP_LOOP_CHANGE handler.
+  EXPECT_GT(s->four, 0.0f);
+  EXPECT_GT(s->s0p15, 0.0f);
 }
 
 TEST(StepTablesInstall, LoadsTheBucketColumnsWithinTheAnimetable) {

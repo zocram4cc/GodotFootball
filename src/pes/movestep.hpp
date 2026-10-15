@@ -297,15 +297,19 @@ std::optional<StepTables> LoadStepTables(const PeImage& exe, std::string* error)
 // its meaning; its VA is in movestep.cpp's table, pinned to the instruction that reads it.
 struct StepScalars {
   float one, half, full, wrapFull, halfTurn, negOne;
-  float ticks60, scale1000, four, kmh5;
-  float kmh8, kmh11, kmh13p5, kmh16, kmh20, kmh22, kmh3p6, kmh28;
+  float ticks60, scale1000;
+  float four;   // 4, the STEP_LOOP_CHANGE distance clamp's ceiling (FUN_1406c6480, read at 0x1406c6b18)
+  float kmh5;
+  float kmh8, kmh11, kmh13p5, kmh16, kmh20, kmh22, kmh3p6;
   float deg5p625, deg10, deg11p25, deg16p875, deg22p5, deg28p125, deg31p64, deg33p75;
   float deg45, deg67p5, deg78p75, deg90, deg112p5, deg135, deg140p625, deg146p25, deg168p75;
   float deg174p375, deg175, deg270;
   float neg45, neg67p5, neg90, neg112p5, neg180;
   float dist1p25, dist1p5, dist3, eps1e7, threeQuarters, rate1p6;
   float rate0p9, rate0p95, clamp0p8, six;
-  float s0p1333, s0p15, s0p1667, s0p2, s0p25, s0p3, s0p35, s0p4, s0p6, s0p85;
+  float s0p1333;
+  float s0p15;  // 0.15, the STEP_LOOP_CHANGE stop-fallback gate (FUN_1406c6480, read at 0x1406c6bb8)
+  float s0p1667, s0p2, s0p25, s0p3, s0p35, s0p4, s0p6, s0p85;
   float sq1139, sq2025, sq8100, step0p05;
 };
 std::optional<StepScalars> LoadStepScalars(const PeImage& exe, std::string* error);
