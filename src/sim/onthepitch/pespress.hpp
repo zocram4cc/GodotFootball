@@ -195,12 +195,15 @@ struct PressFillMan {
   bool notInA558 = false;      // team+0xa558 != man
   bool gate479470 = false;     // FUN_140479470(team, man) != 0
   int angleCode = -1;          // FUN_140639600 code, 0..3
-  float hookValue = 0;         // FUN_14044e0d0 (under the unresolved hook)
+  // Table d^2 (m^2) of the man: MA+0x24710 + (rank + bucket)*8, float. FUN_14044e0d0
+  // returns sqrtf of it (the import behind _DAT_1425301f0 is ucrtbase sqrtf), so the
+  // fill compares the distance in metres.
+  float tableDistSq = 0;
 };
 
 struct PressFillResult {
   int count = 0;               // men that passed every gate
-  bool flagA = false;          // a passer has hookValue < 4.0 (0x1425656c0)
+  bool flagA = false;          // a passer has sqrt(tableDistSq) < 4.0 (0x1425656c0)
   bool flagB = false;          // a passer has angleCode 0
   std::array<bool, 4> slotSet{};  // angle codes used by passers
 };

@@ -382,7 +382,7 @@ TEST(PressRoleTableLoader, LoadsNinetyFourEntriesFromTheImage) {
   EXPECT_FALSE(pes::PressRoleHas(*t, pes::kRoleCount, pes::kRoleBitA));
 }
 // Fill fixture: every man passes the gates unless a test breaks one.
-static pes::PressFillMan Passer(int code, float hook) {
+static pes::PressFillMan Passer(int code, float distSq) {
   pes::PressFillMan m;
   m.onField = true;
   m.inDistance = true;
@@ -390,17 +390,17 @@ static pes::PressFillMan Passer(int code, float hook) {
   m.teamFlagZero = true;
   m.gate479470 = true;
   m.angleCode = code;
-  m.hookValue = hook;
+  m.tableDistSq = distSq;
   return m;
 }
 
 TEST(PressCandidateFill, CountsPassersAndSetsFlags) {
   pes::PressConstants c = Synthetic();
   std::array<pes::PressFillMan, 11> mans{};
-  mans[2] = Passer(0, 9.0f);   // hook above 4.0: no flagA; code 0: flagB
-  mans[5] = Passer(2, 3.0f);   // hook below 4.0: flagA; code 2 marks slot 2
+  mans[2] = Passer(0, 81.0f);  // distance 9 m: no flagA; code 0: flagB
+  mans[5] = Passer(2, 9.0f);   // distance 3 m: flagA; code 2 marks slot 2
   mans[6].onField = false;     // off field: rejected
-  mans[7] = Passer(1, 9.0f);
+  mans[7] = Passer(1, 81.0f);
   mans[7].excluded = true;     // the excluded man: rejected
   pes::PressFillResult r = pes::PressCandidateFill(c, mans);
   EXPECT_EQ(r.count, 2);
@@ -411,10 +411,21 @@ TEST(PressCandidateFill, CountsPassersAndSetsFlags) {
   EXPECT_FALSE(r.slotSet[1]);
 }
 
+// FUN_14044e0d0 is sqrtf (ucrtbase RVA 0x26620) of the table's float d^2, and
+// FUN_140639830 tests that distance against 4.0. Squared 15.9 is 3.987 m: a passer.
+TEST(PressCandidateFill, FlagAIsDistanceNotSquaredDistance) {
+  pes::PressConstants c = Synthetic();
+  std::array<pes::PressFillMan, 11> mans{};
+  mans[1] = Passer(1, 15.9f);   // sqrt 3.987 < 4: flagA
+  EXPECT_TRUE(pes::PressCandidateFill(c, mans).flagA);
+  mans[1] = Passer(1, 16.1f);   // sqrt 4.012 >= 4: no flagA
+  EXPECT_FALSE(pes::PressCandidateFill(c, mans).flagA);
+}
+
 TEST(PressCandidateFill, LowIndexNeedsCarrierTagOrStampedSet) {
   pes::PressConstants c = Synthetic();
   std::array<pes::PressFillMan, 11> mans{};
-  mans[3] = Passer(1, 9.0f);
+  mans[3] = Passer(1, 81.0f);
   mans[3].carrierTagged = false;  // no carrier tag, and not in the stamped set: rejected
   EXPECT_EQ(pes::PressCandidateFill(c, mans).count, 0);
   mans[3].inStampedSet = true;    // stamped set and not the A558 man: passes
@@ -426,7 +437,7 @@ TEST(PressCandidateFill, HighIndexNeedsNoTeamFlagOnlyInCarrierBranch) {
   pes::PressConstants c = Synthetic();
   std::array<pes::PressFillMan, 11> mans{};
   // k = 10 is not > 10, so the carrier branch also needs the team flag to be zero.
-  mans[10] = Passer(1, 9.0f);
+  mans[10] = Passer(1, 81.0f);
   mans[10].teamFlagZero = false;
   EXPECT_EQ(pes::PressCandidateFill(c, mans).count, 0);
 }

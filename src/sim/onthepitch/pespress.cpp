@@ -313,7 +313,7 @@ PressFillResult PressCandidateFill(const PressConstants& c, const std::array<Pre
     if (!(m.onField && !m.excluded && m.inDistance && carrierOk && m.gate479470)) continue;
     r.count++;
     // 4.0 (0x1425656c0) is the same float as pass2ActionAdd; read it from the constants.
-    if (m.hookValue < c.pass2ActionAdd) r.flagA = true;
+    if (std::sqrt(m.tableDistSq) < c.pass2ActionAdd) r.flagA = true;
     if (m.angleCode == 0) r.flagB = true;
     if (m.angleCode >= 0 && m.angleCode < 4) r.slotSet[m.angleCode] = true;
   }
