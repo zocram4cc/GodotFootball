@@ -152,6 +152,7 @@ inline constexpr int kRootFacing = 0x3a;       // req[0x3a] byte: a root-facing 
 inline constexpr int kRootFacingAngle = 0x3b;  // req[0x3b]: the wrapped root-facing angle, degrees (OBS)
 inline constexpr int kSlipActive = 0xe8;       // req[0xe8] byte: slip damping is active (OBS: FUN_1406c2f80)
 inline constexpr int kSlipAngle = 0xec;        // req[0xec]: the damped facing, degrees (OBS). The adapter copies it to P+0xbec.
+inline constexpr int kLiveKind = 0x1e;        // req[0x1e]: the live clip's kind; FUN_1406d5d60 writes it (OBS per MovestepRun)
 }  // namespace moveword
 
 // The move request. Typed views over the same words; PES's bit patterns are kept exact.
@@ -191,6 +192,22 @@ struct MoveCell {
 // tests implement it with synthetic values. Each method names the PES read it stands for.
 struct AngleBucketConstants;  // defined below, with the shared helpers
 
+// A motion request for the anime interface (PES's vt+0x10: SetMotion when group < 0, else
+// SetParametric). The fields are PES's arguments in the order of its call sites (FUN_1406b8340's
+// tail, and the dispatcher's INIT call). A handler fills one and calls MoveHost::Issue.
+struct MotionRequest {
+  int motion = -1;         // req[0x30]: the motion number
+  bool mirror = false;     // req[0x31]
+  int transition = 0;      // req[0x36]: the transition record
+  float duration = 0.0f;   // req[0x32], seconds
+  float playback = 1.0f;   // req[0x35]
+  float startTime = 0.0f;  // req[0x33], seconds
+  int group = -1;          // req[0x37]: -1 = SetMotion (req[0x37] == 0x11), else the parametric group
+  float startRate = 0.0f;  // req[0x4f]: SetParametric only
+  float rate = 0.0f;       // req[0x4a]: SetParametric only
+  int foot = 0;            // SetParametric's foot argument (not req[0x7c])
+};
+
 class MoveHost {
  public:
   virtual ~MoveHost() = default;
@@ -225,7 +242,8 @@ class MoveHost {
   // The start time of a motion in its clip (FUN_1406b97d0: a per-motion constant).
   virtual float MotionStartTime(int motionNo) const = 0;
 
-  // P+0x2468 (float): FUN_1406eb670 sets it to 1.0; FUN_1406b8340 stores it from RBP+0x44.
+  // P+0x2468 (float): FUN_1406eb670 sets it to 1.0; FUN_1406b8340 stores it from RBP+0x44. Group D's
+  // five handlers floor the clip-length divisor it feeds at DAT_1425ab120 (0.85).
   virtual float RecordF2468() const = 0;
   // P+0x245d: the state before the current one (FUN_1406b8340's tail writes it).
   virtual int MoveStatePrevious() const = 0;
@@ -236,6 +254,16 @@ class MoveHost {
   virtual void SetRecordF0bec(float value) = 0;
   // The angle-bucket install tables of FUN_1406b9b20 (see AngleBucketConstants).
   virtual const AngleBucketConstants& AngleBuckets() const = 0;
+
+  // FUN_141eb50b0(P, out, index): index 0 or 1 is the last-tick displacement (pos - prev, per axis).
+  // index >= 2 reads the position history ring at P+0x304 (its writer is not decoded yet).
+  virtual void PositionAt(int index, float out[3]) const = 0;
+  // MI+0x116c: the match phase (MB-E is not ported; a stand-in until it is).
+  virtual int MatchPhase() const = 0;
+  // The anime predicate vt+0x28 == 0x4a: the replay action.
+  virtual bool IsReplay() const = 0;
+  // SetMotion / SetParametric: the anime interface's vt+0x10 (FUN_1406b8340's tail; the INIT call).
+  virtual void Issue(const MotionRequest& request) = 0;
 };
 
 // ---------------------------------------------------------------------------------------------
