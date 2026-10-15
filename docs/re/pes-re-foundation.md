@@ -32,7 +32,7 @@ Conventions. Structure ids: TP (`T-*`, `P-*`), MB (`MB-A` to `MB-H`), W (`W-*`),
 | MB-F | ball record and prediction (MB) | 6 | 2/3/1 | 5/1/0 | 2 | engine sim step; 140a6cf70; 140a57800 (F3); F5 row missing from source | 14: D1, D4, D8, K1, K2, K4, S1, S4, S6, S10, S11, C4, DR1, DR2 | W1 |
 | MB-G | FieldInfo G1-G6 (MB) | 6 | 0/4/2 | 6/0/0 | 1 | ctor 140a85f40 (Denuvo VM, static); G6 values live-confirmed, names open | 9: D2, D3, K1, K5, S6, S7, R3, R4, DR1 | W1 |
 | MB-H | match setup and tick order (MB) | 4 | 0/2/2 | 1/2/1 | 2 | match load (H1); 42b9f0 steps; team tick 41edd7 (H3 open) | 6: D5, T1, T3, C1, C2, M1 | W1 |
-| A-MOV | locomotion FSM, rate, tables (A-AN5..10, A-AN16) (AR) | 7 | 2/2/3 | 3/4/0 | 1 | 1406ba900; 1406f9a2c; 1406eb670 (seeder); 1407302b0 (AN16) | 4: D1, L1, L2, L4 | W1 |
+| A-MOV | locomotion FSM, rate, tables (A-AN5..10, A-AN16) (AR) | 7 | 2/2/3 | 3/4/0 | 1 | 1406ba900; 1406f99f0 (rate; 1406f9a2c is inside it); 1406eb670 (seeder); 1407344f0 (L4 writer, C21) | 4: D1, L1, L2, L4 | W1 |
 | T-INST | active instruction table G+0x25cf8/0x25d38 (MA base conflict) (TP) | 1 | 0/0/1 | 0/0/1 | 1 | no writer found (0 S1/S2 hits); base conflict G vs MA | 9: O1, O2, O3, O4, O7, O9, O10, O11, PR3 | W2 |
 | T-CONC | concept and run state b6e8, b718, b748, b7d8-b824, a2a0, 28c, f1, a2cc, c12b, c12c (TP) | 10 | 0/6/4 | 8/2/0 | 5 | concept bodies (b748: 128 sites); 57a3e0; 42940/40200; 140417534 | 13: O2, O3, O4, O5, O6, O9, O10, O12, O13, PR1, PR7, T5, T6 | W2 |
 | P-KIN | per-player kinematics PM+0x554..5d0, hu+1, hu+0x4c (TP) | 8 | 1/7/0 | 7/1/0 | 0 | motion system (locomotion and root motion) | 46: D1, D2, D3, D4, D5, D6, D7, D8, D9, O1, O2, O4, O5, O6, O7, O8, O9, O10, O11, O13, PR1, PR6, T5, T7, T8, K1, K2, K3, S1, S3, S4, S7, S8, S10, S11, R1, R4, R9, R10, R12, L1, L2, L3, L4, DR1, DR2 | W2 |
@@ -68,7 +68,7 @@ Conventions. Structure ids: TP (`T-*`, `P-*`), MB (`MB-A` to `MB-H`), W (`W-*`),
 
 | Gate | What it decides | Status (source) | Needs (structure ids) | n |
 |---|---|---|---|---:|
-| D1 | ball dodge selector and eligibility (1407358e0, 140a07bf0) | ported; stand-ins animeSlot, A-AN1, dist-rank entry | A-CLS, A-MOV, MB-B, MB-C, MB-F, P-KIN | 6 |
+| D1 | ball dodge selector and eligibility (1407358e0, 140a07bf0) | ported; stand-ins animeSlot, A-AN1, dist-rank entry; dodge speed term open (C22) | A-CLS, A-MOV, MB-B, MB-C, MB-F, P-KIN | 6 |
 | D2 | net dodge gate 140a07e40 | merged 00b3875; G2-G4 stand-ins; G+0x2aa8 null-live conflict | MB-G, P-KIN, A-CLS | 3 |
 | D3 | post dodge gate 140a084d0 | ported on a254859 (not on main); designated clause; >135 band open | MB-A, MB-B, MB-G, T-POSS, T-SHAPE, P-KIN, W-AIM | 7 |
 | D4 | post selector 1407368d0 | decoded; anchor and approach pending | P-KIN, MB-F | 2 |
@@ -172,7 +172,7 @@ Conventions. Structure ids: TP (`T-*`, `P-*`), MB (`MB-A` to `MB-H`), W (`W-*`),
 | L1 | locomotion FSM MOVESTEP (1406ba900) | pending; decoded | A-MOV, P-KIN | 2 |
 | L2 | rate caps and playback speed (P+0x377c) | absent | A-MOV, P-KIN | 2 |
 | L3 | anime class predicates in arbitration and judge (931c60, 50d6a0) | stand-in; judge and arbitration terms dropped | A-CLS, P-AIM, P-KIN | 3 |
-| L4 | kick approach alignment (A-AN16; 7302b0) | absent | A-MOV, P-KIN, K-ERR | 3 |
+| L4 | kick approach root alignment, P+0x428 (writer FUN_1407344f0; C21) | absent; PES writer found, not ported | A-MOV, P-KIN, K-ERR | 3 |
 
 ### Clock, phase and event timers (C1-C6)
 
@@ -765,7 +765,7 @@ flowchart LR
     L1["L1 locomotion FSM MOVESTEP  1406ba900 "]:::gate
     L2["L2 rate caps and playback speed"]:::gate
     L3["L3 anime class predicates in arbitration"]:::gate
-    L4["L4 kick approach alignment  A-AN16  7302b0 "]:::gate
+    L4["L4 kick approach root alignment  FUN_1407344f0 (C21) "]:::gate
   end
   A_MOV --> L1
   P_KIN --> L1
@@ -953,6 +953,8 @@ Each task: scope, PES writer VAs to port, GF home (repo path under src/), size, 
 - **C18. Superseded OBS-inventory conflicts.** `MI+0x116c` (resolved: E1x, a statistics accumulator, not MI) and the event-ring key at `+0x18` vs `+0x1c` (resolved: E6x; ring-0 key at +0x18, ring-1 at +0x1c; verify CONFIRMED). Both are closed; the OBS inventory is out of date.
 - **C19. K=27 producer.** PoseVeto §17 says it is open. After correction 3a, the K=27 test reads a field whose writer is open, and no producer is known.
 - **C20. Live MA address.** The sources' watcher addresses are stale for this match; the relock failed.
+- **C21. L4 target (A-AN16 is not the writer).** The spec names A-AN16 (7302b0) as the kick approach alignment. FUN_1407302b0 has no P+0x428 displacement anywhere in its code: it is the grounded contact start (AL-12). The P+0x428 writer is the kick-action dispatcher FUN_140732e30, which reads the phase byte P+0x245c through anime vt+0x20 on +0xab8. Phase 0 (the approach) goes to FUN_1407344f0, which calls the solver FUN_1406e85b0, then FUN_141eb3910 (AdjustTransXZ) on P+0x428, then FUN_141eb3ae0. Phase 1 (the strike) goes to FUN_140733a30 (solver, then FUN_141eb39a0 on P+0x428, then FUN_141eb3ae0; yaw FUN_141eb35a0 on P+0x4d0). Phase 2 goes to FUN_1407335e0. Also superseded: the rate writer is FUN_1406f99f0, and 0x1406f9a2c (§3 A-MOV and row 35) lies inside it. Undecoded: FUN_141eb3910, FUN_141eb39a0, FUN_141eb3ae0, FUN_1406e85b0. Owner: A-MOV.
+- **C22. D1 dodge speed term.** FUN_140736d30 (the dodge speed class) calls anime vt+0x20 on this = P+0xac0 with index 1 and uses the float result. The dispatch table at 0x1425e35d0 has FUN_1406ea110 (km/h of displacement) at slot 0x00 and FUN_1406eab00 at slot 0x20. FUN_1406eab00 reads float arguments, while the dodge passes an integer index, and the object's vtable is runtime-assigned, so the slot is unresolved. pes::SpeedClass (pesdodge.cpp) matches the FUN_140736d30 decompile; that the dodge's speed equals GF's speed is not shown. Owner: A-MOV.
 
 ### 5.4 Gaps: state the sources read but no structure owns (proposed owner and wave)
 
