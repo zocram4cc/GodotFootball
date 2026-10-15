@@ -19,6 +19,7 @@
 #include "matchduration.hpp"
 #include "matchreport.hpp"
 #include "pesclips.hpp"
+#include "pespossession.hpp"
 #include "pesstoppage.hpp"
 #include "player/playerofficial.hpp"
 #include "simcontext.hpp"
@@ -418,6 +419,10 @@ void Match::AdvanceMatchSeconds(float gameSeconds) {
   // one, so a stoppage stops the clock instead of adding to it.
   pesClock->SetFrozen(!IsInPlay() || IsInSetPiece());
   pesClock->Advance(gameSeconds);
+}
+
+int Match::GetPesFrame() const {
+  return pes::PesFrameOf(actualTime_ms, static_cast<int>(GetPesClockConstants().gameSpeed));
 }
 
 void Match::ResetSituation(const Vector3& focusPos) {

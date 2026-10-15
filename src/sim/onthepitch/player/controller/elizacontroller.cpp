@@ -1178,13 +1178,10 @@ bool ElizaController::_DodgeBallCandidate(int* kind) {
   eligibility.ownsBall = match->GetBallRetainer() != 0;
   Player* retainer = match->GetBallRetainer();
   eligibility.teamIndex = retainer ? (retainer->GetID() >= 11 ? 1 : 0) : eligibility.slot >= 11 ? 1 : 0;
-  // The team's own gate: PES reads a per-team byte that is set while the team
-  // is chasing the ball. GF's stand-in is the mismo: the team is not in a
-  // set-piece wait for the ball (inPlay, or the ball is live to him).
-  // ponytail: the exe's own byte is a team-level latch GF has no direct
-  // equivalent for; the closest readable state is whether the match is in
-  // play, which is what gates every other reaction predicate here too.
-  eligibility.perTeamActionAllowed = match->IsInPlay();
+  // The team's own gate: PES's team-possession latch on his team record (T+0x255).
+  // FUN_140a07bf0 runs the ball block only while it is set (lines 46-47). The latch is
+  // team.cpp's UpdatePesPossession (FUN_1404fe9c0).
+  eligibility.perTeamActionAllowed = team->IsPesPossession();
   // FUN_140a62d20's per-player slot is the player's index inside his team's
   // 11-slot record set; the action-list index (0x18 = none) is the number of
   // actions the team has queued for him. GF runs one command per tick, so the
@@ -1296,9 +1293,9 @@ bool ElizaController::_DodgeHumanCandidate(int* kind) {
   // ponytail: GF carries no per-team roster list of the exe's shape and no
   // per-player roster-slot value, so the roster and slot terms read GF's own
   // active-player list and formation slot; the team's own latch (the exe's
-  // teamRecord->0x255) stands in as the match being in play, and the
-  // ball-owner test as the ball's last toucher. The window reads the newest
-  // ball event, the one term GF carries exactly.
+  // teamRecord->0x255) is team.cpp's UpdatePesPossession, and the ball-owner
+  // test stands in as the ball's retainer. The window reads the newest ball event,
+  // the one term GF carries exactly.
   pes::HumanGateInput gate;
   gate.featureOn = true;  // the behaviour is always compiled in
   gate.matchStateOk = true;
@@ -1316,13 +1313,13 @@ bool ElizaController::_DodgeHumanCandidate(int* kind) {
   // decides use, so it always matches.
   gate.stateRecordHalfMatches = true;
   // The window reads the match's newest ball event, as FUN_140a0b350 does
-  // (decompile lines 64-73): whether it was his team's, and how old it is.
+  // (decompile lines 64-73): whether it was his team's, and how many frames old it is.
   // ponytail: GF records its four touch kinds, not PES's 5-14, so the ring
   // holds fewer events than PES's.
   const Match::BallEvent& newest = match->GetBallEvent(0);
   gate.newestEventIsOwnTeam = newest.teamID == team->GetID();
-  gate.newestEventAge_ms = static_cast<float>(match->GetActualTime_ms() - newest.time_ms);
-  gate.teamGateOpen = !match->IsInPlay();
+  gate.newestEventAgeFrames = match->GetPesFrame() - newest.pesFrame;
+  gate.teamLatchSet = team->IsPesPossession();
   gate.rosterSlotValue = 0;
   gate.ballOwnerIsSelf = match->GetBallRetainer() == CastPlayer();
   if (!pes::HumanDodgeGate(k, gate)) return false;

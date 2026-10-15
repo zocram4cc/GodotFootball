@@ -621,14 +621,14 @@ bool HumanDodgeGate(const DodgeConstants& k, const HumanGateInput& in) {
   // The state record's own half has to be his, which is the half the
   // challenger scan (FUN_140a08ea0) runs for.
   if (!in.stateRecordHalfMatches) return false;
-  // The window (FUN_140a0b350, decompile lines 64-73): his team's newest ball
-  // event holds him while it is younger than gs * 0.2 frames. The age is in ms
-  // and the exe's frame counter runs at gs per second, so frames = ms * gs / 1000.
-  const float ageFrames =
-      in.newestEventAge_ms * static_cast<float>(k.lastEventRollDivisor) / 1000.0f;
-  if (in.newestEventIsOwnTeam && ageFrames < HumanLastEventWindowFrames(k)) return false;
-  // The team's own latch has to be closed.
-  if (in.teamGateOpen) return false;
+  // The window (FUN_140a0b350, decompile lines 64-73): his team's newest ball event holds
+  // him while it is younger than gs * 0.2 frames. The age is in logic frames.
+  if (in.newestEventIsOwnTeam &&
+      static_cast<float>(in.newestEventAgeFrames) < HumanLastEventWindowFrames(k)) {
+    return false;
+  }
+  // The team's own latch has to be clear (FUN_140a0b350 requires T+0x255 == 0).
+  if (in.teamLatchSet) return false;
   // When his own team's roster slot carries a value, the ball-owner test
   // decides; otherwise the gate is open.
   if (in.rosterSlotValue != 0 && in.ballOwnerIsSelf) return false;

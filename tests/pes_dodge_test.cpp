@@ -859,11 +859,11 @@ TEST(PesDodgeHumanGate, TheWindowIsGsTimesAPointTwoFramesOfTheNewestEvent) {
   in.onRoster = true;
   in.stateRecordHalfMatches = true;
   in.newestEventIsOwnTeam = true;
-  // 199 ms is 10.75 frames at 54 Hz: inside the window.
-  in.newestEventAge_ms = 199.0f;
+  // Logic frames since his team's newest touch: 10 is inside the 10.8-frame window.
+  in.newestEventAgeFrames = 10;
   EXPECT_FALSE(pes::HumanDodgeGate(k, in));
-  // 200 ms is 10.8 frames: FUN_140a0b350 compares with a strict <, so it clears.
-  in.newestEventAge_ms = 200.0f;
+  // 11 frames clears it: FUN_140a0b350 compares with a strict <.
+  in.newestEventAgeFrames = 11;
   EXPECT_TRUE(pes::HumanDodgeGate(k, in));
 }
 
@@ -873,7 +873,7 @@ TEST(PesDodgeHumanGate, TheWindowOnlyHoldsHimForHisTeamsNewestEvent) {
   in.featureOn = true;
   in.onRoster = true;
   in.stateRecordHalfMatches = true;
-  in.newestEventAge_ms = 50.0f;
+  in.newestEventAgeFrames = 2;
   // The other side's touch, however recent, does not hold him.
   in.newestEventIsOwnTeam = false;
   EXPECT_TRUE(pes::HumanDodgeGate(k, in));
@@ -908,7 +908,7 @@ TEST(PesDodgeHumanGate, TheRosterAndTheTeamsLatch) {
   in.stateRecordHalfMatches = false;
   EXPECT_FALSE(pes::HumanDodgeGate(k, in));
   in.stateRecordHalfMatches = true;
-  in.teamGateOpen = true;  // the team's own latch closed
+  in.teamLatchSet = true;  // the team's own latch set
   EXPECT_FALSE(pes::HumanDodgeGate(k, in));
 }
 

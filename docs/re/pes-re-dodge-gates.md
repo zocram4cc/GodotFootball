@@ -26,25 +26,37 @@ wired into the matching predicate in `elizacontroller.cpp`.
 - `designatedOwner` ← `GetDesignatedPossessionPlayer()` for PES's
   `+0x18->0x2600c`. Loosest term in the ball gate: GF recomputes it to the
   closest man.
-- `perTeamActionAllowed` ← `IsInPlay()` for the team latch `+0x255`.
+- `perTeamActionAllowed` ← `Team::IsPesPossession()`, the team latch `+0x255`.
 - `actionSlot` ← the player's own slot (GF runs one command per tick, so PES's
   `0x18` "none" never arises).
 - `framesSinceEvent` ← `(simTime − lastTouchTime)/10`.
-- `teamGateOpen` ← `!IsInPlay()` (the team latch stand-in, until the possession
-  latch is ported); `ballOwnerIsSelf` ← `GetBallRetainer() == self`;
+- `teamLatchSet` ← `Team::IsPesPossession()`, the team latch `+0x255` (set refuses him);
+  `ballOwnerIsSelf` ← `GetBallRetainer() == self`;
   `rosterSlotValue` ← 0 (GF has no per-team roster-slot array, so the slot tail
   never fires). The window is PES's: `newestEventIsOwnTeam` and
-  `newestEventAge_ms` from `GetBallEvent(0)` (GF records its 4 touch kinds).
+  `newestEventAgeFrames`, the logic frames since `GetBallEvent(0)` (GF records its 4
+  touch kinds).
+- Team latch `+0x255` (`Team::UpdatePesPossession`, decoded as `FUN_1404fe9c0`):
+  restart state from the referee buffer (active is state 3, `teamID` the side); heads
+  from the active-player counts; carrier `GetBallRetainer()`; newest event
+  `GetBallEvent(0)` with GF's kinds (touch 7, pass 1, high pass 2, shot 5); holder
+  `GetDesignatedPossessionPlayer()`; `chaseBlocked` and `otherHeadFlagClear` false. PES's
+  step-3a inputs (MI+0x119c, sub-kind, flag, field) and G+0x40+0x80 have no GF
+  counterpart, so 3a is off and the sub-3 exclusion is inert.
+  The frame is the real-time logic frame at the game speed (`Match::GetPesFrame`); PES's
+  MI+0x1198 counts the same steps but holds in its halted states. The latch runs once per frame.
 - Net gate bearings from GF's own-goal marks (`ownGoalX = side·pitchHalfW`,
   `goalHalfWidth`), PES's z read as GF's y.
 
-## Measured (seed 7, 20 min, main)
+## Measured (seed 7, 20 min)
 
 |State|played dodge|`[dodge]` net|forced|passes|
 |---|---|---|---|---|
 |before the gates|1241-1174|1104-1522|21934|49-51|
 |gates, GF veto on (merged)|1162-1129|9-9|11305|56-47|
 |gates, GF veto off (not merged)|1753-1456|7-9|12093|39-35|
+|window fix, no latch (3d05ba2, not merged)|641-548|9-9|13923|44-49|
+|latch, real-time frames (this commit, not merged)|394-389|7-5|11219|45-49|
 
 Before the gates, lifting the veto gave forced 57847 and passes 21-27; with
 them the stall count holds. The veto stays on because passes fall to 39-35 on
