@@ -126,4 +126,29 @@ TEST(PesBallTrack, RecordZeroIsTheCurrentStateBeforeAnyStep) {
   EXPECT_FLOAT_EQ(track[0].z, -4.0f);
 }
 
+TEST(PesBallTrack, AFlightStepThatCrossesTheGroundLandsOnThatRecord) {
+  // PES integrates the flight step and resolves the contact in the same tick: the
+  // landing record sits on the ground at the flight step's x and z, with no position
+  // step after the response.
+  const PesBallConstants c = SyntheticConstants();
+  const float r = c.image.ballRadius;
+  const TrackStart start = StartAt(Vec3(1.0f, r + 0.01f, 2.0f), Vec3(0.0f, -5.0f, 0.0f));
+  const pesball::Track track = pesball::BuildTrack(c, start, FarGoal());
+  EXPECT_FLOAT_EQ(track[1].y, r);
+  EXPECT_FLOAT_EQ(track[1].x, 1.0f);
+  EXPECT_FLOAT_EQ(track[1].z, 2.0f);
+}
+
+TEST(PesBallContact, ABallWithNoChosenModePlaysTheLiveContactMode) {
+  // The live contact table reads mode 1 (docs/re/pes-re-ball-track-live.md 2.6), so a
+  // ball that rolls with no mode chosen follows the mode 1 track.
+  const PesBallConstants defaults = SyntheticConstants();
+  PesBallConstants live = SyntheticConstants();
+  live.contactMode = 1;
+  const TrackStart start = StartAt(Vec3(0.0f, defaults.image.ballRadius, 0.0f), Vec3(8.0f, 0.0f, 0.0f));
+  const pesball::Track a = pesball::BuildTrack(defaults, start, FarGoal());
+  const pesball::Track b = pesball::BuildTrack(live, start, FarGoal());
+  for (unsigned k = 0; k < 54; ++k) EXPECT_FLOAT_EQ(a[k].x, b[k].x) << "record " << k;
+}
+
 }  // namespace
