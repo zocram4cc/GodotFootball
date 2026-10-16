@@ -1,6 +1,6 @@
 // Plays one headless AI-vs-AI match and prints GameplayFootball's report.
 //   gfsim_run --db-sql FILE --home ID --away ID --pes21-root DIR
-//             [--seed N] [--minutes N] [--timescale X] [--anims DIR] [--set key=value]...
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -205,10 +205,26 @@ int main(int argc, char** argv) {
   // set piece is armed), so the match would never reach full time. The watch stops
   // the run at the first stoppage that runs past the install's bound on its restart.
   RestartWatch watch(RestartLimitTicks(*stoppageConstants, *setPieceTakerConstants));
+  // Wall-time split: PES's hold timing is the sim, so every tick runs; this
+  // only records which ticks had live play. std::chrono around Process,
+  // classified by the pre-tick state (no sim state touched).
+  unsigned long inPlayTicks = 0, holdTicks = 0;
+  double inPlaySeconds = 0.0, holdSeconds = 0.0;
   while (!match.IsGameOver()) {
     if (watch.Ticks() >= kMaxSimTicks)
       return std::fprintf(stderr, "[cap] no full time after %lu sim ticks\n", kMaxSimTicks), 1;
+    const bool live = match.IsInPlay() && !match.IsInSetPiece();
+    const auto tickStart = std::chrono::steady_clock::now();
     match.Process();
+    const double tickSeconds_ =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - tickStart).count();
+    if (live) {
+      ++inPlayTicks;
+      inPlaySeconds += tickSeconds_;
+    } else {
+      ++holdTicks;
+      holdSeconds += tickSeconds_;
+    }
     watch.Observe(match);
     if (watch.Stalled())
       return std::fprintf(stderr,
@@ -220,7 +236,9 @@ int main(int argc, char** argv) {
   std::printf("[restarts] %lu stoppages, longest %.1f s (%lu ticks), bound %.1f s (%lu ticks)\n",
               watch.MeasuredStoppages(), watch.LongestTicks() * tickSeconds, watch.LongestTicks(),
               watch.LimitTicks() * tickSeconds, watch.LimitTicks());
-  std::printf("[ticks] %lu sim ticks to full time (cap %lu)\n", watch.Ticks(), kMaxSimTicks);
+  std::printf("[profile-split] in-play %lu ticks (%.1f s) | hold %lu ticks (%.1f s)\n", inPlayTicks,
+              inPlaySeconds, holdTicks, holdSeconds);
+   std::printf("[ticks] %lu sim ticks to full time (cap %lu)\n", watch.Ticks(), kMaxSimTicks);
   std::printf("[idle] %lu episodes\n", watch.IdleEpisodes());
   return 0;
 }
