@@ -11,6 +11,7 @@
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
 #include "pes/movestep_run.hpp"
+#include "pes/movestep_turn.hpp"
 
 // The group-B test probe's stand-ins for the symbols other groups own (see
 // movestep_probe_stubs.cpp). They record the call and return the neutral answer, so a test
@@ -91,6 +92,33 @@ class SyntheticHost : public pes::MoveHost {
   int CurrentMotion() const override { return currentMotion; }
   int CurrentClipFrames() const override { return currentClipFrames; }
   int AnimeState() const override { return animeState; }
+  int MotionFixedFrames(int) const override { return 0; }
+  int MotionStartFrames(int) const override { return 0; }
+  int MotionTotalFrames(int) const override { return 0; }
+  int MotionSubFrames(int, int) const override { return 0; }
+  int MotionSubCount(int) const override { return 0; }
+  const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
+  const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
+  float FacingDeg() const override { return 0.0f; }
+  float BallBearingDeg() const override { return 0.0f; }
+  int ActionIndex() const override { return 0; }
+  int RelatedSlot() const override { return -1; }
+  void RecordPosition(int, float out[3]) const override { out[0] = out[1] = out[2] = 0.0f; }
+  float RecordFacing(int) const override { return 0.0f; }
+  int MatchState11d4() const override { return 0; }
+  int MatchState1554() const override { return 0; }
+  int PhaseTick() const override { return 0; }
+  int MatchModeByte() const override { return 0; }
+  bool MatchObject3b0() const override { return false; }
+  bool TrainerFlag1423e7fd0() const override { return false; }
+  int RecordConditionByte(int) const override { return 100; }
+  bool ActionSlotMarked(int) const override { return true; }
+  bool ActionTableOwns(int) const override { return false; }
+  int RecordActionA() const override { return 5; }
+  int RecordActionB() const override { return 5; }
+  const pes::movestep::MoveTurnConstants& MoveTurnConstantsView() const override {
+    return turnConstants;
+  }
   float BandSpeedKmh(int band, float g) const override { return bandSpeeds[band]; (void)g; }
   bool MirrorChoice(bool sameTeam) const override { return mirrorChoice; (void)sameTeam; }
   const pes::RunConstants& RunConstantsView() const override { return runConstants; }
@@ -133,6 +161,9 @@ class SyntheticHost : public pes::MoveHost {
   int animeState = 0;
   pes::RunTables runTables{};
   pes::SpeedRateTable speedRate{};
+  pes::movestep::MoveTurnConstants turnConstants{};
+  pes::MoveConstants moveConstants{};
+  pes::IdleRowTables idleRows{};
   pes::PlaybackConstants playback{};
   int cellCalls = 0;
   int lastCellRow = -1;

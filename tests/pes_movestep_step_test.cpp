@@ -12,6 +12,7 @@
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
 #include "pes/movestep_step.hpp"
+#include "pes/movestep_turn.hpp"
 
 // The last entry any group-C handler asked for, so a test can assert the exit without depending
 // on another group's TU.
@@ -184,6 +185,9 @@ class FakeHost : public MoveHost {
   const pes::RunConstants& RunConstantsView() const override { return runConstants; }
   const pes::RunTables& RunTablesView() const override { return runTables; }
   const pes::SpeedRateTable& SpeedRateTableView() const override { return speedRate; }
+  const pes::movestep::MoveTurnConstants& MoveTurnConstantsView() const override {
+    return turnConstants;
+  }
   const pes::StepTables& StepTablesView() const override { return tables; }
   bool BucketIsLeft(int bucket) const override { return bucket < 5; }
   const pes::PlaybackConstants& PlaybackConstantsView() const override { return playback; }
@@ -191,6 +195,30 @@ class FakeHost : public MoveHost {
   int CurrentMotion() const override { return currentMotion; }
   int CurrentClipFrames() const override { return currentClipFrames; }
   int AnimeState() const override { return 0; }
+  int MotionFixedFrames(int) const override { return 0; }
+  int MotionStartFrames(int) const override { return 0; }
+  int MotionTotalFrames(int) const override { return 0; }
+  int MotionSubFrames(int, int) const override { return 0; }
+  int MotionSubCount(int) const override { return 0; }
+  const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
+  const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
+  float FacingDeg() const override { return 0.0f; }
+  float BallBearingDeg() const override { return 0.0f; }
+  int ActionIndex() const override { return 0; }
+  int RelatedSlot() const override { return -1; }
+  void RecordPosition(int, float out[3]) const override { out[0] = out[1] = out[2] = 0.0f; }
+  float RecordFacing(int) const override { return 0.0f; }
+  int MatchState11d4() const override { return 0; }
+  int MatchState1554() const override { return 0; }
+  int PhaseTick() const override { return 0; }
+  int MatchModeByte() const override { return 0; }
+  bool MatchObject3b0() const override { return false; }
+  bool TrainerFlag1423e7fd0() const override { return false; }
+  int RecordConditionByte(int) const override { return 100; }
+  bool ActionSlotMarked(int) const override { return true; }
+  bool ActionTableOwns(int) const override { return false; }
+  int RecordActionA() const override { return 5; }
+  int RecordActionB() const override { return 5; }
 
   pes::StepScalars scalars = SyntheticScalars();
   pes::StepTables tables = SyntheticTables();
@@ -199,6 +227,9 @@ class FakeHost : public MoveHost {
   pes::RunConstants runConstants{};
   pes::RunTables runTables{};
   pes::SpeedRateTable speedRate{};
+  pes::movestep::MoveTurnConstants turnConstants{};
+  pes::MoveConstants moveConstants{};
+  pes::IdleRowTables idleRows{};
 
   int commandClass = 3;
   float rateCeiling = 1.0f;

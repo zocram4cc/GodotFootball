@@ -165,4 +165,13 @@ Gate status against the foundation's list: none of D1, L1, L2, L4 is closed by t
 - **Declared, not defined:** `movestep.hpp` declares the group A helpers (IdleRow, StayDecision, MotionStartSeconds, SpeedToRate, LocomotionStyle, AccelerationRamp, LateralDamping, OutOfPlayPreempt) and the group B, C and D entries. Main links without them, so nothing on main calls them.
 - **Contract rules:** `MoveHost` is append-only. Handlers never touch `MoveStepRecord`. `EnterAccelerate`, `EnterDecelerate` and `EnterStepTurnRun` return bool. `EnterRun` and `EnterGotoRun` take the PES flags.
 
+## Sixth pass: dispatcher, group A and the cross-group seams
+
+- **Shared helpers landed** in `movestep_common.cpp`: `AngleDiffDeg`, `FoldFull` (group B's in-file copies deleted in the same commit) and `SpeedToRate` with the 10-record table at `0x1425de010`, its kind scale at `0x1425ddf5c` and the `/speed3600 / G` term. `MoveConstants` and `IdleRowTables` load group A's install scalars and the idle row tables by VA.
+- **Dispatch is ported** in `movestep_dispatch.cpp`: the head's two dwell clocks, the out-of-play pre-empt seam, the 24-case switch (case 11 is PES's never-dispatched `GOTO_STEP`) and `FUN_1406cbb00`'s yaw lock after cases 1, 2, 20, 21 and 23 from `req[2]` and after 3, 4, 5 and 22 from `req[1]`.
+- **Group A landed** in `movestep_group_a.cpp`: INIT (`FUN_1406ba900` case 0), `Idle`, `IdleTurn`, `IdleOther`, `IdlePkPlayer`, `IdlePkGk`, `TimingStep`, `Demo`, `StayDecision` (`FUN_1406b6bb0`) and `IdleRow` (`FUN_1406b93a0`). The two cross-group seams (`FUN_1406d1170`, `FUN_1406d1390`) keep PES's call shape; `FUN_1406d1390`'s row table at `0x1425dda30` is the port's stand-in until it is decoded.
+- **The seams live in `movestep_dispatch_seams.cpp`**, not in `pesfmt`, so the per-group test targets keep their probe stubs. The dispatcher test and the sim adapter link them.
+- **Stand-ins still in code:** `MotionStartSeconds` returns zero, `LocomotionStyle` returns PES's otherwise branch (style 0) and `OutOfPlayPreempt` takes no tick. Each names the PES site that removes it.
+- **Tests:** `pes_movestep_test` covers the dwell head, both yaw-lock families, the states without a yaw lock, each group A handler's issue arm, `StayDecision` and the speed->rate table (synthetic plus the install relations). `pes_movestep_run_test` 33, `pes_movestep_turn_test` 39 and `pes_movestep_step_test` 13 still pass.
+
 

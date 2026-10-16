@@ -41,7 +41,67 @@ namespace {
 // speed first, so the loader reverses the record order. The kind scale is 0x1425ddf5c.
 constexpr uint64_t SPEED_RATE_TABLE_VA = 0x1425de010;
 constexpr uint64_t SPEED_RATE_KIND_SCALE_VA = 0x1425ddf5c;
+
+// Group A's install scalars, by VA (StayDecision FUN_1406b6bb0, IdleRow FUN_1406b93a0 and the
+// idle tails).
+struct MoveScalar {
+  uint64_t va;
+  float MoveConstants::* field;
+};
+constexpr MoveScalar MOVE_SCALARS[] = {
+    {0x14259bde4, &MoveConstants::dist2m5},
+    {0x14258c264, &MoveConstants::dist3},
+    {0x142588210, &MoveConstants::near01},
+    {0x14259bdf0, &MoveConstants::ball1p4},
+    {0x1425c5100, &MoveConstants::lookScale},
+    {0x1425ddff0, &MoveConstants::lookLow},
+    {0x1425ddf68, &MoveConstants::lookHigh},
+    {0x1425ddfe4, &MoveConstants::rootLow},
+    {0x1425ddf58, &MoveConstants::rootHigh},
+    {0x142591140, &MoveConstants::demoSpan},
+};
+
+// The idle row tables, by VA, each four row ids (FUN_1406b93a0's exits).
+struct IdleRowSite {
+  uint64_t va;
+  std::array<int32_t, 4> IdleRowTables::* row;
+};
+constexpr IdleRowSite IDLE_ROW_SITES[] = {
+    {0x1425ddc58, &IdleRowTables::fatigue},
+    {0x1425ddc48, &IdleRowTables::flag},
+    {0x1425ddbf0, &IdleRowTables::kind2},
+    {0x1425ddc10, &IdleRowTables::mode},
+    {0x1425ddc00, &IdleRowTables::mode2},
+    {0x1425ddcc8, &IdleRowTables::slot},
+    {0x1425ddcd0, &IdleRowTables::slotAlt},
+    {0x1425ddc40, &IdleRowTables::kind6},
+    {0x1425ddbe0, &IdleRowTables::near},
+    {0x1425ddbd0, &IdleRowTables::far},
+};
 }  // namespace
+
+std::optional<MoveConstants> LoadMoveConstants(const PeImage& exe, std::string* error) {
+  MoveConstants k{};
+  for (const MoveScalar& s : MOVE_SCALARS) {
+    if (!exe.ReadVa(s.va, sizeof(float), reinterpret_cast<uint8_t*>(&(k.*(s.field))))) {
+      *error = "move constants: .rdata unreadable";
+      return std::nullopt;
+    }
+  }
+  return k;
+}
+
+std::optional<IdleRowTables> LoadIdleRowTables(const PeImage& exe, std::string* error) {
+  IdleRowTables t{};
+  for (const IdleRowSite& s : IDLE_ROW_SITES) {
+    if (!exe.ReadVa(s.va, sizeof(std::array<int32_t, 4>),
+                    reinterpret_cast<uint8_t*>(&(t.*(s.row))))) {
+      *error = "idle row tables: .rdata unreadable";
+      return std::nullopt;
+    }
+  }
+  return t;
+}
 
 std::optional<SpeedRateTable> LoadSpeedRateTable(const PeImage& exe, std::string* error) {
   std::array<std::array<float, 4>, 10> stored{};

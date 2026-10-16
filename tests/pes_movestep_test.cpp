@@ -11,6 +11,7 @@
 
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
+#include "pes/movestep_turn.hpp"
 
 namespace {
 
@@ -306,7 +307,16 @@ namespace {
 // default, because no other test in this file drives a handler.
 class RateHost : public pes::MoveHost {
  public:
-  pes::MoveCell Cell(int, int, bool) override { return {}; }
+  pes::MoveCell Cell(int row, int column, bool walkFlag) override {
+    ++cellCalls;
+    lastCellRow = row;
+    lastCellColumn = column;
+    lastCellWalk = walkFlag;
+    pes::MoveCell c;
+    c.motionNo = 0x100 + row;
+    c.found = true;
+    return c;
+  }
   int PickN(int) override { return 0; }
   bool Percent(int) override { return false; }
   int CommandSpeedClass() const override { return 0; }
@@ -320,8 +330,8 @@ class RateHost : public pes::MoveHost {
   float MotionStartTime(int) const override { return 0.0f; }
   float RecordF2468() const override { return 1.0f; }
   int MoveStatePrevious() const override { return 0; }
-  float RecordF0bec() const override { return 0.0f; }
-  void SetRecordF0bec(float) override {}
+  float RecordF0bec() const override { return f0bec; }
+  void SetRecordF0bec(float value) override { f0bec = value; ++f0becWrites; }
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
   void PositionAt(int, float out[3]) const override { out[0] = out[1] = out[2] = 0.0f; }
   int MatchPhase() const override { return 1; }
@@ -334,17 +344,83 @@ class RateHost : public pes::MoveHost {
   const pes::RunConstants& RunConstantsView() const override { return run; }
   const pes::RunTables& RunTablesView() const override { return tables; }
   const pes::SpeedRateTable& SpeedRateTableView() const override { return rate; }
+  const pes::movestep::MoveTurnConstants& MoveTurnConstantsView() const override {
+    return turnConstants;
+  }
   const pes::StepTables& StepTablesView() const override { return stepTables; }
   bool BucketIsLeft(int) const override { return false; }
   const pes::PlaybackConstants& PlaybackConstantsView() const override { return playback; }
-  int CurrentMotion() const override { return 0; }
-  int CurrentClipFrames() const override { return 0; }
-  int AnimeState() const override { return 0; }
+  int CurrentMotion() const override { return currentMotion; }
+  int CurrentClipFrames() const override { return currentClipFrames; }
+  int AnimeState() const override { return animeState; }
+
+  int MotionFixedFrames(int) const override { return fixedFrames; }
+  int MotionStartFrames(int) const override { return startFrames; }
+  int MotionTotalFrames(int) const override { return totalFrames; }
+  int MotionSubFrames(int, int) const override { return subFrames; }
+  int MotionSubCount(int) const override { return subCount; }
+  const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
+  const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
+  float FacingDeg() const override { return facingDeg; }
+  float BallBearingDeg() const override { return ballBearingDeg; }
+  int ActionIndex() const override { return actionIndex; }
+  int RelatedSlot() const override { return relatedSlot; }
+  void RecordPosition(int slot, float out[3]) const override {
+    out[0] = recordPosition[slot][0];
+    out[1] = recordPosition[slot][1];
+    out[2] = recordPosition[slot][2];
+  }
+  float RecordFacing(int slot) const override { return recordFacing[slot]; }
+  int MatchState11d4() const override { return matchState11d4; }
+  int MatchState1554() const override { return matchState1554; }
+  int PhaseTick() const override { return phaseTick; }
+  int MatchModeByte() const override { return matchModeByte; }
+  bool MatchObject3b0() const override { return matchObject3b0; }
+  bool TrainerFlag1423e7fd0() const override { return trainerFlag; }
+  int RecordConditionByte(int) const override { return conditionByte; }
+  bool ActionSlotMarked(int) const override { return actionSlotMarked; }
+  bool ActionTableOwns(int) const override { return actionTableOwns; }
+  int RecordActionA() const override { return recordActionA; }
+  int RecordActionB() const override { return recordActionB; }
 
   float g = 1.0f;
   pes::RunConstants run{};
   pes::RunTables tables{};
   pes::SpeedRateTable rate{};
+  pes::movestep::MoveTurnConstants turnConstants{};
+  pes::MoveConstants moveConstants{};
+  pes::IdleRowTables idleRows{};
+  int fixedFrames = 0;
+  int startFrames = 0;
+  int totalFrames = 0;
+  int subFrames = 0;
+  int subCount = 0;
+  float facingDeg = 0.0f;
+  float ballBearingDeg = 0.0f;
+  int actionIndex = 0;
+  int relatedSlot = -1;
+  float recordPosition[12][3] = {};
+  float recordFacing[12] = {};
+  int matchState11d4 = 0;
+  int matchState1554 = 0;
+  int phaseTick = 0;
+  int matchModeByte = 0;
+  bool matchObject3b0 = false;
+  bool trainerFlag = false;
+  int conditionByte = 100;
+  bool actionSlotMarked = true;
+  bool actionTableOwns = false;
+  int recordActionA = 5;
+  int recordActionB = 5;
+  float f0bec = 0.0f;
+  int f0becWrites = 0;
+  int cellCalls = 0;
+  int lastCellRow = -1;
+  int lastCellColumn = -1;
+  bool lastCellWalk = false;
+  int currentMotion = 0;
+  int currentClipFrames = 0;
+  int animeState = 0;
   pes::StepScalars step{};
   pes::StepTables stepTables{};
   pes::AngleBucketConstants buckets{};
@@ -375,6 +451,14 @@ pes::RunConstants SyntheticAngles() {
   k.full = 360.0f;
   k.wrapFull = -360.0f;
   k.half_turn = 180.0f;
+  k.deg90 = 90.0f;
+  k.deg135 = 135.0f;
+  k.deg3375 = 33.75f;
+  k.deg1125 = 11.25f;
+  k.deg225 = 22.5f;
+  k.deg675 = 67.5f;
+  k.deg45 = 45.0f;
+  k.negHalf = -0.5f;
   k.speed3600 = 3.6f;
   return k;
 }
@@ -432,4 +516,163 @@ TEST(SpeedRateInstall, LoadsTheKnotsInPesWalkOrder) {
   }
   EXPECT_GT(t->kindScale, 0.0f);
   EXPECT_LE(t->kindScale, 1.0f);
+}
+
+namespace {
+RateHost IdleHost() {
+  RateHost host;
+  host.run = SyntheticAngles();
+  host.run.rate01 = 0.1f;
+  host.step.rate0p9 = 0.9f;
+  host.moveConstants.dist2m5 = 2.5f;
+  host.moveConstants.dist3 = 3.0f;
+  host.moveConstants.near01 = 0.1f;
+  return host;
+}
+
+// A request whose stay decision refuses: the facing error is past every bearing gate, so the
+// idle handlers take their issue arm.
+pes::MoveReq StayRefused() {
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 0);
+  req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kFacingError, 200.0f);
+  req.SetF(pes::moveword::kDistToTarget, 10.0f);
+  return req;
+}
+}  // namespace
+
+TEST(Dispatch, AdvancesBothDwellClocksBeforeTheStateRuns) {
+  RateHost host = IdleHost();
+  pes::MoveReq req;
+  pes::Dispatch(pes::MoveState::kGotoStep, host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kDwellElapsed), 1.0f / 54.0f, 1e-6f);
+  EXPECT_NEAR(req.F(pes::moveword::kDwellElapsed2), 1.0f / 54.0f, 1e-6f);
+}
+
+TEST(Dispatch, LocksTheFacingAfterTheIdleFamily) {
+  for (pes::MoveState state : {pes::MoveState::kIdle, pes::MoveState::kIdleTurn,
+                               pes::MoveState::kIdlePkPlayer, pes::MoveState::kIdlePkGk,
+                               pes::MoveState::kDemo}) {
+    RateHost host = IdleHost();
+    pes::MoveReq req = StayRefused();
+    req.SetF(pes::moveword::kFacing, 370.0f);
+    pes::Dispatch(state, host, req);
+    EXPECT_FLOAT_EQ(host.f0bec, 10.0f) << "state " << static_cast<int>(state);
+  }
+}
+
+TEST(Dispatch, LocksTheHeadingAfterTheRunStepAndTimingStates) {
+  for (pes::MoveState state : {pes::MoveState::kRunLoop, pes::MoveState::kStepLoop,
+                               pes::MoveState::kStepLoopChange, pes::MoveState::kTimingStep}) {
+    RateHost host = IdleHost();
+    pes::MoveReq req = StayRefused();
+    req.SetF(pes::moveword::kHeading, -10.0f);
+    pes::Dispatch(state, host, req);
+    EXPECT_FLOAT_EQ(host.f0bec, 350.0f) << "state " << static_cast<int>(state);
+  }
+}
+
+TEST(Dispatch, LeavesTheYawLockOffAfterTheStatesWithoutIt) {
+  RateHost host = IdleHost();
+  pes::MoveReq req = StayRefused();
+  pes::Dispatch(pes::MoveState::kIdleOther, host, req);
+  EXPECT_EQ(host.f0becWrites, 0);
+}
+
+TEST(Idle, IssuesTheIdleClipWhenTheStayDecisionRefuses) {
+  RateHost host = IdleHost();
+  pes::MoveReq req = StayRefused();
+  req.SetU(pes::moveword::kLiveKind, 1);
+  host.step.rate0p9 = 0.9f;
+  pes::movestep::Idle(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+  EXPECT_EQ(req.U(pes::moveword::kMotion), 0x100u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDuration), 0.25f);
+  EXPECT_EQ(req.U(pes::moveword::kLiveKind) & 0xffu, 0u);
+}
+
+TEST(IdleTurn, WritesTheTurnLockInsideTheReorientWindow) {
+  RateHost host = IdleHost();
+  pes::MoveReq req = StayRefused();
+  host.currentMotion = 0x100;
+  host.startFrames = 0;
+  host.totalFrames = 3;
+  host.fixedFrames = 99;
+  host.currentClipFrames = 1;
+  req.SetF(pes::moveword::kRecordStampB, 2.0f);
+  pes::movestep::IdleTurn(host, req);
+  EXPECT_EQ(req.U(0x3c) & 0xffu, 1u);
+  EXPECT_EQ(req.U(0x3e), 2u);
+}
+
+TEST(IdleOther, IssuesTheIdleClipAndTheRootFacingTailForCommand121) {
+  RateHost host = IdleHost();
+  pes::MoveReq req = StayRefused();
+  req.SetU(pes::moveword::kCommandId, 0x79);
+  req.SetF(pes::moveword::kFacingError, 20.0f);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  host.moveConstants.lookLow = -10.0f;
+  host.moveConstants.lookHigh = 10.0f;
+  host.moveConstants.lookScale = 54.0f;
+  pes::movestep::IdleOther(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDuration), 0.3f);
+  EXPECT_EQ(req.U(pes::moveword::kRootFacing) & 0xffu, 1u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRootFacingAngle), 20.0f);
+}
+
+TEST(IdlePkPlayer, IssuesTheIdleClipOnlyWhenTheLiveKindChanges) {
+  RateHost host = IdleHost();
+  pes::MoveReq req = StayRefused();
+  req.SetU(pes::moveword::kLiveKind, 0);
+  pes::movestep::IdlePkPlayer(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kInit));
+  req.SetU(pes::moveword::kLiveKind, 3);
+  pes::movestep::IdlePkPlayer(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+}
+
+TEST(IdlePkGk, KeepsTheTickUntilTheClipRunsPastTheFixedFrames) {
+  RateHost host = IdleHost();
+  pes::MoveReq req = StayRefused();
+  host.currentClipFrames = 0;
+  host.fixedFrames = 10;
+  pes::movestep::IdlePkGk(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kInit));
+  host.currentClipFrames = 11;
+  pes::movestep::IdlePkGk(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+}
+
+TEST(TimingStep, IssuesTheIdleClipWhenTheStayDecisionRefuses) {
+  RateHost host = IdleHost();
+  pes::MoveReq req = StayRefused();
+  host.fixedFrames = 10;
+  host.currentClipFrames = 0;
+  pes::movestep::TimingStep(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+}
+
+TEST(Demo, IssuesTheIdleClipWhenTheClipHasRunPastTheRandomThreshold) {
+  RateHost host = IdleHost();
+  pes::MoveReq req = StayRefused();
+  host.fixedFrames = 10;
+  host.currentClipFrames = 11;
+  pes::movestep::Demo(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDuration), 0.3f);
+}
+
+TEST(StayDecision, StaysWhenTheFacingErrorIsInsideTheBearingGate) {
+  RateHost host = IdleHost();
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 1);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDistToTarget, 10.0f);
+  host.ballBearingDeg = 0.0f;
+  EXPECT_TRUE(pes::movestep::StayDecision(host, req));
+  req.SetF(pes::moveword::kFacingError, 200.0f);
+  EXPECT_FALSE(pes::movestep::StayDecision(host, req));
 }

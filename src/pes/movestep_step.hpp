@@ -38,7 +38,6 @@ inline constexpr int kBandPrev = 0x24;       // STEP_LOOP: the band before the l
 inline constexpr int kBucketPrev = 0x25;     // STEP_LOOP: the bucket before the last change (OBS)
 inline constexpr int kBlendA = 0x2b;         // STEP_LOOP_CHANGE: the blended heading integral
 inline constexpr int kBlendB = 0x2c;         // STEP_LOOP_CHANGE: the blended heading remainder
-inline constexpr int kStyle = 0x50;         // req[0x50] byte: the locomotion style (OBS: FUN_1406ba2f0's answer)
 }  // namespace moveword
 
 namespace movestep {
