@@ -56,6 +56,9 @@ add_subdirectory(src/sim)
 
 add_executable(gfsim_run apps/gfsim_run.cpp)
 target_link_libraries(gfsim_run PRIVATE gfsim)
+# pesfmt's movestep_run.cpp calls LocomotionStyle, defined in pesmovestepcore (a static cycle):
+# name pesmovestepcore again after pesfmt so the linker pulls it in.
+target_link_libraries(gfsim_run PRIVATE pesfmt pesmovestepcore)
 set_target_properties(gfsim_run PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/apps)
 
 enable_testing()

@@ -38,7 +38,7 @@ constexpr int EXIT_USAGE = 2;
 
 int Usage(const char* why) {
   std::fprintf(stderr, "%s\nusage: gfsim_run --db-sql FILE --home ID --away ID --pes21-root DIR "
-                       "[--seed N] [--minutes N] [--timescale X] [--anims DIR] [--set key=value]...\n", why);
+                       "[--seed N] [--minutes N] [--timescale X] [--anims DIR] [--set key=value]... [--pes-loop]\n", why);
   return EXIT_USAGE;
 }
 
@@ -53,6 +53,10 @@ int main(int argc, char** argv) {
   Properties config;
   for (int i = 1; i < argc; ++i) {
     const std::string a = argv[i];
+    if (a == "--pes-loop") {  // the PES tick order (SW): a flag, no value
+      config.SetBool("pes_loop", true);
+      continue;
+    }
     if (i + 1 >= argc) return Usage(("missing value for " + a).c_str());
     const std::string v = argv[++i];
     if (a == "--db-sql") dbSql = v;

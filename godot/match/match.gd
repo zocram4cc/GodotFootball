@@ -64,7 +64,7 @@ func _ready() -> void:
 	var sql := ProjectSettings.globalize_path("res://../assets/fixtures/teams.sql")
 	var anims := ProjectSettings.globalize_path("res://../assets/gf_anims")
 	if sim.start(library, sql, anims, GF_HOME_TEAM, GF_AWAY_TEAM, int(args.get("seed", DEFAULT_SEED)),
-			int(args.get("minutes", DEFAULT_MINUTES))) != OK:
+			int(args.get("minutes", DEFAULT_MINUTES)), args.has("pes-loop")) != OK:
 		get_tree().quit(1)
 		return
 	motion = PesMotionPlayer.new()

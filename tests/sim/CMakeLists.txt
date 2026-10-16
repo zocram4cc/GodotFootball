@@ -58,6 +58,11 @@ target_link_libraries(pes_event_wiring_test PRIVATE gfsim pesfmt GTest::gtest_ma
 target_compile_definitions(pes_event_wiring_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_event_wiring_test PROPERTIES TIMEOUT 1800)
 
+add_executable(pes_tick_order_test pes_tick_order_test.cpp)
+target_link_libraries(pes_tick_order_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_tick_order_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(pes_tick_order_test PROPERTIES TIMEOUT 1800)
+
 add_executable(pes_judge_test pes_judge_test.cpp)
 target_link_libraries(pes_judge_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_judge_test)
