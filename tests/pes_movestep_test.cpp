@@ -11,6 +11,7 @@
 
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
+#include "movestep_team_synthetic.hpp"
 #include "pes/movestep_turn.hpp"
 #include "pes/locomotion.hpp"
 #include "pes/uniform.hpp"
@@ -447,6 +448,8 @@ class RateHost : public pes::MoveHost {
   float BallMotionHeadingDeg() const override { return ballMotionHeadingDeg; }
   const pes::StyleConstants& StyleConstantsView() const override { return style; }
   int CurrentState() const override { return currentState; }
+  const pes::TeamAi& Team() const override { return team; }
+  SyntheticTeam team;
   const pes::DampingConstants& DampingConstantsView() const override { return damping; }
   const pes::DampingRecord& DampingRecordView() const override { return dampingRecord; }
 };
@@ -1191,4 +1194,178 @@ TEST(DampingRecordInstall, ReadsTheFreemoveRecordsPayloadAtItsRuntimeOffsets) {
   EXPECT_EQ(rec->lateralBound, raw[0]);
   EXPECT_EQ(rec->forwardBound, raw[1]);
   EXPECT_EQ(rec->scale, raw[2]);
+}
+
+// AccelerationRamp (FUN_1406cbf70, rev2 §4.2). A case sets the team reads it names. The requested
+// speed is 40 km/h, which the synthetic table reads as a base target of 1.0, and the ceiling is 1.0.
+// A rate 0.002 short of its target snaps onto it (the step is at least the target gap), so a case
+// reads the target exactly.
+namespace {
+RateHost RampHost() {
+  RateHost host;
+  host.run = SyntheticRampConstants();
+  host.rate = SyntheticRate();
+  host.currentState = 3;  // RUN_LOOP
+  host.staminaPct = 100;  // the reserve weight is 0
+  return host;
+}
+
+pes::MoveReq RampReq(float rate) {
+  pes::MoveReq req;
+  req.SetF(pes::moveword::kRate, rate);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 40.0f);
+  return req;
+}
+}  // namespace
+
+TEST(AccelerationRamp, FreeOwnerOutsideTheListAimsAtTheFreeFactor) {
+  // Branch (b): an own slot above 21 takes F = 0.93.
+  RateHost host = RampHost();
+  host.actionIndex = 22;
+  pes::MoveReq req = RampReq(0.928f);
+  pes::movestep::AccelerationRamp(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRate), 0.93f, 1e-5f);
+}
+
+TEST(AccelerationRamp, TheSideKeeperAimsAtTheCeiling) {
+  // Branch (a): the keeper takes no factor, so the target is the ceiling.
+  RateHost host = RampHost();
+  host.team.keeper[0] = true;
+  pes::MoveReq req = RampReq(0.998f);
+  pes::movestep::AccelerationRamp(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRate), 1.0f, 1e-5f);
+}
+
+TEST(AccelerationRamp, TheReplayActionAimsAtTheCeiling) {
+  // Branch (a): the replay action (anime state 0x4a) takes no factor.
+  RateHost host = RampHost();
+  host.animeState = 0x4a;
+  pes::MoveReq req = RampReq(0.998f);
+  pes::movestep::AccelerationRamp(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRate), 1.0f, 1e-5f);
+}
+
+TEST(AccelerationRamp, ASpecialRoleTakesTheReserveFactor) {
+  // Branch (c): the carrier with a reserve of 50 %, whose weight is (80 - 50) / 60 = 0.5: F = 1 - 0.04 * 0.5.
+  RateHost host = RampHost();
+  host.staminaPct = 50;
+  host.team.carries[0] = true;
+  pes::MoveReq req = RampReq(0.978f);
+  pes::movestep::AccelerationRamp(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRate), 0.98f, 1e-5f);
+}
+
+TEST(AccelerationRamp, AFreeOwnerTakesTheDribbleFactor) {
+  // Branch (d): no latch and DA 60, whose weight is (65 - 60) / 10 = 0.5, with a full reserve:
+  // F = 0.93 - 0.05 * 0.5.
+  RateHost host = RampHost();
+  host.team.da[0] = 60;
+  pes::MoveReq req = RampReq(0.903f);
+  pes::movestep::AccelerationRamp(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRate), 0.905f, 1e-5f);
+}
+
+TEST(AccelerationRamp, ALatchedOwnerTakesTheLatchFactor) {
+  // Branch (e): the possession latch with a reserve of 50 %: F = 0.93 - 0.03 * 0.5.
+  RateHost host = RampHost();
+  host.staminaPct = 50;
+  host.team.latched[0] = true;
+  pes::MoveReq req = RampReq(0.913f);
+  pes::movestep::AccelerationRamp(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRate), 0.915f, 1e-5f);
+}
+
+TEST(AccelerationRamp, AnOpponentRightAheadCapsTheTargetAtTheProximityFactor) {
+  // The cap: PC 90 against 50 gives THR = 0.7 + 0.2 * 40 / 49, about 0.863; the opponent is 0.5 m
+  // ahead and the turn to him is 0, so the requested 1.0 is cut by 0.2 to 0.8, under the 0.88 factor.
+  RateHost host = RampHost();
+  host.team.nearest = 5;
+  host.team.pc[0] = 50;
+  host.team.pc[5] = 90;
+  host.team.position[5] = {0.0f, 0.5f, 0.0f};
+  pes::MoveReq req = RampReq(0.798f);
+  req.SetByte(pes::moveword::kStyle, 6);
+  pes::movestep::AccelerationRamp(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRate), 0.8f, 1e-5f);
+}
+
+TEST(AccelerationRamp, AnOpponentOutsideTheActionRecordDoesNotCap) {
+  // The same opponent with the action record's bit 27 clear: the cap is skipped, the target is 0.88.
+  RateHost host = RampHost();
+  host.team.nearest = 5;
+  host.team.pc[0] = 50;
+  host.team.pc[5] = 90;
+  host.team.position[5] = {0.0f, 0.5f, 0.0f};
+  host.team.actionBit27 = false;
+  pes::MoveReq req = RampReq(0.878f);
+  req.SetByte(pes::moveword::kStyle, 6);
+  pes::movestep::AccelerationRamp(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRate), 0.88f, 1e-5f);
+}
+
+TEST(AccelerationRamp, ATurnOfNinetyDegreesHalvesAFastTarget) {
+  // The turn slow: a 90 degree turn gives a = 1, so 1.0 falls to 0.5 + 0 * 0.5 = 0.5.
+  RateHost host = RampHost();
+  pes::MoveReq req = RampReq(0.498f);
+  req.SetF(pes::moveword::kLookDelta, 90.0f);
+  pes::movestep::AccelerationRamp(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRate), 0.5f, 1e-5f);
+}
+
+TEST(AccelerationRamp, ClimbsAtTheAccelerationSlopeAboveSixTenths) {
+  // Acceleration 99 gives a = 1, so the slope is (1.0 - 0.6) / (1.9 - 0.15) per second: one tick is
+  // slope / 54 of rate.
+  RateHost host = RampHost();
+  host.team.accel[0] = 99;
+  pes::MoveReq req = RampReq(0.7f);
+  pes::movestep::AccelerationRamp(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRate), 0.7f + (1.0f / 54.0f) * (1.0f - 0.6f) / (1.9f - 0.15f),
+              1e-5f);
+}
+
+TEST(AccelerationRamp, FallsAtTheDecelerationSlope) {
+  // Decelerating from 0.9 to 0.5 at a = 0: the slope is 1 / 1.25 per second.
+  RateHost host = RampHost();
+  pes::MoveReq req = RampReq(0.9f);
+  req.SetF(pes::moveword::kLookDelta, 90.0f);  // the turn brings the target to 0.5
+  pes::movestep::AccelerationRamp(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRate), 0.9f - (1.0f / 54.0f) / 1.25f, 1e-5f);
+}
+
+TEST(AccelerationRamp, ClimbsAtTheSlowerSlopeBelowSixTenths) {
+  // Below 0.6 at a = 0 the slope is 1 / 1.4 per second.
+  RateHost host = RampHost();
+  pes::MoveReq req = RampReq(0.3f);
+  pes::movestep::AccelerationRamp(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRate), 0.3f + (1.0f / 54.0f) / 1.4f, 1e-5f);
+}
+
+TEST(RampsBeforeDispatch, TheRampIsSkippedOutsideRunLoopAndStepToRun) {
+  RateHost host = RampHost();
+  host.currentState = 1;  // IDLE
+  pes::MoveReq req = RampReq(0.3f);
+  pes::movestep::RampsBeforeDispatch(host, req);
+  EXPECT_EQ(req.F(pes::moveword::kRate), 0.3f);
+}
+
+TEST(RampsBeforeDispatch, TheRampRunsInRunLoop) {
+  RateHost host = RampHost();
+  pes::MoveReq req = RampReq(0.3f);
+  pes::movestep::RampsBeforeDispatch(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRate), 0.3f + (1.0f / 54.0f) / 1.4f, 1e-5f);
+}
+
+TEST(RampsBeforeDispatch, TheDampingRunsInEveryState) {
+  // IDLE takes the drift's else branch: the part past 120 / 54 a tick comes off.
+  RateHost host = RampHost();
+  host.currentState = 1;
+  host.damping = SyntheticDamping();
+  host.dampingRecord = {2.7f, 2.7f, 1.0f};
+  host.moveConstants.dist2m5 = 2.5f;
+  pes::MoveReq req = RampReq(0.3f);
+  req.SetF(pes::moveword::kDriftX, 3.0f);
+  req.SetF(pes::moveword::kDriftZ, 0.1f);
+  pes::movestep::RampsBeforeDispatch(host, req);
+  EXPECT_NEAR(req.F(pes::moveword::kDriftX), 3.0f - 120.0f / 54.0f, 1e-4f);
+  EXPECT_EQ(req.F(pes::moveword::kDriftZ), 0.0f);
 }

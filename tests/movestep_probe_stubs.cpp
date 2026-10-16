@@ -3,13 +3,10 @@
 //   * the shared helpers the dispatcher port's dispatcher-core library defines behind its own
 //     seams (IdleRow, StayDecision, LocomotionStyle, OutOfPlayPreempt);
 //   * group C's TURN_STOP entry seam (namespace pes);
-//   * group D's entry seams (EnterRunTurnRun, EnterRunTurnStep, EnterStepTurnRun);
-//   * the run/loop ramps the dispatcher port has not ported yet (AccelerationRamp,
-//     LateralDamping).
+//   * group D's entry seams (EnterRunTurnRun, EnterRunTurnStep, EnterStepTurnRun).
 // The stand-ins record the call and return the neutral answer, so a test states which exit PES
 // took without the real body's arithmetic. The real bodies are linked into the dispatcher-core
-// target, not into this one, so the probe and the real bodies never share a link. ponytail:
-// delete the ramp stand-ins when the two ramps land.
+// target, not into this one, so the probe and the real bodies never share a link.
 #include "pes/movestep.hpp"
 
 #include <vector>
@@ -22,8 +19,6 @@ int stayCalls = 0;
 bool stayAnswer = false;
 int styleCalls = 0;
 int styleAnswer = 0;
-int rampCalls = 0;
-int dampingCalls = 0;
 int outOfPlayCalls = 0;
 bool outOfPlayAnswer = false;
 int turnStopCalls = 0;
@@ -45,8 +40,6 @@ void Reset() {
   stayAnswer = false;
   styleCalls = 0;
   styleAnswer = 0;
-  rampCalls = 0;
-  dampingCalls = 0;
   outOfPlayCalls = 0;
   outOfPlayAnswer = false;
   turnStopCalls = 0;
@@ -82,10 +75,6 @@ int LocomotionStyle(MoveHost& /*host*/, int /*animeState*/, float /*rateRequeste
   return probe::styleAnswer;
 }
 
-
-void AccelerationRamp(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::rampCalls; }
-
-void LateralDamping(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::dampingCalls; }
 
 bool OutOfPlayPreempt(MoveHost& /*host*/, MoveReq& /*req*/) {
   ++probe::outOfPlayCalls;

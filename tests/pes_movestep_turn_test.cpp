@@ -13,6 +13,7 @@
 
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
+#include "movestep_team_synthetic.hpp"
 #include "pes/movestep_turn.hpp"
 
 namespace {
@@ -162,6 +163,8 @@ class FakeHost : public MoveHost {
   pes::DampingConstants damping{};
   pes::DampingRecord dampingRecord{};
   int CurrentState() const override { return 0; }
+  const pes::TeamAi& Team() const override { return team; }
+  SyntheticTeam team;
   const pes::DampingConstants& DampingConstantsView() const override { return damping; }
   const pes::DampingRecord& DampingRecordView() const override { return dampingRecord; }
   // LocomotionStyle's reads: the turn tests do not drive the style ladder.

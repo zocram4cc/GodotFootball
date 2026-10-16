@@ -67,6 +67,8 @@ struct MoveStepRecord {
   int rateStamp = 0;                      // P+0x3778: match tick the ceiling was computed on
   float playbackSpeed = 1.0f;             // P+0x3758: the SetMotion playback (FUN_1406f0f70)
   float yawLock = 0.0f;                    // P+0xbec: the dispatcher's yaw lock and the slip/root-facing tail
+  float rate = 0.0f;                      // req[0x4a]: the ramped rate, carried from tick to tick
+  uint8_t style = 0;                      // req[0x50]: P+0x27b1, the locomotion style the loop is on
 
   // FUN_1406b8340, early-out branch after FUN_140708750: the state falls back to INIT.
   void EnterInit() {
@@ -303,6 +305,25 @@ struct RunConstants {
   float quota75;      // 0x4b = 75, the (t * 0x4b) / 100 share
   float quota80;      // 8, the (t * 8) / 10 share
   float quota3;       // 3, the (a + b * 2) / 3 share
+  // AccelerationRamp's factor F, the reserve and DA windows, the cap span and the acceleration slopes,
+  // read by VA. The F and window values are from the install's .rdata (rev2 §4.2 table).
+  float fFree;        // 0.93  (0x1425ddf7c): the ramp's free factor F (stage 5 branches b and d)
+  float fStepA;       // 0.05  (0x1425ddf40): F-A's step against DA (branch d)
+  float fTargetA;     // 0.88  (0x1425ddf70): F-A's target, blended by the reserve weight (branch d)
+  float fStepB;       // 0.03  (0x1425ddf38): F-B's step for a possession latch (branch e)
+  float fStepC;       // 0.04  (0x1425ddf3c): F-C's step for a special role (branch c)
+  float daLow;        // 55    (0x14259be38): DA window low; at or below it the DA weight is 1
+  float daHigh;       // 65    (0x14259be48): DA window high
+  float daSpan;       // -10   (0x14259be84): DA falloff divisor
+  float reserveLow;   // 20    (0x14259be1c): reserve window low; at or below it the reserve weight is 1
+  float reserveHigh;  // 80    (0x142596e6c): reserve window high
+  float reserveSpan;  // -60   (0x1425c48fc): reserve falloff divisor
+  float capSpan;      // 49    (0x14259d620): the proximity cap's PC window span above 50
+  float accelAbove;   // 1.9   (0x1425e4a60): the accelerating slope's span at 0.6 and up
+  float accelBelow;   // 1.4   (0x14259d5d8): the accelerating slope's span below 0.6
+  float decelSpan;    // 1.25  (0x1425ab128): the decelerating slope's span
+  float decelSub;     // -3    (0x14259d654): the decelerating slope below 0.6 in sub-state 2
+  float condition10;  // 10    (0x142588210): the condition byte's ceiling for the Acceleration reduction
 };
 
 // FUN_14043a0a0(a, b): the angle difference a - b wrapped into (-180, 180]. Shared by the
@@ -471,6 +492,47 @@ struct DampingRecord {
 std::optional<DampingRecord> LoadDampingRecord(const PesVfs& vfs, std::string* error);
 
 
+// The team-AI reads of AccelerationRamp (rev2 §4.2, stages 4 and 5) and of the RUN_LOOP jostle
+// (rev2 §5.2). A slot is a player id 0..21; a slot of 22 or more is no player. The sim adapter
+// answers them (its `ponytail:` notes name what is not ported); tests answer them with fixed values.
+// Each method names the PES read it stands for.
+class TeamAi {
+ public:
+  virtual ~TeamAi() = default;
+  // The rank-0 opponent of `own` in its distance list (MA+0x22e4c, rev2 §2.3); 22 when none.
+  virtual int NearestOpponent(int own) const = 0;
+  // PES's ability byte `ability` of `slot`: FUN_1406e6660 for the own record, the same byte of an
+  // opponent's record otherwise. 0x2b Acceleration, 0x28 PC, 0x15 DA.
+  virtual int Ability(int slot, int ability) const = 0;
+  // The condition byte of `slot` (FUN_140a581c0 of its record); at 10 or below it lowers Acceleration.
+  virtual int Condition(int slot) const = 0;
+  // The position (pl+0x55c), the per-tick velocity (pl+0x574) and the heading (pl+0x554) of `slot`.
+  virtual void Position(int slot, float out[3]) const = 0;
+  virtual void Velocity(int slot, float out[3]) const = 0;
+  virtual float Heading(int slot) const = 0;
+  // The sub-state byte of `slot` (pl+0x5d0): 2 is the decelerating sub-state, 0x32 is COVER.
+  virtual int SubState(int slot) const = 0;
+  // hu(slot)+8 bit 27: the action dispatcher's record (A-CLS, not decoded yet).
+  virtual bool ActionBit27(int slot) const = 0;
+  // AccelerationRamp's factor-F reads, each keyed by the slot it names.
+  virtual bool IsSideKeeper(int slot) const = 0;       // FUN_140a62690(X, side(slot)) == slot
+  virtual bool SideTackled(int slot) const = 0;        // T(side(slot))+0xb6e0 != 0
+  virtual bool PossessionLatched(int slot) const = 0;  // T(side(slot))+0x255 != 0
+  virtual bool Carries(int slot) const = 0;            // FUN_140a627e0(X, 0) == slot
+  virtual bool IsSideSlot78(int slot) const = 0;       // T(side(slot))+0x78 == slot
+  virtual bool HasRouteRow(int slot) const = 0;        // FUN_140479470(G+0x180, slot) != 0
+  virtual bool IsMatchUpMan(int slot) const = 0;       // FUN_140a62960(X, side(slot)) == slot
+  virtual bool IsQueuedCover(int slot) const = 0;      // T(side)+0x278+0x40*(slot mod 11) == 0x32
+  virtual bool SideSlotMarked(int slot) const = 0;     // T(side)+0xb8c4[slot mod 11] != 0
+  virtual bool SetPieceAnswer(int slot) const = 0;     // FUN_140a62d90(X, slot, 0) == 0x1c4b6
+};
+
+// The ability bytes the team-AI reads name (FUN_1406e6660's id) and the anime state of the replay action.
+inline constexpr int kAbilityAcceleration = 0x2b;
+inline constexpr int kAbilityPc = 0x28;
+inline constexpr int kAbilityDa = 0x15;
+inline constexpr int kReplayAnimeState = 0x4a;  // vt+0x28 == 0x4a: the replay action
+
 class MoveHost {
  public:
   virtual ~MoveHost() = default;
@@ -610,6 +672,8 @@ class MoveHost {
   virtual int CurrentState() const = 0;
   virtual const DampingConstants& DampingConstantsView() const = 0;
   virtual const DampingRecord& DampingRecordView() const = 0;
+  // The team-AI reads of AccelerationRamp and the RUN_LOOP jostle (TeamAi above).
+  virtual const TeamAi& Team() const = 0;
   // SetMotion / SetParametric: the anime interface's vt+0x10 (FUN_1406b8340's tail; the INIT call).
   virtual void Issue(const MotionRequest& request) = 0;
 };
@@ -667,9 +731,14 @@ struct AngleBucketConstants {
 };
 std::optional<AngleBucketConstants> LoadAngleBucketConstants(const PeImage& exe, std::string* error);
 
+// FUN_1406b9ff0: the requested rate of the request's class, kind and speed (RUN_LOOP's rate read). The
+// ramp's base target is the same read. Defined in movestep_run.cpp.
+float RequestedRate(MoveHost& host, MoveReq& req, const RunTables& t);
+
 // Per-state handlers. Each takes the host and the request, returns nothing, and never touches
 // MoveStepRecord: a state change is RequestState(req, next). The VA of each PES handler is in
 // the comment; the owning group is in the file header of its .cpp.
+
 namespace movestep {
 // Group A (INIT stays in the dispatcher's case 0; its body is ported beside the idle handlers).
 void Init(MoveHost& host, MoveReq& req);              // 0  FUN_1406ba900's case 0
@@ -760,6 +829,9 @@ int LocomotionStyle(MoveHost& host, int animeState, float rateRequested, MoveReq
                     bool rateHeld);
 // FUN_1406cbf70(ap, req): the acceleration ramp of the rate, per tick in RUN_LOOP and STEP_TO_RUN (AS 3.6).
 void AccelerationRamp(MoveHost& host, MoveReq& req);
+// FUN_1406cbf70's ramp and FUN_1406cbc10's damping, run before the dispatcher each tick (rev2 §4.2;
+// anime-select §1 steps 4 and 5): the ramp only in RUN_LOOP (3) and STEP_TO_RUN (13), the damping always.
+void RampsBeforeDispatch(MoveHost& host, MoveReq& req);
 // FUN_1406cbc10(ap, req): the lateral drift damping, run_2_4_000 and rate >= 0.3 (AS 1, step 5).
 void LateralDamping(MoveHost& host, MoveReq& req);
 // FUN_1406ce550(ap, req): the out-of-play pre-empt (AS 2.1). true = the tick was taken by dm_oop.
