@@ -480,7 +480,8 @@ void PlayerController::_MovementCommand(PlayerCommandQueue& commandQueue, bool f
                                         bool extraHaste) {
   int defaultLookAtTime_ms = 40;
 
-  Vector3 quantizedInputDirection = inputDirection;
+  // a heading is flat: height in the input is not a direction (SelectAnim asserts it)
+  Vector3 quantizedInputDirection = inputDirection.Get2D();
   if (quantizeDirection)
     QuantizeDirection(quantizedInputDirection, GetQuantizedDirectionBias());
 
@@ -657,7 +658,9 @@ void PlayerController::_MovementCommand(PlayerCommandQueue& commandQueue, bool f
   {
     Vector3 autoMovement = autoDirection * autoVelocityFloat;
     Vector3 manualMovement = manualDirection * manualVelocityFloat;
-    Vector3 resultingMovement = manualMovement * (1.0 - autoBias) + autoMovement * autoBias;
+    // the blend is ground movement: a height in any input or mate's movement is not a direction
+    Vector3 resultingMovement =
+        (manualMovement * (1.0 - autoBias) + autoMovement * autoBias).Get2D();
     command.desiredDirection = resultingMovement.GetNormalized(quantizedInputDirection);
     const float maximumInputVelocity = sprintVelocity;
     command.desiredVelocityFloat =
