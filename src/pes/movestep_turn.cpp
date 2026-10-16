@@ -1255,7 +1255,7 @@ void RunTurnRunSlipdown(MoveHost& host, MoveReq& req, const MoveTurnConstants& k
     }
     if (std::fabs(delta) < quarter) {
       float limit = k.angle135;                                        // DAT_14259be60
-      if (static_cast<int>(req.U(moveword::kFootBandSide)) < 3) limit = k.halfTurn;  // req[0x7c]
+      if (static_cast<int>(req.U(moveword::kClassWord)) < 3) limit = k.halfTurn;  // PES byte 0x7c = word 0x1f (CONFIRMED: FUN_1406c2f80 line 123; pes-re-a3helpers.md addendum item 4)
       const float ticks = static_cast<float>(host.TicksPerSecond());  // FUN_141e532d0
       float step = limit / ticks;
       // 0x1406c32e2: COMISS XMM7,XMM8; JA skip. Otherwise the -0.0 sign flip and the maxss pair.
@@ -1289,8 +1289,8 @@ void RunTurnRunSlipdown(MoveHost& host, MoveReq& req, const MoveTurnConstants& k
     req.SetU(0xb8, 0);                   // param_2 + 0xb8
     req.SetByte(0x140, 0);               // param_2 + 0x140
     // (P+0xac0 vt+0x00)(P+0xac0, req, foot, 0): the row replay through +0xac0's first slot; the
-    // adapter owns that slot, so the foot lands in the request's foot word.
-    req.SetU(moveword::kFootBandSide, 1);   // param_2 + 0x7c = 1
+    // adapter owns that slot, so the foot band travels on the host (MoveHost::FootBand), not the request.
+    (void)foot;
     req.SetF(moveword::kSlipRate, 0.3f);    // param_2 + 0x128 = 0x3e99999a
     req.SetF(moveword::kSlipSpeed, 11.0f);  // param_2 + 0x74 = 0x41300000
   }
@@ -3142,7 +3142,10 @@ void StepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   req.SetU(moveword::kDwellLimit, 0);     // param_2[0x1b]
   req.SetU(moveword::kDwellLimit2, 0);     // param_2[0x2e]
   req.SetByte(moveword::kStyle, 0);        // param_2 + 0x50
-  req.SetU(moveword::kFootBandSide, static_cast<uint32_t>(foot));
+  // PES writes the foot band into the 0x7c word here; the port's foot band lives on the host
+  // (MoveHost::FootBand), and the request's word 0x7c is the shared class word, so nothing is
+  // stored on the request.
+  (void)foot;
   req.SetU(moveword::kPrevKind, req.U(moveword::kKind));
   if (static_cast<int>(req.U(moveword::kClassWord)) == 3 && sampleKmh < k.speed26) {
     float rate;

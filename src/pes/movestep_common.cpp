@@ -182,17 +182,21 @@ std::optional<DampingRecord> LoadDampingRecord(const PesVfs& vfs, std::string* e
   auto table = ParseUniformTable(*blob, error);
   if (!table) return std::nullopt;
   auto span = table->Find(DAMPING_RECORD_OBJECT);
-  if (!span || span->size() < 0x10 + sizeof(float)) {
+  if (!span || span->size() < 0x20 + 3 * sizeof(float)) {
     *error = std::string(DAMPING_RECORD_OBJECT) + " is missing or short";
     return std::nullopt;
   }
-  // The runtime record is an 8-byte header and the payload: runtime +0x10 is payload +8.
+  // The freemove bounds block: the record's +0x20 floats {42.0, 18.0, 69.5}, the only
+  // plausible bounds in the object (pes-re-a3helpers.md addendum item 2: the live path
+  // FUN_141e5ca20(0x2e)+0x10..0x18 reads denormals, not these).
+  // ponytail: no PES path to this record's bounds is known; the live registry path reads
+  // the wrong object, so this block stands until that PES path is decoded.
   auto f = [&span](size_t at) {
     float v;
     std::memcpy(&v, span->data() + at, sizeof v);
     return v;
   };
-  return DampingRecord{f(0x8), f(0xc), f(0x10)};
+  return DampingRecord{f(0x20), f(0x24), f(0x28)};
 }
 
 

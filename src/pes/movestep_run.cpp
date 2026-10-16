@@ -2256,7 +2256,7 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
   const MoveCell cell = host.Cell(row, column, false);
   if (!cell.found) return false;
   bool mirror = cell.mirror;
-  const int foot = static_cast<int>(req.U(moveword::kFootBandSide));
+  const int foot = host.FootBand();
   if (static_cast<uint32_t>(column - 8) < 2u && (foot & 0xfffffffd) == 0) {
     // The two feet's local y at the bones 3 and 6, with the foot band's side choosing which
     // is the near one. The player's own y is PES's P+0x10, which the port stands at zero
@@ -2393,7 +2393,7 @@ bool EnterDecelerate(MoveHost& host, MoveReq& req) {
   const MoveCell cell = host.Cell(row, column, false);
   if (!cell.found) return false;
   bool mirror = cell.mirror;
-  const int foot = static_cast<int>(req.U(moveword::kFootBandSide));
+  const int foot = host.FootBand();
   if (static_cast<uint32_t>(column - 8) < 2u && (foot & 0xfffffffd) == 0) {
     float footA[3] = {0.0f, 0.0f, 0.0f};
     float footB[3] = {0.0f, 0.0f, 0.0f};
