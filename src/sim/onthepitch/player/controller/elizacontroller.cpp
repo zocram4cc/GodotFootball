@@ -1940,7 +1940,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   const PlayingStyles::ComMask comStyles = CastPlayer()->GetPlayerData()->GetComStyles();
   // The PES path (pes_loop) draws the stumble and the shot's power from the player's own
   // generator (slot 2, report 3); the GF path keeps random().
-  const bool pesPath = match->IsPesLoop();
+  const bool pesPath = match->PesLoop();
   const auto drawRange = [&](float lo, float hi) -> float {
     return pesPath ? lo + (hi - lo) * CastPlayer()->GetPesRandom().Unit(2) : random(lo, hi);
   };

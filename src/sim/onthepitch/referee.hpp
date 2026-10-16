@@ -86,6 +86,8 @@ public:
   // themselves (the dead-ball arm in Process and the late-card window).
   RefereeBuffer& Buffer() { return buffer; }
   const pes::StoppageConstants& GetStoppageConstants() const;
+  // The tick-order switch (pes_loop): the PES restart programme when on, the GF timings when off.
+  bool PesLoop() const;
 
   void AlterSetPiecePrepareTime(unsigned long newTime_ms);
 

@@ -148,8 +148,6 @@ public:
   // PES's event store E (pesevents.hpp): the match's event state. The event stage writes it on
   // every tick; the possession latch, the receive gates and the dodge window read it.
   const pes::EventStore& GetPesEvents() const { return pesEvents; }
-  // The tick-order switch (config pes_loop), read once when the match is built.
-  bool IsPesLoop() const { return pesLoop; }
   // A touch of the ball, queued for the next event stage. `actionKind` is PES's action kind
   // (team.cpp maps the GF touch function onto it).
   void QueuePesTouch(Player* player, uint32_t actionKind);
@@ -223,6 +221,8 @@ public:
   // PES 2021's stamina model (docs/re/pes-re-stamina-drain.md): its constants,
   // read from the install's exe, required like the clock's and the ball's.
   const pes::StaminaConstants& GetPesStaminaConstants() const { return *pesStaminaConstants; }
+  // The tick-order switch (config pes_loop), read once when the match is built.
+  bool PesLoop() const { return pesLoop; }
   // PES 2021's restart timings (docs/re/pes-re-foul-choreography.md 9).
   // PES 2021's kick execution error (docs/re/pes-re-kick-scatter.md).
   const pes::KickErrorConstants& GetPesKickErrorConstants() const {
@@ -236,8 +236,6 @@ public:
   }
   // PES 2021's ball-carrier decision layer (docs/re/pes-re-carrier-ai.md).
   const pes::CarrierConstants& GetPesCarrierConstants() const { return pesCarrierConstants; }
-  // The tick-order switch (config pes_loop): the PES order and the PES carrier path.
-  bool IsPesLoop() const { return pesLoop; }
   // PES 2021's open-play defensive shape (docs/re/pes-re-defensive-shape.md 6,
   // 7, 14): the line ramp, the team length and width and the marking arithmetic.
   const pes::DefensiveShapeConstants& GetPesDefensiveShapeConstants() const {
