@@ -147,7 +147,6 @@ struct PlayerCommand {
   bool useDesiredLookAt;
   Vector3 desiredLookAt;  // absolute 'look at' position on pitch
 
-  bool useTouchInfo;
   TouchInfo touchInfo;
 
   bool onlyDeflectAnimsThatPickupBall;
