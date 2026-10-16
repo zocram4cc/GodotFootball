@@ -31,7 +31,7 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	var stadium_id := int(args.get("stadium", DEFAULT_STADIUM_ID))
-	var stadium: Node3D = PesModelBuilder.new().build_stadium(library, stadium_id)
+	var stadium: Node3D = PesModelBuilder.new().build_stadium(library, stadium_id, int(args.get("weather", 0)))
 	if stadium == null:
 		push_error("stadium %d missing" % stadium_id)
 		get_tree().quit(1)

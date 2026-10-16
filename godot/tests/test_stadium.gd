@@ -69,7 +69,7 @@ func _ready() -> void:
 	check(library.open(root) == OK, "library opens")
 	var builder := PesModelBuilder.new()
 
-	var scene: Node3D = builder.build_stadium(library, STADIUM_ID)
+	var scene: Node3D = builder.build_stadium(library, STADIUM_ID, 0)
 	check(scene != null, "stadium 2 builds")
 	if scene == null:
 		get_tree().quit(1)
@@ -232,6 +232,6 @@ func _ready() -> void:
 		check(b3.position.y >= -400.0, "nothing buries below the stadium shell: min y %f" % b3.position.y)
 		check(b3.end.y <= 1785.0, "nothing rises above the stadium shell: max y %f" % b3.end.y)
 
-	var missing: Node3D = builder.build_stadium(library, 9999)
+	var missing: Node3D = builder.build_stadium(library, 9999, 0)
 	check(missing == null, "an unknown stadium builds nothing")
 	get_tree().quit(1 if failures > 0 else 0)

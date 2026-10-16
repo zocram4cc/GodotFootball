@@ -203,7 +203,7 @@ func _parse_args(raw: PackedStringArray) -> Dictionary:
 # The builder fails only when the install has no such stadium.
 func _build_stadium() -> void:
 	var stadium_id := int(args.get("stadium", DEFAULT_STADIUM_ID))
-	var stadium: Node3D = PesModelBuilder.new().build_stadium(library, stadium_id)
+	var stadium: Node3D = PesModelBuilder.new().build_stadium(library, stadium_id, int(args.get("weather", 0)))
 	if stadium == null:
 		push_error("stadium %d missing from this install; fallback plane drawn" % stadium_id)
 		var plane := PlaneMesh.new()

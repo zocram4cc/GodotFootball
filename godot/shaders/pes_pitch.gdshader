@@ -1,245 +1,191 @@
-// PES pes3DDF_Pitch2020 — the in-play pitch, ported from
-// docs/re/pes-re-pitch-grass.md (priorities 1-4, verified 315/315 pixels against
-// the compiled DXBC). Uniform names are PES's material-param and texture-role
-// names; PesModelBuilder binds the fmdl's values by name.
+// PES pes3DDF_Pitch2020: the turf under the grass. Ported from the install's DXBC
+// (pes3ddf_pitch_2020 PS, 187 instructions) read instruction by instruction in
+// B4Grass (asm/pes3ddf_pitch_2020.ps.asm). docs/re/pes-re-pitch-grass.md sections
+// 3 and 7 give the same formulas; where that report and the asm differ, the asm
+// is followed and the difference is named in the deviation list below.
 //
-// Every numbered deviation from PES is marked [DEVIATION n] in place and
-// restated in the list at the bottom. The report's formula block (§7.2) is
-// followed line by line.
+// Not in this material: the mowing stripes. They come from the turf3d grass mesh
+// (pes3ddf_turf3d_2020, priority 5 of the report, open), so this surface has none.
+//
+// Space: PES works in world space with Y up (Fox axes, the same as Godot's world).
+// Godot's VIEW and NORMAL are view space, so the shader converts them with
+// INV_VIEW_MATRIX and writes the normal back through VIEW_MATRIX.
+//
+// light() cannot read SPECULAR in Godot 4.7, so the two per-pixel values the
+// shading-model-3 light needs travel in BACKLIGHT: .r = translucency T (GB1.T),
+// .g = the specular scale (GB2.y). ROUGHNESS is readable there and is used as is.
 shader_type spatial;
 
-// ---- PES material params, exactly as fmdl/packed (report 1.1, 3.1) ----------
+// ---- material params, by the fmdl's names (values read from st002) ----------
 uniform vec4 AOParamX = vec4(1.0);
 uniform vec4 AOParamY = vec4(0.1);
 uniform vec4 AOParamZ = vec4(1.5);
 uniform vec4 AOParamW = vec4(0.85);
-uniform vec4 URepeat_UV = vec4(1.0);
-uniform vec4 VRepeat_UV = vec4(1.0);
+uniform vec4 URepeat_UV = vec4(32.0);
+uniform vec4 VRepeat_UV = vec4(24.0);
 uniform vec4 NormalFlatness = vec4(0.5);
-uniform vec4 RepairColor = vec4(0.31, 0.4, 0.0, 1.0);
+uniform vec4 RepairColor = vec4(0.312655, 0.402, 0.0, 1.0);
 uniform vec4 CameraVectorBlend = vec4(0.0);
 uniform vec4 WithersParameter0 = vec4(0.78);
 uniform vec4 WithersParameter1 = vec4(0.78);
-uniform vec4 WithersParameter2 = vec4(0.96);
-uniform vec4 WithersParameter3 = vec4(0.1);
-uniform vec4 WithersParameter4 = vec4(0.07);
-uniform vec4 WithersParameter5 = vec4(0.04);
+uniform vec4 WithersParameter2 = vec4(0.961);
+uniform vec4 WithersParameter3 = vec4(0.098);
+uniform vec4 WithersParameter4 = vec4(0.071);
+uniform vec4 WithersParameter5 = vec4(0.039);
 uniform vec4 SrmParameter0 = vec4(1.0);
-uniform vec4 SrmParameter1 = vec4(0.24);
-uniform vec4 SrmParameter2 = vec4(0.2);
+uniform vec4 SrmParameter1 = vec4(0.239);
+uniform vec4 SrmParameter2 = vec4(0.196);
 uniform vec4 SrmParameter3 = vec4(0.0);
-uniform vec4 SrmParameter4 = vec4(0.76);
-uniform vec4 SrmParameter5 = vec4(0.2);
+uniform vec4 SrmParameter4 = vec4(0.761);
+uniform vec4 SrmParameter5 = vec4(0.196);
 uniform vec4 EmissiveParam0 = vec4(0.05);
 uniform vec4 EmissiveParam1 = vec4(0.1);
-uniform vec4 EmissiveParam2 = vec4(17.09);
-// t15, the 8x8 screen-space dither PES tests visibility against, has no fmdl
-// texture role in st002 (and no such role at all: the PS samples it as an
-// engine-bound constant). Dropping it is [DEVIATION 4].
+uniform vec4 EmissiveParam2 = vec4(17.094);
 
-// ---- texture roles (report 3.2: t0..t7 of the PES PS) ----------------------
-// t0: per-stadium. R = density multiplier, G = grain weight, B = on-pitch mask,
-// A = the AO term (report 3.7, 3.9). Sampled untiled, at UV0 as PES does.
-uniform sampler2D Base_Tex_SRGB : source_color, filter_linear_mipmap_anisotropic;
-// t3: the shared turf colour. RGB = grass colour, A = per-texel density (5.3).
-// Sampled tiled by URepeat_UV x VRepeat_UV. PES binds the sampler POINT
-// (report 3.2, s3 "point wrap"), but with 32x24 tiling a point sampler resamples
-// one 1024² texel per 4 cm and aliases into the mowing-band artefacts seen in the
-// frame. [DEVIATION 9] Bilinear tiling is the closest Godot allows without
-// re-authoring the map.
-uniform sampler2D Base_Tex_2_SRGB : source_color, filter_linear_mipmap, repeat_enable;
-// t4: per-stadium fine grain normal, RG only, tiled as t3 (report 3.10).
-uniform sampler2D GrainNormal_Tex_LIN : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
-// t7: per-stadium blade-orientation grain. (R,B,G) = the grass-blade normal
-// that builds the tangent frame, A = the repair-colour blend weight (3.4, 3.9).
-// Sampled tiled as t3, bilinear for the same reason. [DEVIATION 9]
-uniform sampler2D Grain_Tex_LIN : filter_linear_mipmap, repeat_enable;
-// t5: the common 128x128 view-tilt LUT (report 5.4), sampled linear CLAMP.
-uniform sampler2D SlopeTable_Tex_LIN : filter_linear, repeat_disable;
-// t6: Mask_Tex_SRGB. Never bound in st002 (report 8 item 1), so the builder
-// binds nothing and PES's own documented zero default applies: a = Base.a,
-// gW = Base.g, m2 = 1 and the Srm curves the bare SrmParameter*.
-uniform sampler2D Mask_Tex_SRGB : hint_default_black, filter_nearest;
+// ---- textures: the PS's slots (report 3.2), by the fmdl's role names --------
+// The *_SRGB roles are sRGB-encoded colour (hardware-decoded in PES), so their
+// RGB is decoded here by srgb_to_linear and their alpha is read raw.
+uniform sampler2D Base_Tex_SRGB : filter_linear_mipmap_anisotropic;                  // t0 pitch_alp, untiled
+uniform sampler2D NormalMap_Tex_NRM : filter_linear_mipmap_anisotropic, repeat_enable; // t1 turf_nrm, tiled
+uniform sampler2D Base_Tex_2_SRGB : filter_nearest_mipmap, repeat_enable;            // t3 turf_bsm, tiled, point (s3)
+uniform sampler2D GrainNormal_Tex_LIN : filter_linear_mipmap_anisotropic;            // t4 pitch_detail, untiled
+uniform sampler2D SlopeTable_Tex_LIN : filter_linear, repeat_disable;                // t5 grass_slopetable, clamp
+uniform sampler2D Mask_Tex_SRGB : hint_default_black, filter_nearest_mipmap, repeat_enable;  // t6, unbound in st002
+uniform sampler2D Grain_Tex_LIN : filter_nearest_mipmap, repeat_enable;              // t7 pitch_grain_alp, untiled, point (s7)
 
-// ---- shading model ID 3, hard-coded in PES (report 3.8) -------------------
+// ---- constants the PS hard-codes ------------------------------------------
+// SSLighting's shading-model-3 tint and F0 (pes-re-shaders.md 2.3; metalness 0).
 const vec3 ID3_TINT = vec3(0.9, 1.0, 0.8);
-const float ID3_F0 = 0.04;              // 0.04 + 0.96*matalness, and PES emits metalness 0
-const float ID3_TRANSLUCENCY = 0.0;     // GB1.T for the pitch (asm 165)
-// PES's linear conversion (asm 83-85) is of the sampled value, done in the
-// GPU-side texture stage, not in the shader. Godot's source_color tag does the
-// same thing to the sampler, so the exponent is named and left as a no-op here
-// rather than applied twice. [DEVIATION 3]
-const float PES_LINEAR_EXPONENT = 1.0 / 2.2;
-// The mowing pattern lives on the separate turf3d grass mesh with a world-space
-// Grass_MaskMap_Tex_LIN lookup (report 5.2); this material has no stripe source.
-const float FALLBACK_MIN_ROUGHNESS = 0.02;
-void fragment() {
-	vec2 tiled = UV * vec2(URepeat_UV.x, VRepeat_UV.x);
+const float ID3_F0 = 0.04;
+// [DEVIATION 4] PES discards where pitch_alp.B < t15.w * cb0[0].w (both open,
+// pes-re-shaders.md 8.1). B is 0 or 255 on 97% of st002's texels (the border
+// band and the playable area), so any threshold between them decides only the
+// edge texels; 0.5 is the midpoint.
+const float VISIBILITY_THRESHOLD = 0.5;
+const vec3 UP = vec3(0.0, 1.0, 0.0);
 
-	// ---- 1. density scalar (report 3.7) -----------------------------------
-	vec4 base2 = texture(Base_Tex_2_SRGB, tiled);
-	vec4 p0 = texture(Base_Tex_SRGB, UV);
-	float lin = pow(base2.a, PES_LINEAR_EXPONENT);
-	float v = lin * p0.r;
-
-	// ---- 2. height terms --------------------------------------------------
-	// PES takes log2 of the world view vector's height and re-raises it, which
-	// is the identity for AOParamX = 1 but is what the data says. VIEW is the
-	// world-space camera direction already normalised. [DEVIATION 1]
-	float h = log2(max(VIEW.y, 1e-5));
-	float qt = exp2(h * AOParamX.x);
-	float pw = exp2(h * EmissiveParam0.x);
-
-	// ---- 3. roughness / specular exponents (report 3.7) ------------------
-	float vlog = log2(max(v, 1e-5));
-	float aoy = exp2(vlog * AOParamY.x);
-	float aoz = exp2(vlog * AOParamZ.x);
-	float em1 = exp2(vlog * EmissiveParam1.x);
-	float em2 = exp2(vlog * EmissiveParam2.x);
-
-	float wither = 1.0 - (qt * (aoz - aoy) + aoy);
-	float match = 1.0 - wither * AOParamW.x;
-
-	// ---- 4. slope table (report 3.6, 5.4) --------------------------------
-	// The grain normal: (R,B,G) per the asm's .xzy swizzle, then the tangent
-	// frame. PES builds the second basis vector with a surface-gradient
-	// Gram-Schmidt in the VS; Godot has no surface gradients in the fragment
-	// shader, so the frame is built locally against the surface normal.
-	// [DEVIATION 2]
-	vec4 grainTex = texture(Grain_Tex_LIN, tiled);
-	vec3 ng = normalize(vec3(grainTex.r, grainTex.b, grainTex.g) * 2.0 - 1.0);
-	vec3 tgx = normalize(ng - NORMAL * dot(NORMAL, ng) + vec3(1e-6));
-	vec3 tgy = cross(NORMAL, tgx);
-	float dvn = dot(VIEW, ng);
-	float dvt = dot(VIEW, tgx);
-	// Both asm lookups use the same UV in this build; s0's .x and .z feed the
-	// roughness/specular chain and its .y the albedo spend term. Report 7.2
-	// notes a two-sample port is exact; one sample suffices here because the
-	// two UVs are identical. Report 8 item 3: the value channel could be R or A
-	// without a GPU run; R is used.
-	vec4 st = texture(SlopeTable_Tex_LIN, vec2(0.5 + 0.5 * dvn, 0.5 + 0.5 * dvt));
-	float spend = 1.0 - st.y * match;
-
-	// ---- 5. albedo (report 3.9) ------------------------------------------
-	vec3 base2c = base2.rgb;
-	vec3 repaired = base2c + grainTex.a * (RepairColor.rgb - base2c);
-	vec3 curve;
-	curve.r = clamp(base2c.r * WithersParameter0.x + WithersParameter3.x, 0.0, 1.0);
-	curve.g = clamp(base2c.g * WithersParameter1.x + WithersParameter4.x, 0.0, 1.0);
-	curve.b = clamp(base2c.b * WithersParameter2.x + WithersParameter5.x, 0.0, 1.0);
-	vec3 tint = curve - repaired;
-	vec4 mask = texture(Mask_Tex_SRGB, UV);
-	// The AO term is a = max(Base_Tex_SRGB.a, Mask_Tex_SRGB.r). st002's pitch_alp
-	// alpha is essentially empty (OBS on the decoded file: 0.68 % of texels
-	// nonzero, and 0.0 from mip 6 up, which is the mip a match camera samples),
-	// and the mask texture is never bound in st002 (report 8 item 1). PES's own
-	// formula therefore also produces a = 0 here, and its own AO term is a
-	// no-op on this stadium. The AO is kept exactly as the report writes it, so
-	// a stadium whose pitch_alp does carry the AO channel gets it back: the
-	// darkening seen on st002 is PES's own behaviour, not a port defect.
-	// ponytail: a full AO lift on the vanilla stadiums needs the pitch_alp of
-	// every stadium dumped; do not fake it with a constant.
-	float a = max(p0.a, mask.r);      // AO
-	float gW = max(p0.g, mask.g);     // grain weight
-	vec3 y = gW * tint + repaired;
-	vec3 c = vec3(1.0) - (vec3(1.0) - base2c) * spend;
-	vec3 n = c * y;
-	float m2 = 1.0 - clamp(mask.b * 0.1, 0.0, 1.0);
-	vec3 tOut = n * m2;
-	vec3 uOut = vec3(0.8) - tOut;
-	ALBEDO = clamp(a * uOut + tOut, 0.0, 1.0);
-
-	// ---- 6. normal (report 3.10) -----------------------------------------
-	// PES decodes the flat detail normal, flattens it by NormalFlatness against
-	// (0,0,1), re-orthogonalises it against the grain frame, mixes the two by
-	// the albedo curve's blue, projects into the view basis and octahedrally
-	// encodes. Godot takes a normal map directly; the re-projection, view basis
-	// and encode are Godot's own. [DEVIATION 2]
-	vec4 nrm4 = texture(GrainNormal_Tex_LIN, tiled);
-	vec2 n2 = vec2(nrm4.r * nrm4.a, nrm4.g) * 2.0 - 1.0;
-	vec3 n1 = vec3(n2, sqrt(max(0.0, 1.0 - dot(n2, n2))));
-	vec3 grainN = n1 + NormalFlatness.x * (vec3(0.0, 0.0, 1.0) - n1);
-	// Worn/discoloured grass (high curve.b) gets a flatter, dirtier normal.
-	vec3 nBlend = mix(grainN, n1, curve.b);
-	vec3 nw = normalize(tgx * nBlend.x + tgy * nBlend.y + NORMAL * nBlend.z);
-	if (nw.z < 0.0) nw = -nw;
-	NORMAL_MAP = nw * 0.5 + 0.5;
-
-	// ---- 7. GB2 (roughness / specular) (report 3.8) ----------------------
-	float s0 = clamp(lin * SrmParameter0.x + SrmParameter3.x, 0.0, 1.0);
-	float s1 = clamp(lin * SrmParameter1.x + SrmParameter4.x, 0.0, 1.0);
-	float m4 = 1.0 - clamp(mask.b * 1.0, 0.0, 1.0);
-	float r6z = pw * (em2 - em1) + em1;
-	float r0x = st.x * match * s0;
-	ROUGHNESS = clamp(s1, FALLBACK_MIN_ROUGHNESS, 1.0);
-	METALLIC = 0.0;  // asm 179, always
-	// PES's GB2.y is the scalar specular of the ID-3 lighting; Godot multiplies
-	// its dielectric BRDF by SPECULAR, so the scalar is pre-scaled by the
-	// species' F0 and the ID-3 tint instead of inside light(), which cannot
-	// read it back. [DEVIATION 8]
-	SPECULAR = ID3_F0 * m4 * r0x;
-	// Report 7.6 skip: the VS height-fog polynomial and GB3/GB4 — Godot's fog
-	// and depth replace them.
+vec3 srgb_to_linear(vec3 c) {
+	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
 }
 
-// ---- 8. shading model ID 3 (report 3.8, 7.3) ------------------------------
-// PES: diffuse = lightColor * max(saturate(NdotL + T*(1-NdotL^2)), wrap*T) with
-// T = 0 and wrap = 1; a specular of ID3_F0 with the Fresnel shape PES could not
-// locate (report 8 item 9), which the report treats as Schlick; and a greenish
-// specular tint. Godot's own BRDF stays; the tint and the constants are PES's.
-// [DEVIATION 8] Godot's light() outputs DIFFUSE_LIGHT/SPECULAR_LIGHT and
-// ATTENUATION/LIGHT_COLOR only; ALBEDO is not writable there, so the tint is
-// multiplied in fragment() where PES's deferred pass applies it after GB0.
+void fragment() {
+	vec4 raw0 = texture(Base_Tex_SRGB, UV);
+	vec3 pitchRgb = srgb_to_linear(raw0.rgb);
+	if (pitchRgb.b < VISIBILITY_THRESHOLD) {
+		discard;  // outside the playable area (B channel mask, see DEVIATION 4)
+	}
+
+	// ---- view and grain frame (asm 44-75) ---------------------------------
+	// V points from the surface to the camera in world space (asm 58-61 build the
+	// same vector as camera minus surface). [DEVIATION 1] CameraVectorBlend pulls V
+	// toward the sun (asm 62-66); it is 0 on st002, and the sun is per light, so the
+	// blend is not applied.
+	vec3 V = normalize((INV_VIEW_MATRIX * vec4(VIEW, 0.0)).xyz);
+	vec4 grainRaw = texture(Grain_Tex_LIN, UV);                                  // t7 (asm 44)
+	vec3 ng = normalize(vec3(grainRaw.r, grainRaw.b, grainRaw.g) * 2.0 - 1.0);   // asm 45-48, .xzy
+	vec3 T1 = normalize(ng.y * ng - UP);                                         // asm 49-55
+	float dVN = dot(V, ng);                                                      // asm 69-70
+	float dVT = dot(V, T1);                                                      // asm 67-68
+	vec4 slope = texture(SlopeTable_Tex_LIN, vec2(0.5 + 0.5 * dVN, 0.5 + 0.5 * dVT));  // asm 72-75
+
+	// ---- height and density (asm 71-96) -----------------------------------
+	float h = log2(max(V.y, 1e-5));                               // asm 71
+	float qt = exp2(h * AOParamX.x);                              // asm 76, 79
+	float pw = exp2(h * EmissiveParam0.x);                        // asm 77-78
+	vec2 tiled = UV * vec2(URepeat_UV.x, VRepeat_UV.x);           // asm 80
+	vec4 turf = texture(Base_Tex_2_SRGB, tiled);                  // t3 (asm 81)
+	vec3 base = srgb_to_linear(turf.rgb);
+	float lin = pow(turf.a, 1.0 / 2.2);                           // asm 83-85: alpha is linear in the sRGB format
+	float v = lin * pitchRgb.r;                                   // asm 86
+	float vlog = log2(max(v, 1e-30));                             // asm 87
+	float aoy = exp2(vlog * AOParamY.x);                          // asm 88
+	float aoz = exp2(vlog * AOParamZ.x);                          // asm 88
+	float em1 = exp2(vlog * EmissiveParam1.x);                    // asm 89-90
+	float em2 = exp2(vlog * EmissiveParam2.x);                    // asm 89-90
+	float wither = 1.0 - (qt * (aoz - aoy) + aoy);                // asm 92-94
+	float match = 1.0 - wither * AOParamW.x;                      // asm 95
+	float spend = 1.0 - slope.g * match;                          // asm 96
+
+	// ---- mask (t6, untiled; zero in st002) ----------------------------------
+	vec3 maskRgb = srgb_to_linear(texture(Mask_Tex_SRGB, UV).rgb);   // asm 104-105
+	float m2 = 1.0 - clamp(maskRgb.b * 0.1, 0.0, 1.0);               // asm 108-109
+	float m3 = 1.0 - clamp(maskRgb.b * 0.5, 0.0, 1.0);
+	float m4 = 1.0 - clamp(maskRgb.b, 0.0, 1.0);
+
+	// ---- albedo (asm 97-112) ------------------------------------------------
+	vec3 c = vec3(1.0) - (vec3(1.0) - base) * spend;                         // asm 97-98
+	vec3 repaired = base + grainRaw.a * (RepairColor.rgb - base);            // asm 99-100
+	vec3 curve = clamp(vec3(base.r * WithersParameter0.x + WithersParameter3.x,
+	                        base.g * WithersParameter1.x + WithersParameter4.x,
+	                        base.b * WithersParameter2.x + WithersParameter5.x), 0.0, 1.0);   // asm 101-102
+	vec3 tint = curve - repaired;                                             // asm 103
+	float ao = max(raw0.a, maskRgb.r);                                        // asm 105
+	float gW = max(pitchRgb.g, maskRgb.g);                                    // asm 105
+	vec3 y = gW * tint + repaired;                                            // asm 106
+	vec3 n = c * y;                                                           // asm 107
+	vec3 tOut = n * m2;                                                       // asm 110
+	vec3 uOut = vec3(0.8) - tOut;                                             // asm 111
+	ALBEDO = clamp(ao * uOut + tOut, 0.0, 1.0);                               // asm 112
+
+	// ---- normal (asm 114-152) -----------------------------------------------
+	// n1 is the turf normal, tiled (asm 114-121); g is the flattened grain normal
+	// from t4 with the z lane raised by one (asm 123-127); sd, q and the up-mix
+	// are asm 128-140 in order.
+	vec4 turfN = texture(NormalMap_Tex_NRM, tiled);                           // t1 (asm 82)
+	vec2 nxy = vec2(turfN.r * turfN.a, turfN.g) * 2.0 - 1.0;
+	vec3 n1 = vec3(nxy, sqrt(max(1.0 - dot(nxy, nxy), 0.0) + 1e-4));
+	vec3 detail = texture(GrainNormal_Tex_LIN, UV).rgb * 2.0 - 1.0;          // t4 (asm 123-124)
+	vec3 gFlat = detail + NormalFlatness.x * (vec3(0.0, 0.0, 1.0) - detail); // asm 125-126
+	vec3 g = gFlat + vec3(0.0, 0.0, 1.0);                                     // asm 127
+	float sd = dot(g, vec3(-n1.x, -n1.y, n1.z));                              // asm 128
+	float qx = sd * g.x / g.z;                                                // asm 129-130
+	float qy = sd * g.y / g.z;
+	vec3 mRaw = vec3(n1.x + qx, max(sd - n1.z, 0.0), n1.y + qy);             // asm 131-132, x / up / z
+	vec3 mn = normalize(mRaw);                                               // asm 133-135
+	vec3 nWorld = normalize(mix(mn, UP, maskRgb.b));                         // asm 136-140 (weight: Mask.B)
+	NORMAL = normalize((VIEW_MATRIX * vec4(nWorld, 0.0)).xyz);
+
+	// ---- GB1 and GB2 (asm 161-179) -----------------------------------------
+	// Roughness is S1; the specular scale is m4 * slope.r * match * S0 (asm 174-178);
+	// the translucency T = m3 * sat(S2*lin + S5) (asm 165) rides in BACKLIGHT.r.
+	float s0 = clamp(lin * SrmParameter0.x + SrmParameter3.x, 0.0, 1.0);     // asm 164
+	float s1 = clamp(lin * SrmParameter1.x + SrmParameter4.x, 0.0, 1.0);     // asm 164
+	float tr = clamp(lin * SrmParameter2.x + SrmParameter5.x, 0.0, 1.0);     // asm 164
+	float specScale = m4 * slope.r * match * s0;                             // GB2.y (asm 174-178)
+	ROUGHNESS = s1;                                                          // GB2.x (asm 177)
+	SPECULAR = specScale;                                                    // Godot's own ambient reflection
+	METALLIC = 0.0;                                                          // GB2.z (asm 179)
+	BACKLIGHT = vec3(m3 * tr, specScale, 0.0);                               // read by light() below
+	// [DEVIATION 3] The VS fog terms and GB3/GB4 (velocity) are not ported: Godot's
+	// fog and motion vectors replace them.
+	// [DEVIATION 5] MatParamIndex_0 (205 on st002) is read by no instruction of the
+	// PS (report 5.1), so no preset is applied and the parameter is not declared.
+}
+
+// Shading model 3 (pes-re-shaders.md 2.3, SSLighting_Sun_NoShadow): the diffuse is
+// max(sat(NdotL + T(1-NdotL^2)), T) with wrapW = 1; the specular is GGX with
+// Schlick Fresnel at F0 = 0.04, scaled by GB2.y and tinted (0.9, 1, 0.8).
+// [DEVIATION 6] PES's Fresnel comes from a LUT (g_lut1) that is not found; Schlick
+// stands in for it. [DEVIATION 7] The GGX term has no 1/pi, as the report writes
+// it; that absolute level is not checked against a PES frame.
 void light() {
-	float NdotL = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
+	float NdotL = dot(NORMAL, LIGHT);
+	float sNdotL = clamp(NdotL, 0.0, 1.0);
 	float NdotV = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 	vec3 H = normalize(LIGHT + VIEW);
 	float NdotH = clamp(dot(NORMAL, H), 0.0, 1.0);
 
-	// T = 0, so PES's max(sat(NdotL), wrap*T) is sat(NdotL). LIGHT_COLOR carries
-	// this light's colour and energy; multiplying by it instead of replacing it
-	// keeps Godot's own scaling when the director's lights are retuned.
-	DIFFUSE_LIGHT = NdotL * LIGHT_COLOR * ID3_TINT;
+	float T = BACKLIGHT.r;
+	float specScale = BACKLIGHT.g;
+	DIFFUSE_LIGHT = max(clamp(NdotL + T * (1.0 - NdotL * NdotL), 0.0, 1.0), T) * LIGHT_COLOR * ATTENUATION;
 
-	float r = max(ROUGHNESS, FALLBACK_MIN_ROUGHNESS);
-	float a2 = r * r;
-	float d = a2 * a2 / pow(NdotH * NdotH * (a2 * a2 - 1.0) + 1.0, 2.0);
-	float k = a2 * 0.5;
-	float vis = 1.0 / ((NdotL * (1.0 - k) + k) * (NdotV * (1.0 - k) + k));
-	float f = ID3_F0 + (1.0 - ID3_F0) * pow(1.0 - clamp(dot(H, LIGHT), 0.0, 1.0), 5.0);
-	SPECULAR_LIGHT = f * d * vis * NdotL * 0.25 * ID3_TINT;
+	float r = max(ROUGHNESS, 0.02);
+	float a = r * r;
+	float a2 = a * a;
+	float D = a2 / pow(NdotH * NdotH * (a2 - 1.0) + 1.0, 2.0);
+	float k = a * 0.5;
+	float vis = 1.0 / ((sNdotL * (1.0 - k) + k) * (NdotV * (1.0 - k) + k));
+	float F = ID3_F0 + (1.0 - ID3_F0) * pow(1.0 - clamp(dot(H, LIGHT), 0.0, 1.0), 5.0);
+	SPECULAR_LIGHT = min(LIGHT_COLOR * F * D * vis * sNdotL * 0.25 * specScale * ID3_TINT * ATTENUATION,
+	                     vec3(1e4));
 }
-
-// ---- DEVIATIONS from PES ---------------------------------------------------
-// [DEVIATION 1] The two height terms (Qt, Pw) and the CameraVectorBlend lerp
-//   toward -sun: AOParamX is 1.0 on this material, making Qt the identity, and
-//   CameraVectorBlend is 0.0, making V the plain view vector. Godot's VIEW is
-//   already normalised, so those two branches collapse; the params stay bound
-//   so a material with other values still ports the exponent curves.
-// [DEVIATION 2] The grain tangent frame and the normal re-projection: PES builds
-//   them in the VS from a surface-gradient frame and projects into the view
-//   basis. Godot gives TANGENT/BINORMAL/NORMAL only, so the frame is built in
-//   the fragment shader with a local Gram-Schmidt step against the surface
-//   normal, and the view-basis projection and octahedral encode are Godot's.
-//   Report 3.10 itself flags the re-projection as approximate.
-// [DEVIATION 3] Godot's source_color tag converts the sampler to linear, which
-//   also makes PES's asm 83-85 pow(a, 1/2.2) a no-op for the sampled value;
-//   the exponent is kept named so the intent survives the convention.
-// [DEVIATION 4] t15, the 8x8 screen dither, and the unconditional part of the
-//   visibility test are dropped: PES discards outside pitch_alp.B, st002's mask
-//   covers the whole drawn pitch, and Godot has no 8x8 dither texture bound.
-//   The pitch therefore never discards.
-// [DEVIATION 5] The mowing stripes: on the turf3d grass mesh with a world-space
-//   Grass_MaskMap_Tex_LIN (report 5.2), not in this material. Nothing to port.
-// [DEVIATION 6] MatParamIndex_0 (205 here) selects nothing in PES's build either
-//   — no instruction reads cb4[0].x and the pitch emits shading-model ID 3,
-//   which never indexes the material preset (report 5.1). So no preset is
-//   applied; the ID-3 constants above are what lights the pitch.
-// [DEVIATION 7] Translucency: GB1.T for the pitch is 0, and Godot's subsurface
-//   strength has no matching meaning for a zero term, so it is left unset.
-// [DEVIATION 8] Godot's light() cannot rewrite ALBEDO (only DIFFUSE_LIGHT and
-//   SPECULAR_LIGHT), so the ID-3 tint is applied in light()'s outputs and in
-//   fragment()'s albedo, where PES's deferred pass tints after GB0.
-// [DEVIATION 9] The two tiled samplers (t3 turf colour, t7 grain) are sampled
-//   POINT in PES ("point wrap", report 3.2). At 32x24 tiling that resamples one
-//   1024² texel per 4 cm and moires into visible bands; both are bilinear here.

@@ -17,9 +17,10 @@ class PesModelBuilder : public RefCounted {
   Node3D* build_model(const Ref<PesLibrary>& library, const String& fpk_path, const String& member) const;
   // One stadium as PES places it: every model of its scene, its pitch, both
   // goals with their nets, and the corner flags, each built with build_model
-  // under a Node3D carrying the fox2 transform. Null when the install has no
-  // such stadium.
-  Node3D* build_stadium(const Ref<PesLibrary>& library, int stadium_id) const;
+  // under a Node3D carrying the fox2 transform. `weather` (0 fine, 1 rain, 2
+  // snow) picks the weather-only layers. Null when the install has no such
+  // stadium.
+  Node3D* build_stadium(const Ref<PesLibrary>& library, int stadium_id, int weather) const;
 
  protected:
   static void _bind_methods();

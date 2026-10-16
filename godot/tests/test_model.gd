@@ -74,8 +74,11 @@ func _initialize() -> void:
 		var shaders := {}
 		for m in meshes_of(pitch):
 			shaders[shader_of(m)] = true
-		check(shaders.has("res://shaders/pes_pitch.gdshader"), "pitch draws with pes3DDF_Pitch2020 (%s)" % shaders.keys())
-		check(shaders.has("res://shaders/pes_blin.gdshader"), "lines draw lit (fox3DDC_Blin)")
+		check(shaders.has("res://shaders/pes_pitch.gdshader"), "pitch draws with pes3DDF_Pitch2020 (%s)" % str(shaders.keys()))
+		# line_alp_dds1 is fox3DDC_GGX (the install's lua: Deferred_Decal, fox3ddf_ggx_decal);
+		# pitch_scratch is fox3DDC_Blin (fox3ddf_blin_decal). Both are decals, not opaque Blin.
+		check(shaders.has("res://shaders/pes_ggx_decal.gdshader"), "lines draw as the GGX decal (%s)" % str(shaders.keys()))
+		check(shaders.has("res://shaders/pes_blin_decal.gdshader"), "pitch_scratch draws as the Blin decal (%s)" % str(shaders.keys()))
 
 	check(builder.build_model(library, "Asset/model/none/#Win/none.fpk", "") == null, "a missing pack builds nothing")
 	quit(1 if failures > 0 else 0)

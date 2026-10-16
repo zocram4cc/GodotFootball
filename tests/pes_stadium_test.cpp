@@ -90,7 +90,7 @@ TEST(StadiumInstall, AssemblesStadiumTwoWithPitchAndTwoGoals) {
   const pes::PesVfs* vfs = Vfs();
   if (!vfs) GTEST_SKIP() << "PES21_ROOT not set or mount failed";
   std::string err;
-  auto models = pes::LoadStadiumScene(*vfs, 2, &err);
+  auto models = pes::LoadStadiumScene(*vfs, 2, pes::kWeatherFine, &err);
   ASSERT_TRUE(models.has_value()) << err;
   const auto& ms = *models;
 
@@ -149,4 +149,37 @@ TEST(StadiumInstall, AssemblesStadiumTwoWithPitchAndTwoGoals) {
   EXPECT_EQ(goals, 2) << "expected two goal posts";
   EXPECT_EQ(shadow, 2) << "expected two goal shadows";
   EXPECT_TRUE(goal180) << "one goal is authored at -X and mirrored 180 deg about Y";
+}
+
+// Weather-only layers. Stadium 29's scene pack places a puddle decal (member
+// st029_center1_rain_detail, one `rain` mesh) and a snow layer (center1_snow, one
+// snow mesh) in every match. PES draws each only in its own weather, and in fine
+// weather the puddle sits 3 cm over the pitch and hides it.
+TEST(StadiumInstall, WeatherOnlyLayersAreKeptOnlyInTheirWeather) {
+  const pes::PesVfs* vfs = Vfs();
+  if (!vfs) GTEST_SKIP() << "PES21_ROOT not set or mount failed";
+  auto placed = [](const std::vector<pes::PlacedModel>& ms, const std::string& tail) {
+    return std::any_of(ms.begin(), ms.end(), [&](const auto& m) {
+      return m.member.size() >= tail.size() &&
+             m.member.compare(m.member.size() - tail.size(), tail.size(), tail) == 0;
+    });
+  };
+  const std::string rainDecal = "st029_center1_rain_detail.fmdl";
+  const std::string snowLayer = "center1_snow.fmdl";
+  std::string err;
+
+  auto fine = pes::LoadStadiumScene(*vfs, 29, pes::kWeatherFine, &err);
+  ASSERT_TRUE(fine.has_value()) << err;
+  EXPECT_FALSE(placed(*fine, rainDecal)) << "puddle decal placed in fine weather";
+  EXPECT_FALSE(placed(*fine, snowLayer)) << "snow layer placed in fine weather";
+
+  auto rain = pes::LoadStadiumScene(*vfs, 29, pes::kWeatherRain, &err);
+  ASSERT_TRUE(rain.has_value()) << err;
+  EXPECT_TRUE(placed(*rain, rainDecal)) << "puddle decal missing in rain";
+  EXPECT_FALSE(placed(*rain, snowLayer)) << "snow layer placed in rain";
+
+  auto snow = pes::LoadStadiumScene(*vfs, 29, pes::kWeatherSnow, &err);
+  ASSERT_TRUE(snow.has_value()) << err;
+  EXPECT_TRUE(placed(*snow, snowLayer)) << "snow layer missing in snow";
+  EXPECT_FALSE(placed(*snow, rainDecal)) << "puddle decal placed in snow";
 }
