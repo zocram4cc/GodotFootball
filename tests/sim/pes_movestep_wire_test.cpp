@@ -249,17 +249,18 @@ TEST(MoveStepWire, APlayedClipAdvancesAndIsNotRestartedByItsOwnMotion) {
   int sameClip = 0, advanced = 0, restarted = 0;
   for (int t = 0; t < kTicks; ++t) {
     std::vector<Player*> ps = ActivePlayers(*match);
-    std::vector<const Anim*> before;
+    // The clip is the Animation the humanoid's Anim struct holds: the struct is one object per player.
+    std::vector<const Animation*> before;
     std::vector<int> frameBefore;
     for (Player* p : ps) {
       const Anim* a = p->GetCurrentAnim();
-      before.push_back(a);
+      before.push_back(a ? a->anim : nullptr);
       frameBefore.push_back(a ? a->frameNum : 0);
     }
     match->Process();
     for (size_t i = 0; i < ps.size(); ++i) {
       const Anim* a = ps[i]->GetCurrentAnim();
-      if (!a || a != before[i] || PlayedOf(ps[i]).family != LocomotionFamily()) continue;
+      if (!a || !a->anim || a->anim != before[i] || PlayedOf(ps[i]).family != LocomotionFamily()) continue;
       ++sameClip;
       if (a->frameNum > frameBefore[i]) ++advanced;
       if (a->frameNum < frameBefore[i]) ++restarted;

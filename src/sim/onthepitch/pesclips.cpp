@@ -40,6 +40,22 @@ constexpr FamilyPrefix kFamilies[] = {
     {PesClipFamily::kTackle, "tackleshoulder_"},
     {PesClipFamily::kTackle, "block090_"},
     {PesClipFamily::kTackle, "js_idle_0_0_000_y00_tacklefoot_passcut"},
+    // The locomotion family: the MOVESTEP handoff plays these as PES picks them (A-MOV). Each prefix
+    // is listed once: a clip matching two prefixes would load twice.
+    {PesClipFamily::kLocomotion, "step_"},
+    {PesClipFamily::kLocomotion, "goto_run_"},
+    {PesClipFamily::kLocomotion, "run_"},
+    {PesClipFamily::kLocomotion, "walk_"},
+    {PesClipFamily::kLocomotion, "side_"},
+    {PesClipFamily::kLocomotion, "back_"},
+    {PesClipFamily::kLocomotion, "backslant_"},
+    {PesClipFamily::kLocomotion, "near_"},
+    {PesClipFamily::kLocomotion, "mid_"},
+    {PesClipFamily::kLocomotion, "jockey"},
+    {PesClipFamily::kLocomotion, "stand_"},
+    {PesClipFamily::kLocomotion, "idle_"},
+    {PesClipFamily::kLocomotion, "gkmove"},
+    {PesClipFamily::kLocomotion, "dm_oop_"},
 };
 
 // Fox (Y up, +Z forward) -> engine (Z up, faces -Y), verbatim on both the

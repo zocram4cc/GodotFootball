@@ -4,6 +4,8 @@
 // :)
 
 #include <cmath>
+#include <cstdlib>
+#include <vector>
 
 #include "simcontext.hpp"
 #include "../../AIsupport/AIfunctions.hpp"
@@ -447,6 +449,65 @@ int HumanoidBase::GetIdleMovementAnimID() {
   // printf("%s\n", anims->GetAnim(*dataSet.begin())->GetName().c_str());
 
   return *dataSet.begin();
+}
+
+bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror) {
+  const int locomotion = static_cast<int>(pes::PesClipFamily::kLocomotion);
+  const bool onLocomotion = currentAnim->anim && currentAnim->functionType == e_FunctionType_Special &&
+                            std::atoi(currentAnim->anim->GetVariable("specialvar1").c_str()) == locomotion;
+  // The body takes a MOVESTEP clip only where GF's own selection would let a movement clip take it: an
+  // AI movement clip, or the locomotion clip already on the body. A ball action keeps the body.
+  if (currentAnim->functionType != e_FunctionType_Movement && !onLocomotion) return false;
+  // The same motion plays on: a re-issue changes its rate only. At the clip's end the humanoid's own
+  // Switch consults the AI, and the next issue restarts the motion from its first frame.
+  if (onLocomotion && std::atoi(currentAnim->anim->GetVariable("specialvar2").c_str()) == motion) {
+    currentAnim->playbackRate = playback;
+    return true;
+  }
+  CrudeSelectionQuery query;
+  query.byFunctionType = true;
+  query.functionType = e_FunctionType_Special;
+  query.byIncomingVelocity = false;
+  query.byIncomingBodyDirection = false;
+  query.bySide = false;
+  query.properties.Set("specialvar1", locomotion);
+  query.properties.Set("specialvar2", motion);
+  DataSet dataSet;
+  anims->CrudeSelection(dataSet, query);
+  if (dataSet.empty()) return false;
+  // An authored clip and its mirror are both in the set, the authored one first.
+  const std::vector<int> ids(dataSet.begin(), dataSet.end());
+  const int chosen = ids[mirror && ids.size() > 1 ? 1 : 0];
+  *previousAnim = *currentAnim;
+  currentAnim->anim = anims->GetAnim(chosen);
+  currentAnim->id = chosen;
+  currentAnim->functionType = e_FunctionType_Special;
+  currentAnim->frameNum = 0;
+  currentAnim->framePhase = 0.0f;
+  currentAnim->playbackRate = playback;
+  currentAnim->touchFrame = -1;
+  currentAnim->originatingInterrupt = e_InterruptAnim_Switch;
+  currentAnim->radiusOffset = 0.0;
+  currentAnim->actionSmuggle = Vector3(0);
+  currentAnim->actionSmuggleOffset = Vector3(0);
+  currentAnim->actionSmuggleSustain = Vector3(0);
+  currentAnim->actionSmuggleSustainOffset = Vector3(0);
+  currentAnim->movementSmuggle = Vector3(0);
+  currentAnim->movementSmuggleOffset = Vector3(0);
+  currentAnim->rotationSmuggle.begin = 0;
+  currentAnim->rotationSmuggle.end = 0;
+  currentAnim->rotationSmuggleOffset = 0;
+  currentAnim->positionOffset = Vector3(0);
+  currentAnim->incomingMovement = spatialState.movement;
+  currentAnim->positions = match->GetAnimPositionCache(currentAnim->anim);
+  currentAnim->outgoingMovement = CalculateOutgoingMovement(currentAnim->positions);
+  // The clip starts where the body is now, as a selected anim does.
+  startPos = spatialState.position;
+  startAngle = spatialState.angle;
+  CalculatePredictedSituation(nextStartPos, nextStartAngle);
+  animApplyBuffer.anim = currentAnim->anim;
+  animApplyBuffer.smooth = false;
+  return true;
 }
 
 void HumanoidBase::ResetPosition(const Vector3& newPos, const Vector3& focusPos) {

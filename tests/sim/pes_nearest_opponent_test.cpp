@@ -63,8 +63,10 @@ std::unique_ptr<Match> MakeMatch() {
   setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
   setup.rig = SharedRig();
   if (!pestest::FillMissingPesConstants(&setup)) return nullptr;
-  return std::unique_ptr<Match>(
-      new Match(new MatchData(kHomeTeam, kAwayTeam), setup, Properties()));
+  // MOVESTEP runs only with pes_loop on (the PES tick order).
+  Properties config;
+  config.SetBool("pes_loop", true);
+  return std::unique_ptr<Match>(new Match(new MatchData(kHomeTeam, kAwayTeam), setup, config));
 }
 
 #define REQUIRE_PES_MATCH()                                                              \

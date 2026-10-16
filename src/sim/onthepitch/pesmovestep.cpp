@@ -135,8 +135,24 @@ class MoveHostAdapter final : public pes::MoveHost {
   }
   bool Percent(int pct) override { return player_.GetPesRandom().RangeRaw(2, 100) < pct; }
   int CommandSpeedClass() const override { return player_.GetMoveStep().speedClass; }
+  // FUN_1406eebb0's store (P+0x245a), per tick: the class of the command's speed at the turn (FUN_14081e340).
+  // ponytail: PES stores it at action entry; GF has no action entry to hang it on, so it is stored each tick.
+  void StoreSpeedClass(float desiredKmh, float turnDeg) {
+    player_.GetMoveStep().speedClass =
+        static_cast<uint8_t>(pes::SpeedClassOf(desiredKmh, turnDeg, c_.speedClass));
+  }
+  // The heading of the last displacement minus the facing, in degrees (FUN_141eb50b0's index 1). Zero
+  // when the player did not move.
+  float DisplacementTurnDeg() const {
+    const Vector3 move = player_.GetMovement();
+    if (move.GetLength() <= 0.0f) return 0.0f;
+    return HeadingDeg(move.coords[0], move.coords[1], c_.run) - FacingDeg();
+  }
   float RateCeiling() const override { return player_.GetMoveStep().rateCeiling; }
-  float CommandSpeedKmh() const override { return CurrentSpeedKmh(); }
+  // The command's desired speed: the AI's last movement command (vt+0x20 index 0). Its velocity is m/s.
+  float CommandSpeedKmh() const override {
+    return player_.GetCurrentAnim()->originatingCommand.desiredVelocityFloat * 3.6f;
+  }
   float CurrentSpeedKmh() const override {
     return player_.GetMovement().GetLength() * c_.run.speed3600;
   }
@@ -202,12 +218,29 @@ class MoveHostAdapter final : public pes::MoveHost {
     return match_.IsInPlay() ? 1 : 0;
   }
   bool IsReplay() const override { return false; }
+  // The handoff (FUN_1406b8340's tail): the issued clip plays on the body. A SetMotion plays its own
+  // motion at its playback. A parametric issue plays the blend group's member nearest its rate, at the
+  // rate's speed (PES blends the members by rate; GF stands one member in).
   void Issue(const pes::MotionRequest& request) override {
     issued_ = true;
+    ++issues_;
     pes::RecordIssue(player_.GetIssuedClip(), request, c_.parametric);
-    if (request.group < 0) player_.SetPlaybackRate(request.playback);
+    if (request.group < 0) {
+      player_.CastHumanoid()->PlayIssuedClip(request.motion, request.playback, request.mirror);
+      return;
+    }
+    const std::vector<pes::BlendMember> members =
+        pes::BlendGroup(c_.blend, c_.parametric.group[request.group]);
+    if (members.empty()) return;
+    const pes::BlendMember* nearest = &members.front();
+    for (const pes::BlendMember& m : members)
+      if (std::fabs(m.param - request.rate) < std::fabs(nearest->param - request.rate)) nearest = &m;
+    const float playback =
+        nearest->param > 0.0f && request.rate > 0.0f ? request.rate / nearest->param : 1.0f;
+    player_.CastHumanoid()->PlayIssuedClip(nearest->motionNo, playback, request.mirror);
   }
   bool Issued() const { return issued_; }
+  int IssueCount() const { return issues_; }
 
   const pes::StepScalars& StepConstants() const override { return c_.stepScalars; }
   float BandSpeedKmh(int band, float g) const override {
@@ -231,10 +264,8 @@ class MoveHostAdapter final : public pes::MoveHost {
   }
   const pes::PlaybackConstants& PlaybackConstantsView() const override { return c_.playback; }
 
-  int CurrentMotion() const override {
-    const Anim* anim = player_.GetCurrentAnim();
-    return anim ? anim->id : 0;
-  }
+  // movestep.hpp's CurrentMotion: the PES motion the body plays, -1 when the AI's own clip plays.
+  int CurrentMotion() const override { return pesmovestep::CurrentMotionOf(player_); }
   int CurrentClipFrames() const override { return player_.GetFrameNum(); }
   int AnimeState() const override { return 0; }  // ponytail: vt+0x28 of the +0xab8 interface.
   // The motion table the match loaded from the install (Mbinfo's lists, see pes/mbinfo.hpp).
@@ -292,11 +323,33 @@ class MoveHostAdapter final : public pes::MoveHost {
   const MoveHostConstants& c_;
   AdapterTeam team_;
   bool issued_ = false;
+  int issues_ = 0;
 };
 
 }  // namespace
 
 namespace pesmovestep {
+
+// The single-clip word of req[0x37] (FUN_1406b68d0's init): a SetMotion. Any other value is a style index.
+constexpr uint32_t kSingleClip = 0x11;
+
+// The request the tail issues from the request block (FUN_1406b8340's tail): a SetMotion when req[0x37]
+// is the single-clip word, else the SetParametric of the style req[0x37] names.
+pes::MotionRequest DueRequest(const pes::MoveReq& req, int foot) {
+  pes::MotionRequest r;
+  r.motion = static_cast<int>(req.U(pes::moveword::kMotion));
+  r.mirror = req.Flag(pes::moveword::kMirror);
+  r.transition = static_cast<int>(req.U(pes::moveword::kTransitionWord));
+  r.duration = req.F(pes::moveword::kDuration);
+  r.playback = req.F(pes::moveword::kPlayback);
+  r.startTime = req.F(pes::moveword::kStartTime);
+  const uint32_t param = req.U(pes::moveword::kParamState);
+  r.group = param == kSingleClip ? -1 : static_cast<int>(param);
+  r.startRate = req.F(pes::moveword::kStartRate);
+  r.rate = req.F(pes::moveword::kRate);
+  r.foot = foot;
+  return r;
+}
 
 void ProcessMoveStep(Player& player, Match& match) {
   // MOVESTEP runs only with pes_loop on. Off it leaves the player alone: no FSM tick, no clip, and
@@ -317,6 +370,8 @@ void ProcessMoveStep(Player& player, Match& match) {
   req.SetF(pes::moveword::kBodyDirection, facing);
   req.SetF(pes::moveword::kTurn, 0.0f);
   req.SetF(pes::moveword::kFacingError, 0.0f);
+  // FUN_1406eebb0's store, per tick: the speed class of the command's speed at the turn.
+  host.StoreSpeedClass(host.CommandSpeedKmh(), host.DisplacementTurnDeg());
   req.SetU(pes::moveword::kCommandSpeedClass,
            static_cast<uint32_t>(host.CommandSpeedClass()));
   req.SetF(pes::moveword::kDesiredSpeedKmh, host.CurrentSpeedKmh());
@@ -324,18 +379,36 @@ void ProcessMoveStep(Player& player, Match& match) {
   req.SetF(pes::moveword::kPlayback, rec.playbackSpeed);
   req.SetF(pes::moveword::kRate, rec.rate);
   req.SetByte(pes::moveword::kStyle, rec.style);
+  req.SetU(pes::moveword::kParamState, kSingleClip);  // PES's init: a single clip (req[0x37] == 0x11)
+  // FUN_1406f99f0's store (P+0x377c): the TopRate ceiling at the record's G, once per match tick.
+  // ponytail: the Speed byte (0x27) has no GF stat yet; physical_velocity stands in for it.
+  pes::StoreRateCeiling(rec, host.MatchTick(),
+                        pes::MoveTopRate(match.GetPesStaminaConstants(),
+                                         player.GetStat("physical_velocity"), player.GetStamina(),
+                                         host.PhysiqueG()));
 
   const pes::MoveState stateAtEntry = rec.state;
   pes::movestep::RampsBeforeDispatch(host, req);
+  const int issuesBefore = host.IssueCount();
   pes::Dispatch(stateAtEntry, host, req);
+  // FUN_1406b8340's tail (anime-select 1, step 7): a request the handler left due (req[0x2f]) is issued
+  // now, unless the handler already issued this tick.
+  if (req.Flag(pes::moveword::kMotionPending) && host.IssueCount() == issuesBefore)
+    host.Issue(DueRequest(req, host.FootBand()));
   pes::movestep::ApplyTail(rec, host, req, stateAtEntry);
   rec.rate = req.F(pes::moveword::kRate);
   rec.style = static_cast<uint8_t>(req.U(pes::moveword::kStyle) & 0xffu);
   pes::ApplyTransition(rec, req);
 }
+
 int CurrentMotionOf(Player& player) {
-  const Anim* anim = player.GetCurrentAnim();  // main's behaviour: the GF anim id
-  return anim ? anim->id : 0;
+  // The PES motion number of the clip the humanoid plays: its specialvar2 when the clip carries a PES
+  // family (dodge, tackle or locomotion), -1 when the AI's own clip plays (no PES numbering).
+  const Anim* anim = player.GetCurrentAnim();
+  if (!anim || !anim->anim) return -1;
+  const int family = std::atoi(anim->anim->GetVariable("specialvar1").c_str());
+  if (!pes::IsPesClipFamily(family) && !pes::IsPesLocomotionFamily(family)) return -1;
+  return std::atoi(anim->anim->GetVariable("specialvar2").c_str());
 }
 
 }  // namespace pesmovestep

@@ -7,8 +7,10 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "pes/exe.hpp"
+#include "pes/locomotion.hpp"
 #include "pes/movestep.hpp"
 #include "pes/movestep_run.hpp"
 #include "pes/movestep_turn.hpp"
@@ -34,6 +36,9 @@ struct MoveStepConstants {
   movestep::MotionStartConstants motionStart{};
   DampingConstants damping{};
   DampingRecord dampingRecord{};
+  // The parametric blend table (Parametricblendtable.bin): the members of each blend group, which the
+  // humanoid plays for a parametric issue.
+  std::vector<BlendMember> blend;
 };
 
 // Loads the whole bundle from the install. Nullopt when any part is unreadable (the caller

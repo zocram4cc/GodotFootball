@@ -24,6 +24,7 @@ std::optional<MoveStepConstants> LoadMoveStepConstants(const PeImage& exe, const
   if (auto d = LoadDampingConstants(exe, error)) c.damping = *d; else return std::nullopt;
   if (auto d = LoadDampingRecord(vfs, error)) c.dampingRecord = *d; else return std::nullopt;
   if (auto g = LoadParametricGroups(exe, error)) c.parametric = *g; else return std::nullopt;
+  if (auto b = LoadBlendTable(vfs, error)) c.blend = *b; else return std::nullopt;
   return c;
 }
 

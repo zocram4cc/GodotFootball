@@ -223,6 +223,12 @@ public:
   // This tick's collision push, m/s (OffsetPosition's accumulator).
   const Vector3& GetTickSeparation() const { return spatialState.positionOffsetMovement; }
   void SetPlaybackRate(float rate) { currentAnim->playbackRate = rate; }
+  // PES's MOVESTEP handoff (FUN_1406b8340's tail, through the anime player's vt+0x10): plays the PES
+  // locomotion clip `motion` on the body at `playback`. The body keeps a clip of the same motion until
+  // it runs out (a re-issue only changes its rate), and the AI takes the body back at the clip's end
+  // unless MOVESTEP issues again. A ball action keeps the body, so the clip is refused. Returns whether
+  // the body plays it.
+  bool PlayIssuedClip(int motion, float playback, bool mirror);
   bool TripPending() const { return interruptAnim == e_InterruptAnim_Trip; }
   virtual float GetDecayingDifficultyFactor() const { return decayingDifficultyFactor; }
 

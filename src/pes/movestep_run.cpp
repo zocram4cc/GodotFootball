@@ -654,7 +654,8 @@ void GotoRun(MoveHost& host, MoveReq& req) {
   // ticks (FUN_1406af8e0 at entries 0..2, the Animation blend when missing), all from the live
   // motion's record through ReadClipHits.
   const ClipHits clip = ReadClipHits(host, motion, k, host.ClipFlag());
-  const int clipLen = clip.end;
+  // iVar10 of FUN_1406bdf10 is the anime interface's vt+0x38: the current clip's frame (decompile line 47).
+  const int clipLen = host.CurrentClipFrames();
   const int clipTotal = clip.total;
   int hit0 = clip.hit[0];
   int hit1 = clip.hit[1];
@@ -845,8 +846,8 @@ void GotoRun(MoveHost& host, MoveReq& req) {
   req.SetByte(moveword::kMirror, static_cast<uint32_t>(foot - 1) < 2u ? 1 : 0);
   req.SetF(moveword::kDwellLimit, 0.0f);
   req.SetF(moveword::kDwellLimit2, 0.0f);
-  int bandCls = cls < 3 ? (cls < 0 ? 0 : cls) : 2;
-  if (static_cast<int>(req.U(moveword::kBandTarget)) == 2 || cls == 2) {
+  // FUN_1406bdf10's rate ladder (param_2[0x24], param_2[0x1f]): band target 2 or rate band 2 runs at 0.5.
+  if (static_cast<int>(req.U(moveword::kBandTarget)) == 2 || static_cast<int>(req.U(moveword::kRateBand)) == 2) {
     req.SetF(moveword::kRate, k.half);
   } else if (static_cast<int>(req.U(moveword::kBandTarget)) == 1) {
     req.SetF(moveword::kRate, k.blend3);
@@ -860,11 +861,9 @@ void GotoRun(MoveHost& host, MoveReq& req) {
     }
     req.SetF(moveword::kRate, r);
   }
-  (void)bandCls;
   const int bucket = AngleBucket(host.AngleBuckets(), bearing, 10, false);
-  host.Issue(MotionRequest{-1, false, 0, k.blend1667, k.one, 0.0f,
-                            static_cast<int>(req.U(moveword::kStyle)), 0.0f,
-                            req.F(moveword::kRate), foot});
+  // LAB_1406bec79: the run entry through the +0xac0 interface's slot 0 (FUN_1406d2030), which requests RUN_LOOP.
+  EnterRun(host, req, foot, false);
   (void)bucket;
 }
 
