@@ -100,22 +100,17 @@ BounceResult Bounce(const pes::PesBallConstants& c, int mode, float vy, float ho
 struct GrounderResult {
   bool applied = false;
   float keepMultiplier = 1.0f;  // multiplies K
-  float speedTrim_mps = 0.0f;  // subtracted from |v_xz|, along the old heading
-  float vyTrim_mps = 0.0f;    // subtracted from vy, the min() clamp's operand
+  float vyTrim_mps = 0.0f;      // subtracted from vy, the min() clamp's operand
 };
 
-// The grounder kick of report 2.5: a fast shallow shot trims its horizontal
-// speed and its keep factor, on one tick in `gounnderprob[mode]`. `gateX` is the
-// coordinate the mod-gate reads (PES reads old x at 0x1408769c7) and `fracZ` the
-// coordinate the fraction reads (PES reads old z at 0x1408769e6). GF's ball is
-// in GF space, so the caller passes the coordinate it calls longitudinal for
-// both; they are the same role in each frame.
+// The grounder kick of report 2.5: a fast shallow shot trims its vertical input and its keep factor, on
+// one tick in `gounnderprob[mode]`. `gateX` is the coordinate the mod-gate reads (PES reads old x at
+// 0x1408769c7) and `fracZ` the coordinate the fraction reads (PES reads old z at 0x1408769e6). GF's ball
+// is in GF space, so the caller passes the coordinate it calls longitudinal for both; they are the same
+// role in each frame. The guards and the trim read the pre-flight velocity (the caller passes it).
 //
-// Report 2's correction 3 (1.4): the `|v_xz| * grounderBoundYAdd * (1-f)` term
-// lands on VY, not on the horizontal speed (`vy -= vx1` at 0x140876a5c), and it
-// is the second operand of the bounce's min(). So `speedTrim_mps` keeps the
-// report's "horizontal trim" reading for the recipe's K step and `vyTrim_mps`
-// carries the raw's actual target.
+// Report 2's correction 3 (1.4): the `|v_xz| * grounderBoundYAdd * (1-f)` term lands on VY alone
+// (`vy -= ...` at 0x140876a5c, the min()'s second operand). PES does not trim the horizontal speed.
 GrounderResult GrounderKick(const pes::PesBallConstants& c, int mode, float gateX, float fracZ,
                             unsigned tickIndex, float horizontalSpeed_mps, float vy);
 
@@ -132,9 +127,10 @@ float SpinCapScale(const pes::PesBallConstants& c, int mode, float spinRad);
 // ball's own contact tick counter, `airborne` PES's r15b (was not resting),
 // `quatIntegrate` its r12b (render path). `step_s` is the tick the per-tick factors
 // are applied over: kPesTick_s for the sim's own tick. On return `state` holds the
-// new state.
+// new state. `preFlight` is the state before this tick's flight step when there was one: the imp cap, the
+// grounder's gate, guards and vertical trim read it (PES's entry copies); null means the current state.
 void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tickIndex, bool airborne,
-                 bool quatIntegrate, float step_s);
+                 bool quatIntegrate, float step_s, const BallState* preFlight = nullptr);
 
 // One flight tick: the report 6.3 acceleration integrated with dt = 0.01 s,
 // semi-implicit Euler the way PES does it (v += a*dt; p += v*dt).

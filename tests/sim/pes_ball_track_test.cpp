@@ -163,4 +163,57 @@ TEST(PesBallContact, ABallWithNoChosenModePlaysTheLiveContactMode) {
   for (unsigned k = 0; k < 54; ++k) EXPECT_FLOAT_EQ(a[k].x, b[k].x) << "record " << k;
 }
 
+TEST(PesBallContact, ABallExactlyOnTheGroundWithNoVerticalSpeedStaysAirborne) {
+  // PES's contact test is `r <= y -> airborne` (docs/re/pes-re-ball-contact.md 2.3): a ball at exactly
+  // r is airborne, so with no gravity and no vertical speed its flight step leaves it alone. Taking the
+  // contact instead (y > r as the test, not y >= r) would bounce it up by F * imp.
+  PesBallConstants c = SyntheticConstants();
+  c.image.gravity = 0.0f;
+  const float r = c.image.ballRadius;
+  BallState s;
+  s.position = Vec3(0.0f, r, 0.0f);
+  s.velocity = Vec3(5.0f, 0.0f, 0.0f);
+  s.spinRaw = Vec3(0.0f, 0.0f, 0.0f);
+  EXPECT_FALSE(pesball::BallTick(c, &s, 0, pesball::kPesTick_s));
+  EXPECT_FLOAT_EQ(s.velocity.y, 0.0f);
+  EXPECT_FLOAT_EQ(s.position.y, r);
+}
+
+TEST(PesBallContact, TheGrounderGateReadsTheStateBeforeTheFlightStep) {
+  // PES's grounder gate reads the old x and the guards read the old velocity (FUN_140876360's entry copies
+  // at [rsp+0x48..0x60]). Here x = 1.0 passes the 1-in-5 gate before the flight step; the step carries x to
+  // 1.11, which fails it. The landing must still take the grounder's vertical trim. The second ball, at
+  // x = 1.002, fails the gate before and after, so it is the untrimmed reference.
+  const PesBallConstants c = SyntheticConstants();
+  const float r = c.image.ballRadius;
+  auto landing = [&](float x) {
+    BallState s;
+    s.position = Vec3(x, r + 0.001f, 0.0f);
+    s.velocity = Vec3(5.8f, -0.3f, 0.0f);
+    s.spinRaw = Vec3(0.0f, 0.0f, 0.0f);
+    EXPECT_TRUE(pesball::BallTick(c, &s, 0, pesball::kPesTick_s));
+    return s.velocity.y;
+  };
+  EXPECT_GT(landing(1.0f) - landing(1.002f), 0.2f) << "the gate is read before the flight step";
+}
+
+TEST(PesBallContact, TheGrounderTrimsTheVerticalSpeedAndOnlyItsFrictionOnTheHorizontal) {
+  // Report 2's correction 3: the grounder trims vy (0x140876a5c); its horizontal effect is the K factor
+  // alone. Compare the same landing with the gate passing and failing: the horizontal speed ratio must be
+  // exactly the grounder's friction rate, with no extra speed trim along the heading.
+  const PesBallConstants c = SyntheticConstants();
+  const float r = c.image.ballRadius;
+  auto landing = [&](float x) {
+    BallState s;
+    s.position = Vec3(x, r + 0.001f, 0.0f);
+    s.velocity = Vec3(5.8f, -0.3f, 0.0f);
+    s.spinRaw = Vec3(0.0f, 0.0f, 0.0f);
+    pesball::BallTick(c, &s, 0, pesball::kPesTick_s);
+    return s.velocity;
+  };
+  const Vec3 kicked = landing(1.0f);
+  const Vec3 plain = landing(1.002f);
+  EXPECT_NEAR(kicked.x / plain.x, c.record.grounderFrictionRate, 1e-3f);
+}
+
 }  // namespace

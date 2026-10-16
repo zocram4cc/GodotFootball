@@ -161,7 +161,7 @@ TEST(PesBallContact, GrounderKickOnlyFiresOnFastShallowShots) {
   auto kick = pesball::GrounderKick(c, 1, 1.0f, 2.0f, 0, fast, -0.2f);
   EXPECT_TRUE(kick.applied) << "a fast shallow shot takes the driven grounder";
   EXPECT_GT(kick.keepMultiplier, 0.98f);
-  EXPECT_NEAR(kick.speedTrim_mps, fast * 0.09f, 0.01f);
+  EXPECT_NEAR(kick.vyTrim_mps, fast * 0.09f, 0.01f);
 
   EXPECT_FALSE(pesball::GrounderKick(c, 1, 1.0f, 2.0f, 0, slow, -0.2f).applied);
   EXPECT_FALSE(pesball::GrounderKick(c, 1, 1.0f, 2.0f, 0, fast, 0.0f).applied) << "vy == 0 skips";

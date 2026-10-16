@@ -205,8 +205,8 @@ GrounderResult GrounderKick(const pes::PesBallConstants& c, int mode, float gate
   const float f = (scaled - static_cast<float>(static_cast<int>(scaled))) * kGrounderFracScale;
   out.applied = true;
   out.keepMultiplier = f + r.grounderFrictionRate;
-  out.speedTrim_mps = horizontalSpeed_mps * r.grounderBoundYAdd * (1.0f - f);
-  out.vyTrim_mps = out.speedTrim_mps;
+  // 0x140876a57..0x140876a5c: vy -= |v_xz| * grounderBoundYAdd * (1 - f). Nothing else is trimmed.
+  out.vyTrim_mps = horizontalSpeed_mps * r.grounderBoundYAdd * (1.0f - f);
   (void)tickIndex;
   return out;
 }
@@ -275,7 +275,7 @@ void FlightTick(const pes::PesBallConstants& c, BallState* state, float dt_s, bo
 }
 
 void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tickIndex, bool airborne,
-                 bool quatIntegrate, float step_s) {
+                 bool quatIntegrate, float step_s, const BallState* preFlight) {
   // The contact mode. Report 3.1 closed report 7.2: the mode byte is written by
   // FUN_1408723d0 (0x140872479, `mov [rax+0x279d], bl`) as
   // `modeTable[pitch*3 + weather]`, and the table is read out of the install's
@@ -291,6 +291,12 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
   state->position.y = r;
   const float vx = state->velocity.x, vy = state->velocity.y, vz = state->velocity.z;
   const float horizontal = std::sqrt(vx * vx + vz * vz);
+  // PES's imp cap and the grounder read the velocity and gate position from before this tick's flight
+  // step: FUN_140876360 takes |v_xz| at 0x140876824 from its entry copy [rsp+0x58/0x60]. With no
+  // flight step (preFlight == nullptr) they are the current state.
+  const BallState& pre = preFlight ? *preFlight : *state;
+  const float horizontalPre =
+      std::sqrt(pre.velocity.x * pre.velocity.x + pre.velocity.z * pre.velocity.z);
   const float spinRad =
       std::sqrt(state->spinRaw.x * state->spinRaw.x + state->spinRaw.y * state->spinRaw.y +
                 state->spinRaw.z * state->spinRaw.z) *
@@ -306,22 +312,12 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
   // so a caller stepping any other length stays exact.
   const float speed3d = std::sqrt(horizontal * horizontal + vy * vy);
   float keep = KeepFactorPerStep(RollingKeepFactor(c, mode, speed3d), step_s);
-  float speed = horizontal;
-
-  // Report 2.5: the grounder kick trims the horizontal speed and K. The trim is
-  // a speed, not a factor, so it is used as-is; the keep product is a per-tick
-  // factor chain and is converted as one.
-  //
-  // Report 2's correction 3 (1.4): the trim lands on VY, not on the horizontal
-  // speed: `vy -= |v_xz|*grounderBoundYAdd*(1-f)` at 0x140876a5c, stored to the
-  // min() operand at 0x140876a61. Only K is multiplied here; the vertical trim is
-  // applied to the Bounce() input below.
-  const GrounderResult grounder =
-      GrounderKick(c, mode, state->position.x, state->position.z, tickIndex, horizontal, vy);
-  if (grounder.applied) {
-    keep *= KeepFactorPerStep(grounder.keepMultiplier, step_s);
-    speed = std::max(0.0f, horizontal - grounder.speedTrim_mps);
-  }
+  // Report 2.5: the grounder kick. Its guards, its gate (old x, old z) and its vertical trim read the
+  // state from before this tick's flight step (FUN_140876360's entry values at [rsp+0x48..0x60]).
+  // Only K is multiplied; the trim lands on vy alone (report 2's correction 3, 0x140876a5c).
+  const GrounderResult grounder = GrounderKick(c, mode, pre.position.x, pre.position.z, tickIndex,
+                                               horizontalPre, pre.velocity.y);
+  if (grounder.applied) keep *= KeepFactorPerStep(grounder.keepMultiplier, step_s);
 
   // Report 3.1: the tangential friction multiplier F. F is the per-tick ratio
   // PES multiplies into K, so it converts with the same exponent. The F of the
@@ -335,12 +331,11 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
   // Report 2's correction 3 gives the trim: `vy -= |v_xz|*grounderBoundYAdd*(1-f)`
   // at 0x140876a5c, stored to the min()'s second operand at 0x140876a61.
   const float vyTrimmed = grounder.applied ? vy - grounder.vyTrim_mps : vy;
-  float newVy = Bounce(c, mode, vyTrimmed, horizontal, spinHorizontal).vy;
+  float newVy = Bounce(c, mode, vyTrimmed, horizontalPre, spinHorizontal).vy;
 
-  // The horizontal: the per-tick ratio for a coupled roller is K (report 5.2),
-  // applied along the pre-contact direction, after the grounder trim.
-  const float hScale = horizontal > 0.0f ? (speed * keep) / horizontal : 0.0f;
-  float newVx = vx * hScale, newVz = vz * hScale;
+  // The horizontal: the per-tick ratio for a coupled roller is K (report 5.2), applied to the
+  // post-flight velocity. PES has no horizontal grounder trim: 0x140876a5c trims vy alone.
+  float newVx = vx * keep, newVz = vz * keep;
 
   // Report 3.4: the spin rebuild and the cap. spin_raw += (omega_new/492.181 -
   // spin_raw) * k with k = 1 on the render path and the contact-vs-air blend
@@ -379,15 +374,14 @@ bool BallTick(const pes::PesBallConstants& c, BallState* state, unsigned tickInd
     state->velocity = pes::Vec3(0.0f, 0.0f, 0.0f);
     return false;
   }
-  // Report 2.1 and 2.3 (0x140876488, 0x140876800): a non-resting ball always takes its flight
-  // step first, and the contact test then runs on the new position. PES's test is `r <= y ->
-  // airborne`, so a ball sitting exactly on the ground is airborne: a ball that landed and is
-  // still rising lifts by its integrated speed, and only a step that ends below r is a contact.
-  // Report 6.3: the flight step. A step that crosses the ground is the landing, resolved in this
-  // tick with no position step after the response.
+  // Report 2.1 and 2.3 (0x140876488, 0x140876800): a non-resting ball always takes its flight step
+  // first, then the contact test runs on the new position. `r <= y` is airborne, so a ball sitting
+  // exactly on the ground and still rising lifts by its integrated speed. Only a step that ends below
+  // r is a contact, resolved in this same tick from the pre-flight state (report 6.3, 2.5).
+  const BallState preFlight = *state;
   FlightTick(c, state, dt_s, false);
   if (state->position.y >= c.image.ballRadius) return false;
-  ContactTick(c, state, tickIndex, true, false, dt_s);
+  ContactTick(c, state, tickIndex, true, false, dt_s, &preFlight);
   return true;
 }
 
