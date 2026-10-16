@@ -107,10 +107,15 @@ inline constexpr uint64_t MODE_TABLE_VA = 0x14349f718;
 inline constexpr int kPitchCount = 3, kWeatherCount = 3;
 // The mode a match plays when out-of-range indices arrive (report 3.1: `ebx = 1`).
 inline constexpr int kContactModeOutOfRange = 1;
-// A dry, normal pitch (report 3.2): weather index 0 on any pitch row gives
-// mode 2, so that is the default GF plays when its own weather/pitch config has
-// no PES counterpart. GF has no pitch-condition notion of its own, so the pitch
-// index is always this one.
+// The contact mode the live match plays: mode 1 on every contact tick
+// (docs/re/pes-re-ball-track-live.md 2.6; the horizontal keep is 1.00000 under mode 1 and
+// 1.00304 under mode 2). It is a mode 1 entry of the table at 0x14349f718, (pitch, weather) =
+// (0, 1) or (1, 1). ponytail: the live match's pitch and weather indices are read at
+// FUN_1408723d0 (0x140872403, 0x140872411) and are not decoded (docs/re/pes-re-ball-contact-2.md
+// 3.2), so every match plays this one; the match's own index replaces it once that is decoded.
+inline constexpr int kContactModeLive = 1;
+// A dry, normal pitch (report 3.2): weather index 0 on any pitch row gives mode 2.
+// No match plays it.
 inline constexpr int kContactModeDryNormal = 2;
 // The PES pitch-condition index for a dry, normal pitch.
 inline constexpr int kPitchDryNormal = 0;
@@ -281,8 +286,8 @@ struct PesBallConstants {
   BallRecordConstants record;
   // The per-match contact mode column the tables are indexed with (report 3.1:
   // `modeTable[pitch*3 + weather]`, out of the exe's .data). A match without a
-  // chosen pitch/weather index plays PES's dry, normal index.
-  int contactMode = kContactModeDryNormal;
+  // chosen pitch/weather index plays the live mode.
+  int contactMode = kContactModeLive;
   bool operator==(const PesBallConstants&) const = default;
 };
 

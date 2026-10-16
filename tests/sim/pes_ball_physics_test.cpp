@@ -279,7 +279,7 @@ TEST(PesBallContact, ContactModeComesFromThePitchWeatherTable) {
 }
 
 TEST(PesBallContact, DryNormalIsModeTwoAndModeTwoHasASeventyPercentBounce) {
-  // Report 3.2's action for the porter: GF defaults to PES's dry, normal pitch.
+  // Report 3.2: a dry, normal pitch is mode 2, which no match plays; GF plays the live mode 1.
   const PesBallConstants c = SyntheticConstants();
   EXPECT_EQ(pes::kContactModeDryNormal, 2);
   EXPECT_EQ(pes::WeatherIndexForGfWeather(0.0f), 0) << "no weather";
@@ -600,7 +600,7 @@ TEST(PesBallConversion, ASecondOfSimTicksIsASecondOfPesTicksWhileRolling) {
 
   // The same rolling ball, one second of PES ticks and one second of the sim's
   // ticks - 54 of each, since the sim ticks on PES's own frame (Milestone A1) -
-  // in the dry-normal contact mode this engine plays by default (report 3.2).
+  // in the live contact mode this engine plays by default (kContactModeLive).
   float vPes = 10.0f, vGf = 10.0f;
   for (int i = 0; i < 54; ++i) vPes *= pesball::RollingKeepFactor(c, pesball::ClampMode(c.contactMode), vPes);
   for (int i = 0; i < 54; ++i) {

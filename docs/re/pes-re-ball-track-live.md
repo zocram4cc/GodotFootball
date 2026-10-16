@@ -1,6 +1,6 @@
 # A1 measurements: paired sim (main vs ddc67cd) and live track error at 1 s
 
-**Status.** Live measurement (§2): complete, on two live stretches, 253 samples. Paired sim table (§1): partial, see the seed list in §1. No engine code was edited and nothing was pushed. Scripts and the report only.
+**Status.** Live measurement (§2): complete on two live stretches (253 samples) and a third capture (168 samples, §2.9). Paired sim table (§1): partial, see the seed list in §1. The A1 port of T1 and T3 is on branch `BallContact` (§2.9); T2 and T4 are not ported. Scripts and the report only.
 
 ## 0. Scope and corrections to the brief
 
@@ -134,7 +134,7 @@ First divergent step per sample (one-step teacher-forced error above 0.1 mm; the
 
 Match 2 has one free-flight sample (f7698) that is not exact. PES lands at record 53; GF's flight step puts the ball below the ground at record 54, so GF resolves the landing one tick late. Its 1 s error is 0.106 m, all of it at record 54. It is T1, not a flight error. The other 17 free-flight samples in match 2 agree with GF to 0.0004 m or better, against 0.0002 m in match 1.
 
-### 2.7 T1 as a proposed port (not applied)
+### 2.7 T1 as a proposed port (applied, §2.9)
 
 The landing-order term is in two places with the same structure: `BuildTrack`, `src/sim/onthepitch/pesballtrack.cpp` (lines 24 to 35 on main), and the predictor loop in `src/sim/onthepitch/ball.cpp` (lines 182 to 213). Both test `y ≤ r` before the flight step. The proposed branch order for `BuildTrack` (the predictor needs the same change; its contact branch also advances `contactTicks` only on `tick == 1`):
 
@@ -161,7 +161,7 @@ Evidence for T1 alone:
 - One-step, 488 landing steps: max error 0.00000 m with the same-tick landing, against median 0.0029 m and max 0.159 m on main. Flight steps are unchanged (0.00000 m).
 - 1 s live error: median 0.711 → 0.348 m pooled, and within 0.05 m 25 → 43 of 253 (table §2.6).
 
-T1 alone does not meet the ≤ 0.05 m target. After T1, the first error sits in the lift tick after a landing (T2), which is not identified; the port should not be merged on its own as the A1 track fix.
+T1 alone does not meet the ≤ 0.05 m target, and T1 with T3 raises the 1 s median (§2.9). After T1, the first error sits in the lift tick after a landing (T2), which is not identified.
 
 ### 2.8 Open items for the owner
 
@@ -169,6 +169,24 @@ T1 alone does not meet the ≤ 0.05 m target. After T1, the first error sits in 
 - **T3, contact mode.** The live contact table matches mode 1 (horizontal keep ratio 1.00000 median) in both stretches. The GF launch value is mode 2 (`kContactModeDryNormal`, documented as dry normal). Which pitch-condition index the live match uses is an owner call; with T2 unfixed, mode 1 slightly raises the 1 s median (§2.6).
 - **T4, rolling spin blend.** GF blends fully on every contact tick; PES blends about 0.015 on rolling ticks. No effect on the 1 s error measured here; it does change the spin used for Magnus after a takeoff, which was not measured.
 - **Sim table.** Partial (§1). The remaining runs are the seeds listed in §1 for `main` and `base`.
+
+### 2.9 The port (branch `BallContact`)
+
+T1 and T3 are in `pesball::BallTick` (`src/sim/onthepitch/pesballphysics.cpp`). `BuildTrack` and the live predictor in `ball.cpp` both call it, so the live ball and the sampler share one step. The live contact mode is `kContactModeLive = 1` (`pesball.hpp`). T2 and T4 are not ported.
+
+Measured with `a1_port_probe` (scratch, not committed) on the worktree's `BuildTrack`, from each sample's own start state. The main-order, mode 2 row reproduces §2.6's main row exactly.
+
+| configuration | recorded pool (253): median / mean / max / ≤0.05 m | live capture 3 (168): median / mean / max / ≤0.05 m |
+|---|---|---|
+| main as shipped (landing one tick late, mode 2) | 0.711 / 0.902 / 4.300 / 25 | 0.801 / 0.965 / 5.286 / 17 |
+| port, T1 only (mode forced 2) | 0.349 / 0.623 / 4.169 / 43 | 0.357 / 0.637 / 7.025 / 29 |
+| port, T1 + T3 (default, mode 1) | 0.386 / 0.708 / 5.587 / 34 | 0.472 / 0.759 / 8.067 / 27 |
+
+One-step, teacher-forced from PES's own state. Landing steps are those where PES is airborne at record k and on the ground at k+1 (1 mm). The port's landing error is 0.000000 m at every landing step (max, 1092 recorded and 872 live). On main it is max 0.167 m, median 0.0030 m, on the same recorded steps. (§2.7 quotes 0.159 m from the probe's own rule.) The one-step max over all steps is 0.155 m recorded and 0.119 m live; those are contact steps, not landings.
+
+Live capture 3: a 240 s read-only `pread` of `PES2021.exe` (`live/capture.py`), 11,306 snapshots, 168 verified samples (`analyze_samples.py`), with the ball in play (speeds 0.9 to 15 m/s in the first samples).
+
+Adding T3 to T1 raises the 1 s median on both sets (0.349 to 0.386 m recorded; 0.357 to 0.472 m live). The ≈0.35 m target is met by T1 only, not by T1 with T3. Whether T2 is what makes T3 cost on the 1 s metric is not tested here.
 
 ## 3. Files and reproduction
 

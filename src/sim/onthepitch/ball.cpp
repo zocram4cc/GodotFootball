@@ -182,35 +182,11 @@ BallSpatialInfo Ball::CalculatePrediction() {
   for (unsigned int tick = 1; tick < pesball::kTrackLength; ++tick) {
     const pes::Vec3 stepStart = fox.position;
 
-    if (pesball::IsResting(pc, fox)) {
-      // Report 2.1: a resting ball skips the flight function entirely. Nothing
-      // moves, and PES's at-rest path recomputes the velocity as the finite
-      // difference of the position, which is zero - so the leftover vertical
-      // speed of the last contact goes too. Kept, it made a still ball read as
-      // moving, and nobody played it for minutes.
-      fox.velocity = pes::Vec3(0.0f, 0.0f, 0.0f);
-    } else if (fox.position.y <= pc.image.ballRadius) {
-      // Report 2.3: ground contact - the snap, the vertical response, the
-      // tangential rewrite, the spin rebuild and the stop gate. PES integrates
-      // no position on a contact tick: its own loop re-tests next tick and
-      // lets the *flight* branch carry the ball forward on the new velocity.
-      // This predictor runs one PES tick step per outcome, so it does the same
-      // here - the contact rewrites the velocity and then the position follows,
-      // which is what PES's next-tick flight step does with it.
-      pesball::ContactTick(pc, &fox, contactTicks, true, false, timeStep);
-      // Only the ball's own tick counts (MB-F 6: this counter was advanced once
-      // per predicted record, so one call advanced it by up to 249). The
-      // prediction's own ticks carry the sampler's copy of the counter, which it
-      // increments itself; the live one advances once, with the ball.
-      if (tick == 1) ++contactTicks;
-      fox.position = pes::Vec3(fox.position.x + fox.velocity.x * timeStep,
-                               fox.position.y + fox.velocity.y * timeStep,
-                               fox.position.z + fox.velocity.z * timeStep);
-    } else {
-      // Report 6.3: flight - gravity, drag with the drag-crisis band and
-      // Magnus, integrated with dt = one PES tick (1/54 s).
-      pesball::FlightTick(pc, &fox, timeStep, false);
-    }
+    // The ball's own tick: the step BuildTrack takes too (BallTick). Only the ball's own tick
+    // counts (MB-F 6: this counter was advanced once per predicted record, so one call advanced it
+    // by up to 249). The prediction's own ticks carry the sampler's copy of the counter, which it
+    // increments itself; the live one advances once, with the ball.
+    if (pesball::BallTick(pc, &fox, contactTicks, timeStep) && tick == 1) ++contactTicks;
 
     // Fox -> GF, the skeleton's own mapping (pesplayernode.cpp).
     nextPos = Vector3(fox.position.x, -fox.position.z, fox.position.y);

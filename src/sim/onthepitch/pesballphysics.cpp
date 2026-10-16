@@ -280,8 +280,8 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
   // FUN_1408723d0 (0x140872479, `mov [rax+0x279d], bl`) as
   // `modeTable[pitch*3 + weather]`, and the table is read out of the install's
   // exe into pes::PesBallConstants::image (see pesball.cpp). The caller picks the
-  // indices; the launch default is a dry, normal pitch - PES's own index for
-  // that (report 3.2) is mode 2, not mode 1.
+  // indices; the launch default is the live mode (kContactModeLive), not the dry-normal
+  // index 2 that report 3.2 gives a dry pitch.
   const int mode = ClampMode(c.contactMode);
 
   // Report 2.3/2.7: the snap and the wobble-flag clear, and NO position
@@ -370,6 +370,28 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
   state->velocity.x = newVx;
   state->velocity.y = newVy;
   state->velocity.z = newVz;
+}
+
+bool BallTick(const pes::PesBallConstants& c, BallState* state, unsigned tickIndex, float dt_s) {
+  if (IsResting(c, *state)) {
+    // Report 2.1: a resting ball skips the flight function entirely. Nothing moves, and the
+    // leftover vertical speed of the last contact goes too, so a still ball does not read moving.
+    state->velocity = pes::Vec3(0.0f, 0.0f, 0.0f);
+    return false;
+  }
+  const float r = c.image.ballRadius;
+  if (state->position.y > r) {
+    // Report 6.3: flight. A step that crosses the ground is the landing, resolved in this tick.
+    FlightTick(c, state, dt_s, false);
+    if (state->position.y > r) return false;
+    ContactTick(c, state, tickIndex, true, false, dt_s);
+    return true;
+  }
+  // Report 2.3: ground contact. The contact tick rewrites the velocity, and the position follows
+  // on it, as PES's next flight step does.
+  ContactTick(c, state, tickIndex, true, false, dt_s);
+  state->position = state->position + state->velocity * dt_s;
+  return true;
 }
 
 }  // namespace pesball
