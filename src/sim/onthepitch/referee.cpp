@@ -5,6 +5,7 @@
 
 #include "referee.hpp"
 
+#include <cmath>
 #include <limits>
 
 #include "../data/playerskills.hpp"
@@ -150,20 +151,50 @@ const pes::StoppageConstants& Referee::GetStoppageConstants() const {
   return match->GetPesStoppageConstants();
 }
 
-// The post-gate judge on a tick with the gate open (pes_loop only; FUN_14050B9B0). The side in
-// possession is the ball carrier's team (FUN_140a627e0 names the carrier; a null carrier reads as
-// side 0, as PES's 0xff does). The touch is the store's newest record: its action kind and its
-// holder flag are payload+0 and payload+0x20, which are record offsets 0x14 and 0x34.
-bool Referee::PesTimeUpBlows(const Vector3& ballPos) {
+// The judge's view of one event record (the readers of FUN_140a3e190): payload+0 kind, +0x10
+// frame, +0x1c restart kind, +0x20 holder flag, and the actor as a player id. A starter is
+// team * 11 + slot (the roster index under 11, as FUN_140a62ee0 names him); anyone else is none.
+namespace {
+constexpr uint32_t kStartersPerTeam = 11;
+constexpr uint32_t kTeamCount = 2;
+
+pes::TimeUpEvent JudgeEvent(const pes::EventRecord* rec) {
+  pes::TimeUpEvent e;
+  if (rec == nullptr) return e;
+  e.kind = rec->ActionKind();
+  e.frame = rec->I32(0x24);
+  e.restartKind = rec->U32(0x30);
+  e.flag = rec->U32(0x34);
+  const uint32_t team = rec->U32(0x18), slot = rec->U32(0x1c);
+  if (team < kTeamCount && slot < kStartersPerTeam) e.player = team * kStartersPerTeam + slot;
+  return e;
+}
+}  // namespace
+
+// The post-gate judge's input for this tick (pes_loop only; FUN_14050B9B0). The side in
+// possession is the ball carrier's team (team 0 when nobody has the ball, as PES's index 0xff
+// reads). Ball and speed are PES's: x along the pitch, height y, z = -GF y.
+bool Referee::PesTimeUpBlows() {
+  const pes::EventStore& events = match->GetPesEvents();
+  const Vector3 ball = match->GetBall()->Predict(0);
+  const Vector3 movement = match->GetBall()->GetMovement();
   Player* carrier = match->GetBallRetainer();
   Team* possession = match->GetTeam(carrier ? carrier->GetTeamID() : 0);
-  const pes::EventRecord& touch = match->GetPesEvents().Newest();
   pes::TimeUpInput in;
   in.zoneSign = possession->GetSide();
-  in.ballX_m = ballPos.coords[0];
+  in.carrier = carrier != nullptr;
+  in.ballX_m = ball.coords[0];
+  in.ballHeight_m = ball.coords[2];
+  in.ballZ_m = -ball.coords[1];
+  in.speed_mps = std::hypot(movement.coords[0], movement.coords[1]);
   in.halfLength_m = pesFieldHalfLength;
-  in.touchKind = touch.ActionKind();
-  in.touchFlag = touch.U32(0x34);
+  in.penaltyLineX_m = pesPenaltyAreaLineX;
+  in.penaltyHalfWidth_m = pesPenaltyAreaHalfWidth;
+  in.frame = match->GetPesFrame();
+  const pes::EventRecord* ring1 = events.RingRecord(1, 0);
+  in.ring1Word = (ring1 && ring1->kind != pes::EventRecord::kEmptyKind) ? ring1->ActionKind() : 0;
+  in.newest = JudgeEvent(events.NewestOrRing0(0));
+  in.second = JudgeEvent(events.NewestOrRing0(1));
   return pes::TimeUpWhistle(timeUp, in, static_cast<int>(match->GetPesClockConstants().gameSpeed));
 }
 
@@ -187,7 +218,7 @@ void Referee::Process() {
       const int addedMinutes = clock.AddedMinutes(kPesNoPerfTier);
       if (addedMinutes > 0 && Verbose()) printf("referee: added time +%i min\n", addedMinutes);
     }
-    if (clock.TimeUpGateOpen() && (!match->IsPesLoop() || PesTimeUpBlows(ballPos))) {
+    if (clock.TimeUpGateOpen() && (!match->IsPesLoop() || PesTimeUpBlows())) {
       foul.advantage = false;
       if (!CheckFoul()) {
         match->StopPlay();

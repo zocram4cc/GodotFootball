@@ -107,28 +107,53 @@ bool TimeUpReached(const PesClockConstants& c, uint32_t period, float limit, flo
 
 // --- the post-gate judge (FUN_14050B9B0, the part after the gate opens) ---
 //
-// With the gate open, PES's judge counts the ticks the gate has been open (R+0xd0, the
-// 60 s count) and the ticks the ball has spent in the zone of the side in possession
-// (R+0xd8), and blows on either count or on the newest touch. The counts persist while
-// the gate is closed and clear when the judge blows (FUN_14050C3E0). Not ported, each
-// marked where it stands: the penalty-taker hold (G+0x2920), the R+8 flag (no writer
-// traced), the ball-state branch for a kind-0 touch, the zone's 0x255 sub-branch, and the
-// final block (R+0xd4, the out-of-zone pattern).
+// With the gate open, PES's judge runs on every tick, in play or not (FUN_14050C3E0 skips
+// only periods 2, 6, 9 and 10). It counts the ticks the gate has been open (R+0xd0, the 60 s
+// count), the ticks the ball has spent in the zone of the side in possession (R+0xd8), and,
+// on a kind-0 touch, the ticks the ball has been on the ground with nobody holding it (R+0xd4,
+// the 30 s count). A blow clears every count (FUN_14050C3E0). Not ported, each marked where it
+// stands: the penalty-taker hold (G+0x2920), the R+8 flag (no writer traced), the zone's 0x255
+// sub-branch, the ball-speed and zone-crossing tests of a kind-0 touch (FUN_14050B9B0 lines
+// 141-200: B+0x2954 and MS+0x24844/0x2489c), and kind 2's x test on payload+8.
 struct TimeUpCounters {
-  int sixtySeconds = 0;  // R+0xd0: ticks with the gate open, cleared on a blow
-  int zoneTicks = 0;     // R+0xd8: the zone count, signed by the side in possession
+  int sixtySeconds = 0;   // R+0xd0: ticks with the gate open, cleared on a blow
+  int zoneTicks = 0;      // R+0xd8: the zone count, signed by the side in possession
+  int thirtySeconds = 0;  // R+0xd4: ground-ball ticks of a kind-0 touch
+};
+
+// The action kind of an empty touch record (the 0x37 sentinel of FUN_140a3e190).
+constexpr uint32_t kTimeUpNoKind = 0x37;
+// The player id of no player (FUN_140a62ee0's 0xff).
+constexpr uint32_t kTimeUpNoPlayer = 0xff;
+
+// The judge's view of one event record: payload+0 (kind), +0x10 (frame), +0x1c (restart
+// kind), +0x20 (holder flag) and the actor's player id.
+struct TimeUpEvent {
+  uint32_t kind = kTimeUpNoKind;
+  int frame = 0;
+  uint32_t restartKind = 0;
+  uint32_t flag = 0;
+  uint32_t player = kTimeUpNoPlayer;
 };
 
 struct TimeUpInput {
-  int zoneSign = 1;           // the attack sign of the side in possession: +1 or -1
-  float ballX_m = 0.0f;       // the ball's x along the pitch (B+0x88), PES metres
-  float halfLength_m = 0.0f;  // F[0]; the zone line is a third of it
-  uint32_t touchKind = 0;     // the newest touch's action kind (payload+0)
-  uint32_t touchFlag = 0;     // its holder flag word (payload+0x20)
+  int zoneSign = 1;                 // the attack sign of the side in possession: +1 or -1
+  bool carrier = false;             // a player has the ball (FUN_140a627e0 names one)
+  float ballX_m = 0.0f;             // the ball's x along the pitch (B+0x88), PES metres
+  float ballHeight_m = 0.0f;        // its height, PES y (B+0x8c)
+  float ballZ_m = 0.0f;             // its z across the pitch (B+0x90)
+  float speed_mps = 0.0f;           // |velocity| across the pitch, m/s (B+0x2948, B+0x2950)
+  float halfLength_m = 0.0f;        // F[0]: the zone line is a third of it
+  float penaltyLineX_m = 0.0f;      // F[6]: the penalty-area line
+  float penaltyHalfWidth_m = 0.0f;  // F[7]: the penalty-area half-width
+  int frame = 0;                    // MI+0x1198: the frame the judge runs on
+  uint32_t ring1Word = 0;           // FUN_140a3e840: ring 1's newest payload+0, 0 when empty
+  TimeUpEvent newest;               // R+0x3c0: the newest touch copy (FUN_140a3e190(E,0))
+  TimeUpEvent second;               // FUN_140a3e190(E,1): the touch before it
 };
 
-// One judge tick with the gate open, at `rate` logic frames a game-second. Returns true
-// when the judge blows; both counts are cleared then.
+// One judge tick with the gate open, at `rate` logic frames a game-second. Returns true when
+// the judge blows; every count is then cleared.
 bool TimeUpWhistle(TimeUpCounters& counters, const TimeUpInput& in, int rate);
 
 // --- the added-time formula (report 3.2) ---

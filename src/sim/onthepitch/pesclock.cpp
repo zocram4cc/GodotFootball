@@ -171,12 +171,12 @@ bool TimeUpWhistle(TimeUpCounters& c, const TimeUpInput& in, int rate) {
   }
 
   // The newest touch. ponytail: kind 0, the ball-state branch (lines 140-232), is not ported.
-  if (in.touchKind != 0 && in.touchFlag == kHolderFlag) {
-    if (in.touchKind == kKindThree) return blow();
+  if (in.newest.kind != 0 && in.newest.flag == kHolderFlag) {
+    if (in.newest.kind == kKindThree) return blow();
     // ponytail: kind 2's x test on payload+8 (lines 239-240, a float PES writes there) is not
     // ported; the five-second timeout alone stands in for it.
-    if (in.touchKind == kKindTwo && c.sixtySeconds > rate * kTouchFiveSeconds) return blow();
-    if (in.touchKind == kKindFour && c.sixtySeconds > rate * kTouchTenSeconds) return blow();
+    if (in.newest.kind == kKindTwo && c.sixtySeconds > rate * kTouchFiveSeconds) return blow();
+    if (in.newest.kind == kKindFour && c.sixtySeconds > rate * kTouchTenSeconds) return blow();
   }
 
   // ponytail: the final block (lines 253-297: the out-of-zone pattern and R+0xd4's 30 s count)

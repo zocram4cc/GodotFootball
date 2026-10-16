@@ -303,3 +303,29 @@ TEST(PesPeriodLifecycle, WithoutPesLoopAStoppageLeavesLimitAlone) {
   match->AdvanceMatchSeconds(100.0f);
   EXPECT_FLOAT_EQ(match->GetPesClock().Record().limit, 0.0f);
 }
+
+// Under pes_loop the judge counts the ticks the ball is dead as well (FUN_14050C3E0 gates on the
+// period only). 3239 dead ticks plus the first tick in play make 3240: the count is not past it.
+TEST(PesPeriodLifecycle, PesLoopTheJudgeCountsDeadBallTicks) {
+  REQUIRE_RIG();
+  auto match = MatchAtPhase(e_MatchPhase_1stHalf, 2700.0f, /*pesLoop=*/true);
+  ASSERT_TRUE(match);
+  match->StopPlay();
+  for (int tick = 0; tick < 54 * 60 - 1; ++tick) match->GetReferee()->Process();
+  match->StartPlay();
+  match->GetReferee()->Process();
+  EXPECT_TRUE(match->IsInPlay()) << "3240 ticks of count is not past 60 game-seconds";
+}
+
+// 3240 dead ticks plus the first tick in play make 3241: past the count, so the blow is held and
+// the whistle follows on the first tick of play.
+TEST(PesPeriodLifecycle, PesLoopADeadBallBlowWaitsForPlayThenWhistles) {
+  REQUIRE_RIG();
+  auto match = MatchAtPhase(e_MatchPhase_1stHalf, 2700.0f, /*pesLoop=*/true);
+  ASSERT_TRUE(match);
+  match->StopPlay();
+  for (int tick = 0; tick < 54 * 60; ++tick) match->GetReferee()->Process();
+  match->StartPlay();
+  match->GetReferee()->Process();
+  EXPECT_FALSE(match->IsInPlay()) << "the held blow whistles on the first tick of play";
+}
