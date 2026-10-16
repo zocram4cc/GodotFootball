@@ -12,6 +12,7 @@
 #include "AIsupport/AIfunctions.hpp"
 #include "foulseverity.hpp"
 #include "foulsequence.hpp"
+#include "pessequencer.hpp"
 #include "goalsequence.hpp"
 #include "match.hpp"
 #include "officials.hpp"
@@ -110,8 +111,16 @@ void ScheduleStop(Referee* referee, unsigned long stopTime_ms, bool downed, int 
   const pes::StoppageConstants& k = referee->GetStoppageConstants();
   b.stopTime = stopTime_ms;
   b.holdTime = FoulSequence::HoldEndsAt_ms(stopTime_ms, k, downed, holdKind);
-  b.prepareTime = FoulSequence::RestartPrepareAt_ms(stopTime_ms, k, downed, holdKind);
-  b.startTime = FoulSequence::RestartTakeAt_ms(stopTime_ms, k, downed, holdKind);
+  if (referee->PesLoop()) {
+    // PES's programme for this restart (pessequencer): its fade-in depends on the kind.
+    const pes::Timing t = pes::RunProgramme(pes::BuildProgramme(b.desiredSetPiece), stopTime_ms,
+                                            k, downed, holdKind);
+    b.prepareTime = t.prepareAt_ms;
+    b.startTime = t.armedAt_ms;
+  } else {
+    b.prepareTime = FoulSequence::RestartPrepareAt_ms(stopTime_ms, k, downed, holdKind);
+    b.startTime = FoulSequence::RestartTakeAt_ms(stopTime_ms, k, downed, holdKind);
+  }
 }
 
 Referee::Referee(Match* match) : match(match) {
@@ -149,6 +158,8 @@ Referee::~Referee() {}
 const pes::StoppageConstants& Referee::GetStoppageConstants() const {
   return match->GetPesStoppageConstants();
 }
+
+bool Referee::PesLoop() const { return match->PesLoop(); }
 
 void Referee::Process() {
   // printf("%i", match->GetMatchState());
@@ -205,7 +216,8 @@ void Referee::Process() {
 
     // goal kick / corner
 
-    if (fabs(ballPos.coords[0]) > pitchHalfW + lineHalfW + 0.11) {
+    if (fabs(ballPos.coords[0]) >
+        (match->PesLoop() ? pesFieldHalfLength : pitchHalfW + lineHalfW + 0.11)) {
       foul.advantage = false;
       bool isFoul = false;
       if (!match->IsGoalScored())
@@ -237,20 +249,25 @@ void Referee::Process() {
           buffer.restartPos = Vector3(0, 0, 0);
           buffer.teamID = abs(match->GetLastGoalTeamID() - 1);
 
-        } else if ((ballPos.coords[0] > 0 && lastSide > 0) ||
-                   (ballPos.coords[0] < 0 && lastSide < 0)) {
+        } else if (pes::EndLineRestart(lastSide, ballPos.coords[0]) == e_SetPiece_Corner) {
           buffer.desiredSetPiece = e_SetPiece_Corner;
           buffer.stopTime = match->GetActualTime_ms();
           // PES's 0xb out-of-play stop (9.3): hold, then wipe, teleport and
           // fade-in before the kick. It used to be two and two - two seconds
           // to prepare and two to take - which is not PES's bracket at all.
           ScheduleStop(this, buffer.stopTime, AnyPlayerDown(match), kPesHoldOutOfPlay);
-          float y = ballPos.coords[1];
-          if (y > 0)
-            y = pitchHalfH;
-          else
-            y = -pitchHalfH;
-          buffer.restartPos = Vector3(pitchHalfW * lastSide, y, 0);
+          if (match->PesLoop()) {
+            const pes::Spot spot = pes::CornerSpot(ballPos.coords[0], ballPos.coords[1],
+                                                   match->GetPesRestartSpotConstants());
+            buffer.restartPos = Vector3(spot.x, spot.z, 0);
+          } else {
+            float y = ballPos.coords[1];
+            if (y > 0)
+              y = pitchHalfH;
+            else
+              y = -pitchHalfH;
+            buffer.restartPos = Vector3(pitchHalfW * lastSide, y, 0);
+          }
           buffer.teamID = abs(lastTouchTeam->GetID() - 1);
           match->GetMatchData()->AddCorner(buffer.teamID);
 
@@ -260,7 +277,13 @@ void Referee::Process() {
           // PES's 0xb out-of-play stop (9.3). Live: 139 frames without a man
           // down, 274 with one - 2.5 s and 5.0 s.
           ScheduleStop(this, buffer.stopTime, AnyPlayerDown(match), kPesHoldOutOfPlay);
-          buffer.restartPos = Vector3(pitchHalfW * 0.92 * -lastSide, 0, 0);
+          if (match->PesLoop()) {
+            const pes::Spot spot = pes::GoalKickSpot(ballPos.coords[0], ballPos.coords[1],
+                                                     match->GetPesRestartSpotConstants());
+            buffer.restartPos = Vector3(spot.x, spot.z, 0);
+          } else {
+            buffer.restartPos = Vector3(pitchHalfW * 0.92 * -lastSide, 0, 0);
+          }
           buffer.teamID = abs(lastTouchTeam->GetID() - 1);
         }
 
@@ -273,7 +296,8 @@ void Referee::Process() {
     // over sideline
 
     if (afterSetPieceRelaxTime_ms == 0) {
-      if (fabs(ballPos.coords[1]) > pitchHalfH + lineHalfW + 0.11) {
+      if (fabs(ballPos.coords[1]) >
+          (match->PesLoop() ? pesFieldHalfWidth : pitchHalfH + lineHalfW + 0.11)) {
         foul.advantage = false;
         if (!CheckFoul()) {
           match->StopPlay();
@@ -289,12 +313,18 @@ void Referee::Process() {
           // wipe alone runs 5 frames, and the CPU taker's own wait after the
           // restart is armed is his business, not the referee's.
           ScheduleStop(this, buffer.stopTime, AnyPlayerDown(match), kPesHoldOutOfPlay);
-          buffer.restartPos.coords[0] =
-              clamp(ballPos.coords[0], -pitchHalfW + 0.6f, pitchHalfW - 0.6f);
-          if (ballPos.coords[1] > 0)
-            buffer.restartPos.coords[1] = pitchHalfH;
-          if (ballPos.coords[1] <= 0)
-            buffer.restartPos.coords[1] = -pitchHalfH;
+          if (match->PesLoop()) {
+            const pes::Spot spot = pes::ThrowInSpot(ballPos.coords[0], ballPos.coords[1]);
+            buffer.restartPos.coords[0] = spot.x;
+            buffer.restartPos.coords[1] = spot.z;
+          } else {
+            buffer.restartPos.coords[0] =
+                clamp(ballPos.coords[0], -pitchHalfW + 0.6f, pitchHalfW - 0.6f);
+            if (ballPos.coords[1] > 0)
+              buffer.restartPos.coords[1] = pitchHalfH;
+            if (ballPos.coords[1] <= 0)
+              buffer.restartPos.coords[1] = -pitchHalfH;
+          }
           buffer.restartPos.coords[2] = 0;
           buffer.active = true;
         buffer.prepared = false;
@@ -328,7 +358,7 @@ void Referee::Process() {
     // own position calls for. buffer.active is the guard that keeps this out of
     // the windows where waiting is correct: the entrance, half-time and the end
     // of the match all hold play with a restart already armed.
-    if (!match->IsInPlay() && !match->IsInSetPiece() && !buffer.active) {
+    if (!match->PesLoop() && !match->IsInPlay() && !match->IsInSetPiece() && !buffer.active) {
       const Vector3 ballPos = match->GetBall()->Predict(0);
       const bool outOverGoalLine = std::fabs(ballPos.coords[0]) > pitchHalfW;
       const bool outOverTouchline = std::fabs(ballPos.coords[1]) > pitchHalfH;
@@ -426,7 +456,8 @@ void Referee::Process() {
       // restarts sit inside the line, so the rule is not applied to them.
       // ponytail: a teleport back to the spot once it strays, not PES's ball hold.
       constexpr float kRestartHoldTolerance_m = 0.05f;  // a GF tolerance, not a PES value
-      if (buffer.desiredSetPiece == e_SetPiece_ThrowIn && buffer.prepared && !buffer.started &&
+      if (!match->PesLoop() && buffer.desiredSetPiece == e_SetPiece_ThrowIn && buffer.prepared &&
+          !buffer.started &&
           match->GetBall()->GetPositionBuffer().Get2D().GetDistance(buffer.restartPos.Get2D()) >
               kRestartHoldTolerance_m)
         match->GetBall()->ResetSituation(buffer.restartPos);
@@ -435,7 +466,7 @@ void Referee::Process() {
       // out on their own (elizacontroller.cpp); this holds the whistle until they have,
       // for a bounded time so a wedged player cannot freeze the match.
       Team* restartTeam = match->GetTeam(buffer.teamID);
-      if (!buffer.started && buffer.startTime <= match->GetActualTime_ms() &&
+      if (!match->PesLoop() && !buffer.started && buffer.startTime <= match->GetActualTime_ms() &&
           SetPieceLaws::ClearsThePenaltyArea(buffer.desiredSetPiece, buffer.restartPos.coords[0],
                                              restartTeam->GetSide(), pitchHalfW)) {
         Team* takerTeam = restartTeam;
@@ -487,7 +518,7 @@ void Referee::Process() {
       }
 
       // Law 13: and the same wait for a free kick or a corner, measured from the ball.
-      if (!buffer.started && buffer.startTime <= match->GetActualTime_ms() &&
+      if (!match->PesLoop() && !buffer.started && buffer.startTime <= match->GetActualTime_ms() &&
           SetPieceLaws::ClearsTheBallRadius(buffer.desiredSetPiece)) {
         std::vector<Player*> squad;
         match->GetTeam(abs(buffer.teamID - 1))->GetActivePlayers(squad);
@@ -534,11 +565,16 @@ void Referee::Process() {
           // their own rule and the gate returns true for them immediately.
           // One logic frame is one tick (Milestone A1), so the elapsed count is in
           // PES's frames directly and the frames-per-second is PES's own rate.
-          SetPieceLaws::MayTakeRestart(
-              buffer.desiredSetPiece,
-              static_cast<int>((match->GetActualTime_ms() - buffer.startTime) / Match::kTick_ms),
-              static_cast<float>(Match::kFramesPerSecond),
-              match->GetPesSetPieceTakerConstants())) {
+          (match->PesLoop()
+               ? pes::MayRelease(buffer.desiredSetPiece,
+                                 static_cast<int>((match->GetActualTime_ms() - buffer.startTime) /
+                                                  Match::kTick_ms))
+               : SetPieceLaws::MayTakeRestart(
+                     buffer.desiredSetPiece,
+                     static_cast<int>((match->GetActualTime_ms() - buffer.startTime) /
+                                      Match::kTick_ms),
+                     static_cast<float>(Match::kFramesPerSecond),
+                     match->GetPesSetPieceTakerConstants()))) {
         buffer.started = true;
         if (clearingLogged) {
           // How long the taker actually waited, and how far the nearest opponent had
@@ -568,7 +604,7 @@ void Referee::Process() {
       match->StopSetPiece();
       match->GetTeam(0)->GetController()->PrepareSetPiece(e_SetPiece_None);
       match->GetTeam(1)->GetController()->PrepareSetPiece(e_SetPiece_None);
-      afterSetPieceRelaxTime_ms = 400;
+      if (!match->PesLoop()) afterSetPieceRelaxTime_ms = 400;
       foul.foulPlayer = 0;
       foul.foulType = 0;
 
@@ -666,6 +702,16 @@ void Referee::PrepareSetPiece(e_SetPiece setPiece) {
 
 void Referee::AlterSetPiecePrepareTime(unsigned long newTime_ms) {
   if (buffer.active) {
+    if (match->PesLoop()) {
+      // PES has no deferral cap: the push moves the restart, and the armed step keeps the
+      // spacing its programme gave it (decode 5.4; the 30 s clamp below is GF's own).
+      const long shift_ms = static_cast<long>(newTime_ms) - static_cast<long>(buffer.prepareTime);
+      buffer.startTime = static_cast<unsigned long>(static_cast<long>(buffer.startTime) + shift_ms);
+      buffer.prepareTime = newTime_ms;
+      buffer.prepared = false;
+      buffer.started = false;
+      return;
+    }
     // Bounded. This is called once per tick by several things - a goal
     // celebration's beats, a cutscene, and the referee playing his special
     // animation (match.cpp) - each pushing the restart further out so it does

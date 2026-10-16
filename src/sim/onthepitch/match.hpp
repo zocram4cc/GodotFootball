@@ -221,6 +221,7 @@ public:
   // PES 2021's stamina model (docs/re/pes-re-stamina-drain.md): its constants,
   // read from the install's exe, required like the clock's and the ball's.
   const pes::StaminaConstants& GetPesStaminaConstants() const { return *pesStaminaConstants; }
+  bool PesLoop() const { return pesLoop; }
   // PES 2021's restart timings (docs/re/pes-re-foul-choreography.md 9).
   // PES 2021's kick execution error (docs/re/pes-re-kick-scatter.md).
   const pes::KickErrorConstants& GetPesKickErrorConstants() const {

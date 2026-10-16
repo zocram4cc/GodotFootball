@@ -74,6 +74,10 @@ struct RestartSpotConstants {
   float goalAreaPushOut_m = 0.0f;  // .rdata 0x14257a194: pushed out of the goal area past F4
   float goalAreaPushZ_m = 0.0f;    // .rdata 0x1425ab138: the spot's z once pushed out
   float freeKickInset_m = 0.0f;    // .rdata 0x142565604: a free kick inside the touchline
+  // .rdata 0x142590d98 / 0x142572348 (A5 judge decode 9.5): the corner spot is the flag pulled in
+  // along x and along z by these two insets.
+  float cornerInsetX_m = 0.0f;
+  float cornerInsetZ_m = 0.0f;
 };
 std::optional<RestartSpotConstants> LoadRestartSpotConstants(const PeImage& exe, std::string* error);
 
