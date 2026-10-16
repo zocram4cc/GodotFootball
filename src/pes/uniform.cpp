@@ -230,8 +230,6 @@ std::vector<UniformPart> SelectUniformParts(const KitConfig& kit, const PlayerLo
       loose(SleeveModelName(sleeve, look.gloveId != 0, false, kit.tight)),
       common(SOCKS[look.socks & 3]),
       common(THIGHS[look.socks & 3]),
-      common("hand_l"),
-      common("hand_r"),
       common("eye_new"),
       common("mouth"),
   };
@@ -242,6 +240,13 @@ std::vector<UniformPart> SelectUniformParts(const KitConfig& kit, const PlayerLo
     parts.push_back(common(kit.tight ? "pants_out_sub_tight" : sleeve.type == INNER ? "pants_out_inner_sub" : "pants_out_sub"));
   else
     parts.push_back(common("pants_in_sub"));
+  // PES's hand slot takes the glove when the look wears one: the appearance's
+  // glove id reaches the hand's model path (FUN_141a1e6e0 -> FUN_141a8e8d0), so
+  // the glove pack's hands stand in for the bare ones (kit-assembly 8.4).
+  if (look.gloveId == 0) {
+    parts.push_back(common("hand_l"));
+    parts.push_back(common("hand_r"));
+  }
   // FUN_141a8d530: no bare arm at all under a worn long or inner sleeve (by type,
   // even when the sleeve model is missing); otherwise half sleeves bare a half
   // arm and gloves a gloved one.

@@ -626,7 +626,7 @@ Node3D* Build::RunPlayer(int teamId, int kitIndex) {
   }
   // A missing boots or glove folder leaves the slot empty (pes-kit-assembly.md 8.4).
   std::vector<std::string> packs{bootsPack};
-  if (!wholeBody_ && look.gloveId) packs.push_back(pes::GlovePackPath(look.gloveId));
+  if (look.gloveId) packs.push_back(pes::GlovePackPath(look.gloveId));
   for (const std::string& pack : packs) {
     if (vfs_.Exists(pack)) AddPack(pack);
     else UtilityFunctions::print("  empty slot, no pack: ", ToGd(pack));
