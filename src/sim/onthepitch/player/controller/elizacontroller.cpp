@@ -161,7 +161,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         SetPieceLaws::ClearingTarget(here.coords[0], here.coords[1], defendedSide, pitchHalfW,
                                     &targetX, &targetY);
         const Vector3 target(targetX, targetY, 0);
-        command.desiredDirection = (target - here).GetNormalized(player->GetDirectionVec());
+        command.desiredDirection = (target - here).Get2D().GetNormalized(player->GetDirectionVec());
         // Jogging, not sprinting: a player asked to step out of the box is not in a
         // hurry, and a sprint reads as a scramble.
         command.desiredVelocityFloat = walkVelocity;
@@ -184,7 +184,8 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         SetPieceLaws::RetreatTarget(here.coords[0], here.coords[1], ball.coords[0],
                                    ball.coords[1], &targetX, &targetY);
         const Vector3 target(targetX, targetY, 0);
-        command.desiredDirection = (target - here).GetNormalized(player->GetDirectionVec());
+        // 2D: a player's heading must not carry the ball's height.
+        command.desiredDirection = (target - here).Get2D().GetNormalized(player->GetDirectionVec());
         command.desiredVelocityFloat = walkVelocity;
         command.useDesiredLookAt = true;
         command.desiredLookAt = ball;
@@ -461,7 +462,8 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
           step.desiredFunctionType = e_FunctionType_Movement;
           step.useDesiredMovement = false;
           step.useDesiredLookAt = true;
-          step.desiredDirection = toBall.GetNormalized(CastPlayer()->GetDirectionVec());
+          // 2D: the ball's height must not enter the heading.
+          step.desiredDirection = toBall.Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
           step.desiredVelocityFloat = sprintVelocity;
           step.desiredLookAt = match->GetBall()->GetPositionBuffer();
           commandQueue.push_back(step);
@@ -482,7 +484,8 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         run.desiredFunctionType = e_FunctionType_Movement;
         run.useDesiredMovement = false;
         run.useDesiredLookAt = true;
-        run.desiredDirection = toBall.GetNormalized(CastPlayer()->GetDirectionVec());
+        // 2D: a ball in the air must not tilt the run at it.
+        run.desiredDirection = toBall.Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
         // Sprint: he is chasing a ball nobody else is going for.
         run.desiredVelocityFloat = sprintVelocity;
         run.desiredLookAt = match->GetBall()->GetPositionBuffer();
@@ -908,7 +911,8 @@ void ElizaController::_PushChallenge(PlayerCommandQueue& commandQueue, const Vec
     // body has to be aimed along the way there and not at the endpoint alone.
     command.desiredDirection = flat.Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
   } else {
-    command.desiredDirection = flat.GetNormalized(CastPlayer()->GetDirectionVec());
+    // 2D for every contact aimed direction: the height is carried by the velocity.
+    command.desiredDirection = flat.Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
   }
   command.desiredVelocityFloat = sprintVelocity;
   command.useDesiredLookAt = true;
