@@ -50,6 +50,9 @@ inline pes::PesBallConstants SyntheticConstants() {
   r.rollToBoundAdd = 0.07f;
   r.rollToBoundRollMax = 7.0f;
   r.rollToBoundRollMin = 2.0f;
+  r.rollToSpeedMaxRoll = 8.5f;
+  r.rollToSpeedSpeedYMax = 0.5f;
+  r.rollToSpeedSpeedYMin = 0.1f;
   r.stopSpeed = 0.175f;
   r.spinScaleSlot = 0;
   const auto set = [&](BallRecordConstants::ArrayRow row, float v0, float v1, float v2, float v3,

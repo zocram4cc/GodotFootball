@@ -217,6 +217,9 @@ struct BallRecordConstants {
   float rollToBoundRollMax = 0.0f;    // +0x0D4 7.0
   float rollToBoundRollMin = 0.0f;    // +0x0D8 2.0
   float stopSpeed = 0.0f;            // +0x0F4 0.175
+  float rollToSpeedMaxRoll = 0.0f;   // +0x0E0 8.5: the rolling block's speed cap (BallBase +0x2AC)
+  float rollToSpeedSpeedYMax = 0.0f; // +0x0E4 0.5 (BallBase +0x2B0): slope at which the Y rate is 1
+  float rollToSpeedSpeedYMin = 0.0f; // +0x0E8 0.1 (BallBase +0x2B4): slope at which the Y rate is the base
   // The spin-scale knob at Ball+0x4c (report 3.2), the plain scalar slot the
   // record's own loader fills from ball.o+0x1c: shipped 0, a dead tuning knob.
   int spinScaleSlot = 0;  // ball.o+0x1c (int)

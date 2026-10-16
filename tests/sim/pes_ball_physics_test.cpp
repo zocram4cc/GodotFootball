@@ -489,6 +489,9 @@ TEST(PesBallInstall, LoadsTheInstallConstantsAndReproducesTheReportNumbers) {
   EXPECT_NEAR(c.record.stopSpeed, 0.175f, 1e-5);
   EXPECT_NEAR(c.record.At(BallRecordConstants::kBoundToRotationBaseY, 1), 0.03f, 1e-5);
   EXPECT_NEAR(c.record.At(BallRecordConstants::kBoundToRotationAddRateY, 1), 0.07f, 1e-5);
+  EXPECT_NEAR(c.record.rollToSpeedMaxRoll, 8.5f, 1e-5);
+  EXPECT_NEAR(c.record.rollToSpeedSpeedYMax, 0.5f, 1e-5);
+  EXPECT_NEAR(c.record.rollToSpeedSpeedYMin, 0.1f, 1e-5);
   EXPECT_NEAR(c.record.At(BallRecordConstants::kBoundRate, 1), 0.7f, 1e-5);
 
   // The image constants (officials 6.2 / ball-constants 4).
@@ -612,6 +615,30 @@ TEST(PesBallConversion, ASecondOfSimTicksIsASecondOfPesTicksWhileRolling) {
   }
   EXPECT_NEAR(vGf, vPes, vPes * 0.05)
       << "54 sim ticks and 54 PES ticks are both one second: " << vGf << " vs " << vPes;
+}
+TEST(PesBallContact, SpinAboutTheSidewaysAxisPushesARollingBallAcrossItsHeading) {
+  // Report 3.3 (FUN_140876360 0x140876c0f..0x140876f6e): the rolling block builds the tangential vector
+  // from the spin across and along the pre-flight heading e. With e along +x, the spin about x enters
+  // only the along-track term B, and T_z = -B*e_x, so the sideways speed follows the spin's sign.
+  const PesBallConstants c = SyntheticConstants();
+  BallState s;
+  s.position = pes::Vec3(0.0f, c.image.ballRadius, 0.0f);
+  s.velocity = pes::Vec3(6.0f, 0.0f, 0.0f);
+  s.spinRaw = pes::Vec3(0.02f, 0.0f, 0.0f);  // 9.8 rad/s about x: a clear spin, below the cap
+  pesball::ContactTick(c, &s, 0, true, false, pesball::kGfTick_s);
+  EXPECT_GT(s.velocity.z, 0.05f) << "topspin about +x pushes the ball toward +z";
+}
+
+TEST(PesBallContact, ABallRollingSlowerThanTwoMetresPerSecondIgnoresTheTangential) {
+  // Report 3.3's entry test: a ball that starts exactly on the ground and moves under 2.2222 m/s takes
+  // the rolling flag (bVar3), which skips the block. Its horizontal velocity is K times its own.
+  const PesBallConstants c = SyntheticConstants();
+  BallState s;
+  s.position = pes::Vec3(0.0f, c.image.ballRadius, 0.0f);
+  s.velocity = pes::Vec3(1.0f, 0.0f, 0.0f);
+  s.spinRaw = pes::Vec3(0.02f, 0.0f, 0.0f);
+  pesball::BallTick(c, &s, 0, pesball::kGfTick_s);
+  EXPECT_NEAR(s.velocity.z, 0.0f, 1e-6f);
 }
 
 }  // namespace
