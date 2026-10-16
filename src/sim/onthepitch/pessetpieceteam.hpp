@@ -149,14 +149,16 @@ struct FreeKickInput {
   float penaltyHalfZ_m = 0.0f;  // F[7]: the penalty-area half width
   // The sheet's designated roster values for kinds 0..2 (S+0x143c+4k). A value that names
   // no player on the pitch is none.
-  std::array<int, 3> designated{};
+  std::array<int, 3> designated{-1, -1, -1};
   int excluded = -1;        // the first kicker's slot when choosing the second; -1 for none
   bool reuseMode = false;   // MI+0x116c == 3: the published kicker is reused if he qualifies
   int published = -1;       // MI+0x173c: the published kicker's slot
 };
 
 // FUN_1404a8ad0, the free-kick kicker, as its six-step waterfall. Returns the taker's slot,
-// or -1 when nobody qualifies. The online-practice branch (G+0x400) is out of scope.
+// or -1 when nobody qualifies.
+// ponytail: the online-practice branch (G+0x400: FUN_140a59af0, FUN_1404a8930) is not ported.
+// GF's matches are CPU-only, so every on-pitch test here is the CPU one (MI+0x1748).
 int FreeKickTaker(const std::vector<SetPieceCandidate>& candidates, const FreeKickInput& in,
                   const SetPieceTeamConstants& k);
 
@@ -169,7 +171,6 @@ struct FreeKickRepick {
   bool secondNone = false;
 };
 FreeKickRepick FreeKickRepickGate(bool firstValid, bool secondValid, int fkType);
-
 
 // FUN_1404a9920: how many men stand in the wall. `ballAngle_deg` is the ball's
 // angle off the goal's centre line.

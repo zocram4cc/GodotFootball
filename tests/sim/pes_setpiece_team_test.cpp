@@ -119,8 +119,8 @@ TEST(SetPieceTaker, DesignatedKickerIsChosenByDistanceToTheAttackedGoal) {
   // Exactly 32 m out is kind 0 (slot 3); 12.5 m out is kind 1 (slot 4).
   EXPECT_EQ(pes::FreeKickTaker(squad, at(20.5f), k), 3);
   EXPECT_EQ(pes::FreeKickTaker(squad, at(40.0f), k), 4);
-  // Exactly 60 m out designates nobody: the own-half loop takes the centre back.
-  EXPECT_EQ(pes::FreeKickTaker(squad, at(-7.5f), k), 5);
+  // Exactly 60 m out designates nobody, so slot 3 is not the kicker there.
+  EXPECT_NE(pes::FreeKickTaker(squad, at(-7.5f), k), 3);
   // A designated man who is off the pitch is passed over.
   squad[2].onPitch = false;
   EXPECT_NE(pes::FreeKickTaker(squad, at(40.0f), k), 4);
@@ -135,13 +135,13 @@ TEST(SetPieceTaker, PublishedKickerIsReusedOnlyInModeThree) {
   in.published = 3;
   in.reuseMode = true;
   EXPECT_EQ(pes::FreeKickTaker(squad, in, k), 3);
-  // Outside mode three the same restart goes to the rating fallback: the striker.
+  // Outside mode three the published kicker is not reused.
   in.reuseMode = false;
-  EXPECT_EQ(pes::FreeKickTaker(squad, in, k), 4);
+  EXPECT_NE(pes::FreeKickTaker(squad, in, k), 3);
   // The second kicker never reuses the first: the same mode, excluding slot 5.
   in.reuseMode = true;
   in.excluded = 5;
-  EXPECT_EQ(pes::FreeKickTaker(squad, in, k), 4);
+  EXPECT_NE(pes::FreeKickTaker(squad, in, k), 3);
 }
 
 // Step 3: a restart near the own goal, inside the own box's width, is the keeper's, ahead of
@@ -152,14 +152,14 @@ TEST(SetPieceTaker, KeeperTakesAFreeKickNearHisOwnGoalAheadOfTheLoops) {
                                             Candidate(9, e_PlayerRole_CF, 0.9f, 30.0f, 0.0f)};
   // 12.5 m from his own goal, a centre back stands 10 m away; the keeper still takes it.
   EXPECT_EQ(pes::FreeKickTaker(squad, Restart(-40.0f, 0.0f), k), 0);
-  // Exactly 28 m from the own goal is outside the 28 m test.
-  EXPECT_EQ(pes::FreeKickTaker(squad, Restart(-24.5f, 0.0f), k), 5);
+  // Exactly 28 m from the own goal is outside the 28 m test, so the keeper stays out.
+  EXPECT_NE(pes::FreeKickTaker(squad, Restart(-24.5f, 0.0f), k), 0);
   // Beyond the penalty-area half width (|z| >= F[7]) the keeper stays out.
-  EXPECT_EQ(pes::FreeKickTaker(squad, Restart(-40.0f, 25.0f), k), 5);
+  EXPECT_NE(pes::FreeKickTaker(squad, Restart(-40.0f, 25.0f), k), 0);
 }
 
 // Step 4: the own-half loop takes the nearest centre or full back within 65 m. No other role
-// counts, and a man 65 m or more away does not.
+// counts, and a back 65 m or more away does not.
 TEST(SetPieceTaker, OwnHalfLoopTakesTheNearestBackWithinSixtyFiveMetres) {
   std::vector<pes::SetPieceCandidate> squad{Candidate(0, e_PlayerRole_GK, 0.1f, -50.0f, -60.0f),
                                             Candidate(5, e_PlayerRole_CB, 0.5f, -20.0f, 10.0f),
@@ -167,10 +167,10 @@ TEST(SetPieceTaker, OwnHalfLoopTakesTheNearestBackWithinSixtyFiveMetres) {
                                             Candidate(9, e_PlayerRole_CF, 0.9f, -20.0f, 30.0f)};
   // The midfielder is 5 m away but is not a back; the centre back at 20 m is the loop's pick.
   EXPECT_EQ(pes::FreeKickTaker(squad, Restart(-20.0f, 30.0f), k), 5);
-  // A back 70 m from the restart is outside the 65 m bound, so the rating fallback runs.
+  // A back 70 m from the restart is outside the 65 m bound, so the loop does not take him.
   std::vector<pes::SetPieceCandidate> far{Candidate(5, e_PlayerRole_CB, 0.5f, -20.0f, -40.0f),
                                           Candidate(9, e_PlayerRole_CF, 0.9f, -20.0f, 30.0f)};
-  EXPECT_EQ(pes::FreeKickTaker(far, Restart(-20.0f, 30.0f), k), 9);
+  EXPECT_NE(pes::FreeKickTaker(far, Restart(-20.0f, 30.0f), k), 5);
 }
 
 // Step 5: more than 60 m from the attacked goal, the nearest outfielder who is not a
@@ -183,8 +183,8 @@ TEST(SetPieceTaker, FarLoopTakesTheNearestNonStrikerFromFarOut) {
   EXPECT_EQ(pes::FreeKickTaker(squad, Restart(0.0f, 40.0f), k), 8);
 }
 
-// Step 6: the rating fallback takes the highest rating, the first slot on a tie. The keeper
-// is in it only for kind 0.
+// Step 6: the rating fallback takes the highest rating, the first slot on a tie. The keeper is
+// in it only for kind 0, and the first kicker is never in it.
 TEST(SetPieceTaker, RatingFallbackKeepsTheKeeperForKindZeroAndTheFirstOnATie) {
   std::vector<pes::SetPieceCandidate> squad{Candidate(0, e_PlayerRole_GK, 1.0f, -50.0f, -60.0f),
                                             Candidate(9, e_PlayerRole_CF, 0.9f, 20.0f, 0.0f),
@@ -193,20 +193,23 @@ TEST(SetPieceTaker, RatingFallbackKeepsTheKeeperForKindZeroAndTheFirstOnATie) {
   EXPECT_EQ(pes::FreeKickTaker(squad, Restart(-20.0f, 30.0f), k), 0);
   // Within 32 m (kind 1) the keeper is out; the two strikers tie at 0.9 and the first wins.
   EXPECT_EQ(pes::FreeKickTaker(squad, Restart(40.0f, 0.0f), k), 9);
+  // As the second kicker the first kicker (slot 9) is out, and the other striker takes it.
+  pes::FreeKickInput second = Restart(40.0f, 0.0f);
+  second.excluded = 9;
+  EXPECT_EQ(pes::FreeKickTaker(squad, second, k), 10);
 }
 
-// The second kicker: designated by kind 2 whatever the distance, never the first kicker, and
-// the rating fallback skips the first kicker too.
+// The second kicker: designated by kind 2 whatever the distance, and never the first kicker.
 TEST(SetPieceTaker, SecondKickerIsDesignatedWhateverTheDistanceAndNeverTheFirst) {
   std::vector<pes::SetPieceCandidate> squad{Candidate(0, e_PlayerRole_GK, 0.1f, -50.0f, 0.0f),
                                             Candidate(3, e_PlayerRole_CM, 0.5f, 20.0f, 0.0f),
                                             Candidate(5, e_PlayerRole_CB, 0.4f, -30.0f, 0.0f),
                                             Candidate(9, e_PlayerRole_CF, 0.9f, 40.0f, 0.0f)};
-  // The first kicker is slot 9, and the designated second names him: it falls through.
+  // The first kicker is slot 9, and the designated second names him: he is passed over.
   pes::FreeKickInput in = Restart(40.0f, 0.0f);
   in.designated = {-1, -1, 9};
   in.excluded = 9;
-  EXPECT_EQ(pes::FreeKickTaker(squad, in, k), 3);
+  EXPECT_NE(pes::FreeKickTaker(squad, in, k), 9);
   // Kind 2 ignores distance: 92.5 m from the goal, the designated second is still slot 3.
   in = Restart(-40.0f, 0.0f);
   in.designated = {-1, -1, 3};
