@@ -213,6 +213,28 @@ struct RunConstants {
   float deg1125b;     // 112.5 (0x1425cb30c)
   float deg135;       // 135   (0x14259be60)
   float deg1575;      // 157.5 (0x1425cca3c)
+  float deg3375;      // 33.75 (0x1425cc688): STOP's idle-arm facing-error gate
+  float deg5p625;     // 5.625 (0x1425ddf84): EnterAccelerate's desired-angle gate
+  float deg84375;     // 84.375 (0x14259be54): the entries' out-of-play turn allowance
+  float deg123p5;     // 123.5 (0x1425ddfb0): the entries' out-of-play mirror gate
+  float deg163p125;   // 163.125 (0x1425ddfc4): the entries' out-of-play window
+  float kmh172;       // 17.2  (0x1425ddf90): EnterAccelerate's playback ladder's first rung
+  float kmh1475b;     // 14.75 (0x1425ddf88): EnterDecelerate's speed ladder's rung
+  float rate055;      // 0.55  (0x1425a358c): EnterAccelerate's playback rate gate
+  float foot075;      // 0.75  (0x14259bdd4): the entries' playback at a fast ground speed
+  float foot027;      // -0.27 (0x1425ddfe8): the entries' foot-window gate's far bound
+  float dist110;      // 1.1   (0x1425a3590): the entries' record chain's distance gate
+  // FUN_1406e9f90's own ladder: the record's class byte and its draw, minus the record's
+  // level (10 - level when the level is 10 or below), then the 40/59 and 40/99 ramps.
+  float rec40;        // 40    (0x14259be2c): the record ladder's first floor
+  float rec59;        // 59    (0x1425cb2fc): the record ladder's ramp's divisor
+  float rec99;        // 99    (0x1425c48cc): the record ladder's ramp's ceiling
+  // FUN_1406c0170's no-class branch: the live frame's draw against the clamp 50/95, and the
+  // replay action's 0.45.
+  float frame50;      // 50    (0x14259be34): the frame clamp's lower bound
+  float frame95;      // 95    (0x1425c594c): the frame clamp's upper bound
+  float replay45;     // 0.45  (0x14256b140): the replay action's own scale
+  float deg146p25;    // 146.25 (0x1425ddfbc): the no-class state picker's facing-error gate
   float turn16875;    // 16.875 (0x1425ddf8c)
   float blend1667;    // 1/6   (0x1425ddf50)
   float blend1333;    // 2/15  (0x1425ddf4c)
