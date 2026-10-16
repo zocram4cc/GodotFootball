@@ -29,6 +29,7 @@ struct MoveHostConstants {
   pes::AngleBucketConstants buckets{};
   pes::movestep::MoveTurnConstants turn{};
   pes::ParametricGroups parametric{};
+  pes::movestep::MotionStartConstants motionStart{};
 };
 
 constexpr float kDegPerRad = 180.0f / 3.14159265358979323846f;  // a unit conversion, not PES data
@@ -51,6 +52,7 @@ std::optional<MoveHostConstants> LoadMoveHostConstants() {
   if (auto t = pes::LoadIdleRowTables(*exe, &err)) c.idleRows = *t; else return std::nullopt;
   if (auto b = pes::LoadAngleBucketConstants(*exe, &err)) c.buckets = *b; else return std::nullopt;
   if (auto t = pes::movestep::LoadMoveTurnConstants(*exe, &err)) c.turn = *t; else return std::nullopt;
+  if (auto m = pes::movestep::LoadMotionStartConstants(*exe, &err)) c.motionStart = *m; else return std::nullopt;
   if (auto g = pes::LoadParametricGroups(*exe, &err)) c.parametric = *g; else return std::nullopt;
   return c;
 }
@@ -99,7 +101,7 @@ class MoveHostAdapter final : public pes::MoveHost {
     return match_.GetPesFrame();  // ponytail: P+0x2814 / P+0x2816's own recent-tick stamps.
   }
   float MotionStartTime(int motionNo) const override {
-    return pes::movestep::MotionStartSeconds(static_cast<uint16_t>(motionNo));
+    return pes::movestep::MotionStartSeconds(c_.motionStart, static_cast<uint16_t>(motionNo));
   }
   float RecordF2468() const override { return 1.0f; }  // ponytail: P+0x2468's record reader.
   int MoveStatePrevious() const override {

@@ -675,8 +675,26 @@ bool EnterStepTurnRun(MoveHost& host, MoveReq& req);
 int IdleRow(MoveHost& host, MoveReq& req);
 // FUN_1406b6bb0(ap, req): INIT's stay decision (AS 2.3); true = stay idle.
 bool StayDecision(MoveHost& host, MoveReq& req);
-// FUN_1406b97d0(motion): a motion's start time in its clip, seconds (AS 2.3, a per-motion constant).
-float MotionStartSeconds(uint16_t motionNo);
+// FUN_1406b97d0's nine float returns: the install values its per-motion switch picks. Each field is
+// one .rdata float, named by its VA (the loader reads them).
+struct MotionStartConstants {
+  float v590d98 = 0.0f;  // 0x142590d98: motions 0x1f, 0x6e4, 0x6e6, 0x6e7
+  float v592228 = 0.0f;  // 0x142592228: motions 0x24, 0xb16, 0xbba, 0xbbb, 0xbbc, 0xc05
+  float v565600 = 0.0f;  // 0x142565600: motions 0x27, 0xbc3
+  // 0x142588200: motions 0x23, 0x26, 0x46, 0x6cb, 0x6cf, 0x6dc, 0xc4c, 0xc7c, and the arms
+  // 0xb0e, 0xb13, 0xb17, 0xb18, 0xb1b, 0xb1c, 0xb25, 0xb28, 0xb29, 0xb2c, 0xb3e.
+  float v588200 = 0.0f;
+  float v598578 = 0.0f;  // 0x142598578: motions 0x2b, 0x6d9, 0x6ec, 0x6ef, 0xb1d, 0xbb7, 0xc4a, 0xc4e
+  float v5c48a0 = 0.0f;  // 0x1425c48a0: motions 0x45, 0xb0d, 0xb14, 0xb1a, 0xb2e, 0xb30, 0xb31, 0xb36
+  float v59d5c8 = 0.0f;  // 0x14259d5c8: motion 0xb11
+  float v5a8a28 = 0.0f;  // 0x1425a8a28: motions 0xb1e, 0xb27, 0xb2b, 0xb35, 0xb3d
+  float v57a190 = 0.0f;  // 0x14257a190: motions 0xe24, 0xe29, 0xe2b
+};
+std::optional<MotionStartConstants> LoadMotionStartConstants(const PeImage& exe,
+                                                             std::string* error);
+// FUN_1406b97d0(motion): a motion's start time in its clip, seconds (AS 2.3). Motions outside the
+// switch start at zero.
+float MotionStartSeconds(const MotionStartConstants& k, uint16_t motionNo);
 // FUN_1406b9e80(interface, speed km/h, table selector): the playback rate for a speed (AS 3.2).
 // The third argument selects the table row; its meaning is INF until the port verifies it.
 float SpeedToRate(MoveHost& host, float speedKmh, int tableSelector);

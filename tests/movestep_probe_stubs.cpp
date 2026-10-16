@@ -1,7 +1,7 @@
 // The MOVESTEP group-B test probe's stand-ins. The group-B file calls four kinds of symbol
 // that the dispatcher port owns or that another group's seams keep out of this target:
 //   * the shared helpers the dispatcher port's dispatcher-core library defines behind its own
-//     seams (IdleRow, StayDecision, MotionStartSeconds, LocomotionStyle, OutOfPlayPreempt);
+//     seams (IdleRow, StayDecision, LocomotionStyle, OutOfPlayPreempt);
 //   * group C's TURN_STOP entry seam (namespace pes);
 //   * group D's entry seams (EnterRunTurnRun, EnterRunTurnStep, EnterStepTurnRun);
 //   * the run/loop ramps the dispatcher port has not ported yet (AccelerationRamp,
@@ -75,8 +75,6 @@ bool StayDecision(MoveHost& /*host*/, MoveReq& /*req*/) {
   ++probe::stayCalls;
   return probe::stayAnswer;
 }
-
-float MotionStartSeconds(uint16_t /*motionNo*/) { return 0.0f; }
 
 int LocomotionStyle(MoveHost& /*host*/, int /*commandId*/, float /*rateRequested*/, MoveReq& /*req*/) {
   ++probe::styleCalls;

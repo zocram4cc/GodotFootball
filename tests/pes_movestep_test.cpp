@@ -782,3 +782,48 @@ TEST(ParametricGroupsInstall, EveryStyleNamesABlendGroupWithMembers) {
   for (int style = 0; style < pes::kStyleCount; ++style)
     EXPECT_FALSE(pes::BlendGroup(*table, groups->group[style]).empty()) << "style " << style;
 }
+
+// FUN_1406b97d0 (AS 2.3): a motion's start time is one of nine install floats, picked by the
+// motion number through a switch; every other motion starts at zero.
+TEST(MotionStartSeconds, ReturnsTheArmFloatThatTheSwitchNamesAndZeroElsewhere) {
+  pes::movestep::MotionStartConstants k{};
+  k.v590d98 = 1.0f;
+  k.v592228 = 2.0f;
+  k.v565600 = 3.0f;
+  k.v588200 = 4.0f;
+  k.v598578 = 5.0f;
+  k.v5c48a0 = 6.0f;
+  k.v59d5c8 = 7.0f;
+  k.v5a8a28 = 8.0f;
+  k.v57a190 = 9.0f;
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0x1f), 1.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0x23), 4.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0x27), 3.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0x2b), 5.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0x45), 6.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0xb11), 7.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0xb1e), 8.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0xe24), 9.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0x20), 0.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0xb0b), 0.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0xe25), 0.0f);
+}
+
+TEST(MotionStartInstall, LoadsTheNineFloatsAndTheSwitchReturnsTheInstallBits) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  auto k = pes::movestep::LoadMotionStartConstants(*exe, &err);
+  ASSERT_TRUE(k.has_value()) << err;
+  for (float v : {k->v590d98, k->v592228, k->v565600, k->v588200, k->v598578, k->v5c48a0,
+                  k->v59d5c8, k->v5a8a28, k->v57a190}) {
+    EXPECT_TRUE(std::isfinite(v));
+    EXPECT_GE(v, 0.0f);
+  }
+  // Motion 0x2b reads the float at 0x142598578 and returns those bits unchanged.
+  float raw = -1.0f;
+  ASSERT_TRUE(exe->ReadVa(0x142598578, sizeof raw, reinterpret_cast<uint8_t*>(&raw)));
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(*k, 0x2b), raw);
+}

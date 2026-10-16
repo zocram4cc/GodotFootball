@@ -122,6 +122,62 @@ std::optional<SpeedRateTable> LoadSpeedRateTable(const PeImage& exe, std::string
 
 namespace movestep {
 
+namespace {
+// FUN_1406b97d0's nine float arms, by VA (AS 2.3). Each VA is the .rdata float the switch returns.
+struct MotionStartSite {
+  uint64_t va;
+  float MotionStartConstants::* field;
+};
+constexpr MotionStartSite MOTION_START_SITES[] = {
+    {0x142590d98, &MotionStartConstants::v590d98}, {0x142592228, &MotionStartConstants::v592228},
+    {0x142565600, &MotionStartConstants::v565600}, {0x142588200, &MotionStartConstants::v588200},
+    {0x142598578, &MotionStartConstants::v598578}, {0x1425c48a0, &MotionStartConstants::v5c48a0},
+    {0x14259d5c8, &MotionStartConstants::v59d5c8}, {0x1425a8a28, &MotionStartConstants::v5a8a28},
+    {0x14257a190, &MotionStartConstants::v57a190},
+};
+}  // namespace
+
+std::optional<MotionStartConstants> LoadMotionStartConstants(const PeImage& exe,
+                                                             std::string* error) {
+  MotionStartConstants k{};
+  for (const MotionStartSite& s : MOTION_START_SITES) {
+    if (!exe.ReadVa(s.va, sizeof(float), reinterpret_cast<uint8_t*>(&(k.*(s.field))))) {
+      *error = "motion start: .rdata unreadable";
+      return std::nullopt;
+    }
+  }
+  return k;
+}
+
+// FUN_1406b97d0(motion): the per-motion switch. Each motion number selects one arm (the field
+// comments list them); every motion outside the switch starts at zero.
+float MotionStartSeconds(const MotionStartConstants& k, uint16_t motionNo) {
+  switch (motionNo) {
+    case 0x1f: case 0x6e4: case 0x6e6: case 0x6e7:
+      return k.v590d98;
+    case 0x24: case 0xb16: case 0xbba: case 0xbbb: case 0xbbc: case 0xc05:
+      return k.v592228;
+    case 0x27: case 0xbc3:
+      return k.v565600;
+    case 0x23: case 0x26: case 0x46: case 0x6cb: case 0x6cf: case 0x6dc: case 0xc4c: case 0xc7c:
+    case 0xb0e: case 0xb13: case 0xb17: case 0xb18: case 0xb1b: case 0xb1c: case 0xb25: case 0xb28:
+    case 0xb29: case 0xb2c: case 0xb3e:
+      return k.v588200;
+    case 0x2b: case 0x6d9: case 0x6ec: case 0x6ef: case 0xb1d: case 0xbb7: case 0xc4a: case 0xc4e:
+      return k.v598578;
+    case 0x45: case 0xb0d: case 0xb14: case 0xb1a: case 0xb2e: case 0xb30: case 0xb31: case 0xb36:
+      return k.v5c48a0;
+    case 0xb11:
+      return k.v59d5c8;
+    case 0xb1e: case 0xb27: case 0xb2b: case 0xb35: case 0xb3d:
+      return k.v5a8a28;
+    case 0xe24: case 0xe29: case 0xe2b:
+      return k.v57a190;
+    default:
+      return 0.0f;
+  }
+}
+
 // FUN_1406b9e80(ap, speed km/h, kind): the playback rate for a ground speed. The speed is a
 // m/s value divided by the physique scale, then the first record from the top whose vLo holds
 // it gives the piecewise-linear rate.

@@ -432,7 +432,6 @@ float SpeedToRate(MoveHost& host, float speedKmh, int tableSelector) {
   (void)host;
   return speedKmh > 0.0f ? 1.0f : 0.0f;
 }
-float MotionStartSeconds(uint16_t) { return 0.0f; }
 int LocomotionStyle(MoveHost&, int, float, MoveReq&) { return 0; }
 int IdleRow(MoveHost&, MoveReq&) { return 0x5a1; }
 bool StayDecision(MoveHost&, MoveReq&) { return false; }
