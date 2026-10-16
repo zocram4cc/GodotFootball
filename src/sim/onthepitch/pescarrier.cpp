@@ -636,12 +636,13 @@ float PlanStartProbability(int planId, const CarrierConstants& k, float stat, bo
     }
     case kPlanMiddleShot:
       // Base 70 with a long-shot skill or COM 5, 0 without.
-      return std::max(std::min((skill ? k.middleShotBase : 0.0f) +
+      return std::max(std::min(((skill || com) ? k.middleShotBase : 0.0f) +
                                    (state2 ? k.middleShotStateGain : 0.0f) + statTerm,
                                k.middleShotCap),
                       k.middleShotFloor);
     case kPlanCross:
-      // Base 50 with the Crosser style, the Early Cross COM or Pinpoint Cross.
+      // Base 50 with the Early Cross COM or Pinpoint Cross. ponytail: the Crosser style (bit 7,
+      // report 4.4) is not read; the caller has no style input here.
       return std::max(std::min(((skill || com) ? k.crossBase : 0.0f) + statTerm, k.crossCap),
                       k.crossFloor);
     default:
@@ -816,6 +817,27 @@ int PlanImageMode(int planId, int previousMode, bool receiving, float carrierX_m
       // none of those fields, so the manager's own mode stands in.
       return previousMode;
   }
+}
+
+namespace {
+
+// PES's list order (report 3): the Basic list, OnePattern and GKCoaching first, then Shoot and the
+// outfield heads, then PassForward, then the plan-dependent Cross and Long. The other plans'
+// tails are not ported.
+constexpr int kListOrder[] = {23, 22, 0, 1, 17, 14, 11, 12, 2, 3, 10, 4, 7, 6};
+
+}  // namespace
+
+CarrierAnswer WalkCarrierUnits(const std::vector<ListedAnswer>& listed,
+                               const CarrierAnswer& dribbleDefault, const WalkVetoes& vetoes) {
+  for (const int kind : kListOrder) {
+    for (const ListedAnswer& l : listed) {
+      if (l.kind != kind || l.answer.type == kAnswerNone) continue;
+      if (vetoes.restartPasses && l.answer.type == kAnswerPass) continue;
+      return l.answer;
+    }
+  }
+  return dribbleDefault;
 }
 
 }  // namespace pes

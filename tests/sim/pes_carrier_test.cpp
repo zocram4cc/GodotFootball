@@ -901,3 +901,52 @@ TEST(PassForward, MarksDefaultToTheFieldInfoTable) {
   EXPECT_FLOAT_EQ(in.goalHalfWidth_m, pesGoalInnerHalfWidth);
   EXPECT_FLOAT_EQ(in.goalAreaHalfWidth_m, pesGoalAreaHalfWidth);
 }
+
+// --- the arbitration walk (report 5, port step 2) and the MiddleShot COM input (report 4.4) ---
+
+namespace {
+pes::CarrierAnswer Shot() { return {pes::kAnswerShoot, 1}; }
+pes::CarrierAnswer Pass(int b) { return {pes::kAnswerPass, b}; }
+pes::CarrierAnswer Along() { return {pes::kAnswerDribble, pes::kDribbleAlong}; }
+pes::CarrierAnswer Keep() { return {pes::kAnswerDribble, pes::kDribbleKeep}; }
+pes::WalkVetoes RestartVeto() {
+  pes::WalkVetoes v;
+  v.restartPasses = true;
+  return v;
+}
+}  // namespace
+
+TEST(PesCarrierPlan, MiddleShotStartsOnCom5Alone) {
+  const pes::CarrierConstants k = Synthetic();
+  EXPECT_FLOAT_EQ(pes::PlanStartProbability(pes::kPlanMiddleShot, k, 70.0f, false, true, false),
+                  k.middleShotBase);
+}
+
+TEST(PesCarrierWalk, TheFixedListOrderNotTheInputOrderDecides) {
+  // The shot is listed 0 and PassForward 4, so the shot survives first even when the caller
+  // hands the pass over first.
+  const std::vector<pes::ListedAnswer> listed = {{4, Pass(pes::kPassShort)}, {0, Shot()}};
+  EXPECT_EQ(pes::WalkCarrierUnits(listed, Along(), {}), Shot());
+}
+
+TEST(PesCarrierWalk, TheFirstSurvivorWinsAndANoAnswerIsSkipped) {
+  const std::vector<pes::ListedAnswer> listed = {{0, {}}, {4, Pass(pes::kPassThrough)}};
+  EXPECT_EQ(pes::WalkCarrierUnits(listed, Along(), {}), Pass(pes::kPassThrough));
+}
+
+TEST(PesCarrierWalk, ARestartVetoDropsThePassAndKeepsTheShot) {
+  const std::vector<pes::ListedAnswer> passOnly = {{4, Pass(pes::kPassShort)}};
+  EXPECT_EQ(pes::WalkCarrierUnits(passOnly, Along(), RestartVeto()), Along());
+  const std::vector<pes::ListedAnswer> both = {{4, Pass(pes::kPassShort)}, {0, Shot()}};
+  EXPECT_EQ(pes::WalkCarrierUnits(both, Along(), RestartVeto()), Shot());
+}
+
+TEST(PesCarrierWalk, WithNothingListedTheDribbleDefaultStands) {
+  EXPECT_EQ(pes::WalkCarrierUnits({}, Along(), {}), Along());
+}
+
+TEST(PesCarrierWalk, KeepIsCarriedThroughAsTheDefault) {
+  const std::vector<pes::ListedAnswer> passOnly = {{4, Pass(pes::kPassShort)}};
+  EXPECT_TRUE(pes::IsKeep(pes::WalkCarrierUnits(passOnly, Keep(), RestartVeto())));
+  EXPECT_FALSE(pes::IsKeep(pes::WalkCarrierUnits({}, Along(), {})));
+}

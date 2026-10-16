@@ -576,6 +576,44 @@ void AdvanceImageSelection(CarrierImageSelection& sel, CancelFn cancel, AdmitFn 
   sel.heading_deg = now.heading_deg;
 }
 
+// --- the answer record and the arbitration walk (report 5, 6; MainEval steps f, h, i) ---
+
+// The answer type a unit or the default writes (the 0x1C-byte record, report 6).
+enum CarrierAnswerType { kAnswerNone = 0, kAnswerShoot = 1, kAnswerPass = 2, kAnswerDribble = 3 };
+// The dribble sub-kinds the port writes: 2 is Keep (FUN_142119e90, stand on the ball), 3 dribbles
+// along the search heading (FUN_142119eb0).
+inline constexpr int kDribbleKeep = 2;
+inline constexpr int kDribbleAlong = 3;
+
+// What a unit answers: the type, and the sub-kind (a pass's PassKind b, a shot's sub-kind a,
+// a dribble's sub-kind).
+struct CarrierAnswer {
+  int type = kAnswerNone;
+  int sub = 0;
+  bool operator==(const CarrierAnswer&) const = default;
+};
+inline bool IsKeep(const CarrierAnswer& a) {
+  return a.type == kAnswerDribble && a.sub == kDribbleKeep;
+}
+
+// One listed unit (its kind in the list, report 3) and the answer it gave this think.
+struct ListedAnswer {
+  int kind = -1;
+  CarrierAnswer answer;
+};
+
+// The vetoes that act on the whole list (report 5, rule 5): in the restart states
+// MI+0x1775 in {3, 9, 10} a pass is not accepted.
+struct WalkVetoes {
+  bool restartPasses = false;
+};
+
+// The walk (report 5): the listed units in PES's list order, whatever order the caller hands
+// them over; the first one that answers and survives the vetoes wins. With no survivor the
+// Dribble default (report 1, step f) stands.
+CarrierAnswer WalkCarrierUnits(const std::vector<ListedAnswer>& listed,
+                               const CarrierAnswer& dribbleDefault, const WalkVetoes& vetoes);
+
 // Whether a think may run this tick: the carrier has been free of a committed
 // action for longer than the gate.
 inline bool RethinkDue(int nowFrame, int busyStampFrame, int gateFrames = 5) {
