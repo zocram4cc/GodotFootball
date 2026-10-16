@@ -46,6 +46,18 @@ bool ReadByteImm(const PeImage& exe, const Code& c, int* out, std::string* error
   return true;
 }
 
+// A 32-bit immediate after its checked prefix (the sheet ctor's `mov dword, imm32`).
+bool ReadDwordImm(const PeImage& exe, const Code& c, int* out, std::string* error) {
+  uint8_t v[4] = {};
+  if (!Matches(exe, c, error) || !exe.ReadVa(c.va + c.bytes.size(), sizeof v, v)) {
+    if (error->empty()) *error = "team concept constant: unreadable at " + VaText(c.va);
+    return false;
+  }
+  *out = static_cast<int>(static_cast<uint32_t>(v[0]) | (static_cast<uint32_t>(v[1]) << 8) |
+                          (static_cast<uint32_t>(v[2]) << 16) | (static_cast<uint32_t>(v[3]) << 24));
+  return true;
+}
+
 bool ReadF32(const PeImage& exe, uint64_t va, float* out, std::string* error) {
   if (!exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out))) {
     *error = "team concept constant: .rdata unreadable at " + VaText(va);
@@ -63,6 +75,17 @@ constexpr Code SHEET_SUPPORT_RANGE{0x1408c5418, {0xc6, 0x44, 0x01, 0x04}};
 constexpr Code SHEET_DEFENSIVE_LINE{0x1408c5454, {0xc6, 0x44, 0x01, 0x06}};
 constexpr Code SHEET_COMPACTNESS{0x1408c5471, {0xc6, 0x44, 0x01, 0x07}};
 constexpr Code SHEET_TOGGLES_ZERO{0x1408c53bc, {0x33, 0xf6}};  // xor esi,esi: the toggle default
+// Sheet ctor stores beyond the sliders above: the inert sliders k1 and k4 (no AI reader),
+// the captain, the designated loop (one store, six slots), the three takers and the
+// slot-target loop (33 entries). Each immediate is read after its checked prefix.
+constexpr Code SHEET_SLIDER_INERT_1{0x1408c5438, {0xc6, 0x04, 0x01}};
+constexpr Code SHEET_SLIDER_INERT_4{0x1408c548e, {0xc6, 0x44, 0x01, 0x08}};
+constexpr Code SHEET_CAPTAIN{0x1408c5838, {0x41, 0xc7, 0x81, 0x38, 0x14, 0x00, 0x00}};
+constexpr Code SHEET_DESIGNATED{0x1408c5858, {0xc7, 0x01}};
+constexpr Code SHEET_TAKER_0{0x1408c586b, {0x41, 0xc7, 0x81, 0x54, 0x14, 0x00, 0x00}};
+constexpr Code SHEET_TAKER_1{0x1408c587a, {0x41, 0xc7, 0x81, 0x58, 0x14, 0x00, 0x00}};
+constexpr Code SHEET_TAKER_2{0x1408c5885, {0x49, 0xc7, 0x81, 0x5c, 0x14, 0x00, 0x00}};
+constexpr Code SHEET_SLOT_TARGET{0x1408c5671, {0x41, 0xc7, 0x84, 0x89, 0x44, 0x08, 0x00, 0x00}};
 constexpr uint64_t END_TEST_AFTER_VA = 0x142588200;           // 0.1 (selector, x fps)
 
 // TransitionChase start FUN_140575510 / execute FUN_140575b60.
@@ -266,14 +289,28 @@ int PlayersInCone(const std::vector<Vector3>& men, const Vector3& pos, float cen
 std::optional<TeamConceptConstants> LoadTeamConceptConstants(const PeImage& exe, const PesVfs& vfs,
                                                              std::string* error) {
   TeamConceptConstants k{};
-  bool ok = ReadByteImm(exe, SHEET_SUPPORT_RANGE, &k.defaultSupportRange, error) &&
-            ReadByteImm(exe, SHEET_DEFENSIVE_LINE, &k.defaultDefensiveLine, error) &&
-            ReadByteImm(exe, SHEET_COMPACTNESS, &k.defaultCompactness, error) &&
+  int captain = 0, designated = 0, slotTarget = 0;
+  int taker[kSheetTakers] = {};
+  bool ok = ReadByteImm(exe, SHEET_SUPPORT_RANGE, &k.defaultSliders[kSliderSupportRange], error) &&
+            ReadByteImm(exe, SHEET_SLIDER_INERT_1, &k.defaultSliders[1], error) &&
+            ReadByteImm(exe, SHEET_DEFENSIVE_LINE, &k.defaultSliders[kSliderDefensiveLine], error) &&
+            ReadByteImm(exe, SHEET_COMPACTNESS, &k.defaultSliders[kSliderCompactness], error) &&
+            ReadByteImm(exe, SHEET_SLIDER_INERT_4, &k.defaultSliders[4], error) &&
+            ReadDwordImm(exe, SHEET_CAPTAIN, &captain, error) &&
+            ReadDwordImm(exe, SHEET_DESIGNATED, &designated, error) &&
+            ReadDwordImm(exe, SHEET_TAKER_0, &taker[0], error) &&
+            ReadDwordImm(exe, SHEET_TAKER_1, &taker[1], error) &&
+            ReadDwordImm(exe, SHEET_TAKER_2, &taker[2], error) &&
+            ReadDwordImm(exe, SHEET_SLOT_TARGET, &slotTarget, error) &&
             Matches(exe, SHEET_TOGGLES_ZERO, error) && Matches(exe, CHASE_WINDOW_LEA, error) &&
             ReadByteImm(exe, COUNTER_MAX_GOAL_SIDE, &k.counterMaxGoalSide, error) &&
             Matches(exe, COUNTER_GRACE_ADD, error) && Matches(exe, COUNTER_MAX_LEA, error) &&
             Matches(exe, COUNTER_MAX_ADD, error) && ReadByteImm(exe, PRESS_COUNT, &k.pressCount, error);
   if (!ok) return std::nullopt;
+  k.defaultCaptain = captain;
+  k.defaultDesignated.fill(designated);
+  k.defaultTaker = {taker[0], taker[1], taker[2]};
+  k.defaultSlotTarget = slotTarget;
   const float leaTriple = LeaMultiplier(*(CHASE_WINDOW_LEA.bytes.begin() + 2));
   constexpr float kAddDoubles = 2.0f;  // add r,r
   k.chaseWindow_s = leaTriple;
@@ -369,25 +406,284 @@ std::optional<TeamConceptConstants> LoadTeamConceptConstants(const PeImage& exe,
   return k;
 }
 
+namespace {
+
+// A plan, slot or phase index inside the sheet's [3][11][3] tables (PES's bounds).
+bool ValidPlan(int plan) { return plan >= 0 && plan < kSheetPlans; }
+bool ValidSlotPhase(int plan, int slot, int phase) {
+  return ValidPlan(plan) && slot >= 0 && slot < kSheetSlots && phase >= 0 && phase < kSheetPhases;
+}
+bool ValidCoord(int plan, int i, int phase) {
+  return ValidPlan(plan) && i >= 0 && i < kSheetOutfield && phase >= 0 && phase < kSheetPhases;
+}
+int SlotPhaseIndex(int plan, int slot, int phase) {
+  return (plan * kSheetSlots + slot) * kSheetPhases + phase;
+}
+int CoordIndex(int plan, int i, int phase) { return (plan * kSheetOutfield + i) * kSheetPhases + phase; }
+// A roster index below kSheetRosterBound, or the "no player" value (FUN_1408c5c50's test).
+bool RosterOrNone(int v) { return (v >= 0 && v < kSheetRosterBound) || v == kSheetNone; }
+
+// The instruction ids the writer FUN_140a42600 branches on.
+constexpr int kInstrNone = 0;        // leaves the flag byte alone
+constexpr int kInstrSlotFlag8 = 8;   // marks the argument's slot
+constexpr int kInstrSlotFlagA = 0xa; // marks the argument's slot
+constexpr int kInstrSlotFlagF = 0xf; // marks the argument's slot
+constexpr int kInstrArgument = 0xe;  // stores the argument at +0x2c
+
+}  // namespace
+
+// --- the sheet image ---------------------------------------------------------
+
+int TeamSheet::ResolvePlan(int plan) const { return plan == kCurrentPlan ? Plan() : plan; }
+
+uint32_t TeamSheet::ReadU32(int offset) const {
+  uint32_t v = 0;
+  std::memcpy(&v, bytes_.data() + offset, sizeof v);
+  return v;
+}
+
+void TeamSheet::WriteU32(int offset, uint32_t value) {
+  std::memcpy(bytes_.data() + offset, &value, sizeof value);
+}
+
+uint16_t TeamSheet::ReadU16(int offset) const {
+  uint16_t v = 0;
+  std::memcpy(&v, bytes_.data() + offset, sizeof v);
+  return v;
+}
+
+void TeamSheet::WriteU16(int offset, uint16_t value) {
+  std::memcpy(bytes_.data() + offset, &value, sizeof value);
+}
+
+int TeamSheet::Plan() const { return static_cast<int>(ReadU32(kSheetPlanOffset)); }
+
+void TeamSheet::SetPlan(int plan) {  // FUN_1408c5e20
+  if (ValidPlan(plan)) WriteU32(kSheetPlanOffset, static_cast<uint32_t>(plan));
+}
+
+int TeamSheet::Slider(int k, int plan) const {  // FUN_1408c52e0: 0 when refused
+  plan = ResolvePlan(plan);
+  if (!ValidPlan(plan) || k < 0 || k >= kSheetSliders) return 0;
+  return bytes_[kSheetSliderOffset + kSheetSliders * plan + k];
+}
+
+void TeamSheet::SetSlider(int k, int value, int plan) {  // FUN_1408c5df0
+  plan = ResolvePlan(plan);
+  if (!ValidPlan(plan) || k < 0 || k >= kSheetSliders) return;
+  bytes_[kSheetSliderOffset + kSheetSliders * plan + k] = static_cast<uint8_t>(value);
+}
+
+int TeamSheet::Toggle(int k, int plan) const {  // FUN_1408c5030: 0 when refused
+  plan = ResolvePlan(plan);
+  if (!ValidPlan(plan) || k < 0 || k >= kSheetToggleCount) return 0;
+  return bytes_[kSheetToggleOffset + kSheetToggleCount * plan + k];
+}
+
+void TeamSheet::SetToggle(int k, int value, int plan) {  // FUN_1408c5c70
+  plan = ResolvePlan(plan);
+  if (!ValidPlan(plan) || k < 0 || k >= kSheetToggleCount) return;
+  // Keeps 0 and 1; anything above 1 stores 1.
+  const bool keep = value >= 0 && value < 2;
+  bytes_[kSheetToggleOffset + kSheetToggleCount * plan + k] = keep ? static_cast<uint8_t>(value) : 1;
+}
+
+int TeamSheet::RegisteredRole(int slot, int phase, int plan) const {  // FUN_1408c51b0
+  plan = ResolvePlan(plan);
+  if (!ValidSlotPhase(plan, slot, phase)) return kSheetRoleDefault;
+  return static_cast<int>(ReadU32(kSheetRegisteredRoleOffset + 4 * SlotPhaseIndex(plan, slot, phase)));
+}
+
+int TeamSheet::Role(int slot, int phase, int plan) const {  // FUN_1408c5310
+  plan = ResolvePlan(plan);
+  if (!ValidSlotPhase(plan, slot, phase)) return kSheetRoleDefault;
+  return static_cast<int>(ReadU32(kSheetRoleOffset + 4 * SlotPhaseIndex(plan, slot, phase)));
+}
+
+void TeamSheet::SetRole(int slot, int role, int phase, int plan) {  // FUN_1408c5e90
+  plan = ResolvePlan(plan);
+  if (!ValidSlotPhase(plan, slot, phase) || role < 0 || role >= kSheetRoleBound) return;
+  WriteU32(kSheetRoleOffset + 4 * SlotPhaseIndex(plan, slot, phase), static_cast<uint32_t>(role));
+}
+
+int TeamSheet::CoordX(int i, int phase, int plan) const {  // FUN_1408c5130: 0 when refused
+  plan = ResolvePlan(plan);
+  if (!ValidCoord(plan, i, phase)) return 0;
+  return ReadU16(kSheetCoordXOffset + 2 * CoordIndex(plan, i, phase));
+}
+
+int TeamSheet::CoordY(int i, int phase, int plan) const {  // FUN_1408c5170: 0 when refused
+  plan = ResolvePlan(plan);
+  if (!ValidCoord(plan, i, phase)) return 0;
+  return ReadU16(kSheetCoordYOffset + 2 * CoordIndex(plan, i, phase));
+}
+
+void TeamSheet::SetCoord(int i, int x, int y, int phase, int plan) {  // FUN_1408c5d50
+  plan = ResolvePlan(plan);
+  if (!ValidCoord(plan, i, phase) || x < 0 || x >= kSheetCoordXBound || y < 0 ||
+      y >= kSheetCoordYBound)
+    return;
+  WriteU16(kSheetCoordXOffset + 2 * CoordIndex(plan, i, phase), static_cast<uint16_t>(x));
+  WriteU16(kSheetCoordYOffset + 2 * CoordIndex(plan, i, phase), static_cast<uint16_t>(y));
+}
+
+std::array<uint32_t, 3> TeamSheet::SlotRecordA(int slot, int phase, int plan) const {  // FUN_1408c50e0
+  plan = ResolvePlan(plan);
+  // Refused reads hand back record 0 of the table, as PES's pointer does.
+  const int index = ValidSlotPhase(plan, slot, phase) ? SlotPhaseIndex(plan, slot, phase) : 0;
+  const int at = kSheetSlotRecordAOffset + 12 * index;
+  return {ReadU32(at), ReadU32(at + 4), ReadU32(at + 8)};
+}
+
+std::array<uint32_t, 3> TeamSheet::SlotRecordB(int slot, int phase, int plan) const {
+  plan = ResolvePlan(plan);
+  if (!ValidSlotPhase(plan, slot, phase)) return {};
+  const int at = kSheetSlotRecordBOffset + 12 * SlotPhaseIndex(plan, slot, phase);
+  return {ReadU32(at), ReadU32(at + 4), ReadU32(at + 8)};
+}
+
+void TeamSheet::SetSlotRecordB(int slot, int phase, const std::array<uint32_t, 3>& rec,
+                               int plan) {  // FUN_1408c5e30
+  plan = ResolvePlan(plan);
+  if (!ValidSlotPhase(plan, slot, phase)) return;
+  const int at = kSheetSlotRecordBOffset + 12 * SlotPhaseIndex(plan, slot, phase);
+  for (int w = 0; w < 3; ++w) WriteU32(at + 4 * w, rec[w]);
+}
+
+int TeamSheet::SlotTarget(int slot, int plan) const {  // FUN_1408c50a0: none when refused
+  plan = ResolvePlan(plan);
+  if (!ValidPlan(plan) || slot < 0 || slot >= kSheetSlots) return kSheetNone;
+  return static_cast<int>(ReadU32(kSheetSlotTargetOffset + 4 * (plan * kSheetSlots + slot)));
+}
+
+void TeamSheet::SetSlotTarget(int slot, int target, int plan) {  // FUN_1408c5d10
+  plan = ResolvePlan(plan);
+  if (!ValidPlan(plan) || slot < 0 || slot >= kSheetSlots) return;
+  const bool aSlot = target >= 0 && target < kSheetTargetBound;
+  if (!aSlot && target != kSheetNone) return;
+  WriteU32(kSheetSlotTargetOffset + 4 * (plan * kSheetSlots + slot), static_cast<uint32_t>(target));
+}
+
+int TeamSheet::Captain() const { return static_cast<int>(ReadU32(kSheetCaptainOffset)); }
+
+void TeamSheet::SetCaptain(int roster) {  // FUN_1408c5c50
+  if (RosterOrNone(roster)) WriteU32(kSheetCaptainOffset, static_cast<uint32_t>(roster));
+}
+
+int TeamSheet::Designated(int k) const {  // FUN_1408c5080: none when refused
+  if (k < 0 || k >= kSheetDesignated) return kSheetNone;
+  return static_cast<int>(ReadU32(kSheetDesignatedOffset + 4 * k));
+}
+
+void TeamSheet::SetDesignated(int k, int roster) {  // FUN_1408c5cf0
+  if (k < 0 || k >= kSheetDesignated || !RosterOrNone(roster)) return;
+  WriteU32(kSheetDesignatedOffset + 4 * k, static_cast<uint32_t>(roster));
+}
+
+int TeamSheet::Taker(int k) const {  // FUN_1408c5060: none when refused
+  if (k < 0 || k >= kSheetTakers) return kSheetNone;
+  return static_cast<int>(ReadU32(kSheetTakerOffset + 4 * k));
+}
+
+void TeamSheet::SetTaker(int k, int roster) {  // FUN_1408c5cb0
+  if (k < 0 || k >= kSheetTakers || !RosterOrNone(roster)) return;
+  WriteU32(kSheetTakerOffset + 4 * k, static_cast<uint32_t>(roster));
+}
+
+// FUN_1408c6430: record (i, plan) at +0xef8 + 0x70 * (i + 4 * plan); a refused index
+// addresses the base, which is record 0.
+int TeamSheet::RecordOffset(int i, int plan) const {
+  plan = ResolvePlan(plan);
+  if (!ValidPlan(plan) || i < 0 || i >= kSheetInstructionsPerPlan) return kSheetInstructionOffset;
+  return kSheetInstructionOffset + kSheetInstructionBytes * (i + kSheetInstructionsPerPlan * plan);
+}
+
+int TeamSheet::InstructionId(int i, int plan) const {
+  return static_cast<int>(ReadU32(RecordOffset(i, plan) + kInstrIdOffset));
+}
+
+int TeamSheet::InstructionSlotFlag(int i, int slot, int plan) const {
+  if (slot < 0 || slot >= kSheetSlots) return 0;
+  return bytes_[RecordOffset(i, plan) + kInstrSlotFlagOffset + slot];
+}
+
+int TeamSheet::InstructionArg(int i, int plan) const {
+  return static_cast<int>(ReadU32(RecordOffset(i, plan) + kInstrArgOffset));
+}
+
+int TeamSheet::InstructionParam(int i, int plan) const {
+  return static_cast<int>(ReadU32(RecordOffset(i, plan) + kInstrParamOffset));
+}
+
+int TeamSheet::InstructionByte30(int i, int plan) const {
+  return bytes_[RecordOffset(i, plan) + kInstrByte30Offset];
+}
+
+int TeamSheet::InstructionFlag(int i, int plan) const {
+  return bytes_[RecordOffset(i, plan) + kInstrFlagOffset];
+}
+
+void TeamSheet::SetInstruction(int i, int id, int arg, int param, int plan, int flag) {  // FUN_140a42600
+  if (i < 0 || i >= kSheetInstructionsPerPlan || id == kSheetRefusedInstructionId) return;
+  const int rec = RecordOffset(i, plan);
+  WriteU32(rec + kInstrIdOffset, static_cast<uint32_t>(id));
+  WriteU32(rec + kInstrParamOffset, static_cast<uint32_t>(param));
+  // Dwords +4..+0x2b (the slot flags and the argument) are cleared; the argument is 0xff.
+  std::memset(bytes_.data() + rec + kInstrSlotFlagOffset, 0, kInstrArgOffset - kInstrSlotFlagOffset);
+  WriteU32(rec + kInstrArgOffset, kSheetNone);
+  if (id == kInstrArgument) {
+    if (arg < kSheetArgBound) WriteU32(rec + kInstrArgOffset, static_cast<uint32_t>(arg));
+  } else if (id == kInstrSlotFlagA || id == kInstrSlotFlagF || id == kInstrSlotFlag8) {
+    if (arg >= 0 && arg < kSheetArgBound) bytes_[rec + kInstrSlotFlagOffset + arg % kSheetSlots] = 1;
+  }
+  if (id == kInstrNone) return;  // the flag byte is untouched for id 0
+  bytes_[rec + kInstrFlagOffset] = static_cast<uint8_t>(flag);
+}
+
+void TeamSheet::SetInstructionByte30(int i, int value, int plan) {  // FUN_140a42880
+  bytes_[RecordOffset(i, plan) + kInstrByte30Offset] = static_cast<uint8_t>(value);
+}
+
+void TeamSheet::ResetInstruction(int i, int plan) {  // FUN_140a42430
+  const int rec = RecordOffset(i, plan);
+  WriteU32(rec + kInstrIdOffset, 0);
+  std::memset(bytes_.data() + rec + kInstrSlotFlagOffset, 0, kInstrArgOffset - kInstrSlotFlagOffset);
+  WriteU32(rec + kInstrArgOffset, kSheetNone);
+  bytes_[rec + kInstrByte30Offset] = 0;
+  WriteU32(rec + kInstrParamOffset, 0);
+  WriteU32(rec + kInstrResetNoneOffset, kSheetNone);
+  bytes_[rec + kInstrFlagOffset] = 0;
+}
+
 TeamSheet DefaultTeamSheet(const TeamConceptConstants& k) {
-  TeamSheet s;
-  s.supportRange = k.defaultSupportRange;
-  s.defensiveLine = k.defaultDefensiveLine;
-  s.compactness = k.defaultCompactness;
-  return s;  // toggles 0, the ctor's default
+  // ponytail: the constructor builds its instruction-record defaults from stack locals
+  // (0x1408c5600..0x1408c5636, not traced here). All twelve records start in the reset state
+  // (+0x2c and +0x38 = 0xff, the rest 0), which matches the 0xff stores it makes. The inert
+  // words at +0x1470..+0x1486 are not modelled, so they stay zero.
+  TeamSheet s;  // the zero image: the constructor's zero stores
+  // The constructor's stores are for plan 0, which is current at construction.
+  for (int i = 0; i < kSheetSliders; ++i) s.SetSlider(i, k.defaultSliders[i], 0);
+  s.SetCaptain(k.defaultCaptain);
+  for (int d = 0; d < kSheetDesignated; ++d) s.SetDesignated(d, k.defaultDesignated[d]);
+  for (int t = 0; t < kSheetTakers; ++t) s.SetTaker(t, k.defaultTaker[t]);
+  for (int plan = 0; plan < kSheetPlans; ++plan) {
+    for (int slot = 0; slot < kSheetSlots; ++slot) s.SetSlotTarget(slot, k.defaultSlotTarget, plan);
+    for (int i = 0; i < kSheetInstructionsPerPlan; ++i) s.ResetInstruction(i, plan);
+  }
+  return s;
 }
 
 bool ConceptGate(int id, const TeamSheet& sheet) {
   switch (id) {
     case kConceptSideCounter:  // 0x140543f40: Attacking Style == Counter Attack
-      return sheet.toggles[kAttackingStyle] == 0;
+      return sheet.Toggle(kAttackingStyle) == 0;
     case kConceptForeCheckPress:  // 0x140574910: Defensive Style == Frontline Pressure
     case kConceptForeCheckLineDown:
     case kConceptForeCheckLineUp:
     case kConceptTransitionChase:
-      return sheet.toggles[kDefensiveStyle] == 0;
+      return sheet.Toggle(kDefensiveStyle) == 0;
     case kConceptRetreatBlockCreate:  // 0x1405767f0: All-out Defence
-      return sheet.toggles[kDefensiveStyle] == 1;
+      return sheet.Toggle(kDefensiveStyle) == 1;
     default:
       return false;
   }

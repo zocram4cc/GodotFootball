@@ -240,7 +240,8 @@ void GetDifficultyFactors(Match* match, Player* player, const Vector3& positionO
   constexpr float kSupportRangeSteps = 9.0f;  // (SR - 1) / 9, tactics 4.1
   GameplayTuning::ApplyTrapPredictionAssist(
       distanceFactor, heightFactor, ballMovementFactor,
-      (player->GetTeam()->GetController()->GetTeamSheet().supportRange - 1) / kSupportRangeSteps);
+      (player->GetTeam()->GetController()->GetTeamSheet().Slider(pes::kSliderSupportRange) - 1) /
+      kSupportRangeSteps);
   if (Verbose())
     printf(
         "skill multiplier: %f.. makes for result: distancefactor: %f; heightfactor: %f; "

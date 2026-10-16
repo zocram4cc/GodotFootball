@@ -27,6 +27,7 @@ constexpr uint64_t FK_DESIGNATED_NEAR_VA = 0x14259be28;    // 32
 constexpr uint64_t FK_DESIGNATED_FAR_VA = 0x14259a764;     // 60
 constexpr uint64_t FK_KEEPER_OWN_GOAL_VA = 0x1425a2004;    // 28
 constexpr uint64_t FK_NEAREST_VA = 0x14259be48;           // 65
+constexpr uint64_t FK_SIGN_FLIP_VA = 0x142588218;          // -1
 constexpr uint64_t WALL_DISTANCE_VA = 0x1425a945c;        // 9.15
 constexpr uint64_t WALL_SPACING_VA = 0x142565600;        // 0.5
 constexpr uint64_t WALL_NEAR_POST_VA = 0x14259bdd8;       // 1.3
@@ -68,6 +69,32 @@ bool IsMidClass(e_PlayerRole role) {
          role == e_PlayerRole_RM;
 }
 
+// PES's striker classes, role 7 to 9 (SS, the wide forwards and CF), which the far-out loop
+// never takes: "role < 7".
+bool IsFrontClass(e_PlayerRole role) {
+  return role == e_PlayerRole_CF || role == e_PlayerRole_LW || role == e_PlayerRole_RW ||
+         role == e_PlayerRole_SS;
+}
+
+// The nearest candidate that `admits` lets through, within `bound_m` of the restart spot,
+// measured from his slot target (T+0x4b4c+12i). -1 when nobody is.
+template <typename Admit>
+int NearestSlotTo(const std::vector<SetPieceCandidate>& candidates, float x, float z,
+                  float bound_m, Admit admits) {
+  int best = -1;
+  float bestDist = bound_m;
+  for (const SetPieceCandidate& c : candidates) {
+    if (!c.onPitch || !admits(c)) continue;
+    const float dx = c.targetX_m - x, dz = c.targetZ_m - z;
+    const float dist = std::sqrt(dx * dx + dz * dz);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = c.index;
+    }
+  }
+  return best;
+}
+
 // FUN_1404a9920's ramp, which its two `mulss -2` folds make a straight line:
 // 1 at or below the band's start, 0 at its end, linear between.
 float AngleRamp(float angle_deg, float from, float to) {
@@ -98,6 +125,7 @@ std::optional<SetPieceTeamConstants> LoadSetPieceTeamConstants(const PeImage& ex
         std::pair{FK_DESIGNATED_FAR_VA, &k.fkDesignatedFar_m},
         std::pair{FK_KEEPER_OWN_GOAL_VA, &k.fkKeeperOwnGoal_m},
         std::pair{FK_NEAREST_VA, &k.fkNearest_m}, std::pair{WALL_DISTANCE_VA, &k.wallDistance_m},
+        std::pair{FK_SIGN_FLIP_VA, &k.fkSignFlip},
         std::pair{WALL_SPACING_VA, &k.wallSpacing_m},
         std::pair{WALL_NEAR_POST_VA, &k.wallNearPost_m},
         std::pair{WALL_GOAL_LINE_BAND_VA, &k.wallGoalLineBand_m},
@@ -184,80 +212,81 @@ float JogFraction(float budget_s, float dist_m, const SetPieceTeamConstants& k) 
   return std::min(1.0f, (JogSpeed_mps(k) * budget_s) / dist_m);
 }
 
-int PickBySuitability(const std::vector<SetPieceCandidate>& candidates) {
-  // FUN_140a621f0: over the slots on the pitch, the highest rating wins and the
-  // first one wins a tie. A keeper is excluded for every kind.
+// FUN_140a621f0: the highest rating wins, the first slot on a tie. The keeper is in the running
+// only for kind 0, and the excluded slot never is.
+int PickBySuitability(const std::vector<SetPieceCandidate>& candidates, int kind, int excluded) {
   int best = -1;
-  float bestRating = -1.0f;
+  float bestRating = 0.0f;
   for (const SetPieceCandidate& c : candidates) {
-    if (!c.onPitch || c.isKeeper || c.index < 0) continue;
-    if (c.suitability > bestRating) {
-      bestRating = c.suitability;
+    if (!c.onPitch || c.index == excluded) continue;
+    if (c.role == e_PlayerRole_GK && kind != 0) continue;
+    if (best < 0 || c.suitability > bestRating) {
       best = c.index;
+      bestRating = c.suitability;
     }
   }
   return best;
 }
 
-int FreeKickTaker(const std::vector<SetPieceCandidate>& candidates, float ballX, float ballZ,
-                  float dir, float attackedGoalX, float ownGoalX, float penaltyX,
-                  float penaltyHalfZ, const SetPieceTeamConstants& k) {
-  // FUN_1404a8ad0's waterfall without its first branch: GF carries no team sheet
-  // of designated takers (PES T+0x8e08), so "the sheet's free-kick taker" has
-  // nothing to read. What is left is the keeper, the own-half defender, the
-  // long-range midfielder and the rating fallback.
-  const float goalDx = ballX - attackedGoalX;
-  const float goalD = std::sqrt(goalDx * goalDx + ballZ * ballZ);
-  const bool ownHalf = dir * ballX < 0.0f;
-
-  // The keeper, when the ball is near the goal line inside the own box.
-  // Confirmed live: a free kick 21.8 m from its own goal was taken by that
-  // team's keeper, who was standing 46 m away.
-  if (std::fabs(ballZ) < penaltyHalfZ) {
-    const float ownDx = ballX - ownGoalX;
-    const float ownD = std::sqrt(ownDx * ownDx + ballZ * ballZ);
-    if (ownD < k.fkKeeperOwnGoal_m || dir * ballX < -penaltyX) {
+int FreeKickTaker(const std::vector<SetPieceCandidate>& candidates, const FreeKickInput& in,
+                  const SetPieceTeamConstants& k) {
+  auto onPitch = [&candidates](int slot) {
+    for (const SetPieceCandidate& c : candidates)
+      if (c.index == slot && c.onPitch) return true;
+    return false;
+  };
+  // The kind of designated kicker: 2 for the second kicker, else 1 within fkDesignatedNear_m of
+  // the attacked goal (s*F0, 0), 0 within fkDesignatedFar_m, and 6 (none) beyond.
+  const float toAttackX = in.x_m - in.dir * in.halfLength_m;
+  const float toAttack = std::sqrt(toAttackX * toAttackX + in.z_m * in.z_m);
+  const int kind = in.excluded >= 0                    ? 2
+                   : toAttack < k.fkDesignatedNear_m ? 1
+                   : toAttack < k.fkDesignatedFar_m  ? 0
+                                                     : 6;
+  if (kind != 6) {
+    const int slot = in.designated[kind];
+    if (slot != in.excluded && onPitch(slot)) return slot;
+  }
+  // Step 2: in mode three the published kicker is reused, unless a second kicker is chosen.
+  if (in.reuseMode && in.excluded < 0 && onPitch(in.published)) return in.published;
+  // Step 3: inside the own box's width and near the own goal (or past the box line), the keeper.
+  if (std::fabs(in.z_m) < in.penaltyHalfZ_m) {
+    const float ownX = in.x_m + in.dir * in.halfLength_m;
+    const float toOwn = std::sqrt(ownX * ownX + in.z_m * in.z_m);
+    if (toOwn < k.fkKeeperOwnGoal_m || in.dir * in.x_m < k.fkSignFlip * in.penaltyX_m) {
       for (const SetPieceCandidate& c : candidates)
-        if (c.onPitch && c.isKeeper) return c.index;
+        if (c.role == e_PlayerRole_GK && c.onPitch) return c.index;
     }
   }
-
-  // In our own half: the nearest centre back or full back within 65 m. PES also
-  // excludes one slot it keeps as an outlet (T+0x4b40), which GF has no data for.
-  if (ownHalf) {
-    int best = -1;
-    float bestDist = k.fkNearest_m;
-    for (const SetPieceCandidate& c : candidates) {
-      if (!c.onPitch || c.isKeeper) continue;
-      if (!IsBackClass(c.role)) continue;
-      if (c.distanceToBall_m < bestDist) {
-        bestDist = c.distanceToBall_m;
-        best = c.index;
-      }
-    }
+  // Step 4: in our own half, the nearest centre or full back within fkNearest_m.
+  // ponytail: PES also skips the outlet slot at T+0x4b40 here. It reads 255 live (no slot), and
+  // GF's team record has no copy of that field, so nothing is skipped.
+  if (in.dir * in.x_m < 0.0f) {
+    const int best = NearestSlotTo(candidates, in.x_m, in.z_m, k.fkNearest_m,
+                                   [](const SetPieceCandidate& c) { return IsBackClass(c.role); });
     if (best >= 0) return best;
   }
-
-  // A free kick from far out: the nearest outfield player within 65 m. PES's
-  // role filter is "role < 7", which is every role except the three forwards.
-  if (goalD > k.fkDesignatedFar_m) {
-    int best = -1;
-    float bestDist = k.fkNearest_m;
-    for (const SetPieceCandidate& c : candidates) {
-      if (!c.onPitch || c.isKeeper) continue;
-      if (c.role == e_PlayerRole_CF || c.role == e_PlayerRole_LW || c.role == e_PlayerRole_RW ||
-          c.role == e_PlayerRole_SS)
-        continue;
-      if (c.distanceToBall_m < bestDist) {
-        bestDist = c.distanceToBall_m;
-        best = c.index;
-      }
-    }
+  // Step 5: beyond fkDesignatedFar_m from the attacked goal, the nearest man who is not a
+  // striker, the keeper included, within fkNearest_m.
+  if (toAttack > k.fkDesignatedFar_m) {
+    const int best = NearestSlotTo(candidates, in.x_m, in.z_m, k.fkNearest_m,
+                                   [](const SetPieceCandidate& c) { return !IsFrontClass(c.role); });
     if (best >= 0) return best;
   }
+  // Step 6: the rating fallback, at the kind the kick is (kind 6, no designated kick, rates as 0).
+  return PickBySuitability(candidates, kind == 6 ? 0 : kind, in.excluded);
+}
 
-  // The rating fallback: the best set-piece taker on the pitch.
-  return PickBySuitability(candidates);
+FreeKickRepick FreeKickRepickGate(bool firstValid, bool secondValid, int fkType) {
+  FreeKickRepick g;
+  g.first = !firstValid;
+  // Type 0 takes no second kicker, so the second is none; any type past 3 leaves it as it was.
+  if (fkType == 0) {
+    g.secondNone = true;
+  } else if (fkType >= 1 && fkType <= 3) {
+    g.second = !firstValid || !secondValid;
+  }
+  return g;
 }
 
 int WallSize(float ballToGoal_m, float ballAngle_deg, float ballX, float ballZ, float dir,

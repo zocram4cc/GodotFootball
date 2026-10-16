@@ -9,6 +9,7 @@
 // bytes have been checked. The functions below are pure so the rules can be
 // pinned without a match.
 
+#include <array>
 #include <vector>
 
 #include "../gametypes.hpp"
@@ -17,16 +18,20 @@
 
 namespace pes {
 
-// One player, as the set-piece selection rules see him. GF's Player* glue in
-// teamAIcontroller.cpp fills this in; nothing here needs a match.
+// One player of the restarting side, as the free-kick chooser sees him. `index` is his slot:
+// his position in the team's player list, the id the sheet's designated values name.
 struct SetPieceCandidate {
-  int index = -1;             // index into the team's active list
+  int index = -1;
   e_PlayerRole role = e_PlayerRole_GK;
-  float suitability = 0.0f;   // the per-player set-piece rating for this kind
-  float aerial = 0.0f;        // height + jump + heading, PES's b[0x31]+b[0x2c]+b[0x1d]
-  float distanceToBall_m = 0.0f;
-  bool onPitch = true;
-  bool isKeeper = false;
+  // ponytail: PES rates six set-piece kinds per player, one byte each (playerdata R_k+0x16e+kind;
+  // kinds 0..2 are read here). GF has no such bytes, so one stat stands in for every kind.
+  float suitability = 0.0f;
+  float aerial = 0.0f;  // height + jump + heading, PES's b[0x31]+b[0x2c]+b[0x1d]
+  // ponytail: PES's slot target (T+0x4b4c+12i, x and z) has no decoded writer; GF's formation
+  // point, the one the default placement uses, stands in.
+  float targetX_m = 0.0f;
+  float targetZ_m = 0.0f;
+  bool onPitch = true;  // an active player (MI+0x1748 and FUN_140a3b520)
 };
 
 struct SetPieceTeamConstants {
@@ -52,6 +57,7 @@ struct SetPieceTeamConstants {
   float fkDesignatedFar_m = 0.0f;   // 60 @0x14259a764
   float fkKeeperOwnGoal_m = 0.0f;   // 28 @0x1425a2004
   float fkNearest_m = 0.0f;         // 65 @0x14259be48
+  float fkSignFlip = 0.0f;  // -1 @0x142588218, the keeper's own-box line
   // FUN_1404a9ce0 / FUN_140a3c9b0: the wall.
   float wallDistance_m = 0.0f;  // 9.15 @0x1425a945c
   float wallSpacing_m = 0.0f;   // 0.5 @0x142565600
@@ -127,17 +133,44 @@ float PlacementBudget_s(const SetPieceTeamConstants& k, int setPiece, bool ownSi
 // FUN_140929610's whole rule as one factor: `n <= B ? 1 : B / n`.
 float JogFraction(float budget_s, float dist_m, const SetPieceTeamConstants& k);
 
-// FUN_140a621f0: the rating fallback. Highest suitability wins, first on ties;
-// a keeper is never in the running.
-int PickBySuitability(const std::vector<SetPieceCandidate>& candidates);
+// FUN_140a621f0: the rating fallback over the players who may take a kick of `kind`. The
+// highest suitability wins, first on ties. A keeper is in the running only for kind 0, and
+// the slot `excluded` never is (-1 for none).
+int PickBySuitability(const std::vector<SetPieceCandidate>& candidates, int kind, int excluded);
 
-// FUN_1404a8ad0's waterfall as far as GF can reach it: GF carries no team sheet
-// of designated takers (PES T+0x8e08), so that branch is not representable. What
-// is left is the keeper near the own goal, the own-half defender, the
-// long-range midfielder and the rating fallback. All distances in metres.
-int FreeKickTaker(const std::vector<SetPieceCandidate>& candidates, float ballX, float ballZ,
-                  float dir, float attackedGoalX, float ownGoalX, float penaltyX,
-                  float penaltyHalfZ, const SetPieceTeamConstants& k);
+// The restart and the kicker state FUN_1404a8ad0 reads. x runs along the pitch and z across
+// it, in metres; `dir` is the attack sign (T+0x254).
+struct FreeKickInput {
+  float x_m = 0.0f;             // the restart spot along the pitch: R+0x08
+  float z_m = 0.0f;             // R+0x10
+  float dir = 1.0f;             // s: +1 or -1
+  float halfLength_m = 0.0f;    // F[0]: the goal line
+  float penaltyX_m = 0.0f;      // F[6]: the penalty-area line
+  float penaltyHalfZ_m = 0.0f;  // F[7]: the penalty-area half width
+  // The sheet's designated roster values for kinds 0..2 (S+0x143c+4k). A value that names
+  // no player on the pitch is none.
+  std::array<int, 3> designated{-1, -1, -1};
+  int excluded = -1;        // the first kicker's slot when choosing the second; -1 for none
+  bool reuseMode = false;   // MI+0x116c == 3: the published kicker is reused if he qualifies
+  int published = -1;       // MI+0x173c: the published kicker's slot
+};
+
+// FUN_1404a8ad0, the free-kick kicker, as its six-step waterfall. Returns the taker's slot,
+// or -1 when nobody qualifies.
+// ponytail: the online-practice branch (G+0x400: FUN_140a59af0, FUN_1404a8930) is not ported.
+// GF's matches are CPU-only, so every on-pitch test here is the CPU one (MI+0x1748).
+int FreeKickTaker(const std::vector<SetPieceCandidate>& candidates, const FreeKickInput& in,
+                  const SetPieceTeamConstants& k);
+
+// FUN_1404a7d60 case 5: which kickers the selector picks again. The first is picked again
+// when the published one is invalid. The second is picked again only for FK types 1..3, and
+// only when either kicker is invalid. Type 0 leaves the second at none.
+struct FreeKickRepick {
+  bool first = false;
+  bool second = false;
+  bool secondNone = false;
+};
+FreeKickRepick FreeKickRepickGate(bool firstValid, bool secondValid, int fkType);
 
 // FUN_1404a9920: how many men stand in the wall. `ballAngle_deg` is the ball's
 // angle off the goal's centre line.

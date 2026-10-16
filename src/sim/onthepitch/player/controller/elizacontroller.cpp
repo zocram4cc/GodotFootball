@@ -832,7 +832,7 @@ pes::SlideAggressionInput ElizaController::_SlideAggression() {
       CastPlayer()->GetPlayerData()->GetPlayingStyle() == PlayingStyles::Player::TheDestroyer;
   // PES's FUN_140a62180(ctx, side, 6) == 0: the Pressuring sheet toggle is
   // Aggressive rather than Conservative (pes-re-tactics.md 2).
-  in.aggressiveTeamSheet = team->GetController()->GetTeamSheet().toggles[pes::kPressuring] == 0;
+  in.aggressiveTeamSheet = team->GetController()->GetTeamSheet().Toggle(pes::kPressuring) == 0;
   in.deepDefensiveMode = DeepDefensiveMode(instructions);
   in.staminaUnder30 = CastPlayer()->GetStaminaPct() < 0.30f;
   return in;
@@ -1742,7 +1742,7 @@ Vector3 ElizaController::GetSupportPosition_ForceField(const MentalImage* mental
   // distance formula belongs to the off-ball port.
   constexpr float kSupportRangeSteps = 9.0f;  // 0x14259d60c
   const float webScale = AITactics::GetSupportWebScale(
-      (team->GetController()->GetTeamSheet().supportRange - 1) / kSupportRangeSteps);
+      (team->GetController()->GetTeamSheet().Slider(pes::kSliderSupportRange) - 1) / kSupportRangeSteps);
 #ifndef NDEBUG
   // [pass-dist] instrumentation: the mean spread of this player's nearest
   // teammates is the width of the passing network he actually lives in.
