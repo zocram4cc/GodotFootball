@@ -139,6 +139,17 @@ std::string CornerFlagFpkd(const PesVfs& vfs, const std::string& folder) {
   return vfs.Exists(common) ? common : std::string();
 }
 
+// A weather-only layer's file name carries `_rain` or `_snow`. The scene pack
+// places every weather's meshes: st029's puddle decal (one `rain` mesh) and its
+// snow layer (one snow mesh) sit in the base pack, and PES draws each only in its
+// own weather. Every other member is placed in every weather.
+bool ShownInWeather(const std::string& member, int weather) {
+  const std::string file = member.substr(member.find_last_of('/') + 1);
+  if (file.find("_rain") != std::string::npos) return weather == kWeatherRain;
+  if (file.find("_snow") != std::string::npos) return weather == kWeatherSnow;
+  return true;
+}
+
 }  // namespace
 
 std::vector<StadiumInfo> ParseStadiumRecords(std::span<const uint8_t> blob,
@@ -169,6 +180,7 @@ std::vector<StadiumInfo> ReadStadiumList(const PesVfs& vfs, std::string* error) 
 
 std::optional<std::vector<PlacedModel>> LoadStadiumScene(const PesVfs& vfs,
                                                          int stadiumId,
+                                                         int weather,
                                                          std::string* error) {
   const std::string folder = StadiumFolder(stadiumId);
   const std::string bg = "Asset/model/bg/";
@@ -199,6 +211,7 @@ std::optional<std::vector<PlacedModel>> LoadStadiumScene(const PesVfs& vfs,
     return std::nullopt;
   if (const std::string cflag = CornerFlagFpkd(vfs, folder); !cflag.empty())
     if (!AddSource(vfs, cflag, &models, error)) return std::nullopt;
+  std::erase_if(models, [weather](const PlacedModel& m) { return !ShownInWeather(m.member, weather); });
   return models;
 }
 

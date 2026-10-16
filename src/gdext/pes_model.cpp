@@ -160,7 +160,7 @@ Node3D* MeshMembers(StaticBuild& build, const pes::FpkArchive& fpk, std::span<co
 
 void PesModelBuilder::_bind_methods() {
   ClassDB::bind_method(D_METHOD("build_model", "library", "fpk_path", "member"), &PesModelBuilder::build_model);
-  ClassDB::bind_method(D_METHOD("build_stadium", "library", "stadium_id"), &PesModelBuilder::build_stadium);
+  ClassDB::bind_method(D_METHOD("build_stadium", "library", "stadium_id", "weather"), &PesModelBuilder::build_stadium);
 }
 
 Node3D* PesModelBuilder::build_model(const Ref<PesLibrary>& library, const String& fpk_path, const String& member) const {
@@ -179,10 +179,10 @@ Node3D* PesModelBuilder::build_model(const Ref<PesLibrary>& library, const Strin
   return MeshMembers(build, *fpk, *pack, packPath.substr(packPath.find_last_of('/') + 1), want);
 }
 
-Node3D* PesModelBuilder::build_stadium(const Ref<PesLibrary>& library, int stadium_id) const {
+Node3D* PesModelBuilder::build_stadium(const Ref<PesLibrary>& library, int stadium_id, int weather) const {
   if (library.is_null()) return nullptr;
   std::string err;
-  const auto models = pes::LoadStadiumScene(library->vfs(), stadium_id, &err);
+  const auto models = pes::LoadStadiumScene(library->vfs(), stadium_id, weather, &err);
   if (!models) {
     UtilityFunctions::push_error("PES stadium not readable: ", ToGd(err));
     return nullptr;

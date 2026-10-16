@@ -49,6 +49,12 @@ std::vector<StadiumInfo> ParseStadiumRecords(std::span<const uint8_t> blob,
 // its records. Returns an empty vector (with *error set) on failure.
 std::vector<StadiumInfo> ReadStadiumList(const PesVfs& vfs, std::string* error);
 
+// The match's weather, as PES numbers it (PesLighting reads the same values):
+// fine, rain or snow. A weather-only layer is placed in its weather alone.
+inline constexpr int kWeatherFine = 0;
+inline constexpr int kWeatherRain = 1;
+inline constexpr int kWeatherSnow = 2;
+
 // Assemble one stadium's model placements from its fox2 files, in this order:
 // the scene (<folder>.fpkd), the day/fine overlay (<folder>_df.fpkd, when the
 // pack ships one), the pitch (pitch/<folder>.fpkd), the goals (common goal_post
@@ -56,9 +62,11 @@ std::vector<StadiumInfo> ReadStadiumList(const PesVfs& vfs, std::string* error);
 // the corner flags (a per-stadium override when present, else common). Models
 // whose fmdl member is not packaged in the sibling .fpk are dropped — PES
 // cannot place a model its pack does not ship. The scene, pitch and goal_post
-// sources are required; the rest are best-effort.
+// sources are required; the rest are best-effort. A weather-only member (its file
+// name has `_rain` or `_snow`) is placed only in that weather.
 std::optional<std::vector<PlacedModel>> LoadStadiumScene(const PesVfs& vfs,
                                                          int stadiumId,
+                                                         int weather,
                                                          std::string* error);
 
 }  // namespace pes
