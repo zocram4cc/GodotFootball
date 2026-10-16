@@ -354,7 +354,8 @@ TEST(PesEventStore, NewestCopyFollowsKindSevenAndTheKey) {
 class RoutedStore {
  public:
   explicit RoutedStore(const pes::EventRingTable& t) : table_(t) {}
-  void Push(uint32_t routeKind, uint32_t actionKind, int frame, pes::ActorKey key) {
+  void Push(uint32_t routeKind, uint32_t actionKind, int frame, pes::ActorKey key,
+            int track = -1) {
     pes::EventRecord rec;
     rec.Reset();
     rec.Write(routeKind, frame, frame, 0.f, 1);
@@ -362,6 +363,7 @@ class RoutedStore {
     rec.SetU32(0x18, key.team);
     rec.SetU32(0x1c, key.slot);
     rec.SetU32(0x24, frame);
+    if (track >= 0) rec.SetU32(0x2c, static_cast<uint32_t>(track));  // payload+0x18
     store_.Route(table_, rec);
   }
   pes::EventStore& store() { return store_; }
@@ -967,6 +969,139 @@ TEST(PesEventDetectors, Type14WritesTheOtherRecordThenTheTouch) {
   nogate.gate = 0;
   EXPECT_EQ(pes::DetectType14(nogate, &out), pes::Type14Record::kNone);
   EXPECT_EQ(pes::DetectType14(nogate, &out), pes::Type14Record::kNone);
+}
+
+// --- The kind-27 accumulator and the sequence detector. ---
+
+// FUN_140a115a0's 0x1b arm admission: the three gates the report records.
+TEST(PesKind27, AdmitsOnTheThreeGatesOnly) {
+  pes::Kind27Input in;
+  in.player = 3;
+  in.entryWord = 5;
+  in.currentIndex = 5;
+  in.keyTeam = 1;
+  in.keySlot = 7;
+  in.duration = 0.25f;
+  EXPECT_TRUE(pes::Kind27Admits(in));
+  in.player = 0x17;  // the last player the roster carries
+  EXPECT_TRUE(pes::Kind27Admits(in));
+  in.player = 0x18;  // the player word is past the roster
+  EXPECT_FALSE(pes::Kind27Admits(in));
+  in.player = 3;
+  in.entryWord = 4;  // a different entry word than the current index
+  EXPECT_FALSE(pes::Kind27Admits(in));
+  in.entryWord = 5;
+  in.keyTeam = 2;  // not a team word
+  EXPECT_FALSE(pes::Kind27Admits(in));
+  in.keyTeam = 1;
+  in.keySlot = 0x28;  // not a slot word
+  EXPECT_FALSE(pes::Kind27Admits(in));
+}
+
+// The arm adds one record and its duration for kind 0x1b only.
+TEST(PesKind27, AccumulatesTheDurationOfAdmittedRecords) {
+  pes::Kind27Accumulator acc;
+  pes::Kind27Input in;
+  in.player = 1;
+  in.entryWord = 2;
+  in.currentIndex = 2;
+  in.keyTeam = 0;
+  in.keySlot = 3;
+  in.duration = 0.5f;
+  pes::Kind27Accumulate(&acc, 0x1b, in);
+  EXPECT_EQ(acc.count, 1u);
+  EXPECT_FLOAT_EQ(acc.durationSum, 0.5f);
+  in.duration = 0.25f;
+  pes::Kind27Accumulate(&acc, 0x1b, in);
+  EXPECT_EQ(acc.count, 2u);
+  EXPECT_FLOAT_EQ(acc.durationSum, 0.75f);
+  pes::Kind27Accumulate(&acc, 0x1c, in);  // the other arm
+  EXPECT_EQ(acc.count, 2u);
+  EXPECT_FLOAT_EQ(acc.durationSum, 0.75f);
+  in.entryWord = 9;  // no longer admitted
+  pes::Kind27Accumulate(&acc, 0x1b, in);
+  EXPECT_EQ(acc.count, 2u);
+  EXPECT_FLOAT_EQ(acc.durationSum, 0.75f);
+}
+
+// FUN_140a61d40/FUN_140a61d90: the 14x10 grid over the ball's halves.
+TEST(PesZones, GridCoversTheHalves) {
+  EXPECT_EQ(pes::ZoneXOf(50.f, -50.f), 0);
+  EXPECT_EQ(pes::ZoneXOf(50.f, 0.f), 7);
+  EXPECT_EQ(pes::ZoneXOf(50.f, 50.f), 13);
+  EXPECT_EQ(pes::ZoneXOf(50.f, 500.f), 13);   // clamped at the end
+  EXPECT_EQ(pes::ZoneXOf(50.f, -500.f), 0);
+  EXPECT_EQ(pes::ZoneZOf(30.f, -30.f), 0);
+  EXPECT_EQ(pes::ZoneZOf(30.f, 0.f), 5);
+  EXPECT_EQ(pes::ZoneZOf(30.f, 30.f), 9);
+  EXPECT_EQ(pes::ZoneZOf(30.f, 90.f), 9);
+}
+
+// K=13 (FUN_140a15f50): the sequence opens on the newest touch, counts the
+// zone visits, and records when the tracked player changes or play stops.
+TEST(PesEventDetectors, PossessionSequenceRecordsOnThePlayerChange) {
+  auto pe = TableFromObs();
+  ASSERT_TRUE(pe);
+  std::string err;
+  auto table = pes::LoadEventRingTable(*pe, &err);
+  ASSERT_TRUE(table) << err;
+  RoutedStore s(*table);
+  // A kind-8 record leaves a valid key in ring 1, which is what makes the busy
+  // test's `carrierIsPlayer` true (FUN_140a3e7d0's key).
+  pes::EventRecord eight;
+  eight.Reset();
+  eight.Write(8, 5, 5, 0.f, 1);
+  eight.SetU32(0x1c, 0);
+  eight.SetU32(0x20, 2);
+  s.store().Route(*table, eight);
+  s.Push(7, 1, 10, pes::ActorKey{0, 1}, 0);  // team 0's kick
+  s.Push(7, 7, 20, pes::ActorKey{0, 4}, 0);  // team 0's touch (the newest)
+
+  pes::PossessionSequenceState st;
+  pes::PossessionSequenceInput in;
+  in.frame = 20;
+  in.phase = 1;
+  in.state = 1.5f;
+  in.restartState = 1;
+  in.ballDirX = 1;
+  in.ballSample0 = 20.f;  // the ball's x
+  in.zoneHalfX = 50.f;
+  in.zoneHalfZ = 30.f;
+  in.ballZ = -10.f;
+  in.store = &s.store();
+  pes::EventRecord out;
+  EXPECT_FALSE(pes::DetectPossessionSequence(&in, &st, &out));  // opens
+  EXPECT_TRUE(st.hasKey);
+  // The opening frame only adopts the record (FUN_140a16930/FUN_140a17690); the
+  // zone grid moves from the next frame on.
+  EXPECT_EQ(st.zoneX, -1);
+
+  // The same tracked player again: the second copy follows, no record.
+  in.frame = 21;
+  in.ballSample0 = 21.f;
+  EXPECT_FALSE(pes::DetectPossessionSequence(&in, &st, &out));
+  // FUN_140a61d40's divisor is 2*half/14, so 21 of the halves 50 lands in the
+  // tenth column and FUN_140a61d90's -10 of 30 in the fourth row.
+  EXPECT_EQ(st.zoneX, 9);
+  EXPECT_EQ(st.zoneZ, 3);
+  EXPECT_EQ(st.grid[3 + 9 * 10], 1u);
+
+  // A new touch by the other team's player: the sequence records.
+  s.Push(7, 7, 22, pes::ActorKey{1, 9}, 1);
+  in.frame = 22;
+  EXPECT_TRUE(pes::DetectPossessionSequence(&in, &st, &out));
+  EXPECT_EQ(out.kind, 13u);
+  EXPECT_EQ(out.U32(0x14), 0u);  // payload+0: the tracked team word
+  EXPECT_EQ(out.U32(0xe8 + (3 + 9 * 10) * 4), 1u);  // the zone grid's counts
+  EXPECT_EQ(out.p6, 1);
+  EXPECT_TRUE(st.hasKey);  // the new record was adopted
+  EXPECT_EQ(st.key.team, 1u);
+
+  // At a stoppage (MI+0x116c == 2) the open sequence records too.
+  in.frame = 30;
+  in.restartState = 2;
+  EXPECT_TRUE(pes::DetectPossessionSequence(&in, &st, &out));
+  EXPECT_EQ(out.kind, 13u);
 }
 
 }  // namespace

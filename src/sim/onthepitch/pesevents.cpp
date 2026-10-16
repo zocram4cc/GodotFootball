@@ -678,4 +678,130 @@ Type14Record DetectType14(const Type14Input& in, EventRecord* out) {
   return Type14Record::kTouch;
 }
 
+
+bool Kind27Admits(const Kind27Input& in) {
+  if (in.player >= 0x18) return false;               // T1
+  if (in.entryWord != in.currentIndex) return false;  // T2
+  return in.keyTeam < 2 && in.keySlot < EventRecord::kSlotLimit;  // T3
+}
+
+void Kind27Accumulate(Kind27Accumulator* acc, uint32_t routeKind, const Kind27Input& in) {
+  if (routeKind != 0x1b || !Kind27Admits(in)) return;
+  acc->count += 1;
+  acc->durationSum += in.duration;
+}
+
+// FUN_140a61d40/FUN_140a61d90: the grids are the ball's halves divided by the
+// install's DAT_1425c48b8 (x) and DAT_142588210 (z), clamped at the ends.
+constexpr int kZoneColumns = 14;  // FUN_140a61d40's grid width
+constexpr int kZoneRows = 10;     // FUN_140a61d90's grid height
+
+int ZoneXOf(float halfX, float x) {
+  if (halfX <= 0.f) return 0;
+  const float v = x > -halfX ? (x < halfX ? x : halfX) : -halfX;
+  const int i = static_cast<int>((v + halfX) / (2.f * halfX / 14.f));
+  return i < 0 ? 0 : (i > kZoneColumns - 1 ? kZoneColumns - 1 : i);
+}
+
+int ZoneZOf(float halfZ, float z) {
+  if (halfZ <= 0.f) return 0;
+  const float v = z > -halfZ ? (z < halfZ ? z : halfZ) : -halfZ;
+  const int i = static_cast<int>((v + halfZ) / (2.f * halfZ / kZoneRows));
+  return i < 0 ? 0 : (i > kZoneRows - 1 ? kZoneRows - 1 : i);
+}
+
+void PossessionSequenceState::Reset() {
+  *this = PossessionSequenceState{};
+  // FUN_140a16930: the grid's count starts at 0 and its position at -1.
+  gridCount = 0;
+  zoneX = -1;
+  zoneZ = -1;
+}
+
+bool DetectPossessionSequence(PossessionSequenceInput* in, PossessionSequenceState* st,
+                              EventRecord* out) {
+  if (in->store == nullptr || st == nullptr) return false;
+  if (!st->hasKey) {
+    // FUN_140a15f50's first branch: adopt the newest kind-7 record.
+    if (in->phase == 9) return false;
+    if (in->restartState != 1 && in->restartState != 3) return false;
+    const EventRecord* rec = in->store->KindNth(7, 0);
+    if (rec == nullptr) return false;
+    if (!ActorKey{rec->U32(0x18), rec->U32(0x1c)}.Valid()) return false;
+    // FUN_140a3e7d0's key decides `carrierIsPlayer` for the busy test; it is not
+    // an admission gate of its own.
+    if (BusyFor(*rec, in->store->Ring1Key(0).Valid(), 0)) return false;
+    st->Reset();
+    st->hasKey = true;
+    st->key = ActorKey{rec->U32(0x18), rec->U32(0x1c)};
+    // FUN_140a16930/FUN_140a17690: the tracked record's payload lands in the
+    // detector's two copies.
+    std::memcpy(reinterpret_cast<uint8_t*>(&st->first) + 0x14,
+                reinterpret_cast<const uint8_t*>(rec) + 0x14, 0x68);
+    std::memcpy(reinterpret_cast<uint8_t*>(&st->second) + 0x14,
+                reinterpret_cast<const uint8_t*>(rec) + 0x14, 0x68);
+    return false;
+  }
+  // The zone grid: FUN_140a61d40's x from the team's possession word, and
+  // FUN_140a61d90's z from the ball.
+  const int zoneX = ZoneXOf(in->zoneHalfX, in->ballDirX * in->ballSample0);
+  const int zoneZ = ZoneZOf(in->zoneHalfZ, in->ballZ);
+  if (zoneX != st->zoneX || zoneZ != st->zoneZ) {
+    st->zoneX = zoneX;
+    st->zoneZ = zoneZ;
+    if (st->gridCount != -1 && zoneX < kZoneColumns && zoneZ < kZoneRows) {
+      st->grid[static_cast<size_t>(zoneZ) + static_cast<size_t>(zoneX) * kZoneRows] += 1;
+      st->gridCount += 1;
+    }
+  }
+  if (in->teamFlag6e0) st->stoppageFlag = true;
+  st->state = in->state;
+  const EventRecord* rec = in->store->KindNth(7, 0);
+  bool playerChanged = false;
+  if (rec != nullptr) {
+    if (ActorKey{rec->U32(0x18), rec->U32(0x1c)}.Valid() &&
+        !BusyFor(*rec, in->store->Ring1Key(0).Valid(), 0)) {
+      playerChanged = rec->U32(0x2c) != static_cast<uint32_t>(st->key.team);
+      if (!playerChanged) {
+        // The same tracked player: the second copy follows it.
+        std::memcpy(reinterpret_cast<uint8_t*>(&st->second) + 0x14,
+                    reinterpret_cast<const uint8_t*>(rec) + 0x14, 0x68);
+      }
+    }
+  }
+  if (!playerChanged && in->restartState != 2) return false;
+  out->Reset();
+  out->Write(13, in->frame, in->frame, st->state, in->phase);
+  // FUN_140a156f0 resets the payload; the detector's tracked state follows.
+  out->SetU32(0x14, st->key.team);  // payload+0: the tracked player's team word
+  auto copy = [out](size_t to, const EventRecord& from, size_t bytes) {
+    std::memcpy(reinterpret_cast<uint8_t*>(out) + to,
+                reinterpret_cast<const uint8_t*>(&from) + 0x14, bytes);
+  };
+  copy(0x20, st->first, 0x60);
+  copy(0x84, st->second, 0x48);
+  out->SetU32(0xe4, static_cast<uint32_t>(st->gridCount));
+  out->SetU32(0x18, static_cast<uint32_t>(in->phase));
+  out->SetU8(0x318, st->flagD4 ? 1 : 0);
+  out->SetU8(0x319, st->stoppageFlag ? 1 : 0);
+  out->SetU8(0x31a, 0);
+  out->SetU8(0x31b, st->stoppageFlag ? 1 : 0);
+  for (int x = 0; x < kZoneColumns; ++x) {
+    for (int z = 0; z < kZoneRows; ++z) {
+      out->SetU32(0xe8 + static_cast<size_t>(z + x * kZoneRows) * 4,
+                  st->grid[static_cast<size_t>(z) + static_cast<size_t>(x) * kZoneRows]);
+    }
+  }
+  st->Reset();
+  if (rec != nullptr) {
+    st->hasKey = true;
+    st->key = ActorKey{rec->U32(0x18), rec->U32(0x1c)};
+    std::memcpy(reinterpret_cast<uint8_t*>(&st->first) + 0x14,
+                reinterpret_cast<const uint8_t*>(rec) + 0x14, 0x68);
+    std::memcpy(reinterpret_cast<uint8_t*>(&st->second) + 0x14,
+                reinterpret_cast<const uint8_t*>(rec) + 0x14, 0x68);
+  }
+  return true;
+}
+
 }  // namespace pes

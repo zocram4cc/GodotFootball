@@ -497,4 +497,68 @@ struct Type14Input {
 enum class Type14Record { kNone, kOther, kTouch };
 Type14Record DetectType14(const Type14Input& in, EventRecord* out);
 
+// --- The kind-27 accumulator (FUN_140a115a0's case 0x1b) and the walker that
+// --- feeds it (FUN_140a13060). ---
+// FUN_140a13060 walks the write log's newest-first entries and hands each
+// record to FUN_140a115a0 with `S = E+0x180c60`; the 0x1b arm adds one to the
+// count at S+0x11a0 (E+0x181e00) and the record's +0x28 float to the duration
+// sum at S+0x119c (E+0x181dfc).
+struct Kind27Accumulator {
+  uint32_t count = 0;      // S+0x11a0
+  float durationSum = 0.f;  // S+0x119c
+};
+// FUN_140a115a0's 0x1b arm admission: the record's +0x30 word names a player
+// under 0x18 whose entry word matches FUN_140a44e200's index, and the key at
+// +0x20 is a valid one.
+struct Kind27Input {
+  uint32_t player = 0;       // rec+0x30
+  uint32_t entryWord = 0;    // [G+0x180] + player*0x74 + 0x10
+  uint32_t currentIndex = 0;  // FUN_140a44e200's lowest set bit in bits 0..7
+  uint32_t keyTeam = 0;       // rec+0x20
+  uint32_t keySlot = 0;       // rec+0x24
+  float duration = 0.f;       // rec+0x28
+};
+bool Kind27Admits(const Kind27Input& in);
+// The arm itself: adds one and the duration when the kind is 0x1b and the
+// admission holds.
+void Kind27Accumulate(Kind27Accumulator* acc, uint32_t routeKind, const Kind27Input& in);
+
+// FUN_140a61d40/FUN_140a61d90: the 14x10 zone grid's two classifiers.
+int ZoneXOf(float halfX, float x);  // 14 columns
+int ZoneZOf(float halfZ, float z);  // 10 rows
+
+// K=13 (FUN_140a15f50, sites 0x140a1615f and 0x140a16377): the possession
+// sequence. The detector keeps the tracked touch record (two payload copies),
+// a 14x10 grid of zone visits and its position; it records a kind-13 record
+// when the tracked player changes, and another at a stoppage (MI+0x116c == 2).
+struct PossessionSequenceState {
+  bool hasKey = false;        // FUN_140a60530(det+0xc)
+  ActorKey key{};             // +0xc
+  EventRecord first{};        // +0x08, the tracked record's payload
+  EventRecord second{};       // +0x6c, the second copy
+  std::array<uint32_t, 140> grid{};  // +0xd8, [zoneZ + zoneX*10]
+  int zoneX = -1;             // +0x30c
+  int zoneZ = -1;             // +0x310
+  int gridCount = -1;         // +0x308
+  bool stoppageFlag = false;  // +0xd7: the team record's +0xb6e0
+  float state = 0.f;          // +0x314: the state word of the emitted record
+  bool flagD4 = false;        // +0xd4
+  void Reset();
+};
+struct PossessionSequenceInput {
+  int frame = 0;
+  int phase = 0;
+  float state = 0.f;      // FUN_140a3c050(MI+0x1168)
+  int restartState = 1;   // MI+0x116c
+  int ballDirX = 0;       // FUN_140a48a30(G, key team)+0x254
+  float ballSample0 = 0.f;  // *(FUN_140a57800(G+0x40)+0)
+  float zoneHalfX = 0.f;  // *(G+0x2aa8)+0
+  float zoneHalfZ = 0.f;  // *(G+0x2aa8)+4
+  float ballZ = 0.f;      // the ball's z, for the zone classifier
+  bool teamFlag6e0 = false;  // FUN_140a48a30(G, key team)+0xb6e0
+  const EventStore* store = nullptr;
+};
+bool DetectPossessionSequence(PossessionSequenceInput* in, PossessionSequenceState* st,
+                              EventRecord* out);
+
 }  // namespace pes
