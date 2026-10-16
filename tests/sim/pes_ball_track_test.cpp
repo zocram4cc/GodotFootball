@@ -139,6 +139,18 @@ TEST(PesBallTrack, AFlightStepThatCrossesTheGroundLandsOnThatRecord) {
   EXPECT_FLOAT_EQ(track[1].z, 2.0f);
 }
 
+TEST(PesBallTrack, ALiftOffAfterALandingIsAFlightStepNotASecondBounce) {
+  // PES's contact test is `r <= y -> airborne` (docs/re/pes-re-ball-contact.md 2.3), and
+  // the flight step runs before it. A ball that sits exactly on the ground and is still
+  // rising therefore lifts by its integrated vertical speed, not by a second bounce that
+  // clamps it to F * imp.
+  const PesBallConstants c = SyntheticConstants();
+  const float r = c.image.ballRadius;
+  const TrackStart start = StartAt(Vec3(0.0f, r, 0.0f), Vec3(3.0f, 2.0f, 0.0f));
+  const pesball::Track track = pesball::BuildTrack(c, start, FarGoal());
+  EXPECT_NEAR(track[1].y - r, 2.0f / 54.0f, 0.005f);
+}
+
 TEST(PesBallContact, ABallWithNoChosenModePlaysTheLiveContactMode) {
   // The live contact table reads mode 1 (docs/re/pes-re-ball-track-live.md 2.6), so a
   // ball that rolls with no mode chosen follows the mode 1 track.

@@ -379,18 +379,15 @@ bool BallTick(const pes::PesBallConstants& c, BallState* state, unsigned tickInd
     state->velocity = pes::Vec3(0.0f, 0.0f, 0.0f);
     return false;
   }
-  const float r = c.image.ballRadius;
-  if (state->position.y > r) {
-    // Report 6.3: flight. A step that crosses the ground is the landing, resolved in this tick.
-    FlightTick(c, state, dt_s, false);
-    if (state->position.y > r) return false;
-    ContactTick(c, state, tickIndex, true, false, dt_s);
-    return true;
-  }
-  // Report 2.3: ground contact. The contact tick rewrites the velocity, and the position follows
-  // on it, as PES's next flight step does.
+  // Report 2.1 and 2.3 (0x140876488, 0x140876800): a non-resting ball always takes its flight
+  // step first, and the contact test then runs on the new position. PES's test is `r <= y ->
+  // airborne`, so a ball sitting exactly on the ground is airborne: a ball that landed and is
+  // still rising lifts by its integrated speed, and only a step that ends below r is a contact.
+  // Report 6.3: the flight step. A step that crosses the ground is the landing, resolved in this
+  // tick with no position step after the response.
+  FlightTick(c, state, dt_s, false);
+  if (state->position.y >= c.image.ballRadius) return false;
   ContactTick(c, state, tickIndex, true, false, dt_s);
-  state->position = state->position + state->velocity * dt_s;
   return true;
 }
 
