@@ -141,6 +141,10 @@ pes::CarrierConstants Synthetic() {
   k.longBaseMid = 60.0f;
   k.longBaseFree = 80.0f;
   k.longStatGain = 10.0f;
+  k.longComBonus = 50.0f;
+  k.longSkillBonus = 50.0f;
+  k.longLevelStep = 20.0f;
+  k.longPathBSkillBonus = 10.0f;
   // The dribble search (report 1) and its threat term (report 1.1).
   k.dribbleEdgeCost = 100.0f;
   k.dribbleEdgeMargin_m = 0.5f;
@@ -562,11 +566,114 @@ TEST(PesCarrierPlan, StartProbabilitiesFollowThePTable) {
                   k.crossBase);
   EXPECT_FLOAT_EQ(pes::PlanStartProbability(pes::kPlanCross, k, 70.0f, false, false, false),
                   k.crossFloor);
-  // Long: the pressure class' base, plus the stat term.
-  EXPECT_GT(pes::PlanStartProbability(pes::kPlanLong, k, 99.0f, false, false, false),
-            k.longBaseMid);
   // Plans that are not rolled have no probability at all.
   EXPECT_LT(pes::PlanStartProbability(pes::kPlanPassThrough, k, 90.0f, false, false, false), 0.0f);
+}
+
+// --- the Long plan (report 6.6: veto 0x14211a570, body 0x14211b1d0) ---
+
+pes::LongInput LongCarrier() {
+  pes::LongInput in;
+  in.intention = 1;
+  in.engagement = 1;  // base 30
+  in.lofted = 70.0f;  // no ramp yet
+  return in;
+}
+
+TEST(PesCarrierLong, TheVetoRejectsIntentionThreeAndFourAndAPressedCarrier) {
+  pes::LongInput in = LongCarrier();
+  EXPECT_FALSE(pes::LongVetoed(in));
+  in.intention = 3;
+  EXPECT_TRUE(pes::LongVetoed(in));
+  in.intention = 4;
+  EXPECT_TRUE(pes::LongVetoed(in));
+  in = LongCarrier();
+  in.engagement = 0;  // engagement (+16) below 1
+  EXPECT_TRUE(pes::LongVetoed(in));
+}
+
+TEST(PesCarrierLong, AnAcceptBypassSkipsTheRollButNotTheVeto) {
+  const pes::CarrierConstants k = Synthetic();
+  // Score 30 against a draw of 99: the roll would reject.
+  pes::LongInput in = LongCarrier();
+  EXPECT_FALSE(pes::LongAdmitted(in, 99, k));
+  in.teamModeThree = true;
+  EXPECT_TRUE(pes::LongAdmitted(in, 99, k));
+  in = LongCarrier();
+  in.designatedSelf = true;
+  EXPECT_TRUE(pes::LongAdmitted(in, 99, k));
+  in = LongCarrier();
+  in.fullAttack = true;
+  EXPECT_TRUE(pes::LongAdmitted(in, 99, k));
+  in.intention = 3;  // the veto is checked first
+  EXPECT_FALSE(pes::LongAdmitted(in, 99, k));
+}
+
+TEST(PesCarrierLong, TheRollAdmitsAtOrBelowTheScore) {
+  const pes::CarrierConstants k = Synthetic();
+  const pes::LongInput in = LongCarrier();  // score 30
+  EXPECT_TRUE(pes::LongAdmitted(in, 30, k));
+  EXPECT_FALSE(pes::LongAdmitted(in, 31, k));
+}
+
+TEST(PesCarrierLong, TheBaseFollowsTheCarrierPressureClass) {
+  const pes::CarrierConstants k = Synthetic();
+  pes::LongInput in = LongCarrier();
+  in.engagement = 0;
+  EXPECT_FLOAT_EQ(pes::LongScore(in, k), k.longBasePressed);
+  in.engagement = 2;
+  EXPECT_FLOAT_EQ(pes::LongScore(in, k), k.longBaseMid);
+  in.engagement = 3;
+  EXPECT_FLOAT_EQ(pes::LongScore(in, k), k.longBaseFree);
+}
+
+TEST(PesCarrierLong, COMAndEachSkillAddTheirOwnBonus) {
+  const pes::CarrierConstants k = Synthetic();
+  pes::LongInput in = LongCarrier();
+  in.engagement = 3;
+  in.comLongBallExpert = true;
+  EXPECT_FLOAT_EQ(pes::LongScore(in, k), k.longBaseFree + k.longComBonus);
+  in.comLongBallExpert = false;
+  in.skillWeightedPass = true;
+  EXPECT_FLOAT_EQ(pes::LongScore(in, k), k.longBaseFree + k.longSkillBonus);
+  in.skillLowLoftedPass = true;
+  EXPECT_FLOAT_EQ(pes::LongScore(in, k), k.longBaseFree + 2.0f * k.longSkillBonus);
+}
+
+TEST(PesCarrierLong, ATeamLevelAddsTwentyPerStepAndCapsAtForty) {
+  const pes::CarrierConstants k = Synthetic();
+  pes::LongInput in = LongCarrier();
+  in.level = 1;
+  EXPECT_FLOAT_EQ(pes::LongScore(in, k), k.longBasePressed + k.longLevelStep);
+  in.level = 2;
+  EXPECT_FLOAT_EQ(pes::LongScore(in, k), k.longBasePressed + 2.0f * k.longLevelStep);
+  in.level = 3;  // the binary's compares stop at two steps
+  EXPECT_FLOAT_EQ(pes::LongScore(in, k), k.longBasePressed + 2.0f * k.longLevelStep);
+}
+
+TEST(PesCarrierLong, TheLoftedRampAddsItsGainAboveSeventyAndSaturates) {
+  const pes::CarrierConstants k = Synthetic();
+  pes::LongInput in = LongCarrier();
+  in.lofted = k.statFloor;
+  EXPECT_FLOAT_EQ(pes::LongScore(in, k), k.longBasePressed);
+  in.lofted = k.statFloor + 0.5f * k.statSpan;
+  EXPECT_FLOAT_EQ(pes::LongScore(in, k), k.longBasePressed + 0.5f * k.longStatGain);
+  in.lofted = k.statFloor + 2.0f * k.statSpan;
+  EXPECT_FLOAT_EQ(pes::LongScore(in, k), k.longBasePressed + k.longStatGain);
+}
+
+TEST(PesCarrierLong, PathBTakesOnlyTheTwoSkillsAndTheRamp) {
+  const pes::CarrierConstants k = Synthetic();
+  pes::LongInput in = LongCarrier();
+  in.teamSetting = true;
+  in.engagement = 3;
+  in.comLongBallExpert = true;
+  in.level = 2;
+  in.lofted = k.statFloor + k.statSpan;  // full ramp
+  EXPECT_FLOAT_EQ(pes::LongScore(in, k), k.longStatGain);
+  in.skillWeightedPass = true;
+  in.skillLowLoftedPass = true;
+  EXPECT_FLOAT_EQ(pes::LongScore(in, k), 2.0f * k.longPathBSkillBonus + k.longStatGain);
 }
 
 pes::CarrierSeed SeedAt(float snapshot) {
@@ -766,6 +873,10 @@ TEST(PesCarrierInstall, TheZonesAndLaddersAreTheGamesOwn) {
   // score is its base plus exactly its own gain.
   EXPECT_GT(k->breakthroughStatGain, 0.0f);
   EXPECT_GT(k->crossStatGain, 0.0f);
+  EXPECT_GT(k->longComBonus, 0.0f);
+  EXPECT_GT(k->longSkillBonus, 0.0f);
+  EXPECT_GT(k->longLevelStep, 0.0f);
+  EXPECT_GT(k->longPathBSkillBonus, 0.0f);
   EXPECT_FLOAT_EQ(pes::PlanStartProbability(pes::kPlanBreakthrough, *k, k->statFloor + k->statSpan,
                                             false, true, false),
                   k->breakthroughComBase + k->breakthroughStatGain);

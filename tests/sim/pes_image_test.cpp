@@ -324,6 +324,28 @@ TEST(PesImageSelection, TheBreakthroughCancel) {
   EXPECT_FALSE(pes::ImagePlanCancelled(pes::kPlanMiddleShot, 3, true));
 }
 
+TEST(PesImageSelection, ASelectedPlanHoldsWhileItsOwnGatesPass) {
+  const pes::CarrierConstants k = ImageConstants();
+  const pes::CurveShotInput curve = ClearedCurveShot(k);
+  pes::LongInput longIn;
+  longIn.intention = 1;
+  longIn.engagement = 2;
+  // The curve shot holds while its head gates pass; Intention 2 drops it. This
+  // is the stand-in for its own cancel test, which is not decoded.
+  EXPECT_TRUE(pes::PlanStillHolds(pes::kPlanCurveShot, false, curve, longIn, k));
+  pes::CurveShotInput lowIntention = curve;
+  lowIntention.intention = 2;
+  EXPECT_FALSE(pes::PlanStillHolds(pes::kPlanCurveShot, false, lowIntention, longIn, k));
+  // Long holds until its veto fires; its choice eligibility does not enter.
+  EXPECT_TRUE(pes::PlanStillHolds(pes::kPlanLong, false, curve, longIn, k));
+  pes::LongInput vetoed = longIn;
+  vetoed.intention = 3;
+  EXPECT_FALSE(pes::PlanStillHolds(pes::kPlanLong, false, curve, vetoed, k));
+  // The rolled plans hold by their choice eligibility.
+  EXPECT_TRUE(pes::PlanStillHolds(pes::kPlanCross, true, curve, longIn, k));
+  EXPECT_FALSE(pes::PlanStillHolds(pes::kPlanCross, false, curve, longIn, k));
+}
+
 TEST(PesImageMode, ThePlanProducers) {
   const pes::CarrierConstants k = ImageConstants();
   // Breakthrough, MiddleShot and ShotPassFromGoal are always mode 1 (4.6),
