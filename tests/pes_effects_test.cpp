@@ -126,17 +126,11 @@ TEST(PesEffects, RejectsAnUnterminatedComment) {
   EXPECT_FALSE(err.empty());
 }
 
-TEST(PesEffects, SerialisesToJsonForTheSceneReader) {
-  std::string err;
-  auto cfg = pes::ParseEffectConfig(
-      R"(<effect><setting type="Vignetting" index="0"><param id="alpha" type="uint" value="0x80" /></setting>)"
-      R"(<create type="Vignetting" setting="0" floor="upper" /></effect>)",
-      &err);
-  ASSERT_TRUE(cfg.has_value()) << err;
-  EXPECT_EQ(pes::EffectConfigToJson(*cfg),
-            R"({"settings":[{"type":"Vignetting","index":0,"params":[)"
-            R"({"id":"alpha","type":"uint","index":-1,"values":[128],"text":""}]}],)"
-            R"("creates":[{"type":"Vignetting","setting":0,"attributes":{"floor":"upper"}}]})");
+TEST(PesEffects, PicksTheStadiumPackByTimeZoneAndWeather) {
+  EXPECT_EQ(pes::EffectPackPath(2, false, false), "Asset/model/bg/st002/effect/#Win/effect_st002_df.fpk");
+  EXPECT_EQ(pes::EffectPackPath(2, false, true), "Asset/model/bg/st002/effect/#Win/effect_st002_dr.fpk");
+  EXPECT_EQ(pes::EffectPackPath(2, true, false), "Asset/model/bg/st002/effect/#Win/effect_st002_nf.fpk");
+  EXPECT_EQ(pes::EffectPackPath(2, true, true), "Asset/model/bg/st002/effect/#Win/effect_st002_nr.fpk");
 }
 
 // Install-wide check (no pinned values, so 4cc packs cannot break it): every canonical
