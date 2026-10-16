@@ -141,4 +141,55 @@ std::optional<EventRingTable> LoadEventRingTable(const PeImage& exe, std::string
   return table;
 }
 
+void EventLog::Push(uint32_t ring, uint16_t slot) {
+  ++count;
+  if (count > kEntries) count = static_cast<uint32_t>(kEntries);
+  ++head;
+  if (head >= kEntries) head = 0;
+  entries[head].ring = ring;
+  entries[head].slot = slot;
+}
+
+void EventLog::Clear() {
+  count = 0;
+  head = 0;
+  for (auto& e : entries) e = EventLogEntry{};
+}
+
+int EventKindBlock::Push(const EventRecord& rec) {
+  ++count;
+  if (count > 1) count = 1;
+  ++head;
+  if (head != 0) head = 0;
+  record = rec;
+  return static_cast<int>(head);
+}
+
+void EventStore::Reset() {
+  for (auto& r : rings_) r = EventRing8{};
+  overflow_ = EventRing10{};
+  log_ = EventLog{};
+  for (auto& k : kindBlocks_) k = EventKindBlock{};
+  newest_.fill(0);
+  newestSecond_.fill(0);
+}
+
+void EventStore::Route(const EventRingTable& table, const EventRecord& rec) {
+  const uint32_t kind = rec.kind;
+  const int ring = table.RingOf(kind);
+  const int slot = (ring < 10) ? Ring(ring).Push(rec) : overflow_.Push(rec);
+  log_.Push(static_cast<uint32_t>(ring), static_cast<uint16_t>(slot));
+  if (kind == 7) {
+    // The kind-7 path also copies the payload to the newest slots.
+    std::memcpy(newest_.data(), reinterpret_cast<const uint8_t*>(&rec) + 0x14,
+                kNewestBytes);
+    const ActorKey key{rec.U32(0x18), rec.U32(0x1c)};  // payload+4
+    if (key.Valid()) {
+      std::memcpy(newestSecond_.data(), reinterpret_cast<const uint8_t*>(&rec) + 0x14,
+                  kNewestBytes);
+    }
+  }
+  if (kind < kKindBlockCount) kindBlocks_[kind].Push(rec);
+}
+
 }  // namespace pes

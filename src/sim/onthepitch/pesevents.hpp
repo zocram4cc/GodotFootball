@@ -133,4 +133,98 @@ struct EventRingTable {
 };
 std::optional<EventRingTable> LoadEventRingTable(const PeImage& exe, std::string* error);
 
+// FUN_140a3dac0's ring (rings 0..9 at E + r*0x1908) and FUN_140a3db80's
+// overflow ring (ring 10 at E+0xfa50): the same shape at two slot counts.
+template <size_t N>
+struct EventRing {
+  static constexpr size_t kSlots = N;
+  std::array<EventRecord, N> slots{};
+  uint32_t count = 0;  // +kSlots*800 in the store's own words
+  uint32_t head = 0;
+  // FUN_140a3dac0/FUN_140a3db80: count+1 (saturated at the slot count), head+1
+  // (wrapping at the slot count), then the 800-byte copy. Returns the slot.
+  int Push(const EventRecord& rec) {
+    ++count;
+    if (count > kSlots) count = static_cast<uint32_t>(kSlots);
+    ++head;
+    if (head >= kSlots) head = 0;
+    slots[head] = rec;
+    return static_cast<int>(head);
+  }
+  const EventRecord& Slot(int i) const { return slots[static_cast<size_t>(i)]; }
+};
+using EventRing8 = EventRing<8>;
+using EventRing10 = EventRing<0x40>;
+
+// FUN_140a3dc40's per-record write log at E+0x26ff0: 64 entries of
+// {u32 ring, u16 slot}, the count at E+0x271f0 saturated at 64, the head at
+// E+0x271f4 wrapping at 64. FUN_140a3e140 clears it at each detector pass.
+struct EventLogEntry {
+  uint32_t ring = 0;
+  uint16_t slot = 0;
+};
+struct EventLog {
+  static constexpr size_t kEntries = 64;
+  std::array<EventLogEntry, kEntries> entries{};
+  uint32_t count = 0;
+  uint32_t head = 0;
+  void Push(uint32_t ring, uint16_t slot);
+  void Clear();  // FUN_140a3e140
+};
+
+// FUN_140a3da00's per-kind block at E + 0x1c258 + K*0x328: the last record of
+// that kind, with the count at +0x320 sticky at 1 and the head at +0x324 held
+// at 0 (a second push overwrites the record in place).
+struct EventKindBlock {
+  EventRecord record{};
+  uint32_t count = 0;
+  uint32_t head = 0;
+  int Push(const EventRecord& rec);
+};
+
+// The store `E`. The rings, the overflow ring, the newest-event copy, the
+// per-kind blocks and the write log, in E's own offsets.
+class EventStore {
+ public:
+  static constexpr size_t kRingCount = 10;
+  static constexpr size_t kKindBlockCount = 56;
+  // FUN_140a3dc40's kind-7 newest copy: 0x60 bytes of the payload at
+  // E+0x180698, plus a second copy at E+0x1806fc written only when the key at
+  // rec+0x18 is valid (FUN_140a60530), which FUN_140a3e880 (E+0x180700) reads.
+  static constexpr size_t kNewestBytes = 0x60;
+
+  void Reset();
+
+  // FUN_140a3dc40: route a written record by its kind. The kind-0x1f special
+  // path (the per-index archive at E+0x27400 and the E+0x74990 log) is not
+  // ported: no detector this port produces carries that kind.
+  void Route(const EventRingTable& table, const EventRecord& rec);
+
+  // The rings, indexed by ring number (0..9).
+  EventRing8& Ring(int r) { return rings_[static_cast<size_t>(r)]; }
+  const EventRing8& Ring(int r) const { return rings_[static_cast<size_t>(r)]; }
+  EventRing10& OverflowRing() { return overflow_; }
+  const EventRing10& OverflowRing() const { return overflow_; }
+
+  EventLog& Log() { return log_; }
+  const EventLog& Log() const { return log_; }
+  EventKindBlock& KindBlock(int k) { return kindBlocks_[static_cast<size_t>(k)]; }
+  const EventKindBlock& KindBlock(int k) const {
+    return kindBlocks_[static_cast<size_t>(k)];
+  }
+
+  // E+0x180698: the newest kind-7 record's payload.
+  const std::array<uint8_t, kNewestBytes>& Newest() const { return newest_; }
+  // E+0x1806fc: the second copy, kept only while the key at rec+0x18 is valid.
+  const std::array<uint8_t, kNewestBytes>& NewestSecond() const { return newestSecond_; }
+
+ private:
+  std::array<EventRing8, kRingCount> rings_{};
+  EventRing10 overflow_{};
+  EventLog log_{};
+  std::array<EventKindBlock, kKindBlockCount> kindBlocks_{};
+  std::array<uint8_t, kNewestBytes> newest_{};
+  std::array<uint8_t, kNewestBytes> newestSecond_{};
+};
+
 }  // namespace pes
