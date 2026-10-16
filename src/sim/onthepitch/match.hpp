@@ -157,16 +157,6 @@ public:
   pes::ActorKey PesActorKeyOf(const Player* player);
   // Seconds since a store record's frame, on PES's game-speed frames.
   float GetPesEventAge_s(int eventFrame) const;
-  // PES's ball-event history ring (pes-re-receiving.md §3: ring 0 the newest
-  // event, ring 1 the one before). Every touch pushes one.
-  struct BallEvent {
-    Player* player = nullptr;
-    int teamID = -1;
-    pes::BallEventKind kind = pes::BallEventKind::kTouch;
-    unsigned long time_ms = 0;
-    int pesFrame = 0;  // the logic frame of the touch (GetPesFrame)
-  };
-  const BallEvent& GetBallEvent(int age) const { return ballEvents[age]; }
   int GetLastTouchTeamID(e_TouchType touchType) const { return lastTouchTeamIDs[touchType]; }
   int GetLastTouchTeamID() const { return lastTouchTeamID; }
   Team* GetLastTouchTeam(e_TouchType touchType) {
@@ -522,7 +512,6 @@ protected:
   unsigned long pendingPenaltyDeadline_ms = 0;
   int lastTouchTeamIDs[e_TouchType_SIZE];
   int lastTouchTeamID = -1;
-  BallEvent ballEvents[2];
   // PES's event store and the routing table and constants it is written with (pesevents.hpp).
   pes::EventStore pesEvents;
   pes::EventRingTable pesEventRings{};

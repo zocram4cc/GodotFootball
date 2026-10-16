@@ -467,7 +467,6 @@ void Match::ResetSituation(const Vector3& focusPos) {
     lastTouchTeamIDs[i] = -1;
   }
   lastTouchTeamID = -1;
-  ballEvents[0] = ballEvents[1] = BallEvent{};
   pesEvents.Reset();
   pesDetectors = PesDetectorState{};
   lastGoalScorer = 0;
@@ -994,8 +993,6 @@ void Match::ReplacePlayerReferences(Player* playerOut, Player* playerIn) {
     ballRetainer = playerIn;
   if (lastGoalScorer == playerOut)
     lastGoalScorer = nullptr;
-  for (BallEvent& event : ballEvents)
-    if (event.player == playerOut) event.player = playerIn;
   // The mental images hold snapshots of a humanoid that no longer exists.
   InvalidateCachedMentalImages();
   mentalImages.clear();
