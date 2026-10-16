@@ -174,8 +174,8 @@ Scratch: `dec_89120.txt` (assembly), `dec_builders.txt` (`FUN_141ec3a20`,
 - **Pants regression on the fixed build (OBS, viewer):** the common
   `pants_out_sub` mesh, now built for a whole body, draws dark and white
   blobs over the cream shorts. `--hide pants_out_sub` removes them completely;
-  hiding `hand_l/hand_r` or `thigh_middle/socks_middle` does not. Cause OPEN
-  (skinning on the 42-bone body, or the uniform shader on this rig).
+  hiding `hand_l/hand_r` or `thigh_middle/socks_middle` does not. **Root cause
+  (§8): GF drew a part PES hides — it is not a skinning or shader fault.**
 - The viewer renders a normal outfield player (76711, team 767) almost
   entirely white in this environment, so it is not a usable control. The
   exposure gap is the B2/B3 issue recorded in `pes-kit-compare-b5.md` §3.
@@ -185,3 +185,39 @@ Scratch: `dec_89120.txt` (assembly), `dec_builders.txt` (`FUN_141ec3a20`,
 
 Verdict: the decode (§0–2) is OBS for the assembly and binder. The visual
 acceptance is NOT met. The fixed build is WIP and not for merge.
+
+## 8. Pants root cause (closed): PES hides `pants_out_sub` when the tail is in
+
+**Question from the follow-up:** does PES even draw `pants_out_sub` on a
+whole-body model, and on which skeleton?
+
+- **Built for everyone (CONFIRMED, `dec_89120.txt` l.496–523).** The slot loop
+  reaches the `pants_out_sub` branch (hash `0x4254cfba25a7`) for every outfield
+  look with shorts on; the branch consults only the pants flag, the tail flag
+  (`+0xBC`) and the shirt flag — no boots-pack, bone-name or skeleton test.
+- **Drawn only when the tail is out (CONFIRMED, same VA).** The branch sets the
+  part's visibility false when `+0xBC == 0` (tail in) or the shirt is off; the
+  `pants_in_sub` branch (l.496–500) is the exact mirror (hidden when the tail
+  is out and the shirt is worn). The live State-4 draw lists agree
+  (kit-assembly §8.4: tail-out players draw `pants_out_sub`, tail-in players
+  draw `pants_in_sub`; the pair is named there as the loaded-but-hidden
+  example). So for every tail-in look — all of team 760's — PES draws the
+  degenerate `pants_in_sub` placeholder and hides the real `pants_out_sub`.
+- **On the body skeleton (CONFIRMED, install files).** `pants_out_sub.fmdl`
+  carries 18 bones, all body-skeleton names (`dsk_hip`, `sk_belly`, `dsk_hem_*`,
+  `dsk_pants_*`) at body-skeleton positions; the k1595 boots body carries the
+  same bones at the same positions, and its `boots.skl` classifies as the
+  render pose. GF already binds common parts on the render-pose skin, so no
+  skeleton change was needed.
+- **GF's fault:** `SelectUniformParts` emitted `pants_out_sub` unconditionally
+  (plus `pants_in_sub` when tail-in), so for tail-in looks GF drew the real
+  shorts exactly where PES draws nothing but the Suit — the shaded uniform
+  cloth over the unshaded Suit shorts reads as dark/white blobs. The fix gates
+  the slot on the tail (`uniform.cpp`): tail out builds `pants_out_sub`
+  (tight/inner variants as before), tail in builds `pants_in_sub`. Normal
+  tail-in players are corrected by the same change (their `shirt_in` had been
+  hiding GF's wrongly-drawn outer shorts).
+- Killed: "skinning on the 42-bone body" (every pants bone resolves to a rig
+  joint at the rig's own positions; normal players draw this mesh cleanly) and
+  "the uniform shader on this rig" (same shader/material path as the clean
+  normal-player shorts).

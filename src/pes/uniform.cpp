@@ -230,13 +230,18 @@ std::vector<UniformPart> SelectUniformParts(const KitConfig& kit, const PlayerLo
       loose(SleeveModelName(sleeve, look.gloveId != 0, false, kit.tight)),
       common(SOCKS[look.socks & 3]),
       common(THIGHS[look.socks & 3]),
-      common(kit.tight ? "pants_out_sub_tight" : sleeve.type == INNER ? "pants_out_inner_sub" : "pants_out_sub"),
       common("hand_l"),
       common("hand_r"),
       common("eye_new"),
       common("mouth"),
   };
-  if (!look.shirtTailOut) parts.push_back(common("pants_in_sub"));
+  // The sub-shorts pair is mutually exclusive by tail: PES hides pants_out_sub
+  // when the tail is in (+0xBC == 0) and pants_in_sub when it is out
+  // (FUN_141a89120; kit-assembly 8.4). GF builds only the drawn one.
+  if (look.shirtTailOut)
+    parts.push_back(common(kit.tight ? "pants_out_sub_tight" : sleeve.type == INNER ? "pants_out_inner_sub" : "pants_out_sub"));
+  else
+    parts.push_back(common("pants_in_sub"));
   // FUN_141a8d530: no bare arm at all under a worn long or inner sleeve (by type,
   // even when the sleeve model is missing); otherwise half sleeves bare a half
   // arm and gloves a gloved one.
