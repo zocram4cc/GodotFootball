@@ -613,20 +613,54 @@ TEST(PesBallConversion, ASecondOfSimTicksIsASecondOfPesTicksWhileRolling) {
   ASSERT_TRUE(cc.has_value()) << err;
   const PesBallConstants c = *cc;
 
-  // The same rolling ball, one second of PES ticks and one second of the sim's
-  // ticks - 54 of each, since the sim ticks on PES's own frame (Milestone A1) -
-  // in the live contact mode this engine plays by default (kContactModeLive).
-  float vPes = 10.0f, vGf = 10.0f;
+  // A ball rolling below the spin cap has spin v/r and no slip (live: the rolling records, convention
+  // w = (v_z, 0, -v_x)/r). Report 3.3's block then adds nothing: A_dot = Hz, S3 = Hz, B = 1, so A = 0 and
+  // the horizontal is K per tick (report 5.2). The state carries across the ticks. The cap is 2 pi
+  // boundRollMax rad/s, i.e. 5.12 m/s on the ground (report 3.4), so 4 m/s is below it.
+  float vPes = 4.0f, vGf = 4.0f;
   for (int i = 0; i < 54; ++i) vPes *= pesball::RollingKeepFactor(c, pesball::ClampMode(c.contactMode), vPes);
+  const float r = c.image.ballRadius;
+  BallState s;
+  s.position = pes::Vec3(0, r, 0);
+  s.velocity = pes::Vec3(vGf, 0.0f, 0.0f);
+  s.spinRaw = pes::Vec3(0, 0, -vGf / r / c.image.spinScale);
   for (int i = 0; i < 54; ++i) {
-    BallState s;
-    s.position = pes::Vec3(0, c.image.ballRadius, 0);
-    s.velocity = pes::Vec3(vGf, 0.0f, 0.0f);
     pesball::ContactTick(c, &s, 0, true, false, pesball::kGfTick_s);
     vGf = s.velocity.x;
   }
-  EXPECT_NEAR(vGf, vPes, vPes * 0.05)
+  EXPECT_NEAR(vGf, vPes, vPes * 0.01)
       << "54 sim ticks and 54 PES ticks are both one second: " << vGf << " vs " << vPes;
+  EXPECT_NEAR(s.velocity.z, 0.0f, 1e-4f) << "a rolling ball does not drift sideways";
+}
+
+TEST(PesBallConversion, ARollingBallAboveTheSpinCapLosesMoreThanItsRollingKeep) {
+  // Above 5.12 m/s the spin cap (report 3.4, f^2 against boundRollMax^2) stops the spin at 2 pi * 7.5 rad/s,
+  // short of v/r, so the contact slips and friction takes more speed than the rolling keep alone (report
+  // 3.3's block). A ball that starts rolling at 10 m/s, with its state carried, must end below the rolling
+  // keep's own 54-tick decay.
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set: the ball constants come from the install";
+  std::string err;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  auto cc = pes::LoadPesBallConstants(*exe, vfs, &err);
+  ASSERT_TRUE(cc.has_value()) << err;
+  const PesBallConstants c = *cc;
+  float vPes = 10.0f, vGf = 10.0f;
+  for (int i = 0; i < 54; ++i) vPes *= pesball::RollingKeepFactor(c, pesball::ClampMode(c.contactMode), vPes);
+  const float r = c.image.ballRadius;
+  BallState s;
+  s.position = pes::Vec3(0, r, 0);
+  s.velocity = pes::Vec3(vGf, 0.0f, 0.0f);
+  s.spinRaw = pes::Vec3(0, 0, -vGf / r / c.image.spinScale);
+  for (int i = 0; i < 54; ++i) {
+    pesball::ContactTick(c, &s, 0, true, false, pesball::kGfTick_s);
+    vGf = s.velocity.x;
+  }
+  EXPECT_LT(vGf, vPes) << "the capped spin slips, so the ball ends slower than its rolling keep alone: " << vGf
+                       << " vs " << vPes;
 }
 TEST(PesBallContact, SpinAboutTheSidewaysAxisPushesARollingBallAcrossItsHeading) {
   // Report 3.3 (FUN_140876360 0x140876c0f..0x140876f6e): the rolling block builds the tangential vector
