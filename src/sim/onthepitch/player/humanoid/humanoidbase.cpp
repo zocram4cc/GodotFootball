@@ -1254,7 +1254,8 @@ void HumanoidBase::CalculateSpatialState() {
   spatialState.enumVelocity = FloatToEnumVelocity(spatialState.floatVelocity);
 
   if (spatialState.enumVelocity != e_Velocity_Idle) {
-    spatialState.directionVec = spatialState.movement.GetNormalized();
+    // a heading is flat: height in the movement is not a direction (SelectAnim asserts it)
+    spatialState.directionVec = spatialState.movement.Get2D().GetNormalized(bodyDirectionVec);
   } else {
     // too slow for comfort, use body direction as global direction
     spatialState.directionVec = bodyDirectionVec;

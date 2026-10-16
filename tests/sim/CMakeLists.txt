@@ -153,3 +153,8 @@ gtest_discover_tests(pes_clips_test PROPERTIES TIMEOUT 1800)
 add_executable(pes_offball_test pes_offball_test.cpp)
 target_link_libraries(pes_offball_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_offball_test)
+
+add_executable(sim_heading_test sim_heading_test.cpp)
+target_link_libraries(sim_heading_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(sim_heading_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(sim_heading_test PROPERTIES TIMEOUT 1800)
