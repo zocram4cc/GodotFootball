@@ -273,6 +273,81 @@ TEST(MoveStepWire, APlayedClipAdvancesAndIsNotRestartedByItsOwnMotion) {
   EXPECT_EQ(restarted, 0);
 }
 
+// A re-issue of the motion the body already plays changes its rate only (humanoidbase.cpp's hold). Built
+// without the hold, the re-issue selects the clip again and restarts it from frame 0.
+TEST(MoveStepWire, AReIssueOfThePlayedMotionDoesNotRestartTheClip) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const Played played = PlayedOf(p);
+      const Anim* a = p->GetCurrentAnim();
+      if (played.family != LocomotionFamily() || a->frameNum < 3) continue;
+      const Animation* clipBefore = a->anim;
+      const int frameBefore = a->frameNum;
+      p->CastHumanoid()->PlayIssuedClip(played.motion, 1.0f, false);
+      printf("[movestep-hold] frame %d re-issued, now %d\n", frameBefore, a->frameNum);
+      EXPECT_EQ(a->anim, clipBefore);
+      EXPECT_GE(a->frameNum, frameBefore);
+      return;
+    }
+  }
+  ADD_FAILURE() << "no locomotion clip reached frame 3";
+}
+
+// The FSM issues past its entry clip: the due requests the tail issues (FUN_1406b8340) are clips too. Built
+// without the tail, each player gets its one goto entry clip and no more.
+TEST(MoveStepWire, TheFsmKeepsIssuingAfterItsEntryClip) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  std::map<const Player*, uint32_t> lastSerial;
+  std::map<const Player*, int> issues;
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const uint32_t serial = p->GetIssuedClip().serial;
+      if (serial == lastSerial[p]) continue;
+      lastSerial[p] = serial;
+      ++issues[p];
+    }
+  }
+  int most = 0, multi = 0;
+  for (const auto& [player, count] : issues) {
+    most = std::max(most, count);
+    if (count > 1) ++multi;
+  }
+  printf("[movestep-reissue] players with more than one issue %d, most issues %d\n", multi, most);
+  EXPECT_GT(multi, 0);
+}
+
+// The contact stage (match.cpp step 6) writes a tripped body's rate after MOVESTEP's tick (PES's order:
+// the player's MOVESTEP before the contact reaction). MOVESTEP must leave that rate alone on a trip body.
+TEST(MoveStepWire, MoveStepLeavesATrippedBodysContactRateAlone) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  int tripped = 0, changed = 0;
+  for (int t = 0; t < kTicks && tripped < 200; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      if (p->GetCurrentFunctionType() != e_FunctionType_Trip) continue;
+      const float before = p->GetCurrentAnim()->playbackRate;
+      pesmovestep::ProcessMoveStep(*p, *match);
+      ++tripped;
+      if (p->GetCurrentAnim()->playbackRate != before) ++changed;
+    }
+  }
+  printf("[movestep-contact] tripped body ticks %d, rate changed %d\n", tripped, changed);
+  EXPECT_GT(tripped, 0);
+  EXPECT_EQ(changed, 0);
+}
+
 // CurrentMotion is the PES motion number the body plays (movestep.hpp: PES's motion id), and -1
 // when the AI's own clip plays. Built on main it returns the GF anim id, which is another space.
 TEST(MoveStepWire, CurrentMotionIsThePesMotionTheBodyPlays) {
