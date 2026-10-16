@@ -144,6 +144,14 @@ void FlightTick(const pes::PesBallConstants& c, BallState* state, float dt_s, bo
 // and no horizontal velocity, which skips the flight function entirely.
 bool IsResting(const pes::PesBallConstants& c, const BallState& s);
 
+// One PES tick of the ball, in PES's order (reports 2.1, 2.3, 6.3). A resting ball stays put.
+// A ball in flight takes a flight step, and a step that crosses the ground is resolved as a
+// contact in that same tick: y = r, the response, and no position step after it, so the landing
+// record keeps the flight step's x and z (docs/re/pes-re-ball-track-live.md 2.7). A ball on the
+// ground takes its contact tick and then steps on the new velocity. Returns true when a contact
+// tick ran, so the caller counts it.
+bool BallTick(const pes::PesBallConstants& c, BallState* state, unsigned tickIndex, float dt_s);
+
 }  // namespace pesball
 
 #endif

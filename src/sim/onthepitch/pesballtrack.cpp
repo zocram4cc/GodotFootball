@@ -21,18 +21,8 @@ Track BuildTrack(const pes::PesBallConstants& c, const TrackStart& start, const 
   for (unsigned k = 1; k < kTrackLength; ++k) {
     const pes::Vec3 stepStart = s.position;
 
-    if (IsResting(c, s)) {
-      // Report 2.1: a resting ball skips the flight function entirely.
-      s.velocity = pes::Vec3(0.0f, 0.0f, 0.0f);
-    } else if (s.position.y <= r) {
-      // Report 2.3: the contact tick rewrites the velocity, and the position follows
-      // on it, as PES's next flight step does.
-      ContactTick(c, &s, contactTicks, true, false, kPesTick_s);
-      ++contactTicks;
-      s.position = s.position + s.velocity * kPesTick_s;
-    } else {
-      FlightTick(c, &s, kPesTick_s, false);
-    }
+    // Reports 2.1 to 6.3: the ball's own tick, the same step the live ball takes (ball.cpp).
+    if (BallTick(c, &s, contactTicks, kPesTick_s)) ++contactTicks;
 
     // Report 3.2: the frame response runs on every tick, so the sampler sees the
     // woodwork too.
