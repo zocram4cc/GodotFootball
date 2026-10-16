@@ -182,6 +182,41 @@ TEST(PesMbinfoInstall, TheMotionTableHoldsTheFirstRecordsOfEachMotionAsTheBinsSa
   }
   EXPECT_GT(checked, 0);
 }
+TEST(PesMbinfoInstall, HitDataLandsOnTheMotionsOwnAnimationRecord) {
+  // PES's HitData builder FUN_1406ad300 files each record at (w0 & 0x1fff) +
+  // 0x11 (AND AX,0x1fff at 0x1406ad42a..0x1406ad434, ADD AX,0x11 at
+  // 0x1406ad438); the Animation builder FUN_1406ac4d0 files at w0 & 0x1fff
+  // with no add. So a HitData record's own clip is the Animation record 0x11
+  // above its raw word: every raw word whose shifted motion has an Animation
+  // record also has that Animation record's motion in the HitData index.
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto m = pes::LoadMbinfo(vfs, *exe, &err);
+  ASSERT_TRUE(m.has_value()) << err;
+  auto hit = vfs.Read("common/anime/Mbinfo/bin/HitData.bin", &err);
+  ASSERT_TRUE(hit.has_value()) << err;
+  ASSERT_FALSE(hit->empty());
+  int checked = 0;
+  for (size_t o = 0; o + 108 <= hit->size(); o += 108) {
+    uint32_t w = 0;
+    std::memcpy(&w, &(*hit)[o], 4);
+    const int raw = int(w & 0x1fff), motion = raw + 0x11;
+    if (m->Timing(motion) == nullptr) continue;  // shifted motion has no clip
+    const auto& hits = m->Hits(motion);
+    ASSERT_FALSE(hits.empty()) << "raw motion " << raw;
+    bool found = false;
+    for (const auto& h : hits)
+      if (h.frame == int((w >> 13) & 0xff)) found = true;
+    EXPECT_TRUE(found) << "motion " << motion;
+    if (++checked == 64) break;
+  }
+  EXPECT_GT(checked, 0);
+}
 
 TEST(PesMbinfoInstall, EveryKeptListIsNoLongerThanItsCap) {
   const char* root = std::getenv("PES21_ROOT");
