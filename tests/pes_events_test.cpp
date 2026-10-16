@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <memory>
 #include <utility>
 
 #include <cstdlib>
@@ -51,6 +52,18 @@ std::array<uint32_t, 56> ObsRingTable() {
       {37, 5}, {4, 6}, {14, 7}, {43, 9}, {55, 0}}};
   for (const auto& [kind, ring] : routed) table[kind] = ring;
   return table;
+}
+
+// A PE image of the install's routing table, for tests that need a real
+// EventRingTable without the install.
+std::unique_ptr<pes::PeImage> TableFromObs() {
+  auto b = SectionPe(kImageBase, kTableSectionVa, 0x1000);
+  std::memcpy(&b[0x400 + (kTableVa - kImageBase - kTableSectionVa)], ObsRingTable().data(),
+              56 * 4);
+  std::string err;
+  auto pe = pes::PeImage::Parse(std::move(b), &err);
+  if (!pe) return nullptr;
+  return std::make_unique<pes::PeImage>(std::move(*pe));
 }
 
 // FUN_140a3cdd0: the record comes back as the empty record, not zeroed-and-done.
@@ -302,18 +315,15 @@ TEST(PesEventStore, NewestCopyFollowsKindSevenAndTheKey) {
   ASSERT_TRUE(table) << err;
 
   pes::EventStore store;
-  const auto payload_word = [&store](size_t off) {
-    uint32_t v = 0;
-    std::memcpy(&v, &store.Newest()[off], 4);
-    return v;
-  };
+  const auto payload_word = [&store](uint32_t off) { return store.Newest().U32(off); };
+  const auto second_word = [&store](uint32_t off) { return store.NewestSecond().U32(off); };
 
   pes::EventRecord other;
   other.Write(30, 10, 10, 0.f, 1);
   other.SetActionKind(30);
   store.Route(*table, other);
-  EXPECT_EQ(payload_word(0), 0u);  // no copy for a kind the table does not send
-  EXPECT_EQ(store.NewestSecond()[0], 0u);
+  EXPECT_EQ(store.NewestOrRing0(0), nullptr);  // no copy for a non-kind-7 record
+  EXPECT_EQ(second_word(4), 0u);
 
   pes::EventRecord touch;
   touch.Write(7, 20, 20, 0.f, 1);
@@ -322,15 +332,11 @@ TEST(PesEventStore, NewestCopyFollowsKindSevenAndTheKey) {
   touch.SetU32(0x1c, 4);   // payload+8: the key's slot word
   touch.SetU32(0x24, 21);  // payload+0x10: the frame
   store.Route(*table, touch);
-  EXPECT_EQ(payload_word(0), 7u);
-  EXPECT_EQ(payload_word(4), 1u);
-  EXPECT_EQ(payload_word(8), 4u);
-  uint32_t frame = 0;
-  std::memcpy(&frame, &store.Newest()[0x10], 4);
-  EXPECT_EQ(frame, 21u);
-  uint32_t second = 0;
-  std::memcpy(&second, &store.NewestSecond()[4], 4);
-  EXPECT_EQ(second, 1u);  // the second copy is in step: the key is valid
+  EXPECT_EQ(payload_word(0x14), 7u);
+  EXPECT_EQ(payload_word(0x18), 1u);
+  EXPECT_EQ(payload_word(0x1c), 4u);
+  EXPECT_EQ(payload_word(0x24), 21u);
+  EXPECT_EQ(second_word(0x18), 1u);  // the second copy is in step: the key is valid
 
   pes::EventRecord bad;
   bad.Write(7, 30, 30, 0.f, 1);
@@ -338,10 +344,277 @@ TEST(PesEventStore, NewestCopyFollowsKindSevenAndTheKey) {
   bad.SetU32(0x18, 9);  // an invalid team word: FUN_140a60530 fails
   bad.SetU32(0x24, 31);
   store.Route(*table, bad);
-  EXPECT_EQ(payload_word(0), 7u);
-  EXPECT_EQ(payload_word(4), 9u);  // the first copy still follows the newest
-  std::memcpy(&second, &store.NewestSecond()[4], 4);
-  EXPECT_EQ(second, 1u);  // the second copy keeps the last valid key
+  EXPECT_EQ(payload_word(0x14), 7u);
+  EXPECT_EQ(payload_word(0x18), 9u);  // the first copy still follows the newest
+  EXPECT_EQ(second_word(0x18), 1u);  // the second copy keeps the last valid key
+}
+
+// A store that routes records the way PES's detectors write them, for the
+// reader tests: the payload's action kind, its frame and its actor key.
+class RoutedStore {
+ public:
+  explicit RoutedStore(const pes::EventRingTable& t) : table_(t) {}
+  void Push(uint32_t routeKind, uint32_t actionKind, int frame, pes::ActorKey key) {
+    pes::EventRecord rec;
+    rec.Reset();
+    rec.Write(routeKind, frame, frame, 0.f, 1);
+    rec.SetActionKind(actionKind);
+    rec.SetU32(0x18, key.team);
+    rec.SetU32(0x1c, key.slot);
+    rec.SetU32(0x24, frame);
+    store_.Route(table_, rec);
+  }
+  pes::EventStore& store() { return store_; }
+
+ private:
+  const pes::EventRingTable& table_;
+  pes::EventStore store_;
+};
+
+// A ring slot still holding the 0x37 sentinel reads as no record, which is what
+// FUN_140a3e190's `*piVar2 == 0x37` test does before it hands back the payload.
+TEST(PesEventReaders, AnEmptySlotReadsAsNoRecord) {
+  auto pe = TableFromObs();
+  ASSERT_TRUE(pe);
+  std::string err;
+  auto table = pes::LoadEventRingTable(*pe, &err);
+  ASSERT_TRUE(table) << err;
+  RoutedStore s(*table);
+  s.Push(7, 7, 10, pes::ActorKey{0, 1});
+  s.Push(7, 7, 20, pes::ActorKey{0, 2});
+  // Ring 0's head is 2 after two pushes: n == 1 reads slot 1, n == 2 reads the
+  // slot no push has reached.
+  EXPECT_EQ(s.store().NewestOrRing0(2), nullptr);  // past the count
+  EXPECT_NE(s.store().NewestOrRing0(1), nullptr);
+  pes::EventRecord empty;
+  empty.Reset();
+  s.store().Ring(0).slots[1] = empty;
+  EXPECT_EQ(s.store().NewestOrRing0(1), nullptr);  // the sentinel reads as empty
+}
+
+// FUN_140a3e190: n == 0 is the newest, n >= 1 walks ring 0 back from its head,
+// and both fall back to the empty sentinel.
+TEST(PesEventReaders, NewestOrRing0WalksRingZero) {
+  auto pe = TableFromObs();
+  ASSERT_TRUE(pe);
+  pes::EventRingTable table;
+  std::string err;
+  auto loaded = pes::LoadEventRingTable(*pe, &err);
+  ASSERT_TRUE(loaded) << err;
+  table = *loaded;
+  RoutedStore s(table);
+
+  EXPECT_EQ(s.store().NewestOrRing0(0), nullptr);  // nothing routed yet
+  EXPECT_EQ(s.store().NewestOrRing0(1), nullptr);  // ring 0 is empty
+
+  const pes::ActorKey k0{0, 3};
+  const pes::ActorKey k1{1, 7};
+  const pes::ActorKey k2{0, 10};
+  s.Push(7, 7, 100, k0);
+  s.Push(7, 7, 200, k1);
+  s.Push(7, 2, 300, k2);  // a pass: the action kind is what readers see
+
+  const pes::EventRecord* newest = s.store().NewestOrRing0(0);
+  ASSERT_NE(newest, nullptr);
+  EXPECT_EQ(newest->ActionKind(), 2u);
+  EXPECT_EQ(newest->ActionFrame(), 300);
+  EXPECT_EQ(s.store().NewestOrRing0(1)->ActionFrame(), 200);
+  EXPECT_EQ(s.store().NewestOrRing0(2)->ActionFrame(), 100);
+  EXPECT_EQ(s.store().NewestOrRing0(3), nullptr);  // only three in the ring
+}
+
+// FUN_140a3e150: ring k in 0..9; the overload ring (10) is not one of them.
+TEST(PesEventReaders, RingRecordTakesAnyRingUnderTen) {
+  auto pe = TableFromObs();
+  ASSERT_TRUE(pe);
+  std::string err;
+  auto table = pes::LoadEventRingTable(*pe, &err);
+  ASSERT_TRUE(table) << err;
+  RoutedStore s(*table);
+  s.Push(30, 30, 500, pes::ActorKey{1, 2});  // the foul ring
+  s.Push(5, 5, 600, pes::ActorKey{0, 1});    // the overflow ring
+  ASSERT_NE(s.store().RingRecord(4, 0), nullptr);
+  EXPECT_EQ(s.store().RingRecord(4, 0)->ActionFrame(), 500);
+  EXPECT_EQ(s.store().RingRecord(4, 1), nullptr);
+  EXPECT_EQ(s.store().RingRecord(5, 0), nullptr);  // ring 5 holds only kind 37
+  EXPECT_EQ(s.store().RingRecord(10, 0), nullptr);  // FUN_140a3e150 stops at 9
+}
+
+// FUN_140a3e7d0: ring 1's record's key is at rec+0x1c (payload+8), not the
+// +0x18 word rings 0..9 use.
+TEST(PesEventReaders, Ring1KeyReadsPayloadPlusEight) {
+  auto pe = TableFromObs();
+  ASSERT_TRUE(pe);
+  std::string err;
+  auto table = pes::LoadEventRingTable(*pe, &err);
+  ASSERT_TRUE(table) << err;
+  RoutedStore s(*table);
+  // A kind-8 record routes to ring 1; its key word at payload+8 is what the
+  // key reader takes.
+  pes::EventRecord rec;
+  rec.Reset();
+  rec.Write(8, 10, 10, 0.f, 1);
+  rec.SetU32(0x1c, 1);
+  rec.SetU32(0x20, 4);
+  s.store().Route(*table, rec);
+  pes::ActorKey key = s.store().Ring1Key(0);
+  EXPECT_TRUE(key.Valid());
+  EXPECT_EQ(key.team, 1u);
+  EXPECT_EQ(key.slot, 4u);
+  EXPECT_FALSE(s.store().Ring1Key(1).Valid());  // the empty key
+}
+
+// FUN_140a3e880: the second copy's key, E+0x180700.
+TEST(PesEventReaders, NewestSecondKeyFollowsTheValidCopy) {
+  auto pe = TableFromObs();
+  ASSERT_TRUE(pe);
+  std::string err;
+  auto table = pes::LoadEventRingTable(*pe, &err);
+  ASSERT_TRUE(table) << err;
+  RoutedStore s(*table);
+  EXPECT_FALSE(s.store().NewestSecondKey().Valid());
+  s.Push(7, 7, 10, pes::ActorKey{1, 5});
+  pes::ActorKey key = s.store().NewestSecondKey();
+  EXPECT_TRUE(key.Valid());
+  EXPECT_EQ(key.team, 1u);
+  EXPECT_EQ(key.slot, 5u);
+}
+
+// FUN_140a3e940: the per-kind last record; FUN_140a3e5d0: the n-th newest
+// record of a kind, through the write log.
+TEST(PesEventReaders, KindLastAndKindNthUseTheBlocksAndTheLog) {
+  auto pe = TableFromObs();
+  ASSERT_TRUE(pe);
+  std::string err;
+  auto table = pes::LoadEventRingTable(*pe, &err);
+  ASSERT_TRUE(table) << err;
+  RoutedStore s(*table);
+  s.Push(7, 7, 10, pes::ActorKey{0, 1});
+  s.Push(30, 30, 20, pes::ActorKey{1, 2});
+  s.Push(7, 3, 30, pes::ActorKey{0, 4});
+  s.Push(7, 2, 40, pes::ActorKey{1, 6});
+
+  ASSERT_NE(s.store().KindLast(7), nullptr);
+  EXPECT_EQ(s.store().KindLast(7)->ActionFrame(), 40);
+  EXPECT_EQ(s.store().KindLast(30)->ActionFrame(), 20);
+  EXPECT_EQ(s.store().KindLast(9), nullptr);  // never pushed
+
+  ASSERT_NE(s.store().KindNth(7, 0), nullptr);
+  EXPECT_EQ(s.store().KindNth(7, 0)->ActionFrame(), 40);  // newest first
+  EXPECT_EQ(s.store().KindNth(7, 1)->ActionFrame(), 30);
+  EXPECT_EQ(s.store().KindNth(7, 2)->ActionFrame(), 10);
+  EXPECT_EQ(s.store().KindNth(7, 3), nullptr);
+  EXPECT_EQ(s.store().KindNth(30, 0)->ActionFrame(), 20);
+}
+
+// FUN_140a3e3b0: the newest kind-5 (shot) record, over the newest then ring 0.
+TEST(PesEventReaders, LastShotSkipsNonShotRecords) {
+  auto pe = TableFromObs();
+  ASSERT_TRUE(pe);
+  std::string err;
+  auto table = pes::LoadEventRingTable(*pe, &err);
+  ASSERT_TRUE(table) << err;
+  RoutedStore s(*table);
+  EXPECT_EQ(s.store().LastShot(0), nullptr);
+  s.Push(7, 7, 10, pes::ActorKey{0, 1});
+  s.Push(7, 5, 20, pes::ActorKey{0, 2});
+  s.Push(7, 2, 30, pes::ActorKey{0, 3});
+  const pes::EventRecord* shot = s.store().LastShot(0);
+  ASSERT_NE(shot, nullptr);
+  EXPECT_EQ(shot->ActionFrame(), 20);
+  EXPECT_EQ(s.store().LastShot(15), nullptr);  // the frame filter excludes it
+  EXPECT_EQ(s.store().LastShot(25)->ActionFrame(), 20);
+}
+
+// FUN_140a6ce10: the busy test over the action kind.
+TEST(PesEventReaders, BusyForCoversFiveSixSevenAndNineToFourteen) {
+  auto busy = [](uint32_t kind, bool carrier, int role) {
+    pes::EventRecord rec;
+    rec.SetActionKind(kind);
+    return pes::BusyFor(rec, carrier, role);
+  };
+  EXPECT_TRUE(busy(9, false, 0));
+  EXPECT_TRUE(busy(14, true, 0));
+  EXPECT_TRUE(busy(6, false, 0));   // no carrier
+  EXPECT_TRUE(busy(7, false, 0));
+  EXPECT_FALSE(busy(7, true, 0));   // a carrier holds it
+  EXPECT_FALSE(busy(6, true, 0));
+  EXPECT_TRUE(busy(5, true, 3));    // a role-3 context
+  EXPECT_FALSE(busy(5, true, 5));   // the role is itself 5
+  EXPECT_FALSE(busy(5, false, 0));  // no context at all
+  EXPECT_FALSE(busy(1, false, 0));
+  EXPECT_FALSE(busy(15, true, 0));  // past the busy set
+}
+
+// FUN_1404fe9c0 step 2's kind set and window, and FUN_140a0b350 step 8's.
+TEST(PesEventReaders, LatchStepTwoAndTheDodgeWindow) {
+  EXPECT_TRUE(pes::IsLatchStepTwoKind(1));
+  EXPECT_TRUE(pes::IsLatchStepTwoKind(3));
+  EXPECT_TRUE(pes::IsLatchStepTwoKind(0x10));
+  EXPECT_FALSE(pes::IsLatchStepTwoKind(4));
+  EXPECT_FALSE(pes::IsLatchStepTwoKind(5));
+  EXPECT_FALSE(pes::IsLatchStepTwoKind(7));
+  EXPECT_EQ(pes::LatchStepTwoWindowFrames(54), 9);
+
+  auto pe = TableFromObs();
+  ASSERT_TRUE(pe);
+  std::string err;
+  auto table = pes::LoadEventRingTable(*pe, &err);
+  ASSERT_TRUE(table) << err;
+  RoutedStore s(*table);
+  s.Push(7, 1, 100, pes::ActorKey{1, 2});  // the newest event is team 1's
+  const float factor = 0.2f;               // DAT_142598578
+  EXPECT_TRUE(pes::DodgeWindowRefuses(s.store(), 1, 100, 54, factor));   // same frame
+  EXPECT_TRUE(pes::DodgeWindowRefuses(s.store(), 1, 110, 54, factor));   // 10 < 10.8
+  EXPECT_FALSE(pes::DodgeWindowRefuses(s.store(), 1, 111, 54, factor));  // 11 >= 10.8
+  EXPECT_FALSE(pes::DodgeWindowRefuses(s.store(), 0, 100, 54, factor));  // the other team
+}
+
+// FUN_140a62ea0/FUN_140a3b320: the player id a key names through its team's
+// roster, and the no-actor answer otherwise.
+TEST(PesEventReaders, ActorIdOfWalksTheRoster) {
+  const std::array<uint32_t, 0x28> roster{};  // filled per entry below
+  std::array<uint32_t, 0x28> r = roster;
+  r[3] = 7;   // roster entry 3 carries slot 7
+  r[12] = 9;  // entry 12 is past the starters
+  EXPECT_EQ(pes::ActorIdOf(pes::ActorKey{1, 7}, r, 1), 14);   // 1*11 + 3
+  EXPECT_EQ(pes::ActorIdOf(pes::ActorKey{0, 7}, r, 0), 3);
+  EXPECT_EQ(pes::ActorIdOf(pes::ActorKey{1, 9}, r, 1), 0xff);  // not a starter
+  EXPECT_EQ(pes::ActorIdOf(pes::ActorKey{2, 7}, r, 1), 0xff);  // no such team
+  EXPECT_EQ(pes::ActorIdOf(pes::NoActorKey(), r, 0), 0xff);
+}
+
+// The newest-event view: the fields the latch and the gate read.
+TEST(PesEventReaders, NewestEventViewCarriesTheLatchFields) {
+  auto pe = TableFromObs();
+  ASSERT_TRUE(pe);
+  std::string err;
+  auto table = pes::LoadEventRingTable(*pe, &err);
+  ASSERT_TRUE(table) << err;
+  RoutedStore s(*table);
+  EXPECT_FALSE(pes::NewestEvent(s.store()).present);
+
+  pes::EventRecord rec;
+  rec.Reset();
+  rec.Write(7, 42, 42, 0.f, 1);
+  rec.SetActionKind(3);
+  rec.SetU32(0x18, 1);  // payload+4
+  rec.SetU32(0x1c, 8);
+  rec.SetU32(0x24, 42);  // payload+0x10
+  rec.SetI32(0x30, 5);   // payload+0x1c
+  rec.SetU8(0x41, 1);    // payload+0x2d
+  rec.SetI32(0x54, 4);   // payload+0x40
+  s.store().Route(*table, rec);
+
+  pes::NewestEventView v = pes::NewestEvent(s.store());
+  EXPECT_TRUE(v.present);
+  EXPECT_EQ(v.kind, 3u);
+  EXPECT_EQ(v.frame, 42);
+  EXPECT_EQ(v.actor.team, 1u);
+  EXPECT_EQ(v.actor.slot, 8u);
+  EXPECT_EQ(v.field1c, 5);
+  EXPECT_EQ(v.flag2d, 1);
+  EXPECT_EQ(v.subKind, 4);
 }
 
 }  // namespace

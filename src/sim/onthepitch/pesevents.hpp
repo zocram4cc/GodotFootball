@@ -213,18 +213,84 @@ class EventStore {
     return kindBlocks_[static_cast<size_t>(k)];
   }
 
-  // E+0x180698: the newest kind-7 record's payload.
-  const std::array<uint8_t, kNewestBytes>& Newest() const { return newest_; }
-  // E+0x1806fc: the second copy, kept only while the key at rec+0x18 is valid.
-  const std::array<uint8_t, kNewestBytes>& NewestSecond() const { return newestSecond_; }
+  // E+0x180698: the newest kind-7 record's payload. PES keeps 0x60 bytes of
+  // the payload there; the record's own words are the payload copy's.
+  const EventRecord& Newest() const { return newest_; }
+  // E+0x1806fc: the second copy, written only while the key at rec+0x18 is
+  // valid, which FUN_140a3e880 (E+0x180700) reads as the newest event's other
+  // key.
+  const EventRecord& NewestSecond() const { return newestSecond_; }
+
+  // FUN_140a3e190: n == 0 is the newest event, n >= 1 walks ring 0 from its
+  // head. Null is PES's empty sentinel (an out-of-range n, or a slot whose
+  // kind word is the 0x37 sentinel).
+  const EventRecord* NewestOrRing0(int n) const;
+  // FUN_140a3e150: ring k in 0..9, the n-th newest record; null when out of
+  // range (this reader has no empty-slot test: it hands back the slot).
+  const EventRecord* RingRecord(int ring, int n) const;
+  // FUN_140a3e940: a kind's last record, from its per-kind block.
+  const EventRecord* KindLast(int kind) const;
+  // FUN_140a3e5d0: the n-th newest record of a kind, walking the write log
+  // backwards from its head. Null when there are fewer than n+1.
+  const EventRecord* KindNth(int kind, int n) const;
+  // FUN_140a3e3b0: the newest kind-5 (shot) record, searched over the newest
+  // event and then ring 0. `maxFrame` is the reader's third argument (0 = any
+  // frame); a record qualifies when its payload+0x10 is at or below it.
+  const EventRecord* LastShot(int maxFrame) const;
+
+  // FUN_140a3e7d0: ring 1's n-th newest record's key at rec+0x1c (payload+8).
+  ActorKey Ring1Key(int n) const;
+  // FUN_140a3e880: E+0x180700, the second copy's key.
+  ActorKey NewestSecondKey() const;
 
  private:
   std::array<EventRing8, kRingCount> rings_{};
   EventRing10 overflow_{};
   EventLog log_{};
   std::array<EventKindBlock, kKindBlockCount> kindBlocks_{};
-  std::array<uint8_t, kNewestBytes> newest_{};
-  std::array<uint8_t, kNewestBytes> newestSecond_{};
+  EventRecord newest_{};
+  EventRecord newestSecond_{};
+  bool hasNewest_ = false;       // the newest copy has been written at least once
+  bool hasNewestSecond_ = false;  // ... and so has the valid-key second copy
 };
+
+// FUN_140a62ea0 with FUN_140a3b320: the player id a {team, slot} key names,
+// walking the team's 0x28-entry roster (index -> slot) and taking
+// `team * 11 + index` while the index is a starter (< 11). 0xff names none.
+// `side` is the team record's own first word (FUN_140a3b320's multiplier).
+int ActorIdOf(const ActorKey& key, const std::array<uint32_t, 0x28>& roster, int side);
+
+// The newest event as its later consumers read it: FUN_1404fe9c0 step 2
+// (`*ev` the kind, `ev+0x10` the frame, `ev+4` the actor key), FUN_140a0b350
+// step 8 (the team at `ev+4`), and step 3's `+0x40` sub-kind, `+0x2d` flag and
+// `+0x1c` word (docs/re/pes-re-possession-latch.md §2, §15). `present` is false
+// when the store has no newest event (FUN_140a3e190's empty sentinel).
+struct NewestEventView {
+  bool present = false;
+  uint32_t kind = 0;    // payload+0
+  ActorKey actor{};     // payload+4
+  int32_t frame = 0;    // payload+0x10
+  int32_t field1c = 0;  // payload+0x1c
+  uint8_t flag2d = 0;   // payload+0x2d
+  int32_t subKind = 0;  // payload+0x40
+};
+NewestEventView NewestEvent(const EventStore& store);
+
+// FUN_1404fe9c0 step 2's kind set: the newest event takes its actor when the
+// kind is 1..3 or 0x10 (`*piVar14 - 1U < 3 || *piVar14 == 0x10`).
+bool IsLatchStepTwoKind(uint32_t kind);
+// FUN_1404fe9c0 step 2's window: within gs / 6 frames of the newest event.
+int LatchStepTwoWindowFrames(int gs);
+
+// FUN_140a0b350 step 8: refuse when the newest event's team is `side` and it is
+// younger than `gs * windowFactor` frames. The factor is DAT_142598578 = 0.2,
+// loaded as pes::DodgeConstants::lastEventWindowFactor (pesdodge.hpp).
+bool DodgeWindowRefuses(const EventStore& store, int side, int frame, int gs,
+                        float windowFactor);
+
+// FUN_140a6ce10: the busy test. `carrierIsPlayer` is FUN_140a627e0's
+// MA+0x2601c < 22, and `ctxRole` the role FUN_140a4d660 returns for the third
+// argument (0 when there is none).
+bool BusyFor(const EventRecord& rec, bool carrierIsPlayer, int ctxRole);
 
 }  // namespace pes

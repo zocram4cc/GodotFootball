@@ -170,8 +170,10 @@ void EventStore::Reset() {
   overflow_ = EventRing10{};
   log_ = EventLog{};
   for (auto& k : kindBlocks_) k = EventKindBlock{};
-  newest_.fill(0);
-  newestSecond_.fill(0);
+  newest_ = EventRecord{};
+  newestSecond_ = EventRecord{};
+  hasNewest_ = false;
+  hasNewestSecond_ = false;
 }
 
 void EventStore::Route(const EventRingTable& table, const EventRecord& rec) {
@@ -180,16 +182,147 @@ void EventStore::Route(const EventRingTable& table, const EventRecord& rec) {
   const int slot = (ring < 10) ? Ring(ring).Push(rec) : overflow_.Push(rec);
   log_.Push(static_cast<uint32_t>(ring), static_cast<uint16_t>(slot));
   if (kind == 7) {
-    // The kind-7 path also copies the payload to the newest slots.
-    std::memcpy(newest_.data(), reinterpret_cast<const uint8_t*>(&rec) + 0x14,
-                kNewestBytes);
+    // The kind-7 path also copies the payload to the newest slots. PES keeps
+    // 0x60 bytes there; only the payload half of the record is written.
+    hasNewest_ = true;
+    std::memcpy(reinterpret_cast<uint8_t*>(&newest_) + 0x14,
+                reinterpret_cast<const uint8_t*>(&rec) + 0x14, kNewestBytes);
     const ActorKey key{rec.U32(0x18), rec.U32(0x1c)};  // payload+4
     if (key.Valid()) {
-      std::memcpy(newestSecond_.data(), reinterpret_cast<const uint8_t*>(&rec) + 0x14,
-                  kNewestBytes);
+      std::memcpy(reinterpret_cast<uint8_t*>(&newestSecond_) + 0x14,
+                  reinterpret_cast<const uint8_t*>(&rec) + 0x14, kNewestBytes);
+      hasNewestSecond_ = true;
     }
   }
   if (kind < kKindBlockCount) kindBlocks_[kind].Push(rec);
+}
+
+const EventRecord* EventStore::NewestOrRing0(int n) const {
+  // FUN_140a3e190 returns E+0x180698 for n == 0 with no empty test: the copy is
+  // the store's own memory, which `hasNewest_` reports on.
+  if (n == 0) return hasNewest_ ? &newest_ : nullptr;
+  const EventRing8& ring = rings_[0];
+  if (static_cast<uint32_t>(n) >= ring.count) return nullptr;
+  int i = static_cast<int>(ring.head) - n;
+  if (i < 0) i += 8;
+  const EventRecord& slot = ring.slots[static_cast<size_t>(i)];
+  // An empty slot reads as PES's empty-event sentinel (an action kind of 0).
+  return slot.kind == EventRecord::kEmptyKind ? nullptr : &slot;
+}
+
+const EventRecord* EventStore::RingRecord(int ring, int n) const {
+  if (ring < 0 || ring >= static_cast<int>(kRingCount)) return nullptr;
+  const EventRing8& r = rings_[static_cast<size_t>(ring)];
+  if (static_cast<uint32_t>(n) >= r.count) return nullptr;
+  int i = static_cast<int>(r.head) - n;
+  if (i < 0) i += 8;
+  return &r.slots[static_cast<size_t>(i)];
+}
+
+const EventRecord* EventStore::KindLast(int kind) const {
+  if (kind < 0 || kind >= static_cast<int>(kKindBlockCount)) return nullptr;
+  const EventKindBlock& block = kindBlocks_[static_cast<size_t>(kind)];
+  if (block.count == 0) return nullptr;
+  // FUN_140a3da00 holds the head at 0, so the record sits in slot 0.
+  return &block.record;
+}
+
+const EventRecord* EventStore::KindNth(int kind, int n) const {
+  int seen = 0;
+  const uint32_t walk = log_.count < EventLog::kEntries
+                            ? log_.count
+                            : static_cast<uint32_t>(EventLog::kEntries);
+  for (uint32_t i = 0; i < walk; ++i) {
+    int idx = static_cast<int>(log_.head) - static_cast<int>(i);
+    if (idx < 0) idx += static_cast<int>(EventLog::kEntries);
+    const EventLogEntry& entry = log_.entries[static_cast<size_t>(idx)];
+    const EventRecord* rec = entry.ring < 10 ? &rings_[entry.ring].slots[entry.slot]
+                                             : &overflow_.slots[entry.slot];
+    if (rec->kind == static_cast<uint32_t>(kind)) {
+      if (seen == n) return rec;
+      ++seen;
+    }
+  }
+  return nullptr;
+}
+
+const EventRecord* EventStore::LastShot(int maxFrame) const {
+  for (int n = 0; n < 8; ++n) {
+    const EventRecord* rec = NewestOrRing0(n);
+    if (rec == nullptr) continue;
+    if (rec->ActionKind() == 5 && (maxFrame == 0 || rec->ActionFrame() <= maxFrame)) {
+      return rec;
+    }
+  }
+  return nullptr;
+}
+
+ActorKey EventStore::Ring1Key(int n) const {
+  const EventRing8& ring = rings_[1];
+  if (static_cast<uint32_t>(n) >= ring.count) return NoActorKey();
+  int i = static_cast<int>(ring.head) - n;
+  if (i < 0) i += 8;
+  const EventRecord& slot = ring.slots[static_cast<size_t>(i)];
+  if (slot.kind == EventRecord::kEmptyKind) return NoActorKey();  // FUN_140a60500
+  return ActorKey{slot.U32(0x1c), slot.U32(0x20)};  // payload+8
+}
+
+ActorKey EventStore::NewestSecondKey() const {
+  if (!hasNewestSecond_) return NoActorKey();  // nothing valid has been routed
+  uint32_t team = 0;
+  uint32_t slot = 0;
+  std::memcpy(&team, reinterpret_cast<const uint8_t*>(&newestSecond_) + 0x18, 4);
+  std::memcpy(&slot, reinterpret_cast<const uint8_t*>(&newestSecond_) + 0x1c, 4);
+  return ActorKey{team, slot};
+}
+
+int ActorIdOf(const ActorKey& key, const std::array<uint32_t, 0x28>& roster, int side) {
+  if (!key.Valid()) return 0xff;
+  for (size_t i = 0; i < roster.size(); ++i) {
+    if (roster[i] != key.slot) continue;
+    if (i > 10) return 0xff;  // FUN_140a3b320's 10 < uVar3
+    return side * 11 + static_cast<int>(i);
+  }
+  return 0xff;
+}
+
+NewestEventView NewestEvent(const EventStore& store) {
+  const EventRecord* rec = store.NewestOrRing0(0);
+  if (rec == nullptr) return NewestEventView{};
+  NewestEventView view;
+  view.present = true;
+  view.kind = rec->ActionKind();
+  view.actor = ActorKey{rec->U32(0x18), rec->U32(0x1c)};
+  view.frame = rec->ActionFrame();
+  view.field1c = rec->I32(0x30);
+  view.flag2d = rec->U8(0x41);
+  view.subKind = rec->I32(0x54);
+  return view;
+}
+
+bool IsLatchStepTwoKind(uint32_t kind) {
+  return (kind >= 1 && kind <= 3) || kind == 0x10;
+}
+
+int LatchStepTwoWindowFrames(int gs) { return gs / 6; }
+
+bool DodgeWindowRefuses(const EventStore& store, int side, int frame, int gs,
+                        float windowFactor) {
+  const EventRecord* rec = store.NewestOrRing0(0);
+  if (rec == nullptr) return false;
+  const uint32_t team = rec->U32(0x18);  // ev+4
+  if (team != static_cast<uint32_t>(side)) return false;
+  // PES's comparison is a float one: `gs * factor > age` (0x140a0b50c's mulss
+  // then `ja`), with the age sign-extended before the conversion.
+  const float age = static_cast<float>(static_cast<int64_t>(frame - rec->ActionFrame()));
+  return static_cast<float>(gs) * windowFactor > age;
+}
+
+bool BusyFor(const EventRecord& rec, bool carrierIsPlayer, int ctxRole) {
+  const uint32_t kind = rec.ActionKind();
+  if (kind == 5) return ctxRole != 0 && ctxRole != 5;
+  if ((kind == 6 || kind == 7) && !carrierIsPlayer) return true;
+  return kind >= 9 && kind <= 14;
 }
 
 }  // namespace pes
