@@ -318,6 +318,37 @@ TEST(SimMatch, PlayerIdsStartAtZeroInEveryMatch) {
   SetDB(nullptr);
 }
 
+// A squad member who never takes the field has no dynamic formation slot dealt to him. His
+// dynamic entry is read by the set-piece suitability (through GetDeployedSlot), so it must start
+// as his own static entry, as Player::Activate sets it for the starting eleven. Uninitialised,
+// it held garbage (valgrind: an uninitialised FormationEntry read in FormState::SlotFor).
+TEST(SimMatch, BenchPlayersStartWithTheirOwnFormationEntry) {
+  REQUIRE_RIG();
+  blunted::Database db;
+  ASSERT_TRUE(db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql"));
+  SetDB(&db);
+  // The second match is built over the first one's freed memory, where an uninitialised field
+  // still holds whatever the last match left there.
+  for (int match = 0; match < 2; ++match) {
+    MatchSetup setup = MakeSetup(SEED, SHORT_MATCH_MINUTES);
+    pestest::FillMissingPesConstants(&setup);
+    Match m(new MatchData(HOME_TEAM, AWAY_TEAM), setup, Properties());
+    for (int side = 0; side < 2; ++side) {
+      std::vector<Player*> players;
+      m.GetAllTeamPlayers(side, players);
+      for (Player* player : players) {
+        const FormationEntry dynamic = player->GetDynamicFormationEntry();
+        const FormationEntry own = player->GetFormationEntry();
+        EXPECT_EQ(dynamic.role, own.role)
+            << "match " << match << " side " << side << " player " << player->GetID();
+        EXPECT_EQ(dynamic.databasePosition.coords[1], own.databasePosition.coords[1])
+            << "match " << match << " side " << side << " player " << player->GetID();
+      }
+    }
+  }
+  SetDB(nullptr);
+}
+
 // Trailing by three, PES's CPU strategy decider (pesstrategy.hpp) must take
 // the team to an attacking level at the latest from the second half's switch
 // minute; the level is GF's mentality rung. With the CPU manager switched off

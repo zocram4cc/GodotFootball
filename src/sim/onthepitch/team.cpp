@@ -136,6 +136,9 @@ void Team::InitPlayers() {
     // Player::GetFormationEntry() -> Team::GetFormationEntry(playerID)) looks
     // the player up by scanning this same vector.
     players.push_back(std::move(playerPtr));
+    // Every squad member starts with his own formation entry as his dynamic one, the bench
+    // included: the set-piece suitability reads it for players who never activate.
+    player->SetDynamicFormationEntry(player->GetFormationEntry());
 
     if (i < activePlayerCount) {
       // activate playerCount players (the starting eleven, usually)

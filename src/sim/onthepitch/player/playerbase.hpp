@@ -151,7 +151,8 @@ protected:
   float confidenceFactor;
   // PES's stamina constants, copied from the MatchSetup once so the inline
   // getters above do not need a pointer back to the Match.
-  pes::StaminaConstants matchConstants;
+  // Zeroed: the officials never get stamina constants, and their empty tank returns early.
+  pes::StaminaConstants matchConstants{};
   pes::StaminaState stamina;
 
   float averageStat;
