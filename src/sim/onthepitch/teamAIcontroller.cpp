@@ -1465,10 +1465,9 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
   }
 
   if (isTakerTeam) {
-    // Who takes it (kicker report 1): PES reads the sheet's designated takers (TeamSheet::
-    // Taker, T+0x1454) first. GF's sheet carries that record, but no tactics import fills it
-    // yet, and no per-player set-piece ratings (playerdata+0x96) exist, so the suitability
-    // below is this engine's nearest standing for it.
+    // Who takes it (kicker report 1): the free-kick chooser reads the sheet's designated table
+    // (TeamSheet::Designated, T+0xa244), not the takers at T+0x1454, which it never reads. GF
+    // has no per-player set-piece ratings (playerdata+0x96), so the suitability below stands in.
     // ponytail: PES rates six kinds per player. GF's nearest stats stand in -
     // long free kick -> curl, short -> short pass, the second kicker -> tight
     // possession, both corners -> curl, penalty -> set piece - so a player who
@@ -1502,38 +1501,40 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
     }
 
     if (setPiece == e_SetPiece_FreeKick) {
-      // PES's waterfall, minus its designated branch: the keeper near his own
-      // goal, the nearest defender in our own half, the nearest outfield player
-      // from far out, and the rating fallback last.
+      // FUN_1404a8ad0 over every player of this side, keeper included. A candidate's index is
+      // his slot in the team's player list, the id the designated values name.
+      const std::vector<std::unique_ptr<Player>>& roster = team->GetAllPlayers();
       std::vector<pes::SetPieceCandidate> candidates;
-      for (unsigned int i = 0; i < onPitch.size(); i++) {
+      for (unsigned int i = 0; i < roster.size(); i++) {
+        Player* player = roster.at(i).get();
         pes::SetPieceCandidate c;
         c.index = static_cast<int>(i);
-        c.role = onPitch.at(i)->GetFormationEntry().role;
-        c.isKeeper = c.role == e_PlayerRole_GK;
-        c.suitability = suitability(onPitch.at(i), setPiece);
-        c.distanceToBall_m = (onPitch.at(i)->GetPosition() - ballPos).GetLength();
+        c.role = player->GetFormationEntry().role;
+        c.suitability = suitability(player, setPiece);
+        // ponytail: PES's slot target (T+0x4b4c+12i) has no decoded writer; the formation point
+        // the default placement uses stands in for it.
+        const Vector3 target = player->GetFormationEntry().position *
+                               Vector3(-team->GetSide() * pitchHalfW * 0.7,
+                                       -team->GetSide() * pitchHalfH * 0.7, 0);
+        c.targetX_m = target.coords[0];
+        c.targetZ_m = target.coords[1];
+        c.onPitch = player->IsActive();
         candidates.push_back(c);
       }
-      // PES's role filter for the far-out step is "role < 7", which is every
-      // role except the three forwards.
-      const int pick = pes::FreeKickTaker(candidates, ballPos.coords[0], ballPos.coords[1], dir,
-                                          dir * pitchHalfW, -dir * pitchHalfW,
-                                          pitchHalfW - SetPieceLaws::kAreaDepth,
-                                          SetPieceLaws::kAreaHalfWidth, spk);
-      if (pick >= 0 && pick < static_cast<int>(onPitch.size()))
-        taker = onPitch.at(pick);
-      else {
-        float best = -1.0f;
-        taker = onPitch.empty() ? 0 : onPitch.front();
-        for (unsigned int i = 0; i < onPitch.size(); i++) {
-          const float rating = suitability(onPitch.at(i), setPiece);
-          if (rating > best) {
-            best = rating;
-            taker = onPitch.at(i);
-          }
-        }
-      }
+      pes::FreeKickInput in;
+      in.x_m = ballPos.coords[0];
+      in.z_m = ballPos.coords[1];
+      in.dir = static_cast<float>(dir);
+      in.halfLength_m = pitchHalfW;
+      in.penaltyX_m = pitchHalfW - SetPieceLaws::kAreaDepth;
+      in.penaltyHalfZ_m = SetPieceLaws::kAreaHalfWidth;
+      // ponytail: PES's tactics import writes the designated roster values (S+0x143c, T+0xa244).
+      // GF's sheet keeps the install's default (DefaultTeamSheet) until that import is ported.
+      in.designated = {teamSheet.Designated(0), teamSheet.Designated(1), teamSheet.Designated(2)};
+      // ponytail: PES's MI+0x116c == 3, the restart phase that reuses the published kicker, has no
+      // GF field, so that step stays off.
+      const int pick = pes::FreeKickTaker(candidates, in, spk);
+      taker = pick >= 0 ? roster.at(pick).get() : nullptr;
     } else if (setPiece == e_SetPiece_GoalKick) {
       // PES gives a goal kick to the keeper outright (choreography §2, the slot
       // whose role is 0); the fallback below is only for a team with no keeper

@@ -184,82 +184,15 @@ float JogFraction(float budget_s, float dist_m, const SetPieceTeamConstants& k) 
   return std::min(1.0f, (JogSpeed_mps(k) * budget_s) / dist_m);
 }
 
-int PickBySuitability(const std::vector<SetPieceCandidate>& candidates) {
-  // FUN_140a621f0: over the slots on the pitch, the highest rating wins and the
-  // first one wins a tie. A keeper is excluded for every kind.
-  int best = -1;
-  float bestRating = -1.0f;
-  for (const SetPieceCandidate& c : candidates) {
-    if (!c.onPitch || c.isKeeper || c.index < 0) continue;
-    if (c.suitability > bestRating) {
-      bestRating = c.suitability;
-      best = c.index;
-    }
-  }
-  return best;
+// Red-stage stubs: the behaviour lands one waterfall step at a time.
+int PickBySuitability(const std::vector<SetPieceCandidate>&, int, int) { return -1; }
+
+int FreeKickTaker(const std::vector<SetPieceCandidate>&, const FreeKickInput&,
+                  const SetPieceTeamConstants&) {
+  return -1;
 }
 
-int FreeKickTaker(const std::vector<SetPieceCandidate>& candidates, float ballX, float ballZ,
-                  float dir, float attackedGoalX, float ownGoalX, float penaltyX,
-                  float penaltyHalfZ, const SetPieceTeamConstants& k) {
-  // FUN_1404a8ad0's waterfall without its first branch: the sheet's designated takers
-  // (TeamSheet::Designated, T+0x143c) are carried but not imported, and the index-to-kick
-  // map is not ported, so "the sheet's free-kick taker" is not read. What is left is the
-  // keeper, the own-half defender, the
-  // long-range midfielder and the rating fallback.
-  const float goalDx = ballX - attackedGoalX;
-  const float goalD = std::sqrt(goalDx * goalDx + ballZ * ballZ);
-  const bool ownHalf = dir * ballX < 0.0f;
-
-  // The keeper, when the ball is near the goal line inside the own box.
-  // Confirmed live: a free kick 21.8 m from its own goal was taken by that
-  // team's keeper, who was standing 46 m away.
-  if (std::fabs(ballZ) < penaltyHalfZ) {
-    const float ownDx = ballX - ownGoalX;
-    const float ownD = std::sqrt(ownDx * ownDx + ballZ * ballZ);
-    if (ownD < k.fkKeeperOwnGoal_m || dir * ballX < -penaltyX) {
-      for (const SetPieceCandidate& c : candidates)
-        if (c.onPitch && c.isKeeper) return c.index;
-    }
-  }
-
-  // In our own half: the nearest centre back or full back within 65 m. PES also
-  // excludes one slot it keeps as an outlet (T+0x4b40), which GF has no data for.
-  if (ownHalf) {
-    int best = -1;
-    float bestDist = k.fkNearest_m;
-    for (const SetPieceCandidate& c : candidates) {
-      if (!c.onPitch || c.isKeeper) continue;
-      if (!IsBackClass(c.role)) continue;
-      if (c.distanceToBall_m < bestDist) {
-        bestDist = c.distanceToBall_m;
-        best = c.index;
-      }
-    }
-    if (best >= 0) return best;
-  }
-
-  // A free kick from far out: the nearest outfield player within 65 m. PES's
-  // role filter is "role < 7", which is every role except the three forwards.
-  if (goalD > k.fkDesignatedFar_m) {
-    int best = -1;
-    float bestDist = k.fkNearest_m;
-    for (const SetPieceCandidate& c : candidates) {
-      if (!c.onPitch || c.isKeeper) continue;
-      if (c.role == e_PlayerRole_CF || c.role == e_PlayerRole_LW || c.role == e_PlayerRole_RW ||
-          c.role == e_PlayerRole_SS)
-        continue;
-      if (c.distanceToBall_m < bestDist) {
-        bestDist = c.distanceToBall_m;
-        best = c.index;
-      }
-    }
-    if (best >= 0) return best;
-  }
-
-  // The rating fallback: the best set-piece taker on the pitch.
-  return PickBySuitability(candidates);
-}
+FreeKickRepick FreeKickRepickGate(bool, bool, int) { return {}; }
 
 int WallSize(float ballToGoal_m, float ballAngle_deg, float ballX, float ballZ, float dir,
              float goalHalfLength, float penaltyX, float penaltyHalfZ,

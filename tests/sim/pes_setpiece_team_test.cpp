@@ -38,6 +38,7 @@ pes::SetPieceTeamConstants Measured() {
   k.fkDesignatedFar_m = 60.0f;
   k.fkKeeperOwnGoal_m = 28.0f;
   k.fkNearest_m = 65.0f;
+  k.fkSignFlip = -1.0f;
   k.wallDistance_m = 9.15f;
   k.wallSpacing_m = 0.5f;
   k.wallNearPost_m = 1.3f;
@@ -73,82 +74,167 @@ constexpr float kGoalHalfWidth = pesGoalInnerHalfWidth;
 constexpr float kPenaltyX = 36.0f;
 constexpr float kPenaltyHalfZ = 20.15f;
 
-pes::SetPieceCandidate Candidate(int index, e_PlayerRole role, float suitability,
-                                float distanceToBall_m, bool keeper = false,
-                                float aerial = 0.5f) {
+// A player on the pitch with his slot, role, rating and slot target (x, z).
+pes::SetPieceCandidate Candidate(int index, e_PlayerRole role, float suitability, float x,
+                                 float z) {
   pes::SetPieceCandidate c;
   c.index = index;
   c.role = role;
   c.suitability = suitability;
-  c.distanceToBall_m = distanceToBall_m;
-  c.isKeeper = keeper;
-  c.aerial = aerial;
+  c.targetX_m = x;
+  c.targetZ_m = z;
   c.onPitch = true;
   return c;
 }
 
+// A restart at (x, z) for a side attacking towards +x, with no designated kickers.
+pes::FreeKickInput Restart(float x, float z) {
+  pes::FreeKickInput in;
+  in.x_m = x;
+  in.z_m = z;
+  in.dir = 1.0f;
+  in.halfLength_m = kPitchHalfW;
+  in.penaltyX_m = kPenaltyX;
+  in.penaltyHalfZ_m = kPenaltyHalfZ;
+  return in;
+}
+
 }  // namespace
 
-// --- the taker waterfall (pes-re-setpiece-kicker.md 1.2) ----------------------
+// --- the free-kick chooser (FUN_1404a8ad0, docs/re/pes-re-taker-map.md 4) ---------
 
-// A free kick near the own goal is the keeper's, however far away he stands.
-// Confirmed live: an FK 21.8 m from its own goal was taken by that team's keeper
-// standing 46 m from it.
-TEST(SetPieceTaker, KeeperTakesAFreeKickDeepInHisOwnBox) {
-  std::vector<pes::SetPieceCandidate> squad{Candidate(0, e_PlayerRole_GK, 0.1f, 46.0f, true),
-                                            Candidate(4, e_PlayerRole_CB, 0.4f, 6.0f),
-                                            Candidate(9, e_PlayerRole_CF, 0.9f, 8.0f)};
-  // |z| < F[7] and within 28 m of the own goal: the keeper.
-  EXPECT_EQ(pes::FreeKickTaker(squad, -40.0f, 0.0f, 1.0f, kPitchHalfW, -kPitchHalfW, kPenaltyX,
-                               kPenaltyHalfZ, k),
-            0);
-  // Wide of the box line but still in the own half: a centre back, not the stiker.
-  EXPECT_EQ(pes::FreeKickTaker(squad, -20.0f, 0.0f, 1.0f, kPitchHalfW, -kPitchHalfW, kPenaltyX,
-                               kPenaltyHalfZ, k),
-            4);
-  // The own-half branch is a role branch, not a proximity one: a midfielder
-  // standing closer does not get it, even though the next step down would give
-  // it to him.
-  std::vector<pes::SetPieceCandidate> backs{Candidate(0, e_PlayerRole_GK, 0.1f, 46.0f, true),
-                                            Candidate(4, e_PlayerRole_CB, 0.4f, 20.0f),
-                                            Candidate(6, e_PlayerRole_CM, 0.4f, 3.0f)};
-  EXPECT_EQ(pes::FreeKickTaker(backs, -20.0f, 0.0f, 1.0f, kPitchHalfW, -kPitchHalfW, kPenaltyX,
-                               kPenaltyHalfZ, k),
-            4);
+// Step 1: the designated kicker of the kind the distance picks. Kind 1 inside 32 m of the
+// attacked goal, kind 0 inside 60 m, none beyond. Exactly 32 m and exactly 60 m fall to the
+// larger kind.
+TEST(SetPieceTaker, DesignatedKickerIsChosenByDistanceToTheAttackedGoal) {
+  std::vector<pes::SetPieceCandidate> squad{Candidate(0, e_PlayerRole_GK, 0.1f, -50.0f, 0.0f),
+                                            Candidate(3, e_PlayerRole_CM, 0.2f, 20.0f, 0.0f),
+                                            Candidate(4, e_PlayerRole_CF, 0.9f, 40.0f, 0.0f),
+                                            Candidate(5, e_PlayerRole_CB, 0.4f, -30.0f, 0.0f)};
+  auto at = [](float x) {
+    pes::FreeKickInput in = Restart(x, 0.0f);
+    in.designated = {3, 4, -1};
+    return in;
+  };
+  // Exactly 32 m out is kind 0 (slot 3); 12.5 m out is kind 1 (slot 4).
+  EXPECT_EQ(pes::FreeKickTaker(squad, at(20.5f), k), 3);
+  EXPECT_EQ(pes::FreeKickTaker(squad, at(40.0f), k), 4);
+  // Exactly 60 m out designates nobody: the own-half loop takes the centre back.
+  EXPECT_EQ(pes::FreeKickTaker(squad, at(-7.5f), k), 5);
+  // A designated man who is off the pitch is passed over.
+  squad[2].onPitch = false;
+  EXPECT_NE(pes::FreeKickTaker(squad, at(40.0f), k), 4);
 }
 
-// A free kick from far out is the nearest midfielder's, not the best taker's.
-TEST(SetPieceTaker, LongFreeKickGoesToTheNearestOutfielder) {
-  std::vector<pes::SetPieceCandidate> squad{Candidate(3, e_PlayerRole_CM, 0.2f, 3.0f),
-                                            Candidate(9, e_PlayerRole_CF, 0.95f, 20.0f)};
-  // 72.5 m from the goal being attacked, so `d > 60`, with no back on the pitch.
-  EXPECT_EQ(pes::FreeKickTaker(squad, -20.0f, 0.0f, 1.0f, kPitchHalfW, -kPitchHalfW, kPenaltyX,
-                               kPenaltyHalfZ, k),
-            3);
-  // With nobody else on the pitch the rating fallback takes over, and its role
-  // filter for a free kick is "anyone but the goalkeeper" - so even a striker may
-  // end up with one when the waterfall has exhausted everyone else.
-  std::vector<pes::SetPieceCandidate> only{Candidate(9, e_PlayerRole_CF, 0.95f, 20.0f)};
-  EXPECT_EQ(pes::FreeKickTaker(only, -20.0f, 0.0f, 1.0f, kPitchHalfW, -kPitchHalfW, kPenaltyX,
-                               kPenaltyHalfZ, k),
-            9);
-  // The nearest-man branch's role filter ("role < 7") is what keeps a striker out
-  // of a long free kick while there is anyone else to give it to.
-  std::vector<pes::SetPieceCandidate> squad2{Candidate(2, e_PlayerRole_LB, 0.3f, 7.0f),
-                                             Candidate(9, e_PlayerRole_CF, 0.95f, 20.0f)};
-  EXPECT_EQ(pes::FreeKickTaker(squad2, -20.0f, 0.0f, 1.0f, kPitchHalfW, -kPitchHalfW, kPenaltyX,
-                               kPenaltyHalfZ, k),
-            2);
+// Step 2: the published kicker is reused only in mode three, and never for a second kicker.
+TEST(SetPieceTaker, PublishedKickerIsReusedOnlyInModeThree) {
+  std::vector<pes::SetPieceCandidate> squad{Candidate(3, e_PlayerRole_CM, 0.2f, 20.0f, 0.0f),
+                                            Candidate(4, e_PlayerRole_CF, 0.9f, 40.0f, 0.0f),
+                                            Candidate(5, e_PlayerRole_CB, 0.4f, -30.0f, 0.0f)};
+  pes::FreeKickInput in = Restart(40.0f, 0.0f);
+  in.published = 3;
+  in.reuseMode = true;
+  EXPECT_EQ(pes::FreeKickTaker(squad, in, k), 3);
+  // Outside mode three the same restart goes to the rating fallback: the striker.
+  in.reuseMode = false;
+  EXPECT_EQ(pes::FreeKickTaker(squad, in, k), 4);
+  // The second kicker never reuses the first: the same mode, excluding slot 5.
+  in.reuseMode = true;
+  in.excluded = 5;
+  EXPECT_EQ(pes::FreeKickTaker(squad, in, k), 4);
 }
 
-// The rating fallback is the last resort and the goalkeeper is never in it.
-TEST(SetPieceTaker, RatingFallbackIsHighestSuitabilityFirstWins) {
-  std::vector<pes::SetPieceCandidate> squad{Candidate(0, e_PlayerRole_GK, 1.0f, 2.0f, true),
-                                           Candidate(2, e_PlayerRole_CM, 0.50f, 30.0f),
-                                           Candidate(6, e_PlayerRole_AM, 0.62f, 30.0f),
-                                           Candidate(7, e_PlayerRole_AM, 0.62f, 30.0f)};
-  EXPECT_EQ(pes::PickBySuitability(squad), 6);
+// Step 3: a restart near the own goal, inside the own box's width, is the keeper's, ahead of
+// the loops.
+TEST(SetPieceTaker, KeeperTakesAFreeKickNearHisOwnGoalAheadOfTheLoops) {
+  std::vector<pes::SetPieceCandidate> squad{Candidate(0, e_PlayerRole_GK, 0.1f, -50.0f, 0.0f),
+                                            Candidate(5, e_PlayerRole_CB, 0.4f, -30.0f, 0.0f),
+                                            Candidate(9, e_PlayerRole_CF, 0.9f, 30.0f, 0.0f)};
+  // 12.5 m from his own goal, a centre back stands 10 m away; the keeper still takes it.
+  EXPECT_EQ(pes::FreeKickTaker(squad, Restart(-40.0f, 0.0f), k), 0);
+  // Exactly 28 m from the own goal is outside the 28 m test.
+  EXPECT_EQ(pes::FreeKickTaker(squad, Restart(-24.5f, 0.0f), k), 5);
+  // Beyond the penalty-area half width (|z| >= F[7]) the keeper stays out.
+  EXPECT_EQ(pes::FreeKickTaker(squad, Restart(-40.0f, 25.0f), k), 5);
 }
+
+// Step 4: the own-half loop takes the nearest centre or full back within 65 m. No other role
+// counts, and a man 65 m or more away does not.
+TEST(SetPieceTaker, OwnHalfLoopTakesTheNearestBackWithinSixtyFiveMetres) {
+  std::vector<pes::SetPieceCandidate> squad{Candidate(0, e_PlayerRole_GK, 0.1f, -50.0f, -60.0f),
+                                            Candidate(5, e_PlayerRole_CB, 0.5f, -20.0f, 10.0f),
+                                            Candidate(6, e_PlayerRole_CM, 0.3f, -20.0f, 25.0f),
+                                            Candidate(9, e_PlayerRole_CF, 0.9f, -20.0f, 30.0f)};
+  // The midfielder is 5 m away but is not a back; the centre back at 20 m is the loop's pick.
+  EXPECT_EQ(pes::FreeKickTaker(squad, Restart(-20.0f, 30.0f), k), 5);
+  // A back 70 m from the restart is outside the 65 m bound, so the rating fallback runs.
+  std::vector<pes::SetPieceCandidate> far{Candidate(5, e_PlayerRole_CB, 0.5f, -20.0f, -40.0f),
+                                          Candidate(9, e_PlayerRole_CF, 0.9f, -20.0f, 30.0f)};
+  EXPECT_EQ(pes::FreeKickTaker(far, Restart(-20.0f, 30.0f), k), 9);
+}
+
+// Step 5: more than 60 m from the attacked goal, the nearest outfielder who is not a
+// striker, within 65 m. The keeper is in this loop too.
+TEST(SetPieceTaker, FarLoopTakesTheNearestNonStrikerFromFarOut) {
+  std::vector<pes::SetPieceCandidate> squad{Candidate(0, e_PlayerRole_GK, 0.1f, -50.0f, 0.0f),
+                                            Candidate(8, e_PlayerRole_AM, 0.3f, 10.0f, 30.0f),
+                                            Candidate(9, e_PlayerRole_CF, 0.9f, 5.0f, 40.0f)};
+  // 66 m from the attacked goal. The striker is 5 m away but excluded; the attacking mid is 14 m.
+  EXPECT_EQ(pes::FreeKickTaker(squad, Restart(0.0f, 40.0f), k), 8);
+}
+
+// Step 6: the rating fallback takes the highest rating, the first slot on a tie. The keeper
+// is in it only for kind 0.
+TEST(SetPieceTaker, RatingFallbackKeepsTheKeeperForKindZeroAndTheFirstOnATie) {
+  std::vector<pes::SetPieceCandidate> squad{Candidate(0, e_PlayerRole_GK, 1.0f, -50.0f, -60.0f),
+                                            Candidate(9, e_PlayerRole_CF, 0.9f, 20.0f, 0.0f),
+                                            Candidate(10, e_PlayerRole_CF, 0.9f, 20.0f, 0.0f)};
+  // More than 60 m from the goal runs the fallback at kind 0, where the keeper's 1.0 wins.
+  EXPECT_EQ(pes::FreeKickTaker(squad, Restart(-20.0f, 30.0f), k), 0);
+  // Within 32 m (kind 1) the keeper is out; the two strikers tie at 0.9 and the first wins.
+  EXPECT_EQ(pes::FreeKickTaker(squad, Restart(40.0f, 0.0f), k), 9);
+}
+
+// The second kicker: designated by kind 2 whatever the distance, never the first kicker, and
+// the rating fallback skips the first kicker too.
+TEST(SetPieceTaker, SecondKickerIsDesignatedWhateverTheDistanceAndNeverTheFirst) {
+  std::vector<pes::SetPieceCandidate> squad{Candidate(0, e_PlayerRole_GK, 0.1f, -50.0f, 0.0f),
+                                            Candidate(3, e_PlayerRole_CM, 0.5f, 20.0f, 0.0f),
+                                            Candidate(5, e_PlayerRole_CB, 0.4f, -30.0f, 0.0f),
+                                            Candidate(9, e_PlayerRole_CF, 0.9f, 40.0f, 0.0f)};
+  // The first kicker is slot 9, and the designated second names him: it falls through.
+  pes::FreeKickInput in = Restart(40.0f, 0.0f);
+  in.designated = {-1, -1, 9};
+  in.excluded = 9;
+  EXPECT_EQ(pes::FreeKickTaker(squad, in, k), 3);
+  // Kind 2 ignores distance: 92.5 m from the goal, the designated second is still slot 3.
+  in = Restart(-40.0f, 0.0f);
+  in.designated = {-1, -1, 3};
+  in.excluded = 9;
+  EXPECT_EQ(pes::FreeKickTaker(squad, in, k), 3);
+}
+
+// FUN_1404a7d60 case 5: the first kicker is picked again when the published one is invalid;
+// the second only for FK types 1..3, and then when either kicker is invalid. Type 0 leaves
+// the second at none; types past 3 leave it alone.
+TEST(SetPieceTaker, RepickGateFollowsTheSelectorsCaseFive) {
+  pes::FreeKickRepick g = pes::FreeKickRepickGate(true, true, 1);
+  EXPECT_FALSE(g.first);
+  EXPECT_FALSE(g.second);
+  g = pes::FreeKickRepickGate(true, false, 2);
+  EXPECT_FALSE(g.first);
+  EXPECT_TRUE(g.second);
+  g = pes::FreeKickRepickGate(false, true, 3);
+  EXPECT_TRUE(g.first);
+  EXPECT_TRUE(g.second);
+  g = pes::FreeKickRepickGate(true, true, 0);
+  EXPECT_TRUE(g.secondNone);
+  EXPECT_FALSE(g.second);
+  g = pes::FreeKickRepickGate(true, false, 4);
+  EXPECT_FALSE(g.second);
+  EXPECT_FALSE(g.secondNone);
+}
+
 
 // --- the jog budget (pes-re-setpiece-choreography.md 11.3) -------------------
 
@@ -367,6 +453,12 @@ TEST(SetPieceTeamConstants, ReadFromTheExe) {
     EXPECT_FLOAT_EQ(c->wallDistance_m, 9.15f);
     EXPECT_FLOAT_EQ(c->wallSpacing_m, 0.5f);
     EXPECT_FLOAT_EQ(c->wallNearPost_m, 1.3f);
+    // The free-kick chooser's distances and the keeper's sign flip (FUN_1404a8ad0).
+    EXPECT_FLOAT_EQ(c->fkDesignatedNear_m, 32.0f);
+    EXPECT_FLOAT_EQ(c->fkDesignatedFar_m, 60.0f);
+    EXPECT_FLOAT_EQ(c->fkKeeperOwnGoal_m, 28.0f);
+    EXPECT_FLOAT_EQ(c->fkNearest_m, 65.0f);
+    EXPECT_FLOAT_EQ(c->fkSignFlip, -1.0f);
   } else {
     GTEST_SKIP() << "PES21_ROOT not set: the constants are read from the install's exe";
   }
