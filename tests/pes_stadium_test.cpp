@@ -183,3 +183,55 @@ TEST(StadiumInstall, WeatherOnlyLayersAreKeptOnlyInTheirWeather) {
   EXPECT_TRUE(placed(*snow, snowLayer)) << "snow layer missing in snow";
   EXPECT_FALSE(placed(*snow, rainDecal)) << "puddle decal placed in snow";
 }
+
+// Team.bin: one 1532-byte record per team, u32 team id at +8, u16 home stadium
+// at +0x3C. Synthetic values here; the install test reads the install's file.
+TEST(Stadium, ParsesTeamRecordIdAndHomeStadium) {
+  std::vector<uint8_t> rec(1532, 0);
+  rec[8] = 0xC4;  // team 708 (0x2C4), little-endian
+  rec[9] = 0x02;
+  rec[0x3C] = 54;
+  std::string err;
+  auto teams = pes::ParseTeamRecords({rec.data(), rec.size()}, &err);
+  ASSERT_EQ(teams.size(), 1u) << err;
+  EXPECT_EQ(teams[0].id, 708);
+  EXPECT_EQ(teams[0].stadiumId, 54);
+}
+
+// PES's match resolver: the stored stadium when it is valid, else 29 (Konami
+// Stadium). A stored 0 is the same fallback (pes-re-stadium-cloth-vfx.md 1.2).
+TEST(Stadium, ZeroStadiumResolvesToTwentyNine) {
+  EXPECT_EQ(pes::ResolveStadiumId(0, {0, 2, 29}), 29);
+}
+
+TEST(Stadium, StadiumWithoutPackResolvesToTwentyNine) {
+  EXPECT_EQ(pes::ResolveStadiumId(54, {2, 29}), 29);
+}
+
+TEST(Stadium, ValidStoredStadiumKeepsItsId) {
+  EXPECT_EQ(pes::ResolveStadiumId(2, {2, 29}), 2);
+}
+
+// For every team in the install's effective Team.bin, the home-stadium lookup is
+// the match resolver's rule applied to that team's own stored id and the install's
+// valid set. Pins no pack values: ids and the valid set are read from the install.
+TEST(StadiumInstall, EveryTeamResolvesItsStoredStadium) {
+  const pes::PesVfs* vfs = Vfs();
+  if (!vfs) GTEST_SKIP() << "PES21_ROOT not set or mount failed";
+  std::string err;
+  const auto teams = pes::ReadTeamList(*vfs, &err);
+  ASSERT_FALSE(teams.empty()) << err;
+  const std::vector<int> valid = pes::ValidStadiumIds(*vfs);
+  ASSERT_FALSE(valid.empty()) << "no stadium pack in the install";
+
+  // The fallback runs for a team whose stored id is 0 or has no pack in the install.
+  bool fallbackExercised = false;
+  for (const auto& t : teams) {
+    EXPECT_EQ(pes::TeamStadiumId(*vfs, t.id), pes::ResolveStadiumId(t.stadiumId, valid))
+        << "team " << t.id << " stores " << t.stadiumId;
+    if (t.stadiumId == 0 || std::find(valid.begin(), valid.end(), t.stadiumId) == valid.end())
+      fallbackExercised = true;
+  }
+  if (!fallbackExercised)
+    GTEST_SKIP() << "no team in this install stores 0 or an id without a pack, so the fallback is not exercised";
+}

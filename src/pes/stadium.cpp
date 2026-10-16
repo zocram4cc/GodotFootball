@@ -3,6 +3,7 @@
 #include "pes/inflate.hpp"
 #include "pes/stadium.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -17,6 +18,10 @@ namespace {
 constexpr size_t kStadiumRecordBytes = 392;
 constexpr size_t kStadiumIdOffset = 4;   // u16 stadium id
 constexpr int kStadiumFolderDigits = 3;  // "st002" for id 2
+constexpr size_t kTeamRecordBytes = 1532;    // Team.bin record (pes-re-stadium-cloth-vfx.md 1.1)
+constexpr size_t kTeamIdOffset = 8;          // u32 team id
+constexpr size_t kTeamStadiumOffset = 0x3C;  // u16 home stadium id
+constexpr int kKonamiStadiumId = 29;         // PES's default stadium (pes-re-stadium-cloth-vfx.md 1.2)
 
 // OBS: every stadium pack folder under Asset/model/bg is "st" + id zero-padded
 // to 3 digits (vanilla st002 is the stadium with id 2).
@@ -25,6 +30,12 @@ std::string StadiumFolder(int id) {
   if (static_cast<int>(s.size()) < kStadiumFolderDigits)
     s.insert(0, kStadiumFolderDigits - static_cast<int>(s.size()), '0');
   return "st" + s;
+}
+
+// The scene pack LoadStadiumScene requires: <folder>/#Win/<folder>.fpkd.
+std::string SceneFpkdPath(int id) {
+  const std::string folder = StadiumFolder(id);
+  return "Asset/model/bg/" + folder + "/#Win/" + folder + ".fpkd";
 }
 
 // The .fox2 payload of an .fpkd: the member whose path ends ".fox2".
@@ -178,6 +189,54 @@ std::vector<StadiumInfo> ReadStadiumList(const PesVfs& vfs, std::string* error) 
   return ParseStadiumRecords(*data, error);
 }
 
+std::vector<TeamRecord> ParseTeamRecords(std::span<const uint8_t> blob, std::string* error) {
+  std::vector<TeamRecord> out;
+  if (blob.size() % kTeamRecordBytes != 0) {
+    *error = "Team.bin size is not a multiple of the record size";
+    return out;
+  }
+  for (size_t off = 0; off < blob.size(); off += kTeamRecordBytes) {
+    const uint8_t* rec = blob.data() + off;
+    uint32_t id;
+    uint16_t stadium;
+    std::memcpy(&id, rec + kTeamIdOffset, sizeof id);
+    std::memcpy(&stadium, rec + kTeamStadiumOffset, sizeof stadium);
+    out.push_back({static_cast<int>(id), stadium});
+  }
+  return out;
+}
+
+std::vector<TeamRecord> ReadTeamList(const PesVfs& vfs, std::string* error) {
+  auto blob = vfs.Read("common/etc/pesdb/Team.bin", error);
+  if (!blob) return {};
+  auto data = UnwrapWesys(*blob, "Team", error);  // the 4cc override is raw; vanilla may be wrapped
+  if (!data) return {};
+  return ParseTeamRecords(*data, error);
+}
+
+int ResolveStadiumId(int storedId, const std::vector<int>& validIds) {
+  if (storedId != 0 && std::find(validIds.begin(), validIds.end(), storedId) != validIds.end())
+    return storedId;
+  return kKonamiStadiumId;
+}
+
+std::vector<int> ValidStadiumIds(const PesVfs& vfs) {
+  std::string err;
+  std::vector<int> valid;
+  for (const StadiumInfo& s : ReadStadiumList(vfs, &err))
+    if (vfs.Exists(SceneFpkdPath(s.id))) valid.push_back(s.id);
+  return valid;
+}
+
+int TeamStadiumId(const PesVfs& vfs, int teamId) {
+  std::string err;
+  const auto teams = ReadTeamList(vfs, &err);
+  const auto team = std::find_if(teams.begin(), teams.end(),
+                                 [&](const TeamRecord& t) { return t.id == teamId; });
+  if (team == teams.end()) return kKonamiStadiumId;
+  return ResolveStadiumId(team->stadiumId, ValidStadiumIds(vfs));
+}
+
 std::optional<std::vector<PlacedModel>> LoadStadiumScene(const PesVfs& vfs,
                                                          int stadiumId,
                                                          int weather,
@@ -186,7 +245,7 @@ std::optional<std::vector<PlacedModel>> LoadStadiumScene(const PesVfs& vfs,
   const std::string bg = "Asset/model/bg/";
   std::vector<PlacedModel> models;
   // The scene is the stadium's own pack and is required.
-  const std::string sceneFpkd = bg + folder + "/#Win/" + folder + ".fpkd";
+  const std::string sceneFpkd = SceneFpkdPath(stadiumId);
   if (!vfs.Exists(sceneFpkd)) {
     *error = "scene fpkd not found: " + sceneFpkd;
     return std::nullopt;

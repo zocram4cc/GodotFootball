@@ -51,6 +51,9 @@ class PesLibrary : public RefCounted {
   // A PES texture as the matching Godot type (ImageTexture, Texture2DArray,
   // Cubemap); null when missing or unreadable.
   Ref<Texture> load_texture(const String& path) const;
+  // PES's home stadium for a PES team id: its Team.bin stadium when the match
+  // resolver accepts it, else 29 (pes::TeamStadiumId).
+  int team_stadium(int team_id) const;
 
   const pes::PesVfs& vfs() const { return vfs_; }
   const pesrig::Rig* rig() const { return rig_ ? &*rig_ : nullptr; }
