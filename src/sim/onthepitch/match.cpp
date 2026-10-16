@@ -112,6 +112,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES ball constants missing: read them from the install with "
         "pes::LoadPesBallConstants into MatchSetup::pesBallConstants");
   pesBallConstants = std::make_unique<pes::PesBallConstants>(*setup.pesBallConstants);
+  // The contact-mode index (FUN_1408723d0) and the raw-Y pump switch (pes_loop). GF has no pitch or weather
+  // field, so the stand-in indices pick the mode the live match plays (pesball.hpp, ponytail).
+  pesBallConstants->contactMode = pes::ContactModeForConfig(
+      pesBallConstants->image, pes::kGfModeRowStandIn, pes::kGfModeColStandIn, 0);
+  pesBallConstants->spinYPump = pesLoop;
   // PES 2021's restart timings (docs/re/pes-re-foul-choreography.md 9): the
   // foul/offside holds and the beats between the stop and the kick. Required:
   // without them the referee has no length for a stoppage at all.

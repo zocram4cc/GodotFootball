@@ -25,9 +25,6 @@ constexpr float kPi = 3.14159274f;
 
 // 100.0 (.rdata 0x14253ee30): the per-cent divisor of the add-rate fields.
 constexpr float kPercent = 100.0f;
-// 0.01 s: PES's own |vy| blend divisor (.rdata 0x14256ae18) and the km/h->m/s of
-// the stop gate's inner form. It is PES's constant, not this engine's tick.
-constexpr float kStopBlend_s = 0.01f;
 
 }  // namespace
 
@@ -82,7 +79,7 @@ float FrictionMultiplier(const pes::PesBallConstants& c, int mode, float speed_m
 float VerticalKeep(const pes::PesBallConstants& c, int mode, float vy) {
   // Report 3.4 / report 2 corrections: this 0.03..0.10 keep is NOT PES's vertical
   // bounce path. Read literally from 0x1408770e6..0x14087718f:
-  //   X = 3.6*|vy| (km/h)
+//   X = -3.6*vy (km/h), signed: XMM6 = -(3.6*vy_pre) at 0x140876ba2 (XORPS with the sign mask 0x1425656d0)
   //   t = clamp01((X - boundToRotationSpeedMinY[mode]) /
   //               (boundToRotationSpeedMaxY[mode] - boundToRotationSpeedMinY[mode]))
   //   vy_keep = boundToRotationBaseY[mode] + t*boundToRotationAddRateY[mode]
@@ -90,10 +87,9 @@ float VerticalKeep(const pes::PesBallConstants& c, int mode, float vy) {
   // raw-spin-Y blend at 0x1408771ba only. It never touches vy: report 2 §2.1
   // proves the raw-spin pump is the only consumer, and report 2 §4.1 removes
   // every other candidate (no -e*vy reflection, no second contact routine, and
-  // no caller post-processing). So this function is not wired into the contact
-  // tick's vertical response; the bounce is Bounce() below.
+  // no caller post-processing). The contact tick feeds it to the raw-Y pump only; the bounce is Bounce() below.
   const pes::BallRecordConstants& r = c.record;
-  const float X = ToKmh(c, std::fabs(vy));
+  const float X = -ToKmh(c, vy);
   const float lo = r.At(pes::BallRecordConstants::kBoundToRotationSpeedMinY, mode);
   const float hi = r.At(pes::BallRecordConstants::kBoundToRotationSpeedMaxY, mode);
   const float t = Ramp(X, lo, hi);
@@ -349,16 +345,25 @@ TangentialXZ RollingTangential(const pes::PesBallConstants& c, int mode, const B
   return {a * ex + b * ez, a * ez - b * ex};
 }
 
+// PES's raw-Y pump (contact-2 2.1; FUN_140876360 0x1408770a5..0x1408771cd). The Y target is 0 (the reload of
+// [rbp+0x98] at 0x140877079), so dY = -rawY. The blend is vy_keep*(2.5 - 1.5*u) clamped to [0, 1], with
+// u = clamp01(|dY| / 0.01): a = 2.5*vy_keep and blend = a + (vy_keep - a)*u. rawY += blend*dY.
+float RawYAfterPump(const pes::PesBallConstants& c, int mode, float vyPre, float rawY) {
+  const float dY = -rawY;
+  const float u = Clamp01(std::fabs(dY) / c.image.spinYDeltaScale);
+  const float keep = VerticalKeep(c, mode, vyPre);
+  const float a = keep * c.image.spinYBlendBase;
+  const float blend = Clamp01(a + (keep - a) * u);
+  return rawY + blend * dY;
+}
+
 }  // namespace
 
 void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tickIndex, bool airborne,
                  bool quatIntegrate, float step_s, const BallState* preFlight) {
-  // The contact mode. Report 3.1 closed report 7.2: the mode byte is written by
-  // FUN_1408723d0 (0x140872479, `mov [rax+0x279d], bl`) as
-  // `modeTable[pitch*3 + weather]`, and the table is read out of the install's
-  // exe into pes::PesBallConstants::image (see pesball.cpp). The caller picks the
-  // indices; the launch default is the live mode (kContactModeLive), not the dry-normal
-  // index 2 that report 3.2 gives a dry pitch.
+  // The contact mode index is set by the Match from the config (ContactModeForConfig, FUN_1408723d0
+  // 0x140872403..0x140872479): mode = T[3*cfg7c + cfg78], the table read out of the install's exe into
+  // pes::PesBallConstants::image (pesball.cpp).
   const int mode = ClampMode(c.contactMode);
 
   // Report 2.3/2.7: the snap and the wobble-flag clear, and NO position
@@ -432,7 +437,11 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
   const float newSpinZ = (-newVx / r) * invSpinScale * capScale;
   const float blendRaw = pes::kRawSpinBlendFactor;
   state->spinRaw.x = (newSpinX - state->spinRaw.x) * blendRaw + state->spinRaw.x;
-  state->spinRaw.y = (newSpinY - state->spinRaw.y) * blendRaw + state->spinRaw.y;
+  if (c.spinYPump) {
+    state->spinRaw.y = RawYAfterPump(c, mode, pre.velocity.y, state->spinRaw.y);
+  } else {
+    state->spinRaw.y = (newSpinY - state->spinRaw.y) * blendRaw + state->spinRaw.y;
+  }
   state->spinRaw.z = (newSpinZ - state->spinRaw.z) * blendRaw + state->spinRaw.z;
 
   // Report 3.4's stop gate, with report 2's correction 2: the gate zeroes ONLY

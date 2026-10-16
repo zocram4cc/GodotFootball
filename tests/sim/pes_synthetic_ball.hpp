@@ -25,6 +25,8 @@ inline pes::PesBallConstants SyntheticConstants() {
   c.image.nonSpinTopPlateau = 48.2253113f;
   c.image.spinScale = 492.181f;
   c.image.invSpinScale = 1.0f / 492.181f;
+  c.image.spinYDeltaScale = 0.01f;
+  c.image.spinYBlendBase = 2.5f;
 
   BallRecordConstants& r = c.record;
   r.airRegistNormal = 1.0f;

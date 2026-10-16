@@ -55,9 +55,9 @@ TEST(PesBallContact, VerticalKeepIsPesThreeToTenPercentAndIsNotTheBounce) {
   const float hiV = c.record.At(BallRecordConstants::kBoundToRotationSpeedMaxY, 1) / c.image.kmhPerMs;
   const float base = c.record.At(BallRecordConstants::kBoundToRotationBaseY, 1);
   const float add = c.record.At(BallRecordConstants::kBoundToRotationAddRateY, 1);
-  EXPECT_NEAR(pesball::VerticalKeep(c, 1, loV * 0.5f), base, 1e-6);
-  EXPECT_NEAR(pesball::VerticalKeep(c, 1, hiV * 2.0f), base + add, 1e-6);
-  EXPECT_NEAR(pesball::VerticalKeep(c, 1, (loV + hiV) * 0.5f), base + add * 0.5f, 1e-6);
+  EXPECT_NEAR(pesball::VerticalKeep(c, 1, -loV * 0.5f), base, 1e-6);
+  EXPECT_NEAR(pesball::VerticalKeep(c, 1, -hiV * 2.0f), base + add, 1e-6);
+  EXPECT_NEAR(pesball::VerticalKeep(c, 1, -(loV + hiV) * 0.5f), base + add * 0.5f, 1e-6);
 
   // And that 3..10% is nowhere near what a contact does to vy: the bounce is
   // F*min(imp, |vy|), which is a speed clamp, not a keep.
@@ -293,8 +293,6 @@ TEST(PesBallContact, ContactModeComesFromThePitchWeatherTable) {
 TEST(PesBallContact, DryNormalIsModeTwoAndModeTwoHasASeventyPercentBounce) {
   // Report 3.2: a dry, normal pitch is mode 2, which no match plays; GF plays the live mode 1.
   const PesBallConstants c = SyntheticConstants();
-  EXPECT_EQ(pes::kContactModeDryNormal, 2);
-  EXPECT_EQ(pes::WeatherIndexForGfWeather(0.0f), 0) << "no weather";
   // boundCheckBoundAddRate[2] = 0 removes mode 1's speed ramp, so F is a flat
   // boundBoundRate = 0.7 at every speed in the dry-normal mode.
   EXPECT_NEAR(c.record.At(BallRecordConstants::kBoundCheckBoundAddRate, 2), 0.0f, 1e-6);
@@ -557,10 +555,10 @@ TEST(PesBallInstall, LoadsTheInstallConstantsAndReproducesTheReportNumbers) {
   // low bound is 8 km/h = frictionRollSpeedMin - a discrepancy recorded in the
   // final message).
   EXPECT_NEAR(pesball::VerticalKeep(c, 1, 0.0f), 0.03f, 1e-6);
-  EXPECT_NEAR(pesball::VerticalKeep(c, 1, 4.0f), 0.10f, 1e-6);
+  EXPECT_NEAR(pesball::VerticalKeep(c, 1, -4.0f), 0.10f, 1e-6);
   const float loV = c.record.At(BallRecordConstants::kBoundToRotationSpeedMinY, 1);
   const float hiV = c.record.At(BallRecordConstants::kBoundToRotationSpeedMaxY, 1);
-  EXPECT_NEAR(pesball::VerticalKeep(c, 1, (loV + hiV) * 0.5f / c.image.kmhPerMs), 0.065f, 1e-6);
+  EXPECT_NEAR(pesball::VerticalKeep(c, 1, -(loV + hiV) * 0.5f / c.image.kmhPerMs), 0.065f, 1e-6);
 }
 
 // --- the shot that reaches the goal (the bug this suite regressed on) ---
@@ -745,6 +743,79 @@ TEST(PesBallContact, ASpinningBallWithNoVelocityFallingFromTheAirStaysFinite) {
   s.spinRaw = pes::Vec3(0.0f, 0.0f, 0.02f);
   ASSERT_TRUE(pesball::BallTick(c, &s, 0, pesball::kGfTick_s));
   EXPECT_TRUE(std::isfinite(s.velocity.x) && std::isfinite(s.velocity.y) && std::isfinite(s.velocity.z));
+}
+
+// --- the raw-Y spin pump (contact-2 2.1; FUN_140876360 0x1408770a5..0x1408771cd) ---
+
+TEST(PesBallContact, YPumpDecaysRawYSpinTowardZeroAtTheVerticalKeepRate) {
+  // A ball falling at 4 m/s is above the top of mode 1's km/h band, so its vertical keep is base + add =
+  // 0.03 + 0.07 = 0.10. With |dRawY| >= 0.01 the blend is that keep itself, so rawY scales by (1 - 0.10).
+  PesBallConstants c = SyntheticConstants();
+  c.spinYPump = true;
+  BallState s;
+  s.position = pes::Vec3(0, c.image.ballRadius, 0);
+  s.velocity = pes::Vec3(0, -4.0f, 0);
+  s.spinRaw = pes::Vec3(0, 0.5f, 0);
+  pesball::ContactTick(c, &s, 0, true, false, pesball::kGfTick_s);
+  EXPECT_NEAR(s.spinRaw.y, 0.45f, 1e-5f);
+}
+
+TEST(PesBallContact, YPumpBlendRampsDownForASmallRawYSpin) {
+  // Below 0.01 the blend's u = |dRawY| / 0.01 ramps: at rawY = 0.005, u = 0.5 and the blend is
+  // keep * (2.5 - 1.5 * 0.5) = 0.175, so rawY becomes 0.005 * (1 - 0.175). A full-strength u would give 0.45 of 0.005.
+  PesBallConstants c = SyntheticConstants();
+  c.spinYPump = true;
+  BallState s;
+  s.position = pes::Vec3(0, c.image.ballRadius, 0);
+  s.velocity = pes::Vec3(0, -4.0f, 0);
+  s.spinRaw = pes::Vec3(0, 0.005f, 0);
+  pesball::ContactTick(c, &s, 0, true, false, pesball::kGfTick_s);
+  EXPECT_NEAR(s.spinRaw.y, 0.005f * (1.0f - 0.175f), 1e-6f);
+}
+
+TEST(PesBallContact, YPumpOffKeepsTheGfWriteThatZeroesRawY) {
+  // The GF path (spinYPump off) is unchanged: the contact writes raw Y := 0, so the off-path hash holds.
+  PesBallConstants c = SyntheticConstants();
+  c.spinYPump = false;
+  BallState s;
+  s.position = pes::Vec3(0, c.image.ballRadius, 0);
+  s.velocity = pes::Vec3(0, -4.0f, 0);
+  s.spinRaw = pes::Vec3(0, 0.5f, 0);
+  pesball::ContactTick(c, &s, 0, true, false, pesball::kGfTick_s);
+  EXPECT_EQ(s.spinRaw.y, 0.0f);
+}
+
+TEST(PesBallContact, VerticalKeepTakesTheFallSpeedWithItsSign) {
+  // Report 3.4 reads X = -3.6 * vy (the XORPS sign mask at 0x1425656d0, not an ANDPS abs): a rising ball
+  // is below the band and keeps only the base, a falling one reaches base + add.
+  const PesBallConstants c = SyntheticConstants();
+  EXPECT_NEAR(pesball::VerticalKeep(c, 1, 4.0f), 0.03f, 1e-6);
+  EXPECT_NEAR(pesball::VerticalKeep(c, 1, -4.0f), 0.10f, 1e-6);
+}
+
+// --- the contact-mode index (FUN_1408723d0) ---
+
+TEST(PesBallContact, ContactModeReadsTheRowFromCfg7cAndTheColumnFromCfg78) {
+  PesBallConstants c = SyntheticConstants();
+  c.image.modeTable = {{{2, 1, 1}, {2, 1, 0}, {1, 0, 0}}};
+  // (cfg+0x7c, cfg+0x78) = (0, 1) reads T[1] = 1; the swapped pair (1, 0) reads T[3] = 2.
+  EXPECT_EQ(pes::ContactModeForConfig(c.image, 0, 1, 0), 1);
+  EXPECT_EQ(pes::ContactModeForConfig(c.image, 1, 0, 0), 2);
+}
+
+TEST(PesBallContact, ContactModeFlagAtCfg85ForcesModeThree) {
+  PesBallConstants c = SyntheticConstants();
+  c.image.modeTable = {{{2, 1, 1}, {2, 1, 0}, {1, 0, 0}}};
+  EXPECT_EQ(pes::ContactModeForConfig(c.image, 0, 1, 1), 3);
+  EXPECT_EQ(pes::ContactModeForConfig(c.image, 2, 2, 0x80), 3);
+  EXPECT_EQ(pes::ContactModeForConfig(c.image, 0, 1, 0), 1) << "a zero flag reads the table";
+}
+
+TEST(PesBallContact, ContactModeOutOfRangeFallsBackToOne) {
+  const PesBallConstants c = SyntheticConstants();
+  EXPECT_EQ(pes::ContactModeForConfig(c.image, 3, 0, 0), 1);
+  EXPECT_EQ(pes::ContactModeForConfig(c.image, 0, 3, 0), 1);
+  EXPECT_EQ(pes::ContactModeForConfig(c.image, -1, 0, 0), 1);
 }
 
 }  // namespace
