@@ -264,20 +264,23 @@ func _init() -> void:
 	check(long_sleeved != null, "player builds (team %d, kit %d, face %d)" % [look_team, look_kit, look_face])
 	if long_sleeved != null:
 		var look_parts := {}
-		var look_uniforms := 0
 		for m in long_sleeved.get_node("Skeleton").get_children():
 			if m is MeshInstance3D:
 				look_parts[str(m.get_meta("part"))] = true
-				var mat: Material = m.mesh.surface_get_material(0) if m.mesh.get_surface_count() > 0 else null
-				if mat != null and str(mat.get_name()).begins_with(UNIFORM_MATERIAL_PREFIX):
-					look_uniforms += 1
-		# A whole body in the boots pack replaces the base body and the uniform
-		# (pes-re-officials-ball.md §3.3): it draws the boots part and no uniform, and
-		# no bare arm or hand. Its face pack stays (the head). Only a normal body has
-		# the sleeve checks.
-		if look_uniforms == 0 and look_parts.has("boots"):
-			check(not look_parts.has("arm") and not look_parts.has("hand_l") and not look_parts.has("hand_r"),
-					"player %d (whole body) draws no bare arm or hand" % look_face)
+		# The mode comes from the INPUT: the look's boots pack, read for a body
+		# skeleton (pes::BootsPackCarriesBody), never from what the build made.
+		# A whole body is still a uniform player (pes-re-whole-body-uniform.md
+		# 0-2): PES builds its shirt. A long sleeve still builds no bare arm
+		# (kit-assembly 8.9). The sub-shorts pair is mutually exclusive by tail
+		# (FUN_141a89120; kit-assembly 8.4): exactly one of pants_in_sub /
+		# pants_out_sub is drawn, so a tail-in whole body (team 760's looks)
+		# draws no uni_* material at all — its shorts are the Suit's.
+		if library.boots_carries_body(library.boots_id_of(look_face)):
+			check(look_parts.keys().any(func(p): return p.begins_with("shirt_")),
+					"player %d (whole body) wears the uniform shirt: %s" % [look_face, look_parts.keys()])
+			check(look_parts.has("pants_in_sub") != look_parts.has("pants_out_sub"),
+					"player %d (whole body) draws exactly one sub-short: %s" % [look_face, look_parts.keys()])
+			check(not look_parts.has("arm"), "player %d (whole body, long sleeves) shows no bare arm" % look_face)
 		else:
 			check(look_parts.keys().any(func(p): return p.begins_with("sleeve_long") or p == "sleeve_glove"),
 					"player %d wears a long sleeve: %s" % [look_face, look_parts.keys()])

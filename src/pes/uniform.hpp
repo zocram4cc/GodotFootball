@@ -153,7 +153,10 @@ std::string GlovePackPath(int gloveId);
 
 struct Fmdl;  // pes/fmdl.hpp
 // True when the part's skeleton carries the body's hip bone: such a boots part is a
-// whole body that replaces the face, the uniform and the bare body (see the .cpp).
+// whole body, not boots (pes-re-whole-body-uniform.md 0-3). PES still builds the
+// uniform parts for it; the body is drawn through the boots unit beside them.
 bool CarriesBodySkeleton(const Fmdl& part);
+// True when a boots pack holds a whole body (pes-re-whole-body-uniform.md 3).
+bool BootsPackCarriesBody(const PesVfs& vfs, const std::string& packPath);
 
 }  // namespace pes

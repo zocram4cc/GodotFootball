@@ -21,6 +21,8 @@ void PesLibrary::_bind_methods() {
   ClassDB::bind_method(D_METHOD("load_edit_save", "path"), &PesLibrary::load_edit_save);
   ClassDB::bind_method(D_METHOD("load_texture", "path"), &PesLibrary::load_texture);
   ClassDB::bind_method(D_METHOD("team_stadium", "team_id"), &PesLibrary::team_stadium);
+  ClassDB::bind_method(D_METHOD("boots_id_of", "face_id"), &PesLibrary::boots_id_of);
+  ClassDB::bind_method(D_METHOD("boots_carries_body", "boots_id"), &PesLibrary::boots_carries_body);
 }
 
 Error PesLibrary::open(const String& root) {
@@ -214,6 +216,20 @@ PackedStringArray PesLibrary::list(const String& prefix) const {
 }
 
 int PesLibrary::team_stadium(int team_id) const { return pes::TeamStadiumId(vfs_, team_id); }
+
+int PesLibrary::boots_id_of(int face_id) const {
+  std::string err;
+  auto blob = vfs_.Read(pes::kBootsListPath, &err);
+  auto list = blob ? pes::ParseBootsList(*blob, &err) : std::nullopt;
+  const pes::BootsList none;
+  auto it = appearances_.find(uint32_t(face_id));
+  const pes::PlayerLook look = it != appearances_.end() ? pes::DecodeLook(it->second) : pes::PlayerLook{};
+  return pes::ResolveBootsId(look.bootsId, face_id, list ? *list : none);
+}
+
+bool PesLibrary::boots_carries_body(int boots_id) const {
+  return pes::BootsPackCarriesBody(vfs_, pes::BootsPackPath(boots_id));
+}
 
 Ref<Texture> PesLibrary::load_texture(const String& path) const {
   std::string err;

@@ -63,21 +63,6 @@ bool EndsWith(const std::string& s, const std::string& tail) {
   return s.size() >= tail.size() && s.compare(s.size() - tail.size(), tail.size(), tail) == 0;
 }
 
-// True when a pack's fmdl carries the body skeleton (pes::CarriesBodySkeleton): a boots
-// pack of this shape is a whole body, not boots.
-bool PackCarriesBody(const pes::PesVfs& vfs, const std::string& packPath) {
-  std::string err;
-  auto pack = vfs.Read(packPath, &err);
-  if (!pack) return false;
-  auto fpk = pes::FpkArchive::Parse(*pack, &err);
-  if (!fpk) return false;
-  for (const auto& entry : fpk->entries) {
-    if (!EndsWith(Lower(entry.path), ".fmdl")) continue;
-    auto model = pes::ParseFmdl(std::span(*pack).subspan(entry.offset, entry.size), &err);
-    if (model && pes::CarriesBodySkeleton(*model)) return true;
-  }
-  return false;
-}
 
 struct CachedTexture {
   Ref<ImageTexture> gpu;
@@ -608,13 +593,14 @@ Node3D* Build::RunPlayer(int teamId, int kitIndex) {
     UtilityFunctions::push_error("PES common package unreadable: ", ToGd(err));
     return nullptr;
   }
-  // A whole body in the boots pack (pes-re-officials-ball.md §3.3; the 4cc body packs of
-  // pes-kit-assembly.md §7.3) replaces the base body: the uniform parts, the bare body
-  // parts and the gloves are not built for it. The face pack stays: its head (hair_high)
-  // is drawn on top of the body, as PES draws team 760's players.
+  // A whole body in the boots pack (pes-re-whole-body-uniform.md 3) is drawn
+  // through the boots unit beside the uniform: PES builds the uniform parts
+  // for every outfield player (FUN_141a89120 reads kit+appearance only, no
+  // boots consult), and the markings reach the back only through the shirt
+  // part (FUN_141a8b7b0 binds by UniformUnit category). The face pack stays
+  // the head: its hair_high is the monitor head team 760's players wear.
   const std::string bootsPack = pes::BootsPackPath(bootsId);
-  const bool wholeBody = vfs_.Exists(bootsPack) && PackCarriesBody(vfs_, bootsPack);
-  wholeBody_ = wholeBody;
+  wholeBody_ = pes::BootsPackCarriesBody(vfs_, bootsPack);
   Begin();
   // The face pack is the head, and it is kept for a whole body too: its hair_high is the
   // monitor head that team 760's players wear in PES (the 0.6 x 0.4 m box of that pack).
@@ -622,27 +608,25 @@ Node3D* Build::RunPlayer(int teamId, int kitIndex) {
     memdelete(root_);
     return nullptr;
   }
-  if (!wholeBody) {
-    for (const auto& part : pes::SelectUniformParts(*kit, look)) {
-      if (part.inCommonPackage) {
-        auto it = std::find_if(commonFpk->entries.begin(), commonFpk->entries.end(),
-                               [&](const pes::FpkEntry& e) { return e.path.ends_with("/" + part.path); });
-        if (it == commonFpk->entries.end()) {
-          UtilityFunctions::push_warning("PES part missing from common package: ", ToGd(part.path));
-          continue;
-        }
-        AddModel(std::span(*common).subspan(it->offset, it->size), it->path, skin_);
-      } else if (auto blob = vfs_.Read(part.path, &err)) {
-        AddModel(*blob, part.path, skin_);
-      } else {
-        // PES leaves the slot empty when a part file is missing (8.9).
-        UtilityFunctions::print("  empty slot, no file: ", ToGd(part.path));
+  for (const auto& part : pes::SelectUniformParts(*kit, look)) {
+    if (part.inCommonPackage) {
+      auto it = std::find_if(commonFpk->entries.begin(), commonFpk->entries.end(),
+                             [&](const pes::FpkEntry& e) { return e.path.ends_with("/" + part.path); });
+      if (it == commonFpk->entries.end()) {
+        UtilityFunctions::push_warning("PES part missing from common package: ", ToGd(part.path));
+        continue;
       }
+      AddModel(std::span(*common).subspan(it->offset, it->size), it->path, skin_);
+    } else if (auto blob = vfs_.Read(part.path, &err)) {
+      AddModel(*blob, part.path, skin_);
+    } else {
+      // PES leaves the slot empty when a part file is missing (8.9).
+      UtilityFunctions::print("  empty slot, no file: ", ToGd(part.path));
     }
   }
   // A missing boots or glove folder leaves the slot empty (pes-kit-assembly.md 8.4).
   std::vector<std::string> packs{bootsPack};
-  if (!wholeBody && look.gloveId) packs.push_back(pes::GlovePackPath(look.gloveId));
+  if (!wholeBody_ && look.gloveId) packs.push_back(pes::GlovePackPath(look.gloveId));
   for (const std::string& pack : packs) {
     if (vfs_.Exists(pack)) AddPack(pack);
     else UtilityFunctions::print("  empty slot, no pack: ", ToGd(pack));
