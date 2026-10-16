@@ -75,12 +75,79 @@ float HeadingDeg(float x, float z, const pes::RunConstants& k) {
   return pes::FoldFull(std::atan2(x, z) * kDegPerRad, k);
 }
 
+// The team-AI reads of the MOVESTEP ramp and the RUN_LOOP jostle (pes::TeamAi). GF has no team records yet,
+// so each answer is a stand-in, and each names the PES read it replaces.
+class AdapterTeam final : public pes::TeamAi {
+ public:
+  AdapterTeam(Player& player, const MoveHostConstants& c) : player_(player), c_(c) {}
+
+  // ponytail: NearestList's per-player distance list (pes::offball::NearestOpponents over the RunWorld, branch
+  // NearestList 2a3050f) replaces this. Until it is merged no opponent counts as near.
+  int NearestOpponent(int own) const override {
+    (void)own;
+    return kNoPlayer;
+  }
+  // ponytail: GF's physical_acceleration stands in for the Acceleration byte (0x2b), scaled to the PES
+  // ceiling (rec99). The DA (0x15) and PC (0x28) bytes have no GF stat yet and read 0.
+  int Ability(int slot, int ability) const override {
+    if (slot != player_.GetID() || ability != pes::kAbilityAcceleration) return 0;
+    return static_cast<int>(player_.GetStat("physical_acceleration") * c_.run.rec99);
+  }
+  // ponytail: FUN_140a581c0's condition byte: GF has no condition record, so the full value stands in.
+  int Condition(int) const override { return kFullCondition; }
+  void Position(int slot, float out[3]) const override {
+    const Vector3 v = slot == player_.GetID() ? player_.GetPosition() : Vector3{};
+    out[0] = v.coords[0];
+    out[1] = v.coords[1];
+    out[2] = v.coords[2];
+  }
+  // The per-tick velocity: GF's movement (metres a second) over the tick rate.
+  void Velocity(int slot, float out[3]) const override {
+    const Vector3 v = slot == player_.GetID() ? player_.GetMovement() : Vector3{};
+    const float ticks = static_cast<float>(Match::kFramesPerSecond);
+    out[0] = v.coords[0] / ticks;
+    out[1] = v.coords[1] / ticks;
+    out[2] = v.coords[2] / ticks;
+  }
+  float Heading(int slot) const override {
+    if (slot != player_.GetID()) return 0.0f;
+    const Vector3 dir = player_.GetDirectionVec();
+    return HeadingDeg(dir.coords[0], dir.coords[1], c_.run);
+  }
+  // ponytail: P+0x5d0, the player's sub-state byte, has no GF record yet.
+  int SubState(int) const override { return 0; }
+  // ponytail: hu(opp)+8 bit 27 is the action dispatcher's record (A-CLS), not decoded yet.
+  bool ActionBit27(int) const override { return false; }
+  // ponytail: no team records yet. Each answers "no" until the PES read it names is ported: the side keeper
+  // (FUN_140a62690), the side's tackle (T+0xb6e0), the possession latch (T+0x255), the carrier (FUN_140a627e0),
+  // the side slot 0x78 (T+0x78), the route row (FUN_140479470), the match-up man (FUN_140a62960), the queued
+  // cover (T+0x278), the marked slot (T+0xb8c4) and the set-piece answer (FUN_140a62d90).
+  bool IsSideKeeper(int) const override { return false; }
+  bool SideTackled(int) const override { return false; }
+  bool PossessionLatched(int) const override { return false; }
+  bool Carries(int) const override { return false; }
+  bool IsSideSlot78(int) const override { return false; }
+  bool HasRouteRow(int) const override { return false; }
+  bool IsMatchUpMan(int) const override { return false; }
+  bool IsQueuedCover(int) const override { return false; }
+  bool SideSlotMarked(int) const override { return false; }
+  bool SetPieceAnswer(int) const override { return false; }
+
+ private:
+  static constexpr int kNoPlayer = 22;        // a slot of 22 or more is no player
+  static constexpr int kFullCondition = 100;  // the condition byte's full value
+  Player& player_;
+  const MoveHostConstants& c_;
+};
+
 // The MoveHost implementation over GF's player and its humanoid. Every accessor names the PES
 // read it stands for; the `ponytail:` notes name the site that replaces a GF stand-in.
 class MoveHostAdapter final : public pes::MoveHost {
  public:
   MoveHostAdapter(Player& player, Match& match, const MoveHostConstants& c)
-      : player_(player), match_(match), c_(c) {}
+      : player_(player), match_(match), c_(c), team_(player, c) {}
+
+  const pes::TeamAi& Team() const override { return team_; }
 
   pes::MoveCell Cell(int row, int column, bool walkFlag) override {
     (void)walkFlag;  // FUN_1406abb30's populated-neighbour walk is the Animetable's own picker.
@@ -252,6 +319,7 @@ class MoveHostAdapter final : public pes::MoveHost {
   Player& player_;
   Match& match_;
   const MoveHostConstants& c_;
+  AdapterTeam team_;
   bool issued_ = false;
 };
 
@@ -281,10 +349,15 @@ void ProcessMoveStep(Player& player, Match& match) {
   req.SetF(pes::moveword::kDesiredSpeedKmh, host.CurrentSpeedKmh());
   req.SetU(pes::moveword::kLiveKind, static_cast<uint32_t>(rec.state));
   req.SetF(pes::moveword::kPlayback, rec.playbackSpeed);
+  req.SetF(pes::moveword::kRate, rec.rate);
+  req.SetByte(pes::moveword::kStyle, rec.style);
 
   const pes::MoveState stateAtEntry = rec.state;
+  pes::movestep::RampsBeforeDispatch(host, req);
   pes::Dispatch(stateAtEntry, host, req);
   pes::movestep::ApplyTail(rec, host, req, stateAtEntry);
+  rec.rate = req.F(pes::moveword::kRate);
+  rec.style = static_cast<uint8_t>(req.U(pes::moveword::kStyle) & 0xffu);
   pes::ApplyTransition(rec, req);
   // P+0x3758's store lands on GF's playback rate for the tick.
   player.SetPlaybackRate(rec.playbackSpeed);

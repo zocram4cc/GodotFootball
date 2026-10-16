@@ -20,6 +20,7 @@
 //   FUN_1406ea750  the engine blend rate             the live engine rate (INF, AS 7)
 #include "pes/movestep_run.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <optional>
@@ -120,6 +121,23 @@ constexpr RunScalar RUN_SCALARS[] = {
     {0x14259be7c, &RunConstants::bias5},
     {0x14259bdc4, &RunConstants::rampFloor},
     {0x1425c48a0, &RunConstants::rampSlope},
+    {0x1425ddf7c, &RunConstants::fFree},
+    {0x1425ddf40, &RunConstants::fStepA},
+    {0x1425ddf70, &RunConstants::fTargetA},
+    {0x1425ddf38, &RunConstants::fStepB},
+    {0x1425ddf3c, &RunConstants::fStepC},
+    {0x14259be38, &RunConstants::daLow},
+    {0x14259be48, &RunConstants::daHigh},
+    {0x14259be84, &RunConstants::daSpan},
+    {0x14259be1c, &RunConstants::reserveLow},
+    {0x142596e6c, &RunConstants::reserveHigh},
+    {0x1425c48fc, &RunConstants::reserveSpan},
+    {0x14259d620, &RunConstants::capSpan},
+    {0x1425e4a60, &RunConstants::accelAbove},
+    {0x14259d5d8, &RunConstants::accelBelow},
+    {0x1425ab128, &RunConstants::decelSpan},
+    {0x14259d654, &RunConstants::decelSub},
+    {0x142588210, &RunConstants::condition10},
     {0x142588210, &RunConstants::turnP2},
     {0x1425a266c, &RunConstants::foxTime},
 };
@@ -149,6 +167,8 @@ constexpr float SECOND_DWELL = 14.0f / 60.0f;  // FUN_1406d5d60, the second dwel
 // ---------------------------------------------------------------------------------------------
 
 
+}  // namespace
+
 // FUN_1406b9ff0(ap, useClassRate, classIdx, speed, kind): the requested rate. The class-rate
 // path is FUN_1406b9e50's table; the speed path is the shared FUN_1406b9e80 (AS 3.2).
 float RequestedRate(MoveHost& host, MoveReq& req, const pes::RunTables& t) {
@@ -159,6 +179,8 @@ float RequestedRate(MoveHost& host, MoveReq& req, const pes::RunTables& t) {
   if (cls == 0 && (kind == 3 || kind == 6)) return 0.0f;
   return pes::movestep::SpeedToRate(host, req.F(moveword::kDesiredSpeedKmh), 0);
 }
+
+namespace {
 
 // The clamp PES writes as a pair of unsigned compares (the "band 0..3" idiom).
 int Clamp03(int v) { return v < 0 ? 0 : (v > 3 ? 3 : v); }
@@ -1767,6 +1789,51 @@ int SwingBucketAngle(const MoveHost& host, float angleDeg) {
   return AngleBucket(host.AngleBuckets(), angleDeg, 10, false);
 }
 
+namespace {
+// RUN_LOOP's jostle override (rev2 §5.2, the block before the style block of FUN_1406c0170). When the nearest
+// opponent's predicted position is close, the turn to him is past 11.25 degrees, and his facing is within 67.5
+// degrees of the player's, the style is a jostle loop: 6 under 112.5 degrees of turn, 7 from 112.5 (112.5 itself
+// included), and 0x10 past 112.5 with a class under 2, or from 157.5 whatever the class. `turn` returns the signed
+// turn, which the change block reads for the mirror. The guard keeps the loop already on when the clip's mirror
+// and the turn's side disagree; then the base style stands.
+int JostleStyle(MoveHost& host, MoveReq& req, int base, float& turn) {
+  const RunConstants& k = host.RunConstantsView();
+  const TeamAi& team = host.Team();
+  const int own = host.ActionIndex();
+  const int opp = team.NearestOpponent(own);
+  if (!(own < 22 && opp < 22)) return base;
+  // The predicted positions, n ticks ahead: n = int(54 * 4 / 60 + 0.5).
+  const int n = static_cast<int>(host.TicksPerSecond() * k.speed4 / k.kmh60 + k.half);
+  float self[3], selfVel[3], other[3], otherVel[3];
+  team.Position(own, self);
+  team.Velocity(own, selfVel);
+  team.Position(opp, other);
+  team.Velocity(opp, otherVel);
+  const float dx = (other[0] + n * otherVel[0]) - (self[0] + n * selfVel[0]);
+  const float dz = (other[1] + n * otherVel[1]) - (self[1] + n * selfVel[1]);
+  // The threshold: 0.7 up to 1.0 at PC 95, 0.3 wide (the install's 0.7, 0.3, 50 and 45).
+  const float share = std::min(std::max((static_cast<float>(team.Ability(own, kAbilityPc)) - k.frame50) / k.deg45, 0.0f), k.one);
+  float threshold = k.rate07 + k.blend3 * share;
+  if (host.AnimeState() == kReplayAnimeState) threshold = k.replay45;
+  const float bearing = FoldFull(std::atan2(dx, dz) * host.StyleConstantsView().radToDeg, k);
+  const float facing = req.F(moveword::kFacing);
+  turn = AngleDiffDeg(facing, bearing, k);
+  const float face = std::fabs(AngleDiffDeg(facing, team.Heading(opp), k));
+  const float magnitude = std::fabs(turn);
+  if (!(std::sqrt(dx * dx + dz * dz) < threshold && k.deg1125 < magnitude && face < k.deg675)) return base;
+  int cand = 6;
+  if (k.deg1125b <= magnitude) {
+    const int commandClass = static_cast<int>(req.U(moveword::kCommandSpeedClass));
+    cand = (k.deg1575 <= magnitude || (k.deg1125b < magnitude && commandClass < 2)) ? 0x10 : 7;
+  }
+  // The guard: the loop already on keeps the base when the clip's mirror disagrees with the turn's side.
+  if (cand == static_cast<int>(req.U(moveword::kStyle) & 0xffu) && host.ClipFlag() != (turn < 0.0f)) {
+    return base;
+  }
+  return cand;
+}
+}  // namespace
+
 // ---------------------------------------------------------------------------------------------
 // FUN_1406c0170, the RUN_LOOP handler (mv2.a.c:6659). One tick of the running phase. Its
 // decompile's running branch, in PES's own order:
@@ -2070,26 +2137,44 @@ void RunLoop(MoveHost& host, MoveReq& req) {
   }
   }
 
-  // Arm 5: the style block.
+  // Arm 5: the style block (the tail of FUN_1406c0170). The ladder's answer, with the jostle override, is the
+  // style; a style equal to the request's word 0x50 ends the tick with nothing written.
   const float rate = RequestedRate(host, req, t);
-  req.SetF(moveword::kRate, rate);
-  // FUN_1406c0650's call: rateHeld is 0 there.
-  const int style = LocomotionStyle(host, host.AnimeState(), rate, req, host.RateCeiling(), false);
-  req.SetU(moveword::kStyle, static_cast<uint32_t>(style));
-  req.SetU(moveword::kMotion,
-           static_cast<uint32_t>(t.styleGroup[Clamp03(style) * 4 + Clamp03(band) / 4]));
+  // FUN_1406c0650's call: rateHeld is 0 there. The ladder reads the ramped rate from req[0x4a], not this one.
+  const int base = LocomotionStyle(host, host.AnimeState(), rate, req, host.RateCeiling(), false);
+  float jostleTurn = 0.0f;
+  const int style = JostleStyle(host, req, base, jostleTurn);
+  if (style == static_cast<int>(req.U(moveword::kStyle) & 0xffu)) return;
+
+  // The change: the style, its representative motion (DAT_1425ddcf0 at style * 4 + band), the mirror, and the
+  // blend words the change sets.
+  const uint32_t previous = req.U(moveword::kStyle) & 0xffu;
+  const int bandWord = Clamp03(band);
+  req.SetU(moveword::kParamState, static_cast<uint32_t>(style));
+  req.SetByte(moveword::kMotionPending, 1);
+  req.SetByte(moveword::kStyle, static_cast<uint8_t>(style));
+  req.SetU(moveword::kCommandSpeedClass, static_cast<uint32_t>(bandWord));
+  req.SetU(moveword::kMotion, static_cast<uint32_t>(t.styleGroup[style * 4 + bandWord]));
+  const bool clipBefore = host.ClipFlag();
+  bool mirror = clipBefore;
   if (style < 13 && ((0x1028u >> (style & 31)) & 1u) != 0) {
-    req.SetByte(moveword::kMirror, 1);
+    mirror = true;
   } else if (style < 12 && ((0x814u >> (style & 31)) & 1u) != 0) {
-    req.SetByte(moveword::kMirror, 0);
+    mirror = false;
+  } else if (style == 6 || style == 7 || style == 0x10) {
+    mirror = jostleTurn < 0.0f;
   }
-  req.SetF(moveword::kDuration, k.blend2);
+  req.SetByte(moveword::kMirror, mirror ? 1 : 0);
+  req.SetU(moveword::kTransitionWord, mirror != clipBefore ? 3u : 2u);
+  req.SetF(moveword::kDuration, (style == 0 && previous != 0u) ? k.blend2 : k.blend1333);
   req.SetF(moveword::kPlayback, k.one);
   req.SetF(moveword::kStartTime, 0.0f);
   req.SetF(moveword::kDwellElapsed, 0.0f);
   req.SetF(moveword::kDwellElapsed2, 0.0f);
   req.SetF(moveword::kDwellLimit2, 0.0f);
-  req.SetF(moveword::kDwellLimit, 0.2f);
+  req.SetF(moveword::kDwellLimit, k.blend2);
+  req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
+  req.SetU(0x20, 0u);  // req[0x20]: PES clears it in the change; the word has no name yet
   req.SetByte(moveword::kTurnLockDir, 0);
 }
 

@@ -10,6 +10,7 @@
 
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
+#include "movestep_team_synthetic.hpp"
 #include "pes/movestep_run.hpp"
 #include "pes/movestep_turn.hpp"
 
@@ -21,8 +22,6 @@ namespace probe {
 extern int idleRowCalls;
 extern int stayCalls;
 extern bool stayAnswer;
-extern int rampCalls;
-extern int dampingCalls;
 extern int outOfPlayCalls;
 extern bool outOfPlayAnswer;
 extern int turnStopCalls;
@@ -52,6 +51,8 @@ class SyntheticHost : public pes::MoveHost {
   pes::DampingConstants damping{};
   pes::DampingRecord dampingRecord{};
   int CurrentState() const override { return 0; }
+  const pes::TeamAi& Team() const override { return team; }
+  SyntheticTeam team;
   const pes::DampingConstants& DampingConstantsView() const override { return damping; }
   const pes::DampingRecord& DampingRecordView() const override { return dampingRecord; }
   const pes::StyleConstants& StyleConstantsView() const override { return style; }
@@ -1384,4 +1385,49 @@ TEST(RunLoop, FoldsTheSecondWordWhenTheStatePickersFacingErrorIsPast146) {
   EXPECT_EQ(req.U(pes::moveword::kLookBucketAlt), 9u);
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kLookDelta), -180.0f);
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kTurnStop));
+}
+
+// RUN_LOOP's jostle override (FUN_1406c0170, rev2 §5.2). The nearest opponent stands 0.5 m ahead on the
+// xz plane and faces the same way as the player, so the turn to him is the request's facing. The ladder
+// answers style 0 (probe), and the override picks 6, 7 or 0x10 by the turn's size.
+namespace {
+SyntheticHost JostleHost(float opponentFacing) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRampConstants();
+  h.team.nearest = 3;
+  h.team.position[3] = {0.0f, 0.5f, 0.0f};
+  h.team.heading[3] = opponentFacing;
+  return h;
+}
+
+// RUN_LOOP's style that a request at `facing` and speed class `commandSpeedClass` ends on.
+uint32_t JostledStyle(float facing, uint32_t commandSpeedClass) {
+  SyntheticHost h = JostleHost(facing);
+  pes::MoveReq req;
+  req.SetF(pes::moveword::kFacing, facing);
+  req.SetU(pes::moveword::kCommandSpeedClass, commandSpeedClass);
+  pes::probe::Reset();
+  pes::movestep::RunLoop(h, req);
+  return req.U(pes::moveword::kStyle) & 0xffu;
+}
+}  // namespace
+
+TEST(RunLoopJostle, ExactlyOneHundredTwelvePointFiveDegreesIsStyleSeven) {
+  EXPECT_EQ(JostledStyle(112.5f, 1u), 7u);
+}
+
+TEST(RunLoopJostle, PastOneHundredTwelvePointFiveWithAShortPlayerIsStyleSixteen) {
+  EXPECT_EQ(JostledStyle(113.0f, 1u), 0x10u);
+}
+
+TEST(RunLoopJostle, PastOneHundredTwelvePointFiveWithAPlayerOfClassTwoIsStyleSeven) {
+  EXPECT_EQ(JostledStyle(113.0f, 2u), 7u);
+}
+
+TEST(RunLoopJostle, OneHundredFiftySevenPointFiveIsStyleSixteenWhateverTheClass) {
+  EXPECT_EQ(JostledStyle(157.5f, 2u), 0x10u);
+}
+
+TEST(RunLoopJostle, UnderOneHundredTwelvePointFiveIsStyleSix) {
+  EXPECT_EQ(JostledStyle(100.0f, 2u), 6u);
 }
