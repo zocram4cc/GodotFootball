@@ -1937,14 +1937,29 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
 
   // Skills, playing style and philosophy shape how this player uses the ball.
   const PlayerSkills::Mask skills = CastPlayer()->GetPlayerData()->GetSkills();
-  const PlayingStyles::Player style = CastPlayer()->GetPlayerData()->GetPlayingStyle();
   const PlayingStyles::ComMask comStyles = CastPlayer()->GetPlayerData()->GetComStyles();
+  // The PES path (pes_loop) draws the stumble and the shot's power from the player's own
+  // generator (slot 2, report 3); the GF path keeps random().
+  const bool pesPath = match->IsPesLoop();
+  const auto drawRange = [&](float lo, float hi) -> float {
+    return pesPath ? lo + (hi - lo) * CastPlayer()->GetPesRandom().Unit(2) : random(lo, hi);
+  };
   // A one-touch passer does not pay the control penalty on a quick release.
   oneTouchIsHard = PlayerSkills::GetQuickReleaseAccuracyPenalty(
       skills, CastPlayer()->GetPossessionDuration_ms(), oneTouchIsHard);
 
   std::vector<PlayerImage> opponentPlayerImages;
   _mentalImage->GetTeamPlayerImages(abs(team->GetID() - 1), -1, opponentPlayerImages);
+  // A player's nearest opponent, in metres. The PES path reads the run world's sorted list (report
+  // 8.5); the GF path keeps its linear scan of the mental image, measured from `at`.
+  const auto nearestOppDistance = [&](const Player* p, const Vector3& at) {
+    if (pesPath) return team->GetController()->NearestOpponentDistance(p);
+    float best = 1000.0f;
+    for (const PlayerImage& opp : opponentPlayerImages) {
+      best = std::min(best, (opp.position - at).GetLength());
+    }
+    return best;
+  };
 
   // Panic under pressure: count opponents closing in and let temperament decide
   // whether the player loses his composure (proposal 3B).
@@ -1968,7 +1983,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
                                         CastPlayer()->GetPlayerData()->GetAge(),
                                         pressuringOpponents) *
         PlayerSkills::GetStumbleChanceMultiplier(skills, captainOnPitch);
-    if (MatchPressure::ShouldStumble(stumbleChance, random(0.0f, 1.0f))) {
+    if (MatchPressure::ShouldStumble(stumbleChance, drawRange(0.0f, 1.0f))) {
       _AddPanicPass(commandQueue, opponentPlayerImages);
       if (Verbose())
         printf("panic under pressure! chance %f, %i opponents\n", stumbleChance,
@@ -2032,7 +2047,6 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   }
   const bool rethink = pes::RethinkDue(nowFrame, carrierBusyStamp);
   bool shooting = false;
-  bool passAnswered = false;
 
   // The shoot zone, over the ball in PES's frame (this engine's y is PES's z).
   const float finishing = CastPlayer()->GetStat("technical_shot");
@@ -2075,14 +2089,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // what a nearest-opponent distance gives when the class ladder is 0
   // (inside r1), 1 (r2), 2 (r3), 3 (free). The plan block reads it (Long).
   const float pressureRadius = attackDir * carrierPos.coords[0] < -pitchHalfW / 3.0f ? 4.0f : 2.0f;
-  const float nearestOpp = [&] {
-    float best = 1000.0f;
-    for (const PlayerImage& opp : opponentPlayerImages) {
-      const float d = (opp.position - carrierPos).GetLength();
-      if (d < best) best = d;
-    }
-    return best;
-  }();
+  const float nearestOpp = nearestOppDistance(CastPlayer(), carrierPos);
   int carrierPressureClass = 3;
   if (nearestOpp < pressureRadius) carrierPressureClass = 0;
   else if (nearestOpp < 2.3f * pressureRadius) carrierPressureClass = 1;
@@ -2107,10 +2114,14 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
         PlayingStyles::Has(comStyles, PlayingStyles::Com::MazingRun) ||
         PlayingStyles::Has(comStyles, PlayingStyles::Com::IncisiveRun);
     const float carrierX = attackSign * carrierPos.coords[0];
+    // MiddleShot's start takes the long-shot skills, Rising Shots and COM 5 (report 4.4).
+    const bool middleShotSkill =
+        longShotSkill || PlayerSkills::Has(skills, PlayerSkills::Skill::RisingShots);
+    const bool middleShotCom = PlayingStyles::Has(comStyles, PlayingStyles::Com::LongRanger);
     const PlanChoice choices[] = {
         {pes::kPlanMiddleShot, carrier.middleShotSeedK,
-         pes::PlanStartProbability(pes::kPlanMiddleShot, carrier, finishing, longShotSkill, false,
-                                   intention == 2),
+         pes::PlanStartProbability(pes::kPlanMiddleShot, carrier, finishing, middleShotSkill,
+                                   middleShotCom, intention == 2),
          // MiddleShot needs the mid band (or the far sector past the line), and
          // an Intention below 3 (0x14211b4eb).
          pes::IsMid(zone) && intention < 3},
@@ -2231,7 +2242,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   shoot.keeperPresent = keeper != nullptr;
   shoot.keeperSettled =
       keeper != nullptr && keeper->GetCurrentFunctionType() == e_FunctionType_Movement;
-  if (pes::ShootSubKind(shoot, carrier) == 1) {
+  const bool shotAnswer = pes::ShootSubKind(shoot, carrier) == 1;
+  const auto addShot = [&] {
     PlayerCommand command;
     command.desiredFunctionType = e_FunctionType_Shot;
     command.useDesiredMovement = false;
@@ -2256,17 +2268,16 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     const float goalDist = NormalizedClamp(
         (Vector3(pitchHalfW * -team->GetSide(), 0, 0) - carrierPos).GetLength(), 0.0f, 32.0f);
     command.touchInfo.desiredPower =
-        random(0.7f * (0.6f + goalDist * 0.4f), 1.0f * (0.6f + goalDist * 0.4f));
+        drawRange(0.7f * (0.6f + goalDist * 0.4f), 1.0f * (0.6f + goalDist * 0.4f));
     commandQueue.push_back(command);
-    shooting = true;
-  }
+  };
 
   // The pass decision (report 4.3 + 5.2): enumerate the mates, open each
   // lane with the interception formula, and let PassForward pick the tier.
   // Enumerated on every think, gated on the same re-think clock as the plan,
   // so a carrier who has just collected the ball does not re-roll his passing
   // every tick.
-  if (!shooting && rethink) {
+  const auto passAnswer = [&]() -> pes::PassAnswer {
     // The lanes: 11 frames ahead, the owned-ball value of report 4.3's `F`.
     // One logic frame is one tick (Milestone A1), so a PES frame count is that
     // many ticks.
@@ -2368,11 +2379,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       c.record.turnClass = pes::TurnClass(turnAngle, carrier);
       // The mate's own pressure: the nearest opponent to him decides both the
       // short-forward gate and the lofted tier's keeper-distance stand-in.
-      float mateNearest = 1000.0f;
-      for (const PlayerImage& opp : opponentPlayerImages) {
-        const float d = (opp.position - matePos).GetLength();
-        if (d < mateNearest) mateNearest = d;
-      }
+      const float mateNearest = nearestOppDistance(mate, matePos);
       c.nearestOppToMate_m = mateNearest;
       c.pressureClass = mateNearest < 2.0f ? 0 : (mateNearest < 4.6f ? 1 : (mateNearest < 6.0f ? 2 : 3));
       // ponytail: the pressure entry's distance to opponent slot 0 (INF the
@@ -2383,22 +2390,73 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       candidates.push_back(c);
     }
 
-    const pes::PassAnswer answer = pes::PassForward(candidates, {}, in, carrier);
-    if (answer.index >= 0) {
-      Player* target = match->GetPlayer(answer.index);
-      if (target) {
-        e_FunctionType passType = e_FunctionType_ShortPass;
-        if (answer.kind == pes::kPassLong) passType = e_FunctionType_HighPass;
-        else if (answer.kind == pes::kPassThrough) passType = e_FunctionType_ShortPass;
-        _AddPass(commandQueue, target, passType);
-        passAnswered = true;
-      }
+    return pes::PassForward(candidates, {}, in, carrier);
+  };
+  // The pass as GF's pass command. The through ball is GF's LongPass (playingstyles.cpp, "the
+  // through ball") on the PES path; the GF path keeps its collapse to ShortPass until the switch
+  // is removed.
+  const auto addPass = [&](const pes::PassAnswer& pass) {
+    if (pass.index < 0) return;
+    Player* target = match->GetPlayer(pass.index);
+    if (target == nullptr) return;
+    e_FunctionType passType = e_FunctionType_ShortPass;
+    if (pass.kind == pes::kPassLong) {
+      passType = e_FunctionType_HighPass;
+    } else if (pass.kind == pes::kPassThrough && pesPath) {
+      passType = e_FunctionType_LongPass;
     }
+    _AddPass(commandQueue, target, passType);
+  };
+
+  if (!pesPath) {
+    // The GF order: the shot, then the pass on the rethink, then the old dribble search.
+    if (shotAnswer) {
+      addShot();
+      shooting = true;
+    }
+    if (!shooting && rethink) addPass(passAnswer());
+    AI_GetBestDribbleMovement(match, player->GetID(), _mentalImage, rawInputDirection,
+                              rawInputVelocityFloat, team->GetTeamData()->GetTactics());
+    return;
   }
 
-  e_Velocity enumVelocity = e_Velocity_Idle;
-  AI_GetBestDribbleMovement(match, player->GetID(), _mentalImage, rawInputDirection,
-                            rawInputVelocityFloat, team->GetTeamData()->GetTactics());
+  // The PES path (pes_loop): MainEval's default is the Dribble answer, recomputed every tick
+  // (report 1, step f). The units run on the rethink only, and the walk takes the first survivor
+  // (report 5); with none, the default's heading drives the ball.
+  pes::DribbleInput search;
+  search.ball = {carrierPos.coords[0], carrierPos.coords[1]};
+  search.halfLen_m = pesFieldHalfLength;
+  search.halfWid_m = pesFieldHalfWidth;
+  // ponytail: the image-state preference W (0x14212FE70's ladder) is not ported, so the search
+  // runs on threat and the touchline band alone.
+  search.weight = 0.0f;
+  for (const PlayerImage& opp : opponentPlayerImages) {
+    pes::DribbleOpponent o;
+    o.pos = {opp.position.coords[0], opp.position.coords[1]};
+    // ponytail: the predicted point is his position until the look-ahead is ported.
+    o.pred = o.pos;
+    // ponytail: R_o (the image-state reach, 0x14212E490) is not ported; the reach floor stands in.
+    o.reachRo_m = carrier.threatReachFloor_m / carrier.threatReachScale;
+    o.keeper = opp.dynamicFormationEntry.role == e_PlayerRole_GK;
+    search.opponents.push_back(o);
+  }
+  const float heading = pes::DribbleDirection(search, carrier) / degreesPerRadian;
+  rawInputDirection = Vector3(std::cos(heading), std::sin(heading), 0.0f);
+  // ponytail: full dribble speed until the chooser's speed sub-kinds (0x14212F1C0) are ported.
+  rawInputVelocityFloat = sprintVelocity;
+
+  pes::CarrierAnswer chosen{pes::kAnswerDribble, pes::kDribbleAlong};
+  pes::PassAnswer pass;
+  if (rethink) {
+    pass = passAnswer();
+    std::vector<pes::ListedAnswer> listed;
+    if (shotAnswer) listed.push_back({0, {pes::kAnswerShoot, 1}});
+    if (pass.index >= 0) listed.push_back({4, {pes::kAnswerPass, pass.kind}});
+    // ponytail: the restart veto (MI+0x1775) has no GF state yet, so no pass is vetoed here.
+    chosen = pes::WalkCarrierUnits(listed, chosen, pes::WalkVetoes{});
+  }
+  if (chosen.type == pes::kAnswerShoot) addShot();
+  if (chosen.type == pes::kAnswerPass) addPass(pass);
 }
 
 void ElizaController::_AddPass(std::vector<PlayerCommand>& commandQueue, Player* target,

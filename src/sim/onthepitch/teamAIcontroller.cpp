@@ -2163,6 +2163,13 @@ Player* TeamAIController::NearestOpponentOf(const Player* own) const {
   return near.empty() ? nullptr : RunPlayerAt(near.front().id);
 }
 
+float TeamAIController::NearestOpponentDistance(const Player* own) const {
+  const int slot = RunSlotOf(own);
+  if (slot < 0) return 1000.0f;
+  const auto near = ob::NearestOpponents(lastRunWorld, slot);
+  return near.empty() ? 1000.0f : std::sqrt(near.front().d2);
+}
+
 int TeamAIController::RunSlotOf(const Player* player) const {
   for (int t = 0; t < 2; ++t) {
     const std::vector<Player*>& roster = lastRunIds[t];
