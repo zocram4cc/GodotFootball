@@ -158,3 +158,8 @@ add_executable(sim_heading_test sim_heading_test.cpp)
 target_link_libraries(sim_heading_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(sim_heading_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(sim_heading_test PROPERTIES TIMEOUT 1800)
+
+add_executable(sim_missing_player_test sim_missing_player_test.cpp)
+target_link_libraries(sim_missing_player_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(sim_missing_player_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(sim_missing_player_test PROPERTIES TIMEOUT 1800)

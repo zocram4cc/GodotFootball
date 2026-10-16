@@ -19,6 +19,7 @@
 #include "player.hpp"
 
 #include <cmath>
+#include <limits>
 #include <cstring>
 
 #include "simcontext.hpp"
@@ -428,6 +429,12 @@ void Player::UpdatePossessionStats(bool onInterval) {
 
 float Player::GetClosestOpponentDistance() const {
   Player* opp = AI_GetClosestPlayer(match->GetTeam(abs(team->GetID() - 1)), GetPosition());
+  // No active opponent: nobody is close. +inf saturates each caller's clamp at its far end
+  // (humanoid.cpp:3469, humanoid_utils.cpp:203 and :328). The sibling AI_GetClosestPlayer
+  // callers handle the same null (humanoid.cpp:90, playercontroller.cpp:335).
+  // ponytail: PES's reading of an empty opposing side is not located in docs/re; +inf is the
+  // empty minimum. Upgrade: decode that PES reader and use its value.
+  if (!opp) return std::numeric_limits<float>::infinity();
   return opp->GetPosition().GetDistance(GetPosition());
 }
 
