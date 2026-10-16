@@ -180,6 +180,10 @@ struct CarrierConstants {
   float longBaseMid = 0.0f;          // 60, 0x14211b2c5
   float longBaseFree = 0.0f;         // 80, 0x14211b2a9
   float longStatGain = 0.0f;         // 10, report 4.4
+  float longComBonus = 0.0f;         // 50, `lea ecx, [rbx + 0x32]` at 0x14211b2d9 (COM 6)
+  float longSkillBonus = 0.0f;       // 50, `lea eax, [rcx + 0x32]` at 0x14211b2ec (skill 13; skill 17 repeats it)
+  float longLevelStep = 0.0f;        // 20, `add edi, 0x14` at 0x14211b30b (team long instruction level)
+  float longPathBSkillBonus = 0.0f;  // 10, `and ecx, 0xa` at 0x14211b36b (Path B skill)
   // --- the curve shot (report 6.4, 0x14211af20) ---
   float curveShotComBase = 0.0f;    // 30, `and ecx, 0x1e` at 0x14211b052
   float curveShotSkillBase = 0.0f;  // 30, `lea ebx, [rcx + 0x1e]` at 0x14211b05e
@@ -399,12 +403,13 @@ enum CarrierPlan {
 // (0x14211e2d0) writes inline at 0x14211e35d, else Basic.
 constexpr int kPlanPriorityOrder[] = {9, 8, 2, 3, 1, 4, 5, 6, 7};
 
-// One plan's rolled start probability, the P table of report 4.4. Returns a
-// negative value when the plan cannot start from this state. `stat` is the
-// carrier's own stat the plan reads (Breakthrough: Dribbling/Speed/Contact;
-// MiddleShot: Kicking Power/Finishing; Cross and Long the same pair),
-// `skill`/`com` the plan's skill and COM triggers and `state2` MiddleShot's
-// image-state-2 bonus.
+// One rolled plan's start probability, the P table of report 4.4, for
+// Breakthrough, MiddleShot and Cross; Long and the curve shot are scored by
+// LongScore and CurveShotScore, and any other plan returns a negative value.
+// `stat` is the one stat the caller passes (GF: technical_dribble for
+// Breakthrough, technical_shot for MiddleShot and Cross); PES reads more, see
+// docs/re/pes-re-com-styles.md section 5, items 10-13. `skill`/`com` are the
+// plan's skill and COM triggers and `state2` MiddleShot's image-state-2 bonus.
 float PlanStartProbability(int planId, const CarrierConstants& k, float stat, bool skill, bool com,
                            bool state2);
 
@@ -459,6 +464,36 @@ float CurveShotScore(const CurveShotInput& in, const CarrierConstants& k);
 // (0x14211b176..0x14211b19d).
 bool CurveShotAdmitted(const CurveShotInput& in, int draw, const CarrierConstants& k);
 
+// --- the Long plan (report 6.6: veto 0x14211a570, body 0x14211b1d0) ---
+struct LongInput {
+  int intention = 1;                // the BallPlayer+0x32B0+8 ratchet
+  int engagement = 3;               // the carrier's pressure class, 0 pressed .. 3 free (0x14069a3e0+16)
+  bool teamModeThree = false;       // team+4 == 3 (0x14211b259): an accept
+  bool designatedSelf = false;      // the carrier is the team's designated player (0x14211b269): an accept
+  bool fullAttack = false;          // TeamData+47266 (0x14211b279): an accept
+  bool teamSetting = false;         // eval+0x3C != 0 (0x14211b27f): Path B
+  int level = 0;                    // eval+0x54, the team long instruction 0..2 (0x14211b303)
+  bool comLongBallExpert = false;   // COM 6 (bit 6 of +0x4C, 0x14211b2d1)
+  bool skillWeightedPass = false;   // skill 13 (bit 13 of the skills QWORD, 0x14211b2e6)
+  bool skillLowLoftedPass = false;  // skill 17 (bit 17, 0x14211b2f2)
+  float lofted = 0.0f;              // the Lofted Pass stat (record +0x1C)
+};
+
+// The veto (0x14211a570): Intention 3 or 4, or an engagement below 1.
+// ponytail: its signed-X test (0x14211a5bb..a5e4, against a PES pitch row and
+// the unit's stored slot at 0x14211a601) reads PES data GF does not carry, so
+// it never vetoes.
+bool LongVetoed(const LongInput& in);
+
+// The score (0x14211b1d0): Path A is the engagement's base, 50 for COM 6 and for
+// each of the two skills, 20 per team level (two steps at most), and the lofted
+// ramp; Path B (teamSetting) is 10 for each skill and the ramp. Truncated once.
+float LongScore(const LongInput& in, const CarrierConstants& k);
+
+// The admission: the veto, then the three accepts that skip the roll, then the
+// roll itself: the draw at or below the score.
+bool LongAdmitted(const LongInput& in, int draw, const CarrierConstants& k);
+
 // --- the Intention ratchet (report 5, 0x1421197b0) ---
 //
 // BallPlayer+0x32B0+8, one per player, 1 on a fresh one (the reset
@@ -506,6 +541,13 @@ struct PlanImage {
 // The selected plan's own cancel test (vtable[3]); `stillEligible` is its
 // admission predicate now.
 bool ImagePlanCancelled(int planId, int intention, bool stillEligible);
+
+// What a selected plan needs to keep running: the stand-in for its own cancel
+// test (vtable[3]) where that is not decoded. The curve shot keeps while its
+// head gates pass (CurveShotScore), Long while its veto does not fire, and the
+// rolled plans while their choice still holds.
+bool PlanStillHolds(int planId, bool choiceEligible, const CurveShotInput& curve,
+                    const LongInput& longPlan, const CarrierConstants& k);
 
 // A plan's image mode (vtable[6]).
 int PlanImageMode(int planId, int previousMode, bool receiving, float carrierX_m,

@@ -318,6 +318,14 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
   imm8(0x14211b05e, 2, &k.curveShotSkillBase);
   imm8(0x14211b106, 1, &k.curveShotFloor);
   imm8(0x14211b0fa, 2, &k.curveShotCap);
+  // The Long plan's four bonuses are byte immediates as well: the `lea`
+  // displacements of COM 6 (0x14211b2d9) and skill 13 (0x14211b2ec), the level
+  // step of `add edi, 0x14` (0x14211b30b) and Path B's `and ecx, 0xa`
+  // (0x14211b36b).
+  imm8(0x14211b2d9, 2, &k.longComBonus);
+  imm8(0x14211b2ec, 2, &k.longSkillBonus);
+  imm8(0x14211b30b, 2, &k.longLevelStep);
+  imm8(0x14211b36b, 2, &k.longPathBSkillBonus);
   // The caps and floors that are not immediates: Breakthrough's is the
   // `cmp ebx, 0x46; cmova ebx, edx(0)` of 0x14211aa7e, MiddleShot's floor the
   // -5 comparison at 0x14259be7c, and its stat gain the 15 of 0x14259be0c.
@@ -597,11 +605,11 @@ PassAnswer PassForward(const std::vector<PassCandidate>& mates,
   return answer;
 }
 
-// The rolled start probabilities of report 4.4's P table. Each plan's base is
-// its own instruction's immediate; every plan then adds its own stat term,
-// gain * clamp01((x - 70)/span), and clamps to its own window. `skill`/`com`
-// are the plan's skill and COM triggers and `state2` MiddleShot's
-// image-state-2 bonus.
+// The rolled start probabilities of report 4.4's P table, for Breakthrough,
+// MiddleShot and Cross. Each plan's base is its own instruction's immediate;
+// every plan adds its own stat term, gain * clamp01((x - 70)/span), and clamps
+// to its own window. `skill`/`com` are the plan's skill and COM triggers and
+// `state2` MiddleShot's image-state-2 bonus.
 float PlanStartProbability(int planId, const CarrierConstants& k, float stat, bool skill, bool com,
                            bool state2) {
   const float gain = [&]() {
@@ -609,7 +617,6 @@ float PlanStartProbability(int planId, const CarrierConstants& k, float stat, bo
       case kPlanBreakthrough: return k.breakthroughStatGain;
       case kPlanMiddleShot: return k.middleShotStatGain;
       case kPlanCross: return k.crossStatGain;
-      case kPlanLong: return k.longStatGain;
       default: return 0.0f;
     }
   }();
@@ -637,9 +644,6 @@ float PlanStartProbability(int planId, const CarrierConstants& k, float stat, bo
       // Base 50 with the Crosser style, the Early Cross COM or Pinpoint Cross.
       return std::max(std::min(((skill || com) ? k.crossBase : 0.0f) + statTerm, k.crossCap),
                       k.crossFloor);
-    case kPlanLong:
-      // Base by the carrier's pressure class: 30 pressed, 60 crowded, 80 free.
-      return k.longBaseMid + statTerm;
     default:
       return -1.0f;
   }
@@ -707,6 +711,49 @@ bool CurveShotAdmitted(const CurveShotInput& in, int draw, const CarrierConstant
   return in.skill7 || in.incisiveRun;
 }
 
+// The veto (0x14211a570): Intention 3 or 4 (`cmp eax, 3/4; jz`), or an engagement
+// below 1 (`cmp [rax+0x10], 1; jl`).
+bool LongVetoed(const LongInput& in) {
+  return in.intention == 3 || in.intention == 4 || in.engagement < 1;
+}
+
+// The team level adds one step per level, and the binary's compares
+// (`cmp ecx, 2` at 0x14211b30e) stop at two.
+constexpr int kLongLevelSteps = 2;
+
+float LongScore(const LongInput& in, const CarrierConstants& k) {
+  // The lofted ramp, 10 * clamp01((lofted - 70)/29) (0x14211b31a..b3cf), joins
+  // the integer part and the sum truncates once.
+  const float ramp = k.longStatGain * Clamp01((in.lofted - k.statFloor) / k.statSpan);
+  if (in.teamSetting) {
+    // Path B (0x14211b35a): 10 for each skill and the ramp; no base, COM or level.
+    float bonus = 0.0f;
+    if (in.skillWeightedPass) bonus += k.longPathBSkillBonus;
+    if (in.skillLowLoftedPass) bonus += k.longPathBSkillBonus;
+    return std::trunc(bonus + ramp);
+  }
+  // Path A (0x14211b289): the base by the pressure class (30 below 2, 60 at 2,
+  // 80 at 3 and above), then 50 for COM 6 and for each skill, then the level.
+  float base = k.longBaseFree;
+  if (in.engagement < 2) base = k.longBasePressed;
+  else if (in.engagement == 2) base = k.longBaseMid;
+  if (in.comLongBallExpert) base += k.longComBonus;
+  if (in.skillWeightedPass) base += k.longSkillBonus;
+  if (in.skillLowLoftedPass) base += k.longSkillBonus;
+  base += k.longLevelStep * static_cast<float>(std::clamp(in.level, 0, kLongLevelSteps));
+  return std::trunc(base + ramp);
+}
+
+bool LongAdmitted(const LongInput& in, int draw, const CarrierConstants& k) {
+  if (LongVetoed(in)) return false;
+  // The accepts (0x14211b259..b279) answer before the roll: the team's mode 3,
+  // the carrier as the designated player, and the full-attack flag.
+  if (in.teamModeThree || in.designatedSelf || in.fullAttack) return true;
+  // The draw is 0..99 and a plan starts at or below its score (`cmp ebx, eax`
+  // at 0x14211b422 takes the reject when the score is below the draw).
+  return draw <= static_cast<int>(LongScore(in, k));
+}
+
 int NextIntention(int state, const IntentionInput& in, const CarrierConstants& k) {
   if (state == 4) return 4;  // 0x142119862, absorbing
   if (in.closeBand &&
@@ -728,10 +775,21 @@ bool ImagePlanCancelled(int planId, int intention, bool stillEligible) {
   // Breakthrough's own cancel test (0x14211a550): the Intention below 3 stops
   // it, `cmp eax, 3; setl`.
   if (planId == kPlanBreakthrough && intention < 3) return true;
-  // ponytail: no other unit's vtable[3] is decoded, so a plan whose own start
-  // conditions have gone is dropped instead of persisting until its own cancel
-  // test would have fired.
+  // ponytail: a rolled plan's own cancel test (vtable[3]) is not decoded; the
+  // stand-in is PlanStillHolds, which asks whether the plan's start still holds.
   return !stillEligible;
+}
+
+bool PlanStillHolds(int planId, bool choiceEligible, const CurveShotInput& curve,
+                    const LongInput& longPlan, const CarrierConstants& k) {
+  switch (planId) {
+    case kPlanCurveShot:
+      return CurveShotScore(curve, k) >= 0.0f;
+    case kPlanLong:
+      return !LongVetoed(longPlan);
+    default:
+      return choiceEligible;
+  }
 }
 
 int PlanImageMode(int planId, int previousMode, bool receiving, float carrierX_m,
