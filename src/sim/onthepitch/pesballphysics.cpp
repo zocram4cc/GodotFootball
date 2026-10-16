@@ -408,9 +408,8 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
                                   state->spinRaw.z * c.image.spinScale);
   float newVx = vx * keep + tangential.x, newVz = vz * keep + tangential.z;
 
-  // Report 3.4: the spin rebuild and the cap. spin_raw += (omega_new/492.181 -
-  // spin_raw) * k with k = 1 on the render path and the contact-vs-air blend
-  // Report 3.4: the rolling spin is rebuilt from the post-contact velocity below (not the old omega_new cap).
+  // Report 3.4: the spin rebuild and the cap, from the post-contact velocity W. spin_raw := w_raw with
+  // k = 1 on the airborne path (contact-2 §2).
   const float invSpinScale = c.image.invSpinScale;
   // PES's rolling spin, raw: w = (W_z, 0, -W_x)/r (live: the rolling records match this with ratio 1.0).
   // Report 3.4's cap scales X and Z only (0x14087708d, `xmm13, xmm12 *= 7.5/f`); W_y = 0 keeps Y at zero
