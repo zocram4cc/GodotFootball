@@ -30,26 +30,24 @@ const float Rt = 6420.0;
 const int STEPS = 32;
 
 void sky() {
-	if (AT_CUBEMAP_PASS) {
-		COLOR = ambient_sh9 * ambient_scale;
-		return;
-	}
+	// No early returns: the sky processor forbids them.
 	vec3 v = EYEDIR;
-	if (v.y < 0.0) {
-		COLOR = ground_color;
-		return;
-	}
-	float mu = v.y;
-	float nu = dot(v, sun_direction);
+	float below = step(v.y, 0.0);
+	float mu = max(v.y, 0.02);
+	float nu = dot(normalize(vec3(v.x, mu, v.z)), sun_direction);
 	vec3 T = pes_transmittance(mu, beta_rayleigh, height_rayleigh, beta_mie / (1.0 - mie_absorption), height_mie);
-	vec3 S = pes_inscatter(mu, nu, sun_direction.y, beta_rayleigh, height_rayleigh, beta_mie, height_mie, mie_g);
-	vec3 mie_part = S * S.a / max(S.r, 1e-4) * (beta_rayleigh.r / max(beta_rayleigh, vec3(1e-6)));
+	vec4 S4 = pes_inscatter(mu, nu, sun_direction.y, beta_rayleigh, height_rayleigh, beta_mie, height_mie, mie_g);
+	vec3 S = S4.rgb;
+	vec3 mie_part = S * S4.a / max(S.r, 1e-4) * (beta_rayleigh.r / max(beta_rayleigh, vec3(1e-6)));
 	vec3 L = S * 0.0596831031 * (1.0 + nu * nu) // Rayleigh 3/(16π)
 		+ mie_part * (1.0 - mie_g * mie_g) * 0.0795774683 / pow(max(1.0 - mie_g * nu, 1e-4), 2.0); // Schlick
 	L = max(L, vec3(0.0)) * sun_intensity;
-	if (nu >= 0.999847690) {
-		L += 10.0 * sun_intensity * T; // the 1° disk (§2)
-	}
+	float disk = step(0.999847690, nu); // the 1° disk (§2)
+	L += (10.0 * sun_intensity * T) * disk;
 	L += star_intensity * vec3(3.284e-3, 4.11e-3, 6.24e-3); // night airglow
-	COLOR = L;
+	vec3 sky_col = mix(L, ground_color, below);
+	if (AT_CUBEMAP_PASS) {
+		sky_col = ambient_sh9 * ambient_scale;
+	}
+	COLOR = sky_col;
 }
