@@ -29,10 +29,11 @@ constexpr unsigned int DEFAULT_SEED = 1;
 constexpr int DEFAULT_MINUTES = 20;    // GF's default match length in real minutes
 constexpr float DEFAULT_TIMESCALE = 1.0f;
 constexpr const char* DEFAULT_ANIMS = "assets/gf_anims";
-// The sim-tick cap: a match still unfinished after 30 minutes of logic frames (54 Hz)
-// is stuck. The restart watch stops a stalled restart long before this, so the cap
-// is the backstop.
-constexpr unsigned long kMaxSimTicks = 30ul * 60ul * Match::kFramesPerSecond;
+// The sim-tick cap: a match still unfinished after 60 minutes of logic frames (54 Hz) is
+// stuck. The clock stops in every stoppage, so a full match runs longer than its 20 real
+// minutes: seed 7 reaches full time at 128912 ticks (about 40 minutes). The restart watch
+// stops a stalled restart long before this, so the cap is the backstop.
+constexpr unsigned long kMaxSimTicks = 60ul * 60ul * Match::kFramesPerSecond;
 constexpr int EXIT_USAGE = 2;
 
 int Usage(const char* why) {
@@ -219,6 +220,7 @@ int main(int argc, char** argv) {
   std::printf("[restarts] %lu stoppages, longest %.1f s (%lu ticks), bound %.1f s (%lu ticks)\n",
               watch.MeasuredStoppages(), watch.LongestTicks() * tickSeconds, watch.LongestTicks(),
               watch.LimitTicks() * tickSeconds, watch.LimitTicks());
+  std::printf("[ticks] %lu sim ticks to full time (cap %lu)\n", watch.Ticks(), kMaxSimTicks);
   std::printf("[idle] %lu episodes\n", watch.IdleEpisodes());
   return 0;
 }

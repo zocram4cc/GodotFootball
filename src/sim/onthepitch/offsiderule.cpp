@@ -155,6 +155,10 @@ blunted::Vector3 RestartPosition(const blunted::Vector3& positionAtPass,
   const float limit = pitchHalfW - kRestartLineMargin_m;
   if (out.coords[0] > limit) out.coords[0] = 2.0f * limit - out.coords[0];
   if (out.coords[0] < -limit) out.coords[0] = -2.0f * limit - out.coords[0];
+  // The same fold across the touchline: a spot past it cannot be kicked from (humanoid.cpp's
+  // touch reach), and a spot on the line (a throw-in) is left where it is.
+  if (out.coords[1] > pitchHalfH) out.coords[1] = 2.0f * pitchHalfH - out.coords[1];
+  if (out.coords[1] < -pitchHalfH) out.coords[1] = -2.0f * pitchHalfH - out.coords[1];
   return out;
 }
 

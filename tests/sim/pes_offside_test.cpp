@@ -116,6 +116,24 @@ TEST(PesOffsideRestart, AnOffsideSpotPastTheLineStaysInsideThePitch) {
   EXPECT_FLOAT_EQ(OffsideRule::RestartPosition({0, 0, 0}, {53.3f, 6.5f, 0.0f}).coords[1], 6.5f);
 }
 
+// A spot past the touchline is pulled back inside it. humanoid.cpp refuses every touch
+// frame whose predicted ball is past the pitch, its line and a 0.11 m reach, so a kick
+// from a spot out there is never played and the restart holds forever: the 16-10-26 seed-7
+// free kick at y 34.2 (0.2 m past the line) stalled this way.
+TEST(PesOffsideRestart, ATouchlineSpotPastTheLineStaysInsideThePitch) {
+  constexpr float kPastTouchline_m = 0.2f;
+  const float y = pitchHalfH + kPastTouchline_m;
+  const Vector3 spot = OffsideRule::RestartPosition({0, 0, 0}, {5.3f, y, 0.0f});
+  EXPECT_LE(std::fabs(spot.coords[1]), pitchHalfH);
+  EXPECT_FLOAT_EQ(spot.coords[0], 5.3f);
+  // Symmetric on the other touchline.
+  const Vector3 below = OffsideRule::RestartPosition({0, 0, 0}, {5.3f, -y, 0.0f});
+  EXPECT_LE(std::fabs(below.coords[1]), pitchHalfH);
+  // A spot exactly on the line (a throw-in) is untouched.
+  const Vector3 onLine = OffsideRule::RestartPosition({0, 0, 0}, {5.3f, pitchHalfH, 0.0f});
+  EXPECT_FLOAT_EQ(onLine.coords[1], pitchHalfH);
+}
+
 TEST(PesOffsideLine, ClampsToTheGoalLine) {
   // A ball out over the goal line, and a defender behind his own line, both
   // land on the goal line rather than beyond it.
