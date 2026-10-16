@@ -147,6 +147,7 @@ address given.
 |`pes-re-com-styles.md`|**COM playing styles and the image/intention system, verified**: storage offsets, image scorer probabilities (per-evaluator re-seeded dice), the dispatcher `[9,8,2,3,1,4,5,6,7]`, the Intention ratchet; 4 corrections to the source write-up and 22 GF port mismatches. External source cited|
 |`pes-re-shootout-stale-object.md`|The shootout segfault: a stale object with no ninja dependency record, two in-memory `Match` layouts, proof by address arithmetic; the fix and the build-hygiene rule|
 |`pes-re-stadium-cloth-vfx.md`|B6/B7 decode: team→stadium (Team.bin +0x3C is a Stadium.bin id, reader `FUN_141eeeea0`, fallback 29); cloth vs nocloth part objects (nocloth drawn; corrects cloth-nets §3); vfxdb header (reader not found)|
+|`pes-re-gaps-a2.md`|A2/A6 gaps: MA build is inside the team tick (`FUN_140535c60` from `FUN_1404f6c30`), team-tick delivery chain, referee only via record handlers; HUD env source refuted; E5 step = frame delta; C8 = byte `MI+0x11b4`, keep `== 0`|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
