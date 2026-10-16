@@ -101,14 +101,15 @@ TEST(PesClipsInstall, EveryDodgeClipConvertsAndLoads) {
   // Every clip of the dodge family: the ball dodges (dodge_*), the human
   // dodges (avoidjump_/avoidslide_) and the goal-net dodges (goalnet_*).
   for (const auto& clip : clips->clips) {
-    // The dodge family, and the tackle family stage C added: every clip of the
-    // set belongs to one of them, and each has its own conversion test below.
+    // The dodge family, the tackle family and the locomotion family the MOVESTEP handoff plays: every
+    // clip of the set belongs to one of them, and each has its own conversion test below.
     const bool dodgeFamily =
         clip.name.rfind("dodge_", 0) == 0 || clip.name.rfind("avoid", 0) == 0 ||
         clip.name.rfind("goalnet_", 0) == 0 || clip.name.rfind("rapid", 0) == 0;
     const bool tackleFamily = clip.family == pes::PesClipFamily::kTackle;
-    EXPECT_TRUE(dodgeFamily || tackleFamily) << clip.name;
-    if (!dodgeFamily) continue;  // the tackle family has its own test below
+    const bool locomotionFamily = clip.family == pes::PesClipFamily::kLocomotion;
+    EXPECT_TRUE(dodgeFamily || tackleFamily || locomotionFamily) << clip.name;
+    if (tackleFamily) continue;  // the tackle family has its own test below
     Animation anim;
     anim.LoadText(clip.name, pes::PesClipAnimText(clip, *rig));
     const pesrig::ClipSampler sampler(clip.gani, *rig);

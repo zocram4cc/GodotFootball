@@ -48,6 +48,8 @@ struct Rig;
 #include "pesstrategy.hpp"
 #include "pesteamconcepts.hpp"
 #include "pessubs.hpp"
+// PES 2021's MOVESTEP machine (docs/re/pes-re-anim-select.md): the install constants its handlers read.
+#include "pes/movestep_bundle.hpp"
 
 struct MatchSetup {
   int homeTeamDbId = 0;
@@ -162,6 +164,9 @@ struct MatchSetup {
   // the Chance lane search and its limit. Required: runs without them would
   // be capped and aimed by invented numbers.
   const pes::offball::OffBallConstants* pesOffBallConstants = nullptr;
+  // PES 2021's MOVESTEP machine (docs/re/pes-re-anim-select.md): the install constants its
+  // handlers read, loaded from the install by the caller. Required: without them a player has no FSM.
+  const pes::MoveStepConstants* pesMoveStepConstants = nullptr;
 };
 
 #endif

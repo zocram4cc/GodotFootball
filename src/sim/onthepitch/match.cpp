@@ -213,6 +213,12 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES tackle constants missing: read them from the install with "
         "pes::LoadTackleConstants into MatchSetup::pesTackleConstants");
   pesTackleConstants = *setup.pesTackleConstants;
+  // PES 2021's MOVESTEP handlers' install constants (docs/re/pes-re-anim-select.md).
+  if (setup.pesMoveStepConstants == nullptr)
+    throw std::runtime_error(
+        "PES movestep constants missing: read them from the install with "
+        "pes::LoadMoveStepConstants into MatchSetup::pesMoveStepConstants");
+  pesMoveStepConstants = *setup.pesMoveStepConstants;
   // PES 2021's off-ball run manager (docs/re/pes-re-off-ball.md).
   if (setup.pesOffBallConstants == nullptr)
     throw std::runtime_error(

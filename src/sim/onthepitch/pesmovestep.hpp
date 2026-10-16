@@ -14,5 +14,7 @@ namespace pesmovestep {
 // Runs one MOVESTEP tick for an active player. It is a no-op when the PES install is absent
 // (no PES21_ROOT), so a checkout without the game can still run.
 void ProcessMoveStep(Player& player, Match& match);
+// The PES motion number the humanoid plays (movestep.hpp's CurrentMotion), or -1 when the AI's own clip plays.
+int CurrentMotionOf(Player& player);
 
 }  // namespace pesmovestep

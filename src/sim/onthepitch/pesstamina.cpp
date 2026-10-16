@@ -533,6 +533,16 @@ float ReserveTopSpeedFactor(const StaminaConstants& k, const StaminaState& s, fl
          SpeedForRate(k, TopRate(k, speed, 0.0f, kNeutralPhysiqueScale));
 }
 
+float MoveTopRate(const StaminaConstants& k, float speedStat01, const StaminaState& s, float g) {
+  // The breath reserve below full takes its share off the Speed, as the drain's penalty does.
+  const int bp = BreathPct(k, s);
+  const float share = bp >= static_cast<int>(k.breathPenaltyFullPct)
+                          ? 0.0f
+                          : (bp <= 0 ? 1.0f : (bp - k.breathPenaltyFullPct) / k.breathPenaltyDivisor);
+  constexpr float kStatPerUnit = 100.0f;  // GF stores PES's 40..99 as 0.40..0.99
+  return TopRate(k, speedStat01 * kStatPerUnit, share, g);
+}
+
 int BreakBonus(const StaminaConstants& k, const StaminaState& s, int period, int fitness,
                float matchLengthFactor) {
   // PES keeps a running float and adds the base times F, then the fitness
