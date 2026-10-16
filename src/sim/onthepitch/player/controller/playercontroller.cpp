@@ -328,7 +328,10 @@ void PlayerController::_BallControlCommand(PlayerCommandQueue& commandQueue,
     // trick command carries the family as specialVar1, so the selector sees
     // only that move's clips; when none fits the geometry it falls through to
     // the plain ball control queued behind it.
-    if (hasPossession) {
+    // PES's ThinkUnitDribble trick gates include "Intention exactly 3"
+    // (0x1421306a4), so the trick is only offered while the carrier is in the
+    // engaged state.
+    if (hasPossession && CastPlayer()->GetPesIntention() == 3) {
       Player* opp = AI_GetClosestPlayer(match->GetTeam(abs(team->GetID() - 1)),
                                         CastPlayer()->GetPosition(), 0);
       PlayerSkills::FeintSituation situation;
