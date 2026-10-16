@@ -656,9 +656,9 @@ TEST(PesEventDetectors, DeflectionNeedsTheSamplePair) {
   EXPECT_EQ(out.kind, 9u);
   EXPECT_EQ(out.frame1, 10);
 
-  in.advanceFlag = true;  // MI+0x11b4
+  in.gateOpen = false;  // MI+0x11b4 nonzero: the gate is closed
   EXPECT_FALSE(pes::DetectDeflection(in, &out));
-  in.advanceFlag = false;
+  in.gateOpen = true;   // MI+0x11b4 == 0 again
   in.sample1 = sample + 0.001f;  // not at the constant
   EXPECT_FALSE(pes::DetectDeflection(in, &out));
   in.sample1 = sample;
@@ -680,9 +680,11 @@ TEST(PesEventDetectors, OutOfPlayFiresWhenTheSideChanges) {
   EXPECT_EQ(out.kind, 10u);
   EXPECT_EQ(out.U32(0x14), 2u);  // payload+0 is the new side
   EXPECT_FALSE(pes::DetectOutOfPlay(&in, &out));
-  in.advanceFlag = true;
+  in.gateOpen = false;  // MI+0x11b4 nonzero
   in.outSide = 3;
-  EXPECT_FALSE(pes::DetectOutOfPlay(&in, &out));  // gated at MI+0x11b4
+  EXPECT_FALSE(pes::DetectOutOfPlay(&in, &out));
+  in.gateOpen = true;   // MI+0x11b4 == 0: fires again
+  EXPECT_TRUE(pes::DetectOutOfPlay(&in, &out));
 }
 
 // K=0x10 (FUN_140a14a20): the restart byte at MI+0x11b2 turning nonzero.

@@ -333,10 +333,10 @@ struct DeflectionInput {
   int frame = 0;
   int phase = 0;
   float state = 0.f;
-  bool advanceFlag = false;  // MI+0x11b4 == 0
-  float sample0 = 0.f;       // FUN_140a6cf70(ball, 0)+4
-  float sample1 = 0.f;       // FUN_140a6cf70(ball, 1)+4
-  float sampleConst = 0.f;   // EventConstants::deflectionSample
+  bool gateOpen = true;     // MI+0x11b4 == 0 (FUN_140a178d0 reads a char)
+  float sample0 = 0.f;      // FUN_140a6cf70(ball, 0)+4
+  float sample1 = 0.f;      // FUN_140a6cf70(ball, 1)+4
+  float sampleConst = 0.f;  // EventConstants::deflectionSample
 };
 bool DetectDeflection(const DeflectionInput& in, EventRecord* out);
 
@@ -345,7 +345,7 @@ struct OutOfPlayInput {
   int frame = 0;
   int phase = 0;
   float state = 0.f;
-  bool advanceFlag = false;  // MI+0x11b4 == 0
+  bool gateOpen = true;      // MI+0x11b4 == 0 (FUN_140a17810 reads a char)
   int outSide = 0;           // G+0x40+0x2798
   int stored = 0;            // the detector's +8 word
 };

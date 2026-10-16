@@ -381,7 +381,7 @@ bool DetectPhase(PhaseInput* in, EventRecord* out) {
 }
 
 bool DetectDeflection(const DeflectionInput& in, EventRecord* out) {
-  if (in.advanceFlag) return false;
+  if (!in.gateOpen) return false;
   if (in.sample1 != in.sampleConst) return false;
   if (0.0f <= in.sample1 - in.sample0) return false;
   out->Write(9, in.frame, in.frame, in.state, in.phase);
@@ -389,7 +389,7 @@ bool DetectDeflection(const DeflectionInput& in, EventRecord* out) {
 }
 
 bool DetectOutOfPlay(OutOfPlayInput* in, EventRecord* out) {
-  if (in->advanceFlag) return false;
+  if (!in->gateOpen) return false;
   if (in->stored == in->outSide) return false;
   in->stored = in->outSide;
   out->Write(10, in->frame, in->frame, in->state, in->phase);
