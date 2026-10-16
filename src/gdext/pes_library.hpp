@@ -7,6 +7,7 @@
 #include <optional>
 
 #include "pes/camera.hpp"
+#include "pes/movestep_bundle.hpp"
 #include "onthepitch/pescarrier.hpp"
 #include "onthepitch/pesdefshape.hpp"
 #include "onthepitch/pesdefenderdecisions.hpp"
