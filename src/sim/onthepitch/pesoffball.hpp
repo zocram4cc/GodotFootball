@@ -222,7 +222,7 @@ struct RunWorld {
   std::array<bool, 2> possession{};      // T+0x255
   std::array<float, 2> possessionAge{};  // MI+0x11a0, PES frames
   BallEvent ev;
-  std::array<NearestEntry, 2 * kSlots> nearest{};  // BuildNearest; a hand-built RunWorld must call it
+  std::array<NearestEntry, 2 * kSlots> nearest{};  // filled by BuildNearest (below)
 };
 
 // Fills w.nearest from the players' positions and activity. BuildRunWorld runs it

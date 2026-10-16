@@ -1313,9 +1313,9 @@ float HeadingFactor(float deg, float scale) {
 
 // ponytail: PES's writer of MA+0x22e4c is not decoded (pes-re-teamctx.md §2.4), so
 // the lists are built here, once per BuildRunWorld, from the snapshot. The order is
-// the one PES's readers use: rank 0 is the nearest by squared distance (FUN_1406cbf70
-// and FUN_1406c0170 read the rank-0 opponent; FUN_1404c8ea0 reads d²). PES's tie rule
-// is not decoded: equal distances keep slot order.
+// the one PES's readers use: rank 0 is the nearest by squared distance (AccelerationRamp
+// 0x1406cbf70 and RUN_LOOP 0x1406c0170 read the rank-0 opponent; 0x1404c8ea0 reads d²).
+// PES's tie rule is not decoded: equal distances keep slot order.
 void BuildNearest(RunWorld& w) {
   constexpr int kNoId = -1;  // never read: count[team] bounds every block
   for (int i = 0; i < 2 * kSlots; ++i) {
