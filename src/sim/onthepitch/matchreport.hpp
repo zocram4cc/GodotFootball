@@ -18,7 +18,7 @@ uint64_t DeterminismHashSeed();
 // position (bit patterns, team 0 then team 1) into `hash` with FNV-1a.
 uint64_t FoldDeterminism(uint64_t hash, Match& match);
 
-// "Full match complete", GF's [balance...] / [pass-...] / [stalemate] lines in
+// "Full match complete", GF's [balance...] / [pass-...] lines in
 // GF's own formats (so its simbatch regexes parse them), then
 // "[determinism] %016llx".
 void PrintMatchReport(Match& match, FILE* out);
