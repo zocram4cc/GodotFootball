@@ -170,5 +170,8 @@ void EnterRunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k);
 bool EnterRunTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k, float threshold);
 // FUN_1406d38d0: the STEP_TURN_RUN entry.
 bool EnterStepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k);
+// The clip request every handler issues: PES's vt+0x10 with SetMotion (group -1). The playback is
+// PES's rate fraction; the start is the clip's start time in seconds.
+void IssueClip(MoveHost& host, int motion, bool mirror, float blend, float playback, float start);
 }  // namespace movestep
 }  // namespace pes
