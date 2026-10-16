@@ -83,10 +83,11 @@ void Ball::SetRotation(radian x, radian y, radian z,
   // with rad/s = raw * spinScale (docs/re/pes-re-officials-ball.md 5). `bias` is
   // the blend towards the new spin, the same slerp GF applied.
   // ponytail: this is GF's stand-in for PES's touch spin. PES's intended-touch writer is FUN_140870a40 ->
-  // FUN_140874860 -> FUN_140875170 (the per-record response R, docs/re/pes-re-ball-collision.md 5), and
-  // none of those clamps the spin: the |w|/2pi <= 8 rev/s cap sits at 0x14086efb4..0x14086efd5 in the
-  // unintended-contact accumulator FUN_14086d6f0, which a kick never runs. So GF applies no clamp here. Replace
-  // this with R's output when the foot response is ported.
+  // FUN_140874860, which takes the foot response from FUN_140875580 and returns only its velocity v_R
+  // (the wrapper's omega output is written and never read; pes-re-kick.md §1.3-1.4). Kick spin is then
+  // 2*pi*v_R (uncapped), or, on the capped branch, kicker+0x108 * FUN_140875a10(...) (capped at
+  // 8 rev/s; §1.5). So GF applies no clamp here. Replace this with the candidate builder's output
+  // when the foot response is ported.
   const pes::PesBallConstants& pc = *ballConstants;
   // GF (x, y, z) -> Fox (x, z, -y): the inverse of the skeleton's
   // Fox (x, y, z) -> GF (x, -z, y) (pesplayernode.cpp), so a GF height maps to a

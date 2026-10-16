@@ -158,7 +158,7 @@ inline constexpr int kNextState = 0x39;        // req[0x39]: the state entered w
 inline constexpr int kRate = 0x4a;             // req[0x4a]: parametric rate (OBS; AS 1)
 inline constexpr int kPlaybackDefault = 0x4b;  // req[0x4b]: P+0x3750, default 1.0 (OBS copy-in)
 inline constexpr int kStartRate = 0x4f;        // req[0x4f]: start phase, the normalised foot phase (AS 1)
-inline constexpr int kFootBandSide = 0x7c;     // req[0x7c]: foot band side (OBS: FUN_1406c2f80 reads it; INIT writes 1)
+inline constexpr int kClassWordShared = 0x1f;  // req[0x1f] (byte 0x7c): the 0..3 class word PES's ramp, dwell and step tables share (CONFIRMED: FUN_1406c2f80 reads *(int*)(req+0x7c), INIT writes 1; pes-re-a3helpers.md addendum item 4)
 inline constexpr int kRootFacing = 0x3a;       // req[0x3a] byte: a root-facing write is due (OBS: FUN_1406c14c0 rate tail)
 inline constexpr int kRootFacingAngle = 0x3b;  // req[0x3b]: the wrapped root-facing angle, degrees (OBS)
 inline constexpr int kSlipActive = 0xe8;       // req[0xe8] byte: slip damping is active (OBS: FUN_1406c2f80)
@@ -481,13 +481,14 @@ struct DampingConstants {
   float angleGate;   // 5.625 (0x1425ddf84): the look delta below which the drift's turn term is 0
 };
 std::optional<DampingConstants> LoadDampingConstants(const PeImage& exe, std::string* error);
-// The constant registry entry 0x2e (FUN_141e5ca20(DAT_1437f4808, 0x2e)), which is constant_player.bin's
-// freemove.o (registry 27 + table index 19). Its record is the 8-byte header and the payload, so the
-// three floats are the payload's +8, +0xc and +0x10.
+// The freemove.o record in constant_player.bin, read by name as on disk
+// (pes-re-a3helpers.md addendum item 2). The loader reads the record's +0x20 bounds block;
+// the live registry path FUN_141e5ca20(0x2e)+0x10..0x18 reads a different object on this
+// build, so no PES path to the bounds is known (see the loader's ponytail).
 struct DampingRecord {
-  float lateralBound;  // runtime +0x10
-  float forwardBound;  // runtime +0x14
-  float scale;         // runtime +0x18
+  float lateralBound;  // freemove.o +0x20
+  float forwardBound;  // freemove.o +0x24
+  float scale;         // freemove.o +0x28
 };
 std::optional<DampingRecord> LoadDampingRecord(const PesVfs& vfs, std::string* error);
 

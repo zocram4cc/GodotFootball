@@ -1174,7 +1174,9 @@ TEST(LateralDamping, ElseBranchClearsADriftUnderTheTwoAndAHalfMetreBound) {
   EXPECT_EQ(req.F(pes::moveword::kDriftX), 0.0f);
 }
 
-TEST(DampingRecordInstall, ReadsTheFreemoveRecordsPayloadAtItsRuntimeOffsets) {
+TEST(DampingRecordInstall, ReadsTheFreemoveRecordByNameFromTheInstall) {
+  // The record is read by its table name, as on disk (pes-re-a3helpers.md addendum item 2):
+  // the loader's output equals a hand recompute from the same raw record.
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT unset";
   pes::PesVfs vfs;
@@ -1182,7 +1184,6 @@ TEST(DampingRecordInstall, ReadsTheFreemoveRecordsPayloadAtItsRuntimeOffsets) {
   ASSERT_TRUE(vfs.Mount(root, &err)) << err;
   auto rec = pes::LoadDampingRecord(vfs, &err);
   ASSERT_TRUE(rec.has_value()) << err;
-  // The same bytes read by hand: the table entry's payload at +8, +0xc and +0x10.
   auto blob = vfs.Read("common/match/constant/constant_player.bin", &err);
   ASSERT_TRUE(blob.has_value()) << err;
   auto table = pes::ParseUniformTable(*blob, &err);
@@ -1190,10 +1191,27 @@ TEST(DampingRecordInstall, ReadsTheFreemoveRecordsPayloadAtItsRuntimeOffsets) {
   auto span = table->Find("freemove.o");
   ASSERT_TRUE(span.has_value());
   float raw[3];
-  std::memcpy(raw, span->data() + 8, sizeof raw);
+  std::memcpy(raw, span->data() + 0x20, sizeof raw);
   EXPECT_EQ(rec->lateralBound, raw[0]);
   EXPECT_EQ(rec->forwardBound, raw[1]);
   EXPECT_EQ(rec->scale, raw[2]);
+}
+
+TEST(DampingRecordInstall, ReadsTheFreemoveBoundsFromThePlausibleBlock) {
+  // pes-re-a3helpers.md addendum item 2: the live path FUN_141e5ca20(0x2e)+0x10..0x18
+  // reads denormals (9.3e-39, 1.85e28, 4.9e-44), not the freemove bounds. On disk the
+  // record's +0x20 block holds the only plausible bounds (42.0, 18.0, 69.5). The
+  // loader must read that block as {lateral, forward, scale}.
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset";
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto rec = pes::LoadDampingRecord(vfs, &err);
+  ASSERT_TRUE(rec.has_value()) << err;
+  EXPECT_FLOAT_EQ(rec->lateralBound, 42.0f);
+  EXPECT_FLOAT_EQ(rec->forwardBound, 18.0f);
+  EXPECT_FLOAT_EQ(rec->scale, 69.5f);
 }
 
 // AccelerationRamp (FUN_1406cbf70, rev2 §4.2). A case sets the team reads it names. The requested

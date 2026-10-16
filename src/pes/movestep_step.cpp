@@ -108,7 +108,7 @@ float RateFor(MoveHost& host, float classRate, float speedKmh, int speedClass, i
 // contract does not name them.
 bool StepStopsNow(MoveHost& host, MoveReq& req, bool live) {
   const StepScalars& k = host.StepConstants();
-  const int footBand = int(req.U(moveword::kFootBandSide));
+  const int footBand = int(req.U(moveword::kClassWordShared));
   if (footBand >= 0 && int(req.U(moveword::kBandPrev)) == -1) return true;
   if (live) {
     const float elapsed = req.F(moveword::kDwellElapsed);
@@ -171,7 +171,7 @@ bool StepStopsNow(MoveHost& host, MoveReq& req, bool live) {
 bool StepLetsRunTurn(MoveHost& host, const TurnDistances& d, MoveReq& req) {
   const StepScalars& k = host.StepConstants();
   const int bucket = int(req.U(moveword::kMoveBucket));
-  const int foot = int(req.U(moveword::kFootBandSide));
+  const int foot = int(req.U(moveword::kClassWordShared));
   const float toTarget = req.F(moveword::kDistToTarget);
   const float turn = std::fabs(req.F(moveword::kDwellElapsed));
   const int requestFlag = int(req.U(0x3c) & 0xffu);
@@ -330,7 +330,7 @@ void RunToStep(MoveHost& host, MoveReq& req) {
         (req.F(moveword::kDwellLimit2) * k.threeQuarters <= req.F(moveword::kDwellElapsed2) &&
          (k.sq1139 < headingError * headingError ||
           (req.Flag(moveword::kPrecise) &&
-           int(req.U(moveword::kCommandSpeedClass)) < int(req.U(moveword::kFootBandSide)))))) {
+           int(req.U(moveword::kCommandSpeedClass)) < int(req.U(moveword::kClassWordShared)))))) {
       req.SetU(moveword::kDwellElapsed, 0);
       req.SetU(moveword::kDwellLimit, 0);
       req.SetU(moveword::kDwellElapsed2, 0);
@@ -358,7 +358,7 @@ void RunToStep(MoveHost& host, MoveReq& req) {
   }
   const float bodyTurn = Wrap180(req.F(moveword::kFacing) - req.F(moveword::kLookHeading));
   if (k.deg22p5 <= std::fabs(bodyTurn) ||
-      (int(req.U(moveword::kFootBandSide)) < 1 &&
+      (int(req.U(moveword::kClassWordShared)) < 1 &&
        int(req.U(moveword::kCommandSpeedClass)) == -1)) {
     EnterStop(host, req);
   } else if (int(req.U(moveword::kCommandSpeedClass)) == -1 ||
