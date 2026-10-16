@@ -27,7 +27,8 @@ bool IsPlaceholderTexture(const std::string& stem);  // dummy*
 
 // VFS path of an fmdl texture, or "" if none: the stored directory mapped into
 // the VFS (/Assets/pes16/ -> Asset/, + #windx11/, .ftex), then the face pack's
-// own sourceimages, then any same-stem .ftex under Asset/model/character/.
+// own sourceimages. Nothing else: a missing directory leaves the texture unbound,
+// as PES does, rather than borrowing another pack's file of the same stem.
 class TextureResolver {
  public:
   TextureResolver(const PesVfs& vfs, int faceId) : vfs_(vfs), faceId_(faceId) {}
@@ -36,7 +37,6 @@ class TextureResolver {
  private:
   const PesVfs& vfs_;
   int faceId_;
-  std::vector<std::string> characterFiles_;  // listed on first fallback
 };
 
 }  // namespace pes

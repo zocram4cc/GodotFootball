@@ -14,7 +14,6 @@ constexpr const char* FOX_ASSET_PREFIX = "/Assets/pes16/";  // as stored in fmdl
 constexpr const char* VFS_ASSET_PREFIX = "Asset/";
 constexpr const char* TEXTURE_PLATFORM_DIR = "#windx11/";
 constexpr const char* TEXTURE_EXT = ".ftex";
-constexpr const char* CHARACTER_ROOT = "Asset/model/character/";
 
 const char* const NON_RENDER_PASSES[] = {"antiblur", "outline"};
 constexpr const char* PLACEHOLDER_PREFIX = "dummy";
@@ -25,10 +24,6 @@ const char* const EFFECT_TEXTURES[] = {"aura", "effect", "fx_", "smoke", "flare"
 std::string Lower(std::string s) {
   for (char& c : s) c = char(std::tolower(static_cast<unsigned char>(c)));
   return s;
-}
-
-bool EndsWith(const std::string& s, const std::string& tail) {
-  return s.size() >= tail.size() && s.compare(s.size() - tail.size(), tail.size(), tail) == 0;
 }
 
 }  // namespace
@@ -80,10 +75,6 @@ std::string TextureResolver::Resolve(const FmdlTexture& texture) {
   }
   const std::string local = FaceTextureDir(faceId_) + stem + TEXTURE_EXT;
   if (vfs_.Exists(local)) return local;
-  if (characterFiles_.empty()) characterFiles_ = vfs_.List(CHARACTER_ROOT);
-  const std::string want = Lower(stem);
-  for (const auto& p : characterFiles_)
-    if (EndsWith(Lower(p), TEXTURE_EXT) && Lower(TextureStem(p)) == want) return p;
   return {};
 }
 
