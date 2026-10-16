@@ -224,6 +224,63 @@ TEST(DynamicWide, LiftScalesByTheExeFrameTime) {
   EXPECT_FLOAT_EQ(floor.ty, LOOK_Y);
 }
 
+// Live ground-ball pose (docs/re/pes-re-camera-live.md 2/3, read again live
+// 2026-10-16: target.y = 0.90 with LookY 0.5 in open play): the observed lift is
+// 0.40, which the decoded clamp pins to a smoothed focus y of -3.64. The input
+// itself is still OPEN (an in-air sample is missing), so this test pins the
+// observed pose rather than the input.
+TEST(DynamicWideInstall, LiveGroundBallLiftIsFortyCentimetres) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto pe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(pe) << err;
+  auto p = pes::LoadDynamicWide(*pe, vfs, &err);
+  ASSERT_TRUE(p) << err;
+  constexpr float LIVE_TARGET_Y = 0.90f;  // fox::gr::Camera pose, two reads
+  const float lookY = (p->far.lookY + p->near.lookY) * 0.5f;
+  const float scale = p->liftNumerator / p->fpsRef;
+  EXPECT_NEAR(lookY, 0.5f, 1e-5f);
+  EXPECT_NEAR(LIVE_TARGET_Y - lookY, 0.40f, 1e-5f);
+  // The decoded lift reaches 0.40 only for focusY = 0.40/scale - liftBase.
+  const float implied = (LIVE_TARGET_Y - lookY) / scale - p->liftBaseM;
+  EXPECT_NEAR(implied, -3.64f, 1e-2f);
+}
+
+// Live broadcast sample read again 2026-10-16 07:03 from the running match
+// (mode 5, the owner's sliders, open play): the fox::gr::Camera carried
+// position (-6.55, 19.70, 41.15), target (-7.00, 0.90, -5.34), vFOV 23.63 deg,
+// near 0.9. The model's blended PosY, PosZ*k and the pan ratio reproduce the
+// distance, height and lateral offset independently of k, so this pins the
+// framing on a third, independent live sample.
+TEST(DynamicWideInstall, ReproducesTheSecondLiveBroadcastSample) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto pe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(pe) << err;
+  auto p = pes::LoadDynamicWide(*pe, vfs, &err);
+  ASSERT_TRUE(p) << err;
+  constexpr float LIVE_ZOOM = 0.80f, LIVE_HEIGHT = 0.20f;
+  constexpr float FIELD_HALF_WIDTH_M = pesFieldHalfWidth;
+  constexpr float CAM_X = -6.55f, CAM_Y = 19.70f, CAM_Z = 41.15f;
+  constexpr float TGT_X = -7.00f, TGT_Z = -5.34f;
+  auto shot = pes::DynamicWideShot(*p, LIVE_ZOOM, LIVE_HEIGHT, TGT_Z, FIELD_HALF_WIDTH_M, 1.0f);
+  const float height = CAM_Y;                       // the record's PosZ*PosY*k
+  const float depth = CAM_Z - TGT_Z;                // the record's PosZ*k
+  const float k = depth / shot.record.posZ;
+  // PosY is k-free: cam.y / (cam.z - target.z) must equal the blended value.
+  EXPECT_NEAR(height / depth, shot.record.posY, 5e-4f);
+  EXPECT_NEAR(shot.record.posZ * k, depth, 0.05f);
+  // cam.x = target.x*(1 + k*(1/panEff - 1)); with the settled pan this is ~0.935.
+  EXPECT_NEAR(CAM_X / TGT_X, 1.0f + k * (1.0f / shot.panEff - 1.0f), 2e-3f);
+  EXPECT_NEAR(k, 1.05f, 0.02f);
+}
+
 // Item 2: the running smoothing weight (report CameraTargetRE 3a). The
 // recurrence is tgt = (prev + w*raw)/(1 + w) (asm 0x1408a3cd1-0x1408a3d41:
 // mulss (%rsi) then addss prev, divss (w+1)); its fixed point is raw, and at

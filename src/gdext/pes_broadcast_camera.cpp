@@ -85,8 +85,15 @@ void PesBroadcastCamera::update(Camera3D* camera, const Vector3& focus, double d
   // (the mode-5 Z_min), not from the unclamped focus (report 4.6).
   const float tz = std::clamp(float(target_.z), params_->zMin, params_->zMax);
   const auto shot = pes::DynamicWideShot(*params_, zoom_, height_, tz, halfWidth_, liftTimeScale_);
-  // target.y = LookY + the ball-height lift, from the raw focus y (item 1).
-  const auto pose = pes::FramePose(shot, target_.x, target_.z, raw.y, spring_.k, halfLength_, halfWidth_);
+  // target.y = LookY + the ball-height lift, whose input is the y of the
+  // SMOOTHED focus triple, not the raw focus (asm 0x1408a3d4f/0x1408a3d5a read
+  // [rbp+0x68] and [rbp+0x70] after the smoothing has written back at
+  // 0x1408a3d38/0x1408a3d40). GF tracks no separate focus point, so the ball
+  // is the focus and its y arrives here already smoothed. OPEN: with the ball
+  // on the ground the live pose reads target.y = 0.90 (LookY 0.5 + lift 0.40),
+  // which the decoded clamp((y+4)*60/54, 0, 5) gives only for y = -3.64; the
+  // in-air sample that pins the input is still missing (report item 1).
+  const auto pose = pes::FramePose(shot, target_.x, target_.z, smoothing_.target().y, spring_.k, halfLength_, halfWidth_);
   camera->set_keep_aspect_mode(Camera3D::KEEP_HEIGHT);  // PES's FOV is vertical
   camera->set_fov(pose.vfovDeg);
   camera->set_near(NEAR_PLANE_M);
