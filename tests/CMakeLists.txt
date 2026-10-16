@@ -145,3 +145,7 @@ gtest_discover_tests(pes_effects_test)
 add_test(NAME godot_effects_test
   COMMAND ${CMAKE_SOURCE_DIR}/tools/godot.sh --headless --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_effects.gd)
 set_tests_properties(godot_effects_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
+add_executable(pes_events_test pes_events_test.cpp)
+target_link_libraries(pes_events_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_events_test)
