@@ -704,6 +704,15 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
 }
 
 void ElizaController::Process() {
+  // The carrier's seed member ticks on every logic frame, for every active player, before this
+  // player's requests (PES's driver 0x142110c90). ponytail: PES's predicate 0x14210e200 is not
+  // ported; GF's stand-in is the designated possession man in play. GetOnTheBallCommands runs
+  // only under this predicate (the dribble branch and the keeper's chase both sit inside it), so
+  // every roll reads a copied snapshot. PES's false-frame reset (0x14210e5f0) also clears the
+  // image manager (0x14211bf60) and Intention (0x1415595d0); GF clears the image only at Reset().
+  const bool carrierTurn = match->IsInPlay() && !match->IsInSetPiece() &&
+                           match->GetDesignatedPossessionPlayer() == player;
+  pes::CarrierSeedTick(carrierSeed, carrierTurn, match->GetRandomInfo().unit);
   PlayerController::Process();
 }
 
@@ -2063,8 +2072,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // The plan (report 4.4): rolled whenever its own conditions hold, in the
     // dispatcher's priority order kPlanPriorityOrder (9, 8, 2, 3, 1, 4, 5, 6,
     // 7), else Basic. Each plan's roll is its own throw-away generator seeded
-    // with int(carrierClock * K) on slot 2 and drawn once through
-    // RangeRaw(2, 100) (0x14211a89..0x14211aac2).
+    // with int(snapshot * K) on slot 2, the seed member's snapshot (report 3.7), and
+    // drawn once through RangeRaw(2, 100) (0x14211a89..0x14211aac2).
     struct PlanChoice {
       int plan;
       float seedK;
@@ -2138,15 +2147,15 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     };
     const auto admit = [&](int plan) {
       if (plan == pes::kPlanCurveShot) {
-        const int draw = pes::PlanRoll(nowFrame, carrier.curveShotSeedK,
+        const int draw = pes::PlanRoll(carrierSeed, carrier.curveShotSeedK,
                                        match->GetPesRngConstants(), carrier);
         return pes::CurveShotAdmitted(curveShot, draw, carrier);
       }
       const PlanChoice* c = planChoice(plan);
       // ponytail: 7, 8 and 9 are not ported, so they are never admitted.
       if (c == nullptr || !c->eligible || c->probability <= 0.0f) return false;
-      return pes::PlanRoll(nowFrame, c->seedK, match->GetPesRngConstants(), carrier) <=
-             static_cast<int>(c->probability);
+      return pes::PlanRoll(carrierSeed, c->seedK, match->GetPesRngConstants(),
+                           carrier) <= static_cast<int>(c->probability);
     };
     const auto image = [&](int plan) {
       // ponytail: the manager copies the heading its unit published (+0xC0) and

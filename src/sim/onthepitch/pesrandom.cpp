@@ -27,6 +27,11 @@ constexpr Imm SEED[kRandomSlots] = {{0x140a923fd, {0xc7, 0x41, 0x08}, 3},
 constexpr uint64_t MODULUS_TABLE_VA = 0x1426548b0;  // {100, 5000, 32768, 32768}
 constexpr uint64_t SCALE_VA = 0x1426550d8;          // 2^-31
 
+// RandomInfo's unit draw (report 3.14): `mov edx, 999999` at 0x140435f34, and the
+// .rdata float its DIVSS divides by.
+constexpr Imm RANDOM_INFO_MODULUS{0x140435f34, {0xba}, 1};
+constexpr uint64_t RANDOM_INFO_DIVISOR_VA = 0x14259bc10;  // 999999.0f
+
 constexpr uint32_t BIT31_CLEAR = 0x7FFFFFFFu;  // `btr ecx, 0x1f`
 constexpr int MATCH_SLOT = kRange0Slot;  // Range0 draws slot 1 (header)
 
@@ -57,8 +62,11 @@ std::optional<RngConstants> LoadRngConstants(const PeImage& exe, std::string* er
   k.weakInc = weakInc;
   for (int i = 0; i < kRandomSlots; ++i)
     if (!ReadImm(exe, SEED[i], &k.defaultSeeds[i], error)) return std::nullopt;
+  if (!ReadImm(exe, RANDOM_INFO_MODULUS, &k.randomInfoModulus, error)) return std::nullopt;
   if (!exe.ReadVa(MODULUS_TABLE_VA, sizeof k.modulus, reinterpret_cast<uint8_t*>(k.modulus.data())) ||
-      !exe.ReadVa(SCALE_VA, sizeof k.scale, reinterpret_cast<uint8_t*>(&k.scale))) {
+      !exe.ReadVa(SCALE_VA, sizeof k.scale, reinterpret_cast<uint8_t*>(&k.scale)) ||
+      !exe.ReadVa(RANDOM_INFO_DIVISOR_VA, sizeof k.randomInfoDivisor,
+                  reinterpret_cast<uint8_t*>(&k.randomInfoDivisor))) {
     *error = "rng constant: .rdata unreadable";
     return std::nullopt;
   }
@@ -114,5 +122,29 @@ uint32_t PlayerSeed(uint32_t t, int slot) {
   constexpr uint64_t SEED_MODULUS = 10000;  // FUN_1406eb670's `% 10000`
   return static_cast<uint32_t>((uint64_t(t) + uint64_t(slot)) % SEED_MODULUS);
 }
+
+RandomInfo PublishRandomInfo(Random& rng, const RngConstants& k) {
+  RandomInfo info;
+  info.draw = rng.Range(kRandomInfoSlot);
+  info.percent = rng.RangeRaw(kRandomInfoSlot, kRandomInfoPercentModulus);
+  info.coin = rng.RangeRaw(kRandomInfoSlot, kRandomInfoCoinModulus);
+  info.unit =
+      static_cast<float>(rng.RangeRaw(kRandomInfoSlot, k.randomInfoModulus)) / k.randomInfoDivisor;
+  return info;
+}
+
+RandomInfoProducer::RandomInfoProducer(const RngConstants& k, uint32_t matchSeed)
+    : k_(k), rng_(k_) {
+  rng_.SetSeed(kRandomInfoSlot, matchSeed * kRandomInfoSeedScale);
+  // 0x140435e10 then draws the first three values of a publish (the unit is not among them),
+  // and the random block 0x140435ba0 publishes one whole block into the record's second half.
+  // Neither is read before the first frame, but both advance the generator.
+  rng_.Range(kRandomInfoSlot);
+  rng_.RangeRaw(kRandomInfoSlot, kRandomInfoPercentModulus);
+  rng_.RangeRaw(kRandomInfoSlot, kRandomInfoCoinModulus);
+  PublishRandomInfo(rng_, k_);
+}
+
+void RandomInfoProducer::Tick() { record_ = PublishRandomInfo(rng_, k_); }
 
 }  // namespace pes

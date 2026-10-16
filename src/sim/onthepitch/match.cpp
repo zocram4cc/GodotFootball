@@ -68,6 +68,12 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   rngSource = std::make_unique<RngSource>(*setup.pesRngConstants);
   pes::SeedAtKickoff(rngSource->rng, setup.seed);
   matchSeed = setup.seed;
+  // RandomInfo (report 3.14): PES's producer seeds its generator from the match value L, the
+  // int at +0x18 of its channel's record (0x140435e10 reads it through 0x140435c70 and the
+  // getter 0x141b86cd0). ponytail: that channel's source is not decoded, so the match seed
+  // stands in for L.
+  randomInfoProducer =
+      std::make_unique<pes::RandomInfoProducer>(*setup.pesRngConstants, setup.seed);
   SetRandomSource(rngSource.get());
   *GetConfiguration() = config;
 
@@ -681,6 +687,13 @@ void Match::UpdateBallHeatmap() {
 }
 
 void Match::Process() {
+  // RandomInfo is republished before anything reads it this logic frame. Report 3.15: the
+  // callback 0x14041e2b0 runs the update 0x140435b30 whenever the producer exists (its body is
+  // decoded from raw bytes; the frame it is called on is NOT VERIFIED).
+  // ponytail: GF's per-frame call stands in for PES's caller. The publish step (3.14) is now
+  // decoded as a job submission (0x140435ac0 submits 0x140435c50), but the job's timing is not,
+  // so GF publishes synchronously at the top of the frame. Tick order is open (MB-H).
+  randomInfoProducer->Tick();
   if (IsInPlay()) {
     CheckBallCollisions();
   }

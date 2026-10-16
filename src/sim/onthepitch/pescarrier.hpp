@@ -408,10 +408,26 @@ constexpr int kPlanPriorityOrder[] = {9, 8, 2, 3, 1, 4, 5, 6, 7};
 float PlanStartProbability(int planId, const CarrierConstants& k, float stat, bool skill, bool com,
                            bool state2);
 
+// The carrier's seed member, BallPlayer+0x78 (report 3.8-3.13). The driver 0x142110c90 ticks it
+// on every logic frame: the update (0x14063a490) while the carrier predicate 0x14210e200 holds,
+// and the reset (0x14210e5f0 -> 0x14063a3b0) on each frame it fails. An update counts itself in
+// `updates` (+0x8) and copies RandomInfo+8 into `snapshot` (+0x18) when the stored value is
+// negative or on the first update. So each run of predicate frames keeps one copy, and every
+// roll in that run repeats.
+struct CarrierSeed {
+  int updates = 0;
+  float snapshot = -1.0f;
+};
+// One frame of the member: `predicate` is 0x14210e200 for this player on this frame.
+void CarrierSeedTick(CarrierSeed& seed, bool predicate, float randomInfoUnit);
+
 // The roll itself: PES builds a throw-away generator, seeds slot 2 with
-// int(carrierClock * K) and draws one RangeRaw(slot 2, 100)
-// (0x14211a89..0x14211aac2). Returns the drawn 0..99.
-int PlanRoll(int carrierClock, float seedK, const RngConstants& rng, const CarrierConstants& k);
+// int(snapshot * K) and draws one RangeRaw(slot 2, 100) (0x14211a89..0x14211aac2).
+// The snapshot comes from the carrier's seed member (report 3.7-3.9), not from a
+// possession clock, so a roll repeats while the snapshot is unchanged. Returns the
+// drawn 0..99.
+int PlanRoll(const CarrierSeed& seed, float seedK, const RngConstants& rng,
+             const CarrierConstants& k);
 
 // --- the curve shot (report 6.4, 0x14211af20) ---
 //

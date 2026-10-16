@@ -645,10 +645,20 @@ float PlanStartProbability(int planId, const CarrierConstants& k, float stat, bo
   }
 }
 
-int PlanRoll(int carrierClock, float seedK, const RngConstants& rng, const CarrierConstants& k) {
+int PlanRoll(const CarrierSeed& seed, float seedK, const RngConstants& rng,
+             const CarrierConstants& k) {
   Random draw(rng);
-  draw.SetSeed(k.planRollSlot, static_cast<uint32_t>(static_cast<int>(static_cast<float>(carrierClock) * seedK)));
+  draw.SetSeed(k.planRollSlot, static_cast<uint32_t>(static_cast<int>(seed.snapshot * seedK)));
   return draw.RangeRaw(k.planRollSlot, k.planRollModulus);
+}
+
+void CarrierSeedTick(CarrierSeed& seed, bool predicate, float randomInfoUnit) {
+  if (!predicate) {
+    seed = CarrierSeed();  // 0x14063a3b0: count 0, snapshot -1.0
+    return;
+  }
+  ++seed.updates;  // 0x14063a490: the counter at +0x8
+  if (seed.snapshot < 0.0f || seed.updates == 1) seed.snapshot = randomInfoUnit;
 }
 
 float CurveShotScore(const CurveShotInput& in, const CarrierConstants& k) {

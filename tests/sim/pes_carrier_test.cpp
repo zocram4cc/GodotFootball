@@ -569,25 +569,40 @@ TEST(PesCarrierPlan, StartProbabilitiesFollowThePTable) {
   EXPECT_LT(pes::PlanStartProbability(pes::kPlanPassThrough, k, 90.0f, false, false, false), 0.0f);
 }
 
-TEST(PesCarrierPlan, TheRollIsSlotTwoModulusOneHundred) {
-  pes::CarrierConstants k = Synthetic();
+pes::CarrierSeed SeedAt(float snapshot) {
+  pes::CarrierSeed seed;
+  seed.snapshot = snapshot;
+  return seed;
+}
+
+pes::RngConstants PlanRollRng() {
   pes::RngConstants rng{};
   rng.lcgMul = 0x2d22b2e3u;
   rng.lcgSub = 0x4513u;
   rng.modulus = {100, 5000, 32768, 32768};
   rng.scale = 4.656612873077393e-10f;
   rng.defaultSeeds = {0, 1, 2, 3};
-  // The report's roll: a throw-away generator seeded with
-  // int(carrierClock * K) on slot 2, drawn once through RangeRaw(2, 100).
-  const int roll = pes::PlanRoll(3, k.breakthroughSeedK, rng, k);
+  return rng;
+}
+
+TEST(PesCarrierPlan, TheRollIsSlotTwoModulusOneHundred) {
+  pes::CarrierConstants k = Synthetic();
+  const pes::RngConstants rng = PlanRollRng();
+  // The report's roll: a throw-away generator seeded with int(snapshot * K) on
+  // slot 2, drawn once through RangeRaw(2, 100).
+  const int roll = pes::PlanRoll(SeedAt(0.5f), k.breakthroughSeedK, rng, k);
+  pes::Random manual(rng);
+  manual.SetSeed(k.planRollSlot,
+                 static_cast<uint32_t>(static_cast<int>(0.5f * k.breakthroughSeedK)));
+  EXPECT_EQ(roll, manual.RangeRaw(k.planRollSlot, k.planRollModulus));
   EXPECT_GE(roll, 0);
   EXPECT_LT(roll, 100);
-  // The modulus spans the whole 0..99 range: over many carrier clocks both a
-  // low and a high draw turn up, so the start test `P >= roll` really is a
-  // percentage gate and not a narrower draw.
+  // The modulus spans the whole 0..99 range: over many snapshots both a low and a
+  // high draw turn up, so the start test `P >= roll` really is a percentage gate.
   int low = 100, high = -1;
-  for (int clock = 0; clock < 200; ++clock) {
-    const int r = pes::PlanRoll(clock, k.breakthroughSeedK, rng, k);
+  for (int i = 0; i < 200; ++i) {
+    const int r =
+        pes::PlanRoll(SeedAt(static_cast<float>(i) / 200.0f), k.breakthroughSeedK, rng, k);
     ASSERT_GE(r, 0);
     ASSERT_LT(r, 100);
     low = std::min(low, r);
@@ -595,11 +610,52 @@ TEST(PesCarrierPlan, TheRollIsSlotTwoModulusOneHundred) {
   }
   EXPECT_LE(low, 10);
   EXPECT_GE(high, 90);
-  // Two draws from the same clock and the same K agree, and a different clock
-  // moves the seed, so a plan's start is a reproducible function of the clock.
-  EXPECT_EQ(roll, pes::PlanRoll(3, k.breakthroughSeedK, rng, k));
-  const int later = pes::PlanRoll(4, k.breakthroughSeedK, rng, k);
-  EXPECT_NE(later, roll);
+  // The same snapshot and K agree, and a different snapshot moves the seed.
+  EXPECT_EQ(roll, pes::PlanRoll(SeedAt(0.5f), k.breakthroughSeedK, rng, k));
+  EXPECT_NE(pes::PlanRoll(SeedAt(0.6f), k.breakthroughSeedK, rng, k), roll);
+}
+
+TEST(PesCarrierSeed, ARunCopiesRandomInfoOnItsFirstFrameAndKeepsTheCopy) {
+  // report 3.9-3.13: the member starts at -1.0. The first frame of a run copies
+  // RandomInfo+8; the later frames of the same run keep that copy.
+  pes::CarrierSeed seed;
+  EXPECT_FLOAT_EQ(seed.snapshot, -1.0f);
+  pes::CarrierSeedTick(seed, true, 0.25f);
+  EXPECT_FLOAT_EQ(seed.snapshot, 0.25f);
+  pes::CarrierSeedTick(seed, true, 0.75f);
+  EXPECT_FLOAT_EQ(seed.snapshot, 0.25f);
+  EXPECT_EQ(seed.updates, 2);
+}
+
+TEST(PesCarrierSeed, AFrameWithoutTheCarrierPredicateResetsTheMember) {
+  // Driver 0x142110c90: a frame the predicate 0x14210e200 fails runs the reset
+  // 0x14210e5f0 -> 0x14063a3b0. The next run then takes a fresh copy of that frame's
+  // RandomInfo, not the copy of the run before.
+  pes::CarrierSeed seed;
+  pes::CarrierSeedTick(seed, true, 0.25f);
+  pes::CarrierSeedTick(seed, false, 0.5f);
+  EXPECT_FLOAT_EQ(seed.snapshot, -1.0f);
+  EXPECT_EQ(seed.updates, 0);
+  pes::CarrierSeedTick(seed, true, 0.75f);
+  EXPECT_FLOAT_EQ(seed.snapshot, 0.75f);
+}
+
+TEST(PesCarrierSeed, ARollRepeatsWhileTheRunHoldsAndFollowsTheNextRun) {
+  // The roll reads the snapshot and K alone: the frames after the copy do not reach it,
+  // however many frames the run lasts.
+  const pes::CarrierConstants k = Synthetic();
+  const pes::RngConstants rng = PlanRollRng();
+  pes::CarrierSeed seed;
+  pes::CarrierSeedTick(seed, true, 0.4f);
+  const int first = pes::PlanRoll(seed, k.breakthroughSeedK, rng, k);
+  for (int frame = 0; frame < 50; ++frame) {
+    pes::CarrierSeedTick(seed, true, 0.9f - 0.01f * static_cast<float>(frame));
+    EXPECT_EQ(pes::PlanRoll(seed, k.breakthroughSeedK, rng, k), first) << "frame " << frame;
+  }
+  pes::CarrierSeedTick(seed, false, 0.9f);
+  pes::CarrierSeedTick(seed, true, 0.9f);
+  EXPECT_NE(pes::PlanRoll(seed, k.breakthroughSeedK, rng, k), first)
+      << "a new run copies the new frame's RandomInfo, and the roll follows it";
 }
 
 // --- the think cadence (report 2) ---

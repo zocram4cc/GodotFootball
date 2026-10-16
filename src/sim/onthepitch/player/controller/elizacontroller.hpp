@@ -111,6 +111,8 @@ protected:
   // factors.
   pes::CarrierImageSelection carrierImage;
   int carrierBusyStamp = 0;   // the last frame inside a committed action
+  // The plan rolls' seed member (report 3.8), ticked on every logic frame by Process().
+  pes::CarrierSeed carrierSeed;
 
   void _AddPass(std::vector<PlayerCommand>& commandQueue, Player* target, e_FunctionType passType);
   void _AddPanicPass(std::vector<PlayerCommand>& commandQueue,
