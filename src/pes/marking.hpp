@@ -53,5 +53,7 @@ using NameFontMap = std::unordered_map<uint32_t, uint32_t>;
 std::optional<NameFontMap> LoadNameFontMap(const PesVfs& vfs, std::string* error);
 // UTF-8 print name -> glyph codes through the map (FUN_1419e4760, no _name_ex).
 std::vector<uint32_t> NameCodes(const NameFontMap& map, const std::string& utf8);
+// The same code points with no fold: a _name_ex page draws them raw.
+std::vector<uint32_t> RawNameCodes(const std::string& utf8);
 
 }  // namespace pes

@@ -163,7 +163,7 @@ std::optional<NameFontMap> LoadNameFontMap(const PesVfs& vfs, std::string* error
   return std::nullopt;
 }
 
-std::vector<uint32_t> NameCodes(const NameFontMap& map, const std::string& s) {
+std::vector<uint32_t> RawNameCodes(const std::string& s) {
   std::vector<uint32_t> out;
   for (size_t i = 0; i < s.size();) {
     // One UTF-8 code point, its bytes packed big-endian (0xC389 for 'É').
@@ -172,7 +172,15 @@ std::vector<uint32_t> NameCodes(const NameFontMap& map, const std::string& s) {
     uint32_t code = 0;
     for (size_t k = 0; k < n && i + k < s.size(); ++k) code = code << 8 | uint8_t(s[i + k]);
     i += n;
-    auto it = map.find(code);
+    out.push_back(code);
+  }
+  return out;
+}
+
+std::vector<uint32_t> NameCodes(const NameFontMap& map, const std::string& s) {
+  std::vector<uint32_t> out;
+  for (uint32_t code : RawNameCodes(s)) {
+    const auto it = map.find(code);
     if (it == map.end()) continue;  // not in the map: dropped
     for (int shift = 24; shift >= 0; shift -= 8)
       if (uint32_t c = (it->second >> shift) & 0xFF) out.push_back(c);

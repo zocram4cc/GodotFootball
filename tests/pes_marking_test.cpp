@@ -206,3 +206,20 @@ TEST(NameBlit, CanvasFlipsY) {
   EXPECT_LT(first.cy, middle.cy);
   EXPECT_LT(last.cy, middle.cy);
 }
+
+// A _name_ex page takes the print name's code points raw, with no fold through
+// info_name_font.bin (FUN_1419e4760): each UTF-8 sequence packed big-endian.
+TEST(NameCodesRaw, KeepsEveryCodePointUnfolded) {
+  const auto codes = pes::RawNameCodes("A\xC3\x89" "b");  // "A", "E-acute", "b"
+  ASSERT_EQ(codes.size(), 3u);
+  EXPECT_EQ(codes[0], 0x41u);
+  EXPECT_EQ(codes[1], 0xC389u);  // the glyph table's code for E-acute
+  EXPECT_EQ(codes[2], 0x62u);
+}
+
+// Without a _name_ex page the same code point folds through the map instead.
+TEST(NameCodesRaw, FoldedAndRawCodesDiffer) {
+  const pes::NameFontMap map{{0xC389u, 0x45u}};  // E-acute -> 'E'
+  EXPECT_EQ(pes::NameCodes(map, "\xC3\x89"), std::vector<uint32_t>{0x45u});
+  EXPECT_EQ(pes::RawNameCodes("\xC3\x89"), std::vector<uint32_t>{0xC389u});
+}

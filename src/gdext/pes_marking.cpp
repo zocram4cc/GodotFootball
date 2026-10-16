@@ -103,8 +103,8 @@ bool DrawNumber(PackedByteArray& dst, int dw, int dh, const Rgba& strip, const R
     if (!rotate) {
       Blit(dst, dw, dh, strip, u0, v0, uw, vh, rx + (d.x + d.w / 2) * rw, ry + y0 + hh / 2, d.w * rw, hh, 0, false);
     } else {
-      // ponytail: leg digits run along v, rotated 90 degrees; the direction is
-      // INF until a live leg texture is decoded.
+      // Leg digits run along v, turned +90 degrees: upright on the examined
+      // frames (docs/re/pes-re-marking-pixels.md section 1, RESOLVED 2026-10-13).
       Blit(dst, dw, dh, strip, u0, v0, uw, vh, rx + y0 + hh / 2, ry + (d.x + d.w / 2) * rh, d.w * rh, hh,
            float(M_PI / 2), false);
     }
@@ -131,8 +131,10 @@ Ref<Image> ComposeMarking(const pes::PesVfs& vfs, const pes::KitConfig& kit, con
   const Rgba page0 = Decode(vfs, kit.nameFontFile);
   const Rgba page1 = kit.nameFontFile.empty() ? Rgba{} : Decode(vfs, kit.nameFontFile + NAME_EX_SUFFIX);
   if (page0.ok() && !name.empty()) {
-    // Without a _name_ex page every code folds through info_name_font.bin.
-    std::vector<uint32_t> codes = pes::NameCodes(fonts.nameFont, name);
+    // A _name_ex page draws the code points raw; without one every code folds
+    // through info_name_font.bin (FUN_1419e4760).
+    const std::vector<uint32_t> codes =
+        page1.ok() ? pes::RawNameCodes(name) : pes::NameCodes(fonts.nameFont, name);
     std::vector<const pes::NameGlyph*> glyphs;
     std::vector<float> widths;
     for (uint32_t code : codes)
