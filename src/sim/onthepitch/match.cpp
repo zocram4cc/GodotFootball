@@ -701,7 +701,31 @@ void Match::UpdateBallHeatmap() {
     MatchAnalytics::AddSample(teamBallHeatmap[GetLastTouchTeamID()], ball->Predict(0).Get2D());
 }
 
+void Match::ProcessRefereeStage() {
+  tickStages.push_back(TickStage::Referee);
+  // The shootout owns the pitch during the penalties phase: normal play and
+  // the referee's set-piece machinery stay out of the way, otherwise play
+  // would simply restart underneath the shootout.
+  if (matchPhase == e_MatchPhase_Penalties) {
+    penaltyShootout->Process();
+  } else {
+    referee->Process();
+  }
+}
+
+void Match::ProcessBallStage() {
+  tickStages.push_back(TickStage::Ball);
+  previousBallPos = ball->Predict(0);
+  // Momentum as well as position, both taken before the tick's physics and
+  // its collisions: a keeper's touch resolves inside `ball->Process()`, so by
+  // the time the touch is recorded the ball has already been stopped and its
+  // velocity says nothing about where it was going.
+  previousBallMomentum = ball->GetMovement();  // m/s
+  ball->Process();
+}
+
 void Match::Process() {
+  tickStages.clear();
   // RandomInfo is republished before anything reads it this logic frame. Report 3.15: the
   // callback 0x14041e2b0 runs the update 0x140435b30 whenever the producer exists (its body is
   // decoded from raw bytes; the frame it is called on is NOT VERIFIED).
@@ -713,24 +737,9 @@ void Match::Process() {
     CheckBallCollisions();
   }
 
-  // The shootout owns the pitch during the penalties phase: normal play and
-  // the referee's set-piece machinery stay out of the way, otherwise play
-  // would simply restart underneath the shootout.
-  if (matchPhase == e_MatchPhase_Penalties) {
-    penaltyShootout->Process();
-  } else {
-    referee->Process();
-  }
+  ProcessRefereeStage();
 
-  // ball
-
-  previousBallPos = ball->Predict(0);
-  // Momentum as well as position, both taken before the tick's physics and
-  // its collisions: a keeper's touch resolves inside `ball->Process()`, so by
-  // the time the touch is recorded the ball has already been stopped and its
-  // velocity says nothing about where it was going.
-  previousBallMomentum = ball->GetMovement();  // m/s
-  ball->Process();
+  ProcessBallStage();
 
   // PES's event stage (step 3 of FUN_14042b9f0) runs ahead of the team tick, which holds the
   // MA build (docs/re/pes-re-gaps-a2.md a1). The listener order against MatchSub is OPEN
@@ -741,6 +750,7 @@ void Match::Process() {
   // run manager and the 11-player loop; GF's mental image is built once, at the head of
   // the tick, and the teams follow.
 
+  tickStages.push_back(TickStage::MentalImage);
   auto mentalImage = std::make_shared<MentalImage>(this);
   mentalImage->TakeSnapshot();
   mentalImages.insert(mentalImages.begin(), mentalImage);
@@ -748,6 +758,7 @@ void Match::Process() {
     mentalImages.pop_back();
   }
 
+  tickStages.push_back(TickStage::Teams);
   teams[0]->Process();
   teams[1]->Process();
   officials->Process();

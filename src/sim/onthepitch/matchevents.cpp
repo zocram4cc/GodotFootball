@@ -66,6 +66,7 @@ Player* Match::GetPesActorPlayer(const pes::ActorKey& key) {
 }
 
 void Match::ProcessPesEventStage() {
+  tickStages.push_back(TickStage::Events);
   const int frame = GetPesFrame();
   const int phase = IsInPlay() ? kPhasePlay : kPhaseStopped;
   const RefereeBuffer& buffer = GetRefereeBuffer();

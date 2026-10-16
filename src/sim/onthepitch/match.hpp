@@ -327,6 +327,9 @@ public:
   // One simulation tick: AI, physics, rules, and the pose of every body for
   // the collision tests of the next tick.
   void Process();
+  // The stages Process() ran on its last tick, in the order they ran. The tick-order tests read it.
+  enum class TickStage { Referee, Ball, Events, MentalImage, Teams };
+  const std::vector<TickStage>& TickStages() const { return tickStages; }
 
   boost::intrusive_ptr<Node> GetDynamicNode() { return dynamicNode; }
 
@@ -538,6 +541,8 @@ protected:
   PesDetectorState pesDetectors;
   // The event stage (PES's step 3, tick order in matchevents.cpp).
   void ProcessPesEventStage();
+  void ProcessRefereeStage();
+  void ProcessBallStage();
   signed int bestPossessionTeamID = -1;
   Player* designatedPossessionPlayer = nullptr;
   Player* ballRetainer = nullptr;
@@ -589,6 +594,7 @@ protected:
   std::map<Animation*, std::vector<Vector3>> animPositionCache;
 
   float matchDifficulty;
+  std::vector<TickStage> tickStages;
 
   uint64_t determinismHash;
 };
