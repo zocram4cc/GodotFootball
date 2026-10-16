@@ -270,7 +270,14 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
   };
   for (const auto& r : rdata) ok &= ReadVa(exe, r.first, r.second, error);
   // The turn term's span, from the same instruction that loads its 130 top.
-  ok &= ReadVa(exe, 0x14259be4c, &k.turnSpan_deg, error);
+  // The Dribble chooser's gates (0x14212f1c0): the 30, 60, 40, 20, 10, 15 and 12 immediates' floats.
+  const std::pair<uint64_t, float*> chooser[] = {
+      {0x142591140, &k.chooserGate_deg},      {0x14259a764, &k.chooserTurn_deg},
+      {0x14259be2c, &k.chooserSideAngle_deg}, {0x14259be1c, &k.chooserPressureScale_deg},
+      {0x142588210, &k.chooserSpeedLow_kmh},  {0x14259be0c, &k.chooserSpeedMid_kmh},
+      {0x14259be04, &k.chooserRoom_m},
+  };
+  for (const auto& r : chooser) ok &= ReadVa(exe, r.first, r.second, error);
 
   // The rolled plans' base probabilities, from the immediates of the plan
   // functions 0x14211a800 (Breakthrough), 0x14211b460 (MiddleShot),
@@ -636,12 +643,13 @@ float PlanStartProbability(int planId, const CarrierConstants& k, float stat, bo
     }
     case kPlanMiddleShot:
       // Base 70 with a long-shot skill or COM 5, 0 without.
-      return std::max(std::min((skill ? k.middleShotBase : 0.0f) +
+      return std::max(std::min(((skill || com) ? k.middleShotBase : 0.0f) +
                                    (state2 ? k.middleShotStateGain : 0.0f) + statTerm,
                                k.middleShotCap),
                       k.middleShotFloor);
     case kPlanCross:
-      // Base 50 with the Crosser style, the Early Cross COM or Pinpoint Cross.
+      // Base 50 with the Early Cross COM or Pinpoint Cross. ponytail: the Crosser style (bit 7,
+      // report 4.4) is not read; the caller has no style input here.
       return std::max(std::min(((skill || com) ? k.crossBase : 0.0f) + statTerm, k.crossCap),
                       k.crossFloor);
     default:
@@ -815,6 +823,196 @@ int PlanImageMode(int planId, int previousMode, bool receiving, float carrierX_m
       // Basic 1, 2 or 3 with its Intention-4 override (0x14211dc00); GF carries
       // none of those fields, so the manager's own mode stands in.
       return previousMode;
+  }
+}
+
+// PES's list order is the table order the list builder writes (0x1421112c0); the walk reads it.
+namespace {
+
+constexpr int kAnswerClear = 5;    // type 5: the clear (0x142109eb0)
+constexpr int kAnswerRequest = 7;  // type 7: the pass to a requester (RespondRequest)
+
+const UnitSlot* FindSlot(const std::vector<UnitSlot>& table, int kind) {
+  for (const UnitSlot& s : table) {
+    if (s.kind == kind) return &s;
+  }
+  return nullptr;
+}
+
+// Rule 3, the first-time gate (report 5): off unless the tier gate is on.
+bool FirstTimeAccept(const UnitSlot& s, const WalkContext& c) {
+  if (!c.firstTimeGate) return true;
+  const int t = s.answer.type;
+  return (c.ballHeightOk || ((t != kAnswerShoot || c.skill11) && t != kAnswerClear)) &&
+         (t != kAnswerPass || c.skill12);
+}
+
+// Rule 5, the restart vetoes: MI+0x1775 in {3, 9, 10} skips passes and clears, and the stopped mode
+// (MI+0x116C == 2) accepts only passes.
+bool RestartAccept(const UnitSlot& s, const WalkContext& c) {
+  const int t = s.answer.type;
+  const bool vetoState = c.restartState == 3 || c.restartState == 9 || c.restartState == 10;
+  if (vetoState && (t == kAnswerPass || t == kAnswerClear)) return false;
+  return c.restartMode != 2 || t == kAnswerPass;
+}
+
+// The set-piece tail (0x14210f110 L141-157): a carrier who is not the designated kicker is free;
+// the kicker takes shots and clears, and passes only where the pass gate allows.
+bool SetPieceAccept(const UnitSlot& s, const WalkContext& c) {
+  if (!c.carrierIsKicker) return true;
+  const int t = s.answer.type;
+  if (t == kAnswerShoot || t == kAnswerClear) return true;
+  return (t == kAnswerPass || t == kAnswerRequest) && c.passAllowedInSetPiece;
+}
+
+// Rule 10, the final ownership check (0x14210f110 L641-645): the ball's owner unknown, a teammate,
+// or the answer is a dribble.
+bool OwnerAccept(const UnitSlot& s, const WalkContext& c) {
+  if (c.ballOwnerTeam < 0 || c.ballOwnerTeam == c.ownTeam) return true;
+  return s.answer.type == kAnswerDribble;
+}
+
+}  // namespace
+
+UnitSlot WalkCarrierUnits(const std::vector<UnitSlot>& table, const WalkContext& c) {
+  for (const UnitSlot& s : table) {
+    const int t = s.answer.type;
+    if (t == kAnswerNone) continue;
+    if (c.restartMode != 3) {  // the open-play body (set pieces skip it, L122)
+      if (s.kind == 22) return s;                                    // rule 1
+      if (!FirstTimeAccept(s, c) || !RestartAccept(s, c)) continue;  // rules 3 and 5
+      if (t == kAnswerShoot && !c.closeBand) {                       // rule 6
+        const UnitSlot* back = FindSlot(table, 3);
+        if (back != nullptr && back->answer.type != kAnswerNone) return *back;
+      }
+      // Rule 9: a cross override for a pass or dribble from a kind other than 7, 8 and 23.
+      if ((t == kAnswerPass || t == kAnswerDribble) && c.skill14 && s.kind != 7 && s.kind != 8 &&
+          s.kind != 23) {
+        const UnitSlot* cross = FindSlot(table, 7);
+        if (cross != nullptr && cross->answer.type != kAnswerNone) return *cross;
+      }
+    }
+    const bool accepted = c.restartMode == 1 ? OwnerAccept(s, c) : SetPieceAccept(s, c);
+    if (accepted) return s;
+  }
+  return UnitSlot{};
+}
+
+std::vector<int> BuildUnitList(const UnitListInput& in) {
+  std::vector<int> l = {23, 22, 0, 1, 17, 14, 11, 12};
+  const auto has = [&](int kind) { return std::find(l.begin(), l.end(), kind) != l.end(); };
+  switch (in.plan) {
+    case kPlanBreakthrough:
+    case kPlanMiddleShot:
+    case kPlanCurveShot:
+      if (!(in.central && in.close)) {
+        l.push_back(2);
+        if (!in.planFlag9) {
+          if ((!in.central || !in.mid) && !in.close) l.push_back(3);
+          if (in.sideSector3) l.push_back(7);
+          l.push_back(4);
+          l.push_back(10);
+        }
+      }
+      break;
+    case kPlanPassThrough:
+      l.push_back(3);
+      l.push_back(2);
+      if (!(in.planFlag10 && in.planFlag9)) {
+        l.push_back(4);
+        l.push_back(10);
+      }
+      break;
+    case kPlanCross:
+      if (in.pastCross) l.push_back(3);
+      l.push_back(7);
+      l.push_back(8);
+      break;
+    case kPlanLong:
+      l.push_back(9);
+      break;
+    case kPlanSideChange:
+      l.push_back(5);
+      break;
+    case kPlanShotPassFromGoal:
+      break;
+    case kPlanBackDFLine:
+      l.push_back(13);
+      break;
+    default:  // Basic
+      if (!in.flagE7 && !in.close) {
+        l.push_back(2);
+        l.push_back(3);
+        l.push_back(10);
+        if (!in.intentionMode4) l.push_back(4);
+      }
+      break;
+  }
+  // The tail (L82-95): the wide-side tail (7 and 6) and the team's human-side 9.
+  if (in.teamModeThree && in.humanCarrier && !has(9)) l.push_back(9);
+  if (in.planFlag8 || in.planMode == 3) {
+    if (!has(7)) l.push_back(7);
+    if (!has(6)) l.push_back(6);
+  }
+  return l;
+}
+
+int DribbleChooser(const DribbleChooserInput& in, const CarrierConstants& k) {
+  // The feint gate: the facing inside 30 degrees of the attack and of the plan heading, the carrier
+  // past halfway, and the caller's feint test (0x14212e970).
+  if (std::fabs(WrapDeg(in.teamAttack_deg - in.facing_deg)) < k.chooserGate_deg &&
+      std::fabs(WrapDeg(in.planHeading_deg - in.facing_deg)) < k.chooserGate_deg &&
+      in.forwardOfHalf && in.feintGate) {
+    return kDribbleFeint;
+  }
+  if (in.teamMode == 1 && in.verticalVel < 0.0f && in.verticalVel < in.verticalLimit) {
+    return kDribbleMode3;
+  }
+  // Plans 1-3 and a turning carrier are measured against the plan heading; the rest against the
+  // team's attack, the side band widened by the pressure scalar.
+  const bool planTurns = in.plan >= kPlanBreakthrough && in.plan <= kPlanCurveShot;
+  if (!in.turning && !planTurns) {
+    if (std::fabs(WrapDeg(in.facing_deg - in.teamAttack_deg)) >
+        k.chooserSideAngle_deg + k.chooserPressureScale_deg * in.pressure) {
+      return kDribbleMode3;
+    }
+  } else if (std::fabs(WrapDeg(in.facing_deg - in.planHeading_deg)) > k.chooserTurn_deg) {
+    return kDribbleMode3;
+  }
+  if (in.boxPressed) return kDribbleMode3;
+  const float vh = in.velZero ? 0.0f : in.velHeading_deg;
+  if ((in.pressureClass < 0 || in.teamMode < 2) && in.speed_kmh > k.chooserSpeedLow_kmh &&
+      std::fabs(WrapDeg(in.facing_deg - vh)) > k.chooserSideAngle_deg) {
+    return kDribbleMode3;
+  }
+  // The free-lane test: at walking speed, or with the heading near his motion, and room to run.
+  const bool steady = in.speed_kmh <= k.chooserSpeedMid_kmh ||
+                      std::fabs(WrapDeg(in.facing_deg - vh)) <= k.chooserTurn_deg;
+  if (steady && in.room_m >= k.chooserRoom_m) return in.laneFree ? kDribbleMode4 : kDribbleMode3;
+  return kDribbleMode3;
+}
+
+int DribbleSubKind(const DribbleChooserInput& in, bool headingOverride, const CarrierConstants& k) {
+  // The Long image runs no chooser (0x14212fe70 L433): the dispatch keeps its mode 3.
+  if (in.plan == kPlanLong) return kDribbleMode3;
+  const int sub = DribbleChooser(in, k);
+  return headingOverride && sub == kDribbleMode3 ? kDribbleHeading : sub;
+}
+
+bool MiddleShotSkill(bool longRangeShooting, bool knuckleShot, bool droppingShots,
+                     bool risingShots) {
+  return longRangeShooting || knuckleShot || droppingShots || risingShots;
+}
+
+e_FunctionType PesPassFunctionType(int passKind) {
+  switch (passKind) {
+    case kPassThrough:
+      return e_FunctionType_LongPass;  // GF's through ball (playingstyles.cpp)
+    case kPassLong:
+    case kPassCentering:
+      return e_FunctionType_HighPass;  // the lofted and the cross, GF's HighPass
+    default:
+      return e_FunctionType_ShortPass;
   }
 }
 

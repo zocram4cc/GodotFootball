@@ -236,6 +236,8 @@ public:
   }
   // PES 2021's ball-carrier decision layer (docs/re/pes-re-carrier-ai.md).
   const pes::CarrierConstants& GetPesCarrierConstants() const { return pesCarrierConstants; }
+  // The tick-order switch (config pes_loop): the PES order and the PES carrier path.
+  bool IsPesLoop() const { return pesLoop; }
   // PES 2021's open-play defensive shape (docs/re/pes-re-defensive-shape.md 6,
   // 7, 14): the line ramp, the team length and width and the marking arithmetic.
   const pes::DefensiveShapeConstants& GetPesDefensiveShapeConstants() const {

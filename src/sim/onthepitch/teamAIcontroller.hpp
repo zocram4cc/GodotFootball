@@ -167,6 +167,8 @@ public:
   Player* RunPlayerAt(int slot) const;
   // The rank-0 opponent of `own` in that world (NearestOpponents, pesoffball.hpp); nullptr when none.
   Player* NearestOpponentOf(const Player* own) const;
+  // The distance from `own` to his rank-0 opponent in that world; 1000 m when he has none.
+  float NearestOpponentDistance(const Player* own) const;
 
 
   const std::vector<TacticalOpponentInfo>& GetTacticalOpponentInfo() {
