@@ -1322,6 +1322,13 @@ float HeadingFactor(float deg, float scale) {
   return folded < 0.0f ? -scale * v : scale * v;
 }
 
+void BuildNearest(RunWorld& w) { (void)w; }
+std::span<const NearestEntry::Near> NearestOpponents(const RunWorld& w, int id) {
+  (void)w;
+  (void)id;
+  return {};
+}
+
 // FUN_140655660 + FUN_140654e60: the frames for player `id` to reach `X`.
 // ponytail: FUN_140a75740 (the path) is the straight segment - GF has no
 // obstacle path, so the waypoint list is the destination itself.

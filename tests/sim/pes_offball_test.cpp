@@ -1140,6 +1140,79 @@ TEST(OffBallCorridor, APassToMeInsideHalfASecondIsSeenButNotDecidable) {
   EXPECT_EQ(kPassToMeUnknown, PassToMeLock(w, kRunner));
 }
 
+// PES's nearest lists (the 200-byte entries at MA+0x22e4c + 200·i). Team 0 is ids
+// 0..10, team 1 is 11..21. Each entry sorts both teams by squared distance from
+// its owner, the owner's own team included.
+RunWorld Spread() {
+  RunWorld w;
+  for (int i = 0; i < 2 * kSlots; ++i) {
+    w.p[i].active = true;
+    w.p[i].pos = {50.0f, 50.0f + static_cast<float>(i)};
+  }
+  w.p[0].pos = {0.0f, 0.0f};
+  return w;
+}
+
+TEST(NearestList, OpponentsAreSortedNearestFirst) {
+  RunWorld w = Spread();
+  const float d[kSlots] = {7.0f, 3.0f, 10.0f, 1.0f, 5.0f, 9.0f, 2.0f, 8.0f, 4.0f, 6.0f, 11.0f};
+  for (int s = 0; s < kSlots; ++s) w.p[kSlots + s].pos = {0.0f, d[s]};
+  BuildNearest(w);
+  const std::vector<int> want{14, 17, 12, 19, 15, 20, 11, 18, 16, 13, 21};
+  std::vector<int> got;
+  for (const auto& n : NearestOpponents(w, 0)) got.push_back(static_cast<int>(n.id));
+  EXPECT_EQ(want, got);
+  ASSERT_FALSE(NearestOpponents(w, 0).empty());
+  EXPECT_FLOAT_EQ(NearestOpponents(w, 0)[0].d2, 1.0f);
+}
+
+TEST(NearestList, EqualDistancesKeepSlotOrder) {
+  RunWorld w = Spread();
+  for (int s = 0; s < kSlots; ++s) w.p[kSlots + s].pos = {0.0f, 10.0f + static_cast<float>(s)};
+  w.p[kSlots + 2].pos = {0.0f, 4.0f};
+  w.p[kSlots + 7].pos = {-4.0f, 0.0f};
+  w.p[kSlots + 9].pos = {0.0f, -4.0f};
+  BuildNearest(w);
+  const std::vector<int> want{13, 18, 20, 11, 12, 14, 15, 16, 17, 19, 21};
+  std::vector<int> got;
+  for (const auto& n : NearestOpponents(w, 0)) got.push_back(static_cast<int>(n.id));
+  EXPECT_EQ(want, got);
+}
+
+TEST(NearestList, CountsHoldOnlyTheActivePlayersOfEachTeam) {
+  RunWorld w = Spread();
+  w.p[kSlots + 4].active = false;
+  w.p[kSlots + 6].active = false;
+  BuildNearest(w);
+  const auto opp = NearestOpponents(w, 0);
+  EXPECT_EQ(9u, opp.size());
+  for (const auto& n : opp) EXPECT_TRUE(w.p[n.id].active);
+  EXPECT_EQ(kSlots, w.nearest[0].count[0]);
+  EXPECT_EQ(9, w.nearest[0].count[1]);
+}
+
+TEST(NearestList, RanksGiveTheSlotWithinItsTeamsListAndAbsentForInactive) {
+  RunWorld w = Spread();
+  w.p[kSlots + 4].active = false;
+  BuildNearest(w);
+  const auto opp = NearestOpponents(w, 0);
+  for (int k = 0; k < static_cast<int>(opp.size()); ++k) EXPECT_EQ(k, w.nearest[0].rank[opp[k].id]);
+  EXPECT_EQ(kNearRankAbsent, w.nearest[0].rank[kSlots + 4]);
+  EXPECT_EQ(0, w.nearest[0].rank[0]);  // the owner is nearest to himself in his own team
+}
+
+TEST(NearestList, ATeamOneOwnerListsTeamZeroAsOpponents) {
+  RunWorld w = Spread();
+  w.p[kSlots + 3].pos = {0.0f, 0.0f};
+  for (int s = 0; s < kSlots; ++s) w.p[s].pos = {0.0f, 13.0f - static_cast<float>(s)};
+  BuildNearest(w);
+  const std::vector<int> want{10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
+  std::vector<int> got;
+  for (const auto& n : NearestOpponents(w, kSlots + 3)) got.push_back(static_cast<int>(n.id));
+  EXPECT_EQ(want, got);
+}
+
+
 TEST(OffBallInstall, CapsAndLimitFromTheInstall) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT unset";

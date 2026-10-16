@@ -26,6 +26,7 @@
 #include <array>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -193,6 +194,22 @@ struct BallEvent {
   int target = -1;   // the intended receiver (global id)
 };
 
+// PES's nearest list for one player: the 200-byte entry at MA+0x22e4c + 200·i
+// (pes-re-teamctx.md §2.1). Both teams' active players, sorted by squared
+// distance from the owner, nearest first. Offsets are PES's.
+struct NearestEntry {
+  struct Near {
+    uint32_t id;  // global id; valid for k < count[team]
+    float d2;     // squared distance from the owner, m²
+  };
+  std::array<std::array<Near, kSlots>, 2> team;  // +0x00 team 0, +0x58 team 1
+  std::array<uint8_t, 2> count;                  // +0xb0, +0xb1: active players per team
+  std::array<uint8_t, 2 * kSlots> rank;          // +0xb2: rank in own team's list, by global id
+};
+static_assert(sizeof(NearestEntry) == 200);
+// Rank byte of a player who is not in his team's list (pes-re-teamctx.md §2.1).
+inline constexpr uint8_t kNearRankAbsent = 0x0a;
+
 // Everything the run selectors and stop tests read, global ids team·11 + slot.
 struct RunWorld {
   std::array<PlayerFacts, 2 * kSlots> p;
@@ -205,7 +222,14 @@ struct RunWorld {
   std::array<bool, 2> possession{};      // T+0x255
   std::array<float, 2> possessionAge{};  // MI+0x11a0, PES frames
   BallEvent ev;
+  std::array<NearestEntry, 2 * kSlots> nearest{};  // BuildNearest; a hand-built RunWorld must call it
 };
+
+// Fills w.nearest from the players' positions and activity. BuildRunWorld runs it
+// once per tick; a hand-built RunWorld must run it after its positions are set.
+void BuildNearest(RunWorld& w);
+// Opponents of `id`, nearest first: rank 0 is PES's rank-0 opponent (pes-re-teamctx.md §2.3).
+std::span<const NearestEntry::Near> NearestOpponents(const RunWorld& w, int id);
 
 // T+0x4c00 registered positions from GF's e_PlayerRole order.
 int Position(int gfRole);
