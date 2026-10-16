@@ -156,10 +156,10 @@ const pes::StoppageConstants& Referee::GetStoppageConstants() const {
 // holder flag are payload+0 and payload+0x20, which are record offsets 0x14 and 0x34.
 bool Referee::PesTimeUpBlows(const Vector3& ballPos) {
   Player* carrier = match->GetBallRetainer();
-  Team* side = match->GetTeam(carrier ? carrier->GetTeamID() : 0);
+  Team* possession = match->GetTeam(carrier ? carrier->GetTeamID() : 0);
   const pes::EventRecord& touch = match->GetPesEvents().Newest();
   pes::TimeUpInput in;
-  in.zoneSign = side->GetSide();
+  in.zoneSign = possession->GetSide();
   in.ballX_m = ballPos.coords[0];
   in.halfLength_m = pesFieldHalfLength;
   in.touchKind = touch.ActionKind();
@@ -179,6 +179,8 @@ void Referee::Process() {
     // its length announces the added time once (LIMIT), and the whistle waits for the
     // length plus that LIMIT. Stoppages accrue F, so they count towards it. Under pes_loop
     // the gate only opens the time-up: the judge (FUN_14050B9B0) then blows on its counts.
+    // ponytail: PES's judge also counts the gate's ticks in dead ball (FUN_14050C3E0 gates on
+    // the period only); this runs in play only. Move the call to the judge stage when it lands.
     pes::PesClock& clock = match->GetPesClock();
     if (clock.PastPeriodLength() && !clock.AddedTimeAnnounced()) {
       clock.AnnounceAddedTime(kPesNoPerfTier);

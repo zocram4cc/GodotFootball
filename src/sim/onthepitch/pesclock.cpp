@@ -149,6 +149,8 @@ bool TimeUpWhistle(TimeUpCounters& c, const TimeUpInput& in, int rate) {
     return true;
   };
 
+  // ponytail: the penalty-taker hold (FUN_14050B9B0 lines 52-66, G+0x2920) and the R+8 flag
+  // (line 67, no writer traced) are not ported; neither can return early here.
   // R+0xd0: the 60 s count, tested before the zone and the touch.
   c.sixtySeconds += 1;
   if (c.sixtySeconds > rate * kCountSeconds) return blow();
