@@ -4,12 +4,11 @@
 
 #include <gtest/gtest.h>
 
-#include <cmath>
 #include <cstdlib>
 #include <stdexcept>
-#include <string>
 
 #include "onthepitch/pesclock.hpp"
+#include <optional>
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
 
@@ -20,10 +19,8 @@ namespace {
 pes::PesClockConstants FakeConstants() {
   pes::PesClockConstants c;
   c.gameSpeed = 54.0f;             // .data 0x14351ae54
-  c.added2ndHalf = 9000.0f;        // .rdata 0x142632a6c
   c.addedTier_3_6_2nd = 7200.0f;   // .rdata 0x142632a68
   c.addedTier_1_2_2nd = 3600.0f;   // .rdata 0x142598590
-  c.addedExtraTime = 5400.0f;      // .rdata 0x142632a64
   c.addedTier_1_2_ET = 1800.0f;    // .rdata 0x142632a60
   c.addedTier_3_6_ET = 3600.0f;    // .rdata 0x142598590 (the same float)
   return c;
@@ -111,8 +108,9 @@ TEST(PesClock, AStoppageHoldsTheStampAndAddsHalfAUnitPerFrame) {
   EXPECT_FLOAT_EQ(clock.Record().f, pes::kStoppageUnitsPerFrame * c->gameSpeed);
 }
 
-// Stoppage time counts towards the time-up through F: 2699 s of play and two
-// seconds of stoppage reach 162000 units once the stoppage is 54 units long.
+// Stoppage time counts towards the time-up through F: 2699 s of play is 161940
+// units, and F must add 60 units (about 2.2 s of stoppage at 27 units a second)
+// before the gate's 162000 opens.
 TEST(PesClock, StoppageTimeCountsTowardsTheTimeUp) {
   auto c = InstallConstants();
   if (!c) GTEST_SKIP() << "PES21_ROOT not set";
@@ -322,10 +320,8 @@ TEST(PesClockInstall, ConstantsComeFromTheExe) {
   auto c = InstallConstants();
   if (!c) GTEST_SKIP() << "PES21_ROOT not set";
   EXPECT_FLOAT_EQ(c->gameSpeed, 54.0f);
-  EXPECT_FLOAT_EQ(c->added2ndHalf, 9000.0f);
   EXPECT_FLOAT_EQ(c->addedTier_3_6_2nd, 7200.0f);
   EXPECT_FLOAT_EQ(c->addedTier_1_2_2nd, 3600.0f);
-  EXPECT_FLOAT_EQ(c->addedExtraTime, 5400.0f);
   EXPECT_FLOAT_EQ(c->addedTier_1_2_ET, 1800.0f);
   EXPECT_FLOAT_EQ(c->addedTier_3_6_ET, 3600.0f);
   EXPECT_FLOAT_EQ(c->timeUpBase, 162000.0f);

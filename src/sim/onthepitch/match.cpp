@@ -490,8 +490,8 @@ void Match::ResetSituation(const Vector3& focusPos) {
 void Match::SetMatchPhase(e_MatchPhase newMatchPhase) {
   matchPhase = newMatchPhase;
   matchData->RecordPassRestart();
-  // PES's clock is one counter over the whole match, so a phase change never
-  // rewinds it - only the denominator (the phase's own period end) changes.
+  // PES's period record restarts at each period (docs/re/pes-re-clock-live.md 8): the
+  // phase change starts the new period's own stamp, F and LIMIT.
   if (pesClock) pesClock->SetPhase(newMatchPhase);
   if (matchPhase == e_MatchPhase_1stHalf)
     matchTime_ms = 0;

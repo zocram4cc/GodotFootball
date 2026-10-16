@@ -1,36 +1,21 @@
-// PES 2021's match clock, stoppage and period rules, per
-// docs/re/pes-re-tactics-clock.md.
+// PES 2021's match clock: the period record at MI+0x1168..0x1194, its decode,
+// the stoppage rule and the time-up gate that ends a period
+// (docs/re/pes-re-clock-live.md section 8). Every constant is read from the
+// user's own PES2021.exe through pes::PeImage::ReadVa; nothing is transcribed.
 //
-// The clock is a u32 percentage of `minutes x 1920` ticks, `minutes` being the
-// whole match in game-minutes (90 for a regulation match): the stored value is
-// `ticks * 100 / (minutes*1920/100)`, so a first half's 43,200 ticks reads 2500
-// and full time 86,400 ticks reads 5000. Its tick scale is 960 per game-minute
-// (16 per game-second, the other figure the report reads off the image), which
-// also makes a period end `minutes/2 x 1920`: 43,200 for a first half, 86,400
-// at full time.
+// The record: period (+0x1168), play state (+0x116c), LIMIT (+0x1170), F
+// (+0x1174), an FNV-1a 64 checksum (+0x1178), a key (+0x1180), a ring index
+// (+0x1184) and four ring slots (+0x1188..+0x1194). The current slot is
+// ring[idx & 3]. FUN_140A3C070 decodes it: byte i of the slot is L_i, K_i is byte
+// i of (key*3 + 4i), and the decoded byte is ((L_i + K_i) mod 256) XOR
+// ((K_i*63) mod 256). The four decoded bytes are the stamp as an f32, the
+// checksum is FNV-1a 64 over them, and PES traps when the checksum fails.
+// FUN_140A3C050 adds F to the stamp: that is the period clock.
 //
-// The per-second floor that drives the clock is FUN_140922DD0's
-// `tickMin = sec * 16000`, i.e. 16000 clock units per match second. One tick is
-// 1000 of those units: 16000 x 60 / 1000 = 960 ticks per game-minute, the other
-// figure the report reads off the image, and a 45-minute half is 43,200 ticks.
-// (Report 2.3's own "16000 x 60 / 500 ~= 1920" reconciliation is the same
-// product with the divisor halved; the two OBS anchors - 960 per game-minute
-// and 43,200 per half - fix the divisor at 1000.)
-//
-// PES's own `base` term comes from the live score line (a lead byte), the
-// situation kind and the performer's pitch level; none of those exist in this
-// engine, so the floor term is what advances the clock here (report 2.4).
-//
-// Added (stoppage) time is a linear formula in elapsed match seconds, evaluated
-// ONCE at the end of a half with no event counters (3.2). A stoppage never adds
-// time: the ClockFSM does not run while the state byte is a frozen one, so the
-// clock freezes instead (3.3).
-//
-// Every number that lives in the image is read from the user's own
-// PES2021.exe through pes::PeImage::ReadVa (PesClockConstants); nothing here is
-// transcribed. The one open item the report records - how the `match_time`
-// setting maps onto a per-tick increment (9.1) - does not arise here: this
-// engine's clock is driven by its own tick, which PES's own constants scale.
+// Units: 60 per game-second, so the gate's 162000 is 45 game-minutes. Live (OBS)
+// the stamp advances 10 per logic frame in play, which is PES's match-speed
+// setting; GF runs at game time, the setting is open. In stoppage (play state 2
+// or 3) the stamp is frozen and F rises 0.5 per frame.
 
 #ifndef _HPP_ONTHEPITCH_PESCLOCK
 #define _HPP_ONTHEPITCH_PESCLOCK
@@ -44,87 +29,89 @@
 
 namespace pes {
 
-// docs/re/pes-re-tactics-clock.md 7.2: every clock value lives in the image,
-// none of them in a WESYS constant object.
-constexpr uint64_t GAME_SPEED_VA = 0x14351ae54;         // .data float, 54.0
-constexpr uint64_t HALF_SECONDS_VA = 0x14259d638;        // .rdata 16000.0
-constexpr uint64_t ADDED_2ND_HALF_VA = 0x142632a6c;     // .rdata 9000.0
-constexpr uint64_t ADDED_TIER_3_6_2ND_VA = 0x142632a68; // .rdata 7200.0
-constexpr uint64_t ADDED_TIER_1_2_2ND_VA = 0x142598590; // .rdata 3600.0
-constexpr uint64_t ADDED_EX_TIME_VA = 0x142632a64;      // .rdata 5400.0
-constexpr uint64_t ADDED_TIER_1_2_ET_VA = 0x142632a60;  // .rdata 1800.0
-constexpr uint64_t ADDED_TIER_3_6_ET_VA = 0x142598590;  // .rdata 3600.0
+// docs/re/pes-re-clock-live.md 8.1 and section 2 of pes-re-tactics-clock.md:
+// the image addresses the clock reads (.data and .rdata).
+constexpr uint64_t GAME_SPEED_VA = 0x14351ae54;           // .data float, 54.0
+constexpr uint64_t ADDED_TIER_3_6_2ND_VA = 0x142632a68;   // .rdata 7200.0
+constexpr uint64_t ADDED_TIER_1_2_2ND_VA = 0x142598590;   // .rdata 3600.0
+constexpr uint64_t ADDED_TIER_1_2_ET_VA = 0x142632a60;    // .rdata 1800.0
+constexpr uint64_t ADDED_TIER_3_6_ET_VA = 0x142598590;    // .rdata 3600.0 (the same float)
+constexpr uint64_t TIME_UP_BASE_VA = 0x142647c68;         // .rdata 162000.0 (periods 1 and 3)
+constexpr uint64_t TIME_UP_FLAG_VA = 0x142647c64;         // .rdata 54000.0 (periods 5 and 7)
+constexpr uint64_t MINUTE_UNITS_VA = 0x142598590;         // .rdata 3600.0 (units per minute)
+constexpr uint64_t SECOND_UNITS_VA = 0x14259a764;         // .rdata 60.0 (seconds per minute, units per second)
 
-// Report 2.2: FUN_140A581B0 returns 0x780 = 1920, the percentage unit's tick
-// count (ticks = matchTime * 1920 / 100). Code literal, not an image constant.
-constexpr uint32_t kPercentageUnitTicks = 1920;
-// The clock's own rate: 960 ticks per game-minute, 16 per game-second - the
-// figure the same section reads off the image, and equal to the 16000 clock
-// units per match second at 1000 units per tick.
-constexpr uint32_t kTicksPerGameMinute = 960;
-constexpr float kClockUnitsPerTick = 1000.0f;
-// Report 2.6: the HUD wraps the displayed minute at 100.
+// Report 2.2: the HUD wraps the displayed minute at 100.
 constexpr int kDisplayMinuteWrap = 100;
 // Report 3.1: the HUD shows at most nine minutes of added time.
 constexpr int kMaxAnnouncedAddedMinutes = 9;
+// The added-time formula's own clock: 960 ticks per game-minute and 1000 units
+// per tick (report 2.2 and 3.2), which the board's whole minutes come from.
+constexpr uint32_t kTicksPerGameMinute = 960;
+constexpr float kClockUnitsPerTick = 1000.0f;
+
+// Stoppage: F takes this much per logic frame while the state is stopped (live
+// OBS: 19.5 over 39 frames in state 2).
+constexpr float kStoppageUnitsPerFrame = 0.5f;
 
 struct PesClockConstants {
-  float gameSpeed = 0.0f;        // the 54.0 game speed (.data)
-  float halfSeconds = 0.0f;      // 16000 clock units per match second (.rdata)
-  float added2ndHalf = 0.0f;     // 9000.0 per match second, 2nd half
-  float addedTier_3_6_2nd = 0.0f;// 7200.0, perf tiers 3..6, 2nd half
-  float addedTier_1_2_2nd = 0.0f;// 3600.0, perf tiers 1..2, 2nd half
-  float addedExtraTime = 0.0f;   // 5400.0 per match second, extra time
-  float addedTier_1_2_ET = 0.0f; // 1800.0, perf tiers <= 2, extra time
-  float addedTier_3_6_ET = 0.0f; // 3600.0, perf tiers 3..6, extra time
-  uint32_t ticksPerMinute = kTicksPerGameMinute;
+  float gameSpeed = 0.0f;          // 54.0: logic frames per game-second (.data)
+  float addedTier_3_6_2nd = 0.0f;  // 7200.0, perf tiers 3..6, 2nd half
+  float addedTier_1_2_2nd = 0.0f;  // 3600.0, perf tiers 1..2, 2nd half
+  float addedTier_1_2_ET = 0.0f;   // 1800.0, perf tiers 1..2, extra time
+  float addedTier_3_6_ET = 0.0f;   // 3600.0, perf tiers 3..6, extra time
+  float timeUpBase = 0.0f;         // 162000.0: the length of periods 1 and 3
+  float timeUpFlag = 0.0f;         // 54000.0: the length of periods 5 and 7
+  float minuteUnits = 0.0f;        // 3600.0: LIMIT's units per whole minute
+  float secondsUnit = 0.0f;        // 60.0: minutes to seconds, and seconds to units
 };
 
 bool ReadFloat(const PeImage& exe, uint64_t va, float* out);
 
 // Reads every clock constant out of the install's PES2021.exe.
-std::optional<PesClockConstants> LoadPesClockConstants(const PeImage&exe, std::string* error);
+std::optional<PesClockConstants> LoadPesClockConstants(const PeImage& exe, std::string* error);
 
-// --- the period tables (report 2.1) ---
+// The period number PES keeps at MI+0x1168 for a GF phase. The breaks (2, 4, 6, 8)
+// are the walk-off set pieces in GF, not phases of their own.
+uint32_t PeriodNumber(e_MatchPhase phase);
 
-// The period's end on the match clock, in game-minutes: PES's three tables
-// (0x1420BE050 / 0x1420BE140 / 0x1420BE0D0) give 45 / 90 / 105 / 120 by phase.
-// GF has no half-time phase, so its 1st and 2nd extra time are PES's EX_1ST and
-// EX_2ND.
-int PeriodEndMinutes(e_MatchPhase phase);
-// The same, in clock ticks: minutes/2 x 1920, i.e. 43,200 for a first half.
-uint32_t PeriodEndTicks(e_MatchPhase phase);
-// The period's own length in game-minutes: 45 for either half, 15 for a period
-// of extra time, and none for the periods PES never runs.
-int HalfLengthMinutes(e_MatchPhase phase);
-// Ticks per game-second: 960 per game-minute / 60, which is also the
-// 16000-units-per-second floor at 1000 units per tick.
-float TicksPerGameSecond();
+// Periods that run a clock; PES's judge skips the time-up in the others (2, 6, 9, 10).
+bool PeriodHasClock(uint32_t period);
 
-// --- the clock representation (report 2.2) ---
+// The period record, MI+0x1168..0x1194.
+struct PeriodRecord {
+  uint32_t period = 0;     // +0x1168
+  uint32_t playState = 0;  // +0x116C: 1 in play, 2 or 3 stopped (OBS)
+  float limit = 0.0f;      // +0x1170: LIMIT, added minutes times minuteUnits
+  float f = 0.0f;          // +0x1174: F, the stoppage accrual
+  uint64_t checksum = 0;   // +0x1178: FNV-1a 64 over the decoded stamp bytes
+  uint32_t key = 0;        // +0x1180
+  uint32_t ringIdx = 0;    // +0x1184
+  uint32_t ring[4] = {};   // +0x1188..+0x1194
+};
 
-// The stored form PES keeps: `ticks * 10000 / (minutes*1920)`, so a first half
-// of a 90-game-minute match (43,200 ticks) reads 2500 and full time (86,400)
-// reads 5000 (report 2.2).
-float PercentageFromTicks(uint32_t ticks, e_MatchPhase phase);
-uint32_t TicksFromPercentage(float percentage, e_MatchPhase phase);
+// FUN_140A3C070: the stamp the current slot decodes to. Throws when the checksum
+// does not match, where PES traps (FUN_1415A1714).
+float PeriodStamp(const PeriodRecord& r);
+// FUN_140A3C050: the stamp plus F.
+float PeriodClockUnits(const PeriodRecord& r);
+// The inverse of PeriodStamp: writes the stamp into the next slot and its checksum.
+void StoreStamp(PeriodRecord& r, float stamp);
 
-// --- the display (report 2.6) ---
+// FUN_14050B9B0's gate, FUN_140A6BEF0: the period's length plus floor(LIMIT /
+// minuteUnits) whole minutes, as the time-up threshold. The gate opens when the
+// clock reaches it.
+bool TimeUpReached(const PesClockConstants& c, uint32_t period, float limit, float clock);
 
-// Minute and second from a seconds count. In a live half the HUD adds the
-// previous period's end (FUN_1420BE140's live-half rule); the clock's own
-// elapsed seconds already carry it in this engine, so nothing is added here.
-void ClockDisplay(float totalSeconds, int* minute_db_pitch, int* second);
-
-// --- stoppage (report 3.2) ---
+// --- the added-time formula (report 3.2) ---
 
 // Which of the two paths the added-time formula runs: PES evaluates it only at
 // the end of the second half and of extra time.
 enum e_AddedTimePhase { e_AddedTimePhase_2ndHalf, e_AddedTimePhase_ExtraTime };
 
 // Added time in clock units: the tier bonus only, `elapsedSeconds * rate`. The
-// 9000.0/5400.0 per-second term is already the clock's own value at the end of
-// the period, so this engine's added time is the bonus over it. `tier` is the
+// 9000.0 / 5400.0 per-second term is the clock's own value at the end of the
+// period, so this engine's added time is the bonus over it. `tier` is the
 // on-pitch performer's perf tier (PES's TeamSlice + 0x4C00, which has no GF
 // equivalent); 0 means no tier is known.
 double AddedTimeUnits(const PesClockConstants& c, e_AddedTimePhase phase, float elapsedSeconds,
@@ -136,66 +123,56 @@ uint32_t AddedTimeTicks(const PesClockConstants& c, e_AddedTimePhase phase, floa
 int AnnouncedAddedMinutes(const PesClockConstants& c, e_AddedTimePhase phase, float elapsedSeconds,
                           int tier);
 
-// The match clock, as PES computes and displays it.
+// --- the display (report 2.6) ---
+
+// Minute and second from a seconds count, as FUN_140A6BD80 and the HUD block.
+void ClockDisplay(float totalSeconds, int* minute_db_pitch, int* second);
+
+// The match clock: one period record per period, advanced by the logic tick.
 class PesClock {
  public:
   explicit PesClock(const PesClockConstants& constants);
 
-  // Which period the clock is in. One clock runs over the whole match, so
-  // switching periods never rewinds it; the mark records where this period
-  // began, so a period end is judged from its own kick-off.
-  void SetPhase(e_MatchPhase phase) {
-    this->phase = phase;
-    periodStartSeconds = elapsedSeconds;
-  }
+  // Starts the period's own record: the PES period number, stamp 0, F 0, no LIMIT.
+  void SetPhase(e_MatchPhase phase);
   e_MatchPhase Phase() const { return phase; }
 
-  // Elapsed game-seconds in this call, advanced on PES's own logic tick (one
-  // 1/54-second step, report 2.5). GF's tick is 10 ms; see pesclock.cpp for
-  // what that mapping assumes.
+  // One logic tick of `gameSeconds`. In play the stamp advances at 60 units a
+  // game-second; while frozen (a stoppage) the stamp holds and F accrues.
   void Advance(float gameSeconds);
   // Freezes the clock for the duration of a stoppage (report 3.3).
   void SetFrozen(bool frozen) { this->frozen = frozen; }
   bool IsFrozen() const { return frozen; }
+
+  const PeriodRecord& Record() const { return record; }
+  float PeriodClock() const { return PeriodClockUnits(record); }
+  // The clock has reached the period's length, with no added time counted.
+  bool PastPeriodLength() const;
+  // The time-up gate: the length plus the whole minutes LIMIT holds.
+  bool TimeUpGateOpen() const;
+  // Writes LIMIT from the added-time formula, once per period (report 3.2).
+  void AnnounceAddedTime(int tier);
+  bool AddedTimeAnnounced() const { return addedTimeAnnounced; }
+
+  // GF's display clock: the game-seconds the match has run, stoppages included.
+  // The HUD's own source is not decoded (docs/re/pes-re-clock-live.md 8.2).
   float ElapsedSeconds() const { return elapsedSeconds; }
-  void SetElapsedSeconds(float seconds) { elapsedSeconds = seconds; }
-
-  // Clock ticks: FUN_140922DD0's floor term, `sec * 16000` clock units at 1000
-  // units per tick = 16 ticks per game-second.
-  uint32_t Ticks() const;
-  // The stored percentage form.
-  float Percentage() const;
-  // The scoreboard minute and second.
   void Display(int* minute_db_pitch, int* second) const;
-  // How far the running period has come towards its own end, measured from when
-  // that period started: the clock is one counter over the whole match, so the
-  // period's share of it is what a period end is judged against.
-  float PeriodFraction() const;
-  bool IsPeriodDue() const;
-  // Elapsed game-seconds inside the running period.
-  float PeriodElapsedSeconds() const;
 
-  // Added time for the end of the running period, in ticks and announced
-  // game-minutes, and the referee's actual whistle against it.
+  // The added-time formula's whole minutes for the running phase, and the board's
+  // clamp to the nine the HUD shows.
   uint32_t AddedTicks(int tier) const;
-  // The board's whole game-minutes, clamped to the nine the HUD shows.
   int AddedMinutes(int tier) const;
-  // The same without that clamp, for the whistle itself.
   int AddedMinutesUnclamped(int tier) const;
-  // The referee's actual end of the period: its own length plus the added time.
-  float PeriodEndWithAdded(int tier) const;
 
  private:
   e_AddedTimePhase AddedPhase() const;
   PesClockConstants constants;
   e_MatchPhase phase = e_MatchPhase_PreMatch;
-  float elapsedSeconds = 0.0f;
-  // The clock's reading when the current period started.
-  float periodStartSeconds = 0.0f;
-  // The clock's tick count, kept exact so sub-tick advances do not truncate to
-  // zero (a 1/54-second logic tick is 0.296 of a clock tick).
-  double ticks = 0.0;
+  PeriodRecord record;
   bool frozen = false;
+  bool addedTimeAnnounced = false;
+  float elapsedSeconds = 0.0f;
 };
 
 }  // namespace pes

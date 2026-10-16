@@ -210,8 +210,8 @@ public:
     return possessionSideHistory->GetAverage(time_ms);
   }
 
-  // PES 2021's match clock (docs/re/pes-re-tactics-clock.md): a u32 percentage
-  // of the running period's game-minutes, at 960 ticks per game-minute. The
+  // PES 2021's match clock (docs/re/pes-re-clock-live.md 8): the period record's
+  // stamp and F, the time-up gate and LIMIT, all read from the install's exe.
   // Match always has one: the constants are exe-derived and required.
   const pes::PesClockConstants& GetPesClockConstants() const { return *pesClockConstants; }
   // PES 2021's ball physics constants (docs/re/pes-re-ball-contact.md 6): the
