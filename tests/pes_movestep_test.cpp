@@ -354,11 +354,8 @@ class RateHost : public pes::MoveHost {
   int CurrentClipFrames() const override { return currentClipFrames; }
   int AnimeState() const override { return animeState; }
 
-  int MotionFixedFrames(int) const override { return fixedFrames; }
-  int MotionStartFrames(int) const override { return startFrames; }
-  int MotionTotalFrames(int) const override { return totalFrames; }
-  int MotionSubFrames(int, int) const override { return subFrames; }
-  int MotionSubCount(int) const override { return subCount; }
+  const pes::MotionRecord& Motion(int) const override { return record; }
+  bool ClipFlag() const override { return false; }
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
   float FacingDeg() const override { return facingDeg; }
@@ -390,11 +387,7 @@ class RateHost : public pes::MoveHost {
   pes::movestep::MoveTurnConstants turnConstants{};
   pes::MoveConstants moveConstants{};
   pes::IdleRowTables idleRows{};
-  int fixedFrames = 0;
-  int startFrames = 0;
-  int totalFrames = 0;
-  int subFrames = 0;
-  int subCount = 0;
+  pes::MotionRecord record;  // the motion table entry the host hands the handlers
   float facingDeg = 0.0f;
   float ballBearingDeg = 0.0f;
   int actionIndex = 0;
@@ -523,6 +516,8 @@ RateHost IdleHost() {
   RateHost host;
   host.run = SyntheticAngles();
   host.run.rate01 = 0.1f;
+  host.run.kmh60 = 60.0f;  // the frame conversion's divisor, DAT_14259a764
+  host.run.half = 0.5f;    // DAT_142565600, the frame conversion's rounding
   host.step.rate0p9 = 0.9f;
   host.moveConstants.dist2m5 = 2.5f;
   host.moveConstants.dist3 = 3.0f;
@@ -597,14 +592,13 @@ TEST(IdleTurn, WritesTheTurnLockInsideTheReorientWindow) {
   RateHost host = IdleHost();
   pes::MoveReq req = StayRefused();
   host.currentMotion = 0x100;
-  host.startFrames = 0;
-  host.totalFrames = 3;
-  host.fixedFrames = 99;
+  host.record.rot = {pes::RotRecord{/*offset*/ 0, /*start*/ 0, /*end*/ 2}};  // 0 and 4 frames
+  host.record.blend = {55};                                                  // 99 frames
   host.currentClipFrames = 1;
   req.SetF(pes::moveword::kRecordStampB, 2.0f);
   pes::movestep::IdleTurn(host, req);
   EXPECT_EQ(req.U(0x3c) & 0xffu, 1u);
-  EXPECT_EQ(req.U(0x3e), 2u);
+  EXPECT_EQ(req.U(0x3e), 3u);
 }
 
 TEST(IdleOther, IssuesTheIdleClipAndTheRootFacingTailForCommand121) {
@@ -638,10 +632,10 @@ TEST(IdlePkGk, KeepsTheTickUntilTheClipRunsPastTheFixedFrames) {
   RateHost host = IdleHost();
   pes::MoveReq req = StayRefused();
   host.currentClipFrames = 0;
-  host.fixedFrames = 10;
+  host.record.blend = {6};  // 11 frames
   pes::movestep::IdlePkGk(host, req);
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kInit));
-  host.currentClipFrames = 11;
+  host.currentClipFrames = 12;
   pes::movestep::IdlePkGk(host, req);
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
 }
@@ -649,7 +643,7 @@ TEST(IdlePkGk, KeepsTheTickUntilTheClipRunsPastTheFixedFrames) {
 TEST(TimingStep, IssuesTheIdleClipWhenTheStayDecisionRefuses) {
   RateHost host = IdleHost();
   pes::MoveReq req = StayRefused();
-  host.fixedFrames = 10;
+  host.record.blend = {6};  // 11 frames
   host.currentClipFrames = 0;
   pes::movestep::TimingStep(host, req);
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
@@ -658,7 +652,7 @@ TEST(TimingStep, IssuesTheIdleClipWhenTheStayDecisionRefuses) {
 TEST(Demo, IssuesTheIdleClipWhenTheClipHasRunPastTheRandomThreshold) {
   RateHost host = IdleHost();
   pes::MoveReq req = StayRefused();
-  host.fixedFrames = 10;
+  host.record.blend = {6};  // 11 frames
   host.currentClipFrames = 11;
   pes::movestep::Demo(host, req);
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));

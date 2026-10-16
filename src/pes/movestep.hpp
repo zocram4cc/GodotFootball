@@ -16,6 +16,8 @@
 #include <optional>
 #include <string>
 
+#include "pes/mbinfo.hpp"
+
 namespace pes {
 
 class PeImage;
@@ -491,14 +493,15 @@ class MoveHost {
   virtual const PlaybackConstants& PlaybackConstantsView() const = 0;
   // The +0xab8 anime interface: the current motion number (vt+0x18, PES's motion id).
   virtual int CurrentMotion() const = 0;
-  // Group A's motion-record readers, each named for its PES helper on FUN_1406b0ed0's record:
-  // FUN_1406af620 (a motion's fixed tick count), FUN_1406b1f00 / FUN_1406b1d00 (the start / end
-  // tick words) and FUN_1406af8e0 / FUN_1406afbc0 (the sub-record frames and their count).
-  virtual int MotionFixedFrames(int motionNo) const = 0;
-  virtual int MotionStartFrames(int motionNo) const = 0;
-  virtual int MotionTotalFrames(int motionNo) const = 0;
-  virtual int MotionSubFrames(int motionNo, int sub) const = 0;
-  virtual int MotionSubCount(int motionNo) const = 0;
+  // The motion table's entry for a motion (PES's FUN_1406b0ed0 record). Every record read the
+  // MOVESTEP groups make goes through this one read: FUN_1406af620 (the Animation blend), the
+  // RotData start, end and offset (FUN_1406b1f00 / b1d00 / b1c70), the CancelData frames and count
+  // (FUN_1406af8e0 / afbc0 at +5), the FootType pair and count (FUN_1406afe20 / afbc0 at +9). A
+  // motion with no record reads as an empty entry, which gives PES's fallback values.
+  virtual const pes::MotionRecord& Motion(int motionNo) const = 0;
+  // The anime interface's flag byte, vt+0x30 (P+0x2472): the mirror argument FUN_1406b1c70 takes in
+  // GOTO_RUN and ACCELERATE. Its writer is not decoded; the adapter names the stand-in.
+  virtual bool ClipFlag() const = 0;
 
   // Group A's match, roster and record reads. Each method names the PES read it stands for.
   virtual const MoveConstants& MoveConstantsView() const = 0;
@@ -669,6 +672,13 @@ bool OutOfPlayPreempt(MoveHost& host, MoveReq& req);
 // FUN_1406b9b20: the 10-way angle bucket of an angle in degrees, with the hysteresis of the current
 // bucket (10 = no current bucket). narrow selects the ±10 / ±170 windows.
 int AngleBucket(const AngleBucketConstants& k, float angleDeg, int currentBucket, bool narrow);
+// PES's conversion of a motion-record value to ticks (FUN_1406af620, FUN_1406b1f00, FUN_1406b1d00,
+// FUN_1406af8e0): int(2 v / rate * (ticks / fps) + half), with the host's ticks per second. A rate
+// that is not positive is PES's one. fps and half are the install's DAT_14259a764 and DAT_142565600.
+inline int RecordTicks(const MoveHost& host, float v, float rate, float fps, float half, float one) {
+  if (rate <= 0.0f) rate = one;
+  return static_cast<int>((v + v) / rate * (host.TicksPerSecond() / fps) + half);
+}
 // The sim adapter's per-tick tail (FUN_1406b8340's P+0xbec and playback stores): after a slip,
 // P+0xbec is req[0xec]; otherwise a root-facing write is req[0x3b] when req[0x3a] is set. The
 // request's playback word is stored at P+0x3758 (MoveStepRecord::playbackSpeed).

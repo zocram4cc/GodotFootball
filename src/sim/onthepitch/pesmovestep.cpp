@@ -152,13 +152,12 @@ class MoveHostAdapter final : public pes::MoveHost {
   }
   int CurrentClipFrames() const override { return player_.GetFrameNum(); }
   int AnimeState() const override { return 0; }  // ponytail: vt+0x28 of the +0xab8 interface.
-  int MotionFixedFrames(int) const override { return player_.GetFrameCount(); }
-  int MotionStartFrames(int motionNo) const override {
-    return static_cast<int>(MotionStartTime(motionNo) * TicksPerSecond());
+  // The motion table the match loaded from the install (Mbinfo's lists, see pes/mbinfo.hpp).
+  const pes::MotionRecord& Motion(int motionNo) const override {
+    return match_.GetPesMbinfo().Motion(motionNo);
   }
-  int MotionTotalFrames(int) const override { return player_.GetFrameCount(); }
-  int MotionSubFrames(int, int) const override { return player_.GetFrameCount(); }
-  int MotionSubCount(int) const override { return 0; }  // ponytail: FUN_1406afbc0's HitData count.
+  // ponytail: P+0x2472, the anime interface's flag byte (vt+0x30); its writer is not decoded yet.
+  bool ClipFlag() const override { return false; }
 
   const pes::MoveConstants& MoveConstantsView() const override { return c_.move; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return c_.idleRows; }

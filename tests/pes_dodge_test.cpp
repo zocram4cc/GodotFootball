@@ -254,7 +254,7 @@ TEST(PesDodgeInstall, TheUsersTablesAndRows) {
   EXPECT_FLOAT_EQ(k->lastEventWindowFactor, 0.2f);  // DAT_142598578
   auto t = pes::LoadAnimetable(*exe, vfs, &err);
   ASSERT_TRUE(t.has_value()) << err;
-  auto mb = pes::LoadMbinfo(vfs, &err);
+  auto mb = pes::LoadMbinfo(vfs, *exe, &err);
   ASSERT_TRUE(mb.has_value()) << err;
 
   // The kind -> row table resolves every kind to a row whose column 9 holds a

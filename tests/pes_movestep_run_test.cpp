@@ -92,11 +92,8 @@ class SyntheticHost : public pes::MoveHost {
   int CurrentMotion() const override { return currentMotion; }
   int CurrentClipFrames() const override { return currentClipFrames; }
   int AnimeState() const override { return animeState; }
-  int MotionFixedFrames(int) const override { return 0; }
-  int MotionStartFrames(int) const override { return 0; }
-  int MotionTotalFrames(int) const override { return 0; }
-  int MotionSubFrames(int, int) const override { return 0; }
-  int MotionSubCount(int) const override { return 0; }
+  const pes::MotionRecord& Motion(int) const override { return record; }
+  bool ClipFlag() const override { return false; }
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
   float FacingDeg() const override { return 0.0f; }
@@ -136,6 +133,7 @@ class SyntheticHost : public pes::MoveHost {
   int stampA = 0;
   int stampB = 0;
   float startTime = 0.0f;
+  pes::MotionRecord record;  // the motion table entry the host hands the handlers
   float f2468 = 0.0f;
   int previousState = 0;
   float f0bec = 0.0f;
