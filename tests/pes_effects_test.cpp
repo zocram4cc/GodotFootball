@@ -126,6 +126,19 @@ TEST(PesEffects, RejectsAnUnterminatedComment) {
   EXPECT_FALSE(err.empty());
 }
 
+TEST(PesEffects, SerialisesToJsonForTheSceneReader) {
+  std::string err;
+  auto cfg = pes::ParseEffectConfig(
+      R"(<effect><setting type="Vignetting" index="0"><param id="alpha" type="uint" value="0x80" /></setting>)"
+      R"(<create type="Vignetting" setting="0" floor="upper" /></effect>)",
+      &err);
+  ASSERT_TRUE(cfg.has_value()) << err;
+  EXPECT_EQ(pes::EffectConfigToJson(*cfg),
+            R"({"settings":[{"type":"Vignetting","index":0,"params":[)"
+            R"({"id":"alpha","type":"uint","index":-1,"values":[128],"text":""}]}],)"
+            R"("creates":[{"type":"Vignetting","setting":0,"attributes":{"floor":"upper"}}]})");
+}
+
 // Install-wide check (no pinned values, so 4cc packs cannot break it): every canonical
 // effect_config.xml parses. Canonical means `#Win/effect_*.fpk` directly under `#Win/`; the
 // `#Win/tmp/` copies are staging leftovers (INF) and are not read. A pack that FpkArchive rejects

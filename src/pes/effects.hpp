@@ -48,4 +48,8 @@ struct EffectConfig {
 // with `error` set and no partial result.
 std::optional<EffectConfig> ParseEffectConfig(std::string_view xml, std::string* error);
 
+// The parsed config as one JSON object for the standalone scene (pesfmt_dump effects):
+// each param carries its `values` (numeric types) or `text` (other types).
+std::string EffectConfigToJson(const EffectConfig& cfg);
+
 }  // namespace pes
