@@ -19,10 +19,6 @@ const SNAP_DISTANCE_SQ := 100.0
 # (pes-re-officials-ball.md 1); ball001, the first vanilla ball, until that is read.
 const DEFAULT_BALL_ID := 1
 const BALL_PACK_FORMAT := "Asset/model/ball/ball%03d/#Win/ball.fpk"
-# The stadium the match plays in. 2 (st002) is vanilla: dt30_g4.cpk ships
-# Asset/model/bg/st002.cpk, and its scene, pitch, goals, nets and corner flags
-# all come from dt30/common or its own pack, so it holds on any install.
-const DEFAULT_STADIUM_ID := 2
 const PITCH_SURROUND_M := 120.0
 # Only used when the install ships no such stadium: a mid green mean of the
 # common turf map (docs/re/pes-re-pitch-grass.md 5.3).
@@ -80,7 +76,7 @@ func _ready() -> void:
 	_build_stadium()
 	_camera = $Camera3D
 	_broadcast = PesBroadcastCamera.new()
-	$PesLighting.setup(library, int(args.get("stadium", DEFAULT_STADIUM_ID)), int(args.get("weather", 0)), int(args.get("time-zone", 0)), int(args.get("season", 0)), int(args.get("hour", -1)), int(args.get("minute", 0)))
+	$PesLighting.setup(library, _stadium_id(), int(args.get("weather", 0)), int(args.get("time-zone", 0)), int(args.get("season", 0)), int(args.get("hour", -1)), int(args.get("minute", 0)))
 	# FieldInfo +0x00 (52.56) and +0x08 (34.06) live; the sim exposes the width.
 	if _broadcast.load(library, sim.field_half_width(), sim.field_half_length()) != OK:
 		get_tree().quit(1)
@@ -198,11 +194,18 @@ func _parse_args(raw: PackedStringArray) -> Dictionary:
 
 
 
+# The stadium the match plays in: --stadium when given, else the home team's own
+# stadium as PES resolves it (PesLibrary.team_stadium).
+func _stadium_id() -> int:
+	if args.has("stadium"):
+		return int(args["stadium"])
+	return library.team_stadium(int(args["home-team"]))
+
 # PES's own stadium: its scene, its pitch, both goals with their nets and the
 # corner flags, each model where PES's fox2 places it (pes::LoadStadiumScene).
 # The builder fails only when the install has no such stadium.
 func _build_stadium() -> void:
-	var stadium_id := int(args.get("stadium", DEFAULT_STADIUM_ID))
+	var stadium_id := _stadium_id()
 	var stadium: Node3D = PesModelBuilder.new().build_stadium(library, stadium_id, int(args.get("weather", 0)))
 	if stadium == null:
 		push_error("stadium %d missing from this install; fallback plane drawn" % stadium_id)

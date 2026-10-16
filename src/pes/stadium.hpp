@@ -55,6 +55,31 @@ inline constexpr int kWeatherFine = 0;
 inline constexpr int kWeatherRain = 1;
 inline constexpr int kWeatherSnow = 2;
 
+// One Team.bin record: the team id (u32 at +8) and its home stadium id (the low
+// u16 at +0x3C). Records are 1532 bytes (pes-re-stadium-cloth-vfx.md 1.1).
+struct TeamRecord {
+  int id = 0;
+  int stadiumId = 0;
+};
+
+// Pure parse of Team.bin (after WESYS unwrap): 1532-byte records.
+std::vector<TeamRecord> ParseTeamRecords(std::span<const uint8_t> blob, std::string* error);
+
+// ReadTeamList reads common/etc/pesdb/Team.bin, the effective file: a download
+// pack overrides the Data/ copy. Returns an empty vector (with *error set) on failure.
+std::vector<TeamRecord> ReadTeamList(const PesVfs& vfs, std::string* error);
+
+// The stadium PES's match resolver gives a stored id: the id when it is in
+// validIds, else 29 (Konami Stadium). A stored 0 is 29 too
+// (pes-re-stadium-cloth-vfx-opens.md 1.1).
+// ponytail: the valid set (owner+0x28) is undecoded; stand-in = the Stadium.bin
+// ids whose scene pack ships in the install. Upgrade: decode the set's source.
+int ResolveStadiumId(int storedId, const std::vector<int>& validIds);
+
+// The stadium a PES team plays at home: its Team.bin stadium through
+// ResolveStadiumId, 29 when the team is not listed.
+int TeamStadiumId(const PesVfs& vfs, int teamId);
+
 // Assemble one stadium's model placements from its fox2 files, in this order:
 // the scene (<folder>.fpkd), the day/fine overlay (<folder>_df.fpkd, when the
 // pack ships one), the pitch (pitch/<folder>.fpkd), the goals (common goal_post

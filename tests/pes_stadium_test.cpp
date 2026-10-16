@@ -183,3 +183,47 @@ TEST(StadiumInstall, WeatherOnlyLayersAreKeptOnlyInTheirWeather) {
   EXPECT_TRUE(placed(*snow, snowLayer)) << "snow layer missing in snow";
   EXPECT_FALSE(placed(*snow, rainDecal)) << "puddle decal placed in snow";
 }
+
+// Team.bin: one 1532-byte record per team, u32 team id at +8, u16 home stadium
+// at +0x3C. Synthetic values here; the install test reads the install's file.
+TEST(Stadium, ParsesTeamRecordIdAndHomeStadium) {
+  std::vector<uint8_t> rec(1532, 0);
+  rec[8] = 0xC4;  // team 708 (0x2C4), little-endian
+  rec[9] = 0x02;
+  rec[0x3C] = 54;
+  std::string err;
+  auto teams = pes::ParseTeamRecords({rec.data(), rec.size()}, &err);
+  ASSERT_EQ(teams.size(), 1u) << err;
+  EXPECT_EQ(teams[0].id, 708);
+  EXPECT_EQ(teams[0].stadiumId, 54);
+}
+
+// PES's match resolver: the stored stadium when it is valid, else 29 (Konami
+// Stadium). A stored 0 is the same fallback (pes-re-stadium-cloth-vfx.md 1.2).
+TEST(Stadium, ZeroStadiumResolvesToTwentyNine) {
+  EXPECT_EQ(pes::ResolveStadiumId(0, {0, 2, 29}), 29);
+}
+
+TEST(Stadium, StadiumWithoutPackResolvesToTwentyNine) {
+  EXPECT_EQ(pes::ResolveStadiumId(54, {2, 29}), 29);
+}
+
+TEST(Stadium, ValidStoredStadiumKeepsItsId) {
+  EXPECT_EQ(pes::ResolveStadiumId(2, {2, 29}), 2);
+}
+
+// BNT (708) and W (760) store stadium 29 in the 4cc Team.bin override, so they
+// resolve to 29 in this install. That pins a pack value on the owner's request;
+// the test skips when the install lacks either team.
+TEST(StadiumInstall, BntAndWResolveToTwentyNine) {
+  const pes::PesVfs* vfs = Vfs();
+  if (!vfs) GTEST_SKIP() << "PES21_ROOT not set or mount failed";
+  std::string err;
+  const auto teams = pes::ReadTeamList(*vfs, &err);
+  ASSERT_FALSE(teams.empty()) << err;
+  for (int id : {708, 760}) {
+    if (!std::any_of(teams.begin(), teams.end(), [&](const auto& t) { return t.id == id; }))
+      GTEST_SKIP() << "team " << id << " not in this install";
+    EXPECT_EQ(pes::TeamStadiumId(*vfs, id), 29) << "team " << id;
+  }
+}

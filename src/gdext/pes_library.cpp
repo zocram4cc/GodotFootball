@@ -7,6 +7,7 @@
 #include "gdext/pes_texture.hpp"
 #include "pes/exe.hpp"
 #include "pes/locomotion.hpp"
+#include "pes/stadium.hpp"
 
 namespace godot {
 namespace {
@@ -19,6 +20,7 @@ void PesLibrary::_bind_methods() {
   ClassDB::bind_method(D_METHOD("list", "prefix"), &PesLibrary::list);
   ClassDB::bind_method(D_METHOD("load_edit_save", "path"), &PesLibrary::load_edit_save);
   ClassDB::bind_method(D_METHOD("load_texture", "path"), &PesLibrary::load_texture);
+  ClassDB::bind_method(D_METHOD("team_stadium", "team_id"), &PesLibrary::team_stadium);
 }
 
 Error PesLibrary::open(const String& root) {
@@ -201,6 +203,8 @@ PackedStringArray PesLibrary::list(const String& prefix) const {
   for (const auto& p : vfs_.List(FromGd(prefix))) out.push_back(ToGd(p));
   return out;
 }
+
+int PesLibrary::team_stadium(int team_id) const { return pes::TeamStadiumId(vfs_, team_id); }
 
 Ref<Texture> PesLibrary::load_texture(const String& path) const {
   std::string err;
