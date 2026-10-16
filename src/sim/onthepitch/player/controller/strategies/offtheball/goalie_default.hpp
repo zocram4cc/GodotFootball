@@ -24,6 +24,9 @@ protected:
   // Where a ball on its way in is met (the bound-for-goal intercept, kept from
   // this engine's own shooter response).
   Vector3 InterceptTarget(const MentalImage* mentalImage);
+  // PES's penalty dive for the defending keeper in a live shootout kick
+  // (docs/re/pes-re-penalty-keeper.md 4): the ball's own path, not the shot's.
+  Vector3 PenaltyDiveSpot(const MentalImage* mentalImage);
 
   // PES 2021's positioning shuffle (docs/re/pes-re-goalkeeper.md 10.2.2) draws
   // Range0(6) on slot 1 of a per-clip generator at `anim+0x19c0` (rng-slots

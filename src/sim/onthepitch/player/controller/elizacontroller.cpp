@@ -496,8 +496,9 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     extraHaste = false;  // todo: extra haste when touch anim is queued?
   }
 
-  else if (match->IsInPlay() && !match->IsInSetPiece() &&
-           CastPlayer()->GetFormationEntry().role == e_PlayerRole_GK) {
+  else if (CastPlayer()->GetFormationEntry().role == e_PlayerRole_GK &&
+           ((match->IsInPlay() && !match->IsInSetPiece()) ||
+            match->GetPenaltyShootout()->IsKeepingKick(team->GetID()))) {
     // keeper's mental image for deflections is near-instant; let's just call it premonition ;)
     const MentalImage* keeperMentalImage = _mentalImage;
     static_cast<GoalieDefaultStrategy*>(goalieStrategy)

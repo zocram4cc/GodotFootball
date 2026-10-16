@@ -44,6 +44,15 @@ constexpr uint64_t RUSH_NONE_VA = 0x14259d5d4;       // 1.2
 constexpr uint64_t RUSH_DEFENSIVE_VA = 0x14259bdd8;  // 1.3
 constexpr uint64_t RUSH_HYST_VA = 0x1425eb848;       // 0.71
 constexpr uint64_t RUSH_MAX_BALL_TIME_VA = 0x1425c4c10;  // 3.3
+// The penalty dive (FUN_1409e5e10, docs/re/pes-re-penalty-keeper.md 5).
+constexpr uint64_t PENALTY_MOVE_SPEED_VA = 0x14259bdd0;      // 0.6944444
+constexpr uint64_t PENALTY_WINDOW_LOW_VA = 0x142596e6c;      // 80.0
+constexpr uint64_t PENALTY_WINDOW_HIGH_VA = 0x14253ee30;     // 100.0
+constexpr uint64_t PENALTY_WINDOW_FAR_LOW_VA = 0x142598584;  // 260.0
+constexpr uint64_t PENALTY_WINDOW_FAR_HIGH_VA = 0x142598588; // 280.0
+constexpr uint64_t PENALTY_INTERCEPT_SQ_VA = 0x14259d610;    // 12.25
+constexpr uint64_t PENALTY_SCAN_VA = 0x1425a3590;            // 1.1
+constexpr uint64_t TICK_HZ_VA = 0x14259d624;                 // 54.0
 
 bool ReadFloat(const PeImage& exe, uint64_t va, float* out) {
   return exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out));
@@ -110,6 +119,14 @@ std::optional<KeeperConstants> LoadKeeperConstants(const PeImage& exe, std::stri
            std::pair{RUSH_DEFENSIVE_VA, &k.rushDefensiveFactor},
            std::pair{RUSH_HYST_VA, &k.rushHysteresis_s},
            std::pair{RUSH_MAX_BALL_TIME_VA, &k.rushMaxBallTime_s},
+           std::pair{PENALTY_MOVE_SPEED_VA, &k.penaltyMoveSpeed_ms},
+           std::pair{PENALTY_WINDOW_LOW_VA, &k.penaltyWindowLow_deg},
+           std::pair{PENALTY_WINDOW_HIGH_VA, &k.penaltyWindowHigh_deg},
+           std::pair{PENALTY_WINDOW_FAR_LOW_VA, &k.penaltyWindowFarLow_deg},
+           std::pair{PENALTY_WINDOW_FAR_HIGH_VA, &k.penaltyWindowFarHigh_deg},
+           std::pair{PENALTY_INTERCEPT_SQ_VA, &k.penaltyInterceptRadiusSq_m2},
+           std::pair{PENALTY_SCAN_VA, &k.penaltyScanFactor},
+           std::pair{TICK_HZ_VA, &k.tickHz},
        }) {
     ok = ReadFloat(exe, va, out) && ok;
   }
@@ -120,6 +137,7 @@ std::optional<KeeperConstants> LoadKeeperConstants(const PeImage& exe, std::stri
     *error = "keeper constant: an .rdata float is unreadable in this exe";
     return std::nullopt;
   }
+  k.penaltyScanRecords = static_cast<int>(k.tickHz * k.penaltyScanFactor);
   return k;
 }
 
@@ -357,6 +375,39 @@ bool PesKeeperRushRaceWins(float keeperTime_s, float opponentTime_s, bool rushin
   // OBS 0x1425c4c10; the 250-frame bound is looser).
   if (k.rushMaxBallTime_s < keeperTime_s) return false;
   return opponentTime_s > factor * keeperTime_s - (rushing ? k.rushHysteresis_s : 0.0f);
+}
+
+PenaltyDiveTarget PesPenaltyDiveTarget(const PenaltyDiveInput& in,
+                                       const std::vector<PlanarPoint>& ballPath,
+                                       const KeeperConstants& k) {
+  // His bearing is his own movement once he is moving at the threshold, else the
+  // way he faces. PES's bearing is measured from +z, which is GF's +y, so it is
+  // atan2(x, y) in degrees, wrapped to 0..360 (FUN_140458740, FUN_140a92d40).
+  float dirX = in.headingX;
+  float dirY = in.headingY;
+  if (in.moveX * in.moveX + in.moveY * in.moveY >=
+      k.penaltyMoveSpeed_ms * k.penaltyMoveSpeed_ms) {
+    dirX = in.moveX;
+    dirY = in.moveY;
+  }
+  float bearing = std::atan2(dirX, dirY) * k.degreesPerRadian;
+  if (bearing < 0.0f)
+    bearing += k.angleWrap_deg;
+
+  // FUN_1409e5e10: the intercept is looked for only along the goal axis.
+  const bool alongGoalAxis =
+      (k.penaltyWindowLow_deg <= bearing && bearing <= k.penaltyWindowHigh_deg) ||
+      (k.penaltyWindowFarLow_deg <= bearing && bearing <= k.penaltyWindowFarHigh_deg);
+  if (alongGoalAxis) {
+    // The first record of the path within reach of him, from now on.
+    for (const PlanarPoint& p : ballPath) {
+      const float dx = p.x - in.keeperX;
+      const float dy = p.y - in.keeperY;
+      if (dx * dx + dy * dy < k.penaltyInterceptRadiusSq_m2)
+        return {true, p.x, p.y};
+    }
+  }
+  return {false, in.keeperX, in.keeperY};
 }
 
 KeeperFieldMarks KeeperFieldMarksFromFieldInfo() {
