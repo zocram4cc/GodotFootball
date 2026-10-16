@@ -455,6 +455,20 @@ TEST(PesBallContact, RestingBallSkipsTheFlightFunction) {
   EXPECT_FALSE(pesball::IsResting(c, s)) << "a spinning ball is not resting";
 }
 
+TEST(PesBallContact, ABallMovingUpAtRestHeightIsNotResting) {
+  // Report 2.1 (FUN_140876360 0x14087648e..0x1408764c8): the resting test squares the 3-D pre-velocity, not the
+  // horizontal. A ball at rest height with only vertical speed is airborne: it takes its flight step and keeps
+  // the upward speed (gravity takes g/54 off it in one tick), instead of being zeroed as a resting ball.
+  const PesBallConstants c = SyntheticConstants();
+  BallState s;
+  s.position = pes::Vec3(0, c.image.ballRadius, 0);
+  s.velocity = pes::Vec3(0, 2.0f, 0);
+  EXPECT_FALSE(pesball::IsResting(c, s));
+  EXPECT_FALSE(pesball::BallTick(c, &s, 0, pesball::kGfTick_s));
+  EXPECT_GT(s.velocity.y, 1.5f) << "the flight step keeps the upward speed: " << s.velocity.y;
+  EXPECT_GT(s.position.y, c.image.ballRadius);
+}
+
 // --- the mode column and its clamp (report 0.3) ---
 
 TEST(PesBallContact, ModeIsClampedAboveFive) {

@@ -218,13 +218,15 @@ GrounderResult GrounderKick(const pes::PesBallConstants& c, int mode, float gate
 }
 
 bool IsResting(const pes::PesBallConstants& c, const BallState& s) {
-  // Report 2.1: y <= r AND |spin| == 0 AND horizontal |v| == 0 skips the flight
-  // function entirely (PES's r15b = 0). GF's ball carries a zero spin when
+  // Report 2.1 with the test at 0x14087648e..0x1408764c8: y <= r AND |spin| == 0 AND the 3-D |v| == 0 skips
+  // the flight function entirely (PES's r15b = 0). The squared speed is vx^2 + vy^2 + vz^2 (the XMM2 sum of
+  // the pre-velocity at [rsp+0x58..0x60]), not the horizontal alone. GF's ball carries a zero spin when
   // nothing has set one, so this is the ordinary stopped-ball path.
   const float spinSq =
       s.spinRaw.x * s.spinRaw.x + s.spinRaw.y * s.spinRaw.y + s.spinRaw.z * s.spinRaw.z;
-  const float hSq = s.velocity.x * s.velocity.x + s.velocity.z * s.velocity.z;
-  return s.position.y <= c.image.ballRadius && spinSq <= 0.0f && hSq <= 0.0f;
+  const float vSq =
+      s.velocity.x * s.velocity.x + s.velocity.y * s.velocity.y + s.velocity.z * s.velocity.z;
+  return s.position.y <= c.image.ballRadius && spinSq <= 0.0f && vSq <= 0.0f;
 }
 
 pes::Vec3 FlightAcceleration(const pes::PesBallConstants& c, const BallState& s, float spinRadX,
