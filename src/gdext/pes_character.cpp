@@ -49,9 +49,13 @@ constexpr const char* SLEEVE_INNER_MATERIAL = "uni_sleeve_inner";  // pes3DDF_Sl
 constexpr const char* REFEREE_SLEEVE_MATERIAL = "uni_referee_sleeve";
 constexpr const char* COMMON_TEXTURE_DIR = "Asset/model/character/common/sourceimages/#windx11/";
 constexpr const char* UNIFORM_SHADER = "res://shaders/pes_uniform.gdshader";
+constexpr const char* BODY_SUIT_SHADER = "res://shaders/pes_body_suit.gdshader";
 constexpr const char* BASE_ROLE = "Base_Tex_SRGB";
 constexpr const char* TEXTURE_EXT = ".ftex";
 constexpr const char* KIT_SRM_SUFFIX = "_srm.ftex";
+
+Vector4 V4(pes::Vec4 v) { return Vector4(v.x, v.y, v.z, v.w); }
+
 constexpr int MAX_INFLUENCES = 4;  // PES and Godot both skin with four
 
 std::string Lower(std::string s) {
@@ -111,6 +115,8 @@ class Build {
   const CachedTexture* LoadTexturePath(const std::string& path);
   Ref<Material> MakeMaterial(const pes::Fmdl& m, int index, bool kitSlot);
   Ref<Material> MakeUniformMaterial(const pes::Fmdl& m, const pes::FmdlMaterial& fm);
+  Ref<Material> MakeBodySuitMaterial(const pes::FmdlMaterial& fm);
+  void BindShirtMarkings(const Ref<ShaderMaterial>& mat) const;
   Ref<Material> MakeTechniqueMaterial(const pes::Fmdl& m, const pes::FmdlMaterial& fm, const std::string& baseOverride);
   Ref<Texture> LayeredTexture(const std::string& path);
   bool FacesSampleOpaque(const pes::FmdlMesh& mesh, const CachedTexture& tex) const;
@@ -226,11 +232,9 @@ Ref<Material> Build::MakeMaterial(const pes::Fmdl& m, int index, bool kitSlot) {
     if (texIndex < 0 || texIndex >= int(m.textures.size())) continue;
     const std::string stem = Lower(TextureStem(m.textures[texIndex].filename));
     const bool base = role.find("Base_Tex") != std::string::npos || EndsWith(role, "_SRGB");
-    // A whole body's Suit (the boots pack's dummy_kit placeholder) wears the team's kit atlas.
-    if (base && wholeBody_ && stem == "dummy_kit") {
-      if (const CachedTexture* kit = LoadTexturePath(kitAtlasPath_)) mat->set_texture(BaseMaterial3D::TEXTURE_ALBEDO, kit->gpu);
-      continue;
-    }
+    // A whole body's Suit (the boots pack's dummy_kit placeholder) wears the team's kit atlas
+    // and the shirt markings at the uniform's UV0 placement.
+    if (base && wholeBody_ && stem == "dummy_kit") return MakeBodySuitMaterial(fm);
     if ((base && !skin.empty()) || pes::IsPlaceholderTexture(stem)) continue;  // dummy_nrm / dummy_srm
     const bool normal = role.find("NormalMap") != std::string::npos || EndsWith(stem, "_nrm");
     const bool spec = role.find("SpecularMap") != std::string::npos || EndsWith(stem, "_srm");
@@ -371,22 +375,36 @@ Ref<Material> Build::MakeUniformMaterial(const pes::Fmdl& m, const pes::FmdlMate
     if (socks) mat->set_shader_parameter("socks_normal", t);
     else mat->set_shader_parameter("wrinkles", t), mat->set_shader_parameter("has_wrinkles", true);
   }
-  // Markings (pes-re-markings.md; placement pes-kit-assembly.md 8.7).
   if (kit_) {
-    auto v4 = [](pes::Vec4 v) { return Vector4(v.x, v.y, v.z, v.w); };
     const bool pants = fm.name.rfind(PANTS_MATERIAL_PREFIX, 0) == 0;
     if (pants && legNumber_.is_valid()) {
       mat->set_shader_parameter("Number_Tex_LIN", legNumber_);
       mat->set_shader_parameter("has_number", true);
-      mat->set_shader_parameter("NumberScaleXParam", v4(pes::LegNumberScale(*kit_)));
-    } else if (!pants && !socks && marking_.is_valid() && fm.name != SLEEVE_MATERIAL) {
-      mat->set_shader_parameter("Marking_Tex_LIN", marking_);
-      mat->set_shader_parameter("has_marking", true);
-      mat->set_shader_parameter("BNumberScaleXParam", v4(pes::BackNumberScale(*kit_)));
-      mat->set_shader_parameter("FNumberScaleXParam", v4(pes::ChestNumberScale(*kit_)));
-      mat->set_shader_parameter("NameScaleXParam", v4(pes::NameScale(*kit_, nameWidthSum_)));
+      mat->set_shader_parameter("NumberScaleXParam", V4(pes::LegNumberScale(*kit_)));
+    } else if (!pants && !socks && fm.name != SLEEVE_MATERIAL) {
+      BindShirtMarkings(mat);
     }
   }
+  return mat;
+}
+
+// Markings (pes-re-markings.md; placement pes-kit-assembly.md 8.7).
+void Build::BindShirtMarkings(const Ref<ShaderMaterial>& mat) const {
+  if (!kit_ || marking_.is_null()) return;
+  mat->set_shader_parameter("Marking_Tex_LIN", marking_);
+  mat->set_shader_parameter("has_marking", true);
+  mat->set_shader_parameter("BNumberScaleXParam", V4(pes::BackNumberScale(*kit_)));
+  mat->set_shader_parameter("FNumberScaleXParam", V4(pes::ChestNumberScale(*kit_)));
+  mat->set_shader_parameter("NameScaleXParam", V4(pes::NameScale(*kit_, nameWidthSum_)));
+}
+
+Ref<Material> Build::MakeBodySuitMaterial(const pes::FmdlMaterial& fm) {
+  Ref<ShaderMaterial> mat;
+  mat.instantiate();
+  mat->set_name(ToGd(fm.name));
+  mat->set_shader(ResourceLoader::get_singleton()->load(BODY_SUIT_SHADER));  // cached by the loader
+  mat->set_shader_parameter("kit_atlas", LayeredTexture(kitAtlasPath_));
+  BindShirtMarkings(mat);
   return mat;
 }
 

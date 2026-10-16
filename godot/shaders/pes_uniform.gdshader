@@ -11,6 +11,7 @@
 shader_type spatial;
 render_mode cull_disabled;
 #include "res://shaders/pes_common.gdshaderinc"
+#include "res://shaders/pes_marking.gdshaderinc"
 
 uniform sampler2D kit_atlas : source_color, filter_linear_mipmap_anisotropic;
 uniform sampler2D kit_srm : hint_default_white, filter_linear_mipmap;  // R spec, G rough
@@ -24,19 +25,12 @@ uniform vec4 blend_normal_x = vec4(0.0);                // BlendNormalXParam
 uniform vec4 blend_normal_leg = vec4(0.0);              // BlendNormalLegParam
 uniform bool is_socks = false;
 uniform bool is_nc = true;  // technique ends in _NC
-// Shirt/collar: name u in [0,0.64), back number [0.64,0.88), chest [0.88,1)x[0,0.5).
-uniform sampler2D Marking_Tex_LIN : filter_linear_mipmap;  // LIN role: no sRGB decode
-uniform bool has_marking = false;
-uniform vec4 NameScaleXParam = vec4(0.0);
-uniform vec4 BNumberScaleXParam = vec4(0.0);
-uniform vec4 FNumberScaleXParam = vec4(0.0);
 // Pants: the leg number over the whole 128x128 texture.
 uniform sampler2D Number_Tex_LIN : filter_linear_mipmap;
 uniform bool has_number = false;
 uniform vec4 NumberScaleXParam = vec4(0.0);
 // Where a marking lies, roughness/specular take the print's values.
 const vec2 MARKING_SRM = vec2(0.27, 0.629);
-const float BACK_NUMBER_V_SCALE = 160.0 / 255.0;
 
 // The shirt family draws an opaque kit at 85% of its texel colour.
 const float OPAQUE_KIT_ALBEDO = 0.85;
@@ -45,16 +39,6 @@ const float OPAQUE_KIT_ALBEDO = 0.85;
 vec3 pes_normal_ag(vec4 t) {
 	vec2 xy = vec2(t.a, t.g) * 2.0 - 1.0;
 	return vec3(xy, sqrt(max(0.0, 1.0 - dot(xy, xy))));
-}
-
-// One part of the marking texture: its [0,1]^2 placement mapped into an atlas
-// region; outside the rectangle it contributes nothing (premultiplied).
-vec4 marking_part(sampler2D tex, vec2 q, vec2 origin, vec2 size) {
-	if (any(lessThan(q, vec2(0.0))) || any(greaterThan(q, vec2(1.0)))) {
-		return vec4(0.0);
-	}
-	vec4 t = texture(tex, origin + q * size);
-	return vec4(t.rgb * t.a, t.a);
 }
 
 // Shirt-family wrinkle normal (pes-re-shaders.md 3.1): wrinkle slice nA picked by
@@ -78,17 +62,7 @@ void fragment() {
 	vec4 base = texture(kit_atlas, UV);
 	vec4 m = vec4(0.0);  // premultiplied markings
 	if (has_marking) {
-		vec2 qn = vec2((UV.x - 0.5) * NameScaleXParam.x + 0.5, UV.y * NameScaleXParam.y + NameScaleXParam.z);
-		vec4 name = marking_part(Marking_Tex_LIN, qn, vec2(0.0), vec2(0.64, 1.0));
-		// Back number (shirt_nb_nc.ps: cb4[4]): centred in u like the name, v scaled
-		// by 160/255 before the offset; .w unused.
-		vec2 qb = vec2((UV.x - 0.5) * BNumberScaleXParam.x + 0.5,
-				BACK_NUMBER_V_SCALE * UV.y * BNumberScaleXParam.y + BNumberScaleXParam.z);
-		vec4 back = marking_part(Marking_Tex_LIN, qb, vec2(0.64, 0.0), vec2(0.24, 1.0));
-		vec2 qf = UV * FNumberScaleXParam.xy + FNumberScaleXParam.zw;
-		vec4 front = marking_part(Marking_Tex_LIN, qf, vec2(0.88, 0.0), vec2(0.12, 0.5));
-		m = name + back * (1.0 - name.a);
-		m = m + front * (1.0 - m.a);
+		m = shirt_marking(UV);
 	} else if (has_number) {
 		m = marking_part(Number_Tex_LIN, UV * NumberScaleXParam.xy + NumberScaleXParam.zw, vec2(0.0), vec2(1.0));
 	}
