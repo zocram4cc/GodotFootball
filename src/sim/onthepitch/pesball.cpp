@@ -83,6 +83,8 @@ std::optional<BallImageConstants> LoadBallImageConstants(const PeImage& exe, std
   f(SPIN_BLEND_RAMP_VA, &c.spinBlendRampPerKmh);
   f(SPIN_CAP_VA, &c.spinCap_revPerS);
   f(SNAP_SPEED_CHANGE_SQ_VA, &c.snapSpeedChangeSq_kmh2);
+  f(SPIN_Y_DELTA_SCALE_VA, &c.spinYDeltaScale);
+  f(SPIN_Y_BLEND_BASE_VA, &c.spinYBlendBase);
   if (!ok) {
     *error = "PES2021.exe: ball image constants unmapped";
     return std::nullopt;
@@ -122,6 +124,11 @@ int ContactModeFor(const BallImageConstants& c, int pitch, int weather) {
   if (pitch < 0 || pitch >= kPitchCount || weather < 0 || weather >= kWeatherCount)
     return kContactModeOutOfRange;
   return c.modeTable[pitch][weather];
+}
+
+int ContactModeForConfig(const BallImageConstants& c, int cfg7c, int cfg78, int cfg85) {
+  if (cfg85 != 0) return kContactModeFlagged;
+  return ContactModeFor(c, cfg7c, cfg78);
 }
 
 std::optional<BallRecordConstants> LoadBallRecordConstants(const PesVfs& vfs, std::string* error) {

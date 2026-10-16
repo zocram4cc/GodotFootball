@@ -96,31 +96,27 @@ inline constexpr uint64_t SPIN_BLEND_BASE_VA = 0x1425c4bf4;       // 0.24
 inline constexpr uint64_t SPIN_BLEND_FLOOR_VA = 0x142565604;      // 2.0
 inline constexpr uint64_t SPIN_BLEND_RAMP_VA = 0x142592228;       // 0.25
 inline constexpr uint64_t SPIN_CAP_VA = 0x14259bdf4;              // 8.0
+// PES's raw-Y pump (contact-2 2.1, FUN_140876360 0x1408770a5..0x1408771cd): the |dRawY| ramp's divisor and the blend base.
+inline constexpr uint64_t SPIN_Y_DELTA_SCALE_VA = 0x14256ae18;  // .rdata 0.01
+inline constexpr uint64_t SPIN_Y_BLEND_BASE_VA = 0x14259bde4;   // .rdata 2.5
 inline constexpr uint64_t SNAP_SPEED_CHANGE_SQ_VA = 0x14253ee30;  // 100.0
-// The 3x3 contact-mode table FUN_1408723d0 reads (docs/re/pes-re-ball-contact-2.md
-// 3.1): `mode = table[pitch*3 + weather]`, pitch = i32[cfg+0x78] and
-// weather = i32[cfg+0x7c], with any out-of-range index falling back to 1. The
-// table lives in the exe's writable .data at VA 0x14349f718 (9 u32 slots); it is
-// not transcribed here, it is read from the install's executable at run time.
+// The 3x3 contact-mode table FUN_1408723d0 reads (docs/re/pes-re-ball-contact-2.md 3.1):
+// `mode = table[3*row + col]`, row = i32[cfg+0x7c] and col = i32[cfg+0x78], with any out-of-range index falling
+// back to 1. The table lives in the exe's writable .data at VA 0x14349f718 (9 u32 slots); it is not
+// transcribed here, it is read from the install's executable at run time.
 inline constexpr uint64_t MODE_TABLE_VA = 0x14349f718;
 // The table's shape: pitch rows 0..2, weather columns 0..2.
 inline constexpr int kPitchCount = 3, kWeatherCount = 3;
 // The mode a match plays when out-of-range indices arrive (report 3.1: `ebx = 1`).
 inline constexpr int kContactModeOutOfRange = 1;
-// The contact mode the live match plays: mode 1 on every contact tick
-// (docs/re/pes-re-ball-track-live.md 2.6; the horizontal keep is 1.00000 under mode 1 and
-// 1.00304 under mode 2). It is a mode 1 entry of the table at 0x14349f718, (pitch, weather) =
-// (0, 1) or (1, 1). ponytail: the live match's pitch and weather indices are read at
-// FUN_1408723d0 (0x140872403, 0x140872411) and are not decoded (docs/re/pes-re-ball-contact-2.md
-// 3.2), so every match plays this one; the match's own index replaces it once that is decoded.
-inline constexpr int kContactModeLive = 1;
-// A dry, normal pitch (report 3.2): weather index 0 on any pitch row gives mode 2.
-// No match plays it.
-inline constexpr int kContactModeDryNormal = 2;
-// The PES pitch-condition index for a dry, normal pitch.
-inline constexpr int kPitchDryNormal = 0;
-// The PES weather index for no weather at all.
-inline constexpr int kWeatherNone = 0;
+// The writer's `ebx = 3` when the [cfg+0x85] byte is set (contact-2 3.1, the call at 0x140a3f560).
+inline constexpr int kContactModeFlagged = 3;
+// GF has no pitch or weather field. The stand-in indices (row = cfg+0x7c, column = cfg+0x78) read mode 1, the
+// mode the live match plays (docs/re/pes-re-ball-track-live.md 2.6). ponytail: the live match's cfg+0x7c and
+// cfg+0x78 are read at FUN_1408723d0 (0x140872403, 0x140872411) and are not decoded (which of the two is pitch
+// and which is weather is OPEN); the Match's own indices replace these once decoded.
+inline constexpr int kGfModeRowStandIn = 0;
+inline constexpr int kGfModeColStandIn = 1;
 
 // The port of the exe-image constants the flight model and the contact tick
 // need. Gravity, air density, ball area, the radius, the drag-crisis threshold
@@ -159,6 +155,8 @@ struct BallImageConstants {
   float spinBlendRampPerKmh = 0.0f;     // 0.25
   float spinCap_revPerS = 0.0f;         // 8
   float snapSpeedChangeSq_kmh2 = 0.0f;  // 100 = (10 km/h)^2
+  float spinYDeltaScale = 0.0f;         // 0.01, the |dRawY| ramp's divisor (contact-2 2.1)
+  float spinYBlendBase = 0.0f;          // 2.5, the pump blend's base multiplier
   // The 3x3 pitch/weather to contact-mode table of report 3.1, as shipped in
   // the exe's .data. `modeTable[pitch*kWeatherCount + weather]`.
   std::array<std::array<int, kWeatherCount>, kPitchCount> modeTable{};
@@ -173,16 +171,10 @@ std::optional<BallImageConstants> LoadBallImageConstants(const PeImage& exe, std
 // out-of-range pitch or weather index falling back to
 // kContactModeOutOfRange (the writer's `ebx = 1`).
 int ContactModeFor(const BallImageConstants& c, int pitch, int weather);
-
-// The PES weather index for GF's `match_weather` (report 3.2: 0 = no weather,
-// rising indices pick the wetter columns, which ramp the mode down towards 0).
-// GF's config is a 0..1 float; the thresholds are this engine's own reading of
-// "dry / wet / soaked" and are not PES numbers.
-inline int WeatherIndexForGfWeather(float gfWeather) {
-  if (gfWeather <= 0.0f) return kWeatherNone;
-  if (gfWeather < 0.5f) return 1;
-  return 2;
-}
+// The contact-mode index of FUN_1408723d0 (contact-2 3.1, pes-re-kick 4): mode = T[3*cfg7c + cfg78] with
+// cfg7c = i32[cfg+0x7c] and cfg78 = i32[cfg+0x78]; a nonzero byte at cfg+0x85 forces 3; any out-of-range
+// index falls back to 1. Which of cfg7c/cfg78 is pitch and which is weather is OPEN.
+int ContactModeForConfig(const BallImageConstants& c, int cfg7c, int cfg78, int cfg85);
 
 // docs/re/pes-re-ball-constants.md 6: ball.o's scalar header (disk offsets) and
 // its 24 mode blocks. Field names are the game's own JSON keys; the offsets are
@@ -287,10 +279,11 @@ std::optional<BallRecordConstants> LoadBallRecordConstants(const PesVfs& vfs, st
 struct PesBallConstants {
   BallImageConstants image;
   BallRecordConstants record;
-  // The per-match contact mode column the tables are indexed with (report 3.1:
-  // `modeTable[pitch*3 + weather]`, out of the exe's .data). A match without a
-  // chosen pitch/weather index plays the live mode.
-  int contactMode = kContactModeLive;
+  // The contact mode column the tables are indexed with (report 3.1). The Match sets it from the config
+  // fields (ContactModeForConfig); until then the writer's out-of-range fallback is the default.
+  int contactMode = kContactModeOutOfRange;
+  // The raw-Y pump (contact-2 2.1). On under pes_loop; off keeps the GF write (Y := 0).
+  bool spinYPump = false;
   bool operator==(const PesBallConstants&) const = default;
 };
 
