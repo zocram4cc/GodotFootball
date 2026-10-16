@@ -165,6 +165,9 @@ inline constexpr int kLiveKind = 0x1e;        // req[0x1e]: the live clip's kind
 inline constexpr int kStopBand = 0x51;        // req[0x51] (req+0x144): the band FUN_1406d5d60 reads for its stop-row picker (OBS per MovestepRun)
 inline constexpr int kPrevBucket = 0x25;      // req[0x25]: the bucket before the last change (OBS: FUN_1406bdf10, FUN_1406c14c0)
 inline constexpr int kStyle = 0x50;           // req[0x50] byte: the locomotion style (OBS: FUN_1406c0170 and the entries)
+inline constexpr int kDriftSeed = 0x4c;  // req[0x4c]: the drift's seed (OBS: FUN_1406cbc10 reads req+0x130)
+inline constexpr int kDriftX = 0x4d;     // req[0x4d] (req+0x134): the lateral drift, X (OBS: FUN_1406cbc10)
+inline constexpr int kDriftZ = 0x4e;     // req[0x4e] (req+0x138): the lateral drift, Z (OBS: FUN_1406cbc10)
 }  // namespace moveword
 
 // The move request. Typed views over the same words; PES's bit patterns are kept exact.
@@ -444,6 +447,29 @@ struct StyleConstants {
   float radToDeg;    // 57.2957... (0x14259be40): a radian in degrees
 };
 std::optional<StyleConstants> LoadStyleConstants(const PeImage& exe, std::string* error);
+class PesVfs;
+// LateralDamping's install scalars (FUN_1406cbc10's and its drift case's .rdata reads).
+struct DampingConstants {
+  float rateGate;    // 0.3 (0x142590d98): the drift case's rate floor
+  float rateSpan;    // 0.4 (0x1425ccc30): the ramp's span above the floor
+  float rateCap;     // 0.7 (0x14257a194): at or above it the ramp is 0
+  float rateBase;    // 0.8 (0x142572348): the ramp's base factor
+  float rateScale;   // 0.2 (0x142598578): the ramp's slope
+  float driftSpeed;  // 120 (0x14256ae30): the else branch's threshold, over the tick rate
+  float motionRate;  // 0.6 (0x14257a190): the rate the special motion 0xbde stands in for
+  float angleGate;   // 5.625 (0x1425ddf84): the look delta below which the drift's turn term is 0
+};
+std::optional<DampingConstants> LoadDampingConstants(const PeImage& exe, std::string* error);
+// The constant registry entry 0x2e (FUN_141e5ca20(DAT_1437f4808, 0x2e)), which is constant_player.bin's
+// freemove.o (registry 27 + table index 19). Its record is the 8-byte header and the payload, so the
+// three floats are the payload's +8, +0xc and +0x10.
+struct DampingRecord {
+  float lateralBound;  // runtime +0x10
+  float forwardBound;  // runtime +0x14
+  float scale;         // runtime +0x18
+};
+std::optional<DampingRecord> LoadDampingRecord(const PesVfs& vfs, std::string* error);
+
 
 class MoveHost {
  public:
@@ -579,6 +605,11 @@ class MoveHost {
   virtual void BallSample(int index, float out[3]) const = 0;
   // ctx+0x2944 (FUN_140a57710): the ball's motion heading in degrees.
   virtual float BallMotionHeadingDeg() const = 0;
+  // LateralDamping's reads: the anime state byte (vt+0x20 of +0xab8, P+0x245c), the install
+  // scalars, and the constant record of registry entry 0x2e.
+  virtual int CurrentState() const = 0;
+  virtual const DampingConstants& DampingConstantsView() const = 0;
+  virtual const DampingRecord& DampingRecordView() const = 0;
   // SetMotion / SetParametric: the anime interface's vt+0x10 (FUN_1406b8340's tail; the INIT call).
   virtual void Issue(const MotionRequest& request) = 0;
 };

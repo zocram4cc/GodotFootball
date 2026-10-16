@@ -32,6 +32,8 @@ struct MoveHostConstants {
   pes::ParametricGroups parametric{};
   pes::StyleConstants style{};
   pes::movestep::MotionStartConstants motionStart{};
+  pes::DampingConstants damping{};
+  pes::DampingRecord dampingRecord{};
 };
 
 constexpr float kDegPerRad = 180.0f / 3.14159265358979323846f;  // a unit conversion, not PES data
@@ -42,6 +44,8 @@ std::optional<MoveHostConstants> LoadMoveHostConstants() {
   std::string err;
   auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
   if (!exe) return std::nullopt;
+  pes::PesVfs vfs;
+  if (!vfs.Mount(root, &err)) return std::nullopt;
 
   MoveHostConstants c;
   if (auto k = pes::LoadRunConstants(*exe, &err)) c.run = *k; else return std::nullopt;
@@ -56,6 +60,8 @@ std::optional<MoveHostConstants> LoadMoveHostConstants() {
   if (auto t = pes::movestep::LoadMoveTurnConstants(*exe, &err)) c.turn = *t; else return std::nullopt;
   if (auto m = pes::movestep::LoadMotionStartConstants(*exe, &err)) c.motionStart = *m; else return std::nullopt;
   if (auto s = pes::LoadStyleConstants(*exe, &err)) c.style = *s; else return std::nullopt;
+  if (auto d = pes::LoadDampingConstants(*exe, &err)) c.damping = *d; else return std::nullopt;
+  if (auto d = pes::LoadDampingRecord(vfs, &err)) c.dampingRecord = *d; else return std::nullopt;
   if (auto g = pes::LoadParametricGroups(*exe, &err)) c.parametric = *g; else return std::nullopt;
   return c;
 }
@@ -107,6 +113,10 @@ class MoveHostAdapter final : public pes::MoveHost {
     return pes::movestep::MotionStartSeconds(c_.motionStart, static_cast<uint16_t>(motionNo));
   }
   const pes::StyleConstants& StyleConstantsView() const override { return c_.style; }
+  // vt+0x20 of the +0xab8 interface: the phase byte P+0x245c, the FSM's current state.
+  int CurrentState() const override { return static_cast<int>(player_.GetMoveStep().state); }
+  const pes::DampingConstants& DampingConstantsView() const override { return c_.damping; }
+  const pes::DampingRecord& DampingRecordView() const override { return c_.dampingRecord; }
   // ponytail: FUN_142348f80 and FUN_140a73e20 read the match's scripted-slot object (match+0x1a8);
   // GF has no scripted slot yet, so the slot is never ours and the gate answers "not open play".
   bool ScriptedSlotIsOurs() const override { return false; }

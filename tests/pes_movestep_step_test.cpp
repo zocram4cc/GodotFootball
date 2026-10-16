@@ -139,6 +139,12 @@ pes::StepTables SyntheticTables() {
 // read it stands for (movestep.hpp's MoveHost).
 class FakeHost : public MoveHost {
  public:
+  // LateralDamping's reads: the step tests do not drive the drift.
+  pes::DampingConstants damping{};
+  pes::DampingRecord dampingRecord{};
+  int CurrentState() const override { return 0; }
+  const pes::DampingConstants& DampingConstantsView() const override { return damping; }
+  const pes::DampingRecord& DampingRecordView() const override { return dampingRecord; }
   // LocomotionStyle's reads: the step tests do not drive the style ladder.
   pes::StyleConstants style{};
   const pes::StyleConstants& StyleConstantsView() const override { return style; }

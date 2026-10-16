@@ -6,10 +6,13 @@
 #include <cmath>
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <optional>
 #include <string>
 
 #include "pes/exe.hpp"
+#include "pes/uniform.hpp"
+#include "pes/vfs.hpp"
 
 namespace pes {
 
@@ -145,6 +148,53 @@ std::optional<StyleConstants> LoadStyleConstants(const PeImage& exe, std::string
   }
   return k;
 }
+namespace {
+// LateralDamping's .rdata reads, by VA; each field's comment names its site.
+struct DampingSite {
+  uint64_t va;
+  float DampingConstants::* field;
+};
+constexpr DampingSite DAMPING_SITES[] = {
+    {0x142590d98, &DampingConstants::rateGate},  {0x1425ccc30, &DampingConstants::rateSpan},
+    {0x14257a194, &DampingConstants::rateCap},   {0x142572348, &DampingConstants::rateBase},
+    {0x142598578, &DampingConstants::rateScale}, {0x14256ae30, &DampingConstants::driftSpeed},
+    {0x14257a190, &DampingConstants::motionRate}, {0x1425ddf84, &DampingConstants::angleGate},
+};
+// The constant registry's freemove.o entry (see DampingRecord): the record's table name.
+constexpr const char* DAMPING_RECORD_OBJECT = "freemove.o";
+constexpr const char* CONSTANT_PLAYER_PATH = "common/match/constant/constant_player.bin";
+}  // namespace
+
+std::optional<DampingConstants> LoadDampingConstants(const PeImage& exe, std::string* error) {
+  DampingConstants k{};
+  for (const DampingSite& s : DAMPING_SITES) {
+    if (!exe.ReadVa(s.va, sizeof(float), reinterpret_cast<uint8_t*>(&(k.*(s.field))))) {
+      *error = "damping constants: .rdata unreadable";
+      return std::nullopt;
+    }
+  }
+  return k;
+}
+
+std::optional<DampingRecord> LoadDampingRecord(const PesVfs& vfs, std::string* error) {
+  auto blob = vfs.Read(CONSTANT_PLAYER_PATH, error);
+  if (!blob) return std::nullopt;
+  auto table = ParseUniformTable(*blob, error);
+  if (!table) return std::nullopt;
+  auto span = table->Find(DAMPING_RECORD_OBJECT);
+  if (!span || span->size() < 0x10 + sizeof(float)) {
+    *error = std::string(DAMPING_RECORD_OBJECT) + " is missing or short";
+    return std::nullopt;
+  }
+  // The runtime record is an 8-byte header and the payload: runtime +0x10 is payload +8.
+  auto f = [&span](size_t at) {
+    float v;
+    std::memcpy(&v, span->data() + at, sizeof v);
+    return v;
+  };
+  return DampingRecord{f(0x8), f(0xc), f(0x10)};
+}
+
 
 namespace movestep {
 

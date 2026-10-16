@@ -48,6 +48,12 @@ class SyntheticHost : public pes::MoveHost {
  public:
   // LocomotionStyle's reads: the run tests do not drive the style ladder.
   pes::StyleConstants style{};
+  // LateralDamping's reads: the run tests do not drive the drift.
+  pes::DampingConstants damping{};
+  pes::DampingRecord dampingRecord{};
+  int CurrentState() const override { return 0; }
+  const pes::DampingConstants& DampingConstantsView() const override { return damping; }
+  const pes::DampingRecord& DampingRecordView() const override { return dampingRecord; }
   const pes::StyleConstants& StyleConstantsView() const override { return style; }
   bool ScriptedSlotIsOurs() const override { return false; }
   int StaminaPercent() const override { return 100; }
