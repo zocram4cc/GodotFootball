@@ -6,6 +6,8 @@
 #include "mentalimage.hpp"
 
 #include "../match.hpp"
+#include <stdexcept>
+#include <string>
 
 MentalImage::MentalImage(Match* match) : match(match) {
   timeStampNeg_ms = 0;
@@ -56,8 +58,11 @@ PlayerImage MentalImage::GetPlayerImage(int playerID) const {
     }
   }
 
-  // failsafe
-  return players.at(0);
+  // The caller asks only for a player the snapshot holds. The old failsafe returned players[0],
+  // another player's image, or threw out_of_range from an empty snapshot. PES's mental image
+  // build is not located (docs/re/pes-re-tick-order.md 4), so there is no PES guard to decode.
+  throw std::runtime_error("MentalImage::GetPlayerImage: player " + std::to_string(playerID) +
+                           " is not in the snapshot");
 }
 
 void MentalImage::GetTeamPlayerImages(int teamID, int exceptPlayerID,
