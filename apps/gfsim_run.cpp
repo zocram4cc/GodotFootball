@@ -17,6 +17,7 @@
 #include "onthepitch/peskickerror.hpp"
 #include "onthepitch/pesoffball.hpp"
 #include "onthepitch/pesclock.hpp"
+#include "onthepitch/restartwatch.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
 #include "rig/rig.hpp"
@@ -28,6 +29,10 @@ constexpr unsigned int DEFAULT_SEED = 1;
 constexpr int DEFAULT_MINUTES = 20;    // GF's default match length in real minutes
 constexpr float DEFAULT_TIMESCALE = 1.0f;
 constexpr const char* DEFAULT_ANIMS = "assets/gf_anims";
+// The sim-tick cap: a match still unfinished after 30 minutes of logic frames (54 Hz)
+// is stuck. The restart watch stops a stalled restart long before this, so the cap
+// is the backstop.
+constexpr unsigned long kMaxSimTicks = 30ul * 60ul * Match::kFramesPerSecond;
 constexpr int EXIT_USAGE = 2;
 
 int Usage(const char* why) {
@@ -195,7 +200,25 @@ int main(int argc, char** argv) {
   setup.pesOffBallConstants = &*offBallConstants;
 
   Match match(new MatchData(home, away), setup, config);  // Match owns the MatchData
-  while (!match.IsGameOver()) match.Process();
+  // A stalled restart freezes the match clock (it only moves while play is on and no
+  // set piece is armed), so the match would never reach full time. The watch stops
+  // the run at the first stoppage that runs past the install's bound on its restart.
+  RestartWatch watch(RestartLimitTicks(*stoppageConstants, *setPieceTakerConstants));
+  while (!match.IsGameOver()) {
+    if (watch.Ticks() >= kMaxSimTicks)
+      return std::fprintf(stderr, "[cap] no full time after %lu sim ticks\n", kMaxSimTicks), 1;
+    match.Process();
+    watch.Observe(match);
+    if (watch.Stalled())
+      return std::fprintf(stderr,
+                          "[restart] stalled: no restart within %lu ticks (limit %lu ticks)\n",
+                          watch.LongestTicks(), watch.LimitTicks()), 1;
+  }
   PrintMatchReport(match, stdout);
+  const double tickSeconds = Match::kTick_ms / 1000.0;
+  std::printf("[restarts] %lu stoppages, longest %.1f s (%lu ticks), bound %.1f s (%lu ticks)\n",
+              watch.MeasuredStoppages(), watch.LongestTicks() * tickSeconds, watch.LongestTicks(),
+              watch.LimitTicks() * tickSeconds, watch.LimitTicks());
+  std::printf("[idle] %lu episodes\n", watch.IdleEpisodes());
   return 0;
 }
