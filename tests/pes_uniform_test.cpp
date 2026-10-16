@@ -343,6 +343,22 @@ TEST(SelectUniformParts, LongSleevesUseTheLongSlotAndWinterCollar) {
   EXPECT_TRUE(has("fpk:common/hand_l.fmdl"));
 }
 
+TEST(SelectUniformParts, TailInHidesTheOuterShorts) {
+  // FUN_141a89120 hides the pants_out_sub slot when the tail is in (+0xBC == 0
+  // leaves bVar35 false) and draws pants_in_sub instead; tail out is the
+  // reverse (kit-assembly 8.4: one of the pair is always the hidden one).
+  pes::PlayerLook in;
+  in.shirtTailOut = false;
+  auto p = Paths(pes::SelectUniformParts(ShortSleeveKit(), in));
+  auto has = [&](const std::string& s) { return std::find(p.begin(), p.end(), s) != p.end(); };
+  EXPECT_TRUE(has("fpk:common/pants_in_sub.fmdl"));
+  EXPECT_FALSE(has("fpk:common/pants_out_sub.fmdl"));
+  auto q = Paths(pes::SelectUniformParts(ShortSleeveKit(), pes::PlayerLook{}));
+  auto hasOut = [&](const std::string& s) { return std::find(q.begin(), q.end(), s) != q.end(); };
+  EXPECT_TRUE(hasOut("fpk:common/pants_out_sub.fmdl"));
+  EXPECT_FALSE(hasOut("fpk:common/pants_in_sub.fmdl"));
+}
+
 TEST(SelectUniformParts, TailInWearsShirtInOverTheInnerShorts) {
   pes::PlayerLook look;
   look.shirtTailOut = false;
