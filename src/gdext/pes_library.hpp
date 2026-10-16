@@ -11,6 +11,7 @@
 #include "onthepitch/pesdefshape.hpp"
 #include "onthepitch/pesdefenderdecisions.hpp"
 #include "onthepitch/pescontact.hpp"
+#include "onthepitch/pesevents.hpp"
 #include "onthepitch/pesclips.hpp"
 #include "onthepitch/pesdodge.hpp"
 #include "onthepitch/pestackle.hpp"
@@ -120,6 +121,13 @@ class PesLibrary : public RefCounted {
   const pes::ContactConstants* contact_constants() const {
     return contactConstants_ ? &*contactConstants_ : nullptr;
   }
+  // PES 2021's event routing table and detector constants (docs/re/pes-re-gaps-a2.md).
+  const pes::EventRingTable* event_ring_table() const {
+    return eventRingTable_ ? &*eventRingTable_ : nullptr;
+  }
+  const pes::EventConstants* event_constants() const {
+    return eventConstants_ ? &*eventConstants_ : nullptr;
+  }
   // PES 2021's CPU strategy decider (docs/re/pes-re-match-management.md 1).
   const pes::StrategyConstants* strategy_constants() const {
     return strategyConstants_ ? &*strategyConstants_ : nullptr;
@@ -177,6 +185,8 @@ class PesLibrary : public RefCounted {
   std::optional<pes::DefensiveShapeConstants> defensiveShapeConstants_;
   std::optional<pes::DefenderDecisionConstants> defenderDecisionConstants_;
   std::optional<pes::ContactConstants> contactConstants_;
+  std::optional<pes::EventRingTable> eventRingTable_;
+  std::optional<pes::EventConstants> eventConstants_;
   std::optional<pes::PesClipSet> pesClips_;
   std::optional<pes::DodgeConstants> dodgeConstants_;
   std::optional<pes::Animetable> animetable_;

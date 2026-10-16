@@ -84,6 +84,8 @@ Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const
   setup.pesDefensiveShapeConstants = library->defensive_shape_constants();
   setup.pesDefenderDecisionConstants = library->defender_decision_constants();
   setup.pesContactConstants = library->contact_constants();
+  setup.pesEventRingTable = library->event_ring_table();
+  setup.pesEventConstants = library->event_constants();
   setup.pesClips = library->pes_clips();
   setup.pesDodgeConstants = library->dodge_constants();
   setup.pesAnimetable = library->animetable();

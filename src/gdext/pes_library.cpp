@@ -125,6 +125,16 @@ Error PesLibrary::open(const String& root) {
     UtilityFunctions::push_error("PES21 contact constants unavailable: ", ToGd(err));
     return ERR_PARSE_ERROR;
   }
+  if (exe) eventRingTable_ = pes::LoadEventRingTable(*exe, &err);
+  if (!eventRingTable_) {
+    UtilityFunctions::push_error("PES21 event ring table unavailable: ", ToGd(err));
+    return ERR_PARSE_ERROR;
+  }
+  if (exe) eventConstants_ = pes::LoadEventConstants(*exe, &err);
+  if (!eventConstants_) {
+    UtilityFunctions::push_error("PES21 event constants unavailable: ", ToGd(err));
+    return ERR_PARSE_ERROR;
+  }
   if (exe) strategyConstants_ = pes::LoadStrategyConstants(*exe, &err);
   if (!strategyConstants_) {
     UtilityFunctions::push_error("PES21 strategy constants unavailable: ", ToGd(err));
