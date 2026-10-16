@@ -676,3 +676,36 @@ TEST(StayDecision, StaysWhenTheFacingErrorIsInsideTheBearingGate) {
   req.SetF(pes::moveword::kFacingError, 200.0f);
   EXPECT_FALSE(pes::movestep::StayDecision(host, req));
 }
+
+TEST(SimTail, CopiesTheSlipFacingAfterSlipdownEvenWhenRootFacingIsSet) {
+  RateHost host = IdleHost();
+  pes::MoveStepRecord rec;
+  pes::MoveReq req;
+  req.SetF(pes::moveword::kSlipAngle, 123.0f);
+  req.SetByte(pes::moveword::kRootFacing, 1);
+  req.SetF(pes::moveword::kRootFacingAngle, 300.0f);
+  pes::movestep::ApplyTail(rec, host, req, pes::MoveState::kRunTurnRunSlipdown);
+  EXPECT_FLOAT_EQ(host.f0bec, 123.0f);
+}
+
+TEST(SimTail, CopiesTheRootFacingOnOtherStatesOnlyWhenTheFlagIsSet) {
+  RateHost host = IdleHost();
+  pes::MoveStepRecord rec;
+  pes::MoveReq req;
+  req.SetByte(pes::moveword::kRootFacing, 0);
+  req.SetF(pes::moveword::kRootFacingAngle, 300.0f);
+  pes::movestep::ApplyTail(rec, host, req, pes::MoveState::kIdle);
+  EXPECT_FLOAT_EQ(host.f0bec, 0.0f);
+  req.SetByte(pes::moveword::kRootFacing, 1);
+  pes::movestep::ApplyTail(rec, host, req, pes::MoveState::kIdle);
+  EXPECT_FLOAT_EQ(host.f0bec, 300.0f);
+}
+
+TEST(SimTail, StoresTheRequestsPlaybackSpeed) {
+  RateHost host = IdleHost();
+  pes::MoveStepRecord rec;
+  pes::MoveReq req;
+  req.SetF(pes::moveword::kPlayback, 0.75f);
+  pes::movestep::ApplyTail(rec, host, req, pes::MoveState::kIdle);
+  EXPECT_FLOAT_EQ(rec.playbackSpeed, 0.75f);
+}

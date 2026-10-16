@@ -64,6 +64,7 @@ struct MoveStepRecord {
   float rateCeiling = 0.0f;               // P+0x377c: top running rate (FUN_1406f99f0)
   int rateStamp = 0;                      // P+0x3778: match tick the ceiling was computed on
   float playbackSpeed = 1.0f;             // P+0x3758: the SetMotion playback (FUN_1406f0f70)
+  float yawLock = 0.0f;                    // P+0xbec: the dispatcher's yaw lock and the slip/root-facing tail
 
   // FUN_1406b8340, early-out branch after FUN_140708750: the state falls back to INIT.
   void EnterInit() {
@@ -668,6 +669,10 @@ bool OutOfPlayPreempt(MoveHost& host, MoveReq& req);
 // FUN_1406b9b20: the 10-way angle bucket of an angle in degrees, with the hysteresis of the current
 // bucket (10 = no current bucket). narrow selects the ±10 / ±170 windows.
 int AngleBucket(const AngleBucketConstants& k, float angleDeg, int currentBucket, bool narrow);
+// The sim adapter's per-tick tail (FUN_1406b8340's P+0xbec and playback stores): after a slip,
+// P+0xbec is req[0xec]; otherwise a root-facing write is req[0x3b] when req[0x3a] is set. The
+// request's playback word is stored at P+0x3758 (MoveStepRecord::playbackSpeed).
+void ApplyTail(MoveStepRecord& rec, MoveHost& host, MoveReq& req, MoveState stateAtEntry);
 }  // namespace movestep
 
 }  // namespace pes

@@ -10,4 +10,4 @@ add_library(gfsim STATIC ${GFSIM_SOURCES})
 target_include_directories(gfsim PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/..)
-target_link_libraries(gfsim PUBLIC pesrig SQLite3::SQLite3 Boost::headers)
+target_link_libraries(gfsim PUBLIC pesrig pesmovestepcore SQLite3::SQLite3 Boost::headers)

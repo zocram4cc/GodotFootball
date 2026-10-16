@@ -25,6 +25,7 @@
 #include "../../utils.hpp"
 #include "../gameplaytuning.hpp"
 #include "../match.hpp"
+#include "../pesmovestep.hpp"
 #include "../team.hpp"
 #include "base/geometry/triangle.hpp"
 #include "controller/elizacontroller.hpp"
@@ -447,6 +448,10 @@ void Player::Process() {
   // if (GetDebug()) SetGreenDebugPilon(GetPosition() + GetMovement());
 
   if (isActive) {
+    // PES 2021's MOVESTEP machine: one logic tick per player, before the controller and the
+    // humanoid step this frame.
+    pesmovestep::ProcessMoveStep(*this, *match);
+
     // One PES logic frame's worth of the intercept clock (Milestone A1: kTick_ms
     // is 1000/54 ms, not GF's 10).
     desiredTimeToBall_ms = std::max(desiredTimeToBall_ms - Match::kTick_ms, 0.0);
