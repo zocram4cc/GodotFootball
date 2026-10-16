@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "onthepitch/pesdefenderdecisions.hpp"
+#include "onthepitch/pesevents.hpp"
 
 namespace pes {
 namespace {
@@ -58,6 +59,15 @@ bool RecordFlag(const std::vector<uint8_t>& rec, uint32_t at, bool* out) {
 bool IsKick(BallEventKind k) { return k == BallEventKind::kPass || k == BallEventKind::kHighPass; }
 
 }  // namespace
+
+BallEventKind ReceiveEventKindOf(uint32_t actionKind) {
+  switch (actionKind) {
+    case kActionKick: return BallEventKind::kPass;
+    case kActionHighKick: return BallEventKind::kHighPass;
+    case kActionShot: return BallEventKind::kShot;
+    default: return BallEventKind::kTouch;
+  }
+}
 
 float HeadingDeg(float x, float y) { return std::atan2(y, x) * kDegPerRad; }
 

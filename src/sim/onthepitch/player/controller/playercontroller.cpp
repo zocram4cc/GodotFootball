@@ -390,29 +390,32 @@ bool PlayerController::_ReceiveCandidate() {
       team->GetDesignatedTeamPossessionPlayer() != player)
     return false;
 
-  // FUN_1409fa720: the re-touch lockout.
-  const Match::BallEvent& ev = match->GetBallEvent(0);
-  const Match::BallEvent& prev = match->GetBallEvent(1);
-  const unsigned long now = match->GetActualTime_ms();
+  // FUN_1409fa720: the re-touch lockout, over the store's newest event and the one before it.
+  const pes::NewestEventView ev = pes::NewestEvent(match->GetPesEvents());
+  const pes::NewestEventView prev = pes::EventAt(match->GetPesEvents(), 1);
+  Player* evPlayer = match->GetPesActorPlayer(ev.actor);
+  Player* prevPlayer = match->GetPesActorPlayer(prev.actor);
+  const pes::BallEventKind evKind = pes::ReceiveEventKindOf(ev.kind);
+  const bool evByMyTeam = ev.present && ev.actor.team == static_cast<uint32_t>(team->GetID());
   const Vector3 ballPos = match->GetBall()->Predict(0);
   const Vector3 ballMove = match->GetBall()->GetMovement();
   pes::LockoutInput in;
-  in.ballOwned = ev.player && ev.player->HasPossession();
-  in.ownerIsMe = ev.player == player;
-  in.eventKind = ev.kind;
-  in.eventByMe = ev.player == player;
-  in.eventByMyTeam = ev.teamID == team->GetID();
-  in.previousEventByMe = prev.player == player;
-  in.previousEventAge_s = (now - prev.time_ms) * 0.001f;
+  in.ballOwned = evPlayer && evPlayer->HasPossession();
+  in.ownerIsMe = evPlayer == player;
+  in.eventKind = evKind;
+  in.eventByMe = evPlayer == player;
+  in.eventByMyTeam = evByMyTeam;
+  in.previousEventByMe = prevPlayer == player;
+  in.previousEventAge_s = match->GetPesEventAge_s(prev.frame);
   // GF's stat is PES's 40..99 rating scaled to 0..1 (team.cpp's stamina map).
   in.ballStat = k.statFloor + CastPlayer()->GetStat("technical_ballcontrol") * k.statSpan;
   in.ballSpeed_mps = ballMove.Get2D().GetLength();
   in.ballHeight_m = ballPos.coords[2];
-  if (!pes::RetouchAllowed(k, in, (now - ev.time_ms) * 0.001f, kPesFps)) return false;
+  if (!pes::RetouchAllowed(k, in, match->GetPesEventAge_s(ev.frame), kPesFps)) return false;
 
   // The shot-through rule: my team's shot on target runs on to goal.
   pes::ShotThroughInput shot;
-  shot.ownTeamShot = ev.kind == pes::BallEventKind::kShot && ev.teamID == team->GetID();
+  shot.ownTeamShot = evKind == pes::BallEventKind::kShot && evByMyTeam;
   shot.ballX = ballPos.coords[0];
   shot.ballY = ballPos.coords[1];
   shot.ballVelX = ballMove.coords[0];
@@ -428,7 +431,7 @@ bool PlayerController::_ReceiveCandidate() {
 // queued pass, so kind 3 needs nothing here.
 void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
   const pes::ReceiveConstants& k = match->GetPesDefenderDecisionConstants().receive;
-  const Match::BallEvent& ev = match->GetBallEvent(0);
+  const pes::NewestEventView ev = pes::NewestEvent(match->GetPesEvents());
   const Vector3 ballMove = match->GetBall()->GetMovement().Get2D();
   Vector3 planned = inputDirection;
   if (quantizeDirection) QuantizeDirection(planned, GetQuantizedDirectionBias());
@@ -440,10 +443,11 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
   in.bodyHeading_deg = Heading(CastPlayer()->GetDirectionVec());
   in.moveHeading_deg = Heading(CastPlayer()->GetMovement());
   in.moveSpeed_mps = CastPlayer()->GetMovement().Get2D().GetLength();
-  in.eventByMyTeam = ev.teamID == team->GetID();
-  in.eventIsKick = ev.kind == pes::BallEventKind::kPass || ev.kind == pes::BallEventKind::kHighPass;
-  in.eventByMe = ev.player == player;
-  in.eventAge_s = (match->GetActualTime_ms() - ev.time_ms) * 0.001f;
+  in.eventByMyTeam = ev.present && ev.actor.team == static_cast<uint32_t>(team->GetID());
+  const pes::BallEventKind evKind = pes::ReceiveEventKindOf(ev.kind);
+  in.eventIsKick = evKind == pes::BallEventKind::kPass || evKind == pes::BallEventKind::kHighPass;
+  in.eventByMe = match->GetPesActorPlayer(ev.actor) == player;
+  in.eventAge_s = match->GetPesEventAge_s(ev.frame);
   in.ballSpeedSq_m2s2 = ballMove.GetDotProduct(ballMove);
   in.ballHeading_deg = Heading(ballMove);
   in.posX = player->GetPosition().coords[0];

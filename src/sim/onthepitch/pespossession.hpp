@@ -63,9 +63,6 @@ bool TeamPossessionLatch(const PossessionLatchInput& in);
 // steps (docs/re/pes-re-clock-live.md section 3: about 57 per wall second in play).
 int PesFrameOf(uint64_t ms, int gs);
 
-// The numbered PES kind of a GF ball event (1-3 kicks, 5 shot, 7 touch).
-int PesEventKindOf(BallEventKind kind);
-
 }  // namespace pes
 
 #endif

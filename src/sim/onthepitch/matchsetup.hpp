@@ -18,6 +18,9 @@ struct Rig;
 // constants come from the install's constant_match.bin `ball.o` and the exe
 // image, read by the caller and handed to the Match the same way.
 #include "pesball.hpp"
+// PES 2021's event store and its routing table (docs/re/pes-re-gaps-a2.md): the table and
+// the detectors' constants are read by the caller from the install and handed to the Match.
+#include "pesevents.hpp"
 #include "pesjudge.hpp"
 #include "peskeeper.hpp"
 #include "pesrandom.hpp"
@@ -121,6 +124,11 @@ struct MatchSetup {
   // fall level table, contact.o's thresholds, the vetoes and the balance
   // gauge. Required: without them a body contact has no outcome to read.
   const pes::ContactConstants* pesContactConstants = nullptr;
+  // PES 2021's event store routing table (pesevents.hpp: 56 kind -> ring words at 0x142642e60)
+  // and the detectors' constants (the deflection sample and the clamped-short scale). Required:
+  // every event the stage writes is routed through the table, read by the caller from the exe.
+  const pes::EventRingTable* pesEventRingTable = nullptr;
+  const pes::EventConstants* pesEventConstants = nullptr;
   // PES body clips (pesclips.hpp) the engine plays itself - the Dodge action's
   // clips. Required: they are PES's animation data, read from the install.
   const pes::PesClipSet* pesClips = nullptr;

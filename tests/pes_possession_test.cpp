@@ -49,13 +49,6 @@ TEST(PesPossessionFrames, FrameIsTheFloorOfMillisecondsTimesGameSpeed) {
   EXPECT_EQ(pes::PesFrameOf(1000, 54), 54);
 }
 
-TEST(PesPossessionFrames, GfEventKindsMapOntoTheNumberedRing) {
-  EXPECT_EQ(pes::PesEventKindOf(pes::BallEventKind::kTouch), 7);
-  EXPECT_EQ(pes::PesEventKindOf(pes::BallEventKind::kPass), 1);
-  EXPECT_EQ(pes::PesEventKindOf(pes::BallEventKind::kHighPass), 2);
-  EXPECT_EQ(pes::PesEventKindOf(pes::BallEventKind::kShot), 5);
-}
-
 TEST(PesPossessionLatch, RestartStateThreeGivesTheRestartTeamBeforeAnyOtherTerm) {
   pes::PossessionLatchInput in = Base();
   in.restartState = 3;

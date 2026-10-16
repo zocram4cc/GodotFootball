@@ -296,8 +296,8 @@ int ActorIdOf(const ActorKey& key, const std::array<uint32_t, 0x28>& roster, int
   return 0xff;
 }
 
-NewestEventView NewestEvent(const EventStore& store) {
-  const EventRecord* rec = store.NewestOrRing0(0);
+NewestEventView EventAt(const EventStore& store, int n) {
+  const EventRecord* rec = store.NewestOrRing0(n);
   if (rec == nullptr) return NewestEventView{};
   NewestEventView view;
   view.present = true;
@@ -309,6 +309,8 @@ NewestEventView NewestEvent(const EventStore& store) {
   view.subKind = rec->I32(0x54);
   return view;
 }
+
+NewestEventView NewestEvent(const EventStore& store) { return EventAt(store, 0); }
 
 bool IsLatchStepTwoKind(uint32_t kind) {
   return (kind >= 1 && kind <= 3) || kind == 0x10;

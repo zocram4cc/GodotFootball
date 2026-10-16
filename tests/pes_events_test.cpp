@@ -1106,4 +1106,36 @@ TEST(PesEventDetectors, PossessionSequenceRecordsOnThePlayerChange) {
   EXPECT_EQ(out.kind, 13u);
 }
 
+// The n-th newest ring-0 event as the consumers read it: n = 0 is the newest,
+// n = 1 the touch before it (the re-touch lockout's previous event).
+TEST(PesEventStore, EventAtReadsTheNthNewestRingZeroEvent) {
+  pes::EventRingTable table{};  // every kind routes to ring 0
+  pes::EventStore store;
+  pes::EventRecord first;
+  first.Write(7, 10, 10, 0.f, 0);
+  first.SetActionKind(1);
+  first.SetActionFrame(10);
+  first.SetU32(0x18, 0);
+  first.SetU32(0x1c, 3);
+  store.Route(table, first);
+  pes::EventRecord second;
+  second.Write(7, 20, 20, 0.f, 0);
+  second.SetActionFrame(20);
+  second.SetActionKind(5);
+  second.SetU32(0x18, 1);
+  second.SetU32(0x1c, 4);
+  store.Route(table, second);
+
+  const pes::NewestEventView newest = pes::EventAt(store, 0);
+  ASSERT_TRUE(newest.present);
+  EXPECT_EQ(newest.kind, 5u);
+  EXPECT_EQ(newest.frame, 20);
+  const pes::NewestEventView previous = pes::EventAt(store, 1);
+  ASSERT_TRUE(previous.present);
+  EXPECT_EQ(previous.kind, 1u);
+  EXPECT_EQ(previous.frame, 10);
+  EXPECT_EQ(previous.actor, (pes::ActorKey{0, 3}));
+  EXPECT_FALSE(pes::EventAt(store, 2).present);
+}
+
 }  // namespace
