@@ -64,6 +64,7 @@ struct PesMatchConstants {
   std::optional<pes::EventConstants> event;
   std::optional<pes::SubstitutionConstants> substitutions;
   std::optional<pes::offball::OffBallConstants> offBall;
+  std::optional<pes::MoveStepConstants> moveStep;
 };
 
 inline const PesMatchConstants& SharedPesMatchConstants() {
@@ -105,6 +106,7 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
     c.substitutions = pes::LoadSubstitutionConstants(*exe, &err);
   if (mounted) c.teamConcepts = pes::LoadTeamConceptConstants(*exe, vfs, &err);
   if (mounted) c.offBall = pes::offball::LoadOffBallConstants(*exe, vfs, &err);
+  if (mounted) c.moveStep = pes::LoadMoveStepConstants(*exe, vfs, &err);
   return c;
 }
 
@@ -143,6 +145,7 @@ inline bool FillMissingPesConstants(MatchSetup* setup) {
   fill(setup->pesTeamConceptConstants, c.teamConcepts);
   fill(setup->pesSubstitutionConstants, c.substitutions);
   fill(setup->pesOffBallConstants, c.offBall);
+  fill(setup->pesMoveStepConstants, c.moveStep);
   return ok;
 }
 

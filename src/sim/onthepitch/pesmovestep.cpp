@@ -17,60 +17,11 @@
 
 namespace {
 
-// The install constants the MOVESTEP handlers read, loaded once per process from the install.
-// The group test targets pass their own synthetic sets; the production adapter reads the exe.
-struct MoveHostConstants {
-  pes::RunConstants run{};
-  pes::RunTables runTables{};
-  pes::StepScalars stepScalars{};
-  pes::StepTables stepTables{};
-  pes::PlaybackConstants playback{};
-  pes::SpeedRateTable speedRate{};
-  pes::MoveConstants move{};
-  pes::IdleRowTables idleRows{};
-  pes::AngleBucketConstants buckets{};
-  pes::movestep::MoveTurnConstants turn{};
-  pes::ParametricGroups parametric{};
-  pes::StyleConstants style{};
-  pes::movestep::MotionStartConstants motionStart{};
-  pes::DampingConstants damping{};
-  pes::DampingRecord dampingRecord{};
-};
+// The install constants the MOVESTEP handlers read: the match's own bundle (MatchSetup), read from
+// the user's install by the caller. The adapter never reads the environment.
+using MoveHostConstants = pes::MoveStepConstants;
 
 constexpr float kDegPerRad = 180.0f / 3.14159265358979323846f;  // a unit conversion, not PES data
-
-std::optional<MoveHostConstants> LoadMoveHostConstants() {
-  const char* root = std::getenv("PES21_ROOT");
-  if (!root) return std::nullopt;
-  std::string err;
-  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
-  if (!exe) return std::nullopt;
-  pes::PesVfs vfs;
-  if (!vfs.Mount(root, &err)) return std::nullopt;
-
-  MoveHostConstants c;
-  if (auto k = pes::LoadRunConstants(*exe, &err)) c.run = *k; else return std::nullopt;
-  if (auto t = pes::LoadRunTables(*exe, &err)) c.runTables = *t; else return std::nullopt;
-  if (auto s = pes::LoadStepScalars(*exe, &err)) c.stepScalars = *s; else return std::nullopt;
-  if (auto t = pes::LoadStepTables(*exe, &err)) c.stepTables = *t; else return std::nullopt;
-  if (auto p = pes::LoadPlaybackConstants(*exe, &err)) c.playback = *p; else return std::nullopt;
-  if (auto t = pes::LoadSpeedRateTable(*exe, &err)) c.speedRate = *t; else return std::nullopt;
-  if (auto m = pes::LoadMoveConstants(*exe, &err)) c.move = *m; else return std::nullopt;
-  if (auto t = pes::LoadIdleRowTables(*exe, &err)) c.idleRows = *t; else return std::nullopt;
-  if (auto b = pes::LoadAngleBucketConstants(*exe, &err)) c.buckets = *b; else return std::nullopt;
-  if (auto t = pes::movestep::LoadMoveTurnConstants(*exe, &err)) c.turn = *t; else return std::nullopt;
-  if (auto m = pes::movestep::LoadMotionStartConstants(*exe, &err)) c.motionStart = *m; else return std::nullopt;
-  if (auto s = pes::LoadStyleConstants(*exe, &err)) c.style = *s; else return std::nullopt;
-  if (auto d = pes::LoadDampingConstants(*exe, &err)) c.damping = *d; else return std::nullopt;
-  if (auto d = pes::LoadDampingRecord(vfs, &err)) c.dampingRecord = *d; else return std::nullopt;
-  if (auto g = pes::LoadParametricGroups(*exe, &err)) c.parametric = *g; else return std::nullopt;
-  return c;
-}
-
-const MoveHostConstants* Constants() {
-  static const std::optional<MoveHostConstants> kConstants = LoadMoveHostConstants();
-  return kConstants.has_value() ? &*kConstants : nullptr;
-}
 
 float HeadingDeg(float x, float z, const pes::RunConstants& k) {
   return pes::FoldFull(std::atan2(x, z) * kDegPerRad, k);
@@ -348,8 +299,10 @@ class MoveHostAdapter final : public pes::MoveHost {
 namespace pesmovestep {
 
 void ProcessMoveStep(Player& player, Match& match) {
-  const MoveHostConstants* constants = Constants();
-  if (constants == nullptr) return;
+  // MOVESTEP runs only with pes_loop on. Off it leaves the player alone: no FSM tick, no clip, and
+  // no playback write (the contact rates of match.cpp keep theirs).
+  if (!match.PesLoop()) return;
+  const MoveHostConstants* constants = &match.GetPesMoveStepConstants();
 
   pes::MoveStepRecord& rec = player.GetMoveStep();
   MoveHostAdapter host(player, match, *constants);
@@ -379,9 +332,6 @@ void ProcessMoveStep(Player& player, Match& match) {
   rec.rate = req.F(pes::moveword::kRate);
   rec.style = static_cast<uint8_t>(req.U(pes::moveword::kStyle) & 0xffu);
   pes::ApplyTransition(rec, req);
-  // P+0x3758's store lands on GF's playback rate for the tick.
-  player.SetPlaybackRate(rec.playbackSpeed);
-  player.GetIssuedClip().playback = rec.playbackSpeed;
 }
 int CurrentMotionOf(Player& player) {
   const Anim* anim = player.GetCurrentAnim();  // main's behaviour: the GF anim id

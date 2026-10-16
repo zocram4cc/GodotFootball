@@ -175,6 +175,10 @@ class PesLibrary : public RefCounted {
   const pes::offball::OffBallConstants* off_ball_constants() const {
     return offBallConstants_ ? &*offBallConstants_ : nullptr;
   }
+  // PES 2021's MOVESTEP handlers' install constants (docs/re/pes-re-anim-select.md).
+  const pes::MoveStepConstants* movestep_constants() const {
+    return moveStepConstants_ ? &*moveStepConstants_ : nullptr;
+  }
 
  protected:
   static void _bind_methods();
@@ -212,6 +216,7 @@ class PesLibrary : public RefCounted {
   std::optional<pes::RestartSpotConstants> restartSpotConstants_;
   std::optional<pes::KickErrorConstants> kickErrorConstants_;
   std::optional<pes::offball::OffBallConstants> offBallConstants_;
+  std::optional<pes::MoveStepConstants> moveStepConstants_;
   std::optional<pes::SetPieceTakerConstants> setPieceTakerConstants_;
   std::optional<pes::SetPieceTeamConstants> setPieceTeamConstants_;
 };
