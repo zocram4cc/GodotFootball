@@ -594,6 +594,8 @@ protected:
   std::map<Animation*, std::vector<Vector3>> animPositionCache;
 
   float matchDifficulty;
+  // The tick-order switch (config pes_loop, SW), read once in the constructor.
+  bool pesLoop = false;
   std::vector<TickStage> tickStages;
 
   uint64_t determinismHash;

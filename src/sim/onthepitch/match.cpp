@@ -76,6 +76,8 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
       std::make_unique<pes::RandomInfoProducer>(*setup.pesRngConstants, setup.seed);
   SetRandomSource(rngSource.get());
   *GetConfiguration() = config;
+  // The tick-order switch (SW): read once here; Process() takes one order per tick from it.
+  pesLoop = GetConfiguration()->GetBool("pes_loop", false);
 
   Log(e_Notice, "Match", "Match", "Starting Match");
 
@@ -737,14 +739,20 @@ void Match::Process() {
     CheckBallCollisions();
   }
 
-  ProcessRefereeStage();
-
-  ProcessBallStage();
-
-  // PES's event stage (step 3 of FUN_14042b9f0) runs ahead of the team tick, which holds the
-  // MA build (docs/re/pes-re-gaps-a2.md a1). The listener order against MatchSub is OPEN
-  // (a4): the event listener is taken first, as GapsMatch §9.6 has the construction order.
-  ProcessPesEventStage();
+  // The head of the tick runs in the order the switch picks, once per tick. PES's order
+  // (pes_loop on): the ball (step 2), the event stage (step 3), then the judge. Its whistle is
+  // event-driven, outside the tick chain (docs/re/pes-re-gaps-a2.md a3), so it reads this tick's
+  // events. The listener order against MatchSub is OPEN (a4).
+  // ponytail: GF's Referee stands in for the judge until whistle -> sequencer -> restart (A5).
+  if (pesLoop) {
+    ProcessBallStage();
+    ProcessPesEventStage();
+    ProcessRefereeStage();
+  } else {
+    ProcessRefereeStage();
+    ProcessBallStage();
+    ProcessPesEventStage();
+  }
 
   // The team tick. ponytail: PES builds the MA inside the per-side team tick, after the
   // run manager and the 11-player loop; GF's mental image is built once, at the head of
@@ -758,6 +766,8 @@ void Match::Process() {
     mentalImages.pop_back();
   }
 
+  // ponytail: GF's ElizaController and teamAIcontroller still decide inside Team::Process.
+  // A4 replaces them with the ported team tick.
   tickStages.push_back(TickStage::Teams);
   teams[0]->Process();
   teams[1]->Process();
