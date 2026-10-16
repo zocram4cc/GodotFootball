@@ -6,6 +6,7 @@
 //   pesfmt_dump skl <fpk path> <inner suffix> --pes21-root DIR
 //   pesfmt_dump rig --pes21-root DIR
 //   pesfmt_dump fmdl <fpk path> --pes21-root DIR   (every .fmdl inside; summary)
+//   pesfmt_dump effects <fpk path> --pes21-root DIR  (effect_config.xml of one pack, as JSON)
 //   pesfmt_dump ftex <path> --pes21-root DIR
 //   pesfmt_dump gani <name|0xHASH> --pes21-root DIR  (decoded keys of one body clip)
 //   pesfmt_dump names --pes21-root DIR               (recovered body clip names, one per line)
@@ -19,6 +20,7 @@
 #include "pes/anim_names.hpp"
 #include "pes/ask.hpp"
 #include "pes/clips.hpp"
+#include "pes/effects.hpp"
 #include "pes/fmdl.hpp"
 #include "pes/fpk.hpp"
 #include "pes/ftex.hpp"
@@ -54,7 +56,7 @@ std::string Q4(pes::Quat q) {
 }
 
 int Usage() {
-  std::fprintf(stderr, "usage: pesfmt_dump <mounts|ls PREFIX|cat PATH|ask PATH|skl FPK SUFFIX|fmdl FPK|rig> --pes21-root DIR\n");
+  std::fprintf(stderr, "usage: pesfmt_dump <mounts|ls PREFIX|cat PATH|ask PATH|skl FPK SUFFIX|fmdl FPK|effects FPK|rig> --pes21-root DIR\n");
   return 2;
 }
 
@@ -149,6 +151,22 @@ int main(int argc, char** argv) {
       return 0;
     }
     err = "no fpk entry ends with " + sfx;
+    return fail();
+  }
+  // The effect_config.xml of one effect pack, as the scene reader's JSON.
+  if (cmd == "effects" && pos.size() == 2) {
+    auto bytes = vfs.Read(pos[1], &err);
+    if (!bytes) return fail();
+    auto fpk = pes::FpkArchive::Parse(*bytes, &err);
+    if (!fpk) return fail();
+    for (const auto& e : fpk->entries) {
+      if (e.path.size() < 17 || e.path.compare(e.path.size() - 17, 17, "effect_config.xml") != 0) continue;
+      auto cfg = pes::ParseEffectConfig(std::string_view(reinterpret_cast<const char*>(bytes->data() + e.offset), e.size), &err);
+      if (!cfg) return fail();
+      std::printf("%s\n", pes::EffectConfigToJson(*cfg).c_str());
+      return 0;
+    }
+    err = "no effect_config.xml in " + pos[1];
     return fail();
   }
   // Materials of every fmdl in a pack: technique, shader, texture roles, params.
