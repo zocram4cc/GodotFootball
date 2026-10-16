@@ -14,7 +14,11 @@ namespace godot {
 // point (the ball). Every camera step is one rendered frame at PES's 54 Hz
 // reference (report CameraTargetRE item 3), fixed-rate, so the smoothing, the
 // k spring and the ball-height lift all run at PES's speed regardless of how
-// fast the engine renders.
+// fast the engine renders. The lift reads the SMOOTHED focus y (item 1); GF has
+// no separate focus point, so the ball stands in for it and its y is fed
+// smoothed. PES's own live ground-ball pose needs a lift of 0.40 (target.y =
+// 0.90), which the decoded clamp((y+4)*60/54, 0, 5) pins to y = -3.64, so the
+// in-air numeric confirmation of the input is still OPEN (report item 1).
 class PesBroadcastCamera : public RefCounted {
   GDCLASS(PesBroadcastCamera, RefCounted)
 
