@@ -161,7 +161,9 @@ std::optional<BallRecordConstants> LoadBallRecordConstants(const PesVfs& vfs, st
       {0x0AC, &c.nonSpinMax},           {0x0B0, &c.nonSpinMin},
       {0x0B4, &c.nonSpinRate},          {0x0CC, &c.roll},
       {0x0D0, &c.rollToBoundAdd},       {0x0D4, &c.rollToBoundRollMax},
-      {0x0D8, &c.rollToBoundRollMin},   {0x0F4, &c.stopSpeed},
+      {0x0D8, &c.rollToBoundRollMin},   {0x0E0, &c.rollToSpeedMaxRoll},
+      {0x0E4, &c.rollToSpeedSpeedYMax}, {0x0E8, &c.rollToSpeedSpeedYMin},
+      {0x0F4, &c.stopSpeed},
   };
   for (const Slot& s : kScalars)
     if (!ReadRecordFloat(rec, s.at, s.out)) {

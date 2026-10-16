@@ -1,5 +1,6 @@
 #include "onthepitch/pesballphysics.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace pesball {
@@ -18,6 +19,9 @@ inline float Ramp(float v, float lo, float hi) {
 
 // km/h from m/s, with the image's own 3.6 (.rdata 0x14259ce38).
 inline float ToKmh(const pes::PesBallConstants& c, float mps) { return mps * c.image.kmhPerMs; }
+
+// .rdata 0x142578480: PES's pi, as a float (the spin cap's and the rolling block's 2 pi).
+constexpr float kPi = 3.14159274f;
 
 // 100.0 (.rdata 0x14253ee30): the per-cent divisor of the add-rate fields.
 constexpr float kPercent = 100.0f;
@@ -161,13 +165,14 @@ BounceResult Bounce(const pes::PesBallConstants& c, int mode, float vy, float ho
   return out;
 }
 
-float SpinCapScale(const pes::PesBallConstants& c, int mode, float spinRad) {
-  // Report 3.4: |spin| is capped at boundRollMax rad/s on every contact tick; a
-  // ball already below the cap is untouched.
-  (void)mode;
+float SpinCapScale(const pes::PesBallConstants& c, float horizontalSpeed_mps) {
+  // Report 3.4 as PES does it (FUN_140876360 0x14087704e..0x140877081): the horizontal rolling frequency
+  // f = |v_xz| / (2 pi r), in Hz, is capped at boundRollMax. A ball already below the cap is untouched; above
+  // it, the X and Z spin scale by boundRollMax / f. PES compares f^2 with boundRollMax^2.
   const float cap = c.record.boundRollMax;
-  if (spinRad <= cap) return 1.0f;
-  return cap / spinRad;
+  const float rollHz = horizontalSpeed_mps / (2.0f * kPi * c.image.ballRadius);
+  if (rollHz <= cap) return 1.0f;
+  return cap / rollHz;
 }
 
 GrounderResult GrounderKick(const pes::PesBallConstants& c, int mode, float gateX, float fracZ,
@@ -205,8 +210,8 @@ GrounderResult GrounderKick(const pes::PesBallConstants& c, int mode, float gate
   const float f = (scaled - static_cast<float>(static_cast<int>(scaled))) * kGrounderFracScale;
   out.applied = true;
   out.keepMultiplier = f + r.grounderFrictionRate;
-  out.speedTrim_mps = horizontalSpeed_mps * r.grounderBoundYAdd * (1.0f - f);
-  out.vyTrim_mps = out.speedTrim_mps;
+  // 0x140876a57..0x140876a5c: vy -= |v_xz| * grounderBoundYAdd * (1 - f). Nothing else is trimmed.
+  out.vyTrim_mps = horizontalSpeed_mps * r.grounderBoundYAdd * (1.0f - f);
   (void)tickIndex;
   return out;
 }
@@ -274,8 +279,68 @@ void FlightTick(const pes::PesBallConstants& c, BallState* state, float dt_s, bo
   state->position.z += state->velocity.z * dt_s;
 }
 
+namespace {
+
+// PES's rolling block (report 3.3; contact-2 §2; FUN_140876360 0x140876c0f..0x140876f6e). A spinning ball's
+// contact adds horizontal deltas from its spin. e is the unit pre-flight heading. The spin across it gives the
+// rotation frequency A, the spin along it B; both are speed-capped and scaled, and the tangential vector is
+// T = (A e_x + B e_z, A e_z - B e_x). Every constant is a record row or scalar, or a VA literal named below.
+struct TangentialXZ {
+  float x;
+  float z;
+};
+
+// .rdata 0x1425a9668: below this heading the block has no direction and adds nothing.
+constexpr float kHeadingEpsilon_mps = 0.001f;
+// .rdata 0x1425cc23c (8 km/h in m/s): the rolling flag's speed limit.
+constexpr float kRollingSpeed_mps = 2.22222233f;
+
+
+TangentialXZ RollingTangential(const pes::PesBallConstants& c, int mode, const BallState& pre,
+                               float vxPost, float vzPost, float wx, float wz) {
+  const pes::BallRecordConstants& r = c.record;
+  const float headingSpeed = std::sqrt(pre.velocity.x * pre.velocity.x + pre.velocity.z * pre.velocity.z);
+  if (!(headingSpeed >= kHeadingEpsilon_mps)) return {0.0f, 0.0f};
+  const float ex = pre.velocity.x / headingSpeed, ez = pre.velocity.z / headingSpeed;
+  const float twoPi = 2.0f * kPi;
+  // The rotation frequencies (Hz): spin across the heading (A) and along it (B).
+  const float aDot = (ez * wx - ex * wz) / twoPi;
+  const float bDot = -(ex * wx + ez * wz) / twoPi;
+  // The rolling frequency of the post-flight velocity, capped at boundRollMax (report 3.4's cap, in Hz).
+  const float rollHz = std::sqrt(vxPost * vxPost + vzPost * vzPost) / (c.image.ballRadius * twoPi);
+  const float over = std::max(0.0f, rollHz - r.boundRollMax);
+  // RollRamp: the XZ base plus the add rate across the downward speed (km/h), over the XZ speed bounds.
+  const float downKmh = -ToKmh(c, pre.velocity.y);
+  const float rollRamp =
+      r.At(pes::BallRecordConstants::kBoundToRotationBaseXZ, mode) +
+      r.At(pes::BallRecordConstants::kBoundToRotationAddRateXZ, mode) *
+          Ramp(downKmh, r.At(pes::BallRecordConstants::kBoundToRotationSpeedMinXZ, mode),
+               r.At(pes::BallRecordConstants::kBoundToRotationSpeedMaxXZ, mode));
+  const float s3 = (rollHz - over - aDot) * rollRamp + aDot;
+  // The blend B: 1 while |A - S3| <= 1, falling linearly to 0 at 4 (the 4.0 and -3.0 .rdata literals).
+  const float s = Clamp01((4.0f - std::fabs(aDot - s3)) / 3.0f);
+  const float blend = 0.5f + 0.5f * s;
+  // Both rates are clamped to the record's speed cap (rollToSpeedMaxRoll, BallBase +0x2AC).
+  const float cap = r.rollToSpeedMaxRoll;
+  const float aCapped = std::clamp(aDot - blend * s3, -cap, cap);
+  const float bCapped = std::clamp(bDot * rollRamp, -cap, cap);
+  // The Y rate: from the base to 1 as the slope |vy|/|v_xz| goes from rollToSpeedSpeedYMin to YMax.
+  const float slope = std::fabs(pre.velocity.y) / headingSpeed;
+  const float t = Clamp01((slope - r.rollToSpeedSpeedYMin) /
+                          (r.rollToSpeedSpeedYMax - r.rollToSpeedSpeedYMin));
+  const float base = r.At(pes::BallRecordConstants::kRollToSpeedSpeedYRateBase, mode);
+  const float yRate = base + (1.0f - base) * t;
+  const float vmax = r.At(pes::BallRecordConstants::kRollToSpeedMaxKph, mode) * c.image.milli /
+                     c.image.secondsPerHour;
+  const float a = yRate * aCapped * vmax / cap;
+  const float b = yRate * bCapped * vmax / cap;
+  return {a * ex + b * ez, a * ez - b * ex};
+}
+
+}  // namespace
+
 void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tickIndex, bool airborne,
-                 bool quatIntegrate, float step_s) {
+                 bool quatIntegrate, float step_s, const BallState* preFlight) {
   // The contact mode. Report 3.1 closed report 7.2: the mode byte is written by
   // FUN_1408723d0 (0x140872479, `mov [rax+0x279d], bl`) as
   // `modeTable[pitch*3 + weather]`, and the table is read out of the install's
@@ -288,9 +353,17 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
   // integration on a contact tick - y stays r and x,z stay where the flight
   // step of this tick put them.
   const float r = c.image.ballRadius;
+  // The pre-flight state, or the current one with no flight step. PES reads the imp cap, the grounder and
+  // the rolling flag from its entry copies (FUN_140876360 [rsp+0x58/0x60], bVar3 at 0x14087685e).
+  const BallState& pre = preFlight ? *preFlight : *state;
+  // bVar3: a ball that starts exactly on the ground and moves under 2.2222 m/s is rolling; the rolling block is
+  // skipped for it (0x1425cc23c = 8 km/h in m/s).
+  const float preHorizontal = std::sqrt(pre.velocity.x * pre.velocity.x + pre.velocity.z * pre.velocity.z);
+  const bool rolling = pre.position.y == r && preHorizontal < kRollingSpeed_mps;
   state->position.y = r;
   const float vx = state->velocity.x, vy = state->velocity.y, vz = state->velocity.z;
   const float horizontal = std::sqrt(vx * vx + vz * vz);
+  const float horizontalPre = preHorizontal;
   const float spinRad =
       std::sqrt(state->spinRaw.x * state->spinRaw.x + state->spinRaw.y * state->spinRaw.y +
                 state->spinRaw.z * state->spinRaw.z) *
@@ -306,22 +379,12 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
   // so a caller stepping any other length stays exact.
   const float speed3d = std::sqrt(horizontal * horizontal + vy * vy);
   float keep = KeepFactorPerStep(RollingKeepFactor(c, mode, speed3d), step_s);
-  float speed = horizontal;
-
-  // Report 2.5: the grounder kick trims the horizontal speed and K. The trim is
-  // a speed, not a factor, so it is used as-is; the keep product is a per-tick
-  // factor chain and is converted as one.
-  //
-  // Report 2's correction 3 (1.4): the trim lands on VY, not on the horizontal
-  // speed: `vy -= |v_xz|*grounderBoundYAdd*(1-f)` at 0x140876a5c, stored to the
-  // min() operand at 0x140876a61. Only K is multiplied here; the vertical trim is
-  // applied to the Bounce() input below.
-  const GrounderResult grounder =
-      GrounderKick(c, mode, state->position.x, state->position.z, tickIndex, horizontal, vy);
-  if (grounder.applied) {
-    keep *= KeepFactorPerStep(grounder.keepMultiplier, step_s);
-    speed = std::max(0.0f, horizontal - grounder.speedTrim_mps);
-  }
+  // Report 2.5: the grounder kick. Its guards, its gate (old x, old z) and its vertical trim read the
+  // state from before this tick's flight step (FUN_140876360's entry values at [rsp+0x48..0x60]).
+  // Only K is multiplied; the trim lands on vy alone (report 2's correction 3, 0x140876a5c).
+  const GrounderResult grounder = GrounderKick(c, mode, pre.position.x, pre.position.z, tickIndex,
+                                               horizontalPre, pre.velocity.y);
+  if (grounder.applied) keep *= KeepFactorPerStep(grounder.keepMultiplier, step_s);
 
   // Report 3.1: the tangential friction multiplier F. F is the per-tick ratio
   // PES multiplies into K, so it converts with the same exponent. The F of the
@@ -335,28 +398,30 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
   // Report 2's correction 3 gives the trim: `vy -= |v_xz|*grounderBoundYAdd*(1-f)`
   // at 0x140876a5c, stored to the min()'s second operand at 0x140876a61.
   const float vyTrimmed = grounder.applied ? vy - grounder.vyTrim_mps : vy;
-  float newVy = Bounce(c, mode, vyTrimmed, horizontal, spinHorizontal).vy;
+  float newVy = Bounce(c, mode, vyTrimmed, horizontalPre, spinHorizontal).vy;
 
-  // The horizontal: the per-tick ratio for a coupled roller is K (report 5.2),
-  // applied along the pre-contact direction, after the grounder trim.
-  const float hScale = horizontal > 0.0f ? (speed * keep) / horizontal : 0.0f;
-  float newVx = vx * hScale, newVz = vz * hScale;
+  // The horizontal: W = K*v + T, with T the tangential vector of PES's rolling block (contact-2 §2,
+  // `Wx = K*vx + T_x`). A rolling ball (bVar3) skips the block.
+  const TangentialXZ tangential =
+      rolling ? TangentialXZ{0.0f, 0.0f}
+              : RollingTangential(c, mode, pre, vx, vz, state->spinRaw.x * c.image.spinScale,
+                                  state->spinRaw.z * c.image.spinScale);
+  float newVx = vx * keep + tangential.x, newVz = vz * keep + tangential.z;
 
-  // Report 3.4: the spin rebuild and the cap. spin_raw += (omega_new/492.181 -
-  // spin_raw) * k with k = 1 on the render path and the contact-vs-air blend
-  // otherwise, and omega_new = v_tangential / r capped at boundRollMax rad/s.
-  const float spinScale = c.image.spinScale, invSpinScale = c.image.invSpinScale;
-  const float newSpinX = (newVx / r) * invSpinScale;
-  const float newSpinY = (newVy / r) * invSpinScale;
-  const float newSpinZ = (newVz / r) * invSpinScale;
-  const float newSpinRad = std::sqrt(newSpinX * newSpinX + newSpinY * newSpinY +
-                                     newSpinZ * newSpinZ) *
-                           spinScale;
-  const float capScale = SpinCapScale(c, mode, newSpinRad);
-  const float blendRaw = (airborne || quatIntegrate) ? pes::kRawSpinBlendFactor : pes::kRawSpinBlendFactor;
-  state->spinRaw.x = (newSpinX * capScale - state->spinRaw.x) * blendRaw + state->spinRaw.x;
-  state->spinRaw.y = (newSpinY * capScale - state->spinRaw.y) * blendRaw + state->spinRaw.y;
-  state->spinRaw.z = (newSpinZ * capScale - state->spinRaw.z) * blendRaw + state->spinRaw.z;
+  // Report 3.4: the spin rebuild and the cap, from the post-contact velocity W. spin_raw := w_raw with
+  // k = 1 on the airborne path (contact-2 §2).
+  const float invSpinScale = c.image.invSpinScale;
+  // PES's rolling spin, raw: w = (W_z, 0, -W_x)/r (live: the rolling records match this with ratio 1.0).
+  // Report 3.4's cap scales X and Z only (0x14087708d, `xmm13, xmm12 *= 7.5/f`); W_y = 0 keeps Y at zero
+  // (`[rbp+0x98] = 0`, contact-2 §2). The blend is k = 1 on the airborne path (contact-2 §2).
+  const float capScale = SpinCapScale(c, std::sqrt(newVx * newVx + newVz * newVz));
+  const float newSpinX = (newVz / r) * invSpinScale * capScale;
+  const float newSpinY = 0.0f;
+  const float newSpinZ = (-newVx / r) * invSpinScale * capScale;
+  const float blendRaw = pes::kRawSpinBlendFactor;
+  state->spinRaw.x = (newSpinX - state->spinRaw.x) * blendRaw + state->spinRaw.x;
+  state->spinRaw.y = (newSpinY - state->spinRaw.y) * blendRaw + state->spinRaw.y;
+  state->spinRaw.z = (newSpinZ - state->spinRaw.z) * blendRaw + state->spinRaw.z;
 
   // Report 3.4's stop gate, with report 2's correction 2: the gate zeroes ONLY
   // vx and vz (`xmm13`, `xmm3`, `xmm12` at 0x1408772d5/2d9/2dc; the vy register
@@ -379,18 +444,14 @@ bool BallTick(const pes::PesBallConstants& c, BallState* state, unsigned tickInd
     state->velocity = pes::Vec3(0.0f, 0.0f, 0.0f);
     return false;
   }
-  const float r = c.image.ballRadius;
-  if (state->position.y > r) {
-    // Report 6.3: flight. A step that crosses the ground is the landing, resolved in this tick.
-    FlightTick(c, state, dt_s, false);
-    if (state->position.y > r) return false;
-    ContactTick(c, state, tickIndex, true, false, dt_s);
-    return true;
-  }
-  // Report 2.3: ground contact. The contact tick rewrites the velocity, and the position follows
-  // on it, as PES's next flight step does.
-  ContactTick(c, state, tickIndex, true, false, dt_s);
-  state->position = state->position + state->velocity * dt_s;
+  // Report 2.1 and 2.3 (0x140876488, 0x140876800): a non-resting ball always takes its flight step
+  // first, then the contact test runs on the new position. `r <= y` is airborne, so a ball sitting
+  // exactly on the ground and still rising lifts by its integrated speed. Only a step that ends below
+  // r is a contact, resolved in this same tick from the pre-flight state (report 6.3, 2.5).
+  const BallState preFlight = *state;
+  FlightTick(c, state, dt_s, false);
+  if (state->position.y >= c.image.ballRadius) return false;
+  ContactTick(c, state, tickIndex, true, false, dt_s, &preFlight);
   return true;
 }
 
