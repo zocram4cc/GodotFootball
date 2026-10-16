@@ -564,7 +564,7 @@ void Team::Process() {
   // definition not a stale one. The `!IsInSetPiece()` this replaces was a
   // workaround for the throw-in stall, whose real cause - a restart taken past
   // the lines, so no kick anim could reach the ball - is fixed elsewhere
-  // (OffsideRule::RestartPosition folds the spot inside the pitch). Keeping it
+  // (OffsideRule::RestartPosition clamps the spot inside the pitch). Keeping it
   // would have left PASS_GET ineligible exactly when PES grants it.
   if (Player* receiver = match->IsInPlay() ? PassGetReceiver() : nullptr) {
     designatedTeamPossessionPlayer = receiver;

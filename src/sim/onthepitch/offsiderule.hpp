@@ -10,6 +10,7 @@
 #include "../base/math/vector3.hpp"
 #include "../gametypes.hpp"
 #include "pesjudge.hpp"
+#include "pesstoppage.hpp"
 
 namespace OffsideRule {
 
@@ -90,12 +91,13 @@ bool IsDeliberatePlay(e_TouchType touchType);
 // false when nobody is flagged.
 bool TouchResetsPhase(bool opponentOfFlagged, e_TouchType touchType);
 
-// Law 11: the free kick is taken where the offence occurred - where the
-// flagged player became involved in active play - not where he stood when the
-// pass was struck. That holds even when he has dropped back into his own half
-// before playing the ball (IFAB 2016 clarification).
-blunted::Vector3 RestartPosition(const blunted::Vector3& positionAtPass,
-                                 const blunted::Vector3& positionAtInvolvement);
+// The restart spot a foul or ball-out whistle gives: PES's restart-spot writer
+// (FUN_14050e770, explicit-spot path). A spot inside the restart team's own goal area is
+// pushed out of it, the spot is clamped to the outer lines (F0, F1), and a free kick is kept
+// 2 m inside the touchline. `attackSign` is the restart team's attack direction (+1 or -1).
+// The offence's spot is the flagged player's position (Law 11), taken by the caller.
+blunted::Vector3 RestartPosition(const blunted::Vector3& spot, int attackSign, e_SetPiece restart,
+                                 const pes::RestartSpotConstants& k);
 
 }  // namespace OffsideRule
 

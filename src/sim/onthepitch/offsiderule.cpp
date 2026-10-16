@@ -138,27 +138,26 @@ bool TouchResetsPhase(bool opponentOfFlagged, e_TouchType touchType) {
   return IsDeliberatePlay(touchType);
 }
 
-blunted::Vector3 RestartPosition(const blunted::Vector3& positionAtPass,
-                                 const blunted::Vector3& positionAtInvolvement) {
-  (void)positionAtPass;  // recorded to judge the offence, not to restart from
-  blunted::Vector3 out = positionAtInvolvement;
-  // The offence's own spot, pulled inside the pitch. Law 11 keeps the kick where
-  // the offence happened, and the flagged player is almost always inside the
-  // pitch - but the involvement is his live position, and a man beyond his
-  // opponents' goal line when he plays the ball would put the restart outside
-  // it, where no kick anim can reach the ball. The kick would then never be
-  // played and the restart would hold until the period ended. The fold keeps
-  // the spot's meaning by mirroring its depth inside the line rather than
-  // clamping it flat onto it: a kick from 0.5 m in aims down the pitch, while
-  // one clamped onto the line aims along it.
-  constexpr float kRestartLineMargin_m = 0.5f;
-  const float limit = pitchHalfW - kRestartLineMargin_m;
-  if (out.coords[0] > limit) out.coords[0] = 2.0f * limit - out.coords[0];
-  if (out.coords[0] < -limit) out.coords[0] = -2.0f * limit - out.coords[0];
-  // The same fold across the touchline: a spot past it cannot be kicked from (humanoid.cpp's
-  // touch reach), and a spot on the line (a throw-in) is left where it is.
-  if (out.coords[1] > pitchHalfH) out.coords[1] = 2.0f * pitchHalfH - out.coords[1];
-  if (out.coords[1] < -pitchHalfH) out.coords[1] = -2.0f * pitchHalfH - out.coords[1];
+blunted::Vector3 RestartPosition(const blunted::Vector3& spot, int attackSign, e_SetPiece restart,
+                                 const pes::RestartSpotConstants& k) {
+  // PES's restart-spot writer FUN_14050e770 (VA 0x14050e770; TouchReach's decode), explicit-spot
+  // path, in the writer's order. The offsets come from the install (k); F0, F1 and F4 are
+  // gametypes.hpp's FieldInfo constants.
+  const auto sign = [](float v) { return v < 0.0f ? -1.0f : 1.0f; };
+  blunted::Vector3 out = spot;
+  float& x = out.coords[0];
+  float& z = out.coords[1];
+  // A spot inside the restart team's own goal area is pushed out of it.
+  if (std::fabs(z) < pesGoalAreaHalfWidth && attackSign * x < -pesGoalAreaLineX) {
+    x = sign(x) * (pesGoalAreaLineX + k.goalAreaPushOut_m);
+    z = sign(z) * k.goalAreaPushZ_m;
+  }
+  // Clamped inside the outer lines, with no margin.
+  if (std::fabs(x) > pesFieldHalfLength) x = sign(x) * pesFieldHalfLength;
+  if (std::fabs(z) > pesFieldHalfWidth) z = sign(z) * pesFieldHalfWidth;
+  // A free kick is kept inside the touchline by the writer's inset.
+  if (restart == e_SetPiece_FreeKick && std::fabs(z) > pesFieldHalfWidth - k.freeKickInset_m)
+    z = sign(z) * (pesFieldHalfWidth - k.freeKickInset_m);
   return out;
 }
 

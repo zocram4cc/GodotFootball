@@ -649,9 +649,11 @@ void Referee::PrepareSetPiece(e_SetPiece setPiece) {
   // referee's "taker touched the ball" exit never fires, and the restart holds
   // until the period ends. Measured on the fixture: a free kick whose ball lay
   // at x = 53.3, 0.8 m past the line, holding for 399 of a match's 425 forced
-  // ticks. The spot keeps its meaning by folding its depth inside the line,
-  // which keeps the lateral offset the kick aims along.
-  buffer.restartPos = OffsideRule::RestartPosition(Vector3(0), buffer.restartPos);
+  // ticks. The spot keeps its meaning by clamping it inside the outer lines (PES's writer,
+  // OffsideRule::RestartPosition), which keeps the lateral offset the kick aims along.
+  buffer.restartPos = OffsideRule::RestartPosition(
+      buffer.restartPos, -static_cast<int>(match->GetTeam(buffer.teamID)->GetSide()), setPiece,
+      match->GetPesRestartSpotConstants());
   match->ResetSituation(buffer.restartPos);
   match->GetMatchData()->RecordPassRestart();
 
@@ -743,9 +745,7 @@ void Referee::BallTouched() {
           // PES 2021's pending offside (5.1): the Judge sets a pending foul
           // here and the whistle waits out the gs/2 hold in Process.
           pendingOffside.player = playerIter->first;
-          pendingOffside.spot =
-              OffsideRule::RestartPosition(playerIter->second.positionAtTouch,
-                                           playerIter->first->GetPosition());
+          pendingOffside.spot = playerIter->first->GetPosition();
           pendingOffside.category = playerIter->second.category;
           pendingOffside.since_ms = match->GetActualTime_ms();
         }

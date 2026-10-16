@@ -66,4 +66,15 @@ struct StoppageConstants {
 // wrong duration.
 std::optional<StoppageConstants> LoadStoppageConstants(const PeImage& exe, std::string* error);
 
+// PES 2021's restart-spot writer (FUN_14050e770, explicit-spot path; VA 0x14050e770, decoded
+// in the TouchReach report). These offsets are .rdata floats, read from the install. The field
+// rows the writer also uses (F0, F1, F4) are not in the image (docs/re/pes-re-fieldinfo.md
+// section 4), so they stay gametypes.hpp's named constants.
+struct RestartSpotConstants {
+  float goalAreaPushOut_m = 0.0f;  // .rdata 0x14257a194: pushed out of the goal area past F4
+  float goalAreaPushZ_m = 0.0f;    // .rdata 0x1425ab138: the spot's z once pushed out
+  float freeKickInset_m = 0.0f;    // .rdata 0x142565604: a free kick inside the touchline
+};
+std::optional<RestartSpotConstants> LoadRestartSpotConstants(const PeImage& exe, std::string* error);
+
 }  // namespace pes

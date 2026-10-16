@@ -163,6 +163,10 @@ class PesLibrary : public RefCounted {
   const pes::StoppageConstants* stoppage_constants() const {
     return stoppageConstants_ ? &*stoppageConstants_ : nullptr;
   }
+  // PES 2021's restart-spot writer offsets (docs/re/pes-re-foul-choreography.md 9).
+  const pes::RestartSpotConstants* restart_spot_constants() const {
+    return restartSpotConstants_ ? &*restartSpotConstants_ : nullptr;
+  }
   // PES 2021's kick execution error (docs/re/pes-re-kick-scatter.md).
   const pes::KickErrorConstants* kick_error_constants() const {
     return kickErrorConstants_ ? &*kickErrorConstants_ : nullptr;
@@ -205,6 +209,7 @@ class PesLibrary : public RefCounted {
   std::optional<pes::KeeperConstants> keeperConstants_;
   std::optional<pes::StaminaConstants> staminaConstants_;
   std::optional<pes::StoppageConstants> stoppageConstants_;
+  std::optional<pes::RestartSpotConstants> restartSpotConstants_;
   std::optional<pes::KickErrorConstants> kickErrorConstants_;
   std::optional<pes::offball::OffBallConstants> offBallConstants_;
   std::optional<pes::SetPieceTakerConstants> setPieceTakerConstants_;

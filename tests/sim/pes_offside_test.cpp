@@ -98,40 +98,95 @@ TEST(PesOffsideLine, FewerThanTwoDefendersIsTheGoalLine) {
 // position is therefore pulled inside the pitch, keeping the spot's lateral
 // offset and its distance from the goal line so the kick stays where the offence
 // was.
-TEST(PesOffsideRestart, AnOffsideSpotPastTheLineStaysInsideThePitch) {
-  // Beyond the goal line: the depth is folded back about the limit, so a spot
-  // 0.8 m past the line becomes one 0.7 m inside it - the same offset, on the
-  // side the kick can actually be played from. (HALF_M above is the synthetic
-  // pitch the line tests use; the restart fold is against the real one,
-  // pitchHalfW.)
-  const float limit = pitchHalfW - 0.5f;
-  EXPECT_FLOAT_EQ(OffsideRule::RestartPosition({0, 0, 0}, {53.3f, 6.5f, 0.0f}).coords[0],
-                  2.0f * limit - 53.3f);
-  // Inside the pitch: untouched.
-  EXPECT_FLOAT_EQ(OffsideRule::RestartPosition({0, 0, 0}, {30.0f, 6.5f, 0.0f}).coords[0], 30.0f);
-  // Past the touchline on the opposite side: the same fold, on that side.
-  EXPECT_FLOAT_EQ(OffsideRule::RestartPosition({0, 0, 0}, {-53.3f, 6.5f, 0.0f}).coords[0],
-                   -2.0f * limit + 53.3f);
-  // The lateral offset survives the fold: it is what the kick aims along.
-  EXPECT_FLOAT_EQ(OffsideRule::RestartPosition({0, 0, 0}, {53.3f, 6.5f, 0.0f}).coords[1], 6.5f);
+// The writer's offsets, read from the install. The clamp tests need them.
+std::optional<pes::RestartSpotConstants> RestartSpotFromInstall(std::string* err) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) return std::nullopt;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", err);
+  if (!exe) return std::nullopt;
+  return pes::LoadRestartSpotConstants(*exe, err);
 }
 
-// A spot past the touchline is pulled back inside it. humanoid.cpp refuses every touch
-// frame whose predicted ball is past the pitch, its line and a 0.11 m reach, so a kick
-// from a spot out there is never played and the restart holds forever: the 16-10-26 seed-7
-// free kick at y 34.2 (0.2 m past the line) stalled this way.
+TEST(PesOffsideRestart, AnOffsideSpotPastTheLineIsClampedToTheFieldLine) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  const auto k = RestartSpotFromInstall(&err);
+  ASSERT_TRUE(k) << err;
+  // PES's restart writer clamps the spot to F0, the outer goal-line edge, and keeps the
+  // lateral offset the kick aims along.
+  const Vector3 past = OffsideRule::RestartPosition({53.3f, 6.5f, 0.0f}, 1, e_SetPiece_FreeKick, *k);
+  EXPECT_FLOAT_EQ(past.coords[0], pesFieldHalfLength);
+  EXPECT_FLOAT_EQ(past.coords[1], 6.5f);
+  // Inside the pitch: untouched.
+  EXPECT_FLOAT_EQ(
+      OffsideRule::RestartPosition({30.0f, 6.5f, 0.0f}, 1, e_SetPiece_FreeKick, *k).coords[0], 30.0f);
+  // Past the line at the opponents' end (attacking -x): clamped on that side, not pushed out of
+  // the restart team's goal area.
+  EXPECT_FLOAT_EQ(
+      OffsideRule::RestartPosition({-53.3f, 6.5f, 0.0f}, -1, e_SetPiece_FreeKick, *k).coords[0],
+      -pesFieldHalfLength);
+}
+
+// A spot inside the restart team's own goal area is pushed out of it (the writer's first step).
+TEST(PesOffsideRestart, ASpotInsideTheRestartTeamsGoalAreaIsPushedOut) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  const auto k = RestartSpotFromInstall(&err);
+  ASSERT_TRUE(k) << err;
+  // The team attacks +x, so its own goal is at -x: (-50, 5) is inside the goal area.
+  const Vector3 spot = OffsideRule::RestartPosition({-50.0f, 5.0f, 0.0f}, 1, e_SetPiece_FreeKick, *k);
+  EXPECT_FLOAT_EQ(spot.coords[0], -(pesGoalAreaLineX + k->goalAreaPushOut_m));
+  EXPECT_FLOAT_EQ(spot.coords[1], k->goalAreaPushZ_m);
+}
+
+// A spot past the touchline is pulled back inside it. humanoid.cpp refuses every touch frame
+// whose predicted ball is past the pitch, its line and a 0.11 m reach, so a kick from a spot out
+// there is never played and the restart holds forever: the 16-10-26 seed-7 free kick at y 34.2
+// (0.2 m past the line) stalled this way. The writer insets a free kick from the touchline.
 TEST(PesOffsideRestart, ATouchlineSpotPastTheLineStaysInsideThePitch) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  const auto k = RestartSpotFromInstall(&err);
+  ASSERT_TRUE(k) << err;
   constexpr float kPastTouchline_m = 0.2f;
   const float y = pitchHalfH + kPastTouchline_m;
-  const Vector3 spot = OffsideRule::RestartPosition({0, 0, 0}, {5.3f, y, 0.0f});
-  EXPECT_LE(std::fabs(spot.coords[1]), pitchHalfH);
-  EXPECT_FLOAT_EQ(spot.coords[0], 5.3f);
+  const Vector3 kick = OffsideRule::RestartPosition({5.3f, y, 0.0f}, 1, e_SetPiece_FreeKick, *k);
+  EXPECT_FLOAT_EQ(kick.coords[1], pesFieldHalfWidth - k->freeKickInset_m);
+  EXPECT_FLOAT_EQ(kick.coords[0], 5.3f);
   // Symmetric on the other touchline.
-  const Vector3 below = OffsideRule::RestartPosition({0, 0, 0}, {5.3f, -y, 0.0f});
-  EXPECT_LE(std::fabs(below.coords[1]), pitchHalfH);
+  const Vector3 below = OffsideRule::RestartPosition({5.3f, -y, 0.0f}, 1, e_SetPiece_FreeKick, *k);
+  EXPECT_FLOAT_EQ(below.coords[1], -(pesFieldHalfWidth - k->freeKickInset_m));
+  // A throw-in past the line is clamped to the line itself, with no inset.
+  const Vector3 throwIn = OffsideRule::RestartPosition({5.3f, y, 0.0f}, 1, e_SetPiece_ThrowIn, *k);
+  EXPECT_FLOAT_EQ(throwIn.coords[1], pesFieldHalfWidth);
   // A spot exactly on the line (a throw-in) is untouched.
-  const Vector3 onLine = OffsideRule::RestartPosition({0, 0, 0}, {5.3f, pitchHalfH, 0.0f});
+  const Vector3 onLine =
+      OffsideRule::RestartPosition({5.3f, pitchHalfH, 0.0f}, 1, e_SetPiece_ThrowIn, *k);
   EXPECT_FLOAT_EQ(onLine.coords[1], pitchHalfH);
+}
+
+// Each loaded offset is the float in the install at its VA: the loader decodes the raw bytes
+// there. The inset shares its VA with the stoppage scene range, so the two loaders must agree.
+TEST(PesOffsideInstall, TheRestartSpotFloatsAreTheInstallsRawFloats) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(std::getenv("PES21_ROOT")) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe) << err;
+  const auto k = pes::LoadRestartSpotConstants(*exe, &err);
+  ASSERT_TRUE(k) << err;
+  const auto rawFloatAt = [&](uint64_t va) {
+    uint8_t bytes[4] = {};
+    EXPECT_TRUE(exe->ReadVa(va, sizeof bytes, bytes));
+    float value = 0.0f;
+    std::memcpy(&value, bytes, sizeof value);
+    return value;
+  };
+  EXPECT_FLOAT_EQ(k->goalAreaPushOut_m, rawFloatAt(0x14257a194));
+  EXPECT_FLOAT_EQ(k->goalAreaPushZ_m, rawFloatAt(0x1425ab138));
+  EXPECT_FLOAT_EQ(k->freeKickInset_m, rawFloatAt(0x142565604));
+  const auto stoppage = pes::LoadStoppageConstants(*exe, &err);
+  ASSERT_TRUE(stoppage) << err;
+  EXPECT_FLOAT_EQ(k->freeKickInset_m, stoppage->sceneExciteRange_m);
 }
 
 TEST(PesOffsideLine, ClampsToTheGoalLine) {

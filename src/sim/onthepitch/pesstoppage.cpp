@@ -76,4 +76,18 @@ std::optional<StoppageConstants> LoadStoppageConstants(const PeImage& exe, std::
   return k;
 }
 
+std::optional<RestartSpotConstants> LoadRestartSpotConstants(const PeImage& exe, std::string* error) {
+  constexpr uint64_t PUSH_OUT_VA = 0x14257a194;  // goal-area push-out offset
+  constexpr uint64_t PUSH_Z_VA = 0x1425ab138;    // goal-area push-out z
+  constexpr uint64_t INSET_VA = 0x142565604;     // free-kick touchline inset
+  RestartSpotConstants k{};
+  if (!ReadFloat(exe, PUSH_OUT_VA, &k.goalAreaPushOut_m) ||
+      !ReadFloat(exe, PUSH_Z_VA, &k.goalAreaPushZ_m) ||
+      !ReadFloat(exe, INSET_VA, &k.freeKickInset_m)) {
+    *error = "restart spot constant: .rdata float unreadable";
+    return std::nullopt;
+  }
+  return k;
+}
+
 }  // namespace pes
