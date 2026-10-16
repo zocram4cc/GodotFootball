@@ -12,6 +12,7 @@
 
 #include "onthepitch/match.hpp"
 #include "onthepitch/matchsetup.hpp"
+#include "onthepitch/matchprogression.hpp"
 #include "onthepitch/pesball.hpp"
 #include "onthepitch/pesjudge.hpp"
 #include "onthepitch/peskeeper.hpp"
@@ -155,6 +156,22 @@ const pes::StaminaConstants* SharedStaminaConstants() {
   return constants ? &*constants : nullptr;
 }
 
+// PES 2021's clock constants, read from the user's install (the time-up gate and
+// the stoppage rule are PES's own: docs/re/pes-re-clock-live.md 8).
+const pes::PesClockConstants* SharedClockConstants() {
+  static std::optional<pes::PesClockConstants> constants;
+  static bool tried = false;
+  if (!tried) {
+    tried = true;
+    if (const char* root = std::getenv("PES21_ROOT")) {
+      std::string err;
+      if (auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err))
+        constants = pes::LoadPesClockConstants(*exe, &err);
+    }
+  }
+  return constants ? &*constants : nullptr;
+}
+
 #define REQUIRE_RIG()                                                                    \
   if (!SharedRig()) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton comes from PES"; \
   if (!SharedBallConstants())                                                            \
@@ -180,17 +197,8 @@ std::unique_ptr<Match> MatchAtPhase(e_MatchPhase phase, float seconds) {
   setup.durationMinutes = SHORT_MATCH_MINUTES;
   setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
   setup.rig = SharedRig();
-  static pes::PesClockConstants constants;
-  constants.gameSpeed = 54.0f;
-  constants.halfSeconds = 16000.0f;
-  constants.added2ndHalf = 9000.0f;
-  constants.addedTier_3_6_2nd = 7200.0f;
-  constants.addedTier_1_2_2nd = 3600.0f;
-  constants.addedExtraTime = 5400.0f;
-  constants.addedTier_1_2_ET = 1800.0f;
-  constants.addedTier_3_6_ET = 3600.0f;
-  constants.ticksPerMinute = 960;
-  setup.pesClockConstants = &constants;
+  setup.pesClockConstants = SharedClockConstants();
+  if (!setup.pesClockConstants) return nullptr;
   setup.pesBallConstants = SharedBallConstants();
   setup.pesJudgeConstants = SharedJudgeConstants();
   setup.pesRngConstants = SharedRngConstants();
@@ -209,76 +217,52 @@ std::unique_ptr<Match> MatchAtPhase(e_MatchPhase phase, float seconds) {
 
 }  // namespace
 
-// The period end the referee blows at is the phase table's own value, not GF's
-// fixed millisecond schedule: a first half is 45 game-minutes (2700 seconds).
-TEST(PesPeriodEnd, WhistleIsThePhaseTablesOwnValue) {
-  REQUIRE_RIG();
-  auto match = MatchAtPhase(e_MatchPhase_1stHalf, 2699.0f);
-  ASSERT_TRUE(match);
-  EXPECT_FALSE(match->GetPesClock().IsPeriodDue()) << "44:59 must not end the period";
-  match->AdvanceMatchSeconds(1.0f);
-  EXPECT_TRUE(match->GetPesClock().IsPeriodDue()) << "45:00 does";
-}
+// PES 2021's period lifecycle in the match (docs/re/pes-re-clock-live.md 8): each
+// period starts its own record, the referee blows when the time-up gate opens,
+// and a stoppage moves the clock only through F.
 
-// A second half runs 45 game-minutes of its own from its kick-off, and extra
-// time's period is 15 (report 2.1's 45/90/105/120 by phase).
-TEST(PesPeriodEnd, EachPeriodHasItsOwnEnd) {
-  REQUIRE_RIG();
-  // 44:59 into the second half, counted from its own kick-off.
-  auto match = MatchAtPhase(e_MatchPhase_2ndHalf, 2699.0f);
-  ASSERT_TRUE(match);
-  EXPECT_FALSE(match->GetPesClock().IsPeriodDue());
-  match->AdvanceMatchSeconds(1.0f);
-  EXPECT_TRUE(match->GetPesClock().IsPeriodDue());
-
-  // 14:59 into a period of extra time, likewise from its own kick-off.
-  auto extra = MatchAtPhase(e_MatchPhase_1stExtraTime, 899.0f);
-  ASSERT_TRUE(extra);
-  EXPECT_FALSE(extra->GetPesClock().IsPeriodDue());
-  extra->AdvanceMatchSeconds(1.0f);
-  EXPECT_TRUE(extra->GetPesClock().IsPeriodDue());
-}
-
-// Added time is `elapsedSeconds * rate` evaluated once at the end of the half,
-// with the tier bonus on top; the referee blows at the period end plus it.
-TEST(PesPeriodEnd, AddedTimeExtendsTheWhistle) {
-  REQUIRE_RIG();
-  auto match = MatchAtPhase(e_MatchPhase_2ndHalf, 9000.0f);
-  ASSERT_TRUE(match);
-  // 9000 elapsed seconds at 7200 clock units per second (tier 4), 1000 units per
-  // tick and 960 ticks per game-minute.
-  const float added = match->GetPesClock().PeriodEndWithAdded(4);
-  EXPECT_GT(added, 45.0f) << "the tier bonus extends the period";
-  // Tier 7 earns no bonus, so the whistle is the period's own end.
-  EXPECT_FLOAT_EQ(match->GetPesClock().PeriodEndWithAdded(7), 45.0f);
-}
-
-// The whistle is announced once, from the formula, not from an event counter.
-TEST(PesPeriodEnd, AddedTimeIsAnnouncedFromTheFormula) {
-  REQUIRE_RIG();
-  auto match = MatchAtPhase(e_MatchPhase_2ndHalf, 2700.0f);
-  ASSERT_TRUE(match);
-  // 2700 s x 7200 / 1000 = 19,440 ticks, which at 960 per game-minute is over
-  // twenty game-minutes of added time; the board shows at most nine.
-  EXPECT_LE(match->GetPesClock().AddedMinutes(4), pes::kMaxAnnouncedAddedMinutes);
-  EXPECT_GE(match->GetPesClock().AddedMinutes(4), 9);
-  // Tier 7's board reads zero: no bonus at all.
-  EXPECT_EQ(match->GetPesClock().AddedMinutes(7), 0);
-}
-
-// A stoppage freezes the clock while the period is running, and the whistle is
-// not advanced by it (report 3.3: a stoppage adds no time).
-TEST(PesPeriodEnd, AStoppageDoesNotExtendThePeriod) {
+TEST(PesPeriodLifecycle, EachTransitionStartsItsOwnPESPeriod) {
   REQUIRE_RIG();
   auto match = MatchAtPhase(e_MatchPhase_1stHalf, 2400.0f);
   ASSERT_TRUE(match);
-  const uint32_t atTheStoppage = match->GetPesClock().Ticks();
+  EXPECT_EQ(match->GetPesClock().Record().period, 1u);
+  EXPECT_EQ(MatchProgression::GetNext(e_MatchPhase_1stHalf, false).nextPhase, e_MatchPhase_2ndHalf);
+  match->SetMatchPhase(e_MatchPhase_2ndHalf);
+  EXPECT_EQ(match->GetPesClock().Record().period, 3u);
+  EXPECT_FLOAT_EQ(match->GetPesClock().PeriodClock(), 0.0f) << "the second half's record starts at zero";
+  EXPECT_EQ(MatchProgression::GetNext(e_MatchPhase_2ndHalf, true).nextPhase, e_MatchPhase_1stExtraTime);
+  match->SetMatchPhase(e_MatchPhase_1stExtraTime);
+  EXPECT_EQ(match->GetPesClock().Record().period, 5u);
+  match->SetMatchPhase(e_MatchPhase_2ndExtraTime);
+  EXPECT_EQ(match->GetPesClock().Record().period, 7u);
+  EXPECT_EQ(MatchProgression::GetNext(e_MatchPhase_2ndExtraTime, true).nextPhase, e_MatchPhase_Penalties);
+  match->SetMatchPhase(e_MatchPhase_Penalties);
+  EXPECT_EQ(match->GetPesClock().Record().period, 9u);
+}
+
+// The referee blows when the gate opens: 44:59 holds and 45:00 blows. Tier 0 earns
+// no added time, so the length is the whistle, as it was before this port.
+TEST(PesPeriodLifecycle, TheRefereeWhistlesWhenTheGateOpens) {
+  REQUIRE_RIG();
+  auto match = MatchAtPhase(e_MatchPhase_1stHalf, 2699.0f);
+  ASSERT_TRUE(match);
+  match->GetReferee()->Process();
+  EXPECT_TRUE(match->IsInPlay()) << "44:59 blows nothing";
+  match->AdvanceMatchSeconds(1.0f);
+  match->GetReferee()->Process();
+  EXPECT_FALSE(match->IsInPlay()) << "45:00 is the time-up";
+}
+
+// A stoppage holds the stamp still and adds half a unit per frame to F, so the
+// clock moves only through F while play is stopped.
+TEST(PesPeriodLifecycle, AStoppageMovesTheClockOnlyThroughF) {
+  REQUIRE_RIG();
+  auto match = MatchAtPhase(e_MatchPhase_1stHalf, 100.0f);
+  ASSERT_TRUE(match);
+  const float stamp = pes::PeriodStamp(match->GetPesClock().Record());
   match->StopPlay();
-  match->AdvanceMatchSeconds(300.0f);
-  EXPECT_EQ(match->GetPesClock().Ticks(), atTheStoppage);
-  // The period is still short of its end, exactly as far as it was.
-  EXPECT_FALSE(match->GetPesClock().IsPeriodDue());
-  match->StartPlay();
-  match->AdvanceMatchSeconds(300.0f);
-  EXPECT_TRUE(match->GetPesClock().IsPeriodDue()) << "only real play reaches the end";
+  match->AdvanceMatchSeconds(10.0f);
+  EXPECT_FLOAT_EQ(pes::PeriodStamp(match->GetPesClock().Record()), stamp);
+  EXPECT_FLOAT_EQ(match->GetPesClock().Record().f,
+                  pes::kStoppageUnitsPerFrame * SharedClockConstants()->gameSpeed * 10.0f);
 }
