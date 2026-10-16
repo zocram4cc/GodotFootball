@@ -272,10 +272,12 @@ func _init() -> void:
 				if mat != null and str(mat.get_name()).begins_with(UNIFORM_MATERIAL_PREFIX):
 					look_uniforms += 1
 		# A whole body in the boots pack replaces the base body and the uniform
-		# (pes-re-officials-ball.md §3.3): such a player draws that body and no uniform,
-		# so the sleeve checks apply only to a normal body.
-		if look_parts.keys() == ["boots"]:
-			check(look_uniforms == 0, "player %d is a whole body: no uniform material is drawn" % look_face)
+		# (pes-re-officials-ball.md §3.3): it draws the boots part and no uniform, and
+		# no bare arm or hand. Its face pack stays (the head). Only a normal body has
+		# the sleeve checks.
+		if look_uniforms == 0 and look_parts.has("boots"):
+			check(not look_parts.has("arm") and not look_parts.has("hand_l") and not look_parts.has("hand_r"),
+					"player %d (whole body) draws no bare arm or hand" % look_face)
 		else:
 			check(look_parts.keys().any(func(p): return p.begins_with("sleeve_long") or p == "sleeve_glove"),
 					"player %d wears a long sleeve: %s" % [look_face, look_parts.keys()])

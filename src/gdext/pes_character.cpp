@@ -609,17 +609,20 @@ Node3D* Build::RunPlayer(int teamId, int kitIndex) {
     return nullptr;
   }
   // A whole body in the boots pack (pes-re-officials-ball.md §3.3; the 4cc body packs of
-  // pes-kit-assembly.md §7.3) replaces the base body: no face, uniform, bare body parts or
-  // gloves are built for it, and its own materials draw the whole figure.
+  // pes-kit-assembly.md §7.3) replaces the base body: the uniform parts, the bare body
+  // parts and the gloves are not built for it. The face pack stays: its head (hair_high)
+  // is drawn on top of the body, as PES draws team 760's players.
   const std::string bootsPack = pes::BootsPackPath(bootsId);
   const bool wholeBody = vfs_.Exists(bootsPack) && PackCarriesBody(vfs_, bootsPack);
   wholeBody_ = wholeBody;
   Begin();
+  // The face pack is the head, and it is kept for a whole body too: its hair_high is the
+  // monitor head that team 760's players wear in PES (the 0.6 x 0.4 m box of that pack).
+  if (!AddPack(pes::FacePackPath(faceId_))) {
+    memdelete(root_);
+    return nullptr;
+  }
   if (!wholeBody) {
-    if (!AddPack(pes::FacePackPath(faceId_))) {
-      memdelete(root_);
-      return nullptr;
-    }
     for (const auto& part : pes::SelectUniformParts(*kit, look)) {
       if (part.inCommonPackage) {
         auto it = std::find_if(commonFpk->entries.begin(), commonFpk->entries.end(),
