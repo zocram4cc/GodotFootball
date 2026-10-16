@@ -161,6 +161,12 @@ public:
   // (pes-re-off-ball.md 1, 4.1).
   bool GetOffBallTarget(const Player* player, Vector3* target) const;
   int GetRunState(const Player* player) const;
+  // The last run world (ProcessRunManager, on the team's parity tick) is the ranking MOVESTEP's team seam
+  // reads. A player's slot is team·11 + his index in that build's roster; -1 when he is not in it.
+  int RunSlotOf(const Player* player) const;
+  Player* RunPlayerAt(int slot) const;
+  // The rank-0 opponent of `own` in that world (NearestOpponents, pesoffball.hpp); nullptr when none.
+  Player* NearestOpponentOf(const Player* own) const;
 
 
   const std::vector<TacticalOpponentInfo>& GetTacticalOpponentInfo() {
@@ -279,6 +285,9 @@ protected:
   long lastRunFrame = -1;
   Player* designatedSupporter = nullptr;
   Vector3 supporterTarget;
+  // The last run world and the roster its slots index; empty until the first build.
+  pes::offball::RunWorld lastRunWorld;
+  std::array<std::vector<Player*>, 2> lastRunIds;
 
   std::vector<TacticalOpponentInfo> tacticalOpponentInfo;
 };

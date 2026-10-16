@@ -2156,6 +2156,29 @@ int TeamAIController::GetRunState(const Player* player) const {
   return it == runs.end() ? ob::kNothing : it->second.state;
 }
 
+Player* TeamAIController::NearestOpponentOf(const Player* own) const {
+  const int slot = RunSlotOf(own);
+  if (slot < 0) return nullptr;
+  const auto near = ob::NearestOpponents(lastRunWorld, slot);
+  return near.empty() ? nullptr : RunPlayerAt(near.front().id);
+}
+
+int TeamAIController::RunSlotOf(const Player* player) const {
+  for (int t = 0; t < 2; ++t) {
+    const std::vector<Player*>& roster = lastRunIds[t];
+    const auto it = std::find(roster.begin(), roster.end(), player);
+    if (it != roster.end()) return t * ob::kSlots + static_cast<int>(it - roster.begin());
+  }
+  return -1;
+}
+
+Player* TeamAIController::RunPlayerAt(int slot) const {
+  if (slot < 0 || slot >= 2 * ob::kSlots) return nullptr;
+  const std::vector<Player*>& roster = lastRunIds[slot / ob::kSlots];
+  const int i = slot % ob::kSlots;
+  return i < static_cast<int>(roster.size()) ? roster[i] : nullptr;
+}
+
 bool TeamAIController::GetOffBallTarget(const Player* player, Vector3* target) const {
   auto it = runs.find(player);
   if (it != runs.end() && it->second.state != ob::kNothing) {
@@ -2351,8 +2374,10 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   const float oppLineX = AI_GetOffsideLine(match, match->GetMentalImage(0), opp);
 
   std::array<std::vector<Player*>, 2> ids;
-  const ob::RunWorld world = BuildRunWorld(&ids);
-  const std::vector<Player*>& slots = ids[team->GetID()];
+  lastRunWorld = BuildRunWorld(&ids);
+  lastRunIds = std::move(ids);
+  const ob::RunWorld& world = lastRunWorld;
+  const std::vector<Player*>& slots = lastRunIds[team->GetID()];
   const int base = team->GetID() * ob::kSlots;
 
   // Stop pass: every *running* slot whose stop test says so goes back to

@@ -9,6 +9,7 @@
 #include "onthepitch/AIsupport/mentalimage.hpp"
 #include "onthepitch/ball.hpp"
 #include "onthepitch/player/player.hpp"
+#include "teamAIcontroller.hpp"
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
 #include "pes/movestep_run.hpp"
@@ -81,37 +82,49 @@ class AdapterTeam final : public pes::TeamAi {
  public:
   AdapterTeam(Player& player, const MoveHostConstants& c) : player_(player), c_(c) {}
 
-  // ponytail: NearestList's per-player distance list (pes::offball::NearestOpponents over the RunWorld, branch
-  // NearestList 2a3050f) replaces this. Until it is merged no opponent counts as near.
+  // The rank-0 opponent of the own record in the team's last run world (NearestList's NearestOpponents over
+  // the RunWorld, pesoffball.hpp). Its slot is the run world's: team·11 + roster index.
+  // ponytail: the run world is built on the team's parity tick, so the ranking is at most one frame old, and
+  // a substitute has no slot until the next in-play build. Upgrade: PES's writer of MA+0x22e4c (pes-re-teamctx.md §2.4).
   int NearestOpponent(int own) const override {
-    (void)own;
-    return kNoPlayer;
+    if (own != OwnSlot()) return kNoPlayer;
+    const Player* opp = Controller().NearestOpponentOf(&player_);
+    const int slot = opp ? Controller().RunSlotOf(opp) : -1;
+    return slot < 0 ? kNoPlayer : slot;
+  }
+  // The own record's slot: team·11 + roster index in the last run world; kNoPlayer when it is not in it.
+  int OwnSlot() const {
+    const int slot = Controller().RunSlotOf(&player_);
+    return slot < 0 ? kNoPlayer : slot;
   }
   // ponytail: GF's physical_acceleration stands in for the Acceleration byte (0x2b), scaled to the PES
   // ceiling (rec99). The DA (0x15) and PC (0x28) bytes have no GF stat yet and read 0.
   int Ability(int slot, int ability) const override {
-    if (slot != player_.GetID() || ability != pes::kAbilityAcceleration) return 0;
+    if (Who(slot) != &player_ || ability != pes::kAbilityAcceleration) return 0;
     return static_cast<int>(player_.GetStat("physical_acceleration") * c_.run.rec99);
   }
   // ponytail: FUN_140a581c0's condition byte: GF has no condition record, so the full value stands in.
   int Condition(int) const override { return kFullCondition; }
   void Position(int slot, float out[3]) const override {
-    const Vector3 v = slot == player_.GetID() ? player_.GetPosition() : Vector3{};
+    const Player* p = Who(slot);
+    const Vector3 v = p ? p->GetPosition() : Vector3{};
     out[0] = v.coords[0];
     out[1] = v.coords[1];
     out[2] = v.coords[2];
   }
   // The per-tick velocity: GF's movement (metres a second) over the tick rate.
   void Velocity(int slot, float out[3]) const override {
-    const Vector3 v = slot == player_.GetID() ? player_.GetMovement() : Vector3{};
+    const Player* p = Who(slot);
+    const Vector3 v = p ? p->GetMovement() : Vector3{};
     const float ticks = static_cast<float>(Match::kFramesPerSecond);
     out[0] = v.coords[0] / ticks;
     out[1] = v.coords[1] / ticks;
     out[2] = v.coords[2] / ticks;
   }
   float Heading(int slot) const override {
-    if (slot != player_.GetID()) return 0.0f;
-    const Vector3 dir = player_.GetDirectionVec();
+    const Player* p = Who(slot);
+    if (!p) return 0.0f;
+    const Vector3 dir = p->GetDirectionVec();
     return HeadingDeg(dir.coords[0], dir.coords[1], c_.run);
   }
   // ponytail: P+0x5d0, the player's sub-state byte, has no GF record yet.
@@ -138,6 +151,13 @@ class AdapterTeam final : public pes::TeamAi {
   static constexpr int kFullCondition = 100;  // the condition byte's full value
   Player& player_;
   const MoveHostConstants& c_;
+  // The team controller this player belongs to: its last run world is the seam's ranking and roster.
+  TeamAIController& Controller() const { return *player_.GetTeam()->GetController(); }
+  // The player a slot names: the own record, or the run world's player in that slot; nullptr when none.
+  Player* Who(int slot) const {
+    if (slot >= kNoPlayer) return nullptr;
+    return slot == OwnSlot() ? &player_ : Controller().RunPlayerAt(slot);
+  }
 };
 
 // The MoveHost implementation over GF's player and its humanoid. Every accessor names the PES
@@ -284,7 +304,7 @@ class MoveHostAdapter final : public pes::MoveHost {
     const Vector3 pos = player_.GetPosition();
     return HeadingDeg(ball.coords[0] - pos.coords[0], ball.coords[1] - pos.coords[1], c_.run);
   }
-  int ActionIndex() const override { return player_.GetID(); }
+  int ActionIndex() const override { return team_.OwnSlot(); }
   int RelatedSlot() const override { return -1; }  // ponytail: FUN_140a627e0's related record.
   void RecordPosition(int slot, float out[3]) const override {
     (void)slot;
