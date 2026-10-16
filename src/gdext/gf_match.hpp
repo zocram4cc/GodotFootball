@@ -26,7 +26,7 @@ class GfMatch : public RefCounted {
   ~GfMatch() override;
 
   Error start(const Ref<PesLibrary>& library, const String& db_sql, const String& anims_dir, int home, int away,
-              int seed, int minutes);
+              int seed, int minutes, bool pes_loop);
   void step();  // one 1/54 s PES logic frame
   bool is_over() const;
 

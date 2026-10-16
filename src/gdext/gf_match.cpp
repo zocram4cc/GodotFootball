@@ -28,8 +28,9 @@ GfMatch::GfMatch() = default;
 GfMatch::~GfMatch() = default;
 
 void GfMatch::_bind_methods() {
-  ClassDB::bind_method(D_METHOD("start", "library", "db_sql", "anims_dir", "home", "away", "seed", "minutes"),
-                       &GfMatch::start);
+  ClassDB::bind_method(D_METHOD("start", "library", "db_sql", "anims_dir", "home", "away", "seed", "minutes",
+                                "pes_loop"),
+                       &GfMatch::start, DEFVAL(false));
   ClassDB::bind_method(D_METHOD("step"), &GfMatch::step);
   ClassDB::bind_method(D_METHOD("is_over"), &GfMatch::is_over);
   ClassDB::bind_method(D_METHOD("player_count"), &GfMatch::player_count);
@@ -50,7 +51,7 @@ void GfMatch::_bind_methods() {
 }
 
 Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const String& anims_dir, int home,
-                     int away, int seed, int minutes) {
+                     int away, int seed, int minutes, bool pes_loop) {
   if (library.is_null() || !library->rig()) {
     UtilityFunctions::push_error("GfMatch: library is not open");
     return ERR_UNCONFIGURED;
@@ -97,7 +98,9 @@ Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const
   setup.pesTeamConceptConstants = library->team_concept_constants();
   setup.pesSubstitutionConstants = library->substitution_constants();
   setup.pesOffBallConstants = library->off_ball_constants();
-  match_ = std::make_unique<Match>(new MatchData(home, away), setup, Properties());  // owns the MatchData
+  Properties config;
+  config.SetBool("pes_loop", pes_loop);  // the tick-order switch (SW)
+  match_ = std::make_unique<Match>(new MatchData(home, away), setup, config);  // owns the MatchData
   RefreshPlayers();
   return OK;
 }
