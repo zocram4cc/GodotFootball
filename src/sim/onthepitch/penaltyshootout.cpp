@@ -80,14 +80,18 @@ e_Outcome ObserveKick(const KickObservation& observation, unsigned long elapsedS
     return e_Outcome_Goal;
   if (observation.keeperHasBall)
     return e_Outcome_Save;
-  // Kept out by the keeper rather than by the woodwork or bad aim.
-  if (observation.keeperTouchedBall && (observation.ballStopped || observation.ballLeftField))
+  // The ball's fate is settled once it has stopped, gone out, or the kick has run
+  // out of time. Until then a keeper touch is not yet a verdict: the ball may still
+  // go in off him, and that is a goal.
+  const bool settled = observation.ballLeftField || observation.ballStopped ||
+                       elapsedSinceKick_ms >= kickTimeout_ms;
+  if (!settled)
+    return e_Outcome_Pending;
+  // Kept out by the keeper: his touch stands however the ball then went, including a
+  // deflection that rolled past the kick's time limit.
+  if (observation.keeperTouchedBall)
     return e_Outcome_Save;
-  if (observation.ballLeftField || observation.ballStopped)
-    return e_Outcome_Miss;
-  if (elapsedSinceKick_ms >= kickTimeout_ms)
-    return e_Outcome_Miss;
-  return e_Outcome_Pending;
+  return e_Outcome_Miss;
 }
 
 unsigned long GetPhaseDuration_ms(e_Phase phase) {

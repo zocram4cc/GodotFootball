@@ -1,6 +1,6 @@
 # PES 2021 penalty keeper: dive direction, timing and the verdict
 
-Result: Partially done. The PES penalty keeper branch is decoded and the dive target is ported. The re-enabled test `SimMatch.ShootoutVerdictIsThePlannedOutcome` is still red, deterministically (20 of 20 runs). The remaining mismatches are outside the keeper's target (GF's deflect contact and the verdict rule), see §8.
+Result: Done for the keeper port and the verdict. The dive target is ported from PES. The shootout verdict is the physical outcome; the plan-equality test is removed and `SimMatch.ShootoutVerdictIsWhatTheBallDid` is green (see §8 follow-up). PES's dive timing gate is still open (§7).
 
 Scope: the defending keeper in a penalty (set piece 6, gate `FUN_1409d5860`). Read-only RE of `PES2021.exe` (base 0x140000000, Ghidra bridge `pes_full.bin`) and the install's `.rdata`/`.data`. Tags: CONFIRMED (decompile or install bytes at the VA), INF (inferred), OPEN (not decoded).
 
@@ -86,9 +86,9 @@ Evidence (test binary `build/tests/sim/sim_match_test`, `PES21_ROOT=$PES21_ROOT`
 - Mutation (`IsKeepingKick` returns false): the verdicts return to the baseline (kicks 2 and 7). The test is sensitive to the port.
 - Full `sim_match_test`: the other eight `SimMatch` tests pass in two runs (`full-run1.log`, `full-run2.log`). One run in three crashed (exit 139, SIGSEGV) in `SimMatch.AIManagerSwitchGovernsTactics`, not reproduced in two reruns, under gdb with its predecessor, or alone. Cause not found; the change only affects shootouts and that test runs no shootout.
 
-Why the test stays red (not a keeper-target fault):
-1. The deflect contact (`humanoid.cpp` deflect, `PesDeflectPoint` with the ball's incoming angle as request) sends the ball off the keeper wide or high. That is GF's contact model, outside this change.
-2. The verdict's keeper contact is still the 1.2 m proximity test (`penaltyshootoutcontroller.cpp` ObserveBall). A contact at 1.3 m or more is not counted, so a real deflect can classify as MISS. I tried the match's last-touch record instead (`GetLastTouchPlayer()==keeper`): it did not change the verdicts, so I reverted it. OPEN: why that record is not the keeper after his deflect.
-3. A placed goal (aim ≥ 1.8 m) can be within the keeper's 3.5 m intercept radius, so a PES-faithful keeper can save a planned goal. The test asserts equality of plan and physics for every kick; that is not what PES guarantees.
+Verdict follow-up (item 2 resolved, the test is now the physical one):
+1. The keeper's touch did register. Traced on seed 7 (kick 1): the engine's last-touch record named the keeper at 0.85 m, inside the 1.2 m latch. My earlier "2 m deflect point" explanation was wrong.
+2. The miss came from `ObserveKick`: a keeper touch counted as a save only once the ball stopped or left the field. The deflected ball rolled past the 5 s kick timeout, and the timeout returned Miss. Fixed in `ObserveKick` (a settled kick, including the timeout, takes the touch as a save). The touch is now read from the engine's touch record, not the proximity latch.
+3. The premise changed (Main ruling): the verdict is the physical outcome, not the pre-rolled plan. `SimMatch.ShootoutVerdictIsThePlannedOutcome` is removed; `SimMatch.ShootoutVerdictIsWhatTheBallDid` replaces it. See `docs/re/pes-re-shootout-verdict-mismatch.md`.
 
-Not run: other test binaries that link `gfsim` (Main gates). `docs/re/pes-re-shootout-verdict-mismatch.md` is now stale (its "Left" items); it needs a rewrite once the test is green or the premise is changed.
+Not run: other test binaries that link `gfsim` (Main gates).

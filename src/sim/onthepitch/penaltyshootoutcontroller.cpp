@@ -307,13 +307,10 @@ PenaltyShootout::KickObservation PenaltyShootoutController::ObserveBall() {
 
   if (keeper) {
     const float keeperDistance = (keeper->GetPosition() - ballPos.Get2D()).GetLength();
-    if (keeperDistance < keeperGrabDistance)
-      keeperTouchedBall = true;
     observation.keeperHasBall = match->GetBallRetainer() == keeper ||
                                 (keeperDistance < keeperGrabDistance &&
                                  match->GetBall()->GetMovement().GetLength() < ballAtRestSpeed);
   }
-  observation.keeperTouchedBall = keeperTouchedBall;
 
   observation.ballLeftField = std::fabs(ballPos.coords[0]) > pitchHalfW + goalDepth ||
                               std::fabs(ballPos.coords[1]) > pitchHalfH;
@@ -325,6 +322,12 @@ PenaltyShootout::KickObservation PenaltyShootoutController::ObserveBall() {
   if ((ballPos - GetPenaltySpot()).GetLength() > 0.5f ||
       match->GetBall()->GetMovement().GetLength() > 2.0f)
     ballStruck = true;
+  // The keeper touched the ball when the engine's touch record names him during this
+  // kick. Read from the match, not from how close he stood: a deflection is made at
+  // arm's length, beyond the grab radius, and a close pass he never touched is no save.
+  if (keeper && ballStruck && match->GetLastTouchPlayer() == keeper)
+    keeperTouchedBall = true;
+  observation.keeperTouchedBall = keeperTouchedBall;
   observation.ballStopped = ballStruck &&
                             match->GetBall()->GetMovement().GetLength() < ballAtRestSpeed;
 

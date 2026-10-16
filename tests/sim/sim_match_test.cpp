@@ -483,7 +483,11 @@ TEST(SimMatch, SetupStrengthIsWrittenAtMatchLoadFromTheStartingEleven) {
   SetDB(nullptr);
 }
 
-TEST(SimMatch, ShootoutVerdictIsThePlannedOutcome) {
+// The recorded verdict is what the ball physically did during the kick: the goal
+// plane crossed inside the frame is a goal, a touch by the defending keeper is a
+// save, anything else a miss. Both are read from the ball and the engine's touch
+// record each tick, not from the controller's own classifier.
+TEST(SimMatch, ShootoutVerdictIsWhatTheBallDid) {
   REQUIRE_RIG();
   blunted::Database db;
   ASSERT_TRUE(db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql"));
@@ -495,19 +499,46 @@ TEST(SimMatch, ShootoutVerdictIsThePlannedOutcome) {
   {
     Match match(new MatchData(HOME_TEAM, AWAY_TEAM), setup, shootoutOnly);
     PenaltyShootoutController* shootout = match.GetPenaltyShootout();
+    const float wholeBallOverLine_m = lineHalfW + match.GetPesBallConstants().image.ballRadius;
     bool wasLive = false;
-    PenaltyShootout::e_Outcome planned = PenaltyShootout::e_Outcome_Pending;
+    bool crossedInFrame = false;
+    bool keeperTouched = false;
+    bool beyondLine = false;
     int kick = 0;
     while (!shootout->IsFinished() && match.GetSimTime_ms() < kMaxSimTime_ms) {
       match.Process();
-      if (shootout->IsKickLive() && !wasLive) planned = shootout->GetPlannedOutcome();
+      if (shootout->IsKickLive() && !wasLive) {
+        crossedInFrame = false;
+        keeperTouched = false;
+        beyondLine = false;
+      }
+      if (wasLive || shootout->IsKickLive()) {
+        const float goalX = shootout->GetGoalX();
+        const float side = goalX > 0.0f ? 1.0f : -1.0f;
+        const Vector3 ball = match.GetBall()->Predict(0);
+        // A goal is the whole ball over the line: its centre the line's half-width
+        // plus the ball's radius past it.
+        const bool beyond = (ball.coords[0] - goalX) * side > wholeBallOverLine_m;
+        if (beyond && !beyondLine && std::fabs(ball.coords[1]) <= goalHalfWidth &&
+            ball.coords[2] >= 0.0f && ball.coords[2] <= goalHeight)
+          crossedInFrame = true;
+        beyondLine = beyond;
+        Player* keeper = match.GetTeam(1 - shootout->GetState().shootingTeam)->GetGoalie();
+        if (keeper && match.GetLastTouchPlayer() == keeper)
+          keeperTouched = true;
+      }
       if (wasLive && !shootout->IsKickLive()) {
-        EXPECT_EQ(shootout->GetState().lastOutcome, planned) << "kick " << kick;
+        const PenaltyShootout::e_Outcome physical =
+            crossedInFrame ? PenaltyShootout::e_Outcome_Goal
+            : keeperTouched ? PenaltyShootout::e_Outcome_Save
+                            : PenaltyShootout::e_Outcome_Miss;
+        EXPECT_EQ(shootout->GetState().lastOutcome, physical) << "kick " << kick;
         kick++;
       }
       wasLive = shootout->IsKickLive();
     }
     EXPECT_TRUE(shootout->IsFinished());
+    EXPECT_GT(kick, 0);
   }
   SetDB(nullptr);
 }
