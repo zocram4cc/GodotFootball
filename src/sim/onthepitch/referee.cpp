@@ -652,7 +652,8 @@ void Referee::PrepareSetPiece(e_SetPiece setPiece) {
   // ticks. The spot keeps its meaning by clamping it inside the outer lines (PES's writer,
   // OffsideRule::RestartPosition), which keeps the lateral offset the kick aims along.
   buffer.restartPos = OffsideRule::RestartPosition(
-      buffer.restartPos, -static_cast<int>(match->GetTeam(buffer.teamID)->GetSide()), setPiece);
+      buffer.restartPos, -static_cast<int>(match->GetTeam(buffer.teamID)->GetSide()), setPiece,
+      match->GetPesRestartSpotConstants());
   match->ResetSituation(buffer.restartPos);
   match->GetMatchData()->RecordPassRestart();
 

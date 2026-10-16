@@ -138,30 +138,26 @@ bool TouchResetsPhase(bool opponentOfFlagged, e_TouchType touchType) {
   return IsDeliberatePlay(touchType);
 }
 
-blunted::Vector3 RestartPosition(const blunted::Vector3& spot, int attackSign, e_SetPiece restart) {
-  // PES's restart-spot writer FUN_14050e770 (VA 0x14050e770, decompiled by TouchReach), explicit
-  // spot path, in the writer's order. F0/F1/F4/F5 are the FieldInfo rows in gametypes.hpp. The
-  // three offsets are .rdata constants at 0x14257a194 (0.7, goal-area push-out), 0x1425ab138
-  // (2.6, goal-area push-out z) and 0x142565604 (2.0, free-kick inset).
-  // ponytail: the offsets are typed in from those VAs; they are not read from the install yet.
-  constexpr float kGoalAreaPushOut_m = 0.7f;
-  constexpr float kGoalAreaPushZ_m = 2.6f;
-  constexpr float kFreeKickInset_m = 2.0f;
+blunted::Vector3 RestartPosition(const blunted::Vector3& spot, int attackSign, e_SetPiece restart,
+                                 const pes::RestartSpotConstants& k) {
+  // PES's restart-spot writer FUN_14050e770 (VA 0x14050e770; TouchReach's decode), explicit-spot
+  // path, in the writer's order. The offsets come from the install (k); F0, F1 and F4 are
+  // gametypes.hpp's FieldInfo constants.
   const auto sign = [](float v) { return v < 0.0f ? -1.0f : 1.0f; };
   blunted::Vector3 out = spot;
   float& x = out.coords[0];
   float& z = out.coords[1];
   // A spot inside the restart team's own goal area is pushed out of it.
   if (std::fabs(z) < pesGoalAreaHalfWidth && attackSign * x < -pesGoalAreaLineX) {
-    x = sign(x) * (pesGoalAreaLineX + kGoalAreaPushOut_m);
-    z = sign(z) * kGoalAreaPushZ_m;
+    x = sign(x) * (pesGoalAreaLineX + k.goalAreaPushOut_m);
+    z = sign(z) * k.goalAreaPushZ_m;
   }
   // Clamped inside the outer lines, with no margin.
   if (std::fabs(x) > pesFieldHalfLength) x = sign(x) * pesFieldHalfLength;
   if (std::fabs(z) > pesFieldHalfWidth) z = sign(z) * pesFieldHalfWidth;
-  // A free kick is kept 2 m inside the touchline.
-  if (restart == e_SetPiece_FreeKick && std::fabs(z) > pesFieldHalfWidth - kFreeKickInset_m)
-    z = sign(z) * (pesFieldHalfWidth - kFreeKickInset_m);
+  // A free kick is kept inside the touchline by the writer's inset.
+  if (restart == e_SetPiece_FreeKick && std::fabs(z) > pesFieldHalfWidth - k.freeKickInset_m)
+    z = sign(z) * (pesFieldHalfWidth - k.freeKickInset_m);
   return out;
 }
 

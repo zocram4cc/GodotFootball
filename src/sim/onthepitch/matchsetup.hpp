@@ -87,6 +87,8 @@ struct MatchSetup {
   // holds, the wipe, the fade-in and the tail. Read from the install's exe.
   // Required.
   const pes::StoppageConstants* pesStoppageConstants = nullptr;
+  // PES 2021's restart-spot writer offsets (pesstoppage.hpp LoadRestartSpotConstants). Required.
+  const pes::RestartSpotConstants* pesRestartSpotConstants = nullptr;
   // PES 2021's kick execution error (docs/re/pes-re-kick-scatter.md). Required.
   const pes::KickErrorConstants* pesKickErrorConstants = nullptr;
   // PES 2021's set-piece taker wait (docs/re/pes-re-setpiece-choreography.md 9

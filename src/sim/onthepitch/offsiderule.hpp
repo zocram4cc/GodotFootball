@@ -10,6 +10,7 @@
 #include "../base/math/vector3.hpp"
 #include "../gametypes.hpp"
 #include "pesjudge.hpp"
+#include "pesstoppage.hpp"
 
 namespace OffsideRule {
 
@@ -95,7 +96,8 @@ bool TouchResetsPhase(bool opponentOfFlagged, e_TouchType touchType);
 // pushed out of it, the spot is clamped to the outer lines (F0, F1), and a free kick is kept
 // 2 m inside the touchline. `attackSign` is the restart team's attack direction (+1 or -1).
 // The offence's spot is the flagged player's position (Law 11), taken by the caller.
-blunted::Vector3 RestartPosition(const blunted::Vector3& spot, int attackSign, e_SetPiece restart);
+blunted::Vector3 RestartPosition(const blunted::Vector3& spot, int attackSign, e_SetPiece restart,
+                                 const pes::RestartSpotConstants& k);
 
 }  // namespace OffsideRule
 

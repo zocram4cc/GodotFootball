@@ -118,6 +118,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES stoppage constants missing: read them from the install with "
         "pes::LoadStoppageConstants into MatchSetup::pesStoppageConstants");
   pesStoppageConstants = *setup.pesStoppageConstants;
+  if (setup.pesRestartSpotConstants == nullptr)
+    throw std::runtime_error(
+        "PES restart spot constants missing: read them from the install with "
+        "pes::LoadRestartSpotConstants into MatchSetup::pesRestartSpotConstants");
+  pesRestartSpotConstants = *setup.pesRestartSpotConstants;
   if (setup.pesKickErrorConstants == nullptr)
     throw std::runtime_error(
         "PES kick error constants missing: read them from the install with "

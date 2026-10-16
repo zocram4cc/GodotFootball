@@ -229,6 +229,9 @@ public:
   const pes::StoppageConstants& GetPesStoppageConstants() const {
     return pesStoppageConstants;
   }
+  const pes::RestartSpotConstants& GetPesRestartSpotConstants() const {
+    return pesRestartSpotConstants;
+  }
   // PES 2021's ball-carrier decision layer (docs/re/pes-re-carrier-ai.md).
   const pes::CarrierConstants& GetPesCarrierConstants() const { return pesCarrierConstants; }
   // PES 2021's open-play defensive shape (docs/re/pes-re-defensive-shape.md 6,
@@ -560,6 +563,7 @@ protected:
   pes::JudgeConstants pesJudgeConstants{};
   pes::KeeperConstants pesKeeperConstants{};
   pes::StoppageConstants pesStoppageConstants{};
+  pes::RestartSpotConstants pesRestartSpotConstants{};
   pes::KickErrorConstants pesKickErrorConstants{};
   pes::CarrierConstants pesCarrierConstants{};
   pes::DefenderDecisionConstants pesDefenderDecisionConstants{};
