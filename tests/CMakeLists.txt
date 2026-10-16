@@ -102,7 +102,7 @@ target_link_libraries(pes_locomotion_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_locomotion_test)
 
 add_executable(pes_movestep_test pes_movestep_test.cpp)
-target_link_libraries(pes_movestep_test PRIVATE pesfmt GTest::gtest_main)
+target_link_libraries(pes_movestep_test PRIVATE pesfmt pesmovestepcore GTest::gtest_main)
 gtest_discover_tests(pes_movestep_test)
 
 add_executable(pes_movestep_run_test pes_movestep_run_test.cpp movestep_probe_stubs.cpp)
@@ -111,6 +111,9 @@ gtest_discover_tests(pes_movestep_run_test)
 add_executable(pes_movestep_turn_test pes_movestep_turn_test.cpp)
 target_link_libraries(pes_movestep_turn_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_movestep_turn_test)
+add_executable(pes_movestep_step_test pes_movestep_step_test.cpp)
+target_link_libraries(pes_movestep_step_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_movestep_step_test)
 
 add_executable(pes_camera_test pes_camera_test.cpp)
 target_link_libraries(pes_camera_test PRIVATE pesfmt GTest::gtest_main)

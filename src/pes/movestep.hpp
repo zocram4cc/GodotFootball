@@ -20,6 +20,12 @@ namespace pes {
 
 class PeImage;
 
+// Group D's install scalars (movestep_turn.hpp); the shared host forwards them so the dispatcher
+// port's wrappers can call group D's bodies with the constants their tests pass.
+namespace movestep {
+struct MoveTurnConstants;
+}
+
 // FUN_1406ba900's switch cases 0..23, by the MOVESTEP_* names at 0x1425dd698 (AS 2.1).
 enum class MoveState : uint8_t {
   kInit = 0,
@@ -58,6 +64,7 @@ struct MoveStepRecord {
   float rateCeiling = 0.0f;               // P+0x377c: top running rate (FUN_1406f99f0)
   int rateStamp = 0;                      // P+0x3778: match tick the ceiling was computed on
   float playbackSpeed = 1.0f;             // P+0x3758: the SetMotion playback (FUN_1406f0f70)
+  float yawLock = 0.0f;                    // P+0xbec: the dispatcher's yaw lock and the slip/root-facing tail
 
   // FUN_1406b8340, early-out branch after FUN_140708750: the state falls back to INIT.
   void EnterInit() {
@@ -154,6 +161,8 @@ inline constexpr int kSlipActive = 0xe8;       // req[0xe8] byte: slip damping i
 inline constexpr int kSlipAngle = 0xec;        // req[0xec]: the damped facing, degrees (OBS). The adapter copies it to P+0xbec.
 inline constexpr int kLiveKind = 0x1e;        // req[0x1e]: the live clip's kind; FUN_1406d5d60 writes it (OBS per MovestepRun)
 inline constexpr int kStopBand = 0x51;        // req[0x51] (req+0x144): the band FUN_1406d5d60 reads for its stop-row picker (OBS per MovestepRun)
+inline constexpr int kPrevBucket = 0x25;      // req[0x25]: the bucket before the last change (OBS: FUN_1406bdf10, FUN_1406c14c0)
+inline constexpr int kStyle = 0x50;           // req[0x50] byte: the locomotion style (OBS: FUN_1406c0170 and the entries)
 }  // namespace moveword
 
 // The move request. Typed views over the same words; PES's bit patterns are kept exact.
@@ -291,6 +300,12 @@ struct RunConstants {
   float quota3;       // 3, the (a + b * 2) / 3 share
 };
 
+// FUN_14043a0a0(a, b): the angle difference a - b wrapped into (-180, 180]. Shared by the
+// dispatcher port and group B; the bodies are in movestep_common.cpp.
+float AngleDiffDeg(float a, float b, const RunConstants& k);
+// The 360 fold of a heading into [0, 360), the block every handler opens with.
+float FoldFull(float a, const RunConstants& k);
+
 // Group B's install tables: the anime interface's tables (the dispatch table at 0x1425e35d0, decoded for
 // the port) and the stop, goto and turn-stop row grids (kind + class * 8).
 struct RunTables {
@@ -304,6 +319,51 @@ struct RunTables {
   std::array<int32_t, 10> bucketColumn;   // FUN_1406b9b20's columns, 0x1425dd988
   std::array<int32_t, 16> styleGroup;     // FUN_1406d2030's representative motion, DAT_1425ddcf0 (style*4 + band/4)
 };
+
+// FUN_1406b9e80's 11-knot piecewise-linear table at 0x1425de010: ten records
+// `{vHi, vLo, rHi, rLo}` in PES's walk order, high speed first (the table is stored low speed
+// first; the loader reverses the records). The kind scale is the last record's kind 3/6 rate.
+struct SpeedRateTable {
+  std::array<std::array<float, 4>, 10> record{};
+  float kindScale = 0.0f;  // _DAT_1425ddf5c
+};
+std::optional<SpeedRateTable> LoadSpeedRateTable(const PeImage& exe, std::string* error);
+
+// The install scalars group A's helpers read (StayDecision FUN_1406b6bb0, IdleRow
+// FUN_1406b93a0 and the idle tails). Each VA is named in movestep_common.cpp's loader.
+struct MoveConstants {
+  float dist2m5;    // 2.5 m   (0x14259bde4): StayDecision's ramp divisor
+  float dist3;      // 3.0 m   (0x14258c264): StayDecision's ramp span; IdleRow's kind-3 gate
+  float near01;     // 0.1 m   (0x142588210): IdleRow's neighbour gate
+  float ball1p4;    // 1.4 m   (0x14259bdf0): IDLE's command-5 ball gate
+  float lookScale;  // (0x1425c5100): IDLE's facing tail's random share
+  float lookLow;    // (0x1425ddff0): the tail's window's lower clamp
+  float lookHigh;   // (0x1425ddf68): the tail's window's upper clamp
+  float rootLow;    // (0x1425ddfe4): IDLE_OTHER's root-facing window's lower clamp
+  float rootHigh;   // (0x1425ddf58): the window's upper clamp
+  float demoSpan;   // (0x142591140): DEMO's random dwell span in ticks
+};
+std::optional<MoveConstants> LoadMoveConstants(const PeImage& exe, std::string* error);
+
+// The idle row tables (FUN_1406b93a0's exits), each four row ids.
+struct IdleRowTables {
+  std::array<int32_t, 4> fatigue;   // 0x1425ddc58
+  std::array<int32_t, 4> flag;      // 0x1425ddc48
+  std::array<int32_t, 4> kind2;     // 0x1425ddbf0
+  std::array<int32_t, 4> mode;      // LAB_1425ddc10
+  std::array<int32_t, 4> mode2;     // 0x1425ddc00
+  std::array<int32_t, 4> slot;      // 0x1425ddcc8
+  std::array<int32_t, 4> slotAlt;   // 0x1425ddcd0
+  std::array<int32_t, 4> kind6;     // 0x1425ddc40
+  std::array<int32_t, 4> near;      // 0x1425ddbe0
+  std::array<int32_t, 4> far;       // 0x1425ddbd0
+};
+std::optional<IdleRowTables> LoadIdleRowTables(const PeImage& exe, std::string* error);
+constexpr int kIdleRowFallback = 0x5a1;  // FUN_1406ba900's own default, an instruction operand
+constexpr int kIdleRowKind25 = 0x5b1;    // FUN_1406b93a0's kind 2/5 answer
+constexpr int kIdleRowKind4 = 0x5b0;     // kind 4
+constexpr int kIdleRowKind7 = 0x5b2;     // kind 7
+constexpr int kIdleRowBall = 0x5a3;     // FUN_1406bf0c0/FUN_1406bf7f0's command-5 ball answer
 
 // Group C's install tables (STEP_LOOP, STEP_LOOP_CHANGE, TURN_STOP, the transitions), read by
 // LoadStepTables from the exe at the VAs in movestep.cpp.
@@ -417,6 +477,10 @@ class MoveHost {
   // from the exe by VA by the group's loader (movestep_run.hpp).
   virtual const RunConstants& RunConstantsView() const = 0;
   virtual const RunTables& RunTablesView() const = 0;
+  // FUN_1406b9e80's speed->rate table and its kind scale (docs/re/pes-re-anim-select.md 3.2).
+  virtual const SpeedRateTable& SpeedRateTableView() const = 0;
+  // Group D's install scalars; the shared dispatcher passes them to group D's bodies.
+  virtual const movestep::MoveTurnConstants& MoveTurnConstantsView() const = 0;
   // Group C's install tables (StepTables, the scalars are StepConstants above). The view is named
   // StepTablesView because StepTables is the type.
   virtual const StepTables& StepTablesView() const = 0;
@@ -427,6 +491,36 @@ class MoveHost {
   virtual const PlaybackConstants& PlaybackConstantsView() const = 0;
   // The +0xab8 anime interface: the current motion number (vt+0x18, PES's motion id).
   virtual int CurrentMotion() const = 0;
+  // Group A's motion-record readers, each named for its PES helper on FUN_1406b0ed0's record:
+  // FUN_1406af620 (a motion's fixed tick count), FUN_1406b1f00 / FUN_1406b1d00 (the start / end
+  // tick words) and FUN_1406af8e0 / FUN_1406afbc0 (the sub-record frames and their count).
+  virtual int MotionFixedFrames(int motionNo) const = 0;
+  virtual int MotionStartFrames(int motionNo) const = 0;
+  virtual int MotionTotalFrames(int motionNo) const = 0;
+  virtual int MotionSubFrames(int motionNo, int sub) const = 0;
+  virtual int MotionSubCount(int motionNo) const = 0;
+
+  // Group A's match, roster and record reads. Each method names the PES read it stands for.
+  virtual const MoveConstants& MoveConstantsView() const = 0;
+  virtual const IdleRowTables& IdleRowTablesView() const = 0;
+  virtual float FacingDeg() const = 0;
+  virtual float BallBearingDeg() const = 0;
+  virtual int ActionIndex() const = 0;
+  virtual int RelatedSlot() const = 0;
+  virtual void RecordPosition(int slot, float out[3]) const = 0;
+  virtual float RecordFacing(int slot) const = 0;
+  virtual int MatchState11d4() const = 0;
+  virtual int MatchState1554() const = 0;
+  virtual int PhaseTick() const = 0;
+  virtual int MatchModeByte() const = 0;
+  virtual bool MatchObject3b0() const = 0;
+  virtual bool TrainerFlag1423e7fd0() const = 0;
+  virtual int RecordConditionByte(int slot) const = 0;
+  virtual bool ActionSlotMarked(int slot) const = 0;
+  virtual bool ActionTableOwns(int slot) const = 0;
+  virtual int RecordActionA() const = 0;
+  virtual int RecordActionB() const = 0;
+
   // The current clip's frame count (vt+0x38 of the +0xab8 interface).
   virtual int CurrentClipFrames() const = 0;
   // The anime state (vt+0x28 of the +0xab8 interface). IsReplay() is AnimeState() == 0x4a.
@@ -500,7 +594,8 @@ std::optional<AngleBucketConstants> LoadAngleBucketConstants(const PeImage& exe,
 // MoveStepRecord: a state change is RequestState(req, next). The VA of each PES handler is in
 // the comment; the owning group is in the file header of its .cpp.
 namespace movestep {
-// Group A (INIT stays in the dispatcher)
+// Group A (INIT stays in the dispatcher's case 0; its body is ported beside the idle handlers).
+void Init(MoveHost& host, MoveReq& req);              // 0  FUN_1406ba900's case 0
 void Idle(MoveHost& host, MoveReq& req);               // 1  FUN_1406bf0c0
 void IdleTurn(MoveHost& host, MoveReq& req);           // 2  FUN_1406bfe70
 void IdleOther(MoveHost& host, MoveReq& req);          // 17 FUN_1406bf7f0
@@ -574,6 +669,10 @@ bool OutOfPlayPreempt(MoveHost& host, MoveReq& req);
 // FUN_1406b9b20: the 10-way angle bucket of an angle in degrees, with the hysteresis of the current
 // bucket (10 = no current bucket). narrow selects the ±10 / ±170 windows.
 int AngleBucket(const AngleBucketConstants& k, float angleDeg, int currentBucket, bool narrow);
+// The sim adapter's per-tick tail (FUN_1406b8340's P+0xbec and playback stores): after a slip,
+// P+0xbec is req[0xec]; otherwise a root-facing write is req[0x3b] when req[0x3a] is set. The
+// request's playback word is stored at P+0x3758 (MoveStepRecord::playbackSpeed).
+void ApplyTail(MoveStepRecord& rec, MoveHost& host, MoveReq& req, MoveState stateAtEntry);
 }  // namespace movestep
 
 }  // namespace pes

@@ -36,7 +36,6 @@ inline constexpr int kClassWord = 0x1f;      // req[0x1f]: the live class 0..3 (
 inline constexpr int kSpeedWord = 0x1d;      // req[0x1d]: the live speed word (km/h packed)
 inline constexpr int kPrevClassWord = 0x24;  // req[0x24]: the class before the change
 inline constexpr int kPrevSpeedWord = 0x22;  // req[0x22]: the speed before the change
-inline constexpr int kPrevBucket = 0x25;     // req[0x25]: the bucket before the change
 inline constexpr int kPrevKind = 0x1e;       // req[0x1e]: the kind the live clip runs at
 inline constexpr int kRowAngle = 0x17;       // req[0x17]: the row echo's angle word
 inline constexpr int kTurnedRow = 0x18;      // req[0x18]: the turned heading
@@ -53,7 +52,6 @@ inline constexpr int kSlipMirrorOut = 0xfc;  // req[0xfc] byte: the row's mirror
 inline constexpr int kSlipRate = 0x128;       // req[0x128]: the parametric rate
 inline constexpr int kSlipSpeed = 0x74;       // req[0x74]: the speed word
 inline constexpr int kFootFlag = 0x98;        // req[0x98] byte: the foot band 1..2 flag
-inline constexpr int kStyle = 0x50;           // req[0x50] byte: the locomotion style
 }  // namespace moveword
 
 namespace movestep {

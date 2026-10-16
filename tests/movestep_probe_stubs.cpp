@@ -1,15 +1,15 @@
 // The MOVESTEP group-B test probe's stand-ins. The group-B file calls four kinds of symbol
-// that other groups own:
-//   * the shared helpers the dispatcher port defines (IdleRow, StayDecision, SpeedToRate,
-//     LocomotionStyle, AccelerationRamp, LateralDamping, OutOfPlayPreempt, MotionStartSeconds);
-//   * group C's entries and helpers (EnterTurnStop, StepStops, StepLetsRunTurn);
-//   * group D's entries (EnterRunTurnRun, EnterRunTurnStep, EnterStepTurnRun).
-// None of them is defined until its group lands, so the group-B test target cannot link.
-// This file supplies a stand-in of each, deliberately inert: it records the call and returns
-// the neutral answer, so a test that reaches one states which exit PES took without the real
-// body's arithmetic. The real bodies replace this file; the group-B tests then exercise the
-// same calls against them. ponytail: delete this file when the dispatcher port's
-// movestep_common.cpp and groups C and D land.
+// that the dispatcher port owns or that another group's seams keep out of this target:
+//   * the shared helpers the dispatcher port's dispatcher-core library defines behind its own
+//     seams (IdleRow, StayDecision, MotionStartSeconds, LocomotionStyle, OutOfPlayPreempt);
+//   * group C's TURN_STOP entry seam (namespace pes);
+//   * group D's entry seams (EnterRunTurnRun, EnterRunTurnStep, EnterStepTurnRun);
+//   * the run/loop ramps the dispatcher port has not ported yet (AccelerationRamp,
+//     LateralDamping).
+// The stand-ins record the call and return the neutral answer, so a test states which exit PES
+// took without the real body's arithmetic. The real bodies are linked into the dispatcher-core
+// target, not into this one, so the probe and the real bodies never share a link. ponytail:
+// delete the ramp stand-ins when the two ramps land.
 #include "pes/movestep.hpp"
 
 #include <vector>
@@ -20,8 +20,6 @@ namespace probe {
 int idleRowCalls = 0;
 int stayCalls = 0;
 bool stayAnswer = false;
-int speedToRateCalls = 0;
-float speedToRateAnswer = 0.5f;
 int styleCalls = 0;
 int styleAnswer = 0;
 int rampCalls = 0;
@@ -45,8 +43,6 @@ void Reset() {
   idleRowCalls = 0;
   stayCalls = 0;
   stayAnswer = false;
-  speedToRateCalls = 0;
-  speedToRateAnswer = 0.5f;
   styleCalls = 0;
   styleAnswer = 0;
   rampCalls = 0;
@@ -82,12 +78,6 @@ bool StayDecision(MoveHost& /*host*/, MoveReq& /*req*/) {
 
 float MotionStartSeconds(uint16_t /*motionNo*/) { return 0.0f; }
 
-float SpeedToRate(MoveHost& /*host*/, float speedKmh, int /*tableSelector*/) {
-  ++probe::speedToRateCalls;
-  (void)speedKmh;
-  return probe::speedToRateAnswer;
-}
-
 int LocomotionStyle(MoveHost& /*host*/, int /*commandId*/, float /*rateRequested*/, MoveReq& /*req*/) {
   ++probe::styleCalls;
   return probe::styleAnswer;
@@ -102,11 +92,9 @@ bool OutOfPlayPreempt(MoveHost& /*host*/, MoveReq& /*req*/) {
   return probe::outOfPlayAnswer;
 }
 
-
 // FUN_1406ccd00 (group B's ACCELERATE entry) and FUN_1406cdaf0 (group B's DECELERATE entry):
 // the port's next pieces. Until their bodies land the probe returns PES's "no write"
 // answer, so the arms that call them take their no-branch.
-
 
 }  // namespace movestep
 

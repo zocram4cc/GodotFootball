@@ -23,13 +23,11 @@ namespace moveword {
 inline constexpr int kRateBand = 0x1f;       // req[0x1f]: the running speed band 0..2 (OBS: FUN_1406bdf10/FUN_1406bb570 write 0/1/2 here; FUN_1406c9e20 reads it)
 inline constexpr int kSpeedBand = 0x22;      // req[0x22]: the band the run starts in (OBS: FUN_1406ce820 writes clamp(req[0xa], 5, 16); RUN_LOOP copies it to 0x1d)
 inline constexpr int kBandTarget = 0x24;     // req[0x24]: the band to run at (OBS: FUN_1406ce820 writes clamp(req[9], 0, 3))
-inline constexpr int kPrevBucket = 0x25;     // req[0x25]: the previous angle bucket (OBS: FUN_1406bdf10 saves 0x20 here before re-picking)
 inline constexpr int kHitMotion = 0x27;      // req[0x27]: the last hit record's motion (OBS: FUN_1406ce820)
 inline constexpr int kHitFrame = 0x28;       // req[0x28]: the last hit record's frame (OBS: FUN_1406ce820)
 inline constexpr int kTurnLockFlag = 0x3d;   // req[0x3d] byte: a turn lock is active (OBS: FUN_1406bdf10)
 inline constexpr int kTurnLockTicks = 0x3e;  // req[0x3e]: the lock's tick count (OBS: FUN_1406bdf10)
 inline constexpr int kTurnLockDir = 0x3f;    // req[0x3f] byte: the lock's direction flag (OBS: FUN_1406bdf10)
-inline constexpr int kStyle = 0x50;          // req[0x50] byte: the current locomotion style (OBS: FUN_1406c0170)
 }  // namespace moveword
 
 // The interface's table readers, declared here so the tests can check their arithmetic directly.

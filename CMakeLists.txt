@@ -25,9 +25,15 @@ find_package(ZLIB REQUIRED)
 add_library(pesfmt STATIC
   src/pes/strcode.cpp src/pes/cpk.cpp src/pes/fpk.cpp src/pes/vfs.cpp src/pes/ask.cpp src/pes/skl.cpp
   src/pes/ftex.cpp src/pes/fmdl.cpp src/pes/pack_rules.cpp src/pes/mtar.cpp src/pes/gani.cpp src/pes/clips.cpp
-  src/pes/anim_names.cpp src/pes/uniform.cpp src/pes/editsave.cpp src/pes/exe.cpp src/pes/handseq.cpp src/pes/marking.cpp src/pes/locomotion.cpp src/pes/animetable.cpp src/pes/mbinfo.cpp src/pes/camera.cpp src/pes/fox2.cpp src/pes/stadium.cpp src/pes/lighting.cpp src/pes/movestep.cpp src/pes/movestep_run.cpp src/pes/movestep_turn.cpp)
+  src/pes/anim_names.cpp src/pes/uniform.cpp src/pes/editsave.cpp src/pes/exe.cpp src/pes/handseq.cpp src/pes/marking.cpp src/pes/locomotion.cpp src/pes/animetable.cpp src/pes/mbinfo.cpp src/pes/camera.cpp src/pes/fox2.cpp src/pes/stadium.cpp src/pes/lighting.cpp src/pes/movestep.cpp src/pes/movestep_common.cpp src/pes/movestep_run.cpp src/pes/movestep_group_a.cpp src/pes/movestep_step.cpp src/pes/movestep_turn.cpp)
 target_include_directories(pesfmt PUBLIC src)
 target_link_libraries(pesfmt PUBLIC ZLIB::ZLIB)
+
+# The dispatcher port's cross-group seams and the shared helpers the full dispatcher links. The
+# per-group test targets deliberately keep their probe stubs, so this library is not folded into
+# pesfmt; the dispatcher test and the sim adapter link it.
+add_library(pesmovestepcore STATIC src/pes/movestep_dispatch.cpp src/pes/movestep_dispatch_seams.cpp)
+target_link_libraries(pesmovestepcore PUBLIC pesfmt)
 
 add_library(pesrig STATIC src/rig/rig.cpp src/rig/clip_pose.cpp)
 target_link_libraries(pesrig PUBLIC pesfmt)
