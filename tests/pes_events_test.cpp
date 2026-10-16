@@ -617,4 +617,356 @@ TEST(PesEventReaders, NewestEventViewCarriesTheLatchFields) {
   EXPECT_EQ(v.subKind, 4);
 }
 
+// --- The detectors. ---
+
+// K=1 (FUN_140a14280): the phase word changing, with the old and new in the
+// payload.
+TEST(PesEventDetectors, PhaseFiresOnAChangeOnly) {
+  pes::PhaseInput in;
+  in.phase = 1;
+  in.frame = 500;
+  in.stored = 1;
+  pes::EventRecord out;
+  EXPECT_FALSE(pes::DetectPhase(&in, &out));  // unchanged: stored already 1
+  in.phase = 2;
+  EXPECT_TRUE(pes::DetectPhase(&in, &out));
+  EXPECT_EQ(out.kind, 1u);
+  EXPECT_EQ(out.frame1, 500);
+  EXPECT_EQ(out.frame2, 500);
+  EXPECT_EQ(out.p6, 2);  // the phase word
+  EXPECT_EQ(out.U32(0x14), 2u);
+  EXPECT_EQ(out.U32(0x18), 1u);  // the stored word, before the update
+  EXPECT_EQ(in.stored, 2);
+  EXPECT_FALSE(pes::DetectPhase(&in, &out));  // the state caught up
+}
+
+// K=9 (FUN_140a178d0): the deflection's three gates.
+TEST(PesEventDetectors, DeflectionNeedsTheSamplePair) {
+  const float sample = 0.1086859330534935f;
+  pes::DeflectionInput in;
+  in.frame = 10;
+  in.phase = 3;
+  in.sample0 = sample + 0.5f;  // the first sample has fallen past the second
+  in.sample1 = sample;
+  in.sampleConst = sample;
+  pes::EventRecord out;
+  EXPECT_TRUE(pes::DetectDeflection(in, &out));
+  EXPECT_EQ(out.kind, 9u);
+  EXPECT_EQ(out.frame1, 10);
+
+  in.advanceFlag = true;  // MI+0x11b4
+  EXPECT_FALSE(pes::DetectDeflection(in, &out));
+  in.advanceFlag = false;
+  in.sample1 = sample + 0.001f;  // not at the constant
+  EXPECT_FALSE(pes::DetectDeflection(in, &out));
+  in.sample1 = sample;
+  in.sample0 = sample;  // the path has not fallen
+  EXPECT_FALSE(pes::DetectDeflection(in, &out));
+}
+
+// K=10 (FUN_140a17810): the out-of-play side changing.
+TEST(PesEventDetectors, OutOfPlayFiresWhenTheSideChanges) {
+  pes::OutOfPlayInput in;
+  in.frame = 20;
+  in.phase = 1;
+  in.outSide = 1;
+  in.stored = 1;
+  pes::EventRecord out;
+  EXPECT_FALSE(pes::DetectOutOfPlay(&in, &out));
+  in.outSide = 2;
+  EXPECT_TRUE(pes::DetectOutOfPlay(&in, &out));
+  EXPECT_EQ(out.kind, 10u);
+  EXPECT_EQ(out.U32(0x14), 2u);  // payload+0 is the new side
+  EXPECT_FALSE(pes::DetectOutOfPlay(&in, &out));
+  in.advanceFlag = true;
+  in.outSide = 3;
+  EXPECT_FALSE(pes::DetectOutOfPlay(&in, &out));  // gated at MI+0x11b4
+}
+
+// K=0x10 (FUN_140a14a20): the restart byte at MI+0x11b2 turning nonzero.
+TEST(PesEventDetectors, RestartFiresOnANonzeroRestartByte) {
+  pes::RestartInput in;
+  in.frame = 30;
+  in.phase = 2;
+  in.restartByte = 0;
+  in.stored = 0;
+  pes::EventRecord out;
+  EXPECT_FALSE(pes::DetectRestart(&in, &out));  // still zero
+  in.restartByte = 4;
+  EXPECT_TRUE(pes::DetectRestart(&in, &out));
+  EXPECT_EQ(out.kind, 0x10u);
+  EXPECT_EQ(out.p6, 2);
+  EXPECT_FALSE(pes::DetectRestart(&in, &out));
+  in.restartByte = 0;
+  EXPECT_FALSE(pes::DetectRestart(&in, &out));  // back to zero: no record
+}
+
+// K=12 (FUN_140a14d40): team 0's possession latch flipping.
+TEST(PesEventDetectors, PossessionFlipFiresOnTheLatchEdge) {
+  pes::EventConstants k;
+  k.shortScale = 16.0f;
+  k.shortUpper = 32767.0f;
+  k.shortLower = -32768.0f;
+  pes::PossessionFlipInput in;
+  in.frame = 40;
+  in.phase = 1;
+  in.team0InPossession = false;
+  in.stored = false;
+  in.ballX = 3.0f;
+  in.ballZ = -2.0f;
+  pes::EventRecord out;
+  EXPECT_FALSE(pes::DetectPossessionFlip(&in, &out, k));  // unchanged
+  in.team0InPossession = true;
+  EXPECT_TRUE(pes::DetectPossessionFlip(&in, &out, k));
+  EXPECT_EQ(out.kind, 12u);
+  EXPECT_EQ(out.U32(0x14), 0u);  // payload+0: team 0 has it now
+  EXPECT_EQ(out.U16(0x18), static_cast<uint16_t>(3 * 16));   // the ball's x
+  EXPECT_EQ(out.U16(0x1a), static_cast<uint16_t>(-2 * 16));  // and z
+  EXPECT_TRUE(in.stored);
+}
+
+// K=14 (FUN_140a1a4c0): the interval closing.
+TEST(PesEventDetectors, IntervalFiresWhenTheLatchClears) {
+  pes::IntervalInput in;
+  in.team = 1;
+  in.idx = 5;
+  in.latch = true;  // the interval opens
+  in.frame = 100;
+  in.phase = 2;
+  pes::EventRecord out;
+  EXPECT_FALSE(pes::DetectInterval(&in, &out));  // opening writes no record
+  EXPECT_TRUE(in.latched);
+  EXPECT_EQ(in.startFrame, 100);
+  EXPECT_EQ(in.startPhase, 2);
+  in.latch = false;
+  in.frame = 130;
+  in.latchFlag = true;
+  EXPECT_TRUE(pes::DetectInterval(&in, &out));
+  EXPECT_EQ(out.kind, 14u);
+  EXPECT_EQ(out.frame1, 100);  // the start frame
+  EXPECT_EQ(out.frame2, 130);
+  EXPECT_EQ(out.p6, 2);  // the start phase
+  EXPECT_EQ(out.U32(0x14), 5u);   // payload+0: the index
+  EXPECT_EQ(out.U32(0x18), 1u);  // payload+4: the side
+  EXPECT_EQ(out.U8(0x20), 1);    // payload+0x1c: the latch's flag
+  EXPECT_FALSE(in.latched);
+  in.idx = 0x31;  // past the flag array's live part
+  in.latch = true;  // the interval opens again
+  EXPECT_FALSE(pes::DetectInterval(&in, &out));
+  in.latch = false;
+  EXPECT_TRUE(pes::DetectInterval(&in, &out));
+  EXPECT_EQ(out.U8(0x20), 0);  // no flag word is read there
+}
+
+// K=30 (FUN_140a13bc0): the foul ring's three triggers and its payload copy.
+TEST(PesEventDetectors, FoulFiresFromAnyOfTheThreeTriggers) {
+  pes::EventConstants k;
+  k.shortScale = 16.0f;
+  k.shortUpper = 32767.0f;
+  k.shortLower = -32768.0f;
+  const float sample[3] = {1.0f, 0.f, 2.0f};
+  auto make = [&]() {
+    pes::FoulInput in;
+    in.frame = 50;
+    in.phase = 1;
+    in.restartState = 2;
+    in.restartGate = 5;
+    in.stored = 1;
+    in.culpritSample = sample;
+    in.constants = &k;
+    return in;
+  };
+  pes::EventRecord out;
+  pes::FoulInput first = make();
+  EXPECT_TRUE(pes::DetectFoul(&first, &out));
+  EXPECT_EQ(out.kind, 30u);
+  EXPECT_EQ(out.U16(0x14), 16);   // payload+0: the culprit's x
+  EXPECT_EQ(out.U16(0x16), 32);   // payload+2: and z
+  EXPECT_EQ(first.stored, 2);      // the detector follows the restart state
+
+  pes::FoulInput flag = make();
+  flag.stored = 2;  // the first trigger's edge is gone
+  flag.foulFlag = true;
+  EXPECT_TRUE(pes::DetectFoul(&flag, &out));
+
+  pes::FoulInput other = make();
+  other.stored = 2;
+  other.flag135c = true;
+  EXPECT_TRUE(pes::DetectFoul(&other, &out));
+
+  pes::FoulInput none = make();
+  none.stored = 2;
+  EXPECT_FALSE(pes::DetectFoul(&none, &out));
+
+  pes::FoulInput open = make();  // not a restart state
+  open.restartState = 1;
+  open.stored = 1;
+  open.foulFlag = true;
+  EXPECT_FALSE(pes::DetectFoul(&open, &out));
+}
+
+// K=11 (the 0x140a158a9 snapshot): the three payload copies and its gates.
+TEST(PesEventDetectors, SnapshotCopiesThreeRecords) {
+  auto pe = TableFromObs();
+  ASSERT_TRUE(pe);
+  std::string err;
+  auto table = pes::LoadEventRingTable(*pe, &err);
+  ASSERT_TRUE(table) << err;
+  RoutedStore s(*table);
+  s.Push(7, 1, 10, pes::ActorKey{0, 1});   // team 0's pass (ring 0)
+  s.Push(7, 7, 20, pes::ActorKey{1, 2});   // team 1's touch (ring 0, the newest)
+
+  pes::EventRecord current;
+  current.Reset();
+  current.Write(7, 30, 30, 0.f, 1);
+  current.SetActionKind(2);
+  current.SetU32(0x18, 1);  // the current record's key: team 1
+  current.SetU32(0x1c, 2);
+  current.SetU32(0x24, 30);
+
+  pes::SnapshotInput in;
+  in.store = &s.store();
+  in.current = &current;
+  in.frame = 30;
+  in.phase = 1;
+  pes::EventRecord out;
+  EXPECT_TRUE(pes::DetectSnapshot(in, &out));
+  EXPECT_EQ(out.kind, 11u);
+  // The three 0x64-byte copies: the current record, the newest event, and the
+  // first ring-0 record that is not busy and is the other team's.
+  EXPECT_EQ(out.U32(0x14), 2u);  // the current record's action kind
+  EXPECT_EQ(out.U32(0x78), 7u);  // the newest event's
+  EXPECT_EQ(out.U32(0xdc), 1u);  // the ring-0 record's
+
+  // A busy current record fires nothing.
+  pes::EventRecord busy = current;
+  busy.SetActionKind(9);
+  in.current = &busy;
+  EXPECT_FALSE(pes::DetectSnapshot(in, &out));
+
+  // A record of the same team as the found one fires nothing either: the
+  // snapshot is the other team's play.
+  pes::EventRecord same = current;
+  same.SetU32(0x18, 0);  // the found ring-0 record's team word
+  in.current = &same;
+  EXPECT_FALSE(pes::DetectSnapshot(in, &out));
+}
+
+// The ball-event family: the action kind is the ball's +0x27dc word, so the
+// kinds 1..5 come out of FUN_140a18810's switch, and a record that repeats the
+// newest is dropped.
+TEST(PesEventDetectors, BallEventCarriesTheActionKindAndDeduplicates) {
+  auto pe = TableFromObs();
+  ASSERT_TRUE(pe);
+  std::string err;
+  auto table = pes::LoadEventRingTable(*pe, &err);
+  ASSERT_TRUE(table) << err;
+  pes::EventConstants k;
+  pes::EventStore store;
+
+  pes::BallEventInput in;
+  in.ballState = 1;
+  in.kickGate = true;
+  in.lastToucher = 5;
+  in.lastToucherSlot = 2;  // FUN_140a62fe0's slot for that id
+  in.actionKind = 5;  // a shot
+  in.frame = 100;
+  in.phase = 1;
+  in.restartState = 1;
+  in.store = &store;
+  in.constants = &k;
+  pes::EventRecord out;
+  EXPECT_TRUE(pes::DetectBallEvent(in, &out));
+  EXPECT_EQ(out.kind, 7u);       // the route kind
+  EXPECT_EQ(out.ActionKind(), 5u);  // the action kind readers test
+  EXPECT_EQ(out.ActionFrame(), 100);
+  EXPECT_EQ(out.U32(0x18), 0u);  // payload+4: the actor key's team word
+  EXPECT_EQ(out.U32(0x1c), 2u);  // payload+8: and its slot
+
+  // Routing that record makes it the newest event; the same record again is
+  // dropped by the dedup, as PES's 0x140a17b30 does.
+  store.Route(*table, out);
+  in.frame = 101;
+  pes::EventRecord again;
+  EXPECT_FALSE(pes::DetectBallEvent(in, &again));
+
+  // The second state's kinds come from FUN_140a18690.
+  pes::BallEventInput second;
+  second.ballState = 2;
+  second.secondGate = true;
+  second.holder = 7;
+  second.holderFlag = 1;
+  second.frame = 200;
+  second.phase = 1;
+  second.store = &store;
+  pes::EventRecord secondOut;
+  EXPECT_TRUE(pes::DetectBallEvent(second, &secondOut));
+  EXPECT_EQ(secondOut.ActionKind(), 0xdu);
+
+  // The default branch's kinds (FUN_140a19120): 8 and 0x11.
+  pes::BallEventInput def;
+  def.ballState = 4;
+  def.holderPairValid = true;
+  def.holderPairPlayer = 3;
+  def.frame = 300;
+  def.phase = 1;
+  def.store = &store;
+  EXPECT_TRUE(pes::DetectBallEvent(def, &out));
+  EXPECT_EQ(out.ActionKind(), 8u);
+}
+
+// FUN_140a0dfd0: the kind-8 record gated on ring 1's key, then the kind-7
+// record with the 0xf payload.
+TEST(PesEventDetectors, Type14WritesTheOtherRecordThenTheTouch) {
+  auto pe = TableFromObs();
+  ASSERT_TRUE(pe);
+  std::string err;
+  auto table = pes::LoadEventRingTable(*pe, &err);
+  ASSERT_TRUE(table) << err;
+  pes::EventConstants k;
+  k.shortScale = 16.0f;
+  k.shortUpper = 32767.0f;
+  k.shortLower = -32768.0f;
+  pes::EventStore store;
+  // A kind-8 record routes to ring 1 and leaves a valid key there.
+  pes::EventRecord eight;
+  eight.Reset();
+  eight.Write(8, 10, 10, 0.f, 1);
+  eight.SetU32(0x1c, 0);
+  eight.SetU32(0x20, 4);
+  store.Route(*table, eight);
+
+  pes::Type14Input in;
+  in.type = 0x14;
+  in.fromKick = true;
+  in.frame = 40;
+  in.phase = 1;
+  in.ballX = 1.0f;
+  in.ballZ = 2.0f;
+  in.store = &store;
+  in.constants = &k;
+  pes::EventRecord out;
+  EXPECT_EQ(pes::DetectType14(in, &out), pes::Type14Record::kOther);
+  EXPECT_EQ(out.kind, 8u);
+  EXPECT_EQ(out.U16(0x28), 16);  // payload+0x14: the ball's x
+
+  // The touch record: the 0xf payload, the tracked player, and the dedup
+  // against the newest event.
+  pes::Type14Input touch = in;
+  touch.fromKick = false;
+  touch.fromOther = true;
+  touch.gate = 1;
+  touch.player = 9;
+  EXPECT_EQ(pes::DetectType14(touch, &out), pes::Type14Record::kTouch);
+  EXPECT_EQ(out.kind, 7u);
+  EXPECT_EQ(out.ActionKind(), 0xfu);
+  EXPECT_EQ(out.U32(0x18), 9u);
+
+  // Without the gate, only the kind-8 record is written.
+  pes::Type14Input nogate = touch;
+  nogate.gate = 0;
+  EXPECT_EQ(pes::DetectType14(nogate, &out), pes::Type14Record::kNone);
+  EXPECT_EQ(pes::DetectType14(nogate, &out), pes::Type14Record::kNone);
+}
+
 }  // namespace

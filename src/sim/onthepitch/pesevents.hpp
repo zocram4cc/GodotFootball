@@ -73,10 +73,12 @@ struct EventRecord {
   // Word/byte views at a record offset (0 = the kind word, 0x14 = payload+0).
   uint32_t U32(size_t off) const;
   int32_t I32(size_t off) const;
+  uint16_t U16(size_t off) const;
   float F32(size_t off) const;
   uint8_t U8(size_t off) const;
   void SetU32(size_t off, uint32_t v);
   void SetI32(size_t off, int32_t v);
+  void SetU16(size_t off, uint16_t v);
   void SetF32(size_t off, float v);
   void SetU8(size_t off, uint8_t v);
 
@@ -292,5 +294,207 @@ bool DodgeWindowRefuses(const EventStore& store, int side, int frame, int gs,
 // MA+0x2601c < 22, and `ctxRole` the role FUN_140a4d660 returns for the third
 // argument (0 when there is none).
 bool BusyFor(const EventRecord& rec, bool carrierIsPlayer, int ctxRole);
+
+// --- The constants the detectors read out of the install. ---
+// FUN_140a178d0's deflection sample: DAT_142598958, the value the second
+// prediction sample must equal.
+// FUN_140a6cd00's short write: DAT_14259be10 (the 16.0 scale), DAT_14257234c
+// (32767) and DAT_142648170 (-32768).
+struct EventConstants {
+  float deflectionSample = 0.f;
+  float shortScale = 0.f;
+  float shortUpper = 0.f;
+  float shortLower = 0.f;
+};
+std::optional<EventConstants> LoadEventConstants(const PeImage& exe, std::string* error);
+
+// FUN_140a6cd00: a sample's x and z as two clamped 16-bit words.
+void WriteClampedShorts(EventRecord* rec, size_t off, const float* sample,
+                        const EventConstants& k);
+
+// --- The detectors. Each writes the record into `out` and returns whether it
+// --- fired; the caller routes what it writes (the detector loop FUN_140a0d3f0
+// --- calls FUN_140a3dc40 on the record only when a detector returns true).
+// --- Every one is a pure function of its inputs; the stored state a detector
+// --- keeps between frames (its "+8" word) is passed by pointer.
+
+// K=1 (FUN_140a14280, site 0x140a142e1): the phase word changing.
+struct PhaseInput {
+  int phase = 0;    // MI+0x1168
+  int frame = 0;    // MI+0x1198
+  float state = 0.f;  // FUN_140a3c050(MI+0x1168)
+  int stored = 0;   // the detector's +8 word
+};
+bool DetectPhase(PhaseInput* in, EventRecord* out);
+
+// K=9 (FUN_140a178d0, site 0x140a1798c): the ball's second prediction sample
+// sitting at the deflection constant while the first has fallen.
+struct DeflectionInput {
+  int frame = 0;
+  int phase = 0;
+  float state = 0.f;
+  bool advanceFlag = false;  // MI+0x11b4 == 0
+  float sample0 = 0.f;       // FUN_140a6cf70(ball, 0)+4
+  float sample1 = 0.f;       // FUN_140a6cf70(ball, 1)+4
+  float sampleConst = 0.f;   // EventConstants::deflectionSample
+};
+bool DetectDeflection(const DeflectionInput& in, EventRecord* out);
+
+// K=10 (FUN_140a17810, site 0x140a1788b): the out-of-play side changing.
+struct OutOfPlayInput {
+  int frame = 0;
+  int phase = 0;
+  float state = 0.f;
+  bool advanceFlag = false;  // MI+0x11b4 == 0
+  int outSide = 0;           // G+0x40+0x2798
+  int stored = 0;            // the detector's +8 word
+};
+bool DetectOutOfPlay(OutOfPlayInput* in, EventRecord* out);
+
+// K=11 (the snapshot body 0x140a158a9-0x140a15a91, site 0x140a15978): the first
+// ring-0 record that is not busy and is the other team's, copied into the new
+// record beside the current record and the newest event.
+struct SnapshotInput {
+  const EventStore* store = nullptr;
+  const EventRecord* current = nullptr;  // this pass's record, before the write
+  int frame = 0;
+  int phase = 0;
+  float state = 0.f;
+};
+bool DetectSnapshot(const SnapshotInput& in, EventRecord* out);
+
+// K=12 (FUN_140a14d40, site 0x140a14db6): team 0's possession latch flipping.
+struct PossessionFlipInput {
+  int frame = 0;
+  int phase = 0;
+  float state = 0.f;
+  bool team0InPossession = false;  // team record 0's +0x255
+  float ballX = 0.f;               // FUN_140a57800(G+0x40)+0
+  float ballZ = 0.f;               // FUN_140a57800(G+0x40)+8
+  bool stored = false;             // the detector's +8 word
+};
+bool DetectPossessionFlip(PossessionFlipInput* in, EventRecord* out,
+                          const EventConstants& k);
+
+// K=14 (FUN_140a1a4c0, site 0x140a1a53b): the per-index interval closing.
+struct IntervalInput {
+  int team = 0;               // the detector's +8 word
+  int idx = 0;                // the detector's +0xc word: a byte index into
+                              // the team record's +0xb6e8 array
+  bool latch = false;         // team record +0xb6e8[idx]
+  bool latchFlag = false;     // team record +0xb718[idx], when idx < 0x30
+  int frame = 0;
+  int phase = 0;
+  float state = 0.f;
+  bool latched = false;       // the detector's +0x10 word
+  int startFrame = 0;         // the detector's +0x14 word
+  int startPhase = 0;         // the detector's +0x18 word
+};
+bool DetectInterval(IntervalInput* in, EventRecord* out);
+
+// K=0x10 (FUN_140a14a20's tail, site 0x140a14a8b): the restart word at
+// MI+0x11b2 turning nonzero.
+struct RestartInput {
+  int restartByte = 0;  // MI+0x11b2
+  int frame = 0;
+  int phase = 0;
+  float state = 0.f;
+  int stored = 0;  // the detector's +8 word
+};
+bool DetectRestart(RestartInput* in, EventRecord* out);
+
+// K=30 (FUN_140a13bc0, sites 0x140a13c39/0x140a13c86/0x140a13cd3): the foul
+// ring's three triggers, each copying the foul record MI+0x1584 into the
+// payload (FUN_140a3d0c0).
+struct FoulInput {
+  int frame = 0;
+  int phase = 0;
+  float state = 0.f;
+  int restartState = 1;   // MI+0x116c
+  int restartGate = 0;    // MI+0x1574
+  bool foulFlag = false;  // MI+0x11bb
+  bool flag135c = false;  // MI+0x135c
+  bool restartGate6 = false;  // MI+0x1554 == 6
+  int stored = 0;         // the detector's +8 word
+  // The foul record MI+0x1584, as FUN_140a3d0c0 reads it.
+  int foulKind = 0;        // +0x04
+  int foulWord8 = 0;       // +0x08
+  int foulCulprit = -1;    // +0x0c, a player id (FUN_140a62fe0's)
+  int foulVictim = -1;     // +0x10, a player id
+  int foulWord14 = 0;      // +0x14
+  int foulWord18 = 0;      // +0x18
+  int foulWord1c = 0;      // +0x1c
+  int foulWord28 = 0;      // +0x28
+  uint8_t foulByte20 = 0;  // +0x20
+  uint8_t foulByte21 = 0;  // +0x21
+  // FUN_140a81b70(MI+0x17ac, foul+0x28): the culprit's position sample, or null
+  // when the lookup finds nothing.
+  const float* culpritSample = nullptr;
+  bool culpritIsPair = false;    // foul+4 == 2: the second branch
+  bool culpritShortFlag = false;  // that branch's entry word is 0xf
+  const EventConstants* constants = nullptr;
+};
+bool DetectFoul(FoulInput* in, EventRecord* out);
+
+// The ball-event family (FUN_140a17b30's dispatch over ball+0x291c:
+// FUN_140a18940 in play, FUN_140a18690 for the second state, FUN_140a19120
+// otherwise), filled by FUN_140a17cf0 and de-duplicated against the newest
+// event. Its payload+0 is the action kind the readers test: 1..5 for a kick or
+// a shot (FUN_140a18810's switch on ball+0x27dc), 8 and 0x11 for
+// FUN_140a19120's two states, 0xb..0xe for FUN_140a18690's, and 0xf for
+// FUN_140a0dfd0's own record.
+struct BallEventInput {
+  int ballState = 0;     // G+0x40+0x291c
+  int actionKind = 0;    // G+0x40+0x27dc (FUN_140a18940's payload+0)
+  int lastToucher = -1;     // G+0x40+0x290c
+  int lastToucherSlot = 0;  // the slot FUN_140a62fe0 pairs with that id
+  int holder = -1;       // G+0x40+0x2910
+  int holderFlag = 0;    // G+0x40+0x2914, a byte
+  int holderByte5 = 0;   // G+0x40+0x2915, a byte
+  int holderClassKind = 0xd;  // FUN_140a18690's class-resolved kind (0xb/0xc/10)
+  int actorByte3e = 0;   // the actor record's +0x3e, sign-extended
+  int ballWord2818 = 0;  // G+0x40+0x2818
+  int ballWord281c = 0;  // G+0x40+0x281c
+  int kickTailWord40 = 0;  // payload+0x40, the kind 1/2 tail
+  int kickTailSub = 0;     // payload+0x18, the kind 1/2 tail
+  std::array<uint32_t, 0x18> roster{};  // [G+0x180] + i*0x74 + 0x20, i < 0x18
+  bool kickGate = false;       // FUN_140a57950(ball): ball+0x291c == 1
+  bool secondGate = false;     // FUN_140a57930(ball): ball+0x2918 >> 2 & 1
+  bool state2Gate = false;     // FUN_140a57940: the ball+0x2920 == 2 branch
+  int restartPlayer = -1;      // MI+0x173c (FUN_140a19120's state 2)
+  bool holderPairValid = false;  // *(D+0x108)'s second byte
+  int holderPairPlayer = -1;      // *(D+0x108)'s first word
+  int frame = 0;
+  int phase = 0;
+  float state = 0.f;           // FUN_140a3c050(MI+0x1168)
+  int restartState = 1;        // MI+0x116c
+  int restartKind = 0;         // MI+0x1554
+  const EventStore* store = nullptr;  // the dedup reads the newest event
+  const EventConstants* constants = nullptr;
+};
+bool DetectBallEvent(const BallEventInput& in, EventRecord* out);
+
+// FUN_140a0dfd0: the type-0x14 record's events. Its first record is a kind-8
+// record gated on ring 1's newest key being valid; the second is the kind-7
+// record with the 0xf payload, written only while the ball's gate at
+// G+0x2a80+0x64 is 1.
+struct Type14Input {
+  int type = 0;              // the input record's +0 word
+  bool fromKick = false;     // its +0x18 byte
+  bool fromOther = false;    // its +0x19 byte
+  int gate = 0;              // *(G+0x2a80 + 0x64)
+  int player = -1;           // *(G+0x2a80+0x18) for the actor
+  int frame = 0;
+  int phase = 0;
+  float state = 0.f;
+  float ballX = 0.f;         // FUN_140a57800(G+0x40)+0
+  float ballZ = 0.f;         // FUN_140a57800(G+0x40)+8
+  const EventStore* store = nullptr;
+  const EventConstants* constants = nullptr;
+};
+// Both records are written through this; `out` is the record the caller routes.
+// Returns which record was written, or kNone when neither fires.
+enum class Type14Record { kNone, kOther, kTouch };
+Type14Record DetectType14(const Type14Input& in, EventRecord* out);
 
 }  // namespace pes

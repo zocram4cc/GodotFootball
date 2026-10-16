@@ -52,6 +52,12 @@ float EventRecord::F32(size_t off) const {
   return v;
 }
 
+uint16_t EventRecord::U16(size_t off) const {
+  uint16_t v = 0;
+  std::memcpy(&v, reinterpret_cast<const uint8_t*>(this) + off, sizeof v);
+  return v;
+}
+
 uint8_t EventRecord::U8(size_t off) const {
   return reinterpret_cast<const uint8_t*>(this)[off];
 }
@@ -65,6 +71,10 @@ void EventRecord::SetI32(size_t off, int32_t v) {
 }
 
 void EventRecord::SetF32(size_t off, float v) {
+  std::memcpy(reinterpret_cast<uint8_t*>(this) + off, &v, sizeof v);
+}
+
+void EventRecord::SetU16(size_t off, uint16_t v) {
   std::memcpy(reinterpret_cast<uint8_t*>(this) + off, &v, sizeof v);
 }
 
@@ -323,6 +333,349 @@ bool BusyFor(const EventRecord& rec, bool carrierIsPlayer, int ctxRole) {
   if (kind == 5) return ctxRole != 0 && ctxRole != 5;
   if ((kind == 6 || kind == 7) && !carrierIsPlayer) return true;
   return kind >= 9 && kind <= 14;
+}
+
+std::optional<EventConstants> LoadEventConstants(const PeImage& exe, std::string* error) {
+  EventConstants k;
+  if (!exe.ReadVa(0x142598958, sizeof k.deflectionSample,
+                  reinterpret_cast<uint8_t*>(&k.deflectionSample)) ||
+      !exe.ReadVa(0x14259be10, sizeof k.shortScale,
+                  reinterpret_cast<uint8_t*>(&k.shortScale)) ||
+      !exe.ReadVa(0x14257234c, sizeof k.shortUpper,
+                  reinterpret_cast<uint8_t*>(&k.shortUpper)) ||
+      !exe.ReadVa(0x142648170, sizeof k.shortLower,
+                  reinterpret_cast<uint8_t*>(&k.shortLower))) {
+    if (error) *error = "an event constant is not mapped in the install";
+    return std::nullopt;
+  }
+  return k;
+}
+
+void WriteClampedShorts(EventRecord* rec, size_t off, const float* sample,
+                        const EventConstants& k) {
+  auto clamp = [&k](float v) {
+    v *= k.shortScale;
+    if (v > k.shortUpper) return k.shortUpper;
+    return v > k.shortLower ? v : k.shortLower;
+  };
+  const int16_t x = static_cast<int16_t>(static_cast<int>(clamp(sample[0])));
+  const int16_t z = static_cast<int16_t>(static_cast<int>(clamp(sample[2])));
+  rec->SetU8(off, static_cast<uint8_t>(x & 0xff));
+  rec->SetU8(off + 1, static_cast<uint8_t>((static_cast<uint16_t>(x) >> 8) & 0xff));
+  rec->SetU8(off + 2, static_cast<uint8_t>(z & 0xff));
+  rec->SetU8(off + 3, static_cast<uint8_t>((static_cast<uint16_t>(z) >> 8) & 0xff));
+}
+
+// FUN_140a60300: two 4-byte key words equal.
+bool KeysEqual(const EventRecord& a, const EventRecord& b) {
+  return a.U32(0x18) == b.U32(0x18) && a.U32(0x1c) == b.U32(0x1c);
+}
+
+bool DetectPhase(PhaseInput* in, EventRecord* out) {
+  if (in->stored == in->phase) return false;
+  out->Write(1, in->frame, in->frame, in->state, in->phase);
+  out->SetU32(0x14, static_cast<uint32_t>(in->phase));  // FUN_140a3d4f0
+  out->SetU32(0x18, static_cast<uint32_t>(in->stored));
+  in->stored = in->phase;
+  return true;
+}
+
+bool DetectDeflection(const DeflectionInput& in, EventRecord* out) {
+  if (in.advanceFlag) return false;
+  if (in.sample1 != in.sampleConst) return false;
+  if (0.0f <= in.sample1 - in.sample0) return false;
+  out->Write(9, in.frame, in.frame, in.state, in.phase);
+  return true;
+}
+
+bool DetectOutOfPlay(OutOfPlayInput* in, EventRecord* out) {
+  if (in->advanceFlag) return false;
+  if (in->stored == in->outSide) return false;
+  in->stored = in->outSide;
+  out->Write(10, in->frame, in->frame, in->state, in->phase);
+  out->SetU32(0x14, static_cast<uint32_t>(in->outSide));
+  return true;
+}
+
+bool DetectSnapshot(const SnapshotInput& in, EventRecord* out) {
+  if (in.store == nullptr || in.current == nullptr) return false;
+  if (BusyFor(*in.current, true, 0)) return false;  // FUN_140a6ce10(payload, 1, 0)
+  const uint32_t kind = in.current->ActionKind();
+  if (kind == 4 || kind == 0x11) return false;
+  const EventRecord* found = nullptr;
+  for (int n = 1; n < 8; ++n) {
+    const EventRecord* rec = in.store->NewestOrRing0(n);
+    if (rec == nullptr) continue;
+    if (rec->ActionKind() == 0x11) return false;
+    if (!ActorKey{rec->U32(0x18), rec->U32(0x1c)}.Valid()) continue;
+    if (!BusyFor(*rec, true, 0)) {
+      found = rec;
+      break;
+    }
+  }
+  if (found == nullptr) return false;
+  if (found->ActionKind() - 4 <= 1) return false;  // kinds 4 and 5
+  if (found->U32(0x18) == in.current->U32(0x18)) return false;
+  out->Write(11, in.frame, in.frame, in.state, in.phase);
+  // FUN_140a156b0 resets three 0x64-byte blocks; the three payload copies
+  // follow: the current record, the newest event, and the record found.
+  auto copy = [out](size_t to, const EventRecord& from) {
+    std::memcpy(reinterpret_cast<uint8_t*>(out) + to,
+                reinterpret_cast<const uint8_t*>(&from) + 0x14, 0x64);
+  };
+  copy(0x14, *in.current);
+  copy(0x78, *in.store->NewestOrRing0(0));
+  copy(0xdc, *found);
+  return true;
+}
+
+bool DetectPossessionFlip(PossessionFlipInput* in, EventRecord* out,
+                          const EventConstants& k) {
+  if (in->stored == in->team0InPossession) return false;
+  in->stored = in->team0InPossession;
+  out->Write(12, in->frame, in->frame, in->state, in->phase);
+  out->SetU32(0x14, 2);  // overwritten below, as PES does
+  out->SetU32(0x14, in->stored ? 0u : 1u);
+  out->SetU32(0x18, 0);  // FUN_140a6cc70
+  const float sample[3] = {in->ballX, 0.f, in->ballZ};
+  WriteClampedShorts(out, 0x18, sample, k);
+  return true;
+}
+
+bool DetectInterval(IntervalInput* in, EventRecord* out) {
+  if (!in->latched) {
+    if (!in->latch) return false;
+    in->latched = true;
+    in->startFrame = in->frame;
+    in->startPhase = in->phase;
+    return false;
+  }
+  if (in->latch) return false;
+  in->latched = false;
+  out->Write(14, in->startFrame, in->frame, in->state, in->startPhase);
+  out->SetU32(0x18, static_cast<uint32_t>(in->team));  // payload+4
+  out->SetU32(0x14, static_cast<uint32_t>(in->idx));   // payload+0
+  out->SetU8(0x20, in->idx < 0x30 && in->latchFlag ? 1 : 0);  // payload+0x1c
+  return true;
+}
+
+bool DetectRestart(RestartInput* in, EventRecord* out) {
+  if (in->stored == in->restartByte) return false;
+  in->stored = in->restartByte;
+  if (in->restartByte == 0) return false;
+  out->Write(0x10, in->frame, in->frame, in->state, in->phase);
+  return true;
+}
+
+bool DetectFoul(FoulInput* in, EventRecord* out) {
+  bool fired = false;
+  if (in->restartState == 2) {
+    if (in->stored == 1 && in->restartGate == 5) fired = true;
+    if (in->foulFlag) fired = true;
+    if (in->flag135c) fired = true;
+  }
+  in->stored = in->restartState;
+  if (!fired) return false;
+  out->Write(30, in->frame, in->frame, in->state, in->phase);
+  // FUN_140a3d0c0's copy of the foul record MI+0x1584 into the payload.
+  const EventConstants& k = *in->constants;
+  out->SetU8(0x42, 0);  // payload+0x2e
+  if (in->culpritSample != nullptr) {
+    WriteClampedShorts(out, 0x14, in->culpritSample, k);
+    if (in->culpritIsPair && in->culpritShortFlag) out->SetU8(0x42, 1);
+  }
+  out->SetU8(0x43, in->restartGate6 ? 1 : 0);  // payload+0x2f: MI+0x1554 == 6
+  out->SetU32(0x18, static_cast<uint32_t>(in->foulKind));    // payload+4
+  out->SetU32(0x1c, static_cast<uint32_t>(in->foulWord8));   // payload+8
+  out->SetU32(0x20, static_cast<uint32_t>(in->foulCulprit));  // payload+0xc key
+  out->SetU32(0x28, static_cast<uint32_t>(in->foulVictim));   // payload+0x14 key
+  out->SetU32(0x30, static_cast<uint32_t>(in->foulWord14));   // payload+0x1c
+  out->SetU32(0x34, static_cast<uint32_t>(in->foulWord18));  // payload+0x20
+  out->SetU32(0x38, static_cast<uint32_t>(in->foulWord28));  // payload+0x24
+  out->SetU32(0x3c, static_cast<uint32_t>(in->foulWord1c));  // payload+0x28
+  out->SetU8(0x40, in->foulByte20);                          // payload+0x2c
+  out->SetU8(0x41, in->foulByte21);                          // payload+0x2d
+  return true;
+}
+
+namespace {
+
+// The roster lookup both FUN_140a19120 and FUN_140a18940 do: the index i with
+// [G+0x180] + i*0x74 + 0x20 == id, or 0x18 when none carries it.
+constexpr int kRosterSlots = 0x18;
+int RosterIndexOf(const std::array<uint32_t, kRosterSlots>& roster, int id) {
+  for (int i = 0; i < kRosterSlots; ++i) {
+    if (static_cast<int>(roster[static_cast<size_t>(i)]) == id) return i;
+  }
+  return kRosterSlots;
+}
+
+// FUN_140a19120: the ball's state 2 and state 4 records.
+bool BuildDefaultBallEvent(const BallEventInput& in, EventRecord* out) {
+  if (in.ballState == 2) {
+    if (!in.state2Gate || in.restartPlayer < 0 || in.restartPlayer >= 0x16) return false;
+    out->SetActionKind(0x11);
+    out->SetU32(0x20, static_cast<uint32_t>(in.restartPlayer));  // payload+0xc
+    return true;
+  }
+  if (in.ballState == 4) {
+    if (!in.holderPairValid || in.holderPairPlayer < 0 || in.holderPairPlayer >= 0x16) {
+      return false;
+    }
+    out->SetActionKind(8);
+    out->SetU32(0x20, static_cast<uint32_t>(in.holderPairPlayer));
+    return true;
+  }
+  return false;
+}
+
+// FUN_140a18690: the ball's second state.
+bool BuildSecondBallEvent(const BallEventInput& in, EventRecord* out) {
+  const int holder = in.holder;
+  if (holder > 0x15) {
+    out->SetActionKind(0xe);
+    out->SetU8(0x4c, static_cast<uint8_t>(in.holderByte5));  // payload+0x38
+    return true;
+  }
+  int kind = 0xd;
+  if (in.holderFlag != 0) {
+    // The two anime-class tests (FUN_140a6e4b0 / FUN_140a6e580 / FUN_140a6e070)
+    // are not decoded; the caller supplies the kind the class resolves to,
+    // defaulting to PES's 0xd.
+    // ponytail: the three class tests, which pick 0xb, 0xc or 10 from 0xd.
+    kind = in.holderClassKind;
+  }
+  out->SetActionKind(static_cast<uint32_t>(kind));
+  out->SetU32(0x20, static_cast<uint32_t>(in.holder));   // payload+0xc
+  out->SetU32(0x34, static_cast<uint32_t>(in.holderFlag));  // payload+0x20
+  return true;
+}
+
+// FUN_140a18940: in play. The action kind is the ball's +0x27dc word, which is
+// where the kinds 1..5 come from (FUN_140a18810's switch on it decides the
+// actor and whether to record at all).
+bool BuildInPlayBallEvent(const BallEventInput& in, EventRecord* out) {
+  if (in.lastToucher < 0 || in.lastToucher > 0x15) return false;
+  out->SetActionKind(static_cast<uint32_t>(in.actionKind));
+  // FUN_140a62fe0's key: the side the id belongs to, and its roster slot.
+  out->SetU32(0x18, static_cast<uint32_t>(in.lastToucher > 10 ? 1 : 0));
+  out->SetU32(0x1c, static_cast<uint32_t>(in.lastToucherSlot));
+  out->SetU32(0x20, static_cast<uint32_t>(RosterIndexOf(in.roster, in.lastToucher)));
+  out->SetU32(0x34, static_cast<uint32_t>(in.holder == in.lastToucher ? in.holderFlag : 0));
+  out->SetI32(0x38, static_cast<int8_t>(in.actorByte3e));  // payload+0x24
+  out->SetU32(0x44, static_cast<uint32_t>(in.ballWord2818));  // payload+0x30
+  out->SetU32(0x48, static_cast<uint32_t>(in.ballWord281c));  // payload+0x34
+  // The kind 1/2 tail (FUN_140a17e10's struct, the second key, and the
+  // payload+0x40 word the latch's step 3 reads) is filled by the caller's
+  // `in.kickTail`, which FUN_140a43b870 and FUN_140a17e10 would compute.
+  // ponytail: those two helpers, not decoded.
+  if (in.actionKind == 1 || in.actionKind == 2) {
+    out->SetU32(0x54, static_cast<uint32_t>(in.kickTailWord40));  // payload+0x40
+    out->SetU32(0x2c, static_cast<uint32_t>(in.kickTailSub));    // payload+0x18
+  }
+  return true;
+}
+
+// FUN_140a17b30's de-duplication against the newest event, in the order the
+// disassembly reads it.
+bool DuplicatesNewest(const BallEventInput& in, const EventRecord& out) {
+  if (!ActorKey{out.U32(0x18), out.U32(0x1c)}.Valid()) {
+    // The invalid-key branch: a kind-14 record repeating the newest kind-14
+    // record's 6..11 word is dropped.
+    if (out.ActionKind() != 0xe || in.restartState == 1) return false;
+    const EventRecord* newest = in.store->NewestOrRing0(0);
+    if (newest == nullptr || newest->ActionKind() != 0xe) return false;
+    const auto inband = [](int w) { return static_cast<unsigned>(w - 6) <= 5u; };
+    return inband(static_cast<int>(newest->U32(0x54))) && inband(static_cast<int>(out.U32(0x54)));
+  }
+  const EventRecord* newest = in.store->NewestOrRing0(0);
+  if (newest == nullptr) return false;
+  if (!KeysEqual(*newest, out)) return false;
+  if (newest->ActionKind() != out.ActionKind()) return false;
+  if (newest->U8(0x41) != out.U8(0x41)) return false;  // payload+0x2c byte
+  if (out.ActionKind() == 0x11 && newest->U32(0x30) != out.U32(0x30)) return false;
+  if (in.restartState != 1) return false;
+  if (out.ActionKind() == 0xb) return true;
+  if (out.ActionKind() == 8) return true;
+  return in.restartState == 1 && in.frame - newest->ActionFrame() < 3;
+}
+
+}  // namespace
+
+bool DetectBallEvent(const BallEventInput& in, EventRecord* out) {
+  if (in.store == nullptr) return false;
+  out->Reset();
+  bool built = false;
+  if (in.ballState == 1 && in.kickGate) {
+    built = BuildInPlayBallEvent(in, out);
+  } else if (in.ballState == 2 && in.secondGate) {
+    built = BuildSecondBallEvent(in, out);
+  } else {
+    built = BuildDefaultBallEvent(in, out);
+  }
+  if (!built) return false;
+  // FUN_140a17cf0's fill: the frame, the state word, the phase, the restart
+  // gate's word, the positions and the emit decision the fill adds.
+  out->SetI32(0x24, in.frame);                                   // payload+0x10
+  out->SetF32(0x28, in.state);                                   // payload+0x14
+  out->SetU32(0x2c, static_cast<uint32_t>(in.phase));             // payload+0x18
+  out->SetU32(0x30, static_cast<uint32_t>(out->U8(0x41) == 0 ? 0 : in.restartKind));
+  const uint32_t kind = out->ActionKind();
+  if (kind >= 1 && kind <= 5 && in.restartState == 1 && out->U32(0x30) == 0) {
+    const EventRecord* newest = in.store->NewestOrRing0(0);
+    if (newest != nullptr &&
+        (KeysEqual(*newest, *out) || newest->ActionKind() == 0xd)) {
+      out->SetU8(0x42, 1);  // payload+0x2e
+    }
+  }
+  if (DuplicatesNewest(in, *out)) return false;
+  out->Write(7, in.frame, in.frame, in.state, in.phase);
+  return true;
+}
+
+Type14Record DetectType14(const Type14Input& in, EventRecord* out) {
+  if (in.store == nullptr || in.type != 0x14) return Type14Record::kNone;
+  if (in.fromKick) {
+    // FUN_140a0dfd0's first record: a kind-8 record gated on ring 1's newest
+    // key being valid (FUN_140a3e7d0).
+    if (!in.store->Ring1Key(0).Valid()) return Type14Record::kNone;
+    out->Write(8, in.frame, in.frame, in.state, in.phase);
+    // FUN_140a867a0/FUN_140a867d0's payload: the empty key at payload+8 and
+    // the ball sample at payload+0x14.
+    out->SetU32(0x1c, EventRecord::kNoActorTeam);
+    out->SetU32(0x20, EventRecord::kNoActorSlot);
+    const float sample[3] = {in.ballX, 0.f, in.ballZ};
+    WriteClampedShorts(out, 0x28, sample, *in.constants);
+    return Type14Record::kOther;
+  }
+  if (!in.fromOther) return Type14Record::kNone;
+  const bool gate = in.gate == 1;
+  if (!in.store->Ring1Key(0).Valid()) return Type14Record::kNone;
+  // The second kind-8 record, written only when the gate allows.
+  if (gate) {
+    out->Write(8, in.frame, in.frame, in.state, in.phase);
+    out->SetU32(0x1c, EventRecord::kNoActorTeam);
+    out->SetU32(0x20, EventRecord::kNoActorSlot);
+    const float sample[3] = {in.ballX, 0.f, in.ballZ};
+    WriteClampedShorts(out, 0x28, sample, *in.constants);
+  }
+  if (!gate) return Type14Record::kNone;
+  // The kind-7 record with the 0xf payload and the tracked player.
+  EventRecord touch;
+  touch.Reset();
+  touch.Write(7, in.frame, in.frame, in.state, in.phase);
+  touch.SetActionKind(0xf);
+  touch.SetU32(0x18, static_cast<uint32_t>(in.player));  // payload+4 key
+  touch.SetU32(0x24, in.frame);                         // payload+0x10
+  touch.SetF32(0x28, in.state);
+  touch.SetU32(0x2c, static_cast<uint32_t>(in.phase));
+  const EventRecord* newest = in.store->NewestOrRing0(0);
+  if (newest != nullptr && KeysEqual(*newest, touch)) return Type14Record::kNone;
+  if (newest != nullptr && newest->ActionKind() == touch.ActionKind()) {
+    return Type14Record::kNone;
+  }
+  *out = touch;
+  return Type14Record::kTouch;
 }
 
 }  // namespace pes
