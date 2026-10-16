@@ -1,11 +1,9 @@
 #pragma once
 
-// Locomotion as PES plays it (docs/re/pes-re-animselect.md): steady movement
-// is a 1-D parametric blend over speed (Parametricblendtable.bin, group 80
-// walk_1_1 .. run_5_5), all members at one normalised phase; the speed classes
-// that decide "still" come from the exe.
+// Locomotion blend data as PES plays it (docs/re/pes-re-animselect.md): the parametric blend table
+// (Parametricblendtable.bin) and its groups, e.g. group 80 walk_1_1 .. run_5_5, all members at one
+// normalised phase. The viewer's member pair and phase come from the MOVESTEP rate.
 
-#include <array>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -36,12 +34,5 @@ struct Bracketed {
 };
 // The two members around `x` on a sorted axis, clamped to its ends.
 Bracketed Bracket(const std::vector<float>& axis, float x);
-// Blend rate for a ground speed: the lowest rate whose linearly blended member
-// root speed equals it. INF (report 4.3.3): matches live rates (0 at 1.4 m/s,
-// 0.5 at 3.9) against member root speeds.
-float RateForSpeed(const std::vector<float>& params, const std::vector<float>& speeds_mps, float speed_mps);
-
-// Speed-class upper bounds in km/h: still / walk / jog / run (FUN_1406deb30).
-std::optional<std::array<float, 4>> SpeedClassLimits(const PeImage& exe);
 
 }  // namespace pes

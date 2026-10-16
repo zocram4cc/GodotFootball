@@ -224,3 +224,52 @@ TEST(HandPoseInstall, AnEvenBlendSitsBetweenTheTwoPoses) {
   EXPECT_GT(AngleDeg(mix[j]), lo);
   EXPECT_LT(AngleDeg(mix[j]), hi);
 }
+
+namespace {
+void ExpectQuat(const pes::Quat& got, const pes::Quat& want) {
+  EXPECT_FLOAT_EQ(got.x, want.x);
+  EXPECT_FLOAT_EQ(got.y, want.y);
+  EXPECT_FLOAT_EQ(got.z, want.z);
+  EXPECT_FLOAT_EQ(got.w, want.w);
+}
+
+// A hip and two thighs: the rig a mirror reads its partners from.
+pesrig::Rig ThighRig() {
+  pesrig::Rig rig;
+  rig.bones.resize(3);
+  rig.bones[0].gfName = "hip";
+  rig.bones[1].gfName = "left_thigh";
+  rig.bones[2].gfName = "right_thigh";
+  return rig;
+}
+}  // namespace
+
+// A mirrored body clip plays each limb with its partner's motion, reflected across the body's
+// sagittal plane (PES's PoseOperatorMirror, docs/re/pes-re-anim-blend.md 3). A rotation's axial
+// vector reflects as (x, -y, -z): a turn about the sagittal axis keeps its sign, the others flip.
+TEST(MirrorPose, SwapsEachLimbWithItsPartnerAndReflectsItsRotation) {
+  const pesrig::Rig rig = ThighRig();
+  pesrig::ClipPose pose;
+  pose.local = {{0, 0, 0, 1}, {0.0f, 0.6f, 0.0f, 0.8f}, {0.6f, 0.0f, 0.0f, 0.8f}};
+  pose.bodyPosition = {0.5f, 1.0f, 2.0f};
+  const auto m = pesrig::MirrorPose(pose, pesrig::MirrorPartners(rig));
+  ExpectQuat(m.local[1], {0.6f, 0.0f, 0.0f, 0.8f});   // left takes the right's turn about x
+  ExpectQuat(m.local[2], {0.0f, -0.6f, 0.0f, 0.8f});  // right takes the left's turn about y, reversed
+  ExpectQuat(m.local[0], {0, 0, 0, 1});               // the hip is its own partner
+  EXPECT_FLOAT_EQ(m.bodyPosition.x, -0.5f);
+  EXPECT_FLOAT_EQ(m.bodyPosition.y, 1.0f);
+  EXPECT_FLOAT_EQ(m.bodyPosition.z, 2.0f);
+}
+
+TEST(MirrorPose, MirroringTwiceGivesBackThePose) {
+  const pesrig::Rig rig = ThighRig();
+  const auto partners = pesrig::MirrorPartners(rig);
+  pesrig::ClipPose pose;
+  pose.bodyRotation = {0.1f, 0.2f, 0.3f, 0.9f};
+  pose.bodyPosition = {0.5f, 1.0f, 2.0f};
+  pose.local = {{0.1f, 0.2f, 0.3f, 0.9f}, {0.0f, 0.6f, 0.0f, 0.8f}, {0.6f, 0.0f, 0.0f, 0.8f}};
+  const auto back = pesrig::MirrorPose(pesrig::MirrorPose(pose, partners), partners);
+  ExpectQuat(back.bodyRotation, pose.bodyRotation);
+  EXPECT_FLOAT_EQ(back.bodyPosition.x, pose.bodyPosition.x);
+  for (size_t j = 0; j < pose.local.size(); ++j) ExpectQuat(back.local[j], pose.local[j]);
+}

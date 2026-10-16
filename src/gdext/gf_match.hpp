@@ -1,6 +1,7 @@
 #pragma once
 
 #include <godot_cpp/classes/ref_counted.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
 #include <memory>
 #include <vector>
 
@@ -40,6 +41,10 @@ class GfMatch : public RefCounted {
   Vector3 player_velocity(int index) const;  // m/s
   int player_team(int index) const;          // 0 home, 1 away
   int player_database_id(int index) const;
+  // The clip the MOVESTEP machine last issued for a player: its motion, group (PES blend group,
+  // -1 for a single clip), mirror, start time and rate, blend duration, playback, and serial (each
+  // issue is a new clip). Empty for an index out of range.
+  Dictionary player_clip(int index) const;
   Vector3 ball_position() const;
   int match_time_ms() const;
   int score(int team) const;

@@ -36,9 +36,8 @@ var library: PesLibrary
 var sim: GfMatch
 var players: Array[Node3D] = []
 var ball: Node3D
-var locomotion: PesLocomotion
+var motion: PesMotionPlayer
 var _skeletons: Array[Skeleton3D] = []
-var _phases: PackedFloat64Array = []
 var _accumulator := 0.0
 var _lastAlpha := 1.0
 var _camera: Camera3D
@@ -72,10 +71,10 @@ func _ready() -> void:
 			int(args.get("minutes", DEFAULT_MINUTES))) != OK:
 		get_tree().quit(1)
 		return
-	locomotion = PesLocomotion.new()
-	if locomotion.load(library) != OK:
-		locomotion = null  # bodies keep the bind pose; the match still plays
-		push_warning("PES locomotion unavailable")
+	motion = PesMotionPlayer.new()
+	if motion.load(library) != OK:
+		motion = null  # bodies keep the bind pose; the match still plays
+		push_warning("PES motion unavailable")
 	_build_players()
 	_build_stadium()
 	_camera = $Camera3D
@@ -130,18 +129,15 @@ func _interpolate(alpha: float) -> void:
 	ball.global_position = bprev.lerp(b, alpha)
 
 
-# ponytail: every player plays steady locomotion; kicks, turns, tackles and
-# keeper actions (PES Animetable/Freemove selection) are not chosen yet.
+# Every player plays the clip MOVESTEP last issued for it (GfMatch.player_clip). A player with no
+# issue yet keeps the bind pose. ponytail: the sim's root motion still comes from GF's controller.
 func _place(delta: float) -> void:
 	for i in players.size():
 		var f: Vector3 = sim.player_facing(i)
 		if f.length_squared() > 0.0:
 			players[i].rotation.y = atan2(f.x, f.z)  # PES characters face +Z
-		if locomotion != null and _skeletons[i] != null:
-			var v: Vector3 = sim.player_velocity(i)
-			var speed := Vector2(v.x, v.z).length()
-			_phases[i] = fmod(_phases[i] + delta * locomotion.phase_rate(speed), 1.0)
-			locomotion.apply(_skeletons[i], speed, _phases[i])
+		if motion != null and _skeletons[i] != null:
+			motion.update(i, _skeletons[i], sim.player_clip(i), delta)
 	if args.has("follow"):
 		var p: Vector3 = players[int(args["follow"])].global_position
 		_camera.look_at_from_position(p + FOLLOW_OFFSET, p + Vector3.UP * FOLLOW_TARGET_HEIGHT_M)
@@ -180,7 +176,6 @@ func _build_players() -> void:
 		add_child(body)
 		players.append(body)
 		_skeletons.append(body.get_node_or_null("Skeleton"))
-		_phases.append(0.0)
 
 
 func _parse_args(raw: PackedStringArray) -> Dictionary:

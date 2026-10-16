@@ -170,4 +170,34 @@ void ApplyHandPose(const Rig& rig, const HandPoseLibrary& lib, const std::vector
   }
 }
 
+namespace {
+// A rotation's axial vector under the reflection x -> -x: the x component keeps its sign, y and z flip.
+Quat ReflectRotation(const Quat& q) { return {q.x, -q.y, -q.z, q.w}; }
+}  // namespace
+
+std::vector<int> MirrorPartners(const Rig& rig) {
+  std::vector<int> partners(rig.bones.size());
+  for (size_t j = 0; j < rig.bones.size(); ++j) {
+    partners[j] = int(j);
+    const std::string& name = rig.bones[j].gfName;
+    std::string twin;
+    if (name.rfind("left_", 0) == 0) twin = "right_" + name.substr(5);
+    else if (name.rfind("right_", 0) == 0) twin = "left_" + name.substr(6);
+    else continue;
+    for (size_t k = 0; k < rig.bones.size(); ++k)
+      if (rig.bones[k].gfName == twin) partners[j] = int(k);
+  }
+  return partners;
+}
+
+ClipPose MirrorPose(const ClipPose& pose, const std::vector<int>& partners) {
+  ClipPose out = pose;
+  for (size_t j = 0; j < pose.local.size() && j < partners.size(); ++j)
+    out.local[j] = ReflectRotation(pose.local[size_t(partners[j])]);
+  out.bodyRotation = ReflectRotation(pose.bodyRotation);
+  out.bodyPosition.x = -pose.bodyPosition.x;
+  return out;
+}
+
+
 }  // namespace pesrig
