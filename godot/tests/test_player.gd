@@ -264,11 +264,23 @@ func _init() -> void:
 	check(long_sleeved != null, "player builds (team %d, kit %d, face %d)" % [look_team, look_kit, look_face])
 	if long_sleeved != null:
 		var look_parts := {}
+		var look_uniforms := 0
 		for m in long_sleeved.get_node("Skeleton").get_children():
 			if m is MeshInstance3D:
 				look_parts[str(m.get_meta("part"))] = true
-		check(look_parts.keys().any(func(p): return p.begins_with("sleeve_long") or p == "sleeve_glove"),
-				"player %d wears a long sleeve: %s" % [look_face, look_parts.keys()])
-		check(not look_parts.has("arm"), "player %d shows no bare arm" % look_face)
+				var mat: Material = m.mesh.surface_get_material(0) if m.mesh.get_surface_count() > 0 else null
+				if mat != null and str(mat.get_name()).begins_with(UNIFORM_MATERIAL_PREFIX):
+					look_uniforms += 1
+		# A whole body in the boots pack replaces the base body and the uniform
+		# (pes-re-officials-ball.md §3.3): it draws the boots part and no uniform, and
+		# no bare arm or hand. Its face pack stays (the head). Only a normal body has
+		# the sleeve checks.
+		if look_uniforms == 0 and look_parts.has("boots"):
+			check(not look_parts.has("arm") and not look_parts.has("hand_l") and not look_parts.has("hand_r"),
+					"player %d (whole body) draws no bare arm or hand" % look_face)
+		else:
+			check(look_parts.keys().any(func(p): return p.begins_with("sleeve_long") or p == "sleeve_glove"),
+					"player %d wears a long sleeve: %s" % [look_face, look_parts.keys()])
+			check(not look_parts.has("arm"), "player %d shows no bare arm" % look_face)
 		long_sleeved.free()
 	quit(1 if failures > 0 else 0)

@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "pes/fmdl.hpp"
 #include "pes/fpk.hpp"
 #include "pes/uniform.hpp"
 #include "pes/vfs.hpp"
@@ -653,4 +654,19 @@ TEST(ClothBlendNormalX, PantsKeepTheFmdlValues) {
   EXPECT_FLOAT_EQ(r.y, 0.0f);
   EXPECT_FLOAT_EQ(r.z, 0.25f);
   EXPECT_FLOAT_EQ(r.w, 0.5f);
+}
+
+// A boots part whose skeleton carries the body's hip bone is a whole body, not a
+// boot (pes-re-officials-ball.md §3.3: the 4cc body packs load their body as the
+// boots part). Such a body replaces the face, the uniform and the bare body parts.
+TEST(BodyPart, HipBoneMarksAWholeBody) {
+  pes::Fmdl body;
+  body.bones = {pes::FmdlBone{"dsk_hip"}, pes::FmdlBone{"sk_thigh_l"}};
+  EXPECT_TRUE(pes::CarriesBodySkeleton(body));
+}
+
+TEST(BodyPart, FootBonesAreABoot) {
+  pes::Fmdl boots;
+  boots.bones = {pes::FmdlBone{"sk_foot_l"}, pes::FmdlBone{"dsk_toe_l"}, pes::FmdlBone{"dsk_foot_r"}};
+  EXPECT_FALSE(pes::CarriesBodySkeleton(boots));
 }
