@@ -271,11 +271,18 @@ func _init() -> void:
 				var mat: Material = m.mesh.surface_get_material(0) if m.mesh.get_surface_count() > 0 else null
 				if mat != null and str(mat.get_name()).begins_with(UNIFORM_MATERIAL_PREFIX):
 					look_uniforms += 1
-		# A whole body in the boots pack replaces the base body and the uniform
-		# (pes-re-officials-ball.md §3.3): it draws the boots part and no uniform, and
-		# no bare arm or hand. Its face pack stays (the head). Only a normal body has
-		# the sleeve checks.
-		if look_uniforms == 0 and look_parts.has("boots"):
+		# A whole body in the boots pack is still a uniform player
+		# (pes-re-whole-body-uniform.md 0-2): PES builds the uniform parts for
+		# it, and the markings land on the shirt. The mode comes from the
+		# input boots pack's skeleton (pes::CarriesBodySkeleton), never from
+		# what the build produced.
+		if library.boots_carries_body(PesCharacterBuilder.boots_id_of(library, look_face)):
+			check(look_parts.keys().any(func(p): return p.begins_with("shirt_")),
+					"player %d (whole body) wears the uniform shirt" % look_face)
+			check(look_uniforms > 0, "player %d (whole body) draws uniform materials" % look_face)
+			check(not look_parts.has("arm") and not look_parts.has("hand_l") and not look_parts.has("hand_r"),
+					"player %d (whole body) draws no bare arm or hand" % look_face)
+		elif look_uniforms == 0 and look_parts.has("boots"):
 			check(not look_parts.has("arm") and not look_parts.has("hand_l") and not look_parts.has("hand_r"),
 					"player %d (whole body) draws no bare arm or hand" % look_face)
 		else:

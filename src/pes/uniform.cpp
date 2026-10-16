@@ -351,4 +351,23 @@ bool CarriesBodySkeleton(const Fmdl& part) {
   return false;
 }
 
+// True when a boots pack's fmdl carries the body skeleton: such a pack is a
+// whole body, not boots (pes-re-whole-body-uniform.md 3). Suffix-checked here
+// so the gdext builder and tests share the rule.
+bool BootsPackCarriesBody(const PesVfs& vfs, const std::string& packPath) {
+  std::string err;
+  auto pack = vfs.Read(packPath, &err);
+  if (!pack) return false;
+  auto fpk = FpkArchive::Parse(*pack, &err);
+  if (!fpk) return false;
+  for (const auto& entry : fpk->entries) {
+    std::string lower = entry.path;
+    for (char& c : lower) c = char(std::tolower(static_cast<unsigned char>(c)));
+    if (lower.size() < 5 || lower.compare(lower.size() - 5, 5, ".fmdl") != 0) continue;
+    auto model = ParseFmdl(std::span(*pack).subspan(entry.offset, entry.size), &err);
+    if (model && CarriesBodySkeleton(*model)) return true;
+  }
+  return false;
+}
+
 }  // namespace pes

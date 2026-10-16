@@ -21,6 +21,8 @@ void PesLibrary::_bind_methods() {
   ClassDB::bind_method(D_METHOD("load_edit_save", "path"), &PesLibrary::load_edit_save);
   ClassDB::bind_method(D_METHOD("load_texture", "path"), &PesLibrary::load_texture);
   ClassDB::bind_method(D_METHOD("team_stadium", "team_id"), &PesLibrary::team_stadium);
+  ClassDB::bind_method(D_METHOD("boots_id_of", "face_id"), &PesLibrary::boots_id_of);
+  ClassDB::bind_method(D_METHOD("boots_carries_body", "boots_id"), &PesLibrary::boots_carries_body);
 }
 
 Error PesLibrary::open(const String& root) {

@@ -54,6 +54,12 @@ class PesLibrary : public RefCounted {
   // PES's home stadium for a PES team id: its Team.bin stadium when the match
   // resolver accepts it, else 29 (pes::TeamStadiumId).
   int team_stadium(int team_id) const;
+  // The boots id a player wears: the save/file appearance's id, or its
+  // BootsList entry when that is 0 (pes::ResolveBootsId, FUN_1414e03c0).
+  int boots_id_of(int face_id) const;
+  // True when that boots pack holds a whole body, not boots
+  // (pes::BootsPackCarriesBody, pes-re-whole-body-uniform.md 3).
+  bool boots_carries_body(int boots_id) const;
 
   const pes::PesVfs& vfs() const { return vfs_; }
   const pesrig::Rig* rig() const { return rig_ ? &*rig_ : nullptr; }
