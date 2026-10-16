@@ -166,10 +166,6 @@ public:
     unsigned long time_ms = 0;
     int pesFrame = 0;  // the logic frame of the touch (GetPesFrame)
   };
-  void PushBallEvent(Player* player, int teamID, pes::BallEventKind kind) {
-    ballEvents[1] = ballEvents[0];
-    ballEvents[0] = {player, teamID, kind, static_cast<unsigned long>(actualTime_ms), GetPesFrame()};
-  }
   const BallEvent& GetBallEvent(int age) const { return ballEvents[age]; }
   int GetLastTouchTeamID(e_TouchType touchType) const { return lastTouchTeamIDs[touchType]; }
   int GetLastTouchTeamID() const { return lastTouchTeamID; }
