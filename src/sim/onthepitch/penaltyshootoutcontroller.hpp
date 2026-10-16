@@ -37,6 +37,8 @@ public:
   bool IsKickLive() const { return state.phase == PenaltyShootout::e_Phase_Execution; }
   float GetAimY() const { return aimY; }
   float GetAimPower() const { return aimPower; }
+  // Outcome rolled from the stats before the current kick; the aim is built to show it.
+  PenaltyShootout::e_Outcome GetPlannedOutcome() const { return plannedOutcome; }
   // Every kick in the shootout is taken at the same end, as in a real shootout.
   float GetGoalX() const;
 
