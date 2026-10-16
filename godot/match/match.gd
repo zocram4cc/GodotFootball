@@ -79,6 +79,7 @@ func _ready() -> void:
 	_build_players()
 	_build_stadium()
 	_camera = $Camera3D
+	_broadcast = PesBroadcastCamera.new()
 	$PesLighting.setup(library, int(args.get("stadium", DEFAULT_STADIUM_ID)), int(args.get("weather", 0)), int(args.get("time-zone", 0)), int(args.get("season", 0)), int(args.get("hour", -1)), int(args.get("minute", 0)))
 	# FieldInfo +0x00 (52.56) and +0x08 (34.06) live; the sim exposes the width.
 	if _broadcast.load(library, sim.field_half_width(), sim.field_half_length()) != OK:

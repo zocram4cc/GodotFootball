@@ -27,4 +27,4 @@ environment = SubResource("Environment_rig")
 [node name="Camera3D" type="Camera3D" parent="."]
 current = true
 
-[node name="PesLighting" type="Node3D" parent="."]
+[node name="PesLighting" type="PesLighting" parent="."]
