@@ -432,9 +432,29 @@ TEST(RunTurnRunSlipdown, ReIssuesTheRowOnceTheSubFramesRunOut) {
   host.currentClipFrames = 0;
   host.record = pes::MotionRecord{};  // the zero word: start -930 frames, end 2
   RunTurnRunSlipdown(host, req, SyntheticTurn());
-  // 0.3 (0x3e99999a) is the parametric rate the tail writes; the foot word becomes 1.
+  // 0.3 (0x3e99999a) is the parametric rate the tail writes; the foot band travels on
+  // the host (MoveHost::FootBand), not the request.
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kSlipRate), 0.3f);
-  EXPECT_EQ(req.U(pes::moveword::kFootBandSide), 1u);
+}
+
+TEST(RunTurnRunSlipdown, SlipLimitReadsTheClassWordAtByte0x7c) {
+  // FUN_1406c2f80 line 123: `if (*(int*)(param_2 + 0x7c) < 3)` — the byte offset
+  // 0x7c is word 0x1f, the class word. A class of 3 takes the 135-degree limit;
+  // any other value already does. The red form reads byte 0x1f0 instead.
+  FakeHost host;
+  host.turnConstants = SyntheticTurn();
+  host.turnConstants.angle135 = 135.0f;
+  host.turnConstants.halfTurn = 180.0f;
+  MoveReq req;
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 60.0f);  // 50 deg apart: inside the 90-deg window
+  req.SetU(pes::moveword::kSlipCandidate, 10.0f);
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 1700;
+  req.SetU(0x1f, 3u);  // the class word: PES's *(int*)(req + 0x7c)
+  RunTurnRunSlipdown(host, req, SyntheticTurn());
+  // limit = 135, ticks = 54: step = 2.5 deg, damped = 12.5 deg.
+  EXPECT_NEAR(req.F(pes::moveword::kSlipAngle), 12.5f, 1e-4f);
 }
 
 }  // namespace
@@ -763,7 +783,8 @@ TEST(RunTurnRunSlipdown, ClearsTheClassWordsAndReIssuesTheFoot) {
   RunTurnRunSlipdown(host, req, SyntheticTurn());
   EXPECT_EQ(req.U(pes::moveword::kClampWord) & 0xffu, 0u);
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kSlipRate), 0.3f);
-  EXPECT_EQ(req.U(pes::moveword::kFootBandSide), 1u);
+  // The foot band travels on the host (MoveHost::FootBand), not the request.
+  EXPECT_EQ(host.FootBand(), 0);
 }
 
 // FUN_1406c3470: the precise-gate arm of the rate clamp. With the precise flag set the table
@@ -964,7 +985,8 @@ TEST(RunTurnRunSlipdown, RewritesTheRateOnlyWhenTheSubFramesHaveRunOut) {
   host.currentClipFrames = 4000;  // past the sub-record's frames too
   RunTurnRunSlipdown(host, req, SyntheticTurn());
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kSlipRate), 0.3f);
-  EXPECT_EQ(req.U(pes::moveword::kFootBandSide), 1u);
+  // The foot band travels on the host (MoveHost::FootBand), not the request.
+  EXPECT_EQ(host.FootBand(), 0);
   // The class-word clear is the other half of the same guard.
   EXPECT_EQ(req.U(pes::moveword::kClampWord) & 0xffu, 0u);
 }

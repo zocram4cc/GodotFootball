@@ -81,6 +81,10 @@ target_link_libraries(pes_stoppage_timing_test PRIVATE gfsim pesfmt GTest::gtest
 target_compile_definitions(pes_stoppage_timing_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_stoppage_timing_test PROPERTIES TIMEOUT 1800)
 
+add_executable(pes_restart_sequencer_test pes_restart_sequencer_test.cpp)
+target_link_libraries(pes_restart_sequencer_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_restart_sequencer_test)
+
 add_executable(pes_restart_delay_test pes_restart_delay_test.cpp)
 target_link_libraries(pes_restart_delay_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_restart_delay_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

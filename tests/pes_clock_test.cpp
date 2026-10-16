@@ -23,6 +23,7 @@ pes::PesClockConstants FakeConstants() {
   c.addedTier_1_2_2nd = 3600.0f;   // .rdata 0x142598590
   c.addedTier_1_2_ET = 1800.0f;    // .rdata 0x142632a60
   c.addedTier_3_6_ET = 3600.0f;    // .rdata 0x142598590 (the same float)
+  c.limitCap = 21600.0f;           // .rdata 0x142647c60
   return c;
 }
 
@@ -55,6 +56,24 @@ pes::PeriodRecord LivePeriodRecord() {
   return r;
 }
 
+
+constexpr int kJudgeRate = 54;  // FUN_141e532e0: logic frames per game-second
+
+// The judge's input on a tick with nothing to see: the ball at the attacking end (outside
+// the zone) and no touch on record.
+pes::TimeUpInput QuietJudge() {
+  pes::TimeUpInput in;
+  in.halfLength_m = 52.56f;
+  in.ballX_m = 52.0f;
+  return in;
+}
+
+// The tick on which the judge blows, counting from 1 across `limit` ticks, or 0 if it does not.
+int FirstBlowTick(pes::TimeUpCounters& c, const pes::TimeUpInput& in, int limit) {
+  for (int tick = 1; tick <= limit; ++tick)
+    if (pes::TimeUpWhistle(c, in, kJudgeRate)) return tick;
+  return 0;
+}
 }  // namespace
 
 // --- the period record (MI+0x1168..0x1194, FUN_140A3C070 / FUN_140A3C050) ---
@@ -314,6 +333,246 @@ TEST(PesClock, AnnouncedAddedMinutesRoundUpAndClampToNine) {
             pes::kMaxAnnouncedAddedMinutes);
 }
 
+// --- the post-gate judge (FUN_14050B9B0 / FUN_14050C3E0): the counts, the timeouts, the patterns ---
+
+namespace {
+
+// A kind-0 touch with the ball on the ground and nobody holding it, so only the 30 s count runs.
+// x = 0 keeps the ball out of the penalty box (one count a tick), and the zone sign points away
+// from the ball, so the zone count never blows.
+pes::TimeUpInput GroundedBall() {
+  pes::TimeUpInput in = QuietJudge();
+  in.zoneSign = -1;
+  in.ballX_m = 0.0f;
+  in.penaltyLineX_m = pesPenaltyAreaLineX;
+  in.penaltyHalfWidth_m = pesPenaltyAreaHalfWidth;
+  in.newest.kind = 0;
+  return in;
+}
+
+}  // namespace
+
+TEST(PesTimeUpJudge, TheSixtySecondCountBlowsOnTheTickAfterSixtyGameSeconds) {
+  pes::TimeUpCounters c;
+  EXPECT_EQ(FirstBlowTick(c, QuietJudge(), 10000), kJudgeRate * 60 + 1);
+}
+
+TEST(PesTimeUpJudge, ABlowClearsTheCountsSoTheNextBlowNeedsAFullCountAgain) {
+  pes::TimeUpCounters c;
+  ASSERT_EQ(FirstBlowTick(c, QuietJudge(), 10000), kJudgeRate * 60 + 1);
+  EXPECT_EQ(FirstBlowTick(c, QuietJudge(), 10000), kJudgeRate * 60 + 1);
+}
+
+TEST(PesTimeUpJudge, TheBallZoneBlowsAfterFourGameSecondsInTheZone) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = QuietJudge();
+  in.ballX_m = 0.0f;  // the centre: sign * x = 0 is inside L/3
+  EXPECT_EQ(FirstBlowTick(c, in, 10000), kJudgeRate * 4 + 1);
+}
+
+TEST(PesTimeUpJudge, TheBallZoneDoesNotCountWhileTheBallIsInTheAttackingThird) {
+  pes::TimeUpCounters c;
+  EXPECT_EQ(FirstBlowTick(c, QuietJudge(), 3000), 0) << "x = 52 is beyond L/3: no zone count";
+}
+
+// PES compares the signed count with +4 s, so a count running the other way never blows.
+TEST(PesTimeUpJudge, AZoneCountRunningTheOtherWayNeverBlowsOnTheZone) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = QuietJudge();
+  in.zoneSign = -1;
+  in.ballX_m = 0.0f;
+  EXPECT_EQ(FirstBlowTick(c, in, 3000), 0);
+}
+
+TEST(PesTimeUpJudge, AChangeOfSideInPossessionClearsTheBallZoneCount) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = QuietJudge();
+  in.ballX_m = 0.0f;
+  for (int i = 0; i < 100; ++i) ASSERT_FALSE(pes::TimeUpWhistle(c, in, kJudgeRate));
+  pes::TimeUpInput other = in;
+  other.zoneSign = -1;
+  EXPECT_FALSE(pes::TimeUpWhistle(c, other, kJudgeRate));
+  EXPECT_EQ(FirstBlowTick(c, in, 3000), kJudgeRate * 4 + 1) << "the count restarts from zero";
+}
+
+TEST(PesTimeUpJudge, AHolderFlaggedThirdKindBlowsAtOnce) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = QuietJudge();
+  in.newest.kind = 3;
+  in.newest.flag = 4;
+  EXPECT_EQ(FirstBlowTick(c, in, 10), 1);
+}
+
+TEST(PesTimeUpJudge, AHolderFlaggedFourthKindBlowsAfterTenGameSeconds) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = QuietJudge();
+  in.newest.kind = 4;
+  in.newest.flag = 4;
+  EXPECT_EQ(FirstBlowTick(c, in, 10000), kJudgeRate * 10 + 1);
+}
+
+TEST(PesTimeUpJudge, AHolderFlaggedSecondKindBlowsAfterFiveGameSeconds) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = QuietJudge();
+  in.newest.kind = 2;
+  in.newest.flag = 4;
+  EXPECT_EQ(FirstBlowTick(c, in, 10000), kJudgeRate * 5 + 1);
+}
+
+TEST(PesTimeUpJudge, WithoutTheHolderFlagTheTouchTimeoutsDoNotBlow) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = QuietJudge();
+  in.newest.kind = 4;
+  in.newest.flag = 0;
+  EXPECT_EQ(FirstBlowTick(c, in, 10000), kJudgeRate * 60 + 1);
+}
+
+// --- the kind-0 touch: the 30 s count of a ball on the ground (FUN_14050B9B0 lines 261-297) ---
+
+TEST(PesTimeUpJudge, AGroundBallWithNobodyOnItBlowsAfterThirtyGameSeconds) {
+  pes::TimeUpCounters c;
+  EXPECT_EQ(FirstBlowTick(c, GroundedBall(), 10000), kJudgeRate * 30 + 1);
+}
+
+TEST(PesTimeUpJudge, ABallInTheAirResetsTheThirtySecondCount) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = GroundedBall();
+  for (int tick = 0; tick < 1000; ++tick) ASSERT_FALSE(pes::TimeUpWhistle(c, in, kJudgeRate));
+  in.ballHeight_m = 5.0f;
+  EXPECT_FALSE(pes::TimeUpWhistle(c, in, kJudgeRate));
+  in.ballHeight_m = 0.0f;
+  EXPECT_EQ(FirstBlowTick(c, in, 10000), kJudgeRate * 30 + 1) << "the count starts again at zero";
+}
+
+TEST(PesTimeUpJudge, TheThirtySecondBlowClearsItsCountToo) {
+  pes::TimeUpCounters c;
+  ASSERT_EQ(FirstBlowTick(c, GroundedBall(), 10000), kJudgeRate * 30 + 1);
+  EXPECT_EQ(FirstBlowTick(c, GroundedBall(), 10000), kJudgeRate * 30 + 1);
+}
+
+TEST(PesTimeUpJudge, ACarrierWhoIsNotMovingKeepsTheThirtySecondCount) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = GroundedBall();
+  in.carrier = true;
+  EXPECT_EQ(FirstBlowTick(c, in, 10000), kJudgeRate * 30 + 1);
+}
+
+TEST(PesTimeUpJudge, ARecentRingOneTouchResetsACarriedBallCount) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = GroundedBall();
+  in.carrier = true;
+  in.speed_mps = 5.0f;
+  in.ring1Word = 100;  // under 6 game-seconds: the carrier's count is reset every tick
+  EXPECT_EQ(FirstBlowTick(c, in, 3000), 0);
+}
+
+TEST(PesTimeUpJudge, TheAttackingBoxKeepsTheJudgeSilentOnAGroundBall) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = GroundedBall();
+  in.zoneSign = 1;
+  in.ballX_m = 52.0f;
+  EXPECT_EQ(FirstBlowTick(c, in, 2000), 0) << "the final block returns before the count";
+}
+
+TEST(PesTimeUpJudge, ARestartOfKindOneOnTheTouchBeforeBlowsAtOnce) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = GroundedBall();
+  in.second.restartKind = 1;
+  EXPECT_EQ(FirstBlowTick(c, in, 10), 1);
+}
+
+// --- the kind-0 touch: the out-of-zone pattern (FUN_14050B9B0 lines 202-231) ---
+
+TEST(PesTimeUpJudge, AnOutOfZonePairBlowsWhenTheNewestTouchIsOverThirtyFramesOld) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = GroundedBall();
+  in.newest.player = 3;  // team 0
+  in.newest.frame = 100;
+  in.second.player = 14;  // team 1
+  in.frame = 131;
+  EXPECT_EQ(FirstBlowTick(c, in, 10), 1);
+}
+
+TEST(PesTimeUpJudge, AThirtyFrameOldTouchPairDoesNotBlowOnTheOutOfZonePattern) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = GroundedBall();
+  in.newest.player = 3;
+  in.newest.frame = 100;
+  in.second.player = 14;
+  in.frame = 130;
+  EXPECT_EQ(FirstBlowTick(c, in, 10000), kJudgeRate * 30 + 1);
+}
+
+TEST(PesTimeUpJudge, ASecondTouchOfKindElevenToThirteenBlowsOnTheOutOfZonePattern) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = GroundedBall();
+  in.newest.player = 3;
+  in.second.player = 14;
+  in.second.kind = 12;
+  EXPECT_EQ(FirstBlowTick(c, in, 10), 1);
+}
+
+TEST(PesTimeUpJudge, APairOnOneTeamNeverBlowsOnTheOutOfZonePattern) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = GroundedBall();
+  in.newest.player = 3;
+  in.newest.frame = 100;
+  in.second.player = 5;  // team 0 as well
+  in.frame = 131;
+  EXPECT_EQ(FirstBlowTick(c, in, 10000), kJudgeRate * 30 + 1);
+}
+TEST(PesTimeUpJudge, TheOutOfZonePatternNeedsTheBallInTheNearHalf) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = GroundedBall();
+  in.newest.player = 3;
+  in.newest.frame = 100;
+  in.second.player = 14;
+  in.frame = 131;
+  in.ballX_m = 25.0f;  // beyond L/3: the pattern does not apply, so the 30 s count runs
+  EXPECT_EQ(FirstBlowTick(c, in, 10000), kJudgeRate * 30 + 1);
+}
+
+// --- the stoppage writer (FUN_14044CE80 step 4): LIMIT moves with F while stopped ---
+
+TEST(PesClock, TheStoppageLimitTakesHalfAUnitPerFrameAndCapsAt21600) {
+  const pes::PesClockConstants c = FakeConstants();
+  pes::PesClock clock(c);
+  clock.SetPhase(e_MatchPhase_1stHalf);
+  clock.SetFrozen(true);
+  clock.AccrueStoppageLimit(1.0f);
+  EXPECT_FLOAT_EQ(clock.Record().limit, pes::kStoppageUnitsPerFrame * c.gameSpeed);
+  clock.AccrueStoppageLimit(10000.0f);
+  EXPECT_FLOAT_EQ(clock.Record().limit, 21600.0f);
+}
+
+TEST(PesClock, TheStoppageLimitMovesOnlyWhileStoppedInAClockPeriod) {
+  const pes::PesClockConstants c = FakeConstants();
+  pes::PesClock clock(c);
+  clock.SetPhase(e_MatchPhase_1stHalf);
+  clock.AccrueStoppageLimit(1.0f);
+  EXPECT_FLOAT_EQ(clock.Record().limit, 0.0f) << "in play it does not move";
+  clock.SetPhase(e_MatchPhase_Penalties);
+  clock.SetFrozen(true);
+  clock.AccrueStoppageLimit(1.0f);
+  EXPECT_FLOAT_EQ(clock.Record().limit, 0.0f) << "the shoot-out has no clock";
+}
+
+// The announcement adds the added minutes to what the stoppage already put on LIMIT.
+TEST(PesTimeUp, AnAnnouncementAddsToTheStoppageAlreadyOnLimit) {
+  pes::PesClockConstants c = FakeConstants();
+  c.minuteUnits = 3600.0f;
+  pes::PesClock clock(c);
+  clock.SetPhase(e_MatchPhase_1stHalf);
+  clock.SetFrozen(true);
+  clock.AccrueStoppageLimit(1.0f);
+  clock.SetFrozen(false);
+  clock.Advance(2700.0f);
+  clock.AnnounceAddedTime(4);
+  const int minutes = clock.AddedMinutesUnclamped(4);
+  ASSERT_GT(minutes, 0);
+  EXPECT_FLOAT_EQ(clock.Record().limit, 27.0f + static_cast<float>(minutes) * c.minuteUnits);
+}
+
 // --- the install ---
 
 TEST(PesClockInstall, ConstantsComeFromTheExe) {
@@ -328,4 +587,5 @@ TEST(PesClockInstall, ConstantsComeFromTheExe) {
   EXPECT_FLOAT_EQ(c->timeUpFlag, 54000.0f);
   EXPECT_FLOAT_EQ(c->minuteUnits, 3600.0f);
   EXPECT_FLOAT_EQ(c->secondsUnit, 60.0f);
+  EXPECT_FLOAT_EQ(c->limitCap, 21600.0f);
 }
