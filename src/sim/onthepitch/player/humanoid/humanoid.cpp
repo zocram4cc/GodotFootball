@@ -516,7 +516,11 @@ void Humanoid::Process() {
   float lastTouchBias = CastPlayer()->GetLastTouchBias(1500);
   float oppLastTouchBias = match->GetTeam(abs(team->GetID() - 1))->GetLastTouchBias(240);
 
-  if (CastPlayer() == match->GetDesignatedPossessionPlayer() &&
+  // A body contact is a play event. With pes_loop on, it needs live play, as CheckBallCollisions
+  // does (match.cpp): off play, the designated player's walk onto a dead ball knocked a throw-in
+  // off its line and the throw was then refused. Switch off keeps GF's trigger unchanged.
+  const bool bodyContactLive = !match->PesLoop() || match->IsInPlay();
+  if (bodyContactLive && CastPlayer() == match->GetDesignatedPossessionPlayer() &&
       ((lastTouchBias <= 0.01f && oppLastTouchBias <= 0.01f &&
         currentAnim->functionType == e_FunctionType_Movement && ballDistanceNow < 0.6f &&
         ballDistanceFuture > 0.65f && ballDistanceFuture > ballDistanceNow)  // 0.5 / 0.6
