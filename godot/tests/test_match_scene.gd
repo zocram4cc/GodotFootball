@@ -36,7 +36,8 @@ func _ready() -> void:
 	var scene: Node3D = null
 	for pair in TEAM_PAIRS:
 		var candidate: Node3D = load("res://match/match.tscn").instantiate()
-		candidate.configure({"pes21-root": root, "home-team": str(pair[0]), "away-team": str(pair[1])})
+		candidate.configure({"pes21-root": root, "home-team": str(pair[0]), "away-team": str(pair[1]),
+				"pes-loop": ""})
 		add_child(candidate)
 		for i in FRAMES:
 			await get_tree().process_frame
