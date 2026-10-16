@@ -150,6 +150,23 @@ const pes::StoppageConstants& Referee::GetStoppageConstants() const {
   return match->GetPesStoppageConstants();
 }
 
+// The post-gate judge on a tick with the gate open (pes_loop only; FUN_14050B9B0). The side in
+// possession is the ball carrier's team (FUN_140a627e0 names the carrier; a null carrier reads as
+// side 0, as PES's 0xff does). The touch is the store's newest record: its action kind and its
+// holder flag are payload+0 and payload+0x20, which are record offsets 0x14 and 0x34.
+bool Referee::PesTimeUpBlows(const Vector3& ballPos) {
+  Player* carrier = match->GetBallRetainer();
+  Team* side = match->GetTeam(carrier ? carrier->GetTeamID() : 0);
+  const pes::EventRecord& touch = match->GetPesEvents().Newest();
+  pes::TimeUpInput in;
+  in.zoneSign = side->GetSide();
+  in.ballX_m = ballPos.coords[0];
+  in.halfLength_m = pesFieldHalfLength;
+  in.touchKind = touch.ActionKind();
+  in.touchFlag = touch.U32(0x34);
+  return pes::TimeUpWhistle(timeUp, in, static_cast<int>(match->GetPesClockConstants().gameSpeed));
+}
+
 void Referee::Process() {
   // printf("%i", match->GetMatchState());
 
@@ -160,14 +177,15 @@ void Referee::Process() {
 
     // PES's time-up gate (docs/re/pes-re-clock-live.md 8.1): the period clock reaching
     // its length announces the added time once (LIMIT), and the whistle waits for the
-    // length plus that LIMIT. Stoppages accrue F, so they count towards it.
+    // length plus that LIMIT. Stoppages accrue F, so they count towards it. Under pes_loop
+    // the gate only opens the time-up: the judge (FUN_14050B9B0) then blows on its counts.
     pes::PesClock& clock = match->GetPesClock();
     if (clock.PastPeriodLength() && !clock.AddedTimeAnnounced()) {
       clock.AnnounceAddedTime(kPesNoPerfTier);
       const int addedMinutes = clock.AddedMinutes(kPesNoPerfTier);
       if (addedMinutes > 0 && Verbose()) printf("referee: added time +%i min\n", addedMinutes);
     }
-    if (clock.TimeUpGateOpen()) {
+    if (clock.TimeUpGateOpen() && (!match->IsPesLoop() || PesTimeUpBlows(ballPos))) {
       foul.advantage = false;
       if (!CheckFoul()) {
         match->StopPlay();

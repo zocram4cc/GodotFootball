@@ -181,7 +181,7 @@ class PesClock {
   bool PastPeriodLength() const;
   // The time-up gate: the length plus the whole minutes LIMIT holds.
   bool TimeUpGateOpen() const;
-  // Writes LIMIT from the added-time formula, once per period (report 3.2).
+  // Adds the added-time formula's minutes to LIMIT, once per period (report 3.2).
   void AnnounceAddedTime(int tier);
   bool AddedTimeAnnounced() const { return addedTimeAnnounced; }
 
