@@ -122,6 +122,7 @@ struct PlayerCommand {
   PlayerCommand() {
     desiredFunctionType = e_FunctionType_Movement;
     useDesiredMovement = false;
+    useTouchInfo = false;
     desiredVelocityFloat = idleVelocity;
     strictMovement = e_StrictMovement_Dynamic;
     useDesiredLookAt = false;
