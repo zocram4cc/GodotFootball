@@ -72,8 +72,8 @@ float FrictionMultiplier(const pes::PesBallConstants& c, int mode, float speed_m
 // +boundToRotationAddRateY across boundToRotationSpeedMinY..MaxY km/h).
 float VerticalKeep(const pes::PesBallConstants& c, int mode, float vy);
 
-// Report 3.3's `s4 = band(hypot(wx, wz), 2, 7)`: the clamped ramp over the
-// horizontal spin, from rollToBoundRollMin to rollToBoundRollMax.
+// Report 3.3's `s4 = band(|w_xz|/(2 pi), 2, 7)`: the clamped ramp over the horizontal spin in Hz, from
+// rollToBoundRollMin to rollToBoundRollMax. `spinRad` is the horizontal spin in rad/s.
 float RollSpinRamp(const pes::PesBallConstants& c, int mode, float spinRad);
 
 // Report 1.3's impulse cap: `imp = (natualBoundA[mode]*3.6*|v_xz| +

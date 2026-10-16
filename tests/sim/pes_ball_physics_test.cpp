@@ -136,16 +136,17 @@ TEST(PesBallContact, BounceDoesNotDependOnSpin) {
 }
 
 TEST(PesBallContact, RollSpinRampAddsRestitutionThroughTheHorizontalSpin) {
-  // Report 3.3/2.2: F carries `s4^2 * rollToBoundAdd`, s4 being the clamped ramp
-  // over hypot(wx, wz) from rollToBoundRollMin (2) to rollToBoundRollMax (7). So
-  // a horizontal spin raises F above boundBoundRate, while a small spin does not.
+  // Report 3.3/2.2: F carries `s4^2 * rollToBoundAdd`, s4 being the clamped ramp over the horizontal spin in Hz,
+  // |w_xz|/(2 pi), from rollToBoundRollMin (2 Hz) to rollToBoundRollMax (7 Hz). So a horizontal spin raises F
+  // above boundBoundRate, while a small spin does not. The spin arguments below are rad/s.
   const PesBallConstants c = SyntheticConstants();
+  const float twoPi = 2.0f * std::acos(-1.0f);
   EXPECT_NEAR(pesball::RollSpinRamp(c, 2, 0.0f), 0.0f, 1e-6);
-  EXPECT_NEAR(pesball::RollSpinRamp(c, 2, 2.0f), 0.0f, 1e-6);
-  EXPECT_NEAR(pesball::RollSpinRamp(c, 2, 7.0f), 1.0f, 1e-6);
-  EXPECT_NEAR(pesball::RollSpinRamp(c, 2, 4.5f), 0.5f, 1e-6);
+  EXPECT_NEAR(pesball::RollSpinRamp(c, 2, 2.0f * twoPi), 0.0f, 1e-6);
+  EXPECT_NEAR(pesball::RollSpinRamp(c, 2, 7.0f * twoPi), 1.0f, 1e-6);
+  EXPECT_NEAR(pesball::RollSpinRamp(c, 2, 4.5f * twoPi), 0.5f, 1e-6);
   const float flat = pesball::Bounce(c, 2, -0.5f, 0.0f, 0.0f).restitution;
-  const float spinning = pesball::Bounce(c, 2, -0.5f, 0.0f, 7.0f).restitution;
+  const float spinning = pesball::Bounce(c, 2, -0.5f, 0.0f, 7.0f * twoPi).restitution;
   EXPECT_NEAR(spinning, flat + c.record.rollToBoundAdd, 1e-6)
       << "s4 = 1 adds s4^2 * rollToBoundAdd = rollToBoundAdd";
   EXPECT_GT(spinning, flat) << "a rolling spin makes the ball livelier";
@@ -685,6 +686,51 @@ TEST(PesBallContact, ABallRollingSlowerThanTwoMetresPerSecondIgnoresTheTangentia
   s.spinRaw = pes::Vec3(0.02f, 0.0f, 0.0f);
   pesball::BallTick(c, &s, 0, pesball::kGfTick_s);
   EXPECT_NEAR(s.velocity.z, 0.0f, 1e-6f);
+}
+
+TEST(PesBallContact, ALandingWithNoHorizontalSpeedPushesAlongItsSidewaysSpinBoundedly) {
+  // Report 3.3 (FUN_140876360 0x140876c28..0x140876c79): with no horizontal speed before the contact, the block's
+  // heading is the fallback e = (0, 0, 1), not zero, so the spin about x is the across-track term and pushes the
+  // ball along z. The input is over cap (10 Hz against boundRollMax 7.5), and the push is bounded: its rate is
+  // clamped to the cap, so the speed it adds is at most rollToSpeedMaxKph.
+  const PesBallConstants c = SyntheticConstants();
+  const float twoPi = 2.0f * std::acos(-1.0f);
+  BallState s;
+  s.position = pes::Vec3(0.0f, c.image.ballRadius + 0.001f, 0.0f);
+  s.velocity = pes::Vec3(0.0f, -3.0f, 0.0f);
+  s.spinRaw = pes::Vec3(twoPi * 10.0f / c.image.spinScale, 0.0f, 0.0f);
+  ASSERT_TRUE(pesball::BallTick(c, &s, 0, pesball::kGfTick_s));
+  const float vmax = c.record.At(BallRecordConstants::kRollToSpeedMaxKph, 0) * c.image.milli /
+                     c.image.secondsPerHour;
+  EXPECT_GT(s.velocity.z, pesball::StopSpeed_mps(c, 0)) << "topspin about +x pushes the ball toward +z";
+  EXPECT_LE(s.velocity.z, vmax) << "the tangential push is bounded by the rolling speed cap";
+  // By hand from the synthetic column 1 (the live mode, the default contactMode): RollRamp = 0.2 + 0.62 *
+  // (10.8-3)/(25-3) = 0.4198, S3 = 10 - 10*0.4198 = 5.802, |A - S3| = 4.198 > 4 so blend = 0.5, A = 10 - 0.5*5.802
+  // = 7.099, and the push is A*yRate*vmax/cap = 7.099*1*5.556/8.5 = 4.64 m/s (yRate is 1 at zero heading).
+  EXPECT_NEAR(s.velocity.z, 4.64f, 0.02f) << "the fallback heading's across-track term";
+  EXPECT_NEAR(s.velocity.x, 0.0f, 1e-6f);
+}
+
+TEST(PesBallContact, ASlowSpinBelowTwoRollingHertzAddsNoBounceRestitution) {
+  // Report 3.3's s4 band: PES divides the horizontal spin by 2 pi before the band (0x140876cd4: x0.5, then
+  // /pi), so the band is over Hz. 8 rad/s is 1.27 Hz, below the 2 Hz floor, so it adds nothing. Read as
+  // rad/s it would sit inside the band and raise the restitution.
+  const PesBallConstants c = SyntheticConstants();
+  const float none = pesball::Bounce(c, 0, -3.0f, 0.0f, 0.0f).restitution;
+  const float slow = pesball::Bounce(c, 0, -3.0f, 0.0f, 8.0f).restitution;
+  EXPECT_NEAR(slow, none, 1e-6f);
+}
+
+TEST(PesBallContact, ASpinningBallWithNoVelocityFallingFromTheAirStaysFinite) {
+  // With no velocity before the flight step, the block's heading is the fallback and the Y rate's slope has no
+  // divisor (0x140876e1a..0x140876e37). The contact must stay finite; 0/0 would poison the whole match.
+  const PesBallConstants c = SyntheticConstants();
+  BallState s;
+  s.position = pes::Vec3(0.0f, c.image.ballRadius + 0.001f, 0.0f);
+  s.velocity = pes::Vec3(0.0f, 0.0f, 0.0f);
+  s.spinRaw = pes::Vec3(0.0f, 0.0f, 0.02f);
+  ASSERT_TRUE(pesball::BallTick(c, &s, 0, pesball::kGfTick_s));
+  EXPECT_TRUE(std::isfinite(s.velocity.x) && std::isfinite(s.velocity.y) && std::isfinite(s.velocity.z));
 }
 
 }  // namespace
