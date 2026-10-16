@@ -2115,8 +2115,11 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
         PlayingStyles::Has(comStyles, PlayingStyles::Com::IncisiveRun);
     const float carrierX = attackSign * carrierPos.coords[0];
     // MiddleShot's start takes the long-shot skills, Rising Shots and COM 5 (report 4.4).
-    const bool middleShotSkill =
-        longShotSkill || PlayerSkills::Has(skills, PlayerSkills::Skill::RisingShots);
+    const bool middleShotSkill = pes::MiddleShotSkill(
+        PlayerSkills::Has(skills, PlayerSkills::Skill::LongRangeShooting),
+        PlayerSkills::Has(skills, PlayerSkills::Skill::KnuckleShot),
+        PlayerSkills::Has(skills, PlayerSkills::Skill::DippingShots),
+        PlayerSkills::Has(skills, PlayerSkills::Skill::RisingShots));
     const bool middleShotCom = PlayingStyles::Has(comStyles, PlayingStyles::Com::LongRanger);
     const PlanChoice choices[] = {
         {pes::kPlanMiddleShot, carrier.middleShotSeedK,
@@ -2399,12 +2402,11 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     if (pass.index < 0) return;
     Player* target = match->GetPlayer(pass.index);
     if (target == nullptr) return;
-    e_FunctionType passType = e_FunctionType_ShortPass;
-    if (pass.kind == pes::kPassLong) {
-      passType = e_FunctionType_HighPass;
-    } else if (pass.kind == pes::kPassThrough && pesPath) {
-      passType = e_FunctionType_LongPass;
-    }
+    // The PES path maps each kind by the translator (0x14210EE00); the GF path keeps its collapse of
+    // the through ball to ShortPass until the switch is removed.
+    const e_FunctionType passType =
+        pesPath ? pes::PesPassFunctionType(pass.kind)
+                : (pass.kind == pes::kPassLong ? e_FunctionType_HighPass : e_FunctionType_ShortPass);
     _AddPass(commandQueue, target, passType);
   };
 
@@ -2421,8 +2423,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   }
 
   // The PES path (pes_loop): MainEval's default is the Dribble answer, recomputed every tick
-  // (report 1, step f). The units run on the rethink only, and the walk takes the first survivor
-  // (report 5); with none, the default's heading drives the ball.
+  // (report 1, step f). The shot is answered every tick and the passes on the rethink; the walk
+  // over the unit table (report 5) takes the first survivor, and with none the default stands.
   pes::DribbleInput search;
   search.ball = {carrierPos.coords[0], carrierPos.coords[1]};
   search.halfLen_m = pesFieldHalfLength;
@@ -2442,21 +2444,63 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   }
   const float heading = pes::DribbleDirection(search, carrier) / degreesPerRadian;
   rawInputDirection = Vector3(std::cos(heading), std::sin(heading), 0.0f);
-  // ponytail: full dribble speed until the chooser's speed sub-kinds (0x14212F1C0) are ported.
+  // ponytail: full dribble speed; GF has no mode 3, mode 4 or feint movement to map the sub-kind to.
   rawInputVelocityFloat = sprintVelocity;
 
-  pes::CarrierAnswer chosen{pes::kAnswerDribble, pes::kDribbleAlong};
+  // The Dribble default's sub-kind (report 2.1). The attack angle is the one the aim test reads.
+  const float attackAngle = attackSign < 0.0f ? 180.0f : 0.0f;
+  const Vector3 move = CastPlayer()->GetMovement();
+  pes::DribbleChooserInput chooser;
+  chooser.plan = carrierImage.id;
+  chooser.planHeading_deg = attackAngle;  // ponytail: the plan's heading (+0xC0) is the attack direction
+  chooser.facing_deg = facingAngle;
+  chooser.teamAttack_deg = attackAngle;   // ponytail: team+0x250 is the attack direction
+  chooser.forwardOfHalf = attackSign * carrierPos.coords[0] > 0.0f;
+  chooser.pressureClass = carrierPressureClass;
+  chooser.speed_kmh = move.GetLength() * carrier.kmhPerMs;
+  chooser.velZero = move.GetLength() <= 0.0f;
+  chooser.velHeading_deg = std::atan2(-move.coords[1], -move.coords[0]) * degreesPerRadian;
+  chooser.room_m = nearestOpp;            // ponytail: FUN_140a4ddc0's room test is not ported
+  chooser.laneFree = carrierPressureClass == 3;  // ponytail: the free-lane loop is not ported
+  // ponytail: FUN_141052e30 (team mode, neutral here), the feint gate 0x14212e970, the turning
+  // state 0x140a6e300 and box pressure are not decoded to GF state, so they stay off.
+  [[maybe_unused]] const int dribbleSub = pes::DribbleSubKind(chooser, false, carrier);
+
   pes::PassAnswer pass;
-  if (rethink) {
-    pass = passAnswer();
-    std::vector<pes::ListedAnswer> listed;
-    if (shotAnswer) listed.push_back({0, {pes::kAnswerShoot, 1}});
-    if (pass.index >= 0) listed.push_back({4, {pes::kAnswerPass, pass.kind}});
-    // ponytail: the restart veto (MI+0x1775) has no GF state yet, so no pass is vetoed here.
-    chosen = pes::WalkCarrierUnits(listed, chosen, pes::WalkVetoes{});
+  if (rethink) pass = passAnswer();
+  pes::UnitListInput list;
+  list.plan = carrierImage.id;
+  list.central = pes::IsCentral(zone);
+  list.mid = pes::IsMid(zone);
+  list.close = pes::IsClose(zone);
+  list.intentionMode4 = intention == 4;
+  // ponytail: the plan flags (+0xD8, +0xD9, +0x10), the plan mode (+0xC4), imageA+0xB44 and the
+  // cross-line test are not carried by GF; they stay at their defaults.
+  std::vector<pes::UnitSlot> table;
+  for (const int kind : pes::BuildUnitList(list)) {
+    pes::UnitSlot slot;
+    slot.kind = kind;
+    if (kind == 0 && shotAnswer) slot.answer = {pes::kAnswerShoot, 1};
+    if (kind == 4 && pass.index >= 0) slot.answer = {pes::kAnswerPass, pass.kind};
+    table.push_back(slot);
   }
-  if (chosen.type == pes::kAnswerShoot) addShot();
-  if (chosen.type == pes::kAnswerPass) addPass(pass);
+  pes::WalkContext walk;
+  // The restart mode: 3 in a set piece, 1 in play, 2 stopped (report 5, MI+0x116C).
+  walk.restartMode = match->IsInSetPiece() ? 3 : (match->IsInPlay() ? 1 : 2);
+  // ponytail: MI+0x1775 (the FSM byte) has no GF state, and its writers are not decoded.
+  // ponytail: MA+0x7C, the designated kicker, has no GF accessor yet (set pieces are pessetpiecetaker's).
+  Player* ballOwner = match->GetBallRetainer();
+  walk.ballOwnerTeam = ballOwner != nullptr ? ballOwner->GetTeamID() : -1;
+  walk.ownTeam = team->GetID();
+  walk.ballHeightOk = ballHeight >= CastPlayer()->GetStat("physical_height");
+  walk.skill11 = PlayerSkills::Has(skills, PlayerSkills::Skill::FirstTimeShot);
+  walk.skill12 = PlayerSkills::Has(skills, PlayerSkills::Skill::OneTouchPass);
+  walk.skill14 = PlayerSkills::Has(skills, PlayerSkills::Skill::PinpointCrossing);
+  walk.closeBand = pes::IsClose(zone);
+  // ponytail: the tier gate (rule 3) is off: live tier 5 is zero delay and GF has no tier.
+  const pes::UnitSlot won = pes::WalkCarrierUnits(table, walk);
+  if (won.kind == 0) addShot();
+  else if (won.kind == 4) addPass(pass);
 }
 
 void ElizaController::_AddPass(std::vector<PlayerCommand>& commandQueue, Player* target,

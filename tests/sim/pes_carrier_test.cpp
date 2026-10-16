@@ -19,6 +19,13 @@ namespace {
 // for the zone ranges, 4.3 for the openness ladder, 4.4 for the plan roll.
 pes::CarrierConstants Synthetic() {
   pes::CarrierConstants k{};
+  k.chooserGate_deg = 30.0f;
+  k.chooserTurn_deg = 60.0f;
+  k.chooserSideAngle_deg = 40.0f;
+  k.chooserPressureScale_deg = 20.0f;
+  k.chooserSpeedLow_kmh = 10.0f;
+  k.chooserSpeedMid_kmh = 15.0f;
+  k.chooserRoom_m = 12.0f;
   k.shootR0_m = 11.0f;
   k.shootR1_m = 12.0f;
   k.nearCentral_m = 18.0f;
@@ -844,6 +851,11 @@ TEST(PesCarrierInstall, TheZonesAndLaddersAreTheGamesOwn) {
   ASSERT_TRUE(exe) << err;
   auto k = pes::LoadCarrierConstants(*exe, &err);
   ASSERT_TRUE(k) << err;
+  // The chooser's bands widen in the decoded order: 30 (feint), 60 (turn), 40 (side), 10 and 15 (speed).
+  EXPECT_GT(k->chooserTurn_deg, k->chooserGate_deg);
+  EXPECT_GT(k->chooserSideAngle_deg, 0.0f);
+  EXPECT_GT(k->chooserSpeedMid_kmh, k->chooserSpeedLow_kmh);
+  EXPECT_GT(k->chooserRoom_m, 0.0f);
   // Relations, not the game's numbers (no PES tables in tests): the loader
   // must have read a sane shoot zone, Finishing ramp, openness ladder and plan
   // seeds from the user's own image.
@@ -902,19 +914,7 @@ TEST(PassForward, MarksDefaultToTheFieldInfoTable) {
   EXPECT_FLOAT_EQ(in.goalAreaHalfWidth_m, pesGoalAreaHalfWidth);
 }
 
-// --- the arbitration walk (report 5, port step 2) and the MiddleShot COM input (report 4.4) ---
-
-namespace {
-pes::CarrierAnswer Shot() { return {pes::kAnswerShoot, 1}; }
-pes::CarrierAnswer Pass(int b) { return {pes::kAnswerPass, b}; }
-pes::CarrierAnswer Along() { return {pes::kAnswerDribble, pes::kDribbleAlong}; }
-pes::CarrierAnswer Keep() { return {pes::kAnswerDribble, pes::kDribbleKeep}; }
-pes::WalkVetoes RestartVeto() {
-  pes::WalkVetoes v;
-  v.restartPasses = true;
-  return v;
-}
-}  // namespace
+// --- the MiddleShot start skill (report 4.4) and the pass command (report 9.1) ---
 
 TEST(PesCarrierPlan, MiddleShotStartsOnCom5Alone) {
   const pes::CarrierConstants k = Synthetic();
@@ -922,31 +922,248 @@ TEST(PesCarrierPlan, MiddleShotStartsOnCom5Alone) {
                   k.middleShotBase);
 }
 
-TEST(PesCarrierWalk, TheFixedListOrderNotTheInputOrderDecides) {
-  // The shot is listed 0 and PassForward 4, so the shot survives first even when the caller
-  // hands the pass over first.
-  const std::vector<pes::ListedAnswer> listed = {{4, Pass(pes::kPassShort)}, {0, Shot()}};
-  EXPECT_EQ(pes::WalkCarrierUnits(listed, Along(), {}), Shot());
+TEST(PesCarrierPlan, MiddleShotSkillCountsRisingShotsOnItsOwn) {
+  EXPECT_TRUE(pes::MiddleShotSkill(false, false, false, true));
+  EXPECT_FALSE(pes::MiddleShotSkill(false, false, false, false));
 }
 
-TEST(PesCarrierWalk, TheFirstSurvivorWinsAndANoAnswerIsSkipped) {
-  const std::vector<pes::ListedAnswer> listed = {{0, {}}, {4, Pass(pes::kPassThrough)}};
-  EXPECT_EQ(pes::WalkCarrierUnits(listed, Along(), {}), Pass(pes::kPassThrough));
+TEST(PesCarrierPass, ThroughIsGFsLongPassOnThePesPath) {
+  EXPECT_EQ(pes::PesPassFunctionType(pes::kPassThrough), e_FunctionType_LongPass);
+  EXPECT_EQ(pes::PesPassFunctionType(pes::kPassLong), e_FunctionType_HighPass);
+  EXPECT_EQ(pes::PesPassFunctionType(pes::kPassShort), e_FunctionType_ShortPass);
 }
 
-TEST(PesCarrierWalk, ARestartVetoDropsThePassAndKeepsTheShot) {
-  const std::vector<pes::ListedAnswer> passOnly = {{4, Pass(pes::kPassShort)}};
-  EXPECT_EQ(pes::WalkCarrierUnits(passOnly, Along(), RestartVeto()), Along());
-  const std::vector<pes::ListedAnswer> both = {{4, Pass(pes::kPassShort)}, {0, Shot()}};
-  EXPECT_EQ(pes::WalkCarrierUnits(both, Along(), RestartVeto()), Shot());
+// --- the unit table: the list builder (0x1421112c0) ---
+
+namespace {
+pes::UnitListInput ListInput(int plan) {
+  pes::UnitListInput in;
+  in.plan = plan;
+  return in;
+}
+}  // namespace
+
+TEST(PesCarrierList, BasicListsTheDecodedKindsInTheDecodedOrder) {
+  EXPECT_EQ(pes::BuildUnitList(ListInput(pes::kPlanBasic)),
+            (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 2, 3, 10, 4}));
 }
 
-TEST(PesCarrierWalk, WithNothingListedTheDribbleDefaultStands) {
-  EXPECT_EQ(pes::WalkCarrierUnits({}, Along(), {}), Along());
+TEST(PesCarrierList, ACloseCarrierBasicListLosesTheDefaultPassKinds) {
+  pes::UnitListInput in = ListInput(pes::kPlanBasic);
+  in.close = true;
+  EXPECT_EQ(pes::BuildUnitList(in), (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12}));
 }
 
-TEST(PesCarrierWalk, KeepIsCarriedThroughAsTheDefault) {
-  const std::vector<pes::ListedAnswer> passOnly = {{4, Pass(pes::kPassShort)}};
-  EXPECT_TRUE(pes::IsKeep(pes::WalkCarrierUnits(passOnly, Keep(), RestartVeto())));
-  EXPECT_FALSE(pes::IsKeep(pes::WalkCarrierUnits({}, Along(), {})));
+TEST(PesCarrierList, PlanOneListsBackSpaceAndTheDefaultPassKinds) {
+  EXPECT_EQ(pes::BuildUnitList(ListInput(pes::kPlanBreakthrough)),
+            (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 2, 3, 4, 10}));
+}
+
+TEST(PesCarrierList, PlanOneInTheCentralCloseBandListsNoPassKinds) {
+  pes::UnitListInput in = ListInput(pes::kPlanBreakthrough);
+  in.central = true;
+  in.close = true;
+  EXPECT_EQ(pes::BuildUnitList(in), (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12}));
+}
+
+TEST(PesCarrierList, TheWideSideTailAddsSevenAndSixOnlyWhenThePlanAsksForIt) {
+  pes::UnitListInput in = ListInput(pes::kPlanLong);
+  EXPECT_EQ(pes::BuildUnitList(in), (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 9}));
+  in.planMode = 3;
+  EXPECT_EQ(pes::BuildUnitList(in), (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 9, 7, 6}));
+}
+
+// --- the Dribble sub-kind chooser (report 2.1, 0x14212f1c0) and its dispatch (0x14212fe70) ---
+
+namespace {
+pes::DribbleChooserInput OpenChooser() {
+  // Straight ahead: facing, plan heading and team attack all zero, nothing near, speed zero.
+  pes::DribbleChooserInput in;
+  in.plan = pes::kPlanBasic;
+  in.teamMode = 2;
+  in.pressureClass = 3;
+  in.room_m = 50.0f;
+  in.laneFree = true;
+  return in;
+}
+}  // namespace
+
+TEST(PesCarrierChooser, AFreeLaneOnTheHeadingIsModeFour) {
+  EXPECT_EQ(pes::DribbleChooser(OpenChooser(), Synthetic()), pes::kDribbleMode4);
+}
+
+TEST(PesCarrierChooser, ABlockedLaneIsModeThree) {
+  pes::DribbleChooserInput in = OpenChooser();
+  in.laneFree = false;
+  EXPECT_EQ(pes::DribbleChooser(in, Synthetic()), pes::kDribbleMode3);
+}
+
+TEST(PesCarrierChooser, ARoomTestBelowTwelveMetresKeepsModeThree) {
+  pes::DribbleChooserInput in = OpenChooser();
+  in.room_m = 10.0f;
+  EXPECT_EQ(pes::DribbleChooser(in, Synthetic()), pes::kDribbleMode3);
+}
+
+TEST(PesCarrierChooser, TheSideBandWidensByTwentyPerUnitOfPressure) {
+  pes::DribbleChooserInput in = OpenChooser();
+  in.facing_deg = 50.0f;  // past the 40 degree side band of the attack for a Basic carrier
+  EXPECT_EQ(pes::DribbleChooser(in, Synthetic()), pes::kDribbleMode3);
+  in.pressure = 1.0f;  // 40 + 20 = 60: the same 50 degrees is inside it
+  EXPECT_EQ(pes::DribbleChooser(in, Synthetic()), pes::kDribbleMode4);
+}
+
+TEST(PesCarrierChooser, PlansOneToThreeCompareWithTheirPlanHeadingNotTheAttack) {
+  pes::DribbleChooserInput in = OpenChooser();
+  in.facing_deg = 50.0f;
+  in.planHeading_deg = 50.0f;
+  in.plan = pes::kPlanBasic;
+  EXPECT_EQ(pes::DribbleChooser(in, Synthetic()), pes::kDribbleMode3);
+  in.plan = pes::kPlanBreakthrough;
+  EXPECT_EQ(pes::DribbleChooser(in, Synthetic()), pes::kDribbleMode4);
+}
+
+TEST(PesCarrierChooser, ATurningCarrierIsHeldToSixtyDegreesOfHisPlanHeading) {
+  pes::DribbleChooserInput in = OpenChooser();
+  in.turning = true;
+  in.facing_deg = 70.0f;
+  EXPECT_EQ(pes::DribbleChooser(in, Synthetic()), pes::kDribbleMode3);
+  in.planHeading_deg = 50.0f;  // 20 degrees apart
+  EXPECT_EQ(pes::DribbleChooser(in, Synthetic()), pes::kDribbleMode4);
+}
+
+TEST(PesCarrierChooser, TheFeintNeedsItsGateAndTheCarrierPastHalfway) {
+  pes::DribbleChooserInput in = OpenChooser();
+  in.feintGate = true;
+  in.forwardOfHalf = true;
+  EXPECT_EQ(pes::DribbleChooser(in, Synthetic()), pes::kDribbleFeint);
+  in.forwardOfHalf = false;
+  EXPECT_EQ(pes::DribbleChooser(in, Synthetic()), pes::kDribbleMode4);
+}
+
+TEST(PesCarrierChooser, AVerticalDropInTeamModeOneKeepsModeThree) {
+  pes::DribbleChooserInput in = OpenChooser();
+  in.teamMode = 1;
+  in.verticalVel = -2.0f;
+  in.verticalLimit = -1.0f;
+  EXPECT_EQ(pes::DribbleChooser(in, Synthetic()), pes::kDribbleMode3);
+}
+
+TEST(PesCarrierChooser, AFastCarrierWithAPressureUnknownTurningFromHisVelocityIsHeld) {
+  pes::DribbleChooserInput in = OpenChooser();
+  in.pressureClass = -1;
+  in.speed_kmh = 12.0f;
+  in.velZero = false;
+  in.velHeading_deg = -50.0f;  // facing 0: 50 degrees off his motion
+  EXPECT_EQ(pes::DribbleChooser(in, Synthetic()), pes::kDribbleMode3);
+  in.velHeading_deg = -20.0f;
+  EXPECT_EQ(pes::DribbleChooser(in, Synthetic()), pes::kDribbleMode4);
+}
+
+TEST(PesCarrierDispatch, TheLongImageRunsNoChooserAndKeepsModeThree) {
+  pes::DribbleChooserInput in = OpenChooser();
+  in.plan = pes::kPlanLong;
+  in.laneFree = false;
+  EXPECT_EQ(pes::DribbleSubKind(in, true, Synthetic()), pes::kDribbleMode3);
+}
+
+TEST(PesCarrierDispatch, AnOverrideTurnsABlockedModeThreeIntoAHeading) {
+  pes::DribbleChooserInput in = OpenChooser();
+  in.laneFree = false;
+  EXPECT_EQ(pes::DribbleSubKind(in, true, Synthetic()), pes::kDribbleHeading);
+  in.laneFree = true;
+  EXPECT_EQ(pes::DribbleSubKind(in, true, Synthetic()), pes::kDribbleMode4);
+}
+
+// --- the arbitration walk (0x14210f110): rules 1, 3, 5, 6, 9, 10 and the set-piece branch ---
+
+namespace {
+pes::UnitSlot Slot(int kind, int type, int sub = 0) {
+  pes::UnitSlot s;
+  s.kind = kind;
+  s.answer = {type, sub};
+  return s;
+}
+}  // namespace
+
+TEST(PesCarrierWalk, TheTableOrderNotTheKindNumberDecides) {
+  const std::vector<pes::UnitSlot> table = {Slot(4, pes::kAnswerPass, pes::kPassShort),
+                                            Slot(0, pes::kAnswerShoot, 1)};
+  EXPECT_EQ(pes::WalkCarrierUnits(table, pes::WalkContext{}).kind, 4);
+}
+
+TEST(PesCarrierWalk, KindTwentyTwoWinsOutsideSetPieces) {
+  // The walk reads the table in its build order, and GKCoaching (22) is the second slot of every
+  // list, ahead of Shoot (0): it answers before the shot does.
+  const std::vector<pes::UnitSlot> table = {Slot(22, pes::kAnswerPass, pes::kPassShort),
+                                            Slot(0, pes::kAnswerShoot, 1)};
+  EXPECT_EQ(pes::WalkCarrierUnits(table, pes::WalkContext{}).kind, 22);
+}
+
+TEST(PesCarrierWalk, ThePKAndClearStatesVetoPassesButNotShots) {
+  const std::vector<pes::UnitSlot> pass = {Slot(4, pes::kAnswerPass, pes::kPassShort)};
+  pes::WalkContext c;
+  c.restartState = 9;
+  EXPECT_EQ(pes::WalkCarrierUnits(pass, c).kind, -1);
+  c.restartState = 0;
+  EXPECT_EQ(pes::WalkCarrierUnits(pass, c).kind, 4);
+}
+
+TEST(PesCarrierWalk, StoppedPlayAcceptsOnlyPasses) {
+  pes::WalkContext c;
+  c.restartMode = 2;
+  EXPECT_EQ(pes::WalkCarrierUnits({Slot(0, pes::kAnswerShoot, 1)}, c).kind, -1);
+  EXPECT_EQ(pes::WalkCarrierUnits({Slot(4, pes::kAnswerPass, pes::kPassShort)}, c).kind, 4);
+}
+
+TEST(PesCarrierWalk, ACutBackReplacesAShotOutsideTheCloseBand) {
+  const std::vector<pes::UnitSlot> table = {Slot(0, pes::kAnswerShoot, 1),
+                                            Slot(3, pes::kAnswerPass, pes::kPassThrough)};
+  pes::WalkContext c;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 3);
+  c.closeBand = true;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 0);
+}
+
+TEST(PesCarrierWalk, ACrossOverrideNeedsSkillFourteenAndAListedCross) {
+  const std::vector<pes::UnitSlot> table = {Slot(4, pes::kAnswerPass, pes::kPassShort),
+                                            Slot(7, pes::kAnswerPass, 2)};
+  pes::WalkContext c;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 4);
+  c.skill14 = true;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 7);
+}
+
+TEST(PesCarrierWalk, AnOpponentWithTheBallRejectsAPassButATeammateDoesNot) {
+  const std::vector<pes::UnitSlot> table = {Slot(4, pes::kAnswerPass, pes::kPassShort)};
+  pes::WalkContext c;
+  c.ballOwnerTeam = 1;  // the opponent
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, -1);
+  c.ballOwnerTeam = 0;  // the carrier's side
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 4);
+}
+
+TEST(PesCarrierWalk, InASetPieceTheKickerPassesOnlyWhenAllowed) {
+  const std::vector<pes::UnitSlot> pass = {Slot(4, pes::kAnswerPass, pes::kPassShort)};
+  pes::WalkContext c;
+  c.restartMode = 3;
+  c.carrierIsKicker = true;
+  c.passAllowedInSetPiece = false;
+  EXPECT_EQ(pes::WalkCarrierUnits(pass, c).kind, -1);
+  c.carrierIsKicker = false;
+  EXPECT_EQ(pes::WalkCarrierUnits(pass, c).kind, 4);
+  c.carrierIsKicker = true;
+  EXPECT_EQ(pes::WalkCarrierUnits({Slot(0, pes::kAnswerShoot, 1)}, c).kind, 0);
+}
+
+TEST(PesCarrierWalk, TheFirstTimeGateNeedsAHighBallOrTheSkillForAPass) {
+  const std::vector<pes::UnitSlot> pass = {Slot(4, pes::kAnswerPass, pes::kPassShort)};
+  pes::WalkContext c;
+  c.firstTimeGate = true;
+  EXPECT_EQ(pes::WalkCarrierUnits(pass, c).kind, -1);
+  c.skill12 = true;
+  EXPECT_EQ(pes::WalkCarrierUnits(pass, c).kind, 4);
+}
+
+TEST(PesCarrierWalk, WithNothingAnsweringTheWalkReturnsNone) {
+  EXPECT_EQ(pes::WalkCarrierUnits({}, pes::WalkContext{}).kind, -1);
 }
