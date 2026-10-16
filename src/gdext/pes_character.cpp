@@ -63,6 +63,22 @@ bool EndsWith(const std::string& s, const std::string& tail) {
   return s.size() >= tail.size() && s.compare(s.size() - tail.size(), tail.size(), tail) == 0;
 }
 
+// True when a pack's fmdl carries the body skeleton (pes::CarriesBodySkeleton): a boots
+// pack of this shape is a whole body, not boots.
+bool PackCarriesBody(const pes::PesVfs& vfs, const std::string& packPath) {
+  std::string err;
+  auto pack = vfs.Read(packPath, &err);
+  if (!pack) return false;
+  auto fpk = pes::FpkArchive::Parse(*pack, &err);
+  if (!fpk) return false;
+  for (const auto& entry : fpk->entries) {
+    if (!EndsWith(Lower(entry.path), ".fmdl")) continue;
+    auto model = pes::ParseFmdl(std::span(*pack).subspan(entry.offset, entry.size), &err);
+    if (model && pes::CarriesBodySkeleton(*model)) return true;
+  }
+  return false;
+}
+
 struct CachedTexture {
   Ref<ImageTexture> gpu;
   Ref<Image> rgba;  // decompressed copy, for alpha rules
@@ -111,6 +127,7 @@ class Build {
   int unresolved_ = 0;
   std::string kitAtlasPath_, armSkinPath_, thighSkinPath_;  // Player mode overrides
   int kitPattern_ = 0;
+  bool wholeBody_ = false;  // RunPlayer: the player's body is a whole body from its boots pack
   int number_ = -1;
   std::string name_;
   const MarkingFonts* fonts_ = nullptr;
@@ -209,6 +226,11 @@ Ref<Material> Build::MakeMaterial(const pes::Fmdl& m, int index, bool kitSlot) {
     if (texIndex < 0 || texIndex >= int(m.textures.size())) continue;
     const std::string stem = Lower(TextureStem(m.textures[texIndex].filename));
     const bool base = role.find("Base_Tex") != std::string::npos || EndsWith(role, "_SRGB");
+    // A whole body's Suit (the boots pack's dummy_kit placeholder) wears the team's kit atlas.
+    if (base && wholeBody_ && stem == "dummy_kit") {
+      if (const CachedTexture* kit = LoadTexturePath(kitAtlasPath_)) mat->set_texture(BaseMaterial3D::TEXTURE_ALBEDO, kit->gpu);
+      continue;
+    }
     if ((base && !skin.empty()) || pes::IsPlaceholderTexture(stem)) continue;  // dummy_nrm / dummy_srm
     const bool normal = role.find("NormalMap") != std::string::npos || EndsWith(stem, "_nrm");
     const bool spec = role.find("SpecularMap") != std::string::npos || EndsWith(stem, "_srm");
@@ -586,33 +608,42 @@ Node3D* Build::RunPlayer(int teamId, int kitIndex) {
     UtilityFunctions::push_error("PES common package unreadable: ", ToGd(err));
     return nullptr;
   }
+  // A whole body in the boots pack (pes-re-officials-ball.md §3.3; the 4cc body packs of
+  // pes-kit-assembly.md §7.3) replaces the base body: no face, uniform, bare body parts or
+  // gloves are built for it, and its own materials draw the whole figure.
+  const std::string bootsPack = pes::BootsPackPath(bootsId);
+  const bool wholeBody = vfs_.Exists(bootsPack) && PackCarriesBody(vfs_, bootsPack);
+  wholeBody_ = wholeBody;
   Begin();
-  if (!AddPack(pes::FacePackPath(faceId_))) {
-    memdelete(root_);
-    return nullptr;
-  }
-  for (const auto& part : pes::SelectUniformParts(*kit, look)) {
-    if (part.inCommonPackage) {
-      auto it = std::find_if(commonFpk->entries.begin(), commonFpk->entries.end(),
-                             [&](const pes::FpkEntry& e) { return e.path.ends_with("/" + part.path); });
-      if (it == commonFpk->entries.end()) {
-        UtilityFunctions::push_warning("PES part missing from common package: ", ToGd(part.path));
-        continue;
+  if (!wholeBody) {
+    if (!AddPack(pes::FacePackPath(faceId_))) {
+      memdelete(root_);
+      return nullptr;
+    }
+    for (const auto& part : pes::SelectUniformParts(*kit, look)) {
+      if (part.inCommonPackage) {
+        auto it = std::find_if(commonFpk->entries.begin(), commonFpk->entries.end(),
+                               [&](const pes::FpkEntry& e) { return e.path.ends_with("/" + part.path); });
+        if (it == commonFpk->entries.end()) {
+          UtilityFunctions::push_warning("PES part missing from common package: ", ToGd(part.path));
+          continue;
+        }
+        AddModel(std::span(*common).subspan(it->offset, it->size), it->path, skin_);
+      } else if (auto blob = vfs_.Read(part.path, &err)) {
+        AddModel(*blob, part.path, skin_);
+      } else {
+        // PES leaves the slot empty when a part file is missing (8.9).
+        UtilityFunctions::print("  empty slot, no file: ", ToGd(part.path));
       }
-      AddModel(std::span(*common).subspan(it->offset, it->size), it->path, skin_);
-    } else if (auto blob = vfs_.Read(part.path, &err)) {
-      AddModel(*blob, part.path, skin_);
-    } else {
-      // PES leaves the slot empty when a part file is missing (8.9).
-      UtilityFunctions::print("  empty slot, no file: ", ToGd(part.path));
     }
   }
   // A missing boots or glove folder leaves the slot empty (pes-kit-assembly.md 8.4).
-  for (const std::string& pack : {pes::BootsPackPath(bootsId), look.gloveId ? pes::GlovePackPath(look.gloveId) : ""})
-    if (!pack.empty()) {
-      if (vfs_.Exists(pack)) AddPack(pack);
-      else UtilityFunctions::print("  empty slot, no pack: ", ToGd(pack));
-    }
+  std::vector<std::string> packs{bootsPack};
+  if (!wholeBody && look.gloveId) packs.push_back(pes::GlovePackPath(look.gloveId));
+  for (const std::string& pack : packs) {
+    if (vfs_.Exists(pack)) AddPack(pack);
+    else UtilityFunctions::print("  empty slot, no pack: ", ToGd(pack));
+  }
   return Finish();
 }
 

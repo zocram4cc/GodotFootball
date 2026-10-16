@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "pes/fmdl.hpp"
 #include "pes/inflate.hpp"
 #include "pes/vfs.hpp"
 
@@ -338,6 +339,16 @@ constexpr float SHIRT_WRINKLE_SLICE = 2.0f;
 Vec4 ClothBlendNormalX(ClothPart part, Vec4 fmdl) {
   if (part == ClothPart::ShirtFamily) fmdl.y = SHIRT_WRINKLE_SLICE;
   return fmdl;
+}
+
+// The body skeleton's hip bone (pes-re-officials-ball.md §3.3: boots/k99NN carry
+// `MESH_medical_staff` on 32 body bones, dsk_hip among them). A boots part with
+// no hip is a boot: the foot bones only (6 bones in a normal boots pack).
+constexpr const char* BODY_HIP_BONE = "dsk_hip";
+bool CarriesBodySkeleton(const Fmdl& part) {
+  for (const FmdlBone& bone : part.bones)
+    if (bone.name == BODY_HIP_BONE) return true;
+  return false;
 }
 
 }  // namespace pes
