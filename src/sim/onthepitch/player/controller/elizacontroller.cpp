@@ -2162,9 +2162,10 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // not carried by GF; the posture writer 0x1404f6c30 is not ported.
     longPlan.teamModeThree = false;
     longPlan.fullAttack = false;
-    // ponytail: the designated player (0x14211b269) is PES's per-possession
-    // designation; GF's team designation (team.cpp) is not that, so it stands false.
-    longPlan.designatedSelf = false;
+    // The team's designated possession player is the carrier (0x14211b269, PES's
+    // team+0x18). GF's designation is team.cpp's time-to-ball choice, the same
+    // one the team AI reads as the carrier.
+    longPlan.designatedSelf = team->GetDesignatedTeamPossessionPlayer() == CastPlayer();
     // ponytail: eval+0x3c (0x14211b27f, the cached team setting 0x14063a420) and
     // eval+0x54 (BallPlayer+0x70, the team long instruction, 0x14211b303) are not
     // carried by GF: Path A at level 0 stands in.
