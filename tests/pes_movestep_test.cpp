@@ -679,6 +679,22 @@ TEST(StayDecision, StaysWhenTheFacingErrorIsInsideTheBearingGate) {
   EXPECT_FALSE(pes::movestep::StayDecision(host, req));
 }
 
+// INIT's stay decision (docs/re/pes-re-anim-select.md 2.3): a still command whose stay decision
+// holds goes to the IDLE state; only a go enters the GOTO_RUN entry.
+TEST(Init, AStandingPlayerWhoStaysGoesIdle) {
+  RateHost host = IdleHost();
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 0);
+  req.SetU(pes::moveword::kCommandSpeedClass, 0);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDistToTarget, 10.0f);
+  host.ballBearingDeg = 0.0f;
+  pes::movestep::Init(host, req);
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+}
+
 TEST(SimTail, CopiesTheSlipFacingAfterSlipdownEvenWhenRootFacingIsSet) {
   RateHost host = IdleHost();
   pes::MoveStepRecord rec;

@@ -407,7 +407,7 @@ struct MotionRequest {
   float duration = 0.0f;   // req[0x32], seconds
   float playback = 1.0f;   // req[0x35]
   float startTime = 0.0f;  // req[0x33], seconds
-  int group = -1;          // req[0x37]: -1 = SetMotion (req[0x37] == 0x11), else the parametric group
+  int group = -1;          // req[0x37]: -1 = SetMotion (req[0x37] == 0x11), else the style index (RecordIssue maps it)
   float startRate = 0.0f;  // req[0x4f]: SetParametric only
   float rate = 0.0f;       // req[0x4a]: SetParametric only
   int foot = 0;            // SetParametric's foot argument (not req[0x7c])
