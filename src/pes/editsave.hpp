@@ -40,8 +40,11 @@ using AppearanceTable = std::unordered_map<uint32_t, AppearanceRecord>;
 struct EditSave {
   AppearanceTable appearances;  // by player id
 };
-// Decrypts the file, checks every block's SHA-512 against the header as the
-// game does, and collects the appearance records.
+// Decrypts the file, recomputes every block's SHA-512 against the header as
+// the game does (FUN_14140f470), and collects the appearance records. A stale
+// stored digest is reported through `error` but the block is still used: the
+// game skips the check when the file's flag bit for that block is set, and
+// the running game demonstrably loads such files.
 std::optional<EditSave> ReadEditSave(std::span<const uint8_t> file, std::string* error);
 
 // PlayerAppearance.bin, the game's fallback for players the save lacks:

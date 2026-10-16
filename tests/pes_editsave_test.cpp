@@ -189,11 +189,11 @@ TEST(Appearance, DecodesTheLookFields) {
 }
 
 // The user's own save, given at run time only. The game checks a SHA-512 of
-// every block against the decrypted header; so does the reader. This save's
-// values change whenever the owner plays, so only structural invariants are
-// asserted, and a save that fails its own integrity check is skipped, not
-// failed: it is either torn (a process died mid-write) or a format case this
-// reader still misses, and neither is this test's business to pin.
+// every block against the decrypted header but loads the block anyway when
+// the file's flag bit for it is set (FUN_14140f470); so does the reader. This
+// save's values change whenever the owner plays, so only structural
+// invariants are asserted. The owner's current save carries a stale block-2
+// digest yet runs in the game, so the stale digest is expected, not skipped.
 TEST(EditSaveInstall, DecryptsAndMatchesTheRunningGame) {
   const char* path = std::getenv("PES21_EDIT_SAVE");
   if (!path) GTEST_SKIP() << "PES21_EDIT_SAVE not set";
@@ -202,11 +202,7 @@ TEST(EditSaveInstall, DecryptsAndMatchesTheRunningGame) {
   const std::vector<uint8_t> file((std::istreambuf_iterator<char>(f)), {});
   std::string err;
   auto save = pes::ReadEditSave(file, &err);
-  if (!save) {
-    GTEST_SKIP() << "the save fails its own integrity check: " << err
-                 << ". Either it is torn (the game died mid-write) or the reader "
-                    "misses a format case; fix the reader before pinning values.";
-  }
+  ASSERT_TRUE(save) << err;
   // The game's live table is the EDIT save union the PlayerAppearance.bin
   // fallback (pes-kit-assembly.md 8.1), so any save holds thousands of records.
   EXPECT_GT(save->appearances.size(), 1000u);
@@ -230,14 +226,16 @@ TEST(EditSaveInstall, DecryptsAndMatchesTheRunningGame) {
 }
 
 // A synthetic save, built from the documented layout, round-trips through the
-// reader and rejects a corrupt digest, a flipped ciphertext byte and a torn
-// tail each with the same class of error the game reports (OBS: the load path
-// memcmps 0x40 bytes per block and returns error 6 on mismatch).
-TEST(EditSaveSave, RoundTripsAFileAndRejectsCorruption) {
+// reader; a flipped ciphertext byte, a zeroed tail and a block rewritten
+// after its digest each surface as the block's SHA-512 warning while the
+// block is still used (OBS: the load path memcmps 0x40 bytes per block, and
+// the running game holds a block whose stored digest is stale).
+TEST(EditSaveSave, RoundTripsAFileAndWarnsOnCorruption) {
   const SaveFile good = BuildSave(0);
   std::string err;
   auto save = pes::ReadEditSave(good.bytes, &err);
   ASSERT_TRUE(save) << err;
+  EXPECT_TRUE(err.empty());
   ASSERT_EQ(save->appearances.size(), 3u);
   for (uint32_t i = 0; i < 3; ++i) {
     const uint32_t id = 70101 + i;
@@ -249,13 +247,14 @@ TEST(EditSaveSave, RoundTripsAFileAndRejectsCorruption) {
     EXPECT_EQ(look.bootsId, 38);
     EXPECT_EQ(look.gloveId, 12);
   }
-  // 1: a flipped ciphertext byte. 2: a zeroed tail (torn write). 3: a flipped
-  // bit in the stored block-2 digest. Each must be rejected the same way the
-  // game rejects it, by the block's SHA-512 check.
+  // 1: a flipped ciphertext byte. 2: a zeroed tail (torn write). 3: a block
+  // rewritten after its digest (what the owner's current save does). Each
+  // must still read, and each must report the block's SHA-512 warning.
   for (int mode = 1; mode <= 3; ++mode) {
     const SaveFile bad = BuildSave(mode);
     std::string e2;
-    EXPECT_FALSE(pes::ReadEditSave(bad.bytes, &e2)) << "mutation " << mode << " must be rejected";
+    auto kept = pes::ReadEditSave(bad.bytes, &e2);
+    EXPECT_TRUE(kept) << "mutation " << mode << " must still read, like the game does";
     EXPECT_NE(e2.find("SHA-512"), std::string::npos) << "mutation " << mode << ": " << e2;
   }
 }
