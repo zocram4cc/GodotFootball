@@ -1,7 +1,8 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://match/rig_view.gd" id="1"]
 [ext_resource type="Shader" path="res://shaders/pes_sky.gdshader" id="2"]
+[ext_resource type="Script" path="res://post/pes_post_effect.gd" id="3"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_sky"]
 shader = ExtResource("2")
@@ -18,6 +19,12 @@ fog_enabled = true
 fog_mode = 1
 fog_aerial_perspective = 1.0
 
+[sub_resource type="CompositorEffect" id="CompositorEffect_post"]
+script = ExtResource("3")
+
+[sub_resource type="Compositor" id="Compositor_post"]
+compositor_effects = [SubResource("CompositorEffect_post")]
+
 [node name="RigView" type="Node3D"]
 script = ExtResource("1")
 
@@ -26,4 +33,5 @@ environment = SubResource("Environment_rig")
 
 [node name="Camera3D" type="Camera3D" parent="."]
 current = true
+compositor = SubResource("Compositor_post")
 fov = 50.0

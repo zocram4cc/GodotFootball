@@ -11,10 +11,9 @@ namespace godot {
 // from the rig's astronomical fit, the floodlights with their per-span
 // groups, the reflection probes, the sky parameters and the shadow/fog
 // recipe, as children of this node (lights and probes) plus a WorldEnvironment
-// and a CameraAttributes configured on siblings it finds by name. The tonemap,
-// grading and exposure-adaptation chain stays B3's: this sets a fixed exposure
-// from the rig's gameInitialExposureValue + compensation so the frame is
-// comparable now.
+// and a Camera3D whose compositor carries the PesPostEffect (godot/post), both
+// found by name on siblings. The exposure, bloom and film curve are the post
+// chain's: this hands it the rig's values for the span it sets up.
 class PesLighting : public Node3D {
   GDCLASS(PesLighting, Node3D)
 

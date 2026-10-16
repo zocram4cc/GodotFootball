@@ -1,12 +1,13 @@
 // The match light rig as Godot nodes (docs: docs/re/pes-re-lighting.md §0-8).
 // Every number comes from the rig file: the sun direction from the §3.3 fit,
 // the sky coefficients from TppAtmosphere, the floodlights (§4.2) and probes
-// (Part B §6) with their span groups. Fixed exposure only (B3 owns the
-// adaptation chain); the tonemap stays LINEAR.
+// Exposure, bloom and the film curve are the post chain's (godot/post); the
+// tonemapper stays LINEAR here.
 
 #include "gdext/pes_lighting.hpp"
+#include <cmath>
 
-#include <godot_cpp/classes/camera_attributes_practical.hpp>
+#include <godot_cpp/classes/compositor.hpp>
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/directional_light3d.hpp>
 #include <godot_cpp/classes/engine.hpp>
@@ -22,6 +23,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #include "pes/lighting.hpp"
+#include "pes/tonemap.hpp"
 
 namespace godot {
 namespace {
@@ -54,6 +56,41 @@ void ClearChildren(Node3D* n) {
     n->remove_child(c);
     c->queue_free();
   }
+}
+
+// The post chain's constants (docs/re/pes-re-lighting.md Part C §1, OBS FUN_1416c7930):
+// the adaptation step uses 0.98^(60·dt) with dt = 1/60 (the live tod+0x120).
+constexpr double kAdaptDecayBase = 0.98;
+constexpr double kAdaptRatePerSecond = 60.0;
+constexpr double kAdaptDtSeconds = 1.0 / 60.0;
+
+// The post chain's GPU parameters, in the layout godot/post/pes_post.glsl reads
+// (32 floats): white balance columns, the film curve, the exposure law, the bloom.
+PackedFloat32Array PostParams(const pes::LightSettings& s, const pes::PluginSettings& plugin) {
+  PackedFloat32Array p;
+  p.resize(32);
+  const pes::Mat3 wb = pes::WhiteBalanceRgb(s.whiteTemperature, s.whiteTint);
+  for (int col = 0; col < 3; ++col)
+    for (int row = 0; row < 3; ++row) p[4 * col + row] = float(wb[row][col]);
+  const pes::FilmCurve f = pes::MakeFilmCurve(s.acesFilmSlope, s.acesFilmToe, s.acesFilmShoulder,
+                                              s.acesFilmBlackClip, s.acesFilmWhiteClip);
+  const double film[8] = {f.toeMatch, f.straightMatch, f.shoulderMatch, f.slope,
+                          f.black,    f.white,         f.toeScale,      f.shoulderScale};
+  for (int i = 0; i < 8; ++i) p[12 + i] = float(film[i]);
+  p[20] = float(s.gameKeyValue);
+  p[21] = float(s.gameExposureCompensation);
+  p[22] = float(s.gameMinExposure);
+  p[23] = float(s.gameMaxExposure);
+  p[24] = float(plugin.tonemapSpeed);
+  // The adaptation step gain 1 − 0.98^(60·dt), dt = 1/60 per rendered frame.
+  p[25] = float(1.0 - std::pow(kAdaptDecayBase, kAdaptRatePerSecond * kAdaptDtSeconds));
+  p[26] = float(plugin.bloomBrightnessExtraction);
+  p[27] = float(plugin.bloomWeight);
+  p[28] = float(pes::BloomKernelCount(plugin.bloomSize));
+  // ponytail: the 0.1–0.2 size copy branch (decoded in shape only) runs as one
+  // zero-offset Kawase pass with its weight applied once; the offset scale 0 marks it.
+  p[29] = pes::BloomCopyBranch(plugin.bloomSize) ? 0.0f : 1.0f;
+  return p;
 }
 
 }  // namespace
@@ -220,18 +257,24 @@ bool PesLighting::setup(const Ref<PesLibrary>& library, int stadium_id, int weat
       env->set_fog_height_density(float(s.globalFogHeightScale / 1000.0));
       env->set_fog_aerial_perspective(1.0f);
       env->set_fog_sky_affect(1.0f);
-      // Tonemap stays LINEAR; B3 owns the post chain. Fixed exposure from
-      // the rig (gameInitialExposureValue + compensation) until then.
+      // Tonemap stays LINEAR: the post chain (PesPostEffect) does the film, so
+      // Godot's own tonemapper is an identity here.
       env->set_tonemapper(Environment::TONE_MAPPER_LINEAR);
       env->set_glow_enabled(false);
     }
   }
+  // Exposure, bloom and the film curve belong to the post chain: the PesPostEffect
+  // on the camera's compositor takes the rig's values (godot/post/pes_post_effect.gd).
   Camera3D* camera = parent ? Object::cast_to<Camera3D>(parent->get_node_or_null("Camera3D")) : nullptr;
-  if (camera) {
-    Ref<CameraAttributesPractical> attrs;
-    attrs.instantiate();
-    attrs->set_exposure_multiplier(float(std::pow(2.0, s.gameInitialExposureValue + s.gameExposureCompensation)));
-    camera->set_attributes(attrs);
+  if (camera && camera->get_compositor().is_valid()) {
+    Dictionary post;
+    post["params"] = PostParams(s, rig->plugin);
+    post["initial_ev"] = s.gameInitialExposureValue;
+    Array effects = camera->get_compositor()->get("compositor_effects");
+    for (int i = 0; i < effects.size(); ++i) {
+      Object* effect = effects[i];
+      if (effect && effect->has_method("configure")) effect->call("configure", post);
+    }
   }
   return true;
 }

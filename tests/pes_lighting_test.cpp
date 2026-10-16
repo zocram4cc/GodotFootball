@@ -182,4 +182,41 @@ TEST(LightingRig, St002AtshSunAndMoon) {
   const pes::Vec3 midnight = pes::AtshSunColor(*atsh, false, 0, 0);
   EXPECT_NEAR(midnight.x, 0.996, 0.01);  // moonColor
 }
+
+// The st002 rig's tonemap, plugin and white-balance groups (docs/re/pes-re-lighting.md
+// Part C §3-4, §4.1). The day span leaves overrideTonemap off, so the global film set
+// and white point apply; the bloom and the adaptation speed are per rig.
+TEST(LightingRig, St002TonemapPluginAndWhiteBalance) {
+  if (!Vfs()) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto rig = pes::LoadLightRig(*Vfs(), 2, false, &err);
+  ASSERT_TRUE(rig) << err;
+  const pes::LightSettings& day = rig->SpanForDayNight(false, 0).settings;
+  EXPECT_NEAR(day.acesFilmSlope, 0.88, 1e-6);
+  EXPECT_NEAR(day.acesFilmToe, 0.45, 1e-6);
+  EXPECT_NEAR(day.acesFilmShoulder, 0.55, 1e-6);
+  EXPECT_NEAR(day.acesFilmBlackClip, 0.0, 1e-6);
+  EXPECT_NEAR(day.acesFilmWhiteClip, 0.02, 1e-6);
+  EXPECT_NEAR(day.whiteTemperature, 6500, 1e-3);
+  EXPECT_NEAR(day.whiteTint, 0.075, 1e-6);
+  // The rig's one PesPluginSettings: this install's af file reads these values
+  // (the report's survey row for st002 differs; the file is authoritative).
+  EXPECT_NEAR(rig->plugin.bloomSize, 0.3, 1e-6);
+  EXPECT_NEAR(rig->plugin.bloomBrightnessExtraction, 0.3, 1e-6);
+  EXPECT_NEAR(rig->plugin.bloomWeight, 0.3, 1e-6);
+  EXPECT_NEAR(rig->plugin.tonemapSpeed, 10, 1e-6);
+}
+
+// A span that overrides the tonemap group takes its own film set and white point.
+TEST(LightingMerge, SpanOverrideTakesTonemapGroup) {
+  pes::LightSettings base, span;
+  base.acesFilmToe = 0.45;
+  span.overrideTonemap = true;
+  span.acesFilmToe = 0.55;
+  span.whiteTint = 0.05;
+  const pes::LightSettings m = pes::MergeLightSettings(base, span);
+  EXPECT_DOUBLE_EQ(m.acesFilmToe, 0.55);
+  EXPECT_DOUBLE_EQ(m.whiteTint, 0.05);
+}
+
 }  // namespace
