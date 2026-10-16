@@ -17,6 +17,8 @@ selection, `ClothShirtParts`), `pes-re-collision.md` §1 (player volumes, the
 
 ---
 
+> **Correction (B6B7Decode, `pes-re-stadium-cloth-vfx.md` §2.5):** the 0x80-byte part (ctor `FUN_141a81c70`) is the drawn **nocloth** object, model at +0x20; its +0x78 is not the cloth model. The cloth fmdl lives at +0x58 of a separate 0xD8-byte object (ctor `FUN_141a816e0`, via `FUN_141a828b0`), which also holds nocloth at +0x88 and is only bound to the cloth sim when flags +0x14 and +0x15 are both set (`FUN_141a85620`).
+
 ## 0. Headline facts
 
 1. **OBS — cloth shirts are a Verlet particle sim bound to a per-part
