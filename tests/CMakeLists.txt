@@ -130,3 +130,7 @@ gtest_discover_tests(pes_lighting_test)
 add_executable(pes_fmdl_uv_test pes_fmdl_uv_test.cpp)
 target_link_libraries(pes_fmdl_uv_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_fmdl_uv_test)
+
+add_executable(pes_events_test pes_events_test.cpp)
+target_link_libraries(pes_events_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_events_test)
