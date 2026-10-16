@@ -145,6 +145,7 @@ address given.
 |`pes-re-gaps-anime.md`|Gaps: MOVESTEP group A helpers; motion record lists by kind (RotData/FootType/PivothitInfo/SubHitData), the loader chain; D1 vtable; the AnimePlayer owner (PM vtable 0x1426329a8); the P+0x428 adjuster per-tick chain; the bit-30 writer|
 |`pes-re-gaps-match.md`|Gaps: instruction-table writer FUN_140a426f0; ball track rebuilt per tick (head FUN_14080fa80); the support pipeline (11 x 12-byte entries); F10-F12 have no reader; hub dispatch and tick order|
 |`pes-re-com-styles.md`|**COM playing styles and the image/intention system, verified**: storage offsets, image scorer probabilities (per-evaluator re-seeded dice), the dispatcher `[9,8,2,3,1,4,5,6,7]`, the Intention ratchet; 4 corrections to the source write-up and 22 GF port mismatches. External source cited|
+|`pes-re-shootout-stale-object.md`|The shootout segfault: a stale object with no ninja dependency record, two in-memory `Match` layouts, proof by address arithmetic; the fix and the build-hygiene rule|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
