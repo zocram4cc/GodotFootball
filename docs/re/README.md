@@ -148,6 +148,8 @@ address given.
 |`pes-re-shootout-stale-object.md`|The shootout segfault: a stale object with no ninja dependency record, two in-memory `Match` layouts, proof by address arithmetic; the fix and the build-hygiene rule|
 |`pes-re-stadium-cloth-vfx.md`|B6/B7 decode: team→stadium (Team.bin +0x3C is a Stadium.bin id, reader `FUN_141eeeea0`, fallback 29); cloth vs nocloth part objects (nocloth drawn; corrects cloth-nets §3); vfxdb header (reader not found)|
 |`pes-re-gaps-a2.md`|A2/A6 gaps: MA build is inside the team tick (`FUN_140535c60` from `FUN_1404f6c30`), team-tick delivery chain, referee only via record handlers; HUD env source refuted; E5 step = frame delta; C8 = byte `MI+0x11b4`, keep `== 0`|
+|`pes-re-taker-map.md`|`FUN_1404a8ad0` is the free-kick kicker chooser (MODE 5): designated table `T+0xa244`, the six-step waterfall, constants from the exe; corrects the 28 m and own-half notes; §9 = what `Wave1TSheet` still needs|
+|`pes-re-stadium-cloth-vfx-opens.md`|Follow-up on the B6/B7 opens: match-side stadium resolver `FUN_1414f5120` (set at `owner+0x28`, else 29); cloth gate in `FUN_141a89120`; vfxdb loader `FUN_1415d3990` → parser `FUN_14161c8b0`|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
