@@ -29,6 +29,16 @@ inline constexpr int kWeakSlot = 3;  // the 15-bit LCG slot
 // Range0 always uses.
 inline constexpr int kRange0Slot = 1;
 
+// RandomInfo's draws (report 3.14, 0x140435ef0): the producer's generator slot, and
+// the two moduli PES gives its percent and coin draws (`mov edx, 0x64`, then
+// `lea r8d, [rdx-0x62]`, which is 2). Its unit draw's modulus is read from the exe.
+inline constexpr int kRandomInfoSlot = 2;
+inline constexpr int kRandomInfoPercentModulus = 100;
+inline constexpr int kRandomInfoCoinModulus = 2;
+// The producer's slot-2 seed is the match value L times this (0x140435e10 scales L by 3000
+// on slot 2; slots 0 and 1 take 1000 and 2000 there, and the producer draws only slot 2).
+inline constexpr uint32_t kRandomInfoSeedScale = 3000;
+
 struct RngConstants {
   uint32_t lcgMul;
   uint32_t lcgSub;
@@ -36,6 +46,11 @@ struct RngConstants {
   float scale;  // 2^-31
   uint32_t weakMul, weakInc, weakMask;
   std::array<uint32_t, kRandomSlots> defaultSeeds;
+  // RandomInfo's unit draw (report 3.14): RangeRaw(slot 2, randomInfoModulus) divided by
+  // randomInfoDivisor. The modulus is the immediate of the producer's `mov edx, 999999`
+  // (0x140435f34) and the divisor is its .rdata float (0x14259bc10).
+  int32_t randomInfoModulus;
+  float randomInfoDivisor;
 };
 
 std::optional<RngConstants> LoadRngConstants(const PeImage& exe, std::string* error);
@@ -65,6 +80,39 @@ class Random {
  private:
   const RngConstants& k_;
   std::array<uint32_t, kRandomSlots> slots_;
+};
+
+// RandomInfo, the record the producer republishes (report 3.14, 0x140435ef0). One publish is
+// four draws on slot 2, in this order: Range into `draw`, RangeRaw(100) into `percent`,
+// RangeRaw(2) into `coin`, and RangeRaw(randomInfoModulus) / randomInfoDivisor into `unit`
+// (+0x8, the value a carrier's seed member copies).
+struct RandomInfo {
+  int draw = 0;       // +0x0
+  int percent = 0;    // +0x4
+  int coin = 0;       // +0x5
+  float unit = 0.0f;  // +0x8
+};
+RandomInfo PublishRandomInfo(Random& rng, const RngConstants& k);
+
+// The producer behind RandomInfo (report 3.14-3.15, 0x1404356e0 and 0x140435ef0). It owns one
+// generator and republishes its record on every logic frame. Its creation draws happen in the
+// constructor, before the first frame; no frame reads the record before then.
+class RandomInfoProducer {
+ public:
+  // `matchSeed` stands in for the match value L that PES seeds the generator from (the ponytail
+  // at the match's constructor).
+  RandomInfoProducer(const RngConstants& k, uint32_t matchSeed);
+  RandomInfoProducer(const RandomInfoProducer&) = delete;
+  RandomInfoProducer& operator=(const RandomInfoProducer&) = delete;
+
+  // One logic frame: the four draws, in PES's order, replace the record.
+  void Tick();
+  const RandomInfo& Record() const { return record_; }
+
+ private:
+  RngConstants k_;  // a copy: Random keeps a reference to the constants it is built from
+  Random rng_;
+  RandomInfo record_;
 };
 
 // The kick-off seeding of the match generator (report 2.1).

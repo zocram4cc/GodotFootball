@@ -88,6 +88,52 @@ TEST(PesRandom, PlayerSeedIsTheClockPlusTheSlotModTenThousand) {
   EXPECT_EQ(pes::PlayerSeed(10000, 21), 21u);
 }
 
+TEST(PesRandomInfo, PublishIsTheFourthDrawOfSlotTwoOverTheModulus) {
+  // report 3.14 (0x140435ef0): Range(2), RangeRaw(2, 100), RangeRaw(2, 2), then
+  // RangeRaw(2, modulus) / divisor, all on slot 2 in that order.
+  auto k = Synthetic();
+  k.randomInfoModulus = 999;
+  k.randomInfoDivisor = 999.0f;
+  pes::Random a(k), b(k);
+  a.SetSeed(pes::kRandomInfoSlot, 4242);
+  b.SetSeed(pes::kRandomInfoSlot, 4242);
+  const int draw = a.Range(pes::kRandomInfoSlot);
+  const int percent = a.RangeRaw(pes::kRandomInfoSlot, 100);
+  const int coin = a.RangeRaw(pes::kRandomInfoSlot, 2);
+  const float unit = static_cast<float>(a.RangeRaw(pes::kRandomInfoSlot, 999)) / 999.0f;
+  const pes::RandomInfo info = pes::PublishRandomInfo(b, k);
+  EXPECT_EQ(info.draw, draw);
+  EXPECT_EQ(info.percent, percent);
+  EXPECT_EQ(info.coin, coin);
+  EXPECT_EQ(info.unit, unit);
+  EXPECT_EQ(a.State(pes::kRandomInfoSlot), b.State(pes::kRandomInfoSlot));
+}
+
+TEST(PesRandomInfoProducer, CreationDrawsThenEveryFrameDrawsFromTheSameStream) {
+  // report 3.14-3.15: the producer seeds slot 2 from the match value L (0x140435e10 writes
+  // L * 3000 there). Its creation then draws three values of a publish (0x140435e10) and one
+  // whole publish (the random block 0x140435ba0). Every frame after that publishes again from
+  // the same stream, in PES's order.
+  auto k = Synthetic();
+  k.randomInfoModulus = 999;
+  k.randomInfoDivisor = 999.0f;
+  pes::RandomInfoProducer producer(k, 4242);
+  pes::Random manual(k);
+  manual.SetSeed(pes::kRandomInfoSlot, 4242u * pes::kRandomInfoSeedScale);
+  manual.Range(pes::kRandomInfoSlot);
+  manual.RangeRaw(pes::kRandomInfoSlot, pes::kRandomInfoPercentModulus);
+  manual.RangeRaw(pes::kRandomInfoSlot, pes::kRandomInfoCoinModulus);
+  pes::PublishRandomInfo(manual, k);
+  for (int frame = 0; frame < 3; ++frame) {
+    producer.Tick();
+    const pes::RandomInfo expected = pes::PublishRandomInfo(manual, k);
+    EXPECT_EQ(producer.Record().draw, expected.draw) << "frame " << frame;
+    EXPECT_EQ(producer.Record().percent, expected.percent) << "frame " << frame;
+    EXPECT_EQ(producer.Record().coin, expected.coin) << "frame " << frame;
+    EXPECT_EQ(producer.Record().unit, expected.unit) << "frame " << frame;
+  }
+}
+
 TEST(PesRandomInstall, LoadsTheStockGeneratorFromTheExe) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
@@ -105,4 +151,8 @@ TEST(PesRandomInstall, LoadsTheStockGeneratorFromTheExe) {
         << "the constructor seeds are consecutive";
   }
   EXPECT_GT(k->weakMask, 0u);
+  EXPECT_GT(k->randomInfoModulus, 0)
+      << "RandomInfo's fourth draw modulus: the immediate in 0x140435ef0";
+  EXPECT_FLOAT_EQ(k->randomInfoDivisor, static_cast<float>(k->randomInfoModulus))
+      << "and its .rdata divisor, the same value as a float";
 }

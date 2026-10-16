@@ -296,6 +296,20 @@ TEST(PesA1Sim, EveryGateCountsPesLogicFrames) {
   EXPECT_EQ(match->GetActualTime_ms(), 3000ul) << "162 ticks, truncated";
 }
 
+TEST(PesA1Sim, RandomInfoIsRepublishedOnEveryLogicFrame) {
+  // report 3.15: the callback 0x14041e2b0 runs the producer's update whenever the producer
+  // exists, so the record the carrier copies changes from one logic frame to the next. A match
+  // that published once would hand the carrier the same value for the whole match.
+  REQUIRE_PES_MATCH();
+  match->Process();
+  const float first = match->GetRandomInfo().unit;
+  match->Process();
+  const float second = match->GetRandomInfo().unit;
+  EXPECT_NE(first, second) << "two frames, two records";
+  EXPECT_GE(second, 0.0f);
+  EXPECT_LT(second, 1.0f) << "a RangeRaw over 999999, divided by 999999";
+}
+
 TEST(PesA1Sim, TheBallIsTheSecondRecordOfTheTrackItWrote) {
   REQUIRE_PES_MATCH();
   Ball* ball = match->GetBall();

@@ -269,6 +269,9 @@ public:
   // `rngSource` and is not shared: PES builds a throw-away generator for each
   // deterministic roll (the carrier's plan rolls, report 4.4).
   const pes::RngConstants& GetPesRngConstants() const { return rngSource->constants; }
+  // RandomInfo (report 3.14-3.15): the producer's record for this logic frame. The carrier's
+  // seed member copies its unit draw.
+  const pes::RandomInfo& GetRandomInfo() const { return randomInfoProducer->Record(); }
   // The seed this match was set up with: what any per-match generator derived
   // from it must be seeded from (see `matchSeed`).
   unsigned int GetMatchSeed() const { return matchSeed; }
@@ -388,6 +391,8 @@ protected:
     blunted::RandomSource* restoreTo = nullptr;
   };
   std::unique_ptr<RngSource> rngSource;
+  // PES's RandomInfo producer (report 3.14-3.15), built once the RNG constants are checked.
+  std::unique_ptr<pes::RandomInfoProducer> randomInfoProducer;
 
   // PES 2021's injury roll for one contact (docs/re/pes-re-stamina-drain.md 6).
   void InjureFromContact(Player* victim, Player* attacker);
