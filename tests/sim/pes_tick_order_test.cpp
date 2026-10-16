@@ -82,3 +82,17 @@ TEST(PesTickOrder, SwitchOffRunsTheRefereeBeforeTheBall) {
             (std::vector<Stage>{Stage::Referee, Stage::Ball, Stage::Events, Stage::MentalImage,
                                 Stage::Teams}));
 }
+
+// Switch on (the PES order): the ball and the event stage run before the referee, so the
+// judge reads this tick's events. Every tick takes that order.
+TEST(PesTickOrder, SwitchOnRunsTheBallAndEventsBeforeTheReferee) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  const std::vector<Stage> pesOrder = {Stage::Ball, Stage::Events, Stage::Referee,
+                                       Stage::MentalImage, Stage::Teams};
+  for (int tick = 0; tick < 3; ++tick) {
+    match->Process();
+    EXPECT_EQ(match->TickStages(), pesOrder) << "tick " << tick;
+  }
+}
