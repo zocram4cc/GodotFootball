@@ -285,5 +285,15 @@ func _init() -> void:
 			check(look_parts.keys().any(func(p): return p.begins_with("sleeve_long") or p == "sleeve_glove"),
 					"player %d wears a long sleeve: %s" % [look_face, look_parts.keys()])
 			check(not look_parts.has("arm"), "player %d shows no bare arm" % look_face)
+		# A gloved look wears the glove pack's hands and no bare hand: the hand slot
+		# takes the glove id (pes-kit-assembly.md 8.4; FUN_141a1e6e0 -> FUN_141a8e8d0).
+		# A whole body does too: its glove does not come from its boots pack.
+		var glove: int = library.glove_id_of(look_face)
+		if glove != 0:
+			check(not look_parts.has("hand_l") and not look_parts.has("hand_r"),
+					"player %d (glove %d) draws no bare hand: %s" % [look_face, glove, look_parts.keys()])
+			if not library.list("Asset/model/character/glove/g%04d/" % glove).is_empty():
+				check(look_parts.has("glove_l") and look_parts.has("glove_r"),
+						"player %d (glove %d) wears its glove hands: %s" % [look_face, glove, look_parts.keys()])
 		long_sleeved.free()
 	quit(1 if failures > 0 else 0)

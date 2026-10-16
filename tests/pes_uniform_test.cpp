@@ -343,6 +343,21 @@ TEST(SelectUniformParts, LongSleevesUseTheLongSlotAndWinterCollar) {
   EXPECT_TRUE(has("fpk:common/hand_l.fmdl"));
 }
 
+// PES's hand slot takes the glove when the look wears one: the appearance's
+// glove id reaches the hand's model path (FUN_141a1e6e0 -> FUN_141a8e8d0 appends
+// g%04d), so the glove pack's hands stand in for the bare ones (kit-assembly 8.4).
+TEST(SelectUniformParts, GloveReplacesTheBareHands) {
+  for (bool longSleeves : {false, true}) {
+    pes::PlayerLook look;
+    look.longSleeves = longSleeves;
+    look.gloveId = 1;
+    auto p = Paths(pes::SelectUniformParts(ShortSleeveKit(), look));
+    auto has = [&](const std::string& s) { return std::find(p.begin(), p.end(), s) != p.end(); };
+    EXPECT_FALSE(has("fpk:common/hand_l.fmdl")) << "long=" << longSleeves;
+    EXPECT_FALSE(has("fpk:common/hand_r.fmdl")) << "long=" << longSleeves;
+  }
+}
+
 TEST(SelectUniformParts, TailInHidesTheOuterShorts) {
   // FUN_141a89120 hides the pants_out_sub slot when the tail is in (+0xBC == 0
   // leaves bVar35 false) and draws pants_in_sub instead; tail out is the

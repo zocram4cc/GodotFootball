@@ -58,6 +58,9 @@ class PesLibrary : public RefCounted {
   // The boots id a player wears: the save/file appearance's id, or its
   // BootsList entry when that is 0 (pes::ResolveBootsId, FUN_1414e03c0).
   int boots_id_of(int face_id) const;
+  // The glove id a player wears: the save/file appearance's glove, 0 for none
+  // (pes::DecodeLook; FUN_141a80010 reads the same field, pes-kit-assembly.md 8.3).
+  int glove_id_of(int face_id) const;
   // True when that boots pack holds a whole body, not boots
   // (pes::BootsPackCarriesBody, pes-re-whole-body-uniform.md 3).
   bool boots_carries_body(int boots_id) const;

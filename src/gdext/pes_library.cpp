@@ -22,6 +22,7 @@ void PesLibrary::_bind_methods() {
   ClassDB::bind_method(D_METHOD("load_texture", "path"), &PesLibrary::load_texture);
   ClassDB::bind_method(D_METHOD("team_stadium", "team_id"), &PesLibrary::team_stadium);
   ClassDB::bind_method(D_METHOD("boots_id_of", "face_id"), &PesLibrary::boots_id_of);
+  ClassDB::bind_method(D_METHOD("glove_id_of", "face_id"), &PesLibrary::glove_id_of);
   ClassDB::bind_method(D_METHOD("boots_carries_body", "boots_id"), &PesLibrary::boots_carries_body);
 }
 
@@ -230,6 +231,11 @@ int PesLibrary::boots_id_of(int face_id) const {
   auto it = appearances_.find(uint32_t(face_id));
   const pes::PlayerLook look = it != appearances_.end() ? pes::DecodeLook(it->second) : pes::PlayerLook{};
   return pes::ResolveBootsId(look.bootsId, face_id, list ? *list : none);
+}
+
+int PesLibrary::glove_id_of(int face_id) const {
+  auto it = appearances_.find(uint32_t(face_id));
+  return it != appearances_.end() ? pes::DecodeLook(it->second).gloveId : 0;
 }
 
 bool PesLibrary::boots_carries_body(int boots_id) const {
