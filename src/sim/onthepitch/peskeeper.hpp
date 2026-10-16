@@ -14,6 +14,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "pes/exe.hpp"
 
@@ -107,6 +108,23 @@ struct KeeperConstants {
   // already rushing, and 2 more when the newest ball event is his team's.
   float rushXLimitRushing_m = 3.0f;    // 3 [0x14258c264]
   float rushXLimitOwnEvent_m = 2.0f;   // 2 [0x142565604]
+  // --- The penalty dive (docs/re/pes-re-penalty-keeper.md 4, FUN_1409e5e10) ---
+  // His own speed, m/s, above which his movement's bearing is the dive
+  // direction; below it, the way he faces. PES writes it per frame (0.6944 / gs).
+  float penaltyMoveSpeed_ms = 0.6944444f;   // 0.6944444 [0x14259bdd0]
+  // The dive is considered only when that bearing lies within 10 degrees of the
+  // goal axis: 80..100 or 260..280 (degrees from +z).
+  float penaltyWindowLow_deg = 80.0f;       // 80 [0x142596e6c]
+  float penaltyWindowHigh_deg = 100.0f;     // 100 [0x14253ee30]
+  float penaltyWindowFarLow_deg = 260.0f;   // 260 [0x142598584]
+  float penaltyWindowFarHigh_deg = 280.0f;  // 280 [0x142598588]
+  // The intercept: the first ball record within 3.5 m of him (12.25 = 3.5^2).
+  float penaltyInterceptRadiusSq_m2 = 12.25f;  // 12.25 [0x14259d610]
+  // The scan reads int(tickHz * penaltyScanFactor) records ahead.
+  float penaltyScanFactor = 1.1f;           // 1.1 [0x1425a3590]
+  // The logic tick: 54 records a second (`kPesTickHz`, the same install slot).
+  float tickHz = 54.0f;                     // 54 [0x14259d624]
+  int penaltyScanRecords = 59;              // int(tickHz * penaltyScanFactor), set at load
 };
 
 std::optional<KeeperConstants> LoadKeeperConstants(const PeImage& exe, std::string* error);
@@ -220,5 +238,25 @@ float PesKeeperRushLateralLimit_m(bool offensiveStyle, bool defensiveStyle,
 // his own.
 bool PesKeeperRushRaceWins(float keeperTime_s, float opponentTime_s, bool rushing,
                            float factor, const KeeperConstants& k);
+
+// The penalty keeper's dive (docs/re/pes-re-penalty-keeper.md 4): where he
+// stands and faces, his own movement, and the point he runs to.
+struct PlanarPoint {
+  float x, y;
+};
+struct PenaltyDiveInput {
+  float keeperX, keeperY;
+  float headingX, headingY;  // unit, where he faces
+  float moveX, moveY;        // m/s
+};
+struct PenaltyDiveTarget {
+  bool intercept;  // false: he stays where he is
+  float x, y;
+};
+// `ballPath` is the ball's predicted position at each record from now on (PES's
+// trajectory list). The first record within reach of him is the target.
+PenaltyDiveTarget PesPenaltyDiveTarget(const PenaltyDiveInput& in,
+                                       const std::vector<PlanarPoint>& ballPath,
+                                       const KeeperConstants& k);
 
 }  // namespace pes

@@ -35,6 +35,9 @@ public:
   // Placement the current taker is going for, used by his controller so the
   // shot animation is aimed where his stats put it.
   bool IsKickLive() const { return state.phase == PenaltyShootout::e_Phase_Execution; }
+  // The defending keeper of a live kick is driven by the penalty branch of his
+  // controller (docs/re/pes-re-penalty-keeper.md 4), since the kick is a set piece.
+  bool IsKeepingKick(int teamID) const { return IsKickLive() && state.shootingTeam != teamID; }
   float GetAimY() const { return aimY; }
   float GetAimPower() const { return aimPower; }
   // Outcome rolled from the stats before the current kick; the aim is built to show it.

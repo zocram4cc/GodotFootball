@@ -11,6 +11,7 @@
 #include "base/geometry/triangle.hpp"
 #include "onthepitch/setpiecelaws.hpp"
 #include "onthepitch/pesrandom.hpp"
+#include "onthepitch/penaltyshootoutcontroller.hpp"
 
 GoalieDefaultStrategy::GoalieDefaultStrategy(ElizaController* controller) : Strategy(controller) {
   name = "goalie default";
@@ -101,6 +102,27 @@ Vector3 GoalieDefaultStrategy::InterceptTarget(const MentalImage* mentalImage) {
   return targetPos;
 }
 
+Vector3 GoalieDefaultStrategy::PenaltyDiveSpot(const MentalImage* mentalImage) {
+  // ponytail: PES's state-0 timing gate (FUN_1409e5600: the shot record and the taker's
+  // frame count) is not ported; the ball's path alone starts the dive, which is the strike.
+  // The movement-mode word (+0x5b0) is not read: his speed decides, as PES's mode 5 does.
+  const pes::KeeperConstants& k = match->GetPesKeeperConstants();
+  std::vector<pes::PlanarPoint> ballPath;
+  ballPath.reserve(k.penaltyScanRecords);
+  for (int record = 0; record < k.penaltyScanRecords; record++) {
+    const Vector3 ball =
+        mentalImage->GetBallPrediction(static_cast<unsigned int>(record * 1000.0f / k.tickHz));
+    ballPath.push_back({ball.coords[0], ball.coords[1]});
+  }
+  const Vector3 position = player->GetPosition();
+  const Vector3 facing = player->GetDirectionVec();
+  const Vector3 movement = player->GetMovement();
+  const pes::PenaltyDiveInput in{position.coords[0], position.coords[1], facing.coords[0],
+                                 facing.coords[1],   movement.coords[0], movement.coords[1]};
+  const pes::PenaltyDiveTarget target = pes::PesPenaltyDiveTarget(in, ballPath, k);
+  return Vector3(target.x, target.y, 0.0f);
+}
+
 void GoalieDefaultStrategy::RequestInput(const MentalImage* mentalImage, Vector3& direction,
                                          float& velocity) {
   // PES 2021's open-play goalkeeper position (docs/re/pes-re-goalkeeper.md
@@ -126,7 +148,12 @@ void GoalieDefaultStrategy::RequestInput(const MentalImage* mentalImage, Vector3
   CalculateIfBallIsBoundForGoal(mentalImage);
   Vector3 targetPos;
 
-  if (IsBallBoundForGoal()) {
+  // A live penalty kick: the defending keeper answers the ball's own path, as
+  // PES's penalty branch does (docs/re/pes-re-penalty-keeper.md 4), not the
+  // shot's bound-for-goal intercept.
+  if (match->GetPenaltyShootout()->IsKeepingKick(team->GetID())) {
+    targetPos = PenaltyDiveSpot(mentalImage);
+  } else if (IsBallBoundForGoal()) {
     // A ball on its way in: shoot heading for goal is KP_SAVING_MOVE
     // (10.5.1), which walks to the intercept record. This engine's
     // bound-for-goal intercept is kept for that part.

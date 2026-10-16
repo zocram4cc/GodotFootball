@@ -483,8 +483,7 @@ TEST(SimMatch, SetupStrengthIsWrittenAtMatchLoadFromTheStartingEleven) {
   SetDB(nullptr);
 }
 
-// DISABLED: nothing drives the defending keeper to the planned save (plan at penaltyshootoutcontroller.cpp:189-197 only shapes the aim); fix is PES's keeper penalty logic, over budget.
-TEST(SimMatch, DISABLED_ShootoutVerdictIsThePlannedOutcome) {
+TEST(SimMatch, ShootoutVerdictIsThePlannedOutcome) {
   REQUIRE_RIG();
   blunted::Database db;
   ASSERT_TRUE(db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql"));
