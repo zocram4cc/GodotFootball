@@ -141,10 +141,10 @@ TEST(PesEffects, SerialisesToJsonForTheSceneReader) {
 
 // Install-wide check (no pinned values, so 4cc packs cannot break it): every canonical
 // effect_config.xml parses. Canonical means `#Win/effect_*.fpk` directly under `#Win/`; the
-// `#Win/tmp/` copies are staging leftovers (INF) and are not read. A pack that FpkArchive rejects
-// is reported, not failed: that is the FPK reader's bounds check (effect_st069_nf.fpk: an entry
-// overruns EOF by 13 bytes; its XML is intact). Creates whose setting is absent from the same
-// pack (rain classes in some nf variants) are reported too: consumers must skip them.
+// `#Win/tmp/` copies are staging leftovers (INF) and are not read. Every such pack must open:
+// effect_st069_nf.fpk's last entry overruns EOF by 13 bytes and FpkArchive clamps it. Creates
+// whose setting is absent from the same pack (rain classes in some nf variants) are reported
+// too: consumers must skip them.
 TEST(PesEffects, EveryCanonicalEffectConfigInTheInstallParses) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
@@ -161,10 +161,7 @@ TEST(PesEffects, EveryCanonicalEffectConfigInTheInstallParses) {
     auto blob = vfs.Read(path, &err);
     ASSERT_TRUE(blob.has_value()) << path << ": " << err;
     auto fpk = pes::FpkArchive::Parse(*blob, &err);
-    if (!fpk) {
-      std::cout << "[  NOTE  ] " << path << ": FPK reader rejects it (" << err << ")\n";
-      continue;
-    }
+    ASSERT_TRUE(fpk.has_value()) << path << ": " << err;
     for (const pes::FpkEntry& entry : fpk->entries) {
       if (!EndsWith(Lower(entry.path), "effect_config.xml")) continue;
       const std::string_view xml(reinterpret_cast<const char*>(blob->data() + entry.offset), entry.size);

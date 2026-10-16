@@ -187,6 +187,54 @@ TEST(Fmdl, RejectsOtherVersions) {
   EXPECT_FALSE(pes::ParseFmdl(b, &err));
 }
 
+// ---- synthetic fpk ----
+// Header, then one 48-byte record per member, then the member names; the data
+// region is whatever the caller sizes the blob to, so the last member can run past it.
+struct FpkMember {
+  std::string path;
+  uint32_t offset, size;
+};
+
+std::vector<uint8_t> FpkBytes(const std::vector<FpkMember>& members, size_t length) {
+  constexpr size_t ENTRIES = 0x30, RECORD = 48;
+  std::vector<uint8_t> b(length, 0);
+  std::memcpy(b.data(), "foxfpk", 6);
+  Put<uint32_t>(b, 0x24, uint32_t(members.size()));
+  size_t names = ENTRIES + members.size() * RECORD;
+  for (size_t i = 0; i < members.size(); ++i) {
+    const size_t e = ENTRIES + i * RECORD;
+    Put<uint32_t>(b, e, members[i].offset);
+    Put<uint32_t>(b, e + 8, members[i].size);
+    Put<uint32_t>(b, e + 16, uint32_t(names));
+    Put<uint32_t>(b, e + 24, uint32_t(members[i].path.size()));
+    std::memcpy(&b[names], members[i].path.data(), members[i].path.size());
+    names += members[i].path.size();
+  }
+  return b;
+}
+
+// effect_st069_nf.fpk: its effect_config.xml entry claims 13 bytes past EOF. We clamp
+// the member to the bytes the file has (PES behaviour INF, see the report), so the pack
+// still opens and its other members are untouched.
+TEST(Fpk, LastMemberRunningPastEofIsClampedAndThePackStillOpens) {
+  const std::vector<uint8_t> blob = FpkBytes({{"a.fmdl", 0xA8, 8}, {"effect_config.xml", 0xB0, 20}}, 0xB5);
+  std::string err;
+  auto fpk = pes::FpkArchive::Parse(blob, &err);
+  ASSERT_TRUE(fpk) << err;
+  ASSERT_EQ(fpk->entries.size(), 2u);
+  EXPECT_EQ(fpk->entries[0].size, 8u);
+  EXPECT_EQ(fpk->entries[1].path, "effect_config.xml");
+  EXPECT_EQ(fpk->entries[1].offset, 0xB0u);
+  EXPECT_EQ(fpk->entries[1].size, 5u);
+}
+
+// A member that starts past EOF has no bytes to clamp to: the pack is still rejected.
+TEST(Fpk, MemberStartingPastEofIsStillRejected) {
+  const std::vector<uint8_t> blob = FpkBytes({{"a.fmdl", 0xB8, 8}}, 0xB5);
+  std::string err;
+  EXPECT_FALSE(pes::FpkArchive::Parse(blob, &err));
+}
+
 // ---- pack rules (GF fmdl_to_fullbody.py conventions) ----
 TEST(PackRules, NonRenderPassesMatchWholeWords) {
   EXPECT_TRUE(pes::IsNonRenderPass("outline", ""));
@@ -472,4 +520,19 @@ TEST(FmdlInstall, UniformMeshesCarryUv1) {
     ASSERT_EQ(mesh.uv1.size(), mesh.pos.size());
     EXPECT_NE(mesh.uv1, mesh.uv0) << "UV1 is its own set, not a copy of UV0";
   }
+}
+
+// The install's effect/#Win/effect_st069_nf.fpk (67,872 bytes) has an effect_config.xml
+// entry that claims 13 bytes past EOF. The pack opens, and its config lies inside the file.
+TEST(FpkInstall, St069EffectPackOpens) {
+  REQUIRE_INSTALL();
+  std::string err;
+  auto blob = vfs->Read("Asset/model/bg/st069/effect/#Win/effect_st069_nf.fpk", &err);
+  ASSERT_TRUE(blob) << err;
+  auto fpk = pes::FpkArchive::Parse(*blob, &err);
+  ASSERT_TRUE(fpk) << err;
+  auto config = std::find_if(fpk->entries.begin(), fpk->entries.end(),
+                             [](const pes::FpkEntry& e) { return e.path == "effect_config.xml"; });
+  ASSERT_NE(config, fpk->entries.end());
+  EXPECT_LE(size_t(config->offset) + config->size, blob->size()) << "a member must not read past EOF";
 }
