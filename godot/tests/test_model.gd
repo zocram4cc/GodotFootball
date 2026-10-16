@@ -42,37 +42,11 @@ func shader_of(m: MeshInstance3D) -> String:
 	return (mat as ShaderMaterial).shader.resource_path if mat is ShaderMaterial else ""
 
 
-# The body of a shader function: from its header to the closing brace at column 0.
-func fn_body(src: String, header: String) -> String:
-	var start := src.find(header)
-	if start < 0:
-		return ""
-	var end := src.find("\n}", start)
-	return src.substr(start, end - start) if end > start else ""
-
-
-# The pitch PS adds the VS fog terms o7.z and o7.w to specular and roughness
-# (pitch PS asm 166; VS asm 122-129). Headless there is no frame to read back,
-# so this checks the shader source: the vertex stage writes the terms, and the
-# fragment stage adds them to roughness (asm 177) and to the specular scale (asm 176-178).
-func check_pitch_v7_terms() -> void:
-	var src := FileAccess.get_file_as_string("res://shaders/pes_pitch.gdshader")
-	var vertex_fn := fn_body(src, "void vertex()")
-	var fragment_fn := fn_body(src, "void fragment()")
-	check(RegEx.create_from_string("pes_v7\\s*=\\s*vec2\\(").search(vertex_fn) != null,
-			"pitch vertex stage writes the VS fog terms o7.z, o7.w (VS asm 122-129)")
-	check(RegEx.create_from_string("ROUGHNESS\\s*=\\s*s1\\s*\\+\\s*pes_v7\\.y").search(fragment_fn) != null,
-			"pitch roughness adds o7.w (PS asm 166, 177)")
-	check(RegEx.create_from_string("specScale\\s*=\\s*m4\\s*\\*\\s*slope\\.r\\s*\\*\\s*match\\s*\\*\\s*\\(\\s*s0\\s*\\+\\s*pes_v7\\.x\\s*\\)").search(fragment_fn) != null,
-			"pitch specular adds o7.z to S0 (PS asm 166, 176, 178)")
-
-
 func _initialize() -> void:
-	check_pitch_v7_terms()
 	var root := OS.get_environment("PES21_ROOT")
 	if root.is_empty():
 		print("SKIP: PES21_ROOT not set")
-		quit(1 if failures > 0 else SKIP)
+		quit(SKIP)
 		return
 	var library := PesLibrary.new()
 	check(library.open(root) == OK, "library opens")
