@@ -17,60 +17,9 @@
 
 namespace {
 
-// The install constants the MOVESTEP handlers read, loaded once per process from the install.
-// The group test targets pass their own synthetic sets; the production adapter reads the exe.
-struct MoveHostConstants {
-  pes::RunConstants run{};
-  pes::RunTables runTables{};
-  pes::StepScalars stepScalars{};
-  pes::StepTables stepTables{};
-  pes::PlaybackConstants playback{};
-  pes::SpeedRateTable speedRate{};
-  pes::MoveConstants move{};
-  pes::IdleRowTables idleRows{};
-  pes::AngleBucketConstants buckets{};
-  pes::movestep::MoveTurnConstants turn{};
-  pes::ParametricGroups parametric{};
-  pes::StyleConstants style{};
-  pes::movestep::MotionStartConstants motionStart{};
-  pes::DampingConstants damping{};
-  pes::DampingRecord dampingRecord{};
-};
-
 constexpr float kDegPerRad = 180.0f / 3.14159265358979323846f;  // a unit conversion, not PES data
 
-std::optional<MoveHostConstants> LoadMoveHostConstants() {
-  const char* root = std::getenv("PES21_ROOT");
-  if (!root) return std::nullopt;
-  std::string err;
-  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
-  if (!exe) return std::nullopt;
-  pes::PesVfs vfs;
-  if (!vfs.Mount(root, &err)) return std::nullopt;
-
-  MoveHostConstants c;
-  if (auto k = pes::LoadRunConstants(*exe, &err)) c.run = *k; else return std::nullopt;
-  if (auto t = pes::LoadRunTables(*exe, &err)) c.runTables = *t; else return std::nullopt;
-  if (auto s = pes::LoadStepScalars(*exe, &err)) c.stepScalars = *s; else return std::nullopt;
-  if (auto t = pes::LoadStepTables(*exe, &err)) c.stepTables = *t; else return std::nullopt;
-  if (auto p = pes::LoadPlaybackConstants(*exe, &err)) c.playback = *p; else return std::nullopt;
-  if (auto t = pes::LoadSpeedRateTable(*exe, &err)) c.speedRate = *t; else return std::nullopt;
-  if (auto m = pes::LoadMoveConstants(*exe, &err)) c.move = *m; else return std::nullopt;
-  if (auto t = pes::LoadIdleRowTables(*exe, &err)) c.idleRows = *t; else return std::nullopt;
-  if (auto b = pes::LoadAngleBucketConstants(*exe, &err)) c.buckets = *b; else return std::nullopt;
-  if (auto t = pes::movestep::LoadMoveTurnConstants(*exe, &err)) c.turn = *t; else return std::nullopt;
-  if (auto m = pes::movestep::LoadMotionStartConstants(*exe, &err)) c.motionStart = *m; else return std::nullopt;
-  if (auto s = pes::LoadStyleConstants(*exe, &err)) c.style = *s; else return std::nullopt;
-  if (auto d = pes::LoadDampingConstants(*exe, &err)) c.damping = *d; else return std::nullopt;
-  if (auto d = pes::LoadDampingRecord(vfs, &err)) c.dampingRecord = *d; else return std::nullopt;
-  if (auto g = pes::LoadParametricGroups(*exe, &err)) c.parametric = *g; else return std::nullopt;
-  return c;
-}
-
-const MoveHostConstants* Constants() {
-  static const std::optional<MoveHostConstants> kConstants = LoadMoveHostConstants();
-  return kConstants.has_value() ? &*kConstants : nullptr;
-}
+float HeadingDeg(float x, float z, const pes::RunConstants& k);
 
 float HeadingDeg(float x, float z, const pes::RunConstants& k) {
   return pes::FoldFull(std::atan2(x, z) * kDegPerRad, k);
@@ -80,7 +29,7 @@ float HeadingDeg(float x, float z, const pes::RunConstants& k) {
 // so each answer is a stand-in, and each names the PES read it replaces.
 class AdapterTeam final : public pes::TeamAi {
  public:
-  AdapterTeam(Player& player, const MoveHostConstants& c) : player_(player), c_(c) {}
+  AdapterTeam(Player& player, const pes::MoveStepConstants& c) : player_(player), c_(c) {}
 
   // The rank-0 opponent of the own record in the team's last run world (NearestList's NearestOpponents over
   // the RunWorld, pesoffball.hpp). Its slot is the run world's: team·11 + roster index.
@@ -150,7 +99,7 @@ class AdapterTeam final : public pes::TeamAi {
   static constexpr int kNoPlayer = 22;        // a slot of 22 or more is no player
   static constexpr int kFullCondition = 100;  // the condition byte's full value
   Player& player_;
-  const MoveHostConstants& c_;
+  const pes::MoveStepConstants& c_;
   // The team controller this player belongs to: its last run world is the seam's ranking and roster.
   TeamAIController& Controller() const { return *player_.GetTeam()->GetController(); }
   // The player a slot names: the own record, or the run world's player in that slot; nullptr when none.
@@ -164,7 +113,7 @@ class AdapterTeam final : public pes::TeamAi {
 // read it stands for; the `ponytail:` notes name the site that replaces a GF stand-in.
 class MoveHostAdapter final : public pes::MoveHost {
  public:
-  MoveHostAdapter(Player& player, Match& match, const MoveHostConstants& c)
+  MoveHostAdapter(Player& player, Match& match, const pes::MoveStepConstants& c)
       : player_(player), match_(match), c_(c), team_(player, c) {}
 
   const pes::TeamAi& Team() const override { return team_; }
@@ -251,12 +200,36 @@ class MoveHostAdapter final : public pes::MoveHost {
     return match_.IsInPlay() ? 1 : 0;
   }
   bool IsReplay() const override { return false; }
+  // FUN_1406eebb0's class store (P+0x245a): the action setter writes it from
+  // FUN_14081e340, the desired speed times the cosine of the turn.
+  void StoreSpeedClass() {
+    const float desired = reqDesiredKmh_;
+    const float delta = reqDeltaDeg_;
+    player_.GetMoveStep().speedClass =
+        static_cast<uint8_t>(pes::SpeedClassOf(desired, delta, c_.speedClass));
+  }
   void Issue(const pes::MotionRequest& request) override {
     issued_ = true;
     pes::RecordIssue(player_.GetIssuedClip(), request, c_.parametric);
-    if (request.group < 0) player_.SetPlaybackRate(request.playback);
+    // FUN_1406b8340's tail hands the request to the anime player (vt+0x10):
+    // the issued clip drives the player's animation and motion now. A
+    // SetMotion issue names its motion; a parametric issue holds the loop's
+    // rate for the per-tick advance. On the PES path the per-tick tail below
+    // writes the playback where PES does.
+    if (request.group < 0) {
+      player_.CastHumanoid()->PlayIssuedClip(static_cast<int>(pes::PesClipFamily::kLocomotion),
+                                            request.motion, request.playback);
+      player_.SetPlaybackRate(request.playback);
+    } else {
+      player_.GetMoveStep().rate = request.rate;
+    }
   }
-  bool Issued() const { return issued_; }
+  // The request words the action setter reads: filled by ProcessMoveStep
+  // before the tick (desired speed, turn). Set once per tick.
+  void SetActionInputs(float desiredKmh, float deltaDeg) {
+    reqDesiredKmh_ = desiredKmh;
+    reqDeltaDeg_ = deltaDeg;
+  }
 
   const pes::StepScalars& StepConstants() const override { return c_.stepScalars; }
   float BandSpeedKmh(int band, float g) const override {
@@ -281,8 +254,10 @@ class MoveHostAdapter final : public pes::MoveHost {
   const pes::PlaybackConstants& PlaybackConstantsView() const override { return c_.playback; }
 
   int CurrentMotion() const override {
-    const Anim* anim = player_.GetCurrentAnim();
-    return anim ? anim->id : 0;
+    // The +0xab8 anime interface's current motion number (vt+0x18, PES's
+    // motion id): the motion MOVESTEP last issued, not GF's anim id (the two
+    // live in different spaces).
+    return player_.GetIssuedClip().request.motion;
   }
   int CurrentClipFrames() const override { return player_.GetFrameNum(); }
   int AnimeState() const override { return 0; }  // ponytail: vt+0x28 of the +0xab8 interface.
@@ -338,9 +313,11 @@ class MoveHostAdapter final : public pes::MoveHost {
  private:
   Player& player_;
   Match& match_;
-  const MoveHostConstants& c_;
+  const pes::MoveStepConstants& c_;
   AdapterTeam team_;
   bool issued_ = false;
+  float reqDesiredKmh_ = 0.0f;
+  float reqDeltaDeg_ = 0.0f;
 };
 
 }  // namespace
@@ -348,11 +325,14 @@ class MoveHostAdapter final : public pes::MoveHost {
 namespace pesmovestep {
 
 void ProcessMoveStep(Player& player, Match& match) {
-  const MoveHostConstants* constants = Constants();
-  if (constants == nullptr) return;
+  // MOVESTEP runs only on the PES path. Off path it leaves the player alone
+  // entirely: no FSM step, no clip, and no playback overwrite (the contact
+  // stagger/rise-up rates keep theirs).
+  if (!match.IsPesLoop()) return;
+  const pes::MoveStepConstants& constants = match.GetPesMoveStepConstants();
 
   pes::MoveStepRecord& rec = player.GetMoveStep();
-  MoveHostAdapter host(player, match, *constants);
+  MoveHostAdapter host(player, match, constants);
   pes::MoveReq req;
 
   // The request block's copy-in words the adapter owns before the handler runs. PES's own
@@ -372,6 +352,20 @@ void ProcessMoveStep(Player& player, Match& match) {
   req.SetF(pes::moveword::kRate, rec.rate);
   req.SetByte(pes::moveword::kStyle, rec.style);
 
+  // FUN_1406eebb0's stores (P+0x245a): the action setter writes the speed
+  // class from FUN_14081e340, the desired speed times the cosine of the turn.
+  host.SetActionInputs(req.F(pes::moveword::kDesiredSpeedKmh),
+                       req.F(pes::moveword::kHeading) - facing);
+  host.StoreSpeedClass();
+  req.SetU(pes::moveword::kCommandSpeedClass,
+           static_cast<uint32_t>(host.CommandSpeedClass()));
+  // FUN_1406f99f0's store (P+0x377c): the TopRate ceiling at the record's G.
+  // ponytail: the Speed byte (0x27) has no GF stat yet; physical_velocity
+  // stands in, scaled to PES's 40..99 range.
+  pes::StoreRateCeiling(rec, host.MatchTick(),
+                        pes::MoveTopRate(match.GetPesStaminaConstants(), player.GetStat("physical_velocity"),
+                                         player.GetStamina(), host.PhysiqueG()));
+
   const pes::MoveState stateAtEntry = rec.state;
   pes::movestep::RampsBeforeDispatch(host, req);
   pes::Dispatch(stateAtEntry, host, req);
@@ -379,7 +373,8 @@ void ProcessMoveStep(Player& player, Match& match) {
   rec.rate = req.F(pes::moveword::kRate);
   rec.style = static_cast<uint8_t>(req.U(pes::moveword::kStyle) & 0xffu);
   pes::ApplyTransition(rec, req);
-  // P+0x3758's store lands on GF's playback rate for the tick.
+  // P+0x3758's store lands on GF's playback rate for the tick, on the PES
+  // path only (FUN_1406b8340's tail writes it where PES does).
   player.SetPlaybackRate(rec.playbackSpeed);
   player.GetIssuedClip().playback = rec.playbackSpeed;
 }

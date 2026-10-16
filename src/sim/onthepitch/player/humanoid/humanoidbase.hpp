@@ -223,6 +223,13 @@ public:
   // This tick's collision push, m/s (OffsetPosition's accumulator).
   const Vector3& GetTickSeparation() const { return spatialState.positionOffsetMovement; }
   void SetPlaybackRate(float rate) { currentAnim->playbackRate = rate; }
+  // PES 2021's MOVESTEP handoff (FUN_1406b8340's tail): the issued clip drives
+  // the player's animation and motion on the PES path. A SetMotion issue
+  // (group < 0) names its motion by (locomotion family, motion number) and
+  // plays it now, at the issue's playback rate; a parametric issue (group >=
+  // 0) holds the loop's rate, which the per-tick advance reads. Returns
+  // whether a clip was found to play.
+  bool PlayIssuedClip(int family, int motionNo, float playback);
   bool TripPending() const { return interruptAnim == e_InterruptAnim_Trip; }
   virtual float GetDecayingDifficultyFactor() const { return decayingDifficultyFactor; }
 

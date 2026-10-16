@@ -254,6 +254,10 @@ public:
   // PES 2021's standing-tackle sub-kind (pes-re-contact-port.md stage C): the
   // per-kind group tables and the readiness mask's constants.
   const pes::TackleConstants& GetPesTackleConstants() const { return pesTackleConstants; }
+  // PES 2021's MOVESTEP handlers' install constants (docs/re/pes-re-anim-select.md).
+  const pes::MoveStepConstants& GetPesMoveStepConstants() const { return pesMoveStepConstants; }
+  // The tick-order switch (config pes_loop), read once when the match is built.
+  bool IsPesLoop() const { return pesLoop; }
   // PES 2021's off-ball run manager (docs/re/pes-re-off-ball.md).
   const pes::offball::OffBallConstants& GetPesOffBallConstants() const {
     return pesOffBallConstants;
@@ -588,6 +592,8 @@ protected:
   std::unique_ptr<pes::Mbinfo> pesMbinfo;
   // PES 2021's standing-tackle sub-kind (stage C).
   pes::TackleConstants pesTackleConstants{};
+  // PES 2021's MOVESTEP handlers' install constants (docs/re/pes-re-anim-select.md).
+  pes::MoveStepConstants pesMoveStepConstants{};
   std::unique_ptr<pes::PesClock> pesClock;
   std::unique_ptr<pes::StaminaConstants> pesStaminaConstants;
 

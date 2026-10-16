@@ -177,6 +177,12 @@ int BreathPenalty(const StaminaConstants& k, const StaminaState& s);
 // it only moves the base rate, and the factor is a ratio of two rates.
 float ReserveTopSpeedFactor(const StaminaConstants& k, const StaminaState& s, float speedStat);
 
+// FUN_1406f99f0's ceiling (P+0x377c): the TopRate value at physique scale G
+// for a Speed stat (docs/re/pes-re-anim-select.md 3.5). `speedStat01` is GF's
+// 0..1 Speed, scaled to PES's 40..99 range; the breath reserve takes its
+// share off through the penalty, as the drain does.
+float MoveTopRate(const StaminaConstants& k, float speedStat01, const StaminaState& s, float g);
+
 // The half-time / extra-time break bonus (report 3.4), applied once at the
 // whistle. `period` is PES's MI+0x1168: 2 half time, 4 the extra-time break.
 // `matchLengthFactor` is F, the match-length scale the break bonuses are
