@@ -20,7 +20,8 @@ struct Fox2Value {
   //     unresolved String/Path/FilePtr hashes) -> u; double -> d;
   //   std::string (resolved String/Path/FilePtr) -> s;
   //   Vec3 (WideVec3, xyz of 4 floats) -> v3; Quat -> q; Vec4/Color -> v4.
-  //   Raw (undecoded type ids such as EntityLink): the element bytes.
+  //   EntityLink -> u = target entity address (32-byte element, slot +24), raw
+  //     = the whole element. Raw (other undecoded type ids): the element bytes.
   bool b = false;
   int64_t i = 0;
   uint64_t u = 0;

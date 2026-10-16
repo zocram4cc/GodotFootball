@@ -30,7 +30,11 @@ constexpr uint64_t FOX2_HASH_MASK = 0xFFFFFFFFFFFFULL;
 constexpr uint8_t FOX2_BOOL = 10, FOX2_STRING = 11, FOX2_PATH = 12;
 constexpr uint8_t FOX2_ENTITY_PTR = 13, FOX2_WIDE_VEC3 = 14, FOX2_VEC4 = 15;
 constexpr uint8_t FOX2_QUAT = 16, FOX2_COLOR = 19, FOX2_FILE_PTR = 20;
-constexpr uint8_t FOX2_ENTITY_HANDLE = 21;  // 22 = EntityLink, kept raw (§5 of the format doc)
+constexpr uint8_t FOX2_ENTITY_HANDLE = 21;
+// 22 = EntityLink, 32-byte element = 4 u64 (a, b, name/class hash, target
+// address): the light rig links its TimeSpans, settings, proxies, probes and
+// shadow data with it (docs/re/pes-re-fox2-format.md §5, verified target slot).
+constexpr uint8_t FOX2_ENTITY_LINK = 22;
 // Containers: 0 scalar, 1 dynamic array, 2 StringMap (u64 key + value per
 // item), 3 static list (packed u64s, e.g. children addresses).
 constexpr uint8_t FOX2_STRING_MAP = 2;
@@ -58,6 +62,8 @@ size_t ElementBytes(uint8_t type) {
     case FOX2_FILE_PTR:
     case FOX2_ENTITY_HANDLE:
       return 8;
+    case FOX2_ENTITY_LINK:
+      return 32;
     case FOX2_WIDE_VEC3:
     case FOX2_VEC4:
     case FOX2_QUAT:
@@ -166,7 +172,7 @@ std::optional<Fox2File> ParseFox2(std::span<const uint8_t> blob, std::string* er
       const size_t elem = ElementBytes(type);
       const uint8_t* data = blob.data() + q + dataAt;
       if (elem == 0) {
-        // Unknown type id (e.g. EntityLink 22, 32 bytes/element): keep each
+        // Unknown type id: keep each
         // element's raw bytes so callers still see counts, keys, addresses.
         // StringMap keys are still decoded; the value width is unknown, so
         // the whole data run is kept on the first value.
@@ -269,6 +275,11 @@ std::optional<Fox2File> ParseFox2(std::span<const uint8_t> blob, std::string* er
           case FOX2_ENTITY_PTR:
           case FOX2_ENTITY_HANDLE:
             v.u = Load<uint64_t>(item);  // runtime address; ByAddress dereferences it
+            break;
+          case FOX2_ENTITY_LINK:
+            // Element: u64 a, u64 b, u64 name/class hash, u64 target address.
+            v.u = Load<uint64_t>(item + 24);  // ByAddress dereferences it
+            v.raw.assign(item, item + 32);
             break;
           case FOX2_WIDE_VEC3:
             // WideVec3 is 4 floats; the 4th is padding/garbage — take xyz.
