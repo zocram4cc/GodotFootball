@@ -108,11 +108,12 @@ float StopSpeed_mps(const pes::PesBallConstants& c, int mode) {
 }
 
 float RollSpinRamp(const pes::PesBallConstants& c, int mode, float spinRad) {
-  // Report 3.3's `s4 = band(hypot(wx, wz), 2, 7)` at 0x140876ec5, the same
-  // clamped ramp over the horizontal spin, from rollToBoundRollMin to
+  // Report 3.3's s4 band, at 0x140876ec5, over the horizontal spin in Hz: 0x140876cd4 halves hypot(wx, wz)
+  // and divides by pi (2 pi per cycle) before the band. The clamped ramp runs from rollToBoundRollMin to
   // rollToBoundRollMax. s4 enters F as `s4^2 * rollToBoundAdd` (0x140876f61).
   const pes::BallRecordConstants& r = c.record;
-  return Ramp(spinRad, r.rollToBoundRollMin, r.rollToBoundRollMax);
+  const float spinHz = spinRad * 0.5f / kPi;
+  return Ramp(spinHz, r.rollToBoundRollMin, r.rollToBoundRollMax);
 }
 
 float NaturalBound_mps(const pes::PesBallConstants& c, int mode, float horizontalSpeed_mps) {
@@ -217,13 +218,15 @@ GrounderResult GrounderKick(const pes::PesBallConstants& c, int mode, float gate
 }
 
 bool IsResting(const pes::PesBallConstants& c, const BallState& s) {
-  // Report 2.1: y <= r AND |spin| == 0 AND horizontal |v| == 0 skips the flight
-  // function entirely (PES's r15b = 0). GF's ball carries a zero spin when
+  // Report 2.1 with the test at 0x14087648e..0x1408764c8: y <= r AND |spin| == 0 AND the 3-D |v| == 0 skips
+  // the flight function entirely (PES's r15b = 0). The squared speed is vx^2 + vy^2 + vz^2 (the XMM2 sum of
+  // the pre-velocity at [rsp+0x58..0x60]), not the horizontal alone. GF's ball carries a zero spin when
   // nothing has set one, so this is the ordinary stopped-ball path.
   const float spinSq =
       s.spinRaw.x * s.spinRaw.x + s.spinRaw.y * s.spinRaw.y + s.spinRaw.z * s.spinRaw.z;
-  const float hSq = s.velocity.x * s.velocity.x + s.velocity.z * s.velocity.z;
-  return s.position.y <= c.image.ballRadius && spinSq <= 0.0f && hSq <= 0.0f;
+  const float vSq =
+      s.velocity.x * s.velocity.x + s.velocity.y * s.velocity.y + s.velocity.z * s.velocity.z;
+  return s.position.y <= c.image.ballRadius && spinSq <= 0.0f && vSq <= 0.0f;
 }
 
 pes::Vec3 FlightAcceleration(const pes::PesBallConstants& c, const BallState& s, float spinRadX,
@@ -290,7 +293,7 @@ struct TangentialXZ {
   float z;
 };
 
-// .rdata 0x1425a9668: below this heading the block has no direction and adds nothing.
+// .rdata 0x1425a9668: the heading's epsilon. Below it the block takes PES's fallback heading e = (0, 0, 1).
 constexpr float kHeadingEpsilon_mps = 0.001f;
 // .rdata 0x1425cc23c (8 km/h in m/s): the rolling flag's speed limit.
 constexpr float kRollingSpeed_mps = 2.22222233f;
@@ -300,8 +303,14 @@ TangentialXZ RollingTangential(const pes::PesBallConstants& c, int mode, const B
                                float vxPost, float vzPost, float wx, float wz) {
   const pes::BallRecordConstants& r = c.record;
   const float headingSpeed = std::sqrt(pre.velocity.x * pre.velocity.x + pre.velocity.z * pre.velocity.z);
-  if (!(headingSpeed >= kHeadingEpsilon_mps)) return {0.0f, 0.0f};
-  const float ex = pre.velocity.x / headingSpeed, ez = pre.velocity.z / headingSpeed;
+  // Below the epsilon there is no heading, and PES does not skip the block: its entry copy gets ez = 1.0 and
+  // ex = 0 (0x140876c28..0x140876c40, the divide is skipped by the JC at 0x140876c50). An airborne ball with
+  // no horizontal speed therefore still takes the spin's tangential push.
+  float ex = 0.0f, ez = 1.0f;
+  if (headingSpeed >= kHeadingEpsilon_mps) {
+    ex = pre.velocity.x / headingSpeed;
+    ez = pre.velocity.z / headingSpeed;
+  }
   const float twoPi = 2.0f * kPi;
   // The rotation frequencies (Hz): spin across the heading (A) and along it (B).
   const float aDot = (ez * wx - ex * wz) / twoPi;
@@ -325,7 +334,10 @@ TangentialXZ RollingTangential(const pes::PesBallConstants& c, int mode, const B
   const float aCapped = std::clamp(aDot - blend * s3, -cap, cap);
   const float bCapped = std::clamp(bDot * rollRamp, -cap, cap);
   // The Y rate: from the base to 1 as the slope |vy|/|v_xz| goes from rollToSpeedSpeedYMin to YMax.
-  const float slope = std::fabs(pre.velocity.y) / headingSpeed;
+  // PES skips the divide at zero heading (0x140876e1a..0x140876e37) and takes the YMax bound as the slope,
+  // which puts t at 1. Dividing 0/0 here would give NaN.
+  const float slope = headingSpeed > 0.0f ? std::fabs(pre.velocity.y) / headingSpeed
+                                          : r.rollToSpeedSpeedYMax;
   const float t = Clamp01((slope - r.rollToSpeedSpeedYMin) /
                           (r.rollToSpeedSpeedYMax - r.rollToSpeedSpeedYMin));
   const float base = r.At(pes::BallRecordConstants::kRollToSpeedSpeedYRateBase, mode);
