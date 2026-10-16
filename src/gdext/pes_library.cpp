@@ -207,6 +207,20 @@ PackedStringArray PesLibrary::list(const String& prefix) const {
 
 int PesLibrary::team_stadium(int team_id) const { return pes::TeamStadiumId(vfs_, team_id); }
 
+int PesLibrary::boots_id_of(int face_id) const {
+  std::string err;
+  auto blob = vfs_.Read(pes::kBootsListPath, &err);
+  auto list = blob ? pes::ParseBootsList(*blob, &err) : std::nullopt;
+  const pes::BootsList none;
+  auto it = appearances_.find(uint32_t(face_id));
+  const pes::PlayerLook look = it != appearances_.end() ? pes::DecodeLook(it->second) : pes::PlayerLook{};
+  return pes::ResolveBootsId(look.bootsId, face_id, list ? *list : none);
+}
+
+bool PesLibrary::boots_carries_body(int boots_id) const {
+  return pes::BootsPackCarriesBody(vfs_, pes::BootsPackPath(boots_id));
+}
+
 Ref<Texture> PesLibrary::load_texture(const String& path) const {
   std::string err;
   Ref<Texture> t = LoadPesTexture(vfs_, FromGd(path), &err);

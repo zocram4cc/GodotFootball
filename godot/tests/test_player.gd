@@ -271,20 +271,17 @@ func _init() -> void:
 				var mat: Material = m.mesh.surface_get_material(0) if m.mesh.get_surface_count() > 0 else null
 				if mat != null and str(mat.get_name()).begins_with(UNIFORM_MATERIAL_PREFIX):
 					look_uniforms += 1
-		# A whole body in the boots pack is still a uniform player
-		# (pes-re-whole-body-uniform.md 0-2): PES builds the uniform parts for
-		# it, and the markings land on the shirt. The mode comes from the
-		# input boots pack's skeleton (pes::CarriesBodySkeleton), never from
-		# what the build produced.
-		if library.boots_carries_body(PesCharacterBuilder.boots_id_of(library, look_face)):
+		# The mode comes from the INPUT: the look's boots pack, read for a body
+		# skeleton (pes::BootsPackCarriesBody), never from what the build made.
+		# A whole body is still a uniform player (pes-re-whole-body-uniform.md
+		# 0-2): PES builds its shirt, and the markings land on that shirt. A long
+		# sleeve still builds no bare arm (kit-assembly 8.9). Whether PES draws the
+		# hand parts over a whole body is open (see the decode doc).
+		if library.boots_carries_body(library.boots_id_of(look_face)):
 			check(look_parts.keys().any(func(p): return p.begins_with("shirt_")),
-					"player %d (whole body) wears the uniform shirt" % look_face)
+					"player %d (whole body) wears the uniform shirt: %s" % [look_face, look_parts.keys()])
 			check(look_uniforms > 0, "player %d (whole body) draws uniform materials" % look_face)
-			check(not look_parts.has("arm") and not look_parts.has("hand_l") and not look_parts.has("hand_r"),
-					"player %d (whole body) draws no bare arm or hand" % look_face)
-		elif look_uniforms == 0 and look_parts.has("boots"):
-			check(not look_parts.has("arm") and not look_parts.has("hand_l") and not look_parts.has("hand_r"),
-					"player %d (whole body) draws no bare arm or hand" % look_face)
+			check(not look_parts.has("arm"), "player %d (whole body, long sleeves) shows no bare arm" % look_face)
 		else:
 			check(look_parts.keys().any(func(p): return p.begins_with("sleeve_long") or p == "sleeve_glove"),
 					"player %d wears a long sleeve: %s" % [look_face, look_parts.keys()])

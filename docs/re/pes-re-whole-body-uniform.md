@@ -158,3 +158,30 @@ shorts region (`pants_016` is a 4cc degenerate stub) and boots/patches.
 Scratch: `dec_89120.txt` (assembly), `dec_builders.txt` (`FUN_141ec3a20`,
 `FUN_141a80b80`, `FUN_141a8e8d0/670`), `dec_units.txt`, `dec_boots.txt`,
 `dec_callers.txt`, atlas/dummy PPMs and viewer/PES frames.
+
+## 7. Findings from the fixed build (corrections)
+
+- **§4 is not supported.** The "name and number on the W back" in the viewer
+  frames is the boots pack's own `Patches` mesh: `patches.ftex` (256×512 DXT5,
+  decoded) prints "POST MORE MARI" and "4.0" on the back. It appears with and
+  without `--number`. It is OBS, not a marking.
+- **Every team-760 look in the save is long-sleeved and tail-in** (76001–76023
+  checked). Tail-in selects `shirt_in`, which is a 3-vertex `basic_fx` stub in
+  this install (kit-assembly §0.3). So the uniform builds no navy shirt, and
+  the marking pass has no `uni_shirts` material to bind to. The navy torso in
+  PES must come from the body `Suit`. Where PES's per-player W numbers come
+  from is OPEN.
+- **Pants regression on the fixed build (OBS, viewer):** the common
+  `pants_out_sub` mesh, now built for a whole body, draws dark and white
+  blobs over the cream shorts. `--hide pants_out_sub` removes them completely;
+  hiding `hand_l/hand_r` or `thigh_middle/socks_middle` does not. Cause OPEN
+  (skinning on the 42-bone body, or the uniform shader on this rig).
+- The viewer renders a normal outfield player (76711, team 767) almost
+  entirely white in this environment, so it is not a usable control. The
+  exposure gap is the B2/B3 issue recorded in `pes-kit-compare-b5.md` §3.
+- Gloves: the whole-body path keeps the glove gate it had (no gloves for a
+  whole body). PES's rule that a glove replaces `hand_l/hand_r` (kit-assembly
+  §8.4) is not implemented for any player; both are drawn when a glove exists.
+
+Verdict: the decode (§0–2) is OBS for the assembly and binder. The visual
+acceptance is NOT met. The fixed build is WIP and not for merge.

@@ -59,7 +59,10 @@ std::string Lower(std::string s) {
   return s;
 }
 
-// Whole-body packs are classified by the shared pes::BootsPackCarriesBody rule.
+bool EndsWith(const std::string& s, const std::string& tail) {
+  return s.size() >= tail.size() && s.compare(s.size() - tail.size(), tail.size(), tail) == 0;
+}
+
 
 struct CachedTexture {
   Ref<ImageTexture> gpu;
@@ -623,7 +626,7 @@ Node3D* Build::RunPlayer(int teamId, int kitIndex) {
   }
   // A missing boots or glove folder leaves the slot empty (pes-kit-assembly.md 8.4).
   std::vector<std::string> packs{bootsPack};
-  if (look.gloveId) packs.push_back(pes::GlovePackPath(look.gloveId));
+  if (!wholeBody_ && look.gloveId) packs.push_back(pes::GlovePackPath(look.gloveId));
   for (const std::string& pack : packs) {
     if (vfs_.Exists(pack)) AddPack(pack);
     else UtilityFunctions::print("  empty slot, no pack: ", ToGd(pack));

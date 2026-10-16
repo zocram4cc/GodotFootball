@@ -3,10 +3,12 @@
 // checked field by field against the kit struct of the running game.
 #include "pes/uniform.hpp"
 
+#include <cctype>
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
 
+#include "pes/fpk.hpp"
 #include "pes/fmdl.hpp"
 #include "pes/inflate.hpp"
 #include "pes/vfs.hpp"
