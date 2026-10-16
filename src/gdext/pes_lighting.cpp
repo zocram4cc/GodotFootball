@@ -246,6 +246,10 @@ bool PesLighting::setup(const Ref<PesLibrary>& library, int stadium_id, int weat
       sky->set_material(skyMat);
       env->set_sky(sky);
       env->set_background(Environment::BG_SKY);
+      // The sky shader already emits radiance in cd/m² (inscatter·phase·sunLux·π·
+      // skyColorSunScale, report Part B §10); Godot's physical-units sky gain
+      // (background_intensity, default 30000 nits) must stay the identity.
+      env->set_bg_intensity(1.0f);
       env->set_ambient_source(Environment::AMBIENT_SOURCE_SKY);
       env->set_ambient_light_energy(float(a.daySkyAmbientScale));
       // Global height fog (§7.5): density/1000, height scale/1000.
