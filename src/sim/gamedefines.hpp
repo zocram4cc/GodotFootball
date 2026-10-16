@@ -122,7 +122,6 @@ struct PlayerCommand {
   PlayerCommand() {
     desiredFunctionType = e_FunctionType_Movement;
     useDesiredMovement = false;
-    useTouchInfo = false;
     desiredVelocityFloat = idleVelocity;
     strictMovement = e_StrictMovement_Dynamic;
     useDesiredLookAt = false;
@@ -148,7 +147,6 @@ struct PlayerCommand {
   bool useDesiredLookAt;
   Vector3 desiredLookAt;  // absolute 'look at' position on pitch
 
-  bool useTouchInfo;
   TouchInfo touchInfo;
 
   bool onlyDeflectAnimsThatPickupBall;
