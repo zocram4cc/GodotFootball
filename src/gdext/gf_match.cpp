@@ -40,6 +40,7 @@ void GfMatch::_bind_methods() {
   ClassDB::bind_method(D_METHOD("player_facing", "index"), &GfMatch::player_facing);
   ClassDB::bind_method(D_METHOD("player_velocity", "index"), &GfMatch::player_velocity);
   ClassDB::bind_method(D_METHOD("player_team", "index"), &GfMatch::player_team);
+  ClassDB::bind_method(D_METHOD("player_clip", "index"), &GfMatch::player_clip);
   ClassDB::bind_method(D_METHOD("player_database_id", "index"), &GfMatch::player_database_id);
   ClassDB::bind_method(D_METHOD("ball_position"), &GfMatch::ball_position);
   ClassDB::bind_method(D_METHOD("match_time_ms"), &GfMatch::match_time_ms);
@@ -114,6 +115,22 @@ Vector3 GfMatch::player_position_previous(int index) const {
   if (index < 0 || index >= player_count()) return Vector3();
   if (previousValid_ && index < previousPlayers_.size()) return ToFox(previousPlayers_[index]);
   return player_position(index);
+}
+
+Dictionary GfMatch::player_clip(int i) const {
+  Dictionary d;
+  if (i < 0 || i >= player_count()) return d;
+  const pes::IssuedClip& clip = players_[i]->GetIssuedClip();
+  d["serial"] = int(clip.serial);
+  d["motion"] = clip.request.motion;
+  d["group"] = clip.request.group;
+  d["mirror"] = clip.request.mirror;
+  d["start_time"] = clip.request.startTime;
+  d["start_rate"] = clip.request.startRate;
+  d["rate"] = clip.request.rate;
+  d["duration"] = clip.request.duration;
+  d["playback"] = clip.playback;
+  return d;
 }
 
 Vector3 GfMatch::ball_position_previous() const {

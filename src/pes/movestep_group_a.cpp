@@ -155,7 +155,7 @@ void Init(MoveHost& host, MoveReq& req) {
   const int kind = static_cast<int>(req.U(moveword::kKind));
   const bool turnIsWide = k.deg90 < std::fabs(req.F(moveword::kTurn));
   if (commandClass == 0 || kind == 7 || (turnIsWide && commandClass < 2)) {
-    if (!StayDecision(host, req)) {
+    if (StayDecision(host, req)) {
       const int row = kind < 8 ? IdleRow(host, req) : kIdleRowFallback;
       const MoveCell cell = host.Cell(row, 9, false);
       bool mirror = false;

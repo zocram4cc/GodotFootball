@@ -12,6 +12,8 @@
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
 #include "pes/movestep_turn.hpp"
+#include "pes/locomotion.hpp"
+#include "pes/vfs.hpp"
 
 namespace {
 
@@ -671,6 +673,22 @@ TEST(StayDecision, StaysWhenTheFacingErrorIsInsideTheBearingGate) {
   EXPECT_FALSE(pes::movestep::StayDecision(host, req));
 }
 
+// INIT's stay decision (docs/re/pes-re-anim-select.md 2.3): a still command whose stay decision
+// holds goes to the IDLE state; only a go enters the GOTO_RUN entry.
+TEST(Init, AStandingPlayerWhoStaysGoesIdle) {
+  RateHost host = IdleHost();
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 0);
+  req.SetU(pes::moveword::kCommandSpeedClass, 0);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDistToTarget, 10.0f);
+  host.ballBearingDeg = 0.0f;
+  pes::movestep::Init(host, req);
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+}
+
 TEST(SimTail, CopiesTheSlipFacingAfterSlipdownEvenWhenRootFacingIsSet) {
   RateHost host = IdleHost();
   pes::MoveStepRecord rec;
@@ -702,4 +720,65 @@ TEST(SimTail, StoresTheRequestsPlaybackSpeed) {
   req.SetF(pes::moveword::kPlayback, 0.75f);
   pes::movestep::ApplyTail(rec, host, req, pes::MoveState::kIdle);
   EXPECT_FLOAT_EQ(rec.playbackSpeed, 0.75f);
+}
+
+// The clip the FSM last issued, as the viewer plays it. Each issue is a new clip in PES, so a
+// re-issue counts as a restart. A parametric style index is recorded as the blend group it plays.
+TEST(IssuedClip, KeepsTheFsmArgumentsOfTheClipItRecords) {
+  pes::ParametricGroups groups{};
+  pes::MotionRequest req;
+  req.motion = 0x3f;
+  req.mirror = true;
+  req.startTime = 0.25f;
+  req.duration = 0.2f;
+  pes::IssuedClip clip;
+  pes::RecordIssue(clip, req, groups);
+  EXPECT_EQ(clip.request.motion, 0x3f);
+  EXPECT_TRUE(clip.request.mirror);
+  EXPECT_FLOAT_EQ(clip.request.startTime, 0.25f);
+  EXPECT_FLOAT_EQ(clip.request.duration, 0.2f);
+  EXPECT_EQ(clip.request.group, -1);
+}
+
+TEST(IssuedClip, AReIssueIsANewClipAndCountsAsARestart) {
+  pes::ParametricGroups groups{};
+  pes::MotionRequest req;
+  req.motion = 0x3f;
+  pes::IssuedClip clip;
+  pes::RecordIssue(clip, req, groups);
+  const uint32_t first = clip.serial;
+  pes::RecordIssue(clip, req, groups);
+  EXPECT_EQ(clip.serial, first + 1);
+}
+
+TEST(IssuedClip, AParametricStyleIsRecordedAsItsBlendGroup) {
+  pes::ParametricGroups groups{};
+  groups.group[3] = 42;  // a synthetic map: the lookup is under test, not the install's table
+  pes::MotionRequest req;
+  req.motion = -1;
+  req.group = 3;
+  req.rate = 0.5f;
+  pes::IssuedClip clip;
+  pes::RecordIssue(clip, req, groups);
+  EXPECT_EQ(clip.request.group, 42);
+  EXPECT_FLOAT_EQ(clip.request.rate, 0.5f);
+}
+
+// The style map is PES's own table, read from the install. Every style names a blend group with
+// members, or the viewer has nothing to play for a request that reaches it.
+TEST(ParametricGroupsInstall, EveryStyleNamesABlendGroupWithMembers) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe) << err;
+  auto groups = pes::LoadParametricGroups(*exe, &err);
+  ASSERT_TRUE(groups) << err;
+  EXPECT_EQ(groups->group[0], pes::LOCOMOTION_BLEND_GROUP);
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto table = pes::LoadBlendTable(vfs, &err);
+  ASSERT_TRUE(table) << err;
+  for (int style = 0; style < pes::kStyleCount; ++style)
+    EXPECT_FALSE(pes::BlendGroup(*table, groups->group[style]).empty()) << "style " << style;
 }

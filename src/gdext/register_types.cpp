@@ -10,7 +10,7 @@
 #include "gdext/pes_character.hpp"
 #include "gdext/pes_effects.hpp"
 #include "gdext/pes_library.hpp"
-#include "gdext/pes_locomotion.hpp"
+#include "gdext/pes_motion.hpp"
 #include "gdext/pes_model.hpp"
 #include "gdext/pes_lighting.hpp"
 
@@ -33,7 +33,7 @@ static void initialize_module(ModuleInitializationLevel level) {
   GDREGISTER_CLASS(PesCharacterBuilder);
   GDREGISTER_CLASS(PesAnimation);
   GDREGISTER_CLASS(GfMatch);
-  GDREGISTER_CLASS(PesLocomotion);
+  GDREGISTER_CLASS(PesMotionPlayer);
   GDREGISTER_CLASS(PesBroadcastCamera);
   GDREGISTER_CLASS(PesModelBuilder);
   GDREGISTER_CLASS(PesLighting);

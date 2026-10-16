@@ -67,6 +67,12 @@ func _ready() -> void:
 		var thigh := sk.find_bone("left_thigh")
 		if sk.get_bone_pose_rotation(thigh).angle_to(sk.get_bone_rest(thigh).basis.get_rotation_quaternion()) > POSED_ANGLE_RAD:
 			posed += 1
-	check(posed == players.size(), "every player is posed by PES locomotion (%d)" % posed)
+	# The boundary: every player has an FSM-issued clip, and the viewer poses it.
+	var issued := 0
+	for i in players.size():
+		if int(scene.sim.player_clip(i).get("serial", 0)) > 0:
+			issued += 1
+	check(issued == players.size(), "every player has an FSM-issued clip (%d)" % issued)
+	check(posed == players.size(), "every player is posed by its issued PES clip (%d)" % posed)
 	check(scene.ball.global_position.distance_to(scene.sim.ball_position()) < POSITION_TOLERANCE_M, "ball follows the simulation")
 	get_tree().quit(1 if failures > 0 else 0)

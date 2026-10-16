@@ -1,6 +1,7 @@
 #include "pes/movestep.hpp"
 
 #include "pes/exe.hpp"
+#include <cassert>
 #include <cmath>
 #include <cstring>
 
@@ -302,5 +303,29 @@ std::optional<StepScalars> LoadStepScalars(const PeImage& exe, std::string* erro
   }
   return s;
 }
+
+// DAT_14344e0e0: the style-to-group map, 17 little-endian i32 entries (docs/re/pes-re-anim-select-2.md
+// 2.3, read from the image). The install test checks each style names a blend group with members.
+std::optional<ParametricGroups> LoadParametricGroups(const PeImage& exe, std::string* error) {
+  constexpr uint64_t PARAMETRIC_GROUP_MAP_VA = 0x14344e0e0;
+  std::array<int32_t, kStyleCount> raw{};
+  if (!exe.ReadVa(PARAMETRIC_GROUP_MAP_VA, sizeof raw, reinterpret_cast<uint8_t*>(raw.data()))) {
+    *error = "movestep: the parametric group map is unreadable";
+    return std::nullopt;
+  }
+  ParametricGroups g;
+  for (int i = 0; i < kStyleCount; ++i) g.group[i] = raw[i];
+  return g;
+}
+
+void RecordIssue(IssuedClip& issued, const MotionRequest& request, const ParametricGroups& groups) {
+  issued.request = request;
+  if (request.group >= 0) {
+    assert(request.group < kStyleCount);  // the handlers issue only the table's style indices
+    issued.request.group = groups.group[request.group];
+  }
+  ++issued.serial;
+}
+
 
 }  // namespace pes

@@ -104,6 +104,8 @@ public:
   pes::Random& GetPesRandom();
   // PES's MOVESTEP fields of this player: locomotion state, rate ceiling, playback.
   pes::MoveStepRecord& GetMoveStep() { return moveStep; }
+  // The clip the MOVESTEP machine last issued for this player (the viewer plays it).
+  pes::IssuedClip& GetIssuedClip() { return issuedClip; }
 
   const TacticalPlayerSituation& GetTacticalSituation() { return tacticalSituation; }
 
@@ -204,6 +206,7 @@ protected:
 
   std::unique_ptr<pes::Random> pesRandom;
   pes::MoveStepRecord moveStep;
+  pes::IssuedClip issuedClip;
 };
 
 #endif

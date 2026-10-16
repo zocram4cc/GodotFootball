@@ -44,7 +44,6 @@ Error PesLibrary::open(const String& root) {
   if (motionNames_) handSequences_ = pes::LoadHandSequences(vfs_, &*exe, &err);
   if (handSequences_) handPoses_ = pesrig::LoadHandPoses(vfs_, handSequences_->poses, &err);
   if (!handPoses_) UtilityFunctions::push_warning("PES21 hand rig unavailable, hands stay at rest: ", ToGd(err));
-  if (exe) speedClasses_ = pes::SpeedClassLimits(*exe);
   if (exe) cameraParams_ = pes::LoadDynamicWide(*exe, vfs_, &err);
   // PES 2021's match-clock constants, from the same exe (docs/re/pes-re-tactics-clock.md
   // 7.2: every clock value lives in the image). Required by every GfMatch.

@@ -66,8 +66,6 @@ class PesLibrary : public RefCounted {
   const pesrig::HandPoseLibrary* hand_poses() const { return handPoses_ ? &*handPoses_ : nullptr; }
   // Name glyphs (from PES2021.exe) and name folding; null without the exe.
   const MarkingFonts* marking_fonts() const { return markingFonts_ ? &*markingFonts_ : nullptr; }
-  // Speed-class bounds, km/h (from PES2021.exe); null without the exe.
-  const std::array<float, 4>* speed_classes() const { return speedClasses_ ? &*speedClasses_ : nullptr; }
   // PES 2021's match-clock constants (from PES2021.exe, docs/re/pes-re-tactics-clock.md
   // 7.2). Always present once the library is open: a GfMatch cannot run without them.
   const pes::PesClockConstants* clock_constants() const {
@@ -171,7 +169,6 @@ class PesLibrary : public RefCounted {
   std::optional<pes::HandSequences> handSequences_;
   std::optional<pesrig::HandPoseLibrary> handPoses_;
   std::optional<MarkingFonts> markingFonts_;
-  std::optional<std::array<float, 4>> speedClasses_;
   std::optional<pes::DynamicWideParams> cameraParams_;
   std::optional<pes::PesClockConstants> clockConstants_;
   std::optional<pes::PesBallConstants> ballConstants_;

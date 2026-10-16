@@ -409,11 +409,30 @@ struct MotionRequest {
   float duration = 0.0f;   // req[0x32], seconds
   float playback = 1.0f;   // req[0x35]
   float startTime = 0.0f;  // req[0x33], seconds
-  int group = -1;          // req[0x37]: -1 = SetMotion (req[0x37] == 0x11), else the parametric group
+  int group = -1;          // req[0x37]: -1 = SetMotion (req[0x37] == 0x11), else the style index (RecordIssue maps it)
   float startRate = 0.0f;  // req[0x4f]: SetParametric only
   float rate = 0.0f;       // req[0x4a]: SetParametric only
   int foot = 0;            // SetParametric's foot argument (not req[0x7c])
 };
+
+// PES's style-to-group map, DAT_14344e0e0 (17 i32 in the image). A parametric request carries its
+// style index (req[0x37]) and plays the blend group the map names (SetParametric, FUN_1406b8761;
+// docs/re/pes-re-anim-select-2.md 2.3).
+inline constexpr int kStyleCount = 17;
+struct ParametricGroups {
+  std::array<int, kStyleCount> group{};
+};
+std::optional<ParametricGroups> LoadParametricGroups(const PeImage& exe, std::string* error);
+
+// The clip the FSM last issued for a player, as the viewer plays it: PES's vt+0x10 arguments. A
+// re-issue is a new clip in PES (a new layer record), so each issue counts as a restart.
+struct IssuedClip {
+  MotionRequest request;  // group: the PES blend group, -1 for SetMotion
+  uint32_t serial = 0;    // counts the issues
+  float playback = 1.0f;  // P+0x3758: the rate the clip advances at, stored each tick
+};
+// Records one issue; a parametric style index becomes the blend group it plays.
+void RecordIssue(IssuedClip& issued, const MotionRequest& request, const ParametricGroups& groups);
 
 class MoveHost {
  public:

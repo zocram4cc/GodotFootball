@@ -3,6 +3,7 @@
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/classes/skeleton3d.hpp>
 #include <memory>
+#include <vector>
 
 #include "gdext/pes_library.hpp"
 #include "rig/clip_pose.hpp"
@@ -21,11 +22,12 @@ class PesAnimation : public RefCounted {
   // the body joint's horizontal travel is removed. The skeleton must be inside
   // the tree: Godot 4.7 only invalidates cached global poses there, so posing
   // an out-of-tree skeleton would silently show the old pose (ERR_UNCONFIGURED).
-  Error apply(Skeleton3D* skeleton, double time_seconds, bool in_place) const;
+  // With mirror the body plays mirrored across its sagittal plane (PoseOperatorMirror; docs/re/pes-re-anim-blend.md 3).
+  Error apply(Skeleton3D* skeleton, double time_seconds, bool in_place, bool mirror = false) const;
 
   // C++ side, for blends: the body pose at a time, and writing a (possibly
   // blended) body pose plus this clip's hands at `hand_time` to a skeleton.
-  pesrig::ClipPose Pose(double time_seconds) const;
+  pesrig::ClipPose Pose(double time_seconds, bool mirror = false) const;
   void Write(Skeleton3D* skeleton, const pesrig::ClipPose& pose, bool in_place, double hand_time) const;
   int motion_no() const { return motionNo_; }
 
@@ -36,6 +38,7 @@ class PesAnimation : public RefCounted {
   void ApplyHands(Skeleton3D* skeleton, double time_seconds) const;
   std::unique_ptr<pesrig::ClipSampler> sampler_;
   Ref<PesLibrary> library_;
+  std::vector<int> mirrorPartners_;  // the rig's left/right twins (pesrig::MirrorPartners)
   int motionNo_ = -1;  // index in the game's motion table; -1 = unknown
 };
 

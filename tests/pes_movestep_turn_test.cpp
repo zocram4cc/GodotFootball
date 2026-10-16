@@ -1121,6 +1121,21 @@ TEST(EnterStepTurnRun, RefusesASlowPlayer) {
   EXPECT_FALSE(EnterStepTurnRun(host, req, SyntheticTurn()));
 }
 
+// The clip request IssueClip hands the host. PES's playback is a fraction (0.95 to 1.15 across
+// the squad) and the start is a time in seconds: neither may be cut to an integer or parked in
+// the parametric start-rate field, which SetMotion never reads.
+TEST(IssueClip, CarriesTheFractionalPlaybackAndTheStartTimeOfASingleClip) {
+  FakeHost host;
+  pes::movestep::IssueClip(host, 0x3f, true, 0.2f, 0.95f, 0.25f);
+  EXPECT_EQ(host.issued.motion, 0x3f);
+  EXPECT_TRUE(host.issued.mirror);
+  EXPECT_EQ(host.issued.group, -1);
+  EXPECT_FLOAT_EQ(host.issued.duration, 0.2f);
+  EXPECT_FLOAT_EQ(host.issued.playback, 0.95f);
+  EXPECT_FLOAT_EQ(host.issued.startTime, 0.25f);
+  EXPECT_FLOAT_EQ(host.issued.startRate, 0.0f);
+}
+
 }  // namespace
 
 // ---------------------------------------------------------------------------------------------

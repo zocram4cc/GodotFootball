@@ -51,6 +51,14 @@ class ClipSampler {
   pes::Gani clip_;  // owned copy; the pointers above point into it
 };
 
+// The mirror of a body pose across the body's sagittal plane (PES's PoseOperatorMirror,
+// docs/re/pes-re-anim-blend.md 3). Each joint's partner is its left/right twin by GF name, or
+// itself on the midline. Build the partners once per rig.
+std::vector<int> MirrorPartners(const Rig& rig);
+// Each limb takes its partner's motion, every rotation reflects as an axial vector (x, -y, -z),
+// and the root moves to -x.
+ClipPose MirrorPose(const ClipPose& pose, const std::vector<int>& partners);
+
 // The 162 hand poses: single-frame ganis on the left hand animation skeleton,
 // unit u driving its bone u - 1 (HumanHand.frig; docs/re/pes-re-collision.md).
 struct HandPoseLibrary {

@@ -28,6 +28,7 @@ struct MoveHostConstants {
   pes::IdleRowTables idleRows{};
   pes::AngleBucketConstants buckets{};
   pes::movestep::MoveTurnConstants turn{};
+  pes::ParametricGroups parametric{};
 };
 
 constexpr float kDegPerRad = 180.0f / 3.14159265358979323846f;  // a unit conversion, not PES data
@@ -50,6 +51,7 @@ std::optional<MoveHostConstants> LoadMoveHostConstants() {
   if (auto t = pes::LoadIdleRowTables(*exe, &err)) c.idleRows = *t; else return std::nullopt;
   if (auto b = pes::LoadAngleBucketConstants(*exe, &err)) c.buckets = *b; else return std::nullopt;
   if (auto t = pes::movestep::LoadMoveTurnConstants(*exe, &err)) c.turn = *t; else return std::nullopt;
+  if (auto g = pes::LoadParametricGroups(*exe, &err)) c.parametric = *g; else return std::nullopt;
   return c;
 }
 
@@ -120,6 +122,7 @@ class MoveHostAdapter final : public pes::MoveHost {
   bool IsReplay() const override { return false; }
   void Issue(const pes::MotionRequest& request) override {
     issued_ = true;
+    pes::RecordIssue(player_.GetIssuedClip(), request, c_.parametric);
     if (request.group < 0) player_.SetPlaybackRate(request.playback);
   }
   bool Issued() const { return issued_; }
@@ -241,6 +244,7 @@ void ProcessMoveStep(Player& player, Match& match) {
   pes::ApplyTransition(rec, req);
   // P+0x3758's store lands on GF's playback rate for the tick.
   player.SetPlaybackRate(rec.playbackSpeed);
+  player.GetIssuedClip().playback = rec.playbackSpeed;
 }
 
 }  // namespace pesmovestep

@@ -14,7 +14,9 @@ namespace godot {
 void PesAnimation::_bind_methods() {
   ClassDB::bind_method(D_METHOD("load", "library", "name_or_hash"), &PesAnimation::load);
   ClassDB::bind_method(D_METHOD("length_seconds"), &PesAnimation::length_seconds);
-  ClassDB::bind_method(D_METHOD("apply", "skeleton", "time_seconds", "in_place"), &PesAnimation::apply);
+  ClassDB::bind_method(D_METHOD("motion_no"), &PesAnimation::motion_no);
+  ClassDB::bind_method(D_METHOD("apply", "skeleton", "time_seconds", "in_place", "mirror"), &PesAnimation::apply,
+                       DEFVAL(false));
 }
 
 Error PesAnimation::load(const Ref<PesLibrary>& library, const String& name_or_hash) {
@@ -31,6 +33,7 @@ Error PesAnimation::load(const Ref<PesLibrary>& library, const String& name_or_h
     return ERR_PARSE_ERROR;
   }
   sampler_ = std::make_unique<pesrig::ClipSampler>(*clip, *library->rig());
+  mirrorPartners_ = pesrig::MirrorPartners(*library->rig());
   library_ = library;
   motionNo_ = -1;
   if (const auto* names = library->motion_names()) {
@@ -43,18 +46,20 @@ Error PesAnimation::load(const Ref<PesLibrary>& library, const String& name_or_h
 
 double PesAnimation::length_seconds() const { return sampler_ ? sampler_->LengthSeconds() : 0.0; }
 
-Error PesAnimation::apply(Skeleton3D* skeleton, double time_seconds, bool in_place) const {
+Error PesAnimation::apply(Skeleton3D* skeleton, double time_seconds, bool in_place, bool mirror) const {
   if (!sampler_ || !skeleton) return ERR_UNCONFIGURED;
   if (!skeleton->is_inside_tree()) {
     UtilityFunctions::push_error("PesAnimation.apply: skeleton is not inside the scene tree");
     return ERR_UNCONFIGURED;
   }
-  Write(skeleton, Pose(time_seconds), in_place, time_seconds);
+  Write(skeleton, Pose(time_seconds, mirror), in_place, time_seconds);
   return OK;
 }
 
-pesrig::ClipPose PesAnimation::Pose(double time_seconds) const {
-  return sampler_ ? sampler_->Sample(time_seconds / pesrig::PES_FRAME_S) : pesrig::ClipPose{};
+pesrig::ClipPose PesAnimation::Pose(double time_seconds, bool mirror) const {
+  if (!sampler_) return pesrig::ClipPose{};
+  const pesrig::ClipPose pose = sampler_->Sample(time_seconds / pesrig::PES_FRAME_S);
+  return mirror ? pesrig::MirrorPose(pose, mirrorPartners_) : pose;
 }
 
 void PesAnimation::Write(Skeleton3D* skeleton, const pesrig::ClipPose& pose, bool in_place, double hand_time) const {
