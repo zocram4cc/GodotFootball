@@ -305,11 +305,18 @@ void Player::UpdatePossessionStats(bool onInterval) {
   unsigned int previous_ms = 0;
   bool precise = (team->GetDesignatedTeamPossessionPlayer() == this) ? true : false;
   float previousDist = 0;  // debug
+  // Loop-invariant reads, hoisted: nothing in the loop below mutates the
+  // ball, this player, or his stats, so these are the same every iteration.
+  // (The values are identical, not approximations: same inputs, same calls.)
+  const Vector3 ownPosition = GetPosition();
+  const Vector3 ownMovement = GetMovement();
+  const float ownMaxVelocity = GetMaxVelocity();
+  const bool debug = GetDebug();
   for (unsigned int ms = startTime_ms; ms < ballPredictionSize_ms; ms += timeStep_ms) {
     if (match->GetBall()->Predict(ms).coords[2] < 1.5f) {
-      TimeNeeded result = AI_GetTimeNeededForDistance_ms(GetPosition(), GetMovement(),
+      TimeNeeded result = AI_GetTimeNeededForDistance_ms(ownPosition, ownMovement,
                                                          match->GetBall()->Predict(ms).Get2D(),
-                                                         GetMaxVelocity(), precise, ms, GetDebug());
+                                                         ownMaxVelocity, precise, ms, debug);
       unsigned int timeNeeded = result.usual_ms;
       unsigned int timeNeeded_optimistic = result.optimistic_ms;
 
@@ -363,7 +370,7 @@ void Player::UpdatePossessionStats(bool onInterval) {
 
     // refine timestep (optimisation)
     if (!refine) {
-      float balldist = (GetPosition() - match->GetBall()->Predict(ms).Get2D()).GetLength() +
+      float balldist = (ownPosition - match->GetBall()->Predict(ms).Get2D()).GetLength() +
                        0.2f;  // add a little buffer
       float maxBallVelo = 50;
       // how long does it take for the ball at max velo to travel balldist?

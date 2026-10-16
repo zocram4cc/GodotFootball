@@ -36,12 +36,7 @@ Properties::Properties() {}
 Properties::~Properties() {}
 
 bool Properties::Exists(const char* name) const {
-  auto iter = properties.find(std::string(name));
-  if (iter == properties.end()) {
-    return false;
-  } else {
-    return true;
-  }
+  return properties.find(name) != properties.end();
 }
 
 void Properties::Set(const char* name, const std::string& value) {
@@ -64,7 +59,7 @@ void Properties::SetBool(const char* name, bool value) {
 }
 
 const std::string& Properties::Get(const char* name, const std::string& defaultValue) const {
-  auto iter = properties.find(std::string(name));
+  auto iter = properties.find(name);
   if (iter == properties.end()) {
     return defaultValue;
   } else {
@@ -73,7 +68,7 @@ const std::string& Properties::Get(const char* name, const std::string& defaultV
 }
 
 bool Properties::GetBool(const char* name, bool defaultValue) const {
-  auto iter = properties.find(std::string(name));
+  auto iter = properties.find(name);
   if (iter == properties.end()) {
     return defaultValue;
   } else {
@@ -85,7 +80,7 @@ bool Properties::GetBool(const char* name, bool defaultValue) const {
 }
 
 real Properties::GetReal(const char* name, real defaultValue) const {
-  auto iter = properties.find(std::string(name));
+  auto iter = properties.find(name);
   if (iter == properties.end()) {
     return defaultValue;
   } else {
@@ -94,7 +89,7 @@ real Properties::GetReal(const char* name, real defaultValue) const {
 }
 
 int Properties::GetInt(const char* name, int defaultValue) const {
-  auto iter = properties.find(std::string(name));
+  auto iter = properties.find(name);
   if (iter == properties.end()) {
     return defaultValue;
   } else {

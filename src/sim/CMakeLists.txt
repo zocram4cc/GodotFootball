@@ -11,3 +11,13 @@ target_include_directories(gfsim PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/..)
 target_link_libraries(gfsim PUBLIC pesrig pesmovestepcore SQLite3::SQLite3 Boost::headers)
+
+# Release-only link-time optimization for the headless sim: same IEEE FP
+# semantics (no fast-math), only cross-TU inlining and codegen. gfsim_run is
+# batch CPU-bound, so the whole-program view pays off; the Godot plugin links
+# the same archive and inherits it.
+include(CheckIPOSupported)
+check_ipo_supported(RESULT gfsim_ipo_supported OUTPUT gfsim_ipo_error)
+if(gfsim_ipo_supported)
+  set_property(TARGET gfsim PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+endif()

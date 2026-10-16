@@ -80,7 +80,7 @@ public:
                              bool getPosition = true) const;
   void ConvertToStartFacingForwardIfIdle();
   void Invert();
-  void Apply(const std::map<const std::string, boost::intrusive_ptr<Node>> nodeMap, int frame,
+  void Apply(const std::map<const std::string, boost::intrusive_ptr<Node>>& nodeMap, int frame,
              int timeOffset_ms = 0, bool smooth = true, float smoothFactor = 1.0f,
              /*const std::shared_ptr<Animation> previousAnimation, int smoothFrames, */
              const Vector3& basePos = Vector3(0), radian baseRot = 0,
@@ -121,7 +121,10 @@ public:
 
   const std::string& GetVariable(const char* name) const;
   void SetVariable(const std::string& name, const std::string& value);
-  const std::string& GetAnimType() const { return cache_AnimType; }
+  // The clip's <type> as the selector enum, resolved once at load: the
+  // per-tick selection compares this instead of the type string.
+  int GetAnimFunctionType() const { return cache_AnimFunctionType; }
+   const std::string& GetAnimType() const { return cache_AnimType; }
   std::shared_ptr<XMLTree> GetCustomData();
 
   // quick edit hax
@@ -170,7 +173,10 @@ protected:
   mutable bool cache_outgoingBodyDirection_dirty;
   mutable Vector3 cache_outgoingBodyDirection;
 
-  std::string cache_AnimType;
+  // ponytail: int so this header does not need the selector enum; the value
+  // is the e_FunctionType of the clip's <type> (gamedefines.hpp).
+  int cache_AnimFunctionType = 0;  // e_FunctionType_None
+   std::string cache_AnimType;
 };
 
 }  // namespace blunted
