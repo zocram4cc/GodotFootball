@@ -786,7 +786,7 @@ Player* ElizaController::_Carrier() {
   const pes::DefenderDecisionConstants& k = match->GetPesDefenderDecisionConstants();
   Player* owner = match->GetBallRetainer();
   if (!owner) {
-    Player* last = match->GetBallEvent(0).player;
+    Player* last = match->GetPesActorPlayer(pes::NewestEvent(match->GetPesEvents()).actor);
     if (last && last->HasPossession()) owner = last;
   }
   Team* other = match->GetTeam(1 - team->GetID());
@@ -1317,11 +1317,10 @@ bool ElizaController::_DodgeHumanCandidate(int* kind) {
   gate.stateRecordHalfMatches = true;
   // The window reads the match's newest ball event, as FUN_140a0b350 does
   // (decompile lines 64-73): whether it was his team's, and how many frames old it is.
-  // ponytail: GF records its four touch kinds, not PES's 5-14, so the ring
-  // holds fewer events than PES's.
-  const Match::BallEvent& newest = match->GetBallEvent(0);
-  gate.newestEventIsOwnTeam = newest.teamID == team->GetID();
-  gate.newestEventAgeFrames = match->GetPesFrame() - newest.pesFrame;
+  const pes::NewestEventView newest = pes::NewestEvent(match->GetPesEvents());
+  gate.newestEventIsOwnTeam =
+      newest.present && newest.actor.team == static_cast<uint32_t>(team->GetID());
+  gate.newestEventAgeFrames = match->GetPesFrame() - newest.frame;
   gate.teamLatchSet = team->IsPesPossession();
   gate.rosterSlotValue = 0;
   gate.ballOwnerIsSelf = match->GetBallRetainer() == CastPlayer();
