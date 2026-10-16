@@ -1,8 +1,8 @@
 extends Node3D
 ## Standalone effects scene (not wired into the match): the five static effect models of
 ## common_effect.fpk on a ground plane, and the placed entries of one effect_config.xml.
-## Args after `--`: --pes21-root DIR --effects JSON [--focus NAME]
-##   JSON: `pesfmt_dump effects <stadium effect pack> --pes21-root DIR > JSON`.
+## Args after `--`: --pes21-root DIR --stadium N [--weather 0/1/2] [--time-zone 0/1] [--focus NAME]
+##   weather as PesLighting takes it (0 fine, 1 rain, 2 snow); time zone 0 day, 1 night.
 ##   NAME is a model's basename (pitch_leaf, net_splash, ...): the camera moves close to it and
 ##   the other four models are hidden (a frame of that one effect).
 
@@ -23,17 +23,16 @@ var screen: CanvasLayer
 
 func _ready() -> void:
 	var args := _parse_args(OS.get_cmdline_user_args())
-	if not args.has("pes21-root") or not args.has("effects"):
-		push_error("usage: -- --pes21-root DIR --effects JSON [--focus NAME]")
+	if not args.has("pes21-root") or not args.has("stadium"):
+		push_error("usage: -- --pes21-root DIR --stadium N [--weather 0/1/2] [--time-zone 0/1] [--focus NAME]")
 		get_tree().quit(2)
 		return
 	var library := PesLibrary.new()
 	if library.open(args["pes21-root"]) != OK:
 		get_tree().quit(1)
 		return
-	var config: Variant = JSON.parse_string(FileAccess.get_file_as_string(args["effects"]))
-	if typeof(config) != TYPE_DICTIONARY:
-		push_error("not an effect config JSON: %s" % args["effects"])
+	var report: Dictionary = PesEffects.placement(library, int(args["stadium"]), int(args.get("weather", 0)), int(args.get("time-zone", 0)))
+	if report.is_empty():
 		get_tree().quit(1)
 		return
 	_build_environment()
@@ -48,8 +47,7 @@ func _ready() -> void:
 		model.position = Vector3((i - 2) * MODEL_SPACING_M, 0.0, 0.0)
 		model.visible = not args.has("focus") or model.name == args["focus"]
 		add_child(model)
-	var placed := Effects.build_entries(camera, screen, library, config)
-	var report: Dictionary = Effects.placement(config)
+	var placed := Effects.build_entries(camera, screen, library, report["placed"])
 	var unplaced := PackedStringArray()
 	for create in report["unplaced"]:
 		unplaced.append(create["type"])
