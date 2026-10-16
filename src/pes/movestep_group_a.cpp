@@ -19,7 +19,6 @@ int MotionTicks(const MoveHost& host, int value, const RunConstants& k) {
   return pes::movestep::RecordTicks(host, static_cast<float>(value), k.one, k.kmh60, k.half, k.one);
 }
 
-
 // The request words group A reads or writes that the shared contract does not name yet.
 constexpr int kWordBlend = 0x34;         // req[0x34]: the idle family's blend word (0.5)
 constexpr int kWordClass = 0x1f;         // req[0x1f]: the live class / rate band

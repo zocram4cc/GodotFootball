@@ -516,6 +516,8 @@ RateHost IdleHost() {
   RateHost host;
   host.run = SyntheticAngles();
   host.run.rate01 = 0.1f;
+  host.run.kmh60 = 60.0f;  // the frame conversion's divisor, DAT_14259a764
+  host.run.half = 0.5f;    // DAT_142565600, the frame conversion's rounding
   host.step.rate0p9 = 0.9f;
   host.moveConstants.dist2m5 = 2.5f;
   host.moveConstants.dist3 = 3.0f;

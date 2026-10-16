@@ -146,6 +146,14 @@ pes::AngleBucketConstants SyntheticBuckets() {
   return k;
 }
 
+// The record the RunTurnRun tests were written against: start -930 frames (decoded -517) and end
+// 1615 frames (decoded 897) at 54 Hz, so the reorient window is (-930, 342].
+pes::MotionRecord TurnFixtureRecord() {
+  pes::MotionRecord r;
+  r.rot = {pes::RotRecord{/*offset*/ 0, /*start*/ -517, /*end*/ 897}};
+  return r;
+}
+
 // A host answering the handlers with the synthetic values above. Every accessor names the PES
 // read it stands for (movestep.hpp's MoveHost).
 class FakeHost : public MoveHost {
@@ -252,7 +260,7 @@ class FakeHost : public MoveHost {
   float displacement[3] = {0.0f, 0.0f, 1.0f};  // +z: heading 0 degrees
   float f2468 = 1.0f;
   float f0bec = 0.0f;
-  pes::MotionRecord record;  // the motion table entry; the default is the zero-word fallback
+  pes::MotionRecord record = TurnFixtureRecord();
   float startTime = 0.0f;
 
   int currentMotion = 0;
@@ -293,8 +301,7 @@ TEST(RunTurnRun, WritesTheTurnedHeadingInsideTheReorientWindow) {
   req.SetF(pes::moveword::kHeading, 80.0f);
   req.SetF(pes::moveword::kTurnedRow, 70.0f);  // the candidate, 10 degrees below the heading
   host.currentMotion = 0x1000;
-  host.currentClipFrames = 1;  // inside (0, 2)
-  host.record.rot = {pes::RotRecord{/*offset*/ 0, /*start*/ 0, /*end*/ 1}};  // window (0, 2) frames
+  host.currentClipFrames = 1;  // inside (-930, 342]
   RunTurnRun(host, req, SyntheticTurn());
   // The reorientation is due and the handler publishes the turned row and its frame count.
   EXPECT_EQ(req.U(pes::moveword::kSlipNewRow) & 0xffu, 1u);
@@ -344,7 +351,7 @@ TEST(RunTurnRun, SelectsTheClassAndSpeedFromTheDisplacementSpeed) {
   FillRequest(&req);
   host.currentMotion = 0x1000;
   host.currentClipFrames = 50;  // past every window: the ladder and the damping tail
-  host.startTime = 0.0f;
+  host.record = pes::MotionRecord{};  // the zero word: start -930 frames, end 2
   host.displacement[0] = 0.0f;
   host.displacement[1] = 0.0f;
   host.displacement[2] = 0.0f;  // a stationary player: the speed is 0
@@ -361,7 +368,7 @@ TEST(RunTurnRun, ReSelectsTheRateFromTheInterfaceSpeedForClassTwo) {
   FillRequest(&req);
   host.currentMotion = 0x1000;
   host.currentClipFrames = 0;  // the clip has no frames left: the rate tail runs
-  host.startTime = 0.0f;
+  host.record = pes::MotionRecord{};  // the zero word: start -930 frames, end 2
   req.SetU(pes::moveword::kClassWord, 2);
   host.displacement[0] = 1.0f;
   host.displacement[2] = 1.0f;
@@ -406,7 +413,7 @@ TEST(RunTurnRunSlipdown, ReIssuesTheRowOnceTheSubFramesRunOut) {
   req.SetF(pes::moveword::kHeading, 10.0f);
   host.currentMotion = 0x1000;
   host.currentClipFrames = 0;
-  host.startTime = 0.0f;
+  host.record = pes::MotionRecord{};  // the zero word: start -930 frames, end 2
   RunTurnRunSlipdown(host, req, SyntheticTurn());
   // 0.3 (0x3e99999a) is the parametric rate the tail writes; the foot word becomes 1.
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kSlipRate), 0.3f);

@@ -132,7 +132,7 @@ int main(int argc, char** argv) {
   if (!dodgeConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   auto animetable = pes::LoadAnimetable(*exe, vfs, &err);
   if (!animetable) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
-  auto mbinfo = pes::LoadMbinfo(vfs, &err);
+  auto mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
   if (!mbinfo) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   // PES 2021's standing-tackle sub-kind (pes-re-contact-port.md stage C): the
   // per-kind group tables and the readiness mask's constants.
