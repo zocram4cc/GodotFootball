@@ -10,8 +10,11 @@ const GF_HOME_TEAM := 1        # teams in assets/fixtures/teams.sql
 const GF_AWAY_TEAM := 2
 const DEFAULT_SEED := 1000
 const DEFAULT_MINUTES := 10
-const TICK_S := 0.01           # GfMatch.step() is one 10 ms tick
+const TICK_S := 1.0 / 54.0      # GfMatch.step() is one PES logic frame
 const MAX_TICKS_PER_FRAME := 10
+# A render-frame interpolation distance above this is a teleport (a restart or a
+# substitution), which snaps rather than slides.
+const SNAP_DISTANCE_SQ := 100.0
 # ponytail: PES picks the default ball from the user's settings
 # (pes-re-officials-ball.md 1); ball001, the first vanilla ball, until that is read.
 const DEFAULT_BALL_ID := 1
@@ -40,6 +43,7 @@ var locomotion: PesLocomotion
 var _skeletons: Array[Skeleton3D] = []
 var _phases: PackedFloat64Array = []
 var _accumulator := 0.0
+var _lastAlpha := 1.0
 var _camera: Camera3D
 var _broadcast: PesBroadcastCamera
 
@@ -88,6 +92,7 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	add_child(ball)
+	_interpolate(0.0)
 	_place(0.0)
 
 
@@ -100,15 +105,35 @@ func _process(delta: float) -> void:
 		sim.step()
 		_accumulator -= TICK_S
 		ticks += 1
+	# Milestone A1: the sim steps one PES logic frame (1/54 s), which is not the
+	# render frame's worth of time, so the pose is interpolated between the last
+	# two logic frames by the leftover fraction of the tick that has elapsed.
+	_interpolate(clampf(_accumulator / TICK_S, 0.0, 1.0))
 	_place(delta)
+
+
+func _interpolate(alpha: float) -> void:
+	# A teleport (a restart, a substitution) snaps instead of sliding.
+	if alpha < _lastAlpha:
+		alpha = 0.0
+	_lastAlpha = alpha
+	for i in players.size():
+		var p: Vector3 = sim.player_position(i)
+		var prev: Vector3 = sim.player_position_previous(i)
+		if (prev - p).length_squared() > SNAP_DISTANCE_SQ:
+			prev = p
+		players[i].global_position = prev.lerp(Vector3(p.x, 0.0, p.z), alpha)
+	var b: Vector3 = sim.ball_position()
+	var bprev: Vector3 = sim.ball_position_previous()
+	if (bprev - b).length_squared() > SNAP_DISTANCE_SQ:
+		bprev = b
+	ball.global_position = bprev.lerp(b, alpha)
 
 
 # ponytail: every player plays steady locomotion; kicks, turns, tackles and
 # keeper actions (PES Animetable/Freemove selection) are not chosen yet.
 func _place(delta: float) -> void:
 	for i in players.size():
-		var p: Vector3 = sim.player_position(i)
-		players[i].global_position = Vector3(p.x, 0.0, p.z)
 		var f: Vector3 = sim.player_facing(i)
 		if f.length_squared() > 0.0:
 			players[i].rotation.y = atan2(f.x, f.z)  # PES characters face +Z
@@ -117,7 +142,6 @@ func _place(delta: float) -> void:
 			var speed := Vector2(v.x, v.z).length()
 			_phases[i] = fmod(_phases[i] + delta * locomotion.phase_rate(speed), 1.0)
 			locomotion.apply(_skeletons[i], speed, _phases[i])
-	ball.global_position = sim.ball_position()
 	if args.has("follow"):
 		var p: Vector3 = players[int(args["follow"])].global_position
 		_camera.look_at_from_position(p + FOLLOW_OFFSET, p + Vector3.UP * FOLLOW_TARGET_HEIGHT_M)

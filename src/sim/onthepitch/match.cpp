@@ -375,11 +375,13 @@ void Match::GetOfficialPlayers(std::vector<PlayerBase*>& players) {
 std::shared_ptr<const MentalImage> Match::GetMentalImageOwned(int history_ms) {
   if (mentalImages.empty()) return nullptr;
 
-  int index = int(round((float)history_ms / 10.0));
+  // The ring holds one snapshot per tick (Milestone A1: 1/54 s), so an age in
+  // milliseconds is a count of them, not of 10 ms steps.
+  int index = int(round((float)history_ms / kTick_ms));
   if (index >= (signed int)mentalImages.size()) index = mentalImages.size() - 1;
   if (index < 0) index = 0;
 
-  mentalImages.at(index)->SetTimeStampNeg_ms(index * 10.0f);
+  mentalImages.at(index)->SetTimeStampNeg_ms(static_cast<unsigned int>(index * kTick_ms));
   return mentalImages.at(index);
 }
 
@@ -389,13 +391,15 @@ const MentalImage* Match::GetMentalImage(int history_ms) {
   // match pointer the caller then reads through.
   if (mentalImages.empty()) return nullptr;
 
-  int index = int(round((float)history_ms / 10.0));
+  // The ring holds one snapshot per tick (Milestone A1: 1/54 s), so an age in
+  // milliseconds is a count of them, not of 10 ms steps.
+  int index = int(round((float)history_ms / kTick_ms));
   if (index >= (signed int)mentalImages.size())
     index = mentalImages.size() - 1;
   if (index < 0)
     index = 0;
 
-  mentalImages.at(index)->SetTimeStampNeg_ms(index * 10.0f);
+  mentalImages.at(index)->SetTimeStampNeg_ms(static_cast<unsigned int>(index * kTick_ms));
 
   return mentalImages.at(index).get();
 }
@@ -589,9 +593,9 @@ void Match::ExecutePendingSubstitutions() {
 
 void Match::ProcessAutoSubstitutions() {
   // Only at stoppages during normal play, and no more than one decision per
-  // second. A shootout is not a stoppage to make substitutions in, and neither
-  // is anything before kick-off.
-  if (!IsSubstitutionWindow() || actualTime_ms % 1000 != 0)
+  // PES frame-second (54 logic frames, PES's own rate). A shootout is not a
+  // stoppage to make substitutions in, and neither is anything before kick-off.
+  if (!IsSubstitutionWindow() || !IsFrameSecond())
     return;
   if (matchPhase == e_MatchPhase_Penalties || gameOver)
     return;
@@ -670,7 +674,7 @@ void Match::ProcessAutoSubstitutions() {
 
 void Match::UpdateBallHeatmap() {
   // One sample a second is plenty for a readable heatmap.
-  if (!IsInPlay() || actualTime_ms % 1000 != 0)
+  if (!IsInPlay() || !IsFrameSecond())
     return;
   if (GetLastTouchTeamID() >= 0)
     MatchAnalytics::AddSample(teamBallHeatmap[GetLastTouchTeamID()], ball->Predict(0).Get2D());
@@ -813,7 +817,7 @@ void Match::Process() {
     goalScoredTimer = 0;
 
   if (IsInPlay() && !IsInSetPiece())
-    GetMatchData()->AddPossessionTime_10ms(designatedPossessionPlayer->GetTeamID());
+    GetMatchData()->AddPossessionTime(designatedPossessionPlayer->GetTeamID(), kTick_ms);
 
   // Measure the arrival, not the launch: the ball's own two positions either
   // side of the goal-line plane, tick by tick. `previousBallPos` is this
@@ -1534,7 +1538,6 @@ bool Match::TripFromContact(Player* victim, Player* other, int tripType) {
 void Match::ProcessPesContacts(const std::vector<Player*>& players) {
   const pes::ContactConstants& k = pesContactConstants;
   constexpr float kTick_s = kTick_ms / 1000.0f;
-  constexpr int kTicksPerSecond = 1000 / kTick_ms;
   const float now = GetSimTime_ms() / 1000.0f;
   const Vector3 ball = GetBall()->Predict(0);
 
@@ -1677,7 +1680,7 @@ void Match::ProcessPesContacts(const std::vector<Player*>& players) {
       gin.selfContactAbility = PesRating(self, "physical_contact");
       gin.partnerContactAbility = PesRating(partner, "physical_contact");
     }
-    st.gauge = pes::UpdateBalanceGauge(k, gin, st.gauge, kTicksPerSecond);
+    st.gauge = pes::UpdateBalanceGauge(k, gin, st.gauge, static_cast<int>(kFramesPerSecond));
 
     if (partner) {
       const PesContactState& ps = pesContact[partner->GetID()];

@@ -29,6 +29,7 @@
 #include "data/playerskills.hpp"
 #include "data/playingstyles.hpp"
 #include "onthepitch/gameplaytuning.hpp"
+#include "onthepitch/pesballphysics.hpp"
 #include "onthepitch/pesdefenderdecisions.hpp"
 #include "onthepitch/pesdodge.hpp"
 #include "onthepitch/matchpressure.hpp"
@@ -1026,9 +1027,9 @@ bool ElizaController::_TackleCandidate(const pes::DefenderDecisionConstants& k) 
     sf = pes::SafetyProgressSine(static_cast<float>(carrier->GetFrameNum()) /
                                  static_cast<float>(carrier->GetTouchFrame()));
   if (pes::StandingTackleSafetyVeto(k, sf, !_HasCover(BearingDeg(pos, carrierPos)), _IsLastLine(),
-                                    static_cast<float>(match->GetActualTime_ms() -
-                                                       carrier->GetLastTouchTime_ms()) /
-                                        Match::kTick_ms))
+                                    static_cast<float>((match->GetActualTime_ms() -
+                                                        carrier->GetLastTouchTime_ms()) /
+                                                       Match::kTick_ms)))
     return false;
 
   // No double tackle: a team mate in a ball action and 1.5x closer to the point
@@ -1182,12 +1183,12 @@ bool ElizaController::_DodgeBallCandidate(int* kind) {
   // through.
   eligibility.lastActionPlayer = match->GetLastTouchPlayer() == CastPlayer();
   // The last-event window: (rng * 5) / 48 frames since his own last event,
-  // rng the game-speed divisor. GF's tick is kTick_ms and the ball's own
-  // last touch is the event the dodge reads.
+  // rng the game-speed divisor. The counter is in logic frames, one of which is
+  // one tick (Milestone A1), so the elapsed ticks are the frames directly.
   const unsigned long now_ms = match->GetSimTime_ms();
   const unsigned long last_ms = CastPlayer()->GetLastTouchTime_ms();
   eligibility.framesSinceEvent =
-      last_ms == 0 ? 1000 : static_cast<int>((now_ms - last_ms) / 10);
+      last_ms == 0 ? 1000 : static_cast<int>((now_ms - last_ms) / Match::kTick_ms);
   if (!pes::BallDodgeEligible(k, eligibility)) return false;
 
   const int speedClass = pes::SpeedClass(CastPlayer()->GetMovement().GetLength() * 3.6f, 0.0f);
@@ -1997,11 +1998,11 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   const Vector3 ballMove = match->GetBall()->GetMovement();
   const float ballHeight = ballPos.coords[2];
   const float degreesPerRadian = 180.0f / 3.14159265358979f;
-  // PES's logic frame: one GF tick is 0.54 of a PES tick, so the carrier's
-  // clock (its possession, in GF ticks) converts by the same factor
-  // pesballphysics.hpp uses for the ball's per-tick factors.
-  const int nowFrame =
-      pes::PesFramesToGfTicks(static_cast<int>(CastPlayer()->GetPossessionDuration_ms() / Match::kTick_ms));
+  // PES's logic frame: the carrier's possession is counted in logic frames, which
+  // is what one tick now is (Milestone A1), so the possession duration in ms
+  // converts by PES's own rate.
+  const int nowFrame = static_cast<int>(
+      CastPlayer()->GetPossessionDuration_ms() * pes::kPesTickHz / 1000.0);
   // GF's committed-action equivalent of PES's `state+8 bit0` reset: inside a
   // pass, shot, trap or ball-control action the carrier is committed, so the
   // think timer restarts every such tick (0x140a6e320's property bits 0x30000).
@@ -2163,14 +2164,15 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     else if (nearestOpp < 3.0f * pressureRadius) carrierPressureClass = 2;
 
     // The lanes: 11 frames ahead, the owned-ball value of report 4.3's `F`.
+    // One logic frame is one tick (Milestone A1), so a PES frame count is that
+    // many ticks.
     constexpr float kLaneFrames = 11.0f;
-    const float laneTime_s = kLaneFrames * Match::kTick_ms * 0.001f / pes::kGfTicksPerPesTick;
+    const float laneTime_s = kLaneFrames * pesball::kPesTick_s;
     // The receiver offside prediction (report 4.3's status 6): every input to
     // the carrier's offside line, and the receiver's own position, is read
     // int(gameSpeed x 0.3) = 16 frames ahead.
     constexpr float kReceiverFrames = 16.0f;
-    const float receiverPrediction_s =
-        kReceiverFrames * Match::kTick_ms * 0.001f / pes::kGfTicksPerPesTick;
+    const float receiverPrediction_s = kReceiverFrames * pesball::kPesTick_s;
     const float lowPass = CastPlayer()->GetStat("technical_shortpass");
     const float carrierSpeed_kmh = CastPlayer()->GetMovement().GetLength() * 3.6f;
 

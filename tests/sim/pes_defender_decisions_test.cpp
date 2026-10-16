@@ -64,8 +64,9 @@ pes::DefenderDecisionConstants Synthetic() {
 }
 
 constexpr float kPesFramesPerSecond = 1.0f / (1.0f / 54.0f);
-// One PES frame is 0.54 of a GF tick, the conversion pesballphysics.hpp uses.
-constexpr float kTicksPerPesFrame = (1.0f / 54.0f) / 0.01f;
+// One PES frame is one tick of this engine's sim (Milestone A1: the sim ticks on
+// PES's own 1/54 s frame), so a frame count is a tick count.
+constexpr float kTicksPerPesFrame = 1.0f;
 
 // Tackle (1), slide (2), receive (3, pes-re-receiving.md §1), block (8),
 // jostle (11).
@@ -182,7 +183,8 @@ TEST(PesDefenderTackle, SafetyProgressSineIsZeroAtTheClipsStartAndOneAtItsContac
 
 TEST(PesDefenderTackle, LastManVetoFollowsTheSafetyTermNotAFixedRule) {
   const pes::DefenderDecisionConstants c = Synthetic();
-  // gs/9 frames at 54 fps = 6 PES frames = 11 GF ticks.
+  // gs/9 frames at 54 fps = 6 PES frames = 6 sim ticks (Milestone A1: a frame is
+  // a tick), so one tick inside the gate and one past it.
   const float gateTicks = (kPesFramesPerSecond / 9.0f) * kTicksPerPesFrame;
   // Inside the gate the term does not apply yet.
   EXPECT_FALSE(pes::StandingTackleSafetyVeto(c, 0.1f, false, true, gateTicks - 1.0f));
@@ -214,11 +216,11 @@ TEST(PesDefenderTackle, TouchLeadGrowsWithTheAggressionLevel) {
   const int a2 = pes::TackleTouchLeadTicks(c, 2);
   EXPECT_LT(a0, a1);
   EXPECT_LT(a1, a2);
-  // 0.075 s at 54 fps = 4.05 PES frames = 7.5 GF ticks, rounding to 8;
-  // 0.1 s = 5.4 frames = 10.0 ticks; 0.125 s = 6.75 frames = 12.5 -> 13.
-  EXPECT_EQ(a0, 8);
-  EXPECT_EQ(a1, 10);
-  EXPECT_EQ(a2, 13);
+  // 0.075 s at 54 fps = 4.05 PES frames = 4.05 ticks, rounding to 4;
+  // 0.1 s = 5.4 frames = 5.4 ticks -> 5; 0.125 s = 6.75 frames = 6.75 -> 7.
+  EXPECT_EQ(a0, 4);
+  EXPECT_EQ(a1, 5);
+  EXPECT_EQ(a2, 7);
   // Out-of-range levels clamp rather than reading past the table.
   EXPECT_EQ(pes::TackleTouchLeadTicks(c, 5), a2);
   EXPECT_EQ(pes::TackleTouchLeadTicks(c, -3), a0);

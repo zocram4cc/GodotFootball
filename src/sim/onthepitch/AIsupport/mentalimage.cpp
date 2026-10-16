@@ -79,20 +79,32 @@ void MentalImage::GetTeamPlayerImages(int teamID, int exceptPlayerID,
 }
 
 void MentalImage::UpdateBallPredictions() {
-  match->GetBall()->GetPredictionArray(ballPredictions);
+  ballPredictions = match->GetBall()->GetTrack();
+}
+
+Vector3 MentalImage::GetBallPredictionAtRecord(unsigned int time_ms, unsigned records) const {
+  // The record the AI's own time reads, plus `records` more: the difference over one
+  // PES tick is the ball's own speed, so a record difference times the tick's rate
+  // in Hz is a velocity in m/s (Milestone A1).
+  const unsigned index = pesball::TrackIndexForAiMs(
+      static_cast<double>(time_ms) + timeStampNeg_ms, ballPredictionSize_ms);
+  return pesball::TrackRecord(ballPredictions, index + records);
 }
 
 Vector3 MentalImage::GetBallPrediction(unsigned int time_ms) const {
-  unsigned int index = time_ms + timeStampNeg_ms;
-  if (index >= ballPredictionSize_ms)
-    index = ballPredictionSize_ms - 10;
-  index = index / 10;
-
-  Vector3 mentalResult = ballPredictions[index];
+  // The track is read the way PES's own readers read it: floor to a record. The live
+  // ball steps on the same 1/54 s tick, so a record is the ball's actual state
+  // (Milestone A1); the interpolated read that stood in while the ball ran on GF's
+  // 10 ms integrator is gone.
+  Vector3 mentalResult = pesball::TrackRecord(
+      ballPredictions, pesball::TrackIndexForAiMs(static_cast<double>(time_ms) + timeStampNeg_ms,
+                                                 ballPredictionSize_ms));
   // The match tears its ball down before the graphics thread has finished its
   // last put, so on the way out there is nothing real left to blend towards.
   if (!match->GetBall()) return mentalResult;
-  Vector3 realResult = match->GetBall()->Predict(time_ms);
+  Vector3 realResult = pesball::TrackRecord(
+      match->GetBall()->GetTrack(),
+      pesball::TrackIndexForAiMs(static_cast<double>(time_ms), ballPredictionSize_ms));
 
   // let there be a maximum difference between the two. why?
   // when a ball gets a wholly new movement, this prediction is obviously far off reality, while
@@ -101,6 +113,8 @@ Vector3 MentalImage::GetBallPrediction(unsigned int time_ms) const {
   // but that is, for now, too complicated. maybe one day rebuild the whole timeneeded/tactics
   // calculations system
 
+  // ponytail: this 2.5 m blend has no PES counterpart; PES's MA ball copy is a plain
+  // per-tick copy. Kept until the MA ball cluster (MB-B) settles what the AI reads.
   Vector3 result = mentalResult.EnforceMaximumDeviation(realResult, maxDistanceDeviation);
 
   return result;

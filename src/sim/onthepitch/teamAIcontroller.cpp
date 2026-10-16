@@ -153,7 +153,7 @@ TeamAIController::~TeamAIController() {
 }
 
 void TeamAIController::Process() {
-  if (match->GetActualTime_ms() % 1000 == 0)
+  if (match->IsFrameSecond())
     UpdateTactics();
 
   CalculateSituation();

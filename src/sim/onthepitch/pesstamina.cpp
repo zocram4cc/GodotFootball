@@ -410,11 +410,10 @@ void UpdateBreath(const StaminaConstants& k, const StaminaState& s, float speed_
   if (speedKmh > k.breathDashSpeed_kmh)
     d = static_cast<int>(d - k.breathDashCostTicks * r);
   if (isBallHolder) d = static_cast<int>(d - k.breathBallHolderCost * r);
-  // One PES tick's delta per 1/54 s scales to one GF tick's per 0.01 s the
-  // same way the drain does, truncated toward zero.
-  const double perPesTick = static_cast<double>(d);
-  const int perGfTick = static_cast<int>(std::trunc(perPesTick * kGfTick_s / kPesTick_s));
-  const int next = std::max(0, *breath + perGfTick);
+  // Milestone A1: the sim's tick IS PES's 1/54 s, so the per-PES-tick delta is
+  // the per-tick delta, with the C idid's truncation toward zero.
+  const int perTick = static_cast<int>(std::trunc(static_cast<double>(d)));
+  const int next = std::max(0, *breath + perTick);
   *breath = std::min(next, BreathCap(k, s));
 }
 
@@ -454,14 +453,11 @@ int DrainTick(const StaminaConstants& k, const StaminaState& s, int speedClass, 
   // The table already holds -M + P, so the two are applied as one term.
   const int spd = k.drainPerSpeed[cls];
   const int r = 5 * (breathTerm - 3) - 2 * f20 - f68 + spd;
-  // `R * 60 / gs` is the PES tick's delta in tank units per 1/54 s, truncated
-  // toward zero exactly as the C idiv does. One GF tick carries
-  // kGfTick_s / kPesTick_s = 0.54 of a PES tick's rate, so a second of GF
-  // ticks is a second of PES ticks (100 * 0.54 = 54), and the second trunc
-  // lands on the scaled integer.
-  const int perPesTick = static_cast<int>(
+  // `R * 60 / gs` is the tick's delta in tank units per 1/54 s, truncated
+  // toward zero exactly as the C idiv does. Milestone A1: the sim's tick is
+  // PES's own, so the delta is applied as PES computes it.
+  const int scaled = static_cast<int>(
       std::trunc(static_cast<double>(r) * k.drainScale_tick / k.gameSpeedIntDivisor));
-  const int scaled = static_cast<int>(std::trunc(perPesTick * kGfTick_s / kPesTick_s));
   const int next = s.cur + scaled;
   // cur < 10 -> 0, and SetCurrent clamps to the tank.
   return next < k.drainEmptyFloor ? 0 : std::min(next, s.max);

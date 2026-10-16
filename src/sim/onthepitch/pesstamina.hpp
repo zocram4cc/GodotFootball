@@ -13,11 +13,9 @@
 // install cannot be built and MatchSetup requires the constants, exactly like
 // the clock's and the ball's.
 //
-// GF's tick is 10 ms (Match::kTick_ms) where PES's is 1/54 s. PES's per-tick
-// drain is an integer rate over game time, so one GF tick accumulates the same
-// rate per second of game time: R_GF = R_PES * 54 * 0.01. The breath update is
-// an integer delta per PES tick, scaled the same way, so a full breath refills
-// in 7.1 s of game time on either clock.
+// The sim's tick is PES's own 1/54 s (Milestone A1), so PES's per-tick drain and
+// breath deltas are applied as PES computes them: no rate conversion between the
+// two clocks.
 
 #include <optional>
 #include <string>
@@ -31,11 +29,6 @@ namespace pes {
 // FUN_140a75be0): 0 if the player is not moving on his own, else the speed in
 // km/h, banded 0.05 / 8 / 13.5 / 22.
 inline constexpr int kSpeedClassCount = 5;
-// GF's tick (Match::kTick_ms) against PES's (1/54 s): one GF tick carries
-// kGfTick_s / kPesTick_s = 0.54 of a PES tick's rate (pesballphysics.hpp's
-// kGfTick_s / kPesTick_s rule).
-inline constexpr float kGfTick_s = 0.01f;
-inline constexpr float kPesTick_s = 1.0f / 54.0f;
 
 struct StaminaConstants {
   // The tank (report 2).

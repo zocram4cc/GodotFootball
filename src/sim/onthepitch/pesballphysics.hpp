@@ -22,20 +22,24 @@
 
 namespace pesball {
 
-// GF's tick: Match::kTick_ms = 10 ms.
-inline constexpr float kGfTick_s = 0.01f;
 // PES's tick: 1/54 s (report 7.3, live DAT_14351ad20; the rate itself comes from
 // .rdata 0x14259d624, read into pes::PesBallConstants::image.tickHz).
 inline constexpr float kPesTick_s = 1.0f / 54.0f;
+// GF's logic tick is PES's own (Milestone A1): 1/54 s. The live ball, the AI's
+// finite differences and every frame-counted timer run on it. `kGfTickHz` is the
+// same rate under the name the call sites use; GF's 10 ms step is gone from the
+// sim and stays only as render interpolation in the Godot glue.
+inline constexpr float kGfTick_s = kPesTick_s;
+inline constexpr float kGfTickHz = pes::kPesTickHz;
 
-// A per-PES-tick keep factor k becomes k^(kGfTick_s/kPesTick_s) per GF tick:
-// PES applies 54 factors a second where GF applies 100, so one GF tick is
-// 0.54 of a PES tick and must lose less - pow(k, 0.54) > k. A second of GF ticks
-// is then a second of PES ticks: 100 * 0.54 = 54. The accelerations (gravity,
-// drag, Magnus) are not converted this way: they are integrated with
-// dt = kGfTick_s, one second of which is one second either way.
-inline float KeepFactorPerGfTick(float perPesTick) {
-  return std::pow(perPesTick, kGfTick_s / kPesTick_s);
+// A per-PES-tick keep factor k applies over a step of step_s seconds as
+// k^(step_s/kPesTick_s). The sim's own tick is PES's 1/54 s (Milestone A1), so
+// the factor is k itself; a step of any other length still converts exactly,
+// which is what the render side's own sub-tick would need. The accelerations
+// (gravity, drag, Magnus) are not converted this way: they are integrated with
+// dt = step_s.
+inline float KeepFactorPerStep(float perPesTick, float step_s) {
+  return std::pow(perPesTick, step_s / kPesTick_s);
 }
 
 // The ball's simulation state, Fox space (Y up, metres): position, velocity
@@ -126,9 +130,11 @@ float SpinCapScale(const pes::PesBallConstants& c, int mode, float spinRad);
 // One full contact tick in Fox space: the snap, the vertical response, the
 // tangential rewrite and the spin rebuild/cap/stop, per reports 2-3. `t` is the
 // ball's own contact tick counter, `airborne` PES's r15b (was not resting),
-// `quatIntegrate` its r12b (render path). On return `out` holds the new state.
+// `quatIntegrate` its r12b (render path). `step_s` is the tick the per-tick factors
+// are applied over: kPesTick_s for the sim's own tick. On return `state` holds the
+// new state.
 void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tickIndex, bool airborne,
-                 bool quatIntegrate);
+                 bool quatIntegrate, float step_s);
 
 // One flight tick: the report 6.3 acceleration integrated with dt = 0.01 s,
 // semi-implicit Euler the way PES does it (v += a*dt; p += v*dt).

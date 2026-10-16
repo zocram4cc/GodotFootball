@@ -18,9 +18,8 @@
 // Match construction refuses it, exactly like the clock constants
 // (src/sim/onthepitch/pesclock.hpp).
 //
-// The per-tick factors PES applies every 1/54 s are converted to this engine's
-// 10 ms tick (Match::kTick_ms): a keep factor k per PES tick becomes k^(54*0.01)
-// per GF tick, and accelerations are integrated with dt = 0.01 s. The 54 Hz
+// PES applies its per-tick factors every 1/54 s, and this engine's tick is the
+// same 1/54 s (Milestone A1), so the factors apply as themselves. The 54 Hz
 // rate is read from .rdata 0x14259d624, not from the live dt global, whose
 // on-disk default is 1/48.
 

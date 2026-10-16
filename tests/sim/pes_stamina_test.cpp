@@ -186,23 +186,22 @@ TEST(PesStamina, DrainPerSpeedClassMatchesTheLiveSeries) {
   // cannot show the standing gain.
   s.cur = s.max - 50;
   const int cur = s.cur;
-  // Report 7's most frequent per-tick deltas, at gs 54, carried onto GF's
-  // 10 ms tick (0.54 of a PES tick): the integer the drain computes is the
-  // PES per-tick delta, scaled per GF tick and truncated toward zero.
-  //   stand +8 -> +4, walk +6 -> +3, jog -2 -> -1, run -17 -> -9,
-  //   dash -22 -> -11.
-  EXPECT_EQ(pes::DrainTick(k, s, 0, full, false), cur + 4);
-  EXPECT_EQ(pes::DrainTick(k, s, 1, full, false), cur + 3);
-  EXPECT_EQ(pes::DrainTick(k, s, 2, full, false), cur - 1);
-  EXPECT_EQ(pes::DrainTick(k, s, 3, full, false), cur - 9);
-  EXPECT_EQ(pes::DrainTick(k, s, 4, full, false), cur - 11);
+  // Report 7's live-validated per-tick deltas at gs 54: these are the values the
+  // drain computes, and the sim ticks on PES's own frame (Milestone A1), so they
+  // are the per-tick deltas directly - nothing is scaled to a 10 ms tick.
+  //   stand +8, walk +6, jog -2, run -17, dash -22.
+  EXPECT_EQ(pes::DrainTick(k, s, 0, full, false), cur + 8);
+  EXPECT_EQ(pes::DrainTick(k, s, 1, full, false), cur + 6);
+  EXPECT_EQ(pes::DrainTick(k, s, 2, full, false), cur - 2);
+  EXPECT_EQ(pes::DrainTick(k, s, 3, full, false), cur - 17);
+  EXPECT_EQ(pes::DrainTick(k, s, 4, full, false), cur - 22);
   // F20 = 1 (the side does control it): F68 drops out, the -2 stays.
-  //   run -18 -> -9, dash -23 -> -12.
-  EXPECT_EQ(pes::DrainTick(k, s, 3, full, true), cur - 9);
-  EXPECT_EQ(pes::DrainTick(k, s, 4, full, true), cur - 12);
-  // Breath not full (bp below 100), F68 = 1: run -23 -> -12, dash -27 -> -14.
-  EXPECT_EQ(pes::DrainTick(k, s, 3, 19, false), cur - 12);
-  EXPECT_EQ(pes::DrainTick(k, s, 4, 19, false), cur - 14);
+  //   run -18, dash -23.
+  EXPECT_EQ(pes::DrainTick(k, s, 3, full, true), cur - 18);
+  EXPECT_EQ(pes::DrainTick(k, s, 4, full, true), cur - 23);
+  // Breath not full (bp below 100), F68 = 1: run -23, dash -27.
+  EXPECT_EQ(pes::DrainTick(k, s, 3, 19, false), cur - 23);
+  EXPECT_EQ(pes::DrainTick(k, s, 4, 19, false), cur - 27);
 }
 
 TEST(PesStamina, DrainIsFrozenAtEmptyAndClampedAtTheTank) {
@@ -228,26 +227,27 @@ TEST(PesStamina, BreathRefillsWhileStandingAndDrainsWhileDashing) {
   pes::StaminaState s;
   pes::InitStamina(k, 80, 2, 1, F10, 100, &s);
   s.breath = 0;
-  // Standing (below the 22 km/h dash test): +5 per PES tick = +2 per GF tick
-  // (5 * 54 / 100, truncated toward zero), with the cap holding at 1920.
+  // Standing (below the 22 km/h dash test): +5 a tick, with the cap holding at
+  // 1920. A tick is PES's own 1/54 s (Milestone A1), so the per-tick delta is
+  // applied as it stands.
   pes::UpdateBreath(k, s, 3.0f, false, &s.breath);
-  EXPECT_EQ(s.breath, 2);
+  EXPECT_EQ(s.breath, 5);
   for (int i = 0; i < 2000; i++) pes::UpdateBreath(k, s, 3.0f, false, &s.breath);
   EXPECT_EQ(s.breath, 1920) << "the cap is max(pct, 20) * 1920 / 100";
 
-  // Dashing, no ball: d = (int)(5 - 9*48/54) = -3, so -1 per GF tick.
+  // Dashing, no ball: d = (int)(5 - 9*48/54) = -3 a tick.
   s.breath = 100;
   pes::UpdateBreath(k, s, 25.0f, false, &s.breath);
-  EXPECT_EQ(s.breath, 99);
-  // Dashing with the ball: d = (int)(-3 - 2*48/54) = -4, so -2 per GF tick.
+  EXPECT_EQ(s.breath, 97);
+  // Dashing with the ball: d = (int)(-3 - 2*48/54) = -4 a tick.
   s.breath = 100;
   pes::UpdateBreath(k, s, 25.0f, true, &s.breath);
-  EXPECT_EQ(s.breath, 98);
-  // Walking with the ball: d = (int)(5 - 2*48/54) = 3, so +1 per GF tick -
-  // the ball holder still refills, just more slowly.
+  EXPECT_EQ(s.breath, 96);
+  // Walking with the ball: d = (int)(5 - 2*48/54) = 3 a tick - the ball holder
+  // still refills, just more slowly.
   s.breath = 100;
   pes::UpdateBreath(k, s, 3.0f, true, &s.breath);
-  EXPECT_EQ(s.breath, 101);
+  EXPECT_EQ(s.breath, 103);
 }
 
 TEST(PesStamina, BreathCapFollowsTheTankPercentage) {
@@ -478,11 +478,11 @@ TEST(PesStaminaInstall, LoadsTheInstallConstants) {
   // show the standing gain.
   s.cur = s.max - 50;
   const int cur = s.cur;
-  // The live-validated drain series (report 7), scaled to GF's tick:
-  // breath full, F68 = 1 -> stand +4, jog -1, dash -11; breath not full,
-  // F68 = 1, dash -14.
-  EXPECT_EQ(pes::DrainTick(k, s, 0, 100, false), cur + 4);
-  EXPECT_EQ(pes::DrainTick(k, s, 2, 100, false), cur - 1);
-  EXPECT_EQ(pes::DrainTick(k, s, 4, 100, false), cur - 11);
-  EXPECT_EQ(pes::DrainTick(k, s, 4, 19, false), cur - 14);
+  // The live-validated drain series (report 7), the per-tick deltas the sim
+  // applies on PES's own frame: breath full, F68 = 1 -> stand +8, jog -2,
+  // dash -22; breath not full, F68 = 1, dash -27.
+  EXPECT_EQ(pes::DrainTick(k, s, 0, 100, false), cur + 8);
+  EXPECT_EQ(pes::DrainTick(k, s, 2, 100, false), cur - 2);
+  EXPECT_EQ(pes::DrainTick(k, s, 4, 100, false), cur - 22);
+  EXPECT_EQ(pes::DrainTick(k, s, 4, 19, false), cur - 27);
 }

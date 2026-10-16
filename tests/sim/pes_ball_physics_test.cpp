@@ -11,6 +11,7 @@
 #include "onthepitch/pesballphysics.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
+#include "pes_synthetic_ball.hpp"
 
 // PES 2021's ball flight and ground contact (docs/re/pes-re-ball-contact.md,
 // docs/re/pes-re-officials-ball.md 6.3, docs/re/pes-re-ball-constants.md).
@@ -25,89 +26,6 @@ using pes::BallRecordConstants;
 using pes::PesBallConstants;
 using pesball::BallState;
 
-// The mode-1 column the reports were taken against, with the report's shipped
-// values (docs/re/pes-re-ball-constants.md 6.2). Synthetic: a test never
-// transcribes an install, it states the rule under test.
-PesBallConstants SyntheticConstants() {
-  PesBallConstants c;
-  c.image.gravity = 9.80665f;
-  c.image.airDensity = 1.293f;
-  c.image.ballArea = 0.037110474f;
-  c.image.ballRadius = 0.108685933f;
-  c.image.ballRadiusSquared = 0.0118126301f;
-  c.image.dragCrisisSquared = 7.71604872f;
-  c.image.half = -0.5f;
-  c.image.pi = 3.14159274f;
-  c.image.kmhPerMs = 3.5999999f;
-  c.image.secondsPerHour = 3600.0f;
-  c.image.milli = 1000.0f;
-  c.image.tickHz = 54.0f;
-  c.image.nonSpinTopMax = 23.6111107f;
-  c.image.nonSpinTopPlateau = 48.2253113f;
-  c.image.spinScale = 492.181f;
-  c.image.invSpinScale = 1.0f / 492.181f;
-
-  BallRecordConstants& r = c.record;
-  r.airRegistNormal = 1.0f;
-  r.dragSpeedMax = 96.995003f;
-  r.dragSpeedMin = 56.995602f;
-  r.magnusRate = 0.035f;
-  r.nonSpinMax = 106.0f;
-  r.nonSpinMin = 45.0f;
-  r.nonSpinRate = 1.0f;
-  r.boundBoundSpeedMax = 12.0f;
-  r.boundBoundSpeedMin = 2.0f;
-  r.boundFrictionSpeedMax = 25.0f;
-  r.boundFrictionSpeedMin = 10.0f;
-  r.boundRollMax = 7.5f;
-  r.boundRotationSpeedMax = 20.0f;
-  r.boundRotationSpeedMin = 5.0f;
-  r.grounderBoundYAdd = 0.09f;
-  r.grounderCTan = 8.0f;
-  r.grounderFrictionRate = 0.985f;
-  r.grounderSpeed = 20.0f;
-  r.natualBoundB = 0.4f;
-  r.naturalRoll = 2.0f;
-  r.rollToBoundAdd = 0.07f;
-  r.rollToBoundRollMax = 7.0f;
-  r.rollToBoundRollMin = 2.0f;
-  r.stopSpeed = 0.175f;
-  r.spinScaleSlot = 0;
-  const auto set = [&](BallRecordConstants::ArrayRow row, float v0, float v1, float v2, float v3,
-                       float v4, float v5) {
-    r.arrays[row] = {v0, v1, v2, v3, v4, v5};
-  };
-  set(BallRecordConstants::kBoundCheckBoundAddRate, 10, 5, 0, 0, 5, 5);
-  set(BallRecordConstants::kBoundCheckFrictionAddRate, 0, 0, 0, 0, 7.5f, 0);
-  set(BallRecordConstants::kBoundRate, 0.7f, 0.7f, 0.7f, 0.5f, 0.7f, 0.7f);
-  set(BallRecordConstants::kBoundToRotationAddRateXZ, 0.6f, 0.62f, 0.64f, 0.12f, 0.62f, 0.62f);
-  set(BallRecordConstants::kBoundToRotationAddRateY, 0.07f, 0.07f, 0.07f, 0.07f, 0.07f, 0.03f);
-  set(BallRecordConstants::kBoundToRotationBaseXZ, 0.16f, 0.2f, 0.24f, 0.13f, 0.2f, 0.2f);
-  set(BallRecordConstants::kBoundToRotationBaseY, 0.03f, 0.03f, 0.03f, 0.03f, 0.03f, 0.02f);
-  set(BallRecordConstants::kBoundToRotationSpeedMaxXZ, 25, 25, 25, 25, 0.7f, 25);
-  set(BallRecordConstants::kBoundToRotationSpeedMaxY, 0.7f, 0.7f, 0.7f, 0.7f, 0.7f, 30);
-  set(BallRecordConstants::kBoundToRotationSpeedMinXZ, 3, 3, 3, 3, 0.1f, 3);
-  set(BallRecordConstants::kBoundToRotationSpeedMinY, 0.1f, 0.1f, 0.1f, 0.1f, 0.1f, 1);
-  set(BallRecordConstants::kFrictionRollRateMax, 0.975f, 0.972f, 0.969f, 0.99f, 0.955f, 0.983f);
-  set(BallRecordConstants::kFrictionRollRateMin, 0.985f, 0.982f, 0.979f, 0.98f, 0.987f, 0.983f);
-  set(BallRecordConstants::kFrictionRollRateStop, 0.975f, 0.972f, 0.969f, 0.97f, 0.987f, 0.983f);
-  set(BallRecordConstants::kFrictionRollSpeedMax, 25, 25, 25, 50, 8, 0);
-  set(BallRecordConstants::kFrictionRollSpeedMin, 8, 8, 8, 8, 8, 15);
-  set(BallRecordConstants::kFrictionRollSpeedStop, 0, 0, 0, 0, 8, 0);
-  // gounnderprob: the grounder tick gate, an integer row (report 6.2's "u32
-  // 5,5,5,9,9,5"). Mode 1's element is 5, so one contact tick in five fires the
-  // driven grounder. The report's prose calls mode 1's value 0, which would be a
-  // divide-by-zero; the shipped bytes are 5 and a port follows the bytes.
-  r.rawArrays[BallRecordConstants::kGounnderprob] = {5, 5, 5, 9, 9, 5};
-  set(BallRecordConstants::kNatualBoundA, 0.055f, 0.055f, 0.055f, 0.055f, 0.055f, 0.055f);
-  set(BallRecordConstants::kNatunalRollBackSpinRate, 0.35f, 0.4f, 0.45f, 0.2f, 0.5f, 0.4f);
-  set(BallRecordConstants::kOverRotMax, 1, 1, 1, 1, 1, 1);
-  set(BallRecordConstants::kOverRotMin, -2, -2, -2, -2, -2, -2);
-  set(BallRecordConstants::kRollToSpeedMaxKph, 20, 20, 20, 8.5f, 18, 16);
-  set(BallRecordConstants::kRollToSpeedSpeedYRateBase, 0.8f, 0.8f, 0.8f, 0.4f, 0.2f, 0.8f);
-  return c;
-}
-
 constexpr double kEps = 1e-6;
 
 // --- the snap and the vertical response (report 2.3, 3.4) ---
@@ -117,7 +35,7 @@ TEST(PesBallContact, SnapsToRadiusAndKeepsHorizontalSpeed) {
   BallState s;
   s.position = pes::Vec3(1.0f, 0.05f, -2.0f);  // below r
   s.velocity = pes::Vec3(2.0f, -3.0f, 0.5f);
-  pesball::ContactTick(c, &s, 0, true, false);
+  pesball::ContactTick(c, &s, 0, true, false, pesball::kGfTick_s);
   EXPECT_NEAR(s.position.y, c.image.ballRadius, 1e-6);
   EXPECT_NEAR(s.position.x, 1.0f, 1e-6) << "a contact tick integrates no position";
   EXPECT_NEAR(s.position.z, -2.0f, 1e-6);
@@ -146,7 +64,7 @@ TEST(PesBallContact, VerticalKeepIsPesThreeToTenPercentAndIsNotTheBounce) {
   BallState hard;
   hard.position = pes::Vec3(0, c.image.ballRadius, 0);
   hard.velocity = pes::Vec3(0, -4.0f, 0);
-  pesball::ContactTick(c, &hard, 0, true, false);
+  pesball::ContactTick(c, &hard, 0, true, false, pesball::kGfTick_s);
   EXPECT_GT(hard.velocity.y, 0.3f) << "a 4 m/s drop must not come back at 0.4 m/s";
 }
 
@@ -207,7 +125,7 @@ TEST(PesBallContact, BounceDoesNotDependOnSpin) {
     s.position = pes::Vec3(0, c.image.ballRadius, 0);
     s.velocity = pes::Vec3(5.0f, -4.99f, 0.0f);
     s.spinRaw = pes::Vec3(0.0f, spinRawY, 0.0f);
-    pesball::ContactTick(c, &s, 0, true, false);
+    pesball::ContactTick(c, &s, 0, true, false, pesball::kGfTick_s);
     return s.velocity.y;
   };
   const float none = bounceWith(0.0f);
@@ -291,7 +209,7 @@ TEST(PesBallContact, SpinRebuildMovesRawSpinTowardTheRollingSpin) {
   s.position = pes::Vec3(0, c.image.ballRadius, 0);
   s.velocity = pes::Vec3(4.0f, 0.0f, 0.0f);  // a coupled roller: w = v/r
   s.spinRaw = pes::Vec3(0, 0, 0);
-  pesball::ContactTick(c, &s, 0, true, false);
+  pesball::ContactTick(c, &s, 0, true, false, pesball::kGfTick_s);
   // The rolling spin v/r is 36.3 rad/s, well above the boundRollMax cap of 7.5,
   // so the rebuilt raw spin must land on the cap. The cap scales the whole
   // vector, and this contact's bounce (report 1.3: min(-imp, 0) = -imp) also puts
@@ -306,7 +224,7 @@ TEST(PesBallContact, SpinRebuildMovesRawSpinTowardTheRollingSpin) {
   BallState slowRoll;
   slowRoll.position = pes::Vec3(0, c.image.ballRadius, 0);
   slowRoll.velocity = pes::Vec3(0.5f, 0.0f, 0.0f);
-  pesball::ContactTick(c, &slowRoll, 0, true, false);
+  pesball::ContactTick(c, &slowRoll, 0, true, false, pesball::kGfTick_s);
   EXPECT_NEAR(slowRoll.spinRaw.x * c.image.spinScale, 0.5f / c.image.ballRadius,
               0.5f / c.image.ballRadius * 0.05f);
 }
@@ -326,7 +244,7 @@ TEST(PesBallContact, StopGateZeroesOnlyTheHorizontalVelocity) {
   BallState s;
   s.position = pes::Vec3(0, c.image.ballRadius, 0);
   s.velocity = pes::Vec3(0.001f, -0.02f, 0.001f);  // horizontal 0.0014 m/s, below
-  pesball::ContactTick(c, &s, 0, true, false);
+  pesball::ContactTick(c, &s, 0, true, false, pesball::kGfTick_s);
   EXPECT_EQ(s.velocity.x, 0.0f);
   EXPECT_EQ(s.velocity.z, 0.0f);
   EXPECT_GT(s.velocity.y, 0.0f) << "the vertical velocity survives the stop gate";
@@ -335,7 +253,7 @@ TEST(PesBallContact, StopGateZeroesOnlyTheHorizontalVelocity) {
   BallState rolling;
   rolling.position = pes::Vec3(0, c.image.ballRadius, 0);
   rolling.velocity = pes::Vec3(1.0f, -0.5f, 0.0f);
-  pesball::ContactTick(c, &rolling, 0, true, false);
+  pesball::ContactTick(c, &rolling, 0, true, false, pesball::kGfTick_s);
   EXPECT_GT(std::fabs(rolling.velocity.x), 0.5f) << "a rolling ball keeps rolling";
 }
 
@@ -406,43 +324,42 @@ TEST(PesBallContact, RollingDecelerationIsAboutTwoMetresPerSecondSquared) {
 
 // --- the 10 ms conversion ---
 
-TEST(PesBallConversion, KeepFactorMapsOntoTheGfTick) {
-  // PES applies K once per 1/54 s; GF ticks every 10 ms. One GF tick is 0.54 of
-  // a PES tick, so the per-GF-tick factor is K^0.54 - and 54 of them is not
-  // K^54 but K^(54*0.54) = K^(54*0.54).
+TEST(PesBallConversion, KeepFactorIsItselfOnTheSimsOwnTick) {
+  // PES applies K once per 1/54 s, and the sim's tick is PES's own 1/54 s
+  // (Milestone A1), so the per-tick factor is K itself: a second of ticks is
+  // exactly 54 applications of K.
   const float perPesTick = 0.981f;
-  const float perGfTick = pesball::KeepFactorPerGfTick(perPesTick);
-  EXPECT_NEAR(perGfTick, std::pow(perPesTick, 0.01f / (1.0f / 54.0f)), 1e-6);
-  EXPECT_LT(perGfTick, 1.0f);
-  EXPECT_GT(perGfTick, perPesTick) << "a shorter step loses less";
-  // A second of GF ticks now equals a second of PES ticks to within float
-  // precision: 0.01*100 ticks of K^(0.54) == 0.0185*54 ticks of K.
+  const float perGfTick = pesball::KeepFactorPerStep(perPesTick, pesball::kGfTick_s);
+  EXPECT_NEAR(perGfTick, perPesTick, 1e-6);
+  EXPECT_NEAR(perGfTick, std::pow(perPesTick, 1.0f), 1e-6);
   float gf = 1.0f, pes = 1.0f;
-  for (int i = 0; i < 100; ++i) gf *= perGfTick;
+  for (int i = 0; i < 54; ++i) gf *= perGfTick;
   for (int i = 0; i < 54; ++i) pes *= perPesTick;
-  // 100 GF ticks and 54 PES ticks are both one second of sim time.
-  EXPECT_NEAR(gf, pes, 1e-3);
+  EXPECT_FLOAT_EQ(gf, pes);
+  // A step of any other length still converts exactly, so the render side's own
+  // sub-tick would stay PES.
+  EXPECT_NEAR(pesball::KeepFactorPerStep(perPesTick, 0.01f), std::pow(perPesTick, 0.54f), 1e-6);
 }
 
-TEST(PesBallConversion, FlightTickUsesTheGfStep) {
-  // The flight model is an acceleration, integrated with dt = 0.01 s: one GF
-  // tick at 10 ms is 0.54 of a PES tick's worth of acceleration.
+TEST(PesBallConversion, FlightTickIntegratesTheAccelerationOverTheTickStep) {
+  // The flight model is an acceleration, integrated with dt = the sim's tick
+  // (Milestone A1: one PES tick, 1/54 s).
   const PesBallConstants c = SyntheticConstants();
   BallState s;
   s.position = pes::Vec3(0, 1.0f, 0);
   s.velocity = pes::Vec3(0, 0, 20.0f);  // 72 km/h, above the crisis band
-  // One GF tick is the acceleration at the tick's entry velocity held across the
+  // One tick is the acceleration at the tick's entry velocity held across the
   // step: semi-implicit Euler integrates the acceleration first.
   const pes::Vec3 a = pesball::FlightAcceleration(c, s, 0, 0, 0, false);
   const float v0 = s.velocity.z;
-  pesball::FlightTick(c, &s, 0.01f, false);
+  pesball::FlightTick(c, &s, pesball::kGfTick_s, false);
   const float dv = s.velocity.z - v0;
   EXPECT_LT(dv, 0.0f) << "drag slows the ball down";
-  EXPECT_NEAR(dv, a.z * 0.01f, 1e-6);
+  EXPECT_NEAR(dv, a.z * pesball::kGfTick_s, 1e-6);
   // Gravity is applied on top: after a second of ticks the ball has fallen.
   BallState falling;
   falling.position = pes::Vec3(0, 5.0f, 0);
-  for (int i = 0; i < 100; ++i) pesball::FlightTick(c, &falling, 0.01f, false);
+  for (int i = 0; i < 54; ++i) pesball::FlightTick(c, &falling, pesball::kGfTick_s, false);
   EXPECT_LT(falling.position.y, 5.0f);
 }
 
@@ -642,7 +559,7 @@ TEST(PesBallShot, GroundShotFromThePenaltySpotCrossesTheGoalPlane) {
   // gametypes.hpp: the goal plane is pitchHalfW + lineHalfW + ballRadius
   // (CheckForGoal's triangles). goalHalfWidth is lateral, not longitudinal.
   const float goalPlane = 52.5f + 0.06f + c.image.ballRadius;
-  const float kDt = 0.01f;  // Match::kTick_ms / 1000
+  const float kDt = pesball::kGfTick_s;  // one tick of ball.cpp's own loop
 
   // The penalty spot is 11 m out; a 25 m/s shot (90 km/h) is a struck penalty.
   BallState s;
@@ -653,7 +570,7 @@ TEST(PesBallShot, GroundShotFromThePenaltySpotCrossesTheGoalPlane) {
   bool crossed = false;
   for (int i = 0; i < 3000 && !crossed; ++i) {
     if (s.position.y <= c.image.ballRadius) {
-      pesball::ContactTick(c, &s, contactTicks, true, false);
+      pesball::ContactTick(c, &s, contactTicks, true, false, pesball::kGfTick_s);
       ++contactTicks;
       s.position.x += s.velocity.x * kDt;
       s.position.y += s.velocity.y * kDt;
@@ -667,9 +584,9 @@ TEST(PesBallShot, GroundShotFromThePenaltySpotCrossesTheGoalPlane) {
                        << "(it reached x = " << s.position.x << " of " << goalPlane << " m)";
 }
 
-// One second of GF ticks must lose the same speed PES loses in a second of its
-// own ticks: the per-tick factors are converted, not re-applied.
-TEST(PesBallConversion, ASecondOfGfTicksIsASecondOfPesTicksWhileRolling) {
+// One second of the sim's ticks must lose the same speed PES loses in a second of
+// its own ticks: the per-tick factors are converted, not re-applied.
+TEST(PesBallConversion, ASecondOfSimTicksIsASecondOfPesTicksWhileRolling) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set: the ball constants come from the install";
   std::string err;
@@ -681,19 +598,20 @@ TEST(PesBallConversion, ASecondOfGfTicksIsASecondOfPesTicksWhileRolling) {
   ASSERT_TRUE(cc.has_value()) << err;
   const PesBallConstants c = *cc;
 
-  // The same rolling ball, one second of PES ticks and one second of GF ticks,
+  // The same rolling ball, one second of PES ticks and one second of the sim's
+  // ticks - 54 of each, since the sim ticks on PES's own frame (Milestone A1) -
   // in the dry-normal contact mode this engine plays by default (report 3.2).
   float vPes = 10.0f, vGf = 10.0f;
   for (int i = 0; i < 54; ++i) vPes *= pesball::RollingKeepFactor(c, pesball::ClampMode(c.contactMode), vPes);
-  for (int i = 0; i < 100; ++i) {
+  for (int i = 0; i < 54; ++i) {
     BallState s;
     s.position = pes::Vec3(0, c.image.ballRadius, 0);
     s.velocity = pes::Vec3(vGf, 0.0f, 0.0f);
-    pesball::ContactTick(c, &s, 0, true, false);
+    pesball::ContactTick(c, &s, 0, true, false, pesball::kGfTick_s);
     vGf = s.velocity.x;
   }
   EXPECT_NEAR(vGf, vPes, vPes * 0.05)
-      << "100 GF ticks and 54 PES ticks are both one second: " << vGf << " vs " << vPes;
+      << "54 sim ticks and 54 PES ticks are both one second: " << vGf << " vs " << vPes;
 }
 
 }  // namespace

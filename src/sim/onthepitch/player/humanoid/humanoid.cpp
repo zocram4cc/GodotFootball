@@ -32,9 +32,16 @@
 #include "data/playerskills.hpp"
 #include "humanoid_utils.hpp"
 #include "onthepitch/gameplaytuning.hpp"
+#include "onthepitch/pesballphysics.hpp"
 #include "utils/animationextensions/footballanimationextension.hpp"
 
 namespace {
+
+// PES records the finite differences below are taken over (Milestone A1). GF took
+// them as 10 ms grid samples; one PES tick is 1/54 s, so a 10 ms window is at most
+// one record and a 60 ms window is three.
+constexpr unsigned kIncomingDirectionRecords = 3;
+constexpr unsigned kBallMovementRecords = 1;
 
 // GF stores PES's 0..99 abilities as 0..0.99.
 constexpr float kStatPerUnit = 100.0f;
@@ -200,7 +207,7 @@ void Humanoid::Process() {
   // positionoffset: %f\n", decayingPositionOffset.GetLength());
   decayingDifficultyFactor = clamp(decayingDifficultyFactor - 0.002f, 0.0f, 1.0f);
 
-  if (CastPlayer()->GetDebug() && match->GetActualTime_ms() % 250 == 0) {
+  if (CastPlayer()->GetDebug() && match->GetSimFrame() % 25 == 0) {
     printf("velo: %f (max: %f)\n", spatialState.movement.GetLength(),
            player->GetMaxVelocity());  // todo: second frame seems to be half speed? (update: not
                                        // sure if stil the case)
@@ -280,25 +287,27 @@ void Humanoid::Process() {
             .GetLength();  //(spatialState.position -
                            // match->GetDesignatedPossessionPlayer()->GetPosition()).GetLength();
 
+    // The requeue cadence PES's anim layer runs at: every 2, 3, 4, 5 or 8 logic
+    // frames. These were GF tick counts aliased onto milliseconds on the 10 ms
+    // tick; with one tick per PES logic frame (Milestone A1) the millisecond
+    // counts are frame counts, per-team phase included (RequeueOnFrame).
+    const unsigned long frame = match->GetSimFrame();
+    const int id = team->GetID();
+
     if (match->GetDesignatedPossessionPlayer() == player && actionDistance < 3.0f) {
-      frameNumPredicate =
-          ((match->GetActualTime_ms() + team->GetID() * 10) % 20) == 0;  // .. 1 .. 2 .. 1 .. 2 ..
+      frameNumPredicate = RequeueOnFrame(frame, id, 2, 1);  // .. 1 .. 2 .. 1 .. 2 ..
 
     } else if (match->GetDesignatedPossessionPlayer() == player) {
-      frameNumPredicate = ((match->GetActualTime_ms() + team->GetID() * 10) % 30) ==
-                          0;  // .. 1 .. 2 .. x .. 1 .. 2 .. x ..
+      frameNumPredicate = RequeueOnFrame(frame, id, 3, 1);  // .. 1 .. 2 .. x .. 1 .. 2 ..
 
     } else if (team->GetDesignatedTeamPossessionPlayer() == player) {
-      frameNumPredicate = ((match->GetActualTime_ms() + team->GetID() * 20) % 40) ==
-                          0;  // .. 1 .. x .. 2 .. x .. 1 .. x .. 2 ..
+      frameNumPredicate = RequeueOnFrame(frame, id, 4, 2);  // .. 1 .. x .. 2 .. 1 .. x .. 2 ..
 
     } else if (actionDistance < 5.0f) {
-      frameNumPredicate = ((match->GetActualTime_ms() + team->GetID() * 20) % 50) ==
-                          0;  // .. 1 .. x .. 2 .. x .. x ..
+      frameNumPredicate = RequeueOnFrame(frame, id, 5, 2);  // .. 1 .. x .. 2 .. x .. x ..
 
     } else if (actionDistance < 10.0f) {
-      frameNumPredicate = ((match->GetActualTime_ms() + team->GetID() * 40) % 80) ==
-                          0;  // .. 1 .. x .. x .. x .. 2 .. x .. x .. x ..
+      frameNumPredicate = RequeueOnFrame(frame, id, 8, 4);  // .. 1 .. x .. x .. x .. 2 ..
     }
 
     if (!frameNumPredicate)
@@ -2140,10 +2149,15 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
       command.desiredFunctionType == e_FunctionType_Interfere ||
       command.desiredFunctionType == e_FunctionType_Deflect) {
     query.byIncomingBallDirection = true;
+    // The incoming ball's direction over the trap/interfere/deflect horizon. GF took
+    // a 60 ms difference of two 10 ms grid samples; with the ball on PES's 1/54 s
+    // tick (Milestone A1) that spacing is 3 PES records, so the difference is taken
+    // over three records.
     query.incomingBallDirection =
-        (currentMentalImage->GetBallPrediction(180) - currentMentalImage->GetBallPrediction(120))
+        (currentMentalImage->GetBallPredictionAtRecord(180, 0) -
+         currentMentalImage->GetBallPredictionAtRecord(120, kIncomingDirectionRecords))
             .GetRotated2D(-spatialState.angle)
-            .GetNormalized(Vector3(0));  // todo: proper prediction time
+            .GetNormalized(Vector3(0));
   }
 
   /*
@@ -2864,9 +2878,14 @@ bool Humanoid::NeedTouch(int animID, const PlayerCommand& command) {
   animMovement.Normalize(spatialState.directionVec);
   animMovement *= spatialState.movement.GetLength() * 0.8f + animVelo * 0.2f;
 
-  Vector3 ballMovement = (currentMentalImage->GetBallPrediction(250).Get2D() -
-                          currentMentalImage->GetBallPrediction(240).Get2D()) *
-                         100;
+  // The ball's movement over the touch decision's 10 ms window. With the ball on
+  // PES's 1/54 s tick (Milestone A1) the window straddles at most one record, so the
+  // difference is taken over one record and scaled by the tick's rate in Hz.
+  Vector3 ballMovement = (currentMentalImage->GetBallPredictionAtRecord(250, 0).Get2D() -
+                          currentMentalImage->GetBallPredictionAtRecord(250,
+                                                                         kBallMovementRecords)
+                              .Get2D()) *
+                         pes::kPesTickHz;
 
   if (fabs(anim->GetOutgoingAngle()) > 0.125f * pi)
     return true;
@@ -3153,9 +3172,12 @@ signed int Humanoid::GetBestCheatableAnimID(
 
       Vector3 ballPos, ballMovement;
       ballPos = currentMentalImage->GetBallPrediction(animTouchFrame * 10);
-      ballMovement = (currentMentalImage->GetBallPrediction(animTouchFrame * 10 + 10) -
-                      currentMentalImage->GetBallPrediction(animTouchFrame * 10)) *
-                     100.0f;
+      // The ball's movement across the touch frame, over one PES record (Milestone
+      // A1: the 10 ms difference became a record difference times the tick's rate).
+      ballMovement = (currentMentalImage->GetBallPredictionAtRecord(animTouchFrame * 10,
+                                                                   kBallMovementRecords) -
+                      currentMentalImage->GetBallPredictionAtRecord(animTouchFrame * 10, 0)) *
+                     pes::kPesTickHz;
       ballPos = (ballPos - spatialState.position).GetRotated2D(-spatialState.angle);
       ballMovement = ballMovement.GetRotated2D(-spatialState.angle);
 

@@ -8,6 +8,8 @@
 
 #include "../../gamedefines.hpp"
 #include "base/math/vector3.hpp"
+#include <array>
+#include "../pesballtrack.hpp"
 #include "defines.hpp"
 
 using namespace blunted;
@@ -27,6 +29,10 @@ public:
 
   void UpdateBallPredictions();
   Vector3 GetBallPrediction(unsigned int time_ms) const;
+  // The ball's position `records` PES ticks further on than a GF time, for a
+  // finite difference the AI takes over the track's own tick spacing
+  // (Milestone A1: the 10 ms differences became record differences).
+  Vector3 GetBallPredictionAtRecord(unsigned int time_ms, unsigned records) const;
 
   void SetTimeStampNeg_ms(unsigned int history_ms) { timeStampNeg_ms = history_ms; }
   int GetTimeStampNeg_ms() const { return timeStampNeg_ms; }
@@ -35,7 +41,7 @@ protected:
   Match* match;
 
   std::vector<PlayerImage> players;
-  Vector3 ballPredictions[ballPredictionSize_ms / 10];
+  std::array<Vector3, pesball::kTrackLength> ballPredictions;
 
   unsigned int timeStampNeg_ms;
 

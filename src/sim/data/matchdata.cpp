@@ -54,14 +54,17 @@ MatchData::MatchData(int team1DatabaseID, int team2DatabaseID) {
   historySaved = false;
 }
 
-void MatchData::AddPossessionTime_10ms(int teamID) {
-  possessionTime_ms[teamID] += 10;
+void MatchData::AddPossessionTime(int teamID, double tick_ms) {
+  possessionTime_ms[teamID] += tick_ms;
   // The match clock: the own-third giveaway window (debug-only) and the
   // clean-completion window (release-safe, see ResolveExpiredCleanChecks)
   // are both measured against it.
-  matchTime_ms += 10;
+  matchTime_ms += tick_ms;
+  // The 60-second window holds seconds, and a tick is tick_ms of them
+  // (Milestone A1: 0.01 per 10 ms became one second per second of ticks).
+  const float played_s = static_cast<float>(tick_ms) / 1000.0f;
   if (teamID == 0)
-    possession60seconds = std::max(possession60seconds - 0.01f, -60.0f);
+    possession60seconds = std::max(possession60seconds - played_s, -60.0f);
   else if (teamID == 1)
-    possession60seconds = std::min(possession60seconds + 0.01f, 60.0f);
+    possession60seconds = std::min(possession60seconds + played_s, 60.0f);
 }

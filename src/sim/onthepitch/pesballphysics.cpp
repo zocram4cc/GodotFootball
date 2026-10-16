@@ -21,8 +21,8 @@ inline float ToKmh(const pes::PesBallConstants& c, float mps) { return mps * c.i
 
 // 100.0 (.rdata 0x14253ee30): the per-cent divisor of the add-rate fields.
 constexpr float kPercent = 100.0f;
-// 0.01 s: this engine's tick, and also the |vy| blend divisor
-// (.rdata 0x14256ae18) and the km/h->m/s of the stop gate's inner form.
+// 0.01 s: PES's own |vy| blend divisor (.rdata 0x14256ae18) and the km/h->m/s of
+// the stop gate's inner form. It is PES's constant, not this engine's tick.
 constexpr float kStopBlend_s = 0.01f;
 
 }  // namespace
@@ -136,7 +136,7 @@ BounceResult Bounce(const pes::PesBallConstants& c, int mode, float vy, float ho
   // This is PES's per-contact instantaneous response: there is no k^0.54
   // mapping, because it is not a per-tick keep factor that compounds. Its terms
   // are a speed clamp and ratios of speeds at this contact, both dimensionless
-  // in time - dividing them by 54 (as KeepFactorPerGfTick does for a keep factor)
+  // in time - dividing them by 54 (as KeepFactorPerStep does for a keep factor)
   // would corrupt them. The only per-tick factor in the contact tick is K, the
   // horizontal keep, and that one is mapped (see ContactTick).
   const pes::BallRecordConstants& r = c.record;
@@ -275,7 +275,7 @@ void FlightTick(const pes::PesBallConstants& c, BallState* state, float dt_s, bo
 }
 
 void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tickIndex, bool airborne,
-                 bool quatIntegrate) {
+                 bool quatIntegrate, float step_s) {
   // The contact mode. Report 3.1 closed report 7.2: the mode byte is written by
   // FUN_1408723d0 (0x140872479, `mov [rax+0x279d], bl`) as
   // `modeTable[pitch*3 + weather]`, and the table is read out of the install's
@@ -301,12 +301,11 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
       c.image.spinScale;
 
   // Report 2.4: the per-tick keep K, over the pre-contact 3-D speed. PES applies
-  // it once per 1/54 s; this engine ticks every 10 ms, so the factor is raised
-  // to <func>KeepFactorPerGfTick</func> before it is used - without that one
-  // GF tick lost 1.85x the speed PES loses per second (0.972^100 vs 0.972^54),
-  // and a 25 m/s shot stopped 8 m short of the goal instead of passing it.
+  // it once per 1/54 s and this engine ticks at that same rate (Milestone A1), so
+  // <func>KeepFactorPerStep</func> raises it to the power 1; the conversion is kept
+  // so a caller stepping any other length stays exact.
   const float speed3d = std::sqrt(horizontal * horizontal + vy * vy);
-  float keep = KeepFactorPerGfTick(RollingKeepFactor(c, mode, speed3d));
+  float keep = KeepFactorPerStep(RollingKeepFactor(c, mode, speed3d), step_s);
   float speed = horizontal;
 
   // Report 2.5: the grounder kick trims the horizontal speed and K. The trim is
@@ -320,7 +319,7 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
   const GrounderResult grounder =
       GrounderKick(c, mode, state->position.x, state->position.z, tickIndex, horizontal, vy);
   if (grounder.applied) {
-    keep *= KeepFactorPerGfTick(grounder.keepMultiplier);
+    keep *= KeepFactorPerStep(grounder.keepMultiplier, step_s);
     speed = std::max(0.0f, horizontal - grounder.speedTrim_mps);
   }
 
@@ -329,7 +328,7 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
   // bounce (0x1408768a6/0x140876b26, [rbp+0x90]) is a different quantity, built
   // inside Bounce() from boundBoundRate and the s2/s4 ramps.
   const float friction = FrictionMultiplier(c, mode, speed3d, vy, spinRad, nullptr);
-  keep *= KeepFactorPerGfTick(friction);
+  keep *= KeepFactorPerStep(friction, step_s);
 
   // Report 1.3's vertical response, the literal rule from report 2:
   //   vy_out = -F * min(-imp, vy_trimmed)

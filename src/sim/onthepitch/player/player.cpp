@@ -447,21 +447,25 @@ void Player::Process() {
   // if (GetDebug()) SetGreenDebugPilon(GetPosition() + GetMovement());
 
   if (isActive) {
-    desiredTimeToBall_ms = std::max(desiredTimeToBall_ms - 10, 0);
+    // One PES logic frame's worth of the intercept clock (Milestone A1: kTick_ms
+    // is 1000/54 ms, not GF's 10).
+    desiredTimeToBall_ms = std::max(desiredTimeToBall_ms - Match::kTick_ms, 0.0);
 
     CastController()->Process();
 
     if (match->IsInPlay()) {
-      if (match->GetActualTime_ms() % 1000 == 0) {
+      if (match->IsFrameSecond()) {
         positionHistoryPerSecond.push_back(GetPosition());
         // if (GetDebug()) printf("average velo (5): %f, (50): %f\n", GetAverageVelocity(5),
         // GetAverageVelocity(50));
       }
       if (hasPossession)
-        possessionDuration_ms += 10;
+        possessionDuration_ms += Match::kTick_ms;
       else
         possessionDuration_ms = 0;
-      if ((match->GetActualTime_ms() + GetID() * 10) % 100 == 0) {
+      // Every 10 logic frames, phase-shifted per player (Milestone A1: GF ran
+      // it every 10 ticks aliased onto milliseconds).
+      if ((match->GetSimFrame() + GetID()) % 10 == 0) {
         _CalculateTacticalSituation();
       }
     }

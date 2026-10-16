@@ -423,11 +423,11 @@ TEST(SimMatch, AThrowInTakerTakesTheThrow) {
   ASSERT_TRUE(db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql"));
   SetDB(&db);
   MatchSetup setup = MakeSetup(kThrowInSeed, kThrowInMatchMinutes);
-  unsigned long longestWait_ms = 0;
+  double longestWait_ms = 0;
   {
     pestest::FillMissingPesConstants(&setup);
     Match match(new MatchData(HOME_TEAM, AWAY_TEAM), setup, Properties());
-    unsigned long waitStart_ms = 0;
+    double waitStart_ms = 0;
     bool waiting = false;
     while (match.GetSimTime_ms() < kThrowInWindow_ms) {
       match.Process();

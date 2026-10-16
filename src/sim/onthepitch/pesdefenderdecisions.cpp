@@ -44,11 +44,11 @@ inline float WrapDeg(float a) {
 // (FUN_141e532d0, live 54).
 inline constexpr float kPesFramesPerSecond = 1.0f / pesball::kPesTick_s;
 
-// PES frame count -> this engine's 10 ms ticks, the conversion
-// pesballphysics.hpp uses for the ball's per-tick factors: one GF tick is
-// 0.54 of a PES tick, so a PES frame count shrinks to that share.
+// PES frame count -> this engine's ticks. Milestone A1: the engine's tick IS
+// PES's logic frame, so a frame count is a tick count; the conversion is kept as
+// a named step so a reader can see where the frames became ticks.
 inline int FramesToTicks(float pesFrames) {
-  return static_cast<int>(pesFrames * (pesball::kPesTick_s / pesball::kGfTick_s) + 0.5f);
+  return static_cast<int>(pesFrames + 0.5f);
 }
 
 inline int ClampLevel(int level) { return level < 0 ? 0 : (level > 3 ? 3 : level); }

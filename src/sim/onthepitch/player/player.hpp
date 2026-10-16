@@ -72,7 +72,9 @@ public:
   bool HasPossession() const;
   bool HasBestPossession() const;
   bool HasUniquePossession() const;
-  inline int GetPossessionDuration_ms() const { return possessionDuration_ms; }
+  // Logic frames since this player took the ball, as the ms it stood for (Milestone
+  // A1: kTick_ms is 1000/54).
+  inline double GetPossessionDuration_ms() const { return possessionDuration_ms; }
   inline int GetTimeNeededToGetToBall_ms() const { return timeNeededToGetToBall_ms; }
   inline int GetTimeNeededToGetToBall_optimistic_ms() const {
     return timeNeededToGetToBall_optimistic_ms;
@@ -80,9 +82,9 @@ public:
   inline int GetTimeNeededToGetToBall_previous_ms() const {
     return timeNeededToGetToBall_previous_ms;
   }
-  void SetDesiredTimeToBall_ms(int ms) { desiredTimeToBall_ms = ms; }
-  int GetDesiredTimeToBall_ms() const {
-    return std::clamp(desiredTimeToBall_ms, static_cast<int>(timeNeededToGetToBall_ms), 1000000);
+  void SetDesiredTimeToBall_ms(double ms) { desiredTimeToBall_ms = ms; }
+  double GetDesiredTimeToBall_ms() const {
+    return std::clamp(desiredTimeToBall_ms, static_cast<double>(timeNeededToGetToBall_ms), 1000000.0);
   }
   bool AllowLastDitch(bool includingPossessionAmount = true) const;
 
@@ -161,7 +163,7 @@ protected:
   bool hasPossession;
   bool hasBestPossession;
   bool hasUniquePossession;
-  int possessionDuration_ms;
+  double possessionDuration_ms;
 
   // Slip bookkeeping.
   unsigned long lastSlipTime_ms = 0;
@@ -182,7 +184,7 @@ protected:
 
   TacticalPlayerSituation tacticalSituation;
 
-  int desiredTimeToBall_ms;
+  double desiredTimeToBall_ms;
   Vector3 idealMovement;
 
   int cards;  // 1 == 1 yellow; 2 == 2 yellow; 3 == 1 red; 4 == 1 yellow, 1 red
