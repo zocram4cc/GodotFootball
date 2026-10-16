@@ -212,6 +212,7 @@ RunWorld Running() {
   w.lineX = {-30.0f, 25.0f};
   w.possession = {true, false};
   w.possessionAge = {500.0f, 0.0f};
+  BuildNearest(w);
   return w;
 }
 
@@ -285,15 +286,20 @@ TEST(OffBallMask, NoChanceRunsFromOwnHalfUntilFourSecondsOfPossession) {
 
 TEST(OffBallStop, ChanceKeepsItsMinimumRunTimeThenTheCommonTestDecides) {
   RunWorld w = Running();
+  BuildNearest(w);
   EXPECT_FALSE(RunStop(w, kRunner, kChance));
   w.carrier = kRunner;
+  BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
   w.p[kRunner].t = 5.0f;
+  BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));  // 0x140607a60: the carrier test is ahead of the minimum
   w.carrier = 0;
+  BuildNearest(w);
   EXPECT_FALSE(RunStop(w, kRunner, kChance));  // under 11 frames the common test cannot stop him
   w = Running();
   w.possession = {false, true};
+  BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
 }
 
@@ -302,6 +308,7 @@ TEST(OffBallStop, ChanceStopsAPadControlledRunnerBeforeTheMinimum) {
   RunWorld w = Running();
   w.p[kRunner].humanControlled = true;
   w.p[kRunner].t = 2.0f;
+  BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
 }
 
@@ -312,8 +319,10 @@ TEST(OffBallStop, ChanceStopsAPassGetRunnerOnceThePassFigureExceedsOne) {
   w.p[kRunner].passGet = true;
   w.p[kRunner].t = 2.0f;
   w.ev = {true, 2, 1.0f, {0.0f, 0.0f}, 5};
+  BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
   w.ev.kind = 1;  // a short pass gives 1, which is not above one
+  BuildNearest(w);
   EXPECT_FALSE(RunStop(w, kRunner, kChance));
 }
 
@@ -324,8 +333,10 @@ TEST(OffBallStop, ThePassGetFigureFallsBackToFramesSinceTheKickWithNoTargetPlaye
   w.p[kRunner].passGet = true;
   w.p[kRunner].t = 2.0f;
   w.ev = {true, 1, 0.5f, {0.0f, 0.0f}, -1};
+  BuildNearest(w);
   EXPECT_FALSE(RunStop(w, kRunner, kChance));
   w.ev.age = 3.0f;
+  BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
 }
 
@@ -333,6 +344,7 @@ TEST(OffBallStop, OnlyTheRunnerInPassGetIsStoppedByThePassFigure) {
   RunWorld w = Running();
   w.p[kRunner].t = 2.0f;
   w.ev = {true, 2, 1.0f, {0.0f, 0.0f}, 5};
+  BuildNearest(w);
   EXPECT_FALSE(RunStop(w, kRunner, kChance));
 }
 
@@ -340,13 +352,16 @@ TEST(OffBallStop, ReleasedPastTheLineOrNearTheGoalLine) {
   RunWorld w = Running();
   w.p[kRunner].pos = {26.0f, 0.0f};  // 1 m past: under 1.5 early, over 0.7 late
   w.p[0].pos = w.ball = {20.0f, 0.0f};
+  BuildNearest(w);
   EXPECT_FALSE(RunStop(w, kRunner, kChance));
   w.p[kRunner].t = 50.0f;
+  BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
   w = Running();
   w.lineX[1] = 60.0f;
   w.p[0].pos = w.ball = {45.0f, 0.0f};
   w.p[kRunner].pos = {50.0f, 0.0f};
+  BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
 }
 
@@ -355,9 +370,11 @@ TEST(OffBallStop, FarRunnerStopsUnlessWellBehindTheBall) {
   w.p[kRunner].pos = {-35.0f, 0.0f};
   w.p[kRunner].aim = {-20.0f, 0.0f};
   w.p[0].pos = w.ball = {10.0f, 0.0f};  // 45 m away, 45 m behind: keep
+  BuildNearest(w);
   EXPECT_FALSE(RunStop(w, kRunner, kChance));
   w.p[kRunner].pos = {10.0f, 0.0f};
   w.p[0].pos = w.ball = {10.0f, -45.0f};  // 45 m away, level: stop
+  BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
 }
 
@@ -368,18 +385,23 @@ TEST(OffBallStop, LooseBallKickedFarPastHimEndsTheRun) {
   w.carrier = -1;
   w.ball = {8.0f, 0.0f};
   w.ev = {true, 1, 20.0f, {-15.0f, 0.0f}, 7};
+  BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
   w.ev.pos = {0.0f, 0.0f};  // only 8 m: no
+  BuildNearest(w);
   EXPECT_FALSE(RunStop(w, kRunner, kChance));
 }
 
 TEST(OffBallStop, ThePassToHimEndsTheRunAThroughBallAfterEighteenFrames) {
   RunWorld w = Running();
   w.ev = {true, 1, 2.0f, {0.0f, 0.0f}, kRunner};
+  BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
   w.ev.kind = 2;
+  BuildNearest(w);
   EXPECT_FALSE(RunStop(w, kRunner, kChance));
   w.ev.age = 18.0f;
+  BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
 }
 
@@ -388,10 +410,12 @@ TEST(OffBallStop, ADefenderRunsOnlyIfNoCloserDefenderIsRunning) {
   // CB/SB runner is nearer the ball.
   RunWorld w = Running();
   w.p[kRunner].roleClass = 2;
+  BuildNearest(w);
   EXPECT_FALSE(RunStop(w, kRunner, kChance));
   w.p[5].roleClass = 1;
   w.p[5].state = kChance;
   w.p[5].pos = {5.0f, 2.0f};
+  BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
 }
 

@@ -199,7 +199,7 @@ struct BallEvent {
 // distance from the owner, nearest first. Offsets are PES's.
 struct NearestEntry {
   struct Near {
-    uint32_t id;  // global id; valid for k < count[team]
+    int id;       // global id (team·11 + slot); PES u32; valid for k < count[team]
     float d2;     // squared distance from the owner, m²
   };
   std::array<std::array<Near, kSlots>, 2> team;  // +0x00 team 0, +0x58 team 1

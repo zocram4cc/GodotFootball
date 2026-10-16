@@ -545,17 +545,6 @@ bool A53da0(const RunWorld& w, int j, Vec2f pt, float dir, float ang, float maxD
   const float d2 = Dist2(w.p[j].pos, pt);
   return d2 < maxD * maxD && minD * minD < d2 && Ad(dir, PBrg(pt, w.p[j].pos)) < ang * 0.5f;
 }
-// Opponents of id sorted by distance (the MA+0x22e4c lists).
-std::vector<int> OppByDist(const RunWorld& w, int id) {
-  std::vector<int> v;
-  const int o = (TeamOf(id) ^ 1) * kSlots;
-  for (int i = o; i < o + kSlots; ++i)
-    if (w.p[i].active) v.push_back(i);
-  std::sort(v.begin(), v.end(), [&](int a, int b) {
-    return Dist2(w.p[a].pos, w.p[id].pos) < Dist2(w.p[b].pos, w.p[id].pos);
-  });
-  return v;
-}
 // 69cd40: a defender D's perpendicular gap to the lane A->B if he reaches it
 // before the ball (5.65·t + 0.6 m), else -1.
 float LaneIntercept(Vec2f A, Vec2f B, Vec2f C, Vec2f D, float speed, bool flag) {
@@ -668,9 +657,9 @@ bool L68a8c0(const Ctx& x, bool intercept) {
   if (Dist2(A, x.B) > 729.0f) return false;
   if (!Valid(x.q) || Dist2(x.w.p[x.q].pos, x.B) > 12.25f) return false;
   if (ConeOpp(x.w, x.q, PBrg(x.B, A), 80.0f, 6.5f)) return false;
-  const std::vector<int> near = OppByDist(x.w, x.id);
+  const auto near = NearestOpponents(x.w, x.id);
   for (size_t i = 0; i < near.size() && i < 4; ++i) {
-    const Vec2f o = x.w.p[near[i]].pos;
+    const Vec2f o = x.w.p[near[i].id].pos;
     if (Dist2(x.P, o) > 10.24f) return true;
     if (Ad(x.dir, PBrg(x.P, o)) <= 82.0f && Dist2(o, A) <= Dist2(x.P, A)) return false;
   }
@@ -744,9 +733,9 @@ bool L68efc0(const Ctx& x) {
   if (a > 4.0f) return false;
   if (std::fabs(x.P.x - x.B.x) > 8.0f && ConeAt(x.w, x.opp, x.B, x.dir, 90.0f, 3.0f, 0.0f))
     return true;
-  const std::vector<int> near = OppByDist(x.w, x.id);
+  const auto near = NearestOpponents(x.w, x.id);
   if (std::fabs(x.P.x - x.B.x) >= 15.0f && !near.empty()) {
-    const float d = Dist2(x.w.p[near[0]].pos, x.P);
+    const float d = Dist2(x.w.p[near[0].id].pos, x.P);
     return (std::fabs(x.P.x - x.B.x) > 15.0f && d < 12.25f) || d <= 25.0f;
   }
   return false;
@@ -757,8 +746,8 @@ bool L68e900(const Ctx& x) {
   if (x.tt < kPesFps || Ad(bb, x.dir) > 22.0f || !Beyond(x.w, x.id, -0.8f) ||
       std::fabs(x.P.x - x.B.x) < 8.5f)
     return false;
-  const std::vector<int> near = OppByDist(x.w, x.id);
-  if (near.empty() || Dist2(x.w.p[near[0]].pos, x.P) > 16.0f) return false;
+  const auto near = NearestOpponents(x.w, x.id);
+  if (near.empty() || Dist2(x.w.p[near[0].id].pos, x.P) > 16.0f) return false;
   if (!Valid(x.q) || x.w.p[x.q].humanControlled) return true;
   const PlayerFacts& q = x.w.p[x.q];
   if (Ad(q.facing, bb) < 40.0f) return false;
@@ -832,8 +821,8 @@ bool L691ef0(const Ctx& x) {
   if (Dist2(G, x.B) >= 1024.0f) return false;
   const float gB = PBrg(x.B, G);
   if (Ad(x.dir, gB) > 47.0f || ConeOpp(x.w, x.c, gB, 50.0f, 4.5f)) return false;
-  const std::vector<int> near = OppByDist(x.w, x.id);
-  if (x.D2() > 169.0f && !near.empty() && Dist2(x.w.p[near[0]].pos, x.P) > 25.0f) return false;
+  const auto near = NearestOpponents(x.w, x.id);
+  if (x.D2() > 169.0f && !near.empty() && Dist2(x.w.p[near[0].id].pos, x.P) > 25.0f) return false;
   const Vec2f Q{x.P.x + x.me.vel.x, x.P.z + x.me.vel.z};  // a75740, 54 frames ahead
   const float d = Fold180(x.dir - PBrg(x.P, Q));
   if (std::fabs(d) > 35.0f && Dist2(x.B, Q) > 64.0f) {
@@ -859,8 +848,8 @@ bool L692fe0(const Ctx& x) {
   const Vec2f Z = x.me.slotPoint;
   if (std::fabs(Z.z) > pesGoalAreaHalfWidth || std::fabs(Z.z - x.B.z) > 12.0f) return false;
   if (!A720(x.B.x, Z.x, x.s, 3.0f)) return false;
-  const std::vector<int> near = OppByDist(x.w, x.id);
-  if (!near.empty() && Dist2(x.w.p[near[0]].pos, x.P) > 196.0f) return false;
+  const auto near = NearestOpponents(x.w, x.id);
+  if (!near.empty() && Dist2(x.w.p[near[0].id].pos, x.P) > 196.0f) return false;
   return ConeOpp(x.w, x.q, b, 80.0f, std::sqrt(Dist2(q.pos, x.P)) + 5.0f) > 0;
 }
 // s2 #3.
@@ -902,9 +891,9 @@ bool L690cf0(const Ctx& x) {
   if (x.tt < Frames(1.8f) || x.s * x.P.x < pesPenaltyAreaLineX - 2.0f) return false;
   if (Len(x.me.vel) > 0.9f * Per100(22.5f)) return false;
   if (x.D2() > 400.0f) return false;
-  for (int o : OppByDist(x.w, x.id))
-    if (std::fabs(x.w.p[o].pos.z - x.B.z) <= std::fabs(x.P.z - x.B.z) &&
-        A53da0(x.w, o, x.P, x.dir, 180.0f, 3.5f, 0.0f))
+  for (const NearestEntry::Near& n : NearestOpponents(x.w, x.id))
+    if (std::fabs(x.w.p[n.id].pos.z - x.B.z) <= std::fabs(x.P.z - x.B.z) &&
+        A53da0(x.w, n.id, x.P, x.dir, 180.0f, 3.5f, 0.0f))
       return true;
   return false;
 }
@@ -1013,8 +1002,8 @@ bool L68d0b0(const Ctx& x, bool flag) {
   const int r = x.q;
   if (!Valid(r)) return true;
   const Vec2f rp = x.w.p[r].pos;
-  for (int o : OppByDist(x.w, x.id)) {
-    const Vec2f op = x.w.p[o].pos;
+  for (const NearestEntry::Near& n : NearestOpponents(x.w, x.id)) {
+    const Vec2f op = x.w.p[n.id].pos;
     if (Dist2(op, x.P) > 64.0f) return true;
     if (std::fabs(op.z) <= std::fabs(rp.z) && A720(rp.x, op.x, x.s, -1.5f) &&
         Ad(x.dir, PBrg(rp, op)) <= 95.0f) {
@@ -1322,11 +1311,35 @@ float HeadingFactor(float deg, float scale) {
   return folded < 0.0f ? -scale * v : scale * v;
 }
 
-void BuildNearest(RunWorld& w) { (void)w; }
+// ponytail: PES's writer of MA+0x22e4c is not decoded (pes-re-teamctx.md §2.4), so
+// the lists are built here, once per BuildRunWorld, from the snapshot. The order is
+// the one PES's readers use: rank 0 is the nearest by squared distance (FUN_1406cbf70
+// and FUN_1406c0170 read the rank-0 opponent; FUN_1404c8ea0 reads d²). PES's tie rule
+// is not decoded: equal distances keep slot order.
+void BuildNearest(RunWorld& w) {
+  constexpr int kNoId = -1;  // never read: count[team] bounds every block
+  for (int i = 0; i < 2 * kSlots; ++i) {
+    NearestEntry& e = w.nearest[i];
+    e.rank.fill(kNearRankAbsent);
+    for (int t = 0; t < 2; ++t) {
+      std::array<NearestEntry::Near, kSlots>& block = e.team[t];
+      block.fill({kNoId, 0.0f});
+      int n = 0;
+      for (int j = t * kSlots; j < (t + 1) * kSlots; ++j)
+        if (w.p[j].active) block[n++] = {j, Dist2(w.p[j].pos, w.p[i].pos)};
+      std::stable_sort(block.begin(), block.begin() + n,
+                       [](const NearestEntry::Near& a, const NearestEntry::Near& b) {
+                         return a.d2 < b.d2;
+                       });
+      e.count[t] = static_cast<uint8_t>(n);
+      for (int k = 0; k < n; ++k) e.rank[block[k].id] = static_cast<uint8_t>(k);
+    }
+  }
+}
+
 std::span<const NearestEntry::Near> NearestOpponents(const RunWorld& w, int id) {
-  (void)w;
-  (void)id;
-  return {};
+  const int opp = TeamOf(id) ^ 1;
+  return {w.nearest[id].team[opp].data(), w.nearest[id].count[opp]};
 }
 
 // FUN_140655660 + FUN_140654e60: the frames for player `id` to reach `X`.

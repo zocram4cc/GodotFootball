@@ -2337,6 +2337,7 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
     w.ev.pos = Flat(ev.from);
     w.ev.target = ev.target ? idOf(ev.target) : -1;
   }
+  ob::BuildNearest(w);
   return w;
 }
 
