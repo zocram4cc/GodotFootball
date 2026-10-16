@@ -27,9 +27,6 @@ const PITCH_SURROUND_M := 120.0
 # Only used when the install ships no such stadium: a mid green mean of the
 # common turf map (docs/re/pes-re-pitch-grass.md 5.3).
 const PITCH_SURROUND_ALBEDO := Color(0.22, 0.42, 0.18)
-# FieldInfo +0x00 / +0x08 live (PES 52.56 / 34.06 to the outer line edge);
-# the sim exposes the width, the length is the pitch constant in src/sim.
-const SUN_ROTATION_DEG := Vector3(-55.0, 35.0, 0.0)
 const FACE_DIR := "Asset/model/character/face/real/"
 const FOLLOW_OFFSET := Vector3(4.0, 2.2, 6.0)  # inspection camera, metres from the followed player
 const FOLLOW_TARGET_HEIGHT_M := 1.0
@@ -59,7 +56,8 @@ func _ready() -> void:
 		push_error("usage: -- --pes21-root DIR --home-team PES_ID --away-team PES_ID")
 		get_tree().quit(2)
 		return
-	_build_environment()
+	# The WorldEnvironment, sun rig (PesLighting) and camera live in
+	# match.tscn; PesLighting fills them from the stadium's light rig.
 	library = PesLibrary.new()
 	if library.open(args["pes21-root"]) != OK:
 		get_tree().quit(1)
@@ -80,7 +78,8 @@ func _ready() -> void:
 		push_warning("PES locomotion unavailable")
 	_build_players()
 	_build_stadium()
-	_broadcast = PesBroadcastCamera.new()
+	_camera = $Camera3D
+	$PesLighting.setup(library, int(args.get("stadium", DEFAULT_STADIUM_ID)), int(args.get("weather", 0)), int(args.get("time-zone", 0)), int(args.get("season", 0)), int(args.get("hour", -1)), int(args.get("minute", 0)))
 	# FieldInfo +0x00 (52.56) and +0x08 (34.06) live; the sim exposes the width.
 	if _broadcast.load(library, sim.field_half_width(), sim.field_half_length()) != OK:
 		get_tree().quit(1)
@@ -196,24 +195,6 @@ func _parse_args(raw: PackedStringArray) -> Dictionary:
 			i += 1
 	return out
 
-
-func _build_environment() -> void:
-	var sky := Sky.new()
-	sky.sky_material = ProceduralSkyMaterial.new()
-	var env := Environment.new()
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	var world := WorldEnvironment.new()
-	world.environment = env
-	add_child(world)
-	var sun := DirectionalLight3D.new()
-	sun.shadow_enabled = true
-	sun.rotation_degrees = SUN_ROTATION_DEG
-	add_child(sun)
-	_camera = Camera3D.new()
-	add_child(_camera)
-	_camera.current = true
 
 
 # PES's own stadium: its scene, its pitch, both goals with their nets and the

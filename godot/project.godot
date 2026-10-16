@@ -14,3 +14,5 @@ common/physics_ticks_per_second=100
 [rendering]
 
 renderer/rendering_method="forward_plus"
+; The rig's sun lux and floodlight lumens need physical units (§7.2).
+lights_and_shadows/use_physical_light_units=true
