@@ -149,30 +149,6 @@ constexpr float SECOND_DWELL = 14.0f / 60.0f;  // FUN_1406d5d60, the second dwel
 // ---------------------------------------------------------------------------------------------
 
 
-// FUN_14043a0a0(a, b): the angle difference a - b wrapped to (-180, 180].
-float AngleDiffDeg(float a, float b, const RunConstants& k) {
-  float d = a - b;
-  if (d > 0.0f) {
-    if (d >= k.full) d += k.wrapFull;
-  } else {
-    d += k.full;
-  }
-  if (k.half_turn < d) {
-    const float sign = d < 0.0f ? k.neg : k.one;
-    d -= sign * k.full;
-  }
-  return d;
-}
-
-// The 360 fold of a heading (the *(float *)(param_1 + 0x20) block every handler opens with).
-float FoldFull(float a, const RunConstants& k) {
-  if (a >= 0.0f) {
-    if (k.full <= a) return a + k.wrapFull;
-    return a;
-  }
-  return a + k.full;
-}
-
 // FUN_1406b9ff0(ap, useClassRate, classIdx, speed, kind): the requested rate. The class-rate
 // path is FUN_1406b9e50's table; the speed path is the shared FUN_1406b9e80 (AS 3.2).
 float RequestedRate(MoveHost& host, MoveReq& req, const pes::RunTables& t) {

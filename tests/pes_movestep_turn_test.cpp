@@ -198,6 +198,7 @@ class FakeHost : public MoveHost {
   int FootBand() const override { return footBand; }
   const pes::RunConstants& RunConstantsView() const override { return runConstants; }
   const pes::RunTables& RunTablesView() const override { return runTables; }
+  const pes::SpeedRateTable& SpeedRateTableView() const override { return speedRate; }
   const pes::StepTables& StepTablesView() const override { return stepTables; }
   bool BucketIsLeft(int bucket) const override { return bucket < 5; }
   const pes::PlaybackConstants& PlaybackConstantsView() const override { return playback; }
@@ -212,6 +213,7 @@ class FakeHost : public MoveHost {
   pes::AngleBucketConstants buckets = SyntheticBuckets();
   pes::RunConstants runConstants{};
   pes::RunTables runTables{};
+  pes::SpeedRateTable speedRate{};
 
   int commandClass = 3;
   float rateCeiling = 1.0f;

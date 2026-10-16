@@ -291,6 +291,12 @@ struct RunConstants {
   float quota3;       // 3, the (a + b * 2) / 3 share
 };
 
+// FUN_14043a0a0(a, b): the angle difference a - b wrapped into (-180, 180]. Shared by the
+// dispatcher port and group B; the bodies are in movestep_common.cpp.
+float AngleDiffDeg(float a, float b, const RunConstants& k);
+// The 360 fold of a heading into [0, 360), the block every handler opens with.
+float FoldFull(float a, const RunConstants& k);
+
 // Group B's install tables: the anime interface's tables (the dispatch table at 0x1425e35d0, decoded for
 // the port) and the stop, goto and turn-stop row grids (kind + class * 8).
 struct RunTables {
@@ -304,6 +310,15 @@ struct RunTables {
   std::array<int32_t, 10> bucketColumn;   // FUN_1406b9b20's columns, 0x1425dd988
   std::array<int32_t, 16> styleGroup;     // FUN_1406d2030's representative motion, DAT_1425ddcf0 (style*4 + band/4)
 };
+
+// FUN_1406b9e80's 11-knot piecewise-linear table at 0x1425de010: ten records
+// `{vHi, vLo, rHi, rLo}` in PES's walk order, high speed first (the table is stored low speed
+// first; the loader reverses the records). The kind scale is the last record's kind 3/6 rate.
+struct SpeedRateTable {
+  std::array<std::array<float, 4>, 10> record{};
+  float kindScale = 0.0f;  // _DAT_1425ddf5c
+};
+std::optional<SpeedRateTable> LoadSpeedRateTable(const PeImage& exe, std::string* error);
 
 // Group C's install tables (STEP_LOOP, STEP_LOOP_CHANGE, TURN_STOP, the transitions), read by
 // LoadStepTables from the exe at the VAs in movestep.cpp.
@@ -417,6 +432,8 @@ class MoveHost {
   // from the exe by VA by the group's loader (movestep_run.hpp).
   virtual const RunConstants& RunConstantsView() const = 0;
   virtual const RunTables& RunTablesView() const = 0;
+  // FUN_1406b9e80's speed->rate table and its kind scale (docs/re/pes-re-anim-select.md 3.2).
+  virtual const SpeedRateTable& SpeedRateTableView() const = 0;
   // Group C's install tables (StepTables, the scalars are StepConstants above). The view is named
   // StepTablesView because StepTables is the type.
   virtual const StepTables& StepTablesView() const = 0;

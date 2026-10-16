@@ -300,3 +300,136 @@ TEST(StepTablesInstall, LoadsTheBucketColumnsWithinTheAnimetable) {
     EXPECT_LT(column, 18);  // the Animetable has 18 angle columns (A-AN9)
   }
 }
+
+namespace {
+// A host that only answers FUN_1406b9e80's two reads (G and the table); every other read is a
+// default, because no other test in this file drives a handler.
+class RateHost : public pes::MoveHost {
+ public:
+  pes::MoveCell Cell(int, int, bool) override { return {}; }
+  int PickN(int) override { return 0; }
+  bool Percent(int) override { return false; }
+  int CommandSpeedClass() const override { return 0; }
+  float RateCeiling() const override { return 1.0f; }
+  float CommandSpeedKmh() const override { return 0.0f; }
+  float CurrentSpeedKmh() const override { return 0.0f; }
+  float PhysiqueG() const override { return g; }
+  float TicksPerSecond() const override { return 54.0f; }
+  int MatchTick() const override { return 0; }
+  int RecentStamp(int) const override { return 0; }
+  float MotionStartTime(int) const override { return 0.0f; }
+  float RecordF2468() const override { return 1.0f; }
+  int MoveStatePrevious() const override { return 0; }
+  float RecordF0bec() const override { return 0.0f; }
+  void SetRecordF0bec(float) override {}
+  const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
+  void PositionAt(int, float out[3]) const override { out[0] = out[1] = out[2] = 0.0f; }
+  int MatchPhase() const override { return 1; }
+  bool IsReplay() const override { return false; }
+  void Issue(const pes::MotionRequest&) override {}
+  const pes::StepScalars& StepConstants() const override { return step; }
+  float BandSpeedKmh(int, float) const override { return 0.0f; }
+  bool MirrorChoice(bool) const override { return false; }
+  int FootBand() const override { return 0; }
+  const pes::RunConstants& RunConstantsView() const override { return run; }
+  const pes::RunTables& RunTablesView() const override { return tables; }
+  const pes::SpeedRateTable& SpeedRateTableView() const override { return rate; }
+  const pes::StepTables& StepTablesView() const override { return stepTables; }
+  bool BucketIsLeft(int) const override { return false; }
+  const pes::PlaybackConstants& PlaybackConstantsView() const override { return playback; }
+  int CurrentMotion() const override { return 0; }
+  int CurrentClipFrames() const override { return 0; }
+  int AnimeState() const override { return 0; }
+
+  float g = 1.0f;
+  pes::RunConstants run{};
+  pes::RunTables tables{};
+  pes::SpeedRateTable rate{};
+  pes::StepScalars step{};
+  pes::StepTables stepTables{};
+  pes::AngleBucketConstants buckets{};
+  pes::PlaybackConstants playback{};
+};
+
+pes::SpeedRateTable SyntheticRate() {
+  pes::SpeedRateTable t;
+  // PES walks high speed first; the records abut, so each vLo is the next record's vHi.
+  t.record[0] = {9.0f, 7.0f, 1.0f, 0.9f};
+  t.record[1] = {7.0f, 5.0f, 0.9f, 0.7f};
+  t.record[2] = {5.0f, 3.0f, 0.7f, 0.5f};
+  t.record[3] = {3.0f, 2.5f, 0.5f, 0.45f};
+  t.record[4] = {2.5f, 2.2f, 0.45f, 0.4f};
+  t.record[5] = {2.2f, 2.0f, 0.4f, 0.38f};
+  t.record[6] = {2.0f, 1.8f, 0.38f, 0.35f};
+  t.record[7] = {1.8f, 1.6f, 0.35f, 0.32f};
+  t.record[8] = {1.6f, 1.4f, 0.32f, 0.3f};
+  t.record[9] = {1.4f, 1.0f, 0.5f, 0.15f};
+  t.kindScale = 0.295f;
+  return t;
+}
+
+pes::RunConstants SyntheticAngles() {
+  pes::RunConstants k{};
+  k.one = 1.0f;
+  k.neg = -1.0f;
+  k.full = 360.0f;
+  k.wrapFull = -360.0f;
+  k.half_turn = 180.0f;
+  k.speed3600 = 3.6f;
+  return k;
+}
+}  // namespace
+
+TEST(AngleDiffDeg, WrapsTheDifferenceIntoMinusHalfToHalfTurn) {
+  const auto k = SyntheticAngles();
+  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(45.0f, 10.0f, k), 35.0f);
+  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(10.0f, 45.0f, k), -35.0f);
+  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(0.0f, 350.0f, k), 10.0f);
+  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(350.0f, 0.0f, k), -10.0f);
+  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(180.0f, 0.0f, k), 180.0f);
+}
+
+TEST(FoldFull, FoldsAHeadingIntoTheUnitTurn) {
+  const auto k = SyntheticAngles();
+  EXPECT_FLOAT_EQ(pes::FoldFull(45.0f, k), 45.0f);
+  EXPECT_FLOAT_EQ(pes::FoldFull(370.0f, k), 10.0f);
+  EXPECT_FLOAT_EQ(pes::FoldFull(-10.0f, k), 350.0f);
+}
+
+TEST(SpeedToRate, WalksTheTableFromHighSpeedToLowAndClampsToOne) {
+  RateHost host;
+  host.run = SyntheticAngles();
+  host.rate = SyntheticRate();
+  EXPECT_FLOAT_EQ(pes::movestep::SpeedToRate(host, 36.0f, 0), 1.0f);  // 10 m/s: top knot
+  EXPECT_FLOAT_EQ(pes::movestep::SpeedToRate(host, 18.0f, 0), 0.7f);  // 5 m/s: second knot
+  EXPECT_FLOAT_EQ(pes::movestep::SpeedToRate(host, 1.8f, 0), 0.0f);   // 0.5 m/s: below the table
+}
+
+TEST(SpeedToRate, TheLastRecordTakesTheKindScaleForKindThreeAndSix) {
+  RateHost host;
+  host.run = SyntheticAngles();
+  host.rate = SyntheticRate();
+  // 1.2 m/s sits halfway through the last record, so kind 3/6 scales the share rather than
+  // walking to the record's own high rate.
+  EXPECT_FLOAT_EQ(pes::movestep::SpeedToRate(host, 4.32f, 3), 0.5f * host.rate.kindScale);
+  EXPECT_FLOAT_EQ(pes::movestep::SpeedToRate(host, 4.32f, 6), 0.5f * host.rate.kindScale);
+  EXPECT_FLOAT_EQ(pes::movestep::SpeedToRate(host, 4.32f, 0), 0.325f);
+}
+
+TEST(SpeedRateInstall, LoadsTheKnotsInPesWalkOrder) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  auto t = pes::LoadSpeedRateTable(*exe, &err);
+  ASSERT_TRUE(t.has_value()) << err;
+  for (size_t i = 0; i + 1 < t->record.size(); ++i) {
+    EXPECT_GT(t->record[i][0], t->record[i + 1][0]) << "vHi record " << i;
+    EXPECT_GT(t->record[i][1], t->record[i + 1][1]) << "vLo record " << i;
+    EXPECT_GT(t->record[i][2], t->record[i + 1][2]) << "rHi record " << i;
+    EXPECT_GT(t->record[i][3], t->record[i + 1][3]) << "rLo record " << i;
+  }
+  EXPECT_GT(t->kindScale, 0.0f);
+  EXPECT_LE(t->kindScale, 1.0f);
+}

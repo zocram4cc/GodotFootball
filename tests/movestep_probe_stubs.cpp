@@ -20,8 +20,6 @@ namespace probe {
 int idleRowCalls = 0;
 int stayCalls = 0;
 bool stayAnswer = false;
-int speedToRateCalls = 0;
-float speedToRateAnswer = 0.5f;
 int styleCalls = 0;
 int styleAnswer = 0;
 int rampCalls = 0;
@@ -45,8 +43,6 @@ void Reset() {
   idleRowCalls = 0;
   stayCalls = 0;
   stayAnswer = false;
-  speedToRateCalls = 0;
-  speedToRateAnswer = 0.5f;
   styleCalls = 0;
   styleAnswer = 0;
   rampCalls = 0;
@@ -81,12 +77,6 @@ bool StayDecision(MoveHost& /*host*/, MoveReq& /*req*/) {
 }
 
 float MotionStartSeconds(uint16_t /*motionNo*/) { return 0.0f; }
-
-float SpeedToRate(MoveHost& /*host*/, float speedKmh, int /*tableSelector*/) {
-  ++probe::speedToRateCalls;
-  (void)speedKmh;
-  return probe::speedToRateAnswer;
-}
 
 int LocomotionStyle(MoveHost& /*host*/, int /*commandId*/, float /*rateRequested*/, MoveReq& /*req*/) {
   ++probe::styleCalls;

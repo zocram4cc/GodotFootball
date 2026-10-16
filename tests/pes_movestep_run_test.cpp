@@ -20,8 +20,6 @@ namespace probe {
 extern int idleRowCalls;
 extern int stayCalls;
 extern bool stayAnswer;
-extern int speedToRateCalls;
-extern float speedToRateAnswer;
 extern int styleCalls;
 extern int styleAnswer;
 extern int rampCalls;
@@ -97,6 +95,7 @@ class SyntheticHost : public pes::MoveHost {
   bool MirrorChoice(bool sameTeam) const override { return mirrorChoice; (void)sameTeam; }
   const pes::RunConstants& RunConstantsView() const override { return runConstants; }
   const pes::RunTables& RunTablesView() const override { return runTables; }
+  const pes::SpeedRateTable& SpeedRateTableView() const override { return speedRate; }
   const pes::PlaybackConstants& PlaybackConstantsView() const override { return playback; }
 
   int commandClass = -1;
@@ -133,6 +132,7 @@ class SyntheticHost : public pes::MoveHost {
   int currentClipFrames = 0;
   int animeState = 0;
   pes::RunTables runTables{};
+  pes::SpeedRateTable speedRate{};
   pes::PlaybackConstants playback{};
   int cellCalls = 0;
   int lastCellRow = -1;
