@@ -24,7 +24,10 @@
 
 namespace blunted {
 
-using map_Properties = std::map<std::string, std::string>;
+// std::less<> (transparent): find(const char*) skips the std::string
+// temporary the const char* API would otherwise build per lookup. The sim
+// reads config/properties per tick, so that temporary was a per-tick malloc.
+using map_Properties = std::map<std::string, std::string, std::less<>>;
 
 class Vector3;
 

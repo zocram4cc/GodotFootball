@@ -623,7 +623,7 @@ void AnimCollection::CrudeSelection(DataSet& dataSet, const CrudeSelectionQuery&
   int animSize = animations.size();
 
   for (int i = 0; i < animSize; i++) {
-    const std::string& animType = animations.at(i)->GetAnimType();
+    const int animFunctionType = animations.at(i)->GetAnimFunctionType();
 
     bool selectAnim = true;
 
@@ -631,7 +631,7 @@ void AnimCollection::CrudeSelection(DataSet& dataSet, const CrudeSelectionQuery&
 
     if (selectAnim) {
       if (query.byFunctionType == true) {
-        if (_CheckFunctionType(animType, query.functionType) == false)
+        if (_CheckFunctionType(animFunctionType, query.functionType) == false)
           selectAnim = false;
       }
     }
@@ -966,7 +966,7 @@ void AnimCollection::CrudeSelection(DataSet& dataSet, const CrudeSelectionQuery&
               pi);
           if (maxDeviation == 0.0f) {
             maxDeviation = maxIncomingBallDirectionDeviation;  // 0.45f;
-            if (animType.compare(defString[e_DefString_Deflect]) == 0)
+            if (animFunctionType == e_FunctionType_Deflect)
               maxDeviation = 0.4f * pi;
           }
           if (ballDirectionAngle > maxDeviation)
@@ -1521,6 +1521,12 @@ void AnimCollection::_PrepareAnim(
   // loader.PrintTree((*animation->GetCustomData()));
 }
 
+inline bool AnimCollection::_CheckFunctionType(int animFunctionType,
+                                               e_FunctionType queryFunctionType) const {
+  // The load-resolved enum (Animation::GetAnimFunctionType) makes the match
+  // an int compare: same mapping as the string form below.
+  return animFunctionType == static_cast<int>(queryFunctionType);
+}
 inline bool AnimCollection::_CheckFunctionType(const std::string& functionType,
                                                e_FunctionType queryFunctionType) const {
   bool rightType = false;

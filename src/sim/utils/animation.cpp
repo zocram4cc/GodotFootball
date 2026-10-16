@@ -14,7 +14,33 @@ std::string emptyString = "";
 
 namespace blunted {
 
-// todo: make default orientation changeable
+namespace {
+
+// The clip <type> names the selector family (animcollection.cpp defString and
+// StringToFunctionType in gamedefines.cpp agree on the spelling). Resolved
+// once at load so the per-tick selection compares ints, not strings.
+// ponytail: a local copy so this util header stays free of the sim's selector
+// enum; keep the arms in sync with StringToFunctionType.
+int AnimTypeToFunctionType(const std::string& type) {
+  // e_FunctionType values from gamedefines.hpp, kept as ints here.
+  if (type == "movement") return 1;
+  if (type == "ballcontrol") return 2;
+  if (type == "trap") return 3;
+  if (type == "shortpass") return 4;
+  if (type == "longpass") return 5;
+  if (type == "highpass") return 6;
+  if (type == "shot") return 8;
+  if (type == "deflect") return 9;
+  if (type == "catch") return 10;
+  if (type == "interfere") return 11;
+  if (type == "trip") return 12;
+  if (type == "sliding") return 13;
+  if (type == "special") return 14;
+  return 0;  // e_FunctionType_None (also "header", which no clip names)
+}
+
+}  // namespace
+ // todo: make default orientation changeable
 radian FixAngle(radian angle, bool modulateIntoRange = true) {
   // convert engine angle into football angle (different base orientation: 'down' on y instead of
   // 'right' on x)
@@ -84,6 +110,7 @@ Animation::Animation(const Animation& src) {
   cache_outgoingBodyDirection = src.cache_outgoingBodyDirection;
 
   cache_AnimType = src.cache_AnimType;
+   cache_AnimFunctionType = src.cache_AnimFunctionType;
 }
 
 Animation::~Animation() {
@@ -398,7 +425,7 @@ void Animation::Invert() {
   }
 }
 
-void Animation::Apply(const std::map<const std::string, boost::intrusive_ptr<Node>> nodeMap,
+void Animation::Apply(const std::map<const std::string, boost::intrusive_ptr<Node>>& nodeMap,
                       int frame, int timeOffset_ms, bool smooth, float smoothFactor,
                       /*const std::shared_ptr<Animation> previousAnimation, int smoothFrames, */
                       const Vector3& basePos, radian baseRot,
@@ -411,7 +438,9 @@ void Animation::Apply(const std::map<const std::string, boost::intrusive_ptr<Nod
 
   // int futureFrameOffset = 1;
 
-  unsigned int animSize = nodeAnimations.size();
+  // Animation-level (not node-level): resolve once per Apply, not once per node.
+  const bool hasOutgoingSpecialState = GetVariable("outgoing_special_state").compare("") != 0;
+   unsigned int animSize = nodeAnimations.size();
   for (unsigned int i = 0; i < animSize; i++) {
     nodeAnimation = nodeAnimations.at(i);
 
@@ -779,7 +808,7 @@ void Animation::Apply(const std::map<const std::string, boost::intrusive_ptr<Nod
           // old version, use for now, until new version above is finished
 
           float maxMetersPerSec = 2.8f;  // 1.8f
-          if (GetVariable("outgoing_special_state").compare("") != 0)
+          if (hasOutgoingSpecialState)
             maxMetersPerSec = 6.0f;
           float allowedDistance = maxMetersPerSec * ((float)timeDiff_ms * 0.001f);
 
@@ -1343,6 +1372,7 @@ void Animation::LoadLines(const std::string& clipName, std::vector<std::string>&
   // dereference end(): that read garbage and threw bad_alloc on the copy
   const auto typeIter = variableCache.find("type");
   cache_AnimType = typeIter != variableCache.end() ? typeIter->second : "";
+  cache_AnimFunctionType = AnimTypeToFunctionType(cache_AnimType);
 
   ConvertToStartFacingForwardIfIdle();
 }
@@ -1508,6 +1538,14 @@ void Animation::SetVariable(const std::string& name, const std::string& value) {
     char* varName = new char[256];
     strcpy_s(varName, 256, name.c_str());
     variableCache.insert(std::pair<const char*, std::string>(varName, value));
+  }
+
+  // The selector enum mirrors <type>: _PrepareAnim stamps per-clip variables
+  // after load (difficulty, quadrant, touch frame), and a retargeted type
+  // must keep the cached match key with it.
+  if (name == "type") {
+    cache_AnimType = value;
+    cache_AnimFunctionType = AnimTypeToFunctionType(value);
   }
 }
 

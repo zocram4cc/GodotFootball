@@ -83,9 +83,16 @@ public:
     values.push_back(value);
     if (values.size() > maxTime_ms / 10)
       values.pop_front();
+    averageCacheValid = false;
   }
 
   T GetAverage(unsigned int time_ms) const {
+    // The team tick queries one window per player per tick while the history
+    // only grows on Insert, so the repeated queries in one tick share the
+    // sum. Recomputed identically on a miss: same order, same value.
+    if (averageCacheValid && time_ms == averageCacheArg && values.size() == averageCacheSize) {
+      return averageCacheValue;
+    }
     T total = 0;
     unsigned int count = 0;
     if (!values.empty()) {
@@ -102,14 +109,26 @@ public:
     }
     if (count > 0)
       total /= (float)count;
+    averageCacheArg = time_ms;
+    averageCacheSize = values.size();
+    averageCacheValue = total;
+    averageCacheValid = true;
     return total;
   }
 
-  void Clear() { values.clear(); }
+  void Clear() {
+    values.clear();
+    averageCacheValid = false;
+  }
 
 protected:
   unsigned int maxTime_ms;
   std::list<T> values;
+  // Last GetAverage window: mutable so the const query can memoize it.
+  mutable bool averageCacheValid = false;
+  mutable unsigned int averageCacheArg = 0;
+  mutable size_t averageCacheSize = 0;
+  mutable T averageCacheValue = 0;
 };
 
 #ifdef WIN32

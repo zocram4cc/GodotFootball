@@ -166,7 +166,10 @@ protected:
                     const std::map<const std::string, boost::intrusive_ptr<Node>>& nodeMap,
                     bool convertAngledDribbleToWalk = false);
 
-  bool _CheckFunctionType(const std::string& functionType, e_FunctionType queryFunctionType) const;
+  // Same match on the load-resolved enum (Animation::GetAnimFunctionType):
+  // the per-tick selection path, so no string compare runs per anim.
+  bool _CheckFunctionType(int animFunctionType, e_FunctionType queryFunctionType) const;
+   bool _CheckFunctionType(const std::string& functionType, e_FunctionType queryFunctionType) const;
 
   const pesrig::Rig& rig;
 
