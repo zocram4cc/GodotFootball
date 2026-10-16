@@ -16,7 +16,6 @@ const FOCUS_BACK_M := 4.0  # camera distance from the focused model
 const FOCUS_HEIGHT_M := 2.0
 const FLOOR_SIZE_M := 30.0
 const FLOOR_ALBEDO := Color(0.35, 0.45, 0.3)
-const SUN_ROTATION_DEG := Vector3(-50.0, 30.0, 0.0)
 
 var camera: Camera3D
 var screen: CanvasLayer
@@ -80,21 +79,15 @@ func _parse_args(raw: PackedStringArray) -> Dictionary:
 	return out
 
 
+# The match's lighting rig: PesLighting finds the WorldEnvironment and Camera3D beside it by
+# name (as in match.tscn) and configures both, as the viewer does.
 func _build_environment() -> void:
-	var env := Environment.new()
-	var sky := Sky.new()
-	sky.sky_material = ProceduralSkyMaterial.new()
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	var world := WorldEnvironment.new()
-	world.environment = env
+	world.name = "WorldEnvironment"
 	add_child(world)
-
-	var sun := DirectionalLight3D.new()
-	sun.shadow_enabled = true
-	sun.rotation_degrees = SUN_ROTATION_DEG
-	add_child(sun)
+	var lighting := PesLighting.new()
+	lighting.name = "PesLighting"
+	add_child(lighting)
 
 	var floor_mesh := PlaneMesh.new()
 	floor_mesh.size = Vector2(FLOOR_SIZE_M, FLOOR_SIZE_M)
@@ -106,6 +99,7 @@ func _build_environment() -> void:
 	add_child(ground)
 
 	camera = Camera3D.new()
+	camera.name = "Camera3D"
 	camera.fov = CAMERA_FOV_DEG
 	add_child(camera)
 	camera.look_at_from_position(CAMERA_OVERVIEW_POS, Vector3.ZERO)
