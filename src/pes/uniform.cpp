@@ -318,4 +318,26 @@ Vec4 NameScale(const KitConfig& k, float glyphWidthSum) {
   return {w > 0 ? 4.0f / (w * NameStretchF(k.nameStretch)) : 0.0f, sy, off, off};
 }
 
+// The weave tiling of the shirt family, written by the engine from its own
+// table (pes-re-uniform-params.md 1; the table's file is not located, live
+// values of kits 752 and 754).
+constexpr float SHIRT_WEAVE_REPEAT_X = 25.0f, SHIRT_WEAVE_REPEAT_Y = 50.0f;
+// Pattern rows of pants and socks, written as constants by the engine (uniform-params 2).
+constexpr float PANTS_PATTERN_ROW = 7.0f, SOCKS_PATTERN_ROW = 8.0f;
+
+Vec4 ClothRepetition(ClothPart part, int shirtPattern, Vec4 fmdl) {
+  if (part == ClothPart::ShirtFamily) return {SHIRT_WEAVE_REPEAT_X, SHIRT_WEAVE_REPEAT_Y, float(shirtPattern), 0.0f};
+  fmdl.z = part == ClothPart::Pants ? PANTS_PATTERN_ROW : SOCKS_PATTERN_ROW;
+  return fmdl;
+}
+
+// The shirt family's wrinkle slice, written by the engine as 2 for every live shirt
+// (pes-re-uniform-params.md 3). Pants' slice is pose-driven and not recovered.
+constexpr float SHIRT_WRINKLE_SLICE = 2.0f;
+
+Vec4 ClothBlendNormalX(ClothPart part, Vec4 fmdl) {
+  if (part == ClothPart::ShirtFamily) fmdl.y = SHIRT_WRINKLE_SLICE;
+  return fmdl;
+}
+
 }  // namespace pes

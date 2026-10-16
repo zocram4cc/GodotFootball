@@ -59,6 +59,15 @@ Vec4 LegNumberScale(const KitConfig& kit);
 // glyphWidthSum: the name's glyph widths in glyph-table pixels.
 Vec4 NameScale(const KitConfig& kit, float glyphWidthSum);
 
+// The Repetition a cloth part's material carries (pes-re-uniform-params.md 1-2).
+// The shirt family tiles its weave by the engine's own table (live 25 x 50) and
+// takes the kit's ShirtPattern as z; pants and socks keep the fmdl's x/y/w and
+// take their pattern rows.
+enum class ClothPart { ShirtFamily, Pants, Socks };
+Vec4 ClothRepetition(ClothPart part, int shirtPattern, Vec4 fmdlRepetition);
+// BlendNormalX as the engine writes it: the shirt family's wrinkle slice (its .y) is 2.
+Vec4 ClothBlendNormalX(ClothPart part, Vec4 fmdlBlendNormalX);
+
 // FUN_141ea2400 with real=1. kitIndex 0 = 1st .. 8 = 9th. The competition tag is
 // always _DEF_: ponytail: FUN_1414bda30's other tags (_LB_, _JL_ ...) belong to
 // licensed leagues absent from this install; add them when one is needed.

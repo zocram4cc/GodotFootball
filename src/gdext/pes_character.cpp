@@ -45,6 +45,8 @@ constexpr const char* THIGH_MATERIAL = "thigh_mat";
 constexpr const char* SOCKS_MATERIAL = "uni_socks";
 constexpr const char* PANTS_MATERIAL_PREFIX = "uni_pants";
 constexpr const char* SLEEVE_MATERIAL = "uni_sleeve";  // badges, not markings
+constexpr const char* SLEEVE_INNER_MATERIAL = "uni_sleeve_inner";  // pes3DDF_SleeveInner_NrmUV_NC, no weave
+constexpr const char* REFEREE_SLEEVE_MATERIAL = "uni_referee_sleeve";
 constexpr const char* COMMON_TEXTURE_DIR = "Asset/model/character/common/sourceimages/#windx11/";
 constexpr const char* UNIFORM_SHADER = "res://shaders/pes_uniform.gdshader";
 constexpr const char* BASE_ROLE = "Base_Tex_SRGB";
@@ -193,7 +195,10 @@ Ref<Material> Build::MakeMaterial(const pes::Fmdl& m, int index, bool kitSlot) {
   // time (the fmdl carries only Pattern_Tex_LIN), and a face folder's arm_bsm
   // replaces the arm skin. Arm and thigh fmdls carry a dummy Base or none; the
   // engine binds the skin, opaque (arm_mat.001 on hand_r is the same material).
-  if (mode_ == Mode::Player && fm.name.starts_with(UNIFORM_MATERIAL_PREFIX)) return MakeUniformMaterial(m, fm);
+  // Sleeves are not weave cloth: the sleeve inner is NrmUV, and the referee's sleeve
+  // keeps its fmdl values (pes-re-uniform-params.md 4, skip list).
+  const bool weaveCloth = !fm.name.starts_with(SLEEVE_INNER_MATERIAL) && !fm.name.starts_with(REFEREE_SLEEVE_MATERIAL);
+  if (mode_ == Mode::Player && fm.name.starts_with(UNIFORM_MATERIAL_PREFIX) && weaveCloth) return MakeUniformMaterial(m, fm);
   std::string skin;
   if (mode_ == Mode::Player && fm.name.starts_with(ARM_MATERIAL)) skin = armSkinPath_;
   else if (mode_ == Mode::Player && fm.name.starts_with(THIGH_MATERIAL)) skin = thighSkinPath_;
@@ -319,10 +324,20 @@ Ref<Material> Build::MakeUniformMaterial(const pes::Fmdl& m, const pes::FmdlMate
     mat->set_shader_parameter("has_kit_srm", true);
   }
   mat->set_shader_parameter("pattern", gpu(std::string(COMMON_TEXTURE_DIR) + "uni_pattern.ftex"));
-  Vector4 repetition = param("RepetitionParam", Vector4());
-  if (!socks && fm.name.rfind(PANTS_MATERIAL_PREFIX, 0) != 0) repetition.z = float(kitPattern_);
-  mat->set_shader_parameter("repetition", repetition);
-  mat->set_shader_parameter("blend_normal_x", param("BlendNormalXParam", Vector4()));
+  const pes::ClothPart part = socks ? pes::ClothPart::Socks
+                              : fm.name.rfind(PANTS_MATERIAL_PREFIX, 0) == 0 ? pes::ClothPart::Pants
+                                                                        : pes::ClothPart::ShirtFamily;
+  const Vector4 fmdlRepetition = param("RepetitionParam", Vector4());
+  const pes::Vec4 rep = pes::ClothRepetition(
+      part, kitPattern_, {fmdlRepetition.x, fmdlRepetition.y, fmdlRepetition.z, fmdlRepetition.w});
+  mat->set_shader_parameter("repetition", Vector4(rep.x, rep.y, rep.z, rep.w));
+  mat->set_shader_parameter("blend_normal_leg", param("BlendNormalLegParam", Vector4()));
+  const Vector4 fmdlBlendNormalX = param("BlendNormalXParam", Vector4());
+  const pes::Vec4 blend = pes::ClothBlendNormalX(
+      part, {fmdlBlendNormalX.x, fmdlBlendNormalX.y, fmdlBlendNormalX.z, fmdlBlendNormalX.w});
+  mat->set_shader_parameter("blend_normal_x", Vector4(blend.x, blend.y, blend.z, blend.w));
+  // Non-NC techniques cull back faces in PES; the _NC ones draw them with specular zeroed.
+  mat->set_shader_parameter("is_nc", fm.technique.ends_with("_NC"));
   // Normal arrays: the fmdl names one (pants, socks); shirts get shirts_normal
   // from the engine (pes-re-shaders.md 3.1).
   std::string normal;
