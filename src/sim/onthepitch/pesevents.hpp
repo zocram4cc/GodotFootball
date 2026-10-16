@@ -26,8 +26,8 @@
 // `ring`, `slot`, `count`, `head` are the store's own words; every offset above
 // is a byte offset inside E.
 //
-// The store is not wired into the match tick yet: GF's `Match::BallEvent` still
-// carries the four kinds it always carried (A2 scope, tasks/15-10-26.md §A2).
+// The match owns the store and writes it each tick from its event stage (matchevents.cpp);
+// the possession latch, the receive gates and the dodge window read it.
 // No PES number table is transcribed here: the ring routing table is read from
 // the user's own install through pes::PeImage::ReadVa.
 
@@ -39,6 +39,14 @@
 #include "pes/exe.hpp"
 
 namespace pes {
+
+// PES's action kinds, the ring-0 payload+0 word the readers test (OBS: pesreceive.hpp's
+// kind comment, FUN_1404fe9c0 step 2): 1 a short kick, 2 a high kick, 5 a shot. 7 is the
+// kind GF gives every other touch (INF: the route kind of a ball-event record is 7 too).
+constexpr uint32_t kActionKick = 1;
+constexpr uint32_t kActionHighKick = 2;
+constexpr uint32_t kActionShot = 5;
+constexpr uint32_t kActionTouch = 7;
 
 // The 800-byte event record. The ring slot *is* the record: FUN_140a3dac0
 // copies 800 bytes from the detector's record to `ringBase + head*800`, and the
@@ -276,6 +284,8 @@ struct NewestEventView {
   uint8_t flag2d = 0;   // payload+0x2d
   int32_t subKind = 0;  // payload+0x40
 };
+// The n-th newest ring-0 event (n = 0 the newest, n = 1 the touch before it).
+NewestEventView EventAt(const EventStore& store, int n);
 NewestEventView NewestEvent(const EventStore& store);
 
 // FUN_1404fe9c0 step 2's kind set: the newest event takes its actor when the

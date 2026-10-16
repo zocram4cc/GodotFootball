@@ -393,3 +393,13 @@ TEST(PesReceiveInstall, TheInstallCarriesTheGamesOwnReceive) {
 }
 
 }  // namespace
+
+// The store's action kinds (PES ring-0 +0) as the receive gates name them: 1 a
+// kick, 2 a high kick, 5 a shot, anything else a touch.
+TEST(PesReceiveEventKind, StoreActionKindsMapOntoTheReceiveKinds) {
+  EXPECT_EQ(pes::ReceiveEventKindOf(1), pes::BallEventKind::kPass);
+  EXPECT_EQ(pes::ReceiveEventKindOf(2), pes::BallEventKind::kHighPass);
+  EXPECT_EQ(pes::ReceiveEventKindOf(5), pes::BallEventKind::kShot);
+  EXPECT_EQ(pes::ReceiveEventKindOf(7), pes::BallEventKind::kTouch);
+  EXPECT_EQ(pes::ReceiveEventKindOf(0x10), pes::BallEventKind::kTouch);
+}

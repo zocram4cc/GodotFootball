@@ -59,6 +59,8 @@ struct PesMatchConstants {
   std::optional<pes::TackleConstants> tackle;
   std::optional<pes::StrategyConstants> strategy;
   std::optional<pes::TeamConceptConstants> teamConcepts;
+  std::optional<pes::EventRingTable> eventRing;
+  std::optional<pes::EventConstants> event;
   std::optional<pes::SubstitutionConstants> substitutions;
   std::optional<pes::offball::OffBallConstants> offBall;
 };
@@ -90,6 +92,8 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
   if (mounted)
     c.defenderDecisions = pes::LoadDefenderDecisionConstants(*exe, vfs, &err);
   if (mounted) c.contact = pes::LoadContactConstants(*exe, vfs, &err);
+  c.eventRing = pes::LoadEventRingTable(*exe, &err);
+  c.event = pes::LoadEventConstants(*exe, &err);
   if (mounted) c.clips = pes::LoadPesClips(*exe, vfs, &err);
   if (mounted) c.dodge = pes::LoadDodgeConstants(*exe, &err);
   if (mounted) c.animetable = pes::LoadAnimetable(*exe, vfs, &err);
@@ -125,6 +129,8 @@ inline bool FillMissingPesConstants(MatchSetup* setup) {
   fill(setup->pesDefensiveShapeConstants, c.defensiveShape);
   fill(setup->pesDefenderDecisionConstants, c.defenderDecisions);
   fill(setup->pesContactConstants, c.contact);
+  fill(setup->pesEventRingTable, c.eventRing);
+  fill(setup->pesEventConstants, c.event);
   fill(setup->pesClips, c.clips);
   fill(setup->pesDodgeConstants, c.dodge);
   fill(setup->pesAnimetable, c.animetable);

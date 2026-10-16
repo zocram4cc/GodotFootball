@@ -87,6 +87,9 @@ float HeadingDeg(float x, float y);
 
 // The newest ball event's kind (PES ring-0 `+0`: 1-3 kicks, 5 shot).
 enum class BallEventKind { kTouch, kPass, kHighPass, kShot };
+// The receive gates' kind for a store action kind (PES ring-0 +0): 1 a kick, 2 a
+// high kick, 5 a shot, anything else a touch.
+BallEventKind ReceiveEventKindOf(uint32_t actionKind);
 
 // --- Re-touch lockout (report §3) ---
 

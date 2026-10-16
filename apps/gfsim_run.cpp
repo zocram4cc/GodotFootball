@@ -123,6 +123,11 @@ int main(int argc, char** argv) {
   // the exe's level table, vetoes and balance gauge.
   auto contactConstants = pes::LoadContactConstants(*exe, vfs, &err);
   if (!contactConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  // PES 2021's event routing table and detector constants (docs/re/pes-re-gaps-a2.md).
+  auto eventRingTable = pes::LoadEventRingTable(*exe, &err);
+  if (!eventRingTable) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  auto eventConstants = pes::LoadEventConstants(*exe, &err);
+  if (!eventConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   // PES body clips the engine plays (pesclips.hpp), converted at match start.
   auto pesClips = pes::LoadPesClips(*exe, vfs, &err);
   if (!pesClips) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
@@ -177,6 +182,8 @@ int main(int argc, char** argv) {
   setup.pesDefensiveShapeConstants = &*defensiveShapeConstants;
   setup.pesDefenderDecisionConstants = &*defenderDecisionConstants;
   setup.pesContactConstants = &*contactConstants;
+  setup.pesEventRingTable = &*eventRingTable;
+  setup.pesEventConstants = &*eventConstants;
   setup.pesClips = &*pesClips;
   setup.pesDodgeConstants = &*dodgeConstants;
   setup.pesAnimetable = &*animetable;
