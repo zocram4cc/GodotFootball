@@ -5,6 +5,7 @@
 
 #include "referee.hpp"
 
+#include <cmath>
 #include <limits>
 
 #include "../data/playerskills.hpp"
@@ -150,26 +151,91 @@ const pes::StoppageConstants& Referee::GetStoppageConstants() const {
   return match->GetPesStoppageConstants();
 }
 
+// The judge's view of one event record (the readers of FUN_140a3e190): payload+0 kind, +0x10
+// frame, +0x1c restart kind, +0x20 holder flag, and the actor as a player id. A starter is
+// team * 11 + slot (the roster index under 11, as FUN_140a62ee0 names him); anyone else is none.
+namespace {
+constexpr uint32_t kStartersPerTeam = 11;
+constexpr uint32_t kTeamCount = 2;
+
+pes::TimeUpEvent JudgeEvent(const pes::EventRecord* rec) {
+  pes::TimeUpEvent e;
+  if (rec == nullptr) return e;
+  e.kind = rec->ActionKind();
+  e.frame = rec->I32(0x24);
+  e.restartKind = rec->U32(0x30);
+  e.flag = rec->U32(0x34);
+  const uint32_t team = rec->U32(0x18), slot = rec->U32(0x1c);
+  if (team < kTeamCount && slot < kStartersPerTeam) e.player = team * kStartersPerTeam + slot;
+  return e;
+}
+}  // namespace
+
+// The post-gate judge's input for this tick (pes_loop only; FUN_14050B9B0). The side in
+// possession is the ball carrier's team (team 0 when nobody has the ball, as PES's index 0xff
+// reads). Ball and speed are PES's: x along the pitch, height y, z = -GF y.
+bool Referee::PesTimeUpBlows() {
+  const pes::EventStore& events = match->GetPesEvents();
+  const Vector3 ball = match->GetBall()->Predict(0);
+  const Vector3 movement = match->GetBall()->GetMovement();
+  Player* carrier = match->GetBallRetainer();
+  Team* possession = match->GetTeam(carrier ? carrier->GetTeamID() : 0);
+  pes::TimeUpInput in;
+  in.zoneSign = possession->GetSide();
+  in.carrier = carrier != nullptr;
+  in.ballX_m = ball.coords[0];
+  in.ballHeight_m = ball.coords[2];
+  in.ballZ_m = -ball.coords[1];
+  in.speed_mps = std::hypot(movement.coords[0], movement.coords[1]);
+  in.halfLength_m = pesFieldHalfLength;
+  in.penaltyLineX_m = pesPenaltyAreaLineX;
+  in.penaltyHalfWidth_m = pesPenaltyAreaHalfWidth;
+  in.frame = match->GetPesFrame();
+  const pes::EventRecord* ring1 = events.RingRecord(1, 0);
+  in.ring1Word = (ring1 && ring1->kind != pes::EventRecord::kEmptyKind) ? ring1->ActionKind() : 0;
+  in.newest = JudgeEvent(events.NewestOrRing0(0));
+  in.second = JudgeEvent(events.NewestOrRing0(1));
+  return pes::TimeUpWhistle(timeUp, in, static_cast<int>(match->GetPesClockConstants().gameSpeed));
+}
+
+// pes_loop: PES's judge on this tick (FUN_14050C3E0), in play or not. The added time is announced
+// once the clock passes the length, and the judge counts while the gate is open. A blow is held in
+// `timeUpBlown` until play resumes. ponytail: PES's judge may blow in dead ball (its target is not
+// traced), so the held blow whistles on the first tick of play.
+void Referee::PesTimeUpTick() {
+  pes::PesClock& clock = match->GetPesClock();
+  if (clock.PastPeriodLength() && !clock.AddedTimeAnnounced()) {
+    clock.AnnounceAddedTime(kPesNoPerfTier);
+    const int addedMinutes = clock.AddedMinutes(kPesNoPerfTier);
+    if (addedMinutes > 0 && Verbose()) printf("referee: added time +%i min\n", addedMinutes);
+  }
+  if (clock.TimeUpGateOpen() && PesTimeUpBlows()) timeUpBlown = true;
+}
+
 void Referee::Process() {
   // printf("%i", match->GetMatchState());
+  // PES's judge runs on every tick, in play or not, with the gate open (pes_loop).
+  if (match->IsPesLoop()) PesTimeUpTick();
 
   if (match->IsInPlay() && !match->IsInSetPiece()) {
     Vector3 ballPos = match->GetBall()->Predict(0);
 
     // some phase is over :[
 
-    // PES's time-up gate (docs/re/pes-re-clock-live.md 8.1): the period clock reaching
-    // its length announces the added time once (LIMIT), and the whistle waits for the
-    // length plus that LIMIT. Stoppages accrue F, so they count towards it.
+    // PES's time-up gate (docs/re/pes-re-clock-live.md 8.1): the period clock reaching its
+    // length announces the added time once (LIMIT), and the whistle waits for the length plus
+    // that LIMIT. Stoppages accrue F, so they count towards it. Under pes_loop the whistle is
+    // the judge's blow (PesTimeUpTick), which waits here for play.
     pes::PesClock& clock = match->GetPesClock();
-    if (clock.PastPeriodLength() && !clock.AddedTimeAnnounced()) {
+    if (!match->IsPesLoop() && clock.PastPeriodLength() && !clock.AddedTimeAnnounced()) {
       clock.AnnounceAddedTime(kPesNoPerfTier);
       const int addedMinutes = clock.AddedMinutes(kPesNoPerfTier);
       if (addedMinutes > 0 && Verbose()) printf("referee: added time +%i min\n", addedMinutes);
     }
-    if (clock.TimeUpGateOpen()) {
+    if (match->IsPesLoop() ? timeUpBlown : clock.TimeUpGateOpen()) {
       foul.advantage = false;
       if (!CheckFoul()) {
+        timeUpBlown = false;
         match->StopPlay();
 
         buffer.desiredSetPiece = e_SetPiece_KickOff;

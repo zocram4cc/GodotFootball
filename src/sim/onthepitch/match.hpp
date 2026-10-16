@@ -148,6 +148,8 @@ public:
   // PES's event store E (pesevents.hpp): the match's event state. The event stage writes it on
   // every tick; the possession latch, the receive gates and the dodge window read it.
   const pes::EventStore& GetPesEvents() const { return pesEvents; }
+  // The tick-order switch (config pes_loop), read once when the match is built.
+  bool IsPesLoop() const { return pesLoop; }
   // A touch of the ball, queued for the next event stage. `actionKind` is PES's action kind
   // (team.cpp maps the GF touch function onto it).
   void QueuePesTouch(Player* player, uint32_t actionKind);

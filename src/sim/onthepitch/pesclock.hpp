@@ -39,6 +39,7 @@ constexpr uint64_t ADDED_TIER_3_6_ET_VA = 0x142598590;    // .rdata 3600.0 (the 
 constexpr uint64_t TIME_UP_BASE_VA = 0x142647c68;         // .rdata 162000.0 (periods 1 and 3)
 constexpr uint64_t TIME_UP_FLAG_VA = 0x142647c64;         // .rdata 54000.0 (periods 5 and 7)
 constexpr uint64_t MINUTE_UNITS_VA = 0x142598590;         // .rdata 3600.0 (units per minute)
+constexpr uint64_t LIMIT_CAP_VA = 0x142647c60;           // .rdata 21600.0 (LIMIT's clamp)
 constexpr uint64_t SECOND_UNITS_VA = 0x14259a764;         // .rdata 60.0 (seconds per minute, units per second)
 
 // Report 2.2: the HUD wraps the displayed minute at 100.
@@ -64,6 +65,7 @@ struct PesClockConstants {
   float timeUpFlag = 0.0f;         // 54000.0: the length of periods 5 and 7
   float minuteUnits = 0.0f;        // 3600.0: LIMIT's units per whole minute
   float secondsUnit = 0.0f;        // 60.0: minutes to seconds, and seconds to units
+  float limitCap = 0.0f;          // 21600.0: LIMIT's clamp in the stoppage writer
 };
 
 bool ReadFloat(const PeImage& exe, uint64_t va, float* out);
@@ -103,6 +105,57 @@ void StoreStamp(PeriodRecord& r, float stamp);
 // clock reaches it.
 bool TimeUpReached(const PesClockConstants& c, uint32_t period, float limit, float clock);
 
+// --- the post-gate judge (FUN_14050B9B0, the part after the gate opens) ---
+//
+// With the gate open, PES's judge runs on every tick, in play or not (FUN_14050C3E0 skips
+// only periods 2, 6, 9 and 10). It counts the ticks the gate has been open (R+0xd0, the 60 s
+// count), the ticks the ball has spent in the zone of the side in possession (R+0xd8), and,
+// on a kind-0 touch, the ticks the ball has been on the ground with nobody holding it (R+0xd4,
+// the 30 s count). A blow clears every count (FUN_14050C3E0). Not ported, each marked where it
+// stands: the penalty-taker hold (G+0x2920), the R+8 flag (no writer traced), the zone's 0x255
+// sub-branch, the ball-speed and zone-crossing tests of a kind-0 touch (FUN_14050B9B0 lines
+// 141-200: B+0x2954 and MS+0x24844/0x2489c), and kind 2's x test on payload+8.
+struct TimeUpCounters {
+  int sixtySeconds = 0;   // R+0xd0: ticks with the gate open, cleared on a blow
+  int zoneTicks = 0;      // R+0xd8: the zone count, signed by the side in possession
+  int thirtySeconds = 0;  // R+0xd4: ground-ball ticks of a kind-0 touch
+};
+
+// The action kind of an empty touch record (the 0x37 sentinel of FUN_140a3e190).
+constexpr uint32_t kTimeUpNoKind = 0x37;
+// The player id of no player (FUN_140a62ee0's 0xff).
+constexpr uint32_t kTimeUpNoPlayer = 0xff;
+
+// The judge's view of one event record: payload+0 (kind), +0x10 (frame), +0x1c (restart
+// kind), +0x20 (holder flag) and the actor's player id.
+struct TimeUpEvent {
+  uint32_t kind = kTimeUpNoKind;
+  int frame = 0;
+  uint32_t restartKind = 0;
+  uint32_t flag = 0;
+  uint32_t player = kTimeUpNoPlayer;
+};
+
+struct TimeUpInput {
+  int zoneSign = 1;                 // the attack sign of the side in possession: +1 or -1
+  bool carrier = false;             // a player has the ball (FUN_140a627e0 names one)
+  float ballX_m = 0.0f;             // the ball's x along the pitch (B+0x88), PES metres
+  float ballHeight_m = 0.0f;        // its height, PES y (B+0x8c)
+  float ballZ_m = 0.0f;             // its z across the pitch (B+0x90)
+  float speed_mps = 0.0f;           // |velocity| across the pitch, m/s (B+0x2948, B+0x2950)
+  float halfLength_m = 0.0f;        // F[0]: the zone line is a third of it
+  float penaltyLineX_m = 0.0f;      // F[6]: the penalty-area line
+  float penaltyHalfWidth_m = 0.0f;  // F[7]: the penalty-area half-width
+  int frame = 0;                    // MI+0x1198: the frame the judge runs on
+  uint32_t ring1Word = 0;           // FUN_140a3e840: ring 1's newest payload+0, 0 when empty
+  TimeUpEvent newest;               // R+0x3c0: the newest touch copy (FUN_140a3e190(E,0))
+  TimeUpEvent second;               // FUN_140a3e190(E,1): the touch before it
+};
+
+// One judge tick with the gate open, at `rate` logic frames a game-second. Returns true when
+// the judge blows; every count is then cleared.
+bool TimeUpWhistle(TimeUpCounters& counters, const TimeUpInput& in, int rate);
+
 // --- the added-time formula (report 3.2) ---
 
 // Which of the two paths the added-time formula runs: PES evaluates it only at
@@ -140,6 +193,9 @@ class PesClock {
   // One logic tick of `gameSeconds`. In play the stamp advances at 60 units a
   // game-second; while frozen (a stoppage) the stamp holds and F accrues.
   void Advance(float gameSeconds);
+  // FUN_14044CE80 step 4: while stopped in a clock period, LIMIT takes the same half unit
+  // per frame as F, clamped at limitCap. Called every tick; it does nothing in play.
+  void AccrueStoppageLimit(float gameSeconds);
   // Freezes the clock for the duration of a stoppage (report 3.3).
   void SetFrozen(bool frozen) { this->frozen = frozen; }
   bool IsFrozen() const { return frozen; }
@@ -150,7 +206,7 @@ class PesClock {
   bool PastPeriodLength() const;
   // The time-up gate: the length plus the whole minutes LIMIT holds.
   bool TimeUpGateOpen() const;
-  // Writes LIMIT from the added-time formula, once per period (report 3.2).
+  // Adds the added-time formula's minutes to LIMIT, once per period (report 3.2).
   void AnnounceAddedTime(int tier);
   bool AddedTimeAnnounced() const { return addedTimeAnnounced; }
 

@@ -455,6 +455,9 @@ void Match::AdvanceMatchSeconds(float gameSeconds) {
   // one, so a stoppage stops the clock instead of adding to it.
   pesClock->SetFrozen(!IsInPlay() || IsInSetPiece());
   pesClock->Advance(gameSeconds);
+  // pes_loop: the stoppage writer on LIMIT (FUN_14044CE80 step 4). The off path leaves LIMIT
+  // to the announcement alone.
+  if (pesLoop) pesClock->AccrueStoppageLimit(gameSeconds);
 }
 
 int Match::GetPesFrame() const {
