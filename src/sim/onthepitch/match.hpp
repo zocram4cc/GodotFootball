@@ -194,8 +194,8 @@ public:
   signed int GetBestPossessionTeamID();
   Player* GetDesignatedPossessionPlayer() { return designatedPossessionPlayer; }
 
-  // Read by the match report, so a match that stood still shows up in the
-  // batch output. Zero is the only good answer.
+  // Read by RestartWatch, which counts idle episodes from it. Not printed: a
+  // tick count says how long the ball lay loose, not how often a restart stalled.
   unsigned long GetStalemateCount() const { return stalemateCount; }
 
   // Whether the man on the ball must give it up: nothing has happened for long
