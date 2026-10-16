@@ -6,6 +6,8 @@
 #include <utility>
 #include <vector>
 
+#include "pes/vfs.hpp"
+
 namespace pes {
 
 // PES 2021 effect_config.xml (version 2): <setting> blocks of <param>s, and
@@ -48,8 +50,13 @@ struct EffectConfig {
 // with `error` set and no partial result.
 std::optional<EffectConfig> ParseEffectConfig(std::string_view xml, std::string* error);
 
-// The parsed config as one JSON object for the standalone scene (pesfmt_dump effects):
-// each param carries its `values` (numeric types) or `text` (other types).
-std::string EffectConfigToJson(const EffectConfig& cfg);
+// The effect pack of one stadium, time zone and weather (docs/re/pes-re-effects-particles.md 2.1):
+// Asset/model/bg/stNNN/effect/#Win/effect_stNNN_{df,dr,nf,nr}.fpk, n = night, r = rain.
+std::string EffectPackPath(int stadiumId, bool night, bool rain);
+
+// Reads and parses the effect_config.xml inside that pack. Null, with `error` set, when the pack or its
+// config is missing or malformed.
+std::optional<EffectConfig> LoadEffectConfig(const PesVfs& vfs, int stadiumId, bool night, bool rain,
+                                             std::string* error);
 
 }  // namespace pes

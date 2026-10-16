@@ -1,5 +1,7 @@
 #include "pes/effects.hpp"
 
+#include "pes/fpk.hpp"
+
 #include <charconv>
 #include <cstdio>
 #include <cstdint>
@@ -322,65 +324,26 @@ std::optional<EffectConfig> ParseEffectConfig(std::string_view xml, std::string*
   return cfg;
 }
 
-namespace {
-
-std::string JsonString(std::string_view s) {
-  std::string out = "\"";
-  for (unsigned char c : s) {
-    if (c == '"' || c == '\\') {
-      out += '\\';
-      out += char(c);
-    } else if (c < 0x20) {
-      char buf[8];
-      std::snprintf(buf, sizeof buf, "\\u%04x", c);
-      out += buf;
-    } else {
-      out += char(c);
-    }
-  }
-  return out + "\"";
-}
-
-// %.17g round-trips every double the parser produces.
-std::string JsonNumber(double v) {
-  char buf[32];
-  std::snprintf(buf, sizeof buf, "%.17g", v);
+std::string EffectPackPath(int stadiumId, bool night, bool rain) {
+  char buf[96];
+  std::snprintf(buf, sizeof buf, "Asset/model/bg/st%03d/effect/#Win/effect_st%03d_%c%c.fpk", stadiumId, stadiumId,
+                night ? 'n' : 'd', rain ? 'r' : 'f');
   return buf;
 }
 
-}  // namespace
-
-std::string EffectConfigToJson(const EffectConfig& cfg) {
-  std::string out = R"({"settings":[)";
-  for (size_t i = 0; i < cfg.settings.size(); ++i) {
-    const EffectSetting& s = cfg.settings[i];
-    if (i) out += ',';
-    out += R"({"type":)" + JsonString(s.type) + R"(,"index":)" + std::to_string(s.index) + R"(,"params":[)";
-    for (size_t j = 0; j < s.params.size(); ++j) {
-      const EffectParam& p = s.params[j];
-      if (j) out += ',';
-      out += R"({"id":)" + JsonString(p.id) + R"(,"type":)" + JsonString(p.type) + R"(,"index":)" +
-             std::to_string(p.index) + R"(,"values":[)";
-      for (size_t k = 0; k < p.values.size(); ++k) {
-        if (k) out += ',';
-        out += JsonNumber(p.values[k]);
-      }
-      out += R"(],"text":)" + JsonString(p.text) + "}";
-    }
-    out += "]}";
+std::optional<EffectConfig> LoadEffectConfig(const PesVfs& vfs, int stadiumId, bool night, bool rain,
+                                             std::string* error) {
+  const std::string path = EffectPackPath(stadiumId, night, rain);
+  auto blob = vfs.Read(path, error);
+  if (!blob) return std::nullopt;
+  auto fpk = FpkArchive::Parse(*blob, error);
+  if (!fpk) return std::nullopt;
+  for (const auto& e : fpk->entries) {
+    if (e.path.ends_with("effect_config.xml"))
+      return ParseEffectConfig(std::string_view(reinterpret_cast<const char*>(blob->data() + e.offset), e.size), error);
   }
-  out += R"(],"creates":[)";
-  for (size_t i = 0; i < cfg.creates.size(); ++i) {
-    const EffectCreate& c = cfg.creates[i];
-    if (i) out += ',';
-    out += R"({"type":)" + JsonString(c.type) + R"(,"setting":)" + std::to_string(c.setting) + R"(,"attributes":{)";
-    for (size_t k = 0; k < c.attributes.size(); ++k) {
-      if (k) out += ',';
-      out += JsonString(c.attributes[k].first) + ':' + JsonString(c.attributes[k].second);
-    }
-    out += "}}";
-  }
-  return out + "]}";
+  if (error) *error = path + ": no effect_config.xml";
+  return std::nullopt;
 }
 
 }  // namespace pes

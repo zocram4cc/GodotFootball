@@ -1,11 +1,10 @@
 extends RefCounted
-## Effect entries of one effect_config.xml (pesfmt_dump effects JSON) as scene nodes.
+## Effect entries of one effect_config.xml (PesEffects.placement) as scene nodes.
 ## Placed: Vignetting (screen overlay), MultiUvScrollScreen (rain screen), RainDemo (rain
-## streaks). Not placed, reported by placement(): LightBillboard (its locator models are
+## streaks). Not placed, reported by PesEffects.placement(): LightBillboard (its locator models are
 ## not decoded; st002's are 32 zero bytes), LensFlare (layer and scale units not decoded),
 ## Halo (scale units not decoded). Positions are Fox space, as the static models are.
 
-const PLACED := ["Vignetting", "MultiUvScrollScreen", "RainDemo"]
 const SCREEN_SHADER := "res://effects/screen_rain.gdshader"
 const PES_ASSETS := "Assets/pes16/"
 const VFS_ASSETS := "Asset/"
@@ -24,21 +23,6 @@ static func vfs_texture(pes_path: String) -> String:
 	return VFS_ASSETS + path.substr(0, slash + 1) + PLATFORM_DIR + path.substr(slash + 1)
 
 
-## Splits the creates into placed entries ({type, setting}), unplaced creates and orphans
-## (creates whose setting the pack does not have; the nf packs carry some).
-static func placement(config: Dictionary) -> Dictionary:
-	var out := {"placeable": [], "unplaced": [], "orphans": []}
-	for create in config.get("creates", []):
-		var setting := _setting_of(config, create["type"], int(create["setting"]))
-		if setting.is_empty():
-			out["orphans"].append(create)
-		elif create["type"] in PLACED:
-			out["placeable"].append({"type": create["type"], "setting": setting})
-		else:
-			out["unplaced"].append(create)
-	return out
-
-
 ## The numbers of one param (converted by the parser), [] when absent. wanted_index -1
 ## matches a param with no index attribute.
 static func values(setting: Dictionary, id: String, wanted_index := -1) -> Array:
@@ -52,9 +36,8 @@ static func text(setting: Dictionary, id: String, wanted_index := -1) -> String:
 
 ## Adds every placed entry: screen overlays under `screen`, rain under the camera (it moves
 ## with the view). Returns how many entries were placed.
-static func build_entries(camera: Camera3D, screen: CanvasLayer, library: PesLibrary, config: Dictionary) -> int:
-	var entries: Array = placement(config)["placeable"]
-	for entry in entries:
+static func build_entries(camera: Camera3D, screen: CanvasLayer, library: PesLibrary, placed: Array) -> int:
+	for entry in placed:
 		var s: Dictionary = entry["setting"]
 		match entry["type"]:
 			"Vignetting":
@@ -63,14 +46,7 @@ static func build_entries(camera: Camera3D, screen: CanvasLayer, library: PesLib
 				camera.add_child(_screen_rain(s, library, camera.fov))
 			"RainDemo":
 				camera.add_child(_rain_streaks(s, library))
-	return entries.size()
-
-
-static func _setting_of(config: Dictionary, type: String, index: int) -> Dictionary:
-	for s in config.get("settings", []):
-		if s["type"] == type and int(s["index"]) == index:
-			return s
-	return {}
+	return placed.size()
 
 
 static func _param(setting: Dictionary, id: String, wanted_index: int) -> Dictionary:
