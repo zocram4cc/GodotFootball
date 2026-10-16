@@ -220,16 +220,21 @@ int ResolveStadiumId(int storedId, const std::vector<int>& validIds) {
   return kKonamiStadiumId;
 }
 
+std::vector<int> ValidStadiumIds(const PesVfs& vfs) {
+  std::string err;
+  std::vector<int> valid;
+  for (const StadiumInfo& s : ReadStadiumList(vfs, &err))
+    if (vfs.Exists(SceneFpkdPath(s.id))) valid.push_back(s.id);
+  return valid;
+}
+
 int TeamStadiumId(const PesVfs& vfs, int teamId) {
   std::string err;
   const auto teams = ReadTeamList(vfs, &err);
   const auto team = std::find_if(teams.begin(), teams.end(),
                                  [&](const TeamRecord& t) { return t.id == teamId; });
   if (team == teams.end()) return kKonamiStadiumId;
-  std::vector<int> valid;
-  for (const StadiumInfo& s : ReadStadiumList(vfs, &err))
-    if (vfs.Exists(SceneFpkdPath(s.id))) valid.push_back(s.id);
-  return ResolveStadiumId(team->stadiumId, valid);
+  return ResolveStadiumId(team->stadiumId, ValidStadiumIds(vfs));
 }
 
 std::optional<std::vector<PlacedModel>> LoadStadiumScene(const PesVfs& vfs,

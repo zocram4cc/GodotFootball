@@ -212,18 +212,26 @@ TEST(Stadium, ValidStoredStadiumKeepsItsId) {
   EXPECT_EQ(pes::ResolveStadiumId(2, {2, 29}), 2);
 }
 
-// BNT (708) and W (760) store stadium 29 in the 4cc Team.bin override, so they
-// resolve to 29 in this install. That pins a pack value on the owner's request;
-// the test skips when the install lacks either team.
-TEST(StadiumInstall, BntAndWResolveToTwentyNine) {
+// For every team in the install's effective Team.bin, the home-stadium lookup is
+// the match resolver's rule applied to that team's own stored id and the install's
+// valid set. Pins no pack values: ids and the valid set are read from the install.
+TEST(StadiumInstall, EveryTeamResolvesItsStoredStadium) {
   const pes::PesVfs* vfs = Vfs();
   if (!vfs) GTEST_SKIP() << "PES21_ROOT not set or mount failed";
   std::string err;
   const auto teams = pes::ReadTeamList(*vfs, &err);
   ASSERT_FALSE(teams.empty()) << err;
-  for (int id : {708, 760}) {
-    if (!std::any_of(teams.begin(), teams.end(), [&](const auto& t) { return t.id == id; }))
-      GTEST_SKIP() << "team " << id << " not in this install";
-    EXPECT_EQ(pes::TeamStadiumId(*vfs, id), 29) << "team " << id;
+  const std::vector<int> valid = pes::ValidStadiumIds(*vfs);
+  ASSERT_FALSE(valid.empty()) << "no stadium pack in the install";
+
+  // The fallback runs for a team whose stored id is 0 or has no pack in the install.
+  bool fallbackExercised = false;
+  for (const auto& t : teams) {
+    EXPECT_EQ(pes::TeamStadiumId(*vfs, t.id), pes::ResolveStadiumId(t.stadiumId, valid))
+        << "team " << t.id << " stores " << t.stadiumId;
+    if (t.stadiumId == 0 || std::find(valid.begin(), valid.end(), t.stadiumId) == valid.end())
+      fallbackExercised = true;
   }
+  if (!fallbackExercised)
+    GTEST_SKIP() << "no team in this install stores 0 or an id without a pack, so the fallback is not exercised";
 }

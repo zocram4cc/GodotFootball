@@ -80,6 +80,10 @@ int ResolveStadiumId(int storedId, const std::vector<int>& validIds);
 // ResolveStadiumId, 29 when the team is not listed.
 int TeamStadiumId(const PesVfs& vfs, int teamId);
 
+// The Stadium.bin ids whose scene pack ships in the install: the valid set
+// ResolveStadiumId checks against. ponytail: stand-in, see ResolveStadiumId.
+std::vector<int> ValidStadiumIds(const PesVfs& vfs);
+
 // Assemble one stadium's model placements from its fox2 files, in this order:
 // the scene (<folder>.fpkd), the day/fine overlay (<folder>_df.fpkd, when the
 // pack ships one), the pitch (pitch/<folder>.fpkd), the goals (common goal_post
