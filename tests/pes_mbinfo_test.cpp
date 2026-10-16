@@ -27,7 +27,7 @@ TEST(PesMbinfo, DecodesTheThreeLayouts) {
   Put<uint32_t>(bins.animation, 0, 5u | (63u << 13));  // motion 5, end frame 64
   Put<uint32_t>(bins.animation, 4, 360u | (50u << 10));
   Put<float>(bins.animation, 28, 1.5f);  // cancel_speed
-  Put<uint32_t>(bins.hitData, 0, 5u | (12u << 13) | (9u << 27));
+  Put<uint32_t>(bins.hitData, 0, 5u | (12u << 13) | (9u << 27));  // raw 5 -> motion 5 + 0x11
   Put<float>(bins.hitData, 0x24, 106.0f);
   Put<float>(bins.hitData, 0x28, 168.5f);
   Put<float>(bins.hitData, 0x2c, 60.0f);
@@ -40,16 +40,17 @@ TEST(PesMbinfo, DecodesTheThreeLayouts) {
   EXPECT_EQ(m->Timing(5)->endFrame, 64);
   EXPECT_EQ(m->Timing(5)->blendStart, 50);
   EXPECT_FLOAT_EQ(m->Timing(5)->cancelSpeed, 1.5f);
-  ASSERT_EQ(m->Hits(5).size(), 1u);
-  EXPECT_EQ(m->Hits(5)[0].frame, 12);
-  EXPECT_EQ(m->Hits(5)[0].contactPart, 10);
-  EXPECT_FLOAT_EQ(m->Hits(5)[0].ballY, 168.5f);
-  EXPECT_FLOAT_EQ(m->Hits(5)[0].ballX, 60.0f);
-  EXPECT_FLOAT_EQ(m->Hits(5)[0].yaw_deg, -4.0f);
+  ASSERT_EQ(m->Hits(5 + 0x11).size(), 1u);
+  EXPECT_EQ(m->Hits(5 + 0x11)[0].frame, 12);
+  EXPECT_EQ(m->Hits(5 + 0x11)[0].contactPart, 10);
+  EXPECT_FLOAT_EQ(m->Hits(5 + 0x11)[0].ballY, 168.5f);
+  EXPECT_FLOAT_EQ(m->Hits(5 + 0x11)[0].ballX, 60.0f);
+  EXPECT_FLOAT_EQ(m->Hits(5 + 0x11)[0].yaw_deg, -4.0f);
   ASSERT_NE(m->Cancel(5), nullptr);
   EXPECT_EQ(m->Cancel(5)->frame, 40);
   EXPECT_EQ(m->Timing(4), nullptr);
   EXPECT_TRUE(m->Hits(4).empty());
+  EXPECT_TRUE(m->Hits(5).empty());  // raw 5 files at 5 + 0x11, not at 5
   EXPECT_TRUE(m->Hits(99999).empty());
 }
 
@@ -178,6 +179,41 @@ TEST(PesMbinfoInstall, TheMotionTableHoldsTheFirstRecordsOfEachMotionAsTheBinsSa
       EXPECT_EQ(r.Rot(int(i)).start, int((w1 >> 10) & 0x3ff) - 517);
       EXPECT_EQ(r.Rot(int(i)).end, int(w1 & 0x3ff) + 1);
     }
+    if (++checked == 64) break;
+  }
+  EXPECT_GT(checked, 0);
+}
+TEST(PesMbinfoInstall, HitDataLandsOnTheMotionsOwnAnimationRecord) {
+  // PES's HitData builder FUN_1406ad300 files each record at (w0 & 0x1fff) +
+  // 0x11 (AND AX,0x1fff at 0x1406ad42a..0x1406ad434, ADD AX,0x11 at
+  // 0x1406ad438); the Animation builder FUN_1406ac4d0 files at w0 & 0x1fff
+  // with no add. So a HitData record's own clip is the Animation record 0x11
+  // above its raw word: every raw word whose shifted motion has an Animation
+  // record also has that Animation record's motion in the HitData index.
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto m = pes::LoadMbinfo(vfs, *exe, &err);
+  ASSERT_TRUE(m.has_value()) << err;
+  auto hit = vfs.Read("common/anime/Mbinfo/bin/HitData.bin", &err);
+  ASSERT_TRUE(hit.has_value()) << err;
+  ASSERT_FALSE(hit->empty());
+  int checked = 0;
+  for (size_t o = 0; o + 108 <= hit->size(); o += 108) {
+    uint32_t w = 0;
+    std::memcpy(&w, &(*hit)[o], 4);
+    const int raw = int(w & 0x1fff), motion = raw + 0x11;
+    if (m->Timing(motion) == nullptr) continue;  // shifted motion has no clip
+    const auto& hits = m->Hits(motion);
+    ASSERT_FALSE(hits.empty()) << "raw motion " << raw;
+    bool found = false;
+    for (const auto& h : hits)
+      if (h.frame == int((w >> 13) & 0xff)) found = true;
+    EXPECT_TRUE(found) << "motion " << motion;
     if (++checked == 64) break;
   }
   EXPECT_GT(checked, 0);
