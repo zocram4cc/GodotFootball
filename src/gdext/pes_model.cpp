@@ -28,15 +28,20 @@ constexpr const char* BLIN_SHADER = "res://shaders/pes_blin.gdshader";
 constexpr const char* CONSTANT_SHADER = "res://shaders/pes_constant.gdshader";
 constexpr const char* CONSTANT_BLEND_SHADER = "res://shaders/pes_constant_blend.gdshader";
 constexpr const char* PITCH_SHADER = "res://shaders/pes_pitch.gdshader";
+constexpr const char* GGX_DECAL_SHADER = "res://shaders/pes_ggx_decal.gdshader";
+constexpr const char* BLIN_DECAL_SHADER = "res://shaders/pes_blin_decal.gdshader";
 constexpr const char* BASE_ROLE = "Base_Tex_SRGB";
 constexpr int NO_FACE = 0;  // static models have no face folder to fall back on
 
 // Fox technique -> shader. ConstantSRGB is unlit; "_Solid" is the opaque
-// variant. ponytail: the fox3DD* family (Blin, Blin_LNM/NrmUV, GGX, GGX_TexAnim,
-// TempolaryAlbedoView) all draw as Blin until their disassembly is mapped.
+// variant. fox3DDC_GGX and fox3DDC_Blin are Deferred_Decal techniques (the
+// pitch lines and scratch); the other fox3DD* techniques still draw as Blin
+// until their disassembly is mapped (ponytail).
 const char* ShaderFor(const std::string& technique) {
   if (technique == "pes3DDF_Pitch2020") return PITCH_SHADER;
   if (technique == "fox3DFW_ConstantSRGB_NDR_Solid") return CONSTANT_SHADER;
+  if (technique == "fox3DDC_GGX") return GGX_DECAL_SHADER;
+  if (technique == "fox3DDC_Blin") return BLIN_DECAL_SHADER;
   if (technique == "fox3DFW_ConstantSRGB_NDR") return CONSTANT_BLEND_SHADER;
   if (technique.rfind("fox3DD", 0) == 0) return BLIN_SHADER;
   return nullptr;
