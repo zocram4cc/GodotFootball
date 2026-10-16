@@ -64,6 +64,32 @@ const float ID3_F0 = 0.04;
 const float VISIBILITY_THRESHOLD = 0.5;
 const vec3 UP = vec3(0.0, 1.0, 0.0);
 
+// PES's VS outputs o7.z and o7.w (VS asm 107-129), the fog-height terms the PS adds
+// to S0 (specular) and S1 (roughness) at PS asm 166. .x = o7.z, .y = o7.w.
+varying vec2 pes_v7;
+// VS asm 122-123 and 126-127: c0 + c1*h + c2*h^2 + c3*h^3, with h = r5.y.
+const vec4 V7_Z_POLY = vec4(-6.92820475e-02, 4.87729087e-02, -4.52929502e-03, 1.09006702e-04);
+const vec4 V7_W_POLY = vec4(3.92868012e-01, 1.66708007e-02, 1.17833703e-03, -2.07818593e-04);
+const float V7_DEPTH_FLOOR = 6.25e-02;  // VS asm 113
+const float V7_LOG_SCALE = 1.2e+01;     // VS asm 115
+const float V7_HEIGHT_DY = -1.7e+00;    // VS asm 118
+
+void vertex() {
+	// VS asm 107-119: the surface point's height seen from the camera. Camera and
+	// vertex are world space (VS asm 109 uses cb2[20], the camera; PS asm 58 uses it
+	// the same way); the depth is the clip w (VS asm 76, r3.w), the view depth here.
+	vec3 worldPos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;                   // VS asm 77-79
+	vec3 toPos = worldPos - (INV_VIEW_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;  // VS asm 109
+	float depth = -(MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).z;                  // VS asm 76
+	float dy = toPos.y / length(toPos);                                       // VS asm 110-112
+	float logTerm = log2(V7_LOG_SCALE * -dy * PROJECTION_MATRIX[1][1] / max(depth, V7_DEPTH_FLOOR));  // VS asm 113-117
+	float h = max(V7_HEIGHT_DY * dy - logTerm, 0.0);                          // VS asm 118-119
+	vec4 hp = vec4(1.0, h, h * h, h * h * h);                                 // VS asm 120-121
+	// VS asm 124-125 and 128-129: add_sat(poly + 0.5) - 0.5, so the terms lie in [-0.5, 0.5].
+	pes_v7 = vec2(clamp(dot(V7_Z_POLY, hp) + 0.5, 0.0, 1.0) - 0.5,
+	              clamp(dot(V7_W_POLY, hp) + 0.5, 0.0, 1.0) - 0.5);
+}
+
 vec3 srgb_to_linear(vec3 c) {
 	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
 }
@@ -146,18 +172,17 @@ void fragment() {
 	NORMAL = normalize((VIEW_MATRIX * vec4(nWorld, 0.0)).xyz);
 
 	// ---- GB1 and GB2 (asm 161-179) -----------------------------------------
-	// Roughness is S1; the specular scale is m4 * slope.r * match * S0 (asm 174-178);
-	// the translucency T = m3 * sat(S2*lin + S5) (asm 165) rides in BACKLIGHT.r.
+	// Roughness is S1 + o7.w; the specular scale is m4 * slope.r * match * (S0 + o7.z)
+	// (PS asm 166, 174-178); the translucency T = m3 * sat(S2*lin + S5) (asm 165) rides in BACKLIGHT.r.
 	float s0 = clamp(lin * SrmParameter0.x + SrmParameter3.x, 0.0, 1.0);     // asm 164
 	float s1 = clamp(lin * SrmParameter1.x + SrmParameter4.x, 0.0, 1.0);     // asm 164
 	float tr = clamp(lin * SrmParameter2.x + SrmParameter5.x, 0.0, 1.0);     // asm 164
-	float specScale = m4 * slope.r * match * s0;                             // GB2.y (asm 174-178)
-	ROUGHNESS = s1;                                                          // GB2.x (asm 177)
+	float specScale = m4 * slope.r * match * (s0 + pes_v7.x);                 // GB2.y (asm 166, 176-178)
+	ROUGHNESS = s1 + pes_v7.y;                                                // GB2.x (asm 166, 177)
 	SPECULAR = specScale;                                                    // Godot's own ambient reflection
 	METALLIC = 0.0;                                                          // GB2.z (asm 179)
 	BACKLIGHT = vec3(m3 * tr, specScale, 0.0);                               // read by light() below
-	// [DEVIATION 3] The VS fog terms and GB3/GB4 (velocity) are not ported: Godot's
-	// fog and motion vectors replace them.
+	// [DEVIATION 3] GB3/GB4 (velocity) are not ported: Godot's motion vectors replace them.
 	// [DEVIATION 5] MatParamIndex_0 (205 on st002) is read by no instruction of the
 	// PS (report 5.1), so no preset is applied and the parameter is not declared.
 }
