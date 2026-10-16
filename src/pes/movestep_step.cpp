@@ -770,8 +770,9 @@ void StepLoop(MoveHost& host, MoveReq& req) {
               (k.deg67p5 < req.F(moveword::kLookDelta) && !precise)
           ? k.s0p2
           : k.s0p1333;
-  const int group = int(LocomotionStyle(host, int(req.U(moveword::kCommandId)),
-                                        req.F(moveword::kRate), req));
+  // FUN_1406c4f59's call: rateHeld is 0 there.
+  const int group = LocomotionStyle(host, host.AnimeState(), req.F(moveword::kRate), req,
+                                    host.RateCeiling(), false);
   pes::MotionRequest request;
   request.motion = motion;
   request.mirror = host.BucketIsLeft(bucket);

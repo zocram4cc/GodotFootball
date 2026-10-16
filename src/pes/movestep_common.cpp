@@ -3,6 +3,7 @@
 // synthetic tests pass their own.
 #include "pes/movestep.hpp"
 
+#include <cmath>
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -120,6 +121,31 @@ std::optional<SpeedRateTable> LoadSpeedRateTable(const PeImage& exe, std::string
   return t;
 }
 
+namespace {
+// FUN_1406ba2f0's .rdata reads, by VA; each field's comment names its site.
+struct StyleSite {
+  uint64_t va;
+  float StyleConstants::* field;
+};
+constexpr StyleSite STYLE_SITES[] = {
+    {0x1425ddf74, &StyleConstants::rate0p895}, {0x1425ddf6c, &StyleConstants::rate0p825},
+    {0x14259be10, &StyleConstants::speed16},   {0x14253ee30, &StyleConstants::heightDiv},
+    {0x14256ae34, &StyleConstants::kmhScale},  {0x14259be1c, &StyleConstants::sampleTicks},
+    {0x14259be40, &StyleConstants::radToDeg},
+};
+}  // namespace
+
+std::optional<StyleConstants> LoadStyleConstants(const PeImage& exe, std::string* error) {
+  StyleConstants k{};
+  for (const StyleSite& s : STYLE_SITES) {
+    if (!exe.ReadVa(s.va, sizeof(float), reinterpret_cast<uint8_t*>(&(k.*(s.field))))) {
+      *error = "style constants: .rdata unreadable";
+      return std::nullopt;
+    }
+  }
+  return k;
+}
+
 namespace movestep {
 
 namespace {
@@ -205,6 +231,6 @@ float SpeedToRate(MoveHost& host, float speedKmh, int kind) {
   }
   return 0.0f;
 }
-
 }  // namespace movestep
+
 }  // namespace pes

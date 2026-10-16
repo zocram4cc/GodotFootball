@@ -6,6 +6,7 @@
 #include <string>
 
 #include "match.hpp"
+#include "onthepitch/AIsupport/mentalimage.hpp"
 #include "onthepitch/ball.hpp"
 #include "onthepitch/player/player.hpp"
 #include "pes/exe.hpp"
@@ -29,6 +30,7 @@ struct MoveHostConstants {
   pes::AngleBucketConstants buckets{};
   pes::movestep::MoveTurnConstants turn{};
   pes::ParametricGroups parametric{};
+  pes::StyleConstants style{};
   pes::movestep::MotionStartConstants motionStart{};
 };
 
@@ -53,6 +55,7 @@ std::optional<MoveHostConstants> LoadMoveHostConstants() {
   if (auto b = pes::LoadAngleBucketConstants(*exe, &err)) c.buckets = *b; else return std::nullopt;
   if (auto t = pes::movestep::LoadMoveTurnConstants(*exe, &err)) c.turn = *t; else return std::nullopt;
   if (auto m = pes::movestep::LoadMotionStartConstants(*exe, &err)) c.motionStart = *m; else return std::nullopt;
+  if (auto s = pes::LoadStyleConstants(*exe, &err)) c.style = *s; else return std::nullopt;
   if (auto g = pes::LoadParametricGroups(*exe, &err)) c.parametric = *g; else return std::nullopt;
   return c;
 }
@@ -102,6 +105,35 @@ class MoveHostAdapter final : public pes::MoveHost {
   }
   float MotionStartTime(int motionNo) const override {
     return pes::movestep::MotionStartSeconds(c_.motionStart, static_cast<uint16_t>(motionNo));
+  }
+  const pes::StyleConstants& StyleConstantsView() const override { return c_.style; }
+  // ponytail: FUN_142348f80 and FUN_140a73e20 read the match's scripted-slot object (match+0x1a8);
+  // GF has no scripted slot yet, so the slot is never ours and the gate answers "not open play".
+  bool ScriptedSlotIsOurs() const override { return false; }
+  int StaminaPercent() const override {
+    // FUN_140a58550: the tank's percentage, cur * 100 / max (docs/re/pes-re-stamina-drain.md).
+    const pes::StaminaState& s = player_.GetStamina();
+    return s.max == 0 ? 0 : s.cur * 100 / s.max;
+  }
+  // FUN_1406e7380: P+0x3b18 * 180 is the height in cm.
+  // ponytail: P+0x3b18 has no GF read; GF's physical_height (m) stands in.
+  float PlayerHeightCm() const override { return player_.GetStat("physical_height") * 100.0f; }
+  void BallSample(int index, float out[3]) const override {
+    // FUN_140a6cf70: index 0 is the ball now; index k is its prediction k ticks ahead.
+    // ponytail: the PES ball list is the match's per-tick ring; GF reads the mental image's
+    // prediction at the same time.
+    const Vector3 ball =
+        index == 0 ? match_.GetBall()->GetPositionBuffer()
+                   : match_.GetMentalImage(0)->GetBallPrediction(
+                         static_cast<unsigned int>(index * 1000 / Match::kFramesPerSecond));
+    out[0] = ball.coords[0];
+    out[1] = ball.coords[1];
+    out[2] = ball.coords[2];
+  }
+  // ctx+0x2944: ponytail: GF's ball movement heading stands in for the PES ball heading field.
+  float BallMotionHeadingDeg() const override {
+    const Vector3 move = match_.GetBall()->GetMovement();
+    return HeadingDeg(move.coords[0], move.coords[1], c_.run);
   }
   float RecordF2468() const override { return 1.0f; }  // ponytail: P+0x2468's record reader.
   int MoveStatePrevious() const override {

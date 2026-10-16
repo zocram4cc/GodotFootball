@@ -139,6 +139,14 @@ pes::StepTables SyntheticTables() {
 // read it stands for (movestep.hpp's MoveHost).
 class FakeHost : public MoveHost {
  public:
+  // LocomotionStyle's reads: the step tests do not drive the style ladder.
+  pes::StyleConstants style{};
+  const pes::StyleConstants& StyleConstantsView() const override { return style; }
+  bool ScriptedSlotIsOurs() const override { return false; }
+  int StaminaPercent() const override { return 100; }
+  float PlayerHeightCm() const override { return 180.0f; }
+  void BallSample(int, float out[3]) const override { out[0] = out[1] = out[2] = 0.0f; }
+  float BallMotionHeadingDeg() const override { return 0.0f; }
   pes::MoveCell Cell(int row, int column, bool walkFlag) override {
     ++cellCalls;
     lastRow = row;
@@ -572,7 +580,7 @@ float SpeedToRate(MoveHost& host, float speedKmh, int tableSelector) {
   rateSelector = tableSelector;
   return speedKmh > 0.0f ? 1.0f : 0.0f;
 }
-int LocomotionStyle(MoveHost&, int, float, MoveReq&) { return 0; }
+int LocomotionStyle(MoveHost&, int, float, MoveReq&, float, bool) { return 0; }
 int IdleRow(MoveHost&, MoveReq&) { return 0x5a1; }
 bool StayDecision(MoveHost&, MoveReq&) { return false; }
 bool OutOfPlayPreempt(MoveHost&, MoveReq&) { return false; }

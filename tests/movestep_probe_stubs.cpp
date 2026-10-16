@@ -76,10 +76,12 @@ bool StayDecision(MoveHost& /*host*/, MoveReq& /*req*/) {
   return probe::stayAnswer;
 }
 
-int LocomotionStyle(MoveHost& /*host*/, int /*commandId*/, float /*rateRequested*/, MoveReq& /*req*/) {
+int LocomotionStyle(MoveHost& /*host*/, int /*animeState*/, float /*rateRequested*/,
+                    MoveReq& /*req*/, float /*rateMax*/, bool /*rateHeld*/) {
   ++probe::styleCalls;
   return probe::styleAnswer;
 }
+
 
 void AccelerationRamp(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::rampCalls; }
 

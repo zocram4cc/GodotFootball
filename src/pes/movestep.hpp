@@ -433,6 +433,17 @@ struct IssuedClip {
 };
 // Records one issue; a parametric style index becomes the blend group it plays.
 void RecordIssue(IssuedClip& issued, const MotionRequest& request, const ParametricGroups& groups);
+// FUN_1406ba2f0's install scalars (its .rdata reads). Each VA is named in movestep_common.cpp's loader.
+struct StyleConstants {
+  float rate0p895;   // 0.895 (0x1425ddf74): the rate gate against rateMax (the 10 and 0 arms)
+  float rate0p825;   // 0.825 (0x1425ddf6c): the dribble arm's rate gate against rateMax
+  float speed16;     // 16 km/h (0x14259be10): the ball speed a dribble may not exceed
+  float heightDiv;   // 100 (0x14253ee30): the height's divisor (FUN_1406e7380 is in cm)
+  float kmhScale;    // 1000 (0x14256ae34): FUN_14042d470's divisor
+  float sampleTicks; // 20 (0x14259be1c): the ball sample's look-ahead, in 1/60 s
+  float radToDeg;    // 57.2957... (0x14259be40): a radian in degrees
+};
+std::optional<StyleConstants> LoadStyleConstants(const PeImage& exe, std::string* error);
 
 class MoveHost {
  public:
@@ -555,6 +566,19 @@ class MoveHost {
   virtual int MatchPhase() const = 0;
   // The anime predicate vt+0x28 == 0x4a: the replay action.
   virtual bool IsReplay() const = 0;
+  // LocomotionStyle's install scalars (FUN_1406ba2f0's .rdata reads).
+  virtual const StyleConstants& StyleConstantsView() const = 0;
+  // FUN_142348f80 == 0 and FUN_140a73e20's owner is this player: the match's scripted slot is ours.
+  virtual bool ScriptedSlotIsOurs() const = 0;
+  // FUN_140a58550: the stamina tank's percentage, cur * 100 / max (the record of ActionIndex()).
+  virtual int StaminaPercent() const = 0;
+  // FUN_1406e7380: the player's height in cm (P+0x3b18 * 180).
+  virtual float PlayerHeightCm() const = 0;
+  // FUN_140a6cf70 over the match's ball list: index k is the ball k ticks ahead (0 = now). GF
+  // order: [0] x, [1] z, [2] height.
+  virtual void BallSample(int index, float out[3]) const = 0;
+  // ctx+0x2944 (FUN_140a57710): the ball's motion heading in degrees.
+  virtual float BallMotionHeadingDeg() const = 0;
   // SetMotion / SetParametric: the anime interface's vt+0x10 (FUN_1406b8340's tail; the INIT call).
   virtual void Issue(const MotionRequest& request) = 0;
 };
@@ -698,8 +722,11 @@ float MotionStartSeconds(const MotionStartConstants& k, uint16_t motionNo);
 // FUN_1406b9e80(interface, speed km/h, table selector): the playback rate for a speed (AS 3.2).
 // The third argument selects the table row; its meaning is INF until the port verifies it.
 float SpeedToRate(MoveHost& host, float speedKmh, int tableSelector);
-// FUN_1406ba2f0(ap, command id, requested rate, req): the locomotion style group (AS 3.3).
-int LocomotionStyle(MoveHost& host, int commandId, float rateRequested, MoveReq& req);
+// FUN_1406ba2f0(ap, anime state, requested rate, req, rateMax, rateHeld): the locomotion style
+// (AS 3.3). The anime state is vt+0x28 of the +0xab8 interface (0x4a = the replay action); rateMax
+// is vt+0x18 of the +0xac0 interface (P+0x377c, RateCeiling); rateHeld is the caller's flag.
+int LocomotionStyle(MoveHost& host, int animeState, float rateRequested, MoveReq& req, float rateMax,
+                    bool rateHeld);
 // FUN_1406cbf70(ap, req): the acceleration ramp of the rate, per tick in RUN_LOOP and STEP_TO_RUN (AS 3.6).
 void AccelerationRamp(MoveHost& host, MoveReq& req);
 // FUN_1406cbc10(ap, req): the lateral drift damping, run_2_4_000 and rate >= 0.3 (AS 1, step 5).

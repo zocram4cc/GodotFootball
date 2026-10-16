@@ -410,10 +410,8 @@ void EnterRun(MoveHost& host, MoveReq& req, int footIn, bool rateHeld) {
   req.SetF(moveword::kRate, guarded);
 
   // The style and its representative motion (DAT_1425ddcf0 at style*4 + band/4).
-  // FUN_1406ba2f0's 9th argument is the caller's rateHeld flag (param_4 above); the contract's
-  // LocomotionStyle does not carry it yet, so the port holds it here until the shared body does.
-  (void)rateHeld;
-  const int style = LocomotionStyle(host, static_cast<int>(req.U(moveword::kCommandId)), rate, req);
+  // FUN_1406d2030's call: the anime state, the rate ceiling (vt+0x18 of +0xac0) and this entry's rateHeld.
+  const int style = LocomotionStyle(host, host.AnimeState(), rate, req, host.RateCeiling(), rateHeld);
   req.SetU(moveword::kParamState, static_cast<uint32_t>(style));
   req.SetByte(moveword::kStyle, static_cast<uint8_t>(style));
   int member = 0;
@@ -1197,7 +1195,8 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
   // PES's vt+0x10 call takes (req, motion, mirror, the 0x3f-word's byte, the duration, the
   // playback, the start time); the port's MotionRequest carries the byte as `transition`
   // because the dispatcher's own Issue reads it as PES passes it.
-  host.Issue(MotionRequest{cell.motionNo, cell.mirror, req.U(moveword::kTurnLockDir) & 0xffu,
+  host.Issue(MotionRequest{cell.motionNo, cell.mirror,
+                            static_cast<int>(req.U(moveword::kTurnLockDir) & 0xffu),
                             duration, playback, 0.0f});
   // The hit words 0x27/0x28: the clip's own start and its pose scale, for a clip under 0x1125.
   if (cell.motionNo < 0x1125) {
@@ -2074,7 +2073,8 @@ void RunLoop(MoveHost& host, MoveReq& req) {
   // Arm 5: the style block.
   const float rate = RequestedRate(host, req, t);
   req.SetF(moveword::kRate, rate);
-  const int style = LocomotionStyle(host, static_cast<int>(req.U(moveword::kCommandId)), rate, req);
+  // FUN_1406c0650's call: rateHeld is 0 there.
+  const int style = LocomotionStyle(host, host.AnimeState(), rate, req, host.RateCeiling(), false);
   req.SetU(moveword::kStyle, static_cast<uint32_t>(style));
   req.SetU(moveword::kMotion,
            static_cast<uint32_t>(t.styleGroup[Clamp03(style) * 4 + Clamp03(band) / 4]));

@@ -21,8 +21,6 @@ namespace probe {
 extern int idleRowCalls;
 extern int stayCalls;
 extern bool stayAnswer;
-extern int styleCalls;
-extern int styleAnswer;
 extern int rampCalls;
 extern int dampingCalls;
 extern int outOfPlayCalls;
@@ -48,6 +46,14 @@ namespace {
 // them; the handler tests land with those bodies.
 class SyntheticHost : public pes::MoveHost {
  public:
+  // LocomotionStyle's reads: the run tests do not drive the style ladder.
+  pes::StyleConstants style{};
+  const pes::StyleConstants& StyleConstantsView() const override { return style; }
+  bool ScriptedSlotIsOurs() const override { return false; }
+  int StaminaPercent() const override { return 100; }
+  float PlayerHeightCm() const override { return 180.0f; }
+  void BallSample(int, float out[3]) const override { out[0] = out[1] = out[2] = 0.0f; }
+  float BallMotionHeadingDeg() const override { return 0.0f; }
   pes::MoveCell Cell(int row, int column, bool walkFlag) override {
     ++cellCalls;
     lastCellRow = row;
