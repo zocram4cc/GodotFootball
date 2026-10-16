@@ -165,8 +165,6 @@ protected:
   // (DelayWhistle) only once no shot is in progress.
   void CommitPendingOffside();
 
-  // Which period's added time has been announced already.
-  e_MatchPhase addedTimeAnnouncedPhase;
   // When the match was first found with play off, nothing armed and the ball
   // out of play. Zero means "not dead"; otherwise it is the real time that was.
   unsigned long deadBallSince_ms = 0;

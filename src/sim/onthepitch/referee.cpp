@@ -141,7 +141,6 @@ Referee::Referee(Match* match) : match(match) {
 
   afterSetPieceRelaxTime_ms = 0;
 
-  addedTimeAnnouncedPhase = e_MatchPhase_PreMatch;
   deadBallSince_ms = 0;
 }
 
@@ -159,31 +158,16 @@ void Referee::Process() {
 
     // some phase is over :[
 
-    // PES 2021's period end (docs/re/pes-re-tactics-clock.md 2.1/3.2): the
-    // period length comes from the phase table, and the allowance is the linear
-    // formula evaluated once at the end of the period - no per-event accrual.
-    //
-    // The fourth official's board, announced once per period from that formula
-    // as the period reaches its length.
-    if (match->GetPesClock().IsPeriodDue() && addedTimeAnnouncedPhase != match->GetMatchPhase()) {
-      addedTimeAnnouncedPhase = match->GetMatchPhase();
-      // The on-pitch performer's perf tier, which PES reads out of its team slice
-      // at TeamSlice + 0x4C00 and this engine has no equivalent for: an explicit
-      // input with no default, so the plain per-match-second term is announced
-      // until a caller supplies a tier.
-      const int addedMinutes = match->GetPesClock().AddedMinutes(kPesNoPerfTier);
+    // PES's time-up gate (docs/re/pes-re-clock-live.md 8.1): the period clock reaching
+    // its length announces the added time once (LIMIT), and the whistle waits for the
+    // length plus that LIMIT. Stoppages accrue F, so they count towards it.
+    pes::PesClock& clock = match->GetPesClock();
+    if (clock.PastPeriodLength() && !clock.AddedTimeAnnounced()) {
+      clock.AnnounceAddedTime(kPesNoPerfTier);
+      const int addedMinutes = clock.AddedMinutes(kPesNoPerfTier);
       if (addedMinutes > 0 && Verbose()) printf("referee: added time +%i min\n", addedMinutes);
     }
-
-    // Blow for the end of the period at a neutral moment - no earlier than the
-    // period's length plus the formula's allowance, PES's period end plus its
-    // added time - but never let a period run away waiting for one. Both sides
-    // are period-relative: PES's half length is per period (45, not 90).
-    const pes::PesClock& clock = match->GetPesClock();
-    const auto periodEnd_ms =
-        static_cast<unsigned long>(clock.PeriodEndWithAdded(kPesNoPerfTier) * 60000.0f);
-    const auto periodElapsed_ms = static_cast<unsigned long>(clock.PeriodElapsedSeconds() * 1000.0f);
-    if (MatchProgression::ShouldEndPeriod(periodElapsed_ms, periodEnd_ms, ballPos.coords[0])) {
+    if (clock.TimeUpGateOpen()) {
       foul.advantage = false;
       if (!CheckFoul()) {
         match->StopPlay();

@@ -3,16 +3,57 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <stdexcept>
 
 namespace pes {
 
 namespace {
 
-template <typename T>
-T Load(const uint8_t* p) {
-  T v;
-  std::memcpy(&v, p, sizeof v);
-  return v;
+// FUN_140A3C070's checksum: FNV-1a 64 over the four decoded bytes, LSB first.
+constexpr uint64_t kFnvOffsetBasis = 0xcbf29ce484222325ULL;
+constexpr uint64_t kFnvPrime = 0x100000001b3ULL;
+// The slot decode: K_i is byte i of (key * 3 + 4 * i), and the mask is K_i * 63.
+constexpr uint32_t kKeyMultiplier = 3;
+constexpr uint32_t kKeyStep = 4;
+constexpr uint32_t kMaskMultiplier = 63;
+constexpr int kSlotBytes = 4;
+constexpr uint32_t kRingSlots = 4;
+
+uint8_t KeyByte(uint32_t key, int i) {
+  return static_cast<uint8_t>((key * kKeyMultiplier + kKeyStep * static_cast<uint32_t>(i)) >> (8 * i));
+}
+
+uint8_t MaskByte(uint8_t k) { return static_cast<uint8_t>(k * kMaskMultiplier); }
+
+// Decodes one slot to the stamp's bits: ((L_i + K_i) mod 256) XOR ((K_i * 63) mod 256).
+uint32_t DecodeSlot(uint32_t slot, uint32_t key) {
+  uint32_t bits = 0;
+  for (int i = 0; i < kSlotBytes; ++i) {
+    const uint8_t k = KeyByte(key, i);
+    const uint8_t l = static_cast<uint8_t>(slot >> (8 * i));
+    const uint8_t b = static_cast<uint8_t>(static_cast<uint8_t>(l + k) ^ MaskByte(k));
+    bits |= static_cast<uint32_t>(b) << (8 * i);
+  }
+  return bits;
+}
+
+// The inverse of DecodeSlot: L_i = ((b_i XOR mask) - K_i) mod 256.
+uint32_t EncodeSlot(uint32_t bits, uint32_t key) {
+  uint32_t slot = 0;
+  for (int i = 0; i < kSlotBytes; ++i) {
+    const uint8_t k = KeyByte(key, i);
+    const uint8_t b = static_cast<uint8_t>(bits >> (8 * i));
+    const uint8_t l = static_cast<uint8_t>(static_cast<uint8_t>(b ^ MaskByte(k)) - k);
+    slot |= static_cast<uint32_t>(l) << (8 * i);
+  }
+  return slot;
+}
+
+uint64_t StampChecksum(uint32_t bits) {
+  uint64_t h = kFnvOffsetBasis;
+  for (int i = 0; i < kSlotBytes; ++i)
+    h = (h ^ static_cast<uint8_t>(bits >> (8 * i))) * kFnvPrime;
+  return h;
 }
 
 }  // namespace
@@ -25,78 +66,63 @@ std::optional<PesClockConstants> LoadPesClockConstants(const PeImage& exe, std::
   PesClockConstants c;
   bool ok = true;
   ok &= ReadFloat(exe, GAME_SPEED_VA, &c.gameSpeed);
-  ok &= ReadFloat(exe, HALF_SECONDS_VA, &c.halfSeconds);
-  ok &= ReadFloat(exe, ADDED_2ND_HALF_VA, &c.added2ndHalf);
   ok &= ReadFloat(exe, ADDED_TIER_3_6_2ND_VA, &c.addedTier_3_6_2nd);
   ok &= ReadFloat(exe, ADDED_TIER_1_2_2ND_VA, &c.addedTier_1_2_2nd);
-  ok &= ReadFloat(exe, ADDED_EX_TIME_VA, &c.addedExtraTime);
   ok &= ReadFloat(exe, ADDED_TIER_1_2_ET_VA, &c.addedTier_1_2_ET);
   ok &= ReadFloat(exe, ADDED_TIER_3_6_ET_VA, &c.addedTier_3_6_ET);
+  ok &= ReadFloat(exe, TIME_UP_BASE_VA, &c.timeUpBase);
+  ok &= ReadFloat(exe, TIME_UP_FLAG_VA, &c.timeUpFlag);
+  ok &= ReadFloat(exe, MINUTE_UNITS_VA, &c.minuteUnits);
+  ok &= ReadFloat(exe, SECOND_UNITS_VA, &c.secondsUnit);
   if (!ok) {
     *error = "PES2021.exe: match clock constants unmapped";
     return std::nullopt;
   }
-  c.ticksPerMinute = kTicksPerGameMinute;
   return c;
 }
 
-int PeriodEndMinutes(e_MatchPhase phase) {
-  // Report 2.1: the same 45 / 90 / 105 / 120 table in all three copies
-  // (0x1420BE050, 0x1420BE140, 0x1420BE0D0).
+uint32_t PeriodNumber(e_MatchPhase phase) {
   switch (phase) {
-    case e_MatchPhase_1stHalf:      // MATCH_PHASE_1ST_HALF
-      return 45;
-    case e_MatchPhase_2ndHalf:      // MATCH_PHASE_2ND_HALF
-      return 90;
-    case e_MatchPhase_1stExtraTime: // MATCH_PHASE_EX_1ST
-      return 105;
-    case e_MatchPhase_2ndExtraTime: // MATCH_PHASE_EX_2ND
-      return 120;
-    default:
-      // Pre-match and the shoot-out have no clock (the tables' default 0).
-      return 0;
+    case e_MatchPhase_1stHalf: return 1;
+    case e_MatchPhase_2ndHalf: return 3;
+    case e_MatchPhase_1stExtraTime: return 5;
+    case e_MatchPhase_2ndExtraTime: return 7;
+    case e_MatchPhase_Penalties: return 9;
+    default: return 0;
   }
 }
 
-uint32_t PeriodEndTicks(e_MatchPhase phase) {
-  // minutes/2 x 1920 ticks, so a first half is 43,200 and full time 86,400
-  // (report 2.2).
-  return uint32_t(PeriodEndMinutes(phase)) * kPercentageUnitTicks / 2;
+bool PeriodHasClock(uint32_t period) {
+  return period == 1 || period == 3 || period == 5 || period == 7;
 }
 
-int HalfLengthMinutes(e_MatchPhase phase) {
-  switch (phase) {
-    case e_MatchPhase_1stHalf:
-    case e_MatchPhase_2ndHalf:
-      return 45;
-    case e_MatchPhase_1stExtraTime:
-    case e_MatchPhase_2ndExtraTime:
-      return 15;  // 105-90 and 120-105
-    default:
-      return 0;
-  }
+float PeriodStamp(const PeriodRecord& r) {
+  const uint32_t bits = DecodeSlot(r.ring[r.ringIdx % kRingSlots], r.key);
+  if (StampChecksum(bits) != r.checksum)
+    throw std::runtime_error("PES period record: the current slot fails its checksum");
+  float stamp;
+  std::memcpy(&stamp, &bits, sizeof stamp);
+  return stamp;
 }
 
-float TicksPerGameSecond() {
-  // 960 ticks per game-minute over 60, which is exactly the 16000 clock units
-  // per match second at 1000 units per tick (report 2.2/2.3).
-  return static_cast<float>(kTicksPerGameMinute) / 60.0f;
+float PeriodClockUnits(const PeriodRecord& r) { return PeriodStamp(r) + r.f; }
+
+void StoreStamp(PeriodRecord& r, float stamp) {
+  uint32_t bits;
+  std::memcpy(&bits, &stamp, sizeof bits);
+  r.ringIdx += 1;
+  r.ring[r.ringIdx % kRingSlots] = EncodeSlot(bits, r.key);
+  r.checksum = StampChecksum(bits);
 }
 
-float PercentageFromTicks(uint32_t ticks, e_MatchPhase phase) {
-  // FUN_140922DD0: pct = clampToTicks * 10000 / (minutes*1920), with the half
-  // length floored at 20 minutes (FUN_140A581C0). Every period end therefore
-  // reads 5000: a first half's 43,200 ticks at 90 game-minutes, or 86,400 at the
-  // same denominator, both scale against the whole match.
-  const int minutes = std::max(PeriodEndMinutes(phase), 20);
-  const double denom = static_cast<double>(minutes) * kPercentageUnitTicks;
-  return static_cast<float>(std::min(static_cast<double>(ticks) * 10000.0 / denom, 5000.0));
-}
-
-uint32_t TicksFromPercentage(float percentage, e_MatchPhase phase) {
-  const int minutes = std::max(PeriodEndMinutes(phase), 20);
-  const double denom = static_cast<double>(minutes) * kPercentageUnitTicks;
-  return static_cast<uint32_t>(std::floor(static_cast<double>(percentage) * denom / 10000.0));
+bool TimeUpReached(const PesClockConstants& c, uint32_t period, float limit, float clock) {
+  // FUN_140A6BEF0: the whole minutes of LIMIT, kept to 16 bits as PES keeps them,
+  // times 60 for seconds and 60 for units.
+  const auto minutes = static_cast<uint16_t>(static_cast<int64_t>(limit / c.minuteUnits));
+  const float added = static_cast<float>(minutes) * c.secondsUnit * c.secondsUnit;
+  const bool extraTime = period == 5 || period == 7;  // FUN_14050B9B0's flag
+  const float length = extraTime ? c.timeUpFlag : c.timeUpBase;
+  return length + added <= clock;
 }
 
 void ClockDisplay(float totalSeconds, int* minute_db_pitch, int* second) {
@@ -142,21 +168,42 @@ int AnnouncedAddedMinutes(const PesClockConstants& c, e_AddedTimePhase phase, fl
 
 PesClock::PesClock(const PesClockConstants& constants) : constants(constants) {}
 
+void PesClock::SetPhase(e_MatchPhase newPhase) {
+  phase = newPhase;
+  record = PeriodRecord{};
+  record.period = PeriodNumber(newPhase);
+  StoreStamp(record, 0.0f);
+  addedTimeAnnounced = false;
+}
+
 void PesClock::Advance(float gameSeconds) {
-  if (frozen) return;  // report 3.3: a frozen state stops the clock
   elapsedSeconds += gameSeconds;
-  // Advance the clock here rather than deriving it from the seconds, so a
-  // frozen stoppage costs nothing and a partial tick is never lost.
-  ticks += gameSeconds * TicksPerGameSecond();
+  if (frozen) {
+    // A stoppage holds the stamp and adds F: half a unit per logic frame.
+    record.f += kStoppageUnitsPerFrame * constants.gameSpeed * gameSeconds;
+    return;
+  }
+  StoreStamp(record, PeriodStamp(record) + constants.secondsUnit * gameSeconds);
 }
 
-uint32_t PesClock::Ticks() const {
-  // FUN_140922DD0's floor term: sec * 16000 clock units per match second, at
-  // 1000 units per tick - 16 ticks per game-second, 43,200 per 45 minutes.
-  return static_cast<uint32_t>(ticks);
+bool PesClock::PastPeriodLength() const {
+  return PeriodHasClock(record.period) && TimeUpReached(constants, record.period, 0.0f, PeriodClock());
 }
 
-float PesClock::Percentage() const { return PercentageFromTicks(Ticks(), phase); }
+bool PesClock::TimeUpGateOpen() const {
+  return PeriodHasClock(record.period) &&
+         TimeUpReached(constants, record.period, record.limit, PeriodClock());
+}
+
+void PesClock::AnnounceAddedTime(int tier) {
+  if (addedTimeAnnounced) return;
+  addedTimeAnnounced = true;
+  record.limit = static_cast<float>(AddedMinutesUnclamped(tier)) * constants.minuteUnits;
+}
+
+void PesClock::Display(int* minute_db_pitch, int* second) const {
+  ClockDisplay(elapsedSeconds, minute_db_pitch, second);
+}
 
 e_AddedTimePhase PesClock::AddedPhase() const {
   return (phase == e_MatchPhase_1stExtraTime || phase == e_MatchPhase_2ndExtraTime)
@@ -169,41 +216,13 @@ uint32_t PesClock::AddedTicks(int tier) const {
 }
 
 int PesClock::AddedMinutes(int tier) const {
-  // Report 3.1: blackboard shows at most nine minutes of added time.
+  // Report 3.1: the board shows at most nine minutes of added time.
   return std::min(AddedMinutesUnclamped(tier), kMaxAnnouncedAddedMinutes);
 }
 
 int PesClock::AddedMinutesUnclamped(int tier) const {
   const uint32_t ticks = AddedTicks(tier);
   return static_cast<int>(static_cast<float>(ticks) / static_cast<float>(kTicksPerGameMinute));
-}
-
-float PesClock::PeriodEndWithAdded(int tier) const {
-  const int periodMinutes = HalfLengthMinutes(phase);
-  if (periodMinutes == 0) return 0.0f;
-  // The whistle uses the formula's own number, not the clamped blackboard.
-  return periodMinutes + AddedMinutesUnclamped(tier);
-}
-
-void PesClock::Display(int* minute_db_pitch, int* second) const {
-  ClockDisplay(elapsedSeconds, minute_db_pitch, second);
-}
-
-float PesClock::PeriodElapsedSeconds() const {
-  return elapsedSeconds - periodStartSeconds;
-}
-
-float PesClock::PeriodFraction() const {
-  const int periodMinutes = HalfLengthMinutes(phase);
-  if (periodMinutes <= 0) return 0.0f;
-  return std::clamp(PeriodElapsedSeconds() / (static_cast<float>(periodMinutes) * 60.0f), 0.0f,
-                    1.0f);
-}
-
-bool PesClock::IsPeriodDue() const {
-  const int periodMinutes = HalfLengthMinutes(phase);
-  if (periodMinutes <= 0) return false;
-  return PeriodElapsedSeconds() >= static_cast<float>(periodMinutes) * 60.0f;
 }
 
 }  // namespace pes

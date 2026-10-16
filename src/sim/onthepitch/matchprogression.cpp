@@ -1,21 +1,6 @@
 #include "matchprogression.hpp"
 
-#include <algorithm>
-#include <cmath>
-
 namespace MatchProgression {
-
-bool ShouldEndPeriod(unsigned long matchTime_ms, unsigned long periodEnd_ms, float ballX) {
-  if (matchTime_ms <= periodEnd_ms)
-    return false;
-
-  // Past the allowance the whistle goes wherever the ball is, so a period can
-  // never run on for a quarter of an hour waiting for a neutral moment.
-  if (matchTime_ms > periodEnd_ms + maxStoppageTime_ms)
-    return true;
-
-  return std::fabs(ballX) < neutralBandHalfWidth;
-}
 
 Outcome GetNext(e_MatchPhase currentPhase, bool scoresLevel) {
   Outcome outcome;
