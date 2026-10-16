@@ -121,8 +121,11 @@ protected:
   RefereeBuffer buffer;
   // PES's judge counts (R+0xd0, R+0xd8) for the post-gate whistle under pes_loop (pesclock.hpp).
   pes::TimeUpCounters timeUp;
-  // The post-gate judge on a tick with the gate open (pes_loop only), which reads the ball.
+  // pes_loop: PES's judge on this tick, in play or not (FUN_14050C3E0). Announces the added time
+  // and counts while the gate is open; a blow is held in `timeUpBlown` until play resumes.
+  void PesTimeUpTick();
   bool PesTimeUpBlows();
+  bool timeUpBlown = false;
   // Whether the "goal kick held" notice has already been logged for this restart.
   bool clearingLogged = false;
   // When the current restart was first held for a player in the way, so the release

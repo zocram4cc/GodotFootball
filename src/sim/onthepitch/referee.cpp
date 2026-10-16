@@ -198,29 +198,44 @@ bool Referee::PesTimeUpBlows() {
   return pes::TimeUpWhistle(timeUp, in, static_cast<int>(match->GetPesClockConstants().gameSpeed));
 }
 
+// pes_loop: PES's judge on this tick (FUN_14050C3E0), in play or not. The added time is announced
+// once the clock passes the length, and the judge counts while the gate is open. A blow is held in
+// `timeUpBlown` until play resumes. ponytail: PES's judge may blow in dead ball (its target is not
+// traced), so the held blow whistles on the first tick of play.
+void Referee::PesTimeUpTick() {
+  pes::PesClock& clock = match->GetPesClock();
+  if (clock.PastPeriodLength() && !clock.AddedTimeAnnounced()) {
+    clock.AnnounceAddedTime(kPesNoPerfTier);
+    const int addedMinutes = clock.AddedMinutes(kPesNoPerfTier);
+    if (addedMinutes > 0 && Verbose()) printf("referee: added time +%i min\n", addedMinutes);
+  }
+  if (clock.TimeUpGateOpen() && PesTimeUpBlows()) timeUpBlown = true;
+}
+
 void Referee::Process() {
   // printf("%i", match->GetMatchState());
+  // PES's judge runs on every tick, in play or not, with the gate open (pes_loop).
+  if (match->IsPesLoop()) PesTimeUpTick();
 
   if (match->IsInPlay() && !match->IsInSetPiece()) {
     Vector3 ballPos = match->GetBall()->Predict(0);
 
     // some phase is over :[
 
-    // PES's time-up gate (docs/re/pes-re-clock-live.md 8.1): the period clock reaching
-    // its length announces the added time once (LIMIT), and the whistle waits for the
-    // length plus that LIMIT. Stoppages accrue F, so they count towards it. Under pes_loop
-    // the gate only opens the time-up: the judge (FUN_14050B9B0) then blows on its counts.
-    // ponytail: PES's judge also counts the gate's ticks in dead ball (FUN_14050C3E0 gates on
-    // the period only); this runs in play only. Move the call to the judge stage when it lands.
+    // PES's time-up gate (docs/re/pes-re-clock-live.md 8.1): the period clock reaching its
+    // length announces the added time once (LIMIT), and the whistle waits for the length plus
+    // that LIMIT. Stoppages accrue F, so they count towards it. Under pes_loop the whistle is
+    // the judge's blow (PesTimeUpTick), which waits here for play.
     pes::PesClock& clock = match->GetPesClock();
-    if (clock.PastPeriodLength() && !clock.AddedTimeAnnounced()) {
+    if (!match->IsPesLoop() && clock.PastPeriodLength() && !clock.AddedTimeAnnounced()) {
       clock.AnnounceAddedTime(kPesNoPerfTier);
       const int addedMinutes = clock.AddedMinutes(kPesNoPerfTier);
       if (addedMinutes > 0 && Verbose()) printf("referee: added time +%i min\n", addedMinutes);
     }
-    if (clock.TimeUpGateOpen() && (!match->IsPesLoop() || PesTimeUpBlows())) {
+    if (match->IsPesLoop() ? timeUpBlown : clock.TimeUpGateOpen()) {
       foul.advantage = false;
       if (!CheckFoul()) {
+        timeUpBlown = false;
         match->StopPlay();
 
         buffer.desiredSetPiece = e_SetPiece_KickOff;

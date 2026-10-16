@@ -521,6 +521,16 @@ TEST(PesTimeUpJudge, APairOnOneTeamNeverBlowsOnTheOutOfZonePattern) {
   in.frame = 131;
   EXPECT_EQ(FirstBlowTick(c, in, 10000), kJudgeRate * 30 + 1);
 }
+TEST(PesTimeUpJudge, TheOutOfZonePatternNeedsTheBallInTheNearHalf) {
+  pes::TimeUpCounters c;
+  pes::TimeUpInput in = GroundedBall();
+  in.newest.player = 3;
+  in.newest.frame = 100;
+  in.second.player = 14;
+  in.frame = 131;
+  in.ballX_m = 25.0f;  // beyond L/3: the pattern does not apply, so the 30 s count runs
+  EXPECT_EQ(FirstBlowTick(c, in, 10000), kJudgeRate * 30 + 1);
+}
 
 // --- the stoppage writer (FUN_14044CE80 step 4): LIMIT moves with F while stopped ---
 
