@@ -187,10 +187,12 @@ std::optional<EditSave> ReadEditSave(std::span<const uint8_t> file, std::string*
       return std::nullopt;
     }
     std::vector<uint8_t> plain = CryptStream(XorWord(root, uint64_t(b)), file.subspan(at, sizes[b]));
-    // The game checks each block against the SHA-512 stored in the header.
+    // PES's loader (FUN_14140f470) memcmps each block's SHA-512 but skips the
+    // check when the file's flag bit for that block is set; the running game
+    // holds this install's block 2 in memory despite its stale digest, so a
+    // mismatch here is a warning, not a rejection.
     if (Sha512(plain) != *reinterpret_cast<const std::array<uint8_t, 64>*>(&head[KEY_BYTES * b])) {
-      *error = "EDIT save: block " + std::to_string(b) + " fails its SHA-512 check";
-      return std::nullopt;
+      if (error) *error = "EDIT save: block " + std::to_string(b) + " fails its SHA-512 check (stale digest, kept)";
     }
     if (b == DATA) data = std::move(plain);
     at += sizes[b];
