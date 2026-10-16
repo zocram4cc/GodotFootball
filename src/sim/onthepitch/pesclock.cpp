@@ -74,6 +74,7 @@ std::optional<PesClockConstants> LoadPesClockConstants(const PeImage& exe, std::
   ok &= ReadFloat(exe, TIME_UP_FLAG_VA, &c.timeUpFlag);
   ok &= ReadFloat(exe, MINUTE_UNITS_VA, &c.minuteUnits);
   ok &= ReadFloat(exe, SECOND_UNITS_VA, &c.secondsUnit);
+  ok &= ReadFloat(exe, LIMIT_CAP_VA, &c.limitCap);
   if (!ok) {
     *error = "PES2021.exe: match clock constants unmapped";
     return std::nullopt;
@@ -124,6 +125,8 @@ bool TimeUpReached(const PesClockConstants& c, uint32_t period, float limit, flo
   const float length = extraTime ? c.timeUpFlag : c.timeUpBase;
   return length + added <= clock;
 }
+
+bool TimeUpWhistle(TimeUpCounters&, const TimeUpInput&, int) { return false; }
 
 void ClockDisplay(float totalSeconds, int* minute_db_pitch, int* second) {
   // FUN_140A6BD80: h = total/3600, m = (total/60)%60, and the HUD block's
@@ -185,6 +188,8 @@ void PesClock::Advance(float gameSeconds) {
   }
   StoreStamp(record, PeriodStamp(record) + constants.secondsUnit * gameSeconds);
 }
+
+void PesClock::AccrueStoppageLimit(float) {}
 
 bool PesClock::PastPeriodLength() const {
   return PeriodHasClock(record.period) && TimeUpReached(constants, record.period, 0.0f, PeriodClock());

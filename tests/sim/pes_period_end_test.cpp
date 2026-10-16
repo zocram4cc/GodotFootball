@@ -183,7 +183,7 @@ const pes::PesClockConstants* SharedClockConstants() {
 
 // A match in the given phase with PES's clock constants installed, and the
 // simulation clock driven to `seconds` of elapsed game time.
-std::unique_ptr<Match> MatchAtPhase(e_MatchPhase phase, float seconds) {
+std::unique_ptr<Match> MatchAtPhase(e_MatchPhase phase, float seconds, bool pesLoop = false) {
   blunted::Database db;
   static std::unique_ptr<blunted::Database> held;
   // The engine reads a process-wide database; keep it alive for the match.
@@ -208,7 +208,9 @@ std::unique_ptr<Match> MatchAtPhase(e_MatchPhase phase, float seconds) {
   setup.pesCarrierConstants = SharedCarrierConstants();
   if (!setup.pesBallConstants) return nullptr;
   pestest::FillMissingPesConstants(&setup);
-  auto match = std::make_unique<Match>(new MatchData(HOME_TEAM, AWAY_TEAM), setup, Properties());
+  Properties config;
+  config.SetBool("pes_loop", pesLoop);
+  auto match = std::make_unique<Match>(new MatchData(HOME_TEAM, AWAY_TEAM), setup, config);
   match->SetMatchPhase(phase);
   match->StartPlay();
   match->AdvanceMatchSeconds(seconds);
@@ -265,4 +267,39 @@ TEST(PesPeriodLifecycle, AStoppageMovesTheClockOnlyThroughF) {
   EXPECT_FLOAT_EQ(pes::PeriodStamp(match->GetPesClock().Record()), stamp);
   EXPECT_FLOAT_EQ(match->GetPesClock().Record().f,
                   pes::kStoppageUnitsPerFrame * SharedClockConstants()->gameSpeed * 10.0f);
+}
+
+// Under pes_loop the gate opens the time-up, but the judge blows only after its 60 s count
+// (FUN_14050B9B0): the gate alone does not whistle.
+TEST(PesPeriodLifecycle, PesLoopTheRefereeWaitsSixtySecondsPastTheGate) {
+  REQUIRE_RIG();
+  auto match = MatchAtPhase(e_MatchPhase_1stHalf, 2700.0f, /*pesLoop=*/true);
+  ASSERT_TRUE(match);
+  ASSERT_TRUE(match->GetPesClock().TimeUpGateOpen());
+  for (int tick = 1; tick <= 54 * 60; ++tick) {
+    match->GetReferee()->Process();
+    ASSERT_TRUE(match->IsInPlay()) << "the 60 s count has not run out at tick " << tick;
+  }
+  match->GetReferee()->Process();
+  EXPECT_FALSE(match->IsInPlay()) << "the tick after 60 game-seconds blows";
+}
+
+// A stoppage adds half a unit per frame to LIMIT under pes_loop (FUN_14044CE80 step 4).
+TEST(PesPeriodLifecycle, PesLoopAStoppageAddsToLimit) {
+  REQUIRE_RIG();
+  auto match = MatchAtPhase(e_MatchPhase_1stHalf, 100.0f, /*pesLoop=*/true);
+  ASSERT_TRUE(match);
+  match->StopPlay();
+  match->AdvanceMatchSeconds(100.0f);
+  EXPECT_FLOAT_EQ(match->GetPesClock().Record().limit, 0.5f * SharedClockConstants()->gameSpeed * 100.0f);
+}
+
+// With pes_loop off the stoppage leaves LIMIT alone, as before.
+TEST(PesPeriodLifecycle, WithoutPesLoopAStoppageLeavesLimitAlone) {
+  REQUIRE_RIG();
+  auto match = MatchAtPhase(e_MatchPhase_1stHalf, 100.0f);
+  ASSERT_TRUE(match);
+  match->StopPlay();
+  match->AdvanceMatchSeconds(100.0f);
+  EXPECT_FLOAT_EQ(match->GetPesClock().Record().limit, 0.0f);
 }
