@@ -1,16 +1,23 @@
 extends Node3D
 ## Shows one PES 2021 character from the user's install, optionally animated.
 ## Args after `--`: --pes21-root DIR --face ID [--team ID [--kit N]] [--clip NAME|0xHASH] [--in-place]
-##   [--hide PART,...] [--number N --name NAME] [--yaw DEG] [--edit-save EDIT00000000]  (each player's look from the user's save)
-## With --team the player is assembled as PES does (kit N, 0 = 1st); without it,
-## the face pack alone.
+##   [--hide PART,...] [--number N --name NAME] [--yaw DEG] [--edit-save EDIT00000000] [--distance M]
+##   [--stadium N] [--weather W] [--time-zone T] [--season S] [--hour H] [--minute M] [--target-y M]
+## Each player's look comes from the user's save. --distance moves the camera (default 3.2 m, the
+## whole figure; about 1.5 m frames a kit). The light is the stadium's rig, as match.tscn builds it
+## (PesLighting), with match.gd's defaults. With --team the player is assembled as PES does
+## (kit N, 0 = 1st); without it, the face pack alone.
 
-const CAMERA_POSITION := Vector3(0.0, 1.0, 3.2)  # metres; in front of a character facing +Z (Fox forward)
-const CAMERA_TARGET := Vector3(0.0, 1.0, 0.0)    # about chest height of a 1.8 m player
+const CAMERA_DISTANCE_M := 3.2  # default: the whole figure at CAMERA_FOV_DEG, in front of a character facing +Z
+const CAMERA_TARGET_Y := 1.0                    # metres: about chest height of a 1.8 m player
 const CAMERA_FOV_DEG := 40.0                     # frames a T-pose (1.54 m arm span) with margin
-const SUN_ROTATION_DEG := Vector3(-50.0, 30.0, 0.0)
 const FLOOR_SIZE_M := 6.0                       # ground at y = 0 (Fox and gani root height), for foot contact
 const FLOOR_ALBEDO := Color(0.35, 0.45, 0.3)
+# The light rig's defaults, as match.gd has them: stadium 2, day, fine weather, summer.
+const LIGHT_STADIUM_ID := 2
+const LIGHT_WEATHER_FINE := 0
+const LIGHT_TIME_DAY := 0
+const LIGHT_SEASON_SUMMER := 0
 
 var character: Node3D
 var skeleton: Skeleton3D
@@ -25,12 +32,19 @@ func _ready() -> void:
 		push_error("usage: -- --pes21-root DIR --face ID [--clip NAME|0xHASH] [--in-place]")
 		get_tree().quit(2)
 		return
-	_build_environment()
+	_build_environment(float(args.get("distance", str(CAMERA_DISTANCE_M))), float(args.get("target-y", str(CAMERA_TARGET_Y))))
 	var library := PesLibrary.new()
 	if library.open(args["pes21-root"]) != OK:
 		get_tree().quit(1)
 		return
 	if args.has("edit-save") and library.load_edit_save(args["edit-save"]) != OK:
+		get_tree().quit(1)
+		return
+	var lighting: PesLighting = get_node("PesLighting")
+	if not lighting.setup(library, int(args.get("stadium", str(LIGHT_STADIUM_ID))),
+			int(args.get("weather", str(LIGHT_WEATHER_FINE))), int(args.get("time-zone", str(LIGHT_TIME_DAY))),
+			int(args.get("season", str(LIGHT_SEASON_SUMMER))), int(args.get("hour", "-1")),
+			int(args.get("minute", "0"))):
 		get_tree().quit(1)
 		return
 	var builder := PesCharacterBuilder.new()
@@ -81,24 +95,15 @@ func _parse_args(raw: PackedStringArray) -> Dictionary:
 	return out
 
 
-func _build_environment() -> void:
-	var sky_material := ProceduralSkyMaterial.new()
-	var sky := Sky.new()
-	sky.sky_material = sky_material
-	var env := Environment.new()
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.ssao_enabled = true
-	env.glow_enabled = false
+# PesLighting finds the WorldEnvironment and Camera3D beside it by name (as in match.tscn) and
+# configures both, so the viewer lights its character with the same rig as the match.
+func _build_environment(distance_m: float, target_y: float) -> void:
 	var world := WorldEnvironment.new()
-	world.environment = env
+	world.name = "WorldEnvironment"
 	add_child(world)
-
-	var sun := DirectionalLight3D.new()
-	sun.shadow_enabled = true
-	sun.rotation_degrees = SUN_ROTATION_DEG
-	add_child(sun)
+	var lighting := PesLighting.new()
+	lighting.name = "PesLighting"
+	add_child(lighting)
 
 	var floor_mesh := PlaneMesh.new()
 	floor_mesh.size = Vector2(FLOOR_SIZE_M, FLOOR_SIZE_M)
@@ -110,7 +115,9 @@ func _build_environment() -> void:
 	add_child(ground)
 
 	var camera := Camera3D.new()
+	camera.name = "Camera3D"
 	camera.fov = CAMERA_FOV_DEG
 	add_child(camera)
-	camera.look_at_from_position(CAMERA_POSITION, CAMERA_TARGET)
+	var target := Vector3(0.0, target_y, 0.0)
+	camera.look_at_from_position(Vector3(0.0, target_y, distance_m), target)
 	camera.current = true

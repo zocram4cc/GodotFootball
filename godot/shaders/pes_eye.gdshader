@@ -17,7 +17,8 @@ uniform vec4 AlbedoCubeScale = vec4(0.0);
 const float PARALLAX_SCALE = 0.25;  // the shader's own factor on h·HeightScale
 
 void fragment() {
-	vec3 v = normalize(vec3(dot(VIEW, TANGENT), dot(VIEW, BINORMAL), dot(VIEW, NORMAL)));
+	// Tangent-space view with PES's y flip (pes-re-shaders.md 3.9: TEXCOORD2 · (1,-1,1)).
+	vec3 v = normalize(vec3(dot(VIEW, TANGENT), -dot(VIEW, BINORMAL), dot(VIEW, NORMAL)));
 	float h = texture(LensHeight_Tex_LIN, UV).g;
 	vec2 uv_iris = UV - v.xy * h * HeightScale.x * PARALLAX_SCALE / max(v.z, 0.05);
 	vec4 base = texture(Base_Tex_SRGB, UV);

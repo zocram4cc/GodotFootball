@@ -605,3 +605,52 @@ TEST(RealUni, DecodesMarkingFields) {
   EXPECT_EQ(k->nameStretch, 2);
   EXPECT_EQ(k->shirtPattern, 6);
 }
+
+// The Repetition the engine writes per cloth part (pes-re-uniform-params.md 1-2).
+// The shirt family's weave tiling is the engine's own table (live 25 x 50), and
+// its z is the kit's ShirtPattern row; the fmdl's default (80, 0.8, 1.25) is
+// overwritten, so it must not leak through.
+TEST(ClothRepetition, ShirtFamilyTilesTheWeaveWithTheKitPattern) {
+  const pes::Vec4 fmdl{80.0f, 0.8f, 1.25f, 0.0f};
+  const pes::Vec4 r = pes::ClothRepetition(pes::ClothPart::ShirtFamily, 3, fmdl);
+  EXPECT_FLOAT_EQ(r.x, 25.0f);
+  EXPECT_FLOAT_EQ(r.y, 50.0f);
+  EXPECT_FLOAT_EQ(r.z, 3.0f);
+  EXPECT_FLOAT_EQ(r.w, 0.0f);
+}
+
+// Pants and socks keep the fmdl's x/y/w and take their own pattern row:
+// 7 for pants, 8 for socks (live (35, 0, 7, 0) and (50, 0, 8, 0)).
+TEST(ClothRepetition, PantsAndSocksKeepTheirTilingAndTakeTheirRow) {
+  const pes::Vec4 pants = pes::ClothRepetition(pes::ClothPart::Pants, 5, {35.0f, 0.0f, 0.0f, 0.0f});
+  EXPECT_FLOAT_EQ(pants.x, 35.0f);
+  EXPECT_FLOAT_EQ(pants.y, 0.0f);
+  EXPECT_FLOAT_EQ(pants.z, 7.0f);
+  const pes::Vec4 socks = pes::ClothRepetition(pes::ClothPart::Socks, 5, {50.0f, 0.0f, 0.0f, 0.0f});
+  EXPECT_FLOAT_EQ(socks.x, 50.0f);
+  EXPECT_FLOAT_EQ(socks.z, 8.0f);
+}
+
+// The shirt family's wrinkle slice (BlendNormalX.y) is the engine's constant 2
+// (pes-re-uniform-params.md 3; every live shirt carries 2). The fmdl's 0 would
+// select slice 0 for every kit; its mix and detail weights stay the fmdl's, since
+// the engine derives them from the pose.
+TEST(ClothBlendNormalX, ShirtFamilyWrinkleSliceIsTwoAndTheRestIsTheFmdls) {
+  const pes::Vec4 fmdl{0.25f, 0.0f, 0.5f, 0.75f};
+  const pes::Vec4 r = pes::ClothBlendNormalX(pes::ClothPart::ShirtFamily, fmdl);
+  EXPECT_FLOAT_EQ(r.x, 0.25f);
+  EXPECT_FLOAT_EQ(r.y, 2.0f);
+  EXPECT_FLOAT_EQ(r.z, 0.5f);
+  EXPECT_FLOAT_EQ(r.w, 0.75f);
+}
+
+// Pants are written by the engine too, but their slice is pose-driven and not
+// recovered, so the fmdl's values stand.
+TEST(ClothBlendNormalX, PantsKeepTheFmdlValues) {
+  const pes::Vec4 fmdl{1.0f, 0.0f, 0.25f, 0.5f};
+  const pes::Vec4 r = pes::ClothBlendNormalX(pes::ClothPart::Pants, fmdl);
+  EXPECT_FLOAT_EQ(r.x, 1.0f);
+  EXPECT_FLOAT_EQ(r.y, 0.0f);
+  EXPECT_FLOAT_EQ(r.z, 0.25f);
+  EXPECT_FLOAT_EQ(r.w, 0.5f);
+}
