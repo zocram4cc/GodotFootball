@@ -42,6 +42,7 @@ constexpr size_t HIT_YAW = 0x44;
 // The motion table's own layouts (FUN_1406aef60's builders, see mbinfo.hpp).
 constexpr uint32_t SUB_MOTION_MASK = 0x7ff;   // FUN_1406ae670: (w0 & 0x7ff) + 0x61
 constexpr uint32_t SUB_MOTION_BASE = 0x61;
+constexpr uint32_t HIT_MOTION_BASE = 0x11;    // FUN_1406ad300: (w0 & 0x1fff) + 0x11
 constexpr uint32_t FOOT_MOTION_BASE = 0x10;   // FUN_1406ad170: (w0 & 0x1fff) + 0x10
 constexpr uint32_t PIVOT_MOTION_MASK = 0xfff; // FUN_1406ae350: (w0 & 0xfff) + 0x20b
 constexpr uint32_t PIVOT_MOTION_BASE = 0x20b;
@@ -180,7 +181,7 @@ std::optional<Mbinfo> ParseMbinfo(const MbinfoBins& bins, const MotionCaps& caps
     h.rootVelX = At<float>(hitData, o + HIT_VEL_X);
     h.rootVelZ = At<float>(hitData, o + HIT_VEL_Z);
     h.yaw_deg = At<float>(hitData, o + HIT_YAW);
-    Slot(m.hits_, w & MOTION_MASK).push_back(h);
+    Slot(m.hits_, (w & MOTION_MASK) + HIT_MOTION_BASE).push_back(h);
   }
   for (size_t o = 0; o < cancelData.size(); o += CANCEL_RECORD) {
     const uint32_t w = At<uint32_t>(cancelData, o);

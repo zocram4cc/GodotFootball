@@ -27,7 +27,7 @@ TEST(PesMbinfo, DecodesTheThreeLayouts) {
   Put<uint32_t>(bins.animation, 0, 5u | (63u << 13));  // motion 5, end frame 64
   Put<uint32_t>(bins.animation, 4, 360u | (50u << 10));
   Put<float>(bins.animation, 28, 1.5f);  // cancel_speed
-  Put<uint32_t>(bins.hitData, 0, 5u | (12u << 13) | (9u << 27));
+  Put<uint32_t>(bins.hitData, 0, 5u | (12u << 13) | (9u << 27));  // raw 5 -> motion 5 + 0x11
   Put<float>(bins.hitData, 0x24, 106.0f);
   Put<float>(bins.hitData, 0x28, 168.5f);
   Put<float>(bins.hitData, 0x2c, 60.0f);
@@ -40,16 +40,17 @@ TEST(PesMbinfo, DecodesTheThreeLayouts) {
   EXPECT_EQ(m->Timing(5)->endFrame, 64);
   EXPECT_EQ(m->Timing(5)->blendStart, 50);
   EXPECT_FLOAT_EQ(m->Timing(5)->cancelSpeed, 1.5f);
-  ASSERT_EQ(m->Hits(5).size(), 1u);
-  EXPECT_EQ(m->Hits(5)[0].frame, 12);
-  EXPECT_EQ(m->Hits(5)[0].contactPart, 10);
-  EXPECT_FLOAT_EQ(m->Hits(5)[0].ballY, 168.5f);
-  EXPECT_FLOAT_EQ(m->Hits(5)[0].ballX, 60.0f);
-  EXPECT_FLOAT_EQ(m->Hits(5)[0].yaw_deg, -4.0f);
+  ASSERT_EQ(m->Hits(5 + 0x11).size(), 1u);
+  EXPECT_EQ(m->Hits(5 + 0x11)[0].frame, 12);
+  EXPECT_EQ(m->Hits(5 + 0x11)[0].contactPart, 10);
+  EXPECT_FLOAT_EQ(m->Hits(5 + 0x11)[0].ballY, 168.5f);
+  EXPECT_FLOAT_EQ(m->Hits(5 + 0x11)[0].ballX, 60.0f);
+  EXPECT_FLOAT_EQ(m->Hits(5 + 0x11)[0].yaw_deg, -4.0f);
   ASSERT_NE(m->Cancel(5), nullptr);
   EXPECT_EQ(m->Cancel(5)->frame, 40);
   EXPECT_EQ(m->Timing(4), nullptr);
   EXPECT_TRUE(m->Hits(4).empty());
+  EXPECT_TRUE(m->Hits(5).empty());  // raw 5 files at 5 + 0x11, not at 5
   EXPECT_TRUE(m->Hits(99999).empty());
 }
 
