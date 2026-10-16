@@ -118,9 +118,9 @@ GrounderResult GrounderKick(const pes::PesBallConstants& c, int mode, float gate
 // zeroed when it is below that.
 float StopSpeed_mps(const pes::PesBallConstants& c, int mode);
 
-// The spin cap of report 3.4: |spin| is capped at boundRollMax rad/s on every
-// contact tick. Returns the scale to apply to the new spin vector.
-float SpinCapScale(const pes::PesBallConstants& c, int mode, float spinRad);
+// The spin cap of report 3.4 as PES does it: the horizontal rolling frequency |v_xz|/(2 pi r) is capped at
+// boundRollMax (Hz). Returns the scale for the spin's X and Z components; Y is not scaled.
+float SpinCapScale(const pes::PesBallConstants& c, float horizontalSpeed_mps);
 
 // One full contact tick in Fox space: the snap, the vertical response, the
 // tangential rewrite and the spin rebuild/cap/stop, per reports 2-3. `t` is the

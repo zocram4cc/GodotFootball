@@ -20,6 +20,9 @@ inline float Ramp(float v, float lo, float hi) {
 // km/h from m/s, with the image's own 3.6 (.rdata 0x14259ce38).
 inline float ToKmh(const pes::PesBallConstants& c, float mps) { return mps * c.image.kmhPerMs; }
 
+// .rdata 0x142578480: PES's pi, as a float (the spin cap's and the rolling block's 2 pi).
+constexpr float kPi = 3.14159274f;
+
 // 100.0 (.rdata 0x14253ee30): the per-cent divisor of the add-rate fields.
 constexpr float kPercent = 100.0f;
 // 0.01 s: PES's own |vy| blend divisor (.rdata 0x14256ae18) and the km/h->m/s of
@@ -162,13 +165,14 @@ BounceResult Bounce(const pes::PesBallConstants& c, int mode, float vy, float ho
   return out;
 }
 
-float SpinCapScale(const pes::PesBallConstants& c, int mode, float spinRad) {
-  // Report 3.4: |spin| is capped at boundRollMax rad/s on every contact tick; a
-  // ball already below the cap is untouched.
-  (void)mode;
+float SpinCapScale(const pes::PesBallConstants& c, float horizontalSpeed_mps) {
+  // Report 3.4 as PES does it (FUN_140876360 0x14087704e..0x140877081): the horizontal rolling frequency
+  // f = |v_xz| / (2 pi r), in Hz, is capped at boundRollMax. A ball already below the cap is untouched; above
+  // it, the X and Z spin scale by boundRollMax / f. PES compares f^2 with boundRollMax^2.
   const float cap = c.record.boundRollMax;
-  if (spinRad <= cap) return 1.0f;
-  return cap / spinRad;
+  const float rollHz = horizontalSpeed_mps / (2.0f * kPi * c.image.ballRadius);
+  if (rollHz <= cap) return 1.0f;
+  return cap / rollHz;
 }
 
 GrounderResult GrounderKick(const pes::PesBallConstants& c, int mode, float gateX, float fracZ,
@@ -290,8 +294,7 @@ struct TangentialXZ {
 constexpr float kHeadingEpsilon_mps = 0.001f;
 // .rdata 0x1425cc23c (8 km/h in m/s): the rolling flag's speed limit.
 constexpr float kRollingSpeed_mps = 2.22222233f;
-// .rdata 0x142578480: PES's pi, as a float.
-constexpr float kPi = 3.14159274f;
+
 
 TangentialXZ RollingTangential(const pes::PesBallConstants& c, int mode, const BallState& pre,
                                float vxPost, float vzPost, float wx, float wz) {
@@ -407,20 +410,19 @@ void ContactTick(const pes::PesBallConstants& c, BallState* state, unsigned tick
 
   // Report 3.4: the spin rebuild and the cap. spin_raw += (omega_new/492.181 -
   // spin_raw) * k with k = 1 on the render path and the contact-vs-air blend
-  // otherwise, and omega_new = v_tangential / r capped at boundRollMax rad/s.
-  const float spinScale = c.image.spinScale, invSpinScale = c.image.invSpinScale;
-  const float newSpinX = (newVx / r) * invSpinScale;
-  // PES's W_y is 0 (contact-2 §2, `[rbp+0x98] = 0`): the spin's Y component rebuilds to zero, not to vy/r.
+  // Report 3.4: the rolling spin is rebuilt from the post-contact velocity below (not the old omega_new cap).
+  const float invSpinScale = c.image.invSpinScale;
+  // PES's rolling spin, raw: w = (W_z, 0, -W_x)/r (live: the rolling records match this with ratio 1.0).
+  // Report 3.4's cap scales X and Z only (0x14087708d, `xmm13, xmm12 *= 7.5/f`); W_y = 0 keeps Y at zero
+  // (`[rbp+0x98] = 0`, contact-2 §2). The blend is k = 1 on the airborne path (contact-2 §2).
+  const float capScale = SpinCapScale(c, std::sqrt(newVx * newVx + newVz * newVz));
+  const float newSpinX = (newVz / r) * invSpinScale * capScale;
   const float newSpinY = 0.0f;
-  const float newSpinZ = (newVz / r) * invSpinScale;
-  const float newSpinRad = std::sqrt(newSpinX * newSpinX + newSpinY * newSpinY +
-                                     newSpinZ * newSpinZ) *
-                           spinScale;
-  const float capScale = SpinCapScale(c, mode, newSpinRad);
-  const float blendRaw = (airborne || quatIntegrate) ? pes::kRawSpinBlendFactor : pes::kRawSpinBlendFactor;
-  state->spinRaw.x = (newSpinX * capScale - state->spinRaw.x) * blendRaw + state->spinRaw.x;
-  state->spinRaw.y = (newSpinY * capScale - state->spinRaw.y) * blendRaw + state->spinRaw.y;
-  state->spinRaw.z = (newSpinZ * capScale - state->spinRaw.z) * blendRaw + state->spinRaw.z;
+  const float newSpinZ = (-newVx / r) * invSpinScale * capScale;
+  const float blendRaw = pes::kRawSpinBlendFactor;
+  state->spinRaw.x = (newSpinX - state->spinRaw.x) * blendRaw + state->spinRaw.x;
+  state->spinRaw.y = (newSpinY - state->spinRaw.y) * blendRaw + state->spinRaw.y;
+  state->spinRaw.z = (newSpinZ - state->spinRaw.z) * blendRaw + state->spinRaw.z;
 
   // Report 3.4's stop gate, with report 2's correction 2: the gate zeroes ONLY
   // vx and vz (`xmm13`, `xmm3`, `xmm12` at 0x1408772d5/2d9/2dc; the vy register

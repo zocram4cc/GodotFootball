@@ -197,37 +197,48 @@ TEST(PesBallContact, FrictionMultiplierIsOneWithoutSpinAndBoostedByBounce) {
 
 // --- the spin cap and rebuild (report 3.4) ---
 
-TEST(PesBallContact, SpinIsCappedAtBoundRollMax) {
+TEST(PesBallContact, SpinIsCappedAtBoundRollMaxHertzOfHorizontalRolling) {
+  // Report 3.4 as PES does it (FUN_140876360 0x14087704e..0x140877081): the horizontal rolling frequency
+  // f = |v_xz| / (2 pi r) is capped at boundRollMax (a frequency, in Hz), and the X and Z spin scale by
+  // boundRollMax / f. Y is not scaled.
   const PesBallConstants c = SyntheticConstants();
-  EXPECT_NEAR(pesball::SpinCapScale(c, 1, 2.0f), 1.0f, 1e-6);
-  EXPECT_NEAR(pesball::SpinCapScale(c, 1, 15.0f), c.record.boundRollMax / 15.0f, 1e-6);
+  const float twoPiR = 2.0f * 3.14159274f * c.image.ballRadius;
+  EXPECT_NEAR(pesball::SpinCapScale(c, 2.0f), 1.0f, 1e-6);
+  EXPECT_NEAR(pesball::SpinCapScale(c, 15.0f), c.record.boundRollMax * twoPiR / 15.0f, 1e-5);
 }
 
-TEST(PesBallContact, SpinRebuildMovesRawSpinTowardTheRollingSpin) {
+TEST(PesBallContact, ARollingBallKeepsItsRollingSpinConvention) {
+  // PES's rolling spin is w = (v_z/r, 0, -v_x/r) in raw units (live records: 13,518 rolling rows match
+  // this exactly, ratio 1.0). A ball already rolling at 4 m/s on the ground keeps its velocity and
+  // its spin: its tangential is zero (pure rolling has slip zero).
   const PesBallConstants c = SyntheticConstants();
+  const float r = c.image.ballRadius;
   BallState s;
-  s.position = pes::Vec3(0, c.image.ballRadius, 0);
-  s.velocity = pes::Vec3(4.0f, 0.0f, 0.0f);  // a coupled roller: w = v/r
-  s.spinRaw = pes::Vec3(0, 0, 0);
+  s.position = pes::Vec3(0, r, 0);
+  s.velocity = pes::Vec3(4.0f, 0.0f, 0.0f);
+  s.spinRaw = pes::Vec3(0, 0, -4.0f / r / c.image.spinScale);
   pesball::ContactTick(c, &s, 0, true, false, pesball::kGfTick_s);
-  // The rolling spin v/r is 36.3 rad/s, well above the boundRollMax cap of 7.5,
-  // so the rebuilt raw spin must land on the cap. The cap scales the whole
-  // vector, and this contact's bounce (report 1.3: min(-imp, 0) = -imp) also puts
-  // a vertical spin in it, so the x component alone is under the cap.
-  const float cap = c.record.boundRollMax;
-  const float total = std::sqrt(s.spinRaw.x * s.spinRaw.x + s.spinRaw.y * s.spinRaw.y +
-                                s.spinRaw.z * s.spinRaw.z) *
-                      c.image.spinScale;
-  EXPECT_NEAR(total, cap, cap * 1e-3) << "spin_raw is rebuilt towards v/r, capped at boundRollMax";
-  EXPECT_GT(s.spinRaw.x, 0.0f) << "a forward roller spins the way it rolls";
-  // A slow roller stays under the cap and lands on v/r.
-  BallState slowRoll;
-  slowRoll.position = pes::Vec3(0, c.image.ballRadius, 0);
-  slowRoll.velocity = pes::Vec3(0.5f, 0.0f, 0.0f);
-  pesball::ContactTick(c, &slowRoll, 0, true, false, pesball::kGfTick_s);
-  EXPECT_NEAR(slowRoll.spinRaw.x * c.image.spinScale, 0.5f / c.image.ballRadius,
-              0.5f / c.image.ballRadius * 0.05f);
+  EXPECT_NEAR(s.spinRaw.x, 0.0f, 1e-6f) << "no spin across the heading";
+  EXPECT_NEAR(s.spinRaw.y, 0.0f, 1e-6f);
+  EXPECT_NEAR(s.spinRaw.z * c.image.spinScale, -s.velocity.x / r, 1e-2f) << "w_z = -v_x / r";
 }
+
+TEST(PesBallContact, RollingSpinAboveTheCapKeepsTheCappedHorizontalFrequency) {
+  // 20 m/s on the ground: f = 28.7 Hz, far above boundRollMax (7.5 Hz). The horizontal spin magnitude is
+  // then capped at 2 pi * boundRollMax rad/s, and the spin is still on the rolling axis.
+  const PesBallConstants c = SyntheticConstants();
+  const float r = c.image.ballRadius;
+  BallState s;
+  s.position = pes::Vec3(0, r, 0);
+  s.velocity = pes::Vec3(20.0f, 0.0f, 0.0f);
+  s.spinRaw = pes::Vec3(0, 0, -20.0f / r / c.image.spinScale);
+  pesball::ContactTick(c, &s, 0, true, false, pesball::kGfTick_s);
+  const float horizontalRad = std::sqrt(s.spinRaw.x * s.spinRaw.x + s.spinRaw.z * s.spinRaw.z) *
+                              c.image.spinScale;
+  EXPECT_NEAR(horizontalRad, 2.0f * 3.14159274f * c.record.boundRollMax, 1e-3f * horizontalRad);
+  EXPECT_NEAR(s.spinRaw.x, 0.0f, 1e-6f);
+}
+
 
 // --- the stop gate (report 3.4, report 2 correction 2) ---
 
@@ -523,7 +534,8 @@ TEST(PesBallInstall, LoadsTheInstallConstantsAndReproducesTheReportNumbers) {
   const float k = pesball::RollingKeepFactor(c, 1, 2.0f);
   EXPECT_NEAR((1.0f - k) * c.image.tickHz * 2.0f, 2.05f, 0.01f);
   EXPECT_NEAR(pesball::StopSpeed_mps(c, 1), 0.175f * 1000.0f / 3600.0f, 1e-6);
-  EXPECT_NEAR(pesball::SpinCapScale(c, 1, 10.0f), c.record.boundRollMax / 10.0f, 1e-6);
+  EXPECT_NEAR(pesball::SpinCapScale(c, 10.0f),
+              c.record.boundRollMax * 2.0f * 3.14159274f * c.image.ballRadius / 10.0f, 1e-5);
 
   // The mode-1 vertical keep: 3% at rest, ramping to 10% across 0.1 .. 0.7 km/h
   // (report 3.4, the raw's boundToRotation*Y band; the report's text says the
