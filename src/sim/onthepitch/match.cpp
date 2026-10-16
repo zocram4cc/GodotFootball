@@ -166,6 +166,15 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES contact constants missing: read them from the install with "
         "pes::LoadContactConstants into MatchSetup::pesContactConstants");
   pesContactConstants = *setup.pesContactConstants;
+  // PES 2021's event routing table and detector constants (docs/re/pes-re-gaps-a2.md). Required:
+  // the event stage routes every record through the table.
+  if (setup.pesEventRingTable == nullptr || setup.pesEventConstants == nullptr)
+    throw std::runtime_error(
+        "PES event constants missing: read them from the install with pes::LoadEventRingTable "
+        "and pes::LoadEventConstants into MatchSetup::pesEventRingTable and "
+        "MatchSetup::pesEventConstants");
+  pesEventRings = *setup.pesEventRingTable;
+  pesEventConstants = *setup.pesEventConstants;
   if (setup.pesClips == nullptr)
     throw std::runtime_error(
         "PES clips missing: read them from the install with pes::LoadPesClips into "
@@ -458,7 +467,8 @@ void Match::ResetSituation(const Vector3& focusPos) {
     lastTouchTeamIDs[i] = -1;
   }
   lastTouchTeamID = -1;
-  ballEvents[0] = ballEvents[1] = BallEvent{};
+  pesEvents.Reset();
+  pesDetectors = PesDetectorState{};
   lastGoalScorer = 0;
   bestPossessionTeamID = -1;
 
@@ -717,7 +727,14 @@ void Match::Process() {
   previousBallMomentum = ball->GetMovement();  // m/s
   ball->Process();
 
-  // create mental images for the AI to use
+  // PES's event stage (step 3 of FUN_14042b9f0) runs ahead of the team tick, which holds the
+  // MA build (docs/re/pes-re-gaps-a2.md a1). The listener order against MatchSub is OPEN
+  // (a4): the event listener is taken first, as GapsMatch §9.6 has the construction order.
+  ProcessPesEventStage();
+
+  // The team tick. ponytail: PES builds the MA inside the per-side team tick, after the
+  // run manager and the 11-player loop; GF's mental image is built once, at the head of
+  // the tick, and the teams follow.
 
   auto mentalImage = std::make_shared<MentalImage>(this);
   mentalImage->TakeSnapshot();
@@ -976,8 +993,6 @@ void Match::ReplacePlayerReferences(Player* playerOut, Player* playerIn) {
     ballRetainer = playerIn;
   if (lastGoalScorer == playerOut)
     lastGoalScorer = nullptr;
-  for (BallEvent& event : ballEvents)
-    if (event.player == playerOut) event.player = playerIn;
   // The mental images hold snapshots of a humanoid that no longer exists.
   InvalidateCachedMentalImages();
   mentalImages.clear();

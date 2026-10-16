@@ -145,20 +145,18 @@ public:
     lastTouchTeamID = id;
     referee->BallTouched();
   }
-  // PES's ball-event history ring (pes-re-receiving.md §3: ring 0 the newest
-  // event, ring 1 the one before). Every touch pushes one.
-  struct BallEvent {
-    Player* player = nullptr;
-    int teamID = -1;
-    pes::BallEventKind kind = pes::BallEventKind::kTouch;
-    unsigned long time_ms = 0;
-    int pesFrame = 0;  // the logic frame of the touch (GetPesFrame)
-  };
-  void PushBallEvent(Player* player, int teamID, pes::BallEventKind kind) {
-    ballEvents[1] = ballEvents[0];
-    ballEvents[0] = {player, teamID, kind, static_cast<unsigned long>(actualTime_ms), GetPesFrame()};
-  }
-  const BallEvent& GetBallEvent(int age) const { return ballEvents[age]; }
+  // PES's event store E (pesevents.hpp): the match's event state. The event stage writes it on
+  // every tick; the possession latch, the receive gates and the dodge window read it.
+  const pes::EventStore& GetPesEvents() const { return pesEvents; }
+  // A touch of the ball, queued for the next event stage. `actionKind` is PES's action kind
+  // (team.cpp maps the GF touch function onto it).
+  void QueuePesTouch(Player* player, uint32_t actionKind);
+  // The player a store key names: his side's squad at the key's slot. Null for an invalid key.
+  Player* GetPesActorPlayer(const pes::ActorKey& key);
+  // The store key of a player: his side and his squad index.
+  pes::ActorKey PesActorKeyOf(const Player* player);
+  // Seconds since a store record's frame, on PES's game-speed frames.
+  float GetPesEventAge_s(int eventFrame) const;
   int GetLastTouchTeamID(e_TouchType touchType) const { return lastTouchTeamIDs[touchType]; }
   int GetLastTouchTeamID() const { return lastTouchTeamID; }
   Team* GetLastTouchTeam(e_TouchType touchType) {
@@ -514,7 +512,29 @@ protected:
   unsigned long pendingPenaltyDeadline_ms = 0;
   int lastTouchTeamIDs[e_TouchType_SIZE];
   int lastTouchTeamID = -1;
-  BallEvent ballEvents[2];
+  // PES's event store and the routing table and constants it is written with (pesevents.hpp).
+  pes::EventStore pesEvents;
+  pes::EventRingTable pesEventRings{};
+  pes::EventConstants pesEventConstants{};
+  // Touches queued for the next event stage: PES's action kind, and the frame of the touch.
+  struct PendingPesTouch {
+    Player* player = nullptr;
+    uint32_t actionKind = 0;
+    int frame = 0;
+  };
+  std::vector<PendingPesTouch> pesPendingTouches;
+  // The detectors' own stored words (their "+8" words), kept between ticks.
+  struct PesDetectorState {
+    int phase = 0;
+    int restart = 0;
+    int foul = 0;
+    int outSide = 0;
+    bool possessionFlip = false;
+    pes::PossessionSequenceState sequence;
+  };
+  PesDetectorState pesDetectors;
+  // The event stage (PES's step 3, tick order in matchevents.cpp).
+  void ProcessPesEventStage();
   signed int bestPossessionTeamID = -1;
   Player* designatedPossessionPlayer = nullptr;
   Player* ballRetainer = nullptr;

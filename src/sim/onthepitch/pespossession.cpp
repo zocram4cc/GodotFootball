@@ -21,7 +21,6 @@ constexpr int kKindKickFirst = 1;
 constexpr int kKindKickLast = 3;
 constexpr int kKindRestart = 0x10;
 constexpr int kKindShot = 5;
-constexpr int kKindTouch = 7;
 // Step 3's sub-3 exclusion: kind 3 with sub-kind (+0x40) 3 or 4 (FUN_1404fe9c0).
 constexpr int kKindThree = 3;
 constexpr int kSubKindFirst = 3;
@@ -84,19 +83,6 @@ bool TeamPossessionLatch(const PossessionLatchInput& in) {
 
 int PesFrameOf(uint64_t ms, int gs) {
   return static_cast<int>(ms * static_cast<uint64_t>(gs) / 1000u);
-}
-
-// ponytail: GF's four kinds stand in for PES's numbered ring kinds. kPass is kick 1 and
-// kHighPass is 2 (PES's through pass, INF). The latch treats 1 and 2 alike, so that
-// pairing is inert here. kShot is 5 (OBS, pesreceive.hpp:88); kTouch is 7 (INF, see above).
-int PesEventKindOf(BallEventKind kind) {
-  switch (kind) {
-    case BallEventKind::kTouch: return kKindTouch;
-    case BallEventKind::kPass: return kKindKickFirst;
-    case BallEventKind::kHighPass: return kKindKickFirst + 1;
-    case BallEventKind::kShot: return kKindShot;
-  }
-  return 0;
 }
 
 }  // namespace pes

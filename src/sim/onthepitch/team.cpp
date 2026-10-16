@@ -28,14 +28,14 @@ bool IsKickFunction(e_FunctionType f) {
          f == e_FunctionType_HighPass || f == e_FunctionType_Shot;
 }
 
-// The ring-0 event kind of a touch made by a player running this function.
-pes::BallEventKind BallEventKindOf(e_FunctionType f) {
+// PES's action kind of a touch made by a player running this function (pesevents.hpp).
+uint32_t PesActionKindOf(e_FunctionType f) {
   switch (f) {
     case e_FunctionType_ShortPass:
-    case e_FunctionType_LongPass: return pes::BallEventKind::kPass;
-    case e_FunctionType_HighPass: return pes::BallEventKind::kHighPass;
-    case e_FunctionType_Shot: return pes::BallEventKind::kShot;
-    default: return pes::BallEventKind::kTouch;
+    case e_FunctionType_LongPass: return pes::kActionKick;
+    case e_FunctionType_HighPass: return pes::kActionHighKick;
+    case e_FunctionType_Shot: return pes::kActionShot;
+    default: return pes::kActionTouch;
   }
 }
 
@@ -366,7 +366,7 @@ void Team::SetLastTouchPlayer(Player* player, e_TouchType touchType) {
   player->SetLastTouchTime_ms(match->GetActualTime_ms());
   player->SetLastTouchType(lastTouchType);
   match->SetLastTouchTeamID(GetID(), touchType);
-  match->PushBallEvent(player, GetID(), BallEventKindOf(player->GetCurrentFunctionType()));
+  match->QueuePesTouch(player, PesActionKindOf(player->GetCurrentFunctionType()));
 }
 
 Player* Team::PassGetReceiver() {
@@ -374,15 +374,16 @@ Player* Team::PassGetReceiver() {
   // target goes to the ball as the receiver.
   if (!passTarget || !passTarget->IsActive()) return nullptr;
   const pes::ReceiveConstants& k = match->GetPesDefenderDecisionConstants().receive;
-  const Match::BallEvent& event = match->GetBallEvent(0);
-  const bool passInFlight = event.kind == pes::BallEventKind::kPass ||
-                            event.kind == pes::BallEventKind::kHighPass;
-  if (!passInFlight || event.teamID != id) return nullptr;
+  const pes::NewestEventView newest = pes::NewestEvent(match->GetPesEvents());
+  const pes::BallEventKind newestKind = pes::ReceiveEventKindOf(newest.kind);
+  const bool passInFlight = newest.present && (newestKind == pes::BallEventKind::kPass ||
+                                               newestKind == pes::BallEventKind::kHighPass);
+  if (!passInFlight || newest.actor.team != static_cast<uint32_t>(id)) return nullptr;
   const Vector3 ballPos = match->GetBall()->Predict(0).Get2D();
 
   pes::PassGetInput in;
   in.iAmPassTarget = true;
-  in.newestEventIsMyKick = event.player == passTarget;
+  in.newestEventIsMyKick = match->GetPesActorPlayer(newest.actor) == passTarget;
   in.inKickBeforeContact = IsKickFunction(passTarget->GetCurrentFunctionType());
   // The arbitration: the other team's stored pass target standing in front
   // of mine, facing the ball.
@@ -471,25 +472,23 @@ void Team::UpdatePesPossession() {
   in.carrierValid = carrier != nullptr;
   in.carrierSide = carrier ? carrier->GetTeamID() : 0;
 
-  // The newest event (E+0x180698). GF's default event (no touch yet) reads as no event:
-  // kind 0 at frame 0, which is PES's zeroed record. ponytail: GF's four kinds stand in
-  // for PES's numbered kinds (pes::PesEventKindOf). ponytail: PES's sub-kind (+0x40),
-  // flag byte (+0x2d) and field (+0x1c) have no GF counterpart: zero, clear and zero, so
-  // step 3a is off, and the sub-3 exclusion is inert (GF has no kind 3).
-  const Match::BallEvent& event = match->GetBallEvent(0);
-  if (event.teamID != -1) {
-    in.newestKind = pes::PesEventKindOf(event.kind);
-    in.newestFrame = event.pesFrame;
+  // The newest event: the store's newest ring-0 record (PES's E+0x180698). No event reads as
+  // PES's zeroed record: kind 0, frame 0, no actor. Its sub-kind (+0x40), flag byte (+0x2d) and
+  // field (+0x1c) are the store's own words.
+  const pes::NewestEventView newest = pes::NewestEvent(match->GetPesEvents());
+  if (newest.present) {
+    in.newestKind = static_cast<int>(newest.kind);
+    in.newestFrame = newest.frame;
   }
-  in.actorValid = event.player != nullptr;
-  in.actorSide = event.player ? event.player->GetTeamID() : 0;
-  in.newestSubKind = 0;
-  in.newestFlag2d = false;
-  in.newestField1c = 0;
+  in.actorValid = newest.present && newest.actor.Valid();
+  in.actorSide = in.actorValid ? static_cast<int>(newest.actor.team) : 0;
+  in.newestSubKind = newest.subKind;
+  in.newestFlag2d = newest.flag2d != 0;
+  in.newestField1c = newest.field1c;
 
   // ponytail: MI+0x119c, the raw kick sum that step 3a reads, has no GF counterpart. PES's
   // value at the graded flips was at least 231 (3 * gs is 162); the stand-in is 0, so the sum
-  // clause holds. 3a stays off, because GF never sets newestFlag2d.
+  // clause holds.
   in.ballSumRaw = 0;
   // ponytail: G+0x40+0x80, no GF counterpart. Its only effect here is the sub-3 exclusion.
   in.stateFlag40_80 = false;

@@ -17,6 +17,7 @@
 #include "onthepitch/peskickerror.hpp"
 #include "onthepitch/pesoffball.hpp"
 #include "onthepitch/pesclock.hpp"
+#include "onthepitch/restartwatch.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
 #include "rig/rig.hpp"
@@ -28,6 +29,11 @@ constexpr unsigned int DEFAULT_SEED = 1;
 constexpr int DEFAULT_MINUTES = 20;    // GF's default match length in real minutes
 constexpr float DEFAULT_TIMESCALE = 1.0f;
 constexpr const char* DEFAULT_ANIMS = "assets/gf_anims";
+// The sim-tick cap: a match still unfinished after 60 minutes of logic frames (54 Hz) is
+// stuck. The clock stops in every stoppage, so a full match runs longer than its 20 real
+// minutes: seed 7 reaches full time at 128912 ticks (about 40 minutes). The restart watch
+// stops a stalled restart long before this, so the cap is the backstop.
+constexpr unsigned long kMaxSimTicks = 60ul * 60ul * Match::kFramesPerSecond;
 constexpr int EXIT_USAGE = 2;
 
 int Usage(const char* why) {
@@ -123,6 +129,11 @@ int main(int argc, char** argv) {
   // the exe's level table, vetoes and balance gauge.
   auto contactConstants = pes::LoadContactConstants(*exe, vfs, &err);
   if (!contactConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  // PES 2021's event routing table and detector constants (docs/re/pes-re-gaps-a2.md).
+  auto eventRingTable = pes::LoadEventRingTable(*exe, &err);
+  if (!eventRingTable) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  auto eventConstants = pes::LoadEventConstants(*exe, &err);
+  if (!eventConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   // PES body clips the engine plays (pesclips.hpp), converted at match start.
   auto pesClips = pes::LoadPesClips(*exe, vfs, &err);
   if (!pesClips) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
@@ -177,6 +188,8 @@ int main(int argc, char** argv) {
   setup.pesDefensiveShapeConstants = &*defensiveShapeConstants;
   setup.pesDefenderDecisionConstants = &*defenderDecisionConstants;
   setup.pesContactConstants = &*contactConstants;
+  setup.pesEventRingTable = &*eventRingTable;
+  setup.pesEventConstants = &*eventConstants;
   setup.pesClips = &*pesClips;
   setup.pesDodgeConstants = &*dodgeConstants;
   setup.pesAnimetable = &*animetable;
@@ -188,7 +201,26 @@ int main(int argc, char** argv) {
   setup.pesOffBallConstants = &*offBallConstants;
 
   Match match(new MatchData(home, away), setup, config);  // Match owns the MatchData
-  while (!match.IsGameOver()) match.Process();
+  // A stalled restart freezes the match clock (it only moves while play is on and no
+  // set piece is armed), so the match would never reach full time. The watch stops
+  // the run at the first stoppage that runs past the install's bound on its restart.
+  RestartWatch watch(RestartLimitTicks(*stoppageConstants, *setPieceTakerConstants));
+  while (!match.IsGameOver()) {
+    if (watch.Ticks() >= kMaxSimTicks)
+      return std::fprintf(stderr, "[cap] no full time after %lu sim ticks\n", kMaxSimTicks), 1;
+    match.Process();
+    watch.Observe(match);
+    if (watch.Stalled())
+      return std::fprintf(stderr,
+                          "[restart] stalled: no restart within %lu ticks (limit %lu ticks)\n",
+                          watch.LongestTicks(), watch.LimitTicks()), 1;
+  }
   PrintMatchReport(match, stdout);
+  const double tickSeconds = Match::kTick_ms / 1000.0;
+  std::printf("[restarts] %lu stoppages, longest %.1f s (%lu ticks), bound %.1f s (%lu ticks)\n",
+              watch.MeasuredStoppages(), watch.LongestTicks() * tickSeconds, watch.LongestTicks(),
+              watch.LimitTicks() * tickSeconds, watch.LimitTicks());
+  std::printf("[ticks] %lu sim ticks to full time (cap %lu)\n", watch.Ticks(), kMaxSimTicks);
+  std::printf("[idle] %lu episodes\n", watch.IdleEpisodes());
   return 0;
 }
