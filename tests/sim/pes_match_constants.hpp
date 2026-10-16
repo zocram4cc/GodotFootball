@@ -93,7 +93,7 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
   if (mounted) c.clips = pes::LoadPesClips(*exe, vfs, &err);
   if (mounted) c.dodge = pes::LoadDodgeConstants(*exe, &err);
   if (mounted) c.animetable = pes::LoadAnimetable(*exe, vfs, &err);
-  if (mounted) c.mbinfo = pes::LoadMbinfo(vfs, &err);
+  if (mounted) c.mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
   if (mounted) c.tackle = pes::LoadTackleConstants(*exe, &err);
     c.strategy = pes::LoadStrategyConstants(*exe, &err);
     c.substitutions = pes::LoadSubstitutionConstants(*exe, &err);

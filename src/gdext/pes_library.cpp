@@ -114,7 +114,7 @@ Error PesLibrary::open(const String& root) {
     UtilityFunctions::push_error("PES21 animetable unavailable: ", ToGd(err));
     return ERR_PARSE_ERROR;
   }
-  mbinfo_ = pes::LoadMbinfo(vfs_, &err);
+  if (exe) mbinfo_ = pes::LoadMbinfo(vfs_, *exe, &err);
   if (exe) tackleConstants_ = pes::LoadTackleConstants(*exe, &err);
   if (!mbinfo_) {
     UtilityFunctions::push_error("PES21 mbinfo unavailable: ", ToGd(err));

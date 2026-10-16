@@ -174,10 +174,33 @@ float ClampSpeedKmh(float v, const RunConstants& k) {
 // and the look heading and uses the first.
 float FirstAngle(float a, float /*b*/, const RunConstants& /*k*/) { return a; }
 
-// FUN_1406afbc0(motion, 5): the clip's hit-record count. GF has no hit records yet, so the count
-// is zero and the handlers' hit loops stay empty exactly as they do for a clip without hit
-// records. ponytail: the AnimePlayer hit records (A-AN13) supply this.
-int HitRecordCount() { return 0; }
+// The clip's hit words, read from the live motion's record at rate 1.0 by GOTO_RUN, ACCELERATE and
+// DECELERATE (FUN_1406bdf10, FUN_1406bb570, FUN_1406bcd20). RotData entry 0 gives the total
+// (FUN_1406b1f00), the end (FUN_1406b1d00) and the signed offset (FUN_1406b1c70, negated when the anime
+// flag is set). The three hit ticks are CancelData entries 0..2 (FUN_1406af8e0); an entry the motion
+// lacks is the Animation blend (FUN_1406af620), which is what PES's branches take.
+struct ClipHits {
+  int total = 0;
+  int end = 0;
+  float signedLen = 0.0f;
+  int cancelCount = 0;  // FUN_1406afbc0(.., 5)
+  int hit[3] = {0, 0, 0};
+};
+ClipHits ReadClipHits(const MoveHost& host, int motion, const RunConstants& k, bool mirror) {
+  const pes::MotionRecord& rec = host.Motion(motion);
+  const RotRecord rot = rec.Rot(0);
+  const auto ticks = [&](int v) {
+    return pes::movestep::RecordTicks(host, static_cast<float>(v), k.one, k.kmh60, k.half, k.one);
+  };
+  ClipHits h;
+  h.total = ticks(rot.start);
+  h.end = ticks(rot.end);
+  h.signedLen = static_cast<float>(rot.offset) * (mirror ? k.neg : k.one);
+  h.cancelCount = rec.CancelCount();
+  const int blend = ticks(rec.BlendStart());
+  for (int i = 0; i < 3; ++i) h.hit[i] = i < h.cancelCount ? ticks(rec.CancelFrames(i)) : blend;
+  return h;
+}
 
 // PES's player record's class-17 byte (P+0x2458), which the no-class branch reads twice
 // (the AI target's rank test and the set-piece kind fold) and the entries read for their
@@ -195,18 +218,6 @@ int RecordClass17Byte() { return 0; }
 bool StepLetsRunTurnPlaceholder(MoveHost& /*host*/) { return false; }
 bool StepStopsPlaceholder(MoveHost& /*host*/, MoveReq& /*req*/) { return false; }
 
-// FUN_1406af620's start tick, FUN_1406b1f00's total, FUN_1406b1d00's length and
-// FUN_1406b1c70's signed length all read the live clip's HitData record (the pointer at
-// motion_object + 200 + 8*k, the counts from bits 10..19, 0..9 and 13..22 of its words).
-// GF has no hit records (A-AN13): the record pointer is absent, FUN_1406afbc0's count is
-// zero, and PES's own fallback DAT_1436f23e8 has a zero tick word, so each helper answers
-// PES's no-record value. Every hit-gated arm therefore takes PES's no-hit branch, exactly
-// as a clip without records does. ponytail: the AnimePlayer hit records (A-AN13) supply
-// the record pointer and these four read it as PES does.
-float HitFirstTicks(const RunConstants& k) { (void)k; return 0.0f; }
-int HitTotalTicks(const RunConstants& k) { (void)k; return 0; }
-float HitEndTicks(const RunConstants& k) { (void)k; return 0.0f; }
-float HitSignedTicks(const RunConstants& k) { (void)k; return 0.0f; }
 
 // FUN_141eb50b0's index-1 read: the last tick's displacement, whose length the ground-speed
 // compute uses.
@@ -619,25 +630,15 @@ void GotoRun(MoveHost& host, MoveReq& req) {
   const int cls = static_cast<int>(req.U(moveword::kCommandSpeedClass));
   const int motion = host.CurrentMotion();
 
-  // The clip's tick frame. FUN_1406b1f00 (the total), FUN_1406b1d00 (the length) and
-  // FUN_1406b1c70 (the length at a mirror) all read the live clip's HitData record through the
-  // anime table: the record pointer at motion_object + 200 + 8*k and the tick count from bits
-  // 10..19 of its first u32 (decompiled at 0x1406b1f00). FUN_1406afbc0 gives the record count.
-  // GF has no hit records, so the port reads the clip's own length and holds the hit ticks at
-  // zero: every arm that gates on a hit tick therefore takes PES's "no hit yet" branch, which is
-  // what a clip without records does in PES too.
-  // ponytail: the AnimePlayer hit records (A-AN13) supply hit0/hit1/hit2, and then these arms
-  // run their real branches; the port's shape is PES's, only the source of the three numbers
-  // is missing.
-  const float clipPlayback = req.F(moveword::kDuration);
-  const int clipLen = static_cast<int>(clipPlayback * host.TicksPerSecond() + half);
-  int hit0 = 0;
-  int hit1 = 0;
-  int hit2 = 0;
-  if (HitRecordCount() > 0) {
-    // ponytail: FUN_1406af8e0(motion, playback, 0..2) fills hit0/hit1/hit2 from the records.
-  }
-  const int clipTotal = hit0;
+  // The clip's record reads: the total (FUN_1406b1f00), the length (FUN_1406b1d00) and the three hit
+  // ticks (FUN_1406af8e0 at entries 0..2, the Animation blend when missing), all from the live
+  // motion's record through ReadClipHits.
+  const ClipHits clip = ReadClipHits(host, motion, k, host.ClipFlag());
+  const int clipLen = clip.end;
+  const int clipTotal = clip.total;
+  int hit0 = clip.hit[0];
+  int hit1 = clip.hit[1];
+  int hit2 = clip.hit[2];
 
   req.SetF(moveword::kRate, k.blend3);
 
@@ -1274,9 +1275,8 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
 //      (180, or 90 when the hit-signed value is zero; 135 and 22.5 from the ground-speed
 //      ladder), and the record's 0x18 word.
 //
-// The hit ticks (FUN_1406b1f00/b1d00/b1c70/af620/af8e0) read the live clip's HitData record,
-// which GF has no model for (A-AN13), so they hold at zero and every hit-gated arm takes
-// PES's no-hit branch. The class/speed block at the function's tail (the FUN_140a48a10
+// The hit ticks (FUN_1406b1f00 / b1d00 / b1c70 / af620 / af8e0) come from the live motion's
+// record through ReadClipHits. The class/speed block at the function's tail (the FUN_140a48a10
 // record chain, FUN_1406ea340, FUN_1406ebf30) is not decoded for this port; the arm that
 // reads it stands the value at PES's no-record answer and names the site.
 // ---------------------------------------------------------------------------------------------
@@ -1288,15 +1288,15 @@ void Accelerate(MoveHost& host, MoveReq& req) {
   const int cls = static_cast<int>(req.U(moveword::kCommandSpeedClass));
   const int band = static_cast<int>(req.U(moveword::kRateBand));
   const int motion = host.CurrentMotion();
-  // The record's F2468 floor (0.85) and the live clip's tick counters, all of which answer
-  // PES's fallback without hit records.
+  // The record's F2468 floor (0.85) and the live clip's hit ticks (ReadClipHits).
   const float f2468 = std::max(host.RecordF2468(), k.ramp85);
-  const int hitTotal = HitTotalTicks(k);
-  float hitEnd = HitEndTicks(k);
-  const float hitSigned = HitSignedTicks(k);
-  const float hit0 = HitFirstTicks(k);
-  const float hit1 = HitFirstTicks(k);
-  const int hitCount = HitRecordCount();
+  const ClipHits clip = ReadClipHits(host, motion, k, host.ClipFlag());
+  const int hitTotal = clip.total;
+  float hitEnd = static_cast<float>(clip.end);
+  const float hitSigned = clip.signedLen;
+  const float hit0 = static_cast<float>(clip.hit[0]);
+  const float hit1 = static_cast<float>(clip.hit[1]);
+  const int hitCount = clip.cancelCount;
 
   // Arm A: the yaw-lock block. PES's own gate is the re-orient object's flag
   // (FUN_141eb3320 of P+0x4d0); GF has no such object yet, so the port holds the flag at
@@ -1502,8 +1502,8 @@ void Accelerate(MoveHost& host, MoveReq& req) {
 //      speed ladder (5 / 11 / 22) and the run entry.
 //
 // The shared band/speed block is PES's LAB_1406bcbda, the same three +0xac0 interface reads
-// and run entry STOP's update arm uses (see RunUpdateArm above). The hit ticks and the +0x4d0
-// interface's flag stand as ACCELERATE's do.
+// and run entry STOP's update arm uses (see RunUpdateArm above). The +0x4d0 interface's flag
+// stands as ACCELERATE's does.
 // ---------------------------------------------------------------------------------------------
 void Decelerate(MoveHost& host, MoveReq& req) {
   const RunConstants& k = host.RunConstantsView();
@@ -1514,12 +1514,13 @@ void Decelerate(MoveHost& host, MoveReq& req) {
   const int band = static_cast<int>(req.U(moveword::kRateBand));
   const int motion = host.CurrentMotion();
   const float f2468 = std::max(host.RecordF2468(), k.ramp85);
-  // With no hit records every counter answers PES's fallback.
-  int hitTotal = HitTotalTicks(k);
-  float hitEnd = HitEndTicks(k);
-  const float hitSigned = HitSignedTicks(k);
-  const float hit0 = HitFirstTicks(k);
-  const float hit1 = HitFirstTicks(k);
+  // The hit ticks come from the live motion's record (ReadClipHits), as in ACCELERATE.
+  const ClipHits clip = ReadClipHits(host, motion, k, host.ClipFlag());
+  int hitTotal = clip.total;
+  float hitEnd = static_cast<float>(clip.end);
+  const float hitSigned = clip.signedLen;
+  const float hit0 = static_cast<float>(clip.hit[0]);
+  const float hit1 = static_cast<float>(clip.hit[1]);
   const bool slowMotion = motion == 0xc3a || motion == 0xc3b;
 
   // The shared band / speed block (PES's LAB_1406bcbda): the dwell words cleared, the

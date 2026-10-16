@@ -13,6 +13,12 @@
 namespace pes {
 namespace movestep {
 namespace {
+// A record value in ticks at rate 1.0 (FUN_1406af620, FUN_1406b1f00, FUN_1406b1d00 and FUN_1406af8e0
+// are called with DAT_14256ae1c in these handlers).
+int MotionTicks(const MoveHost& host, int value, const RunConstants& k) {
+  return pes::movestep::RecordTicks(host, static_cast<float>(value), k.one, k.kmh60, k.half, k.one);
+}
+
 
 // The request words group A reads or writes that the shared contract does not name yet.
 constexpr int kWordBlend = 0x34;         // req[0x34]: the idle family's blend word (0.5)
@@ -64,7 +70,8 @@ void EnterIdleOther(MoveHost& host, MoveReq& req) {
   const int pick = host.PickN(5);
   const float playback = static_cast<float>(pick) * k.blend05 + host.StepConstants().rate0p9;
   req.SetF(moveword::kPlayback, playback);
-  const int fixed = host.MotionFixedFrames(req.U(moveword::kMotion));
+  const int fixed =
+      MotionTicks(host, host.Motion(static_cast<int>(req.U(moveword::kMotion))).BlendStart(), k);
   float limit = static_cast<float>(host.PickN(3)) / host.TicksPerSecond() + k.kmh5;
   const float frames = static_cast<float>(fixed) / host.TicksPerSecond();
   limit = (limit <= frames && 0.0f <= frames) ? limit : 0.0f;
@@ -250,7 +257,7 @@ void Idle(MoveHost& host, MoveReq& req) {
   const RunConstants& k = host.RunConstantsView();
   req.SetF(kWordSpeed, 0.0f);
   req.SetU(kWordClass, 0xffffffffu);
-  const int fixed = host.MotionFixedFrames(host.CurrentMotion());
+  const int fixed = MotionTicks(host, host.Motion(host.CurrentMotion()).BlendStart(), k);
   if (req.F(moveword::kDwellElapsed) < req.F(moveword::kDwellLimit)) {
     RootFacingTail(host, req);
     return;
@@ -305,9 +312,10 @@ void Idle(MoveHost& host, MoveReq& req) {
 // FUN_1406bfe70: IDLE_TURN.
 void IdleTurn(MoveHost& host, MoveReq& req) {
   const RunConstants& k = host.RunConstantsView();
-  const int start = host.MotionStartFrames(host.CurrentMotion());
-  const int total = host.MotionTotalFrames(host.CurrentMotion());
-  const int fixed = host.MotionFixedFrames(host.CurrentMotion());
+  const pes::MotionRecord& rec = host.Motion(host.CurrentMotion());
+  const int start = MotionTicks(host, rec.Rot(0).start, k);
+  const int total = MotionTicks(host, rec.Rot(0).end, k);
+  const int fixed = MotionTicks(host, rec.BlendStart(), k);
   const int current = host.CurrentClipFrames();
   if (!host.IsReplay() && start <= current) {
     const int span = start + total * 2;
@@ -451,7 +459,7 @@ void IdlePkGk(MoveHost& host, MoveReq& req) {
     return;
   }
   const int kind = static_cast<int>(req.U(moveword::kKind));
-  const int fixed = host.MotionFixedFrames(host.CurrentMotion());
+  const int fixed = MotionTicks(host, host.Motion(host.CurrentMotion()).BlendStart(), k);
   if ((req.U(moveword::kLiveKind) == static_cast<uint32_t>(kind) || kind == 4) &&
       host.CurrentClipFrames() < fixed) {
     return;
@@ -482,11 +490,12 @@ void TimingStep(MoveHost& host, MoveReq& req) {
   const RunConstants& k = host.RunConstantsView();
   req.SetU(kWordClass, 0xffffffffu);
   req.SetF(kWordSpeed, 0.0f);
-  const int fixed = host.MotionFixedFrames(host.CurrentMotion());
-  const int subCount = host.MotionSubCount(host.CurrentMotion());
+  const pes::MotionRecord& rec = host.Motion(host.CurrentMotion());
+  const int fixed = MotionTicks(host, rec.BlendStart(), k);
+  const int subCount = rec.CancelCount();
   int end = fixed;
   if (0 < subCount) {
-    const int last = host.MotionSubFrames(host.CurrentMotion(), subCount - 1);
+    const int last = MotionTicks(host, rec.CancelFrames(subCount - 1), k);
     if (fixed < last) end = last;
   }
   const bool scripted = host.ActionTableOwns(host.ActionIndex());
@@ -541,7 +550,7 @@ void Demo(MoveHost& host, MoveReq& req) {
   const MoveConstants& m = host.MoveConstantsView();
   req.SetU(kWordClass, 0xffffffffu);
   req.SetF(kWordSpeed, 0.0f);
-  const int fixed = host.MotionFixedFrames(host.CurrentMotion());
+  const int fixed = MotionTicks(host, host.Motion(host.CurrentMotion()).BlendStart(), k);
   const float span = host.TicksPerSecond() * m.demoSpan / k.kmh60 + k.half;
   if (static_cast<float>(fixed) - span <= static_cast<float>(host.CurrentClipFrames()) ||
       req.F(moveword::kDwellLimit) <= req.F(moveword::kDwellElapsed)) {

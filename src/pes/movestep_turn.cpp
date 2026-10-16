@@ -92,73 +92,29 @@ float PlaybackAt(const MoveHost& host, const MoveTurnConstants& k) {
 inline bool RowIs(uint32_t rowWord, uint32_t rowId) { return rowWord == rowId; }
 
 // ---------------------------------------------------------------------------------------------
-// The stand-ins for the PES reads MoveHost does not publish. Each names the PES site.
+// The motion record reads. Each helper names the PES reader it stands for; all of them go through
+// the host's one Motion() read, the install's motion table (pes/mbinfo.hpp).
 // ---------------------------------------------------------------------------------------------
-
-// FUN_1406b1f00 / FUN_1406b1d00 / FUN_1406b1c70 / FUN_1406af620 / FUN_1406af8e0 / FUN_1406afbc0 /
-// FUN_1406afe70 / FUN_1406afe20 read one motion record through FUN_1406b0ed0. GF resolves rows
-// through its own Animetable and publishes only the per-motion start time
-// (FUN_1406b97d0's switch, docs/re/pes-re-anim-select.md §10.3, values 0..0.6 s over the
-// step-loop family), so the record's packed word is rebuilt from that start time. The rebuild is
-// a carrier, not a decode: it keeps PES's field positions and each decoder keeps PES's mask, and
-// a test picks the start time that puts the frames where the branch it exercises needs them.
-// The real record is the anime-table manager's, which is the stand-in this note removes.
-// ponytail: 0x1406b0ed0's record walker removes this block.
-uint32_t RecordWord(const MoveHost& host, int motionNo) {
-  const float seconds = host.MotionStartTime(motionNo) * 1000.0f;
-  uint32_t w;
-  std::memcpy(&w, &seconds, sizeof w);
-  return w;
+// A record value in ticks: FUN_1406af620, FUN_1406b1f00, FUN_1406b1d00 and FUN_1406af8e0 at a rate.
+int FrameTicks(const MoveHost& host, int value, float scale, const MoveTurnConstants& k) {
+  return pes::movestep::RecordTicks(host, static_cast<float>(value), scale, k.fps, k.half, k.one);
 }
-int RecordFrames(float d, float scale, const MoveHost& host, const MoveTurnConstants& k) {
-  float ticks = static_cast<float>(host.TicksPerSecond());
-  if (scale <= 0.0f) scale = k.one;
-  if (ticks <= 0.0f) ticks = static_cast<float>(host.TicksPerSecond());
-  return static_cast<int>((d + d) / scale * (ticks / k.fps) + k.half);
+// FUN_1406b1f00 on RotData entry 0: the start, in ticks.
+int RecordStartFrames(const MoveHost& host, int motionNo, float scale, const MoveTurnConstants& k) {
+  return FrameTicks(host, host.Motion(motionNo).Rot(0).start, scale, k);
 }
-// FUN_1406b1f00: (short)((w >> 10 & 0x3ff) - 0x205) -> frames.
-int RecordStartFrames(MoveHost& host, int motionNo, float scale, const MoveTurnConstants& k) {
-  const uint32_t w = RecordWord(host, motionNo);
-  const auto d =
-      static_cast<float>(static_cast<int>(static_cast<short>(((w >> 10) & 0x3ff) - 0x205)));
-  return RecordFrames(d, scale, host, k);
-}
-// FUN_1406b1d00: (ushort)((w1 >> 16 & 0x3ff) + 1) -> frames.
+// FUN_1406b1d00 on RotData entry 0: the end, in ticks.
 int RecordEndFrames(const MoveHost& host, int motionNo, float scale, const MoveTurnConstants& k) {
-  const uint32_t w = RecordWord(host, motionNo);
-  const auto d = static_cast<float>(static_cast<uint16_t>(((w >> 16) & 0x3ff) + 1));
-  return RecordFrames(d, scale, host, k);
+  return FrameTicks(host, host.Motion(motionNo).Rot(0).end, scale, k);
 }
-// FUN_1406b1c70: (short)((w0 >> 13 & 0x7ff) - 0x36e), negated when mirrored.
+// FUN_1406b1c70 on RotData entry 0: the signed offset, negated when mirrored.
 float RecordOffsetDeg(const MoveHost& host, int motionNo, bool mirror, const MoveTurnConstants& k) {
-  const uint32_t w = RecordWord(host, motionNo);
-  const int v = static_cast<int>(static_cast<short>(((w >> 13) & 0x7ff) - 0x36e));
-  return static_cast<float>(v) * (mirror ? k.negOne : k.one);
+  const float offset = static_cast<float>(host.Motion(motionNo).Rot(0).offset);
+  return offset * (mirror ? k.negOne : k.one);
 }
-// FUN_1406af620: (ushort)(w1 >> 10 & 0x3ff) -> frames.
+// FUN_1406af620: the Animation blend, in ticks.
 int RecordFixedFrames(const MoveHost& host, int motionNo, float scale, const MoveTurnConstants& k) {
-  const uint32_t w = RecordWord(host, motionNo);
-  const auto d = static_cast<float>(static_cast<uint16_t>((w >> 10) & 0x3ff));
-  return RecordFrames(d, scale, host, k);
-}
-// FUN_1406af8e0: (ushort)((w0 >> 13) & 0x3ff) -> frames, at sub-record `sub`.
-int RecordSubFrames(const MoveHost& host, int motionNo, float scale, int sub,
-                    const MoveTurnConstants& k) {
-  const uint32_t w = RecordWord(host, motionNo);
-  const auto d = static_cast<float>(static_cast<uint16_t>((w >> 13) & 0x3ff));
-  (void)sub;
-  return RecordFrames(d, scale, host, k);
-}
-// FUN_1406afbc0: the byte at record+index.
-int RecordByteAt(const MoveHost& host, int motionNo, int index, const MoveTurnConstants& k) {
-  const uint32_t w = RecordWord(host, motionNo);
-  return static_cast<int>((w >> (8 * (index & 3))) & 0xffu);
-}
-// FUN_1406afe20: the sub-record's foot pair, *puVar2 >> 0x16 & 3.
-int RecordFootPair(const MoveHost& host, int motionNo, int sub, const MoveTurnConstants& k) {
-  const uint32_t w = RecordWord(host, motionNo);
-  (void)sub;
-  return static_cast<int>((w >> 0x16) & 3u);
+  return FrameTicks(host, host.Motion(motionNo).BlendStart(), scale, k);
 }
 
 // FUN_1406ba7d0(P, req): the relax/aim flag the entries branch on. ponytail: its body.
@@ -483,10 +439,10 @@ void RunTurnStepReselect(MoveHost& host, MoveReq& req, const MoveTurnConstants& 
       // The foot-band sub-record walk (0x1406c4580..0x1406c4650): the sub's own foot pair,
       // mirrored when the row is mirrored, and the frames the matching sub gives.
       const int footNow = FootBandOf(host);
-      const int subCount = RecordByteAt(host, repMotion, 9, k);
+      const int subCount = host.Motion(repMotion).FootCount();
       if (0 < subCount) {
         for (int i = 0; i < subCount; ++i) {
-          int sub = RecordFootPair(host, repMotion, i, k);
+          int sub = host.Motion(repMotion).FootPair(i);
           if (cell.mirror) {
             if (sub == 0) sub = 2;
             else if (sub == 1) sub = 3;
@@ -494,7 +450,7 @@ void RunTurnStepReselect(MoveHost& host, MoveReq& req, const MoveTurnConstants& 
             else if (sub == 3) sub = 1;
           }
           if (footNow == sub) {
-            const int back = RecordSubFrames(host, repMotion, k.one, i, k);
+            const int back = FrameTicks(host, host.Motion(repMotion).CancelFrames(i), k.one, k);
             start = static_cast<float>(back + 1) / static_cast<float>(host.TicksPerSecond());
             break;
           }
@@ -630,17 +586,19 @@ void RunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   const float rowOffset = RecordOffsetDeg(host, motion, req.Flag(moveword::kMirror), k);
   const int rowFixed = RecordFixedFrames(host, motion, scale, k);  // FUN_1406af620
   // FUN_1406af8e0's sub-record walk: the last band, then 0, then 1, then 2.
-  const int bands = RecordByteAt(host, motion, 5, k);  // FUN_1406afbc0(..., 5)
+  const pes::MotionRecord& motionRec = host.Motion(motion);
+  const int bands = motionRec.CancelCount();  // FUN_1406afbc0(..., 5)
   float lastFrames = static_cast<float>(rowFixed);
   float firstFrames = static_cast<float>(rowFixed);
   float secondFrames = static_cast<float>(rowFixed);
   float thirdFrames = static_cast<float>(rowFixed);
   if (0 < bands) {
-    lastFrames = static_cast<float>(RecordSubFrames(host, motion, scale, bands - 1, k));
-    firstFrames = static_cast<float>(RecordSubFrames(host, motion, scale, 0, k));
+    lastFrames = static_cast<float>(FrameTicks(host, motionRec.CancelFrames(bands - 1), scale, k));
+    firstFrames = static_cast<float>(FrameTicks(host, motionRec.CancelFrames(0), scale, k));
     if (1 < bands) {
-      secondFrames = static_cast<float>(RecordSubFrames(host, motion, scale, 1, k));
-      if (2 < bands) thirdFrames = static_cast<float>(RecordSubFrames(host, motion, scale, 2, k));
+      secondFrames = static_cast<float>(FrameTicks(host, motionRec.CancelFrames(1), scale, k));
+      if (2 < bands)
+        thirdFrames = static_cast<float>(FrameTicks(host, motionRec.CancelFrames(2), scale, k));
     }
     if (static_cast<int>(firstFrames) < rowStart) firstFrames = static_cast<float>(rowStart);
   }
@@ -1321,9 +1279,10 @@ void RunTurnRunSlipdown(MoveHost& host, MoveReq& req, const MoveTurnConstants& k
   // 3. The row replay (0x1406c334f..0x1406c3456). FUN_1406af620 minus one, then
   // FUN_1406afbc0(..., 5)'s bands, then FUN_1406af8e0 at the last band.
   int rowFrames = RecordFixedFrames(host, motion, scale, k) - 1;  // FUN_1406af620
-  const int bands = RecordByteAt(host, motion, 5, k);             // FUN_1406afbc0(..., 5)
+  const pes::MotionRecord& motionRec = host.Motion(motion);
+  const int bands = motionRec.CancelCount();  // FUN_1406afbc0(..., 5)
   if (0 < bands) {
-    rowFrames = RecordSubFrames(host, motion, scale, bands - 1, k);  // FUN_1406af8e0
+    rowFrames = FrameTicks(host, motionRec.CancelFrames(bands - 1), scale, k);  // FUN_1406af8e0
   }
   if (rowFrames <= clipFrame) {
     const int foot = FootBandOf(host);  // (P+0xab8 vt+0x78)()
@@ -1363,17 +1322,18 @@ void RunTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   const float rowOffset = RecordOffsetDeg(host, motion, req.Flag(moveword::kMirror), k);
   const int rowFixed = RecordFixedFrames(host, motion, scale, k);  // FUN_1406af620
   // FUN_1406af620's sub-record walk (0x1406c3640): the last band, then 0, then 1, then 2.
-  const int bands = RecordByteAt(host, motion, 5, k);  // FUN_1406afbc0(..., 5)
+  const pes::MotionRecord& motionRec = host.Motion(motion);
+  const int bands = motionRec.CancelCount();  // FUN_1406afbc0(..., 5)
   float spanF = static_cast<float>(rowFixed);
   float rowFixedB = static_cast<float>(rowFixed);
   float lastSpan = static_cast<float>(rowFixed);
   float dispBack = DispSpeedKmh(host, k);
   if (0 < bands) {
-    lastSpan = static_cast<float>(RecordSubFrames(host, motion, scale, bands - 1, k));
-    spanF = static_cast<float>(RecordSubFrames(host, motion, scale, 0, k));
+    lastSpan = static_cast<float>(FrameTicks(host, motionRec.CancelFrames(bands - 1), scale, k));
+    spanF = static_cast<float>(FrameTicks(host, motionRec.CancelFrames(0), scale, k));
     if (1 < bands) {
-      rowFixedB = static_cast<float>(RecordSubFrames(host, motion, scale, 1, k));
-      if (2 < bands) RecordSubFrames(host, motion, scale, 2, k);
+      rowFixedB = static_cast<float>(FrameTicks(host, motionRec.CancelFrames(1), scale, k));
+      if (2 < bands) FrameTicks(host, motionRec.CancelFrames(2), scale, k);
     }
     if (static_cast<int>(spanF) < static_cast<int>(lastSpan)) spanF = lastSpan;
   }
@@ -2685,14 +2645,16 @@ void StepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   const float rowOffset = RecordOffsetDeg(host, motion, req.Flag(moveword::kMirror), k);
   const int rowFixed = RecordFixedFrames(host, motion, scale, k);  // FUN_1406af620
   // FUN_1406af8e0's sub-record walk: the last band, then 0, then 1.
-  const int bands = RecordByteAt(host, motion, 5, k);  // FUN_1406afbc0(..., 5)
+  const pes::MotionRecord& motionRec = host.Motion(motion);
+  const int bands = motionRec.CancelCount();  // FUN_1406afbc0(..., 5)
   float lastFrames = static_cast<float>(rowFixed);
   float firstFrames = static_cast<float>(rowFixed);
   float secondFrames = static_cast<float>(rowFixed);
   if (0 < bands) {
-    lastFrames = static_cast<float>(RecordSubFrames(host, motion, scale, bands - 1, k));
-    firstFrames = static_cast<float>(RecordSubFrames(host, motion, scale, 0, k));
-    if (1 < bands) secondFrames = static_cast<float>(RecordSubFrames(host, motion, scale, 1, k));
+    lastFrames = static_cast<float>(FrameTicks(host, motionRec.CancelFrames(bands - 1), scale, k));
+    firstFrames = static_cast<float>(FrameTicks(host, motionRec.CancelFrames(0), scale, k));
+    if (1 < bands)
+      secondFrames = static_cast<float>(FrameTicks(host, motionRec.CancelFrames(1), scale, k));
   }
   const float half = k.half;
   req.SetF(moveword::kRate, 0.3f);  // param_2[0x4a] = 0x3e99999a
@@ -3224,12 +3186,13 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   const float rowOffset = RecordOffsetDeg(host, motion, req.Flag(moveword::kMirror), k);
   const int rowFixed = RecordFixedFrames(host, motion, scale, k);  // FUN_1406af620
   // FUN_1406af8e0's sub-record walk: the last band, then 0.
-  const int bands = RecordByteAt(host, motion, 5, k);  // FUN_1406afbc0(..., 5)
+  const pes::MotionRecord& motionRec = host.Motion(motion);
+  const int bands = motionRec.CancelCount();  // FUN_1406afbc0(..., 5)
   float lastFrames = static_cast<float>(rowFixed);
   float firstFrames = static_cast<float>(rowFixed);
   if (0 < bands) {
-    lastFrames = static_cast<float>(RecordSubFrames(host, motion, scale, bands - 1, k));
-    firstFrames = static_cast<float>(RecordSubFrames(host, motion, scale, 0, k));
+    lastFrames = static_cast<float>(FrameTicks(host, motionRec.CancelFrames(bands - 1), scale, k));
+    firstFrames = static_cast<float>(FrameTicks(host, motionRec.CancelFrames(0), scale, k));
   }
   const float half = k.half;
   // 0x1406c8de0: the row offset of zero swaps the dwell for the clock's own window.
@@ -3552,10 +3515,10 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
     if (RowIs(col, 0x520u) || RowIs(col, 0u)) {
       // The foot-band sub-record walk (0x1406c9a00..0x1406c9b40).
       const int footNow = FootBandOf(host);
-      const int subCount = RecordByteAt(host, repMotion, 9, k);
+      const int subCount = host.Motion(repMotion).FootCount();
       if (0 < subCount) {
         for (int i = 0; i < subCount; ++i) {
-          int sub = RecordFootPair(host, repMotion, i, k);
+          int sub = host.Motion(repMotion).FootPair(i);
           if (pick.mirror) {
             if (sub == 0) sub = 2;
             else if (sub == 1) sub = 3;
@@ -3563,7 +3526,7 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
             else if (sub == 3) sub = 1;
           }
           if (footNow == sub) {
-            const int back = RecordSubFrames(host, repMotion, scale, i, k);
+            const int back = FrameTicks(host, host.Motion(repMotion).CancelFrames(i), scale, k);
             start = static_cast<float>(back + 1) / static_cast<float>(host.TicksPerSecond());
             break;
           }

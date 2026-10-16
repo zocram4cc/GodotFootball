@@ -209,11 +209,8 @@ class FakeHost : public MoveHost {
   int CurrentMotion() const override { return currentMotion; }
   int CurrentClipFrames() const override { return currentClipFrames; }
   int AnimeState() const override { return animeState; }
-  int MotionFixedFrames(int) const override { return 0; }
-  int MotionStartFrames(int) const override { return 0; }
-  int MotionTotalFrames(int) const override { return 0; }
-  int MotionSubFrames(int, int) const override { return 0; }
-  int MotionSubCount(int) const override { return 0; }
+  const pes::MotionRecord& Motion(int) const override { return record; }
+  bool ClipFlag() const override { return false; }
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
   float FacingDeg() const override { return 0.0f; }
@@ -255,6 +252,7 @@ class FakeHost : public MoveHost {
   float displacement[3] = {0.0f, 0.0f, 1.0f};  // +z: heading 0 degrees
   float f2468 = 1.0f;
   float f0bec = 0.0f;
+  pes::MotionRecord record;  // the motion table entry; the default is the zero-word fallback
   float startTime = 0.0f;
 
   int currentMotion = 0;
@@ -296,12 +294,47 @@ TEST(RunTurnRun, WritesTheTurnedHeadingInsideTheReorientWindow) {
   req.SetF(pes::moveword::kTurnedRow, 70.0f);  // the candidate, 10 degrees below the heading
   host.currentMotion = 0x1000;
   host.currentClipFrames = 1;  // inside (0, 2)
-  host.startTime = 0.001f;     // the record's packed word: a 930-frame start, a 2-frame end
+  host.record.rot = {pes::RotRecord{/*offset*/ 0, /*start*/ 0, /*end*/ 1}};  // window (0, 2) frames
   RunTurnRun(host, req, SyntheticTurn());
   // The reorientation is due and the handler publishes the turned row and its frame count.
   EXPECT_EQ(req.U(pes::moveword::kSlipNewRow) & 0xffu, 1u);
   EXPECT_GT(req.U(pes::moveword::kSlipRowFrames), 0u);
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kSlipRowOut), 80.0f);  // stepped to the heading
+}
+
+// The motion record the loader decodes from RotData's own layout: start 0 frames (517 - 517), end
+// `endField + 1` ticks, offset 0 (878 - 878). The motion is 0x1000.
+pes::MotionRecord DecodedRotRecord(uint32_t endField) {
+  pes::MbinfoBins bins;
+  bins.rotData.assign(8, 0);
+  const uint32_t w0 = 0x1000u | (878u << 13);
+  const uint32_t w1 = (517u << 10) | endField;
+  std::memcpy(&bins.rotData[0], &w0, 4);
+  std::memcpy(&bins.rotData[4], &w1, 4);
+  const pes::MotionCaps caps{/*animation*/ 1, /*subHit*/ 6, /*cancel*/ 5, /*rot*/ 3, /*foot*/ 20,
+                             /*pivot*/ 1};
+  std::string err;
+  auto m = pes::ParseMbinfo(bins, caps, &err);
+  return m ? m->Motion(0x1000) : pes::MotionRecord{};
+}
+
+// The reorient window is the record's own (start to end, frames): the clip at frame 5 is past a
+// window of 2 frames and inside a window of 18, so the same request reorients only under the longer.
+TEST(RunTurnRun, TheReorientWindowIsTheDecodedRecordsSpan) {
+  for (const bool longWindow : {false, true}) {
+    FakeHost host;
+    MoveReq req;
+    FillRequest(&req);
+    req.SetF(pes::moveword::kFacing, 10.0f);
+    req.SetF(pes::moveword::kHeading, 80.0f);
+    req.SetF(pes::moveword::kTurnedRow, 70.0f);
+    host.currentMotion = 0x1000;
+    host.currentClipFrames = 5;
+    host.record = DecodedRotRecord(longWindow ? 9u : 0u);  // end 10 ticks (18 frames) or 1 (2 frames)
+    RunTurnRun(host, req, SyntheticTurn());
+    EXPECT_EQ(req.U(pes::moveword::kSlipNewRow) & 0xffu, longWindow ? 1u : 0u)
+        << (longWindow ? "the 18-frame window" : "the 2-frame window");
+  }
 }
 
 // The ladder: a stationary clip with the class word set writes the class/speed pair.
@@ -354,7 +387,6 @@ TEST(RunTurnRunSlipdown, WritesTheSlipPairOnceTheClipFramesRunOut) {
   req.SetU(pes::moveword::kSlipCandidate, 10.0f);  // already at the heading: no step to take
   host.currentMotion = 0x1000;
   host.currentClipFrames = 1700;  // past the record's 1615-frame end
-  host.startTime = 0.001f;
   RunTurnRunSlipdown(host, req, SyntheticTurn());
   EXPECT_EQ(req.U(pes::moveword::kSlipActive) & 0xffu, 1u);
   EXPECT_GT(req.U(pes::moveword::kSlipAngle), 0u);
@@ -420,7 +452,6 @@ TEST(RunTurnStep, HandsTheTickToTheStopEntryWhenTheClassWordIsUnset) {
   FillRequest(&req);
   host.currentMotion = 0x1000;
   host.currentClipFrames = 100;  // past every window: the ladder runs
-  host.startTime = 0.001f;
   req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);
   req.SetU(pes::moveword::kClassWord, 0xffffffffu);
   req.SetF(pes::moveword::kFacing, 10.0f);
@@ -446,7 +477,6 @@ TEST(RunTurnStep, HandsTheTickToStepTurnRunWhenTheEntryWritesTheRequest) {
   FillRequest(&req);
   host.currentMotion = 0x1000;
   host.currentClipFrames = 200;  // far past the span
-  host.startTime = 0.001f;
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
   req.SetU(pes::moveword::kClassWord, 3);
   req.SetF(pes::moveword::kFacing, 10.0f);
@@ -479,7 +509,6 @@ TEST(StepTurnRun, ResetsTheRateWordAtTheStartOfItsTick) {
   FillRequest(&req);
   host.currentMotion = 0x1000;
   host.currentClipFrames = 0;
-  host.startTime = 0.001f;
   StepTurnRun(host, req, SyntheticTurn());
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), 0.3f);
 }
@@ -492,7 +521,6 @@ TEST(StepTurnRun, ReSelectsTheRateForTheClassThreeTail) {
   FillRequest(&req);
   host.currentMotion = 0x1000;
   host.currentClipFrames = 0;
-  host.startTime = 0.001f;
   req.SetU(pes::moveword::kClassWord, 3);
   req.SetF(pes::moveword::kRate, 0.3f);
   host.displacement[0] = 1.0f;
@@ -510,7 +538,6 @@ TEST(StepTurnRun, ReplaysARowThroughTheStepGridWhenTheClipIsYoung) {
   FillRequest(&req);
   host.currentMotion = 0x1000;
   host.currentClipFrames = 0;  // inside the 6-tick window
-  host.startTime = 0.001f;
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
   req.SetU(pes::moveword::kClassWord, 2);
   req.SetU(pes::moveword::kPrecise, 1);
@@ -546,7 +573,6 @@ TEST(StepTurnStep, HandsTheTickToTheStopEntryWhileTheClipIsYoung) {
   FillRequest(&req);
   host.currentMotion = 0x1000;
   host.currentClipFrames = 0;
-  host.startTime = 0.001f;
   req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);
   req.SetU(pes::moveword::kClassWord, 0xffffffffu);
   StepTurnStep(host, req, SyntheticTurn());
@@ -563,7 +589,6 @@ TEST(StepTurnStep, ReplaysRowZeroX4eAtMotionZeroX39) {
   FillRequest(&req);
   host.currentMotion = 0x39;
   host.currentClipFrames = 0;
-  host.startTime = 0.001f;
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
   req.SetU(pes::moveword::kClassWord, 2);
   req.SetF(pes::moveword::kTurn, 5.0f);  // inside the 11.25 gate
@@ -697,7 +722,6 @@ TEST(RunTurnRunSlipdown, KeepsTheTickWhenTheClipIsOutsideTheFirstThird) {
   req.SetF(pes::moveword::kHeading, 100.0f);  // 90 degrees apart: the gate's own window
   host.currentMotion = 0x1000;
   host.currentClipFrames = 1000;  // far past the window
-  host.startTime = 0.001f;
   RunTurnRunSlipdown(host, req, SyntheticTurn());
   EXPECT_EQ(req.U(pes::moveword::kSlipActive) & 0xffu, 0u);
 }
@@ -713,7 +737,6 @@ TEST(RunTurnRunSlipdown, ClearsTheClassWordsAndReIssuesTheFoot) {
   req.SetU(pes::moveword::kClassWord, 3u);
   host.currentMotion = 0x1000;
   host.currentClipFrames = 1000;  // past every frame window
-  host.startTime = 0.001f;
   RunTurnRunSlipdown(host, req, SyntheticTurn());
   EXPECT_EQ(req.U(pes::moveword::kClampWord) & 0xffu, 0u);
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kSlipRate), 0.3f);
@@ -728,7 +751,6 @@ TEST(RunTurnStep, ClampsTheRateTowardTheInterfaceRateWhenPrecise) {
   FillRequest(&req);
   host.currentMotion = 0x1000;
   host.currentClipFrames = 0;
-  host.startTime = 0.001f;
   req.SetByte(pes::moveword::kUseClassRate, 1);  // req[0xb]: use the class rate
   req.SetF(pes::moveword::kRate, 0.0f);
   req.SetF(pes::moveword::kClassWord, 1);
@@ -746,7 +768,6 @@ TEST(StepTurnRun, RewritesTheRowIdWhenItMatchesTheExePattern) {
   FillRequest(&req);
   host.currentMotion = 0x1000;
   host.currentClipFrames = 0;
-  host.startTime = 0.001f;
   req.SetU(pes::moveword::kClassWord, 2);
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
   req.SetU(pes::moveword::kMoveBucket, 1);
@@ -770,7 +791,6 @@ TEST(StepTurnStep, ReplaysWithClassThreeAndTheTwentyEightSpeedWord) {
   FillRequest(&req);
   host.currentMotion = 0x39;
   host.currentClipFrames = 0;
-  host.startTime = 0.001f;
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
   req.SetU(pes::moveword::kClassWord, 2);
   req.SetF(pes::moveword::kTurn, 5.0f);   // inside the 11.25 gate
@@ -851,7 +871,6 @@ TEST(RunTurnRun, WritesTheTurnedRowWhenTheClipIsInsideTheWindow) {
   req.SetF(pes::moveword::kHeading, 70.0f);
   req.SetF(pes::moveword::kTurnedRow, 20.0f);  // 50 degrees short of the heading
   host.currentMotion = 0x1000;
-  host.startTime = 0.001f;  // the record's own span: start -930, end 1615
   // The window is (-930, 342]; a clip frame of 3 sits inside it with room for the span.
   host.currentClipFrames = 3;
   RunTurnRun(host, req, SyntheticTurn());
@@ -875,7 +894,6 @@ TEST(RunTurnRun, TakesTheReplayPathWhenTheDrawIsInsideTheNinetyGate) {
   req.SetF(pes::moveword::kTurnedRow, 60.0f);
   req.SetF(pes::moveword::kFacingError, 0.0f);
   host.currentMotion = 0x1000;
-  host.startTime = 0.001f;
   host.currentClipFrames = 2000;  // past every window: the ladder and the damping tail
   host.displacement[0] = 0.0f;    // a stationary player: speed 0
   host.displacement[1] = 0.0f;
@@ -901,7 +919,6 @@ TEST(RunTurnRun, WritesTheZeroSixRateOnThePreciseArmOfTheLadder) {
   req.SetU(pes::moveword::kPrecise, 1);
   req.SetF(pes::moveword::kDistToTarget, 2.0f);  // inside the 1..3 band
   host.currentMotion = 0x1000;
-  host.startTime = 0.001f;
   host.currentClipFrames = 2000;
   host.displacement[0] = 3.0f;  // a fast player
   host.displacement[2] = 4.0f;
@@ -921,7 +938,6 @@ TEST(RunTurnRunSlipdown, RewritesTheRateOnlyWhenTheSubFramesHaveRunOut) {
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kHeading, 10.0f);
   host.currentMotion = 0x1000;
-  host.startTime = 0.001f;
   host.currentClipFrames = 4000;  // past the sub-record's frames too
   RunTurnRunSlipdown(host, req, SyntheticTurn());
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kSlipRate), 0.3f);
@@ -954,7 +970,6 @@ TEST(StepTurnStep, WritesClassThreeAndTheTwentyEightSpeedWordOnTheReplayTail) {
   MoveReq req;
   FillRequest(&req);
   host.currentMotion = 0xc51;
-  host.startTime = 0.001f;
   host.currentClipFrames = 0;
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
   req.SetU(pes::moveword::kClassWord, 2);
@@ -974,7 +989,6 @@ TEST(StepTurnStep, HandsTheTickToStepLoopFromTheFinalGridSelect) {
   MoveReq req;
   FillRequest(&req);
   host.currentMotion = 0x1000;
-  host.startTime = 0.001f;
   host.currentClipFrames = 4000;  // past every window
   host.cellMotion = 0x546;
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
@@ -1038,7 +1052,6 @@ TEST(RunTurnStep, WritesTheReselectSpeedWordAsAFloatPattern) {
   MoveReq req;
   FillRequest(&req);
   host.currentMotion = 0x1000;
-  host.startTime = 0.001f;
   host.currentClipFrames = 4000;
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
   req.SetU(pes::moveword::kClassWord, 3);

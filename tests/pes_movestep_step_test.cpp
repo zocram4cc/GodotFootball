@@ -195,11 +195,11 @@ class FakeHost : public MoveHost {
   int CurrentMotion() const override { return currentMotion; }
   int CurrentClipFrames() const override { return currentClipFrames; }
   int AnimeState() const override { return 0; }
-  int MotionFixedFrames(int) const override { return 0; }
-  int MotionStartFrames(int) const override { return 0; }
-  int MotionTotalFrames(int) const override { return 0; }
-  int MotionSubFrames(int, int) const override { return 0; }
-  int MotionSubCount(int) const override { return 0; }
+  const pes::MotionRecord& Motion(int) const override {
+    static const pes::MotionRecord kNoRecord;  // group C reads no motion record
+    return kNoRecord;
+  }
+  bool ClipFlag() const override { return false; }
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
   float FacingDeg() const override { return 0.0f; }
