@@ -32,9 +32,7 @@ namespace pes {
 namespace moveword {
 // The request words group D reads or writes that the shared contract does not name yet. Each is
 // a PES req word; a byte store at `param_2 + i` is the low byte of word i.
-inline constexpr int kClassWord = 0x1f;      // req[0x1f]: the live class 0..3 (-1 = unset)
 inline constexpr int kSpeedWord = 0x1d;      // req[0x1d]: the live speed word (km/h packed)
-inline constexpr int kPrevClassWord = 0x24;  // req[0x24]: the class before the change
 inline constexpr int kPrevSpeedWord = 0x22;  // req[0x22]: the speed before the change
 inline constexpr int kPrevKind = 0x1e;       // req[0x1e]: the kind the live clip runs at
 inline constexpr int kRowAngle = 0x17;       // req[0x17]: the row echo's angle word

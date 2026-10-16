@@ -1255,7 +1255,7 @@ void RunTurnRunSlipdown(MoveHost& host, MoveReq& req, const MoveTurnConstants& k
     }
     if (std::fabs(delta) < quarter) {
       float limit = k.angle135;                                        // DAT_14259be60
-      if (static_cast<int>(req.U(moveword::kClassWordShared)) < 3) limit = k.halfTurn;  // PES byte 0x7c = word 0x1f
+      if (static_cast<int>(req.U(moveword::kClassWord)) < 3) limit = k.halfTurn;  // PES byte 0x7c = word 0x1f (CONFIRMED: FUN_1406c2f80 line 123; pes-re-a3helpers.md addendum item 4)
       const float ticks = static_cast<float>(host.TicksPerSecond());  // FUN_141e532d0
       float step = limit / ticks;
       // 0x1406c32e2: COMISS XMM7,XMM8; JA skip. Otherwise the -0.0 sign flip and the maxss pair.

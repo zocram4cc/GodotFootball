@@ -276,8 +276,8 @@ TEST(StepLoop, WalksTheBandDownWhenThePreviousBandWasOne) {
   MoveReq req;
   req.SetU(pes::moveword::kKind, 2);
   req.SetU(pes::moveword::kCommandSpeedClass, 2);
-  req.SetU(pes::moveword::kBand, 0);
-  req.SetU(pes::moveword::kBandPrev, 1);
+  req.SetU(pes::moveword::kClassWord, 0);
+  req.SetU(pes::moveword::kPrevClassWord, 1);
   req.SetF(pes::moveword::kDwellLimit2, 1.0f);
   req.SetF(pes::moveword::kDwellElapsed2, 0.70f);  // past 0.6 * 1.0
   req.SetF(pes::moveword::kBandSpeed, 0.0f);
@@ -307,8 +307,8 @@ TEST(StepLoop, WalksTheBandDownAfterTheShorterKeeperThreshold) {
   MoveReq req;
   req.SetU(pes::moveword::kKind, 7);
   req.SetU(pes::moveword::kCommandSpeedClass, 2);
-  req.SetU(pes::moveword::kBand, 0);
-  req.SetU(pes::moveword::kBandPrev, 1);
+  req.SetU(pes::moveword::kClassWord, 0);
+  req.SetU(pes::moveword::kPrevClassWord, 1);
   req.SetF(pes::moveword::kDwellLimit2, 1.0f);
   req.SetF(pes::moveword::kDwellElapsed2, 0.50f);  // past 0.4, under 0.6
   req.SetF(pes::moveword::kBandSpeed, 0.0f);
@@ -337,8 +337,8 @@ TEST(StepLoop, RePlansASlowPlayerThroughGotoRun) {
   host.displacement[2] = 0.0f;
   req.SetU(pes::moveword::kKind, 2);
   req.SetU(pes::moveword::kCommandSpeedClass, 2);
-  req.SetU(pes::moveword::kBand, 2);
-  req.SetU(pes::moveword::kBandPrev, 2);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetU(pes::moveword::kPrevClassWord, 2);
   req.SetF(pes::moveword::kDwellLimit2, 0.0f);
   req.SetU(0x3f, 1);  // the arrival flag
   req.SetF(pes::moveword::kFacing, 10.0f);
@@ -393,7 +393,7 @@ TEST(StepToRun, AsksForRunLoopOnceTheSecondDwellRunsOut) {
   req.SetU(pes::moveword::kCommandSpeedClass, 2);
   // The class 2+ non-precise branch runs first (the band below 1), so the band must be set for
   // the blend tail to be reached: PES's order is that branch, then the blend.
-  req.SetU(pes::moveword::kBand, 2);
+  req.SetU(pes::moveword::kClassWord, 2);
   StepToRun(host, req);
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kRunLoop));
@@ -456,8 +456,8 @@ TEST(RunToStep, RaisesTheRateTowardTheTargetAndStopsAtIt) {
     FakeHost host;
     MoveReq req;
     req.SetU(pes::moveword::kCommandSpeedClass, 3);
-    req.SetU(pes::moveword::kBand, 0);
-    req.SetU(pes::moveword::kBandPrev, 2);
+    req.SetU(pes::moveword::kClassWord, 0);
+    req.SetU(pes::moveword::kPrevClassWord, 2);
     req.SetF(pes::moveword::kDwellLimit2, 1.0f);
     req.SetF(pes::moveword::kDwellElapsed2, 0.10f);  // under 0.3 * 1.0
     req.SetF(pes::moveword::kRecordStampA, 20.0f);
@@ -470,7 +470,7 @@ TEST(RunToStep, RaisesTheRateTowardTheTargetAndStopsAtIt) {
     req.SetF(pes::moveword::kBandSpeed, 0.0f);
     req.SetF(pes::moveword::kBandSpeedCopy, 12.0f);
     RunToStep(host, req);
-    EXPECT_EQ(req.U(pes::moveword::kBand), 2u);
+    EXPECT_EQ(req.U(pes::moveword::kClassWord), 2u);
     EXPECT_FLOAT_EQ(req.F(pes::moveword::kBandSpeedPrev), 12.0f);
   }
   TEST(RunToStep, RestoresTheBandWithTheWiderWindowWhenTheBandIsUp) {
@@ -479,8 +479,8 @@ TEST(RunToStep, RaisesTheRateTowardTheTargetAndStopsAtIt) {
     FakeHost host;
     MoveReq base;
     base.SetU(pes::moveword::kCommandSpeedClass, 3);
-    base.SetU(pes::moveword::kBand, 2);
-    base.SetU(pes::moveword::kBandPrev, 2);
+    base.SetU(pes::moveword::kClassWord, 2);
+    base.SetU(pes::moveword::kPrevClassWord, 2);
     base.SetF(pes::moveword::kDwellLimit2, 1.0f);
     base.SetF(pes::moveword::kRecordStampA, 10.0f);
     base.SetF(pes::moveword::kRecordStampB, 10.0f);
@@ -503,8 +503,8 @@ TEST(RunToStep, RaisesTheRateTowardTheTargetAndStopsAtIt) {
     FakeHost host;
     MoveReq req;
     req.SetU(pes::moveword::kCommandSpeedClass, 3);
-    req.SetU(pes::moveword::kBand, 0);
-    req.SetU(pes::moveword::kBandPrev, 2);
+    req.SetU(pes::moveword::kClassWord, 0);
+    req.SetU(pes::moveword::kPrevClassWord, 2);
     req.SetF(pes::moveword::kDwellLimit2, 1.0f);
     req.SetF(pes::moveword::kDwellElapsed2, 0.50f);
     req.SetF(pes::moveword::kRecordStampA, 10.0f);
@@ -546,7 +546,7 @@ TEST(TurnStop, ScalesTheRateByTheRecordConstant) {
   MoveReq req;
   req.SetU(pes::moveword::kKind, 2);
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
-  req.SetU(pes::moveword::kBand, 2);
+  req.SetU(pes::moveword::kClassWord, 2);
   req.SetF(pes::moveword::kRate, 1.0f);
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kHeading, 10.0f);
@@ -564,7 +564,7 @@ TEST(TurnStop, KeepsTheTickWhileTheSecondDwellRuns) {
   MoveReq req;
   req.SetU(pes::moveword::kKind, 2);
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
-  req.SetU(pes::moveword::kBand, 2);
+  req.SetU(pes::moveword::kClassWord, 2);
   req.SetF(pes::moveword::kRate, 1.0f);
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kHeading, 10.0f);
