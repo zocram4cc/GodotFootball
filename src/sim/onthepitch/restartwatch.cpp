@@ -59,7 +59,12 @@ void RestartWatch::Observe(const Match& match) {
 
   const unsigned long stalemates = match.GetStalemateCount();
   const bool idleNow = stalemates > lastStalemateCount_;
-  if (idleNow && !idleLastTick_) idleEpisodes_++;
+  if (idleNow && !idleLastTick_) {
+    idleEpisodes_++;
+    // An episode that starts with play live is a stall: the ball lay still while the match
+    // was running. One that starts in a stoppage is a hold the restart is still waiting out.
+    if (match.IsInPlay() && !match.IsInSetPiece()) idleStallEpisodes_++;
+  }
   idleLastTick_ = idleNow;
   lastStalemateCount_ = stalemates;
 }

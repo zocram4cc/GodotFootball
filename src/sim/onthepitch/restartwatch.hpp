@@ -48,6 +48,9 @@ class RestartWatch {
   // Maximal runs of ticks on which the match stood idle and the stalemate
   // recovery forced the ball to a player.
   unsigned long IdleEpisodes() const { return idleEpisodes_; }
+  // The idle episodes that began while play was live (the ball lay still in open play).
+  // The rest began in a stoppage, where the restart is still being held.
+  unsigned long IdleStallEpisodes() const { return idleStallEpisodes_; }
 
  private:
   unsigned long limitTicks_;
@@ -61,4 +64,5 @@ class RestartWatch {
   unsigned long lastStalemateCount_ = 0;
   bool idleLastTick_ = false;
   unsigned long idleEpisodes_ = 0;
+  unsigned long idleStallEpisodes_ = 0;
 };

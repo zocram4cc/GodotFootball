@@ -221,6 +221,6 @@ int main(int argc, char** argv) {
               watch.MeasuredStoppages(), watch.LongestTicks() * tickSeconds, watch.LongestTicks(),
               watch.LimitTicks() * tickSeconds, watch.LimitTicks());
   std::printf("[ticks] %lu sim ticks to full time (cap %lu)\n", watch.Ticks(), kMaxSimTicks);
-  std::printf("[idle] %lu episodes\n", watch.IdleEpisodes());
+  std::printf("[idle] %lu episodes, stalls %lu\n", watch.IdleEpisodes(), watch.IdleStallEpisodes());
   return 0;
 }

@@ -98,39 +98,52 @@ TEST(PesOffsideLine, FewerThanTwoDefendersIsTheGoalLine) {
 // position is therefore pulled inside the pitch, keeping the spot's lateral
 // offset and its distance from the goal line so the kick stays where the offence
 // was.
-TEST(PesOffsideRestart, AnOffsideSpotPastTheLineStaysInsideThePitch) {
-  // Beyond the goal line: the depth is folded back about the limit, so a spot
-  // 0.8 m past the line becomes one 0.7 m inside it - the same offset, on the
-  // side the kick can actually be played from. (HALF_M above is the synthetic
-  // pitch the line tests use; the restart fold is against the real one,
-  // pitchHalfW.)
-  const float limit = pitchHalfW - 0.5f;
-  EXPECT_FLOAT_EQ(OffsideRule::RestartPosition({0, 0, 0}, {53.3f, 6.5f, 0.0f}).coords[0],
-                  2.0f * limit - 53.3f);
+TEST(PesOffsideRestart, AnOffsideSpotPastTheLineIsClampedToTheFieldLine) {
+  // PES's restart writer (FUN_14050e770, explicit spot) clamps the spot to F0, the outer
+  // goal-line edge, and keeps the lateral offset the kick aims along.
+  const Vector3 past = OffsideRule::RestartPosition({53.3f, 6.5f, 0.0f}, 1, e_SetPiece_FreeKick);
+  EXPECT_FLOAT_EQ(past.coords[0], pesFieldHalfLength);
+  EXPECT_FLOAT_EQ(past.coords[1], 6.5f);
   // Inside the pitch: untouched.
-  EXPECT_FLOAT_EQ(OffsideRule::RestartPosition({0, 0, 0}, {30.0f, 6.5f, 0.0f}).coords[0], 30.0f);
-  // Past the touchline on the opposite side: the same fold, on that side.
-  EXPECT_FLOAT_EQ(OffsideRule::RestartPosition({0, 0, 0}, {-53.3f, 6.5f, 0.0f}).coords[0],
-                   -2.0f * limit + 53.3f);
-  // The lateral offset survives the fold: it is what the kick aims along.
-  EXPECT_FLOAT_EQ(OffsideRule::RestartPosition({0, 0, 0}, {53.3f, 6.5f, 0.0f}).coords[1], 6.5f);
+  EXPECT_FLOAT_EQ(OffsideRule::RestartPosition({30.0f, 6.5f, 0.0f}, 1, e_SetPiece_FreeKick).coords[0],
+                  30.0f);
+  // Past the line at the opponents' end (attacking -x): clamped on that side, not pushed out
+  // of the restart team's goal area.
+  EXPECT_FLOAT_EQ(OffsideRule::RestartPosition({-53.3f, 6.5f, 0.0f}, -1, e_SetPiece_FreeKick).coords[0],
+                  -pesFieldHalfLength);
+}
+
+// A spot inside the restart team's own goal area is pushed out of it (FUN_14050e770's first
+// step): with the team attacking +x, its goal is at -x.
+TEST(PesOffsideRestart, ASpotInsideTheRestartTeamsGoalAreaIsPushedOut) {
+  constexpr float kPushOut_m = 0.7f;  // the writer's offset, 0x14257a194
+  constexpr float kPushZ_m = 2.6f;    // the writer's z, 0x1425ab138
+  const Vector3 spot = OffsideRule::RestartPosition({-50.0f, 5.0f, 0.0f}, 1, e_SetPiece_FreeKick);
+  EXPECT_FLOAT_EQ(spot.coords[0], -(pesGoalAreaLineX + kPushOut_m));
+  EXPECT_FLOAT_EQ(spot.coords[1], kPushZ_m);
 }
 
 // A spot past the touchline is pulled back inside it. humanoid.cpp refuses every touch
 // frame whose predicted ball is past the pitch, its line and a 0.11 m reach, so a kick
 // from a spot out there is never played and the restart holds forever: the 16-10-26 seed-7
-// free kick at y 34.2 (0.2 m past the line) stalled this way.
+// free kick at y 34.2 (0.2 m past the line) stalled this way. PES writes a free kick 2 m
+// inside the touchline (FUN_14050e770 step 5, constant 0x142565604), so it stays in reach.
 TEST(PesOffsideRestart, ATouchlineSpotPastTheLineStaysInsideThePitch) {
   constexpr float kPastTouchline_m = 0.2f;
+  constexpr float kFreeKickInset_m = 2.0f;  // the writer's free-kick inset, 0x142565604
   const float y = pitchHalfH + kPastTouchline_m;
-  const Vector3 spot = OffsideRule::RestartPosition({0, 0, 0}, {5.3f, y, 0.0f});
-  EXPECT_LE(std::fabs(spot.coords[1]), pitchHalfH);
-  EXPECT_FLOAT_EQ(spot.coords[0], 5.3f);
+  // A free kick from past the line is written 2 m inside it (32.06 m), as PES does.
+  const Vector3 kick = OffsideRule::RestartPosition({5.3f, y, 0.0f}, 1, e_SetPiece_FreeKick);
+  EXPECT_FLOAT_EQ(kick.coords[1], pesFieldHalfWidth - kFreeKickInset_m);
+  EXPECT_FLOAT_EQ(kick.coords[0], 5.3f);
   // Symmetric on the other touchline.
-  const Vector3 below = OffsideRule::RestartPosition({0, 0, 0}, {5.3f, -y, 0.0f});
-  EXPECT_LE(std::fabs(below.coords[1]), pitchHalfH);
+  const Vector3 below = OffsideRule::RestartPosition({5.3f, -y, 0.0f}, 1, e_SetPiece_FreeKick);
+  EXPECT_FLOAT_EQ(below.coords[1], -(pesFieldHalfWidth - kFreeKickInset_m));
+  // A throw-in past the line is clamped to the line itself, with no inset.
+  const Vector3 throwIn = OffsideRule::RestartPosition({5.3f, y, 0.0f}, 1, e_SetPiece_ThrowIn);
+  EXPECT_FLOAT_EQ(throwIn.coords[1], pesFieldHalfWidth);
   // A spot exactly on the line (a throw-in) is untouched.
-  const Vector3 onLine = OffsideRule::RestartPosition({0, 0, 0}, {5.3f, pitchHalfH, 0.0f});
+  const Vector3 onLine = OffsideRule::RestartPosition({5.3f, pitchHalfH, 0.0f}, 1, e_SetPiece_ThrowIn);
   EXPECT_FLOAT_EQ(onLine.coords[1], pitchHalfH);
 }
 
