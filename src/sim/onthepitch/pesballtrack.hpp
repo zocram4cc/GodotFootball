@@ -60,7 +60,9 @@ inline unsigned TrackIndexForMs(double ms) {
 // GF's AI horizon: a read past ballPredictionSize_ms - 10 takes the horizon's last sample, as
 // the 10 ms grid always did.
 inline double ClampToAiHorizon(double ms, double predictionSizeMs) {
-  const double horizon = predictionSizeMs - 10.0;
+  // GF's legacy 10 ms prediction grid step: the last full sample sat one step short.
+  constexpr double kLegacyPredictionStep_ms = 10.0;
+  const double horizon = predictionSizeMs - kLegacyPredictionStep_ms;
   return ms < horizon ? ms : horizon;
 }
 

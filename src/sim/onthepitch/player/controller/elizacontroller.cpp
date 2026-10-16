@@ -135,7 +135,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     command.useDesiredMovement = true;
     if (match->GetBallRetainer() == player) {
       command.desiredDirection =
-          (Vector3(0) - player->GetPosition()).GetNormalized(player->GetDirectionVec());
+          (Vector3(0) - player->GetPosition()).Get2D().GetNormalized(player->GetDirectionVec());
     } else {
       command.desiredDirection = player->GetDirectionVec();
     }
@@ -2009,7 +2009,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // is what one tick now is (Milestone A1), so the possession duration in ms
   // converts by PES's own rate.
   const int nowFrame = static_cast<int>(
-      CastPlayer()->GetPossessionDuration_ms() * pes::kPesTickHz / 1000.0);
+      CastPlayer()->GetPossessionDuration_ms() * pes::kPesTickHz / pes::kMilliPerUnit);
   // GF's committed-action equivalent of PES's `state+8 bit0` reset: inside a
   // pass, shot, trap or ball-control action the carrier is committed, so the
   // think timer restarts every such tick (0x140a6e320's property bits 0x30000).

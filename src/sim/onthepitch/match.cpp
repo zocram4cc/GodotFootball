@@ -1128,7 +1128,9 @@ void Match::CheckHumanoidCollisions() {
 
       // if (playerBounces.at(i1).size() > 0) printf("\n");
       //  okay, accumulated all, now distribute them in normalized fashion
-      players.at(i1)->OffsetPosition(bounceVec * 0.01f * 1.0f);
+      // The push is a velocity applied over one sim tick: PES's 1/54 s since
+      // Milestone A1 (it was GF's 10 ms tick, written as 0.01).
+      players.at(i1)->OffsetPosition(bounceVec * pesball::kPesTick_s);
       // printf("moving player %i\n", i1);
     }
   }
@@ -1276,9 +1278,10 @@ void Match::CheckHumanoidCollision(Player* p1, Player* p2, std::vector<PlayerBou
             (p1side - p2pos).GetNormalizedMax(0.01f) * p2->GetStat("physical_balance") * 0.3f;
       }
 
-      // can not bump faster than sprint
-      offset1.NormalizeMax(sprintVelocity * 0.01f);
-      offset2.NormalizeMax(sprintVelocity * 0.01f);
+      // can not bump faster than sprint: one sim tick's sprint distance (PES's
+      // 1/54 s since Milestone A1; it was GF's 10 ms tick, written as 0.01)
+      offset1.NormalizeMax(sprintVelocity * pesball::kPesTick_s);
+      offset2.NormalizeMax(sprintVelocity * pesball::kPesTick_s);
 
       p1->OffsetPosition(offset1);
       p2->OffsetPosition(offset2);
