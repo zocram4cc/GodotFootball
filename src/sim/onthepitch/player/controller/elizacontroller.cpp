@@ -2068,6 +2068,24 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   }
   const int intention = CastPlayer()->GetPesIntention();
 
+  // The carrier's pressure class from the nearest opponent: the report 4.2
+  // radii are 4 m in the own third and 2 m in the attacking third, which is
+  // what a nearest-opponent distance gives when the class ladder is 0
+  // (inside r1), 1 (r2), 2 (r3), 3 (free). The plan block reads it (Long).
+  const float pressureRadius = attackDir * carrierPos.coords[0] < -pitchHalfW / 3.0f ? 4.0f : 2.0f;
+  const float nearestOpp = [&] {
+    float best = 1000.0f;
+    for (const PlayerImage& opp : opponentPlayerImages) {
+      const float d = (opp.position - carrierPos).GetLength();
+      if (d < best) best = d;
+    }
+    return best;
+  }();
+  int carrierPressureClass = 3;
+  if (nearestOpp < pressureRadius) carrierPressureClass = 0;
+  else if (nearestOpp < 2.3f * pressureRadius) carrierPressureClass = 1;
+  else if (nearestOpp < 3.0f * pressureRadius) carrierPressureClass = 2;
+
   if (rethink) {
     // The plan (report 4.4): rolled whenever its own conditions hold, in the
     // dispatcher's priority order kPlanPriorityOrder (9, 8, 2, 3, 1, 4, 5, 6,
@@ -2108,11 +2126,6 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
              PlayingStyles::Has(comStyles, PlayingStyles::Com::EarlyCross), false),
          // Cross needs the carrier inside the cross zone: the close band.
          pes::IsClose(zone)},
-        {pes::kPlanLong, carrier.longSeedK,
-         pes::PlanStartProbability(pes::kPlanLong, carrier,
-                                   CastPlayer()->GetStat("technical_highpass"), false, false,
-                                   false),
-         true},
     };
     const auto planChoice = [&](int plan) -> const PlanChoice* {
       for (const PlanChoice& c : choices) {
@@ -2126,9 +2139,9 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     curveShot.intention = intention;
     curveShot.incisiveRun =
         PlayingStyles::Has(comStyles, PlayingStyles::Com::IncisiveRun);
-    // ponytail: the byte+0x40 bit 7 the base and the final gate both read; GF's
-    // EDIT bit order puts skill 7 at Scotch Move.
-    curveShot.skill7 = PlayerSkills::Has(skills, PlayerSkills::Skill::ScotchMove);
+    // The engine's skill bit 7 is LONG_RANGE_DRIVE (docs/re/pes-re-carrier-ai.md
+    // section 6.1, the in-match bit order), not the EDIT order's Scotch Move.
+    curveShot.skill7 = PlayerSkills::Has(skills, PlayerSkills::Skill::LongRangeDrive);
     curveShot.kickingPower = CastPlayer()->GetStat("physical_shotpower");
     curveShot.finishing = finishing;
     // ponytail: a2[3]+0xB40 (0x14211afb9) and the side check's three scalars
@@ -2138,18 +2151,50 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     curveShot.trajectory_m = 0.0f;
     curveShot.fullAttack = false;  // ponytail: TeamData+0xB8A2 (47266)
 
+    // The Long plan (0x14211b1d0): the veto and the accepts first, then the score
+    // against the roll. Each input GF does not carry is a ponytail below.
+    pes::LongInput longPlan;
+    longPlan.intention = intention;
+    // ponytail: the nearest-opponent pressure class (report 4.2) stands in for
+    // sub_14069a3e0's +16, whose pressure scan is not ported.
+    longPlan.engagement = carrierPressureClass;
+    // ponytail: team+4 == 3 (0x14211b259) and TeamData+47266 (0x14211b279) are
+    // not carried by GF; the posture writer 0x1404f6c30 is not ported.
+    longPlan.teamModeThree = false;
+    longPlan.fullAttack = false;
+    // The team's designated possession player is the carrier (0x14211b269, PES's
+    // team+0x18). GF's designation is team.cpp's time-to-ball choice, the same
+    // one the team AI reads as the carrier.
+    longPlan.designatedSelf = team->GetDesignatedTeamPossessionPlayer() == CastPlayer();
+    // ponytail: eval+0x3c (0x14211b27f, the cached team setting 0x14063a420) and
+    // eval+0x54 (BallPlayer+0x70, the team long instruction, 0x14211b303) are not
+    // carried by GF: Path A at level 0 stands in.
+    longPlan.teamSetting = false;
+    longPlan.level = 0;
+    longPlan.comLongBallExpert = PlayingStyles::Has(comStyles, PlayingStyles::Com::LongBallExpert);
+    longPlan.skillWeightedPass = PlayerSkills::Has(skills, PlayerSkills::Skill::WeightedPass);
+    longPlan.skillLowLoftedPass = PlayerSkills::Has(skills, PlayerSkills::Skill::LowLoftedPass);
+    longPlan.lofted = CastPlayer()->GetStat("technical_highpass");
+
     // The image manager (report 4, 0x14211e2d0): the selected plan's own cancel
     // test runs first, then admission in the priority order and only while
     // nothing is selected, so the selection persists across rethinks.
     const auto cancel = [&](int plan) {
       const PlanChoice* c = planChoice(plan);
-      return pes::ImagePlanCancelled(plan, intention, c != nullptr && c->eligible);
+      return pes::ImagePlanCancelled(
+          plan, intention,
+          pes::PlanStillHolds(plan, c != nullptr && c->eligible, curveShot, longPlan, carrier));
     };
     const auto admit = [&](int plan) {
       if (plan == pes::kPlanCurveShot) {
         const int draw = pes::PlanRoll(carrierSeed, carrier.curveShotSeedK,
                                        match->GetPesRngConstants(), carrier);
         return pes::CurveShotAdmitted(curveShot, draw, carrier);
+      }
+      if (plan == pes::kPlanLong) {
+        const int draw = pes::PlanRoll(carrierSeed, carrier.longSeedK,
+                                       match->GetPesRngConstants(), carrier);
+        return pes::LongAdmitted(longPlan, draw, carrier);
       }
       const PlanChoice* c = planChoice(plan);
       // ponytail: 7, 8 and 9 are not ported, so they are never admitted.
@@ -2220,24 +2265,6 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // so a carrier who has just collected the ball does not re-roll his passing
   // every tick.
   if (!shooting && rethink) {
-    // The carrier's pressure class from the nearest opponent: the report 4.2
-    // radii are 4 m in the own third and 2 m in the attacking third, which is
-    // what a nearest-opponent distance gives when the class ladder is 0
-    // (inside r1), 1 (r2), 2 (r3), 3 (free).
-    const float pressureRadius = attackDir * carrierPos.coords[0] < -pitchHalfW / 3.0f ? 4.0f : 2.0f;
-    const float nearestOpp = [&] {
-      float best = 1000.0f;
-      for (const PlayerImage& opp : opponentPlayerImages) {
-        const float d = (opp.position - carrierPos).GetLength();
-        if (d < best) best = d;
-      }
-      return best;
-    }();
-    int carrierPressureClass = 3;
-    if (nearestOpp < pressureRadius) carrierPressureClass = 0;
-    else if (nearestOpp < 2.3f * pressureRadius) carrierPressureClass = 1;
-    else if (nearestOpp < 3.0f * pressureRadius) carrierPressureClass = 2;
-
     // The lanes: 11 frames ahead, the owned-ball value of report 4.3's `F`.
     // One logic frame is one tick (Milestone A1), so a PES frame count is that
     // many ticks.
