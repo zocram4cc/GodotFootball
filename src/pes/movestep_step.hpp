@@ -32,9 +32,7 @@ namespace moveword {
 // it moves into the contract's `moveword` and both groups read it from there.
 inline constexpr int kBandSpeed = 0x1c;      // STEP_LOOP: the blended band speed, km/h (OBS)
 inline constexpr int kBandSpeedPrev = 0x1d;  // STEP_LOOP: the band speed before the change (OBS)
-inline constexpr int kBand = 0x1f;           // every group-C handler: the live band 0..3 (-1 = none)
-inline constexpr int kBandSpeedCopy = 0x22;  // STEP_LOOP: the band speed paired with kBand
-inline constexpr int kBandPrev = 0x24;       // STEP_LOOP: the band before the last change (OBS)
+inline constexpr int kBandSpeedCopy = 0x22;  // STEP_LOOP: the band speed paired with the class word
 inline constexpr int kBucketPrev = 0x25;     // STEP_LOOP: the bucket before the last change (OBS)
 inline constexpr int kBlendA = 0x2b;         // STEP_LOOP_CHANGE: the blended heading integral
 inline constexpr int kBlendB = 0x2c;         // STEP_LOOP_CHANGE: the blended heading remainder

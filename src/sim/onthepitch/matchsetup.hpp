@@ -43,9 +43,6 @@ struct Rig;
 #include "pescontact.hpp"
 // PES body clips the simulation plays, converted from the install at match start.
 #include "pesclips.hpp"
-// PES 2021's MOVESTEP machine (docs/re/pes-re-anim-select.md): the install
-// constants its handlers read, owned by the caller and handed to the Match.
-#include "pes/movestep_bundle.hpp"
 #include "pesdodge.hpp"
 #include "pestackle.hpp"
 #include "pesstrategy.hpp"
@@ -165,10 +162,6 @@ struct MatchSetup {
   // the Chance lane search and its limit. Required: runs without them would
   // be capped and aimed by invented numbers.
   const pes::offball::OffBallConstants* pesOffBallConstants = nullptr;
-  // PES 2021's MOVESTEP machine (docs/re/pes-re-anim-select.md): the install
-  // constants its handlers read. Required: without them a player has no FSM
-  // to tick.
-  const pes::MoveStepConstants* pesMoveStepConstants = nullptr;
 };
 
 #endif

@@ -29,6 +29,7 @@
 #include "gametypes.hpp"
 #include "pes/exe.hpp"
 #include "pesrandom.hpp"
+#include "gamedefines.hpp"
 
 namespace pes {
 
@@ -208,6 +209,14 @@ struct CarrierConstants {
   float threatFullDist_m = 0.0f;      // 5, 0x14259222c: the carrier-opponent distance at w = 0
   float threatFalloff = 0.0f;         // -0.25, 0x1425c48ec: w = (d - 5) * falloff
   float threatPushSq_m2 = 0.0f;       // 0.444444, 0x142bf0a88: squared push-out radius
+  // --- the Dribble sub-kind chooser (report 2.1, 0x14212f1c0): its gates' constants ---
+  float chooserGate_deg = 0.0f;           // 30, 0x142591140: the feint's facing gate
+  float chooserTurn_deg = 0.0f;           // 60, 0x14259a764: the turning band
+  float chooserSideAngle_deg = 0.0f;      // 40, 0x14259be2c: the side band
+  float chooserPressureScale_deg = 0.0f;  // 20, 0x14259be1c: side band per unit of pressure
+  float chooserSpeedLow_kmh = 0.0f;       // 10, 0x142588210: the fast-carrier gate
+  float chooserSpeedMid_kmh = 0.0f;       // 15, 0x14259be0c: the free-lane speed gate
+  float chooserRoom_m = 0.0f;             // 12, 0x14259be04: the room test
 
   bool operator==(const CarrierConstants&) const = default;
 };
@@ -575,6 +584,108 @@ void AdvanceImageSelection(CarrierImageSelection& sel, CancelFn cancel, AdmitFn 
   sel.mode = now.mode;
   sel.heading_deg = now.heading_deg;
 }
+
+// --- the answer record, the unit table and the arbitration walk (report 5, 6; MainEval f, h, i) ---
+
+// The answer type a unit or the default writes (the 0x1C-byte record, report 6).
+enum CarrierAnswerType { kAnswerNone = 0, kAnswerShoot = 1, kAnswerPass = 2, kAnswerDribble = 3 };
+
+// What a unit answers: its type and sub-kind (a pass's PassKind, a shot's sub-kind a, a dribble's
+// DribbleSub). PES has no reachable Keep (sub 2): see report §15, the chooser returns only 4-6.
+struct CarrierAnswer {
+  int type = kAnswerNone;
+  int sub = 0;
+  bool operator==(const CarrierAnswer&) const = default;
+};
+
+// One slot of the unit table: the kind (report 3) and the answer that unit stored this think.
+struct UnitSlot {
+  int kind = -1;
+  CarrierAnswer answer;
+};
+
+// The Dribble sub-kinds the writers store (0x14212fe70 L488-525): 3 heading (FUN_142119eb0), 4 and
+// 5 along with mode 3 and mode 4 (FUN_142119e20), 6 feint (FUN_142119e60).
+enum DribbleSub { kDribbleHeading = 3, kDribbleMode3 = 4, kDribbleMode4 = 5, kDribbleFeint = 6 };
+
+// The list builder (0x1421112c0): the kinds a plan lists, in the order the table holds them. The
+// inputs are the plan's own flags and the carrier's zone and state, each named at its field.
+struct UnitListInput {
+  int plan = 0;
+  bool central = false;     // IsCentral(zone), 0x140699710
+  bool mid = false;         // IsMid(zone), 0x1406997a0
+  bool close = false;       // IsClose(zone), 0x140699820
+  bool planFlag8 = false;   // plan+0xD8: the wide-side tail
+  bool planFlag9 = false;   // plan+0xD9: plans 1-4 stop after their first kinds
+  bool planFlag10 = false;  // FUN_14211cb00(plan, 10)
+  int planMode = 0;         // plan+0xC4: 3 is the wide-side tail
+  bool sideSector3 = false; // imageA+0xB44 == 3: Breakthrough, MiddleShot and CurveShot list 7
+  bool pastCross = false;   // plan 5: the cross-line test (0x14211cb00 path), not decoded
+  bool teamModeThree = false;   // team+4 == 3
+  bool humanCarrier = false;    // team mode record +0x6C
+  bool intentionMode4 = false;  // FUN_141052e30(BP+0x32B0) == 4: Basic omits its pass 4
+  bool flagE7 = false;          // BP+0xE7: Basic lists nothing from the switch
+};
+std::vector<int> BuildUnitList(const UnitListInput& in);
+
+// The walk's context (0x14210f110's reads): the match restart mode and the FSM state, the ball's
+// owner and the carrier's own side, and the skill and zone bits the rules test.
+struct WalkContext {
+  int restartMode = 1;             // MI+0x116C: 1 in play, 2 stopped, 3 set piece
+  int restartState = 0;            // MI+0x1775: 3, 9 and 10 veto passes and clears
+  bool carrierIsKicker = false;    // the carrier is the designated kicker, MA+0x7C
+  int ballOwnerTeam = -1;          // the team index of the ball's owner, -1 when nobody has it
+  int ownTeam = 0;                 // BP+0x24: the carrier's team index
+  bool passAllowedInSetPiece = true;  // 0x14063E3A0, not decoded: the caller supplies it
+  bool firstTimeGate = false;      // rule 3: tier 0-1 and capability 0x14 off
+  bool ballHeightOk = false;       // height/100 <= ball height (rule 3)
+  bool skill11 = false;            // ONE_TOUCH_SHOOT
+  bool skill12 = false;            // ONE_TOUCH_PASS
+  bool skill14 = false;            // PINPOINT_CROSS (rule 9)
+  bool closeBand = false;          // IsClose(shot zone): rule 6
+};
+
+// The walk (0x14210f110) over the table in its build order: the first slot that answers and
+// survives the rules wins. Returns kind -1 when none does; the Dribble default then stands.
+UnitSlot WalkCarrierUnits(const std::vector<UnitSlot>& table, const WalkContext& c);
+
+// The Dribble sub-kind chooser (report 2.1, 0x14212f1c0): the gates in decompiled order, returning
+// kDribbleMode3 (4), kDribbleMode4 (5) or kDribbleFeint (6). Its callee-derived inputs are named at
+// each field.
+struct DribbleChooserInput {
+  int plan = 0;
+  float planHeading_deg = 0.0f;  // param_3: the plan's heading, plan+0xC0
+  float facing_deg = 0.0f;       // param_4: the unit's heading, +0x2A0
+  float pressure = 0.0f;         // param_5 (XMM12): the caller's pressure scalar
+  float teamAttack_deg = 0.0f;   // team+0x250
+  bool forwardOfHalf = false;    // side * x > 0
+  bool feintGate = false;        // 0x14212E970, not decoded: the caller supplies it
+  bool turning = false;          // 0x140A6E300 on the anime state
+  int teamMode = 2;              // 0x141052E30(team)
+  float verticalVel = 0.0f;      // the carrier's vertical velocity, P_ai+0x24
+  float verticalLimit = 0.0f;    // imageA+0x244 * side
+  bool boxPressed = false;       // imageA+0xB54 / +0xB3C / +0xB44 test
+  int pressureClass = 3;         // 0x14069A3E0(imageA+0x2124)+0x10; negative when unknown
+  float speed_kmh = 0.0f;        // 0x140477130
+  bool velZero = true;           // the velocity sample is zero (0x140A6C6D0)
+  float velHeading_deg = 0.0f;   // the velocity sample's heading (0x140A92D40)
+  float room_m = 0.0f;           // 0x140A4DDC0's room test
+  bool laneFree = true;          // the free-lane loop: 0x14063CD90 and 0x140A53DF0 per opponent
+};
+int DribbleChooser(const DribbleChooserInput& in, const CarrierConstants& k);
+
+// The dispatch around the chooser (0x14212fe70 L432-465): the Long image runs no chooser and keeps
+// mode 3; an override, not decoded to its callees, turns mode 3 into a heading.
+int DribbleSubKind(const DribbleChooserInput& in, bool headingOverride, const CarrierConstants& k);
+
+// MiddleShot's start skill (0x14211b628's gate): the long-shot skills 39, 8 and 33, and Rising
+// Shots (34), which GF's longShotSkill omitted.
+bool MiddleShotSkill(bool longRangeShooting, bool knuckleShot, bool droppingShots, bool risingShots);
+
+// The GF pass command for a PES pass kind. The through ball is GF's LongPass (playingstyles.cpp,
+// "the through ball"); the lofted tier is HighPass.
+e_FunctionType PesPassFunctionType(int passKind);
+
 
 // Whether a think may run this tick: the carrier has been free of a committed
 // action for longer than the gate.

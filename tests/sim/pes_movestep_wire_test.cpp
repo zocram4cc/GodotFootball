@@ -1,18 +1,22 @@
-// MOVESTEP wired onto the PES path: the install constants travel through
-// MatchSetup like every other PES table (never the process env), the machine
-// runs only with pes_loop on, and an issued clip drives the player's
-// simulated motion (animation + playback) on that path.
+// MOVESTEP on the PES path: the install constants come from the match, the machine runs only
+// with pes_loop on, the rate ceiling and speed class are stored each tick, an issued clip plays
+// on the humanoid, and CurrentMotion is the PES motion the body plays. Each test is a separate
+// process under gtest_discover_tests, so the constants test sees a cold cache.
 #include <gtest/gtest.h>
 
+#include <cstdio>
 #include <cstdlib>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "base/properties.hpp"
 #include "data/matchdata.hpp"
 #include "onthepitch/match.hpp"
 #include "onthepitch/matchsetup.hpp"
+#include "onthepitch/pesclips.hpp"
 #include "onthepitch/pesmovestep.hpp"
 #include "onthepitch/player/player.hpp"
 #include "onthepitch/team.hpp"
@@ -28,6 +32,7 @@ namespace {
 
 constexpr int kHomeTeam = 1, kAwayTeam = 2;
 constexpr unsigned int kSeed = 1000;
+constexpr int kTicks = 900;  // about 17 s of play
 
 blunted::Database* SharedDb() {
   static blunted::Database db;
@@ -73,102 +78,217 @@ std::unique_ptr<Match> MakeMatch(const Properties& config) {
   std::unique_ptr<Match> match = MakeMatch(config);                                      \
   if (!match) GTEST_SKIP() << "PES2021.exe: the match constants are unavailable"
 
-void Place(Player* p, float x, float z, float fx, float fz) {
-  p->ResetPosition(Vector3(x, z, 0.0f), Vector3(fx, fz, 0.0f));
+// PES21_ROOT is restored when the test ends, whatever the test did to it.
+struct EnvRestore {
+  std::optional<std::string> value;
+  EnvRestore() {
+    if (const char* v = std::getenv("PES21_ROOT")) value = v;
+  }
+  ~EnvRestore() {
+    if (value) setenv("PES21_ROOT", value->c_str(), 1);
+  }
+};
+
+Player* FirstPlayer(Match& m) { return m.GetTeam(0)->GetAllPlayers().at(0).get(); }
+
+std::vector<Player*> ActivePlayers(Match& m) {
+  std::vector<Player*> out;
+  m.GetActiveTeamPlayers(0, out);
+  m.GetActiveTeamPlayers(1, out);
+  return out;
+}
+
+// The clip a humanoid plays, read from the clip's own PES variables. family -1 is the AI's clip.
+struct Played {
+  int family = -1;
+  int motion = -1;
+};
+
+Played PlayedOf(Player* p) {
+  Played out;
+  const Anim* a = p->GetCurrentAnim();
+  if (!a || !a->anim) return out;
+  const std::string family = a->anim->GetVariable("specialvar1");
+  if (family.empty()) return out;
+  out.family = std::atoi(family.c_str());
+  out.motion = std::atoi(a->anim->GetVariable("specialvar2").c_str());
+  return out;
+}
+
+int LocomotionFamily() { return static_cast<int>(pes::PesClipFamily::kLocomotion); }
+
+bool IsPesFamily(int family) {
+  return family == static_cast<int>(pes::PesClipFamily::kDodge) ||
+         family == static_cast<int>(pes::PesClipFamily::kTackle) || family == LocomotionFamily();
 }
 
 }  // namespace
 
-// The constants travel through MatchSetup: a match built without the
-// MOVESTEP bundle refuses, the same way a match without the stamina or
-// carrier tables refuses. (Red: MatchSetup has no such field yet.)
-TEST(MoveStepWire, MatchWithoutMovestepConstantsRefuses) {
-  REQUIRE_PES_MATCH(Properties());
-  MatchSetup setup;
-  setup.homeTeamDbId = kHomeTeam;
-  setup.awayTeamDbId = kAwayTeam;
-  setup.seed = kSeed;
-  setup.durationMinutes = 5;
-  setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
-  setup.rig = SharedRig();
-  ASSERT_TRUE(pestest::FillMissingPesConstants(&setup));
-  setup.pesMoveStepConstants = nullptr;
-  EXPECT_THROW(std::unique_ptr<Match>(new Match(new MatchData(kHomeTeam, kAwayTeam), setup, Properties())),
-               std::runtime_error);
+// The install constants come from the match (MatchSetup), never the process environment. The
+// test removes PES21_ROOT before the first MOVESTEP tick of its process: the adapter's constant
+// cache fills on that first tick. Built on main, the adapter reads PES21_ROOT, finds nothing, and
+// the FSM never ticks, so the record's rate stays at zero.
+TEST(MoveStepWire, ConstantsComeFromTheMatchNotTheEnvironment) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  EnvRestore restore;
+  unsetenv("PES21_ROOT");
+  Player* p = FirstPlayer(*match);
+  pes::MoveStepRecord& rec = p->GetMoveStep();
+  rec.state = pes::MoveState::kInit;
+  rec.rate = 0.0f;
+  pesmovestep::ProcessMoveStep(*p, *match);
+  EXPECT_GT(rec.rate, 0.0f) << "the FSM must tick from the match's own constants";
 }
 
-// Off path: with pes_loop off, MOVESTEP leaves the player alone entirely -
-// no FSM step, no clip, no playback overwrite (the contact rates at
-// match.cpp:1925,1941 keep theirs). (Red: ProcessMoveStep runs anyway.)
-TEST(MoveStepWire, OffPathLeavesPlaybackAndClipAlone) {
+// With pes_loop off MOVESTEP does not run: the player's FSM, clips and playback are untouched.
+// Built on main, the FSM ticks and overwrites the playback rate with the record's 1.0.
+TEST(MoveStepWire, PesLoopOffLeavesThePlayerAlone) {
   REQUIRE_PES_MATCH(Properties());
-  Player* p = match->GetTeam(0)->GetAllPlayers().at(0).get();
   match->StartPlay();
-  match->Process();
+  Player* p = FirstPlayer(*match);
   p->SetPlaybackRate(0.5f);
-  const uint32_t serialBefore = p->GetIssuedClip().serial;
-  const pes::MoveState stateBefore = p->GetMoveStep().state;
+  const pes::MoveStepRecord before = p->GetMoveStep();
+  const uint32_t serial = p->GetIssuedClip().serial;
   pesmovestep::ProcessMoveStep(*p, *match);
+  EXPECT_EQ(p->GetIssuedClip().serial, serial);
+  EXPECT_EQ(p->GetMoveStep().state, before.state);
+  EXPECT_EQ(p->GetMoveStep().rate, before.rate);
   EXPECT_FLOAT_EQ(p->GetCurrentAnim()->playbackRate, 0.5f);
-  EXPECT_EQ(p->GetIssuedClip().serial, serialBefore);
-  EXPECT_EQ(p->GetMoveStep().state, stateBefore);
 }
 
-// On path: an issued MOVESTEP clip changes the player's simulated motion -
-// the animation the humanoid advances is the issued one. (Red: Issue only
-// records the clip for the viewer.)
-TEST(MoveStepWire, IssuedClipDrivesSimulatedMotion) {
+// On the PES path the playback rate is written where PES writes it, at a SetMotion issue. A tick
+// that issues nothing leaves a contact's rate alone (match.cpp:1925,1941 write those rates).
+// Built on main, every tick overwrites the rate with the record's 1.0.
+TEST(MoveStepWire, PesLoopWritesPlaybackOnlyWhenItIssues) {
   Properties config;
   config.SetBool("pes_loop", true);
   REQUIRE_PES_MATCH(config);
-  Player* p = match->GetTeam(0)->GetAllPlayers().at(0).get();
   match->StartPlay();
-  match->Process();
-  pes::MoveStepRecord& rec = p->GetMoveStep();
-  rec.state = pes::MoveState::kRunLoop;
-  rec.style = 0;
-  const int motionBefore = p->GetIssuedClip().request.motion;
-  pesmovestep::ProcessMoveStep(*p, *match);
-  EXPECT_GT(p->GetIssuedClip().serial, 0u);
-  EXPECT_NE(p->GetIssuedClip().request.motion, motionBefore);
+  Player* p = FirstPlayer(*match);
+  int quiet = 0;
+  for (int tick = 0; tick < 300; ++tick) {
+    match->Process();
+    p->SetPlaybackRate(0.5f);
+    const uint32_t serial = p->GetIssuedClip().serial;
+    pesmovestep::ProcessMoveStep(*p, *match);
+    if (p->GetIssuedClip().serial == serial) {
+      ++quiet;
+      EXPECT_FLOAT_EQ(p->GetCurrentAnim()->playbackRate, 0.5f) << "tick " << tick;
+    }
+  }
+  printf("[movestep-playback] quiet ticks %d of 300\n", quiet);
+  EXPECT_GT(quiet, 0);
 }
 
-// CurrentMotion is PES's motion number (movestep.hpp:612-613), the motion
-// MOVESTEP last issued - not GF's anim id. (Red: returns anim->id.)
-TEST(MoveStepWire, CurrentMotionIsTheIssuedMotionNumber) {
+// The FSM leaves GOTO_RUN: the run states are reached in a match. Built on main, the speed class
+// has no writer, so every player stays in GOTO_RUN.
+TEST(MoveStepWire, TheFsmLeavesGotoRunAndReachesRunLoop) {
   Properties config;
   config.SetBool("pes_loop", true);
   REQUIRE_PES_MATCH(config);
-  Player* p = match->GetTeam(0)->GetAllPlayers().at(0).get();
   match->StartPlay();
-  match->Process();
-  pes::MoveStepRecord& rec = p->GetMoveStep();
-  rec.state = pes::MoveState::kRunLoop;
-  pesmovestep::ProcessMoveStep(*p, *match);
-  // The adapter's CurrentMotion must answer the issued motion: GF anim ids
-  // and PES motion numbers live in different spaces, so they must differ
-  // here (the adapter returning anim->id would conflate them).
-  EXPECT_NE(p->GetCurrentAnim()->id, p->GetIssuedClip().request.motion)
-      << "GF anim ids and PES motion numbers live in different spaces";
+  std::map<int, long> states;
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) ++states[static_cast<int>(p->GetMoveStep().state)];
+  }
+  for (const auto& [state, ticks] : states)
+    printf("[movestep-states] state %d ticks %ld\n", state, ticks);
+  EXPECT_GT(states[static_cast<int>(pes::MoveState::kRunLoop)], 0L);
 }
 
-// The FSM leaves GOTO_RUN once the action setter feeds the speed class
-// (FUN_1406eebb0, P+0x245a): a running player reaches RUN_LOOP. (Red: the
-// record's speed class has no writer, so GOTO_RUN never exits.)
-TEST(MoveStepWire, FsmLeavesGotoRunForARunningPlayer) {
+// StoreRateCeiling has a caller: the record holds the TopRate ceiling once the FSM has ticked.
+// Built on main, nothing stores it, so the ceiling reads zero.
+TEST(MoveStepWire, TheRateCeilingIsStoredEachTick) {
   Properties config;
   config.SetBool("pes_loop", true);
   REQUIRE_PES_MATCH(config);
-  Team* home = match->GetTeam(0);
-  Player* p = home->GetAllPlayers().at(0).get();
-  Place(p, 0.0f, 0.0f, 0.0f, 10.0f);
   match->StartPlay();
-  for (int i = 0; i < 4; ++i) match->Process();
-  // Give the player ground speed: displace him, then tick MOVESTEP.
-  p->GetMoveStep().state = pes::MoveState::kGotoRun;
-  pesmovestep::ProcessMoveStep(*p, *match);
-  const pes::MoveState after = p->GetMoveStep().state;
-  EXPECT_TRUE(after == pes::MoveState::kRunLoop || after == pes::MoveState::kStepLoop ||
-              after == pes::MoveState::kStop || after == pes::MoveState::kTurnStop)
-      << "GOTO_RUN must exit, reached " << static_cast<int>(after);
+  for (int t = 0; t < 5; ++t) match->Process();
+  const float ceiling = FirstPlayer(*match)->GetMoveStep().rateCeiling;
+  printf("[movestep-ceiling] rate ceiling %.4f\n", ceiling);
+  EXPECT_GT(ceiling, 0.5f);
+  EXPECT_LE(ceiling, 1.0f);
+}
+
+// An issued clip drives the humanoid: on each tick where the FSM issues, the body plays a PES
+// locomotion clip. Built on main, Issue only records the clip for the viewer, so the body keeps
+// the AI's own clip.
+TEST(MoveStepWire, AnIssuedClipDrivesTheHumanoid) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  int issued = 0, driven = 0;
+  for (int t = 0; t < kTicks; ++t) {
+    std::vector<Player*> ps = ActivePlayers(*match);
+    std::vector<uint32_t> serial;
+    for (Player* p : ps) serial.push_back(p->GetIssuedClip().serial);
+    match->Process();
+    for (size_t i = 0; i < ps.size(); ++i) {
+      if (ps[i]->GetIssuedClip().serial == serial[i]) continue;
+      ++issued;
+      if (PlayedOf(ps[i]).family == LocomotionFamily()) ++driven;
+    }
+  }
+  printf("[movestep-link] clips issued %d, played by the humanoid %d\n", issued, driven);
+  EXPECT_GT(issued, 0);
+  EXPECT_GT(driven, 0);
+}
+
+// A played clip advances, and a re-issue of the same motion does not restart it: while one PES
+// clip stays on the body, its frame moves on and never moves back. Built on main, no PES
+// locomotion clip ever plays, so there is nothing to advance.
+TEST(MoveStepWire, APlayedClipAdvancesAndIsNotRestartedByItsOwnMotion) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  int sameClip = 0, advanced = 0, restarted = 0;
+  for (int t = 0; t < kTicks; ++t) {
+    std::vector<Player*> ps = ActivePlayers(*match);
+    std::vector<const Anim*> before;
+    std::vector<int> frameBefore;
+    for (Player* p : ps) {
+      const Anim* a = p->GetCurrentAnim();
+      before.push_back(a);
+      frameBefore.push_back(a ? a->frameNum : 0);
+    }
+    match->Process();
+    for (size_t i = 0; i < ps.size(); ++i) {
+      const Anim* a = ps[i]->GetCurrentAnim();
+      if (!a || a != before[i] || PlayedOf(ps[i]).family != LocomotionFamily()) continue;
+      ++sameClip;
+      if (a->frameNum > frameBefore[i]) ++advanced;
+      if (a->frameNum < frameBefore[i]) ++restarted;
+    }
+  }
+  printf("[movestep-advance] same clip ticks %d, advanced %d, restarted %d\n", sameClip, advanced,
+         restarted);
+  EXPECT_GT(sameClip, 0);
+  EXPECT_GT(advanced, 0);
+  EXPECT_EQ(restarted, 0);
+}
+
+// CurrentMotion is the PES motion number the body plays (movestep.hpp: PES's motion id), and -1
+// when the AI's own clip plays. Built on main it returns the GF anim id, which is another space.
+TEST(MoveStepWire, CurrentMotionIsThePesMotionTheBodyPlays) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  int checks = 0;
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const Played played = PlayedOf(p);
+      const int expected = IsPesFamily(played.family) ? played.motion : -1;
+      EXPECT_EQ(pesmovestep::CurrentMotionOf(*p), expected) << "tick " << t;
+      ++checks;
+    }
+  }
+  printf("[movestep-motion] checks %d\n", checks);
+  EXPECT_GT(checks, 0);
 }

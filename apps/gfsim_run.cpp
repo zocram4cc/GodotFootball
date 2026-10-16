@@ -167,10 +167,6 @@ int main(int argc, char** argv) {
   // PES 2021's off-ball run manager (docs/re/pes-re-off-ball.md).
   auto offBallConstants = pes::offball::LoadOffBallConstants(*exe, vfs, &err);
   if (!offBallConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
-  // PES 2021's MOVESTEP machine (docs/re/pes-re-anim-select.md): the install
-  // constants its handlers read, handed to the Match through MatchSetup.
-  auto moveStepConstants = pes::LoadMoveStepConstants(*exe, vfs, &err);
-  if (!moveStepConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
 
   blunted::Database db;
   if (!db.LoadSqlScript(dbSql)) return std::fprintf(stderr, "cannot load %s\n", dbSql.c_str()), 1;
@@ -210,7 +206,6 @@ int main(int argc, char** argv) {
   setup.pesTeamConceptConstants = &*teamConceptConstants;
   setup.pesSubstitutionConstants = &*substitutionConstants;
   setup.pesOffBallConstants = &*offBallConstants;
-  setup.pesMoveStepConstants = &*moveStepConstants;
 
   Match match(new MatchData(home, away), setup, config);  // Match owns the MatchData
   // A stalled restart freezes the match clock (it only moves while play is on and no

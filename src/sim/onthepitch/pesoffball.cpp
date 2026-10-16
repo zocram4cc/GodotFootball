@@ -1326,7 +1326,9 @@ void BuildNearest(RunWorld& w) {
       block.fill({kNoId, 0.0f});
       int n = 0;
       for (int j = t * kSlots; j < (t + 1) * kSlots; ++j)
-        if (w.p[j].active) block[n++] = {j, Dist2(w.p[j].pos, w.p[i].pos)};
+        // PES excludes the owner from his own team's block (pes-re-teamtick.md §3.2,
+        // CONFIRMED live: owner 0's rank[0] = 10). The opponents' block keeps everyone.
+        if (w.p[j].active && (TeamOf(i) != t || j != i)) block[n++] = {j, Dist2(w.p[j].pos, w.p[i].pos)};
       std::stable_sort(block.begin(), block.begin() + n,
                        [](const NearestEntry::Near& a, const NearestEntry::Near& b) {
                          return a.d2 < b.d2;

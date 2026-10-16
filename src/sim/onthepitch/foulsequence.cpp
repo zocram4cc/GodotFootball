@@ -12,9 +12,9 @@ unsigned long ToMs(float seconds) {
 
 // The whole bracket: hold, plus PES's fixed beats between the hold and the
 // kick. `hold_s` is table[1] for a foul or table[5] for an out-of-play stop.
-unsigned long Tail_ms() { return kStopStamp_ms + kUiFrames_ms + kTeleport_ms; }
-
 }  // namespace
+
+unsigned long Tail_ms() { return kStopStamp_ms + kUiFrames_ms + kTeleport_ms; }
 
 unsigned long HoldEndsAt_ms(unsigned long stopTime_ms, const pes::StoppageConstants& sf,
                            bool downed, int holdKind) {

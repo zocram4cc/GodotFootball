@@ -449,40 +449,6 @@ int HumanoidBase::GetIdleMovementAnimID() {
   return *dataSet.begin();
 }
 
-bool HumanoidBase::PlayIssuedClip(int family, int motionNo, float playback) {
-  // PES's vt+0x10 handoff: the issued motion plays now, like a Special
-  // command naming its (family, motion) clip. The query names the pair
-  // exactly, and locomotion clips skip GF's pose matching (they are PES's
-  // own choice, as the dodge/tackle comment in humanoid.cpp records).
-  CrudeSelectionQuery query;
-  query.byFunctionType = true;
-  query.functionType = e_FunctionType_Special;
-  query.byIncomingVelocity = false;
-  query.byIncomingBodyDirection = false;
-  query.bySide = false;
-  query.properties.Set("specialvar1", family);
-  query.properties.Set("specialvar2", motionNo);
-  DataSet dataSet;
-  anims->CrudeSelection(dataSet, query);
-  if (dataSet.empty()) return false;
-  *previousAnim = *currentAnim;
-  currentAnim->anim = anims->GetAnim(*dataSet.begin());
-  currentAnim->id = *dataSet.begin();
-  currentAnim->functionType = e_FunctionType_Special;
-  currentAnim->frameNum = 0;
-  currentAnim->framePhase = 0.0f;
-  currentAnim->playbackRate = playback;
-  currentAnim->touchFrame = -1;
-  currentAnim->originatingInterrupt = e_InterruptAnim_Switch;
-  currentAnim->radiusOffset = 0.0f;
-  currentAnim->incomingMovement = spatialState.movement;
-  currentAnim->outgoingMovement = CalculateOutgoingMovement(
-      match->GetAnimPositionCache(currentAnim->anim));
-  currentAnim->positions = match->GetAnimPositionCache(currentAnim->anim);
-  currentAnim->positionOffset = 0.0;
-  return true;
-}
-
 void HumanoidBase::ResetPosition(const Vector3& newPos, const Vector3& focusPos) {
   startPos = newPos;
   startAngle = FixAngle((focusPos - newPos).GetNormalized(Vector3(0, -1, 0)).GetAngle2D());

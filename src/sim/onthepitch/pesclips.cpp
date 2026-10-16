@@ -40,29 +40,6 @@ constexpr FamilyPrefix kFamilies[] = {
     {PesClipFamily::kTackle, "tackleshoulder_"},
     {PesClipFamily::kTackle, "block090_"},
     {PesClipFamily::kTackle, "js_idle_0_0_000_y00_tacklefoot_passcut"},
-    // The locomotion family: the MOVESTEP handlers' rows (A-MOV). PES decides
-    // which clip plays; the sim plays it through the Special command named by
-    // (locomotion family, motion number), skipping GF's pose matching.
-    {PesClipFamily::kLocomotion, "step_"},
-    {PesClipFamily::kLocomotion, "goto_run_"},
-    {PesClipFamily::kLocomotion, "run_stop_"},
-    {PesClipFamily::kLocomotion, "run_turn_run_"},
-    {PesClipFamily::kLocomotion, "run_"},
-    {PesClipFamily::kLocomotion, "walk_"},
-    {PesClipFamily::kLocomotion, "side_"},
-    {PesClipFamily::kLocomotion, "back_"},
-    {PesClipFamily::kLocomotion, "backslant_"},
-    {PesClipFamily::kLocomotion, "near_"},
-    {PesClipFamily::kLocomotion, "mid_"},
-    {PesClipFamily::kLocomotion, "jockey"},
-    {PesClipFamily::kLocomotion, "stand_"},
-    {PesClipFamily::kLocomotion, "idle_"},
-    {PesClipFamily::kLocomotion, "mid_delay_"},
-    {PesClipFamily::kLocomotion, "near_delay_"},
-    {PesClipFamily::kLocomotion, "gkmove"},
-    {PesClipFamily::kLocomotion, "gkmovelow_"},
-    {PesClipFamily::kLocomotion, "gkmovehigh_"},
-    {PesClipFamily::kLocomotion, "dm_oop_"},
 };
 
 // Fox (Y up, +Z forward) -> engine (Z up, faces -Y), verbatim on both the

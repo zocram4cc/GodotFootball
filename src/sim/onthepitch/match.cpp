@@ -208,12 +208,6 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES tackle constants missing: read them from the install with "
         "pes::LoadTackleConstants into MatchSetup::pesTackleConstants");
   pesTackleConstants = *setup.pesTackleConstants;
-  // PES 2021's MOVESTEP handlers' install constants (docs/re/pes-re-anim-select.md).
-  if (setup.pesMoveStepConstants == nullptr)
-    throw std::runtime_error(
-        "PES movestep constants missing: read them from the install with "
-        "pes::LoadMoveStepConstants into MatchSetup::pesMoveStepConstants");
-  pesMoveStepConstants = *setup.pesMoveStepConstants;
   // PES 2021's off-ball run manager (docs/re/pes-re-off-ball.md).
   if (setup.pesOffBallConstants == nullptr)
     throw std::runtime_error(
@@ -461,6 +455,9 @@ void Match::AdvanceMatchSeconds(float gameSeconds) {
   // one, so a stoppage stops the clock instead of adding to it.
   pesClock->SetFrozen(!IsInPlay() || IsInSetPiece());
   pesClock->Advance(gameSeconds);
+  // pes_loop: the stoppage writer on LIMIT (FUN_14044CE80 step 4). The off path leaves LIMIT
+  // to the announcement alone.
+  if (pesLoop) pesClock->AccrueStoppageLimit(gameSeconds);
 }
 
 int Match::GetPesFrame() const {

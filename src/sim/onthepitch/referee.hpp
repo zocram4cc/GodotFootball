@@ -10,6 +10,7 @@
 
 #include "../gamedefines.hpp"
 #include "cardbook.hpp"
+#include "pesclock.hpp"
 #include "pescontact.hpp"
 #include "pesjudge.hpp"
 #include "pesstoppage.hpp"
@@ -85,6 +86,8 @@ public:
   // themselves (the dead-ball arm in Process and the late-card window).
   RefereeBuffer& Buffer() { return buffer; }
   const pes::StoppageConstants& GetStoppageConstants() const;
+  // The tick-order switch (pes_loop): the PES restart programme when on, the GF timings when off.
+  bool PesLoop() const;
 
   void AlterSetPiecePrepareTime(unsigned long newTime_ms);
 
@@ -118,6 +121,13 @@ protected:
   Match* match;
 
   RefereeBuffer buffer;
+  // PES's judge counts (R+0xd0, R+0xd8) for the post-gate whistle under pes_loop (pesclock.hpp).
+  pes::TimeUpCounters timeUp;
+  // pes_loop: PES's judge on this tick, in play or not (FUN_14050C3E0). Announces the added time
+  // and counts while the gate is open; a blow is held in `timeUpBlown` until play resumes.
+  void PesTimeUpTick();
+  bool PesTimeUpBlows();
+  bool timeUpBlown = false;
   // Whether the "goal kick held" notice has already been logged for this restart.
   bool clearingLogged = false;
   // When the current restart was first held for a player in the way, so the release

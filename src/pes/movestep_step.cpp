@@ -108,8 +108,8 @@ float RateFor(MoveHost& host, float classRate, float speedKmh, int speedClass, i
 // contract does not name them.
 bool StepStopsNow(MoveHost& host, MoveReq& req, bool live) {
   const StepScalars& k = host.StepConstants();
-  const int footBand = int(req.U(moveword::kFootBandSide));
-  if (footBand >= 0 && int(req.U(moveword::kBandPrev)) == -1) return true;
+  const int cls = int(req.U(moveword::kClassWord));
+  if (cls >= 0 && int(req.U(moveword::kPrevClassWord)) == -1) return true;
   if (live) {
     const float elapsed = req.F(moveword::kDwellElapsed);
     if (k.deg45 < elapsed) {
@@ -138,7 +138,7 @@ bool StepStopsNow(MoveHost& host, MoveReq& req, bool live) {
     case 1:
     case 6: {
       float limit = k.s0p4;
-      if (footBand < 1) limit = k.s0p2;
+      if (cls < 1) limit = k.s0p2;
       if (k.deg11p25 < std::fabs(req.F(moveword::kDwellElapsed))) {
         if (limit < req.F(moveword::kDistToLook) || limit == req.F(moveword::kDistToLook))
           return false;
@@ -152,7 +152,7 @@ bool StepStopsNow(MoveHost& host, MoveReq& req, bool live) {
     case 2:
     case 7: {
       float limit = k.s0p4;
-      if (footBand > 0) limit = 1.6f;
+      if (cls > 0) limit = 1.6f;
       if (limit < req.F(moveword::kDistToLook) || limit == req.F(moveword::kDistToLook))
         return k.deg90 < req.F(moveword::kBandSpeedPrev);
       return true;
@@ -167,25 +167,25 @@ bool StepStopsNow(MoveHost& host, MoveReq& req, bool live) {
 
 // FUN_1406b70d0(ap, req): whether the step loop may turn into a run turn. It reads the request's
 // own gates, the sampled ball position, and the four distance tables (front/back/centre/held)
-// indexed by the foot band side. The PES body is the switch at the end of its decompile.
+// indexed by the class word. The PES body is the switch at the end of its decompile.
 bool StepLetsRunTurn(MoveHost& host, const TurnDistances& d, MoveReq& req) {
   const StepScalars& k = host.StepConstants();
   const int bucket = int(req.U(moveword::kMoveBucket));
-  const int foot = int(req.U(moveword::kFootBandSide));
+  const int cls = int(req.U(moveword::kClassWord));
   const float toTarget = req.F(moveword::kDistToTarget);
   const float turn = std::fabs(req.F(moveword::kDwellElapsed));
   const int requestFlag = int(req.U(0x3c) & 0xffu);
 
   // The gates: the request's own flags decide whether the tail's distances apply at all.
   if ((requestFlag & 0xfd) != 0 &&
-      ((int(req.U(moveword::kChangeState)) != 1 || foot > 2) && foot > 1)) {
+      ((int(req.U(moveword::kChangeState)) != 1 || cls > 2) && cls > 1)) {
     if (bucket != 0 && bucket != 1 && bucket != 5 && bucket != 6) {
       // The unreachable case in PES's switch: the distance gates decide.
       return true;
     }
     if (bucket == 1 || bucket == 6) {
       if (req.U(0x3c) != 3) {
-        if (toTarget <= k.dist1p25 || turn <= kDeg56p25 || foot > 2) return false;
+        if (toTarget <= k.dist1p25 || turn <= kDeg56p25 || cls > 2) return false;
         return true;
       }
     }
@@ -218,7 +218,7 @@ bool StepLetsRunTurn(MoveHost& host, const TurnDistances& d, MoveReq& req) {
       if (k.deg33p75 < turn) {
         scale = k.deg33p75 < turn && turn < k.deg67p5 ? (turn - k.deg33p75) / k.deg33p75 : 0.0f;
       }
-      const float gate = d.front[foot] + scale;
+      const float gate = d.front[cls] + scale;
       if (toTarget <= gate || req.F(moveword::kDistToLook) <= gate) {
         if (req.U(0x54) == 0) return false;
         return true;
@@ -234,13 +234,13 @@ bool StepLetsRunTurn(MoveHost& host, const TurnDistances& d, MoveReq& req) {
       if (k.deg67p5 < turn) {
         scale = k.deg67p5 < turn && turn < k.deg112p5 ? (turn - k.deg67p5) / k.deg45 : 0.0f;
       }
-      const float base = d.back[foot];
-      const float gate = base + (base - d.centre[foot]) * scale;
-      const int prev = int(req.U(moveword::kBandPrev));
+      const float base = d.back[cls];
+      const float gate = base + (base - d.centre[cls]) * scale;
+      const int prev = int(req.U(moveword::kPrevClassWord));
       if ((gate < toTarget || gate == toTarget || gate < req.F(moveword::kDistToLook) ||
            gate == req.F(moveword::kDistToLook)) &&
           (prev < 3 ||
-           (foot > 1 || k.s0p4 < req.F(0x128) || k.s0p4 == req.F(0x128) || turn <= k.deg90)) &&
+           (cls > 1 || k.s0p4 < req.F(0x128) || k.s0p4 == req.F(0x128) || turn <= k.deg90)) &&
           prev > 0) {
         return kDeg101p25 < turn;
       }
@@ -330,7 +330,7 @@ void RunToStep(MoveHost& host, MoveReq& req) {
         (req.F(moveword::kDwellLimit2) * k.threeQuarters <= req.F(moveword::kDwellElapsed2) &&
          (k.sq1139 < headingError * headingError ||
           (req.Flag(moveword::kPrecise) &&
-           int(req.U(moveword::kCommandSpeedClass)) < int(req.U(moveword::kFootBandSide)))))) {
+           int(req.U(moveword::kCommandSpeedClass)) < int(req.U(moveword::kClassWord)))))) {
       req.SetU(moveword::kDwellElapsed, 0);
       req.SetU(moveword::kDwellLimit, 0);
       req.SetU(moveword::kDwellElapsed2, 0);
@@ -349,16 +349,16 @@ void RunToStep(MoveHost& host, MoveReq& req) {
   // PES: `fVar10 = 0.6; if (req[0x1f] < req[0x24]) fVar10 = 0.3;` — the band below the previous
   // band's threshold halves the window.
   const float scale =
-      int(req.U(moveword::kBand)) < int(req.U(moveword::kBandPrev)) ? k.s0p3 : k.s0p6;
+      int(req.U(moveword::kClassWord)) < int(req.U(moveword::kPrevClassWord)) ? k.s0p3 : k.s0p6;
   if (req.F(moveword::kDwellElapsed2) < req.F(moveword::kDwellLimit2) * scale) {
     // PES: `req[0x1f] = req[0x24]; req[0x74 word] = req[0x88 word];` — the band and its speed come
     // back from the previous ones (byte offsets 0x7c/0x88 inside the words 0x1f and 0x22).
-    req.SetU(moveword::kBand, req.U(moveword::kBandPrev));
+    req.SetU(moveword::kClassWord, req.U(moveword::kPrevClassWord));
     req.SetF(moveword::kBandSpeedPrev, req.F(moveword::kBandSpeedCopy));
   }
   const float bodyTurn = Wrap180(req.F(moveword::kFacing) - req.F(moveword::kLookHeading));
   if (k.deg22p5 <= std::fabs(bodyTurn) ||
-      (int(req.U(moveword::kFootBandSide)) < 1 &&
+      (int(req.U(moveword::kClassWord)) < 1 &&
        int(req.U(moveword::kCommandSpeedClass)) == -1)) {
     EnterStop(host, req);
   } else if (int(req.U(moveword::kCommandSpeedClass)) == -1 ||
@@ -409,14 +409,14 @@ void StepToRun(MoveHost& host, MoveReq& req) {
                             std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
         if (k.kmh5 <= speed) {
           if (k.kmh13p5 <= speed) {
-            req.SetU(moveword::kBand, 2);
+            req.SetU(moveword::kClassWord, 2);
             req.SetF(moveword::kBandSpeed, k.kmh16);
           } else {
-            req.SetU(moveword::kBand, 1);
+            req.SetU(moveword::kClassWord, 1);
             req.SetF(moveword::kBandSpeed, k.kmh11);
           }
         } else {
-          req.SetU(moveword::kBand, 0);
+          req.SetU(moveword::kClassWord, 0);
           req.SetF(moveword::kBandSpeed, k.kmh5);
         }
         if (!req.Flag(moveword::kPrecise)) {
@@ -434,7 +434,7 @@ void StepToRun(MoveHost& host, MoveReq& req) {
     return;
   }
 
-  if (1 < speedClass && !req.Flag(moveword::kPrecise) && int(req.U(moveword::kBand)) < 1) {
+  if (1 < speedClass && !req.Flag(moveword::kPrecise) && int(req.U(moveword::kClassWord)) < 1) {
     // A class 2..4 non-precise step may accelerate instead of blending. FUN_1406ccd00 returns
     // whether it wrote the request; when it refuses, the handler re-plans through
     // FUN_1406ce820, exactly as PES's call site does.
@@ -515,12 +515,12 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   const float tick = ClockStep(host);
 
   // 1. The band walk: `if (req[0x1f] == 0 && req[0x24] == 1 && 0 < req[0x2e])` in PES.
-  if (int(req.U(moveword::kBand)) == 0 && int(req.U(moveword::kBandPrev)) == 1 &&
+  if (int(req.U(moveword::kClassWord)) == 0 && int(req.U(moveword::kPrevClassWord)) == 1 &&
       0.0f < req.F(moveword::kDwellLimit2)) {
     const float threshold = kind == 7 ? k.s0p4 : k.s0p6;
     if (req.F(moveword::kDwellLimit2) * threshold < req.F(moveword::kDwellElapsed2)) {
       req.SetF(moveword::kBandSpeed, req.F(moveword::kBandSpeedCopy));
-      req.SetU(moveword::kBand, 1);
+      req.SetU(moveword::kClassWord, 1);
       req.SetF(moveword::kDwellLimit2, 0.0f);
     }
   }
@@ -531,9 +531,9 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   //     and it gates the band restore in the tail.
   //   uVar11 = 1 when the band is below 1 at kind 3 or 6, the class is below 2 and the previous
   //     band matches the live one; else 0. It is FUN_1406b6ee0's third argument.
-  const bool liveArg = int(req.U(moveword::kBand)) < 1 && (kind == 3 || kind == 6) &&
+  const bool liveArg = int(req.U(moveword::kClassWord)) < 1 && (kind == 3 || kind == 6) &&
                        int(req.U(moveword::kCommandSpeedClass)) < 2 &&
-                       int(req.U(moveword::kBandPrev)) == int(req.U(moveword::kBand));
+                       int(req.U(moveword::kPrevClassWord)) == int(req.U(moveword::kClassWord));
 
   // 2. The band of the tick and the blended band speed.
   const int prevState = host.MoveStatePrevious();
@@ -541,14 +541,14 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   if (classBand < 3) classBand = std::max(classBand, 0);
   if ((prevState == 19 || prevState == 14) && req.F(moveword::kDwellElapsed) <= k.deg10 &&
       k.deg10 != req.F(moveword::kDwellElapsed)) {
-    classBand = int(req.U(moveword::kBand));
+    classBand = int(req.U(moveword::kClassWord));
     if (classBand < 3) classBand = std::max(classBand, 0);
   }
   const float desired = req.F(moveword::kDesiredSpeedKmh);
   float speed = k.kmh16;
   if (desired <= k.kmh16 && k.kmh5 <= desired) speed = desired;
   // PES reads `param_2[0x1f]` at each use, so the band walk above is visible here.
-  const int liveBand = int(req.U(moveword::kBand));
+  const int liveBand = int(req.U(moveword::kClassWord));
   int nextBand = classBand;
   if (liveBand != classBand) nextBand = classBand <= liveBand ? liveBand + 1 : liveBand - 1;
 
@@ -583,7 +583,7 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   // FUN_1406b6ee0: whether the step loop must stop (its port is the helper above).
   if (StepStopsNow(host, req, liveArg)) {
     if (liveBand == 1 && groundSpeed < k.kmh5) {
-      req.SetU(moveword::kBand, 0);
+      req.SetU(moveword::kClassWord, 0);
       req.SetF(moveword::kBandSpeed, k.kmh5);
     }
     EnterStop(host, req);
@@ -727,7 +727,7 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   //     A = (band < 0) || ((nextBand < 3 && ((nextBand < 2 || kind == 3) || kind == 6)) || !precise)
   //         || ((1 < bucket - 3 && 1 < bucket - 8) || (turnToLook <= drift || fVar24 * 22.5 + 45 <= |bodyToTarget|))
   const float bodyToTarget = Wrap180(req.F(moveword::kFacing) - req.F(moveword::kHeading));
-  const int band0 = int(req.U(moveword::kBand));
+  const int band0 = int(req.U(moveword::kClassWord));
   const float distance = req.F(moveword::kDistToTarget);
   const float distanceFactor =
       k.kmh5 < distance ? (distance < k.kmh5 ? (distance - k.kmh5) / k.dist3 : 1.0f) : 0.0f;
@@ -739,21 +739,21 @@ void StepLoop(MoveHost& host, MoveReq& req) {
         distanceFactor * k.deg22p5 + k.deg45 <= std::fabs(bodyToTarget)));
   if (!bucketMoved && req.U(0x3f) == 0 && !slowTurn) {
     // LAB_1406c5eba: keep the tick, record only the band and the bucket.
-    req.SetU(moveword::kBandPrev, uint32_t(liveBand));
+    req.SetU(moveword::kPrevClassWord, uint32_t(liveBand));
     req.SetU(moveword::kBandSpeedCopy, uint32_t(blendedSpeed));
-    req.SetU(moveword::kBand, uint32_t(nextBand));
+    req.SetU(moveword::kClassWord, uint32_t(nextBand));
     req.SetU(moveword::kMoveBucket, uint32_t(bucket));
     return;
   }
   if (gateA) {
     if (req.F(moveword::kDwellElapsed) < req.F(moveword::kDwellLimit) * k.s0p25) {
-      req.SetU(moveword::kBandPrev, uint32_t(liveBand));
+      req.SetU(moveword::kPrevClassWord, uint32_t(liveBand));
       req.SetU(moveword::kBandSpeedCopy, uint32_t(blendedSpeed));
-      req.SetU(moveword::kBand, uint32_t(nextBand));
+      req.SetU(moveword::kClassWord, uint32_t(nextBand));
       req.SetU(moveword::kMoveBucket, uint32_t(bucket));
       return;
     }
-    if (!precise && int(req.U(moveword::kBand)) > 0) req.SetU(moveword::kKind, 3);
+    if (!precise && int(req.U(moveword::kClassWord)) > 0) req.SetU(moveword::kKind, 3);
   } else {
     StepLoopKeepsTick(host, req, bucket, turn);
     return;
@@ -796,12 +796,12 @@ void StepLoop(MoveHost& host, MoveReq& req) {
     req.SetF(moveword::kRate, (lowered <= ceiling && rateTarget <= lowered) ? lowered
                                                                             : rateTarget);
   }
-  req.SetU(moveword::kBandPrev, req.U(moveword::kBand));
+  req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));
   req.SetU(moveword::kBandSpeedCopy, req.U(moveword::kBandSpeed));
   req.SetU(moveword::kBucketPrev, req.U(moveword::kMoveBucket));
   req.SetU(moveword::kMoveBucket, uint32_t(bucket));
   req.SetF(moveword::kBandSpeed, blendedSpeed);
-  req.SetU(moveword::kBand, uint32_t(nextBand));
+  req.SetU(moveword::kClassWord, uint32_t(nextBand));
   req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
   RequestState(req, MoveState::kStepLoopChange);
   req.SetByte(moveword::kMotionPending, 0);
@@ -878,8 +878,8 @@ void EnterTurnStop(MoveHost& host, MoveReq& req) {
     turn = req.F(moveword::kLookDelta);               // req[5]
   }
   // 1. The playback speed from the interface's own answer.
-  req.SetF(moveword::kPlayback, host.BandSpeedKmh(int(req.U(moveword::kBand)), host.PhysiqueG()));
-  int band = int(req.U(moveword::kBand));
+  req.SetF(moveword::kPlayback, host.BandSpeedKmh(int(req.U(moveword::kClassWord)), host.PhysiqueG()));
+  int band = int(req.U(moveword::kClassWord));
   band = std::min(std::max(band, 0), 3);
 
   // 3. In play, the look-behind re-aim and the mirrored-bucket flip.
@@ -1043,7 +1043,7 @@ BucketDone:;
     if (look <= bodyError) look = bodyError;
   }
   req.SetF(moveword::kRecordStampB, look + facing);
-  req.SetU(moveword::kBandPrev, req.U(moveword::kBand));
+  req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));
   req.SetU(moveword::kBandSpeedCopy, req.U(moveword::kBandSpeed));
   req.SetU(moveword::kBucketPrev, req.U(moveword::kMoveBucket));
   req.SetU(moveword::kMoveBucket, uint32_t(bucket));
@@ -1082,9 +1082,9 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
     req.SetU(moveword::kBlendB, 0);
   } else {
     const float prev = std::min(std::max(req.F(moveword::kRate), 0.0f), 1.0f);
-    SpeedToRate(host, float(int(req.U(moveword::kBandPrev))), 0);
+    SpeedToRate(host, float(int(req.U(moveword::kPrevClassWord))), 0);
     const float live = std::min(std::max(req.F(moveword::kRate), 0.0f), 1.0f);
-    SpeedToRate(host, float(int(req.U(moveword::kBand))), 0);
+    SpeedToRate(host, float(int(req.U(moveword::kClassWord))), 0);
     if (req.F(moveword::kDwellElapsed2) / req.F(moveword::kDwellLimit2) <= k.one)
       weight = req.F(moveword::kDwellElapsed2) / req.F(moveword::kDwellLimit2);
     const float share = (live - prev) * weight + prev;
@@ -1107,14 +1107,14 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
                           std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
       if (k.kmh8 <= speed) {
         if (k.kmh13p5 <= speed) {
-          req.SetU(moveword::kBand, 2);
+          req.SetU(moveword::kClassWord, 2);
           req.SetF(moveword::kBandSpeed, k.kmh16);
         } else {
-          req.SetU(moveword::kBand, 1);
+          req.SetU(moveword::kClassWord, 1);
           req.SetF(moveword::kBandSpeed, k.kmh11);
         }
       } else {
-        req.SetU(moveword::kBand, 0);
+        req.SetU(moveword::kClassWord, 0);
         req.SetF(moveword::kBandSpeed, k.kmh5);
       }
       if (EnterStepTurnRun(host, req)) return;
@@ -1138,7 +1138,7 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
         req.SetF(moveword::kRate, kRateLow);
       }
       const int band = host.BandSpeedKmh(int(req.F(moveword::kRate)), host.PhysiqueG());
-      req.SetU(moveword::kBand, uint32_t(band));
+      req.SetU(moveword::kClassWord, uint32_t(band));
       req.SetF(moveword::kBandSpeed, host.RateCeiling() * k.s0p6 * k.kmh3p6);
       // FUN_1406d2f60's threshold: (rate ceiling - 0.6) * the clock step.
       if (EnterRunTurnStep(host, req, (ceiling - k.s0p6) * tick)) return;
@@ -1150,19 +1150,19 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
   host.PositionAt(1, d);
   const float groundSpeed = (tick * k.ticks60 * k.ticks60) / k.scale1000 *
                             std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
-  if (req.U(0x3f) == 0 || int(req.U(moveword::kBand)) > 1 || !precise) {
+  if (req.U(0x3f) == 0 || int(req.U(moveword::kClassWord)) > 1 || !precise) {
     if (!precise && 1 < int(req.U(moveword::kCommandSpeedClass)) &&
-        0 < int(req.U(moveword::kBand))) {
+        0 < int(req.U(moveword::kClassWord))) {
       if (k.kmh8 <= groundSpeed) {
         if (k.kmh13p5 <= groundSpeed) {
-          req.SetU(moveword::kBand, 2);
+          req.SetU(moveword::kClassWord, 2);
           req.SetF(moveword::kBandSpeed, k.kmh16);
         } else {
-          req.SetU(moveword::kBand, 1);
+          req.SetU(moveword::kClassWord, 1);
           req.SetF(moveword::kBandSpeed, k.kmh11);
         }
       } else {
-        req.SetU(moveword::kBand, 0);
+        req.SetU(moveword::kClassWord, 0);
         req.SetF(moveword::kBandSpeed, k.kmh5);
       }
       if (EnterStepTurnRun(host, req)) return;
@@ -1172,14 +1172,14 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
     return;
   }
   if (req.F(moveword::kDwellLimit2) * k.half <= req.F(moveword::kDwellElapsed2) &&
-      ((int(req.U(moveword::kBand)) < 1 ||
-        (int(req.U(moveword::kBand)) < 2 &&
+      ((int(req.U(moveword::kClassWord)) < 1 ||
+        (int(req.U(moveword::kClassWord)) < 2 &&
          k.deg67p5 < std::fabs(req.F(moveword::kTurn)))) &&
        1 < speedClass && !precise)) {
     EnterGotoRun(host, req, /*runStopVariant=*/false);
     return;
   }
-  if (speedClass == 3 && !precise && int(req.U(moveword::kBand)) < 2 &&
+  if (speedClass == 3 && !precise && int(req.U(moveword::kClassWord)) < 2 &&
       Wrap180(req.F(moveword::kFacing) - req.F(moveword::kBodyDirection)) < k.deg45) {
     if (EnterAccelerate(host, req)) return;
     if (groundSpeed < k.kmh11) {
@@ -1190,7 +1190,7 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
 
   // 6. The dwell gates.
   bool stopFallback = false;
-  if (int(req.U(moveword::kBand)) >= 0 && speedClass == -1) stopFallback = true;
+  if (int(req.U(moveword::kClassWord)) >= 0 && speedClass == -1) stopFallback = true;
   // PES: `if (1.5 < d) { f = 4.0; if (d < 4.0) f = (d - 1.5) / 1.25; }` — the share is 0 below
   // 1.5 m, the linear ramp above it, and clamped at 4.0.
   const float share =
@@ -1213,11 +1213,11 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
     req.SetF(moveword::kRecordStampA, blendedTurn);
     const float dwellLeft = req.F(moveword::kDwellLimit2) - req.F(moveword::kDwellElapsed2);
     req.SetF(moveword::kRecordStampB, dwellLeft <= 0.0f ? 0.0f : dwellLeft);
-    const float scale = int(req.U(moveword::kBand)) < int(req.U(moveword::kBandPrev))
+    const float scale = int(req.U(moveword::kClassWord)) < int(req.U(moveword::kPrevClassWord))
                             ? k.s0p3
                             : k.s0p6;
     if (req.F(moveword::kDwellElapsed2) < req.F(moveword::kDwellLimit2) * scale) {
-      req.SetU(moveword::kBand, req.U(moveword::kBandPrev));
+      req.SetU(moveword::kClassWord, req.U(moveword::kPrevClassWord));
       req.SetF(moveword::kBandSpeed, req.F(moveword::kBandSpeedPrev));
     }
     EnterStop(host, req);
@@ -1287,7 +1287,7 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
   if (elapsed < limit &&
       ((elapsed < limit * k.s0p2 || precise || speedClass < 2) ||
        (bucketNow == 0 || bucketNow == 5 || bucketNow != bucketPrev))) {
-    if (speedClass != 1 && !(speedClass < 2 && int(req.U(moveword::kBand)) > 0) &&
+    if (speedClass != 1 && !(speedClass < 2 && int(req.U(moveword::kClassWord)) > 0) &&
         !(bucketNow == 0 || bucketNow == 5 || bucketNow != bucketPrev)) {
       return;
     }
@@ -1374,7 +1374,7 @@ void TurnStop(MoveHost& host, MoveReq& req) {
         req.SetF(moveword::kRate, kRateLow);
       }
       const int band = host.BandSpeedKmh(int(req.F(moveword::kRate)), host.PhysiqueG());
-      req.SetU(moveword::kBand, uint32_t(band));
+      req.SetU(moveword::kClassWord, uint32_t(band));
       req.SetF(moveword::kBandSpeed, host.RateCeiling() * k.s0p6 * k.kmh3p6);
       const int footBand = host.FootBand();
       pes::MotionRequest request;
@@ -1388,21 +1388,21 @@ void TurnStop(MoveHost& host, MoveReq& req) {
   // 3. The second path: the class-3 and bucket gates lead to the run-turn states.
   const float lookAhead = k.one / tick * k.deg10;
   if (req.F(moveword::kDwellElapsed) <= lookAhead && lookAhead != req.F(moveword::kDwellElapsed) &&
-      speedClass > 0 && int(req.U(moveword::kBand)) > 0) {
+      speedClass > 0 && int(req.U(moveword::kClassWord)) > 0) {
     const float turn = Wrap180(facing - req.F(moveword::kBodyDirection));
     if (precise) {
       if (k.deg28p125 <= std::fabs(turnToTarget)) {
         // The band from the ground speed, then STEP_TURN_RUN.
         if (k.kmh8 <= groundSpeed) {
           if (k.kmh13p5 <= groundSpeed) {
-            req.SetU(moveword::kBand, 2);
+            req.SetU(moveword::kClassWord, 2);
             req.SetF(moveword::kBandSpeed, k.kmh16);
           } else {
-            req.SetU(moveword::kBand, 1);
+            req.SetU(moveword::kClassWord, 1);
             req.SetF(moveword::kBandSpeed, k.kmh11);
           }
         } else {
-          req.SetU(moveword::kBand, 0);
+          req.SetU(moveword::kClassWord, 0);
           req.SetF(moveword::kBandSpeed, k.kmh5);
         }
         if (EnterStepTurnRun(host, req)) return;
@@ -1416,14 +1416,14 @@ void TurnStop(MoveHost& host, MoveReq& req) {
       if (k.deg22p5 <= std::fabs(turnToTarget)) { /* fall through to the run-turn below */ }
       if (k.kmh8 < groundSpeed && k.half < req.F(moveword::kDistToTarget) &&
           req.U(0x0f) != 0) {
-        if (groundSpeed < k.kmh11 && int(req.U(moveword::kBand)) > 1) {
-          req.SetU(moveword::kBand, 1);
+        if (groundSpeed < k.kmh11 && int(req.U(moveword::kClassWord)) > 1) {
+          req.SetU(moveword::kClassWord, 1);
           req.SetF(moveword::kBandSpeed, k.kmh11);
           EnterRunTurnRun(host, req);
           return;
         }
-        if (groundSpeed < k.kmh16 && int(req.U(moveword::kBand)) > 2)
-          req.SetU(moveword::kBand, 2);
+        if (groundSpeed < k.kmh16 && int(req.U(moveword::kClassWord)) > 2)
+          req.SetU(moveword::kClassWord, 2);
         EnterRunTurnRun(host, req);
         return;
       }
@@ -1431,7 +1431,7 @@ void TurnStop(MoveHost& host, MoveReq& req) {
   }
 
   // 4. The third path: the request's own destination re-plans into the step grid.
-  if (speedClass > 1 && int(req.U(moveword::kBand)) < 1 && StayDecision(host, req))
+  if (speedClass > 1 && int(req.U(moveword::kClassWord)) < 1 && StayDecision(host, req))
     goto RePlan;
   if (speedClass >= 0 && precise && k.dist1p5 < req.F(moveword::kDistToTarget)) {
     const float a = Wrap180(DisplacementHeading(host) - facing);
@@ -1444,18 +1444,18 @@ void TurnStop(MoveHost& host, MoveReq& req) {
       if (k.kmh5 <= groundSpeed) {
         int band = 2;
         if (k.kmh11 <= groundSpeed) {
-          req.SetU(moveword::kBand, 2);
+          req.SetU(moveword::kClassWord, 2);
           req.SetF(moveword::kBandSpeed, k.kmh16);
         } else {
           band = 1;
-          req.SetU(moveword::kBand, 1);
+          req.SetU(moveword::kClassWord, 1);
           req.SetF(moveword::kBandSpeed, k.kmh11);
         }
       } else {
-        req.SetU(moveword::kBand, 0);
+        req.SetU(moveword::kClassWord, 0);
         req.SetF(moveword::kBandSpeed, k.kmh5);
       }
-      const int bandNow = std::min(std::max(int(req.U(moveword::kBand)), 0), 2);
+      const int bandNow = std::min(std::max(int(req.U(moveword::kClassWord)), 0), 2);
       float speed = k.kmh16;
       if (std::fabs(req.F(moveword::kBandSpeed)) <= k.kmh16 && k.kmh5 <= std::fabs(req.F(moveword::kBandSpeed)))
         speed = std::fabs(req.F(moveword::kBandSpeed));
@@ -1463,9 +1463,9 @@ void TurnStop(MoveHost& host, MoveReq& req) {
       const MoveCell cell = host.Cell(rowId, int(tables.bucketColumn[bucket]), false);
       const int motion = cell.found ? cell.motionNo : rowId;
       req.SetU(moveword::kMoveBucket, uint32_t(bucket));
-      req.SetU(moveword::kBandPrev, req.U(moveword::kBand));
+      req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));
       req.SetU(moveword::kBandSpeedCopy, uint32_t(speed));
-      req.SetU(moveword::kBand, uint32_t(bandNow));
+      req.SetU(moveword::kClassWord, uint32_t(bandNow));
       req.SetF(moveword::kBandSpeed, speed);
       req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
       req.SetF(moveword::kPlayback, StepPlayback(host.PhysiqueG(), host.PlaybackConstantsView()));
@@ -1497,27 +1497,27 @@ void TurnStop(MoveHost& host, MoveReq& req) {
     const float dwell = replayOnly ? (k.one / tick) * float(cancelFrames) : req.F(moveword::kDwellLimit);
     bool stopNow = false;
     if (!replayOnly) {
-      if (speedClass > 1 || int(req.U(moveword::kBand)) > 2 ||
+      if (speedClass > 1 || int(req.U(moveword::kClassWord)) > 2 ||
           (footFrames + cancelFrames) / 2 <= static_cast<int>(divisor)) {
         stopNow = true;
       }
     }
     const int footFramesBack = footFrames;
     const int cancelFramesBack = cancelFrames;
-    if (speedClass > 0 && int(req.U(moveword::kBand)) > 0) {
+    if (speedClass > 0 && int(req.U(moveword::kClassWord)) > 0) {
       const float turn = Wrap180(DisplacementHeading(host) - facing);
       if (k.deg22p5 <= std::fabs(turn)) {
         if (k.kmh13p5 <= groundSpeed) {
           if (k.kmh22 < groundSpeed) {
-            req.SetU(moveword::kBand, 2);
+            req.SetU(moveword::kClassWord, 2);
             req.SetF(moveword::kBandSpeed, k.kmh16);
           } else {
-            req.SetU(moveword::kBand, 1);
+            req.SetU(moveword::kClassWord, 1);
             req.SetF(moveword::kBandSpeed, k.kmh11);
           }
         } else {
           req.SetF(moveword::kBandSpeed, k.kmh5);
-          req.SetU(moveword::kBand, 0);
+          req.SetU(moveword::kClassWord, 0);
         }
         if (EnterStepTurnRun(host, req)) return;
       } else if (precise &&
@@ -1589,7 +1589,7 @@ void TurnStop(MoveHost& host, MoveReq& req) {
   }
 
 RePlan:
-  req.SetU(moveword::kBand, 0xffffffffu);  // -1
+  req.SetU(moveword::kClassWord, 0xffffffffu);  // -1
   req.SetF(moveword::kBandSpeed, 0.0f);
   EnterGotoRun(host, req, /*runStopVariant=*/false);
 }

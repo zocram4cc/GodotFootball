@@ -52,6 +52,9 @@ constexpr unsigned long kUiFrames_ms = 200;
 // The teleport pair (0x14 + 0x15, 9.4): 20 + 20 frames, static.
 constexpr unsigned long kTeleport_ms = 740;
 
+// The beats between the wipe and the fade-in: the stop stamp, the UI window and the teleport.
+unsigned long Tail_ms();
+
 // When the players are released from the hold, before the wipe hides the cut.
 // The hold is table[1] for a foul, table[5] for an out-of-play stop, plus
 // PES's +2.5 s while a player is down.
