@@ -13,6 +13,7 @@
 #include "pes/movestep.hpp"
 #include "pes/movestep_turn.hpp"
 #include "pes/locomotion.hpp"
+#include "pes/uniform.hpp"
 #include "pes/vfs.hpp"
 
 namespace {
@@ -335,8 +336,9 @@ class RateHost : public pes::MoveHost {
   float RecordF0bec() const override { return f0bec; }
   void SetRecordF0bec(float value) override { f0bec = value; ++f0becWrites; }
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
-  void PositionAt(int, float out[3]) const override { out[0] = out[1] = out[2] = 0.0f; }
-  int MatchPhase() const override { return 1; }
+  void PositionAt(int index, float out[3]) const override {
+    for (int i = 0; i < 3; ++i) out[i] = index == 0 ? position[i] : 0.0f;
+  }
   bool IsReplay() const override { return false; }
   void Issue(const pes::MotionRequest&) override {}
   const pes::StepScalars& StepConstants() const override { return step; }
@@ -416,10 +418,37 @@ class RateHost : public pes::MoveHost {
   int currentMotion = 0;
   int currentClipFrames = 0;
   int animeState = 0;
+  // LocomotionStyle's reads: the open-play phase, the scripted slot, the stamina percentage, the
+  // physique height, the ball ring (index 0 = now) and the ball's motion heading.
+  int matchPhase = 1;
+  bool scriptedSlotOurs = true;
+  int staminaPct = 100;
+  float heightCm = 180.0f;
+  float ballSample[32][3] = {};
+  float ballMotionHeadingDeg = 0.0f;
+  float position[3] = {};
+  int currentState = 0;
+  pes::DampingConstants damping{};
+  pes::DampingRecord dampingRecord{};
+  pes::StyleConstants style{};
   pes::StepScalars step{};
   pes::StepTables stepTables{};
   pes::AngleBucketConstants buckets{};
   pes::PlaybackConstants playback{};
+  int MatchPhase() const override { return matchPhase; }
+  bool ScriptedSlotIsOurs() const override { return scriptedSlotOurs; }
+  int StaminaPercent() const override { return staminaPct; }
+  float PlayerHeightCm() const override { return heightCm; }
+  void BallSample(int index, float out[3]) const override {
+    out[0] = ballSample[index][0];
+    out[1] = ballSample[index][1];
+    out[2] = ballSample[index][2];
+  }
+  float BallMotionHeadingDeg() const override { return ballMotionHeadingDeg; }
+  const pes::StyleConstants& StyleConstantsView() const override { return style; }
+  int CurrentState() const override { return currentState; }
+  const pes::DampingConstants& DampingConstantsView() const override { return damping; }
+  const pes::DampingRecord& DampingRecordView() const override { return dampingRecord; }
 };
 
 pes::SpeedRateTable SyntheticRate() {
@@ -781,4 +810,385 @@ TEST(ParametricGroupsInstall, EveryStyleNamesABlendGroupWithMembers) {
   ASSERT_TRUE(table) << err;
   for (int style = 0; style < pes::kStyleCount; ++style)
     EXPECT_FALSE(pes::BlendGroup(*table, groups->group[style]).empty()) << "style " << style;
+}
+
+// FUN_1406b97d0 (AS 2.3): a motion's start time is one of nine install floats, picked by the
+// motion number through a switch; every other motion starts at zero.
+TEST(MotionStartSeconds, ReturnsTheArmFloatThatTheSwitchNamesAndZeroElsewhere) {
+  pes::movestep::MotionStartConstants k{};
+  k.v590d98 = 1.0f;
+  k.v592228 = 2.0f;
+  k.v565600 = 3.0f;
+  k.v588200 = 4.0f;
+  k.v598578 = 5.0f;
+  k.v5c48a0 = 6.0f;
+  k.v59d5c8 = 7.0f;
+  k.v5a8a28 = 8.0f;
+  k.v57a190 = 9.0f;
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0x1f), 1.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0x23), 4.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0x27), 3.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0x2b), 5.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0x45), 6.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0xb11), 7.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0xb1e), 8.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0xe24), 9.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0x20), 0.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0xb0b), 0.0f);
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(k, 0xe25), 0.0f);
+}
+
+TEST(MotionStartInstall, LoadsTheNineFloatsAndTheSwitchReturnsTheInstallBits) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  auto k = pes::movestep::LoadMotionStartConstants(*exe, &err);
+  ASSERT_TRUE(k.has_value()) << err;
+  for (float v : {k->v590d98, k->v592228, k->v565600, k->v588200, k->v598578, k->v5c48a0,
+                  k->v59d5c8, k->v5a8a28, k->v57a190}) {
+    EXPECT_TRUE(std::isfinite(v));
+    EXPECT_GE(v, 0.0f);
+  }
+  // Motion 0x2b reads the float at 0x142598578 and returns those bits unchanged.
+  float raw = -1.0f;
+  ASSERT_TRUE(exe->ReadVa(0x142598578, sizeof raw, reinterpret_cast<uint8_t*>(&raw)));
+  EXPECT_EQ(pes::movestep::MotionStartSeconds(*k, 0x2b), raw);
+}
+
+// LocomotionStyle (FUN_1406ba2f0). The host answers the reads the ladder makes; the constants are
+// synthetic here, and the install test checks the loaded ones through their relations.
+namespace {
+pes::StyleConstants SyntheticStyle() {
+  pes::StyleConstants s{};
+  s.rate0p895 = 0.9f;
+  s.rate0p825 = 0.8f;
+  s.speed16 = 16.0f;
+  s.heightDiv = 100.0f;
+  s.kmhScale = 1000.0f;
+  s.sampleTicks = 20.0f;
+  s.radToDeg = 57.2957795f;
+  return s;
+}
+
+// An open-play host standing still with the ball 1 m ahead at 0.2 m high.
+RateHost StyleHost() {
+  RateHost host;
+  host.run = SyntheticAngles();
+  host.run.kmh60 = 60.0f;
+  host.run.half = 0.5f;
+  host.run.rampSlope = 0.15f;
+  host.style = SyntheticStyle();
+  host.moveConstants.dist3 = 3.0f;
+  host.ballSample[18][1] = 1.0f;  // GF order: x, z, height
+  host.ballSample[18][2] = 0.2f;
+  return host;
+}
+
+pes::MoveReq StyleReq(uint32_t command, float rate) {
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandId, command);
+  req.SetF(pes::moveword::kRate, rate);
+  return req;
+}
+
+int Style(RateHost& host, pes::MoveReq& req, float requested, float rateMax = 1.0f,
+          bool rateHeld = false) {
+  return pes::movestep::LocomotionStyle(host, host.animeState, requested, req, rateMax, rateHeld);
+}
+}  // namespace
+
+TEST(LocomotionStyle, OutOfOpenPlayWithoutTheScriptedSlotIsFifteen) {
+  RateHost host = StyleHost();
+  host.matchPhase = 2;
+  host.scriptedSlotOurs = false;
+  pes::MoveReq req = StyleReq(0, 0.2f);
+  EXPECT_EQ(Style(host, req, 0.2f), 0xf);
+}
+
+TEST(LocomotionStyle, ReplayWithoutTheScriptedSlotIsFifteen) {
+  RateHost host = StyleHost();
+  host.animeState = 0x4a;
+  host.scriptedSlotOurs = false;
+  pes::MoveReq req = StyleReq(0, 0.2f);
+  EXPECT_EQ(Style(host, req, 0.2f), 0xf);
+}
+
+TEST(LocomotionStyle, ReplayWithTheScriptedSlotIsOursHasNoStyle) {
+  RateHost host = StyleHost();
+  host.animeState = 0x4a;
+  pes::MoveReq req = StyleReq(0, 0.2f);
+  EXPECT_EQ(Style(host, req, 0.2f), 0);
+}
+
+TEST(LocomotionStyle, OutOfOpenPlayWithTheScriptedSlotOursKeepsTheLadder) {
+  RateHost host = StyleHost();
+  host.matchPhase = 2;
+  pes::MoveReq req = StyleReq(0, 0.2f);
+  EXPECT_EQ(Style(host, req, 0.2f), 0);
+}
+
+TEST(LocomotionStyle, StaminaBelowTwentyPercentIsThirteen) {
+  RateHost host = StyleHost();
+  host.staminaPct = 19;
+  host.actionIndex = 3;
+  pes::MoveReq req = StyleReq(0, 0.2f);
+  EXPECT_EQ(Style(host, req, 0.2f), 0xd);
+}
+
+TEST(LocomotionStyle, StaminaAtTwentyPercentIsNotTired) {
+  RateHost host = StyleHost();
+  host.staminaPct = 20;
+  host.actionIndex = 3;
+  pes::MoveReq req = StyleReq(0, 0.2f);
+  EXPECT_EQ(Style(host, req, 0.2f), 0);
+}
+
+TEST(LocomotionStyle, StaminaIsOnlyReadForAPlayerOnThePitch) {
+  RateHost host = StyleHost();
+  host.staminaPct = 0;
+  host.actionIndex = 22;
+  pes::MoveReq req = StyleReq(0, 0.2f);
+  EXPECT_EQ(Style(host, req, 0.2f), 0);
+}
+
+TEST(LocomotionStyle, AFastRequestOnAGatedCommandIsTen) {
+  RateHost host = StyleHost();
+  pes::MoveReq req = StyleReq(2, 0.2f);
+  EXPECT_EQ(Style(host, req, 0.5f), 10);
+}
+
+TEST(LocomotionStyle, AHeldRateOnAGatedCommandIsZero) {
+  RateHost host = StyleHost();
+  pes::MoveReq req = StyleReq(2, 0.2f);
+  EXPECT_EQ(Style(host, req, 0.5f, 1.0f, true), 0);
+}
+
+TEST(LocomotionStyle, ARateNearTheCeilingOnAGatedCommandIsZero) {
+  RateHost host = StyleHost();
+  pes::MoveReq req = StyleReq(2, 0.95f);
+  EXPECT_EQ(Style(host, req, 1.0f), 0);
+}
+
+TEST(LocomotionStyle, ARateBetweenTheTwoGatesOnAGatedCommandIsTen) {
+  RateHost host = StyleHost();
+  pes::MoveReq req = StyleReq(2, 0.85f);
+  EXPECT_EQ(Style(host, req, 1.05f), 10);  // 1.05 > 0.85 + 0.15: T1 is false, so the 0.8 gate decides
+}
+
+TEST(LocomotionStyle, AnUnlistedCommandIsZeroWhateverTheRequest) {
+  RateHost host = StyleHost();
+  pes::MoveReq req = StyleReq(0, 0.2f);
+  EXPECT_EQ(Style(host, req, 0.5f), 0);
+}
+
+TEST(LocomotionStyle, DribbleAtTheFeetIsEight) {
+  RateHost host = StyleHost();
+  pes::MoveReq req = StyleReq(5, 0.2f);
+  req.SetByte(pes::moveword::kUseClassRate, 1);
+  EXPECT_EQ(Style(host, req, 0.2f), 8);
+}
+
+TEST(LocomotionStyle, DribbleNeedsTheBallInFront) {
+  RateHost host = StyleHost();
+  host.ballSample[18][0] = 1.0f;  // now 90 degrees off the facing
+  host.ballSample[18][1] = 0.0f;
+  pes::MoveReq req = StyleReq(5, 0.2f);
+  req.SetByte(pes::moveword::kUseClassRate, 1);
+  EXPECT_EQ(Style(host, req, 0.2f), 0);
+}
+
+TEST(LocomotionStyle, DribbleNeedsTheBallNearby) {
+  RateHost host = StyleHost();
+  host.ballSample[18][1] = 4.0f;
+  pes::MoveReq req = StyleReq(5, 0.2f);
+  req.SetByte(pes::moveword::kUseClassRate, 1);
+  EXPECT_EQ(Style(host, req, 0.2f), 0);
+}
+
+TEST(LocomotionStyle, DribbleNeedsTheBallLow) {
+  RateHost host = StyleHost();
+  host.ballSample[18][2] = 1.0f;  // above half the 1.8 m height
+  pes::MoveReq req = StyleReq(5, 0.2f);
+  req.SetByte(pes::moveword::kUseClassRate, 1);
+  EXPECT_EQ(Style(host, req, 0.2f), 0);
+}
+
+TEST(LocomotionStyle, DribbleYieldsToABallRunningAlongTheFacing) {
+  RateHost host = StyleHost();
+  host.ballSample[2][1] = 0.1f;  // 0.1 m a tick: 19.4 km/h at 54 ticks a second
+  pes::MoveReq req = StyleReq(5, 0.2f);
+  req.SetByte(pes::moveword::kUseClassRate, 1);
+  EXPECT_EQ(Style(host, req, 0.2f), 0);
+}
+
+TEST(LocomotionStyle, DribbleTakesAFastBallThatTurnsAway) {
+  RateHost host = StyleHost();
+  host.ballSample[2][1] = 0.1f;
+  host.ballMotionHeadingDeg = 90.0f;
+  pes::MoveReq req = StyleReq(5, 0.2f);
+  req.SetByte(pes::moveword::kUseClassRate, 1);
+  EXPECT_EQ(Style(host, req, 0.2f), 8);
+}
+
+TEST(LocomotionStyle, DribbleNeedsTheOpenPlayPhase) {
+  RateHost host = StyleHost();
+  host.matchPhase = 2;
+  pes::MoveReq req = StyleReq(5, 0.2f);
+  req.SetByte(pes::moveword::kUseClassRate, 1);
+  EXPECT_EQ(Style(host, req, 0.2f), 0);
+}
+
+TEST(StyleConstantsInstall, LoadsTheExeScalarsWithTheirRelations) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  auto k = pes::LoadStyleConstants(*exe, &err);
+  ASSERT_TRUE(k.has_value()) << err;
+  EXPECT_LT(k->rate0p825, k->rate0p895);
+  EXPECT_LT(k->rate0p895, 1.0f);
+  EXPECT_GT(k->speed16, 0.0f);
+  EXPECT_GT(k->kmhScale, 0.0f);
+  // One radian in degrees is 180 / pi: the conversion's inverse is pi times 180.
+  EXPECT_NEAR(k->radToDeg * 3.14159265358979f, 180.0f, 1e-2f);
+}
+
+// LateralDamping (FUN_1406cbc10): the drift's decay in the drift case, and the else branch that
+// clears the drift past a threshold. The constants and the record are synthetic here; the install
+// test checks the loaded ones.
+namespace {
+pes::DampingConstants SyntheticDamping() {
+  pes::DampingConstants d{};
+  d.rateGate = 0.3f;
+  d.rateSpan = 0.4f;
+  d.rateCap = 0.7f;
+  d.rateBase = 0.8f;
+  d.rateScale = 0.2f;
+  d.driftSpeed = 120.0f;
+  d.motionRate = 0.6f;
+  d.angleGate = 5.625f;
+  return d;
+}
+
+RateHost DriftHost() {
+  RateHost host;
+  host.run = SyntheticAngles();
+  host.run.half = 0.5f;
+  host.moveConstants.dist2m5 = 2.5f;
+  host.damping = SyntheticDamping();
+  host.dampingRecord = {2.7f, 2.7f, 1.0f};  // lateral bound, forward bound, scale
+  return host;
+}
+
+// The drift on a request with the playback at 1 and no look delta.
+pes::MoveReq DriftReq(float x, float z) {
+  pes::MoveReq req;
+  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  req.SetF(pes::moveword::kDriftX, x);
+  req.SetF(pes::moveword::kDriftZ, z);
+  return req;
+}
+}  // namespace
+
+TEST(LateralDamping, WithoutAPhaseAndOutsideTheDriftCaseClearsTheDrift) {
+  RateHost host = DriftHost();
+  pes::MoveReq req = DriftReq(0.5f, 0.2f);
+  pes::movestep::LateralDamping(host, req);
+  EXPECT_EQ(req.F(pes::moveword::kDriftX), 0.0f);
+  EXPECT_EQ(req.F(pes::moveword::kDriftZ), 0.0f);
+}
+
+TEST(LateralDamping, ElseBranchShrinksAFastDriftByTheSpeedThreshold) {
+  RateHost host = DriftHost();
+  host.currentState = 1;  // a phase other than zero takes the else branch
+  pes::MoveReq req = DriftReq(3.0f, 0.1f);
+  pes::movestep::LateralDamping(host, req);
+  // 3 m a tick against 120 / 54 a tick: the excess stays, and the slow Z clears.
+  EXPECT_NEAR(req.F(pes::moveword::kDriftX), 3.0f - 120.0f / 54.0f, 1e-4f);
+  EXPECT_EQ(req.F(pes::moveword::kDriftZ), 0.0f);
+}
+
+TEST(LateralDamping, RunLoopDriftDecaysTowardZeroByTheLateralStep) {
+  RateHost host = DriftHost();
+  host.currentState = 3;  // RUN_LOOP, style 0, rate 0.5: the drift case
+  pes::MoveReq req = DriftReq(0.5f, 0.2f);
+  req.SetF(pes::moveword::kRate, 0.5f);
+  pes::movestep::LateralDamping(host, req);
+  // The step per tick is the record's bound over 54 / 2 = 27: 2.7 / 27 = 0.1 both ways.
+  EXPECT_NEAR(req.F(pes::moveword::kDriftX), 0.4f, 1e-5f);
+  EXPECT_NEAR(req.F(pes::moveword::kDriftZ), 0.1f, 1e-5f);
+}
+
+TEST(LateralDamping, TheSpecialMotionTakesTheDriftCaseWhateverTheState) {
+  RateHost host = DriftHost();
+  host.currentState = 0;
+  host.currentMotion = 0xbde;
+  // A record whose bounds are 2700 keeps each step (bound / 27 = 100) clear of the clamp, so the
+  // turn term (-2 / 2700) and the ramp (0.75 at rate 0.6) decide the drift.
+  host.dampingRecord = {2700.0f, 2700.0f, 2700.0f};
+  pes::MoveReq req = DriftReq(0.5f, 0.2f);
+  req.SetF(pes::moveword::kLookDelta, -10.0f);
+  req.SetF(pes::moveword::kRate, 0.5f);
+  pes::movestep::LateralDamping(host, req);
+  // factor = -2 / 2700 * (0.75 * 0.2 + 0.8); the drift steps by -factor * 2700 - x and z - x alike.
+  EXPECT_NEAR(req.F(pes::moveword::kDriftX), 1.9f, 1e-3f);
+  EXPECT_NEAR(req.F(pes::moveword::kDriftZ), 1.9f, 1e-3f);
+}
+
+TEST(LateralDamping, AJostleStyleIsNotTheDriftCase) {
+  RateHost host = DriftHost();
+  host.currentState = 3;  // RUN_LOOP at rate 0.5 would be the drift case for style 0
+  pes::MoveReq req = DriftReq(0.5f, 0.2f);
+  req.SetF(pes::moveword::kRate, 0.5f);
+  req.SetByte(pes::moveword::kStyle, 6);  // the jostle loop: the else branch runs instead
+  pes::movestep::LateralDamping(host, req);
+  EXPECT_EQ(req.F(pes::moveword::kDriftX), 0.0f);
+  EXPECT_EQ(req.F(pes::moveword::kDriftZ), 0.0f);
+}
+
+TEST(DampingConstantsInstall, LoadsTheExeScalarsInTheirOrder) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  auto k = pes::LoadDampingConstants(*exe, &err);
+  ASSERT_TRUE(k.has_value()) << err;
+  EXPECT_LT(k->rateGate, k->rateCap);
+  EXPECT_LT(k->rateBase + k->rateScale, 1.0f + 1e-6f);
+  EXPECT_GT(k->rateSpan, 0.0f);
+  EXPECT_GT(k->driftSpeed, 0.0f);
+}
+
+TEST(LateralDamping, ElseBranchClearsADriftUnderTheTwoAndAHalfMetreBound) {
+  RateHost host = DriftHost();
+  host.currentState = 1;
+  pes::MoveReq req = DriftReq(2.4f, 0.0f);  // past the 2.22 threshold, under the 2.5 bound
+  pes::movestep::LateralDamping(host, req);
+  EXPECT_EQ(req.F(pes::moveword::kDriftX), 0.0f);
+}
+
+TEST(DampingRecordInstall, ReadsTheFreemoveRecordsPayloadAtItsRuntimeOffsets) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset";
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto rec = pes::LoadDampingRecord(vfs, &err);
+  ASSERT_TRUE(rec.has_value()) << err;
+  // The same bytes read by hand: the table entry's payload at +8, +0xc and +0x10.
+  auto blob = vfs.Read("common/match/constant/constant_player.bin", &err);
+  ASSERT_TRUE(blob.has_value()) << err;
+  auto table = pes::ParseUniformTable(*blob, &err);
+  ASSERT_TRUE(table.has_value()) << err;
+  auto span = table->Find("freemove.o");
+  ASSERT_TRUE(span.has_value());
+  float raw[3];
+  std::memcpy(raw, span->data() + 8, sizeof raw);
+  EXPECT_EQ(rec->lateralBound, raw[0]);
+  EXPECT_EQ(rec->forwardBound, raw[1]);
+  EXPECT_EQ(rec->scale, raw[2]);
 }

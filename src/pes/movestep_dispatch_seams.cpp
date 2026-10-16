@@ -37,18 +37,6 @@ bool EnterStepTurnRun(MoveHost& host, MoveReq& req) {
   return EnterStepTurnRun(host, req, host.MoveTurnConstantsView());
 }
 
-// FUN_1406b97d0: a motion's start time in its clip. The decompile is a per-motion switch; GF
-// resolves rows through its own Animetable and the row's clip supplies the start frame.
-// ponytail: 0x1406b97d0's per-motion constant removes this zero.
-float MotionStartSeconds(uint16_t /*motionNo*/) { return 0.0f; }
-
-// FUN_1406ba2f0: the locomotion style group. Style 0 is PES's otherwise branch (group 80).
-// ponytail: the style ladder's stamina, scripted-slot and dribble arms remove this default.
-int LocomotionStyle(MoveHost& /*host*/, int /*commandId*/, float /*rateRequested*/,
-                    MoveReq& /*req*/) {
-  return 0;
-}
-
 // FUN_1406ce550: the out-of-play pre-empt. Phase 1 (open play) never takes it; the row ladder
 // needs the command word at req[0x14] and the clip-length host reads PES has not published yet.
 // ponytail: the adapter's req[0x14] fill and the row clip lengths remove this phase gate.

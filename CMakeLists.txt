@@ -32,7 +32,8 @@ target_link_libraries(pesfmt PUBLIC ZLIB::ZLIB)
 # The dispatcher port's cross-group seams and the shared helpers the full dispatcher links. The
 # per-group test targets deliberately keep their probe stubs, so this library is not folded into
 # pesfmt; the dispatcher test and the sim adapter link it.
-add_library(pesmovestepcore STATIC src/pes/movestep_dispatch.cpp src/pes/movestep_dispatch_seams.cpp)
+add_library(pesmovestepcore STATIC src/pes/movestep_dispatch.cpp src/pes/movestep_dispatch_seams.cpp
+             src/pes/movestep_style.cpp src/pes/movestep_ramps.cpp)
 target_link_libraries(pesmovestepcore PUBLIC pesfmt)
 
 add_library(pesrig STATIC src/rig/rig.cpp src/rig/clip_pose.cpp)

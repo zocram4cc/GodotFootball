@@ -764,14 +764,15 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   // dwell reset, the rate walk, the recorded band and bucket, and STEP_LOOP_CHANGE (req[0x39] = 5).
   // The mirror PES reads back from the interface's own choice (vt+0x30), which the port stands
   // in with the table's left flag.
-  const float startTime = MotionStartSeconds(uint16_t(motion));
+  const float startTime = host.MotionStartTime(motion);
   const float clipBlend =
       (!precise && req.F(moveword::kLookDelta) <= k.deg11p25) ||
               (k.deg67p5 < req.F(moveword::kLookDelta) && !precise)
           ? k.s0p2
           : k.s0p1333;
-  const int group = int(LocomotionStyle(host, int(req.U(moveword::kCommandId)),
-                                        req.F(moveword::kRate), req));
+  // FUN_1406c4f59's call: rateHeld is 0 there.
+  const int group = LocomotionStyle(host, host.AnimeState(), req.F(moveword::kRate), req,
+                                    host.RateCeiling(), false);
   pes::MotionRequest request;
   request.motion = motion;
   request.mirror = host.BucketIsLeft(bucket);
@@ -1473,7 +1474,7 @@ void TurnStop(MoveHost& host, MoveReq& req) {
       request.mirror = host.BucketIsLeft(bucket);
       request.duration = k.s0p1333;
       request.playback = req.F(moveword::kPlayback);
-      request.startTime = MotionStartSeconds(uint16_t(motion));
+      request.startTime = host.MotionStartTime(motion);
       host.Issue(request);
       req.SetU(moveword::kDwellElapsed, 0);
       req.SetU(moveword::kDwellLimit, 0);

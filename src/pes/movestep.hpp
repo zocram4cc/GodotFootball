@@ -165,6 +165,9 @@ inline constexpr int kLiveKind = 0x1e;        // req[0x1e]: the live clip's kind
 inline constexpr int kStopBand = 0x51;        // req[0x51] (req+0x144): the band FUN_1406d5d60 reads for its stop-row picker (OBS per MovestepRun)
 inline constexpr int kPrevBucket = 0x25;      // req[0x25]: the bucket before the last change (OBS: FUN_1406bdf10, FUN_1406c14c0)
 inline constexpr int kStyle = 0x50;           // req[0x50] byte: the locomotion style (OBS: FUN_1406c0170 and the entries)
+inline constexpr int kDriftSeed = 0x4c;  // req[0x4c]: the drift's seed (OBS: FUN_1406cbc10 reads req+0x130)
+inline constexpr int kDriftX = 0x4d;     // req[0x4d] (req+0x134): the lateral drift, X (OBS: FUN_1406cbc10)
+inline constexpr int kDriftZ = 0x4e;     // req[0x4e] (req+0x138): the lateral drift, Z (OBS: FUN_1406cbc10)
 }  // namespace moveword
 
 // The move request. Typed views over the same words; PES's bit patterns are kept exact.
@@ -433,6 +436,40 @@ struct IssuedClip {
 };
 // Records one issue; a parametric style index becomes the blend group it plays.
 void RecordIssue(IssuedClip& issued, const MotionRequest& request, const ParametricGroups& groups);
+// FUN_1406ba2f0's install scalars (its .rdata reads). Each VA is named in movestep_common.cpp's loader.
+struct StyleConstants {
+  float rate0p895;   // 0.895 (0x1425ddf74): the rate gate against rateMax (the 10 and 0 arms)
+  float rate0p825;   // 0.825 (0x1425ddf6c): the dribble arm's rate gate against rateMax
+  float speed16;     // 16 km/h (0x14259be10): the ball speed a dribble may not exceed
+  float heightDiv;   // 100 (0x14253ee30): the height's divisor (FUN_1406e7380 is in cm)
+  float kmhScale;    // 1000 (0x14256ae34): FUN_14042d470's divisor
+  float sampleTicks; // 20 (0x14259be1c): the ball sample's look-ahead, in 1/60 s
+  float radToDeg;    // 57.2957... (0x14259be40): a radian in degrees
+};
+std::optional<StyleConstants> LoadStyleConstants(const PeImage& exe, std::string* error);
+class PesVfs;
+// LateralDamping's install scalars (FUN_1406cbc10's and its drift case's .rdata reads).
+struct DampingConstants {
+  float rateGate;    // 0.3 (0x142590d98): the drift case's rate floor
+  float rateSpan;    // 0.4 (0x1425ccc30): the ramp's span above the floor
+  float rateCap;     // 0.7 (0x14257a194): at or above it the ramp is 0
+  float rateBase;    // 0.8 (0x142572348): the ramp's base factor
+  float rateScale;   // 0.2 (0x142598578): the ramp's slope
+  float driftSpeed;  // 120 (0x14256ae30): the else branch's threshold, over the tick rate
+  float motionRate;  // 0.6 (0x14257a190): the rate the special motion 0xbde stands in for
+  float angleGate;   // 5.625 (0x1425ddf84): the look delta below which the drift's turn term is 0
+};
+std::optional<DampingConstants> LoadDampingConstants(const PeImage& exe, std::string* error);
+// The constant registry entry 0x2e (FUN_141e5ca20(DAT_1437f4808, 0x2e)), which is constant_player.bin's
+// freemove.o (registry 27 + table index 19). Its record is the 8-byte header and the payload, so the
+// three floats are the payload's +8, +0xc and +0x10.
+struct DampingRecord {
+  float lateralBound;  // runtime +0x10
+  float forwardBound;  // runtime +0x14
+  float scale;         // runtime +0x18
+};
+std::optional<DampingRecord> LoadDampingRecord(const PesVfs& vfs, std::string* error);
+
 
 class MoveHost {
  public:
@@ -555,6 +592,24 @@ class MoveHost {
   virtual int MatchPhase() const = 0;
   // The anime predicate vt+0x28 == 0x4a: the replay action.
   virtual bool IsReplay() const = 0;
+  // LocomotionStyle's install scalars (FUN_1406ba2f0's .rdata reads).
+  virtual const StyleConstants& StyleConstantsView() const = 0;
+  // FUN_142348f80 == 0 and FUN_140a73e20's owner is this player: the match's scripted slot is ours.
+  virtual bool ScriptedSlotIsOurs() const = 0;
+  // FUN_140a58550: the stamina tank's percentage, cur * 100 / max (the record of ActionIndex()).
+  virtual int StaminaPercent() const = 0;
+  // FUN_1406e7380: the player's height in cm (P+0x3b18 * 180).
+  virtual float PlayerHeightCm() const = 0;
+  // FUN_140a6cf70 over the match's ball list: index k is the ball k ticks ahead (0 = now). GF
+  // order: [0] x, [1] z, [2] height.
+  virtual void BallSample(int index, float out[3]) const = 0;
+  // ctx+0x2944 (FUN_140a57710): the ball's motion heading in degrees.
+  virtual float BallMotionHeadingDeg() const = 0;
+  // LateralDamping's reads: the anime state byte (vt+0x20 of +0xab8, P+0x245c), the install
+  // scalars, and the constant record of registry entry 0x2e.
+  virtual int CurrentState() const = 0;
+  virtual const DampingConstants& DampingConstantsView() const = 0;
+  virtual const DampingRecord& DampingRecordView() const = 0;
   // SetMotion / SetParametric: the anime interface's vt+0x10 (FUN_1406b8340's tail; the INIT call).
   virtual void Issue(const MotionRequest& request) = 0;
 };
@@ -675,13 +730,34 @@ bool EnterStepTurnRun(MoveHost& host, MoveReq& req);
 int IdleRow(MoveHost& host, MoveReq& req);
 // FUN_1406b6bb0(ap, req): INIT's stay decision (AS 2.3); true = stay idle.
 bool StayDecision(MoveHost& host, MoveReq& req);
-// FUN_1406b97d0(motion): a motion's start time in its clip, seconds (AS 2.3, a per-motion constant).
-float MotionStartSeconds(uint16_t motionNo);
+// FUN_1406b97d0's nine float returns: the install values its per-motion switch picks. Each field is
+// one .rdata float, named by its VA (the loader reads them).
+struct MotionStartConstants {
+  float v590d98 = 0.0f;  // 0x142590d98: motions 0x1f, 0x6e4, 0x6e6, 0x6e7
+  float v592228 = 0.0f;  // 0x142592228: motions 0x24, 0xb16, 0xbba, 0xbbb, 0xbbc, 0xc05
+  float v565600 = 0.0f;  // 0x142565600: motions 0x27, 0xbc3
+  // 0x142588200: motions 0x23, 0x26, 0x46, 0x6cb, 0x6cf, 0x6dc, 0xc4c, 0xc7c, and the arms
+  // 0xb0e, 0xb13, 0xb17, 0xb18, 0xb1b, 0xb1c, 0xb25, 0xb28, 0xb29, 0xb2c, 0xb3e.
+  float v588200 = 0.0f;
+  float v598578 = 0.0f;  // 0x142598578: motions 0x2b, 0x6d9, 0x6ec, 0x6ef, 0xb1d, 0xbb7, 0xc4a, 0xc4e
+  float v5c48a0 = 0.0f;  // 0x1425c48a0: motions 0x45, 0xb0d, 0xb14, 0xb1a, 0xb2e, 0xb30, 0xb31, 0xb36
+  float v59d5c8 = 0.0f;  // 0x14259d5c8: motion 0xb11
+  float v5a8a28 = 0.0f;  // 0x1425a8a28: motions 0xb1e, 0xb27, 0xb2b, 0xb35, 0xb3d
+  float v57a190 = 0.0f;  // 0x14257a190: motions 0xe24, 0xe29, 0xe2b
+};
+std::optional<MotionStartConstants> LoadMotionStartConstants(const PeImage& exe,
+                                                             std::string* error);
+// FUN_1406b97d0(motion): a motion's start time in its clip, seconds (AS 2.3). Motions outside the
+// switch start at zero.
+float MotionStartSeconds(const MotionStartConstants& k, uint16_t motionNo);
 // FUN_1406b9e80(interface, speed km/h, table selector): the playback rate for a speed (AS 3.2).
 // The third argument selects the table row; its meaning is INF until the port verifies it.
 float SpeedToRate(MoveHost& host, float speedKmh, int tableSelector);
-// FUN_1406ba2f0(ap, command id, requested rate, req): the locomotion style group (AS 3.3).
-int LocomotionStyle(MoveHost& host, int commandId, float rateRequested, MoveReq& req);
+// FUN_1406ba2f0(ap, anime state, requested rate, req, rateMax, rateHeld): the locomotion style
+// (AS 3.3). The anime state is vt+0x28 of the +0xab8 interface (0x4a = the replay action); rateMax
+// is vt+0x18 of the +0xac0 interface (P+0x377c, RateCeiling); rateHeld is the caller's flag.
+int LocomotionStyle(MoveHost& host, int animeState, float rateRequested, MoveReq& req, float rateMax,
+                    bool rateHeld);
 // FUN_1406cbf70(ap, req): the acceleration ramp of the rate, per tick in RUN_LOOP and STEP_TO_RUN (AS 3.6).
 void AccelerationRamp(MoveHost& host, MoveReq& req);
 // FUN_1406cbc10(ap, req): the lateral drift damping, run_2_4_000 and rate >= 0.3 (AS 1, step 5).
