@@ -31,10 +31,13 @@ std::optional<FpkArchive> FpkArchive::Parse(std::span<const uint8_t> blob, std::
     const uint8_t* e = blob.data() + FPK_ENTRIES_OFFSET + size_t(i) * FPK_ENTRY_BYTES;
     FpkEntry entry{{}, Le32(e), Le32(e + 8)};
     const uint32_t strOff = Le32(e + FPK_ENTRY_STRING), strLen = Le32(e + FPK_ENTRY_STRING + 8);
-    if (size_t(strOff) + strLen > blob.size() || size_t(entry.offset) + entry.size > blob.size()) {
+    if (size_t(strOff) + strLen > blob.size() || size_t(entry.offset) > blob.size()) {
       *error = "fpk entry out of bounds";
       return std::nullopt;
     }
+    // A member running past EOF keeps the bytes the file has. PES's handling is INF:
+    // effect_st069_nf.fpk's XML ends at </effect> with NUL bytes before EOF.
+    if (size_t(entry.offset) + entry.size > blob.size()) entry.size = uint32_t(blob.size() - entry.offset);
     std::string path(reinterpret_cast<const char*>(blob.data() + strOff), strLen);
     for (char& c : path) if (c == '\\') c = '/';
     if (auto colon = path.find(':'); colon != std::string::npos) path.erase(0, colon + 1);  // drive prefix
