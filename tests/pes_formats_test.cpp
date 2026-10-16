@@ -384,6 +384,17 @@ TEST(TextureResolverInstall, StoredDirectoryMapsIntoVfs) {
   EXPECT_EQ(r.Resolve({"/Assets/pes16/nowhere/", "no_such_texture_anywhere.dds"}), "");
 }
 
+// PES binds only the directory an fmdl names: a texture whose stored directory is
+// absent from the install is unbound, even when another pack ships a file of the same
+// stem. The glove and boots packs hit this: their normal maps name a folder that is
+// missing, and a same-stem scan bound another kit's map (dark glove, wrong body).
+TEST(TextureResolverInstall, MissingDirectoryDoesNotBorrowAnotherPacksTexture) {
+  REQUIRE_INSTALL();
+  pes::TextureResolver r(*vfs, 0);  // no face folder: only the scan could answer
+  ASSERT_FALSE(vfs->List("Asset/model/character/face/real/" + std::to_string(VANILLA_FACE) + "/").empty());
+  EXPECT_EQ(r.Resolve({"/Assets/pes16/model/character/nowhere_dir/", "face_nrm.dds"}), "");
+}
+
 // A texture stored in a directory that has no #windx11 twin still resolves from
 // its own pack folder: common/sourceimages holds .tga paths in vanilla. The kit
 // atlas a0150p1.ftex lives in uniform/texture/#windx11/ and its stem appears
