@@ -259,6 +259,31 @@ TEST(OffBallMask, ADefenderNeedsTheReachAForwardDoesNot) {
   EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, true, 50.0f, true));
 }
 
+TEST(OffBallMask, ALeftBackReachesOnlyWithTheDefensiveFullBackStyleOnPesLoop) {
+  // styleLb is FUN_140a64030(id, 0x11): the Defensive Full-back style on his
+  // role row. Off pes_loop there is no style table and GF's stand-in (any
+  // registered left back is styleLb) holds.
+  const OffBallConstants k = Synthetic();
+  RunWorld w = Running();
+  w.p[kRunner].state = kBasePosition;
+  w.p[kRunner].t = 1e9f;
+  w.lineX[1] = 45.0f;
+  w.p[kRunner].pos = {30.0f, 0.0f};  // 30 m ahead: past the 15 m reach
+  w.p[kRunner].position = 2;         // LB
+  w.p[kRunner].roleClass = 2;        // SB
+  EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));  // stand-in, off pes_loop
+
+  constexpr int kRoleSB = 2;
+  pes::style::Compat compat{};
+  compat.row[kRoleSB] = pes::style::StyleWord(PlayingStyles::Player::DefensiveFullBack);
+  w.styleCompat = compat;
+  EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));  // no style: reach
+  w.p[kRunner].styleWord = pes::style::StyleWord(PlayingStyles::Player::DefensiveFullBack);
+  EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));  // Defensive FB: no reach
+  w.p[kRunner].styleWord = pes::style::StyleWord(PlayingStyles::Player::OffensiveFullBack);
+  EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));  // another FB style
+}
+
 TEST(OffBallMask, NoChanceRunsFromOwnHalfUntilFourSecondsOfPossession) {
   // FUN_1405938a0: in its own half a team runs only with a free forward-facing
   // focus player or after 4 s of possession. This is the mask's *team head* -

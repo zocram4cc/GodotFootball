@@ -2282,6 +2282,8 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
   const unsigned long now = match->GetActualTime_ms();
   const Vector3 ball = match->GetBall()->Predict(0);
   w.ball = Flat(ball);
+  // The style gate is a pes_loop input: off that path the GF stand-in holds (StyleLb).
+  if (match->PesLoop()) w.styleCompat = match->GetPesOffBallConstants().styleCompat;
   w.openPlay = match->IsInPlay() && !match->IsInSetPiece();
   auto pesDeg = [](const Vector3& v) {
     return (v.coords[0] == 0.0f && v.coords[1] == 0.0f)
@@ -2318,6 +2320,7 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       f.vel = Flat(pl->GetMovement());
       f.facing = pesDeg(pl->GetDirectionVec());
       f.roleClass = ob::RoleClass(static_cast<int>(pl->GetDynamicFormationEntry().role));
+      f.styleWord = pes::style::StyleWord(pl->GetPlayerData()->GetPlayingStyle());
       f.position = ob::Position(static_cast<int>(pl->GetFormationEntry().role));
       // ponytail: FUN_140a580a0's AI class (player +0xc0, a copy of +0x40) is
       // PES's AI behaviour class, which GF does not carry. The role class is

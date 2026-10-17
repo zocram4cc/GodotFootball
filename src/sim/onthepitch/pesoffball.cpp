@@ -229,6 +229,9 @@ std::optional<OffBallConstants> LoadOffBallConstants(const PeImage& exe, const P
   constexpr uint32_t kChanceScoreAt = 0x14;
   if (space->size() < kChanceScoreAt + 4) return *error = "spaceRun.o truncated", std::nullopt;
   k.chanceScoreLimit = (*space)[kChanceScoreAt];
+  const auto compat = pes::style::LoadCompat(exe, error);
+  if (!compat) return std::nullopt;
+  k.styleCompat = *compat;
   return k;
 }
 
@@ -567,6 +570,16 @@ float LaneIntercept(Vec2f A, Vec2f B, Vec2f C, Vec2f D, float speed, bool flag) 
   if (std::fabs(lD) <= 0.5f) return std::fabs(lD);
   const float thr = 100.0f / 17.7f * (aD / speed) + 0.6f;
   return std::fabs(lD) > thr ? -1.0f : std::fabs(lD);
+}
+
+// FUN_1408CB0B0 on the Defensive Full-back bit (FUN_140a64030(id, 0x11)): his
+// style bit and his role's compat row. Off the pes_loop path there is no style
+// table, so GF's stand-in (a registered left back) holds.
+// ponytail: the stand-in goes when pes_loop is the only path.
+bool StyleLb(const RunWorld& w, const PlayerFacts& me) {
+  if (!w.styleCompat) return me.position == 2;
+  return pes::style::Gate(*w.styleCompat, me.roleClass, me.styleWord,
+                          pes::style::EngineBit(PlayingStyles::Player::DefensiveFullBack));
 }
 
 struct Ctx {
@@ -1602,7 +1615,7 @@ bool RankAngleOk(const RunWorld& w, int id, int attackLevel) {
   // ChanceMaskBit has already decided - so it is entered whenever the attacker
   // count clears it.
   const int ahead = AttackersAhead(w);
-  const bool styleLb = x.me.position == 2;  // a64030(id, 0x11): no style bits in GF
+  const bool styleLb = StyleLb(w, x.me);
   if (!(ahead > 3 || (x.me.position < 4 && !styleLb))) return true;
   // The rank byte: the attacking team's line-list position of this runner.
   if (LineRank(w, id) <= 1) return true;
@@ -1728,7 +1741,7 @@ MaskReject ChanceMaskReject(const OffBallConstants& k, const RunWorld& w, int id
   const int pos = me.position;
   // b8a3 = attack level < 1 skips positions 0..4 (counter-trigger 128).
   if (attackLevel < 1 && pos <= 4) return kMaskAttackLevel;
-  bool styleLb = pos == 2;  // a64030(id, 0x11): no style bits in GF
+  const bool styleLb = StyleLb(w, me);
   const int ahead = AttackersAhead(w);
   const bool reachPath = ahead > 3 || (pos < 4 && !styleLb);
   const float dz = std::fabs(x.P.z - x.B.z);
