@@ -159,6 +159,7 @@ inline constexpr int kRate = 0x4a;             // req[0x4a]: parametric rate (OB
 inline constexpr int kPlaybackDefault = 0x4b;  // req[0x4b]: P+0x3750, default 1.0 (OBS copy-in)
 inline constexpr int kStartRate = 0x4f;        // req[0x4f]: start phase, the normalised foot phase (AS 1)
 inline constexpr int kClassWord = 0x1f;        // req[0x1f] (byte 0x7c): the 0..3 class word the ramp, dwell and step tables share (CONFIRMED: FUN_1406c2f80 reads *(int*)(req+0x7c), INIT writes 1; pes-re-a3helpers.md addendum item 4)
+inline constexpr int kFootFlag = 0x98;         // req[0x98] byte (byte req+0x26): the foot flag (CONFIRMED: FUN_1406ce820 writes *(req+0x26) at lines 561, 858; FUN_1406bb570 writes *(req+0x26) at the shared-band block)
 inline constexpr int kPrevClassWord = 0x24;    // req[0x24] (byte 0x90): the class before the change
 inline constexpr int kRootFacing = 0x3a;       // req[0x3a] byte: a root-facing write is due (OBS: FUN_1406c14c0 rate tail)
 inline constexpr int kRootFacingAngle = 0x3b;  // req[0x3b]: the wrapped root-facing angle, degrees (OBS)

@@ -1170,6 +1170,9 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
   const int kind = static_cast<int>(req.U(moveword::kKind));
   int row = GotoRowFor(kind, cls, t);
   int column = t.bucketColumn[lookBucket];
+  // The foot flag (byte req+0x26, moveword::kFootFlag): the picked cell's mirror bit
+  // (FUN_1406ce820 line 561: *(req+0x26) = FUN_1406abd60's answer).
+  req.SetByte(moveword::kFootFlag, host.Cell(row, column, false).mirror ? 1 : 0);
 
   // Block 4: the three row overrides.
   if (req.Flag(moveword::kTurnLockDir) && static_cast<uint32_t>(column - 8) < 2u) {
@@ -1223,6 +1226,9 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
     // own; the port leaves the row as the table picked it.
   }
   const MoveCell cell = host.Cell(row, column, false);
+  // The foot flag's final write (FUN_1406ce820 line 858: *(req+0x26) = the pick's own byte):
+  // the settled row's mirror bit, overwriting the block-3 pick.
+  req.SetByte(moveword::kFootFlag, cell.mirror ? 1 : 0);
   const float duration = k.blend1667;  // 0.1667 s, the entry's own blend.
   // The foot row 0x575 with a speed under 17.2 km/h takes the keeper's own row instead.
   int motionRow = static_cast<int>(cell.motionNo);

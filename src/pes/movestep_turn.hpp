@@ -49,7 +49,6 @@ inline constexpr int kSlipRowFrames = 0xf8;  // req[0xf8]: the re-selected row's
 inline constexpr int kSlipMirrorOut = 0xfc;  // req[0xfc] byte: the row's mirror bit
 inline constexpr int kSlipRate = 0x128;       // req[0x128]: the parametric rate
 inline constexpr int kSlipSpeed = 0x74;       // req[0x74]: the speed word
-inline constexpr int kFootFlag = 0x98;        // req[0x98] byte: the foot band 1..2 flag
 }  // namespace moveword
 
 namespace movestep {
