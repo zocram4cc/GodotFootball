@@ -971,6 +971,32 @@ TEST(PesCarrierList, TheWideSideTailAddsSevenAndSixOnlyWhenThePlanAsksForIt) {
   EXPECT_EQ(pes::BuildUnitList(in), (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 9}));
   in.planMode = 3;
   EXPECT_EQ(pes::BuildUnitList(in), (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 9, 7, 6}));
+  in.planMode = 0;
+  in.wideSideLatch = true;
+  EXPECT_EQ(pes::BuildUnitList(in), (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 9, 7, 6}));
+}
+
+TEST(PesCarrierList, TheStopLatchCutsPlansOneToThreeAfterGoalFront) {
+  // plan+0xD9: plans 1-3 stop after kind 2.
+  pes::UnitListInput in = ListInput(pes::kPlanBreakthrough);
+  in.stopAfterFirst = true;
+  EXPECT_EQ(pes::BuildUnitList(in), (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 2}));
+}
+
+TEST(PesCarrierList, PassThroughLosesFourAndTenOnTheOneTwoTarget) {
+  // plan+0xD9 with FUN_14211CB00(plan, 10) valid: plan 4 lists only 3, 2.
+  pes::UnitListInput in = ListInput(pes::kPlanPassThrough);
+  in.stopAfterFirst = true;
+  in.oneTwoTarget = true;
+  EXPECT_EQ(pes::BuildUnitList(in), (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 3, 2}));
+}
+
+TEST(PesCarrierList, TheWideSectorListsTheCrossForPlansOneToThree) {
+  // imageA+0xB44 == 3: plan 1 lists 7 between 3 and 4.
+  pes::UnitListInput in = ListInput(pes::kPlanBreakthrough);
+  in.wideSector = true;
+  EXPECT_EQ(pes::BuildUnitList(in),
+            (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 2, 3, 7, 4, 10}));
 }
 
 // --- the Dribble sub-kind chooser (report 2.1, 0x14212f1c0) and its dispatch (0x14212fe70) ---

@@ -648,8 +648,8 @@ float PlanStartProbability(int planId, const CarrierConstants& k, float stat, bo
                                k.middleShotCap),
                       k.middleShotFloor);
     case kPlanCross:
-      // Base 50 with the Early Cross COM or Pinpoint Cross. ponytail: the Crosser style (bit 7,
-      // report 4.4) is not read; the caller has no style input here.
+      // Base 50 with the Crosser style, the Early Cross COM or Pinpoint
+      // Crossing (0x14211AB10; the style arrives folded into `skill`).
       return std::max(std::min(((skill || com) ? k.crossBase : 0.0f) + statTerm, k.crossCap),
                       k.crossFloor);
     default:
@@ -1013,9 +1013,9 @@ std::vector<int> BuildUnitList(const UnitListInput& in) {
     case kPlanCurveShot:
       if (!(in.central && in.close)) {
         l.push_back(2);
-        if (!in.planFlag9) {
+        if (!in.stopAfterFirst) {
           if ((!in.central || !in.mid) && !in.close) l.push_back(3);
-          if (in.sideSector3) l.push_back(7);
+          if (in.wideSector) l.push_back(7);
           l.push_back(4);
           l.push_back(10);
         }
@@ -1024,13 +1024,13 @@ std::vector<int> BuildUnitList(const UnitListInput& in) {
     case kPlanPassThrough:
       l.push_back(3);
       l.push_back(2);
-      if (!(in.planFlag10 && in.planFlag9)) {
+      if (!(in.oneTwoTarget && in.stopAfterFirst)) {
         l.push_back(4);
         l.push_back(10);
       }
       break;
     case kPlanCross:
-      if (in.pastCross) l.push_back(3);
+      if (in.pastCrossLine) l.push_back(3);
       l.push_back(7);
       l.push_back(8);
       break;
@@ -1056,7 +1056,7 @@ std::vector<int> BuildUnitList(const UnitListInput& in) {
   }
   // The tail (L82-95): the wide-side tail (7 and 6) and the team's human-side 9.
   if (in.teamModeThree && in.humanCarrier && !has(9)) l.push_back(9);
-  if (in.planFlag8 || in.planMode == 3) {
+  if (in.wideSideLatch || in.planMode == 3) {
     if (!has(7)) l.push_back(7);
     if (!has(6)) l.push_back(6);
   }

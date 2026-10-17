@@ -615,15 +615,19 @@ struct UnitListInput {
   bool central = false;     // IsCentral(zone), 0x140699710
   bool mid = false;         // IsMid(zone), 0x1406997a0
   bool close = false;       // IsClose(zone), 0x140699820
-  bool planFlag8 = false;   // plan+0xD8: the wide-side tail
-  bool planFlag9 = false;   // plan+0xD9: plans 1-4 stop after their first kinds
-  bool planFlag10 = false;  // FUN_14211cb00(plan, 10)
-  int planMode = 0;         // plan+0xC4: 3 is the wide-side tail
-  bool sideSector3 = false; // imageA+0xB44 == 3: Breakthrough, MiddleShot and CurveShot list 7
-  bool pastCross = false;   // plan 5: the cross-line test (0x14211cb00 path), not decoded
+  // The plan record's own fields (0x1421112C0's reads): +0xD8 latches the
+  // wide-side tail, +0xD9 stops plans 1-4 after their first kinds, +0xC4 mode
+  // 3 latches it too, imageA+0xB44 == 3 lists the cross for plans 1-3, and
+  // plan 5's cross-line test lists the cut-back.
+  bool wideSideLatch = false;   // plan+0xD8
+  bool stopAfterFirst = false;  // plan+0xD9
+  bool oneTwoTarget = false;    // FUN_14211CB00(plan, 10) valid: PassThrough lists 4, 10
+  int planMode = 0;             // plan+0xC4: 3 is the wide-side tail
+  bool wideSector = false;      // imageA+0xB44 == 3
+  bool pastCrossLine = false;   // plan 5: the cross-line test
   bool teamModeThree = false;   // team+4 == 3
   bool humanCarrier = false;    // team mode record +0x6C
-  bool intentionMode4 = false;  // FUN_141052e30(BP+0x32B0) == 4: Basic omits its pass 4
+  bool intentionMode4 = false;  // FUN_141052E30(BP+0x32B0) == 4: Basic omits its pass 4
   bool flagE7 = false;          // BP+0xE7: Basic lists nothing from the switch
 };
 std::vector<int> BuildUnitList(const UnitListInput& in);
