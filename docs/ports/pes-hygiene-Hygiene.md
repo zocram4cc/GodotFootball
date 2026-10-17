@@ -15,7 +15,7 @@ Branch `Hygiene` (from origin/main `c43fb22`), head `0f69bc4`, confirmed with `g
 - No test covered them, so none was deleted.
 - The `k*` constants (`kPoacherDemand`, `kFoxDemand`, `kFinisherDemandCap`, `kNo10Vision`, `kPlaymakerVision`, `kCreatorVisionCap`, `kFinisherCardRunnerBonus`, `kCreatorCardVisionBonus`) had no other user; removed with them.
 - `ninja -t deps`: 0 objects with `#deps 0`.
-- Stale claims in docs: `docs/re/pes-port-StylePort.md` line 56 says the six have live callers. Its own correction at line 68 is right. `docs/re/pes-re-playing-styles.md` §8 (lines 223-229) still lists them as knobs to delete. Left for archival.
+- Stale claims in docs: `docs/ports/pes-port-StylePort.md` line 56 says the six have live callers. Its own correction at line 68 is right. `docs/re/pes-re-playing-styles.md` §8 (lines 223-229) still lists them as knobs to delete. Left for archival.
 
 ## 2. `godot.sh --import` abort (root-caused, two bugs)
 
