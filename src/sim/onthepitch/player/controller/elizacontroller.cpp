@@ -2138,7 +2138,11 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
         {pes::kPlanCross, carrier.crossSeedK,
          pes::PlanStartProbability(
              pes::kPlanCross, carrier, finishing,
-             PlayerSkills::Has(skills, PlayerSkills::Skill::PinpointCrossing),
+             // PES's Cross start (0x14211AB10): the Crosser style, the Early
+             // Cross COM or Pinpoint Crossing.
+             CastPlayer()->GetPlayerData()->GetPlayingStyle() ==
+                     PlayingStyles::Player::CrossSpecialist ||
+                 PlayerSkills::Has(skills, PlayerSkills::Skill::PinpointCrossing),
              PlayingStyles::Has(comStyles, PlayingStyles::Com::EarlyCross), false),
          // Cross needs the carrier inside the cross zone: the close band.
          pes::IsClose(zone)},
@@ -2468,22 +2472,74 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
 
   pes::PassAnswer pass;
   if (rethink) pass = passAnswer();
+  // The Long unit (kind 9, 0x14212AD40) answers on the rethink too: owned or
+  // danger with the ball low, target the most advanced mate.
+  pes::PassAnswer longPass;
+  if (rethink && (carrierImage.id == pes::kPlanLong || carrierImage.id == pes::kPlanBasic)) {
+    pes::LongUnitInput longIn;
+    longIn.owned = CastPlayer()->GetPossessionDuration_ms() > 0;
+    // ponytail: the danger flag (imageA+0x31C1, 0x140699960) is not ported;
+    // the carrier's own-third pressure stands in for it.
+    longIn.danger = attackSign * carrierPos.coords[0] < -pitchHalfW / 3.0f &&
+                    carrierPressureClass == 0;
+    longIn.ballHeight_m = ballHeight;
+    longIn.plan = carrierImage.id;
+    // ponytail: the plan target (+0xCC) and its validity (0x1421240B0) are
+    // not carried by GF; the picker takes the most advanced mate.
+    // ponytail: the receiver openness class (table+0xB6C) is computed for
+    // PassForward candidates above, not for the Long unit's own scan.
+    std::vector<Player*> longMates;
+    team->GetActivePlayers(longMates);
+    for (Player* mate : longMates) {
+      if (mate == CastPlayer()) continue;
+      if (mate->GetFormationEntry().role == e_PlayerRole_GK) continue;
+      pes::LongMate m;
+      m.index = mate->GetID();
+      m.advance_m = attackSign * mate->GetPosition().coords[0];
+      m.height_cm = mate->GetStat("physical_height") * 100.0f;
+      longIn.mates.push_back(m);
+    }
+    longPass = pes::PassLongUnit(longIn, carrier);
+  }
+  // The Cross unit (kind 7, 0x142129590) answers on the rethink: the carry
+  // bearing held, the lane open, the tallest mate takes the centering ball.
+  pes::PassAnswer crossPass;
+  if (rethink &&
+      (carrierImage.id == pes::kPlanCross || carrierImage.id == pes::kPlanCurveShot ||
+       carrierImage.id == pes::kPlanBasic)) {
+    pes::CrossInput crossIn;
+    crossIn.carryVsFacing_deg = 0.0f;  // ponytail: the carry bearing
+    // (ball->carrier-predicted, 0x140474C40) is not ported; facing stands in.
+    crossIn.laneOpen = carrierPressureClass >= 2;  // ponytail: 0x14063CD90 is not ported
+    crossIn.owned = CastPlayer()->GetPossessionDuration_ms() > 0;
+    std::vector<Player*> crossMates;
+    team->GetActivePlayers(crossMates);
+    for (Player* mate : crossMates) {
+      if (mate == CastPlayer()) continue;
+      if (mate->GetFormationEntry().role == e_PlayerRole_GK) continue;
+      pes::LongMate m;
+      m.index = mate->GetID();
+      m.height_cm = mate->GetStat("physical_height") * 100.0f;
+      crossIn.mates.push_back(m);
+    }
+    crossPass = pes::CrossUnit(crossIn, carrier);
+  }
   pes::UnitListInput list;
   list.plan = carrierImage.id;
   list.central = pes::IsCentral(zone);
   list.mid = pes::IsMid(zone);
   list.close = pes::IsClose(zone);
   list.intentionMode4 = intention == 4;
-  // ponytail: the plan flags (+0xD8, +0xD9, +0x10), the plan mode (+0xC4), imageA+0xB44 and the
-  // cross-line test are not carried by GF; they stay at their defaults.
-  std::vector<pes::UnitSlot> table;
-  for (const int kind : pes::BuildUnitList(list)) {
-    pes::UnitSlot slot;
-    slot.kind = kind;
-    if (kind == 0 && shotAnswer) slot.answer = {pes::kAnswerShoot, 1};
-    if (kind == 4 && pass.index >= 0) slot.answer = {pes::kAnswerPass, pass.kind};
-    table.push_back(slot);
-  }
+  // ponytail: the plan record (+0xD8, +0xD9), its mode (+0xC4), the slot-10
+  // target (FUN_14211CB00), imageA+0xB44 and the cross-line test are not
+  // carried by GF; the wide-side tail latches on a wide carrier instead.
+  list.wideSideLatch = std::fabs(carrierPos.coords[1]) > pitchHalfH / 3.0f;
+  list.wideSector = zone.sector == pes::kSectorWide;
+  list.pastCrossLine = carrierImage.id == pes::kPlanCross &&
+                       attackSign * carrierPos.coords[0] > pesFieldHalfLength - 10.0f;
+  const std::vector<pes::UnitSlot> table =
+      pes::FillUnitTable(pes::BuildUnitList(list), shotAnswer, pass, longPass, crossPass,
+                         carrierImage.id == pes::kPlanCurveShot);
   pes::WalkContext walk;
   // The restart mode: 3 in a set piece, 1 in play, 2 stopped (report 5, MI+0x116C).
   walk.restartMode = match->IsInSetPiece() ? 3 : (match->IsInPlay() ? 1 : 2);
@@ -2498,9 +2554,20 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   walk.skill14 = PlayerSkills::Has(skills, PlayerSkills::Skill::PinpointCrossing);
   walk.closeBand = pes::IsClose(zone);
   // ponytail: the tier gate (rule 3) is off: live tier 5 is zero delay and GF has no tier.
+  // ponytail: the forced-clear opponent count (rule 7, 0x140A4C820) reads
+  // the pressure table GF does not carry; clears always replace.
+  walk.owned = CastPlayer()->GetPossessionDuration_ms() > 0;
+  walk.safetyToKeeper = longPass.index >= 0 &&
+                        match->GetPlayer(longPass.index) != nullptr &&
+                        match->GetPlayer(longPass.index)->GetFormationEntry().role == e_PlayerRole_GK;
+  walk.keeperWithinNinety = carrierPressureClass >= 2;  // ponytail: 0x140439FE0 is not ported
+  // ponytail: the instant-return event scan (rule 8, 0x140A3E940) reads the
+  // event table GF does not carry; Forward answers always stand.
   const pes::UnitSlot won = pes::WalkCarrierUnits(table, walk);
   if (won.kind == 0) addShot();
   else if (won.kind == 4) addPass(pass);
+  else if (won.kind == 9) addPass(longPass);
+  else if (won.kind == 7 || won.kind == 3) addPass(crossPass);
 }
 
 void ElizaController::_AddPass(std::vector<PlayerCommand>& commandQueue, Player* target,

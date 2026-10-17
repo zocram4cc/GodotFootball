@@ -648,8 +648,8 @@ float PlanStartProbability(int planId, const CarrierConstants& k, float stat, bo
                                k.middleShotCap),
                       k.middleShotFloor);
     case kPlanCross:
-      // Base 50 with the Early Cross COM or Pinpoint Cross. ponytail: the Crosser style (bit 7,
-      // report 4.4) is not read; the caller has no style input here.
+      // Base 50 with the Crosser style, the Early Cross COM or Pinpoint
+      // Crossing (0x14211AB10; the style arrives folded into `skill`).
       return std::max(std::min(((skill || com) ? k.crossBase : 0.0f) + statTerm, k.crossCap),
                       k.crossFloor);
     default:
@@ -865,11 +865,28 @@ bool SetPieceAccept(const UnitSlot& s, const WalkContext& c) {
   return (t == kAnswerPass || t == kAnswerRequest) && c.passAllowedInSetPiece;
 }
 
-// Rule 10, the final ownership check (0x14210f110 L641-645): the ball's owner unknown, a teammate,
+// Rule 10, the final ownership check (0x14210F110 L641-645): the ball's owner unknown, a teammate,
 // or the answer is a dribble.
 bool OwnerAccept(const UnitSlot& s, const WalkContext& c) {
   if (c.ballOwnerTeam < 0 || c.ballOwnerTeam == c.ownTeam) return true;
   return s.answer.type == kAnswerDribble;
+}
+
+// Rule 7's Safety proviso: a back-pass to the keeper stands when owned or the
+// keeper is within 90 degrees of the body direction.
+bool SafetyAccept(const WalkContext& c) {
+  return !c.safetyToKeeper || c.owned || c.keeperWithinNinety;
+}
+
+// Rule 8's pass-kind vetoes (carunits5.c:393,421): Safety dies in the close
+// band, Forward dies on an instant return to the last passer, and a dribble
+// answer survives only from the Dribble kind itself.
+bool PassVeto(const UnitSlot& s, const WalkContext& c) {
+  if (s.answer.type != kAnswerPass && s.answer.type != kAnswerDribble) return false;
+  if (s.kind == 6 && s.answer.type == kAnswerPass && c.closeBand) return true;
+  if (s.kind == 4 && s.answer.type == kAnswerPass && c.forwardIsInstantReturn) return true;
+  if (s.answer.type == kAnswerDribble && s.kind != 16) return true;
+  return false;
 }
 
 }  // namespace
@@ -885,6 +902,15 @@ UnitSlot WalkCarrierUnits(const std::vector<UnitSlot>& table, const WalkContext&
         const UnitSlot* back = FindSlot(table, 3);
         if (back != nullptr && back->answer.type != kAnswerNone) return *back;
       }
+      if (t == kAnswerClear && !c.forcedClear) {  // rule 7: the first listed
+        for (const int kind : {3, 4, 9, 6}) {     // 3, 4, 9, 6 that answers
+          const UnitSlot* pass = FindSlot(table, kind);  // replaces the clear
+          if (pass == nullptr || pass->answer.type == kAnswerNone) continue;
+          if (kind == 6 && !SafetyAccept(c)) continue;
+          return *pass;
+        }
+      }
+      if (PassVeto(s, c)) continue;  // rule 8
       // Rule 9: a cross override for a pass or dribble from a kind other than 7, 8 and 23.
       if ((t == kAnswerPass || t == kAnswerDribble) && c.skill14 && s.kind != 7 && s.kind != 8 &&
           s.kind != 23) {
@@ -898,6 +924,86 @@ UnitSlot WalkCarrierUnits(const std::vector<UnitSlot>& table, const WalkContext&
   return UnitSlot{};
 }
 
+PassAnswer PassLongUnit(const LongUnitInput& in, const CarrierConstants& k) {
+  (void)k;
+  // The head gate: owned, or the danger flag with the ball below 1.5 m.
+  if (!in.owned && !(in.danger && in.ballHeight_m < 1.5f)) return PassAnswer{};
+  int target = -1;
+  if (in.planTarget >= 0 && (in.plan == kPlanLong || in.plan == kPlanSideChange) &&
+      in.planTargetValid) {
+    target = in.planTarget;  // 0x1421240B0 keeps the plan target
+  } else {
+    // The picker 0x142128A20: the most advanced valid mate; within 10 m of
+    // the best, taller by more than 5 cm takes it.
+    float bestAdvance = -1.0e30f;
+    float bestHeight = 0.0f;
+    for (const LongMate& m : in.mates) {
+      if (m.index < 0) continue;
+      if (target < 0) {
+        target = m.index;
+        bestAdvance = m.advance_m;
+        bestHeight = m.height_cm;
+        continue;
+      }
+      // Raw (0x142128A20): lead = s*(new-best); past 10 m ahead the new mate
+      // takes it; inside (-10, 10) the taller one does when over 5 cm up.
+      const float lead = m.advance_m - bestAdvance;
+      if (lead > 10.0f || ((lead > -10.0f && lead < 10.0f) && m.height_cm - bestHeight > 5.0f)) {
+        target = m.index;
+        bestAdvance = m.advance_m;
+        bestHeight = m.height_cm;
+      }
+    }
+  }
+  if (target < 0) return PassAnswer{};
+  float openness = 0.0f;
+  for (const LongMate& m : in.mates) {
+    if (m.index == target) openness = m.opennessClass;
+  }
+  // The tail: short at class 4 (3 with 0x14063A3A0), else long with f14.
+  PassAnswer answer;
+  answer.index = target;
+  answer.kind = openness >= (in.favourShort ? 3.0f : 4.0f) ? kPassShort : kPassLong;
+  return answer;
+}
+
+PassAnswer CrossUnit(const CrossInput& in, const CarrierConstants& k) {
+  (void)k;
+  // The carry gate: within 130 degrees of the facing.
+  if (std::fabs(WrapDeg(in.carryVsFacing_deg)) > 130.0f) return PassAnswer{};
+  if (!in.laneOpen) return PassAnswer{};
+  // Unowned: the predicted receiver's lead must be inside 16 m.
+  if (!in.owned && in.receiverLead_m >= 16.0f) return PassAnswer{};
+  // The picker 0x142125AB0: among valid mates the tallest, last max wins.
+  int target = -1;
+  float bestHeight = -1.0e30f;
+  for (const LongMate& m : in.mates) {
+    if (m.index < 0) continue;
+    if (target < 0 || m.height_cm >= bestHeight) {
+      target = m.index;
+      bestHeight = m.height_cm;
+    }
+  }
+  if (target < 0) return PassAnswer{};
+  PassAnswer answer;
+  answer.index = target;
+  answer.kind = kPassCentering;
+  return answer;
+}
+
+bool UnitArmed(int kind, bool capFeint, bool capBackSpace, bool capSafety, float ballDistSq_m2,
+               const CarrierConstants& k) {
+  (void)k;
+  // The team caps first: 17 needs 0x1E, 3 needs 0x1C, 6 needs 0x1D.
+  if (kind == 17 && !capFeint) return false;
+  if (kind == 3 && !capBackSpace) return false;
+  if (kind == 6 && !capSafety) return false;
+  // The 5 m ball-distance gate for shoot/clear/pass kinds (dist^2 <= 25).
+  // ponytail: the touch-window frames, the turn veto and the restart-taker
+  // veto read state GF does not carry; the distance gate is the portable part.
+  if ((kind == 0 || kind == 1 || (kind >= 2 && kind <= 13)) && ballDistSq_m2 > 25.0f) return false;
+  return true;
+}
 std::vector<int> BuildUnitList(const UnitListInput& in) {
   std::vector<int> l = {23, 22, 0, 1, 17, 14, 11, 12};
   const auto has = [&](int kind) { return std::find(l.begin(), l.end(), kind) != l.end(); };
@@ -907,9 +1013,9 @@ std::vector<int> BuildUnitList(const UnitListInput& in) {
     case kPlanCurveShot:
       if (!(in.central && in.close)) {
         l.push_back(2);
-        if (!in.planFlag9) {
+        if (!in.stopAfterFirst) {
           if ((!in.central || !in.mid) && !in.close) l.push_back(3);
-          if (in.sideSector3) l.push_back(7);
+          if (in.wideSector) l.push_back(7);
           l.push_back(4);
           l.push_back(10);
         }
@@ -918,13 +1024,13 @@ std::vector<int> BuildUnitList(const UnitListInput& in) {
     case kPlanPassThrough:
       l.push_back(3);
       l.push_back(2);
-      if (!(in.planFlag10 && in.planFlag9)) {
+      if (!(in.oneTwoTarget && in.stopAfterFirst)) {
         l.push_back(4);
         l.push_back(10);
       }
       break;
     case kPlanCross:
-      if (in.pastCross) l.push_back(3);
+      if (in.pastCrossLine) l.push_back(3);
       l.push_back(7);
       l.push_back(8);
       break;
@@ -950,11 +1056,29 @@ std::vector<int> BuildUnitList(const UnitListInput& in) {
   }
   // The tail (L82-95): the wide-side tail (7 and 6) and the team's human-side 9.
   if (in.teamModeThree && in.humanCarrier && !has(9)) l.push_back(9);
-  if (in.planFlag8 || in.planMode == 3) {
+  if (in.wideSideLatch || in.planMode == 3) {
     if (!has(7)) l.push_back(7);
     if (!has(6)) l.push_back(6);
   }
   return l;
+}
+
+std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnswer,
+                                    const PassAnswer& fwd, const PassAnswer& lng,
+                                    const PassAnswer& cross, bool curveShotPlan) {
+  std::vector<UnitSlot> table;
+  for (const int kind : kinds) {
+    UnitSlot slot;
+    slot.kind = kind;
+    if (kind == 0 && shotAnswer) slot.answer = {kAnswerShoot, 1};
+    if (kind == 4 && fwd.index >= 0) slot.answer = {kAnswerPass, fwd.kind};
+    if (kind == 9 && lng.index >= 0) slot.answer = {kAnswerPass, lng.kind};
+    if (kind == 7 && cross.index >= 0) slot.answer = {kAnswerPass, cross.kind};
+    if (kind == 3 && cross.index >= 0 && curveShotPlan)
+      slot.answer = {kAnswerPass, cross.kind};
+    table.push_back(slot);
+  }
+  return table;
 }
 
 int DribbleChooser(const DribbleChooserInput& in, const CarrierConstants& k) {

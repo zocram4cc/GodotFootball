@@ -5,6 +5,7 @@
 // against the user's own PES2021.exe through relations, not pinned numbers.
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <vector>
@@ -971,6 +972,76 @@ TEST(PesCarrierList, TheWideSideTailAddsSevenAndSixOnlyWhenThePlanAsksForIt) {
   EXPECT_EQ(pes::BuildUnitList(in), (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 9}));
   in.planMode = 3;
   EXPECT_EQ(pes::BuildUnitList(in), (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 9, 7, 6}));
+  in.planMode = 0;
+  in.wideSideLatch = true;
+  EXPECT_EQ(pes::BuildUnitList(in), (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 9, 7, 6}));
+}
+
+TEST(PesCarrierList, TheStopLatchCutsPlansOneToThreeAfterGoalFront) {
+  // plan+0xD9: plans 1-3 stop after kind 2.
+  pes::UnitListInput in = ListInput(pes::kPlanBreakthrough);
+  in.stopAfterFirst = true;
+  EXPECT_EQ(pes::BuildUnitList(in), (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 2}));
+}
+
+TEST(PesCarrierList, PassThroughLosesFourAndTenOnTheOneTwoTarget) {
+  // plan+0xD9 with FUN_14211CB00(plan, 10) valid: plan 4 lists only 3, 2.
+  pes::UnitListInput in = ListInput(pes::kPlanPassThrough);
+  in.stopAfterFirst = true;
+  in.oneTwoTarget = true;
+  EXPECT_EQ(pes::BuildUnitList(in), (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 3, 2}));
+}
+
+TEST(PesCarrierList, TheWideSectorListsTheCrossForPlansOneToThree) {
+  // imageA+0xB44 == 3: plan 1 lists 7 between 3 and 4.
+  pes::UnitListInput in = ListInput(pes::kPlanBreakthrough);
+  in.wideSector = true;
+  EXPECT_EQ(pes::BuildUnitList(in),
+            (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 2, 3, 7, 4, 10}));
+}
+
+TEST(PesCarrierTable, PlanSixWithALongAnswerAdoptsTheLongPass) {
+  // Plan 6 lists kind 9 and no PassForward: a Long answer in slot 9 is
+  // adopted.
+  pes::UnitListInput list;
+  list.plan = pes::kPlanLong;
+  const std::vector<int> kinds = pes::BuildUnitList(list);
+  ASSERT_TRUE(std::find(kinds.begin(), kinds.end(), 4) == kinds.end());
+  pes::PassAnswer fwd, lng, cross;
+  lng.index = 5;
+  lng.kind = pes::kPassLong;
+  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross);
+  const pes::UnitSlot won = pes::WalkCarrierUnits(table, pes::WalkContext{});
+  EXPECT_EQ(won.kind, 9);
+  EXPECT_EQ(won.answer.sub, pes::kPassLong);
+}
+
+TEST(PesCarrierTable, PlanFiveWithACrossAnswerAdoptsTheCross) {
+  // Plan 5 lists kind 7 and no PassForward: a Cross answer in slot 7 is
+  // adopted.
+  pes::UnitListInput list;
+  list.plan = pes::kPlanCross;
+  const std::vector<int> kinds = pes::BuildUnitList(list);
+  ASSERT_TRUE(std::find(kinds.begin(), kinds.end(), 4) == kinds.end());
+  pes::PassAnswer fwd, lng, cross;
+  cross.index = 3;
+  cross.kind = pes::kPassCentering;
+  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross);
+  EXPECT_EQ(pes::WalkCarrierUnits(table, pes::WalkContext{}).kind, 7);
+}
+
+TEST(PesCarrierTable, CurveShotFillsTheCutBackSlotWithTheCrossAnswer) {
+  // Behind a CurveShot plan, kind 3 takes the cross answer (the cut-back).
+  const std::vector<int> kinds{3, 4};
+  pes::PassAnswer fwd, lng, cross;
+  cross.index = 3;
+  cross.kind = pes::kPassThrough;
+  const std::vector<pes::UnitSlot> plain = pes::FillUnitTable(kinds, false, fwd, lng, cross);
+  EXPECT_EQ(plain[0].answer.type, pes::kAnswerNone);
+  const std::vector<pes::UnitSlot> curved =
+      pes::FillUnitTable(kinds, false, fwd, lng, cross, true);
+  EXPECT_EQ(curved[0].answer.type, pes::kAnswerPass);
+  EXPECT_EQ(curved[0].answer.sub, pes::kPassThrough);
 }
 
 // --- the Dribble sub-kind chooser (report 2.1, 0x14212f1c0) and its dispatch (0x14212fe70) ---
@@ -1164,6 +1235,142 @@ TEST(PesCarrierWalk, TheFirstTimeGateNeedsAHighBallOrTheSkillForAPass) {
   EXPECT_EQ(pes::WalkCarrierUnits(pass, c).kind, 4);
 }
 
+TEST(PesCarrierWalk, AClearFallsBackToTheFirstListedPassKindInOrder) {
+  // Rule 7 (0x14210F110, carunits5.c:330): with the forced-clear test failing,
+  // a clear is replaced by the first of 3, 4, 9, 6 listed after it that holds
+  // an answer - here 4, even though 9 also answers.
+  const std::vector<pes::UnitSlot> table = {Slot(1, 5, 0), Slot(4, pes::kAnswerPass, 0),
+                                            Slot(9, pes::kAnswerPass, 1)};
+  pes::WalkContext c;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 4);
+}
+
+TEST(PesCarrierWalk, AForcedClearKeepsItsClearingKick) {
+  // The same table, but the forced-clear test passes (surrounded): the clear
+  // stands and no pass replaces it.
+  const std::vector<pes::UnitSlot> table = {Slot(1, 5, 0), Slot(4, pes::kAnswerPass, 0)};
+  pes::WalkContext c;
+  c.forcedClear = true;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 1);
+}
+
+TEST(PesCarrierWalk, ASafetyBackPassToTheKeeperNeedsHimCloseOrOwned) {
+  // Rule 7's keeper proviso: with the close band dropping Safety's own slot
+  // too, an unowned back-pass to a far keeper leaves the clear standing, but
+  // a near keeper takes it through the clear's fallback chain; owned always
+  // takes it.
+  const std::vector<pes::UnitSlot> table = {Slot(1, 5, 0), Slot(6, pes::kAnswerPass, 0)};
+  pes::WalkContext c;
+  c.safetyToKeeper = true;
+  c.owned = false;
+  c.closeBand = true;
+  c.keeperWithinNinety = false;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 1);
+  c.keeperWithinNinety = true;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 6);
+  c.owned = true;
+  c.keeperWithinNinety = false;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 6);
+}
 TEST(PesCarrierWalk, WithNothingAnsweringTheWalkReturnsNone) {
   EXPECT_EQ(pes::WalkCarrierUnits({}, pes::WalkContext{}).kind, -1);
+}
+
+TEST(PesCarrierArming, AFeintNeedsItsTeamCapability) {
+  // Rule 11 (0x142111610): kind 17 answers only with the 0x1E team cap.
+  EXPECT_FALSE(pes::UnitArmed(17, false, true, true, 0.0f, Synthetic()));
+  EXPECT_TRUE(pes::UnitArmed(17, true, true, true, 0.0f, Synthetic()));
+}
+
+TEST(PesCarrierArming, ABackSpaceNeedsItsTeamCapability) {
+  // Kind 3 needs 0x1C, kind 6 needs 0x1D.
+  EXPECT_FALSE(pes::UnitArmed(3, true, false, true, 0.0f, Synthetic()));
+  EXPECT_TRUE(pes::UnitArmed(3, true, true, true, 0.0f, Synthetic()));
+  EXPECT_FALSE(pes::UnitArmed(6, true, true, false, 0.0f, Synthetic()));
+  EXPECT_TRUE(pes::UnitArmed(6, true, true, true, 0.0f, Synthetic()));
+}
+
+TEST(PesCarrierArming, APassKindBeyondFiveMetresStaysDisarmed) {
+  // The 5 m ball-distance gate (dist^2 <= 25): a pass kind farther out is
+  // disarmed however the caps read.
+  EXPECT_FALSE(pes::UnitArmed(4, true, true, true, 30.0f, Synthetic()));
+  EXPECT_TRUE(pes::UnitArmed(4, true, true, true, 25.0f, Synthetic()));
+}
+
+TEST(PesCarrierWalk, ASafetyAnswerDiesInTheCloseBand) {
+  // Rule 8 (0x14210F110, carunits5.c:393): a Safety pass in the close
+  // shooting band is dropped.
+  const std::vector<pes::UnitSlot> table = {Slot(6, pes::kAnswerPass, 0)};
+  pes::WalkContext c;
+  c.closeBand = true;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, -1);
+  c.closeBand = false;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 6);
+}
+
+TEST(PesCarrierWalk, AForwardAnswerDiesOnAnInstantReturn) {
+  // Rule 8 (carunits5.c:421): a Forward pass to the man who just passed to
+  // the carrier (inside two frames) is dropped.
+  const std::vector<pes::UnitSlot> table = {Slot(4, pes::kAnswerPass, 0)};
+  pes::WalkContext c;
+  c.forwardIsInstantReturn = true;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, -1);
+  c.forwardIsInstantReturn = false;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 4);
+}
+
+TEST(PesCarrierWalk, ANonConformingDribbleKindIsDropped) {
+  // Rule 8's class filters (0x14063C9C0/0x14063C9A0): a dribble answer from
+  // a kind that is neither the Dribble kind nor a pass kind is dropped.
+  const std::vector<pes::UnitSlot> table = {Slot(0, pes::kAnswerDribble, 3)};
+  pes::WalkContext c;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, -1);
+}
+
+TEST(PesCarrierLongUnit, ANonOwnedCarrierWithNoDangerStaysSilent) {
+  // Kind 9 (0x14212AD40): without the ball and no danger flag, no answer.
+  pes::LongUnitInput in;
+  in.mates = {{0, 0.0f, 180.0f, 5.0f}, {1, 10.0f, 180.0f, 5.0f}};
+  EXPECT_EQ(pes::PassLongUnit(in, Synthetic()).index, -1);
+}
+
+TEST(PesCarrierLongUnit, TheMostAdvancedValidMateTakesIt) {
+  // The picker (0x142128A20): past 10 m ahead the new mate takes it.
+  pes::LongUnitInput in;
+  in.owned = true;
+  in.mates = {{0, 0.0f, 180.0f, 5.0f}, {1, 15.0f, 180.0f, 5.0f}};
+  EXPECT_EQ(pes::PassLongUnit(in, Synthetic()).index, 1);
+}
+
+TEST(PesCarrierLongUnit, WithinTenMetresTheTallerMateTakesIt) {
+  // Inside (-10, 10) the mate taller by more than 5 cm takes it.
+  pes::LongUnitInput in;
+  in.owned = true;
+  in.mates = {{0, 0.0f, 180.0f, 5.0f}, {1, 5.0f, 190.0f, 5.0f}};
+  EXPECT_EQ(pes::PassLongUnit(in, Synthetic()).index, 1);
+}
+
+TEST(PesCarrierLongUnit, AnOpenMateGetsAShortBall) {
+  // 0x14212AD40's tail: openness class 4 or more goes short (b=0).
+  pes::LongUnitInput in;
+  in.owned = true;
+  in.mates = {{0, 0.0f, 180.0f, 2.0f}, {1, 15.0f, 180.0f, 4.0f}};
+  EXPECT_EQ(pes::PassLongUnit(in, Synthetic()).kind, pes::kPassShort);
+}
+
+TEST(PesCarrierCross, AWideCarrierAnswersACenteringBall) {
+  // Kind 7 (0x142129590): the carry bearing held, the lane open, the
+  // tallest mate takes the centering ball (b=2).
+  pes::CrossInput in;
+  in.mates = {{0, 0.0f, 180.0f, 0.0f}, {1, 5.0f, 190.0f, 0.0f}};
+  EXPECT_EQ(pes::CrossUnit(in, Synthetic()).kind, pes::kPassCentering);
+  EXPECT_EQ(pes::CrossUnit(in, Synthetic()).index, 1);
+}
+
+TEST(PesCarrierCross, ACenteringBallNeedsTheCarryBearing) {
+  // Facing more than 130 degrees from the carry bearing, no answer.
+  pes::CrossInput in;
+  in.mates = {{0, 0.0f, 180.0f, 0.0f}};
+  in.carryVsFacing_deg = 140.0f;
+  EXPECT_EQ(pes::CrossUnit(in, Synthetic()).index, -1);
 }
