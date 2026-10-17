@@ -136,3 +136,48 @@ Method: flat image, VA = `0x140000000 + file offset` (an offset bug in two early
 3. Resolve the `FUN_141FE3830` element base (`param_1+0x140`) and check it against live `G`, read-only, if the match is in play.
 
 Files: `<workdrive>/gf-FrontmanSource-scratch/` (`ripref.py`, `size128.py`, `loopfns.py`, `disp_b8.py`, `store48_hits.txt`, `disp_b8_hits.txt`, `loop_add128.txt`, `loop_imul128.txt`, `cand3/`, `tbl/`, `dis_140422030.txt`).
+
+## 7. Session 3 (Main request, live, read-only): FUN_140422030 timing and the FUN_141FE3830 element layout
+
+Verdicts. Step 1: **CONFIRMED not the style path** (its object holds no style word; its destination is neither copy nor roster); timing against the 59 Hz revert **not measurable** this session. Step 2: layout **CONFIRMED** live (11/11); the element array holds the stored style of every side-0 player; it is the **load-time** source. Whether a per-frame path reads it to rewrite W and C is **OPEN** (§7.4). No live write was made. Pin state: FrontmanDecode's pin was not active (W and C stayed at `0x1000` with no change over 6 s and 20 s windows), so no revert occurred to time.
+
+### 7.1 Live state (CONFIRMED, reads only)
+
+- `G = 0x371D5090`; `P = [G+0x1978] = 0x1D47A6D8`; side-0 roster r per slot: 11, 14, 2, 1, 7, 6, 8, 4, 21, 20, 22.
+- Match state flickers in and out of play (MI null for minutes at a time). Reads were retried until a bound state was seen (mi116c = 3, set piece, at the bound moment).
+
+### 7.2 Step 1: `call [reg+0x98]` and the copy destination
+
+- **Object O = 0x1D69D230.** Found by a heap scan for the secondary vtable `0x142598568` at +0x10; qword at +0 = primary `0x1425984C0` (CONFIRMED). This is the 0x3658-byte class of §6.2. Slot 19 of the primary vtable is `FUN_140422030` (CONFIRMED).
+- **Destination.** `RBX = [O+0x68] = D = 0x1E006980` (CONFIRMED, `obj_probe.py`). `D` is neither the copy object (`0x1D4A30A8`) nor the roster block (`0x1D47xxxx`), and not a team object (`T0 = 0x1D462434`, `T1 = 0x1D4804E4`). It is a separate team-level object (name not identified).
+- **Source and destination words of the style offset.** Source `S = O+0x298C+0xC8 = 0x1D69FC84` read `0x0` throughout. Destination `D+0x15C0+0xC8 = 0x1E008008` read `0x0`, then changed once to `0xFFD6` at the start of a 20 s window and stayed there. `0xFFD6` is not a style value. So the copy moves zeros on the style offset (in play). **Not the style path.**
+- **The object holds no style word.** A dword scan of O (0x3658 bytes) finds no `0x1000`, `0x9000`, `0x8000`, `0x80000`, `0x10000`, or `0x400` (CONFIRMED). A scan of D (0x2400 bytes) finds none either. The live copy (`copy+0xB8`) does hold `0x1000` (CONFIRMED). So `FUN_140422030` cannot be a source of the revert.
+- **Timing against the 59 Hz revert.** Not measurable now: no revert events occurred (no pin), and the only write the copy would make is of zeros. Not measured.
+- **Caller of the vcall.** Unchanged from §6.3: the outer caller of `FUN_14041A710` (the factory for O) is OPEN.
+
+### 7.3 Step 2: the `FUN_141FE3830` element layout (CONFIRMED)
+
+- **Element address (CONFIRMED, aligned listing).** `FUN_141FE3830` loads `RCX = R15+0x140` and calls `FUN_1408C6560(X, side, slot)` (`0x141FE395E` and `0x141FE40B0`). That returns `E = X + side*0x3A10 + slot*0xF0 + 0x68` (clamped: side < 2, slot < 0x28). The block passed to the field loader is `E+8` (`LEA RDX,[R14+8]`, `0x141FE40EC`, then `CALL 0x141FE9B00` at `0x141FE40F3`).
+- **Style word.** `block+0x48 = E+0x50 = X + side*0x3A10 + slot*0xF0 + 0xB8`. For side 0: `X + 0xB8 + 0xF0*slot`. `FUN_141FE9F40` ORs the bit into it (`|=`); it never clears (CONFIRMED).
+- **Live container X = 0x293CF70** (CONFIRMED by a 16-byte signature vote, `elem_scan2.py`): slot 0 and slot 2 signatures sit at `0x293D020` and `0x293D200`, differing by exactly `2 × 0xF0`.
+- **Index is the roster index r, not the formation slot.** Element `E_r = X + 0xB8 + 0xF0*r`. Over a 20 s window (`final_probe.py`, 2.3 M samples), `element[r]` equals the roster block (style and COM) for **11/11** side-0 players (`element-vs-roster matches 11/11`), and `copy[i]` (`copy = [G+(i+0xF3)*0x28]`, style `+0xB8`) equals the same style for i = 0..10. No change in any of the three during the window.
+- **Feed from the element to the roster block (CONFIRMED static).** `FUN_141FE20A0 → FUN_14041C3D0 → FUN_14041C280` builds a 40-entry element-pointer table per side (`FUN_1408C6560(container, side, slot)`) and calls `FUN_140A3B3A0`, which copies each 0xF0 element into the 0x128-stride side array (the array read by the roster getters `FUN_140A3AF90` etc.). Single caller of `FUN_140A3B3A0`: `FUN_14041C280`.
+- **Other writers of the element array (CONFIRMED static).** `FUN_141FE1B30` copies 20 elements of 0xF0 bytes from a stack staging buffer (`RBP+0xC0`) into `R15+0x1A8` (= X+0x68, side 0) and into `R15+0x3BB8` (= X+0x3A78, side 1). `FUN_141FE66D0` (one call site). `FUN_141FE3830` (from the DB record, §2.1).
+
+### 7.4 Is the element array the per-frame source? OPEN
+
+- Every writer of the element array is inside the loader `FUN_141FE20A0`, which opens `PATCH10100` files (CONFIRMED from its strings). Its callers are `FUN_141FD1690`, `FUN_141FD1B90`, `FUN_141FD5200` → `FUN_141FBE2A0` → root `FUN_141FBE810` (root OPEN, §6.1). If that root runs per frame, so do all these writers. Not established.
+- Readers of the element array: `FUN_1408C6560` has four callers (`FUN_14041C280`, `FUN_141FE20A0`, `FUN_141FE3830`, `FUN_141FE66D0`); all loader-side in the static graph. A direct-stride search found 96 functions with `imul ..., 0xF0`; none of them intersects the roster-getter callers, and only 11 have a `+0xB8` operand, none a roster-touching reader of the element style (CONFIRMED static; not exhaustive over computed pointers).
+- So: the element array is the **stored per-player style source of the load path**, and both W and C equal it at every sampled instant (CONFIRMED live). A per-frame writer that rewrites W and C from it was **not found**.
+
+### 7.5 Named source (for the next pass)
+
+- **Candidate source a single write must target:** `E_r.style` at `X + 0xB8 + 0xF0·r` (live X = `0x293CF70`; r = roster index, for side 0 = 11,14,2,1,7,6,8,4,21,20,22). Upstream of it: the DB record field `0x3b` through `FUN_1414C2170(db, side, slot)` → `FUN_1414C0300` (for the `FUN_141FE3830` builder). A write to `E_r` would reach W and C only if a per-frame path copies element → roster block and copy. That path is not found, so this is **OPEN**.
+- **Discriminating test (needs an owner ruling; not run):** write `E_r.style` (one dword, bit 15 set) and sample W and C at 1 ms. If W and C follow within one frame, the element array is the per-frame source. If they revert to `0x1000` at ~17 ms while E_r stays set, the revert is reading something else (the DB record or a staging copy).
+
+### 7.6 Corrections to earlier sessions
+
+- `mirror_probe.py` (§6.2 and session 2 notes) used `G+0x140` as the container. The correct container is `X = 0x293CF70` (live), not a G-relative address. Its values were not style values; that probe is void.
+- §6.2's "the copy writes a fixed-offset team block" stands, with one addition: its destination `D` is a separate object, and on the style offset it moves zeros (§7.2).
+
+Scratch: `<workdrive>/gf-FrontmanSource-scratch/` (`locate_obj.py`, `obj_probe.py`, `find_style.py`, `play_probe.py`, `elem_scan2.py`, `elem_probe.py`, `elem_by_r.py`, `final_probe.py`, `stride_f0.py`, `f0_b8.txt`, `final_run.txt`, `elem_run2.txt`, `dis_141fe3830.txt`, `dis_141fe20a0.txt`, `elem/`, `tbl/`).
