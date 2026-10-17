@@ -255,7 +255,7 @@ response is not K** — it is the separate `natualBoundB` rule in §2.5.
 140876a4b:  xmm1 = |v_xz| * grounderBoundYAdd   ; [rdi+0x1f0] = 0.09  (Ball+0x1f8)
 140876a53:  xmm1 = |v_xz| * 0.09 * (1-f)
 140876a57:  xmm10 = K * (f + 0.985)
-140876a5c:  xmm14 = vx - |v_xz|*0.09*(1-f)
+140876a5c:  xmm14 = vy - |v_xz|*0.09*(1-f)      ; grounder-trimmed vy (corrected 17-10-26, pes-re-ball-contact-2.md Correction 1)
 140876a61:  movss  [rsp+0x68],xmm14
 ```
 
@@ -387,7 +387,7 @@ this block are the three velocity deltas combined at `0x140876f6e … 0x1408771c
 the raw in `intbody.txt`; the register map at entry is: `xmm10 = K`, `xmm1 = F`,
 `xmm13/xmm12/xmm14 = vy/vz/vx` (post-§2.5), `[rsp+0x48/4c/50]` = old `vx/vy/vz`,
 `[rsp+0x58/5c/60]` = old raw spin ×3, `[rsp+0x68]` = grounder-trimmed `vx` (§2.5),
-`[rbp+0x80/90/98]` = scratch (`vy_keep`-chain / `A` / spin term).
+`[rbp+0x80/90/98]` = scratch (`vy_keep`-chain / `A` / spin term). Corrected 17-10-26 (pes-re-ball-contact-2.md Correction 1): `[rsp+0x68]` above is grounder-trimmed `vy`, not `vx`; `xmm14` is loaded from `[rbx+0x10]` = `vy` at `0x140876871`, so the line 388 `xmm14 = vx` reading is also withdrawn.
 
 
 ### 3.4 Final velocity assembly and stop condition (OBS, `0x140876f6e … 0x14087733c`)
@@ -441,6 +441,7 @@ Then the vertical (`0x1408770e6`):
 `T[0xbc]` = `Ball+0xcc`?? `Ball+0xbc+8` = `Ball+0xc4` = `boundToRotationBaseY[m]` (m1: 0.03).
 So `vy_keep = t·0.07 + 0.03` with `t = clamp01((|vy|·3.6 − 8)/(T[0xec] − 8))`,
 `T[0xec]` = `Ball+0xf4` elem m = `boundToRotationSpeedMaxY[m]` (m1: 0.7).
+_Corrected 17-10-26 from pes-ball-A1Spin.md l.11: `vy_keep` reads `X = −3.6·vy_pre`, signed (sign mask `0x1425656d0`, XORPS). A rising ball keeps only the base. The `|vy|` form above is withdrawn._
 
 Hmm wait, that gives `t = (|vy|·3.6 − 8)/(0.7 − 8)` — negative denominator. `comiss xmm1,xmm6`
 then `jb` (xmm1 < xmm6, i.e. 8 < |vy|·3.6 → t=0 path?)... the clamp shape handles it:
@@ -517,7 +518,7 @@ Then the stop gate (`0x14087729e`):
 1408772d5:  xmm13 = xmm3 = xmm12 = 0     ; STOP: zero the velocity
 ```
 
-**Stop rule: if |v_new| < stopSpeed·1000/3600 = 0.0486 m/s, velocity := 0.** (OBS.)
+**Stop rule: if |v_new| < stopSpeed·1000/3600 = 0.0486 m/s, `vx` and `vz` := 0; `vy` is untouched** (corrected 17-10-26, pes-re-ball-contact-2.md Correction 2). (OBS.)
 
 ### 3.5 Rolling numbers (mode 1, computed — OBS values)
 

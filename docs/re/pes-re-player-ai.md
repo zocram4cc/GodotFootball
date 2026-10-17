@@ -47,6 +47,7 @@ gated by `*(u8*)(matchInfo+0x11B0) == 0x16`, i.e. 22 players) → 0x14092A340 �
 formation index at `teamData + 0x4C00 + slot*4`, call the registry getters) →
 0x1421019D0 → BallPlayer update 0x142101AA7 → **`BallPlayer::MainEval`
 0x142110D30**`. OBS: call graph and decompiles of 0x14092C9F0 and 0x1421019D0.
+_Corrected 17-10-26 (pes-re-A4Carrier.md §11): `0x142101AA7` is an address inside `FUN_1421019D0`, which is the tick entry. The tick entry sets `BP+0x4259` and calls MainEval._
 
 ## 2. The ball carrier: BallPlayer and its think units
 
@@ -163,6 +164,7 @@ and sets state 2; `0x1408AEF50(unit)` reads `+0x38` (OBS). Result structs are
 0x1C bytes: 4 × u32, u64, u32.
 
 ### 2.3 Which units are active, and in what order (OBS)
+_Corrected 17-10-26 from pes-re-carrier-ai.md §0 and §3 (evidence: pes-re-A4Carrier.md §11): no score, a walk. This section is superseded._
 
 `0x1421112C0` (the main builder, called from `0x1421111B0`) appends kinds to the
 table in this order:
@@ -198,6 +200,7 @@ the unit, copying its 0x1C-byte result into the table with `0x14211F050`
 unless the intention bits 3/4 disable it. OBS.
 
 ### 2.4 Adoption (OBS, part)
+_Corrected 17-10-26 from pes-re-carrier-ai.md §0 and §3 (evidence: pes-re-A4Carrier.md §11): no score, a walk. This section is superseded._
 
 `MainEval` 0x142110D30, in order:
 1. refresh the `Intention` at +0x14 (0x142117370);

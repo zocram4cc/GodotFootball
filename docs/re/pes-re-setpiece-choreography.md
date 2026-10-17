@@ -124,8 +124,8 @@ designated set-piece takers `T+0x8e08` read by `FUN_1408c5080(T+0x8e08, kind)` t
 | 1 / 7 kick-off | over the 11 slots: `d = |base.xz − (F[0], 0)|` (base positions are in a 0…2·F[0] own-goal frame, INF med), `+15` if role ∈ {5, 8} (wide roles), `−12` if `|base.z| < 18` (`DAT_14259be0c/be18/d664`); sort ascending (`FUN_140a79640`): kicker = 1st, second = 2nd |
 | 3 goal kick | the slot whose role (`T+0x4c00[slot]`) is 0 (the keeper); fallback: first on-pitch entry of `T+0x8928[]` |
 | 4 corner | designated taker kind **3 or 4** = left/right, chosen by `dir · R.z > 0` → 4 else 3; fallback `FUN_140a621f0(AI, kind, side, 0xff)` |
-| 5 free kick | `d` = distance from the ball to the attacked goal `(dir·F[0], 0)`: `d < 32` → designated kind **1**; `d < 60` → kind **0**; else no designated taker; second kicker = designated kind **2** (≠ kicker) when the FK type `Flow+0x2ab4 ∈ {1,2,3}`. Fallbacks in order: current `MI+0x173c` if already ready; when `|z| < F[7]` and (`d < 28` or own half) `FUN_140a62690`; in own half the nearest role-1/2 (CB/SB) player within 65 m; else nearest role < 7 player; else `FUN_140a621f0` |
-| 6 penalty | designated kind **5**; fallback the ordered list from `FUN_140a40ca0` |
+| 5 free kick | `d` = distance from the ball to the attacked goal `(dir·F[0], 0)`: `d < 32` → designated kind **1** (table `S+0x143c`); `d < 60` → kind **0**; else no designated taker; second kicker = designated kind **2** (≠ kicker) when the FK type `Flow+0x2ab4 ∈ {1,2,3}`. Fallbacks in order: current `MI+0x173c` if already ready; keeper `FUN_140a62690` when `|z| < F[7]` and (distance to own goal `< 28` or `dir·R.x < −F[6]`) (corrected 17-10-26 from pes-re-taker-map.md §8 and pes-re-setpiece-kicker.md); else nearest role-1/2 (CB/SB) in own half within 65 m; else nearest role < 7 player; else `FUN_140a621f0` |
+| 6 penalty | designated kind **5**; fallback the ordered list from `FUN_140a40ca0` (online path only; corrected 17-10-26 from pes-re-setpiece-kicker.md, penalty row) |
 | 2 throw-in | `FUN_1404a93a0` (see the throw-in report) |
 
 INF(high): kinds 0–5 are the team-sheet set-piece roles (FK long, FK short, FK 2nd, CK left, CK right, PK).

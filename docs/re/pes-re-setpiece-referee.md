@@ -844,6 +844,7 @@ Reader recipe: `lea rdx,[rip+X]` gives a `char*` name; the following
 after gives the offset. A fork of `edis.py` + this recipe reproduces every layout below.
 
 ### 1.3 `throwin.o` (144 B) — decoded layout, OBS
+_Corrected 17-10-26 from pes-re-throwin-choreography.md (l.537, EV-TI-0019): this table is shifted (`beginAngle`/`move` sit at +0x00/+0x04, which is the vtable). `distFarLongPara` is 32, not 80; `baseMaxKph`/`baseMinKph` are 50/35, not 32/25; `seamlessThrowin.possibleDist` is 3 and `dist` 5._
 
 Offsets are into the inflated object blob (the same object the game deserializes into).
 

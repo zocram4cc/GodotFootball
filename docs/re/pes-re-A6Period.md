@@ -31,12 +31,12 @@ Verdict tags: **CONFIRMED** (decompile, raw asm, or live read whose checksum ver
 - Stoppage (states 2 and 3): stamp frozen. F +19.5 over 39 frames (exactly 0.5 per frame); 682.5 over 1398 frames (0.49); 0.43 to 0.47 over other windows.
 - `116c` takes 1 (in play), 2 and 3 (stopped).
 - **INF(high):** the per-frame play increment of 10 is PES's match-speed setting (`E+0x58` = 10.0 live). One sample. GF runs at game time (60 units per game-second); the speed mapping is open.
-- **INF:** the stamp base (~7.2 M units) does not track the HUD clock. That agrees with `pes-re-clock-live.md` §8.2, and this report does not resolve it.
+- **Corrected 17-10-26** from pes-re-A6Writers.md §0 and §7 (evidence: `HUD minute = (decode+F)/3600 − 2000`): the stamp base does track the HUD clock. The earlier "does not track" is withdrawn.
 
 ## 4. Port (GF)
 
 - `pesclock.{hpp,cpp}`: `PeriodRecord` (PES layout), `PeriodStamp` (decode, throws on checksum), `PeriodClockUnits`, `StoreStamp` (inverse), `TimeUpReached`, `PeriodNumber` (1, 3, 5, 7, 9), `PeriodHasClock` (1, 3, 5, 7), `PesClock` (record per period; `Advance`: play adds 60/s, stoppage adds F at 0.5 per frame; `AnnounceAddedTime` once per period).
-- Referee whistles when `TimeUpGateOpen()`. LIMIT is announced at the length. The neutral band and the 3-minute stoppage cap are gone.
+- Referee whistles when `TimeUpGateOpen()` (not PES: the gate is only a precondition, pes-re-A6Writers.md §3; corrected 17-10-26). LIMIT is announced at the length. The neutral band and the 3-minute stoppage cap are gone.
 - Deleted: `ShouldEndPeriod`, `neutralBandHalfWidth`, `maxStoppageTime_ms`, `PeriodEndMinutes/Ticks`, `HalfLengthMinutes`, the percentage clock, `IsPeriodDue`, `PeriodEndWithAdded`, `addedTimeAnnouncedPhase`, and the in-match percentage tests.
 - Consequence: tier 0 earns no added time (`AddedTimeUnits` is 0 for tier 0), so GF's whistle is still at the length, as before.
 
@@ -67,8 +67,10 @@ Verdict tags: **CONFIRMED** (decompile, raw asm, or live read whose checksum ver
 ## 7. Open
 
 1. **Ring rotation and key policy** of PES's writer. GF rotates `idx` by one per store and keeps key 0. Any key round-trips, so this only matters if PES's policy is observed.
-2. **Writers of LIMIT and F in PES** (where and when LIMIT is set; the F 0.5-per-frame writer VA is not traced). GF announces at the length.
+_Corrected 17-10-26 from pes-re-A6Writers.md §0/§1.2: PES's ring slot is wall-clock driven (`FNV-1a` of `_DAT_7FFE0008`), so the rotation is not reproducible; any slot policy round-trips the decode._
+2. **Writers of LIMIT and F in PES: traced 17-10-26** (pes-re-A6Writers.md §1): LIMIT setter `FUN_140A3CBB0` and F setter `FUN_140A3CD70`, both called from the per-tick driver `FUN_14044CE80`; F += 0.5 per frame in stoppage. GF announces at the length.
 3. **Post-gate code of `FUN_14050B9B0`** (the 60-second counter `d0` against `rate*60`, the ball-state branches, the `FUN_140A57800` tests). GF whistles on the gate alone.
+_Corrected 17-10-26 (pes-re-A6Writers.md §3): PES does not whistle on the gate alone; the whistle needs one of steps 3–6. GF's gate-only whistle is wrong._
 4. **`116c` transitions:** the half-time writer (`FUN_140A115A0`, `116c += ...`) disagrees with `116c` as play state. Not traced.
 5. **Breaks** (periods 2, 4, 6, 8) are not modelled; the walk-off is GF's set piece.
 6. **Match speed:** PES plays 10 units per frame at `match_time` 10; GF runs at game time. Needs the setting-to-speed map.

@@ -510,6 +510,7 @@ Selector slots (team-plans.md §3.1 table confirmed in these decompiles):
 - PostPlay executor 0x14061f940 (`pull.c:139`).
 
 ### 3.1 ChanceSpaceRun score `0x140606060` — bitmask + timing, no attribute term (OBS)
+_Corrected 17-10-26 from pes-re-off-ball.md §0 (row "attack-decisions §3.1"): Chance candidates go through the shared sort, score 100 + s·x of the runner (most advanced eligible mate first). The first-listed rule is withdrawn._
 
 - Reads the candidate's 12-byte slot record at `sel+0x60+slot·0xc`; **returns void
   (score 0) if the record's float at +0x68 is < 0** (0x140606060 head).
@@ -522,6 +523,7 @@ Selector slots (team-plans.md §3.1 table confirmed in these decompiles):
   candidate (bitmask order), not a max-score.
 
 ### 3.2 Chance executor `0x140606cd0` — the literal score formula (OBS)
+_Corrected 17-10-26 from pes-re-off-ball.md §0 (row "attack-decisions §3.2"): the accept branch is inverted; `goto LAB_140607834` rejects. The 15/21/24/26/37 m value is the maximum longitudinal distance to the ball for a Chance candidate, and awareness widens it (runs.c:618–625)._
 
 Per candidate `uVar23` (team·0xb+i), after the gate cascade
 (`FUN_1405a4830`, `FUN_1405938a0`, `FUN_1405969b0`, state checks, `FUN_140a40000`
@@ -556,6 +558,7 @@ bonus_total = bonus · 18.0 … (folded: max +18.0)
 ```
 (OBS arithmetic; the skill-bit-0xd = "Goal Poacher"-family INF low — bit 13 in engine
 order is unlabelled in carrier-ai.md §6.1's list.)
+_Corrected 17-10-26 from pes-re-attack-leftovers.md §2: skill 13 is WEIGHTED_PASS in engine order; the "Goal Poacher" label is withdrawn._
 Other literal gates in the cascade: `−2.4` (0x1425cd834), `−5.0` (0x14259be7c),
 `16.0` (0x14259be10), `45.0` (0x14259be30), `80.0` (0x142596e6c), `60.0/30.0`
 box checks.
@@ -673,6 +676,7 @@ Writes link byte 0/1/2 per team-plans §3.2 (lane-1 test `0x140620ca0` / lane-2 
 in `pull.c:416+`). No attribute terms (OBS).
 
 ### 3.10 Timing (run start cadence) (OBS)
+_Corrected 17-10-26 from pes-re-off-ball.md §0 (row "attack-decisions §3.10"): the rng-frame cooldowns are fps multiples (54); `0x141e532d0` returns 54.0, not a draw._
 
 - Chance/Counter gates share the `gameSpeed·0.2+0.5 ≈ 11`-frame cooldown
   (team-plans §3.1, confirmed in the gate bodies).

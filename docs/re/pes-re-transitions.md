@@ -29,7 +29,7 @@ stride 0x1908; empty sentinel record at 0x1436f3a40 has `[0] = 0x37`).
    kick-off and never after a corner / goal kick / other restart (the value is then 4.29e9 frames).
 3. **Counter-press = `SubConceptTransitionChase`** (Defensive Style 0 = Frontline Pressure teams; §2): within 3 s of
    losing the ball, if the new carrier is wide (|z| ≥ F[7] − 2) in our attacking third (own-frame x ≥ F[6] − 10),
-   not kicking, and our MATCH_UP man is within 10 m of him, a **second man** is sent to a point 8 m from the carrier
+   not kicking, and our MATCH_UP man is within 10 m of him, a **second man** is sent to a point 8 m from the chaser `u` (not the carrier)
    along a 160°-rotated heading (the touchline trap). One extra man, ends when the second man's state leaves
    {BASE_POSITION, COVER, MARK, PASS_COURSE_CUT}. Fore-check (`SubConceptForeCheckPress`) is a 2–5 s window of the
    same counter. Both are off when instruction 0xd is armed. **Live (team with Defensive Style 0):** TransitionChase 1
@@ -132,10 +132,11 @@ state 0x25 ONE_TWO_PASS_RUN or 0x2c TEAMMATE_MOVING.
    `|u.z| − 15` (0x14259be0c). None → no start.
 Then record `+0x18 = s`, `+0x1c = u`, `+0x20 = c`, `+0x24 = MI+0x1198`, and execute.
 
-**Execute, slot 5 `FUN_140575b60`** (OBS): target `p = c.pos + 8 m` (0x14259bdf4) along heading
+**Execute, slot 5 `FUN_140575b60`** (OBS): target `p = u.pos + 8 m` (0x14259bdf4), `u` = the chaser (record +0x1c, not the carrier), along heading
 `T'+0x250 + 160°·σ` (σ = ±1 by the side of `c.z` vs. `dir`, 0x14259be6c), clamped to `|x| ≤ F[0]`, `|z| ≤ F[1]`;
 `T+0x26c` point of `s` = p (`FUN_140a42a40`), **`T+0xb748[s] = 0x24`** (concept order kind; mark pass 0 excludes
 these men), `T+0xb774[s] = 1`.
+_Corrected 17-10-26 from pes-re-team-concepts-port.md (TransitionChase row): the trap point is 8 m from the chaser, not the carrier. Heading reference still OPEN: this section says `T'+0x250`; the port says "own attack heading"._
 **Continue, slot 3 `FUN_140575410`**: keeps running (returns 0) while in play, the carrier is still `c` (or loose),
 `FUN_140575390` still gives `u`, and `P(s)+0x5d0` ∈ {1 BASE_POSITION, 0x32 COVER, 0x36 MARK, 0x3d PASS_COURSE_CUT}.
 Reset, slot 4 `FUN_140579680`: ids ← 0xff.
@@ -221,10 +222,11 @@ and a pass plan for the carrier in `T+0x6f4` (`FUN_140a85160`).
    1 (centre) the opposite (×1.2). Lowest score wins (ascending sort `FUN_140a79640`).
 Then: `r` gets **`SPACE_RUN_CHANCE` (0x1e)** to point `FUN_14053f510` (`T+0xb748 = 3`, `b774 = 0x1e`); three
 supporters `FUN_140541010` (OBS) get **`PASS_SUPPORT` (0x22)**: for each point — #0 ball + 15 m along the attack
-heading (0x14259be0c), #1/#2 ball + 12 m (0x14259be04) along the heading turned ±22° (0x1425c48c0) — the nearest own
+heading (0x14259be0c), #1/#2 ball + 12 m (0x14259be04) at the lateral bearings 180°→A and 0°→A (each turned toward the attack heading A by ≤ 22°, 0x1425c48c0) — the nearest own
 on-pitch player (not the holder, runner or an earlier pick; current state priority > 2, i.e. not in a run/press/
-MATCH_UP state; position category > 2), with #0 required ≥ 8 m ahead of the ball, #1 on the higher-z side, #2 on the
-lower-z side; −5 m (0x14259be7c) bonus for the man already holding that role. `T+0xb7d8 = r` (carrier's target).
+MATCH_UP state; position category > 2), with #0 required ≥ 8 m ahead of the ball, #1 on the men with y ≤ ball, #2 on the men with y ≥ ball (corrected 17-10-26, pes-re-team-concepts-port.md, SideCounter row), and
+−5 m (0x14259be7c) bonus for the man already holding that role. `T+0xb7d8 = r` (carrier's target).
+_Corrected 17-10-26 from pes-re-team-concepts-port.md (SideCounter row, decode of `FUN_140541010`): the supporter bearings are lateral (180° and 0°, each turned toward A by ≤ 22°), not the attack heading ±22°, and the sides are the reverse of the text previously here._
 
 ### 3.2 `SubConceptFastCounter` (vtable 0x1425c3e00; start slot 2 is the stub `0x141863350`, so the manager never
 starts it; its running flag has no other writer — **dead code in AI play**, OBS via TacticsRE) — continue `FUN_140543890`, execute `FUN_140544b80`

@@ -1003,6 +1003,7 @@ using the clamp helper `sub_1408CAF60` / table `0x142613C60`. Live read for one 
 73, 78, 32, 67, 79, 65, 84, 83, …]` (bytes 0x10–0x1D are the ASCII "TWIN COATS" text field, so
 the numeric abilities start above it — no ability bytes were non-zero in this read, i.e. the
 stat block is filled lazily on first stat use).
+_Corrected 17-10-26 from pes-re-stamina-drain.md (row "live stat bytes"): the stat output block is `PMS + 0x70`, with `PMS = *(match::Player + 0x1a4a8)`. The `Player+0x70` read above hit a different object, so these ASCII bytes are not the stat block._
 
 ### 10.6 Exact stopping point: the A5 writer
 

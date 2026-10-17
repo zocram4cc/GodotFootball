@@ -74,7 +74,7 @@ Corrections made this session (each verified against the raw bytes, details in p
 5. **All per-clip data GF needs already exists in PES metadata**, no curve measurement required
    for the tables (measurement stays a validator): duration, blend start, root displacement,
    touch frame(s) + ball position, cancel, turn, foot phase, lie state (§5–6).
-6. **Locomotion = Freemove FSM + one parametric blend.** OBS live, AR §4.3.3/§5.2: steady running is
+6. **Locomotion = Animetable 24-state FSM + one parametric blend** (corrected 17-10-26 from pes-re-anim-select.md: `Freemove.bin` is not read on the AI move path). OBS live, AR §4.3.3/§5.2: steady running is
    parametric group 80 (rate ≈ speed / sprint speed); entries, exits, stops and turns are Freemove
    clips. GF's `movement` autogen + template machinery (which builds transitions at load) is the
    part PES replaces — the stock GF movement pool must stay out of a PES-driven build.
@@ -204,6 +204,7 @@ behaviour, AR §2.3) — the mapping must apply the same snap, not invent rows.
   addressable through the Animetable alone, so SlideDribble is not on the critical path.
 
 ## 2. Freemove.bin: the locomotion state graph (OBS, key construction solved)
+_Corrected 17-10-26 from pes-re-anim-select.md l.28 and pes-re-anim-select-2.md (evidence: nothing on the AI move path reads `Freemove.bin`; `run_2_4_000` is not in it). §2 describes the table's structure, not the live path._
 
 ### 2.1 Layout and lookup
 

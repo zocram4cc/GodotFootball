@@ -123,7 +123,7 @@ Constants below were read from the install by VA (OBS). `G = *(0x1436F3DC8)` (ma
 | 0x00 | `FUN_1406d2030` | EnterRun, group B (INF from the MOVESTEP notes) |
 | 0x08 | `FUN_1406b9c80` | not decoded |
 | 0x10 | `FUN_1406d8620` | motion request: reads `(this−8)` vt+0x50 (`P+0xab8`, `FUN_1406e7920`) for timing; partly decoded |
-| 0x18 | `FUN_1406eadf0` | `*(u32*)(this+0x2cbc)` = P+0x297c |
+| 0x18 | `FUN_1406eadf0` | `*(u32*)(this+0x2cbc)` = P+0x377c (corrected 17-10-26 from pes-re-teamctx.md §8.1; was "P+0x297c") |
 | **0x20** | **`FUN_1406ea110`** | **km/h of the root displacement at index `idx`**, the dodge's read |
 | 0x28 | `FUN_1406ea750` | not decoded |
 | 0x30 | `FUN_1406e9f90` | not decoded |

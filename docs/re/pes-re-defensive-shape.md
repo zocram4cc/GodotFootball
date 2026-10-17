@@ -1057,7 +1057,7 @@ adjustment (TransitionsRE §1.2) and the `MI+0x14c8 == 1` two-man-kick-off test 
 team level `FUN_140a60340` with the stat-sum `FUN_14124dad0` gate (raw 0x140633da1–0x140633e16:
 line-2 men need level ≥ 6 unless the flag/`r15` branches allow, and `T+0xb8a4 ≤ line`).
 Then per candidate: `FUN_140a51d50` in-play + `FUN_140477130` arrival-rate test + (team level 6 only) the
-0.6944/fps prediction + 60° window (0x14259bdd0, 60 = 0x14259a764, 360 = 0x14259858c, 10 = 0x142588210)
+0.6944/fps velocity floor (a speed floor, not a prediction; corrected 17-10-26 from pes-re-attack-leftovers.md §1.0) + 60° window (0x14259bdd0, 60 = 0x14259a764, 360 = 0x14259858c, 10 = 0x142588210)
 angle-chase test (raw 0x140633e93–0x140633f4b); within radius → `FUN_140633350` enrolment test; the
 `180°/50°/40°` (180 = 0x142598580, 50 = 0x14259be34, 40 = 0x14259be2c) bearing windows and the
 100° (0x14253ee30) slot-target test (raw 0x140634140–0x14063430b); outcome by situation code

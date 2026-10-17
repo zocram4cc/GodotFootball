@@ -303,7 +303,7 @@ Once per frame (guarded by `P+0x3778 != *(ctx+0x270)+0x1198`) the AnimePlayer wr
 ```
 u        = clamp((G − 0.9166)/0.1667, 0, 1)                    // FUN_1406eae00, 0x1425e4a18 = 0.1667
 base     = 1 − 0.085·u                                         // 0x1425e4a0c = 0.085
-c        = FUN_140a581c0(player)                               // condition/stamina byte
+c        = FUN_140a581c0(player)                               // dash-reserve (breath) percent, not condition (corrected 17-10-26, pes-re-anim-select-2.md §4.2)
 fatigue  = clamp((20 − c)/20, 0, 1)                            // 0x14259be1c = 20, 0x1425a946c = −20
 s        = ability byte +0x27 (FUN_14124dad0 record) − 20·fatigue   // officials: s = 60
 q        = clamp((s − 20)/79, 0, 1)                            // 0x1425cb300 = 79, 0x1425c48cc = 99
@@ -329,6 +329,7 @@ item O2 statically ("Speed's contribution must be measured"): Speed acts through
 quadratically, and fatigue below condition 20 removes up to 20 points of it.
 
 ### 3.6 Where the Acceleration attribute enters: the rate ramp (OBS `FUN_1406cbf70`, `FUN_1406e66d0`, raw disassembly of `FUN_1406eab00`)
+_Corrected 17-10-26 from pes-re-teamctx.md §8.3 (this section was incomplete): the turn slow applies in every phase; the target is `min(x, rMax·F)` with the five-branch `F`; the proximity cap is `x *= 1 − 0.2·w·g`. The 0.95 cap belongs to block C (§4.3)._
 
 Per tick in RUN_LOOP and STEP_TO_RUN (`FUN_1406b8340` calls `FUN_1406cbf70` for states 3 / 13):
 
@@ -572,6 +573,7 @@ request, so it is not the live rate).
    live condition byte to close exactly.
 2. Styles 1–5, 9, 11–14 writers (near-run / parallel / heisou / tired v2): other callers of the
    `req[0x37]` slot, not traced.
+   _Corrected 17-10-26 from pes-re-anim-select-2.md (conclusion): there are no other callers. PES ships these groups, but the FSM only asks for eight of them._
 3. `FUN_1406b97d0` per-motion startTime switch, resolved (OBS): it covers only the step-loop
    family — 0.6 `walkside/walkslant/walkbackslant_1_1`; 0.5 `run_2_2`, `backstep_1_1_relax_v2`;
    0.35 `mid_delayback_2_2`; 0.3 `backslant_1_1_relax`, `gkmovemid_guardback_*`; 0.25 `run_3_3`,
@@ -590,7 +592,7 @@ request, so it is not the live rate).
    `FUN_1406abe40` (OBS; word `[0]` is the Animetable object that `FUN_1406abba0` returns via
    `DAT_1436f2378`). No reader was located. Candidate: the user-control sub-controller at
    `P+0x3530` behind flag `P+0x3725` (`FUN_140703a30`), unread.
-7. The meaning of the condition byte `FUN_140a581c0()` (fatigue term in §3.5, §3.6, §4.2).
+7. Corrected 17-10-26 from pes-re-anim-select-2.md §4.2 (AL-10): the condition byte `FUN_140a581c0()` (fatigue term in §3.5, §3.6, §4.2) is the dash-reserve (breath) percentage.
 
 ---
 
