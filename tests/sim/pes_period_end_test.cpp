@@ -297,6 +297,24 @@ TEST(PesPeriodLifecycle, PesLoopAStoppageAddsToLimit) {
   EXPECT_FLOAT_EQ(match->GetPesClock().Record().limit, pes::kStoppageUnitsPerFrame * FramesIn(100.0f));
 }
 
+// Under pes_loop the period clock runs every frame, so a stoppage reaches Match::Process: F and
+// LIMIT take half a unit a frame there (FUN_14044CE80 step 4) and the stamp holds.
+TEST(PesPeriodLifecycle, PesLoopAStoppageThroughProcessGrowsFAndLimit) {
+  REQUIRE_RIG();
+  auto match = MatchAtPhase(e_MatchPhase_1stHalf, 100.0f, /*pesLoop=*/true);
+  ASSERT_TRUE(match);
+  match->StopPlay();
+  const pes::PeriodRecord before = match->GetPesClock().Record();
+  const float stamp = pes::PeriodStamp(before);
+  constexpr int kTicks = 54;  // one game-second of frames
+  for (int tick = 0; tick < kTicks; ++tick) match->Process();
+  ASSERT_FALSE(match->IsInPlay()) << "the stoppage held through the ticks";
+  const pes::PeriodRecord& after = match->GetPesClock().Record();
+  EXPECT_FLOAT_EQ(after.f, before.f + kTicks * pes::kStoppageUnitsPerFrame);
+  EXPECT_FLOAT_EQ(after.limit, before.limit + kTicks * pes::kStoppageUnitsPerFrame);
+  EXPECT_FLOAT_EQ(pes::PeriodStamp(after), stamp);
+}
+
 // With pes_loop off the stoppage leaves LIMIT alone, as before.
 TEST(PesPeriodLifecycle, WithoutPesLoopAStoppageLeavesLimitAlone) {
   REQUIRE_RIG();
