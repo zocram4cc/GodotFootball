@@ -207,6 +207,8 @@ rush modes 0x10/0x20. Cross: base 50/70, clamp [40,80] (com-styles §6.3).
 
 ## 8. GF gap list (implementers)
 
+**Update 17-10-26:** the six `PlayingStyles` knobs with no PES site (`GetShotAppetite`, `GetShootingRangeBonus`, `GetFinisherDemand`, `GetCreatorVision`, `GetPassTypeBias`, `GetSpaceRatingWeight`) were deleted by the Hygiene branch (`pes-hygiene-Hygiene.md`); any mention of them below is historical. Current style ports: `pes-port-StylePort.md`, `pes-style-StylePort2.md`; effects per style: `pes-re-style-effects.md`.
+
 READS TODAY (GF has them): `Player` enum (EDIT order ✓ matches §0);
 `SuitsRole` (≈ compat masks, but GF's own table — replace with
 0x142613D20 reads from the install); GK style branches in
