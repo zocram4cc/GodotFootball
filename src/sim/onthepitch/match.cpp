@@ -100,7 +100,10 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES match-clock constants missing: read them from the install's PES2021.exe with "
         "pes::LoadPesClockConstants into MatchSetup::pesClockConstants");
   pesClockConstants = std::make_unique<pes::PesClockConstants>(*setup.pesClockConstants);
-  pesClock = std::make_unique<pes::PesClock>(*pesClockConstants);
+  // The match-time setting, clamped to the menu's range (E58, A6Writers 6).
+  const float matchMinutes =
+      std::clamp(matchDurationMinutes, kMinimumMatchDurationMinutes, kMaximumMatchDurationMinutes);
+  pesClock = std::make_unique<pes::PesClock>(*pesClockConstants, matchMinutes);
 
   // PES 2021's ball physics (docs/re/pes-re-ball-contact.md): every constant
   // comes from the install - the `ball.o` record of constant_match.bin and the
@@ -460,15 +463,15 @@ void Match::InvalidateCachedMentalImages() {
   }
 }
 
-void Match::AdvanceMatchSeconds(float gameSeconds) {
+void Match::AdvanceMatchFrames(uint32_t frames) {
   if (!pesClock) return;
   // Report 3.3: the ClockFSM does not run while the state byte is a frozen
   // one, so a stoppage stops the clock instead of adding to it.
   pesClock->SetFrozen(!IsInPlay() || IsInSetPiece());
-  pesClock->Advance(gameSeconds);
+  pesClock->Advance(frames);
   // pes_loop: the stoppage writer on LIMIT (FUN_14044CE80 step 4). The off path leaves LIMIT
   // to the announcement alone.
-  if (pesLoop) pesClock->AccrueStoppageLimit(gameSeconds);
+  if (pesLoop) pesClock->AccrueStoppageLimit(frames);
 }
 
 int Match::GetPesFrame() const {
@@ -876,10 +879,10 @@ void Match::Process() {
         static_cast<double>(kTick_ms), matchDurationMinutes, matchTimeScale);
     matchTimeExact_ms += gameTick_ms;
     matchTime_ms = static_cast<unsigned long>(matchTimeExact_ms);
-    // PES 2021's clock (docs/re/pes-re-tactics-clock.md) counts the same game
-    // time, so a period ends on both clocks together.
-    AdvanceMatchSeconds(static_cast<float>(gameTick_ms / 1000.0));
   }
+  // PES's period clock (pes_loop) runs every frame: SetFrozen holds it in a stoppage, where PES's
+  // stoppage writer adds F and LIMIT (FUN_14044CE80 step 4). The off path keeps its in-play gate.
+  if (pesLoop || (IsInPlay() && !IsInSetPiece())) AdvanceMatchFrames(1);
   actualTime_ms += kTick_ms;
   if (IsGoalScored())
     goalScoredTimer += kTick_ms;

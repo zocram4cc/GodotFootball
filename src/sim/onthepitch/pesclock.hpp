@@ -12,10 +12,10 @@
 // checksum is FNV-1a 64 over them, and PES traps when the checksum fails.
 // FUN_140A3C050 adds F to the stamp: that is the period clock.
 //
-// Units: 60 per game-second, so the gate's 162000 is 45 game-minutes. Live (OBS)
-// the stamp advances 10 per logic frame in play, which is PES's match-speed
-// setting; GF runs at game time, the setting is open. In stoppage (play state 2
-// or 3) the stamp is frozen and F rises 0.5 per frame.
+// Units: 60 per game-second, so the gate's 162000 is 45 game-minutes. The clock counts
+// logic frames: in play the stamp advances PesUnitsPerFrame a frame, 90 * E60 * E5C * (60 / 54)
+// / E58 (A6Writers 6): 10 at E58 = 10, the live match. In stoppage (play state 2 or 3) the
+// stamp is frozen and F rises 0.5 per frame.
 
 #ifndef _HPP_ONTHEPITCH_PESCLOCK
 #define _HPP_ONTHEPITCH_PESCLOCK
@@ -41,6 +41,7 @@ constexpr uint64_t TIME_UP_FLAG_VA = 0x142647c64;         // .rdata 54000.0 (per
 constexpr uint64_t MINUTE_UNITS_VA = 0x142598590;         // .rdata 3600.0 (units per minute)
 constexpr uint64_t LIMIT_CAP_VA = 0x142647c60;           // .rdata 21600.0 (LIMIT's clamp)
 constexpr uint64_t SECOND_UNITS_VA = 0x14259a764;         // .rdata 60.0 (seconds per minute, units per second)
+constexpr uint64_t MATCH_SPEED_BASE_VA = 0x14259be5c;     // .rdata 90.0: the match-speed numerator (A6Writers 6)
 
 // Report 2.2: the HUD wraps the displayed minute at 100.
 constexpr int kDisplayMinuteWrap = 100;
@@ -66,6 +67,7 @@ struct PesClockConstants {
   float minuteUnits = 0.0f;        // 3600.0: LIMIT's units per whole minute
   float secondsUnit = 0.0f;        // 60.0: minutes to seconds, and seconds to units
   float limitCap = 0.0f;          // 21600.0: LIMIT's clamp in the stoppage writer
+  float matchSpeedBase = 0.0f;     // 90.0: the match-speed numerator (.rdata 0x14259be5c)
 };
 
 bool ReadFloat(const PeImage& exe, uint64_t va, float* out);
@@ -73,12 +75,20 @@ bool ReadFloat(const PeImage& exe, uint64_t va, float* out);
 // Reads every clock constant out of the install's PES2021.exe.
 std::optional<PesClockConstants> LoadPesClockConstants(const PeImage& exe, std::string* error);
 
-// The period number PES keeps at MI+0x1168 for a GF phase. The breaks (2, 4, 6, 8)
-// are the walk-off set pieces in GF, not phases of their own.
+// The period number PES keeps at MI+0x1168 for a GF phase. The breaks (2, 4, 6, 8) are the
+// records EndPeriod hands to between two phases; GF has no phase of their own for them.
 uint32_t PeriodNumber(e_MatchPhase phase);
 
 // Periods that run a clock; PES's judge skips the time-up in the others (2, 6, 9, 10).
 bool PeriodHasClock(uint32_t period);
+
+// The period a clock period hands to when its whistle blows (FUN_1404494E0, A6Writers 5): 1 to
+// 2, 3 to 4 when level and to 10 otherwise, 5 to 6, 7 to 8 when level and to 10 otherwise. Any
+// other period is unchanged.
+uint32_t PeriodAfterWhistle(uint32_t period, bool scoresLevel);
+// The stamp's units per logic frame: PES's match speed, 90 * E60 * E5C * (60 / 54) / E58
+// (FUN_140A6C050, A6Writers 6), with E58 the match-time setting in minutes.
+float PesUnitsPerFrame(const PesClockConstants& c, float matchMinutes);
 
 // The period record, MI+0x1168..0x1194.
 struct PeriodRecord {
@@ -184,18 +194,19 @@ void ClockDisplay(float totalSeconds, int* minute_db_pitch, int* second);
 // The match clock: one period record per period, advanced by the logic tick.
 class PesClock {
  public:
-  explicit PesClock(const PesClockConstants& constants);
+  // matchMinutes is the match-time setting, E58: the menu's duration, 5 to 90 minutes.
+  explicit PesClock(const PesClockConstants& constants, float matchMinutes);
 
   // Starts the period's own record: the PES period number, stamp 0, F 0, no LIMIT.
   void SetPhase(e_MatchPhase phase);
   e_MatchPhase Phase() const { return phase; }
 
-  // One logic tick of `gameSeconds`. In play the stamp advances at 60 units a
-  // game-second; while frozen (a stoppage) the stamp holds and F accrues.
-  void Advance(float gameSeconds);
+  // `frames` logic frames of play: the stamp advances PesUnitsPerFrame a frame. While frozen (a
+  // stoppage) the stamp holds and F accrues half a unit a frame. A break has no clock.
+  void Advance(uint32_t frames);
   // FUN_14044CE80 step 4: while stopped in a clock period, LIMIT takes the same half unit
   // per frame as F, clamped at limitCap. Called every tick; it does nothing in play.
-  void AccrueStoppageLimit(float gameSeconds);
+  void AccrueStoppageLimit(uint32_t frames);
   // Freezes the clock for the duration of a stoppage (report 3.3).
   void SetFrozen(bool frozen) { this->frozen = frozen; }
   bool IsFrozen() const { return frozen; }
@@ -208,6 +219,9 @@ class PesClock {
   bool TimeUpGateOpen() const;
   // Adds the added-time formula's minutes to LIMIT, once per period (report 3.2).
   void AnnounceAddedTime(int tier);
+  // The period writer at a whistle (FUN_1404494E0): the record moves to the break or to full time,
+  // as PeriodAfterWhistle names.
+  void EndPeriod(bool scoresLevel);
   bool AddedTimeAnnounced() const { return addedTimeAnnounced; }
 
   // GF's display clock: the game-seconds the match has run, stoppages included.
@@ -229,6 +243,8 @@ class PesClock {
   bool frozen = false;
   bool addedTimeAnnounced = false;
   float elapsedSeconds = 0.0f;
+  float unitsPerFrame = 0.0f;        // PesUnitsPerFrame for the match's E58
+  float gameSecondsPerFrame = 0.0f;  // the match's game time per logic frame: 90 / (54 * E58)
 };
 
 }  // namespace pes

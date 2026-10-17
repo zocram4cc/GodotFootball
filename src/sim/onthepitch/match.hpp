@@ -300,9 +300,9 @@ public:
   // actual time at the game speed. ponytail: PES's counter also holds in its halted states
   // (the half-time screen, a pinned clock; docs/re/pes-re-clock-live.md); GF's does not.
   int GetPesFrame() const;
-  // Advances the match clock by elapsed game-seconds, frozen while play is
-  // stopped (report 3.3: a stoppage adds no time).
-  void AdvanceMatchSeconds(float gameSeconds);
+  // Advances the match clock by `frames` logic frames, frozen while play is stopped (report 3.3:
+  // a stoppage adds no time).
+  void AdvanceMatchFrames(uint32_t frames);
 
   unsigned long GetMatchTime_ms() const { return static_cast<unsigned long>(matchTime_ms); }
   unsigned long GetActualTime_ms() const { return static_cast<unsigned long>(actualTime_ms); }
