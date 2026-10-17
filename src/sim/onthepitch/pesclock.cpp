@@ -97,6 +97,10 @@ bool PeriodHasClock(uint32_t period) {
   return period == 1 || period == 3 || period == 5 || period == 7;
 }
 
+uint32_t PeriodAfterWhistle(uint32_t period, bool /*scoresLevel*/) { return period; }
+
+float PesUnitsPerFrame(const PesClockConstants& /*c*/, float /*matchMinutes*/) { return 1.0f; }
+
 float PeriodStamp(const PeriodRecord& r) {
   const uint32_t bits = DecodeSlot(r.ring[r.ringIdx % kRingSlots], r.key);
   if (StampChecksum(bits) != r.checksum)
@@ -277,7 +281,7 @@ int AnnouncedAddedMinutes(const PesClockConstants& c, e_AddedTimePhase phase, fl
   return std::min(announced, kMaxAnnouncedAddedMinutes);  // report 3.1: at most 9
 }
 
-PesClock::PesClock(const PesClockConstants& constants) : constants(constants) {}
+PesClock::PesClock(const PesClockConstants& constants, float /*matchMinutes*/) : constants(constants) {}
 
 void PesClock::SetPhase(e_MatchPhase newPhase) {
   phase = newPhase;
@@ -287,22 +291,9 @@ void PesClock::SetPhase(e_MatchPhase newPhase) {
   addedTimeAnnounced = false;
 }
 
-void PesClock::Advance(float gameSeconds) {
-  elapsedSeconds += gameSeconds;
-  if (frozen) {
-    // A stoppage holds the stamp and adds F: half a unit per logic frame.
-    record.f += kStoppageUnitsPerFrame * constants.gameSpeed * gameSeconds;
-    return;
-  }
-  StoreStamp(record, PeriodStamp(record) + constants.secondsUnit * gameSeconds);
-}
+void PesClock::Advance(uint32_t /*frames*/) {}
 
-void PesClock::AccrueStoppageLimit(float gameSeconds) {
-  if (!frozen || !PeriodHasClock(record.period)) return;
-  // FUN_14044CE80 step 4: LIMIT takes the half unit per frame that F takes, clamped at the cap.
-  record.limit = std::min(record.limit + kStoppageUnitsPerFrame * constants.gameSpeed * gameSeconds,
-                          constants.limitCap);
-}
+void PesClock::AccrueStoppageLimit(uint32_t /*frames*/) {}
 
 bool PesClock::PastPeriodLength() const {
   return PeriodHasClock(record.period) && TimeUpReached(constants, record.period, 0.0f, PeriodClock());
@@ -318,6 +309,8 @@ void PesClock::AnnounceAddedTime(int tier) {
   addedTimeAnnounced = true;
   record.limit += static_cast<float>(AddedMinutesUnclamped(tier)) * constants.minuteUnits;
 }
+
+void PesClock::EndPeriod(bool /*scoresLevel*/) {}
 
 void PesClock::Display(int* minute_db_pitch, int* second) const {
   ClockDisplay(elapsedSeconds, minute_db_pitch, second);

@@ -30,6 +30,9 @@ namespace {
 constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;
 constexpr unsigned int SEED = 1000;
 constexpr int SHORT_MATCH_MINUTES = 2;
+// The menu's floor of 5 minutes: a game-second is 54 frames x 5 / 90, three logic frames.
+constexpr uint32_t kFramesPerGameSecond = 3;
+uint32_t FramesIn(float gameSeconds) { return static_cast<uint32_t>(gameSeconds) * kFramesPerGameSecond; }
 
 // The player skeleton comes from the user's PES install.
 const pesrig::Rig* SharedRig() {
@@ -213,7 +216,7 @@ std::unique_ptr<Match> MatchAtPhase(e_MatchPhase phase, float seconds, bool pesL
   auto match = std::make_unique<Match>(new MatchData(HOME_TEAM, AWAY_TEAM), setup, config);
   match->SetMatchPhase(phase);
   match->StartPlay();
-  match->AdvanceMatchSeconds(seconds);
+  match->AdvanceMatchFrames(FramesIn(seconds));
   return match;
 }
 
@@ -250,7 +253,7 @@ TEST(PesPeriodLifecycle, TheRefereeWhistlesWhenTheGateOpens) {
   ASSERT_TRUE(match);
   match->GetReferee()->Process();
   EXPECT_TRUE(match->IsInPlay()) << "44:59 blows nothing";
-  match->AdvanceMatchSeconds(1.0f);
+  match->AdvanceMatchFrames(FramesIn(1.0f));
   match->GetReferee()->Process();
   EXPECT_FALSE(match->IsInPlay()) << "45:00 is the time-up";
 }
@@ -263,10 +266,10 @@ TEST(PesPeriodLifecycle, AStoppageMovesTheClockOnlyThroughF) {
   ASSERT_TRUE(match);
   const float stamp = pes::PeriodStamp(match->GetPesClock().Record());
   match->StopPlay();
-  match->AdvanceMatchSeconds(10.0f);
+  match->AdvanceMatchFrames(FramesIn(10.0f));
   EXPECT_FLOAT_EQ(pes::PeriodStamp(match->GetPesClock().Record()), stamp);
   EXPECT_FLOAT_EQ(match->GetPesClock().Record().f,
-                  pes::kStoppageUnitsPerFrame * SharedClockConstants()->gameSpeed * 10.0f);
+                  pes::kStoppageUnitsPerFrame * FramesIn(10.0f));
 }
 
 // Under pes_loop the gate opens the time-up, but the judge blows only after its 60 s count
@@ -290,8 +293,8 @@ TEST(PesPeriodLifecycle, PesLoopAStoppageAddsToLimit) {
   auto match = MatchAtPhase(e_MatchPhase_1stHalf, 100.0f, /*pesLoop=*/true);
   ASSERT_TRUE(match);
   match->StopPlay();
-  match->AdvanceMatchSeconds(100.0f);
-  EXPECT_FLOAT_EQ(match->GetPesClock().Record().limit, 0.5f * SharedClockConstants()->gameSpeed * 100.0f);
+  match->AdvanceMatchFrames(FramesIn(100.0f));
+  EXPECT_FLOAT_EQ(match->GetPesClock().Record().limit, pes::kStoppageUnitsPerFrame * FramesIn(100.0f));
 }
 
 // With pes_loop off the stoppage leaves LIMIT alone, as before.
@@ -300,7 +303,7 @@ TEST(PesPeriodLifecycle, WithoutPesLoopAStoppageLeavesLimitAlone) {
   auto match = MatchAtPhase(e_MatchPhase_1stHalf, 100.0f);
   ASSERT_TRUE(match);
   match->StopPlay();
-  match->AdvanceMatchSeconds(100.0f);
+  match->AdvanceMatchFrames(FramesIn(100.0f));
   EXPECT_FLOAT_EQ(match->GetPesClock().Record().limit, 0.0f);
 }
 
@@ -343,4 +346,14 @@ TEST(PesPeriodLifecycle, PesLoopAWhistleSpendsItsHeldBlow) {
   match->StartPlay();
   match->GetReferee()->Process();
   EXPECT_TRUE(match->IsInPlay()) << "the second half is not whistled by the first half's blow";
+}
+
+// The match speed is the match length as the menu clamps it: a 2-minute setting runs at the 5-minute
+// floor, so a frame is 100 / 5 = 20 units.
+TEST(PesPeriodLifecycle, TheMatchSpeedUsesTheClampedMatchLength) {
+  REQUIRE_RIG();
+  auto match = MatchAtPhase(e_MatchPhase_1stHalf, 0.0f);
+  ASSERT_TRUE(match);
+  match->AdvanceMatchFrames(1);
+  EXPECT_FLOAT_EQ(match->GetPesClock().PeriodClock(), 20.0f);
 }
