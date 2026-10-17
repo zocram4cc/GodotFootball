@@ -51,3 +51,4 @@ What each agent changed in GF, how it was tested, and what it left open. The dec
 |`pes-verdict-MoveStepCheck.md`|MOVESTEP verdict (MoveStepCheck)|
 |`pes-port-LanePort.md`|LanePort: PES's pass-lane blocker detector as a pure module (`peslane.*`: `ScanLane` 0x14063CD90, `LaneFree`, `HeadingAdd`, `IsAwaySlot`, `KeeperSlot`), 21 tests, 26 mutations; one-touch predicate and carrier wiring still open|
 |`pes-port-A6Breaks.md`|A6Breaks: breaks between periods (`PeriodAfterWhistle`, A6Writers §5), match-speed units per frame (90 from `0x14259be5c`), stoppage F/LIMIT at 0.5/frame; break-end writers and HUD base open; finding: the clock never ticks in stoppages, so stoppage time is missing|
+|`pes-port-A5Tail.md`|A5Tail: throw-in spot F1+0.25, release on reach (0.65 m), kick-off receiver gate, ball dead at the whistle (`Ball::Stop`); on-path stalls traced to the taker's pass anim being refused by the picker (bestAdv 0 at all distances), shared with DeadBall|
