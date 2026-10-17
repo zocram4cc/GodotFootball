@@ -1225,6 +1225,41 @@ TEST(EnterAccelerate, WritesTheBandWordThreeAndTheStateWordNine) {
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
 }
 
+// EnterAccelerate's issue (FUN_1406ccd00 arm 7): vt+0x10 takes (req, motion, mirror, 0,
+// 0.1667, req[0x35], startLadder). req[0x35] is the vt+0x50 answer the entry just wrote, so the
+// issued playback is nonzero; the start time is the 0.15/0.75/0.5 ladder, never a km/h rung.
+TEST(EnterAccelerate, IssuesThePlaybackWordWithTheStartLadder) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  h.positions[1][0] = 1.0f;
+  h.mirrorChoice = true;  // the vt+0x50 p is 1, like the interface's own answer
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 3.0f);
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 0.0f);  // what the adapter supplies: req[0x4b] has no fill
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  req.SetU(pes::moveword::kMoveBucket, 3u);
+  pes::probe::Reset();
+  EXPECT_TRUE(pes::movestep::EnterAccelerate(h, req));
+  EXPECT_GT(h.issued.playback, 0.0f) << "the issued playback is req[0x35], never req[0x4b]";
+  EXPECT_LE(h.issued.startTime, 1.0f) << "the start time is the 0.15/0.75/0.5 ladder";
+}
+
 // EnterDecelerate (FUN_1406cdaf0): with the class word above 1 the entry refuses outright.
 TEST(EnterDecelerate, RefusesToWriteWhenTheClassWordIsAboveOne) {
   SyntheticHost h;
