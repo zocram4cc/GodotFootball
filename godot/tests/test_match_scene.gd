@@ -36,7 +36,8 @@ func _ready() -> void:
 	var scene: Node3D = null
 	for pair in TEAM_PAIRS:
 		var candidate: Node3D = load("res://match/match.tscn").instantiate()
-		candidate.configure({"pes21-root": root, "home-team": str(pair[0]), "away-team": str(pair[1])})
+		candidate.configure({"pes21-root": root, "home-team": str(pair[0]), "away-team": str(pair[1]),
+				"pes-loop": ""})
 		add_child(candidate)
 		for i in FRAMES:
 			await get_tree().process_frame
@@ -59,7 +60,9 @@ func _ready() -> void:
 		var body: Node3D = players[i]
 		check(body.get_node_or_null("Skeleton") != null, "player %d is a skinned PES character" % i)
 		var want: Vector3 = scene.sim.player_position(i)
-		check(body.global_position.distance_to(Vector3(want.x, 0.0, want.z)) < POSITION_TOLERANCE_M,
+		var prev: Vector3 = scene.sim.player_position_previous(i)
+		var target: Vector3 = Vector3(prev.x, 0.0, prev.z).lerp(Vector3(want.x, 0.0, want.z), scene._lastAlpha)
+		check(body.global_position.distance_to(target) < POSITION_TOLERANCE_M,
 				"player %d stands where the simulation puts him" % i)
 	var posed := 0
 	for body: Node3D in players:
