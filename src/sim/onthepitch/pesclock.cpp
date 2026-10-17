@@ -75,6 +75,7 @@ std::optional<PesClockConstants> LoadPesClockConstants(const PeImage& exe, std::
   ok &= ReadFloat(exe, MINUTE_UNITS_VA, &c.minuteUnits);
   ok &= ReadFloat(exe, SECOND_UNITS_VA, &c.secondsUnit);
   ok &= ReadFloat(exe, LIMIT_CAP_VA, &c.limitCap);
+  ok &= ReadFloat(exe, MATCH_SPEED_BASE_VA, &c.matchSpeedBase);
   if (!ok) {
     *error = "PES2021.exe: match clock constants unmapped";
     return std::nullopt;
@@ -95,6 +96,30 @@ uint32_t PeriodNumber(e_MatchPhase phase) {
 
 bool PeriodHasClock(uint32_t period) {
   return period == 1 || period == 3 || period == 5 || period == 7;
+}
+
+// FUN_1404494E0 writes the period through FUN_14102CAD0. The level cases are FUN_1404493D0 (period
+// 3, VA 0x1404493D0) and FUN_1404499D0 (period 7, VA 0x1404499D0). ponytail: PES's knockout flags
+// (0x66 extra time, 0x67 shoot-out) have no GF setting. GF plays extra time and a shoot-out after a
+// draw (MatchProgression::GetNext), so a level match always takes the break that leads to them.
+uint32_t PeriodAfterWhistle(uint32_t period, bool scoresLevel) {
+  switch (period) {
+    case 1: return 2;                     // the half-time break, fixed
+    case 3: return scoresLevel ? 4 : 10;  // the extra-time break, or full time
+    case 5: return 6;                     // the extra-time break, fixed
+    case 7: return scoresLevel ? 8 : 10;  // the shoot-out break, or full time
+    default: return period;
+  }
+}
+
+// FUN_140A6C050 (the stamp, VA 0x140A6C050) and FUN_140A6BFC0 (LIMIT's product, VA 0x140A6BFC0):
+// 90 * E60 * E5C * (60 / 54) / E58 units a frame (A6Writers 6). ponytail: E60 and E5C are 1.0 in the
+// live match and GF has no setting for either; add them when a match at another value is read.
+// E58 is the match-time setting, which GF's match duration stands for (INF high: one live point, 10).
+float PesUnitsPerFrame(const PesClockConstants& c, float matchMinutes) {
+  constexpr float kE60 = 1.0f;
+  constexpr float kE5C = 1.0f;
+  return c.matchSpeedBase * kE60 * kE5C * c.secondsUnit / (c.gameSpeed * matchMinutes);
 }
 
 float PeriodStamp(const PeriodRecord& r) {
@@ -277,30 +302,39 @@ int AnnouncedAddedMinutes(const PesClockConstants& c, e_AddedTimePhase phase, fl
   return std::min(announced, kMaxAnnouncedAddedMinutes);  // report 3.1: at most 9
 }
 
-PesClock::PesClock(const PesClockConstants& constants) : constants(constants) {}
+PesClock::PesClock(const PesClockConstants& constants, float matchMinutes)
+    : constants(constants),
+      unitsPerFrame(PesUnitsPerFrame(constants, matchMinutes)),
+      // The match's game time per logic frame, the law MatchDurationGameTimeFromRealMilliseconds uses.
+      gameSecondsPerFrame(constants.matchSpeedBase / (constants.gameSpeed * matchMinutes)) {}
 
 void PesClock::SetPhase(e_MatchPhase newPhase) {
   phase = newPhase;
   record = PeriodRecord{};
+  // ponytail: the break-end writers (2 -> 3, 4 -> 5, 6 -> 7, 8 -> 9) are OPEN (A6Writers 5). GF
+  // starts the next period at the phase change, which the whistle makes, so no break lasts a frame.
   record.period = PeriodNumber(newPhase);
   StoreStamp(record, 0.0f);
   addedTimeAnnounced = false;
 }
 
-void PesClock::Advance(float gameSeconds) {
-  elapsedSeconds += gameSeconds;
+void PesClock::Advance(uint32_t frames) {
+  const float n = static_cast<float>(frames);
+  elapsedSeconds += gameSecondsPerFrame * n;
+  // A break, the shoot-out and full time have no clock: the stamp and F hold.
+  if (!PeriodHasClock(record.period)) return;
   if (frozen) {
-    // A stoppage holds the stamp and adds F: half a unit per logic frame.
-    record.f += kStoppageUnitsPerFrame * constants.gameSpeed * gameSeconds;
+    // A stoppage holds the stamp and adds F: half a unit a frame.
+    record.f += kStoppageUnitsPerFrame * n;
     return;
   }
-  StoreStamp(record, PeriodStamp(record) + constants.secondsUnit * gameSeconds);
+  StoreStamp(record, PeriodStamp(record) + unitsPerFrame * n);
 }
 
-void PesClock::AccrueStoppageLimit(float gameSeconds) {
+void PesClock::AccrueStoppageLimit(uint32_t frames) {
   if (!frozen || !PeriodHasClock(record.period)) return;
-  // FUN_14044CE80 step 4: LIMIT takes the half unit per frame that F takes, clamped at the cap.
-  record.limit = std::min(record.limit + kStoppageUnitsPerFrame * constants.gameSpeed * gameSeconds,
+  // FUN_14044CE80 step 4: LIMIT takes the half unit a frame that F takes, clamped at the cap.
+  record.limit = std::min(record.limit + kStoppageUnitsPerFrame * static_cast<float>(frames),
                           constants.limitCap);
 }
 
@@ -317,6 +351,11 @@ void PesClock::AnnounceAddedTime(int tier) {
   if (addedTimeAnnounced) return;
   addedTimeAnnounced = true;
   record.limit += static_cast<float>(AddedMinutesUnclamped(tier)) * constants.minuteUnits;
+}
+
+// FUN_1404494E0 writes the period at the whistle (A6Writers 5).
+void PesClock::EndPeriod(bool scoresLevel) {
+  record.period = PeriodAfterWhistle(record.period, scoresLevel);
 }
 
 void PesClock::Display(int* minute_db_pitch, int* second) const {

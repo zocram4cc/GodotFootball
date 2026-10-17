@@ -49,3 +49,5 @@ What each agent changed in GF, how it was tested, and what it left open. The dec
 |`pes-style-StylePort2.md`|StylePort2: Goal Poacher and Fox in the Box forward-run depth +5 m (`FUN_1405D8B70`, `0x14259222C`) placed on pes_loop; every other style effect listed with why it could not be placed (missing GF inputs per host); corrections: `1405E6E80` is the off-ball team-tick builder, `140662A10` a distance floor in a reach test|
 |`pes-sw-SwitchSW.md`|SW: pes_loop switch (branch SwitchSW)|
 |`pes-verdict-MoveStepCheck.md`|MOVESTEP verdict (MoveStepCheck)|
+|`pes-port-LanePort.md`|LanePort: PES's pass-lane blocker detector as a pure module (`peslane.*`: `ScanLane` 0x14063CD90, `LaneFree`, `HeadingAdd`, `IsAwaySlot`, `KeeperSlot`), 21 tests, 26 mutations; one-touch predicate and carrier wiring still open|
+|`pes-port-A6Breaks.md`|A6Breaks: breaks between periods (`PeriodAfterWhistle`, A6Writers §5), match-speed units per frame (90 from `0x14259be5c`), stoppage F/LIMIT at 0.5/frame; break-end writers and HUD base open; finding: the clock never ticks in stoppages, so stoppage time is missing|
