@@ -159,6 +159,72 @@ address given.
 |`pes-re-hitdata-index.md`|HitIndex: PES files HitData at `(w0&0x1fff)+0x11` (`FUN_1406ad300`, `ADD AX,0x11` at `0x1406ad438`); 2925/2925 install records confirm; GF's `mbinfo.cpp` was off by 0x11|
 |`pes-re-ball-contact-port.md`|BallContact: T1 same-tick landing and T3 live contact mode 1 ported in `BallTick`; 1 s median 0.711 → 0.386 m recorded, 0.801 → 0.472 m live; T1 alone 0.349 m; T2/T4 open|
 |`pes-re-exposure-same-shot.md`|ExposureShot: GF vs live PES at stadium 29, broadcast; GF pitch 1.3–2.0× brighter, white lines 0.69×, so not a global gain; B5's shirt clip does not transfer to the lit scene; camera and kits not matched|
+|`pes-re-style-effects.md`|**What each of the 21 player playing styles changes in a match**: per-style table (sites, system, effect, constants by VA), quantitative before/after (Goal Poacher run threshold 30→15 and goal radius 11→16 m, Target Man +30, Box-to-Box/Hole +5, Extra Frontman +0.2, full-back blend, set-piece clamps, keeper range/angle/distribution), the dt18 selector table (`_BoxToBox` record 0xBC, `_dummyRunner` 0xBD), and the GF gap list. Constants checked by Main against live PES|
+|`pes-re-style-census.md`|Every reader of the style word: 228 call sites of the gate `FUN_1408CB0B0` through `FUN_140A64030`/`FUN_140A63FE0`/`FUN_14063E890`, the bit at each site from raw disassembly, per-bit counts, and which earlier claims stand|
+|`pes-re-playing-styles.md`|Playing styles: the bit list and engine names, storage (EDIT 0x3b → engine bit, `block+0x48`), compat masks `0x142613D20`, the dead per-style tables, dt18 keys, and the live write session. Its §2/§3/§10 reader claims are RETRACTED; use the two docs above|
+|`DefensiveShapePort.md`|DefensiveShapePort — PES defensive line, length/width and marking po|
+|`keeperport2.md`|PES 2021 goalkeeper → GameplayFootball port (correction + positionin|
+|`offside-port.md`|Offside port — PES 2021 detection into GameplayFootball|
+|`offsideawareness.md`|Offside awareness for GF's attackers (OffsideAwarenessPort)|
+|`pes-a1t2-Liftoff.md`|A1 T2 (lift after a landing) and landing vertical response, branch L|
+|`pes-a1t4-Liftoff.md`|A1 T4 (rolling block) on branch Liftoff|
+|`pes-a1t4b-Liftoff.md`|A1 T4b: PES's horizontal spin cap and rolling spin convention, branc|
+|`pes-a1t4c-Liftoff.md`|Gate fix: PesBallConversion.ASecondOfSimTicksIsASecondOfPesTicksWhil|
+|`pes-ball-A1Spin.md`|A1Spin: ball spin pump, kick spin, contact-mode index|
+|`pes-bisect-accuracy.md`|AccuracyBisect: attributing the 20% -> 33% pass-accuracy jump (6114e|
+|`pes-decode-TouchReach.md`|TouchReach: PES decode of three GF stand-ins (read-only)|
+|`pes-fix-A2Wiring.md`|A2Wiring report|
+|`pes-fix-B6Stadium.md`|B6Stadium: home stadium from Team.bin, as the match resolver gives i|
+|`pes-fix-BugFix.md`|BugFix: four decode-wave defects (red → green + mutations)|
+|`pes-fix-ClipSwap.md`|pes-fix-ClipSwap: the FSM's issued clip is the clip the viewer plays|
+|`pes-fix-ComStyleGaps.md`|pes-fix-ComStyleGaps|
+|`pes-fix-MotionRecords.md`|MotionRecords: one motion-record read for MOVESTEP groups A, B, D (r|
+|`pes-fix-NullHazards.md`|pes-fix-NullHazards|
+|`pes-fix-ShootVerdict.md`|ShootVerdict: shootout verdict vs plan|
+|`pes-fix-SpinRunaway-2.md`|Resting test, kick-writer spin, collision cap, and the 124.9 probe r|
+|`pes-fix-SpinRunaway.md`|Rolling block audit: S3 weighting, spin writers, two decoded fixes (|
+|`pes-fix-TSheetPort.md`|pes-fix-TSheetPort: free-kick kicker chooser FUN_1404a8ad0|
+|`pes-fix-balltick-state.md`|BallTick handover state — Milestone A1 (54 Hz sim + PES ball tick)|
+|`pes-fix-carriergainfix-state.md`|CarrierGainFix — handed-over state (no commits, no push)|
+|`pes-fix-carrierimageport-state.md`|CarrierImagePort — hand-over state at rest (no code written)|
+|`pes-fpk-FpkBounds.md`|FpkBounds: fpk member past EOF|
+|`pes-movestep-MoveStepWire.md`|MoveStepWire: MOVESTEP drives the humanoid on the PES path|
+|`pes-port-A4Walk.md`|A4Walk: Dribble chooser, unit table and walk, Keep removed|
+|`pes-port-A5Port-blocker.md`|pes-port-A5Port-blocker: switch-on throw-in stall and free-kick chai|
+|`pes-port-A5Port.md`|pes-port-A5Port: PES restart sequencer behind pes_loop|
+|`pes-port-A6Whistle.md`|A6Whistle: post-gate judge and stoppage LIMIT writer (behind pes_loo|
+|`pes-port-AccelRamp.md`|AccelRamp: MOVESTEP AccelerationRamp, RUN_LOOP jostle, ramp wiring|
+|`pes-port-NearestList.md`|NearestList: PES nearest lists replace OppByDist|
+|`pes-re-A4Carrier.md`|A4Carrier: PES 2021 per-player brain (MainEval `FUN_142110D30`), its|
+|`pes-re-A5Judge.md`|A5 PES referee decode: judge → whistle writer → sequencer → restart|
+|`pes-re-A6Period.md`|A6Period: PES period record and time-up gate (RE + port report)|
+|`pes-re-A6Writers.md`|A6Writers: PES period-clock writers, time-up post-gate, breaks, matc|
+|`pes-re-Dribble-inventory.md`|Carrier and dribble fields: writers, readers, GF status (decode only|
+|`pes-re-Dribble.md`|Dribble status (current): branch `refs/heads/Dribble` = `1a3ea8e`|
+|`pes-re-OffBallSelectors-inventory.md`|OffBallSelectors: PES runtime fields the AI reads (decode-only, feed|
+|`pes-re-OffBallSelectors-postplay-xmm0.md`|PostPlay lane 0 (FUN_14061fa40): what xmm0 holds on each exit (decis|
+|`pes-re-OffBallSelectors.md`|OffBallSelectors: state (2026-10-15, end of pass)|
+|`pes-re-a3helpers.md`|A3 MOVESTEP blockers: decode (A3Helpers)|
+|`pes-re-foundation-areas.md`|Foundation inventory: areas round 1 did not cover (Areas)|
+|`pes-re-foundation-matchball.md`|Foundation inventory: match-, analysis- and ball-owned PES state (Ma|
+|`pes-re-foundation-teamplayer.md`|Foundation inventory: team-owned and player-owned PES runtime state|
+|`pes-re-foundation-verify.md`|Foundation verification (round-1 tables, independent re-check)|
+|`pes-re-foundation-widen.md`|Foundation inventory — widen pass (everything EXCEPT animation/anime|
+|`pes-re-glove-hands.md`|PES glove-replaces-hands rule (GloveRule)|
+|`pes-re-glove-keeper-2.md`|Keeper glove g1398: hollow render, round 3 (GloveRule)|
+|`pes-re-glove-keeper.md`|Keeper gloves and the whole-body glove (GloveRule, round 2)|
+|`pes-re-kick-align.md`|PES 2021 — open-play kick horizontal alignment (KickAlignRE)|
+|`pes-re-kick.md`|PES kick and touch writers, spin pump, mode index, goal-frame accumu|
+|`pes-re-tackle-kind.md`|PES tackle sub-kind (ContactPort stage C)|
+|`pes-re-teamctx.md`|PES team-AI context read by AccelerationRamp (FUN_1406cbf70) and the|
+|`pes-re-teamtick.md`|PES team tick, MA nearest lists, and the team/player interface (A4Te|
+|`pes-re-wave1-MovestepStep.md`|Wave 1 A-MOV group C: the stepping states of the MOVESTEP machine|
+|`pes-re-wave1-Wave1TSheet.md`|PES 2021 Wave 1: T-SHEET (team tactics sheet, T+0x8e08)|
+|`pes-seam-SeamWire.md`|SeamWire: MOVESTEP team seam, NearestOpponent from the RunWorld|
+|`pes-stall-IdleEpisodes-2.md`|IdleEpisodes round 2 (branch `IdleEpisodes`, SHA d47e785, pushed; ls|
+|`pes-stall-IdleEpisodes.md`|IdleEpisodes: classification of the 54 `[idle]` episodes (main a47f5|
+|`pes-sw-SwitchSW.md`|SW: pes_loop switch (branch SwitchSW)|
+|`pes-verdict-MoveStepCheck.md`|MOVESTEP verdict (MoveStepCheck)|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
@@ -170,3 +236,22 @@ Paths in the reports are placeholders: `$PES21_ROOT` is your install,
 `<scratch>` the analyst's scratch folder (its scripts are not in the repo),
 `<repo>` this repository. Refresh from the analysts' report folder with
 `tools/dev/archive_re.sh REPORT_DIR`.
+
+## Render reports (`docs/render/`)
+
+|Report|Covers|
+|---|---|
+|`../render/pes-pitch-PitchV7.md`|PitchV7: pitch VS fog terms (o7.z, o7.w) into specular and roughness|
+|`../render/pes-render-B7Effects.md`|B7 effects (B7Effects): report|
+|`../render/pes-render-EffectsBinding.md`|EffectsBinding: PesEffects binding over the effect parser|
+|`../render/pes-render-b2lighting.md`|B2Lighting — match light rig (report §0-8)|
+|`../render/pes-render-b3post.md`|B3Post: tonemap and post chain (Track B item B3)|
+|`../render/pes-render-b5materials.md`|B5 Materials: report, update (branch `B5Materials`, head 8fd78e0)|
+|`../render/pes-render-camera.md`|PES broadcast camera (B1, Dynamic Wide): target and framing port|
+
+## Plans (`docs/plans/`)
+
+|Plan|Covers|
+|---|---|
+|`../plans/engine-port-plan.md`|Port GameplayFootball to Godot 4 (GDExtension)|
+|`../plans/godotfootball-foundation-plan.md`|GodotFootball — foundation|
