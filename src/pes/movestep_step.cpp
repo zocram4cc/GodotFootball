@@ -877,8 +877,13 @@ void EnterTurnStop(MoveHost& host, MoveReq& req) {
     bucket = int(req.U(moveword::kLookBucket));       // req[0xc]
     turn = req.F(moveword::kLookDelta);               // req[5]
   }
-  // 1. The playback speed from the interface's own answer.
-  req.SetF(moveword::kPlayback, host.BandSpeedKmh(int(req.U(moveword::kClassWord)), host.PhysiqueG()));
+  // 1. The playback speed: the +0xac0 interface's vt+0x50 answer (FUN_1406e9f10), which is
+  // TurnPlayback(G, p); p is the interface's own (mirror-argument side test), answered here by
+  // MirrorChoice. It is never the band's km/h speed: writing a speed into req[0x35] latches a
+  // zero playback into the record of a standing player, and his clip never advances.
+  req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(),
+                                                  host.MirrorChoice(false) ? 1.0f : 0.5f,
+                                                  host.PlaybackConstantsView()));
   int band = int(req.U(moveword::kClassWord));
   band = std::min(std::max(band, 0), 3);
 
@@ -1328,8 +1333,11 @@ void TurnStop(MoveHost& host, MoveReq& req) {
   // the contract exposes).
   const float divisor = std::max(host.RecordF2468(), k.s0p85);
   const int frames = host.CurrentClipFrames();
-  const int cancelFrames = host.BandSpeedKmh(-2, host.PhysiqueG());  // the record's cancel frame
-  const int footFrames = host.BandSpeedKmh(-3, host.PhysiqueG());    // the record's foot frame
+  // ponytail: the record's cancel/foot frames (FUN_1406af8e0/afbc0 of the live motion's
+  // record); neither is a km/h band speed, so both stand at the no-record answer until the
+  // record reader is ported.
+  const int cancelFrames = 0;
+  const int footFrames = 0;
   const bool yawBusy = host.AnimeState() != 0;
   if (!yawBusy && footFrames <= cancelFrames &&
       cancelFrames < (footFrames + footFrames * 2) / 3) {
