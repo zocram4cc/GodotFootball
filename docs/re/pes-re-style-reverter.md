@@ -104,3 +104,35 @@ Discrepancy, OPEN: FrontmanDecode §6.4 observed single writes (no pin) reverted
 4. **Discriminating live test (needs an owner ruling; not run):** a single write of a different style bit on a player whose record field `0x3b` differs, to test whether the reverter re-reads the record (source) or restores a stored value. Not performed here.
 
 No builds or tests were run (no code changed). Ghidra bridge (port 8080) calls and `sudo -n` `pread` samples are the only tool use, plus local capstone scans of `pes_full.bin`.
+
+## 6. Session 2 (Main request, read-only): per-frame writer and indirect caller of FUN_141FBE810
+
+Verdicts: step 2 **OPEN** (exhaustive negative, below). Step 1 **OPEN**: no per-tick writer identified. One true style-word copy found (FUN_140422030, §6.2), reached only through a vtable slot; its per-tick status is unresolved. This session was static only: Ghidra bridge, E8/RIP/qword/RVA scans, and capstone decodes of `pes_full.bin`. No live access, no writes.
+
+### 6.1 Indirect caller of FUN_141FBE810 (step 2): OPEN
+
+- E8/E9 into `0x141FBE810`: one site, `0x141FBF805`, inside `FUN_141FBE810` itself (self-call). No caller outside the function (`calls.py`).
+- 8-byte VA references: none (`qscan.py`). Validated: the same scan finds vtable slot `0x142597580` entry 0 (`0x14041EC80`).
+- RIP-relative `lea`/`mov`/`call` to `0x141FBE810`: none (`ripref.py`).
+- 4-byte RVA entries: two, at `0x14332D550` (an ip-to-state map whose first pair is `FUN_141FBE810`'s own begin) and `0x143C3B754` (a `.pdata` RUNTIME_FUNCTION begin). Not a switch or jump table. `FUN_141FBE2A0` shows the same two-entry pattern.
+- INF: the external caller is a runtime-computed pointer (closure, registered callback, or task body) that is not in the image. Not resolvable statically from this dump.
+
+### 6.2 Per-tick writer search (step 1): OPEN; candidates eliminated
+
+Method: flat image, VA = `0x140000000 + file offset` (an offset bug in two early scans was fixed; the earlier raw-byte store scans were noisy and were re-checked against Ghidra-aligned listings).
+
+- Roster stride `0x128`: `imul r,r,0x128` at 18 sites in the roster getters `FUN_140A3AC20, FUN_140A3AF30, FUN_140A3AF60, FUN_140A3AF90, FUN_140A3B040, FUN_140A3B0E0, FUN_140A3B110, FUN_140A3B140, FUN_140A3B1B0, FUN_140A3B1F0, FUN_140A3B250, FUN_140A3B2A0` and five others (CONFIRMED). Pointer-walk loops `add r,0x128`: 62 functions (CONFIRMED). Intersected with `+0x48` stores (Ghidra-checked): `FUN_141C2E880`, `FUN_141CE3780`, `FUN_141DD7540`, `FUN_141DEDEC0` store a value from an event record (`piVar+6/+8`, type 2), not the style word; `FUN_1420D4A50` uses `bVar4*0x128` over two team-indexed records and accumulates floats; `FUN_1420C3B90` writes team name strings (its `+0x48` byte pattern is a decode artifact). None is the reverter.
+- Literal 0x128 copy (`mov r32,0x128` before a call, `rep movsq` 37, `rep movsb` 0x128): none in the copy- or roster-accessor callers. The 458 raw `mov imm32 0x128` byte matches are `[rbp+0x128]` displacements (false positives, verified on `FUN_140588CA0` and `FUN_1409677C0`).
+- Disp32 `+0xB8` stores (copy+0xB8 would be encoded this way when the copy base is held in a register): 4,198 instructions; 15 stores in copy- or roster-accessor callers. None is the style word: `FUN_1405103E0` copies an action record `+0x20 → +0xB8`; `FUN_1408A2180` writes floats; the rest are state or enum fields.
+- The one true style-word copy found: `FUN_140422030`. `mov [RDX+0x48], EAX` after `mov EAX, [RCX+0x48]` (`0x1404224C2/C5`), with the 0x40 skills qword copied alongside (`0x1404224BA/BE`). Source `RCX = team+0x298C+0x80` (team object, fixed offsets), destination `RBX+0x15C0` region (`RBX = [team+0x68]`). It is one fixed-offset block copy, not a loop over 0x128 records. A single `IMUL R8,RDX,0x74` at `0x1404224FF` indexes a 0x74-stride table (player table, not the roster). The loop structure and the gate guarding the copy were not decoded (OPEN). No E8 callers.
+- How it is reached (CONFIRMED): `FUN_140422030` is virtual slot `+0x98` of the primary vtable at `0x1425984C0` (slot 19; `0x1425984C0 + 0x98 = 0x142598558`). The class's secondary vtable is at `0x142598568` (stored at `object+0x10` by `FUN_140420480`). Slot 0 is `FUN_140421610` (scalar deleting destructor). The class object is 0x3658 bytes, allocated in `FUN_140418940` (`mov edx,0x3658` at `0x14041901F`); its ctor `FUN_140420480` is called only from `FUN_140421610`; `FUN_140418940` is called from `FUN_14041A710`, which is itself recursive (its only E8 caller is inside it, `0x14041B23E`). The outer caller is OPEN.
+- Whether this object's slot 19 runs per tick, and whether its `RBX+0x15C0` / `RDX` alias the copy (`copy+0x70`) or the roster block, is OPEN.
+- Other lead (unexamined): `FUN_141FE3830` (the match-build loop, §2.2) addresses its player blocks as `FUN_1408C6560(param_1+0x140, side, slot)+8`, i.e. stride `0x3A10` per side and `0xF0` per slot from `+0x68`. That is a second block layout, distinct from the 0x128 roster and not yet mapped to the copy or the roster. Its `+0x48` for side 0 slot 1 was not style-valued in the probe I ran (`mirror_probe.py`, base `G+0x140` assumed, OPEN).
+
+### 6.3 Next steps (for Main or the next pass)
+
+1. Find the `call [reg+0x98]` site(s) whose `reg` holds a `0x3658` object of class `0x1425984C0`. Start from the outer caller of `FUN_14041A710` (not an E8 target; search the other `FUN_14041A710` callers via a `call` through a function pointer, or the vtable of its parent). Then check whether that caller is per tick.
+2. Decide whether `FUN_140422030`'s `RBX+0x15C0` destination is the copy block (copy+0x70) by its use of `[RBX+0x14DC..0x153C]` and `[RBX+0x15BC]`: both are written by the same function, so the layout is local to it.
+3. Resolve the `FUN_141FE3830` element base (`param_1+0x140`) and check it against live `G`, read-only, if the match is in play.
+
+Files: `<workdrive>/gf-FrontmanSource-scratch/` (`ripref.py`, `size128.py`, `loopfns.py`, `disp_b8.py`, `store48_hits.txt`, `disp_b8_hits.txt`, `loop_add128.txt`, `loop_imul128.txt`, `cand3/`, `tbl/`, `dis_140422030.txt`).
