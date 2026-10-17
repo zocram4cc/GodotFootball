@@ -221,10 +221,27 @@ OPEN: the game-design reason (mutually exclusive card, COM override, or somethin
 ### 6.5 Item 6 verdict
 
 **OPEN (not closed).** Two blockers:
-+ (a) The bit-15 write on a centre-back does not persist: the game reverts it within ≈0–3 s. Holding it needs a repeated write (a pin), which the brief rules forbid without an owner ruling. I did not pin.
-+ (b) The team did not reach full attack (`b8a2 = 1`) in about 7 minutes of play, so the +0.2 and the `P+0x3EF8` write never ran. The designated-slot observation with a bit-15 player therefore has no data.
+(a) The bit-15 write on a centre-back does not persist: the game reverts it within ≈0–3 s. Holding it needs a repeated write (a pin). The owner ruled the pin on 17-10-26; it ran 15 min (§6.6), held the word 87% of samples, and found no full attack.
+(b) The team did not reach full attack (`b8a2 = 1`) in about 7 minutes of play, so the +0.2 and the `P+0x3EF8` write never ran. The designated-slot observation with a bit-15 player therefore has no data.
+(c) **Second live-copy mirror not located.** The owner ruling asked for both mirrors. Only one copy-table pointer exists (`G+0x2620`, `find_mirror.py`). A 32-byte header scan of the rw heap (`live/sibling.py`, 793 regions) found no sibling buffer with the same header; the 16-byte key matched only the executable image (noise). The experiment therefore wrote one roster word and one copy word, not "both mirrors".
 
-Next, by experiment (needs a ruling on (a)): (1) decide whether a bounded repeated write (pin) is allowed for a single word; (2) or find the style rebuild that undoes the write (static: writers of the gate-word stride `0x128`, from the team tick), then hold the word with a controlled writer; (3) wait for a full-attack phase with the bit held, and log `TD+0x3EF8` with `b8a2`.
+### 6.6 Pin run (owner ruling 17-10-26: pin bit 15 on the same CB, cap 15 min)
+
++ Log: `live/pin_run1.log`, script `live/pin.py` (rewrites only the roster word `0x1D47B830` and copy word `0x1D4A3160`; never touches `MI+0x1168/0x116c/0x1574`).
++ **PIN_START 11:35:44; PIN_END 11:50:44 (cap, 900 s). No full attack was reached, so no early stop.**
++ Counts: 413,952 samples; 106,872 rewrites; the game reverted the roster word 53,020 times. Bit 15 was held at the sample point in 87.0% of samples.
++ **Restore:** both words back to `0x1000` at 11:50:44, readback `0x1000 / 0x1000`, VERIFY ok.
++ **Full attack (`b8a2 = 1`): never seen** in 15 min for either side (`b8a2` read 0 whenever the team pointer was valid; `gauge` 2). So `FUN_1405FC860` never ran during the pin, and `TD+0x3EF8` stayed 0 (`des_0 = des_1 = 0` in every valid sample). **The `P+0x3EF8` and +0.2 observation the owner asked for therefore did not happen; the experiment did not reach its goal.**
++ **F63C0 / F7D00 outcomes:** not observable. Their outcome is a candidate-list write, and the candidate-list call sits on the full-attack path that did not run. Nothing was logged for them.
++ **Candidate list (`SP[4..14]`) against baseline:** the normal list was the same as the baseline list (`(1979|2047, 1, 0, 255, 255, 1, 7, 3, 4, 5, 10)` and `(…, 2, 7, 3, 4, 10, 5)`). Slot 1 (our CB) is in the side-0 list only as the baseline value, and no change to the list was caused by the pin.
++ **Unexplained difference:** in 3,214 of 56,233 change-rows the lists were all `255` (cleared). The 200-s baseline never showed a cleared SP list. This is confounded (run length, set-piece restarts) and was not isolated, so it is **not** attributed to the pin. Needs a controlled comparison.
+
+### 6.7 Status
+
++ Item 6 (the bit-15 player and when `P+0x3EF8` names him): **OPEN**. The pin held bit 15 on a CB for 87% of 15 minutes, but the team never reached full attack, so the designated-slot observation still has no data.
++ Next: (1) a full-attack phase must occur while the word is held; the pin cap has been used, so this needs a new ruling for a longer or repeated window; (2) FrontmanSource's revert-writer finding would let the pin be replaced by a clean hold.
+
+Superseded by §6.6 and §6.7.
 
 ---
 
