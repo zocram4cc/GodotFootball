@@ -27,6 +27,71 @@ float HeadingDeg(float x, float z, const pes::RunConstants& k) {
   return pes::FoldFull(std::atan2(x, z) * kDegPerRad, k);
 }
 
+// FUN_1406b7560's fill, from the player's current AI command (docs/re/pes-re-anim-select.md
+// 1.1): req[1] is the heading to the move target, req[3] the heading to the look-at point,
+// req[0x11]/[0x12] their distances in metres, req[6] the turn (target minus facing) and req[7]
+// the facing error to the look-at point. Words the command does not name keep PES's init: kind
+// 3 (RUN), bucket 0, precise clear, command id 0. A command with no movement reads as standing
+// still at the facing, which is PES's answer for an unset target.
+void FillCommandWords(pes::MoveReq& req, const float facingDeg, Player& player,
+                      const pes::AngleBucketConstants& buckets) {
+  const Anim* anim = player.GetCurrentAnim();
+  Vector3 dir(0.0f, 0.0f, 0.0f);
+  float speed = 0.0f;
+  Vector3 look(0.0f, 0.0f, 0.0f);
+  bool hasLook = false;
+  if (anim != nullptr) {
+    dir = anim->originatingCommand.desiredDirection;
+    speed = anim->originatingCommand.desiredVelocityFloat;
+    hasLook = anim->originatingCommand.useDesiredLookAt;
+    look = anim->originatingCommand.desiredLookAt;
+  }
+  const Vector3 pos = player.GetPosition();
+  const float hasMove = (dir.coords[0] != 0.0f || dir.coords[1] != 0.0f) && speed > 0.0f;
+  // The move target a tick ahead: the command's direction at its speed. PES's target sits in
+  // the command block; GF's command carries a direction and a speed, so the target is one
+  // second along them.
+  const float tx = pos.coords[0] + (hasMove ? dir.coords[0] * speed : 0.0f);
+  const float tz = pos.coords[1] + (hasMove ? dir.coords[1] * speed : 0.0f);
+  const float dx = tx - pos.coords[0];
+  const float dz = tz - pos.coords[1];
+  const float dist = std::sqrt(dx * dx + dz * dz);
+  // FUN_1406b9b20's own constants live in the adapter's bundle; the fill needs only the fold.
+  pes::RunConstants fold{};
+  fold.one = 1.0f;
+  fold.neg = -1.0f;
+  fold.half_turn = 180.0f;
+  fold.full = 360.0f;
+  const float heading = dist > 0.0f
+                            ? pes::FoldFull(std::atan2(dx, dz) * kDegPerRad, fold)
+                            : facingDeg;
+  req.SetF(pes::moveword::kHeading, heading);
+  const float lx = hasLook ? look.coords[0] - pos.coords[0] : dx;
+  const float lz = hasLook ? look.coords[1] - pos.coords[1] : dz;
+  const float lookDist = std::sqrt(lx * lx + lz * lz);
+  const float lookHeading = lookDist > 0.0f
+                                ? pes::FoldFull(std::atan2(lx, lz) * kDegPerRad, fold)
+                                : facingDeg;
+  req.SetF(pes::moveword::kLookHeading, lookHeading);
+  req.SetF(pes::moveword::kBodyDirection, facingDeg);
+  req.SetF(pes::moveword::kDistToTarget, dist);
+  req.SetF(pes::moveword::kDistToLook, hasLook ? lookDist : dist);
+  float turn = heading - facingDeg;
+  if (fold.half_turn < turn) turn -= fold.full;
+  if (turn < -fold.half_turn) turn += fold.full;
+  req.SetF(pes::moveword::kTurn, turn);
+  float facingError = lookHeading - facingDeg;
+  if (fold.half_turn < facingError) facingError -= fold.full;
+  if (facingError < -fold.half_turn) facingError += fold.full;
+  req.SetF(pes::moveword::kFacingError, facingError);
+  // FUN_1406b9b20(angle, 10): the 10-way buckets of the turn and the facing error, with no
+  // current bucket (10 = PES's miss default).
+  req.SetU(pes::moveword::kMoveBucket,
+           static_cast<uint32_t>(pes::movestep::AngleBucket(buckets, turn, 10, false)));
+  req.SetU(pes::moveword::kLookBucket,
+           static_cast<uint32_t>(pes::movestep::AngleBucket(buckets, facingError, 10, false)));
+}
+
 // The team-AI reads of the MOVESTEP ramp and the RUN_LOOP jostle (pes::TeamAi). GF has no team records yet,
 // so each answer is a stand-in, and each names the PES read it replaces.
 class AdapterTeam final : public pes::TeamAi {
@@ -140,6 +205,11 @@ class MoveHostAdapter final : public pes::MoveHost {
   void StoreSpeedClass(float desiredKmh, float turnDeg) {
     player_.GetMoveStep().speedClass =
         static_cast<uint8_t>(pes::SpeedClassOf(desiredKmh, turnDeg, c_.speedClass));
+  }
+  void StoreFootBand(float turnDeg) {
+    // ponytail: anime vt+0x78 of the +0xab8 interface; GF stands the foot from the turn's
+    // sign, which is the side the locomotion plants on.
+    player_.GetMoveStep().footBand = static_cast<uint8_t>(turnDeg < 0.0f ? 1 : 2);
   }
   // The heading of the last displacement minus the facing, in degrees (FUN_141eb50b0's index 1). Zero
   // when the player did not move.
@@ -267,7 +337,18 @@ class MoveHostAdapter final : public pes::MoveHost {
   // movestep.hpp's CurrentMotion: the PES motion the body plays, -1 when the AI's own clip plays.
   int CurrentMotion() const override { return pesmovestep::CurrentMotionOf(player_); }
   int CurrentClipFrames() const override { return player_.GetFrameNum(); }
-  int AnimeState() const override { return 0; }  // ponytail: vt+0x28 of the +0xab8 interface.
+  int AnimeState() const override {
+    // ponytail: vt+0x28 of the +0xab8 interface; GF answers the MOVE action (2) for
+    // movement-like functions, else the 0 stub (never the 0x4a replay action).
+    switch (player_.GetCurrentFunctionType()) {
+      case e_FunctionType_Movement:
+      case e_FunctionType_BallControl:
+      case e_FunctionType_Trap:
+        return 2;
+      default:
+        return 0;
+    }
+  }
   // The motion table the match loaded from the install (Mbinfo's lists, see pes/mbinfo.hpp).
   const pes::MotionRecord& Motion(int motionNo) const override {
     return match_.GetPesMbinfo().Motion(motionNo);
@@ -362,16 +443,18 @@ void ProcessMoveStep(Player& player, Match& match) {
   pes::MoveReq req;
 
   // The request block's copy-in words the adapter owns before the handler runs. PES's own
-  // action setter fills the command block; the adapter stands its fields in from the player.
+  // action setter (FUN_1406b7560) fills them from the AI command block; the adapter stands its
+  // fields in from the player's current command: the move target is the command's direction
+  // scaled by its speed (req[1] heading, req[0x11]/[0x12] distances), the look-at is the
+  // command's look-at point when set (req[3]/[0x12]), and the buckets follow FUN_1406b9b20.
   req.SetF(pes::moveword::kFacing, host.FacingDeg());
   const float facing = req.F(pes::moveword::kFacing);
-  req.SetF(pes::moveword::kHeading, facing);
-  req.SetF(pes::moveword::kLookHeading, facing);
-  req.SetF(pes::moveword::kBodyDirection, facing);
-  req.SetF(pes::moveword::kTurn, 0.0f);
-  req.SetF(pes::moveword::kFacingError, 0.0f);
-  // FUN_1406eebb0's store, per tick: the speed class of the command's speed at the turn.
+  FillCommandWords(req, facing, player, host.AngleBuckets());
+  // FUN_1406eebb0's stores, per tick: the speed class (P+0x245a, FUN_14081e340 of the
+  // command's speed at the turn) and the foot band (P+0x245b, anime vt+0x78). GF has no foot
+  // sensor; the band stands at the side of the last displacement against the facing.
   host.StoreSpeedClass(host.CommandSpeedKmh(), host.DisplacementTurnDeg());
+  host.StoreFootBand(host.DisplacementTurnDeg());
   req.SetU(pes::moveword::kCommandSpeedClass,
            static_cast<uint32_t>(host.CommandSpeedClass()));
   req.SetF(pes::moveword::kDesiredSpeedKmh, host.CurrentSpeedKmh());

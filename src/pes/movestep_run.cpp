@@ -1176,24 +1176,42 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
     column = static_cast<int>(k.negHalf < req.F(moveword::kFacingError)) + 8;
     row = 0x564;  // FUN_1406b9bd0's table's override for the turn-lock family.
   }
-  // ponytail: the foot-band rows 0x561..0x566 and the band 0x55f..0x571 overrides read
-  // FUN_140a58550 (the record's class) and FUN_14044e020 (its draw), which are the
-  // foundation's player table; the port leaves both overrides unapplied.
+  // The foot-band rows 0x561..0x566 and the band 0x55f..0x571 overrides: the row-id gate is
+  // the anime state below 0x16 with the picked row id below 0x12 in the 0x2a015 band and the
+  // row in 0x55f..0x571 in the 0x4c03f band (FUN_1406ce820). The inner record-chain tests
+  // (FUN_140a58550/FUN_14044e020, the jostle record) are the foundation's player table.
+  // ponytail: the inner record-chain tests remove this gate's remainder.
+  if (host.AnimeState() < 0x16 && static_cast<uint32_t>(kind) < 0x12 &&
+      ((0x2a015u >> (static_cast<uint32_t>(kind) & 0x1f)) & 1u) != 0 &&
+      0x55f <= row && row < 0x55f + 0x13 && ((0x4c03fu >> ((row - 0x55f) & 0x1f)) & 1u) != 0) {
+    // The record chain answers here; without it the row stands, which is PES's answer for a
+    // missing record.
+  }
   if (row == 0x5c9) row = 0x5ca;
 
-  // Block 5: the distance/speed arm.
+  // Block 5: the distance/speed arm (FUN_1406ce820): the ball 20/60 s ahead
+  // (FUN_140a6cf70 at index int(54*20/60 + 0.5) = 18) within reach takes row 0x662 on the
+  // Percent(40) draw, else 0x661. The keeper/class inner gates are the foundation's player
+  // table.
+  // ponytail: the keeper/class inner gates (FUN_140a48a30/FUN_140a71540's rank byte)
+  // remove this arm's remainder.
   if (row == 0x5ca && static_cast<uint32_t>(column - 8) < 2u) {
-    // ponytail: FUN_140439f90 of the ball-line point's record, the 20 m gate, the phase test
-    // and the Percent(40) draw are the ball-track and keeper ports; the port takes the base
-    // row, which is PES's answer for a missing point.
-    row = 0x661;
+    float ball[3] = {0.0f, 0.0f, 0.0f};
+    host.BallSample(18, ball);
+    float self[3] = {0.0f, 0.0f, 0.0f};
+    host.PositionAt(0, self);
+    const float bdx = ball[0] - self[0];
+    const float bdz = ball[1] - self[1];
+    const float ballDist = std::sqrt(bdx * bdx + bdz * bdz);
+    row = host.Percent(40) && ballDist < k.dist1m5 ? 0x662 : 0x661;
   }
 
-  // Block 6: the out-of-play arm.
-  if (host.MatchPhase() == 1 && row < 0x10 && ((0xa014u >> (row & 0x1f)) & 1u) != 0) {
-    // ponytail: FUN_140a6cf70's point, FUN_140a627e0's rank, the event ring's frame and the
-    // two overrides (rows 0x5cc/0x5cd) are the foundation's event store; the port keeps the
-    // base row and states the missing comparison here.
+  // Block 6: the out-of-play arm (FUN_1406ce820): outside open-play phase 1, a row in the
+  // two 0xa014-bit bands (0..3, 8..11) takes row 0x5cc (0x5cd by the point/rank/frame pick).
+  // The point (FUN_140a6cf70), the rank (FUN_140a627e0) and the event ring's frame are the
+  // foundation's event store.
+  // ponytail: the point/rank/frame pick between 0x5cc and 0x5cd removes this arm's remainder.
+  if (host.MatchPhase() != 1 && row < 0x10 && ((0xa014u >> (row & 0x1f)) & 1u) != 0) {
     row = 0x5cc;
   }
 
