@@ -2011,8 +2011,14 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
          reQueueDelayFrames > 0))
       return false;
 
-    // too similar to what we are already trying to accomplish
-    if (currentAnim->originatingCommand.desiredFunctionType == command.desiredFunctionType &&
+    // too similar to what we are already trying to accomplish. A PES locomotion clip keeps the
+    // command MOVESTEP was last handed: PlayIssuedClip leaves originatingCommand in place, and
+    // MOVESTEP reads its speed and look point from it. The clip therefore does not show what the
+    // body is doing. MOVESTEP can hold at its look-at gate with that command still set, and then
+    // every walk to the ball is refused. The momentum check below still weighs the clip's planned
+    // change. ponytail: GF stand-in for the PES locomotion handling of FUN_1406eebb0 (not re-verified).
+    if (!OnPesLocomotion() &&
+        currentAnim->originatingCommand.desiredFunctionType == command.desiredFunctionType &&
         ((currentAnim->originatingCommand.desiredDirection *
           currentAnim->originatingCommand.desiredVelocityFloat) -
          (command.desiredDirection * command.desiredVelocityFloat))
