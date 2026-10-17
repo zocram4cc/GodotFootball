@@ -199,6 +199,49 @@ TEST(MoveStepWire, TheFsmLeavesGotoRunAndReachesRunLoop) {
   EXPECT_GT(states[static_cast<int>(pes::MoveState::kRunLoop)], 0L);
 }
 
+// The FSM reaches STOP and ACCELERATE in a match: the run loop's pre-empt entries fire once the
+// request carries the look distance PES's gates read. Built before the fill, the look distance
+// is always zero, so both entries refuse and states 8 and 9 never run.
+TEST(MoveStepWire, TheFsmReachesStopAndAccelerate) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  std::map<int, long> states;
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) ++states[static_cast<int>(p->GetMoveStep().state)];
+  }
+  for (const auto& [state, ticks] : states)
+    printf("[movestep-states] state %d ticks %ld\n", state, ticks);
+  EXPECT_GT(states[static_cast<int>(pes::MoveState::kStop)], 0L);
+  EXPECT_GT(states[static_cast<int>(pes::MoveState::kAccelerate)], 0L);
+}
+
+// The kick-off taker reaches the ball: during the opening set piece his distance to the ball
+// shrinks (PES's 0.65 m reach). Built with the mirrored heading, the FSM runs him away and the
+// restart stalls.
+TEST(MoveStepWire, TheKickoffTakerClosesToTheBall) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  float first = -1.0f, closest = 1e9f;
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    float best = 1e9f;
+    for (Player* p : ActivePlayers(*match)) {
+      const float d = (p->GetPosition() - match->GetBall()->GetPositionBuffer()).GetLength();
+      if (d < best) best = d;
+    }
+    if (t == 0) first = best;
+    if (best < closest) closest = best;
+  }
+  printf("[movestep-approach] first %.2f closest %.2f\n", first, closest);
+  EXPECT_GT(first, 0.0f);
+  EXPECT_LT(closest, 0.65f) << "someone must reach the ball (PES's 0.65 m reach)";
+}
+
 // StoreRateCeiling has a caller: the record holds the TopRate ceiling once the FSM has ticked.
 // Built on main, nothing stores it, so the ceiling reads zero.
 TEST(MoveStepWire, TheRateCeilingIsStoredEachTick) {
