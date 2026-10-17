@@ -38,16 +38,22 @@ constexpr unsigned int SEED = 7;
 constexpr int MINUTES = 2;
 // Seed 7 stalls a throw-in at about four minutes; five covers it.
 constexpr int LONG_MINUTES = 5;
+// Seed 7's home keeper stalls at a goal kick about nineteen minutes in; twenty covers it.
+constexpr int TWENTY_MINUTES = 20;
 // A throw-in is released from the line: its ball may not be further than this from the spot.
 constexpr float kThrowInReleaseTolerance_m = 0.5f;
 // The same 30-minute cap as the other whole-match tests, counted in the 54 Hz logic
 // frames the sim ticks in.
 constexpr unsigned long kMaxSimTicks = 30ul * 60ul * Match::kFramesPerSecond;
+// The 60-minute cap the install's gfsim_run uses, for the twenty-minute match: with its stoppages it
+// runs about 114600 ticks, past the 30-minute cap above.
+constexpr unsigned long kTwentyMinuteMaxSimTicks = 60ul * 60ul * Match::kFramesPerSecond;
 
 // One match with the tick-order switch set as asked. `onTick` sees the match after each tick;
 // the watch stops the run at the first stall.
 void RunMatchWithinTheBound(bool pesLoop, int minutes,
-                            const std::function<void(Match&)>& onTick) {
+                            const std::function<void(Match&)>& onTick,
+                            unsigned long maxSimTicks = kMaxSimTicks) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
   pes::PesVfs vfs;
@@ -73,7 +79,7 @@ void RunMatchWithinTheBound(bool pesLoop, int minutes,
   Match match(new MatchData(HOME_TEAM, AWAY_TEAM), *setup, config);
   RestartWatch watch(
       RestartLimitTicks(*setup->pesStoppageConstants, *setup->pesSetPieceTakerConstants));
-  while (!match.IsGameOver() && !watch.Stalled() && watch.Ticks() < kMaxSimTicks) {
+  while (!match.IsGameOver() && !watch.Stalled() && watch.Ticks() < maxSimTicks) {
     match.Process();
     watch.Observe(match);
     if (onTick) onTick(match);
@@ -97,6 +103,14 @@ TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBound) {
 // every restart must still arrive inside the watch's bound.
 TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBoundWithPesLoop) {
   RunMatchWithinTheBound(true, MINUTES, nullptr);
+}
+
+// The whole match at twenty minutes with pes_loop on. Seed 7's home keeper, taking a goal kick about
+// nineteen minutes in, stood 2.3 m off the ball: his walk was refused behind the MOVESTEP clip's stale
+// command, and nothing restarted the match. Every stoppage must restart inside the bound and the match
+// must reach full time.
+TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBoundAtTwentyMinutes) {
+  RunMatchWithinTheBound(true, TWENTY_MINUTES, nullptr, kTwentyMinuteMaxSimTicks);
 }
 
 // With pes_loop on, each set piece is armed where PES puts it (a goal kick on the goal-area line, a
