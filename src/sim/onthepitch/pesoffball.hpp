@@ -114,7 +114,7 @@ struct OffBallConstants {
   float predFar_s;          // 0.6 @0x14257a190
   float predLead_s;         // 0.1 @0x142588200
   float predOffBall_s;      // 0.3 @0x142590d98
-  float styleRunDepth_m;    // 5 @0x14259222c (FUN_1405d8b70 L650-657: Goal Poacher, Fox forward run)
+  float styleRunDepth_m;    // 5 @0x14259222c (FUN_1405d8b70 L650-657, run styles)
   pes::style::Compat styleCompat{};  // 0x142613D20: the playing-style compat rows (FUN_1408CB0B0)
 };
 
