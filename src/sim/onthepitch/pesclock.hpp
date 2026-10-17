@@ -41,6 +41,7 @@ constexpr uint64_t TIME_UP_FLAG_VA = 0x142647c64;         // .rdata 54000.0 (per
 constexpr uint64_t MINUTE_UNITS_VA = 0x142598590;         // .rdata 3600.0 (units per minute)
 constexpr uint64_t LIMIT_CAP_VA = 0x142647c60;           // .rdata 21600.0 (LIMIT's clamp)
 constexpr uint64_t SECOND_UNITS_VA = 0x14259a764;         // .rdata 60.0 (seconds per minute, units per second)
+constexpr uint64_t MATCH_SPEED_BASE_VA = 0x14259be5c;     // .rdata 90.0: the match-speed numerator (A6Writers 6)
 
 // Report 2.2: the HUD wraps the displayed minute at 100.
 constexpr int kDisplayMinuteWrap = 100;
@@ -74,8 +75,8 @@ bool ReadFloat(const PeImage& exe, uint64_t va, float* out);
 // Reads every clock constant out of the install's PES2021.exe.
 std::optional<PesClockConstants> LoadPesClockConstants(const PeImage& exe, std::string* error);
 
-// The period number PES keeps at MI+0x1168 for a GF phase. The breaks (2, 4, 6, 8)
-// are the walk-off set pieces in GF, not phases of their own.
+// The period number PES keeps at MI+0x1168 for a GF phase. The breaks (2, 4, 6, 8) are the
+// records EndPeriod hands to between two phases; GF has no phase of their own for them.
 uint32_t PeriodNumber(e_MatchPhase phase);
 
 // Periods that run a clock; PES's judge skips the time-up in the others (2, 6, 9, 10).
@@ -242,6 +243,8 @@ class PesClock {
   bool frozen = false;
   bool addedTimeAnnounced = false;
   float elapsedSeconds = 0.0f;
+  float unitsPerFrame = 0.0f;        // PesUnitsPerFrame for the match's E58
+  float gameSecondsPerFrame = 0.0f;  // the match's game time per logic frame: 90 / (54 * E58)
 };
 
 }  // namespace pes
