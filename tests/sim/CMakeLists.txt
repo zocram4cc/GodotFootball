@@ -8,7 +8,7 @@ target_compile_definitions(sim_fixture_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURC
 gtest_discover_tests(sim_fixture_test)
 
 add_executable(sim_match_test sim_match_test.cpp)
-target_link_libraries(sim_match_test PRIVATE gfsim GTest::gtest_main)
+target_link_libraries(sim_match_test PRIVATE gfsim pesfmt pesmovestepcore GTest::gtest_main)
 target_compile_definitions(sim_match_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 # Whole matches: far beyond gtest_discover_tests' default 5 s discovery budget per test.
 gtest_discover_tests(sim_match_test PROPERTIES TIMEOUT 1800)
