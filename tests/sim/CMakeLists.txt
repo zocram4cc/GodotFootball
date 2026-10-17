@@ -151,6 +151,10 @@ add_executable(pes_goal_kick_test pes_goal_kick_test.cpp)
 target_link_libraries(pes_goal_kick_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_goal_kick_test PROPERTIES TIMEOUT 900)
 
+add_executable(pes_style_gate_test pes_style_gate_test.cpp)
+target_link_libraries(pes_style_gate_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_style_gate_test)
+
 add_executable(pes_setpiece_team_test pes_setpiece_team_test.cpp)
 target_link_libraries(pes_setpiece_team_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_setpiece_team_test)

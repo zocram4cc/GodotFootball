@@ -723,10 +723,20 @@ Vector3 TeamAIController::GetAdaptedFormationPosition(Player* player,
   // goal poacher ignores his depth altogether to lurk on the opponent's
   // offside line (roadmap 4D, docs/PES21_IMPORT.md).
   const PlayingStyles::Player style = player->GetPlayerData()->GetPlayingStyle();
+  float styleDepth = PlayingStyles::GetDepthOffset(style, teamHasPossession);
+  // pes_loop: PES's run-depth term for the two run styles decoded so far (FUN_1405d8b70
+  // L650-657); every other style keeps the GF stand-in above.
+  if (match->PesLoop() &&
+      (style == PlayingStyles::Player::GoalPoacher || style == PlayingStyles::Player::FoxInTheBox))
+    styleDepth = pes::offball::StyleRunDepth(
+        match->GetPesOffBallConstants(),
+        pes::offball::RoleClass(static_cast<int>(player->GetDynamicFormationEntry().role)),
+        pes::style::StyleWord(style), GetRunState(player),
+        match->GetDesignatedPossessionPlayer() == player);
   // Track Back: a midfielder or forward with the card drops deeper when his
   // team loses the ball.
   desiredPos.coords[0] +=
-      -team->GetSide() * (PlayingStyles::GetDepthOffset(style, teamHasPossession) +
+      -team->GetSide() * (styleDepth +
                           PlayerSkills::GetTrackBackDepth(player->GetPlayerData()->GetSkills(),
                                                           teamHasPossession));
   desiredPos.coords[1] += signSide(desiredPos.coords[1]) *
@@ -2282,6 +2292,8 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
   const unsigned long now = match->GetActualTime_ms();
   const Vector3 ball = match->GetBall()->Predict(0);
   w.ball = Flat(ball);
+  // The style gate is a pes_loop input: off that path the GF stand-in holds (StyleLb).
+  if (match->PesLoop()) w.styleCompat = match->GetPesOffBallConstants().styleCompat;
   w.openPlay = match->IsInPlay() && !match->IsInSetPiece();
   auto pesDeg = [](const Vector3& v) {
     return (v.coords[0] == 0.0f && v.coords[1] == 0.0f)
@@ -2318,6 +2330,7 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       f.vel = Flat(pl->GetMovement());
       f.facing = pesDeg(pl->GetDirectionVec());
       f.roleClass = ob::RoleClass(static_cast<int>(pl->GetDynamicFormationEntry().role));
+      f.styleWord = pes::style::StyleWord(pl->GetPlayerData()->GetPlayingStyle());
       f.position = ob::Position(static_cast<int>(pl->GetFormationEntry().role));
       // ponytail: FUN_140a580a0's AI class (player +0xc0, a copy of +0x40) is
       // PES's AI behaviour class, which GF does not carry. The role class is

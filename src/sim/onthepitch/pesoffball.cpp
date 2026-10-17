@@ -192,6 +192,7 @@ std::optional<OffBallConstants> LoadOffBallConstants(const PeImage& exe, const P
   ReadF(exe, 0x14257a190, &k.predFar_s, &ok);
   ReadF(exe, 0x142588200, &k.predLead_s, &ok);
   ReadF(exe, 0x142590d98, &k.predOffBall_s, &ok);
+  ReadF(exe, 0x14259222c, &k.styleRunDepth_m, &ok);
   uint8_t window = 0;
   ok &= exe.ReadVa(0x143449d88, 1, &window);
   k.laneWindow = window;
@@ -229,6 +230,9 @@ std::optional<OffBallConstants> LoadOffBallConstants(const PeImage& exe, const P
   constexpr uint32_t kChanceScoreAt = 0x14;
   if (space->size() < kChanceScoreAt + 4) return *error = "spaceRun.o truncated", std::nullopt;
   k.chanceScoreLimit = (*space)[kChanceScoreAt];
+  const auto compat = pes::style::LoadCompat(exe, error);
+  if (!compat) return std::nullopt;
+  k.styleCompat = *compat;
   return k;
 }
 
@@ -567,6 +571,16 @@ float LaneIntercept(Vec2f A, Vec2f B, Vec2f C, Vec2f D, float speed, bool flag) 
   if (std::fabs(lD) <= 0.5f) return std::fabs(lD);
   const float thr = 100.0f / 17.7f * (aD / speed) + 0.6f;
   return std::fabs(lD) > thr ? -1.0f : std::fabs(lD);
+}
+
+// FUN_1408CB0B0 on the Defensive Full-back bit (FUN_140a64030(id, 0x11)): his
+// style bit and his role's compat row. Off the pes_loop path there is no style
+// table, so GF's stand-in (a registered left back) holds.
+// ponytail: the stand-in goes when pes_loop is the only path.
+bool StyleLb(const RunWorld& w, const PlayerFacts& me) {
+  if (!w.styleCompat) return me.position == 2;
+  return pes::style::Gate(*w.styleCompat, me.roleClass, me.styleWord,
+                          pes::style::EngineBit(PlayingStyles::Player::DefensiveFullBack));
 }
 
 struct Ctx {
@@ -1602,7 +1616,7 @@ bool RankAngleOk(const RunWorld& w, int id, int attackLevel) {
   // ChanceMaskBit has already decided - so it is entered whenever the attacker
   // count clears it.
   const int ahead = AttackersAhead(w);
-  const bool styleLb = x.me.position == 2;  // a64030(id, 0x11): no style bits in GF
+  const bool styleLb = StyleLb(w, x.me);
   if (!(ahead > 3 || (x.me.position < 4 && !styleLb))) return true;
   // The rank byte: the attacking team's line-list position of this runner.
   if (LineRank(w, id) <= 1) return true;
@@ -1728,7 +1742,7 @@ MaskReject ChanceMaskReject(const OffBallConstants& k, const RunWorld& w, int id
   const int pos = me.position;
   // b8a3 = attack level < 1 skips positions 0..4 (counter-trigger 128).
   if (attackLevel < 1 && pos <= 4) return kMaskAttackLevel;
-  bool styleLb = pos == 2;  // a64030(id, 0x11): no style bits in GF
+  const bool styleLb = StyleLb(w, me);
   const int ahead = AttackersAhead(w);
   const bool reachPath = ahead > 3 || (pos < 4 && !styleLb);
   const float dz = std::fabs(x.P.z - x.B.z);
@@ -1779,6 +1793,20 @@ float PassGetFigure(const RunWorld& w) {
   return targetOnPitch ? static_cast<float>(w.ev.kind) : w.ev.age;
 }
 }  // namespace
+
+float StyleRunDepth(const OffBallConstants& k, int roleClass, uint32_t styleWord, int runState,
+                    bool carrier) {
+  // The carrier and a player in a run action take no term (FUN_1405d8b70: uVar12 !=
+  // local_1cc, and FUN_1405a4790's run set, which is IsRun).
+  // ponytail: roles 5-6 of L650-653 are gated on team+0x7b84, not decoded; they take no term.
+  if (carrier || IsRun(runState) || roleClass < 7 || roleClass > 9) return 0.0f;
+  using P = PlayingStyles::Player;
+  const bool poacher = pes::style::Gate(k.styleCompat, roleClass, styleWord,
+                                        pes::style::EngineBit(P::GoalPoacher));
+  const bool fox = pes::style::Gate(k.styleCompat, roleClass, styleWord,
+                                    pes::style::EngineBit(P::FoxInTheBox));
+  return poacher || fox ? k.styleRunDepth_m : 0.0f;
+}
 
 bool RunStop(const RunWorld& w, int id, int run) {
   const PlayerFacts& me = w.p[id];

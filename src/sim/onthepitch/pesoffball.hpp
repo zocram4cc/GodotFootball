@@ -32,6 +32,7 @@
 
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
+#include "pesstyle.hpp"
 
 namespace pes::offball {
 
@@ -113,10 +114,18 @@ struct OffBallConstants {
   float predFar_s;          // 0.6 @0x14257a190
   float predLead_s;         // 0.1 @0x142588200
   float predOffBall_s;      // 0.3 @0x142590d98
+  float styleRunDepth_m;    // 5 @0x14259222c (FUN_1405d8b70 L650-657, run styles)
+  pes::style::Compat styleCompat{};  // 0x142613D20: the playing-style compat rows (FUN_1408CB0B0)
 };
 
 std::optional<OffBallConstants> LoadOffBallConstants(const PeImage& exe, const PesVfs& vfs,
                                                      std::string* error);
+
+// PES's run-depth term for the Goal Poacher and Fox in the Box styles (FUN_1405d8b70
+// L650-657), in metres toward the attack; 0 when no term applies. `roleClass` is the PES
+// role class, `runState` the player's run action, `carrier` whether he holds the ball.
+float StyleRunDepth(const OffBallConstants& k, int roleClass, uint32_t styleWord, int runState,
+                    bool carrier);
 
 // FUN_140a40050 rank; a selector may take a slot only if its rank is lower
 // (FUN_140a40000).
@@ -175,6 +184,7 @@ struct PlayerFacts {
   int state = kNothing;  // T+0xa2a0
   float t = 0.0f;        // PES frames in the state (ring T+0xa2cc)
   int roleClass = 0;     // FUN_1408c51f0: GK0 CB1 SB2 DMF3 CMF4 SMF5 AMF6 SS7 WF8 CF9
+  uint32_t styleWord = 0;  // the player's style word (his style's engine bit), 0 for none
   Vec2f aim;             // FUN_140596c30 / a76240: the run target, else the position
   Vec2f slotPoint;       // T+0x4b4c + 12·slot: the slot's formation point
   int marker = -1;       // FUN_140a62850: the opponent marking him
@@ -213,6 +223,7 @@ inline constexpr uint8_t kNearRankAbsent = 0x0a;
 // Everything the run selectors and stop tests read, global ids team·11 + slot.
 struct RunWorld {
   std::array<PlayerFacts, 2 * kSlots> p;
+  std::optional<pes::style::Compat> styleCompat;  // pes_loop only; off it the GF stand-in holds
   int carrier = -1;                      // FUN_140a627e0(ctx, 0): ball owner
   std::array<int, 2> receiver{-1, -1};   // FUN_1405969b0 per team
   Vec2f ball;
