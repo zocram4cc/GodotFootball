@@ -23,8 +23,10 @@ using MoveHostConstants = pes::MoveStepConstants;
 
 constexpr float kDegPerRad = 180.0f / 3.14159265358979323846f;  // a unit conversion, not PES data
 
+// PES's ground frame against GF's: PES's z is -coords[1] (referee.cpp:197 in.ballZ_m).
+// Every heading the adapter feeds PES goes through here, so the sign lives in this one place.
 float HeadingDeg(float x, float z, const pes::RunConstants& k) {
-  return pes::FoldFull(std::atan2(x, z) * kDegPerRad, k);
+  return pes::FoldFull(std::atan2(x, -z) * kDegPerRad, k);
 }
 
 // FUN_1406b7560's fill, from the player's current AI command (docs/re/pes-re-anim-select.md
