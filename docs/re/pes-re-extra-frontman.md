@@ -240,11 +240,31 @@ OPEN: the game-design reason (mutually exclusive card, COM override, or somethin
 
 + Item 6 (the bit-15 player and when `P+0x3EF8` names him): **OPEN**. The pin held bit 15 on a CB for 87% of 15 minutes, but the team never reached full attack, so the designated-slot observation still has no data.
 - Next: (1) a full-attack phase must occur while the word is held; the pin cap has been used, so this needs a new ruling for a longer or repeated window; (2) FrontmanSource's revert-writer finding would let the pin be replaced by a clean hold.
-- **Request not executed (17-10-26):** Main asked to pin side 0's `team+0xb8a2` to 1 (force full attack) alongside bit 15, plus a control run with only `b8a2` pinned. Not done: `team+0xb8a2` is a third word. The owner's ruling covered two style words only ("only those two words"). Forcing a team posture flag changes game logic (it gates FC860, the Long/Cross/MiddleShot rules in §3) and is outside that ruling. Needs an explicit owner ruling naming the word, the value, the cap, and the control.
-- The control (b8a2 pinned only) depends on the same ruling, so it is also not run. The +0.2 effect is therefore still unattributed.
+- **Executed 17-10-26 (EFPin), see §6.8.** Side-0 `team+0xB8A2` pin (control), pin plus bit 15 on the CB (run B), and two diagnostics. `P+0x3EF8` never left its initial value in any sampled frame, so no designated slot was observed in either run. The +0.2 is therefore unattributed. Reason and blocker: §6.8.
 - Read-only verify at report time: CB roster word `0x1000`, copy word `0x1000` (`exp.py verify`); no pin is active.
 
 Superseded by §6.6 and §6.7.
+
+### 6.8 EFPin runs: `b8a2` pin, then bit 15 on the CB (17-10-26, owner ruling: pin `b8a2`=1; bit 15 on CB roster and copy words)
+
+Scratch: `<workdrive>/gf-EFPin-scratch/efpin_run.py`; logs `efpin_control.log`, `efpin_cb.log`, `efpin_des.log`, `efpin_probe.log`. Written words: side-0 `T+0xB8A2` at `0x1D47D6A6`; CB roster gate word `0x1D48B230` and CB copy word `0x1D4B3110` (new match, so different VAs from §6.4). `MI+0x1168/0x116C/0x1574` never written. Every write restored and read back: `b8a2` 0x00, roster and copy 0x1000, `TD+0x3EF8` 0x00, all `ok=True`. No pin is active.
+
+- **A, control** (`control`, 300 s): pin `b8a2`=1 only. 130,657 samples. Pin rewritten 1,848 times; all pins held in 6.9% of samples. `P+0x3EF8` = 0 in all 9,226 valid samples, both sides. Set-piece entries: 5.
+- **B, cb** (`cb`, 300 s): pin `b8a2`=1 and bit 15 on CB. 129,034 samples. Rewrites: `b8a2` 1,658, roster 1,636, copy 1,658; all pins held in 5.9%. `P+0x3EF8` = 0 in all 9,247 valid samples, both sides. CB bit 15 visible at 1 of 14 set-piece entries; `b8a2`=1 at 2 of 14.
+- **Diagnostic D** (`des`, 150 s): pin `b8a2`=1, write `TD+0x3EF8`=0xFF once (VA `0x1D481E40`). 0xFF stayed in all 5,303 valid samples. In frames with `b8a2`=1 this shows no winner was written.
+- **Diagnostic P** (`probe`, 180 s, no `b8a2` pin): write `TD+0x3EF8`=0x30 (sentinel) once. Stayed 0x30 in all 6,297 valid samples, `b8a2_0`=0 throughout. CONFIRMED (decompile): FC860 with `b8a2`==0 writes 0xFF at its first gate. So FC860 did not run on side 0 in ~3 min of play, dead ball and set piece.
+
+**Verdict on the owner's questions (CONFIRMED by live read unless marked):**
+- Does `P+0x3EF8` name the CB in B and not in A? **No, in neither.** It was 0 in every valid sample of A and B, and 0 at every set-piece entry (0 of 19 entries). Count of CB designations: 0.
+- +0.2 effect: **not attributable.** No designation was written, so the FC860 +0.2 branch (L62–65) was never observed to matter.
+- Candidate list (`FUN_14051B8B0`, SP[4..14]): side 0 read `(2047,1,0,1,2,3,6,4,5,8,9)` in every run, with 181 cleared (all 255) rows in A and none for side 0 in B. Side 1 changed in B (SP[4] 2047↔143, SP[14] 8↔9). INF: the CPU store (`FUN_140A55CF0`==0 branch) runs for side 1 and not side 0, so side 0 may be the human side. Not verified: `FUN_140A55EF0` reads a side-type table I did not decode live.
+- `F63C0` / `F7D00` outcomes: **not observed.** Their outputs (candidate array, return slot) are not written to memory, and I used no breakpoints. OPEN.
+
+**Decode added (CONFIRMED, raw decompile of `FUN_1405FC860` L1–L28):** gate 1, `b8a2`==0 → `des=0xFF`, return. Gate 2, `MI+0x116C`!=1 → `des=0xFF`. The recompute runs only if `0x15 < des` (the `0x15 < *(uint *)(param_2+0x3ef8)` test). So an initial `des`=0 can never recompute, and the pin alone cannot produce a designation. The one caller is `FUN_1405EC600` (its FC860 call sits at the end of an 11-slot loop). `FUN_1405EC600` is called from team tick `FUN_14051D9E0` in the MI==1 branch and the MI∈{2,3} branch. The probe shows the chain does not reach FC860 for side 0.
+
+**Blocker (OPEN):** why the team tick (or `FUN_1405EC600`) does not reach FC860 for side 0. The tick's own entry gate, before its `MI+0x116C` branch, is not decoded. Next: (1) decode that entry gate; (2) run the sentinel probe on side 1's `TD+0x3EF8` to see whether any side reaches FC860; (3) only then repeat the CB pin, in a state where FC860 runs.
+
+Side-0 HJ readout (`copy+0xA1` H, `copy+0x9C` J, as `block+0x31`, `block+0x2C`): values 175–189 and 57–96, in the range the reach formula clamps. CB H=185. Plausibility only (INF on the field identity).
 
 ---
 
