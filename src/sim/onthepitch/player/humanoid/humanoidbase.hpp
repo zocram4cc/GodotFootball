@@ -234,6 +234,9 @@ public:
 
   const Anim* GetCurrentAnim() { return currentAnim; }
   const Anim* GetPreviousAnim() { return previousAnim; }
+  // The PES loose-ball stand-in writes its step here (pesmovestep.cpp LooseBallChase): the clip's
+  // command is what the body and the MOVESTEP words read, and SelectAnim refuses it while the clip is Special.
+  void SetClipCommand(const PlayerCommand& command) { currentAnim->originatingCommand = command; }
 
   const NodeMap& GetNodeMap() { return nodeMap; }
 
