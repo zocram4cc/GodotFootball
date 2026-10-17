@@ -990,6 +990,20 @@ PassAnswer CrossUnit(const CrossInput& in, const CarrierConstants& k) {
   answer.kind = kPassCentering;
   return answer;
 }
+
+bool UnitArmed(int kind, bool capFeint, bool capBackSpace, bool capSafety, float ballDistSq_m2,
+               const CarrierConstants& k) {
+  (void)k;
+  // The team caps first: 17 needs 0x1E, 3 needs 0x1C, 6 needs 0x1D.
+  if (kind == 17 && !capFeint) return false;
+  if (kind == 3 && !capBackSpace) return false;
+  if (kind == 6 && !capSafety) return false;
+  // The 5 m ball-distance gate for shoot/clear/pass kinds (dist^2 <= 25).
+  // ponytail: the touch-window frames, the turn veto and the restart-taker
+  // veto read state GF does not carry; the distance gate is the portable part.
+  if ((kind == 0 || kind == 1 || (kind >= 2 && kind <= 13)) && ballDistSq_m2 > 25.0f) return false;
+  return true;
+}
 std::vector<int> BuildUnitList(const UnitListInput& in) {
   std::vector<int> l = {23, 22, 0, 1, 17, 14, 11, 12};
   const auto has = [&](int kind) { return std::find(l.begin(), l.end(), kind) != l.end(); };

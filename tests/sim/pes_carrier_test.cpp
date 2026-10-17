@@ -1201,9 +1201,29 @@ TEST(PesCarrierWalk, ASafetyBackPassToTheKeeperNeedsHimCloseOrOwned) {
   c.keeperWithinNinety = false;
   EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 6);
 }
-
 TEST(PesCarrierWalk, WithNothingAnsweringTheWalkReturnsNone) {
   EXPECT_EQ(pes::WalkCarrierUnits({}, pes::WalkContext{}).kind, -1);
+}
+
+TEST(PesCarrierArming, AFeintNeedsItsTeamCapability) {
+  // Rule 11 (0x142111610): kind 17 answers only with the 0x1E team cap.
+  EXPECT_FALSE(pes::UnitArmed(17, false, true, true, 0.0f, Synthetic()));
+  EXPECT_TRUE(pes::UnitArmed(17, true, true, true, 0.0f, Synthetic()));
+}
+
+TEST(PesCarrierArming, ABackSpaceNeedsItsTeamCapability) {
+  // Kind 3 needs 0x1C, kind 6 needs 0x1D.
+  EXPECT_FALSE(pes::UnitArmed(3, true, false, true, 0.0f, Synthetic()));
+  EXPECT_TRUE(pes::UnitArmed(3, true, true, true, 0.0f, Synthetic()));
+  EXPECT_FALSE(pes::UnitArmed(6, true, true, false, 0.0f, Synthetic()));
+  EXPECT_TRUE(pes::UnitArmed(6, true, true, true, 0.0f, Synthetic()));
+}
+
+TEST(PesCarrierArming, APassKindBeyondFiveMetresStaysDisarmed) {
+  // The 5 m ball-distance gate (dist^2 <= 25): a pass kind farther out is
+  // disarmed however the caps read.
+  EXPECT_FALSE(pes::UnitArmed(4, true, true, true, 30.0f, Synthetic()));
+  EXPECT_TRUE(pes::UnitArmed(4, true, true, true, 25.0f, Synthetic()));
 }
 
 TEST(PesCarrierWalk, ASafetyAnswerDiesInTheCloseBand) {

@@ -692,8 +692,13 @@ struct CrossInput {
 };
 PassAnswer CrossUnit(const CrossInput& in, const CarrierConstants& k);
 
-// The walk (0x14210f110) over the table in its build order: the first slot that answers and
-// survives the rules wins. Returns kind -1 when none does; the Dribble default then stands.
+// --- the arming gate (report 3.1, 0x142111610) ---
+//
+// Evaluated for every listed kind before its unit runs; failing disarms the
+// unit. Kind 17 needs the 0x1E team cap, kind 3 the 0x1C cap, kind 6 the 0x1D
+// cap; shoot/clear/pass kinds need the ball within 5 m (dist^2 <= 25).
+bool UnitArmed(int kind, bool capFeint, bool capBackSpace, bool capSafety, float ballDistSq_m2,
+               const CarrierConstants& k);
 UnitSlot WalkCarrierUnits(const std::vector<UnitSlot>& table, const WalkContext& c);
 
 // The Dribble sub-kind chooser (report 2.1, 0x14212f1c0): the gates in decompiled order, returning
