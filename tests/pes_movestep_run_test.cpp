@@ -293,7 +293,7 @@ pes::RunTables SyntheticTables() {
   for (int i = 0; i < 32; ++i) t.stopRow[i] = 0x576 + i;
   for (int i = 0; i < 32; ++i) t.gotoRow[i] = 0x551 + i;
   for (int i = 0; i < 32; ++i) t.turnStopRow[i] = 0x58e + i;
-  for (int i = 0; i < 16; ++i) t.styleGroup[i] = 0xe31 + i;
+  for (int i = 0; i < 64; ++i) t.styleGroup[i] = 0xe31 + i;
   return t;
 }
 
@@ -384,6 +384,12 @@ TEST(RunTablesInstall, LoadsTheInterfaceTablesWithTheirRelations) {
     EXPECT_GT(t->turnStopRow[i], 0) << "turn-stop row " << i;
   }
   for (int i = 0; i < 16; ++i) EXPECT_GT(t->styleGroup[i], 0) << "style member " << i;
+  // FUN_1406d2030's representative-motion table (DAT_1425ddcf0) is 16 styles x 4 members: the
+  // ladder returns styles 0..15, so a 16-word load leaves every style past 3 reading motion 0,
+  // and a SetMotion of motion 0 plays no clip.
+  for (int style = 0; style < 16; ++style)
+    for (int band = 0; band < 4; ++band)
+      EXPECT_GT(t->styleGroup[style * 4 + band], 0) << "style " << style << " band " << band;
 }
 
 // ---------------------------------------------------------------------------------------------

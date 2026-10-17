@@ -152,7 +152,7 @@ constexpr uint64_t STOP_ROW_VA = 0x1425ddad0;        // FUN_1406b9d80, kind*8+cl
 constexpr uint64_t GOTO_ROW_VA = 0x1425dda50;        // FUN_1406b9bd0, kind*8+class, 32 words
 constexpr uint64_t TURNSTOP_ROW_VA = 0x1425ddb50;    // FUN_1406ba0d0, kind*8+class, 32 words
 constexpr uint64_t BUCKET_COLUMN_VA = 0x1425dd988;   // FUN_1406b9b20's column table, 10 words
-constexpr uint64_t STYLE_GROUP_VA = 0x1425ddcf0;     // FUN_1406d2030, style*4 + band/4, 16 words
+constexpr uint64_t STYLE_GROUP_VA = 0x1425ddcf0;     // FUN_1406d2030, style*4 + band/4: 16 styles x 4 members = 64 words
 
 // FUN_1406d5d60's three dwell immediates. They are instruction operands (movss off an immediate
 // stored on the stack), not .rdata floats, so they have no VA; the values are the ones the

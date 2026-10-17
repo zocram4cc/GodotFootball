@@ -345,7 +345,7 @@ struct RunTables {
   std::array<int32_t, 32> gotoRow;        // FUN_1406b9bd0, kind + class*8, 0x1425dda50
   std::array<int32_t, 32> turnStopRow;    // FUN_1406ba0d0, kind + class*8, 0x1425ddb50
   std::array<int32_t, 10> bucketColumn;   // FUN_1406b9b20's columns, 0x1425dd988
-  std::array<int32_t, 16> styleGroup;     // FUN_1406d2030's representative motion, DAT_1425ddcf0 (style*4 + band/4)
+  std::array<int32_t, 64> styleGroup;     // FUN_1406d2030's representative motion, DAT_1425ddcf0: 16 styles x 4 members (style*4 + band/4)
 };
 
 // FUN_1406b9e80's 11-knot piecewise-linear table at 0x1425de010: ten records
