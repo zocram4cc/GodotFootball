@@ -1291,6 +1291,60 @@ TEST(OffBallInstall, CapsAndLimitFromTheInstall) {
   EXPECT_GT(k->reachCap_m, k->reachBase_m);
   EXPECT_GT(k->awareTo, k->awareFrom);
   EXPECT_EQ(k->laneWindow, 8);
+  EXPECT_FLOAT_EQ(k->styleRunDepth_m, 5.0f);  // 0x14259222c, FUN_1405d8b70 L650-657
+}
+
+// FUN_1405d8b70 L650-657: a Goal Poacher (bit 0) or a Fox in the Box (bit 2) in a
+// forward role (PES kinds 7-9), neither carrying the ball nor in a run state, has his
+// run target pushed 5 m toward the attack. The style must be on the player AND listed
+// in his role's compat row (FUN_1408cb0b0). The rows below are synthetic.
+pes::style::Compat StyleRows() {
+  pes::style::Compat c{};
+  c.row[5] = (1u << 0) | (1u << 2);
+  c.row[6] = (1u << 0) | (1u << 2);
+  c.row[7] = (1u << 0) | (1u << 4) | (1u << 8);  // lists the Poacher, not the Fox
+  c.row[8] = (1u << 4) | (1u << 5) | (1u << 6);  // lists neither
+  c.row[9] = (1u << 0) | (1u << 2);              // lists both
+  return c;
+}
+OffBallConstants WithStyles() {
+  OffBallConstants k = Synthetic();
+  k.styleCompat = StyleRows();
+  k.styleRunDepth_m = 5.0f;
+  return k;
+}
+const uint32_t kPoacherWord = pes::style::StyleWord(PlayingStyles::Player::GoalPoacher);
+const uint32_t kFoxWord = pes::style::StyleWord(PlayingStyles::Player::FoxInTheBox);
+
+TEST(OffBallStyleRunDepth, GoalPoacherInACentreForwardRoleGetsFiveMetres) {
+  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kPoacherWord, kNothing, false), 5.0f);
+}
+TEST(OffBallStyleRunDepth, FoxInTheBoxInACentreForwardRoleGetsFiveMetres) {
+  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kFoxWord, kNothing, false), 5.0f);
+}
+TEST(OffBallStyleRunDepth, CompatRowDecidesWhichForwardRoleKeepsTheStyle) {
+  const OffBallConstants k = WithStyles();
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 7, kPoacherWord, kNothing, false), 5.0f);
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 7, kFoxWord, kNothing, false), 0.0f);
+  EXPECT_FLOAT_EQ(StyleRunDepth(k, 8, kPoacherWord, kNothing, false), 0.0f);
+}
+TEST(OffBallStyleRunDepth, CarrierGetsNoRunTerm) {
+  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kPoacherWord, kNothing, true), 0.0f);
+}
+TEST(OffBallStyleRunDepth, ARunningPlayerGetsNoRunTerm) {
+  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kPoacherWord, kChance, false), 0.0f);
+}
+TEST(OffBallStyleRunDepth, AStandingPlayerOfTheSameStyleStillGetsIt) {
+  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, kPoacherWord, kBasePosition, false), 5.0f);
+}
+TEST(OffBallStyleRunDepth, NoStyleNoTerm) {
+  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 9, 0u, kNothing, false), 0.0f);
+}
+TEST(OffBallStyleRunDepth, RolesFiveAndSixWaitForTheUndecodedTeamByte) {
+  // ponytail: roles 5-6 are gated on team+0x7b84 (FUN_1405d8b70 L650-653), not decoded
+  // yet; until it is, they get no term. Remove this when team+0x7b84 is ported.
+  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 5, kFoxWord, kNothing, false), 0.0f);
+  EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 6, kPoacherWord, kNothing, false), 0.0f);
 }
 
 }  // namespace

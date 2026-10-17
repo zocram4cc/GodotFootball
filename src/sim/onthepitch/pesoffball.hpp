@@ -114,11 +114,18 @@ struct OffBallConstants {
   float predFar_s;          // 0.6 @0x14257a190
   float predLead_s;         // 0.1 @0x142588200
   float predOffBall_s;      // 0.3 @0x142590d98
+  float styleRunDepth_m;    // 5 @0x14259222c (FUN_1405d8b70 L650-657: Goal Poacher, Fox forward run)
   pes::style::Compat styleCompat{};  // 0x142613D20: the playing-style compat rows (FUN_1408CB0B0)
 };
 
 std::optional<OffBallConstants> LoadOffBallConstants(const PeImage& exe, const PesVfs& vfs,
                                                      std::string* error);
+
+// PES's run-depth term for the Goal Poacher and Fox in the Box styles (FUN_1405d8b70
+// L650-657), in metres toward the attack; 0 when no term applies. `roleClass` is the PES
+// role class, `runState` the player's run action, `carrier` whether he holds the ball.
+float StyleRunDepth(const OffBallConstants& k, int roleClass, uint32_t styleWord, int runState,
+                    bool carrier);
 
 // FUN_140a40050 rank; a selector may take a slot only if its rank is lower
 // (FUN_140a40000).

@@ -723,10 +723,20 @@ Vector3 TeamAIController::GetAdaptedFormationPosition(Player* player,
   // goal poacher ignores his depth altogether to lurk on the opponent's
   // offside line (roadmap 4D, docs/PES21_IMPORT.md).
   const PlayingStyles::Player style = player->GetPlayerData()->GetPlayingStyle();
+  float styleDepth = PlayingStyles::GetDepthOffset(style, teamHasPossession);
+  // pes_loop: PES's run-depth term for the two run styles decoded so far (FUN_1405d8b70
+  // L650-657); every other style keeps the GF stand-in above.
+  if (match->PesLoop() &&
+      (style == PlayingStyles::Player::GoalPoacher || style == PlayingStyles::Player::FoxInTheBox))
+    styleDepth = pes::offball::StyleRunDepth(
+        match->GetPesOffBallConstants(),
+        pes::offball::RoleClass(static_cast<int>(player->GetDynamicFormationEntry().role)),
+        pes::style::StyleWord(style), GetRunState(player),
+        match->GetDesignatedPossessionPlayer() == player);
   // Track Back: a midfielder or forward with the card drops deeper when his
   // team loses the ball.
   desiredPos.coords[0] +=
-      -team->GetSide() * (PlayingStyles::GetDepthOffset(style, teamHasPossession) +
+      -team->GetSide() * (styleDepth +
                           PlayerSkills::GetTrackBackDepth(player->GetPlayerData()->GetSkills(),
                                                           teamHasPossession));
   desiredPos.coords[1] += signSide(desiredPos.coords[1]) *

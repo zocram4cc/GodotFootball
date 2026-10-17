@@ -192,6 +192,7 @@ std::optional<OffBallConstants> LoadOffBallConstants(const PeImage& exe, const P
   ReadF(exe, 0x14257a190, &k.predFar_s, &ok);
   ReadF(exe, 0x142588200, &k.predLead_s, &ok);
   ReadF(exe, 0x142590d98, &k.predOffBall_s, &ok);
+  ReadF(exe, 0x14259222c, &k.styleRunDepth_m, &ok);
   uint8_t window = 0;
   ok &= exe.ReadVa(0x143449d88, 1, &window);
   k.laneWindow = window;
@@ -1792,6 +1793,20 @@ float PassGetFigure(const RunWorld& w) {
   return targetOnPitch ? static_cast<float>(w.ev.kind) : w.ev.age;
 }
 }  // namespace
+
+float StyleRunDepth(const OffBallConstants& k, int roleClass, uint32_t styleWord, int runState,
+                    bool carrier) {
+  // The carrier and a player in a run action take no term (FUN_1405d8b70: uVar12 !=
+  // local_1cc, and FUN_1405a4790's run set, which is IsRun).
+  // ponytail: roles 5-6 of L650-653 are gated on team+0x7b84, not decoded; they take no term.
+  if (carrier || IsRun(runState) || roleClass < 7 || roleClass > 9) return 0.0f;
+  using P = PlayingStyles::Player;
+  const bool poacher = pes::style::Gate(k.styleCompat, roleClass, styleWord,
+                                        pes::style::EngineBit(P::GoalPoacher));
+  const bool fox = pes::style::Gate(k.styleCompat, roleClass, styleWord,
+                                    pes::style::EngineBit(P::FoxInTheBox));
+  return poacher || fox ? k.styleRunDepth_m : 0.0f;
+}
 
 bool RunStop(const RunWorld& w, int id, int run) {
   const PlayerFacts& me = w.p[id];
