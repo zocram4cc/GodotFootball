@@ -101,6 +101,40 @@ TEST(PesRestartSequencer, AThrowInIsTakenJustOutsideTheTouchlineAndInsideTheEndL
   spot = pes::ThrowInSpot(pesFieldHalfLength + 2.0f, 34.0f);
   EXPECT_NEAR(spot.x, pesFieldHalfLength - 1.0f, 1e-4);
 }
+// The throw-in's writer form (FUN_14050e770, VA 0x14050e770): the spot sits F1 + 0.25 outside the
+// touchline and its x stays inside F0 - 1.0. Both offsets are .rdata floats read from the
+// install, so the loader must expose the same bits the image holds at their VAs.
+TEST(PesRestartSequencer, AThrowInSpotComesFromTheInstalledOffsets) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe) << err;
+  const Install& install = InstallConstants();
+  if (!install.spots) GTEST_SKIP() << "spot constants unavailable";
+  const pes::RestartSpotConstants& k = *install.spots;
+  float outset = 0.0f, inset = 0.0f;
+  ASSERT_TRUE(exe->ReadVa(0x142592228, sizeof outset, reinterpret_cast<uint8_t*>(&outset)));
+  ASSERT_TRUE(exe->ReadVa(0x14256ae1c, sizeof inset, reinterpret_cast<uint8_t*>(&inset)));
+  EXPECT_EQ(k.throwInLineOutset_m, outset);
+  EXPECT_EQ(k.throwInEndInset_m, inset);
+}
+
+// The throw-in is taken from outside the touchline (F1 + the installed outset), with its x kept
+// off the goal lines by the installed inset - not from on the line.
+TEST(PesRestartSequencer, AThrowInIsTakenOutsideTheTouchlineByTheInstalledOutset) {
+  const Install& install = InstallConstants();
+  if (!install.spots) GTEST_SKIP() << "PES21_ROOT not set";
+  const pes::RestartSpotConstants& k = *install.spots;
+
+  const pes::Spot spot = pes::ThrowInSpot(40.0f, -36.0f, k);
+  EXPECT_NEAR(spot.x, 40.0f, 1e-4);
+  EXPECT_NEAR(spot.z, -(pesFieldHalfWidth + k.throwInLineOutset_m), 1e-4);
+
+  const pes::Spot clamped = pes::ThrowInSpot(pesFieldHalfLength + 2.0f, 34.0f, k);
+  EXPECT_NEAR(clamped.x, pesFieldHalfLength - k.throwInEndInset_m, 1e-4);
+  EXPECT_NEAR(clamped.z, pesFieldHalfWidth + k.throwInLineOutset_m, 1e-4);
+}
 
 // The release gate, in frames from arming, is the live-measured wait (A5Live 9.3): each restart
 // is released on the first frame at or past its gate, and a kick-off is not timed at all.

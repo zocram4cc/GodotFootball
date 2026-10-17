@@ -175,3 +175,21 @@ TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
   });
   EXPECT_GT(throwIns, 0) << "no throw-in was released";
 }
+// The writer's throw-in spot survives the prepare: PES's null-spot path (FUN_14050e770, VA
+// 0x14050e770) puts it F1 + 0.25 outside the touchline with no F1 clamp - the clamp is the
+// foul (explicit-spot) path. Preparing the restart must not pull it back onto the line.
+TEST(PesRestartDelay, AThrowInKeepsItsWriterSpotThroughPrepare) {
+  std::optional<unsigned long> checkedStop;
+  int throwIns = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.prepared || b.started)
+      return;
+    if (checkedStop && *checkedStop == b.stopTime) return;
+    checkedStop = b.stopTime;
+    throwIns++;
+    EXPECT_GT(std::fabs(b.restartPos.coords[1]), pesFieldHalfWidth)
+        << "throw-in prepared on the line at z = " << b.restartPos.coords[1];
+  });
+  EXPECT_GT(throwIns, 0) << "no throw-in was prepared";
+}
