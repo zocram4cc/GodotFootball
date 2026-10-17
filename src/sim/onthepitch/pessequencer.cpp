@@ -20,10 +20,6 @@ constexpr int kGoalKickReleaseFrames = 238;  // live 238-253; DOC counter 83 ref
 constexpr int kCornerReleaseFrames = 365;    // live 365-379; DOC 189 not reproduced
 constexpr int kFreeKickReleaseFrames = 355;  // live 355-356; DOC 162 not reproduced
 constexpr int kPenaltyReleaseFrames = 54;    // DOC fps*1 (setpiece 12); not observed live
-// The kick-off's forced rule (throwin doc 6.2): past counter 972 = 18 s at 54 Hz the restart is
-// forced, and the same rule covers kick-offs. A named frame count with its provenance: PES's
-// fps times 18, not a transcribed table.
-constexpr int kKickOffForcedFrames = 54 * 18;
 
 float Sign(float v) { return v < 0.0f ? -1.0f : 1.0f; }
 
@@ -67,10 +63,11 @@ int ReleaseFrames(e_SetPiece kind) {
     case e_SetPiece_Penalty:
       return kPenaltyReleaseFrames;
     default:
-      // Kick-off: PES has no timer here, only the receiver test and the forced rule (throwin
-      // doc 6.2: past counter 972 = 54*18 frames the restart is forced). The gate below is
-      // that bound, not a wait.
-      return kKickOffForcedFrames;
+      // Kick-off: PES has no timer here. The receiver owns the ball from the placement
+      // teleport, so KickoffReceiver's ball-ownership test (0x140781fc0) passes at arming and
+      // the pass fires 28 frames later (setpiece doc 12, live 28 exactly x3). The reach check
+      // in MayRelease is that test; the zero gate releases at arming as it always did.
+      return 0;
   }
 }
 

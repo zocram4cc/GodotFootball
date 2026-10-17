@@ -165,9 +165,9 @@ TEST(PesRestartSequencer, ATakerAtTheBallReleasesEveryRestart) {
 }
 
 // Away from the ball nothing releases before its gate: the frame gates stay as PES's time-out
-// (the armed handler's FUN_140a43750 counterpart). A kick-off with no receiver at the ball waits
-// for the forced rule instead of releasing on the spot (throwin doc 6.2: the same rule covers
-// kick-offs, counter past 972 frames).
+// (the armed handler's FUN_140a43750 counterpart). A kick-off has no gate at all - the receiver
+// owns the ball from the placement teleport, so KickoffReceiver's test passes at arming and the
+// release is immediate even with no receiver check (setpiece doc 12, live 28 exactly x3).
 TEST(PesRestartSequencer, ATakerFarFromTheBallWaitsForTheGate) {
   const Install& install = InstallConstants();
   if (!install.spots) GTEST_SKIP() << "PES21_ROOT not set";
@@ -175,9 +175,7 @@ TEST(PesRestartSequencer, ATakerFarFromTheBallWaitsForTheGate) {
   EXPECT_FALSE(pes::MayRelease(e_SetPiece_ThrowIn, 0, /*takerReached=*/false, k.takerReach_m, 5.0f));
   EXPECT_TRUE(
       pes::MayRelease(e_SetPiece_ThrowIn, 118, /*takerReached=*/false, k.takerReach_m, 5.0f));
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_KickOff, 0, /*takerReached=*/false, k.takerReach_m, 5.0f));
-  EXPECT_TRUE(
-      pes::MayRelease(e_SetPiece_KickOff, 972, /*takerReached=*/false, k.takerReach_m, 5.0f));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_KickOff, 0, /*takerReached=*/false, k.takerReach_m, 5.0f));
 }
 
 // The programme runs the whole stoppage bracket for a corner: the hold, the wipe that

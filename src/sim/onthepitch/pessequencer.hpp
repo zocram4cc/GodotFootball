@@ -37,8 +37,8 @@ Spot ThrowInSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 // The taker may release once he has reached the ball (A5Live 9.2/9.4: the wait tracks the taker,
 // and the armed handler frees the restart on his kick action). The frame gate is only the
 // time-out both paths keep. A kick-off is not timed at all: its release is the receiver owning
-// the ball (KickoffReceiver, 0x140781fc0) - the same reach check - with the forced rule as its
-// bound (throwin doc 6.2). `takerBallDistance_m` is the taker's 2D distance to the ball;
+// the ball (KickoffReceiver, 0x140781fc0) - the same reach check - with the zero gate releasing
+// at arming as it always did. `takerBallDistance_m` is the taker's 2D distance to the ball;
 // `takerReached` lets a caller with its own reach test decide directly.
 int ReleaseFrames(e_SetPiece kind);
 bool MayRelease(e_SetPiece kind, int framesSinceArmed, bool takerReached, float reach_m,
