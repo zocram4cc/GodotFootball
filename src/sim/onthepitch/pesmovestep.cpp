@@ -6,7 +6,6 @@
 #include <string>
 
 #include "match.hpp"
-#include "gameplaytuning.hpp"
 #include "onthepitch/AIsupport/mentalimage.hpp"
 #include "onthepitch/ball.hpp"
 #include "onthepitch/player/player.hpp"
@@ -28,34 +27,6 @@ constexpr float kDegPerRad = 180.0f / 3.14159265358979323846f;  // a unit conver
 // Every heading the adapter feeds PES goes through here, so the sign lives in this one place.
 float HeadingDeg(float x, float z, const pes::RunConstants& k) {
   return pesmovestep::PesBearingDeg(k, x, z);
-}
-
-// ponytail: PES's loose-ball chase. The chase predicate FUN_1404f4be0 gates who may take a loose
-// ball, and the per-player action (FUN_14092c9f0) writes the command block (FUN_1406b7560) every
-// frame, so MOVESTEP and the body always follow a fresh target. GF's requeue cannot deliver the
-// designated man's step at the ball: SelectAnim(ReQueue) refuses a Movement command while his clip
-// is Special (humanoid.cpp, SelectAnim), so his body and the mover keep the command that started
-// the clip and he walks away. Stand-in: the designated man, with the ball in play, at rest and
-// unheld, takes ElizaController's step at the ball from the ball's position each frame, and that
-// step becomes his clip's command. Remove when FUN_1406b7560's writer feeds the clip command.
-void LooseBallChase(Player& player, Match& match) {
-  // ElizaController's step gate: closer than this, there is no step to take.
-  constexpr float kStepOntoBallMin_m = 0.1f;
-  if (!match.IsInPlay() || match.IsInSetPiece() || match.GetBallRetainer()) return;
-  if (match.GetDesignatedPossessionPlayer() != &player) return;
-  if (player.GetFormationEntry().role == e_PlayerRole_GK || player.HasPossession()) return;
-  if (match.GetBall()->GetMovement().GetLength() > GameplayTuning::kStalemateBallSpeed_ms) return;
-  const Vector3 ball = match.GetBall()->GetPositionBuffer();
-  const Vector3 toBall = ball - player.GetPosition();
-  if (toBall.Get2D().GetLength() <= kStepOntoBallMin_m) return;
-  PlayerCommand step;
-  step.desiredFunctionType = e_FunctionType_Movement;
-  step.useDesiredMovement = false;
-  step.useDesiredLookAt = true;
-  step.desiredDirection = toBall.Get2D().GetNormalized(player.GetDirectionVec());
-  step.desiredVelocityFloat = sprintVelocity;
-  step.desiredLookAt = ball;
-  player.CastHumanoid()->SetClipCommand(step);
 }
 
 // FUN_1406b7560's fill, from the player's current AI command (docs/re/pes-re-anim-select.md
@@ -475,8 +446,6 @@ void ProcessMoveStep(Player& player, Match& match) {
   const MoveHostConstants* constants = &match.GetPesMoveStepConstants();
 
   pes::MoveStepRecord& rec = player.GetMoveStep();
-  // The loose-ball stand-in (LooseBallChase) writes its step to the clip's command before the mover reads it.
-  LooseBallChase(player, match);
   MoveHostAdapter host(player, match, *constants);
   pes::MoveReq req;
 

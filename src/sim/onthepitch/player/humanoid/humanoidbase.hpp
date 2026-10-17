@@ -234,9 +234,14 @@ public:
 
   const Anim* GetCurrentAnim() { return currentAnim; }
   const Anim* GetPreviousAnim() { return previousAnim; }
-  // The PES loose-ball stand-in writes its step here (pesmovestep.cpp LooseBallChase): the clip's
-  // command is what the body and the MOVESTEP words read, and SelectAnim refuses it while the clip is Special.
-  void SetClipCommand(const PlayerCommand& command) { currentAnim->originatingCommand = command; }
+  // A MOVESTEP locomotion clip is Special, but PES keeps it in action MOVE: the action setter FUN_1406eebb0
+  // switches the action out of MOVE only for a ball action. So a ball action or a movement command replaces
+  // it as it replaces a GF Movement clip. ponytail: stands in for PES's action id (+0xac8, pes-re-fox-registry.md)
+  // in the requeue gates; remove when requeue reads that id.
+  bool OnPesLocomotion() const;
+  bool IsMovementClip() const {
+    return currentAnim->functionType == e_FunctionType_Movement || OnPesLocomotion();
+  }
 
   const NodeMap& GetNodeMap() { return nodeMap; }
 
