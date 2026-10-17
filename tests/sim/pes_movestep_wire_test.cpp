@@ -242,6 +242,20 @@ TEST(MoveStepWire, TheKickoffTakerClosesToTheBall) {
   EXPECT_LT(closest, 0.65f) << "someone must reach the ball (PES's 0.65 m reach)";
 }
 
+// PES's bearing is taken on PES's z, which is -coords[1] (referee.cpp:197). A GF point on the +coords[1]
+// side is on PES's -z side, so the bearing to it is 180 degrees, not 0. An AI command toward the ball
+// must give the heading PES would take toward it; the mirrored one walks the player away.
+TEST(MoveStepWire, ABearingToAGroundPointIsTakenOnPesZ) {
+  pes::RunConstants k{};
+  k.full = 360.0f;
+  k.half_turn = 180.0f;
+  k.wrapFull = -360.0f;
+  EXPECT_NEAR(pesmovestep::PesBearingDeg(k, 0.0f, 10.0f), 180.0f, 1e-3f)
+      << "a point at GF +coords[1] is PES -z: bearing 180";
+  EXPECT_NEAR(pesmovestep::PesBearingDeg(k, 10.0f, 0.0f), 90.0f, 1e-3f)
+      << "a point at GF +coords[0] is PES +x: bearing 90";
+}
+
 // StoreRateCeiling has a caller: the record holds the TopRate ceiling once the FSM has ticked.
 // Built on main, nothing stores it, so the ceiling reads zero.
 TEST(MoveStepWire, TheRateCeilingIsStoredEachTick) {

@@ -26,7 +26,7 @@ constexpr float kDegPerRad = 180.0f / 3.14159265358979323846f;  // a unit conver
 // PES's ground frame against GF's: PES's z is -coords[1] (referee.cpp:197 in.ballZ_m).
 // Every heading the adapter feeds PES goes through here, so the sign lives in this one place.
 float HeadingDeg(float x, float z, const pes::RunConstants& k) {
-  return pes::FoldFull(std::atan2(x, -z) * kDegPerRad, k);
+  return pesmovestep::PesBearingDeg(k, x, z);
 }
 
 // FUN_1406b7560's fill, from the player's current AI command (docs/re/pes-re-anim-select.md
@@ -65,14 +65,14 @@ void FillCommandWords(pes::MoveReq& req, const float facingDeg, Player& player,
   fold.half_turn = 180.0f;
   fold.full = 360.0f;
   const float heading = dist > 0.0f
-                            ? pes::FoldFull(std::atan2(dx, dz) * kDegPerRad, fold)
+                            ? pesmovestep::PesBearingDeg(fold, dx, dz)
                             : facingDeg;
   req.SetF(pes::moveword::kHeading, heading);
   const float lx = hasLook ? look.coords[0] - pos.coords[0] : dx;
   const float lz = hasLook ? look.coords[1] - pos.coords[1] : dz;
   const float lookDist = std::sqrt(lx * lx + lz * lz);
   const float lookHeading = lookDist > 0.0f
-                                ? pes::FoldFull(std::atan2(lx, lz) * kDegPerRad, fold)
+                                ? pesmovestep::PesBearingDeg(fold, lx, lz)
                                 : facingDeg;
   req.SetF(pes::moveword::kLookHeading, lookHeading);
   req.SetF(pes::moveword::kBodyDirection, facingDeg);
@@ -412,6 +412,11 @@ class MoveHostAdapter final : public pes::MoveHost {
 }  // namespace
 
 namespace pesmovestep {
+
+float PesBearingDeg(const pes::RunConstants& k, float gfX, float gfZ) {
+  return pes::FoldFull(std::atan2(gfX, -gfZ) * kDegPerRad, k);  // PES z = -coords[1]
+}
+
 
 // The single-clip word of req[0x37] (FUN_1406b68d0's init): a SetMotion. Any other value is a style index.
 constexpr uint32_t kSingleClip = 0x11;
