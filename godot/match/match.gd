@@ -4,7 +4,8 @@ extends Node3D
 ## Args (after `--`): --pes21-root DIR --home-team PES_ID --away-team PES_ID
 ## [--home-kit N --away-kit N] [--edit-save FILE] [--seed N] [--minutes N]
 ## [--ball ID] [--stadium N] [--follow PLAYER_INDEX] (inspection: a close camera
-## on one player).
+## on one player). [--camera-pose px,py,pz,fx,fy,fz,fovdeg] pins the camera to an
+## exact pose (a live PES read) and skips the broadcast camera.
 
 const GF_HOME_TEAM := 1        # teams in assets/fixtures/teams.sql
 const GF_AWAY_TEAM := 2
@@ -38,6 +39,7 @@ var _accumulator := 0.0
 var _lastAlpha := 1.0
 var _camera: Camera3D
 var _broadcast: PesBroadcastCamera
+var _fixed_pose := false
 
 
 func configure(a: Dictionary) -> void:
@@ -74,6 +76,15 @@ func _ready() -> void:
 	_build_players()
 	_build_stadium()
 	_camera = $Camera3D
+	if args.has("camera-pose"):
+		var v := PackedFloat64Array()
+		for s: String in String(args["camera-pose"]).split(","):
+			v.append(float(s))
+		if v.size() >= 7:
+			_camera.look_at_from_position(Vector3(v[0], v[1], v[2]),
+					Vector3(v[0], v[1], v[2]) + Vector3(v[3], v[4], v[5]), Vector3.UP)
+			_camera.fov = v[6]
+			_fixed_pose = true
 	_broadcast = PesBroadcastCamera.new()
 	$PesLighting.setup(library, _stadium_id(), int(args.get("weather", 0)), int(args.get("time-zone", 0)), int(args.get("season", 0)), int(args.get("hour", -1)), int(args.get("minute", 0)))
 	# FieldInfo +0x00 (52.56) and +0x08 (34.06) live; the sim exposes the width.
@@ -134,6 +145,8 @@ func _place(delta: float) -> void:
 			players[i].rotation.y = atan2(f.x, f.z)  # PES characters face +Z
 		if motion != null and _skeletons[i] != null:
 			motion.update(i, _skeletons[i], sim.player_clip(i), delta)
+	if _fixed_pose:
+		return
 	if args.has("follow"):
 		var p: Vector3 = players[int(args["follow"])].global_position
 		_camera.look_at_from_position(p + FOLLOW_OFFSET, p + Vector3.UP * FOLLOW_TARGET_HEIGHT_M)
