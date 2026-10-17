@@ -17,7 +17,7 @@ Method: Ghidra bridge (`decompile_function`, `list_functions`); raw bytes of `pe
 | 3 | `FUN_1405FC860`, slot `+0x3ef8` | CONFIRMED mechanics (taker loop, +0.2, tie rule, fallback thresholds). Football meaning of the slot: INF. Full reader list in §3.3. |
 | 4 | Normaliser `FUN_141B620D0`, mask `0x01000000` at `+0x4C` | CONFIRMED: the rule has **two** arms (`+0x4C` and `+0x5C`), not one. `+0x4C` bit 24 is not one of the seven COM cards (bits 0–6); its identity is OPEN. Why it clears bit 15: OPEN (only the code path is decoded). |
 | 5 | dt18 key `0x28` has no caller | CONFIRMED (dead arm). 13 direct call sites rescanned; no absolute pointer to `FUN_1405C0F00` in the image. |
-| 6 | Live: a bit-15 player and when `+0x3ef8` names him | **OPEN / blocked.** The match is running, but in 120 s of in-play samples no player on either side had bit 15, and `+0x3ef8` stayed at 15 (not an Extra Frontman). Nothing to record. Probe ready (§6). |
+| 6 | Live: a bit-15 player and when `+0x3ef8` names him | **OPEN.** 17-10-26 experiment (§6.4): bit 15 on one CB was reverted by the game within ≈0–3 s every time, so no player held bit 15 long enough to matter. No full attack in ~7 min, so `+0x3ef8` stayed 0 (not 15; the earlier 15 was a wrong pointer, §6.1). Blockers and next steps in §6.5. |
 
 ---
 
@@ -175,44 +175,56 @@ OPEN: the game-design reason (mutually exclusive card, COM override, or somethin
 
 ---
 
-## 6. Live (read-only)
+## 6. Live (read-only probes; one-word write experiment, owner ruling 17-10-26)
 
-### 6.1 Chain used (CONFIRMED; the values below were read live)
+### 6.1 Chain (corrected 17-10-26; supersedes the first §6.1)
 
-- `G = [0x1436F3DC8]`; `MI = [G+0x270]`; `MI+0x116C` (1 = in play, 2 and 3 seen).
-- `T_s = [G+0x1928+0x28s]`; posture bytes `T+0xB8A2` (full attack), `T+0xB8A3` (full defence), `T+0xB8A4` (gauge).
-- `H = [0x1436F3F98]`; `brain_s = [H+0x450+8s]` (`pes-re-teamtick.md` L45); `P = [brain+0xBA8]`; `slot = [P+0x3EF8]`.
-- Player `i` (0..21): `copy = [G+(i+0xF3)·0x28]`; style `copy+0xB8`; COM `copy+0xBC`; `copy+0xCC`.
-- Process `PES2021.exe` base `0x140000000` (`/proc/2510857/maps`).
++ `G = [0x1436F3DC8]`; `MI = [G+0x270]`; `MI+0x116C` (1 play, 2 dead ball, 3 set piece). `MI+0x1168/0x1574` never touched.
++ Team posture `T_s = [G+0x1928+0x28s]`: `T+0xB8A2` full attack, `+0xB8A3` full defence, `+0xB8A4` gauge (CONFIRMED live).
++ Roster `P_s = [G+0x1978+0x28s]`. Local slot `k` (0..10) → roster record `r = P_s[4+4k]`. Gate word (the word `FUN_1408CB0B0` reads through `FUN_140A3B110`) = `P_s+0xE0+0x48+r·0x128` (CONFIRMED raw; the candidate store and F63C0/F7D00 gates use this roster block, via `FUN_140A64030`).
++ Live copy of global player `i`: `copy = [G+(i+0xF3)·0x28]`; `copy+0xB8` equalled the gate word in every side-0 sample (11/11).
++ Set-piece/team-data object: `SP_s = [H+0x450+8s]+8` (`H = [0x1436F3F98]`; `SP_s+0` = side int, read 0 and 1), `TD_s = [SP_s+0xBA8]`. `TD+0x3EF8` = designated slot (`P+0x3EF8` in §3), `TD+0x7C80/0x7C94/0x7CDC` (count and list, mostly zero).
++ Ordinal list `SP_s[5..14]` (int index into `SP`, i.e. `SP+0x14..+0x38`; entries are local slots, `0xFF` = empty). `SP[4]` is a frame counter, not a list entry.
++ **Correction:** the first §6.1 read `P = [brain+0xBA8]` with `brain = [H+0x450+8s]`. That is the wrong base (it gave one shared `0x37228968`). The `slot3ef8 = 15` in the first §6.3 is therefore invalid. The correct value is `TD+0x3EF8 = 0` for both sides.
 
-### 6.2 Live constants (read from `/proc/2510857/mem`, `live/consts.py`)
+### 6.2 Live constants (unchanged; read from `/proc/2510857/mem`)
 
 | VA | Value | Use |
 |---|---|---|
 | `0x142598578` | 0.2 | FC860 +0.2 |
 | `0x1425A8A28` | 0.05 | tie window; F63C0 +0.05 |
-| `0x142565D30` | `0x7FFFFFFFFFFFFFFF` | sign mask (|Δ| test) |
+| `0x142565D30` | `0x7FFFFFFFFFFFFFFF` | sign mask (abs test) |
 | `0x142588200` | 0.1 | F7D00 window |
 | `0x14259D674` | −100.0 | ranking penalty, kind 0/1 |
 | `0x14256AE34` | 1000.0 | ranking bonus, kind > 5 |
-| `0x14256AE1C` | 1.0 | (not used here) |
 | `0x14352AC10` | rows 0–6 = bits 0–6 | COM table |
 
-### 6.3 Watch (`live/probe.py watch 120`, log `live/watch1.log`)
+### 6.3 Baseline, no writes (`live/watch_baseline.log`, 200 s, 1042 samples)
 
-- 120 s, in-play samples only. `MI+0x116C` took values 1, 2 and 3 (play, dead ball, set piece).
-- Posture: `b8a2 = 0`, `b8a3 = 0`, gauge = 2 for both teams throughout. Neither side in full attack.
-- `slot3ef8 = 15` throughout, `P = 0x37228968` for both sides (INF: one shared object).
-- Bit 15: **no player** in any sample (`bit15_players = []`). The match has no Extra Frontman player in the copy records I can read.
-- Because `b8a2 = 0` and `slot3ef8` never changed, FC860's early-out (which writes 0xFF) did not run for this `P` in this window. INF: FC860 is gated by a condition not decoded here, or the `+0x10` team pointer in its ctx is not the same `T`.
++ `MI+0x116C` took 1, 2 and 3 (95 samples at 3). Both teams: `b8a2 = 0`, `b8a3 = 0`, gauge = 2 for the whole window: **no full attack**.
++ `TD+0x3EF8 = 0` on both sides throughout. Not `0xFF`: `FUN_1405FC860` writes `0xFF` when `b8a2 == 0`, so it did not run in this window (its caller `FUN_1405EC600` path was not reached).
++ Ordinal list `SP_0[5..14] = (1,0,255,255,1,7,3,4,5,10)`, `SP_1[5..14] = (1,0,255,255,2,7,3,4,10,5)`. Constant across all 200 s (no placement rewrote it). Slot 1 (our CB, side 0) is already in the side-0 list with no bit-15 write.
++ `TD+0x7C94` holds mostly zeros and a float `-1.0` at index 5. It is not an ordinal list in this layout (OPEN).
++ `brain+0xB8B4` reads 0 for side 0 and a float (`1.0`) for side 1, so it is not the strategy mode for both sides (OPEN). `FUN_1405F7D00` is reached only for strategies 1 and 2, so its gate is unobservable unless the mode is read correctly.
 
-### 6.4 Item 6 verdict
+### 6.4 The write experiment (one roster word + one copy word; bit 15)
 
-**OPEN / blocked.** A match is running, so the probe works. But:
-(a) no player has bit 15 in the running match; and
-(b) the +0.2 path needs `T+0xB8A2 == 1` (full attack, gauge ≥ 4), which did not occur in 120 s.
++ Target: CB, side 0, local slot 1 (global `i=1`, roster `r=14`, formation role 1 = CB, compat row `0xD000` contains bit 15). Old value `0x1000` (bit 12, ENFORCER). Gate word `0x1D47B830`; copy word `0x1D4A3160` (`copy = 0x1D4A30A8`). Writes went to `0x9000` (bit 15 OR'd in). Log: `live/exp_writes.log`.
++ Every write logged with address, old and new value. 7 write events in total (`11:17:33`, `11:21:10`, `11:25:31`, `11:26:41`, and 3 revert probes at `11:28:31/33/35`), 14 `WRITE` lines and 14 `RESTORE` lines. Final readback: `W = 0x1000`, `C = 0x1000`.
++ **Observation 1 (watch, `live/watch_bit15.log`, write at ≈t=12 s, 230 s window):** the gate word read `0x9000` from t=14.67 s to 16.91 s; the copy read `0x9000` (and once `0x1000`) to ≈16.9 s; both were back to `0x1000` by t=17.6 s, at the `MI+0x116C` 2→3 transition. I had not restored yet. The revert was made by the game, not by me.
++ **Observation 2 (`live/mech_mech2.log`, 2 ms logger, write at t≈7 s):** the logger never sampled `0x9000` in 60 s. The word was reverted before the first sample after the write.
++ **Observation 3 (`live/revert_probe.py`, 3 writes):** the readback immediately after the write already gave `0x1000` for both words, and the first 1 ms sample was `0x1000` (revert at ≈1.1 ms).
++ Revert latency therefore ranged from ≈0 ms to ≈2.7 s across writes, and is not explained by `MI+0x116C` alone (set-piece and play samples both show reverts).
++ Ruled out as the reverter: `FUN_141B620D0` (the normaliser). Its cache word at `block+0x10` (`W-0x38`) stays `0xA07F0000` while the version global `DAT_1437F0AF4` (`FUN_141B5B9C0`) ticks every ~18 ms, so no refresh runs. Its source pointer `block+0x20` (`W-0x28`) is `0x4D014D4D4D4D4D4D`, not an object pointer, so this word is not that normaliser's block. **Reverter: OPEN.**
++ Effect on the item-6 observables during the held windows: `SP` ordinal list unchanged; `TD+0x3EF8 = 0`; `b8a2 = 0` (no full attack, so `FUN_1405FC860`, the only writer of the +0.2 and of the designated slot, did not run). **No change versus baseline was measured.** The CB did not appear in any new list entry.
 
-To close item 6: wait for a match where a team has an Extra Frontman player and reaches full attack, then `cd <workdrive>/gf-FrontmanDecode-scratch/live && sudo -n python3 probe.py watch 600`. It is read-only and logs when `slot3ef8` changes, with the posture and bit-15 list. I did not send input or start a match.
+### 6.5 Item 6 verdict
+
+**OPEN (not closed).** Two blockers:
++ (a) The bit-15 write on a centre-back does not persist: the game reverts it within ≈0–3 s. Holding it needs a repeated write (a pin), which the brief rules forbid without an owner ruling. I did not pin.
++ (b) The team did not reach full attack (`b8a2 = 1`) in about 7 minutes of play, so the +0.2 and the `P+0x3EF8` write never ran. The designated-slot observation with a bit-15 player therefore has no data.
+
+Next, by experiment (needs a ruling on (a)): (1) decide whether a bounded repeated write (pin) is allowed for a single word; (2) or find the style rebuild that undoes the write (static: writers of the gate-word stride `0x128`, from the team tick), then hold the word with a controlled writer; (3) wait for a full-attack phase with the bit held, and log `TD+0x3EF8` with `b8a2`.
 
 ---
 
