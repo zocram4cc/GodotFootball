@@ -14,6 +14,7 @@
 #include "gametypes.hpp"
 #include "onthepitch/match.hpp"
 #include "onthepitch/matchsetup.hpp"
+#include "onthepitch/gameplaytuning.hpp"
 #include "onthepitch/pessequencer.hpp"
 #include "onthepitch/restartwatch.hpp"
 #include "pes/vfs.hpp"
@@ -174,4 +175,36 @@ TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
         << "throw-in released with the ball " << off << " m from its spot";
   });
   EXPECT_GT(throwIns, 0) << "no throw-in was released";
+}
+
+// A loose dead ball in play must be reached and played. Seed 7 stalled here after a restart was
+// taken: the designated man stood about a metre from a ball at rest, and his step onto it never
+// reached the PES mover, so the ball lay until the restart watch gave up. The bound is GF's
+// stalemate clock, the only time GF gives a dead ball in play before it forces the issue. PES's
+// own pickup time is not decoded, so this is a ponytail bound, not a PES number.
+TEST(PesRestartDelay, ALooseDeadBallInPlayIsReachedAndPlayed) {
+  constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
+  constexpr unsigned long kBoundTicks = static_cast<unsigned long>(
+      GameplayTuning::kStalemateForceAction_s * static_cast<float>(Match::kFramesPerSecond));
+  bool inEpisode = false;
+  unsigned long episodeTicks = 0, longestTicks = 0;
+  int episodes = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() &&
+                       match.GetBall()->GetMovement().GetLength() <= kRestSpeed_ms;
+    if (!loose) {
+      inEpisode = false;
+      return;
+    }
+    if (!inEpisode) {
+      inEpisode = true;
+      episodeTicks = 0;
+      episodes++;
+    }
+    episodeTicks++;
+    if (episodeTicks > longestTicks) longestTicks = episodeTicks;
+  });
+  EXPECT_GT(episodes, 0) << "no loose dead ball in play was observed";
+  EXPECT_LE(longestTicks, kBoundTicks)
+      << "a loose dead ball in play lay for " << longestTicks << " ticks (bound " << kBoundTicks << ")";
 }
