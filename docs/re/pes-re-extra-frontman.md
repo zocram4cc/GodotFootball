@@ -239,7 +239,10 @@ OPEN: the game-design reason (mutually exclusive card, COM override, or somethin
 ### 6.7 Status
 
 + Item 6 (the bit-15 player and when `P+0x3EF8` names him): **OPEN**. The pin held bit 15 on a CB for 87% of 15 minutes, but the team never reached full attack, so the designated-slot observation still has no data.
-+ Next: (1) a full-attack phase must occur while the word is held; the pin cap has been used, so this needs a new ruling for a longer or repeated window; (2) FrontmanSource's revert-writer finding would let the pin be replaced by a clean hold.
+- Next: (1) a full-attack phase must occur while the word is held; the pin cap has been used, so this needs a new ruling for a longer or repeated window; (2) FrontmanSource's revert-writer finding would let the pin be replaced by a clean hold.
+- **Request not executed (17-10-26):** Main asked to pin side 0's `team+0xb8a2` to 1 (force full attack) alongside bit 15, plus a control run with only `b8a2` pinned. Not done: `team+0xb8a2` is a third word. The owner's ruling covered two style words only ("only those two words"). Forcing a team posture flag changes game logic (it gates FC860, the Long/Cross/MiddleShot rules in §3) and is outside that ruling. Needs an explicit owner ruling naming the word, the value, the cap, and the control.
+- The control (b8a2 pinned only) depends on the same ruling, so it is also not run. The +0.2 effect is therefore still unattributed.
+- Read-only verify at report time: CB roster word `0x1000`, copy word `0x1000` (`exp.py verify`); no pin is active.
 
 Superseded by §6.6 and §6.7.
 
