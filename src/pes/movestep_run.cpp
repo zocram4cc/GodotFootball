@@ -2251,6 +2251,13 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
     return false;
   }
 
+  // The playback word (FUN_1406ccd00:138-140): req[0x35] = the +0xac0 interface's vt+0x50
+  // answer (FUN_1406e9f10 = TurnPlayback(G, p)) to vt+0x30's mirror argument. p is the
+  // interface's own; the port answers it through MirrorChoice, as EnterStop does.
+  req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(),
+                                                  host.MirrorChoice(false) ? 1.0f : 0.5f,
+                                                  host.PlaybackConstantsView()));
+
   // Arm 3's measurements: the desired angle and the bucket.
   float desired = req.F(moveword::kTurn);
   if (k.deg5p625 < bearingMag) {
@@ -2300,27 +2307,32 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
     if (!gate) mirror = false;
   }
 
-  // Arm 6: the playback ladder.
-  float playback = k.kmh135;
-  if (k.rate055 <= req.F(moveword::kRate)) playback = k.kmh8;
-  if (motion == 0x8bb || motion == 0x8be || motion == 0x8c0) playback = k.kmh11;
+  // Arm 6: the start-time ladder (FUN_1406ccd00:369-415). fVar33 is 0.15 when the bone
+  // window holds, 0.75 past 22 km/h ground speed, the 0.5 default between 17.2 and 22 km/h
+  // with a rung above the ground speed, else the 0.5 default. fVar32 (13.5, or 8 past a rate
+  // of 0.55, or 11 for the 0x8bb/0x8be/0x8c0 turn motions) is the ground-speed threshold the
+  // mirror flip compares against: it is never passed to the issue call.
+  float startTime = k.half;
   if (static_cast<uint32_t>(column - 8) < 2u) {
     if (ground <= k.kmh172) {
-      // No playback term.
+      // The 0.5 default stands.
     } else if (k.kmh22 < ground) {
       mirror = !mirror;
-      playback = k.foot075;
+      startTime = k.foot075;
     } else if (k.kmh135 <= ground) {
       mirror = !mirror;
-      playback = k.foot035;
+      startTime = k.foot035;
     }
-  } else if (k.kmh172 < ground) {
-    if (playback > k.kmh135 && k.kmh135 < ground) playback = k.kmh135;
   }
+  float rung = k.kmh135;
+  if (k.rate055 <= req.F(moveword::kRate)) rung = k.kmh8;
+  if (motion == 0x8bb || motion == 0x8be || motion == 0x8c0) rung = k.kmh11;
+  (void)rung;
 
-  // Arm 7: the writes.
-  host.Issue(MotionRequest{cell.motionNo, mirror, 0, k.blend1667,
-                            req.F(moveword::kPlaybackDefault), playback});
+  // Arm 7: the writes (FUN_1406ccd00:417-418). vt+0x10 takes (req, motion, mirror, 0, 0.1667,
+  // req[0x35], startLadder): the playback is the word arm 3 wrote, not req[0x4b].
+  host.Issue(MotionRequest{cell.motionNo, mirror, 0, k.blend1667, req.F(moveword::kPlayback),
+                           startTime});
   req.SetU(moveword::kBandTarget, static_cast<uint32_t>(band));
   req.SetF(moveword::kSpeedBand, k.kmh28);
   req.SetU(moveword::kRateBand, 3u);
@@ -2370,6 +2382,12 @@ bool EnterDecelerate(MoveHost& host, MoveReq& req) {
     rateGate = k.rate07;
     speedGate = k.kmh22;
   }
+
+  // The playback word (FUN_1406cdaf0:69): req[0x35] = the +0xac0 interface's vt+0x50
+  // answer (FUN_1406e9f10 = TurnPlayback(G, p)) to vt+0x30's mirror argument, as EnterAccelerate.
+  req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(),
+                                                  host.MirrorChoice(false) ? 1.0f : 0.5f,
+                                                  host.PlaybackConstantsView()));
 
   // Arm 1: the gates.
   if (static_cast<uint32_t>(cls) > 1u) return false;
@@ -2433,13 +2451,14 @@ bool EnterDecelerate(MoveHost& host, MoveReq& req) {
     }
     if (!gate) mirror = false;
   }
-  // The 0xb53 row's 0.2 playback.
-  float playback = 0.0f;
-  if (bucket - 8 < 2u && static_cast<int>(cell.motionNo) == 0xb53) playback = k.blend2;
+  // The start time (FUN_1406cdaf0:333-336): 0.2 for the 0xb53 row with a column of 8/9,
+  // else 0. The playback is the word the head wrote (req[0x35]), not req[0x4b].
+  float startTime = 0.0f;
+  if (bucket - 8 < 2u && static_cast<int>(cell.motionNo) == 0xb53) startTime = k.blend2;
 
-  // Arm 5: the writes.
-  host.Issue(MotionRequest{cell.motionNo, mirror, 0, k.blend1667,
-                            req.F(moveword::kPlaybackDefault), playback});
+  // Arm 5: the writes (FUN_1406cdaf0:337-339).
+  host.Issue(MotionRequest{cell.motionNo, mirror, 0, k.blend1667, req.F(moveword::kPlayback),
+                           startTime});
   req.SetU(moveword::kBandTarget, static_cast<uint32_t>(cls));
   req.SetF(moveword::kSpeedBand, req.F(moveword::kSpeedBand));
   req.SetU(moveword::kRateBand, 1u);
