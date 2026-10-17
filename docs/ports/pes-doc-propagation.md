@@ -112,3 +112,44 @@ No text in pes-re-teamorder.md names `FUN_1409f1bb0`. Its corrections concern th
 - No build, test or gate was run (docs only, per the assignment).
 - Owner decision needed: carrier-units §2.2 sub-2 conflict (row C).
 - Main to check: the 17-10-26 notes read correctly in place (this pass checked each edit's response, not a rendered view).
+
+## G. Round 2 (Main's leftovers; branch `PropAudit` rebased on origin/main `9ccc0bd`)
+
+| # | Older doc | Orig. line | Old claim | New claim | Source | Status |
+|---|---|---|---|---|---|---|
+| G1 | pes-re-carrier-units.md | 109, 110, 126 (§2.1) | "else keep" / keep = no direction | keep is stored as sub 4 (blocked), not sub 2 | pes-port-A4Walk.md l.15–19 (Main ruling) | EDITED |
+| G2 | pes-re-carrier-units.md | 138–142 (§2.2) | subs 3/4/5 stored, 0/1/2 mapped; hold/stand = keep path | stored subs 3, 4, 5, 6 and 0x11; 0/1/2 never stored; hold = chooser's 4 | pes-port-A4Walk.md l.15–19 | EDITED (closes the §2.2 conflict in C) |
+| G3 | pes-re-A4Carrier.md | 21, 185, 190 (§1, §6) | sub 2 (keep) stored; "2 and 6 stored" | sub 2 not stored; 6 stored; notes supersede the sub-2 rows | pes-port-A4Walk.md l.15–19, l.17 | NOTE/EDITED |
+| G4 | pes-re-carrier-ai.md | 94–96 (§3 item 3) | default answer 0x19 "none" then Dribble | default writes id 0x10 unconditionally; 0x19 reset overwritten | pes-re-A4Carrier.md §11 (C-now L74) | NOTE |
+| G5 | pes-re-gaps-anime.md | 549, 559, 564, 604–605 (§1) | `FUN_1409f1bb0` is the per-player loop; `uVar7` = player count | message handler (returns unless kind 0x14); 60 iterations over one object `P = *(param_1−0x178)`; `uVar7` = 0 or 0x3c; 22-player path = slot 2 | Ghidra bridge decompile of 0x1409f1bb0 (scratch); pes-re-teamorder.md §2 | EDITED |
+| G6 | pes-re-clock-record.md | 142–143 | tick counter `matchCtx+0x10` | per-player `PM+0x10` (22 counters), incremented by `FUN_140925750` | pes-re-teamorder.md §0 l.24, §2.1 l.34 | EDITED |
+| G7 | pes-re-a3helpers.md | 95 (§4) | `FUN_1409f1bb0` (per-player loop) drives A | owner tick `FUN_1408bfcf0` (slot 2) drives A; `FUN_1409f1bb0` is a message handler | bridge decompile; pes-re-gaps-anime.md §1 | EDITED |
+| G8 | pes-re-ball-contact.md | 388, 389 (§3.3) | `xmm13/12/14 = vy/vz/vx`; `[rsp+0x68]` = grounder-trimmed vx | `xmm13/12/14 = vx/vz/vy`; `[rsp+0x68]` = grounder-trimmed vy (the l.390 workaround note is replaced by the corrected lines) | pes-re-ball-contact-2.md l.66–69 | EDITED (both partial lines fixed) |
+| G9 | pes-re-ball-contact-2.md | 87, 95 (§1.2 code) | `vy_keep` from `\|vy\|·3.6` | signed `−3.6·vy` (XORPS 0x140876ba2, mask 0x1425656d0); rising ball keeps the base | raw listing of FUN_140876360 via bridge (XMM6 has no writer between 0x140876ba2 and 0x1408770f0); pes-ball-A1Spin.md l.11 | EDITED (raw-checked) |
+| G10 | pes-re-anim-select.md | 268–270 (§3.3) | bearing <112.5 → 6, <157.5 → 7; styles 1–5/9/11–14 set by other callers | 112.5 itself → 7; 0x10 for class <2 with a second test; no other callers | pes-re-teamctx.md §5.2; pes-re-anim-select-2.md conclusion | EDITED |
+| G11 | pes-re-cloth-nets.md | 56–57, 206–209 (§2, §3) | `ClothShirtParts` holds nocloth at +0x20 and cloth at +0x78 | object A (0x80): nocloth at +0x20 (drawn); object B (0xD8): cloth at +0x58, nocloth at +0x88; +0x78 is not cloth | pes-re-stadium-cloth-vfx.md §2.5 | EDITED |
+| G12 | pes-re-leftovers-2.md | 41, 42, 48 (§1.1–1.2) | 0x24-byte sub-blocks at +0x04/+0x28 | 0x90-byte sub-blocks at +0x04/+0x94 | pes-re-officials-pick.md §1.2 | EDITED |
+| G13 | pes-re-foul-choreography.md | 85 (§1.2 table) | `MI+0x1554` 7 = game end | 7 = kick-off after a goal | pes-re-setpiece-choreography.md §0, §3 (EV-SPC-0013) | EDITED |
+| G14 | pes-re-setpiece-choreography.md | 49 (§1.1 table) | half-start (MODE 1) stop kind 3 | stop kind 0 (reason-0 builder `FUN_14044fef0`); 3 is the goal kick-off | pes-re-A5Judge.md l.212, l.451 | EDITED |
+| G15 | pes-re-setpiece-choreography.md | after 831 (§12 killed list) | goal-kick counter 83 as the release threshold | refuted: release 238–253 frames from ready; 246 inside range | pes-re-A5Judge.md §9.3 | NOTE |
+| G16 | pes-re-team-plans.md | 263–264 (§2.1 item 8) | `FUN_141b92460(2) >= 2` is a 2-second timer | `FUN_141b92460` is a stub returning 5; test is constant | pes-re-defensive-shape.md l.322 | EDITED |
+| G17 | pes-re-defensive-shape.md | 228 (§1 timers) | hold-back after a possession change | after the newest kick-off (`FUN_140a74ec0` is the kick-off timer) | pes-re-transitions.md §1.2 | EDITED |
+| G18 | pes-re-Dribble.md | 24–25, 79–80 | `FUN_14212e110` keeper branch and distance-sorted list | address is not an entry; builder is inside `FUN_14212DC80` | pes-re-Dribble-inventory.md §1 | NOTE |
+| G19 | docs/ports/pes-port-StylePort.md | 56 | "every knob has live callers" | dead on the PES path (see its l.68) | its own l.68 | NOTE |
+| G20 | pes-re-duels-fouls.md | 438–439 (§5.1) | "offside position but not punishable" gloss | category 3 is the near-level onside band; categories 0–2 stand | pes-re-offside.md l.200, l.346–347 | NOTE |
+| G21 | pes-re-pitch-grass.md | 785–786 (§7.6 "Skip entirely") | VS fog terms skipped | o7.z/o7.w ported into specular and roughness | docs/render/pes-pitch-PitchV7.md (summary row, l.23) | NOTE (partial: GB3/GB4, t1/t2 "skip" stands) |
+| G22 | pes-re-physique.md | 9–18, 56, 162, 216 | collar and playbackSpeed claims | already corrected in place | pes-re-physique-helpers.md | ALREADY (no edit) |
+| G23 | pes-re-ball-collision.md | §5 | 50.27 rad/s "cap" | not a correction: 3-D spin cap and horizontal rolling cap (7.5 Hz) are different quantities; both stand | pes-fix-SpinRunaway-2 note | CLOSED (no edit) |
+
+### G-open: could not be closed, with why
+
+- **TeamOrder text (Main's item 2).** `docs/re/pes-re-teamorder.md` on `origin/main` (9ccc0bd) has no "1409f1bb0" and no "message handler" text. The substance (per-player counter `PM+0x10`; slot 2 is the 22-player tick) is in teamorder §0 and §2.1. The `FUN_1409f1bb0` correction was applied from a bridge decompile instead. Main: check whether the TeamOrder correction is on another branch.
+- **Setpiece §12 throw-in "counter ≈81–83 not reproduced".** The throw-in counter rows were not located in the reads of §8/§12.
+- **Foul-choreography §2.1 half-start "stop kind 3".** A5 names it; the §2.1 text was not located (only the setpiece §1.1 row was fixed).
+- **Ball-contact-2 `[rsp+0x5c]` identity.** G9 uses the raw listing for the sign of XMM6 (signed, no writer in between). It does not establish that `[rsp+0x5c]` is `vy_pre`; that rests on A1Spin's reading.
+- **Team-plans §2.1 scope.** The defensive-shape correction was applied to the "2-second timer" claim (G16). Other team-plans §2.1 claims were not checked.
+- **Keep item (Main's item 1).** Resolved by G1–G3. The conflict in section C row 61 is closed.
+
+### G-count
+
+Section C had 16 OPEN rows. Closed this round: carrier-units §2.2 (G1–G3), anim-select §3.3 (G10), ball-contact-2 code block (G9), cloth-nets §3 (G11), physique (G22), leftovers-2 (G12), pitch-grass (G21), duels-fouls (G20), foul-choreography §1.2 (G13), setpiece §1.1 and §12 (G14, G15), team-plans §2.1 (G16), defensive-shape timer (G17), Dribble.md (G18), StylePort l.56 (G19), ball-collision (G23). Still open: the four items above.
