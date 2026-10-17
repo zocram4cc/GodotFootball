@@ -5,6 +5,7 @@
 // against the user's own PES2021.exe through relations, not pinned numbers.
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <vector>
@@ -997,6 +998,50 @@ TEST(PesCarrierList, TheWideSectorListsTheCrossForPlansOneToThree) {
   in.wideSector = true;
   EXPECT_EQ(pes::BuildUnitList(in),
             (std::vector<int>{23, 22, 0, 1, 17, 14, 11, 12, 2, 3, 7, 4, 10}));
+}
+
+TEST(PesCarrierTable, PlanSixWithALongAnswerAdoptsTheLongPass) {
+  // Plan 6 lists kind 9 and no PassForward: a Long answer in slot 9 is
+  // adopted.
+  pes::UnitListInput list;
+  list.plan = pes::kPlanLong;
+  const std::vector<int> kinds = pes::BuildUnitList(list);
+  ASSERT_TRUE(std::find(kinds.begin(), kinds.end(), 4) == kinds.end());
+  pes::PassAnswer fwd, lng, cross;
+  lng.index = 5;
+  lng.kind = pes::kPassLong;
+  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross);
+  const pes::UnitSlot won = pes::WalkCarrierUnits(table, pes::WalkContext{});
+  EXPECT_EQ(won.kind, 9);
+  EXPECT_EQ(won.answer.sub, pes::kPassLong);
+}
+
+TEST(PesCarrierTable, PlanFiveWithACrossAnswerAdoptsTheCross) {
+  // Plan 5 lists kind 7 and no PassForward: a Cross answer in slot 7 is
+  // adopted.
+  pes::UnitListInput list;
+  list.plan = pes::kPlanCross;
+  const std::vector<int> kinds = pes::BuildUnitList(list);
+  ASSERT_TRUE(std::find(kinds.begin(), kinds.end(), 4) == kinds.end());
+  pes::PassAnswer fwd, lng, cross;
+  cross.index = 3;
+  cross.kind = pes::kPassCentering;
+  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross);
+  EXPECT_EQ(pes::WalkCarrierUnits(table, pes::WalkContext{}).kind, 7);
+}
+
+TEST(PesCarrierTable, CurveShotFillsTheCutBackSlotWithTheCrossAnswer) {
+  // Behind a CurveShot plan, kind 3 takes the cross answer (the cut-back).
+  const std::vector<int> kinds{3, 4};
+  pes::PassAnswer fwd, lng, cross;
+  cross.index = 3;
+  cross.kind = pes::kPassThrough;
+  const std::vector<pes::UnitSlot> plain = pes::FillUnitTable(kinds, false, fwd, lng, cross);
+  EXPECT_EQ(plain[0].answer.type, pes::kAnswerNone);
+  const std::vector<pes::UnitSlot> curved =
+      pes::FillUnitTable(kinds, false, fwd, lng, cross, true);
+  EXPECT_EQ(curved[0].answer.type, pes::kAnswerPass);
+  EXPECT_EQ(curved[0].answer.sub, pes::kPassThrough);
 }
 
 // --- the Dribble sub-kind chooser (report 2.1, 0x14212f1c0) and its dispatch (0x14212fe70) ---

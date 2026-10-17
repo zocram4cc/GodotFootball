@@ -1063,6 +1063,24 @@ std::vector<int> BuildUnitList(const UnitListInput& in) {
   return l;
 }
 
+std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnswer,
+                                    const PassAnswer& fwd, const PassAnswer& lng,
+                                    const PassAnswer& cross, bool curveShotPlan) {
+  std::vector<UnitSlot> table;
+  for (const int kind : kinds) {
+    UnitSlot slot;
+    slot.kind = kind;
+    if (kind == 0 && shotAnswer) slot.answer = {kAnswerShoot, 1};
+    if (kind == 4 && fwd.index >= 0) slot.answer = {kAnswerPass, fwd.kind};
+    if (kind == 9 && lng.index >= 0) slot.answer = {kAnswerPass, lng.kind};
+    if (kind == 7 && cross.index >= 0) slot.answer = {kAnswerPass, cross.kind};
+    if (kind == 3 && cross.index >= 0 && curveShotPlan)
+      slot.answer = {kAnswerPass, cross.kind};
+    table.push_back(slot);
+  }
+  return table;
+}
+
 int DribbleChooser(const DribbleChooserInput& in, const CarrierConstants& k) {
   // The feint gate: the facing inside 30 degrees of the attack and of the plan heading, the carrier
   // past halfway, and the caller's feint test (0x14212e970).

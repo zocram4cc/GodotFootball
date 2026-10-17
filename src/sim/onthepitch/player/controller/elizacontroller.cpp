@@ -2537,18 +2537,9 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   list.wideSector = zone.sector == pes::kSectorWide;
   list.pastCrossLine = carrierImage.id == pes::kPlanCross &&
                        attackSign * carrierPos.coords[0] > pesFieldHalfLength - 10.0f;
-  std::vector<pes::UnitSlot> table;
-  for (const int kind : pes::BuildUnitList(list)) {
-    pes::UnitSlot slot;
-    slot.kind = kind;
-    if (kind == 0 && shotAnswer) slot.answer = {pes::kAnswerShoot, 1};
-    if (kind == 4 && pass.index >= 0) slot.answer = {pes::kAnswerPass, pass.kind};
-    if (kind == 9 && longPass.index >= 0) slot.answer = {pes::kAnswerPass, longPass.kind};
-    if (kind == 7 && crossPass.index >= 0) slot.answer = {pes::kAnswerPass, crossPass.kind};
-    if (kind == 3 && crossPass.index >= 0 && carrierImage.id == pes::kPlanCurveShot)
-      slot.answer = {pes::kAnswerPass, crossPass.kind};
-    table.push_back(slot);
-  }
+  const std::vector<pes::UnitSlot> table =
+      pes::FillUnitTable(pes::BuildUnitList(list), shotAnswer, pass, longPass, crossPass,
+                         carrierImage.id == pes::kPlanCurveShot);
   pes::WalkContext walk;
   // The restart mode: 3 in a set piece, 1 in play, 2 stopped (report 5, MI+0x116C).
   walk.restartMode = match->IsInSetPiece() ? 3 : (match->IsInPlay() ? 1 : 2);
