@@ -642,8 +642,55 @@ struct WalkContext {
   bool skill11 = false;            // ONE_TOUCH_SHOOT
   bool skill12 = false;            // ONE_TOUCH_PASS
   bool skill14 = false;            // PINPOINT_CROSS (rule 9)
-  bool closeBand = false;          // IsClose(shot zone): rule 6
+  bool closeBand = false;          // IsClose(shot zone): rules 6 and 8
+  bool forcedClear = false;        // rule 7: the opponent-count test keeps the clear
+  bool owned = false;              // BP+0xE4: the ball at the carrier's feet
+  bool safetyToKeeper = false;     // rule 7: kind 6 answers a back-pass to the keeper
+  bool keeperWithinNinety = false;  // rule 7: keeper within 90 deg of the body
+  bool forwardIsInstantReturn = false;  // rule 8: kind 4 answers the last passer
 };
+
+// --- the Long unit (report 5.2, kind 9, 0x14212AD40) ---
+//
+// Needs the ball (or the danger flag with it below 1.5 m). The target is the
+// plan target in plans 6/7 when 0x1421240B0 validates it, else the picker
+// 0x142128A20: among valid long-ball mates the most advanced, a candidate
+// within 10 m of the best replacing it when taller by more than 5 cm. Short
+// (b=0) when the openness class reaches 4 (3 with 0x14063A3A0), else long
+// (b=1) with f14.
+struct LongMate {
+  int index = -1;
+  float advance_m = 0.0f;  // attack-signed x: the picker takes the maximum
+  float height_cm = 0.0f;  // stat 0x31: the target-man rule
+  float opennessClass = 0.0f;
+};
+struct LongUnitInput {
+  bool owned = false;
+  bool danger = false;
+  float ballHeight_m = 0.0f;
+  int plan = 0;
+  int planTarget = -1;  // +0xCC, or -1 when the plan names none
+  bool planTargetValid = false;  // 0x1421240B0
+  bool favourShort = false;  // 0x14063A3A0: the short line drops to class 3
+  std::vector<LongMate> mates;
+};
+PassAnswer PassLongUnit(const LongUnitInput& in, const CarrierConstants& k);
+
+// --- the Cross unit (report 2.1, kind 7, 0x142129590) ---
+//
+// The carry bearing within 130 degrees of the facing, a lane from the aim
+// (carrier + attack x half-width) into the box, and the picker 0x142125AB0:
+// among valid mates the tallest (stat 0x31, last max wins). Answers a
+// centering ball (b=2).
+struct CrossInput {
+  float carryVsFacing_deg = 0.0f;
+  bool laneOpen = true;  // 0x14063CD90 + 0x1421B7D40
+  bool owned = true;
+  float receiverLead_m = 0.0f;  // unowned: the predicted receiver's lead
+  std::vector<LongMate> mates;  // index/height reused; openness unused
+  bool skill14 = false;  // f11/f12 need Pinpoint Crossing context; the unit does not gate on it
+};
+PassAnswer CrossUnit(const CrossInput& in, const CarrierConstants& k);
 
 // The walk (0x14210f110) over the table in its build order: the first slot that answers and
 // survives the rules wins. Returns kind -1 when none does; the Dribble default then stands.

@@ -1164,6 +1164,108 @@ TEST(PesCarrierWalk, TheFirstTimeGateNeedsAHighBallOrTheSkillForAPass) {
   EXPECT_EQ(pes::WalkCarrierUnits(pass, c).kind, 4);
 }
 
+TEST(PesCarrierWalk, AClearFallsBackToTheFirstListedPassKindInOrder) {
+  // Rule 7 (0x14210F110, carunits5.c:330): with the forced-clear test failing,
+  // a clear is replaced by the first of 3, 4, 9, 6 listed after it that holds
+  // an answer - here 4, even though 9 also answers.
+  const std::vector<pes::UnitSlot> table = {Slot(1, 5, 0), Slot(4, pes::kAnswerPass, 0),
+                                            Slot(9, pes::kAnswerPass, 1)};
+  pes::WalkContext c;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 4);
+}
+
+TEST(PesCarrierWalk, AForcedClearKeepsItsClearingKick) {
+  // The same table, but the forced-clear test passes (surrounded): the clear
+  // stands and no pass replaces it.
+  const std::vector<pes::UnitSlot> table = {Slot(1, 5, 0), Slot(4, pes::kAnswerPass, 0)};
+  pes::WalkContext c;
+  c.forcedClear = true;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 1);
+}
+
+TEST(PesCarrierWalk, ASafetyBackPassToTheKeeperNeedsHimCloseOrOwned) {
+  // Rule 7's keeper proviso: an unowned Safety back-pass to the keeper is
+  // dropped unless he is within 90 degrees of the body direction.
+  const std::vector<pes::UnitSlot> table = {Slot(1, 5, 0), Slot(6, pes::kAnswerPass, 0)};
+  pes::WalkContext c;
+  c.safetyToKeeper = true;
+  c.owned = false;
+  c.keeperWithinNinety = false;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, -1);
+  c.keeperWithinNinety = true;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 6);
+}
+
 TEST(PesCarrierWalk, WithNothingAnsweringTheWalkReturnsNone) {
   EXPECT_EQ(pes::WalkCarrierUnits({}, pes::WalkContext{}).kind, -1);
+}
+
+TEST(PesCarrierWalk, ASafetyAnswerDiesInTheCloseBand) {
+  // Rule 8 (0x14210F110, carunits5.c:393): a Safety pass in the close
+  // shooting band is dropped.
+  const std::vector<pes::UnitSlot> table = {Slot(6, pes::kAnswerPass, 0)};
+  pes::WalkContext c;
+  c.closeBand = true;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, -1);
+  c.closeBand = false;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 6);
+}
+
+TEST(PesCarrierWalk, AForwardAnswerDiesOnAnInstantReturn) {
+  // Rule 8 (carunits5.c:421): a Forward pass to the man who just passed to
+  // the carrier (inside two frames) is dropped.
+  const std::vector<pes::UnitSlot> table = {Slot(4, pes::kAnswerPass, 0)};
+  pes::WalkContext c;
+  c.forwardIsInstantReturn = true;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, -1);
+  c.forwardIsInstantReturn = false;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 4);
+}
+
+TEST(PesCarrierWalk, ANonConformingDribbleKindIsDropped) {
+  // Rule 8's class filters (0x14063C9C0/0x14063C9A0): a dribble answer from
+  // a kind that is neither the Dribble kind nor a pass kind is dropped.
+  const std::vector<pes::UnitSlot> table = {Slot(0, pes::kAnswerDribble, 3)};
+  pes::WalkContext c;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, -1);
+}
+
+TEST(PesCarrierLongUnit, ANonOwnedCarrierWithNoDangerStaysSilent) {
+  // Kind 9 (0x14212AD40): without the ball and no danger flag, no answer.
+  pes::LongUnitInput in;
+  in.mates = {{0, 0.0f, 180.0f, 5.0f}, {1, 10.0f, 180.0f, 5.0f}};
+  EXPECT_EQ(pes::PassLongUnit(in, Synthetic()).index, -1);
+}
+
+TEST(PesCarrierLongUnit, TheMostAdvancedValidMateTakesIt) {
+  // The picker (0x142128A20) takes the most advanced valid mate.
+  pes::LongUnitInput in;
+  in.owned = true;
+  in.mates = {{0, 0.0f, 180.0f, 5.0f}, {1, 10.0f, 180.0f, 5.0f}};
+  EXPECT_EQ(pes::PassLongUnit(in, Synthetic()).index, 1);
+}
+
+TEST(PesCarrierLongUnit, AnOpenMateGetsAShortBall) {
+  // 0x14212AD40's tail: openness class 4 or more goes short (b=0).
+  pes::LongUnitInput in;
+  in.owned = true;
+  in.mates = {{0, 0.0f, 180.0f, 2.0f}, {1, 10.0f, 180.0f, 4.0f}};
+  EXPECT_EQ(pes::PassLongUnit(in, Synthetic()).kind, pes::kPassShort);
+}
+
+TEST(PesCarrierCross, AWideCarrierAnswersACenteringBall) {
+  // Kind 7 (0x142129590): the carry bearing held, the lane open, the
+  // tallest mate takes the centering ball (b=2).
+  pes::CrossInput in;
+  in.mates = {{0, 0.0f, 180.0f, 0.0f}, {1, 5.0f, 190.0f, 0.0f}};
+  EXPECT_EQ(pes::CrossUnit(in, Synthetic()).kind, pes::kPassCentering);
+  EXPECT_EQ(pes::CrossUnit(in, Synthetic()).index, 1);
+}
+
+TEST(PesCarrierCross, ACenteringBallNeedsTheCarryBearing) {
+  // Facing more than 130 degrees from the carry bearing, no answer.
+  pes::CrossInput in;
+  in.mates = {{0, 0.0f, 180.0f, 0.0f}};
+  in.carryVsFacing_deg = 140.0f;
+  EXPECT_EQ(pes::CrossUnit(in, Synthetic()).index, -1);
 }
