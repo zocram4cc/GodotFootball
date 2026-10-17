@@ -1184,15 +1184,21 @@ TEST(PesCarrierWalk, AForcedClearKeepsItsClearingKick) {
 }
 
 TEST(PesCarrierWalk, ASafetyBackPassToTheKeeperNeedsHimCloseOrOwned) {
-  // Rule 7's keeper proviso: an unowned Safety back-pass to the keeper is
-  // dropped unless he is within 90 degrees of the body direction.
+  // Rule 7's keeper proviso: with the close band dropping Safety's own slot
+  // too, an unowned back-pass to a far keeper leaves the clear standing, but
+  // a near keeper takes it through the clear's fallback chain; owned always
+  // takes it.
   const std::vector<pes::UnitSlot> table = {Slot(1, 5, 0), Slot(6, pes::kAnswerPass, 0)};
   pes::WalkContext c;
   c.safetyToKeeper = true;
   c.owned = false;
+  c.closeBand = true;
   c.keeperWithinNinety = false;
-  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, -1);
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 1);
   c.keeperWithinNinety = true;
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 6);
+  c.owned = true;
+  c.keeperWithinNinety = false;
   EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 6);
 }
 
@@ -1238,10 +1244,18 @@ TEST(PesCarrierLongUnit, ANonOwnedCarrierWithNoDangerStaysSilent) {
 }
 
 TEST(PesCarrierLongUnit, TheMostAdvancedValidMateTakesIt) {
-  // The picker (0x142128A20) takes the most advanced valid mate.
+  // The picker (0x142128A20): past 10 m ahead the new mate takes it.
   pes::LongUnitInput in;
   in.owned = true;
-  in.mates = {{0, 0.0f, 180.0f, 5.0f}, {1, 10.0f, 180.0f, 5.0f}};
+  in.mates = {{0, 0.0f, 180.0f, 5.0f}, {1, 15.0f, 180.0f, 5.0f}};
+  EXPECT_EQ(pes::PassLongUnit(in, Synthetic()).index, 1);
+}
+
+TEST(PesCarrierLongUnit, WithinTenMetresTheTallerMateTakesIt) {
+  // Inside (-10, 10) the mate taller by more than 5 cm takes it.
+  pes::LongUnitInput in;
+  in.owned = true;
+  in.mates = {{0, 0.0f, 180.0f, 5.0f}, {1, 5.0f, 190.0f, 5.0f}};
   EXPECT_EQ(pes::PassLongUnit(in, Synthetic()).index, 1);
 }
 
@@ -1249,7 +1263,7 @@ TEST(PesCarrierLongUnit, AnOpenMateGetsAShortBall) {
   // 0x14212AD40's tail: openness class 4 or more goes short (b=0).
   pes::LongUnitInput in;
   in.owned = true;
-  in.mates = {{0, 0.0f, 180.0f, 2.0f}, {1, 10.0f, 180.0f, 4.0f}};
+  in.mates = {{0, 0.0f, 180.0f, 2.0f}, {1, 15.0f, 180.0f, 4.0f}};
   EXPECT_EQ(pes::PassLongUnit(in, Synthetic()).kind, pes::kPassShort);
 }
 
