@@ -67,6 +67,7 @@ void RunMatchWithinTheBound(bool pesLoop, int minutes,
 
   Properties config;
   config.SetBool("pes_loop", pesLoop);
+  if (std::getenv("GF_ANIM_LOG")) config.SetBool("anim_selection_log", true);
   Match match(new MatchData(HOME_TEAM, AWAY_TEAM), *setup, config);
   RestartWatch watch(
       RestartLimitTicks(*setup->pesStoppageConstants, *setup->pesSetPieceTakerConstants));
@@ -188,15 +189,59 @@ TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
 TEST(PesRestartDelay, AThrowInKeepsItsWriterSpotThroughPrepare) {
   std::optional<unsigned long> checkedStop;
   unsigned long lastTracedStop = 0;
+  unsigned long throwWatchStart = 0;
+  unsigned long lastThrowPrint = 0;
   int throwIns = 0;
+  // (the throw watch lives in the tick callback below)
   RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
     const RefereeBuffer& b = match.GetRefereeBuffer();
-    if (b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.stopTime != lastTracedStop) {
+    if (b.active && b.stopTime != lastTracedStop) {
       lastTracedStop = b.stopTime;
-      printf("[stop] throw-in stop %lu armed at (%.2f, %.2f) ball (%.2f, %.2f) v=%.2f\n",
-             b.stopTime, b.restartPos.coords[0], b.restartPos.coords[1],
-             match.GetBall()->Predict(0).coords[0], match.GetBall()->Predict(0).coords[1],
-             match.GetBall()->GetMovement().GetLength());
+      printf("[stop] kind %d stop %lu armed at (%.2f, %.2f) ball (%.2f, %.2f) v=%.2f\n",
+             static_cast<int>(b.desiredSetPiece), b.stopTime, b.restartPos.coords[0],
+             b.restartPos.coords[1], match.GetBall()->Predict(0).coords[0],
+             match.GetBall()->Predict(0).coords[1], match.GetBall()->GetMovement().GetLength());
+    }
+    // TEMP: log when the designated taker changes for an armed throw-in.
+    if (b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.stopTime == lastTracedStop) {
+      static Player* lastTaker = nullptr;
+      if (b.taker != lastTaker) {
+        printf("[taker] stop %lu taker %s\n", b.stopTime, b.taker ? "set" : "null");
+        lastTaker = b.taker;
+      }
+    }
+    // TEMP instrumentation: follow one throw-in through its throw.
+    if (b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.started &&
+        match.GetActualTime_ms() - b.startTime < 120 && throwWatchStart == 0) {
+      throwWatchStart = match.GetActualTime_ms();
+      lastThrowPrint = 0;
+    }
+    if (throwWatchStart != 0 && match.GetActualTime_ms() - throwWatchStart < 1400) {
+      if (match.GetActualTime_ms() - lastThrowPrint > 100) {
+        lastThrowPrint = match.GetActualTime_ms();
+        Player* t = b.taker;
+        static int lastRetainerState = -2;
+        const int retainerState =
+            match.GetBallRetainer() == nullptr ? 0 : (match.GetBallRetainer() == t ? 1 : 2);
+        if (retainerState != lastRetainerState) {
+          printf("[retainer] stop %lu -> %s\n", b.stopTime,
+                 retainerState == 0 ? "none" : (retainerState == 1 ? "taker" : "other"));
+          lastRetainerState = retainerState;
+        }
+        printf("[throw] +%lums active=%d started=%d inSP=%d retainer=%s touchAnim=%d "
+               "touchFrame=%d animTouch=%d animFrame=%d fn=%d ball (%.2f, %.2f) v=%.2f\n",
+               match.GetActualTime_ms() - throwWatchStart, b.active ? 1 : 0, b.started ? 1 : 0,
+               match.IsInSetPiece() ? 1 : 0,
+               match.GetBallRetainer() == t ? "taker" : (match.GetBallRetainer() ? "other" : "none"),
+               t && t->TouchAnim() ? 1 : 0, t ? t->GetTouchFrame() : -999,
+               t && t->GetCurrentAnim() ? t->GetCurrentAnim()->touchFrame : -999,
+               t && t->GetCurrentAnim() ? t->GetCurrentAnim()->frameNum : -999,
+               t ? static_cast<int>(t->GetCurrentFunctionType()) : -999,
+               match.GetBall()->Predict(0).coords[0], match.GetBall()->Predict(0).coords[1],
+               match.GetBall()->GetMovement().GetLength());
+      }
+    } else if (throwWatchStart != 0) {
+      throwWatchStart = 0;
     }
     if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.prepared || b.started)
       return;
