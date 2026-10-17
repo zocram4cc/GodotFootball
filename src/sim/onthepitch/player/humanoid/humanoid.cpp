@@ -30,6 +30,7 @@
 #include "../player.hpp"
 #include "data/matchanalytics.hpp"
 #include "data/playerskills.hpp"
+#include "onthepitch/pesgoalkick.hpp"
 #include "humanoid_utils.hpp"
 #include "onthepitch/gameplaytuning.hpp"
 #include "onthepitch/pesballphysics.hpp"
@@ -798,7 +799,8 @@ void Humanoid::Process() {
         team->SetPassTarget(targetPlayer);
 
         float zcurve = 0.0f;
-        Vector3 touchVec = ballDirection * 36 * (ballPower + 0.3f);
+        Vector3 touchVec = ballDirection * pes::kPassTouchSpeedPerPower_mps *
+                           (ballPower + pes::kPassTouchPowerOffset);
 
         if (_PassFiddlingEnabled()) {
           // SetGreenDebugPilon(match->GetBall()->Predict(0).Get2D() + touchVec.Get2D() * 0.4f);
