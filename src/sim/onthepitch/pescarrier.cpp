@@ -1131,7 +1131,7 @@ bool MiddleShotSkill(bool longRangeShooting, bool knuckleShot, bool droppingShot
 e_FunctionType PesPassFunctionType(int passKind) {
   switch (passKind) {
     case kPassThrough:
-      return e_FunctionType_LongPass;  // GF's through ball (playingstyles.cpp)
+      return e_FunctionType_LongPass;  // GF's through ball
     case kPassLong:
     case kPassCentering:
       return e_FunctionType_HighPass;  // the lofted and the cross, GF's HighPass

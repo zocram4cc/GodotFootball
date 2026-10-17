@@ -2449,9 +2449,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
 
     return pes::PassForward(candidates, {}, in, carrier);
   };
-  // The pass as GF's pass command. The through ball is GF's LongPass (playingstyles.cpp, "the
-  // through ball") on the PES path; the GF path keeps its collapse to ShortPass until the switch
-  // is removed.
+  // The pass as GF's pass command. The through ball is GF's LongPass on the PES path; the GF path
+  // keeps its collapse to ShortPass until the switch is removed.
   const auto addPass = [&](const pes::PassAnswer& pass) {
     if (pass.index < 0) return;
     Player* target = match->GetPlayer(pass.index);

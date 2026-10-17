@@ -746,8 +746,8 @@ int DribbleSubKind(const DribbleChooserInput& in, bool headingOverride, const Ca
 // Shots (34), which GF's longShotSkill omitted.
 bool MiddleShotSkill(bool longRangeShooting, bool knuckleShot, bool droppingShots, bool risingShots);
 
-// The GF pass command for a PES pass kind. The through ball is GF's LongPass (playingstyles.cpp,
-// "the through ball"); the lofted tier is HighPass.
+// The GF pass command for a PES pass kind. The through ball is GF's LongPass; the lofted tier
+// is HighPass.
 e_FunctionType PesPassFunctionType(int passKind);
 
 
