@@ -159,6 +159,7 @@ inline constexpr int kRate = 0x4a;             // req[0x4a]: parametric rate (OB
 inline constexpr int kPlaybackDefault = 0x4b;  // req[0x4b]: P+0x3750, default 1.0 (OBS copy-in)
 inline constexpr int kStartRate = 0x4f;        // req[0x4f]: start phase, the normalised foot phase (AS 1)
 inline constexpr int kClassWord = 0x1f;        // req[0x1f] (byte 0x7c): the 0..3 class word the ramp, dwell and step tables share (CONFIRMED: FUN_1406c2f80 reads *(int*)(req+0x7c), INIT writes 1; pes-re-a3helpers.md addendum item 4)
+inline constexpr int kFootFlag = 0x98;         // req[0x98] byte (byte req+0x26): the foot flag (CONFIRMED: FUN_1406ce820 writes *(req+0x26) at lines 561, 858; FUN_1406bb570 writes *(req+0x26) at the shared-band block)
 inline constexpr int kPrevClassWord = 0x24;    // req[0x24] (byte 0x90): the class before the change
 inline constexpr int kRootFacing = 0x3a;       // req[0x3a] byte: a root-facing write is due (OBS: FUN_1406c14c0 rate tail)
 inline constexpr int kRootFacingAngle = 0x3b;  // req[0x3b]: the wrapped root-facing angle, degrees (OBS)
@@ -344,7 +345,7 @@ struct RunTables {
   std::array<int32_t, 32> gotoRow;        // FUN_1406b9bd0, kind + class*8, 0x1425dda50
   std::array<int32_t, 32> turnStopRow;    // FUN_1406ba0d0, kind + class*8, 0x1425ddb50
   std::array<int32_t, 10> bucketColumn;   // FUN_1406b9b20's columns, 0x1425dd988
-  std::array<int32_t, 16> styleGroup;     // FUN_1406d2030's representative motion, DAT_1425ddcf0 (style*4 + band/4)
+  std::array<int32_t, 64> styleGroup;     // FUN_1406d2030's representative motion, DAT_1425ddcf0: 16 styles x 4 members (style*4 + band/4)
 };
 
 // FUN_1406b9e80's 11-knot piecewise-linear table at 0x1425de010: ten records

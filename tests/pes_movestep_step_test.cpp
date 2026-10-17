@@ -541,6 +541,31 @@ TEST(RunToStep, KeepsTheTickWhileBlendingTheHeading) {
 
 // The rate is scaled by 0.9 (DAT_14258c260) at the top of the tick, so a request entering with
 // a rate of 1.0 leaves it at 0.9.
+// EnterTurnStop's playback (FUN_1406d2590 arm 1): the interface's vt+0x50 answer
+// (FUN_1406e9f10 = TurnPlayback(G, p)), never the band's km/h speed. A taker standing still
+// to take a restart has ground speed 0; writing a speed into req[0x35] latches playback 0
+// into the record, and the issued clip's frame never advances.
+TEST(EnterTurnStop, KeepsAStandingTakersPlaybackNonzero) {
+  FakeHost host;
+  host.currentKmh = 0.0f;  // standing still at the restart spot
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 3u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kClassWord, 1u);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetU(pes::moveword::kLookBucket, 0u);
+  req.SetU(pes::moveword::kLookBucketAlt, 0u);
+  req.SetF(pes::moveword::kDistToTarget, 5.0f);
+  req.SetF(pes::moveword::kDistToLook, 5.0f);
+  req.SetF(pes::moveword::kRate, 0.3f);
+  EnterTurnStop(host, req);
+  EXPECT_GT(req.F(pes::moveword::kPlayback), 0.0f) << "a standing taker's playback";
+}
+
 TEST(TurnStop, ScalesTheRateByTheRecordConstant) {
   FakeHost host;
   MoveReq req;

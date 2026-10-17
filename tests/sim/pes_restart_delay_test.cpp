@@ -8,12 +8,15 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 
 #include "data/matchdata.hpp"
 #include "gametypes.hpp"
+#include "onthepitch/gameplaytuning.hpp"
 #include "onthepitch/match.hpp"
 #include "onthepitch/matchsetup.hpp"
+#include "onthepitch/player/player.hpp"
 #include "onthepitch/pessequencer.hpp"
 #include "onthepitch/restartwatch.hpp"
 #include "pes/vfs.hpp"
@@ -35,16 +38,22 @@ constexpr unsigned int SEED = 7;
 constexpr int MINUTES = 2;
 // Seed 7 stalls a throw-in at about four minutes; five covers it.
 constexpr int LONG_MINUTES = 5;
+// Seed 7's home keeper stalls at a goal kick about nineteen minutes in; twenty covers it.
+constexpr int TWENTY_MINUTES = 20;
 // A throw-in is released from the line: its ball may not be further than this from the spot.
 constexpr float kThrowInReleaseTolerance_m = 0.5f;
 // The same 30-minute cap as the other whole-match tests, counted in the 54 Hz logic
 // frames the sim ticks in.
 constexpr unsigned long kMaxSimTicks = 30ul * 60ul * Match::kFramesPerSecond;
+// The 60-minute cap the install's gfsim_run uses, for the twenty-minute match: with its stoppages it
+// runs about 114600 ticks, past the 30-minute cap above.
+constexpr unsigned long kTwentyMinuteMaxSimTicks = 60ul * 60ul * Match::kFramesPerSecond;
 
 // One match with the tick-order switch set as asked. `onTick` sees the match after each tick;
 // the watch stops the run at the first stall.
 void RunMatchWithinTheBound(bool pesLoop, int minutes,
-                            const std::function<void(Match&)>& onTick) {
+                            const std::function<void(Match&)>& onTick,
+                            unsigned long maxSimTicks = kMaxSimTicks) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
   pes::PesVfs vfs;
@@ -70,7 +79,7 @@ void RunMatchWithinTheBound(bool pesLoop, int minutes,
   Match match(new MatchData(HOME_TEAM, AWAY_TEAM), *setup, config);
   RestartWatch watch(
       RestartLimitTicks(*setup->pesStoppageConstants, *setup->pesSetPieceTakerConstants));
-  while (!match.IsGameOver() && !watch.Stalled() && watch.Ticks() < kMaxSimTicks) {
+  while (!match.IsGameOver() && !watch.Stalled() && watch.Ticks() < maxSimTicks) {
     match.Process();
     watch.Observe(match);
     if (onTick) onTick(match);
@@ -94,6 +103,14 @@ TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBound) {
 // every restart must still arrive inside the watch's bound.
 TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBoundWithPesLoop) {
   RunMatchWithinTheBound(true, MINUTES, nullptr);
+}
+
+// The whole match at twenty minutes with pes_loop on. Seed 7's home keeper, taking a goal kick about
+// nineteen minutes in, stood 2.3 m off the ball: his walk was refused behind the MOVESTEP clip's stale
+// command, and nothing restarted the match. Every stoppage must restart inside the bound and the match
+// must reach full time.
+TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBoundAtTwentyMinutes) {
+  RunMatchWithinTheBound(true, TWENTY_MINUTES, nullptr, kTwentyMinuteMaxSimTicks);
 }
 
 // With pes_loop on, each set piece is armed where PES puts it (a goal kick on the goal-area line, a
@@ -174,4 +191,82 @@ TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
         << "throw-in released with the ball " << off << " m from its spot";
   });
   EXPECT_GT(throwIns, 0) << "no throw-in was released";
+}
+
+// A loose dead ball in play must be reached and played. Seed 7 stalled here after a restart was
+// taken: the designated man stood about a metre from a ball at rest, and his step onto it never
+// reached the PES mover, so the ball lay until the restart watch gave up. The bound is GF's
+// stalemate clock, the only time GF gives a dead ball in play before it forces the issue. PES's
+// own pickup time is not decoded, so this is a ponytail bound, not a PES number.
+TEST(PesRestartDelay, ALooseDeadBallInPlayIsReachedAndPlayed) {
+  constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
+  constexpr unsigned long kBoundTicks = static_cast<unsigned long>(
+      GameplayTuning::kStalemateForceAction_s * static_cast<float>(Match::kFramesPerSecond));
+  bool inEpisode = false;
+  unsigned long episodeTicks = 0, longestTicks = 0;
+  int episodes = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() &&
+                       match.GetBall()->GetMovement().GetLength() <= kRestSpeed_ms;
+    if (!loose) {
+      inEpisode = false;
+      return;
+    }
+    if (!inEpisode) {
+      inEpisode = true;
+      episodeTicks = 0;
+      episodes++;
+    }
+    episodeTicks++;
+    if (episodeTicks > longestTicks) longestTicks = episodeTicks;
+  });
+  EXPECT_GT(episodes, 0) << "no loose dead ball in play was observed";
+  EXPECT_LE(longestTicks, kBoundTicks)
+      << "a loose dead ball in play lay for " << longestTicks << " ticks (bound " << kBoundTicks << ")";
+}
+
+// A restart taker must take the restart: within the bound after the release he plays a ball action
+// (a pass, a lofted kick, a shot or a throw). A taker whose clip stays a PES locomotion clip is
+// refused his ball action by SelectAnim, so this stays red until the requeue gate accepts it.
+TEST(PesRestartDelay, ARestartTakerPlaysHisBallActionAfterRelease) {
+  unsigned long bound = 0;  // the install's restart limit (RestartLimitTicks), set from the match each tick
+  const auto isBallAction = [](int type) {
+    return type == e_FunctionType_ShortPass || type == e_FunctionType_LongPass ||
+           type == e_FunctionType_HighPass || type == e_FunctionType_Shot;
+  };
+  struct Taking {
+    Player* taker;
+    unsigned long releasedAt;
+    int piece;
+    std::string name;
+  };
+  std::map<unsigned long, Taking> taking;  // by stop time: restarts released, not yet taken
+  std::set<unsigned long> seen;
+  unsigned long tick = 0;
+  int restarts = 0, untaken = 0;
+  std::string who;  // the untaken restarts, named in the failure message
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    ++tick;
+    bound = RestartLimitTicks(match.GetPesStoppageConstants(), match.GetPesSetPieceTakerConstants());
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (b.active && b.started && b.taker && seen.insert(b.stopTime).second) {
+      taking[b.stopTime] = Taking{b.taker, tick, b.desiredSetPiece, b.taker->GetPlayerData()->GetLastName()};
+      restarts++;
+    }
+    for (auto it = taking.begin(); it != taking.end();) {
+      const Anim* anim = it->second.taker->GetCurrentAnim();
+      if (anim && isBallAction(anim->functionType)) {
+        it = taking.erase(it);
+      } else if (tick - it->second.releasedAt > bound) {
+        untaken++;
+        who += " piece " + std::to_string(it->second.piece) + " taker " + it->second.name + ";";
+        it = taking.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  });
+  EXPECT_GT(restarts, 0) << "no restart was taken";
+  EXPECT_EQ(untaken, 0) << untaken << " restart taker(s) played no ball action within " << bound
+                        << " ticks of release:" << who;
 }

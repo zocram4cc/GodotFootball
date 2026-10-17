@@ -293,7 +293,7 @@ pes::RunTables SyntheticTables() {
   for (int i = 0; i < 32; ++i) t.stopRow[i] = 0x576 + i;
   for (int i = 0; i < 32; ++i) t.gotoRow[i] = 0x551 + i;
   for (int i = 0; i < 32; ++i) t.turnStopRow[i] = 0x58e + i;
-  for (int i = 0; i < 16; ++i) t.styleGroup[i] = 0xe31 + i;
+  for (int i = 0; i < 64; ++i) t.styleGroup[i] = 0xe31 + i;
   return t;
 }
 
@@ -384,6 +384,12 @@ TEST(RunTablesInstall, LoadsTheInterfaceTablesWithTheirRelations) {
     EXPECT_GT(t->turnStopRow[i], 0) << "turn-stop row " << i;
   }
   for (int i = 0; i < 16; ++i) EXPECT_GT(t->styleGroup[i], 0) << "style member " << i;
+  // FUN_1406d2030's representative-motion table (DAT_1425ddcf0) is 16 styles x 4 members: the
+  // ladder returns styles 0..15, so a 16-word load leaves every style past 3 reading motion 0,
+  // and a SetMotion of motion 0 plays no clip.
+  for (int style = 0; style < 16; ++style)
+    for (int band = 0; band < 4; ++band)
+      EXPECT_GT(t->styleGroup[style * 4 + band], 0) << "style " << style << " band " << band;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1219,6 +1225,49 @@ TEST(EnterAccelerate, WritesTheBandWordThreeAndTheStateWordNine) {
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
 }
 
+// EnterAccelerate's issue (FUN_1406ccd00 arm 7): vt+0x10 takes (req, motion, mirror, 0,
+// 0.1667, req[0x35], startLadder). req[0x35] is the vt+0x50 answer the entry just wrote, so the
+// issued playback is nonzero; the start time is the 0.15/0.75/0.5 ladder, never a km/h rung.
+TEST(EnterAccelerate, IssuesThePlaybackWordWithTheStartLadder) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.playback.gLow = 0.9166f;
+  h.playback.gHigh = 1.0833f;
+  h.playback.gSlope = -0.1667f;
+  h.playback.one = 1.0f;
+  h.playback.stepSlope = 0.15f;
+  h.playback.stepBase = 0.95f;
+  h.playback.turnP2 = 0.1f;
+  h.playback.turnT = 0.05f;
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  h.positions[1][0] = 1.0f;
+  h.mirrorChoice = true;  // the vt+0x50 p is 1, like the interface's own answer
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 3.0f);
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 0.0f);  // what the adapter supplies: req[0x4b] has no fill
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  req.SetU(pes::moveword::kMoveBucket, 3u);
+  pes::probe::Reset();
+  EXPECT_TRUE(pes::movestep::EnterAccelerate(h, req));
+  EXPECT_GT(h.issued.playback, 0.0f) << "the issued playback is req[0x35], never req[0x4b]";
+  EXPECT_LE(h.issued.startTime, 1.0f) << "the start time is the 0.15/0.75/0.5 ladder";
+}
+
 // EnterDecelerate (FUN_1406cdaf0): with the class word above 1 the entry refuses outright.
 TEST(EnterDecelerate, RefusesToWriteWhenTheClassWordIsAboveOne) {
   SyntheticHost h;
@@ -1278,6 +1327,149 @@ TEST(EnterDecelerate, WritesTheBandWordOneAndTheStateWordTen) {
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 11.0f);
   EXPECT_EQ(req.U(pes::moveword::kNextState), 10u);
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+}
+
+// EnterGotoRun's distance/speed arm (FUN_1406ce820 block 5): on the 0x5ca row with a column
+// of 8/9, a ball within reach takes row 0x662 on the Percent(40) draw, else 0x661. The test
+// stands the ball a metre away and the draw at "below 40".
+TEST(EnterGotoRun, TakesTheDrawRowWhenTheBallIsWithinReach) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.runTables.gotoRow[0 + 1 * 8] = 0x5ca;  // kind 0, cls 1 picks the distance arm's row
+  h.percent = true;  // the Percent(40) draw holds
+  h.positions[0][0] = 0.0f;
+  h.positions[0][1] = 0.0f;
+  // BallSample returns the origin; the player stands at the origin, so the ball is within
+  // reach and the row becomes 0x662.
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 0u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetU(pes::moveword::kMoveBucket, 0u);
+  req.SetU(pes::moveword::kLookBucket, 0u);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 10.0f);
+  req.SetF(pes::moveword::kRate, 0.5f);
+  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 0.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::EnterGotoRun(h, req, false);
+  // The entry always requests ACCELERATE (state 7) from this path; the distance arm's row
+  // pick is observed through the issued cell: the draw held, so the row is 0x662.
+  EXPECT_EQ(req.U(pes::moveword::kNextState), 7u);
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(h.lastCellRow, 0x662);
+  EXPECT_EQ(h.percentArg, 40);
+  // The foot flag carries the picked cell's mirror (FUN_1406ce820 lines 561/858): the column
+  // of bucket 0 is 9, so the mirror bit is 1.
+  EXPECT_EQ(req.U(pes::moveword::kFootFlag) & 0xffu, 1u);
+  // The lost draw takes the base row instead.
+  SyntheticHost h2;
+  h2.runConstants = SyntheticRun();
+  h2.runTables = SyntheticTables();
+  h2.runTables.gotoRow[0 + 1 * 8] = 0x5ca;
+  h2.percent = false;
+  pes::MoveReq req2;
+  req2.SetU(pes::moveword::kKind, 0u);
+  req2.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req2.SetF(pes::moveword::kFacing, 0.0f);
+  req2.SetF(pes::moveword::kHeading, 0.0f);
+  req2.SetF(pes::moveword::kLookHeading, 0.0f);
+  req2.SetF(pes::moveword::kBodyDirection, 0.0f);
+  req2.SetF(pes::moveword::kTurn, 0.0f);
+  req2.SetF(pes::moveword::kFacingError, 0.0f);
+  req2.SetU(pes::moveword::kMoveBucket, 0u);
+  req2.SetU(pes::moveword::kLookBucket, 0u);
+  req2.SetF(pes::moveword::kDesiredSpeedKmh, 10.0f);
+  req2.SetF(pes::moveword::kRate, 0.5f);
+  req2.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  req2.SetF(pes::moveword::kDwellLimit, 0.0f);
+  req2.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::EnterGotoRun(h2, req2, false);
+  EXPECT_EQ(h2.lastCellRow, 0x661);
+}
+
+// EnterGotoRun's out-of-play arm (FUN_1406ce820 block 6): outside open-play phase 1, a row in
+// the two 0xa014-bit bands takes row 0x5cc. In play the arm never fires.
+TEST(EnterGotoRun, TakesTheOutOfPlayRowOnlyOutsideOpenPlay) {
+  for (int phase : {1, 0}) {
+    SyntheticHost h;
+    h.runConstants = SyntheticRun();
+    h.runTables = SyntheticTables();
+    h.runTables.gotoRow[0 + 1 * 8] = 0x2;  // a row inside the 0xa014 bands
+    h.phase = phase;
+    h.percent = false;
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 0u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+    req.SetF(pes::moveword::kFacing, 0.0f);
+    req.SetF(pes::moveword::kHeading, 0.0f);
+    req.SetF(pes::moveword::kLookHeading, 0.0f);
+    req.SetF(pes::moveword::kBodyDirection, 0.0f);
+    req.SetF(pes::moveword::kTurn, 0.0f);
+    req.SetF(pes::moveword::kFacingError, 0.0f);
+    req.SetU(pes::moveword::kMoveBucket, 0u);
+    req.SetU(pes::moveword::kLookBucket, 0u);
+    req.SetF(pes::moveword::kDesiredSpeedKmh, 10.0f);
+    req.SetF(pes::moveword::kRate, 0.5f);
+    req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+    req.SetF(pes::moveword::kDwellLimit, 0.0f);
+    req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+    pes::probe::Reset();
+    pes::movestep::EnterGotoRun(h, req, false);
+    // Column for bucket 0 is 9 (synthetic bucketColumn[0] = 9), so block 5's column gate
+    // (column - 8 < 2) holds but the row is 0x2, not 0x5ca: block 5 is skipped. Block 6's
+    // verdict is the picked row.
+    EXPECT_EQ(h.lastCellRow, phase == 1 ? 0x2 : 0x5cc) << "phase " << phase;
+  }
+}
+
+// EnterDecelerate's issue (FUN_1406cdaf0:337-339): vt+0x10 takes (req, motion, mirror, 0,
+// 0.1667, req[0x35], startLadder) with req[0x35] the vt+0x50 answer and the start time 0.2
+// for the 0xb53 row, else 0.
+TEST(EnterDecelerate, IssuesThePlaybackWordWithTheStartLadder) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.playback.gLow = 0.9166f;
+  h.playback.gHigh = 1.0833f;
+  h.playback.gSlope = -0.1667f;
+  h.playback.one = 1.0f;
+  h.playback.stepSlope = 0.15f;
+  h.playback.stepBase = 0.95f;
+  h.playback.turnP2 = 0.1f;
+  h.playback.turnT = 0.05f;
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  h.positions[1][0] = 1.0f;
+  h.mirrorChoice = true;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 3.0f);
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 0.0f);  // what the adapter supplies
+  req.SetU(pes::moveword::kMoveBucket, 3u);
+  pes::probe::Reset();
+  EXPECT_TRUE(pes::movestep::EnterDecelerate(h, req));
+  EXPECT_GT(h.issued.playback, 0.0f) << "the issued playback is req[0x35], never req[0x4b]";
+  EXPECT_LE(h.issued.startTime, 1.0f) << "the start time is 0.2/0, never a km/h rung";
 }
 
 // The no-class branch: with the class word at -1 and the match phase 1, the swing arm picks

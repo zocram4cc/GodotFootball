@@ -199,6 +199,63 @@ TEST(MoveStepWire, TheFsmLeavesGotoRunAndReachesRunLoop) {
   EXPECT_GT(states[static_cast<int>(pes::MoveState::kRunLoop)], 0L);
 }
 
+// The FSM reaches STOP and ACCELERATE in a match: the run loop's pre-empt entries fire once the
+// request carries the look distance PES's gates read. Built before the fill, the look distance
+// is always zero, so both entries refuse and states 8 and 9 never run.
+TEST(MoveStepWire, TheFsmReachesStopAndAccelerate) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  std::map<int, long> states;
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) ++states[static_cast<int>(p->GetMoveStep().state)];
+  }
+  for (const auto& [state, ticks] : states)
+    printf("[movestep-states] state %d ticks %ld\n", state, ticks);
+  EXPECT_GT(states[static_cast<int>(pes::MoveState::kStop)], 0L);
+  EXPECT_GT(states[static_cast<int>(pes::MoveState::kAccelerate)], 0L);
+}
+
+// The kick-off taker reaches the ball: during the opening set piece his distance to the ball
+// shrinks (PES's 0.65 m reach). Built with the mirrored heading, the FSM runs him away and the
+// restart stalls.
+TEST(MoveStepWire, TheKickoffTakerClosesToTheBall) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  float first = -1.0f, closest = 1e9f;
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    float best = 1e9f;
+    for (Player* p : ActivePlayers(*match)) {
+      const float d = (p->GetPosition() - match->GetBall()->GetPositionBuffer()).GetLength();
+      if (d < best) best = d;
+    }
+    if (t == 0) first = best;
+    if (best < closest) closest = best;
+  }
+  printf("[movestep-approach] first %.2f closest %.2f\n", first, closest);
+  EXPECT_GT(first, 0.0f);
+  EXPECT_LT(closest, 0.65f) << "someone must reach the ball (PES's 0.65 m reach)";
+}
+
+// PES's bearing is taken on PES's z, which is -coords[1] (referee.cpp:197). A GF point on the +coords[1]
+// side is on PES's -z side, so the bearing to it is 180 degrees, not 0. An AI command toward the ball
+// must give the heading PES would take toward it; the mirrored one walks the player away.
+TEST(MoveStepWire, ABearingToAGroundPointIsTakenOnPesZ) {
+  pes::RunConstants k{};
+  k.full = 360.0f;
+  k.half_turn = 180.0f;
+  k.wrapFull = -360.0f;
+  EXPECT_NEAR(pesmovestep::PesBearingDeg(k, 0.0f, 10.0f), 180.0f, 1e-3f)
+      << "a point at GF +coords[1] is PES -z: bearing 180";
+  EXPECT_NEAR(pesmovestep::PesBearingDeg(k, 10.0f, 0.0f), 90.0f, 1e-3f)
+      << "a point at GF +coords[0] is PES +x: bearing 90";
+}
+
 // StoreRateCeiling has a caller: the record holds the TopRate ceiling once the FSM has ticked.
 // Built on main, nothing stores it, so the ceiling reads zero.
 TEST(MoveStepWire, TheRateCeilingIsStoredEachTick) {

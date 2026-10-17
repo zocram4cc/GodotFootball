@@ -152,7 +152,7 @@ constexpr uint64_t STOP_ROW_VA = 0x1425ddad0;        // FUN_1406b9d80, kind*8+cl
 constexpr uint64_t GOTO_ROW_VA = 0x1425dda50;        // FUN_1406b9bd0, kind*8+class, 32 words
 constexpr uint64_t TURNSTOP_ROW_VA = 0x1425ddb50;    // FUN_1406ba0d0, kind*8+class, 32 words
 constexpr uint64_t BUCKET_COLUMN_VA = 0x1425dd988;   // FUN_1406b9b20's column table, 10 words
-constexpr uint64_t STYLE_GROUP_VA = 0x1425ddcf0;     // FUN_1406d2030, style*4 + band/4, 16 words
+constexpr uint64_t STYLE_GROUP_VA = 0x1425ddcf0;     // FUN_1406d2030, style*4 + band/4: 16 styles x 4 members = 64 words
 
 // FUN_1406d5d60's three dwell immediates. They are instruction operands (movss off an immediate
 // stored on the stack), not .rdata floats, so they have no VA; the values are the ones the
@@ -1170,30 +1170,51 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
   const int kind = static_cast<int>(req.U(moveword::kKind));
   int row = GotoRowFor(kind, cls, t);
   int column = t.bucketColumn[lookBucket];
+  // The foot flag (byte req+0x26, moveword::kFootFlag): the picked cell's mirror bit
+  // (FUN_1406ce820 line 561: *(req+0x26) = FUN_1406abd60's answer).
+  req.SetByte(moveword::kFootFlag, host.Cell(row, column, false).mirror ? 1 : 0);
 
   // Block 4: the three row overrides.
   if (req.Flag(moveword::kTurnLockDir) && static_cast<uint32_t>(column - 8) < 2u) {
     column = static_cast<int>(k.negHalf < req.F(moveword::kFacingError)) + 8;
     row = 0x564;  // FUN_1406b9bd0's table's override for the turn-lock family.
   }
-  // ponytail: the foot-band rows 0x561..0x566 and the band 0x55f..0x571 overrides read
-  // FUN_140a58550 (the record's class) and FUN_14044e020 (its draw), which are the
-  // foundation's player table; the port leaves both overrides unapplied.
+  // The foot-band rows 0x561..0x566 and the band 0x55f..0x571 overrides: the row-id gate is
+  // the anime state below 0x16 with the picked row id below 0x12 in the 0x2a015 band and the
+  // row in 0x55f..0x571 in the 0x4c03f band (FUN_1406ce820). The inner record-chain tests
+  // (FUN_140a58550/FUN_14044e020, the jostle record) are the foundation's player table.
+  // ponytail: the inner record-chain tests remove this gate's remainder.
+  if (host.AnimeState() < 0x16 && static_cast<uint32_t>(kind) < 0x12 &&
+      ((0x2a015u >> (static_cast<uint32_t>(kind) & 0x1f)) & 1u) != 0 &&
+      0x55f <= row && row < 0x55f + 0x13 && ((0x4c03fu >> ((row - 0x55f) & 0x1f)) & 1u) != 0) {
+    // The record chain answers here; without it the row stands, which is PES's answer for a
+    // missing record.
+  }
   if (row == 0x5c9) row = 0x5ca;
 
-  // Block 5: the distance/speed arm.
+  // Block 5: the distance/speed arm (FUN_1406ce820): the ball 20/60 s ahead
+  // (FUN_140a6cf70 at index int(54*20/60 + 0.5) = 18) within reach takes row 0x662 on the
+  // Percent(40) draw, else 0x661. The keeper/class inner gates are the foundation's player
+  // table.
+  // ponytail: the keeper/class inner gates (FUN_140a48a30/FUN_140a71540's rank byte)
+  // remove this arm's remainder.
   if (row == 0x5ca && static_cast<uint32_t>(column - 8) < 2u) {
-    // ponytail: FUN_140439f90 of the ball-line point's record, the 20 m gate, the phase test
-    // and the Percent(40) draw are the ball-track and keeper ports; the port takes the base
-    // row, which is PES's answer for a missing point.
-    row = 0x661;
+    float ball[3] = {0.0f, 0.0f, 0.0f};
+    host.BallSample(18, ball);
+    float self[3] = {0.0f, 0.0f, 0.0f};
+    host.PositionAt(0, self);
+    const float bdx = ball[0] - self[0];
+    const float bdz = ball[1] - self[1];
+    const float ballDist = std::sqrt(bdx * bdx + bdz * bdz);
+    row = host.Percent(40) && ballDist < k.dist1m5 ? 0x662 : 0x661;
   }
 
-  // Block 6: the out-of-play arm.
-  if (host.MatchPhase() == 1 && row < 0x10 && ((0xa014u >> (row & 0x1f)) & 1u) != 0) {
-    // ponytail: FUN_140a6cf70's point, FUN_140a627e0's rank, the event ring's frame and the
-    // two overrides (rows 0x5cc/0x5cd) are the foundation's event store; the port keeps the
-    // base row and states the missing comparison here.
+  // Block 6: the out-of-play arm (FUN_1406ce820): outside open-play phase 1, a row in the
+  // two 0xa014-bit bands (0..3, 8..11) takes row 0x5cc (0x5cd by the point/rank/frame pick).
+  // The point (FUN_140a6cf70), the rank (FUN_140a627e0) and the event ring's frame are the
+  // foundation's event store.
+  // ponytail: the point/rank/frame pick between 0x5cc and 0x5cd removes this arm's remainder.
+  if (host.MatchPhase() != 1 && row < 0x10 && ((0xa014u >> (row & 0x1f)) & 1u) != 0) {
     row = 0x5cc;
   }
 
@@ -1205,6 +1226,9 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
     // own; the port leaves the row as the table picked it.
   }
   const MoveCell cell = host.Cell(row, column, false);
+  // The foot flag's final write (FUN_1406ce820 line 858: *(req+0x26) = the pick's own byte):
+  // the settled row's mirror bit, overwriting the block-3 pick.
+  req.SetByte(moveword::kFootFlag, cell.mirror ? 1 : 0);
   const float duration = k.blend1667;  // 0.1667 s, the entry's own blend.
   // The foot row 0x575 with a speed under 17.2 km/h takes the keeper's own row instead.
   int motionRow = static_cast<int>(cell.motionNo);
@@ -2227,6 +2251,13 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
     return false;
   }
 
+  // The playback word (FUN_1406ccd00:138-140): req[0x35] = the +0xac0 interface's vt+0x50
+  // answer (FUN_1406e9f10 = TurnPlayback(G, p)) to vt+0x30's mirror argument. p is the
+  // interface's own; the port answers it through MirrorChoice, as EnterStop does.
+  req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(),
+                                                  host.MirrorChoice(false) ? 1.0f : 0.5f,
+                                                  host.PlaybackConstantsView()));
+
   // Arm 3's measurements: the desired angle and the bucket.
   float desired = req.F(moveword::kTurn);
   if (k.deg5p625 < bearingMag) {
@@ -2276,27 +2307,32 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
     if (!gate) mirror = false;
   }
 
-  // Arm 6: the playback ladder.
-  float playback = k.kmh135;
-  if (k.rate055 <= req.F(moveword::kRate)) playback = k.kmh8;
-  if (motion == 0x8bb || motion == 0x8be || motion == 0x8c0) playback = k.kmh11;
+  // Arm 6: the start-time ladder (FUN_1406ccd00:369-415). fVar33 is 0.15 when the bone
+  // window holds, 0.75 past 22 km/h ground speed, the 0.5 default between 17.2 and 22 km/h
+  // with a rung above the ground speed, else the 0.5 default. fVar32 (13.5, or 8 past a rate
+  // of 0.55, or 11 for the 0x8bb/0x8be/0x8c0 turn motions) is the ground-speed threshold the
+  // mirror flip compares against: it is never passed to the issue call.
+  float startTime = k.half;
   if (static_cast<uint32_t>(column - 8) < 2u) {
     if (ground <= k.kmh172) {
-      // No playback term.
+      // The 0.5 default stands.
     } else if (k.kmh22 < ground) {
       mirror = !mirror;
-      playback = k.foot075;
+      startTime = k.foot075;
     } else if (k.kmh135 <= ground) {
       mirror = !mirror;
-      playback = k.foot035;
+      startTime = k.foot035;
     }
-  } else if (k.kmh172 < ground) {
-    if (playback > k.kmh135 && k.kmh135 < ground) playback = k.kmh135;
   }
+  float rung = k.kmh135;
+  if (k.rate055 <= req.F(moveword::kRate)) rung = k.kmh8;
+  if (motion == 0x8bb || motion == 0x8be || motion == 0x8c0) rung = k.kmh11;
+  (void)rung;
 
-  // Arm 7: the writes.
-  host.Issue(MotionRequest{cell.motionNo, mirror, 0, k.blend1667,
-                            req.F(moveword::kPlaybackDefault), playback});
+  // Arm 7: the writes (FUN_1406ccd00:417-418). vt+0x10 takes (req, motion, mirror, 0, 0.1667,
+  // req[0x35], startLadder): the playback is the word arm 3 wrote, not req[0x4b].
+  host.Issue(MotionRequest{cell.motionNo, mirror, 0, k.blend1667, req.F(moveword::kPlayback),
+                           startTime});
   req.SetU(moveword::kBandTarget, static_cast<uint32_t>(band));
   req.SetF(moveword::kSpeedBand, k.kmh28);
   req.SetU(moveword::kRateBand, 3u);
@@ -2346,6 +2382,12 @@ bool EnterDecelerate(MoveHost& host, MoveReq& req) {
     rateGate = k.rate07;
     speedGate = k.kmh22;
   }
+
+  // The playback word (FUN_1406cdaf0:69): req[0x35] = the +0xac0 interface's vt+0x50
+  // answer (FUN_1406e9f10 = TurnPlayback(G, p)) to vt+0x30's mirror argument, as EnterAccelerate.
+  req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(),
+                                                  host.MirrorChoice(false) ? 1.0f : 0.5f,
+                                                  host.PlaybackConstantsView()));
 
   // Arm 1: the gates.
   if (static_cast<uint32_t>(cls) > 1u) return false;
@@ -2409,13 +2451,14 @@ bool EnterDecelerate(MoveHost& host, MoveReq& req) {
     }
     if (!gate) mirror = false;
   }
-  // The 0xb53 row's 0.2 playback.
-  float playback = 0.0f;
-  if (bucket - 8 < 2u && static_cast<int>(cell.motionNo) == 0xb53) playback = k.blend2;
+  // The start time (FUN_1406cdaf0:333-336): 0.2 for the 0xb53 row with a column of 8/9,
+  // else 0. The playback is the word the head wrote (req[0x35]), not req[0x4b].
+  float startTime = 0.0f;
+  if (bucket - 8 < 2u && static_cast<int>(cell.motionNo) == 0xb53) startTime = k.blend2;
 
-  // Arm 5: the writes.
-  host.Issue(MotionRequest{cell.motionNo, mirror, 0, k.blend1667,
-                            req.F(moveword::kPlaybackDefault), playback});
+  // Arm 5: the writes (FUN_1406cdaf0:337-339).
+  host.Issue(MotionRequest{cell.motionNo, mirror, 0, k.blend1667, req.F(moveword::kPlayback),
+                           startTime});
   req.SetU(moveword::kBandTarget, static_cast<uint32_t>(cls));
   req.SetF(moveword::kSpeedBand, req.F(moveword::kSpeedBand));
   req.SetU(moveword::kRateBand, 1u);
