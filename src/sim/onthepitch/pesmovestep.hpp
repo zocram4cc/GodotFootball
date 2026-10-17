@@ -6,6 +6,8 @@
 // keep a `// ponytail:` note naming the site that replaces them.
 #pragma once
 
+#include "pes/movestep.hpp"
+
 class Player;
 class Match;
 
@@ -14,6 +16,10 @@ namespace pesmovestep {
 // Runs one MOVESTEP tick for an active player. It is a no-op when the PES install is absent
 // (no PES21_ROOT), so a checkout without the game can still run.
 void ProcessMoveStep(Player& player, Match& match);
+// PES's bearing (degrees, folded to [0, 360)) of a GF ground offset (gfX, gfZ) = (dx, coords[1] delta).
+// PES's z is -coords[1] (referee.cpp:197), so the bearing is atan2(dx, -gfZ). Every heading the
+// adapter gives PES is read through this one function.
+float PesBearingDeg(const pes::RunConstants& k, float gfX, float gfZ);
 // The PES motion number the humanoid plays (movestep.hpp's CurrentMotion), or -1 when the AI's own clip plays.
 int CurrentMotionOf(Player& player);
 
