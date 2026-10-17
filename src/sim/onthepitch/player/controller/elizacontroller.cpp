@@ -46,6 +46,7 @@
 #include "onthepitch/goalsequence.hpp"
 #include "onthepitch/pescarrier.hpp"
 #include "onthepitch/pesballphysics.hpp"
+#include "onthepitch/pesgoalkick.hpp"
 
 namespace {
 
@@ -54,6 +55,20 @@ inline float WrapDeg(float a) {
   while (a > 180.0f) a -= 360.0f;
   while (a < -180.0f) a += 360.0f;
   return a;
+}
+
+// The touch's power that lofts a goal kick onto `target` (pesgoalkick.hpp): the launch speed
+// PES's lofted kick needs from the ball's spot along `direction`, at the receiving height.
+float PesLoftedKickPower(Match* match, const Vector3& direction, const Vector3& target) {
+  const Vector3 spot = match->GetBall()->Predict(0);
+  const float distance_m = Vector3(target.coords[0] - spot.coords[0],
+                                   target.coords[1] - spot.coords[1], 0.0f)
+                               .GetLength();
+  const float speed_mps = pes::LoftedKickSpeed(
+      match->GetPesBallConstants(), pes::Vec3(spot.coords[0], spot.coords[1], spot.coords[2]),
+      pes::Vec3(direction.coords[0], direction.coords[1], direction.coords[2]), distance_m,
+      pes::kLoftedReceiveHeight_m);
+  return pes::PowerForLaunchSpeed(speed_mps);
 }
 
 }  // namespace
@@ -259,8 +274,34 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
 
       Vector3 desiredTargetPosition;
       bool doCommand = true;
+      bool pesGoalKick = false;
 
-      if (team->GetController()->GetSetPieceType() == e_SetPiece_GoalKick) {
+      if (team->GetController()->GetSetPieceType() == e_SetPiece_GoalKick && match->PesLoop()) {
+        // PES's goal kick is a lofted pass after the keeper's set-play wait (pesgoalkick.hpp): to
+        // the mate the lofted picker names, or into space when there is none. Replaces the GF coin
+        // below on pes_loop.
+        pesGoalKick = true;
+        std::vector<Player*> mates;
+        team->GetActivePlayers(mates);
+        std::vector<float> ratings;
+        int takerIndex = -1;
+        for (Player* mate : mates) {
+          if (mate == CastPlayer()) takerIndex = static_cast<int>(ratings.size());
+          ratings.push_back(mate->GetStat("technical_highpass"));
+        }
+        const int receiver = pes::PickGoalKickReceiver(ratings, takerIndex);
+        actionCommand.desiredFunctionType = e_FunctionType_HighPass;
+        if (pes::GoalKickAfterWait(receiver >= 0) == pes::GoalKickCommand::kLoftedToReceiver) {
+          actionCommand.touchInfo.forcedTargetPlayer = mates[receiver];
+          desiredTargetPosition = mates[receiver]->GetPosition();
+        } else {
+          // ponytail: PES's receiver-less kick (player 0xff) has no decoded target. GF aims at the
+          // midfield point on the attacking side, the old stand-in's x, until that is traced.
+          desiredTargetPosition = Vector3((pitchHalfW * -team->GetSide()) * 0.2f,
+                                          player->GetPosition().coords[1], 0.0f);
+        }
+
+      } else if (team->GetController()->GetSetPieceType() == e_SetPiece_GoalKick) {
         if (random(0.0f, 1.0f) > 0.4f) {
           actionCommand.desiredFunctionType = e_FunctionType_HighPass;
           desiredTargetPosition = Vector3((pitchHalfW * -team->GetSide()) * 0.2f,
@@ -369,6 +410,15 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
                    actionCommand.touchInfo.desiredDirection, actionCommand.touchInfo.desiredPower,
                    actionCommand.touchInfo.targetPlayer,
                    actionCommand.touchInfo.forcedTargetPlayer);
+        if (pesGoalKick) {
+          // The power that lofts the ball onto the target: the launch speed PES's lofted kick
+          // needs along the direction AI_GetPass aimed (pesgoalkick.hpp).
+          const Vector3 target = actionCommand.touchInfo.forcedTargetPlayer
+                                     ? actionCommand.touchInfo.forcedTargetPlayer->GetPosition()
+                                     : desiredTargetPosition;
+          actionCommand.touchInfo.desiredPower = PesLoftedKickPower(
+              match, actionCommand.touchInfo.desiredDirection, target);
+        }
         commandQueue.push_back(actionCommand);
       }
     }
