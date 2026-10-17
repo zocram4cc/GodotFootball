@@ -322,9 +322,9 @@ void Humanoid::Process() {
   if (mayReQueue) {
     float ballDistance =
         (currentMentalImage->GetBallPrediction(500).Get2D() - spatialState.position).GetLength();
-    if (((currentAnim->functionType == e_FunctionType_Movement && !CastPlayer()->HasPossession() &&
+    if (((IsMovementClip() && !CastPlayer()->HasPossession() &&
           ballDistance < 16.0f) ||
-         (currentAnim->functionType == e_FunctionType_Movement &&
+         (IsMovementClip() &&
           CastPlayer()->HasPossession()) ||  // passes / shot
          (currentAnim->functionType == e_FunctionType_Trap && TouchPending()) ||
          (currentAnim->functionType == e_FunctionType_BallControl && TouchPending())) &&
@@ -1973,20 +1973,20 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
     float focusDistance =
         (match->GetDesignatedPossessionPlayer()->GetPosition() - spatialState.position).GetLength();
 
-    if (currentAnim->functionType != e_FunctionType_Movement &&
+    if (!IsMovementClip() &&
         command.desiredFunctionType == e_FunctionType_Movement)
       return false;
-    if (currentAnim->functionType == e_FunctionType_Movement &&
+    if (IsMovementClip() &&
         command.desiredFunctionType == e_FunctionType_Movement &&
         (CastPlayer()->HasPossession() /* || team->GetTeamPossessionAmount() >= 1.0f*/ ||
          focusDistance > 12.0f))
       return false;
-    if (currentAnim->functionType == e_FunctionType_Movement &&
+    if (IsMovementClip() &&
         command.desiredFunctionType == e_FunctionType_Movement &&
         currentAnim->frameNum + minRemainingMovementReQueueFrames >
             currentAnim->anim->GetEffectiveFrameCount())
       return false;
-    if (currentAnim->functionType == e_FunctionType_Movement &&
+    if (IsMovementClip() &&
         command.desiredFunctionType == e_FunctionType_Movement &&
         (!allowMovementReQueue || reQueueDelayFrames > 0))
       return false;
@@ -2021,7 +2021,7 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
     }
 
     // requeue not needed?
-    if ((currentAnim->functionType == e_FunctionType_Movement &&
+    if ((IsMovementClip() &&
          command.desiredFunctionType == e_FunctionType_Movement) ||
         (currentAnim->functionType == e_FunctionType_BallControl &&
          command.desiredFunctionType == e_FunctionType_BallControl) ||
@@ -2044,7 +2044,7 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
 
     // don't requeue movement to ballcontrol halfway movement anims, unless there's a serious change
     // of movement desired
-    if ((currentAnim->functionType == e_FunctionType_Movement) &&
+    if (IsMovementClip() &&
         command.desiredFunctionType == e_FunctionType_BallControl &&
         (match->GetActualTime_ms() - CastPlayer()->GetLastTouchTime_ms() < 600 &&
          CastPlayer()->GetLastTouchType() == e_TouchType_Intentional_Kicked) &&

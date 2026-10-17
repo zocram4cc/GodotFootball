@@ -8,12 +8,15 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 
 #include "data/matchdata.hpp"
 #include "gametypes.hpp"
+#include "onthepitch/gameplaytuning.hpp"
 #include "onthepitch/match.hpp"
 #include "onthepitch/matchsetup.hpp"
+#include "onthepitch/player/player.hpp"
 #include "onthepitch/pessequencer.hpp"
 #include "onthepitch/restartwatch.hpp"
 #include "pes/vfs.hpp"
@@ -217,4 +220,50 @@ TEST(PesRestartDelay, AWhistleLeavesNoFlyingBallBehind) {
         << " m/s during the stop";
   });
   EXPECT_GT(stops, 0) << "no stoppage was seen";
+}
+
+// A restart taker must take the restart: within the bound after the release he plays a ball action
+// (a pass, a lofted kick, a shot or a throw). A taker whose clip stays a PES locomotion clip is
+// refused his ball action by SelectAnim, so this stays red until the requeue gate accepts it.
+TEST(PesRestartDelay, ARestartTakerPlaysHisBallActionAfterRelease) {
+  unsigned long bound = 0;  // the install's restart limit (RestartLimitTicks), set from the match each tick
+  const auto isBallAction = [](int type) {
+    return type == e_FunctionType_ShortPass || type == e_FunctionType_LongPass ||
+           type == e_FunctionType_HighPass || type == e_FunctionType_Shot;
+  };
+  struct Taking {
+    Player* taker;
+    unsigned long releasedAt;
+    int piece;
+    std::string name;
+  };
+  std::map<unsigned long, Taking> taking;  // by stop time: restarts released, not yet taken
+  std::set<unsigned long> seen;
+  unsigned long tick = 0;
+  int restarts = 0, untaken = 0;
+  std::string who;  // the untaken restarts, named in the failure message
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    ++tick;
+    bound = RestartLimitTicks(match.GetPesStoppageConstants(), match.GetPesSetPieceTakerConstants());
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (b.active && b.started && b.taker && seen.insert(b.stopTime).second) {
+      taking[b.stopTime] = Taking{b.taker, tick, b.desiredSetPiece, b.taker->GetPlayerData()->GetLastName()};
+      restarts++;
+    }
+    for (auto it = taking.begin(); it != taking.end();) {
+      const Anim* anim = it->second.taker->GetCurrentAnim();
+      if (anim && isBallAction(anim->functionType)) {
+        it = taking.erase(it);
+      } else if (tick - it->second.releasedAt > bound) {
+        untaken++;
+        who += " piece " + std::to_string(it->second.piece) + " taker " + it->second.name + ";";
+        it = taking.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  });
+  EXPECT_GT(restarts, 0) << "no restart was taken";
+  EXPECT_EQ(untaken, 0) << untaken << " restart taker(s) played no ball action within " << bound
+                        << " ticks of release:" << who;
 }

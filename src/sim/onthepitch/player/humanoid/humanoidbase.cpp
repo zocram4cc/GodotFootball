@@ -451,10 +451,16 @@ int HumanoidBase::GetIdleMovementAnimID() {
   return *dataSet.begin();
 }
 
+// A MOVESTEP locomotion clip on the body: a Special clip of the PES locomotion family (PlayIssuedClip).
+bool HumanoidBase::OnPesLocomotion() const {
+  return currentAnim->anim && currentAnim->functionType == e_FunctionType_Special &&
+         std::atoi(currentAnim->anim->GetVariable("specialvar1").c_str()) ==
+             static_cast<int>(pes::PesClipFamily::kLocomotion);
+}
+
 bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror) {
   const int locomotion = static_cast<int>(pes::PesClipFamily::kLocomotion);
-  const bool onLocomotion = currentAnim->anim && currentAnim->functionType == e_FunctionType_Special &&
-                            std::atoi(currentAnim->anim->GetVariable("specialvar1").c_str()) == locomotion;
+  const bool onLocomotion = OnPesLocomotion();
   // The body takes a MOVESTEP clip only where GF's own selection would let a movement clip take it: an
   // AI movement clip, or the locomotion clip already on the body. A ball action keeps the body.
   if (currentAnim->functionType != e_FunctionType_Movement && !onLocomotion) return false;
