@@ -229,3 +229,34 @@ Ruling: 17-10-26, style words, Main approval. Script `cb_single_word.py MODE 10`
 - **Not established.** The trigger for each clear. The 17 ms and 5.8 s delays are both single observations, and MI was not read so game phase is unknown. The earlier pin run (§3, both W and C written each loop) showed reverts about every 16.8 ms, so the 17 ms clear in (a) matches that cadence, but the 5.8 s clear in (b) does not, and this run cannot say which trigger produced either. A longer run with the owner's approval to read phase (MI+0x116C, read-only) would separate them. Not run, per ruling.
 
 Verdict on §7.5: unchanged. E is still refuted as the per-frame source (§7.7). W and C are each independently cleared back to `0x1000` after a single write, with no cross-copy.
+
+### 7.9 Phase-logged single-word runs (3 × W, 3 × C) and static search for the phase-guided clear
+
+Ruling: 17-10-26 (Main). Reading MI+0x116C is allowed (pinning it is not). Script `cb_phase.py MODE 10 RUN`; CSVs `cb_phase_{W,C}{1,2,3}.csv`; log `cb_phase.log`. Each run: gate E = W = C = `0x1000`, write the target word only (`0x1000 → 0x9000`), sample W, C, E and phase (u32 at MI+0x116C, read-only) at ~1.08 ms, restore by readback, verify 2 s. E never written. MI+0x1168 and MI+0x1574 not touched. All six runs restored and verified (0 non-baseline samples).
+
+**Phase is readable only part of the time (CONFIRMED).** `G+0x270` (the MI pointer) is 0 for most of the window. In the phase-logged runs the phase was valid in 9–16% of samples (W1 16%, W2 12%, W3 9%, C1 15%, C2 12%, C3 14%). A separate read-only probe (`mi_gap.py`, 1 s) found the MI pointer null in 191 of 252 samples, in blocks of 10–100 ms. So most clears have no phase reading. Run W3 shows valid-phase slots at roughly 16–18 ms spacing early in its window (t ≈ 0, 16, 33, 69, 87, 105 ms), then the spacing drifts. Not interpreted; it may be a per-frame cycle in the match object, not verified.
+
+**Per run (CONFIRMED where a phase reading was valid):**
+
+| run | written word | phase at write | clear (t after write) | phase at clear (nearest valid before / after) | phase transition in window |
+|---|---|---|---|---|---|
+| W1 | W | 1 | 6.05 ms | 1 (−1.1 ms) / 1 (0.0 ms) | 1→2 at 5,524.7 ms (5.5 s after clear) |
+| W2 | W | 2 | 17.67 ms | unknown (no valid before) / 2 (+54.5 ms) | none valid |
+| W3 | W | 2 | 1.09 ms | 2 (−1.1 ms) / 2 (+15.0 ms) | none valid |
+| C1 | C | 2 | none (held 10 s) | 2 throughout the valid readings | none valid |
+| C2 | C | 2 | 6,311.7 ms | 2 (−10.3 ms) / 2 (+17.7 ms) | 2→3 at 8,446.3 ms (2.1 s after clear) |
+| C3 | C | 1 | 3.70 ms | 1 (−2.6 ms) / 1 (+15.4 ms) | none valid |
+
+- **Clears happened in phase 1 or 2 only** (play and dead ball). No clear occurred in phase 3 in these runs.
+- **No clear coincided with an observed phase transition.** The two transitions in the windows (1→2, 2→3) were 5.5 s and 2.1 s away from the clears in their own runs.
+- **Clear delays:** 1.09, 3.70, 6.05, 17.67 ms (immediate-ish, phase 1 or 2) and 6,311.7 ms (phase 2). C1 held the full 10 s. So a delay is not set by a phase change in these data.
+- **Other word:** unchanged in all six runs (no W↔C copy, E never changed).
+
+**Static search for the phase-guided clear (CONFIRMED that nothing matched; not exhaustive).**
+- Read-modify-write and store instructions with dst `[reg+0xB8]` (disp32, 1,577 dword forms) and `[reg+0x48]` (disp8 prefilter over 382,566 candidates, 1,029 dst-`+0x48` insns in 907 fns) intersected with the 833 functions that read the phase field (`+0x116C`, disp32).
+- Dword `and`/`or`/`btr`/`xor` on `+0x48` or `+0xB8` in a phase-reading function: **none** (`FUN_142102F70`'s `and [rdx+0x48],edx` at `0x142102FEB` is a misdecode: that address is inside the `MOVSS` at `0x142102FE7`, Ghidra-aligned listing).
+- Intersection after the `+0x48` scan: 4 insns (2 float stores; `shl dword [rcx+0x48],1` in `FUN_140A38F00`, a two-call wrapper, so also a misdecode; `mov qword [rcx+0x48],rax` in `FUN_141FCF130`, below).
+- **`FUN_141FCF130`** (the only phase-reading routine that copies a `+0x48` qword): it copies 94 (0x5E) records of 0x80 bytes from `lVar20+0x2F08` to `lVar20+8`, qword by qword, with `+0x48` among them. It has a phase-3 branch (`*(lVar22+0x116C)==3 && DAT_1437F47F0`). **Not the player style path**: 94 × 0x80 records do not match the 22 × 0x128 roster block. Its only callers are `FUN_141FCEAD0` (from `FUN_141FBE810` and `FUN_141FD1B90`), i.e. the loader chain whose root `FUN_141FBE810` is OPEN (§6.1). Not established as a W or C writer.
+- Not excluded: a clear written through a computed address, a register mask outside these forms, or a generic memcpy of a stored value. The search covers direct memory operands only.
+
+**Verdict on step 2 (find the code that clears bit 15 at the phase transition): OPEN.** No phase-guided clear writer was found. The observed clears do not line up with phase transitions in these data, and the phase signal is missing for 84–91% of samples. Next, each needs an owner decision: (a) a write-side trace of the clearing code (method not chosen; a debugger or watchpoint would be a new live-access method and needs a ruling); (b) resolve the indirect caller of `FUN_141FBE810`, the only known route to `FUN_141FCF130`, statically; (c) a phase-aware sampling run at finer resolution around the ~17 ms valid-phase slots in W3, read-only.
