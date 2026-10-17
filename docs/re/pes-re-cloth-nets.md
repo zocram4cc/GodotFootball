@@ -53,8 +53,8 @@ selection, `ClothShirtParts`), `pes-re-collision.md` §1 (player volumes, the
    `uStack_1d0 = (+0xB8 == 0 && !tight && !FUN_141a80400 && !(f bit2 &&
    !bit1)) && FUN_141a7ff50 == 0`** (kit report §3, OBS). When set,
    `shirt_in`/`shirt_out` are replaced by cloth objects (`FUN_141a828b0`),
-   each `ClothShirtParts` holding BOTH the nocloth model (+0x20) and the
-   cloth model (+0x78); the nocloth one is the one in the draw list.
+   each part object holds both models. A (0x80 B) has the nocloth model at +0x20 (drawn). B (0xD8 B) has the cloth model at +0x58 and the nocloth model at +0x88;
+   +0x78 is not the cloth model (corrected 17-10-26, pes-re-stadium-cloth-vfx.md §2.5). The nocloth one is the one in the draw list.
    Live §7.3 state: **all 22 players of a team carried both** during a match
    preview; the report's §8.4 match census still saw nocloth drawn.
 
@@ -203,10 +203,9 @@ From `pes-kit-assembly.md` §3 (OBS, decompile): the cloth path replaces the
 `shirt_in`/`shirt_out` parts when
 `uStack_1d0 = (+0xB8 == 0 && !tight && !FUN_141a80400 && !(f bit2 && !bit1))
 && FUN_141a7ff50 == 0`, i.e. the default (non-tight, non-referee, non-GK)
-case. The part objects are class `ClothShirtParts` (0x80 B) and hold two
-models: +0x20 the nocloth `uniform/nocloth/shirt_{in,out}.fmdl` (in the draw
-list in the observed match state) and +0x78 the cloth
-`uniform/cloth/shirt_{in,out}.fmdl`.
+case. The part objects are not one class. A (0x80 B, ctor `FUN_141a81c70`) holds the nocloth model at +0x20 (drawn; `uniform/nocloth/shirt_{in,out}.fmdl`).
+B (0xD8 B, ctor `FUN_141a816e0`) holds the cloth model at +0x58 (`uniform/cloth/shirt_{in,out}.fmdl`) and the nocloth model at +0x88. +0x78 of A is not the cloth
+model (corrected 17-10-26, pes-re-stadium-cloth-vfx.md §2.5).
 
 Open (to close in §7): which flag decides which of the two is *drawn*, and
 whether the cloth fmdl's vertices are driven by the fclo particles (the

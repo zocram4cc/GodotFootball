@@ -46,7 +46,7 @@ goal** (live: goal stop `MI+0x1574 = 1` → MODE 7), 2 throw-in, 3 goal kick, 4 
 | 3 goal kick | 4 | `3 b 45 a 11 1d 23 16 12 13 14 15 e 34 19 1a` |
 | 5 free kick | 5 (foul) | `3 5 45 11 1d 1f 23 16 12 13 17 14 15 e 34 19 1a` |
 | 7 kick-off after goal | 1 | `3 4 45 1d 3 11 8 23 16 12 13 14 15 e 34 19 1a` (goal stop 4 → goal scene) |
-| 1 kick-off (half) | 3 | same restart tail (seen with ri at 0x1d) |
+| 1 kick-off (half) | 0 | same restart tail (seen with ri at 0x1d). Corrected 17-10-26 from pes-re-A5Judge.md l.212 and l.451: the half-start builder is reason 0 (`FUN_14044fef0`); stop kind 3 is the goal kick-off (`FUN_14044f8a0`). |
 
 The tail `23 16 12 13 [17] 14 15 e 34 19 1a` is the restart set-up for every kind (`FUN_1404524e0`, OBS
 `pes-re-foul-choreography.md` §4.1); step 0x17 (the wall, §5.3) is pushed only for MODE 5.
@@ -829,6 +829,7 @@ multiple** — never a timer value from a JSON object:
 - `waitTimerMin` (`constant::BallplayerSetplay`, **+0x28**, value 0.5 s) drives the wait. It does
   not: nothing reads that field on any of these paths, and the gates are the fps multiples above.
   Recorded so nobody ports it.
+- Goal-kick release at counter 83 (the §8.1 row `245 / 83`) is refuted as a threshold: pes-re-A5Judge.md §9.3 measures 238–253 frames from ready (min 238), and 246 sits in that range (corrected 17-10-26).
 - The counters are spread by a per-frame random (the 191 vs 380 gap). They are the same window seen
   once and twice; the short corner's 57 vs 78 spread is the partner test passing, not a roll.
 - `fps·2` selects the short corner. It bounds the window the short corner lives in; the release

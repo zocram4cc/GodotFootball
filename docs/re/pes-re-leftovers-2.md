@@ -38,14 +38,14 @@ path* is now definitively excluded, which retires the approach named in the orig
   `FUN_1404187b0` reading `S.u32[0x30+4*i]`.
 * **OBS (creator `FUN_14216a8a0`)** — allocates a **0x20-byte** wrapper (vtable `0x142596aa0`) and calls
   `FUN_14041d3d0(obj, 2, 1)`.
-* **OBS (`FUN_14041d3d0`)** — allocates a **0x124-byte** block and initialises **two 0x24-byte sub-blocks** at
-  `+0x04` and `+0x28` via `func_0x000140a3f410` (thunk to `FUN_14416e580`), which writes hardcoded defaults:
+* **OBS (`FUN_14041d3d0`)** — allocates a **0x124-byte** block and initialises **two 0x90-byte sub-blocks** at (corrected 17-10-26 from pes-re-officials-pick.md §1.2; the 0x24 stride was wrong)
+  `+0x04` and `+0x94` via `func_0x000140a3f410` (thunk to `FUN_14416e580`), which writes hardcoded defaults:
   `24.0f` at `+0x08`, `50.0f` at `+0x0c`, `10.0f` at `+0x58`, `1.0f`, plus
   `FUN_1415a1720(obj, 0, _DAT_1540fe274 ^ 0x4a08393)` (a hashed/derived key).
 
 ### 1.2 New discriminator — the officials holder is *not* the creator's bundle (OBS)
 
-The registry-miss fallback block is **0x124 bytes with 0x24-byte sub-blocks**. The officials ids live at
+The registry-miss fallback block is **0x124 bytes with 0x90-byte sub-blocks** (corrected 17-10-26). The officials ids live at
 `bundle_block + 0x34 … +0x44` of a block reached through `*(holder+0x10) + 4`. Sizes and layout do not match, so
 **`FUN_14216a8a0` / `FUN_14041d3d0` cannot be the writer of the official ids** — it only builds an empty
 placeholder for an unregistered fixture.

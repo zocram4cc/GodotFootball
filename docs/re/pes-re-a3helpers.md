@@ -92,7 +92,7 @@ Raw asm of the phase-3 block (`dec/ramp.asm`, CONFIRMED): the speed term reads `
 - `FUN_141eb3220` (alpha): `((Δp·(vA−vB) above)/n)/|vA−vB|² + 0.5`, clamped to `[0.25, 0.75]` (`0x1425dde38`… = `0.75`/`0.25`: `DAT_14259bdd4`, `DAT_142592228`); `0.5` when `|vA−vB| = 0` (CONFIRMED).
 - `FUN_141eb3ae0(A)`: if `A+8 == 1`, `A+8 = 2` (finish).
 
-**Who consumes A (per tick): CONFIRMED structure.** `FUN_1409f1bb0` (per-player loop) → `FUN_141eb5e70(P, tick)` → `FUN_141eb3af0(A)` → `(A.vt+0x18)(A, P, …)` = `FUN_141eb1bf0` (the root advance; mode 2 rotates the velocity by yaw and steps over `A+0xc..A+0x10` ticks). Per-tick reset: `FUN_1406eb440` clears `A`'s state. The bridge has no function at `0x141eb1bf0` (raw only); its body is per the gap report round 4 and not re-decoded here.
+**Who consumes A (per tick): CONFIRMED structure.** The owner tick `FUN_1408bfcf0` (per player, slot 2 of the 22) → `FUN_141eb5e70(P, tick)` → `FUN_141eb3af0(A)` → `(A.vt+0x18)(A, P, …)` = `FUN_141eb1bf0` (the root advance; mode 2 rotates the velocity by yaw and steps over `A+0xc..A+0x10` ticks). Corrected 17-10-26: `FUN_1409f1bb0` is a message handler (kind 0x14), not the per-player loop (pes-re-gaps-anime.md §1). Per-tick reset: `FUN_1406eb440` clears `A`'s state. The bridge has no function at `0x141eb1bf0` (raw only); its body is per the gap report round 4 and not re-decoded here.
 
 **Gate bit `P+0x2460 & 0x40000000`: writer partly found.** `FUN_14073338c` is the tail of `FUN_140733000` (phase-1 continuation; the `or [rdi+0x2460],0x40000000` at `14073338c`). Callers: via vtable slot `0x1425df758` (table base unresolved). OPEN.
 

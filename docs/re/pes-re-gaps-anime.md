@@ -546,7 +546,7 @@ Chain (OBS, each step decompiled):
 
 Chain (OBS, decompiled):
 
-1. **Per-player tick loop `FUN_1409f1bb0`** (3,373 bytes). Its loop (`do … while (uVar6 != 0)`, `uVar7` = player count of the team block) calls, for each `P = *(this−0x178)`: `FUN_1406e5fc0(P, sample, 0)`, then **`FUN_141eb5e70(P, tick)`**, then `FUN_141eb4650(P, 0)`.
+1. **Message handler `FUN_1409f1bb0`** (3,373 bytes; corrected 17-10-26 from the bridge decompile). It returns unless the message kind `*param_2 == 0x14`. Otherwise it updates one slot's team record (slot from `param_1−0x938` mod 11). When bit `(param_2[5] >> 23)` is set (`uVar7 = 0x3c`), it runs 60 iterations over the same object `P = *(param_1−0x178)`: `FUN_1406e5fc0(P, sample, 0)`, `FUN_141eb5e70(P, tick)`, `FUN_141eb4650(P, 0)`. It is not a per-player loop over 22 players; `uVar7` is a 0/60 count, not a player count. The 22-player path is the slot-2 tick (pes-re-teamorder.md §2).
 2. **Owner tick `FUN_1408bfcf0(PM, param)`** (487 bytes). With `P = *(PM+0x7d8)`, it calls `FUN_141eb5e70(P, *param)` when `PM+0xa07 == 0 || PM+0xa06 != 0` and `PM+0x7c8 != 0`, then `FUN_141ebc820(PM+0x940, …)`. This is the PM tick of round 2 (the owner with vtable `0x1426329a8`).
 3. **Adjuster driver `FUN_141eb5e70(P, tick)`** (OBS): `FUN_141eb3af0(P+0x428)`, `FUN_141eb3af0(P+0x498)`, `FUN_141eb3af0(P+0x4d0)`, then `(P.vt+0x18)(P)` (on P itself), `FUN_141af7a90(P+0xa08, tick)`, `(P+0xa08.vt+0x38)()`, `P+0x41c = tick`, `P+0xa05 = 1`.
 4. **Per-adjuster tick `FUN_141eb3af0(adj, P)`** (OBS, decompiled): if `adj.state == 2`:
@@ -556,12 +556,12 @@ Chain (OBS, decompiled):
    - Before the test: `FUN_141af3ca0(P, adj+0x14, adj+0x18, adj+0x1c, 1)` samples the body.
 5. **Step slots (derived classes, OBS, §0b of round 4):** `vt+0x18` = `FUN_141eb1bf0` (A, `P+0x428`), `FUN_141eb2450` (height, `P+0x498`), `FUN_141eb1a50` (yaw, `P+0x4d0`).
 
-So the per-tick driver for all three adjusters is **`FUN_1409f1bb0`** (per player) → `FUN_141eb5e70` → `FUN_141eb3af0` → `vt+0x18`. **This closes item (1).**
+So the per-tick driver for the three adjusters is `FUN_141eb5e70` → `FUN_141eb3af0` → `vt+0x18`, reached from the owner tick `FUN_1408bfcf0` (once per player, slot 2 of the 22) and from the message handler `FUN_1409f1bb0` (60 ticks on one object). The driver is closed; the 22-player caller stays OPEN (corrected 17-10-26: `FUN_1409f1bb0` is not that caller).
 
 Caveats:
 - A **direct** `call [reg+0x18]` on the adjuster from other code (a `lea reg,[P+0x428]` then `call [reg+0x18]` within 16 bytes) matches 3 sites: `0x14073d173` (FUN_14073cd80), `0x14073dc2a` (FUN_14073da40), `0x140792d67` (FUN_140791ec0). Each decompile shows the `+0x18` call on the anime interface `P+0xab8` at the same place, so **these are not verified as A calls** (the lea is for another argument). Treat them as unconfirmed.
 - The 2 `Y` matches (`0x140733919` in FUN_1407335e0, `0x141eb5ec0` in FUN_141eb5e70) are calls on `P` itself or on the anime interface, not the yaw adjuster.
-- `FUN_1409f1bb0`'s caller and its `uVar7` (team/player count) are not decoded.
+- `FUN_1409f1bb0`'s caller is not decoded (bridge xrefs return 404). Its `uVar7` is 0 or 0x3c (decoded 17-10-26), not a player count.
 
 ## 2. Builders for kinds 13–21 (OBS, decoded through `FUN_1406aef60`)
 
@@ -601,8 +601,8 @@ Every non-empty file's size is an exact multiple of its record size. Kinds 14/15
 
 ## Open after round 5
 
-1. **Direct `vt+0x18` calls on A from other code:** the 3 strict sites are unverified. The per-tick chain (`FUN_1409f1bb0` → `FUN_141eb5e70` → `FUN_141eb3af0`) is the verified driver.
-2. **Caller of `FUN_1409f1bb0` and its `uVar7`:** not decoded.
+1. **Direct `vt+0x18` calls on A from other code:** the 3 strict sites are unverified. The per-tick chain (`FUN_141eb5e70` → `FUN_141eb3af0`, called from `FUN_1408bfcf0`) is the verified driver.
+2. **Caller of `FUN_1409f1bb0`:** not decoded. `uVar7` is decoded (0 or 0x3c).
 3. **Kinds 14/15:** the builders are decoded, but the files are empty on the install.
 4. **Flag writer:** the `buffer+2` store is not located by static search.
 5. **Flag bit 1 (`FUN_1414abdb0`):** not decoded.

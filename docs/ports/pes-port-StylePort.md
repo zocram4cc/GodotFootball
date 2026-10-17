@@ -54,6 +54,7 @@ Step 2 effects. Each host below is either not in GF or its consumer is not wired
 - **Save-side style decode**: OPEN (above).
 
 Step 3 (knob deletion): nothing deleted. Doc §6 is wrong: `GetShotAppetite`, `GetShootingRangeBonus`, `GetFinisherDemand`, `GetCreatorVision`, `GetPassTypeBias`, `GetSpaceRatingWeight` and the four dribble knobs each have live callers on both paths (`elizacontroller.cpp:1153, 1266, 1272, 1276, 1330, 1342, 1462, 1467`; `AIfunctions.cpp:471, 476, 477, 573`). They stay as off-path stand-ins with no PES site on pes_loop. The doc's §6 "0 callers" should be corrected when this report is archived.
+_Corrected 17-10-26: this paragraph's "live callers" claim is wrong; see l.68. No caller exists outside the namesakes, so the six knobs are dead on the PES path._
 
 Carrier path, not touched (A4Units; ownership taken from the doc, not checked in code): `1405E6E80`, `1405FC500`, `1405FC860`, `140640CC0`, `140641690`, `140608AC0`. Set-piece `140680980` is outside the carrier path.
 

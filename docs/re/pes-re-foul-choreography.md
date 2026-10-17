@@ -82,7 +82,7 @@ reset by `FUN_140a3c560` and refreshed every frame from `MatchControl+0x2910..` 
 | foul kind | same record `+0x18` = copy of `MI+0x1588` | **3 ⇒ never a scene** (OBS @0x14047f2c0); 1 = offside; `FUN_140a63940` treats 1 and 3 as **indirect** offences (§4.4); 0 = direct (INF hi) |
 | injury veto | record `+0x00 != 0x37 && +0x42 != 0` ⇒ victim not treated as injured; `+0x42` is set when the victim's match-stat entry (`MI+0x17ac` block) has kind 0xf (OBS `FUN_140a3d0c0`, meaning open) | |
 | booking count | `*(u8*)fouler.player` (`FUN_1414dab90` is identity) | **after** this foul's card: 1 = one yellow, ≥2 = second yellow |
-| restart kind | `MI+0x1554` | 6 = penalty kick (PK scenes; also bypasses the pitch-bounds check). INF(hi) from the gesture/linesman choosers: 1 kick-off, 2 throw-in, 3 goal kick, 4 corner, 5 free kick (step 0x17 `FUN_1404a9ce0` = FK setup only for 5), 6 PK, 7 game end |
+| restart kind | `MI+0x1554` | 6 = penalty kick (PK scenes; also bypasses the pitch-bounds check). INF(hi) from the gesture/linesman choosers: 1 kick-off, 2 throw-in, 3 goal kick, 4 corner, 5 free kick (step 0x17 `FUN_1404a9ce0` = FK setup only for 5), 6 PK, 7 kick-off after a goal (corrected 17-10-26 from pes-re-setpiece-choreography.md §0 and §3: the live goal stop sets MODE 7; "game end" withdrawn) |
 | advantage-card flag | `MI+0x15b8` | INF(med): the card follows an advantage that was played |
 | period | `MI+0x1168` | 3 = 2nd half, 7 = 2nd half of extra time (FUN_140a74d00 map: 1→0,3→1,5→2,7→3,9→4) |
 | foul spot | `MI+0x155c` (x), `MI+0x1564` (z) | Fox metres, pitch centre origin |

@@ -265,9 +265,9 @@ rate for the same ground speed, because their root track is scaled up by `G` (An
 In the RUN_LOOP handler (`FUN_1406c0170`) the style is further overridden to 6 / 7 / 0x10 (groups
 82 / 84 / 83, the `js_run_*_loop_guard_*` jostle loops) when the nearest opponent's predicted
 position (4 ticks ahead) is closer than `0.7 + 0.3·clamp((ability(0x28) − 50)/45, 0, 1)` m (`FUN_1406e6660(P, 0x28)`; 0.45 m for
-command 0x4a), 11.25° < bearing and his facing < 67.5° off: bearing < 112.5° → 6, < 157.5° → 7
-(or 0x10 for class < 2), ≥ 157.5° → 0x10 (OBS). Styles 1–5 / 9 / 11–14 (near-run, parallel,
-heisou, tired v2) are set by other callers not traced here.
+command 0x4a), 11.25° < bearing and his facing < 67.5° off: bearing < 112.5° → 6, ≥ 112.5° and < 157.5° → 7 (corrected 17-10-26 from pes-re-teamctx.md §5.2: 112.5° itself is style 7)
+(or 0x10 for class < 2 when the bearing is over 112.5° and `req[9] < 2`, teamctx §5.2), ≥ 157.5° → 0x10 (OBS). Styles 1–5 / 9 / 11–14 (near-run, parallel,
+heisou, tired v2) have no other callers; the FSM asks for only eight styles (corrected 17-10-26 from pes-re-anim-select-2.md, conclusion).
 
 A style change crossfades **0.1333 s** (0.2 s when returning to style 0), transition type
 `2 + (mirror changed)`, dwell 0.2 s (`req[0x1b]`), and only once `req[0x1a] ≥ req[0x1b]` (OBS).
