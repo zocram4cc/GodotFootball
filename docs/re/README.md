@@ -223,7 +223,7 @@ Agent port and fix reports moved to `../ports/` (index: `../ports/README.md`).
 |`../render/pes-render-b5materials.md`|B5 Materials: report, update (branch `B5Materials`, head 8fd78e0)|
 |`../render/pes-render-camera.md`|PES broadcast camera (B1, Dynamic Wide): target and framing port|
 |`../render/pes-kit-compare-b5.md`|PES kit comparison: BNT (708) and W (760), B5 Materials|
-|`../render/pes-exposure-ExposureMatch.md`|ExposureMatch: at a matched camera pose GF's pitch mean luminance matches PES (not a global exposure gap); the remaining gap is grass hue (GF yellower, B/G 0.107 vs 0.075) and a GF sunlit/shadow band; pitch origin and stadium not yet matched|
+|`../render/pes-exposure-ExposureMatch.md`|ExposureMatch: live PES is stadium 21 (not 29), fine, day; pitch origin mapped and a pose-aligned pair made; GF grass is 3.7× PES (dark turf R ×6.4, G ×2.9, B ×9) while painted logo is 1.4×, so not global exposure: the turf albedo path or a per-channel post stage; speckle, bloom, line specular rejected; mask, LUT, kits, hour open|
 
 ## Plans (`docs/plans/`)
 

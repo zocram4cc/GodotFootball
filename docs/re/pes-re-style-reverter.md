@@ -172,8 +172,8 @@ Verdicts. Step 1: **CONFIRMED not the style path** (its object holds no style wo
 
 ### 7.5 Named source (for the next pass)
 
-- **Candidate source a single write must target:** `E_r.style` at `X + 0xB8 + 0xF0·r` (live X = `0x293CF70`; r = roster index, for side 0 = 11,14,2,1,7,6,8,4,21,20,22). Upstream of it: the DB record field `0x3b` through `FUN_1414C2170(db, side, slot)` → `FUN_1414C0300` (for the `FUN_141FE3830` builder). A write to `E_r` would reach W and C only if a per-frame path copies element → roster block and copy. That path is not found, so this is **OPEN**.
-- **Discriminating test (needs an owner ruling; not run):** write `E_r.style` (one dword, bit 15 set) and sample W and C at 1 ms. If W and C follow within one frame, the element array is the per-frame source. If they revert to `0x1000` at ~17 ms while E_r stays set, the revert is reading something else (the DB record or a staging copy).
+- **Candidate source (REFUTED by §7.7):** `E_r.style` at `X + 0xB8 + 0xF0·r` (live X = `0x293CF70`; r = roster index, for side 0 = 11,14,2,1,7,6,8,4,21,20,22). It is still the load-time mirror of W and C (11/11 equal at load), but a write to it does not propagate. Upstream: the DB record field `0x3b` through `FUN_1414C2170(db, side, slot)` → `FUN_1414C0300`.
+- **Discriminating test (owner ruling; RUN in §7.7):** write `E_r.style` = `0x9000` and sample W and C at 1 ms. **Result: W and C did not follow. E is REFUTED as the per-frame source for W and C.**
 
 ### 7.6 Corrections to earlier sessions
 
@@ -181,3 +181,82 @@ Verdicts. Step 1: **CONFIRMED not the style path** (its object holds no style wo
 - §6.2's "the copy writes a fixed-offset team block" stands, with one addition: its destination `D` is a separate object, and on the style offset it moves zeros (§7.2).
 
 Scratch: `<workdrive>/gf-FrontmanSource-scratch/` (`locate_obj.py`, `obj_probe.py`, `find_style.py`, `play_probe.py`, `elem_scan2.py`, `elem_probe.py`, `elem_by_r.py`, `final_probe.py`, `stride_f0.py`, `f0_b8.txt`, `final_run.txt`, `elem_run2.txt`, `dis_141fe3830.txt`, `dis_141fe20a0.txt`, `elem/`, `tbl/`).
+
+### 7.7 Discriminating test (CB, side-0 slot 1, r = 14): E write, 10 s, restore (Main-approved)
+
+Ruling: 17-10-26, style-word write, Main approval. Script `cb_write_test.py`; log `cb_write_test.log`; CSV `cb_write_test.csv`. Only E_r.style was written. MI+0x1168/0x116C/0x1574 were not touched. No other writer was running (checked first; FrontmanDecode's `pin.py` was not active).
+
+- **Gate (14:02:49):** `W = 0x1D47B830`, `C = 0x1D4A3160` (copy `0x1D4A30A8`), `E = 0x293DD48` (`X+0xB8+0xF0·14`). All three read `0x1000`; COM words `0x0`.
+- **Write:** `E` old `0x1000` → new `0x9000`, readback `0x9000`, at t = 0.
+- **Sampling:** 7,980 rows over 9,999 ms (median interval 1.073 ms; one scheduler gap of 31.9 ms; read_gaps = 0, so the match stayed readable throughout).
+- **Result (CONFIRMED, 10 s):**
+  - `E`: `0x9000` in 100% of samples (held).
+  - `W`: `0x1000` in 100% of samples; **zero transitions**; never `0x9000`.
+  - `C`: `0x1000` in 100% of samples; **zero transitions**; never `0x9000`.
+- **Restore (14:02:59):** `E` → `0x1000`, readback `0x1000`, at t = 10,000.5 ms. Post-restore 2 s verify: last `W/C/E = 0x1000/0x1000/0x1000`, no fault.
+
+**Verdicts.**
+- **W and C do not follow E within a frame, and do not follow it at all within 10 s.** E is not the per-frame source of the roster style word or the copy word. Refuted.
+- **Revert while E stays set:** not applicable. W and C were never set to `0x9000`, so there was nothing to revert. The earlier pin observation (§3: W and C written to `0x9000`, game restores `0x1000` every ~16.8 ms) therefore did not show the reverter reading E: under this test a copy from E would have written `0x9000` into W and C (E was `0x9000`) and it did not.
+- **Single E write holds bit 15 on W and C indefinitely:** **No** (W and C stayed at `0x1000` for 10 s with E held at `0x9000`). Not a holding source.
+
+**What this does and does not establish.**
+- Established: W and C are not written from E during this window, in this state.
+- Not established: whether a reverter that clears bit 15 exists and what it reads. The pin observations show it acts on a W or C value that has bit 15 set; here no bit was set in W or C, so it had nothing to act on. A gated copy (for example on a phase change or on W ≠ its load value) cannot be excluded from this run. `MI+0x116C` was not read, by ruling, so the gate is untested.
+- Still needed to name the source: a test with the owner's approval that writes **W** (one word, bit 15) with E still at `0x1000` and then E alone with W, to separate "the reverter copies E→W" from "the reverter clears bit 15 from W". Not run.
+
+
+### 7.8 Single-word tests on the same CB (r = 14): W only (a), C only (b)
+
+Ruling: 17-10-26, style words, Main approval. Script `cb_single_word.py MODE 10`; logs `cb_single_word.log`; CSVs `cb_single_W.csv`, `cb_single_C.csv`. Each run: gate E = W = C = `0x1000`, write the target word only (`0x1000 → 0x9000`, readback verified), sample W, C, E at ~1 ms for 10 s, restore the target by readback, verify all three for 2 s. No other writer running. `MI+0x1168/0x116C/0x1574` not touched. `E` was never written in either test.
+
+**(a) Bit 15 into W only (14:04:08).**
+- Written word: `W = 0x1D47B830` → `0x9000`. Other words: `C = 0x1D4A3160`, `E = 0x293DD48` both `0x1000` at gate.
+- W held `0x9000` for 16.4 ms (16 samples), then reverted to `0x1000` at t = 17.4 ms. **One** revert; W is `0x1000` for the remaining 9.98 s.
+- C and E: zero transitions, never `0x9000`.
+- Restore: W readback `0x1000`, post-restore 2 s check `W/C/E = 0x1000/0x1000/0x1000`, zero non-baseline samples.
+
+**(b) Bit 15 into C only (14:04:34).**
+- Written word: `C = 0x1D4A3160` → `0x9000`. Other words: `W = 0x1D47B830`, `E = 0x293DD48` both `0x1000` at gate.
+- C held `0x9000` for 5.834 s (5,389 samples, 58.8% of the window), then reverted to `0x1000` at t = 5.835 s. **One** revert; C is `0x1000` for the remaining 4.2 s.
+- W and E: zero transitions, never `0x9000`.
+- Restore: C readback `0x1000`, post-restore 2 s check `W/C/E = 0x1000/0x1000/0x1000`, zero non-baseline samples.
+
+**Verdicts (CONFIRMED, 10 s each).**
+- **Does the written word revert?** Yes, in both cases, and once in each. Single-word write does not stay: W reverted after 17.4 ms; C after 5.835 s. The delay differs by two orders of magnitude, so the revert is not a fixed-rate clear.
+- **Does the other word change (copy C→W or W→C)?** No, in either test. Neither W nor C ever took the other's `0x9000`. So nothing copies a clean value from one word to the other, and nothing copies from E (consistent with §7.7).
+- **Separation of "copy a clean value in" from "clear bit 15":** the revert returns the written word to exactly `0x1000` (the value from before the write, and the value of E), not to a value copied from the other word. That fits "something clears bit 15 from the written word" and does not fit "something copies a clean value in". It does not identify what does the clear, or what triggers it.
+- **Not established.** The trigger for each clear. The 17 ms and 5.8 s delays are both single observations, and MI was not read so game phase is unknown. The earlier pin run (§3, both W and C written each loop) showed reverts about every 16.8 ms, so the 17 ms clear in (a) matches that cadence, but the 5.8 s clear in (b) does not, and this run cannot say which trigger produced either. A longer run with the owner's approval to read phase (MI+0x116C, read-only) would separate them. Not run, per ruling.
+
+Verdict on §7.5: unchanged. E is still refuted as the per-frame source (§7.7). W and C are each independently cleared back to `0x1000` after a single write, with no cross-copy.
+
+### 7.9 Phase-logged single-word runs (3 × W, 3 × C) and static search for the phase-guided clear
+
+Ruling: 17-10-26 (Main). Reading MI+0x116C is allowed (pinning it is not). Script `cb_phase.py MODE 10 RUN`; CSVs `cb_phase_{W,C}{1,2,3}.csv`; log `cb_phase.log`. Each run: gate E = W = C = `0x1000`, write the target word only (`0x1000 → 0x9000`), sample W, C, E and phase (u32 at MI+0x116C, read-only) at ~1.08 ms, restore by readback, verify 2 s. E never written. MI+0x1168 and MI+0x1574 not touched. All six runs restored and verified (0 non-baseline samples).
+
+**Phase is readable only part of the time (CONFIRMED).** `G+0x270` (the MI pointer) is 0 for most of the window. In the phase-logged runs the phase was valid in 9–16% of samples (W1 16%, W2 12%, W3 9%, C1 15%, C2 12%, C3 14%). A separate read-only probe (`mi_gap.py`, 1 s) found the MI pointer null in 191 of 252 samples, in blocks of 10–100 ms. So most clears have no phase reading. Run W3 shows valid-phase slots at roughly 16–18 ms spacing early in its window (t ≈ 0, 16, 33, 69, 87, 105 ms), then the spacing drifts. Not interpreted; it may be a per-frame cycle in the match object, not verified.
+
+**Per run (CONFIRMED where a phase reading was valid):**
+
+| run | written word | phase at write | clear (t after write) | phase at clear (nearest valid before / after) | phase transition in window |
+|---|---|---|---|---|---|
+| W1 | W | 1 | 6.05 ms | 1 (−1.1 ms) / 1 (0.0 ms) | 1→2 at 5,524.7 ms (5.5 s after clear) |
+| W2 | W | 2 | 17.67 ms | unknown (no valid before) / 2 (+54.5 ms) | none valid |
+| W3 | W | 2 | 1.09 ms | 2 (−1.1 ms) / 2 (+15.0 ms) | none valid |
+| C1 | C | 2 | none (held 10 s) | 2 throughout the valid readings | none valid |
+| C2 | C | 2 | 6,311.7 ms | 2 (−10.3 ms) / 2 (+17.7 ms) | 2→3 at 8,446.3 ms (2.1 s after clear) |
+| C3 | C | 1 | 3.70 ms | 1 (−2.6 ms) / 1 (+15.4 ms) | none valid |
+
+- **Clears happened in phase 1 or 2 only** (play and dead ball). No clear occurred in phase 3 in these runs.
+- **No clear coincided with an observed phase transition.** The two transitions in the windows (1→2, 2→3) were 5.5 s and 2.1 s away from the clears in their own runs.
+- **Clear delays:** 1.09, 3.70, 6.05, 17.67 ms (immediate-ish, phase 1 or 2) and 6,311.7 ms (phase 2). C1 held the full 10 s. So a delay is not set by a phase change in these data.
+- **Other word:** unchanged in all six runs (no W↔C copy, E never changed).
+
+**Static search for the phase-guided clear (CONFIRMED that nothing matched; not exhaustive).**
+- Read-modify-write and store instructions with dst `[reg+0xB8]` (disp32, 1,577 dword forms) and `[reg+0x48]` (disp8 prefilter over 382,566 candidates, 1,029 dst-`+0x48` insns in 907 fns) intersected with the 833 functions that read the phase field (`+0x116C`, disp32).
+- Dword `and`/`or`/`btr`/`xor` on `+0x48` or `+0xB8` in a phase-reading function: **none** (`FUN_142102F70`'s `and [rdx+0x48],edx` at `0x142102FEB` is a misdecode: that address is inside the `MOVSS` at `0x142102FE7`, Ghidra-aligned listing).
+- Intersection after the `+0x48` scan: 4 insns (2 float stores; `shl dword [rcx+0x48],1` in `FUN_140A38F00`, a two-call wrapper, so also a misdecode; `mov qword [rcx+0x48],rax` in `FUN_141FCF130`, below).
+- **`FUN_141FCF130`** (the only phase-reading routine that copies a `+0x48` qword): it copies 94 (0x5E) records of 0x80 bytes from `lVar20+0x2F08` to `lVar20+8`, qword by qword, with `+0x48` among them. It has a phase-3 branch (`*(lVar22+0x116C)==3 && DAT_1437F47F0`). **Not the player style path**: 94 × 0x80 records do not match the 22 × 0x128 roster block. Its only callers are `FUN_141FCEAD0` (from `FUN_141FBE810` and `FUN_141FD1B90`), i.e. the loader chain whose root `FUN_141FBE810` is OPEN (§6.1). Not established as a W or C writer.
+- Not excluded: a clear written through a computed address, a register mask outside these forms, or a generic memcpy of a stored value. The search covers direct memory operands only.
+
+**Verdict on step 2 (find the code that clears bit 15 at the phase transition): OPEN.** No phase-guided clear writer was found. The observed clears do not line up with phase transitions in these data, and the phase signal is missing for 84–91% of samples. Next, each needs an owner decision: (a) a write-side trace of the clearing code (method not chosen; a debugger or watchpoint would be a new live-access method and needs a ruling); (b) resolve the indirect caller of `FUN_141FBE810`, the only known route to `FUN_141FCF130`, statically; (c) a phase-aware sampling run at finer resolution around the ~17 ms valid-phase slots in W3, read-only.
