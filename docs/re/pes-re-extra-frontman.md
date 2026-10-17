@@ -294,7 +294,36 @@ Side-0 HJ readout (`copy+0xA1` H, `copy+0x9C` J, as `block+0x31`, `block+0x2C`):
 
 **Other void results (same base error):** the ordinal-list values and "cleared SP lists" in §6.3, §6.6 and §6.8 (`SP = [brain+0x8]+8`) are misaligned by 8 bytes. The list is `brain+0x20`. Re-derive before citing. The `pin_run1` pin (§6.6) wrote the same wrong object's list reads.
 
-**Open:** (1) confirm local slot 1 = CB on side 1 (roster record and formation role); (2) log the score per candidate in FC860 (needs a breakpoint or a decode of the fallback's `record` fields) to measure the +0.2 directly; (3) decode why `FUN_140A55CF0` returns 1 for both sides, i.e. the meaning of record `id` and of `type 2`.
+**Open (after §6.10):** (1) side-1 CB identity: now CONFIRMED by formation role (§6.10); (2) the +0.2 as a score: CONFIRMED (§6.10); (3) the human-side marker (`FUN_140A55CF0` returns 1 for both sides, §6.9): OPEN; (4) the live winner does not match the decoded fallback (§6.10): OPEN, the kind-8 exclusion is the unmodelled gate.
+
+### 6.10 FC860 candidate scores, +0.2 measured from its inputs (17-10-26, Main ruling)
+
+**Score decode (CONFIRMED by decompile and live constants).** Reach mode 2 = `C1 + K1·cJ + (C2−C1)·cH + D2`, with `cJ = clamp((J−40)/59, 0, 1)` and `cH = clamp((H−150)/60, 0, 1)`. Read live: `C1 = 1.935`, `K1 = 0.435`, `C2 = 2.335`, `D2 = −0.054343`, `J` lo 40 / hi 99 / span 59, `H` lo 150 / hi 210 / span 60, `DAT_142598578 = 0.2` (bit 15), `DAT_1425A8A28 = 0.05` (tie window). `FUN_140A6DF00(slot,…,2)` reads `block+0x31` (H) and `block+0x2C` (J) from `block = copy+0x70` (raw CONFIRMED, `disasm` of `0x140A6DF00`). So `H = copy+0xA1`, `J = copy+0x9C`, `copy = G[(slot+0xF3)·0x28]`.
+
+**Bit-15 gate (CONFIRMED decompile of `FUN_1408CB0B0`, `FUN_140A64030`).** The gate is `roster_word(bit 15) AND DAT_142613D20[role] (bit 15)`, with `role = T+0x4C00[slot]` (the PES position enum: 0 GK, 1 CB, 2 LB/RB, 3 DMF, 4 CMF, 5 LMF/RMF, 6 AMF, 7 SS, 8 LWF/RWF, 9 CF). The row table is `0x180000, 0xD000, 0x70000, 0x3C00, 0x3700, 0x6D0, 0x712, 0x113, 0xF0, 0xF, 0, 0, 0`. **Only role 1 (CB) has bit 15 in its row**, so the Extra Frontman bit can only ever select a CB in this gate.
+
+**Side-1 slot 1 is a CB (CONFIRMED live).** `T1+0x4C00[k]` = `(0, 1, 1, 2, 2, 3, 4, 6, 7, 7, 9)` for k = 0..10: slot 0 is GK (0), slot 1 is CB (1). Side 0 is the same shape `(0, 1, 1, 2, 2, 3, 6, 6, 7, 7, 9)`. The enum is INF from `pes-re-matchlogic.md` §352 and `pes-re-stamina-subs.md` (role classes 0..9, CB = 1).
+
+**Fallback loop (CONFIRMED decompile, L102–166).** Taker loop skipped: `T+0x8E08` takers are `(255,255,255)` for side 1. Fallback over k = 0..10: eligible if `MI+0x1748+u != 0`, kind `P+0x3FB8[k]` ∈ {1,2}, not in the kind-8 table. Non-bit candidates are dropped when `P+0x7B5D < 2` and `rec+0x39 < 0xAF` and `rec+0x34 < 0x50` and `rec+0x25 < 0x50`. Score = reach + 0.2 if the gate bit. Winner: replace if `|Δ| > 0.05` or no winner yet and the score is higher; within 0.05, the higher `rec+0x25` wins. Write only if a winner exists. `u = 11·side + k`.
+
+**Runs (CONFIRMED live; `gf-EFPin-scratch/score_run.py`, `score_A.log` 80 windows, `score_B.log` 138 windows, 90 s each, side 1, b8a2 pinned, 0xFF written once per window; B also bit 15 on the CB).**
+- CB row, A: `bit 0, base 2.3131, score 2.3131` (every window).
+- CB row, B: `bit 1, base 2.3131, score 2.5131` (every window). **The +0.2 is applied exactly (2.5131 − 2.3131 = 0.2000).**
+- Gap to the next eligible candidate (kind 1 slot 2, base 2.2393): 0.0738 < 0.2. The other eligible candidates are 2.2355 (kind 2). Kind 6/7/9 players have higher base (2.43) but are not eligible (kind ≥ 3).
+- `P+0x7B5D = 4` in every window, so the non-bit filter was inactive. The record fields `rec+0x25/0x34/0x39` read 0 for both sides (see the caveat below).
+- Decoded winner: the CB in every window, A and B (the bit does not change the decoded winner here because the CB already has the highest eligible base). **Observed winner (`P+0x3EF8` at close): 255 in all 218 windows**, A and B. This does not match the decode.
+- Earlier 300-s runs (§6.9) did show 12 in 12% of windows, so the live winner depends on state the decode does not model.
+
+**Why the decode disagrees (OPEN).** The kind-8 exclusion (`FUN_140A63950(X, side, 8, u)`) is the one unmodelled gate. `X` is the FC860 local `+0xF8`; in `FUN_14051B8B0` the same test uses `SP+0xB98`, so `X` may be `ctx+0xB98` (`ctx = brain+0x10`), giving `[X+0x18] = [brain+0xBC0]`. That pointer is null in every live read, and `[brain+0xBB0]` gives float data, so the table is not located. Other suspects: the team record `FUN_140A3AF90` takes its flag branch on `T[0]` (side 1 `T[0]=0`, so every side-1 candidate gets the same record `T+0xD8`; the fields read 0), and the 0.05 tie branch was not exercised.
+
+**Answers.**
+- +0.2 measured: CONFIRMED in the computed score (2.3131 → 2.5131 with the gate bit read live). Not measured as a designation effect.
+- Does the bit change the winner when the gap < 0.2? **Not answerable live.** Decoded: no (the CB is already top). Live: the winner is 255 whatever the bit, so the live designation does not follow the decode.
+- Side-1 slot 1 is a CB: CONFIRMED (role 1 = CB, §6.10 above; INF on the enum name).
+
+**Restore (verified):** `score_A`: `b8a2` 0x00, `P+0x3EF8` 0xFF (readbacks ok). `score_B`: `b8a2` 0x00, roster 0x00, copy 0x00, `P+0x3EF8` 0xFF (ok). No pin is active. `MI+0x1168/0x116C/0x1574` never written.
+
+**Error log.** About 140–170 transient read errors per run (EIO) when the designated object pointer toggled; those windows were skipped. The windows that were logged are internally consistent.
 
 
 ---
