@@ -879,9 +879,10 @@ void Match::Process() {
         static_cast<double>(kTick_ms), matchDurationMinutes, matchTimeScale);
     matchTimeExact_ms += gameTick_ms;
     matchTime_ms = static_cast<unsigned long>(matchTimeExact_ms);
-    // PES 2021's clock counts logic frames, one a tick (docs/re/pes-re-tactics-clock.md).
-    AdvanceMatchFrames(1);
   }
+  // PES's period clock (pes_loop) runs every frame: SetFrozen holds it in a stoppage, where PES's
+  // stoppage writer adds F and LIMIT (FUN_14044CE80 step 4). The off path keeps its in-play gate.
+  if (pesLoop || (IsInPlay() && !IsInSetPiece())) AdvanceMatchFrames(1);
   actualTime_ms += kTick_ms;
   if (IsGoalScored())
     goalScoredTimer += kTick_ms;
