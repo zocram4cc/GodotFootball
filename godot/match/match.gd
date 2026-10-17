@@ -35,7 +35,6 @@ var ball: Node3D
 var motion: PesMotionPlayer
 var _skeletons: Array[Skeleton3D] = []
 var _accumulator := 0.0
-var _freshTicks := 0
 var _lastAlpha := 1.0
 var _camera: Camera3D
 var _broadcast: PesBroadcastCamera
@@ -101,22 +100,18 @@ func _process(delta: float) -> void:
 		sim.step()
 		_accumulator -= TICK_S
 		ticks += 1
-	_freshTicks = ticks
 	# Milestone A1: the sim steps one PES logic frame (1/54 s), which is not the
 	# render frame's worth of time, so the pose is interpolated between the last
 	# two logic frames by the leftover fraction of the tick that has elapsed.
 	_interpolate(clampf(_accumulator / TICK_S, 0.0, 1.0))
 	_place(delta)
 
+
 func _interpolate(alpha: float) -> void:
 	# A teleport (a restart, a substitution) snaps instead of sliding.
 	if alpha < _lastAlpha:
-		alpha = 1.0
+		alpha = 0.0
 	_lastAlpha = alpha
-	# A frame showing exactly one fresh tick displays that tick's own frame:
-	# the blend of the tick before is stale by the time the frame draws.
-	if _freshTicks == 1:
-		alpha = 1.0
 	for i in players.size():
 		var p: Vector3 = sim.player_position(i)
 		var prev: Vector3 = sim.player_position_previous(i)
