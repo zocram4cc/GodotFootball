@@ -200,3 +200,7 @@ add_executable(pes_nearest_opponent_test pes_nearest_opponent_test.cpp)
 target_link_libraries(pes_nearest_opponent_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_nearest_opponent_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_nearest_opponent_test PROPERTIES TIMEOUT 1800)
+
+add_executable(pes_lane_test pes_lane_test.cpp)
+target_link_libraries(pes_lane_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_lane_test PROPERTIES TIMEOUT 1800)
