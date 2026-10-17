@@ -101,7 +101,8 @@ LaneScan ScanLane(const LaneConstants& k, const std::array<LanePlayer, kSlots>& 
   const float halfCone_deg = k.coneScale * lane.cone_deg;
   const float opponentLimit_deg = std::max(halfCone_deg + k.coneOffset_deg, k.coneFloor_deg);
   const Vec2f origin = lane.origin;
-  const Vec2f apex = Add(origin, Scale(lane.rad_m, Dir(k, HeadingAdd(k, lane.heading_deg, k.trig.half))));
+  const Vec2f apex =
+      Add(origin, Scale(lane.rad_m, Dir(k, HeadingAdd(k, lane.heading_deg, k.trig.half))));
   const Vec2f end = Add(origin, Scale(lane.len_m, Dir(k, lane.heading_deg)));
   const float innerSq = lane.rad_m * lane.rad_m;
   const float outer_m = lane.rad_m + lane.len_m;

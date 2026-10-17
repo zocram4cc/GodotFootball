@@ -121,6 +121,20 @@ TEST_F(LaneCoreTest, TeammateBranchSkipsTheOriginConeAndExcludesTheReference) {
   EXPECT_EQ(lane::ScanLane(k_, opponents, 3, 1, TestLane(), false, 0).count, 0);
 }
 
+TEST_F(LaneCoreTest, PathAlongTheLaneLineIsNotACrossing) {
+  // The path runs 2e-9 m across the lane line, so the crossing's denominator is under the floor.
+  Players p{};
+  Put(p, 11, -1e-9f, -10.0f, 2e-9f, 30.0f);
+  EXPECT_EQ(lane::ScanLane(k_, p, 3, 1, TestLane(), false, 1).count, 0);
+}
+
+TEST_F(LaneCoreTest, AnnulusReachesRadPlusLengthFromTheApex) {
+  // The apex is 2 m behind the origin, so a man at 14.5 m is 16.5 m from it: inside rad + len = 17.
+  Players p{};
+  Put(p, 11, 0.0f, 14.5f);
+  EXPECT_EQ(lane::ScanLane(k_, p, 3, 1, TestLane(), false, 0).count, 1);
+}
+
 TEST_F(LaneCoreTest, LaneFreeScansTheSideOppositeTheReference) {
   Players p{};
   Put(p, 11, 0.0f, 10.0f);  // away
