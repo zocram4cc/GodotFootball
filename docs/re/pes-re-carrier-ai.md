@@ -94,6 +94,7 @@ MainEval `0x142110d30`, per logic frame (1/54 s), only while `BallPlayer+0x10` i
 3. Otherwise the answer is reset to "none" (0x19) and the **Dribble unit (kind 16) — or
    GKDribble (19) when `0x140a638c0` says the carrier is the keeper — is evaluated every frame**
    as the default answer (`0x1421102d0`).
+_Corrected 17-10-26 from pes-re-A4Carrier.md §11 (C-now L74): the default Dribble/keep answer writes id 0x10 unconditionally, so the 0x19 reset above is overwritten. GK kind 0x13 only selects the payload source._
 4. **Re-think gate:** `frame − BallPlayer+0x4224 > (int)(GetGameSpeed() × 0.1 + 0.5)` = **> 5
    frames** (0.1 @0x142588200, 0.5 @0x142565600, gameSpeed 54) and Intention bit 3 or 4.
    Then: bit 3 → rebuild the active list (`0x1421111b0`), run the list (`0x142110370`), and if

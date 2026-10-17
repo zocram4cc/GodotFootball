@@ -84,7 +84,7 @@ response a **min-clamp against the incoming vertical speed**.
 
 ```
 1408770e6: xmm1 = T[0x11c]  = boundToRotationSpeedMinY[m]     (m1: 0.1)
-1408770f0: comiss xmm1, xmm6                                   ; xmm6 = |vy| * 3.6
+1408770f0: comiss xmm1, xmm6                                   ; xmm6 = −3.6·v_pre, signed (XORPS 0x140876ba2, mask 0x1425656d0; corrected 17-10-26 from pes-ball-A1Spin.md l.11, raw-checked)
 1408770f3: xmm0 = T[0xec]   = boundToRotationSpeedMaxY[m]      (m1: 0.7)
 1408770fd: jb    → t = 0            (MIN > x  → t = 0)
 140877104: comiss xmm6, xmm0
@@ -92,7 +92,7 @@ response a **min-clamp against the incoming vertical speed**.
 14087710f: t = (x − MIN)/(MAX − MIN)
 14087711b: xmm6 = t * T[0x8c]  = boundToRotationAddRateY[m]   (m1: 0.07)
 140877128: xmm6 = xmm6 + T[0xbc] = boundToRotationBaseY[m]    (m1: 0.03)
-        ⇒ vy_keep = 0.03 + 0.07·clamp01((3.6|vy| − 0.1)/0.6)      …  in [0.03, 0.10]
+        ⇒ vy_keep = 0.03 + 0.07·clamp01((−3.6·vy − 0.1)/0.6)  (signed X: a rising ball gets the base 0.03)      …  in [0.03, 0.10]
 
 140877125: cvtps2pd xmm0, xmm3          ; xmm3 = spin-Y delta chain (see §2.4)
 140877132: andps xmm0, signmask

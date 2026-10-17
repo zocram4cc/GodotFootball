@@ -140,7 +140,7 @@ IEEE-754 f32, **not** FNV-protected — no hash/key/idx/slot surrounds it
 - The displayed clock has no per-tick increment constant of its own in the
   HUD path: it advances because the env seconds advance 1/54 s per logic tick
   (tick = `GetGameSpeed()` 54.0 @0x14351ae54, int 54 @0x14351ae50; tick
-  counter `matchCtx+0x10` in `FUN_140925750` — OBS, tactics-clock §2.5
+  counter is per player: `PM+0x10` of each `match::Player` (22 counters), incremented by `FUN_140925750` (slot 2), not `matchCtx+0x10` (corrected 17-10-26 from pes-re-teamorder.md §0 and §2.1); the tactics-clock §2.5 re-check was for the slot only.
   re-verified). **INF(high): the writer of `E+0xa0` adds `1/54` (or the
   frame-counter-derived equivalent) per tick while the FSM gate holds; the
   writer itself was not isolated** (§7.1). There is no `match_time`→increment

@@ -19,6 +19,7 @@ Where a doc and this session's decompile disagree, the decompile wins and the co
 1. **Arbitration is a priority walk, not a score max.** Units emit a typed answer or nothing. MainEval adopts the first listed kind that survives the walk in §5. (C-now `dec_0x142110d30.c` L86–90, `FUN_14210F110`; C-prior carrier-ai §3.)
 2. **25 kinds exist.** Outfield lists are a fixed head plus a plan-dependent tail. Kind 16 Dribble is never listed; it is the default answer computed every frame. (C-now L59–69; C-prior carrier-ai §1, §3.)
 3. **Keep is not a unit.** It is Dribble answer type 3, sub-kind **2**, written by the fallback writer `FUN_142119E90` (C-now). Sub-kind 2 maps to action 0 NOTHING (stand on the ball). Sub-kinds 0 and 1 have no writer. This corrects carrier-units §2.2, which said only 3/4/5 are stored: 2 and 6 are stored too (§6).
+_Corrected 17-10-26 from pes-port-A4Walk.md l.15–19 (Main ruling): PES stores no sub 2. The chooser returns only 4/5/6. The sub-2 statements in this item, the §6 row at l.174 and the notes at l.185 and l.190 are superseded._
 4. **Plans are 10 image units.** The admission order is 9, 8, 2, 3, 1, 4, 5, 6, 7, else Basic (C-now `FUN_14211E2D0` locals; C-prior carrier-ai §4.4). The plan changes which pass kinds are listed and Dribble's preferred direction.
 5. **Command path.** MainEval writes an action id to `BallPlayer+0x4180` → `FUN_142101930` → carrier-sense `FUN_14092C9F0` → `FUN_1409F5240` → `FUN_1405140E0` (action table at `P_ai+0x19E90`) → Action object enter/update → anime Kick → `FUN_1407324B0` (kick launch). The link from the Action object to MOVESTEP is C-prior only, and the writer of `PM+0x5D0` is OPEN (§7).
 6. **GF status.** Of the 25 kinds: 2 wired but partial (Shoot as a binary answer, PassForward), 1 pure and tested but unwired (Dribble direction search), 21 absent, and 1 not ported by design (15, a debug unit PES never lists). Plan 6 (Long) and plan 3 (CurveShot) are admitted in GF but never produce output. The old Dribble tail still runs (`elizacontroller.cpp:2400`). GF's order is shot-then-pass; PES's is the §5 walk.
@@ -183,11 +184,12 @@ Live: 892 snapshots, adopted by kind: Dribble-fallback 324, DirectHighBall 155, 
 
 **Dribble sub-kind writers (C-now):**
 - `FUN_142119E90` (keep): `type 3`, `sub = 2`, dir 0. Called when the chooser returns a value other than 3–6 (`0x14212FE70` L525, default `iVar10 = 4` at L86).
+_Corrected 17-10-26 from pes-port-A4Walk.md l.17: the keep arm is reached only for a value outside 3..6, which the chooser never returns, so this writer is unreachable from the chooser path._
 - `FUN_142119EB0`: `type 3`, `sub = 3`, dir `+0x2A0` (L494–495).
 - `FUN_142119E20(…, 0)`: `type 3`, `sub = 4`; `(…, 1)`: `sub = 5` (L497–513).
 - `FUN_142119E60`: `type 3`, `sub = 6` (FEINT, L515–522).
 
-So **sub-kinds 0 and 1 have no writer**, and **2 (keep) and 6 (feint) are stored**. carrier-units §2.2 ("only 3/4/5 stored") is incomplete.
+So **sub-kinds 0 and 1 have no writer**, and **sub 2 (keep) is not stored**; 6 (feint) is. Corrected 17-10-26 from pes-port-A4Walk.md l.15–19 (the earlier "2 and 6 stored" reading is withdrawn).
 
 **Pass translator `FUN_14210EE00`** (C-now L18–125): sets `out+4` from `b` (0/1/2 decoded; 3 → 24 per C-prior), receiver to `out+0x1C`, flags to `out+0x20/0x21`. It also calls `FUN_140A48A10`/`FUN_140A48910` for the sender's record and the restart remaps at L27–94 (not re-read).
 

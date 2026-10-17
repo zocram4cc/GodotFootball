@@ -260,8 +260,7 @@ Raw, in order:
    and the float is a **per-team Offensive-Awareness-derived forward push**
    (Aoba's `adjustXFromAttackAwareness3/4`, quoted in that report §2.5).
 8. Then a **distance-driven extra push** (raw `0x1406887b8..0x14068886e`),
-   gated on `FUN_141b92460(2) >= 2` (a **2-second timer**; `0x141b92460` is the
-   shared "seconds since event" helper — INF med) and on
+   gated on `FUN_141b92460(2) >= 2` (corrected 17-10-26 from pes-re-defensive-shape.md l.322: `FUN_141b92460` is a stub that returns 5, not a 2-second timer, so the test is constant) and on
    `inPlay || mode == 2 || mode == 5`:
    ```
    d = |awarenessScale - rampStart|      (raw: cvtps2pd + abs mask)

@@ -106,8 +106,8 @@ Gate order (raw): skip everything (→ `0x14212fdd3`, no sub-kind change) if
 - Not turning (`0x140a6e300` false) and plan ∉ {1,2,3} (`2 < plan−1`): need
   `|wrap(desired − teamAngle)| ≤ 20·100/100 + 40` — raw: `(param5·100·20)/100 + 40`
   (20 @0x14259be1c, 100 @0x14253ee30, 40 @0x14259be2c), i.e. **≤ 40° + 20°·param5** where
-  param5 is the caller's pressure-ish scalar; else keep.
-- Turning: need `|wrap(desired − facing)| ≤ 60°` (60 @0x14259a764), else keep.
+  param5 is the caller's pressure-ish scalar; else keep, which PES encodes as the chooser's blocked value 4 (corrected 17-10-26 from pes-port-A4Walk.md l.15–19: sub 2 is not stored).
+- Turning: need `|wrap(desired − facing)| ≤ 60°` (60 @0x14259a764), else keep (value 4, as above).
 - Box-pressure gate: `imageA+0xb54 ≤ +0xb3c` or sector `+0xb44 ≠ 0`; then opponent-pressure
   entry test (`0x14069a3e0`, `+0x10 < 0` or image-state < 2), velocity-sample heading
   (`0x140a6c6d0` with `0.6944444/fps`, 0.6944444 @0x14259bdd0), the 10 m (`@0x142588210`) /
@@ -123,7 +123,7 @@ Gate order (raw): skip everything (→ `0x14212fdd3`, no sub-kind change) if
   (`0x140698950`) adds keep bonus 10 (@0x14259be10) when set. Corridor lane
   `0x14063cd90` with the budget/width immediates; per-candidate `0x140a53df0` body-block
   loop. Output: dribble direction = face ± clamp(dribble_val·0.5 …) (0.5 @0x142565600,
-  0.3 @0x142590d98 in the clamp), written to the answer; keep = no direction.
+  0.3 @0x142590d98 in the clamp), written to the answer; keep = no direction, stored as sub 4 (blocked), not sub 2 (corrected 17-10-26, pes-port-A4Walk.md l.19).
 
 
 ### 2.2 Shield branch `0x142130ee0` (OBS; confirms AttackDecisions §2.7)
@@ -135,11 +135,7 @@ dribble; (4) carrier rating `≤ 6.25` (@0x1425a9be4) → plain dribble; (5) cor
 (5.0 m steps @0x14259222c, `0x140a90d30`) then **shield-feint**: if `unit+0x2b8 == 0` and
 `0x14063e960(ctx, carrier, 0x25)` → **answer type 4, sub 0x11**; (6) tackle-like event or
 progress < 2 → **type 3 sub 3** toward `facing + 2·corridor/3` (3.0 @0x14258c264);
-(7) else **type 3 sub 3** plain. **Sub 0/1 (MOVE_STOP_FRONT/GOAL) are never stored by any
-think unit** — re-confirmed over all newly decoded units: the only stored subs are 3/4/5,
-type-4 0x11, and the `0x14210e880` downstream mapping that turns stored 0/1/2 into stop
-answers. So shield = sub-3 dribble-in-place or the 0x11 feint; hold/stand = the keep path's
-downstream mapping, not a unit answer.
+(7) else **type 3 sub 3** plain. **Sub 0/1 (MOVE_STOP_FRONT/GOAL) and sub 2 (keep) are never stored by any think unit.** The stored dribble subs are 3, 4, 5 and 6 (feint, `FUN_142119E60`), plus type-4 0x11. The chooser `0x14212F1C0` returns only 4 (blocked), 5 (free lane) or 6 (feint) (corrected 17-10-26 from pes-port-A4Walk.md l.15–19; the earlier "3/4/5 stored, 0/1/2 mapped to stop answers" wording is withdrawn). So shield = sub-3 dribble-in-place or the 0x11 feint; hold/stand is the chooser's blocked value 4, not a unit answer.
 
 GF replaces: `elizacontroller.cpp` dribble tail (`AI_GetBestDribbleMovement` call + clamp) —
 the §2.1 gates + economics choose keep/turn/beat, §2.2 chooses shield-feint vs shield-dribble;

@@ -23,6 +23,7 @@ is not met. Do not merge to main until the open item 1 below is explained.
   `R_o = 10/f`, f = 1 at image state 0) and `keeperReach_m` = 5 (`0x14259222c`,
   `FUN_14212e110`'s keeper branch). Loaded with `PeImage::ReadVa`; checked
   against the PE image (10.0, 5.0). `pes::DribbleOpponentReach`.
+  _Corrected 17-10-26 from pes-re-Dribble-inventory.md §1: 0x14212E110 is not a function entry; the opponent-list builder is inside `FUN_14212DC80`. Re-cite the keeper branch._
 - **Speed = GF's force-field pace**, unchanged: `AI_GetBestDribbleMovement` is
   now `AI_GetDribbleVelocity`, the same function minus its direction output.
   PES's dribble speed is not decoded (`pes-re-locomotion.md` O3; carrier-ai 5.4
@@ -78,6 +79,7 @@ Files: `<workdrive>/gf-Dribble-scratch/smoke-*.txt`, `final-*.txt`, `gate-final.
    decode of `0x140a6e3c0`.
 4. Opponent `pred = pos`; the list is the 5 nearest, not 0x14212e110's
    distance-sorted list stopping at R_o + 10 m.
+   _Corrected 17-10-26 from pes-re-Dribble-inventory.md §1: the "0x14212e110" list is built inside `FUN_14212DC80` (0x30-byte records)._
 5. Docs not edited (docs/re is archive-only). These still say the wiring is
    reverted and must be updated after the decision: `docs/re/pes-re-carrier-port.md`
    §3 Dribble row, `docs/re/pes-ai-map.md` carrier row,

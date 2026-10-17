@@ -783,6 +783,7 @@ plus alpha scissor on `line_alp.a` (the asm's dither alpha test at
 - Draw `pitch_scratch` as a **decal over the pitch** where its alpha is set.
 
 ### 7.6 Skip entirely
+_Corrected 17-10-26 from docs/render/pes-pitch-PitchV7.md (summary row and its l.23): the VS fog terms o7.z/o7.w are ported into specular and roughness, so this "skip" is withdrawn for those terms. The GB3/GB4 and t1/t2 notes below stand._
 
 The VS height-fog polynomial (§2) and GB3/GB4 — Godot's fog and depth replace
 them. `t1`/`t2` (`turf_nrm`, `turf_srm_alp`) are unbound by the PS. `t6`

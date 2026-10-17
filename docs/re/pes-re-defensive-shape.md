@@ -225,7 +225,7 @@ S+0x7b38 = clamp(fw, 3 - F[0x11], F[8])                                         
 ```
 - **No time smoothing in the line target:** it is recomputed every team tick from the current ball. "Step-up speed" is the
   players' own locomotion toward the band; the only timers are the 4 s gate on the cover drop (§4) and, in possession
-  (`FUN_1405fb6f0`), a 20 m hold-back after a possession change that fades between 5 s and 8 s (`FUN_140a74ec0` frames vs
+  (`FUN_1405fb6f0`), a 20 m hold-back after the newest kick-off (corrected 17-10-26 from pes-re-transitions.md §1.2: `FUN_140a74ec0` is the kick-off timer, not a possession timer) that fades between 5 s and 8 s (`FUN_140a74ec0` frames vs
   `fps·5`/`fps·8`, 0x14259222c/0x14259bdf4).
 - `FUN_1405efbd0` (defending, in play): shifts the back line (rear and front) up by
   `k·|midFront − backFront| / bp.adjustDiv(4)`, `k = ramp(d; bp.mfLineScore_adjustMax(36) → 1, 200 → 0)`,

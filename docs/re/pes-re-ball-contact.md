@@ -385,9 +385,9 @@ this block are the three velocity deltas combined at `0x140876f6e … 0x1408771c
 (`xmm10`) and `F` (`xmm1`), and the per-tick horizontal ratio for a coupled roller is `K`
 (§5.2). A GF porter implements `0x140876c0f … 0x140876f6e` instruction-for-instruction from
 the raw in `intbody.txt`; the register map at entry is: `xmm10 = K`, `xmm1 = F`,
-`xmm13/xmm12/xmm14 = vy/vz/vx` (post-§2.5), `[rsp+0x48/4c/50]` = old `vx/vy/vz`,
-`[rsp+0x58/5c/60]` = old raw spin ×3, `[rsp+0x68]` = grounder-trimmed `vx` (§2.5),
-`[rbp+0x80/90/98]` = scratch (`vy_keep`-chain / `A` / spin term). Corrected 17-10-26 (pes-re-ball-contact-2.md Correction 1): `[rsp+0x68]` above is grounder-trimmed `vy`, not `vx`; `xmm14` is loaded from `[rbx+0x10]` = `vy` at `0x140876871`, so the line 388 `xmm14 = vx` reading is also withdrawn.
+`xmm13/xmm12/xmm14 = vx/vz/vy` (post-§2.5; corrected 17-10-26 from pes-re-ball-contact-2.md l.66–68), `[rsp+0x48/4c/50]` = old `vx/vy/vz`,
+`[rsp+0x58/5c/60]` = old raw spin ×3, `[rsp+0x68]` = grounder-trimmed `vy` (§2.5; corrected 17-10-26, pes-re-ball-contact-2.md l.69),
+`[rbp+0x80/90/98]` = scratch (`vy_keep`-chain / `A` / spin term).
 
 
 ### 3.4 Final velocity assembly and stop condition (OBS, `0x140876f6e … 0x14087733c`)

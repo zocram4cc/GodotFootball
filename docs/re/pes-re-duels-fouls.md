@@ -436,6 +436,7 @@ is now involved) → `FUN_1405b6660` (SetPending). With a pending kind-1 foul it
   `c < 3`; the AI helpers read the same words with different thresholds: the ball-list builder `FUN_14045e0d0`
   treats categories 0-1 as "offside, do not chase", the key-player selector `FUN_14050f580` also excludes
   category 2 — decompiled in `pes-re-offside.md` §4.1).
+_Corrected 17-10-26 from pes-re-offside.md l.200 and l.346–347: category 3 is the near-level onside band (not beyond the line), so the gloss "offside position but not punishable" is withdrawn. Categories 0–2 stand._
 - Per-side enable: `*(G+0x2c0)+0x6e+t` (match settings; same block as the card-suppression flag `+0x76`).
 - `FUN_1405b6490` requires a reference player (ball owner, else the pass target `MA+0x2483c`, else the
   nearer of the two line players `MA+0x2470c`/`+0x24764`), then scans team 0 then team 1 (categories 0..2,
