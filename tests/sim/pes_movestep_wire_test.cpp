@@ -199,6 +199,25 @@ TEST(MoveStepWire, TheFsmLeavesGotoRunAndReachesRunLoop) {
   EXPECT_GT(states[static_cast<int>(pes::MoveState::kRunLoop)], 0L);
 }
 
+// The FSM reaches STOP and ACCELERATE in a match: the run loop's pre-empt entries fire once the
+// request carries the look distance PES's gates read. Built before the fill, the look distance
+// is always zero, so both entries refuse and states 8 and 9 never run.
+TEST(MoveStepWire, TheFsmReachesStopAndAccelerate) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  std::map<int, long> states;
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) ++states[static_cast<int>(p->GetMoveStep().state)];
+  }
+  for (const auto& [state, ticks] : states)
+    printf("[movestep-states] state %d ticks %ld\n", state, ticks);
+  EXPECT_GT(states[static_cast<int>(pes::MoveState::kStop)], 0L);
+  EXPECT_GT(states[static_cast<int>(pes::MoveState::kAccelerate)], 0L);
+}
+
 // StoreRateCeiling has a caller: the record holds the TopRate ceiling once the FSM has ticked.
 // Built on main, nothing stores it, so the ceiling reads zero.
 TEST(MoveStepWire, TheRateCeilingIsStoredEachTick) {
