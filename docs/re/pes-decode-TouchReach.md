@@ -58,7 +58,7 @@ Caveat on the argument (INF(high)): the foul-commit caller is `0x143f546f0` (rea
 Verdict for the player (OPEN): `FUN_14050e770` clamps the **spot** (`JR+0x08`), not the fouled player's position. I found no clamp of the player's own position in this writer or in the foul-choreography code. Bystanders are the only ones moved (`FUN_14047d7f0`, `pes-re-foul-choreography.md` §2.1: a point off the pitch turns the bearing 180° and doubles the distance). Whether a tripee can stand past the line at the whistle is not decoded.
 
 GF comparison (CONFIRMED from source):
-- `offsiderule.cpp` `RestartPosition` (lines 141-161) folds x about `pitchHalfW − 0.5` = 52.0, and folds y about `pitchHalfH` = 34.0 (a mirror, `2·limit − v`). It does not know the restart kind. The new y fold gives 33.8 for the stalled case.
+- `offsiderule.cpp` `RestartPosition` (lines 156–160) clamps to F0/F1 (corrected 17-10-26 from pes-re-A5Judge.md §7: the earlier "fold about 52.0 / 34.0" description is stale). It does not know the restart kind; the 33.8 y-fold figure for the stalled case is withdrawn.
 - PES clamps to F0 (52.56) and F1 (34.06), with an extra 2.0 m inset for free kicks (32.06). Those numbers differ from GF's 52.0, 34.0 and 33.8. The GF comment ("clamping it flat onto it aims along it") is a design choice PES does not share.
 
 ## 3. Goal stoppage of 1758 ticks against a 1757-tick bound: OPEN (arithmetic CONFIRMED; overrun cause not found)

@@ -17,7 +17,7 @@ Requests: about 62 tool calls, about 115 Ghidra bridge calls.
 ## 0. Findings
 
 1. **All 21 bits have in-match gates.** The earlier claim "5 styles branch in-match (7, 8, 12, 19, 20); 16 do not" (`pes-re-playing-styles.md` §10) is wrong. Bits 1 and 14 have effects only at the selector level (dt18 profile, approach-rate field); the rest have gates plus constants or branch bodies.
-2. **Quantitative effects, CONFIRMED-const** (full list §4): Goal Poacher run threshold 30→15; Target Man candidate +30 and offset −6; Hole Player and Box-to-Box score +5; Extra Frontman +0.2; winger, roaming-flank, cross and full-back-finisher terms in `1405E6E80` (+15, ×0.5, +1); full-back blend divisors 1.5 and 2.0; set-piece clamps [0, 0.1] and [0, 0.5]; keeper range 15→17, angle 48→43, distribution factors 0.25/1.1/0.6; Destroyer behind-tolerance 11.25° and 45°.
+2. **Quantitative effects, CONFIRMED-const** (full list §4): Goal Poacher run threshold 30→15; Target Man candidate +30 and offset −6; Hole Player and Box-to-Box score +5; Extra Frontman +0.2; winger, roaming-flank, cross and full-back-finisher terms in `1405E6E80` (+15, ×0.5, +1); full-back blend divisors 1.5 and 2.0; set-piece clamps [0, 0.1] and [0, 0.5]; keeper range 15→17, angle 48→43, positioning factors 0.25/1.1/0.6 (not a distribution choice; corrected 17-10-26 from pes-goalkick-GoalKickPort.md §7); Destroyer behind-tolerance 11.25° and 45°.
 3. **dt18 selectors (§3):** key 0x3A (bit 10) and key 0x21 (bit 1) gate the profile records 0xBC and 0xBD. Key 0x1D adds +14, key 0x1F multiplies by 1.3, key 0x1E switches the record fields 0xD8→0xDC. The `_lineBreaker` selector (key 0x20) and the keys 0x27, 0x28, 0x30, 0x34 have no caller in the 13-caller census: those switch arms are dead.
 4. **`FUN_141465180` is record 6 of a 7-entry table of predicate handlers** (§5). The table is a rule-kind registry. Its dispatcher is still OPEN: no 8-byte pointer or RIP-relative reference to the table exists in the image.
 5. **Corrections to earlier docs** (§7): the Destroyer 0° tolerance VA `0x14259BE20` reads 25.0, not 0°. The `1405D8B70` bit-4 term is `−s·T[slot]` (a per-slot table at `team+0x3A9C`), not `−10·s`.
@@ -78,7 +78,7 @@ Only the terms with a literal constant. "Before" is the unmodified value at that
 | Set-piece clamp, bits 5/6 absent | `140680980` L301–303 | `fVar28` | clamp to [0, 0.5] | CONFIRMED-const |
 | Keeper range | `1409E0032` (R6d) | 15 | 17 | CONFIRMED-const (both values) |
 | Keeper angle | `142115CEC` (R6f) | 48° | 43° | CONFIRMED-const (both values) |
-| Keeper distribution | `1409DD470` (R6b) | `f` | `f·0.25` / `f+1.1` / `f·0.6` | CONFIRMED-const (factors); branch mapping doc-only |
+| Keeper positioning (`1409DD470`, R6b; "distribution" label withdrawn) | `1409DD470` (R6b) | `f` | `f·0.25` / `f+1.1` / `f·0.6` | CONFIRMED-const (factors); the routine returns a position, a positioning term (corrected 17-10-26, pes-goalkick-GoalKickPort.md §7); branch mapping doc-only |
 | Destroyer behind-tolerance | `14078E9B4` (R5a) | 0° | 11.25° / 45° | CONFIRMED-const for 11.25 and 45; 0° VA wrong |
 
 ## 3. dt18 selector table (callers of `FUN_1405C0F00`)

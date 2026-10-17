@@ -116,7 +116,7 @@ tackle), `cmd+0xfc9 = 1` when the order kind is 0x36..0x39 (MARK/DELAY_MARK/BLOC
    manualSideStepEnable` = 0) and a 20°/15° direction check apply. Dead for CPU.
 5. if action ∉ {2 FREE_RUN, 0x11 WAIT_TIMER, 0x33 DELAY, 0x34 PRESS, 0x35 SAND} (mask 0x38000000020004): ball
    predicted `gs>>2` frames ahead (0.25 s) must be within **22.5°** (0x14259d618) of the heading predicted
-   `0.6944/gs` s ahead and within **3.0 m** (dist² ≤ 9.0, 0x14259d60c).
+   the velocity heading, floored at `0.6944/gs` m per tick (a speed floor, not a look-ahead; corrected 17-10-26 from pes-re-attack-leftovers.md §1.0) and within **3.0 m** (dist² ≤ 9.0, 0x14259d60c).
 6. solver point `p.y` (second float) ≤ **3.0** (0x14258c264) — INF(med): reach distance in m.
 7. `FUN_14096fda0` true and `FUN_140971450` false (below).
 8. pad-controlled and PRESSing and `FUN_140a8ff10(pos, target, heading, 1.2, 2.0)` → refuse (human only).
@@ -380,7 +380,7 @@ here; the standing tackle was by a WAIT_TIMER defender, i.e. the strict branch o
   ∈ 0x36..0x39.
 - **Anime feasibility** `FUN_1406b4580(anime, 0xd, …)` (0x140970d51): false → refuse.
 - **Human-only final angle** (0x140970d80..0x140970e26): pad-controlled and action ≠ PRESS: predicted heading
-  (0.6944/gs s ahead, 0x14259bdd0) vs the ball bearing must be ≤ `[rsp+0x48]` = **90°** (0x14259be5c), or **65°**
+  (velocity heading, floored at 0.6944/gs m per tick, 0x14259bdd0; a speed floor, not a look-ahead, corrected 17-10-26) vs the ball bearing must be ≤ `[rsp+0x48]` = **90°** (0x14259be5c), or **65°**
   (0x14259be48) once the speed (`FUN_14042d470`) ≥ 8.0 (0x14259bdf4).
 - **From-behind branch — direction now OBS** (0x140970734..0x140970863): guard `FUN_140a6e3f0(carrier anime)`
   (else the branch is skipped); `∠ = FUN_140481b00(carrier heading, bearing(carrier→defender))`; **if 135 < ∠**

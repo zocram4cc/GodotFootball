@@ -13,6 +13,7 @@ Scratch (read-only): `<workdrive>/gf-TeamCtx-scratch/` (`asm_ramp.txt`, `ramp_ta
 ## 0. Summary
 
 1. **[rev2] X is a per-player context, not G or T.** `X = *(P+0x3ac0) = PM+0x7e0`. The player constructor `FUN_1408bd970` stores `PM+0x7e0 = FUN_140a45060(new 0x4b8-byte block)` at `0x1408bda60`. `MA = X+0x18`. The constructor zeroes `X+0x18`, and the setter of that pointer is OPEN (§1).
+_Corrected 17-10-26 from pes-re-teamtick.md (l.142; evidence: `*(pl+0x3ac0)` = `0xc19c345841665884`, no pointer with `+0x18 == MA`): item 1's `X = *(P+0x3ac0)` is refuted for `match::Player`._
 2. **[rev2] The target path is fully named.** §4.3 gives `target = max(0, min(x, rateMax·F))`, with `x` from the base rate, the turn slow, and the proximity cap, and `F` from one of five branches. Each xmm value is traced to its source and every constant has its install value.
 3. **The `MA+0x22e4c` writer is still not found** (§2.4). Entries are `{u32 id, f32 d²}`, distance-sorted (A3S, INF high on the sort direction). The search space is narrowed and the next step is named.
 4. **[rev2] `T+0xb8c4[slot]` writer = `FUN_140623750`** (CONF-D). `T+0x78` is still OPEN; there is one unidentified candidate (§4.2). `G+0x180` (roster) is still OPEN.

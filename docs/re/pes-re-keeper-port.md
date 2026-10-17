@@ -235,6 +235,7 @@ PES's FieldInfo carries. A magnitude in PES (`A`), a signed mark here — the
    the team object. Not ported, not invented: GF keeps its nearest-player rule.
    `ponytail:` if per-keeper distribution tendencies are ever wanted, this table
    is where they live.
+_Corrected 17-10-26 from pes-re-teamctx.md §2.2–§2.4: the 200-byte entries at `R+0x22e4c + slot·200` are the runtime `MA+0x22e4c` struct, not install data. The table is built at match time; its writer is still OPEN in teamctx._
 5. **Penalty deflect** (`FUN_1409d78e0`): OBS, but unreachable in GF — the
    penalty mode here is a shootout, not a live penalty.
 6. **PES's FieldInfo offsets in the distribution arithmetic.** Killed the

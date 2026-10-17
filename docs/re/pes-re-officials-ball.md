@@ -299,6 +299,7 @@ The `SceneBallNode` translation follows the sim position with a median lead of 0
 dt = 1/54 s (§0.4). The integrator is semi-implicit Euler: `v += a·dt; p += v·dt` (`FUN_140876360`). The orientation quaternion is integrated with ω after that.
 
 ### 6.2 Constants source (OBS live)
+_Corrected 17-10-26 from pes-re-ball-constants.md (note at its l.14): `ball.o` is 1,040 B (352 B is `cameraInplay.o`) and holds the live values with recoverable field names. The "unnamed values, source OPEN" reading of this section is wrong._
 
 - `constant::Ball` (vtable 0x142b57448, one live instance). The integrator's constant pointer = object + 8. Values used:
   - `C[0]` (+0x08) = 1.0;

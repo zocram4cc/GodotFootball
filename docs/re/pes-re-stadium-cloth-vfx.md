@@ -57,7 +57,7 @@ Corrections to earlier premises (from round 1, still valid): the install's effec
 
 ### 1.5 Match-side writer (OPEN)
 
-- The match stadium path: `FUN_141f5b030` @0x141f5b030 → `FUN_141eabf70` @0x141eabf70 → `FUN_141eacd80` (reads obj +0x10 = stadium id, builds `light_st%03d_{af,ar}.fpk` via `FUN_141ed2f60` @0x141ed2f60). `FUN_141f5b030` takes the id from `*(DAT_1437050c8 + 0xf0)`; the slot's team id is at +8 (`FUN_1414a8420`). **OPEN:** whether the match path calls `FUN_141eeeea0` (the edit-manager reader) or has its own copy of 1.2. I did not find a match-side writer of +0xF0.
+- The match stadium path: `FUN_141f5b030` @0x141f5b030 → `FUN_141eabf70` @0x141eabf70 → `FUN_141eacd80` (reads obj +0x10 = stadium id, builds `light_st%03d_{af,ar}.fpk` via `FUN_141ed2f60` @0x141ed2f60). **Corrected 17-10-26** (pes-re-stadium-cloth-vfx-opens.md): `FUN_141f5b030` takes its stadium from `FUN_141f500d0()+0xf0`, a 0x52E0-byte singleton at `_DAT_1437f5d50`. `DAT_1437050c8` is a separate team-slot object whose `+8` is the team id, not the stadium source. **OPEN:** whether the match path calls `FUN_141eeeea0` (the edit-manager reader) or has its own copy of 1.2.
 
 ---
 

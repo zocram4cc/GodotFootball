@@ -56,6 +56,7 @@ ClockLiveRE scratch dir. Prior report: the ClockRecordRE clock-record report.
   `show_kickOff`, `emblemCompe`, `transparent_*`) — the HUD env is a render-side
   widget object, **not MI-derived**. Main's step-1 verdict: the base is not MI;
   the `MI+0x1180` record layout is dead.
+_Corrected 17-10-26 from pes-re-A6Writers.md §0/§4: the `118c/1190/1194/1168/116c/1170/1174/1178/1180/1184` writers in the dispatcher act on the MB-E block `S`, not `MI`; the `MI+0x1180` layout is not the clock record._
 - `FUN_14092fad0` (stamina drain + half-time bonus only, no clock store),
   `FUN_14092ad40` (per-player fatigue meter on `player+0x1a480`, not the clock),
   `FUN_140922ff0` (lazy-init accessor for `player+0x1a488`, not an advancer) — all
@@ -112,6 +113,7 @@ ClockLiveRE scratch dir. Prior report: the ClockRecordRE clock-record report.
   (`118c += Δt; 1190 += 1; 1d0 = (118c/1190)/rate`) and the half-time transition
   (`116c += 1198 − saved; 1168++; 728 = 116c/1168`). Readers of 118c/1190 not yet
   traced (open).
+_Corrected 17-10-26 (pes-re-A6Writers.md §0): the wall-µs reading above (items 4 and §5) is about the MB-E block `S`, not `MI`. Treat `MI+0x118c/0x1190/0x1194` as not-MI until re-measured._
 - Per-tick driver `FUN_140925470` (OBS decompile): lazy-init, `FUN_140922ff0`,
   `FUN_140926b00/FUN_140928fc0/FUN_140929930`, `FUN_14092fad0`, global tick
   `_DAT_1436f391c + 1`, `FUN_14092af10`, `FUN_14092ad40`. The display plausibly

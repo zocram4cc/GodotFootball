@@ -132,7 +132,7 @@ flags — sweep false positive).
 | 9 | Hole Player | R1; R4 fn[9] | compat (AMF/CMF/WG rows) | CONFIRMED gate; effect INF |
 | 10 | Box-to-Box | R1; R4 fn[10] | compat (DMF/CMF rows); dt18 `_BoxToBox` marking constants are role-selected, NOT bit-selected (§6) | CONFIRMED gate; per-bit effect INF |
 | 11 | Anchor Man | R1; R4 fn[11] | compat DMF | CONFIRMED gate; effect INF |
-| 12 | The Destroyer | R1; R5a–d; R4 fn[12] | **tackle aggression**: standing-tackle entry level, behind-tolerance 11.25°/45°/0°, touch-timing 0.075/0.1/0.125·gs, slide reach `L+=1` (constants in §7) | CONFIRMED |
+| 12 | The Destroyer | R1; R5a–d; R4 fn[12] | **tackle aggression**: standing-tackle entry level, behind-tolerance 11.25°/45°/0° (the 0° is register-zeroed; VA `0x14259BE20` reads 25.0, not 0°), touch-timing 0.075/0.1/0.125·gs, slide reach `L+=1` (constants in §7) | CONFIRMED |
 | 13 | Orchestrator | R1; R4 fn[13] | compat DMF/CMF rows | CONFIRMED gate; effect INF |
 | 14 | Build Up | R1; R4 fn[14] | compat CB row; `approachRateMax_buildUp` reader untraced (OPEN) | CONFIRMED gate; effect INF |
 | 15 | Extra Frontman | R1; R4 fn[15] | compat CB row | CONFIRMED gate; effect INF |
@@ -198,8 +198,9 @@ Verdicts on selection (CONFIRMED where stated):
 
 ## 7. Constants observed at the style branches (OBS)
 
-Destroyer: behind-tolerance 11.25°/45°/0° (0x1425CC680/0x14259BE30/
-0x14259BE20), touch-timing 0.075/0.1/0.125·gs, slide `d ≥ 4.0+0.8L`,
+Destroyer: behind-tolerance 11.25°/45°/0° (0x1425CC680/0x14259BE30; the 0° is register-zeroed,
+0x14259BE20 is 25.0, not the 0° source), touch-timing 0.075/0.1/0.125·gs, slide `d ≥ 4.0+0.8L`,
+_Corrected 17-10-26 from pes-re-style-effects.md §5/§7 and pes-port-StylePort2.md §4m: the 0° is a register-zeroed literal (pesdefenderdecisions.cpp:91), not read from `0x14259BE20`._
 capsule `1.5−0.2L × 0.6d / 0.5d+0.5`, team-mode+1 (`140A40BC0==3`).
 GK: 48°→43° (0x142588214→0x1425CFA38), 15.0→17.0 (0x14259BE0C→
 0x14259D614), 0.25/1.1/0.6 (0x142592228/0x1425A3590/0x14257A190),

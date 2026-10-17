@@ -219,6 +219,7 @@ Chain, with what was verified and what was not:
 ## 8. Inputs: the five real style reads, skills, COM, team context, MA list
 
 ### 8.1 The five real playing-style reads (C-prior pes-re-playing-styles §2–§3, §7; C-now GF lines)
+_Corrected 17-10-26 from pes-re-playing-styles.md (RETRACTED banner, its l.42; pes-re-style-census.md §4): the reader census this section cites is retracted. The five reads below are unverified until re-checked._
 
 | bit | style | PES read (VA) | effect in PES | in the carrier brain? | GF status |
 |---|---|---|---|---|---|

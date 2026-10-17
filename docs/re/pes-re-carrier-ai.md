@@ -190,7 +190,7 @@ Evaluated for every listed kind before its unit runs; failing disarms the unit (
   `int(gameSpeed×0.15+0.5) = 8` frames; and if team byte `+0x255 == 0` and team `+0x78` names
   another player (INF: designated restart taker). A nearest-opponent test (team table
   `+0x2470C`: opponent index and a value > 9.0 @0x14259d60c; opponent within 120° and faster
-  than 10 in `0x140477130` units, heading within 60° after `0.6944/gameSpeed` of motion)
+  than 10 in `0x140477130` units, heading within 60° of the velocity heading (floored at `0.6944/gameSpeed` m per tick: a speed floor, not a look-ahead; corrected 17-10-26 from pes-re-attack-leftovers.md §1.0)
   *skips* the next veto; that veto disarms pass kinds when the ball is higher than
   `byte[0x140a489f0(i)+0x12A7] / 200` and the last ball event is not the carrier's own.
   INF (med) on both meanings.
@@ -667,6 +667,7 @@ where noted). "Live stat" = read through `0x140a489f0(i)+0x70` (fatigue-adjusted
 | other reads in the range (not decoded) | skill 0x25 at `0x1421314a0`, 0x28 (40 THROUGH_PASS) at `0x14211bcbe`, 0x13 at `0x142137460`, 7/8 + stats 0x1A ≥ 85 / 0x21 ≥ 80 at `0x14213647d` (set-play kicker) | — |
 
 Playing-style bits (block+0x48) are read in the carrier code only once (Cross plan, bit 7).
+_Corrected 17-10-26 from pes-re-A4Carrier.md §11: bit 8 CLASSIC_NO_10 is also read in the carrier brain, in PassForward's short tier (`0x142125C80`)._
 The style influence is otherwise outside the carrier: off-ball selectors (team-plans §3).
 
 ## 7. Difficulty → AI capability table (OBS `0x140a603c0` / `0x140a604d0`, table 0x142645A40)

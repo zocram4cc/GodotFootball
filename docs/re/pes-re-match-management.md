@@ -206,6 +206,7 @@ marker) and `FUN_1406006d0` (the plan-switch applier, §3). At
 `MI+0x1590/0x158c` and role `T+0x4c00`, OBS `mmc2a.c` lines 48–116).
 
 ### 2.3 Stamina subs — `FUN_140523b60` (OBS `mmc2a.c` lines 394–713)
+_Corrected 17-10-26 from pes-re-stamina-subs.md (OBS, its "Corrections to match-management §2.3"): the minute schedule is per mode, not per period (period 3 gated, others full cap); mode 2 never reaches full cap; ×0.5 applies on the match (+500) and form (+100) paths, not "when pad-ids differ"; class 1 (CB) and 0 (GK) are excluded; goal/assist protection is added; sort is ascending. The code below is the pre-correction reading._
 
 ```
 // cap: settings byte settings+0x18 (per match length? INF)

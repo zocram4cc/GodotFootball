@@ -200,6 +200,7 @@ GF replaces: nothing (no GF lane-reservation code to delete; the GF
 single-runner model is still wrong per §1.3 caps, but not for lane reasons).
 
 ### 1.3 O3 — `spaceRun.o` (0xc3) per-key use (OBS)
+_Corrected 17-10-26 from pes-re-run-targets.md §0 and §7b: the blob keys are in PES19 `spaceRun.txt` order, not alphabetical; the corrected pairs are chanceScore 40/69 (not 102/88), checkBallDist_chance 19/25, checkLastLineDist_chance 6/11, checkZ 125/24._
 
 Blob = 60 keys alphabetical, scalar-first (matchlogic §4.1 rule confirmed:
 offsets match alphabetical order exactly). Full map (OBS dump, int keys shown
@@ -376,6 +377,7 @@ GF replaces: `ApplyAttackingRun` end conditions — the age gates (43/108/162/
 distances, 130°/110°/100°-ramp angles are port-ready; leaves are not.
 
 ### 1.5 O5 — ball-holder block ints `+0xd4/+0xd8/+0xdc` (OBS atk3.c)
+_Corrected 17-10-26 from pes-re-OffBallSelectors.md §1: `FUN_140a50250` is not a team-instruction reader. It returns the ball holder's in-match record dword `rec+0xd4+4k` (raw 0xa50250–0xa502e2). The f0–f2 instruction-slot reading below is withdrawn._
 
 `FUN_1405e0010(ctx,k)` reads them (k = 0,1,2 → f0,f1,f2 of the support-cost
 report §4.3):

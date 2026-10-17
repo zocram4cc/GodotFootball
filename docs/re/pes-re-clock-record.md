@@ -175,7 +175,7 @@ float store:
 - `MI = *(G+0x270)` = 0x26c54608, `E = *(G+0x2c0)` = 0xa3ef534 (both null
   outside the tick — polled; brief's note confirmed).
 - `MI+0x1168` phase 3 (2nd half), `+0x116c` 1, `+0x11a8` cycling 0/62/148/149,
-  `+0x1198` advancing ≈57/s (46458 → 49352 over ~67 s wall).
+  `+0x1198` advancing ≈43/s (46458 → 49352 over ~67 s wall; 2,894 ticks / 67 s = 43.2/s). The earlier "≈57/s" was wrong, corrected 17-10-26 from pes-re-possession-latch.md §30.
 - `E+0x58` = 10.0, `E+0x5c` = 1.0, `E+0xa0` = 0.0, `E+0x11c` = 0.0,
   `E+0x114` = 0, `E+0x118` ≈ 1.4e-45, `E+0xa4` = 0x15, `E+0x2da8` = 0.
   (Zeros at +0xa0/+0x11c with phase 3 = menu/demo state, not open play;

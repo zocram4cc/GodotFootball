@@ -167,7 +167,7 @@ structure): builds candidate analysis (`0x14063c560`, `0x14063a290`), reads heig
 `+0x31` as `h/100` (`/100` @0x14253ee30, `×2/3` @0x14258c264), loops 11 opponent slots with
 the 60° (@0x14259a764)/120° (@0x14256ae30)/180° (@0x142598580) bearing gates, the 25.0 m
 (@0x14259be20) and half-length range gates, and validates each candidate corridor with
-`0x14063d2f0` + `0x1421b7d40 == 0`; RNG draws via `0x141e532e0()/6` for tie-breaks. Live: 19
+`0x14063d2f0` + `0x1421b7d40 == 0`; the tie-break rule is OPEN: `0x141e532e0()/6` is the game speed (54), not an RNG draw (corrected 17-10-26 from pes-re-Dribble-inventory.md §1). Live: 19
 adopted (type 5). Port-ready except the `0x14063c560/0x14063a290/0x14063d2f0` corridor
 helpers' internals (open).
 
