@@ -227,6 +227,7 @@ address given.
 |`pes-verdict-MoveStepCheck.md`|MOVESTEP verdict (MoveStepCheck)|
 |`pes-a3-salvage-table.md`|A3Salvage: what was kept or dropped from the MovestepRun/Step/Turn and Wave1MBF-diag worktrees and why, plus where the backups live|
 |`pes-port-A3States.md`|A3States: why MOVESTEP never left GOTO_RUN/RUN_LOOP (request block never filled from the AI command, `AnimeState()` a 0 stub, no foot-band writer), the `FUN_1406b7560` fill, GOTO entry rows, foot flag shared; STOP and ACCELERATE reached; on-path restart stall open|
+|`pes-re-teamorder.md`|TeamOrder: the logic frame order (bind, 22 player slot-2 ticks in play only, team tick `0x14041ecf0`, side ticks `0x1404f6c30`, hub, clear); MI/roster/ball/E bind and clear together each tick; `hu+8` bit 27 live on two slots, its consumer a veto at `FUN_140676010`, not a ramp cap; the MA list builder and the bind writer still open|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
