@@ -3156,8 +3156,13 @@ signed int Humanoid::GetBestCheatableAnimID(
       // touchNum: %i, totalTouches: %i, defaultTouchFrame: %i\n", anim->GetName().c_str(),
       // animTouchFrame, touchIDs[touchNum], touchNum, totalTouches, defaultTouchFrame);
 
-      // out of bounds?
-      if (match->GetBallRetainer() != player) {
+      // out of bounds? PES's throw-in is taken from outside the touchline (the writer's spot
+      // sits F1 + 0.25 past it), so on the PES path the taker's throw is not refused for the
+      // spot being out - the ball is dead at his feet and the throw carries it infield.
+      const bool pesThrowInTake =
+          match->PesLoop() && match->IsInSetPiece() &&
+          match->GetReferee()->GetBuffer().desiredSetPiece == e_SetPiece_ThrowIn;
+      if (match->GetBallRetainer() != player && !pesThrowInTake) {
         Vector3 absBallPos = match->GetBall()->Predict(animTouchFrame * 10);
         if (fabs(absBallPos.coords[0]) > pitchHalfW + lineHalfW + 0.11f ||
             fabs(absBallPos.coords[1]) > pitchHalfH + lineHalfW + 0.11f) {
@@ -3165,7 +3170,6 @@ signed int Humanoid::GetBestCheatableAnimID(
           continue;
         }
       }
-
       // if (player->GetDebug()) printf("touchNum: %i, touchID: %i, animTouchFrame: %i,
       // defaultTouchFrame: %i, touchFrameAwkwardness: %f\n", touchNum, touchIDs[touchNum],
       // animTouchFrame, defaultTouchFrame, touchFrameAwkwardness);

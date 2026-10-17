@@ -379,7 +379,8 @@ void Referee::Process() {
           // restart is armed is his business, not the referee's.
           ScheduleStop(this, buffer.stopTime, AnyPlayerDown(match), kPesHoldOutOfPlay);
           if (match->PesLoop()) {
-            const pes::Spot spot = pes::ThrowInSpot(ballPos.coords[0], ballPos.coords[1]);
+            const pes::Spot spot = pes::ThrowInSpot(
+                ballPos.coords[0], ballPos.coords[1], match->GetPesRestartSpotConstants());
             buffer.restartPos.coords[0] = spot.x;
             buffer.restartPos.coords[1] = spot.z;
           } else {
@@ -620,20 +621,17 @@ void Referee::Process() {
         }
       }
 
+      // PES releases when the taker reaches the ball (A5Live 9.2/9.4); the frame gate is only
+      // the time-out. The kick-off's release is the same reach check on its receiver
+      // (KickoffReceiver, 0x140781fc0), with the forced rule as its bound. One logic frame is
+      // one tick (Milestone A1), so the elapsed count is in PES's frames directly.
       if (!buffer.started && buffer.startTime <= match->GetActualTime_ms() &&
-          // PES's set-piece AI holds a restart for a frame-rate multiple before
-          // the kicker takes it (setpiecelaws.hpp): 189 frames for a corner, 162
-          // for a free kick, 54 for a penalty, all measured live. `startTime` is
-          // when the referee is ready for the kick; this adds PES's deliberate
-          // hold on top of it, so the placement and the wait cannot be confused
-          // for each other. The kick-off, throw-in and goal kick are released by
-          // their own rule and the gate returns true for them immediately.
-          // One logic frame is one tick (Milestone A1), so the elapsed count is in
-          // PES's frames directly and the frames-per-second is PES's own rate.
           (match->PesLoop()
                ? pes::MayRelease(buffer.desiredSetPiece,
                                  static_cast<int>((match->GetActualTime_ms() - buffer.startTime) /
-                                                  Match::kTick_ms))
+                                                  Match::kTick_ms),
+                                 false, match->GetPesRestartSpotConstants().takerReach_m,
+                                 TakerBallDistance())
                : SetPieceLaws::MayTakeRestart(
                      buffer.desiredSetPiece,
                      static_cast<int>((match->GetActualTime_ms() - buffer.startTime) /
@@ -736,9 +734,16 @@ void Referee::PrepareSetPiece(e_SetPiece setPiece) {
   // at x = 53.3, 0.8 m past the line, holding for 399 of a match's 425 forced
   // ticks. The spot keeps its meaning by clamping it inside the outer lines (PES's writer,
   // OffsideRule::RestartPosition), which keeps the lateral offset the kick aims along.
-  buffer.restartPos = OffsideRule::RestartPosition(
-      buffer.restartPos, -static_cast<int>(match->GetTeam(buffer.teamID)->GetSide()), setPiece,
-      match->GetPesRestartSpotConstants());
+  // A throw-in on the PES path already stands in the writer's null-spot form (FUN_14050e770:
+  // F1 + outset outside the line, x inside F0 - inset). The clamp below is the writer's
+  // explicit-spot (foul) path, whose F1 clamp would pull the throw back onto the line, so the
+  // throw-in skips it. None of the clamp's branches can fire on the writer form anyway: the spot
+  // is outside the goal area's z range, its x is already inside F0, and the free-kick inset is
+  // free-kick-only.
+  if (!(match->PesLoop() && setPiece == e_SetPiece_ThrowIn))
+    buffer.restartPos = OffsideRule::RestartPosition(
+        buffer.restartPos, -static_cast<int>(match->GetTeam(buffer.teamID)->GetSide()), setPiece,
+        match->GetPesRestartSpotConstants());
   match->ResetSituation(buffer.restartPos);
   match->GetMatchData()->RecordPassRestart();
 
@@ -992,6 +997,12 @@ float Referee::NearestToBall_m(Team* team) const {
   for (const auto& p : team->GetAllPlayers())
     if (p->IsActive()) best = std::min(best, (p->GetPosition() - ball).GetLength());
   return best;
+}
+
+float Referee::TakerBallDistance() const {
+  if (buffer.taker == nullptr) return std::numeric_limits<float>::max();
+  const Vector3 ball = match->GetBall()->Predict(0).Get2D();
+  return (buffer.taker->GetPosition().Get2D() - ball).GetLength();
 }
 
 void Referee::RecordFoul(Player* tripee, Player* tripper, int foulType) {

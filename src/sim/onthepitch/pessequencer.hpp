@@ -27,15 +27,22 @@ e_SetPiece EndLineRestart(int lastTouchSide, float ballX);
 int AwardedTeamAfterBallOut(int lastTouchTeam);
 
 // Where the restart is taken from. The corner is the flag pulled in by the install's insets; a
-// goal kick sits on the goal-area line; a throw-in is on the line, inside the end line.
+// goal kick sits on the goal-area line; a throw-in is outside the touchline by the install's
+// outset, its x kept off the goal lines by the install's inset (writer FUN_14050e770, null-spot
+// path - no F1 clamp, unlike the foul path).
 Spot CornerSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 Spot GoalKickSpot(float ballX, float ballZ, const RestartSpotConstants& k);
-Spot ThrowInSpot(float ballX, float ballZ);
+Spot ThrowInSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 
-// The taker may release once this many frames have passed since the restart was armed. A
-// kick-off is not timed (the receiver's ball test decides it), so its gate is zero.
+// The taker may release once he has reached the ball (A5Live 9.2/9.4: the wait tracks the taker,
+// and the armed handler frees the restart on his kick action). The frame gate is only the
+// time-out both paths keep. A kick-off is not timed at all: its release is the receiver owning
+// the ball (KickoffReceiver, 0x140781fc0) - the same reach check - with the forced rule as its
+// bound (throwin doc 6.2). `takerBallDistance_m` is the taker's 2D distance to the ball;
+// `takerReached` lets a caller with its own reach test decide directly.
 int ReleaseFrames(e_SetPiece kind);
-bool MayRelease(e_SetPiece kind, int framesSinceArmed);
+bool MayRelease(e_SetPiece kind, int framesSinceArmed, bool takerReached, float reach_m,
+                float takerBallDistance_m);
 
 // A restart programme (decode 3.2): the stoppage beats in the order they run, from the whistle
 // to the armed restart. Hold is the players' hold; Wipe prepares the restart; UiAndTeleport is

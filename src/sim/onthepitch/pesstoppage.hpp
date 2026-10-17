@@ -78,6 +78,17 @@ struct RestartSpotConstants {
   // along x and along z by these two insets.
   float cornerInsetX_m = 0.0f;
   float cornerInsetZ_m = 0.0f;
+  // The throw-in's writer form (FUN_14050e770, VA 0x14050e770, null-spot path: throwin doc 1.3,
+  // TouchReach 2): R = (ball.x, 0, sign(z)*(F1 + outset)), then |x| <= F0 - inset. The outset
+  // shares its float with the restart tail (0x142592228 = 0.25) and the inset with the fade-in
+  // (0x14256ae1c = 1.0); both readers take the same value.
+  float throwInLineOutset_m = 0.0f;  // .rdata 0x142592228: the spot outside the touchline
+  float throwInEndInset_m = 0.0f;    // .rdata 0x14256ae1c: x kept off the goal lines
+  // The taker's at-the-ball distance (throwin doc 3.2 phase 4: the seamless carrier stops his
+  // carry this far short of the throw spot). The port reads it as the release reach: PES frees
+  // the restart when the taker reaches the ball (A5Live 9.2), and the kick-off receiver owns it
+  // at the same distance (setpiece doc 3.3, KickoffReceiver 0x140781fc0).
+  float takerReach_m = 0.0f;  // .rdata 0x14259d5d0: carrier stops short of the spot
 };
 std::optional<RestartSpotConstants> LoadRestartSpotConstants(const PeImage& exe, std::string* error);
 

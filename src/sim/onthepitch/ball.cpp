@@ -57,6 +57,17 @@ void Ball::Touch(const Vector3& target) {
   match->GetTeam(1)->UpdatePossessionStats();
 }
 
+void Ball::Stop() {
+  SetMomentum(Vector3(0));
+  // The resting-ball gate needs zero spin too: velocity alone never rests, and the flight
+  // function would re-accelerate the "dead" ball. Not a touch, so no possession stats.
+  SetRotation(0, 0, 0, 1.0);
+  // Recalculate prediction, as Touch does: the track still carries the flight otherwise, and
+  // every AI read takes the track for "now".
+  CalculatePrediction();
+  match->UpdateLatestMentalImageBallPredictions();
+}
+
 void Ball::SetPosition(const Vector3& target) {
   positionBuffer.Set(target);
   momentum.Set(0);

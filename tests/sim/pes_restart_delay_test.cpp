@@ -107,14 +107,21 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (b.active && b.started && !(lastRelease && *lastRelease == b.stopTime)) {
       lastRelease = b.stopTime;
-      // The taker is released on the first frame at or past the PES gate, give or take the
-      // tick the referee checks it on.
+      // The taker is released when he reaches the ball, or on the first frame at or past the
+      // PES gate when he never gets there - give or take the tick the referee checks it on.
       const int gate = pes::ReleaseFrames(b.desiredSetPiece);
       const int frames =
           static_cast<int>((match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
       if (gate > 0) {
-        EXPECT_GE(frames, gate) << "released early for set piece " << b.desiredSetPiece;
         EXPECT_LE(frames, gate + 2) << "released late for set piece " << b.desiredSetPiece;
+        float takerD = 1e9f;
+        if (b.taker != nullptr)
+          takerD = (b.taker->GetPosition().Get2D() - match.GetBall()->Predict(0).Get2D())
+                       .GetLength();
+        const float reach = match.GetPesRestartSpotConstants().takerReach_m;
+        EXPECT_TRUE(frames >= gate || takerD <= reach + 1e-3f)
+            << "set piece " << b.desiredSetPiece << " released at frame " << frames << " of "
+            << gate << " with the taker " << takerD << " m away";
       }
     }
     if (!b.active || (lastStop && *lastStop == b.stopTime)) return;
@@ -180,16 +187,48 @@ TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
 // foul (explicit-spot) path. Preparing the restart must not pull it back onto the line.
 TEST(PesRestartDelay, AThrowInKeepsItsWriterSpotThroughPrepare) {
   std::optional<unsigned long> checkedStop;
+  unsigned long lastTracedStop = 0;
   int throwIns = 0;
   RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
     const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.stopTime != lastTracedStop) {
+      lastTracedStop = b.stopTime;
+      printf("[stop] throw-in stop %lu armed at (%.2f, %.2f) ball (%.2f, %.2f) v=%.2f\n",
+             b.stopTime, b.restartPos.coords[0], b.restartPos.coords[1],
+             match.GetBall()->Predict(0).coords[0], match.GetBall()->Predict(0).coords[1],
+             match.GetBall()->GetMovement().GetLength());
+    }
     if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.prepared || b.started)
       return;
-    if (checkedStop && *checkedStop == b.stopTime) return;
     checkedStop = b.stopTime;
     throwIns++;
+    printf("[prepare] throw-in stop %lu prepared at (%.2f, %.2f) taker %s takerD=%.2f ball (%.2f, %.2f)\n",
+           b.stopTime, b.restartPos.coords[0], b.restartPos.coords[1],
+           b.taker ? "set" : "null",
+           b.taker ? (b.taker->GetPosition().Get2D() - match.GetBall()->Predict(0).Get2D())
+                         .GetLength()
+                   : -1.0f,
+           match.GetBall()->Predict(0).coords[0], match.GetBall()->Predict(0).coords[1]);
     EXPECT_GT(std::fabs(b.restartPos.coords[1]), pesFieldHalfWidth)
         << "throw-in prepared on the line at z = " << b.restartPos.coords[1];
   });
   EXPECT_GT(throwIns, 0) << "no throw-in was prepared";
+}
+// The whistle kills the ball on the PES path: from the stop frame to the prepare the ball must
+// not travel - PES's live throw-in sits past the line at its stop frame and shows no outfield
+// flight during the stop. A ball still flying at prepare is the whistle without the kill.
+TEST(PesRestartDelay, AWhistleLeavesNoFlyingBallBehind) {
+  std::optional<unsigned long> checkedStop;
+  int stops = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || b.prepared) return;
+    if (checkedStop && *checkedStop == b.stopTime) return;
+    checkedStop = b.stopTime;
+    stops++;
+    EXPECT_LE(match.GetBall()->GetMovement().GetLength(), 0.05f)
+        << "ball flying at " << match.GetBall()->GetMovement().GetLength()
+        << " m/s during the stop";
+  });
+  EXPECT_GT(stops, 0) << "no stoppage was seen";
 }
