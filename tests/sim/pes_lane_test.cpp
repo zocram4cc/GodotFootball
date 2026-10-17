@@ -195,6 +195,42 @@ TEST_F(LaneCoreTest, WideConeUsesTheOffsetFormula) {
   EXPECT_EQ(lane::ScanLane(k_, p, 3, 1, wide, false, 0).count, 1);
 }
 
+TEST_F(LaneCoreTest, LaneAngleWrapsAcrossNorth) {
+  // Heading 350 deg and a man 10 m out at bearing 10 deg: 20 deg apart, so he is in the cone.
+  // Without the fold into [-180, 180] the difference is 340 deg and he is refused.
+  lane::LaneRequest north = TestLane();
+  north.heading_deg = 350.0f;
+  Players p{};
+  Put(p, 11, 1.7364818f, 9.8480775f);  // 10 m at bearing 10 deg: (sin, cos)
+  EXPECT_EQ(lane::ScanLane(k_, p, 3, 1, north, false, 0).count, 1);
+}
+
+TEST_F(LaneCoreTest, PathThatOnlyTouchesTheLaneLineIsNotACrossing) {
+  // Slot 11 starts on the lane line (x = 0) and runs away from it: the segment touches, not crosses.
+  Players p{};
+  Put(p, 11, 0.0f, 8.0f, 20.0f, 0.0f);
+  EXPECT_EQ(lane::ScanLane(k_, p, 3, 1, TestLane(), false, 1).count, 0);
+}
+
+TEST_F(LaneCoreTest, NearestIsMeasuredFromThePredictedPosition) {
+  // Now slot 12 (9 m) is nearer than slot 11 (12 m). After one frame slot 11 is at 8 m.
+  Players p{};
+  Put(p, 11, 0.0f, 12.0f, 0.0f, -4.0f);
+  Put(p, 12, 0.0f, 9.0f);
+  EXPECT_EQ(lane::ScanLane(k_, p, 3, 1, TestLane(), false, 1).nearest, 11);
+}
+
+TEST_F(LaneCoreTest, AnnulusBoundsAreExclusive) {
+  // The apex sits at (0, -2). A man exactly 2 m from it (the origin) and exactly 17 m from it
+  // (0, 15) is outside the annulus: both bounds are strict.
+  Players inner{};
+  Put(inner, 11, 0.0f, 0.0f);
+  EXPECT_EQ(lane::ScanLane(k_, inner, 3, 1, TestLane(), false, 0).count, 0);
+  Players outer{};
+  Put(outer, 11, 0.0f, 15.0f);
+  EXPECT_EQ(lane::ScanLane(k_, outer, 3, 1, TestLane(), false, 0).count, 0);
+}
+
 TEST_F(LaneCoreTest, HeadingAddWrapsIntoOneTurn) {
   EXPECT_FLOAT_EQ(lane::HeadingAdd(k_, 350.0f, 180.0f), 170.0f);
   EXPECT_FLOAT_EQ(lane::HeadingAdd(k_, -10.0f, 0.0f), 350.0f);
