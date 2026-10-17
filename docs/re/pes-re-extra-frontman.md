@@ -246,6 +246,8 @@ OPEN: the game-design reason (mutually exclusive card, COM override, or somethin
 Superseded by §6.6 and §6.7.
 
 ### 6.8 EFPin runs: `b8a2` pin, then bit 15 on the CB (17-10-26, owner ruling: pin `b8a2`=1; bit 15 on CB roster and copy words)
+**CORRECTION (17-10-26, see §6.9): every `P+0x3EF8`, ordinal-list and `FUN_1405FC860` read in §6.8 used the wrong base.** The probe took `TD = [brain+0x8+0xBA8]` = `[brain+0xBB0]`. The team tick's ctx is `brain+0x10`, so the designated-slot object is `P = [brain+0xBB8]`. The `0`/`0x30`/`0xFF` values in §6.8 are from `[brain+0xBB0]`, a different object that FC860 never writes. Those "no designation" results are void. The sentinel and `0xFF` writes went to that wrong object and were restored.
+
 
 Scratch: `<workdrive>/gf-EFPin-scratch/efpin_run.py`; logs `efpin_control.log`, `efpin_cb.log`, `efpin_des.log`, `efpin_probe.log`. Written words: side-0 `T+0xB8A2` at `0x1D47D6A6`; CB roster gate word `0x1D48B230` and CB copy word `0x1D4B3110` (new match, so different VAs from §6.4). `MI+0x1168/0x116C/0x1574` never written. Every write restored and read back: `b8a2` 0x00, roster and copy 0x1000, `TD+0x3EF8` 0x00, all `ok=True`. No pin is active.
 
@@ -265,6 +267,35 @@ Scratch: `<workdrive>/gf-EFPin-scratch/efpin_run.py`; logs `efpin_control.log`, 
 **Blocker (OPEN):** why the team tick (or `FUN_1405EC600`) does not reach FC860 for side 0. The tick's own entry gate, before its `MI+0x116C` branch, is not decoded. Next: (1) decode that entry gate; (2) run the sentinel probe on side 1's `TD+0x3EF8` to see whether any side reaches FC860; (3) only then repeat the CB pin, in a state where FC860 runs.
 
 Side-0 HJ readout (`copy+0xA1` H, `copy+0x9C` J, as `block+0x31`, `block+0x2C`): values 175–189 and 57–96, in the range the reach formula clamps. CB H=185. Plausibility only (INF on the field identity).
+
+### 6.9 Side 1 (CPU side) run, and the tick entry gate (17-10-26, Main ruling)
+
+**Corrected base (CONFIRMED by decompile and live read).** `FUN_1404F6C30` is called from `FUN_14041EC80` at `0x14041EDD7`, for each side with `brain_s = [H+0x450+8s]` (`H = [0x1436F3F98]`). The loop has no side test; it runs whenever `brain_s != 0`. `FUN_1404F6C30` calls `FUN_14051D9E0` with `ctx = brain+0x10` (directly, or via `FUN_1404F9DC0(brain)` → `ctx = brain+0x10`). Inside the tick, `P = [ctx+0xBA8] = [brain+0xBB8]`. The ordinal list is `SP[4+j] = ctx+0x10+4j = brain+0x20+4j`. Live (read-only `ptr_probe.py`, 31,120 samples): `[brain+0xBA8]` is shared by both sides (`0x2C025888`); `[brain+0xBB0]` is per side and always has designation 0; `[brain+0xBB8]` toggles (null in ~94% of samples). Its +0x3EF8 read 0xFF in 734 samples (side 0) and 1,212 samples (side 1); `b8a2` was not read in that probe. 0xFF is the gate-1 signature of FC860 (`b8a2`==0 → `des=0xFF`). The side-1 runs below confirm FC860 recomputes for side 1 when `b8a2`=1.
+
+**Entry gate (CONFIRMED decompile).** Nothing in `FUN_14041EC80`, `FUN_1404F6C30`, `FUN_1404F9DC0`, `FUN_14051D9E0` or `FUN_1405EC600` tests the side for the FC860 call. `FUN_14051D9E0` calls `FUN_1405EC600(…,0)` in the `MI+0x116C==1` branch, and `(…,1)` in the `MI∈{2,3}` branch (`0x14051E264`). `FUN_1405EC600` has one `return` (L497). The 11-slot loop calls FC860 on its 11th pass (`uVar20>10`). Side is set only in the callee tests.
+
+**The side test `FUN_140A55CF0(G+0x180, side)` (CONFIRMED decompile, read live).** It returns 0 when `DAT_1434FC9C0[mode(+0xF0 of DAT_143704E38)]` = 10. Otherwise it scans 24 records of 0x74 bytes at `G+0x180` and returns 1 if a live record (`id(+0x10)!=-1 or +3!=0`, `+0xD==0`) has value `== side`, where value = 0 for type 0, 1 for type 2, 2 otherwise. Live state: `mode=8`, table=6 (not 10); two live records, rec0 (type 0, id 0) and rec1 (type 2, id 1). `FUN_140A55CF0(G+0x180, 0) = 1` and `(…, 1) = 1`. The CPU branch in `FUN_14051B8B0` (`==0`, L98, the only bit-15 store) is **not taken for either side** in this state. The **human-side reason is NOT confirmed**: the test does not separate the sides. `FUN_1405F63C0` calls the test with one argument (`param_2` undefined in the decompile), so its result is unreliable.
+
+**Runs (CONFIRMED live; logs `gf-EFPin-scratch/win_A.log`, `win_B.log`; scripts `win_run.py`, `summarize.py`).** Side 1 target: `T1+0xB8A2` pinned to 1 (`T1 = G+0x1928+0x28`, VA `0x1D49B7B6`). B also pins bit 15 on the side-1 CB, local slot 1 = global 12 (roster gate word `0x1D4A9590`, orig `0x0`, target `0x8000`; copy word `0x1D4DE8D0`, orig `0x0`, target `0x8000`). "CB = slot 1" is INF (formation role from §6.4, not checked live). Designated object `0x1D49CCA0` (side 1). In every window the script wrote `0xFF` to `+0x3EF8` once if it was not already `0xFF`, then logged to close.
+- **A (control, 300 s, b8a2 only):** 914 windows. `b8a2_1`=1 at all 914 opens. `P+0x3EF8` at open: 0xFF (831), 12 (83). At close: 12 (104), 255 (810). `FUN_1405FC860` recomputed to the CB (12) in 104 windows (12.5% of the 831 windows that started at 0xFF with no write).
+- **B (cb, 300 s, b8a2 + bit 15 on CB):** 502 windows; `b8a2_1`=1 at all opens; bit 15 on CB roster word at all opens. Open: 0xFF (425), 12 (77). Close: 12 (69), 255 (433). Recompute to CB in 69 of 425 (16.2%).
+- **Pooled:** rate A 12.5%, B 16.2%, z≈1.8 (two-sided p≈0.07). The bit-15 difference is not established.
+- **Candidate list (SP[4..14] on side 1):** `(0,1,2,3,7,4,5,6,8,9,10)` in all 914 A opens and 495 of 502 B opens. B had 5 all-255 lists (cleared) and 2 rotated lists `(1,2,3,4,7,5,6,8,9,10,0)`. A had none. The cleared lists appear only in B; not attributed (5 of 502 windows).
+- **Restore (verified):** `b8a2` 0x00, roster 0x00, copy 0x00 (readbacks `ok=True`); designated object `0x1D49CCA0+0x3EF8` restored to first-seen `0xFF` (readback `0xFF`). No pin is active.
+
+**Answers to the ruling.**
+- Does `P+0x3EF8` (side 1) name the CB in B and not in A? **No.** It names the CB (12) in A too, at a similar rate (12.5% vs 16.2%, not significant). So the bit-15 pin is not what makes him the designee.
+- Side-1 candidate list: unchanged in A and in B (the CB is at index 1 in both). The bit-15 store (`FUN_14051B8B0` L106) is not reached (see the side test above), which matches the list not changing.
+- +0.2 effect: **not attributable.** The CB is named in A without bit 15, so the +0.2 in FC860 cannot be isolated from the designation. Scores not logged.
+- `F63C0` / `F7D00` outcomes: not observed (no breakpoints; outputs not in memory after return). OPEN.
+- Human side: **OPEN.** The side test returns 1 for both sides live (above). Side 0 = human is not confirmed by this decode.
+
+**Side-0 and side-1 windows show FC860 runs for both sides.** The earlier "FC860 never ran" finding (§6.8, diagnostic P) is void: it read the wrong object.
+
+**Other void results (same base error):** the ordinal-list values and "cleared SP lists" in §6.3, §6.6 and §6.8 (`SP = [brain+0x8]+8`) are misaligned by 8 bytes. The list is `brain+0x20`. Re-derive before citing. The `pin_run1` pin (§6.6) wrote the same wrong object's list reads.
+
+**Open:** (1) confirm local slot 1 = CB on side 1 (roster record and formation role); (2) log the score per candidate in FC860 (needs a breakpoint or a decode of the fallback's `record` fields) to measure the +0.2 directly; (3) decode why `FUN_140A55CF0` returns 1 for both sides, i.e. the meaning of record `id` and of `type 2`.
+
 
 ---
 
