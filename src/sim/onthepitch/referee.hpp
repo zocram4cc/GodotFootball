@@ -169,6 +169,9 @@ protected:
                    bool targeted);
   void RecordFoul(Player* tripee, Player* tripper, int foulType);
   float NearestToBall_m(Team* team) const;
+  // The taker's 2D distance to the ball: PES's release trigger (A5Live 9.2/9.4). Huge when no
+  // taker is designated yet, so the frame gate decides those ticks.
+  float TakerBallDistance() const;
 
   // PES 2021's offside whistle (docs/re/pes-re-duels-fouls.md 5.1): after the
   // gs/2 whistle hold from the involvement, and for a category-2 flag

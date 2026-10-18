@@ -124,14 +124,21 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (b.active && b.started && !(lastRelease && *lastRelease == b.stopTime)) {
       lastRelease = b.stopTime;
-      // The taker is released on the first frame at or past the PES gate, give or take the
-      // tick the referee checks it on.
+      // The taker is released when he reaches the ball, or on the first frame at or past the
+      // PES gate when he never gets there - give or take the tick the referee checks it on.
       const int gate = pes::ReleaseFrames(b.desiredSetPiece);
       const int frames =
           static_cast<int>((match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
       if (gate > 0) {
-        EXPECT_GE(frames, gate) << "released early for set piece " << b.desiredSetPiece;
         EXPECT_LE(frames, gate + 2) << "released late for set piece " << b.desiredSetPiece;
+        float takerD = 1e9f;
+        if (b.taker != nullptr)
+          takerD = (b.taker->GetPosition().Get2D() - match.GetBall()->Predict(0).Get2D())
+                       .GetLength();
+        const float reach = match.GetPesRestartSpotConstants().takerReach_m;
+        EXPECT_TRUE(frames >= gate || takerD <= reach + 1e-3f)
+            << "set piece " << b.desiredSetPiece << " released at frame " << frames << " of "
+            << gate << " with the taker " << takerD << " m away";
       }
     }
     if (!b.active || (lastStop && *lastStop == b.stopTime)) return;
@@ -228,6 +235,43 @@ TEST(PesRestartDelay, DISABLED_ALooseDeadBallInPlayIsReachedAndPlayed) {
       << "a loose dead ball in play lay for " << longestTicks << " ticks (bound " << kBoundTicks << ")";
 }
 
+// The writer's throw-in spot survives the prepare: PES's null-spot path (FUN_14050e770, VA
+// 0x14050e770) puts it F1 + 0.25 outside the touchline with no F1 clamp - the clamp is the
+// foul (explicit-spot) path. Preparing the restart must not pull it back onto the line.
+TEST(PesRestartDelay, AThrowInKeepsItsWriterSpotThroughPrepare) {
+  std::optional<unsigned long> checkedStop;
+  int throwIns = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.prepared || b.started)
+      return;
+    if (checkedStop && *checkedStop == b.stopTime) return;
+    checkedStop = b.stopTime;
+    throwIns++;
+    EXPECT_GT(std::fabs(b.restartPos.coords[1]), pesFieldHalfWidth)
+        << "throw-in prepared on the line at z = " << b.restartPos.coords[1];
+  });
+  EXPECT_GT(throwIns, 0) << "no throw-in was prepared";
+}
+// The whistle kills the ball on the PES path: from the stop frame to the prepare the ball must
+// not travel - PES's live throw-in sits past the line at its stop frame and shows no outfield
+// flight during the stop. A ball still flying at prepare is the whistle without the kill.
+TEST(PesRestartDelay, AWhistleLeavesNoFlyingBallBehind) {
+  std::optional<unsigned long> checkedStop;
+  int stops = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || b.prepared) return;
+    if (checkedStop && *checkedStop == b.stopTime) return;
+    checkedStop = b.stopTime;
+    stops++;
+    EXPECT_LE(match.GetBall()->GetMovement().GetLength(), 0.05f)
+        << "ball flying at " << match.GetBall()->GetMovement().GetLength()
+        << " m/s during the stop";
+  });
+  EXPECT_GT(stops, 0) << "no stoppage was seen";
+}
+
 // A restart taker must take the restart: within the bound after the release he plays a ball action
 // (a pass, a lofted kick, a shot or a throw). A taker whose clip stays a PES locomotion clip is
 // refused his ball action by SelectAnim, so this stays red until the requeue gate accepts it.
@@ -272,4 +316,48 @@ TEST(PesRestartDelay, ARestartTakerPlaysHisBallActionAfterRelease) {
   EXPECT_GT(restarts, 0) << "no restart was taken";
   EXPECT_EQ(untaken, 0) << untaken << " restart taker(s) played no ball action within " << bound
                         << " ticks of release:" << who;
+}
+
+// The taker reads the ball out of his own mental image, never out of the live ball:
+// humanoid's touch loop takes `currentMentalImage->GetBallPrediction(animTouchFrame * 10)`
+// (humanoid.cpp 3184, and again at 3391) and GetBodyBallDistanceAdvantage scores every
+// candidate anim against that read. A restart moves the ball to its spot; the taker's read of
+// the ball on a prepared restart tick must be that spot, not the ball's flight before the
+// restart.
+TEST(PesRestartDelay, ARestartPlacesTheBallInTheTakersMentalImage) {
+  // The read the taker's own controller makes: an image this many ms old, read this many ms
+  // ahead, which lands on the ball as it is now.
+  constexpr int kReactionHistory_ms = 300;
+  constexpr unsigned int kTouchAhead_ms = 300;
+  // Half a metre: a taker aiming at a spot rather than at the ball is off by more than this.
+  constexpr float kMentalImageTolerance_m = 0.5f;
+  unsigned long preparedTicks = 0;
+  float worst = 0.0f;
+  unsigned long worstTick = 0;
+  int worstPiece = 0;
+  Vector3 worstReal, worstSeen;
+  RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || !b.prepared || b.started) return;
+    if (match.GetBall()->GetMovement().GetLength() > 0.05f) return;  // the ball is not dead yet
+    const MentalImage* image = match.GetMentalImage(kReactionHistory_ms);
+    if (!image) return;
+    ++preparedTicks;
+    const Vector3 real = match.GetBall()->Predict(0).Get2D();
+    const Vector3 seen = image->GetBallPrediction(kTouchAhead_ms).Get2D();
+    const float off = (seen - real).GetLength();
+    if (off > worst) {
+      worst = off;
+      worstTick = preparedTicks;
+      worstPiece = b.desiredSetPiece;
+      worstReal = real;
+      worstSeen = seen;
+    }
+  });
+  EXPECT_GT(preparedTicks, 0ul) << "no prepared restart tick was seen";
+  EXPECT_LT(worst, kMentalImageTolerance_m)
+      << "prepared tick " << worstTick << " (set piece " << worstPiece << "): the taker's mental "
+      << "image reads the ball at (" << worstSeen.coords[0] << ", " << worstSeen.coords[1]
+      << ") but it is at (" << worstReal.coords[0] << ", " << worstReal.coords[1] << "), "
+      << worst << " m off";
 }
