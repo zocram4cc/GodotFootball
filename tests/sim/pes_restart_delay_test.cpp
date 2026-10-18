@@ -271,17 +271,15 @@ TEST(PesRestartDelay, ARestartTakerPlaysHisBallActionAfterRelease) {
 // The taker reads the ball out of his own mental image, never out of the live ball:
 // humanoid's touch loop takes `currentMentalImage->GetBallPrediction(animTouchFrame * 10)`
 // (humanoid.cpp 3184, and again at 3391) and GetBodyBallDistanceAdvantage scores every
-// candidate anim against that read. A restart moves the ball to its spot, so if the mental
-// image still carries the track it had at the stop frame the taker aims at a ball that is
-// metres away and no anim is ever chosen. Prepared ticks only: the ball is dead at its spot
-// then, so the live ball and a correct 300 ms-ahead read are the same point.
+// candidate anim against that read. A restart moves the ball to its spot; the taker's read of
+// the ball on a prepared restart tick must be that spot, not the ball's flight before the
+// restart.
 TEST(PesRestartDelay, ARestartPlacesTheBallInTheTakersMentalImage) {
   // The read the taker's own controller makes: an image this many ms old, read this many ms
   // ahead, which lands on the ball as it is now.
   constexpr int kReactionHistory_ms = 300;
   constexpr unsigned int kTouchAhead_ms = 300;
-  // Half a metre: the restarts move the ball around the pitch, so anything near that is a
-  // taker aiming at a spot rather than at the ball.
+  // Half a metre: a taker aiming at a spot rather than at the ball is off by more than this.
   constexpr float kMentalImageTolerance_m = 0.5f;
   unsigned long preparedTicks = 0;
   float worst = 0.0f;

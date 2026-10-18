@@ -74,11 +74,7 @@ public:
   // emptied on every reset (half time, a restart, teardown) and a raw pointer
   // into it dangles the moment that happens.
   std::shared_ptr<const MentalImage> GetMentalImageOwned(int history_ms);
-  // Republishes the live ball track into every mental image in the ring. A ball that stops or
-  // jumps (Touch, Stop, SetPosition) has to call this, or every image still holds the track it
-  // had when the ring took it and the players on the far end of their reaction time aim at a
-  // ball that is not there.
-  void UpdateMentalImageBallPredictions();
+  void UpdateLatestMentalImageBallPredictions();
 
   void ResetSituation(const Vector3& focusPos);
   // drops every player's cached mental image before the match frees them

@@ -51,7 +51,7 @@ void Ball::Touch(const Vector3& target) {
 
   // recalculate prediction
   CalculatePrediction();
-  match->UpdateMentalImageBallPredictions();
+  match->UpdateLatestMentalImageBallPredictions();
 
   match->GetTeam(0)->UpdatePossessionStats();
   match->GetTeam(1)->UpdatePossessionStats();
@@ -65,7 +65,7 @@ void Ball::Stop() {
   // Recalculate prediction, as Touch does: the track still carries the flight otherwise, and
   // every AI read takes the track for "now".
   CalculatePrediction();
-  match->UpdateMentalImageBallPredictions();
+  match->UpdateLatestMentalImageBallPredictions();
 }
 
 void Ball::SetPosition(const Vector3& target) {
@@ -75,11 +75,6 @@ void Ball::SetPosition(const Vector3& target) {
   ballPosHistory.clear();
   previousMomentum = momentum;
   previousPosition = positionBuffer;
-  // The track and the ring behind it, as Touch and Stop do: this is a teleport, so a track that
-  // still carries the old flight reads a ball that is metres away from where it now is. The
-  // keeper holding a shot is the one caller, and every outfielder reads him through the ring.
-  CalculatePrediction();
-  match->UpdateMentalImageBallPredictions();
 }
 
 void Ball::SetMomentum(const Vector3& target) {
