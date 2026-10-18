@@ -262,9 +262,7 @@ that tightens `need` at a forward angle ≤ 30°) is replaced by the caller's
 
 ### 3.6 Plan order and the roll (report §4.4)
 
-`pes::kPlanPriorityOrder` is the priority order itself (9, 8, 2, 3, 1, 4, 5, 6,
-table @0x142bf02c0) with Basic as the fallback. `pes::PlanStartProbability` is the
-P table and `pes::PlanRoll` the roll.
+_Corrected 18-10-26 from pes-re-com-styles.md §4.12 and its Q3:_ `pes::kPlanPriorityOrder` is the priority order **9, 8, 2, 3, 1, 4, 5, 6, 7**, with Basic as the fallback. The table @0x142bf02c0 holds 8 dwords (9, 8, 2, 3, 1, 4, 5, 6; 0x142bf02e0 is 0), and 7 (SideChange) is written inline in the dispatcher 0x14211e2d0. `pes::PlanStartProbability` is the P table and `pes::PlanRoll` the roll.
 
 The roll, read at `0x14211a89..0x14211aac2`: PES builds a throw-away generator
 (`0x140a923f0`), seeds **slot 2** with `int(carrierClock × K)` (`0x140a928a0`,
