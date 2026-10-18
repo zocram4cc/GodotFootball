@@ -17,6 +17,7 @@
 #include "onthepitch/match.hpp"
 #include "onthepitch/matchsetup.hpp"
 #include "onthepitch/player/player.hpp"
+#include "onthepitch/pesclips.hpp"
 #include "onthepitch/pessequencer.hpp"
 #include "onthepitch/restartwatch.hpp"
 #include "pes/vfs.hpp"
@@ -272,4 +273,69 @@ TEST(PesRestartDelay, ARestartTakerPlaysHisBallActionAfterRelease) {
   EXPECT_GT(restarts, 0) << "no restart was taken";
   EXPECT_EQ(untaken, 0) << untaken << " restart taker(s) played no ball action within " << bound
                         << " ticks of release:" << who;
+}
+
+// A throw-in must be taken within the bound, and its taker must play a ball action then, when the ball
+// lies over the touchline at the restart. Seed 7's first throw-in is released with its taker in a PES
+// locomotion clip. In pes_loop nothing puts back a ball that a body touch pushed past the line (the
+// reset in referee.cpp is for the GF path only). The taker's candidate touches are then all refused as
+// out of bounds (humanoid GetBestCheatableAnimID), so no pass or shot is selected and the match stalls.
+// This test places the ball 0.2 m over the line in each throw-in's hold and requires the taker's ball
+// action within the bound counted from the stoppage, as the restart watch counts it.
+TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
+  constexpr float kBallOverLine_m = 0.2f;
+  const auto isBallAction = [](int type) {
+    return type == e_FunctionType_ShortPass || type == e_FunctionType_LongPass ||
+           type == e_FunctionType_HighPass || type == e_FunctionType_Shot;
+  };
+  struct Taking {
+    Player* taker;
+    unsigned long stoppedAt;  // the tick the stoppage began
+    std::string name;
+  };
+  std::map<unsigned long, unsigned long> stoppedAt;  // by stop time
+  std::map<unsigned long, Taking> taking;            // released, not yet taken
+  std::set<unsigned long> pushed, seen;
+  unsigned long tick = 0, bound = 0;
+  int throwIns = 0, onLocomotion = 0, untaken = 0;
+  std::string who;
+  RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
+    ++tick;
+    bound = RestartLimitTicks(match.GetPesStoppageConstants(), match.GetPesSetPieceTakerConstants());
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker)
+      stoppedAt.emplace(b.stopTime, tick);
+    if (b.active && b.prepared && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker &&
+        pushed.insert(b.stopTime).second) {
+      const float side = b.restartPos.coords[1] < 0 ? -1.0f : 1.0f;
+      match.GetBall()->ResetSituation(
+          Vector3(b.restartPos.coords[0], side * (pitchHalfH + lineHalfW + kBallOverLine_m), 0));
+    }
+    if (b.active && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker &&
+        seen.insert(b.stopTime).second) {
+      const Anim* anim = b.taker->GetCurrentAnim();
+      if (anim && anim->functionType == e_FunctionType_Special && anim->anim &&
+          pes::IsPesLocomotionFamily(std::atoi(anim->anim->GetVariable("specialvar1").c_str())))
+        onLocomotion++;
+      throwIns++;
+      taking[b.stopTime] =
+          Taking{b.taker, stoppedAt[b.stopTime], b.taker->GetPlayerData()->GetLastName()};
+    }
+    for (auto it = taking.begin(); it != taking.end();) {
+      const Anim* anim = it->second.taker->GetCurrentAnim();
+      if (anim && isBallAction(anim->functionType)) {
+        it = taking.erase(it);
+      } else if (tick - it->second.stoppedAt > bound) {
+        untaken++;
+        who += " taker " + it->second.name + ";";
+        it = taking.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  });
+  EXPECT_GT(throwIns, 0) << "no throw-in was released";
+  EXPECT_GT(onLocomotion, 0) << "no throw-in taker was in a PES locomotion clip at release";
+  EXPECT_EQ(untaken, 0) << untaken << " throw-in taker(s) played no ball action within " << bound
+                        << " ticks of the stoppage with the ball over the line:" << who;
 }
