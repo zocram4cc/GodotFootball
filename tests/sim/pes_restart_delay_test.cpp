@@ -267,3 +267,49 @@ TEST(PesRestartDelay, ARestartTakerPlaysHisBallActionAfterRelease) {
   EXPECT_EQ(untaken, 0) << untaken << " restart taker(s) played no ball action within " << bound
                         << " ticks of release:" << who;
 }
+
+// The taker reads the ball out of his own mental image, never out of the live ball:
+// humanoid's touch loop takes `currentMentalImage->GetBallPrediction(animTouchFrame * 10)`
+// (humanoid.cpp 3184, and again at 3391) and GetBodyBallDistanceAdvantage scores every
+// candidate anim against that read. A restart moves the ball to its spot, so if the mental
+// image still carries the track it had at the stop frame the taker aims at a ball that is
+// metres away and no anim is ever chosen. Prepared ticks only: the ball is dead at its spot
+// then, so the live ball and a correct 300 ms-ahead read are the same point.
+TEST(PesRestartDelay, ARestartPlacesTheBallInTheTakersMentalImage) {
+  // The read the taker's own controller makes: an image this many ms old, read this many ms
+  // ahead, which lands on the ball as it is now.
+  constexpr int kReactionHistory_ms = 300;
+  constexpr unsigned int kTouchAhead_ms = 300;
+  // Half a metre: the restarts move the ball around the pitch, so anything near that is a
+  // taker aiming at a spot rather than at the ball.
+  constexpr float kMentalImageTolerance_m = 0.5f;
+  unsigned long preparedTicks = 0;
+  float worst = 0.0f;
+  unsigned long worstTick = 0;
+  int worstPiece = 0;
+  Vector3 worstReal, worstSeen;
+  RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || !b.prepared || b.started) return;
+    if (match.GetBall()->GetMovement().GetLength() > 0.05f) return;  // the ball is not dead yet
+    const MentalImage* image = match.GetMentalImage(kReactionHistory_ms);
+    if (!image) return;
+    ++preparedTicks;
+    const Vector3 real = match.GetBall()->Predict(0).Get2D();
+    const Vector3 seen = image->GetBallPrediction(kTouchAhead_ms).Get2D();
+    const float off = (seen - real).GetLength();
+    if (off > worst) {
+      worst = off;
+      worstTick = preparedTicks;
+      worstPiece = b.desiredSetPiece;
+      worstReal = real;
+      worstSeen = seen;
+    }
+  });
+  EXPECT_GT(preparedTicks, 0ul) << "no prepared restart tick was seen";
+  EXPECT_LT(worst, kMentalImageTolerance_m)
+      << "prepared tick " << worstTick << " (set piece " << worstPiece << "): the taker's mental "
+      << "image reads the ball at (" << worstSeen.coords[0] << ", " << worstSeen.coords[1]
+      << ") but it is at (" << worstReal.coords[0] << ", " << worstReal.coords[1] << "), "
+      << worst << " m off";
+}
