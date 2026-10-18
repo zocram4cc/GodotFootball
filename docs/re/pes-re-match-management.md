@@ -206,34 +206,47 @@ marker) and `FUN_1406006d0` (the plan-switch applier, §3). At
 `MI+0x1590/0x158c` and role `T+0x4c00`, OBS `mmc2a.c` lines 48–116).
 
 ### 2.3 Stamina subs — `FUN_140523b60` (OBS `mmc2a.c` lines 394–713)
-_Corrected 17-10-26 from pes-re-stamina-subs.md (OBS, its "Corrections to match-management §2.3"): the minute schedule is per mode, not per period (period 3 gated, others full cap); mode 2 never reaches full cap; ×0.5 applies on the match (+500) and form (+100) paths, not "when pad-ids differ"; class 1 (CB) and 0 (GK) are excluded; goal/assist protection is added; sort is ascending. The code below is the pre-correction reading._
+_Corrected 18-10-26 from pes-re-stamina-subs.md §2 (its pseudocode and "Corrections to match-management §2.3", OBS): the block below is the corrected reading. It replaces the 17-10-26 pre-correction code, whose per-period cap, pad-id halving and worst-pct-first sort were wrong._
 
 ```
-// cap: settings byte settings+0x18 (per match length? INF)
-//   period 3 (second half): minute>25 → cap; 20..25 → cap·2/3; 15..20 → cap/3 (OBS lines 440–470)
-//   period 2 (first half): cap (OBS)
-// if used(obj+0xc) >= cap: return
-for each on-pitch slot i<11 (role = T+0x3fb8+... class at +0xc48/0x4bd4):
-   skip keeper-ish (role 1 with ...) and locked (FUN_140a3f390)
-   skip formation-slot mismatches (pad-identity checks, OBS)
-   threshold by role class (OBS lines 520–560):
-     class {2,5} (INF: wide/mid?): 20/30/40 by sub-mode 1/2/3
-     class {3,4}: 20/30/40 with base 2000
-     class {6..9}: 25/40/45 with base 0
-     else: 0/15 with base 3000   (mode = FUN_140520de0: 1 = CPU full, 3 = ...; OBS mmc3a.c)
-   same-position bonus: +500 if bench/own slot pad-ids match, +100 if stamina-close (OBS)
-   halved (×0.5) when pad-ids differ (OBS)
-   clamp 0..50 (0x33/0x32)
-   stamina pct = FUN_140a58550(PMS) (OBS: the guarded pct getter, mmc7a.c)
-   if pct ≤ threshold: candidate, score = pct + base
-sort candidates by score (qsort-like FUN_141e53540, OBS), take up to
-remaining = cap − used, pick replacement via FUN_140521930(kind 3),
-queue kind 3 (OBS lines 690–713).
+// return if !subsAllowed(obj) or subMode(obj) == 0; no first-half subs: return if period == 1 or MI+0x1554 == 7 (restart mode)
+// m = clock minute in period (0 if the record is absent; INF(low), stamina-subs §4)
+// cap = settings byte S.cap (INF: per match length)
+if period != 3: cap = S.cap                                 // breaks and extra time
+else by mode (raw 0x140523c82–0x140523cef):
+  mode 1: cap = m >= 25 ? cap*2/3 : 0
+  mode 2: cap = m >= 25 ? cap*2/3 : m >= 15 ? cap/3 : 0     // the m >= 35 full-cap store is overwritten: mode 2 never reaches full cap
+  mode 3: cap = m >= 20 ? cap : m >= 10 ? cap*2/3 : 0
+  else:   cap = 0
+// integer division
+if used(obj+0xc) >= cap: return;  remaining = cap - used
+
+for each slot i with side*11+i < 22 on pitch (MI+0x1748):
+   cls = T.slotClass[i]
+   skip if !onPitchEligible(i) or already queued or cls <= 1  // GK (0) and CB (1) never
+   isUser = slot id == padUserId                              // both null counts as equal
+   skip if S.lockUserPlayer and isUser
+   r = roster(i); form = liveStat(i, 0x37)
+   if r < 40 (keep match-winners):                            // goal and assist protection
+      tg, ta = team goals, assists; p = player stats(r)
+      skip if tg and p.goals and (obj+0x1c == p.goals or p.goals >= 0.5*clamp(tg,1,3))   // obj+0x1c: readers only
+      skip if ta and p.assists >= 0.5*clamp(ta,1,5)
+   (thr, base) by cls and mode:
+      cls 2,5 (full-backs, side mids): thr 20/30/40, base 1000
+      cls 3,4 (DMF, CMF):              thr 20/30/40, base 2000
+      cls 6..9 (AMF, SS, WF, CF):      thr 25/40/45, base 0
+      else:                            thr 0/0/15,   base 3000
+   if isUser: base += 500; thr = int(thr*0.5)
+   elif 3.5 <= form+0.05 and obj.byte(+0x14) <= form+1: base += 100; thr = int(thr*0.5)
+   thr = clamp(thr, 0, 50)
+   pct = staminaPct(PMS(side*11+i))
+   if pct <= thr: candidate {i, score = base + pct}
+sort candidates ascending by score     // attackers first, then wide, then central; tiredest first in each
+for k < len(cands) and k < remaining:
+   in = pickReplacement(obj, cands[k].slot, kind 3, obj+0x368)
+   if in != 0xff and !enqueueSub(obj, in, cands[k].slot, 3): break
 ```
-So: **stamina subs only from the second-half-ish minute gates, capped
-per match, worst-pct-first with role-class thresholds 15–45 % and a
-same-position preference** (OBS). No score input in this function (OBS
-by absence); the score gate lives in the caller (§2.2(2)/(4)).
+So: **stamina subs come from a per-mode minute schedule, gated in period 3 and capped per match. Candidates are on-pitch outfield men (class 2 and up) at or below a class threshold of 0–50 % stamina. The user's player (+500) and form-close men (+100) get a base bonus and halved thresholds. The lowest base + stamina score goes first (OBS). No score input in this function (OBS by absence); the score gate lives in the caller (§2.2(2)/(4)).**
 
 ### 2.4 Tactical subs — `FUN_1405242a0` (OBS `mmc2a.c` lines 713–1006)
 

@@ -153,3 +153,24 @@ No text in pes-re-teamorder.md names `FUN_1409f1bb0`. Its corrections concern th
 ### G-count
 
 Section C had 16 OPEN rows. Closed this round: carrier-units §2.2 (G1–G3), anim-select §3.3 (G10), ball-contact-2 code block (G9), cloth-nets §3 (G11), physique (G22), leftovers-2 (G12), pitch-grass (G21), duels-fouls (G20), foul-choreography §1.2 (G13), setpiece §1.1 and §12 (G14, G15), team-plans §2.1 (G16), defensive-shape timer (G17), Dribble.md (G18), StylePort l.56 (G19), ball-collision (G23). Still open: the four items above.
+
+### G-r3: Round 3 (PropAudit3, 18-10-26; branch `PropAudit3` on origin/main `5cf43c3`)
+
+| # | Older doc | Orig. line | Old claim | New claim | Source | Status |
+|---|---|---|---|---|---|---|
+| R3-1 | pes-re-carrier-ai.md | 372–373 (§4.4) | priority `9, 8, 2, 3, 1, 4, 5, 6` (table @0x142bf02c0) | `9, 8, 2, 3, 1, 4, 5, 6, 7`; the table holds 8 dwords, 7 is inline in 0x14211e2d0; 0x142bf02e0 = 0 (static read of PES2021.exe) | pes-re-com-styles.md §4.12 and Q3 | EDITED |
+| R3-2 | pes-re-carrier-port.md | 265–267 (§3.6) | `kPlanPriorityOrder` = the 8-dword table, Basic fallback | `9, 8, 2, 3, 1, 4, 5, 6, 7`, 7 inline at 0x14211e2d0 | pes-re-com-styles.md §4.12 | EDITED |
+| R3-3 | pes-re-transitions.md | 224–227 (§3.1 supporters) | #1 on men with y ≤ ball, #2 on men with y ≥ ball; lateral bearings 180°/0°, ≤22° toward A | Sides stand. Decode of `FUN_140541010`: #1 (158° for A = +x) takes men with lateral z ≤ ball z; #2 (22°) takes z ≥ ball z. Added the exclusion and stale-array detail | `FUN_140541010` decompile (this round); team-concepts-port.md l.20 gives the same sides | EDITED (decode note; no side change) |
+| R3-4 | pes-re-match-management.md | 209–249 (§2.3 model text) | pre-correction code: per-period cap, ×0.5 when pad-ids differ, worst-pct-first sort | Corrected reading: per-mode schedule (period 3 gated), class 0/1 excluded, user +500 and form +100 with halved thresholds, goal/assist protection, ascending base+pct sort | pes-re-stamina-subs.md §2 (pseudocode and its Corrections paragraph) | EDITED (A3 completion) |
+| R3-5 | pes-re-anim-select.md | 542 (§8 killed-hypotheses row 1) | A6 completion, Freemove.bin row | OPEN: no propagation row cites l.542. The A6 rows (11–16) cite only A6Period, A6Writers and clock docs. No edit | none | OPEN (source row not visible) |
+| R3-6 | pes-re-anim-select.md | 625 (follow-up note) | A6 completion, Freemove and dash-reserve note | OPEN: no propagation row cites l.625. The note already carries the anim-select-2 content (Freemove never read; breath %). No edit | none | OPEN (source row not visible) |
+
+Checks and open items for Main (round 3):
+- Docs only: no build, no test, no gate. `tools/check_pii.sh` run from the main checkout (result in the report).
+- R3-3 premise: the brief said team-concepts-port.md l.20 reverses the sides. It does not; l.20 matches the transitions text and the decode. Main: check whether a reversed copy exists on another branch.
+- R3-3 INF: the output array (`+0x1c/+0x20/+0x24`) is not cleared inside `FUN_140541010`, so slot 0 also excludes the previous call's picks. The caller's clearing and the runner index (`+0x18`) are not decoded.
+- R3-3 INF: the "state priority > 2 = not in a run/press/MATCH_UP state" gloss comes from the port, not from a decode of `FUN_140a40110`.
+- R3-4 INF: `m` (the clock minute, stamina-subs §4) and `obj+0x1c` (readers only) stay open, as the source states.
+- Live PES was read during this round but no live result is cited. The priority table is confirmed statically, which is the source the brief asks for.
+
+Report: `local://pes-doc-propagation-r3.md`.

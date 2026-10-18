@@ -370,7 +370,7 @@ Ten image units, plan id = index: 0 Basic, 1 Breakthrough, 2 MiddleShot, 3 Curve
 4 PassThrough, 5 Cross, 6 Long, 7 SideChange, 8 ShotPassFromGoal, 9 BackDFLine (ctor
 `0x142119ee0`). Every frame all are updated; the running plan ends when its slot 3 says so;
 when none runs, the first plan whose slot 2 ("start") returns true in the priority order
-**9, 8, 2, 3, 1, 4, 5, 6** (table @0x142bf02c0) becomes the plan, else Basic. The plan sets
+**9, 8, 2, 3, 1, 4, 5, 6, 7** becomes the plan, else Basic. _Corrected 18-10-26 from pes-re-com-styles.md §4.12 and its Q3: the table @0x142bf02c0 holds 8 dwords (9, 8, 2, 3, 1, 4, 5, 6; the dword at 0x142bf02e0 is 0), and 7 (SideChange) is written inline in the dispatcher 0x14211e2d0._ The plan sets
 the desired direction `+0xC0` (`0x14211e650` → `0x14211c380`: goal centre for 2, near post
 zone for 3, cross zones `imageA+0x278/+0x294` for 5/6, the plan target player for 8, …) and
 the plan target `+0xCC`. Several plans are **rolled**: `roll = RNG(seed = int(ctx4+0x18 ×
