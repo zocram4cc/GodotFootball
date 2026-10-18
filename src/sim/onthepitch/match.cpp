@@ -440,9 +440,13 @@ const MentalImage* Match::GetMentalImage(int history_ms) {
   return mentalImages.at(index).get();
 }
 
-void Match::UpdateLatestMentalImageBallPredictions() {
-  if (mentalImages.size() > 0)
-    mentalImages.at(0)->UpdateBallPredictions();
+void Match::UpdateMentalImageBallPredictions() {
+  // Every image in the ring, not just the newest: a player reads the image his reaction time
+  // puts him at (humanoid's touch loop, humanoid.cpp 3184), so a ball that stops or jumps while
+  // the ring holds its old flight stays metres away from where it is for every one of those
+  // reads until the ring has refilled past them. Refreshing only index 0 left the oldest read
+  // (a 300 ms reaction) on the pre-change track.
+  for (auto& image : mentalImages) image->UpdateBallPredictions();
 }
 
 void Match::InvalidateCachedMentalImages() {
