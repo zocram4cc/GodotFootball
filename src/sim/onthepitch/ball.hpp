@@ -73,6 +73,11 @@ public:
 
   void Process();
 
+  // PES's dead ball at the whistle: zero the velocity in place, leaving the position for the
+  // restart writer (which reads it at the stop frame). The track is rebuilt so predictions stop
+  // flying; the prepare teleport still moves it to the spot.
+  void Stop();
+
   void ResetSituation(const Vector3& focusPos);
 
 protected:
