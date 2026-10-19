@@ -746,8 +746,15 @@ void GotoRun(MoveHost& host, MoveReq& req) {
     host.CommandSpeedClass();
   }
 
-  // The stop arm: the previous state's dwell has expired and the turn is past 56.25 degrees.
-  if (req.Flag(moveword::kTurnLockFlag) == false && req.U(moveword::kCommandSpeedClass) != 0xffffffffu) {
+  // The stop arm (FUN_1406bdf10 lines 215-217): it runs when the state before the current one is not IDLE, or the second
+  // dwell has run out, or the command id is 5. P+0x245d holds that state (read at VA 0x1406be573): it is written as the
+  // old state at each change (FUN_1406b8340's tail, VA 0x1406b8736), at its INIT path (0x1406b8408) and at an anime
+  // action entry (FUN_1406eb440, 0x1406eb459).
+  const bool secondDwellPast = req.F(moveword::kDwellLimit2) <= req.F(moveword::kDwellElapsed2) &&
+                               req.F(moveword::kDwellElapsed2) != req.F(moveword::kDwellLimit2);
+  const bool stopArmOpen = host.MoveStatePrevious() != static_cast<int>(MoveState::kIdle) || secondDwellPast ||
+                           req.U(moveword::kCommandId) == 5u;
+  if (stopArmOpen && req.U(moveword::kCommandSpeedClass) != 0xffffffffu) {
     const float dwellFactor = (req.U(moveword::kMoveBucket) == 0u || req.U(moveword::kMoveBucket) == 5u) ? k.rate06 : k.blend3;
     if ((static_cast<float>(clipLen) < static_cast<float>(hit0) * dwellFactor ||
          clipLen < clipTotal) &&
