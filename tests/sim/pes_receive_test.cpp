@@ -495,3 +495,47 @@ TEST(PesReceiveCarrier, ANewControlTouchTakesTheCarrierFromTheHolder) {
 TEST(PesReceiveCarrier, AControlTouchThatMissesLeavesTheHolderWithTheBall) {
   EXPECT_EQ(pes::CarrierAfterContact(true, false, true), pes::CarrierChange::kKeep);
 }
+
+// The trap picker (FUN_14081ff70 for action 7): a row admits the ball inside its clip-space window (x strictly
+// between xb and xe, z strictly between zb and ze); the lowest priority wins, then the nearest hit; a hit higher
+// than the ball by more than the height tolerance refuses its row. The rows and hits here are synthetic: the
+// tests state the rule, not PES's numbers.
+TEST(PesReceivePicker, TheBallInsideARowsWindowGetsThatRowsClip) {
+  pes::ReceiveConstants k{};
+  k.trapRows = {pes::ActionRow{10, pes::kTrapActionRow, 1, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f}};
+  const auto hit = [](int) { return pes::ClipPoint{}; };
+  auto inside = pes::PickTrapClip(k, {0.1f, 0.0f, 0.0f}, hit);
+  ASSERT_TRUE(inside.has_value());
+  EXPECT_EQ(*inside, 10);
+  EXPECT_FALSE(pes::PickTrapClip(k, {0.6f, 0.0f, 0.0f}, hit).has_value());  // beyond xe
+  EXPECT_FALSE(pes::PickTrapClip(k, {0.1f, 0.0f, 0.5f}, hit).has_value());  // the z edge is outside
+}
+
+TEST(PesReceivePicker, TheLowestPriorityRowWinsThenTheNearestHit) {
+  pes::ReceiveConstants k{};
+  k.trapRows = {
+      pes::ActionRow{10, pes::kTrapActionRow, 1, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
+      pes::ActionRow{11, pes::kTrapActionRow, 0, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
+      pes::ActionRow{12, pes::kTrapActionRow, 0, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
+  };
+  const auto hit = [](int clip) {  // hits in cm
+    return clip == 12 ? pes::ClipPoint{100.0f, 0.0f, 0.0f} : pes::ClipPoint{20.0f, 0.0f, 0.0f};
+  };
+  auto r = pes::PickTrapClip(k, {0.1f, 0.0f, 0.0f}, hit);
+  ASSERT_TRUE(r.has_value());
+  EXPECT_EQ(*r, 11);  // 11 and 12 share priority 0, and 11's hit is nearer; row 10 has the worse priority
+}
+
+TEST(PesReceivePicker, AHitHigherThanTheBallRefusesItsRow) {
+  pes::ReceiveConstants k{};
+  k.trapRows = {
+      pes::ActionRow{20, pes::kTrapActionRow, 0, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
+      pes::ActionRow{21, pes::kTrapActionRow, 1, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
+  };
+  const auto hit = [](int clip) {  // y is the height, in cm
+    return clip == 20 ? pes::ClipPoint{0.0f, 100.0f, 0.0f} : pes::ClipPoint{0.0f, 0.0f, 0.0f};
+  };
+  auto r = pes::PickTrapClip(k, {0.1f, 0.0f, 0.0f}, hit);
+  ASSERT_TRUE(r.has_value());
+  EXPECT_EQ(*r, 21);  // row 20 has the better priority but its hit is a metre above the ball
+}

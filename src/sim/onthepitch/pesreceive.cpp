@@ -206,6 +206,28 @@ bool RetouchAllowed(const ReceiveConstants& c, const LockoutInput& in, float eve
   return ageFrames >= static_cast<long>(fps * RetouchLockout_s(c, in));
 }
 
+std::optional<int> PickTrapClip(const ReceiveConstants& k, const ClipPoint& ball,
+                                const std::function<ClipPoint(int clip)>& hitCm) {
+  std::optional<int> best;
+  uint8_t bestPrio = 0;
+  float bestDist = 0.0f;
+  for (const ActionRow& row : k.trapRows) {
+    if (!(ball.x > row.xb && ball.x < row.xe)) continue;  // x strictly inside the window
+    if (!(ball.z > row.zb && ball.z < row.ze)) continue;  // z strictly inside the window
+    const ClipPoint cm = hitCm(row.clip);
+    const ClipPoint hit{cm.x * kHitCmToMetres, cm.y * kHitCmToMetres, cm.z * kHitCmToMetres};
+    if (hit.y - ball.y > kTrapHeightTolerance_m) continue;  // the hit sits too high above the ball
+    const float dx = ball.x - hit.x, dy = ball.y - hit.y, dz = ball.z - hit.z;
+    const float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+    if (!best || row.prio < bestPrio || (row.prio == bestPrio && dist < bestDist)) {
+      best = row.clip;
+      bestPrio = row.prio;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
 bool ShotRunsThrough(const ReceiveConstants& c, const ShotThroughInput& in) {
   if (!in.ownTeamShot) return false;
   const float toPostA = HeadingDeg(in.goalX - in.ballX, in.goalHalfWidth - in.ballY);
