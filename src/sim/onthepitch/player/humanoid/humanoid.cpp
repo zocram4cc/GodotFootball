@@ -2027,14 +2027,18 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
     }
 
     // requeue not needed?
-    if ((IsMovementClip() &&
-         command.desiredFunctionType == e_FunctionType_Movement) ||
-        (currentAnim->functionType == e_FunctionType_BallControl &&
-         command.desiredFunctionType == e_FunctionType_BallControl) ||
-        (currentAnim->functionType == e_FunctionType_Trap &&
-         command.desiredFunctionType == e_FunctionType_BallControl) ||
-        (currentAnim->functionType == e_FunctionType_Trap &&
-         command.desiredFunctionType == e_FunctionType_Trap)) {
+    // A PES locomotion clip's planned change is MOVESTEP's plan, not the body's motion: the trace
+    // had 6 m/s planned while the body stood still for 900 ticks, so this test does not refuse it.
+    // ponytail: the "too similar" test above makes the same exception.
+    if (!OnPesLocomotion() &&
+        ((IsMovementClip() &&
+          command.desiredFunctionType == e_FunctionType_Movement) ||
+         (currentAnim->functionType == e_FunctionType_BallControl &&
+          command.desiredFunctionType == e_FunctionType_BallControl) ||
+         (currentAnim->functionType == e_FunctionType_Trap &&
+          command.desiredFunctionType == e_FunctionType_BallControl) ||
+         (currentAnim->functionType == e_FunctionType_Trap &&
+          command.desiredFunctionType == e_FunctionType_Trap))) {
       // current change in momentum
       Vector3 plannedMomentumChange = currentAnim->outgoingMovement - currentAnim->incomingMovement;
       Vector3 desiredMomentumChange =

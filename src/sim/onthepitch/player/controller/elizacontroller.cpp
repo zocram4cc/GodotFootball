@@ -113,6 +113,9 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
   bool manualMovement = false;
   bool extraHaste = false;
 
+  // PES's loose-ball presser (press-life 3/10): his movement is the ActionPress below, not a dribble.
+  const bool loosePresser = match->PesLoop() && team->GetController()->GetLoosePressMan() == player;
+
   // celebrate good times come on!
 
   if (!match->IsInPlay() && match->IsGoalScored()) {
@@ -491,8 +494,6 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
   else if (match->IsInPlay() && !match->IsInSetPiece() &&
            match->GetDesignatedPossessionPlayer() == player &&
            CastPlayer()->GetFormationEntry().role != e_PlayerRole_GK) {
-    // The loose-ball presser's chase is the ActionPress command below; every other man keeps GF's.
-    const bool loosePresser = match->PesLoop() && team->GetController()->GetLoosePressMan() == player;
     if (CastPlayer()->GetTimeNeededToGetToBall_ms() < 1000) {
       // Movement first, decision second. A designated chaser standing next to
       // a still ball he does not have is the shape the 14-second stalls take:
