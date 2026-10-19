@@ -414,6 +414,32 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x14258c264, &k.sfPadBack_m},
   };
   for (const auto& r : safety) ok &= ReadVa(exe, r.first, r.second, error);
+  // The OneTwo and DirectHighBall units and the one-touch and receiver predicates they share: each VA
+  // is the one lane-units2 §0 audits, read from the install.
+  const std::pair<uint64_t, float*> touch[] = {
+      {0x142590d98, &k.oneTwoFrameGain},          {0x142598580, &k.oneTwoClosingHalf_deg},
+      {0x14259bdec, &k.oneTwoOuter_m},            {0x14259be5c, &k.oneTwoAngle_deg},
+      {0x142565604, &k.touchPad_m},               {0x14259ce40, &k.touchScore_m2},
+      {0x14259be0c, &k.touchSpeed_kmh},           {0x14253ee30, &k.touchTurn_deg},
+      {0x14259be84, &k.touchBand_m},              {0x14259be0c, &k.touchLaneLen_m},
+      {0x14259a764, &k.touchLaneCone_deg},        {0x142565604, &k.touchLaneRad_m},
+      {0x142565604, &k.rcvDifficultyNear},        {0x14256ae1c, &k.rcvDifficultyFar},
+      {0x14259be0c, &k.rcvDistFar_m},             {0x14259d628, &k.rcvTurnFar_deg},
+      {0x14259be0c, &k.rcvSpeedGate_kmh},         {0x142596e6c, &k.rcvAngleFast_deg},
+      {0x14256ae30, &k.rcvAngleSlow_deg},         {0x14256ae30, &k.rcvBaseSplit_deg},
+      {0x142588210, &k.rcvBaseNear_m},            {0x14259222c, &k.rcvBaseFar_m},
+      {0x14259a764, &k.rcvRampHalf_deg},          {0x1425a9bf0, &k.rcvRampTop_deg},
+      {0x1425c4900, &k.rcvRampSpan},              {0x142588210, &k.rcvRampGain_m},
+      {0x14258c264, &k.rcvWindowFloor_m},         {0x14259be1c, &k.rcvM2_deg},
+      {0x1425a9464, &k.rcvNearSq_m2},             {0x142588200, &k.dhbHeightPad_m},
+      {0x14259be20, &k.dhbNearOpp_m2},            {0x14253ee30, &k.dhbMateNear_m2},
+      {0x14259d60c, &k.dhbPredNear_m2},           {0x14259be70, &k.dhbScoreFloor},
+      {0x1425c65f4, &k.dhbScoreCeil},             {0x142565600, &k.dhbFarGain},
+      {0x14259be0c, &k.dhbSpeedGate_kmh},         {0x14259be0c, &k.dhbLaneLen_m},
+      {0x14259a764, &k.dhbLaneCone_deg},          {0x14259222c, &k.dhbLaneRad_m},
+      {0x1425656c0, &k.dhbAdvance_m},             {0x142596e6c, &k.dhbFacing_deg},
+  };
+  for (const auto& r : touch) ok &= ReadVa(exe, r.first, r.second, error);
   k.sfThruClass = 3.0f;  // `cmp [recB],2; jbe`: class above 2, an instruction shape
   // The rolled plans' base probabilities, from the immediates of the plan
   // functions 0x14211a800 (Breakthrough), 0x14211b460 (MiddleShot),
@@ -1884,6 +1910,25 @@ PassAnswer SafetyUnit(const SafetyInput& in, const CarrierConstants& k) {
   return answer;
 }
 
+// RED stubs (A4Lanes3): no answer until the port lands.
+bool OneTouch(const TouchInput& in, const CarrierConstants& k) {
+  (void)in;
+  (void)k;
+  return false;
+}
+
+PassAnswer OneTwoUnit(const OneTwoInput& in, const CarrierConstants& k) {
+  (void)in;
+  (void)k;
+  return PassAnswer{};
+}
+
+PassAnswer DirectHighBallUnit(const DirectHighBallInput& in, const CarrierConstants& k) {
+  (void)in;
+  (void)k;
+  return PassAnswer{};
+}
+
 bool UnitArmed(int kind, bool capFeint, bool capBackSpace, bool capSafety, float ballDistSq_m2,
                const CarrierConstants& k) {
   (void)k;
@@ -1959,7 +2004,8 @@ std::vector<int> BuildUnitList(const UnitListInput& in) {
 std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnswer,
                                     const PassAnswer& fwd, const PassAnswer& lng,
                                     const PassAnswer& cross, const PassAnswer& goalFront,
-                                    const PassAnswer& backSpace, const PassAnswer& safety) {
+                                    const PassAnswer& backSpace, const PassAnswer& safety,
+                                    const PassAnswer& oneTwo, const PassAnswer& directHigh) {
   std::vector<UnitSlot> table;
   for (const int kind : kinds) {
     UnitSlot slot;
@@ -1971,6 +2017,8 @@ std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnsw
     if (kind == 2 && goalFront.index >= 0) slot.answer = {kAnswerPass, goalFront.kind};
     if (kind == 3 && backSpace.index >= 0) slot.answer = {kAnswerPass, backSpace.kind};
     if (kind == 6 && safety.index >= 0) slot.answer = {kAnswerPass, safety.kind};
+    if (kind == 10 && oneTwo.index >= 0) slot.answer = {kAnswerPass, oneTwo.kind};
+    if (kind == 11 && directHigh.index >= 0) slot.answer = {kAnswerPass, directHigh.kind};
     table.push_back(slot);
   }
   return table;

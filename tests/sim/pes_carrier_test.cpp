@@ -2045,4 +2045,316 @@ TEST_F(SafetyUnitTest, TheGoalMouthFlagSilencesTheUnit) {
   EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
 }
 
+// --- the OneTwo unit (kind 10; gate 0x14212AEB0, picker 0x142126A80) and the one-touch predicate
+// 0x142128C10 it needs. The one-touch lane is the lane core, so the constants come from the install
+// (PES21_ROOT). One situation passes every gate; each test breaks one. The carrier (home slot 3)
+// stands at (30, 0) and attacks +x (attack angle 90 degrees); positions are metres.
+
+constexpr int kOneTwoCarrier = 3;
+constexpr int kOneTwoMate = 5;
+constexpr int kOneTwoOpp = 14;
+constexpr float kOneTwoHalfLen = 52.5f;
+
+pes::TouchReceiver OneTwoMateAt(int index, float x, float z, float facing) {
+  pes::TouchReceiver r;
+  r.index = index;
+  r.pos = {x, z};
+  r.facing_deg = facing;
+  r.statusValid = true;
+  r.psi = true;
+  r.difficulty = 0.5f;
+  r.dist_m = 14.0f;
+  r.turnFacing_deg = 30.0f;   // within 60 degrees: the window's ramp is full
+  r.attackAngle_deg = 20.0f;  // under 120 degrees: the near window base
+  r.opennessClass = 3;
+  return r;
+}
+
+class OneTwoUnitTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    const char* root = std::getenv("PES21_ROOT");
+    if (!root)
+      GTEST_SKIP() << "PES21_ROOT unset: the one-touch lane runs the lane core, whose table is in the install";
+    std::string err;
+    auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+    ASSERT_TRUE(exe.has_value()) << err;
+    auto loaded = pes::LoadCarrierConstants(*exe, &err);
+    ASSERT_TRUE(loaded.has_value()) << err;
+    k_ = *loaded;
+    pes::TouchInput& t = in_.touch;
+    t.players[kOneTwoCarrier].pos = {30.0f, 0.0f};
+    t.players[kOneTwoCarrier].active = true;
+    t.players[kOneTwoOpp].pos = {38.0f, 0.0f};  // in the one-touch lane, 8 m out, outside the closing annulus
+    t.players[kOneTwoOpp].active = true;
+    t.players[kOneTwoMate].pos = {40.0f, 10.0f};
+    t.players[kOneTwoMate].active = true;
+    t.carrierSlot = kOneTwoCarrier;
+    t.carrierPos = {30.0f, 0.0f};
+    t.attackSign = 1.0f;
+    t.attackAngle_deg = 90.0f;
+    t.carrierFacing_deg = 90.0f;
+    t.planHeading_deg = 90.0f;  // the one-touch lane runs along +x
+    t.planMode = 2;
+    t.ownLine_m = -kOneTwoHalfLen;
+    t.pitchBound_m = kOneTwoHalfLen;
+    t.teamLevel = 2;
+    t.teamMode = 3;
+    t.score = 2500.0f;     // 50 m: over the 40 m floor
+    t.curveX_m = 35.0f;    // the carrier 5 m behind the front line
+    in_.carrierAngle_deg = 90.0f;
+    in_.mates = {OneTwoMateAt(kOneTwoMate, 40.0f, 10.0f, 225.0f)};
+  }
+
+  pes::CarrierConstants k_{};
+  pes::OneTwoInput in_{};
+};
+
+TEST_F(OneTwoUnitTest, TheFirstReceiverTakesAShortOneTouchBall) {
+  // 0x14212AEB0: the angle gate passes, the one-touch holds, and the picker takes the first receiver.
+  // The answer is a short ball (b = 0) with the one-touch flag.
+  const pes::PassAnswer a = pes::OneTwoUnit(in_, k_);
+  EXPECT_EQ(a.index, kOneTwoMate);
+  EXPECT_EQ(a.kind, pes::kPassShort);
+  EXPECT_TRUE(a.oneTouch);
+}
+
+TEST_F(OneTwoUnitTest, TheAngleGateIsInclusiveAtNinetyDegrees) {
+  // 0x14212AF76 (JBE): |wrap180(K+0x34 - C[4])| of exactly 90 passes; past it, with no closing
+  // opponent, nothing does.
+  in_.carrierAngle_deg = 180.0f;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, kOneTwoMate);
+  in_.carrierAngle_deg = 181.0f;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+}
+
+TEST_F(OneTwoUnitTest, AClosingOpponentOpensTheGateAgainstTheAngle) {
+  // 0x140A4E720: an opponent 4 m ahead of the carrier's 16-frame point, inside the attack bearing,
+  // counts even though the carrier faces away from the attack.
+  in_.carrierAngle_deg = 270.0f;  // 180 degrees off: the angle gate is shut
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+  in_.touch.players[kOneTwoOpp].pos = {34.0f, 0.0f};  // d2 = 16, inside (0, 36)
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, kOneTwoMate);
+}
+
+TEST_F(OneTwoUnitTest, AReceiverWhoDoesNotFaceTheCarrierIsRejected) {
+  // 0x142124950's M[r][c]: the receiver's facing sits within 120 degrees of the bearing to the carrier.
+  in_.mates[0].facing_deg = 0.0f;  // 135 degrees off the carrier
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+}
+
+TEST_F(OneTwoUnitTest, TheDifficultyLimitIsOneBeyondFifteenMetresAndTwoNearer) {
+  // 0x142124950's band 1: beyond 15 m (or past 110 degrees of facing) the difficulty is held to 1.0;
+  // nearer it is held to 2.0.
+  in_.mates[0].dist_m = 20.0f;
+  in_.mates[0].difficulty = 1.5f;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+  in_.mates[0].difficulty = 0.9f;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, kOneTwoMate);
+  in_.mates[0].dist_m = 14.0f;
+  in_.mates[0].difficulty = 1.5f;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, kOneTwoMate);
+}
+
+TEST_F(OneTwoUnitTest, TheOneTouchLaneMustBeBlocked) {
+  // 0x142128C10's G11: the lane 15 m along the plan heading must hold an opponent. With him 30 m off
+  // the lane the one-touch fails, and so does the answer.
+  in_.touch.players[kOneTwoOpp].pos = {38.0f, 30.0f};
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+}
+
+TEST_F(OneTwoUnitTest, TheTeamLevelGateNeedsLevelTwo) {
+  // 0x142128C10's G3: the team level, level/100, must reach 2.
+  in_.touch.teamLevel = 1;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+}
+
+TEST_F(OneTwoUnitTest, TheScoreFloorIsFortyMetresSquared) {
+  // 0x142128C10's G5: the score row must read 1600 (40 m) or more.
+  in_.touch.score = 1599.0f;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+  in_.touch.score = 1600.0f;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, kOneTwoMate);
+}
+
+TEST_F(OneTwoUnitTest, TheReceiverNeedsHisPsiAndHisStatus) {
+  // 0x142124950's P2 (the snapshot's [0xD] is non-zero: the asm exits on zero) and P1 (b6c status 0xB).
+  in_.mates[0].psi = false;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+  in_.mates[0].psi = true;
+  in_.mates[0].statusValid = false;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+}
+
+TEST_F(OneTwoUnitTest, TheFirstListedReceiverThatPassesTakesIt) {
+  // 0x142126A80's loop returns the first list entry the receiver predicate takes.
+  in_.mates = {OneTwoMateAt(7, 40.0f, -10.0f, 315.0f), OneTwoMateAt(kOneTwoMate, 40.0f, 10.0f, 225.0f)};
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, 7);
+  in_.mates = {OneTwoMateAt(kOneTwoMate, 40.0f, 10.0f, 225.0f), OneTwoMateAt(7, 40.0f, -10.0f, 315.0f)};
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, kOneTwoMate);
+}
+
+// --- the DirectHighBall unit (kind 11; gate 0x142129BE0) ---
+//
+// The carrier (slot 3) stands at (30, 0) attacking +x. The ball is low (1.2 m, under the carrier's
+// 1.8 m head plus 0.1 m) and opponent 14 stands 2 m from it, so the low-ball block passes. Mate 5
+// stands 12 m ahead, unmoving, scoring over 900 (no branch A). The volatile flag (K+0x6E) is on, the
+// unit's own gate. The one-touch is shut unless a test opens it (team level 0).
+
+pes::DirectHighBallMate DirectHighBallMateAt(int index, float x, float z, float score) {
+  pes::DirectHighBallMate m;
+  m.receiver = OneTwoMateAt(index, x, z, 270.0f);
+  m.receiver.dist_m = 10.0f;
+  m.heading_deg = 90.0f;       // along +x: X = 0 against the attack
+  m.speed_kmh = 0.0f;
+  m.tableAngle_deg = 90.0f;    // the lane heading is 90 + 180
+  m.recAClass = 2;
+  m.score = score;
+  return m;
+}
+
+class DirectHighBallUnitTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    const char* root = std::getenv("PES21_ROOT");
+    if (!root)
+      GTEST_SKIP() << "PES21_ROOT unset: the teammate lane runs the lane core, whose table is in the install";
+    std::string err;
+    auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+    ASSERT_TRUE(exe.has_value()) << err;
+    auto loaded = pes::LoadCarrierConstants(*exe, &err);
+    ASSERT_TRUE(loaded.has_value()) << err;
+    k_ = *loaded;
+    pes::TouchInput& t = in_.touch;
+    t.players[kOneTwoCarrier].pos = {30.0f, 0.0f};
+    t.players[kOneTwoCarrier].active = true;
+    t.players[kOneTwoOpp].pos = {32.0f, 0.0f};
+    t.players[kOneTwoOpp].active = true;
+    t.players[kOneTwoMate].pos = {42.0f, 0.0f};
+    t.players[kOneTwoMate].active = true;
+    t.carrierSlot = kOneTwoCarrier;
+    t.carrierPos = {30.0f, 0.0f};
+    t.attackSign = 1.0f;
+    t.attackAngle_deg = 90.0f;
+    t.carrierFacing_deg = 90.0f;
+    t.planHeading_deg = 90.0f;
+    t.planMode = 2;
+    t.ownLine_m = -kOneTwoHalfLen;
+    t.pitchBound_m = kOneTwoHalfLen;
+    t.teamLevel = 0;
+    t.teamMode = 3;
+    t.score = 2500.0f;
+    t.curveX_m = 35.0f;
+    in_.ballHeight_m = 1.2f;
+    in_.carrierHeight_m = 1.8f;
+    in_.ball = {30.0f, 0.0f};
+    in_.volatileBall = true;
+    in_.mates = {DirectHighBallMateAt(kOneTwoMate, 42.0f, 0.0f, 1000.0f)};
+  }
+
+  pes::CarrierConstants k_{};
+  pes::DirectHighBallInput in_{};
+};
+
+TEST_F(DirectHighBallUnitTest, ALowBallWithAnOpponentAtHisFeetGivesTheThroughBall) {
+  // 0x142129BE0: the low-ball block passes, the mate is taken, his lane is free: b = 3 (through).
+  const pes::PassAnswer a = pes::DirectHighBallUnit(in_, k_);
+  EXPECT_EQ(a.index, kOneTwoMate);
+  EXPECT_EQ(a.kind, pes::kPassThrough);
+  EXPECT_FALSE(a.oneTouch);
+}
+
+TEST_F(DirectHighBallUnitTest, ALowBallWithNoOpponentWithinFiveMetresGivesNothing) {
+  // The low-ball block: the nearest opponent of the ball must be within 5 m (d2 25), or no answer.
+  in_.touch.players[kOneTwoOpp].pos = {38.0f, 0.0f};  // 8 m from the ball
+  EXPECT_EQ(pes::DirectHighBallUnit(in_, k_).index, -1);
+}
+
+TEST_F(DirectHighBallUnitTest, AHighBallSkipsTheLowBallBlock) {
+  // Over the head height plus 0.1 m the block does not run, so the far opponent does not matter.
+  in_.touch.players[kOneTwoOpp].pos = {38.0f, 0.0f};
+  in_.ballHeight_m = 1.95f;
+  EXPECT_EQ(pes::DirectHighBallUnit(in_, k_).index, kOneTwoMate);
+}
+
+TEST_F(DirectHighBallUnitTest, TheLowBallLineIsTheHeadPlusTenCentimetres) {
+  // 0x142129BE0's threshold: a ball at 1.85 m (under 1.9) runs the block, which refuses a far opponent.
+  in_.touch.players[kOneTwoOpp].pos = {38.0f, 0.0f};
+  in_.ballHeight_m = 1.85f;
+  EXPECT_EQ(pes::DirectHighBallUnit(in_, k_).index, -1);
+}
+
+TEST_F(DirectHighBallUnitTest, TheVolatileFlagAndTheFirstTimeBitSilenceTheUnit) {
+  // K+0x6E (the unit's first test after the first-time bit) and rec+1's bit 5.
+  in_.volatileBall = false;
+  EXPECT_EQ(pes::DirectHighBallUnit(in_, k_).index, -1);
+  in_.volatileBall = true;
+  in_.firstTimeWhileReceiving = true;
+  EXPECT_EQ(pes::DirectHighBallUnit(in_, k_).index, -1);
+}
+
+TEST_F(DirectHighBallUnitTest, TheScoreFloorIs225ExactlyKept) {
+  // 0x142129BE0: a score under 225 is no candidate; exactly 225 is kept (the branch-A gap is 100, so
+  // the mate at 42 m with his opponent 10 m away is kept too).
+  in_.mates = {DirectHighBallMateAt(kOneTwoMate, 42.0f, 0.0f, 224.0f)};
+  EXPECT_EQ(pes::DirectHighBallUnit(in_, k_).index, -1);
+  in_.mates = {DirectHighBallMateAt(kOneTwoMate, 42.0f, 0.0f, 225.0f)};
+  EXPECT_EQ(pes::DirectHighBallUnit(in_, k_).index, kOneTwoMate);
+}
+
+TEST_F(DirectHighBallUnitTest, ABranchAMateWithAnOpponentWithinTenMetresIsSkipped) {
+  // Score 500 puts the mate in branch A: his nearest opponent 8 m away skips him.
+  in_.touch.players[kOneTwoOpp].pos = {34.0f, 0.0f};
+  in_.mates = {DirectHighBallMateAt(kOneTwoMate, 42.0f, 0.0f, 500.0f)};
+  EXPECT_EQ(pes::DirectHighBallUnit(in_, k_).index, -1);
+}
+
+TEST_F(DirectHighBallUnitTest, ANineFrameCutOffSkipsTheMate) {
+  // The mate's 9-frame point must stay 3 m or more from the ball; running back onto it skips him.
+  pes::DirectHighBallMate m = DirectHighBallMateAt(kOneTwoMate, 42.0f, 0.0f, 1000.0f);
+  m.velPerFrame = {-1.2f, 0.0f};  // 9 frames put him at x 31.2
+  in_.mates = {m};
+  EXPECT_EQ(pes::DirectHighBallUnit(in_, k_).index, -1);
+}
+
+TEST_F(DirectHighBallUnitTest, TheSmallestTwentySevenFrameDistanceWins) {
+  // Two mates both pass; the one nearer the ball 27 frames on takes it, whatever the list order.
+  in_.mates = {DirectHighBallMateAt(kOneTwoMate, 42.0f, 0.0f, 1000.0f),
+               DirectHighBallMateAt(7, 36.0f, 4.0f, 1000.0f)};
+  EXPECT_EQ(pes::DirectHighBallUnit(in_, k_).index, 7);
+}
+
+TEST_F(DirectHighBallUnitTest, ABackwardsMateGetsAShortBall) {
+  // X = wrap180(heading - attack) = -90: past 80 degrees the ball stays short and f10 is not written.
+  pes::DirectHighBallMate m = DirectHighBallMateAt(kOneTwoMate, 42.0f, 0.0f, 1000.0f);
+  m.heading_deg = 0.0f;
+  in_.mates = {m};
+  const pes::PassAnswer a = pes::DirectHighBallUnit(in_, k_);
+  EXPECT_EQ(a.index, kOneTwoMate);
+  EXPECT_EQ(a.kind, pes::kPassShort);
+  EXPECT_FALSE(a.oneTouch);
+}
+
+TEST_F(DirectHighBallUnitTest, ATeammateInTheLaneMakesTheBallShort) {
+  // The teammate lane (the branch the decode shows is live): a team-mate standing in the 15 m lane
+  // from the mate's advanced origin means the ball is not free, so it goes short.
+  in_.touch.players[7].pos = {30.0f, 1.0f};
+  in_.touch.players[7].active = true;
+  const pes::PassAnswer a = pes::DirectHighBallUnit(in_, k_);
+  EXPECT_EQ(a.index, kOneTwoMate);
+  EXPECT_EQ(a.kind, pes::kPassShort);
+}
+
+TEST_F(DirectHighBallUnitTest, TheFirstTouchFlagNeedsTheOneTouchAndTheReceiver) {
+  // f10 is written when the one-touch predicate and the mate's receiver predicate both hold. The
+  // high ball keeps the low-ball block out of it; the mate stands off the attack line.
+  in_.ballHeight_m = 2.5f;
+  in_.touch.teamLevel = 2;
+  in_.mates = {DirectHighBallMateAt(kOneTwoMate, 42.0f, 6.0f, 1000.0f)};
+  const pes::PassAnswer a = pes::DirectHighBallUnit(in_, k_);
+  EXPECT_EQ(a.index, kOneTwoMate);
+  EXPECT_EQ(a.kind, pes::kPassThrough);
+  EXPECT_TRUE(a.oneTouch);
+}
+
 }  // namespace
