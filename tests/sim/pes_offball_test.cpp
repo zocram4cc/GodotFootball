@@ -55,6 +55,7 @@ OffBallConstants Synthetic() {
   return k;
 }
 
+
 TEST(OffBallRank, RunsNeverPreemptRunsOrConceptMoves) {
   EXPECT_TRUE(MayTake(kChance, kBasePosition));
   EXPECT_TRUE(MayTake(kChance, kNothing));
@@ -218,7 +219,9 @@ RunWorld Running() {
 
 TEST(OffBallMask, AttackSlotsOpenToAllUntilEnoughAttackersAreForward) {
   RunWorld w = Running();
-  for (int i = 0; i < kSlots; ++i) w.p[i].position = i < 9 ? std::min(i, 6) : 12;  // 9, 10 forwards
+  // Classes of the slots' roles: GK, CB, the back pair, DMF, CMF, class 5 for 6..8, CF for 9, 10.
+  static const int kRoles[kSlots] = {0, 1, 2, 2, 3, 4, 5, 5, 5, 9, 9};
+  for (int i = 0; i < kSlots; ++i) w.p[i].roleClass = kRoles[i];
   EXPECT_EQ(AttackSlotMask(w, 0, 4), (1u << kSlots) - 1);
   // Level 2 needs 4 attackers ahead of the ball band; only the runner is.
   EXPECT_EQ(AttackSlotMask(w, 0, 2), (1u << kSlots) - 1);
@@ -233,6 +236,59 @@ TEST(OffBallMask, AttackSlotsOpenToAllUntilEnoughAttackersAreForward) {
   EXPECT_TRUE((m >> 8) & 1u);
 }
 
+// T+0x4C00 holds PES's role CLASS 0..9 (docs/re/pes-re-role-writer.md §5). Each fixture sets the
+// class of the slot's role, and the expectations are the class-scale answers.
+TEST(OffBallMask, ADefensiveMidfielderIsClassThreeAndIsReachGated) {
+  const OffBallConstants k = Synthetic();
+  RunWorld w = Running();
+  w.p[kRunner].state = kBasePosition;
+  w.p[kRunner].t = 1e9f;
+  w.lineX[1] = 45.0f;                // the runner stays onside
+  w.p[kRunner].pos = {30.0f, 0.0f};  // 30 m ahead of the ball: past the 15 m reach
+  // A DMF is class 3, below the reach gate's 4 (run2.c:557-572): he takes the reach path.
+  w.p[kRunner].roleClass = 3;
+  EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
+  // A CMF is class 4: not below the gate.
+  w.p[kRunner].roleClass = 4;
+  EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
+}
+
+// The attack-level skip is `class <= 4` (run2.c:562, `4 < iVar22` exempts): a CMF (class 4) is
+// skipped at attack level 0, and the class-5 LMF above him is not.
+TEST(OffBallMask, ACentralMidfielderIsClassFourAndIsSkippedAtAttackLevelZero) {
+  const OffBallConstants k = Synthetic();
+  RunWorld w = Running();
+  w.p[kRunner].state = kBasePosition;
+  w.p[kRunner].t = 1e9f;
+  w.p[kRunner].pos = {10.0f, 0.0f};
+  w.p[kRunner].aim = {20.0f, 0.0f};
+  w.lineX[1] = 25.0f;
+  w.carrier = 0;
+  w.p[kRunner].roleClass = 4;  // CMF
+  EXPECT_EQ(kMaskAttackLevel, ChanceMaskReject(k, w, kRunner, ~0u, 0, false, 50.0f, true));
+  w.p[kRunner].roleClass = 5;  // LMF: above the skip
+  EXPECT_EQ(kMaskPass, ChanceMaskReject(k, w, kRunner, ~0u, 0, false, 50.0f, true));
+}
+
+// The attack-slot mask admits class >= 7 (SS, WF, CF) outright: PES's writer scores `class < 7`
+// and gives the rest score -100 with their bit (FUN_140500200, the `iVar20 < 7` else branch).
+// The AMF (class 6) and the RMF (class 5) are scored like everyone else.
+TEST(OffBallMask, ARightMidfielderAndAnAttackingMidfielderAreScoredNotAdmitted) {
+  RunWorld w = Running();
+  // Four attackers ahead of the ball band (ids 1..4; the runner is id 3), so the mask is
+  // selective at attack level 2 (need 4).
+  w.p[1].pos = {10.0f, -6.0f};
+  w.p[2].pos = {10.0f, -3.0f};
+  w.p[4].pos = {10.0f, 3.0f};
+  w.p[8].roleClass = 6;   // AMF
+  w.p[9].roleClass = 5;   // RMF
+  w.p[10].roleClass = 7;  // SS: admitted outright
+  const uint32_t m = AttackSlotMask(w, 0, 2);
+  EXPECT_EQ(0u, (m >> 8) & 1u);
+  EXPECT_EQ(0u, (m >> 9) & 1u);
+  EXPECT_EQ(1u, (m >> 10) & 1u);
+}
+
 TEST(OffBallMask, ADefenderNeedsTheReachAForwardDoesNot) {
   const OffBallConstants k = Synthetic();
   RunWorld w = Running();
@@ -240,19 +296,18 @@ TEST(OffBallMask, ADefenderNeedsTheReachAForwardDoesNot) {
   w.p[kRunner].t = 1e9f;
   w.lineX[1] = 45.0f;                // the runner stays onside
   w.p[kRunner].pos = {30.0f, 0.0f};  // 30 m ahead of the ball: past 15 m
-  w.p[kRunner].position = 1;         // CB
+  w.p[kRunner].roleClass = 1;         // CB
   EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
-  w.p[kRunner].position = 12;        // CF: no reach path
+  w.p[kRunner].roleClass = 9;        // CF: no reach path
   w.lineX[1] = 25.0f;                // ... but not from beyond the line
   EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   w.lineX[1] = 45.0f;
-  w.p[kRunner].roleClass = 9;
   EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~(1u << kRunner), 2, false, 50.0f, true));
   w.p[kRunner].pos = {30.0f, 43.0f};  // |dz| > 42
   EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   w.p[kRunner].pos = {12.0f, 0.0f};
-  w.p[kRunner].position = 1;
+  w.p[kRunner].roleClass = 1;
   EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   w.p[kRunner].pos = {19.0f, 0.0f};  // 19 m: past 15, inside Long Pass's 21
   EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
@@ -269,7 +324,6 @@ TEST(OffBallMask, ALeftBackReachesOnlyWithTheDefensiveFullBackStyleOnPesLoop) {
   w.p[kRunner].t = 1e9f;
   w.lineX[1] = 45.0f;
   w.p[kRunner].pos = {30.0f, 0.0f};  // 30 m ahead: past the 15 m reach
-  w.p[kRunner].position = 2;         // LB
   w.p[kRunner].roleClass = 2;        // SB
   EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));  // stand-in, off pes_loop
 
@@ -292,7 +346,7 @@ TEST(OffBallMask, NoChanceRunsFromOwnHalfUntilFourSecondsOfPossession) {
   const OffBallConstants k = Synthetic();
   RunWorld w = Running();
   w.p[kRunner].state = kBasePosition;
-  w.p[kRunner].position = 12;
+  w.p[kRunner].roleClass = 9;
   w.p[0].pos = w.ball = {-5.0f, 0.0f};
   w.p[kRunner].pos = {5.0f, 0.0f};
   EXPECT_TRUE(TeamChanceMayRun(w, 0));
@@ -473,7 +527,7 @@ TEST(OffBallReach, FramesToReachGrowsWithDistanceAndFallsWithSpeed) {
   RunWorld w = Running();
   w.p[0].pos = {0.0f, 0.0f};
   w.p[0].facing = 0.0f;               // toward +x, the target's direction
-  w.p[0].position = 5;                // a midfielder: no keeper's half scale
+  w.p[0].roleClass = 4;                // a midfielder: no keeper's half scale
   w.p[0].vel = {0.02f, 0.0f};         // 1.08 km/h-equivalent: standing still
   const int near = FramesToReach(w, 0, {10.0f, 0.0f});
   const int far = FramesToReach(w, 0, {30.0f, 0.0f});
@@ -723,7 +777,7 @@ TEST(OffBallMask, ASecondLineForwardNeedsTheLinePointInTheAttackingHalf) {
   PlayerFacts& r = w.p[kRunner];
   r.state = kBasePosition;
   r.t = 1e9f;
-  r.position = 12;                 // CF: the reach path needs no style bit
+  r.roleClass = 9;                 // CF: the reach path needs no style bit
   r.pos = {0.0f, -2.0f};           // on the halfway line, off centre
   r.aim = {4.0f, -2.0f};
   r.facing = 90.0f;                // the attack direction, +x
@@ -748,7 +802,7 @@ TEST(OffBallMask, TheAngleSubTestOnlyRunsForAForwardOnTheSecondLine) {
   PlayerFacts& r = w.p[kRunner];
   r.state = kBasePosition;
   r.t = 1e9f;
-  r.position = 12;                 // CF
+  r.roleClass = 9;                 // CF
   r.pos = {0.0f, -2.0f};
   r.aim = {4.0f, -2.0f};
   r.facing = 90.0f;
@@ -759,16 +813,16 @@ TEST(OffBallMask, TheAngleSubTestOnlyRunsForAForwardOnTheSecondLine) {
   w.p[10].pos = {41.0f, -6.0f};
   w.p[8].pos = {39.0f, 10.0f};
   EXPECT_TRUE(RankAngleOk(w, kRunner, 4));
-  // An AMF with three attackers ahead: positions 4 and up take no reach path,
+  // An AMF with three attackers ahead: classes 4 and up take no reach path,
   // so the sub-test is not entered at all and the line point's half does not
   // matter. (With four ahead the OR gate would let every rank in.)
-  r.position = 8;
+  r.roleClass = 6;
   w.p[8].pos = {-20.0f, -14.0f};
   w.p[9].pos = {-20.0f, -17.0f};
   w.p[10].pos = {-20.0f, -20.0f};
   w.p[0].pos = w.ball = {-2.0f, -8.0f};
   EXPECT_TRUE(RankAngleOk(w, kRunner, 4));
-  r.position = 12;
+  r.roleClass = 9;
   // A CF on the first line: the rank gate is not entered, so no veto.
   for (int i = 0; i < kSlots; ++i) w.p[i].pos.x = -20.0f;
   r.pos = {0.0f, -2.0f};
@@ -793,7 +847,7 @@ TEST(OffBallMask, TheAngleSubTestNeedsTheSecondLineNotJustAForward) {
   PlayerFacts& r = w.p[kRunner];
   r.state = kBasePosition;
   r.t = 1e9f;
-  r.position = 12;                 // CF
+  r.roleClass = 9;                 // CF
   r.pos = {0.0f, -2.0f};
   r.aim = {4.0f, -2.0f};
   r.facing = 90.0f;
@@ -820,7 +874,7 @@ TEST(OffBallMask, TheAngleSubTestFacingWindowIsFortyFiveDegrees) {
   PlayerFacts& r = w.p[kRunner];
   r.state = kBasePosition;
   r.t = 1e9f;
-  r.position = 12;                 // CF
+  r.roleClass = 9;                 // CF
   r.pos = {0.0f, -2.0f};
   r.aim = {4.0f, -2.0f};
   w.p[9].pos = {40.0f, 6.0f};
@@ -843,7 +897,7 @@ TEST(OffBallMask, TheAngleSubTestWindowIsTwentyMetres) {
   PlayerFacts& r = w.p[kRunner];
   r.state = kBasePosition;
   r.t = 1e9f;
-  r.position = 12;                 // CF
+  r.roleClass = 9;                 // CF
   r.pos = {0.0f, -2.0f};
   r.aim = {4.0f, -2.0f};
   r.facing = 90.0f;
@@ -873,7 +927,7 @@ TEST(OffBallMaskTrace, TheClassifierNamesTheRejectingGate) {
   PlayerFacts& r = w.p[kRunner];
   r.state = kBasePosition;
   r.t = 1e9f;
-  r.position = 12;
+  r.roleClass = 9;
   r.pos = {10.0f, 0.0f};
   r.aim = {20.0f, 0.0f};
   w.p[0].pos = w.ball = {0.0f, 0.0f};
@@ -908,13 +962,14 @@ TEST(OffBallMaskTrace, TheClassifierNamesTheRejectingGate) {
   r.state = kChance;
   EXPECT_EQ(kMaskRankOrState, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   r.state = kBasePosition;
-  // The carrier, the receiver and the goalkeeper are never candidates.
+  // The carrier and the goalkeeper are never candidates.
   EXPECT_EQ(kMaskCarrierOrReceiver, ChanceMaskReject(k, w, 0, ~0u, 2, false, 50.0f, true));
-  EXPECT_EQ(kMaskCarrierOrReceiver, ChanceMaskReject(k, w, 1, ~0u, 2, false, 50.0f, true));  // w.receiver[0]
+  // With a carrier the receiver is not refused here: the !Valid disjunct needs no carrier (946-950).
+  EXPECT_EQ(kMaskPass, ChanceMaskReject(k, w, 1, ~0u, 2, false, 50.0f, true));
   w.receiver[0] = -1;
-  r.position = 0;  // the keeper
+  r.roleClass = 0;  // the keeper
   EXPECT_EQ(kMaskCarrierOrReceiver, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
-  r.position = 12;
+  r.roleClass = 9;
   w.receiver[0] = 1;
   // Every state IsRun() accepts also loses the rank test first, so
   // 593430's own "already running" test is unreachable through Chance:
@@ -940,10 +995,10 @@ TEST(OffBallMaskTrace, TheClassifierNamesTheRejectingGate) {
   EXPECT_EQ(kMaskDepth, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   w.lineX[1] = 25.0f;
   w.p[kRunner].pos = {10.0f, 0.0f};
-  // The attack level's position skip: level 0 skips positions 0..4.
-  r.position = 2;  // a full back
+  // The attack level's class skip: level 0 skips classes 0..4.
+  r.roleClass = 2;  // a full back
   EXPECT_EQ(kMaskAttackLevel, ChanceMaskReject(k, w, kRunner, ~0u, 0, false, 50.0f, true));
-  r.position = 12;
+  r.roleClass = 9;
   // |dz| past 42 m.
   w.p[kRunner].pos = {10.0f, 43.0f};
   EXPECT_EQ(kMaskDz, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
@@ -999,15 +1054,15 @@ TEST(OffBallMaskTrace, TheClassifierNamesTheReachRejection) {
   r.t = 1e9f;
   r.pos = {30.0f, 0.0f};          // 30 m ahead of the ball
   r.aim = {40.0f, 0.0f};
-  r.position = 1;                 // a CB: the reach path applies
+  r.roleClass = 1;                 // a CB: the reach path applies
   w.p[0].pos = w.ball = {0.0f, 0.0f};
   w.lineX[1] = 45.0f;             // keeps him onside
   w.carrier = 0;
   EXPECT_EQ(kMaskReach, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
-  r.position = 12;                // a CF: no reach path
+  r.roleClass = 9;                // a CF: no reach path
   EXPECT_EQ(kMaskPass, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   // A CB at 19 m: past the 15 m base, inside Build Up Long's 21 m.
-  r.position = 1;
+  r.roleClass = 1;
   r.pos = {19.0f, 0.0f};
   EXPECT_EQ(kMaskReach, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   EXPECT_EQ(kMaskPass, ChanceMaskReject(k, w, kRunner, ~0u, 2, true, 50.0f, true));
@@ -1024,7 +1079,7 @@ TEST(OffBallMaskTrace, TheRerunBlockIsASecondLineGateNotAChanceOne) {
   PlayerFacts& r = w.p[kRunner];
   r.state = kBasePosition;
   r.t = 1e9f;
-  r.position = 12;
+  r.roleClass = 9;
   r.pos = {10.0f, 0.0f};
   r.aim = {20.0f, 0.0f};
   w.p[0].pos = w.ball = {0.0f, 0.0f};
@@ -1079,7 +1134,7 @@ TEST(OffBallMaskTrace, TheTeamHeadIsSharedByEverySlot) {
   PlayerFacts& r = w.p[kRunner];
   r.state = kBasePosition;
   r.t = 1e9f;
-  r.position = 12;
+  r.roleClass = 9;
   r.pos = {10.0f, 0.0f};
   r.aim = {20.0f, 0.0f};
   w.p[0].pos = w.ball = {0.0f, 0.0f};
@@ -1092,7 +1147,8 @@ TEST(OffBallMaskTrace, TheTeamHeadIsSharedByEverySlot) {
   // team gate at all: the carrier, the receiver and the keeper are caught by
   // earlier gates, and whoever is left is refused for the team's reason.
   for (int id = 0; id < 2 * kSlots; ++id) {
-    const bool earlier = w.carrier == id || w.receiver[id >= kSlots ? 1 : 0] == id || w.p[id].position == 0;
+    const bool earlier = w.carrier == id || w.receiver[id >= kSlots ? 1 : 0] == id ||
+                         w.p[id].roleClass == 0;
     if (earlier) continue;
     EXPECT_EQ(kMaskTeamMayNotRun, ChanceMaskReject(k, w, id, all, 2, false, 50.0f, false))
         << "slot " << id;
@@ -1131,7 +1187,7 @@ TEST(OffBallMaskTrace, TheCarrierGateDoesNotAlsoVetoTheFallbackPlayer) {
   PlayerFacts& r = w.p[kRunner];
   r.state = kBasePosition;
   r.t = 1e9f;
-  r.position = 12;
+  r.roleClass = 9;
   r.pos = {10.0f, 0.0f};
   r.aim = {20.0f, 0.0f};
   w.p[0].pos = w.ball = {0.0f, 0.0f};
@@ -1139,7 +1195,7 @@ TEST(OffBallMaskTrace, TheCarrierGateDoesNotAlsoVetoTheFallbackPlayer) {
   // With a valid carrier, only that carrier is vetoed: the fallback player
   // (w.receiver, which BuildRunWorld sets to the last toucher when nobody holds)
   // stays a candidate.
-  for (int i = 0; i < kSlots; ++i) w.p[i].position = 12;  // no keepers in this fixture
+  for (int i = 0; i < kSlots; ++i) w.p[i].roleClass = 9;  // no keepers in this fixture
   w.carrier = 0;
   w.receiver[0] = 1;
   EXPECT_EQ(kMaskCarrierOrReceiver, ChanceMaskReject(k, w, 0, ~0u, 2, false, 50.0f, true));
@@ -1149,7 +1205,7 @@ TEST(OffBallMaskTrace, TheCarrierGateDoesNotAlsoVetoTheFallbackPlayer) {
   EXPECT_EQ(kMaskCarrierOrReceiver, ChanceMaskReject(k, w, 1, ~0u, 2, false, 50.0f, true));
   // The keeper is excluded either way.
   w.receiver[0] = -1;
-  w.p[2].position = 0;
+  w.p[2].roleClass = 0;
   EXPECT_EQ(kMaskCarrierOrReceiver, ChanceMaskReject(k, w, 2, ~0u, 2, false, 50.0f, true));
 }
 
@@ -1164,7 +1220,7 @@ TEST(OffBallCorridor, APassToMeInsideHalfASecondIsSeenButNotDecidable) {
   PlayerFacts& r = w.p[kRunner];
   r.state = kBasePosition;
   r.t = 1e9f;
-  r.position = 12;
+  r.roleClass = 9;
   r.pos = {10.0f, 0.0f};
   r.aim = {20.0f, 0.0f};
   // No event at all: no lock.
