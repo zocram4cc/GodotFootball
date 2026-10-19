@@ -9,7 +9,7 @@ VAs are PES2021 image VAs (base 0x140000000). File mapping, checked against the 
 ## 0. Answers
 
 1. **Who calls FUN_1404F4BE0, and when.** CONFIRMED: one direct caller in the image. `E8` rel32 scan of `pes_full.bin` and of `PES2021.exe`, plus absolute-pointer and RIP-relative `lea` scans, found exactly one reference: **0x1404FED44, inside the possession latch FUN_1404FE9C0** (step 3b, called with the holder id `MA+0x2483C`). Nothing else references it (no vtable, no table, no `E9` jump). It runs once per team tick, and only when the ball has no carrier, on a 5-frame cadence (§4).
-2. **So the predicate is not a per-player chase command.** CONFIRMED from §1. It answers "is this holder still contesting the ball?" for the latch's possession rule. Nothing in the image asks it "should player X run at the loose ball". The brief's premise that the designated chaser is decided by this predicate is wrong. What issues the loose-ball run is OPEN (§10, item 1).
+2. **So the predicate is not a per-player chase command.** CONFIRMED from §1. It answers "is this holder still contesting the ball?" for the latch's possession rule. Nothing in the image asks it "should player X run at the loose ball". The loose-ball chase is PRESS (0x34), answered in round 2 (§7.1); the contact is reaction entry 3's TRAP (§7.2).
 3. **How a touch becomes possession.** CONFIRMED structure: a clip with a hit record makes contact. The contact is recorded as a **K=7 touch event** by the detector FUN_140A0DFD0 when a touch probe (`G+0x2A80`) is active. The **carrier** `MA+0x2601C` is then recomputed from the newest keyed event in ring 1 (FUN_140457070). The latch FUN_1404FE9C0 turns the carrier's side into the team-possession byte `T+0x255`. The probe writer and the K=8 key builder are OPEN (§5.6).
 4. **What GF lacks.** The GF designated branch never touches a PES clip whose `touchFrame == -1`. On arrival, the only touch path (`humanoid.cpp:526-531` gate → `:545` branch) requires the man to be moving away from the ball, and its first alternative needs `e_FunctionType_Movement`, which PES locomotion clips are not (§6). GF has no K=7/K=8 touch record, no carrier from the event store, and no PES chase or possession ranks. §8 maps each step.
 
@@ -320,35 +320,101 @@ The disabled test `DISABLED_ALooseDeadBallInPlayIsReachedAndPlayed` (`tests/sim/
 
 ---
 
-## 7. Port spec (what an implementer follows)
+## 7. Port spec (round 2; supersedes the first §7)
 
-### 7.1 Predicate `ContestBallPredicate` (for the latch, step 4b only)
+Round 2 answers Main's three items: the chase (who, target, cadence, speed, stop), the contact (trigger, clip family, distance, frame) and the latch (already ported). Each part names the GF function it replaces (§7.6).
 
-Input: `s` (player id), and a snapshot of: team record fields (possession byte, attack sign, registered-position array, leader id), ball `x`, `y` (height), `vel`, sample `S0.y` (predicted height, horizon 0), ball `2-D` point, on-pitch flags, newest event (kind, actor, frame, sub, flag), ranked head list and per-player lists (C1 `d²`, C2 heading, C3 pair values, arrival values), anime class byte and flags for `s`, per-player positions, and the match frame and `gs`.
+### 7.1 Chase: who sends a man to a ball nobody holds
 
-Logic: §3.2, verbatim order. Returns bool.
+- **Two team writers, one chaser state.** The press writer `FUN_140536FC0` writes per-slot state **PRESS 0x34** (`T+0xA2A0[slot]`, via `FUN_140A42940`) and **DELAY 0x33** (CONFIRMED, decompile). Candidate slots go to `T+0xA548[0..3]`, with arrival records at `T+0xA55C`. The chaser writer `FUN_140536210` writes **MATCH_UP 0x3A**, but on a loose ball it does not chase (§7.5).
+- **Who is picked** (press writer, CONFIRMED decompile): with no carrier (`MA+0x2601C` ≥ 22), a candidate is PRESS if its score code is not 2 and either d² < 81 m² (9 m, `DAT_1425C6780`) or it is already MATCH_UP. Men at ≥ 9 m and not MATCH_UP are skipped. The top candidate needs sqrt(d²) < 8 m (`FUN_14044E0D0 < DAT_14259BDF4 = 8.0`). Preconditions: `MI+0x116C == 1` (in play), no keeper hold (`FUN_140A53F90 ≤ 0`), no opposing man in state class 0x41/0x42, team concept flags (`T+0xF1 | T+0xB712 | T+0xB715`), `FUN_140A604D0(level, 6)` false, `T+0xB70C == 0`. Restart adds gates (`pes-re-defensive-shape.md` §15.14.1).
+- **The designated man is not a chaser.** `T+0xA56C` (nearest on-pitch man, sticky, `FUN_140535A10`) has no chase consumer in the decoded code. Its only reader is the offside line `fw` (`pes-re-defensive-shape.md` §223). INF high.
 
-Where GF has no source for an input, the stand-in is the nearest GF field, named `// ponytail:` with the PES VA (`brief-rules`). Gaps are in §8.
+**Target point** (CONFIRMED structure, `FUN_140639100`, no-carrier arm):
 
-### 7.2 Latch step 4b (call site)
+- `k = int(0.1·gs + 0.5) = 5` ticks (`0x142588200` = 0.1, `0x142565600` = 0.5). `S_k = FUN_140A6CF70(BI, k)` is the ball sample at k (index = ticks, INF).
+- Two anchors: `B` = ball now (`MA+0x2482C`, `MA+0x24830`, `MA+0x24834`); `A` = the presser's base (`AI(presser)+0x1414 / +0x1418 / +0x141C`).
+- `target = B` if `|S_k − B|² ≤ |S_k − A|²`, else `target = A`.
+- So the press target is the ball's current point or the presser's base, chosen by where the ball is in 5 ticks. It is **not** an intercept point.
 
-Inside the possession latch (§4.2 step 4b): only when carrier invalid, `frame − newest.frame ≥ gs/6`, cadence `(frame − newest.frame − 2) % 5 == 0`, newest kind ≠ 5 (and the kind-3 sub rule), and `MI+0x119C ≥ 3·gs` or `newest+0x2D == 0` or newest kind ∉ {3,4,5} (otherwise 3a). Call with `h = holder id`. `h ≥ 22` skips.
+**ActionPress** `FUN_140962440` (state 0x34, run each frame; CONFIRMED decompile):
 
-### 7.3 Touch record and carrier
+- If the newest event is this frame (`MI.frame − newest.frame < 1`): the stored target becomes the presser's position moved 5 m (`DAT_14259222C` = 5.0) along the bearing presser→old target (`FUN_140439E50`, then `FUN_140A8F7C0`). This is a 5 m step per touch frame.
+- Otherwise: target = the point above, and the planner `FUN_140678950(…, FUN_140A75BE0(pl), …)` produces the path. The planner body is NOT decoded (OPEN).
 
-- Touch event (K=7): when the contact probe (`G+0x2A80` equivalent) is live for a player and the newest event's actor is not that player (or the newest kind is not 15 with a different actor), push a touch record with the frame, team and player.
-- Carrier (`MA+0x2601C` equivalent): the actor of the newest K=8 key, valid when `team < 2` and `idx < 40`; 0xFF otherwise. Recomputed each ball-action tick.
-- Both need the event store with rings 0 and 1 (the `pes-re-foundation-matchball.md` ranked structure A). GF's 2-deep `ballEvents` with 4 kinds is not enough (§8).
+**Speed class.** `FUN_140A75BE0(pl)` is the class passed to the planner (CONFIRMED as the argument). Its table is doc-cited, not re-read: `float[+0x3FC + 16·byte[+0x108]]` km/h, with order byte `+0x3F4` (`pes-re-stamina-drain.md:94`). GF stand-in: the GF run or sprint speed for that class.
 
-### 7.4 First touch clip
+**Stop condition.**
 
-PES first touch for an interceptor is TRAP anime 7, contact frame 18 (receive chain). The clip choice for the loose-ball touch uses the picker (§5.5) over the TRAP row. Port the picker's row acceptance and the lowest-priority rule. The receive-chain speed and turn rules (§5.5) gate the touch kind.
+- The press lasts while `T+0xA2A0[slot] == 0x34`, and the target is recomputed every frame.
+- It ends when (a) a higher-priority state overwrites it (`FUN_140A40000(cur, new)` = `prio(new) < prio(cur)`, `pes-re-defensive-shape.md` §2), or (b) the team writer stops writing it. The path that clears 0x34 is OPEN; the decoded clears are 0x3A (`FUN_140A40820`) and COVER.
+- It ends for contact when the man's TRAP (§7.2) takes over his anime action.
+- The planner flag `(ActionPress+0x30) = (planner + 10 < FUN_140A4D350(…))` is not named (OPEN).
 
-### 7.5 Tick order (decoded, INF on exact placement)
+### 7.2 Contact: who makes the touch, trigger, clip, distance
 
-Event stage (detectors, K=7/8) → team tick (`FUN_1404F6C30`) → latch (`FUN_1404FE9C0`, §4.2 step 4b calls the predicate) → ball-action tick (`FUN_140457070`, recomputes carrier and designated owner). Placement of the ball-action tick is OPEN (`pes-re-possession-latch.md` §17 item 3 has the team-tick ordering question).
+**Who.** Reaction entry 3, `FUN_1409F8220`, runs every frame for every man (entry 0 runs first, `pes-re-receiving.md` §1). It is **not** gated by the chase state. Does not read the touch probe `G+0x2A80`.
+
+**Gates, in order** (CONFIRMED structure, decompile `d_1409f8220.c`, `d_1409fa400.c`, `d_1409fa520.c`):
+
+1. Refuse if AI action `pl+0x5D0 == 5` and `ai+0x1457 == 3` or `ai+0x1458 == 3`.
+2. Refuse if anime class `FUN_140A6E340(human+1)` (bit 16 of the class word) and `human+0x1A ≤ human+0x1C`. This is a clip-window test; its meaning is not decoded.
+3. `FUN_1409FA400`: the man's C1 squared distance to the ball must be ≤ 100 (`0x14253EE30` = 100 m², so **10 m**). Otherwise refuse. If the carrier is himself, further anime class tests apply (not fully decoded).
+4. `FUN_1409FA520`:
+   a. The anime object's class test `FUN_1406B4C10(obj, 7)` must be true (TRAP admissible; name INF).
+   b. Keeper holding (`FUN_140A53F90`) refuses.
+   c. **Designated owner refusal:** `MA+0x2600C == me` refuses. The designated owner never traps through entry 3. (CONFIRMED code; INF that MA+0x2600C is the designated owner, from the `pesdodge.hpp:195` comment.)
+   d. `MI+0x116C`: 1 (in play) refuses if the newest event is his (`FUN_140A60300(newest+4, me)`) unless its kind is 0 or 8. 2 (restart) refuses for the restart taker ids (`MI+0x11C8` / `+0x11CC`, chosen by `MI+0x11D4`). 3 (restart) refuses unless `MI+0x1775 == 0x18` and `FUN_140A63090()+0x85`, or if `MI+0x1554 == 3` with a newest kind outside the decoded set.
+   e. `FUN_1409FA720`: the re-touch lockout (`pes-re-receiving.md` §7).
+5. **Kick branch 0x5D**, checked before the trap: `FUN_1409FBB40` (anime action 0x4A, or AI stage 5) and `FUN_1409FBBA0`. The ball sample at 10 ticks has height ≤ 0.2174 m (`0x1425A9BD4`), and `|v_player − v_ball,1| < 38 km/h`, where the threshold is `38000/(gs·3600)` m/tick = 0.1955 m/tick (`0x14263E398`, `0x142598590`). Success issues function 0x5D; the clip family is not decoded (INF: a ground-control or clearance clip).
+6. **TRAP branch** `FUN_1409F8640` (CONFIRMED structure):
+   - first-touch kind from `FUN_1409F8A50` (`pes-re-receiving.md` §5: 0 control, 2 running trap (dead for AI), 3 one-touch kick, 4 pad-forced; turn limit `FUN_1409FBCE0`);
+   - clip: `FUN_1406B4580(anime obj, 7, ball, out)` calls virtual `+0x68` of `FUN_1406D9010(anime+0xC40)`, which chooses the TRAP row. The picker `FUN_14081FF70` is the row chooser of the kick and trap dispatcher (its 60+ callers sit in the `0x14076B…` region, under `FUN_140769FE0`). That the vtable target is the picker is NOT CONFIRMED (OPEN);
+   - success sets the reaction state `+0x874 = 4`, function `+0x878 = 7` (TRAP), `+0xE6C = 7`, `+0xE74 = id`.
+
+**Trigger, distance and frame.** The touch is issued the first frame the man is within 10 m (step 3), passes 4a–4e, and step 6 succeeds. The reaction has **no height or speed test on the TRAP branch**; those sit in the 0x5D branch (step 5) and in the first-touch kind (step 6). Clip-space acceptance (the row windows of table `DAT_14348DAC0`) is data-driven and not numerically decoded (OPEN). The interception TRAP's contact frame is 18 (`pes-re-receiving.md` §6, OBS live).
+
+### 7.3 Units
+
+- **C1** (`MA+0x24710`, `FUN_1404C8E60`): **m²** (CONFIRMED). `FUN_14044E0D0` returns sqrt(C1) (`pes-re-foundation-matchball.md` B3/C1), compared with 8.0 m. C1 is compared directly with 81 (9 m, press) and 100 (10 m, reach).
+- **Arrival** (`FUN_14044E020`, `MA+0x24840` lists): **frames** (INF high). It is added to the frame budgets `gs/2`, `gs`, `2·gs` in the chase predicate and compared with another arrival. A budget is in frames, so the sum must be too.
+- **C3 pair** (`FUN_1404C8EA0`, `MA+0x22E4C` lists): **unit OPEN.** The predicate tests it against 64 (`0x14259BE44`). The same constant is an **angle** window (64°) in the press writer, where it is compared with `FUN_140439EF0` (a bearing in degrees, `× DAT_14259BE40`). The consumers do not settle the unit; the C3 writer (not found) does.
+- **Bearing** `FUN_14046F230` out[0]: degrees (CONFIRMED for `FUN_140439EF0`, same convention assumed for `FUN_14046F260`, INF).
+- **Hit record:** cm (`pes-re-anim-select.md` §6.1); the picker scales by `0.01` (`0x14256AE18`).
+
+### 7.4 Latch (already ported; one call added)
+
+`FUN_1404FE9C0` steps 1–4 as in §4.2 are unchanged. The port adds only step 4b: call `ContestBallPredicate(holder)` (§3.3 for inputs). Restart branch (116C 2/3) unchanged.
+
+### 7.5 MATCH_UP (0x3A) is not the loose-ball chaser
+
+`FUN_140536210` (CONFIRMED structure, decompile lines 40–165):
+
+- The team has the ball, or a restart gate holds (`116C != 1`, not kind 3, or capability 0xE off): return. The 0x3A states are cleared by `FUN_140A40820` on the exit path.
+- Loose ball (carrier 0xFF): the only write is the MI+0x1775 branch. If `MI+0x1775 == 3` or `(MI+0x1775 − 8) < 3`, the own team's nearest man (head of `MA+0x24840`) gets state 0x3A and `T+0x7C` = his id. Otherwise no 0x3A is written.
+- `MI+0x1775` in open play is 0x17 (INF med: `pes-live-EFPin.md:14` reads 0x17 as the team-tick branch; `pes-re-A4Carrier.md:204` maps 0x17 to 1). So in open play with no carrier, MATCH_UP is not written.
+- **Conclusion:** MATCH_UP marks the carrier. The loose-ball chaser is **PRESS (0x34)**.
+
+### 7.6 Tick order, and the GF change at humanoid.cpp:524–531
+
+**Order** (INF on exact placement): event stage (detectors, K=7/8) → team tick `FUN_1404F6C30` (press writer, MATCH_UP writer, latch step 4b) → per-player reaction (entry 0, then entry 3) → ActionPress each frame for PRESS men → movement. The ball-action tick `FUN_140457070` placement is OPEN.
+
+**GF change**, exact:
+
+(a) **`humanoid.cpp:524–531`**, the first alternative's `currentAnim->functionType == e_FunctionType_Movement` term: replace with `IsMovementClip()` (`humanoidbase.hpp:243`: `functionType == Movement || OnPesLocomotion()`). A PES locomotion clip is `Special` (`pes-port-DeadBall.md`), so this admits it to the walk-by alternative. **Not sufficient:** the walk-by still needs `ballDistanceFuture > ballDistanceNow`, which PES never uses to touch. Treat (a) as a ponytail stand-in, not the port.
+
+(b) **The PES-faithful touch frame.** PES clips have no GF touch frame (`touchFrame` = −1). The GF picker sets `currentAnim->touchFrame = touchFrame_tmp` at `humanoid.cpp:2787`, and that is −1 for PES clips. Set it for PES clips from the PES HitData record: bits 13..20 of the u32 at hit-record `+0` are the hit frame (`pes-re-anim-select.md` §6.1, OBS). The existing `touchFrame == frameNum` path (`humanoid.cpp:589–600`) then touches the ball at PES's frame (TRAP: frame 18). That makes 524–531 unnecessary for PES clips.
+
+(c) Keep 524–531 for GF-only clips until they are replaced. For PES clips it must not decide the touch.
+
+(d) `SelectAnim` refuses Movement while Special (`humanoid.cpp:1972–1978`). The TRAP command is `e_FunctionType_Trap` (`gamedefines.hpp:56`), so that refusal does not apply to it (INF: needs a test).
+
+**Unchanged from the first §7:** the touch record K=7 and the carrier from the K=8 key (§5.1, §5.3). The probe `G+0x2A80` (§5.4) gates only the K=7 event. It does not gate the TRAP contact (reaction 3 does not read it), so it is not on the port's critical path.
+
 
 ---
+
+> Round 2 (§7): the chase, contact, touch-trigger and first-touch rows of this table are superseded by §7.1–§7.6. Rows for the predicate, latch, carrier and holder stand.
 
 ## 8. GF replacement map
 
@@ -375,7 +441,7 @@ Event stage (detectors, K=7/8) → team tick (`FUN_1404F6C30`) → latch (`FUN_1
 
 ## 9. Corrections to the brief and to the docs
 
-1. **Brief premise.** `FUN_1404F4BE0` is not called per player. Its only caller is the possession latch, step 4b. The loose-ball chaser must be found elsewhere (§10 item 1).
+1. **Brief premise.** `FUN_1404F4BE0` is not called per player. Its only caller is the possession latch, step 4b. The loose-ball chaser is the press state PRESS (0x34), decided by the press writer `FUN_140536FC0` (§7.1), not by the predicate.
 2. **`T+0x4C00[slot]`** is a registered-position index (0..12), not a countdown. `pes-re-foundation-teamplayer.md:98`; the doc `pes-re-run-targets-b2.md:9` agrees.
 3. **Carrier writer.** `0x14045725A` is inside `FUN_140457070`, not a NOFUNC interior store (`pes-re-foundation-matchball.md` B4/E5b). The carrier is from the ring-1 newest key, not from a direct write of the holder.
 4. **`pes-re-possession-latch.md` §18** calls `FUN_1404F4BE0` the "chase predicate"; in light of §4.1, rename to `ContestHolderPredicate` or similar.
@@ -386,7 +452,7 @@ Event stage (detectors, K=7/8) → team tick (`FUN_1404F6C30`) → latch (`FUN_1
 
 ## 10. Open items (each with the method that closes it)
 
-1. **Who runs at a loose ball.** The designated loose-ball run is not decoded. Method: find the caller that issues a movement toward the ball for a non-latch man. Candidates: the press writer `FUN_140536FC0` (loose ball within 13 m, `pes-re-press-layer-port.md:10`), reaction entry 3 `FUN_1409F8220` (receive, interception rule `FUN_1409FA0B0`).
+1. **Who runs at a loose ball.** Answered in round 2 (§7.1): PRESS (0x34) from the press writer, target from `FUN_140639100`, contact from reaction entry 3. Still OPEN: the planner `FUN_140678950` (speed and stop), the PRESS release path (what clears 0x34), and whether the clip picker is the vtable target of `FUN_1406D9010(anime+0xC40)+0x68` (§7.2 step 6).
 2. **Probe `G+0x2A80`** (writer of `+0x18` and `+0x64`). Method: E8/absolute scan for the probe's base offset, then decompile each writer.
 3. **Units**: the arrival values (`FUN_14044E020`) and the C3 pair (`FUN_1404C8EA0`). Method: read one live value against `GetTimeNeededToGetToBall_ms` and the distance of the same pair.
 4. **Caller of `FUN_1404582C0`** (the ball-action tick). Method: E8 and vtable scan for the `0x1404582C0` address, then decompile the owner.
