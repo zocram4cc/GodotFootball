@@ -553,7 +553,9 @@ ShootZone ComputeShootZone(float ballX, float ballZ, float attackSign, float fin
     const float bearing = Wrap360(std::atan2(dz, dx) * 180.0f / kPi_deg + 180.0f);
     z.angle_deg = WrapDeg(bearing);
   } else {
-    z.d_m = halfLen_m - attackSign * ballX;
+    // Case B (pf[2] >= |K.z|): `+0x170 = |pf[0] - sign*K.x|`. The 0x142565D30 absolute-value mask
+    // (`andps` at 0x140698EE1) is real: past the goal line the signed form would go negative.
+    z.d_m = std::fabs(halfLen_m - attackSign * ballX);
     z.angle_deg = 0.0f;
   }
   if (outsidePosts) {

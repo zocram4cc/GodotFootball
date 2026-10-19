@@ -198,6 +198,50 @@ TEST(PesCarrierZone, CentralBandFollowsTheRanges) {
   EXPECT_TRUE(pes::IsClose(ramped));
 }
 
+TEST(PesCarrierZone, CaseBIsTheGoalLineDistanceToTheAbsoluteBallX) {
+  // R4 case B (pf[2] = 3.66 >= |K.z|), the fall-through of 0x140698D10: `movss pf[0]` (52.56) at
+  // 0x140698ECA, `mulss sign` (bp+0x30) at 0x140698ED5, `subss` at 0x140698EDA, and `andps` (the
+  // 0x142565D30 absolute-value mask) at 0x140698EE1 before the store at 0x140698EE9. So
+  // +0x170 = |52.56 - sign*K.x|. The 8-byte zero at 0x140698EC3 clears +0x174 and +0x178, so the
+  // sector is 0 in case B.
+  const pes::CarrierConstants k = Synthetic();
+  constexpr float HALF_LEN = 52.56f, GOAL_HALF = 3.66f;
+  // Attacking +x, the ball 12.56 m short of the line, inside the mouth band.
+  const pes::ShootZone atk =
+      pes::ComputeShootZone(40.0f, 0.0f, 1.0f, 70.0f, false, HALF_LEN, GOAL_HALF, k);
+  EXPECT_FLOAT_EQ(atk.d_m, 12.56f);
+  EXPECT_EQ(atk.sector, pes::kSectorCentral);
+  EXPECT_TRUE(pes::IsClose(atk));  // 12.56 <= 0x188 (18.0)
+  // The other half: attacking -x with the ball 10 m on the far side of the centre. sign*K.x = 10, so
+  // the distance is 52.56 - 10 = 42.56.
+  const pes::ShootZone def =
+      pes::ComputeShootZone(-10.0f, 0.0f, -1.0f, 70.0f, false, HALF_LEN, GOAL_HALF, k);
+  EXPECT_FLOAT_EQ(def.d_m, 42.56f);
+  EXPECT_FALSE(pes::IsClose(def));
+  // Past the goal line the signed form would go negative; the audited formula takes the absolute
+  // value (the `andps` at 0x140698EE1), so the distance is 2.44 either way.
+  EXPECT_NEAR(pes::ComputeShootZone(55.0f, 0.0f, 1.0f, 70.0f, false, HALF_LEN, GOAL_HALF, k).d_m,
+              2.44f, 1e-4f);
+  EXPECT_NEAR(pes::ComputeShootZone(-55.0f, 0.0f, -1.0f, 70.0f, false, HALF_LEN, GOAL_HALF, k).d_m,
+              2.44f, 1e-4f);
+}
+
+TEST(PesCarrierZone, CaseAMeasuresToTheNearPost) {
+  // R4 case A (pf[2] < |K.z|): `+0x170 = |K - P|` with P = (sign*pf[0], 0, sgn(K.z)*pf[2]) - the near
+  // post, no radius (0x140698F09..F22: the point is built on the stack and FUN_140A8F820 is the 3D
+  // distance). Ball (40, 10) attacking +x: P = (52.56, 0, 3.66).
+  const pes::CarrierConstants k = Synthetic();
+  constexpr float HALF_LEN = 52.56f, GOAL_HALF = 3.66f;
+  const pes::ShootZone z =
+      pes::ComputeShootZone(40.0f, 10.0f, 1.0f, 70.0f, false, HALF_LEN, GOAL_HALF, k);
+  EXPECT_FLOAT_EQ(z.d_m, std::sqrt(12.56f * 12.56f + 6.34f * 6.34f));
+  // The bearing K -> P folded to [0, 360) is 333.2, so the signed angle is -26.8: inside the 40
+  // degree side band, on the low side (R4's 15.0/40.0 pair at 0x140699688/0x140699692).
+  EXPECT_EQ(z.sector, pes::kSectorSideLow);
+  // 14.07 m at a side sector uses the 16.0 threshold (R4's +0x190), so this one is close.
+  EXPECT_TRUE(pes::IsClose(z));
+}
+
 // Behind the goal line the band and sector both go wide: nothing is in range.
 TEST(PesCarrierZone, BehindTheGoalLineIsOut) {
   const pes::CarrierConstants k = Synthetic();
