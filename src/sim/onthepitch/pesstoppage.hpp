@@ -66,8 +66,9 @@ struct StoppageConstants {
 // wrong duration.
 std::optional<StoppageConstants> LoadStoppageConstants(const PeImage& exe, std::string* error);
 
-// PES 2021's restart-spot writer (FUN_14050e770, explicit-spot path; VA 0x14050e770, decoded
-// in the TouchReach report). These offsets are .rdata floats, read from the install. The field
+// PES 2021's restart-spot writers (FUN_14050e770, the explicit-spot/foul path, and
+// FUN_14050d280 for the throw-in point; VAs 0x14050e770 / 0x14050d280, decoded in the TouchReach
+// and throw-in reports). These offsets are .rdata floats, read from the install. The field
 // rows the writer also uses (F0, F1, F4) are not in the image (docs/re/pes-re-fieldinfo.md
 // section 4), so they stay gametypes.hpp's named constants.
 struct RestartSpotConstants {
@@ -78,10 +79,13 @@ struct RestartSpotConstants {
   // along x and along z by these two insets.
   float cornerInsetX_m = 0.0f;
   float cornerInsetZ_m = 0.0f;
-  // .rdata 0x142592228 (docs/re/pes-re-throwin-choreography.md 1.3): the throw-in's writer
-  // (FUN_14050e770) sits the ball F1 + this outset outside the touchline.
+  // .rdata 0x142592228 (docs/re/pes-re-throwin-choreography.md 1.3): FUN_14050d280 computes the
+  // throw-in point R = (ball.x, sign(ball.z) * (F1 + this outset)), so the ball sits outside the
+  // touchline. (FUN_14050e770 is the caller that writes R and clamps its x.)
   float throwInLineOutset_m = 0.0f;
-  // .rdata 0x14256ae1c: the throw-in's x is kept this far inside the end line (F0 - inset).
+  // .rdata 0x14256ae1c: FUN_14050e770's own restart-2 clamp reads this float itself
+  // (MOVSS XMM2,[0x14256ae1c]; SUBSS at 0x14050eaed) before writing R.x, keeping the throw-in's x
+  // at most F0 - inset, off the end line.
   float throwInEndInset_m = 0.0f;
 };
 std::optional<RestartSpotConstants> LoadRestartSpotConstants(const PeImage& exe, std::string* error);

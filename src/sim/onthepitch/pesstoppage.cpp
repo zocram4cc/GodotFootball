@@ -82,8 +82,8 @@ std::optional<RestartSpotConstants> LoadRestartSpotConstants(const PeImage& exe,
   constexpr uint64_t INSET_VA = 0x142565604;     // free-kick touchline inset
   constexpr uint64_t CORNER_X_VA = 0x142590d98;  // corner spot inset along x
   constexpr uint64_t CORNER_Z_VA = 0x142572348;  // corner spot inset along z
-  constexpr uint64_t THROW_OUTSET_VA = 0x142592228;  // throw-in spot outside the touchline
-  constexpr uint64_t THROW_INSET_VA = 0x14256ae1c;  // throw-in spot x, kept off the end line
+  constexpr uint64_t THROW_OUTSET_VA = 0x142592228;  // throw-in spot outside the touchline (FUN_14050d280)
+  constexpr uint64_t THROW_INSET_VA = 0x14256ae1c;   // x off the end line (FUN_14050e770's own clamp)
   RestartSpotConstants k{};
   if (!ReadFloat(exe, PUSH_OUT_VA, &k.goalAreaPushOut_m) ||
       !ReadFloat(exe, PUSH_Z_VA, &k.goalAreaPushZ_m) ||

@@ -61,6 +61,11 @@ public:
   void SetRotation(const Vector3& rot, float bias = 1.0);  // radians per second for each axis
   BallSpatialInfo CalculatePrediction();  // one PES tick of the live ball, plus the track
   Vector3 GetPositionBuffer() const { return positionBuffer; }
+  // The spin the ball carries: one tick's rotation about the spin axis, the same quaternion the
+  // physics converts to PES's raw spin and the render path turns the ball by. QUATERNION_IDENTITY
+  // means none - the resting-ball gate (pesballphysics.cpp IsResting) needs this zero as well as
+  // the velocity, or the flight function keeps stepping a "dead" ball.
+  const Quaternion& GetSpin() const { return rotation_ms; }
 
   bool BallTouchesNet() { return ballTouchesNet; }
   Vector3 GetAveragePosition(unsigned int duration_ms) const;

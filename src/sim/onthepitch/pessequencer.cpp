@@ -10,9 +10,10 @@ namespace pes {
 
 namespace {
 
-// A throw-in's x stays at most F0 - the install's end inset, and its z sits F1 + the install's
-// line outset outside the touchline (the writer FUN_14050e770, docs/re/pes-re-throwin-
-// choreography.md 1.3; both values from the install, RestartSpotConstants).
+// A throw-in's z sits F1 + the install's line outset outside the touchline - FUN_14050d280
+// computes the point (R = ball.x, sign(ball.z) * (F1 + 0.25)) - and its x stays at most F0 minus
+// the install's end inset, FUN_14050e770's own clamp (docs/re/pes-re-throwin-choreography.md 1.3;
+// both values from the install, RestartSpotConstants).
 
 // ponytail: frames from arming to release, live (A5Live 9.3). PES releases on the taker's reach
 // and kick action (9.2, 9.4); these fixed gates stand in for it until that action is ported. Each

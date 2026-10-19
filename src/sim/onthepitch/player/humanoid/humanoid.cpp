@@ -3168,15 +3168,20 @@ signed int Humanoid::GetBestCheatableAnimID(
         // The throw-in ball sits F1 + the install's outset outside the touchline (0x142592228,
         // docs/re/pes-re-throwin-choreography.md 1.3), at the taker's restart spot. His own throw
         // must not be refused for standing there: the ball is dead at his feet and the throw
-        // carries it infield. The exemption is the taker's own spot only - a ball that is not at
+        // The exemption is the taker's own spot only - a ball that is not at
         // his restart spot, or a touch by anyone else, is still pruned as out of bounds.
+        // ponytail: the stand-in is the out-of-bounds prune itself, not this window. PES's
+        // on-pitch test FUN_140a72e70 has no off-pitch refusal at all (docs/re/pes-decode-
+        // TouchReach.md 1: |x| <= F0 and |z| <= F1, no margin, and the touch path does not call
+        // it), so porting that classifier deletes the prune and this window with it. Until then
+        // the window stands for the writer's spot (0.25 m at 0x142592228, throwin doc 1.3),
+        // where the ball is dead: a body touch can nudge it off and the throw still carries it.
+        constexpr float kOwnSpotWindow_m = 0.5f;
         const RefereeBuffer& rb = match->GetRefereeBuffer();
         const bool atOwnSpot =
             match->PesLoop() && match->IsInSetPiece() &&
             rb.desiredSetPiece == e_SetPiece_ThrowIn && rb.taker == player &&
-            (absBallPos.Get2D() - rb.restartPos.Get2D()).GetLength() <
-            0.5f;  // ponytail: 0.5 m window - the dead ball sits at the spot and a body touch can
-                   // nudge it off; widen to an install tolerance if one is ever decoded
+            (absBallPos.Get2D() - rb.restartPos.Get2D()).GetLength() < kOwnSpotWindow_m;
         if (!atOwnSpot &&
             (fabs(absBallPos.coords[0]) > pitchHalfW + lineHalfW + 0.11f ||
              fabs(absBallPos.coords[1]) > pitchHalfH + lineHalfW + 0.11f)) {
