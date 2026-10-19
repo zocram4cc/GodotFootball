@@ -1,10 +1,11 @@
 # TRAP reach: picker window test for action 7, and the live trap watch (S1Watch, round 15)
 
 > **Main audit 19-10-26:** `0x142648668` = [0.15, 0.335, 0.56, 0.785] (T1 = 0.335, T2 = 0.56): match. The window test is CONFIRMED; the live trap is not measured (no action-7 pick in 3 min of play). PARKED until a loose-ball window.
+> **Main audit 19-10-26 (§6):** default +0x70 `0x141863350` = `xor al,al; ret`, and the KickoffReceiver/DemoMove/OutofPlay vtables (`0x1425E1220/6428/2810`) +0x70 all point to it: match. A moving man (Move/StepMove) is admitted to TRAP by default.
 
 Tags: **CONFIRMED** = decompile, image read, or live read/watch with VA. **INF** = inference. **OPEN** = not resolved.
 
-**Summary.** (1) The action-7 window test is decoded (CONFIRMED). The windows are in clip units, scaled per player by `anime+0x3B18` (≈1.0 ± 0.05). (2) The live trap was NOT measured: in 5 min of play the picker was called ~2,900 times in 3 min and **never with action 7**, and the 5-minute `SetMotion` watch saw no trap clip id. A trap issue was not observed, so the distance-at-issue is still unknown.
+**Summary.** (1) The action-7 window test is decoded (CONFIRMED). The windows are in clip units, scaled per player by `anime+0x3B18` (≈1.0 ± 0.05). (2) The live trap was NOT measured: in 5 min of play the picker was called ~2,900 times in 3 min and **never with action 7**, and the 5-minute `SetMotion` watch saw no trap clip id. A trap issue was not observed, so the distance-at-issue is still unknown. (3) Admission (§6, round 16): the trap is refused for a moving man only in narrow clip-id cases with a frame-count test; see §6.
 
 ## 1. Action-7 rows (CONFIRMED, image read, row stride 0x1C)
 
@@ -49,7 +50,7 @@ Conclusion: the TRAP selection is rare in ordinary play (a loose ball within rea
 
 - `FUN_1406F0F70` (SetMotion) arguments (CONFIRMED signature): `(anime, motion id, rate, mirror, …)`. Its first argument is the anime object, not the match player. RCX = anime, RDX = motion id.
 - `perf -k mono` timestamps are on the same clock as `time.monotonic()`, so per-frame records can be joined to trap hits.
-- Process-hygiene note: while stopping my own watchers I sent SIGINT to five perf processes that matched my breakpoint pattern but were not mine (output `smp_*.dat`, no `sudo` prefix). They exited. The recorder PIDs I stopped were my own.
+- Process-hygiene note: while stopping my own watchers I sent SIGINT to five perf processes that matched my breakpoint pattern but were not mine (output `smp_*.dat`, no `sudo` prefix). They exited. The recorder PIDs I stopped were my own. From now on I kill only PIDs I recorded at launch.
 
 ## 5. Open
 
@@ -57,3 +58,53 @@ Conclusion: the TRAP selection is rare in ordinary play (a loose ball within rea
 2. The caller's `key0/key1` values for a loose-ball TRAP (`bVar6`).
 3. The path that issues the trap clip (not `SetMotion` at the chooser's neighbourhood).
 4. Contact frame 18 (not checked live).
+5. Clip names: none of the clip ids in §6 are named in the docs; which of them is "accelerate" is OPEN.
+
+## 6. TRAP admission: action names and the `+0x70` answer (round 16, S1Watch)
+
+**Admission function (CONFIRMED, `FUN_14079BBE0`, 45 lines; slot `+0x10` of the action-7 vtable `0x1425E1ED0`).** Current action id `c` = the signed byte at `anime+0x11` (CONFIRMED: `FUN_1406E66B0` = `movsx eax, byte [rcx+0x11]`, the secondary slot `+0x28`). Then:
+- `c` ∈ {2,3,4,5,6,8,9,10,0xB,0x10,0x11,0x15,0x44,0x48,0x50,0x51,0x53}: admit iff `action[c]->vt[+0x70](action[c], anime, 7)`.
+- `c == 0x17` (KickoffReceiver): **admit** (`return 1`).
+- `c ∈ {0x4A, 0x4F}`: **admit** iff `anime+0x3AD8 != 0` and `*(u8*)(anime+0x3AD8+0x62) == 0`; otherwise refuse (falls to `return 0`).
+- else: refuse.
+
+**Action names (CONFIRMED, RTTI from the image, `vt-8 → COL → TypeDescriptor`).** Action objects sit at `anime+0xC40+0x1528+8·id`:
+
+| id | class | vtable | `+0x70` target |
+|---|---|---|---|
+| 0x17 (23) | `action::KickoffReceiver` | 0x1425E1220 | 0x141863350 (default) |
+| 0x4A (74) | `action::DemoMove` | 0x1425E6428 | 0x141863350 (default) |
+| 0x4F (79) | `action::OutofPlay` | 0x1425E2810 | 0x141863350 (default) |
+| 1 | `ResetIdle` | 0x1425E1790 | 0x141863350 |
+| 2 | `Move` | 0x1425E13F0 | 0x140782570 |
+| 3 | `StepMove` | 0x1425E1960 | 0x140789E60 |
+| 4 | `Dribble` | 0x1425E2440 | 0x1407B9280 |
+| 5 | `SlideDribble` | 0x1425E2540 | 0x1407C6F40 |
+| 6 | `DribbleStepMove` | 0x1425E2640 | 0x140789E60 (shared with StepMove) |
+| 7 | `Trap` | 0x1425E1ED0 | 0x1407995D0 |
+| 8–10 | `Kick` | 0x1425E2358 | 0x140724820 |
+
+Full table names ids 1–93 (sampled from one live object; 24 objects had the same vtables for ids 0x17, 0x4A, 0x4F).
+
+**Default `+0x70` (CONFIRMED):** `0x141863350` = `xor al,al; ret`, i.e. **always false**. So KickoffReceiver, DemoMove and OutofPlay never answer yes through `+0x70`; they reach 7 only through the direct `0x17` admit or the `0x4A/0x4F` sub-flag rule above.
+
+**Helpers used by the locomotion `+0x70`s (CONFIRMED):**
+- `anime+0x28` (u16) = current clip id (secondary slot `+0x18` = `FUN_1406E6BD0`, returns `anime+0x28`).
+- `sec+0x38` = `FUN_1406E6960` → `FUN_1406E68C0(anime-0x157-base, clip)`: searches the anime's current motion table (count at `+0x420`, entries of 0x14 bytes: clip id at `+0x354+k·0x14`, duration in seconds at `+0x35C+k·0x14`) and returns `trunc(54·dur + 0.5)` frames, or **0 if the clip is not in the table**.
+- `FUN_1406AFBC0(db, clip, 5)` (key-5 existence) and `FUN_1406AF8E0(db, clip, 1.0, 0)` (frames at speed 1) read the clip database; if key 5 is missing, `iVar4 = 0`.
+- Frame test used by both locomotion slots: **allow iff `iVar4 ≤ sec+0x38`**.
+
+**Clip-id sets (CONFIRMED from the predicates):**
+- `FUN_140A6E290` (set A): for id < 0xBE8: {0xBE7, 0x8C7, 0x8CB, 0xB4F, 0xBE5}; for id ≥ 0xBE8: {0xBE9, 0xC08, 0xC0F}.
+- `FUN_140A6E2E0` (set B): {0xC09, 0xC0D, 0xC0E, 0xC11, 0xC12}.
+- `FUN_140A6E4D0` (set C): {0xBF0, 0xC0A, 0xC13}.
+
+**`Move.+0x70` (CONFIRMED, `FUN_140782570`, 37 lines):** if the current clip is in none of A, B, C → **return true (allow)**. Otherwise → allow iff the frame test holds.
+
+**`StepMove.+0x70` (CONFIRMED, `FUN_140789E60`, 30 lines), also `DribbleStepMove`:** if the current clip is not in {0xC0A, 0xC0D, 0xC11, 0xC13} → **return true**. Otherwise → allow iff the frame test holds.
+
+`Dribble` (`FUN_1407B9280`, 149 lines) and `SlideDribble` (`FUN_1407C6F40`, 147 lines): not decoded in this round (OPEN).
+
+**Answer to the question.** Does PES refuse the trap while the man is moving/accelerating? **Not in general.** For `Move` (2), the default answer is allow, and the refusal needs both (a) the current clip in sets A, B or C, and (b) its database frame count (at speed 1, with a key 5) to exceed its duration in the anime's current motion table (or the clip missing from that table, in which case `sec+0x38 = 0` and any positive frame count refuses). `StepMove` and `DribbleStepMove` refuse only for clips {0xC0A, 0xC0D, 0xC11, 0xC13} under the same frame test. The "accelerate" clip in particular is not named here (clip names OPEN), and the pressing man's current action id is not established live: the `anime+0x11` values I sampled do not map to players (INF: a locomotion man is in `Move`, id 2, most of the time).
+
+**Not measured:** the live answer for a real pressing man (needs the current clip id and table of the man's anime, which I could not map to a roster slot this round).
