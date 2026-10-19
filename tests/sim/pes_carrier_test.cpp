@@ -904,6 +904,26 @@ TEST(PesCarrierInstall, TheZonesAndLaddersAreTheGamesOwn) {
                                             k->statFloor + k->breakthroughStatSpan, false, true,
                                             false),
                   k->breakthroughComBase + k->breakthroughStatGain);
+  // The lane-gated units (0x14212ABA0's lane request, 0x1421265C0's gates) and the lane core's own
+  // table the bundle carries: relations only, no pinned numbers.
+  EXPECT_GT(k->unitLaneLen_m, 0.0f);
+  EXPECT_GT(k->unitLaneCone_deg, 0.0f);
+  EXPECT_GT(k->unitLaneRad_m, 0.0f);
+  EXPECT_GT(k->gfDifficultyMax, 0.0f);
+  EXPECT_GT(k->gfAngle_deg, 0.0f);
+  EXPECT_LT(k->gfAngle_deg, k->gfStatAngle_deg);
+  EXPECT_LT(k->gfStatAngle_deg, k->gfFlagAngle_deg);
+  EXPECT_LT(k->gfDistMinBand_m, k->gfDistMin_m);
+  EXPECT_LT(k->gfDistMin_m, k->gfClass2Dist_m);
+  EXPECT_LT(k->gfClass2Dist_m, k->gfDistMax_m);
+  EXPECT_GT(k->gfStatFloor, 0.0f);
+  EXPECT_GT(k->gfStatBonus, 0.0f);
+  EXPECT_GT(k->gfFlagDistSq_m2, 0.0f);
+  EXPECT_GT(k->gfPredictGain, 0.0f);
+  EXPECT_FLOAT_EQ(k->gfZoneDist_m, k->gfClass2Dist_m);  // one load site (0x14259BE0C)
+  EXPECT_GT(k->lane.radToDeg, 0.0f);
+  EXPECT_GT(k->lane.coneFloor_deg, 0.0f);
+  EXPECT_GT(k->lane.trig.tabScale, 0.0f);
 }
 
 }  // namespace
@@ -1010,7 +1030,7 @@ TEST(PesCarrierTable, PlanSixWithALongAnswerAdoptsTheLongPass) {
   pes::PassAnswer fwd, lng, cross;
   lng.index = 5;
   lng.kind = pes::kPassLong;
-  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross);
+  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross, {});
   const pes::UnitSlot won = pes::WalkCarrierUnits(table, pes::WalkContext{});
   EXPECT_EQ(won.kind, 9);
   EXPECT_EQ(won.answer.sub, pes::kPassLong);
@@ -1026,7 +1046,7 @@ TEST(PesCarrierTable, PlanFiveWithACrossAnswerAdoptsTheCross) {
   pes::PassAnswer fwd, lng, cross;
   cross.index = 3;
   cross.kind = pes::kPassCentering;
-  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross);
+  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross, {});
   EXPECT_EQ(pes::WalkCarrierUnits(table, pes::WalkContext{}).kind, 7);
 }
 
@@ -1036,10 +1056,10 @@ TEST(PesCarrierTable, CurveShotFillsTheCutBackSlotWithTheCrossAnswer) {
   pes::PassAnswer fwd, lng, cross;
   cross.index = 3;
   cross.kind = pes::kPassThrough;
-  const std::vector<pes::UnitSlot> plain = pes::FillUnitTable(kinds, false, fwd, lng, cross);
+  const std::vector<pes::UnitSlot> plain = pes::FillUnitTable(kinds, false, fwd, lng, cross, {});
   EXPECT_EQ(plain[0].answer.type, pes::kAnswerNone);
   const std::vector<pes::UnitSlot> curved =
-      pes::FillUnitTable(kinds, false, fwd, lng, cross, true);
+      pes::FillUnitTable(kinds, false, fwd, lng, cross, {}, true);
   EXPECT_EQ(curved[0].answer.type, pes::kAnswerPass);
   EXPECT_EQ(curved[0].answer.sub, pes::kPassThrough);
 }
@@ -1374,3 +1394,195 @@ TEST(PesCarrierCross, ACenteringBallNeedsTheCarryBearing) {
   in.carryVsFacing_deg = 140.0f;
   EXPECT_EQ(pes::CrossUnit(in, Synthetic()).index, -1);
 }
+
+// --- the GoalFront unit (kind 2; gate 0x14212ABA0, picker 0x1421265C0) ---
+//
+// The unit runs the lane core itself, so its constants come from the install (PES21_ROOT, as
+// pes_lane_test does) and this fixture overrides the picker's gates with crisp values: these tests
+// pin the structure, the loader test pins the installed numbers.
+
+namespace {
+
+namespace lane = pes::lane;
+
+using GoalFrontPlayers = std::array<lane::LanePlayer, lane::kSlots>;
+
+constexpr int kGoalFrontCarrierSlot = 3;  // a home player, so side 0
+
+pes::GoalFrontMate GoalFrontMate(int index) {
+  pes::GoalFrontMate m;
+  m.index = index;
+  m.statusValid = true;
+  m.difficulty = 0.5f;
+  m.distance_m = 12.0f;
+  m.angleToFacing_deg = 30.0f;
+  m.openness = 50.0f;
+  m.opennessClass = 3;
+  m.pressure = 1.0f;
+  m.zone = {10.0f, 0.0f, pes::kBandClose, pes::kSectorCentral, true};
+  return m;
+}
+
+class GoalFrontUnitTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    const char* root = std::getenv("PES21_ROOT");
+    if (!root)
+      GTEST_SKIP() << "PES21_ROOT unset: the unit runs the lane core, whose table is in the install";
+    std::string err;
+    auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+    ASSERT_TRUE(exe.has_value()) << err;
+    auto loaded = pes::LoadCarrierConstants(*exe, &err);
+    ASSERT_TRUE(loaded.has_value()) << err;
+    k_ = *loaded;
+    // Crisp gates. The lane request stays the install's (20 m, 80 deg, 1 m): the situation below
+    // (an opponent 10 m dead ahead) is inside it for any sane length.
+    k_.gfDifficultyMax = 1.0f;
+    k_.gfAngle_deg = 70.0f;
+    k_.gfStatAngle_deg = 100.0f;
+    k_.gfFlagAngle_deg = 120.0f;
+    k_.gfDistMin_m = 8.0f;
+    k_.gfDistMax_m = 25.0f;
+    k_.gfDistMinBand_m = 4.0f;
+    k_.gfClass2Dist_m = 12.0f;
+    k_.gfZoneDist_m = 14.0f;
+    k_.gfStatFloor = 70.0f;
+    k_.gfStatBonus = 20.0f;
+    in_.players = GoalFrontPlayers{};
+    in_.players[kGoalFrontCarrierSlot].pos = {0.0f, 0.0f};
+    in_.players[kGoalFrontCarrierSlot].active = true;
+    in_.carrierSlot = kGoalFrontCarrierSlot;
+    in_.carrierPos = {0.0f, 0.0f};
+    in_.laneHeading_deg = 0.0f;  // the lane runs along +x
+    in_.carrierStat = 50.0f;
+    in_.mates = {GoalFrontMate(5)};
+  }
+
+  void BlockTheLane() {
+    // The lane's theta is measured over (x, z) with dir(theta) = (sin, cos), so heading 0 runs
+    // along +z and the blocker sits 10 m up that axis.
+    in_.players[14].pos = {0.0f, 10.0f};
+    in_.players[14].active = true;
+  }
+
+  pes::CarrierConstants k_{};
+  pes::GoalFrontInput in_{};
+};
+
+TEST_F(GoalFrontUnitTest, TheGateIsTheBlockedLaneOutsideTheCentralZone) {
+  // 0x14212ABA0: the lane test silences the unit when the lane is free, and the central-zone
+  // early-out silences it whatever the lane says.
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  BlockTheLane();
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+  in_.central = true;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+}
+
+TEST_F(GoalFrontUnitTest, TheAngleGateHoldsFromTenMetresOut) {
+  // 0x1421265C0: inside the distance gate's own floor the angle is not read at all, above it the
+  // default 90 degree limit applies.
+  BlockTheLane();
+  in_.mates = {GoalFrontMate(5)};
+  in_.mates[0].distance_m = 30.0f;  // over the band: the answer dies on the band, not the angle
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].distance_m = 20.0f;
+  in_.mates[0].angleToFacing_deg = 75.0f;  // over the 70 limit
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].angleToFacing_deg = 65.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+  in_.mates[0].distance_m = 6.0f;
+  in_.mates[0].angleToFacing_deg = 179.0f;  // inside the floor the angle is not consulted
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+}
+
+TEST_F(GoalFrontUnitTest, TheStatRaisesTheLimitForAnAICarrier) {
+  // 0x1421267FF: 70 < the carrier's stat + 20 (0x14063E960's bonus) moves the limit to 117.
+  BlockTheLane();
+  in_.mates[0].angleToFacing_deg = 95.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.carrierStat = 80.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+  // The bonus is added before the comparison, so 51 + 20 crosses the floor.
+  in_.carrierStat = 51.0f;
+  in_.statBonus = true;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+  // A human carrier never reads the stat: the flag path is his.
+  in_.humanCarrier = true;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.flagSet = true;
+  in_.flagDistFar = true;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+}
+
+TEST_F(GoalFrontUnitTest, TheZoneAndPressureGates) {
+  // The mate's own zone must be central inside 15 m with a non-zero pressure class.
+  BlockTheLane();
+  in_.mates[0].zone.sector = pes::kSectorWide;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].zone = {15.0f, 0.0f, pes::kBandClose, pes::kSectorCentral, true};
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);  // not inside 15 m
+  in_.mates[0].zone = {10.0f, 0.0f, pes::kBandClose, pes::kSectorCentral, true};
+  in_.mates[0].pressure = 0.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].pressure = 3.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+}
+
+TEST_F(GoalFrontUnitTest, TheOpennessClassLadderAndTheDifficultyGate) {
+  BlockTheLane();
+  in_.mates[0].opennessClass = 1;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].opennessClass = 2;
+  in_.mates[0].distance_m = 20.0f;  // class 2 needs less than 15 m
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].distance_m = 10.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+  in_.mates[0].opennessClass = 0;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].opennessClass = 3;
+  in_.mates[0].difficulty = 1.5f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].difficulty = 1.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+}
+
+TEST_F(GoalFrontUnitTest, OnlyAStrictlyMoreOpenMateReplacesTheBest) {
+  // 0x1421265C0's tail: the most open mate wins; an equal openness keeps the earlier player, and a
+  // mate whose status byte fails never enters.
+  BlockTheLane();
+  in_.mates = {GoalFrontMate(5), GoalFrontMate(7)};
+  in_.mates[1].openness = 50.0f;  // equal: the earlier player keeps it
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+  in_.mates[1].openness = 40.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+  in_.mates[1].openness = 90.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 7);
+  in_.mates[1].statusValid = false;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+}
+
+TEST_F(GoalFrontUnitTest, TheAnswerIsAShortPass) {
+  // The answer slot writes b = 0 (the short pass).
+  BlockTheLane();
+  const pes::PassAnswer a = pes::GoalFrontUnit(in_, k_);
+  EXPECT_EQ(a.index, 5);
+  EXPECT_EQ(a.kind, pes::kPassShort);
+}
+
+TEST(PesCarrierTable, KindTwoCarriesOnlyTheGoalFrontAnswer) {
+  // The table fill: kind 2 takes the GoalFront answer, in the slot the list gave it.
+  const std::vector<int> kinds{4, 2};
+  pes::PassAnswer fwd, lng, cross, goalFront;
+  goalFront.index = 7;
+  goalFront.kind = pes::kPassShort;
+  const std::vector<pes::UnitSlot> table =
+      pes::FillUnitTable(kinds, false, fwd, lng, cross, goalFront);
+  EXPECT_EQ(table[0].answer.type, pes::kAnswerNone);
+  EXPECT_EQ(table[1].answer.type, pes::kAnswerPass);
+  EXPECT_EQ(table[1].answer.sub, pes::kPassShort);
+  const std::vector<pes::UnitSlot> silent = pes::FillUnitTable({2}, false, fwd, lng, cross, {});
+  EXPECT_EQ(silent[0].answer.type, pes::kAnswerNone);
+}
+
+}  // namespace

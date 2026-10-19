@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "gametypes.hpp"
+#include "onthepitch/peslane.hpp"
 #include "pes/exe.hpp"
 #include "pesrandom.hpp"
 #include "gamedefines.hpp"
@@ -215,8 +216,31 @@ struct CarrierConstants {
   float chooserSideAngle_deg = 0.0f;      // 40, 0x14259be2c: the side band
   float chooserPressureScale_deg = 0.0f;  // 20, 0x14259be1c: side band per unit of pressure
   float chooserSpeedLow_kmh = 0.0f;       // 10, 0x142588210: the fast-carrier gate
-  float chooserSpeedMid_kmh = 0.0f;       // 15, 0x14259be0c: the free-lane speed gate
+  float chooserSpeedMid_kmh = 0.0f;      // 15, 0x14259be0c: the free-lane speed gate
   float chooserRoom_m = 0.0f;             // 12, 0x14259be04: the room test
+
+  // --- the lane-gated units (BackSpace 0x142129110, GoalFront 0x14212ABA0, Safety 0x14212B520):
+  // the lane request each one passes to the packer 0x14063DE20, and the GoalFront picker
+  // 0x1421265C0's gates ---
+  float unitLaneLen_m = 0.0f;    // 20, 0x14259be1c: BackSpace's and GoalFront's lane length
+  float unitLaneCone_deg = 0.0f;  // 80, 0x142596e6c: all three lanes' cone
+  float unitLaneRad_m = 0.0f;    // 1, 0x14256ae1c: BackSpace's and GoalFront's radius offset
+  float gfDifficultyMax = 0.0f;  // 1, 0x14256ae1c: record A +0xF0 at or below
+  float gfDistMin_m = 0.0f;      // 10, 0x142588210: the angle gate's floor on record B +0xEC
+  float gfDistMax_m = 0.0f;      // 30, 0x142591140: the class gate's ceiling on it
+  float gfDistMinBand_m = 0.0f;  // 5, 0x14259222c: the class gate's floor on it
+  float gfClass2Dist_m = 0.0f;   // 15, 0x14259be0c: openness class 2's distance cap
+  float gfAngle_deg = 0.0f;      // 90, 0x14259be5c: record B +0xE8's default limit
+  float gfStatAngle_deg = 0.0f;  // 117, 0x142bf07e0: the limit when the stat byte passes the floor
+  float gfFlagAngle_deg = 0.0f;  // 140, 0x14259be64: the limit when imageA+0x21D8 holds
+  float gfFlagDistSq_m2 = 0.0f;  // 25, 0x14259be20: imageA+0x2128's distance for that limit
+  float gfStatFloor = 0.0f;      // 70, `cmp byte [rsp+0x34],0x46` at 0x1421267ff
+  float gfStatBonus = 0.0f;      // 20, `add bpl,0x14` at 0x1421266ad
+  float gfPredictGain = 0.0f;    // 0.5, 0x142565600: the mate's predicted point's frame count
+  float gfZoneDist_m = 0.0f;     // 15, 0x14259be0c: the zone's +0x170 at or below
+  // The lane core's own table and scalars (0x14063CD90 and its packer), loaded here so the
+  // carrier units that call the core get it through the one constants bundle the match carries.
+  lane::LaneConstants lane;
 
   bool operator==(const CarrierConstants&) const = default;
 };
@@ -634,11 +658,13 @@ std::vector<int> BuildUnitList(const UnitListInput& in);
 
 // The table fill: one slot per listed kind, in list order. Kind 0 takes the
 // shot answer, 4 the PassForward answer, 9 the Long answer, 7 the Cross
-// answer, and 3 the cut-back answer behind a CurveShot plan; every other kind
-// answers nothing here. `curveShotPlan` is whether the CurveShot plan runs.
+// answer, 2 the GoalFront answer, and 3 the cut-back answer behind a
+// CurveShot plan; every other kind answers nothing here. `curveShotPlan` is
+// whether the CurveShot plan runs.
 std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnswer,
                                     const PassAnswer& fwd, const PassAnswer& lng,
-                                    const PassAnswer& cross, bool curveShotPlan = false);
+                                    const PassAnswer& cross, const PassAnswer& goalFront,
+                                    bool curveShotPlan = false);
 
 // The walk's context (0x14210f110's reads): the match restart mode and the FSM state, the ball's
 // owner and the carrier's own side, and the skill and zone bits the rules test.
@@ -703,6 +729,41 @@ struct CrossInput {
   bool skill14 = false;  // f11/f12 need Pinpoint Crossing context; the unit does not gate on it
 };
 PassAnswer CrossUnit(const CrossInput& in, const CarrierConstants& k);
+
+// --- the GoalFront unit (kind 2, gate 0x14212ABA0, picker 0x1421265C0) ---
+//
+// The gate: a carrier outside the central zone whose lane - 20 m at 80 degrees with a 1 m radius
+// offset, from his own position, on the per-slot angle heading + 180 - is BLOCKED. The picker then
+// takes the most open mate: status 0xB, record A's difficulty at or below 1, the angle limit on
+// record B's turn angle (90, 117 or 140), the distance band (5, 30) with 10 as the angle gate's own
+// floor, the openness class ladder, and the mate's own shoot zone central, within 15 m, with a
+// non-zero pressure entry. Ties keep the earlier mate. The answer is a short pass (b = 0).
+struct GoalFrontMate {
+  int index = -1;                  // the caller's player id (PES's slot)
+  bool statusValid = false;        // 0x142118D20(team+0xB6C, slot % 11) == 0xB
+  float difficulty = 0.0f;         // record A +0xF0
+  float distance_m = 0.0f;         // record B +0xEC (ball to target)
+  float angleToFacing_deg = 0.0f;  // record B +0xE8 (the turn angle)
+  float openness = 0.0f;           // record B +0xF4
+  int opennessClass = 0;           // record B [0]
+  float pressure = 0.0f;           // 0x14069A3E0(team+0x2124, slot % 11)[+0x10]; 0 skips
+  ShootZone zone;                  // 0x140698D10 at his predicted point
+};
+
+struct GoalFrontInput {
+  std::array<lane::LanePlayer, lane::kSlots> players{};  // the 22 players the lane core reads
+  int carrierSlot = -1;                                  // the reference slot, 0x14043C410 sides
+  CarrierPoint carrierPos;                               // the lane origin (record +0x55C/+0x564)
+  float laneHeading_deg = 0.0f;  // wrap360(0x140A71260(T, carrier) [slot] + 180), 0x142598580
+  bool central = false;          // IsCentral(team+0x9CC), 0x140699710
+  bool humanCarrier = false;     // imageA+0x6C (0 = an AI carrier)
+  float carrierStat = 0.0f;      // 0x142126696: the player-object byte the angle limit ramps on
+  bool statBonus = false;        // 0x14063E960(team, carrierSlot, 0xC): adds 20 (0x1421266ad)
+  bool flagSet = false;          // imageA+0x21D8[oppSide] != 0
+  bool flagDistFar = false;      // imageA+0x2128[oppSide].+4 over 25 (0x14259be20)
+  std::vector<GoalFrontMate> mates;
+};
+PassAnswer GoalFrontUnit(const GoalFrontInput& in, const CarrierConstants& k);
 
 // --- the arming gate (report 3.1, 0x142111610) ---
 //

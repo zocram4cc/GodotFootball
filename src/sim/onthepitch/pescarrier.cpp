@@ -279,6 +279,33 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
   };
   for (const auto& r : chooser) ok &= ReadVa(exe, r.first, r.second, error);
 
+  // The lane core the unit gates call (0x14063CD90 with its packer 0x14063DE20 and the test
+  // 0x14063DC10), loaded into this bundle so a unit gets it from the one constants object the match
+  // carries.
+  if (std::optional<lane::LaneConstants> l = lane::LoadLaneConstants(exe, error); l.has_value()) {
+    k.lane = *l;
+  } else {
+    ok = false;
+  }
+  // The GoalFront unit: its lane request (0x14212ABA0) and its picker's 0x1421265C0 load sites.
+  const std::pair<uint64_t, float*> goalFront[] = {
+      {0x14259be1c, &k.unitLaneLen_m},    {0x142596e6c, &k.unitLaneCone_deg},
+      {0x14256ae1c, &k.unitLaneRad_m},    {0x14256ae1c, &k.gfDifficultyMax},
+      {0x142588210, &k.gfDistMin_m},      {0x142591140, &k.gfDistMax_m},
+      {0x14259222c, &k.gfDistMinBand_m},  {0x14259be0c, &k.gfClass2Dist_m},
+      {0x14259be5c, &k.gfAngle_deg},      {0x142bf07e0, &k.gfStatAngle_deg},
+      {0x14259be64, &k.gfFlagAngle_deg},  {0x14259be20, &k.gfFlagDistSq_m2},
+      {0x142565600, &k.gfPredictGain},    {0x14259be0c, &k.gfZoneDist_m},
+  };
+  for (const auto& r : goalFront) ok &= ReadVa(exe, r.first, r.second, error);
+  // The picker's two byte immediates: `cmp byte ptr [rsp+0x34],0x46` (the stat floor) and
+  // `add bpl,0x14` (the bonus 0x14063E960 pays on it).
+  uint8_t gateByte = 0;
+  ok &= ReadImm(exe, Imm{0x1421267ff, {0x80, 0x7c, 0x24, 0x34}, 4, 4}, &gateByte, error);
+  k.gfStatFloor = static_cast<float>(gateByte);
+  ok &= ReadImm(exe, Imm{0x1421266ad, {0x40, 0x80, 0xc5}, 3, 3}, &gateByte, error);
+  k.gfStatBonus = static_cast<float>(gateByte);
+
   // The rolled plans' base probabilities, from the immediates of the plan
   // functions 0x14211a800 (Breakthrough), 0x14211b460 (MiddleShot),
   // 0x14211ab10 (Cross) and 0x14211b1d0 (Long).
@@ -991,6 +1018,54 @@ PassAnswer CrossUnit(const CrossInput& in, const CarrierConstants& k) {
   return answer;
 }
 
+PassAnswer GoalFrontUnit(const GoalFrontInput& in, const CarrierConstants& k) {
+  PassAnswer answer;
+  // The gate (0x14212ABA0): only a carrier outside the central zone, with the lane about the
+  // per-slot heading + 180 blocked, runs the picker at all.
+  if (in.central) return answer;
+  const lane::LaneRequest lane{{in.carrierPos.x, in.carrierPos.z}, in.laneHeading_deg,
+                               k.unitLaneLen_m, k.unitLaneCone_deg, k.unitLaneRad_m};
+  if (lane::LaneFree(k.lane, in.players, in.carrierSlot, lane, /*keepKeeper*/ false,
+                     /*horizonFrames*/ 0)) {
+    return answer;
+  }
+  // The picker (0x1421265C0). The stat floor is settled once, before the mate loop.
+  const float stat = in.carrierStat + (in.statBonus ? k.gfStatBonus : 0.0f);
+  int best = -1;
+  float bestOpenness = 0.0f;
+  for (const GoalFrontMate& m : in.mates) {
+    if (m.index < 0 || !m.statusValid) continue;
+    if (!(m.difficulty <= k.gfDifficultyMax)) continue;
+    const float d = m.distance_m;
+    // The angle gate holds only from 10 m out; the distance band below is its own, separate gate,
+    // so a mate inside (5, 10) is never measured against the angle at all.
+    if (k.gfDistMin_m <= d) {
+      float limit = k.gfAngle_deg;
+      if (!in.humanCarrier) {
+        if (stat > k.gfStatFloor) limit = k.gfStatAngle_deg;
+      } else if (in.flagSet && in.flagDistFar) {
+        limit = k.gfFlagAngle_deg;
+      }
+      if (limit <= m.angleToFacing_deg) continue;
+    }
+    if (!(k.gfDistMinBand_m < d && d < k.gfDistMax_m)) continue;
+    if (!(m.opennessClass < 0 ||
+          (m.opennessClass > 1 && (m.opennessClass != 2 || d < k.gfClass2Dist_m)))) {
+      continue;
+    }
+    if (!(IsCentral(m.zone) && m.zone.d_m < k.gfZoneDist_m && m.pressure != 0.0f)) continue;
+    // The first candidate is taken; only a strictly larger openness replaces it.
+    if (best < 0 || (bestOpenness <= m.openness && m.openness != bestOpenness)) {
+      best = m.index;
+      bestOpenness = m.openness;
+    }
+  }
+  if (best < 0) return answer;
+  answer.index = best;
+  answer.kind = kPassShort;
+  return answer;
+}
+
 bool UnitArmed(int kind, bool capFeint, bool capBackSpace, bool capSafety, float ballDistSq_m2,
                const CarrierConstants& k) {
   (void)k;
@@ -1065,7 +1140,8 @@ std::vector<int> BuildUnitList(const UnitListInput& in) {
 
 std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnswer,
                                     const PassAnswer& fwd, const PassAnswer& lng,
-                                    const PassAnswer& cross, bool curveShotPlan) {
+                                    const PassAnswer& cross, const PassAnswer& goalFront,
+                                    bool curveShotPlan) {
   std::vector<UnitSlot> table;
   for (const int kind : kinds) {
     UnitSlot slot;
@@ -1074,6 +1150,7 @@ std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnsw
     if (kind == 4 && fwd.index >= 0) slot.answer = {kAnswerPass, fwd.kind};
     if (kind == 9 && lng.index >= 0) slot.answer = {kAnswerPass, lng.kind};
     if (kind == 7 && cross.index >= 0) slot.answer = {kAnswerPass, cross.kind};
+    if (kind == 2 && goalFront.index >= 0) slot.answer = {kAnswerPass, goalFront.kind};
     if (kind == 3 && cross.index >= 0 && curveShotPlan)
       slot.answer = {kAnswerPass, cross.kind};
     table.push_back(slot);
