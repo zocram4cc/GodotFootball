@@ -6,6 +6,7 @@
 
 #include "gametypes.hpp"
 #include "pes/uniform.hpp"
+#include "onthepitch/pesroles.hpp"
 
 namespace pes::offball {
 namespace {
@@ -575,10 +576,10 @@ float LaneIntercept(Vec2f A, Vec2f B, Vec2f C, Vec2f D, float speed, bool flag) 
 
 // FUN_1408CB0B0 on the Defensive Full-back bit (FUN_140a64030(id, 0x11)): his
 // style bit and his role's compat row. Off the pes_loop path there is no style
-// table, so GF's stand-in (a registered left back) holds.
+// table, so GF's stand-in (a class-2 SB, LB or RB) holds.
 // ponytail: the stand-in goes when pes_loop is the only path.
 bool StyleLb(const RunWorld& w, const PlayerFacts& me) {
-  if (!w.styleCompat) return me.position == 2;
+  if (!w.styleCompat) return me.roleClass == pes::roles::kSideBackClass;
   return pes::style::Gate(*w.styleCompat, me.roleClass, me.styleWord,
                           pes::style::EngineBit(PlayingStyles::Player::DefensiveFullBack));
 }
@@ -726,7 +727,7 @@ bool L68e300(const Ctx& x) {
   if (Dist2(c.pos, A2) < 144.0f || Dist2(c.pos, x.P) < 25.0f) return false;
   return Ad(c.facing, PBrg(c.pos, A2)) >= 105.0f;
 }
-// s3 #19, step 6: false = stop. 8c51f0 is the role-class map.
+// s3 #19, step 6: false = stop. The classes are the B array (FUN_1408c51f0, pesroles.hpp).
 bool L596240(const Ctx& x) {
   if (x.me.roleClass >= 3) return true;
   const bool me = IsRun(x.me.state);
@@ -1416,7 +1417,8 @@ int FramesToReach(const RunWorld& w, int id, Vec2f X) {
                            ? Ramp(dev2, kReachAlignTo_deg, kReachAlignFrom_deg)
                            : 1.0f;
   int scale = static_cast<int>(Frames(kReachAlignScale_s) * u);
-  if (p.position == 0) scale = static_cast<int>(static_cast<float>(scale) * 0.5f);  // rec[1] == 3
+  if (p.recordByte1 == kHalvedReachRecordByte)
+    scale = static_cast<int>(static_cast<float>(scale) * 0.5f);  // rec[1] == 3
   return frames + static_cast<int>(turnPenalty * second + static_cast<float>(scale));
 }
 
@@ -1498,17 +1500,6 @@ PassToMeResult PassToMeLock(const RunWorld& w, int id) {
   (void)slot;
   (void)t;
   return kPassToMeUnknown;
-}
-
-int RoleClass(int gfRole) {
-  constexpr int kMap[] = {0, 1, 2, 2, 3, 4, 5, 5, 6, 9, 8, 8, 7};
-  return gfRole >= 0 && gfRole < static_cast<int>(std::size(kMap)) ? kMap[gfRole] : 0;
-}
-
-int Position(int gfRole) {
-  // GK CB LB RB DM CM LM RM AM CF LW RW SS -> 0 1 2 3 4 5 6 7 8 12 9 10 11
-  constexpr int kMap[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 9, 10, 11};
-  return gfRole >= 0 && gfRole < static_cast<int>(std::size(kMap)) ? kMap[gfRole] : 0;
 }
 
 namespace {
@@ -1617,14 +1608,15 @@ bool RankAngleOk(const RunWorld& w, int id, int attackLevel) {
   // count clears it.
   const int ahead = AttackersAhead(w);
   const bool styleLb = StyleLb(w, x.me);
-  if (!(ahead > 3 || (x.me.position < 4 && !styleLb))) return true;
+  if (!(ahead > 3 || (x.me.roleClass < pes::roles::kReachClassBelow && !styleLb))) return true;
   // The rank byte: the attacking team's line-list position of this runner.
   if (LineRank(w, id) <= 1) return true;
   // ponytail: FUN_1405a0d20 (the "go straight for the line" duel test) and
   // FUN_140a64030(id, 9) (style bit 9: none in GF) are taken false, so the
   // style-bit branch of the sub-test is always entered.
-  const int pos = x.me.position;
-  if (pos > 3) {
+  // The angle branch takes class >= 4, the other side of the reach gate's `class < 4`. PES's veto
+  // (run2.c:642) lists that class test as a disjunct instead; that order is not re-derived here.
+  if (x.me.roleClass >= pes::roles::kReachClassBelow) {
     // 0x140607747: the bearing from the ball-line point to the runner, and the
     // runner's facing must agree within 45 deg.
     const float need = Bearing(w.ball, x.P);
@@ -1680,7 +1672,7 @@ uint32_t AttackSlotMask(const RunWorld& w, int team, int L) {
   for (int i = team * kSlots; i < team * kSlots + kSlots; ++i) {
     if (!w.p[i].active) continue;
     const int slot = i - team * kSlots;
-    if (w.p[i].position >= 7) {
+    if (w.p[i].roleClass >= pes::roles::kAlwaysAdmitClass) {
       e.push_back({slot, -100.0f});
       mask |= 1u << slot;
       continue;
@@ -1719,7 +1711,7 @@ MaskReject ChanceMaskReject(const OffBallConstants& k, const RunWorld& w, int id
   // the T+0x4c00 != 0 guard that wraps 593430's admitting block.
   if (id == w.carrier) return kMaskCarrierOrReceiver;
   if (!Valid(w.carrier) && id == w.receiver[x.t]) return kMaskCarrierOrReceiver;
-  if (me.position == 0) return kMaskCarrierOrReceiver;
+  if (me.roleClass == pes::roles::kKeeperClass) return kMaskCarrierOrReceiver;
   if (IsRun(me.state)) return kMaskAlreadyRunning;  // 593430: a running slot only from PULL_AWAY
   // 593430 (raw 0x1405935c4: k = -0.1 @0x14259d648): not already on the line.
   if (Beyond2(w, id, -0.1f)) return kMaskOnTheLine;
@@ -1739,12 +1731,12 @@ MaskReject ChanceMaskReject(const OffBallConstants& k, const RunWorld& w, int id
   if (!teamMayRun) return kMaskTeamMayNotRun;
   const int rank = LineRank(w, id);
   // ponytail: MA+0x68/+0x60 team ints unknown; taken 0 (this gate passes).
-  const int pos = me.position;
+  const int cls = me.roleClass;
   // b8a3 = attack level < 1 skips positions 0..4 (counter-trigger 128).
-  if (attackLevel < 1 && pos <= 4) return kMaskAttackLevel;
+  if (attackLevel < 1 && cls <= pes::roles::kAttackSkipClassMax) return kMaskAttackLevel;
   const bool styleLb = StyleLb(w, me);
   const int ahead = AttackersAhead(w);
-  const bool reachPath = ahead > 3 || (pos < 4 && !styleLb);
+  const bool reachPath = ahead > 3 || (cls < pes::roles::kReachClassBelow && !styleLb);
   const float dz = std::fabs(x.P.z - x.B.z);
   if (reachPath) {
     float dh = 0.0f;
