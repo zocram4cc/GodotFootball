@@ -1,6 +1,7 @@
 # A4Level: the one-touch team level (G3) and the attack-heading convention
 
 > **Main audit 19-10-26 (run 2, `4126007`):** `0x140698EDA` subss, `0x140698EE9` store +0x170, `0x140698F1D` call 0x140A8F820, `0x1421199B8` xor edi,edi, `0x142119CB6` ja: match. Citation slips: `0x14212AF86` is the `call 0x142128C10` (the `mov rcx,rdi` precedes it); `0x142119929` is `addss xmm0,[0x142588210]` (10.0, the B3C<=B58+10 arm), not the K+0x40 read. OneTwo now dies at G11 (plan heading stand-in) and G12.
+> **Main audit 19-10-26 (run 4, `c059675`):** store `movss [rbx],xmm0` at `0x14211EB89` matches. Slip: the jump-table load `mov ecx,[r9+rax*4+0x211EC50]` is at `0x14211E766` (`0x14211E764` is the `cltq`). Plan heading mode 2 ported; G11 kills 12 -> 3; OneTwo now dies at G12.
 
 Branch `A4Level` from `origin/A4LaneInputs` `b36a845`. Worktree `<workdrive>/gf-A4Level`.
 Commits (pushed): `e296f1b` (level + attack-heading convention), `a1882b9` (the aim-vs-facing frame).
@@ -142,8 +143,10 @@ GF's `pes::PesBearingDeg(fromX, fromY, toX, toY)` (`pesdodge.hpp`) is that conve
 ("0 deg = +GF y (PES's +z), 90 deg = +GF x"), and `pescarrier.cpp`'s local `BearingDeg(a,b)` is the
 same. The carrier path feeds the units through:
 
-- the attack heading: `attackSign < 0 ? 180 : 0` (`elizacontroller.cpp` 2125, 2295, 2407, 2514) — wrong;
-  the curve site's `270 : 90` (2753) — right;
+- the attack heading: the pre-port `attackSign < 0 ? 180 : 0` (`elizacontroller.cpp` 2125, 2295,
+  2407, 2514 at the branch point) — **wrong, and no longer in the tree**: `e296f1b` replaced every
+  attack-heading consumer with `pes::AttackAngleDeg(attackSign)` = 90/270, the PES bearing of the
+  attack direction. The curve site's `270 : 90` (2753) already agreed with it;
 - the facing/heading: `facingTheta/headingTheta = atan2(x, y)` (2706-2711) — right;
   `facingAngle = atan2(-y, -x)` (2293, 2406) and `velHeading_deg` (2525) — a mirrored frame
   (`270 - bearing`), the class A3States fixed;
@@ -158,8 +161,9 @@ sites expressed through the existing `PesBearingDeg`. No magic 90/270, one conve
 `0x141052E30(p) = *(u32*)(p+8)`, and the object is **`bp+0x32B0`, the BallPlayer record's image
 state**, not a team-AI field (S1Watch round 3, `docs/re/pes-re-team-mode.md` §1; the reader is called
 with `param_1+0x32B0` by the driver `FUN_14210F110`). The one-touch predicate `0x142128C10` reads the
-same object: its `param_1[6]` is the caller's `RDI`, and the OneTwo caller passes `MOV RCX,RDI` at
-`0x14212AF86` with `RDI = R8` at the entry (`0x14212AEBF`), the carrier's own snapshot (its `+0x10`
+same object: its `param_1[6]` is the caller's `RDI`, and the OneTwo caller does `MOV RCX,RDI` at
+`0x14212AF83` (the `CALL 0x142128C10` is at `0x14212AF86`) with `RDI = R8` at the entry
+(`0x14212AEBF`), the carrier's own snapshot (its `+0x10`
 is `C[4]`, lane-core §7). CONFIRMED raw this run.
 
 The writer `FUN_1421197B0` is **already ported** as `pes::NextIntention` (`pescarrier.cpp`), from the
@@ -177,8 +181,9 @@ block above writes:
 
 - `touch.teamMode = intention` (G4's `== 3 || == 4`, and G8's increment at `== 2 || == 3`);
 - `sf.teamMode = intention` (the Safety gate's `2 < mode` ceiling arm);
-- the `attackDot` correction: `0x142119929` reads `K+0x40` (the ctx4 ball x), so the controller now
-  uses the ball's x, not the carrier's.
+- the `attackDot` correction: `0x142119915` is `MOVSS XMM0,[R12+0x14]; MULSS XMM0,[R14+0x40]`, which
+  reads `K+0x40` (the ctx4 ball x; `0x142119929` is the `ADDSS 10.0` of the B3C/B58 arm just below),
+  so the controller now uses the ball's x, not the carrier's.
 
 `IsClose` is **not** stubbed: GF's `ShootZone` is the output of R4's `0x140698D10` (the same builder
 PES's `0x140699820` consumes at `imageA+0x9CC`), so `pes::IsClose(zone)` is the R4 predicate itself.
@@ -214,7 +219,103 @@ Fixed to `std::fabs(...)`; a ball 2.44 m past the line now reads 2.44, both halv
 Case A (the ball outside the mouth band) was already exact: `d_m` is the 3D distance to
 `(sign*pf[0], 0, sgn(K.z)*pf[2])`, the near post with no radius (`FUN_140A8F820` at `0x140698F1D`).
 
-## 5. Open items
+## 4b. G11's plan heading (`ctx7+0xC0`): writer decoded and mode 2 ported (run 4)
+
+**The lane theta is the plan heading, not the attack direction.** G11 (`0x142128C10`) passes
+`param_1[7]+0xC0` — the plan record's `+0xC0` — to the lane core at its own `FUN_14063CD90` call,
+and the same field feeds G10's turn test. The unit takes it through `TouchInput.planHeading_deg`.
+The earlier claim that a new test proved this red was **wrong**: the parent tree already passed
+`planHeading_deg` to the lane (`origin/A4LaneInputs:pescarrier.cpp:2130`), so
+`G11sLaneRunsAlongThePlanHeadingNotTheAttack` passes there too. It locks the axis; it did not drive
+the change. The red test for this run is `PesPlanHeading.ModeTwoAimsAcrossThePitchAndLeansWithThe
+CarriersDepth`, which fails to **compile** on the parent (`'PlanHeadingDeg' is not a member of 'pes'`)
+because the behaviour did not exist.
+
+**What the controller fed before: 0.** The `image` lambda returned `PlanImage{..., 0.0f}`, so
+`carrierImage.heading_deg` — and hence G11's lane — always pointed +z.
+
+**The writer.** `FUN_14211E650(plan, ctx)` writes `plan+0xC0` every frame. Exact sites, re-read by
+script this run:
+
+- the store: `MOVSS dword ptr [RBX],XMM0` at **`0x14211EB89`**, after `LEA RBX,[R14+0xC0]` at
+  **`0x14211EB7F`** (bytes `f3 0f 11 03` at the first, `49 8d 9e c0 00 00 00` at the second);
+- the mode dispatch: `MOV ECX,dword ptr [R9 + RAX*4 + 0x211EC50]` at **`0x14211E764`**, with
+  `LEA R9,[0x140000000]` at `0x14211E75D` and `JMP RCX` at `0x14211E771`, so the table is at
+  **`0x14211EC50`** — indexed by `plan+0xC4 - 1` (the `LEA EAX,[R8-1]` at `0x14211E724`), so mode 1
+  is entry 0;
+- the mode cases, from the table: entry 0/6 -> `0x14211E773` (modes 1, 7), entry 1 -> `0x14211E7AC`
+  (mode 2), entry 2 -> `0x14211E930` (3), entry 3 -> `0x14211E9B8` (4), entry 4/5 -> `0x14211EA5E`
+  (5, 6), entry 7 -> `0x14211E874` (8);
+- the shared call: `FUN_14211C380` at `0x14211EB75`, then `FUN_140474C40` (the bearing) at
+  `0x14211EBF0`, wrapped to `[0, 360)` by `0x14259858C` at `0x14211EB8F`/`0x14211EBA6`.
+
+**The port (mode 2, Basic — the mode GF's Basic plan runs).** `pes::PlanHeadingDeg` reproduces
+`0x14211E7AC` exactly: the three points `a = (sign*((F0-2) - F0/3), cz)`, `b = (sign*(F0-2), cz)` and
+the goal centre `aim = (sign*(F0-2), 0)`; the carrier projected onto `a -> b` by `FUN_140A91120`'s
+formula (clamped to `[0, 2]`, with the overshoot reflection through the `FUN_1415A1780` sqrt pair at
+`0x14211C4E3`); the blend `b -> aim` by the carrier's own `|z|` past the goal-area half-width F5 up
+to the touchline F1, doubled; and `FUN_140474C40`'s `atan2(to.x-from.x, to.z-from.z)` wrapped. The
+two `powf` calls at `0x14211C54C` reduce to `gain = (1 - (1-t)^(1/blend))^blend`, and a zero blend
+takes the aim point whole (which is what `powf(1, inf)` returns, without an infinity). F0/F5/F1 are
+the install's own marks (`pesFieldHalfLength`, `pesGoalAreaHalfWidth`, `pesFieldHalfWidth`); `2` is
+`k.touchPad_m` (`0x142565604`) and the divisor is `k.sfLimMin_m` (`0x14258C264`).
+
+**The other modes.** `// ponytail:` at the switch in `PlanHeadingDeg` names all six case VAs (1/7
+`0x14211E773`, 3 `0x14211E930`, 4 `0x14211E9B8`, 5/6 `0x14211EA5E`, 8 `0x14211E874`): they read
+plan-record fields GF does not carry (`+0xA8` the plan's own carrier copy, `+0xC8`/`+0xCC` the plan
+target) and mode 1/7 is seeded by `FUN_14211C610`'s ball-relative point. They return the attack
+bearing as the stand-in.
+
+**Run-3 re-probe (temporary, reverted): both inputs are live; G12 is the real closer.** Countered
+`OneTouch`'s exits and `OneTwoUnit`'s entry for the same fixture: `[probe] OneTouch 22 pass 0 | G3 0
+G4 0 G5 1 G6 0 G7 0 G8 0 G9 0 G10 0 G11 11 G12 10 (no curve 0)` and `OneTwo rethinks 24 answers 0
+| last plan heading 0.000000`. So:
+
+- **G11's lane exists and is live.** `last plan heading 0.000000` is the direct proof that the controller
+  never publishes a plan heading, so G11's lane always points +z (the attack direction) regardless of
+  where the plan actually goes. Of the 22 calls that reach G11, 11 fail there — the +z lane is free of
+  opponents about half the time, which is the expected behaviour for a lane aimed at the wrong bearing.
+  The plan-heading port is what fixes those 11, by pointing the lane at the plan.
+- **G12's curve exists and is live** (`no curve 0`): the 10 G12 deaths are the band test itself, not a
+  missing table. `BuildCurve` runs every tick from the live opponent rows (`bs.players` is filled at
+  `elizacontroller.cpp:2693` from both sides, and `touch.curve = curve` at `:2837`). So the OneTwo gate
+  is a genuine band check that fails because the carriers are not in the required 0–10 m-behind-the-curve
+  window, and it is independent of the G11/G3 blockers.
+
+So the two stand-ins are independent blockers, not one compound cause: the plan-heading port fixes the
+11 G11 deaths, and G12 needs the carrier positions to fall in the band. The G3 stand-in at 0 is a third,
+independent blocker that gates everything upstream.
+
+**Run-4 re-probe (temporary, reverted): the port cuts G11's kills from 12 to 3.**
+`[probe4] OneTouch 22 pass 0 | G11 12 G12 9 | OneTwo answers 0 | last heading 270.00` before the
+every-frame fix, then `[probe4] OneTouch 22 pass 0 | G11 3 G12 18 | OneTwo answers 0 | last heading
+270.00` after it. The first probe exposed a real wiring bug: `kPlanBasic == 0` and
+`AdvanceImageSelection` returns before calling the `image` lambda when the selected id is 0, so the
+Basic plan (the one GF runs) never published a heading and the lane still pointed +z. PES's writer
+runs **every frame** on the plan record, so the write moved out of the lambda to every tick. With
+that, 9 of the 12 G11 kills become passes at G11 and die at G12 instead — the heading now points the
+lane at the plan, which is what G11 wants; G12's band is the remaining closer (unchanged: the curve
+is live, and the carrier must be 0–10 m behind it).
+
+## 6b. Run-4 verification
+
+- `pes_image_test`: `[  PASSED  ] 19 tests.` (18 before; the new `PesPlanHeading` suite is the 19th).
+  `pes_carrier_test`: `[  PASSED  ] 157 tests.` `pes_lane_test`: `[  PASSED  ] 21 tests.` No skips.
+- Switch-off smoke (2 min, seed 7): `[determinism] 75a11cdb2b3c8ec5`, exit 0 — **identical to
+  main's**, so the plan heading changes no runtime behaviour while `--pes-loop` is off.
+- `--pes-loop` smoke (2 min, seed 7): `[determinism] 9fc0b08314812d8f`, exit 0 — completes.
+- The run-4 probe was reverted; the worktree is clean for `src/` and `tests/`.
+
+## 7. Honest blockers (run 4)
+
+1. **G11 is fixed, G12 is not.** The plan-heading port cuts G11's kills from 12 to 3 (9 calls now
+   pass G11 and die at G12). G12's band needs the carrier 0–10 m behind the curve at his lateral
+   position — a live-position requirement, not a code gap (the curve table is live, `no curve 0`).
+2. **Modes 1, 3, 4, 5, 6, 8** of the writer are not ported; they read plan-record fields GF does not
+   carry and are named at their case VAs in `PlanHeadingDeg`'s `// ponytail:`.
+3. **G3's team level** is still 0 (the RoleArrays chain owns the writer).
+
+## 8. Open items (carried)
 
 1. The match-setting record's selector (`+0x18`) producer and the per-side `+0x9200` byte's writer:
    not traced (GF has neither). The gate and the stock default are portable now.
@@ -261,6 +362,20 @@ Mutations (each built, run, reverted, rebuilt):
    wiring reads `3=22`. Built, run, reverted, rebuilt both times.
 5. The case-B absolute value dropped (`std::fabs(halfLen - sign*ballX)` -> the signed form): caught
    by `PesCarrierZone.CaseBIsTheGoalLineDistanceToTheAbsoluteBallX` (155/156).
+6. The mode-2 aim point (`0x14211E7AC`): `aim.z = 0` -> `aim.z = carrierZ`, which removes the depth
+   lean. Caught by `PesPlanHeading.ModeTwoAimsAcrossThePitchAndLeansWithTheCarriersDepth` (the
+   132.9 and 100.73 expectations fail). Built, run, reverted, rebuilt.
+
+Red runs (this is what Main's audit asked for — the earlier "red->green by construction" was not a
+red run):
+
+- The run-4 test: `git stash push -- pescarrier.cpp pescarrier.hpp elizacontroller.cpp` (the test
+  kept), rebuild -> `error: 'PlanHeadingDeg' is not a member of 'pes'; did you mean 'HeadingDeg'?`
+  at every call site. The behaviour did not exist on the parent, so the test could not compile there.
+  Restored with `git stash pop`.
+- `G11sLaneRunsAlongThePlanHeadingNotTheAttack` is **not** a red test: the parent already passed
+  `planHeading_deg` to G11's lane (`origin/A4LaneInputs:pescarrier.cpp:2130`), so it passes there.
+  It locks the axis; it did not drive this change.
 
 Smokes (2 min, seed 7, `teams.sql` 1 vs 2, run from the worktree root; exit 0 each):
 
