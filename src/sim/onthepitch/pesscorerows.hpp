@@ -10,7 +10,12 @@
 #include <array>
 #include <cstdint>
 
-#include "onthepitch/peslane.hpp"
+// The lane core's slot space. The row writer owns the layout; peslane.hpp includes it for these names.
+namespace pes::lane {
+inline constexpr int kSlots = 22;     // both sides
+inline constexpr int kSideSize = 11;  // players per side
+inline constexpr int kNoSlot = 0xFF;  // PES's "no slot" result
+}  // namespace pes::lane
 
 namespace pes {
 
@@ -51,6 +56,9 @@ class SortedRow {
   int RankOf(int id) const;
   // The head of team `side`'s list (its nearest), or lane::kNoSlot when that team lists nobody.
   int Nearest(int side) const;
+  // The block `side` (0: lanes 0..10, 1: lanes 11..21): its count, and its entry at `rank`, nearest first.
+  int Count(int side) const { return count_[side]; }
+  const RowEntry& Entry(int side, int rank) const { return entry_[side][rank]; }
 
  private:
   std::array<std::array<RowEntry, lane::kSideSize>, 2> entry_{};

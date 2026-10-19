@@ -905,7 +905,7 @@ bool L690cf0(const Ctx& x) {
   if (x.tt < Frames(1.8f) || x.s * x.P.x < pesPenaltyAreaLineX - 2.0f) return false;
   if (Len(x.me.vel) > 0.9f * Per100(22.5f)) return false;
   if (x.D2() > 400.0f) return false;
-  for (const NearestEntry::Near& n : NearestOpponents(x.w, x.id))
+  for (const NearOpponent& n : NearestOpponents(x.w, x.id))
     if (std::fabs(x.w.p[n.id].pos.z - x.B.z) <= std::fabs(x.P.z - x.B.z) &&
         A53da0(x.w, n.id, x.P, x.dir, 180.0f, 3.5f, 0.0f))
       return true;
@@ -1016,7 +1016,7 @@ bool L68d0b0(const Ctx& x, bool flag) {
   const int r = x.q;
   if (!Valid(r)) return true;
   const Vec2f rp = x.w.p[r].pos;
-  for (const NearestEntry::Near& n : NearestOpponents(x.w, x.id)) {
+  for (const NearOpponent& n : NearestOpponents(x.w, x.id)) {
     const Vec2f op = x.w.p[n.id].pos;
     if (Dist2(op, x.P) > 64.0f) return true;
     if (std::fabs(op.z) <= std::fabs(rp.z) && A720(rp.x, op.x, x.s, -1.5f) &&
@@ -1325,37 +1325,27 @@ float HeadingFactor(float deg, float scale) {
   return folded < 0.0f ? -scale * v : scale * v;
 }
 
-// ponytail: PES's writer of MA+0x22e4c is not decoded (pes-re-teamctx.md §2.4), so
-// the lists are built here, once per BuildRunWorld, from the snapshot. The order is
-// the one PES's readers use: rank 0 is the nearest by squared distance (AccelerationRamp
-// 0x1406cbf70 and RUN_LOOP 0x1406c0170 read the rank-0 opponent; 0x1404c8ea0 reads d²).
-// PES's tie rule is not decoded: equal distances keep slot order.
-void BuildNearest(RunWorld& w) {
-  constexpr int kNoId = -1;  // never read: count[team] bounds every block
-  for (int i = 0; i < 2 * kSlots; ++i) {
-    NearestEntry& e = w.nearest[i];
-    e.rank.fill(kNearRankAbsent);
-    for (int t = 0; t < 2; ++t) {
-      std::array<NearestEntry::Near, kSlots>& block = e.team[t];
-      block.fill({kNoId, 0.0f});
-      int n = 0;
-      for (int j = t * kSlots; j < (t + 1) * kSlots; ++j)
-        // PES excludes the owner from his own team's block (pes-re-teamtick.md §3.2,
-        // CONFIRMED live: owner 0's rank[0] = 10). The opponents' block keeps everyone.
-        if (w.p[j].active && (TeamOf(i) != t || j != i)) block[n++] = {j, Dist2(w.p[j].pos, w.p[i].pos)};
-      std::stable_sort(block.begin(), block.begin() + n,
-                       [](const NearestEntry::Near& a, const NearestEntry::Near& b) {
-                         return a.d2 < b.d2;
-                       });
-      e.count[t] = static_cast<uint8_t>(n);
-      for (int k = 0; k < n; ++k) e.rank[block[k].id] = static_cast<uint8_t>(k);
-    }
-  }
+// The owner's NearestList is his own team's S1 row (pesscorerows.hpp), in the copy BuildRunWorld took: the
+// opponents' block, nearest first. A row's lanes map to run-world ids: lanes 0..10 are the writer's own
+// team, 11..21 the other team.
+namespace {
+int LaneOf(int t, int id) { return TeamOf(id) == t ? id % kSlots : kSlots + id % kSlots; }
+int GlobalOf(int t, int lane) {
+  return lane < kSlots ? t * kSlots + lane : (1 - t) * kSlots + (lane - kSlots);
 }
+}  // namespace
 
-std::span<const NearestEntry::Near> NearestOpponents(const RunWorld& w, int id) {
-  const int opp = TeamOf(id) ^ 1;
-  return {w.nearest[id].team[opp].data(), w.nearest[id].count[opp]};
+std::vector<NearOpponent> NearestOpponents(const RunWorld& w, int id) {
+  const int t = TeamOf(id);
+  std::vector<NearOpponent> out;
+  if (w.nearestRows[t] == nullptr) return out;
+  const pes::SortedRow& row = w.nearestRows[t]->nearest[LaneOf(t, id)];
+  out.reserve(row.Count(1));
+  for (int r = 0; r < row.Count(1); ++r) {
+    const pes::RowEntry& e = row.Entry(1, r);
+    out.push_back({GlobalOf(t, e.id), e.value});
+  }
+  return out;
 }
 
 // FUN_140655660 + FUN_140654e60: the frames for player `id` to reach `X`.

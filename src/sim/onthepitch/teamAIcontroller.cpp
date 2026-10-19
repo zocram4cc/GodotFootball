@@ -2400,7 +2400,8 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
     w.ev.pos = Flat(ev.from);
     w.ev.target = ev.target ? idOf(ev.target) : -1;
   }
-  ob::BuildNearest(w);
+  // PES's NearestList is each team AI's S1 row (MA+0x22E4C + 200 i), read live through the run world.
+  w.nearestRows = {&match->GetTeam(0)->GetController()->Rows(), &match->GetTeam(1)->GetController()->Rows()};
   return w;
 }
 

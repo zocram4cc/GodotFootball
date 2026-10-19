@@ -1170,7 +1170,7 @@ struct TouchInput {
   int attackLevel = 0;             // G8: T+0xB8A4 (S4, writer OPEN)
   int teamMode = 2;                // G4, G8 and the receiver's angle block: 0x141052E30 (S4)
   int carrierCategory = -1;        // G4: T(sd)+0x4C00[s%11]; 0 is the keeper
-  float score = 0.0f;              // G5: score(T18, k, s), the carrier's d^2 to the attacked goal (S1 row)
+  float score = 0.0f;              // G5: the S1 row of the attack sign (ScoreRowForSign, 0x140587E70): d^2, pass iff >= 1600
   bool closeZone = false;          // G6: IsClose(IA+0x9CC)
   bool humanCarrier = false;       // K+0x6C
   bool oneTwoRunEvent = false;     // G7: the newest event is the carrier side's one-two run (S7)
@@ -1203,11 +1203,23 @@ struct VolatileBallInput {
   bool humanCarrier = false;     // K+0x6C (GF's carriers are AI: false)
   float ballHeight_m = 0.0f;     // K+0x44: the ctx4 point's height
   float carrierHeight_m = 0.0f;  // P+0xA1 / 100: the carrier's physical height
+  // The ball-track arm (0x14063AB01..0x14063AB06): B+0x4C != 0, B+0x80 == 0, and r14 == 0, where r14 is
+  // d1 < d2 with d1 the squared 2-D distance from the ball to B+0x1C (anchor) and d2 to K+0x40 (target).
+  bool ballTrackFlag = false;  // B+0x4C != 0 (FUN_140A6D0D0); its writer is OPEN, GF has no such state
+  bool ballFlag80 = false;     // B+0x80 != 0 (r14b)
+  CarrierPoint ball;           // the ball's record 0, (x, z)
+  CarrierPoint anchor;         // B+0x1C (FUN_140A6CF30(B, 0)): OPEN in GF
+  CarrierPoint target;         // K+0x40, the ctx4 point: OPEN in GF
 };
-// ponytail: the ball-track arm (B+0x4C, 0x14063AB01..0x14063AB06, with B+0x80 and B+0x1C) has no GF
-// state; GF's ball track is not carried, so the arm stays off. Upgrade: decode the B+0x4C writers.
+// The ball-track arm (0x14063AB01..0x14063AB06): with B+0x4C set and B+0x80 clear, K+0x6E is set unless the
+// ball is nearer B+0x1C than K+0x40 (r14 = d1 < d2). The distances are squared 2-D, as FUN_140A8F890 computes.
 inline bool VolatileBall(const VolatileBallInput& in) {
-  return !in.humanCarrier && in.ballHeight_m > in.carrierHeight_m;
+  if (in.humanCarrier) return false;  // K+0x6C != 0 skips the whole write (0x14063AA62)
+  if (in.ballHeight_m > in.carrierHeight_m) return true;  // arm A: K+0x44 > P+0xA1 / 100 (0x14063AA8C)
+  const float dx1 = in.ball.x - in.anchor.x, dz1 = in.ball.z - in.anchor.z;
+  const float dx2 = in.ball.x - in.target.x, dz2 = in.ball.z - in.target.z;
+  const bool r14 = dx1 * dx1 + dz1 * dz1 < dx2 * dx2 + dz2 * dz2;
+  return in.ballTrackFlag && !in.ballFlag80 && !r14;
 }
 
 // --- DirectHighBall (kind 11, gate 0x142129BE0) ---
@@ -1222,7 +1234,7 @@ struct DirectHighBallMate {
   float tableAngle_deg = 0.0f;  // 0x140A71260 (S10 stand-in: his facing)
   bool keeper = false;          // T(side)+0x4C00[m%11] == 0
   int recAClass = 0;            // record A [0]: at least 1 to be listed
-  float score = 0.0f;           // score(k, m), the mate's d^2 to the attacked goal (S1 row)
+  float score = 0.0f;           // the S1 row of the attack sign (ScoreRowForSign): the mate's d^2, DHB's score
   int markCount = 0;            // AI rec2 +0x12A4 (S11): counted below 5, else 0
 };
 struct DirectHighBallInput {

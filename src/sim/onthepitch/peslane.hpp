@@ -15,14 +15,12 @@
 #include <string>
 
 #include "onthepitch/pesoffball.hpp"
+#include "onthepitch/pesscorerows.hpp"
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
 
 namespace pes::lane {
 
-inline constexpr int kSlots = 22;     // both sides
-inline constexpr int kSideSize = 11;  // players per side
-inline constexpr int kNoSlot = 0xFF;  // PES's "no slot" result
 
 struct LaneConstants {
   SpeedClassConstants trig;   // the sine table 0x142655950 and its scalars (0x140A92C80)
