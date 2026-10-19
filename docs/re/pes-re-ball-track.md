@@ -1,5 +1,7 @@
 # Ball-track arm, player +0x661 flag, P+0x2FC ring (S1Watch, rounds 11–13)
 
+> **Main correction 19-10-26 (from S1Port):** §5 item 5 cites FUN_140A489F0 (P_ai), not FUN_140A48910, for the 0x1414/0x1420 pick; the x of the B+0x2920==4 branch is the live player x [player+0x55C]; the +0x5D0 compare is on the player record.
+
 > **Main correction 19-10-26:** the K+0x6E ball-track arm is an AND, not the OR written in §7: raw asm `0x14063AAFA` `cmp [r12+0x4c],r13b; je skip`, `0x14063AB01` `test r14b,r14b; jne skip`, `0x14063AB06` set. So the flag is set iff B+0x4C != 0 AND r14 == 0 (r14 = the distance test via `cmova` at `0x14063AAF6`, combined with B+0x80).
 > **Main audit 19-10-26:** `0x14063A520` `mov rax,[rcx+0x40]` (B = *(G+0x40)), `0x140876014` `movb [rcx+0x4c],1`, `0x140876019` `movb [rcx+0x4c],0`, `0x140433DF5` `movups xmm1,[rdx-0x30]` (the per-frame B<-N block copy): all match. B+0x4C = validity of the ball's first predicted point (pred[0].y >= 0).
 > **Main audit 19-10-26 (round 12):** `0x1406BC829` `cmp [rax+0x661],r15b` (reader) and `0x1408C4CDD` `movb [rdi+0x729],0` (the clear) match. Several cited VAs (`0x140432AA5`, `0x140432AAD`, `0x140414A6C`, `0x1408C4CE4`) are hardware-watch trap IPs, i.e. the instruction AFTER the store. The P+0x2FC ring did not change in 90 s for any player (cadence unobserved).
