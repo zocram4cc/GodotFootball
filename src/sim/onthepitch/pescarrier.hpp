@@ -397,6 +397,13 @@ struct CarrierConstants {
   // carrier units that call the core get it through the one constants bundle the match carries.
   lane::LaneConstants lane;
 
+  // --- the curve table's builder (0x142138220; image-rows §2.3) ---
+  float curveHalfTurn_deg = 0.0f;   // 180, 0x142598580: the lane angle a = wrap(psi - 180)
+  float curveArmAngle_deg = 0.0f;   // 50, 0x14259be34: the two arms leave a segment point at a +- 50
+  float curveArm_m = 0.0f;          // 1000, 0x14256ae34: the arm length, and the dedupe radius
+  float curveWide_deg = 0.0f;       // 100, 0x14253ee30: the dedupe cone is half of it
+  float curveStep_m = 0.0f;         // 1, 0x14256ae1c: a segment point's step along psi
+  float curveEps = 0.0f;            // 1.1920929e-07, 0x14259bdc4: the parallel test of a crossing
   bool operator==(const CarrierConstants&) const = default;
 };
 
@@ -922,6 +929,25 @@ struct GoalFrontInput {
 };
 PassAnswer GoalFrontUnit(const GoalFrontInput& in, const CarrierConstants& k);
 
+// --- the curve table: the image's R2 (writer 0x142138220, reader 0x142139650; image-rows §2.3, §4).
+// Its 71 samples sit at lateral z_i = (i - 35) * scale (the builder's loop i < 0x47, centre 35); x[70] is
+// the end value the reader returns at u = 70. ---
+constexpr int kCurveSamples = 71;
+constexpr int kCurveLast = kCurveSamples - 1;  // 70: the end sample, read at u == 70
+constexpr float kCurveCentre = 35.0f;          // the sample with z = 0 (i = 35); the reader's offset
+struct Curve {
+  std::array<float, kCurveSamples> x{};  // x_i: the front line's x at z_i
+  float scale = 1.0f;                    // s, the team's attack sign (+0x5E4)
+};
+// 0x142139650: u = clamp(z*scale + 35, 0, 70), i = floor(u), x[70] at u == 70, else the lerp.
+float CurveEval(const Curve& c, float z_m);
+// 0x142138220: the table from the opponents of `carrierSide` (in play, not their keeper), against the
+// attack angle and sign and the pitch half length (F.x). Empty when nobody is listed (the builder then keeps
+// the old rows; GF has none to keep, so the caller gets no table).
+std::optional<Curve> BuildCurve(const std::array<lane::LanePlayer, lane::kSlots>& players, int carrierSide,
+                                float attackSign, float attackAngle_deg, float halfLen_m,
+                                const CarrierConstants& k);
+
 // --- the BackSpace unit (kind 3, gate 0x142129110, validator 0x1421226C0, cut-back picker
 // 0x142125140) ---
 //
@@ -986,7 +1012,7 @@ struct BackSpaceInput {
   int planMode = 0;                                     // ctx7+0xC4
   int planRecordTarget = -1;                            // 0x14211CB00(plan, 10) +0x4, -1 when none
   bool planRecordBytesOk = false;                       // its two bytes: [1] == 0 and [0] != 0
-  bool curveGate = false;                              // 0x1421225E0(ctx, target)
+  std::optional<Curve> curve;                          // the curve table; 0x1421225E0 reads it at the mate's z
   float boxSector = 0.0f;                               // imageA+0xB44
   float boxCount = 0.0f;                                // imageA+0xB48
   float boxMargin = 0.0f;                               // imageA+0xB3C
@@ -1083,7 +1109,7 @@ struct TouchReceiver {
   CarrierPoint pos;              // player(r) +0x55C/+0x564
   float facing_deg = 0.0f;       // player(r) +0x554: the M[r][c] test
   bool statusValid = false;      // 0x142118D20(X5+0xB6C, r%11) == 0xB (S5 stand-in)
-  bool psi = false;              // snapshot(r)[0xD] != 0, T(side)+0x4BD4[r%11] (S6, writer OPEN)
+  int roleClass = -1;            // T(side)+0x4BD4[r%11] (0x14063C9F0 store): his role class; 0 is the keeper, psi is class != 0
   bool oneTwoRun = false;        // player(r)+0x5D0 == 0x25 (P3)
   float difficulty = 0.0f;       // record A +0xF0
   float dist_m = 0.0f;           // record A +0xEC: ball to target
@@ -1106,7 +1132,8 @@ struct TouchInput {
   int planMode = 0;                // ctx7+0xC4 (G9)
   float ownLine_m = 0.0f;          // G1: T18+(sd+3)*0x14 (S14 stand-in: the own goal line)
   float pitchBound_m = 0.0f;       // G2: F+0x18 (S8 stand-in: the pitch half length)
-  int teamLevel = 0;               // G3 and G8: team level / 100 (S4, writer OPEN)
+  int teamLevelRaw = 0;            // +0xA294, the level x 100 (0x140A40BD0; writer 0x140A424E0, value OPEN)
+  bool teamLevelZero = false;      // +0xA29C (0x140A428B0): the reader returns 0 whatever +0xA294 holds
   int attackLevel = 0;             // G8: T+0xB8A4 (S4, writer OPEN)
   int teamMode = 2;                // G4, G8 and the receiver's angle block: 0x141052E30 (S4)
   int carrierCategory = -1;        // G4: T(sd)+0x4C00[s%11]; 0 is the keeper
@@ -1116,7 +1143,7 @@ struct TouchInput {
   bool oneTwoRunEvent = false;     // G7: the newest event is the carrier side's one-two run (S7)
   int runCount = 0;                // G8: teammates on a one-two run (S7)
   float markCount = 0.0f;          // G10: markCount, AI rec2 +0x12A4 (S11 stand-in 0)
-  float curveX_m = 0.0f;           // G12: the curve at P_s.z, the front line (S2 stand-in)
+  std::optional<Curve> curve;      // the curve table; G12 reads it at P_s.z (0x142138220 writer)
   bool flag15 = false;             // C[0xF] (0x140A62180, S18): the receiver's angle-block arm
 };
 

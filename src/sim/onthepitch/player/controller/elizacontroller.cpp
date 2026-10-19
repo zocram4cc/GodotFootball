@@ -828,6 +828,11 @@ bool DeepDefensiveMode(const TeamInstructions::State& instructions) {
          instructions.mentality == TeamInstructions::e_Mentality_Defensive;
 }
 
+// PES's role class of a man: the side's array T(side)+0x4BD4[r%11] (0x14063C9F0 stores it; role-writer doc).
+// RoleArrays brings that array to main; until then GF's formation role stands in: class 0 for the keeper,
+// 1 for a field man. ponytail: remove when the array lands; this accessor is the one place to change.
+int CarrierRoleClass(Player* p) { return p->GetFormationEntry().role == e_PlayerRole_GK ? 0 : 1; }
+
 }  // namespace
 
 Player* ElizaController::_Carrier() {
@@ -2742,7 +2747,14 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // plan 4 never names a target, so the plan-4 arm stays silent.
     bs.planRecordTarget = -1;
     bs.planRecordBytesOk = false;
-    bs.curveGate = false;  // ponytail: the curve table (imageA+0x2B0, runtime) is not carried
+    // The curve table (R2) from the opponents of the carrier's side: the BackSpace gate and G12 read it.
+    // ponytail: PES's psi (T+0x250) for a team attacking +x or -x is the bearing 90 or 270 (0 is +z here),
+    // so the table takes that instead of the chooser's attackAngle.
+    const float teamAttackPsi_deg = attackSign < 0.0f ? 270.0f : 90.0f;
+    const std::optional<pes::Curve> curve =
+        pes::BuildCurve(bs.players, pes::lane::IsAwaySlot(bs.carrierSlot) ? 1 : 0, attackSign,
+                        teamAttackPsi_deg, pesFieldHalfLength, carrier);
+    bs.curve = curve;
     // ponytail: the box scalars (imageA+0xB44/0xB48/0xB3C/0xB40) are not carried; zeros keep the
     // mode-1 arm's skips off.
 
@@ -2794,13 +2806,6 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       const float dx = p.x - attackSign * pesFieldHalfLength;
       return dx * dx + p.z * p.z;
     };
-    // ponytail: the curve table (S2, writer OPEN) stands in with the most advanced opponent's x.
-    float frontK = -pesFieldHalfLength;
-    const int oppSideOfCarrier = (bs.carrierSlot >= 0 && pes::lane::IsAwaySlot(bs.carrierSlot)) ? 0 : 1;
-    for (int j = 0; j < pes::lane::kSideSize; ++j) {
-      const pes::lane::LanePlayer& op = bs.players[pes::lane::kSideSize * oppSideOfCarrier + j];
-      if (op.active) frontK = std::max(frontK, attackSign * op.pos.x);
-    }
     pes::TouchInput touch;
     touch.players = bs.players;
     touch.carrierSlot = bs.carrierSlot;
@@ -2814,7 +2819,10 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     touch.planMode = carrierImage.mode;
     touch.ownLine_m = -attackSign * pesFieldHalfLength;  // G1: the own goal line stands in for T18+(sd+3)*0x14
     touch.pitchBound_m = pesFieldHalfLength;             // G2: the pitch half length stands in for F+0x18
-    touch.teamLevel = 0;    // G3: the team level is not carried (S4); 0 closes the gate
+    // ponytail: G3's level (+0xA294, the level x 100, and its zero flag +0xA29C) is not carried by GF, so the
+    // level reads 0 and G3 closes. PES writers: 0x140A424E0 (+0xA294), 0x140A428B0 (+0xA29C).
+    touch.teamLevelRaw = 0;
+    touch.teamLevelZero = false;
     touch.attackLevel = 0;  // G8: T+0xB8A4 is not carried (S4)
     touch.teamMode = 2;     // G4, G8: the team mode is not carried (S4); neutral, as the chooser
     touch.carrierCategory = bs.carrierSlot >= 0 ? bs.players[bs.carrierSlot].positionCategory : -1;
@@ -2824,7 +2832,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     touch.oneTwoRunEvent = false;  // G7: the event record and the one-two run action are not carried (S7)
     touch.runCount = 0;            // G8: the teammates' one-two runs are not carried (S7)
     touch.markCount = 0.0f;        // G10: the mark count is not carried (S11); 0 is the decode's value
-    touch.curveX_m = attackSign * frontK;
+    touch.curve = curve;
     touch.flag15 = false;          // C[0xF] is not carried (S18)
     std::vector<pes::TouchReceiver> touchMates;
     std::vector<pes::DirectHighBallMate> dhbMates;
@@ -2890,7 +2898,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       bm.closeTest = pes::IsClose(mateZone);
       bm.zoneBuilt = pes::IsCentral(mateZone);  // ponytail: 0x14063E010, the same builders
       bm.zoneAtPred16 = mateZone;
-      bm.roleClass = mateKeeper ? 0 : 1;  // ponytail: the side's B-array class (role-writer §1) stands in with the GK role
+      bm.roleClass = CarrierRoleClass(mate);
       bs.mates.push_back(bm);
 
       pes::SafetyMate sm;
@@ -2901,7 +2909,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       sm.heading_deg = mateHeading;
       sm.speed_kmh = mateSpeedKmh;
       sm.statusValid = true;  // ponytail: the b6c status byte stands in, as above
-      sm.roleClass = mateKeeper ? 0 : 1;
+      sm.roleClass = CarrierRoleClass(mate);
       sm.nearestOppD2 = mateNeed * mateNeed;  // 0x140587E70: the team table's d2 (the record stands in)
       sm.pressureClass = static_cast<float>(c.pressureClass);
       sm.zoneMid = pes::IsMid(mateZone);
@@ -2925,9 +2933,9 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       tr.pos = matePt;
       tr.facing_deg = mateFacing;
       tr.statusValid = true;  // ponytail: the b6c status (0x142118D20 == 0xB, S5) stands in as the filter above
-      // ponytail: snapshot(r)[0xD] = T(side)+0x4BD4[r%11] (S6, writer OPEN) is not carried, so the receiver
-      // predicate's psi gate stays shut in GF.
-      tr.psi = false;
+      // ponytail: his role class is the RoleArrays chain's T(side)+0x4BD4[r%11] (S6, writer OPEN in
+      // lane-inputs §3); CarrierRoleClass stands in until that array is on main.
+      tr.roleClass = CarrierRoleClass(mate);
       tr.oneTwoRun = false;  // ponytail: player(r)+0x5D0 == 0x25 (P3) has no GF state
       tr.difficulty = c.record.difficulty;
       tr.dist_m = c.record.ballToTarget_m;

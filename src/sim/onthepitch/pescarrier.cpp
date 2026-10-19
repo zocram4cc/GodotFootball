@@ -440,6 +440,12 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x1425656c0, &k.dhbAdvance_m},             {0x142596e6c, &k.dhbFacing_deg},
   };
   for (const auto& r : touch) ok &= ReadVa(exe, r.first, r.second, error);
+  // The curve builder's constants (0x142138220) and the G12 band's curve reader (0x142139650).
+  const std::pair<uint64_t, float*> curve[] = {
+      {0x142598580, &k.curveHalfTurn_deg}, {0x14259be34, &k.curveArmAngle_deg}, {0x14256ae34, &k.curveArm_m},
+      {0x14253ee30, &k.curveWide_deg},     {0x14256ae1c, &k.curveStep_m},       {0x14259bdc4, &k.curveEps},
+  };
+  for (const auto& r : curve) ok &= ReadVa(exe, r.first, r.second, error);
   k.sfThruClass = 3.0f;  // `cmp [recB],2; jbe`: class above 2, an instruction shape
   // The rolled plans' base probabilities, from the immediates of the plan
   // functions 0x14211a800 (Breakthrough), 0x14211b460 (MiddleShot),
@@ -1406,6 +1412,11 @@ bool PassThroughValidator(const BackSpaceInput& in, size_t mateIdx, const Carrie
 
 }  // namespace
 
+// 0x1421225E0, the curve gate: the mate's own point is on or past the curve, k*x >= k*curve(z) (frames 0).
+inline bool CurveGateOk(const BackSpaceInput& in, CarrierPoint pos) {
+  return in.curve.has_value() && in.attackSign * pos.x >= in.attackSign * CurveEval(*in.curve, pos.z);
+}
+
 PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k) {
   PassAnswer answer;
   // The lane branch (0x142129110): a Mid-zone carrier with a FREE gate lane checks the nearest
@@ -1447,7 +1458,7 @@ PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k) {
     };
     if (!PassThroughValidator(in, mateIdx, k, rank0)) return answer;
     const CarrierPoint corner{in.attackSign == 1.0f ? in.pitchHalfLen_m : -in.pitchHalfLen_m, 0.0f};
-    if (!(Dist2(m.recBTarget, corner) <= k.bsCornerDistSq_m2) && !in.curveGate) return answer;
+    if (!(Dist2(m.recBTarget, corner) <= k.bsCornerDistSq_m2) && !CurveGateOk(in, m.pos)) return answer;
     answer.index = m.index;
     answer.kind = kPassThrough;
     return answer;
@@ -1469,7 +1480,7 @@ PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k) {
       if (in.mates[i].index == m.index) mateIdx = i;
     if (!PassThroughValidator(in, mateIdx, k, rank0)) continue;
     const CarrierPoint corner{in.attackSign == 1.0f ? in.pitchHalfLen_m : -in.pitchHalfLen_m, 0.0f};
-    if (!(Dist2(m.recBTarget, corner) <= k.bsCornerDistSq_m2) && !in.curveGate) continue;
+    if (!(Dist2(m.recBTarget, corner) <= k.bsCornerDistSq_m2) && !CurveGateOk(in, m.pos)) continue;
     const float dMate = std::sqrt(Dist2(in.carrierPos, m.pos));
     const float dTarg = std::sqrt(Dist2(in.carrierPos, m.recBTarget));
     const int horizon13 = static_cast<int>(kPesTickHz) >> 2;  // fps >> 2 = 13
@@ -1946,7 +1957,7 @@ bool TouchReceiverOk(const TouchInput& in, const TouchReceiver& r, const Carrier
   const int c = in.carrierSlot;
   if (r.index < 0 || r.index > 21 || r.index == c) return false;  // P0
   if (!r.statusValid) return false;                                // P1
-  if (!r.psi) return false;                                        // P2: the asm exits on snapshot[0xD] == 0
+  if (r.roleClass == 0) return false;                              // P2: 0x142124A83 exits on snapshot[0xD] == 0
   if (r.oneTwoRun) return false;                                   // P3: player(r)+0x5D0 != 0x25
   // Band 1: beyond 15 m, or past 110 degrees of facing, the difficulty is held to 1.0; else to 2.0.
   const bool farOrTurned = r.dist_m >= k.rcvDistFar_m || r.turnFacing_deg >= k.rcvTurnFar_deg;
@@ -1985,14 +1996,115 @@ bool TouchReceiverOk(const TouchInput& in, const TouchReceiver& r, const Carrier
 
 }  // namespace
 
+float CurveEval(const Curve& c, float z_m) {
+  // 0x142139650: u = clamp(z*scale + 35, 0, 70); u == 70 reads the end sample, else the lerp of two samples.
+  const float u = std::clamp(z_m * c.scale + kCurveCentre, 0.0f, static_cast<float>(kCurveLast));
+  const int i = static_cast<int>(u);
+  if (i >= kCurveLast) return c.x[kCurveLast];
+  // The decode multiplies and divides by 0x14253EE30 around the lerp; that factor cancels to one rounding.
+  return c.x[i] + (c.x[i + 1] - c.x[i]) * (u - static_cast<float>(i));
+}
+
+namespace {
+
+// 0x142565600: the decode's one half (the dedupe cone is half of K).
+constexpr float kHalf = 0.5f;
+
+// 0x140A90C20: the crossing of the lines a->b and c->d, t along a->b and u along c->d. False when the lines
+// are within eps of parallel.
+bool CrossLines(CarrierPoint a, CarrierPoint b, CarrierPoint c, CarrierPoint d, float eps, float& t, float& u) {
+  const float dx = d.x - c.x;
+  const float dz = d.z - c.z;
+  const float den = (b.x - a.x) * dz - (b.z - a.z) * dx;
+  if (std::fabs(den) < eps) return false;
+  t = ((c.x - a.x) * dz - (c.z - a.z) * dx) / den;
+  u = ((b.z - a.z) * (c.x - a.x) - (b.x - a.x) * (c.z - a.z)) / den;
+  return true;
+}
+
+}  // namespace
+
+// 0x142138220: the 71-sample curve from the carrier's opponents (see the header for the contract).
+std::optional<Curve> BuildCurve(const std::array<lane::LanePlayer, lane::kSlots>& players, int carrierSide,
+                                float attackSign, float attackAngle_deg, float halfLen_m,
+                                const CarrierConstants& k) {
+  // The listed men are the opponents (flag = side 0 lists slots 11..21), in play and not their keeper
+  // (0x140A638C0), keyed by s*x and taken most advanced first (the comparator 0x14063EA50 sorts descending).
+  // ponytail: 0x140A48910's record filter (record +1 == 0x11 or 'W', +8 bit 2) also drops men; GF carries no
+  // such bytes, so none is dropped. ponytail: equal keys keep slot order; the tie rule of 0x141E53540 is open.
+  const int oppSide = 1 - carrierSide;
+  const int keeper = lane::KeeperSlot(oppSide, players);
+  struct Listed {
+    int slot;
+    float key;
+  };
+  std::array<Listed, lane::kSideSize> listed{};
+  int nListed = 0;
+  for (int j = 0; j < lane::kSideSize; ++j) {
+    const int slot = lane::kSideSize * oppSide + j;
+    if (!players[slot].active || slot == keeper) continue;
+    listed[nListed++] = Listed{slot, attackSign * players[slot].pos.x};
+  }
+  // 0x142138220 keeps its old rows when nobody is listed; GF keeps no earlier table, so there is none.
+  if (nListed == 0) return std::nullopt;
+  std::stable_sort(listed.begin(), listed.begin() + nListed,
+                   [](const Listed& a, const Listed& b) { return a.key > b.key; });
+
+  // The lane angle a = psi - 180 (psi = T+0x250). Each listed man's segment point q sits curveStep_m along psi,
+  // and is dropped when an earlier point shadows it (0x140A53DF0: 0 < d2 < arm^2, and the bearing from the
+  // earlier point is within half of K of a).
+  const float a = Wrap360(attackAngle_deg - k.curveHalfTurn_deg);
+  const float along = Wrap360(a - k.curveHalfTurn_deg);
+  std::array<CarrierPoint, lane::kSideSize> segments{};
+  int nSegments = 0;
+  for (int n = 0; n < nListed; ++n) {
+    const CarrierPoint p{players[listed[n].slot].pos.x, players[listed[n].slot].pos.z};
+    const CarrierPoint q = AdvancePoint(p, along, k.curveStep_m);
+    bool shadowed = false;
+    for (int s = 0; s < nSegments && !shadowed; ++s) {
+      const float d2 = Dist2(segments[s], q);
+      shadowed = d2 > 0.0f && d2 < k.curveArm_m * k.curveArm_m &&
+                 std::fabs(WrapDeg(BearingDeg(segments[s], q) - a)) < k.curveWide_deg * kHalf;
+    }
+    if (!shadowed) segments[nSegments++] = q;
+  }
+
+  // Sample i is the lateral line z = (i - 35) * s across the pitch, from -s*F.x to s*F.x. Its x is the most
+  // advanced crossing of any segment's two arms (rays from the segment point at a +- 50 degrees, 1000 m long;
+  // a crossing counts when u >= 0), and starts at the back line -s*F.x.
+  Curve curve;
+  curve.scale = attackSign;
+  for (int i = 0; i < kCurveSamples; ++i) {
+    const float z = (static_cast<float>(i) - kCurveCentre) * attackSign;
+    const CarrierPoint from{-attackSign * halfLen_m, z};
+    const CarrierPoint to{attackSign * halfLen_m, z};
+    float best = -attackSign * halfLen_m;
+    for (int s = 0; s < nSegments; ++s) {
+      for (const float turn : {Wrap360(a + k.curveArmAngle_deg), Wrap360(a - k.curveArmAngle_deg)}) {
+        const CarrierPoint armEnd = AdvancePoint(segments[s], turn, k.curveArm_m);
+        float t = 0.0f;
+        float u = 0.0f;
+        if (!CrossLines(from, to, segments[s], armEnd, k.curveEps, t, u) || u < 0.0f) continue;
+        const float x = from.x + t * (to.x - from.x);
+        if (attackSign * x > attackSign * best) best = x;
+      }
+    }
+    curve.x[i] = best;
+  }
+  return curve;
+}
+
 bool OneTouch(const TouchInput& in, const CarrierConstants& k) {
   const float s = in.attackSign;
   // G1: the carrier is not behind his team line (k*x >= k*line).
   if (s * in.carrierPos.x < s * in.ownLine_m) return false;
   // G2: nor past the pitch bound and its pad (k*x <= F+0x18 + 2).
   if (s * in.carrierPos.x > in.pitchBound_m + k.touchPad_m) return false;
-  // G3: the team level, level/100, is at least 2.
-  if (in.teamLevel < 2) return false;
+  // G3: the team level, level/100, is at least 2. 0x140A40BD0 reads the level (zero when +0xA29C is set);
+  // 0x140A60360 rejects level/100 < 2.
+  const int level = in.teamLevelZero ? 0 : in.teamLevelRaw;
+  const int levelHundreds = level / 100;
+  if (levelHundreds < 2) return false;
   // G4: the team mode is 3 or 4, or the carrier's category is 4 or more (0 is the keeper).
   const bool modeThreeOrFour = in.teamMode == 3 || in.teamMode == 4;
   if (!modeThreeOrFour && in.carrierCategory < 4) return false;
@@ -2004,7 +2116,7 @@ bool OneTouch(const TouchInput& in, const CarrierConstants& k) {
   if (!in.humanCarrier && in.oneTwoRunEvent) return false;
   // G8: the runs in progress stay under min(2, base + inc): base from the level (5 or 6: 2, 4: 1),
   // inc from the attack level (3 or more) or the team mode (2 or 3).
-  const int base = (in.teamLevel == 5 || in.teamLevel == 6) ? 2 : (in.teamLevel == 4 ? 1 : 0);
+  const int base = (levelHundreds == 5 || levelHundreds == 6) ? 2 : (levelHundreds == 4 ? 1 : 0);
   const int inc = (in.attackLevel >= 3 || in.teamMode == 2 || in.teamMode == 3) ? 1 : 0;
   if (in.runCount >= std::min(2, base + inc)) return false;
   // G9: the plan is 1, 2, 3, 5 or 6.
@@ -2021,7 +2133,8 @@ bool OneTouch(const TouchInput& in, const CarrierConstants& k) {
                      /*horizonFrames*/ 0))
     return false;
   // G12: the carrier is 0 to 10 m behind the curve at his lateral position: -10 <= k*(x - curve) < 0.
-  const float band = s * (in.carrierPos.x - in.curveX_m);
+  if (!in.curve.has_value()) return false;
+  const float band = s * (in.carrierPos.x - CurveEval(*in.curve, in.carrierPos.z));
   return k.touchBand_m <= band && band < 0.0f;
 }
 

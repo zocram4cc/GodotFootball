@@ -1652,6 +1652,12 @@ pes::BackSpaceMate BackSpaceMate(int index) {
   return m;
 }
 
+pes::Curve FlatCurve(float x_m) {
+  pes::Curve c;
+  c.x.fill(x_m);
+  return c;
+}
+
 class BackSpaceUnitTest : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -1731,7 +1737,7 @@ class BackSpaceUnitTest : public ::testing::Test {
     in_.plan = pes::kPlanPassThrough;
     in_.planRecordTarget = 5;
     in_.planRecordBytesOk = true;
-    in_.curveGate = true;  // the mid-pitch target is far from the corner, so the curve arm passes
+    in_.curve = FlatCurve(-100.0f);  // far behind every mate: the curve arm passes
     pes::BackSpaceMate m = BackSpaceMate(5);
     m.pos = {0.0f, 12.0f};
     m.heading_deg = 0.0f;
@@ -1834,7 +1840,7 @@ TEST_F(BackSpaceUnitTest, TheLaneBranchSkipsWhenAnOpponentIsFar) {
 TEST_F(BackSpaceUnitTest, TheCornerTestPassesNearTheCorner) {
   // 0x142129110's plan-4 arm: a record-B target within 15 m of the attack corner (+52.5, 0)
   // passes without the curve gate.
-  in_.curveGate = false;
+  in_.curve.reset();
   EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);  // mid-pitch target, no curve arm
   in_.carrierPos = {42.0f, 5.0f};
   in_.ball = {42.0f, 5.0f};
@@ -1843,6 +1849,98 @@ TEST_F(BackSpaceUnitTest, TheCornerTestPassesNearTheCorner) {
   in_.mates[0].pos = {48.0f, 5.0f};
   in_.players[5].pos = {48.0f, 5.0f};
   EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
+}
+
+TEST_F(BackSpaceUnitTest, TheCurveGateAdmitsAMateOnTheCurveAndRefusesOneBehind) {
+  // 0x1421225E0: k*mate.x >= k*curve(mate.z), frames 0. The mate stands at (0, 12): a curve at x = 0 admits
+  // him (the boundary is inclusive), a curve at x = 0.5 lies past him. The record target is far from the
+  // attack corner, so the corner arm is shut and only the curve can admit him.
+  pes::Curve c;
+  c.x.fill(0.0f);
+  in_.curve = c;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
+  c.x.fill(0.5f);
+  in_.curve = c;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);
+}
+
+// --- the curve table (R2): the reader is exact on any table; the builder is checked on known defenders.
+TEST(PesCarrierCurve, CurveEvalInterpolatesTheSamplesAndClampsTheEnds) {
+  // 0x142139650: u = clamp(z*scale + 35, 0, 70); u == 70 returns x[70]; else the lerp of x[floor u] and the next.
+  pes::Curve c;
+  for (int i = 0; i < pes::kCurveSamples; ++i) c.x[i] = 0.1f * static_cast<float>(i);
+  EXPECT_NEAR(pes::CurveEval(c, 0.0f), 3.5f, 1e-5f);     // u = 35: x[35]
+  EXPECT_NEAR(pes::CurveEval(c, 0.5f), 3.55f, 1e-5f);    // u = 35.5: halfway from x[35] to x[36]
+  EXPECT_NEAR(pes::CurveEval(c, 35.0f), 7.0f, 1e-5f);    // u = 70: the end value x[70]
+  EXPECT_NEAR(pes::CurveEval(c, 100.0f), 7.0f, 1e-5f);   // clamped at 70
+  EXPECT_NEAR(pes::CurveEval(c, -100.0f), 0.0f, 1e-5f);  // clamped at 0
+  c.scale = -1.0f;
+  EXPECT_NEAR(pes::CurveEval(c, -0.5f), 3.55f, 1e-5f);   // u = 35.5 with the sign reversed
+}
+
+class CurveTableTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    const char* root = std::getenv("PES21_ROOT");
+    if (!root)
+      GTEST_SKIP() << "PES21_ROOT unset: the table's arm angle, arm length and cone are read from the install";
+    std::string err;
+    auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+    ASSERT_TRUE(exe.has_value()) << err;
+    auto loaded = pes::LoadCarrierConstants(*exe, &err);
+    ASSERT_TRUE(loaded.has_value()) << err;
+    k_ = *loaded;
+    // The home side attacks +x (psi 90, sign +1); its opponents are slots 11..21. One of them, slot 11,
+    // is a field player at (20, 0).
+    players_[11].pos = {20.0f, 0.0f};
+    players_[11].active = true;
+    players_[11].positionCategory = 1;
+  }
+
+  pes::CarrierConstants k_{};
+  std::array<pes::lane::LanePlayer, pes::lane::kSlots> players_{};
+};
+
+TEST_F(CurveTableTest, ADefenderBendsTheCurveBackAtFortyDegreesFromHisPoint) {
+  // His segment point is 1 m on along the attack, (21, 0). Its two arms leave at psi - 180 +- 50 degrees,
+  // so the lateral sample z meets the arm on its own side at x = 21 - |z| * tan(40 degrees).
+  constexpr float kTan40 = 0.8391f;  // tan(40 degrees)
+  const auto c = pes::BuildCurve(players_, /*carrierSide*/ 0, /*attackSign*/ 1.0f, /*psi*/ 90.0f, 52.5f, k_);
+  ASSERT_TRUE(c.has_value());
+  EXPECT_NEAR(c->x[35], 21.0f, 1e-3f);
+  EXPECT_NEAR(c->x[45], 21.0f - 10.0f * kTan40, 1e-3f);
+  EXPECT_NEAR(c->x[25], 21.0f - 10.0f * kTan40, 1e-3f);
+  EXPECT_NEAR(c->x[0], 21.0f - 35.0f * kTan40, 1e-3f);
+  EXPECT_FLOAT_EQ(c->scale, 1.0f);
+}
+
+TEST_F(CurveTableTest, AKeeperIsNotListed) {
+  // The side's keeper (category 0) at (40, 0) would pull the curve forward; the builder skips him.
+  players_[12].pos = {40.0f, 0.0f};
+  players_[12].active = true;
+  players_[12].positionCategory = 0;
+  const auto c = pes::BuildCurve(players_, 0, 1.0f, 90.0f, 52.5f, k_);
+  ASSERT_TRUE(c.has_value());
+  EXPECT_NEAR(c->x[35], 21.0f, 1e-3f);
+}
+
+TEST_F(CurveTableTest, AttackingTheOtherWayMirrorsTheCurve) {
+  // The away side attacks -x (psi 270, sign -1). Its opponents are slots 0..10; the defender is at (-20, 0).
+  constexpr float kTan40 = 0.8391f;  // tan(40 degrees)
+  players_[11].active = false;
+  players_[0].pos = {-20.0f, 0.0f};
+  players_[0].active = true;
+  players_[0].positionCategory = 1;
+  const auto c = pes::BuildCurve(players_, /*carrierSide*/ 1, /*attackSign*/ -1.0f, /*psi*/ 270.0f, 52.5f, k_);
+  ASSERT_TRUE(c.has_value());
+  EXPECT_NEAR(c->x[35], -21.0f, 1e-3f);
+  EXPECT_NEAR(c->x[45], -21.0f + 10.0f * kTan40, 1e-3f);
+  EXPECT_FLOAT_EQ(c->scale, -1.0f);
+}
+
+TEST_F(CurveTableTest, NobodyListedGivesNoTable) {
+  players_[11].active = false;
+  EXPECT_FALSE(pes::BuildCurve(players_, 0, 1.0f, 90.0f, 52.5f, k_).has_value());
 }
 
 // --- the Safety unit (kind 6; gate 0x14212B520, short picker 0x142126B70, through picker
@@ -2069,7 +2167,7 @@ pes::TouchReceiver OneTwoMateAt(int index, float x, float z, float facing) {
   r.pos = {x, z};
   r.facing_deg = facing;
   r.statusValid = true;
-  r.psi = true;
+  r.roleClass = 1;  // a field man: class 1, not the keeper
   r.difficulty = 0.5f;
   r.dist_m = 14.0f;
   r.turnFacing_deg = 30.0f;   // within 60 degrees: the window's ramp is full
@@ -2106,10 +2204,10 @@ class OneTwoUnitTest : public ::testing::Test {
     t.planMode = 2;
     t.ownLine_m = -kOneTwoHalfLen;
     t.pitchBound_m = kOneTwoHalfLen;
-    t.teamLevel = 2;
+    t.teamLevelRaw = 200;  // level 2 (x 100): G3 passes
     t.teamMode = 3;
     t.score = 2500.0f;     // 50 m: over the 40 m floor
-    t.curveX_m = 35.0f;    // the carrier 5 m behind the front line
+    t.curve = FlatCurve(35.0f);  // the carrier 5 m behind the front line
     in_.carrierAngle_deg = 90.0f;
     in_.mates = {OneTwoMateAt(kOneTwoMate, 40.0f, 10.0f, 225.0f)};
   }
@@ -2173,9 +2271,20 @@ TEST_F(OneTwoUnitTest, TheOneTouchLaneMustBeBlocked) {
 
 TEST_F(OneTwoUnitTest, TheTeamLevelGateNeedsLevelTwo) {
   // 0x142128C10's G3: the team level, level/100, must reach 2.
-  in_.touch.teamLevel = 1;
+  in_.touch.teamLevelRaw = 100;  // level 1
   EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
 }
+
+TEST_F(OneTwoUnitTest, TheTeamLevelIsTheRawLevelOverOneHundred) {
+  // 0x140A40BD0 reads +0xA294 (zero when +0xA29C is set); 0x140A60360 compares that level / 100 with 2 for G3.
+  in_.touch.teamLevelRaw = 199;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+  in_.touch.teamLevelRaw = 200;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, kOneTwoMate);
+  in_.touch.teamLevelZero = true;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+}
+
 
 TEST_F(OneTwoUnitTest, TheScoreFloorIsFortyMetresSquared) {
   // 0x142128C10's G5: the score row must read 1600 (40 m) or more.
@@ -2185,13 +2294,19 @@ TEST_F(OneTwoUnitTest, TheScoreFloorIsFortyMetresSquared) {
   EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, kOneTwoMate);
 }
 
-TEST_F(OneTwoUnitTest, TheReceiverNeedsHisPsiAndHisStatus) {
-  // 0x142124950's P2 (the snapshot's [0xD] is non-zero: the asm exits on zero) and P1 (b6c status 0xB).
-  in_.mates[0].psi = false;
-  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
-  in_.mates[0].psi = true;
+TEST_F(OneTwoUnitTest, TheReceiverNeedsHisStatus) {
+  // 0x142124950's P1: his b6c status must read 0xB.
   in_.mates[0].statusValid = false;
   EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+}
+
+TEST_F(OneTwoUnitTest, TheReceiverGateIsHisRoleClassNotTheKeeper) {
+  // 0x142124A83 exits on snapshot[0xD] == 0, and snapshot[0xD] = T(side)+0x4BD4[r%11] is his role class:
+  // class 0 is the keeper and is refused; a field class (1) takes the ball.
+  in_.mates[0].roleClass = 0;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+  in_.mates[0].roleClass = 1;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, kOneTwoMate);
 }
 
 TEST_F(OneTwoUnitTest, TheFirstListedReceiverThatPassesTakesIt) {
@@ -2249,10 +2364,10 @@ class DirectHighBallUnitTest : public ::testing::Test {
     t.planMode = 2;
     t.ownLine_m = -kOneTwoHalfLen;
     t.pitchBound_m = kOneTwoHalfLen;
-    t.teamLevel = 0;
+    t.teamLevelRaw = 0;
     t.teamMode = 3;
     t.score = 2500.0f;
-    t.curveX_m = 35.0f;
+    t.curve = FlatCurve(35.0f);
     in_.ballHeight_m = 1.2f;
     in_.carrierHeight_m = 1.8f;
     in_.ball = {30.0f, 0.0f};
@@ -2357,7 +2472,7 @@ TEST_F(DirectHighBallUnitTest, TheFirstTouchFlagNeedsTheOneTouchAndTheReceiver) 
   // f10 is written when the one-touch predicate and the mate's receiver predicate both hold. The
   // high ball keeps the low-ball block out of it; the mate stands off the attack line.
   in_.ballHeight_m = 2.5f;
-  in_.touch.teamLevel = 2;
+  in_.touch.teamLevelRaw = 200;
   in_.mates = {DirectHighBallMateAt(kOneTwoMate, 42.0f, 6.0f, 1000.0f)};
   const pes::PassAnswer a = pes::DirectHighBallUnit(in_, k_);
   EXPECT_EQ(a.index, kOneTwoMate);
