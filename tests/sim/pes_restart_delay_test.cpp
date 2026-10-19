@@ -275,15 +275,14 @@ TEST(PesRestartDelay, ARestartTakerPlaysHisBallActionAfterRelease) {
                         << " ticks of release:" << who;
 }
 
-// A throw-in must be taken within the bound, and its taker must play a ball action then, when the ball
-// lies over the touchline at the restart. Seed 7's first throw-in is released with its taker in a PES
-// locomotion clip. In pes_loop nothing puts back a ball that a body touch pushed past the line (the
-// reset in referee.cpp is for the GF path only). The taker's candidate touches are then all refused as
-// out of bounds (humanoid GetBestCheatableAnimID), so no pass or shot is selected and the match stalls.
-// This test places the ball 0.2 m over the line in each throw-in's hold and requires the taker's ball
-// action within the bound counted from the stoppage, as the restart watch counts it.
+// A throw-in must be taken within the bound, and its taker must play a ball action then. Seed 7's
+// first throw-in is released with its taker in a PES locomotion clip. The throw-in spot sits F1 + the
+// install's outset outside the touchline (the referee's real restart path), so the taker's candidate
+// touches all predict a ball past the line and, without the taker's-own-spot exemption, are refused
+// as out of bounds (humanoid GetBestCheatableAnimID), and no pass or shot is selected and the match
+// stalls. This test requires the taker's ball action within the bound counted from the stoppage, as
+// the restart watch counts it.
 TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
-  constexpr float kBallOverLine_m = 0.2f;
   const auto isBallAction = [](int type) {
     return type == e_FunctionType_ShortPass || type == e_FunctionType_LongPass ||
            type == e_FunctionType_HighPass || type == e_FunctionType_Shot;
@@ -295,7 +294,7 @@ TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
   };
   std::map<unsigned long, unsigned long> stoppedAt;  // by stop time
   std::map<unsigned long, Taking> taking;            // released, not yet taken
-  std::set<unsigned long> pushed, seen;
+  std::set<unsigned long> seen;
   unsigned long tick = 0, bound = 0;
   int throwIns = 0, onLocomotion = 0, untaken = 0;
   std::string who;
@@ -305,12 +304,6 @@ TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker)
       stoppedAt.emplace(b.stopTime, tick);
-    if (b.active && b.prepared && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker &&
-        pushed.insert(b.stopTime).second) {
-      const float side = b.restartPos.coords[1] < 0 ? -1.0f : 1.0f;
-      match.GetBall()->ResetSituation(
-          Vector3(b.restartPos.coords[0], side * (pitchHalfH + lineHalfW + kBallOverLine_m), 0));
-    }
     if (b.active && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker &&
         seen.insert(b.stopTime).second) {
       const Anim* anim = b.taker->GetCurrentAnim();

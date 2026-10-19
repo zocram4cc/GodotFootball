@@ -78,6 +78,11 @@ struct RestartSpotConstants {
   // along x and along z by these two insets.
   float cornerInsetX_m = 0.0f;
   float cornerInsetZ_m = 0.0f;
+  // .rdata 0x142592228 (docs/re/pes-re-throwin-choreography.md 1.3): the throw-in's writer
+  // (FUN_14050e770) sits the ball F1 + this outset outside the touchline.
+  float throwInLineOutset_m = 0.0f;
+  // .rdata 0x14256ae1c: the throw-in's x is kept this far inside the end line (F0 - inset).
+  float throwInEndInset_m = 0.0f;
 };
 std::optional<RestartSpotConstants> LoadRestartSpotConstants(const PeImage& exe, std::string* error);
 

@@ -82,12 +82,16 @@ std::optional<RestartSpotConstants> LoadRestartSpotConstants(const PeImage& exe,
   constexpr uint64_t INSET_VA = 0x142565604;     // free-kick touchline inset
   constexpr uint64_t CORNER_X_VA = 0x142590d98;  // corner spot inset along x
   constexpr uint64_t CORNER_Z_VA = 0x142572348;  // corner spot inset along z
+  constexpr uint64_t THROW_OUTSET_VA = 0x142592228;  // throw-in spot outside the touchline
+  constexpr uint64_t THROW_INSET_VA = 0x14256ae1c;  // throw-in spot x, kept off the end line
   RestartSpotConstants k{};
   if (!ReadFloat(exe, PUSH_OUT_VA, &k.goalAreaPushOut_m) ||
       !ReadFloat(exe, PUSH_Z_VA, &k.goalAreaPushZ_m) ||
       !ReadFloat(exe, INSET_VA, &k.freeKickInset_m) ||
       !ReadFloat(exe, CORNER_X_VA, &k.cornerInsetX_m) ||
-      !ReadFloat(exe, CORNER_Z_VA, &k.cornerInsetZ_m)) {
+      !ReadFloat(exe, CORNER_Z_VA, &k.cornerInsetZ_m) ||
+      !ReadFloat(exe, THROW_OUTSET_VA, &k.throwInLineOutset_m) ||
+      !ReadFloat(exe, THROW_INSET_VA, &k.throwInEndInset_m)) {
     *error = "restart spot constant: .rdata float unreadable";
     return std::nullopt;
   }

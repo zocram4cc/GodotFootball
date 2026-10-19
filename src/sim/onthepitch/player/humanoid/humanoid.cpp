@@ -3165,8 +3165,21 @@ signed int Humanoid::GetBestCheatableAnimID(
       // out of bounds?
       if (match->GetBallRetainer() != player) {
         Vector3 absBallPos = match->GetBall()->Predict(animTouchFrame * 10);
-        if (fabs(absBallPos.coords[0]) > pitchHalfW + lineHalfW + 0.11f ||
-            fabs(absBallPos.coords[1]) > pitchHalfH + lineHalfW + 0.11f) {
+        // The throw-in ball sits F1 + the install's outset outside the touchline (0x142592228,
+        // docs/re/pes-re-throwin-choreography.md 1.3), at the taker's restart spot. His own throw
+        // must not be refused for standing there: the ball is dead at his feet and the throw
+        // carries it infield. The exemption is the taker's own spot only - a ball that is not at
+        // his restart spot, or a touch by anyone else, is still pruned as out of bounds.
+        const RefereeBuffer& rb = match->GetRefereeBuffer();
+        const bool atOwnSpot =
+            match->PesLoop() && match->IsInSetPiece() &&
+            rb.desiredSetPiece == e_SetPiece_ThrowIn && rb.taker == player &&
+            (absBallPos.Get2D() - rb.restartPos.Get2D()).GetLength() <
+            0.5f;  // ponytail: 0.5 m window - the dead ball sits at the spot and a body touch can
+                   // nudge it off; widen to an install tolerance if one is ever decoded
+        if (!atOwnSpot &&
+            (fabs(absBallPos.coords[0]) > pitchHalfW + lineHalfW + 0.11f ||
+             fabs(absBallPos.coords[1]) > pitchHalfH + lineHalfW + 0.11f)) {
           touchNum++;
           continue;
         }
