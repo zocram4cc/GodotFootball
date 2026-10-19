@@ -55,6 +55,7 @@ OffBallConstants Synthetic() {
   return k;
 }
 
+
 TEST(OffBallRank, RunsNeverPreemptRunsOrConceptMoves) {
   EXPECT_TRUE(MayTake(kChance, kBasePosition));
   EXPECT_TRUE(MayTake(kChance, kNothing));
@@ -231,6 +232,22 @@ TEST(OffBallMask, AttackSlotsOpenToAllUntilEnoughAttackersAreForward) {
   EXPECT_EQ(others, 2);
   EXPECT_TRUE((m >> 7) & 1u);  // the two nearest the goal line among the rest
   EXPECT_TRUE((m >> 8) & 1u);
+}
+// PES's T+0x4C00 holds the role CLASS 0..9 (role-writer §5), not the 13-value
+// registered position: a wide midfielder is class 5, a left back class 2. A
+// reader comparing the 13-value scale misclassifies both (LM=6 >= 4 looks
+// "forward", LB=2 < 4 looks "deep").
+TEST(OffBallMask, AWideMidfielderTakesNoReachPathALeftBackDoes) {
+  const OffBallConstants k = Synthetic();
+  RunWorld w = Running();
+  w.p[kRunner].state = kBasePosition;
+  w.p[kRunner].t = 1e9f;
+  w.lineX[1] = 45.0f;                // the runner stays onside
+  w.p[kRunner].pos = {30.0f, 0.0f};  // 30 m ahead of the ball: past 15 m
+  w.p[kRunner].roleClass = 5;        // SMF: class 5 takes no reach path
+  EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
+  w.p[kRunner].roleClass = 2;        // SB: class 2 takes the reach path
+  EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
 }
 
 TEST(OffBallMask, ADefenderNeedsTheReachAForwardDoesNot) {
