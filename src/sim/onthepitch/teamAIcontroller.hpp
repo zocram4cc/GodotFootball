@@ -37,6 +37,7 @@
 #include "pesdefshape.hpp"
 #include "teaminstructions.hpp"
 #include "pesteamconcepts.hpp"
+#include "pesteamtick.hpp"
 #include "pespress.hpp"
 
 class Match;
@@ -166,6 +167,9 @@ public:
   // Every team tick, dead balls included: the decider moves the strategy while
   // the ball is dead and the attack level follows it once play resumes.
   void UpdateStrategy();
+  // PES's per-tick team words (pesteamtick.hpp): the attack level T+0xB8A4,
+  // its flags and the restart word, stepped every team tick on the PES path.
+  const pes::TeamTick& GetTeamTick() const { return teamTick; }
 
   // PES's off-ball run or designated-supporter target for this player, if any
   // (pes-re-off-ball.md 1, 4.1).
@@ -225,6 +229,10 @@ protected:
   // generator.
   pes::StrategyState strategy;
   std::optional<pes::Random> strategyRng;
+  // PES's per-tick team words (pesteamtick.hpp), stepped in UpdateStrategy on
+  // the PES path. Last tick's latch for the restart word's flip test.
+  pes::TeamTick teamTick;
+  bool lastTickPossession = false;
 
   float offensivenessBias;
 
