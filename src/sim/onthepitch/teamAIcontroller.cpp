@@ -1235,11 +1235,13 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
           }
         }
       }
-      // The attacking side's men in the box: 4 + min(attack level, 2)
-      // (FUN_1404f6680). Who they are is PES's own ranking, which is the same
-      // aerial score with the defenders demoted.
+      // The attacking side's men in the box. PES path: the men FUN_14051B8B0 places in stages one and
+      // two, in placement order, so the box rank is PES's. Switch-off keeps GF's stand-in: the top men
+      // by the same aerial score.
       std::vector<Player*> boxAttackers;
-      if (isTakerTeam) {
+      if (isTakerTeam && match->PesLoop()) {
+        boxAttackers = PesBoxMen(pes::BoxAttackerCount(attackLevel, spc));
+      } else if (isTakerTeam) {
         std::vector<Player*> outfield = players;
         std::sort(outfield.begin(), outfield.end(), [&aerial](Player* a, Player* b) {
           return aerial(a) > aerial(b);
@@ -2339,6 +2341,52 @@ void TeamAIController::WriteRoleArrays(bool head) {
 int TeamAIController::RoleClassOfSlot(int slot) const {
   assert(slot >= 0 && slot < pes::roles::kSideSlots);
   return roles.b[slot];
+}
+
+void TeamAIController::UpdatePesDesignation() {
+  // The lateral key of each slot is the team-frame lateral of its formation point. ponytail: PES's key
+  // is the slot-point row's f2 (FUN_140A40CA0 reads it raw; FUN_1404A8620 copies it from the sheet
+  // triple FUN_1408C50E0(sheet, slot, 0, 3)); GF's adapted formation point stands in for that triple.
+  const std::vector<std::unique_ptr<Player>>& all = team->GetAllPlayers();
+  std::array<float, pes::designation::kSideSlots> lateral{};
+  for (int slot = 0; slot < pes::designation::kSideSlots; ++slot) {
+    const Vector3 point = GetAdaptedFormationPosition(all[slot].get(), false);
+    lateral[slot] = pes::designation::TeamFrameLateral(team->GetSide(), point.coords[1]);
+  }
+  pesDesignation = pes::designation::Publish(
+      team->GetID(), roles.b, lateral,
+      team->GetMatch()->GetPesTeamConceptConstants().designation.order);
+}
+
+std::vector<Player*> TeamAIController::PesBoxMen(int boxCount) {
+  // FUN_140A64030(slot, 0xF): the bit-15 style (Extra Frontman) on the man, and his class's compat row.
+  constexpr int kExtraFrontmanBit = 15;
+  Match* match = team->GetMatch();
+  const pes::designation::Constants& designation = match->GetPesTeamConceptConstants().designation;
+  const pes::style::Compat& compat = match->GetPesOffBallConstants().styleCompat;
+  const std::vector<std::unique_ptr<Player>>& all = team->GetAllPlayers();
+  pes::designation::OrdinalInput in;
+  in.side = team->GetID();
+  for (int slot = 0; slot < pes::designation::kSideSlots; ++slot) {
+    Player* player = all[slot].get();
+    auto* data = player->GetPlayerData();
+    in.onPitch[slot] = player->IsActive();
+    in.classB[slot] = RoleClassOfSlot(slot);
+    in.aerial[slot] = data->GetHeight() + player->GetStat("physical_jump") +
+                      player->GetStat("technical_header");
+    in.extraFrontman[slot] = pes::style::Gate(compat, in.classB[slot],
+                                              pes::style::StyleWord(data->GetPlayingStyle()),
+                                              kExtraFrontmanBit);
+    if (in.onPitch[slot]) ++in.eligibleCount;
+  }
+  in.boxCount = boxCount;
+  in.list = &pesDesignation;
+  in.lowRank = designation.lowRank;
+  in.highClassBonus = designation.highClassBonus;
+  const pes::designation::OrdinalFill fill = pes::designation::FillOrdinals(in);
+  std::vector<Player*> men;
+  for (int i = 0; i < fill.placedCount; ++i) men.push_back(all[fill.placed[i]].get());
+  return men;
 }
 
 // ponytail: the swap pair T+0x89D4/0x89D8 has no decoded writer and no GF event supplies one, so

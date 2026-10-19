@@ -408,6 +408,10 @@ std::optional<TeamConceptConstants> LoadTeamConceptConstants(const PeImage& exe,
   auto classMap = roles::LoadRoleClassMap(exe, error);
   if (!classMap) return std::nullopt;
   k.roleClassOfRegistered = *classMap;
+  // The publisher's order table and the ordinal fill's constants, read from the install with the rest.
+  auto designationConstants = designation::LoadConstants(exe, error);
+  if (!designationConstants) return std::nullopt;
+  k.designation = *designationConstants;
   return k;
 }
 

@@ -210,3 +210,7 @@ gtest_discover_tests(pes_nearest_opponent_test PROPERTIES TIMEOUT 1800)
 add_executable(pes_lane_test pes_lane_test.cpp)
 target_link_libraries(pes_lane_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_lane_test PROPERTIES TIMEOUT 1800)
+
+add_executable(pes_designation_test pes_designation_test.cpp)
+target_link_libraries(pes_designation_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_designation_test)

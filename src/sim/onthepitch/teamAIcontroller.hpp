@@ -143,6 +143,8 @@ public:
   // PES's role arrays (pesroles.hpp): B holds each slot's role class, the value every class
   // reader uses; A is the stamina-sub class. Setup and the tick's head and tail write them.
   int RoleClassOfSlot(int slot) const;
+  // PES's designation publisher (FUN_14051E350, team tick step 27b): the side's record, rebuilt each tick.
+  void UpdatePesDesignation();
   void SetUpRoleArrays();
   void WriteRoleArrays(bool head);
   // The B swap pair (T+0x89D4/0x89D8). No GF event sets it yet: the PES writer is not decoded.
@@ -303,6 +305,9 @@ protected:
   void ProcessRunManager(Player* carrier);
   pes::offball::RunWorld BuildRunWorld(std::array<std::vector<Player*>, 2>* ids) const;
   void ProcessDesignatedSupporter(Player* carrier);
+  // The men FUN_14051B8B0 places in the box, in placement order (the PES path of the corner box).
+  std::vector<Player*> PesBoxMen(int boxCount);
+  pes::designation::DesignationRecord pesDesignation{};
   std::map<const Player*, RunRecord> runs;
   long lastRunFrame = -1;
   Player* designatedSupporter = nullptr;

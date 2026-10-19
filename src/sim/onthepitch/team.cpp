@@ -525,6 +525,9 @@ void Team::Process() {
   UpdatePesPossession();
   // FUN_14051D9E0's head write (0x14051DA5A): the bulk writer of the PES role arrays.
   teamController->WriteRoleArrays(true);
+  // PES's designation publisher (FUN_14051E350, step 27b). GF's restart branch is stood in by
+  // MatchModeByte = 0 (teamAIcontroller.cpp), so the publisher runs on every team tick.
+  if (match->PesLoop()) teamController->UpdatePesDesignation();
   teamPossessionAmount =
       (float)(match->GetTeam(abs(GetID() - 1))->GetTimeNeededToGetToBall_ms() + 1500) /
       (float)(GetTimeNeededToGetToBall_ms() + 1500);
