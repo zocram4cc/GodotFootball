@@ -1030,7 +1030,7 @@ float PlanHeadingDeg(int mode, float carrierX, float carrierZ, float attackSign,
   // [RBX],XMM0` after `LEA RBX,[R14+0xC0]` at 0x14211EB7F; its only caller is
   // FUN_14211D710 at 0x14211D7C7). The mode at plan+0xC4 selects a start/end
   // point pair through the jump table at 0x14211EC50 (`MOV ECX,[RCX+RAX*4+
-  // 0x211EC50]` at 0x14211E764), every branch then calls FUN_14211C380 at
+  // 0x211EC50]` at 0x14211E766), every branch then calls FUN_14211C380 at
   // 0x14211EB75, and the result is wrapped to [0, 360) with 0x14259858C.
   if (mode != 2) {
     // ponytail: modes 1/7 (0x14211E773, seeded by FUN_14211C610's ball-relative
