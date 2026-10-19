@@ -335,6 +335,35 @@ TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
                         << " ticks of the stoppage with the ball over the line:" << who;
 }
 
+// A throw-in's ball lies over the line at its spot (PES writes it at F1 + 0.25), and the taker's pass
+// carries it inward over the next few ticks. PES's judge acts on the ball event raised as the ball
+// crosses the line (docs/re/pes-re-A5Judge.md 1.4), so a ball already over the line at the release
+// raises none. A judge that read the ball's centre on every tick would award the throw again to the
+// other side at the same spot, on the first tick after the release. No throw-in may be awarded again
+// within a second of a release.
+TEST(PesRestartDelay, AThrowInIsNotAwardedAgainOnItsOwnSpot) {
+  constexpr double kRewardWindow_ms = 1000.0;  // no pass from a spot reaches the far line sooner
+  std::optional<unsigned long> awarded, released;
+  double releasedAt_ms = 0.0;
+  int throwIns = 0, reawarded = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn) return;
+    const double now_ms = static_cast<double>(match.GetActualTime_ms());
+    if (!awarded || *awarded != b.stopTime) {
+      if (released && now_ms < releasedAt_ms + kRewardWindow_ms) reawarded++;
+      awarded = b.stopTime;
+    }
+    if (b.started && (!released || *released != b.stopTime)) {
+      released = b.stopTime;
+      releasedAt_ms = now_ms;
+      throwIns++;
+    }
+  });
+  EXPECT_GT(throwIns, 0) << "no throw-in was released";
+  EXPECT_EQ(reawarded, 0) << reawarded << " throw-in(s) awarded again within a second of a release, at the spot";
+}
+
 // PES's whistle kills the ball where it stands: the live throw-in sits past the line at its stop
 // frame and shows no outfield flight during the stop. So on the tick the referee takes the ball out
 // of play the ball's velocity and its spin are both zero - the resting-ball gate

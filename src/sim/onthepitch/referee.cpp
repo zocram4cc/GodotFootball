@@ -363,9 +363,15 @@ void Referee::Process() {
 
     // over sideline
 
+    // pes_loop judges the crossing, not the state: a throw-in's ball lies over the line at its spot
+    // and is not out again until it has come in and crossed (ballOverSideline).
+    const bool overSideline =
+        fabs(ballPos.coords[1]) >
+        (match->PesLoop() ? pesFieldHalfWidth : pitchHalfH + lineHalfW + 0.11);
+    const bool crossedSideline = match->PesLoop() ? overSideline && !ballOverSideline : overSideline;
+    ballOverSideline = overSideline;
     if (afterSetPieceRelaxTime_ms == 0) {
-      if (fabs(ballPos.coords[1]) >
-          (match->PesLoop() ? pesFieldHalfWidth : pitchHalfH + lineHalfW + 0.11)) {
+      if (crossedSideline) {
         foul.advantage = false;
         if (!CheckFoul()) {
           match->StopPlay();
@@ -753,6 +759,7 @@ void Referee::PrepareSetPiece(e_SetPiece setPiece) {
         buffer.restartPos, -static_cast<int>(match->GetTeam(buffer.teamID)->GetSide()), setPiece,
         match->GetPesRestartSpotConstants());
   match->ResetSituation(buffer.restartPos);
+  ballOverSideline = fabs(buffer.restartPos.coords[1]) > pesFieldHalfWidth;
   match->GetMatchData()->RecordPassRestart();
 
   match->GetTeam(0)->GetController()->PrepareSetPiece(setPiece, buffer.teamID);
