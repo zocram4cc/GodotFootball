@@ -213,7 +213,7 @@ Check order matches asm (C-asm): T1 (opponent only) → AT → CT → record. Th
 
 ### 5.1 `0x140A62690` — side keeper slot
 - Body (C-asm): `0x140A48A30(G, side)` → side object; `0x140A62610(side, MI, obj)` → j; returns `side·11 + j` if j ≠ 0xFF, else 0xFF.
-- `0x140A62610` returns the first active slot j whose `obj+0x4C00[j] == 0`. The slot is the side's keeper iff `position category 0 = keeper`. Docs (`pes-re-defensive-shape.md` §474) mark this INF(med). **Confirmed as a selector; the category→keeper mapping is OPEN (O1).**
+- `0x140A62610` returns the first active slot j whose `obj+0x4C00[j] == 0`. The slot is the side's keeper iff `position category 0 = keeper`. Docs (`pes-re-defensive-shape.md` §474) mark this INF(med). **Confirmed as a selector; the category→keeper mapping is OPEN (O1).** _Note 19-10-26 (pes-re-community-qa.md §6 C8): auditor and class map agree that array-B 0 = GK family (dec FUN_140A62690/FUN_140A62610 + FUN_140A59F90 switch); keep OPEN until the live writer is checked — role-writer §6 closes O1 on static instead, see its note below._
 - Verdict: **the brief's guess is right in shape**: it is the side's keeper index under the category-0 rule.
 
 ### 5.2 `0x140A53DF0` — annulus-and-angle test (AT)

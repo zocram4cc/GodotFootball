@@ -165,7 +165,7 @@ INF(high): the "presser" is the `MATCH_UP` man (the first defender of mark pass 
     (20/65/−45/2.5 at 0x14259be1c/0x14259be48/0x1425aa1c8/0x14259bde4) taken off the candidate's distance. The first
     candidate inside the cone wins; it replaces the previous presser only if `|prev − ball| ≥ (d − bonus) + 1.5`
     (0x14259bddc). Winner → `brain+0x5db0`, paired with the carrier (weight 1.0).
-- The engaged man's state is `MATCH_UP` (writer `FUN_140536210`, not reduced; prio 0 so nothing overrides it).
+- The engaged man's state is `MATCH_UP` (writer `FUN_140536210`, gated on team byte `+0x1775` ∈ {3, 8..10}, slot `table[candidate] % 11`; prio 0 so nothing overrides it). _Corrected 19-10-26 from pes-re-community-qa.md §6 C9: dec FUN_140536210; old "not reduced"._
 
 ### 5.3 When the team presses vs drops — what is closed
 - **Line-up / block choice is the defensive-line formula (§6)**: the line height is a ramp of ball depth; the press

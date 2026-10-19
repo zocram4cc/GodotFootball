@@ -232,16 +232,17 @@ team-mate stands within 8 m of the cell (5 m for the passer slot `+0x40c`), the 
   enabled defensive records (0xd, 0xb) are not. INF(med): instructions are switched on in match (CPU logic or pad
   "quick instruction"), not copied wholesale; the gated sampler (§7) logs every change of the 8 slots (O7).
 
-### 6.2 Enum (INF(high)) — engine names from `.rdata` 0x14261433c…; index = position after `NONE`
+### 6.2 Enum (names INF(high); sentinel OBS) — engine names from `.rdata` 0x14261433c…; index = position after `NONE`
 
 `0 NONE, 1 OPEN_WIDE, 2 FALSE_9, 3 FALSE_SB, 4 BOTH_SB_UP, 5 FLOW_SIDE, 6 TIKI_TAKA, 7 TARGET_CROSS, 8 DEFENSIVE,
 9 FALSE_WG, 10 KEEP_LANE, 11 CAUTION_CROSS, 12 CAUTION_THROUGH_PASS, 13 GEGEN_PRESS, 14 MARK_HARD, 15 READY_COUNTER,
-16 WING_BACK, 17 DEFENCE_MAX` (sentinel: the test rejects id ≥ 0x11). Evidence: (a) the tester bound `< 0x11`; (b)
+16 WING_BACK, 17 DEFENCE_MAX` (sentinel OBS: tester `FUN_140A63950` rejects id ≥ 0x11 via `cmp r8d,0x11`; setter `FUN_140A42600` returns on 0x11). _Corrected 19-10-26 from pes-re-community-qa.md §6 C3: dec both; old "sentinel (INF high)"._ Evidence: (a) the tester bound `< 0x11`; (b)
 **exactly ids 8, 0xa, 0xe, 0xf are always tested with a player slot** (`mov r9d, reg`), all others with 0xff — those
 four are DEFENSIVE, KEEP_LANE, MARK_HARD, READY_COUNTER = the per-player instructions (UI: Defensive, Anchoring?,
 Tight Marking, Counter Target); (c) id 0xd is read by ForeCheckPress/TransitionChase/line code (Gegenpress);
 (d) id 0xf excludes a player from the id-0x10 wing-back drop (`FUN_140a64410`). The order with OPEN_WIDE = 0
 would make ids 8/0xa/0xe/0xf = FALSE_WG/CAUTION_CROSS/READY_COUNTER/WING_BACK — killed by (b).
+_Note 19-10-26 (pes-re-community-qa.md §6 C2, auditor census only, not re-verified): ids 4, 0xb, 0xc, 0xd may also have per-slot test sites (3/3/4/6 sites); the "exactly" in (b) stands until verified._
 UI labels (INF(med)): OPEN_WIDE Hug the Touchline, FALSE_9 False No. 9, FALSE_SB False Full-backs, BOTH_SB_UP
 Attacking Full-backs, FLOW_SIDE Wing Rotation, TIKI_TAKA Tiki-Taka, TARGET_CROSS Centring Targets, CAUTION_CROSS
 Swarm the Box, CAUTION_THROUGH_PASS Deep Defensive Line, GEGEN_PRESS Gegenpress, WING_BACK (back-five drop).

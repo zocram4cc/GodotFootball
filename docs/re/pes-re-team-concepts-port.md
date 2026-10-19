@@ -55,8 +55,8 @@ Heading convention as PES: 0 = +lateral, 90 = +x (`FUN_140a92d40` = atan2(dx, dz
   BASE_POSITION/MARK/PASS_COURSE_CUT = not keeper, not the engaging man, not on another concept's order.
 - `T+0xa508`: in play and in possession only (stale-ball veto, keeper-hold restart path not modelled). Keeper holding = GF keeper is
   the ball retainer. KP_PUNTKICK has no GF state (never true).
-- Instruction 0xd (GEGEN_PRESS) veto in TransitionChase: GF has no advanced instructions (their in-match writer is unfound), so it is
-  never armed.
+- Instruction 0xd (GEGEN_PRESS) veto in TransitionChase: GF has no advanced instructions (team-sheet writer `FUN_140A42600` OBS — refuses id 0x11; the in-match write path is still OPEN), so it is
+  never armed. _Corrected 19-10-26 from pes-re-community-qa.md §6 C7: dec 0x140A42600; old "their in-match writer is unfound"._
 - Selector: the registry-15 stop flag, the difficulty row 0x21 cap, `MI+0x116c == 2` early-out and the member-state stop
   (`FUN_14057a160`, states 0x25/0x2c) have no GF counterpart.
 - Times in seconds, not `⌊k·fps + 0.5⌋` frames.
