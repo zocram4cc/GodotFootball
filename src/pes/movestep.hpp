@@ -63,6 +63,8 @@ struct MoveStepRecord {
   MoveState previous = MoveState::kInit;  // P+0x245d
   uint8_t speedClass = 0;                 // P+0x245a: the action's speed class 0..4 (A-AN6)
   uint8_t footBand = 0;                   // P+0x245b: foot / start band (A-AN6)
+  int actionAnime = 0;                    // P+0xac8: the anime action the record last ran in; a change is FUN_1406eebb0's entry
+  uint8_t liveKind = 0;                   // req[0x1e]: the live clip's kind, carried tick to tick (FUN_1406d5d60 writes it)
   float rateCeiling = 0.0f;               // P+0x377c: top running rate (FUN_1406f99f0)
   int rateStamp = 0;                      // P+0x3778: match tick the ceiling was computed on
   float playbackSpeed = 1.0f;             // P+0x3758: the SetMotion playback (FUN_1406f0f70)
@@ -842,6 +844,28 @@ bool OutOfPlayPreempt(MoveHost& host, MoveReq& req);
 // FUN_1406b9b20: the 10-way angle bucket of an angle in degrees, with the hysteresis of the current
 // bucket (10 = no current bucket). narrow selects the ±10 / ±170 windows.
 int AngleBucket(const AngleBucketConstants& k, float angleDeg, int currentBucket, bool narrow);
+// FUN_1406b7560's target fill (anime-select 1.1; raw asm 0x1406b7824..0x1406b7fd8). The move target is
+// cmd+0x20 (req[1] heading, req[0x11] distance); the look point is cmd+0x14 (req[3] heading). The turns
+// are req[5] (target minus facing), req[6] (target minus body) and req[7] (look minus facing); their
+// 10-way buckets are req[0xc], req[8] and req[0xd]. req[9], req[0xa] and req[0xe] are the command's own
+// speed band, desired speed and precise flag. Positions are PES's ground frame: x, and z = -GF y.
+struct MoveTargetInput {
+  float originX = 0.0f;     // P+8: the player's x
+  float originZ = 0.0f;     // P+0x10: the player's z
+  float facingDeg = 0.0f;   // P+0x20 (req[2])
+  float targetX = 0.0f;     // cmd+0x20: the move target
+  float targetZ = 0.0f;
+  float lookX = 0.0f;       // cmd+0x14: the look-at point
+  float lookZ = 0.0f;
+  int speedBand = -1;       // FUN_1406b8de0(cmd[0x17]): 0..3, or -1 for none
+  float desiredKmh = 0.0f;  // cmd[0x172]
+  bool precise = false;     // cmd[0x15] (2 maps to 1)
+};
+// ponytail: req[4] (body) is the facing; PES adds the bucket the anime interface's slot 0x80 picks (not ported).
+// ponytail: a zero-length target or look takes the facing; PES takes the ball's sample (the B and A
+// substitutions of FUN_1406b7560). ponytail: req[0x12] is req[0x11]; the cmd+0x68 point list is not ported.
+void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants& fold,
+                    const AngleBucketConstants& buckets);
 // PES's conversion of a motion-record value to ticks (FUN_1406af620, FUN_1406b1f00, FUN_1406b1d00,
 // FUN_1406af8e0): int(2 v / rate * (ticks / fps) + half), with the host's ticks per second. A rate
 // that is not positive is PES's one. fps and half are the install's DAT_14259a764 and DAT_142565600.

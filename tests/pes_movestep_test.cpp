@@ -1387,3 +1387,142 @@ TEST(RampsBeforeDispatch, TheDampingRunsInEveryState) {
   EXPECT_NEAR(req.F(pes::moveword::kDriftX), 3.0f - 120.0f / 54.0f, 1e-4f);
   EXPECT_EQ(req.F(pes::moveword::kDriftZ), 0.0f);
 }
+
+// ---------------------------------------------------------------------------------------------
+// FUN_1406b7560's target fill (docs/re/pes-re-anim-select.md 1.1, raw asm 0x1406b7824..0x1406b7fd8).
+// The move target is cmd+0x20 (req[1], req[0x11]); the look point is cmd+0x14 (req[3], req[7]);
+// the speed band is cmd[0x17] (req[9]); the desired speed is cmd[0x172] (req[0xa]); the precise
+// word is cmd[0x15] (req[0xe]). The bucket edges are synthetic: the tests relate each bucket word
+// to the bucket of the angle it was fed from, they do not pin a PES table.
+// ---------------------------------------------------------------------------------------------
+namespace {
+
+pes::RunConstants FoldConstants() {
+  pes::RunConstants k{};
+  k.one = 1.0f;
+  k.neg = -1.0f;
+  k.half_turn = 180.0f;
+  k.full = 360.0f;
+  k.wrapFull = -360.0f;
+  return k;
+}
+
+// A command from the origin facing heading 0, with a walk band and a 5 km/h desired speed.
+pes::movestep::MoveTargetInput OriginCommand() {
+  pes::movestep::MoveTargetInput in;
+  in.facingDeg = 0.0f;
+  in.speedBand = 0;
+  in.desiredKmh = 5.0f;
+  return in;
+}
+
+}  // namespace
+
+TEST(MoveFill, SpeedBandIsTheCommandsOwnBandForTwoCommands) {
+  pes::movestep::MoveTargetInput walk = OriginCommand();
+  walk.targetX = 3.0f;
+  walk.targetZ = 4.0f;
+  walk.speedBand = 0;
+  pes::MoveReq a;
+  pes::movestep::FillMoveTarget(a, walk, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(static_cast<int>(a.U(pes::moveword::kCommandSpeedClass)), 0);
+
+  pes::movestep::MoveTargetInput dash = walk;
+  dash.speedBand = 3;
+  pes::MoveReq b;
+  pes::movestep::FillMoveTarget(b, dash, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(static_cast<int>(b.U(pes::moveword::kCommandSpeedClass)), 3);
+}
+
+TEST(MoveFill, PreciseWordIsTheCommandsStopFlagForTwoCommands) {
+  pes::movestep::MoveTargetInput stop = OriginCommand();
+  stop.targetZ = 6.0f;
+  stop.speedBand = 1;
+  stop.precise = true;
+  pes::MoveReq a;
+  pes::movestep::FillMoveTarget(a, stop, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(a.U(pes::moveword::kPrecise), 1u);
+
+  pes::movestep::MoveTargetInput run = stop;
+  run.speedBand = 2;
+  run.precise = false;
+  pes::MoveReq b;
+  pes::movestep::FillMoveTarget(b, run, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(b.U(pes::moveword::kPrecise), 0u);
+}
+
+TEST(MoveFill, HeadingAndDistanceAreToTheMoveTargetNotTheLookPoint) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetX = 3.0f;  // 5 m at 36.87 degrees
+  in.targetZ = 4.0f;
+  in.lookX = -4.0f;  // the look point is elsewhere: it must not feed these words
+  in.lookZ = 6.0f;  // 7.2 m: a look distance that differs from the 5 m target distance
+  pes::MoveReq ahead;
+  pes::movestep::FillMoveTarget(ahead, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(ahead.F(pes::moveword::kHeading), 36.8699f, 1e-3f);
+  EXPECT_NEAR(ahead.F(pes::moveword::kDistToTarget), 5.0f, 1e-4f);
+
+  // From (1, 1) to (1, -3): due south (180 degrees), 4 m.
+  in.originX = 1.0f;
+  in.originZ = 1.0f;
+  in.targetX = 1.0f;
+  in.targetZ = -3.0f;
+  pes::MoveReq south;
+  pes::movestep::FillMoveTarget(south, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(south.F(pes::moveword::kHeading), 180.0f, 1e-3f);
+  EXPECT_NEAR(south.F(pes::moveword::kDistToTarget), 4.0f, 1e-4f);
+}
+
+TEST(MoveFill, LookHeadingAndFacingErrorWrapAroundTheTurn) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetZ = 5.0f;  // target straight ahead
+  in.lookX = 10.0f;   // look point due east: heading 90
+  pes::MoveReq east;
+  pes::movestep::FillMoveTarget(east, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(east.F(pes::moveword::kLookHeading), 90.0f, 1e-3f);
+  EXPECT_NEAR(east.F(pes::moveword::kFacingError), 90.0f, 1e-3f);
+
+  // Facing 350 with the look point due north: the error is +10, not -350.
+  in.facingDeg = 350.0f;
+  in.lookX = 0.0f;
+  in.lookZ = 10.0f;
+  pes::MoveReq north;
+  pes::movestep::FillMoveTarget(north, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(north.F(pes::moveword::kLookHeading), 0.0f, 1e-3f);
+  EXPECT_NEAR(north.F(pes::moveword::kFacingError), 10.0f, 1e-3f);
+}
+
+TEST(MoveFill, TurnsAndTheirBucketsAreTheTargetTurnTheBodyTurnAndTheLookError) {
+  const pes::AngleBucketConstants buckets = SyntheticBuckets();
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetX = 1.0f;  // target at 30 degrees
+  in.targetZ = 1.7320508f;
+  in.lookX = 0.7660444f;  // look point at 50 degrees
+  in.lookZ = 0.6427876f;
+  pes::MoveReq req;
+  pes::movestep::FillMoveTarget(req, in, FoldConstants(), buckets);
+  EXPECT_NEAR(req.F(pes::moveword::kLookDelta), 30.0f, 1e-2f);   // word 5: target minus facing
+  EXPECT_NEAR(req.F(pes::moveword::kTurn), 30.0f, 1e-2f);        // word 6: target minus body
+  EXPECT_NEAR(req.F(pes::moveword::kFacingError), 50.0f, 1e-2f);  // word 7: look minus facing
+  EXPECT_EQ(req.U(pes::moveword::kLookBucket),
+            uint32_t(pes::movestep::AngleBucket(buckets, req.F(pes::moveword::kLookDelta), 10, false)));
+  EXPECT_EQ(req.U(pes::moveword::kMoveBucket),
+            uint32_t(pes::movestep::AngleBucket(buckets, req.F(pes::moveword::kTurn), 10, false)));
+  EXPECT_EQ(req.U(pes::moveword::kLookBucketAlt),
+            uint32_t(pes::movestep::AngleBucket(buckets, req.F(pes::moveword::kFacingError), 10, false)));
+  EXPECT_NE(req.U(pes::moveword::kLookBucket), req.U(pes::moveword::kLookBucketAlt));
+}
+
+TEST(MoveFill, DesiredSpeedIsTheCommandsDesiredKmhForTwoCommands) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetZ = 2.0f;
+  in.desiredKmh = 12.5f;
+  pes::MoveReq a;
+  pes::movestep::FillMoveTarget(a, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_FLOAT_EQ(a.F(pes::moveword::kDesiredSpeedKmh), 12.5f);
+
+  in.desiredKmh = 27.0f;
+  pes::MoveReq b;
+  pes::movestep::FillMoveTarget(b, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_FLOAT_EQ(b.F(pes::moveword::kDesiredSpeedKmh), 27.0f);
+}

@@ -182,6 +182,9 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         command.desiredVelocityFloat = walkVelocity;
         command.useDesiredLookAt = true;
         command.desiredLookAt = target;
+        command.useDesiredTarget = true;
+        command.desiredTarget = target;
+        command.preciseArrival = true;  // PES cmd[0x15]: the clearing walk stops on its point
         commandQueue.push_back(command);
         return;
       }
@@ -204,6 +207,8 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         command.desiredVelocityFloat = walkVelocity;
         command.useDesiredLookAt = true;
         command.desiredLookAt = ball;
+        command.useDesiredTarget = true;
+        command.desiredTarget = target;
         commandQueue.push_back(command);
         return;
       }
@@ -516,6 +521,8 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
           step.desiredDirection = toBall.Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
           step.desiredVelocityFloat = sprintVelocity;
           step.desiredLookAt = match->GetBall()->GetPositionBuffer();
+          step.useDesiredTarget = true;
+          step.desiredTarget = match->GetBall()->GetPositionBuffer();
           commandQueue.push_back(step);
           extraHaste = true;
         }
@@ -539,6 +546,8 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         // Sprint: he is chasing a ball nobody else is going for.
         run.desiredVelocityFloat = sprintVelocity;
         run.desiredLookAt = match->GetBall()->GetPositionBuffer();
+        run.useDesiredTarget = true;
+        run.desiredTarget = match->GetBall()->GetPositionBuffer();
         commandQueue.push_back(run);
         extraHaste = true;
       }

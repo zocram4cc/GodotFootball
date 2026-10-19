@@ -125,6 +125,8 @@ struct PlayerCommand {
     desiredVelocityFloat = idleVelocity;
     strictMovement = e_StrictMovement_Dynamic;
     useDesiredLookAt = false;
+    useDesiredTarget = false;
+    preciseArrival = false;
     useTripType = false;
     useDesiredTripDirection = false;
     onlyDeflectAnimsThatPickupBall = false;
@@ -146,6 +148,12 @@ struct PlayerCommand {
 
   bool useDesiredLookAt;
   Vector3 desiredLookAt;  // absolute 'look at' position on pitch
+  // PES cmd+0x20, the move target point (FUN_1406b7560). Without one the adapter projects the direction
+  // one second ahead (ponytail: the writers AI_GetBallControlMovement, the pad, trips and basic movement).
+  bool useDesiredTarget;
+  Vector3 desiredTarget;
+  // PES cmd[0x15], the precise arrival flag that stops the walk on its target (req[0xe]).
+  bool preciseArrival;
 
   TouchInfo touchInfo;
 
