@@ -1928,11 +1928,10 @@ void TeamAIController::PesPressTick() {
     const float dx = in.posX[man] - in.ballX;
     const float dz = in.posZ[man] - in.ballZ;
     const float radius = pes::PressPickRadius_m(c, std::sqrt(bucket[0].score));
-    // press-life 12: PRESS is not renewed once the loose ball is 13 m off (0x1425C6788). Applied to the fresh pick
-    // too, since a pick beyond 13 m would be renewed on the next tick. ponytail: the fresh-pick half is inferred.
-    constexpr float kPressRenewalBall_m = 13.0f;
+    // The pick radius admits a fresh presser (FUN_140536FC0, press-life §3); the 13 m stop is the renewal of a man already
+    // pressing (0x1425C6788, press-life §11).
     const float distSq = dx * dx + dz * dz;
-    if (distSq <= radius * radius && distSq <= kPressRenewalBall_m * kPressRenewalBall_m) winner = man;
+    if (pes::PressPickAccepted(distSq, radius, pressState.role[man] == pes::kPressState)) winner = man;
   }
   for (int k = 0; k < 11; ++k) {
     const int man = side * 11 + k;

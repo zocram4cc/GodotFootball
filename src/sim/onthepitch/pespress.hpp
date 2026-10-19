@@ -231,6 +231,14 @@ PressFillResult PressCandidateFill(const PressConstants& c, const std::array<Pre
 // pass2Lo, 0 at or above pass2Hi, linear on pass2Div between).
 float PressPickRadius_m(const PressConstants& c, float root);
 
+// The 13 m renewal stop (0x1425C6788, press-life §11): a man already pressing is renewed only within it.
+inline constexpr float kPressRenewalBall_m = 13.0f;
+
+// The winner's admission (FUN_140536FC0, press-life §3 and §11): a fresh pick is within the pick radius (18 + 7r from
+// PressPickRadius_m, VAs 0x14259BE18 / 0x14259BDF0 / 0x14259BE20); a man already pressing is renewed only within 13 m.
+// distSq is squared metres to the ball, radius metres.
+bool PressPickAccepted(float distSq, float radius, bool alreadyPressing);
+
 // FUN_140639100's no-carrier arm: true when the ball sample at k ticks is at
 // least as near the ball now as the presser's base (squared metres, ties go
 // to the ball). Points are (x, z) pitch metres. No constants: the comparison

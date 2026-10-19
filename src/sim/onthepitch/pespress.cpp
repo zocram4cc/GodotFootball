@@ -338,6 +338,11 @@ float PressPickRadius_m(const PressConstants& c, float root) {
   return c.carrierRampStart_m + c.carrierRampSpan_m * ramp;
 }
 
+bool PressPickAccepted(float distSq, float radius, bool alreadyPressing) {
+  if (distSq > radius * radius) return false;
+  return !alreadyPressing || distSq <= kPressRenewalBall_m * kPressRenewalBall_m;
+}
+
 bool PressTargetIsBall(PressPoint sample, PressPoint ball, PressPoint base) {
   const float toBall = (sample.x - ball.x) * (sample.x - ball.x) +
                        (sample.z - ball.z) * (sample.z - ball.z);

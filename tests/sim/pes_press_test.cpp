@@ -532,3 +532,13 @@ TEST(PressCommandSpeed, DistanceSlopeCappedOneBandAbove) {
 }
 
 }  // namespace
+
+// A loose ball 15 m from the nearest man gets a fresh presser: the pick radius (18 + 7r m; 18 at a root score of 6 or
+// more, 0x14259BE18) covers him. The 13 m stop (0x1425C6788) is the renewal of a man already pressing, so a presser
+// beyond 13 m is dropped, while a fresh pick is not refused by it (press-life §3 and §11).
+TEST(PressPick, ALooseBallFifteenMetresOffGetsAFreshPresser) {
+  EXPECT_TRUE(pes::PressPickAccepted(15.0f * 15.0f, 18.0f, false));
+  EXPECT_FALSE(pes::PressPickAccepted(15.0f * 15.0f, 18.0f, true));
+  EXPECT_FALSE(pes::PressPickAccepted(19.0f * 19.0f, 18.0f, false));
+  EXPECT_TRUE(pes::PressPickAccepted(12.0f * 12.0f, 18.0f, true));
+}
