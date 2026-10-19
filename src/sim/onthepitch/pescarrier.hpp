@@ -348,8 +348,6 @@ struct CarrierConstants {
   float sfKeeperCone_deg = 0.0f;    // 90, 0x14259be5c: the keeper lane's cone
   float sfKeeperRad_m = 0.0f;       // 1, 0x14256ae1c: the keeper lane's radius
   float sfPadBack_m = 0.0f;         // 3, 0x14258c264: the second test's pad with the mate behind
-  // The lane core's own table and scalars (0x14063CD90 and its packer), loaded here so the
-  // carrier units that call the core get it through the one constants bundle the match carries.
   // --- the OneTwo and DirectHighBall units (kinds 10, 11) and the one-touch and receiver predicates
   // they share (0x142128C10, 0x142124950; lane-units2 §2, §4, §8) ---
   float oneTwoFrameGain = 0.0f;        // 0.3, 0x142590d98: the closing count's frames, int(54*0.3+0.5)
@@ -395,6 +393,8 @@ struct CarrierConstants {
   float dhbAdvance_m = 0.0f;           // 4, 0x1425656c0: the lane origin's advance along theta
   float dhbFacing_deg = 0.0f;          // 80, 0x142596e6c: the |X| gate
 
+  // The lane core's own table and scalars (0x14063CD90 and its packer), loaded here so the
+  // carrier units that call the core get it through the one constants bundle the match carries.
   lane::LaneConstants lane;
 
   bool operator==(const CarrierConstants&) const = default;

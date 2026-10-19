@@ -1910,18 +1910,143 @@ PassAnswer SafetyUnit(const SafetyInput& in, const CarrierConstants& k) {
   return answer;
 }
 
-// RED stubs (A4Lanes3): no answer until the port lands.
+namespace {
+
+// 0x140A4E3F0, the closing sweep behind OneTwo's gate: opponents of `ref` whose frames-ahead point lies
+// strictly within `outer_m` of the reference's own frames-ahead point (0x140A4E720 passes the inner
+// radius as 0.0, so only d2 > 0 is required), and whose bearing from it is within `thr_deg` of the
+// attack angle.
+// ponytail: PES's flag-1 path skips the per-side active check; GF keeps it, so a slot GF leaves
+// empty (no player) never counts at the origin.
+int ClosingCount(const std::array<lane::LanePlayer, lane::kSlots>& players, int ref,
+                 float attack_deg, int frames, float outer_m, float thr_deg) {
+  if (ref < 0 || ref > 21) return 0;
+  const int opp = lane::IsAwaySlot(ref) ? 0 : 1;
+  const lane::LanePlayer& r = players[ref];
+  const CarrierPoint pr = PredictPoint({r.pos.x, r.pos.z}, {r.vel.x, r.vel.z}, frames);
+  const float outerSq = outer_m * outer_m;
+  int count = 0;
+  for (int j = 0; j < lane::kSideSize; ++j) {
+    const int q = lane::kSideSize * opp + j;
+    if (!players[q].active) continue;
+    const lane::LanePlayer& o = players[q];
+    const CarrierPoint pq = PredictPoint({o.pos.x, o.pos.z}, {o.vel.x, o.vel.z}, frames);
+    const float d2 = Dist2(pr, pq);
+    if (!(0.0f < d2 && d2 < outerSq)) continue;
+    if (std::fabs(WrapDeg(BearingDeg(pr, pq) - attack_deg)) <= thr_deg) ++count;
+  }
+  return count;
+}
+
+// 0x142124950, the OneTwo receiver predicate (lane-core §8): teammate r takes a one-two ball off the
+// carrier. The gates in decoded order.
+bool TouchReceiverOk(const TouchInput& in, const TouchReceiver& r, const CarrierConstants& k) {
+  const int c = in.carrierSlot;
+  if (r.index < 0 || r.index > 21 || r.index == c) return false;  // P0
+  if (!r.statusValid) return false;                                // P1
+  if (!r.psi) return false;                                        // P2: the asm exits on snapshot[0xD] == 0
+  if (r.oneTwoRun) return false;                                   // P3: player(r)+0x5D0 != 0x25
+  // Band 1: beyond 15 m, or past 110 degrees of facing, the difficulty is held to 1.0; else to 2.0.
+  const bool farOrTurned = r.dist_m >= k.rcvDistFar_m || r.turnFacing_deg >= k.rcvTurnFar_deg;
+  if (r.difficulty > (farOrTurned ? k.rcvDifficultyFar : k.rcvDifficultyNear)) return false;
+  // The angle block runs unless the carrier is human, mode 3 or 4 holds with C[0xF] set, and r is
+  // within 6 m (NL(c, r) under 36). It tests the carrier's facing against the bearing to r.
+  // ponytail: the bearing stands in for the A_tab table T18+0x22F7C (lane-units2 O9, writer OPEN).
+  const float nl = Dist2(in.carrierPos, r.pos);
+  const bool modeThreeOrFour = in.teamMode == 3 || in.teamMode == 4;
+  if (in.humanCarrier || !modeThreeOrFour || !in.flag15 || nl >= k.rcvNearSq_m2) {
+    const float limit =
+        in.carrierSpeed_kmh > k.rcvSpeedGate_kmh ? k.rcvAngleFast_deg : k.rcvAngleSlow_deg;
+    if (std::fabs(WrapDeg(in.carrierFacing_deg - BearingDeg(in.carrierPos, r.pos))) > limit)
+      return false;
+  }
+  // The window: the base by the pass angle against the attack, the ramp by the angle against the facing.
+  const float base = r.attackAngle_deg < k.rcvBaseSplit_deg ? k.rcvBaseNear_m : k.rcvBaseFar_m;
+  float ramp = 0.0f;
+  if (r.turnFacing_deg <= k.rcvRampHalf_deg) {
+    ramp = 1.0f;
+  } else if (r.turnFacing_deg < k.rcvRampTop_deg) {
+    ramp = (r.turnFacing_deg - k.rcvRampTop_deg) / k.rcvRampSpan;
+  }
+  const float reach = base + k.rcvRampGain_m * ramp;
+  if (r.dist_m < k.rcvWindowFloor_m || std::max(reach, k.rcvWindowFloor_m) < r.dist_m) return false;
+  // M[r][c]: the receiver faces the carrier within 120 degrees.
+  // ponytail: the bearing r -> c stands in for the M table T18+0x23F7C (lane-units2 O9, writer OPEN).
+  if (!(std::fabs(WrapDeg(r.facing_deg - BearingDeg(r.pos, in.carrierPos))) < k.rcvAngleSlow_deg))
+    return false;
+  // M[c][r]: the pass is off the attack's line by more than 20 degrees, and the openness class is over 2.
+  // ponytail: the bearing c -> r stands in for the M table (lane-units2 O9, writer OPEN).
+  if (!(std::fabs(WrapDeg(in.attackAngle_deg - BearingDeg(in.carrierPos, r.pos))) > k.rcvM2_deg))
+    return false;
+  return r.opennessClass > 2;
+}
+
+}  // namespace
+
 bool OneTouch(const TouchInput& in, const CarrierConstants& k) {
-  (void)in;
-  (void)k;
-  return false;
+  const float s = in.attackSign;
+  // G1: the carrier is not behind his team line (k*x >= k*line).
+  if (s * in.carrierPos.x < s * in.ownLine_m) return false;
+  // G2: nor past the pitch bound and its pad (k*x <= F+0x18 + 2).
+  if (s * in.carrierPos.x > in.pitchBound_m + k.touchPad_m) return false;
+  // G3: the team level, level/100, is at least 2.
+  if (in.teamLevel < 2) return false;
+  // G4: the team mode is 3 or 4, or the carrier's category is 4 or more (0 is the keeper).
+  const bool modeThreeOrFour = in.teamMode == 3 || in.teamMode == 4;
+  if (!modeThreeOrFour && in.carrierCategory < 4) return false;
+  // G5: the score row reads 1600 (40 m squared) or more.
+  if (in.score < k.touchScore_m2) return false;
+  // G6: the carrier is not in the close shooting band.
+  if (in.closeZone) return false;
+  // G7: a human carrier, or no one-two run on the carrier's side.
+  if (!in.humanCarrier && in.oneTwoRunEvent) return false;
+  // G8: the runs in progress stay under min(2, base + inc): base from the level (5 or 6: 2, 4: 1),
+  // inc from the attack level (3 or more) or the team mode (2 or 3).
+  const int base = (in.teamLevel == 5 || in.teamLevel == 6) ? 2 : (in.teamLevel == 4 ? 1 : 0);
+  const int inc = (in.attackLevel >= 3 || in.teamMode == 2 || in.teamMode == 3) ? 1 : 0;
+  if (in.runCount >= std::min(2, base + inc)) return false;
+  // G9: the plan is 1, 2, 3, 5 or 6.
+  const int m = in.planMode;
+  if (!(m == 1 || m == 2 || m == 3 || m == 5 || m == 6)) return false;
+  // G10: not a fast, marked carrier turning more than 100 degrees from the plan heading.
+  if (in.carrierSpeed_kmh >= k.touchSpeed_kmh && in.markCount > 3.0f &&
+      std::fabs(WrapDeg(in.carrierHeading_deg - in.planHeading_deg)) > k.touchTurn_deg)
+    return false;
+  // G11: the lane 15 m along the plan heading from the carrier holds an opponent (count != 0).
+  const lane::LaneRequest lane{ToLaneVec(in.carrierPos), in.planHeading_deg, k.touchLaneLen_m,
+                               k.touchLaneCone_deg, k.touchLaneRad_m};
+  if (lane::LaneFree(k.lane, in.players, in.carrierSlot, lane, /*keepKeeper*/ false,
+                     /*horizonFrames*/ 0))
+    return false;
+  // G12: the carrier is 0 to 10 m behind the curve at his lateral position: -10 <= k*(x - curve) < 0.
+  const float band = s * (in.carrierPos.x - in.curveX_m);
+  return k.touchBand_m <= band && band < 0.0f;
 }
 
 PassAnswer OneTwoUnit(const OneTwoInput& in, const CarrierConstants& k) {
-  (void)in;
-  (void)k;
-  return PassAnswer{};
+  PassAnswer answer;
+  const int c = in.touch.carrierSlot;
+  // The closing sweep (0x140A4E720): frames int(54*0.3+0.5) = 16, the 6 m outer radius, and the attack
+  // bearing within half of the 180 degree half turn.
+  const int closing = ClosingCount(in.touch.players, c, in.touch.attackAngle_deg,
+                                   PesFrames(k.oneTwoFrameGain), k.oneTwoOuter_m,
+                                   k.oneTwoClosingHalf_deg * 0.5f);
+  // The carrier's angle against the attack, folded once past 180 (0x14212AF40-AF60).
+  float d = in.carrierAngle_deg - in.touch.attackAngle_deg;
+  if (std::fabs(d) > k.oneTwoClosingHalf_deg) d -= (d >= 0.0f ? 1.0f : -1.0f) * 360.0f;
+  if (!(std::fabs(d) <= k.oneTwoAngle_deg || closing != 0)) return answer;
+  if (!OneTouch(in.touch, k)) return answer;
+  // The picker (0x142126A80): the first listed teammate the receiver predicate takes.
+  for (const TouchReceiver& r : in.mates) {
+    if (!TouchReceiverOk(in.touch, r, k)) continue;
+    answer.index = r.index;
+    answer.kind = kPassShort;  // b = 0
+    answer.oneTouch = true;    // f10
+    return answer;
+  }
+  return answer;
 }
+
 
 PassAnswer DirectHighBallUnit(const DirectHighBallInput& in, const CarrierConstants& k) {
   (void)in;
