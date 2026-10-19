@@ -225,6 +225,7 @@ address given.
 |`pes-re-trap-windows.md`|TRAP reach: action-7 rows (0x547/548/549/57D/57F) window test in clip space (x [xb,xe), z (zb,ze) absolute, height tolerance 1.15*(0.56-0.335)); candidate keys open; live trap not measured|
 |`pes-re-hitdata-frame.md`|HitData touch frame = bits 13..20 of the word at rec+0x20+8k (FUN_1406B03D0), no +2; the +2 is FUN_1406B10D0's clip-length track-header word|
 |`pes-re-far-chase.md`|Press 13 m gate = |ball - MA+0x2482C|^2 > 169 (team point, not man), no-carrier only, one site 0x140537332; fresh and renewal share it; far-ball chaser writer open|
+|`pes-re-getup-recovery.md`|Get-up recovery: no timer; slide/tackle after a fall gated by the clip's +0x70 frame test; rise-up gate FUN_14072C5C0 (ball within 10 m predicted 1 s); rise rate by Balance|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
