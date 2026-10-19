@@ -795,6 +795,9 @@ TEST(Accelerate, TakesTheRunTurnRunEntryThroughTheClassThreeGate) {
   h.currentKmh = 0.0f;
   h.currentMotion = 0x8bb;
   h.currentClipFrames = 2;
+  pes::RotRecord rot;
+  rot.start = 30;  // PES's frame gate (line 216) needs the clip's total ahead of the frame: a 30-frame clip, 54 ticks
+  h.record.rot.push_back(rot);
   h.rateCeiling = 1.0f;
   pes::MoveReq req;
   req.SetU(pes::moveword::kKind, 2u);
@@ -815,7 +818,7 @@ TEST(Accelerate, TakesTheRunTurnRunEntryThroughTheClassThreeGate) {
   pes::movestep::Accelerate(h, req);
   // The ground-speed ladder gives class 0 at zero ground speed, with band 0 and 5 km/h.
   EXPECT_EQ(req.U(pes::moveword::kRateBand), 0u);
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedBand), 5.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kStopSpeedWord), 5.0f);  // PES writes the speed word 0x1d (lines 241-243)
   EXPECT_GE(pes::probe::runTurnRunCalls, 1);
 }
 

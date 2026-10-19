@@ -277,6 +277,7 @@ struct RunConstants {
   float rate095;      // 0.95  (0x1425ab124)
   float rate0225;     // 0.225 (0x1425ddf54)
   float rate01;       // 0.1   (0x1425ddf48)
+  float frameGate01;  // 0.1   (0x142588200): ACCELERATE's frame gate (PES's DAT_142588200, separate from rate01's VA)
   float rate05;       // 0.5   (0x142565600)
   float kmh5;         // 5     (0x14259222c)
   float kmh8;         // 8     (0x14259bdf4)
