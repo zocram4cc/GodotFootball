@@ -2842,22 +2842,32 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     for (const Vector3& r : ballTrack) track.push_back({r.coords[0], r.coords[2], r.coords[1]});
     const pes::BounceSample sample0 = pes::FirstBounceSample(track, carrier.bounceLatchHeight_m);
     sf.ballTrackSet = sample0.valid;
-    // K+0x6E (FUN_14063A490): the volatile-ball flag, from the ctx4 height K+0x44 (the ball's height,
-    // as the DirectHighBall reads it), the carrier's height P+0xA1 / 100, and K+0x6C off (GF's
-    // carriers are AI). It feeds the Safety keeper side arm and the DirectHighBall gate below.
+    // K+0x40 and its height K+0x44 (FUN_14063A490, 0x14063A854..0x14063A9B5). In a set piece it is the restart display
+    // point MI+0x155C, which GF takes as the live ball clamped to the pitch (the match+0x74c rule is not in GF). In open
+    // play it is the carrier's AI target point P_ai+0x1414, whose meaning the docs leave open, so the carrier's own
+    // ground point stands in and K+0x44 is 0. The replay/special (B+0x2920 == 4) and PASS_GET (carrier +0x5D0 == 5)
+    // branches and the TRAP record branch have no GF state and are off. The set piece is MI+0x116C == 3 here, with the
+    // kind 2..3 exception not mapped.
+    const pes::CtxPoint ctxPoint = pes::CarrierCtxPoint(
+        match->IsInSetPiece(),
+        {std::clamp(ballPos.coords[0], -pesFieldHalfLength, pesFieldHalfLength), ballHeight,
+         std::clamp(ballPos.coords[1], -pesFieldHalfWidth, pesFieldHalfWidth)},
+        {carrierPos.coords[0], 0.0f, carrierPos.coords[1]});
+    // K+0x6E (FUN_14063A490): the volatile-ball flag, from the ctx4 height K+0x44 (the point's height), the carrier's
+    // height P+0xA1 / 100, and K+0x6C off (GF's carriers are AI). It feeds the Safety keeper side arm and the
+    // DirectHighBall gate below.
     pes::VolatileBallInput volatileIn;
-    volatileIn.ballHeight_m = ballHeight;
+    volatileIn.ballHeight_m = ctxPoint.y;  // K+0x44
     volatileIn.carrierHeight_m = CastPlayer()->GetStat("physical_height");
     volatileIn.ballTrackFlag = sample0.valid;
     volatileIn.anchor = sample0.xz;
     volatileIn.ball = {ballPos.coords[0], ballPos.coords[1]};
-    // ponytail: K+0x40 (the ctx4 point; FUN_14063A490's human-carrier case reads the ball's own point) is not in GF,
-    // so the ball's own point stands in and the distance test never blocks. B+0x80 is clear (its writer is undecoded).
-    volatileIn.target = volatileIn.ball;
+    // B+0x80 (r14b) is clear: its writer is undecoded.
+    volatileIn.target = {ctxPoint.x, ctxPoint.z};  // K+0x40
     const bool volatileBall = pes::VolatileBall(volatileIn);
-    sf.humanCarrier = false;  // ponytail: ctx4+0x6C is not decoded to GF state (GF's carriers are AI)
+    sf.humanCarrier = false;  // K+0x6C is FUN_140A63F80's human-controller test; GF's carriers are AI, so it is 0
     sf.receivingFlag = volatileBall;
-    sf.ctx44 = ballHeight;  // K+0x44: the ctx4 point's height, as the DirectHighBall's ballHeight_m
+    sf.ctx44 = ctxPoint.y;  // K+0x44: the ctx4 point's height (the Safety keeper side arm reads it)
     sf.danger = danger;
     sf.goalMouth = false;  // ponytail: imageA+0x31C0 is not ported
     // ponytail: the carrier's pressure counts (+0x30/+0x34/+0x38/+0x20) have no GF state (writer

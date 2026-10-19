@@ -322,7 +322,9 @@ ShotPassFromGoal and BackDFLine are not rolled at all, so they never run. Their
 desired angle `+0xC0` and target `+0xC0`/`+0xCC` (report §9.3) have no
 counterpart, so PassForward's plan-angle gate is read against the attack
 direction.
+### 3.7 The volatile-ball flag K+0x6E and its point K+0x40 (FUN_14063A490, 0x14063A854..0x14063AB11)
 
+The flag is set by arm A (K+0x44 > the carrier's height) or arm B (B+0x4C set, B+0x80 clear, and not `d1 < d2`, where d1 is the ball to the sample-0 point and d2 the ball to K+0x40). K+0x44 and K+0x40 come from the chain: the set-piece display point when *K == 1, else the AI point. In a 20-minute `--pes-loop` match the flag was never set at a DHB think (DHB's volatile gate killed 167 of 167 calls on seed 7, 30 of 30 on seed 13). Two reasons, one measured and one inferred: arm B's B+0x4C was 0 in every 2-minute think sampled (0 of 24, measured); arm A needs the point above the carrier's height, and the open-play point is the carrier's ground point, so arm A is false there [INFERENCE: the owned ball's height was not measured]. The port is numerically inert in those samples: seed 7's determinism line is the same before and after (`419b2e49f937938f`).
 ## 4. What was not ported, and why
 
 | PES piece | Why not |
@@ -337,7 +339,8 @@ direction.
 | the publish flag `hu+8` bit 2 (the busy test's second source) and a full anime class table | the publish word's writer is undecoded; GF's `AnimeClassOf` maps only its function types, so only the trip reaches a busy class |
 | the "into space" record B, the pressure table's radii/classes as PES computes them | the pressure class is derived from the nearest opponent's distance with the report's own third-split radii (4 m own third, 2 m attacking third) |
 | `0x140a4c8e0`, `0x14063dab0`, the body-block tests | report §9.1, not decoded |
-| K+0x40, the ctx4 point of the volatile-ball arm (`FUN_14063A490` §5), and `B+0x80` | the chain reads PES's ctx4 and per-player records, which GF's carrier does not have; the ball's own point stands in (so the distance test never blocks) and `B+0x80` stays clear |
+| the chain's AI leaf, `P_ai+0x1414` (K+0x40 in open play), and `B+0x80` | the leaf's meaning is OPEN in the docs (base, target, or predicted line), and GF has no per-player AI point record, so the carrier's own ground point stands in: K+0x44 is 0 in open play. `B+0x80` (its writer is undecoded) stays clear |
+| the chain's absent branches: `B+0x2920 == 4` (the ball's replay/special mode), `carrier+0x5D0 == 5` (PASS_GET, the receiver's action), and the TRAP record index (`hu+0x1A/+0x1C`) | GF has no ball mode 4, the owning carrier is never PASS_GET, and no TRAP record index; all three are off |
 | the sampler's `vec[4]` (the record's vertical velocity) in `pes::FirstBounceSample` | GF's track carries heights only, so the first difference of the height stands in: a bounce is a sign change of that step |
 
 ## 5. AI-map row text

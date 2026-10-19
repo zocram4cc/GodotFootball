@@ -1208,7 +1208,7 @@ struct VolatileBallInput {
   bool ballFlag80 = false;     // B+0x80 != 0 (r14b); ponytail: its writer is not decoded, so it stays clear
   CarrierPoint ball;           // the ball's record 0, (x, z)
   CarrierPoint anchor;         // B+0x1C: the sample 0 point (FirstBounceSample)
-  CarrierPoint target;         // K+0x40, the ctx4 point; ponytail: the caller's stand-in (see the controller)
+  CarrierPoint target;         // K+0x40, the chain's point: the set-piece display point, else the AI point (GetOnTheBallCommands)
 };
 // The ball-track arm (0x14063AB01..0x14063AB06): with B+0x4C set and B+0x80 clear, K+0x6E is set unless the
 // ball is nearer B+0x1C than K+0x40 (r14 = d1 < d2). The distances are squared 2-D, as FUN_140A8F890 computes.
@@ -1219,6 +1219,19 @@ inline bool VolatileBall(const VolatileBallInput& in) {
   const float dx2 = in.ball.x - in.target.x, dz2 = in.ball.z - in.target.z;
   const bool r14 = dx1 * dx1 + dz1 * dz1 < dx2 * dx2 + dz2 * dz2;
   return in.ballTrackFlag && !in.ballFlag80 && !r14;
+}
+
+// K+0x40 and its height K+0x44 (FUN_14063A490): x, height y, and z.
+struct CtxPoint {
+  float x = 0.0f;
+  float y = 0.0f;
+  float z = 0.0f;
+};
+// The chain's order (0x14063A854..0x14063A9B5): the set-piece display point when *K == 1, else the carrier's
+// AI point. The B+0x2920 and PASS_GET branches come before the AI point and have no GF state (see the controller).
+// Ponytail: PES's replay/special (B+0x2920 == 4) and PASS_GET branches come first; GF has no state for either.
+inline CtxPoint CarrierCtxPoint(bool setPiece, const CtxPoint& displayPoint, const CtxPoint& aiPoint) {
+  return setPiece ? displayPoint : aiPoint;
 }
 
 // One record of a ball track as PES's sampler reads it: x, height and z.

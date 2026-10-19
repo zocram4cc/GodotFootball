@@ -2918,3 +2918,17 @@ TEST(CarrierVolatileBall, TheTrackArmSetsItOnAValidSampleWithNoSideFlag) {
   in.ballFlag80 = true;  // B+0x80 set: arm B is off
   EXPECT_FALSE(pes::VolatileBall(in));
 }
+
+// K+0x40 (FUN_14063A490, 0x14063A854): the set-piece display point while the set piece runs, else the AI point.
+TEST(CarrierCtxPoint, ASetPieceTakesTheDisplayPointAndOpenPlayTheCarriersAiPoint) {
+  const pes::CtxPoint display{10.0f, 1.2f, -4.0f};
+  const pes::CtxPoint aiPoint{-20.0f, 0.0f, 3.0f};
+  const pes::CtxPoint inSetPiece = pes::CarrierCtxPoint(true, display, aiPoint);
+  EXPECT_FLOAT_EQ(inSetPiece.x, 10.0f);
+  EXPECT_FLOAT_EQ(inSetPiece.y, 1.2f);
+  EXPECT_FLOAT_EQ(inSetPiece.z, -4.0f);
+  const pes::CtxPoint openPlay = pes::CarrierCtxPoint(false, display, aiPoint);
+  EXPECT_FLOAT_EQ(openPlay.x, -20.0f);
+  EXPECT_FLOAT_EQ(openPlay.y, 0.0f);
+  EXPECT_FLOAT_EQ(openPlay.z, 3.0f);
+}
