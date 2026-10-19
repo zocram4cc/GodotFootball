@@ -266,4 +266,12 @@ FirstTouch ChooseFirstTouch(const ReceiveConstants& c, const FirstTouchInput& in
   return out;
 }
 
+bool RefusedAsDesignatedOwner(const OwnerInput& in, const ActorKey& me) {
+  if (!me.Valid()) return false;
+  // A held restart's taker owns the ball until he releases it.
+  if (in.restartTaker.Valid()) return in.restartTaker == me;
+  // Otherwise the ball is owned only by a man who still holds it after the newest touch.
+  return in.newestActorHoldsBall && in.newestActor.Valid() && in.newestActor == me;
+}
+
 }  // namespace pes

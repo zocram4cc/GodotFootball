@@ -151,6 +151,14 @@ public:
   // designated possession player - the same stand-in IsPressing uses.
   // ponytail: replace with the role table once the writer lands.
   Player* GetTeamPressurePlayer();
+  // PES 2021's loose-ball PRESS writer (docs/re/pes-re-press-life.md 3/10,
+  // FUN_140536fc0's loose-ball subset + FUN_140536690's head reset): picks the
+  // side's presser and renews his PRESS 0x34, resetting the rest to 0. Runs
+  // every team tick on the PES path, before the possession latch.
+  void PesPressTick();
+  // The role table's PRESS man (T+0xa2a0 == 0x34), or null. The loose-ball
+  // presser; the carrier-press stand-in above is untouched.
+  Player* GetLoosePressMan();
   // PES's strategy word T+0x134 (docs/re/pes-re-match-management.md 1).
   int GetStrategy() const { return strategy.strategy; }
   // Every team tick, dead balls included: the decider moves the strategy while

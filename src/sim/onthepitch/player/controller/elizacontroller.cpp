@@ -491,6 +491,8 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
   else if (match->IsInPlay() && !match->IsInSetPiece() &&
            match->GetDesignatedPossessionPlayer() == player &&
            CastPlayer()->GetFormationEntry().role != e_PlayerRole_GK) {
+    // The loose-ball presser's chase is the ActionPress command below; every other man keeps GF's.
+    const bool loosePresser = match->PesLoop() && team->GetController()->GetLoosePressMan() == player;
     if (CastPlayer()->GetTimeNeededToGetToBall_ms() < 1000) {
       // Movement first, decision second. A designated chaser standing next to
       // a still ball he does not have is the shape the 14-second stalls take:
@@ -505,22 +507,27 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       // leave the measured case untouched. Close, designated, and without it:
       // step onto it.
       if (!hasIt && ballSpeed_ms <= GameplayTuning::kStalemateBallSpeed_ms) {
-        const Vector3 toBall =
-            match->GetBall()->GetPositionBuffer() - CastPlayer()->GetPosition();
-        if (toBall.GetLength() > 0.1f) {
-          PlayerCommand step;
-          step.desiredFunctionType = e_FunctionType_Movement;
-          step.useDesiredMovement = false;
-          step.useDesiredLookAt = true;
-          // 2D: the ball's height must not enter the heading.
-          step.desiredDirection = toBall.Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
-          step.desiredVelocityFloat = sprintVelocity;
-          step.desiredLookAt = match->GetBall()->GetPositionBuffer();
-          commandQueue.push_back(step);
-          extraHaste = true;
+        // GF's chase step, for every man but a PES loose-ball presser (his is the press below).
+        // The carrier brain below is untouched.
+        if (!loosePresser) {
+          const Vector3 toBall =
+              match->GetBall()->GetPositionBuffer() - CastPlayer()->GetPosition();
+          if (toBall.GetLength() > 0.1f) {
+            PlayerCommand step;
+            step.desiredFunctionType = e_FunctionType_Movement;
+            step.useDesiredMovement = false;
+            step.useDesiredLookAt = true;
+            // 2D: the ball's height must not enter the heading.
+            step.desiredDirection = toBall.Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
+            step.desiredVelocityFloat = sprintVelocity;
+            step.desiredLookAt = match->GetBall()->GetPositionBuffer();
+            commandQueue.push_back(step);
+            extraHaste = true;
+          }
         }
-      } else {
+      } else if (!loosePresser || hasIt) {
         GetOnTheBallCommands(commandQueue, rawInputDirection, rawInputVelocityFloat);
+        // A loose-ball presser without the ball: nothing here, the press steers him below.
       }
     } else {
       // Out of reach of the ball, so he cannot pass or dribble it - but he can
@@ -528,8 +535,9 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       // designated ball-goer stood still while every other player held his
       // shape, and a ball at rest more than a second from everyone froze the
       // whole pitch for the rest of the half (measured: 32:19 to 45:00).
+      // A loose-ball presser steers through the movement command below.
       const Vector3 toBall = match->GetBall()->GetPositionBuffer() - CastPlayer()->GetPosition();
-      if (toBall.GetLength() > 0.5f) {
+      if (!loosePresser && toBall.GetLength() > 0.5f) {
         PlayerCommand run;
         run.desiredFunctionType = e_FunctionType_Movement;
         run.useDesiredMovement = false;
@@ -726,6 +734,34 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       }  // else (!forceMagnet)
 
     }  // !designated
+
+    // PES 2021's ActionPress target and pace (docs/re/pes-re-press-life.md
+    // 7/9, FUN_140639100/FUN_140a75be0) for the loose-ball presser: the ball
+    // now or his own base, whichever the ball sample at k ticks sits nearer,
+    // at the arrival slope capped one class band above his current pace. The
+    // movement command below runs it command-led (useDesiredMovement), which
+    // is what lets him ramp to a sprint; GF's clip-led chase step is gone on
+    // this path. For the designated presser the movement magnets below still
+    // blend toward the ball - this input is their hint.
+    if (match->PesLoop() && team->GetController()->GetLoosePressMan() == player) {
+      const pes::PressConstants& press = match->GetPesPressConstants();
+      const Vector3 ballNow = match->GetBall()->Predict(0);
+      const int tick = pes::PressTargetTick(press);
+      const Vector3 sample = match->GetBall()->Predict(
+          static_cast<unsigned int>(tick * Match::kTick_ms));
+      // ponytail: his base (AI+0x1414) is GF's adapted formation position.
+      const Vector3 base = team->GetController()->GetAdaptedFormationPosition(CastPlayer(), true);
+      const bool toBall = pes::PressTargetIsBall({sample.coords[0], sample.coords[1]},
+                                                 {ballNow.coords[0], ballNow.coords[1]},
+                                                 {base.coords[0], base.coords[1]});
+      const Vector3 target = toBall ? ballNow.Get2D() : base.Get2D();
+      const Vector3 toTarget = target - CastPlayer()->GetPosition();
+      // m/s to km/h is arithmetic (3600/1000), not a PES number.
+      const float speedKmh = CastPlayer()->GetMovement().GetLength() * 3.6f;
+      inputDirection = toTarget.Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
+      inputVelocityFloat = pes::PressCommandSpeed_ms(press, toTarget.GetLength(), speedKmh,
+                                                     distanceToVelocityMultiplier);
+    }
 
     inputVelocityFloat = RangeVelocity(inputVelocityFloat);  // emulate controller quantization
 

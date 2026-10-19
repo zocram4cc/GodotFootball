@@ -383,17 +383,30 @@ bool PlayerController::_ReceiveCandidate() {
       (match->GetBall()->Predict(0).Get2D() - player->GetPosition().Get2D()).GetLength();
   if (!pes::WithinBallDistanceTable(k, ballDistance * ballDistance)) return false;
   if (match->GetBallRetainer() != 0) return false;
-  // PES's reaction entry 3 (FUN_1409f8220) refuses the designated owner, the
-  // carrier himself, the restart taker and the re-touch lockout - never the man
-  // for standing on the ball (docs/re/pes-re-first-touch.md §7.2). GF's
-  // possession gate is not a PES gate (same doc §8), so on the PES path a man
-  // in possession may still trap: that is the loose-ball contact. The GF path
-  // keeps its gate, so switch-off behavior is unchanged.
-  if (hasPossession && !match->PesLoop()) return false;
+  // PES's reaction entry 3 (FUN_1409f8220) refuses the designated owner (first-touch §7.2 gate
+  // 4c): the restart taker while a restart is held, else the newest touch's actor while he still
+  // holds the ball. GF's possession gate is not a PES gate (same doc §8), so on the PES path a
+  // chaser of a loose ball may trap it. The GF path keeps its gate, so switch-off is unchanged.
+  if (match->PesLoop()) {
+    pes::OwnerInput owner;
+    const RefereeBuffer& buffer = match->GetRefereeBuffer();
+    if (buffer.active && buffer.taker) owner.restartTaker = match->PesActorKeyOf(buffer.taker);
+    const pes::NewestEventView newest = pes::NewestEvent(match->GetPesEvents());
+    Player* newestMan = match->GetPesActorPlayer(newest.actor);
+    owner.newestActor = newest.actor;
+    owner.newestActorHoldsBall = newestMan && newestMan->HasPossession();
+    if (pes::RefusedAsDesignatedOwner(owner, match->PesActorKeyOf(CastPlayer()))) return false;
+  } else if (hasPossession) {
+    return false;
+  }
   // Who goes: the PASS_GET receiver / the team's designated man
-  // (Team::PassGetReceiver feeds the designation).
+  // (Team::PassGetReceiver feeds the designation). On the PES path the
+  // loose-ball presser traps too: he is the chaser, and the designation may
+  // name another man. PES's entry 3 is not gated by the chase state at all.
+  const bool presser =
+      match->PesLoop() && team->GetController()->GetLoosePressMan() == player;
   if (match->GetDesignatedPossessionPlayer() != player &&
-      team->GetDesignatedTeamPossessionPlayer() != player)
+      team->GetDesignatedTeamPossessionPlayer() != player && !presser)
     return false;
 
   // FUN_1409fa720: the re-touch lockout, over the store's newest event and the one before it.
@@ -461,8 +474,11 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
   in.halfLength = pitchHalfW;
   in.halfWidth = pitchHalfH;
   // GF has no DELAY / PRESS movement state; the team's pressure man is its
-  // presser (the same stand-in the defender port uses).
-  in.pressOrDelay = team->GetController()->GetTeamPressurePlayer() == player;
+  // presser (the same stand-in the defender port uses). On the PES path the
+  // role table's loose-ball PRESS man counts too: P+0x5d0 in {0x33, 0x34} is
+  // his current state, and the role table is what the writer wrote.
+  in.pressOrDelay = team->GetController()->GetTeamPressurePlayer() == player ||
+                    (match->PesLoop() && team->GetController()->GetLoosePressMan() == player);
   const pes::FirstTouch touch = pes::ChooseFirstTouch(k, in, kPesFps);
 
   PlayerCommand command;

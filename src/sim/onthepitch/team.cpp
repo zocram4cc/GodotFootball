@@ -514,6 +514,9 @@ void Team::UpdatePesPossession() {
 }
 
 void Team::Process() {
+  // PES's loose-ball PRESS writer runs in the team tick before the latch
+  // (press-life 13.1). It self-gates on the PES path.
+  teamController->PesPressTick();
   UpdatePesPossession();
   teamPossessionAmount =
       (float)(match->GetTeam(abs(GetID() - 1))->GetTimeNeededToGetToBall_ms() + 1500) /

@@ -30,6 +30,7 @@
 
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
+#include "onthepitch/pesevents.hpp"
 
 namespace pes {
 
@@ -189,5 +190,21 @@ Point2 ReceivingPoint(const ReceiveConstants& c, const std::vector<Point2>& ball
                       float halfLength, float halfWidth);
 
 FirstTouch ChooseFirstTouch(const ReceiveConstants& c, const FirstTouchInput& in, float fps);
+
+// --- Designated owner (first-touch §7.2 gate 4c) ---
+
+// What the owner rule reads: the restart taker while a restart is held, and the newest ball
+// event's actor with whether he still holds the ball.
+struct OwnerInput {
+  ActorKey restartTaker;  // invalid when no restart is held
+  ActorKey newestActor;   // invalid when the store has no newest event
+  bool newestActorHoldsBall = false;
+};
+
+// PES's reaction-3 refusal of the designated owner (MA+0x2600C == me): he never traps through
+// entry 3. ponytail: FUN_140457070's ring-0 scan is not decoded. Stand-in: the restart taker while
+// a restart is held, else the newest touch's actor while he still holds the ball. A loose ball has
+// no owner, so a chaser of one is not refused.
+bool RefusedAsDesignatedOwner(const OwnerInput& in, const ActorKey& me);
 
 }  // namespace pes

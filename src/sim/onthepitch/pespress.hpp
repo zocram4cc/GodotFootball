@@ -57,9 +57,9 @@ struct PressConstants {
   float secPerMinute;         // 0x14259a764 (60)
   float metresPerKm;          // 0x14256ae34 (1000)
   float framesPerSec;         // 0x14351ae54 (54): .data initializer, read as the image holds it
-  // Loose-ball chase additions (FUN_140639830 table, FUN_140a75be0 class,
-  // FUN_140639100 target; press-life 5/7/9).
-  float tableRadiusSq_m2;  // 0x1425cee20 (462.25): the candidate table's radius squared
+  // Loose-ball chase additions (FUN_140a75be0 class, FUN_140639100 target;
+  // press-life 7/9). The §5 table radius serves the skipped §3.2 multi-press
+  // only: the winner's (18+7r) pick radius implies it.
   float speedCut0_kmh;     // 0x1425a8a28 (0.05): class 0/1 cut
   float speedCut1_kmh;     // 0x14259bdf4 (8): class 1/2 cut (== pass2SameCodeAdd's VA)
   float speedCut2_kmh;     // 0x1425a1ffc (13.5): class 2/3 cut
@@ -117,6 +117,10 @@ struct PressCandidate {
 inline constexpr int kPressNoMan = 0xff;
 // The role-table value that marks the presser (FUN_140639a20 compares to 0x3a).
 inline constexpr int kPresserRole = 0x3a;
+// The team-state values the loose-ball writer writes (FUN_140536fc0/36690):
+// PRESS 0x34 for the picked man, NOTHING 0 for the reset rest.
+inline constexpr int kPressState = 0x34;
+inline constexpr int kNothingState = 0;
 
 std::optional<PressConstants> LoadPressConstants(const PeImage& exe, std::string* error);
 

@@ -51,7 +51,6 @@ constexpr PressVa kPressVas[] = {
     {0x1425c6780, &PressConstants::pass2ZeroRoleDistSq},
     {0x14259bdf4, &PressConstants::pass2SameCodeAdd},
     {0x1425656c0, &PressConstants::pass2ActionAdd},
-    {0x1425cee20, &PressConstants::tableRadiusSq_m2},
     {0x1425a8a28, &PressConstants::speedCut0_kmh},
     {0x14259bdf4, &PressConstants::speedCut1_kmh},
     {0x1425a1ffc, &PressConstants::speedCut2_kmh},

@@ -44,7 +44,6 @@ pes::PressConstants Synthetic() {
   c.pass2ZeroRoleDistSq = 81.0f;
   c.pass2SameCodeAdd = 8.0f;
   c.pass2ActionAdd = 4.0f;
-  c.tableRadiusSq_m2 = 400.0f;
   c.speedCut0_kmh = 0.05f;
   c.speedCut1_kmh = 8.0f;
   c.speedCut2_kmh = 13.5f;
@@ -478,7 +477,7 @@ TEST(PressConstantsLoader, ImageRelationsHold) {
   EXPECT_LT(c->speedCut0_kmh, c->speedCut1_kmh);
   EXPECT_LT(c->speedCut1_kmh, c->speedCut2_kmh);
   EXPECT_LT(c->speedCut2_kmh, c->speedCut3_kmh);
-  EXPECT_FLOAT_EQ(c->tableRadiusSq_m2, 21.5f * 21.5f);
+  // table radius is the (18+7r) pick; no separate field used by the chase.
   EXPECT_EQ(pes::PressTargetTick(*c), 5);
 }
 

@@ -403,3 +403,46 @@ TEST(PesReceiveEventKind, StoreActionKindsMapOntoTheReceiveKinds) {
   EXPECT_EQ(pes::ReceiveEventKindOf(7), pes::BallEventKind::kTouch);
   EXPECT_EQ(pes::ReceiveEventKindOf(0x10), pes::BallEventKind::kTouch);
 }
+
+// --- Designated owner (first-touch §7.2 gate 4c, MA+0x2600C) ---
+
+namespace {
+pes::ActorKey Man(uint32_t team, uint32_t slot) {
+  pes::ActorKey k;
+  k.team = team;
+  k.slot = slot;
+  return k;
+}
+}  // namespace
+
+TEST(PesReceiveOwner, ChaserOfAnUnownedBallIsNotRefused) {
+  // The newest touch was the other side's and nobody holds the ball: no owner.
+  pes::OwnerInput in;
+  in.newestActor = Man(1, 4);
+  in.newestActorHoldsBall = false;
+  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(in, Man(0, 7)));
+}
+
+TEST(PesReceiveOwner, ANewestToucherIsNotTheOwnerOnceTheBallRollsAway) {
+  pes::OwnerInput in;
+  in.newestActor = Man(0, 7);
+  in.newestActorHoldsBall = false;
+  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(in, Man(0, 7)));
+}
+
+TEST(PesReceiveOwner, TheManWhoHoldsTheBallAfterTheNewestTouchIsRefused) {
+  pes::OwnerInput in;
+  in.newestActor = Man(0, 7);
+  in.newestActorHoldsBall = true;
+  EXPECT_TRUE(pes::RefusedAsDesignatedOwner(in, Man(0, 7)));
+  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(in, Man(0, 8)));
+}
+
+TEST(PesReceiveOwner, TheRestartTakerOwnsTheBallWhileTheRestartIsHeld) {
+  pes::OwnerInput in;
+  in.restartTaker = Man(0, 10);
+  in.newestActor = Man(1, 4);
+  in.newestActorHoldsBall = true;
+  EXPECT_TRUE(pes::RefusedAsDesignatedOwner(in, Man(0, 10)));
+  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(in, Man(1, 4)));
+}
