@@ -644,7 +644,8 @@ void Referee::Process() {
           (match->PesLoop()
                ? pes::MayRelease(buffer.desiredSetPiece,
                                  static_cast<int>((match->GetActualTime_ms() - buffer.startTime) /
-                                                  Match::kTick_ms))
+                                                  Match::kTick_ms),
+                                 match->GetTeam(buffer.teamID)->GetController()->PieceTakerArrived())
                : SetPieceLaws::MayTakeRestart(
                      buffer.desiredSetPiece,
                      static_cast<int>((match->GetActualTime_ms() - buffer.startTime) /

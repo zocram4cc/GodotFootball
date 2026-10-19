@@ -105,6 +105,10 @@ struct SetPieceTeamCounts {
   // FUN_1404f6680's box-attacker count: 4 + min(attack level, 2).
   int boxAttackerBase = 4;
   int boxAttackerCap = 2;
+  // FUN_14044e230 (EV-TI-0006): the seamless taker looks at ranks 0..3 (`CMP EBX,0x4` at
+  // 0x14044e40a) and biases by fps / 3 frames (`MOV EAX,0xaaaaaaab` at 0x14044e3c1, the /3).
+  int seamlessRanks = 4;
+  int seamlessBiasDivisor = 3;
 };
 
 std::optional<SetPieceTeamConstants> LoadSetPieceTeamConstants(const PeImage& exe,
@@ -171,6 +175,34 @@ struct FreeKickRepick {
   bool secondNone = false;
 };
 FreeKickRepick FreeKickRepickGate(bool firstValid, bool secondValid, int fkType);
+
+// One team-mate in PES's ball-arrival order, in rank order: his roster slot, whether he is a
+// keeper (B-array role class 0, `team+0x4c00[slot] == 0` in FUN_14044e230), and his frames to the
+// ball.
+struct ArrivalRank {
+  int slot = -1;
+  bool keeper = false;
+  float arrivalFrames = 0.0f;
+};
+
+// ponytail: PES's taker stops where MOVESTEP's arrival test does (FUN_1406b6bb0, 0.2 m;
+// docs/re/pes-re-anim-select.md). GF's walk has no stop radius yet, so 1 m around the walk's target
+// stands in: the ball lies 0.3 m beyond the target, inside the taker's touching range.
+inline constexpr float kThrowInTakerArrival_m = 1.0f;
+// GF's own throw-in stand-off, the 0.3 m the restart teleport used: the taker walks to this point on
+// his own side of the ball, so he never crosses it. PES carries the ball out to F1 + 0.7 first
+// (docs/re/pes-re-throwin-choreography.md 3.2); that carry is not ported.
+inline constexpr float kThrowInTakerStandOff_m = 0.3f;
+// The walk closes on its target at this many times the gap (1/s), so a sprinting taker stops rather
+// than overshooting into the ball. ponytail: PES's MOVE stop (FUN_1406b6bb0) decides this.
+inline constexpr float kThrowInTakerApproachGain = 2.0f;
+
+// FUN_14044e230 (docs/re/pes-re-throwin-choreography.md 2.2, EV-TI-0006): the seamless throw-in
+// taker. Rank 0 is the candidate unless he is a keeper, then rank 1. A rank among the first
+// `counts.seamlessRanks` replaces the candidate when it arrives more than fps / seamlessBiasDivisor
+// frames sooner than the best so far. Returns the slot, or -1 when no ranked man qualifies.
+int SeamlessThrowInTaker(const std::vector<ArrivalRank>& ranked, float framesPerSecond,
+                         const SetPieceTeamCounts& counts);
 
 // FUN_1404a9920: how many men stand in the wall. `ballAngle_deg` is the ball's
 // angle off the goal's centre line.

@@ -18,7 +18,6 @@ namespace {
 // ponytail: frames from arming to release, live (A5Live 9.3). PES releases on the taker's reach
 // and kick action (9.2, 9.4); these fixed gates stand in for it until that action is ported. Each
 // value is the shortest release measured live; the DOC gate it replaces is named beside it.
-constexpr int kThrowInReleaseFrames = 118;   // live 118-194; DOC counter 81-83 not reproduced
 constexpr int kGoalKickReleaseFrames = 238;  // live 238-253; DOC counter 83 refuted, 246 inside
 constexpr int kCornerReleaseFrames = 365;    // live 365-379; DOC 189 not reproduced
 constexpr int kFreeKickReleaseFrames = 355;  // live 355-356; DOC 162 not reproduced
@@ -56,7 +55,7 @@ Spot ThrowInSpot(float ballX, float ballZ, const RestartSpotConstants& k) {
 int ReleaseFrames(e_SetPiece kind) {
   switch (kind) {
     case e_SetPiece_ThrowIn:
-      return kThrowInReleaseFrames;
+      return 0;  // no timer: the taker's arrival releases it (MayRelease)
     case e_SetPiece_GoalKick:
       return kGoalKickReleaseFrames;
     case e_SetPiece_Corner:
@@ -70,7 +69,8 @@ int ReleaseFrames(e_SetPiece kind) {
   }
 }
 
-bool MayRelease(e_SetPiece kind, int framesSinceArmed) {
+bool MayRelease(e_SetPiece kind, int framesSinceArmed, bool takerArrived) {
+  if (kind == e_SetPiece_ThrowIn) return takerArrived;  // PES's reach and kick action (A5 9.3)
   return framesSinceArmed >= ReleaseFrames(kind);
 }
 

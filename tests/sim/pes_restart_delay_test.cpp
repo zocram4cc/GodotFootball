@@ -334,6 +334,28 @@ TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
                         << " ticks of the stoppage with the ball over the line:" << who;
 }
 
+// A throw-in taker walks to his spot (PES's seamless run, docs/re/pes-re-throwin-choreography.md
+// 3.1): he is not placed on it. Right after the placement he is still away from the restart
+// point, and at the release he is on it.
+TEST(PesRestartDelay, AThrowInTakerWalksToHisSpotAndIsNotPlacedOnIt) {
+  constexpr float kOnTheSpot_m = 2.0f;  // the spot is about half a metre off the restart point
+  std::set<unsigned long> placed, released;
+  int throwIns = 0, awayAtPlacement = 0, offSpotAtRelease = 0;
+  RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker) return;
+    const float off = (b.taker->GetPosition().Get2D() - b.restartPos.Get2D()).GetLength();
+    if (b.prepared && placed.insert(b.stopTime).second) {
+      throwIns++;
+      if (off > kOnTheSpot_m) awayAtPlacement++;
+    }
+    if (b.started && released.insert(b.stopTime).second && off > kOnTheSpot_m) offSpotAtRelease++;
+  });
+  EXPECT_GT(throwIns, 0) << "no throw-in was placed";
+  EXPECT_GT(awayAtPlacement, 0) << "every throw-in taker was placed on his spot";
+  EXPECT_EQ(offSpotAtRelease, 0) << offSpotAtRelease << " throw-in taker(s) released off their spot";
+}
+
 // A throw-in's ball lies over the line at its spot (PES writes it at F1 + 0.25), and the taker's pass
 // carries it inward over the next few ticks. PES's judge acts on the ball event raised as the ball
 // crosses the line (docs/re/pes-re-A5Judge.md 1.4), so a ball already over the line at the release

@@ -111,17 +111,24 @@ TEST(PesRestartSequencer, AThrowInIsTakenJustOutsideTheTouchlineAndInsideTheEndL
 // The release gate, in frames from arming, is the live-measured wait (A5Live 9.3): each restart
 // is released on the first frame at or past its gate, and a kick-off is not timed at all.
 TEST(PesRestartSequencer, EachRestartIsReleasedOnItsMeasuredFrame) {
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_Corner, 364));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_Corner, 365));
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_FreeKick, 354));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_FreeKick, 355));
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 237));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_GoalKick, 238));
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_ThrowIn, 117));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_ThrowIn, 118));
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_Penalty, 53));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_Penalty, 54));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_KickOff, 0));
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_Corner, 364, true));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_Corner, 365, true));
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_FreeKick, 354, true));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_FreeKick, 355, true));
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 237, true));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_GoalKick, 238, true));
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_Penalty, 53, true));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_Penalty, 54, true));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_KickOff, 0, true));
+}
+
+// A throw-in has no frame count: its taker's arrival releases it, however long he took. A timer
+// would release him before he arrives, and PES releases on the taker's reach and kick action
+// (docs/re/pes-re-A5Judge.md 9.3).
+TEST(PesRestartSequencer, AThrowInIsReleasedOnItsTakersArrivalAndNotBefore) {
+  constexpr int kLongAfterArming = 10000;  // far past any frame count a timer could hold
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_ThrowIn, kLongAfterArming, false));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_ThrowIn, 0, true));
 }
 
 // The programme runs the whole stoppage bracket for a corner: the hold, the wipe that

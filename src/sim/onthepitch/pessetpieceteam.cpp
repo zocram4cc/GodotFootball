@@ -351,4 +351,18 @@ WallJumpState WallJumpStateStart(int wallSize) {
   return s;
 }
 
+int SeamlessThrowInTaker(const std::vector<ArrivalRank>& ranked, float framesPerSecond,
+                         const SetPieceTeamCounts& counts) {
+  const int window = std::min(counts.seamlessRanks, static_cast<int>(ranked.size()));
+  if (window <= 0) return -1;
+  // A keeper at rank 0 is ineligible, and rank 1 takes it outright (FUN_14044e230's keeper branch).
+  if (ranked[0].keeper) return window > 1 ? ranked[1].slot : -1;
+  const float bias = framesPerSecond / static_cast<float>(counts.seamlessBiasDivisor);
+  int best = 0;
+  for (int rank = 1; rank < window; ++rank) {
+    if (ranked[rank].arrivalFrames + bias < ranked[best].arrivalFrames) best = rank;
+  }
+  return ranked[best].slot;
+}
+
 }  // namespace pes

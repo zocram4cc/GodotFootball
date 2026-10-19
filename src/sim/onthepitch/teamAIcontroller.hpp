@@ -107,6 +107,12 @@ public:
   // shootout needs its own rotation to take the kicks.
   void SetPieceTaker(Player* player) { taker = player; }
   e_SetPiece GetSetPieceType() { return setPieceType; }
+  // PES's throw-in taker walks to the throw spot instead of being placed on it
+  // (docs/re/pes-re-throwin-choreography.md 3.1); a walk is pending while the spot is set.
+  bool IsPieceTakerWalking(const Player* player) const;
+  Vector3 GetPieceWalkTarget() const { return pieceWalkTarget; }
+  // True when no walk is pending, or the walking taker stands within reach of his spot.
+  bool PieceTakerArrived() const;
   void CalculateSituation();
 
   // PES 2021's open-play defensive line, rebuilt every tick (report 6, 14.1).
@@ -197,6 +203,8 @@ protected:
   Match* match;
   Team* team;
   Player* taker;
+  bool pieceWalk = false;  // a throw-in taker is walking to pieceWalkTarget (PES path only)
+  Vector3 pieceWalkTarget;
   e_SetPiece setPieceType;
 
   Properties baseTeamTactics;

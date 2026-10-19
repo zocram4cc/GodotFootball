@@ -35,6 +35,7 @@
 #include "onthepitch/matchpressure.hpp"
 #include "onthepitch/peskeeper.hpp"
 #include "onthepitch/setpiecelaws.hpp"
+#include "onthepitch/pessetpieceteam.hpp"
 #include "onthepitch/penaltyshootoutcontroller.hpp"
 #include "onthepitch/teaminstructions.hpp"
 #include "strategies/offtheball/default_def.hpp"
@@ -155,6 +156,21 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       command.desiredDirection = player->GetDirectionVec();
     }
     command.desiredVelocityFloat = idleVelocity;
+    // PES's throw-in taker runs to his spot (docs/re/pes-re-throwin-choreography.md 3.1): he is not
+    // placed on it, so until he arrives his command is the run to the spot.
+    if (team->GetController()->IsPieceTakerWalking(CastPlayer())) {
+      const Vector3 spot = team->GetController()->GetPieceWalkTarget();
+      const Vector3 toSpot = (spot - player->GetPosition()).Get2D();
+      command.desiredDirection = toSpot.GetNormalized(player->GetDirectionVec());
+      // ponytail: PES's run speed (the MOVE speed class, cmd[0x17]) is not decoded; the sprint is
+      // the ceiling, and the approach closes on the spot in proportion to the gap.
+      const float approach = pes::kThrowInTakerApproachGain * toSpot.GetLength();
+      command.desiredVelocityFloat = approach < sprintVelocity ? approach : sprintVelocity;
+      command.useDesiredLookAt = true;
+      command.desiredLookAt = match->GetBall()->Predict(0).Get2D();
+      commandQueue.push_back(command);
+      return;
+    }
 
     // Law 16: the opponents leave the penalty area before a goal kick is taken. They
     // walk out under their own steam - the taker waits for them (referee.cpp) - rather
