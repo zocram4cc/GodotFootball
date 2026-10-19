@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Loose-episode metric, the acceptance number on the PES path. Per seed: the loose episodes longer
 # than the stall bound (over) and the sum of their excess ticks. Then the totals over the seeds.
+#   Also prints the three longest over-bound episodes per seed as [loose-top] lines: start frame and ticks.
 # Usage: PES21_ROOT=<PES 2021 install root> tools/dev/loose_episodes.sh [seed ...]
 #   Default seeds: 7 11 23 42. Build the target first: cmake --build build --target pes_restart_delay_test.
 #   GF_TEST_BIN overrides the test binary. Logs go under build/loose-episodes.*.
@@ -27,4 +28,5 @@ done
 grep -h '^\[loose-episodes\]' "$logs"/*.log \
   | awk '{ split($4, o, "="); split($5, x, "="); over += o[2]; excess += x[2]; seeds++ }
          END { printf "total over=%d excess=%d seeds=%d\n", over, excess, seeds }' || true
+for seed in "$@"; do grep -h '^\[loose-top\]' "$logs/$seed.log" || true; done
 exit $status

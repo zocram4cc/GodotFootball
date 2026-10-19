@@ -11,6 +11,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "data/matchdata.hpp"
 #include "gametypes.hpp"
@@ -640,12 +641,15 @@ TEST(PesRestartDelay, DISABLED_LooseEpisodeMetric) {
   constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
   constexpr unsigned long kBoundTicks = static_cast<unsigned long>(
       GameplayTuning::kStalemateForceAction_s * static_cast<float>(Match::kFramesPerSecond));
+  constexpr size_t kTopEpisodes = 3;  // the longest over-bound episodes per seed, printed for the cause table
   bool inEpisode = false;
-  unsigned long episodeTicks = 0, episodes = 0, over = 0, excess = 0;
+  unsigned long episodeTicks = 0, episodeStart = 0, episodes = 0, over = 0, excess = 0;
+  std::vector<std::pair<unsigned long, unsigned long>> longEpisodes;  // (ticks, start frame)
   const auto closeEpisode = [&] {
     if (episodeTicks > kBoundTicks) {
       ++over;
       excess += episodeTicks - kBoundTicks;
+      longEpisodes.emplace_back(episodeTicks, episodeStart);
     }
   };
   RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
@@ -655,6 +659,7 @@ TEST(PesRestartDelay, DISABLED_LooseEpisodeMetric) {
       if (!inEpisode) {
         inEpisode = true;
         episodeTicks = 0;
+        episodeStart = match.GetSimFrame();
         ++episodes;
       }
       ++episodeTicks;
@@ -666,4 +671,8 @@ TEST(PesRestartDelay, DISABLED_LooseEpisodeMetric) {
   if (inEpisode) closeEpisode();  // an episode still open when the stall watch stopped the run
   ASSERT_GT(episodes, 0ul) << "no match ran; is PES21_ROOT set?";
   printf("[loose-episodes] seed=%u episodes=%lu over=%lu excess=%lu\n", SEED, episodes, over, excess);
+  std::sort(longEpisodes.begin(), longEpisodes.end(), std::greater<>());
+  for (size_t i = 0; i < longEpisodes.size() && i < kTopEpisodes; ++i)
+    printf("[loose-top] seed=%u rank=%zu start=%lu ticks=%lu\n", SEED, i + 1, longEpisodes[i].second,
+           longEpisodes[i].first);
 }
