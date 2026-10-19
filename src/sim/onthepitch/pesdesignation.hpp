@@ -21,6 +21,7 @@ namespace pes::designation {
 inline constexpr int kSideSlots = roles::kSideSlots;  // slots per side (FUN_140A40CA0 `i < 11`)
 inline constexpr int kClassCount = 10;                // role classes 0..9, which are also bucket indices
 inline constexpr int kNoSlot = 0xFF;                  // the empty id in FUN_140A40CA0's sort buffer
+inline constexpr int kBufferSlots = 2 * kSideSlots;  // both sides' ids: FUN_140A40CA0's sort buffer
 
 // The bucket a role class joins under flag 1, which the tick publisher always passes: {1,2}->1,
 // {3,4}->3, {5,6}->6, {7,8,9}->9, and every other class (0, and anything past 9) -> 0. Raw jump
