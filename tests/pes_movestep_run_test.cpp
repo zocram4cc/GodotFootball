@@ -822,6 +822,85 @@ TEST(Accelerate, TakesTheRunTurnRunEntryThroughTheClassThreeGate) {
   EXPECT_GE(pes::probe::runTurnRunCalls, 1);
 }
 
+// PES 710-714: the blend exit takes the band word from the interface (vt+0x68) and the speed word from its km/h (vt+0x48)
+// times 3.6, not from the 4-tick sample. The sample is at rest here, so a sample-derived band would read 0.
+TEST(Accelerate, TheBlendExitTakesTheBandAndSpeedWordsFromTheInterface) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 5;  // no record: the blend is 0 frames, so the clip has passed it
+  h.commandClass = 2;
+  h.commandKmh = 10.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);  // level with the band: no flag
+  req.SetU(pes::moveword::kRateBand, 2u);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_TRUE(req.Flag(pes::moveword::kMotionPending));
+  EXPECT_EQ(req.U(pes::moveword::kRateBand), 2u);
+  EXPECT_NEAR(req.F(pes::moveword::kStopSpeedWord), 36.0f, 1e-4f);
+}
+
+// PES 718-745: the band-three clamp runs after the issue. At a sample speed between 16 and 28 km/h, with band 3 and a
+// motion other than 0xbde/0xbe1, the rate is (ceiling + 0.6) / 2, which is 0.8 at a ceiling of 1.
+TEST(Accelerate, TheBandThreeClampSetsTheRateFromTheCeilingAtMidSpeed) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 5;
+  h.rateCeiling = 1.0f;
+  h.commandClass = 3;
+  h.commandKmh = 19.0f;
+  h.positions[4][0] = 0.1f;  // the 4-tick sample: 194.4 * 0.1 = 19.4 km/h
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetU(pes::moveword::kRateBand, 3u);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_EQ(req.U(pes::moveword::kRateBand), 3u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), (h.rateCeiling + h.runConstants.rate06) * h.runConstants.half);
+}
+
+// PES 584-588: the flag arm re-plans into GOTO_RUN when the band is 0 and the command class is above 1. Kind 3 keeps the
+// GOTO_RUN entry of PES 432 from taking the tick first, so this is the flag arm's own exit.
+TEST(Accelerate, TheFlagArmReplansIntoGotoRunAtBandZeroWithAClassAboveOne) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 5;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 3u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetU(pes::moveword::kRateBand, 0u);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kGotoRun));
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+}
+
+// PES 580-581 and 668: the flag arm's flag ends the clip before its blend has passed. Zero cancel frames put hit1 at the
+// frame, so the flag arm runs; the command class (1) below the band (2) sets the flag, and the exit issues the clip.
+TEST(Accelerate, AFlaggedClipEndsBeforeItsBlendPasses) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 0;
+  h.record.blend = {100};
+  h.record.cancel = {0, 0, 0};
+  h.commandClass = 1;
+  h.commandKmh = 10.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 2u);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_TRUE(req.Flag(pes::moveword::kMotionPending));
+  EXPECT_EQ(req.U(pes::moveword::kRateBand), 1u);
+}
+
 // The IDLE arm (E): a stop whose first dwell is still below its scaled limit (the turn is
 // small so the ramp is 0 and the gate is `dwellElapsed < 0`) goes to the IDLE arm; with the
 // bucket 0 and the stay decision false it issues the idle row.

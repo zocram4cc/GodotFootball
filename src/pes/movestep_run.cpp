@@ -1359,7 +1359,8 @@ void TurnStopLadder(MoveHost& host, MoveReq& req, float speedKmh, const RunConst
 // PES's blend-point exit (FUN_1406bb570 lines 666-717, then the band-3 clamp 718-745). The dwell words, style and foot flag
 // clear; the 4-tick speed runs the rate ladder when it is at most 16 km/h or a flag is set; the band and speed word come from
 // the interface (vt+0x68, vt+0x48); the clip is issued; then the clamp. ponytail: the 4-tick sample is PositionAt(4), the port's
-// stand-in for FUN_141eb50b0(P, buf, 4) (a position, not a displacement; the writer of P+0x2fc is undecoded).
+// stand-in for FUN_141eb50b0(P, buf, 4). S1Watch's live watch (local://pes-re-ball-track.md) found the ring at P+0x2fc unchanged
+// for 90 s of play in all 22 players, so in that window PES's sample does not track motion; the writer of A+0x1384 is open.
 void ClipEndExit(MoveHost& host, MoveReq& req, const RunConstants& k, const MoveConstants& m, float hitSigned, float hit2,
                  int liveFrame, bool flagged) {
   req.SetF(moveword::kDwellLimit, 0.0f);
@@ -1664,9 +1665,10 @@ void Accelerate(MoveHost& host, MoveReq& req) {
     }
   }
 
-  // PES 610-665: the record checks set bVar23 only inside the +0x661 branch (PES 653-658). ponytail: the record flag +0x661
-  // stands at false, and the roster map (row to GF player; the class-5 test is PassGetReceiver() == player) and P+0x2458
-  // are not in the MoveHost contract (movestep_run.cpp:231), so this block cannot set bVar23 yet.
+  // PES 610-665: the record checks set bVar23 only inside the +0x661 branch (PES 653-658). ponytail: +0x661 is p+0xD1D copied
+  // from A+0x729 each frame (S1Watch: 2,711/2,711 frames). The port holds it at false: the byte's writers FUN_1408C2760,
+  // FUN_1408C31C0 and FUN_1408C3D10 are undecoded, and the roster map (row to GF player; the class-5 test is PassGetReceiver()
+  // == player) and P+0x2458 are not in the MoveHost contract (movestep_run.cpp:231), so this block cannot set bVar23 yet.
   const bool bVar23 = false;
 
   // PES 668: the blend-point exit. local_res18 is the blend; the flags are cVar7 and bVar23.
