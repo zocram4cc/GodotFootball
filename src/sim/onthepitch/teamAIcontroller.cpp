@@ -1054,8 +1054,13 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
 
   if (takerTeamID == -1)
     assert(setPieceType == e_SetPiece_None);
-  if (setPieceType == e_SetPiece_None)
+  if (setPieceType == e_SetPiece_None) {
+    // No restart pending: the kicker committed for the last one is released with it. The
+    // stand-still branch reads "our kick" from GetPieceTaker (elizacontroller), so a stale
+    // keeper here made the side that did not take a later restart skip its walk-out.
+    taker = 0;
     return;
+  }
 
   Match* match = team->GetMatch();
   const Vector3 ballPos = match->GetBall()->Predict(0).Get2D();
