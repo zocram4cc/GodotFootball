@@ -1203,7 +1203,7 @@ inline bool VolatileBall(const VolatileBallInput& in) {
 // --- DirectHighBall (kind 11, gate 0x142129BE0) ---
 //
 // A teammate with the inputs the loop reads: his receiver fields (also the f10 test), his velocity,
-// and the stand-ins for the angle table and the score row.
+// and the stand-in for the angle table.
 struct DirectHighBallMate {
   TouchReceiver receiver;
   CarrierPoint velPerFrame;     // record +0x574/+0x57C
