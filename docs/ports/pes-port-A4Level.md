@@ -2,6 +2,7 @@
 
 > **Main audit 19-10-26 (run 2, `4126007`):** `0x140698EDA` subss, `0x140698EE9` store +0x170, `0x140698F1D` call 0x140A8F820, `0x1421199B8` xor edi,edi, `0x142119CB6` ja: match. Citation slips: `0x14212AF86` is the `call 0x142128C10` (the `mov rcx,rdi` precedes it); `0x142119929` is `addss xmm0,[0x142588210]` (10.0, the B3C<=B58+10 arm), not the K+0x40 read. OneTwo now dies at G11 (plan heading stand-in) and G12.
 > **Main audit 19-10-26 (run 4, `c059675`):** store `movss [rbx],xmm0` at `0x14211EB89` matches. Slip: the jump-table load `mov ecx,[r9+rax*4+0x211EC50]` is at `0x14211E766` (`0x14211E764` is the `cltq`). Plan heading mode 2 ported; G11 kills 12 -> 3; OneTwo now dies at G12.
+> **Main audit 19-10-26 (A4G12, `d442365`):** G12 floor `0x14259BE84` = -10.0 matches. G12 judged PES-exact (no band change); OneTwo still 0 answers in 2 min. Main note: the "off-pitch starters" in slots 12-15 are most likely bench players (slots 0-10 start) - confirm before tracing.
 
 Branch `A4Level` from `origin/A4LaneInputs` `b36a845`. Worktree `<workdrive>/gf-A4Level`.
 Commits (pushed): `e296f1b` (level + attack-heading convention), `a1882b9` (the aim-vs-facing frame).
@@ -239,7 +240,8 @@ script this run:
 
 - the store: `MOVSS dword ptr [RBX],XMM0` at **`0x14211EB89`**, after `LEA RBX,[R14+0xC0]` at
   **`0x14211EB7F`** (bytes `f3 0f 11 03` at the first, `49 8d 9e c0 00 00 00` at the second);
-- the mode dispatch: `MOV ECX,dword ptr [R9 + RAX*4 + 0x211EC50]` at **`0x14211E764`**, with
+- the mode dispatch: `MOV ECX,dword ptr [R9 + RAX*4 + 0x211EC50]` at **`0x14211E766`** (bytes
+  `41 8b 8c 81 50 ec 11 02`; `0x14211E764` is the `CDQE`, `48 98`), with
   `LEA R9,[0x140000000]` at `0x14211E75D` and `JMP RCX` at `0x14211E771`, so the table is at
   **`0x14211EC50`** — indexed by `plan+0xC4 - 1` (the `LEA EAX,[R8-1]` at `0x14211E724`), so mode 1
   is entry 0;
@@ -423,3 +425,129 @@ side). Both are live-input problems rather than decode blockers: G11 reads `plan
 the call site still stands in with the attack direction (the plan heading `ctx7+0xC0` is not carried),
 and G12's band sign follows from the same table. G3 and G4 — this run's two gates — now pass every
 OneTouch call the sim reaches.
+
+## 9. G12 (run 5): the band is PES-exact; the closes are game state, plus a population fault outside G12
+
+Branch `A4Level` at `d442365` (pushed; `git ls-remote origin A4Level` = `d44236567ba53c6307ef65f1d78e6b2ac6136362`). This run: `1ca8cef` (citation fix: the PlanHeadingDeg dispatch MOV is at 0x14211E766), `f816585` (merge of `origin/S1Port` at `756a6ab`), `d442365` (guard test). No band code changed. Image `pes_full.bin`, base `0x140000000`; Ghidra bridge used read-only.
+
+### 9.0 Verdict
+
+- **G12 is PES-exact.** The test (9.1), the curve reader and builder (9.2), the sign and the axis all match. No frame or sign error. The band runs along the attack axis x with k = C[5]; the curve's psi = T+0x250 is `AttackAngleDeg` (90/270); the plan heading is not in the band.
+- **G12 has no mate input.** The test reads the carrier's snapshot and record only (C[0] is the carrier's slot). The first mate's offset is logged in 9.3 for context.
+- **The inputs are live and right in form, with one population fault** (9.4): four team-1 starters are off the pitch from frame 1838 and drift to z -179; team 0 has its own from frame 3846. That is a sim fault outside G12. The probed front lines are set by on-pitch men, so it did not change them.
+- **The closes are real.** Pre-merge: 18 reached, 0 in band (closest -10.76 against the -10 floor). Merged: 19 reached, 1 in band (a byline call, band -0.74). **OneTwo answers 0** on both trees.
+- **No G12 code fix.** Guard test `TheG12BandIsFromTheInstallFloorUpToTheCurveOnBothAttackSigns` added (`d442365`); its mutation check bites.
+
+### 9.1 PES: the G12 test (CONFIRMED: raw asm of 0x142128C10, bridge disassembly)
+
+```
+142129083  CALL 0x1421B7D40            ; G11 lane count: zero rejects
+14212908C  MOV RCX,[RDI+0x28]           ; IA = param_1[5]
+142129098  ADD RCX,0x2B0                ; table = IA+0x2B0
+142129090  MOVSS XMM1,[RSI+0x564]       ; carrier record z (RSI = lVar9 = carrier record)
+14212909F  CALL 0x142139650             ; curve(z) -> XMM0
+1421290A4  MOV RAX,[RDI]                ; RAX = C (the snapshot)
+1421290A7  MOVSS XMM1,[RAX+0x14]        ; k = C[5]
+1421290AF  MULSS XMM1,XMM0              ; k*curve
+1421290B3  MULSS XMM2,[R12]             ; k*x   (R12 -> carrier record +0x55C)
+1421290BC  SUBSS XMM2,XMM1              ; band = k*(x - curve)
+1421290C0  COMISS XMM2,XMM0 ; JC       ; band < 0
+1421290C9  MOVSS XMM0,[0x14259BE84]     ; -10.0 (table below)
+1421290D1  COMISS XMM0,XMM2 ; SETBE    ; -10 <= band
+```
+
+So G12 = (lane count != 0) AND (band < 0) AND (-10 <= band), band = k*(x - curve(z)). GF `OneTouch`: after G11 (`LaneFree` rejects), `band = s*(x - CurveEval(curve, z))`, `return floor <= band && band < 0`. Same inclusivity, same order.
+
+Constants, script-read from `pes_full.bin` (offset = VA - 0x140000000; the first column pairs each with the instruction that reads it):
+
+| VA | bits | value | read by |
+|---|---|---|---|
+| 0x14259BE84 | 0xC1200000 | -10.0 | 1421290C9 MOVSS XMM0,[0x14259be84] (G12 floor) |
+| 0x14259A760 | 0x420C0000 | 35.0 | 142139663 ADDSS XMM1,[0x14259a760] (reader centre) |
+| 0x14259BE4C | 0x428C0000 | 70.0 | 14213965B MOVSS XMM4,[0x14259be4c] (reader clamp) |
+| 0x142598580 | 0x43340000 | 180.0 | 142138297 MOVSS XMM9,[0x142598580] (psi - 180) |
+| 0x14259BE34 | 0x42480000 | 50.0 | 14213860D MOVSS XMM6,[0x14259be34] (arm angle) |
+| 0x14256AE34 | 0x447A0000 | 1000.0 | 142138405 MOVSS XMM12,[0x14256ae34] (arm length) |
+| 0x14256AE1C | 0x3F800000 | 1.0 | 1421383FC MOVSS XMM14,[0x14256ae1c] (segment step) |
+| 0x14253EE30 | 0x42C80000 | 100.0 | 14213840E MOVSS XMM15,[0x14253ee30] (dedupe cone) |
+| 0x142565600 | 0x3F000000 | 0.5 | 140A53E4F MULSS XMM6,[0x142565600] (half cone) |
+| 0x14259BDC4 | 0x34000000 | 1.1920928955078125e-07 | 140A90C7E MOVSS XMM0,[0x14259bdc4] (crossing eps) |
+| 0x14259858C | 0x43B40000 | 360.0 | 140470D0A MOVSS XMM1,[0x14259858c] (wrap) |
+| 0x1425656D0 | 0x80000000 | -0.0 | 1421383EF XORPS XMM13,[0x1425656d0] (sign flip) |
+| 0x14259BE5C | 0x42B40000 | 90.0 | 140A8F7F3 ADDSS XMM0,[0x14259be5c] (advance, z term) |
+
+### 9.2 PES: the curve table (CONFIRMED; GF `BuildCurve` matches line by line)
+
+- **Reader `0x142139650`** (32 instructions): `MULSS XMM1,[RCX+0x5E4]` (scale = this+0x5E4); u = clamp(z*scale + 35, 0, 70); i = trunc(u); i = 70 returns `[this+0x34C]`; else the lerp of `x_i = [this+12*i+4]` and `x_{i+1}` by (u - i).
+- **Writer `0x142138220`**, called from `0x142119390` as `FUN_142138220(IA+0x2B0, ctx, param_3[2])`. `param_3` is the image's own player record, so the table belongs to the carrier's team and lists the other side.
+  - scale: `0x142138633 MOVSS [RBX+0x5E4],XMM0`, the sign of T (T+0x254).
+  - a = wrap360(T+0x250 - 180) (`0x142598580` = 180).
+  - listed men: other side, in play, not the keeper (`0x140A638C0`), key s*x, sorted descending.
+  - segment point: 1.0 along wrap360(a - 180) = T+0x250 (`0x14256AE1C`; `FUN_140470D00` gives the bearing, `FUN_140A8F7C0` advances).
+  - dedupe `0x140A53DF0`: 0 < d2 < 1000^2 and |wrap180(bearing(seg -> q) - a)| < 100*0.5.
+  - arms: wrap360(a +/- 50) (`FUN_140470D60` and `FUN_140470D00` with `0x14259BE34`), length 1000 (`0x14256AE34`).
+  - sample i: the line from (-s*F.x, z_i) to (s*F.x, z_i), z_i = (i - 35)*s. Crossing `0x140A90C20(t, u, from, to, seg, armEnd)`: t on the sample line, u >= 0 on seg -> armEnd, eps `0x14259BDC4`.
+  - x_i = the largest s*x over the crossings, starting at -s*F.x (`0x1425656D0`); record [x_i, y, z_i] at this+4+12*i.
+- **GF:** `BuildCurve`, `CurveEval` and `OneTouch` take the same constants from the install (`ReadVa`). The keeper is excluded by `KeeperSlot` (first in-play slot with category 0), which is PES's `FUN_140A62610` (probe: slot 11 on every probed G12 call).
+- **Frame:** `attackSign = -team->GetSide()` (`elizacontroller.cpp:2082`), the same read as `referee.cpp:904`. The attacked goal sits at `attackSign*F.x`.
+
+The two pre-merge curve values were checked by hand from this geometry (9.3).
+
+### 9.3 Probe (temporary, reverted; `--pes-loop` 2 min, seed 7, teams.sql 1 vs 2, PES21_ROOT)
+
+Pre-merge (`c059675` + probe): `[determinism] 9fc0b08314812d8f` (the report's run-4 value).
+`[probe] G12 reached 18 in band 0`
+
+- #1 slot 5 (1.09, 21.72), sign +1: curve 45.02, band -43.93. Front = outfield slot 20 at (49.64, 15.02); segment (50.64, 15.02); arm at 320 deg: 50.64 - 0.6428*6.70/0.7660 = 45.02 (check).
+- #2 slot 9 (-0.89, -17.74), sign -1: curve -11.64, band -10.76. Front = slot 14 at (-10.98, -17.70); segment (-11.98, -17.70). Crossings -11.39 at z = -17 and -11.73 at z = -18; the reader at u = 52.74 gives -11.64 (check). 0.76 m short of the floor.
+- #3 slot 9 (-0.88, -17.74): band -10.77.
+- #4 to #14 slot 3 (-6.65 to -6.51, -7.28 to -6.91), sign +1: curve 45.6 to 45.9, band -52.2 to -52.5.
+- #16 to #19 slot 9 (0.98, -13.70) and (0.37, -13.99), sign -1: curve -17.4 to -17.7, band -17.8 to -18.7.
+
+Merged (`f816585`): `[determinism] 9fc0b08314812d8f` (unchanged). `[probe] G12 reached 19 in band 1`
+
+- #15 slot 9 (51.27, -22.58), sign +1: curve 52.00, band -0.74: inside. The carrier is 1.2 m short of the +xg line; the ball probe at frame ~26998 is (51.0, -23.4).
+- `[probe-answer]` lines: 0. **OneTwo answers 0.**
+- The first mate, for context only (not a G12 input): `mate 9 (1.68, 23.42) curve 43.59 offset -41.91`; `mate 6 (-9.06, -2.88) curve 48.74 offset -57.80`.
+
+### 9.4 Population fault outside G12 (sim; CONFIRMED by probe; cause INF)
+
+`[probe-offpitch]` (pre-merge, same team AI; the first 60 occurrences; `active` = `IsActive()`):
+
+- frames 1838 to 2007: team 1 (away) slots 12 to 15 (ids 17 to 20, roles 2, 1, 1, 3) at (24.0, -91.1), (24.2, -81.1), (22.1, -71.5), (19.0, -61.1), drifting away at about 0.043 m per frame (z -98 at 2007).
+- frame 3846: team 1 slots 12 to 15 at z -148.6 to -178.6; team 0 ids 3, 7, 8 (roles 1, 8, 7) at z -71.4 to -76.4.
+- frames 22862 to 22882: team 0 id 2 at (3.0, -44.6 to -45.2); team 1 id 17 at (16.6, -92.5 to -92.9).
+- frame 26998: team 0 id 2 at (0.1, -107.8) and id 5 at (0.2, -52.5); team 1 id 17 at (32.9, -42.3).
+- frames 28750 to 28752: team 0 GK id 0 (role 0) at (43.0, -36.9 to -37.0).
+
+Ball, same run, on the pitch at every sample: frame 1838 (0.3, 21.4); 3846 (-11.1, 20.5); 12962 (-1.5, -17.5); 22862 (-6.2, -6.5); 26998 (51.0, -23.4); 28700 (0.6, -13.9); 31588 (33.6, -0.6). So these are not a chase of an out-of-play ball. INF: a team-AI target beyond the touchline; not traced.
+
+Why they are in the lane: active = roster 0 to 10 at init (`team.cpp:83` `activePlayerCount = playerNum`; `gamedefines.hpp:34` `playerNum = 11`; substitutions are off by default). They are starters. GF's lane takes every active man, so it holds them; PES's in-play byte does not. Effect on the probed front lines: none (the front-most men are on the pitch, slots 20 and 14). Effect on the lane population in general: yes.
+
+### 9.5 Keeper and in play (CONFIRMED)
+
+- `keeper(side 1) = 11` (category 0, active) on every probed G12 call; `BuildCurve` excludes him. PES's keeper: `FUN_140A62610` = the first in-play slot with `T+0x4C00[j] == 0`; `FUN_140A638C0` compares the slot to it.
+
+### 9.6 S1Port (the merge, and which commit)
+
+- Merged `origin/S1Port` at `756a6ab`. It moved from `c34bd79` while I worked; its newest commit ("Safety gate 4 reads the S1 score row; the attack sign picks its row") is in. The auto-merge kept A4Level's every-frame `PlanHeadingDeg` write (`elizacontroller.cpp:2292`, `pescarrier.cpp:1029`), which S1Port's side deletes relative to `b64d2b7`.
+- Why merged: its tick (`TickScoreRows` on every team tick) changes G5 (`touch.score` = `ScoreRowForSign(rows, attackK)`), the mate order (NearestList rank) and the Safety gate. G5 and the order decide which calls reach G12 and which mate is logged, so the probe had to run on the merged tree.
+- Not changed by the merge: the curve table, the carrier position, the attack sign and the floor. S1Port's `OneTouch` diff is comments only.
+- For S1Port to confirm: `ScoreRowForSign(rows, +1)` = `score[0]` = d^2 to (-xg, 0) (`pesscorerows.hpp:76-77`), the carrier's own goal for a +x attacker. The byline call (51.27, -22.58) has d^2 about 511 to (+xg, 0) and about 11,278 to (-xg, 0). It passes G5 (>= 1600) only because the row is the own-goal one. Whether PES's G5 reads that row for this sign is S1Port's call.
+
+### 9.7 Verification (on `d442365`)
+
+- `pes_carrier_test`: `[  PASSED  ] 162 tests.` (includes the guard; no skips).
+- `pes_image_test`: `[  PASSED  ] 19 tests.`
+- `pes_scorerows_test`: `[  PASSED  ] 7 tests.`
+- Guard: no red step, because the guard pins behaviour that already holds; it passes on the parent. Mutation (band with the sign dropped, `band = x - curve`): `OneTwoUnitTest.TheG12BandIsFromTheInstallFloorUpToTheCurveOnBothAttackSigns` fails at `pes_carrier_test.cpp:2369` and `:2371`, the two attack -x in-band expectations. The +x expectations still pass. Reverted, rebuilt, back to 162.
+- Smokes (2 min, seed 7, `teams.sql` 1 vs 2, PES21_ROOT): switch-off `[determinism] 75a11cdb2b3c8ec5` (the handover's switch-off reference; unchanged by the merge); `--pes-loop` `[determinism] 9fc0b08314812d8f` (the pre-merge value; the merge moved no decision in these 2 min).
+- Gate not run (Main gates). PII: added lines of `c059675..HEAD` grepped for machine paths: none.
+- Push: fast-forward `c059675..d442365`; `ls-remote` confirms.
+
+### 9.8 Open items
+
+1. Off-pitch starters (9.4): a team-AI target or a restart path. First trace where team 1 id 17's target lies (his drift is constant). Affects the lane, not G12's result.
+2. S1Port G5 row (9.6): which goal row PES's G5 reads for this sign.
+3. Next closer after G12: the byline call at about frame 26998 reaches the picker and no mate passes `TouchReceiverOk`. The failing gate is not logged yet; next probe: each mate's gate for that call.
+4. The two calls at -10.76 and -10.77 are 0.76 m short by the exact decode. No action.
