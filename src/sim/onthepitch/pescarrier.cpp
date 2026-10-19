@@ -377,6 +377,42 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
   std::memcpy(&k.bsLane1Cone_deg, &lane1, sizeof lane1);
   ok &= ReadImm(exe, Imm{0x142122cd8, {0xc7, 0x45, 0xd8}, 3, 3}, &lane1, error);
   std::memcpy(&k.bsLane1Rad_m, &lane1, sizeof lane1);
+  // The Safety unit: its gate 0x14212B520, short picker 0x142126B70 and through picker
+  // 0x142128490 load sites.
+  const std::pair<uint64_t, float*> safety[] = {
+      {0x14259be60, &k.sfFacingTurn_deg}, {0x14258c264, &k.sfLaneRad_m},
+      {0x14259be0c, &k.sfKeeperDist_m},   {0x14259be2c, &k.sfKeeperFar_m},
+      {0x14259bddc, &k.sfKeeperScalar},   {0x14259a764, &k.sfKeeperSpeedCap},
+      {0x14259be70, &k.sfOppD2Min},       {0x142588210, &k.sfScoreDist_m},
+      {0x14259d628, &k.sfTurnOver_deg},   {0x142596e6c, &k.sfTurnUnder_deg},
+      {0x14259be1c, &k.sfClass4Bonus},    {0x14256ae30, &k.sfNeedDanger},
+      {0x14259be60, &k.sfNeedCap},        {0x14259be30, &k.sfNeedFloor},
+      {0x14259222c, &k.sfSpeedFloor_kmh}, {0x14259be20, &k.sfSpeedCeil_kmh},
+      {0x1425a946c, &k.sfSpeedSpan_kmh},  {0x142591140, &k.sfDistCeil_m},
+      {0x14259a764, &k.sfNeedBase},       {0x142591140, &k.sfNeedGain},
+      {0x142591140, &k.sfClass5Bonus},    {0x14259be5c, &k.sfTurnAttack_deg},
+      {0x14259be30, &k.sfTurnFace_deg},   {0x14259be2c, &k.sfCeilDefault_m},
+      {0x14259be0c, &k.sfCeilNear_m},     {0x14259a764, &k.sfCeilFar_m},
+      {0x14253ee30, &k.sfCeilOpp_m},      {0x14259222c, &k.sfMateNear_m},
+      {0x14259be1c, &k.sfMateSpeed_kmh},  {0x142596e6c, &k.sfFrameSpeed},
+      {0x14259a760, &k.sfOppGate_m},      {0x14259b89c, &k.sfLimGain},
+      {0x142588210, &k.sfLimNear_m},      {0x14259be1c, &k.sfLimFar_m},
+      {0x14258c264, &k.sfLimMin_m},       {0x142565604, &k.sfOppPad_m},
+      {0x14259222c, &k.sfKeepPad_m},      {0x14259be34, &k.sfOuterTurn_deg},
+      {0x14259be0c, &k.sfPressDist_m},    {0x14259222c, &k.sfLaneDivisor},
+      {0x1425656c0, &k.sfLaneLenMin_m},   {0x14259be04, &k.sfLaneLenMax_m},
+      {0x1425ca310, &k.sfLaneCone_deg},   {0x1425a9bf0, &k.sfTieDiff_deg},
+      {0x14259d60c, &k.sfTiePress},       {0x14259ce40, &k.sfTieCornerSq},
+      {0x14259222c, &k.sfTieGap_m},       {0x14258c264, &k.sfThruIdle},
+      {0x14259d60c, &k.sfThruPress},      {0x14259ce40, &k.sfThruCarrierSq},
+      {0x1425c65f4, &k.sfThruRowSq},      {0x14259be4c, &k.sfThruAlign_deg},
+      {0x14259be60, &k.sfThruAim_deg},    {0x14259a764, &k.sfThruFace_m},
+      {0x14253ee30, &k.sfThruNearSq},     {0x1425c65f4, &k.sfThruFarSq},
+      {0x142588210, &k.sfThruLaneLen_m},  {0x14259a764, &k.sfThruLaneCone_deg},
+      {0x14259222c, &k.sfThruLaneRad_m},
+  };
+  for (const auto& r : safety) ok &= ReadVa(exe, r.first, r.second, error);
+  k.sfThruClass = 3.0f;  // `cmp [recB],2; jbe`: class above 2, an instruction shape
   // The rolled plans' base probabilities, from the immediates of the plan
   // functions 0x14211a800 (Breakthrough), 0x14211b460 (MiddleShot),
   // 0x14211ab10 (Cross) and 0x14211b1d0 (Long).
@@ -1468,6 +1504,12 @@ PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k) {
     }
   }
   return answer;
+}
+
+PassAnswer SafetyUnit(const SafetyInput& in, const CarrierConstants& k) {
+  (void)in;
+  (void)k;
+  return PassAnswer{};  // RED: the port lands next
 }
 
 bool UnitArmed(int kind, bool capFeint, bool capBackSpace, bool capSafety, float ballDistSq_m2,

@@ -1845,4 +1845,202 @@ TEST_F(BackSpaceUnitTest, TheCornerTestPassesNearTheCorner) {
   EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
 }
 
+// --- the Safety unit (kind 6; gate 0x14212B520, short picker 0x142126B70, through picker
+// 0x142128490) ---
+//
+// Like the other lane units, the constants come from the install and the fixture overrides the
+// gates with crisp values.
+
+constexpr int kSafetyCarrierSlot = 3;  // a home player, so side 0
+
+pes::SafetyMate SafetyMate(int index) {
+  pes::SafetyMate m;
+  m.index = index;
+  m.statusValid = true;
+  m.roleClass = 4;
+  m.recATurnAngle_deg = 90.0f;  // over 80, under 110
+  m.recAVsFacing_deg = 30.0f;
+  m.recADist_m = 12.0f;
+  m.recADifficulty = 0.5f;
+  m.recAClass = 3;
+  m.recBVsFacing_deg = 30.0f;
+  m.recBDist_m = 12.0f;
+  m.recBDifficulty = 0.5f;
+  m.recBClass = 3;
+  m.pressureClass = 3.0f;  // over the carrier's: the pressure gate passes
+  m.speed_kmh = 5.0f;
+  m.nearestOppD2 = 900.0f;  // 30 m: over the 225 floor, under the 35 m gate
+  m.zoneMid = true;
+  m.nearestListD2 = 900.0f;
+  return m;
+}
+
+class SafetyUnitTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    const char* root = std::getenv("PES21_ROOT");
+    if (!root)
+      GTEST_SKIP() << "PES21_ROOT unset: the unit runs the lane core, whose table is in the install";
+    std::string err;
+    auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+    ASSERT_TRUE(exe.has_value()) << err;
+    auto loaded = pes::LoadCarrierConstants(*exe, &err);
+    ASSERT_TRUE(loaded.has_value()) << err;
+    k_ = *loaded;
+    // Crisp gates. The gate lane's cone stays the install's (80 deg); its radius is overridden.
+    k_.sfFacingTurn_deg = 135.0f;
+    k_.sfLaneRad_m = 3.0f;
+    k_.sfKeeperDist_m = 15.0f;
+    k_.sfKeeperFar_m = 40.0f;
+    k_.sfKeeperScalar = 1.5f;
+    k_.sfKeeperSpeedCap = 60.0f;
+    k_.sfOppD2Min = 225.0f;
+    k_.sfScoreDist_m = 10.0f;
+    k_.sfTurnOver_deg = 110.0f;
+    k_.sfTurnUnder_deg = 80.0f;
+    k_.sfClass4Bonus = 20.0f;
+    k_.sfNeedDanger = 120.0f;
+    k_.sfNeedCap = 135.0f;
+    k_.sfNeedFloor = 45.0f;
+    k_.sfSpeedFloor_kmh = 5.0f;
+    k_.sfSpeedCeil_kmh = 25.0f;
+    k_.sfSpeedSpan_kmh = -20.0f;
+    k_.sfDistCeil_m = 30.0f;
+    k_.sfNeedBase = 60.0f;
+    k_.sfNeedGain = 30.0f;
+    k_.sfClass5Bonus = 30.0f;
+    k_.sfTurnAttack_deg = 90.0f;
+    k_.sfTurnFace_deg = 45.0f;
+    k_.sfCeilDefault_m = 40.0f;
+    k_.sfCeilNear_m = 15.0f;
+    k_.sfCeilFar_m = 60.0f;
+    k_.sfCeilOpp_m = 100.0f;
+    k_.sfMateNear_m = 5.0f;
+    k_.sfMateSpeed_kmh = 20.0f;
+    k_.sfFrameSpeed = 80.0f;
+    k_.sfOppGate_m = 35.0f;
+    k_.sfLimGain = 0.4f;
+    k_.sfLimNear_m = 10.0f;
+    k_.sfLimFar_m = 20.0f;
+    k_.sfLimMin_m = 3.0f;
+    k_.sfOppPad_m = 2.0f;
+    k_.sfKeepPad_m = 5.0f;
+    k_.sfOuterTurn_deg = 50.0f;
+    k_.sfPressDist_m = 15.0f;
+    k_.sfLaneDivisor = 5.0f;
+    k_.sfLaneLenMin_m = 4.0f;
+    k_.sfLaneLenMax_m = 12.0f;
+    k_.sfLaneCone_deg = 220.0f;
+    k_.sfTieDiff_deg = 130.0f;
+    k_.sfTiePress = 9.0f;
+    k_.sfTieCornerSq = 1600.0f;
+    k_.sfTieGap_m = 5.0f;
+    k_.sfThruIdle = 3.0f;
+    k_.sfThruPress = 9.0f;
+    k_.sfThruCarrierSq = 1600.0f;
+    k_.sfThruRowSq = 900.0f;
+    k_.sfThruAlign_deg = 70.0f;
+    k_.sfThruAim_deg = 135.0f;
+    k_.sfThruClass = 3.0f;
+    k_.sfThruFace_m = 60.0f;
+    k_.sfThruNearSq = 100.0f;
+    k_.sfThruFarSq = 900.0f;
+    k_.sfThruLaneLen_m = 10.0f;
+    k_.sfThruLaneCone_deg = 60.0f;
+    k_.sfThruLaneRad_m = 5.0f;
+    // The passing situation: k = 0 (no pressure), so the short branch answers. The gate lane
+    // must be BLOCKED: the opponent at (0, 5) sits in the 80-deg cone about heading 0 (along
+    // +z) with len = 5 (his own distance). Mate 5 at (0, -8) survives the short picker: turn 90
+    // (under-80 false, over-110 false), dist 12 (window [5, 40], scored limit max(need, 45):
+    // carrier speed 0 -> wS 1, dist 12 -> wD (12-30)/(-20) = 0.9, need = 30+60+27 = 117,
+    // lim = 117 >= vsFacing 30), class 3 (floor 3, b28: pressClass 0), the one-touch lane free
+    // (no opponents near (0,-8)), and the first-candidate tiebreak.
+    in_.players[kSafetyCarrierSlot].pos = {0.0f, 0.0f};
+    in_.players[kSafetyCarrierSlot].active = true;
+    in_.players[5].pos = {0.0f, -8.0f};
+    in_.players[5].active = true;
+    in_.players[14].pos = {0.0f, 5.0f};
+    in_.players[14].active = true;
+    in_.carrierSlot = kSafetyCarrierSlot;
+    in_.carrierPos = {0.0f, 0.0f};
+    in_.carrierFacing_deg = 0.0f;
+    in_.carrierSpeed_kmh = 0.0f;
+    in_.laneHeading_deg = 0.0f;
+    in_.attackSign = 1.0f;
+    in_.sideAngle_deg = 0.0f;
+    in_.ball = {0.0f, 0.0f};
+    in_.carrierPressClass = 0;
+    in_.teamLineB = -60.0f;
+    in_.ownGoalCornerX = -52.5f;
+    in_.planHeading_deg = 0.0f;
+    pes::SafetyMate m = SafetyMate(5);
+    m.pos = {0.0f, -8.0f};
+    in_.mates = {m};
+  }
+
+  pes::CarrierConstants k_{};
+  pes::SafetyInput in_{};
+};
+
+TEST_F(SafetyUnitTest, NoPressureAnswersTheShortMate) {
+  // 0x14212B520 with k = 0: the short picker's mate takes a short ball (b = 0).
+  const pes::PassAnswer a = pes::SafetyUnit(in_, k_);
+  EXPECT_EQ(a.index, 5);
+  EXPECT_EQ(a.kind, pes::kPassShort);
+}
+
+TEST_F(SafetyUnitTest, AFreeGateLaneMeansNoAnswer) {
+  // 0x14212B520: the gate lane free (blocker removed) returns with no answer.
+  in_.players[14].active = false;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
+}
+
+TEST_F(SafetyUnitTest, TheScoredLimitRejectsATurnedMate) {
+  // 0x142126B70's scoring: vsFacing 130 over lim max(117, 45) = 117 rejects.
+  in_.mates[0].recAVsFacing_deg = 130.0f;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
+  in_.mates[0].recAVsFacing_deg = 100.0f;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, 5);
+}
+
+TEST_F(SafetyUnitTest, TheCeilingCascadeRejectsAFarMate) {
+  // 0x142126B70's ceiling: dist 50 over the default 40 rejects.
+  in_.mates[0].recADist_m = 50.0f;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
+}
+
+TEST_F(SafetyUnitTest, TheOneTouchLaneRejectsABlockedMate) {
+  // 0x142126B70's lane: an opponent in the 220-deg cone about the ball-advanced origin
+  // rejects. The origin is the ball advanced 12 m along record angle 0 -> (0, 12)... but the
+  // mate is at (0, -8): the record angle is the pass bearing (180), so the blocker sits past
+  // the mate along it.
+  in_.players[15].pos = {0.0f, -20.0f};
+  in_.players[15].active = true;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
+}
+
+TEST_F(SafetyUnitTest, PressureRunsTheThroughPicker) {
+  // 0x14212B520 with k = 2 (press+0x30 > 0): the through picker's mate takes a through ball
+  // (b = 3). The through run needs: idle gate (pressCount4 <= 162, or its pressure arm),
+  // carrier 40+ m from his nearest opp, carrier advanced, the row scan reaching mate 5, and
+  // the final lane free.
+  in_.pressCount1 = 1;
+  in_.pressCount4 = 0;
+  in_.players[14].pos = {0.0f, 50.0f};  // carrier's nearest opp 50 m out
+  in_.players[15].active = false;
+  in_.mates[0].pos = {10.0f, -8.0f};  // advanced: k*x = 10 > 0
+  in_.players[5].pos = {10.0f, -8.0f};
+  in_.mates[0].recBTarget = {14.0f, -8.0f};
+  in_.mates[0].recBDist_m = 12.0f;
+  const pes::PassAnswer a = pes::SafetyUnit(in_, k_);
+  EXPECT_EQ(a.index, 5);
+  EXPECT_EQ(a.kind, pes::kPassThrough);
+}
+
+TEST_F(SafetyUnitTest, TheGoalMouthFlagSilencesTheUnit) {
+  // 0x14212B520: +0x31C0 set returns with no answer whatever the pickers say.
+  in_.goalMouth = true;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
+}
+
 }  // namespace
