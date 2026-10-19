@@ -132,4 +132,8 @@ void ScoreRowWriter::Tick(const RowPlayers& players, const ScoreRowConstants& k,
   BuildScoreRows(players, k, mask, rows_);
 }
 
+// The selectors of the S1 rows by attack sign (see the header): FUN_140A714C0 and FUN_140A714A0.
+const SortedRow& ScoreRowForSign(const ScoreRows& rows, int k) { return k == 1 ? rows.score[0] : rows.score[1]; }
+const SortedRow& GateRowForSign(const ScoreRows& rows, int k) { return k == 1 ? rows.score[1] : rows.score[0]; }
 }  // namespace pes
+

@@ -1060,7 +1060,8 @@ struct SafetyMate {
   float speed_kmh = 0.0f;           // 0x140477130
   bool statusValid = false;         // 0x142118D20(team+0xB6C, slot % 11) == 0xB
   int roleClass = -1;               // the side's +0x4C00[j] (B array): 0 = keeper
-  float nearestOppD2 = 0.0f;        // 0x140587E70: the team table's nearest-opponent d2
+  float nearestOppD2 = 0.0f;        // the mate's nearest-opponent d^2: G1's 35 m test and the tiebreak (stand-in)
+  float score = 0.0f;               // the S1 row d^2 of the attack sign (ScoreRowForSign): gate 4's 225 floor
   float pressureClass = 0.0f;       // 0x14069A3E0(team+0x2124, slot % 11)[+0x10]
   bool zoneMid = false;             // 0x14063E140(team, slot, 0): the mate's mid-zone test
   ShootZone zoneAtPred16;           // 0x140698D10 at the 16-frame prediction (the validator's mode-1 arm)
@@ -1085,7 +1086,7 @@ struct SafetyInput {
   std::array<lane::LanePlayer, lane::kSlots> players{};  // the 22 players the lane core reads
   int carrierSlot = -1;                                  // the reference slot
   CarrierPoint carrierPos;                               // the carrier's ground point (+0x55C/+0x564)
-  float carrierOwnGoalD2_m2 = 0.0f;  // S1 score row: the carrier's d^2 to his own goal (gate length is its root)
+  float carrierGateD2_m2 = 0.0f;  // the S1 row d^2 of the carrier for the sign !k (GateRowForSign); gate length is its root
   CarrierPoint carrierVelPerFrame;                       // record +0x574/+0x57C
   float carrierFacing_deg = 0.0f;                        // ctx4+0x38, in the BearingDeg convention
   float carrierHeading_deg = 0.0f;                       // 0x140458740 of the carrier

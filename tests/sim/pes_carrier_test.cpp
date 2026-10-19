@@ -2014,6 +2014,7 @@ pes::SafetyMate SafetyMate(int index) {
   m.pressureClass = 3.0f;  // over the carrier's: the pressure gate passes
   m.speed_kmh = 5.0f;
   m.nearestOppD2 = 900.0f;  // 30 m: over the 225 floor, under the 35 m gate
+  m.score = 900.0f;  // the S1 row d^2, over the 225 floor (gate 4 reads it, not nearestOppD2)
   m.zoneMid = true;
   return m;
 }
@@ -2109,8 +2110,8 @@ class SafetyUnitTest : public ::testing::Test {
     in_.carrierFacing_deg = 0.0f;
     in_.carrierSpeed_kmh = 0.0f;
     in_.laneHeading_deg = 0.0f;
-    // The gate lane's length: the carrier's squared distance to his own goal (-52.5, 0), S1 row.
-    in_.carrierOwnGoalD2_m2 = 52.5f * 52.5f;
+    // The gate lane's length: the carrier's d^2 in the row for sign !k (0x140A714A0): the goal at +xg.
+    in_.carrierGateD2_m2 = 52.5f * 52.5f;
     in_.attackSign = 1.0f;
     in_.sideAngle_deg = 0.0f;
     in_.ball = {0.0f, 0.0f};
@@ -2191,6 +2192,33 @@ TEST_F(SafetyUnitTest, PressureRunsTheThroughPicker) {
   const pes::PassAnswer a = pes::SafetyUnit(in_, k_);
   EXPECT_EQ(a.index, 5);
   EXPECT_EQ(a.kind, pes::kPassThrough);
+}
+
+TEST_F(SafetyUnitTest, TheShortGateReadsTheScoreRowNotTheNearestOpponent) {
+  // Gate 4 (0x14259BE70 = 225) reads 0x140587E70, the S1 score row of the attack sign: the mate's
+  // d^2 to the goal behind the team. His nearest opponent is 2 m away (nearestOppD2 = 4), which the
+  // row does not see: he is 50 m from that goal, so the gate passes him.
+  in_.mates[0].nearestOppD2 = 4.0f;
+  in_.mates[0].score = 2500.0f;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, 5);
+}
+
+TEST_F(SafetyUnitTest, AScoredNeedOverTheCapIsHeldToFortyFiveDegrees) {
+  // The limit rule (helpers doc, Safety, 0x1421271B7-1D2): a non-keeper whose need is over 135 gets
+  // lim = 45, not the cap. A class-5 mate 12 m out with a still carrier needs 30 + 60 + 27 + 30 = 147.
+  in_.mates[0].recAClass = 5;
+  in_.mates[0].recAVsFacing_deg = 100.0f;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
+}
+
+TEST_F(SafetyUnitTest, AKeeperKeepsTheDefaultNeedAndIsHeldToItNotTheFloor) {
+  // The keeper skips the score and keeps the default need 135, so lim = max(135, 45) = 135 (helpers
+  // doc: "score stays 135/45 defaults"). A turn of 100 is inside it.
+  in_.mates[0].roleClass = 0;
+  in_.mates[0].recAClass = 5;
+  in_.mates[0].recAVsFacing_deg = 100.0f;
+  in_.pressCount1 = 1;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, 5);
 }
 
 TEST_F(SafetyUnitTest, TheGoalMouthFlagSilencesTheUnit) {

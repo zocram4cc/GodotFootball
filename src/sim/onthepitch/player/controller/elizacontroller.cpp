@@ -2586,6 +2586,19 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // The GoalFront unit (kind 2; gate 0x14212ABA0, picker 0x1421265C0): outside the central zone,
   // with the lane about the per-slot angle + 180 blocked, the most open mate in front of goal takes
   // a short ball. Its mate records are the receiver records the pass decision just built.
+  // A mate's lane slot in the carrier's lane space, numbered as fillSide numbers it: his index in his
+  // team's active list, the carrier's team at 0..10 and the opponents at 11..21. GetID() is the match's
+  // global allocation (AllocatePlayerID), not a lane slot.
+  const auto laneSlotOf = [&](const Player* p) {
+    std::vector<Player*> own, opp;
+    team->GetActivePlayers(own);
+    match->GetTeam(1 - team->GetID())->GetActivePlayers(opp);
+    for (int j = 0; j < static_cast<int>(own.size()) && j < pes::lane::kSideSize; ++j)
+      if (own[j] == p) return j;
+    for (int j = 0; j < static_cast<int>(opp.size()) && j < pes::lane::kSideSize; ++j)
+      if (opp[j] == p) return pes::lane::kSideSize + j;
+    return pes::lane::kNoSlot;
+  };
   pes::PassAnswer goalFrontPass;
   if (rethink) {
     pes::GoalFrontInput gf;
@@ -2633,7 +2646,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       Player* mate = match->GetPlayer(c.index);
       if (mate == nullptr) continue;
       pes::GoalFrontMate m;
-      m.index = c.index;
+      m.index = laneSlotOf(mate);
       m.difficulty = c.record.difficulty;            // record A +0xF0
       m.distance_m = c.record.ballToTarget_m;        // record B +0xEC
       m.angleToFacing_deg = c.record.turnAngle_deg;  // record B +0xE8
@@ -2675,7 +2688,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     pes::SafetyInput sf;
     // The team's S1 score rows (pesscorerows.hpp, in the lane space) and the attacked goal's row.
     const pes::ScoreRows& rows = team->GetController()->Rows();
-    const int attackRow = attackSign > 0.0f ? 1 : 0;  // score[1] is the goal at +xg
+    const int attackK = static_cast<int>(attackSign);  // the sign k of FUN_140587E70 and FUN_140A714A0
     // The lane core's slot space, as GoalFront fills it above.
     const auto fillLaneSide = [&](Team* side, int base) {
       std::vector<Player*> squad;
@@ -2701,7 +2714,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     for (int q = 0; q < pes::lane::kSlots; ++q)
       bs.nearestOpponent[q] = rows.nearest[q].Nearest(pes::lane::IsAwaySlot(q) ? 0 : 1);
     // The gate lane's length: the carrier's d^2 in the score row of the goal he defends.
-    sf.carrierOwnGoalD2_m2 = rows.score[1 - attackRow].ValueOf(bs.carrierSlot);
+    sf.carrierGateD2_m2 = pes::GateRowForSign(rows, attackK).ValueOf(bs.carrierSlot);
 
     // The carrier's frame in PES's theta convention: dir(theta) = (sin, cos) over (x, z), so the
     // facing and heading vectors convert directly (this engine's y is PES's z).
@@ -2832,7 +2845,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     touch.attackLevel = 0;  // G8: T+0xB8A4 is not carried (S4)
     touch.teamMode = intention;  // G4, G8: 0x141052E30 = the carrier's Intention (writer 0x1421197B0)
     touch.carrierCategory = bs.carrierSlot >= 0 ? bs.players[bs.carrierSlot].positionCategory : -1;
-    touch.score = rows.score[attackRow].ValueOf(bs.carrierSlot);  // G5: the carrier's own row entry
+    touch.score = pes::ScoreRowForSign(rows, attackK).ValueOf(bs.carrierSlot);  // G5: the S1 row of the sign
     touch.closeZone = pes::IsClose(zone);
     touch.humanCarrier = false;    // K+0x6C: GF's carriers here are AI
     touch.oneTwoRunEvent = false;  // G7: the event record and the one-two run action are not carried (S7)
@@ -2845,6 +2858,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     for (const pes::PassCandidate& c : rethinkCandidates) {
       Player* mate = match->GetPlayer(c.index);
       if (mate == nullptr) continue;
+      const int laneSlot = laneSlotOf(mate);
       const Vector3 matePos = mate->GetPosition();
       const Vector3 mateVel = mate->GetMovement();
       const pes::CarrierPoint matePt{matePos.coords[0], matePos.coords[1]};
@@ -2879,7 +2893,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       const float turnFacing = std::fabs(c.record.turnAngle_deg);
 
       pes::BackSpaceMate bm;
-      bm.index = c.index;
+      bm.index = laneSlot;
       bm.pos = matePt;
       bm.velPerFrame = mateVelFrame;
       bm.facing_deg = mateFacing;
@@ -2908,7 +2922,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       bs.mates.push_back(bm);
 
       pes::SafetyMate sm;
-      sm.index = c.index;
+      sm.index = laneSlot;
       sm.pos = matePt;
       sm.velPerFrame = mateVelFrame;
       sm.facing_deg = mateFacing;
@@ -2917,6 +2931,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       sm.statusValid = true;  // ponytail: the b6c status byte stands in, as above
       sm.roleClass = CarrierRoleClass(mate);
       sm.nearestOppD2 = mateNeed * mateNeed;  // 0x140587E70: the team table's d2 (the record stands in)
+      sm.score = pes::ScoreRowForSign(rows, attackK).ValueOf(laneSlot);  // gate 4's d^2 (S1 row of the sign)
       sm.pressureClass = static_cast<float>(c.pressureClass);
       sm.zoneMid = pes::IsMid(mateZone);
       sm.zoneAtPred16 = mateZone;
@@ -2935,7 +2950,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
 
       // The OneTwo and DirectHighBall receivers: the same record A and his own fields.
       pes::TouchReceiver tr;
-      tr.index = c.index;
+      tr.index = laneSlot;
       tr.pos = matePt;
       tr.facing_deg = mateFacing;
       tr.statusValid = true;  // ponytail: the b6c status (0x142118D20 == 0xB, S5) stands in as the filter above
@@ -2958,7 +2973,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       dm.tableAngle_deg = mateFacing;
       dm.keeper = mateKeeper;
       dm.recAClass = c.record.opennessClass;
-      dm.score = rows.score[attackRow].ValueOf(c.index);  // the mate's own row entry
+      dm.score = pes::ScoreRowForSign(rows, attackK).ValueOf(laneSlot);  // the mate's row entry
       dm.markCount = 0;  // ponytail: AI rec2 +0x12A4 (S11) is not carried
       dhbMates.push_back(dm);
     }

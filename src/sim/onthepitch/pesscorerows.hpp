@@ -73,6 +73,12 @@ struct ScoreRows {
   std::array<SortedRow, lane::kSlots> nearest{};
 };
 
+// The row FUN_140A714C0(T, k) reads for attack sign k: score0 (MA+0x228EC, the goal at -xg) when
+// k == 1, score1 otherwise. Its d^2 is the score of G5 and the DHB, and Safety gate 4 (0x140587E70).
+const SortedRow& ScoreRowForSign(const ScoreRows& rows, int k);
+// The row FUN_140A714A0(T, k) reads: the other goal's row, the Safety gate's lane length (0x14212B71D).
+const SortedRow& GateRowForSign(const ScoreRows& rows, int k);
+
 // The writer's body for the blocks `mask` selects. The NearestList is rebuilt on every call.
 void BuildScoreRows(const RowPlayers& players, const ScoreRowConstants& k, uint8_t mask,
                     ScoreRows& rows);

@@ -118,3 +118,17 @@ TEST(ScoreRows, TheWriterIsLatchedByTheFirstFullRefresh) {
   EXPECT_TRUE(w.Latched());
   EXPECT_FLOAT_EQ(w.Rows().score[0].ValueOf(0), 3906.25f);
 }
+
+TEST(ScoreRows, TheRowOfAnAttackSignIsTheGoalBehindTheAttack) {
+  // FUN_140A714C0(T, k) reads score0 (MA+0x228EC, the goal at -xg) when k == 1 and score1 otherwise;
+  // the Safety gate's lane length reads the other row (FUN_140A714A0). Attacking +x (k = +1), the
+  // score is the distance to -xg, the goal behind the team.
+  pes::RowPlayers p{};
+  Place(p, 0, 10.0f, 0.0f);
+  pes::ScoreRowWriter w;
+  w.Tick(p, Goal(), 0, /*fullRefresh=*/true);
+  EXPECT_FLOAT_EQ(pes::ScoreRowForSign(w.Rows(), 1).ValueOf(0), 3906.25f);   // (-52.5 - 10)^2
+  EXPECT_FLOAT_EQ(pes::ScoreRowForSign(w.Rows(), -1).ValueOf(0), 1806.25f);  // (52.5 - 10)^2
+  EXPECT_FLOAT_EQ(pes::GateRowForSign(w.Rows(), 1).ValueOf(0), 1806.25f);
+  EXPECT_FLOAT_EQ(pes::GateRowForSign(w.Rows(), -1).ValueOf(0), 3906.25f);
+}

@@ -1605,7 +1605,7 @@ int ShortFrames(float dist_m, float speed_kmh) {
 // carrier's speed (the 5/25 km/h ramp) and the mate's distance (the 10/30 m ramp) over the shared
 // -20 span; danger fixes it at 120.
 float ShortLimit(const SafetyInput& in, const SafetyMate& m, bool keeper, const CarrierConstants& k) {
-  if (keeper) return k.sfNeedFloor;
+  if (keeper) return std::max(k.sfNeedCap, k.sfNeedFloor);  // the keeper keeps the default need 135: lim = max(need, 45)
   float wS = 1.0f;
   if (k.sfSpeedFloor_kmh < in.carrierSpeed_kmh)
     wS = in.carrierSpeed_kmh < k.sfSpeedCeil_kmh
@@ -1618,7 +1618,8 @@ float ShortLimit(const SafetyInput& in, const SafetyMate& m, bool keeper, const 
   if (m.recAClass == 4) need += k.sfClass4Bonus;
   if (m.recAClass == 5) need += k.sfClass5Bonus;
   if (in.danger) need = k.sfNeedDanger;
-  return need <= k.sfNeedCap ? std::max(need, k.sfNeedFloor) : k.sfNeedCap;
+  // The cap is a switch, not a clamp: a need over 135 gives lim 45 (0x1421271B7-1D2, helpers doc).
+  return need > k.sfNeedCap ? k.sfNeedFloor : std::max(need, k.sfNeedFloor);
 }
 
 // The carrier's inputs to the short picker's head: b28 (free-ish: press10 == 0, or press10 == 1
@@ -1664,7 +1665,7 @@ bool ShortMateSurvives(const SafetyInput& in, const SafetyMate& m, const ShortCa
                           (!in.receivingFlag || in.ctx44 < k.sfKeeperScalar) &&
                           in.carrierPressClass == 0);
     if (!(speedArm && sideArm)) return false;
-  } else if (!(in.humanCarrier || k.sfOppD2Min <= m.nearestOppD2)) {
+  } else if (!(in.humanCarrier || k.sfOppD2Min <= m.score)) {
     return false;
   }
   // The scored limit and the turn arm, when the scoring gate runs (press30 < 2, class < 5, dist >= 10).
@@ -1911,9 +1912,9 @@ PassAnswer SafetyUnit(const SafetyInput& in, const CarrierConstants& k) {
     if (in.pressCount3 != 0 &&
         k.sfFacingTurn_deg < std::fabs(WrapDeg(in.carrierFacing_deg - in.planHeading_deg)))
       ++kk;
-    // PES's gate length is the root of the carrier's own d^2 in the score row of the goal he defends
-    // (0x14212B71D..0x14212B76F, the row for the sign !k): the S1 writer's row, pesscorerows.hpp.
-    const float len = std::sqrt(in.carrierOwnGoalD2_m2);
+    // PES's gate length is the root of the carrier's d^2 in the row of sign !k (0x14212B71D..0x14212B76F,
+    // 0x140A714A0): the attacked goal's S1 row, pesscorerows.hpp.
+    const float len = std::sqrt(in.carrierGateD2_m2);
     const lane::LaneRequest gate{ToLaneVec(in.carrierPos), in.laneHeading_deg, len,
                                  k.unitLaneCone_deg, k.sfLaneRad_m};
     if (lane::LaneFree(k.lane, in.players, in.carrierSlot, gate, /*keepKeeper*/ false, 0))
