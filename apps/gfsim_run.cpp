@@ -201,6 +201,7 @@ int main(int argc, char** argv) {
   setup.pesCarrierConstants = &*carrierConstants;
   setup.pesDefensiveShapeConstants = &*defensiveShapeConstants;
   setup.pesDefenderDecisionConstants = &*defenderDecisionConstants;
+  setup.pesPressConstants = &*pressConstants;
   setup.pesContactConstants = &*contactConstants;
   setup.pesEventRingTable = &*eventRingTable;
   setup.pesEventConstants = &*eventConstants;
