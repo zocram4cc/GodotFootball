@@ -58,7 +58,7 @@ So a bit-15 player is written into the **top** free ordinal entries (10 downward
 5. Remainder (L304–327): fill the rest from list `P+0x7D08` (count `P+0x7CDC`) downward.
 6. Ordinal 0: if the keeper is not yet in the mask, `SP[4] = local_158`.
 
-Kind meaning (INF): `kind 0` = keeper (local_158 is "the last slot with kind 0", L71–73, and step 6 writes it to ordinal 0). Other kinds are not named here (OPEN; the classes are `P+0x3FB8`, 22 ints).
+Kind meaning (INF): `kind 0` = keeper (local_158 is "the last slot with kind 0", L71–73, and step 6 writes it to ordinal 0). Kinds 1 = CB, 2 = FB per FC860's `{1,2}` test and the role-writer §5 class map; higher kinds are the same class map (P aliases S at init). _Corrected 19-10-26 from pes-re-role-writer.md §6: old "Other kinds are not named here (OPEN; the classes are P+0x3FB8, 22 ints)"._
 
 ### 1.4 Verdict
 
@@ -341,7 +341,7 @@ Side-0 HJ readout (`copy+0xA1` H, `copy+0x9C` J, as `block+0x31`, `block+0x2C`):
 
 1. Identity of COM-dword bit 24 (`+0x4C`, card 56) and bit 24 of `+0x5C` (card 184): the field behind source index 56 and 184 (source object at `normaliser+0x20`, not traced).
 2. Game-design reason for the Extra Frontman clear (§4.3).
-3. Kind classes `P+0x3FB8` beyond kind 0 = keeper (INF) and 1 (−100 penalty): names not decoded.
+3. Kind classes `P+0x3FB8` beyond kind 0 = keeper (INF) and 1 (−100 penalty): CLOSED 19-10-26 — the §5 class map (kind 1 = CB, 2 = FB per FC860's {1,2} test); P aliases S at init (role-writer §2, §5).
 4. `FUN_140A79640` sort direction (INF: descending).
 5. Output consumers of the F63C0 candidate list and the F7D00 return value.
 6. Who writes `P+0x3EF8` each tick in the live match (value 15 observed with `T.b8a2 = 0`; `FUN_142156E80` is the plan writer, INF).

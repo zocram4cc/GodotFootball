@@ -214,7 +214,7 @@ Check order matches asm (C-asm): T1 (opponent only) → AT → CT → record. Th
 ### 5.1 `0x140A62690` — side keeper slot
 - Body (C-asm): `0x140A48A30(G, side)` → side object; `0x140A62610(side, MI, obj)` → j; returns `side·11 + j` if j ≠ 0xFF, else 0xFF.
 - `0x140A62610` returns the first active slot j whose `obj+0x4C00[j] == 0`. The slot is the side's keeper iff `position category 0 = keeper`. Docs (`pes-re-defensive-shape.md` §474) mark this INF(med). **Confirmed as a selector; the category→keeper mapping is OPEN (O1).** _Note 19-10-26 (pes-re-community-qa.md §6 C8): auditor and class map agree that array-B 0 = GK family (dec FUN_140A62690/FUN_140A62610 + FUN_140A59F90 switch); keep OPEN until the live writer is checked — role-writer §6 closes O1 on static instead, see its note below._
-- Verdict: **the brief's guess is right in shape**: it is the side's keeper index under the category-0 rule.
+- Verdict: **the brief's guess is right in shape**: it is the side's keeper index under the category-0 rule. _Corrected 19-10-26 from pes-re-role-writer.md §6: CLOSE O1 — class 0 = GK by the dumped map (role-writer §5); selector returns first active B==0; post-swap caveat (B==0 sits at the swapped-in slot)._
 
 ### 5.2 `0x140A53DF0` — annulus-and-angle test (AT)
 - C-asm (full, 0x140A53DF0). Args: `(_, pred, P, θ, c, rOut, rIn)`.
@@ -397,7 +397,7 @@ Writer constants read this session: 60, 110, 130, 40, 100, 2, 10, 80, 120, 1, 90
 
 ## 10. Open items
 
-- **O1.** Keeper meaning: `T(side)+0x4C00[j] == 0` is the keeper. Selector confirmed; mapping to "GK" is INF(med) from docs §474. Live check needed. No PES process was running this session.
+- **O1.** Keeper meaning: CLOSED — `T(side)+0x4C00[j] == 0` is the keeper (class 0 = GK by the dumped writer map; live `T1+0x4C00[0]=0` matches). Post-swap caveat: B==0 sits at the swapped-in slot. _Corrected 19-10-26 from pes-re-role-writer.md §6: old "mapping INF(med), live check needed"._
 - **O2.** Velocity units: C-dec says per-frame (speed uses fps·3.6). Live sample not taken; docs still list it open.
 - **O3.** `atan2` core `0x140A92DC0` and sqrt import `0x1415A1780` (jump via `_DAT_1425301F0`) not decoded. A bit-exact port needs the PES atan polynomial. `std::atan2` is an approximation (must be labeled as such).
 - **O4.** `0x140458740` atan2 argument mapping (dropped by Ghidra): INF.
