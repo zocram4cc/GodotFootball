@@ -34,10 +34,11 @@ Spot GoalKickSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 Spot ThrowInSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 
 // The taker may release once this many frames have passed since the restart was armed. A
-// kick-off and goal kick are not timed (the receiver's ball test, or the keeper's reach): their gate is zero.
+// kick-off, throw-in and goal kick are not timed: the receiver's ball test or the taker's arrival decides them (their gate is
+// zero).
 int ReleaseFrames(e_SetPiece kind);
-// A goal kick is released when its keeper reaches the ball (A5 §4.7); takerArrived says whether he has. The timed
-// restarts ignore it.
+// A throw-in or a goal kick is released once its taker has arrived (`takerArrived`): PES releases both on the taker's reach
+// and kick action (docs/re/pes-re-A5Judge.md 9.3; A5 §4.7). Every other restart keeps its frame gate and ignores it.
 bool MayRelease(e_SetPiece kind, int framesSinceArmed, bool takerArrived);
 
 // A restart programme (decode 3.2): the stoppage beats in the order they run, from the whistle

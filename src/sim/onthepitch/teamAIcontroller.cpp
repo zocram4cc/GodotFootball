@@ -26,6 +26,7 @@
 #include "../data/playerskills.hpp"
 #include "../data/playingstyles.hpp"
 #include "pessetpieceteam.hpp"
+#include "pessequencer.hpp"
 #include "setpiecelaws.hpp"
 #include "simcontext.hpp"
 #include "../misc/hungarian.h"
@@ -1064,16 +1065,17 @@ void TeamAIController::ApplyOffsideTrap(Vector3& position) const {
   }
 }
 
-// PES's goal kick: the keeper runs to the ball and is released on reaching it (A5 §4.7; pessetpiecetaker.hpp).
-// The walk is pending from the placement until he is within the reach of the ball.
+// PES's set-piece takers walk to their spot before they take the restart (A5 §4.7; for a throw-in,
+// docs/re/pes-re-throwin-choreography.md 3.1). The walk is pending until the taker is within reach.
 bool TeamAIController::IsPieceTakerWalking(const Player* player) const {
   return pieceWalk && player == taker && !PieceTakerArrived();
 }
 
 bool TeamAIController::PieceTakerArrived() const {
   if (!pieceWalk || taker == nullptr) return true;
-  const float reach = match->GetPesSetPieceTakerConstants().takerReach_m;
-  return (pieceWalkTarget - taker->GetPosition()).Get2D().GetLength() < reach;
+  const Vector3 off = pieceWalkTarget - taker->GetPosition();
+  if (setPieceType == e_SetPiece_ThrowIn) return off.Get2D().GetLength() <= pes::kThrowInTakerArrival_m;
+  return off.Get2D().GetLength() < match->GetPesSetPieceTakerConstants().takerReach_m;
 }
 
 void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
@@ -1594,6 +1596,29 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
           break;
         }
       }
+    } else if (setPiece == e_SetPiece_ThrowIn && match->PesLoop()) {
+      // PES's seamless throw-in taker (FUN_14044e230, docs/re/pes-re-throwin-choreography.md 2.2):
+      // the team's ball-arrival order, the keeper test and the fps/3 bias.
+      // ponytail: PES's ceremony taker (FUN_1404a93a0, 2.1) is not ported, so every PES throw-in
+      // takes this rule. The order is GF's time-to-ball, not the AI's list (AIctx+0x2470c).
+      const std::vector<std::unique_ptr<Player>>& roster = team->GetAllPlayers();
+      const float fps = static_cast<float>(Match::kFramesPerSecond);
+      std::vector<pes::ArrivalRank> ranked;
+      for (unsigned int i = 0; i < roster.size(); i++) {
+        Player* player = roster.at(i).get();
+        if (!player->IsActive()) continue;
+        pes::ArrivalRank r;
+        r.slot = static_cast<int>(i);
+        r.keeper = RoleClassOfSlot(team->FormationSlotOf(player)) == 0;
+        r.arrivalFrames = player->GetTimeNeededToGetToBall_ms() * fps / 1000.0f;
+        ranked.push_back(r);
+      }
+      std::stable_sort(ranked.begin(), ranked.end(),
+                       [](const pes::ArrivalRank& a, const pes::ArrivalRank& b) {
+                         return a.arrivalFrames < b.arrivalFrames;
+                       });
+      const int pick = pes::SeamlessThrowInTaker(ranked, fps, spc);
+      taker = pick >= 0 ? roster.at(pick).get() : nullptr;
     } else {
       // A corner, a penalty or anything else without a sheet: the best
       // suitability, first on ties (FUN_140a621f0's shape).
@@ -1623,6 +1648,13 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       // followed.
       pieceWalk = true;
       pieceWalkTarget = ballPos;
+    } else if (setPiece == e_SetPiece_ThrowIn && match->PesLoop()) {
+      // PES's throw-in taker runs to his spot and is not placed on it (docs/re/pes-re-throwin-choreography.md
+      // 3.1). The spot is on his own side of the ball, so the walk never crosses the ball.
+      const Vector3 outward = ballPos.GetNormalized(Vector3(0, -team->GetSide(), 0));
+      const Vector3 side = (taker->GetPosition() - ballPos).Get2D().GetNormalized(outward * -1.0f);
+      pieceWalk = true;
+      pieceWalkTarget = ballPos + side * pes::kThrowInTakerStandOff_m;
     } else if (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_KickOff) {
       taker->ResetPosition(ballPos + ballPos.GetNormalized(Vector3(0, -team->GetSide(), 0)) * 0.3f,
                            ballPos);

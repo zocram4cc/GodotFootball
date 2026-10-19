@@ -38,10 +38,6 @@ inline constexpr float kLoftedReceiveHeight_m = 1.5f;
 // is a GF search limit, not a PES value.
 // ponytail: the PES predictor FUN_140731d80 (not in Ghidra) bounds the search itself.
 inline constexpr float kLoftedSearchTop_mps = 60.0f;
-// The keeper's run to the ball on PES's goal kick: the command's speed is this gain times the gap to the ball,
-// up to the sprint.
-// ponytail: PES's run speed (the MOVE speed class, cmd[0x17]) is not decoded; the sprint is the ceiling.
-inline constexpr float kGoalKickTakerApproachGain = 2.0f;
 
 // The touch's power that launches at `speed_mps`.
 float PowerForLaunchSpeed(float speed_mps);

@@ -104,10 +104,11 @@ public:
   // shootout needs its own rotation to take the kicks.
   void SetPieceTaker(Player* player) { taker = player; }
   e_SetPiece GetSetPieceType() { return setPieceType; }
-  // PES's goal kick: the keeper runs to the ball and is released on reaching it (A5 §4.7; pessetpiecetaker.hpp).
-  // The walk is pending from the placement until he is within the reach.
+  // PES's set-piece takers walk to their spot instead of being placed on it (A5 §4.7; for a throw-in,
+  // docs/re/pes-re-throwin-choreography.md 3.1); a walk is pending while the spot is set.
   bool IsPieceTakerWalking(const Player* player) const;
   Vector3 GetPieceWalkTarget() const { return pieceWalkTarget; }
+  // True when no walk is pending, or the walking taker stands within reach of his spot.
   bool PieceTakerArrived() const;
   void CalculateSituation();
 
@@ -194,6 +195,8 @@ protected:
   Match* match;
   Team* team;
   Player* taker;
+  bool pieceWalk = false;  // a throw-in taker is walking to pieceWalkTarget (PES path only)
+  Vector3 pieceWalkTarget;
   e_SetPiece setPieceType;
   // PES's goal kick: the keeper runs to the ball before he takes it. pieceWalk holds from the placement until he is
   // within the reach; pieceWalkTarget is the restart's ball spot.

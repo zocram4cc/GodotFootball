@@ -35,6 +35,7 @@
 #include "onthepitch/matchpressure.hpp"
 #include "onthepitch/peskeeper.hpp"
 #include "onthepitch/setpiecelaws.hpp"
+#include "onthepitch/pessetpieceteam.hpp"
 #include "onthepitch/penaltyshootoutcontroller.hpp"
 #include "onthepitch/teaminstructions.hpp"
 #include "strategies/offtheball/default_def.hpp"
@@ -155,15 +156,16 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       command.desiredDirection = player->GetDirectionVec();
     }
     command.desiredVelocityFloat = idleVelocity;
-    // PES's goal kick: the keeper runs to the ball before he takes it (A5 §4.7). He is not placed on it, so until
-    // he reaches it his command is the run to the ball.
+    // PES's set-piece takers run to their spot before they take the restart (A5 §4.7; for a throw-in,
+    // docs/re/pes-re-throwin-choreography.md 3.1). They are not placed on it, so until one arrives his command is the run
+    // to the spot.
     if (team->GetController()->IsPieceTakerWalking(CastPlayer())) {
       const Vector3 spot = team->GetController()->GetPieceWalkTarget();
       const Vector3 toSpot = (spot - player->GetPosition()).Get2D();
       command.desiredDirection = toSpot.GetNormalized(player->GetDirectionVec());
       // ponytail: PES's run speed (the MOVE speed class, cmd[0x17]) is not decoded; the sprint is the ceiling, and
-      // the approach closes on the ball in proportion to the gap.
-      const float approach = pes::kGoalKickTakerApproachGain * toSpot.GetLength();
+      // the approach closes on the spot in proportion to the gap.
+      const float approach = pes::kPieceTakerApproachGain * toSpot.GetLength();
       command.desiredVelocityFloat = approach < sprintVelocity ? approach : sprintVelocity;
       command.useDesiredLookAt = true;
       command.desiredLookAt = match->GetBall()->Predict(0).Get2D();

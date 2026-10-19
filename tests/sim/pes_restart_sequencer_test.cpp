@@ -119,11 +119,18 @@ TEST(PesRestartSequencer, EachRestartIsReleasedOnItsMeasuredFrame) {
   EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 100000, false)) << "a goal kick has no clock";
   EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 0, false)) << "a keeper who has not reached the ball waits";
   EXPECT_TRUE(pes::MayRelease(e_SetPiece_GoalKick, 0, true));
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_ThrowIn, 117, false));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_ThrowIn, 118, false));
   EXPECT_FALSE(pes::MayRelease(e_SetPiece_Penalty, 53, false));
   EXPECT_TRUE(pes::MayRelease(e_SetPiece_Penalty, 54, false));
   EXPECT_TRUE(pes::MayRelease(e_SetPiece_KickOff, 0, false));
+}
+
+// A throw-in has no frame count: its taker's arrival releases it, however long he took. A timer
+// would release him before he arrives, and PES releases on the taker's reach and kick action
+// (docs/re/pes-re-A5Judge.md 9.3).
+TEST(PesRestartSequencer, AThrowInIsReleasedOnItsTakersArrivalAndNotBefore) {
+  constexpr int kLongAfterArming = 10000;  // far past any frame count a timer could hold
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_ThrowIn, kLongAfterArming, false));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_ThrowIn, 0, true));
 }
 
 // The programme runs the whole stoppage bracket for a corner: the hold, the wipe that

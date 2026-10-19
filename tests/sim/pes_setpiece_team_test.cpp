@@ -466,3 +466,37 @@ TEST(SetPieceTeamConstants, ReadFromTheExe) {
     GTEST_SKIP() << "PES21_ROOT not set: the constants are read from the install's exe";
   }
 }
+
+// The seamless throw-in taker (FUN_14044e230, docs/re/pes-re-throwin-choreography.md 2.2,
+// EV-TI-0006). The ranks are the AI's ball-arrival order, which is not sorted by arrival.
+namespace {
+constexpr float kFps = 54.0f;  // the logic rate every frame count below is in
+}  // namespace
+
+TEST(SeamlessThrowInTaker, TheFastestOfTheFirstFourRanksTakesIt) {
+  // Rank 2 (slot 7) arrives 30 frames before rank 0. Rank 4 (slot 1) is faster still, but it is
+  // not among the first four and cannot take it.
+  const std::vector<pes::ArrivalRank> ranked{{3, false, 40.0f},
+                                             {5, false, 35.0f},
+                                             {7, false, 10.0f},
+                                             {9, false, 25.0f},
+                                             {1, false, 2.0f}};
+  EXPECT_EQ(pes::SeamlessThrowInTaker(ranked, kFps, pes::SetPieceTeamCounts()), 7);
+}
+
+TEST(SeamlessThrowInTaker, ALaterRankMustBeatTheBiasToTakeIt) {
+  // The bias is fps / 3 frames. A rank that arrives within the bias of the candidate keeps him.
+  const float bias = kFps / static_cast<float>(pes::SetPieceTeamCounts().seamlessBiasDivisor);
+  const std::vector<pes::ArrivalRank> held{
+      {3, false, 30.0f}, {5, false, 60.0f}, {7, false, 30.0f - bias + 1.0f}};
+  EXPECT_EQ(pes::SeamlessThrowInTaker(held, kFps, pes::SetPieceTeamCounts()), 3);
+  const std::vector<pes::ArrivalRank> beaten{
+      {3, false, 30.0f}, {5, false, 60.0f}, {7, false, 30.0f - bias - 1.0f}};
+  EXPECT_EQ(pes::SeamlessThrowInTaker(beaten, kFps, pes::SetPieceTeamCounts()), 7);
+}
+
+TEST(SeamlessThrowInTaker, AKeeperAtRankZeroGivesWayToRankOne) {
+  const std::vector<pes::ArrivalRank> ranked{
+      {3, true, 5.0f}, {5, false, 35.0f}, {7, false, 40.0f}};
+  EXPECT_EQ(pes::SeamlessThrowInTaker(ranked, kFps, pes::SetPieceTeamCounts()), 5);
+}
