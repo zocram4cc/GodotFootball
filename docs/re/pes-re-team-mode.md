@@ -1,6 +1,7 @@
 # Team mode (G4 operand), K+0x6E (DHB) and T+0x87CD (2-CF gate): writers and live values (S1Watch, run 3, 19-10-26)
 
 > **Main audit 19-10-26 (rev 3):** round-4 constants re-read by script: `0x14253EE30`=100.0, `0x142588210`=10.0, `0x142591140`=30.0, `0x14259A764`=60.0. K+0x6E: `0x14063AA5E` stores r13b which is always 0 (`xor r13d,r13d` at `0x14063A61C`); the flag is SET by `movb [rdi+0x6e],1` at `0x14063AA91` and `0x14063AB06` (both confirmed). Round 3's "flag store = 0x14063AA5E" reading is superseded. B3C byte store `0x141193DEA` `mov [rcx+0xb3c],al` confirmed. Porting note: the G4 clock gate reads the period at `MI+0x1168`; a port reads GF's own match period, and MI+0x1168 is never pinned.
+> **Main audit 19-10-26 (rev 4):** R4 zone init immediates in `FUN_140699610` re-read: `0x14069961C` +0x170=-1.0, `0x14069962F` +0x178=3, `0x140699639` +0x17C=3, `0x14069964C` +0x180=11.0, `0x140699660` +0x188=18.0, `0x14069966A` +0x18C=24.0, `0x140699674` +0x190=16.0, `0x14069967E` +0x194=22.0: all match. B3C/B58 are R4 zone fields (Z=bp+0xAB8: +0x170/+0x18C). Open: case-A closed form of +0x170/+0x174.
 
 Read-only. Live reads via `/proc/<pid>/mem` (`sudo -n`), `perf` execute and write watches on the JobGraph worker threads (no stop, no pin, no write), `perf` CPU sampling. No PES memory written. No GF edits. Scratch: `<workdrive>/gf-S1Watch-scratch/` (`modelog.py`, `gatelog.py`, `kwatch.data`, `entry.data`, `dec_1421197B0.c`, `dec_142110D30.c`, `dec_142128C10.c`, `dec_142128C10.c`, `dec_63A490.c`, `dec_1405F9CD0.c`, `dec_142110D30.c`, `dis_63A400.txt`, `scan32b0.py`, `scanA.py`).
 
@@ -207,3 +208,77 @@ The class array read by `FUN_1405F9CD0` is `*(this+0x128)` (11 ints, one per slo
 4. K+0x44 writers (lines 169/180/187/218/232 of `dec_63A490.c`) and `FUN_14124DAD0`'s `P+0x70` object.
 5. The copier gate's caller and `*(bp+0xC8)`.
 6. The class array pointer `this+0x128` (which array, A or B).
+
+## 8. Round 5: R4 zone fields (bp+0xAB8) and B3C/B58 (supersedes §7.1, §7.4 where they differ)
+
+Zone `Z = p = imageA+0x9CC = bp+0xAB8`. Field offsets used by the updater and the writer map to imageA as: `0x170 = imageA+0xB3C` (**B3C**), `0x18C = imageA+0xB58` (**B58**). Sources: decompile of `FUN_140698D10` (R4, 305 lines), `FUN_140699610` (zone init, 2 lines of logic), `FUN_140698950` (zone membership test), asm `0x140698D10..0x140699040` and `0x140699610..0x140699680`.
+
+### 8.1 Init (`FUN_140699610`, VA `0x140699610`, called at the start of R4)
+
+Immediates (operand instruction VA; value from the immediate, script-checked against `pes_full.bin` bits):
+
+| field | instruction VA | immediate | value |
+|---|---|---|---|
+| `+0x170` | `0x14069961C movl $0xBF800000,0x170(%rcx)` | `0xBF800000` | −1.0 (sentinel) |
+| `+0x174` | `0x140699629 mov %eax,0x174(%rcx)` | `eax = 0` | 0.0 |
+| `+0x178` | `0x14069962F movl $3,0x178(%rcx)` | `3` | class 3 (no class) |
+| `+0x17C` | `0x140699639 movl $3,0x17C(%rcx)` | `3` | result 3 |
+| `+0x16C` | `0x140699646 mov %eax,0x16C(%rcx)` | `eax = 0` | bitmask 0 |
+| `+0x180` | `0x14069964C movl $0x41300000,0x180(%rcx)` | `0x41300000` | 11.0 (zone-0 outer radius) |
+| `+0x184` | `0x140699656 movl $0x41400000,0x184(%rcx)` | `0x41400000` | 12.0 |
+| `+0x188` | `0x140699660 movl $0x41900000,0x188(%rcx)` | `0x41900000` | 18.0 (base of `0x188`) |
+| `+0x18C` | `0x14069966A movl $0x41C00000,0x18C(%rcx)` | `0x41C00000` | **24.0 = B58 base** |
+| `+0x190` | `0x140699674 movl $0x41800000,0x190(%rcx)` | `0x41800000` | 16.0 (threshold, class ≠ 0) |
+| `+0x194` | `0x14069967E movl $0x41B00000,0x194(%rcx)` | `0x41B00000` | 22.0 (threshold, class ≠ 0) |
+| `+0x198` | (after `0x140699680`) | `0x41700000` | 15.0 (class-0 band lower) |
+| `+0x19C` | (after `0x140699680`) | `0x42200000` | 40.0 (class-3 band upper) |
+
+Then `FUN_140698910` on each of the 13 sub-zones (`p + 0x1C·k`, k = 0..12) (not read).
+
+### 8.2 R4 accumulators (asm, CONFIRMED)
+
+- `0x140698E43 addss 0x188(%rbx)` / `0x140698E4B movss %xmm0,0x188(%rbx)`: `0x188 += ramp(b)·3.0`, with `ramp(b) = 0` if `b ≤ 70`, `(b−70)/29` if `70 < b < 99`, `1` if `b ≥ 99`. Constants: `70.0` = `0x14259BE4C`, `99.0` = `0x1425C48CC`, `29.0` = `0x1425A9460`, `1.0` = `0x14256AE1C`, `3.0` = `0x14258C264`. `b = byte(R+0x8A)`, `R = player record` (`FUN_140A489F0(G, bp+0x1C)`, table `G+0x25F8+0x28·i`, CONFIRMED from the accessor's `(i+0xF3)·0x28`).
+- `0x140698E62 addss 0x18c(%rbx)` / `0x140698E6A movss %xmm0,0x18c(%rbx)`: `0x18C += (float)iVar10 · 3.0`, with `iVar10 = 1` iff `(q(R+0xB0) >> 39) & 1` or `(q(R+0xB0) >> 33) & 1` or `(u32(R+0xB0) >> 8) & 1`. So **B58 = 24.0 + 3.0·iVar10 ∈ {24.0, 27.0}**.
+- Live: `B58 = 24.0` in every in-play sample with `bp+0x10 ≠ 0` (4,403 samples; flag 0). `0x188 = 18.0` in every sample (ramp 0; `b < 70`).
+
+### 8.3 Zone fields (R4 writes, asm VAs)
+
+| field | writes (asm VA) | rule |
+|---|---|---|
+| `+0x16C` (bitmask) | loop `0x14069…` `or` into `0x16C` (`dec` lines 293–298) | bit k = `FUN_140698950(p+0x1C·k, K+0x40)`, k = 0..12. **bit 0 = zone 0**: type 2 (`*p = 2`, from `FUN_140698B80(p, a8, dir, 180.0, 11.0, 0)`, asm `0x140698B80`). Centre `c = (X_g, 0)`, `X_g = sign·52.56` (`0x14259…`, the `G+0x2AA8` pitch point `x`, flipped if `sign ≠ +1`). Inner radius 0; outer radius 11.0 (`0x180`). Half-angle `0.5·180 = 90°`. Direction `dir = fold360(heading + 180)` where `heading = f32(bp+0x2C)` (`FUN_140470D60(bp+0x2C, out, 180.0)`). **Member iff `|K.xz − c|² ≤ 121` AND `|wrap180(bearing(c→K) − dir)| ≤ 90`**, with `bearing(c→K) = fold360(deg(atan2(K.x−c.x, K.z−c.z)))`. |
+| `+0x170` (f32) | `0x140698EE9 movss %xmm0,0x170(%rbx)` (case A) and `0x140698F22` (case B) | **case A** (`pitch.z < |K.z|`, i.e. `3.66 < |K.z|`): `0x170 = |K − P|` (3D, `FUN_140A8F820` + `sqrt` import), `P = (X_g, 0, sgn(K.z)·3.66)`. **case B** (else): `0x170 = 52.56 − sign·K.x` (exact: live lag-0 error ≤ 0.03). |
+| `+0x174` (f32) | `0x140698F55 movss %xmm2,0x174(%rbx)` (case A), `0x140698EC3`/`0x14069…` (case B: 0) | case A: `0x174 = wrap180(bearing(K→P) − fold360(heading))` (`FUN_14043A020`). Case B: 0. Live case B: 0 exact. Case A: approximate (see 8.4). |
+| `+0x178` (i32) | `0x140698F72 mov %edi,0x178(%rbx)` and `movl $1/2/3` at `0x140698F8C/F98/FA4/FBF` | case A: `|0x174| ≤ 15 → 0`; `15 < |0x174| ≤ 40 → (0x174 > 0 ? 1 : 2)`; `|0x174| > 40 → 3` (constants `0x198 = 15.0`, `0x19C = 40.0`). Case B and sign·K.x < 0: 3. |
+| `+0x17C` (i32) | `0x140698FBF..0x140698FC9`, `0x140698FF2`, `0x140699011`, `0x14069902B` | if `sign·K.x < 0`: 3. Else, if `0x178 == 0`: `0 if 0x170 ≤ 0x188`, else `2 if 0x18C < 0x170`, else 1. If `0x178 ≠ 0`: `0 if 0x170 ≤ 0x190 (16.0)`, else `2 if 0x194 < 0x170`, else 1. Live: 100% match on every event with `bp+0x10 ≠ 0` (164 lag-0 events; 9,992 case-A rows, all with the field fresh). |
+
+**IsClose (`FUN_140699820`) = `[sign·K.x ≥ 0] ∧ [0 ≤ 0x170 ≤ T1] ∧ ( bit0 ∨ (0x178 < 3 ∧ 0x17C < 3) )`**, with `T1 = 0x188` (if `0x178 == 0`) or `16.0` (if `0x178 ≠ 0`). On the `sign·K.x ≥ 0` branch, `0x178 < 3` holds exactly when case A holds and `|0x174| ≤ 40`; `0x17C < 3` always holds there. So the second disjunct is "case A with `|0x174| ≤ 40`", not "case A" alone.
+
+### 8.4 Live status
+
+- Window: `bp+0x10 ≠ 0` AND `MI+0x116C == 1` AND ball non-zero (`r4run.py`, `r4lag.py`, `r4lagA.py`, `r4split.py`).
+- Case B (`3.66 ≥ |K.z|`): `0x170 = 52.56 − sign·K.x` at lag 0 for 164 events (errors ≤ 0.03 m); `0x174 = 0`; `0x178 = 3`; `0x17C` matches the rule 100%. **Exact.**
+- Case A (`3.66 < |K.z|`): `0x170` is **not** `|K − (X_g, 0, sgn(K.z)·3.66)|`. Tested with lag 0..400 samples (`r4lagA.py`): no lag gives an exact match, and the error is ~11 m. Tested the candidate points `(±52.56, ±3.66)`, `(±36.14, ±3.66)` (`F[6]`), `(pf0−16.42, …)`, 2D and 3D, and the goal centre: all ~10 m median error (`r4cand.py`, 6 events). A least-squares fit of a fixed point to 80 case-A events (`r4fit.py`) gives `P ≈ (36.68, −3.70)` (3D) with RMS **0.34 m**, not zero. Conclusion: case A's distance uses a point near `(≈36.7, ≈−3.7)` (≈ `F[6]`, the penalty line) rather than the goal-line post; the exact closed form is **OPEN**. Case A's `0x174` and `0x178` are consistent with the same point only approximately.
+- `0x16C` bit 0 was **0 in every sample**: the ball was never inside zone 0 in the sampled windows. The bit-0 rule is decoded but **not verified positive live**.
+- `0x188` and `0x18C` (live 18.0 and 24.0): consistent with 8.2.
+
+### 8.5 B3C (`bp+0xC28` = zone `+0x170`): type and writers (CONFIRMED)
+
+- **Type = float.** R4 stores `0x170` as 4 bytes (`0x140698EE9 movss`, `0x140698F22 movss`); the updater (`0x142119931 comiss 0xb3c(%rbx)`) and the writer (`*(float*)(param_5+0xB3C)`) read 4 bytes at imageA+0xB3C = zone+0x170. The read is at the **same** offset as the R4 store: no offset mismatch.
+- **One non-R4 writer: `FUN_141193DC0(dst, rec16)`** (VA `0x141193DC0`, 15 lines; asm: `0x141193DC0 movups (%rdx),%xmm0`, `0x141193DC3 movb $1,0xB38(dst)`, `0x141193DD1 movss rec[4] → 0xB40(dst)`, **`0x141193DEA mov %al,0xB3C(dst)` (byte: low byte of rec[0])**, `0x141193DF5 mov %al,0xB44(dst)`, `0x141193DFD movss rec[12] → 0xB48(dst)`). So the setter writes zone `+0x174` (f32), `+0x17C` (i32) and the low bytes of `+0x170` and `+0x178`, plus a flag at `+0xB38` (= zone−0x34). It is a **record injection**, not a float store of 0x170. If `dst` is imageA, R4 rewrites 0x170/0x174/0x178/0x17C on the next updater call before the writer reads them.
+- **Caller chain:** `FUN_141159840(obj, rec)` (wrapper: `dst = *(*(obj+0x98)+0x48)`, guarded by `*(*(obj+0x98)+0x38) != 0`; call `0x141159884`). Its only caller is `0x14115CD08` inside `FUN_14115C830` (257 lines). That function builds `rec` = `{byte 1, f32 *(param_2+0x18) (as float), byte 1, f32 dVar2}` (`cc.c` lines 152–159) when `cVar3 = *(param_1+0xC0) ≠ 0` and `dVar2 ≤ *(param_2+0x18)` (time test), in the branch selected by `FUN_1411AC0C0(local_170) == 4`. Its strings ("property_mode_input_type", "<PES build path>") mark it as an input/property-mode handler. **dst's identity (imageA or another object) is OPEN**; rec[0] = 1 would make 0x170's low byte 1 (an injected ~0 distance), so this path, if it reaches imageA, forces IsClose's distance test in that tick.
+
+### 8.6 B58 (`bp+0xC44` = zone `+0x18C`): writers (CONFIRMED)
+
+- `FUN_140699610` writes `0x41C00000` (24.0) at `0x14069966A` on every R4 call (zone reset).
+- `FUN_140698D10` adds `iVar10 · 3.0` at `0x140698E62/6A` (flag from the carrier's `+0xB0` bits, §8.2).
+- The resets `FUN_141183710` (`0xB58` zeroed), `FUN_1411825E0`, `FUN_141180540` zero the whole block; they are allocation/reset paths (`FUN_1411FC230` allocator, size `0x29B8`). Those zeros are overwritten by R4 on its next call.
+- So **B58 has no independent writer: it is R4's init constant plus the carrier-flag term.**
+
+### 8.7 Open
+
+1. Case-A `0x170` closed form (point and metric; §8.4).
+2. Case-A `0x174` closed form (same point).
+3. Member test of zone 0 (bit 0) live-positive sample (ball inside 11 m of `(±52.56, 0)` in the half-plane).
+4. `dst` in `FUN_141193DC0` (imageA or other), and the `FUN_1411AC0C0 == 4` state of `FUN_14115C830`.
+5. Carrier flag `iVar10` (player `+0xB0` bits 39/33/8): live 0 only.
+6. Sub-zones 1..12 (bits 1..12 of `0x16C`) are unused by IsClose and not decoded.
