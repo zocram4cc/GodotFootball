@@ -2,6 +2,7 @@
 
 > **Main audit 19-10-26 (rev 3):** round-4 constants re-read by script: `0x14253EE30`=100.0, `0x142588210`=10.0, `0x142591140`=30.0, `0x14259A764`=60.0. K+0x6E: `0x14063AA5E` stores r13b which is always 0 (`xor r13d,r13d` at `0x14063A61C`); the flag is SET by `movb [rdi+0x6e],1` at `0x14063AA91` and `0x14063AB06` (both confirmed). Round 3's "flag store = 0x14063AA5E" reading is superseded. B3C byte store `0x141193DEA` `mov [rcx+0xb3c],al` confirmed. Porting note: the G4 clock gate reads the period at `MI+0x1168`; a port reads GF's own match period, and MI+0x1168 is never pinned.
 > **Main audit 19-10-26 (rev 4):** R4 zone init immediates in `FUN_140699610` re-read: `0x14069961C` +0x170=-1.0, `0x14069962F` +0x178=3, `0x140699639` +0x17C=3, `0x14069964C` +0x180=11.0, `0x140699660` +0x188=18.0, `0x14069966A` +0x18C=24.0, `0x140699674` +0x190=16.0, `0x14069967E` +0x194=22.0: all match. B3C/B58 are R4 zone fields (Z=bp+0xAB8: +0x170/+0x18C). Open: case-A closed form of +0x170/+0x174.
+> **Main audit 19-10-26 (rev 5):** case-A asm re-read: `0x140698E78` movss xmm2,[rsi] (X=pf[0]), `0x140698EA9` movss xmm4,[rsi+8] (pf[2]), `0x140698EBE/C1` comiss+jb to `0x140698EF6`, `0x140698EC3` 8-byte zero at +0x174, `0x140698EE1` andps (abs), `0x140698F22` store +0x170; `0x14256AE1C`=+1.0, `0x142588218`=-1.0. All match. Case A closed form confirmed: |K - (X, 0, sgn(K.z)*3.66)| on the in-tick copy K+0x40.
 
 Read-only. Live reads via `/proc/<pid>/mem` (`sudo -n`), `perf` execute and write watches on the JobGraph worker threads (no stop, no pin, no write), `perf` CPU sampling. No PES memory written. No GF edits. Scratch: `<workdrive>/gf-S1Watch-scratch/` (`modelog.py`, `gatelog.py`, `kwatch.data`, `entry.data`, `dec_1421197B0.c`, `dec_142110D30.c`, `dec_142128C10.c`, `dec_142128C10.c`, `dec_63A490.c`, `dec_1405F9CD0.c`, `dec_142110D30.c`, `dis_63A400.txt`, `scan32b0.py`, `scanA.py`).
 
@@ -282,3 +283,62 @@ Then `FUN_140698910` on each of the 13 sub-zones (`p + 0x1C·k`, k = 0..12) (not
 4. `dst` in `FUN_141193DC0` (imageA or other), and the `FUN_1411AC0C0 == 4` state of `FUN_14115C830`.
 5. Carrier flag `iVar10` (player `+0xB0` bits 39/33/8): live 0 only.
 6. Sub-zones 1..12 (bits 1..12 of `0x16C`) are unused by IsClose and not decoded.
+
+## 9. Round 6: closed form of zone +0x170 / +0x174 / +0x178 (supersedes §8.3 rows for 0x170, 0x174, 0x178 and the IsClose line)
+
+### 9.1 Which ball and which table (CONFIRMED)
+
+The writer passes **K+0x40** (ctx4 ball copy, `bp+0xB8`) as R4's `param_4`. My earlier live checks used `*(G+0x40)`, the ball object, which is a different value. That mismatch produced the "fit point (36.7, −3.7)" and the "no closed form" conclusion in §8.4. It was a wrong source, not a wrong formula.
+
+The point table is `pf = *(G+0x2AA8)` (pitch marks): `pf[0] = 52.56`, `pf[1] = 34.06`, `pf[2] = 3.66`. Case A uses `pf[0]` (X) and `pf[2]` (Z) only. It does **not** use `F[6]` (the penalty line, `pf+0x18` = 36.14) and does **not** add any post radius.
+
+### 9.2 Case-A asm (`FUN_140698D10`, VA 0x140698D10; instruction VAs, operand pairs)
+
+| step | VA | instruction | operand (value) |
+|---|---|---|---|
+| X base | `0x140698E78` | `movss (%rsi),%xmm2` | `rsi = pf`, `pf[0]` = 52.56 |
+| X sign | `0x140698E80`/`E84` | `cmp $1,%al; je; xorps %xmm11,%xmm2` | `xmm11` = `0x1425656D0` (−0.0, loaded `0x140698E3A`); flips X when sign ≠ +1 |
+| K.z | `0x140698E88` | `movss 0x8(%r12),%xmm3` | `r12 = K+0x40`, `K.z` |
+| \|K.z\| | `0x140698EA1..EB2` | `cvtps2pd`, `andps %xmm10` | `xmm10` = `0x142565D30` (u64 `0x7FFFFFFFFFFFFFFF`) |
+| pf[2] | `0x140698EA9` | `movss 0x8(%rsi),%xmm4` | 3.66 |
+| case test | `0x140698EBE/EC1` | `comiss %xmm1,%xmm4; jb 0x140698EF6` | case A iff `pf[2] < |K.z|` |
+| sign of K.z | `0x140698EF6..F01` | `comiss %xmm3,%xmm7; jbe; movaps %xmm9→xmm0` / `%xmm8→xmm0` | `xmm7` = 0.0 (`xorps` at `0x140698DEE`); `xmm9` = `0x14256AE1C` = +1.0 (`0x140698DF1`); `xmm8` = `0x142588218` = −1.0 (`0x140698E98`) |
+| Z = sgn(K.z)·pf[2] | `0x140698F05` | `mulss %xmm4,%xmm0` | `xmm0` = Z |
+| P | `0x140698F09..F18` | stores `(X, 0, Z)` to stack; `edi` = 0 (y) | `P = (X_g, 0, sgn(K.z)·3.66)` |
+| 0x170 | `0x140698F1D` `call 0xA8F820`; `0x140698F22 movss %xmm0,0x170(%rbx)` | `FUN_140A8F820(K, P)` = 3D distance (sqrt) | `0x170 = |K − P|` |
+| bearing K→P | `0x140698F3B` `call 0x474C40` | `FUN_14046F260(res, K.x, K.z, P.x, P.z)` | atan2 in degrees, folded to [0,360) |
+| heading | `0x140698F2E` `movss 0x10(%r14),%xmm6` | `r14 = bp+0x1C`, `+0x10` = `bp+0x2C` | heading |
+| 0x174 | `0x140698F46` `call 0x43A020`; `0x140698F55 movss %xmm2,0x174(%rbx)` | `FUN_14043A020(heading, bearing)` = wrap180(bearing − fold360(heading)) | `0x174` |
+| 0x178 | `0x140698F65` `movss 0x198(%rbx),%xmm1` (15.0); `0x140698F7A` `movss 0x19C(%rbx),%xmm0` (40.0) | `|0x174| ≤ 15 → 0` (`0x140698F72 mov %edi,0x178`); `15 < |0x174| ≤ 40 → (0x174 ≤ 0 ? 2 : 1)` (`movl $2/$1` at `0x140698F98`/`0x140698F8C`); `|0x174| > 40 → 3` (`0x140698FA4`) | |
+
+Live (`r6b.py`, 400 case-A zone changes, ball copy K+0x40): **0x170 median error 1.6e-6** (p90 3e-6); **0x178 and 0x17C 400/400 match**; **0x174 median 0.02°** (max 16.9 in one outlier; the residual is the arctangent of `FUN_140A92DC0`, not decoded). The earlier "fit (36.68, −3.70)" was an artefact of the wrong ball source.
+
+### 9.3 Case-B asm (fall-through of the same branch; CONFIRMED)
+
+| VA | instruction | effect |
+|---|---|---|
+| `0x140698EC3` | `mov %rdi,0x174(%rbx)` | **8-byte zero of `+0x174..+0x17B`** (`rdi = 0`), so `+0x174 = 0` **and `+0x178 = 0`** |
+| `0x140698ECA..EDA` | `movss (%rsi),%xmm0` (pf[0]); `movss (%r12),%xmm1` (K.x); `mulss 0x14(%r14),%xmm1` (`r14+0x14` = sign); `subss %xmm1,%xmm0` | `pf[0] − sign·K.x` |
+| `0x140698EE1` | `andps %xmm10,%xmm1` | **absolute value** |
+| `0x140698EE9` | `movss %xmm0,0x170(%rbx)` | `+0x170 = |52.56 − sign·K.x|` |
+
+So case B gives `+0x170 = |pf[0] − sign·K.x|` (**absolute value**; §8.3 omitted the abs). Live: `+0x170 = 52.56 − sign·K.x` exact for every sampled case B with sign·K.x ≥ 0 (lag 0, error 0). `+0x178 = 0` in case B when `sign·K.x ≥ 0` (INF from the 8-byte zero store; the live case-B rows sampled had `sign·K.x < 0`, where `+0x178 = 3`, as the asm sets at `0x140698FBF`).
+
+### 9.4 IsClose, corrected (supersedes §8.3 IsClose line)
+
+- `+0x170 ≥ 0` always (both cases take a distance or an absolute value), so the test `0 ≤ 0x170` is redundant.
+- On `sign·K.x < 0`: `+0x17C = 3` (`0x140698FBF..FC9`), so IsClose = 0.
+- On `sign·K.x ≥ 0`: `+0x17C = 0` iff `0x170 ≤ T1`, where `T1 = 0x188` (`+0x178 == 0`) or `16.0` (`+0x178 ≠ 0`); `+0x17C ∈ {1,2}` otherwise.
+- **IsClose = [sign·K.x ≥ 0] ∧ [0x170 ≤ T1] ∧ ( bit0 ∨ `+0x178 < 3` )**, where `bit0` is `0x16C & 1` (zone 0, §8.3) and `+0x178 < 3` holds for case B (0), case A with `|0x174| ≤ 40`.
+- Consequence: **case B (ball inside the goal mouth band, `3.66 ≥ |K.z|`) with `sign·K.x ≥ 0` is IsClose-true whenever `0x170 ≤ 0x188`**, not only through bit 0. This is the one point where the round-5 line (case A only) was wrong.
+
+### 9.5 Verdict on Main's points
+
+1. X = `pf[0]` = 52.56 (goal line) from the pitch table at `*(G+0x2AA8)`, sign-flipped; no F[6] and no post radius. Z = `sgn(K.z)·pf[2]` = ±3.66 (no radius). The 36.7 fit was wrong.
+2. Live test on case-A events with the copy K+0x40: exact (§9.2).
+
+### 9.6 Open
+
+1. Live positive check of case B with `sign·K.x ≥ 0` (`+0x178 == 0`, IsClose through `+0x178 < 3`). None in the sampled windows.
+2. The `FUN_140A92DC0` arctangent (source of the 0.02° residual in 0x174).
+3. The live zone-0 positive sample (bit 0).
