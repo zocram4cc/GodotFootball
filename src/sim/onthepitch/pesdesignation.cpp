@@ -1,7 +1,5 @@
 #include "onthepitch/pesdesignation.hpp"
 
-#include <algorithm>
-
 #include "pes/exe.hpp"
 
 namespace pes::designation {
@@ -71,6 +69,20 @@ struct BufferEntry {
   float key;
 };
 
+// Ascending by key and stable: an entry moves left only while it is strictly below its
+// predecessor, the insertion base FUN_140A79050 runs (raw 0x140A790A6 JBE, 0x140A790F5 JA).
+void SortByKey(std::array<BufferEntry, kBufferSlots>* sorted) {
+  for (int i = 1; i < kBufferSlots; ++i) {
+    const BufferEntry current = (*sorted)[i];
+    int j = i;
+    while (j > 0 && current.key < (*sorted)[j - 1].key) {
+      (*sorted)[j] = (*sorted)[j - 1];
+      --j;
+    }
+    (*sorted)[j] = current;
+  }
+}
+
 }  // namespace
 
 DesignationRecord Publish(int side, const std::array<int, kSideSlots>& classB,
@@ -88,8 +100,7 @@ DesignationRecord Publish(int side, const std::array<int, kSideSlots>& classB,
       const int id = buckets.slot[bucket][k];
       sorted[side * kSideSlots + k] = BufferEntry{id, lateral[id % kSideSlots]};
     }
-    std::stable_sort(sorted.begin(), sorted.end(),
-                     [](const BufferEntry& a, const BufferEntry& b) { return a.key < b.key; });
+    SortByKey(&sorted);
     for (int k = 0; k < members; ++k) {
       const int rank = order[kOrderRowStride * members + k];
       record.slot[record.count++] = sorted[side * kSideSlots + rank].slot;
