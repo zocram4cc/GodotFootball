@@ -1,5 +1,7 @@
 # A4Level: the one-touch team level (G3) and the attack-heading convention
 
+> **Main audit 19-10-26 (run 2, `4126007`):** `0x140698EDA` subss, `0x140698EE9` store +0x170, `0x140698F1D` call 0x140A8F820, `0x1421199B8` xor edi,edi, `0x142119CB6` ja: match. Citation slips: `0x14212AF86` is the `call 0x142128C10` (the `mov rcx,rdi` precedes it); `0x142119929` is `addss xmm0,[0x142588210]` (10.0, the B3C<=B58+10 arm), not the K+0x40 read. OneTwo now dies at G11 (plan heading stand-in) and G12.
+
 Branch `A4Level` from `origin/A4LaneInputs` `b36a845`. Worktree `<workdrive>/gf-A4Level`.
 Commits (pushed): `e296f1b` (level + attack-heading convention), `a1882b9` (the aim-vs-facing frame).
 Files: `pescarrier.{hpp,cpp}`, `elizacontroller.cpp` (carrier path), `tests/sim/pes_carrier_test.cpp`.
@@ -151,27 +153,98 @@ Fix: one helper, `pes::AttackAngleDeg(attackSign)` = the PES bearing of the atta
 (`PesBearingDeg(0, 0, sign, 0)`), used by every attack-heading consumer, and the facing/velocity/pass
 sites expressed through the existing `PesBearingDeg`. No magic 90/270, one convention.
 
-## 3. Open items
+## 3. G4's team mode (run 2): the carrier's Intention, wired to the one-touch gate
+
+`0x141052E30(p) = *(u32*)(p+8)`, and the object is **`bp+0x32B0`, the BallPlayer record's image
+state**, not a team-AI field (S1Watch round 3, `docs/re/pes-re-team-mode.md` §1; the reader is called
+with `param_1+0x32B0` by the driver `FUN_14210F110`). The one-touch predicate `0x142128C10` reads the
+same object: its `param_1[6]` is the caller's `RDI`, and the OneTwo caller passes `MOV RCX,RDI` at
+`0x14212AF86` with `RDI = R8` at the entry (`0x14212AEBF`), the carrier's own snapshot (its `+0x10`
+is `C[4]`, lane-core §7). CONFIRMED raw this run.
+
+The writer `FUN_1421197B0` is **already ported** as `pes::NextIntention` (`pescarrier.cpp`), from the
+same decode (report 5 / Dribble inventory §2): 4 absorbing, the shoot-zone angle test, 3, 2, then the
+corridor block. Verified against the raw asm this run (`0x142119862..0x142119CD2`): the stores are
+`MOV EDI,0x4` (0x142119868, 0x1421198FC), `0x3` (0x14211993A), `0x2` (0x142119956, 0x142119AD9),
+`0x1` (0x142119CB8), and **0** — `XOR EDI,EDI` at `0x1421199B8` survives to the store at
+`0x142119CD2` when the corridor's own gate fails (`JA 0x142119CBD` at `0x142119CB6` skips the `MOV
+EDI,0x1`). So the writer *can* store 0; the existing port's `corridorState1 ? 1 : 0` is correct.
+
+What was missing was the **controller wiring**: both consumers passed the neutral stand-in
+`teamMode = 2` (`elizacontroller.cpp`), which shut G4 for every carrier (the one-touch and the Safety
+gate; the chooser read the same stand-in). They now pass the carrier's Intention, the ratchet the
+block above writes:
+
+- `touch.teamMode = intention` (G4's `== 3 || == 4`, and G8's increment at `== 2 || == 3`);
+- `sf.teamMode = intention` (the Safety gate's `2 < mode` ceiling arm);
+- the `attackDot` correction: `0x142119929` reads `K+0x40` (the ctx4 ball x), so the controller now
+  uses the ball's x, not the carrier's.
+
+`IsClose` is **not** stubbed: GF's `ShootZone` is the output of R4's `0x140698D10` (the same builder
+PES's `0x140699820` consumes at `imageA+0x9CC`), so `pes::IsClose(zone)` is the R4 predicate itself.
+
+Stand-ins, each named at its field with the PES site:
+
+- the corridor block's three inputs (`corridorGuard` = `T+4 < 2`, the two `0x1421B7D40` counts, the
+  `0x142119C9A` gate): GF carries no corridor evaluator, so they read false and the ratchet latches
+  at 2. Named at `IntentionInput` with `0x142119960`.
+- the B3C/B58 lead arm: `B58 = bp+0xC44 = Z.0x18C` (24.0 + 3·iVar10, S1Watch round 5), `B3C =
+  bp+0xC28 = Z.0x170` (a float, R4-written; the `FUN_141193DC0` byte store does not fit the float
+  read, S1Watch §7.4). GF does not carry either, so `ballLead_m`/`ballLimit_m` keep their existing
+  ball-distance stand-in.
+
+## 4. R4's zone and IsClose (run 2, after Main's follow-up)
+
+**IsClose needed no port: GF's `pes::IsClose` already was the R4 predicate.** GF's `ShootZone` is the
+output of R4's own builder `0x140698D10` (`pescarrier.hpp` names it at the struct), and the loader
+reads R4's init immediates at R4's own VAs: `0x140699660` → nearCentral (18.0), `0x14069966A` →
+farCentral (24.0), `0x140699674` → nearSide (16.0), `0x14069967E` → farSide (22.0), `0x14069964C` →
+r0 (11.0), `0x140699656` → r1 (12.0), `0x140699688`/`0x140699692` → the 15/40 sector angles. The
+field map is 1:1 with S1Watch §9: `d_m` = +0x170, `sector` = +0x178, `band` = +0x17C, `inBox` =
+bit0 of +0x16C. GF's `IsClose` = `band == kBandClose` with the two thresholds chosen by the sector
+(0x188 central, 0x190 side), i.e. S1Watch's corrected rule with T1 folded in; the `sign*K.x >= 0`
+arm is the builder's behind-goal-line branch. Main accepted this (no port, no stand-in).
+
+**One real divergence found and fixed: case B's distance took no absolute value.** R4 case B
+(`pf[2] >= |K.z|`) is `+0x170 = |pf[0] - sign*K.x|` — the `andps` with the `0x142565D30` mask at
+`0x140698EE1`, between the `subss` at `0x140698EDA` and the store at `0x140698EE9`. GF computed the
+signed `halfLen - sign*ballX`, which goes negative for a ball past the goal line (55.0 gave −2.44).
+Fixed to `std::fabs(...)`; a ball 2.44 m past the line now reads 2.44, both halves.
+
+Case A (the ball outside the mouth band) was already exact: `d_m` is the 3D distance to
+`(sign*pf[0], 0, sgn(K.z)*pf[2])`, the near post with no radius (`FUN_140A8F820` at `0x140698F1D`).
+
+## 5. Open items
 
 1. The match-setting record's selector (`+0x18`) producer and the per-side `+0x9200` byte's writer:
    not traced (GF has neither). The gate and the stock default are portable now.
-2. Team mode `M+8` (G4) and the attack level `T+0xB8A4` (G8) stay as before (S4).
-3. Score row S1, `K+0x6E`, Safety/GoalFront inner gates: unchanged (lane-inputs §8).
+2. The attack level `T+0xB8A4` (G8's other arm) is still the 0 stand-in (S4).
+3. The corridor block's three inputs and the B3C/B58 lead arm: S1Watch rounds 4-6
+   (`docs/re/pes-re-team-mode.md` §7-§9), not ported here.
+4. The `FUN_140A92DC0` arctangent (S1Watch's 0.02° residual on +0x174) and the live zone-0/bit-0
+   positive sample.
+5. Score row S1, `K+0x6E`, Safety/GoalFront inner gates: unchanged (lane-inputs §8).
 
-## 4. Verification
+## 6. Verification
 
-Branch `A4Level` (pushed): `e296f1b` (level + attack-heading convention) and `a1882b9` (the
-aim-vs-facing fix, split out on Main's ruling). Worktree `<workdrive>/gf-A4Level`.
+Branch `A4Level` (pushed): `e296f1b` (level + attack-heading convention), `a1882b9` (the aim-vs-facing
+fix, split out on Main's ruling), `f2adf32` (G4's team mode) and the IsClose/case-B commit. Worktree
+`<workdrive>/gf-A4Level`.
 Test binaries run with `PES21_ROOT=<workdrive>/PES21`, directly, from the worktree root:
 
-- `pes_carrier_test`: `[  PASSED  ] 148 tests.` (was 144; 4 new), no skips.
+- `pes_carrier_test`: `[  PASSED  ] 156 tests.` (was 144 at the branch point; 12 new), no skips.
 - `pes_lane_test`: `[  PASSED  ] 21 tests.`
-- the whole `build/tests/sim` suite (46 binaries, all link `gfsim`, which carries both changed
-  files): every binary 0 failures, no skips.
+- the whole `build/tests/sim` suite (46 binaries, 780 tests, all link `gfsim`, which carries the
+  changed files): **0 failures, no skips**, re-run on the final tree (which includes the case-B abs
+  fix in the shared builder).
 
 Red first: each new behaviour was written as a test before the code and the build failed on it
 (`'AttackAngleDeg' is not a member of 'pes'`, `'CarrierConstants' has no member named
-'teamLevelRaw'`, `'AimVsFacingDeg' is not a member of 'pes'`), then green after the port.
+'teamLevelRaw'`, `'AimVsFacingDeg' is not a member of 'pes'`), then green after the port. The two
+zone value tests (`CaseBIsTheGoalLineDistanceToTheAbsoluteBallX`, `CaseAMeasuresToTheNearPost`) are
+concrete positions with hand-computed outputs, not a recompute of the rule.
+The G4 unit tests pass on the base tree too — `NextIntention` was already ported — so they lock the
+writer rather than prove the wiring; the wiring is proven by the probe and the mutation below.
 
 Mutations (each built, run, reverted, rebuilt):
 
@@ -182,10 +255,19 @@ Mutations (each built, run, reverted, rebuilt):
    `PesCarrierInstall.TheStockTeamLevelIsAClassScaledByAHundred` (146/147).
 3. `AimVsFacingDeg`'s facing put back into the mirrored frame (`270 - bearing`): caught by
    `PesCarrierBearing.ACarrierFacingTheGoalHeAttacksReadsZeroDegreesOffTheAim` (147/148).
+4. The G4 wiring: `touch.teamMode = intention` back to the neutral `2`. The unit tests cannot see
+   it (they set the field directly), and the 2-min hash does not move either — so it was proven with
+   the temporary mode probe: the mutation reads `mode at G4: 2=22` (all 22 OneTouch calls), the
+   wiring reads `3=22`. Built, run, reverted, rebuilt both times.
+5. The case-B absolute value dropped (`std::fabs(halfLen - sign*ballX)` -> the signed form): caught
+   by `PesCarrierZone.CaseBIsTheGoalLineDistanceToTheAbsoluteBallX` (155/156).
 
 Smokes (2 min, seed 7, `teams.sql` 1 vs 2, run from the worktree root; exit 0 each):
 
-- `--pes-loop`: `[determinism] 9fc0b08314812d8f`. G3 now opens, so the hash moves by design.
+- `--pes-loop`: `[determinism] 9fc0b08314812d8f`. G3 opens and G4 now passes, so the hash moves by
+  design (it is the same value before and after the G4 wiring alone, because the Intention was
+  already 3 on every OneTouch call the sim reaches — the probe shows that). The case-B abs fix does
+  not move it either (2 min).
 - switch-off: `[determinism] 75a11cdb2b3c8ec5`, against the base `a3d5e43a3b7b03af`. The move is
   `aimVsFacing` alone: the shoot gate's `|wrap180(aim - facing)|` (report 5.1's
   `angle(ball->aim, facing) > 100` at `0x142121920`, and `central_eval`'s 60/90 term), the one edit
@@ -193,26 +275,36 @@ Smokes (2 min, seed 7, `teams.sql` 1 vs 2, run from the worktree root; exit 0 ea
   (`atan2(-y, -x)` = `270 - bearing`) from a PES bearing, so a carrier facing the goal he attacks
   read 180 instead of 0 and those gates inverted. Reverting only that line restores
   `a3d5e43a3b7b03af`. **Main's ruling: keep it** (a real mirrored-frame bug, in scope; split into
-  `a1882b9` with its own red test and mutation, as recorded above).
+  `a1882b9` with its own red test and mutation, as recorded above). The G4 change leaves the
+  switch-off hash untouched (the carrier path is `pes_loop`-only).
 
 Gate: not run (Main gates). PII: changed files grepped for machine paths: none.
 
-## 5. Silence probe (temporary counters, reverted; `--pes-loop` 2 min)
+## 7. Silence probe (temporary counters, reverted; `--pes-loop` 2 min)
 
-The probe is not on the branch. It answers the A4Lanes3 question per unit:
+The probe is not on the branch. Two runs: before the G4 wiring (the level change only) and after it
+(the re-probe Main asked for).
+
+Before the G4 wiring: `OneTouch 22 reached 22 pass 0 | G3 0 G4 22 G5 0 ... G11 0 G12 0`, so G3 had
+stopped closing OneTwo and all 22 calls died at G4 (the `teamMode = 2` stand-in).
+
+After the G4 wiring (the re-probe): `OneTouch 22 pass 0 | G3 0 G4 0 G5 1 G6 0 G7 0 G8 0 G9 0 G10 0
+G11 11 G12 10`, `answers OneTwo 0 DHB 0 BackSpace 0 Safety 0 GoalFront 0 | rethinks 0`. **G4 no
+longer closes anything**, and OneTwo's closer has moved to **G11** (the 15 m plan-heading lane must
+hold an opponent, so 11 calls died because the lane was FREE) and **G12** (the 0..-10 m curve band),
+with one call at G5 (the 1600 score row).
 
 | Unit (kind) | Answers | Where the rest die |
 |---|---|---|
-| OneTwo (10) | 0 | 24 rethinks reach `OneTwoUnit`; 22 reach `OneTouch`; **G3 now passes all 22** (it was the closer before this change); **all 22 die at G4** (the team-mode stand-in `teamMode = 2`, so the receiver predicate is still never reached) |
+| OneTwo (10) | 0 | 22 reach `OneTouch`; G4 passes all 22; 11 die at G11 (the plan-heading lane is free), 10 at G12 (the curve band), 1 at G5 (the score row) |
 | DirectHighBall (11) | 0 | unchanged: `K+0x6E` stand-in false |
 | BackSpace (3) | 0 | unchanged: cut-back picker's validator / corner-curve gates |
 | Safety (6) | 0 | unchanged: short picker's `ShortMateSurvives` |
 | GoalFront (2) | 0 | unchanged: picker inner gates |
 
-`[probe]` lines: `OneTouch calls 22 reached 22 pass 0 | G3 0 G4 22 G5 0 G6 0 G7 0 G8 0 G9 0 G10 0
-G11 0 G12 0` and `answers OneTwo 0 DHB 0 BackSpace 0 Safety 0 GoalFront 0 | OneTwo rethinks 24
-mateTests 0`.
-
-So the level change does what item 1 asked (G3 is no longer the closer) and moves OneTwo's live
-closer to **G4**, whose input is the team mode `0x141052E30` = `*(M+8)` — still the `2` stand-in
-(lane-inputs §8.3, writer OPEN). That is the next decode for OneTwo, not this ticket's.
+So OneTwo's next closer is **G11** (the lane 15 m along the plan heading must hold an opponent) and
+then **G12** (the curve band, whose table `BuildCurve` builds from the opponents of the carrier's
+side). Both are live-input problems rather than decode blockers: G11 reads `planHeading_deg`, which
+the call site still stands in with the attack direction (the plan heading `ctx7+0xC0` is not carried),
+and G12's band sign follows from the same table. G3 and G4 — this run's two gates — now pass every
+OneTouch call the sim reaches.
