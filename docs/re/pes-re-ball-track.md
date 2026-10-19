@@ -1,5 +1,7 @@
 # Ball-track arm: B+0x4C writer and K+0x40 point (S1Watch, round 11)
 
+> **Main correction 19-10-26:** the K+0x6E ball-track arm is an AND, not the OR written in §7: raw asm `0x14063AAFA` `cmp [r12+0x4c],r13b; je skip`, `0x14063AB01` `test r14b,r14b; jne skip`, `0x14063AB06` set. So the flag is set iff B+0x4C != 0 AND r14 == 0 (r14 = the distance test via `cmova` at `0x14063AAF6`, combined with B+0x80).
+
 > **Main audit 19-10-26:** `0x14063A520` `mov rax,[rcx+0x40]` (B = *(G+0x40)), `0x140876014` `movb [rcx+0x4c],1`, `0x140876019` `movb [rcx+0x4c],0`, `0x140433DF5` `movups xmm1,[rdx-0x30]` (the per-frame B<-N block copy): all match. B+0x4C = validity of the ball's first predicted point (pred[0].y >= 0).
 
 Status: **B+0x4C meaning and writer CONFIRMED** (static decode + live watch + live rule test). K+0x40 point chain CONFIRMED (static). Two extra items from Main (player +0x661 writer; P+0x2FC ring cadence) **not done** in this round (see §6).
