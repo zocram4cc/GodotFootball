@@ -21,9 +21,11 @@ FilmCurve MakeFilmCurve(double slope, double toe, double shoulder, double black,
 using Mat3 = std::array<std::array<double, 3>, 3>;
 
 // PES's white balance (FUN_14175f590): the illuminant chromaticity of the
-// rig's whiteTemperature/whiteTint, Bradford-adapted to D65 and returned as a
-// linear-sRGB matrix. Daylight locus (Judd) at or above 4000 K, Planckian
-// (Krystek) below; the tint offsets the Krystek uv point along its radius.
+// rig's whiteTemperature/whiteTint, Bradford-adapted to D65. Returned as the
+// matrix PES's composition applies (out = m * in) with the stored live rows as
+// its rows; that is the transpose of the Bradford matrix. Daylight locus (Judd)
+// at or above 4000 K, Planckian (Krystek) below; the tint offsets the Krystek uv
+// point along its radius.
 Mat3 WhiteBalanceRgb(double temperatureK, double tint);
 
 // PES's bloom loop (FUN_141804af0): one Kawase pass per kernel, floor(10·size)

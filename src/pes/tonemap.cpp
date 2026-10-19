@@ -153,7 +153,7 @@ Mat3 WhiteBalanceRgb(double temperatureK, double tint) {
   const double srcY = sy + (ty - ky);
   double c[3][3];
   BradfordCat(srcX, srcY, kD65X, kD65Y, c);
-  // m = XYZ->sRGB · C · sRGB->XYZ (column convention).
+  // m = XYZ->sRGB · C · sRGB->XYZ: the Bradford adaptation in row convention.
   Mat3 m{};
   for (int i = 0; i < 3; ++i)
     for (int j = 0; j < 3; ++j) {
@@ -165,7 +165,12 @@ Mat3 WhiteBalanceRgb(double temperatureK, double tint) {
       }
       m[i][j] = acc;
     }
-  return m;
+  // PES stores the columns of m as the rows at TonemapFilterDx11+0x10 and applies those
+  // rows as the matrix's rows, so the matrix returned is mᵀ.
+  Mat3 applied{};
+  for (int i = 0; i < 3; ++i)
+    for (int j = 0; j < 3; ++j) applied[i][j] = m[j][i];
+  return applied;
 }
 
 int BloomKernelCount(double bloomSize) {
