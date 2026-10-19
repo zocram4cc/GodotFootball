@@ -448,8 +448,8 @@ TEST(PesReceiveOwner, TheRestartTakerOwnsTheBallWhileTheRestartIsHeld) {
 }
 
 // --- Carrier (MA+0x2601C, FUN_140457070; first-touch §5.1) ---
-// A control touch that leaves the ball at the toucher's feet makes him the carrier; the carrier keeps
-// the ball while he holds it, and is dropped when he does not.
+// A control touch (trap or ball control) that leaves the ball at the toucher's feet makes him the carrier;
+// the carrier keeps the ball while he holds it, and is dropped when he does not.
 
 TEST(PesReceiveCarrier, AControlTouchThatKeepsTheBallMakesTheToucherTheCarrier) {
   EXPECT_EQ(pes::CarrierAfterContact(true, true, false), pes::CarrierChange::kToucher);

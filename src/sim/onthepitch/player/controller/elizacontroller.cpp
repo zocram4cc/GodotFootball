@@ -508,9 +508,9 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       // leave the measured case untouched. Close, designated, and without it:
       // step onto it.
       if (!hasIt && ballSpeed_ms <= GameplayTuning::kStalemateBallSpeed_ms) {
-        // GF's chase step, for every man but a PES loose-ball presser (his is the press below).
-        // The carrier brain below is untouched.
-        if (!loosePresser) {
+        // GF's chase step, off the PES path: a PES loose ball is approached by the PRESS man's ActionPress
+        // (pes-re-press-life §8), and the designated man is no chaser (pes-re-first-touch §7.1).
+        if (!match->PesLoop()) {
           const Vector3 toBall =
               match->GetBall()->GetPositionBuffer() - CastPlayer()->GetPosition();
           if (toBall.GetLength() > 0.1f) {
@@ -538,7 +538,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       // whole pitch for the rest of the half (measured: 32:19 to 45:00).
       // A loose-ball presser steers through the movement command below.
       const Vector3 toBall = match->GetBall()->GetPositionBuffer() - CastPlayer()->GetPosition();
-      if (!loosePresser && toBall.GetLength() > 0.5f) {
+      if (!match->PesLoop() && toBall.GetLength() > 0.5f) {
         PlayerCommand run;
         run.desiredFunctionType = e_FunctionType_Movement;
         run.useDesiredMovement = false;
@@ -641,8 +641,11 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
 
   if (match->IsInPlay() && !match->IsInSetPiece()) {
     // ball control?
-    _BallControlCommand(commandQueue, false, false,
-                        false);  // last param true == enable sticky run direction.
+    // PES: a loose ball is reached by the reaction's TRAP (pes-re-first-touch §7.2); ball control belongs to the
+    // man who has the ball. ponytail: PES's carrier brain (MA+0x2601C) is not decoded here.
+    if (!match->PesLoop() || CastPlayer()->HasPossession())
+      _BallControlCommand(commandQueue, false, false,
+                          false);  // last param true == enable sticky run direction.
 
     // PES 2021's one ordered reaction table for the engaging defender
     // (docs/re/pes-re-defender-decisions.md 1): walked every tick, the first

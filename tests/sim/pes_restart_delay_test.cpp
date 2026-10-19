@@ -232,6 +232,17 @@ TEST(PesRestartDelay, ALooseDeadBallInPlayIsReachedAndPlayed) {
              des ? (int)des->GetCurrentFunctionType() : -1,
              des ? des->GetCurrentAnim()->anim->GetName().c_str() : "-",
              des ? match.GetActualTime_ms() - des->GetLastTouchTime_ms() : 0);
+      const auto presser = [&](int t) -> std::string {
+        Player* p = match.GetTeam(t)->GetController()->GetLoosePressMan();
+        return p ? p->GetPlayerData()->GetLastName() : "-";
+      };
+      printf("[ftp] f=%lu presser=%s|%s\n", match.GetSimFrame(), presser(0).c_str(), presser(1).c_str());
+      if (Player* hp = match.GetTeam(0)->GetController()->GetLoosePressMan()) {
+        printf("[ftpd] f=%lu dist=%.2f func=%d anim=%s speed=%.2f\n", match.GetSimFrame(),
+               (match.GetBall()->Predict(0).Get2D() - hp->GetPosition().Get2D()).GetLength(),
+               static_cast<int>(hp->GetCurrentFunctionType()),
+               hp->GetCurrentAnim()->anim->GetName().c_str(), hp->GetMovement().GetLength());
+      }
     }
     if (episodeTicks > longestTicks) longestTicks = episodeTicks;
   });
