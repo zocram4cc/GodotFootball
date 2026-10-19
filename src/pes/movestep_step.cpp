@@ -12,6 +12,7 @@
 // site that replaces the stand-in.
 
 #include "pes/movestep_step.hpp"
+#include "pes/movestep_turn.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -23,17 +24,6 @@ namespace {
 
 // The keep-tick tail of STEP_LOOP (PES's LAB_1406c5b79 fall-through), defined after StepLoop.
 void StepLoopKeepsTick(MoveHost& host, MoveReq& req, int bucket, float turn);
-
-// FUN_1406b70d0's four distance tables. They are read from the exe once by the adapter; the
-// handlers reach them through this accessor, which the adapter sets when it loads the install.
-// ponytail: replace with a MoveHost accessor when another group reads the tables.
-TurnDistances& MutableDistances();
-const TurnDistances& Distances();
-
-// FUN_1406b70d0's four distance tables, read from the exe once by the adapter. The handlers
-// reach them here; a MoveHost accessor replaces this when another group needs them.
-TurnDistances g_distances{};
-const TurnDistances& Distances() { return g_distances; }
 
 // FUN_14043a0a0(a, b): the difference of two angles folded into (-180, 180].
 float Wrap180(float delta) {
@@ -52,13 +42,14 @@ float FoldHalfTurn(float a) {
 // FUN_140a92d40(a, b): the atan2 difference in (-pi, pi], then * 2pi by the caller.
 float Atan2Delta(float dx, float dz) { return std::atan2(dx, dz); }
 
-// FUN_14046f230 of FUN_141eb50b0(P, out, 1): the heading in [0, 360) of the last tick's
-// displacement. FUN_141eb50b0 returns pos - prevPos, and FUN_14046f260 folds atan2 into
-// [0, 360) through DAT_1425795e4 (2 pi) and DAT_14259be40 (180/pi).
+// FUN_14046f230 of FUN_141eb50b0(P, out, 1): the heading in [0, 360) of the last tick's displacement. PES's ground pair is
+// (x, z) with z = -GF y, so the displacement's pair is (out[0], 0 - out[1]); the subtraction keeps atan2's +0 for a zero y.
+// DAT_1425795e4 is 2 pi, DAT_14259be40 is 180/pi.
+// ponytail: the adapter copies GF's raw coords; when it copies PES order, the sign and the index here become a plain read.
 float DisplacementHeading(MoveHost& host) {
   float d[3];
   host.PositionAt(1, d);
-  float a = Atan2Delta(d[0], d[2]) * float(180.0 / 3.14159265358979323846);
+  float a = Atan2Delta(d[0], 0.0f - d[1]) * float(180.0 / 3.14159265358979323846);
   if (a < 0.0f) a += 360.0f;
   return a;
 }
@@ -84,14 +75,6 @@ constexpr float kRateHigh = 0.6000000238418579f;  // STEP_LOOP_CHANGE 0x1406c66f
 constexpr float kRateMid = 0.44999998807907104f;  // STEP_LOOP_CHANGE 0x1406c676e
 constexpr float kRateLow = 0.15000000596046448f;  // STEP_LOOP_CHANGE 0x1406c675c
 
-// FUN_1406b70d0's two gate scalars, each the target of one instruction in that function. They
-// are not in the shared StepScalars yet (the loader belongs to the contract), so they are
-// named here with their VAs; when the loader gains them the names stay.
-constexpr float kDeg56p25 = 56.25f;    // DAT_14259be3c, FUN_1406b70d0's first gate
-constexpr float kDeg101p25 = 101.25f;  // DAT_1425ddfac, FUN_1406b70d0's final gate
-constexpr float kBe4 = 12.0f;           // DAT_14259be04, the match-tick window
-constexpr float kLookAheadTicks = 25.0f;  // DAT_14259bdd0, the look-ahead in ticks
-
 // FUN_1406b9ff0(interface, class, speed, kind): the rate for a class/speed pair. req[0xb] is the
 // "use the class rate" flag; the rate comes from FUN_1406b9e80's 10-knot table, which the
 // contract exposes as SpeedToRate with the same argument order.
@@ -101,129 +84,85 @@ float RateFor(MoveHost& host, float classRate, float speedKmh, int speedClass, i
   return SpeedToRate(host, speedKmh, 0);
 }
 
-// FUN_1406b6ee0(ap, req, live): whether the step loop must stop. Its `live` argument is
-// STEP_LOOP's `uVar11`, set when the band is below 1 at kind 3/6 and the previous band matches.
-// The reads beyond the named request words are the move-target record on the block (req[0x698],
-// req[0x6a0], a pair the request fill writes); they are read here as raw words because the
-// contract does not name them.
-bool StepStopsNow(MoveHost& host, MoveReq& req, bool live) {
-  const StepScalars& k = host.StepConstants();
+}  // namespace
+
+// FUN_1406b6ee0(ap, req, live): whether the step loop must stop. STEP_LOOP passes its live flag and STOP passes 0. The
+// class word (req[0x1f]) and the command's speed class (req[9]) decide first. A live step then compares the bearing from the
+// player to the move target (req[0x1a6], req[0x1a8]) with the last displacement's heading, and holds until the second dwell
+// (req[0x2d] reaches req[0x2e]). The move bucket (req[8]) picks the rule; the class picks the look gate: blend2 (VA
+// 0x142598578) or blend04 (0x14259b89c) below class 1, blend04 or rate07 (0x14257a194) from class 1 on.
+bool StepStops(MoveHost& host, MoveReq& req, bool live) {
+  const RunConstants& r = host.RunConstantsView();
   const int cls = int(req.U(moveword::kClassWord));
-  if (cls >= 0 && int(req.U(moveword::kPrevClassWord)) == -1) return true;
+  if (cls >= 0 && int(req.U(moveword::kCommandSpeedClass)) == -1) return true;
   if (live) {
-    const float elapsed = req.F(moveword::kDwellElapsed);
-    if (k.deg45 < elapsed) {
-      const float look = DisplacementHeading(host);
-      const float x = req.F(0x698), z = req.F(0x6a0);
-      float targetHeading;
-      if (z == 0.0f && x == 0.0f) {
-        targetHeading = 0.0f;
-      } else {
-        targetHeading = Atan2Delta(x, z) / kDegToRad;
-        if (targetHeading < 0.0f) targetHeading += float(2.0 * 3.14159265358979323846 * 180.0 /
-                                                         3.14159265358979323846);
-        targetHeading = 0.0f;  // replaced below by the exact PES fold
-      }
-      // PES: FUN_140a92d40(target - player) then +2pi when negative, then * 180/pi.
-      const float dx = x, dz = z;
-      float angle = Atan2Delta(dx, dz);
-      if (angle < 0.0f) angle += float(2.0 * 3.14159265358979323846);
-      targetHeading = angle / kDegToRad;
-      const float delta = Wrap180(targetHeading - look);
-      if (k.deg67p5 < delta) return true;
+    if (r.deg45 < std::fabs(req.F(moveword::kTurn))) {
+      float self[3] = {0.0f, 0.0f, 0.0f};
+      host.PositionAt(0, self);
+      // The ground pair is (x, -y), as in DisplacementHeading.
+      const float bearing =
+          HeadingFrom(self[0], 0.0f - self[1], req.F(moveword::kMoveTargetX), req.F(moveword::kMoveTargetZ));
+      if (r.deg675 < std::fabs(Wrap180(bearing - DisplacementHeading(host)))) return true;
     }
     if (req.F(moveword::kDwellElapsed2) < req.F(moveword::kDwellLimit2)) return false;
   }
   switch (int(req.U(moveword::kMoveBucket))) {
     case 1:
     case 6: {
-      float limit = k.s0p4;
-      if (cls < 1) limit = k.s0p2;
-      if (k.deg11p25 < std::fabs(req.F(moveword::kDwellElapsed))) {
-        if (limit < req.F(moveword::kDistToLook) || limit == req.F(moveword::kDistToLook))
-          return false;
-        return true;
-      }
-      [[fallthrough]];
+      const float gate = cls < 1 ? r.blend2 : r.blend04;
+      if (r.deg1125 < std::fabs(req.F(moveword::kTurn))) return !(gate <= req.F(moveword::kDistToLook));
+      return false;
+    }
+    case 2:
+    case 7: {
+      const float gate = cls > 0 ? r.rate07 : r.blend04;
+      if (gate <= req.F(moveword::kDistToLook)) return r.deg90 < std::fabs(req.F(moveword::kFacingError));
+      return true;
     }
     case 0:
     case 5:
       return false;
-    case 2:
-    case 7: {
-      float limit = k.s0p4;
-      if (cls > 0) limit = 1.6f;
-      if (limit < req.F(moveword::kDistToLook) || limit == req.F(moveword::kDistToLook))
-        return k.deg90 < req.F(moveword::kBandSpeedPrev);
-      return true;
-    }
     default:
       return true;
   }
 }
 
-}  // namespace
-
-
-// FUN_1406b70d0(ap, req): whether the step loop may turn into a run turn. It reads the request's
-// own gates, the sampled ball position, and the four distance tables (front/back/centre/held)
-// indexed by the class word. The PES body is the switch at the end of its decompile.
-bool StepLetsRunTurn(MoveHost& host, const TurnDistances& d, MoveReq& req) {
-  const StepScalars& k = host.StepConstants();
-  const int bucket = int(req.U(moveword::kMoveBucket));
+// FUN_1406b70d0(ap, req): whether the step loop may turn into a run turn. The flag byte (req[0xf]) and the precise word
+// (req[0xe]) gate it with the class; then the move bucket (req[8]) picks the rule. Buckets 1 and 6 test the class's front
+// distance plus a scale that is 0 up to 33.75 degrees, rises to 1 at 67.5 and stays 1 past it (PES starts the scale at
+// 1.0). Buckets 2 and 7 test the class's back distance, scaled between 67.5 and 112.5 degrees (full past 112.5) against
+// the centre, and then whether the turn is past 101.25 degrees (VA 0x1425ddfac).
+// ponytail: the carrier record and the recent ball event (FUN_140a627e0, FUN_140a48a10, FUN_140a3e190) are not in GF, so
+// the carrier branch and its held row (0x1425ddea0) are absent.
+bool StepLetsRunTurn(MoveHost& host, MoveReq& req) {
+  const RunConstants& r = host.RunConstantsView();
+  const MoveConstants& m = host.MoveConstantsView();
+  const MoveTurnConstants& t = host.MoveTurnConstantsView();
+  const StepTables& tables = host.StepTablesView();
+  const int cmdClass = int(req.U(moveword::kCommandSpeedClass));
+  if (cmdClass == -1) return true;
   const int cls = int(req.U(moveword::kClassWord));
+  const int row = std::clamp(cls, 0, 3);  // ponytail: a class word outside 0..3 reads row 0, not the word before the table
+  const int move = int(req.U(moveword::kMoveBucket));
+  const float turn = std::fabs(req.F(moveword::kTurn));
   const float toTarget = req.F(moveword::kDistToTarget);
-  const float turn = std::fabs(req.F(moveword::kDwellElapsed));
-  const int requestFlag = int(req.U(0x3c) & 0xffu);
-
-  // The gates: the request's own flags decide whether the tail's distances apply at all.
-  if ((requestFlag & 0xfd) != 0 &&
-      ((int(req.U(moveword::kChangeState)) != 1 || cls > 2) && cls > 1)) {
-    if (bucket != 0 && bucket != 1 && bucket != 5 && bucket != 6) {
-      // The unreachable case in PES's switch: the distance gates decide.
-      return true;
+  const float toLook = req.F(moveword::kDistToLook);
+  const uint32_t flags = req.U(moveword::kTurnGateFlags) & 0xffu;
+  if ((flags & 0xfdu) != 0 && ((int(req.U(moveword::kPrecise)) != 1 || cls > 2) && cls > 1)) {
+    if (move == 1 || move == 6) {
+      if (flags != 3) return !(toTarget <= m.dist2m5 || turn <= r.deg5625 || cls > 2);
+      return false;
     }
-    if (bucket == 1 || bucket == 6) {
-      if (req.U(0x3c) != 3) {
-        if (toTarget <= k.dist1p25 || turn <= kDeg56p25 || cls > 2) return false;
-        return true;
-      }
-    }
-    return false;  // buckets 0 and 5, and the unreachable case
+    return move != 0 && move != 5;
   }
-
-  // The sampled ball position and the request's own heading.
-  // ponytail: PES reads the match's ball-position list (ctx+0x40 through FUN_140a6cf70) for the
-  // heading, and the roster slot (FUN_140a627e0) for the player's own side; GF has neither yet,
-  // so the port samples the player's own displacement and reads the side from FootBand.
-  float ball[3];
-  host.PositionAt(2, ball);
-  const int slot = host.FootBand();
-  float near = 0.0f;
-  if (k.kmh13p5 < turn) {
-    const float heading = HeadingFrom(0.0f, 0.0f, ball[0], ball[2]);
-    float headingToBall = heading;
-    if (heading >= k.kmh16) headingToBall = heading - k.kmh16;
-    const float distance = std::sqrt(ball[0] * ball[0] + ball[2] * ball[2]);
-    if (distance < k.kmh5 && distance < toTarget && distance < req.F(moveword::kDistToLook) &&
-        (std::fabs(Wrap180(req.F(moveword::kLookHeading) - headingToBall))) < k.deg67p5) {
-      return true;
-    }
-  }
-
-  switch (bucket) {
+  switch (move) {
     case 1:
     case 6: {
       float scale = 0.0f;
-      if (k.deg33p75 < turn) {
-        scale = k.deg33p75 < turn && turn < k.deg67p5 ? (turn - k.deg33p75) / k.deg33p75 : 0.0f;
-      }
-      const float gate = d.front[cls] + scale;
-      if (toTarget <= gate || req.F(moveword::kDistToLook) <= gate) {
-        if (req.U(0x54) == 0) return false;
-        return true;
-      }
-      [[fallthrough]];
+      if (r.deg3375 < turn) scale = turn < r.deg675 ? (turn - r.deg3375) / r.deg3375 : 1.0f;
+      const float gate = tables.turnFront[row] + scale;
+      if (toTarget < gate && toLook < gate) return req.Flag(moveword::kTurnCommandFlag);
+      return false;
     }
     case 0:
     case 5:
@@ -231,18 +170,12 @@ bool StepLetsRunTurn(MoveHost& host, const TurnDistances& d, MoveReq& req) {
     case 2:
     case 7: {
       float scale = 0.0f;
-      if (k.deg67p5 < turn) {
-        scale = k.deg67p5 < turn && turn < k.deg112p5 ? (turn - k.deg67p5) / k.deg45 : 0.0f;
-      }
-      const float base = d.back[cls];
-      const float gate = base + (base - d.centre[cls]) * scale;
-      const int prev = int(req.U(moveword::kPrevClassWord));
-      if ((gate < toTarget || gate == toTarget || gate < req.F(moveword::kDistToLook) ||
-           gate == req.F(moveword::kDistToLook)) &&
-          (prev < 3 ||
-           (cls > 1 || k.s0p4 < req.F(0x128) || k.s0p4 == req.F(0x128) || turn <= k.deg90)) &&
-          prev > 0) {
-        return kDeg101p25 < turn;
+      if (r.deg675 < turn) scale = turn < r.deg1125b ? (turn - r.deg675) / r.deg45 : 1.0f;
+      const float back = tables.turnBack[row];
+      const float gate = back + (back - tables.turnCentre[row]) * scale;
+      const bool moreThanOne = cls > 1 || req.F(moveword::kRate) >= r.blend04 || turn <= r.deg90;
+      if ((gate <= toTarget || gate <= toLook) && (cmdClass < 3 || moreThanOne) && cmdClass > 0) {
+        return t.turn101250 < turn;
       }
       return true;
     }
@@ -581,7 +514,7 @@ void StepLoop(MoveHost& host, MoveReq& req) {
     return;
   }
   // FUN_1406b6ee0: whether the step loop must stop (its port is the helper above).
-  if (StepStopsNow(host, req, liveArg)) {
+  if (StepStops(host, req, liveArg)) {
     if (liveBand == 1 && groundSpeed < k.kmh5) {
       req.SetU(moveword::kClassWord, 0);
       req.SetF(moveword::kBandSpeed, k.kmh5);
@@ -1364,7 +1297,7 @@ void TurnStop(MoveHost& host, MoveReq& req) {
       (turnToTargetDeg < k.deg22p5 ||
        turnToTargetDeg < distanceFactor * k.deg45 + k.deg22p5)) {
     if (turnToTargetDeg < k.deg22p5 && StayDecision(host, req) &&
-          !StepLetsRunTurn(host, Distances(), req)) {
+          !StepLetsRunTurn(host, req)) {
       // The band from the ground speed and the rate from the ceiling.
       const int foot = host.FootBand();
       req.SetF(moveword::kRate, kRateHigh);

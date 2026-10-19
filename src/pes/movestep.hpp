@@ -174,6 +174,8 @@ inline constexpr int kStyle = 0x50;           // req[0x50] byte: the locomotion 
 inline constexpr int kDriftSeed = 0x4c;  // req[0x4c]: the drift's seed (OBS: FUN_1406cbc10 reads req+0x130)
 inline constexpr int kDriftX = 0x4d;     // req[0x4d] (req+0x134): the lateral drift, X (OBS: FUN_1406cbc10)
 inline constexpr int kDriftZ = 0x4e;     // req[0x4e] (req+0x138): the lateral drift, Z (OBS: FUN_1406cbc10)
+inline constexpr int kMoveTargetX = 0x1a6;  // req[0x1a6]: the move target's x, PES ground frame (FUN_1406b7560 stores local_110)
+inline constexpr int kMoveTargetZ = 0x1a8;  // req[0x1a8]: the move target's z, PES ground frame (FUN_1406b7560 stores local_108; z = -GF y)
 }  // namespace moveword
 
 // The move request. Typed views over the same words; PES's bit patterns are kept exact.
@@ -402,6 +404,11 @@ struct StepTables {
   std::array<int32_t, 64> kindBandRow;  // 0x1425dd9b0: kind + band * 8 -> Animetable row; 8 bands x 8 kinds (verified: 64 rows, 1325..1385)
   std::array<float, 10> bucketDegrees;   // 0x1425dd960: bucket -> degrees (TURN_STOP entry)
   std::array<int32_t, 12> styleMotion;   // 0x1425ddcf0: class + style * 4 -> representative motion
+  // FUN_1406b70d0's distance rows, four floats each by class: the near bucket (0x1425dde70), the far bucket (0x1425dde80)
+  // and the centre (0x1425dde90). The held row (0x1425ddea0) is read only on the carrier path, which GF does not port.
+  std::array<float, 4> turnFront;   // 0x1425dde70
+  std::array<float, 4> turnBack;    // 0x1425dde80
+  std::array<float, 4> turnCentre;  // 0x1425dde90
 };
 std::optional<StepTables> LoadStepTables(const PeImage& exe, std::string* error);
 

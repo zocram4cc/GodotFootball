@@ -92,16 +92,17 @@ void EnterIdleTurn(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::idleTurnCall
 
 }  // namespace movestep
 
-// FUN_1406d2590 (group C): the turn-stop entry. The group-B header declares it in namespace
-// pes, as the group-B file calls it unqualified from pes::movestep.
-void EnterTurnStop(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::turnStopCalls; }
-
 }  // namespace pes
 
 // FUN_1406d6780 (group D): the RUN_TURN_RUN entry.
 namespace pes {
 namespace movestep {
 void EnterRunTurnRun(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::runTurnRunCalls; }
+// FUN_1406d2590 (group C's TURN_STOP entry) and the two gates of FUN_1406b6ee0 and FUN_1406b70d0, which the group-B file
+// calls unqualified from pes::movestep. The stand-ins count the entry and answer what the placeholders answered: "no".
+void EnterTurnStop(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::turnStopCalls; }
+bool StepStops(MoveHost& /*host*/, MoveReq& /*req*/, bool /*live*/) { return false; }
+bool StepLetsRunTurn(MoveHost& /*host*/, MoveReq& /*req*/) { return false; }
 
 // FUN_1406d2f60 (group D): the RUN_TURN_STEP entry.
 bool EnterRunTurnStep(MoveHost& /*host*/, MoveReq& /*req*/, float /*threshold*/) {

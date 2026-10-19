@@ -90,6 +90,8 @@ void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants&
   req.SetU(moveword::kCommandSpeedClass, static_cast<uint32_t>(in.speedBand));
   req.SetF(moveword::kDesiredSpeedKmh, in.desiredKmh);
   req.SetU(moveword::kPrecise, in.precise ? 1u : 0u);
+  req.SetF(moveword::kMoveTargetX, in.targetX);  // FUN_1406b7560: param_2[0x1a6] = the target's x
+  req.SetF(moveword::kMoveTargetZ, in.targetZ);  // param_2[0x1a8] = the target's z
 }
 }  // namespace movestep
 

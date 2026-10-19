@@ -477,6 +477,8 @@ bool EnterAccelerate(MoveHost&, MoveReq&) { return false; }
 void EnterGotoRun(MoveHost&, MoveReq&, bool) {}
 void EnterStop(MoveHost&, MoveReq&) {}
 void EnterTurnStop(MoveHost&, MoveReq&) {}  // group C's own; the stub keeps group D linking
+// Group C's FUN_1406b70d0 gate (movestep_step.cpp): the group-D tests take its "no", as the port did before group C landed.
+bool StepLetsRunTurn(MoveHost&, MoveReq&) { return false; }
 }  // namespace movestep
 }  // namespace pes
 

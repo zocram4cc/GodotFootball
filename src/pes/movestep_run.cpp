@@ -19,6 +19,7 @@
 //   FUN_1406ba0d0  the turn-stop row picker          RunTables::TurnStopRow
 //   FUN_1406ea750  the engine blend rate             the live engine rate (INF, AS 7)
 #include "pes/movestep_run.hpp"
+#include "pes/movestep_step.hpp"
 
 #include <algorithm>
 #include <array>
@@ -230,16 +231,6 @@ ClipHits ReadClipHits(const MoveHost& host, int motion, const RunConstants& k, b
 // ponytail: the shared contract adds the accessor when the record writer is ported (A-AN);
 // until then the port stands it at PES's "no record" answer, which is the byte's zero.
 int RecordClass17Byte() { return 0; }
-
-
-// The group-C helpers' stand-ins, defined here because group C's signatures carry its own
-// TurnDistances and the shared contract names neither. Both return PES's "no" answer, so the
-// arms that call them take their no-branch until group C lands; the port keeps the call in
-// place so the wiring is one edit. ponytail: group C's movestep_step.cpp defines the real
-// bodies; delete these two and call its pair directly.
-bool StepLetsRunTurnPlaceholder(MoveHost& /*host*/) { return false; }
-bool StepStopsPlaceholder(MoveHost& /*host*/, MoveReq& /*req*/) { return false; }
-
 
 // FUN_141eb50b0's index-1 read: the last tick's displacement, whose length the ground-speed
 // compute uses.
@@ -956,7 +947,7 @@ void Stop(MoveHost& host, MoveReq& req) {
         if (EnterStepTurnRun(host, req)) return;
       } else if (req.U(moveword::kPrecise) != 1u) {
         // FUN_1406b70d0, the group-C helper: whether the step loop may turn into a run turn.
-        if (StepLetsRunTurnPlaceholder(host)) {
+        if (StepLetsRunTurn(host, req)) {
           EnterRunTurnRun(host, req);
           return;
         }
@@ -969,7 +960,7 @@ void Stop(MoveHost& host, MoveReq& req) {
     // LAB_1406ca1b8: the stay decision with the group-C step-stop false. When neither
     // re-plan inside it applies the flow returns here, as PES's decompile does; when the
     // decision itself is false the tick falls straight through to the IDLE arm.
-    if (StayDecision(host, req) && !StepStopsPlaceholder(host, req)) {
+    if (StayDecision(host, req) && !StepStops(host, req, false)) {
       if (req.U(moveword::kPrecise) == 0u &&
           AngleDiffDeg(facing, req.F(moveword::kHeading), k) < k.deg675 &&
           AngleDiffDeg(facing, req.F(moveword::kRecordStampB), k) < k.deg675) {

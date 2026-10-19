@@ -51,19 +51,6 @@ int TurnStopRowFor(int kind, int cls, const RunTables& t);  // FUN_1406ba0d0, 0x
 bool TurnLockEligible(MoveHost& host, MoveReq& req);       // FUN_1406d01d0
 float FirstAngle(float a, float b, const RunConstants& k);  // FUN_140a92950
 int HitRecordCount();                                      // FUN_1406afbc0
-// The group-C helpers STOP's block calls (FUN_1406b70d0 / FUN_1406b6ee0). Group C's
-// declarations live in its own file against its own TurnDistances, which the shared contract
-// does not name, so this group's port carries the two seams until group C lands and the
-// shared contract reconciles them. ponytail: group C's movestep_step.hpp supplies the real
-// signatures; this pair is the group-B port's seam, not a PES site.
-bool StepLetsRunTurnPlaceholder(MoveHost& host);
-bool StepStopsPlaceholder(MoveHost& host, MoveReq& req);
-
-// The cross-group entries group B's handlers call, each with its PES VA. The declarations live in
-// the owning group's file; group B only calls them, as PES does.
-// ponytail: the contract declares EnterTurnStop when group C lands; until then this declaration
-// keeps group B compiling and is the single place to reconcile.
-void EnterTurnStop(MoveHost& host, MoveReq& req);  // FUN_1406d2590 (group C)
 
 // This group's loaders, defined in movestep_run.cpp. They read the shared header's RunConstants
 // and RunTables from the exe by the VAs in the file; tests skip without PES21_ROOT.
