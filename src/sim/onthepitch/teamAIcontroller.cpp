@@ -179,7 +179,6 @@ void TeamAIController::TickScoreRows() {
 }
 
 void TeamAIController::Process() {
-  TickScoreRows();
   if (match->IsFrameSecond())
     UpdateTactics();
 
