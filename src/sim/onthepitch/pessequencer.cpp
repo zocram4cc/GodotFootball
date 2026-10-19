@@ -10,10 +10,10 @@ namespace pes {
 
 namespace {
 
-// A throw-in's x stays at most F0 - 1.0 (the writer's restart-2 clamp, decode 2.1: a literal in
-// FUN_14050e770). Its z sits F1 + 0.25 outside the touchline (DOC throwin 1.3; not decoded here).
-constexpr float kThrowInEndInset_m = 1.0f;
-constexpr float kThrowInLineOutset_m = 0.25f;
+// A throw-in's z sits F1 + the install's line outset outside the touchline - FUN_14050d280
+// computes the point (R = ball.x, sign(ball.z) * (F1 + 0.25)) - and its x stays at most F0 minus
+// the install's end inset, FUN_14050e770's own clamp (docs/re/pes-re-throwin-choreography.md 1.3;
+// both values from the install, RestartSpotConstants).
 
 // ponytail: frames from arming to release, live (A5Live 9.3). PES releases on the taker's reach
 // and kick action (9.2, 9.4); these fixed gates stand in for it until that action is ported. Each
@@ -47,10 +47,10 @@ Spot GoalKickSpot(float ballX, float ballZ, const RestartSpotConstants& k) {
   return {Sign(ballX) * (pesGoalAreaLineX + k.goalAreaPushOut_m), Sign(ballZ) * k.goalAreaPushZ_m};
 }
 
-Spot ThrowInSpot(float ballX, float ballZ) {
-  const float endX = pesFieldHalfLength - kThrowInEndInset_m;
+Spot ThrowInSpot(float ballX, float ballZ, const RestartSpotConstants& k) {
+  const float endX = pesFieldHalfLength - k.throwInEndInset_m;
   return {std::clamp(ballX, -endX, endX),
-          Sign(ballZ) * (pesFieldHalfWidth + kThrowInLineOutset_m)};
+          Sign(ballZ) * (pesFieldHalfWidth + k.throwInLineOutset_m)};
 }
 
 int ReleaseFrames(e_SetPiece kind) {

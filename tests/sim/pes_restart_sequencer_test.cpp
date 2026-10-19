@@ -93,13 +93,19 @@ TEST(PesRestartSequencer, AGoalKickIsTakenOnTheGoalAreaCornerLineOnTheSideOfTheB
 }
 
 TEST(PesRestartSequencer, AThrowInIsTakenJustOutsideTheTouchlineAndInsideTheEndLine) {
-  pes::Spot spot = pes::ThrowInSpot(40.0f, -36.0f);
-  EXPECT_NEAR(spot.x, 40.0f, 1e-4);
-  EXPECT_LT(spot.z, -pesFieldHalfWidth);
-  EXPECT_GT(spot.z, -pesFieldHalfWidth - 1.0f);
+  const Install& install = InstallConstants();
+  if (!install.spots) GTEST_SKIP() << "PES21_ROOT not set";
+  const pes::RestartSpotConstants& k = *install.spots;
+  EXPECT_GT(k.throwInLineOutset_m, 0.0f);
+  EXPECT_LT(k.throwInLineOutset_m, 1.0f);
+  EXPECT_GT(k.throwInEndInset_m, 0.0f);
 
-  spot = pes::ThrowInSpot(pesFieldHalfLength + 2.0f, 34.0f);
-  EXPECT_NEAR(spot.x, pesFieldHalfLength - 1.0f, 1e-4);
+  pes::Spot spot = pes::ThrowInSpot(40.0f, -36.0f, k);
+  EXPECT_NEAR(spot.x, 40.0f, 1e-4);
+  EXPECT_NEAR(spot.z, -(pesFieldHalfWidth + k.throwInLineOutset_m), 1e-4);
+
+  spot = pes::ThrowInSpot(pesFieldHalfLength + 2.0f, 34.0f, k);
+  EXPECT_NEAR(spot.x, pesFieldHalfLength - k.throwInEndInset_m, 1e-4);
 }
 
 // The release gate, in frames from arming, is the live-measured wait (A5Live 9.3): each restart
