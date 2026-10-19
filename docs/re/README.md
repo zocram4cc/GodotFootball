@@ -223,6 +223,7 @@ address given.
 |`pes-re-ball-track.md`|B+0x4C (K+0x6E ball-track arm) = first ball-prediction point valid (pred[0].y>=0), written by FUN_140875FD0 on N=B+0x296C and block-copied to B each frame (FUN_140433CF0); K+0x40 point-selection chain|
 |`pes-re-trap-contact.md`|Trap: action-7 rows in DAT_14348DAC0 (stride 0x1C, clip/action/priority/keys/4 windows), class-7 admission FUN_14079BBE0; FUN_1406B5C20 is man-vs-man contact (classes 6/7), not ball (PARTIAL, live trap open)|
 |`pes-re-trap-windows.md`|TRAP reach: action-7 rows (0x547/548/549/57D/57F) window test in clip space (x [xb,xe), z (zb,ze) absolute, height tolerance 1.15*(0.56-0.335)); candidate keys open; live trap not measured|
+|`pes-re-hitdata-frame.md`|HitData touch frame = bits 13..20 of the word at rec+0x20+8k (FUN_1406B03D0), no +2; the +2 is FUN_1406B10D0's clip-length track-header word|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
