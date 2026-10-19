@@ -858,6 +858,7 @@ struct BackSpaceInput {
   float attackSign = 1.0f;                               // ctx[0][5]
   float teamLineOpp = 0.0f;                              // T18+0x40+oppSide*0x14
   float pitchBound8 = 0.0f;                              // F[8]
+  float pitchHalfLen_m = 0.0f;                           // F[0], the corner test's |x|
   float pitchF6 = 0.0f;                                  // F[6]
   float pitchF5 = 0.0f;                                  // F[5]
   CarrierPoint ball;                                    // ctx4+0x40/+0x48

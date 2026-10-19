@@ -921,6 +921,48 @@ TEST(PesCarrierInstall, TheZonesAndLaddersAreTheGamesOwn) {
   EXPECT_GT(k->gfFlagDistSq_m2, 0.0f);
   EXPECT_GT(k->gfPredictGain, 0.0f);
   EXPECT_FLOAT_EQ(k->gfZoneDist_m, k->gfClass2Dist_m);  // one load site (0x14259BE0C)
+  // BackSpace (0x142129110's lane branch and block 2, 0x1421226C0's gates, 0x142125140's picker):
+  // relations only, no pinned numbers.
+  EXPECT_GT(k->bsOppDistSq_m2, 0.0f);
+  EXPECT_GT(k->bsBallHeight_m, 0.0f);
+  EXPECT_GT(k->bsCornerDistSq_m2, k->bsOppDistSq_m2);
+  EXPECT_GT(k->bsPredictGain, 0.0f);
+  EXPECT_GT(k->bsBoxSkipCount, 0.0f);
+  EXPECT_GT(k->bsAngleLimitGap_m, 0.0f);
+  EXPECT_FLOAT_EQ(k->bsAlignDist_m, k->bsAngleLimitGap_m);  // one load site (0x14259BDEC)
+  EXPECT_GT(k->bsAlignNeed_m, k->bsAlignDist_m);
+  EXPECT_GT(k->bsAlignAngle_deg, 0.0f);
+  EXPECT_LT(k->bsAlignAngle_deg, k->bsFacingLimit_deg);
+  EXPECT_LT(k->bsFacingLimit_deg, k->bsHumanFacingLimit_deg);
+  EXPECT_LT(k->bsNearBox_m, k->bsNearSum_m);
+  EXPECT_FLOAT_EQ(k->bsFarDist_m, k->bsNearBox_m);  // one load site (0x14259BE1C)
+  EXPECT_GT(k->bsAngleClass, 0.0f);
+  EXPECT_GT(k->bsLane1Len_m, 0.0f);
+  EXPECT_GT(k->bsLane1Cone_deg, 0.0f);
+  EXPECT_GT(k->bsLane1Rad_m, 0.0f);
+  EXPECT_GT(k->bsLane2Cone_deg, k->bsFacingLimit_deg);
+  EXPECT_LT(k->bsLane2Floor_deg, 0.0f);
+  EXPECT_FLOAT_EQ(k->bsLane2Floor_deg, -k->bsLane2Cap_deg);  // -20.0 vs 20.0
+  EXPECT_GT(k->bsLane2Gain, 0.0f);
+  EXPECT_LT(k->bsLane2XNear_m, k->bsLane2XFar_m);
+  EXPECT_FLOAT_EQ(k->bsLane2XFar_m - k->bsLane2XNear_m, k->bsLane2XSpan_m);  // 15 - 3 = 12
+  EXPECT_GT(k->bsLane2ZGain, 0.0f);
+  EXPECT_FLOAT_EQ(k->bsLane2Base_m, k->bsAlignDist_m);  // one load site (0x14259BDEC)
+  EXPECT_GT(k->bsLane2Pad_m, 0.0f);
+  EXPECT_FLOAT_EQ(k->bsLane2LenMin_m, k->bsLane2XNear_m);  // one load site (0x14258C264)
+  EXPECT_GT(k->bsTailDistSq_m2, 0.0f);
+  EXPECT_GT(k->bsTailHalf, 0.0f);
+  EXPECT_FLOAT_EQ(k->bsTailFacing_deg, k->bsFacingLimit_deg);  // one load site (0x14259BE5C)
+  EXPECT_GT(k->bsTailHeading_deg, 0.0f);
+  EXPECT_FLOAT_EQ(k->bsTailPad_m, k->bsBallHeight_m);  // one load site (0x14256AE1C)
+  EXPECT_GT(k->cbDist_m, 0.0f);
+  EXPECT_GT(k->cbSpeedBranch_kmh, 0.0f);
+  EXPECT_GT(k->cbAlign_deg, 0.0f);
+  EXPECT_LT(k->cbSpeedBranch_kmh, k->cbFastAlign_kmh);
+  EXPECT_FLOAT_EQ(k->cbCrowd_m, k->bsLane2LenMin_m);  // one load site (0x14258C264)
+  EXPECT_FLOAT_EQ(k->cbBoxAngle_deg, k->bsTailDistSq_m2);  // one load site (0x14253EE30)
+  EXPECT_GT(k->cbSpeedGate_kmh, 0.0f);
+  EXPECT_FLOAT_EQ(k->cbAdvance_m, k->bsFarDist_m);  // one load site (0x14259BE1C)
   EXPECT_GT(k->lane.radToDeg, 0.0f);
   EXPECT_GT(k->lane.coneFloor_deg, 0.0f);
   EXPECT_GT(k->lane.trig.tabScale, 0.0f);
@@ -1681,13 +1723,14 @@ class BackSpaceUnitTest : public ::testing::Test {
     in_.attackSign = 1.0f;
     in_.teamLineOpp = 60.0f;  // the side test passes for any mate on the pitch
     in_.pitchBound8 = 60.0f;
+    in_.pitchHalfLen_m = 52.5f;
     in_.pitchF6 = 52.5f;
-    in_.pitchF5 = 9.16f;
     in_.ball = {0.0f, 0.0f};
     in_.owned = true;
     in_.plan = pes::kPlanPassThrough;
     in_.planRecordTarget = 5;
     in_.planRecordBytesOk = true;
+    in_.curveGate = true;  // the mid-pitch target is far from the corner, so the curve arm passes
     pes::BackSpaceMate m = BackSpaceMate(5);
     m.pos = {0.0f, 12.0f};
     m.heading_deg = 0.0f;
@@ -1733,6 +1776,13 @@ TEST_F(BackSpaceUnitTest, TheValidatorRejectsAlignedHeadings) {
   EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);
   in_.carrierHeading_deg = 180.0f;
   EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
+  // Both comparisons are strict: exactly 8 m need, or exactly 45 degrees apart, passes.
+  in_.mates[0].teamNeed_m = 8.0f;
+  in_.carrierHeading_deg = 10.0f;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
+  in_.mates[0].teamNeed_m = 5.0f;
+  in_.carrierHeading_deg = 45.0f;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
 }
 
 TEST_F(BackSpaceUnitTest, TheValidatorLaneOneRejectsABlocker) {
@@ -1776,7 +1826,21 @@ TEST_F(BackSpaceUnitTest, TheLaneBranchSkipsWhenAnOpponentIsFar) {
   in_.players[14].pos = {0.0f, 30.0f};
   in_.players[14].active = true;
   EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);
-  in_.players[14].pos = {0.0f, 5.0f};  // inside 6 m: the branch falls through to the answer
+  in_.players[14].pos = {5.0f, 0.0f};  // inside 6 m: the branch falls through to the answer
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
+}
+
+TEST_F(BackSpaceUnitTest, TheCornerTestPassesNearTheCorner) {
+  // 0x142129110's plan-4 arm: a record-B target within 15 m of the attack corner (+52.5, 0)
+  // passes without the curve gate.
+  in_.curveGate = false;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);  // mid-pitch target, no curve arm
+  in_.carrierPos = {42.0f, 5.0f};
+  in_.ball = {42.0f, 5.0f};
+  in_.players[kBackSpaceCarrierSlot].pos = {42.0f, 5.0f};
+  in_.mates[0].recBTarget = {50.0f, 5.0f};  // d2 = 31.25 < 225
+  in_.mates[0].pos = {48.0f, 5.0f};
+  in_.players[5].pos = {48.0f, 5.0f};
   EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
 }
 

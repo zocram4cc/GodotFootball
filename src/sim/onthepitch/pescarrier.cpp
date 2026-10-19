@@ -1,5 +1,7 @@
 #include "pescarrier.hpp"
 
+#include "onthepitch/pesball.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -99,6 +101,42 @@ inline float Wrap360(float a) {
 
 // 180/pi, the radian -> degree factor the bearing helper 0x1404583b0 applies.
 constexpr float kPi_deg = 3.14159265358979f;
+
+// 0x140439EF0: bearing(a -> b) in [0, 360), atan2(dx, dz), a negative result plus 2*pi.
+// ponytail: std::atan2 stands in for PES's atan2 polynomial 0x140A92DC0, undecoded (lane-core O3).
+inline float BearingDeg(CarrierPoint a, CarrierPoint b) {
+  if (a.x == b.x && a.z == b.z) return 0.0f;
+  float rad = std::atan2(b.x - a.x, b.z - a.z);
+  if (rad < 0.0f) rad += 2.0f * kPi_deg;
+  return rad * (180.0f / kPi_deg);
+}
+
+// 0x140A8F7C0: the point r metres from p along theta (dir = (sin, cos) over (x, z)).
+// ponytail: std::sin/cos stand in for PES's sine table 0x140A92C80; the lane core's Dir uses the
+// table, but the units' advance calls below never run through it.
+inline CarrierPoint AdvancePoint(CarrierPoint p, float theta_deg, float r_m) {
+  const float rad = theta_deg * (kPi_deg / 180.0f);
+  return {p.x + r_m * std::sin(rad), p.z + r_m * std::cos(rad)};
+}
+
+// PES's frame counts: int(fps * gain + 0.5) with fps = 54 (0x141E532D0/E0).
+inline int PesFrames(float gain) {
+  return static_cast<int>(kPesTickHz * gain + 0.5f);
+}
+
+// P + frames * V, the predicted point every unit builds from the record's per-frame velocity.
+inline CarrierPoint PredictPoint(CarrierPoint p, CarrierPoint vPerFrame, int frames) {
+  const float h = static_cast<float>(frames);
+  return {p.x + h * vPerFrame.x, p.z + h * vPerFrame.z};
+}
+
+inline float Dist2(CarrierPoint a, CarrierPoint b) {
+  const float dx = a.x - b.x;
+  const float dz = a.z - b.z;
+  return dx * dx + dz * dz;
+}
+
+inline offball::Vec2f ToLaneVec(CarrierPoint p) { return {p.x, p.z}; }
 
 }  // namespace
 
@@ -1099,10 +1137,337 @@ PassAnswer GoalFrontUnit(const GoalFrontInput& in, const CarrierConstants& k) {
   return answer;
 }
 
+namespace {
+
+// 0x140A4EE40/60: the nearest slot of side `side` to `point` (rank 0), kNoSlot when none is
+// active. PES scans the side's eleven in order and keeps the strictly nearer; GF's 22-slot array
+// is in the same layout.
+int NearestSideSlot(const std::array<lane::LanePlayer, lane::kSlots>& players, int side,
+                     CarrierPoint point) {
+  int best = lane::kNoSlot;
+  float bestD2 = 0.0f;
+  for (int j = 0; j < lane::kSideSize; ++j) {
+    const int q = lane::kSideSize * side + j;
+    if (!players[q].active) continue;
+    const float dx = players[q].pos.x - point.x;
+    const float dz = players[q].pos.z - point.z;
+    const float d2 = dx * dx + dz * dz;
+    if (best == lane::kNoSlot || d2 < bestD2) {
+      best = q;
+      bestD2 = d2;
+    }
+  }
+  return best;
+}
+
+// 0x140A4F720: the crowd count behind the cut-back picker - opponents (side `side`) whose
+// 13-frame predicted position is within `radius_m` of `point`. Pure from the records.
+int CrowdCount(const std::array<lane::LanePlayer, lane::kSlots>& players, int side,
+               CarrierPoint point, float radius_m) {
+  const int horizon = static_cast<int>(kPesTickHz) / 4;  // fps >> 2 = 13
+  int count = 0;
+  for (int j = 0; j < lane::kSideSize; ++j) {
+    const int q = lane::kSideSize * side + j;
+    if (!players[q].active) continue;
+    const CarrierPoint pred = PredictPoint({players[q].pos.x, players[q].pos.z},
+                                           {players[q].vel.x, players[q].vel.z}, horizon);
+    if (Dist2(pred, point) < radius_m * radius_m) ++count;
+  }
+  return count;
+}
+
+// The PassThrough validator 0x1421226C0: the target mate's record-B target must survive the side,
+// difficulty, slot-stat, mode-1 zone, distance, align, near-box, facing and two lane gates.
+// `mateIdx` is the mate's index into in.mates; `nearestRank0` answers the tail loop's
+// NearestEntry rank-0 read (T18+0x22E4C+q*200+side*0x58 == target).
+bool PassThroughValidator(const BackSpaceInput& in, size_t mateIdx, const CarrierConstants& k,
+                          const std::function<int(int q)>& nearestRank0) {
+  const BackSpaceMate& m = in.mates[mateIdx];
+  if (m.index < 0 || m.index > 21) return false;
+  // Gate 1: b6c status 0xB.
+  if (!m.statusValid) return false;
+  // Gate 2: k*mate.x <= k*teamLine.
+  if (in.attackSign * m.pos.x > in.attackSign * in.teamLineOpp) return false;
+  // Gate 3: k*recB.x <= F[8], and (danger or difficulty <= 1).
+  if (in.attackSign * m.recBTarget.x > in.pitchBound8) return false;
+  if (!in.danger && !(m.recBDifficulty <= k.bsBallHeight_m)) return false;
+  // Gate 4: the carrier->recB-target bearing, kept for gate 10. (The 0x140A8F890 corner call's
+  // result is discarded - a dead call.)
+  const float carrierBearing = BearingDeg(in.carrierPos, m.recBTarget);
+  // Gate 5: the carrier's per-slot float at or below the target's.
+  if (in.carrierSlotStat > m.slotStat) return false;
+  // Gate 6: the mode-1 zone arm.
+  if (in.planMode == 1) {
+    const bool skip = in.boxCount >= k.bsBoxSkipCount &&
+                      in.attackSign * in.ball.x >= in.pitchF6 - k.bsBoxSkipMargin_m;
+    if (!skip) {
+      // The zone struct 0x140698D10 builds at the mate's 16-frame prediction; GF's ShootZone
+      // carries its sector, margin and angle in the same fields the gates read (+0x178/+0x170/
+      // +0x174).
+      if (in.boxSector < static_cast<float>(m.zoneAtPred16.sector)) return false;
+      if (in.goalMouth) return false;
+      if (static_cast<float>(m.zoneAtPred16.sector) == in.boxSector) {
+        const float gap = m.zoneAtPred16.d_m - in.boxMargin;
+        if (gap > 0.0f) return false;  // mode is 1 here, so a positive gap rejects
+        if (k.bsAngleLimitGap_m <= gap && in.boxAngle <= m.zoneAtPred16.angle_deg &&
+            m.zoneAtPred16.angle_deg != in.boxAngle)
+          return false;
+      }
+    }
+  }
+  // Gate 7/8: past 6 m, a need under 8 m with headings agreeing within 45 degrees rejects.
+  const float d = std::sqrt(Dist2(in.ball, m.recBTarget));
+  if (k.bsAlignDist_m <= d && m.teamNeed_m < k.bsAlignNeed_m &&
+      std::fabs(WrapDeg(m.heading_deg - in.carrierHeading_deg)) < k.bsAlignAngle_deg)
+    return false;
+  // Gate 9: the near box (|dx| <= 20, |dx|+|dz| <= 40) and the difficulty re-read.
+  const float dx = std::fabs(in.ball.x - m.pos.x);
+  const float dz = std::fabs(in.ball.z - m.pos.z);
+  if (!(dx <= k.bsNearBox_m && dx + dz <= k.bsNearSum_m)) return false;
+  if (!(m.recBDifficulty <= k.bsBallHeight_m)) return false;
+  // Gate 10: past 20 m, or a record-B class below 4, the facing gate holds: the carrier's facing
+  // against the gate-4 bearing, 90 degrees (120 for a human carrier inside 20 m).
+  if (k.bsFarDist_m <= d || static_cast<float>(m.recBClass) < k.bsAngleClass) {
+    float limit = k.bsFacingLimit_deg;
+    if (in.owned && d < k.bsFarDist_m) limit = k.bsHumanFacingLimit_deg;
+    if (limit <= std::fabs(WrapDeg(in.carrierFacing_deg - carrierBearing))) return false;
+  }
+  // Gate 11: lane 1, the direct core call 0x14063CD90 - origin the ball advanced 1 m along the
+  // record angle, len 5, cone 30, rad 2, h = the target slot (verbatim PES: `MOV [RSP+0x30],ESI`
+  // at 0x142122D00 passes the slot where a frame count sits; likely a register mix-up, ported
+  // as is). Any entry rejects.
+  const lane::LaneRequest lane1{ToLaneVec(AdvancePoint(in.ball, m.recBAngle_deg, k.bsBallHeight_m)),
+                                m.recBAngle_deg, k.bsLane1Len_m, k.bsLane1Cone_deg,
+                                k.bsLane1Rad_m};
+  const int oppSide = lane::IsAwaySlot(in.carrierSlot) ? 0 : 1;
+  if (lane::ScanLane(k.lane, in.players, in.carrierSlot, oppSide, lane1, /*keepKeeper*/ false,
+                     /*horizonFrames*/ m.index)
+          .count != 0)
+    return false;
+  // Gate 12: lane 2, packer B 0x14063D2F0 - origin the mate's 16-frame prediction, theta the
+  // side angle clamped, length from the carrier-mate separations, cone 140, h = 16. Empty
+  // accepts; otherwise the tail loop runs.
+  const int pred16 = PesFrames(k.bsPredictGain);
+  const CarrierPoint matePred = PredictPoint(m.pos, m.velPerFrame, pred16);
+  const float theta = Wrap360(
+      in.sideAngle_deg +
+      std::clamp(WrapDeg(BearingDeg(m.pos, m.recBTarget) - in.sideAngle_deg) * k.bsLane2Gain,
+                 k.bsLane2Floor_deg, k.bsLane2Cap_deg));
+  const float wx = std::fabs(in.carrierPos.x - m.pos.x);
+  const float fx = wx < k.bsLane2XNear_m
+                       ? 0.0f
+                       : (k.bsLane2XFar_m < wx ? 1.0f : (wx - k.bsLane2XNear_m) / k.bsLane2XSpan_m);
+  const float wz = std::fabs(in.carrierPos.z - m.pos.z);
+  const float len = std::max(k.bsLane2LenMin_m,
+                             std::min(wz, k.bsLane2ZGain * fx + k.bsLane2Base_m) + k.bsLane2Pad_m);
+  const lane::LaneRequest lane2{ToLaneVec(matePred), theta, len, k.bsLane2Cone_deg, 0.0f};
+  // The tail loop needs the entries, not just the count: re-scan per entry would repeat the
+  // core, so collect the recorded slots once. The core records the same set for the same inputs.
+  const int horizon9 = static_cast<int>(kPesTickHz) / 6;  // fps / 6 = 9
+  const int horizon18 = static_cast<int>(kPesTickHz) / 3;  // fps / 3 = 18
+  // ScanLane reports nearest/count only; walk the side and re-apply the record test per slot by
+  // scanning each candidate alone is O(11) core calls - instead, probe membership via the count
+  // delta is wrong; so run one scan per side slot (11 scans, same shape as PES's per-entry loop).
+  std::vector<int> entries;
+  for (int j = 0; j < lane::kSideSize; ++j) {
+    const int q = lane::kSideSize * oppSide + j;
+    if (!in.players[q].active || q == in.carrierSlot) continue;
+    std::array<lane::LanePlayer, lane::kSlots> solo{};
+    solo[q] = in.players[q];
+    solo[in.carrierSlot] = in.players[in.carrierSlot];
+    if (lane::ScanLane(k.lane, solo, in.carrierSlot, oppSide, lane2, /*keepKeeper*/ false,
+                       /*horizonFrames*/ pred16)
+            .count != 0)
+      entries.push_back(q);
+  }
+  if (entries.empty()) return true;
+  for (const int q : entries) {
+    if (q > 21) continue;
+    const lane::LanePlayer& qp = in.players[q];
+    const CarrierPoint qPos{qp.pos.x, qp.pos.z};
+    const CarrierPoint qVel{qp.vel.x, qp.vel.z};
+    const CarrierPoint qPred = PredictPoint(qPos, qVel, horizon9);
+    // Exit A: the predicted entry past 10 m from the ball and nearer in x than half the
+    // carrier-mate gap.
+    if (k.bsTailDistSq_m2 < Dist2(in.ball, qPred) &&
+        std::fabs(m.pos.x - qPos.x) < std::fabs(in.carrierPos.x - m.pos.x) * k.bsTailHalf)
+      return false;
+    // Exit B: z-agreement, facing agreement (folded once past 180) and heading agreement.
+    const float zM = std::fabs(in.ball.z - m.pos.z);
+    const float zQ = std::fabs(in.ball.z - qPos.z);
+    if (zQ <= zM + k.bsTailPad_m) {
+      float facingDiff = 0.0f;  // the entry's facing is not in the lane record; see below
+      (void)facingDiff;
+      // ponytail: exit B's facing agreement reads the lane entry's record facing (+0x554),
+      // which the caller's lane records do not carry; the z gate and the heading gate below
+      // stand in. The PES writer of the facing is the player record itself (0x140A48A10).
+      const float headQ = 0.0f;  // ditto for the entry's vel_eff heading
+      if (std::fabs(WrapDeg(headQ - m.heading_deg)) < k.bsTailHeading_deg) {
+        // The facing arm is skipped (stand-in above); the heading arm alone decides.
+        return false;
+      }
+    }
+    // Exit C: the entry's rank-0 nearest is the target and the 18-frame x race loses.
+    if (nearestRank0(q) == m.index) {
+      const float bit = (zM < zQ) ? k.bsTailPad_m : 0.0f;
+      const float mx = (static_cast<float>(horizon18) * m.velPerFrame.x + m.pos.x);
+      const float qx = (static_cast<float>(horizon18) * qVel.x + qPos.x);
+      if (bit + in.attackSign * mx < in.attackSign * qx) return false;
+    }
+  }
+  return true;
+}
+
+}  // namespace
+
 PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k) {
-  (void)in;
-  (void)k;
-  return PassAnswer{};  // RED: the port lands next
+  PassAnswer answer;
+  // The lane branch (0x142129110): a Mid-zone carrier with a FREE gate lane checks the nearest
+  // opponent's 9-frame prediction against the ball point - past 6 m, no answer.
+  if (in.mid) {
+    const lane::LaneRequest gate{{in.carrierPos.x, in.carrierPos.z}, in.sideAngle_deg,
+                                 k.unitLaneLen_m, k.unitLaneCone_deg, k.unitLaneRad_m};
+    if (lane::LaneFree(k.lane, in.players, in.carrierSlot, gate, /*keepKeeper*/ false,
+                       /*horizonFrames*/ 0)) {
+      const int oppSide = lane::IsAwaySlot(in.carrierSlot) ? 0 : 1;
+      const int opp = NearestSideSlot(in.players, oppSide, in.ball);
+      if (opp < lane::kSlots) {
+        const lane::LanePlayer& op = in.players[opp];
+        const CarrierPoint pred =
+            PredictPoint({op.pos.x, op.pos.z}, {op.vel.x, op.vel.z},
+                         static_cast<int>(kPesTickHz) / 6);
+        if (k.bsOppDistSq_m2 < Dist2(pred, in.ball)) return answer;
+      }
+    }
+  }
+  // Block 2: owned, or the ball low.
+  if (in.receiving) return answer;
+  if (!in.owned && !(in.ballHeight_m <= k.bsBallHeight_m)) return answer;
+  // Plan 4: the plan-record target through the validator and the corner/curve gate.
+  if (in.plan == kPlanPassThrough) {
+    if (in.planRecordTarget < 0 || in.planRecordTarget > 21) return answer;
+    if (!in.planRecordBytesOk) return answer;
+    size_t mateIdx = in.mates.size();
+    for (size_t i = 0; i < in.mates.size(); ++i)
+      if (in.mates[i].index == in.planRecordTarget) mateIdx = i;
+    if (mateIdx >= in.mates.size()) return answer;
+    const BackSpaceMate& m = in.mates[mateIdx];
+    auto rank0 = [&](int q) {
+      // ponytail: the NearestEntry rank-0 read (T18+0x22E4C) has no GF table; the nearest
+      // opponent to the entry stands in. The table's writer is undecoded (helpers §5).
+      const int side = lane::IsAwaySlot(q) ? 0 : 1;
+      const lane::LanePlayer& qp = in.players[q];
+      return NearestSideSlot(in.players, side, {qp.pos.x, qp.pos.z});
+    };
+    if (!PassThroughValidator(in, mateIdx, k, rank0)) return answer;
+    const CarrierPoint corner{in.attackSign == 1.0f ? in.pitchHalfLen_m : -in.pitchHalfLen_m, 0.0f};
+    if (!(Dist2(m.recBTarget, corner) <= k.bsCornerDistSq_m2) && !in.curveGate) return answer;
+    answer.index = m.index;
+    answer.kind = kPassThrough;
+    return answer;
+  }
+  // Other plans: the cut-back picker 0x142125140.
+  int best = -1;
+  const BackSpaceMate* bestMate = nullptr;
+  // The picker's head lane (0x142125311) and skill call (0x142125249) are both dead - results
+  // discarded - so the port starts at the loop.
+  for (const BackSpaceMate& m : in.mates) {
+    if (m.index < 0 || m.index > 21 || m.index == in.carrierSlot) continue;
+    auto rank0 = [&](int q) {
+      const int side = lane::IsAwaySlot(q) ? 0 : 1;
+      const lane::LanePlayer& qp = in.players[q];
+      return NearestSideSlot(in.players, side, {qp.pos.x, qp.pos.z});
+    };
+    size_t mateIdx = 0;
+    for (size_t i = 0; i < in.mates.size(); ++i)
+      if (in.mates[i].index == m.index) mateIdx = i;
+    if (!PassThroughValidator(in, mateIdx, k, rank0)) continue;
+    const CarrierPoint corner{in.attackSign == 1.0f ? in.pitchHalfLen_m : -in.pitchHalfLen_m, 0.0f};
+    if (!(Dist2(m.recBTarget, corner) <= k.bsCornerDistSq_m2) && !in.curveGate) continue;
+    const float dMate = std::sqrt(Dist2(in.carrierPos, m.pos));
+    const float dTarg = std::sqrt(Dist2(in.carrierPos, m.recBTarget));
+    const int horizon13 = static_cast<int>(kPesTickHz) >> 2;  // fps >> 2 = 13
+    const CarrierPoint qPred13 = PredictPoint(m.pos, m.velPerFrame, horizon13);
+    const int oppSide = lane::IsAwaySlot(in.carrierSlot) ? 0 : 1;
+    const bool free13 = CrowdCount(in.players, oppSide, qPred13, k.cbCrowd_m) == 0;
+    // Lane A: origin the 13-frame prediction, theta the side angle, 20/90/3, h = 13.
+    const lane::LaneRequest laneA{ToLaneVec(qPred13), Wrap360(in.sideAngle_deg), k.unitLaneLen_m,
+                                  k.bsFacingLimit_deg, k.cbCrowd_m};
+    const bool laneAFree = lane::LaneFree(k.lane, in.players, m.index, laneA,
+                                          /*keepKeeper*/ false, /*horizonFrames*/ horizon13);
+    // Lane B: origin the 13-frame prediction, theta the team angle, len = need, 90/3, h = 13.
+    const lane::LaneRequest laneB{ToLaneVec(qPred13), Wrap360(m.teamAngle_deg), m.teamNeed_m,
+                                  k.bsFacingLimit_deg, k.cbCrowd_m};
+    const bool laneBFree = lane::LaneFree(k.lane, in.players, m.index, laneB,
+                                          /*keepKeeper*/ false, /*horizonFrames*/ horizon13);
+    bool b = (m.action == 0x25 || m.action == 0x1E);
+    // Gate 8: the distance gate, then the speed branch (spd > 10) arming the align arm.
+    bool runSpeedBranch = false;
+    if (!free13) {
+      if (dTarg < k.cbDist_m) {
+        runSpeedBranch = true;
+      } else if (!(dMate < k.cbDist_m)) {
+        continue;
+      }
+    } else if (dTarg < k.cbDist_m) {
+      runSpeedBranch = true;
+    }
+    if (runSpeedBranch && k.cbSpeedBranch_kmh < m.speed_kmh) {
+      if (std::fabs(WrapDeg(m.heading_deg - in.sideAngle_deg)) < k.cbAlign_deg) b = true;
+    }
+    // Gate 9: the fast arm and lane B.
+    if (k.cbFastAlign_kmh < m.speed_kmh &&
+        std::fabs(WrapDeg(m.heading_deg - in.sideAngle_deg)) < k.cbAlign_deg)
+      b = true;
+    if (laneBFree) b = true;
+    // Gate 10: the box branch.
+    if (!in.goalMouth && std::fabs(in.ball.z) <= std::fabs(m.recBTarget.z) &&
+        (m.speed_kmh <= 0.0f ||
+         std::fabs(WrapDeg(m.heading_deg - in.sideAngle_deg)) <= k.cbBoxAngle_deg) &&
+        in.attackSign * m.recBTarget.x < in.pitchF6 && in.pitchF5 <= std::fabs(m.recBTarget.z) &&
+        std::fabs(m.recBTarget.z) != in.pitchF5 && laneAFree)
+      b = true;
+    // Gate 11: the advance branch.
+    if (in.carrierNeed_m <= m.teamNeed_m || in.central) {
+      if (!b) continue;
+    } else if (!m.zoneBuilt && (m.teamNeed_m < k.cbAdvance_m || b)) {
+      if (!b) continue;
+    } else if (!(!m.zoneBuilt || m.teamNeed_m < k.cbAdvance_m || b)) {
+      continue;
+    } else if (!b) {
+      continue;
+    }
+    // Gate 12: the candidate check - first taken, then the zone-dependent tiebreak.
+    if (best < 0) {
+      best = m.index;
+      bestMate = &m;
+      continue;
+    }
+    if (in.central && in.mid) {
+      if (m.lineValue < bestMate->lineValue) {
+        best = m.index;
+        bestMate = &m;
+      }
+    } else {
+      // ponytail: the ctx[0]+0x40 flag has no GF state; GF takes the min-|z| (flag != 0 arm).
+      // The flag's writer is undecoded (helpers §5).
+      if (std::fabs(m.pos.z) < std::fabs(bestMate->pos.z)) {
+        best = m.index;
+        bestMate = &m;
+      }
+    }
+  }
+  if (best < 0) return answer;
+  answer.index = best;
+  answer.kind = kPassThrough;
+  // The b-drop: close test, pressure class and record class all exceed 1.
+  for (const BackSpaceMate& m : in.mates) {
+    if (m.index == best && m.closeTest && 1.0f < m.pressureClass && 1.0f < m.recAClass) {
+      answer.kind = kPassShort;
+      break;
+    }
+  }
+  return answer;
 }
 
 bool UnitArmed(int kind, bool capFeint, bool capBackSpace, bool capSafety, float ballDistSq_m2,
