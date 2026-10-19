@@ -1,6 +1,6 @@
 # Team mode (G4 operand), K+0x6E (DHB) and T+0x87CD (2-CF gate): writers and live values (S1Watch, run 3, 19-10-26)
 
-> **Main audit 19-10-26 (rev 2):** `0x141052E30` reader, zeroing store `0x140A65E15`, T+0x87CD store `0x1405F9E5C` (+ `0x1405F9E51`, source `0x1405F9E2B`), K+0x6E flag store `0x14063AA5E` `mov [rdi+0x6e],r13b`, reset `0x14063A3F6` `mov [rcx+0x6c],rax` (qword covers +0x6E), copier `0x140AC0365` `mov [rbx+0xe6],al`, writer call `0x142110E78 -> 0x1421197B0`: all re-read by script and match. Port-ready: G4 mode writer (FUN_1421197B0 decision order), K+0x6E flag (=1 only when K+0x6C=0), T+0x87CD = on-pitch count of slot classes 7-9 (needs RoleArrays' class arrays).
+> **Main audit 19-10-26 (rev 3):** round-4 constants re-read by script: `0x14253EE30`=100.0, `0x142588210`=10.0, `0x142591140`=30.0, `0x14259A764`=60.0. K+0x6E: `0x14063AA5E` stores r13b which is always 0 (`xor r13d,r13d` at `0x14063A61C`); the flag is SET by `movb [rdi+0x6e],1` at `0x14063AA91` and `0x14063AB06` (both confirmed). Round 3's "flag store = 0x14063AA5E" reading is superseded. B3C byte store `0x141193DEA` `mov [rcx+0xb3c],al` confirmed. Porting note: the G4 clock gate reads the period at `MI+0x1168`; a port reads GF's own match period, and MI+0x1168 is never pinned.
 
 Read-only. Live reads via `/proc/<pid>/mem` (`sudo -n`), `perf` execute and write watches on the JobGraph worker threads (no stop, no pin, no write), `perf` CPU sampling. No PES memory written. No GF edits. Scratch: `<workdrive>/gf-S1Watch-scratch/` (`modelog.py`, `gatelog.py`, `kwatch.data`, `entry.data`, `dec_1421197B0.c`, `dec_142110D30.c`, `dec_142128C10.c`, `dec_142128C10.c`, `dec_63A490.c`, `dec_1405F9CD0.c`, `dec_142110D30.c`, `dis_63A400.txt`, `scan32b0.py`, `scanA.py`).
 
@@ -87,3 +87,123 @@ Meaning (INF): "not at the carrier's feet and the carrier's height byte below th
 4. `K+0x44` threshold writers and `FUN_14124DAD0` (§4).
 5. Copier `0x140AC0280` source byte `+0x90` and the copier's run window (§4).
 6. Predicate `FUN_142128C10`: `param_1[6]` is 0 at entry in the one capture; the driver's direct `bp+0x32B0` read is the confirmed G4 operand.
+
+## 7. Round 4: helpers, K+0x6E condition, T+0x87CD selector (supersedes §2 and §4 open items where noted)
+
+Constants are script-read from `pes_full.bin` (`consts.py`, offset = VA − 0x140000000) and listed with the operand VA of the instruction that uses them. Decompile names are the bridge's local names.
+
+### 7.1 IsClose (`FUN_140699820`, VA `0x140699820`, 15-line decompile, CONFIRMED)
+
+Input `p = imageA+0x9CC = bp+0xAB8`. Rule:
+
+`IsClose(p) = 1` iff `f32(p+0x170) >= 0` AND `( (u32(p+0x16C) & 1) != 0 OR ( i32(p+0x17C) < 3 AND i32(p+0x178) < 3 ) )` AND `i32(p+0x17C) == 0`; else 0.
+
+It is **not** the GF ShootZone. Its fields are written by the R4 writer `FUN_140698D10(p, ...)` (VA `0x140698D10`, 305 lines, called from the image-A updater `FUN_142119390` at its line 44). R4 writes: `0x170` (goal-line distance in the attack frame, `pitch.x − carrier.x·sign·…` in the no-projection branch, else `FUN_140A8F820`), `0x174` (`FUN_14043A020`), `0x178` (class 0..3 from `0x198/0x19C` and `0x174`), `0x17C` (0 or 1..3 from `0x188/0x18C/0x194`), and the accumulators `0x188`, `0x18C` (`+= ramp(carrier byte +0x1A)`, `+= count`). The R4 internals are **partly decoded**: the constants below are its operands.
+
+| VA | value | use (operand instruction) |
+|---|---|---|
+| `0x14258C264` | 3.0 | divisor of the updater test `(F[6]·DAT_14259a768)/3.0` (`comiss` in `FUN_142119390`, `dec` lines ~63–66) and `local_188` of the corridor-1 scan |
+| `0x14259BE4C` | 70.0 | ramp lower band of the R4 byte ramp |
+| `0x1425C48CC` | 99.0 | ramp upper band |
+| `0x1425A9460` | 29.0 | ramp span `(x−70)/29` |
+| `0x14258C258` | 15.672 | neighbour constant in R4 (not decoded) |
+| `0x142588210` | 10.0 | `B58 + 10` (`0x142119929: addss 0x2588210(%rip),%xmm0`) |
+
+### 7.2 Corridor branch (in `FUN_1421197B0`, CONFIRMED structure; gates and picks)
+
+Order inside the writer (`dec_1421197B0.c`, asm-matched where cited):
+
+1. `*(int*)(p_out+8) == 4` (`p_out = bp+0x32B0`): keep 4 (sticky, `dec` line 72).
+2. `IsClose(bp+0xAB8)` AND `|wrap(f32(bp+0x2C) − f32(bp+0x4C))| < 100.0` → 4. `wrap`: if `|d| > 180` then `d −= sign(d)·360`. Constants: `180.0` `0x142598580`, `360.0` `0x14259858C`, `100.0` `0x14253EE30` (`comiss` of `dec` line 91).
+3. Else 3 if: `prev == 3`, OR `F[6] <= sign·K.x` with `sign = f32(bp+0x30)`, `K.x = f32(K+0x40)` (ctx4 ball x, copied per tick), `F[6] = f32(*(G+0x2AA8)+0x18) = 36.14` (`dec` line 98: `pfVar2 = pfVar2 + 6`), OR `B3C <= B58 + 10.0` (`B58 = f32(bp+0xC44)`, `B3C = f32(bp+0xC28)`, `0x142119931 comiss 0xb3c(%rbx)`).
+4. Else, if `T+4 < 2` AND `prev != 2` (`T = FUN_140A48A30(G, team)`, `dec` line 106):
+   a. origin = carrier player `(x,z)` (`FUN_140A48A10(G, bp+0x1C)`, `+0x55C`/`+0x564`) moved `30.0` m (`0x142591140`) along `T+0x250` (folded to `[0,360)` with `0x14259858C`/`0x142598598`, `dec` line 112).
+   b. corridor-1 = `FUN_14063D2F0` → `FUN_14063CD90` (lane scan; output `[0]` nearest id, `[1]` count), side flag `(team == 0)`. `count1 = FUN_1421B7D40(out1)`. **`count1 == 0` → 2.**
+   c. goal and clock gate (`dec` line 168–174): `goals_other <= goals_own` OR `((period != 3 OR minute < 40) AND (period != 7 OR minute < 10))`. `period = *(MI+0x1168)` (`MI = *(G+0x270)`), `minute = FUN_140A6BD60()`, `goals_x = FUN_1408C9DF0(FUN_140A3E8A0(*(team+0xE0)) + team_x·0x59650, 5)`. **Fails → 2.** Constants: `40` = `0x28`, `10` (immediate).
+   d. corridor-2 = `FUN_14063CD90(out2, bp+0x1C index, team, param_8 = (count1 == 0))` (here `param_8 = 0`). Scan constants from the writer's locals: `width = 5.0` (`0x14259222C`), `length = 100.0` (`0x142C80000` immediate, `local_128`), `local_124 = 90.0` (`0x14259BE5C`), `local_190 = 60.0` (`0x14259A764`), `local_188 = 3.0` (`0x14258C264`), `tempo = fps/3` (`FUN_141E532E0() = 54`, so 18). `count2 = FUN_1421B7D40(out2)`.
+   e. `count2 <= 1` → 2. Else **1** if `T+0x134 > 2` OR `slider(T) != 1` (`FUN_140A62180(team, field 0)`) OR `2·fps <= bp+0x88` (`*(K+0x10)`, `fps = 54`, so `108`); otherwise **2**.
+5. Else → 2.
+
+There is **no** `MI+0x116C` gate in the writer. The in-play gate is `bp+0x10` in the caller (`FUN_142110D30`).
+
+Live (run 3, 40 s): the 2 is the common in-play value; the 1 occurred twice in one 40-s window (both with `bp+0x10 = 1`). Consistent with step 4.
+The `call 0x51D9E0` sites `0x1404F9F24`, `0x1404FA237`, `0x1404FA6DB` (in `FUN_1404F9DC0`'s region) and `0x1404F6EE8` (tick) are mapped to branches by the decompile (lines 62, 69, 213 of `dec` for the 9DC0 calls); the address-to-branch map of the two `0x1404FA…` sites is INF.
+
+### 7.3 "Sticky" and "held"
+
+- Sticky 4 and sticky 3 test the stored int itself (`*(p_out+8)`), so the state is the previous value at `bp+0x32B0+8`.
+- Held: the writer is called only from `FUN_142110D30` when `*(bp+0x10) != 0` (`dec` line 33). When the byte is 0 the int is not rewritten.
+
+### 7.4 B3C and B58 (`bp+0xC28`, `bp+0xC44`)
+
+- Consumers: `FUN_1421197B0` (step 3 above) and the updater `FUN_142119390` (`0x142119931`: `movups 0xb58(%rbx)` then `addss 10.0`, `comiss 0xb3c`).
+- Block layout (imageA = `bp+0xEC`): `+0xB38` flag byte, `+0xB3C` (B3C), `+0xB40` i32, `+0xB44` byte, `+0xB48` i32, and `+0xB58` (B58, a float read by `movups`).
+- **B3C writer: `FUN_141193DC0(dst, rec16)`** (VA `0x141193DC0`, 15 lines; asm confirmed): `movb $1,0xB38(dst)`; `movss rec[4] → 0xB40(dst)`; **`mov %al, 0xB3C(dst)` (only the low byte of rec[0] is stored, `0x141193DEA`)**; `mov %al, 0xB44(dst)` (rec[8]); `movss rec[12] → 0xB48(dst)`. The consumer reads B3C as a float, so the stored width is not a full float: **OPEN (type of B3C)**.
+- Caller chain: `FUN_141159840(obj, …)` (wrapper: `dst = *(obj+0x48)`, guarded by `*(obj+0x38) != 0`; its caller is not identified). The call is at `0x141159884`.
+- **B58: no nonzero writer found.** The image-A block is zeroed by three reset functions: `FUN_141183710` (651 lines, caller `0x1411FC3EF`), `FUN_1411825E0` (664 lines, caller `0x1411FC37F`), `FUN_141180540` (1228 lines, 7 callers). `FUN_1411FC230` is the allocator (size `0x29B8`, `FUN_1403FB410(…, 0x29B8, 0)`), which calls `FUN_1411825E0`. Live B58 = 24.0 constant, so the nonzero store is outside these reset functions: **OPEN**.
+
+### 7.5 K+0x6E: full flag condition (CONFIRMED asm `0x14063A490..AB40`)
+
+`K = bp+0x78`; `P = r12 at 0x14063AA6C` (the carrier player, `FUN_140A489F0(G, bp+0x1C)`); `B = [rsp+0x70]` (the ball, `*(G+0x40)`).
+
+1. `0x14063AA5E`: `mov %r13b,0x6e(%rdi)`. `r13b = 0` (`xor %r13d,%r13d` at `0x14063A61C`; the only assignment on every path). So **K+0x6E is cleared here**.
+2. `0x14063AA62`: `cmp %r13b,0x6c(%rdi); jne 0x14063AB0C`. **If K+0x6C != 0 the function skips everything below.**
+3. `FUN_14124DAD0(P) = P+0x70`. Condition A (`0x14063AA8C comiss`): `K+0x44 (f32) > byte(P+0x70+0x31)/100.0` (`100.0` = `0x14253EE30`) → **`0x14063AA91: movb $1,0x6e(%rdi)`** (K+0x6E = 1).
+4. Otherwise (no A): `r14b = byte(B+0x80)`. If `r14b == 0` AND `byte(B+0x4C) != 0` (`FUN_140A6D0D0(B) = B+0x4C`): `d1 = |pos(B) − FUN_140A6CF30(B,0)|²`, `d2 = |pos(B) − rsi|²` (`rsi` = the function's second argument, a point), `r14 = (d2 > d1)`.
+5. `0x14063AB01`: if `byte(B+0x4C) != 0` AND `r14 == 0` → **`0x14063AB06: movb $1,0x6e(%rdi)`**.
+6. `0x14063AB2F`: `mov %r13b,0x6f(%rdi)` (K+0x6F = 0). 
+
+So `K+0x6E = 1` iff `K+0x6C == 0` AND (A: `K+0x44 > P.byte31/100`, OR B: `B+0x4C != 0` AND NOT(`d2 > d1`, computed only if `B+0x80 == 0`)). Live check of the stored bytes: K+0x6E=1 only with K+0x6C=0 (1,905 of 1,905).
+
+The copier `FUN_140AC0280` (VA `0x140AC0280`, 50 lines) writes `bp+0xE6` (= K+0x6E) from `*(*(bp+0xC8)+0x90)`. It runs only through `FUN_140ABF720` (VA `0x140ABF720`, 43 lines), which returns 0 unless **all eight pointers at `bp+0x90, 0x98, …, 0xC8` have `+0xB4 != 0`** (`dec` lines 4–12), and then calls `FUN_140E3D790`, `FUN_140E40A20`, `FUN_140E52480`, `FUN_140E525A0` before `FUN_140AC0280(bp)`. Live: 0 hits of `FUN_140ABF720` and of the copier in 8 s of active play (`gate.data`, `copier.data`). The copier's source object (`*(bp+0xC8)`) is OPEN. So its K+0x6E write is rare, and **the per-tick flag is FUN_14063A490's**.
+
+### 7.6 T+0x87CD selector `[this+0x10C]` and the role groups (CONFIRMED structure; INF on the class meaning)
+
+Chain (decompile + asm):
+
+- `FUN_1405F9CD0(this, side, B, rec)` writes `B+0x7B20 + 20k + 60·r9` (total) and `B+0x7B21 + 20k + 60·r9` (on-pitch), with `r9 = byte(this+0x10C)` (`0x1405F9E20`). **T+0x87CD = on-pitch count of group k=2 when r9 = 1** (`B+0x7B85`, `B = T+0xC48`).
+- `this+0x10C` is stored by `FUN_1405EBFA0(ctx, p2, team, sel)` (`dec` line 43: `*(char*)(ctx+0x10C) = param_4`; VA `0x1405EBFA0`), called by `FUN_1405EC600(…, side, T, sel, …)` (`dec` line 116), called by `FUN_14051D9E0(param_1, p2, sel, p4, p5)` (VA `0x14051D9E0`, the role-rebuild routine; `FUN_1405EC600(param_1, 0/1, p2, sel)` for each side).
+- Init: `FUN_14051F490` writes `+0x10C = 2` (`0x14051F5A7`, `movl $2`), so `r9 = 2` (rows 6–8) until the first build.
+- **Selector values** (the four callers of `FUN_14051D9E0`, bridge decompiles):
+  - Team tick restart branch `0x1404F6EE8`: `sel = (T+0x255 != 0)` (`tick.c` line 243, `bVar22`).
+  - `FUN_1404F9DC0` (step 37, parity dispatcher), `param_2 == 0`: `sel = (T+0x255 != 0)` (`dec` line 62).
+  - `FUN_1404F9DC0`, `param_2 != 0` and `MI+0x1198 & 1 == 0`: `sel = (T+0x255 == 0)` (`dec` line 69; asm `0x14051…` `sete`).
+  - `FUN_1404F9DC0`, `param_2 != 0` and `MI+0x1198 & 1 != 0`: `sel = (T+0x255 != 0)` (`dec` line 213).
+  
+  So `sel` = **the team's in-possession latch `T+0x255`** (1 = possession), with the sense inverted on one odd-frame branch. Rows: `sel = 1` writes `n = k+3` (k = 0..2), `sel = 0` writes `n = k`.
+- **Consequence:** `T+0x87CD` is the on-pitch count of group 2 **at the last build made while the team had possession**. The 2-CF gate reads that count.
+
+**Role groups (cross-check with `docs/re/pes-re-role-writer.md` §5, lines 143–144):**
+
+| formation role | class (role-writer) | group (`FUN_1405F9CD0` switch) |
+|---|---|---|
+| 0 GK | 0 | 0 |
+| 1 CB | 1 | 0 |
+| 2 LB, 3 RB | 2 | 0 |
+| 4 DMF | 3 | 1 |
+| 5 CMF | 4 | 1 |
+| 6 LMF, 7 RMF | 5 | 1 |
+| 8 AMF | 6 | 1 |
+| 9 LWF, 10 RWF | **8 (WF)** | **2** |
+| 11 SS | **7** | **2** |
+| 12 CF | **9** | **2** |
+
+So group 2 = {SS, LWF/RWF, CF} = the four forward roles 9–12. AMF (class 6) is group 1. This matches the stamina note (`SS=7`, `WF=8`).
+
+The class array read by `FUN_1405F9CD0` is `*(this+0x128)` (11 ints, one per slot). `FUN_1405EBFA0` leaves `+0x128` = 0, so it is set after the ctx build (INF: array A `S+0x3F8C`, role-writer §3). The on-pitch flag is `MI+0x1748 + team·11 + slot` (CONFIRMED).
+
+### 7.7 Corrections to earlier text
+
+- §4 "K+0x6E writers": the store at `0x14063AA5E` writes **0** (`r13b = 0`), and the flag 1 is written at `0x14063AA91` and `0x14063AB06`. The earlier "flag store = r13b" is correct only as "r13b is 0".
+- Constant `0x14259A764` = **60.0** (not 35.0).
+- The `[this+0x10C]` selector was not the side index: `brain+0x110` = 2 for both brains. It is the in-possession latch (§7.6).
+- Mode writer (`FUN_1421197B0`) values: 1, 2, 3, 4 only (no 0 store).
+
+### 7.8 Still open
+
+1. R4 (`FUN_140698D10`) internal branches and the `0x16C` bit-0 writer (`FUN_140699610`).
+2. Corridor scan internals (`FUN_14063CD90`, `FUN_140A900E0`, `FUN_1421B7D40`); the lane geometry of the 'length 100 / width 5' scan.
+3. The B3C record source (`FUN_141159840`'s caller) and B58's nonzero writer (§7.4).
+4. K+0x44 writers (lines 169/180/187/218/232 of `dec_63A490.c`) and `FUN_14124DAD0`'s `P+0x70` object.
+5. The copier gate's caller and `*(bp+0xC8)`.
+6. The class array pointer `this+0x128` (which array, A or B).
