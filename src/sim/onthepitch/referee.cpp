@@ -363,12 +363,17 @@ void Referee::Process() {
 
     // over sideline
 
-    // pes_loop judges the crossing, not the state: a throw-in's ball lies over the line at its spot
-    // and is not out again until it has come in and crossed (ballOverSideline).
+    // pes_loop judges the crossing from inside, not the state. A throw-in's ball lies over the line at
+    // its spot (sidelineSpotY_m), and is out again once it has moved a ball radius beyond that spot
+    // (SetPieceLaws::TouchlineOut): the spot is not out, a ball that has gone further out is.
     const bool overSideline =
         fabs(ballPos.coords[1]) >
         (match->PesLoop() ? pesFieldHalfWidth : pitchHalfH + lineHalfW + 0.11);
-    const bool crossedSideline = match->PesLoop() ? overSideline && !ballOverSideline : overSideline;
+    const bool crossedSideline =
+        match->PesLoop()
+            ? SetPieceLaws::TouchlineOut(ballPos.coords[1], pesFieldHalfWidth, ballOverSideline,
+                                         sidelineSpotY_m, match->GetPesBallConstants().image.ballRadius)
+            : overSideline;
     ballOverSideline = overSideline;
     if (afterSetPieceRelaxTime_ms == 0) {
       if (crossedSideline) {
@@ -760,6 +765,7 @@ void Referee::PrepareSetPiece(e_SetPiece setPiece) {
         match->GetPesRestartSpotConstants());
   match->ResetSituation(buffer.restartPos);
   ballOverSideline = fabs(buffer.restartPos.coords[1]) > pesFieldHalfWidth;
+  sidelineSpotY_m = buffer.restartPos.coords[1];
   match->GetMatchData()->RecordPassRestart();
 
   match->GetTeam(0)->GetController()->PrepareSetPiece(setPiece, buffer.teamID);

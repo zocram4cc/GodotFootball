@@ -3200,7 +3200,7 @@ signed int Humanoid::GetBestCheatableAnimID(
             (absBallPos.Get2D() - rb.restartPos.Get2D()).GetLength() < kOwnSpotWindow_m;
         if (!atOwnSpot &&
             (fabs(absBallPos.coords[0]) > pitchHalfW + lineHalfW + 0.11f ||
-             fabs(absBallPos.coords[1]) > pitchHalfH + lineHalfW + 0.11f)) {
+            fabs(absBallPos.coords[1]) > (match->PesLoop() ? pesFieldHalfWidth : pitchHalfH) + lineHalfW + 0.11f)) {
           touchNum++;
           continue;
         }

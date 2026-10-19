@@ -203,6 +203,20 @@ inline DeadBallDecision GetDeadBallRestart(float ballX, float ballY, float pitch
   return out;
 }
 
+// The touchline judge on the PES path (referee.cpp; touchlineY = F1, pesFieldHalfWidth, the outer
+// edge of the touchline, docs/re/pes-re-fieldinfo.md F1). A ball is out when it crosses that edge from
+// inside (`wasOver` false). A throw-in's ball is placed over the line at its spot (the restart writer
+// puts it at F1 plus the install's outset, so `wasOver` is true once play resumes from it), so the spot
+// is not out again. The ball is out once it has moved a ball radius beyond the spot, which is what a
+// ball at rest past the touchline does. ponytail: PES's own record of "judged out" is not decoded
+// (the writer of ballOverSideline, referee.cpp), so this is the stand-in for it.
+inline bool TouchlineOut(float ballY, float touchlineY, bool wasOver, float spotY, float ballRadius) {
+  const float y = std::fabs(ballY);
+  if (y <= touchlineY) return false;
+  if (!wasOver) return true;
+  return y > std::fabs(spotY) + ballRadius;
+}
+
 }  // namespace SetPieceLaws
 
 #endif
