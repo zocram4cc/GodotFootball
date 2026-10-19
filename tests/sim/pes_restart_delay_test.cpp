@@ -535,3 +535,34 @@ TEST(PesRestartDelay, ABallAtRestBehindTheEndLineIsJudgedOnceWhenTheGateReleases
   EXPECT_TRUE(armed) << "no throw-in was released to place the ball behind the end line";
   EXPECT_EQ(endLineAwards, 1) << endLineAwards << " end-line restart(s) awarded for one ball behind the line";
 }
+
+// PES judges the end line from the zone event one tick after the zone code flips: the judge reads the event on
+// the next frame (docs/re/pes-re-A5Judge.md 1.4; docs/re/pes-re-out-side.md 5, the code leads the judge by a
+// frame). Natural crossing: the first end-line flip of the seed-7 match (trace: the flip at ms 136166, the
+// judge at ms 136185, one 54 Hz tick later). The restart it awards must come on the flip tick plus one.
+TEST(PesRestartDelay, ATheFirstEndLineCrossingIsJudgedOnTheNextTick) {
+  unsigned long tick = 0, flipAt = 0, awardAt = 0, lastStop = 0;
+  e_SetPiece awardKind = e_SetPiece_None;
+  bool live = false;  // the judge's gate at the start of the tick: in play, not in a set piece, none awarded
+  RunMatchWithinTheBound(
+      true, MINUTES,
+      [&](Match& match) {
+        ++tick;
+        const RefereeBuffer& b = match.GetRefereeBuffer();
+        if (flipAt == 0 && live) {
+          const Vector3 p = match.GetBall()->Predict(0);
+          if (pes::OutOfPlayCode(p.coords[0], p.coords[1], match.GetPesBallConstants().image.ballRadius) & 0x8)
+            flipAt = tick;
+        }
+        if (flipAt != 0 && awardAt == 0 && b.active && b.stopTime != lastStop) {
+          awardAt = tick;
+          awardKind = b.desiredSetPiece;
+        }
+        if (flipAt == 0) lastStop = b.stopTime;
+        live = match.IsInPlay() && !match.IsInSetPiece() && !b.active;
+      },
+      kMaxSimTicks, [&](Match&) { return awardAt != 0; });
+  EXPECT_NE(flipAt, 0ul) << "the seed-7 match has no end-line crossing";
+  EXPECT_EQ(awardAt, flipAt + 1) << "the end-line restart came on tick " << awardAt
+                                 << ", not on the judge's tick after the flip at " << flipAt;
+}
