@@ -390,15 +390,6 @@ bool DetectDeflection(const DeflectionInput& in, EventRecord* out) {
   return true;
 }
 
-bool DetectOutOfPlay(OutOfPlayInput* in, EventRecord* out) {
-  if (!in->gateOpen) return false;
-  if (in->stored == in->outSide) return false;
-  in->stored = in->outSide;
-  out->Write(10, in->frame, in->frame, in->state, in->phase);
-  out->SetU32(0x14, static_cast<uint32_t>(in->outSide));
-  return true;
-}
-
 bool DetectSnapshot(const SnapshotInput& in, EventRecord* out) {
   if (in.store == nullptr || in.current == nullptr) return false;
   if (BusyFor(*in.current, true, 0)) return false;  // FUN_140a6ce10(payload, 1, 0)

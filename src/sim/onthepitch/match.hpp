@@ -545,7 +545,6 @@ protected:
     int phase = 0;
     int restart = 0;
     int foul = 0;
-    int outSide = 0;
     bool possessionFlip = false;
     pes::PossessionSequenceState sequence;
   };

@@ -350,17 +350,6 @@ struct DeflectionInput {
 };
 bool DetectDeflection(const DeflectionInput& in, EventRecord* out);
 
-// K=10 (FUN_140a17810, site 0x140a1788b): the out-of-play side changing.
-struct OutOfPlayInput {
-  int frame = 0;
-  int phase = 0;
-  float state = 0.f;
-  bool gateOpen = true;      // MI+0x11b4 == 0 (FUN_140a17810 reads a char)
-  int outSide = 0;           // G+0x40+0x2798
-  int stored = 0;            // the detector's +8 word
-};
-bool DetectOutOfPlay(OutOfPlayInput* in, EventRecord* out);
-
 // K=11 (the snapshot body 0x140a158a9-0x140a15a91, site 0x140a15978): the first
 // ring-0 record that is not busy and is the other team's, copied into the new
 // record beside the current record and the newest event.

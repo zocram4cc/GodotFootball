@@ -186,21 +186,6 @@ void Match::ProcessPesEventStage() {
       pesEvents.Route(pesEventRings, rec);
   }
 
-  // K=10, the out-of-play side changing. PES's writer of G+0x2798 is OPEN (gate C4); the
-  // stand-in is the side a restart is awarded to (the RE report's INF: "restart team").
-  {
-    pes::OutOfPlayInput in;
-    in.frame = frame;
-    in.phase = phase;
-    in.state = kStateWord;
-    in.gateOpen = kGateOpen;
-    in.outSide = restartTeam >= 0 ? restartTeam + 1 : 0;
-    in.stored = pesDetectors.outSide;
-    pes::EventRecord rec;
-    if (pes::DetectOutOfPlay(&in, &rec)) pesEvents.Route(pesEventRings, rec);
-    pesDetectors.outSide = in.stored;
-  }
-
   // K=9, the ball's second prediction sample at the deflection constant. ponytail: the
   // sample's +4 word is the record's height (INF: WriteClampedShorts writes a sample as
   // {x, y, z}, y at +4); GF's height is the ball prediction's z.

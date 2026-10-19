@@ -145,10 +145,6 @@ protected:
   // resumes is judged out only once it has come in and crossed again. ponytail: the writer of that
   // record is not decoded; this crossing test stands in for it.
   bool ballOverSideline = false;
-  // The y of the restart spot that play resumes from (the throw-in writer's point, outside the line
-  // on the PES path). The touchline judge counts a ball out again only once it has moved a ball radius
-  // beyond this spot (SetPieceLaws::TouchlineOut). Defaults to the touchline itself.
-  float sidelineSpotY_m = pesFieldHalfWidth;
 
   // The players currently flagged offside, with PES's category of each call.
   std::map<Player*, OffsideFlag> offsidePlayers;  // player, position at time of touch
