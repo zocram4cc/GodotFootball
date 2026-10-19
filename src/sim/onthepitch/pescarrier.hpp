@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "gametypes.hpp"
+#include "onthepitch/peslane.hpp"
 #include "pes/exe.hpp"
 #include "pesrandom.hpp"
 #include "gamedefines.hpp"
@@ -215,8 +216,141 @@ struct CarrierConstants {
   float chooserSideAngle_deg = 0.0f;      // 40, 0x14259be2c: the side band
   float chooserPressureScale_deg = 0.0f;  // 20, 0x14259be1c: side band per unit of pressure
   float chooserSpeedLow_kmh = 0.0f;       // 10, 0x142588210: the fast-carrier gate
-  float chooserSpeedMid_kmh = 0.0f;       // 15, 0x14259be0c: the free-lane speed gate
+  float chooserSpeedMid_kmh = 0.0f;      // 15, 0x14259be0c: the free-lane speed gate
   float chooserRoom_m = 0.0f;             // 12, 0x14259be04: the room test
+
+  // --- the lane-gated units (BackSpace 0x142129110, GoalFront 0x14212ABA0, Safety 0x14212B520):
+  // the lane request each one passes to the packer 0x14063DE20, and the GoalFront picker
+  // 0x1421265C0's gates ---
+  float unitLaneLen_m = 0.0f;    // 20, 0x14259be1c: BackSpace's and GoalFront's lane length
+  float unitLaneCone_deg = 0.0f;  // 80, 0x142596e6c: all three lanes' cone
+  float unitLaneRad_m = 0.0f;    // 1, 0x14256ae1c: BackSpace's and GoalFront's radius offset
+  float gfDifficultyMax = 0.0f;  // 1, 0x14256ae1c: record A +0xF0 at or below
+  float gfDistMin_m = 0.0f;      // 10, 0x142588210: the angle gate's floor on record B +0xEC
+  float gfDistMax_m = 0.0f;      // 30, 0x142591140: the class gate's ceiling on it
+  float gfDistMinBand_m = 0.0f;  // 5, 0x14259222c: the class gate's floor on it
+  float gfClass2Dist_m = 0.0f;   // 15, 0x14259be0c: openness class 2's distance cap
+  float gfAngle_deg = 0.0f;      // 90, 0x14259be5c: record B +0xE8's default limit
+  float gfStatAngle_deg = 0.0f;  // 117, 0x142bf07e0: the limit when the stat byte passes the floor
+  float gfFlagAngle_deg = 0.0f;  // 140, 0x14259be64: the limit when imageA+0x21D8 holds
+  float gfFlagDistSq_m2 = 0.0f;  // 25, 0x14259be20: imageA+0x2128's distance for that limit
+  float gfStatFloor = 0.0f;      // 70, `cmp byte [rsp+0x34],0x46` at 0x1421267ff
+  float gfStatBonus = 0.0f;      // 20, `add bpl,0x14` at 0x1421266ad
+  float gfPredictGain = 0.0f;    // 0.5, 0x142565600: the mate's predicted point's frame count
+  float gfZoneDist_m = 0.0f;     // 15, 0x14259be0c: the zone's +0x170 at or below
+  // --- the BackSpace unit (kind 3; gate 0x142129110, validator 0x1421226C0, cut-back picker
+  // 0x142125140) ---
+  float bsOppDistSq_m2 = 0.0f;       // 36, 0x1425a9464: the lane branch's squared distance
+  float bsBallHeight_m = 0.0f;       // 1, 0x14256ae1c: block 2's ball-height limit
+  float bsCornerDistSq_m2 = 0.0f;    // 225, 0x14259be70: the corner test's squared distance
+  float bsPredictGain = 0.0f;        // 0.3, 0x142590d98: the 16-frame prediction's gain
+  float bsBoxSkipCount = 0.0f;       // 2, imageA+0xB48's mode-1 skip level
+  float bsBoxSkipMargin_m = 0.0f;    // 5, 0x14259222c: the mode-1 skip's pitch margin
+  float bsAngleLimitGap_m = 0.0f;    // 6, 0x14259bdec: the mode-1 margin gap
+  float bsAlignDist_m = 0.0f;        // 6, 0x14259bdec: the align gate's distance floor
+  float bsAlignNeed_m = 0.0f;        // 8, 0x14259bdf4: the align gate's need ceiling
+  float bsAlignAngle_deg = 0.0f;     // 45, 0x14259be30: the align gate's heading agreement
+  float bsNearBox_m = 0.0f;          // 20, 0x14259be1c: the near box's x half width
+  float bsNearSum_m = 0.0f;          // 40, 0x14259be2c: the near box's x+z sum
+  float bsFarDist_m = 0.0f;          // 20, 0x14259be1c: the facing gate's distance floor
+  float bsAngleClass = 0.0f;         // 4: the facing gate's record-B class floor
+  float bsFacingLimit_deg = 0.0f;    // 90, 0x14259be5c: the facing gate's default limit
+  float bsHumanFacingLimit_deg = 0.0f;  // 120, 0x14256ae30: the human carrier's limit
+  float bsLane1Len_m = 0.0f;    // 5, `mov [rbp-0x30],0x40a00000` at 0x142122cc1
+  float bsLane1Cone_deg = 0.0f;  // 30, `mov [rbp-0x2c],0x41f00000` at 0x142122cc8
+  float bsLane1Rad_m = 0.0f;    // 2, `mov [rbp-0x28],0x40000000` at 0x142122cd8
+  float bsLane2Cone_deg = 0.0f;  // 140, 0x14259be64
+  float bsLane2Cap_deg = 0.0f;   // 20, 0x14259be1c: the theta clamp's cap
+  float bsLane2Floor_deg = 0.0f;  // -20, 0x1425a946c: the theta clamp's floor
+  float bsLane2Gain = 0.0f;      // 2, 0x142565604: the theta clamp's gain
+  float bsLane2XNear_m = 0.0f;   // 3, 0x14258c264: the x term's near floor
+  float bsLane2XFar_m = 0.0f;    // 15, 0x14259be0c: the x term's far ceiling
+  float bsLane2XSpan_m = 0.0f;   // 12, 0x14259be04: the x term's span
+  float bsLane2ZGain = 0.0f;     // 4, 0x1425656c0: the length's x-term gain
+  float bsLane2Base_m = 0.0f;    // 6, 0x14259bdec: the length's base
+  float bsLane2Pad_m = 0.0f;     // 2, 0x142565604: the length's pad
+  float bsLane2LenMin_m = 0.0f;  // 3, 0x14258c264: the length's floor
+  float bsTailDistSq_m2 = 0.0f;  // 100, 0x14253ee30: exit A's squared distance
+  float bsTailHalf = 0.0f;       // 0.5, 0x142565600: exit A's half factor
+  float bsTailFacing_deg = 0.0f;  // 90, 0x14259be5c: exit B's facing agreement
+  float bsTailHeading_deg = 0.0f;  // 30, 0x142591140: exit B's heading agreement
+  float bsTailPad_m = 0.0f;      // 1, 0x14256ae1c: exit B's z pad
+  float cbDist_m = 0.0f;         // 15, 0x14259be0c: the cut-back distance gate
+  float cbSpeedBranch_kmh = 0.0f;  // 10, 0x142588210: the speed branch's floor
+  float cbAlign_deg = 0.0f;      // 70, 0x14259be4c: the align arm's limit
+  float cbFastAlign_kmh = 0.0f;  // 14, 0x1425c48b8: the fast arm's speed floor
+  float cbCrowd_m = 0.0f;        // 3, 0x14258c264: the crowd radius
+  float cbBoxAngle_deg = 0.0f;   // 100, 0x14253ee30: the box branch's angle limit
+  float cbSpeedGate_kmh = 0.0f;  // 5, 0x14259222c: the through picker's speed floor (shared)
+  float cbAdvance_m = 0.0f;      // 20, 0x14259be1c: the advance gate's need ceiling
+  // --- the Safety unit (kind 6; gate 0x14212B520, short picker 0x142126B70, through picker
+  // 0x142128490) ---
+  float sfFacingTurn_deg = 0.0f;    // 135, 0x14259be60: the gate's facing-vs-plan increment
+  float sfLaneRad_m = 0.0f;         // 3, 0x14258c264: the gate lane's radius offset
+  float sfKeeperDist_m = 0.0f;      // 15, 0x14259be0c: the keeper arm's distance floor
+  float sfKeeperFar_m = 0.0f;       // 40, 0x14259be2c: the keeper arm's distance ceiling
+  float sfKeeperScalar = 0.0f;      // 1.5, 0x14259bddc: the keeper arm's ctx+0x44 ceiling
+  float sfKeeperSpeedCap = 0.0f;    // 60, 0x14259a764: the keeper arm's ball-speed cap
+  float sfOppD2Min = 0.0f;          // 225, 0x14259be70: the mate arm's opp-table floor
+  float sfScoreDist_m = 0.0f;       // 10, 0x142588210: the scored gate's distance floor
+  float sfTurnOver_deg = 0.0f;      // 110, 0x14259d628: the over-110 turn mark
+  float sfTurnUnder_deg = 0.0f;     // 80, 0x142596e6c: the under-80 turn mark
+  float sfClass4Bonus = 0.0f;       // 20, 0x14259be1c: the need's class-4 bonus
+  float sfNeedDanger = 0.0f;        // 120, 0x14256ae30: the need in danger
+  float sfNeedCap = 0.0f;           // 135, 0x14259be60: the need's cap (non-keeper)
+  float sfNeedFloor = 0.0f;         // 45, 0x14259be30: the need's floor
+  float sfSpeedFloor_kmh = 0.0f;    // 5, 0x14259222c: the speed weight's floor
+  float sfSpeedCeil_kmh = 0.0f;     // 25, 0x14259be20: the speed weight's ceiling
+  float sfSpeedSpan_kmh = 0.0f;     // -20, 0x1425a946c: the weights' span
+  float sfDistCeil_m = 0.0f;        // 30, 0x142591140: the distance weight's ceiling
+  float sfNeedBase = 0.0f;          // 60, 0x14259a764: the need's base
+  float sfNeedGain = 0.0f;          // 30, 0x142591140: the need's weight gain
+  float sfClass5Bonus = 0.0f;       // 30, 0x142591140: the need's class-5 bonus
+  float sfTurnAttack_deg = 0.0f;    // 90, 0x14259be5c: the over-110 attack limit
+  float sfTurnFace_deg = 0.0f;      // 45, 0x14259be30: the over-110 facing limit
+  float sfCeilDefault_m = 0.0f;     // 40, 0x14259be2c: the ceiling's default
+  float sfCeilNear_m = 0.0f;        // 15, 0x14259be0c: the ceiling's near value
+  float sfCeilFar_m = 0.0f;         // 60, 0x14259a764: the ceiling's keeper-far value
+  float sfCeilOpp_m = 0.0f;         // 100, 0x14253ee30: the ceiling's opp-distance mark
+  float sfMateNear_m = 0.0f;        // 5, 0x14259222c: the mate-speed branch's distance floor
+  float sfMateSpeed_kmh = 0.0f;     // 20, 0x14259be1c: the mate-speed branch's speed ceiling
+  float sfFrameSpeed = 0.0f;        // 80, 0x142596e6c: the frame count's speed
+  float sfOppGate_m = 0.0f;         // 35, 0x14259a760: the opp-near-mate gate
+  float sfLimGain = 0.0f;           // 0.4, 0x14259b89c: the limit's distance gain
+  float sfLimNear_m = 0.0f;         // 10, 0x142588210: the limit's near floor
+  float sfLimFar_m = 0.0f;          // 20, 0x14259be1c: the limit's far ceiling
+  float sfLimMin_m = 0.0f;          // 3, 0x14258c264: the mid-arm limit's floor
+  float sfOppPad_m = 0.0f;          // 2, 0x142565604: the second test's over-110 pad
+  float sfKeepPad_m = 0.0f;         // 5, 0x14259222c: the second test's keeper pad
+  float sfOuterTurn_deg = 0.0f;     // 50, 0x14259be34: the outer gate's turn mark
+  float sfPressDist_m = 0.0f;       // 15, 0x14259be0c: the pressure gate's distance mark
+  float sfLaneDivisor = 0.0f;       // 5, 0x14259222c: the one-touch lane's length divisor
+  float sfLaneLenMin_m = 0.0f;      // 4, 0x1425656c0: the one-touch lane's length floor
+  float sfLaneLenMax_m = 0.0f;      // 12, 0x14259be04: the one-touch lane's length ceiling
+  float sfLaneCone_deg = 0.0f;      // 220, 0x1425ca310: the one-touch lane's cone
+  float sfTieDiff_deg = 0.0f;       // 130, 0x1425a9bf0: the tiebreak's facing mark
+  float sfTiePress = 0.0f;          // 9, 0x14259d60c: the tiebreak's pressure mark
+  float sfTieCornerSq = 0.0f;       // 1600, 0x14259ce40: the tiebreak's corner distance
+  float sfTieGap_m = 0.0f;          // 5, 0x14259222c: the tiebreak's opp-distance gap
+  float sfThruIdle = 0.0f;          // 3, 0x14258c264: the through idle gate's frame gain
+  float sfThruPress = 0.0f;         // 9, 0x14259d60c: the through idle gate's pressure mark
+  float sfThruCarrierSq = 0.0f;     // 1600, 0x14259ce40: the carrier's opp-distance floor
+  float sfThruRowSq = 0.0f;         // 900, 0x1425c65f4: the row scan's distance ceiling
+  float sfThruAlign_deg = 0.0f;     // 70, 0x14259be4c: the speed arm's align limit
+  float sfThruAim_deg = 0.0f;       // 135, 0x14259be60: the aim gate's limit
+  float sfThruClass = 0.0f;         // 3: the aim gate's record-B class floor
+  float sfThruFacing_deg = 0.0f;    // 60, 0x14259a764: the aim gate's record-B facing ceiling
+  float sfThruNearSq = 0.0f;        // 100, 0x14253ee30: the band's near floor
+  float sfThruFarSq = 0.0f;         // 900, 0x1425c65f4: the band's far ceiling
+  float sfThruLaneLen_m = 0.0f;     // 10, 0x142588210: the final lane's length
+  float sfThruLaneCone_deg = 0.0f;  // 60, 0x14259a764: the final lane's cone
+  float sfThruLaneRad_m = 0.0f;     // 5, 0x14259222c: the final lane's radius
+  float sfKeeperCone_deg = 0.0f;    // 90, 0x14259be5c: the keeper lane's cone
+  float sfKeeperRad_m = 0.0f;       // 1, 0x14256ae1c: the keeper lane's radius
+  float sfPadBack_m = 0.0f;         // 3, 0x14258c264: the second test's pad with the mate behind
+  // The lane core's own table and scalars (0x14063CD90 and its packer), loaded here so the
+  // carrier units that call the core get it through the one constants bundle the match carries.
+  lane::LaneConstants lane;
 
   bool operator==(const CarrierConstants&) const = default;
 };
@@ -634,11 +768,13 @@ std::vector<int> BuildUnitList(const UnitListInput& in);
 
 // The table fill: one slot per listed kind, in list order. Kind 0 takes the
 // shot answer, 4 the PassForward answer, 9 the Long answer, 7 the Cross
-// answer, and 3 the cut-back answer behind a CurveShot plan; every other kind
-// answers nothing here. `curveShotPlan` is whether the CurveShot plan runs.
+// answer, 2 the GoalFront answer, 3 the BackSpace answer and 6 the Safety answer;
+// every other kind answers nothing here.
 std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnswer,
                                     const PassAnswer& fwd, const PassAnswer& lng,
-                                    const PassAnswer& cross, bool curveShotPlan = false);
+                                    const PassAnswer& cross, const PassAnswer& goalFront,
+                                    const PassAnswer& backSpace,
+                                    const PassAnswer& safety = PassAnswer{});
 
 // The walk's context (0x14210f110's reads): the match restart mode and the FSM state, the ball's
 // owner and the carrier's own side, and the skill and zone bits the rules test.
@@ -703,6 +839,195 @@ struct CrossInput {
   bool skill14 = false;  // f11/f12 need Pinpoint Crossing context; the unit does not gate on it
 };
 PassAnswer CrossUnit(const CrossInput& in, const CarrierConstants& k);
+
+// --- the GoalFront unit (kind 2, gate 0x14212ABA0, picker 0x1421265C0) ---
+//
+// The gate: a carrier outside the central zone whose lane - 20 m at 80 degrees with a 1 m radius
+// offset, from his own position, on the per-slot angle heading + 180 - is BLOCKED. The picker then
+// takes the most open mate: status 0xB, record A's difficulty at or below 1, the angle limit on
+// record B's turn angle (90, 117 or 140), the distance band (5, 30) with 10 as the angle gate's own
+// floor, the openness class ladder, and the mate's own shoot zone central, within 15 m, with a
+// non-zero pressure entry. Ties keep the earlier mate. The answer is a short pass (b = 0).
+struct GoalFrontMate {
+  int index = -1;                  // the caller's player id (PES's slot)
+  bool statusValid = false;        // 0x142118D20(team+0xB6C, slot % 11) == 0xB
+  float difficulty = 0.0f;         // record A +0xF0
+  float distance_m = 0.0f;         // record B +0xEC (ball to target)
+  float angleToFacing_deg = 0.0f;  // record B +0xE8 (the turn angle)
+  float openness = 0.0f;           // record B +0xF4
+  int opennessClass = 0;           // record B [0]
+  float pressure = 0.0f;           // 0x14069A3E0(team+0x2124, slot % 11)[+0x10]; 0 skips
+  ShootZone zone;                  // 0x140698D10 at his predicted point
+};
+
+struct GoalFrontInput {
+  std::array<lane::LanePlayer, lane::kSlots> players{};  // the 22 players the lane core reads
+  int carrierSlot = -1;                                  // the reference slot, 0x14043C410 sides
+  CarrierPoint carrierPos;                               // the lane origin (record +0x55C/+0x564)
+  float laneHeading_deg = 0.0f;  // wrap360(0x140A71260(T, carrier) [slot] + 180), 0x142598580
+  bool central = false;          // IsCentral(team+0x9CC), 0x140699710
+  bool humanCarrier = false;     // imageA+0x6C (0 = an AI carrier)
+  float carrierStat = 0.0f;      // 0x142126696: the player-object byte the angle limit ramps on
+  bool statBonus = false;        // 0x14063E960(team, carrierSlot, 0xC): adds 20 (0x1421266ad)
+  bool flagSet = false;          // imageA+0x21D8[oppSide] != 0
+  bool flagDistFar = false;      // imageA+0x2128[oppSide].+4 over 25 (0x14259be20)
+  std::vector<GoalFrontMate> mates;
+};
+PassAnswer GoalFrontUnit(const GoalFrontInput& in, const CarrierConstants& k);
+
+// --- the BackSpace unit (kind 3, gate 0x142129110, validator 0x1421226C0, cut-back picker
+// 0x142125140) ---
+//
+// The gate: a Mid-zone carrier whose lane - 20 m at 80 degrees with a 1 m radius offset, from
+// his own position, on the side angle - is FREE checks the nearest opponent's 9-frame
+// prediction against the ball point (no answer when past 6 m); then, owned or with the ball
+// low, plan 4 answers the plan-record target through the validator, and other plans answer the
+// cut-back picker's mate. Both answers are through balls (b = 3), dropped to short (b = 0) when
+// the close test, the pressure class and the record class all exceed 1.
+struct BackSpaceMate {
+  int index = -1;                   // the caller's player id (PES's slot)
+  CarrierPoint pos;                 // record +0x55C/+0x564
+  CarrierPoint velPerFrame;          // record +0x574/+0x57C, m per PES frame
+  float facing_deg = 0.0f;          // record +0x554
+  int action = 0;                   // record +0x5D0 (0x1E/0x25 arm the cut-back flag)
+  bool statusValid = false;         // 0x142118D20(team+0xB6C, slot % 11) == 0xB
+  float teamNeed_m = 0.0f;          // 0x1404C8E00/0x1404C8EA0: the team table's need
+  float teamAngle_deg = 0.0f;       // 0x140439F90: the team table's angle
+  float lineValue = 0.0f;           // 0x14061E7C0: the team table's line value
+  CarrierPoint recBTarget;          // record B +0xC/+0x14: the pass target
+  float recBAngle_deg = 0.0f;       // record B +0xE0
+  float recBDist_m = 0.0f;          // record B +0xEC (ball to target)
+  float recBDifficulty = 0.0f;      // record B +0xF0
+  int recBClass = 0;                // record B [0]
+  float recAClass = 0.0f;           // record A [0]
+  float pressureClass = 0.0f;       // 0x14069A3E0(team+0x2124, slot % 11)[+0x10]
+  float slotStat = 0.0f;            // imageA+0x898 per-slot float
+  float heading_deg = 0.0f;         // 0x140458740: the vel_eff heading
+  float speed_kmh = 0.0f;           // 0x140477130
+  ShootZone zoneAtPred16;            // 0x140698D10 at the 16-frame predicted point (mode-1 arm)
+  bool closeTest = false;           // 0x14063E270(team, slot, 0)
+  bool zoneBuilt = false;           // 0x14063E010(team, slot, 18): the built zone's central test
+  int roleClass = -1;               // the side's +0x4C00[j] (B array, 0 = keeper)
+};
+
+struct BackSpaceInput {
+  std::array<lane::LanePlayer, lane::kSlots> players{};  // the 22 players the lane core reads
+  int carrierSlot = -1;                                  // the reference slot
+  bool humanCarrier = false;                             // ctx4+0x6C: the human arms (gate 10's limit)
+  CarrierPoint carrierPos;                               // the lane origin (record +0x55C/+0x564)
+  CarrierPoint carrierVelPerFrame;                       // record +0x574/+0x57C
+  float carrierFacing_deg = 0.0f;                        // record +0x554
+  float carrierHeading_deg = 0.0f;                       // 0x140458740
+  float carrierSlotStat = 0.0f;                          // imageA+0x898 per-slot float
+  float carrierNeed_m = 0.0f;                            // 0x1404C8E00 of the carrier
+  float sideAngle_deg = 0.0f;                            // team+0x250
+  float attackSign = 1.0f;                               // ctx[0][5]
+  float teamLineOpp = 0.0f;                              // T18+0x40+oppSide*0x14
+  float pitchBound8 = 0.0f;                              // F[8]
+  float pitchHalfLen_m = 0.0f;                           // F[0], the corner test's |x|
+  float pitchF6 = 0.0f;                                  // F[6]
+  float pitchF5 = 0.0f;                                  // F[5]
+  CarrierPoint ball;                                    // ctx4+0x40/+0x48
+  float ballHeight_m = 0.0f;                            // 0x140A57800's +4
+  bool owned = false;                                   // ctx4+0x6C != 0
+  bool receiving = false;                               // ctx4+0x6F != 0
+  bool danger = false;                                  // imageA+0x31C1
+  bool goalMouth = false;                               // imageA+0x31C0
+  bool mid = false;                                     // IsMid(team+0x9CC), 0x1406997A0
+  bool central = false;                                 // IsCentral(team+0x9CC), 0x140699710
+  int plan = 0;                                         // ctx7+0xA0
+  int planMode = 0;                                     // ctx7+0xC4
+  int planRecordTarget = -1;                            // 0x14211CB00(plan, 10) +0x4, -1 when none
+  bool planRecordBytesOk = false;                       // its two bytes: [1] == 0 and [0] != 0
+  bool curveGate = false;                              // 0x1421225E0(ctx, target)
+  float boxSector = 0.0f;                               // imageA+0xB44
+  float boxCount = 0.0f;                                // imageA+0xB48
+  float boxMargin = 0.0f;                               // imageA+0xB3C
+  float boxAngle = 0.0f;                                // imageA+0xB40
+  std::vector<BackSpaceMate> mates;
+};
+PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k);
+
+// --- the Safety unit (kind 6, gate 0x14212B520, short picker 0x142126B70, through picker
+// 0x142128490) ---
+//
+// The gate: danger answers through the pickers with k = 3; otherwise the carrier's pressure counts
+// set k (2, 1 or 0), a facing-vs-plan turn may add one, and a FREE gate lane (origin the carrier,
+// the lane heading already wrap360(angle table + 180), len the nearest-opponent distance, cone 80,
+// rad 3) means no answer. The short picker always runs; with k != 0 a through ball to the through
+// picker's mate wins when one is found, else the short picker's mate takes the short ball.
+struct SafetyMate {
+  int index = -1;                   // the caller's player id (PES's slot)
+  CarrierPoint pos;                 // record +0x55C/+0x564
+  CarrierPoint velPerFrame;         // record +0x574/+0x57C, m per PES frame
+  float facing_deg = 0.0f;          // record +0x554, in the BearingDeg convention
+  float heading_deg = 0.0f;         // 0x140458740: the velocity heading (the one-touch lane's angle)
+  float speed_kmh = 0.0f;           // 0x140477130
+  bool statusValid = false;         // 0x142118D20(team+0xB6C, slot % 11) == 0xB
+  int roleClass = -1;               // the side's +0x4C00[j] (B array): 0 = keeper
+  float nearestOppD2 = 0.0f;        // 0x140587E70: the team table's nearest-opponent d2
+  float pressureClass = 0.0f;       // 0x14069A3E0(team+0x2124, slot % 11)[+0x10]
+  bool zoneMid = false;             // 0x14063E140(team, slot, 0): the mate's mid-zone test
+  ShootZone zoneAtPred16;           // 0x140698D10 at the 16-frame prediction (the validator's mode-1 arm)
+  // Record A, the short picker's: +0xE4 the attack angle (the decompile's "turn"), +0xE8 the facing
+  // angle, +0xEC the distance, +0xF0 the difficulty, [0] the openness class.
+  float recATurnAngle_deg = 0.0f;
+  float recAVsFacing_deg = 0.0f;
+  float recADist_m = 0.0f;
+  float recADifficulty = 0.0f;
+  int recAClass = 0;
+  // Record B, the through picker's and the validator's: +0xC/+0x14 the target, +0xE0 the angle,
+  // +0xE8 the facing angle, +0xEC the distance, +0xF0 the difficulty, [0] the class.
+  CarrierPoint recBTarget;
+  float recBAngle_deg = 0.0f;
+  float recBVsFacing_deg = 0.0f;
+  float recBDist_m = 0.0f;
+  float recBDifficulty = 0.0f;
+  int recBClass = 0;
+};
+
+struct SafetyInput {
+  std::array<lane::LanePlayer, lane::kSlots> players{};  // the 22 players the lane core reads
+  int carrierSlot = -1;                                  // the reference slot
+  CarrierPoint carrierPos;                               // the carrier's ground point (+0x55C/+0x564)
+  CarrierPoint carrierVelPerFrame;                       // record +0x574/+0x57C
+  float carrierFacing_deg = 0.0f;                        // ctx4+0x38, in the BearingDeg convention
+  float carrierHeading_deg = 0.0f;                       // 0x140458740 of the carrier
+  float carrierSpeed_kmh = 0.0f;                         // 0x140477130 of the carrier
+  float laneHeading_deg = 0.0f;                          // the gate lane: wrap360(angle table + 180)
+  float attackSign = 1.0f;                               // ctx[0][5]
+  float sideAngle_deg = 0.0f;                            // team+0x250
+  float planHeading_deg = 0.0f;                          // ctx7+0xC0
+  int planMode = 0;                                      // ctx7+0xC4
+  int teamMode = 0;                                      // 0x141052E30(ctx[6])
+  float teamLineOpp = 0.0f;                              // T18+0x40+oppSide*0x14 (validator gate 2)
+  float teamLineB = 0.0f;                                // T18+0x40+(side+3)*0x14 (through gate 2)
+  float teamLineOwn = 0.0f;                              // T18+0x40+side*0x14 (keeper arm's side test)
+  float pitchHalfLen_m = 0.0f;                           // F[0], the own goal corner's x
+  float pitchBound8 = 0.0f;                              // F[8]
+  float pitchF6 = 0.0f;                                  // F[6]
+  float pitchF5 = 0.0f;                                  // F[5]
+  CarrierPoint ball;                                     // ctx4+0x40/+0x48
+  float ballSpeed_kmh = 0.0f;                            // 0x140A57650 at idx 0, in km/h
+  bool ballTrackSet = false;                             // 0x140A6D0D0 (the keeper speed arm)
+  bool humanCarrier = false;                             // ctx4+0x6C (the human arms)
+  bool receivingFlag = false;                            // ctx4+0x6E (the keeper side arm)
+  float ctx44 = 0.0f;                                    // ctx4+0x44 (the keeper side arm)
+  bool danger = false;                                   // imageA+0x31C1
+  bool goalMouth = false;                                // imageA+0x31C0
+  int pressCount1 = 0;                                   // the carrier's press+0x30
+  int pressCount2 = 0;                                   // the carrier's press+0x34
+  int pressCount3 = 0;                                   // the carrier's press+0x38
+  int pressCount4 = 0;                                   // the carrier's press+0x20
+  int carrierPressClass = 3;                             // the carrier's press+0x10
+  float oppPressPair = 0.0f;                             // T18+0x2470C[opp]+4 (through gate 1, tiebreak)
+  float boxSector = 0.0f;                                // imageA+0xB44 (the validator's mode-1 arm)
+  float boxCount = 0.0f;                                 // imageA+0xB48
+  float boxMargin = 0.0f;                                // imageA+0xB3C
+  float boxAngle = 0.0f;                                 // imageA+0xB40
+  std::vector<SafetyMate> mates;                         // the candidate receivers, in squad order
+};
+PassAnswer SafetyUnit(const SafetyInput& in, const CarrierConstants& k);
 
 // --- the arming gate (report 3.1, 0x142111610) ---
 //
