@@ -33,12 +33,10 @@ Spot CornerSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 Spot GoalKickSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 Spot ThrowInSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 
-// The taker may release once he reaches the ball (A5Live 9.2/9.4: the wait tracks him, and the armed
-// handler frees the restart on his kick action), or once this many frames have passed since the
-// restart was armed. A kick-off is not timed: its gate is zero, so the receiver's ball test decides.
-// `takerInReach` is the caller's test of the taker against the install's reach (takerReach_m).
+// The taker may release once this many frames have passed since the restart was armed. A
+// kick-off is not timed (the receiver's ball test decides it), so its gate is zero.
 int ReleaseFrames(e_SetPiece kind);
-bool MayRelease(e_SetPiece kind, int framesSinceArmed, bool takerInReach);
+bool MayRelease(e_SetPiece kind, int framesSinceArmed);
 
 // A restart programme (decode 3.2): the stoppage beats in the order they run, from the whistle
 // to the armed restart. Hold is the players' hold; Wipe prepares the restart; UiAndTeleport is

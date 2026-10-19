@@ -70,10 +70,7 @@ int ReleaseFrames(e_SetPiece kind) {
   }
 }
 
-bool MayRelease(e_SetPiece kind, int framesSinceArmed, bool takerInReach) {
-  // The taker reaching the ball frees the restart (A5Live 9.2); the frame gate is only the time-out
-  // for a taker who never gets there.
-  if (takerInReach) return true;
+bool MayRelease(e_SetPiece kind, int framesSinceArmed) {
   return framesSinceArmed >= ReleaseFrames(kind);
 }
 

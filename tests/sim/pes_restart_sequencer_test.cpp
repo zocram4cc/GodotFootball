@@ -111,17 +111,17 @@ TEST(PesRestartSequencer, AThrowInIsTakenJustOutsideTheTouchlineAndInsideTheEndL
 // The release gate, in frames from arming, is the live-measured wait (A5Live 9.3): each restart
 // is released on the first frame at or past its gate, and a kick-off is not timed at all.
 TEST(PesRestartSequencer, EachRestartIsReleasedOnItsMeasuredFrame) {
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_Corner, 364, false));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_Corner, 365, false));
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_FreeKick, 354, false));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_FreeKick, 355, false));
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 237, false));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_GoalKick, 238, false));
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_ThrowIn, 117, false));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_ThrowIn, 118, false));
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_Penalty, 53, false));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_Penalty, 54, false));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_KickOff, 0, false));
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_Corner, 364));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_Corner, 365));
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_FreeKick, 354));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_FreeKick, 355));
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 237));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_GoalKick, 238));
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_ThrowIn, 117));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_ThrowIn, 118));
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_Penalty, 53));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_Penalty, 54));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_KickOff, 0));
 }
 
 // The programme runs the whole stoppage bracket for a corner: the hold, the wipe that

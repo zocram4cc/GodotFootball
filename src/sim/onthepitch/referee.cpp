@@ -222,13 +222,6 @@ void Referee::PesTimeUpTick() {
 }
 bool Referee::PesLoop() const { return match->PesLoop(); }
 
-bool Referee::TakerInReach() const {
-  if (buffer.taker == nullptr) return false;
-  const Vector3 ball = match->GetBall()->Predict(0).Get2D();
-  const float reach_m = match->GetPesRestartSpotConstants().takerReach_m;
-  return (buffer.taker->GetPosition().Get2D() - ball).GetLength() <= reach_m;
-}
-
 void Referee::Process() {
   // printf("%i", match->GetMatchState());
   // PES's judge runs on every tick, in play or not, with the gate open (pes_loop).
@@ -651,8 +644,7 @@ void Referee::Process() {
           (match->PesLoop()
                ? pes::MayRelease(buffer.desiredSetPiece,
                                  static_cast<int>((match->GetActualTime_ms() - buffer.startTime) /
-                                                  Match::kTick_ms),
-                                 TakerInReach())
+                                                  Match::kTick_ms))
                : SetPieceLaws::MayTakeRestart(
                      buffer.desiredSetPiece,
                      static_cast<int>((match->GetActualTime_ms() - buffer.startTime) /
