@@ -696,16 +696,50 @@ TEST(Demo, IssuesTheIdleClipWhenTheClipHasRunPastTheRandomThreshold) {
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kDuration), 0.3f);
 }
 
-TEST(StayDecision, StaysWhenTheFacingErrorIsInsideTheBearingGate) {
+// FUN_1406b6bb0 (StayDecision): true sends the idle player to GOTO_RUN (FUN_1406bf0c0 lines 39-42). Past the threshold distance
+// a precise command answers true inside the bearing gate, 112.5 degrees (DAT_1425cb30c) unless the record's actions set a share
+// of 45 + 67.5 degrees. A command that is not precise answers true whatever the facing error (FUN_1406b6bb0 line 98).
+TEST(StayDecision, APreciseCommandGoesToTheRunInsideTheBearingGate) {
+  RateHost host = IdleHost();
+  host.recordActionA = 0;  // not the 5/5 share branch: the gate is PES's default 112.5 degrees
+  host.recordActionB = 0;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 1);
+  req.SetU(pes::moveword::kPrecise, 1);
+  req.SetF(pes::moveword::kDistToTarget, 10.0f);
+  req.SetF(pes::moveword::kFacingError, 10.0f);
+  host.ballBearingDeg = 0.0f;
+  host.run.deg1125b = 112.5f;  // PES's installed gate (DAT_1425cb30c); the synthetic angles do not set it
+  EXPECT_TRUE(pes::movestep::StayDecision(host, req));
+  req.SetF(pes::moveword::kFacingError, 200.0f);
+  EXPECT_FALSE(pes::movestep::StayDecision(host, req)) << "200 degrees is past the 112.5 gate";
+}
+
+TEST(StayDecision, ANonPreciseCommandGoesToTheRunWhateverTheFacingError) {
   RateHost host = IdleHost();
   pes::MoveReq req;
   req.SetU(pes::moveword::kCommandSpeedClass, 1);
-  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetU(pes::moveword::kPrecise, 0);
   req.SetF(pes::moveword::kDistToTarget, 10.0f);
+  req.SetF(pes::moveword::kFacingError, 200.0f);
   host.ballBearingDeg = 0.0f;
   EXPECT_TRUE(pes::movestep::StayDecision(host, req));
-  req.SetF(pes::moveword::kFacingError, 200.0f);
-  EXPECT_FALSE(pes::movestep::StayDecision(host, req));
+}
+
+// The presser of FirstTouchPort2's seed-7 trace: precise, 2.31 m from a resting ball, 10 degrees off the look point. PES's IDLE
+// takes the run (true). The port's gate was the 3.0 m span (dist3) instead of 112.5 degrees, so the 10-degree error refused.
+TEST(StayDecision, ThePresserTwoPointThreeMetresFromTheBallGoesToTheRun) {
+  RateHost host = IdleHost();
+  host.recordActionA = 0;  // not the 5/5 share branch: the gate is PES's default 112.5 degrees
+  host.recordActionB = 0;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kPrecise, 1);
+  req.SetF(pes::moveword::kDistToTarget, 2.31f);
+  req.SetF(pes::moveword::kFacingError, 10.0f);
+  host.ballBearingDeg = 0.0f;
+  host.run.deg1125b = 112.5f;  // PES's installed gate (DAT_1425cb30c); the synthetic angles do not set it
+  EXPECT_TRUE(pes::movestep::StayDecision(host, req)) << "10 degrees is inside the 112.5 gate";
 }
 
 // INIT's stay decision (docs/re/pes-re-anim-select.md 2.3): a still command whose stay decision
