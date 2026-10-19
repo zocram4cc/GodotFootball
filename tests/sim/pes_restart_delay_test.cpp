@@ -55,7 +55,8 @@ constexpr unsigned long kTwentyMinuteMaxSimTicks = 60ul * 60ul * Match::kFramesP
 // the watch stops the run at the first stall.
 void RunMatchWithinTheBound(bool pesLoop, int minutes,
                             const std::function<void(Match&)>& onTick,
-                            unsigned long maxSimTicks = kMaxSimTicks) {
+                            unsigned long maxSimTicks = kMaxSimTicks,
+                            const std::function<bool(Match&)>& done = nullptr) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
   pes::PesVfs vfs;
@@ -85,6 +86,7 @@ void RunMatchWithinTheBound(bool pesLoop, int minutes,
     match.Process();
     watch.Observe(match);
     if (onTick) onTick(match);
+    if (done && done(match)) return;
   }
 
   EXPECT_FALSE(watch.Stalled()) << "a stoppage ran past " << watch.LimitTicks()
@@ -418,4 +420,80 @@ TEST(PesRestartDelay, AWhistleLeavesNoFlyingBallBehind) {
   });
   EXPECT_GT(stops, 0) << "no stoppage was seen";
   EXPECT_GT(flyingStops, 0) << "no stoppage caught a ball in flight - the test proved nothing";
+}
+
+// A throw-in's ball must go inside the touchline when the taker releases it. The release is the taker's
+// touch frame: the referee ends the set piece there (referee.cpp, "check if set piece has been taken"),
+// which is PES's release MI+0x116c 3->1 (docs/re/pes-re-throwin-choreography.md, the summary). A release
+// that launches no ball leaves it on the spot, and the match stalls. 27 ticks is the mid release clip's
+// release event at 54 Hz (the doc's release table); a launched ball is inside the line within a few ticks.
+TEST(PesRestartDelay, AReleasedThrowInCarriesItsBallInsideTheTouchline) {
+  constexpr unsigned long kCrossWithinTicks = 27;
+  unsigned long tick = 0, releasedAt = 0;
+  bool throwInSetPiece = false, awaitingCross = false;
+  int releases = 0, stalls = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    ++tick;
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    const bool inSetPiece = match.IsInSetPiece();
+    if (inSetPiece && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn) throwInSetPiece = true;
+    if (throwInSetPiece && !inSetPiece) {
+      throwInSetPiece = false;
+      awaitingCross = true;
+      releasedAt = tick;
+      releases++;
+    }
+    if (!awaitingCross) return;
+    if (std::fabs(match.GetBall()->Predict(0).coords[1]) <= pesFieldHalfWidth) {
+      awaitingCross = false;
+    } else if (tick - releasedAt > kCrossWithinTicks) {
+      stalls++;
+      awaitingCross = false;
+    }
+  });
+  EXPECT_GT(releases, 0) << "no throw-in was released";
+  EXPECT_EQ(stalls, 0) << stalls << " released throw-in(s) left the ball outside the touchline for more than "
+                       << kCrossWithinTicks << " ticks";
+}
+
+// PES's touchline judge reads the out-of-play event the zone code raises when it changes (K=10). The
+// restart's gate holds the code at 0 while the restart is awarded, so the code changes when the gate
+// releases: a ball resting past the touchline is then judged out. The event is read one tick after it
+// is raised, as the code leads the judge by a frame (docs/re/pes-re-out-side.md 5). The test releases
+// the gate the way the taker's touch does (referee.cpp, "check if set piece has been taken").
+TEST(PesRestartDelay, ABallRestingPastTheTouchlineIsJudgedOutWhenTheGateReleases) {
+  constexpr float kRestPastSpot_m = 0.29f;  // the stall's distance past the spot
+  constexpr unsigned long kJudgeWithinTicks = 2;
+  unsigned long tick = 0, placedAt = 0;
+  bool armed = false, judged = false;
+  RunMatchWithinTheBound(
+      true, MINUTES,
+      [&](Match& match) {
+        ++tick;
+        if (armed) return;
+        const RefereeBuffer& b = match.GetRefereeBuffer();
+        if (!match.IsInSetPiece() || !b.started || !b.active ||
+            b.desiredSetPiece != e_SetPiece_ThrowIn)
+          return;
+        const Vector3 spot = b.restartPos;
+        const float side = spot.coords[1] > 0 ? 1.0f : -1.0f;
+        Ball* ball = match.GetBall();
+        ball->SetPosition(
+            Vector3(spot.coords[0], side * (std::fabs(spot.coords[1]) + kRestPastSpot_m), 0.0f));
+        ball->Stop();
+        match.StopSetPiece();
+        const_cast<RefereeBuffer&>(b).active = false;
+        armed = true;
+        placedAt = tick;
+      },
+      kMaxSimTicks,
+      [&](Match& match) {
+        if (!armed || tick < placedAt + kJudgeWithinTicks) return false;
+        judged = !match.IsInPlay();
+        return true;
+      });
+  EXPECT_TRUE(armed) << "no throw-in was released to place the ball past its spot";
+  EXPECT_TRUE(judged) << "a ball at rest " << kRestPastSpot_m
+                      << " m past its spot was not judged out within " << kJudgeWithinTicks
+                      << " ticks of the gate releasing";
 }

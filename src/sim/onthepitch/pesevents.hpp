@@ -350,6 +350,19 @@ struct DeflectionInput {
 };
 bool DetectDeflection(const DeflectionInput& in, EventRecord* out);
 
+// K=10 (FUN_140a17810, docs/re/pes-re-out-side.md): fires on any change of the pitch-zone code. The
+// event stage computes the code from the ball each tick, 0 while the restart is held (the gate). The
+// judge reads the event one tick later, as PES's code leads the judge state by one frame.
+struct OutOfPlayInput {
+  int code = 0;    // this tick's zone code
+  int stored = 0;  // the detector's copy of the last code (+8)
+  int frame = 0;
+};
+// The zone classifier FUN_140a72e70 on the ball pulled in by one radius (FUN_140872c10): 0x1 inside,
+// 0x2 out of play, 0x4 touchline, 0x8 end line, and the band bits (pes-re-out-side.md section 5).
+int OutOfPlayCode(float x, float z, float radius);
+bool DetectOutOfPlay(OutOfPlayInput* in, EventRecord* out);
+
 // K=11 (the snapshot body 0x140a158a9-0x140a15a91, site 0x140a15978): the first
 // ring-0 record that is not busy and is the other team's, copied into the new
 // record beside the current record and the newest event.

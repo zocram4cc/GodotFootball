@@ -112,6 +112,8 @@ public:
   void StartSetPiece() { inSetPiece = true; }
   void StopSetPiece() { inSetPiece = false; }
   bool IsInSetPiece() const { return inSetPiece; }
+  // True on the tick the judge reads the out-of-play event (K=10, raised one tick earlier).
+  bool PesOutOfPlayEvent() const { return pesDetectors.outConsumable; }
   Referee* GetReferee() { return referee.get(); }
   Officials* GetOfficials() { return officials.get(); }
   const RefereeBuffer& GetRefereeBuffer() { return referee->GetBuffer(); };
@@ -547,6 +549,9 @@ protected:
     int foul = 0;
     bool possessionFlip = false;
     pes::PossessionSequenceState sequence;
+    int outCode = 0;            // K=10's stored copy of the zone code (pes-re-out-side.md)
+    bool outRaised = false;     // K=10 fired this tick
+    bool outConsumable = false; // K=10 fired last tick: the judge reads it one tick later
   };
   PesDetectorState pesDetectors;
   // The event stage (PES's step 3, tick order in matchevents.cpp).

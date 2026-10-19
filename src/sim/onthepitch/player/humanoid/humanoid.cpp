@@ -3194,8 +3194,10 @@ signed int Humanoid::GetBestCheatableAnimID(
         // where the ball is dead: a body touch can nudge it off and the throw still carries it.
         constexpr float kOwnSpotWindow_m = 0.5f;
         const RefereeBuffer& rb = match->GetRefereeBuffer();
+        // The throw's candidates are chosen during the hold, before the set piece starts, so the gate
+        // is the award (active), not IsInSetPiece(), which is still false then.
         const bool atOwnSpot =
-            match->PesLoop() && match->IsInSetPiece() &&
+            match->PesLoop() && rb.active &&
             rb.desiredSetPiece == e_SetPiece_ThrowIn && rb.taker == player &&
             (absBallPos.Get2D() - rb.restartPos.Get2D()).GetLength() < kOwnSpotWindow_m;
         if (!atOwnSpot &&

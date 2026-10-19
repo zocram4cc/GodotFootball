@@ -345,6 +345,25 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       } else if (team->GetController()->GetSetPieceType() == e_SetPiece_ThrowIn) {
         actionCommand.desiredFunctionType = e_FunctionType_ShortPass;
         desiredTargetPosition = player->GetPosition();  // closest to player
+        // PES's throw is aimed at a receiver inside the touchline (docs/re/pes-re-throwin-choreography.md
+        // 6.1). A mate on the line sends the ball along it, out again, so the nearest mate inside the
+        // line is the target. ponytail: PES's receiver search (FUN_142135700) and course test are not
+        // ported; the nearest inside mate stands in for them.
+        if (match->PesLoop()) {
+          Player* inside = nullptr;
+          float nearest = 10000.0f;
+          for (const auto& mate : team->GetAllPlayers()) {
+            if (!mate->IsActive() || mate.get() == player ||
+                std::fabs(mate->GetPosition().coords[1]) >= pesFieldHalfWidth)
+              continue;
+            const float d = (mate->GetPosition() - player->GetPosition()).GetLength();
+            if (d < nearest) {
+              nearest = d;
+              inside = mate.get();
+            }
+          }
+          actionCommand.touchInfo.forcedTargetPlayer = inside;
+        }
         // Long Throw: hurled towards the box rather than to the nearest man.
         if (PlayerSkills::Has(CastPlayer()->GetPlayerData()->GetSkills(),
                               PlayerSkills::Skill::LongThrow)) {

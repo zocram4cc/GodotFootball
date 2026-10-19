@@ -77,6 +77,26 @@ void Match::ProcessPesEventStage() {
   const Vector3 ballNow = GetBall()->Predict(0);
   const Vector3 ballNext = GetBall()->Predict(kNextRecordMs);
 
+  // K=10 (docs/re/pes-re-out-side.md): fires when the pitch-zone code changes. The code is 0 while the
+  // restart is awarded (PES's p+0x298 == 3; the restart state 3 above), else the classifier of the ball.
+  // The judge reads the event one tick later: the code leads the judge state by one frame.
+  if (PesLoop()) {
+    pesDetectors.outConsumable = pesDetectors.outRaised;
+    pesDetectors.outRaised = false;
+    pes::OutOfPlayInput outIn;
+    outIn.code = buffer.active ? 0
+                               : pes::OutOfPlayCode(ballNow.coords[0], ballNow.coords[1],
+                                                    GetPesBallConstants().image.ballRadius);
+    outIn.frame = frame;
+    outIn.stored = pesDetectors.outCode;
+    pes::EventRecord outRec;
+    if (pes::DetectOutOfPlay(&outIn, &outRec)) {
+      pesEvents.Route(pesEventRings, outRec);
+      pesDetectors.outRaised = true;
+    }
+    pesDetectors.outCode = outIn.stored;
+  }
+
   // The ball-event family: one record per queued touch, in touch order. Each record is
   // then followed by the snapshot detector (K=11), which reads the touch just routed.
   for (const PendingPesTouch& touch : pesPendingTouches) {
