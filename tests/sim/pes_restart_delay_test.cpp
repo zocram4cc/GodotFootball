@@ -2,6 +2,7 @@
 
 #include "pes_match_constants.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <functional>
@@ -17,6 +18,7 @@
 #include "onthepitch/match.hpp"
 #include "onthepitch/matchsetup.hpp"
 #include "onthepitch/player/player.hpp"
+#include "onthepitch/pesclips.hpp"
 #include "onthepitch/pessequencer.hpp"
 #include "onthepitch/restartwatch.hpp"
 #include "pes/vfs.hpp"
@@ -272,4 +274,127 @@ TEST(PesRestartDelay, ARestartTakerPlaysHisBallActionAfterRelease) {
   EXPECT_GT(restarts, 0) << "no restart was taken";
   EXPECT_EQ(untaken, 0) << untaken << " restart taker(s) played no ball action within " << bound
                         << " ticks of release:" << who;
+}
+
+// A throw-in must be taken within the bound, and its taker must play a ball action then. Seed 7's
+// first throw-in is released with its taker in a PES locomotion clip. The throw-in spot sits F1 + the
+// install's outset outside the touchline (the referee's real restart path), so the taker's candidate
+// touches all predict a ball past the line and, without the taker's-own-spot exemption, are refused
+// as out of bounds (humanoid GetBestCheatableAnimID), and no pass or shot is selected and the match
+// stalls. This test requires the taker's ball action within the bound counted from the stoppage, as
+// the restart watch counts it.
+TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
+  const auto isBallAction = [](int type) {
+    return type == e_FunctionType_ShortPass || type == e_FunctionType_LongPass ||
+           type == e_FunctionType_HighPass || type == e_FunctionType_Shot;
+  };
+  struct Taking {
+    Player* taker;
+    unsigned long stoppedAt;  // the tick the stoppage began
+    std::string name;
+  };
+  std::map<unsigned long, unsigned long> stoppedAt;  // by stop time
+  std::map<unsigned long, Taking> taking;            // released, not yet taken
+  std::set<unsigned long> seen;
+  unsigned long tick = 0, bound = 0;
+  int throwIns = 0, onLocomotion = 0, untaken = 0;
+  std::string who;
+  RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
+    ++tick;
+    bound = RestartLimitTicks(match.GetPesStoppageConstants(), match.GetPesSetPieceTakerConstants());
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker)
+      stoppedAt.emplace(b.stopTime, tick);
+    if (b.active && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker &&
+        seen.insert(b.stopTime).second) {
+      const Anim* anim = b.taker->GetCurrentAnim();
+      if (anim && anim->functionType == e_FunctionType_Special && anim->anim &&
+          pes::IsPesLocomotionFamily(std::atoi(anim->anim->GetVariable("specialvar1").c_str())))
+        onLocomotion++;
+      throwIns++;
+      taking[b.stopTime] =
+          Taking{b.taker, stoppedAt[b.stopTime], b.taker->GetPlayerData()->GetLastName()};
+    }
+    for (auto it = taking.begin(); it != taking.end();) {
+      const Anim* anim = it->second.taker->GetCurrentAnim();
+      if (anim && isBallAction(anim->functionType)) {
+        it = taking.erase(it);
+      } else if (tick - it->second.stoppedAt > bound) {
+        untaken++;
+        who += " taker " + it->second.name + ";";
+        it = taking.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  });
+  EXPECT_GT(throwIns, 0) << "no throw-in was released";
+  EXPECT_GT(onLocomotion, 0) << "no throw-in taker was in a PES locomotion clip at release";
+  EXPECT_EQ(untaken, 0) << untaken << " throw-in taker(s) played no ball action within " << bound
+                        << " ticks of the stoppage with the ball over the line:" << who;
+}
+
+// A throw-in's ball lies over the line at its spot (PES writes it at F1 + 0.25), and the taker's pass
+// carries it inward over the next few ticks. PES's judge acts on the ball event raised as the ball
+// crosses the line (docs/re/pes-re-A5Judge.md 1.4), so a ball already over the line at the release
+// raises none. A judge that read the ball's centre on every tick would award the throw again to the
+// other side at the same spot, on the first tick after the release. No throw-in may be awarded again
+// within a second of a release.
+TEST(PesRestartDelay, AThrowInIsNotAwardedAgainOnItsOwnSpot) {
+  constexpr double kRewardWindow_ms = 1000.0;  // no pass from a spot reaches the far line sooner
+  std::optional<unsigned long> awarded, released;
+  double releasedAt_ms = 0.0;
+  int throwIns = 0, reawarded = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn) return;
+    const double now_ms = static_cast<double>(match.GetActualTime_ms());
+    if (!awarded || *awarded != b.stopTime) {
+      if (released && now_ms < releasedAt_ms + kRewardWindow_ms) reawarded++;
+      awarded = b.stopTime;
+    }
+    if (b.started && (!released || *released != b.stopTime)) {
+      released = b.stopTime;
+      releasedAt_ms = now_ms;
+      throwIns++;
+    }
+  });
+  EXPECT_GT(throwIns, 0) << "no throw-in was released";
+  EXPECT_EQ(reawarded, 0) << reawarded << " throw-in(s) awarded again within a second of a release, at the spot";
+}
+
+// PES's whistle kills the ball where it stands: the live throw-in sits past the line at its stop
+// frame and shows no outfield flight during the stop. So on the tick the referee takes the ball out
+// of play the ball's velocity and its spin are both zero - the resting-ball gate
+// (pesballphysics.cpp IsResting) needs the spin zero too, or the flight function keeps stepping a
+// "dead" ball and it drifts off the spot the writer put it on.
+TEST(PesRestartDelay, AWhistleLeavesNoFlyingBallBehind) {
+  constexpr float kRestSpeed_ms = 0.05f;
+  float beforeTheWhistle = 0.0f;
+  std::optional<unsigned long> seenStop;
+  int stops = 0, flyingStops = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    Ball* ball = match.GetBall();
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    const float movement = ball->GetMovement().GetLength();
+    if (!b.active) {
+      beforeTheWhistle = movement;
+      return;
+    }
+    if (seenStop && *seenStop == b.stopTime) return;
+    seenStop = b.stopTime;
+    stops++;
+    if (beforeTheWhistle > kRestSpeed_ms) flyingStops++;
+    EXPECT_LE(movement, kRestSpeed_ms)
+        << "the ball was still moving at " << movement << " m/s at the whistle of stop "
+        << b.stopTime << " (it was at " << beforeTheWhistle << " m/s the tick before)";
+    const Quaternion& spin = ball->GetSpin();
+    const float spinAngle_rad =
+        2.0f * std::acos(std::min(1.0f, std::fabs(spin.elements[3])));
+    EXPECT_LE(spinAngle_rad, 1e-3f)
+        << "the ball was still spinning at " << spinAngle_rad << " rad/tick at the whistle of stop "
+        << b.stopTime;
+  });
+  EXPECT_GT(stops, 0) << "no stoppage was seen";
+  EXPECT_GT(flyingStops, 0) << "no stoppage caught a ball in flight - the test proved nothing";
 }

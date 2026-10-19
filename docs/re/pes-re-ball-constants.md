@@ -14,7 +14,7 @@ used (down). The game was **not** running (`pgrep -f PES2021.exe` empty).
 > **Correction to `pes-re-officials-ball.md` §6.2.** That section records "constant_match.bin
 > section `ball.o` (352 B) holds different, unnamed values" and lists the source file as OPEN.
 > Both are wrong: `ball.o` is **1,040 B** (352 B is `cameraInplay.o`'s size — the two got
-> crossed), and it holds *exactly* the live values, with recoverable field names. §7's killed
+> crossed), and it holds *exactly* the live values (the 4cc mod; stock differs, e.g. nonSpinMax 105.0 stock, 106.0 mod), with recoverable field names. §7's killed
 > hypothesis "`constant::Ball` values come from `constant_match.bin` `ball.o`" must be revived
 > and its reason inverted.
 
@@ -105,12 +105,14 @@ offset from the `BallBase*` the integrator is handed (`code = live − 8`).
 | **dragSpeedMax** | `+0x064` | `+0x148` | `+0x140` | `C[0x50]` | **96.995003** km/h |
 | **dragSpeedMin** | `+0x068` | `+0x14C` | `+0x144` | `C[0x51]` | **56.995602** km/h |
 | **magnusRate** | `+0x098` | `+0x208` | `+0x200` | `C[0x80]` | **0.035** |
-| nonSpinMax | `+0x0AC` | `+0x244` | `+0x23C` | `C[0x8F]` | 105.0 km/h |
+| nonSpinMax | `+0x0AC` | `+0x244` | `+0x23C` | `C[0x8F]` | 105.0 km/h (stock; mod 4cc_06_gameplay: 106.0) |
 | nonSpinMin | `+0x0B0` | `+0x248` | `+0x240` | `C[0x90]` | 45.0 km/h |
 | nonSpinRate | `+0x0B4` | `+0x24C` | `+0x244` | `C[0x91]` | 1.0 |
 | nonSpinTopDownDecRate | `+0x0B8` | `+0x250` | `+0x248` | `C[0x92]` | 1.0 |
 | nonSpinTopRiseDecRate | `+0x0BC` | `+0x254` | `+0x24C` | `C[0x93]` | 1.0 |
 | airRegistNormal | `+0x000` | `+0x008` | `+0x000` | `C[0]` | 1.0 |
+
+_Corrected 19-10-26 (stock dt18): `ball.o` +0x0AC in `Data/dt18_all.cpk` `constant_match.bin` = 105.0 (f32 bits 0x42D20000); the 4cc winner = 106.0 (0x42D40000). The other rows of this table are equal in both._
 
 §6.3's "wobble clamps `C[0x8F]=105, C[0x90]=45, C[0x91]=1.0`" are therefore
 **`nonSpinMax` / `nonSpinMin` / `nonSpinRate`**, not wobble parameters. The real wobble table

@@ -27,10 +27,11 @@ e_SetPiece EndLineRestart(int lastTouchSide, float ballX);
 int AwardedTeamAfterBallOut(int lastTouchTeam);
 
 // Where the restart is taken from. The corner is the flag pulled in by the install's insets; a
-// goal kick sits on the goal-area line; a throw-in is on the line, inside the end line.
+// goal kick sits on the goal-area line; a throw-in sits outside the touchline, in the install's
+// writer form.
 Spot CornerSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 Spot GoalKickSpot(float ballX, float ballZ, const RestartSpotConstants& k);
-Spot ThrowInSpot(float ballX, float ballZ);
+Spot ThrowInSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 
 // The taker may release once this many frames have passed since the restart was armed. A
 // kick-off is not timed (the receiver's ball test decides it), so its gate is zero.

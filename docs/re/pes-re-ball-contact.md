@@ -653,7 +653,7 @@ raw bytes); names from `Ball::LoadJson` (`0x141e73ee0`, 66 `.rdata` keys
 | magnusRate | +0x098 | +0x200 | 0.035 |
 | natualBoundB | +0x0A0 | +0x21C | 0.4 |
 | naturalRoll | +0x0A8 | +0x238 | 2.0 |
-| nonSpinMax | +0x0AC | +0x23C | 106.0 |
+| nonSpinMax | +0x0AC | +0x23C | 105.0 (stock; mod 4cc_06_gameplay: 106.0) _Corrected 19-10-26 (stock dt18): ball.o +0x0AC = 105.0 in `Data/dt18_all.cpk`._ |
 | nonSpinMin | +0x0B0 | +0x240 | 45.0 |
 | nonSpinRate | +0x0B4 | +0x244 | 1.0 |
 | nonSpinTopDownDecRate | +0x0B8 | +0x248 | 1.0 |

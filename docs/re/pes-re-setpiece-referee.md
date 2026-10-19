@@ -48,7 +48,8 @@ records; objects are named `<name>.o`):
 | `constant_player.bin` | `common/match/constant/constant_player.bin` (40643 B) | `freekick.o` 16, `goalKick.o` 32, `penaltykick.o` 80, `ballplayerSetplay.o` 64, `ballplayerGk.o` 96 |
 | `constant_positionCK.bin` | `common/match/constant/constant_positionCK.bin` (775 B) | `positionCK.o` + `positionCK_4_1 … positionCK_6_3` (10 × 368 B) — the corner-kick position table, one per formation family |
 | `constant_positionPK.bin` | `common/match/constant/constant_positionPK.bin` (645 B) | `positionNone.o`, `positionPK_2 … positionPK_5` (5 × 368 B) — the penalty-kick position table |
-- `constant_team.bin` | `common/match/constant/constant_team.bin` (1354 B) | `basePosition.o` 864, `defenceMark.o` 320, `support.o`, `defence.o`, `pairAnime.o`, `selectorVision.o`, … |
+- `constant_team.bin` | `common/match/constant/constant_team.bin` (1354 B stock; mod 4cc_06_gameplay: 1513 B) | `basePosition.o` 864, `defenceMark.o` 320, `support.o`, `defence.o`, `pairAnime.o`, `selectorVision.o`, … |
+  _Corrected 19-10-26 (stock dt18): `constant_team.bin` is 1354 B (tag `ff 10 51`) in `Data/dt18_all.cpk`; the 4cc_06_gameplay winner is 1513 B (tag `00 10 01`). `basePosition.o` (864 B) and `defenceMark.o` (320 B) are the same size in both._
 
 ### 1.8 The animation-action class taxonomy (OBS — RTTI names + class-info records)
 

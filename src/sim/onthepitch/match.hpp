@@ -84,7 +84,12 @@ public:
   e_MatchPhase GetMatchPhase() const { return matchPhase; }
 
   void StartPlay() { inPlay = true; }
-  void StopPlay() { inPlay = false; }
+  // PES's ball is dead at the whistle: on the PES path the stop zeroes it in place (velocity and
+  // spin), so the stop never inherits a flight. The prepare teleport still moves it to the spot.
+  void StopPlay() {
+    inPlay = false;
+    if (pesLoop) ball->Stop();
+  }
   bool IsInPlay() const { return inPlay; }
   // How long the celebration has been running (onthepitch/goalcelebration.hpp).
   unsigned long GetGoalScoredTimer() const { return goalScoredTimer; }

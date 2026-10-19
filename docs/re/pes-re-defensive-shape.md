@@ -165,7 +165,7 @@ INF(high): the "presser" is the `MATCH_UP` man (the first defender of mark pass 
     (20/65/−45/2.5 at 0x14259be1c/0x14259be48/0x1425aa1c8/0x14259bde4) taken off the candidate's distance. The first
     candidate inside the cone wins; it replaces the previous presser only if `|prev − ball| ≥ (d − bonus) + 1.5`
     (0x14259bddc). Winner → `brain+0x5db0`, paired with the carrier (weight 1.0).
-- The engaged man's state is `MATCH_UP` (writer `FUN_140536210`, not reduced; prio 0 so nothing overrides it).
+- The engaged man's state is `MATCH_UP` (writer `FUN_140536210`, gated on team byte `+0x1775` ∈ {3, 8..10}, slot `table[candidate] % 11`; prio 0 so nothing overrides it). _Corrected 19-10-26 from pes-re-community-qa.md §6 C9: dec FUN_140536210; old "not reduced"._
 
 ### 5.3 When the team presses vs drops — what is closed
 - **Line-up / block choice is the defensive-line formula (§6)**: the line height is a ramp of ball depth; the press
@@ -234,7 +234,7 @@ S+0x7b38 = clamp(fw, 3 - F[0x11], F[8])                                         
   behind its band, held 6 m behind `FUN_14063fdc0`'s point, capped at own-frame −5; all three bands shift together.
 - **In possession (`FUN_1405fb6f0`, OBS):** line-2 rear `x = (8a − 4) + (F[6] + 7 − (8a − 4))·w`,
   `a = clamp(L/4)`, `w = ramp(bx; bp[0xc] − F[6] + 20·hold → 0, F[6] + bp.adjustFrontOF(−5) → 1)`; back-line front
-  `= x − lengthOf(40)·(1 − 0.5·dfLineRate(0.09))`, clamped to `[−F[6], 2.0]`; kick-off: front = `kickoffDfLineX` (−12.0).
+  `= x − lengthOf(35; mod 4cc_06_gameplay: 40)·(1 − 0.5·dfLineRate(0.2; mod 4cc_06_gameplay: 0.09))`, clamped to `[−F[6], 2.0]`; kick-off: front = `kickoffDfLineX` (stock −18.0; mod 4cc_06_gameplay: −12.0).
 
 **Live check (OBS, `linecheck.py`, 190 one-second samples with one team clearly defending, style 0 and v2 = 4 assumed):**
 pre-adjust `T+0x8880` vs the reconstruction: **median |e| 0.38 m, 53 % within 0.5 m, 67 % within 2 m**, RMS 3.7 m;
@@ -254,7 +254,7 @@ lat   = clamp((|ctx[0x104]| - 6) / (F[7] - 5 - 6), 0, 1)          // ball |z|: 6
 lvl   = ramp(L; 0→1, 2→0)                                         // attack level T+0xb8a4
 half0 = restart ? bp.dfLineWidth_Corner(6.0)
       : penalty MODE 6 vs us ? F[5] + 6
-      : n==3 ? 15 : n==4 ? 19 : n>=5 ? 23 : 10     (bp.dfLineWidth_3/4/5; 10 = 0x142588210)
+      : n==3 ? 16 (mod 4cc_06_gameplay: 15) : n==4 ? 20 (mod 4cc_06_gameplay: 19) : n>=5 ? 24 (mod 4cc_06_gameplay: 23) : 10     (bp.dfLineWidth_3/4/5; 10 = 0x142588210)
 half0 += compactAdj ;  compactAdj = -bp.adjustZCompact(2.85)*clamp((v3-5.5)/4.5,-1,1)   // FUN_14063f230
 if inPlay || MODE != 3: half0 -= 6*lvl  else: half0 -= bp.adjustDfLineWidth_GoalKick, (line 1, n==3: -2)
 minHalf = (n-1) * 0.5 * (inPlay&&!restart ? lerp(bp.minWidth 6, bp.minWidth_stratagy_defensive 5, lvl) : bp.minWidth_GoalKick 2)
@@ -326,7 +326,8 @@ branch mapping.) Line 2 (forwards) uses `(n−1)·minWidth` vs a 7 m floor (40 m
   10 < b < 50, 60 for b ≤ 10, none for b > 50.
 - "`pes_state.py`'s ball is the match ball": it stays near (0.5, 0.8, 0) while play is at x ≈ 40.
 - "`ct_vfs.bin` at file offset 864 + off − 8 gives basePosition values": decodes to garbage; the live object (vtable
-  0x142b5a328) gives cornerKickOffencePlayerNumber 5, dfLineWidth_Corner 6.0, kickoffDfLineX −12.0 as reported.
+  0x142b5a328) gives cornerKickOffencePlayerNumber 5, dfLineWidth_Corner 6.0, kickoffDfLineX −18.0 (stock; mod 4cc_06_gameplay: −12.0) as reported.
+_Corrected 19-10-26 (stock dt18): `basePosition.o` blob +0x150 = 0.2 (mod 0.09), +0x220 = 35 (mod 40), +0x158/+0x15c/+0x160 = 16/20/24 (mod 15/19/23), +0x20c = −18 (mod −12); cornerKickOffencePlayerNumber 5 and dfLineWidth_Corner 6.0 are equal in both. `adjustZCompact` 2.85 on line 258 is PARKED (blob +0x74 is 2.85 mod / 2.5 stock; mapping unconfirmed)._
 
 ## 12. Open list (exact next step each)
 1. **Mark passes 2–7** (`FUN_140531260`, `FUN_1405325e0`, `FUN_14052f4f0`, `FUN_140530320`, `FUN_14052f720`,
@@ -1097,7 +1098,7 @@ Builds the phase-1 (in-possession) bands `S+0x7b14/0x7b38+0x3c·phase`. Stopped-
 4. Kick-off (`MI+0x116c == 1`, raw 0x1405fb914–0x1405fb961): OBS structure — line-2 rear passes through a
    `FUN_140a92c80(90°·…)` sin form (90 = 0x14259be5c) with a `(bp+0x364)`-gated variant, then `rear −= 6·r`
    at MODE 2 (6 = 0x14259bdec, `r` = the ball-vs-`F[0]` ramp, raw 0x1405fba42–0x1405fba89). Exact rotation
-   open — needs the kick-off sample (§15.16.1). The §6 "front = kickoffDfLineX (−12.0)" stands for the
+   open — needs the kick-off sample (§15.16.1). The §6 "front = kickoffDfLineX (stock −18.0; mod 4cc_06_gameplay: −12.0)" stands for the
    stopped-kick-off shortcut only.
    Tail (raw 0x1405fbc06–0x1405fbcaa): `FUN_140a533a0` corner test → `FUN_1405ed220`; the
    `−dir·F[4]`-vs-`S+0x7b50` clamp (FieldInfo `+0x10`).

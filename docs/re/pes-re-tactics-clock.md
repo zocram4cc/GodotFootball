@@ -14,7 +14,7 @@ All addresses are VAs in the memory image. **Image map used throughout:** file o
 2. **The match clock is one integer, expressed as a percentage of `minutes × 1920`** — not seconds and not minutes. `match_time` is a user setting in **minutes of real time per match**; PES stretches a fixed 90 game-minutes over it.
 3. **Half length is chosen by half kind** from **three** consistent tables in the image (@0x1420BE050, @0x1420BE140, @0x1420BE0D0): 45 / 45 / 90 / 105 / 120 minutes by phase.
 4. **No WESYS constant object carries a clock value.** All 27 objects of `common/match/constant/constant_match.bin` are enumerated in §8; there is no clock/time object. The clock is built from hardcoded image constants plus the `match_time` setting.
-5. **Stoppage (added) time is a linear formula evaluated at half end, from the elapsed match seconds and the on-pitch performer's "perf tier"** — OBS-decompiled in §3.2. There is **no event accumulator**: goals, substitutions, injuries and goal kicks are not individual triggers.
+5. **Stoppage (added) time is a linear formula evaluated at half end, from the elapsed match seconds and the on-pitch performer's role class** (`T+0x4C00`, array B) — OBS-decompiled in §3.2. There is **no event accumulator**: goals, substitutions, injuries and goal kicks are not individual triggers. _Corrected 19-10-26 from pes-re-role-writer.md §6: T+0x4C00 is the role-class array, read as tier thresholds; old "perf tier"._
 6. **A stoppage never adds time; it freezes the clock.** The ClockFSM simply does not run while the match state byte is a frozen state. The 9000/5400 per-second term is the only compensation.
 
 ---
@@ -134,7 +134,7 @@ idx    = *(u32*)(ctx+0x18)                       // performer index 0..21
 isSub  = (9 < idx < 22)                          // substituted/bench flag
 pIdx   = (idx < 22) ? idx % 11 : 0               // on-pitch performer 0..10
 team   = TeamSlice(isSub)                        // FUN_140A48A30(gCtx, isSub)
-perf   = *(int*)(team + 0x4C00 + pIdx*4)         // per-player "perf tier" u32
+perf   = *(int*)(team + 0x4C00 + pIdx*4)         // role class 0..9, array B (mislabelled "perf tier")
 player = GetPlayerRecord(idx)                    // FUN_140A489D0 + FUN_140A3AF60
 pObj   = GetPlayerGameObject(player)              // FUN_141B59E20
 level  = byte at pObj+0x5D                        // "pitch level", clamped up to 10
@@ -273,7 +273,7 @@ sub_140923060(ctx, phase /*2 or 4*/, record):
   idx  = *(u32*)(ctx+0x18)                           // performer 0..21
   pIdx = (idx < 22) ? idx % 11 : 0
   isSub = (idx >= 11 and idx < 22)
-  tier = *(int*)(TeamSlice(isSub) + 0x4C00 + pIdx*4) // per-player perf tier
+  tier = *(int*)(TeamSlice(isSub) + 0x4C00 + pIdx*4) // role class 0..9, array B (mislabelled "perf tier")
 
   switch (phase):
     case 2  (2ND_HALF):
@@ -299,7 +299,7 @@ sub_140923060(ctx, phase /*2 or 4*/, record):
 | `DAT_142632A64` | 0x142632A64 | **5400.0** | EX_TIME added time per match second |
 | `DAT_142632A60` | 0x142632A60 | **1800.0** | EX_TIME tier bonus, tiers ≤ 2 |
 
-**Interpretation (INF medium-high):** added time is `elapsedSeconds × rate`, gated by the on-pitch performer's `+0x4C00 + pIdx*4` **perf tier**. Extra time adds less stoppage than the second half (5400 vs 9000) — consistent with football. **No event triggers exist.**
+**Interpretation (INF medium-high):** added time is `elapsedSeconds × rate`, gated by the on-pitch performer's `+0x4C00 + pIdx*4` **role class**. Extra time adds less stoppage than the second half (5400 vs 9000) — consistent with football. **No event triggers exist.** _Corrected 19-10-26 from pes-re-role-writer.md §6: old "perf tier"._
 
 ### 3.3 The ClockFSM gating — what freezes the clock (OBS)
 
@@ -456,17 +456,19 @@ This **confirms and completes** the §6 claim in `pes-re-matchlogic.md` that `mi
 
 ### 7.1 WESYS constant archive — OBS, full inventory (this install)
 
-`common/match/constant/` (VFS winner `Data/dt18_all.cpk`), parsed with the repo's `ParseUniformTable` rules (16-byte header `ff 10 51 57 'WESYS'`, u32 compressed at +10, u32 uncompressed at +14, zlib blob at +16; then `u32 count, u32 tableOff=8`, `count × {u32 dataOff, u32 size, u32 nameOff}`, NUL-terminated `.o` names, 16-aligned blobs):
+`common/match/constant/` (stock base `Data/dt18_all.cpk`; on a modded install the runtime winner is the download pack: mod 4cc_06_gameplay sizes constant_match 4851 B, constant_team 1513 B, constant_player 82986 B raw), parsed with the repo's `ParseUniformTable` rules (16-byte header `ff 10 51 57 'WESYS'` stock, `00 10 01 57 'WESYS'` for the mod's team and match; u32 compressed at +10, u32 uncompressed at +14, zlib blob at +16; then `u32 count, u32 tableOff=8`, `count × {u32 dataOff, u32 size, u32 nameOff}`, NUL-terminated `.o` names, 16-aligned blobs):
 
 | file | objects |
 |---|---|
-| `constant_match.bin` (4817 B) | **27**: animeAgingDribble, animeAgingFreeMove, animeAgingKick, animeAgingTrap, ball, cameraInplay, cameraSetplay, command, cpuLevel, cursor, feintCommand, injury, inplayDemo, mlScreenShot, modeMatchup, pes15Test, pesSmart, rating, setplayGuideCommon / CornerKick / FreeKickFar / Middle / Near / GoalKick, teamEmotion, throwin, userPlayTendencyTest |
-| `constant_player.bin` (40643 B) | 36 |
-| `constant_team.bin` (1354 B) | 16 (basePosition … teamId) |
+| `constant_match.bin` (4817 B stock; mod 4cc_06_gameplay: 4851 B) | **27**: animeAgingDribble, animeAgingFreeMove, animeAgingKick, animeAgingTrap, ball, cameraInplay, cameraSetplay, command, cpuLevel, cursor, feintCommand, injury, inplayDemo, mlScreenShot, modeMatchup, pes15Test, pesSmart, rating, setplayGuideCommon / CornerKick / FreeKickFar / Middle / Near / GoalKick, teamEmotion, throwin, userPlayTendencyTest |
+| `constant_player.bin` (40643 B stock; mod 4cc_06_gameplay: 82986 B) | 36 |
+| `constant_team.bin` (1354 B stock; mod 4cc_06_gameplay: 1513 B) | 16 (basePosition … teamId) |
 | `constant_stadium.bin` (8074 B) | 84 |
 | `constant_tutorial.bin` (955 B) | 2 |
 | `constant_tutorialConsole.bin` (11673 B) | 26 |
 | `constant_positionCK.bin` / `constant_positionPK.bin` / `constant_shootAging.bin` | 10 / 5 / 21 |
+
+_Corrected 19-10-26 (stock dt18): sizes read from `Data/dt18_all.cpk` (stock) and from the 4cc_06_gameplay winner (mod) with `pesfmt_dump cat`; object counts match in both (match 27, player 36, team 16). The audit's "mod differs for team/player" missed match: 4817 vs 4851 B._
 
 **OBS negative result: no clock/time object exists in any of them**, including `injury.o` (48 B, the only other candidate). **The clock is therefore not tunable through WESYS**: it is hardcoded (image constants below) plus the `match_time` setting.
 
@@ -516,7 +518,7 @@ GF (`src/sim/onthepitch/match.{hpp,cpp}`, `GetMatchTime_ms`, `matchTime_ms`) adv
 | 1 | `match_time` (real minutes per match) → the per-tick clock increment | **Open** | Read `FUN_140A581C0`/`FUN_140A58550` (the 1920-per-half-minute scaling), traced the only `s_match_time` xref (the settings serializer at 0x1410AE130, u16 at settings+0xD5A), read the whole ClockFSM, the tick driver and the end-of-tick. The float pair `*(gCtx+0x2C0)+0x58/+0x5C` is the place the real-time scale lives (`FUN_1409224D0` computes `54.0 / *(env+0x5C)`). **Next:** find the writer of `+0x5C` (searched `movss [reg+0x5c],xmm` in all encodings — 43 sites, none yet tied to `*(gCtx+0x2C0)`), or read the object's type via its vtable. |
 | 2 | Per-state hold durations (kick-off whistle delay, half-time length in seconds) | **Open** | Decompiled/disassembled the FSM dispatch `FUN_14044C880` (message ids only, no constants), the period state jump table (0x14292666C) and every clock function. **Next:** decompile the state handlers `FUN_14044D110`, `FUN_140448760`, `FUN_140446390` and read their clip-duration requests. |
 | 3 | Identity of the `*(gCtx+0x2C0)` object | **Open** | Found 56 `[reg+0x2c0]` loads, 65 stores (all in unrelated classes), and the float pair at +0x58/+0x5C; no `.?AV…@…@@` name resolved for it (RTTI COL at 0x142CA8548 leads to a TD whose name field is empty in this dump). **Next:** match one of its known field users to a class in the `match::` RTTI list of `pes-re-matchlogic.md` §5. |
-| 4 | `+0x4C00 + pIdx*4` "perf tier" semantics | **Open** | Read as a per-player u32 used only as a tier index (1..2 / 3..6 / ≥7) in `FUN_140923060` and `FUN_14092FAD0` (`+0x100 + pIdx*4`). Same offset family appears in `FUN_140922DD0`. **Next:** cross-read with the player attribute accessors of `pes-re-matchlogic.md` §1.2 (table @0x143529930). |
+| 4 | `+0x4C00 + pIdx*4` role-class semantics | **Closed as role class 0..9 (array B)**; the clock reads it as tier thresholds 1..2 / 3..6 / ≥7 in `FUN_140923060` and `FUN_14092FAD0` (`+0x100 + pIdx*4`). Same offset family appears in `FUN_140922DD0`. | _Corrected 19-10-26 from pes-re-role-writer.md §6: old "perf tier" + matchlogic cross-read._ |
 | 5 | Which event writes `lossTime` (+0x145) besides the formula | **Open** | Only 7 byte-writers found; none on the clock path. INF: it is the `FUN_140923060` result expressed in minutes. |
 | 6 | Does anything but `match_time` set the half length? | **Open** | The three half-length tables are pure functions of the phase (OBS). Competition-format selection of ET/PK (how phase reaches 4..9) is in the match setup, not the clock. |
 

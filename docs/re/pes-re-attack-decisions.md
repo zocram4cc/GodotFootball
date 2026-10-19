@@ -301,11 +301,11 @@ if zone says "shootable" (FUN_1406997a0(ctx5+0x9cc)):
                                                      # 20.0/80.0/1.0 @+0x... (see §2.7)
     if corridor_free:
         recv = FUN_140a4ee40(other team, carrier-pred); if valid:
-            lead dist vs 36.0 → return with NO answer if beyond   # 0x1425a9464 = 36.0
+            squared dist vs 36.0 (6 m) → return with NO answer if beyond   # 0x1425a9464 = 36.0; only when IsMid AND lane free AND opp found. _Corrected 19-10-26 from pes-re-carrier-helpers.md §6 item 8: old "lead dist vs 36.0" (linear reading)._
 if ctx4[0x6f] == 0 and (owned or ball_height <= 1.0):             # 1.0 @0x14256ae1c
     if plan.id == 4 (PassThrough):                               # image plan +0xa0
         one_two_tgt = FUN_140211cb00(plan, 10)                   # plan slot 10
-        if one_two_tgt valid and score_ok(FUN_1421226c0) and lane_ok(FUN_1421225e0 or dist<=225.0):
+        if one_two_tgt valid and score_ok(FUN_1421226c0) and lane_ok(FUN_1421225e0 or d2(recB-tgt, corner)<=225.0):
                                                      # 225.0 @0x14259be70
             answer = pass(one_two_tgt, b=3 through)
     else:
@@ -374,23 +374,21 @@ scan the 11 opponent slots (FUN_140507740 table):
   (0x14259be44 = **64.0** @0x142123f7c), final lane call
   `FUN_14063de20(len 10.0, wid 6.0, h 2.0)` (10.0 @0x142124026, 6.0 @0x142124034,
   2.0 @0x142124018 — OBS).
-- `FUN_142125140` (BackSpace cut-back picker, 0x142125140, `misc2.c:98`): over the 11
-  mates, keep those passing `FUN_1421226c0`; needs mate-record + lane
-  `FUN_14063de20(len = dist, wid 120.0, h 1.0)` (120.0 @0x14256ae30), target-quality
-  `<= 225.0` (0x14259be70 @0x1421253ea) or `FUN_1421225e0`; tiebreaks prefer the
-  **closer** mate (dist² `fVar26/fVar27` vs 15.0 = 0x14259be0c) and the better
-  `FUN_14061e7c0` line-value; returns 0xff if none.
-- `FUN_1421226c0` (mate score gate, 0x1421226c0, `misc2.c:396`): record valid
+- `FUN_142125140` (BackSpace cut-back picker, 0x142125140, `misc2.c:98` — decoded: carrier-helpers §1.2): over the 11
+  mates, keep those passing `FUN_1421226c0`; the head lane `FUN_14063de20(len = dist, wid 120.0, h 1.0)` (120.0 @0x14256ae30) result is DEAD; the loop's live lanes are A (20/90/3, h=13, side-angle) and B (need/90/3, h=13, team-angle); target-quality
+  `<= 225.0` (0x14259be70 @0x1421253ea) or `FUN_1421225e0`; tiebreak: `IsCentral&&IsMid` → min `FUN_14061e7c0` line-value (strict), else flag-chosen min/max |z| (not "closer wins").
+  _Corrected 19-10-26 from pes-re-carrier-helpers.md §6 item 9: old "tiebreaks prefer the closer mate" + live head-lane._
+- `FUN_1421226c0` (mate score gate, 0x1421226c0, `misc2.c:396` — decoded: carrier-helpers §1.1): record valid
   (`FUN_1402118d20 == 0xb`), side test `s·m.x <= line+…`, danger byte clear,
   openness `rec[0x3c] <= 1.0`, then the corridor/pressure sub-tests with **6.0**
   (0x14259bdec), **0.3** (0x142590d98 = 0.3 @0x142122943), **0.5** (0x142565600),
   **5.0** (0x14259222c), **8.0** (0x14259bdf4), **0.6944444**, **45.0/20.0/40.0**
   (0x14259be30/0x14259be1c/0x14259be2c), **90.0/120.0** (0x14259be5c/0x14256ae30).
-  Returns void; 0 = reject (early `return` before the accept label), accept falls to
-  `LAB_14212322b`. (OBS structure; exact accept/reject polarity confirmed by the
-  callers' `!= 0` tests.)
-- `FUN_1421225e0` (0x1421225e0, tiny): `addss 0.5` only — a score nudge, not a gate
-  (OBS).
+  Returns bool; TWO accept sites (lane-2-empty at `0x142122F3F`, loop-end at
+  `0x142123229`) and the tail-loop exits reject. Lane 1 uses immediate cone 30.0 (not .rdata) with the h=target-slot quirk.
+  _Corrected 19-10-26 from pes-re-carrier-helpers.md §6 item 10: old "Returns void; accept falls to LAB_14212322b"._
+- `FUN_1421225e0` (0x1421225e0, tiny): it IS a gate (bool return, callers branch on it at `0x1421253F8` and gate L113); the +0.5 makes frames = 0 (decoded: carrier-helpers §1.4).
+  _Corrected 19-10-26 from pes-re-carrier-helpers.md §6 item 11: old "`addss 0.5` only — a score nudge, not a gate"._
 
 ### 2.6 Through-ball choosers (OBS, `through.c`)
 
@@ -424,23 +422,21 @@ scan the 11 opponent slots (FUN_140507740 table):
   need = w_spd·30 + 60 + w_dist·30 (+20 if openness==4, +30 if ==5; =120 in danger)
                                                      # 30.0/60.0/20.0/30.0/120.0 constants above
   if openness==0: skip unless danger/pressure-count path
-  need2: dist <= need  (else skip)
-  … lane tests: width dist/5 clamp(4,12) via FUN_14063dab0 (220-frame budget),
+  scored limit: max(need,45) vs recA+0xE8 (a TURN angle), not vs dist; dist has its own ceiling cascade (40/15/60 + mode cap at 15)
+  … lane tests: lane LENGTH = width dist/5 clamp(4,12) via FUN_14063dab0 (cone 220, 220-frame budget),
   receiver-lead test (0.4·dist vs limits 10/3), keeper-race test,
   press-count test, side test s·m.x, duel-byte windows, final tiebreak:
   pressed (nearest opp ≤ 9 m) → smaller turn angle wins, else more advanced wins.
   ```
-  (OBS arithmetic; field meanings INF med — matches carrier-ai.md's partial decode.)
-- `FUN_142128490(ctx)` (PassSafety's safe through, `through.c:815`): needs the team-space
-  value `> 1600.0` (0x14259ce40 = **1600.0** = 40², OBS `*pfVar1 <= 1600 → return 0xff`),
-  carrier on the right side of the halfway sign test, then over the opponent table:
+  (OBS arithmetic; field meanings INF med — matches carrier-ai.md's partial decode. Score formula CONFIRMED by carrier-helpers §2.2, constants match exactly.) _Corrected 19-10-26 from pes-re-carrier-helpers.md §6 item 12: old "need2: dist <= need (else skip)"._
+- `FUN_142128490(ctx)` (PassSafety's safe through, `through.c:815` — decoded: carrier-helpers §2.3): gate 1 `(162 < +0x20 AND +4 > 9)` OR gate 2 passes ⇒ proceed; gate 2 needs the CARRIER's opp-table d2 `> 1600.0` (0x14259ce40 = **1600.0** = 40² — carrier must be 40+ m from nearest opp), then the side tests; over the opponent table:
   keep entries with quality `<= 900.0` (0x1425c65f4), openness race
-  (turn-error `< 70.0` → skip; 0x14259be4c = **70.0**), record valid, mate side test,
+  (turn-error `> 70.0` → next, i.e. pass iff `<= 70`; 0x14259be4c = **70.0**), record valid, mate side test,
   `dist·0.5`-scaled lane origin, bearing `< 135.0`, openness > 2, shoot-range
-  `<= 60.0`, `s·aim.x vs s·lead.x` order test, `dist <= 100.0`,
+  `<= 60.0`, `s·aim.x vs s·lead.x` order test, `100 <= d2 <= 900` (a BAND, squared),
   `FUN_1421226c0` must pass, then the final lane
-  `FUN_14063de20(len 10.0, wid 60.0, h 5.0)` (10.0/60.0/5.0 immediates) → return mate.
-  0xff if none.
+  `FUN_14063de20(len 10.0, wid 60.0, h 5.0)` (10.0/60.0/5.0 — CONFIRMED) → return mate.
+  0xff if none. _Corrected 19-10-26 from pes-re-carrier-helpers.md §6 item 13: old "needs team-space > 1600" (unscoped) + "turn-error < 70 → skip" (inverted) + "dist <= 100" (linear); asm senses 0x142128777/8D7/8E0._
 
 ### 2.7 Dribble sub-kind + shield/hold (OBS, `shield.c`)
 

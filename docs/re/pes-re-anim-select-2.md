@@ -116,8 +116,8 @@ neighbouring indices on a flag:
 - `0x1405c0630` (`FUN_1405c0630`, 13 call sites, the AI's *interception/duel* judge): reads 0x15,
   normalises `(s − 65)/(−10)` clamped to `[0,1]` (constants 55 `0x14259be38`, 65 `0x14259be48`,
   −10 `0x14259be84`) and **adds `5.0 · q` metres** (`_DAT_14259222c` = 5.0) to a distance
-  threshold when the target's per-player value differs. A defensive stat widening an
-  interception radius.
+  threshold when DA < 65 and the ball is ≤ 36 m from goal (`0x1425a9464` = 36.0); Track Back (bit 23 of `+0x40`) zeros the term. A defensive stat widening an
+  interception radius. _Corrected 19-10-26 from pes-re-community-qa.md §6 C10: dec 0x1405C0630 + raw constants; old "when the target's per-player value differs"._
 - `0x140a543a1` (`FUN_140a543a1`): reads 0x15, adds a **stamina/fatigue** bonus
   (`20·clamp((pct−80)/(−60))` and then `(x−70)/(−25)`), and compares against a per-player
   **reaction-speed table** `*(float*)(player + 0x224 + slot·4)` scaled by 0.6 — i.e. a reaction
@@ -345,7 +345,7 @@ MOVESTEP dwell of AS §5.2 — one decompile of `FUN_1406b10d0` plus the two `FU
 | AL-01 | in-match stat `+0x27` = **Speed** | 0x1406f9a2c rate cap; 0x14096d2d0/0x14096e284 speed differential; 0x14211cbef athleticism blend; 0x2c proven Jump (contact §3.1) | OBS | AS §3.5, ML O4, LOC O2 |
 | AL-02 | in-match stat `+0x2b` = **Acceleration** | 0x1406eab00 τ (0x1406eac05..29 `(s−40)/59`); 0x1406e9fb9 playback; pair member 0x2a used only as squared power gain | OBS | AS §3.6/§4.2, ML O4 |
 | AL-03 | in-match stat `+0x2a` = **Kicking Power** | 0x1406d96fb `+3·0.6·g²` gated on bit 7 of block+0x40; 0x140816e0f launch-power arg | INF(high) | carrier-ai §369 |
-| AL-04 | in-match stat `+0x15` = **Defensive Awareness** | 0x140502c5b boolean pair selector 0x14/0x15; 0x1405c0630 +5 m interception radius; 0x140a543a1 reaction table | INF(high) | AS §4.2 note, ML §1.3 |
+| AL-04 | in-match stat `+0x15` = **Defensive Awareness** | 0x140502c5b boolean pair selector 0x14/0x15; 0x1405c0630 +5 m widening (DA < 65, ball ≤ 36 m from goal; Track Back bit 23 of +0x40 zeros the term); 0x140a543a1 reaction table | INF(high) | AS §4.2 note, ML §1.3 |
 | AL-05 | in-match stat `+0x16` = **GK Awareness** | 8 reads, all GK decision code (0x1409e30b5, 0x142115aaf) | INF(high) | ML §1.3 |
 | AL-06 | only 8 of 17 blend styles are reachable; 1–5, 9, 11–14 have no writer | `slot3.py` whole-image scan: 5 stores to `req[0x37]`, all traced | OBS | AS §3.3, SMM §6.8 |
 | AL-07 | the 9 dead styles map to groups 85, 88, 88, 89, 89, 93, 90, 90, 92 | `DAT_14344e0e0` read at 0x1406b88bb | OBS | SMM §3 |

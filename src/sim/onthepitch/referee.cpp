@@ -363,9 +363,15 @@ void Referee::Process() {
 
     // over sideline
 
+    // pes_loop judges the crossing, not the state: a throw-in's ball lies over the line at its spot
+    // and is not out again until it has come in and crossed (ballOverSideline).
+    const bool overSideline =
+        fabs(ballPos.coords[1]) >
+        (match->PesLoop() ? pesFieldHalfWidth : pitchHalfH + lineHalfW + 0.11);
+    const bool crossedSideline = match->PesLoop() ? overSideline && !ballOverSideline : overSideline;
+    ballOverSideline = overSideline;
     if (afterSetPieceRelaxTime_ms == 0) {
-      if (fabs(ballPos.coords[1]) >
-          (match->PesLoop() ? pesFieldHalfWidth : pitchHalfH + lineHalfW + 0.11)) {
+      if (crossedSideline) {
         foul.advantage = false;
         if (!CheckFoul()) {
           match->StopPlay();
@@ -382,7 +388,9 @@ void Referee::Process() {
           // restart is armed is his business, not the referee's.
           ScheduleStop(this, buffer.stopTime, AnyPlayerDown(match), kPesHoldOutOfPlay);
           if (match->PesLoop()) {
-            const pes::Spot spot = pes::ThrowInSpot(ballPos.coords[0], ballPos.coords[1]);
+            const pes::Spot spot =
+                pes::ThrowInSpot(ballPos.coords[0], ballPos.coords[1],
+                                 match->GetPesRestartSpotConstants());
             buffer.restartPos.coords[0] = spot.x;
             buffer.restartPos.coords[1] = spot.z;
           } else {
@@ -737,12 +745,21 @@ void Referee::PrepareSetPiece(e_SetPiece setPiece) {
   // referee's "taker touched the ball" exit never fires, and the restart holds
   // until the period ends. Measured on the fixture: a free kick whose ball lay
   // at x = 53.3, 0.8 m past the line, holding for 399 of a match's 425 forced
-  // ticks. The spot keeps its meaning by clamping it inside the outer lines (PES's writer,
-  // OffsideRule::RestartPosition), which keeps the lateral offset the kick aims along.
-  buffer.restartPos = OffsideRule::RestartPosition(
-      buffer.restartPos, -static_cast<int>(match->GetTeam(buffer.teamID)->GetSide()), setPiece,
-      match->GetPesRestartSpotConstants());
+  // ticks. The spot keeps its meaning by clamping it inside the outer lines (this is GF's port of
+  // PES's writer clamp, OffsideRule::RestartPosition), which keeps the lateral offset the kick aims
+  // along. A
+  // throw-in in the writer form already sits where the writer puts it: F1 + the install's
+  // outset, outside the touchline (FUN_14050d280's point, docs/re/pes-re-throwin-choreography.md
+  // 1.3), its x inside F0 - the install's end inset (FUN_14050e770's own clamp). Clamping it back
+  // to the line would move the ball the writer puts there, and the clamp's other branches
+  // (goal-area push, free-kick inset) cannot fire on the writer form, so it is skipped for the
+  // throw-in.
+  if (!(match->PesLoop() && setPiece == e_SetPiece_ThrowIn))
+    buffer.restartPos = OffsideRule::RestartPosition(
+        buffer.restartPos, -static_cast<int>(match->GetTeam(buffer.teamID)->GetSide()), setPiece,
+        match->GetPesRestartSpotConstants());
   match->ResetSituation(buffer.restartPos);
+  ballOverSideline = fabs(buffer.restartPos.coords[1]) > pesFieldHalfWidth;
   match->GetMatchData()->RecordPassRestart();
 
   match->GetTeam(0)->GetController()->PrepareSetPiece(setPiece, buffer.teamID);

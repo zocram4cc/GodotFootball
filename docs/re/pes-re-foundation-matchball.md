@@ -131,8 +131,8 @@ FoundationTeamPlayer) | readers (P: RunWorld.lineX = AI_GetOffsideLine, teamAIco
 concept ownLine/teamMid; keeper offsideLineX) | stand-in AI_GetOffsideLine (final-line median error
 0.000m live, midfield 0.009m; defshape port) | line parity for concepts/offside | M | Y (done:
 live-described; open: midfield depth/spacing code)
-D2 | MA+0x3fb8 (+0xc48 = opponent registered position) / MA+0x4b54 (opponent slot-point z) | OBS
-(OffBallSelectors: NOT new state; arithmetic views) | no writer (views) | readers: off-ball position
+D2 | MA+0x3fb8 (+0xc48 = opponent role class 0..9, array B) / MA+0x4b54 (opponent slot-point z) | OBS
+(OffBallSelectors: NOT new state; arithmetic views; role-writer §6: `P+0x3FB8` (set-piece object) is a different array that aliases S only at init) | no writer (views) | readers: off-ball position
 class/Attacking-Area tests | faithful Position()/slotPoint (pesoffball.hpp) | none | — | N
 
 ### E. MI clock/phase block

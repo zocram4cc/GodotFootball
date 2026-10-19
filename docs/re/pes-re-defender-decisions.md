@@ -112,7 +112,7 @@ tackle), `cmd+0xfc9 = 1` when the order kind is 0x36..0x39 (MARK/DELAY_MARK/BLOC
 3. if the ball has no current controller event, and the newest event is by `FUN_140a62fe0(ctx,id)`'s player and
    younger than `gs` frames → refuse (INF: no tackle in the first 1 s after that player's touch).
 4. **Pad-controlled players only** (`FUN_140479470(G+0x180,id)`, §4) and action ∉ {DELAY, PRESS, SAND}: the
-   `tackle.json` user switches (`+0x84 freeMoveTackleMode` = 2, `+0x6c autoSideStepEnable` = 1, `+0x88
+   `tackle.json` user switches (`+0x84 freeMoveTackleMode` = 2 (mod 4cc_06_gameplay; stock unverified), `+0x6c autoSideStepEnable` = 1 (mod 4cc_06_gameplay; stock unverified), `+0x88
    manualSideStepEnable` = 0) and a 20°/15° direction check apply. Dead for CPU.
 5. if action ∉ {2 FREE_RUN, 0x11 WAIT_TIMER, 0x33 DELAY, 0x34 PRESS, 0x35 SAND} (mask 0x38000000020004): ball
    predicted `gs>>2` frames ahead (0.25 s) must be within **22.5°** (0x14259d618) of the heading predicted
@@ -138,9 +138,9 @@ tackle), `cmd+0xfc9 = 1` when the order kind is 0x36..0x39 (MARK/DELAY_MARK/BLOC
 - loose ball: fail if the defender's point is farther than the ball path within 1.0 (`FUN_140591a10`).
 - **safety (only when action ∉ {PRESS, SAND})** `FUN_140a4fea0` (cover check, 10 m, 60°) and `|line.x − x| < 10`:
   with no cover and the newest event older than `gs/9` frames, fail when `sf < tackle.json +0x78
-  check_SaftyRate_No_Cover` (live 2.5) or, on the last line, `sf < +0x74 check_SaftyRate_Last_Line` (live 2.6).
+  check_SaftyRate_No_Cover` (stock 0.4; mod 4cc_06_gameplay: 2.5) or, on the last line, `sf < +0x74 check_SaftyRate_Last_Line` (stock 0.5; mod 4cc_06_gameplay: 2.6).
   OBS: `FUN_140a92c80(deg, amp)` = `amp·sin(deg)` (wrap ±360/180, 512-entry quarter-wave table, 90.0, 512.0), so
-  `sf = sin(90°·progress) ∈ [0,1]` < 2.5/2.6 → **these vetoes always fire with the live constants**: a covering-less
+  `sf = sin(90°·progress) ∈ [0,1]` < 0.4/0.5 (stock; mod 4cc_06_gameplay: 2.5/2.6) → **with the mod constants these vetoes always fire** (with the stock 0.4/0.5 they fire only for `sf` below them): a covering-less
   or last-line defender who is not in PRESS/SAND never standing-tackles once `gs/9` frames passed since the last
   ball event (INF(med) only on the cover/line predicate meaning of `FUN_140a4fea0`).
 - carrier in a ball-touch clip (`FUN_140a6e340`): wait until the touch is `≤ (end − x)` frames away, `x =
@@ -213,10 +213,11 @@ kick clip passes **0.7** (0.8 long pass; ×0.5 when the ball is > 0.5 m high at 
 DELAY/PRESS/PASS_GET defenders get radius **7.0 m**; others only for a shot within 33.75° whose path capsule
 (1.5 m, 7 m) covers them. FEINT sub-class 0xc0000 ×1.2. Refuse beyond the radius, flag bit 9, busy classes,
 short pass early in its clip (`< 0.8·contact`), dribble-touch facing > 90° / 67.5°. Loose ball: kicked ball
-speed `·3.6` > **70 km/h** (55 for GOAL_COVER after event 5) → window `gs·speedBall` (live **2.0 s**), else
-`gs·normal` (live **0.9 s**), measured against `FUN_140a51320` frames. Fields (deserializer `0x141e77800`, live):
-`exec` 1, `checkArea` 0, `checkDist` 0.5, `checkDistShoot` 0.9, `enable` + per-kick bytes
-centering/longPass/shoot/shortPass/shortPassForecast = 1, `normal` 0.9, `speedBall` 2.0.
+speed `·3.6` > **70 km/h** (55 for GOAL_COVER after event 5) → window `gs·speedBall` (stock **1.0 s**; mod 4cc_06_gameplay: **2.0 s**), else
+`gs·normal` (stock **0.2 s**; mod 4cc_06_gameplay: **0.9 s**), measured against `FUN_140a51320` frames. Fields (deserializer `0x141e77800`, stock value first):
+`exec` 1, `checkArea` 0, `checkDist` 1.0 (mod 4cc_06_gameplay: 0.5), `checkDistShoot` 3.0 (mod 4cc_06_gameplay: 0.9), `enable` + per-kick bytes
+centering/longPass/shoot/shortPass/shortPassForecast = 1 (mod 4cc_06_gameplay: all four packed flags 1; stock: one of them 0, which one is INF), `normal` 0.2 (mod 4cc_06_gameplay: 0.9), `speedBall` 1.0 (mod 4cc_06_gameplay: 2.0).
+_Corrected 19-10-26 (stock dt18): `block.o` (`constant_player.bin`) in `Data/dt18_all.cpk`: checkDist 1.0, checkDistShoot 3.0, normal 0.2, speedBall 1.0, one packed per-kick flag 0; mod 0.5 / 0.9 / 0.9 / 2.0 and all flags 1 (§12.5)._
 
 ## 6. Not present / killed hypotheses
 
@@ -236,15 +237,16 @@ centering/longPass/shoot/shortPass/shortPassForecast = 1, `normal` 0.9, `speedBa
 ## 7. Constants (live `tackle.json`, registry 0x3c; deserializer `0x141e66610`)
 
 Live winner = `common/match/constant/constant_player.bin` from the `4cc_06_gameplay.cpk` download (a gameplay
-mod; the stock file is in `Data/dt18`). Values below are the live object (`consts.py`, read-only); struct offset
-= deserializer store offset. pressTackleEnableAngle Idle 125 / Lv1 147.5 / Lv2 167.75, Move 99 / 122 / 142
-(+0x40..+0x54, read by the anime layer, not decoded here); `check_SaftyRate_Delay` 2.5 (+0x70),
-`check_SaftyRate_Last_Line` 2.6 (+0x74), `check_SaftyRate_No_Cover` 2.5 (+0x78), `failAfterStopTime` 4.0,
-`forecastHitRate` 4.5, `freeMoveTackleMode` 2 (+0x84), `manualSideStepEnable` 0 (+0x88), `reactionStartFrame` 0,
-`saftyRate_FarDist` 8.0, `saftyRate_NearDist` 3.0, `tackleThinkDisableToTrap` 0.95, `autoSideStepEnable` 1 (+0x6c).
-`sliding.json` (0x3b): anime fields only (`animeAccelLimitSpeed` 4.0, `animeAdjustLimitAngle` 1.0,
-`animeEnterSpeed` 13.0, playback 2.2/0.6) — the slide decision constants are immediates. `pes15Test.json`
-(0xf): `enable` 1, `pressCheckStepMoveDistance` 2.0 (live; code default 5.0) used by ActionPress slot 22.
+mod; the stock file is in `Data/dt18`). Values below are the stock values (`Data/dt18`), with the live mod value in brackets (`consts.py`, read-only); struct offset
+= deserializer store offset. pressTackleEnableAngle Idle 135 / Lv1 157.5 / Lv2 168.75, Move 105 / 135 / 157.5 (mod 4cc_06_gameplay: 125 / 147.5 / 167.75, 99 / 122 / 142)
+(+0x40..+0x54, read by the anime layer, not decoded here); `check_SaftyRate_Delay` 0.4 (mod 4cc_06_gameplay: 2.5) (+0x70),
+`check_SaftyRate_Last_Line` 0.5 (mod 4cc_06_gameplay: 2.6) (+0x74), `check_SaftyRate_No_Cover` 0.4 (mod 4cc_06_gameplay: 2.5) (+0x78), `failAfterStopTime` 0.5 (mod 4cc_06_gameplay: 4.0),
+`forecastHitRate` 0.7 (mod 4cc_06_gameplay: 4.5), `freeMoveTackleMode` 2 (+0x84; mod, stock unverified), `manualSideStepEnable` 0 (+0x88; mod, stock unverified), `reactionStartFrame` 0 (mod, stock unverified),
+`saftyRate_FarDist` 1.5 (mod 4cc_06_gameplay: 8.0), `saftyRate_NearDist` 0.2 (mod 4cc_06_gameplay: 3.0), `tackleThinkDisableToTrap` 1.75 (mod 4cc_06_gameplay: 0.95), `autoSideStepEnable` 0 (+0x6c; mod 4cc_06_gameplay: 1, stock unverified; §12.5 names it only as a candidate).
+`sliding.json` (0x3b): anime fields only (`animeAccelLimitSpeed` 2 (mod 4cc_06_gameplay: 4), `animeAdjustLimitAngle` 0.75 (mod: 1),
+`animeEnterSpeed` 14 (mod: 13), playback 1.2/0.9 (mod: 2.2/0.6)) — the slide decision constants are immediates. `pes15Test.json`
+(0xf): `enable` 1, `pressCheckStepMoveDistance` 2.0 (stock = mod; code default 5.0) used by ActionPress slot 22.
+_Corrected 19-10-26 (stock dt18): `tackle.o`, `sliding.o` and `pes15Test.o` read from `Data/dt18_all.cpk` at the blob offsets of §12.5, whose stock→mod pairs match the dump: check_SaftyRate 0.4/0.5/0.4 (mod 2.5/2.6/2.5), failAfterStopTime 0.5 (4.0), forecastHitRate 0.7 (4.5), saftyRate_FarDist 1.5 (8.0), saftyRate_NearDist 0.2 (3.0), tackleThinkDisableToTrap 1.75 (0.95), pressTackle 135/157.5/168.75 and 105/135/157.5 (125/147.5/167.75 and 99/122/142); sliding 2/0.75/14/1.2/0.9 (mod 4/1/13/2.2/0.6). `pes15Test` differs from stock at one word only (0.3 vs 0.3051). Not confirmed, PARKED: `autoSideStepEnable`, `freeMoveTackleMode`, `manualSideStepEnable`, `reactionStartFrame`._
 
 ## 8. Difficulty / COM level
 
@@ -373,8 +375,8 @@ here; the standing tackle was by a WAIT_TIMER defender, i.e. the strict branch o
 - **Safety vetoes, raw** (0x140970869..0x1409709d5): applied only when `action − 0x34 > 1`, i.e. action ∉
   {PRESS 0x34, SAND 0x35}; cover check `FUN_140a4fea0(ctx, id, &pos, 10.0, 60.0)` (0x142588210 / 0x14259a764);
   with no cover and `FUN_140a4f1e0 == 2` and frames-since-event > `gs/9` (0x38e38e39/2 division trick) and
-  `tackle.json +0x78` (live 2.5) > sf → refuse; and `|MA + 20·id + 0x40 − defender x| < 10` with no cover and an
-  old event and `tackle.json +0x74` (live 2.6) > sf → refuse. (Matches §2.)
+  `tackle.json +0x78` (stock 0.4; mod 4cc_06_gameplay: 2.5) > sf → refuse; and `|MA + 20·id + 0x40 − defender x| < 10` with no cover and an
+  old event and `tackle.json +0x74` (stock 0.5; mod 4cc_06_gameplay: 2.6) > sf → refuse. (Matches §2.)
 - **Output struct** (0x140970c53..): {point, target id, variant, `+0xa0 = 1`} with the variant forced to 5 when
   the defender's action is FREE_RUN 2, or WAIT_TIMER 0x11 and pad-controlled; `+0xa1 = 1` when the team order kind
   ∈ 0x36..0x39.
@@ -400,7 +402,7 @@ here; the standing tackle was by a WAIT_TIMER defender, i.e. the strict branch o
   position from the global anime-context table; if the target is in a touch-clip class
   (`FUN_140a6e150`/`FUN_140a6e5e0`) and `end ≠ 0`, with `iVar12 = end − cur` frames to contact and
   `iVar12 ≥ 1 && clip ≥ iVar12`: a 22.5° (0x14259d618) ball-velocity-bearing test; if it fails, the
-  `tackle.json +0x80` ratio check (`(cur/end ≤ forecastHitRate, live 4.5) && !bVar11`) or `f_in == 0` keeps the
+  `tackle.json +0x80` ratio check (`(cur/end ≤ forecastHitRate, stock 0.7; mod 4cc_06_gameplay: 4.5) && !bVar11`) or `f_in == 0` keeps the
   table point with `*p_real = 0`, otherwise the point becomes `FUN_140a6cf70(AC, iVar12+1)` — the contact point of
   the **specific frame** — and `*p_real = 1`. `FUN_140a92d40(p − ball)` emits the bearing helper. Anime 5 has a
   35° (0x14259a760) variant of the bearing test.
