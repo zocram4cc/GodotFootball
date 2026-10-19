@@ -339,12 +339,15 @@ struct CarrierConstants {
   float sfThruAlign_deg = 0.0f;     // 70, 0x14259be4c: the speed arm's align limit
   float sfThruAim_deg = 0.0f;       // 135, 0x14259be60: the aim gate's limit
   float sfThruClass = 0.0f;         // 3: the aim gate's record-B class floor
-  float sfThruFace_m = 0.0f;        // 60, 0x14259a764: the aim gate's facing ceiling
+  float sfThruFacing_deg = 0.0f;    // 60, 0x14259a764: the aim gate's record-B facing ceiling
   float sfThruNearSq = 0.0f;        // 100, 0x14253ee30: the band's near floor
   float sfThruFarSq = 0.0f;         // 900, 0x1425c65f4: the band's far ceiling
   float sfThruLaneLen_m = 0.0f;     // 10, 0x142588210: the final lane's length
   float sfThruLaneCone_deg = 0.0f;  // 60, 0x14259a764: the final lane's cone
   float sfThruLaneRad_m = 0.0f;     // 5, 0x14259222c: the final lane's radius
+  float sfKeeperCone_deg = 0.0f;    // 90, 0x14259be5c: the keeper lane's cone
+  float sfKeeperRad_m = 0.0f;       // 1, 0x14256ae1c: the keeper lane's radius
+  float sfPadBack_m = 0.0f;         // 3, 0x14258c264: the second test's pad with the mate behind
   // The lane core's own table and scalars (0x14063CD90 and its packer), loaded here so the
   // carrier units that call the core get it through the one constants bundle the match carries.
   lane::LaneConstants lane;
@@ -765,12 +768,13 @@ std::vector<int> BuildUnitList(const UnitListInput& in);
 
 // The table fill: one slot per listed kind, in list order. Kind 0 takes the
 // shot answer, 4 the PassForward answer, 9 the Long answer, 7 the Cross
-// answer, 2 the GoalFront answer, 3 the BackSpace answer; every other kind
-// answers nothing here. `curveShotPlan` is whether the CurveShot plan runs.
+// answer, 2 the GoalFront answer, 3 the BackSpace answer and 6 the Safety answer;
+// every other kind answers nothing here.
 std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnswer,
                                     const PassAnswer& fwd, const PassAnswer& lng,
                                     const PassAnswer& cross, const PassAnswer& goalFront,
-                                    const PassAnswer& backSpace, bool curveShotPlan = false);
+                                    const PassAnswer& backSpace,
+                                    const PassAnswer& safety = PassAnswer{});
 
 // The walk's context (0x14210f110's reads): the match restart mode and the FSM state, the ball's
 // owner and the carrier's own side, and the skill and zone bits the rules test.
@@ -909,6 +913,7 @@ struct BackSpaceMate {
 struct BackSpaceInput {
   std::array<lane::LanePlayer, lane::kSlots> players{};  // the 22 players the lane core reads
   int carrierSlot = -1;                                  // the reference slot
+  bool humanCarrier = false;                             // ctx4+0x6C: the human arms (gate 10's limit)
   CarrierPoint carrierPos;                               // the lane origin (record +0x55C/+0x564)
   CarrierPoint carrierVelPerFrame;                       // record +0x574/+0x57C
   float carrierFacing_deg = 0.0f;                        // record +0x554
@@ -946,65 +951,81 @@ PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k);
 // --- the Safety unit (kind 6, gate 0x14212B520, short picker 0x142126B70, through picker
 // 0x142128490) ---
 //
-// The gate: danger answers through the pickers with k = 3; otherwise the pressure counts set k
-// (2/1/0), the facing-vs-plan increment may add one, and a FREE lane (origin the carrier, theta
-// the angle table + 180, len the nearest-opponent distance, cone 80, rad 3) means no answer. With
-// k != 0 the through picker's mate takes a through ball (b = 3, f12); else the short picker's
-// mate takes a short ball (b = 0, f10 when the one-touch and receiver predicates hold).
+// The gate: danger answers through the pickers with k = 3; otherwise the carrier's pressure counts
+// set k (2, 1 or 0), a facing-vs-plan turn may add one, and a FREE gate lane (origin the carrier,
+// the lane heading already wrap360(angle table + 180), len the nearest-opponent distance, cone 80,
+// rad 3) means no answer. The short picker always runs; with k != 0 a through ball to the through
+// picker's mate wins when one is found, else the short picker's mate takes the short ball.
 struct SafetyMate {
   int index = -1;                   // the caller's player id (PES's slot)
   CarrierPoint pos;                 // record +0x55C/+0x564
-  CarrierPoint velPerFrame;          // record +0x574/+0x57C, m per PES frame
-  float facing_deg = 0.0f;          // record +0x554
-  bool statusValid = false;         // 0x142118D20(team+0xB6C, slot % 11) == 0xB
-  int roleClass = -1;               // the side's +0x4C00[j] (B array, 0 = keeper)
-  float recATurnAngle_deg = 0.0f;   // record A +0xE4 (short picker)
-  float recAVsFacing_deg = 0.0f;    // record A +0xE8 (short picker)
-  float recADist_m = 0.0f;          // record A +0xEC (short picker)
-  float recADifficulty = 0.0f;      // record A +0xF0 (short picker)
-  int recAClass = 0;                // record A [0] (short picker)
-  float recBVsFacing_deg = 0.0f;    // record B +0xE8 (through picker)
-  float recBDist_m = 0.0f;          // record B +0xEC (through picker)
-  float recBDifficulty = 0.0f;      // record B +0xF0 (through picker)
-  int recBClass = 0;                // record B [0] (through picker)
-  CarrierPoint recBTarget;          // record B +0xC/+0x14 (through picker)
-  float pressureClass = 0.0f;       // 0x14069A3E0(team+0x2124, slot % 11)[+0x10]
-  float heading_deg = 0.0f;         // 0x140458740: the vel_eff heading
+  CarrierPoint velPerFrame;         // record +0x574/+0x57C, m per PES frame
+  float facing_deg = 0.0f;          // record +0x554, in the BearingDeg convention
+  float heading_deg = 0.0f;         // 0x140458740: the velocity heading (the one-touch lane's angle)
   float speed_kmh = 0.0f;           // 0x140477130
-  float nearestOppD2 = 0.0f;        // 0x140587E70/0x14057D930: the mate's opp-table d2
-  bool zoneMid = false;             // 0x14063E140(team, slot, 0): the mid test
-  float nearestListD2 = 0.0f;       // T18+0x22E4C row d2 (tiebreak)
+  bool statusValid = false;         // 0x142118D20(team+0xB6C, slot % 11) == 0xB
+  int roleClass = -1;               // the side's +0x4C00[j] (B array): 0 = keeper
+  float nearestOppD2 = 0.0f;        // 0x140587E70: the team table's nearest-opponent d2
+  float pressureClass = 0.0f;       // 0x14069A3E0(team+0x2124, slot % 11)[+0x10]
+  bool zoneMid = false;             // 0x14063E140(team, slot, 0): the mate's mid-zone test
+  ShootZone zoneAtPred16;           // 0x140698D10 at the 16-frame prediction (the validator's mode-1 arm)
+  // Record A, the short picker's: +0xE4 the attack angle (the decompile's "turn"), +0xE8 the facing
+  // angle, +0xEC the distance, +0xF0 the difficulty, [0] the openness class.
+  float recATurnAngle_deg = 0.0f;
+  float recAVsFacing_deg = 0.0f;
+  float recADist_m = 0.0f;
+  float recADifficulty = 0.0f;
+  int recAClass = 0;
+  // Record B, the through picker's and the validator's: +0xC/+0x14 the target, +0xE0 the angle,
+  // +0xE8 the facing angle, +0xEC the distance, +0xF0 the difficulty, [0] the class.
+  CarrierPoint recBTarget;
+  float recBAngle_deg = 0.0f;
+  float recBVsFacing_deg = 0.0f;
+  float recBDist_m = 0.0f;
+  float recBDifficulty = 0.0f;
+  int recBClass = 0;
 };
 
 struct SafetyInput {
   std::array<lane::LanePlayer, lane::kSlots> players{};  // the 22 players the lane core reads
   int carrierSlot = -1;                                  // the reference slot
-  CarrierPoint carrierPos;                               // the lane origin (record +0x55C/+0x564)
+  CarrierPoint carrierPos;                               // the carrier's ground point (+0x55C/+0x564)
   CarrierPoint carrierVelPerFrame;                       // record +0x574/+0x57C
-  float carrierFacing_deg = 0.0f;                        // ctx4+0x38
-  float carrierSpeed_kmh = 0.0f;                         // 0x140477130
-  float laneHeading_deg = 0.0f;  // wrap360(wrap360(0x140A71260(T)[slot] + 180))
-  float attackSign = 1.0f;       // ctx[0][5]
-  float sideAngle_deg = 0.0f;    // team+0x250
-  CarrierPoint ball;             // ctx4+0x40/+0x48
-  bool owned = false;            // ctx4+0x6C != 0
-  bool danger = false;           // imageA+0x31C1
-  bool goalMouth = false;        // imageA+0x31C0
-  int pressCount1 = 0;           // press+0x30
-  int pressCount2 = 0;           // press+0x34
-  int pressCount3 = 0;           // press+0x38
-  int pressCount4 = 0;           // press+0x20
-  float pressSidePair = 0.0f;    // pressTable[oppSide]+4 (through gate 1)
-  int carrierPressClass = 3;     // press[carrier]+0x10
-  float teamLineB = 0.0f;        // T18+0x40+(side+3)*0x14 (through gate 2)
-  float ownGoalCornerX = 0.0f;   // *local_138 (tiebreak corner)
-  float planHeading_deg = 0.0f;  // ctx7+0xC0
-  int teamMode = 0;              // 0x141052E30(ctx[6])
-  float ballSpeed_mps = 0.0f;    // 0x140A57650(idx 0)
-  bool ballTrackSet = false;     // 0x140A6D0D0 (keeper arm)
-  bool receivingFlag = false;    // ctx4+0x6E (keeper arm)
-  float ctx44 = 0.0f;            // ctx4+0x44 (keeper arm)
-  std::vector<SafetyMate> mates;
+  float carrierFacing_deg = 0.0f;                        // ctx4+0x38, in the BearingDeg convention
+  float carrierHeading_deg = 0.0f;                       // 0x140458740 of the carrier
+  float carrierSpeed_kmh = 0.0f;                         // 0x140477130 of the carrier
+  float laneHeading_deg = 0.0f;                          // the gate lane: wrap360(angle table + 180)
+  float attackSign = 1.0f;                               // ctx[0][5]
+  float sideAngle_deg = 0.0f;                            // team+0x250
+  float planHeading_deg = 0.0f;                          // ctx7+0xC0
+  int planMode = 0;                                      // ctx7+0xC4
+  int teamMode = 0;                                      // 0x141052E30(ctx[6])
+  float teamLineOpp = 0.0f;                              // T18+0x40+oppSide*0x14 (validator gate 2)
+  float teamLineB = 0.0f;                                // T18+0x40+(side+3)*0x14 (through gate 2)
+  float teamLineOwn = 0.0f;                              // T18+0x40+side*0x14 (keeper arm's side test)
+  float pitchHalfLen_m = 0.0f;                           // F[0], the own goal corner's x
+  float pitchBound8 = 0.0f;                              // F[8]
+  float pitchF6 = 0.0f;                                  // F[6]
+  float pitchF5 = 0.0f;                                  // F[5]
+  CarrierPoint ball;                                     // ctx4+0x40/+0x48
+  float ballSpeed_kmh = 0.0f;                            // 0x140A57650 at idx 0, in km/h
+  bool ballTrackSet = false;                             // 0x140A6D0D0 (the keeper speed arm)
+  bool humanCarrier = false;                             // ctx4+0x6C (the human arms)
+  bool receivingFlag = false;                            // ctx4+0x6E (the keeper side arm)
+  float ctx44 = 0.0f;                                    // ctx4+0x44 (the keeper side arm)
+  bool danger = false;                                   // imageA+0x31C1
+  bool goalMouth = false;                                // imageA+0x31C0
+  int pressCount1 = 0;                                   // the carrier's press+0x30
+  int pressCount2 = 0;                                   // the carrier's press+0x34
+  int pressCount3 = 0;                                   // the carrier's press+0x38
+  int pressCount4 = 0;                                   // the carrier's press+0x20
+  int carrierPressClass = 3;                             // the carrier's press+0x10
+  float oppPressPair = 0.0f;                             // T18+0x2470C[opp]+4 (through gate 1, tiebreak)
+  float boxSector = 0.0f;                                // imageA+0xB44 (the validator's mode-1 arm)
+  float boxCount = 0.0f;                                 // imageA+0xB48
+  float boxMargin = 0.0f;                                // imageA+0xB3C
+  float boxAngle = 0.0f;                                 // imageA+0xB40
+  std::vector<SafetyMate> mates;                         // the candidate receivers, in squad order
 };
 PassAnswer SafetyUnit(const SafetyInput& in, const CarrierConstants& k);
 

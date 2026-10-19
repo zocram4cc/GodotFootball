@@ -406,10 +406,12 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x14259222c, &k.sfTieGap_m},       {0x14258c264, &k.sfThruIdle},
       {0x14259d60c, &k.sfThruPress},      {0x14259ce40, &k.sfThruCarrierSq},
       {0x1425c65f4, &k.sfThruRowSq},      {0x14259be4c, &k.sfThruAlign_deg},
-      {0x14259be60, &k.sfThruAim_deg},    {0x14259a764, &k.sfThruFace_m},
+      {0x14259be60, &k.sfThruAim_deg},    {0x14259a764, &k.sfThruFacing_deg},
       {0x14253ee30, &k.sfThruNearSq},     {0x1425c65f4, &k.sfThruFarSq},
       {0x142588210, &k.sfThruLaneLen_m},  {0x14259a764, &k.sfThruLaneCone_deg},
       {0x14259222c, &k.sfThruLaneRad_m},
+      {0x14259be5c, &k.sfKeeperCone_deg}, {0x14256ae1c, &k.sfKeeperRad_m},
+      {0x14258c264, &k.sfPadBack_m},
   };
   for (const auto& r : safety) ok &= ReadVa(exe, r.first, r.second, error);
   k.sfThruClass = 3.0f;  // `cmp [recB],2; jbe`: class above 2, an instruction shape
@@ -1212,6 +1214,28 @@ int CrowdCount(const std::array<lane::LanePlayer, lane::kSlots>& players, int si
   return count;
 }
 
+// 0x140A4FBC0: the annulus count behind the keeper lane (0x140A4FEA0). Players of `side` whose
+// current point sits between rIn and rIn + len of `point`, and whose bearing from it is within half
+// of `cone_deg` of `facing_deg`; `keepKeeper` decides whether the side's keeper is counted (Safety
+// passes true). The decode reads no horizon for this call, so the current positions are used (INF).
+int AnnulusCount(const std::array<lane::LanePlayer, lane::kSlots>& players, int side,
+                 CarrierPoint point, float facing_deg, float cone_deg, float rIn_m, float len_m,
+                 bool keepKeeper) {
+  const int keeper = lane::KeeperSlot(side, players);
+  const float rOut_m = rIn_m + len_m;
+  int count = 0;
+  for (int j = 0; j < lane::kSideSize; ++j) {
+    const int q = lane::kSideSize * side + j;
+    if (!players[q].active || (!keepKeeper && q == keeper)) continue;
+    const CarrierPoint pos{players[q].pos.x, players[q].pos.z};
+    const float d2 = Dist2(pos, point);
+    if (rIn_m * rIn_m < d2 && d2 < rOut_m * rOut_m &&
+        std::fabs(WrapDeg(BearingDeg(point, pos) - facing_deg)) < cone_deg * 0.5f)
+      ++count;
+  }
+  return count;
+}
+
 // The PassThrough validator 0x1421226C0: the target mate's record-B target must survive the side,
 // difficulty, slot-stat, mode-1 zone, distance, align, near-box, facing and two lane gates.
 // `mateIdx` is the mate's index into in.mates; `nearestRank0` answers the tail loop's
@@ -1265,7 +1289,7 @@ bool PassThroughValidator(const BackSpaceInput& in, size_t mateIdx, const Carrie
   // against the gate-4 bearing, 90 degrees (120 for a human carrier inside 20 m).
   if (k.bsFarDist_m <= d || static_cast<float>(m.recBClass) < k.bsAngleClass) {
     float limit = k.bsFacingLimit_deg;
-    if (in.owned && d < k.bsFarDist_m) limit = k.bsHumanFacingLimit_deg;
+    if (in.humanCarrier && d < k.bsFarDist_m) limit = k.bsHumanFacingLimit_deg;
     if (limit <= std::fabs(WrapDeg(in.carrierFacing_deg - carrierBearing))) return false;
   }
   // Gate 11: lane 1, the direct core call 0x14063CD90 - origin the ball advanced 1 m along the
@@ -1506,10 +1530,358 @@ PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k) {
   return answer;
 }
 
+namespace {
+
+// The opponents of a carrier slot are the other side: away carriers face the home side (0).
+int OpponentSide(int carrierSlot) { return lane::IsAwaySlot(carrierSlot) ? 0 : 1; }
+
+// dist / (speed * 1000 / (fps * 3600)), truncated: the frames a mate needs at his speed (0x1404C8DC0).
+int ShortFrames(float dist_m, float speed_kmh) {
+  return static_cast<int>(dist_m / (speed_kmh * 1000.0f / (kPesTickHz * 3600.0f)));
+}
+
+// The mate's scored limit (0x142126B70 L183-232): the keeper's is the floor; a field mate's is
+// max(need, floor) while the need is within the cap, and the cap otherwise. The need weighs the
+// carrier's speed (the 5/25 km/h ramp) and the mate's distance (the 10/30 m ramp) over the shared
+// -20 span; danger fixes it at 120.
+float ShortLimit(const SafetyInput& in, const SafetyMate& m, bool keeper, const CarrierConstants& k) {
+  if (keeper) return k.sfNeedFloor;
+  float wS = 1.0f;
+  if (k.sfSpeedFloor_kmh < in.carrierSpeed_kmh)
+    wS = in.carrierSpeed_kmh < k.sfSpeedCeil_kmh
+             ? (in.carrierSpeed_kmh - k.sfSpeedCeil_kmh) / k.sfSpeedSpan_kmh
+             : 0.0f;
+  float wD = 1.0f;
+  if (k.sfScoreDist_m < m.recADist_m)
+    wD = m.recADist_m < k.sfDistCeil_m ? (m.recADist_m - k.sfDistCeil_m) / k.sfSpeedSpan_kmh : 0.0f;
+  float need = wS * k.sfNeedGain + k.sfNeedBase + wD * k.sfNeedGain;
+  if (m.recAClass == 4) need += k.sfClass4Bonus;
+  if (m.recAClass == 5) need += k.sfClass5Bonus;
+  if (in.danger) need = k.sfNeedDanger;
+  return need <= k.sfNeedCap ? std::max(need, k.sfNeedFloor) : k.sfNeedCap;
+}
+
+// The carrier's inputs to the short picker's head: b28 (free-ish: press10 == 0, or press10 == 1
+// with press34 > 1) and dCarrierOpp2, the squared gap between his 27-frame prediction and the
+// nearest opponent's 27-frame prediction. No opponent at all answers no one (0xFF).
+struct ShortCarrier {
+  bool b28 = false;
+  float oppD2_27 = 0.0f;
+};
+
+std::optional<ShortCarrier> ShortCarrierState(const SafetyInput& in, const CarrierConstants& k) {
+  ShortCarrier c;
+  c.b28 = in.carrierPressClass == 0 || (in.carrierPressClass == 1 && in.pressCount2 > 1);
+  const int frames = PesFrames(k.gfPredictGain);  // int(54 * 0.5 + 0.5) = 27
+  const CarrierPoint carrierPred = PredictPoint(in.carrierPos, in.carrierVelPerFrame, frames);
+  const int opp = NearestSideSlot(in.players, OpponentSide(in.carrierSlot), carrierPred);
+  if (opp == lane::kNoSlot) return std::nullopt;
+  const lane::LanePlayer& op = in.players[opp];
+  c.oppD2_27 =
+      Dist2(carrierPred, PredictPoint({op.pos.x, op.pos.z}, {op.vel.x, op.vel.z}, frames));
+  return c;
+}
+
+// The short picker's per-mate gates in the decompile's order (0x142126B70). False when a gate
+// rejects the mate; a survivor is a candidate for the tiebreak.
+bool ShortMateSurvives(const SafetyInput& in, const SafetyMate& m, const ShortCarrier& c,
+                       const CarrierConstants& k) {
+  if (!m.statusValid) return false;
+  const bool keeper = m.roleClass == 0;
+  const bool over110 = k.sfTurnOver_deg < m.recATurnAngle_deg;
+  const bool under80 = m.recATurnAngle_deg < k.sfTurnUnder_deg;
+  const int oppSide = OpponentSide(in.carrierSlot);
+  // The pre-gate: a keeper needs danger or a pressed carrier, the ball-speed arm and the side arm;
+  // a field mate needs a human carrier or an opponent-table distance of at least 15 m.
+  if (keeper) {
+    if (!(in.danger || in.pressCount1 != 0)) return false;
+    const bool speedArm = in.humanCarrier || m.recADist_m >= k.sfKeeperDist_m ||
+                          (!in.ballTrackSet && in.ballSpeed_kmh <= k.sfKeeperSpeedCap);
+    const bool carrierBack = in.attackSign * in.carrierPos.x <=
+                             in.attackSign * in.teamLineOwn + k.sfMateNear_m;
+    const bool sideArm = in.humanCarrier ||
+                         ((m.recADist_m <= k.sfKeeperFar_m || carrierBack) &&
+                          (!in.receivingFlag || in.ctx44 < k.sfKeeperScalar) &&
+                          in.carrierPressClass == 0);
+    if (!(speedArm && sideArm)) return false;
+  } else if (!(in.humanCarrier || k.sfOppD2Min <= m.nearestOppD2)) {
+    return false;
+  }
+  // The scored limit and the turn arm, when the scoring gate runs (press30 < 2, class < 5, dist >= 10).
+  if (in.pressCount1 < 2 || m.recAClass < 5 || k.sfScoreDist_m <= m.recADist_m) {
+    if (ShortLimit(in, m, keeper, k) < m.recAVsFacing_deg) return false;
+    if (over110) {
+      const float aDiff = std::fabs(WrapDeg(in.sideAngle_deg - m.facing_deg));
+      const float fDiff = std::fabs(WrapDeg(in.carrierFacing_deg - m.facing_deg));
+      if (aDiff < k.sfTurnAttack_deg && k.sfTurnFace_deg < fDiff) return false;
+    }
+  }
+  // The distance window: 10 m for a keeper, 5 m otherwise; then the ceiling cascade.
+  if (m.recADist_m < (keeper ? k.sfScoreDist_m : k.sfMateNear_m)) return false;
+  float ceiling = k.sfCeilDefault_m;
+  if (over110) {
+    bool x = true;
+    if (k.sfCeilOpp_m < m.recAVsFacing_deg) {
+      ceiling = k.sfCeilNear_m;
+      x = m.recAClass > 3;
+    }
+    if (x) {
+      ceiling = k.sfCeilNear_m;
+      if (in.attackSign * in.ball.x <= 0.0f) {
+        ceiling = k.sfCeilDefault_m;
+        if (keeper && m.recAClass > 4) ceiling = k.sfCeilFar_m;
+      }
+    }
+  }
+  if (2 < in.teamMode) ceiling = k.sfCeilNear_m;
+  if (ceiling < m.recADist_m || k.gfDifficultyMax < m.recADifficulty) return false;
+  // The mate-speed arm: a mate under 5 m away and moving over 20 km/h is no receiver.
+  if (m.recADist_m < k.sfMateNear_m && k.sfMateSpeed_kmh < m.speed_kmh) return false;
+  const int fr = ShortFrames(m.recADist_m, k.sfFrameSpeed);
+  const CarrierPoint matePred = PredictPoint(m.pos, m.velPerFrame, fr);
+  const int mateOpp = NearestSideSlot(in.players, oppSide, matePred);
+  // G1: a carrier not b28, a turn of 50 or more, or a mate within 15 m: the opponent tests.
+  const bool g1 =
+      !c.b28 || k.sfOuterTurn_deg <= m.recATurnAngle_deg || m.recADist_m <= k.sfPressDist_m;
+  if (g1) {
+    if (mateOpp != lane::kNoSlot) {
+      const lane::LanePlayer& op = in.players[mateOpp];
+      const CarrierPoint oppPred = PredictPoint({op.pos.x, op.pos.z}, {op.vel.x, op.vel.z}, fr);
+      const float gap2 = Dist2(matePred, oppPred);
+      const float reach = k.sfLimGain * m.recADist_m;
+      if (keeper || std::sqrt(m.nearestOppD2) < k.sfOppGate_m) {
+        const float lim = std::clamp(reach, k.sfLimNear_m, k.sfLimFar_m);
+        if (gap2 <= lim * lim) return false;
+      } else if (!under80 && !m.zoneMid) {
+        const float lim = std::clamp(reach, k.sfLimMin_m, k.sfLimNear_m);
+        if (gap2 <= lim * lim) return false;
+      }
+      // The second test: the mate's predicted point stays clear of his opponent's reach.
+      const float pad = in.attackSign * m.pos.x <= 0.0f
+                            ? (keeper ? k.sfKeepPad_m : k.sfPadBack_m)
+                            : (over110 ? k.sfOppPad_m : 0.0f);
+      const float reach2 = std::sqrt(c.oppD2_27) + pad;
+      if (gap2 < reach2 * reach2) return false;
+    }
+    if (!under80) {  // the pressure gate: the mate's class above the carrier's, and the close-in rules
+      const float pc = m.pressureClass;
+      const float cc = static_cast<float>(in.carrierPressClass);
+      if (pc <= cc) return false;
+      if (pc < 2.0f && k.sfPressDist_m < m.recADist_m) return false;
+      if (!c.b28 && over110 && pc < 2.0f) return false;
+    }
+  }
+  const int classNeed = keeper ? 4 : (c.b28 && under80 ? 2 : 3);
+  if (m.recAClass < classNeed) return false;
+  const int horizonFourth = static_cast<int>(kPesTickHz) >> 2;  // fps >> 2 = 13
+  if (!under80) {
+    // The one-touch lane (wrapper D): the ball advanced by the mate's distance along his heading,
+    // aimed back at the ball; length clamp(dist / 5, 4, 12), cone 220, no radius, horizon 13.
+    const CarrierPoint origin = AdvancePoint(in.ball, m.heading_deg, m.recADist_m);
+    const float len =
+        std::clamp(m.recADist_m / k.sfLaneDivisor, k.sfLaneLenMin_m, k.sfLaneLenMax_m);
+    const lane::LaneRequest lane{ToLaneVec(origin), BearingDeg(origin, in.ball), len,
+                                 k.sfLaneCone_deg, 0.0f};
+    if (!lane::LaneFree(k.lane, in.players, m.index, lane, /*keepKeeper*/ false, horizonFourth))
+      return false;
+  }
+  if (keeper) {
+    // The keeper lane: the ball toward the keeper's 13-frame prediction, cone 90, radius 1, with
+    // the opponents' keeper counted in the scan (keep = 1).
+    const CarrierPoint keeperPred = PredictPoint(m.pos, m.velPerFrame, horizonFourth);
+    const float len = std::sqrt(Dist2(in.ball, keeperPred));
+    if (AnnulusCount(in.players, oppSide, in.ball, BearingDeg(in.ball, keeperPred),
+                     k.sfKeeperCone_deg, k.sfKeeperRad_m, len, /*keepKeeper*/ true) != 0)
+      return false;
+  }
+  return true;
+}
+
+// The tiebreak between a surviving candidate `q` and the best so far (0x142126B70's tail): true
+// when q replaces the best. The own-half and facing branch hands the keeper's place to a mate whose
+// turn is no bigger; otherwise a field mate replaces a keeper, and two field mates are ranked by the
+// corner distance, then by class and nearest-opponent distance.
+bool ShortReplaces(const SafetyInput& in, const SafetyMate& best, const SafetyMate& q,
+                   const CarrierConstants& k) {
+  const bool bestKeeper = best.roleClass == 0;
+  const bool ownHalf = in.attackSign == 1.0f    ? in.carrierPos.x <= 0.0f
+                       : in.attackSign == -1.0f ? in.carrierPos.x >= 0.0f
+                                                : false;
+  const bool facingAway =
+      k.sfTieDiff_deg < std::fabs(WrapDeg(in.sideAngle_deg - in.carrierFacing_deg));
+  if (ownHalf && facingAway && in.oppPressPair <= k.sfTiePress)
+    return bestKeeper && best.recAVsFacing_deg <= q.recAVsFacing_deg;
+  if (q.roleClass == 0) return false;
+  if (bestKeeper) return true;
+  const CarrierPoint corner{-in.attackSign * in.pitchHalfLen_m, 0.0f};
+  if (k.sfTieCornerSq <= Dist2(in.ball, corner))
+    return in.attackSign * best.pos.x < in.attackSign * q.pos.x;
+  if (best.recAClass != q.recAClass) return false;
+  const float dBest = std::sqrt(best.nearestOppD2);
+  const float dQ = std::sqrt(q.nearestOppD2);
+  if (!(dBest <= dQ)) return true;  // the chain's comma assignment leaves q in place
+  return std::fabs(dBest - dQ) < k.sfTieGap_m &&
+         in.attackSign * best.pos.x < in.attackSign * q.pos.x;
+}
+
+// 0x142126B70, the Safety short picker: the first survivor is taken and a later one replaces it
+// under ShortReplaces.
+int SafetyShortPicker(const SafetyInput& in, const CarrierConstants& k) {
+  const std::optional<ShortCarrier> carrier = ShortCarrierState(in, k);
+  if (!carrier) return lane::kNoSlot;
+  const SafetyMate* best = nullptr;
+  for (const SafetyMate& m : in.mates) {
+    if (m.index < 0 || m.index > 21 || m.index == in.carrierSlot) continue;
+    if (!ShortMateSurvives(in, m, *carrier, k)) continue;
+    if (best == nullptr || ShortReplaces(in, *best, m, k)) best = &m;
+  }
+  return best != nullptr ? best->index : lane::kNoSlot;
+}
+
+// The PassThrough validator 0x1421226C0 for a Safety mate: the same gates on his record-B fields,
+// his team need as the nearest-opponent distance (0x1404C8E00), and the carrier as the BackSpace
+// view of him.
+bool ThroughValidator(const SafetyInput& in, const SafetyMate& m, const CarrierConstants& k) {
+  BackSpaceInput bs;
+  bs.players = in.players;
+  bs.carrierSlot = in.carrierSlot;
+  bs.carrierPos = in.carrierPos;
+  bs.carrierVelPerFrame = in.carrierVelPerFrame;
+  bs.carrierFacing_deg = in.carrierFacing_deg;
+  bs.carrierHeading_deg = in.carrierHeading_deg;
+  bs.carrierSlotStat = 0.0f;  // ponytail: the per-slot stat (imageA+0x898) is undecoded (helpers §5)
+  bs.attackSign = in.attackSign;
+  bs.teamLineOpp = in.teamLineOpp;
+  bs.pitchBound8 = in.pitchBound8;
+  bs.pitchF6 = in.pitchF6;
+  bs.ball = in.ball;
+  bs.humanCarrier = in.humanCarrier;
+  bs.danger = in.danger;
+  bs.goalMouth = in.goalMouth;
+  bs.planMode = in.planMode;
+  bs.boxSector = in.boxSector;
+  bs.boxCount = in.boxCount;
+  bs.boxMargin = in.boxMargin;
+  bs.boxAngle = in.boxAngle;
+  BackSpaceMate bm;
+  bm.index = m.index;
+  bm.pos = m.pos;
+  bm.velPerFrame = m.velPerFrame;
+  bm.facing_deg = m.facing_deg;
+  bm.heading_deg = m.heading_deg;
+  bm.speed_kmh = m.speed_kmh;
+  bm.statusValid = m.statusValid;
+  bm.teamNeed_m = std::sqrt(m.nearestOppD2);
+  bm.recBTarget = m.recBTarget;
+  bm.recBAngle_deg = m.recBAngle_deg;
+  bm.recBDist_m = m.recBDist_m;
+  bm.recBDifficulty = m.recBDifficulty;
+  bm.recBClass = m.recBClass;
+  bm.zoneAtPred16 = m.zoneAtPred16;
+  bs.mates.push_back(bm);
+  const auto nearestRank0 = [&](int q) {
+    const lane::LanePlayer& qp = in.players[q];
+    return NearestSideSlot(in.players, lane::IsAwaySlot(q) ? 0 : 1, {qp.pos.x, qp.pos.z});
+  };
+  return PassThroughValidator(bs, 0, k, nearestRank0);
+}
+
+// 0x142128490, the Safety through picker. Unless the fast path holds (the carrier's count over 162
+// frames and the opponent pair under 9), the carrier must be 40 m clear of his nearest opponent and
+// not behind his own line. Then the teammates nearest the carrier, in order: the first whose aim,
+// band, validator and final lane all pass takes the through ball.
+int SafetyThroughPicker(const SafetyInput& in, const CarrierConstants& k) {
+  const bool fastPath = PesFrames(k.sfThruIdle) < in.pressCount4 && in.oppPressPair < k.sfThruPress;
+  if (!fastPath) {
+    const int nearest = NearestSideSlot(in.players, OpponentSide(in.carrierSlot), in.carrierPos);
+    if (nearest == lane::kNoSlot) return lane::kNoSlot;
+    const lane::LanePlayer& np = in.players[nearest];
+    if (!(k.sfThruCarrierSq < Dist2({np.pos.x, np.pos.z}, in.carrierPos))) return lane::kNoSlot;
+    if (in.attackSign * in.carrierPos.x < 0.0f &&
+        in.attackSign * in.carrierPos.x < in.attackSign * in.teamLineB)
+      return lane::kNoSlot;
+  }
+  // The carrier's NearestEntry row: his teammates by distance from him, eleven at most.
+  std::vector<const SafetyMate*> row;
+  for (const SafetyMate& m : in.mates)
+    if (0 <= m.index && m.index <= 21 && m.index != in.carrierSlot) row.push_back(&m);
+  std::stable_sort(row.begin(), row.end(), [&](const SafetyMate* a, const SafetyMate* b) {
+    return Dist2(a->pos, in.carrierPos) < Dist2(b->pos, in.carrierPos);
+  });
+  for (size_t j = 0; j < row.size() && j < static_cast<size_t>(lane::kSideSize); ++j) {
+    const SafetyMate& m = *row[j];
+    if (k.sfThruRowSq < Dist2(m.pos, in.carrierPos)) break;  // the row is sorted: the rest are farther
+    if (m.roleClass == 0 || !m.statusValid) continue;
+    if (k.sfSpeedFloor_kmh <= m.speed_kmh &&
+        k.sfThruAlign_deg < std::fabs(WrapDeg(m.heading_deg - in.sideAngle_deg)))
+      continue;
+    const CarrierPoint aim = AdvancePoint(m.recBTarget, Wrap360(in.sideAngle_deg),
+                                          m.recBDist_m * k.imageHalfLine);
+    if (!(std::fabs(WrapDeg(BearingDeg(in.ball, aim) - in.sideAngle_deg)) < k.sfThruAim_deg))
+      continue;
+    if (m.recBClass < k.sfThruClass || k.gfDifficultyMax < m.recBDifficulty ||
+        k.sfThruFacing_deg < m.recBVsFacing_deg)
+      continue;
+    if (in.attackSign * aim.x < in.attackSign * in.ball.x) continue;
+    const float bandD2 = Dist2(in.ball, aim);
+    if (bandD2 < k.sfThruNearSq || k.sfThruFarSq < bandD2) continue;
+    if (!ThroughValidator(in, m, k)) continue;
+    // The final lane: origin the record-B target, theta the side angle, 10 m / 60 deg / 5 m, h = 54.
+    const lane::LaneRequest lane{ToLaneVec(m.recBTarget), Wrap360(in.sideAngle_deg),
+                                 k.sfThruLaneLen_m, k.sfThruLaneCone_deg, k.sfThruLaneRad_m};
+    if (lane::LaneFree(k.lane, in.players, m.index, lane, /*keepKeeper*/ false, PesFrames(1.0f)))
+      return m.index;
+  }
+  return lane::kNoSlot;
+}
+
+}  // namespace
+
 PassAnswer SafetyUnit(const SafetyInput& in, const CarrierConstants& k) {
-  (void)in;
-  (void)k;
-  return PassAnswer{};  // RED: the port lands next
+  PassAnswer answer;
+  // The gate (0x14212B520): the pressure counts and the facing-vs-plan turn set k; a FREE gate lane
+  // (origin the carrier, the nearest opponent's distance as the length) answers no one.
+  int kk = 0;
+  if (in.danger) {
+    kk = 3;
+  } else {
+    if (in.pressCount1 > 0) {
+      kk = 2;
+    } else if (in.pressCount2 > 1) {
+      kk = 1;
+    }
+    if (in.pressCount3 != 0 &&
+        k.sfFacingTurn_deg < std::fabs(WrapDeg(in.carrierFacing_deg - in.planHeading_deg)))
+      ++kk;
+    const int nearest = NearestSideSlot(in.players, OpponentSide(in.carrierSlot), in.carrierPos);
+    // ponytail: the decoded length is a rank-indexed NearestEntry d2 (0x14212B71D-76F; the rank byte's
+    // meaning is undecoded). The nearest opponent's distance plus the radius stands in: the core's strict
+    // annulus, measured from the apex one radius behind the origin, never records an opponent at exactly
+    // the nearest distance, so the gate could not block on him. Removing site: the NearestEntry rank read.
+    float len = 0.0f;
+    if (nearest != lane::kNoSlot)
+      len = std::sqrt(Dist2({in.players[nearest].pos.x, in.players[nearest].pos.z}, in.carrierPos)) +
+            k.sfLaneRad_m;
+    const lane::LaneRequest gate{ToLaneVec(in.carrierPos), in.laneHeading_deg, len,
+                                 k.unitLaneCone_deg, k.sfLaneRad_m};
+    if (lane::LaneFree(k.lane, in.players, in.carrierSlot, gate, /*keepKeeper*/ false, 0))
+      return answer;
+  }
+  if (in.goalMouth) return answer;
+  // The short picker always runs; the through picker only when the gate set k.
+  const int shortSlot = SafetyShortPicker(in, k);
+  if (kk != 0) {
+    const int thru = SafetyThroughPicker(in, k);
+    if (thru != lane::kNoSlot) {
+      answer.index = thru;
+      answer.kind = kPassThrough;
+      return answer;
+    }
+  }
+  if (shortSlot == lane::kNoSlot) return answer;
+  answer.index = shortSlot;
+  answer.kind = kPassShort;
+  return answer;
 }
 
 bool UnitArmed(int kind, bool capFeint, bool capBackSpace, bool capSafety, float ballDistSq_m2,
@@ -1587,8 +1959,7 @@ std::vector<int> BuildUnitList(const UnitListInput& in) {
 std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnswer,
                                     const PassAnswer& fwd, const PassAnswer& lng,
                                     const PassAnswer& cross, const PassAnswer& goalFront,
-                                    const PassAnswer& backSpace, bool curveShotPlan) {
-  (void)curveShotPlan;  // kind 3 answers from the BackSpace unit now, not the plan flag
+                                    const PassAnswer& backSpace, const PassAnswer& safety) {
   std::vector<UnitSlot> table;
   for (const int kind : kinds) {
     UnitSlot slot;
@@ -1599,6 +1970,7 @@ std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnsw
     if (kind == 7 && cross.index >= 0) slot.answer = {kAnswerPass, cross.kind};
     if (kind == 2 && goalFront.index >= 0) slot.answer = {kAnswerPass, goalFront.kind};
     if (kind == 3 && backSpace.index >= 0) slot.answer = {kAnswerPass, backSpace.kind};
+    if (kind == 6 && safety.index >= 0) slot.answer = {kAnswerPass, safety.kind};
     table.push_back(slot);
   }
   return table;

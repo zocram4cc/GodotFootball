@@ -1871,7 +1871,6 @@ pes::SafetyMate SafetyMate(int index) {
   m.speed_kmh = 5.0f;
   m.nearestOppD2 = 900.0f;  // 30 m: over the 225 floor, under the 35 m gate
   m.zoneMid = true;
-  m.nearestListD2 = 900.0f;
   return m;
 }
 
@@ -1942,7 +1941,7 @@ class SafetyUnitTest : public ::testing::Test {
     k_.sfThruAlign_deg = 70.0f;
     k_.sfThruAim_deg = 135.0f;
     k_.sfThruClass = 3.0f;
-    k_.sfThruFace_m = 60.0f;
+    k_.sfThruFacing_deg = 60.0f;
     k_.sfThruNearSq = 100.0f;
     k_.sfThruFarSq = 900.0f;
     k_.sfThruLaneLen_m = 10.0f;
@@ -1970,8 +1969,10 @@ class SafetyUnitTest : public ::testing::Test {
     in_.sideAngle_deg = 0.0f;
     in_.ball = {0.0f, 0.0f};
     in_.carrierPressClass = 0;
-    in_.teamLineB = -60.0f;
-    in_.ownGoalCornerX = -52.5f;
+    in_.teamLineB = 60.0f;
+    in_.teamLineOpp = 60.0f;
+    in_.pitchHalfLen_m = 52.5f;
+    in_.pitchBound8 = 60.0f;  // F[8]: the validator's gate 3 bound on the target's x
     in_.planHeading_deg = 0.0f;
     pes::SafetyMate m = SafetyMate(5);
     m.pos = {0.0f, -8.0f};
@@ -2011,10 +2012,10 @@ TEST_F(SafetyUnitTest, TheCeilingCascadeRejectsAFarMate) {
 
 TEST_F(SafetyUnitTest, TheOneTouchLaneRejectsABlockedMate) {
   // 0x142126B70's lane: an opponent in the 220-deg cone about the ball-advanced origin
-  // rejects. The origin is the ball advanced 12 m along record angle 0 -> (0, 12)... but the
-  // mate is at (0, -8): the record angle is the pass bearing (180), so the blocker sits past
-  // the mate along it.
-  in_.players[15].pos = {0.0f, -20.0f};
+  // 0x142126B70's one-touch lane: origin the ball advanced 12 m along his heading (0, toward +z),
+  // aimed back at the ball, length clamp(12 / 5, 4, 12) = 4, so it covers z in [8, 12] at x = 0.
+  // An opponent at (0, 10) sits in that lane and blocks the mate.
+  in_.players[15].pos = {0.0f, 10.0f};
   in_.players[15].active = true;
   EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
 }
@@ -2032,6 +2033,7 @@ TEST_F(SafetyUnitTest, PressureRunsTheThroughPicker) {
   in_.players[5].pos = {10.0f, -8.0f};
   in_.mates[0].recBTarget = {14.0f, -8.0f};
   in_.mates[0].recBDist_m = 12.0f;
+  in_.mates[0].recBClass = 4;  // over the through picker's class-3 floor; the validator's facing gate skips
   const pes::PassAnswer a = pes::SafetyUnit(in_, k_);
   EXPECT_EQ(a.index, 5);
   EXPECT_EQ(a.kind, pes::kPassThrough);
