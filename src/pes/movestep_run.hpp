@@ -28,9 +28,6 @@ inline constexpr int kBandTarget = 0x24;     // req[0x24]: the band to run at (O
 inline constexpr int kStopSpeedWord = 0x1d;
 inline constexpr int kHitMotion = 0x27;      // req[0x27]: the last hit record's motion (OBS: FUN_1406ce820)
 inline constexpr int kHitFrame = 0x28;       // req[0x28]: the last hit record's frame (OBS: FUN_1406ce820)
-inline constexpr int kTurnLockFlag = 0x3d;   // req[0x3d] byte: a turn lock is active (OBS: FUN_1406bdf10)
-inline constexpr int kTurnLockTicks = 0x3e;  // req[0x3e]: the lock's tick count (OBS: FUN_1406bdf10)
-inline constexpr int kTurnLockDir = 0x3f;    // req[0x3f] byte: the lock's direction flag (OBS: FUN_1406bdf10)
 }  // namespace moveword
 
 // The interface's table readers, declared here so the tests can check their arithmetic directly.

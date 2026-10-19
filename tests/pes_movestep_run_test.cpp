@@ -678,8 +678,8 @@ TEST(Stop, RePlansIntoGotoRunWhenTheTurnLockWordsAreSetAndTheStayDecisionHolds) 
   req.SetF(pes::moveword::kHeading, 12.0f);
   req.SetF(pes::moveword::kTurn, 2.0f);
   req.SetF(pes::moveword::kFacingError, 2.0f);
-  // The turn-lock words 0x3d/0x3e: one of them set is enough for the arm.
-  req.SetByte(pes::moveword::kTurnLockFlag, 1);
+  // The turn-lock bytes 0x3d, 0x3e and 0x3f (stop_dec.c:64-66): one of them set is enough for the arm.
+  req.SetByte(pes::moveword::kAngle3d, 1);
   // The ground speed under 16 km/h: the host's last-tick displacement stays zero.
   h.currentKmh = 0.0f;
   pes::probe::Reset();
@@ -691,6 +691,28 @@ TEST(Stop, RePlansIntoGotoRunWhenTheTurnLockWordsAreSetAndTheStayDecisionHolds) 
   EXPECT_EQ(req.U(pes::moveword::kNextState), 7u);
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
   EXPECT_GE(pes::probe::stayCalls, 1);
+}
+
+// stop_dec.c:64-66: the STOP pre-empt reads the low bytes of words 0x3d, 0x3e and 0x3f, not the words. Ticks of 256 have a zero
+// low byte, so the pre-empt does not fire and the re-plan into GOTO_RUN is not taken.
+TEST(Stop, ATurnLockTicksWordWithAZeroLowByteDoesNotPreemptTheStop) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 2u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetU(pes::moveword::kTurnFrames, 256u);
+  h.currentKmh = 0.0f;
+  pes::probe::Reset();
+  pes::probe::stayAnswer = true;
+  pes::movestep::Stop(h, req);
+  EXPECT_NE(req.U(pes::moveword::kNextState), 7u);
 }
 
 // The same arm's speed gate: with the ground speed at or above 16 km/h the re-plan does not
@@ -711,7 +733,7 @@ TEST(Stop, KeepsTheTickWhenTheGroundSpeedIsAtOrAboveSixteen) {
   req.SetF(pes::moveword::kHeading, 150.0f);  // 140 degrees: the turn block idles
   req.SetF(pes::moveword::kTurn, 140.0f);
   req.SetF(pes::moveword::kFacingError, 140.0f);
-  req.SetByte(pes::moveword::kTurnLockFlag, 1);
+  req.SetByte(pes::moveword::kAngle3d, 1);
   // The first dwell past its limit, so the tick reaches the IDLE arm rather than the turn
   // block's re-plans.
   req.SetF(pes::moveword::kDwellElapsed, 1.0f);
@@ -1083,6 +1105,98 @@ TEST(ArmH, TheRateIsSixtySevenAndAHalfWhenTheGroundSpeedIsPastNineteen) {
   pes::movestep::Accelerate(h, req);
   // The rate is 67.5 / 54 = 1.25 a tick; the delta is 30, so the heading is 31.25.
   EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 31.25f, 1e-3f);
+}
+
+// ---------------------------------------------------------------------------------------------
+// PES 148-194, the turn-lock block of ACCELERATE. LockSetUp gives a clip with a signed hit and no total, and a blend of
+// `blend` frames. The remain is the blend's ticks (int(1.8 * frames + 0.5) on the 54-tick clock), so the outer gate holds at
+// the live frame, and the lock has (remain - live) ticks at an F2468 of 1.
+static void LockSetUp(SyntheticHost& h, int offset, int blend, int live) {
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = live;
+  h.commandClass = 2;
+  pes::RotRecord rot;
+  rot.start = 0;
+  rot.end = 20;
+  rot.offset = offset;
+  h.record.rot = {rot};
+  h.record.blend = {blend};
+  h.record.cancel = {0, 0, 0};
+}
+
+// The request for the lock: the stamp (word 0x18), the heading (word 1) and the facing (word 2). The look is level with the
+// heading and the body with the facing, so the look and body errors are zero.
+static pes::MoveReq LockRequest(float stamp, float heading, float facing) {
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetU(pes::moveword::kRateBand, 2u);
+  req.SetF(pes::moveword::kRecordStampB, stamp);
+  req.SetF(pes::moveword::kHeading, heading);
+  req.SetF(pes::moveword::kFacing, facing);
+  req.SetF(pes::moveword::kLookHeading, heading);
+  req.SetF(pes::moveword::kBodyDirection, facing);
+  return req;
+}
+
+// PES 157-163 and 192: FUN_14043a0a0(stamp, heading) is heading minus stamp. Under 90 degrees of it, the lock heading is
+// FUN_140a92950: the stamp steps toward the heading by at most 22.5 degrees (DAT_14259d618), then folds. Here 60 steps to 37.5.
+// The lock writes the heading to word 0x3d and word 0x18, the flag to byte 0x3c, the ticks to word 0x3e, and the yaw lock
+// (P+0xbec) to the folded heading.
+TEST(TurnLock, TheLockHeadingStepsTheStampTowardTheHeadingByAtMostTwentyTwoAndAHalf) {
+  SyntheticHost h;
+  // A blend of 8 frames is a 14-tick remain: the mid (7) is past the live frame, so PES's trigger (457-459) does not run in this tick.
+  LockSetUp(h, 1, 8, 5);
+  pes::MoveReq req = LockRequest(60.0f, 0.0f, 0.0f);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_NEAR(req.F(pes::moveword::kAngle3d), 37.5f, 1e-3f);
+  EXPECT_NEAR(req.F(pes::moveword::kRecordStampB), 37.5f, 1e-3f);
+  EXPECT_EQ(req.U(pes::moveword::kReorientFlag) & 0xffu, 1u);
+  EXPECT_EQ(req.U(pes::moveword::kTurnFrames), 9u);  // a 14-tick remain less the live frame 5, plus the half
+  EXPECT_NEAR(h.f0bec, 37.5f, 1e-3f);
+}
+
+// PES 160-163: at 90 degrees or more of turn the lock heading is the stamp itself, with no step.
+TEST(TurnLock, ANinetyDegreeTurnLocksOnTheStampItself) {
+  SyntheticHost h;
+  LockSetUp(h, 1, 8, 5);
+  pes::MoveReq req = LockRequest(150.0f, 0.0f, 150.0f);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_NEAR(req.F(pes::moveword::kAngle3d), 150.0f, 1e-3f);
+}
+
+// PES 164-167: the lock needs the facing error against the lock heading under 45 degrees a tick. The remain is 5 and the live
+// frame 2, so the lock has 3 ticks; a facing error of 150 is 50 a tick, so there is no lock, although the turn is zero.
+TEST(TurnLock, TheLockGateIsTheFacingErrorPerTickNotTheTurn) {
+  SyntheticHost h;
+  LockSetUp(h, 1, 3, 2);
+  pes::MoveReq req = LockRequest(0.0f, 0.0f, 150.0f);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_EQ(req.U(pes::moveword::kAngle3d), 0u);
+  EXPECT_EQ(req.U(pes::moveword::kReorientFlag) & 0xffu, 0u);
+}
+
+// PES 173-190: past a 90-degree offset, byte 0x3f becomes 1 when the offset's sign differs from the facing error's and the error
+// passes 22.5 degrees. The facing error is the lock heading minus the facing: with the lock at 0 and the facing at 30 it is -30,
+// against a +120 offset. The turn is zero, so only the facing error can set the byte.
+TEST(TurnLock, TheDirectionByteFollowsTheFacingErrorAgainstTheOffsetSign) {
+  SyntheticHost h;
+  LockSetUp(h, 120, 6, 5);
+  pes::MoveReq req = LockRequest(0.0f, 0.0f, 30.0f);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_TRUE(req.Flag(pes::moveword::kMirrorFlag));
+}
+
+// PES 195-199: the bearings read the stamp the lock wrote. The stamp 60 steps to 37.5, toward the heading 0; the turn after the
+// lock is 37.5, under the 45-degree theta, so the band block is not taken. The turn before the lock (60) would take it into RUN_LOOP.
+TEST(TurnLock, TheBearingsAfterTheLockReadTheStampTheLockWrote) {
+  SyntheticHost h;
+  LockSetUp(h, 1, 8, 5);
+  pes::MoveReq req = LockRequest(60.0f, 0.0f, 37.5f);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_NE(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
 }
 
 // The IDLE arm (E): a stop whose first dwell is still below its scaled limit (the turn is

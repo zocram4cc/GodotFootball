@@ -508,7 +508,7 @@ void EnterRun(MoveHost& host, MoveReq& req, int footIn, bool rateHeld) {
   req.SetU(moveword::kLiveKind, static_cast<uint32_t>(kind));
   req.SetF(moveword::kPlayback, k.one);
   req.SetF(moveword::kStartTime, 0.0f);
-  req.SetByte(moveword::kTurnLockFlag, 0);
+  req.SetByte(moveword::kReorientFlag, 0);
   host.SetRecordF0bec(facing);
 }
 
@@ -563,7 +563,7 @@ void EnterStop(MoveHost& host, MoveReq& req) {
     RequestState(req, MoveState::kIdle);  // FUN_1406d5d60 lines 85-86: the no-class arm requests IDLE (req[0x39] = 1)
     req.SetU(moveword::kRecordStampA, 0);
     req.SetU(moveword::kRecordStampB, 0);
-    req.SetByte(moveword::kTurnLockFlag, 0);
+    req.SetByte(moveword::kReorientFlag, 0);
     return;
   }
 
@@ -607,7 +607,7 @@ void EnterStop(MoveHost& host, MoveReq& req) {
   RequestState(req, MoveState::kStop);
   req.SetU(moveword::kRecordStampA, 0);
   req.SetU(moveword::kRecordStampB, 0);
-  req.SetByte(moveword::kTurnLockFlag, 0);
+  req.SetByte(moveword::kReorientFlag, 0);
   host.SetRecordF0bec(facing);
 }
 
@@ -681,9 +681,10 @@ void GotoRun(MoveHost& host, MoveReq& req) {
     const float ratio = AngleDiffDeg(req.F(moveword::kHeading), req.F(moveword::kRecordStampB), k);
     if (AngleDiffDeg(alt, req.F(moveword::kHeading), k) / static_cast<float>(lockTicks) < k.deg45) {
       req.SetU(moveword::kRecordStampB, static_cast<uint32_t>(lockHeading));
-      req.SetByte(moveword::kTurnLockFlag, 1);
-      req.SetU(moveword::kTurnLockTicks, static_cast<uint32_t>(lockTicks));
-      req.SetByte(moveword::kTurnLockDir, 0);
+      req.SetByte(moveword::kReorientFlag, 1);
+      req.SetU(moveword::kTurnFrames, static_cast<uint32_t>(lockTicks));
+      req.SetF(moveword::kAngle3d, lockHeading);
+      req.SetByte(moveword::kMirrorFlag, 0);
       req.SetF(moveword::kRecordStampC, lockHeading);
       if (k.deg90 < req.F(moveword::kTurn)) {
         const float a = req.F(moveword::kTurn) < 0.0f ? neg : one;
@@ -691,7 +692,7 @@ void GotoRun(MoveHost& host, MoveReq& req) {
         if (a != b) {
           uint8_t dir = 0;
           if (k.deg225 < ratio) dir = 1;
-          req.SetByte(moveword::kTurnLockDir, dir);
+          req.SetByte(moveword::kMirrorFlag, dir);
         }
       }
       host.SetRecordF0bec(lockHeading);
@@ -705,7 +706,7 @@ void GotoRun(MoveHost& host, MoveReq& req) {
       static_cast<int>(req.U(moveword::kBandTarget)) < 1 && cls > 1 &&
       clipLen < hit0 && host.MatchPhase() != 0x4a &&
       (k.deg45 < turn || k.deg45 < req.F(moveword::kFacingError) ||
-       req.Flag(moveword::kTurnLockDir))) {
+       req.Flag(moveword::kMirrorFlag))) {
     EnterGotoRun(host, req, false);
     return;
   }
@@ -912,9 +913,10 @@ void Stop(MoveHost& host, MoveReq& req) {
   req.SetF(moveword::kRate, req.F(moveword::kRate) - k.blend05);
 
   // Arm B: the re-plan into GOTO_RUN.
+  // PES stop_dec.c:63-66: the pre-empt reads the low bytes of words 0x3d, 0x3e and 0x3f, not the words.
   if (req.U(moveword::kPrecise) == 0u &&
-      (req.Flag(moveword::kTurnLockFlag) || req.U(moveword::kTurnLockTicks) != 0u ||
-       req.Flag(moveword::kTurnLockDir)) &&
+      (req.Flag(moveword::kAngle3d) || req.Flag(moveword::kTurnFrames) ||
+       req.Flag(moveword::kMirrorFlag)) &&
       static_cast<uint32_t>(req.U(moveword::kRateBand)) < 3u && groundSpeed < k.kmh16 &&
       StayDecision(host, req)) {
     EnterGotoRun(host, req, false);
@@ -1039,7 +1041,7 @@ void Stop(MoveHost& host, MoveReq& req) {
           req.SetU(moveword::kMotion, static_cast<uint32_t>(cell.motionNo));
           req.SetU(moveword::kLiveKind, static_cast<uint32_t>(kind));
           RequestState(req, MoveState::kIdle);
-          req.SetByte(moveword::kTurnLockDir, 0);
+          req.SetByte(moveword::kMirrorFlag, 0);
           return;
         }
       } else {
@@ -1141,7 +1143,8 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
   }
 
   // Block 2: the turn-lock arm.
-  if (!req.Flag(moveword::kTurnLockFlag) && req.U(moveword::kTurnLockTicks) == 0u &&
+  // PES dec_ce820 238-239: the arm reads the low bytes of words 0x3d and 0x3e, not the words.
+  if (!req.Flag(moveword::kAngle3d) && !req.Flag(moveword::kTurnFrames) &&
       k.deg45 < std::fabs(req.F(moveword::kLookDelta)) && cls > 1 &&
       (lookBucket == 4 || lookBucket == 9)) {
     // ponytail: FUN_140a48a30/FUN_140a71540 (the team's newest record and its rank byte) and
@@ -1173,7 +1176,7 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
   req.SetByte(moveword::kFootFlag, host.Cell(row, column, false).mirror ? 1 : 0);
 
   // Block 4: the three row overrides.
-  if (req.Flag(moveword::kTurnLockDir) && static_cast<uint32_t>(column - 8) < 2u) {
+  if (req.Flag(moveword::kMirrorFlag) && static_cast<uint32_t>(column - 8) < 2u) {
     column = static_cast<int>(k.negHalf < req.F(moveword::kFacingError)) + 8;
     row = 0x564;  // FUN_1406b9bd0's table's override for the turn-lock family.
   }
@@ -1239,7 +1242,7 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
   // playback, the start time); the port's MotionRequest carries the byte as `transition`
   // because the dispatcher's own Issue reads it as PES passes it.
   host.Issue(MotionRequest{cell.motionNo, cell.mirror,
-                            static_cast<int>(req.U(moveword::kTurnLockDir) & 0xffu),
+                            static_cast<int>(req.U(moveword::kMirrorFlag) & 0xffu),
                             duration, playback, 0.0f});
   // The hit words 0x27/0x28: the clip's own start and its pose scale, for a clip under 0x1125.
   if (cell.motionNo < 0x1125) {
@@ -1280,7 +1283,7 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
   req.SetU(moveword::kNextState, static_cast<uint32_t>(stateWord));
   req.SetByte(moveword::kChangeState, 1);
   req.SetF(moveword::kRecordStampC, req.F(moveword::kHeading));
-  req.SetByte(moveword::kTurnLockDir, 0);
+  req.SetByte(moveword::kMirrorFlag, 0);
 }
 
 
@@ -1355,6 +1358,14 @@ void TurnStopLadder(MoveHost& host, MoveReq& req, float speedKmh, const RunConst
     req.SetF(moveword::kStopSpeedWord, k.kmh16);
   }
   EnterTurnStop(host, req);
+}
+
+// PES's FUN_140a92950(stamp, heading, cap), with d = FUN_14043a0a0(stamp, heading) passed in: the stamp moves by the signed
+// turn toward the heading, at most cap degrees, and folds. The fold is the 360 fold of the stamp before the step and of the sum.
+float StepStampTowardHeading(float stamp, float d, float cap, const RunConstants& k) {
+  const float sign = d < 0.0f ? k.neg : k.one;
+  const float magnitude = (cap <= sign * d) ? cap : sign * d;
+  return FoldFull(FoldFull(stamp, k) + sign * magnitude, k);
 }
 
 // PES's blend-point exit (FUN_1406bb570 lines 666-717, then the band-3 clamp 718-745). The dwell words, style and foot flag
@@ -1455,7 +1466,44 @@ void Accelerate(MoveHost& host, MoveReq& req) {
   if (static_cast<int>(clip.blend) < static_cast<int>(remain)) remain = static_cast<float>(clip.blend);
   const int remainFrames = static_cast<int>(remain);
 
-  // The bearings (FUN_14043a0a0: word 0x18 against word 1 for the turn, against word 3 for the look) and bVar23.
+  // PES 148-194: the turn-lock block. Its outer gate: the re-orient object's flag clear (FUN_141eb3320 of P+0x4d0, held clear as
+  // ponytail: the re-orient object is the foundation's), the clip past its first hit tick (total <= live), the live frame in the
+  // first half of the remainder ((remain + total) / 2), and a signed hit.
+  const bool reorientClear = true;
+  if (reorientClear && total <= liveFrame && liveFrame <= (remainFrames + total) / 2 && hitSigned != 0.0f) {
+    // PES 155-156: the stamp (word 0x18) is the base, and the ticks are (remain - live) / F2468 + 0.5, truncated.
+    const float stamp = req.F(moveword::kRecordStampB);
+    const float heading = req.F(moveword::kHeading);
+    const int ticks = static_cast<int>(static_cast<float>(remainFrames - liveFrame) / f2468 + k.half);
+    // PES 157-163: the turn from the stamp is FUN_14043a0a0(stamp, heading), the heading minus the stamp. Under 90 degrees of it
+    // the lock heading is FUN_140a92950's step: the stamp moves toward the heading by at most 22.5 degrees (DAT_14259d618), then
+    // folds. At 90 degrees or more the lock heading is the stamp itself.
+    const float turnFromStamp = PesAngleDiff(stamp, heading, k);
+    float lockHeading = stamp;
+    if (std::fabs(turnFromStamp) < k.deg90) lockHeading = StepStampTowardHeading(stamp, turnFromStamp, k.deg225, k);
+    // PES 164-167: the facing error is FUN_14043a0a0(facing, lock), the lock heading minus the facing. Its size per tick must be
+    // under 45 degrees.
+    const float facingError = PesAngleDiff(req.F(moveword::kFacing), lockHeading, k);
+    if (std::fabs(facingError) / static_cast<float>(ticks) < k.deg45) {
+      req.SetF(moveword::kAngle3d, lockHeading);                      // PES 168: param_2[0x3d]
+      req.SetByte(moveword::kReorientFlag, 1);                        // PES 169: the byte at 0x3c
+      req.SetU(moveword::kTurnFrames, static_cast<uint32_t>(ticks));  // PES 170: param_2[0x3e]
+      req.SetByte(moveword::kMirrorFlag, 0);                          // PES 171: the byte at 0x3f
+      req.SetF(moveword::kRecordStampB, lockHeading);                 // PES 172: param_2[0x18]
+      // PES 173-190: past a 90-degree offset, the byte at 0x3f is set when the offset's sign differs from the facing error's and
+      // the error passes 22.5 degrees.
+      if (k.deg90 < std::fabs(hitSigned)) {
+        const float signHit = hitSigned < 0.0f ? k.neg : k.one;
+        const float signError = facingError < 0.0f ? k.neg : k.one;
+        if (signHit != signError && k.deg225 < std::fabs(facingError)) req.SetByte(moveword::kMirrorFlag, 1);
+      }
+      // PES 192: FUN_1406cbb00, the yaw lock: P+0xbec takes the folded lock heading.
+      host.SetRecordF0bec(FoldFull(lockHeading, k));
+    }
+  }
+
+  // The bearings (FUN_14043a0a0: word 0x18 against word 1 for the turn, against word 3 for the look) and bVar23, read after the
+  // turn-lock block: PES's bearings at 195-199 read the stamp the lock wrote.
   const float turnBearing = AngleDiffDeg(req.F(moveword::kRecordStampB), req.F(moveword::kHeading), k);
   const float lookBearing = AngleDiffDeg(req.F(moveword::kRecordStampB), req.F(moveword::kLookHeading), k);
   const float turnAbs = std::fabs(turnBearing);
@@ -1465,29 +1513,6 @@ void Accelerate(MoveHost& host, MoveReq& req) {
   float desired = req.F(moveword::kHeading);
   if (AngleDiffDeg(desired, req.F(moveword::kFacing), k) < k.deg90) {
     desired = FirstAngle(req.F(moveword::kFacing), req.F(moveword::kHeading), k);
-  }
-
-  // PES 148-194: the turn-lock block, gated on the remaining frames and the signed offset. Its re-orient gate
-  // (FUN_141eb3320 of P+0x4d0) is held at its clear answer. ponytail: the re-orient object's flag (P-KIN) clears this arm.
-  // ponytail: FUN_140a92950 (the lock's heading index) and the word 0x18 / 0x3c writes are not mapped; the lock writes its
-  // ticks, flag, direction and heading words.
-  const bool reorientClear = true;
-  if (reorientClear && total <= liveFrame && liveFrame <= (remainFrames + total) / 2 && hitSigned != 0.0f) {
-    // PES 155-168: the lock's tick count, and the turn's bearing per tick must be under 45 degrees.
-    const int ticks = static_cast<int>(static_cast<float>(remainFrames - liveFrame) / f2468 + k.half);
-    if (std::fabs(turnBearing) / static_cast<float>(ticks) < k.deg45) {
-      req.SetU(moveword::kTurnLockTicks, static_cast<uint32_t>(ticks));
-      req.SetByte(moveword::kTurnLockFlag, 1);
-      req.SetByte(moveword::kTurnLockDir, 0);
-      // PES 173-190: the direction flag when the offset's sign differs from the turn's and the turn passes 22.5 degrees.
-      const float signHit = hitSigned < 0.0f ? k.neg : k.one;
-      const float signTurn = turnBearing < 0.0f ? k.neg : k.one;
-      if (k.deg90 < std::fabs(hitSigned) && signHit != signTurn && k.deg225 < turnAbs) {
-        req.SetByte(moveword::kTurnLockDir, 1);
-      }
-      req.SetF(moveword::kRecordStampC, desired);
-      host.SetRecordF0bec(desired);
-    }
   }
 
   // PES 206-222: the predicate block and its frame gate. The drawn tick is ticks * 6 / 60 + 0.5 (DAT_14259bdec, DAT_14259a764,
@@ -1804,9 +1829,10 @@ void Decelerate(MoveHost& host, MoveReq& req) {
         AngleDiffDeg(req.F(moveword::kRecordStampB), req.F(moveword::kFacing), k);
     const float perTick = secondBearing / distance;
     if (perTick < k.deg45) {
-      req.SetU(moveword::kTurnLockTicks, static_cast<uint32_t>(distance));
-      req.SetByte(moveword::kTurnLockFlag, 1);
-      req.SetByte(moveword::kTurnLockDir, 0);
+      req.SetU(moveword::kTurnFrames, static_cast<uint32_t>(distance));
+      req.SetByte(moveword::kReorientFlag, 1);
+      req.SetF(moveword::kAngle3d, desired);  // ponytail: PES writes the lock heading (its own step of the stamp); desired stands in
+      req.SetByte(moveword::kMirrorFlag, 0);
       req.SetF(moveword::kRecordStampC, desired);
       if (k.deg90 < hitSigned) {
         const float a = hitSigned < 0.0f ? k.neg : k.one;
@@ -1814,7 +1840,7 @@ void Decelerate(MoveHost& host, MoveReq& req) {
         if (a != b) {
           uint8_t dir = 0;
           if (k.deg225 < perTick) dir = 1;
-          req.SetByte(moveword::kTurnLockDir, dir);
+          req.SetByte(moveword::kMirrorFlag, dir);
         }
       }
       host.SetRecordF0bec(desired);
@@ -1937,7 +1963,7 @@ void Decelerate(MoveHost& host, MoveReq& req) {
   if (hitEnd <= static_cast<float>(liveFrame) ||
       (static_cast<float>(hitEnd + hitTotal) * k.half <= static_cast<float>(liveFrame) &&
        k.deg1125 < secondBearingA)) {
-    req.SetByte(moveword::kTurnLockDir, 0);
+    req.SetByte(moveword::kReorientFlag, 0);
     const float playerFacing = FoldFull(req.F(moveword::kFacing), k);
     float delta = FoldFull(req.F(moveword::kHeading), k) - playerFacing;
     if (k.half_turn < delta) {
@@ -2092,9 +2118,10 @@ void RunLoop(MoveHost& host, MoveReq& req) {
   }
 
   // Arm 1: the turn-lock re-plan.
-  if ((req.Flag(moveword::kTurnLockFlag) || req.U(moveword::kTurnLockTicks) != 0u ||
-       req.Flag(moveword::kTurnLockDir)) &&
-      (1 < cls || req.Flag(moveword::kTurnLockDir)) &&
+  // PES dec_c0170:62-65: the re-plan reads the low bytes of words 0x3d, 0x3e and 0x3f, not the words.
+  if ((req.Flag(moveword::kAngle3d) || req.Flag(moveword::kTurnFrames) ||
+       req.Flag(moveword::kMirrorFlag)) &&
+      (1 < cls || req.Flag(moveword::kMirrorFlag)) &&
       req.F(moveword::kRate) <= k.rate06 && req.U(moveword::kPrecise) == 0u) {
     EnterGotoRun(host, req, false);
     return;
@@ -2349,7 +2376,7 @@ void RunLoop(MoveHost& host, MoveReq& req) {
     req.SetU(moveword::kPrevBucket, static_cast<uint32_t>(lookBucket));
     req.SetU(moveword::kMoveBucket, static_cast<uint32_t>(lookBucket));
     req.SetU(moveword::kLiveKind, static_cast<uint32_t>(kind));
-    req.SetByte(moveword::kTurnLockDir, 0);
+    req.SetByte(moveword::kMirrorFlag, 0);
     return;
   }
   }
@@ -2392,7 +2419,7 @@ void RunLoop(MoveHost& host, MoveReq& req) {
   req.SetF(moveword::kDwellLimit, k.blend2);
   req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
   req.SetU(0x20, 0u);  // req[0x20]: PES clears it in the change; the word has no name yet
-  req.SetByte(moveword::kTurnLockDir, 0);
+  req.SetByte(moveword::kMirrorFlag, 0);
 }
 
 
@@ -2534,7 +2561,7 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
   req.SetF(moveword::kRecordStampB, req.F(moveword::kHeading));
   req.SetU(moveword::kPrevBucket, req.U(moveword::kMoveBucket));
   RequestState(req, MoveState::kAccelerate);
-  req.SetByte(moveword::kTurnLockDir, 0);
+  req.SetByte(moveword::kReorientFlag, 0);
   return true;
 }
 
@@ -2661,7 +2688,7 @@ bool EnterDecelerate(MoveHost& host, MoveReq& req) {
   req.SetF(moveword::kRecordStampB, req.F(moveword::kHeading));
   req.SetU(moveword::kPrevBucket, req.U(moveword::kMoveBucket));
   RequestState(req, MoveState::kDecelerate);
-  req.SetByte(moveword::kTurnLockDir, 0);
+  req.SetByte(moveword::kReorientFlag, 0);
   return true;
 }
 }  // namespace movestep

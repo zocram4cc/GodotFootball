@@ -344,6 +344,9 @@ struct RunConstants {
 // FUN_14043a0a0(a, b): the angle difference a - b wrapped into (-180, 180]. Shared by the
 // dispatcher port and group B; the bodies are in movestep_common.cpp.
 float AngleDiffDeg(float a, float b, const RunConstants& k);
+// FUN_14043a0a0 as PES has it: b minus a, both folded into [0, 360) and wrapped once past 180. AngleDiffDeg is a minus b, so the
+// two differ in sign; each call site uses the one its PES call needs.
+float PesAngleDiff(float a, float b, const RunConstants& k);
 // The 360 fold of a heading into [0, 360), the block every handler opens with.
 float FoldFull(float a, const RunConstants& k);
 
