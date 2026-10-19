@@ -303,8 +303,10 @@ class MoveHostAdapter final : public pes::MoveHost {
   float BandSpeedKmh(int band, float g) const override {
     (void)band;
     (void)g;
-    // The callers scale this by speed3600 into km/h, so it is metres a second. ponytail: PES's band speed
-    // (the anime info record's vt+0x60) is not decoded; GF stands the current ground speed for every band.
+    // The callers scale this by speed3600 into km/h, so it is metres a second. ponytail: PES's band speed is not decoded.
+    // Its candidate source is the 11-knot rate curve at 0x1425DE010 (docs/re/pes-re-speed-inputs.md; the band-to-knot map
+    // is open). vt+0x60 is clip duration (FUN_1406E7EB0), not a band speed. Every band returns the player's ground speed
+    // for the last tick; the physique argument is ignored.
     return player_.GetMovement().GetLength();
   }
   bool MirrorChoice(bool sameTeam) const override {
@@ -455,7 +457,8 @@ void ProcessMoveStep(Player& player, Match& match) {
   req.SetByte(pes::moveword::kStyle, rec.style);
   req.SetU(pes::moveword::kParamState, kSingleClip);  // PES's init: a single clip (req[0x37] == 0x11)
   // FUN_1406f99f0's store (P+0x377c): the TopRate ceiling at the record's G, once per match tick.
-  // ponytail: the Speed byte (0x27) has no GF stat yet; physical_velocity stands in for it.
+  // ponytail: the Speed byte (0x27) = clamp(trunc(base[0x27] * A1..A5), 40, 99), written by FUN_14092AF10
+  // (docs/re/pes-re-speed-inputs.md). Its base row has no GF source yet, so physical_velocity stands in for it.
   pes::StoreRateCeiling(rec, host.MatchTick(),
                         pes::MoveTopRate(match.GetPesStaminaConstants(),
                                          player.GetStat("physical_velocity"), player.GetStamina(),

@@ -57,6 +57,11 @@ enum class MoveState : uint8_t {
 };
 inline constexpr int kMoveStateCount = 24;
 
+// The FSM's pose hold: while the state is STOP the body keeps its pose. The clip's end does not switch the body and the AI's
+// movement command selects no clip (humanoid.cpp). ponytail: the hold set is STOP alone; the IDLE family is not held, since
+// its exit to GOTO_RUN is not decoded.
+inline bool HoldsBodyPose(MoveState s) { return s == MoveState::kStop; }
+
 // The MOVESTEP fields of one player (PES's P+0x245a..0x3758). Writers are named in the .cpp.
 struct MoveStepRecord {
   MoveState state = MoveState::kInit;     // P+0x245c: the current phase (OBS: FUN_1406b8340 tail)
@@ -594,10 +599,9 @@ class MoveHost {
   // Group C's install scalars (STEP_LOOP, STEP_LOOP_CHANGE, TURN_STOP and the transitions), read from
   // the exe by VA by the group's loader (movestep_step.hpp).
   virtual const StepScalars& StepConstants() const = 0;
-  // The band's natural speed (km/h) of the anime info record, times 3.6 into req[0x1d] (the parametric
-  // member's speed). PES reads the record region of the anime interface (the table at 0x1425e35d0,
-  // slots 0x1cb4..0x1d0c; its writer is not decoded). ponytail: the adapter supplies the GF stand-in
-  // until that writer is ported.
+  // PES's band speed for `band` at physique `g`, before the callers' speed3600 scale. Its source is not decoded: the
+  // candidate is the 11-knot rate curve at 0x1425DE010 (docs/re/pes-re-speed-inputs.md; the band-to-knot map is open).
+  // ponytail: the adapter stands the player's ground speed for every band until that source is decoded.
   virtual float BandSpeedKmh(int band, float g) const = 0;
   // FUN_140a62960's answer for this player's record: the mirror bit for the side. ponytail: the adapter
   // supplies the GF stand-in until the record writer is ported.

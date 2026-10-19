@@ -463,3 +463,32 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
   EXPECT_EQ(held, 0) << held << " of " << forced << " forced STOPs still held after " << kStopTicks << " ticks";
 }
 
+
+// While the MOVESTEP FSM holds STOP, the AI's movement command does not pick the body's clip: PES's MOVE action plays the
+// FSM's own clips and MOVESTEP is the only reader of the AI's command block (pes-re-anim-select.md 0 item 5 and 1). On main,
+// a PES clip's last frame hands the body to Humanoid::Process's end-of-clip switch, which selects the AI's movement toward
+// the target, so the body ran while the FSM held the stop.
+TEST(MoveStepWire, AnAiMovementClipDoesNotTakeTheBodyWhileTheFsmHoldsAStop) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  constexpr int kHoldTicks = 1800;  // about 33 s of play
+  int holdTicks = 0;
+  int violations = 0;
+  int firstTick = -1;
+  for (int tick = 0; tick < kHoldTicks; ++tick) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      if (p->GetMoveStep().state != pes::MoveState::kStop) continue;
+      ++holdTicks;
+      const Anim* a = p->GetCurrentAnim();
+      if (a && a->functionType == e_FunctionType_Movement) {
+        if (firstTick < 0) firstTick = tick;
+        ++violations;
+      }
+    }
+  }
+  EXPECT_GT(holdTicks, 0) << "no FSM hold in " << kHoldTicks << " ticks: the check saw nothing";
+  EXPECT_EQ(violations, 0) << "AI movement clips held the body on " << violations << " player-ticks; the first at tick "
+                           << firstTick;
+}
