@@ -106,14 +106,6 @@ LightSettings ReadSettings(const Fox2Entity& e) {
   s.saoBias = Num(e, "saoBias", 0);
   s.saoIntensity = Num(e, "saoIntensity", 0);
   s.saoContrast = Num(e, "saoContrast", 0);
-  s.overrideTonemap = Flag(e, "overrideTonemap");
-  s.acesFilmSlope = Num(e, "acesFilmSlope", s.acesFilmSlope);
-  s.acesFilmToe = Num(e, "acesFilmToe", s.acesFilmToe);
-  s.acesFilmShoulder = Num(e, "acesFilmShoulder", s.acesFilmShoulder);
-  s.acesFilmBlackClip = Num(e, "acesFilmBlackClip", s.acesFilmBlackClip);
-  s.acesFilmWhiteClip = Num(e, "acesFilmWhiteClip", s.acesFilmWhiteClip);
-  s.whiteTemperature = Num(e, "whiteTemperature", s.whiteTemperature);
-  s.whiteTint = Num(e, "whiteTint", s.whiteTint);
   return s;
 }
 
@@ -233,16 +225,6 @@ LightSettings MergeLightSettings(const LightSettings& base, const LightSettings&
     m.saoIntensity = span.saoIntensity;
     m.saoContrast = span.saoContrast;
   }
-  if (span.overrideTonemap) {
-    m.overrideTonemap = true;
-    m.acesFilmSlope = span.acesFilmSlope;
-    m.acesFilmToe = span.acesFilmToe;
-    m.acesFilmShoulder = span.acesFilmShoulder;
-    m.acesFilmBlackClip = span.acesFilmBlackClip;
-    m.acesFilmWhiteClip = span.acesFilmWhiteClip;
-    m.whiteTemperature = span.whiteTemperature;
-    m.whiteTint = span.whiteTint;
-  }
   return m;
 }
 
@@ -306,9 +288,6 @@ std::optional<LightRig> ParseLightRig(const Fox2File& file, std::string* error) 
 
   for (const Fox2Entity& e : file.entities) {
     if (e.className != "PesPluginSettings") continue;
-    rig.plugin.bloomSize = Num(e, "bloomSize", rig.plugin.bloomSize);
-    rig.plugin.bloomBrightnessExtraction = Num(e, "bloomBrightnessExtraction", rig.plugin.bloomBrightnessExtraction);
-    rig.plugin.bloomWeight = Num(e, "bloomWeight", rig.plugin.bloomWeight);
     rig.plugin.tonemapSpeed = Num(e, "tonemapSpeed", rig.plugin.tonemapSpeed);
     break;  // one per rig
   }

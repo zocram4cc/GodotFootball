@@ -12,7 +12,7 @@ namespace godot {
 // groups, the reflection probes, the sky parameters and the shadow/fog
 // recipe, as children of this node (lights and probes) plus a WorldEnvironment
 // and a Camera3D whose compositor carries the PesPostEffect (godot/post), both
-// found by name on siblings. The exposure, bloom and film curve are the post
+// found by name on siblings. The exposure and the grading pair are the post
 // chain's: this hands it the rig's values for the span it sets up.
 class PesLighting : public Node3D {
   GDCLASS(PesLighting, Node3D)
