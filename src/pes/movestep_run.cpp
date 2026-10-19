@@ -29,6 +29,7 @@
 
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
+#include "pes/movestep_turn.hpp"
 
 namespace pes {
 namespace {
@@ -1359,8 +1360,8 @@ void TurnStopLadder(MoveHost& host, MoveReq& req, float speedKmh, const RunConst
 // PES's blend-point exit (FUN_1406bb570 lines 666-717, then the band-3 clamp 718-745). The dwell words, style and foot flag
 // clear; the 4-tick speed runs the rate ladder when it is at most 16 km/h or a flag is set; the band and speed word come from
 // the interface (vt+0x68, vt+0x48); the clip is issued; then the clamp. ponytail: the 4-tick sample is PositionAt(4), the port's
-// stand-in for FUN_141eb50b0(P, buf, 4). S1Watch's live watch (local://pes-re-ball-track.md) found the ring at P+0x2fc unchanged
-// for 90 s of play in all 22 players, so in that window PES's sample does not track motion; the writer of A+0x1384 is open.
+// stand-in for FUN_141eb50b0(P, buf, 4). PES reads fixed, event-updated contents at P+0x2fc (slot 0 is zero for player 7; the
+// writer is unknown, docs/re/pes-re-ball-track.md), so the GF position stands in until that writer is decoded.
 void ClipEndExit(MoveHost& host, MoveReq& req, const RunConstants& k, const MoveConstants& m, float hitSigned, float hit2,
                  int liveFrame, bool flagged) {
   req.SetF(moveword::kDwellLimit, 0.0f);
@@ -1458,6 +1459,8 @@ void Accelerate(MoveHost& host, MoveReq& req) {
   const float turnBearing = AngleDiffDeg(req.F(moveword::kRecordStampB), req.F(moveword::kHeading), k);
   const float lookBearing = AngleDiffDeg(req.F(moveword::kRecordStampB), req.F(moveword::kLookHeading), k);
   const float turnAbs = std::fabs(turnBearing);
+  // PES 267-271 (VA 0x6bbdc8): fVar25 is the body error, word 2 (the facing) against word 4 (the body direction).
+  const float bodyErr = std::fabs(AngleDiffDeg(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k));
   const bool fastTurn = !(lookBearing * lookBearing < k.kmh95sq) && req.U(moveword::kPrecise) == 1u;
   float desired = req.F(moveword::kHeading);
   if (AngleDiffDeg(desired, req.F(moveword::kFacing), k) < k.deg90) {
@@ -1526,8 +1529,8 @@ void Accelerate(MoveHost& host, MoveReq& req) {
   // PES 261-266: the clip has not reached hit0, outside the three motions that pass.
   if (liveFrame < static_cast<int>(hit0) && motion != 0xbde && motion != 0xbe1 && motion != 0xbdf) return;
 
-  // PES 267-274: bVar22 is the remaining frames passed, or the turn under 45 degrees (fVar26 holds 45 at this point).
-  const bool bVar22 = remainFrames <= liveFrame || turnAbs < k.deg45;
+  // PES 267-274: bVar22 is the remaining frames passed, or the body error under 45 degrees (fVar25, VA 0x6bbdc8; fVar26 holds 45).
+  const bool bVar22 = remainFrames <= liveFrame || bodyErr < k.deg45;
 
   // PES 275-312: the command class -1 block. It stops when the arm has passed or no band is set; otherwise it turns stop.
   if (cls == -1) {
@@ -1602,50 +1605,75 @@ void Accelerate(MoveHost& host, MoveReq& req) {
     return;
   }
 
-  const float midTick = static_cast<float>(static_cast<int>(hitEnd) + hitTotal) * k.half;
+  // PES 437-456: the mid tick (fVar30) is (remain + total) / 2. The 0xbe4-0xbe9 family takes the remain instead, and 75% of it
+  // when the hit's sign and the look delta's sign differ. The signs are PES's fVar24 and word 5 (VA 0x6bc3b5 onward).
+  const float signHit = hitSigned < 0.0f ? k.neg : k.one;
+  const float signLook = (req.F(moveword::kLookDelta) > 0.0f || req.F(moveword::kLookDelta) == 0.0f) ? k.one : k.neg;
+  int mid = (remainFrames + total) / 2;
+  if (static_cast<unsigned>(motion) - 0xbe4u < 6u) {
+    mid = remainFrames;
+    if (signHit != signLook) mid = (remainFrames * 75) / 100;
+  }
 
-  // Arm H: the bearing arm.
-  if (hitEnd <= static_cast<float>(liveFrame) ||
-      (midTick <= static_cast<float>(liveFrame) && k.deg1125 < lookBearing)) {
-    req.SetByte(moveword::kTurnLockDir, 0);
-    const float playerFacing = FoldFull(req.F(moveword::kFacing), k);
-    float delta = FoldFull(req.F(moveword::kHeading), k) - playerFacing;
-    if (k.half_turn < delta) {
-      const float sign = delta < 0.0f ? k.neg : k.one;
-      delta -= sign * k.full;
-    }
-    if (delta < k.deg90) {
-      float allowance = k.half_turn;
-      if (hitSigned == 0.0f) allowance = k.deg90;
+  // PES 457-459: the trigger. Clause 1: the remain has passed. Clause 2: the mid has passed, the turn is past 11.25 degrees
+  // (fVar27) and the body error is under 22.5 (fVar25). Clause 3: the hit carries no offset.
+  const bool trigger = remainFrames <= liveFrame ||
+                       (mid <= liveFrame && k.deg1125 < turnAbs && bodyErr < k.deg225) || hitSigned == 0.0f;
+  if (trigger) {
+    // PES 460 (VA 0x6bc2cb): the re-orient byte at word 0x3c clears. PES 461-462, vt+0x08 on P+0x4d0, is the AdjustAngle
+    // apply: a no-op stand-in here (movestep_turn.cpp, AdjustAngleApply).
+    req.SetByte(moveword::kReorientFlag, 0);
+    // PES 466-484: the player's facing (P+0x20) and the heading (word 1), each folded into [0, 360); the delta is their
+    // difference.
+    const float facing = FoldFull(host.FacingDeg(), k);
+    float delta = FoldFull(req.F(moveword::kHeading), k) - facing;
+    // PES 487-495: a delta past 180 degrees in either direction wraps once by 360 (the test is on the magnitude).
+    if (k.half_turn < std::fabs(delta)) delta -= (delta < 0.0f ? k.neg : k.one) * k.full;
+    // PES 497-498: the yaw step runs while the wrapped delta is under 112.5 degrees.
+    if (std::fabs(delta) < k.deg1125b) {
+      // PES 499-505: the cap (fVar28) is 135 with no hit offset, else 180; the ground speed (fVar29) is in km/h.
+      const float cap = hitSigned == 0.0f ? k.deg135 : k.half_turn;
       const float ground = GroundSpeedKmh(host, k);
-      const float rowBearing = AngleDiffDeg(desired, req.F(moveword::kFacing), k);
-      if (liveFrame < hit0 || (ground <= k.kmh19 && k.deg45 <= rowBearing) ||
-          (ground <= k.kmh22 && k.deg90 <= rowBearing) ||
-          (hitEnd <= static_cast<float>(liveFrame) && hit1 <= static_cast<float>(liveFrame) &&
-           k.kmh1475 < ground && k.deg135 < rowBearing)) {
-        allowance = k.deg135;
-        if (ground < k.kmh22 && hitEnd <= static_cast<float>(liveFrame) &&
-            hit1 <= static_cast<float>(liveFrame) && k.kmh1475 < ground) {
-          allowance = k.deg225;
-        }
+      // PES 507-513: the rate (fVar34) is the cap while the hit tick is ahead or the ground speed is under 19 km/h, else 67.5;
+      // it is 135 when the remain and hit1 have passed and the ground speed is past 14.75 km/h.
+      const bool armed = liveFrame < static_cast<int>(hit2) || ground <= k.kmh19;
+      float rate = armed ? cap : k.deg675;
+      if (armed && remainFrames <= liveFrame && static_cast<int>(hit1) <= liveFrame && k.kmh1475 < ground) {
+        rate = k.deg135;
       }
-      const float turnLimit = (delta <= allowance && -allowance <= delta) ? delta : allowance;
-      const float newHeading = FoldFull(playerFacing + turnLimit, k);
+      // PES 514-526: the anime predicates (FUN_140a6e290 / FUN_140a6e2e0) are held clear, as the port's other arms hold them.
+      // ponytail: with them set, the rate is 22.5 degrees while the live frame is short of the remain.
+      const bool motionPredicates = false;
+      if (motionPredicates && liveFrame < remainFrames) rate = k.deg225;
+      // PES 527-539: while the hit tick is ahead and the hit offset is signed, a sign mismatch with the look delta damps the rate
+      // to a quarter (DAT_142592228).
+      if (liveFrame < static_cast<int>(hit1) && hitSigned != 0.0f && signHit != signLook) {
+        rate *= host.MoveTurnConstantsView().quarter;
+      }
+      // PES 540-546: the rate per tick, and the step clamped to the delta.
+      rate /= static_cast<float>(host.TicksPerSecond());
+      const float step = (delta <= rate && -rate <= delta) ? delta : (delta > rate ? rate : -rate);
+      // PES 548-556: the heading, folded into [0, 360) once.
+      float heading = facing + step;
+      if (0.0f <= heading) {
+        if (k.full <= heading) heading += k.wrapFull;
+      } else {
+        heading += k.full;
+      }
+      // PES 557-569: the root-facing flag and angle; the stamp word 0x18 once the remain has passed; P+0xbec.
       req.SetByte(moveword::kRootFacing, 1);
-      req.SetF(moveword::kRootFacingAngle, newHeading);
-      if (hitEnd <= static_cast<float>(liveFrame)) {
-        req.SetF(moveword::kRecordStampC, newHeading);
-      }
-      host.SetRecordF0bec(newHeading);
+      req.SetF(moveword::kRootFacingAngle, heading);
+      if (remainFrames <= liveFrame) req.SetF(moveword::kRecordStampB, heading);
+      host.SetRecordF0bec(heading);
     }
   }
   // PES 572-609: the flag cVar7. After the body, PES's fVar30 is local_res8 on every path (the body writes it at 496, and
-  // the skipped path writes it at 459): hit1, or the blend. PES's local_104 is hit0, or the blend. The arm needs the turn
-  // under 45 degrees (fVar25 is |turn|); the command class (word 9) and the band (word 0x1f) are read as they stand.
+  // the skipped path writes it at 459): hit1, or the blend. PES's local_104 is hit0, or the blend. The arm needs the body
+  // error under 45 degrees (fVar25, VA 0x6bbdc8); the command class (word 9) and the band (word 0x1f) are read as they stand.
   bool flag = false;
   const bool motionEnd = motion == 0xbde || motion == 0xbe1;
   if ((static_cast<int>(hit1) <= liveFrame || (motionEnd && static_cast<int>(hit0) <= liveFrame)) &&
-      turnAbs < k.deg45) {
+      bodyErr < k.deg45) {
     const int cmdClass = static_cast<int>(req.U(moveword::kCommandSpeedClass));
     const int bandNow = static_cast<int>(req.U(moveword::kRateBand));
     if (cmdClass < bandNow) {
@@ -1660,7 +1688,7 @@ void Accelerate(MoveHost& host, MoveReq& req) {
       const float span = 1 < bandNow ? k.deg225 : k.deg45;  // PES 590-593 (fVar36)
       if (bandNow < cmdClass) {                              // PES 594-605
         // ponytail: FUN_140a6e290 and FUN_140a6e2e0 (the motion predicates) are held clear, as predicatesClear is above.
-        if (std::fabs(req.F(moveword::kTurn)) < span || k.deg675 < std::fabs(lookBearing)) flag = true;  // PES 601-604
+        if (std::fabs(req.F(moveword::kTurn)) < span || k.deg675 < turnAbs) flag = true;  // PES 599-604: fVar27 is |turn|
       }
     }
   }

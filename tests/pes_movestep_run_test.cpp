@@ -115,7 +115,7 @@ class SyntheticHost : public pes::MoveHost {
   bool ClipFlag() const override { return false; }
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
-  float FacingDeg() const override { return 0.0f; }
+  float FacingDeg() const override { return facingDeg; }
   float BallBearingDeg() const override { return 0.0f; }
   int ActionIndex() const override { return 0; }
   int RelatedSlot() const override { return -1; }
@@ -145,6 +145,7 @@ class SyntheticHost : public pes::MoveHost {
   int commandClass = -1;
   float rateCeiling = 1.0f;
   float commandKmh = 0.0f;
+  float facingDeg = 0.0f;  // P+0x20: the player's own facing, which Arm H reads
   float currentKmh = 0.0f;
   float g = 1.0f;
   float ticks = 54.0f;
@@ -899,6 +900,189 @@ TEST(Accelerate, AFlaggedClipEndsBeforeItsBlendPasses) {
   pes::movestep::Accelerate(h, req);
   EXPECT_TRUE(req.Flag(pes::moveword::kMotionPending));
   EXPECT_EQ(req.U(pes::moveword::kRateBand), 1u);
+}
+
+// Arm H (PES 457-571): the trigger, the yaw step and the stamp words. Each test is set so the port's current answer differs
+// from PES's. The setup: no hit offset and no cancel frames, the blend passed at 0 ticks, the live frame at 5, the command
+// class and the band level at 2 (no flag), and the turn zero.
+static void ArmHSetUp(SyntheticHost& h) {
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 5;
+  h.commandClass = 2;
+  pes::RotRecord clean;  // an unsigned clip with no hit ticks; the missing-record fallback is -878 (not zero)
+  clean.start = 0;
+  clean.end = 0;
+  clean.offset = 0;
+  h.record.rot = {clean};
+}
+
+static pes::MoveReq ArmHRequest(float heading) {
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetU(pes::moveword::kRateBand, 2u);
+  req.SetF(pes::moveword::kHeading, heading);
+  req.SetF(pes::moveword::kRecordStampB, heading);  // the turn is zero
+  req.SetF(pes::moveword::kLookHeading, heading);   // the look is zero
+  return req;
+}
+
+// PES 466-484: the heading (word 1) less the player's own facing (P+0x20), not the request's copy in word 2. The rate is 135 / 54
+// = 2.5 a tick, so the heading is 32.5.
+TEST(ArmH, TheFacingIsThePlayersOwnFacingNotWordTwo) {
+  SyntheticHost h;
+  ArmHSetUp(h);
+  h.facingDeg = 30.0f;
+  pes::MoveReq req = ArmHRequest(60.0f);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 32.5f, 1e-3f);
+}
+
+// PES 487-495: a delta past 180 degrees in either direction wraps once by 360. -250 wraps to +110, which is inside the gate.
+TEST(ArmH, ANegativeDeltaPastMinus180WrapsOnItsMagnitude) {
+  SyntheticHost h;
+  ArmHSetUp(h);
+  h.facingDeg = 260.0f;
+  pes::MoveReq req = ArmHRequest(10.0f);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 262.5f, 1e-3f);
+}
+
+// PES 497-498: the rate branch runs while the wrapped delta is under 112.5 degrees, not under 90.
+TEST(ArmH, TheRateBranchRunsUnderOneHundredTwelveAndAHalfDegrees) {
+  SyntheticHost h;
+  ArmHSetUp(h);
+  pes::MoveReq req = ArmHRequest(100.0f);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 2.5f, 1e-3f);
+}
+
+// PES 561-562 (VA 0x6bc50b): the stamp word is 0x18, written with the new heading once the remain has passed. The port wrote 0x19.
+TEST(ArmH, TheStampWordIsEighteenAndTakesTheNewHeading) {
+  SyntheticHost h;
+  ArmHSetUp(h);
+  h.facingDeg = 30.0f;
+  pes::MoveReq req = ArmHRequest(60.0f);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRecordStampB), 32.5f, 1e-3f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRecordStampC), 0.0f);
+}
+
+// PES 460 (VA 0x6bc2cb): the re-orient byte at word 0x3c clears when the trigger runs. The port cleared word 0x3f.
+TEST(ArmH, TheReorientByteAtWordThreeCClearsWhenTheTriggerRuns) {
+  SyntheticHost h;
+  ArmHSetUp(h);
+  h.facingDeg = 30.0f;
+  pes::MoveReq req = ArmHRequest(60.0f);
+  req.SetByte(pes::moveword::kReorientFlag, 1);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_EQ(req.U(pes::moveword::kReorientFlag) & 0xffu, 0u);
+}
+
+// PES 443-459: the trigger's second clause takes the mid tick ((remain + total) / 2), the turn's magnitude (fVar27) and the body
+// error (fVar25). The remain is 7 ticks, so the mid is 3; the port's mid came from the clip's whole end (9 ticks) and its look.
+TEST(ArmH, TheMidTickAndTheTriggerBearingsAreTheRemainAndTheTurnAndBodyError) {
+  SyntheticHost h;
+  ArmHSetUp(h);
+  pes::RotRecord rot;
+  rot.start = 0;
+  rot.end = 10;    // 18 ticks
+  rot.offset = 1;  // a signed hit, so clause 3 does not fire
+  h.record.rot = {rot};
+  h.record.blend = {4};  // 7 ticks: the remain
+  h.record.cancel = {0, 0, 0};
+  pes::MoveReq req = ArmHRequest(10.0f);
+  req.SetF(pes::moveword::kRecordStampB, 40.0f);  // turn 30 against heading 10
+  req.SetF(pes::moveword::kLookHeading, 40.0f);   // look 0
+  pes::movestep::Accelerate(h, req);
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 180.0f / 54.0f, 1e-3f);
+}
+
+// PES 573-577: the flag arm's gate is the body error (fVar25) under 45 degrees, not the turn. A turn of 50 with a level body still
+// sets the flag: the command class 1 is below the band 2, so the flag ends the clip and its pending motion is set.
+TEST(ArmH, TheFlagArmGateIsTheBodyErrorNotTheTurn) {
+  SyntheticHost h;
+  ArmHSetUp(h);
+  h.record.blend = {100};
+  h.record.cancel = {0, 0, 0};
+  h.commandClass = 1;
+  pes::MoveReq req = ArmHRequest(0.0f);
+  req.SetF(pes::moveword::kRecordStampB, 50.0f);  // turn 50
+  req.SetF(pes::moveword::kLookHeading, 50.0f);   // look 0
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_TRUE(req.Flag(pes::moveword::kMotionPending));
+}
+
+// PES 599-604: the flag's second clause is 67.5 degrees against the turn (fVar27), not the look. A turn of 70 with a level look
+// sets the flag at command class 3 over band 2.
+TEST(ArmH, TheFlagArmTurnClauseReadsTheTurnNotTheLook) {
+  SyntheticHost h;
+  ArmHSetUp(h);
+  h.record.blend = {100};
+  h.record.cancel = {0, 0};  // hit 2 falls back to the blend, so theta is 78.75
+  pes::MoveReq req = ArmHRequest(0.0f);
+  req.SetF(pes::moveword::kRecordStampB, 70.0f);  // turn 70
+  req.SetF(pes::moveword::kLookHeading, 70.0f);   // look 0
+  req.SetF(pes::moveword::kTurn, 30.0f);          // the first clause: 30 is not under the 22.5 span
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  pes::movestep::Accelerate(h, req);
+  EXPECT_TRUE(req.Flag(pes::moveword::kMotionPending));
+}
+
+// PES 443-455: the 0xbe4-0xbe9 motions take the remain as their mid, not (remain + total) / 2. The remain is 7 ticks, so the mid is
+// past the live frame and the trigger does not run; the general mid of the clip's end (9 ticks) would run it.
+TEST(ArmH, TheBodyMotionFamilyTakesTheRemainAsItsMid) {
+  SyntheticHost h;
+  ArmHSetUp(h);
+  h.currentMotion = 0xbe4;
+  pes::RotRecord rot;
+  rot.start = 0;
+  rot.end = 5;  // 9 ticks
+  rot.offset = 1;
+  h.record.rot = {rot};
+  h.record.blend = {4};  // 7 ticks: the remain
+  h.record.cancel = {0, 0, 0};
+  pes::MoveReq req = ArmHRequest(10.0f);
+  req.SetF(pes::moveword::kRecordStampB, 40.0f);  // turn 30
+  req.SetF(pes::moveword::kLookHeading, 10.0f);   // look 30
+  pes::movestep::Accelerate(h, req);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kRootFacingAngle), 0.0f);
+}
+
+// PES 272-274: bVar22 is the remain passed or the body error under 45 degrees (fVar25), not the turn. A turn of 80 with a level
+// body takes the shared band block and does not enter STOP; the port entered STOP.
+TEST(ArmH, TheSharedBandBlockTakesALargeTurnWithALevelBody) {
+  SyntheticHost h;
+  ArmHSetUp(h);
+  pes::RotRecord rot;
+  rot.start = 0;
+  rot.end = 100;
+  rot.offset = 1;
+  h.record.rot = {rot};
+  h.record.blend = {100};
+  h.record.cancel = {0, 0, 0};
+  pes::MoveReq req = ArmHRequest(0.0f);
+  req.SetF(pes::moveword::kRecordStampB, 80.0f);  // turn 80, past the 45 theta
+  req.SetF(pes::moveword::kLookHeading, 80.0f);   // look 0
+  pes::movestep::Accelerate(h, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop))
+      << "the shared band block re-plans through the run entry, which is RUN_LOOP";
+}
+
+// PES 507-513: the rate is 67.5 degrees a second when the hit tick is behind the live frame and the ground speed is past 19 km/h.
+// The port used 45.
+TEST(ArmH, TheRateIsSixtySevenAndAHalfWhenTheGroundSpeedIsPastNineteen) {
+  SyntheticHost h;
+  ArmHSetUp(h);
+  h.facingDeg = 30.0f;
+  h.positions[1][0] = 0.1f;  // 194.4 * 0.1 = 19.44 km/h
+  pes::MoveReq req = ArmHRequest(60.0f);
+  pes::movestep::Accelerate(h, req);
+  // The rate is 67.5 / 54 = 1.25 a tick; the delta is 30, so the heading is 31.25.
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 31.25f, 1e-3f);
 }
 
 // The IDLE arm (E): a stop whose first dwell is still below its scaled limit (the turn is
