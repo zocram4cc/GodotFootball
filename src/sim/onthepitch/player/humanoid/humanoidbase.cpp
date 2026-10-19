@@ -458,6 +458,13 @@ bool HumanoidBase::OnPesLocomotion() const {
              static_cast<int>(pes::PesClipFamily::kLocomotion);
 }
 
+// A PES trap clip (PlayIssuedClip's Special clip of the trap family): its contact frame is a trap touch.
+bool HumanoidBase::OnPesTrap() const {
+  return currentAnim->anim && currentAnim->functionType == e_FunctionType_Special &&
+         std::atoi(currentAnim->anim->GetVariable("specialvar1").c_str()) ==
+             static_cast<int>(pes::PesClipFamily::kTrap);
+}
+
 bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror) {
   const int locomotion = static_cast<int>(pes::PesClipFamily::kLocomotion);
   const bool onLocomotion = OnPesLocomotion();

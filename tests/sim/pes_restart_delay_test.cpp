@@ -676,3 +676,28 @@ TEST(PesRestartDelay, DISABLED_LooseEpisodeMetric) {
     printf("[loose-top] seed=%u rank=%zu start=%lu ticks=%lu\n", SEED, i + 1, longEpisodes[i].second,
            longEpisodes[i].first);
 }
+
+// The trap picker names the clip a loose presser plays from the install's trap rows: over seed 7's match, every
+// trap-family clip the presser plays is named by one of the match's trap rows, and the presser plays some.
+TEST(PesRestartDelay, ALoosePresserInTheTrapWindowPlaysThatRowsClip) {
+  constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
+  std::set<int> rowClips;
+  unsigned long trapTicks = 0, strayTicks = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    if (rowClips.empty()) {
+      for (const auto& row : match.GetPesDefenderDecisionConstants().receive.trapRows) rowClips.insert(row.clip);
+    }
+    const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() &&
+                       match.GetBall()->GetMovement().GetLength() <= kRestSpeed_ms;
+    if (!loose) return;
+    Player* pr = nullptr;
+    for (int t = 0; t < 2 && !pr; ++t) pr = match.GetTeam(t)->GetController()->GetLoosePressMan();
+    if (!pr) return;
+    const auto& anim = pr->GetCurrentAnim()->anim;
+    if (anim->GetVariable("specialvar1") != std::to_string(int(pes::PesClipFamily::kTrap))) return;
+    ++trapTicks;
+    if (!rowClips.count(std::stoi(anim->GetVariable("specialvar2")))) ++strayTicks;
+  });
+  EXPECT_GT(trapTicks, 0ul) << "the loose presser never played a PES trap clip";
+  EXPECT_EQ(strayTicks, 0ul) << "a PES trap clip is not named by a trap row";
+}

@@ -28,6 +28,8 @@
 #include "../../match.hpp"
 #include "../../pesballphysics.hpp"
 #include "../../team.hpp"
+#include "onthepitch/pesclips.hpp"
+#include "onthepitch/pesreceive.hpp"
 #include "../humanoid/humanoid_utils.hpp"
 #include "../player.hpp"
 #include "onthepitch/gameplaytuning.hpp"
@@ -499,6 +501,31 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
   command.useDesiredLookAt = true;
   command.desiredLookAt = CastPlayer()->GetPosition() + CastPlayer()->GetMovement() * 0.3f +
                           command.desiredDirection * 10.0f;
+  if (match->PesLoop()) {
+    // PES picks the trap clip by window (FUN_14081ff70 over the action-7 rows): the ball, in the presser's clip space
+    // (metres), must lie in a row's window, or there is no trap. The command names the clip by family and motion
+    // number, as the dodge and tackle commands do, so the clip the window picked is the clip that plays.
+    const Vector3 dir = CastPlayer()->GetDirectionVec();
+    const float dirLength = std::hypot(dir.coords[0], dir.coords[1]);
+    const float fx = dirLength > 0.0f ? dir.coords[0] / dirLength : 1.0f;
+    const float fy = dirLength > 0.0f ? dir.coords[1] / dirLength : 0.0f;
+    const Vector3 ballPos = match->GetBall()->Predict(0);
+    const Vector3 at = ballPos - CastPlayer()->GetPosition();
+    const pes::ClipPoint ball{(-fy * at.coords[0] + fx * at.coords[1]) / pes::kPlayerClipScale,
+                              ballPos.coords[2] / pes::kPlayerClipScale,
+                              (fx * at.coords[0] + fy * at.coords[1]) / pes::kPlayerClipScale};
+    const auto hitCm = [this](int clip) {
+      const auto& hits = match->GetPesMbinfo().Hits(clip);
+      return hits.empty() ? pes::ClipPoint{} : pes::ClipPoint{hits[0].ballX, hits[0].ballY, hits[0].ballZ};
+    };
+    const std::optional<int> clip = pes::PickTrapClip(k, ball, hitCm);
+    if (!clip) return;
+    command.desiredFunctionType = e_FunctionType_Special;
+    command.useSpecialVar1 = true;
+    command.specialVar1 = static_cast<int>(pes::PesClipFamily::kTrap);
+    command.useSpecialVar2 = true;
+    command.specialVar2 = *clip;
+  }
   commandQueue.push_back(command);
 }
 

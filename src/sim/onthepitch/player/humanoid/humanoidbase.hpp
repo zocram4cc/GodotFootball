@@ -239,6 +239,8 @@ public:
   // it as it replaces a GF Movement clip. ponytail: stands in for PES's action id (+0xac8, pes-re-fox-registry.md)
   // in the requeue gates; remove when requeue reads that id.
   bool OnPesLocomotion() const;
+  // A PES trap clip: a Special clip of the trap family, whose contact frame is a trap touch.
+  bool OnPesTrap() const;
   bool IsMovementClip() const {
     return currentAnim->functionType == e_FunctionType_Movement || OnPesLocomotion();
   }

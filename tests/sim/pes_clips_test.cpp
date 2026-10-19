@@ -9,6 +9,7 @@
 
 #include "onthepitch/pesclips.hpp"
 #include "onthepitch/pesreceive.hpp"
+#include "pes/mbinfo.hpp"
 #include "rig/clip_pose.hpp"
 #include "rig/rig_names.hpp"
 #include "onthepitch/player/humanoid/animcollection.hpp"
@@ -169,8 +170,10 @@ TEST(PesClipsInstall, ASpecialQueryNamesExactlyOneTackleClip) {
   ASSERT_TRUE(rig.has_value()) << err;
   auto clips = pes::LoadPesClips(*exe, vfs, &err);
   ASSERT_TRUE(clips.has_value()) << err;
+  auto mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
+  ASSERT_TRUE(mbinfo.has_value()) << err;
   AnimCollection anims(*rig);
-  anims.AddPesClips(*clips);
+  anims.AddPesClips(*clips, *mbinfo);
   // A named tackle clip resolves to exactly itself and its mirror.
   const pes::PesClip* wanted = nullptr;
   for (const auto& clip : clips->clips)
@@ -242,4 +245,31 @@ TEST(PesClipsInstall, TheTrapFamilyHoldsTheClipsTheTrapRowsName) {
     });
     EXPECT_TRUE(loaded) << "trap row clip " << row.clip << " is not in the trap family";
   }
+}
+
+// A HitData frame counts gani frames at 30 Hz (1/30 s each); the engine's touch frame is 10 ms. So gani frame f is at
+// engine frame f * (1/30) / 0.01 = 10f/3, rounded. Hand values: 1 -> 3.33 -> 3; 2 -> 6.67 -> 7; 18 -> 60; 30 -> 100.
+TEST(PesTouch, AGaniHitFrameIsTheEngineFrameItLandsOn) {
+  EXPECT_EQ(pes::PesTouchAnimFrame(0), 0);
+  EXPECT_EQ(pes::PesTouchAnimFrame(1), 3);
+  EXPECT_EQ(pes::PesTouchAnimFrame(2), 7);
+  EXPECT_EQ(pes::PesTouchAnimFrame(18), 60);
+  EXPECT_EQ(pes::PesTouchAnimFrame(30), 100);
+}
+
+// Clip 1351 is the first trap row's clip (gkcatch_b00_0_0_y00). Its first HitData record is the install's contact frame.
+TEST(PesTouchInstall, TheTrapClipTouchesAtItsHitFrame) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
+  ASSERT_TRUE(mbinfo.has_value()) << err;
+  const auto& hits = mbinfo->Hits(1351);
+  ASSERT_FALSE(hits.empty());
+  EXPECT_EQ(hits[0].frame, 7);  // the install's first contact frame for clip 1351 (the first-touch note's 18 is another clip)
+  EXPECT_EQ(pes::PesTouchAnimFrame(hits[0].frame), 23);  // 7 gani frames = 0.233 s = 23.3 engine frames, rounded
 }
