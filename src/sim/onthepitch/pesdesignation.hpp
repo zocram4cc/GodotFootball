@@ -6,8 +6,15 @@
 // docs/re/pes-re-team-layer2.md §1-§3).
 
 #include <array>
+#include <cstdint>
+#include <optional>
+#include <string>
 
 #include "onthepitch/pesroles.hpp"
+
+namespace pes {
+class PeImage;
+}
 
 namespace pes::designation {
 
@@ -28,5 +35,28 @@ struct ClassBuckets {
 };
 
 ClassBuckets BucketByClass(int side, const std::array<int, kSideSlots>& classB);
+
+// FUN_140A40CA0's order table DAT_142643596 (raw 0x140A40F24: LEA R9,[R13+0x2643596], R13 =
+// 0x140000000), read from the install. Row c, starting at byte 10c, gives for a bucket of c members
+// the sort rank each emitted member takes; rows 1..10 are permutations of 0..c-1.
+inline constexpr uint64_t kOrderTableVa = 0x142643596;
+inline constexpr int kOrderRowStride = 10;  // raw 0x140A40F20-F2B: the row is 10 bytes, RAX = 5c
+inline constexpr int kOrderBytes = kOrderRowStride * kSideSlots + kSideSlots;  // rows 0..11
+using OrderTable = std::array<uint8_t, kOrderBytes>;
+
+std::optional<OrderTable> LoadOrderTable(const PeImage& exe, std::string* error);
+
+// FUN_140A40CA0's record: the count, then the slot ids in emission order (kNoSlot when the sort
+// put an empty buffer entry at the rank).
+struct DesignationRecord {
+  int count = 0;
+  std::array<int, kSideSlots> slot{};
+};
+
+// Buckets the side's slots by folded class, sorts each bucket's lateral keys (ascending, stable,
+// over a 22-entry buffer padded with {kNoSlot, 0.0}), and emits each bucket in DAT row order.
+// `lateral[i]` is the key of slot i: f2 of the slot-point row for i (FUN_140A40CA0 `S+0x3AA4+12*i`).
+DesignationRecord Publish(int side, const std::array<int, kSideSlots>& classB,
+                          const std::array<float, kSideSlots>& lateral, const OrderTable& order);
 
 }  // namespace pes::designation
