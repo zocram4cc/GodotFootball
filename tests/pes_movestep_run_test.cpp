@@ -25,6 +25,7 @@ extern bool stayAnswer;
 extern int outOfPlayCalls;
 extern bool outOfPlayAnswer;
 extern int turnStopCalls;
+extern int idleTurnCalls;
 extern int runTurnRunCalls;
 extern int runTurnStepCalls;
 extern bool runTurnStepAnswer;
@@ -1622,4 +1623,52 @@ TEST(RunLoopJostle, OneHundredFiftySevenPointFiveIsStyleSixteenWhateverTheClass)
 
 TEST(RunLoopJostle, UnderOneHundredTwelvePointFiveIsStyleSix) {
   EXPECT_EQ(JostledStyle(100.0f, 2u), 6u);
+}
+
+// STOP's else arm (FUN_1406c9e20, VA 0x1406ca51f): the dwell has run out, the stay decision is false, and the look bucket
+// is neither 0 nor 5 with the facing error past 33.75 degrees. The turn exit (FUN_1406d1390, IDLE_TURN) is taken. The
+// helper runs STOP with the dwell past both limits and returns how often the turn exit was taken.
+namespace {
+int StopIdleExitCalls(uint32_t lookBucket, uint32_t moveBucket, float facingError) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.percent = false;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 2u);
+  req.SetU(pes::moveword::kLookBucketAlt, lookBucket);
+  req.SetU(pes::moveword::kMoveBucket, moveBucket);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 40.0f);  // a turned body; the turn ramp is 0 below 67.5 degrees
+  req.SetF(pes::moveword::kFacingError, facingError);
+  req.SetF(pes::moveword::kDwellElapsed, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 0.05f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.1f);
+  req.SetF(pes::moveword::kDwellLimit2, 0.05f);
+  pes::probe::Reset();
+  pes::probe::stayAnswer = false;
+  pes::movestep::Stop(h, req);
+  return pes::probe::idleTurnCalls;
+}
+}  // namespace
+
+TEST(Stop, TakesTheIdleTurnExitWhenTheLookBucketIsOffStraightAheadAndTheErrorIsLarge) {
+  EXPECT_EQ(StopIdleExitCalls(2u, 2u, 40.0f), 1);
+  EXPECT_EQ(StopIdleExitCalls(0u, 0u, 40.0f), 0) << "bucket 0 takes the IDLE arm instead";
+}
+
+// The error is compared by magnitude (the ANDPS mask at 0x1406ca502): a -40 degree error is as large as +40.
+TEST(Stop, ComparesTheFacingErrorByMagnitudeForTheIdleTurnExit) {
+  EXPECT_EQ(StopIdleExitCalls(2u, 2u, -40.0f), 1);
+  EXPECT_EQ(StopIdleExitCalls(2u, 2u, 20.0f), 0) << "below 33.75 degrees the IDLE arm is taken";
+}
+
+// The bucket is req[0xd], the look bucket (VA 0x1406ca4ea), not the move bucket req[8]: the two are set opposite ways.
+TEST(Stop, ReadsTheLookBucketNotTheMoveBucketForTheIdleTurnExit) {
+  EXPECT_EQ(StopIdleExitCalls(2u, 0u, 40.0f), 1) << "look bucket 2, move bucket 0: the turn exit";
+  EXPECT_EQ(StopIdleExitCalls(0u, 2u, 40.0f), 0) << "look bucket 0, move bucket 2: the IDLE arm";
 }
