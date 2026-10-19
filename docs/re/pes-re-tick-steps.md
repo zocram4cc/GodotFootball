@@ -41,8 +41,8 @@ Output pasted verbatim below (no hand-typed rows). Scope: every `0x1425xxxx`/`0x
 | `0x14256AE1C` | `1.0` (`0x3F800000`) | unit / XMM7 one |
 | `0x14256AE38` | `-1000.0` (`0xC47A0000`) | `FUN_1404F7BA0` best-score floor (`0x1404F7EB9`) |
 | `0x142591140` | `30.0` (`0x41F00000`) | `FUN_1404F7BA0` base-score reset (`0x1404F7F64`); `FUN_1404FEDC0` dead-ball bonus |
-| `0x1425C48E0` | `525.0` (`0x44034000`) | `FUN_1404FF8B0` far ratio gate (`0x1404FFC5B`) |
-| `0x1425C48D4` | `115.0` (`0x42E60000`) | `FUN_1404FF8B0` mid ratio gate (`0x1404FFC34`) |
+| `0x1425C48E0` | `525.0` (`0x44034000`) | `FUN_1404FF8B0` far ratio gate (`0x1404FFE00 DIVSS XMM6,[0x1425C48E0]`; _Main 19-10-26: site corrected from `0x1404FFC5B`, which reads a record field_) |
+| `0x1425C48D4` | `115.0` (`0x42E60000`) | `FUN_1404FF8B0` mid ratio gate (`0x1404FFF67 MOVSS XMM8,[0x1425C48D4]`; _Main 19-10-26: site corrected from `0x1404FFC34`, mid-instruction_) |
 | `0x1425C4904` | `-85.0` (`0xC2AA0000`) | `FUN_1404FF8B0` near-angle floor (`0x1404FFCD4`) |
 | `0x14259BE7C` | `-5.0` (`0xC0A00000`) | `FUN_1404FEDC0` sub-threshold edge |
 | `0x1425C48F8` | `-25.0` (`0xC1C80000`) | `FUN_1404FEDC0` sub-threshold span |
