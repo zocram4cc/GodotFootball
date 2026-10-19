@@ -1996,6 +1996,14 @@ TEST_F(SafetyUnitTest, AFreeGateLaneMeansNoAnswer) {
   EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
 }
 
+TEST_F(SafetyUnitTest, AnOpponentOffTheGateLaneLeavesTheLaneFree) {
+  // The gate lane's cone decides the block, not the nearest opponent's distance alone: the same
+  // nearest opponent 9.4 m out, 45 degrees off the lane's heading (past the 40-degree half cone),
+  // leaves the lane free.
+  in_.players[14].pos = {8.0f, 5.0f};
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
+}
+
 TEST_F(SafetyUnitTest, TheScoredLimitRejectsATurnedMate) {
   // 0x142126B70's scoring: vsFacing 130 over lim max(117, 45) = 117 rejects.
   in_.mates[0].recAVsFacing_deg = 130.0f;

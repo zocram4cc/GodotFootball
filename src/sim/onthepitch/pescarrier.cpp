@@ -1880,10 +1880,12 @@ PassAnswer SafetyUnit(const SafetyInput& in, const CarrierConstants& k) {
         k.sfFacingTurn_deg < std::fabs(WrapDeg(in.carrierFacing_deg - in.planHeading_deg)))
       ++kk;
     const int nearest = NearestSideSlot(in.players, OpponentSide(in.carrierSlot), in.carrierPos);
-    // ponytail: the decoded length is a rank-indexed NearestEntry d2 (0x14212B71D-76F; the rank byte's
-    // meaning is undecoded). The nearest opponent's distance plus the radius stands in: the core's strict
-    // annulus, measured from the apex one radius behind the origin, never records an opponent at exactly
-    // the nearest distance, so the gate could not block on him. Removing site: the NearestEntry rank read.
+    // ponytail: PES's gate length is sqrt of the carrier's own d2 in the opposite-sign score row
+    // (0x14212B71D-0x14212B76F: entry rank[c] + 11 * (c >= 11) of 0x140A714A0(T18, k), the row for the
+    // sign !k). Its writer is OPEN (S1), so the length stays a stand-in: the nearest opponent's distance
+    // plus the radius. At exactly that distance the strict outer bound (apex to rim) would exclude him;
+    // the radius keeps him on the lane. Removing site: the score row's writer (S1, shared with the
+    // one-touch and DirectHighBall score).
     float len = 0.0f;
     if (nearest != lane::kNoSlot)
       len = std::sqrt(Dist2({in.players[nearest].pos.x, in.players[nearest].pos.z}, in.carrierPos)) +
