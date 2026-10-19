@@ -156,6 +156,24 @@ TEST(DefensiveLine, CushionHoldsTheLineBehindTheBall) {
   EXPECT_LE(pes::DefensiveLineHeight(k, f, BallAt(ball), 4, 0, 2, true, true, 0.0f),
             pes::DefensiveLineHeight(k, f, away, 4, 0, 2, true, true, -40.0f) + 1e-4f);
 }
+// FUN_1405F9EB0 at 0x1405FA423: with B8A3 set (attack level 0) the line
+// builder skips FUN_1405EF910's step-up and the line stays deep.
+TEST(DefensiveLine, FullDefenceFlagSkipsTheStepUp) {
+  const pes::DefensiveShapeConstants k = Synthetic();
+  const pes::ShapeField f = pes::ShapeFieldFromPitch();
+  // Deep ball travelling away: the step-up fires and the line sits 4 m
+  // behind the ball.
+  pes::LineFacts away = BallAt(-40.0f);
+  away.ballHeadingFromGoal_deg = 170.0f;
+  away.ballSpeed_mps = 100.0f;
+  EXPECT_NEAR(
+      pes::DefensiveLineHeight(k, f, away, 4, 0, 2, true, true, -40.0f, false),
+      -40.0f - 4.0f, 1e-3f);
+  // Same ball with B8A3: no step-up, the line stays at the cushion depth
+  // (10 m behind the ball, clamped to the goal-area line).
+  EXPECT_NEAR(pes::DefensiveLineHeight(k, f, away, 4, 0, 0, true, true, -40.0f, true),
+              -45.0f, 1e-3f);
+}
 
 TEST(DefensiveLine, CushionFactorDecaysAsTheCarrierTurnsAway) {
   const pes::DefensiveShapeConstants k = Synthetic();
