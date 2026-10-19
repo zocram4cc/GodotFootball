@@ -692,7 +692,7 @@ float ReceiverDifficulty(float ballSpeed_mps, float dist_m, float incomingAngle_
   // The per-player Low Pass multiplier, 0.7 + 0.3 * g(LowPass).
   float g = 0.0f;
   if (lowPass <= k.lowPassFloor) g = 1.0f;
-  else if (lowPass < k.lowPassTop) g = (k.lowPassTop - lowPass) / k.lowPassSpan;
+  else if (lowPass < k.lowPassTop) g = (lowPass - k.lowPassTop) / k.lowPassSpan;  // PES 0x1421174F0: (LP - 99) / -19
   diff *= k.lowPassBase + k.lowPassGain * g;
   return diff;
 }
