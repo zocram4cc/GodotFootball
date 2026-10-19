@@ -2049,9 +2049,74 @@ PassAnswer OneTwoUnit(const OneTwoInput& in, const CarrierConstants& k) {
 
 
 PassAnswer DirectHighBallUnit(const DirectHighBallInput& in, const CarrierConstants& k) {
-  (void)in;
-  (void)k;
-  return PassAnswer{};
+  PassAnswer answer;
+  const int c = in.touch.carrierSlot;
+  const std::array<lane::LanePlayer, lane::kSlots>& players = in.touch.players;
+  const int side = lane::IsAwaySlot(c) ? 1 : 0;  // IsAway(c): the carrier's side, the teammate scan
+  if (in.firstTimeWhileReceiving) return answer;  // AI rec+1 state bit 5 (0x140A6E5E0)
+  if (!in.volatileBall) return answer;            // K+0x6E == 0 (0x142129CC8)
+  // The low-ball block: a ball at or under the carrier's head height (+0.1 m) needs an opponent within
+  // 5 m of it, and the carrier outside the mid zone.
+  if (in.ballHeight_m <= in.carrierHeight_m + k.dhbHeightPad_m) {
+    const int opp = NearestSideSlot(players, 1 - side, in.ball);
+    if (opp == lane::kNoSlot) return answer;
+    // ponytail: the history position (0x140A76240, S17) stands in with the current one, so the
+    // decode's two d2 tests collapse into the one on the current position.
+    const lane::LanePlayer& op = players[opp];
+    if (k.dhbNearOpp_m2 < Dist2({op.pos.x, op.pos.z}, in.ball)) return answer;
+    if (in.mid) return answer;
+  }
+  // The mates, nearest first: the candidates the score, branch A, and the 9- and 27-frame tests pick.
+  const int frames9 = static_cast<int>(kPesTickHz) / 6;
+  const int frames27 = PesFrames(k.dhbFarGain);
+  const DirectHighBallMate* best = nullptr;
+  float bestD2 = 0.0f;
+  for (const DirectHighBallMate& m : in.mates) {
+    const TouchReceiver& r = m.receiver;
+    if (r.index < 0 || r.index > 21 || r.index == c) continue;
+    if (m.keeper || !r.statusValid || m.recAClass < 1) continue;
+    if (m.score < k.dhbScoreFloor) continue;
+    if (m.score < k.dhbScoreCeil) {
+      // Branch A: a mate whose nearest opponent is under 10 m away is skipped (exactly 10 m is kept).
+      const int nearOpp = NearestSideSlot(players, 1 - side, r.pos);
+      if (nearOpp != lane::kNoSlot) {
+        const lane::LanePlayer& op = players[nearOpp];
+        if (Dist2(r.pos, {op.pos.x, op.pos.z}) < k.dhbMateNear_m2) continue;
+      }
+    }
+    if (Dist2(in.ball, PredictPoint(r.pos, m.velPerFrame, frames9)) < k.dhbPredNear_m2) continue;
+    const float d = Dist2(in.ball, PredictPoint(r.pos, m.velPerFrame, frames27));
+    if (best == nullptr || d < bestD2) {
+      best = &m;
+      bestD2 = d;
+    }
+  }
+  if (best == nullptr) return answer;
+  answer.index = best->receiver.index;
+  answer.kind = kPassShort;  // b = 0 unless the lane below is free
+  // X = wrap180(heading - attack): past 80 degrees the ball stays short and f10 is not written.
+  if (std::fabs(WrapDeg(best->heading_deg - in.touch.attackAngle_deg)) > k.dhbFacing_deg)
+    return answer;
+  // Free when the mark count is 4, or it is off 0 and 2 with him over 15 km/h. The count is read
+  // only below 5, else 0 (0x140A58320).
+  const int mc = best->markCount < 5 ? best->markCount : 0;
+  bool isFree = mc == 4 || (mc != 0 && mc != 2 && best->speed_kmh > k.dhbSpeedGate_kmh);
+  if (!isFree) {
+    // The teammate lane from the mate's position advanced 4 m along theta = table + 180: 15 m, cone 60,
+    // radius 5, horizon fps >> 2 = 13, keeper excluded.
+    // ponytail: the angle table 0x140A71260 (S10, writer OPEN) stands in with his facing.
+    const float theta = Wrap360(best->tableAngle_deg + 180.0f);
+    const CarrierPoint origin = AdvancePoint(best->receiver.pos, theta, k.dhbAdvance_m);
+    const lane::LaneRequest lane{ToLaneVec(origin), theta, k.dhbLaneLen_m, k.dhbLaneCone_deg,
+                                 k.dhbLaneRad_m};
+    isFree = lane::ScanLane(k.lane, players, c, side, lane, /*keepKeeper*/ false,
+                            /*horizonFrames*/ static_cast<int>(kPesTickHz) >> 2)
+                 .count == 0;
+  }
+  // f10: the one-touch predicate and the mate's receiver predicate.
+  answer.oneTouch = OneTouch(in.touch, k) && TouchReceiverOk(in.touch, best->receiver, k);
+  answer.kind = isFree ? kPassThrough : kPassShort;
+  return answer;
 }
 
 bool UnitArmed(int kind, bool capFeint, bool capBackSpace, bool capSafety, float ballDistSq_m2,
