@@ -1,6 +1,6 @@
 # Speed inputs for clip selection (S1Watch, round 9)
 
-> **Main audit 19-10-26:** clamp bytes `0x142613CAE`=40, `0x142613CAF`=99; vtable `0x1425E3508`+0x60 = `0x1406E7EB0` (clip duration, not a band speed): match. PARTIAL: the base-row writer and the band-speed source (11-knot table at `0x1425DE010`, INF) are open. Supersedes the earlier "vt+0x60 = FUN_1406B9B20" reading in the anim-select docs.
+> **Main audit 19-10-26:** clamp bytes `0x142613CAE`=40, `0x142613CAF`=99 (this is PES's general player-ability range 40..99, shared by every ability id via the `0x142613C60 + 2*id` table; expect it at every stat site, it is not Speed-specific); vtable `0x1425E3508`+0x60 = `0x1406E7EB0` (clip duration, not a band speed): match. PARTIAL: the base-row writer and the band-speed source (11-knot table at `0x1425DE010`, INF) are open. Supersedes the earlier "vt+0x60 = FUN_1406B9B20" reading in the anim-select docs.
 
 Tags: **CONFIRMED** = decompile or live read with VA; **INF** = inference; **OPEN** = unresolved. Constants script-read from `pes_full.bin` (offset = VA − 0x140000000). Operand VAs are Ghidra labels.
 
