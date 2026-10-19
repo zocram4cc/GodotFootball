@@ -1,71 +1,74 @@
-# Ball-track arm and player flags: B+0x4C, player +0x661, P+0x2FC ring (S1Watch, rounds 11–12)
+# Ball-track arm, player +0x661 flag, P+0x2FC ring (S1Watch, rounds 11–13)
 
 > **Main correction 19-10-26:** the K+0x6E ball-track arm is an AND, not the OR written in §7: raw asm `0x14063AAFA` `cmp [r12+0x4c],r13b; je skip`, `0x14063AB01` `test r14b,r14b; jne skip`, `0x14063AB06` set. So the flag is set iff B+0x4C != 0 AND r14 == 0 (r14 = the distance test via `cmova` at `0x14063AAF6`, combined with B+0x80).
 > **Main audit 19-10-26:** `0x14063A520` `mov rax,[rcx+0x40]` (B = *(G+0x40)), `0x140876014` `movb [rcx+0x4c],1`, `0x140876019` `movb [rcx+0x4c],0`, `0x140433DF5` `movups xmm1,[rdx-0x30]` (the per-frame B<-N block copy): all match. B+0x4C = validity of the ball's first predicted point (pred[0].y >= 0).
 > **Main audit 19-10-26 (round 12):** `0x1406BC829` `cmp [rax+0x661],r15b` (reader) and `0x1408C4CDD` `movb [rdi+0x729],0` (the clear) match. Several cited VAs (`0x140432AA5`, `0x140432AAD`, `0x140414A6C`, `0x1408C4CE4`) are hardware-watch trap IPs, i.e. the instruction AFTER the store. The P+0x2FC ring did not change in 90 s for any player (cadence unobserved).
+> **Main 19-10-26 (round 13):** P+0x2FC ring static between events in every window measured (120 s, 21 kicks, stoppages); the writer is not found. +0x661 is set via the bVar2 copy path in FUN_1408C48C0, with the conditions open. Both PARKED.
 
-Status: **B+0x4C CONFIRMED (round 11). Player +0x661 writer chain CONFIRMED to the AI record; its byte-level source (struct local_b8 +0x51) OPEN. P+0x2FC ring: copy chain CONFIRMED to AI record +0x1384; no value change observed in 90 s; cadence not observed; writer of +0x1384 OPEN.**
+Tags: **CONFIRMED** = decompile, image byte, or live read/watch with VA. **INF** = inference. **OPEN** = not resolved. Watch method: `perf record -I -e mem:<4-aligned addr>:w -t <tid>` on each JobGraph worker and the main thread. "Trap IP" = the address reported by perf, which is the instruction after the one that wrote. Source and destination come from the trap registers.
 
-Tags: **CONFIRMED** = decompile, image byte, or live read/watch with VA; **INF** = inference; **OPEN** = not resolved.
+## 1. B+0x4C (round 11, CONFIRMED)
 
-Watch method (all rounds): `perf record -I -e mem:<aligned addr>:w -t <tid>` on each JobGraph worker and the main thread (only the workers write). Watch addresses must be 4-byte aligned (an odd byte address fails with "Invalid event in per-thread mode"). Registers at each trap (`perf script -F ip,iregs`) give the source and destination of a copy.
+- `B = *(G+0x40)` (`FUN_14063A490` loads `[rcx+0x40]` at `0x14063A520`). Arm B at `0x14063AB06` sets `K+0x6E` when `K+0x6C == 0 && B+0x4C != 0 && (B+0x80 == 0 || !(d2 > d1))`.
+- `B+0x4C == (B.pred[0].y >= 0)`, `pred[0] = B+0x1C`. Writer `FUN_140875FD0(obj, idx, vec)`: `obj+0x4C = (vec.y >= 0)` when `idx == 0` (stores at `0x140876014`/`0x140876019`). 1,211/1,211 live frames.
+- `B+0x4C` is a mirror of `N+0x4C` (`N = B+0x296C`), restored each frame by `FUN_140433CF0` (trap `0x140433DF5`, dst `B`, src `N`).
 
-## 1. B+0x4C (round 11, unchanged)
+## 2. Player +0x661 (ACCELERATE tail flag), CONFIRMED except where noted
 
-- `B = *(G+0x40)` (`FUN_14063A490` loads `[rcx+0x40]`, `0x14063A520`). Arm B at `0x14063AB06` sets `K+0x6E` when `K+0x6C == 0`, `B+0x4C != 0`, and `B+0x80 == 0` (or `d2 > d1` fails).
-- `B+0x4C == (B.pred[0].y >= 0)`, `pred[0] = B+0x1C`. Writer `FUN_140875FD0(obj, idx, vec)`: `obj+0x4C = (vec.y >= 0)` when `idx == 0` (stores `0x140876014`/`0x140876019`). Live 1,211/1,211 frames.
-- `B+0x4C` is a mirror of `N+0x4C` (`N = B+0x296C`), restored every frame by `FUN_140433CF0` (trap `0x140433DF5`, dst `B`, src `N`).
+**Reader.** `FUN_1406BB570` lines 653–658: `lVar20 = FUN_140A48A10(G, id)` (player object `p = *(G+0x1DD8+0x28·id)`), then `if (*(char*)(p+0x661) != 0)` (`cmp byte [rax+0x661], r15b` at `0x1406BC829`). Round-13 correction (ClipWords): the anime `vt+0x08` slot selects the record; the `+0x661` read sets only bVar23 (653–658). The bit stays a named input until the sub-functions below are decoded.
 
-## 2. Player +0x661 (ACCELERATE tail flag), round 12
+**Mirror.** `p+0xD1D == p+0x661` in 2,711 / 2,711 frames, transitions on the same frame.
 
-**Reader.** `FUN_1406BB570` lines 653–658: `lVar20 = FUN_140A48A10(G, id)` (= `*(G+0x1DD8+0x28·id)`, the player object `p`), then `if (*(char *)(p+0x661) != 0)` (`0x1406BC829 cmp byte [rax+0x661], r15b`). CONFIRMED.
+**Per-frame copies into the player (CONFIRMED, registers at trap):**
+- `FUN_1404313C0(dst, src)` (0x52-byte struct copy; byte moves at trap IPs `0x14043147E`/`0x140431486` write `dst+0x50`, `dst+0x51`). Per frame: `dst = p+0xCCC`, `src = A+0x6D8` (the AI record A).
+- Block loop trap `0x140432AA5`/`0x140432AAD` (`FUN_140432D30` region, 128-byte stride): copies `p+0xD1C → p+0x660`, delta `+0x6BC`. So `p+0x661 = p+0xD1D` one frame later.
 
-**Live behaviour (player 7, 30 s + 60 s).** `p+0x661` is 0 most of the time. 1-runs of 9–60 frames, a few per minute, in 9 of 22 players. Transitions counted: player 7 has 2 in 60 s (lengths 1 frame to 60).
+**AI record A.** `A` is `param_1` of `FUN_1408C48C0`. For player 7, `A = 0x32C1FB80`. `A+0x18` = player index. `A+0x6D8` = the 0x52-byte state record, so the flag byte is `A+0x6D8+0x51 = A+0x729` (CONFIRMED live: the source byte equals `p+0x661` in 730 samples).
 
-**Mirror.** `p+0xD1D == p+0x661` in 2,711 / 2,711 frames, transitions on the same frame (CONFIRMED live). So `p+0xD1D` is the mirror of the flag.
+**Writer of `A+0x729` (`FUN_1408C48C0`, 173 lines, CONFIRMED structure):**
+- Top gate: `lVar8 = FUN_141B985E0(); if (lVar8[0xB9A0] == 0) goto LAB_1408C4CDD` (clear).
+- `bVar2 = cVar4 || cVar5 || cVar6`: `cVar4 = FUN_1408C2760(A, &local_d0, A+0x624)`, `cVar5 = FUN_1408C31C0(A, &local_d0, &local_b8, local_d8)` (only if `cVar4 == 0`), `cVar6 = FUN_1408C3D10(A, &local_b8)`.
+- `local_68 = CONCAT11(1, local_68)` is executed unconditionally after the bVar2 test (before the branch below). `local_68` is the 2-byte stack variable whose high byte sits at `local_b8 + 0x51` (INF from Ghidra's rbp-relative naming, which puts the 0x52-byte struct `local_b8..+0x51` ending exactly on `local_68`'s high byte). Data support: the byte `A+0x729` is 1 only right after a copy-in event (18 events in 150 s, flag 1 in 730 samples).
+- `if (bVar2)`: `FUN_1404313C0(A+0x72C, A+0x6D8)` (save previous), `FUN_1404313C0(A+0x6D8, &local_b8)` (write current; the **rising-edge** trap), `A+0x77D = 0`, return.
+- Else (`LAB_1408C4CDD`): `A+0x729 = 0` (trap `0x1408C4CDD` + 7 bytes = `0x1408C4CE4`) and `A+0x948 = 0`. This clear trapped about 8,060 times in 150 s (roughly every frame while the flag is 0).
 
-**Per-frame copies into the player block (CONFIRMED by watch and registers):**
-- `FUN_1404313C0(dst, src)`, a 0x52-byte struct copy. The byte moves at `0x14043147A` (`mov [r8+0x50],al`) and `0x140431482` (`mov [r8+0x51],al`) write `dst+0x50` and `dst+0x51`. Registers at the trap: `R8 = p+0xCCC` (dst) and `RDX = A+0x6D8` (src), `A` = the AI record. So `p+0xD1C/D1D` is `p+0xCCC+0x50/0x51`.
-- `0x140432AA5` (in `FUN_140432D30`'s block loop, 128-byte stride): copies `p+0xD1C..` to `p+0x660..`, delta `+0x6BC`. The watched dword `p+0x660` was written about 8,500 times in 150 s by this single IP on the workers.
+**The three sub-functions (what writes into `local_b8`, CONFIRMED by grep of the decompile):**
+- `FUN_1408C2760(A, &local_d0, A+0x624)`: does not receive `&local_b8`, so it cannot write the struct. Its return is `cVar4`. Body not decoded further here.
+- `FUN_1408C31C0(A, &local_d0, &local_b8, local_d8)` (398 lines): writes `local_b8+0x18+slot = 1` (line 293, `slot = FUN_14081D8B0` list entry, ≤ 21) and `local_b8+0x1F = 1` (line 359, player 7's own flag), and dword fields `[0..0xE]`, `[0x12]`, `[0x13]`. It writes `local_d8[0] = 1` (`param_4`, line 275) which feeds only the `cVar3` test. It does **not** write `+0x51`.
+- `FUN_1408C3D10(A, &local_b8)` (111 lines): reads `local_b8+0x1F`; for each entry calls `FUN_1408C3FA0(A, …, entry, &local_b8)` and returns `uVar13 = 1` if any call returns true. It writes nothing to `local_b8` itself.
+- `FUN_1408C3FA0` (139 lines, `param_6 = &local_b8`): writes `+0x10 = 1` (line 94), `+0x18+slot = 1` (line 95), and dwords `[0]`, `[1..3]`, `[5]`, `[0xB]`, `[0x12]`, `[0x13]`. It does not write `+0x51` by constant offset.
 
-**AI record A.** `A = FUN_1408C48C0(param_1)`'s `param_1`. For player 7, `A = 0x32C1FB80`. `A+0x18` = player index; `A+0x6D8` = the 0x52-byte state record (so `A+0x6D9`... `A+0x6D8+0x51 = 0x32C202A9` is the source of the flag, CONFIRMED live: source byte equals `p+0x661` in 730 samples).
+**Conclusion for item 2:** no sub-function writes `local_b8+0x51` by a constant offset. The byte is set by `CONCAT11(1, …)` in `FUN_1408C48C0`. So `A+0x729 = 1` exactly when the bVar2 copy path ran in that frame; `bVar2` is the OR of the three return values, and their conditions are as above (the return-value conditions inside `FUN_1408C2760` and `FUN_1408C3FA0` are not fully decoded: OPEN).
 
-**Writer of `A+0x6D8+0x51` (CONFIRMED structure, `FUN_1408C48C0`, 173 lines):**
-- Top gate: `lVar8 = FUN_141B985E0()`; `if (*(lVar8+0xB9A0) == 0) goto LAB_1408C4CDD`.
-- `bVar2 = cVar4 | cVar5 | cVar6`, where `cVar4 = FUN_1408C2760(A, &local, A+0x624)`, `cVar5 = FUN_1408C31C0(A, &local, &local_b8, local_d8)` (only when `cVar4 == 0`), `cVar6 = FUN_1408C3D10(A, &local_b8)`.
-- `if (bVar2)`: `FUN_1404313C0(A+0x72C, A+0x6D8)` (save previous), `FUN_1404313C0(A+0x6D8, &local_b8)` (write current; this is the copy at `0x1408C4CCF` and the **rising-edge** trap, 18 events per 150 s), `A+0x77D = 0`, return.
-- Else `LAB_1408C4CDD`: `A+0x729 = 0` (`0x1408C4CDD`, = `A+0x6D8+0x51`) and `A+0x948 = 0` (`0x1408C4CE4`). This clear trapped about 8,060 times in 150 s.
-- The `1` value therefore comes from byte `+0x51` of the stack struct `local_b8`, written by the bVar2 sub-functions (their byte writes are not decoded here: OPEN).
+**Caller gate (CONFIRMED, `FUN_1409F1640` line 25):** `if (*(char*)(A+0x7C8) != 0 && *(longlong*)(A+0x7D8) != 0)` then `FUN_1408C48C0(A)`. Second caller at `0x140A367E4` (not decoded). Writers of `A+0x7C8` (byte) and `A+0x7D8` (pointer): OPEN. The raw scan returns about 580 stores at `+0x7C8` and 82 at `+0x7D8`, mostly unrelated displacements, so they need a narrower filter.
 
-**Caller gate.** `FUN_1409F1640` (191 lines) calls `FUN_1408C48C0(param_1)` only when `*(char*)(A+0x7C8) != 0 && *(longlong*)(A+0x7D8) != 0` (`0x1409F1696` is the call). The other caller is at `0x140A367E4` (not decoded).
+## 3. P+0x2FC ring (round 13, corrected)
 
-**Rule (verified for the copy chain, live):** `p+0x661 = A+0x6D8+0x51` one frame later (through the two copies), with `A+0x6D8+0x51 = 1` only when the bVar2 path wrote a stack struct whose byte `+0x51` is 1. Runs of 9–67 frames happen because the function is not called in the run (the clear does not trap during a run), so the value persists.
+**Reader.** `FUN_141EB50B0(P, out, idx)`: `k = min(idx/10, 5)`; `out.xy = *(P+0x2FC+12k)`, `out.z = *(P+0x304+12k)`. Six 12-byte slots at `P+0x2FC..0x343`.
 
-## 3. P+0x2FC position ring, round 12
+**Copy chain (CORRECTED).** Earlier I said the source was `A+0x1384`. The trap registers show the source of the slot-0 dword is `dst + 0x15755778`, i.e. `0x32C20F44` for dst `p+0x9B8` (dst `p+0x978+0x40`, copy trap `0x140414A6C`). Also `p+0x9B8 → p+0x2FC` is the `0x140432AAD` loop. **`A+0x1384` is not the ring source.** The copy chain is `0x32C20F44 → p+0x9B8 → p+0x2FC` each frame (CONFIRMED by trap registers; the source address is an inference from the delta).
 
-**Reader.** `FUN_141EB50B0(P, out, idx)`: `k = min(idx/10, 5)`; `out.xy = *(P+0x2FC+12k)`, `out.z = *(P+0x304+12k)`: six 12-byte slots, `P+0x2FC..0x343`. CONFIRMED (round 7 decompile).
+**Writers.** Watch of `0x32C20F04` (the region I had called `A+0x1384`), 240 s on all workers and main: **0 writes**. Watch of the ring's source `0x32C20F44` was not run. The `0x32C20F04..0x32C20F4B` region changes in play (966 of 6,137 frames sampled in 120 s), but the changing dwords are not the one watched.
 
-**Copy chain (CONFIRMED by watch and registers):**
-- `A+0x1384` (`A = 0x32C1FB80`, so the source is `0x32C20F04`) → `p+0x978` each frame: `0x140414A6C` (`mov dword [r8+0x..],eax`, struct copy, `R8 = p+0x978`, `R9+R8 = 0x32C20F04`). 2,742 hits in 60 s (about 1 per frame).
-- `p+0x978+0x44 → p+0x9BC`, and `p+0x9B8 → p+0x2FC` via the same `0x140432AAD` loop as the flag (delta `+0x6BC`). `p+0x2FC` was written about 3,420 times in 60 s (1 per frame).
+**Values and triggers (CONFIRMED, player 7, `ev1.json`, 6,137 frames over 120 s, 21 kick-like ball jumps ≥10 m/s, 5 match-state transitions, states 1/2/3 all present):**
+- The player-7 ring `p+0x2FC` (slots 0–5) never changed value, in any state, including the kicks and the stoppages. The earlier 90 s all-player sample also had zero changes for all 22 players.
+- Contents in play: slot 0 `(0,0,0)`, slot 1 `(0,0,−1)`, slot 2 `(1.02,0,0)`, slot 3 `(0,0,0)`, slot 4 `(0,0,−1)`, slot 5 `(0.15,0,0)`. These are fixed values (sentinel `z = −1` in slots 1 and 4). **Kickoff contents were not sampled.**
+- Cadence: no change observed at any trigger in these windows (kick, restart, stoppage). The ring is **static between events** as far as these windows show. The event that does update it, if any, was not observed.
 
-**Value samples (CONFIRMED, 4,288 play frames, 22 players, `ringall2.json`):** every ring slot of every player was constant over 90 s: **0 value changes.** The slots hold fixed values (e.g. slot 2 = (1.02, 0, 0), slot 5 = (0.15, 0, 0)).
+**OPEN.** The writer of the ring's real source (`0x32C20F44`-region, not yet watched), and whether a clip start (a motion change, not a kick) writes it.
 
-**Cadence:** not observed. "10 ticks per slot" is **not** supported by this sample. The ring may change only in actions not present in these 90 s (no kick-triggered change was seen either, although kicks occurred in other windows). INF: the ring is written at clip/motion start from a plan in `A+0x1384`.
+## 4. K+0x40 point (round 11, CONFIRMED)
 
-**OPEN:** the writer of `A+0x1384` (not found; the same per-frame copy shape as B and the flag, so the source is itself a mirror). Next: watch `A+0x1384` (`0x32C20F04`, aligned `0x32C20F04`) across a kick, or an action that changes the ring.
-
-## 4. K+0x40 point (round 11, unchanged)
-
-`P = K+0x40` (default `MA+0x2482C`); branches: `MI+0x155C` if `K.mode == 1`; `player+0x560/+0x564` if `B+0x2920 == 4`; a per-player branch through `FUN_140A6E300`; `B+0x1414`/`+0x1420` by `FUN_140A58320`; else `FUN_140A57800(B)`.
+`P = K+0x40` (default `MA+0x2482C`); branches: `MI+0x155C` if `K.mode == 1`; `player+0x560/+0x564` if `B+0x2920 == 4`; a per-player branch through `FUN_140A6E300` (not decoded); `B+0x1414`/`+0x1420` by `FUN_140A58320`; else `FUN_140A57800(B)`.
 
 ## 5. Rules sent
 
-- ClipWords: RULE 1 (flag chain) and RULE 2 (ring chain, with the open cadence) — `agent://ClipWords`.
 - S1Port: B+0x4C rule (round 11).
+- ClipWords: RULE 1 (flag chain, with the A+0x729 correction) and RULE 2 (ring; corrected in round 13 — the source is not `A+0x1384`, and the ring did not change across kicks or stoppages in the measured windows).
 
 ## 6. Open
 
-1. Byte writer of `local_b8+0x51` (the bVar2 sub-functions `FUN_1408C2760`, `FUN_1408C31C0`, `FUN_1408C3D10`).
-2. Gate `A+0x7C8` / `A+0x7D8` writers, and the second caller `0x140A367E4`.
-3. Writer of the ring source `A+0x1384` and a ring-changing event (cadence).
+1. The writer of the ring's real source (`0x32C20F44` region) and any clip-start trigger.
+2. The return-value conditions of `FUN_1408C2760` and `FUN_1408C3FA0` (bVar2).
+3. Writers of `A+0x7C8` and `A+0x7D8`, and the second caller `0x140A367E4`.
+4. Kickoff ring contents (no kickoff in the measured windows).
