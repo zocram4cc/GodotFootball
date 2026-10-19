@@ -3,7 +3,7 @@
 // PES 2021's designation publisher for one side (team tick step 27b: FUN_14051E350 calls
 // FUN_140A40CA0 for the side's slots). It buckets the eleven slots by role class and orders each
 // bucket laterally into the record the set-piece readers walk (docs/re/pes-re-team-layer.md §2 V4,
-// docs/re/pes-re-team-layer2.md §1-§3).
+// docs/re/pes-re-team-layer2.md §1-§3). The 2-CF designator FUN_140501160 is ported alongside it.
 
 #include <array>
 #include <cstdint>
@@ -21,7 +21,7 @@ namespace pes::designation {
 inline constexpr int kSideSlots = roles::kSideSlots;  // slots per side (FUN_140A40CA0 `i < 11`)
 inline constexpr int kClassCount = 10;                // role classes 0..9, which are also bucket indices
 inline constexpr int kNoSlot = 0xFF;                  // the empty id in FUN_140A40CA0's sort buffer
-inline constexpr int kBufferSlots = 2 * kSideSlots;  // both sides' ids: FUN_140A40CA0's sort buffer
+inline constexpr int kBufferSlots = 2 * kSideSlots;   // both sides' ids: FUN_140A40CA0's sort buffer
 
 // The bucket a role class joins under flag 1, which the tick publisher always passes: {1,2}->1,
 // {3,4}->3, {5,6}->6, {7,8,9}->9, and every other class (0, and anything past 9) -> 0. Raw jump
@@ -59,5 +59,21 @@ struct DesignationRecord {
 // `lateral[i]` is the key of slot i: f2 of the slot-point row for i (FUN_140A40CA0 `S+0x3AA4+12*i`).
 DesignationRecord Publish(int side, const std::array<int, kSideSlots>& classB,
                           const std::array<float, kSideSlots>& lateral, const OrderTable& order);
+
+// The 2-CF designator (FUN_140501160). Its gate is T+0x87CD == kTwoCfGate (raw 0x14050117B), and
+// it pairs the two striker classes SS7 and CF9 (raw 0x1405011D7-E6: class-7 in {0,2}).
+inline constexpr int kTwoCfGate = 2;
+inline constexpr int kClassSS = 7;
+inline constexpr int kClassCF = 9;
+
+// The pair FUN_140501160 writes to T+0xB82C/B830: the first two on-pitch SS or CF slots in slot
+// order, or kNoSlot twice when the gate is not kTwoCfGate or fewer than two such slots are on the
+// pitch. The armed byte T+0xB828 is 1 on both arms and is not modelled here.
+struct TwoCfPair {
+  std::array<int, 2> slot{kNoSlot, kNoSlot};
+};
+
+TwoCfPair DesignateTwoCf(int side, int gate, const std::array<int, kSideSlots>& classB,
+                         const std::array<bool, kSideSlots>& onPitch);
 
 }  // namespace pes::designation

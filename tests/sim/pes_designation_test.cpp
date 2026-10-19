@@ -13,8 +13,10 @@ namespace {
 using pes::designation::BucketByClass;
 using pes::designation::ClassBuckets;
 using pes::designation::DesignationRecord;
+using pes::designation::DesignateTwoCf;
 using pes::designation::FoldClass;
 using pes::designation::kNoSlot;
+using pes::designation::kTwoCfGate;
 using pes::designation::Publish;
 
 // The members of one bucket, read back from its count and slot arrays.
@@ -87,4 +89,32 @@ TEST(PesDesignation, LateralOrderWithinBucket) {
                                           -5.0f, -4.0f, -3.0f, -2.0f, -1.0f};
   EXPECT_EQ((std::vector<int>{kNoSlot, 6, 5, 7, 4, 8, 3, 9, 2, 10, 1}),
             Emitted(Publish(0, classC, lateralC, *order)));
+}
+
+// The 2-CF pair is the first two on-pitch SS or CF slots, and only under the gate T+0x87CD == 2.
+TEST(PesDesignation, PairArmedOnlyWhen87CD2) {
+  const std::array<int, 11> classB = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 2};  // SS at 7, CF at 9
+  std::array<bool, 11> onPitch{};
+  onPitch.fill(true);
+  const std::array<int, 2> none{kNoSlot, kNoSlot};
+
+  EXPECT_EQ((std::array<int, 2>{7, 9}), DesignateTwoCf(0, kTwoCfGate, classB, onPitch).slot);
+  for (int gate : {0, 1, 3}) {
+    EXPECT_EQ(none, DesignateTwoCf(0, gate, classB, onPitch).slot) << "gate " << gate;
+  }
+
+  // One striker off the pitch leaves a single man, which is no pair.
+  onPitch[9] = false;
+  EXPECT_EQ(none, DesignateTwoCf(0, kTwoCfGate, classB, onPitch).slot);
+  onPitch[9] = true;
+
+  // Side 1's slots are the global ids 11..21.
+  EXPECT_EQ((std::array<int, 2>{18, 20}), DesignateTwoCf(1, kTwoCfGate, classB, onPitch).slot);
+
+  // Only the first two strikers in slot order count, and a WF (class 8) is not a striker.
+  const std::array<int, 11> fourStrikers = {0, 1, 2, 3, 4, 5, 6, 9, 9, 9, 9};
+  EXPECT_EQ((std::array<int, 2>{7, 8}),
+            DesignateTwoCf(0, kTwoCfGate, fourStrikers, onPitch).slot);
+  const std::array<int, 11> oneStriker = {0, 1, 2, 3, 4, 5, 6, 8, 9, 0, 0};
+  EXPECT_EQ(none, DesignateTwoCf(0, kTwoCfGate, oneStriker, onPitch).slot);
 }
