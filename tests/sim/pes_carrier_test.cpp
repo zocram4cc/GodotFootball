@@ -12,6 +12,7 @@
 
 #include "gametypes.hpp"
 #include "onthepitch/pescarrier.hpp"
+#include "onthepitch/pesdodge.hpp"
 
 namespace {
 
@@ -1468,12 +1469,32 @@ TEST(PesCarrierWalk, AForwardAnswerDiesOnAnInstantReturn) {
   EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 4);
 }
 
+TEST(PesCarrierWalk, AnAnsweredOneTwoTakesThePassWhenTheForwardReturnsToThePasser) {
+  // Mate 7 passed to the carrier one second ago, so a Forward answer back to 7 is an instant return
+  // and drops; the OneTwo answer to mate 5 stands and the walk returns it (kind 10).
+  const std::vector<pes::UnitSlot> table = {Slot(4, pes::kAnswerPass, 7), Slot(10, pes::kAnswerPass, 5)};
+  pes::WalkContext c;
+  c.forwardIsInstantReturn = pes::ForwardIsInstantReturn(7, 7, true, 1.0f);
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 10);
+  // Two seconds on it is no instant return: the Forward pass stands again.
+  c.forwardIsInstantReturn = pes::ForwardIsInstantReturn(7, 7, true, 2.5f);
+  EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, 4);
+}
+
 TEST(PesCarrierWalk, ANonConformingDribbleKindIsDropped) {
   // Rule 8's class filters (0x14063C9C0/0x14063C9A0): a dribble answer from
   // a kind that is neither the Dribble kind nor a pass kind is dropped.
   const std::vector<pes::UnitSlot> table = {Slot(0, pes::kAnswerDribble, 3)};
   pes::WalkContext c;
   EXPECT_EQ(pes::WalkCarrierUnits(table, c).kind, -1);
+}
+
+// A carrier at GF (20, 0) attacks -x (attack 270) and passes to a mate at GF (5, 10). PES's z is -GF y, so the
+// pass runs toward -x and -z: atan2(-15, -10) = 236.31 degrees. The old +y conversion gave 303.69.
+TEST(PesCarrierBearing, APassFromAManAttackingMinusXRunsAtThePesBearing) {
+  EXPECT_NEAR(pes::PesBearingDeg(20.0f, 0.0f, 5.0f, 10.0f), 236.31f, 0.01f);
+  // The attack axis is the same on either convention: facing -x is 270.
+  EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, -1.0f, 0.0f), 270.0f, 1e-3f);
 }
 
 TEST(PesCarrierLongUnit, ANonOwnedCarrierWithNoDangerStaysSilent) {
@@ -1582,7 +1603,7 @@ class GoalFrontUnitTest : public ::testing::Test {
     in_.players[kGoalFrontCarrierSlot].active = true;
     in_.carrierSlot = kGoalFrontCarrierSlot;
     in_.carrierPos = {0.0f, 0.0f};
-    in_.laneHeading_deg = 0.0f;  // the lane runs along +x
+    in_.laneHeading_deg = 180.0f;  // the lane runs toward GF +y (PES bearing 180: GF y is -PES z)
     in_.carrierStat = 50.0f;
     in_.mates = {GoalFrontMate(5)};
   }
@@ -1809,8 +1830,8 @@ class BackSpaceUnitTest : public ::testing::Test {
     in_.players[5].active = true;
     in_.carrierSlot = kBackSpaceCarrierSlot;
     in_.carrierPos = {0.0f, 0.0f};
-    in_.carrierFacing_deg = 0.0f;
-    in_.carrierHeading_deg = 180.0f;  // against the mate's: the align gate passes
+    in_.carrierFacing_deg = 180.0f;
+    in_.carrierHeading_deg = 0.0f;  // against the mate's: the align gate passes
     in_.carrierSlotStat = 1.0f;
     in_.carrierNeed_m = 3.0f;  // under the mate's: the advance gate passes
     in_.attackSign = 1.0f;
@@ -1826,7 +1847,7 @@ class BackSpaceUnitTest : public ::testing::Test {
     in_.curve = FlatCurve(-100.0f);  // far behind every mate: the curve arm passes
     pes::BackSpaceMate m = BackSpaceMate(5);
     m.pos = {0.0f, 12.0f};
-    m.heading_deg = 0.0f;
+    m.heading_deg = 180.0f;
     m.recBTarget = {0.0f, 13.0f};
     in_.mates = {m};
   }
@@ -1865,22 +1886,23 @@ TEST_F(BackSpaceUnitTest, TheValidatorRejectsADifficultTarget) {
 TEST_F(BackSpaceUnitTest, TheValidatorRejectsAlignedHeadings) {
   // 0x1421226C0 gate 8: headings agreeing within 45 degrees reject (need under 8 m, dist over 6).
   in_.mates[0].teamNeed_m = 5.0f;
-  in_.carrierHeading_deg = 10.0f;  // within 45 of the mate's 0
+  in_.carrierHeading_deg = 170.0f;  // within 45 of the mate's 180
   EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);
-  in_.carrierHeading_deg = 180.0f;
+  in_.carrierHeading_deg = 0.0f;  // against him: 180 apart
   EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
   // Both comparisons are strict: exactly 8 m need, or exactly 45 degrees apart, passes.
   in_.mates[0].teamNeed_m = 8.0f;
-  in_.carrierHeading_deg = 10.0f;
+  in_.carrierHeading_deg = 170.0f;
   EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
   in_.mates[0].teamNeed_m = 5.0f;
-  in_.carrierHeading_deg = 45.0f;
+  in_.carrierHeading_deg = 135.0f;  // exactly 45 apart
   EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
 }
 
 TEST_F(BackSpaceUnitTest, TheValidatorLaneOneRejectsABlocker) {
   // 0x1421226C0 gate 11: an opponent in the 5 m / 30 deg lane from the ball along the record
-  // angle rejects. The record angle is 0 (along +z), so the blocker sits 3 m up that axis.
+  // angle rejects. The record angle is 180 (GF +y, since PES z = -GF y), so the blocker sits 3 m up that axis.
+  in_.mates[0].recBAngle_deg = 180.0f;
   in_.players[14].pos = {0.0f, 3.0f};
   in_.players[14].active = true;
   EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);
@@ -2147,13 +2169,13 @@ class SafetyUnitTest : public ::testing::Test {
     in_.players[14].active = true;
     in_.carrierSlot = kSafetyCarrierSlot;
     in_.carrierPos = {0.0f, 0.0f};
-    in_.carrierFacing_deg = 0.0f;
+    in_.carrierFacing_deg = 180.0f;
     in_.carrierSpeed_kmh = 0.0f;
-    in_.laneHeading_deg = 0.0f;
+    in_.laneHeading_deg = 180.0f;
     // The gate lane's length: the carrier's d^2 in the row for sign !k (0x140A714A0): the goal at +xg.
     in_.carrierGateD2_m2 = 52.5f * 52.5f;
     in_.attackSign = 1.0f;
-    in_.sideAngle_deg = 0.0f;
+    in_.sideAngle_deg = 180.0f;
     in_.ball = {0.0f, 0.0f};
     in_.carrierPressClass = 0;
     in_.teamLineB = 60.0f;
@@ -2207,10 +2229,10 @@ TEST_F(SafetyUnitTest, TheCeilingCascadeRejectsAFarMate) {
 
 TEST_F(SafetyUnitTest, TheOneTouchLaneRejectsABlockedMate) {
   // 0x142126B70's lane: an opponent in the 220-deg cone about the ball-advanced origin
-  // 0x142126B70's one-touch lane: origin the ball advanced 12 m along his heading (0, toward +z),
+  // 0x142126B70's one-touch lane: origin the ball advanced 12 m along his heading (0, toward GF -y),
   // aimed back at the ball, length clamp(12 / 5, 4, 12) = 4, so it covers z in [8, 12] at x = 0.
-  // An opponent at (0, 10) sits in that lane and blocks the mate.
-  in_.players[15].pos = {0.0f, 10.0f};
+  // An opponent at (0, -10) sits in that lane and blocks the mate.
+  in_.players[15].pos = {0.0f, -10.0f};
   in_.players[15].active = true;
   EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
 }
@@ -2222,11 +2244,15 @@ TEST_F(SafetyUnitTest, PressureRunsTheThroughPicker) {
   // the final lane free.
   in_.pressCount1 = 1;
   in_.pressCount4 = 0;
-  in_.players[14].pos = {0.0f, 50.0f};  // carrier's nearest opp 50 m out
+  // Positions carry the mirror (GF y is -PES z); the absolute headings stay as they were, so the sign of every turn holds.
+  in_.sideAngle_deg = 0.0f;
+  in_.laneHeading_deg = 0.0f;
+  in_.carrierFacing_deg = 0.0f;
+  in_.players[14].pos = {0.0f, -50.0f};  // carrier's nearest opp 50 m out (PES z = -GF y mirrors the others)
   in_.players[15].active = false;
-  in_.mates[0].pos = {10.0f, -8.0f};  // advanced: k*x = 10 > 0
-  in_.players[5].pos = {10.0f, -8.0f};
-  in_.mates[0].recBTarget = {14.0f, -8.0f};
+  in_.mates[0].pos = {10.0f, 8.0f};  // advanced: k*x = 10 > 0
+  in_.players[5].pos = {10.0f, 8.0f};
+  in_.mates[0].recBTarget = {14.0f, 8.0f};
   in_.mates[0].recBDist_m = 12.0f;
   in_.mates[0].recBClass = 4;  // over the through picker's class-3 floor; the validator's facing gate skips
   const pes::PassAnswer a = pes::SafetyUnit(in_, k_);
@@ -2364,7 +2390,7 @@ TEST_F(OneTwoUnitTest, AClosingOpponentOpensTheGateAgainstTheAngle) {
 
 TEST_F(OneTwoUnitTest, AReceiverWhoDoesNotFaceTheCarrierIsRejected) {
   // 0x142124950's M[r][c]: the receiver's facing sits within 120 degrees of the bearing to the carrier.
-  in_.mates[0].facing_deg = 0.0f;  // 135 degrees off the carrier
+  in_.mates[0].facing_deg = 180.0f;  // 135 degrees off the carrier
   EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
 }
 
@@ -2633,7 +2659,7 @@ TEST_F(DirectHighBallUnitTest, TheSmallestTwentySevenFrameDistanceWins) {
 TEST_F(DirectHighBallUnitTest, ABackwardsMateGetsAShortBall) {
   // X = wrap180(heading - attack) = -90: past 80 degrees the ball stays short and f10 is not written.
   pes::DirectHighBallMate m = DirectHighBallMateAt(kOneTwoMate, 42.0f, 0.0f, 1000.0f);
-  m.heading_deg = 0.0f;
+  m.heading_deg = 180.0f;
   in_.mates = {m};
   const pes::PassAnswer a = pes::DirectHighBallUnit(in_, k_);
   EXPECT_EQ(a.index, kOneTwoMate);
@@ -3066,14 +3092,14 @@ TEST(CarrierRecordB, TheIntoSpaceTargetTurnsFromTheAttackAngleByTheNearestOppone
   // direction 135 deg, the length 8 m.
   const pes::CarrierPoint a = pes::IntoSpaceTarget({0.0f, 0.0f}, {10.0f, 0.0f}, 90.0f, 0.0f, 30.0f, 90.0f, k);
   EXPECT_NEAR(a.x, 15.656854f, 1e-4f);
-  EXPECT_NEAR(a.z, -5.656854f, 1e-4f);
+  EXPECT_NEAR(a.z, 5.656854f, 1e-4f);
   // No opponent near him: no turn, so the direction is the attack angle.
   const pes::CarrierPoint b = pes::IntoSpaceTarget({0.0f, 0.0f}, {10.0f, 0.0f}, 90.0f, 0.0f, 0.0f, 90.0f, k);
   EXPECT_NEAR(b.x, 18.0f, 1e-4f);
   EXPECT_NEAR(b.z, 0.0f, 1e-4f);
-  // The mate at 45 deg from the carrier is on the minus side of the attack: the turn is -45, so the direction is 45 deg.
+  // The mate at 135 deg (PES) from the carrier is on the plus side of the attack: the turn is +45, so the direction is 135 deg.
   // Running 20 km/h along it (cos 1) lengthens the target to 13 m.
-  const pes::CarrierPoint c = pes::IntoSpaceTarget({0.0f, 0.0f}, {10.0f, 10.0f}, 45.0f, 20.0f, 30.0f, 90.0f, k);
+  const pes::CarrierPoint c = pes::IntoSpaceTarget({0.0f, 0.0f}, {10.0f, 10.0f}, 135.0f, 20.0f, 30.0f, 90.0f, k);
   EXPECT_NEAR(c.x, 19.192388f, 1e-4f);
   EXPECT_NEAR(c.z, 19.192388f, 1e-4f);
 }

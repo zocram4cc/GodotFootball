@@ -392,17 +392,17 @@ TEST(PesPlanHeading, ModeTwoAimsAcrossThePitchAndLeansWithTheCarriersDepth) {
   // 5 m off the centre line: inside the goal-area half-width (F5 = 9.16), so the
   // blend gain is 1 and the aim point is the goal centre. p = a = (F0-2-F0/3, 5)
   // = (33.04, 5), q = (50.56, 0), so the heading is atan2(17.52, -5) = 105.93.
-  EXPECT_NEAR(pes::PlanHeadingDeg(2, 0.0f, 5.0f, 1.0f, k), 105.93f, 0.02f);
+  EXPECT_NEAR(pes::PlanHeadingDeg(2, 0.0f, -5.0f, 1.0f, k), 105.93f, 0.02f);  // GF y is -PES z: the carrier is at GF y = -5
   // A carrier inside the segment at 20 m depth exercises the blend and the
   // overshoot reflection together: t = (40-33.04)/17.52 = 0.3972, the blend is
   // 2*(20-9.16)/(34.06-9.16) = 0.8707, the gain is
   // (1 - (1-0.3972)^(1/0.8707))^0.8707 = 0.4901, and the aim point is
   // (50.56, 20*(1-0.4901)) = (50.56, 10.20), giving atan2(10.56, -9.80) = 132.9.
-  EXPECT_NEAR(pes::PlanHeadingDeg(2, 40.0f, 20.0f, 1.0f, k), 132.9f, 0.1f);
+  EXPECT_NEAR(pes::PlanHeadingDeg(2, 40.0f, -20.0f, 1.0f, k), 132.9f, 0.1f);  // the depth mirrored in GF y
   // Past the touchline the blend saturates at 2: the aim is b pulled halfway
   // toward the goal centre, and the projection clamps at 2 with the reflection
   // folding the parameter back, so the heading reads 100.73.
-  EXPECT_NEAR(pes::PlanHeadingDeg(2, 40.0f, 40.0f, 1.0f, k), 100.73f, 0.02f);
+  EXPECT_NEAR(pes::PlanHeadingDeg(2, 40.0f, -40.0f, 1.0f, k), 100.73f, 0.02f);  // the depth mirrored in GF y
 }
 
 // --- the install: read the constants out of the user's own exe ---

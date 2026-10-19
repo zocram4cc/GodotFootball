@@ -1361,6 +1361,10 @@ bool UnitArmed(int kind, bool capFeint, bool capBackSpace, bool capSafety, float
                const CarrierConstants& k);
 UnitSlot WalkCarrierUnits(const std::vector<UnitSlot>& table, const WalkContext& c);
 
+// Rule 8's instant return (carunits5.c:421): a Forward answer to the man who passed to the carrier less than two
+// seconds ago is dropped. `passedToCarrier` is true when that pass ended at the carrier.
+bool ForwardIsInstantReturn(int forwardTarget, int passer, bool passedToCarrier, float secondsSincePass);
+
 // The Dribble sub-kind chooser (report 2.1, 0x14212f1c0): the gates in decompiled order, returning
 // kDribbleMode3 (4), kDribbleMode4 (5) or kDribbleFeint (6). Its callee-derived inputs are named at
 // each field.

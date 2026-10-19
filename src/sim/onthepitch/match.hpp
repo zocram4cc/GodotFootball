@@ -103,9 +103,10 @@ public:
     Vector3 from;
     Player* target = nullptr;
     unsigned long time_ms = 0;
+    Player* passer = nullptr;  // the kicker
   };
-  void RecordPassEvent(int kind, const Vector3& from, Player* target) {
-    lastPassEvent = PassEvent{true, kind, from, target, GetActualTime_ms()};
+  void RecordPassEvent(int kind, const Vector3& from, Player* target, Player* passer) {
+    lastPassEvent = PassEvent{true, kind, from, target, GetActualTime_ms(), passer};
   }
   const PassEvent& GetLastPassEvent() const { return lastPassEvent; }
 

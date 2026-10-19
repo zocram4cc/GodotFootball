@@ -106,7 +106,7 @@ constexpr float kPi_deg = 3.14159265358979f;
 // ponytail: std::atan2 stands in for PES's atan2 polynomial 0x140A92DC0, undecoded (lane-core O3).
 inline float BearingDeg(CarrierPoint a, CarrierPoint b) {
   if (a.x == b.x && a.z == b.z) return 0.0f;
-  float rad = std::atan2(b.x - a.x, b.z - a.z);
+  float rad = std::atan2(b.x - a.x, a.z - b.z);  // the carrier layer's z is GF y: PES z = -GF y
   if (rad < 0.0f) rad += 2.0f * kPi_deg;
   return rad * (180.0f / kPi_deg);
 }
@@ -116,7 +116,7 @@ inline float BearingDeg(CarrierPoint a, CarrierPoint b) {
 // table, but the units' advance calls below never run through it.
 inline CarrierPoint AdvancePoint(CarrierPoint p, float theta_deg, float r_m) {
   const float rad = theta_deg * (kPi_deg / 180.0f);
-  return {p.x + r_m * std::sin(rad), p.z + r_m * std::cos(rad)};
+  return {p.x + r_m * std::sin(rad), p.z - r_m * std::cos(rad)};
 }
 
 // PES's frame counts: int(fps * gain + 0.5) with fps = 54 (0x141E532D0/E0).
@@ -1171,6 +1171,13 @@ bool PassVeto(const UnitSlot& s, const WalkContext& c) {
 }
 
 }  // namespace
+
+bool ForwardIsInstantReturn(int forwardTarget, int passer, bool passedToCarrier, float secondsSincePass) {
+  // ponytail: the window is PES's 2 * int(54) frames at the 54 Hz game speed (carunits5.c:421).
+  constexpr float kInstantReturnWindow_s = 2.0f;
+  return passedToCarrier && passer >= 0 && forwardTarget == passer &&
+         secondsSincePass < kInstantReturnWindow_s;
+}
 
 UnitSlot WalkCarrierUnits(const std::vector<UnitSlot>& table, const WalkContext& c) {
   for (const UnitSlot& s : table) {

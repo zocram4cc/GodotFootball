@@ -2426,9 +2426,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       // The openness: the minimum over the opponents in front of the pass.
       float bestMargin = 150.0f;
       for (const PlayerImage& opp : opponentPlayerImages) {
-        const float oppDx = opp.position.coords[0] - ballPos.coords[0];
-        const float oppDz = opp.position.coords[1] - ballPos.coords[1];
-        if (std::fabs(WrapDeg(std::atan2(oppDz, oppDx) * degreesPerRadian - bearing)) > carrier.openInFront_deg)
+        const float oppBearing = pes::PesBearingDeg(ballPos.coords[0], ballPos.coords[1], opp.position.coords[0], opp.position.coords[1]);
+        if (std::fabs(WrapDeg(oppBearing - bearing)) > carrier.openInFront_deg)
           continue;
         // The opponent's predicted point along the lane.
         const Vector3 oppPred = opp.position + opp.movement * laneTime_s;
@@ -2675,7 +2674,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // own facing stands in for it.
     const Vector3 facingVec = CastPlayer()->GetDirectionVec();
     gf.laneHeading_deg =
-        WrapDeg(std::atan2(facingVec.coords[0], facingVec.coords[1]) * degreesPerRadian + 180.0f);
+        WrapDeg(pes::PesBearingDeg(0.0f, 0.0f, facingVec.coords[0], facingVec.coords[1]) + 180.0f);
     gf.central = pes::IsCentral(zone);
     // ponytail: the carrier's human flag (the team mode record +0x6C, the field
     // UnitListInput::humanCarrier leaves off) is not decoded to GF state.
@@ -2931,11 +2930,11 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       const pes::CarrierPoint mateVelFrame{mateVel.coords[0] * pesball::kPesTick_s,
                                            mateVel.coords[1] * pesball::kPesTick_s};
       const Vector3 mateDir = mate->GetDirectionVec();
-      const float mateFacing = std::atan2(mateDir.coords[0], mateDir.coords[1]) * degreesPerRadian;
+      const float mateFacing = pes::PesBearingDeg(0.0f, 0.0f, mateDir.coords[0], mateDir.coords[1]);
       const float mateHeading =
           mateVel.GetLength() <= 0.0f
               ? mateFacing
-              : std::atan2(mateVel.coords[0], mateVel.coords[1]) * degreesPerRadian;
+              : pes::PesBearingDeg(0.0f, 0.0f, mateVel.coords[0], mateVel.coords[1]);
       const float mateSpeedKmh = mateVel.GetLength() * carrier.kmhPerMs;
       // The mate's zone at his 16-frame prediction, built as the GoalFront picker builds it.
       const Vector3 matePred16 = matePos + mateVel * (16.0f * pesball::kPesTick_s);
@@ -2948,9 +2947,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
           matePred16.coords[0], matePred16.coords[1], attackSign, mate->GetStat("technical_shot"),
           mateLongShotSkill, pesFieldHalfLength, pesGoalInnerHalfWidth, carrier);
       // The pass target's bearing in PES's theta convention: the record-B lane angle.
-      const float passTheta = std::atan2(c.recordB.target.x - ballPos.coords[0],
-                                         c.recordB.target.z - ballPos.coords[1]) *
-                              degreesPerRadian;
+      const float passTheta = pes::PesBearingDeg(ballPos.coords[0], ballPos.coords[1], c.recordB.target.x, c.recordB.target.z);
       // ponytail: 0x1404C8E00 (the team table's need) is the mate's nearest-opponent distance here.
       const float mateNeed = c.nearestOppToMate_m;
       const bool mateKeeper = mate->GetFormationEntry().role == e_PlayerRole_GK;
@@ -3120,8 +3117,12 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
                         match->GetPlayer(longPass.index) != nullptr &&
                         match->GetPlayer(longPass.index)->GetFormationEntry().role == e_PlayerRole_GK;
   walk.keeperWithinNinety = carrierPressureClass >= 2;  // ponytail: 0x140439FE0 is not ported
-  // ponytail: the instant-return event scan (rule 8, 0x140A3E940) reads the
-  // event table GF does not carry; Forward answers always stand.
+  // Rule 8's instant return: the Forward answer goes back to the man who passed to the carrier within two seconds.
+  // The last pass event keeps its passer and its target, both from the kick (humanoid.cpp).
+  const auto& lastPass = match->GetLastPassEvent();
+  walk.forwardIsInstantReturn = pes::ForwardIsInstantReturn(
+      pass.index, lastPass.passer ? lastPass.passer->GetID() : -1, lastPass.target == CastPlayer(),
+      static_cast<float>(match->GetActualTime_ms() - lastPass.time_ms) * 0.001f);
   const pes::UnitSlot won = pes::WalkCarrierUnits(table, walk);
   if (won.kind == 0) addShot();
   else if (won.kind == 4) addPass(pass);

@@ -868,8 +868,8 @@ void Humanoid::Process() {
                                : currentAnim->functionType == e_FunctionType_HighPass ? 3
                                                                                       : 1;
           match->RecordPassEvent(passKind, CastPlayer()->GetPosition(),
-                                 touch.forcedTargetPlayer ? touch.forcedTargetPlayer
-                                                          : touch.targetPlayer);
+                                 touch.forcedTargetPlayer ? touch.forcedTargetPlayer : touch.targetPlayer,
+                                 CastPlayer());
           // A cross is a ball played in from wide in the attacking third,
           // across the pitch and off the ground - which is how PES's table
           // counts them (the high pass from the flank into the box).
