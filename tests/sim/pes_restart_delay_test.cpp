@@ -200,10 +200,9 @@ TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
 // reached the PES mover, so the ball lay until the restart watch gave up. The bound is GF's
 // stalemate clock, the only time GF gives a dead ball in play before it forces the issue. PES's
 // own pickup time is not decoded, so this is a ponytail bound, not a PES number.
-// DISABLED 17-10-26 (Main): red on main by design until the loose-ball pickup lands. The designated
-// man reaches the ball, then AI_HasPossession hands control to GF's on-ball branch and he walks off;
-// PES's first touch (FUN_1404f4be0 helpers) is undecoded. See docs/ports/pes-port-DeadBall.md.
-TEST(PesRestartDelay, DISABLED_ALooseDeadBallInPlayIsReachedAndPlayed) {
+// Re-enabled on FirstTouchPort: the loose-ball pickup lands here (PRESS chase
+// + HitData touch frame + latch step 4b). Red until then.
+TEST(PesRestartDelay, ALooseDeadBallInPlayIsReachedAndPlayed) {
   constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
   constexpr unsigned long kBoundTicks = static_cast<unsigned long>(
       GameplayTuning::kStalemateForceAction_s * static_cast<float>(Match::kFramesPerSecond));
