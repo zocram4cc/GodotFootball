@@ -300,10 +300,10 @@ final pass). Decompiles are in `t7a.c`/`t13a.c`.
 - Anime layer can start TRAP (`FUN_1406b4c10(anime, 7)`), `FUN_140a53f90` false, not `MA+0x2600c` (INF: the kicker).
 - Out of play: only at listed restarts (MODE 3 goal kick after event 1..3/0x10, special mode 0x18).
 - **Re-touch lockout** (frames since the newest ring-0 ball event `+0x10` must be ≥ `fps·L`), `trap.json` (registry
-  0x3e) live: `L = offence 0.05 s` (my team's ball, I'm not the carrier) / `defenceKeep 0.26 s` (someone else's
-  controlled ball) / loose ball: `defence 0.16 + 0.1·(1 − s²)` with `s = clamp((stat+0x1e − 40)/59)` (INF: Ball
-  Control); after event 5 (shot) or 3 with the ball > 0.75 m: `0.1·(1 − s²) + shoot 0.5` (≤ 80 km/h) or
-  `shootSpeedBall 0.75`; **×3 after my own pass**, ×2 shortly after my own touch.
+  0x3e) live (stock values first, mod 4cc_06_gameplay in brackets): `L = offence 0.15 (mod 4cc_06_gameplay: 0.05) s` (my team's ball, I'm not the carrier) / `defenceKeep 0.25 (mod 4cc_06_gameplay: 0.26) s` (someone else's
+  controlled ball) / loose ball: `defence 0.15 (mod 4cc_06_gameplay: 0.16) + 0.1·(1 − s²)` with `s = clamp((stat+0x1e − 40)/59)` (INF: Ball
+  Control); after event 5 (shot) or 3 with the ball > 0.75 m: `0.1·(1 − s²) + shoot 0.4 (mod 4cc_06_gameplay: 0.5)` (≤ 80 km/h) or
+  `shootSpeedBall 0.5 (mod 4cc_06_gameplay: 0.75)`; **×3 after my own pass**, ×2 shortly after my own touch.
 - Shot rule: after a shot by my team, no trap if the ball is within 30° (+½ the goal-mouth angle) of the goal and
   ≥ 35 km/h (lets shots through).
 - Teammate/opponent conflict loop (22 players): skip when another player's kick/trap clip contacts the ball within
@@ -347,10 +347,11 @@ INF(high).
 
 ### 4.4 Trap constants (live `trap.json`, registry 0x3e, deserializer `FUN_141e681c0`; full dump `consts_live.txt`)
 `busyTime` 0.5, `checkMyBallPass` 0, `runTrapStopTurnAngle` 90, `stopTrapStopTurnAngle` −1, `use` 1; lockouts
-`defence` 0.16, `defenceKeep` 0.26, `offence` 0.05, `shoot` 0.5, `shootSpeedBall` 0.75; anime-layer touch push
+`defence` 0.15 (mod 4cc_06_gameplay: 0.16), `defenceKeep` 0.25 (mod 4cc_06_gameplay: 0.26), `offence` 0.15 (mod 4cc_06_gameplay: 0.05), `shoot` 0.4 (mod 4cc_06_gameplay: 0.5), `shootSpeedBall` 0.5 (mod 4cc_06_gameplay: 0.75); anime-layer touch push
 `offsetPos_<in>_<out>` (Idle/Run/Dash) 0.5…2.25 m, `speed_0/15/28` 0.5/1.75/2.0, `ballControlRate` 1.0,
 `ballControlWeekFootDownLimit` 20, `checkEnemyFutureFrame` 0.33, `checkSectorDist` 2.0 (consumers not traced).
 Live winner is the gameplay mod's `constant_player.bin` (DefenderDecisionsRE §7 note applies).
+_Corrected 19-10-26 (stock dt18): `trap.o` blob +0x3c0..+0x3d0 in `Data/dt18_all.cpk` = 0.15 / 0.25 / 0.15 / 0.4 / 0.5 (mod 0.16 / 0.26 / 0.05 / 0.5 / 0.75). The other §4.4 values (busyTime, checkMyBallPass, runTrapStopTurnAngle, stopTrapStopTurnAngle, use, offsetPos, speed, ballControlRate, ballControlWeekFootDownLimit, checkEnemyFutureFrame, checkSectorDist) are PARKED: their blob offsets are not mapped, so they stay as the mod's live values._
 
 ## 5. Stepping to meet the ball — `ActionPassGet` (AI action 5; OBS structure)
 

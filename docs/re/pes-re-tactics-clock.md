@@ -456,17 +456,19 @@ This **confirms and completes** the §6 claim in `pes-re-matchlogic.md` that `mi
 
 ### 7.1 WESYS constant archive — OBS, full inventory (this install)
 
-`common/match/constant/` (VFS winner `Data/dt18_all.cpk`), parsed with the repo's `ParseUniformTable` rules (16-byte header `ff 10 51 57 'WESYS'`, u32 compressed at +10, u32 uncompressed at +14, zlib blob at +16; then `u32 count, u32 tableOff=8`, `count × {u32 dataOff, u32 size, u32 nameOff}`, NUL-terminated `.o` names, 16-aligned blobs):
+`common/match/constant/` (stock base `Data/dt18_all.cpk`; on a modded install the runtime winner is the download pack: mod 4cc_06_gameplay sizes constant_match 4851 B, constant_team 1513 B, constant_player 82986 B raw), parsed with the repo's `ParseUniformTable` rules (16-byte header `ff 10 51 57 'WESYS'` stock, `00 10 01 57 'WESYS'` for the mod's team and match; u32 compressed at +10, u32 uncompressed at +14, zlib blob at +16; then `u32 count, u32 tableOff=8`, `count × {u32 dataOff, u32 size, u32 nameOff}`, NUL-terminated `.o` names, 16-aligned blobs):
 
 | file | objects |
 |---|---|
-| `constant_match.bin` (4817 B) | **27**: animeAgingDribble, animeAgingFreeMove, animeAgingKick, animeAgingTrap, ball, cameraInplay, cameraSetplay, command, cpuLevel, cursor, feintCommand, injury, inplayDemo, mlScreenShot, modeMatchup, pes15Test, pesSmart, rating, setplayGuideCommon / CornerKick / FreeKickFar / Middle / Near / GoalKick, teamEmotion, throwin, userPlayTendencyTest |
-| `constant_player.bin` (40643 B) | 36 |
-| `constant_team.bin` (1354 B) | 16 (basePosition … teamId) |
+| `constant_match.bin` (4817 B stock; mod 4cc_06_gameplay: 4851 B) | **27**: animeAgingDribble, animeAgingFreeMove, animeAgingKick, animeAgingTrap, ball, cameraInplay, cameraSetplay, command, cpuLevel, cursor, feintCommand, injury, inplayDemo, mlScreenShot, modeMatchup, pes15Test, pesSmart, rating, setplayGuideCommon / CornerKick / FreeKickFar / Middle / Near / GoalKick, teamEmotion, throwin, userPlayTendencyTest |
+| `constant_player.bin` (40643 B stock; mod 4cc_06_gameplay: 82986 B) | 36 |
+| `constant_team.bin` (1354 B stock; mod 4cc_06_gameplay: 1513 B) | 16 (basePosition … teamId) |
 | `constant_stadium.bin` (8074 B) | 84 |
 | `constant_tutorial.bin` (955 B) | 2 |
 | `constant_tutorialConsole.bin` (11673 B) | 26 |
 | `constant_positionCK.bin` / `constant_positionPK.bin` / `constant_shootAging.bin` | 10 / 5 / 21 |
+
+_Corrected 19-10-26 (stock dt18): sizes read from `Data/dt18_all.cpk` (stock) and from the 4cc_06_gameplay winner (mod) with `pesfmt_dump cat`; object counts match in both (match 27, player 36, team 16). The audit's "mod differs for team/player" missed match: 4817 vs 4851 B._
 
 **OBS negative result: no clock/time object exists in any of them**, including `injury.o` (48 B, the only other candidate). **The clock is therefore not tunable through WESYS**: it is hardcoded (image constants below) plus the `match_time` setting.
 

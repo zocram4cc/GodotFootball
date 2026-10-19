@@ -11,7 +11,7 @@ Scope: read-only RE of PES 2021 data (VFS of the user's install) and of the PES2
 
 **Sources.**
 - **Install VFS** (`pesfmt_dump`). Same mount order as the game.
-  - Gameplay constants: `common/match/constant/*.bin`. They come only from `Data/dt18_all.cpk`; a byte-identical `dt18_all - Copia.cpk` is skipped by the mounter.
+  - Gameplay constants: `common/match/constant/*.bin`. On a stock install they come from `Data/dt18_all.cpk`; `download/4cc_06_gameplay.cpk` overrides them on this install (mod winner: team 1513 B, match 4851 B, player 82986 B raw), and a byte-identical `dt18_all - Copia.cpk` is skipped by the mounter. _Corrected 19-10-26 (stock dt18): stock sizes team 1354 B, match 4817 B, player 40643 B from `Data/dt18_all.cpk`._
   - Database: `common/etc/pesdb/*.bin`. The VFS winner is the 4cc `download/4cc_01_base.cpk`, whose `Player.bin` is all placeholders. Real ratings were therefore decoded from the vanilla `Data/dt10_x64.cpk` copy (WESYS zlib container, 5,547,984 B decompressed, 17,782 players). The 4cc file has the same 312 B record layout: 4,830 placeholder records.
 - **Image** `<scratch>/pesmem.bin`. The live `.trace`/`.rdata`/`.data` of PES2021.exe were dumped from `/proc/<pid>/mem` (base 0x140000000; see `pes-kit-assembly.md` §7.0). All addresses below are virtual addresses in that image.
   - **Cross-check (OBS):** the third-party addresses in [Aoba, *PES2021 Engine Research*] hit the expected bytes in this dump. Examples:

@@ -61,8 +61,8 @@ entry 3, request kinds, PASS_GET routes, trap.json lockouts), `pes-re-defender-d
    ( immediately dispossessed). No separate interception-touch clip path was
    found in the receive chain.
 7. **Re-touch lockouts (`FUN_1409fa720`, OBS `r2.c`):** base `L` from trap.json
-   (live): offence 0.05 / defenceKeep 0.26 / defence 0.16 + 0.1·(1−s²) /
-   shoot 0.5 / shootSpeedBall 0.75, s = clamp((BallControl+0x1e−40)/59);
+   (trap.json, stock values first): offence 0.15 (mod 4cc_06_gameplay: 0.05) / defenceKeep 0.25 (mod 4cc_06_gameplay: 0.26) / defence 0.15 (mod 4cc_06_gameplay: 0.16) + 0.1·(1−s²) /
+   shoot 0.4 (mod 4cc_06_gameplay: 0.5) / shootSpeedBall 0.5 (mod 4cc_06_gameplay: 0.75), s = clamp((BallControl+0x1e−40)/59);
    after own kick ×3, shortly after own touch ×2; shot-through rule (own-team
    shot ≥ 35 km/h within 30°+½ goal-mouth → no trap). **Not live-settled:**
    `liveR` ring-0 records are empty (stale history handle), no two traps by one
@@ -164,13 +164,14 @@ player-level PASS_GET assigner.
 - `FUN_1409fa720` — the **re-touch lockout** (frames since the newest ring-0
   ball event `+0x10` must be ≥ `fps·L`):
   - `*param_3` (my pending kind) < 0x16, same team as the event owner → base
-    `L = offence` **0.05** (`+0x1bc`); else `L = defenceKeep` **0.26** (`+0x1b8`).
-  - Loose ball (event owner ≥ 0x16): `L = defence` **0.16** (`+0x1b4**) +
+    `L = offence` **0.15** (mod 4cc_06_gameplay: 0.05) (`+0x1bc`); else `L = defenceKeep` **0.25** (mod 4cc_06_gameplay: 0.26) (`+0x1b8`).
+  - Loose ball (event owner ≥ 0x16): `L = defence` **0.15** (mod 4cc_06_gameplay: 0.16) (`+0x1b4`) +
     `0.1·(1−s²)`, `s = clamp((stat+0x1e − 40)/59)` (INF(high): Ball Control;
     `0x14259be2c/0x1425c48cc/0x1425cb2fc` = the 40/99/59 clamp ladder).
   - Event 5 (shot), or event 3 with ball height > 0.75 m at release
-    (`F+0x18`): `L = 0.1·(1−s²) + shoot` **0.5** (`+0x1c0**) if ball ≤ 80 km/h
-    (`0x142596e6c`), else + `shootSpeedBall` **0.75** (`+0x1c4`).
+    (`F+0x18`): `L = 0.1·(1−s²) + shoot` **0.4** (mod 4cc_06_gameplay: 0.5) (`+0x1c0`) if ball ≤ 80 km/h
+    (`0x142596e6c`), else + `shootSpeedBall` **0.5** (mod 4cc_06_gameplay: 0.75) (`+0x1c4`).
+    _Corrected 19-10-26 (stock dt18): `trap.o` blob +0x3c0..+0x3d0 (sorted keys defence, defenceKeep, offence, shoot, shootSpeedBall) in `Data/dt18_all.cpk` = 0.15 / 0.25 / 0.15 / 0.4 / 0.5; the 4cc winner = 0.16 / 0.26 / 0.05 / 0.5 / 0.75._
   - Event 1–3/0x10 by **me**: `L × 3` (`0x14258c264`); shortly after my own
     touch (ring-1 record, `FUN_140a3e150(H,1,1)` age < `fps·2L`): `L × 2`.
   - Shot-through: own-team shot, ball ≥ 35 km/h (`0x14259a760` = 35 with the
