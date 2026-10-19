@@ -2345,6 +2345,33 @@ TEST_F(OneTwoUnitTest, TheOneTouchLaneMustBeBlocked) {
   EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
 }
 
+TEST_F(OneTwoUnitTest, TheG12BandIsFromTheInstallFloorUpToTheCurveOnBothAttackSigns) {
+  // 0x142128C10's G12, after the lane count: floor <= k*(x - curve(z)) < 0, with the curve read at the
+  // carrier's own lateral z. The floor is the install's -10 (k_.touchBand_m), so the positions follow it.
+  const float bandFloor = k_.touchBand_m;
+  const auto oneTouchAt = [&](float x) {
+    in_.touch.carrierPos.x = x;
+    in_.touch.players[kOneTwoCarrier].pos.x = x;
+    return pes::OneTouch(in_.touch, k_);
+  };
+  // Attack +x against a flat curve at 35: the band is x - 35.
+  EXPECT_TRUE(oneTouchAt(35.0f + bandFloor + 0.5f));   // band floor + 0.5: inside
+  EXPECT_FALSE(oneTouchAt(35.0f + bandFloor - 0.5f));  // band below the floor
+  EXPECT_TRUE(oneTouchAt(35.0f - 0.1f));               // band -0.1: just behind the line
+  EXPECT_FALSE(oneTouchAt(35.0f));                     // band 0: on the line is out
+  // Attack -x against a flat curve at -35: the band is -(x + 35). The lane runs along -x and holds an
+  // opponent at -38, so G11 passes at every position below.
+  in_.touch.attackSign = -1.0f;
+  in_.touch.ownLine_m = kOneTwoHalfLen;
+  in_.touch.planHeading_deg = 270.0f;
+  in_.touch.players[kOneTwoOpp].pos = {-38.0f, 0.0f};
+  in_.touch.curve = FlatCurve(-35.0f);
+  EXPECT_TRUE(oneTouchAt(-35.0f - (bandFloor + 0.5f)));   // band floor + 0.5: inside
+  EXPECT_FALSE(oneTouchAt(-35.0f - (bandFloor - 0.5f)));  // band below the floor
+  EXPECT_TRUE(oneTouchAt(-35.0f + 0.1f));                 // band -0.1: just behind the line
+  EXPECT_FALSE(oneTouchAt(-35.0f));                       // band 0: on the line is out
+}
+
 TEST_F(OneTwoUnitTest, G11sLaneRunsAlongThePlanHeadingNotTheAttack) {
   // G11's theta is the PLAN heading (ctx7+0xC0), which the predicate passes to the lane core; the
   // attack direction is a different field (T+0x250). The fixture's opponent sits 8 m along +x, so a
