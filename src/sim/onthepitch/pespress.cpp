@@ -338,9 +338,24 @@ float PressPickRadius_m(const PressConstants& c, float root) {
   return c.carrierRampStart_m + c.carrierRampSpan_m * ramp;
 }
 
-bool PressPickAccepted(float distSq, float radius, bool alreadyPressing) {
-  if (distSq > radius * radius) return false;
-  return !alreadyPressing || distSq <= kPressRenewalBall_m * kPressRenewalBall_m;
+// ponytail: FUN_140536FC0's gate (0x140537332) measures the ball sample from MA+0x2482C/+0x24834, the MA ball copy
+// (pes-re-defensive-shape.md §0). GF sets the sample and the copy to the ball now (PesPressTick), so the gate never
+// refuses here. PES refuses only where the copy lags the live ball by more than 13 m (in flight); that lag is not
+// modelled, because the copy's writer (0x140a6f29e) is NOFUNC and its cadence is not decoded. Upgrade: model the lag.
+bool PressBallGatePasses(const PressPickInput& in) {
+  const float dx = in.sampleX - in.ballX;
+  const float dz = in.sampleZ - in.ballZ;
+  return dx * dx + dz * dz <= kPressBallGate_m * kPressBallGate_m;
+}
+
+int PressWinner(const PressConstants& c, const PressPickInput& in,
+                const std::vector<PressCandidate>& bucket) {
+  if (bucket.empty() || !PressBallGatePasses(in)) return -1;
+  const int man = bucket[0].man;
+  const float dx = in.posX[man] - in.ballX;
+  const float dz = in.posZ[man] - in.ballZ;
+  const float radius = PressPickRadius_m(c, std::sqrt(bucket[0].score));
+  return dx * dx + dz * dz <= radius * radius ? man : -1;
 }
 
 bool PressTargetIsBall(PressPoint sample, PressPoint ball, PressPoint base) {

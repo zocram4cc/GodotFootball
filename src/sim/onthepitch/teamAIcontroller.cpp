@@ -1906,8 +1906,12 @@ void TeamAIController::PesPressTick() {
   // or the ball-goal bearing under T+0xb712) is not decoded; the ball-to-goal
   // bearing stands in, preferring goal-side pressers.
   const float goalX = -static_cast<float>(team->GetSide()) * pitchHalfW;
+  // The writer's gate (FUN_140536FC0, 0x140537332; S1Watch's decode): the sample is BallInfo sample 0, the ball now, and the
+  // point is the MA ball copy (MA+0x2482C/+0x24834). GF stand-in: both are the ball now (Predict(0)).
   in.ballX = ball.coords[0];
   in.ballZ = ball.coords[1];
+  in.sampleX = ball.coords[0];
+  in.sampleZ = ball.coords[1];
   in.referenceDeg = pes::PressBearingDeg(c, ball.coords[0], ball.coords[1], goalX, 0.0f);
   for (int k = 0; k < 11 && k < static_cast<int>(players.size()); ++k) {
     const int man = side * 11 + k;
@@ -1922,17 +1926,8 @@ void TeamAIController::PesPressTick() {
   }
   for (int i = 0; i < 4; ++i) in.pressSlotMan[i] = pressState.pressSlot[i];
   const std::vector<pes::PressCandidate> bucket = pes::RunPresserPass1(c, in, side);
-  int winner = -1;
-  if (!bucket.empty()) {
-    const int man = bucket[0].man;
-    const float dx = in.posX[man] - in.ballX;
-    const float dz = in.posZ[man] - in.ballZ;
-    const float radius = pes::PressPickRadius_m(c, std::sqrt(bucket[0].score));
-    // The pick radius admits a fresh presser (FUN_140536FC0, press-life §3); the 13 m stop is the renewal of a man already
-    // pressing (0x1425C6788, press-life §11).
-    const float distSq = dx * dx + dz * dz;
-    if (pes::PressPickAccepted(distSq, radius, pressState.role[man] == pes::kPressState)) winner = man;
-  }
+  // The gate (FUN_140536FC0, 0x140537332) and the pick: the same test for a fresh pick and a renewal.
+  const int winner = pes::PressWinner(c, in, bucket);
   for (int k = 0; k < 11; ++k) {
     const int man = side * 11 + k;
     pressState.SetAction(man, man == winner ? pes::kPressState : pes::kNothingState, stamp);
