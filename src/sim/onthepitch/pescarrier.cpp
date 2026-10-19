@@ -603,6 +603,11 @@ float AttackAngleDeg(float attackSign) {
   // `T+0x254`, and 0x1404FEBD0 stores it at T+0x250. `attackSign` is that sign, so this is its bearing.
   return attackSign < 0.0f ? 270.0f : 90.0f;
 }
+
+float AimVsFacingDeg(float attackSign, float facingX, float facingZ) {
+  const float facing = BearingDeg({0.0f, 0.0f}, {facingX, facingZ});
+  return std::fabs(WrapDeg(AttackAngleDeg(attackSign) - facing));
+}
 bool InBox(const ShootZone& z) { return z.inBox; }
 bool InHeaderRange(const ShootZone& z, const CarrierConstants& k) {
   return InShootRange(z) && z.d_m <= k.shootR1_m;

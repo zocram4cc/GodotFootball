@@ -2291,8 +2291,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // The shoot decision (report 5.1): the shoot zone, the "just shoot" rule
   // and the box/header rule.
   const Vector3 facing = CastPlayer()->GetDirectionVec();
-  const float facingAngle = pes::PesBearingDeg(0.0f, 0.0f, facing.coords[0], facing.coords[1]);
-  const float aimVsFacing = std::fabs(WrapDeg(pes::AttackAngleDeg(attackSign) - facingAngle));
+  const float aimVsFacing = pes::AimVsFacingDeg(attackSign, facing.coords[0], facing.coords[1]);
   Player* keeper = match->GetTeam(abs(team->GetID() - 1))->GetGoalie();
   pes::ShootInput shoot;
   shoot.zone = zone;

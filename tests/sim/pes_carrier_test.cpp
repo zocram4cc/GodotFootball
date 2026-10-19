@@ -2509,6 +2509,18 @@ TEST(PesCarrierBearing, TheAttackAngleIsTheBearingOfTheAttackDirection) {
   EXPECT_NEAR(std::fabs(wrap180(home - away)), 180.0f, 1e-3f);
 }
 
+TEST(PesCarrierBearing, ACarrierFacingTheGoalHeAttacksReadsZeroDegreesOffTheAim) {
+  // The shoot gate's aim-vs-facing (report 5.1: angle(ball->aim, facing) > 100 at 0x142121920, and
+  // central_eval's 60/90 term). The aim of a side attacking +x is the attack bearing (90) and the
+  // facing is a PES bearing, so a carrier facing +x reads 0, not 180. The old controller subtracted a
+  // mirrored angle (atan2(-y, -x) = 270 - bearing) from the bearing, which inverted this.
+  EXPECT_NEAR(pes::AimVsFacingDeg(1.0f, 1.0f, 0.0f), 0.0f, 1e-3f);     // facing +x, attacking +x
+  EXPECT_NEAR(pes::AimVsFacingDeg(1.0f, -1.0f, 0.0f), 180.0f, 1e-3f);  // facing his own goal
+  EXPECT_NEAR(pes::AimVsFacingDeg(1.0f, 0.0f, 1.0f), 90.0f, 1e-3f);    // facing +z
+  EXPECT_NEAR(pes::AimVsFacingDeg(-1.0f, -1.0f, 0.0f), 0.0f, 1e-3f);    // the other end mirrors
+  EXPECT_NEAR(pes::AimVsFacingDeg(-1.0f, 1.0f, 0.0f), 180.0f, 1e-3f);
+}
+
 // --- the stock team level (G3's input): class x 100, from the install ---
 
 TEST(PesCarrierInstall, TheStockTeamLevelIsAClassScaledByAHundred) {

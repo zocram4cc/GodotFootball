@@ -476,6 +476,11 @@ bool InHeaderRange(const ShootZone& z, const CarrierConstants& k);  // 0x1406997
 // the 0x140A8F7C0 advance along it, the 0x14043A0A0 bearing diff) takes it as that bearing.
 float AttackAngleDeg(float attackSign);
 
+// The shoot gate's aim-vs-facing angle (report 5.1's `angle(ball->aim, facing)`, 0x142121920, and
+// central_eval's term): the attack bearing against the carrier's facing bearing, both in PES's
+// convention (0 = +z, 90 = +x). A carrier facing the goal he attacks reads 0.
+float AimVsFacingDeg(float attackSign, float facingX, float facingZ);
+
 // The header-range gate PES adds to it: the ball must be over the shooter's
 // head, which is `ballY > 0.8 * height/100` (0x142121a5e).
 bool BallAboveHead(float ballHeight_m, float height_m, const CarrierConstants& k);
