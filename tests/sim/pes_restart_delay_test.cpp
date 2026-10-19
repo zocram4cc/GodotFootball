@@ -36,7 +36,13 @@
 namespace {
 
 constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;
-constexpr unsigned int SEED = 7;
+constexpr unsigned int kDefaultSeed = 7;
+// GF_SEED picks another seed; tools/dev/loose_episodes.sh runs the metric over several.
+unsigned int SeedFromEnvironment() {
+  const char* s = std::getenv("GF_SEED");
+  return s ? static_cast<unsigned int>(std::strtoul(s, nullptr, 10)) : kDefaultSeed;
+}
+const unsigned int SEED = SeedFromEnvironment();
 constexpr int MINUTES = 2;
 // Seed 7 stalls a throw-in at about four minutes; five covers it.
 constexpr int LONG_MINUTES = 5;
@@ -625,4 +631,39 @@ TEST(PesRestartDelay, ANaturalGoalIsCountedOnTheJudgesFrame) {
   EXPECT_NE(flipAt, 0ul) << "the seed-7 match has no end-line crossing";
   EXPECT_EQ(goalsAtFlip, goalsBefore) << "the score moved on the flip tick, before the judge read the event";
   EXPECT_EQ(goalsAfter, goalsBefore + 1) << "the goal was not counted on the judge's frame";
+}
+
+// The loose-episode metric, the acceptance number on the PES path: per seed, the loose episodes longer than
+// the stall bound (over) and the excess ticks past it. Disabled so the suite does not run four whole matches;
+// tools/dev/loose_episodes.sh runs it over the seeds (--gtest_also_run_disabled_tests).
+TEST(PesRestartDelay, DISABLED_LooseEpisodeMetric) {
+  constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
+  constexpr unsigned long kBoundTicks = static_cast<unsigned long>(
+      GameplayTuning::kStalemateForceAction_s * static_cast<float>(Match::kFramesPerSecond));
+  bool inEpisode = false;
+  unsigned long episodeTicks = 0, episodes = 0, over = 0, excess = 0;
+  const auto closeEpisode = [&] {
+    if (episodeTicks > kBoundTicks) {
+      ++over;
+      excess += episodeTicks - kBoundTicks;
+    }
+  };
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() &&
+                       match.GetBall()->GetMovement().GetLength() <= kRestSpeed_ms;
+    if (loose) {
+      if (!inEpisode) {
+        inEpisode = true;
+        episodeTicks = 0;
+        ++episodes;
+      }
+      ++episodeTicks;
+    } else if (inEpisode) {
+      inEpisode = false;
+      closeEpisode();
+    }
+  });
+  if (inEpisode) closeEpisode();  // an episode still open when the stall watch stopped the run
+  ASSERT_GT(episodes, 0ul) << "no match ran; is PES21_ROOT set?";
+  printf("[loose-episodes] seed=%u episodes=%lu over=%lu excess=%lu\n", SEED, episodes, over, excess);
 }
