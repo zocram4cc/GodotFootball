@@ -55,6 +55,22 @@ struct PossessionLatchInput {
   bool otherHeadFlagClear = false;  // FUN_140a489f0(G, other head).+0x1470 == 0
 };
 
+// PES's contest predicate FUN_1404F4BE0 (docs/re/pes-re-first-touch.md 3.2), in the gates GF can
+// express. Returns true while the holder's side is still contesting the loose ball, so latch step 4b
+// does not award it. ponytail: not ported: the zone gate (zone 0 returns false), the budget overrides
+// (zone 1 halves gs, the near-ball override sets gs, the +2gs term, the facing halving), the event
+// branch (FUN_1404C8EA0 < 64), the time-since-event branch, and the leader branch (dS + 12 > the other
+// side's leader). The budget here is the game speed (zone 2, no overrides).
+struct ContestInput {
+  bool holderValid = false;           // holder id < 22 (FUN_1404F4BE0 returns 0 above 21)
+  bool teamHasBall = false;           // the holder's side's T+0x255 != 0 (returns 0)
+  bool otherHeadValid = false;        // the other side's head is on the pitch (returns 0)
+  float holderArrival_frames = 0.0f;  // FUN_14044E020(H, s): stand-in, time to the ball in frames
+  float otherArrival_frames = 0.0f;   // FUN_14044E020(H, oth): stand-in
+  float budget_frames = 0.0f;         // the zone budget (stand-in: the game speed)
+};
+bool ContestBallPredicate(const ContestInput& in);
+
 // The latch's value for `in.team` at this frame; the caller stores it.
 bool TeamPossessionLatch(const PossessionLatchInput& in);
 

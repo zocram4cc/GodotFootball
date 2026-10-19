@@ -500,9 +500,24 @@ void Team::UpdatePesPossession() {
   Player* holder = match->GetDesignatedPossessionPlayer();
   in.holderValid = holder != nullptr;
   in.holderSide = holder ? holder->GetTeamID() : 0;
-  // ponytail: the chase predicate FUN_1404f4be0 reads anime classes and arrival tables
-  // GF does not carry. Stand-in: not blocked.
+  // Step 4b's chase predicate, PES path only (FUN_1404F4BE0 for the holder). ponytail: the holder is the
+  // designated possession man, the other side's head is its designated man, and arrival is the time to
+  // the ball in frames (no FUN_14044E020 table). Off the PES path the latch is not blocked, as before.
   in.chaseBlocked = false;
+  if (match->PesLoop() && holder) {
+    Player* otherHead = match->GetTeam(1 - in.holderSide)->GetDesignatedTeamPossessionPlayer();
+    pes::ContestInput contest;
+    contest.holderValid = true;
+    contest.teamHasBall = match->GetTeam(in.holderSide)->IsPesPossession();
+    contest.otherHeadValid = otherHead != nullptr;
+    contest.holderArrival_frames =
+        static_cast<float>(holder->GetTimeNeededToGetToBall_ms() / Match::kTick_ms);
+    contest.otherArrival_frames =
+        otherHead ? static_cast<float>(otherHead->GetTimeNeededToGetToBall_ms() / Match::kTick_ms)
+                  : 0.0f;
+    contest.budget_frames = static_cast<float>(gs);
+    in.chaseBlocked = pes::ContestBallPredicate(contest);
+  }
   // The holder's side's latch as it stands now (the other team's value is this frame's if
   // that team's update ran first).
   in.holderTeamLatch = holder != nullptr && match->GetTeam(in.holderSide)->IsPesPossession();
