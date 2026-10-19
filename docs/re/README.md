@@ -218,6 +218,7 @@ address given.
 |`pes-re-s1-writer.md`|S1 score rows: writer `FUN_14045B420` (live hardware watch), called from `FUN_140457070` on the listener step-5 path (not the team tick); rows = d^2 from each player to a goal-centre point; mask rotates on MI+0x1198&3; MA chains; corrects the G+0x1EF8 player table to G+0x1DD8+0x28*i|
 |`pes-re-team-mode.md`|G4 team mode: `0x141052E30` is a reader of `*(TA+0x5A0)`+8 (mode = src+0x48, live 0 in all samples; nonzero writer unobserved); T+0x87CD writer `0x1405F9E5C` (live 1/3, never 2); K+0x6E not located|
 |`pes-re-kick-approach.md`|Open-play kick approach (PARTIAL): clip tick count FUN_1406B10D0 confirmed; kick writer moves no root XZ; planner not found; live n=6 contact offsets; G+0x40 is a 7-frame stale ball copy|
+|`pes-re-out-side.md`|Out-of-play zone code at BallInfo+0x2798: per-tick writer FUN_140872C10 -> classifier FUN_140A72E70 on the ball (x,z) with a ball-radius margin; bit 0x2 = out (0x4 touchline, 0x8 end line); 0 while p+0x298==3; K=10 emits on change; live 4447/4447 exact|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
