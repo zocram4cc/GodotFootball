@@ -253,6 +253,30 @@ TEST(PesRestartDelay, ALooseDeadBallInPlayIsReachedAndPlayed) {
       << "a loose dead ball in play lay for " << longestTicks << " ticks (bound " << kBoundTicks << ")";
 }
 
+// PES stops renewing a PRESS man once the loose ball is more than 13 m from him (press-life 12, the 0x1425C6788
+// distance row). Seed 7 keeps a presser 13.1 to 13.5 m off a ball lying loose for thousands of ticks.
+TEST(PesRestartDelay, ALoosePresserBeyondThirteenMetresIsNotKept) {
+  constexpr float kRenewalBall_m = 13.0f;  // press-life 12: the 13 m loose-ball gate (0x1425C6788)
+  constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
+  unsigned long farRun = 0, farTicks = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() &&
+                       match.GetBall()->GetMovement().GetLength() <= kRestSpeed_ms;
+    bool far = false;
+    if (loose) {
+      for (int t = 0; t < 2; ++t) {
+        Player* p = match.GetTeam(t)->GetController()->GetLoosePressMan();
+        if (p && (match.GetBall()->Predict(0).Get2D() - p->GetPosition().Get2D()).GetLength() > kRenewalBall_m)
+          far = true;
+      }
+    }
+    farRun = far ? farRun + 1 : 0;
+    if (farRun > 1) ++farTicks;  // one tick of grace: the renewal runs on the team tick
+  });
+  EXPECT_EQ(farTicks, 0ul) << "a presser stood more than " << kRenewalBall_m << " m from a loose ball for " << farTicks
+                           << " ticks";
+}
+
 // A restart taker must take the restart: within the bound after the release he plays a ball action
 // (a pass, a lofted kick, a shot or a throw). A taker whose clip stays a PES locomotion clip is
 // refused his ball action by SelectAnim, so this stays red until the requeue gate accepts it.
