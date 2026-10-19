@@ -65,15 +65,17 @@ TEST(WhiteBalance, PositiveTintLowersGreenAndRaisesRedAndBlue) {
 
 // Regression oracle: the report's live matrix at 6500 K, tint 1, read from
 // TonemapFilterDx11+0x10 during a match (docs/re/pes-re-lighting.md Part C §3).
-// The composition applies the stored rows as the rows of its matrix, out_i = row_i · in.
-// A frame check at matched exposure picks this order over the transpose (the GF
-// grass chroma against PES, docs/render/pes-render-TurfColour.md).
-TEST(WhiteBalance, AppliesTheStoredLiveRowsAsMatrixRows) {
+// The stored rows are the transpose of the column-convention matrix the
+// shader applies, so m[i][j] == stored[j][i]. Decoded: the composition copies this
+// block (FUN_14175f590 lines 141-149), loads cb5[14+c].xyz from column c of it
+// (FUN_141804200 lines 177-182), and Tonemap.ps.asm lines 29-31 apply those vectors
+// as dot-product rows, so the applied matrix is the transpose of the stored rows.
+TEST(WhiteBalance, MatchesReportedLiveMatrixAtTintOne) {
   const pes::Mat3 m = pes::WhiteBalanceRgb(6500.0, 1.0);
   const double stored[3][3] = {
       {1.234, -0.0223, 0.01165}, {0.4398, 0.8271, 0.06639}, {-0.007835, -0.01944, 1.679}};
   for (int i = 0; i < 3; ++i)
-    for (int j = 0; j < 3; ++j) EXPECT_NEAR(m[i][j], stored[i][j], 2e-3) << i << "," << j;
+    for (int j = 0; j < 3; ++j) EXPECT_NEAR(m[i][j], stored[j][i], 2e-3) << i << "," << j;
 }
 
 // PES runs floor(10·size) Kawase passes, at least one (docs/re/pes-re-lighting.md Part C
