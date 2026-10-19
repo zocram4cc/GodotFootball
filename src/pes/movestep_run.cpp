@@ -1399,6 +1399,24 @@ void ClipEndExit(MoveHost& host, MoveReq& req, const RunConstants& k, const Move
   }
   // PES 716-717: the clip issue, carried to the adapter as the pending motion with the foot band.
   req.SetByte(moveword::kMotionPending, 1);
+  // PES 718-745: the band-3 rate clamp, after the issue. The raw asm stores the rate word as a float (movss to 0x128 after
+  // the vt+0x38 rate getter), so the decompiler's (int) is a bit copy, not a truncation. ponytail: PES issues before this
+  // block; the port's adapter sends the rate at the tick's end, so the clamped value is the one sent.
+  if (req.U(moveword::kRateBand) == 3u && speed < k.kmh28 && k.kmh16 < speed) {
+    const float ceiling = host.RateCeiling();
+    float rate = (ceiling + k.rate06) * k.half;  // PES 719-721
+    const int motion = host.CurrentMotion();
+    if (motion == 0xbde || motion == 0xbe1) {    // PES 722-738
+      if (speed <= k.kmh25) {
+        if (k.kmh22 < speed) rate = (ceiling + ceiling + ceiling + k.rate06 + k.rate06) / k.kmh5;
+      } else {
+        rate = (ceiling + ceiling + k.rate06) / m.dist3;
+      }
+    }
+    // PES 739-744: the rate stands only between zero and the ceiling.
+    rate = (rate <= ceiling && 0.0f <= rate) ? rate : 0.0f;
+    req.SetF(moveword::kRate, rate);
+  }
 }
 
 void Accelerate(MoveHost& host, MoveReq& req) {
