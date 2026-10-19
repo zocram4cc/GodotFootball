@@ -1222,6 +1222,11 @@ bool ElizaController::_SlideCandidate(const pes::DefenderDecisionConstants& k) {
   const float slideBearing = BearingDeg(CastPlayer()->GetPosition(), ballAhead.Get2D());
   if (!pes::SlideDirectionWindow(k, slideBearing, heading)) return false;
   if (!pes::SlideEngageWindow(k, slideBearing, heading)) return false;
+  // ponytail: PES's slide gate refuses several anime classes (defender-decisions §3: 0x140a6e0d0, 0x140a6e3c0,
+  // 0x140a6e5e0). Whether a get-up is one of them is not decoded, so a get-up clip, one that starts from a lay state
+  // (incoming_special_state), stands in: a slide out of it is the stand-up re-slide cycle (42/20372).
+  const auto* anim = CastPlayer()->GetCurrentAnim()->anim;
+  if (anim && anim->GetVariable("incoming_special_state") != "") return false;
   // Ponytail: the anime layer decides whether he is still recovering from a
   // slide; the engine's own current animation is the nearest readable gate.
   const e_FunctionType current = CastPlayer()->GetCurrentFunctionType();
