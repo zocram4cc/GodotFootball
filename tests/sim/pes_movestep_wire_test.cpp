@@ -440,21 +440,25 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
   Properties config;
   config.SetBool("pes_loop", true);
   REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
-  // Snapshots through play: at each one every active player is set into STOP and steps 60 ticks on the AI's commands
-  // of that moment. The commands turn toward targets and look past the turn: the geometry a stopping body meets.
+  // Snapshots through play: at each one every active player enters STOP through PES's STOP entry (FUN_1406d5d60, as a handler
+  // does), and the players the entry leaves in STOP step 60 ticks on the AI's commands of that moment. The geometry a stopping
+  // body meets is a turn toward a target, looked past the turn.
   constexpr int kSnapshots = 6;
   constexpr int kTicksBetween = 100;
-  constexpr int kStopTicks = 60;  // about 1.1 s: the second dwell (14/60 s) scaled by the turn ramp
+  constexpr int kStopTicks = 60;  // about 1.1 s: the second dwell (0.35 s) and the turn ramp's scale fit inside it
   int forced = 0;
   int held = 0;
   for (int s = 0; s < kSnapshots; ++s) {
     for (int t = 0; t < kTicksBetween; ++t) match->Process();
-    const std::vector<Player*> players = ActivePlayers(*match);
-    for (Player* p : players) p->GetMoveStep().state = pes::MoveState::kStop;
-    for (int t = 0; t < kStopTicks; ++t) {
-      for (Player* p : players) pesmovestep::ProcessMoveStep(*p, *match);
+    std::vector<Player*> stopped;
+    for (Player* p : ActivePlayers(*match)) {
+      pesmovestep::RequestStop(*p, *match);
+      if (p->GetMoveStep().state == pes::MoveState::kStop) stopped.push_back(p);
     }
-    for (Player* p : players) {
+    for (int t = 0; t < kStopTicks; ++t) {
+      for (Player* p : stopped) pesmovestep::ProcessMoveStep(*p, *match);
+    }
+    for (Player* p : stopped) {
       ++forced;
       if (p->GetMoveStep().state == pes::MoveState::kStop) ++held;
     }
@@ -490,6 +494,34 @@ TEST(MoveStepWire, AnAiMovementClipDoesNotTakeTheBodyWhileTheFsmHoldsAStop) {
   }
   EXPECT_GT(holdTicks, 0) << "no FSM hold in " << kHoldTicks << " ticks: the check saw nothing";
   EXPECT_EQ(violations, 0) << "AI movement clips held the body on " << violations << " player-ticks; the first at tick "
+                           << firstTick;
+}
+
+// While the MOVESTEP FSM runs ACCELERATE, the AI's movement command does not pick the body's clip, the same rule as the STOP
+// hold above. An AI movement clip on an ACCELERATE tick leaves the handler with no motion record (CurrentMotion -1), so
+// every arm falls through and the state never leaves ACCELERATE.
+TEST(MoveStepWire, AnAiMovementClipDoesNotTakeTheBodyWhileTheFsmRunsAccelerate) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  constexpr int kAccelerateTicks = 1800;  // about 33 s of play
+  int accelerateTicks = 0;
+  int violations = 0;
+  int firstTick = -1;
+  for (int tick = 0; tick < kAccelerateTicks; ++tick) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      if (p->GetMoveStep().state != pes::MoveState::kAccelerate) continue;
+      ++accelerateTicks;
+      const Anim* a = p->GetCurrentAnim();
+      if (a && a->functionType == e_FunctionType_Movement) {
+        if (firstTick < 0) firstTick = tick;
+        ++violations;
+      }
+    }
+  }
+  EXPECT_GT(accelerateTicks, 0) << "no ACCELERATE in " << kAccelerateTicks << " ticks: the check saw nothing";
+  EXPECT_EQ(violations, 0) << "AI movement clips held the body on " << violations << " ACCELERATE player-ticks; the first at tick "
                            << firstTick;
 }
 

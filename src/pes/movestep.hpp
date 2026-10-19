@@ -57,10 +57,10 @@ enum class MoveState : uint8_t {
 };
 inline constexpr int kMoveStateCount = 24;
 
-// The FSM's pose hold: while the state is STOP the body keeps its pose. The clip's end does not switch the body and the AI's
-// movement command selects no clip (humanoid.cpp). ponytail: the hold set is STOP alone; the IDLE family is not held, since
-// its exit to GOTO_RUN is not decoded.
-inline bool HoldsBodyPose(MoveState s) { return s == MoveState::kStop; }
+// The FSM's pose hold: while the state is STOP or ACCELERATE the body keeps its pose. The clip's end does not switch the
+// body and the AI's movement command selects no clip (humanoid.cpp). ponytail: the hold set is STOP and ACCELERATE; the
+// IDLE family is not held, since its exit to GOTO_RUN is not decoded.
+inline bool HoldsBodyPose(MoveState s) { return s == MoveState::kStop || s == MoveState::kAccelerate; }
 
 // The MOVESTEP fields of one player (PES's P+0x245a..0x3758). Writers are named in the .cpp.
 struct MoveStepRecord {
@@ -76,6 +76,9 @@ struct MoveStepRecord {
   float yawLock = 0.0f;                    // P+0xbec: the dispatcher's yaw lock and the slip/root-facing tail
   float rate = 0.0f;                      // req[0x4a]: the ramped rate, carried from tick to tick
   uint8_t style = 0;                      // req[0x50]: P+0x27b1, the locomotion style the loop is on
+  // req[0x17..0x2e]: the record stamps, the dwell clocks and the band words, carried tick to tick. FUN_1406b6a90 copies them
+  // back to P+0x2770..P+0x27d4 after the dispatch, and the fill (FUN_1406b7560) copies them in before it.
+  std::array<uint32_t, 24> carried{};
 
   // FUN_1406b8340, early-out branch after FUN_140708750: the state falls back to INIT.
   void EnterInit() {
@@ -704,6 +707,9 @@ class MoveHost {
 // ---------------------------------------------------------------------------------------------
 void Dispatch(MoveState state, MoveHost& host, MoveReq& req);  // the switch: case k calls its handler
 void ApplyTransition(MoveStepRecord& rec, MoveReq& req);       // req[0x38] set -> rec.Enter(req[0x39])
+// FUN_1406b6a90 (copy-back) and FUN_1406b7560 (copy-in): req[0x17..0x2e] between the record and the request block.
+void CarryOut(MoveStepRecord& rec, const MoveReq& req);
+void CarryIn(const MoveStepRecord& rec, MoveReq& req);
 // FUN_1406d2030's run guard: a run may start only while the rate is at most stepBase (0.95,
 // DAT_1425ab124, the playback floor) times the rate ceiling (P+0x377c, rateMax). Every entry
 // that starts a run calls this one guard; no state keeps its own copy.

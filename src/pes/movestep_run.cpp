@@ -158,9 +158,9 @@ constexpr uint64_t STYLE_GROUP_VA = 0x1425ddcf0;     // FUN_1406d2030, style*4 +
 // FUN_1406d5d60's three dwell immediates. They are instruction operands (movss off an immediate
 // stored on the stack), not .rdata floats, so they have no VA; the values are the ones the
 // decompile shows at each store: 0x3cf5c28f, 0x3d4ccccd and 14 ticks over the 54 Hz clock.
-constexpr float STOP_DWELL = 0.05f;       // FUN_1406d5d60, the stop entry's dwell
-constexpr float SLOW_DWELL = 0.03f;        // FUN_1406d5d60, the slow-stop dwell
-constexpr float SECOND_DWELL = 14.0f / 60.0f;  // FUN_1406d5d60, the second dwell in seconds
+constexpr float STOP_DWELL = 0.1f;    // FUN_1406d5d60's first arm stores 0x3dcccccd (0.1 s) at req[0x1b]
+constexpr float SLOW_DWELL = 0.03f;   // 0x3cf5c28f (0.03 s): the slow-stop first dwell
+constexpr float SECOND_DWELL = 0.35f;  // 0x3eb33333 (0.35 s) at req[0x2e]
 
 
 // ---------------------------------------------------------------------------------------------
@@ -521,7 +521,7 @@ void EnterStop(MoveHost& host, MoveReq& req) {
   const pes::RunConstants& k = host.RunConstantsView();
   const pes::RunTables& t = host.RunTablesView();
   const int kind = static_cast<int>(req.U(moveword::kKind));
-  const int cls = static_cast<int>(req.U(moveword::kCommandSpeedClass));
+  const int cls = static_cast<int>(req.U(moveword::kClassWord));  // PES's param_2[0x1f] picks the arm and the picker's band
   const int rowKind = kind == 8 ? 2 : kind;
   req.SetU(moveword::kRecordStampC, 0);
 
@@ -545,19 +545,18 @@ void EnterStop(MoveHost& host, MoveReq& req) {
     req.SetF(moveword::kStartTime, 0.0f);
     req.SetF(moveword::kPlayback, k.one);
     req.SetF(moveword::kDwellLimit, STOP_DWELL);
-    // The live-seconds arm: a class of -1, or a first dwell at most 0.2 s, with the current
-    // ground speed below 5 km/h shortens the dwell to 0.03 (0x3cf5c28f).
-    const float speed = host.CurrentSpeedKmh();
+    // The live-seconds arm: a class word of -1, or a first dwell at most 0.2 s, with the ground speed below 5 km/h (the last
+    // displacement, as FUN_1406d5d60 computes it at line 76) shortens the dwell to 0.03 (0x3cf5c28f).
     if ((static_cast<uint32_t>(cls) == 0xffffffffu ||
          (req.F(moveword::kDwellElapsed) <= k.blend2 && k.blend2 != req.F(moveword::kDwellElapsed))) &&
-        speed * host.TicksPerSecond() / k.kmh1000 < k.kmh5) {
+        GroundSpeedKmh(host, k) < k.kmh5) {
       req.SetF(moveword::kDwellLimit, SLOW_DWELL);
     }
     req.SetF(moveword::kDwellElapsed, 0.0f);
     req.SetU(moveword::kLiveKind, static_cast<uint32_t>(m));
     req.SetF(moveword::kDwellElapsed2, 0.0f);
     req.SetF(moveword::kDwellLimit2, SECOND_DWELL);
-    RequestState(req, MoveState::kStop);
+    RequestState(req, MoveState::kIdle);  // FUN_1406d5d60 lines 85-86: the no-class arm requests IDLE (req[0x39] = 1)
     req.SetU(moveword::kRecordStampA, 0);
     req.SetU(moveword::kRecordStampB, 0);
     req.SetByte(moveword::kTurnLockFlag, 0);
@@ -587,23 +586,14 @@ void EnterStop(MoveHost& host, MoveReq& req) {
   const int bucket = AngleBucket(host.AngleBuckets(), AngleDiffDeg(heading, facing, k), 10, false);
   req.SetU(moveword::kMoveBucket, static_cast<uint32_t>(bucket));
   req.SetU(moveword::kPrevBucket, static_cast<uint32_t>(bucket));
-  // The bearing to the player's own position (FUN_14046f230 of P+0x8), used as the lock's
-  // stamp, then the bucket's centre angle (DAT_1425dd660) folded against the bearing.
-  float pos[3] = {0.0f, 0.0f, 0.0f};
-  host.PositionAt(0, pos);
-  req.SetU(moveword::kRecordStampA, static_cast<uint32_t>(pos[0]));
-  req.SetU(moveword::kRecordStampB, static_cast<uint32_t>(bucket));
   // The turn playback (FUN_1406e9f10 of the mirror argument) with the capability clamp.
   const float p = host.MirrorChoice(false) ? k.one : k.half;
   float playback = pes::TurnPlayback(host.PhysiqueG(), p, host.PlaybackConstantsView());
   if (!(k.dist1m5 < playback || playback < k.ramp85)) playback = k.one;
   req.SetF(moveword::kPlayback, playback);
-  // The stop row (FUN_1406b9d80) with the request's band, the kind (8 maps to 2) and the
-  // bucket; the picker's own argument is req[0x1f] clamped to 0..2, not the class.
-  // FUN_1406b9d80's class argument is the band word (moveword::kStopBand, req+0x144) clamped to
-  // 0..2, and its kind argument is the request's kind with 8 mapped to 2 (ASM of 0x1406d5d60).
-  const int stopBand = static_cast<int>(req.U(moveword::kStopBand));
-  const int rowBand = stopBand < 3 ? (stopBand < 0 ? 0 : stopBand) : 2;
+  // The stop row (FUN_1406b9d80) with the bucket and the kind (8 maps to 2). Its band is the class word req[0x1f] clamped to
+  // 0..2: FUN_1406d5d60 passes param_2[0x1f] to the picker, not the band word req[0x51].
+  const int rowBand = cls < 3 ? (cls < 0 ? 0 : cls) : 2;
   const int row = StopRowFor(rowKind, rowBand, t);
   const MoveCell cell = host.Cell(row, bucket, false);
   host.Issue(MotionRequest{cell.motionNo, cell.mirror, 0, k.blend2, playback, 0.0f, -1, 0.0f, 0.0f, 0});
@@ -761,8 +751,8 @@ void GotoRun(MoveHost& host, MoveReq& req) {
         (k.deg5625 <= bearing || fastTurnLocked)) {
       req.SetU(moveword::kPrevBucket, req.U(moveword::kMoveBucket));
       const int bucket = AngleBucket(host.AngleBuckets(), bearing, 10, false);
-      req.SetF(moveword::kDesiredSpeedKmh, k.kmh5);
-      req.SetU(moveword::kCommandSpeedClass, 0u);
+      req.SetU(moveword::kClassWord, 0u);  // PES param_2[0x1f] = 0 before the STOP entry: its no-class arm answers IDLE
+      req.SetF(moveword::kStopSpeedWord, k.kmh5);  // PES param_2[0x1d] = 5.0 (FUN_1406bdf10 line 226)
       req.SetU(moveword::kMoveBucket, static_cast<uint32_t>(bucket));
       EnterStop(host, req);
       return;

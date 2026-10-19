@@ -447,6 +447,7 @@ void ProcessMoveStep(Player& player, Match& match) {
   pes::MoveStepRecord& rec = player.GetMoveStep();
   MoveHostAdapter host(player, match, *constants);
   pes::MoveReq req;
+  pes::CarryIn(rec, req);  // FUN_1406b7560's copy-in: the dwell words and stamps the record carried from the last tick
 
   // The request block's copy-in words the adapter owns before the handler runs. FillCommandWords writes
   // the command words from the player's current command; the action-entry stores follow it.
@@ -486,6 +487,21 @@ void ProcessMoveStep(Player& player, Match& match) {
   rec.rate = req.F(pes::moveword::kRate);
   rec.style = static_cast<uint8_t>(req.U(pes::moveword::kStyle) & 0xffu);
   rec.liveKind = static_cast<uint8_t>(req.U(pes::moveword::kLiveKind) & 0xffu);
+  pes::CarryOut(rec, req);  // FUN_1406b6a90's copy-back: the words the next tick reads back
+  pes::ApplyTransition(rec, req);
+}
+
+void RequestStop(Player& player, Match& match) {
+  if (!match.PesLoop()) return;
+  const MoveHostConstants* constants = &match.GetPesMoveStepConstants();
+  pes::MoveStepRecord& rec = player.GetMoveStep();
+  MoveHostAdapter host(player, match, *constants);
+  pes::MoveReq req;
+  pes::CarryIn(rec, req);
+  req.SetF(pes::moveword::kFacing, host.FacingDeg());
+  host.FillCommandWords(req);
+  pes::movestep::EnterStop(host, req);
+  pes::CarryOut(rec, req);
   pes::ApplyTransition(rec, req);
 }
 

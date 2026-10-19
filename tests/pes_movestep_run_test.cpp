@@ -584,6 +584,26 @@ TEST(GotoRun, TheStopArmWaitsForIdleSecondDwellAfterLeavingIdle) {
   EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
 }
 
+// PES's GOTO_RUN STOP entry writes the class word 0x1f to 0 before FUN_1406d5d60 (FUN_1406bdf10 line 227 of its
+// decompile); the no-class arm then answers IDLE. Left at the band GOTO_RUN ran in, the word takes the run-stop arm,
+// which answers STOP, and the FSM goes back and forth between the two states every tick.
+TEST(GotoRun, TheStopEntryClearsTheClassWordSoTheStopAnswersIdle) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  pes::RotRecord rot;
+  rot.start = 30;  // a clip still running (its total is 54 ticks), so the stop arm's clip gate holds
+  h.record.rot.push_back(rot);
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetU(pes::moveword::kClassWord, 2u);  // the band GOTO_RUN left in word 0x1f
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 90.0f);  // 90 degrees: past the 56.25-degree stop bearing
+  pes::movestep::GotoRun(h, req);
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 0u);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+}
+
 // ---------------------------------------------------------------------------------------------
 // The STOP handler's decision arms (FUN_1406c9e20). Its decompile's five exits are:
 //   1. the re-plan into GOTO_RUN (the turn lock words set, a band below 3, a speed under
@@ -1698,4 +1718,105 @@ TEST(Stop, ComparesTheFacingErrorByMagnitudeForTheIdleTurnExit) {
 TEST(Stop, ReadsTheLookBucketNotTheMoveBucketForTheIdleTurnExit) {
   EXPECT_EQ(StopIdleExitCalls(2u, 0u, 40.0f), 1) << "look bucket 2, move bucket 0: the turn exit";
   EXPECT_EQ(StopIdleExitCalls(0u, 2u, 40.0f), 0) << "look bucket 0, move bucket 2: the IDLE arm";
+}
+
+// The STOP entry (FUN_1406d5d60). Its arm is chosen by the class word req[0x1f] (PES's param_2[0x1f] in the tests of lines 41
+// and 76), not by the command's speed class req[9]. The class word -1 or 0 takes the no-class arm, which requests IDLE.
+TEST(EnterStop, TheClassWordPicksTheNoClassArmWhichRequestsIdle) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.ticks = 54.0f;
+  h.currentKmh = 100.0f;
+  h.positions[1][0] = 0.1f;  // the last tick's displacement: 19.4 km/h, not slow
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kClassWord, 0xffffffffu);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  pes::movestep::EnterStop(h, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+}
+
+// The no-class arm's dwell words: both clocks restart, the first limit is 0.1 s and the second 0.35 s (FUN_1406d5d60 stores
+// 0x3dcccccd and 0x3eb33333 at req[0x1b] and req[0x2e]; the slow 0.03 s limit needs a slow ground speed).
+TEST(EnterStop, TheNoClassArmWritesThePesDwellWords) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.ticks = 54.0f;
+  h.currentKmh = 100.0f;
+  h.positions[1][0] = 0.1f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kClassWord, 0u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.9f);
+  pes::movestep::EnterStop(h, req);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellElapsed), 0.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellElapsed2), 0.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 0.1f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit2), 0.35f);
+}
+
+// The run-stop arm (class 1..3) requests STOP and clears the record stamps (FUN_1406d5d60 stores 0 at req[0x17] and req[0x18]);
+// it does not store the player's position or the bucket there.
+TEST(EnterStop, TheRunStopArmClearsTheRecordStamps) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[0][0] = 5.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kClassWord, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kFacingError, 30.0f);
+  req.SetU(pes::moveword::kRecordStampA, 7u);
+  req.SetU(pes::moveword::kRecordStampB, 7u);
+  pes::movestep::EnterStop(h, req);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kStop));
+  EXPECT_EQ(req.U(pes::moveword::kRecordStampA), 0u);
+  EXPECT_EQ(req.U(pes::moveword::kRecordStampB), 0u);
+}
+
+// The slow-stop dwell reads the ground speed of the last displacement, PES's 194.4 km/h per metre at 54 ticks (FUN_1406d5d60
+// line 76), not the host's speed word. A 1 mm tick is 0.19 km/h, so the 0.03 s dwell applies even when the host reports 100.
+TEST(EnterStop, TheNoClassArmShortensTheFirstDwellWhenTheGroundIsSlow) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.ticks = 54.0f;
+  h.currentKmh = 100.0f;
+  h.positions[1][0] = 0.001f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kClassWord, 0xffffffffu);
+  req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  pes::movestep::EnterStop(h, req);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 0.03f);
+}
+
+// The stop row's band is the class word req[0x1f], clamped to 0..2: FUN_1406d5d60 passes param_2[0x1f] to the row picker. The
+// band word req[0x51] does not enter, so two requests that differ only in req[0x51] pick the same row.
+TEST(EnterStop, TheRunStopArmPicksItsRowFromTheClassWord) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  auto pick = [&h](uint32_t bandWord) {
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kKind, 2u);
+    req.SetU(pes::moveword::kClassWord, 2u);
+    req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+    req.SetF(pes::moveword::kFacing, 10.0f);
+    req.SetF(pes::moveword::kFacingError, 30.0f);
+    req.SetU(pes::moveword::kStopBand, bandWord);
+    pes::movestep::EnterStop(h, req);
+    return h.lastCellRow;
+  };
+  EXPECT_EQ(pick(0u), pick(2u));
 }

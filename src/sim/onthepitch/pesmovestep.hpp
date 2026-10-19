@@ -16,6 +16,9 @@ namespace pesmovestep {
 // Runs one MOVESTEP tick for an active player. It is a no-op when the PES install is absent
 // (no PES21_ROOT), so a checkout without the game can still run.
 void ProcessMoveStep(Player& player, Match& match);
+// The STOP entry as a handler calls it (FUN_1406d5d60): the request is filled as ProcessMoveStep fills it, EnterStop writes the
+// entry's words, and the record takes the requested state. The wire test uses it to put a player into STOP by PES's own entry.
+void RequestStop(Player& player, Match& match);
 // PES's frame of a GF point (x, GF y, GF z) -> (x, height = GF z, ground z = -GF y), the order of P+8, P+0xc, P+0x10.
 // The adapter gives MOVESTEP every position and displacement through this one function.
 void PesFrame(float gfX, float gfY, float gfZ, float out[3]);
