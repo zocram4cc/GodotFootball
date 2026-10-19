@@ -2663,6 +2663,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // stand-ins, each named at the field with the PES site that writes it.
   pes::PassAnswer backSpacePass;
   pes::PassAnswer safetyPass;
+  pes::PassAnswer oneTwoPass;
+  pes::PassAnswer directHighPass;
   if (rethink) {
     pes::BackSpaceInput bs;
     pes::SafetyInput sf;
@@ -2779,6 +2781,53 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     sf.carrierPressClass = carrierPressureClass;
     sf.oppPressPair = 0.0f;  // ponytail: T18+0x2470C (INF meaning, writer undecoded) is not carried
 
+    // The OneTwo and DirectHighBall units (kinds 10, 11): the one-touch predicate's carrier inputs
+    // (G1-G12), and the teammates both units test, built from the same receiver records below.
+    const auto distSq = [&](pes::CarrierPoint p) {
+      const float dx = p.x - carrierXZ.x;
+      const float dz = p.z - carrierXZ.z;
+      return dx * dx + dz * dz;
+    };
+    // ponytail: score(T18, k, s), the d2 of the score row (S1, writer OPEN), stands in with the squared
+    // distance to the attacked goal's centre.
+    const auto scoreStandIn = [&](pes::CarrierPoint p) {
+      const float dx = p.x - attackSign * pesFieldHalfLength;
+      return dx * dx + p.z * p.z;
+    };
+    // ponytail: the curve table (S2, writer OPEN) stands in with the most advanced opponent's x.
+    float frontK = -pesFieldHalfLength;
+    const int oppSideOfCarrier = (bs.carrierSlot >= 0 && pes::lane::IsAwaySlot(bs.carrierSlot)) ? 0 : 1;
+    for (int j = 0; j < pes::lane::kSideSize; ++j) {
+      const pes::lane::LanePlayer& op = bs.players[pes::lane::kSideSize * oppSideOfCarrier + j];
+      if (op.active) frontK = std::max(frontK, attackSign * op.pos.x);
+    }
+    pes::TouchInput touch;
+    touch.players = bs.players;
+    touch.carrierSlot = bs.carrierSlot;
+    touch.carrierPos = carrierXZ;
+    touch.attackSign = attackSign;
+    touch.attackAngle_deg = attackAngle;
+    touch.carrierFacing_deg = facingTheta;
+    touch.carrierSpeed_kmh = carrierKmh;
+    touch.carrierHeading_deg = headingTheta;
+    touch.planHeading_deg = carrierImage.heading_deg;
+    touch.planMode = carrierImage.mode;
+    touch.ownLine_m = -attackSign * pesFieldHalfLength;  // G1: the own goal line stands in for T18+(sd+3)*0x14
+    touch.pitchBound_m = pesFieldHalfLength;             // G2: the pitch half length stands in for F+0x18
+    touch.teamLevel = 0;    // G3: the team level is not carried (S4); 0 closes the gate
+    touch.attackLevel = 0;  // G8: T+0xB8A4 is not carried (S4)
+    touch.teamMode = 2;     // G4, G8: the team mode is not carried (S4); neutral, as the chooser
+    touch.carrierCategory = bs.carrierSlot >= 0 ? bs.players[bs.carrierSlot].positionCategory : -1;
+    touch.score = scoreStandIn(carrierXZ);
+    touch.closeZone = pes::IsClose(zone);
+    touch.humanCarrier = false;    // K+0x6C: GF's carriers here are AI
+    touch.oneTwoRunEvent = false;  // G7: the event record and the one-two run action are not carried (S7)
+    touch.runCount = 0;            // G8: the teammates' one-two runs are not carried (S7)
+    touch.markCount = 0.0f;        // G10: the mark count is not carried (S11); 0 is the decode's value
+    touch.curveX_m = attackSign * frontK;
+    touch.flag15 = false;          // C[0xF] is not carried (S18)
+    std::vector<pes::TouchReceiver> touchMates;
+    std::vector<pes::DirectHighBallMate> dhbMates;
     for (const pes::PassCandidate& c : rethinkCandidates) {
       Player* mate = match->GetPlayer(c.index);
       if (mate == nullptr) continue;
@@ -2869,9 +2918,65 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       sm.recBDifficulty = c.record.difficulty;
       sm.recBClass = c.record.opennessClass;
       sf.mates.push_back(sm);
+
+      // The OneTwo and DirectHighBall receivers: the same record A and his own fields.
+      pes::TouchReceiver tr;
+      tr.index = c.index;
+      tr.pos = matePt;
+      tr.facing_deg = mateFacing;
+      tr.statusValid = true;  // ponytail: the b6c status (0x142118D20 == 0xB, S5) stands in as the filter above
+      // ponytail: snapshot(r)[0xD] = T(side)+0x4BD4[r%11] (S6, writer OPEN) is not carried, so the receiver
+      // predicate's psi gate stays shut in GF.
+      tr.psi = false;
+      tr.oneTwoRun = false;  // ponytail: player(r)+0x5D0 == 0x25 (P3) has no GF state
+      tr.difficulty = c.record.difficulty;
+      tr.dist_m = c.record.ballToTarget_m;
+      tr.turnFacing_deg = turnFacing;
+      tr.attackAngle_deg = turnAttack;
+      tr.opennessClass = c.record.opennessClass;
+      touchMates.push_back(tr);
+      pes::DirectHighBallMate dm;
+      dm.receiver = tr;
+      dm.velPerFrame = mateVelFrame;
+      dm.heading_deg = mateHeading;
+      dm.speed_kmh = mateSpeedKmh;
+      // ponytail: the per-slot angle table 0x140A71260 (S10, writer OPEN) stands in with his facing.
+      dm.tableAngle_deg = mateFacing;
+      dm.keeper = mateKeeper;
+      dm.recAClass = c.record.opennessClass;
+      dm.score = scoreStandIn(matePt);
+      dm.markCount = 0;  // ponytail: AI rec2 +0x12A4 (S11) is not carried
+      dhbMates.push_back(dm);
     }
     backSpacePass = pes::BackSpaceUnit(bs, carrier);
     safetyPass = pes::SafetyUnit(sf, carrier);
+    // The teammates nearest the carrier first, the NearestList order both units read.
+    std::stable_sort(touchMates.begin(), touchMates.end(),
+                     [&](const pes::TouchReceiver& a, const pes::TouchReceiver& b) {
+                       return distSq(a.pos) < distSq(b.pos);
+                     });
+    std::stable_sort(dhbMates.begin(), dhbMates.end(),
+                     [&](const pes::DirectHighBallMate& a, const pes::DirectHighBallMate& b) {
+                       return distSq(a.receiver.pos) < distSq(b.receiver.pos);
+                     });
+    pes::OneTwoInput one;
+    one.touch = touch;
+    one.carrierAngle_deg = facingTheta;  // ponytail: K+0x34 (S9, INF) stands in with the carrier's facing
+    one.mates = touchMates;
+    oneTwoPass = pes::OneTwoUnit(one, carrier);
+    pes::DirectHighBallInput dhb;
+    dhb.touch = touch;
+    dhb.ballHeight_m = ballHeight;
+    dhb.ball = {ballPos.coords[0], ballPos.coords[1]};
+    // ponytail: K+0x6E (a volley or header situation, no GF state) is not carried, so the unit's own
+    // gate stays shut in GF.
+    dhb.volatileBall = false;
+    dhb.firstTimeWhileReceiving = false;  // ponytail: AI rec+1 bit 5 (S12) is not carried
+    // ponytail: rec2+0x70+0x31 (S13) is the carrier's height stat 0x31, read here in metres.
+    dhb.carrierHeight_m = CastPlayer()->GetStat("physical_height");
+    dhb.mid = pes::IsMid(zone);
+    dhb.mates = dhbMates;
+    directHighPass = pes::DirectHighBallUnit(dhb, carrier);
   }
   pes::UnitListInput list;
   list.plan = carrierImage.id;
@@ -2888,7 +2993,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
                        attackSign * carrierPos.coords[0] > pesFieldHalfLength - 10.0f;
   const std::vector<pes::UnitSlot> table =
       pes::FillUnitTable(pes::BuildUnitList(list), shotAnswer, pass, longPass, crossPass,
-                         goalFrontPass, backSpacePass, safetyPass);
+                         goalFrontPass, backSpacePass, safetyPass, oneTwoPass, directHighPass);
   pes::WalkContext walk;
   // The restart mode: 3 in a set piece, 1 in play, 2 stopped (report 5, MI+0x116C).
   walk.restartMode = match->IsInSetPiece() ? 3 : (match->IsInPlay() ? 1 : 2);
@@ -2920,6 +3025,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   else if (won.kind == 2) addPass(goalFrontPass);
   else if (won.kind == 3) addPass(backSpacePass);
   else if (won.kind == 6) addPass(safetyPass);
+  else if (won.kind == 10) addPass(oneTwoPass);
+  else if (won.kind == 11) addPass(directHighPass);
 }
 
 void ElizaController::_AddPass(std::vector<PlayerCommand>& commandQueue, Player* target,
