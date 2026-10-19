@@ -95,8 +95,8 @@ are unattributable without base anchoring.
 | T+0x26c / T+0x27c | active/queued concept point (OBS; 27c init −200) | FUN_140634cb0 via 42a40 OBS | ported reads | stand-in: `order->target` (GF concept point, elizacontroller.cpp:622) | cover enrolment | S | N |
 | T+0x4b4c+12·slot | slot formation point (OBS) | S1 0 hits → sheet-coords path; store open | ported reads | stand-in: `slotPoint = GetAdaptedFormationPosition()` (GF adapted, not PES slot write) | — | S | N |
 | T+0x4b40 (slot) | outlet slot (OBS) | S1 0 hits → open | pending: wall skip, FK exclusion | absent (ponytail) | wall/outlet | S | Y (outlet selection is dynamic per restart) |
-| T+0x4c00[11] (i32) | registered position 0..12 (OBS) | S1 0 hits → setup copy by loop (no disp) | ported: role gates, keeper test, GKCoaching | stand-in: `Position(gfRole)` (mapping, not PES value) | keeper/outlet/roles | M | N (mapping OBS from readers; rest static) |
-| T+0x4bd4[11] (=T+0x3f8c+0xc48) | role class 0..9 (OBS) | S1 0 hits → same loop | ported: sub thresholds, budgets, rush race | stand-in (GF-role derived) | — | S | N |
+| T+0x4c00[11] (i32) | role class 0..9 (OBS) — array B = S+0x3FB8 | rebuilt every team tick (`FUN_1404F5F10`) + setup/phase (`FUN_140A59F90`); source registry holds 0..12 (S1 found nothing because the stores use the S base +0x3FB8) | ported: role gates, keeper test, GKCoaching | stand-in: `Position(gfRole)` (mapping, not PES value) | keeper/outlet/roles | M | N (mapping OBS from readers; rest static) |
+| T+0x4bd4[11] (=T+0x3f8c+0xc48) | role class 0..9 (OBS) — array A = S+0x3F8C, identical to B after every bulk writer | same writers (store pair `0x140A425A0`/`0x140A42590`, same value); only divergence is the B-swap `FUN_140A422C0` | ported: sub thresholds, budgets, rush race | stand-in (GF-role derived) | — | S | N |
 | T+0x558[11] | mark target per slot (OBS) | 534a20-family (report) + setter-family store 0x140a428c4 (S1) | ported: mark passes | stand-in: `w.p[target].marker` from GF marking (teamAIcontroller.cpp:2319) — GF assignment, not the 534a20 order | — | S | N |
 
 ### T-PRESS

@@ -7,9 +7,7 @@ Image VAs use base `0x140000000`. Verdicts are the auditor's.
 
 Team directive word: `TeamData+0x80A0` (u16). Per-player phase copies:
 `TeamData+0x80E0` (u16, slot-indexed, 11 slots). The selector layer reads the
-copies, not the team word directly. Writer of the directive word: not pinned
-(OPEN, related to the role-array writer hunt: `T+0x4BD4` / `T+0x4C00` /
-`T+0x3FB8`, no store pinned yet).
+copies, not the team word directly. Writer of the directive word: not pinned (OPEN; the role-array part of the hunt is now pinned — see §5). _Corrected 19-10-26 from pes-re-role-writer.md §6: old "(OPEN, related to the role-array writer hunt: no store pinned yet)"._
 
 ## 2. Consumers
 
@@ -40,4 +38,4 @@ run-option selector (`0x140703BA0` family) -> movement execution.
 ## 5. Open items
 
 - The directive-word writer (who sets the phase, when).
-- The role-array writers (A `+0x4BD4`, B `+0x4C00`, C `+0x3FB8`).
+- The role-array writers (A `+0x4BD4`, B `+0x4C00`, C `+0x3FB8`): CLOSED 19-10-26 — see pes-re-role-writer.md §1.

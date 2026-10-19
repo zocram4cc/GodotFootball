@@ -56,7 +56,7 @@ out = { int nearest(0xff = none) ; int count ; 8-byte entries {int id; float d2}
 Columns: call VA / path / out / c (reference slot) / s (scan side) / origin / theta / len / cone /
 rad / keep / h / u2 / dead / post-call use.
 
-### 3.1 BackSpace `0x142129110` (interior entry of `FUN_142128C10`; see §5.3)
+### 3.1 BackSpace `0x142129110` (no bridge function in the CURRENT DB — see §5 item 3 note)
 - call VA: `0x14212926C` -> `0x14063DE20` (packer) -> `0x14063DC10` -> core. **C-asm.**
 - out: `rcx = r15 = ctx[1]`. `0x14063DC10` forwards its `rcx` to the core's dead `rdx`
   (`mov rbx,rcx` / `mov rdx,rbx`) and keeps its own local out at `[rsp+0x60]` (entries `[rsp+0x68]`,
@@ -94,7 +94,7 @@ rad / keep / h / u2 / dead / post-call use.
 - keep `= 0`, h `= 0` (`[rsp+0x40] = 0`), u2 `= 0` (`[rsp+0x48] = 0`). **C-asm.**
 - post-call: `test al,al` at `0x14212ACEE`. **C-asm.**
 
-### 3.3 Safety `0x14212B520` (interior entry of `FUN_14212AEB0`; see §5.3)
+### 3.3 Safety `0x14212B520` (no bridge function in the CURRENT DB — see §5 item 3 note)
 - call VA: `0x14212B7C0` -> `0x14063DE20` -> `0x14063DC10` -> core. **C-asm.**
 - out: `rcx = [rsp+0x80] = ctx[1]` (`0x14212B568`, `0x14212B78E`). **C-asm.**
 - c: `edx = ebp`, `ebp = [ctx[0]] = ctx[0][0]` = the **carrier's own slot** (`0x14212B532`,
@@ -214,6 +214,7 @@ units' channels are in §3.
    GoalFront `0x14212ABA0` and OneTwo `0x14212AEB0` *are* entries (`funcs.txt` confirms).
    An implementer should `create_function` at the three interior VAs (or use the doc's names) or
    the bridge's `decompile_function` will resolve the wrong (outer) body.
+   _Note 19-10-26 (pes-re-carrier-helpers.md §6 item 14): the CURRENT bridge DB has NO function containing `0x14212B520` at all ("No function found at or containing address" for both decompile and disassemble); the saved `new_14212b520.c` must come from an older DB state. The raw bytes disassemble cleanly as the Safety gate (ret at `0x14212B8A8`, falls into SideChange code after). BackSpace `0x142129110` likewise has no bridge function (consistent with A4Carrier §4 row 3). The §3.1/§3.3 containment readings above describe the older DB state._
 4. The `out` channel: for BackSpace/GoalFront/Safety the caller's `rcx` is **not** the candidate
    buffer. `0x14063DC10` copies its `rcx` into `rbx` and passes it as the core's dead `rdx`
    (`0x14063DCE2`/`0x14063DCC3`), while the core's `out` is DC10's own local `[rsp+0x60]` with
