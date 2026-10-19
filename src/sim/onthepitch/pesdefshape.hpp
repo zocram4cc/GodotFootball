@@ -131,11 +131,12 @@ bool DefensiveLineStepUp(const DefensiveShapeConstants& k, const ShapeField& fie
 // from one tick's ball, so `previousLineDepth_m` is the previous tick's own-frame
 // line height (PES's `prevFinal`) and `carrierIsOpponent` whether the man on the
 // ball is one of theirs. `fullDefence` is T+0xB8A3: at attack level 0 PES skips
-// the step-up (0x1405FA423).
+// the step-up (0x1405FA423). `teamModeThree` is FUN_140A40BC0(T)==3 (the T+0xA298
+// defensive mode, leftovers §3): only then does the -14 m level-up apply.
 float DefensiveLineHeight(const DefensiveShapeConstants& k, const ShapeField& field,
                           const LineFacts& ball, float lineSlider, int style, int attackLevel,
                           bool inPlay, bool carrierIsOpponent, float previousLineDepth_m,
-                          bool fullDefence = false);
+                          bool fullDefence = false, bool teamModeThree = false);
 
 // The opponent order key of report 3.1: the negated own-frame depth with a
 // sixth of a second of velocity added, so the most advanced opponent - the one

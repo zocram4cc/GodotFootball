@@ -174,6 +174,27 @@ TEST(DefensiveLine, FullDefenceFlagSkipsTheStepUp) {
   EXPECT_NEAR(pes::DefensiveLineHeight(k, f, away, 4, 0, 0, true, true, -40.0f, true),
               -45.0f, 1e-3f);
 }
+// Report §6: the -14 m level-up fires on the TEAM mode (FUN_140A40BC0(T)==3),
+// not on attack level 3. Level 3 without the mode shifts the ramp by the 1 m
+// defensive term only; the mode drops the line by the full level-up.
+TEST(DefensiveLine, LevelUpNeedsTeamModeThreeNotAttackLevelThree) {
+  const pes::DefensiveShapeConstants k = Synthetic();
+  const pes::ShapeField f = pes::ShapeFieldFromPitch();
+  // No opponent carrier: the cushion collapses and the ramp stands alone. The
+  // ball sits mid-ramp where the shift is observable (deep balls clamp to the
+  // box line and hide it).
+  const float atTwo =
+      pes::DefensiveLineHeight(k, f, BallAt(-5.0f), 4, 0, 2, true, false, 0.0f);
+  const float atThree =
+      pes::DefensiveLineHeight(k, f, BallAt(-5.0f), 4, 0, 3, true, false, 0.0f);
+  // No 14 m cliff on the level alone: the shift is the ramp's answer to the
+  // 1 m defensive term (observed 5.56 m through the ramp gain).
+  EXPECT_NEAR(atThree, atTwo + 5.56f, 0.1f);
+  const float modeThree = pes::DefensiveLineHeight(k, f, BallAt(-5.0f), 4, 0, 3, true, false,
+                                                   0.0f, false, true);
+  // The mode carries the full level-up past the ramp (observed 7.81 m shallower).
+  EXPECT_NEAR(modeThree, atThree + 7.81f, 0.1f);
+}
 
 TEST(DefensiveLine, CushionFactorDecaysAsTheCarrierTurnsAway) {
   const pes::DefensiveShapeConstants k = Synthetic();

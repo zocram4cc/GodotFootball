@@ -151,7 +151,7 @@ bool DefensiveLineStepUp(const DefensiveShapeConstants& k, const ShapeField& fie
 float DefensiveLineHeight(const DefensiveShapeConstants& k, const ShapeField& field,
                           const LineFacts& ball, float lineSlider, int style, int attackLevel,
                           bool inPlay, bool carrierIsOpponent, float previousLineDepth_m,
-                          bool fullDefence) {
+                          bool fullDefence, bool teamModeThree) {
   // FUN_1405f9eb0, own frame: a ramp of the ball's depth between two line-height
   // offsets, then the cushion behind the ball, the step-up when deep, and the
   // two hard clamps. No smoothing: the target is rebuilt from this tick's ball.
@@ -171,7 +171,12 @@ float DefensiveLineHeight(const DefensiveShapeConstants& k, const ShapeField& fi
     hi -= level * k.strategyDefensive_m;
     lo -= level * k.strategyDefensive_m;
   }
-  if (attackLevel == 3) {
+  // The -14 m level-up fires on the TEAM mode (FUN_140A40BC0(T)==3, the T+0xA298
+  // defensive mode, report §6), not on attack level 3. GF carries no team mode
+  // (its writer is the pre-match setup switch, leftovers §3), so the gate reads
+  // false until that import lands.
+  // ponytail: mode 3 stands in as never-armed; the setup-switch import removes it.
+  if (teamModeThree) {
     hi += k.strategyLevelUp_m;
     lo += k.strategyLevelUp_m;
   }
