@@ -288,6 +288,22 @@ TEST(OffBallMask, ARightMidfielderAndAnAttackingMidfielderAreScoredNotAdmitted) 
   EXPECT_EQ(0u, (m >> 9) & 1u);
   EXPECT_EQ(1u, (m >> 10) & 1u);
 }
+// A class-5 wide midfielder is admitted outright under a selective mask (seed 7's throw-in
+// stalls when he is scored instead: no throw-in is released). Slice K bisects the admit rule
+// to class 5, not the decoded `< 7` boundary, so this red fails until that is understood.
+TEST(OffBallMask, AWideMidfielderIsAdmittedUnderASelectiveMask) {
+  RunWorld w = Running();
+  w.p[1].pos = {10.0f, -6.0f};
+  w.p[2].pos = {10.0f, -3.0f};
+  w.p[4].pos = {10.0f, 3.0f};
+  w.p[8].roleClass = 6;   // AMF: scored
+  w.p[9].roleClass = 5;   // RMF: admitted outright
+  w.p[10].roleClass = 7;  // SS: admitted outright
+  const uint32_t m = AttackSlotMask(w, 0, 2);
+  EXPECT_EQ(1u, (m >> 9) & 1u);
+  EXPECT_EQ(0u, (m >> 8) & 1u);
+  EXPECT_EQ(1u, (m >> 10) & 1u);
+}
 
 TEST(OffBallMask, ADefenderNeedsTheReachAForwardDoesNot) {
   const OffBallConstants k = Synthetic();
