@@ -77,6 +77,10 @@ public:
   float GetWeatherWetness() const { return weatherWetness; }
 
   void Process();
+  // PES's dead ball at the whistle: zero the velocity and the spin in place, leaving the position
+  // for the restart writer, which reads it at the stop frame. The track is rebuilt so predictions
+  // stop flying; the prepare teleport still moves the ball to the spot.
+  void Stop();
 
   void ResetSituation(const Vector3& focusPos);
 
