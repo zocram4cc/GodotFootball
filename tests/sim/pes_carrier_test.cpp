@@ -2093,7 +2093,7 @@ class SafetyUnitTest : public ::testing::Test {
     k_.sfThruLaneRad_m = 5.0f;
     // The passing situation: k = 0 (no pressure), so the short branch answers. The gate lane
     // must be BLOCKED: the opponent at (0, 5) sits in the 80-deg cone about heading 0 (along
-    // +z) with len = 5 (his own distance). Mate 5 at (0, -8) survives the short picker: turn 90
+    // +z) with len = 52.5 (his distance to his own goal, the S1 row). Mate 5 at (0, -8) survives the short picker: turn 90
     // (under-80 false, over-110 false), dist 12 (window [5, 40], scored limit max(need, 45):
     // carrier speed 0 -> wS 1, dist 12 -> wD (12-30)/(-20) = 0.9, need = 30+60+27 = 117,
     // lim = 117 >= vsFacing 30), class 3 (floor 3, b28: pressClass 0), the one-touch lane free
@@ -2109,6 +2109,8 @@ class SafetyUnitTest : public ::testing::Test {
     in_.carrierFacing_deg = 0.0f;
     in_.carrierSpeed_kmh = 0.0f;
     in_.laneHeading_deg = 0.0f;
+    // The gate lane's length: the carrier's squared distance to his own goal (-52.5, 0), S1 row.
+    in_.carrierOwnGoalD2_m2 = 52.5f * 52.5f;
     in_.attackSign = 1.0f;
     in_.sideAngle_deg = 0.0f;
     in_.ball = {0.0f, 0.0f};
@@ -2700,3 +2702,19 @@ TEST(PesCarrierIntention, TheCorridorBlockGivesOneTwoOrZero) {
 }
 
 }  // namespace
+
+// K+0x6E (FUN_14063A490, 0x14063AA5E..0x14063AA91): set when the ctx4 height K+0x44 is above the
+// carrier's height byte P+0xA1 / 100, and only while K+0x6C is 0 (0x14063AA62). Heights in metres.
+TEST(CarrierVolatileBall, IsSetWhenTheBallIsAboveTheCarriersHeight) {
+  pes::VolatileBallInput in;
+  in.ballHeight_m = 1.95f;
+  in.carrierHeight_m = 1.80f;
+  EXPECT_TRUE(pes::VolatileBall(in));
+  in.ballHeight_m = 1.50f;
+  EXPECT_FALSE(pes::VolatileBall(in));
+  in.ballHeight_m = 1.80f;  // strict: K+0x44 > byte / 100 (comiss at 0x14063AA8C)
+  EXPECT_FALSE(pes::VolatileBall(in));
+  in.ballHeight_m = 1.95f;
+  in.humanCarrier = true;  // K+0x6C != 0 skips the write (0x14063AA62)
+  EXPECT_FALSE(pes::VolatileBall(in));
+}

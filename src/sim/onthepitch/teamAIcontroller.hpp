@@ -31,6 +31,7 @@
 #include "pesrandom.hpp"
 #include "pesstrategy.hpp"
 #include "pesoffball.hpp"
+#include "pesscorerows.hpp"
 #include "pesdefshape.hpp"
 #include "teaminstructions.hpp"
 #include "pesteamconcepts.hpp"
@@ -109,6 +110,12 @@ public:
   void CalculateDefensiveShape();
 
   void UpdateTactics();
+
+  // PES's S1 score rows of this team's AI (pesscorerows.hpp), in the lane space: its own team at
+  // 0..10, the opponents at 11..21. TickScoreRows() runs once per frame at the top of Process().
+  const pes::ScoreRows& Rows() const { return scoreRows_.Rows(); }
+  void TickScoreRows();
+  pes::ScoreRowWriter scoreRows_;
 
   const Formations::Shape& GetFormationShape() const { return formationShape; }
   // Writes a shape's roles and positions into the team's formation slots. Any
