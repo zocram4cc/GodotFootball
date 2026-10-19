@@ -434,6 +434,29 @@ TEST(PesCarrierInstall, TheTurnTermRampsFromTheFloorToTheTop) {
   EXPECT_NEAR(pes::ReceiverDifficulty(0.0f, 5.0f, 0.0f, false, 0.0f, false, 103.7f, 0.0f, 80.0f, *k), 0.9364f, 1e-3f);
 }
 
+// PES's g(LowPass) between 80 and 99 is (LP - 99) / -19 (raw asm 0x1421174F0: SUBSS XMM6,[0x142596E6C..99]
+// then DIVSS XMM6,[0x1425C80E0] = -19.0), so a mid-range passer's multiplier lies between the two ends.
+TEST(PesCarrierDifficulty, TheLowPassMultiplierSitsBetweenItsEndsWithTheInstallSign) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset: the Low Pass span is the install's own constant";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  auto loaded = pes::LoadCarrierConstants(*exe, &err);
+  ASSERT_TRUE(loaded.has_value()) << err;
+  // A 190-degree turn saturates the turn term at its full weight; no speed, no ball height.
+  const auto difficultyAt = [&](float lowPass) {
+    return pes::ReceiverDifficulty(0.0f, 5.0f, 0.0f, false, 0.0f, false, 190.0f, 0.0f, lowPass, *loaded);
+  };
+  const float atFloor = difficultyAt(80.0f);  // g = 1: the full weight
+  const float atTop = difficultyAt(99.0f);    // g = 0: 0.7 of it
+  const float mid = difficultyAt(90.0f);      // g = (99 - 90) / 19 = 0.4737
+  EXPECT_GT(mid, atTop);
+  EXPECT_LT(mid, atFloor);
+  // Hand value: 1.5 * (0.7 + 0.3 * 0.4737) = 1.2632.
+  EXPECT_NEAR(mid, 1.2632f, 1e-3f);
+}
+
 // --- the direction and turn classes (report 4.3) ---
 
 TEST(PesCarrierClasses, ForwardSquareBack) {
@@ -2363,6 +2386,33 @@ TEST_F(OneTwoUnitTest, TheOneTouchLaneMustBeBlocked) {
   // the lane the one-touch fails, and so does the answer.
   in_.touch.players[kOneTwoOpp].pos = {38.0f, 30.0f};
   EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+}
+
+TEST_F(OneTwoUnitTest, TheG12BandIsFromTheInstallFloorUpToTheCurveOnBothAttackSigns) {
+  // 0x142128C10's G12, after the lane count: floor <= k*(x - curve(z)) < 0, with the curve read at the
+  // carrier's own lateral z. The floor is the install's -10 (k_.touchBand_m), so the positions follow it.
+  const float bandFloor = k_.touchBand_m;
+  const auto oneTouchAt = [&](float x) {
+    in_.touch.carrierPos.x = x;
+    in_.touch.players[kOneTwoCarrier].pos.x = x;
+    return pes::OneTouch(in_.touch, k_);
+  };
+  // Attack +x against a flat curve at 35: the band is x - 35.
+  EXPECT_TRUE(oneTouchAt(35.0f + bandFloor + 0.5f));   // band floor + 0.5: inside
+  EXPECT_FALSE(oneTouchAt(35.0f + bandFloor - 0.5f));  // band below the floor
+  EXPECT_TRUE(oneTouchAt(35.0f - 0.1f));               // band -0.1: just behind the line
+  EXPECT_FALSE(oneTouchAt(35.0f));                     // band 0: on the line is out
+  // Attack -x against a flat curve at -35: the band is -(x + 35). The lane runs along -x and holds an
+  // opponent at -38, so G11 passes at every position below.
+  in_.touch.attackSign = -1.0f;
+  in_.touch.ownLine_m = kOneTwoHalfLen;
+  in_.touch.planHeading_deg = 270.0f;
+  in_.touch.players[kOneTwoOpp].pos = {-38.0f, 0.0f};
+  in_.touch.curve = FlatCurve(-35.0f);
+  EXPECT_TRUE(oneTouchAt(-35.0f - (bandFloor + 0.5f)));   // band floor + 0.5: inside
+  EXPECT_FALSE(oneTouchAt(-35.0f - (bandFloor - 0.5f)));  // band below the floor
+  EXPECT_TRUE(oneTouchAt(-35.0f + 0.1f));                 // band -0.1: just behind the line
+  EXPECT_FALSE(oneTouchAt(-35.0f));                       // band 0: on the line is out
 }
 
 TEST_F(OneTwoUnitTest, G11sLaneRunsAlongThePlanHeadingNotTheAttack) {

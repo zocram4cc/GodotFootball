@@ -2294,13 +2294,18 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
                            carrier) <= static_cast<int>(c->probability);
     };
     const auto image = [&](int plan) {
-      // ponytail: the manager copies the heading its unit published (+0xC0) and
-      // passes the unit its eval byte +0x6f (the mode-1 rule of 0x14211e0f0);
-      // GF publishes no heading, and the byte stands in as false.
+      // The manager copies the mode its unit published and passes the unit its
+      // eval byte +0x6f (the mode-1 rule of 0x14211e0f0); the byte still stands
+      // in as false. The heading is not the unit's: PES's writer (FUN_14211E650)
+      // runs every frame on the plan record, so it is set below for every mode.
       return pes::PlanImage{pes::PlanImageMode(plan, carrierImage.mode, false, carrierX, carrier),
                             0.0f};
     };
     pes::AdvanceImageSelection(carrierImage, cancel, admit, image);
+    // FUN_14211E650 writes plan+0xC0 every frame from the plan's mode and the
+    // carrier's own position (x along the attack in PES's frame, z across it).
+    carrierImage.heading_deg = pes::PlanHeadingDeg(carrierImage.mode, carrierPos.coords[0],
+                                                   carrierPos.coords[1], attackSign, carrier);
   }
 
   // The shoot decision (report 5.1): the shoot zone, the "just shoot" rule

@@ -783,6 +783,15 @@ bool PlanStillHolds(int planId, bool choiceEligible, const CurveShotInput& curve
 int PlanImageMode(int planId, int previousMode, bool receiving, float carrierX_m,
                   const CarrierConstants& k);
 
+// The plan heading PES publishes at ctx7+0xC0 (FUN_14211E650, stored at
+// 0x14211EB89), written every frame from the plan's MODE (ctx7+0xC4, the jump
+// table at 0x14211EC50) and the carrier record (param_2[1]): the blend of a
+// per-mode start/end point pair toward the ball, returned as the bearing from
+// the carrier to that point. Only mode 2 (Basic, 0x14211E7AC) is ported; the
+// others are named at their case VAs in the implementation.
+float PlanHeadingDeg(int mode, float carrierX, float carrierZ, float attackSign,
+                     const CarrierConstants& k);
+
 // The manager's tick. `cancel` is the selected unit's vtable[3] and `admit` its
 // vtable[2], consulted only while nothing is selected - in
 // `kPlanPriorityOrder`, so a plan rolls its dice only when its turn comes - and

@@ -43,6 +43,8 @@ pes::CarrierConstants ImageConstants() {
   k.planRollModulus = 100;
   k.intentionClose_deg = 100.0f;
   k.intentionLead_m = 10.0f;
+  k.touchPad_m = 2.0f;   // 0x142565604, mode 2's goal-line offset
+  k.sfLimMin_m = 3.0f;   // 0x14258C264, mode 2's a-point divisor
   k.imageHalfLine = 0.5f;
   return k;
 }
@@ -372,6 +374,35 @@ TEST(PesImageMode, ThePlanProducers) {
   EXPECT_EQ(pes::PlanImageMode(pes::kPlanSideChange, 8, false, 0.0f, k), 8);
   EXPECT_EQ(pes::PlanImageMode(pes::kPlanPassThrough, 1, false, 0.0f, k), 1);
   EXPECT_EQ(pes::PlanImageMode(pes::kPlanBackDFLine, 8, false, 0.0f, k), 2);
+}
+
+// The plan heading (ctx7+0xC0): FUN_14211E650 writes it every frame from the
+// plan's mode and the carrier record. Mode 2 (Basic, the case at 0x14211E7AC)
+// projects the carrier onto the segment a -> b, where a = (F0-2-F0/3, cz),
+// b = (F0-2, cz) and the blend target is the goal centre (F0-2, 0), then blends
+// b toward that target by the carrier's own |z| past the goal area. So the aim
+// runs across the pitch and leans with the carrier's depth: it is not 0, and it
+// is not the attack bearing (90/270) that the old stand-in used.
+TEST(PesPlanHeading, ModeTwoAimsAcrossThePitchAndLeansWithTheCarriersDepth) {
+  const pes::CarrierConstants k = ImageConstants();
+  // On the centre line the three points are level in z, so the aim is exactly
+  // the pitch's cross axis; the sign mirrors it.
+  EXPECT_FLOAT_EQ(pes::PlanHeadingDeg(2, 0.0f, 0.0f, 1.0f, k), 90.0f);
+  EXPECT_FLOAT_EQ(pes::PlanHeadingDeg(2, 0.0f, 0.0f, -1.0f, k), 270.0f);
+  // 5 m off the centre line: inside the goal-area half-width (F5 = 9.16), so the
+  // blend gain is 1 and the aim point is the goal centre. p = a = (F0-2-F0/3, 5)
+  // = (33.04, 5), q = (50.56, 0), so the heading is atan2(17.52, -5) = 105.93.
+  EXPECT_NEAR(pes::PlanHeadingDeg(2, 0.0f, 5.0f, 1.0f, k), 105.93f, 0.02f);
+  // A carrier inside the segment at 20 m depth exercises the blend and the
+  // overshoot reflection together: t = (40-33.04)/17.52 = 0.3972, the blend is
+  // 2*(20-9.16)/(34.06-9.16) = 0.8707, the gain is
+  // (1 - (1-0.3972)^(1/0.8707))^0.8707 = 0.4901, and the aim point is
+  // (50.56, 20*(1-0.4901)) = (50.56, 10.20), giving atan2(10.56, -9.80) = 132.9.
+  EXPECT_NEAR(pes::PlanHeadingDeg(2, 40.0f, 20.0f, 1.0f, k), 132.9f, 0.1f);
+  // Past the touchline the blend saturates at 2: the aim is b pulled halfway
+  // toward the goal centre, and the projection clamps at 2 with the reflection
+  // folding the parameter back, so the heading reads 100.73.
+  EXPECT_NEAR(pes::PlanHeadingDeg(2, 40.0f, 40.0f, 1.0f, k), 100.73f, 0.02f);
 }
 
 // --- the install: read the constants out of the user's own exe ---
