@@ -59,7 +59,6 @@ pes::CarrierConstants Synthetic() {
   k.oneTouchGain = 0.5f;
   k.runFloor_kmh = 16.0f;
   k.runSpan_kmh = 12.0f;
-  k.turnFloor_deg = 60.0f;
   k.turnSpan_deg = 70.0f;
   k.turnTop_deg = 130.0f;
   k.highFloor_m = 0.108685933f;
@@ -415,6 +414,24 @@ TEST(PesCarrierDifficulty, ComponentsAndTheLowPassMultiplier) {
                                                  80.0f, k);
   EXPECT_GT(plain, 1.0f);
   EXPECT_LT(oneTouch, plain);
+}
+
+// The turn term ramps from the install's floor (60) to its top (130). The loader fills the top but not a
+// span, so the ramp used to divide by zero and saturate every turn past the floor to the full 1.5.
+TEST(PesCarrierInstall, TheTurnTermRampsFromTheFloorToTheTop) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe) << err;
+  auto k = pes::LoadCarrierConstants(*exe, &err);
+  ASSERT_TRUE(k) << err;
+  ASSERT_FLOAT_EQ(k->turnTop_deg - k->turnSpan_deg, 60.0f);
+  ASSERT_FLOAT_EQ(k->turnTop_deg, 130.0f);
+  // A ground ball, no moving-ball term, a good passer: only the turn term. 95 degrees is halfway up: 1.5 * 0.5.
+  EXPECT_NEAR(pes::ReceiverDifficulty(0.0f, 5.0f, 0.0f, false, 0.0f, false, 95.0f, 0.0f, 80.0f, *k), 0.75f, 1e-3f);
+  // 103.7 degrees is 43.7 / 70 up the ramp: 1.5 * 0.6243 = 0.9364.
+  EXPECT_NEAR(pes::ReceiverDifficulty(0.0f, 5.0f, 0.0f, false, 0.0f, false, 103.7f, 0.0f, 80.0f, *k), 0.9364f, 1e-3f);
 }
 
 // --- the direction and turn classes (report 4.3) ---

@@ -258,7 +258,7 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x14259be1c, &k.distSpan_m},         {0x14259be68, &k.ballAngleHigh_deg},
       {0x1425c48fc, &k.ballAngleSpan_deg},   {0x142565600, &k.oneTouchGain},
       {0x14259be10, &k.runFloor_kmh},        {0x14259be04, &k.runSpan_kmh},
-      {0x14259be4c, &k.turnFloor_deg},       {0x1425a9bf0, &k.turnTop_deg},
+      {0x14259be4c, &k.turnSpan_deg},        {0x1425a9bf0, &k.turnTop_deg},
       {0x142598958, &k.highFloor_m},         {0x142bef908, &k.highSpan_m},
       {0x142565604, &k.diffMovingBallWeight}, {0x14259bddc, &k.diffRunWeight},
       {0x14259bddc, &k.diffTurnWeight},       {0x142596e6c, &k.lowPassFloor},
@@ -694,7 +694,8 @@ float ReceiverDifficulty(float ballSpeed_mps, float dist_m, float incomingAngle_
     if (oneTouchPass) movingBall *= k.oneTouchGain;
   }
   const float run = running ? Clamp01((carrierSpeed_kmh - k.runFloor_kmh) / k.runSpan_kmh) : 0.0f;
-  const float turn = Clamp01((std::fabs(WrapDeg(turnAngle_deg)) - k.turnFloor_deg) / k.turnSpan_deg);
+  // The turn ramp: from the floor (top - span = 60) over the span (70) to the top (130), report 4.3.
+  const float turn = Clamp01((std::fabs(WrapDeg(turnAngle_deg)) - (k.turnTop_deg - k.turnSpan_deg)) / k.turnSpan_deg);
   const float high = Clamp01((ballHeight_m - k.highFloor_m) / k.highSpan_m);
   float diff = k.diffMovingBallWeight * movingBall + k.diffRunWeight * run +
                k.diffTurnWeight * turn + high;

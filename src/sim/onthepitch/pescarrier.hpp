@@ -80,8 +80,7 @@ struct CarrierConstants {
   float oneTouchGain = 0.0f;         // 0.5, skill 12 halves the moving-ball term
   float runFloor_kmh = 0.0f;         // 16.0, the running term
   float runSpan_kmh = 0.0f;          // 12.0
-  float turnFloor_deg = 0.0f;        // 60.0, the turn term
-  float turnSpan_deg = 0.0f;         // 70.0
+  float turnSpan_deg = 0.0f;         // 70.0, the turn ramp; the floor is turnTop - turnSpan (60)
   float turnTop_deg = 0.0f;          // 130.0
   float highFloor_m = 0.0f;          // 0.10869, the ball radius
   float highSpan_m = 0.0f;           // 0.89131, to 1 m
