@@ -2480,4 +2480,52 @@ TEST_F(DirectHighBallUnitTest, TheFirstTouchFlagNeedsTheOneTouchAndTheReceiver) 
   EXPECT_TRUE(a.oneTouch);
 }
 
+// --- the attack heading (T+0x250) is PES's bearing of the attack direction ---
+
+TEST_F(OneTwoUnitTest, TheAttackBearingIsTheXAxisSoABehindOpponentDoesNotClose) {
+  // T+0x250 has one writer, 0x1404FEBD0, which stores 0x14045DF70's MA+0x228D8 (90) for attack sign +1
+  // and MA+0x228D4 (270) for -1 through 0x140A71520: the bearing is on the x axis, not z. The angle
+  // gate is |wrap180(carrierAngle - attackAngle)| <= 90, and the fixture's opponent (38, 0) sits
+  // outside the 6 m closing annulus, so only the convention decides the answer.
+  in_.carrierAngle_deg = 270.0f;                          // the carrier faces away from the attack
+  in_.touch.attackAngle_deg = pes::AttackAngleDeg(1.0f);  // 90: the difference is 180, gate shut
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+  in_.touch.attackAngle_deg = 0.0f;  // the z-axis value the controller used before: 90, gate open
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, kOneTwoMate);
+}
+
+TEST(PesCarrierBearing, TheAttackAngleIsTheBearingOfTheAttackDirection) {
+  // The relation the axis flips: the attack bearing must equal the bearing of the +x/-x direction, not
+  // the +z/-z one the old 0/180 pair named.
+  const float home = pes::AttackAngleDeg(1.0f);
+  const float away = pes::AttackAngleDeg(-1.0f);
+  const auto wrap180 = [](float a) {
+    a = std::fmod(a + 180.0f, 360.0f);
+    if (a < 0.0f) a += 360.0f;
+    return a - 180.0f;
+  };
+  EXPECT_NEAR(std::fabs(wrap180(home - 0.0f)), 90.0f, 1e-3f);   // 90 from the +z axis: the attack is on x
+  EXPECT_NEAR(std::fabs(wrap180(away - 180.0f)), 90.0f, 1e-3f);
+  EXPECT_NEAR(std::fabs(wrap180(home - away)), 180.0f, 1e-3f);
+}
+
+// --- the stock team level (G3's input): class x 100, from the install ---
+
+TEST(PesCarrierInstall, TheStockTeamLevelIsAClassScaledByAHundred) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe) << err;
+  auto k = pes::LoadCarrierConstants(*exe, &err);
+  ASSERT_TRUE(k) << err;
+  // 0x1B5D8340 stores clamp(class x 100, 0, 700) with class = the masked global (0x14810F4E0 ^ the
+  // immediate at 0x1401B5D8378); 0x140A602B0 is the scale, 0x140A602B5 the cap. GF has no
+  // match-setting selector, so the value is the stock default class.
+  EXPECT_GT(k->teamLevelRaw, 0);                      // read, not left at the 0 stand-in
+  EXPECT_EQ(k->teamLevelRaw % 100, 0);                // a class scaled by the game's own 100
+  EXPECT_LE(k->teamLevelRaw / 100, 7);                // inside 0x144286B70's 7-class cap
+  EXPECT_GE(k->teamLevelRaw / 100, 2);                // the stock class opens G3 (0x140A60360's >= 2)
+}
+
 }  // namespace

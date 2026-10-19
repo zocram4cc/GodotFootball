@@ -446,6 +446,22 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x14253ee30, &k.curveWide_deg},     {0x14256ae1c, &k.curveStep_m},       {0x14259bdc4, &k.curveEps},
   };
   for (const auto& r : curve) ok &= ReadVa(exe, r.first, r.second, error);
+  // G3's team level (reader 0x140A40BD0, comparator 0x140A60360). The writer 0x1B5D8340 stores
+  // clamp(class x 100, 0, 700), where the class is `*(int*)(matchSetting+0x18)` through its 7-entry
+  // switch, whose entries are all the same arm, so an out-of-range selector takes the masked global.
+  // GF has no match-setting selector, so the stock default class and the scale/cap come from the
+  // install's own bytes (no transcription).
+  {
+    uint32_t maskedClass = 0, xorKey = 0, cap = 0;
+    uint8_t scale = 0;
+    ok &= exe.ReadVa(0x14810F4E0, sizeof maskedClass, reinterpret_cast<uint8_t*>(&maskedClass));
+    ok &= ReadImm(exe, Imm{0x15B5D8378, {0x35}, 1, 1}, &xorKey, error);
+    ok &= ReadImm(exe, Imm{0x140A602B0, {0x6b, 0xc2}, 2, 2}, &scale, error);
+    ok &= ReadImm(exe, Imm{0x140A602B5, {0x3d}, 1, 1}, &cap, error);
+    const uint32_t cls = (maskedClass ^ xorKey) & 0xff;
+    const int32_t level = static_cast<int32_t>(cls) * static_cast<int32_t>(scale);
+    k.teamLevelRaw = level < 0 ? 0 : (static_cast<uint32_t>(level) > cap ? static_cast<int>(cap) : level);
+  }
   k.sfThruClass = 3.0f;  // `cmp [recB],2; jbe`: class above 2, an instruction shape
   // The rolled plans' base probabilities, from the immediates of the plan
   // functions 0x14211a800 (Breakthrough), 0x14211b460 (MiddleShot),
@@ -580,6 +596,13 @@ bool InShootRange(const ShootZone& z) { return z.d_m >= 0.0f && (z.inBox || (z.b
 bool IsCentral(const ShootZone& z) { return InShootRange(z) && z.sector == kSectorCentral; }
 bool IsMid(const ShootZone& z) { return InShootRange(z) && z.band < 2; }
 bool IsClose(const ShootZone& z) { return InShootRange(z) && z.band == kBandClose; }
+
+float AttackAngleDeg(float attackSign) {
+  // 0x14045DF70 writes MA+0x228D4 = bearing(-halfLen, 0) = 270 and MA+0x228D8 = bearing(+halfLen, 0) = 90
+  // (atan2(dx, dz) x 180/pi, 0x140A92D40 x 0x14259BE40); 0x140A71520 picks by the sign byte
+  // `T+0x254`, and 0x1404FEBD0 stores it at T+0x250. `attackSign` is that sign, so this is its bearing.
+  return attackSign < 0.0f ? 270.0f : 90.0f;
+}
 bool InBox(const ShootZone& z) { return z.inBox; }
 bool InHeaderRange(const ShootZone& z, const CarrierConstants& k) {
   return InShootRange(z) && z.d_m <= k.shootR1_m;

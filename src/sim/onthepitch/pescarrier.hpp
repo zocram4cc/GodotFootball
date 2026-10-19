@@ -393,6 +393,12 @@ struct CarrierConstants {
   float dhbAdvance_m = 0.0f;           // 4, 0x1425656c0: the lane origin's advance along theta
   float dhbFacing_deg = 0.0f;          // 80, 0x142596e6c: the |X| gate
 
+  // G3's team level (`T+0xA294`, x100; reader 0x140A40BD0, comparator 0x140A60360). PES stores
+  // clamp(class x 100, 0, 700) from the match-setting selector (0x1B5D8340, class `*(int*)(setup+0x18)`,
+  // default class 2 when out of 0..6, through 0x140A602B0 into the setter 0x140A424E0). GF carries no
+  // selector, so the loader reads the game's own stock default class and its scale and cap.
+  int teamLevelRaw = 0;
+
   // The lane core's own table and scalars (0x14063CD90 and its packer), loaded here so the
   // carrier units that call the core get it through the one constants bundle the match carries.
   lane::LaneConstants lane;
@@ -462,6 +468,13 @@ bool IsMid(const ShootZone& z);           // 0x1406997a0
 bool IsClose(const ShootZone& z);         // 0x140699820
 bool InBox(const ShootZone& z);           // 0x1406996f0
 bool InHeaderRange(const ShootZone& z, const CarrierConstants& k);  // 0x140699750
+
+// The attack heading PES stores at `T+0x250`: the bearing of the side's attack direction in PES's
+// convention (0 deg = +z, 90 deg = +x). One writer, 0x1404FEBD0, stores 0x14045DF70's MA+0x228D8 for
+// attack sign +1 and MA+0x228D4 for -1 through 0x140A71520, so a side attacking +x reads 90 and one
+// attacking -x reads 270. Every reader (the lane theta wrap360(T+0x250), the carrier snapshot C[4],
+// the 0x140A8F7C0 advance along it, the 0x14043A0A0 bearing diff) takes it as that bearing.
+float AttackAngleDeg(float attackSign);
 
 // The header-range gate PES adds to it: the ball must be over the shooter's
 // head, which is `ballY > 0.8 * height/100` (0x142121a5e).

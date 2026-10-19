@@ -2117,12 +2117,13 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   {
     const Vector3 facingNow = CastPlayer()->GetDirectionVec();
     const float facingNowAngle =
-        std::atan2(-facingNow.coords[1], -facingNow.coords[0]) * degreesPerRadian;
+        pes::PesBearingDeg(0.0f, 0.0f, facingNow.coords[0], facingNow.coords[1]);
     pes::IntentionInput intent;
     intent.closeBand = pes::IsClose(zone);  // pred+0x9cc
     // ponytail: the pair PES diffs at a3+0x10 and a3+0x30 is not decoded; the
-    // carrier's facing against the direction he is attacking stands in.
-    intent.headingDiff_deg = WrapDeg(facingNowAngle - (attackSign < 0.0f ? 180.0f : 0.0f));
+    // carrier's facing against the direction he is attacking stands in. Both are
+    // PES bearings (0 = +z, 90 = +x), the frame T+0x250 is stored in.
+    intent.headingDiff_deg = WrapDeg(facingNowAngle - pes::AttackAngleDeg(attackSign));
     // ponytail: (a4+0x14) * (a5+0x40) against pitch[6] - the carrier's advance
     // against the penalty line, which is the pitch mark GF carries.
     intent.attackDot = attackSign * carrierPos.coords[0];
@@ -2290,9 +2291,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // The shoot decision (report 5.1): the shoot zone, the "just shoot" rule
   // and the box/header rule.
   const Vector3 facing = CastPlayer()->GetDirectionVec();
-  const float facingAngle = std::atan2(-facing.coords[1], -facing.coords[0]) * degreesPerRadian;
-  const float aimVsFacing =
-      std::fabs(WrapDeg((attackSign < 0.0f ? 180.0f : 0.0f) - facingAngle));
+  const float facingAngle = pes::PesBearingDeg(0.0f, 0.0f, facing.coords[0], facing.coords[1]);
+  const float aimVsFacing = std::fabs(WrapDeg(pes::AttackAngleDeg(attackSign) - facingAngle));
   Player* keeper = match->GetTeam(abs(team->GetID() - 1))->GetGoalie();
   pes::ShootInput shoot;
   shoot.zone = zone;
@@ -2401,10 +2401,10 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       // (report 4.3's +0xE4 and +0xE8). The absolute bearing stays local: the
       // openness loop measures each opponent against the pass direction from
       // it.
-      const float bearing = std::atan2(dz, dx) * degreesPerRadian;
-      const Vector3 facing = CastPlayer()->GetDirectionVec();
-      const float facingAngle = std::atan2(-facing.coords[1], -facing.coords[0]) * degreesPerRadian;
-      const float fwdAngle = WrapDeg(bearing - (attackSign < 0.0f ? 180.0f : 0.0f));
+      const float bearing = pes::PesBearingDeg(ballPos.coords[0], ballPos.coords[1],
+                                                target3.coords[0], target3.coords[1]);
+      const float facingAngle = pes::PesBearingDeg(0.0f, 0.0f, facing.coords[0], facing.coords[1]);
+      const float fwdAngle = WrapDeg(bearing - pes::AttackAngleDeg(attackSign));
       const float turnAngle = WrapDeg(bearing - facingAngle);
 
       // The openness: the minimum over the opponents in front of the pass.
@@ -2510,19 +2510,20 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // ponytail: full dribble speed; GF has no mode 3, mode 4 or feint movement to map the sub-kind to.
   rawInputVelocityFloat = sprintVelocity;
 
-  // The Dribble default's sub-kind (report 2.1). The attack angle is the one the aim test reads.
-  const float attackAngle = attackSign < 0.0f ? 180.0f : 0.0f;
+  // The Dribble default's sub-kind (report 2.1). The attack angle is the one the aim test reads:
+  // the PES bearing of the attack direction (T+0x250), the same frame as the facing and velocity.
+  const float attackAngle = pes::AttackAngleDeg(attackSign);
   const Vector3 move = CastPlayer()->GetMovement();
   pes::DribbleChooserInput chooser;
   chooser.plan = carrierImage.id;
   chooser.planHeading_deg = attackAngle;  // ponytail: the plan's heading (+0xC0) is the attack direction
-  chooser.facing_deg = facingAngle;
+  chooser.facing_deg = pes::PesBearingDeg(0.0f, 0.0f, facing.coords[0], facing.coords[1]);
   chooser.teamAttack_deg = attackAngle;   // ponytail: team+0x250 is the attack direction
   chooser.forwardOfHalf = attackSign * carrierPos.coords[0] > 0.0f;
   chooser.pressureClass = carrierPressureClass;
   chooser.speed_kmh = move.GetLength() * carrier.kmhPerMs;
   chooser.velZero = move.GetLength() <= 0.0f;
-  chooser.velHeading_deg = std::atan2(-move.coords[1], -move.coords[0]) * degreesPerRadian;
+  chooser.velHeading_deg = pes::PesBearingDeg(0.0f, 0.0f, move.coords[0], move.coords[1]);
   chooser.room_m = nearestOpp;            // ponytail: FUN_140a4ddc0's room test is not ported
   chooser.laneFree = carrierPressureClass == 3;  // ponytail: the free-lane loop is not ported
   // ponytail: FUN_141052e30 (team mode, neutral here), the feint gate 0x14212e970, the turning
@@ -2704,11 +2705,11 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     const pes::CarrierPoint carrierVelFrame{carrierVel.coords[0] * pesball::kPesTick_s,
                                             carrierVel.coords[1] * pesball::kPesTick_s};
     const float facingTheta =
-        std::atan2(carrierDir.coords[0], carrierDir.coords[1]) * degreesPerRadian;
+        pes::PesBearingDeg(0.0f, 0.0f, carrierDir.coords[0], carrierDir.coords[1]);
     const float headingTheta = carrierVel.GetLength() <= 0.0f
                                    ? facingTheta
-                                   : std::atan2(carrierVel.coords[0], carrierVel.coords[1]) *
-                                         degreesPerRadian;
+                                   : pes::PesBearingDeg(0.0f, 0.0f, carrierVel.coords[0],
+                                                        carrierVel.coords[1]);
     const float carrierKmh = carrierVel.GetLength() * carrier.kmhPerMs;
     const float ballKmh = ballMove.GetLength() * carrier.kmhPerMs;
     // ponytail: imageA+0x31C1 (danger, 0x140699960) is not ported; the carrier's own-third pressure
@@ -2748,12 +2749,11 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     bs.planRecordTarget = -1;
     bs.planRecordBytesOk = false;
     // The curve table (R2) from the opponents of the carrier's side: the BackSpace gate and G12 read it.
-    // ponytail: PES's psi (T+0x250) for a team attacking +x or -x is the bearing 90 or 270 (0 is +z here),
-    // so the table takes that instead of the chooser's attackAngle.
-    const float teamAttackPsi_deg = attackSign < 0.0f ? 270.0f : 90.0f;
+    // PES's psi (T+0x250) is the bearing 90 (attack +x) or 270 (attack -x); `attackAngle` is that same
+    // value, so the table takes it.
     const std::optional<pes::Curve> curve =
         pes::BuildCurve(bs.players, pes::lane::IsAwaySlot(bs.carrierSlot) ? 1 : 0, attackSign,
-                        teamAttackPsi_deg, pesFieldHalfLength, carrier);
+                        attackAngle, pesFieldHalfLength, carrier);
     bs.curve = curve;
     // ponytail: the box scalars (imageA+0xB44/0xB48/0xB3C/0xB40) are not carried; zeros keep the
     // mode-1 arm's skips off.
@@ -2819,9 +2819,10 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     touch.planMode = carrierImage.mode;
     touch.ownLine_m = -attackSign * pesFieldHalfLength;  // G1: the own goal line stands in for T18+(sd+3)*0x14
     touch.pitchBound_m = pesFieldHalfLength;             // G2: the pitch half length stands in for F+0x18
-    // ponytail: G3's level (+0xA294, the level x 100, and its zero flag +0xA29C) is not carried by GF, so the
-    // level reads 0 and G3 closes. PES writers: 0x140A424E0 (+0xA294), 0x140A428B0 (+0xA29C).
-    touch.teamLevelRaw = 0;
+    // G3's team level (T+0xA294 x100, reader 0x140A40BD0): the install's own stock class x 100 (the
+    // writer 0x1B5D8340, setter 0x140A424E0). GF has no match-setting selector (+0x18) and no per-side
+    // +0x9200 byte, so the value is the stock default and the zero flag is false.
+    touch.teamLevelRaw = carrier.teamLevelRaw;
     touch.teamLevelZero = false;
     touch.attackLevel = 0;  // G8: T+0xB8A4 is not carried (S4)
     touch.teamMode = 2;     // G4, G8: the team mode is not carried (S4); neutral, as the chooser
