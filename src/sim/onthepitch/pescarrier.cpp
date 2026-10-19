@@ -1545,7 +1545,8 @@ std::vector<int> BuildUnitList(const UnitListInput& in) {
 std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnswer,
                                     const PassAnswer& fwd, const PassAnswer& lng,
                                     const PassAnswer& cross, const PassAnswer& goalFront,
-                                    bool curveShotPlan) {
+                                    const PassAnswer& backSpace, bool curveShotPlan) {
+  (void)curveShotPlan;  // kind 3 answers from the BackSpace unit now, not the plan flag
   std::vector<UnitSlot> table;
   for (const int kind : kinds) {
     UnitSlot slot;
@@ -1555,8 +1556,7 @@ std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnsw
     if (kind == 9 && lng.index >= 0) slot.answer = {kAnswerPass, lng.kind};
     if (kind == 7 && cross.index >= 0) slot.answer = {kAnswerPass, cross.kind};
     if (kind == 2 && goalFront.index >= 0) slot.answer = {kAnswerPass, goalFront.kind};
-    if (kind == 3 && cross.index >= 0 && curveShotPlan)
-      slot.answer = {kAnswerPass, cross.kind};
+    if (kind == 3 && backSpace.index >= 0) slot.answer = {kAnswerPass, backSpace.kind};
     table.push_back(slot);
   }
   return table;

@@ -1072,7 +1072,7 @@ TEST(PesCarrierTable, PlanSixWithALongAnswerAdoptsTheLongPass) {
   pes::PassAnswer fwd, lng, cross;
   lng.index = 5;
   lng.kind = pes::kPassLong;
-  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross, {});
+  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross, {}, {});
   const pes::UnitSlot won = pes::WalkCarrierUnits(table, pes::WalkContext{});
   EXPECT_EQ(won.kind, 9);
   EXPECT_EQ(won.answer.sub, pes::kPassLong);
@@ -1088,22 +1088,23 @@ TEST(PesCarrierTable, PlanFiveWithACrossAnswerAdoptsTheCross) {
   pes::PassAnswer fwd, lng, cross;
   cross.index = 3;
   cross.kind = pes::kPassCentering;
-  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross, {});
+  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross, {}, {});
   EXPECT_EQ(pes::WalkCarrierUnits(table, pes::WalkContext{}).kind, 7);
 }
 
-TEST(PesCarrierTable, CurveShotFillsTheCutBackSlotWithTheCrossAnswer) {
-  // Behind a CurveShot plan, kind 3 takes the cross answer (the cut-back).
+TEST(PesCarrierTable, KindThreeCarriesOnlyTheBackSpaceAnswer) {
+  // The table fill: kind 3 takes the BackSpace answer now, not the cross answer behind a plan flag.
   const std::vector<int> kinds{3, 4};
-  pes::PassAnswer fwd, lng, cross;
-  cross.index = 3;
-  cross.kind = pes::kPassThrough;
-  const std::vector<pes::UnitSlot> plain = pes::FillUnitTable(kinds, false, fwd, lng, cross, {});
-  EXPECT_EQ(plain[0].answer.type, pes::kAnswerNone);
-  const std::vector<pes::UnitSlot> curved =
-      pes::FillUnitTable(kinds, false, fwd, lng, cross, {}, true);
-  EXPECT_EQ(curved[0].answer.type, pes::kAnswerPass);
-  EXPECT_EQ(curved[0].answer.sub, pes::kPassThrough);
+  pes::PassAnswer fwd, lng, cross, goalFront, backSpace;
+  backSpace.index = 3;
+  backSpace.kind = pes::kPassThrough;
+  const std::vector<pes::UnitSlot> table =
+      pes::FillUnitTable(kinds, false, fwd, lng, cross, goalFront, backSpace);
+  EXPECT_EQ(table[0].answer.type, pes::kAnswerPass);
+  EXPECT_EQ(table[0].answer.sub, pes::kPassThrough);
+  const std::vector<pes::UnitSlot> silent =
+      pes::FillUnitTable({3}, false, fwd, lng, cross, goalFront, {});
+  EXPECT_EQ(silent[0].answer.type, pes::kAnswerNone);
 }
 
 // --- the Dribble sub-kind chooser (report 2.1, 0x14212f1c0) and its dispatch (0x14212fe70) ---
@@ -1619,11 +1620,11 @@ TEST(PesCarrierTable, KindTwoCarriesOnlyTheGoalFrontAnswer) {
   goalFront.index = 7;
   goalFront.kind = pes::kPassShort;
   const std::vector<pes::UnitSlot> table =
-      pes::FillUnitTable(kinds, false, fwd, lng, cross, goalFront);
+      pes::FillUnitTable(kinds, false, fwd, lng, cross, goalFront, {});
   EXPECT_EQ(table[0].answer.type, pes::kAnswerNone);
   EXPECT_EQ(table[1].answer.type, pes::kAnswerPass);
   EXPECT_EQ(table[1].answer.sub, pes::kPassShort);
-  const std::vector<pes::UnitSlot> silent = pes::FillUnitTable({2}, false, fwd, lng, cross, {});
+  const std::vector<pes::UnitSlot> silent = pes::FillUnitTable({2}, false, fwd, lng, cross, {}, {});
   EXPECT_EQ(silent[0].answer.type, pes::kAnswerNone);
 }
 

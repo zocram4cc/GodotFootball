@@ -703,13 +703,12 @@ std::vector<int> BuildUnitList(const UnitListInput& in);
 
 // The table fill: one slot per listed kind, in list order. Kind 0 takes the
 // shot answer, 4 the PassForward answer, 9 the Long answer, 7 the Cross
-// answer, 2 the GoalFront answer, and 3 the cut-back answer behind a
-// CurveShot plan; every other kind answers nothing here. `curveShotPlan` is
-// whether the CurveShot plan runs.
+// answer, 2 the GoalFront answer, 3 the BackSpace answer; every other kind
+// answers nothing here. `curveShotPlan` is whether the CurveShot plan runs.
 std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnswer,
                                     const PassAnswer& fwd, const PassAnswer& lng,
                                     const PassAnswer& cross, const PassAnswer& goalFront,
-                                    bool curveShotPlan = false);
+                                    const PassAnswer& backSpace, bool curveShotPlan = false);
 
 // The walk's context (0x14210f110's reads): the match restart mode and the FSM state, the ball's
 // owner and the carrier's own side, and the skill and zone bits the rules test.
