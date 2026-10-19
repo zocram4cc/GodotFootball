@@ -446,3 +446,31 @@ TEST(PesReceiveOwner, TheRestartTakerOwnsTheBallWhileTheRestartIsHeld) {
   EXPECT_TRUE(pes::RefusedAsDesignatedOwner(in, Man(0, 10)));
   EXPECT_FALSE(pes::RefusedAsDesignatedOwner(in, Man(1, 4)));
 }
+
+// --- Carrier (MA+0x2601C, FUN_140457070; first-touch §5.1) ---
+// A control touch that leaves the ball at the toucher's feet makes him the carrier; the carrier keeps
+// the ball while he holds it, and is dropped when he does not.
+
+TEST(PesReceiveCarrier, AControlTouchThatKeepsTheBallMakesTheToucherTheCarrier) {
+  EXPECT_EQ(pes::CarrierAfterContact(true, true, false), pes::CarrierChange::kToucher);
+}
+
+TEST(PesReceiveCarrier, AControlTouchThatLeavesTheBallOffTheToucherMakesNoCarrier) {
+  EXPECT_EQ(pes::CarrierAfterContact(true, false, false), pes::CarrierChange::kNone);
+}
+
+TEST(PesReceiveCarrier, ACarrierKeepsTheBallWithoutAnotherTouch) {
+  EXPECT_EQ(pes::CarrierAfterContact(false, false, true), pes::CarrierChange::kKeep);
+}
+
+TEST(PesReceiveCarrier, ACarrierIsDroppedOnceTheBallLeavesHim) {
+  EXPECT_EQ(pes::CarrierAfterContact(false, false, false), pes::CarrierChange::kNone);
+}
+
+TEST(PesReceiveCarrier, ANewControlTouchTakesTheCarrierFromTheHolder) {
+  EXPECT_EQ(pes::CarrierAfterContact(true, true, true), pes::CarrierChange::kToucher);
+}
+
+TEST(PesReceiveCarrier, AControlTouchThatMissesLeavesTheHolderWithTheBall) {
+  EXPECT_EQ(pes::CarrierAfterContact(true, false, true), pes::CarrierChange::kKeep);
+}

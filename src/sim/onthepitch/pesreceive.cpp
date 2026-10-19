@@ -274,4 +274,10 @@ bool RefusedAsDesignatedOwner(const OwnerInput& in, const ActorKey& me) {
   return in.newestActorHoldsBall && in.newestActor.Valid() && in.newestActor == me;
 }
 
+CarrierChange CarrierAfterContact(bool controlTouch, bool toucherHoldsBall, bool carrierHoldsBall) {
+  if (controlTouch && toucherHoldsBall) return CarrierChange::kToucher;
+  if (carrierHoldsBall) return CarrierChange::kKeep;
+  return CarrierChange::kNone;
+}
+
 }  // namespace pes

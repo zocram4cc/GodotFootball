@@ -207,4 +207,12 @@ struct OwnerInput {
 // no owner, so a chaser of one is not refused.
 bool RefusedAsDesignatedOwner(const OwnerInput& in, const ActorKey& me);
 
+// PES's carrier after one frame's ball contact (MA+0x2601C, FUN_140457070; first-touch §5.1). PES takes
+// the carrier from the newest valid K=8 key, which a touch pushes. GF stand-in: a control touch (trap or
+// ball control) that leaves the ball at the toucher's feet hands him the carrier; the carrier keeps it
+// while he holds the ball and loses it when he does not.
+// ponytail: the K=8 push flags of the touch record (FUN_140A0DFD0 +0x18/+0x19) are not decoded.
+enum class CarrierChange { kKeep, kToucher, kNone };
+CarrierChange CarrierAfterContact(bool controlTouch, bool toucherHoldsBall, bool carrierHoldsBall);
+
 }  // namespace pes
