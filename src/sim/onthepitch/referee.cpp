@@ -289,6 +289,9 @@ void Referee::Process() {
             ? match->PesOutOfPlayEvent() && fabs(ballPos.coords[0]) > pesFieldHalfLength
             : fabs(ballPos.coords[0]) > pitchHalfW + lineHalfW + 0.11;
     if (endLineOut) {
+      if (match->PesLoop())
+        match->RecordGoal(match->GoalMouthHolds(ballPos, match->GetTeam(0)->GetSide()),
+                          match->GoalMouthHolds(ballPos, match->GetTeam(1)->GetSide()));
       foul.advantage = false;
       bool isFoul = false;
       if (!match->IsGoalScored())

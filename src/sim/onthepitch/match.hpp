@@ -112,6 +112,10 @@ public:
   void StartSetPiece() { inSetPiece = true; }
   void StopSetPiece() { inSetPiece = false; }
   bool IsInSetPiece() const { return inSetPiece; }
+  // PES scores a goal in its judge, on the judge's frame (FUN_14050e4a0 case 10, cc = 1). GF's per-tick check
+  // stays on the GF path; RecordGoal is the scoring both paths share.
+  void RecordGoal(bool t1goal, bool t2goal);
+  bool GoalMouthHolds(const Vector3& pos, signed int side) const;
   // True on the tick the judge reads the out-of-play event (K=10, raised one tick earlier).
   bool PesOutOfPlayEvent() const { return pesDetectors.outConsumable; }
   Referee* GetReferee() { return referee.get(); }

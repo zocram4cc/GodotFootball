@@ -941,7 +941,6 @@ void Match::Process() {
   // whether the ball actually crossed it, since that is what its tally is
   // built on. What the penalties phase suppresses is only the *scoring*
   // below: the shootout keeps its own count and the match score is frozen.
-  const bool shootoutOwnsScoring = matchPhase == e_MatchPhase_Penalties;
   bool t1goal = CheckForGoal(teams[0]->GetSide());
   bool t2goal = CheckForGoal(teams[1]->GetSide());
   if (t1goal)
@@ -949,40 +948,7 @@ void Match::Process() {
   if (t2goal)
     ballIsInGoal = true;
 
-  if (IsInPlay() && !shootoutOwnsScoring) {
-    if (t1goal) {
-      matchData->SetGoalCount(teams[1]->GetID(), matchData->GetGoalCount(1) + 1);
-      goalScored = true;
-      lastGoalTeamID = teams[1]->GetID();
-      teams[1]->GetController()->UpdateTactics();
-    }
-    if (t2goal) {
-      matchData->SetGoalCount(teams[0]->GetID(), matchData->GetGoalCount(0) + 1);
-      goalScored = true;
-      lastGoalTeamID = teams[0]->GetID();
-      teams[0]->GetController()->UpdateTactics();
-    }
-    if (t1goal || t2goal) {
-      // find out who scored
-      bool ownGoal = true;
-      if (GetLastTouchTeamID(e_TouchType_Intentional_Kicked) == GetLastGoalTeamID() ||
-          GetLastTouchTeamID(e_TouchType_Intentional_Nonkicked) == GetLastGoalTeamID())
-        ownGoal = false;
-
-      if (!ownGoal) {
-        lastGoalScorer = teams[GetLastGoalTeamID()]->GetLastTouchPlayer();
-        const bool isPenaltyGoal = IsPendingPenaltyGoal(GetLastGoalTeamID(), lastGoalScorer);
-        matchData->AddEvent(MatchData::Event::Goal, GetLastGoalTeamID(), GetMatchMinute(),
-                            lastGoalScorer ? lastGoalScorer->GetPlayerData()->GetLastName() : "",
-                            isPenaltyGoal);
-      } else {
-        lastGoalScorer = teams[abs(GetLastGoalTeamID() - 1)]->GetLastTouchPlayer();
-        matchData->AddEvent(MatchData::Event::OwnGoal, GetLastGoalTeamID(), GetMatchMinute(),
-                            lastGoalScorer ? lastGoalScorer->GetPlayerData()->GetLastName() : "");
-      }
-      ClearPendingPenalty();
-    }
-  }
+  if (!PesLoop()) RecordGoal(t1goal, t2goal);
 
   // average possession side
 
@@ -1090,6 +1056,53 @@ bool Match::BallTeleportedThisTick() const {
   // goal-line crossing census, which otherwise disagree on exactly this case.
   constexpr float kTeleportSegment_m = 1.0f;
   return (ball->Predict(0) - previousBallPos).GetLength() > kTeleportSegment_m;
+}
+
+void Match::RecordGoal(bool t1goal, bool t2goal) {
+  const bool shootoutOwnsScoring = matchPhase == e_MatchPhase_Penalties;
+  if (IsInPlay() && !shootoutOwnsScoring) {
+    if (t1goal) {
+      matchData->SetGoalCount(teams[1]->GetID(), matchData->GetGoalCount(1) + 1);
+      goalScored = true;
+      lastGoalTeamID = teams[1]->GetID();
+      teams[1]->GetController()->UpdateTactics();
+    }
+    if (t2goal) {
+      matchData->SetGoalCount(teams[0]->GetID(), matchData->GetGoalCount(0) + 1);
+      goalScored = true;
+      lastGoalTeamID = teams[0]->GetID();
+      teams[0]->GetController()->UpdateTactics();
+    }
+    if (t1goal || t2goal) {
+      // find out who scored
+      bool ownGoal = true;
+      if (GetLastTouchTeamID(e_TouchType_Intentional_Kicked) == GetLastGoalTeamID() ||
+          GetLastTouchTeamID(e_TouchType_Intentional_Nonkicked) == GetLastGoalTeamID())
+        ownGoal = false;
+
+      if (!ownGoal) {
+        lastGoalScorer = teams[GetLastGoalTeamID()]->GetLastTouchPlayer();
+        const bool isPenaltyGoal = IsPendingPenaltyGoal(GetLastGoalTeamID(), lastGoalScorer);
+        matchData->AddEvent(MatchData::Event::Goal, GetLastGoalTeamID(), GetMatchMinute(),
+                            lastGoalScorer ? lastGoalScorer->GetPlayerData()->GetLastName() : "",
+                            isPenaltyGoal);
+      } else {
+        lastGoalScorer = teams[abs(GetLastGoalTeamID() - 1)]->GetLastTouchPlayer();
+        matchData->AddEvent(MatchData::Event::OwnGoal, GetLastGoalTeamID(), GetMatchMinute(),
+                            lastGoalScorer ? lastGoalScorer->GetPlayerData()->GetLastName() : "");
+      }
+      ClearPendingPenalty();
+    }
+  }
+}
+
+bool Match::GoalMouthHolds(const Vector3& pos, signed int side) const {
+  // CheckForGoal's goal plane and mouth (x = (pitchHalfW + lineHalfW + 0.11) * side, +-3.7 m wide, 2.5 m high),
+  // tested on the ball of the judge's frame instead of the segment from the previous tick.
+  constexpr float kMouthHalfWidth_m = 3.7f;
+  constexpr float kMouthHeight_m = 2.5f;
+  return pos.coords[0] * side > pitchHalfW + lineHalfW + 0.11f && fabs(pos.coords[1]) <= kMouthHalfWidth_m &&
+         pos.coords[2] <= kMouthHeight_m;
 }
 
 bool Match::CheckForGoal(signed int side) {

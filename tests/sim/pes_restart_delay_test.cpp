@@ -566,3 +566,39 @@ TEST(PesRestartDelay, ATheFirstEndLineCrossingIsJudgedOnTheNextTick) {
   EXPECT_EQ(awardAt, flipAt + 1) << "the end-line restart came on tick " << awardAt
                                  << ", not on the judge's tick after the flip at " << flipAt;
 }
+
+// PES scores the goal in the judge, on the judge's frame, one frame after the zone code flips (cc = 1 in
+// FUN_14050e4a0 case 10, docs/re/pes-re-A5Judge.md 1.4). The natural crossing of seed 7 flips at tick 7354 and is
+// judged on 7355 (ATheFirstEndLineCrossingIsJudgedOnTheNextTick). The score must not move on the flip tick.
+TEST(PesRestartDelay, ANaturalGoalIsCountedOnTheJudgesFrame) {
+  unsigned long tick = 0, flipAt = 0, lastStop = 0;
+  bool live = false;
+  int goalsBefore = 0, goalsAtFlip = -1, goalsAfter = -1;
+  const auto goals = [](Match& match) {
+    return match.GetMatchData()->GetGoalCount(0) + match.GetMatchData()->GetGoalCount(1);
+  };
+  RunMatchWithinTheBound(
+      true, MINUTES,
+      [&](Match& match) {
+        ++tick;
+        const RefereeBuffer& b = match.GetRefereeBuffer();
+        if (flipAt == 0 && live) {
+          const Vector3 p = match.GetBall()->Predict(0);
+          if (pes::OutOfPlayCode(p.coords[0], p.coords[1], match.GetPesBallConstants().image.ballRadius) & 0x8) {
+            flipAt = tick;
+            goalsAtFlip = goals(match);
+          }
+        }
+        if (flipAt == 0) {
+          goalsBefore = goals(match);
+          lastStop = b.stopTime;
+        } else if (tick == flipAt + 1) {
+          goalsAfter = goals(match);
+        }
+        live = match.IsInPlay() && !match.IsInSetPiece() && !b.active;
+      },
+      kMaxSimTicks, [&](Match&) { return goalsAfter >= 0; });
+  EXPECT_NE(flipAt, 0ul) << "the seed-7 match has no end-line crossing";
+  EXPECT_EQ(goalsAtFlip, goalsBefore) << "the score moved on the flip tick, before the judge read the event";
+  EXPECT_EQ(goalsAfter, goalsBefore + 1) << "the goal was not counted on the judge's frame";
+}
