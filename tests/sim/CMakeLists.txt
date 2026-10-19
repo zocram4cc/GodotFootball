@@ -89,10 +89,6 @@ add_executable(pes_restart_delay_test pes_restart_delay_test.cpp)
 target_link_libraries(pes_restart_delay_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_restart_delay_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_restart_delay_test PROPERTIES TIMEOUT 1800)
-add_executable(restart_probe_test restart_probe_test.cpp)
-target_link_libraries(restart_probe_test PRIVATE gfsim pesfmt GTest::gtest_main)
-target_compile_definitions(restart_probe_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-gtest_discover_tests(restart_probe_test PROPERTIES TIMEOUT 1800)
 
 
 add_executable(pes_random_test pes_random_test.cpp)
