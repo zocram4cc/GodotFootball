@@ -243,6 +243,7 @@ Agent port and fix reports moved to `../ports/` (index: `../ports/README.md`).
 |`../render/pes-render-b5materials.md`|B5 Materials: report, update (branch `B5Materials`, head 8fd78e0)|
 |`../render/pes-render-camera.md`|PES broadcast camera (B1, Dynamic Wide): target and framing port|
 |`../render/pes-render-TurfColour.md`|TurfColour: white-balance orientation checked in PES asm (columns applied; GF was right, a frame-led transpose fix was reverted); GF metered EV ~3.6 EV too bright (pinned at the -14 floor); 1/(4pi) sun scale fits but is not a PES constant; grading-LUT path stub|
+|`../render/pes-render-sun-radiance.md`|Sun radiance: stock sunLux 150000 x skyColorSunScale 0.2 x pi (`FUN_141955000`, `0x14195526B`/`28A` MULSS [0x142578480]) uploaded unscaled; no 1/pi in any sun shader; GF lacks the pi*S factor, a further ~x4 is open; live matches bind the grading LUT path (lut_s_day_game)|
 |`../render/pes-kit-compare-b5.md`|PES kit comparison: BNT (708) and W (760), B5 Materials|
 |`../render/pes-exposure-ExposureMatch.md`|ExposureMatch: live PES is stadium 21 (not 29), fine, day; pitch origin mapped and a pose-aligned pair made; GF grass is 3.7× PES (dark turf R ×6.4, G ×2.9, B ×9) while painted logo is 1.4×, so not global exposure: the turf albedo path or a per-channel post stage; speckle, bloom, line specular rejected; mask, LUT, kits, hour open|
 
