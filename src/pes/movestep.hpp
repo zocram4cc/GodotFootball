@@ -663,9 +663,13 @@ class MoveHost {
   // The anime state (vt+0x28 of the +0xab8 interface). IsReplay() is AnimeState() == 0x4a.
   virtual int AnimeState() const = 0;
 
-  // FUN_141eb50b0(P, out, index): index 0 or 1 is the last-tick displacement (pos - prev, per axis).
-  // index >= 2 reads the position history ring at P+0x304 (its writer is not decoded yet).
+  // FUN_141eb50b0(P, out, index), in PES's order (x, height, ground z). Index 0 and 1 are the last tick's displacement,
+  // pos - prev: P+8 - P+0x14, P+0xc - P+0x18, P+0x10 - P+0x1c. Index >= 2 is the history ring: sample k = min(index / 10,
+  // 5), with x and height at P+0x2fc + 12k and z at P+0x304 + 12k. GF keeps no ring, so the adapter answers the position.
   virtual void PositionAt(int index, float out[3]) const = 0;
+  // The player's own ground position in PES's order: P+8 (x), P+0xc (height), P+0x10 (ground z). PES reads these
+  // directly; PositionAt(0) is the displacement, not the position.
+  virtual void OwnPosition(float out[3]) const = 0;
   // MI+0x116c: the match phase (MB-E is not ported; a stand-in until it is).
   virtual int MatchPhase() const = 0;
   // The anime predicate vt+0x28 == 0x4a: the replay action.
@@ -678,8 +682,8 @@ class MoveHost {
   virtual int StaminaPercent() const = 0;
   // FUN_1406e7380: the player's height in cm (P+0x3b18 * 180).
   virtual float PlayerHeightCm() const = 0;
-  // FUN_140a6cf70 over the match's ball list: index k is the ball k ticks ahead (0 = now). GF
-  // order: [0] x, [1] z, [2] height.
+  // FUN_140a6cf70 over the match's ball list: index k is the ball k ticks ahead (0 = now). PES order: [0] x, [1] height,
+  // [2] ground z.
   virtual void BallSample(int index, float out[3]) const = 0;
   // ctx+0x2944 (FUN_140a57710): the ball's motion heading in degrees.
   virtual float BallMotionHeadingDeg() const = 0;

@@ -94,6 +94,11 @@ class SyntheticHost : public pes::MoveHost {
     out[1] = positions[index][1];
     out[2] = positions[index][2];
   }
+  void OwnPosition(float out[3]) const override {
+    out[0] = positions[0][0];
+    out[1] = positions[0][1];
+    out[2] = positions[0][2];
+  }
   int MatchPhase() const override { return phase; }
   bool IsReplay() const override { return replay; }
   void Issue(const pes::MotionRequest& request) override { issued = request; ++issues; }

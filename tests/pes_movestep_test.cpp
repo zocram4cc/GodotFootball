@@ -338,7 +338,10 @@ class RateHost : public pes::MoveHost {
   void SetRecordF0bec(float value) override { f0bec = value; ++f0becWrites; }
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
   void PositionAt(int index, float out[3]) const override {
-    for (int i = 0; i < 3; ++i) out[i] = index == 0 ? position[i] : 0.0f;
+    for (int i = 0; i < 3; ++i) out[i] = index < 2 ? 0.0f : position[i];
+  }
+  void OwnPosition(float out[3]) const override {
+    for (int i = 0; i < 3; ++i) out[i] = position[i];
   }
   bool IsReplay() const override { return false; }
   void Issue(const pes::MotionRequest&) override {}
@@ -884,8 +887,8 @@ RateHost StyleHost() {
   host.run.rampSlope = 0.15f;
   host.style = SyntheticStyle();
   host.moveConstants.dist3 = 3.0f;
-  host.ballSample[18][1] = 1.0f;  // GF order: x, z, height
-  host.ballSample[18][2] = 0.2f;
+  host.ballSample[18][1] = 0.2f;  // PES order: x, height, ground z. The ball is 1 m ahead, 0.2 m high.
+  host.ballSample[18][2] = 1.0f;
   return host;
 }
 
@@ -996,7 +999,7 @@ TEST(LocomotionStyle, DribbleAtTheFeetIsEight) {
 TEST(LocomotionStyle, DribbleNeedsTheBallInFront) {
   RateHost host = StyleHost();
   host.ballSample[18][0] = 1.0f;  // now 90 degrees off the facing
-  host.ballSample[18][1] = 0.0f;
+  host.ballSample[18][2] = 0.0f;
   pes::MoveReq req = StyleReq(5, 0.2f);
   req.SetByte(pes::moveword::kUseClassRate, 1);
   EXPECT_EQ(Style(host, req, 0.2f), 0);
@@ -1004,7 +1007,7 @@ TEST(LocomotionStyle, DribbleNeedsTheBallInFront) {
 
 TEST(LocomotionStyle, DribbleNeedsTheBallNearby) {
   RateHost host = StyleHost();
-  host.ballSample[18][1] = 4.0f;
+  host.ballSample[18][2] = 4.0f;
   pes::MoveReq req = StyleReq(5, 0.2f);
   req.SetByte(pes::moveword::kUseClassRate, 1);
   EXPECT_EQ(Style(host, req, 0.2f), 0);
@@ -1012,7 +1015,7 @@ TEST(LocomotionStyle, DribbleNeedsTheBallNearby) {
 
 TEST(LocomotionStyle, DribbleNeedsTheBallLow) {
   RateHost host = StyleHost();
-  host.ballSample[18][2] = 1.0f;  // above half the 1.8 m height
+  host.ballSample[18][1] = 1.0f;  // above half the 1.8 m height (index 1 is the height)
   pes::MoveReq req = StyleReq(5, 0.2f);
   req.SetByte(pes::moveword::kUseClassRate, 1);
   EXPECT_EQ(Style(host, req, 0.2f), 0);
@@ -1020,7 +1023,7 @@ TEST(LocomotionStyle, DribbleNeedsTheBallLow) {
 
 TEST(LocomotionStyle, DribbleYieldsToABallRunningAlongTheFacing) {
   RateHost host = StyleHost();
-  host.ballSample[2][1] = 0.1f;  // 0.1 m a tick: 19.4 km/h at 54 ticks a second
+  host.ballSample[2][2] = 0.1f;  // 0.1 m a tick along z: 19.4 km/h at 54 ticks a second
   pes::MoveReq req = StyleReq(5, 0.2f);
   req.SetByte(pes::moveword::kUseClassRate, 1);
   EXPECT_EQ(Style(host, req, 0.2f), 0);
@@ -1028,7 +1031,7 @@ TEST(LocomotionStyle, DribbleYieldsToABallRunningAlongTheFacing) {
 
 TEST(LocomotionStyle, DribbleTakesAFastBallThatTurnsAway) {
   RateHost host = StyleHost();
-  host.ballSample[2][1] = 0.1f;
+  host.ballSample[2][2] = 0.1f;
   host.ballMotionHeadingDeg = 90.0f;
   pes::MoveReq req = StyleReq(5, 0.2f);
   req.SetByte(pes::moveword::kUseClassRate, 1);

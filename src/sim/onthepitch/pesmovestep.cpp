@@ -247,9 +247,7 @@ class MoveHostAdapter final : public pes::MoveHost {
         index == 0 ? match_.GetBall()->GetPositionBuffer()
                    : match_.GetMentalImage(0)->GetBallPrediction(
                          static_cast<unsigned int>(index * 1000 / Match::kFramesPerSecond));
-    out[0] = ball.coords[0];
-    out[1] = ball.coords[1];
-    out[2] = ball.coords[2];
+    pesmovestep::PesFrame(ball.coords[0], ball.coords[1], ball.coords[2], out);
   }
   // ctx+0x2944: ponytail: GF's ball movement heading stands in for the PES ball heading field.
   float BallMotionHeadingDeg() const override {
@@ -263,11 +261,15 @@ class MoveHostAdapter final : public pes::MoveHost {
   float RecordF0bec() const override { return player_.GetMoveStep().yawLock; }
   void SetRecordF0bec(float value) override { player_.GetMoveStep().yawLock = value; }
   const pes::AngleBucketConstants& AngleBuckets() const override { return c_.buckets; }
+  // FUN_141eb50b0: index 0 and 1 are the displacement; index >= 2 is the history ring, which GF does not keep.
+  // ponytail: PES's ring at P+0x2fc is written per tick by a writer not decoded yet; until then every sample is the position.
   void PositionAt(int index, float out[3]) const override {
-    const Vector3 v = index == 1 ? player_.GetMovement() : player_.GetPosition();
-    out[0] = v.coords[0];
-    out[1] = v.coords[1];
-    out[2] = v.coords[2];
+    const Vector3 v = index < 2 ? player_.GetMovement() : player_.GetPosition();
+    pesmovestep::PesFrame(v.coords[0], v.coords[1], v.coords[2], out);
+  }
+  void OwnPosition(float out[3]) const override {
+    const Vector3 v = player_.GetPosition();
+    pesmovestep::PesFrame(v.coords[0], v.coords[1], v.coords[2], out);
   }
   int MatchPhase() const override {
     // PES MI+0x116c is not ported (MB-E). Open play is PES's phase 1; every stopped phase is
@@ -401,6 +403,14 @@ class MoveHostAdapter final : public pes::MoveHost {
 }  // namespace
 
 namespace pesmovestep {
+
+// PES's frame of a GF point (see pesmovestep.hpp). 0.0f - y keeps +0.0 for a zero y, so atan2 of a stationary displacement is
+// 0 degrees and not 180.
+void PesFrame(float gfX, float gfY, float gfZ, float out[3]) {
+  out[0] = gfX;
+  out[1] = gfZ;
+  out[2] = 0.0f - gfY;
+}
 
 float PesBearingDeg(const pes::RunConstants& k, float gfX, float gfZ) {
   return pes::FoldFull(std::atan2(gfX, -gfZ) * kDegPerRad, k);  // PES z = -coords[1]

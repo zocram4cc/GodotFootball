@@ -213,6 +213,9 @@ class FakeHost : public MoveHost {
     out[1] = displacement[1];
     out[2] = displacement[2];
   }
+  void OwnPosition(float out[3]) const override {
+    for (int i = 0; i < 3; ++i) out[i] = 0.0f;  // group D reads the displacement and the ring only
+  }
   int MatchPhase() const override { return 1; }
   bool IsReplay() const override { return false; }
   void Issue(const pes::MotionRequest& request) override { issued = request; }

@@ -492,3 +492,13 @@ TEST(MoveStepWire, AnAiMovementClipDoesNotTakeTheBodyWhileTheFsmHoldsAStop) {
   EXPECT_EQ(violations, 0) << "AI movement clips held the body on " << violations << " player-ticks; the first at tick "
                            << firstTick;
 }
+
+// The adapter's PES frame (PesFrame): PES reads the height at P+0xc and the ground z at P+0x10, so out is (x, height, z)
+// with height = GF z and ground z = -GF y (GF's coords[2] is the height: ball.cpp reads it as the height).
+TEST(MoveStepWire, PesFrameIsXHeightGroundZ) {
+  float out[3] = {0.0f, 0.0f, 0.0f};
+  pesmovestep::PesFrame(1.0f, 2.0f, 3.0f, out);
+  EXPECT_FLOAT_EQ(out[0], 1.0f) << "x is GF x";
+  EXPECT_FLOAT_EQ(out[1], 3.0f) << "height is GF z";
+  EXPECT_FLOAT_EQ(out[2], -2.0f) << "ground z is -GF y";
+}

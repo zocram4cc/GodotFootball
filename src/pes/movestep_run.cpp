@@ -248,6 +248,13 @@ float GroundSpeedKmh(const MoveHost& host, const RunConstants& k) {
          LastDisplacement(host);
 }
 
+// FUN_14046f230 of FUN_141eb50b0(P, out, 1): the heading in [0, 360) of the last tick's displacement, PES's (x, z) pair.
+float DisplacementBearingDeg(const MoveHost& host, const RunConstants& k) {
+  float d[3] = {0.0f, 0.0f, 0.0f};
+  host.PositionAt(1, d);
+  return FoldFull(std::atan2(d[0], d[2]) * host.StyleConstantsView().radToDeg, k);
+}
+
 
 // FUN_1406c9e20's update arm and FUN_1406bb570's LAB_1406bcbda are the same block, which
 // PES reaches through the +0xac0 interface's slot 0 = FUN_1406d2030 (EnterRun): the class
@@ -940,9 +947,7 @@ void Stop(MoveHost& host, MoveReq& req) {
     if (smallTurn && static_cast<uint32_t>(cls - 1) < 2u &&
         0 < static_cast<int>(req.U(moveword::kRateBand))) {
       // The stop bearing to the AI target (FUN_14046f230 of the last tick's displacement).
-      float ai[3] = {0.0f, 0.0f, 0.0f};
-      host.PositionAt(0, ai);
-      const float stopBearing = AngleDiffDeg(req.F(moveword::kFacing), ai[0], k);
+      const float stopBearing = AngleDiffDeg(req.F(moveword::kFacing), DisplacementBearingDeg(host, k), k);
       if (k.deg225 <= stopBearing) {
         if (EnterStepTurnRun(host, req)) return;
       } else if (req.U(moveword::kPrecise) != 1u) {
@@ -1194,9 +1199,9 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
     float ball[3] = {0.0f, 0.0f, 0.0f};
     host.BallSample(18, ball);
     float self[3] = {0.0f, 0.0f, 0.0f};
-    host.PositionAt(0, self);
+    host.OwnPosition(self);
     const float bdx = ball[0] - self[0];
-    const float bdz = ball[1] - self[1];
+    const float bdz = ball[2] - self[2];
     const float ballDist = std::sqrt(bdx * bdx + bdz * bdz);
     row = host.Percent(40) && ballDist < k.dist1m5 ? 0x662 : 0x661;
   }

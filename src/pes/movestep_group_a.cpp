@@ -676,7 +676,7 @@ int IdleRow(MoveHost& host, MoveReq& req) {
         float other[3] = {0.0f, 0.0f, 0.0f};
         host.RecordPosition(related, other);
         float pos[3] = {0.0f, 0.0f, 0.0f};
-        host.PositionAt(0, pos);
+        host.OwnPosition(pos);
         const float dx = pos[0] - other[0];
         const float dz = pos[2] - other[2];
         const float dist = std::sqrt(dx * dx + dz * dz);

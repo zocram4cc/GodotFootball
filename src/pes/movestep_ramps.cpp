@@ -112,7 +112,7 @@ float TurnSlow(MoveHost& host, MoveReq& req, float x) {
     float v[3] = {0.0f, 0.0f, 0.0f};
     host.PositionAt(1, v);
     const float heading =
-        FoldFull(std::atan2(v[0], v[1]) * host.StyleConstantsView().radToDeg, k);
+        FoldFull(std::atan2(v[0], v[2]) * host.StyleConstantsView().radToDeg, k);  // PES's (x, z) pair: index 2 is z
     turn = AngleDiffDeg(heading, req.F(moveword::kHeading), k);
   }
   const float magnitude = std::fabs(turn);

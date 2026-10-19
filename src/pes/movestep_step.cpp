@@ -42,14 +42,12 @@ float FoldHalfTurn(float a) {
 // FUN_140a92d40(a, b): the atan2 difference in (-pi, pi], then * 2pi by the caller.
 float Atan2Delta(float dx, float dz) { return std::atan2(dx, dz); }
 
-// FUN_14046f230 of FUN_141eb50b0(P, out, 1): the heading in [0, 360) of the last tick's displacement. PES's ground pair is
-// (x, z) with z = -GF y, so the displacement's pair is (out[0], 0 - out[1]); the subtraction keeps atan2's +0 for a zero y.
-// DAT_1425795e4 is 2 pi, DAT_14259be40 is 180/pi.
-// ponytail: the adapter copies GF's raw coords; when it copies PES order, the sign and the index here become a plain read.
+// FUN_14046f230 of FUN_141eb50b0(P, out, 1): the heading in [0, 360) of the last tick's displacement, PES's (x, z) pair
+// (d[0] and d[2]). DAT_1425795e4 is 2 pi, DAT_14259be40 is 180/pi.
 float DisplacementHeading(MoveHost& host) {
   float d[3];
   host.PositionAt(1, d);
-  float a = Atan2Delta(d[0], 0.0f - d[1]) * float(180.0 / 3.14159265358979323846);
+  float a = Atan2Delta(d[0], d[2]) * float(180.0 / 3.14159265358979323846);
   if (a < 0.0f) a += 360.0f;
   return a;
 }
@@ -98,10 +96,9 @@ bool StepStops(MoveHost& host, MoveReq& req, bool live) {
   if (live) {
     if (r.deg45 < std::fabs(req.F(moveword::kTurn))) {
       float self[3] = {0.0f, 0.0f, 0.0f};
-      host.PositionAt(0, self);
-      // The ground pair is (x, -y), as in DisplacementHeading.
+      host.OwnPosition(self);
       const float bearing =
-          HeadingFrom(self[0], 0.0f - self[1], req.F(moveword::kMoveTargetX), req.F(moveword::kMoveTargetZ));
+          HeadingFrom(self[0], self[2], req.F(moveword::kMoveTargetX), req.F(moveword::kMoveTargetZ));
       if (r.deg675 < std::fabs(Wrap180(bearing - DisplacementHeading(host)))) return true;
     }
     if (req.F(moveword::kDwellElapsed2) < req.F(moveword::kDwellLimit2)) return false;

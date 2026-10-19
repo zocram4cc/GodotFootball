@@ -187,9 +187,15 @@ class FakeHost : public MoveHost {
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
 
   void PositionAt(int index, float out[3]) const override {
-    out[0] = displacement[0];
-    out[1] = displacement[1];
-    out[2] = displacement[2];
+    const float* v = index < 2 ? displacement : position;  // the adapter's rule: index 0 and 1 are the displacement
+    out[0] = v[0];
+    out[1] = v[1];
+    out[2] = v[2];
+  }
+  void OwnPosition(float out[3]) const override {
+    out[0] = position[0];
+    out[1] = position[1];
+    out[2] = position[2];
   }
   int MatchPhase() const override { return 1; }
   bool IsReplay() const override { return false; }
@@ -255,7 +261,8 @@ class FakeHost : public MoveHost {
   int recentStamp[2] = {0, 0};
   int previous = 0;
   int footBand = 0;
-  float displacement[3] = {0.0f, -1.0f, 0.0f};  // PES +z is GF -y: heading 0 degrees
+  float position[3] = {0.0f, 0.0f, 0.0f};      // the player's own ground position, PES's (x, height, z)
+  float displacement[3] = {0.0f, 0.0f, 1.0f};  // PES's (x, height, z): +z is heading 0 degrees
 
   int currentMotion = 0;
   int currentClipFrames = 0;
@@ -291,8 +298,8 @@ TEST(StepLoop, WalksTheBandDownWhenThePreviousBandWasOne) {
   req.SetU(pes::moveword::kBucketPrev, 0);
   // A moving player, so the stop helper does not fire before the walk is observable.
   host.displacement[0] = 0.5f;
-  host.displacement[1] = -2.0f;
-  host.displacement[2] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 2.0f;
   StepLoop(host, req);
   // The walk itself: the band becomes 1 and the speed comes back from req[0x22]. The tail then
   // records the stepped band, so the restored speed carries through the blend's 0.5/0.5 mix.
@@ -321,8 +328,8 @@ TEST(StepLoop, WalksTheBandDownAfterTheShorterKeeperThreshold) {
   req.SetU(pes::moveword::kMoveBucket, 0);
   req.SetU(pes::moveword::kBucketPrev, 0);
   host.displacement[0] = 0.5f;
-  host.displacement[1] = -2.0f;
-  host.displacement[2] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 2.0f;
   StepLoop(host, req);
   EXPECT_NEAR(req.F(pes::moveword::kBandSpeed), 12.0f, 1e-3f);
 }
