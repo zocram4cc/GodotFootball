@@ -2363,11 +2363,6 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // many ticks.
     constexpr float kLaneFrames = 11.0f;
     const float laneTime_s = kLaneFrames * pesball::kPesTick_s;
-    // The receiver offside prediction (report 4.3's status 6): every input to
-    // the carrier's offside line, and the receiver's own position, is read
-    // int(gameSpeed x 0.3) = 16 frames ahead.
-    constexpr float kReceiverFrames = 16.0f;
-    const float receiverPrediction_s = kReceiverFrames * pesball::kPesTick_s;
     const float lowPass = CastPlayer()->GetStat("technical_shortpass");
     const float carrierSpeed_kmh = CastPlayer()->GetMovement().GetLength() * 3.6f;
 
@@ -2390,24 +2385,49 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     std::vector<pes::PassCandidate> candidates;
     std::vector<Player*> mates;
     team->GetActivePlayers(mates);
+    // PES 2021's receiver enumeration (0x142117c30, pescarrier.hpp): the pass layer is offered the mates whose
+    // status is valid, and no others. The offside line reads the opponents' S1 list (list 1 when attacking +x):
+    // its first five entries, a keeper skipped, and the ball, each 16 frames ahead.
+    std::vector<Player*> opponents;
+    match->GetTeam(1 - team->GetID())->GetActivePlayers(opponents);
+    const pes::SortedRow& oppList = team->GetController()->Rows().list[attackSign == 1.0f ? 1 : 0];
+    std::vector<pes::OffsideEntry> listed;
+    for (int r = 0; r < oppList.Count(1) && r < static_cast<int>(pes::kOffsideEntries); ++r) {
+      const int j = oppList.Entry(1, r).id - pes::lane::kSideSize;
+      if (j < 0 || j >= static_cast<int>(opponents.size())) continue;
+      Player* opp = opponents[j];
+      listed.push_back({opp->GetPosition().coords[0], opp->GetMovement().coords[0] * pesball::kPesTick_s,
+                        opp->GetFormationEntry().role == e_PlayerRole_GK});
+    }
+    const float offsideLine = pes::CarrierOffsideLine(
+        attackSign, listed, ballPos.coords[0], ballMove.coords[0] * pesball::kPesTick_s,
+        pes::ReceiverOffsideFrames(carrier));
+    const bool inSetPiece = match->IsInSetPiece();
+    const e_SetPiece setPiece = team->GetController()->GetSetPieceType();
+    const Player* taker = team->GetController()->GetPieceTaker();
     for (Player* mate : mates) {
-      if (mate == CastPlayer()) continue;
-      if (mate->GetFormationEntry().role == e_PlayerRole_GK) continue;  // status 5
+      pes::ReceiverStatusInput status;
+      const Vector3 matePos = mate->GetPosition();
+      const Vector3 mateVel = mate->GetMovement();
+      status.pos = {matePos.coords[0], matePos.coords[1]};
+      status.velPerFrame = {mateVel.coords[0] * pesball::kPesTick_s,
+                            mateVel.coords[1] * pesball::kPesTick_s};
+      status.anime = AnimeClassOf(mate);
+      status.carrier = mate == CastPlayer();
+      status.setPieceTaker = inSetPiece && setPiece == e_SetPiece_FreeKick && mate == taker;
+      status.offsideTested =
+          !(inSetPiece && (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_GoalKick ||
+                           setPiece == e_SetPiece_Corner));
+      status.attackSign = attackSign;
+      status.offsideLine_m = offsideLine;
+      status.halfLen_m = pesFieldHalfLength;
+      status.halfWidth_m = pesFieldHalfWidth;
+      if (pes::ReceiverStatusOf(status, carrier) != pes::kReceiverValid) continue;
       // The mate's target is his position a lane-time ahead (record A, "to
       // feet"); record B ("into space") is not ported.
-      const Vector3 matePos = mate->GetPosition();
-      const Vector3 matePred = matePos + mate->GetMovement() * laneTime_s;
-      // PES 2021's receiver enumeration (docs/re/pes-re-carrier-ai.md 4.3):
-      // a team-mate whose position now or his position the receiver
-      // prediction ahead is beyond the carrier's offside line gets status 6
-      // - offside - and is never a pass receiver.
-      if (AI_ReceiverIsOffside(match, _mentalImage, team->GetID(), matePos,
-                               mate->GetMovement(), ballPos, ballMove,
-                               receiverPrediction_s))
-        continue;
+      const Vector3 matePred = matePos + mateVel * laneTime_s;
       const Vector3 target3(matePred.coords[0], matePred.coords[1], ballPos.coords[2]);
       const float dist = (target3 - ballPos).GetLength();
-      if (dist > in.halfLen_m) continue;  // off the pitch
       const float dx = target3.coords[0] - ballPos.coords[0];
       const float dz = target3.coords[1] - ballPos.coords[1];
       // The pass's forward angle is its bearing against the attack direction,

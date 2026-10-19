@@ -2764,3 +2764,109 @@ TEST(CarrierVolatileBall, TheTrackArmSetsItWhenTheBallIsNotNearerItsAnchor) {
   in.ballTrackFlag = false;   // B+0x4C == 0: no arm
   EXPECT_FALSE(pes::VolatileBall(in));
 }
+
+// PES 2021's receiver status (0x142117c30): which team-mates a pass unit is offered.
+pes::ReceiverStatusInput AMateAtRest() {  // 20 m behind the carrier, inside the pitch, onside
+  pes::ReceiverStatusInput in;
+  in.pos = {-20.0f, 0.0f};
+  in.offsideLine_m = 60.0f;
+  in.attackSign = 1.0f;
+  in.halfLen_m = pesFieldHalfLength;
+  in.halfWidth_m = pesFieldHalfWidth;
+  return in;
+}
+
+TEST(ReceiverStatus, ABackwardMateAtRestIsOffered) {
+  const pes::CarrierConstants k{};
+  EXPECT_EQ(pes::ReceiverStatusOf(AMateAtRest(), k), pes::kReceiverValid);
+}
+
+TEST(ReceiverStatus, AMateAheadOfTheOffsideLineIsOffside) {
+  const pes::CarrierConstants k{};
+  pes::ReceiverStatusInput in = AMateAtRest();
+  in.pos = {30.0f, 0.0f};
+  in.offsideLine_m = 20.0f;  // the line is 10 m behind him: offside
+  EXPECT_EQ(pes::ReceiverStatusOf(in, k), pes::kReceiverOffside);
+  in.offsideLine_m = 40.0f;  // the line is past him: onside
+  EXPECT_EQ(pes::ReceiverStatusOf(in, k), pes::kReceiverValid);
+}
+
+TEST(ReceiverStatus, AMateWhoseEighteenFrameTargetLeavesThePitchIsPredictedOff) {
+  const pes::CarrierConstants k{};
+  pes::ReceiverStatusInput in = AMateAtRest();
+  in.pos = {50.0f, 0.0f};
+  in.velPerFrame = {0.2f, 0.0f};  // 50 + 18 * 0.2 = 53.6 m, past the 52.56 m goal line
+  EXPECT_EQ(pes::ReceiverStatusOf(in, k), pes::kReceiverPredictedOff);
+  in.velPerFrame = {0.0f, 0.0f};  // at rest he stays on the pitch
+  EXPECT_EQ(pes::ReceiverStatusOf(in, k), pes::kReceiverValid);
+}
+
+TEST(ReceiverStatus, ATripAnAnimeClassWithBusyBitAndKeeperPickupAreNotOffered) {
+  pes::CarrierConstants k{};
+  pes::ReceiverStatusInput in = AMateAtRest();
+  in.anime = 16;  // STAGGER
+  EXPECT_EQ(pes::ReceiverStatusOf(in, k), pes::kReceiverBusy8);
+  in.anime = 2;  // MOVE, given a synthetic word with bit 9 here (not the install's word)
+  k.animeClassWord[2] = 1u << 9;
+  EXPECT_EQ(pes::ReceiverStatusOf(in, k), pes::kReceiverBusy7);
+  in.anime = 87;  // KP_PICKUP_BALL
+  EXPECT_EQ(pes::ReceiverStatusOf(in, k), pes::kReceiverBusy9);
+}
+
+TEST(ReceiverStatus, AMateOffThePitchTheCarrierAndTheSetPieceTakerAreNotOffered) {
+  const pes::CarrierConstants k{};
+  pes::ReceiverStatusInput in = AMateAtRest();
+  in.onPitch = false;
+  EXPECT_EQ(pes::ReceiverStatusOf(in, k), pes::kReceiverNotOnPitch);
+  in.onPitch = true;
+  in.carrier = true;
+  EXPECT_EQ(pes::ReceiverStatusOf(in, k), pes::kReceiverCarrier);
+  in.carrier = false;
+  in.setPieceTaker = true;
+  EXPECT_EQ(pes::ReceiverStatusOf(in, k), pes::kReceiverSetPiece);
+}
+
+TEST(ReceiverStatus, TheOffsideLineIsTheDeepestOfTheFirstFiveNonKeepersAndTheBall) {
+  // Attacking +x: the first five listed men, a keeper skipped, and the ball, all 16 frames ahead.
+  const std::vector<pes::OffsideEntry> listed = {
+      {20.0f, 0.0f, false}, {45.0f, 0.0f, true}, {30.0f, 0.0f, false},
+      {25.0f, 0.0f, false}, {10.0f, 0.0f, false}, {50.0f, 0.0f, false}};  // the sixth is not read
+  EXPECT_FLOAT_EQ(pes::CarrierOffsideLine(1.0f, listed, -40.0f, 0.0f, 16), 30.0f);
+  // The ball at 1.5 m a frame is 10 + 16 * 1.5 = 34 m, past the line.
+  EXPECT_FLOAT_EQ(pes::CarrierOffsideLine(1.0f, listed, 10.0f, 1.5f, 16), 34.0f);
+}
+
+TEST(ReceiverStatus, ALineManIsReadSixteenFramesAhead) {
+  // At 1 m a frame, a man on 10 m is on 26 m after 16 frames.
+  EXPECT_FLOAT_EQ(pes::CarrierOffsideLine(1.0f, {{10.0f, 1.0f, false}}, -40.0f, 0.0f, 16), 26.0f);
+}
+
+TEST(ReceiverStatus, TheLineStartsAtHalfwayAndFollowsTheAttackDirection) {
+  // Everyone behind halfway leaves the line on halfway: the running maximum starts at 0.
+  EXPECT_FLOAT_EQ(
+      pes::CarrierOffsideLine(1.0f, {{-40.0f, 0.0f, false}, {-35.0f, 0.0f, false}}, -20.0f, 0.0f, 16),
+      0.0f);
+  // Attacking -x (s = -1), the deepest is the most negative x: -30.
+  EXPECT_FLOAT_EQ(pes::CarrierOffsideLine(-1.0f,
+                                          {{-20.0f, 0.0f, false}, {-30.0f, 0.0f, false},
+                                           {-25.0f, 0.0f, false}},
+                                          0.0f, 0.0f, 16),
+                  -30.0f);
+}
+
+TEST(ReceiverStatusInstall, TheOffsideFramesAndTheAnimeWordsAreTheInstallsValues) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe) << err;
+  auto k = pes::LoadCarrierConstants(*exe, &err);
+  ASSERT_TRUE(k) << err;
+  // int(54 x 0.30) = 16 frames.
+  EXPECT_EQ(pes::ReceiverOffsideFrames(*k), 16);
+  pes::ReceiverStatusInput in = AMateAtRest();
+  in.anime = 56;  // bit 9 of its word (FUN_140a6e450)
+  EXPECT_EQ(pes::ReceiverStatusOf(in, *k), pes::kReceiverBusy7);
+  in.anime = 73;  // bit 27 of its word (FUN_140a6e110)
+  EXPECT_EQ(pes::ReceiverStatusOf(in, *k), pes::kReceiverBusy10);
+}

@@ -448,6 +448,9 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x14253ee30, &k.curveWide_deg},     {0x14256ae1c, &k.curveStep_m},       {0x14259bdc4, &k.curveEps},
   };
   for (const auto& r : curve) ok &= ReadVa(exe, r.first, r.second, error);
+  // The receiver status (0x142117c30): the offside test's frames scale (0.30 at 0x142590d98) and the anime class words.
+  ok &= ReadVa(exe, 0x142590d98, &k.receiverFrameScale, error);
+  ok &= exe.ReadVa(0x1426484f0, sizeof k.animeClassWord, reinterpret_cast<uint8_t*>(k.animeClassWord.data()));
   // G3's team level (reader 0x140A40BD0, comparator 0x140A60360). The writer 0x1B5D8340 stores
   // clamp(class x 100, 0, 700), where the class is `*(int*)(matchSetting+0x18)` through its 7-entry
   // switch, whose entries are all the same arm, so an out-of-range selector takes the masked global.
@@ -2402,4 +2405,58 @@ e_FunctionType PesPassFunctionType(int passKind) {
   }
 }
 
+namespace {
+
+// The predicted-off test looks 18 frames ahead: FUN_141e532e0() / 3 with the 54 Hz tick.
+constexpr int kPredictOffFrames = static_cast<int>(kPesTickHz) / 3;
+
+// Bit `bit` of the anime class's word: FUN_140a6e450 reads bit 9, FUN_140a6e110 bit 27. A class past the table reads 0.
+bool AnimeWordBit(const CarrierConstants& k, int anime, int bit) {
+  if (anime < 0 || anime >= kAnimeClassCount) return false;
+  return ((k.animeClassWord[anime] >> bit) & 1u) != 0;
+}
+
+}  // namespace
+
+int ReceiverOffsideFrames(const CarrierConstants& k) {
+  return static_cast<int>(kPesTickHz * k.receiverFrameScale);
+}
+
+float CarrierOffsideLine(float s, const std::vector<OffsideEntry>& listed, float ballX_m,
+                         float ballVxPerFrame, int frames) {
+  float line = 0.0f;
+  const size_t count = std::min(listed.size(), kOffsideEntries);
+  for (size_t i = 0; i < count; ++i) {
+    if (listed[i].keeper) continue;
+    const float x = listed[i].x_m + listed[i].vxPerFrame * static_cast<float>(frames);
+    if (s * line < s * x) line = x;
+  }
+  const float ballX = ballX_m + ballVxPerFrame * static_cast<float>(frames);
+  if (s * line < s * ballX) line = ballX;
+  return line;
+}
+
+int ReceiverStatusOf(const ReceiverStatusInput& in, const CarrierConstants& k) {
+  if (!in.onPitch) return kReceiverNotOnPitch;
+  if (in.carrier) return kReceiverCarrier;
+  int status = kReceiverValid;
+  const float xAhead = in.pos.x + in.velPerFrame.x * static_cast<float>(kPredictOffFrames);
+  const float zAhead = in.pos.z + in.velPerFrame.z * static_cast<float>(kPredictOffFrames);
+  if (std::fabs(xAhead) > in.halfLen_m || std::fabs(zAhead) > in.halfWidth_m)
+    status = kReceiverPredictedOff;
+  if (in.setPieceTaker) status = kReceiverSetPiece;
+  if (in.offsideTested) {
+    const float s = in.attackSign;
+    const float xLater = in.pos.x + in.velPerFrame.x * static_cast<float>(ReceiverOffsideFrames(k));
+    if (s * in.offsideLine_m < s * in.pos.x || s * in.offsideLine_m < s * xLater)
+      status = kReceiverOffside;
+  }
+  // The busy classes overwrite in the writer's order: 8, then 7, 10 and 9.
+  if ((in.anime >= kAnimeDive && in.anime <= kAnimeFallDown) || in.publishedFlag)
+    status = kReceiverBusy8;
+  if (AnimeWordBit(k, in.anime, 9)) status = kReceiverBusy7;
+  if (AnimeWordBit(k, in.anime, 27)) status = kReceiverBusy10;
+  if (in.anime == kAnimeKpPickupBall) status = kReceiverBusy9;
+  return status;
+}
 }  // namespace pes

@@ -40,6 +40,8 @@ struct CarrierPoint {
   float z = 0.0f;
 };
 
+// PES 2021's anime class count: the words FUN_140a6e450 and FUN_140a6e110 index (their 0x5d bound).
+inline constexpr int kAnimeClassCount = 94;
 struct CarrierConstants {
   // --- the shoot zone (report 4.1, 0x140699610's init + 0x140698d10) ---
   float shootR0_m = 0.0f;             // 11.0, the box half-disc radius
@@ -414,6 +416,10 @@ struct CarrierConstants {
   float curveStep_m = 0.0f;         // 1, 0x14256ae1c: a segment point's step along psi
   float curveEps = 0.0f;            // 1.1920929e-07, 0x14259bdc4: the parallel test of a crossing
   bool operator==(const CarrierConstants&) const = default;
+  // The receiver status (0x142117c30): the offside test's frames are int(fps x this); 0.30 at 0x142590d98.
+  float receiverFrameScale = 0.0f;
+  // The anime class words (0x1426484f0): bit 9 is FUN_140a6e450's busy test, bit 27 is FUN_140a6e110's.
+  std::array<uint32_t, kAnimeClassCount> animeClassWord{};
 };
 
 std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::string* error);
@@ -1212,6 +1218,60 @@ inline bool VolatileBall(const VolatileBallInput& in) {
   const bool r14 = dx1 * dx1 + dz1 * dz1 < dx2 * dx2 + dz2 * dz2;
   return in.ballTrackFlag && !in.ballFlag80 && !r14;
 }
+
+// --- the receiver status (PES 2021's FUN_142117c30): which team-mates the pass layer is offered ---
+// Every team-mate gets one status, in slot order. Only kReceiverValid mates become receiver records, so
+// this is the candidate set each pass unit reads. The writer runs its tests in this order, and the last
+// one that fires sets the status: predicted off (4), set-piece taker (5), offside (6), then the busy
+// classes (8, 7, 10, 9). The carrier takes kReceiverCarrier and no other test runs for him.
+enum ReceiverStatusCode : int {
+  kReceiverNotOnPitch = 1,    // off the pitch (the writer's else)
+  kReceiverCarrier = 2,       // the carrier himself
+  kReceiverPredictedOff = 4,  // 18 frames ahead he is past a goal line or a touchline
+  kReceiverSetPiece = 5,      // a free kick's taker
+  kReceiverOffside = 6,       // beyond the offside line now or 16 frames ahead
+  kReceiverBusy7 = 7,         // an anime class whose word has bit 9
+  kReceiverBusy8 = 8,         // DIVE, STAGGER, FALL_DOWN, or the published flag
+  kReceiverBusy9 = 9,         // KP_PICKUP_BALL
+  kReceiverBusy10 = 10,       // an anime class whose word has bit 27
+  kReceiverValid = 0x0B,
+};
+// PES's anime classes the busy tests name (the table 0x1426484f0 is indexed by them).
+inline constexpr int kAnimeDive = 15;
+inline constexpr int kAnimeFallDown = 17;
+inline constexpr int kAnimeKpPickupBall = 0x57;
+
+struct ReceiverStatusInput {
+  CarrierPoint pos;            // his position (x, z), m
+  CarrierPoint velPerFrame;    // his velocity, m per PES frame
+  int anime = 0;               // his anime class (AnimeClassOf)
+  bool onPitch = true;
+  bool carrier = false;
+  bool setPieceTaker = false;  // a free kick's taker (MI+0x173c/+0x1740 at restart kind 5)
+  bool offsideTested = true;   // false in a throw-in, goal kick or corner (restart kinds 2..4)
+  // ponytail: hu+8 bit 2 (the anime record's publish word) has no GF source; its writer is undecoded.
+  bool publishedFlag = false;
+  float attackSign = 1.0f;     // s: +1 when his side attacks +x
+  float offsideLine_m = 0.0f;  // CarrierOffsideLine's line (x)
+  float halfLen_m = 0.0f;      // F0: the pitch mark G+0x2AA8 (pesFieldHalfLength)
+  float halfWidth_m = 0.0f;    // F1: the pitch mark G+0x2AAC (pesFieldHalfWidth)
+};
+
+// One of the five entries the offside loop reads: a man of the opponents' S1 list, nearest the goal first.
+struct OffsideEntry {
+  float x_m = 0.0f;
+  float vxPerFrame = 0.0f;
+  bool keeper = false;  // a keeper is skipped (FUN_140a638c0)
+};
+inline constexpr size_t kOffsideEntries = 5;
+// The offside line's x (0x142117c30's fVar32): the running maximum, from 0 (halfway), in the attack
+// direction s, of the entries' x `frames` ahead, then the ball's x `frames` ahead.
+float CarrierOffsideLine(float attackSign, const std::vector<OffsideEntry>& listed, float ballX_m,
+                         float ballVxPerFrame, int frames);
+// The offside test's frames: int(fps x 0.30), the scale read from the install.
+int ReceiverOffsideFrames(const CarrierConstants& k);
+// His status (0x142117c30).
+int ReceiverStatusOf(const ReceiverStatusInput& in, const CarrierConstants& k);
 
 // --- DirectHighBall (kind 11, gate 0x142129BE0) ---
 //
