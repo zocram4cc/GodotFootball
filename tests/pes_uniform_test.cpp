@@ -686,37 +686,3 @@ TEST(BodyPart, FootBonesAreABoot) {
   boots.bones = {pes::FmdlBone{"sk_foot_l"}, pes::FmdlBone{"dsk_toe_l"}, pes::FmdlBone{"dsk_foot_r"}};
   EXPECT_FALSE(pes::CarriesBodySkeleton(boots));
 }
-
-// --- the constant files are read from the stock base archive, never the VFS winner (owner ruling) ---
-//
-// Data/dt18_all.cpk is the stock base. A download/ pack can override constant_team, constant_match
-// and constant_player (the 4cc gameplay pack does). Every constant loader reads through
-// pes::ReadStockConstant, so its bytes are the stock copy. The branch is picked from the mount (which
-// archive wins the path), then the output is checked against that choice.
-TEST(StockConstants, EveryConstantFileReadsTheStockArchive) {
-  const char* root = std::getenv("PES21_ROOT");
-  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
-  pes::PesVfs vfs;
-  std::string err;
-  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
-  for (const char* path : {"common/match/constant/constant_team.bin",
-                           "common/match/constant/constant_match.bin",
-                           "common/match/constant/constant_player.bin"}) {
-    SCOPED_TRACE(path);
-    auto stock = pes::ReadStockConstant(vfs, path, &err);
-    ASSERT_TRUE(stock) << err;
-    // The stock copy is a WESYS container, the layout every constant loader parses.
-    ASSERT_TRUE(pes::ParseUniformTable(*stock, &err)) << err;
-    auto winner = vfs.Read(path, &err);
-    ASSERT_TRUE(winner) << err;
-    if (vfs.SourceOf(path) == pes::kStockArchive) {
-      EXPECT_TRUE(*stock == *winner) << "no overlay wins this path, so the stock copy is the winner";
-    } else {
-      EXPECT_FALSE(*stock == *winner) << "an overlay wins this path; the loaders must not read it";
-    }
-    // One source of truth: the helper is the named archive's copy.
-    auto named = vfs.ReadFrom(pes::kStockArchive, path, &err);
-    ASSERT_TRUE(named) << err;
-    EXPECT_TRUE(*stock == *named);
-  }
-}

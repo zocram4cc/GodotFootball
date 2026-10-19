@@ -65,7 +65,6 @@ void PesVfs::MountCpk(const std::string& file, const std::string& label) {
   std::vector<CpkEntry> nested;
   for (const auto& e : cpk.Entries())
     if (e.size == e.extractSize && Fold(e.path).ends_with(".cpk")) nested.push_back(e);
-  archiveNames_.push_back(Fold(fs::path(file).filename().string()));
   archives_.push_back(std::move(cpk));
   for (const auto& e : nested) {
     CpkArchive inner;
@@ -76,7 +75,6 @@ void PesVfs::MountCpk(const std::string& file, const std::string& label) {
     const auto innerId = int32_t(archives_.size());
     for (uint32_t i = 0; i < inner.Entries().size(); ++i) Add(inner.Entries()[i].path, {innerId, i});
     report_ += label + " > " + e.path + "  " + std::to_string(inner.Entries().size()) + " entries\n";
-    archiveNames_.push_back(Fold(e.path));
     archives_.push_back(std::move(inner));
   }
 }
@@ -211,24 +209,6 @@ std::vector<std::string> PesVfs::List(const std::string& prefix) const {
     if (key.compare(0, p.size(), p) == 0) out.push_back(OriginalPath(src));
   std::sort(out.begin(), out.end());
   return out;
-}
-
-std::string PesVfs::SourceOf(const std::string& path) const {
-  auto it = index_.find(Fold(path));
-  if (it == index_.end() || it->second.archive == LOOSE) return {};
-  return archiveNames_[it->second.archive];
-}
-
-// RED stub (StockConst): returns the winner until the named-archive read lands.
-std::optional<std::vector<uint8_t>> PesVfs::ReadFrom(const std::string& archive, const std::string& path,
-                                                     std::string* error) const {
-  (void)archive;
-  return Read(path, error);
-}
-
-std::optional<std::vector<uint8_t>> ReadStockConstant(const PesVfs& vfs, const std::string& path,
-                                                      std::string* error) {
-  return vfs.ReadFrom(kStockArchive, path, error);
 }
 
 }  // namespace pes
