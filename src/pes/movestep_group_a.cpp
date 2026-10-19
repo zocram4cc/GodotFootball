@@ -83,21 +83,6 @@ void EnterIdleOther(MoveHost& host, MoveReq& req) {
   req.SetByte(kWordReorient, 0);
 }
 
-// FUN_1406d1390: the idle family's turn exit into IDLE_TURN. PES's row table at 0x1425dda30 is
-// not decoded; the shared IdleRow is the port's stand-in until it lands.
-// ponytail: 0x1425dda30's row table removes this stand-in.
-void EnterIdleTurn(MoveHost& host, MoveReq& req) {
-  const RunConstants& k = host.RunConstantsView();
-  const int kind = static_cast<int>(req.U(moveword::kKind));
-  const int row = kind < 8 ? IdleRow(host, req) : kIdleRowFallback;
-  SetIdleClip(host, req, row, k.blend1667, 0.1667f);
-  req.SetF(moveword::kDwellLimit2, 0.1667f);
-  req.SetF(moveword::kDwellElapsed2, 0.0f);
-  req.SetByte(moveword::kLiveKind, static_cast<uint8_t>(kind));
-  RequestState(req, MoveState::kIdleTurn);
-  req.SetByte(kWordReorient, 0);
-}
-
 // The root-facing tail IDLE and IDLE_OTHER run for command 0x79.
 void RootFacingTail(MoveHost& host, MoveReq& req) {
   if (req.U(moveword::kCommandId) != 0x79) return;
@@ -134,6 +119,21 @@ float DisplacementKmh(const MoveHost& host, const RunConstants& k) {
 }
 
 }  // namespace
+
+// FUN_1406d1390: the idle family's turn exit into IDLE_TURN. PES's row table at 0x1425dda30 is
+// not decoded; the shared IdleRow is the port's stand-in until it lands.
+// ponytail: 0x1425dda30's row table removes this stand-in.
+void EnterIdleTurn(MoveHost& host, MoveReq& req) {
+  const RunConstants& k = host.RunConstantsView();
+  const int kind = static_cast<int>(req.U(moveword::kKind));
+  const int row = kind < 8 ? IdleRow(host, req) : kIdleRowFallback;
+  SetIdleClip(host, req, row, k.blend1667, 0.1667f);
+  req.SetF(moveword::kDwellLimit2, 0.1667f);
+  req.SetF(moveword::kDwellElapsed2, 0.0f);
+  req.SetByte(moveword::kLiveKind, static_cast<uint8_t>(kind));
+  RequestState(req, MoveState::kIdleTurn);
+  req.SetByte(kWordReorient, 0);
+}
 
 // FUN_1406ba900's case 0: INIT. Its stay arm takes the idle path; the run/step arm is the
 // request the entries then consume. The decompile's case body is ported in order.

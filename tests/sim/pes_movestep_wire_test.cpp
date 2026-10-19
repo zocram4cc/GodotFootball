@@ -33,6 +33,9 @@ namespace {
 constexpr int kHomeTeam = 1, kAwayTeam = 2;
 constexpr unsigned int kSeed = 1000;
 constexpr int kTicks = 900;  // about 17 s of play
+// The gfsim configuration of the trace that found a STOP held for 72 ticks (player 4 at tick 1258).
+constexpr unsigned int kTraceSeed = 7;
+constexpr int kTraceMinutes = 2;
 
 blunted::Database* SharedDb() {
   static blunted::Database db;
@@ -58,25 +61,27 @@ const pesrig::Rig* SharedRig() {
   return rig ? &*rig : nullptr;
 }
 
-std::unique_ptr<Match> MakeMatch(const Properties& config) {
+std::unique_ptr<Match> MakeMatch(const Properties& config, unsigned int seed = kSeed, int minutes = 5) {
   MatchSetup setup;
   setup.homeTeamDbId = kHomeTeam;
   setup.awayTeamDbId = kAwayTeam;
-  setup.seed = kSeed;
-  setup.durationMinutes = 5;
+  setup.seed = seed;
+  setup.durationMinutes = minutes;
   setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
   setup.rig = SharedRig();
   if (!pestest::FillMissingPesConstants(&setup)) return nullptr;
   return std::unique_ptr<Match>(new Match(new MatchData(kHomeTeam, kAwayTeam), setup, config));
 }
 
-#define REQUIRE_PES_MATCH(config)                                                          \
+#define REQUIRE_PES_MATCH_AT(config, seed, minutes)                                        \
   if (!SharedRig()) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton comes from PES"; \
   blunted::Database* db = SharedDb();                                                    \
   ASSERT_TRUE(db) << "assets/fixtures/teams.sql";                                        \
   SetDB(db);                                                                             \
-  std::unique_ptr<Match> match = MakeMatch(config);                                      \
+  std::unique_ptr<Match> match = MakeMatch(config, seed, minutes);                       \
   if (!match) GTEST_SKIP() << "PES2021.exe: the match constants are unavailable"
+
+#define REQUIRE_PES_MATCH(config) REQUIRE_PES_MATCH_AT(config, kSeed, 5)
 
 // PES21_ROOT is restored when the test ends, whatever the test did to it.
 struct EnvRestore {
@@ -425,3 +430,36 @@ TEST(MoveStepWire, CurrentMotionIsThePesMotionTheBodyPlays) {
   printf("[movestep-motion] checks %d\n", checks);
   EXPECT_GT(checks, 0);
 }
+
+// A STOP leaves the stop on a turned body. PES's STOP (FUN_1406c9e20) exits to IDLE_TURN through FUN_1406d1390 when the
+// look bucket (word 0xd) is off straight and the facing error's magnitude is at least 33.75 degrees (VA 0x1425cc688); the
+// call is at VA 0x1406ca51f. Built on main, that else arm is empty and the bucket it tests is the move bucket (word 8), so
+// a stop with a turned body holds for the whole match: the trace held one for 72 ticks. Every active player is set into
+// STOP, and none may still be in STOP after 60 ticks.
+TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  // Snapshots through play: at each one every active player is set into STOP and steps 60 ticks on the AI's commands
+  // of that moment. The commands turn toward targets and look past the turn: the geometry a stopping body meets.
+  constexpr int kSnapshots = 6;
+  constexpr int kTicksBetween = 100;
+  constexpr int kStopTicks = 60;  // about 1.1 s: the second dwell (14/60 s) scaled by the turn ramp
+  int forced = 0;
+  int held = 0;
+  for (int s = 0; s < kSnapshots; ++s) {
+    for (int t = 0; t < kTicksBetween; ++t) match->Process();
+    const std::vector<Player*> players = ActivePlayers(*match);
+    for (Player* p : players) p->GetMoveStep().state = pes::MoveState::kStop;
+    for (int t = 0; t < kStopTicks; ++t) {
+      for (Player* p : players) pesmovestep::ProcessMoveStep(*p, *match);
+    }
+    for (Player* p : players) {
+      ++forced;
+      if (p->GetMoveStep().state == pes::MoveState::kStop) ++held;
+    }
+  }
+  EXPECT_GT(forced, 0);
+  EXPECT_EQ(held, 0) << held << " of " << forced << " forced STOPs still held after " << kStopTicks << " ticks";
+}
+

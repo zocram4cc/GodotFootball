@@ -749,6 +749,7 @@ namespace movestep {
 void Init(MoveHost& host, MoveReq& req);              // 0  FUN_1406ba900's case 0
 void Idle(MoveHost& host, MoveReq& req);               // 1  FUN_1406bf0c0
 void IdleTurn(MoveHost& host, MoveReq& req);           // 2  FUN_1406bfe70
+void EnterIdleTurn(MoveHost& host, MoveReq& req);      // FUN_1406d1390: the idle family's turn exit into IDLE_TURN
 void IdleOther(MoveHost& host, MoveReq& req);          // 17 FUN_1406bf7f0
 void IdlePkPlayer(MoveHost& host, MoveReq& req);       // 20 FUN_1406bfd10
 void IdlePkGk(MoveHost& host, MoveReq& req);           // 21 FUN_1406bfb70

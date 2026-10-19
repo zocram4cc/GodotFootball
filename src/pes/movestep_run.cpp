@@ -1012,8 +1012,10 @@ void Stop(MoveHost& host, MoveReq& req) {
   if (dwellLimit * req.F(moveword::kDwellLimit) < req.F(moveword::kDwellElapsed) &&
       dwellLimit * req.F(moveword::kDwellLimit2) < req.F(moveword::kDwellElapsed2)) {
     if (!StayDecision(host, req)) {
-      const int bucket = static_cast<int>(req.U(moveword::kMoveBucket));
-      if (bucket == 0 || bucket == 5 || req.F(moveword::kFacingError) < k.deg3375 ||
+      // FUN_1406c9e20 line 237 reads the look bucket, req[0xd] (VA 0x1406ca4ea), not the move bucket word 8. The
+      // facing error is compared by magnitude (the ANDPS mask at 0x1406ca502 before COMISS against 0x1425cc688).
+      const int bucket = static_cast<int>(req.U(moveword::kLookBucketAlt));
+      if (bucket == 0 || bucket == 5 || std::fabs(req.F(moveword::kFacingError)) < k.deg3375 ||
           req.U(moveword::kCommandId) == 0x79u) {
         // FUN_1406af620's hit tick for the live clip; with no hit records it is the clip's
         // own frame, so the arm always passes.
@@ -1044,9 +1046,8 @@ void Stop(MoveHost& host, MoveReq& req) {
           return;
         }
       } else {
-        // FUN_1406d1390's arm: the same shape with a different row (not decoded). The port
-        // takes PES's IDLE exit through the shared body, which the dispatcher port owns.
-        // ponytail: FUN_1406d1390 (the fallback stop exit) is decoded when its group lands.
+        // FUN_1406d1390, the idle family's turn exit into IDLE_TURN: PES's else arm of FUN_1406c9e20 (VA 0x1406ca51f).
+        EnterIdleTurn(host, req);
       }
     } else {
       // The stay-decision true arm: the band becomes the -1 sentinel and GOTO_RUN re-plans.
