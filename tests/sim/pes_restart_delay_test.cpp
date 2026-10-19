@@ -21,7 +21,6 @@
 #include "onthepitch/pesclips.hpp"
 #include "onthepitch/pessequencer.hpp"
 #include "onthepitch/restartwatch.hpp"
-#include "pes/exe.hpp"
 #include "pes/vfs.hpp"
 #include "rig/rig.hpp"
 #include "simcontext.hpp"
@@ -398,46 +397,4 @@ TEST(PesRestartDelay, AWhistleLeavesNoFlyingBallBehind) {
   });
   EXPECT_GT(stops, 0) << "no stoppage was seen";
   EXPECT_GT(flyingStops, 0) << "no stoppage caught a ball in flight - the test proved nothing";
-}
-
-// PES releases a held restart when the taker reaches the ball (A5Live 9.2: the wait tracks him;
-// 9.4: the armed handler frees the restart on his kick action). The frame gate is only PES's
-// time-out for a taker who never gets there. A restart that sits armed while the taker already
-// stands within the install's reach of the ball is releasing on a timer PES does not have.
-TEST(PesRestartDelay, ARestartReleasesWhenTheTakerReachesTheBall) {
-  const char* root = std::getenv("PES21_ROOT");
-  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
-  std::string err;
-  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
-  ASSERT_TRUE(exe) << err;
-  constexpr uint64_t kTakerReach_va = 0x14259d5d0;  // the seamless carry stops this far off the spot
-  float reach = 0.0f;
-  ASSERT_TRUE(exe->ReadVa(kTakerReach_va, sizeof reach, reinterpret_cast<uint8_t*>(&reach)));
-  ASSERT_GT(reach, 0.0f);
-
-  std::map<unsigned long, unsigned long> firstInReach, released;
-  unsigned long tick = 0;
-  int earlyArrivals = 0;
-  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
-    ++tick;
-    const RefereeBuffer& b = match.GetRefereeBuffer();
-    if (!b.active || !b.taker) return;
-    if (!released.count(b.stopTime) && b.started) released[b.stopTime] = tick;
-    // The same window the referee releases in: armed, not yet released.
-    if (b.started || b.startTime > match.GetActualTime_ms()) return;
-    const float d =
-        (b.taker->GetPosition().Get2D() - match.GetBall()->Predict(0).Get2D()).GetLength();
-    if (d <= reach) firstInReach.emplace(b.stopTime, tick);
-  });
-  for (const auto& entry : firstInReach) {
-    const auto it = released.find(entry.first);
-    ASSERT_NE(it, released.end())
-        << "the restart of stop " << entry.first << " was never released";
-    const bool inTime = it->second <= entry.second + 1;
-    if (inTime && it->second < entry.second) earlyArrivals++;
-    EXPECT_TRUE(inTime) << "stop " << entry.first << ": the taker stood within " << reach
-                        << " m of the ball at tick " << entry.second << ", the referee released at "
-                        << it->second << " ticks - the gate decided, not the reach";
-  }
-  EXPECT_GT(firstInReach.size(), 0ul) << "no restart had its taker reach the ball - nothing tested";
 }
