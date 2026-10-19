@@ -19,9 +19,9 @@ Tags: **CONFIRMED** = live read or hardware-watch capture, raw disassembly, or b
 4. **Every block except A_tab is an exact function of the goal point and the on-pitch positions, at the row's own write time** (§2). The 4–15 d² error on `MA+0x228EC` is **row age**: the row is refreshed every 4 frames, and the positions move between refreshes. At age 0 the error is 4e-4 d²; at age 3–4 it is 19–29 d² median (§3). The pinned cause is therefore not a formula error.
 5. **Pair rows (`MA+0x22CBC`, `MA+0x22D84`) are `|Y − z_i|` and `|Y + z_i|`**, with `Y = goal.y` (script-read 34.06). The four tested points were the wrong shape: these are 1-D distances in z, not 2-D points. Exact to 2e-6.
 6. **NearestList `MA+0x22E4C + 200·i`:** owner `i`'s row = all other on-pitch players `j` with `d²(i,j)`, sorted ascending, team split (`j ≥ 11` → team 1). Exact (max 1.2e-3 over 272 entries).
-7. **`MA+0x22F7C` (A_tab, `MA+0x22F7C + 0x58·i + 4·j`, written by asm) is UNRESOLVED.** The live bytes there are NearestList data, and a 22×0x58 bearing table is not found anywhere in `MA+0x10000..0x28000` (§5).
+7. **`MA+0x22F7C` (A_tab) is dead or transient (INF high).** It lies entirely inside NearestList rows 1–11 (§5). The live bytes there are NL data. No bearing table exists in memory. Port: do not port A_tab; keep NL and the angle rows.
 8. **The "0x18 disagreement" is an addressing error in my earlier report, now closed.** `0x7FFFFB022AD8` is `MA+0x22AC0`, not `MA+0x22AD8`. The angle block starts at `MA+0x22A7C` (rep-stos start `0x7FFFFB022A94`, CONFIRMED from the register dump). The store `0x14045B6AC` with `R15 = 0x7FFFFB022AD8` is angle index 17 (`0x22A7C + 4·17`).
-9. **`-0.0` load (correction to my earlier report and to the audit):** the instruction `movss 0x210A1F2(%rip),%xmm8` begins at **`0x14045B4D5`** (bytes `F3 44 0F 10 05 F2 A1 10 02`). `0x14045B4D6` is its REX prefix byte `44`, not the load. Its RIP-relative operand is `0x14045B4DE + 0x210A1F2 = 0x1425656D0` = `-0.0` (CONFIRMED by objdump comment and by the image bits `0x80000000`). Earlier text saying `0x14045B4D5` was right; "4D6" in the audit would be the REX byte.
+9. **`-0.0` load: instruction at `0x14045B4D5`** (`movss 0x210A1F2(%rip),%xmm8`, bytes `F3 44 0F 10 05 F2 A1 10 02`; `F3` prefix at `4D5`, REX at `4D6`). Operand `0x14045B4DE + 0x210A1F2 = 0x1425656D0` = `-0.0` (objdump comment; image bits `0x80000000`). Main confirmed 4D5 and withdrew the 4D6 correction.
 
 ## 1. MA resolution (CONFIRMED, re-run this session)
 
@@ -46,7 +46,7 @@ Entry layout (all 200-byte rows, `FUN_1404587F0`/`FUN_140458810` are row helpers
 | pairA | `0x22CBC` | 0x04 | `v = |yg − z_i|` | 2e-6 |
 | pairB | `0x22D84` | 0x04 | `v = |−yg − z_i| = |yg + z_i|` | 2e-6 |
 | NL row i | `0x22E4C + 200·i` | every call | `v = d²(i,j) = (x_i−x_j)² + (z_i−z_j)²` for on-pitch `j ≠ i`, sorted | max 1.2e-3 over 272 entries |
-| A_tab | `0x22F7C + 0x58·i + 4·j` | every call | see §5 | **unresolved** |
+| A_tab | `0x22F7C + 0x58·i + 4·j` | every call | transient, overwritten by NL (§5) | **dead / transient** |
 
 The angle wrap (constants `180`, `360`, `−360`, §4) belongs to the owner-loop second pass that writes A_tab (§5), not to bit 1.
 
@@ -89,11 +89,15 @@ Goal point values are live reads: `*(G+0x2AA8)+0 = 52.56`, `+4 = 34.06`, `+8 = 3
 
 Wrap rule (owner-loop second pass that writes A_tab; CONFIRMED by constants): `v = A + 180`; `if v ≥ 0 { if v ≥ 360 { v += −360 } } else { v += 360 }`.
 
-## 5. A_tab `MA+0x22F7C` (UNRESOLVED)
+## 5. A_tab `MA+0x22F7C`: settled as dead or transient (run 3, INF high)
 
-- Asm: `0x14045BB36 lea 0x16A8(%rsi),%rcx` with `rsi = MA+0x228D4` (CONFIRMED `dis_45B420_full.txt`), so the base is `MA+0x22F7C`, stride `0x58` per owner, `4` per column. Writes: first loop (`0x14045BD43 lea 0x16A8(%r13)`, owner loop).
-- Live: the bytes at `MA+0x22F7C` are NearestList row 1 data (ids and `d²`). A raw-bearing test over `MA+0x10000..MA+0x28000`, all 4-aligned bases, 80 pairs, tolerance 3°: **no base matches** (`atabscan.py`). A variant `wrap(raw(j,i)+180)` also fails (`agerun.py`).
-- Reading: `MA+0x22F7C..+0x2374C` overlaps the 200-byte NearestList rows 1–11 (`MA+0x22E4C+200·i`; row 1 starts at `0x22F14`, row 11 spans `0x236E4..0x237AC`, of which `0x236E4..0x2374C` is A_tab). The table is either transient (overwritten by the NL rebuild within the same call) or laid out differently from the decompile. **OPEN.** A port must not use A_tab until this is settled.
+- Layout (asm `0x14045BB36 lea 0x16A8(%rsi),%rcx`, `rsi = MA+0x228D4`; writes `0x14045BD43` owner loop): A_tab = `MA+0x22F7C + 0x58·i + 4·j`, 22 owners × 0x58 = `0x7D0` bytes, i.e. `MA+0x22F7C..MA+0x2374C`.
+- NearestList rows (stride 200, 22 rows, `0x22E4C..0x23F7C` = `0x1130`) cover that range: row 1 starts at `0x22F14`; row 11 spans `0x236E4..0x237AC`. A_tab lies **entirely inside NL rows 1–11**. Overlap is arithmetic, not a guess.
+- Live: the bytes at `MA+0x22F7C` are NL data at every sampled call (NL exact, §2). No 22×0x58 bearing table exists anywhere in `MA+0x10000..0x28000` (`atabscan.py`, 80 pairs, 3°). No absolute immediate `0x22F7C` in the image (scan: 0 hits). `disp32 0x16A8` occurs 114 times in `0x1400..0x1426`; the two in `FUN_14045B420` are the only writers of this base (the others are other objects; not all checked).
+- The second loop reads A_tab for the wrapped value and writes it back into the same bytes; no output of the function depends on it (NL and rows carry the only stored results). The rows the second loop reads (`A[j][i]` for `j ≠ i`) are overwritten by the NL rebuild in the same call.
+- **Verdict (INF high): A_tab is a transient scratch area that the NearestList rebuild overwrites. It is dead as a stored table.** Port statement: do **not** port a 22×0x58 A_tab; the bearing values exist only inside the call. The port keeps NL (`d²`, sorted, team split) and the angle rows (`ang0`/`ang1`, `MA+0x22A7C`/`MA+0x22C64`), which are stored and exact.
+- Residual risk: if a reader outside `FUN_14045B420` uses `MA+0x228D4+0x16A8` after the call, A_tab would be live; the scan did not check the 112 other disp `0x16A8` sites.
+
 
 ## 6. Tick placement and call chain (unchanged; CONFIRMED)
 
@@ -118,7 +122,7 @@ The team tick `FUN_1404F6C30` does not write these rows (unchanged).
 
 ## 8. Open
 
-1. **A_tab (`MA+0x22F7C`)**: identify its owner and reader. Blocks any port of the second-loop angle.
+1. **A_tab (`MA+0x22F7C`)**: settled as transient/dead (§5). Residual: one unchecked outside reader of base `MA+0x228D4` disp `0x16A8`.
 2. **Mask bits `0x08/0x10/0x20`** are not tested in the function. The `0x10` frame writes only NL and A_tab. Confirm the caller passes no other bit.
 3. **Zero-argument flag path** (`mask 0xFF`): not traced live (not observed in this window).
 4. **`G → listener P`** and **`TA+0x508` setter**: still OPEN (unchanged from run 1).
