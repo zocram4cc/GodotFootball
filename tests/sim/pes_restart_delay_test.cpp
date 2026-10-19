@@ -222,6 +222,17 @@ TEST(PesRestartDelay, ALooseDeadBallInPlayIsReachedAndPlayed) {
       episodes++;
     }
     episodeTicks++;
+    if (std::getenv("FIRSTTOUCH_TRACE")) {
+      Player* des = match.GetDesignatedPossessionPlayer();
+      const float d = des ? (match.GetBall()->Predict(0).Get2D() - des->GetPosition()).GetLength()
+                          : -1.0f;
+      printf("[ft] f=%lu ep=%lu man=%s dist=%.2f hasPoss=%d func=%d anim=%s lastTouch=%lu\n",
+             match.GetSimFrame(), episodeTicks, des ? des->GetPlayerData()->GetLastName().c_str() : "-",
+             d, des ? (int)des->HasPossession() : -1,
+             des ? (int)des->GetCurrentFunctionType() : -1,
+             des ? des->GetCurrentAnim()->anim->GetName().c_str() : "-",
+             des ? match.GetActualTime_ms() - des->GetLastTouchTime_ms() : 0);
+    }
     if (episodeTicks > longestTicks) longestTicks = episodeTicks;
   });
   EXPECT_GT(episodes, 0) << "no loose dead ball in play was observed";

@@ -383,7 +383,13 @@ bool PlayerController::_ReceiveCandidate() {
       (match->GetBall()->Predict(0).Get2D() - player->GetPosition().Get2D()).GetLength();
   if (!pes::WithinBallDistanceTable(k, ballDistance * ballDistance)) return false;
   if (match->GetBallRetainer() != 0) return false;
-  if (hasPossession) return false;
+  // PES's reaction entry 3 (FUN_1409f8220) refuses the designated owner, the
+  // carrier himself, the restart taker and the re-touch lockout - never the man
+  // for standing on the ball (docs/re/pes-re-first-touch.md §7.2). GF's
+  // possession gate is not a PES gate (same doc §8), so on the PES path a man
+  // in possession may still trap: that is the loose-ball contact. The GF path
+  // keeps its gate, so switch-off behavior is unchanged.
+  if (hasPossession && !match->PesLoop()) return false;
   // Who goes: the PASS_GET receiver / the team's designated man
   // (Team::PassGetReceiver feeds the designation).
   if (match->GetDesignatedPossessionPlayer() != player &&
