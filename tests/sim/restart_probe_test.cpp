@@ -13,6 +13,8 @@
 #include "pes/vfs.hpp"
 #include "rig/rig.hpp"
 #include "simcontext.hpp"
+#include "onthepitch/player/humanoid/humanoidbase.hpp"
+#include "utils/animation.hpp"
 
 #ifndef GF_SOURCE_DIR
 #define GF_SOURCE_DIR "."
@@ -54,23 +56,30 @@ TEST(RestartProbe, ThrowInTrace) {
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (!b.active || b.desiredSetPiece != e_SetPiece_FreeKick || !b.taker) continue;
     if (tick < 27900 || tick > 28700) continue;
-    const Vector3 ball = match.GetBall()->Predict(0);
     Player* tk = b.taker;
+    const Vector3 ball = match.GetBall()->Predict(0);
     const Vector3 pos = tk->GetPosition();
     const Vector3 toBall = (ball - pos).Get2D();
     const Anim* a = tk->GetCurrentAnim();
     const PlayerCommand& oc = a->originatingCommand;
     const std::string fam = a->anim ? a->anim->GetVariable("specialvar1") : "";
+    const Vector3 dir = tk->GetDirectionVec();
+    Quaternion bo;
+    Vector3 bp;
+    tk->CastHumanoid()->GetCurrentAnim()->anim->GetKeyFrame("body", a->frameNum, bo, bp);
+    radian bx, by, bz;
+    bo.GetAngles(bx, by, bz);
+    const pes::IssuedClip& ic = tk->GetIssuedClip();
     std::printf(
-        "[probe] t=%lu inPlay=%d setPiece=%d started=%d dist=%.2f pos=(%.2f,%.2f) "
-        "toBall=(%.2f,%.2f) mv=(%.2f,%.2f) animId=%d fn=%d fam=%s frame=%d ocFn=%d "
-        "ocDir=(%.2f,%.2f) ocVel=%.2f ocLook=%d(%.2f,%.2f) touchPend=%d\n",
-        tick, (int)match.IsInPlay(), (int)match.IsInSetPiece(), (int)b.started,
-        toBall.GetLength(), pos.coords[0], pos.coords[1], toBall.coords[0], toBall.coords[1],
-        tk->GetMovement().coords[0], tk->GetMovement().coords[1], a->id, (int)a->functionType,
-        fam.c_str(), a->frameNum, (int)oc.desiredFunctionType, oc.desiredDirection.coords[0],
-        oc.desiredDirection.coords[1], oc.desiredVelocityFloat, (int)oc.useDesiredLookAt,
-        oc.desiredLookAt.coords[0], oc.desiredLookAt.coords[1], (int)tk->TouchPending());
+        "[probe] t=%lu started=%d dist=%.2f face=(%.2f,%.2f) toBall=(%.2f,%.2f) "
+        "mv=(%.2f,%.2f) animId=%d fn=%d fam=%s frame=%d bodyZ=%.3f "
+        "ocDir=(%.2f,%.2f) ocVel=%.2f iss=%u mot=%d grp=%d clip=%s\n",
+        tick, (int)b.started, toBall.GetLength(), dir.coords[0], dir.coords[1],
+        toBall.coords[0], toBall.coords[1], tk->GetMovement().coords[0],
+        tk->GetMovement().coords[1], a->id, (int)a->functionType, fam.c_str(), a->frameNum,
+        bz, oc.desiredDirection.coords[0], oc.desiredDirection.coords[1],
+        oc.desiredVelocityFloat, ic.serial, ic.request.motion, ic.request.group,
+        a->anim ? a->anim->GetName().c_str() : "none");
     if (tick > 28700) break;
   }
   SUCCEED();
