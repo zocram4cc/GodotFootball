@@ -282,10 +282,13 @@ void Referee::Process() {
       }
     }
 
-    // goal kick / corner
-
-    if (fabs(ballPos.coords[0]) >
-        (match->PesLoop() ? pesFieldHalfLength : pitchHalfW + lineHalfW + 0.11)) {
+    // goal kick / corner. pes_loop: PES's judge acts on the zone event (K=10, bit 0x8 of the code), as
+    // the touchline does (FUN_14050e4a0 case 10, docs/re/pes-re-A5Judge.md 1.4). The goal is the match's.
+    const bool endLineOut =
+        match->PesLoop()
+            ? match->PesOutOfPlayEvent() && fabs(ballPos.coords[0]) > pesFieldHalfLength
+            : fabs(ballPos.coords[0]) > pitchHalfW + lineHalfW + 0.11;
+    if (endLineOut) {
       foul.advantage = false;
       bool isFoul = false;
       if (!match->IsGoalScored())

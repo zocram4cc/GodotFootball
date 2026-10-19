@@ -497,3 +497,41 @@ TEST(PesRestartDelay, ABallRestingPastTheTouchlineIsJudgedOutWhenTheGateReleases
                       << " m past its spot was not judged out within " << kJudgeWithinTicks
                       << " ticks of the gate releasing";
 }
+
+// PES's end-line judge reads the same zone event as the touchline (K=10, bit 0x8; FUN_14050e4a0 case 10).
+// A ball at rest behind the end line when a restart's gate releases is judged once: the event is read
+// once, and the corner or goal kick it awards leaves the ball inside, so no second award follows.
+TEST(PesRestartDelay, ABallAtRestBehindTheEndLineIsJudgedOnceWhenTheGateReleases) {
+  constexpr float kBehindEndLine_m = 0.29f;  // the touchline test's distance past the line
+  constexpr unsigned long kWatchTicks = 600;  // the next restart's hold and taking, about 11 s
+  unsigned long tick = 0, armedAt = 0, lastStop = 0;
+  bool armed = false;
+  int endLineAwards = 0;
+  RunMatchWithinTheBound(
+      true, MINUTES,
+      [&](Match& match) {
+        ++tick;
+        const RefereeBuffer& b = match.GetRefereeBuffer();
+        if (!armed) {
+          if (!match.IsInSetPiece() || !b.started || !b.active ||
+              b.desiredSetPiece != e_SetPiece_ThrowIn)
+            return;
+          match.GetBall()->SetPosition(Vector3(pesFieldHalfLength + kBehindEndLine_m, 0.0f, 0.0f));
+          match.GetBall()->Stop();
+          match.StopSetPiece();
+          const_cast<RefereeBuffer&>(b).active = false;
+          armed = true;
+          armedAt = tick;
+          lastStop = b.stopTime;
+          return;
+        }
+        if (b.stopTime != lastStop && b.active &&
+            (b.desiredSetPiece == e_SetPiece_Corner || b.desiredSetPiece == e_SetPiece_GoalKick)) {
+          endLineAwards++;
+          lastStop = b.stopTime;
+        }
+      },
+      kMaxSimTicks, [&](Match&) { return armed && tick >= armedAt + kWatchTicks; });
+  EXPECT_TRUE(armed) << "no throw-in was released to place the ball behind the end line";
+  EXPECT_EQ(endLineAwards, 1) << endLineAwards << " end-line restart(s) awarded for one ball behind the line";
+}
