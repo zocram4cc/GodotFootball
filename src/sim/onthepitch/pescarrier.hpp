@@ -420,6 +420,8 @@ struct CarrierConstants {
   float receiverFrameScale = 0.0f;
   // The anime class words (0x1426484f0): bit 9 is FUN_140a6e450's busy test, bit 27 is FUN_140a6e110's.
   std::array<uint32_t, kAnimeClassCount> animeClassWord{};
+  // The bounce sampler's latch (0x140874100): 1.0 at 0x14256ae1c, the height the ball must reach before a bounce counts.
+  float bounceLatchHeight_m = 0.0f;
 };
 
 std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::string* error);
@@ -1202,11 +1204,11 @@ struct VolatileBallInput {
   float carrierHeight_m = 0.0f;  // P+0xA1 / 100: the carrier's physical height
   // The ball-track arm (0x14063AB01..0x14063AB06): B+0x4C != 0, B+0x80 == 0, and r14 == 0, where r14 is
   // d1 < d2 with d1 the squared 2-D distance from the ball to B+0x1C (anchor) and d2 to K+0x40 (target).
-  bool ballTrackFlag = false;  // B+0x4C != 0 (FUN_140A6D0D0); its writer is OPEN, GF has no such state
-  bool ballFlag80 = false;     // B+0x80 != 0 (r14b)
+  bool ballTrackFlag = false;  // B+0x4C: the ball's sample 0 is a real point (FirstBounceSample)
+  bool ballFlag80 = false;     // B+0x80 != 0 (r14b); ponytail: its writer is not decoded, so it stays clear
   CarrierPoint ball;           // the ball's record 0, (x, z)
-  CarrierPoint anchor;         // B+0x1C (FUN_140A6CF30(B, 0)): OPEN in GF
-  CarrierPoint target;         // K+0x40, the ctx4 point: OPEN in GF
+  CarrierPoint anchor;         // B+0x1C: the sample 0 point (FirstBounceSample)
+  CarrierPoint target;         // K+0x40, the ctx4 point; ponytail: the caller's stand-in (see the controller)
 };
 // The ball-track arm (0x14063AB01..0x14063AB06): with B+0x4C set and B+0x80 clear, K+0x6E is set unless the
 // ball is nearer B+0x1C than K+0x40 (r14 = d1 < d2). The distances are squared 2-D, as FUN_140A8F890 computes.
@@ -1218,6 +1220,22 @@ inline bool VolatileBall(const VolatileBallInput& in) {
   const bool r14 = dx1 * dx1 + dz1 * dz1 < dx2 * dx2 + dz2 * dz2;
   return in.ballTrackFlag && !in.ballFlag80 && !r14;
 }
+
+// One record of a ball track as PES's sampler reads it: x, height and z.
+struct TrackPoint {
+  float x_m = 0.0f;
+  float height_m = 0.0f;
+  float z_m = 0.0f;
+};
+// The ball block's sample 0 (B+0x1C) and its validity bit (B+0x4C), as the sampler 0x140874100 fills them from
+// the track. Without a sample the point is the sentinel (0, -1, 0) and the bit is clear.
+struct BounceSample {
+  bool valid = false;
+  CarrierPoint xz;
+};
+// The first bounce the track reaches once the ball has been `latchHeight_m` up (the latch of 0x140874100):
+// the first record whose previous vertical step was down and whose own step is up.
+BounceSample FirstBounceSample(const std::vector<TrackPoint>& track, float latchHeight_m);
 
 // --- the receiver status (PES 2021's FUN_142117c30): which team-mates the pass layer is offered ---
 // Every team-mate gets one status, in slot order. Only kReceiverValid mates become receiver records, so

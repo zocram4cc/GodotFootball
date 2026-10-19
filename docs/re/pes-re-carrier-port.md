@@ -157,12 +157,13 @@ The gates, all read at their addresses:
 
 ### 3.4 Receiver enumeration and openness (report §4.3, `0x1421174f0` / `0x142118700`)
 
-The enumeration lives in `GetOnTheBallCommands`: the team's active players minus
-the carrier and the keeper (PES's status codes 2 and 5), each with a record whose
-target is his position a lane-time ahead (PES's record A, "to feet"; record B,
-"into space", is not ported). Status codes 4 (predicted off-pitch), 6 (offside),
-7–10 (busy) are approximated: a target off the pitch is skipped, the offside line
-and the busy-action classes are not.
+The enumeration is `pes::ReceiverStatusOf` (pescarrier.hpp, 0x142117c30). Every team-mate gets a status, and only
+status 0x0B (valid) mates become records; the carrier's loop takes no other filter. A valid mate's record targets
+his position a lane-time ahead (PES's record A, "to feet"; record B, "into space", is not ported). The statuses are
+PES's tests in the writer's order: off the pitch (1), the carrier (2), predicted off the pitch 18 frames ahead (4),
+a free kick's taker (5), offside (6: `pes::CarrierOffsideLine`, the first five entries of the opponents' S1 list with
+keepers skipped, and the ball, all 16 frames ahead), and the busy classes (8, 7, 10, 9: anime classes 15-17 or the
+publish flag; the install's class words at bit 9 and bit 27; KP_PICKUP_BALL). The anime class is GF's `AnimeClassOf`.
 
 The openness formula's scored tail, `pes::LaneOpennessMargin`, is read literally
 from `0x142118b76..0x142118c53`:
@@ -333,9 +334,11 @@ direction.
 | the first-time gate of capability 0x14 (report §3.2 rule 2) | needs the tier and the skill bits this engine does not carry |
 | the adopter's veto/override walk (report §3.2) | PES's answer kinds do not survive translation one-to-one; the order shoot → pass → dribble is what the port implements, which is the walk's dominant rule; the throw-in taker stall CarrierUnitsPort traced next is **fixed in `f69aa74`**: during the restart hold the ball was bumped off the throw-in spot, past the line every touch anim is refused as out of bounds, the taker never throws, and the referee never ends the restart - the referee now returns the prepared, unstarted throw-in ball to its spot past a 0.05 m tolerance (`SimMatch.AThrowInTakerTakesTheThrow` fails with the hold off, passes with it) |
 | the kicker/penalty `0x14211f090` aim function, the shot lane test, the wide evaluator | report §9.1, not decoded |
-| the offside line and the busy action classes of the receiver status codes | no GF counterpart for the offside line; the mate's action class is not read |
+| the publish flag `hu+8` bit 2 (the busy test's second source) and a full anime class table | the publish word's writer is undecoded; GF's `AnimeClassOf` maps only its function types, so only the trip reaches a busy class |
 | the "into space" record B, the pressure table's radii/classes as PES computes them | the pressure class is derived from the nearest opponent's distance with the report's own third-split radii (4 m own third, 2 m attacking third) |
-| PES's `0x140a6e450` action classes, `0x140a4c8e0`, `0x14063dab0`, the body-block tests | report §9.1, not decoded |
+| `0x140a4c8e0`, `0x14063dab0`, the body-block tests | report §9.1, not decoded |
+| K+0x40, the ctx4 point of the volatile-ball arm (`FUN_14063A490` §5), and `B+0x80` | the chain reads PES's ctx4 and per-player records, which GF's carrier does not have; the ball's own point stands in (so the distance test never blocks) and `B+0x80` stays clear |
+| the sampler's `vec[4]` (the record's vertical velocity) in `pes::FirstBounceSample` | GF's track carries heights only, so the first difference of the height stands in: a bounce is a sign change of that step |
 
 ## 5. AI-map row text
 

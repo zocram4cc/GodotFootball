@@ -2835,14 +2835,25 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     sf.pitchF5 = pesGoalAreaHalfWidth;
     sf.ball = bs.ball;
     sf.ballSpeed_kmh = ballKmh;
-    sf.ballTrackSet = false;  // ponytail: the ball-track flag (0x140A6D0D0) is not decoded to GF state
+    // B+0x4C (0x140A6D0D0): the validity bit of the ball's sample 0, the first bounce of its track (0x140874100).
+    std::vector<pes::TrackPoint> track;
+    const auto& ballTrack = match->GetBall()->GetTrack();
+    track.reserve(ballTrack.size());
+    for (const Vector3& r : ballTrack) track.push_back({r.coords[0], r.coords[2], r.coords[1]});
+    const pes::BounceSample sample0 = pes::FirstBounceSample(track, carrier.bounceLatchHeight_m);
+    sf.ballTrackSet = sample0.valid;
     // K+0x6E (FUN_14063A490): the volatile-ball flag, from the ctx4 height K+0x44 (the ball's height,
     // as the DirectHighBall reads it), the carrier's height P+0xA1 / 100, and K+0x6C off (GF's
     // carriers are AI). It feeds the Safety keeper side arm and the DirectHighBall gate below.
     pes::VolatileBallInput volatileIn;
     volatileIn.ballHeight_m = ballHeight;
     volatileIn.carrierHeight_m = CastPlayer()->GetStat("physical_height");
-    volatileIn.ball = {ballPos.coords[0], ballPos.coords[1]};  // B+0x1C and K+0x40 are OPEN; the arm stays off with the flag
+    volatileIn.ballTrackFlag = sample0.valid;
+    volatileIn.anchor = sample0.xz;
+    volatileIn.ball = {ballPos.coords[0], ballPos.coords[1]};
+    // ponytail: K+0x40 (the ctx4 point; FUN_14063A490's human-carrier case reads the ball's own point) is not in GF,
+    // so the ball's own point stands in and the distance test never blocks. B+0x80 is clear (its writer is undecoded).
+    volatileIn.target = volatileIn.ball;
     const bool volatileBall = pes::VolatileBall(volatileIn);
     sf.humanCarrier = false;  // ponytail: ctx4+0x6C is not decoded to GF state (GF's carriers are AI)
     sf.receivingFlag = volatileBall;

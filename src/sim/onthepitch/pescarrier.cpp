@@ -451,6 +451,7 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
   // The receiver status (0x142117c30): the offside test's frames scale (0.30 at 0x142590d98) and the anime class words.
   ok &= ReadVa(exe, 0x142590d98, &k.receiverFrameScale, error);
   ok &= exe.ReadVa(0x1426484f0, sizeof k.animeClassWord, reinterpret_cast<uint8_t*>(k.animeClassWord.data()));
+  ok &= ReadVa(exe, 0x14256ae1c, &k.bounceLatchHeight_m, error);
   // G3's team level (reader 0x140A40BD0, comparator 0x140A60360). The writer 0x1B5D8340 stores
   // clamp(class x 100, 0, 700), where the class is `*(int*)(matchSetting+0x18)` through its 7-entry
   // switch, whose entries are all the same arm, so an out-of-range selector takes the masked global.
@@ -2458,5 +2459,24 @@ int ReceiverStatusOf(const ReceiverStatusInput& in, const CarrierConstants& k) {
   if (AnimeWordBit(k, in.anime, 27)) status = kReceiverBusy10;
   if (in.anime == kAnimeKpPickupBall) status = kReceiverBusy9;
   return status;
+}
+
+// The first bounce the track reaches once the ball has been `latchHeight_m` up: the sampler's latch
+// (0x140874100), then the first record whose previous vertical step is down and whose own step is up.
+// ponytail: the sampler reads vec[4], the record's vertical velocity, which GF's track does not carry; the
+// height's first difference stands in for it.
+BounceSample FirstBounceSample(const std::vector<TrackPoint>& track, float latchHeight_m) {
+  bool latched = false;
+  float previousStep = 0.0f;  // p+0x14: zero before the track, so the first record cannot bounce
+  for (size_t n = 1; n < track.size(); ++n) {
+    const float step = track[n].height_m - track[n - 1].height_m;
+    if (track[n].height_m >= latchHeight_m) latched = true;
+    if (latched && previousStep < 0.0f && step > 0.0f) {
+      // FUN_140875fd0 sets the bit from the point's height: valid when it is at or above the ground.
+      return {track[n].height_m >= 0.0f, {track[n].x_m, track[n].z_m}};
+    }
+    previousStep = step;
+  }
+  return {};
 }
 }  // namespace pes

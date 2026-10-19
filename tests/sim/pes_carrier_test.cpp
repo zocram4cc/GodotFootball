@@ -2870,3 +2870,51 @@ TEST(ReceiverStatusInstall, TheOffsideFramesAndTheAnimeWordsAreTheInstallsValues
   in.anime = 73;  // bit 27 of its word (FUN_140a6e110)
   EXPECT_EQ(pes::ReceiverStatusOf(in, *k), pes::kReceiverBusy10);
 }
+
+// PES's sample 0 (0x140874100): the first bounce after the ball has been a metre up.
+pes::TrackPoint TrackAt(float x, float height, float z) { return pes::TrackPoint{x, height, z}; }
+
+TEST(CarrierBallTrack, TheFirstBounceAfterAMetreUpIsTheSample) {
+  // Heights 0.5, 1.2 (latched), 3.0, 1.5, 0.2, 0.7: the ball falls to 0.2 and turns up at tick 5.
+  const std::vector<pes::TrackPoint> track = {
+      TrackAt(10.0f, 0.5f, -4.0f),  TrackAt(10.5f, 1.2f, -4.0f), TrackAt(11.0f, 3.0f, -4.0f),
+      TrackAt(11.5f, 1.5f, -4.0f),  TrackAt(12.0f, 0.2f, -4.0f), TrackAt(12.5f, 0.7f, -4.0f),
+      TrackAt(13.0f, 1.5f, -4.0f)};
+  const pes::BounceSample s = pes::FirstBounceSample(track, 1.0f);
+  EXPECT_TRUE(s.valid);
+  EXPECT_FLOAT_EQ(s.xz.x, 12.5f);
+  EXPECT_FLOAT_EQ(s.xz.z, -4.0f);
+}
+
+TEST(CarrierBallTrack, ABounceBeforeTheBallHasBeenAMetreUpIsNotSampled) {
+  // The ball bobs at 0.1 to 0.3 m (a bounce at tick 2), then rises to 2.0 m: only the bounce after that counts.
+  const std::vector<pes::TrackPoint> track = {
+      TrackAt(0.0f, 0.3f, 0.0f), TrackAt(1.0f, 0.1f, 0.0f), TrackAt(2.0f, 0.3f, 0.0f),
+      TrackAt(3.0f, 2.0f, 0.0f), TrackAt(4.0f, 1.0f, 0.0f), TrackAt(5.0f, 0.4f, 0.0f),
+      TrackAt(6.0f, 0.9f, 0.0f)};
+  const pes::BounceSample s = pes::FirstBounceSample(track, 1.0f);
+  EXPECT_TRUE(s.valid);
+  EXPECT_FLOAT_EQ(s.xz.x, 6.0f);
+}
+
+TEST(CarrierBallTrack, ARollingOrFallingBallHasNoSample) {
+  // A ball that never rises a metre is never latched, and a fall that never turns up has no bounce.
+  const std::vector<pes::TrackPoint> rolling = {TrackAt(0.0f, 0.109f, 0.0f), TrackAt(1.0f, 0.12f, 0.0f),
+                                                TrackAt(2.0f, 0.109f, 0.0f), TrackAt(3.0f, 0.12f, 0.0f)};
+  EXPECT_FALSE(pes::FirstBounceSample(rolling, 1.0f).valid);
+  const std::vector<pes::TrackPoint> falling = {TrackAt(0.0f, 3.0f, 0.0f), TrackAt(1.0f, 2.0f, 0.0f),
+                                                TrackAt(2.0f, 1.0f, 0.0f), TrackAt(3.0f, 0.5f, 0.0f)};
+  EXPECT_FALSE(pes::FirstBounceSample(falling, 1.0f).valid);
+}
+
+TEST(CarrierVolatileBall, TheTrackArmSetsItOnAValidSampleWithNoSideFlag) {
+  // The ball at (10, -4) with its sample at (12.5, -4): the distance test is off (K+0x40 stands in as the ball).
+  pes::VolatileBallInput in;
+  in.ballTrackFlag = true;
+  in.ball = {10.0f, -4.0f};
+  in.anchor = {12.5f, -4.0f};
+  in.target = {10.0f, -4.0f};
+  EXPECT_TRUE(pes::VolatileBall(in));
+  in.ballFlag80 = true;  // B+0x80 set: arm B is off
+  EXPECT_FALSE(pes::VolatileBall(in));
+}
