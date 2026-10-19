@@ -34,6 +34,21 @@
 
 namespace pes {
 
+// One row of the action-clip table the trap picker walks (DAT_14348dac0, FUN_14081ff70). A row names a clip
+// and the clip-space window the ball must lie in for that clip to play: x in [xb, xe) and z in (zb, ze), in
+// metres, both bounds absolute. The lowest priority wins; the keys are the picker's candidate gate.
+struct ActionRow {
+  int clip = 0;        // the motion number the picker returns
+  uint8_t action = 0;  // the action the row belongs to
+  uint8_t prio = 0;    // +5: the lowest priority wins
+  uint8_t keyA = 0;    // +6: compared with the request's second key
+  uint8_t keyB = 0;    // +7: the request's third key
+  float xb = 0.0f, zb = 0.0f, xe = 0.0f, ze = 0.0f;  // +8, +0xc, +0x10, +0x14
+};
+
+// The action of a trap row: the picker's action argument for a trap (FUN_14081ff70's param_3).
+inline constexpr uint8_t kTrapActionRow = 7;
+
 struct ReceiveConstants {
   // --- trap.o (VFS); the store offsets FUN_1409fa720/1409fbce0 read ---
   float lockDefence_s = 0.0f;         // +0x1b4 defence: loose ball
@@ -78,6 +93,8 @@ struct ReceiveConstants {
   // --- who may touch (FUN_1409fa400) and where to meet it (ActionPassGet) ---
   float ballDistanceTableMaxSq_m2 = 0.0f;  // 0x14253ee30, MA+0x24710 entries are squared metres
   float receivingPointMargin_m = 0.0f;     // 0x1425e5ab8 (FUN_14094e3a0)
+  // --- the trap picker's rows: the action-7 rows of the install's action-clip table (DAT_14348dac0) ---
+  std::vector<ActionRow> trapRows;
 };
 
 std::optional<ReceiveConstants> LoadReceiveConstants(const PeImage& exe, const PesVfs& vfs,
