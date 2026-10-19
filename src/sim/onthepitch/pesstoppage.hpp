@@ -87,6 +87,10 @@ struct RestartSpotConstants {
   // (MOVSS XMM2,[0x14256ae1c]; SUBSS at 0x14050eaed) before writing R.x, keeping the throw-in's x
   // at most F0 - inset, off the end line.
   float throwInEndInset_m = 0.0f;
+  // .rdata 0x14259d5d0: the seamless carrier stops this far short of the throw spot (throwin doc 3.2
+  // phase 4). PES frees a held restart when the taker reaches the ball (A5Live 9.2), so the port
+  // reads it as the reach that releases the restart.
+  float takerReach_m = 0.0f;
 };
 std::optional<RestartSpotConstants> LoadRestartSpotConstants(const PeImage& exe, std::string* error);
 

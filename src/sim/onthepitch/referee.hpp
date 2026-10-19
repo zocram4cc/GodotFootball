@@ -145,6 +145,8 @@ protected:
   // resumes is judged out only once it has come in and crossed again. ponytail: the writer of that
   // record is not decoded; this crossing test stands in for it.
   bool ballOverSideline = false;
+  // pes_loop: whether the taker stands within the install's reach of the ball (takerReach_m).
+  bool TakerInReach() const;
 
   // The players currently flagged offside, with PES's category of each call.
   std::map<Player*, OffsideFlag> offsidePlayers;  // player, position at time of touch

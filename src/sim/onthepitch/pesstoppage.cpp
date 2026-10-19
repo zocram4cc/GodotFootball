@@ -84,6 +84,7 @@ std::optional<RestartSpotConstants> LoadRestartSpotConstants(const PeImage& exe,
   constexpr uint64_t CORNER_Z_VA = 0x142572348;  // corner spot inset along z
   constexpr uint64_t THROW_OUTSET_VA = 0x142592228;  // throw-in spot outside the touchline (FUN_14050d280)
   constexpr uint64_t THROW_INSET_VA = 0x14256ae1c;   // x off the end line (FUN_14050e770's own clamp)
+  constexpr uint64_t TAKER_REACH_VA = 0x14259d5d0;   // the taker's reach to the ball (throwin doc 3.2)
   RestartSpotConstants k{};
   if (!ReadFloat(exe, PUSH_OUT_VA, &k.goalAreaPushOut_m) ||
       !ReadFloat(exe, PUSH_Z_VA, &k.goalAreaPushZ_m) ||
@@ -91,7 +92,8 @@ std::optional<RestartSpotConstants> LoadRestartSpotConstants(const PeImage& exe,
       !ReadFloat(exe, CORNER_X_VA, &k.cornerInsetX_m) ||
       !ReadFloat(exe, CORNER_Z_VA, &k.cornerInsetZ_m) ||
       !ReadFloat(exe, THROW_OUTSET_VA, &k.throwInLineOutset_m) ||
-      !ReadFloat(exe, THROW_INSET_VA, &k.throwInEndInset_m)) {
+      !ReadFloat(exe, THROW_INSET_VA, &k.throwInEndInset_m) ||
+      !ReadFloat(exe, TAKER_REACH_VA, &k.takerReach_m)) {
     *error = "restart spot constant: .rdata float unreadable";
     return std::nullopt;
   }
