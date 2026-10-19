@@ -98,4 +98,16 @@ DesignationRecord Publish(int side, const std::array<int, kSideSlots>& classB,
   return record;
 }
 
+TwoCfPair DesignateTwoCf(int side, int gate, const std::array<int, kSideSlots>& classB,
+                         const std::array<bool, kSideSlots>& onPitch) {
+  TwoCfPair pair;
+  if (gate != kTwoCfGate) return pair;
+  int found = 0;
+  for (int i = 0; i < kSideSlots && found < 2; ++i) {
+    if (!onPitch[i] || (classB[i] != kClassSS && classB[i] != kClassCF)) continue;
+    pair.slot[found++] = side * kSideSlots + i;
+  }
+  return found == 2 ? pair : TwoCfPair{};
+}
+
 }  // namespace pes::designation
