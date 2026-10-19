@@ -57,6 +57,15 @@ struct PressConstants {
   float secPerMinute;         // 0x14259a764 (60)
   float metresPerKm;          // 0x14256ae34 (1000)
   float framesPerSec;         // 0x14351ae54 (54): .data initializer, read as the image holds it
+  // Loose-ball chase additions (FUN_140639830 table, FUN_140a75be0 class,
+  // FUN_140639100 target; press-life 5/7/9).
+  float tableRadiusSq_m2;  // 0x1425cee20 (462.25): the candidate table's radius squared
+  float speedCut0_kmh;     // 0x1425a8a28 (0.05): class 0/1 cut
+  float speedCut1_kmh;     // 0x14259bdf4 (8): class 1/2 cut (== pass2SameCodeAdd's VA)
+  float speedCut2_kmh;     // 0x1425a1ffc (13.5): class 2/3 cut
+  float speedCut3_kmh;     // 0x1425c48c0 (22): class 3/4 cut
+  float targetTickRate;    // 0x142588200 (0.1): k = fps*rate + bias ticks
+  float targetTickBias;    // 0x142565600 (0.5)
 };
 
 // Role-class table at 0x1426484f0 (94 u32 entries). Bits read by the writer:
@@ -210,5 +219,33 @@ struct PressFillResult {
 
 // Gate and tally for FUN_140639830 over the side's 11 men (local index k).
 PressFillResult PressCandidateFill(const PressConstants& c, const std::array<PressFillMan, 11>& mans);
+
+// --- Loose-ball chase (press-life 6/7/9) ---
+
+// FUN_140639a20's pick radius in metres: carrierRampStart_m + carrierRampSpan_m
+// times the score ramp of the winner's sqrt(score) `root` (1 at or below
+// pass2Lo, 0 at or above pass2Hi, linear on pass2Div between).
+float PressPickRadius_m(const PressConstants& c, float root);
+
+// FUN_140639100's no-carrier arm: true when the ball sample at k ticks is at
+// least as near the ball now as the presser's base (squared metres, ties go
+// to the ball). Points are (x, z) pitch metres. No constants: the comparison
+// is pure arithmetic on the caller's points.
+struct PressPoint {
+  float x = 0, z = 0;
+};
+bool PressTargetIsBall(PressPoint sample, PressPoint ball, PressPoint base);
+
+// The sample index: int(framesPerSec * targetTickRate + targetTickBias) (54*0.1+0.5 = 5).
+int PressTargetTick(const PressConstants& c);
+
+// FUN_140a75be0's speed class 0..4 of `speedKmh` over the four cuts.
+int PressSpeedClass(const PressConstants& c, float speedKmh);
+
+// The chase command speed in m/s: the arrival slope (dist_m * slope) capped
+// one band above the current class, the caps in m/s from the cuts (class 4 is
+// uncapped). The +1 lead is GF's: PES's solver paces AT the class
+// (FUN_1406b9270, undecoded), which would stand a standing presser still.
+float PressCommandSpeed_ms(const PressConstants& c, float dist_m, float speedKmh, float slope);
 
 }  // namespace pes

@@ -16,6 +16,7 @@
 #include "onthepitch/pesclips.hpp"
 #include "onthepitch/pesdodge.hpp"
 #include "onthepitch/pestackle.hpp"
+#include "onthepitch/pespress.hpp"
 #include "onthepitch/pesstrategy.hpp"
 #include "onthepitch/pesteamconcepts.hpp"
 #include "onthepitch/pessubs.hpp"
@@ -180,6 +181,10 @@ class PesLibrary : public RefCounted {
   const pes::MoveStepConstants* movestep_constants() const {
     return moveStepConstants_ ? &*moveStepConstants_ : nullptr;
   }
+  // PES 2021's presser picker and loose-ball PRESS chase (docs/re/pes-re-press-life.md).
+  const pes::PressConstants* press_constants() const {
+    return pressConstants_ ? &*pressConstants_ : nullptr;
+  }
 
  protected:
   static void _bind_methods();
@@ -218,6 +223,7 @@ class PesLibrary : public RefCounted {
   std::optional<pes::KickErrorConstants> kickErrorConstants_;
   std::optional<pes::offball::OffBallConstants> offBallConstants_;
   std::optional<pes::MoveStepConstants> moveStepConstants_;
+  std::optional<pes::PressConstants> pressConstants_;
   std::optional<pes::SetPieceTakerConstants> setPieceTakerConstants_;
   std::optional<pes::SetPieceTeamConstants> setPieceTeamConstants_;
 };

@@ -263,6 +263,8 @@ public:
   const pes::TackleConstants& GetPesTackleConstants() const { return pesTackleConstants; }
   // PES 2021's MOVESTEP handlers' install constants (docs/re/pes-re-anim-select.md).
   const pes::MoveStepConstants& GetPesMoveStepConstants() const { return pesMoveStepConstants; }
+  // PES 2021's presser picker and loose-ball PRESS chase (docs/re/pes-re-press-life.md).
+  const pes::PressConstants& GetPesPressConstants() const { return pesPressConstants; }
   // PES 2021's off-ball run manager (docs/re/pes-re-off-ball.md).
   const pes::offball::OffBallConstants& GetPesOffBallConstants() const {
     return pesOffBallConstants;
@@ -599,6 +601,8 @@ protected:
   pes::TackleConstants pesTackleConstants{};
   // PES 2021's MOVESTEP handlers' install constants, copied from MatchSetup at construction.
   pes::MoveStepConstants pesMoveStepConstants{};
+  // PES 2021's presser picker and loose-ball PRESS chase.
+  pes::PressConstants pesPressConstants{};
   std::unique_ptr<pes::PesClock> pesClock;
   std::unique_ptr<pes::StaminaConstants> pesStaminaConstants;
 

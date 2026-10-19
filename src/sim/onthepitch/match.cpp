@@ -267,6 +267,12 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES set-piece team constants missing: read them from the install with "
         "pes::LoadSetPieceTeamConstants into MatchSetup::pesSetPieceTeamConstants");
   pesSetPieceTeamConstants = *setup.pesSetPieceTeamConstants;
+  // PES 2021's presser picker and loose-ball PRESS chase (docs/re/pes-re-press-life.md).
+  if (setup.pesPressConstants == nullptr)
+    throw std::runtime_error(
+        "PES press constants missing: read them from the install with "
+        "pes::LoadPressConstants into MatchSetup::pesPressConstants");
+  pesPressConstants = *setup.pesPressConstants;
 
   dynamicNode = boost::intrusive_ptr<Node>(new Node("dynamicNode"));
   scene3D->AddNode(dynamicNode);
