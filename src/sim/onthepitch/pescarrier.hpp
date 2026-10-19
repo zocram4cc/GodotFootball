@@ -422,6 +422,12 @@ struct CarrierConstants {
   std::array<uint32_t, kAnimeClassCount> animeClassWord{};
   // The bounce sampler's latch (0x140874100): 1.0 at 0x14256ae1c, the height the ball must reach before a bounce counts.
   float bounceLatchHeight_m = 0.0f;
+  // The record-B target ("into space", carrier-ai 4.3): its turn, gap, base length, speed gain and speed scale.
+  float intoSpaceTurn_deg = 0.0f;    // 45, 0x14259BE30: the turn for a gap of intoSpaceTurnDist_m or more
+  float intoSpaceTurnDist_m = 0.0f;  // 30, 0x142591140: the nearest-opponent gap that gives the full turn
+  float intoSpaceBase_m = 0.0f;      // 8, 0x14259BDF4: the base length
+  float intoSpaceGain_m = 0.0f;      // 5, 0x14259222C: the speed-gated length gain
+  float intoSpaceSpeedScale = 0.0f;  // 20, 0x14259BE1C: the speed the gain saturates at, scaled
 };
 
 std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::string* error);
@@ -589,6 +595,7 @@ struct PassForwardInput {
 struct PassCandidate {
   int index = -1;
   ReceiverInput record;
+  ReceiverInput recordB;  // record B ("into space"): the BackSpace and Safety through validators read it
   float pressureDistOpp0_m = 0.0f;  // the pressure entry's distance to opponent 0
   int pressureClass = 3;
   float nearestOppToMate_m = 100.0f;  // the mate's nearest opponent
@@ -1303,6 +1310,12 @@ float CarrierOffsideLine(float attackSign, const std::vector<OffsideEntry>& list
 int ReceiverOffsideFrames(const CarrierConstants& k);
 // His status (0x142117c30).
 int ReceiverStatusOf(const ReceiverStatusInput& in, const CarrierConstants& k);
+// The scored limit (0x142126B70 L183-232): the keeper's limit is the floor; a field mate's is clamp(need, floor, cap).
+float ShortLimit(const SafetyInput& in, const SafetyMate& m, bool keeper, const CarrierConstants& k);
+// Record B's target for a mate ("into space", carrier-ai 4.3). The penalty-area re-placement is not ported.
+CarrierPoint IntoSpaceTarget(const CarrierPoint& carrier, const CarrierPoint& mate, float mateHeading_deg,
+                             float mateSpeed_kmh, float nearestOpp_m, float attackAngle_deg,
+                             const CarrierConstants& k);
 
 // --- DirectHighBall (kind 11, gate 0x142129BE0) ---
 //

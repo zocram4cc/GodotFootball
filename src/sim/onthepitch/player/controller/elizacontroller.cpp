@@ -2405,6 +2405,49 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     const bool inSetPiece = match->IsInSetPiece();
     const e_SetPiece setPiece = team->GetController()->GetSetPieceType();
     const Player* taker = team->GetController()->GetPieceTaker();
+    // The receiver record writer (0x1421174F0) for one target. Record A ("to feet") and record B ("into space") take the
+    // same fields, measured from the ball: the forward angle is the bearing against the attack direction, the turn angle
+    // the same bearing against the carrier's facing (report 4.3's +0xE4 and +0xE8), and the openness loop measures each
+    // opponent in front of the pass against its direction.
+    const auto recordFor = [&](const Vector3& tgt) {
+      pes::ReceiverInput r;
+      const float dist = (tgt - ballPos).GetLength();
+      const float dx = tgt.coords[0] - ballPos.coords[0];
+      const float dz = tgt.coords[1] - ballPos.coords[1];
+      const float bearing = pes::PesBearingDeg(ballPos.coords[0], ballPos.coords[1], tgt.coords[0], tgt.coords[1]);
+      const float facingAngle = pes::PesBearingDeg(0.0f, 0.0f, facing.coords[0], facing.coords[1]);
+      const float fwdAngle = WrapDeg(bearing - pes::AttackAngleDeg(attackSign));
+      const float turnAngle = WrapDeg(bearing - facingAngle);
+      // The openness: the minimum over the opponents in front of the pass.
+      float bestMargin = 150.0f;
+      for (const PlayerImage& opp : opponentPlayerImages) {
+        const float oppDx = opp.position.coords[0] - ballPos.coords[0];
+        const float oppDz = opp.position.coords[1] - ballPos.coords[1];
+        if (std::fabs(WrapDeg(std::atan2(oppDz, oppDx) * degreesPerRadian - bearing)) > carrier.openInFront_deg)
+          continue;
+        // The opponent's predicted point along the lane.
+        const Vector3 oppPred = opp.position + opp.movement * laneTime_s;
+        const float odx = oppPred.coords[0] - ballPos.coords[0];
+        const float odz = oppPred.coords[1] - ballPos.coords[1];
+        const float laneLen = std::sqrt(dx * dx + dz * dz);
+        const float along = (odx * dx + odz * dz) / std::max(laneLen, 0.001f);
+        const float perp = std::fabs(odx * dz - odz * dx) / std::max(laneLen, 0.001f);
+        bestMargin = std::min(bestMargin, pes::LaneOpennessMargin(dx, dz, along, perp, 1.0f, 0.0f, carrier));
+      }
+      r.target = {tgt.coords[0], tgt.coords[1]};
+      r.passAngle_deg = fwdAngle;
+      r.fwdAngle_deg = fwdAngle;
+      r.turnAngle_deg = turnAngle;
+      r.ballToTarget_m = dist;
+      r.difficulty = pes::ReceiverDifficulty(ballMove.GetLength(), dist, 0.0f,
+                                             PlayerSkills::Has(skills, PlayerSkills::Skill::OneTouchPass),
+                                             carrierSpeed_kmh, false, turnAngle, ballHeight, lowPass, carrier);
+      r.openness = bestMargin;
+      r.opennessClass = pes::OpennessClassFromMargin(bestMargin, carrier);
+      r.dirClass = pes::DirectionClass(fwdAngle, carrier);
+      r.turnClass = pes::TurnClass(turnAngle, carrier);
+      return r;
+    };
     for (Player* mate : mates) {
       pes::ReceiverStatusInput status;
       const Vector3 matePos = mate->GetPosition();
@@ -2423,60 +2466,21 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       status.halfLen_m = pesFieldHalfLength;
       status.halfWidth_m = pesFieldHalfWidth;
       if (pes::ReceiverStatusOf(status, carrier) != pes::kReceiverValid) continue;
-      // The mate's target is his position a lane-time ahead (record A, "to
-      // feet"); record B ("into space") is not ported.
+      // The mate's two targets: record A ("to feet") is his position a lane-time ahead; record B ("into space") is the
+      // point of carrier-ai 4.3, from his own position. Each takes the record writer above.
       const Vector3 matePred = matePos + mateVel * laneTime_s;
       const Vector3 target3(matePred.coords[0], matePred.coords[1], ballPos.coords[2]);
-      const float dist = (target3 - ballPos).GetLength();
-      const float dx = target3.coords[0] - ballPos.coords[0];
-      const float dz = target3.coords[1] - ballPos.coords[1];
-      // The pass's forward angle is its bearing against the attack direction,
-      // and its turn angle the same bearing against the carrier's facing
-      // (report 4.3's +0xE4 and +0xE8). The absolute bearing stays local: the
-      // openness loop measures each opponent against the pass direction from
-      // it.
-      const float bearing = pes::PesBearingDeg(ballPos.coords[0], ballPos.coords[1],
-                                                target3.coords[0], target3.coords[1]);
-      const float facingAngle = pes::PesBearingDeg(0.0f, 0.0f, facing.coords[0], facing.coords[1]);
-      const float fwdAngle = WrapDeg(bearing - pes::AttackAngleDeg(attackSign));
-      const float turnAngle = WrapDeg(bearing - facingAngle);
-
-      // The openness: the minimum over the opponents in front of the pass.
-      float bestMargin = 150.0f;
-      for (const PlayerImage& opp : opponentPlayerImages) {
-        const float oppDx = opp.position.coords[0] - ballPos.coords[0];
-        const float oppDz = opp.position.coords[1] - ballPos.coords[1];
-        if (std::fabs(WrapDeg(std::atan2(oppDz, oppDx) * degreesPerRadian - bearing)) >
-            carrier.openInFront_deg)
-          continue;
-        // The opponent's predicted point along the lane.
-        const Vector3 oppPred =
-            opp.position + opp.movement * laneTime_s;
-        const float odx = oppPred.coords[0] - ballPos.coords[0];
-        const float odz = oppPred.coords[1] - ballPos.coords[1];
-        const float laneLen = std::sqrt(dx * dx + dz * dz);
-        const float along = (odx * dx + odz * dz) / std::max(laneLen, 0.001f);
-        const float perp = std::fabs(odx * dz - odz * dx) / std::max(laneLen, 0.001f);
-        bestMargin = std::min(bestMargin,
-                              pes::LaneOpennessMargin(dx, dz, along, perp, 1.0f, 0.0f, carrier));
-      }
-      const float difficulty = pes::ReceiverDifficulty(
-          ballMove.GetLength(), dist, 0.0f,
-          PlayerSkills::Has(skills, PlayerSkills::Skill::OneTouchPass), carrierSpeed_kmh, false,
-          turnAngle, ballHeight, lowPass, carrier);
+      const float mateKmh = mateVel.GetLength() * carrier.kmhPerMs;
+      const pes::CarrierPoint intoSpace = pes::IntoSpaceTarget(
+          {carrierPos.coords[0], carrierPos.coords[1]}, {matePos.coords[0], matePos.coords[1]},
+          pes::PesBearingDeg(0.0f, 0.0f, mateVel.coords[0], mateVel.coords[1]), mateKmh,
+          nearestOppDistance(mate, matePos), pes::AttackAngleDeg(attackSign), carrier);
+      const Vector3 intoSpace3(intoSpace.x, intoSpace.z, ballPos.coords[2]);
 
       pes::PassCandidate c;
       c.index = mate->GetID();
-      c.record.target = {target3.coords[0], target3.coords[1]};
-      c.record.passAngle_deg = fwdAngle;
-      c.record.fwdAngle_deg = fwdAngle;
-      c.record.turnAngle_deg = turnAngle;
-      c.record.ballToTarget_m = dist;
-      c.record.difficulty = difficulty;
-      c.record.openness = bestMargin;
-      c.record.opennessClass = pes::OpennessClassFromMargin(bestMargin, carrier);
-      c.record.dirClass = pes::DirectionClass(fwdAngle, carrier);
-      c.record.turnClass = pes::TurnClass(turnAngle, carrier);
+      c.record = recordFor(target3);
+      c.recordB = recordFor(intoSpace3);
       // The mate's own pressure: the nearest opponent to him decides both the
       // short-forward gate and the lofted tier's keeper-distance stand-in.
       const float mateNearest = nearestOppDistance(mate, matePos);
@@ -2784,9 +2788,9 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     bs.sideAngle_deg = attackAngle;  // ponytail: team+0x250 is the attack direction
     bs.attackSign = attackSign;
     bs.teamLineOpp = attackSign * pesFieldHalfLength;  // ponytail: team-table lines are not carried; the goal line stands in
-    bs.pitchBound8 = pesFieldHalfLength;
+    bs.pitchBound8 = pesPenaltySpotX;  // F[8]: gate 3's x limit (0x142122838, raw asm)
     bs.pitchHalfLen_m = pesFieldHalfLength;
-    bs.pitchF6 = pesFieldHalfLength;
+    bs.pitchF6 = pesPenaltyAreaLineX;  // F[6]: the box line of gate 6's zone arm (helpers doc)
     bs.pitchF5 = pesGoalAreaHalfWidth;
     bs.ball = {ballPos.coords[0], ballPos.coords[1]};
     bs.ballHeight_m = ballHeight;
@@ -2830,8 +2834,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     sf.teamLineB = attackSign * pesFieldHalfLength;
     sf.teamLineOwn = 0.0f;  // ponytail: the own-side line (T18+0x40+side*0x14) stands in with the midfield
     sf.pitchHalfLen_m = pesFieldHalfLength;
-    sf.pitchBound8 = pesFieldHalfLength;
-    sf.pitchF6 = pesFieldHalfLength;
+    sf.pitchBound8 = pesPenaltySpotX;  // F[8]
+    sf.pitchF6 = pesPenaltyAreaLineX;  // F[6]
     sf.pitchF5 = pesGoalAreaHalfWidth;
     sf.ball = bs.ball;
     sf.ballSpeed_kmh = ballKmh;
@@ -2939,8 +2943,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
           matePred16.coords[0], matePred16.coords[1], attackSign, mate->GetStat("technical_shot"),
           mateLongShotSkill, pesFieldHalfLength, pesGoalInnerHalfWidth, carrier);
       // The pass target's bearing in PES's theta convention: the record-B lane angle.
-      const float passTheta = std::atan2(c.record.target.x - ballPos.coords[0],
-                                         c.record.target.z - ballPos.coords[1]) *
+      const float passTheta = std::atan2(c.recordB.target.x - ballPos.coords[0],
+                                         c.recordB.target.z - ballPos.coords[1]) *
                               degreesPerRadian;
       // ponytail: 0x1404C8E00 (the team table's need) is the mate's nearest-opponent distance here.
       const float mateNeed = c.nearestOppToMate_m;
@@ -2962,11 +2966,11 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       bm.teamNeed_m = mateNeed;
       bm.teamAngle_deg = mateFacing;  // ponytail: the team table's angle (0x140A71260) is undecoded; the facing stands in
       bm.lineValue = attackSign * matePos.coords[0];  // ponytail: the team table's line value (0x14061E7C0) stands in with his x
-      bm.recBTarget = c.record.target;
+      bm.recBTarget = c.recordB.target;
       bm.recBAngle_deg = passTheta;
-      bm.recBDist_m = c.record.ballToTarget_m;
-      bm.recBDifficulty = c.record.difficulty;
-      bm.recBClass = c.record.opennessClass;
+      bm.recBDist_m = c.recordB.ballToTarget_m;
+      bm.recBDifficulty = c.recordB.difficulty;
+      bm.recBClass = c.recordB.opennessClass;
       bm.recAClass = static_cast<float>(c.record.opennessClass);
       // ponytail: the pressure entry's +0x10 (writer 0x14069A500) stands in with the mate's class.
       bm.pressureClass = static_cast<float>(c.pressureClass);
@@ -2997,12 +3001,12 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       sm.recADist_m = c.record.ballToTarget_m;  // record A +0xEC
       sm.recADifficulty = c.record.difficulty;  // record A +0xF0
       sm.recAClass = c.record.opennessClass;    // record A [0]
-      sm.recBTarget = c.record.target;
+      sm.recBTarget = c.recordB.target;
       sm.recBAngle_deg = passTheta;
-      sm.recBVsFacing_deg = turnFacing;
-      sm.recBDist_m = c.record.ballToTarget_m;
-      sm.recBDifficulty = c.record.difficulty;
-      sm.recBClass = c.record.opennessClass;
+      sm.recBVsFacing_deg = std::fabs(c.recordB.turnAngle_deg);
+      sm.recBDist_m = c.recordB.ballToTarget_m;
+      sm.recBDifficulty = c.recordB.difficulty;
+      sm.recBClass = c.recordB.opennessClass;
       sf.mates.push_back(sm);
 
       // The OneTwo and DirectHighBall receivers: the same record A and his own fields.

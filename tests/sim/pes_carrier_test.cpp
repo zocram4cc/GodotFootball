@@ -2203,21 +2203,24 @@ TEST_F(SafetyUnitTest, TheShortGateReadsTheScoreRowNotTheNearestOpponent) {
   EXPECT_EQ(pes::SafetyUnit(in_, k_).index, 5);
 }
 
-TEST_F(SafetyUnitTest, AScoredNeedOverTheCapIsHeldToFortyFiveDegrees) {
-  // The limit rule (helpers doc, Safety, 0x1421271B7-1D2): a non-keeper whose need is over 135 gets
-  // lim = 45, not the cap. A class-5 mate 12 m out with a still carrier needs 30 + 60 + 27 + 30 = 147.
+TEST_F(SafetyUnitTest, AScoredNeedOverTheCapIsHeldTo135NotTheFloor) {
+  // 0x1421271C1-C6 (raw asm): a non-keeper whose need is over 135 gets lim = 135. A class-5 mate 12 m out with a still
+  // carrier needs 30 + 60 + 27 + 30 = 147: a turn of 140 is over it, a turn of 100 is inside it.
   in_.mates[0].recAClass = 5;
-  in_.mates[0].recAVsFacing_deg = 100.0f;
+  in_.mates[0].recAVsFacing_deg = 140.0f;
   EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
+  in_.mates[0].recAVsFacing_deg = 100.0f;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, 5);
 }
 
-TEST_F(SafetyUnitTest, AKeeperKeepsTheDefaultNeedAndIsHeldToItNotTheFloor) {
-  // The keeper skips the score and keeps the default need 135, so lim = max(135, 45) = 135 (helpers
-  // doc: "score stays 135/45 defaults"). A turn of 100 is inside it.
+TEST_F(SafetyUnitTest, AKeeperIsHeldTo45WhateverHisNeed) {
+  // 0x1421271BC (raw asm): a keeper's limit is the 45 floor, whatever his need; a turn of 100 is over it.
   in_.mates[0].roleClass = 0;
   in_.mates[0].recAClass = 5;
   in_.mates[0].recAVsFacing_deg = 100.0f;
   in_.pressCount1 = 1;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
+  in_.mates[0].recAVsFacing_deg = 40.0f;
   EXPECT_EQ(pes::SafetyUnit(in_, k_).index, 5);
 }
 
@@ -2931,4 +2934,99 @@ TEST(CarrierCtxPoint, ASetPieceTakesTheDisplayPointAndOpenPlayTheCarriersAiPoint
   EXPECT_FLOAT_EQ(openPlay.x, -20.0f);
   EXPECT_FLOAT_EQ(openPlay.y, 0.0f);
   EXPECT_FLOAT_EQ(openPlay.z, 3.0f);
+}
+
+// PES 2021's scored limit (0x142126B70 L183-232, asm): a keeper's limit is the 45 floor (0x1421271BC), and a field
+// mate's is clamp(need, 45, 135): a need over the 135 cap gives 135, not the floor.
+TEST(CarrierShortLimit, AKeeperIsAt45AndAFieldMateIsCappedAt135) {
+  pes::CarrierConstants k{};
+  k.sfSpeedFloor_kmh = 5.0f;   // 0x14259222C
+  k.sfSpeedCeil_kmh = 25.0f;   // 0x14259BE20
+  k.sfSpeedSpan_kmh = -20.0f;  // 0x1425A946C
+  k.sfScoreDist_m = 10.0f;     // 0x142588210
+  k.sfDistCeil_m = 30.0f;      // 0x142591140
+  k.sfNeedGain = 30.0f;        // 0x142591140
+  k.sfNeedBase = 60.0f;        // 0x14259A764
+  k.sfClass4Bonus = 20.0f;     // 0x14259BE1C
+  k.sfClass5Bonus = 30.0f;     // 0x142591140
+  k.sfNeedDanger = 120.0f;     // 0x14256AE30
+  k.sfNeedCap = 135.0f;        // 0x14259BE60
+  k.sfNeedFloor = 45.0f;       // 0x14259BE30
+  pes::SafetyInput in;
+  in.carrierSpeed_kmh = 0.0f;  // wS = 1: a carrier at rest
+  pes::SafetyMate m;
+  m.recADist_m = 5.0f;         // wD = 1: a distance under 10 m
+  m.recAClass = 4;             // +20: need = 30 + 60 + 30 + 20 = 140, over the cap
+  EXPECT_FLOAT_EQ(pes::ShortLimit(in, m, /*keeper*/ false, k), 135.0f);
+  m.recAClass = 3;             // need = 120: inside the cap
+  EXPECT_FLOAT_EQ(pes::ShortLimit(in, m, /*keeper*/ false, k), 120.0f);
+  EXPECT_FLOAT_EQ(pes::ShortLimit(in, m, /*keeper*/ true, k), 45.0f);
+}
+
+// PES's speed ramp reads the CARRIER's speed (0x142127109: CALL 0x140477130 on the passer's record); the mate's speed
+// only gates the mates under 5 m (0x142127337).
+TEST(CarrierShortLimit, TheSpeedRampReadsTheCarriersSpeed) {
+  pes::CarrierConstants k{};
+  k.sfSpeedFloor_kmh = 5.0f;
+  k.sfSpeedCeil_kmh = 25.0f;
+  k.sfSpeedSpan_kmh = -20.0f;
+  k.sfScoreDist_m = 10.0f;
+  k.sfDistCeil_m = 30.0f;
+  k.sfNeedGain = 30.0f;
+  k.sfNeedBase = 60.0f;
+  k.sfNeedCap = 135.0f;
+  k.sfNeedFloor = 45.0f;
+  pes::SafetyInput in;
+  in.carrierSpeed_kmh = 30.0f;  // a carrier past 25 km/h: wS = 0
+  pes::SafetyMate m;
+  m.speed_kmh = 10.0f;          // the mate's speed must not enter the ramp
+  m.recADist_m = 20.0f;         // wD = (20 - 30) / -20 = 0.5
+  m.recAClass = 3;
+  // need = 0 + 60 + 0.5 * 30 = 75
+  EXPECT_FLOAT_EQ(pes::ShortLimit(in, m, /*keeper*/ false, k), 75.0f);
+}
+
+// Record B's target ("into space", carrier-ai 4.3): the mate's point, then 8 m + 5 m * clamp01(speed * cos(delta) / 20)
+// along the attack angle turned by sigma * 45 deg * clamp01(d / 30), sigma the side of the carrier->mate bearing.
+TEST(CarrierRecordB, TheIntoSpaceTargetTurnsFromTheAttackAngleByTheNearestOpponentGap) {
+  pes::CarrierConstants k{};
+  k.intoSpaceTurn_deg = 45.0f;    // 0x14259BE30
+  k.intoSpaceTurnDist_m = 30.0f;  // 0x142591140
+  k.intoSpaceBase_m = 8.0f;       // 0x14259BDF4
+  k.intoSpaceGain_m = 5.0f;       // 0x14259222C
+  k.intoSpaceSpeedScale = 20.0f;  // 0x14259BE1C
+  // Attacking +x (90 deg). The mate 10 m ahead, still, 30 m from his nearest opponent: sigma +1, the turn +45, the
+  // direction 135 deg, the length 8 m.
+  const pes::CarrierPoint a = pes::IntoSpaceTarget({0.0f, 0.0f}, {10.0f, 0.0f}, 90.0f, 0.0f, 30.0f, 90.0f, k);
+  EXPECT_NEAR(a.x, 15.656854f, 1e-4f);
+  EXPECT_NEAR(a.z, -5.656854f, 1e-4f);
+  // No opponent near him: no turn, so the direction is the attack angle.
+  const pes::CarrierPoint b = pes::IntoSpaceTarget({0.0f, 0.0f}, {10.0f, 0.0f}, 90.0f, 0.0f, 0.0f, 90.0f, k);
+  EXPECT_NEAR(b.x, 18.0f, 1e-4f);
+  EXPECT_NEAR(b.z, 0.0f, 1e-4f);
+  // The mate at 45 deg from the carrier is on the minus side of the attack: the turn is -45, so the direction is 45 deg.
+  // Running 20 km/h along it (cos 1) lengthens the target to 13 m.
+  const pes::CarrierPoint c = pes::IntoSpaceTarget({0.0f, 0.0f}, {10.0f, 10.0f}, 45.0f, 20.0f, 30.0f, 90.0f, k);
+  EXPECT_NEAR(c.x, 19.192388f, 1e-4f);
+  EXPECT_NEAR(c.z, 19.192388f, 1e-4f);
+}
+
+// 0x1421226C0 passes 0 as the lane call's frame count (0x142122D00 stores ESI = 0), so lane 1 scans the present
+// positions. The opponent 9 m up the lane runs at the origin, 1.2 m a frame: 3 m in by the mate's slot frame (5).
+TEST_F(BackSpaceUnitTest, TheLaneOneScansThePresentPositionsNotTheMatesSlotFrame) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset: the lane constants come from the install";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe) << err;
+  auto lk = pes::lane::LoadLaneConstants(*exe, &err);
+  ASSERT_TRUE(lk) << err;
+  k_.lane = *lk;
+  k_.bsLane1Len_m = 5.0f;   // the immediates at 0x142122cc1 / cc8 / cd8
+  k_.bsLane1Cone_deg = 30.0f;
+  k_.bsLane1Rad_m = 2.0f;
+  in_.players[12].active = true;
+  in_.players[12].pos = {0.0f, 9.0f};
+  in_.players[12].vel = {0.0f, -1.2f};
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
 }

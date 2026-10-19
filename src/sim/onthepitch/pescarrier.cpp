@@ -368,6 +368,11 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x14259222c, &k.cbSpeedGate_kmh},   {0x14259be1c, &k.cbAdvance_m},
   };
   for (const auto& r : backSpace) ok &= ReadVa(exe, r.first, r.second, error);
+  const std::pair<uint64_t, float*> intoSpace[] = {
+      {0x14259be30, &k.intoSpaceTurn_deg}, {0x142591140, &k.intoSpaceTurnDist_m}, {0x14259bdf4, &k.intoSpaceBase_m},
+      {0x14259222c, &k.intoSpaceGain_m},   {0x14259be1c, &k.intoSpaceSpeedScale},
+  };
+  for (const auto& r : intoSpace) ok &= ReadVa(exe, r.first, r.second, error);
   const std::pair<uint64_t, float*> s1Rows[] = {{0x14259be40, &k.s1RadToDeg}, {0x1425795e4, &k.s1TwoPi}};
   for (const auto& r : s1Rows) ok &= ReadVa(exe, r.first, r.second, error);
   k.bsBoxSkipCount = 2.0f;  // `cmp [lVar15+0xb48],2`: an instruction shape, not a float
@@ -1360,16 +1365,15 @@ bool PassThroughValidator(const BackSpaceInput& in, size_t mateIdx, const Carrie
     if (in.humanCarrier && d < k.bsFarDist_m) limit = k.bsHumanFacingLimit_deg;
     if (limit <= std::fabs(WrapDeg(in.carrierFacing_deg - carrierBearing))) return false;
   }
-  // Gate 11: lane 1, the direct core call 0x14063CD90 - origin the ball advanced 1 m along the
-  // record angle, len 5, cone 30, rad 2, h = the target slot (verbatim PES: `MOV [RSP+0x30],ESI`
-  // at 0x142122D00 passes the slot where a frame count sits; likely a register mix-up, ported
-  // as is). Any entry rejects.
+  // Gate 11: lane 1, the direct core call 0x14063CD90 - origin the ball advanced 1 m along the record angle, len 5, cone 30,
+  // rad 2, and frames 0: 0x142122D00 stores ESI = 0 in the call's frame slot (raw asm), so the lane is scanned on the
+  // present positions. Any entry rejects.
   const lane::LaneRequest lane1{ToLaneVec(AdvancePoint(in.ball, m.recBAngle_deg, k.bsBallHeight_m)),
                                 m.recBAngle_deg, k.bsLane1Len_m, k.bsLane1Cone_deg,
                                 k.bsLane1Rad_m};
   const int oppSide = lane::IsAwaySlot(in.carrierSlot) ? 0 : 1;
   if (lane::ScanLane(k.lane, in.players, in.carrierSlot, oppSide, lane1, /*keepKeeper*/ false,
-                     /*horizonFrames*/ m.index)
+                     /*horizonFrames*/ 0)
           .count != 0)
     return false;
   // Gate 12: lane 2, packer B 0x14063D2F0 - origin the mate's 16-frame prediction, theta the
@@ -1594,22 +1598,11 @@ PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k) {
   return answer;
 }
 
-namespace {
-
-// The opponents of a carrier slot are the other side: away carriers face the home side (0).
-int OpponentSide(int carrierSlot) { return lane::IsAwaySlot(carrierSlot) ? 0 : 1; }
-
-// dist / (speed * 1000 / (fps * 3600)), truncated: the frames a mate needs at his speed (0x1404C8DC0).
-int ShortFrames(float dist_m, float speed_kmh) {
-  return static_cast<int>(dist_m / (speed_kmh * 1000.0f / (kPesTickHz * 3600.0f)));
-}
-
-// The mate's scored limit (0x142126B70 L183-232): the keeper's is the floor; a field mate's is
-// max(need, floor) while the need is within the cap, and the cap otherwise. The need weighs the
-// carrier's speed (the 5/25 km/h ramp) and the mate's distance (the 10/30 m ramp) over the shared
-// -20 span; danger fixes it at 120.
+// The mate's scored limit (0x142126B70 L183-232, raw asm): a keeper's limit is the 45 floor; a field mate's is
+// clamp(need, floor, cap). The need weighs the carrier's speed (the 5/25 km/h ramp: 0x142127109 passes the passer's
+// record) and the mate's record A distance (the 10/30 m ramp) over the shared -20 span; danger fixes it at 120.
 float ShortLimit(const SafetyInput& in, const SafetyMate& m, bool keeper, const CarrierConstants& k) {
-  if (keeper) return std::max(k.sfNeedCap, k.sfNeedFloor);  // the keeper keeps the default need 135: lim = max(need, 45)
+  if (keeper) return k.sfNeedFloor;  // 0x1421271BC: the keeper's limit is the floor (raw asm)
   float wS = 1.0f;
   if (k.sfSpeedFloor_kmh < in.carrierSpeed_kmh)
     wS = in.carrierSpeed_kmh < k.sfSpeedCeil_kmh
@@ -1622,9 +1615,37 @@ float ShortLimit(const SafetyInput& in, const SafetyMate& m, bool keeper, const 
   if (m.recAClass == 4) need += k.sfClass4Bonus;
   if (m.recAClass == 5) need += k.sfClass5Bonus;
   if (in.danger) need = k.sfNeedDanger;
-  // The cap is a switch, not a clamp: a need over 135 gives lim 45 (0x1421271B7-1D2, helpers doc).
-  return need > k.sfNeedCap ? k.sfNeedFloor : std::max(need, k.sfNeedFloor);
+  // The cap is a clamp: a need over the 135 cap gives 135 (0x1421271C1-C6), anything under it max(need, 45).
+  return std::clamp(need, k.sfNeedFloor, k.sfNeedCap);
 }
+
+// Record B's target ("into space", carrier-ai 4.3): the mate's point, advanced 8 m + 5 m * clamp01(speed * cos(delta) / 20)
+// along the attack angle turned by sigma * 45 deg * clamp01(d / 30). sigma is the side of the carrier->mate bearing
+// against the attack angle (+1 unless it is negative), d the mate's distance to his nearest opponent, delta his heading
+// against that direction. ponytail: a target past the penalty-area line is re-placed at half the length (0x140A4DDC0,
+// undecoded): not ported. The speed is taken in km/h (INFERENCE: the ramps of this block are km/h).
+CarrierPoint IntoSpaceTarget(const CarrierPoint& carrier, const CarrierPoint& mate, float mateHeading_deg,
+                             float mateSpeed_kmh, float nearestOpp_m, float attackAngle_deg,
+                             const CarrierConstants& k) {
+  const float sigma = WrapDeg(BearingDeg(carrier, mate) - attackAngle_deg) < 0.0f ? -1.0f : 1.0f;
+  const float turn = sigma * k.intoSpaceTurn_deg * std::clamp(nearestOpp_m / k.intoSpaceTurnDist_m, 0.0f, 1.0f);
+  const float theta = attackAngle_deg + turn;
+  const float cosDelta = std::cos((mateHeading_deg - theta) * (kPi_deg / 180.0f));
+  const float length = k.intoSpaceBase_m +
+                       k.intoSpaceGain_m * std::clamp(mateSpeed_kmh * cosDelta / k.intoSpaceSpeedScale, 0.0f, 1.0f);
+  return AdvancePoint(mate, theta, length);
+}
+
+namespace {
+
+// The opponents of a carrier slot are the other side: away carriers face the home side (0).
+int OpponentSide(int carrierSlot) { return lane::IsAwaySlot(carrierSlot) ? 0 : 1; }
+
+// dist / (speed * 1000 / (fps * 3600)), truncated: the frames a mate needs at his speed (0x1404C8DC0).
+int ShortFrames(float dist_m, float speed_kmh) {
+  return static_cast<int>(dist_m / (speed_kmh * 1000.0f / (kPesTickHz * 3600.0f)));
+}
+
 
 // The carrier's inputs to the short picker's head: b28 (free-ish: press10 == 0, or press10 == 1
 // with press34 > 1) and dCarrierOpp2, the squared gap between his 27-frame prediction and the
