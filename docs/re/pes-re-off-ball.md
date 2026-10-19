@@ -106,27 +106,29 @@ if n < cap(ctx+0x24) or id == 0x1e (Chance):
   tie-break is inert and **skills/styles do not weight run choice through this path**.
 
 ### 1.4 How many may run at once (OBS: `FUN_140600e40`, `FUN_140a4f520`, data `selectorVision.o`)
-`cap(id)` = byte from registry object 0xc2 = `team/selectorVision.json` (`constant_team.bin`, VFS winner 1513 B; live
+`cap(id)` = byte from registry object 0xc2 = `team/selectorVision.json` (`constant_team.bin`, mod 4cc_06_gameplay winner 1513 B; stock 1354 B in `Data/dt18_all.cpk`; live
 struct = file + 8 with the lists inlined, 5 × i32 each), indexed by `L = T+0xb8a4` (attack level 0..4), `L += 1` (max 4)
 when the ref player has instruction 8 (`FUN_140a64030(ref, 8)`, INF DEFENSIVE) or, for Chance only, `FUN_140a63680(ref)`:
 
 | key (struct off) | run | L=0 | 1 | 2 | 3 | 4 | gate (difficulty capability `FUN_140a604d0`) |
 |---|---|---|---|---|---|---|---|
-| `offerNum_diagonalRun` (+0x08) | 0x21 | 1 | 1 | 2 | 2 | 3 | row 0x11 |
-| `offerNum_lineBreak` (+0x1c) | 0x20 | 0 | 1 | 2 | 2 | 3 | row 0x10 |
-| `offerNum_pullAway` (+0x30) | 0x2f | 0 | 1 | 1 | 2 | 2 | row 0x10 |
-| `offerNum_spaceRunChance` (+0x44) | 0x1e | 1 | 2 | 3 | 4 | 5 | row 0xe |
+| `offerNum_diagonalRun` (+0x08) | 0x21 | 1 | 1 | 1 (mod 4cc_06_gameplay: 2) | 2 | 2 (mod 4cc_06_gameplay: 3) | row 0x11 |
+| `offerNum_lineBreak` (+0x1c) | 0x20 | 0 | 1 | 1 (mod 4cc_06_gameplay: 2) | 2 | 2 (mod 4cc_06_gameplay: 3) | row 0x10 |
+| `offerNum_pullAway` (+0x30) | 0x2f | 0 | 0 (mod 4cc_06_gameplay: 1) | 1 | 1 (mod 4cc_06_gameplay: 2) | 1 (mod 4cc_06_gameplay: 2) | row 0x10 |
+| `offerNum_spaceRunChance` (+0x44) | 0x1e | 1 | 2 | 2 (mod 4cc_06_gameplay: 3) | 3 (mod 4cc_06_gameplay: 4) | 3 (mod 4cc_06_gameplay: 5) | row 0xe |
 | `offerNum_spaceRunCounter` (+0x58) | 0x1f | 2 | 3 | 4 | 4 | 4 | row 0xf (5 if `T+0xb6ea`) |
 | `offerNum_spaceRunSecondLine` (+0x6c) | 0x1d | 0 | 1 | 1 | 1 | 1 | row 0xe |
 | Overlap 0x27 (code) | | 0 | 1 | 1 or 2 | 1 or 2 | 1 or 2 | L=0 → 0; else 1 if no instruction 4 (BOTH_SB_UP) and `FUN_140a50250(ctx,team,1)` < 2, else `1 + (L>1)` |
 | PostPlay 0x2b (code) | | 1 | 1 | 1 | 1 | 1 | — |
 
+_Corrected 19-10-26 (stock dt18): `constant_team.bin` is 1354 B (WESYS tag `ff 10 51`) in `Data/dt18_all.cpk` and 1513 B (tag `00 10 01`) in the 4cc winner. In the table each first value is stock and the bracketed value is the mod's; the lists are `selectorVision.o` blob +0x20/+0x40/+0x60/+0x80/+0xa0/+0xc0 (5 × u32, L = 0..4). The audit listed lineBreak[2] only; lineBreak[4] also differs (stock 2, mod 3)._
+
 Instruction 6 (TIKI_TAKA, `FUN_140a63950(.,6,0xff)`): SecondLine and PullAway cap 0, Chance cap 1. Key names: strings
 `0x142b538c8..0x142b53948` (OBS, alphabetical rule matches the six reader offsets).
 **Live (OBS, both managers found by vtable scan, cap array read at vtable+8, L = 2 for both teams):** team 0 =
-{SecondLine 1, Chance 3, Counter 4, LineBreak 2, Diagonal 2, PullAway 1, Overlap 1, PostPlay 1} = the L = 2 column
-exactly; team 1 = {SecondLine 0, Chance 1, Counter 4, LineBreak 2, Diagonal 2, PullAway 0, Overlap 1, PostPlay 1} =
-the L = 2 column with the TIKI_TAKA override (team 1 has instruction 6 active, tactics §6 live). Both priority rows
+{SecondLine 1, Chance 2 (mod 4cc_06_gameplay: 3), Counter 4, LineBreak 1 (mod 4cc_06_gameplay: 2), Diagonal 1 (mod 4cc_06_gameplay: 2), PullAway 1, Overlap 1, PostPlay 1} = the mod's L = 2 column
+exactly (stock values first); team 1 = {SecondLine 0, Chance 1, Counter 4, LineBreak 1 (mod 4cc_06_gameplay: 2), Diagonal 1 (mod 4cc_06_gameplay: 2), PullAway 0, Overlap 1, PostPlay 1} =
+the mod's L = 2 column with the TIKI_TAKA override (team 1 has instruction 6 active, tactics §6 live). Both priority rows
 all 1.0. `+0x1f8` = 10 (count field). Note the live base: the cap array sits at the scanned vtable + 8, i.e. the
 manager-tick argument `M` is the vtable address in the live object (all `M+…` offsets above are relative to it).
 
@@ -150,12 +152,13 @@ ranks lower (`FUN_140a40000`), (e) for Chance/Counter/LineBreak the one-two test
 - SecondLine `0x14060d210` (rating + 14.0, attack-decisions §3.4), Diagonal `0x140613910` (depth margin; 100 if
   already pinned), PostPlay `0x14061f940` (lanes 0/1/2), LineBreak/PullAway constant 100 / angle score (never reached
   through select, §1.1).
-- The `_good` constants of `spaceRun.o` (registry 0xc3, 60 keys, VFS values e.g. `chanceScore` 102 / `_good` 88,
-  `checkBallDist_chance` 27.5 / 33.0, `checkLastLineDist_chance` 24 / 30, `checkOffsideLineDistX` 12, `checkZ` 41.5 /
-  44) are selected per player by `FUN_1405c0f00(ctx, id, runId)` (OBS: Chance target builder reads `+0x1c`/`+0x20` =
+- The `_good` constants of `spaceRun.o` (registry 0xc3, 60 keys; stock values, mod in brackets): `chanceScore` 100 (mod 4cc_06_gameplay: 102) / `_good` 85 (mod 4cc_06_gameplay: 88),
+  `checkBallDist_chance` 25 (mod 4cc_06_gameplay: 27.5) / 28 (mod 4cc_06_gameplay: 33), `checkLastLineDist_chance` 19 (mod 4cc_06_gameplay: 24) / 23 (mod 4cc_06_gameplay: 30), `checkZ` 40 (mod 4cc_06_gameplay: 41.5) / 40 (mod 4cc_06_gameplay: 44), `checkOffsideLineDistX` 12 (mod 4cc_06_gameplay: 12; blob offset not fixed, stock unverified)
+  are selected per player by `FUN_1405c0f00(ctx, id, runId)` (OBS: Chance target builder reads `+0x1c`/`+0x20` =
   `chanceScore`/`chanceScore_good` and passes it to `FUN_14059ba60` as the target-search score limit). Readers of 0xc3:
   `0x1405aca50, 0x140602600, 0x140605570, 0x1406071df, 0x14060acfa, 0x140612660, 0x140664ee0, 0x1409a28d0…0x1409aacc0`
   (`regsites.py`); their per-key use is not reduced (open O3).
+_Corrected 19-10-26 (stock dt18): `spaceRun.o` from `Data/dt18_all.cpk` at the blob offsets of the mod values above: +0x14/+0x18 (100/85 vs 102/88), +0x34/+0x38 (25/28 vs 27.5/33), +0x6c/+0x70 (19/23 vs 24/30), +0xb4/+0xc0 (40/40 vs 41.5/44). Key names are this section's; `pes-re-attack-leftovers.md` §1.3 and `pes-re-run-targets.md` §0 re-key these pairs (17-10-26), so the names are unverified. `checkOffsideLineDistX` is PARKED: its mod 12 also sits at +0x90 (stock 18), and the key-to-offset map is disputed._
 
 ## 2. Timing: when a run starts and how long it lasts
 

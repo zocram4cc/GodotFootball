@@ -58,7 +58,7 @@ So a bit-15 player is written into the **top** free ordinal entries (10 downward
 5. Remainder (L304–327): fill the rest from list `P+0x7D08` (count `P+0x7CDC`) downward.
 6. Ordinal 0: if the keeper is not yet in the mask, `SP[4] = local_158`.
 
-Kind meaning (INF): `kind 0` = keeper (local_158 is "the last slot with kind 0", L71–73, and step 6 writes it to ordinal 0). Other kinds are not named here (OPEN; the classes are `P+0x3FB8`, 22 ints).
+Kind meaning (INF): `kind 0` = keeper (local_158 is "the last slot with kind 0", L71–73, and step 6 writes it to ordinal 0). Kinds 1 = CB, 2 = FB per FC860's `{1,2}` test and the role-writer §5 class map; higher kinds are the same class map (P aliases S at init). _Corrected 19-10-26 from pes-re-role-writer.md §6: old "Other kinds are not named here (OPEN; the classes are P+0x3FB8, 22 ints)"._
 
 ### 1.4 Verdict
 
@@ -104,7 +104,7 @@ Args: `param_1` = a local set-piece ctx with `+0x10` = team T, `+0x28` = MI, `+0
 
 1. **Gate** (L26–32): `T+0xB8A2 == 0` (not full attack) → `P+0x3EF8 = 0xFF`, return. `MI+0x116C != 1` → `P+0x3EF8 = 0xFF`, then recompute.
 2. **Recompute only if** `P+0x3EF8 > 0x15` (L35).
-3. **Taker loop** (L37–91): the three sheet takers `FUN_1408C5060(T+0x8E08, k)` for k = 0, 1, 2 (`T+0x8E08+0x1454+4k`; roster id mapped to a slot by `FUN_140A3B000`). Each taker: eligible, not in kind-8 table. Score `FUN_140A6DF00(slot, team+0xF8, 2)` (reach). **+0.2 if bit 15** (L62–65, `0x142598578` = 0.2, live).
+3. **Taker loop** (L37–91): the three sheet takers `FUN_1408C5060(T+0x8E08, k)` for k = 0, 1, 2 (`T+0x8E08+0x1454+4k`; roster id mapped to a slot by `FUN_140A3B000`). Each taker: eligible, not in kind-8 table. Score `FUN_140A6DF00(slot, team+0xF8, 2)` (reach). **+0.2 if the candidate holds style bit 15 (`+0x48`) and bit 15 of `DAT_142613D20[B[slot]]`, set only for class 1 (CB)** (L62–65, `0x142598578` = 0.2, live; gate via `FUN_140A64030(slot,0xF,…)` → `FUN_1408CB0B0`). _Corrected 19-10-26 from pes-re-community-qa.md §6 C1: dec FUN_1405FC860/FUN_140A64030/FUN_1408CB0B0 + table decode; old reading "+0.2 if bit 15"._
 4. **Tie rule** (L67–86): replace the best if `|Δ| > 0.05` and higher; if `|Δ| ≤ 0.05`, the candidate wins only if `record+0x25` is strictly greater than the best's. (0.05 = `0x1425A8A28`, live; sign mask `0x142565D30`, live.)
 5. **Fallback** (L92–170), only if no taker won: 11 slots, kind `P+0x3FB8` must be 1 or 2 (L107–112). For **non-bit-15** candidates (L113–130) skip if `P+0x7B5D < 2` **and** `record+0x39 < 0xAF` **and** `record+0x34 < 0x50` **and** `record+0x25 < 0x50`. Bit 15 exempts the candidate from that filter. Bit 15 also adds +0.2 (L132–135). Same tie rule as step 4 (L146–157).
 6. **Write**: if a winner exists, `P+0x3EF8 = winner` (L93, L168). If none, the **previous value is kept** (no reset).
@@ -341,7 +341,7 @@ Side-0 HJ readout (`copy+0xA1` H, `copy+0x9C` J, as `block+0x31`, `block+0x2C`):
 
 1. Identity of COM-dword bit 24 (`+0x4C`, card 56) and bit 24 of `+0x5C` (card 184): the field behind source index 56 and 184 (source object at `normaliser+0x20`, not traced).
 2. Game-design reason for the Extra Frontman clear (§4.3).
-3. Kind classes `P+0x3FB8` beyond kind 0 = keeper (INF) and 1 (−100 penalty): names not decoded.
+3. Kind classes `P+0x3FB8` beyond kind 0 = keeper (INF) and 1 (−100 penalty): CLOSED 19-10-26 — the §5 class map (kind 1 = CB, 2 = FB per FC860's {1,2} test); P aliases S at init (role-writer §2, §5).
 4. `FUN_140A79640` sort direction (INF: descending).
 5. Output consumers of the F63C0 candidate list and the F7D00 return value.
 6. Who writes `P+0x3EF8` each tick in the live match (value 15 observed with `T.b8a2 = 0`; `FUN_142156E80` is the plan writer, INF).

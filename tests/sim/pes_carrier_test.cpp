@@ -904,6 +904,68 @@ TEST(PesCarrierInstall, TheZonesAndLaddersAreTheGamesOwn) {
                                             k->statFloor + k->breakthroughStatSpan, false, true,
                                             false),
                   k->breakthroughComBase + k->breakthroughStatGain);
+  // The lane-gated units (0x14212ABA0's lane request, 0x1421265C0's gates) and the lane core's own
+  // table the bundle carries: relations only, no pinned numbers.
+  EXPECT_GT(k->unitLaneLen_m, 0.0f);
+  EXPECT_GT(k->unitLaneCone_deg, 0.0f);
+  EXPECT_GT(k->unitLaneRad_m, 0.0f);
+  EXPECT_GT(k->gfDifficultyMax, 0.0f);
+  EXPECT_GT(k->gfAngle_deg, 0.0f);
+  EXPECT_LT(k->gfAngle_deg, k->gfStatAngle_deg);
+  EXPECT_LT(k->gfStatAngle_deg, k->gfFlagAngle_deg);
+  EXPECT_LT(k->gfDistMinBand_m, k->gfDistMin_m);
+  EXPECT_LT(k->gfDistMin_m, k->gfClass2Dist_m);
+  EXPECT_LT(k->gfClass2Dist_m, k->gfDistMax_m);
+  EXPECT_GT(k->gfStatFloor, 0.0f);
+  EXPECT_GT(k->gfStatBonus, 0.0f);
+  EXPECT_GT(k->gfFlagDistSq_m2, 0.0f);
+  EXPECT_GT(k->gfPredictGain, 0.0f);
+  EXPECT_FLOAT_EQ(k->gfZoneDist_m, k->gfClass2Dist_m);  // one load site (0x14259BE0C)
+  // BackSpace (0x142129110's lane branch and block 2, 0x1421226C0's gates, 0x142125140's picker):
+  // relations only, no pinned numbers.
+  EXPECT_GT(k->bsOppDistSq_m2, 0.0f);
+  EXPECT_GT(k->bsBallHeight_m, 0.0f);
+  EXPECT_GT(k->bsCornerDistSq_m2, k->bsOppDistSq_m2);
+  EXPECT_GT(k->bsPredictGain, 0.0f);
+  EXPECT_GT(k->bsBoxSkipCount, 0.0f);
+  EXPECT_GT(k->bsAngleLimitGap_m, 0.0f);
+  EXPECT_FLOAT_EQ(k->bsAlignDist_m, k->bsAngleLimitGap_m);  // one load site (0x14259BDEC)
+  EXPECT_GT(k->bsAlignNeed_m, k->bsAlignDist_m);
+  EXPECT_GT(k->bsAlignAngle_deg, 0.0f);
+  EXPECT_LT(k->bsAlignAngle_deg, k->bsFacingLimit_deg);
+  EXPECT_LT(k->bsFacingLimit_deg, k->bsHumanFacingLimit_deg);
+  EXPECT_LT(k->bsNearBox_m, k->bsNearSum_m);
+  EXPECT_FLOAT_EQ(k->bsFarDist_m, k->bsNearBox_m);  // one load site (0x14259BE1C)
+  EXPECT_GT(k->bsAngleClass, 0.0f);
+  EXPECT_GT(k->bsLane1Len_m, 0.0f);
+  EXPECT_GT(k->bsLane1Cone_deg, 0.0f);
+  EXPECT_GT(k->bsLane1Rad_m, 0.0f);
+  EXPECT_GT(k->bsLane2Cone_deg, k->bsFacingLimit_deg);
+  EXPECT_LT(k->bsLane2Floor_deg, 0.0f);
+  EXPECT_FLOAT_EQ(k->bsLane2Floor_deg, -k->bsLane2Cap_deg);  // -20.0 vs 20.0
+  EXPECT_GT(k->bsLane2Gain, 0.0f);
+  EXPECT_LT(k->bsLane2XNear_m, k->bsLane2XFar_m);
+  EXPECT_FLOAT_EQ(k->bsLane2XFar_m - k->bsLane2XNear_m, k->bsLane2XSpan_m);  // 15 - 3 = 12
+  EXPECT_GT(k->bsLane2ZGain, 0.0f);
+  EXPECT_FLOAT_EQ(k->bsLane2Base_m, k->bsAlignDist_m);  // one load site (0x14259BDEC)
+  EXPECT_GT(k->bsLane2Pad_m, 0.0f);
+  EXPECT_FLOAT_EQ(k->bsLane2LenMin_m, k->bsLane2XNear_m);  // one load site (0x14258C264)
+  EXPECT_GT(k->bsTailDistSq_m2, 0.0f);
+  EXPECT_GT(k->bsTailHalf, 0.0f);
+  EXPECT_FLOAT_EQ(k->bsTailFacing_deg, k->bsFacingLimit_deg);  // one load site (0x14259BE5C)
+  EXPECT_GT(k->bsTailHeading_deg, 0.0f);
+  EXPECT_FLOAT_EQ(k->bsTailPad_m, k->bsBallHeight_m);  // one load site (0x14256AE1C)
+  EXPECT_GT(k->cbDist_m, 0.0f);
+  EXPECT_GT(k->cbSpeedBranch_kmh, 0.0f);
+  EXPECT_GT(k->cbAlign_deg, 0.0f);
+  EXPECT_LT(k->cbSpeedBranch_kmh, k->cbFastAlign_kmh);
+  EXPECT_FLOAT_EQ(k->cbCrowd_m, k->bsLane2LenMin_m);  // one load site (0x14258C264)
+  EXPECT_FLOAT_EQ(k->cbBoxAngle_deg, k->bsTailDistSq_m2);  // one load site (0x14253EE30)
+  EXPECT_GT(k->cbSpeedGate_kmh, 0.0f);
+  EXPECT_FLOAT_EQ(k->cbAdvance_m, k->bsFarDist_m);  // one load site (0x14259BE1C)
+  EXPECT_GT(k->lane.radToDeg, 0.0f);
+  EXPECT_GT(k->lane.coneFloor_deg, 0.0f);
+  EXPECT_GT(k->lane.trig.tabScale, 0.0f);
 }
 
 }  // namespace
@@ -1010,7 +1072,7 @@ TEST(PesCarrierTable, PlanSixWithALongAnswerAdoptsTheLongPass) {
   pes::PassAnswer fwd, lng, cross;
   lng.index = 5;
   lng.kind = pes::kPassLong;
-  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross);
+  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross, {}, {});
   const pes::UnitSlot won = pes::WalkCarrierUnits(table, pes::WalkContext{});
   EXPECT_EQ(won.kind, 9);
   EXPECT_EQ(won.answer.sub, pes::kPassLong);
@@ -1026,22 +1088,23 @@ TEST(PesCarrierTable, PlanFiveWithACrossAnswerAdoptsTheCross) {
   pes::PassAnswer fwd, lng, cross;
   cross.index = 3;
   cross.kind = pes::kPassCentering;
-  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross);
+  const std::vector<pes::UnitSlot> table = pes::FillUnitTable(kinds, false, fwd, lng, cross, {}, {});
   EXPECT_EQ(pes::WalkCarrierUnits(table, pes::WalkContext{}).kind, 7);
 }
 
-TEST(PesCarrierTable, CurveShotFillsTheCutBackSlotWithTheCrossAnswer) {
-  // Behind a CurveShot plan, kind 3 takes the cross answer (the cut-back).
+TEST(PesCarrierTable, KindThreeCarriesOnlyTheBackSpaceAnswer) {
+  // The table fill: kind 3 takes the BackSpace answer now, not the cross answer behind a plan flag.
   const std::vector<int> kinds{3, 4};
-  pes::PassAnswer fwd, lng, cross;
-  cross.index = 3;
-  cross.kind = pes::kPassThrough;
-  const std::vector<pes::UnitSlot> plain = pes::FillUnitTable(kinds, false, fwd, lng, cross);
-  EXPECT_EQ(plain[0].answer.type, pes::kAnswerNone);
-  const std::vector<pes::UnitSlot> curved =
-      pes::FillUnitTable(kinds, false, fwd, lng, cross, true);
-  EXPECT_EQ(curved[0].answer.type, pes::kAnswerPass);
-  EXPECT_EQ(curved[0].answer.sub, pes::kPassThrough);
+  pes::PassAnswer fwd, lng, cross, goalFront, backSpace;
+  backSpace.index = 3;
+  backSpace.kind = pes::kPassThrough;
+  const std::vector<pes::UnitSlot> table =
+      pes::FillUnitTable(kinds, false, fwd, lng, cross, goalFront, backSpace);
+  EXPECT_EQ(table[0].answer.type, pes::kAnswerPass);
+  EXPECT_EQ(table[0].answer.sub, pes::kPassThrough);
+  const std::vector<pes::UnitSlot> silent =
+      pes::FillUnitTable({3}, false, fwd, lng, cross, goalFront, {});
+  EXPECT_EQ(silent[0].answer.type, pes::kAnswerNone);
 }
 
 // --- the Dribble sub-kind chooser (report 2.1, 0x14212f1c0) and its dispatch (0x14212fe70) ---
@@ -1374,3 +1437,612 @@ TEST(PesCarrierCross, ACenteringBallNeedsTheCarryBearing) {
   in.carryVsFacing_deg = 140.0f;
   EXPECT_EQ(pes::CrossUnit(in, Synthetic()).index, -1);
 }
+
+// --- the GoalFront unit (kind 2; gate 0x14212ABA0, picker 0x1421265C0) ---
+//
+// The unit runs the lane core itself, so its constants come from the install (PES21_ROOT, as
+// pes_lane_test does) and this fixture overrides the picker's gates with crisp values: these tests
+// pin the structure, the loader test pins the installed numbers.
+
+namespace {
+
+namespace lane = pes::lane;
+
+using GoalFrontPlayers = std::array<lane::LanePlayer, lane::kSlots>;
+
+constexpr int kGoalFrontCarrierSlot = 3;  // a home player, so side 0
+
+pes::GoalFrontMate GoalFrontMate(int index) {
+  pes::GoalFrontMate m;
+  m.index = index;
+  m.statusValid = true;
+  m.difficulty = 0.5f;
+  m.distance_m = 12.0f;
+  m.angleToFacing_deg = 30.0f;
+  m.openness = 50.0f;
+  m.opennessClass = 3;
+  m.pressure = 1.0f;
+  m.zone = {10.0f, 0.0f, pes::kBandClose, pes::kSectorCentral, true};
+  return m;
+}
+
+class GoalFrontUnitTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    const char* root = std::getenv("PES21_ROOT");
+    if (!root)
+      GTEST_SKIP() << "PES21_ROOT unset: the unit runs the lane core, whose table is in the install";
+    std::string err;
+    auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+    ASSERT_TRUE(exe.has_value()) << err;
+    auto loaded = pes::LoadCarrierConstants(*exe, &err);
+    ASSERT_TRUE(loaded.has_value()) << err;
+    k_ = *loaded;
+    // Crisp gates. The lane request stays the install's (20 m, 80 deg, 1 m): the situation below
+    // (an opponent 10 m dead ahead) is inside it for any sane length.
+    k_.gfDifficultyMax = 1.0f;
+    k_.gfAngle_deg = 70.0f;
+    k_.gfStatAngle_deg = 100.0f;
+    k_.gfFlagAngle_deg = 120.0f;
+    k_.gfDistMin_m = 8.0f;
+    k_.gfDistMax_m = 25.0f;
+    k_.gfDistMinBand_m = 4.0f;
+    k_.gfClass2Dist_m = 12.0f;
+    k_.gfZoneDist_m = 14.0f;
+    k_.gfStatFloor = 70.0f;
+    k_.gfStatBonus = 20.0f;
+    in_.players = GoalFrontPlayers{};
+    in_.players[kGoalFrontCarrierSlot].pos = {0.0f, 0.0f};
+    in_.players[kGoalFrontCarrierSlot].active = true;
+    in_.carrierSlot = kGoalFrontCarrierSlot;
+    in_.carrierPos = {0.0f, 0.0f};
+    in_.laneHeading_deg = 0.0f;  // the lane runs along +x
+    in_.carrierStat = 50.0f;
+    in_.mates = {GoalFrontMate(5)};
+  }
+
+  void BlockTheLane() {
+    // The lane's theta is measured over (x, z) with dir(theta) = (sin, cos), so heading 0 runs
+    // along +z and the blocker sits 10 m up that axis.
+    in_.players[14].pos = {0.0f, 10.0f};
+    in_.players[14].active = true;
+  }
+
+  pes::CarrierConstants k_{};
+  pes::GoalFrontInput in_{};
+};
+
+TEST_F(GoalFrontUnitTest, TheGateIsTheBlockedLaneOutsideTheCentralZone) {
+  // 0x14212ABA0: the lane test silences the unit when the lane is free, and the central-zone
+  // early-out silences it whatever the lane says.
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  BlockTheLane();
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+  in_.central = true;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+}
+
+TEST_F(GoalFrontUnitTest, TheAngleGateHoldsFromTenMetresOut) {
+  // 0x1421265C0: inside the distance gate's own floor the angle is not read at all, above it the
+  // default 90 degree limit applies.
+  BlockTheLane();
+  in_.mates = {GoalFrontMate(5)};
+  in_.mates[0].distance_m = 30.0f;  // over the band: the answer dies on the band, not the angle
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].distance_m = 20.0f;
+  in_.mates[0].angleToFacing_deg = 75.0f;  // over the 70 limit
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].angleToFacing_deg = 65.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+  in_.mates[0].distance_m = 6.0f;
+  in_.mates[0].angleToFacing_deg = 179.0f;  // inside the floor the angle is not consulted
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+}
+
+TEST_F(GoalFrontUnitTest, TheStatRaisesTheLimitForAnAICarrier) {
+  // 0x1421267FF: 70 < the carrier's stat + 20 (0x14063E960's bonus) moves the limit to 117.
+  BlockTheLane();
+  in_.mates[0].angleToFacing_deg = 95.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.carrierStat = 80.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+  // The bonus is added before the comparison, so 51 + 20 crosses the floor.
+  in_.carrierStat = 51.0f;
+  in_.statBonus = true;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+  // A human carrier never reads the stat: the flag path is his.
+  in_.humanCarrier = true;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.flagSet = true;
+  in_.flagDistFar = true;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+}
+
+TEST_F(GoalFrontUnitTest, TheZoneAndPressureGates) {
+  // The mate's own zone must be central inside 15 m with a non-zero pressure class.
+  BlockTheLane();
+  in_.mates[0].zone.sector = pes::kSectorWide;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].zone = {15.0f, 0.0f, pes::kBandClose, pes::kSectorCentral, true};
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);  // not inside 15 m
+  in_.mates[0].zone = {10.0f, 0.0f, pes::kBandClose, pes::kSectorCentral, true};
+  in_.mates[0].pressure = 0.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].pressure = 3.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+}
+
+TEST_F(GoalFrontUnitTest, TheOpennessClassLadderAndTheDifficultyGate) {
+  BlockTheLane();
+  in_.mates[0].opennessClass = 1;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].opennessClass = 2;
+  in_.mates[0].distance_m = 20.0f;  // class 2 needs less than 15 m
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].distance_m = 10.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+  in_.mates[0].opennessClass = 0;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].opennessClass = 3;
+  in_.mates[0].difficulty = 1.5f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, -1);
+  in_.mates[0].difficulty = 1.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+}
+
+TEST_F(GoalFrontUnitTest, OnlyAStrictlyMoreOpenMateReplacesTheBest) {
+  // 0x1421265C0's tail: the most open mate wins; an equal openness keeps the earlier player, and a
+  // mate whose status byte fails never enters.
+  BlockTheLane();
+  in_.mates = {GoalFrontMate(5), GoalFrontMate(7)};
+  in_.mates[1].openness = 50.0f;  // equal: the earlier player keeps it
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+  in_.mates[1].openness = 40.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+  in_.mates[1].openness = 90.0f;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 7);
+  in_.mates[1].statusValid = false;
+  EXPECT_EQ(pes::GoalFrontUnit(in_, k_).index, 5);
+}
+
+TEST_F(GoalFrontUnitTest, TheAnswerIsAShortPass) {
+  // The answer slot writes b = 0 (the short pass).
+  BlockTheLane();
+  const pes::PassAnswer a = pes::GoalFrontUnit(in_, k_);
+  EXPECT_EQ(a.index, 5);
+  EXPECT_EQ(a.kind, pes::kPassShort);
+}
+
+TEST(PesCarrierTable, KindTwoCarriesOnlyTheGoalFrontAnswer) {
+  // The table fill: kind 2 takes the GoalFront answer, in the slot the list gave it.
+  const std::vector<int> kinds{4, 2};
+  pes::PassAnswer fwd, lng, cross, goalFront;
+  goalFront.index = 7;
+  goalFront.kind = pes::kPassShort;
+  const std::vector<pes::UnitSlot> table =
+      pes::FillUnitTable(kinds, false, fwd, lng, cross, goalFront, {});
+  EXPECT_EQ(table[0].answer.type, pes::kAnswerNone);
+  EXPECT_EQ(table[1].answer.type, pes::kAnswerPass);
+  EXPECT_EQ(table[1].answer.sub, pes::kPassShort);
+  const std::vector<pes::UnitSlot> silent = pes::FillUnitTable({2}, false, fwd, lng, cross, {}, {});
+  EXPECT_EQ(silent[0].answer.type, pes::kAnswerNone);
+}
+
+// --- the BackSpace unit (kind 3; gate 0x142129110, validator 0x1421226C0, cut-back picker
+// 0x142125140) ---
+//
+// Like GoalFront, the unit runs the lane core, so the constants come from the install and the
+// fixture overrides the gates with crisp values: these tests pin the structure, the loader test
+// pins the installed numbers.
+
+constexpr int kBackSpaceCarrierSlot = 3;  // a home player, so side 0
+
+pes::BackSpaceMate BackSpaceMate(int index) {
+  pes::BackSpaceMate m;
+  m.index = index;
+  m.statusValid = true;
+  m.teamNeed_m = 10.0f;    // over the 8 m gate-8 arm
+  m.recBDist_m = 12.0f;    // inside the (5, 30) band, over the 10 m angle floor
+  m.recBDifficulty = 0.5f;
+  m.recBClass = 4;
+  m.recAClass = 2.0f;
+  m.pressureClass = 1.0f;  // at most 1: no b-drop
+  m.slotStat = 1.0f;
+  m.speed_kmh = 5.0f;
+  return m;
+}
+
+class BackSpaceUnitTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    const char* root = std::getenv("PES21_ROOT");
+    if (!root)
+      GTEST_SKIP() << "PES21_ROOT unset: the unit runs the lane core, whose table is in the install";
+    std::string err;
+    auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+    ASSERT_TRUE(exe.has_value()) << err;
+    auto loaded = pes::LoadCarrierConstants(*exe, &err);
+    ASSERT_TRUE(loaded.has_value()) << err;
+    k_ = *loaded;
+    // Crisp gates. The gate lane request stays the install's (20 m, 80 deg, 1 m).
+    k_.bsOppDistSq_m2 = 36.0f;
+    k_.bsBallHeight_m = 1.0f;
+    k_.bsCornerDistSq_m2 = 225.0f;
+    k_.bsPredictGain = 0.3f;
+    k_.bsBoxSkipCount = 2.0f;
+    k_.bsBoxSkipMargin_m = 5.0f;
+    k_.bsAngleLimitGap_m = 6.0f;
+    k_.bsAlignDist_m = 6.0f;
+    k_.bsAlignNeed_m = 8.0f;
+    k_.bsAlignAngle_deg = 45.0f;
+    k_.bsNearBox_m = 20.0f;
+    k_.bsNearSum_m = 40.0f;
+    k_.bsFarDist_m = 20.0f;
+    k_.bsAngleClass = 4.0f;
+    k_.bsFacingLimit_deg = 90.0f;
+    k_.bsHumanFacingLimit_deg = 120.0f;
+    k_.bsLane1Len_m = 5.0f;
+    k_.bsLane1Cone_deg = 30.0f;
+    k_.bsLane1Rad_m = 2.0f;
+    k_.bsLane2Cone_deg = 140.0f;
+    k_.bsLane2Cap_deg = 20.0f;
+    k_.bsLane2Floor_deg = -20.0f;
+    k_.bsLane2Gain = 2.0f;
+    k_.bsLane2XNear_m = 3.0f;
+    k_.bsLane2XFar_m = 15.0f;
+    k_.bsLane2XSpan_m = 12.0f;
+    k_.bsLane2ZGain = 4.0f;
+    k_.bsLane2Base_m = 6.0f;
+    k_.bsLane2Pad_m = 2.0f;
+    k_.bsLane2LenMin_m = 3.0f;
+    k_.bsTailDistSq_m2 = 100.0f;
+    k_.bsTailHalf = 0.5f;
+    k_.bsTailFacing_deg = 90.0f;
+    k_.bsTailHeading_deg = 30.0f;
+    k_.bsTailPad_m = 1.0f;
+    k_.cbDist_m = 15.0f;
+    k_.cbSpeedBranch_kmh = 10.0f;
+    k_.cbAlign_deg = 70.0f;
+    k_.cbFastAlign_kmh = 14.0f;
+    k_.cbCrowd_m = 3.0f;
+    k_.cbBoxAngle_deg = 100.0f;
+    k_.cbSpeedGate_kmh = 5.0f;
+    k_.cbAdvance_m = 20.0f;
+    // The passing situation: carrier at the origin facing +z, mate 5 at (0, 12) with his target
+    // a metre further on, all static. The validator's lanes are empty, so it accepts; the gate
+    // lane is empty, so the lane branch is skipped (mid = false).
+    in_.players[kBackSpaceCarrierSlot].pos = {0.0f, 0.0f};
+    in_.players[kBackSpaceCarrierSlot].active = true;
+    in_.players[5].pos = {0.0f, 12.0f};
+    in_.players[5].active = true;
+    in_.carrierSlot = kBackSpaceCarrierSlot;
+    in_.carrierPos = {0.0f, 0.0f};
+    in_.carrierFacing_deg = 0.0f;
+    in_.carrierHeading_deg = 180.0f;  // against the mate's: the align gate passes
+    in_.carrierSlotStat = 1.0f;
+    in_.carrierNeed_m = 3.0f;  // under the mate's: the advance gate passes
+    in_.attackSign = 1.0f;
+    in_.teamLineOpp = 60.0f;  // the side test passes for any mate on the pitch
+    in_.pitchBound8 = 60.0f;
+    in_.pitchHalfLen_m = 52.5f;
+    in_.pitchF6 = 52.5f;
+    in_.ball = {0.0f, 0.0f};
+    in_.owned = true;
+    in_.plan = pes::kPlanPassThrough;
+    in_.planRecordTarget = 5;
+    in_.planRecordBytesOk = true;
+    in_.curveGate = true;  // the mid-pitch target is far from the corner, so the curve arm passes
+    pes::BackSpaceMate m = BackSpaceMate(5);
+    m.pos = {0.0f, 12.0f};
+    m.heading_deg = 0.0f;
+    m.recBTarget = {0.0f, 13.0f};
+    in_.mates = {m};
+  }
+
+  pes::CarrierConstants k_{};
+  pes::BackSpaceInput in_{};
+};
+
+TEST_F(BackSpaceUnitTest, PlanFourAnswersThePlanRecordTargetThrough) {
+  // 0x142129110's plan-4 arm: the validated plan-record target takes a through ball (b = 3).
+  const pes::PassAnswer a = pes::BackSpaceUnit(in_, k_);
+  EXPECT_EQ(a.index, 5);
+  EXPECT_EQ(a.kind, pes::kPassThrough);
+}
+
+TEST_F(BackSpaceUnitTest, ThePlanRecordBytesKillTheAnswer) {
+  // The two plan-record bytes ([1] == 0, [0] != 0) gate the plan-4 answer before the validator.
+  in_.planRecordBytesOk = false;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);
+}
+
+TEST_F(BackSpaceUnitTest, TheValidatorRejectsABadStatus) {
+  // 0x1421226C0 gate 1: the target's b6c status must be 0xB.
+  in_.mates[0].statusValid = false;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);
+}
+
+TEST_F(BackSpaceUnitTest, TheValidatorRejectsADifficultTarget) {
+  // 0x1421226C0 gates 3/9: record B's difficulty over 1.0 rejects (no danger).
+  in_.mates[0].recBDifficulty = 1.5f;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);
+  in_.danger = true;  // danger skips gate 3 but not the gate-9 re-read
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);
+}
+
+TEST_F(BackSpaceUnitTest, TheValidatorRejectsAlignedHeadings) {
+  // 0x1421226C0 gate 8: headings agreeing within 45 degrees reject (need under 8 m, dist over 6).
+  in_.mates[0].teamNeed_m = 5.0f;
+  in_.carrierHeading_deg = 10.0f;  // within 45 of the mate's 0
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);
+  in_.carrierHeading_deg = 180.0f;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
+  // Both comparisons are strict: exactly 8 m need, or exactly 45 degrees apart, passes.
+  in_.mates[0].teamNeed_m = 8.0f;
+  in_.carrierHeading_deg = 10.0f;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
+  in_.mates[0].teamNeed_m = 5.0f;
+  in_.carrierHeading_deg = 45.0f;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
+}
+
+TEST_F(BackSpaceUnitTest, TheValidatorLaneOneRejectsABlocker) {
+  // 0x1421226C0 gate 11: an opponent in the 5 m / 30 deg lane from the ball along the record
+  // angle rejects. The record angle is 0 (along +z), so the blocker sits 3 m up that axis.
+  in_.players[14].pos = {0.0f, 3.0f};
+  in_.players[14].active = true;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);
+}
+
+TEST_F(BackSpaceUnitTest, OtherPlansAnswerTheCutBackPicker) {
+  // 0x142125140: outside plan 4 the picker takes the validated mate (lane B free, distance
+  // short): a through ball too.
+  in_.plan = pes::kPlanBasic;
+  in_.mates[0].pos = {0.0f, 8.0f};
+  in_.mates[0].recBTarget = {0.0f, 9.0f};
+  in_.players[5].pos = {0.0f, 8.0f};
+  const pes::PassAnswer a = pes::BackSpaceUnit(in_, k_);
+  EXPECT_EQ(a.index, 5);
+  EXPECT_EQ(a.kind, pes::kPassThrough);
+}
+
+TEST_F(BackSpaceUnitTest, TheBDropNeedsCloseAndPressureAndClass) {
+  // 0x142129110's tail: the through ball drops to short only when all three exceed 1.
+  in_.plan = pes::kPlanBasic;
+  in_.mates[0].pos = {0.0f, 8.0f};
+  in_.mates[0].recBTarget = {0.0f, 9.0f};
+  in_.players[5].pos = {0.0f, 8.0f};
+  in_.mates[0].closeTest = true;
+  in_.mates[0].pressureClass = 2.0f;
+  in_.mates[0].recAClass = 2.0f;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).kind, pes::kPassShort);
+  in_.mates[0].pressureClass = 1.0f;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).kind, pes::kPassThrough);
+}
+
+TEST_F(BackSpaceUnitTest, TheLaneBranchSkipsWhenAnOpponentIsFar) {
+  // 0x142129110's lane branch: Mid zone, free gate lane, and the nearest opponent's 9-frame
+  // prediction past 6 m from the ball means no answer at all.
+  in_.mid = true;
+  in_.players[14].pos = {0.0f, 30.0f};
+  in_.players[14].active = true;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);
+  in_.players[14].pos = {5.0f, 0.0f};  // inside 6 m: the branch falls through to the answer
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
+}
+
+TEST_F(BackSpaceUnitTest, TheCornerTestPassesNearTheCorner) {
+  // 0x142129110's plan-4 arm: a record-B target within 15 m of the attack corner (+52.5, 0)
+  // passes without the curve gate.
+  in_.curveGate = false;
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, -1);  // mid-pitch target, no curve arm
+  in_.carrierPos = {42.0f, 5.0f};
+  in_.ball = {42.0f, 5.0f};
+  in_.players[kBackSpaceCarrierSlot].pos = {42.0f, 5.0f};
+  in_.mates[0].recBTarget = {50.0f, 5.0f};  // d2 = 31.25 < 225
+  in_.mates[0].pos = {48.0f, 5.0f};
+  in_.players[5].pos = {48.0f, 5.0f};
+  EXPECT_EQ(pes::BackSpaceUnit(in_, k_).index, 5);
+}
+
+// --- the Safety unit (kind 6; gate 0x14212B520, short picker 0x142126B70, through picker
+// 0x142128490) ---
+//
+// Like the other lane units, the constants come from the install and the fixture overrides the
+// gates with crisp values.
+
+constexpr int kSafetyCarrierSlot = 3;  // a home player, so side 0
+
+pes::SafetyMate SafetyMate(int index) {
+  pes::SafetyMate m;
+  m.index = index;
+  m.statusValid = true;
+  m.roleClass = 4;
+  m.recATurnAngle_deg = 90.0f;  // over 80, under 110
+  m.recAVsFacing_deg = 30.0f;
+  m.recADist_m = 12.0f;
+  m.recADifficulty = 0.5f;
+  m.recAClass = 3;
+  m.recBVsFacing_deg = 30.0f;
+  m.recBDist_m = 12.0f;
+  m.recBDifficulty = 0.5f;
+  m.recBClass = 3;
+  m.pressureClass = 3.0f;  // over the carrier's: the pressure gate passes
+  m.speed_kmh = 5.0f;
+  m.nearestOppD2 = 900.0f;  // 30 m: over the 225 floor, under the 35 m gate
+  m.zoneMid = true;
+  return m;
+}
+
+class SafetyUnitTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    const char* root = std::getenv("PES21_ROOT");
+    if (!root)
+      GTEST_SKIP() << "PES21_ROOT unset: the unit runs the lane core, whose table is in the install";
+    std::string err;
+    auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+    ASSERT_TRUE(exe.has_value()) << err;
+    auto loaded = pes::LoadCarrierConstants(*exe, &err);
+    ASSERT_TRUE(loaded.has_value()) << err;
+    k_ = *loaded;
+    // Crisp gates. The gate lane's cone stays the install's (80 deg); its radius is overridden.
+    k_.sfFacingTurn_deg = 135.0f;
+    k_.sfLaneRad_m = 3.0f;
+    k_.sfKeeperDist_m = 15.0f;
+    k_.sfKeeperFar_m = 40.0f;
+    k_.sfKeeperScalar = 1.5f;
+    k_.sfKeeperSpeedCap = 60.0f;
+    k_.sfOppD2Min = 225.0f;
+    k_.sfScoreDist_m = 10.0f;
+    k_.sfTurnOver_deg = 110.0f;
+    k_.sfTurnUnder_deg = 80.0f;
+    k_.sfClass4Bonus = 20.0f;
+    k_.sfNeedDanger = 120.0f;
+    k_.sfNeedCap = 135.0f;
+    k_.sfNeedFloor = 45.0f;
+    k_.sfSpeedFloor_kmh = 5.0f;
+    k_.sfSpeedCeil_kmh = 25.0f;
+    k_.sfSpeedSpan_kmh = -20.0f;
+    k_.sfDistCeil_m = 30.0f;
+    k_.sfNeedBase = 60.0f;
+    k_.sfNeedGain = 30.0f;
+    k_.sfClass5Bonus = 30.0f;
+    k_.sfTurnAttack_deg = 90.0f;
+    k_.sfTurnFace_deg = 45.0f;
+    k_.sfCeilDefault_m = 40.0f;
+    k_.sfCeilNear_m = 15.0f;
+    k_.sfCeilFar_m = 60.0f;
+    k_.sfCeilOpp_m = 100.0f;
+    k_.sfMateNear_m = 5.0f;
+    k_.sfMateSpeed_kmh = 20.0f;
+    k_.sfFrameSpeed = 80.0f;
+    k_.sfOppGate_m = 35.0f;
+    k_.sfLimGain = 0.4f;
+    k_.sfLimNear_m = 10.0f;
+    k_.sfLimFar_m = 20.0f;
+    k_.sfLimMin_m = 3.0f;
+    k_.sfOppPad_m = 2.0f;
+    k_.sfKeepPad_m = 5.0f;
+    k_.sfOuterTurn_deg = 50.0f;
+    k_.sfPressDist_m = 15.0f;
+    k_.sfLaneDivisor = 5.0f;
+    k_.sfLaneLenMin_m = 4.0f;
+    k_.sfLaneLenMax_m = 12.0f;
+    k_.sfLaneCone_deg = 220.0f;
+    k_.sfTieDiff_deg = 130.0f;
+    k_.sfTiePress = 9.0f;
+    k_.sfTieCornerSq = 1600.0f;
+    k_.sfTieGap_m = 5.0f;
+    k_.sfThruIdle = 3.0f;
+    k_.sfThruPress = 9.0f;
+    k_.sfThruCarrierSq = 1600.0f;
+    k_.sfThruRowSq = 900.0f;
+    k_.sfThruAlign_deg = 70.0f;
+    k_.sfThruAim_deg = 135.0f;
+    k_.sfThruClass = 3.0f;
+    k_.sfThruFacing_deg = 60.0f;
+    k_.sfThruNearSq = 100.0f;
+    k_.sfThruFarSq = 900.0f;
+    k_.sfThruLaneLen_m = 10.0f;
+    k_.sfThruLaneCone_deg = 60.0f;
+    k_.sfThruLaneRad_m = 5.0f;
+    // The passing situation: k = 0 (no pressure), so the short branch answers. The gate lane
+    // must be BLOCKED: the opponent at (0, 5) sits in the 80-deg cone about heading 0 (along
+    // +z) with len = 5 (his own distance). Mate 5 at (0, -8) survives the short picker: turn 90
+    // (under-80 false, over-110 false), dist 12 (window [5, 40], scored limit max(need, 45):
+    // carrier speed 0 -> wS 1, dist 12 -> wD (12-30)/(-20) = 0.9, need = 30+60+27 = 117,
+    // lim = 117 >= vsFacing 30), class 3 (floor 3, b28: pressClass 0), the one-touch lane free
+    // (no opponents near (0,-8)), and the first-candidate tiebreak.
+    in_.players[kSafetyCarrierSlot].pos = {0.0f, 0.0f};
+    in_.players[kSafetyCarrierSlot].active = true;
+    in_.players[5].pos = {0.0f, -8.0f};
+    in_.players[5].active = true;
+    in_.players[14].pos = {0.0f, 5.0f};
+    in_.players[14].active = true;
+    in_.carrierSlot = kSafetyCarrierSlot;
+    in_.carrierPos = {0.0f, 0.0f};
+    in_.carrierFacing_deg = 0.0f;
+    in_.carrierSpeed_kmh = 0.0f;
+    in_.laneHeading_deg = 0.0f;
+    in_.attackSign = 1.0f;
+    in_.sideAngle_deg = 0.0f;
+    in_.ball = {0.0f, 0.0f};
+    in_.carrierPressClass = 0;
+    in_.teamLineB = 60.0f;
+    in_.teamLineOpp = 60.0f;
+    in_.pitchHalfLen_m = 52.5f;
+    in_.pitchBound8 = 60.0f;  // F[8]: the validator's gate 3 bound on the target's x
+    in_.planHeading_deg = 0.0f;
+    pes::SafetyMate m = SafetyMate(5);
+    m.pos = {0.0f, -8.0f};
+    in_.mates = {m};
+  }
+
+  pes::CarrierConstants k_{};
+  pes::SafetyInput in_{};
+};
+
+TEST_F(SafetyUnitTest, NoPressureAnswersTheShortMate) {
+  // 0x14212B520 with k = 0: the short picker's mate takes a short ball (b = 0).
+  const pes::PassAnswer a = pes::SafetyUnit(in_, k_);
+  EXPECT_EQ(a.index, 5);
+  EXPECT_EQ(a.kind, pes::kPassShort);
+}
+
+TEST_F(SafetyUnitTest, AFreeGateLaneMeansNoAnswer) {
+  // 0x14212B520: the gate lane free (blocker removed) returns with no answer.
+  in_.players[14].active = false;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
+}
+
+TEST_F(SafetyUnitTest, TheScoredLimitRejectsATurnedMate) {
+  // 0x142126B70's scoring: vsFacing 130 over lim max(117, 45) = 117 rejects.
+  in_.mates[0].recAVsFacing_deg = 130.0f;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
+  in_.mates[0].recAVsFacing_deg = 100.0f;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, 5);
+}
+
+TEST_F(SafetyUnitTest, TheCeilingCascadeRejectsAFarMate) {
+  // 0x142126B70's ceiling: dist 50 over the default 40 rejects.
+  in_.mates[0].recADist_m = 50.0f;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
+}
+
+TEST_F(SafetyUnitTest, TheOneTouchLaneRejectsABlockedMate) {
+  // 0x142126B70's lane: an opponent in the 220-deg cone about the ball-advanced origin
+  // 0x142126B70's one-touch lane: origin the ball advanced 12 m along his heading (0, toward +z),
+  // aimed back at the ball, length clamp(12 / 5, 4, 12) = 4, so it covers z in [8, 12] at x = 0.
+  // An opponent at (0, 10) sits in that lane and blocks the mate.
+  in_.players[15].pos = {0.0f, 10.0f};
+  in_.players[15].active = true;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
+}
+
+TEST_F(SafetyUnitTest, PressureRunsTheThroughPicker) {
+  // 0x14212B520 with k = 2 (press+0x30 > 0): the through picker's mate takes a through ball
+  // (b = 3). The through run needs: idle gate (pressCount4 <= 162, or its pressure arm),
+  // carrier 40+ m from his nearest opp, carrier advanced, the row scan reaching mate 5, and
+  // the final lane free.
+  in_.pressCount1 = 1;
+  in_.pressCount4 = 0;
+  in_.players[14].pos = {0.0f, 50.0f};  // carrier's nearest opp 50 m out
+  in_.players[15].active = false;
+  in_.mates[0].pos = {10.0f, -8.0f};  // advanced: k*x = 10 > 0
+  in_.players[5].pos = {10.0f, -8.0f};
+  in_.mates[0].recBTarget = {14.0f, -8.0f};
+  in_.mates[0].recBDist_m = 12.0f;
+  in_.mates[0].recBClass = 4;  // over the through picker's class-3 floor; the validator's facing gate skips
+  const pes::PassAnswer a = pes::SafetyUnit(in_, k_);
+  EXPECT_EQ(a.index, 5);
+  EXPECT_EQ(a.kind, pes::kPassThrough);
+}
+
+TEST_F(SafetyUnitTest, TheGoalMouthFlagSilencesTheUnit) {
+  // 0x14212B520: +0x31C0 set returns with no answer whatever the pickers say.
+  in_.goalMouth = true;
+  EXPECT_EQ(pes::SafetyUnit(in_, k_).index, -1);
+}
+
+}  // namespace

@@ -321,7 +321,7 @@ and no goal-line clamp. It does **not** read the offside flag bits
 `[2]` turn class, `[3..5]` target, `+0xE0` pass angle (deg, `atan2(dx,dz)`), `+0xE4` angle to
 the attack direction, `+0xE8` angle to the carrier's facing (`ctx4+0x38`), `+0xEC` distance
 **ball → target** (2-D), `+0xF0` difficulty, `+0xF4` openness, `+0x18..` opponents sorted by
-distance to the target.
+distance to the target. _Cross-checked 19-10-26 (pes-re-carrier-helpers.md §6 item 15): no correction — offsets (+0xE0 angle, +0xE4 attack-angle, +0xE8 facing-angle, +0xEC dist, +0xF0 diff, +0xF4 openness, [0] class) match exactly._
 
 ```
 dirClass  = fwdAngle <= 60 ? 0 (forward) : (fwdAngle <= 110 ? 2 (square) : 1 (back))

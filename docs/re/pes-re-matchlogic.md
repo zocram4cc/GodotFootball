@@ -11,7 +11,7 @@ Scope: read-only RE of PES 2021 data (VFS of the user's install) and of the PES2
 
 **Sources.**
 - **Install VFS** (`pesfmt_dump`). Same mount order as the game.
-  - Gameplay constants: `common/match/constant/*.bin`. They come only from `Data/dt18_all.cpk`; a byte-identical `dt18_all - Copia.cpk` is skipped by the mounter.
+  - Gameplay constants: `common/match/constant/*.bin`. On a stock install they come from `Data/dt18_all.cpk`; `download/4cc_06_gameplay.cpk` overrides them on this install (mod winner: team 1513 B, match 4851 B, player 82986 B raw), and a byte-identical `dt18_all - Copia.cpk` is skipped by the mounter. _Corrected 19-10-26 (stock dt18): stock sizes team 1354 B, match 4817 B, player 40643 B from `Data/dt18_all.cpk`._
   - Database: `common/etc/pesdb/*.bin`. The VFS winner is the 4cc `download/4cc_01_base.cpk`, whose `Player.bin` is all placeholders. Real ratings were therefore decoded from the vanilla `Data/dt10_x64.cpk` copy (WESYS zlib container, 5,547,984 B decompressed, 17,782 players). The 4cc file has the same 312 B record layout: 4,830 placeholder records.
 - **Image** `<scratch>/pesmem.bin`. The live `.trace`/`.rdata`/`.data` of PES2021.exe were dumped from `/proc/<pid>/mem` (base 0x140000000; see `pes-kit-assembly.md` §7.0). All addresses below are virtual addresses in that image.
   - **Cross-check (OBS):** the third-party addresses in [Aoba, *PES2021 Engine Research*] hit the expected bytes in this dump. Examples:
@@ -189,6 +189,7 @@ Bit numbering: absolute bit index from record start, LSB-first (`(int.from_bytes
 | 0x78 | 0x141f0f5c0 | 242 | 30.2 | 8 | 0 | 0..162 | unknown 8-bit 0..162 |
 
 **Notes on the table.**
+- **Index spaces.** This table is the Player.bin accessor-id space (ids 0x0D..0x78), NOT the in-match byte space of §1.3: e.g. id 0x1A here = Place Kicking, while in-match byte 0x1A = Finishing (OBS: contact §3.3 + attack-leftovers:844). _Corrected 19-10-26 from pes-re-community-qa.md §6 C4: the §1.2 vs §1.3 index conflict resolved by space._
 - **Abilities** are 6-bit, stored as value − 40. This gives a hard 40..99 range; the accessor's mode-2 max is 99, an OBS literal `0x63` in every ability accessor.
 - **Playable-position labels** (0x33..0x3F). OBS over all 17,782 vanilla players: for players whose registered position is P, the matching field reads 2 ("A") in **100 %** of cases. For example, field 0x33 is 2 for every GK and for no outfielder. 0..2 = C/B/A. This matches the engine familiarity levels Aoba reports (EXT).
 - **Weak foot.** 0x2B/0x2C fit 31/32 with UI = raw + 1.
@@ -653,3 +654,4 @@ Scripts and intermediate files: `<scratch>/MatchLogicRE/` (`tbl.py`, `acc.py`, `
 
 
 > **Confirmed (ContactRE):** in-match stat indices 0x1a–0x1d are Finishing, Low Pass, Lofted Pass, Heading, by their use in code.
+> _Note 19-10-26 (pes-re-community-qa.md §6 C4): the PK-side in-match index stays OPEN — the kind-54 aim-scatter calc (dec `0x1406B4000`) weights bytes `+0x20` (0.6) and `+0x1A` (0.4); which stat `+0x20` holds is not pinned._

@@ -10,14 +10,15 @@ VA check (§Inputs): every VA in the brief appears in its cited doc —
 
 ## 1. LateralDamping reads the wrong object → record by name, +0x20 block
 - Red: `DampingRecordInstall.ReadsTheFreemoveBoundsFromThePlausibleBlock` failed on main
-  (loader returned garbage-path floats; expected 42.0/18.0/69.5).
+  (loader returned garbage-path floats; expected 42.0/18.0/69.5 = the 4cc mod's `freemove.o`; stock 20.0/18.0/67.5).
 - Fix: `LoadDampingRecord` reads `freemove.o` by name as on disk from
   `common/match/constant/constant_player.bin` and returns the record's +0x20 floats
-  {42.0, 18.0, 69.5} — the only plausible bounds block in the 80-byte object
+  {stock 20.0, 18.0, 67.5; mod 4cc_06_gameplay: 42.0, 18.0, 69.5} — the only plausible bounds block in the 80-byte object
   (`+0x08` reads ints 32/0/64 = denormals; `+0x30` has scale ≈ 0). The live path
   `FUN_141e5ca20(0x2e)+0x10..0x18` reads 9.3e-39/1.85e28/4.9e-44 on this build
   (addendum item 2), so no PES path to the bounds is known: carries a
   `// ponytail:` naming the open path. Garbage-path comment and +8 offsets deleted.
+  _Corrected 19-10-26 (stock dt18): `freemove.o` (`constant_player.bin`, 80 B) in `Data/dt18_all.cpk` has +0x20 = 20.0 and +0x28 = 67.5 (mod 42.0 and 69.5), so the stock bounds are {20.0, 18.0, 67.5}._
 - Old install test replaced (it pinned the garbage path): new
   `ReadsTheFreemoveRecordByNameFromTheInstall` asserts loader == hand recompute.
 - Mutation M1 (bounds back at +8): new test FAILED, reverted.

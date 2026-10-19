@@ -80,6 +80,9 @@ public:
   // PES's dead ball at the whistle: zero the velocity and the spin in place, leaving the position
   // for the restart writer, which reads it at the stop frame. The track is rebuilt so predictions
   // stop flying; the prepare teleport still moves the ball to the spot.
+  // ponytail: the zeroing stands in for PES's dead-ball handling at the whistle, whose writer is
+  // undecoded (A5Live observed the ball dead from the stop frame, docs/re/pes-re-A5Judge.md §9);
+  // remove when the judge's stop path (FUN_14050ee40 family) is ported.
   void Stop();
 
   void ResetSituation(const Vector3& focusPos);
