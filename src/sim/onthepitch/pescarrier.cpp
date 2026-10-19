@@ -305,7 +305,40 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
   k.gfStatFloor = static_cast<float>(gateByte);
   ok &= ReadImm(exe, Imm{0x1421266ad, {0x40, 0x80, 0xc5}, 3, 3}, &gateByte, error);
   k.gfStatBonus = static_cast<float>(gateByte);
-
+  // The BackSpace unit: its gate 0x142129110, validator 0x1421226C0 and cut-back picker
+  // 0x142125140 load sites. The three lane-1 immediates are `mov [rbp+disp8],imm32` stores
+  // (opcode C7 45), the disp byte naming the lane slot.
+  const std::pair<uint64_t, float*> backSpace[] = {
+      {0x1425a9464, &k.bsOppDistSq_m2},   {0x14256ae1c, &k.bsBallHeight_m},
+      {0x14259be70, &k.bsCornerDistSq_m2}, {0x142590d98, &k.bsPredictGain},
+      {0x14259222c, &k.bsBoxSkipMargin_m}, {0x14259bdec, &k.bsAngleLimitGap_m},
+      {0x14259bdec, &k.bsAlignDist_m},     {0x14259bdf4, &k.bsAlignNeed_m},
+      {0x14259be30, &k.bsAlignAngle_deg},  {0x14259be1c, &k.bsNearBox_m},
+      {0x14259be2c, &k.bsNearSum_m},       {0x14259be1c, &k.bsFarDist_m},
+      {0x14259be5c, &k.bsFacingLimit_deg}, {0x14256ae30, &k.bsHumanFacingLimit_deg},
+      {0x14259be64, &k.bsLane2Cone_deg},   {0x14259be1c, &k.bsLane2Cap_deg},
+      {0x1425a946c, &k.bsLane2Floor_deg},  {0x142565604, &k.bsLane2Gain},
+      {0x14258c264, &k.bsLane2XNear_m},    {0x14259be0c, &k.bsLane2XFar_m},
+      {0x14259be04, &k.bsLane2XSpan_m},    {0x1425656c0, &k.bsLane2ZGain},
+      {0x14259bdec, &k.bsLane2Base_m},     {0x142565604, &k.bsLane2Pad_m},
+      {0x14258c264, &k.bsLane2LenMin_m},   {0x14253ee30, &k.bsTailDistSq_m2},
+      {0x142565600, &k.bsTailHalf},        {0x14259be5c, &k.bsTailFacing_deg},
+      {0x142591140, &k.bsTailHeading_deg}, {0x14256ae1c, &k.bsTailPad_m},
+      {0x14259be0c, &k.cbDist_m},          {0x142588210, &k.cbSpeedBranch_kmh},
+      {0x14259be4c, &k.cbAlign_deg},       {0x1425c48b8, &k.cbFastAlign_kmh},
+      {0x14258c264, &k.cbCrowd_m},         {0x14253ee30, &k.cbBoxAngle_deg},
+      {0x14259222c, &k.cbSpeedGate_kmh},   {0x14259be1c, &k.cbAdvance_m},
+  };
+  for (const auto& r : backSpace) ok &= ReadVa(exe, r.first, r.second, error);
+  k.bsBoxSkipCount = 2.0f;  // `cmp [lVar15+0xb48],2`: an instruction shape, not a float
+  k.bsAngleClass = 4.0f;    // `cmp [recB],4`: an instruction shape, not a float
+  uint32_t lane1 = 0;
+  ok &= ReadImm(exe, Imm{0x142122cc1, {0xc7, 0x45, 0xd0}, 3, 3}, &lane1, error);
+  std::memcpy(&k.bsLane1Len_m, &lane1, sizeof lane1);
+  ok &= ReadImm(exe, Imm{0x142122cc8, {0xc7, 0x45, 0xd4}, 3, 3}, &lane1, error);
+  std::memcpy(&k.bsLane1Cone_deg, &lane1, sizeof lane1);
+  ok &= ReadImm(exe, Imm{0x142122cd8, {0xc7, 0x45, 0xd8}, 3, 3}, &lane1, error);
+  std::memcpy(&k.bsLane1Rad_m, &lane1, sizeof lane1);
   // The rolled plans' base probabilities, from the immediates of the plan
   // functions 0x14211a800 (Breakthrough), 0x14211b460 (MiddleShot),
   // 0x14211ab10 (Cross) and 0x14211b1d0 (Long).
@@ -1064,6 +1097,12 @@ PassAnswer GoalFrontUnit(const GoalFrontInput& in, const CarrierConstants& k) {
   answer.index = best;
   answer.kind = kPassShort;
   return answer;
+}
+
+PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k) {
+  (void)in;
+  (void)k;
+  return PassAnswer{};  // RED: the port lands next
 }
 
 bool UnitArmed(int kind, bool capFeint, bool capBackSpace, bool capSafety, float ballDistSq_m2,
