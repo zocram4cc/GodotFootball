@@ -716,13 +716,13 @@ INF(high): corners are effectively exact (20 s ≈ 89 m); throw-in re-forms only
 
 Registry index **183** (`DevelopData/.../team/basePosition.json`, record 0x142b49810, factory `0x141e792e0` allocates 0x368 B,
 vtable 0x142b5a328); getter `FUN_141e5d4c0(·, 0xb7)` (ten call sites, e.g. the team tick `0x1404f6c83`). The live object (read
-once, read-only) equals `basePosition.o` in the VFS `common/match/constant/constant_team.bin` (1513 B, entry `{0x19c, 864}`)
+once, read-only) equals `basePosition.o` in the VFS `common/match/constant/constant_team.bin` (mod 4cc_06_gameplay winner, 1513 B, entry `{0x19c, 864}`; stock 1354 B in `Data/dt18_all.cpk`)
 word for word except the padding bytes of four u8 fields; **struct offset = file offset + 8** (vtable). So the setpiece-referee
 field map is right and the values are readable at runtime: `cornerKickOffencePlayerNumber` 5, `cornerKickType` 2,
 `cornerkickDefenceMFSide` 100.0, `cornerkickDefenceMFWidth` 10.0, **`dfLineWidth_Corner` 6.0**, `cornerKickTime` bits
-0x41100000 (9.0 as f32; INF the field is f32, not u32), `adjustX_FreeKick` 9.0, `adjustZ_FreeKick` 15.0, `baseDist_FreeKick`
-30.0, `kickoffDfLineX` −12.0, `maxWaitTime` 0. The 1354-B `SetPieceRefRE/bin/constant_team.bin` is an older file (different
-values) — use the VFS winner.
+0x41100000 (mod 9.0 as f32; stock 7.0 = 0x40E00000; INF the field is f32, not u32), `adjustX_FreeKick` 9.0 (mod; stock not mapped), `adjustZ_FreeKick` 15.0 (mod; stock not mapped), `baseDist_FreeKick`
+30.0 (mod; stock not mapped), `kickoffDfLineX` −18.0 (stock; mod 4cc_06_gameplay: −12.0), `maxWaitTime` 30.0 (stock; mod 4cc_06_gameplay: 0). The 1354-B `SetPieceRefRE/bin/constant_team.bin` has the stock dt18 size and, per this section, different values from the mod winner; use the VFS winner at runtime.
+_Corrected 19-10-26 (stock dt18): `basePosition.o` words in `Data/dt18_all.cpk`: +0x7c = 7 (mod 9), +0x20c = −18 (mod −12), +0x254 = 30 (mod 0); cornerKickOffencePlayerNumber (+0xe4), cornerKickType (+0xe8), cornerkickDefenceMFSide (+0xec), cornerkickDefenceMFWidth (+0xf0) and dfLineWidth_Corner (+0x164) read 5 / 2 / 100.0 / 10.0 / 6.0 in both. Blob offset = struct offset − 8._
 
 ### 11.8 Wall jump decision (§9 item 5) — CLOSED for the CPU (OBS)
 
