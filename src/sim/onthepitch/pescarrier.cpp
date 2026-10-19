@@ -1024,6 +1024,77 @@ int PlanImageMode(int planId, int previousMode, bool receiving, float carrierX_m
   }
 }
 
+float PlanHeadingDeg(int mode, float carrierX, float carrierZ, float attackSign,
+                     const CarrierConstants& k) {
+  // FUN_14211E650 writes plan+0xC0 every frame (store 0x14211EB89, `MOVSS
+  // [RBX],XMM0` after `LEA RBX,[R14+0xC0]` at 0x14211EB7F; its only caller is
+  // FUN_14211D710 at 0x14211D7C7). The mode at plan+0xC4 selects a start/end
+  // point pair through the jump table at 0x14211EC50 (`MOV ECX,[RCX+RAX*4+
+  // 0x211EC50]` at 0x14211E764), every branch then calls FUN_14211C380 at
+  // 0x14211EB75, and the result is wrapped to [0, 360) with 0x14259858C.
+  if (mode != 2) {
+    // ponytail: modes 1/7 (0x14211E773, seeded by FUN_14211C610's ball-relative
+    // point), 3 (0x14211E930), 4 (0x14211E9B8), 5/6 (0x14211EA5E) and 8
+    // (0x14211E874) read plan-record fields GF does not carry (+0xA8 the plan's
+    // own carrier copy, +0xC8/+0xCC the plan target); the attack direction stands
+    // in for them. GF's Basic plan runs mode 2.
+    return AttackAngleDeg(attackSign);
+  }
+  // 0x14211E7AC (mode 2, Basic). The three points, from the pitch marks pf =
+  // *(G+0x2AA8) and the carrier record (param_2[1]: +0x14 the sign, +0x18/+0x20
+  // his x/z):
+  //   a   = p60 (RSP+0x60): ((F0-2) - F0/3) * sign, at the carrier's z  [0x14211E809]
+  //   b   = p50 (RSP+0x50): (F0-2) * sign, at the carrier's z          [0x14211E7F0]
+  //   aim = p70 (RSP+0x70): (F0-2) * sign, z = 0 - the goal centre      [0x14211E7CE]
+  // The projection is FUN_140A91120 (0x14211C3E2): the carrier is projected onto
+  // the segment a -> b. F0 is the pitch half-length, `2` is 0x142565604 and the
+  // divisor is 0x14258C264 (the same install constants the rest of this file
+  // reads), so no number here is a literal.
+  const float sign = attackSign;
+  const float f0 = pesFieldHalfLength;
+  const float pad = k.touchPad_m;     // 0x142565604 = 2.0
+  const float third = k.sfLimMin_m;   // 0x14258C264 = 3.0
+  const CarrierPoint a{sign * ((f0 - pad) - f0 / third), carrierZ};
+  const CarrierPoint b{sign * (f0 - pad), carrierZ};
+  const CarrierPoint aim{sign * (f0 - pad), 0.0f};
+  const float dx = b.x - a.x;
+  const float dz = b.z - a.z;
+  const float d2 = dx * dx + dz * dz;
+  float t = std::clamp(((carrierX - a.x) * dx + (carrierZ - a.z) * dz) / d2, 0.0f, 2.0f);
+  const CarrierPoint p{a.x + dx * t, a.z + dz * t};
+  // The overshoot reflection (FUN_14211C380's sqrt pair at 0x14211C4E3): when the
+  // projected point sits closer to b than the segment is long, the parameter is
+  // re-read as |p-a| / |b-a| and folded back past 1.
+  if ((p.x - b.x) * (p.x - b.x) + (p.z - b.z) * (p.z - b.z) < d2) {
+    const float r = std::sqrt((p.x - a.x) * (p.x - a.x) + (p.z - a.z) * (p.z - a.z)) /
+                    std::sqrt(d2);
+    t = r > 1.0f ? 1.0f - (r - 1.0f) : r;
+  }
+  // The blend out of the carrier's own depth past the goal area (0x14211E80F-
+  // 0x14211E86F): 0 inside F5, 2 past F1, twice the fraction between them.
+  const float az = std::fabs(carrierZ);
+  const float blend =
+      az <= pesGoalAreaHalfWidth
+          ? 0.0f
+          : (az < pesFieldHalfWidth
+                 ? 2.0f * ((az - pesGoalAreaHalfWidth) /
+                           (pesFieldHalfWidth - pesGoalAreaHalfWidth))
+                 : 2.0f);
+  // FUN_14211C380's two powf calls (0x14211C54C): the blend point is b pulled
+  // toward `aim`. A zero blend sends powf(1-t, inf) to 1 (or 0) and the outer
+  // powf to 1, so the aim point is taken whole - the same answer the two calls
+  // give, without an infinity.
+  float gain = 1.0f;
+  if (blend > 0.0f) {
+    const float inner = std::pow(1.0f - t, 1.0f / blend);
+    gain = std::pow(1.0f - inner, blend);
+  }
+  const CarrierPoint q{b.x + (aim.x - b.x) * gain, b.z + (aim.z - b.z) * gain};
+  // FUN_140474C40 (0x14211EBF0) = FUN_14046F260: atan2(to.x-from.x, to.z-from.z)
+  // in degrees, wrapped; the degenerate pair reads 0.
+  return BearingDeg(p, q);
+}
+
 // PES's list order is the table order the list builder writes (0x1421112c0); the walk reads it.
 namespace {
 
@@ -2126,37 +2197,24 @@ std::optional<Curve> BuildCurve(const std::array<lane::LanePlayer, lane::kSlots>
 
 bool OneTouch(const TouchInput& in, const CarrierConstants& k) {
   const float s = in.attackSign;
-  // G1: the carrier is not behind his team line (k*x >= k*line).
   if (s * in.carrierPos.x < s * in.ownLine_m) return false;
-  // G2: nor past the pitch bound and its pad (k*x <= F+0x18 + 2).
   if (s * in.carrierPos.x > in.pitchBound_m + k.touchPad_m) return false;
-  // G3: the team level, level/100, is at least 2. 0x140A40BD0 reads the level (zero when +0xA29C is set);
-  // 0x140A60360 rejects level/100 < 2.
   const int level = in.teamLevelZero ? 0 : in.teamLevelRaw;
   const int levelHundreds = level / 100;
   if (levelHundreds < 2) return false;
-  // G4: the team mode is 3 or 4, or the carrier's category is 4 or more (0 is the keeper).
   const bool modeThreeOrFour = in.teamMode == 3 || in.teamMode == 4;
   if (!modeThreeOrFour && in.carrierCategory < 4) return false;
-  // G5: the score row reads 1600 (40 m squared) or more.
   if (in.score < k.touchScore_m2) return false;
-  // G6: the carrier is not in the close shooting band.
   if (in.closeZone) return false;
-  // G7: a human carrier, or no one-two run on the carrier's side.
   if (!in.humanCarrier && in.oneTwoRunEvent) return false;
-  // G8: the runs in progress stay under min(2, base + inc): base from the level (5 or 6: 2, 4: 1),
-  // inc from the attack level (3 or more) or the team mode (2 or 3).
   const int base = (levelHundreds == 5 || levelHundreds == 6) ? 2 : (levelHundreds == 4 ? 1 : 0);
   const int inc = (in.attackLevel >= 3 || in.teamMode == 2 || in.teamMode == 3) ? 1 : 0;
   if (in.runCount >= std::min(2, base + inc)) return false;
-  // G9: the plan is 1, 2, 3, 5 or 6.
   const int m = in.planMode;
   if (!(m == 1 || m == 2 || m == 3 || m == 5 || m == 6)) return false;
-  // G10: not a fast, marked carrier turning more than 100 degrees from the plan heading.
   if (in.carrierSpeed_kmh >= k.touchSpeed_kmh && in.markCount > 3.0f &&
       std::fabs(WrapDeg(in.carrierHeading_deg - in.planHeading_deg)) > k.touchTurn_deg)
     return false;
-  // G11: the lane 15 m along the plan heading from the carrier holds an opponent (count != 0).
   const lane::LaneRequest lane{ToLaneVec(in.carrierPos), in.planHeading_deg, k.touchLaneLen_m,
                                k.touchLaneCone_deg, k.touchLaneRad_m};
   if (lane::LaneFree(k.lane, in.players, in.carrierSlot, lane, /*keepKeeper*/ false,
