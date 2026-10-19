@@ -1356,6 +1356,51 @@ void TurnStopLadder(MoveHost& host, MoveReq& req, float speedKmh, const RunConst
   EnterTurnStop(host, req);
 }
 
+// PES's blend-point exit (FUN_1406bb570 lines 666-717). The dwell words and the foot flag clear, then the 4-tick speed runs
+// the rate ladder when it is at most 16 km/h or a flag is set; the band and the speed word follow, and the clip is issued
+// with the foot band (vt+0x00). ponytail: the 4-tick sample is PositionAt(4), the port's stand-in for FUN_141eb50b0(P, buf, 4)
+// (a position, not a displacement; the writer of P+0x2fc is undecoded). ponytail: the band and speed come from the speed
+// the sample gives, standing in for the anime interface's vt+0x68 and vt+0x48. ponytail: PES's band-3 rate clamp (lines
+// 718-745) is not ported; its (int) store into the rate word is unresolved.
+void ClipEndExit(MoveHost& host, MoveReq& req, const RunConstants& k, const MoveConstants& m, float hitSigned, float hit2,
+                 int liveFrame, bool flagged) {
+  req.SetF(moveword::kDwellLimit, 0.0f);
+  req.SetF(moveword::kDwellLimit2, 0.0f);
+  req.SetByte(moveword::kStyle, 0);
+  req.SetByte(moveword::kLiveKind, static_cast<uint8_t>(host.FootBand() - 1u < 2u));
+  float sample[3] = {0.0f, 0.0f, 0.0f};
+  host.PositionAt(static_cast<int>(static_cast<float>(host.TicksPerSecond()) * k.speed4 / k.kmh60 + k.half), sample);
+  const float speed = static_cast<float>(host.TicksPerSecond()) * k.kmh60 * k.kmh60 / k.kmh1000 *
+                      std::sqrt(sample[0] * sample[0] + sample[1] * sample[1] + sample[2] * sample[2]);
+  if (flagged || speed <= k.kmh16) {
+    // PES 685-709: the rate ladder over the thresholds, shifted by the three-unit when the last hit is behind the frame.
+    float lowA = k.kmh135;
+    float lowB = k.kmh8;
+    if (hitSigned == 0.0f) {
+      lowA = k.kmh11;
+      lowB = k.kmh5;
+    }
+    const float shift = static_cast<int>(hit2) < liveFrame ? m.dist3 : 0.0f;
+    float rate = k.rate06;
+    if (lowB - shift <= speed) {
+      if (lowA - shift <= speed) {
+        if (k.kmh22 - shift < speed) rate = host.RateCeiling() * k.rate095;
+      } else {
+        rate = 0.3f;  // PES's literal 0x3e99999a
+      }
+    } else {
+      rate = 0.15f;  // PES's literal 0x3e19999a
+    }
+    req.SetF(moveword::kRate, rate);
+    // PES 710-715: the band and the speed word.
+    const int band = speed < k.kmh5 ? 0 : (speed < k.kmh11 ? 1 : 2);
+    req.SetU(moveword::kRateBand, static_cast<uint32_t>(band));
+    req.SetF(moveword::kStopSpeedWord, speed);
+  }
+  // PES 716-717: the clip issue, carried to the adapter as the pending motion with the foot band.
+  req.SetByte(moveword::kMotionPending, 1);
+}
+
 void Accelerate(MoveHost& host, MoveReq& req) {
   const RunConstants& k = host.RunConstantsView();
   const RunTables& t = host.RunTablesView();
@@ -1587,6 +1632,14 @@ void Accelerate(MoveHost& host, MoveReq& req) {
       }
       host.SetRecordF0bec(newHeading);
     }
+  }
+  // PES 666-717: the blend-point exit. The blend has passed (B <= liveFrame) or a player check set a flag, and the clip is
+  // issued. ponytail: PES 573-609 (the flag cVar7) and 610-665 (bVar23, whose class-5 test is PassGetReceiver() == player on
+  // GF) are not ported, so both stand at their clear answer.
+  const bool clipEndFlagged = false;
+  if (static_cast<int>(clip.blend) <= liveFrame || clipEndFlagged) {
+    ClipEndExit(host, req, k, m, hitSigned, hit2, liveFrame, clipEndFlagged);
+    return;
   }
   (void)share;
 }
