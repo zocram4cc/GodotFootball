@@ -2124,8 +2124,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // carrier's facing against the direction he is attacking stands in. Both are
     // PES bearings (0 = +z, 90 = +x), the frame T+0x250 is stored in.
     intent.headingDiff_deg = WrapDeg(facingNowAngle - pes::AttackAngleDeg(attackSign));
-    // 0x142119929: attackSign * K.x (K = ctx4 = bp+0x78, K+0x40 is the ball x the per-tick copy
-    // carries) against F[6], the penalty-area line, which GF reads from the pitch marks.
+    // 0x142119915: `MOVSS XMM0,[R12+0x14]; MULSS XMM0,[R14+0x40]` - attackSign * K.x (K = ctx4 =
+    // bp+0x78, K+0x40 is the ball x the per-tick copy carries), compared with F[6] at 0x14211991B.
     intent.attackDot = attackSign * ballPos.coords[0];
     intent.penaltyLine_m = pesFieldHalfLength - SetPieceLaws::kAreaDepth;
     // ponytail: a5+0xB58 and a5+0xB3C are the two stored ball leads PES

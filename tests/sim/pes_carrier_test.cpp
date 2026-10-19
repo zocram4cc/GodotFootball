@@ -2315,6 +2315,21 @@ TEST_F(OneTwoUnitTest, TheOneTouchLaneMustBeBlocked) {
   EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
 }
 
+TEST_F(OneTwoUnitTest, G11sLaneRunsAlongThePlanHeadingNotTheAttack) {
+  // G11's theta is the PLAN heading (ctx7+0xC0), which the predicate passes to the lane core; the
+  // attack direction is a different field (T+0x250). The fixture's opponent sits 8 m along +x, so a
+  // plan heading of 90 holds him and a heading of 0 (the old 0 stand-in's direction) does not.
+  in_.touch.planHeading_deg = 90.0f;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, kOneTwoMate);
+  in_.touch.planHeading_deg = 0.0f;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+  // The attack direction does not move the lane: it stays the plan heading.
+  in_.touch.attackAngle_deg = 0.0f;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+  in_.touch.planHeading_deg = 90.0f;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, kOneTwoMate);
+}
+
 TEST_F(OneTwoUnitTest, TheTeamLevelGateNeedsLevelTwo) {
   // 0x142128C10's G3: the team level, level/100, must reach 2.
   in_.touch.teamLevelRaw = 100;  // level 1
