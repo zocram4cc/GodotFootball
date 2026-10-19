@@ -368,6 +368,8 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x14259222c, &k.cbSpeedGate_kmh},   {0x14259be1c, &k.cbAdvance_m},
   };
   for (const auto& r : backSpace) ok &= ReadVa(exe, r.first, r.second, error);
+  const std::pair<uint64_t, float*> s1Rows[] = {{0x14259be40, &k.s1RadToDeg}, {0x1425795e4, &k.s1TwoPi}};
+  for (const auto& r : s1Rows) ok &= ReadVa(exe, r.first, r.second, error);
   k.bsBoxSkipCount = 2.0f;  // `cmp [lVar15+0xb48],2`: an instruction shape, not a float
   k.bsAngleClass = 4.0f;    // `cmp [recB],4`: an instruction shape, not a float
   uint32_t lane1 = 0;
@@ -1550,13 +1552,8 @@ PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k) {
       if (in.mates[i].index == in.planRecordTarget) mateIdx = i;
     if (mateIdx >= in.mates.size()) return answer;
     const BackSpaceMate& m = in.mates[mateIdx];
-    auto rank0 = [&](int q) {
-      // ponytail: the NearestEntry rank-0 read (T18+0x22E4C) has no GF table; the nearest
-      // opponent to the entry stands in. The table's writer is undecoded (helpers §5).
-      const int side = lane::IsAwaySlot(q) ? 0 : 1;
-      const lane::LanePlayer& qp = in.players[q];
-      return NearestSideSlot(in.players, side, {qp.pos.x, qp.pos.z});
-    };
+    // The NearestList rank 0 of the side opposite the entry (row q of the carrier's lane snapshot).
+    auto rank0 = [&](int q) { return in.nearestOpponent[q]; };
     if (!PassThroughValidator(in, mateIdx, k, rank0)) return answer;
     const CarrierPoint corner{in.attackSign == 1.0f ? in.pitchHalfLen_m : -in.pitchHalfLen_m, 0.0f};
     if (!(Dist2(m.recBTarget, corner) <= k.bsCornerDistSq_m2) && !CurveGateOk(in, m.pos)) return answer;
@@ -1571,11 +1568,7 @@ PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k) {
   // discarded - so the port starts at the loop.
   for (const BackSpaceMate& m : in.mates) {
     if (m.index < 0 || m.index > 21 || m.index == in.carrierSlot) continue;
-    auto rank0 = [&](int q) {
-      const int side = lane::IsAwaySlot(q) ? 0 : 1;
-      const lane::LanePlayer& qp = in.players[q];
-      return NearestSideSlot(in.players, side, {qp.pos.x, qp.pos.z});
-    };
+    auto rank0 = [&](int q) { return in.nearestOpponent[q]; };
     size_t mateIdx = 0;
     for (size_t i = 0; i < in.mates.size(); ++i)
       if (in.mates[i].index == m.index) mateIdx = i;
@@ -1683,7 +1676,7 @@ int ShortFrames(float dist_m, float speed_kmh) {
 // carrier's speed (the 5/25 km/h ramp) and the mate's distance (the 10/30 m ramp) over the shared
 // -20 span; danger fixes it at 120.
 float ShortLimit(const SafetyInput& in, const SafetyMate& m, bool keeper, const CarrierConstants& k) {
-  if (keeper) return k.sfNeedFloor;
+  if (keeper) return std::max(k.sfNeedCap, k.sfNeedFloor);  // the keeper keeps the default need 135: lim = max(need, 45)
   float wS = 1.0f;
   if (k.sfSpeedFloor_kmh < in.carrierSpeed_kmh)
     wS = in.carrierSpeed_kmh < k.sfSpeedCeil_kmh
@@ -1696,7 +1689,8 @@ float ShortLimit(const SafetyInput& in, const SafetyMate& m, bool keeper, const 
   if (m.recAClass == 4) need += k.sfClass4Bonus;
   if (m.recAClass == 5) need += k.sfClass5Bonus;
   if (in.danger) need = k.sfNeedDanger;
-  return need <= k.sfNeedCap ? std::max(need, k.sfNeedFloor) : k.sfNeedCap;
+  // The cap is a switch, not a clamp: a need over 135 gives lim 45 (0x1421271B7-1D2, helpers doc).
+  return need > k.sfNeedCap ? k.sfNeedFloor : std::max(need, k.sfNeedFloor);
 }
 
 // The carrier's inputs to the short picker's head: b28 (free-ish: press10 == 0, or press10 == 1
@@ -1742,7 +1736,7 @@ bool ShortMateSurvives(const SafetyInput& in, const SafetyMate& m, const ShortCa
                           (!in.receivingFlag || in.ctx44 < k.sfKeeperScalar) &&
                           in.carrierPressClass == 0);
     if (!(speedArm && sideArm)) return false;
-  } else if (!(in.humanCarrier || k.sfOppD2Min <= m.nearestOppD2)) {
+  } else if (!(in.humanCarrier || k.sfOppD2Min <= m.score)) {
     return false;
   }
   // The scored limit and the turn arm, when the scoring gate runs (press30 < 2, class < 5, dist >= 10).
@@ -1939,13 +1933,11 @@ int SafetyThroughPicker(const SafetyInput& in, const CarrierConstants& k) {
         in.attackSign * in.carrierPos.x < in.attackSign * in.teamLineB)
       return lane::kNoSlot;
   }
-  // The carrier's NearestEntry row: his teammates by distance from him, eleven at most.
+  // The carrier's NearestEntry row: his teammates in the NearestList order the caller gives (the
+  // caller sorts them), eleven at most.
   std::vector<const SafetyMate*> row;
   for (const SafetyMate& m : in.mates)
     if (0 <= m.index && m.index <= 21 && m.index != in.carrierSlot) row.push_back(&m);
-  std::stable_sort(row.begin(), row.end(), [&](const SafetyMate* a, const SafetyMate* b) {
-    return Dist2(a->pos, in.carrierPos) < Dist2(b->pos, in.carrierPos);
-  });
   for (size_t j = 0; j < row.size() && j < static_cast<size_t>(lane::kSideSize); ++j) {
     const SafetyMate& m = *row[j];
     if (k.sfThruRowSq < Dist2(m.pos, in.carrierPos)) break;  // the row is sorted: the rest are farther
@@ -1991,17 +1983,9 @@ PassAnswer SafetyUnit(const SafetyInput& in, const CarrierConstants& k) {
     if (in.pressCount3 != 0 &&
         k.sfFacingTurn_deg < std::fabs(WrapDeg(in.carrierFacing_deg - in.planHeading_deg)))
       ++kk;
-    const int nearest = NearestSideSlot(in.players, OpponentSide(in.carrierSlot), in.carrierPos);
-    // ponytail: PES's gate length is sqrt of the carrier's own d2 in the opposite-sign score row
-    // (0x14212B71D-0x14212B76F: entry rank[c] + 11 * (c >= 11) of 0x140A714A0(T18, k), the row for the
-    // sign !k). Its writer is OPEN (S1), so the length stays a stand-in: the nearest opponent's distance
-    // plus the radius. At exactly that distance the strict outer bound (apex to rim) would exclude him;
-    // the radius keeps him on the lane. Removing site: the score row's writer (S1, shared with the
-    // one-touch and DirectHighBall score).
-    float len = 0.0f;
-    if (nearest != lane::kNoSlot)
-      len = std::sqrt(Dist2({in.players[nearest].pos.x, in.players[nearest].pos.z}, in.carrierPos)) +
-            k.sfLaneRad_m;
+    // PES's gate length is the root of the carrier's d^2 in the row of sign !k (0x14212B71D..0x14212B76F,
+    // 0x140A714A0): the attacked goal's S1 row, pesscorerows.hpp.
+    const float len = std::sqrt(in.carrierGateD2_m2);
     const lane::LaneRequest gate{ToLaneVec(in.carrierPos), in.laneHeading_deg, len,
                                  k.unitLaneCone_deg, k.sfLaneRad_m};
     if (lane::LaneFree(k.lane, in.players, in.carrierSlot, gate, /*keepKeeper*/ false, 0))

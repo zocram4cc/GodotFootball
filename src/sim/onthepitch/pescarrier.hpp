@@ -192,6 +192,9 @@ struct CarrierConstants {
   float curveShotStatGain = 0.0f;   // 10, 0x142588210
   float curveShotFloor = 0.0f;      // 5, `mov eax, 5` at 0x14211b106
   float curveShotCap = 0.0f;        // 70, `cmp ebx, 0x46` at 0x14211b0fa
+  // --- the S1 score rows (pesscorerows.hpp) ---
+  float s1RadToDeg = 0.0f;  // 180/pi, 0x14259BE40: the writer's bearing scale
+  float s1TwoPi = 0.0f;     // 2 pi, 0x1425795E4: the writer's bearing fold
   // --- the Intention ratchet (report 5, 0x1421197b0) and the image manager ---
   float intentionClose_deg = 0.0f;  // 100, 0x14253ee30
   float intentionLead_m = 0.0f;     // 10, 0x142588210
@@ -1012,6 +1015,7 @@ struct BackSpaceMate {
 
 struct BackSpaceInput {
   std::array<lane::LanePlayer, lane::kSlots> players{};  // the 22 players the lane core reads
+  std::array<int, lane::kSlots> nearestOpponent{};  // NearestList rank 0 of each slot's opposite side
   int carrierSlot = -1;                                  // the reference slot
   bool humanCarrier = false;                             // ctx4+0x6C: the human arms (gate 10's limit)
   CarrierPoint carrierPos;                               // the lane origin (record +0x55C/+0x564)
@@ -1065,7 +1069,8 @@ struct SafetyMate {
   float speed_kmh = 0.0f;           // 0x140477130
   bool statusValid = false;         // 0x142118D20(team+0xB6C, slot % 11) == 0xB
   int roleClass = -1;               // the side's +0x4C00[j] (B array): 0 = keeper
-  float nearestOppD2 = 0.0f;        // 0x140587E70: the team table's nearest-opponent d2
+  float nearestOppD2 = 0.0f;        // the mate's nearest-opponent d^2: G1's 35 m test and the tiebreak (stand-in)
+  float score = 0.0f;               // the S1 row d^2 of the attack sign (ScoreRowForSign): gate 4's 225 floor
   float pressureClass = 0.0f;       // 0x14069A3E0(team+0x2124, slot % 11)[+0x10]
   bool zoneMid = false;             // 0x14063E140(team, slot, 0): the mate's mid-zone test
   ShootZone zoneAtPred16;           // 0x140698D10 at the 16-frame prediction (the validator's mode-1 arm)
@@ -1090,6 +1095,7 @@ struct SafetyInput {
   std::array<lane::LanePlayer, lane::kSlots> players{};  // the 22 players the lane core reads
   int carrierSlot = -1;                                  // the reference slot
   CarrierPoint carrierPos;                               // the carrier's ground point (+0x55C/+0x564)
+  float carrierGateD2_m2 = 0.0f;  // the S1 row d^2 of the carrier for the sign !k (GateRowForSign); gate length is its root
   CarrierPoint carrierVelPerFrame;                       // record +0x574/+0x57C
   float carrierFacing_deg = 0.0f;                        // ctx4+0x38, in the BearingDeg convention
   float carrierHeading_deg = 0.0f;                       // 0x140458740 of the carrier
@@ -1164,7 +1170,7 @@ struct TouchInput {
   int attackLevel = 0;             // G8: T+0xB8A4 (S4, writer OPEN)
   int teamMode = 2;                // G4, G8 and the receiver's angle block: 0x141052E30 (S4)
   int carrierCategory = -1;        // G4: T(sd)+0x4C00[s%11]; 0 is the keeper
-  float score = 0.0f;              // G5: score(T18, k, s), d^2 (S1 stand-in)
+  float score = 0.0f;              // G5: score(T18, k, s), the carrier's d^2 to the attacked goal (S1 row)
   bool closeZone = false;          // G6: IsClose(IA+0x9CC)
   bool humanCarrier = false;       // K+0x6C
   bool oneTwoRunEvent = false;     // G7: the newest event is the carrier side's one-two run (S7)
@@ -1185,14 +1191,29 @@ bool OneTouch(const TouchInput& in, const CarrierConstants& k);
 struct OneTwoInput {
   TouchInput touch;
   float carrierAngle_deg = 0.0f;     // K+0x34 (S9: stands in with the carrier's facing)
-  std::vector<TouchReceiver> mates;  // the list row's teammates, nearest first (S3 stand-in)
+  std::vector<TouchReceiver> mates;  // the teammates in NearestList order from the carrier, nearest first
 };
 PassAnswer OneTwoUnit(const OneTwoInput& in, const CarrierConstants& k);
+
+// K+0x6E, the volatile-ball flag the DirectHighBall gate and the Safety keeper side arm read
+// (FUN_14063A490, 0x14063AA5E..0x14063AA91). It is written only while K+0x6C is 0 (0x14063AA62)
+// and is set when the ctx4 height K+0x44 is above the carrier's height byte P+0xA1 / 100: the byte
+// is read at 0x14063AA79 and the divisor 100.0 sits at 0x14253EE30 (0x14063AA84).
+struct VolatileBallInput {
+  bool humanCarrier = false;     // K+0x6C (GF's carriers are AI: false)
+  float ballHeight_m = 0.0f;     // K+0x44: the ctx4 point's height
+  float carrierHeight_m = 0.0f;  // P+0xA1 / 100: the carrier's physical height
+};
+// ponytail: the ball-track arm (B+0x4C, 0x14063AB01..0x14063AB06, with B+0x80 and B+0x1C) has no GF
+// state; GF's ball track is not carried, so the arm stays off. Upgrade: decode the B+0x4C writers.
+inline bool VolatileBall(const VolatileBallInput& in) {
+  return !in.humanCarrier && in.ballHeight_m > in.carrierHeight_m;
+}
 
 // --- DirectHighBall (kind 11, gate 0x142129BE0) ---
 //
 // A teammate with the inputs the loop reads: his receiver fields (also the f10 test), his velocity,
-// and the stand-ins for the angle table and the score row.
+// and the stand-in for the angle table.
 struct DirectHighBallMate {
   TouchReceiver receiver;
   CarrierPoint velPerFrame;     // record +0x574/+0x57C
@@ -1201,7 +1222,7 @@ struct DirectHighBallMate {
   float tableAngle_deg = 0.0f;  // 0x140A71260 (S10 stand-in: his facing)
   bool keeper = false;          // T(side)+0x4C00[m%11] == 0
   int recAClass = 0;            // record A [0]: at least 1 to be listed
-  float score = 0.0f;           // score(k, m), d^2 (S1 stand-in)
+  float score = 0.0f;           // score(k, m), the mate's d^2 to the attacked goal (S1 row)
   int markCount = 0;            // AI rec2 +0x12A4 (S11): counted below 5, else 0
 };
 struct DirectHighBallInput {

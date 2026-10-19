@@ -158,6 +158,26 @@ TeamAIController::~TeamAIController() {
     printf("done\n");
 }
 
+void TeamAIController::TickScoreRows() {
+  // The lane space of the team's carrier controller: its own active players at 0..10 and the
+  // opponents at 11..21, each side in squad order (ElizaController's fillSide).
+  pes::RowPlayers players{};
+  const auto fillSide = [&](Team* side, int base) {
+    std::vector<Player*> squad;
+    side->GetActivePlayers(squad);
+    for (int j = 0; j < pes::lane::kSideSize && j < static_cast<int>(squad.size()); ++j) {
+      const Vector3 pos = squad[j]->GetPosition();
+      players[base + j] = pes::RowPlayer{pos.coords[0], pos.coords[1], true};
+    }
+  };
+  fillSide(team, 0);
+  fillSide(match->GetTeam(1 - team->GetID()), pes::lane::kSideSize);
+  const pes::CarrierConstants& carrier = match->GetPesCarrierConstants();
+  const pes::ScoreRowConstants k{pesFieldHalfLength, pesFieldHalfWidth, carrier.s1RadToDeg,
+                                 carrier.s1TwoPi};
+  scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay());
+}
+
 void TeamAIController::Process() {
   if (match->IsFrameSecond())
     UpdateTactics();
