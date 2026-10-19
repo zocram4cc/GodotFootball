@@ -174,3 +174,49 @@ Checks and open items for Main (round 3):
 - Live PES was read during this round but no live result is cited. The priority table is confirmed statically, which is the source the brief asks for.
 
 Report: `local://pes-doc-propagation-r3.md`.
+
+### G-r4: Round 4 (PropAudit4, 19-10-26; branch `PropAudit4` on origin/main `df30230`)
+
+Three source reports, one commit each (`4393658` community-qa, `04361f2` role-writer, `bb6cddf` carrier-helpers). Notes use `_Corrected 19-10-26 from <doc> §x: <evidence>._` with the old reading struck or quoted. Role-writer SUPERSEDES community-qa C5 and parts of F1 (its version applied where they conflict). All floats written match carrier-helpers §0 (audited table re-verified mechanically against pes_full.bin this round: all 40 .rdata values + 3 immediates agree).
+
+| # | Older doc | Orig. line | Old claim | New claim | Source | Status |
+|---|---|---|---|---|---|---|
+| R4-C1 | pes-re-extra-frontman.md | 107 (§3.1 taker loop) | "+0.2 if bit 15" | +0.2 iff style bit 15 (+0x48) AND bit 15 of DAT_142613D20[B[slot]] (set only for class 1 CB); gate via FUN_140A64030 → FUN_1408CB0B0 | community-qa §6 C1 (dec FC860/64030/8CB0B0 + table decode) | EDITED |
+| R4-C2 | pes-re-tactics.md | 236-244 (§6.2) | "exactly ids 8/A/E/F always tested with a player slot" | claim kept; note added: ids 4/B/C/D may also have per-slot sites (auditor census 3/3/4/6, not re-verified) | community-qa §6 C2 (auditor census only) | NOTE (not verified → note, not rewrite) |
+| R4-C3 | pes-re-tactics.md | 235, 239 (§6.2) | "17 DEFENCE_MAX sentinel (INF high)" | sentinel OBS: tester rejects id ≥ 0x11 (cmp r8d,0x11); setter returns on 0x11 | community-qa §6 C3 (dec both) | EDITED |
+| R4-C4 | pes-re-matchlogic.md | §1.2 notes, :655 | 0x18/0x1A conflict between §1.2 table and :655 | §1.2 is the Player.bin accessor-id space, §1.3 the in-match byte space; PK-side in-match index stays OPEN (chip calc weights +0x20/+0x1A) | community-qa §6 C4 (contact §3.3, attack-leftovers:844, chip dec) | EDITED + NOTE |
+| R4-C5 | pes-re-stamina-subs.md | 26 | (proposal: remapped output is a different enum) | NOT APPLIED — SUPERSEDED by role-writer §6: both branches implement the SAME map; C5 bullet in community-qa struck as superseded | role-writer §6 (byte-identical tables) | PARKED (superseded) |
+| R4-C6 | (auditor's +7.0) | — | auditor "+= 7.0 (flt_14259BDF4)" | no doc edit: our docs (attack-decisions:134, :268, :387) correctly say 8.0; raw bytes confirm | community-qa §6 C6 | PARKED (not one of our docs; keep 8.0) |
+| R4-C7 | pes-re-team-concepts-port.md | 58 | "their in-match writer is unfound" | team-sheet writer FUN_140A42600 OBS (refuses 0x11); in-match path still OPEN | community-qa §6 C7 (dec) | EDITED |
+| R4-C8 | pes-re-lane-core.md | 214-222 (§5.1) | "category→keeper mapping OPEN (O1)" | C8 note added ("keep OPEN until live writer checked"); then O1 CLOSED on static by role-writer (class 0 = GK dumped; live T1+0x4C00[0]=0) | community-qa §6 C8 → role-writer §6 | NOTE then EDITED (closed) |
+| R4-C9 | pes-re-defensive-shape.md | 168 | MATCH_UP writer "not reduced" | gated on team byte +0x1775 ∈ {3, 8..10}, slot table[candidate] % 11 | community-qa §6 C9 (dec 140536210) | EDITED |
+| R4-C10 | pes-re-anim-select-2.md | 117, 348 (AL-04) | +5 m widening "when the target's per-player value differs" | DA < 65, ball ≤ 36 m from goal; Track Back (bit 23 of +0x40) zeros the term | community-qa §6 C10 (dec + raw) | EDITED (both rows) |
+| R4-R1 | pes-re-community-qa.md | 25-27 (F1) | 42590 value INF; base param_1+0x44 unresolved; remapped enum differs | R8D=ESI both calls (same value CONFIRMED); +0x44/+0x8204 = two S blocks (S=T+0xC48 CONFIRMED); single map, flag selects source row | role-writer §6 (asm + raw tables) | EDITED (self-correction) |
+| R4-R2 | pes-re-tactics-clock.md | 17, 137, 276, 302, 519 | "T+0x4C00 per-player perf tier" | role-class array (B); clock reads it as tier thresholds 1..2/3..6/≥7; open item 4 closed | role-writer §6 (§2 reader map, §5) | EDITED |
+| R4-R3 | pes-re-positioning-phases.md | 10-12, 43 | "role-array writers … no store pinned yet" | writers FUN_140A59F90 + FUN_1404F5F10 + picker scratch + B-swap; §5 writers item closed | role-writer §6 (§1) | EDITED |
+| R4-R4 | pes-re-foundation-teamplayer.md | 98-99 | "T+0x4c00 registered position 0..12; setup copy by loop; S1 0 hits" | class 0..9 (B), rebuilt every tick + setup/phase; S1 missed because stores use S base +0x3F8C/0x3FB8 | role-writer §6 (§1, §4, §5) | EDITED |
+| R4-R5 | pes-re-OffBallSelectors.md | 15 | "0x3fb8+0xc48 = 0x4c00 (opponent's registered position)" | array B class 0..9 on the S base; P+0x3FB8 is a different array (aliases S only at init) | role-writer §6 (§2, §4) | EDITED |
+| R4-R6 | pes-re-foundation-matchball.md | 134 (D2) | "MA+0x3fb8 (+0xc48 = opponent registered position)" | opponent role class 0..9, array B; same P+0x3FB8 alias note | role-writer §6 (§2, §4) | EDITED |
+| R4-R7 | pes-re-lane-core.md | 216, 400 (O1) | "category→keeper mapping OPEN (O1)" | CLOSE O1: class 0 = GK dumped; selector returns first active B==0; post-swap caveat | role-writer §6 (map dump + dec + live) | EDITED |
+| R4-R8 | pes-re-extra-frontman.md | 61, 344 | "classes are P+0x3FB8, 22 ints; names beyond kind 0 OPEN" | §5 class map (kind 1=CB, 2=FB per FC860 {1,2}); P aliases S at init; open item 3 closed | role-writer §6 (§2, §5) | EDITED |
+| R4-H1 | pes-port-A4Lanes.md | 44 | validator UNDECODED; mate-based 225 test | plan-record bytes tested first; d2(recB[target].target, corner) ≤ 225 OR 0x1421225E0; validator decoded (§1.1) | carrier-helpers §6 item 1 (L100-118) | EDITED |
+| R4-H2 | pes-port-A4Lanes.md | 52 | "*0.0 looks like a decompiler artefact, needs asm check" | *0.0 REAL (MULSS XMM7=0); frames = 0; CURRENT positions compared | carrier-helpers §6 item 2 (asm) | EDITED |
+| R4-H3 | pes-port-A4Lanes.md | 49 | callee list omits 0x14063CD90/0x14063D2F0/0x140A48A30; typo 0x140481B0 | full list; fixed typo | carrier-helpers §6 item 3 (asm CALL scan) | EDITED |
+| R4-H4 | pes-port-A4Lanes.md | 50 | "loop body (100-291) not read" | read (§1.2); 0x14063E960 result dead; head lane dead | carrier-helpers §6 item 4 (asm) | EDITED |
+| R4-H5 | pes-carrier-A4Cont.md | 16 (BackSpace row) | "within 36 m → no answer" | MORE than 6 m (d2 > 36 squared) → no answer (A4Lanes §2.4 CONFIRMED); plan-record bytes added | carrier-helpers §6 item 5 (§1.1) | EDITED |
+| R4-H6 | pes-carrier-A4Cont.md | 18 (Safety row) + A4Carrier:113 | "lines NOT read"; "free lane 80 m / 3.0" | all read (§2.1); cone 80°, rad 3.0, len = runtime sqrt(d2); FREE ⇒ no answer | carrier-helpers §6 item 6 (raw) | EDITED (both docs) |
+| R4-H7 | pes-re-A4Carrier.md | 113 (Safety inputs) | "k = press counts + facing vs plan angle > 135°" | k=2 if +0x30>0 else 1 if +0x34>1; +1 iff +0x38≠0 AND diff > 135° | carrier-helpers §6 item 7 (raw) | EDITED |
+| R4-H8 | pes-re-attack-decisions.md | 295-318 (BackSpace OBS) | "lead dist vs 36.0 → NO answer"; mate-based lane_ok | squared d2 vs 36 (6 m), gated IsMid ∧ free ∧ opp found; recB-target-based dist | carrier-helpers §6 item 8 (§1.1 + A4Lanes §2.4) | EDITED |
+| R4-H9 | pes-re-attack-decisions.md | 377-390 (cut-back OBS) | live head lane; "tiebreaks prefer closer" | head-lane dead; live lanes A (20/90/3) + B (need/90/3); min-line-value or flag min/max |z| | carrier-helpers §6 item 9 (§1.2) | EDITED |
+| R4-H10 | pes-re-attack-decisions.md | 392-396 (validator OBS) | "Returns void; accept falls to LAB_14212322b" | bool; TWO accepts (lane-2-empty, loop-end); tail exits reject; lane-1 cone 30.0 immediate + h quirk | carrier-helpers §6 item 10 (§1.1) | EDITED |
+| R4-H11 | pes-re-attack-decisions.md | 398 (5E0 OBS) | "addss 0.5 only — a score nudge, not a gate" | IS a gate (bool; callers branch); +0.5 ⇒ frames = 0 | carrier-helpers §6 item 11 (§1.4 + call sites) | EDITED |
+| R4-H12 | pes-re-attack-decisions.md | 417-433 (short picker OBS) | "need2: dist <= need"; unconfirmed clamp | max(need,45) vs recA+0xE8 (TURN angle); dist ceiling cascade; clamp CONFIRMED = lane LENGTH (cone 220) | carrier-helpers §6 item 12 (§2.2) | EDITED |
+| R4-H13 | pes-re-attack-decisions.md | 434-446 (through picker OBS) | unscoped 1600; inverted 70°; linear 100 | gate-1 OR gate-2; CARRIER's d2 > 1600 (40+ m); pass iff ≤ 70°; BAND 100 ≤ d2 ≤ 900; final lane CONFIRMED | carrier-helpers §6 item 13 (§2.3 + asm) | EDITED |
+| R4-H14 | pes-re-lane-structs.md | §3.1, §3.3, §5 item 3 | Safety "inside FUN_14212AEB0 (OneTwo)" | CURRENT bridge DB has NO function containing 0x14212B520 (nor BackSpace 0x142129110); raw disasm clean; older-DB note kept | carrier-helpers §6 item 14 (probes + raw) | NOTE (DB-state note; readings kept as older state) |
+| R4-H15 | pes-re-carrier-ai.md | §4.3 record-B fields | (cross-check, no correction claimed) | offsets match exactly — recorded as cross-checked, not corrected | carrier-helpers §6 item 15 | NOTE (no edit to claim) |
+
+Parked: R4-C5 (superseded by role-writer), R4-C6 (auditor error, not our doc). All other items EDITED or NOTEd. C2 stays a NOTE (auditor census, not re-verified) per the brief.
+
+Checks: docs only, no build/test/gate. `tools/check_pii.sh` from the main checkout (result in the report). No machine paths in added lines.
+
+Report: `local://pes-doc-propagation-r4.md`.
