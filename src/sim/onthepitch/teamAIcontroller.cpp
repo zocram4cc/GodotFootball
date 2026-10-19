@@ -19,9 +19,11 @@
 #include "teamAIcontroller.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <limits>
 #include <map>
+#include <utility>
 
 #include "../data/playerskills.hpp"
 #include "../data/playingstyles.hpp"
@@ -730,7 +732,7 @@ Vector3 TeamAIController::GetAdaptedFormationPosition(Player* player,
       (style == PlayingStyles::Player::GoalPoacher || style == PlayingStyles::Player::FoxInTheBox))
     styleDepth = pes::offball::StyleRunDepth(
         match->GetPesOffBallConstants(),
-        pes::offball::RoleClass(static_cast<int>(player->GetDynamicFormationEntry().role)),
+        RoleClassOfSlot(team->FormationSlotOf(player)),
         pes::style::StyleWord(style), GetRunState(player),
         match->GetDesignatedPossessionPlayer() == player);
   // Track Back: a midfielder or forward with the card drops deeper when his
@@ -1664,15 +1666,6 @@ bool IsDown(Player* p) { return p->GetCurrentFunctionType() == e_FunctionType_Sl
 // Heading in PES's convention (0 = +y, 90 = +x).
 float HeadingOf(const Vector3& v) { return std::atan2(v.coords[0], v.coords[1]) * 180.0f / pi; }
 
-// Position category T+0x4c00 (INF in the report): > 4 the wide and forward
-// roles, > 2 everything but keeper, centre backs and full backs.
-bool WideOrForward(e_PlayerRole r) {
-  return r == e_PlayerRole_LM || r == e_PlayerRole_RM || r == e_PlayerRole_LW || r == e_PlayerRole_RW ||
-         r == e_PlayerRole_AM || r == e_PlayerRole_CF || r == e_PlayerRole_SS;
-}
-bool BeyondBackLine(e_PlayerRole r) {
-  return r != e_PlayerRole_GK && r != e_PlayerRole_CB && r != e_PlayerRole_LB && r != e_PlayerRole_RB;
-}
 
 }  // namespace
 
@@ -1787,9 +1780,9 @@ pes::SideCounterInput TeamAIController::CounterInput(std::vector<Player*>* men) 
   for (Player* p : *men) {
     pes::CounterMan m;
     m.pos = p->GetPosition();
-    const e_PlayerRole role = p->GetFormationEntry().role;
-    m.wideOrForward = WideOrForward(role);
-    m.supportEligible = BeyondBackLine(role);
+    const int cls = RoleClassOfSlot(team->FormationSlotOf(p));
+    m.wideOrForward = cls > pes::roles::kRunnerClassAbove;
+    m.supportEligible = cls > pes::roles::kSupporterClassAbove;
     float nearest = std::numeric_limits<float>::max();
     for (Player* o : opponents) {
       const Vector3 d = o->GetPosition() - m.pos;
@@ -2284,6 +2277,49 @@ void TeamAIController::ProcessDesignatedSupporter(Player* carrier) {
                                               ob::SupportDistance_m(in);
 }
 
+// PES's role arrays (pesroles.hpp). GF's registry holds each slot's formation role in all three
+// phases; PES's own writer of the sheet registry is not decoded. The setup write is FUN_1404F5F10
+// with flag `i == 0` for team i (the setup loop at 0x141FBB06A).
+void TeamAIController::SetUpRoleArrays() {
+  for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) {
+    const e_PlayerRole formation = team->GetTeamData()->GetFormationEntry(slot).role;
+    const int role = pes::roles::RegisteredRoleOf(formation);
+    for (int phase = 0; phase < pes::kSheetPhases; ++phase)
+      teamSheet.SetRegisteredRole(slot, role, phase);
+  }
+  pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamSheet,
+                             pes::roles::WritePhase(team->GetID() == 0), &roles);
+}
+
+// The bulk writer FUN_1404F5F10 at the team tick's head and tail (FUN_14051D9E0). The head takes
+// flag 0 and the tail takes the possession latch T+0x255. Both are gated on MI+0x1775 == 0; GF has
+// no such byte and its stand-in (pesmovestep.cpp's MatchModeByte) is 0, so the gate is open.
+// ponytail: PES's registry is the sheet's role per phase. GF has no sheet phases, so each write
+// mirrors the role its slot's player holds now (the dynamic formation entry the readers used).
+void TeamAIController::WriteRoleArrays(bool head) {
+  const bool possession = team->IsPesPossession();
+  const int phase = pes::roles::WritePhase(!head && possession);
+  for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) {
+    const e_PlayerRole role = team->GetAllPlayers()[slot]->GetDynamicFormationEntry().role;
+    teamSheet.SetRegisteredRole(slot, pes::roles::RegisteredRoleOf(role), phase);
+  }
+  pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamSheet,
+                             phase, &roles);
+  if (head) return;
+  // The tail swap (FUN_14051E31E) also needs FUN_140A41BE0's latch (TailSwapAllowed).
+  if (roleSwap && possession && pes::roles::TailSwapAllowed(roles))
+    pes::roles::SwapB(&roles, roleSwap->first, roleSwap->second);
+}
+
+int TeamAIController::RoleClassOfSlot(int slot) const {
+  assert(slot >= 0 && slot < pes::roles::kSideSlots);
+  return roles.b[slot];
+}
+
+// ponytail: the swap pair T+0x89D4/0x89D8 has no decoded writer and no GF event supplies one, so
+// GF never swaps B. The writer of that pair removes this stand-in.
+void TeamAIController::RequestRoleSwap(int a, int b) { roleSwap = std::make_pair(a, b); }
+
 // The world as the run code reads it (pesoffball.hpp RunWorld), global ids
 // team·11 + slot over each team's active players in roster order.
 pes::offball::RunWorld TeamAIController::BuildRunWorld(
@@ -2329,9 +2365,11 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       f.pos = Flat(pl->GetPosition());
       f.vel = Flat(pl->GetMovement());
       f.facing = pesDeg(pl->GetDirectionVec());
-      f.roleClass = ob::RoleClass(static_cast<int>(pl->GetDynamicFormationEntry().role));
+      f.roleClass = ctl->RoleClassOfSlot(match->GetTeam(t)->FormationSlotOf(pl));
       f.styleWord = pes::style::StyleWord(pl->GetPlayerData()->GetPlayingStyle());
-      f.position = ob::Position(static_cast<int>(pl->GetFormationEntry().role));
+      // ponytail: PES's record +1 byte (FramesToReach's halving test) has no GF field; the keeper
+      // stands in for it until the record is read.
+      f.recordByte1 = f.roleClass == pes::roles::kKeeperClass ? ob::kHalvedReachRecordByte : 0;
       // ponytail: FUN_140a580a0's AI class (player +0xc0, a copy of +0x40) is
       // PES's AI behaviour class, which GF does not carry. The role class is
       // the closest analogue: the class the AI treats the player as.

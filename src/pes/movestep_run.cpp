@@ -192,9 +192,22 @@ float ClampSpeedKmh(float v, const RunConstants& k) {
 
 }  // namespace
 
-// FUN_140a92950(a, b): the pair's first angle; PES's desired-direction helper passes the facing
-// and the look heading and uses the first.
-float FirstAngle(float a, float /*b*/, const RunConstants& /*k*/) { return a; }
+// FUN_140a92950(heading, target, clamp): the heading stepped toward the target by at most the
+// clamp, wrapped into [0, 360). Ported from its own decompile, keeping PES's comparisons so its
+// NaN behaviour carries: the difference is FUN_14043a0a0's wrapped diff, the step is the smaller
+// of its magnitude and the clamp, the sign steps toward the target, and the fold matches
+// FUN_140a92c80's first fold.
+float StepHeading(float heading, float target, float clampDeg, const RunConstants& k) {
+  const float diff = AngleDiffDeg(target, heading, k);
+  const float sign = (0.0f <= diff) ? k.one : k.neg;
+  float step = sign * diff;
+  if (clampDeg <= step) step = clampDeg;
+  heading = FoldFull(heading, k);
+  heading += step * sign;
+  if (0.0f > heading) return heading + k.full;
+  if (k.full <= heading) return heading + k.wrapFull;
+  return heading;
+}
 
 // The clip's hit words, read from the live motion's record at rate 1.0 by GOTO_RUN, ACCELERATE and
 // DECELERATE (FUN_1406bdf10, FUN_1406bb570, FUN_1406bcd20). RotData entry 0 gives the total
@@ -684,7 +697,8 @@ void GotoRun(MoveHost& host, MoveReq& req) {
   if (!isTurnMotion && clipTotal <= clipLen && clipLen < (clipTotal + hit0 * 2) / 3 + 1) {
     float lockHeading = req.F(moveword::kRecordStampB);
     const int lockTicks = static_cast<int>(static_cast<float>(hit0 - clipLen) / req.F(moveword::kRecordStampA) + half);
-    const float alt = FirstAngle(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
+    const float alt = StepHeading(req.F(moveword::kHeading), req.F(moveword::kFacing),
+                                  req.F(moveword::kRecordStampA), k);
     if (AngleDiffDeg(alt, req.F(moveword::kRecordStampB), k) < k.deg90) lockHeading = alt;
     const float ratio = AngleDiffDeg(req.F(moveword::kHeading), req.F(moveword::kRecordStampB), k);
     if (AngleDiffDeg(alt, req.F(moveword::kHeading), k) / static_cast<float>(lockTicks) < k.deg45) {
@@ -719,7 +733,8 @@ void GotoRun(MoveHost& host, MoveReq& req) {
   }
 
   // The desired direction and the two bearings: bVar6 is "no turn needed", bVar5 the fast-turn.
-  const float desired = FirstAngle(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
+  const float desired = StepHeading(req.F(moveword::kHeading), req.F(moveword::kFacing),
+                                    req.F(moveword::kRecordStampA), k);
   const float bearing = AngleDiffDeg(desired, req.F(moveword::kFacing), k);
   bool noTurn = false;
   if (hit0 <= clipLen || bearing < k.deg45) noTurn = true;
@@ -828,7 +843,8 @@ void GotoRun(MoveHost& host, MoveReq& req) {
     if (k.deg1125b <= aim) return;
     float turnLimit = k.half_turn;
     if (motion == 0x8d1 || turnFamily) turnLimit = k.deg135;
-    const float speedForTurn = FirstAngle(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
+    const float speedForTurn = StepHeading(req.F(moveword::kHeading), req.F(moveword::kFacing),
+                                           req.F(moveword::kRecordStampA), k);
     const float speed = AngleDiffDeg(speedForTurn, req.F(moveword::kFacing), k);
     if (k.kmh135 < speed) turnLimit = k.deg1125b;
     if (motion == 0x8d1 || turnFamily) turnLimit = k.deg135;
@@ -1351,7 +1367,8 @@ void Accelerate(MoveHost& host, MoveReq& req) {
   const float distance = (hitMid - static_cast<float>(liveFrame)) / f2468 + k.half;
   float desired = req.F(moveword::kHeading);
   if (AngleDiffDeg(desired, req.F(moveword::kFacing), k) < k.deg90) {
-    desired = FirstAngle(req.F(moveword::kFacing), req.F(moveword::kHeading), k);
+    desired = StepHeading(req.F(moveword::kFacing), req.F(moveword::kHeading),
+                          req.F(moveword::kRecordStampA), k);
   }
   const float perTick = AngleDiffDeg(desired, req.F(moveword::kFacing), k) / distance;
   if (reorientClear && hitTotal <= liveFrame && liveFrame <= (static_cast<int>(hitEnd) + hitTotal) / 2 &&
@@ -1604,7 +1621,8 @@ void Decelerate(MoveHost& host, MoveReq& req) {
   if (reorientClear && hitTotal <= liveFrame && liveFrame <= (static_cast<int>(hitEnd) + hitTotal) / 2) {
     float desired = req.F(moveword::kRecordStampB);
     if (firstBearing < k.deg90) {
-      desired = FirstAngle(req.F(moveword::kFacing), req.F(moveword::kHeading), k);
+      desired = StepHeading(req.F(moveword::kFacing), req.F(moveword::kHeading),
+                            req.F(moveword::kRecordStampA), k);
     }
     const float secondBearing =
         AngleDiffDeg(req.F(moveword::kRecordStampB), req.F(moveword::kFacing), k);
@@ -2261,8 +2279,11 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
   // Arm 3's measurements: the desired angle and the bucket.
   float desired = req.F(moveword::kTurn);
   if (k.deg5p625 < bearingMag) {
-    desired = AngleDiffDeg(FirstAngle(req.F(moveword::kBodyDirection), req.F(moveword::kFacing), k) *
-                               k.blend08,
+    // FUN_140a92950(bodyDir, facing, bearingMag * 0.8): the clamp is the third argument, not a
+    // scale on the result. The old stub multiplied the heading by 0.8 before differencing,
+    // which bins a ~45-deg phantom turn whenever the body faces away from north.
+    desired = AngleDiffDeg(StepHeading(req.F(moveword::kBodyDirection), req.F(moveword::kFacing),
+                                       bearingMag * k.blend08, k),
                            req.F(moveword::kHeading), k);
   }
   const int bucket = AngleBucket(host.AngleBuckets(), desired, 10, false);

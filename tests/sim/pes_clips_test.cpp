@@ -183,6 +183,61 @@ TEST(PesClipsInstall, ASpecialQueryNamesExactlyOneTackleClip) {
   ASSERT_EQ(found.size(), 2u);  // as authored and mirrored
   for (int id : found) EXPECT_EQ(anims.GetAnim(id)->GetName().rfind(wanted->name, 0), 0u);
 }
+// The stalled free-kick taker (seed 7) drifts ~90 deg off his walk command while
+// idle_0_3_run_045_mirror plays. A mirrored clip must mirror the root travel on
+// the lateral axis only: same forward (engine -Y) travel, negated sideways (X).
+TEST(PesClipsInstall, AMirroredLocomotionClipMirrorsRootTravelSideways) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto rig = pesrig::BuildRig(vfs, &err);
+  ASSERT_TRUE(rig.has_value()) << err;
+  auto clips = pes::LoadPesClips(*exe, vfs, &err);
+  ASSERT_TRUE(clips.has_value()) << err;
+  AnimCollection anims(*rig);
+  anims.AddPesClips(*clips);
+  const pes::PesClip* wanted = nullptr;
+  for (const auto& clip : clips->clips)
+    if (clip.name == "idle_0_3_run_045") wanted = &clip;
+  ASSERT_NE(wanted, nullptr);
+  CrudeSelectionQuery query;
+  query.byFunctionType = true;
+  query.functionType = e_FunctionType_Special;
+  query.properties.Set("specialvar1", int(pes::PesClipFamily::kLocomotion));
+  query.properties.Set("specialvar2", wanted->motionNo);
+  DataSet found;
+  anims.CrudeSelection(found, query);
+  ASSERT_EQ(found.size(), 2u);
+  Animation* plain = nullptr;
+  Animation* mirrored = nullptr;
+  for (int id : found) {
+    Animation* a = anims.GetAnim(id);
+    if (a->GetName() == wanted->name)
+      plain = a;
+    else
+      mirrored = a;
+  }
+  ASSERT_NE(plain, nullptr);
+  ASSERT_NE(mirrored, nullptr);
+  Quaternion q;
+  Vector3 p0, p1, m0, m1;
+  const int last = plain->GetFrameCount() - 1;
+  ASSERT_GE(last, 1);
+  ASSERT_TRUE(plain->GetKeyFrame("player", 0, q, p0, false, true));
+  ASSERT_TRUE(plain->GetKeyFrame("player", last, q, p1, false, true));
+  ASSERT_TRUE(mirrored->GetKeyFrame("player", 0, q, m0, false, true));
+  ASSERT_TRUE(mirrored->GetKeyFrame("player", last, q, m1, false, true));
+  const Vector3 plainTravel = (p1 - p0).Get2D();
+  const Vector3 mirrorTravel = (m1 - m0).Get2D();
+  EXPECT_GT(std::fabs(plainTravel.coords[0]), 1e-4f)
+      << "the 045 cell must carry sideways travel to test the mirror";
+  EXPECT_NEAR(mirrorTravel.coords[0], -plainTravel.coords[0], 1e-4f);
+  EXPECT_NEAR(mirrorTravel.coords[1], plainTravel.coords[1], 1e-4f);
+}
 
 }  // namespace
 

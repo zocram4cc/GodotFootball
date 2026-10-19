@@ -108,6 +108,8 @@ class TeamSheet {
   int RegisteredRole(int slot, int phase, int plan = kCurrentPlan) const;
   int Role(int slot, int phase, int plan = kCurrentPlan) const;
   void SetRole(int slot, int role, int phase, int plan = kCurrentPlan);
+  // The 0x28 row (FUN_1408c51b0). PES's writer is not decoded; GF writes each slot's formation role.
+  void SetRegisteredRole(int slot, int role, int phase, int plan = kCurrentPlan);
   // FUN_1408c5130 / FUN_1408c5170 read, FUN_1408c5d50 writes both axes together.
   int CoordX(int i, int phase, int plan = kCurrentPlan) const;
   int CoordY(int i, int phase, int plan = kCurrentPlan) const;
@@ -169,6 +171,8 @@ struct TeamConceptConstants {
   std::array<int, kSheetDesignated> defaultDesignated{};
   std::array<int, kSheetTakers> defaultTaker{};
   int defaultSlotTarget = 0;
+  // FUN_1408C51F0's class map, read from the install (pesroles.cpp): registered role 0..12 -> class 0..9.
+  std::array<int, kSheetRoleBound> roleClassOfRegistered{};
   // team/subConcept.json (constant_team.bin subConcept.o): an id <= 0 is skipped.
   std::array<bool, kConceptCount> enabled{};
   float endTestAfter_s = 0;  // 0.1 (0x142588200): slot 3 runs once a concept is older
