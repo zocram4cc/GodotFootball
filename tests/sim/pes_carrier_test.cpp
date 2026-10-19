@@ -2746,3 +2746,21 @@ TEST(CarrierVolatileBall, IsSetWhenTheBallIsAboveTheCarriersHeight) {
   in.humanCarrier = true;  // K+0x6C != 0 skips the write (0x14063AA62)
   EXPECT_FALSE(pes::VolatileBall(in));
 }
+
+// K+0x6E's ball-track arm (0x14063AB01..0x14063AB06): B+0x4C != 0, B+0x80 == 0 and r14 == 0 (d1 >= d2, 2-D).
+TEST(CarrierVolatileBall, TheTrackArmSetsItWhenTheBallIsNotNearerItsAnchor) {
+  pes::VolatileBallInput in;
+  in.ballTrackFlag = true;
+  in.ball = {0.0f, 0.0f};
+  in.anchor = {1.0f, 0.0f};   // d1 = 1: the ball is nearer its anchor, so r14 = 1 and the arm is off
+  in.target = {10.0f, 0.0f};  // d2 = 100
+  EXPECT_FALSE(pes::VolatileBall(in));
+  in.anchor = {10.0f, 0.0f};  // d1 = 100 >= d2 = 1 (the target is now at 1): r14 = 0, so the arm sets K+0x6E
+  in.target = {1.0f, 0.0f};
+  EXPECT_TRUE(pes::VolatileBall(in));
+  in.ballFlag80 = true;       // B+0x80 != 0 makes r14b nonzero, so the arm is off
+  EXPECT_FALSE(pes::VolatileBall(in));
+  in.ballFlag80 = false;
+  in.ballTrackFlag = false;   // B+0x4C == 0: no arm
+  EXPECT_FALSE(pes::VolatileBall(in));
+}

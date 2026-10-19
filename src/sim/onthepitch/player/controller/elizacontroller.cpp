@@ -356,10 +356,6 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         // while holding the ball, not the pass target - the pass target is the
         // chosen team-mate, which is what this uses it for: he walks toward
         // the free man and GF's pass goes to him.
-        // ponytail: PES picks the mate as the first team-mate in his own
-        // neighbour list with 10 m of space (MA+0x22e4c is the engine's
-        // per-player sorted distance list); this engine's nearest-player rule
-        // to the carry point stands in for that list.
         const pes::KeeperConstants& keeperConstants = match->GetPesKeeperConstants();
         // His own goal-area and box marks (PES F5/F6/F7). The keeper of the -x
         // goal attacks +x, so his own half is -x: the marks are magnitudes and
@@ -369,7 +365,26 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         const pes::DistributionPoint carry = pes::PesAfterCatchCarry(
             player->GetPosition().coords[0], player->GetPosition().coords[1], attackDir, marks,
             keeperConstants);
-        Player* targetPlayer = AI_GetClosestPlayer(team, Vector3(carry.x, carry.z, 0), CastPlayer());
+        // PES's teammate (pes-re-keeper-port.md §2.2): roll over the keeper's own NearestList, his team's
+        // block nearest first, and take the first teammate whose squared distance is under 100.0 (0x14253EE30,
+        // the carrier constant sfCeilOpp_m). INF: block 0 holds the keeper-to-teammate d^2.
+        Player* targetPlayer = nullptr;
+        {
+          std::vector<Player*> squad;
+          team->GetActivePlayers(squad);
+          const auto it = std::find(squad.begin(), squad.end(), CastPlayer());
+          if (it != squad.end() && it - squad.begin() < pes::lane::kSideSize) {
+            const pes::SortedRow& nl = team->GetController()->Rows().nearest[it - squad.begin()];
+            const float pickD2_m2 = match->GetPesCarrierConstants().sfCeilOpp_m;
+            for (int r = 0; r < nl.Count(0); ++r) {
+              const pes::RowEntry& e = nl.Entry(0, r);
+              if (e.value < pickD2_m2) {
+                targetPlayer = squad[e.id];
+                break;
+              }
+            }
+          }
+        }
 
         if (targetPlayer) {
           // check if this player is away from opponents, before throwing ball to him
@@ -2713,7 +2728,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // The NearestList rank 0 of the side opposite each slot (BackSpace's pass-through validator).
     for (int q = 0; q < pes::lane::kSlots; ++q)
       bs.nearestOpponent[q] = rows.nearest[q].Nearest(pes::lane::IsAwaySlot(q) ? 0 : 1);
-    // The gate lane's length: the carrier's d^2 in the score row of the goal he defends.
+    // The gate lane's length: the carrier's d^2 in the row for sign !k (GateRowForSign, 0x140A714A0)
     sf.carrierGateD2_m2 = pes::GateRowForSign(rows, attackK).ValueOf(bs.carrierSlot);
 
     // The carrier's frame in PES's theta convention: dir(theta) = (sin, cos) over (x, z), so the
@@ -2807,6 +2822,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     pes::VolatileBallInput volatileIn;
     volatileIn.ballHeight_m = ballHeight;
     volatileIn.carrierHeight_m = CastPlayer()->GetStat("physical_height");
+    volatileIn.ball = {ballPos.coords[0], ballPos.coords[1]};  // B+0x1C and K+0x40 are OPEN; the arm stays off with the flag
     const bool volatileBall = pes::VolatileBall(volatileIn);
     sf.humanCarrier = false;  // ponytail: ctx4+0x6C is not decoded to GF state (GF's carriers are AI)
     sf.receivingFlag = volatileBall;
