@@ -562,6 +562,28 @@ TEST(GotoRun, ClampsTheBodyTurnToTheLookLimitBeforeTurning) {
   EXPECT_GE(rootFacing, -180.0f);
 }
 
+// FUN_1406bdf10's stop arm (goto_bdf10.c lines 215-217) waits for IDLE's second dwell when the state before the current
+// one is IDLE (P+0x245d, read at VA 0x1406be573): a GOTO_RUN that IDLE's stay decision just entered must not reach the
+// stop arm while that dwell runs.
+TEST(GotoRun, TheStopArmWaitsForIdleSecondDwellAfterLeavingIdle) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  pes::RotRecord rot;
+  rot.start = 30;  // a clip still running (its total is 54 ticks), so the stop arm's clip gate holds
+  h.record.rot.push_back(rot);
+  h.previousState = static_cast<int>(pes::MoveState::kIdle);
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetU(pes::moveword::kClassWord, 2u);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 90.0f);  // 90 degrees: past the 56.25-degree stop bearing
+  req.SetF(pes::moveword::kDwellElapsed2, 0.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 0.35f);
+  pes::movestep::GotoRun(h, req);
+  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
+}
+
 // ---------------------------------------------------------------------------------------------
 // The STOP handler's decision arms (FUN_1406c9e20). Its decompile's five exits are:
 //   1. the re-plan into GOTO_RUN (the turn lock words set, a band below 3, a speed under
