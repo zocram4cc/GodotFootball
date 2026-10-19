@@ -15,6 +15,7 @@
 #include "simcontext.hpp"
 #include "onthepitch/player/humanoid/humanoidbase.hpp"
 #include "utils/animation.hpp"
+#include "onthepitch/pesmovestep.hpp"
 
 #ifndef GF_SOURCE_DIR
 #define GF_SOURCE_DIR "."
@@ -69,17 +70,26 @@ TEST(RestartProbe, ThrowInTrace) {
     tk->CastHumanoid()->GetCurrentAnim()->anim->GetKeyFrame("body", a->frameNum, bo, bp);
     radian bx, by, bz;
     bo.GetAngles(bx, by, bz);
+    const pes::MoveStepRecord& rec = tk->GetMoveStep();
     const pes::IssuedClip& ic = tk->GetIssuedClip();
+    const pes::RunConstants& rk = match.GetPesMoveStepConstants().run;
+    const Vector3 toBallN = toBall.GetNormalized(Vector3(0, -1, 0));
+    const float cmdHead = pesmovestep::PesBearingDeg(rk, oc.desiredDirection.coords[0],
+                                                     oc.desiredDirection.coords[1]);
+    const float ballHead = pesmovestep::PesBearingDeg(rk, toBallN.coords[0], toBallN.coords[1]);
+    const float faceHead = pesmovestep::PesBearingDeg(rk, dir.coords[0], dir.coords[1]);
     std::printf(
         "[probe] t=%lu started=%d dist=%.2f face=(%.2f,%.2f) toBall=(%.2f,%.2f) "
-        "mv=(%.2f,%.2f) animId=%d fn=%d fam=%s frame=%d bodyZ=%.3f "
-        "ocDir=(%.2f,%.2f) ocVel=%.2f iss=%u mot=%d grp=%d clip=%s\n",
+        "mv=(%.2f,%.2f) animId=%d fn=%d fam=%s frame=%d "
+        "ocDir=(%.2f,%.2f) ocVel=%.2f iss=%u mot=%d grp=%d clip=%s state=%d cls=%d "
+        "cmdH=%.1f ballH=%.1f faceH=%.1f\n",
         tick, (int)b.started, toBall.GetLength(), dir.coords[0], dir.coords[1],
         toBall.coords[0], toBall.coords[1], tk->GetMovement().coords[0],
         tk->GetMovement().coords[1], a->id, (int)a->functionType, fam.c_str(), a->frameNum,
-        bz, oc.desiredDirection.coords[0], oc.desiredDirection.coords[1],
-        oc.desiredVelocityFloat, ic.serial, ic.request.motion, ic.request.group,
-        a->anim ? a->anim->GetName().c_str() : "none");
+        oc.desiredDirection.coords[0], oc.desiredDirection.coords[1], oc.desiredVelocityFloat,
+        ic.serial, ic.request.motion, ic.request.group,
+        a->anim ? a->anim->GetName().c_str() : "none", (int)rec.state, (int)rec.speedClass,
+        cmdHead, ballHead, faceHead);
     if (tick > 28700) break;
   }
   SUCCEED();
