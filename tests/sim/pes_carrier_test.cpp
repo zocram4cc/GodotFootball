@@ -166,6 +166,8 @@ pes::CarrierConstants Synthetic() {
   k.threatFullDist_m = 5.0f;
   k.threatFalloff = -0.25f;
   k.threatPushSq_m2 = 0.444444f;
+  k.intentionClose_deg = 100.0f;  // 0x14253ee30
+  k.intentionLead_m = 10.0f;      // 0x142588210
   return k;
 }
 
@@ -2285,6 +2287,28 @@ TEST_F(OneTwoUnitTest, TheTeamLevelIsTheRawLevelOverOneHundred) {
   EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
 }
 
+TEST_F(OneTwoUnitTest, G4TakesTheTeamModeThreeOrFourOrACategoryFourCarrier) {
+  // G4 (0x142128C10): `0x141052E30(param_1[6]) == 3 || == 4`, or the carrier's category >= 4. The
+  // mode is the carrier's Intention at bp+0x32B0+8 (writer 0x1421197B0); the controller used to pass
+  // the neutral 2 stand-in, which closed OneTwo for every carrier.
+  in_.touch.teamMode = 2;  // the old stand-in: G4 shut (the fixture's category is not >= 4 either)
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+  in_.touch.teamMode = 3;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, kOneTwoMate);
+  // A category-4 carrier opens G4 whatever the mode is.
+  in_.touch.teamMode = 2;
+  in_.touch.carrierCategory = 4;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, kOneTwoMate);
+}
+
+TEST_F(OneTwoUnitTest, G8sIncrementDoesNotCoverModeFour) {
+  // G8's increment (0x142128C10): +1 for the attack level >= 3, the mode 2 or the mode 3. At level 2
+  // (base 0) the cap is 1 for mode 3 and 0 for mode 4, so mode 4 opens G4 but G8 closes it. The
+  // controller passing the real Intention must not turn mode 4 into an answer by itself.
+  in_.touch.teamMode = 4;
+  EXPECT_EQ(pes::OneTwoUnit(in_, k_).index, -1);
+}
+
 
 TEST_F(OneTwoUnitTest, TheScoreFloorIsFortyMetresSquared) {
   // 0x142128C10's G5: the score row must read 1600 (40 m) or more.
@@ -2538,6 +2562,82 @@ TEST(PesCarrierInstall, TheStockTeamLevelIsAClassScaledByAHundred) {
   EXPECT_EQ(k->teamLevelRaw % 100, 0);                // a class scaled by the game's own 100
   EXPECT_LE(k->teamLevelRaw / 100, 7);                // inside 0x144286B70's 7-class cap
   EXPECT_GE(k->teamLevelRaw / 100, 2);                // the stock class opens G3 (0x140A60360's >= 2)
+}
+
+// --- G4's team mode: the carrier's Intention, written by 0x1421197B0 at bp+0x32B0+8 ---
+//
+// Read in order (raw asm 0x142119862..0x142119CD2): 4 is absorbing (0x142119868), then the
+// shoot-zone angle test (0x1421198FC), then 3 (0x14211993A), then 2 (0x142119956), then the
+// corridor block whose only stores are 2 (0x142119AD9), 1 (0x142119CB8) and 0 (the `xor edi,edi` at
+// 0x1421199B8 reaching 0x142119CD2 past the `ja`). The reader 0x141052E30 = *(u32*)(p+8).
+
+namespace {
+// Every gate of the writer off: the penalty test under its line, the B3C/B58 lead test under its
+// limit (so `B58 + 10 > B3C` is false), the shoot-zone test off and the corridor block shut.
+pes::IntentionInput QuietIntention() {
+  pes::IntentionInput in;
+  in.penaltyLine_m = 36.14f;
+  in.ballLimit_m = 1000.0f;
+  return in;
+}
+}  // namespace
+
+TEST(PesCarrierIntention, FourIsAbsorbing) {
+  const pes::CarrierConstants k = Synthetic();
+  EXPECT_EQ(pes::NextIntention(4, QuietIntention(), k), 4);
+}
+
+TEST(PesCarrierIntention, TheShootZoneAngleTestGivesFour) {
+  // 0x1421198FC: IsClose(pred+0x9CC) and |wrap180(bp+0x2C - bp+0x4C)| < 100 (0x14253EE30).
+  const pes::CarrierConstants k = Synthetic();
+  pes::IntentionInput in = QuietIntention();
+  in.closeBand = true;
+  in.headingDiff_deg = 99.0f;
+  EXPECT_EQ(pes::NextIntention(1, in, k), 4);
+  in.headingDiff_deg = 100.0f;  // strict: `jbe` skips at exactly 100
+  EXPECT_EQ(pes::NextIntention(1, in, k), 2);
+  in.headingDiff_deg = 0.0f;
+  in.closeBand = false;  // the zone test alone is not enough
+  EXPECT_EQ(pes::NextIntention(1, in, k), 2);
+}
+
+TEST(PesCarrierIntention, ThreeIsStickyAndThePenaltyAndLeadTestsGiveThree) {
+  // 0x142119909..0x142119938: prev == 3, or F[6] < attackSign*K.x (strict), or B3C <= B58 + 10
+  // (strict, 0x142588210).
+  const pes::CarrierConstants k = Synthetic();
+  EXPECT_EQ(pes::NextIntention(3, QuietIntention(), k), 3);  // sticky
+  pes::IntentionInput in = QuietIntention();
+  in.attackDot = 36.15f;  // just past the penalty line
+  EXPECT_EQ(pes::NextIntention(1, in, k), 3);
+  in.attackDot = 36.14f;  // strict: exactly on the line is not past it
+  EXPECT_EQ(pes::NextIntention(1, in, k), 2);
+  in.attackDot = 0.0f;
+  in.ballLead_m = 24.0f;  // B58 + 10 > B3C
+  in.ballLimit_m = 33.0f;
+  EXPECT_EQ(pes::NextIntention(1, in, k), 3);
+  in.ballLimit_m = 34.0f;  // B58 + 10 == B3C: the `jbe` skips
+  EXPECT_EQ(pes::NextIntention(1, in, k), 2);
+}
+
+TEST(PesCarrierIntention, TheCorridorBlockGivesOneTwoOrZero) {
+  // 0x142119960: behind the guard (team+4 < 2 and prev != 2) and after both queries answer
+  // (0x1421B7D40 count > 1 at 0x142119C91), the value is 1 when the block's own gate holds
+  // (0x142119C9A) and 0 when it does not. Every other outcome latches at 2 (0x142119AD9).
+  const pes::CarrierConstants k = Synthetic();
+  pes::IntentionInput in = QuietIntention();
+  in.corridorGuard = true;
+  in.corridorAnswered = true;
+  in.corridorState1 = true;
+  EXPECT_EQ(pes::NextIntention(1, in, k), 1);
+  in.corridorState1 = false;
+  EXPECT_EQ(pes::NextIntention(1, in, k), 0);  // the `xor edi,edi` path, reachable
+  in.corridorAnswered = false;
+  EXPECT_EQ(pes::NextIntention(1, in, k), 2);
+  in.corridorAnswered = true;
+  in.corridorGuard = false;
+  EXPECT_EQ(pes::NextIntention(1, in, k), 2);
+  in.corridorGuard = true;
+  EXPECT_EQ(pes::NextIntention(2, in, k), 2);  // prev == 2 skips the corridor entirely
 }
 
 }  // namespace

@@ -2124,9 +2124,9 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // carrier's facing against the direction he is attacking stands in. Both are
     // PES bearings (0 = +z, 90 = +x), the frame T+0x250 is stored in.
     intent.headingDiff_deg = WrapDeg(facingNowAngle - pes::AttackAngleDeg(attackSign));
-    // ponytail: (a4+0x14) * (a5+0x40) against pitch[6] - the carrier's advance
-    // against the penalty line, which is the pitch mark GF carries.
-    intent.attackDot = attackSign * carrierPos.coords[0];
+    // 0x142119929: attackSign * K.x (K = ctx4 = bp+0x78, K+0x40 is the ball x the per-tick copy
+    // carries) against F[6], the penalty-area line, which GF reads from the pitch marks.
+    intent.attackDot = attackSign * ballPos.coords[0];
     intent.penaltyLine_m = pesFieldHalfLength - SetPieceLaws::kAreaDepth;
     // ponytail: a5+0xB58 and a5+0xB3C are the two stored ball leads PES
     // compares, one of which GF does not carry; the ball's distance from him
@@ -2767,7 +2767,9 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     sf.sideAngle_deg = attackAngle;
     sf.planHeading_deg = attackAngle;  // ponytail: the plan heading (ctx7+0xC0) stands in with the attack direction
     sf.planMode = carrierImage.mode;
-    sf.teamMode = 2;  // ponytail: the team mode (0x141052E30) is not carried; neutral, as the chooser
+    // The team mode 0x141052E30 = *(u32*)(bp+0x32B0+8), the carrier's Intention the ratchet above
+    // writes (writer 0x1421197B0); ctx[6] is BallPlayer+0x32B0 (carrier-ai §Unit context).
+    sf.teamMode = intention;
     sf.teamLineOpp = attackSign * pesFieldHalfLength;  // ponytail: team-table lines are not carried
     sf.teamLineB = attackSign * pesFieldHalfLength;
     sf.teamLineOwn = 0.0f;  // ponytail: the own-side line (T18+0x40+side*0x14) stands in with the midfield
@@ -2824,7 +2826,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     touch.teamLevelRaw = carrier.teamLevelRaw;
     touch.teamLevelZero = false;
     touch.attackLevel = 0;  // G8: T+0xB8A4 is not carried (S4)
-    touch.teamMode = 2;     // G4, G8: the team mode is not carried (S4); neutral, as the chooser
+    touch.teamMode = intention;  // G4, G8: 0x141052E30 = the carrier's Intention (writer 0x1421197B0)
     touch.carrierCategory = bs.carrierSlot >= 0 ? bs.players[bs.carrierSlot].positionCategory : -1;
     touch.score = scoreStandIn(carrierXZ);
     touch.closeZone = pes::IsClose(zone);
