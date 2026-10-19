@@ -233,21 +233,68 @@ TEST(OffBallMask, AttackSlotsOpenToAllUntilEnoughAttackersAreForward) {
   EXPECT_TRUE((m >> 7) & 1u);  // the two nearest the goal line among the rest
   EXPECT_TRUE((m >> 8) & 1u);
 }
-// PES's T+0x4C00 holds the role CLASS 0..9 (role-writer §5), not the 13-value
-// registered position: a wide midfielder is class 5, a left back class 2. A
-// reader comparing the 13-value scale misclassifies both (LM=6 >= 4 looks
-// "forward", LB=2 < 4 looks "deep").
-TEST(OffBallMask, AWideMidfielderTakesNoReachPathALeftBackDoes) {
+// T+0x4C00 holds PES's role CLASS 0..9 (docs/re/pes-re-role-writer.md §5), not the
+// 13-value registered position. Each fixture sets `position` to the 13-value number
+// GF's Position() gives and `roleClass` to the class PES's array holds; the expected
+// answers are the class-scale ones.
+TEST(OffBallMask, ADefensiveMidfielderIsClassThreeAndIsReachGated) {
   const OffBallConstants k = Synthetic();
   RunWorld w = Running();
   w.p[kRunner].state = kBasePosition;
   w.p[kRunner].t = 1e9f;
   w.lineX[1] = 45.0f;                // the runner stays onside
-  w.p[kRunner].pos = {30.0f, 0.0f};  // 30 m ahead of the ball: past 15 m
-  w.p[kRunner].roleClass = 5;        // SMF: class 5 takes no reach path
-  EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
-  w.p[kRunner].roleClass = 2;        // SB: class 2 takes the reach path
+  w.p[kRunner].pos = {30.0f, 0.0f};  // 30 m ahead of the ball: past the 15 m reach
+  // DMF: registered position 4, class 3. PES's reach gate is `class < 4`
+  // (run2.c:557-572), so he takes the reach path and is rejected.
+  w.p[kRunner].position = 4;
+  w.p[kRunner].roleClass = 3;
   EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
+  // CMF: registered position 5, class 4: not below the gate.
+  w.p[kRunner].position = 5;
+  w.p[kRunner].roleClass = 4;
+  EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
+}
+
+// The attack-level skip is `class <= 4` (run2.c:562, `4 < iVar22` exempts): a CMF
+// (class 4) is skipped at attack level 0. His 13-value position 5 was not.
+TEST(OffBallMask, ACentralMidfielderIsClassFourAndIsSkippedAtAttackLevelZero) {
+  const OffBallConstants k = Synthetic();
+  RunWorld w = Running();
+  w.p[kRunner].state = kBasePosition;
+  w.p[kRunner].t = 1e9f;
+  w.p[kRunner].pos = {10.0f, 0.0f};
+  w.p[kRunner].aim = {20.0f, 0.0f};
+  w.lineX[1] = 25.0f;
+  w.carrier = 0;
+  w.p[kRunner].position = 5;  // CMF
+  w.p[kRunner].roleClass = 4;
+  EXPECT_EQ(kMaskAttackLevel, ChanceMaskReject(k, w, kRunner, ~0u, 0, false, 50.0f, true));
+  w.p[kRunner].position = 6;  // LMF: class 5, above the skip
+  w.p[kRunner].roleClass = 5;
+  EXPECT_EQ(kMaskPass, ChanceMaskReject(k, w, kRunner, ~0u, 0, false, 50.0f, true));
+}
+
+// The attack-slot mask admits class >= 7 (SS, WF, CF) outright: PES's writer scores
+// `class < 7` and gives the rest score -100 with their bit (FUN_140500200, the
+// `iVar20 < 7` else branch). The 13-value positions 7 (RMF) and 8 (AMF) are >= 7 too,
+// so the old mask admitted them; their classes 5 and 6 are scored like everyone else.
+TEST(OffBallMask, ARightMidfielderAndAnAttackingMidfielderAreScoredNotAdmitted) {
+  RunWorld w = Running();
+  // Four attackers ahead of the ball band (ids 1..4; the runner is id 3), so the
+  // mask is selective at attack level 2 (need 4).
+  w.p[1].pos = {10.0f, -6.0f};
+  w.p[2].pos = {10.0f, -3.0f};
+  w.p[4].pos = {10.0f, 3.0f};
+  w.p[8].position = 8;   // AMF: class 6
+  w.p[8].roleClass = 6;
+  w.p[9].position = 7;   // RMF: class 5
+  w.p[9].roleClass = 5;
+  w.p[10].position = 11; // SS: class 7, admitted outright
+  w.p[10].roleClass = 7;
+  const uint32_t m = AttackSlotMask(w, 0, 2);
+  EXPECT_EQ(0u, (m >> 8) & 1u);
+  EXPECT_EQ(0u, (m >> 9) & 1u);
+  EXPECT_EQ(1u, (m >> 10) & 1u);
 }
 
 TEST(OffBallMask, ADefenderNeedsTheReachAForwardDoesNot) {
