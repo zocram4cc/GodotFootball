@@ -15,6 +15,7 @@
 #include <cstring>
 
 #include "pes/exe.hpp"
+#include "pes/movestep_step.hpp"
 
 namespace pes {
 namespace {
@@ -250,11 +251,6 @@ float DispSpeedKmh(const MoveHost& host, const MoveTurnConstants& k) {
 namespace pes {
 namespace movestep {
 
-// FUN_1406d2590 (group C's TURN_STOP entry). The contract does not declare it, so group D
-// declares the single call it makes, in PES's argument order; group C's own port defines it.
-// ponytail: the contract declares EnterTurnStop when group C's header lands on main.
-void EnterTurnStop(MoveHost& host, MoveReq& req);
-
 // The vt+0x10 clip request, in PES's argument order: (interface, req, motion, mirror, 0, blend,
 // playback, start). The clip is a SetMotion (group -1): the start is its start time in seconds.
 void IssueClip(MoveHost& host, int motion, bool mirror, float blend, float playback, float start) {
@@ -468,18 +464,6 @@ void RunTurnStepReselect(MoveHost& host, MoveReq& req, const MoveTurnConstants& 
   (void)rowFixedB;
 }
 }  // namespace
-
-
-
-// The step grid's own gate FUN_1406b70d0 reads (group C's port keeps its own copy); group D names
-// the shared site so both groups read one decision.
-// ponytail: group C's StepLetsRunTurn; the contract moves it when group C lands on main.
-bool StepLetsRunTurn(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
-  (void)host;
-  (void)req;
-  (void)k;
-  return false;
-}
 
 // LAB_1406c7c9e / LAB_1406c8339: the joined TURN_STOP ladder. PES reaches the same ladder from
 // the class-3 write and from the class-unset path, so the port funnels both into one block.
@@ -2919,7 +2903,7 @@ void StepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
               EnterGotoRun(host, req, false);  // FUN_1406ce820
               return;
             }
-          } else if (StepLetsRunTurn(host, req, k)) {  // FUN_1406b70d0
+          } else if (movestep::StepLetsRunTurn(host, req)) {  // FUN_1406b70d0
             req.SetF(moveword::kRate, 0.6f);
             if (band8 <= dispKmh) {
               if (band135 <= dispKmh) {

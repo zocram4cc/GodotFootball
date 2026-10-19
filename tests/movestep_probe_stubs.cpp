@@ -33,6 +33,7 @@ std::vector<int> enterStopCalls;
 std::vector<int> enterGotoRunCalls;
 int accelEntryCalls = 0;
 int decelEntryCalls = 0;
+int idleTurnCalls = 0;
 
 void Reset() {
   idleRowCalls = 0;
@@ -51,6 +52,7 @@ void Reset() {
   issueCount = 0;
   accelEntryCalls = 0;
   decelEntryCalls = 0;
+  idleTurnCalls = 0;
   enterStopCalls.clear();
   enterGotoRunCalls.clear();
 }
@@ -81,15 +83,14 @@ bool OutOfPlayPreempt(MoveHost& /*host*/, MoveReq& /*req*/) {
   return probe::outOfPlayAnswer;
 }
 
+// FUN_1406d1390 (group A's IDLE_TURN exit): group B's STOP fallback arm calls it. The probe records the call.
+void EnterIdleTurn(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::idleTurnCalls; }
+
 // FUN_1406ccd00 (group B's ACCELERATE entry) and FUN_1406cdaf0 (group B's DECELERATE entry):
 // the port's next pieces. Until their bodies land the probe returns PES's "no write"
 // answer, so the arms that call them take their no-branch.
 
 }  // namespace movestep
-
-// FUN_1406d2590 (group C): the turn-stop entry. The group-B header declares it in namespace
-// pes, as the group-B file calls it unqualified from pes::movestep.
-void EnterTurnStop(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::turnStopCalls; }
 
 }  // namespace pes
 
@@ -97,6 +98,11 @@ void EnterTurnStop(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::turnStopCall
 namespace pes {
 namespace movestep {
 void EnterRunTurnRun(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::runTurnRunCalls; }
+// FUN_1406d2590 (group C's TURN_STOP entry) and the two gates of FUN_1406b6ee0 and FUN_1406b70d0, which the group-B file
+// calls unqualified from pes::movestep. The stand-ins count the entry and answer what the placeholders answered: "no".
+void EnterTurnStop(MoveHost& /*host*/, MoveReq& /*req*/) { ++probe::turnStopCalls; }
+bool StepStops(MoveHost& /*host*/, MoveReq& /*req*/, bool /*live*/) { return false; }
+bool StepLetsRunTurn(MoveHost& /*host*/, MoveReq& /*req*/) { return false; }
 
 // FUN_1406d2f60 (group D): the RUN_TURN_STEP entry.
 bool EnterRunTurnStep(MoveHost& /*host*/, MoveReq& /*req*/, float /*threshold*/) {

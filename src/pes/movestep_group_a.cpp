@@ -83,21 +83,6 @@ void EnterIdleOther(MoveHost& host, MoveReq& req) {
   req.SetByte(kWordReorient, 0);
 }
 
-// FUN_1406d1390: the idle family's turn exit into IDLE_TURN. PES's row table at 0x1425dda30 is
-// not decoded; the shared IdleRow is the port's stand-in until it lands.
-// ponytail: 0x1425dda30's row table removes this stand-in.
-void EnterIdleTurn(MoveHost& host, MoveReq& req) {
-  const RunConstants& k = host.RunConstantsView();
-  const int kind = static_cast<int>(req.U(moveword::kKind));
-  const int row = kind < 8 ? IdleRow(host, req) : kIdleRowFallback;
-  SetIdleClip(host, req, row, k.blend1667, 0.1667f);
-  req.SetF(moveword::kDwellLimit2, 0.1667f);
-  req.SetF(moveword::kDwellElapsed2, 0.0f);
-  req.SetByte(moveword::kLiveKind, static_cast<uint8_t>(kind));
-  RequestState(req, MoveState::kIdleTurn);
-  req.SetByte(kWordReorient, 0);
-}
-
 // The root-facing tail IDLE and IDLE_OTHER run for command 0x79.
 void RootFacingTail(MoveHost& host, MoveReq& req) {
   if (req.U(moveword::kCommandId) != 0x79) return;
@@ -134,6 +119,21 @@ float DisplacementKmh(const MoveHost& host, const RunConstants& k) {
 }
 
 }  // namespace
+
+// FUN_1406d1390: the idle family's turn exit into IDLE_TURN. PES's row table at 0x1425dda30 is
+// not decoded; the shared IdleRow is the port's stand-in until it lands.
+// ponytail: 0x1425dda30's row table removes this stand-in.
+void EnterIdleTurn(MoveHost& host, MoveReq& req) {
+  const RunConstants& k = host.RunConstantsView();
+  const int kind = static_cast<int>(req.U(moveword::kKind));
+  const int row = kind < 8 ? IdleRow(host, req) : kIdleRowFallback;
+  SetIdleClip(host, req, row, k.blend1667, 0.1667f);
+  req.SetF(moveword::kDwellLimit2, 0.1667f);
+  req.SetF(moveword::kDwellElapsed2, 0.0f);
+  req.SetByte(moveword::kLiveKind, static_cast<uint8_t>(kind));
+  RequestState(req, MoveState::kIdleTurn);
+  req.SetByte(kWordReorient, 0);
+}
 
 // FUN_1406ba900's case 0: INIT. Its stay arm takes the idle path; the run/step arm is the
 // request the entries then consume. The decompile's case body is ported in order.
@@ -575,14 +575,17 @@ void Demo(MoveHost& host, MoveReq& req) {
   }
 }
 
-// FUN_1406b6bb0: INIT's stay decision; true = the player stays idle this tick.
+// FUN_1406b6bb0 (StayDecision, AS 2.3): true sends the idle player to GOTO_RUN (FUN_1406bf0c0 lines 39-42), and a STOP takes its
+// run re-plan on true (FUN_1406c9e20). Past the threshold distance the answer is the bearing gate: 112.5 degrees (DAT_1425cb30c),
+// or 45 * share + 67.5 when the record's actions are 5 and 5 (67.5 in phase 2), and 180 when the bearing to the ball is past 90.
+// A command that is not precise (req[0xe] != 1) answers true at any facing error (FUN_1406b6bb0 line 98).
 bool StayDecision(MoveHost& host, MoveReq& req) {
   const RunConstants& k = host.RunConstantsView();
   const MoveConstants& m = host.MoveConstantsView();
   if (req.U(moveword::kCommandSpeedClass) == 0xffffffffu) return false;
 
-  float threshold = k.blend2;
-  if (req.Flag(moveword::kPrecise)) threshold = k.rate01;
+  // DAT_142588200 (0.1) when the precise word is set, DAT_142598578 (0.2) otherwise. rate01 is the same 0.1, at 0x1425ddf48.
+  float threshold = req.U(moveword::kPrecise) != 0u ? k.rate01 : k.blend2;
   const int phase = host.MatchPhase();
   if (phase != 2 || host.MatchState11d4() != 0) {
     const int command = static_cast<int>(req.U(moveword::kCommandId)) - 1;
@@ -604,6 +607,8 @@ bool StayDecision(MoveHost& host, MoveReq& req) {
       default:
         break;
     }
+  } else {
+    threshold = k.half;  // DAT_142565600: phase 2 with MI+0x11d4 clear
   }
 
   const float dist = req.F(moveword::kDistToTarget);
@@ -613,7 +618,7 @@ bool StayDecision(MoveHost& host, MoveReq& req) {
     share = k.one;
     if (dist < m.dist3) share = (dist - k.half) / m.dist2m5;
   }
-  float bearingGate = m.dist3;
+  float bearingGate = k.deg1125b;  // DAT_1425cb30c: PES's default gate (the port had the 3.0 m span here)
   if (host.RecordActionA() == 5 && host.RecordActionB() == 5) {
     bearingGate = share * k.deg45 + k.deg675;
     if (phase == 2) bearingGate = k.deg675;
@@ -626,7 +631,7 @@ bool StayDecision(MoveHost& host, MoveReq& req) {
   }
   if (k.deg90 < std::fabs(bearing)) bearingGate = k.half_turn;
   const float error = req.F(moveword::kFacingError);
-  return error * error <= bearingGate * bearingGate;
+  return req.U(moveword::kPrecise) != 1u || error * error <= bearingGate * bearingGate;
 }
 
 // FUN_1406b93a0: the idle row id for the request.
@@ -676,7 +681,7 @@ int IdleRow(MoveHost& host, MoveReq& req) {
         float other[3] = {0.0f, 0.0f, 0.0f};
         host.RecordPosition(related, other);
         float pos[3] = {0.0f, 0.0f, 0.0f};
-        host.PositionAt(0, pos);
+        host.OwnPosition(pos);
         const float dx = pos[0] - other[0];
         const float dz = pos[2] - other[2];
         const float dist = std::sqrt(dx * dx + dz * dz);

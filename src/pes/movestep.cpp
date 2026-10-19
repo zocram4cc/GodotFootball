@@ -290,6 +290,14 @@ std::optional<StepTables> LoadStepTables(const PeImage& exe, std::string* error)
     *error = "movestep step: the style/class motion table is unreadable";
     return std::nullopt;
   }
+  // FUN_1406b70d0's distance rows (StepTables' turn rows), four floats each.
+  constexpr uint64_t TURN_FRONT_VA = 0x1425dde70, TURN_BACK_VA = 0x1425dde80, TURN_CENTRE_VA = 0x1425dde90;
+  if (!exe.ReadVa(TURN_FRONT_VA, sizeof t.turnFront, reinterpret_cast<uint8_t*>(t.turnFront.data())) ||
+      !exe.ReadVa(TURN_BACK_VA, sizeof t.turnBack, reinterpret_cast<uint8_t*>(t.turnBack.data())) ||
+      !exe.ReadVa(TURN_CENTRE_VA, sizeof t.turnCentre, reinterpret_cast<uint8_t*>(t.turnCentre.data()))) {
+    *error = "movestep step: the run-turn distance rows are unreadable";
+    return std::nullopt;
+  }
   return t;
 }
 

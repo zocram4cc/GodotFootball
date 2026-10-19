@@ -187,9 +187,15 @@ class FakeHost : public MoveHost {
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
 
   void PositionAt(int index, float out[3]) const override {
-    out[0] = displacement[0];
-    out[1] = displacement[1];
-    out[2] = displacement[2];
+    const float* v = index < 2 ? displacement : position;  // the adapter's rule: index 0 and 1 are the displacement
+    out[0] = v[0];
+    out[1] = v[1];
+    out[2] = v[2];
+  }
+  void OwnPosition(float out[3]) const override {
+    out[0] = position[0];
+    out[1] = position[1];
+    out[2] = position[2];
   }
   int MatchPhase() const override { return 1; }
   bool IsReplay() const override { return false; }
@@ -255,7 +261,8 @@ class FakeHost : public MoveHost {
   int recentStamp[2] = {0, 0};
   int previous = 0;
   int footBand = 0;
-  float displacement[3] = {0.0f, 0.0f, 1.0f};  // +z: heading 0 degrees
+  float position[3] = {0.0f, 0.0f, 0.0f};      // the player's own ground position, PES's (x, height, z)
+  float displacement[3] = {0.0f, 0.0f, 1.0f};  // PES's (x, height, z): +z is heading 0 degrees
 
   int currentMotion = 0;
   int currentClipFrames = 0;
@@ -626,3 +633,98 @@ bool EnterRunTurnStep(MoveHost&, MoveReq&, float) { return false; }
 bool EnterStepTurnRun(MoveHost&, MoveReq&) { return false; }
 }  // namespace movestep
 }  // namespace pes
+
+// FUN_1406b6ee0, the stop gate with flag 0 (decompile 0x1406b6ee0): the move bucket picks the rule and the class
+// picks the look-distance gate (blend2 0x142598578 or blend04 0x14259b89c below class 1; blend04 or rate07
+// 0x14257a194 above). Words are the request's own: req[8] bucket, req[0x1f] class, req[0x12] look distance,
+// req[6] turn, req[7] facing error. Built on the group-C body, these read the wrong words and a 1.6 gate.
+TEST(MoveStepStops, FollowsTheMoveBucketGatesOfFunction1406b6ee0) {
+  FakeHost h;
+  h.runConstants.deg1125 = 11.25f;
+  h.runConstants.deg90 = 90.0f;
+  h.runConstants.blend2 = 0.2f;
+  h.runConstants.blend04 = 0.4f;
+  h.runConstants.rate07 = 0.7f;
+  pes::MoveReq r;
+  r.SetU(pes::moveword::kCommandSpeedClass, 2);
+  r.SetU(pes::moveword::kClassWord, 2);
+  r.SetU(pes::moveword::kMoveBucket, 2);
+  r.SetF(pes::moveword::kDistToLook, 0.9f);  // above class 2's gate of 0.7
+  r.SetF(pes::moveword::kFacingError, 50.0f);
+  EXPECT_FALSE(pes::movestep::StepStops(h, r, false)) << "a 50-degree facing error does not stop";
+  r.SetF(pes::moveword::kFacingError, 100.0f);
+  EXPECT_TRUE(pes::movestep::StepStops(h, r, false)) << "past 90 degrees the stop is taken";
+
+  // Class 0's gate is 0.4: a look distance of 0.5 is above it, so the facing error decides again.
+  r.SetU(pes::moveword::kClassWord, 0);
+  r.SetF(pes::moveword::kDistToLook, 0.5f);
+  EXPECT_TRUE(pes::movestep::StepStops(h, r, false));
+
+  // Bucket 1 with a turn past 11.25 degrees: class 0's gate is 0.2, above the look distance of 0.1.
+  r.SetU(pes::moveword::kMoveBucket, 1);
+  r.SetF(pes::moveword::kTurn, 20.0f);
+  r.SetF(pes::moveword::kDistToLook, 0.1f);
+  EXPECT_TRUE(pes::movestep::StepStops(h, r, false));
+
+  // Bucket 0 never stops on the gate.
+  r.SetU(pes::moveword::kMoveBucket, 0);
+  EXPECT_FALSE(pes::movestep::StepStops(h, r, false));
+}
+
+// FUN_1406b70d0, buckets 2 and 7: the gate is the class's back distance, scaled between 67.5 and 112.5 degrees (full
+// scale past 112.5), and the result is whether the turn is past 101.25 degrees (VA 0x1425ddfac). A 20-degree turn with
+// the target inside the gate is not a run turn.
+TEST(MoveStepLetsRunTurn, BucketTwoGateReturnsWhetherTheTurnIsPast101Point25) {
+  FakeHost h;
+  h.runConstants.deg675 = 67.5f;
+  h.runConstants.deg1125b = 112.5f;
+  h.runConstants.deg45 = 45.0f;
+  h.runConstants.deg90 = 90.0f;
+  h.runConstants.blend04 = 0.4f;
+  h.runConstants.rate07 = 0.7f;
+  h.turnConstants.turn101250 = 101.25f;
+  h.tables.turnBack = {1.0f, 1.0f, 1.0f, 1.0f};
+  h.tables.turnCentre = {0.5f, 0.5f, 0.5f, 0.5f};
+  h.tables.turnFront = {0.3f, 0.3f, 0.3f, 0.3f};
+  pes::MoveReq r;
+  r.SetU(pes::moveword::kCommandSpeedClass, 2);
+  r.SetU(pes::moveword::kClassWord, 2);
+  r.SetU(pes::moveword::kMoveBucket, 2);
+  r.SetF(pes::moveword::kTurn, 20.0f);
+  r.SetF(pes::moveword::kDistToTarget, 2.0f);
+  r.SetF(pes::moveword::kDistToLook, 0.5f);
+  r.SetF(pes::moveword::kRate, 0.5f);
+  EXPECT_FALSE(pes::movestep::StepLetsRunTurn(h, r)) << "a 20-degree turn is not a run turn";
+  r.SetF(pes::moveword::kTurn, 120.0f);
+  EXPECT_TRUE(pes::movestep::StepLetsRunTurn(h, r)) << "past 101.25 degrees it is";
+}
+
+// FUN_1406b70d0, buckets 1 and 6: the gate is the class's front distance plus a scale that is 0 up to 33.75 degrees,
+// rises to 1 at 67.5 and stays 1 past it (PES starts its scale at 1.0). Inside the gate the command flag decides.
+TEST(MoveStepLetsRunTurn, BucketOneGateTakesTheFullScalePastSixtySevenPoint5) {
+  FakeHost h;
+  h.runConstants.deg3375 = 33.75f;
+  h.runConstants.deg675 = 67.5f;
+  h.tables.turnFront = {0.3f, 0.3f, 0.3f, 0.3f};
+  pes::MoveReq r;
+  r.SetU(pes::moveword::kCommandSpeedClass, 2);
+  r.SetU(pes::moveword::kClassWord, 0);
+  r.SetU(pes::moveword::kMoveBucket, 1);
+  r.SetByte(pes::moveword::kTurnCommandFlag, 1);
+  r.SetF(pes::moveword::kDistToTarget, 1.2f);
+  r.SetF(pes::moveword::kDistToLook, 1.2f);
+  r.SetF(pes::moveword::kTurn, 20.0f);
+  EXPECT_FALSE(pes::movestep::StepLetsRunTurn(h, r)) << "at 20 degrees the gate is the front distance, 0.3 m";
+  r.SetF(pes::moveword::kTurn, 80.0f);
+  EXPECT_TRUE(pes::movestep::StepLetsRunTurn(h, r)) << "at 80 degrees the gate is 1.3 m and the flag answers";
+}
+
+// FUN_1406b6ee0's first gate: with a class word at 0 or above and the command's speed class at -1, the step stops
+// (decompile 0x1406b6ee0 line 16: `-1 < req[0x1f] && req[9] == -1`).
+TEST(MoveStepStops, AMissingCommandClassStopsAStepThatHasAClass) {
+  FakeHost h;
+  pes::MoveReq r;
+  r.SetU(pes::moveword::kClassWord, 0);
+  r.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);
+  EXPECT_TRUE(pes::movestep::StepStops(h, r, false));
+}

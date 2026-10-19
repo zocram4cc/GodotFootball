@@ -19,6 +19,7 @@
 //   FUN_1406ba0d0  the turn-stop row picker          RunTables::TurnStopRow
 //   FUN_1406ea750  the engine blend rate             the live engine rate (INF, AS 7)
 #include "pes/movestep_run.hpp"
+#include "pes/movestep_step.hpp"
 
 #include <algorithm>
 #include <array>
@@ -244,16 +245,6 @@ ClipHits ReadClipHits(const MoveHost& host, int motion, const RunConstants& k, b
 // until then the port stands it at PES's "no record" answer, which is the byte's zero.
 int RecordClass17Byte() { return 0; }
 
-
-// The group-C helpers' stand-ins, defined here because group C's signatures carry its own
-// TurnDistances and the shared contract names neither. Both return PES's "no" answer, so the
-// arms that call them take their no-branch until group C lands; the port keeps the call in
-// place so the wiring is one edit. ponytail: group C's movestep_step.cpp defines the real
-// bodies; delete these two and call its pair directly.
-bool StepLetsRunTurnPlaceholder(MoveHost& /*host*/) { return false; }
-bool StepStopsPlaceholder(MoveHost& /*host*/, MoveReq& /*req*/) { return false; }
-
-
 // FUN_141eb50b0's index-1 read: the last tick's displacement, whose length the ground-speed
 // compute uses.
 float LastDisplacement(const MoveHost& host) {
@@ -268,6 +259,13 @@ float LastDisplacement(const MoveHost& host) {
 float GroundSpeedKmh(const MoveHost& host, const RunConstants& k) {
   return static_cast<float>(host.TicksPerSecond()) * k.kmh60 * k.kmh60 / k.kmh1000 *
          LastDisplacement(host);
+}
+
+// FUN_14046f230 of FUN_141eb50b0(P, out, 1): the heading in [0, 360) of the last tick's displacement, PES's (x, z) pair.
+float DisplacementBearingDeg(const MoveHost& host, const RunConstants& k) {
+  float d[3] = {0.0f, 0.0f, 0.0f};
+  host.PositionAt(1, d);
+  return FoldFull(std::atan2(d[0], d[2]) * host.StyleConstantsView().radToDeg, k);
 }
 
 
@@ -965,14 +963,12 @@ void Stop(MoveHost& host, MoveReq& req) {
     if (smallTurn && static_cast<uint32_t>(cls - 1) < 2u &&
         0 < static_cast<int>(req.U(moveword::kRateBand))) {
       // The stop bearing to the AI target (FUN_14046f230 of the last tick's displacement).
-      float ai[3] = {0.0f, 0.0f, 0.0f};
-      host.PositionAt(0, ai);
-      const float stopBearing = AngleDiffDeg(req.F(moveword::kFacing), ai[0], k);
+      const float stopBearing = AngleDiffDeg(req.F(moveword::kFacing), DisplacementBearingDeg(host, k), k);
       if (k.deg225 <= stopBearing) {
         if (EnterStepTurnRun(host, req)) return;
       } else if (req.U(moveword::kPrecise) != 1u) {
         // FUN_1406b70d0, the group-C helper: whether the step loop may turn into a run turn.
-        if (StepLetsRunTurnPlaceholder(host)) {
+        if (StepLetsRunTurn(host, req)) {
           EnterRunTurnRun(host, req);
           return;
         }
@@ -985,7 +981,7 @@ void Stop(MoveHost& host, MoveReq& req) {
     // LAB_1406ca1b8: the stay decision with the group-C step-stop false. When neither
     // re-plan inside it applies the flow returns here, as PES's decompile does; when the
     // decision itself is false the tick falls straight through to the IDLE arm.
-    if (StayDecision(host, req) && !StepStopsPlaceholder(host, req)) {
+    if (StayDecision(host, req) && !StepStops(host, req, false)) {
       if (req.U(moveword::kPrecise) == 0u &&
           AngleDiffDeg(facing, req.F(moveword::kHeading), k) < k.deg675 &&
           AngleDiffDeg(facing, req.F(moveword::kRecordStampB), k) < k.deg675) {
@@ -1028,8 +1024,10 @@ void Stop(MoveHost& host, MoveReq& req) {
   if (dwellLimit * req.F(moveword::kDwellLimit) < req.F(moveword::kDwellElapsed) &&
       dwellLimit * req.F(moveword::kDwellLimit2) < req.F(moveword::kDwellElapsed2)) {
     if (!StayDecision(host, req)) {
-      const int bucket = static_cast<int>(req.U(moveword::kMoveBucket));
-      if (bucket == 0 || bucket == 5 || req.F(moveword::kFacingError) < k.deg3375 ||
+      // FUN_1406c9e20 line 237 reads the look bucket, req[0xd] (VA 0x1406ca4ea), not the move bucket word 8. The
+      // facing error is compared by magnitude (the ANDPS mask at 0x1406ca502 before COMISS against 0x1425cc688).
+      const int bucket = static_cast<int>(req.U(moveword::kLookBucketAlt));
+      if (bucket == 0 || bucket == 5 || std::fabs(req.F(moveword::kFacingError)) < k.deg3375 ||
           req.U(moveword::kCommandId) == 0x79u) {
         // FUN_1406af620's hit tick for the live clip; with no hit records it is the clip's
         // own frame, so the arm always passes.
@@ -1060,9 +1058,8 @@ void Stop(MoveHost& host, MoveReq& req) {
           return;
         }
       } else {
-        // FUN_1406d1390's arm: the same shape with a different row (not decoded). The port
-        // takes PES's IDLE exit through the shared body, which the dispatcher port owns.
-        // ponytail: FUN_1406d1390 (the fallback stop exit) is decoded when its group lands.
+        // FUN_1406d1390, the idle family's turn exit into IDLE_TURN: PES's else arm of FUN_1406c9e20 (VA 0x1406ca51f).
+        EnterIdleTurn(host, req);
       }
     } else {
       // The stay-decision true arm: the band becomes the -1 sentinel and GOTO_RUN re-plans.
@@ -1218,9 +1215,9 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
     float ball[3] = {0.0f, 0.0f, 0.0f};
     host.BallSample(18, ball);
     float self[3] = {0.0f, 0.0f, 0.0f};
-    host.PositionAt(0, self);
+    host.OwnPosition(self);
     const float bdx = ball[0] - self[0];
-    const float bdz = ball[1] - self[1];
+    const float bdz = ball[2] - self[2];
     const float ballDist = std::sqrt(bdx * bdx + bdz * bdz);
     row = host.Percent(40) && ballDist < k.dist1m5 ? 0x662 : 0x661;
   }

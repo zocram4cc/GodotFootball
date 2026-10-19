@@ -213,6 +213,9 @@ class FakeHost : public MoveHost {
     out[1] = displacement[1];
     out[2] = displacement[2];
   }
+  void OwnPosition(float out[3]) const override {
+    for (int i = 0; i < 3; ++i) out[i] = 0.0f;  // group D reads the displacement and the ring only
+  }
   int MatchPhase() const override { return 1; }
   bool IsReplay() const override { return false; }
   void Issue(const pes::MotionRequest& request) override { issued = request; }
@@ -477,6 +480,8 @@ bool EnterAccelerate(MoveHost&, MoveReq&) { return false; }
 void EnterGotoRun(MoveHost&, MoveReq&, bool) {}
 void EnterStop(MoveHost&, MoveReq&) {}
 void EnterTurnStop(MoveHost&, MoveReq&) {}  // group C's own; the stub keeps group D linking
+// Group C's FUN_1406b70d0 gate (movestep_step.cpp): the group-D tests take its "no", as the port did before group C landed.
+bool StepLetsRunTurn(MoveHost&, MoveReq&) { return false; }
 }  // namespace movestep
 }  // namespace pes
 
