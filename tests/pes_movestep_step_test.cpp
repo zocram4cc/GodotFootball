@@ -869,10 +869,11 @@ TEST(StepLoopChange, TheDriftFollowsTheSignedTurnToTarget) {
   req.SetU(pes::moveword::kMoveBucket, 1);
   req.SetU(pes::moveword::kBucketPrev, 0);
   StepLoopChange(host, req);
-  // The drift block ran: the root facing is the blended turn (0) plus the facing (100) plus
-  // the clamped turn-to-target (30), so 130.
+  // The drift block ran: the root facing is the blended turn (0) plus the facing (100) plus the
+  // clock's draw. The turn (30 degrees) is past the draw (180 / 54 = 3.33), so the delta IS the
+  // draw - 103.33, not the turn.
   EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
-  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 130.0f, 1e-3f);
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 103.33333f, 1e-3f);
 }
 
 // PES at 0x1406C6EF0: the final gate tests the FIRST dwell (req[0x1a] against req[0x1b]) -
@@ -933,6 +934,41 @@ TEST(StepLoopChange, TheFinalGateAsksForStepLoopOnceTheFirstDwellRunsOut) {
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepLoop));
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 0.0f);
+}
+
+// PES at 0x1406C6CEB: when the turn-to-target is past the clock's draw (180 degrees per tick),
+// the delta added to the drift IS the draw; otherwise it is the larger of the negated draw and
+// the turn itself. The port kept the turn in both cases.
+TEST(StepLoopChange, TheDriftClampUsesTheDrawWhenTheTurnIsPastIt) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  // The precise flag is set, so the drift's sign test can return early: the look heading is
+  // level with the facing, so the signs match and the write happens.
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 340.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  // The turn-to-target is 20 degrees: past the 5.625-degree gate and past the draw
+  // (180 / 54 = 3.33 degrees), so the delta IS the draw.
+  req.SetF(pes::moveword::kRecordStampB, 340.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kRecordStampA, 0.0f);
+  req.SetU(pes::moveword::kMoveBucket, 1);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoopChange(host, req);
+  // The drift is the blended turn (0) plus the facing (0) plus the draw (3.33 degrees) - the
+  // turn (20 degrees) is past the draw, so the delta IS the draw.
+  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 3.3333333f, 0.01f);
 }
 
 // -------------------------------------------------------------------------------------

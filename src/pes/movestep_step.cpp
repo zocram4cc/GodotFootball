@@ -1293,12 +1293,16 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
   if (int(req.U(moveword::kMoveBucket)) == int(req.U(moveword::kBucketPrev))) window = k.deg90;
   if (req.F(moveword::kDwellLimit2) * window <= req.F(moveword::kDwellElapsed2) &&
       k.deg5p625 < std::fabs(turnToTarget)) {
-    // The clock draws 180 degrees per tick; below that the drift is clamped to the look heading.
-    const float draw = k.halfTurn / tick;
-    float delta = turnToTarget;
-    if (delta <= draw) {
+    // The clock draws 180 degrees per tick; below that the drift is clamped to the look
+    // heading. PES at 0x1406C6CE6: the draw is 180 / the frame rate (FUN_141e532d0 = 54.0),
+    // NOT 180 divided by the tick interval - the port had 180 * 54.
+    // At 0x1406C6CEB: when the turn is past the draw the delta IS the draw, otherwise it is
+    // the larger of the negated draw and the turn itself.
+    const float draw = k.halfTurn / host.TicksPerSecond();
+    float delta = draw;
+    if (turnToTarget <= draw) {
       delta = -draw;
-      if (-draw <= turnToTarget) delta = turnToTarget;
+      if (turnToTarget > delta) delta = turnToTarget;
     }
     drift += delta;
     if (0.0f <= drift) {
