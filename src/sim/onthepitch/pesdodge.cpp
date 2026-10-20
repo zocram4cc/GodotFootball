@@ -495,9 +495,9 @@ bool BallDodgeSubTestMouth(const DodgeConstants& k, const BallSubTestInput& in) 
          Wrap180Deg(in.ballBearing_deg - in.mouthFarAngle_deg) <= 0.0f;
 }
 
-// PES's bearing (FUN_140439e50 over FUN_140a92d40); see pesdodge.hpp.
+// PES's bearing (FUN_140439e50 over FUN_140a92d40); see pesdodge.hpp. PES z = -GF y.
 float PesBearingDeg(float fromX, float fromY, float toX, float toY) {
-  float a = std::atan2(toX - fromX, toY - fromY) * (180.0f / blunted::pi);
+  float a = std::atan2(toX - fromX, fromY - toY) * (180.0f / blunted::pi);
   if (a < 0.0f) a += 360.0f;
   return a;
 }

@@ -157,12 +157,13 @@ The gates, all read at their addresses:
 
 ### 3.4 Receiver enumeration and openness (report §4.3, `0x1421174f0` / `0x142118700`)
 
-The enumeration lives in `GetOnTheBallCommands`: the team's active players minus
-the carrier and the keeper (PES's status codes 2 and 5), each with a record whose
-target is his position a lane-time ahead (PES's record A, "to feet"; record B,
-"into space", is not ported). Status codes 4 (predicted off-pitch), 6 (offside),
-7–10 (busy) are approximated: a target off the pitch is skipped, the offside line
-and the busy-action classes are not.
+The enumeration is `pes::ReceiverStatusOf` (pescarrier.hpp, 0x142117c30). Every team-mate gets a status, and only
+status 0x0B (valid) mates become records; the carrier's loop takes no other filter. A valid mate's record targets
+his position a lane-time ahead (PES's record A, "to feet"). Record B ("into space") is `pes::IntoSpaceTarget` (carrier-ai 4.3) fed through the same record writer as A, into `PassCandidate::recordB`; the BackSpace and Safety through validators read it. The statuses are
+PES's tests in the writer's order: off the pitch (1), the carrier (2), predicted off the pitch 18 frames ahead (4),
+a free kick's taker (5), offside (6: `pes::CarrierOffsideLine`, the first five entries of the opponents' S1 list with
+keepers skipped, and the ball, all 16 frames ahead), and the busy classes (8, 7, 10, 9: anime classes 15-17 or the
+publish flag; the install's class words at bit 9 and bit 27; KP_PICKUP_BALL). The anime class is GF's `AnimeClassOf`.
 
 The openness formula's scored tail, `pes::LaneOpennessMargin`, is read literally
 from `0x142118b76..0x142118c53`:
@@ -321,7 +322,9 @@ ShotPassFromGoal and BackDFLine are not rolled at all, so they never run. Their
 desired angle `+0xC0` and target `+0xC0`/`+0xCC` (report §9.3) have no
 counterpart, so PassForward's plan-angle gate is read against the attack
 direction.
+### 3.7 The volatile-ball flag K+0x6E and its point K+0x40 (FUN_14063A490, 0x14063A854..0x14063AB11)
 
+The flag is set by arm A (K+0x44 > the carrier's height) or arm B (B+0x4C set, B+0x80 clear, and not `d1 < d2`, where d1 is the ball to the sample-0 point and d2 the ball to K+0x40). K+0x44 and K+0x40 come from the chain: the set-piece display point when *K == 1, else the AI point. In a 20-minute `--pes-loop` match the flag was never set at a DHB think (DHB's volatile gate killed 167 of 167 calls on seed 7, 30 of 30 on seed 13). Two reasons, one measured and one inferred: arm B's B+0x4C was 0 in every 2-minute think sampled (0 of 24, measured); arm A needs the point above the carrier's height, and the open-play point is the carrier's ground point, so arm A is false there [INFERENCE: the owned ball's height was not measured]. The port is numerically inert in those samples: seed 7's determinism line is the same before and after (`419b2e49f937938f`).
 ## 4. What was not ported, and why
 
 | PES piece | Why not |
@@ -333,9 +336,16 @@ direction.
 | the first-time gate of capability 0x14 (report §3.2 rule 2) | needs the tier and the skill bits this engine does not carry |
 | the adopter's veto/override walk (report §3.2) | PES's answer kinds do not survive translation one-to-one; the order shoot → pass → dribble is what the port implements, which is the walk's dominant rule; the throw-in taker stall CarrierUnitsPort traced next is **fixed in `f69aa74`**: during the restart hold the ball was bumped off the throw-in spot, past the line every touch anim is refused as out of bounds, the taker never throws, and the referee never ends the restart - the referee now returns the prepared, unstarted throw-in ball to its spot past a 0.05 m tolerance (`SimMatch.AThrowInTakerTakesTheThrow` fails with the hold off, passes with it) |
 | the kicker/penalty `0x14211f090` aim function, the shot lane test, the wide evaluator | report §9.1, not decoded |
-| the offside line and the busy action classes of the receiver status codes | no GF counterpart for the offside line; the mate's action class is not read |
-| the "into space" record B, the pressure table's radii/classes as PES computes them | the pressure class is derived from the nearest opponent's distance with the report's own third-split radii (4 m own third, 2 m attacking third) |
-| PES's `0x140a6e450` action classes, `0x140a4c8e0`, `0x14063dab0`, the body-block tests | report §9.1, not decoded |
+| the publish flag `hu+8` bit 2 (the busy test's second source) and a full anime class table | the publish word's writer is undecoded; GF's `AnimeClassOf` maps only its function types, so only the trip reaches a busy class |
+| the pressure table's radii/classes as PES computes them; record B's penalty-area re-placement (0x140a4ddc0, undecoded) | the pressure class is derived from the nearest opponent's distance with the report's own third-split radii (4 m own third, 2 m attacking third); a record-B target past the penalty-area line is not re-placed |
+| the validator's `teamLineOpp` (T18+0x40 line) and its slot stat (imageA+0x898) | the team table lines and the per-slot table are undecoded, so gate 2 and gate 5 are inert |
+| the carrier's facing (GF `GetDirectionVec`, PES `+0x554`) | GF's facing is the body direction (equal to `GetBodyDirectionVec` in 167 of 167 thinks). The bearing convention is PES z = -GF y everywhere on the carrier side (`pes::PesBearingDeg`, `BearingDeg`, `peslane`'s `Bearing` and `Dir`, `AdvancePoint`), as `pesmovestep` has it (A3States, live). With the old +y convention, away-attacking fast carriers never faced -x (0 of 58); after the cut-over 57% of them do (seed 7, 20 min) |
+| BackSpace's post-validator gates (`bsCornerDistSq`, `CurveGateOk`) | 20 min seed 7 (`e950efa`): 174 gate calls, 173 kills at 10.2–47.6 m behind the curve, 1 pass at +0.99 m. The mates are 10+ m behind the opponents' line, so the verdict is not a boundary effect. The curve matches the decoded PES writer step by step (`pes-re-image-rows.md` §2.3), and the gate matches `0x1421225E0` (frames 0, `k·x ≥ k·curve(z)`). No change |
+| the OneTwo answer's execution | the walk returns kind 10 (3 times after the cut-over) and queues a ShortPass with the answered mate. The queued pass is not executed in the run; the consumer's pass branch (`Humanoid::SelectAnim`, humanoid.cpp:2688) is not traced. PassForward answers 0 of the walk thinks after the cut-over, so rule 8's instant return (`ForwardIsInstantReturn`) cannot fire |
+| `0x140a4c8e0`, `0x14063dab0`, the body-block tests | report §9.1, not decoded |
+| the chain's AI leaf, `P_ai+0x1414` (K+0x40 in open play), and `B+0x80` | the leaf's meaning is OPEN in the docs (base, target, or predicted line), and GF has no per-player AI point record, so the carrier's own ground point stands in: K+0x44 is 0 in open play. `B+0x80` (its writer is undecoded) stays clear |
+| the chain's absent branches: `B+0x2920 == 4` (the ball's replay/special mode), `carrier+0x5D0 == 5` (PASS_GET, the receiver's action), and the TRAP record index (`hu+0x1A/+0x1C`) | GF has no ball mode 4, the owning carrier is never PASS_GET, and no TRAP record index; all three are off |
+| the sampler's `vec[4]` (the record's vertical velocity) in `pes::FirstBounceSample` | GF's track carries heights only, so the first difference of the height stands in: a bounce is a sign change of that step |
 
 ## 5. AI-map row text
 

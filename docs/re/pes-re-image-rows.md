@@ -166,14 +166,14 @@ Procedure (C-dec, `dec_0x142138220.c` lines 61–350):
 1. `s = sign(T(side)+0x254)`; `psi = T(side)+0x250`; `a = wrap(psi − 180)` (`0x142598580`, `0x14259858C`).
 2. Candidates: each opponent slot `flag·11 + j`, in play, not the keeper (`0x140A638C0(ctx, slot)` false). Lane list of `(slot, s·x)`, max 11 (`0x14063CD70`, `0x14063E9D0`). **If the list is empty the table is not rebuilt** (`if (iVar7 != 0)`, line 94): rows persist (CONFIRMED guard).
 3. Sort the list by depth (`0x14063EA30` → `0x141E53540`, 8-byte entries).
-4. For each candidate: transform the opponent position into the lane frame (`0x140470D00`, `0x140A8F7C0`; **one argument dropped by the decompile: OPEN**). Dedupe with the annulus/cone test `0x140A53DF0` (C-dec: `r_lo² < d² < r_hi²` and `|angle(p) − θ| < param_5·0.5`). Append `{slot, point}` to the segment list.
+4. For each candidate: advance the opponent point 1.0 m along psi. `0x140A8F7C0(out, &a, d)` adds `d·sin` to x and `d·cos` to z; the angle is `wrap(wrap(a) − 180)` = psi (`0x140470D00`); `d` is `xmm14` = `[0x14256AE1C]` = 1.0 at the call site `0x1421384CE` (decoded at e950efa). Dedupe with `0x140A53DF0`: `r_lo` = `xmm10` = 0, `r_hi` = `[0x14256AE34]` = 1000, and the cone is `0.5 · [0x14253EE30]` = 50 about the entry's stored angle, which is `a` (`xmm6` at the append). Append `{slot, point}` to the segment list.
 5. Initial deepest point per sample: `x = −s·F.x` (line 187), `z_i = (i−35)·s` (line 186).
 6. **Per sample `i = 0..70`**: intersect each segment with the sample line (`0x140A90C20`, C-dec: 2-D segment intersection, `0` when `|den| < 1.19e-7`, else `(t,u)`); update `x_i = max_s(x_hit)` (strict `<` on `s·x`, starting from `−s·F.x`); store `(x_i, y_i, z_i)` at `IA+0x2B4 + 12i`.
 7. The deepest-point block (`+0x5C8..`) is `max_s(x)` over the segment points (lines 160–164, 235–243).
 
 Curve evaluation `0x142139650` (C-dec, same as lane-core §6.3): `u = clamp(z·scale + 35, 0, 70)`, `i = floor(u)`, `i == 70 → x_70`, else `lerp(x_i, x_{i+1}, u−i)`. With `scale = s`, `u = i` at `z = (i−35)·s`, so samples are exact.
 
-Verdict: writer CONFIRMED (`0x142138220`, this = `IA+0x2B0`). Per-sample rule C-dec. OPEN: (a) step 4 (dropped argument in `0x140470D00`/`0x140A8F7C0`); (b) whether `x_i` is world x or rotated lane x (INF: world, because lane-core G12 compares world `P.x` with `curve(P.z)`); (c) the sort tie rule.
+Verdict: writer CONFIRMED (`0x142138220`, this = `IA+0x2B0`). Per-sample rule decoded at e950efa: the arm crossing is `0x140A90C20`, with the sample-line parameter `t` (its first output) giving x and the arm parameter `u` (its second output) filtered by `u ≥ 0`. `x_i` starts at `−s·F.x` and takes the strict maximum. The arms are at `a ± 50` with length 1000 (`xmm12`). OPEN: (b) whether `x_i` is world x or rotated lane x (INF: world; the lateral sign cannot change the curve, because the arm pair and the dedupe cone are symmetric about the attack axis); (c) the sort tie rule (equal `s·x` keys only).
 
 ### 2.4 R3: receiver score `IA+0x898` (`0x142137F90`; structure CONFIRMED, body C-dec)
 

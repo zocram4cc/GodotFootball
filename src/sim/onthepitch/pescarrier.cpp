@@ -106,7 +106,7 @@ constexpr float kPi_deg = 3.14159265358979f;
 // ponytail: std::atan2 stands in for PES's atan2 polynomial 0x140A92DC0, undecoded (lane-core O3).
 inline float BearingDeg(CarrierPoint a, CarrierPoint b) {
   if (a.x == b.x && a.z == b.z) return 0.0f;
-  float rad = std::atan2(b.x - a.x, b.z - a.z);
+  float rad = std::atan2(b.x - a.x, a.z - b.z);  // the carrier layer's z is GF y: PES z = -GF y
   if (rad < 0.0f) rad += 2.0f * kPi_deg;
   return rad * (180.0f / kPi_deg);
 }
@@ -116,7 +116,7 @@ inline float BearingDeg(CarrierPoint a, CarrierPoint b) {
 // table, but the units' advance calls below never run through it.
 inline CarrierPoint AdvancePoint(CarrierPoint p, float theta_deg, float r_m) {
   const float rad = theta_deg * (kPi_deg / 180.0f);
-  return {p.x + r_m * std::sin(rad), p.z + r_m * std::cos(rad)};
+  return {p.x + r_m * std::sin(rad), p.z - r_m * std::cos(rad)};
 }
 
 // PES's frame counts: int(fps * gain + 0.5) with fps = 54 (0x141E532D0/E0).
@@ -258,7 +258,7 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x14259be1c, &k.distSpan_m},         {0x14259be68, &k.ballAngleHigh_deg},
       {0x1425c48fc, &k.ballAngleSpan_deg},   {0x142565600, &k.oneTouchGain},
       {0x14259be10, &k.runFloor_kmh},        {0x14259be04, &k.runSpan_kmh},
-      {0x14259be4c, &k.turnFloor_deg},       {0x1425a9bf0, &k.turnTop_deg},
+      {0x14259be4c, &k.turnSpan_deg},        {0x1425a9bf0, &k.turnTop_deg},
       {0x142598958, &k.highFloor_m},         {0x142bef908, &k.highSpan_m},
       {0x142565604, &k.diffMovingBallWeight}, {0x14259bddc, &k.diffRunWeight},
       {0x14259bddc, &k.diffTurnWeight},       {0x142596e6c, &k.lowPassFloor},
@@ -368,6 +368,13 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x14259222c, &k.cbSpeedGate_kmh},   {0x14259be1c, &k.cbAdvance_m},
   };
   for (const auto& r : backSpace) ok &= ReadVa(exe, r.first, r.second, error);
+  const std::pair<uint64_t, float*> intoSpace[] = {
+      {0x14259be30, &k.intoSpaceTurn_deg}, {0x142591140, &k.intoSpaceTurnDist_m}, {0x14259bdf4, &k.intoSpaceBase_m},
+      {0x14259222c, &k.intoSpaceGain_m},   {0x14259be1c, &k.intoSpaceSpeedScale},
+  };
+  for (const auto& r : intoSpace) ok &= ReadVa(exe, r.first, r.second, error);
+  const std::pair<uint64_t, float*> s1Rows[] = {{0x14259be40, &k.s1RadToDeg}, {0x1425795e4, &k.s1TwoPi}};
+  for (const auto& r : s1Rows) ok &= ReadVa(exe, r.first, r.second, error);
   k.bsBoxSkipCount = 2.0f;  // `cmp [lVar15+0xb48],2`: an instruction shape, not a float
   k.bsAngleClass = 4.0f;    // `cmp [recB],4`: an instruction shape, not a float
   uint32_t lane1 = 0;
@@ -414,6 +421,58 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x14258c264, &k.sfPadBack_m},
   };
   for (const auto& r : safety) ok &= ReadVa(exe, r.first, r.second, error);
+  // The OneTwo and DirectHighBall units and the one-touch and receiver predicates they share: each VA
+  // is the one lane-units2 §0 audits, read from the install.
+  const std::pair<uint64_t, float*> touch[] = {
+      {0x142590d98, &k.oneTwoFrameGain},          {0x142598580, &k.oneTwoClosingHalf_deg},
+      {0x14259bdec, &k.oneTwoOuter_m},            {0x14259be5c, &k.oneTwoAngle_deg},
+      {0x142565604, &k.touchPad_m},               {0x14259ce40, &k.touchScore_m2},
+      {0x14259be0c, &k.touchSpeed_kmh},           {0x14253ee30, &k.touchTurn_deg},
+      {0x14259be84, &k.touchBand_m},              {0x14259be0c, &k.touchLaneLen_m},
+      {0x14259a764, &k.touchLaneCone_deg},        {0x142565604, &k.touchLaneRad_m},
+      {0x142565604, &k.rcvDifficultyNear},        {0x14256ae1c, &k.rcvDifficultyFar},
+      {0x14259be0c, &k.rcvDistFar_m},             {0x14259d628, &k.rcvTurnFar_deg},
+      {0x14259be0c, &k.rcvSpeedGate_kmh},         {0x142596e6c, &k.rcvAngleFast_deg},
+      {0x14256ae30, &k.rcvAngleSlow_deg},         {0x14256ae30, &k.rcvBaseSplit_deg},
+      {0x142588210, &k.rcvBaseNear_m},            {0x14259222c, &k.rcvBaseFar_m},
+      {0x14259a764, &k.rcvRampHalf_deg},          {0x1425a9bf0, &k.rcvRampTop_deg},
+      {0x1425c4900, &k.rcvRampSpan},              {0x142588210, &k.rcvRampGain_m},
+      {0x14258c264, &k.rcvWindowFloor_m},         {0x14259be1c, &k.rcvM2_deg},
+      {0x1425a9464, &k.rcvNearSq_m2},             {0x142588200, &k.dhbHeightPad_m},
+      {0x14259be20, &k.dhbNearOpp_m2},            {0x14253ee30, &k.dhbMateNear_m2},
+      {0x14259d60c, &k.dhbPredNear_m2},           {0x14259be70, &k.dhbScoreFloor},
+      {0x1425c65f4, &k.dhbScoreCeil},             {0x142565600, &k.dhbFarGain},
+      {0x14259be0c, &k.dhbSpeedGate_kmh},         {0x14259be0c, &k.dhbLaneLen_m},
+      {0x14259a764, &k.dhbLaneCone_deg},          {0x14259222c, &k.dhbLaneRad_m},
+      {0x1425656c0, &k.dhbAdvance_m},             {0x142596e6c, &k.dhbFacing_deg},
+  };
+  for (const auto& r : touch) ok &= ReadVa(exe, r.first, r.second, error);
+  // The curve builder's constants (0x142138220) and the G12 band's curve reader (0x142139650).
+  const std::pair<uint64_t, float*> curve[] = {
+      {0x142598580, &k.curveHalfTurn_deg}, {0x14259be34, &k.curveArmAngle_deg}, {0x14256ae34, &k.curveArm_m},
+      {0x14253ee30, &k.curveWide_deg},     {0x14256ae1c, &k.curveStep_m},       {0x14259bdc4, &k.curveEps},
+  };
+  for (const auto& r : curve) ok &= ReadVa(exe, r.first, r.second, error);
+  // The receiver status (0x142117c30): the offside test's frames scale (0.30 at 0x142590d98) and the anime class words.
+  ok &= ReadVa(exe, 0x142590d98, &k.receiverFrameScale, error);
+  ok &= exe.ReadVa(0x1426484f0, sizeof k.animeClassWord, reinterpret_cast<uint8_t*>(k.animeClassWord.data()));
+  ok &= ReadVa(exe, 0x14256ae1c, &k.bounceLatchHeight_m, error);
+  // G3's team level (reader 0x140A40BD0, comparator 0x140A60360). The writer 0x1B5D8340 stores
+  // clamp(class x 100, 0, 700), where the class is `*(int*)(matchSetting+0x18)` through its 7-entry
+  // switch, whose entries are all the same arm, so an out-of-range selector takes the masked global.
+  // GF has no match-setting selector, so the stock default class and the scale/cap come from the
+  // install's own bytes (no transcription).
+  {
+    uint32_t maskedClass = 0, xorKey = 0, cap = 0;
+    uint8_t scale = 0;
+    ok &= exe.ReadVa(0x14810F4E0, sizeof maskedClass, reinterpret_cast<uint8_t*>(&maskedClass));
+    ok &= ReadImm(exe, Imm{0x15B5D8378, {0x35}, 1, 1}, &xorKey, error);
+    ok &= ReadImm(exe, Imm{0x140A602B0, {0x6b, 0xc2}, 2, 2}, &scale, error);
+    ok &= ReadImm(exe, Imm{0x140A602B5, {0x3d}, 1, 1}, &cap, error);
+    const uint32_t cls = (maskedClass ^ xorKey) & 0xff;
+    const int32_t level = static_cast<int32_t>(cls) * static_cast<int32_t>(scale);
+    k.teamLevelRaw = level < 0 ? 0 : (static_cast<uint32_t>(level) > cap ? static_cast<int>(cap) : level);
+  }
   k.sfThruClass = 3.0f;  // `cmp [recB],2; jbe`: class above 2, an instruction shape
   // The rolled plans' base probabilities, from the immediates of the plan
   // functions 0x14211a800 (Breakthrough), 0x14211b460 (MiddleShot),
@@ -505,7 +564,9 @@ ShootZone ComputeShootZone(float ballX, float ballZ, float attackSign, float fin
     const float bearing = Wrap360(std::atan2(dz, dx) * 180.0f / kPi_deg + 180.0f);
     z.angle_deg = WrapDeg(bearing);
   } else {
-    z.d_m = halfLen_m - attackSign * ballX;
+    // Case B (pf[2] >= |K.z|): `+0x170 = |pf[0] - sign*K.x|`. The 0x142565D30 absolute-value mask
+    // (`andps` at 0x140698EE1) is real: past the goal line the signed form would go negative.
+    z.d_m = std::fabs(halfLen_m - attackSign * ballX);
     z.angle_deg = 0.0f;
   }
   if (outsidePosts) {
@@ -548,6 +609,18 @@ bool InShootRange(const ShootZone& z) { return z.d_m >= 0.0f && (z.inBox || (z.b
 bool IsCentral(const ShootZone& z) { return InShootRange(z) && z.sector == kSectorCentral; }
 bool IsMid(const ShootZone& z) { return InShootRange(z) && z.band < 2; }
 bool IsClose(const ShootZone& z) { return InShootRange(z) && z.band == kBandClose; }
+
+float AttackAngleDeg(float attackSign) {
+  // 0x14045DF70 writes MA+0x228D4 = bearing(-halfLen, 0) = 270 and MA+0x228D8 = bearing(+halfLen, 0) = 90
+  // (atan2(dx, dz) x 180/pi, 0x140A92D40 x 0x14259BE40); 0x140A71520 picks by the sign byte
+  // `T+0x254`, and 0x1404FEBD0 stores it at T+0x250. `attackSign` is that sign, so this is its bearing.
+  return attackSign < 0.0f ? 270.0f : 90.0f;
+}
+
+float AimVsFacingDeg(float attackSign, float facingX, float facingZ) {
+  const float facing = BearingDeg({0.0f, 0.0f}, {facingX, facingZ});
+  return std::fabs(WrapDeg(AttackAngleDeg(attackSign) - facing));
+}
 bool InBox(const ShootZone& z) { return z.inBox; }
 bool InHeaderRange(const ShootZone& z, const CarrierConstants& k) {
   return InShootRange(z) && z.d_m <= k.shootR1_m;
@@ -621,14 +694,15 @@ float ReceiverDifficulty(float ballSpeed_mps, float dist_m, float incomingAngle_
     if (oneTouchPass) movingBall *= k.oneTouchGain;
   }
   const float run = running ? Clamp01((carrierSpeed_kmh - k.runFloor_kmh) / k.runSpan_kmh) : 0.0f;
-  const float turn = Clamp01((std::fabs(WrapDeg(turnAngle_deg)) - k.turnFloor_deg) / k.turnSpan_deg);
+  // The turn ramp: from the floor (top - span = 60) over the span (70) to the top (130), report 4.3.
+  const float turn = Clamp01((std::fabs(WrapDeg(turnAngle_deg)) - (k.turnTop_deg - k.turnSpan_deg)) / k.turnSpan_deg);
   const float high = Clamp01((ballHeight_m - k.highFloor_m) / k.highSpan_m);
   float diff = k.diffMovingBallWeight * movingBall + k.diffRunWeight * run +
                k.diffTurnWeight * turn + high;
   // The per-player Low Pass multiplier, 0.7 + 0.3 * g(LowPass).
   float g = 0.0f;
   if (lowPass <= k.lowPassFloor) g = 1.0f;
-  else if (lowPass < k.lowPassTop) g = (k.lowPassTop - lowPass) / k.lowPassSpan;
+  else if (lowPass < k.lowPassTop) g = (lowPass - k.lowPassTop) / k.lowPassSpan;  // PES 0x1421174F0: (LP - 99) / -19
   diff *= k.lowPassBase + k.lowPassGain * g;
   return diff;
 }
@@ -962,6 +1036,77 @@ int PlanImageMode(int planId, int previousMode, bool receiving, float carrierX_m
   }
 }
 
+float PlanHeadingDeg(int mode, float carrierX, float carrierZ, float attackSign,
+                     const CarrierConstants& k) {
+  // FUN_14211E650 writes plan+0xC0 every frame (store 0x14211EB89, `MOVSS
+  // [RBX],XMM0` after `LEA RBX,[R14+0xC0]` at 0x14211EB7F; its only caller is
+  // FUN_14211D710 at 0x14211D7C7). The mode at plan+0xC4 selects a start/end
+  // point pair through the jump table at 0x14211EC50 (`MOV ECX,[RCX+RAX*4+
+  // 0x211EC50]` at 0x14211E766), every branch then calls FUN_14211C380 at
+  // 0x14211EB75, and the result is wrapped to [0, 360) with 0x14259858C.
+  if (mode != 2) {
+    // ponytail: modes 1/7 (0x14211E773, seeded by FUN_14211C610's ball-relative
+    // point), 3 (0x14211E930), 4 (0x14211E9B8), 5/6 (0x14211EA5E) and 8
+    // (0x14211E874) read plan-record fields GF does not carry (+0xA8 the plan's
+    // own carrier copy, +0xC8/+0xCC the plan target); the attack direction stands
+    // in for them. GF's Basic plan runs mode 2.
+    return AttackAngleDeg(attackSign);
+  }
+  // 0x14211E7AC (mode 2, Basic). The three points, from the pitch marks pf =
+  // *(G+0x2AA8) and the carrier record (param_2[1]: +0x14 the sign, +0x18/+0x20
+  // his x/z):
+  //   a   = p60 (RSP+0x60): ((F0-2) - F0/3) * sign, at the carrier's z  [0x14211E809]
+  //   b   = p50 (RSP+0x50): (F0-2) * sign, at the carrier's z          [0x14211E7F0]
+  //   aim = p70 (RSP+0x70): (F0-2) * sign, z = 0 - the goal centre      [0x14211E7CE]
+  // The projection is FUN_140A91120 (0x14211C3E2): the carrier is projected onto
+  // the segment a -> b. F0 is the pitch half-length, `2` is 0x142565604 and the
+  // divisor is 0x14258C264 (the same install constants the rest of this file
+  // reads), so no number here is a literal.
+  const float sign = attackSign;
+  const float f0 = pesFieldHalfLength;
+  const float pad = k.touchPad_m;     // 0x142565604 = 2.0
+  const float third = k.sfLimMin_m;   // 0x14258C264 = 3.0
+  const CarrierPoint a{sign * ((f0 - pad) - f0 / third), carrierZ};
+  const CarrierPoint b{sign * (f0 - pad), carrierZ};
+  const CarrierPoint aim{sign * (f0 - pad), 0.0f};
+  const float dx = b.x - a.x;
+  const float dz = b.z - a.z;
+  const float d2 = dx * dx + dz * dz;
+  float t = std::clamp(((carrierX - a.x) * dx + (carrierZ - a.z) * dz) / d2, 0.0f, 2.0f);
+  const CarrierPoint p{a.x + dx * t, a.z + dz * t};
+  // The overshoot reflection (FUN_14211C380's sqrt pair at 0x14211C4E3): when the
+  // projected point sits closer to b than the segment is long, the parameter is
+  // re-read as |p-a| / |b-a| and folded back past 1.
+  if ((p.x - b.x) * (p.x - b.x) + (p.z - b.z) * (p.z - b.z) < d2) {
+    const float r = std::sqrt((p.x - a.x) * (p.x - a.x) + (p.z - a.z) * (p.z - a.z)) /
+                    std::sqrt(d2);
+    t = r > 1.0f ? 1.0f - (r - 1.0f) : r;
+  }
+  // The blend out of the carrier's own depth past the goal area (0x14211E80F-
+  // 0x14211E86F): 0 inside F5, 2 past F1, twice the fraction between them.
+  const float az = std::fabs(carrierZ);
+  const float blend =
+      az <= pesGoalAreaHalfWidth
+          ? 0.0f
+          : (az < pesFieldHalfWidth
+                 ? 2.0f * ((az - pesGoalAreaHalfWidth) /
+                           (pesFieldHalfWidth - pesGoalAreaHalfWidth))
+                 : 2.0f);
+  // FUN_14211C380's two powf calls (0x14211C54C): the blend point is b pulled
+  // toward `aim`. A zero blend sends powf(1-t, inf) to 1 (or 0) and the outer
+  // powf to 1, so the aim point is taken whole - the same answer the two calls
+  // give, without an infinity.
+  float gain = 1.0f;
+  if (blend > 0.0f) {
+    const float inner = std::pow(1.0f - t, 1.0f / blend);
+    gain = std::pow(1.0f - inner, blend);
+  }
+  const CarrierPoint q{b.x + (aim.x - b.x) * gain, b.z + (aim.z - b.z) * gain};
+  // FUN_140474C40 (0x14211EBF0) = FUN_14046F260: atan2(to.x-from.x, to.z-from.z)
+  // in degrees, wrapped; the degenerate pair reads 0.
+  return BearingDeg(p, q);
+}
+
 // PES's list order is the table order the list builder writes (0x1421112c0); the walk reads it.
 namespace {
 
@@ -1026,6 +1171,13 @@ bool PassVeto(const UnitSlot& s, const WalkContext& c) {
 }
 
 }  // namespace
+
+bool ForwardIsInstantReturn(int forwardTarget, int passer, bool passedToCarrier, float secondsSincePass) {
+  // ponytail: the window is PES's 2 * int(54) frames at the 54 Hz game speed (carunits5.c:421).
+  constexpr float kInstantReturnWindow_s = 2.0f;
+  return passedToCarrier && passer >= 0 && forwardTarget == passer &&
+         secondsSincePass < kInstantReturnWindow_s;
+}
 
 UnitSlot WalkCarrierUnits(const std::vector<UnitSlot>& table, const WalkContext& c) {
   for (const UnitSlot& s : table) {
@@ -1292,16 +1444,15 @@ bool PassThroughValidator(const BackSpaceInput& in, size_t mateIdx, const Carrie
     if (in.humanCarrier && d < k.bsFarDist_m) limit = k.bsHumanFacingLimit_deg;
     if (limit <= std::fabs(WrapDeg(in.carrierFacing_deg - carrierBearing))) return false;
   }
-  // Gate 11: lane 1, the direct core call 0x14063CD90 - origin the ball advanced 1 m along the
-  // record angle, len 5, cone 30, rad 2, h = the target slot (verbatim PES: `MOV [RSP+0x30],ESI`
-  // at 0x142122D00 passes the slot where a frame count sits; likely a register mix-up, ported
-  // as is). Any entry rejects.
+  // Gate 11: lane 1, the direct core call 0x14063CD90 - origin the ball advanced 1 m along the record angle, len 5, cone 30,
+  // rad 2, and frames 0: 0x142122D00 stores ESI = 0 in the call's frame slot (raw asm), so the lane is scanned on the
+  // present positions. Any entry rejects.
   const lane::LaneRequest lane1{ToLaneVec(AdvancePoint(in.ball, m.recBAngle_deg, k.bsBallHeight_m)),
                                 m.recBAngle_deg, k.bsLane1Len_m, k.bsLane1Cone_deg,
                                 k.bsLane1Rad_m};
   const int oppSide = lane::IsAwaySlot(in.carrierSlot) ? 0 : 1;
   if (lane::ScanLane(k.lane, in.players, in.carrierSlot, oppSide, lane1, /*keepKeeper*/ false,
-                     /*horizonFrames*/ m.index)
+                     /*horizonFrames*/ 0)
           .count != 0)
     return false;
   // Gate 12: lane 2, packer B 0x14063D2F0 - origin the mate's 16-frame prediction, theta the
@@ -1380,6 +1531,11 @@ bool PassThroughValidator(const BackSpaceInput& in, size_t mateIdx, const Carrie
 
 }  // namespace
 
+// 0x1421225E0, the curve gate: the mate's own point is on or past the curve, k*x >= k*curve(z) (frames 0).
+inline bool CurveGateOk(const BackSpaceInput& in, CarrierPoint pos) {
+  return in.curve.has_value() && in.attackSign * pos.x >= in.attackSign * CurveEval(*in.curve, pos.z);
+}
+
 PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k) {
   PassAnswer answer;
   // The lane branch (0x142129110): a Mid-zone carrier with a FREE gate lane checks the nearest
@@ -1412,16 +1568,11 @@ PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k) {
       if (in.mates[i].index == in.planRecordTarget) mateIdx = i;
     if (mateIdx >= in.mates.size()) return answer;
     const BackSpaceMate& m = in.mates[mateIdx];
-    auto rank0 = [&](int q) {
-      // ponytail: the NearestEntry rank-0 read (T18+0x22E4C) has no GF table; the nearest
-      // opponent to the entry stands in. The table's writer is undecoded (helpers §5).
-      const int side = lane::IsAwaySlot(q) ? 0 : 1;
-      const lane::LanePlayer& qp = in.players[q];
-      return NearestSideSlot(in.players, side, {qp.pos.x, qp.pos.z});
-    };
+    // The NearestList rank 0 of the side opposite the entry (row q of the carrier's lane snapshot).
+    auto rank0 = [&](int q) { return in.nearestOpponent[q]; };
     if (!PassThroughValidator(in, mateIdx, k, rank0)) return answer;
     const CarrierPoint corner{in.attackSign == 1.0f ? in.pitchHalfLen_m : -in.pitchHalfLen_m, 0.0f};
-    if (!(Dist2(m.recBTarget, corner) <= k.bsCornerDistSq_m2) && !in.curveGate) return answer;
+    if (!(Dist2(m.recBTarget, corner) <= k.bsCornerDistSq_m2) && !CurveGateOk(in, m.pos)) return answer;
     answer.index = m.index;
     answer.kind = kPassThrough;
     return answer;
@@ -1433,17 +1584,13 @@ PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k) {
   // discarded - so the port starts at the loop.
   for (const BackSpaceMate& m : in.mates) {
     if (m.index < 0 || m.index > 21 || m.index == in.carrierSlot) continue;
-    auto rank0 = [&](int q) {
-      const int side = lane::IsAwaySlot(q) ? 0 : 1;
-      const lane::LanePlayer& qp = in.players[q];
-      return NearestSideSlot(in.players, side, {qp.pos.x, qp.pos.z});
-    };
+    auto rank0 = [&](int q) { return in.nearestOpponent[q]; };
     size_t mateIdx = 0;
     for (size_t i = 0; i < in.mates.size(); ++i)
       if (in.mates[i].index == m.index) mateIdx = i;
     if (!PassThroughValidator(in, mateIdx, k, rank0)) continue;
     const CarrierPoint corner{in.attackSign == 1.0f ? in.pitchHalfLen_m : -in.pitchHalfLen_m, 0.0f};
-    if (!(Dist2(m.recBTarget, corner) <= k.bsCornerDistSq_m2) && !in.curveGate) continue;
+    if (!(Dist2(m.recBTarget, corner) <= k.bsCornerDistSq_m2) && !CurveGateOk(in, m.pos)) continue;
     const float dMate = std::sqrt(Dist2(in.carrierPos, m.pos));
     const float dTarg = std::sqrt(Dist2(in.carrierPos, m.recBTarget));
     const int horizon13 = static_cast<int>(kPesTickHz) >> 2;  // fps >> 2 = 13
@@ -1530,22 +1677,11 @@ PassAnswer BackSpaceUnit(const BackSpaceInput& in, const CarrierConstants& k) {
   return answer;
 }
 
-namespace {
-
-// The opponents of a carrier slot are the other side: away carriers face the home side (0).
-int OpponentSide(int carrierSlot) { return lane::IsAwaySlot(carrierSlot) ? 0 : 1; }
-
-// dist / (speed * 1000 / (fps * 3600)), truncated: the frames a mate needs at his speed (0x1404C8DC0).
-int ShortFrames(float dist_m, float speed_kmh) {
-  return static_cast<int>(dist_m / (speed_kmh * 1000.0f / (kPesTickHz * 3600.0f)));
-}
-
-// The mate's scored limit (0x142126B70 L183-232): the keeper's is the floor; a field mate's is
-// max(need, floor) while the need is within the cap, and the cap otherwise. The need weighs the
-// carrier's speed (the 5/25 km/h ramp) and the mate's distance (the 10/30 m ramp) over the shared
-// -20 span; danger fixes it at 120.
+// The mate's scored limit (0x142126B70 L183-232, raw asm): a keeper's limit is the 45 floor; a field mate's is
+// clamp(need, floor, cap). The need weighs the carrier's speed (the 5/25 km/h ramp: 0x142127109 passes the passer's
+// record) and the mate's record A distance (the 10/30 m ramp) over the shared -20 span; danger fixes it at 120.
 float ShortLimit(const SafetyInput& in, const SafetyMate& m, bool keeper, const CarrierConstants& k) {
-  if (keeper) return k.sfNeedFloor;
+  if (keeper) return k.sfNeedFloor;  // 0x1421271BC: the keeper's limit is the floor (raw asm)
   float wS = 1.0f;
   if (k.sfSpeedFloor_kmh < in.carrierSpeed_kmh)
     wS = in.carrierSpeed_kmh < k.sfSpeedCeil_kmh
@@ -1558,8 +1694,37 @@ float ShortLimit(const SafetyInput& in, const SafetyMate& m, bool keeper, const 
   if (m.recAClass == 4) need += k.sfClass4Bonus;
   if (m.recAClass == 5) need += k.sfClass5Bonus;
   if (in.danger) need = k.sfNeedDanger;
-  return need <= k.sfNeedCap ? std::max(need, k.sfNeedFloor) : k.sfNeedCap;
+  // The cap is a clamp: a need over the 135 cap gives 135 (0x1421271C1-C6), anything under it max(need, 45).
+  return std::clamp(need, k.sfNeedFloor, k.sfNeedCap);
 }
+
+// Record B's target ("into space", carrier-ai 4.3): the mate's point, advanced 8 m + 5 m * clamp01(speed * cos(delta) / 20)
+// along the attack angle turned by sigma * 45 deg * clamp01(d / 30). sigma is the side of the carrier->mate bearing
+// against the attack angle (+1 unless it is negative), d the mate's distance to his nearest opponent, delta his heading
+// against that direction. ponytail: a target past the penalty-area line is re-placed at half the length (0x140A4DDC0,
+// undecoded): not ported. The speed is taken in km/h (INFERENCE: the ramps of this block are km/h).
+CarrierPoint IntoSpaceTarget(const CarrierPoint& carrier, const CarrierPoint& mate, float mateHeading_deg,
+                             float mateSpeed_kmh, float nearestOpp_m, float attackAngle_deg,
+                             const CarrierConstants& k) {
+  const float sigma = WrapDeg(BearingDeg(carrier, mate) - attackAngle_deg) < 0.0f ? -1.0f : 1.0f;
+  const float turn = sigma * k.intoSpaceTurn_deg * std::clamp(nearestOpp_m / k.intoSpaceTurnDist_m, 0.0f, 1.0f);
+  const float theta = attackAngle_deg + turn;
+  const float cosDelta = std::cos((mateHeading_deg - theta) * (kPi_deg / 180.0f));
+  const float length = k.intoSpaceBase_m +
+                       k.intoSpaceGain_m * std::clamp(mateSpeed_kmh * cosDelta / k.intoSpaceSpeedScale, 0.0f, 1.0f);
+  return AdvancePoint(mate, theta, length);
+}
+
+namespace {
+
+// The opponents of a carrier slot are the other side: away carriers face the home side (0).
+int OpponentSide(int carrierSlot) { return lane::IsAwaySlot(carrierSlot) ? 0 : 1; }
+
+// dist / (speed * 1000 / (fps * 3600)), truncated: the frames a mate needs at his speed (0x1404C8DC0).
+int ShortFrames(float dist_m, float speed_kmh) {
+  return static_cast<int>(dist_m / (speed_kmh * 1000.0f / (kPesTickHz * 3600.0f)));
+}
+
 
 // The carrier's inputs to the short picker's head: b28 (free-ish: press10 == 0, or press10 == 1
 // with press34 > 1) and dCarrierOpp2, the squared gap between his 27-frame prediction and the
@@ -1604,7 +1769,7 @@ bool ShortMateSurvives(const SafetyInput& in, const SafetyMate& m, const ShortCa
                           (!in.receivingFlag || in.ctx44 < k.sfKeeperScalar) &&
                           in.carrierPressClass == 0);
     if (!(speedArm && sideArm)) return false;
-  } else if (!(in.humanCarrier || k.sfOppD2Min <= m.nearestOppD2)) {
+  } else if (!(in.humanCarrier || k.sfOppD2Min <= m.score)) {
     return false;
   }
   // The scored limit and the turn arm, when the scoring gate runs (press30 < 2, class < 5, dist >= 10).
@@ -1801,13 +1966,11 @@ int SafetyThroughPicker(const SafetyInput& in, const CarrierConstants& k) {
         in.attackSign * in.carrierPos.x < in.attackSign * in.teamLineB)
       return lane::kNoSlot;
   }
-  // The carrier's NearestEntry row: his teammates by distance from him, eleven at most.
+  // The carrier's NearestEntry row: his teammates in the NearestList order the caller gives (the
+  // caller sorts them), eleven at most.
   std::vector<const SafetyMate*> row;
   for (const SafetyMate& m : in.mates)
     if (0 <= m.index && m.index <= 21 && m.index != in.carrierSlot) row.push_back(&m);
-  std::stable_sort(row.begin(), row.end(), [&](const SafetyMate* a, const SafetyMate* b) {
-    return Dist2(a->pos, in.carrierPos) < Dist2(b->pos, in.carrierPos);
-  });
   for (size_t j = 0; j < row.size() && j < static_cast<size_t>(lane::kSideSize); ++j) {
     const SafetyMate& m = *row[j];
     if (k.sfThruRowSq < Dist2(m.pos, in.carrierPos)) break;  // the row is sorted: the rest are farther
@@ -1853,15 +2016,9 @@ PassAnswer SafetyUnit(const SafetyInput& in, const CarrierConstants& k) {
     if (in.pressCount3 != 0 &&
         k.sfFacingTurn_deg < std::fabs(WrapDeg(in.carrierFacing_deg - in.planHeading_deg)))
       ++kk;
-    const int nearest = NearestSideSlot(in.players, OpponentSide(in.carrierSlot), in.carrierPos);
-    // ponytail: the decoded length is a rank-indexed NearestEntry d2 (0x14212B71D-76F; the rank byte's
-    // meaning is undecoded). The nearest opponent's distance plus the radius stands in: the core's strict
-    // annulus, measured from the apex one radius behind the origin, never records an opponent at exactly
-    // the nearest distance, so the gate could not block on him. Removing site: the NearestEntry rank read.
-    float len = 0.0f;
-    if (nearest != lane::kNoSlot)
-      len = std::sqrt(Dist2({in.players[nearest].pos.x, in.players[nearest].pos.z}, in.carrierPos)) +
-            k.sfLaneRad_m;
+    // PES's gate length is the root of the carrier's d^2 in the row of sign !k (0x14212B71D..0x14212B76F,
+    // 0x140A714A0): the attacked goal's S1 row, pesscorerows.hpp.
+    const float len = std::sqrt(in.carrierGateD2_m2);
     const lane::LaneRequest gate{ToLaneVec(in.carrierPos), in.laneHeading_deg, len,
                                  k.unitLaneCone_deg, k.sfLaneRad_m};
     if (lane::LaneFree(k.lane, in.players, in.carrierSlot, gate, /*keepKeeper*/ false, 0))
@@ -1881,6 +2038,304 @@ PassAnswer SafetyUnit(const SafetyInput& in, const CarrierConstants& k) {
   if (shortSlot == lane::kNoSlot) return answer;
   answer.index = shortSlot;
   answer.kind = kPassShort;
+  return answer;
+}
+
+namespace {
+
+// 0x140A4E3F0, the closing sweep behind OneTwo's gate: opponents of `ref` whose frames-ahead point lies
+// strictly within `outer_m` of the reference's own frames-ahead point (0x140A4E720 passes the inner
+// radius as 0.0, so only d2 > 0 is required), and whose bearing from it is within `thr_deg` of the
+// attack angle.
+// ponytail: PES's flag-1 path skips the per-side active check; GF keeps it, so a slot GF leaves
+// empty (no player) never counts at the origin.
+int ClosingCount(const std::array<lane::LanePlayer, lane::kSlots>& players, int ref,
+                 float attack_deg, int frames, float outer_m, float thr_deg) {
+  if (ref < 0 || ref > 21) return 0;
+  const int opp = lane::IsAwaySlot(ref) ? 0 : 1;
+  const lane::LanePlayer& r = players[ref];
+  const CarrierPoint pr = PredictPoint({r.pos.x, r.pos.z}, {r.vel.x, r.vel.z}, frames);
+  const float outerSq = outer_m * outer_m;
+  int count = 0;
+  for (int j = 0; j < lane::kSideSize; ++j) {
+    const int q = lane::kSideSize * opp + j;
+    if (!players[q].active) continue;
+    const lane::LanePlayer& o = players[q];
+    const CarrierPoint pq = PredictPoint({o.pos.x, o.pos.z}, {o.vel.x, o.vel.z}, frames);
+    const float d2 = Dist2(pr, pq);
+    if (!(0.0f < d2 && d2 < outerSq)) continue;
+    if (std::fabs(WrapDeg(BearingDeg(pr, pq) - attack_deg)) <= thr_deg) ++count;
+  }
+  return count;
+}
+
+// 0x142124950, the OneTwo receiver predicate (lane-core §8): teammate r takes a one-two ball off the
+// carrier. The gates in decoded order.
+bool TouchReceiverOk(const TouchInput& in, const TouchReceiver& r, const CarrierConstants& k) {
+  const int c = in.carrierSlot;
+  if (r.index < 0 || r.index > 21 || r.index == c) return false;  // P0
+  if (!r.statusValid) return false;                                // P1
+  if (r.roleClass == 0) return false;                              // P2: 0x142124A83 exits on snapshot[0xD] == 0
+  if (r.oneTwoRun) return false;                                   // P3: player(r)+0x5D0 != 0x25
+  // Band 1: beyond 15 m, or past 110 degrees of facing, the difficulty is held to 1.0; else to 2.0.
+  const bool farOrTurned = r.dist_m >= k.rcvDistFar_m || r.turnFacing_deg >= k.rcvTurnFar_deg;
+  if (r.difficulty > (farOrTurned ? k.rcvDifficultyFar : k.rcvDifficultyNear)) return false;
+  // The angle block runs unless the carrier is human, mode 3 or 4 holds with C[0xF] set, and r is
+  // within 6 m (NL(c, r) under 36). It tests the carrier's facing against the bearing to r.
+  // ponytail: the bearing stands in for the A_tab table T18+0x22F7C (lane-units2 O9, writer OPEN).
+  const float nl = Dist2(in.carrierPos, r.pos);
+  const bool modeThreeOrFour = in.teamMode == 3 || in.teamMode == 4;
+  if (in.humanCarrier || !modeThreeOrFour || !in.flag15 || nl >= k.rcvNearSq_m2) {
+    const float limit =
+        in.carrierSpeed_kmh > k.rcvSpeedGate_kmh ? k.rcvAngleFast_deg : k.rcvAngleSlow_deg;
+    if (std::fabs(WrapDeg(in.carrierFacing_deg - BearingDeg(in.carrierPos, r.pos))) > limit)
+      return false;
+  }
+  // The window: the base by the pass angle against the attack, the ramp by the angle against the facing.
+  const float base = r.attackAngle_deg < k.rcvBaseSplit_deg ? k.rcvBaseNear_m : k.rcvBaseFar_m;
+  float ramp = 0.0f;
+  if (r.turnFacing_deg <= k.rcvRampHalf_deg) {
+    ramp = 1.0f;
+  } else if (r.turnFacing_deg < k.rcvRampTop_deg) {
+    ramp = (r.turnFacing_deg - k.rcvRampTop_deg) / k.rcvRampSpan;
+  }
+  const float reach = base + k.rcvRampGain_m * ramp;
+  if (r.dist_m < k.rcvWindowFloor_m || std::max(reach, k.rcvWindowFloor_m) < r.dist_m) return false;
+  // M[r][c]: the receiver faces the carrier within 120 degrees.
+  // ponytail: the bearing r -> c stands in for the M table T18+0x23F7C (lane-units2 O9, writer OPEN).
+  if (!(std::fabs(WrapDeg(r.facing_deg - BearingDeg(r.pos, in.carrierPos))) < k.rcvAngleSlow_deg))
+    return false;
+  // M[c][r]: the pass is off the attack's line by more than 20 degrees, and the openness class is over 2.
+  // ponytail: the bearing c -> r stands in for the M table (lane-units2 O9, writer OPEN).
+  if (!(std::fabs(WrapDeg(in.attackAngle_deg - BearingDeg(in.carrierPos, r.pos))) > k.rcvM2_deg))
+    return false;
+  return r.opennessClass > 2;
+}
+
+}  // namespace
+
+float CurveEval(const Curve& c, float z_m) {
+  // 0x142139650: u = clamp(z*scale + 35, 0, 70); u == 70 reads the end sample, else the lerp of two samples.
+  const float u = std::clamp(z_m * c.scale + kCurveCentre, 0.0f, static_cast<float>(kCurveLast));
+  const int i = static_cast<int>(u);
+  if (i >= kCurveLast) return c.x[kCurveLast];
+  // The decode multiplies and divides by 0x14253EE30 around the lerp; that factor cancels to one rounding.
+  return c.x[i] + (c.x[i + 1] - c.x[i]) * (u - static_cast<float>(i));
+}
+
+namespace {
+
+// 0x142565600: the decode's one half (the dedupe cone is half of K).
+constexpr float kHalf = 0.5f;
+
+// 0x140A90C20: the crossing of the lines a->b and c->d, t along a->b and u along c->d. False when the lines
+// are within eps of parallel.
+bool CrossLines(CarrierPoint a, CarrierPoint b, CarrierPoint c, CarrierPoint d, float eps, float& t, float& u) {
+  const float dx = d.x - c.x;
+  const float dz = d.z - c.z;
+  const float den = (b.x - a.x) * dz - (b.z - a.z) * dx;
+  if (std::fabs(den) < eps) return false;
+  t = ((c.x - a.x) * dz - (c.z - a.z) * dx) / den;
+  u = ((b.z - a.z) * (c.x - a.x) - (b.x - a.x) * (c.z - a.z)) / den;
+  return true;
+}
+
+}  // namespace
+
+// 0x142138220: the 71-sample curve from the carrier's opponents (see the header for the contract).
+std::optional<Curve> BuildCurve(const std::array<lane::LanePlayer, lane::kSlots>& players, int carrierSide,
+                                float attackSign, float attackAngle_deg, float halfLen_m,
+                                const CarrierConstants& k) {
+  // The listed men are the opponents (flag = side 0 lists slots 11..21), in play and not their keeper
+  // (0x140A638C0), keyed by s*x and taken most advanced first (the comparator 0x14063EA50 sorts descending).
+  // ponytail: 0x140A48910's record filter (record +1 == 0x11 or 'W', +8 bit 2) also drops men; GF carries no
+  // such bytes, so none is dropped. ponytail: equal keys keep slot order; the tie rule of 0x141E53540 is open.
+  const int oppSide = 1 - carrierSide;
+  const int keeper = lane::KeeperSlot(oppSide, players);
+  struct Listed {
+    int slot;
+    float key;
+  };
+  std::array<Listed, lane::kSideSize> listed{};
+  int nListed = 0;
+  for (int j = 0; j < lane::kSideSize; ++j) {
+    const int slot = lane::kSideSize * oppSide + j;
+    if (!players[slot].active || slot == keeper) continue;
+    listed[nListed++] = Listed{slot, attackSign * players[slot].pos.x};
+  }
+  // 0x142138220 keeps its old rows when nobody is listed; GF keeps no earlier table, so there is none.
+  if (nListed == 0) return std::nullopt;
+  std::stable_sort(listed.begin(), listed.begin() + nListed,
+                   [](const Listed& a, const Listed& b) { return a.key > b.key; });
+
+  // The lane angle a = psi - 180 (psi = T+0x250). Each listed man's segment point q sits curveStep_m along psi,
+  // and is dropped when an earlier point shadows it (0x140A53DF0: 0 < d2 < arm^2, and the bearing from the
+  // earlier point is within half of K of a).
+  const float a = Wrap360(attackAngle_deg - k.curveHalfTurn_deg);
+  const float along = Wrap360(a - k.curveHalfTurn_deg);
+  std::array<CarrierPoint, lane::kSideSize> segments{};
+  int nSegments = 0;
+  for (int n = 0; n < nListed; ++n) {
+    const CarrierPoint p{players[listed[n].slot].pos.x, players[listed[n].slot].pos.z};
+    const CarrierPoint q = AdvancePoint(p, along, k.curveStep_m);
+    bool shadowed = false;
+    for (int s = 0; s < nSegments && !shadowed; ++s) {
+      const float d2 = Dist2(segments[s], q);
+      shadowed = d2 > 0.0f && d2 < k.curveArm_m * k.curveArm_m &&
+                 std::fabs(WrapDeg(BearingDeg(segments[s], q) - a)) < k.curveWide_deg * kHalf;
+    }
+    if (!shadowed) segments[nSegments++] = q;
+  }
+
+  // Sample i is the lateral line z = (i - 35) * s across the pitch, from -s*F.x to s*F.x. Its x is the most
+  // advanced crossing of any segment's two arms (rays from the segment point at a +- 50 degrees, 1000 m long;
+  // a crossing counts when u >= 0), and starts at the back line -s*F.x.
+  Curve curve;
+  curve.scale = attackSign;
+  for (int i = 0; i < kCurveSamples; ++i) {
+    const float z = (static_cast<float>(i) - kCurveCentre) * attackSign;
+    const CarrierPoint from{-attackSign * halfLen_m, z};
+    const CarrierPoint to{attackSign * halfLen_m, z};
+    float best = -attackSign * halfLen_m;
+    for (int s = 0; s < nSegments; ++s) {
+      for (const float turn : {Wrap360(a + k.curveArmAngle_deg), Wrap360(a - k.curveArmAngle_deg)}) {
+        const CarrierPoint armEnd = AdvancePoint(segments[s], turn, k.curveArm_m);
+        float t = 0.0f;
+        float u = 0.0f;
+        if (!CrossLines(from, to, segments[s], armEnd, k.curveEps, t, u) || u < 0.0f) continue;
+        const float x = from.x + t * (to.x - from.x);
+        if (attackSign * x > attackSign * best) best = x;
+      }
+    }
+    curve.x[i] = best;
+  }
+  return curve;
+}
+
+bool OneTouch(const TouchInput& in, const CarrierConstants& k) {
+  const float s = in.attackSign;
+  if (s * in.carrierPos.x < s * in.ownLine_m) return false;
+  if (s * in.carrierPos.x > in.pitchBound_m + k.touchPad_m) return false;
+  const int level = in.teamLevelZero ? 0 : in.teamLevelRaw;
+  const int levelHundreds = level / 100;
+  if (levelHundreds < 2) return false;
+  const bool modeThreeOrFour = in.teamMode == 3 || in.teamMode == 4;
+  if (!modeThreeOrFour && in.carrierCategory < 4) return false;
+  if (in.score < k.touchScore_m2) return false;
+  if (in.closeZone) return false;
+  if (!in.humanCarrier && in.oneTwoRunEvent) return false;
+  const int base = (levelHundreds == 5 || levelHundreds == 6) ? 2 : (levelHundreds == 4 ? 1 : 0);
+  const int inc = (in.attackLevel >= 3 || in.teamMode == 2 || in.teamMode == 3) ? 1 : 0;
+  if (in.runCount >= std::min(2, base + inc)) return false;
+  const int m = in.planMode;
+  if (!(m == 1 || m == 2 || m == 3 || m == 5 || m == 6)) return false;
+  if (in.carrierSpeed_kmh >= k.touchSpeed_kmh && in.markCount > 3.0f &&
+      std::fabs(WrapDeg(in.carrierHeading_deg - in.planHeading_deg)) > k.touchTurn_deg)
+    return false;
+  const lane::LaneRequest lane{ToLaneVec(in.carrierPos), in.planHeading_deg, k.touchLaneLen_m,
+                               k.touchLaneCone_deg, k.touchLaneRad_m};
+  if (lane::LaneFree(k.lane, in.players, in.carrierSlot, lane, /*keepKeeper*/ false,
+                     /*horizonFrames*/ 0))
+    return false;
+  // G12: the carrier is 0 to 10 m behind the curve at his lateral position: -10 <= k*(x - curve) < 0.
+  if (!in.curve.has_value()) return false;
+  const float band = s * (in.carrierPos.x - CurveEval(*in.curve, in.carrierPos.z));
+  return k.touchBand_m <= band && band < 0.0f;
+}
+
+PassAnswer OneTwoUnit(const OneTwoInput& in, const CarrierConstants& k) {
+  PassAnswer answer;
+  const int c = in.touch.carrierSlot;
+  // The closing sweep (0x140A4E720): frames int(54*0.3+0.5) = 16, the 6 m outer radius, and the attack
+  // bearing within half of the 180 degree half turn.
+  const int closing = ClosingCount(in.touch.players, c, in.touch.attackAngle_deg,
+                                   PesFrames(k.oneTwoFrameGain), k.oneTwoOuter_m,
+                                   k.oneTwoClosingHalf_deg * 0.5f);
+  // The carrier's angle against the attack, folded once past 180 (0x14212AF40-AF60).
+  float d = in.carrierAngle_deg - in.touch.attackAngle_deg;
+  if (std::fabs(d) > k.oneTwoClosingHalf_deg) d -= (d >= 0.0f ? 1.0f : -1.0f) * 360.0f;
+  if (!(std::fabs(d) <= k.oneTwoAngle_deg || closing != 0)) return answer;
+  if (!OneTouch(in.touch, k)) return answer;
+  // The picker (0x142126A80): the first listed teammate the receiver predicate takes.
+  for (const TouchReceiver& r : in.mates) {
+    if (!TouchReceiverOk(in.touch, r, k)) continue;
+    answer.index = r.index;
+    answer.kind = kPassShort;  // b = 0
+    answer.oneTouch = true;    // f10
+    return answer;
+  }
+  return answer;
+}
+
+
+PassAnswer DirectHighBallUnit(const DirectHighBallInput& in, const CarrierConstants& k) {
+  PassAnswer answer;
+  const int c = in.touch.carrierSlot;
+  const std::array<lane::LanePlayer, lane::kSlots>& players = in.touch.players;
+  const int side = lane::IsAwaySlot(c) ? 1 : 0;  // IsAway(c): the carrier's side, the teammate scan
+  if (in.firstTimeWhileReceiving) return answer;  // AI rec+1 state bit 5 (0x140A6E5E0)
+  if (!in.volatileBall) return answer;            // K+0x6E == 0 (0x142129CC8)
+  // The low-ball block: a ball at or under the carrier's head height (+0.1 m) needs an opponent within
+  // 5 m of it, and the carrier outside the mid zone.
+  if (in.ballHeight_m <= in.carrierHeight_m + k.dhbHeightPad_m) {
+    const int opp = NearestSideSlot(players, 1 - side, in.ball);
+    if (opp == lane::kNoSlot) return answer;
+    // ponytail: the history position (0x140A76240, S17) stands in with the current one, so the
+    // decode's two d2 tests collapse into the one on the current position.
+    const lane::LanePlayer& op = players[opp];
+    if (k.dhbNearOpp_m2 < Dist2({op.pos.x, op.pos.z}, in.ball)) return answer;
+    if (in.mid) return answer;
+  }
+  // The mates, nearest first: the candidates the score, branch A, and the 9- and 27-frame tests pick.
+  const int frames9 = static_cast<int>(kPesTickHz) / 6;
+  const int frames27 = PesFrames(k.dhbFarGain);
+  const DirectHighBallMate* best = nullptr;
+  float bestD2 = 0.0f;
+  for (const DirectHighBallMate& m : in.mates) {
+    const TouchReceiver& r = m.receiver;
+    if (r.index < 0 || r.index > 21 || r.index == c) continue;
+    if (m.keeper || !r.statusValid || m.recAClass < 1) continue;
+    if (m.score < k.dhbScoreFloor) continue;
+    if (m.score < k.dhbScoreCeil) {
+      // Branch A: a mate whose nearest opponent is under 10 m away is skipped (exactly 10 m is kept).
+      const int nearOpp = NearestSideSlot(players, 1 - side, r.pos);
+      if (nearOpp != lane::kNoSlot) {
+        const lane::LanePlayer& op = players[nearOpp];
+        if (Dist2(r.pos, {op.pos.x, op.pos.z}) < k.dhbMateNear_m2) continue;
+      }
+    }
+    if (Dist2(in.ball, PredictPoint(r.pos, m.velPerFrame, frames9)) < k.dhbPredNear_m2) continue;
+    const float d = Dist2(in.ball, PredictPoint(r.pos, m.velPerFrame, frames27));
+    if (best == nullptr || d < bestD2) {
+      best = &m;
+      bestD2 = d;
+    }
+  }
+  if (best == nullptr) return answer;
+  answer.index = best->receiver.index;
+  answer.kind = kPassShort;  // b = 0 unless the lane below is free
+  // X = wrap180(heading - attack): past 80 degrees the ball stays short and f10 is not written.
+  if (std::fabs(WrapDeg(best->heading_deg - in.touch.attackAngle_deg)) > k.dhbFacing_deg)
+    return answer;
+  // Free when the mark count is 4, or it is off 0 and 2 with him over 15 km/h. The count is read
+  // only below 5, else 0 (0x140A58320).
+  const int mc = best->markCount < 5 ? best->markCount : 0;
+  bool isFree = mc == 4 || (mc != 0 && mc != 2 && best->speed_kmh > k.dhbSpeedGate_kmh);
+  if (!isFree) {
+    // The teammate lane from the mate's position advanced 4 m along theta = table + 180: 15 m, cone 60,
+    // radius 5, horizon fps >> 2 = 13, keeper excluded.
+    // ponytail: the angle table 0x140A71260 (S10, writer OPEN) stands in with his facing.
+    const float theta = Wrap360(best->tableAngle_deg + 180.0f);
+    const CarrierPoint origin = AdvancePoint(best->receiver.pos, theta, k.dhbAdvance_m);
+    const lane::LaneRequest lane{ToLaneVec(origin), theta, k.dhbLaneLen_m, k.dhbLaneCone_deg,
+                                 k.dhbLaneRad_m};
+    isFree = lane::ScanLane(k.lane, players, c, side, lane, /*keepKeeper*/ false,
+                            /*horizonFrames*/ static_cast<int>(kPesTickHz) >> 2)
+                 .count == 0;
+  }
+  // f10: the one-touch predicate and the mate's receiver predicate.
+  answer.oneTouch = OneTouch(in.touch, k) && TouchReceiverOk(in.touch, best->receiver, k);
+  answer.kind = isFree ? kPassThrough : kPassShort;
   return answer;
 }
 
@@ -1959,7 +2414,8 @@ std::vector<int> BuildUnitList(const UnitListInput& in) {
 std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnswer,
                                     const PassAnswer& fwd, const PassAnswer& lng,
                                     const PassAnswer& cross, const PassAnswer& goalFront,
-                                    const PassAnswer& backSpace, const PassAnswer& safety) {
+                                    const PassAnswer& backSpace, const PassAnswer& safety,
+                                    const PassAnswer& oneTwo, const PassAnswer& directHigh) {
   std::vector<UnitSlot> table;
   for (const int kind : kinds) {
     UnitSlot slot;
@@ -1971,9 +2427,22 @@ std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnsw
     if (kind == 2 && goalFront.index >= 0) slot.answer = {kAnswerPass, goalFront.kind};
     if (kind == 3 && backSpace.index >= 0) slot.answer = {kAnswerPass, backSpace.kind};
     if (kind == 6 && safety.index >= 0) slot.answer = {kAnswerPass, safety.kind};
+    if (kind == 10 && oneTwo.index >= 0) slot.answer = {kAnswerPass, oneTwo.kind};
+    if (kind == 11 && directHigh.index >= 0) slot.answer = {kAnswerPass, directHigh.kind};
     table.push_back(slot);
   }
   return table;
+}
+
+// A lane unit's answer names a lane slot (own team 0..10, opponents 11..21, each side in its active-list order); the
+// pass command takes a global player id, so the answer converts through the same two lists.
+int LaneSlotToGlobalId(int slot, const std::vector<int>& ownIds, const std::vector<int>& oppIds) {
+  if (slot >= 0 && slot < lane::kSideSize) return slot < static_cast<int>(ownIds.size()) ? ownIds[slot] : -1;
+  if (slot >= lane::kSideSize && slot < 2 * lane::kSideSize) {
+    const int j = slot - lane::kSideSize;
+    return j < static_cast<int>(oppIds.size()) ? oppIds[j] : -1;
+  }
+  return -1;
 }
 
 int DribbleChooser(const DribbleChooserInput& in, const CarrierConstants& k) {
@@ -2035,4 +2504,77 @@ e_FunctionType PesPassFunctionType(int passKind) {
   }
 }
 
+namespace {
+
+// The predicted-off test looks 18 frames ahead: FUN_141e532e0() / 3 with the 54 Hz tick.
+constexpr int kPredictOffFrames = static_cast<int>(kPesTickHz) / 3;
+
+// Bit `bit` of the anime class's word: FUN_140a6e450 reads bit 9, FUN_140a6e110 bit 27. A class past the table reads 0.
+bool AnimeWordBit(const CarrierConstants& k, int anime, int bit) {
+  if (anime < 0 || anime >= kAnimeClassCount) return false;
+  return ((k.animeClassWord[anime] >> bit) & 1u) != 0;
+}
+
+}  // namespace
+
+int ReceiverOffsideFrames(const CarrierConstants& k) {
+  return static_cast<int>(kPesTickHz * k.receiverFrameScale);
+}
+
+float CarrierOffsideLine(float s, const std::vector<OffsideEntry>& listed, float ballX_m,
+                         float ballVxPerFrame, int frames) {
+  float line = 0.0f;
+  const size_t count = std::min(listed.size(), kOffsideEntries);
+  for (size_t i = 0; i < count; ++i) {
+    if (listed[i].keeper) continue;
+    const float x = listed[i].x_m + listed[i].vxPerFrame * static_cast<float>(frames);
+    if (s * line < s * x) line = x;
+  }
+  const float ballX = ballX_m + ballVxPerFrame * static_cast<float>(frames);
+  if (s * line < s * ballX) line = ballX;
+  return line;
+}
+
+int ReceiverStatusOf(const ReceiverStatusInput& in, const CarrierConstants& k) {
+  if (!in.onPitch) return kReceiverNotOnPitch;
+  if (in.carrier) return kReceiverCarrier;
+  int status = kReceiverValid;
+  const float xAhead = in.pos.x + in.velPerFrame.x * static_cast<float>(kPredictOffFrames);
+  const float zAhead = in.pos.z + in.velPerFrame.z * static_cast<float>(kPredictOffFrames);
+  if (std::fabs(xAhead) > in.halfLen_m || std::fabs(zAhead) > in.halfWidth_m)
+    status = kReceiverPredictedOff;
+  if (in.setPieceTaker) status = kReceiverSetPiece;
+  if (in.offsideTested) {
+    const float s = in.attackSign;
+    const float xLater = in.pos.x + in.velPerFrame.x * static_cast<float>(ReceiverOffsideFrames(k));
+    if (s * in.offsideLine_m < s * in.pos.x || s * in.offsideLine_m < s * xLater)
+      status = kReceiverOffside;
+  }
+  // The busy classes overwrite in the writer's order: 8, then 7, 10 and 9.
+  if ((in.anime >= kAnimeDive && in.anime <= kAnimeFallDown) || in.publishedFlag)
+    status = kReceiverBusy8;
+  if (AnimeWordBit(k, in.anime, 9)) status = kReceiverBusy7;
+  if (AnimeWordBit(k, in.anime, 27)) status = kReceiverBusy10;
+  if (in.anime == kAnimeKpPickupBall) status = kReceiverBusy9;
+  return status;
+}
+
+// The first bounce the track reaches once the ball has been `latchHeight_m` up: the sampler's latch
+// (0x140874100), then the first record whose previous vertical step is down and whose own step is up.
+// ponytail: the sampler reads vec[4], the record's vertical velocity, which GF's track does not carry; the
+// height's first difference stands in for it.
+BounceSample FirstBounceSample(const std::vector<TrackPoint>& track, float latchHeight_m) {
+  bool latched = false;
+  float previousStep = 0.0f;  // p+0x14: zero before the track, so the first record cannot bounce
+  for (size_t n = 1; n < track.size(); ++n) {
+    const float step = track[n].height_m - track[n - 1].height_m;
+    if (track[n].height_m >= latchHeight_m) latched = true;
+    if (latched && previousStep < 0.0f && step > 0.0f) {
+      // FUN_140875fd0 sets the bit from the point's height: valid when it is at or above the ground.
+      return {track[n].height_m >= 0.0f, {track[n].x_m, track[n].z_m}};
+    }
+    previousStep = step;
+  }
+  return {};
+}
 }  // namespace pes

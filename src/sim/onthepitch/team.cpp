@@ -536,6 +536,9 @@ void Team::Process() {
   // PES's strategy decider runs every team tick and acts on dead balls, so it
   // sits outside the in-play gate below.
   teamController->UpdateStrategy();
+  // PES's S1 writer runs on the team tick in every state, not only in play: its flag comes from the
+  // stage (FUN_140458880), so a stoppage latches it. Ticked before the controller reads the rows.
+  teamController->TickScoreRows();
   if (match->IsInPlay() && !match->IsInSetPiece()) {
     teamController->Process();
 
