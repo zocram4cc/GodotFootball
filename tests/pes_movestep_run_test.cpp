@@ -34,6 +34,8 @@ extern bool stepTurnRunAnswer;
 extern int issueCount;
 extern int accelEntryCalls;
 extern int decelEntryCalls;
+extern int styleCalls;
+extern int styleAnswer;
 void Reset();
 }  // namespace probe
 }  // namespace pes
@@ -1965,6 +1967,59 @@ TEST(RunLoop, TakesTheSwingArmWhenTheClassWordIsMinusOne) {
   EXPECT_EQ(h.issued.motion, 0x100 + SyntheticTables().gotoRow[2 + 1 * 8]);
   EXPECT_FLOAT_EQ(h.issued.duration, 1.0f / 6.0f);
   EXPECT_FLOAT_EQ(h.issued.playback, req.F(pes::moveword::kPlayback));  // PES issues from the word the arm leaves in req[0x35]
+}
+
+// PES's style arm is the one place that enters the STEP family: the tail at 0x1406C0ACB-
+// 0x1406C0AF2 writes req[0x39] = 0xE (RUN_TO_STEP) with the change-state flag at
+// 0x1406C0AEB, and the four blend words: req[0x1a] = 0, req[0x1b] = 0.2, req[0x2d] = 0 and
+// req[0x2e] = 0.2.
+TEST(RunLoop, TheStyleArmAsksForRunToStep) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 0;
+  h.phase = 1;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);  // a live class: the style arm runs
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kMoveBucket, 0u);
+  req.SetU(pes::moveword::kCommandId, 0u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 12.0f);
+  req.SetF(pes::moveword::kLookBucket, 0u);
+  req.SetF(pes::moveword::kLookBucketAlt, 0u);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  h.bandSpeeds[0] = 4.0f;
+  h.bandSpeeds[1] = 8.0f;
+  h.bandSpeeds[2] = 14.0f;
+  h.bandSpeeds[3] = 22.0f;
+  pes::probe::Reset();
+  // The style ladder's answer differs from the request's own style byte, so the change runs.
+  pes::probe::styleAnswer = 6;
+  req.SetU(pes::moveword::kStyle, 3u);
+  pes::movestep::RunLoop(h, req);
+  pes::probe::styleAnswer = 0;
+  EXPECT_EQ(pes::probe::styleCalls, 1) << "the style arm ran";
+  // The style arm's exit: RUN_TO_STEP, with the change-state flag paired with it.
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunToStep));
+  // The four blend words: both dwell limits are 0.2 and both elapsed words are 0.
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellElapsed), 0.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 0.2f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellElapsed2), 0.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit2), 0.2f);
 }
 
 // The no-class branch's state picker: with the look bucket at 4, the match phase 1 and the
