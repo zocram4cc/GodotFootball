@@ -416,7 +416,8 @@ struct StepTables {
   std::array<int32_t, 10> bucketColumn;  // 0x1425dd988: bucket -> Animetable column
   std::array<int32_t, 64> kindBandRow;  // 0x1425dd9b0: kind + band * 8 -> Animetable row; 8 bands x 8 kinds (verified: 64 rows, 1325..1385)
   std::array<float, 10> bucketDegrees;   // 0x1425dd960: bucket -> degrees (TURN_STOP entry)
-  std::array<int32_t, 12> styleMotion;   // 0x1425ddcf0: class + style * 4 -> representative motion
+  // The representative motion per style and band (0x1425ddcf0) is RunTables::styleGroup: the
+  // same table, read at the style * 4 + band stride.
   // FUN_1406b70d0's distance rows, four floats each by class: the near bucket (0x1425dde70), the far bucket (0x1425dde80)
   // and the centre (0x1425dde90). The held row (0x1425ddea0) is read only on the carrier path, which GF does not port.
   std::array<float, 4> turnFront;   // 0x1425dde70

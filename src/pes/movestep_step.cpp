@@ -73,6 +73,10 @@ constexpr float kRateHigh = 0.6000000238418579f;  // STEP_LOOP_CHANGE 0x1406c66f
 constexpr float kRateMid = 0.44999998807907104f;  // STEP_LOOP_CHANGE 0x1406c676e
 constexpr float kRateLow = 0.15000000596046448f;  // STEP_LOOP_CHANGE 0x1406c675c
 
+// STEP_LOOP's STEP_TO_RUN arm blend, the immediate PES stores into req[0x1b] and req[0x32]
+// (0x3e888889), opcode-checked as the owner rules allow.
+constexpr float kBlend0266 = 0.2666666805744171f;  // STEP_LOOP 0x1406c5880 / 0x1406c5915
+
 // FUN_1406b9ff0(interface, class, speed, kind): the rate for a class/speed pair. req[0xb] is the
 // "use the class rate" flag; the rate comes from FUN_1406b9e80's 10-knot table, which the
 // contract exposes as SpeedToRate with the same argument order.
@@ -621,6 +625,62 @@ void StepLoop(MoveHost& host, MoveReq& req) {
     }
   } else {
     drift = Wrap180(lookAhead + facing - req.F(moveword::kLookHeading));
+  }
+
+  // 6b. The STEP_TO_RUN arm (0x1406C55CA-0x1406C592A): with the precise word clear
+  // (the decompile's iVar29, the stack slot at 0x1406C4C67 that holds req[0x38]), the turn
+  // (req[0x06]) and the body turn (wrap180(req[0x04] - req[0x02]) at 0x1406C55C5) inside the
+  // 112.5 / 67.5 / 90 window, the handler re-issues the clip through FUN_1406BA2F0's style and
+  // asks for STEP_TO_RUN (req[0x39] = 0xD at 0x1406C592A).
+  if (!precise) {
+    const float bodyTurnArm = Wrap180(req.F(moveword::kBodyDirection) - facing);
+    const float turnArm = req.F(moveword::kTurn);
+    if (std::fabs(turnArm + bodyTurnArm) <= k.deg112p5 ||
+        (std::fabs(turnArm) < k.deg67p5 && std::fabs(bodyTurnArm) <= k.deg90)) {
+      // The run-turn gate: FUN_1406b70d0 (0x1406C5664) hands the tick to FUN_1406d6780
+      // (RUN_TURN_RUN) instead of the step-to-run request.
+      if (StepLetsRunTurn(host, req)) {
+        EnterRunTurnRun(host, req);
+        return;
+      }
+      // The re-issue: FUN_1406BA2F0's style, the representative motion from the style table
+      // (DAT_1425ddcf0), the mirror masks, and the blend words.
+      const float rateArm = req.F(moveword::kRate);
+      const int styleArm = LocomotionStyle(host, host.AnimeState(), rateArm, req,
+                                           host.RateCeiling(), false);
+      const int bandArm = std::clamp(int(req.U(moveword::kPrevClassWord)), 0, 3);
+      req.SetU(moveword::kParamState, static_cast<uint32_t>(styleArm));
+      req.SetByte(moveword::kStyle, static_cast<uint8_t>(styleArm));
+      // PES at 0x1406C58AC: req[0x24] (the previous class word) is clamped into 0..3 and stored
+      // back; the class the row uses is that value.
+      req.SetU(moveword::kPrevClassWord, static_cast<uint32_t>(bandArm));
+      req.SetU(moveword::kMotion,
+               static_cast<uint32_t>(host.RunTablesView().styleGroup[styleArm * 4 + bandArm]));
+      bool mirrorArm = host.ClipFlag();
+      if (styleArm < 13 && ((0x1028u >> (styleArm & 31)) & 1u) != 0) {
+        mirrorArm = true;
+      } else if (styleArm < 12 && ((0x814u >> (styleArm & 31)) & 1u) != 0) {
+        mirrorArm = false;
+      } else {
+        mirrorArm = req.Flag(moveword::kFootFlag);
+      }
+      req.SetByte(moveword::kMirror, mirrorArm ? 1 : 0);
+      req.SetF(moveword::kPlayback, k.one);
+      req.SetU(moveword::kTransitionWord, 0u);
+      req.SetF(moveword::kDuration, kBlend0266);
+      req.SetF(moveword::kStartTime, 0.0f);
+      // PES's tail (0x1406C587C-0x1406C592A): both dwell pairs, the live kind, the class word
+      // and the state.
+      req.SetF(moveword::kDwellElapsed, 0.0f);
+      req.SetF(moveword::kDwellLimit, kBlend0266);
+      req.SetF(moveword::kDwellElapsed2, 0.0f);
+      req.SetF(moveword::kDwellLimit2, kBlend0266);
+      req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
+      req.SetU(0x20, 0u);
+      RequestState(req, MoveState::kStepToRun);
+      req.SetByte(moveword::kMotionPending, 0);
+      return;
+    }
   }
 
   // The column window and the row.

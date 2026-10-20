@@ -137,7 +137,14 @@ pes::StepTables SyntheticTables() {
   for (int i = 0; i < 10; ++i) t.bucketColumn[i] = (i * 2 + 9) % 10;
   for (int i = 0; i < 64; ++i) t.kindBandRow[i] = 0x540 + i;
   for (int i = 0; i < 10; ++i) t.bucketDegrees[i] = (i < 5 ? 45.0f * i : 45.0f * (i - 10));
-  for (int i = 0; i < 12; ++i) t.styleMotion[i] = 0x600 + i;
+  return t;
+}
+
+// The representative motion per style and band (RunTables::styleGroup, the install's
+// 0x1425ddcf0 table).
+pes::RunTables SyntheticRunTables() {
+  pes::RunTables t{};
+  for (int i = 0; i < 64; ++i) t.styleGroup[i] = 0x600 + i;
   return t;
 }
 
@@ -253,7 +260,7 @@ class FakeHost : public MoveHost {
   pes::PlaybackConstants playback = SyntheticPlayback();
   pes::AngleBucketConstants buckets = SyntheticBuckets();
   pes::RunConstants runConstants{};
-  pes::RunTables runTables{};
+  pes::RunTables runTables = SyntheticRunTables();
   pes::SpeedRateTable speedRate{};
   pes::movestep::MoveTurnConstants turnConstants{};
   pes::MoveConstants moveConstants{};
@@ -283,11 +290,14 @@ class FakeHost : public MoveHost {
 
 // The band walk: with the band 0, the previous band 1, and the second dwell past its threshold
 // (0.6 s, or 0.4 s at kind 7), the band becomes 1 and the speed comes back from req[0x22].
+// The request is precise, so the STEP_TO_RUN arm (which needs the precise word clear) stays out
+// of the way and the walk is the only thing that changes.
 TEST(StepLoop, WalksTheBandDownWhenThePreviousBandWasOne) {
   FakeHost host;
   MoveReq req;
   req.SetU(pes::moveword::kKind, 2);
   req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kPrecise, 1u);
   req.SetU(pes::moveword::kClassWord, 0);
   req.SetU(pes::moveword::kPrevClassWord, 1);
   req.SetF(pes::moveword::kDwellLimit2, 1.0f);
@@ -611,6 +621,78 @@ TEST(RunToStep, KeepsTheTickWhileBlendingTheHeading) {
   RunToStep(host, req);
   EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
   EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+}
+
+// -------------------------------------------------------------------------------------
+// STEP_LOOP, FUN_1406c4c10: the STEP_TO_RUN exit.
+// -------------------------------------------------------------------------------------
+
+// PES at 0x1406C567D-0x1406C592A: with the precise word clear, the turn (req[0x06]) and the
+// body turn (wrap180(req[0x04] - req[0x02]) at 0x1406C55C5) inside the 112.5 / 67.5 / 90
+// window, the handler re-issues the clip through FUN_1406BA2F0's style and asks for
+// STEP_TO_RUN (req[0x39] = 0xD at 0x1406C592A). The port never asked for STEP_TO_RUN at all,
+// so the state was unreachable.
+TEST(StepLoop, AsksForStepToRunWhenTheStyleChangesOnANonPreciseStep) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetU(pes::moveword::kClassWord, 1);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  // The player's own displacement points at 0 degrees, so the ground speed is the standing one
+  // and the stop helper does not fire.
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepToRun));
+}
+
+// The arm's window: the turn is 100 degrees and the body turn is 30 degrees, so the sum is
+// past 112.5 and the turn is past 67.5 - the arm does not fire, and the tick falls through to
+// the STEP_LOOP_CHANGE tail instead.
+TEST(StepLoop, TheStepToRunArmNeedsTheTurnInsideTheWindow) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetU(pes::moveword::kClassWord, 1);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 40.0f);  // the body turn is 30 degrees
+  req.SetF(pes::moveword::kTurn, 100.0f);          // and the request's turn is 100 degrees
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  // The arm did not fire: the state is not STEP_TO_RUN.
+  EXPECT_NE(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepToRun));
 }
 
 // -------------------------------------------------------------------------------------
