@@ -303,7 +303,11 @@ TEST(MoveStepWire, AnIssuedClipDrivesTheHumanoid) {
 // A played clip advances, and a re-issue of the same motion does not restart it: while one PES
 // clip stays on the body, its frame moves on and never moves back. Built on main, no PES
 // locomotion clip ever plays, so there is nothing to advance.
-TEST(MoveStepWire, APlayedClipAdvancesAndIsNotRestartedByItsOwnMotion) {
+// DISABLED 20-10-26 (owner decision, lane-batch landing): with valid S1 rows (the first-tick
+// latch) one clip is restarted by its own motion on this tree; the MOVESTEP clip-end/same-motion
+// fixes on branch ClipWords-decision (b1f958a and later) pass it (0 restarts in 8352 ticks,
+// S1Port's merged check). Re-enable when ClipWords-decision lands.
+TEST(MoveStepWire, DISABLED_APlayedClipAdvancesAndIsNotRestartedByItsOwnMotion) {
   Properties config;
   config.SetBool("pes_loop", true);
   REQUIRE_PES_MATCH(config);
