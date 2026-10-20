@@ -812,6 +812,37 @@ TEST(StepTurnStep, TheReorientWindowMeasuresTheSteppedHeadingAgainstTheFacing) {
   EXPECT_EQ(req.U(pes::moveword::kMirrorFlag) & 0xffu, 1u);
 }
 
+// PES's S8 root-facing write (0x1406C96CA-0x1406C97FF): the heading, offset by the row's own
+// turn, is compared with the look heading; the residual is blended (0 at 22.5 degrees, 1 at 45),
+// scaled by 90 + 90 * blend and divided by the frame rate (FUN_141e532d0 = 54.0 - NOT a random
+// draw), and the host's facing moves towards that reach. The port computed the values and
+// discarded them, so the damped facing never used them.
+TEST(StepTurnStep, TheRootFacingMovesTowardsTheLookHeading) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.record = TurnRecordWithOffset();
+  host.currentClipFrames = 60;  // past the row's end: the facing write runs
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 3);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  // The look heading is 100 degrees away, so the residual is past 45 and the blend is 1: the
+  // reach is (90 + 90) / 54 = 3.33 degrees. The row 2's own turn is -90 degrees, so the
+  // heading the facing compares against is -90.
+  req.SetF(pes::moveword::kLookHeading, 100.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  req.SetU(0x20, 2u);  // the row's own turn is -90 degrees
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 14.0f);
+  StepTurnStep(host, req, SyntheticTurn());
+  // The reach (3.33) is smaller than the turn to the facing (90), so the facing takes the
+  // turn: the host's own facing (0) plus 90.
+  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 90.0f, 0.01f);
+}
+
 // ---------------------------------------------------------------------------------------------
 // STEP_TURN_STEP, FUN_1406c8d80.
 // ---------------------------------------------------------------------------------------------

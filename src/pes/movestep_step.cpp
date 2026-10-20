@@ -518,9 +518,15 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   // 5. The turn into a run, and the stop.
   if (EnterStepTurnRun(host, req)) return;
   const float turnToTarget = Wrap180(req.F(moveword::kLookHeading) - req.F(moveword::kHeading));
-  // FUN_1406d6290 (the sidestep trap) reads the team's marking flag (ctx T+0x255) and the
-  // offside line, which MB-C does not port yet; it cannot fire before then.
-  // ponytail: port FUN_1406d6290 when the team context reaches GF.
+  // FUN_1406D6290 (the TIMING_STEP entry, req[0x39] = 0x16) is called by PES at 0x1406C4E51,
+  // after FUN_1406D38D0 declines. Its rule chain (TeamDecode's decode, §8 of
+  // local://pes-re-step-family.md) needs two things GF does not carry: the FORMATION's home
+  // position and home angle (rules 12 and 13 - the distance window around the side's own
+  // home x, and the angle gate), which the match has no counterpart for. The team possession
+  // latch (rules 2 and 11) IS available - Team::IsPesPossession() - and the adapter's
+  // TeamAi::PossessionLatched is where it would be read.
+  // ponytail: port FUN_1406D6290 when the formation's home position and home angle reach GF
+  // (the two rules that block it), and read the latch through TeamAi::PossessionLatched.
   if (liveBand < 2 &&
       ((k.deg33p75 < std::fabs(req.F(moveword::kTurn)) ||
         (liveBand < 1 && k.deg22p5 < std::fabs(req.F(moveword::kLookDelta)) &&
