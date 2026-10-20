@@ -739,19 +739,25 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   // Then the band gate decides which tail runs:
   //     if (A) { if (req[0x1a] < req[0x1b] * 0.25) goto keep; ...issue... }
   //     else   { ...keep the tick, ask for STEP_TURN_RUN... }
-  // with
-  //     A = (band < 0) || ((nextBand < 3 && ((nextBand < 2 || kind == 3) || kind == 6)) || !precise)
-  //         || ((1 < bucket - 3 && 1 < bucket - 8) || (turnToLook <= drift || fVar24 * 22.5 + 45 <= |bodyToTarget|))
-  const float bodyToTarget = Wrap180(req.F(moveword::kFacing) - req.F(moveword::kHeading));
+  // with PES's own A (the decompile's five-way || at 0x1406C5177):
+  //     A = (class < 0)
+  //      || ((nextBand < 3 && ((nextBand < 2 || kind == 3 || kind == 6) || precise != 0))
+  //      || ((rowBucket - 3 > 1 && rowBucket - 8 > 1)
+  //          || (distance <= 4.0 || distanceFactor * 22.5 + 45 <= |wrap180(kHeading - kBodyDirection)|))
+  // The port had the precise test inverted, the bucket term on the column instead of the row
+  // and the distance term on the drift instead of the distance.
+  const float bodyToTarget = Wrap180(req.F(moveword::kHeading) - req.F(moveword::kBodyDirection));
   const int band0 = int(req.U(moveword::kClassWord));
   const float distance = req.F(moveword::kDistToTarget);
   const float distanceFactor =
       k.kmh5 < distance ? (distance < k.kmh5 ? (distance - k.kmh5) / k.dist3 : 1.0f) : 0.0f;
-  const float driftLimit = drift;  // fVar28, the drift after the window clamp
+  // PES's row bucket: param_2[0x20] is the row id, and DAT_1425dd660[it] is that row's angle.
+  // The bucket in 4..7 is the one the term tests.
+  const int rowBucket = int(req.U(0x20));
   const bool gateA =
-      band0 < 0 || ((nextBand < 3 && ((nextBand < 2 || kind == 3) || kind == 6)) || !precise) ||
-      ((1 < bucket - 3 && 1 < bucket - 8) ||
-       (driftLimit <= k.deg67p5 ||
+      band0 < 0 || ((nextBand < 3 && ((nextBand < 2 || kind == 3) || kind == 6)) || precise) ||
+      ((1 < rowBucket - 3 && 1 < rowBucket - 8) ||
+       (distance <= k.four ||
         distanceFactor * k.deg22p5 + k.deg45 <= std::fabs(bodyToTarget)));
   if (!bucketMoved && req.U(0x3f) == 0 && !slowTurn) {
     // LAB_1406c5eba: keep the tick, record only the band and the bucket.

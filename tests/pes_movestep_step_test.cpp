@@ -800,6 +800,47 @@ TEST(StepLoop, TheBucketHalfFollowsTheHeadingAgainstTheLookHeading) {
   EXPECT_EQ(req.U(pes::moveword::kMoveBucket), 0u);
 }
 
+// PES's STEP_TURN_RUN arm (0x1406C5CFE-0x1406C5D2B): the class is clamp(req[0x09], 0, 2), the
+// speed band is the desired speed clamped into [5, 11] (or 5 when it is already at or below
+// 16), the class word and its speed are carried over, the row's own word 0x20 is copied into
+// word 0x25 and then zeroed, and the live kind is the request's own. The port wrote none of
+// them, and the arm was unreachable because the band gate was inverted.
+TEST(StepLoop, TheStepTurnRunArmCarriesTheClassAndTheRowOver) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetU(pes::moveword::kClassWord, 3);
+  req.SetU(0x20, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 60.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  // The distance is past 4 metres, so PES's distance term is closed and the band gate's
+  // fall-through (the STEP_TURN_RUN arm) runs.
+  req.SetF(pes::moveword::kDistToTarget, 9.0f);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  // The tail asks for STEP_TURN_RUN, and the class and the row's own word follow.
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepTurnRun));
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 2u);
+  EXPECT_EQ(req.U(pes::moveword::kBucketPrev), 1u);
+  EXPECT_EQ(req.U(0x20), 0u);
+}
+
 // -------------------------------------------------------------------------------------
 // STEP_LOOP_CHANGE, FUN_1406c6480.
 // -------------------------------------------------------------------------------------
