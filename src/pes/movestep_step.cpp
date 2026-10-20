@@ -1296,20 +1296,13 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
     req.SetByte(moveword::kRootFacing, 1);
   }
 
-  // The final gate: the dwell runs out and the loop returns to STEP_LOOP.
+  // The final gate (0x1406C6EF0): the FIRST dwell (req[0x1a] against req[0x1b]) must have run
+  // out; then the loop returns to STEP_LOOP. The first dwell's new limit is 0.05 when the
+  // second dwell is still under four tenths of its limit, and 0 otherwise (0x1406C6EFB).
   const float elapsed = req.F(moveword::kDwellElapsed2);
   const float limit = req.F(moveword::kDwellLimit2);
-  const int bucketNow = int(req.U(moveword::kMoveBucket));
-  const int bucketPrev = int(req.U(moveword::kBucketPrev));
-  if (elapsed < limit &&
-      ((elapsed < limit * k.s0p2 || precise || speedClass < 2) ||
-       (bucketNow == 0 || bucketNow == 5 || bucketNow != bucketPrev))) {
-    if (speedClass != 1 && !(speedClass < 2 && int(req.U(moveword::kClassWord)) > 0) &&
-        !(bucketNow == 0 || bucketNow == 5 || bucketNow != bucketPrev)) {
-      return;
-    }
-  }
-  req.SetU(moveword::kDwellLimit, limit * k.s0p4 <= elapsed ? 0u : uint32_t(0.1f));
+  if (req.F(moveword::kDwellElapsed) < req.F(moveword::kDwellLimit)) return;
+  req.SetU(moveword::kDwellLimit, limit * k.s0p4 <= elapsed ? 0u : uint32_t(0.05f));
   req.SetU(moveword::kDwellElapsed, 0);
   req.SetU(moveword::kDwellElapsed2, 0);
   req.SetU(moveword::kDwellLimit2, 0);
