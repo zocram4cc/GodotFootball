@@ -16,8 +16,8 @@
 
 namespace pes {
 
-// FUN_14043a0a0(a, b): the angle difference a - b wrapped into (-180, 180].
-float AngleDiffDeg(float a, float b, const RunConstants& k) {
+// a - b wrapped into (-180, 180]: the difference PES computes inline (SUBSS), not a FUN_14043a0a0 call.
+float InlineDiffDeg(float a, float b, const RunConstants& k) {
   float d = a - b;
   if (d > 0.0f) {
     if (d >= k.full) d += k.wrapFull;

@@ -342,12 +342,12 @@ struct RunConstants {
   float condition10;  // 10    (0x142588210): the condition byte's ceiling for the Acceleration reduction
 };
 
-// FUN_14043a0a0(a, b): the angle difference a - b wrapped into (-180, 180]. Shared by the
-// dispatcher port and group B; the bodies are in movestep_common.cpp.
-float AngleDiffDeg(float a, float b, const RunConstants& k);
-// FUN_14043a0a0 as PES has it: b minus a, both folded into [0, 360) and wrapped once past 180. AngleDiffDeg is a minus b, so the
-// two differ in sign; each call site uses the one its PES call needs.
+// FUN_14043a0a0 as PES has it: b minus a, both folded into [0, 360) and wrapped once past 180. Every PES call to that
+// helper, signed or magnitude, is a PesAngleDiff call in the PES argument order.
 float PesAngleDiff(float a, float b, const RunConstants& k);
+// a minus b wrapped into (-180, 180], for the differences PES computes inline (SUBSS), which are not FUN_14043a0a0 calls.
+// The body is in movestep_common.cpp.
+float InlineDiffDeg(float a, float b, const RunConstants& k);
 // The 360 fold of a heading into [0, 360), the block every handler opens with.
 float FoldFull(float a, const RunConstants& k);
 

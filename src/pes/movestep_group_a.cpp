@@ -187,7 +187,7 @@ void Init(MoveHost& host, MoveReq& req) {
     return;
   }
 
-  const float bodyTurn = AngleDiffDeg(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k);
+  const float bodyTurn = PesAngleDiff(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k);
   if (k.deg225 < bodyTurn && req.F(moveword::kPrecise) == 1.0f &&
       k.deg225 < std::fabs(req.F(moveword::kTurn)) &&
       EnterRunTurnStep(host, req, (host.RateCeiling() - k.rate06) * k.half)) {
@@ -225,8 +225,9 @@ void Init(MoveHost& host, MoveReq& req) {
       band = 2;
       if (speed < k.kmh16 && host.CommandSpeedClass() < 3) band = 1;
     }
+    // PES's Init bucket angle is the same FUN_14043a0a0(facing, bodyDir) result as the turn gate (XMM14 at 0x1406bac24).
     const int bucket = AngleBucket(host.AngleBuckets(),
-                                   AngleDiffDeg(req.F(moveword::kHeading), req.F(moveword::kFacing), k),
+                                   PesAngleDiff(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k),
                                    10, false);
     const int row = host.StepTablesView().kindBandRow[kindForRow + band * 8];
     const MoveCell cell = host.Cell(row, host.StepTablesView().bucketColumn[bucket], false);
@@ -321,7 +322,7 @@ void IdleTurn(MoveHost& host, MoveReq& req) {
     if (current < span / 3) {
       const int ticks = static_cast<int>(static_cast<float>(total - current) / host.RecordF2468() + k.half);
       const float turn =
-          std::fabs(AngleDiffDeg(static_cast<float>(span), req.F(moveword::kRecordStampB), k)) /
+          std::fabs(PesAngleDiff(static_cast<float>(span), req.F(moveword::kRecordStampB), k)) /
           static_cast<float>(ticks);
       if (turn < k.deg45) {
         req.SetU(kWordTurnLockStamp, req.U(moveword::kRecordStampB));
@@ -499,7 +500,7 @@ void TimingStep(MoveHost& host, MoveReq& req) {
   }
   const bool scripted = host.ActionTableOwns(host.ActionIndex());
   const int current = host.CurrentClipFrames();
-  const float turn = std::fabs(AngleDiffDeg(req.F(moveword::kBodyDirection), req.F(moveword::kHeading), k));
+  const float turn = std::fabs(PesAngleDiff(req.F(moveword::kBodyDirection), req.F(moveword::kHeading), k));
   const bool blocked = current < end && req.U(moveword::kCommandId) != 5 && scripted &&
                        (k.deg90 <= turn || req.F(moveword::kPrecise) != 0.0f ||
                         host.CommandSpeedClass() < 3);
@@ -530,7 +531,7 @@ void TimingStep(MoveHost& host, MoveReq& req) {
       req.SetByte(kWordReorient, 0);
     } else {
       const float bodyTurn =
-          std::fabs(AngleDiffDeg(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k));
+          std::fabs(PesAngleDiff(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k));
       if (k.deg675 < bodyTurn) {
         req.SetU(kWordClass, 0);
         req.SetF(kWordSpeed, 5.0f);
@@ -689,7 +690,7 @@ int IdleRow(MoveHost& host, MoveReq& req) {
           const int index = host.ActionIndex();
           const bool indexOtherSide = 10 < index && index < 0x16;
           if (indexOtherSide != (10 < related) &&
-              k.deg135 < std::fabs(AngleDiffDeg(host.FacingDeg(), host.RecordFacing(related), k))) {
+              k.deg135 < std::fabs(PesAngleDiff(host.FacingDeg(), host.RecordFacing(related), k))) {
             row = tables.far[host.PickN(4)];
           }
         }

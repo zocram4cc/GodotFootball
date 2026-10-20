@@ -43,10 +43,8 @@ float FoldUnit(float x, const MoveTurnConstants& k) {
 // FUN_14043a0a0(a, b): both folded into [0, 360), then the difference into (-180, 180].
 float Wrap180Diff(float a, float b, const MoveTurnConstants& k) {
   const float d = FoldUnit(b, k) - FoldUnit(a, k);
-  if (k.halfTurn < d) {
-    if (d < 0.0f) return d - k.negOne * k.fullTurn;
-    return d - k.one * k.fullTurn;
-  }
+  if (k.halfTurn < d) return d - k.one * k.fullTurn;
+  if (d < -k.halfTurn) return d - k.negOne * k.fullTurn;
   return d;
 }
 

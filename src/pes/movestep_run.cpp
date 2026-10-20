@@ -577,17 +577,17 @@ void EnterStop(MoveHost& host, MoveReq& req) {
   // The desired direction: the body direction max +/-90 off the heading, clamped to +/-45 of
   // the facing beyond 90 (FUN_1406d5d60's otherwise arm).
   const float bodyDir = req.F(moveword::kBodyDirection);
-  float off = AngleDiffDeg(heading, bodyDir, k);
-  if (k.deg90 < off) {
+  float off = InlineDiffDeg(heading, bodyDir, k);
+  if (k.deg90 < std::fabs(off)) {
     float c = turn;
     if (turn <= k.deg45 && k.neg45 <= turn) c = turn;
     if (c < k.neg45) c = k.neg45;
     if (c > k.deg45) c = k.deg45;
     heading = FoldFull(facing + c, k);
-    off = AngleDiffDeg(heading, bodyDir, k);
   }
   const int band = cls < 3 ? (cls < 0 ? 0 : cls) : 2;
-  const int bucket = AngleBucket(host.AngleBuckets(), AngleDiffDeg(heading, facing, k), 10, false);
+  const int bucket = AngleBucket(host.AngleBuckets(),
+                                 PesAngleDiff(heading, DisplacementBearingDeg(host, k), k), 10, false);
   req.SetU(moveword::kMoveBucket, static_cast<uint32_t>(bucket));
   req.SetU(moveword::kPrevBucket, static_cast<uint32_t>(bucket));
   // The turn playback (FUN_1406e9f10 of the mirror argument) with the capability clamp.
@@ -677,9 +677,9 @@ void GotoRun(MoveHost& host, MoveReq& req) {
     float lockHeading = req.F(moveword::kRecordStampB);
     const int lockTicks = static_cast<int>(static_cast<float>(hit0 - clipLen) / req.F(moveword::kRecordStampA) + half);
     const float alt = FirstAngle(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
-    if (AngleDiffDeg(alt, req.F(moveword::kRecordStampB), k) < k.deg90) lockHeading = alt;
-    const float ratio = AngleDiffDeg(req.F(moveword::kHeading), req.F(moveword::kRecordStampB), k);
-    if (AngleDiffDeg(alt, req.F(moveword::kHeading), k) / static_cast<float>(lockTicks) < k.deg45) {
+    if (std::fabs(PesAngleDiff(req.F(moveword::kRecordStampB), alt, k)) < k.deg90) lockHeading = alt;
+    const float ratio = PesAngleDiff(req.F(moveword::kRecordStampB), req.F(moveword::kHeading), k);
+    if (std::fabs(PesAngleDiff(req.F(moveword::kFacing), lockHeading, k)) / static_cast<float>(lockTicks) < k.deg45) {
       req.SetU(moveword::kRecordStampB, static_cast<uint32_t>(lockHeading));
       req.SetByte(moveword::kReorientFlag, 1);
       req.SetU(moveword::kTurnFrames, static_cast<uint32_t>(lockTicks));
@@ -691,7 +691,7 @@ void GotoRun(MoveHost& host, MoveReq& req) {
         const float b = ratio < 0.0f ? neg : one;
         if (a != b) {
           uint8_t dir = 0;
-          if (k.deg225 < ratio) dir = 1;
+          if (k.deg225 < std::fabs(ratio)) dir = 1;
           req.SetByte(moveword::kMirrorFlag, dir);
         }
       }
@@ -713,10 +713,10 @@ void GotoRun(MoveHost& host, MoveReq& req) {
 
   // The desired direction and the two bearings: bVar6 is "no turn needed", bVar5 the fast-turn.
   const float desired = FirstAngle(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
-  const float bearing = AngleDiffDeg(desired, req.F(moveword::kFacing), k);
+  const float bearing = InlineDiffDeg(desired, req.F(moveword::kFacing), k);
   bool noTurn = false;
   if (hit0 <= clipLen || bearing < k.deg45) noTurn = true;
-  const float lookBearing = AngleDiffDeg(req.F(moveword::kLookHeading), req.F(moveword::kFacing), k);
+  const float lookBearing = PesAngleDiff(req.F(moveword::kRecordStampB), req.F(moveword::kLookHeading), k);
   bool fastTurn = false;
   bool fastTurnLocked = false;
   if (!(lookBearing * lookBearing < k.kmh95sq) && req.U(moveword::kPrecise) == 1u) {
@@ -824,12 +824,12 @@ void GotoRun(MoveHost& host, MoveReq& req) {
   if (hit0 <= clipLen || (hit0 <= clipLen && share <= clipLen && k.turn16875 < bearing)) {
     const float facing = FoldFull(req.F(moveword::kFacing), k);
     const float heading = FoldFull(req.F(moveword::kHeading), k);
-    float aim = AngleDiffDeg(heading, facing, k);
+    float aim = InlineDiffDeg(heading, facing, k);
     if (k.deg1125b <= aim) return;
     float turnLimit = k.half_turn;
     if (motion == 0x8d1 || turnFamily) turnLimit = k.deg135;
     const float speedForTurn = FirstAngle(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
-    const float speed = AngleDiffDeg(speedForTurn, req.F(moveword::kFacing), k);
+    const float speed = InlineDiffDeg(speedForTurn, req.F(moveword::kFacing), k);
     if (k.kmh135 < speed) turnLimit = k.deg1125b;
     if (motion == 0x8d1 || turnFamily) turnLimit = k.deg135;
     float clamped = turnLimit;
@@ -931,7 +931,7 @@ void Stop(MoveHost& host, MoveReq& req) {
   }
 
   // Arm D's shared bearing: the heading against the AI target's bearing (word 1 here).
-  const float targetBearing = AngleDiffDeg(req.F(moveword::kHeading), facing, k);
+  const float targetBearing = std::fabs(PesAngleDiff(DisplacementBearingDeg(host, k), req.F(moveword::kHeading), k));
   float ramp = 0.0f;
   if (k.deg675 < targetBearing) {
     ramp = k.one;
@@ -950,7 +950,7 @@ void Stop(MoveHost& host, MoveReq& req) {
     if (smallTurn && static_cast<uint32_t>(cls - 1) < 2u &&
         0 < static_cast<int>(req.U(moveword::kRateBand))) {
       // The stop bearing to the AI target (FUN_14046f230 of the last tick's displacement).
-      const float stopBearing = AngleDiffDeg(req.F(moveword::kFacing), DisplacementBearingDeg(host, k), k);
+      const float stopBearing = std::fabs(PesAngleDiff(req.F(moveword::kFacing), DisplacementBearingDeg(host, k), k));
       if (k.deg225 <= stopBearing) {
         if (EnterStepTurnRun(host, req)) return;
       } else if (req.U(moveword::kPrecise) != 1u) {
@@ -970,8 +970,8 @@ void Stop(MoveHost& host, MoveReq& req) {
     // decision itself is false the tick falls straight through to the IDLE arm.
     if (StayDecision(host, req) && !StepStops(host, req, false)) {
       if (req.U(moveword::kPrecise) == 0u &&
-          AngleDiffDeg(facing, req.F(moveword::kHeading), k) < k.deg675 &&
-          AngleDiffDeg(facing, req.F(moveword::kRecordStampB), k) < k.deg675) {
+          std::fabs(PesAngleDiff(facing, req.F(moveword::kHeading), k)) < k.deg675 &&
+          std::fabs(PesAngleDiff(facing, DisplacementBearingDeg(host, k), k)) < k.deg675) {
         // The update arm: the band's rate, its class and its speed, then the run entry.
         RunUpdateArm(host, req, t, GroundSpeedKmh(host, k));
         return;
@@ -1257,7 +1257,7 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
   float rootFacing = FoldFull(req.F(moveword::kFacing), k);
   rootFacing =
       FoldFull(rootFacing + host.StepTablesView().bucketDegrees[Clamp03(lookBucket)], k);
-  float bearing = AngleDiffDeg(rootFacing, req.F(moveword::kHeading), k);
+  float bearing = PesAngleDiff(rootFacing, req.F(moveword::kHeading), k);
   const float dwell = req.F(moveword::kDwellLimit);
   if (dwell == 0.0f) {
     bearing = 0.0f;
@@ -1507,16 +1507,12 @@ void Accelerate(MoveHost& host, MoveReq& req) {
 
   // The bearings (FUN_14043a0a0: word 0x18 against word 1 for the turn, against word 3 for the look) and bVar23, read after the
   // turn-lock block: PES's bearings at 195-199 read the stamp the lock wrote.
-  const float turnBearing = AngleDiffDeg(req.F(moveword::kRecordStampB), req.F(moveword::kHeading), k);
-  const float lookBearing = AngleDiffDeg(req.F(moveword::kRecordStampB), req.F(moveword::kLookHeading), k);
+  const float turnBearing = PesAngleDiff(req.F(moveword::kRecordStampB), req.F(moveword::kHeading), k);
+  const float lookBearing = PesAngleDiff(req.F(moveword::kRecordStampB), req.F(moveword::kLookHeading), k);
   const float turnAbs = std::fabs(turnBearing);
   // PES 267-271 (VA 0x6bbdc8): fVar25 is the body error, word 2 (the facing) against word 4 (the body direction).
-  const float bodyErr = std::fabs(AngleDiffDeg(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k));
+  const float bodyErr = std::fabs(PesAngleDiff(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k));
   const bool fastTurn = !(lookBearing * lookBearing < k.kmh95sq) && req.U(moveword::kPrecise) == 1u;
-  float desired = req.F(moveword::kHeading);
-  if (AngleDiffDeg(desired, req.F(moveword::kFacing), k) < k.deg90) {
-    desired = FirstAngle(req.F(moveword::kFacing), req.F(moveword::kHeading), k);
-  }
 
   // PES 206-222: the predicate block and its frame gate. The drawn tick is ticks * 6 / 60 + 0.5 (DAT_14259bdec, DAT_14259a764,
   // DAT_142565600), where ticks is FUN_141e532d0 (the match's ticks per second, the operand GroundSpeedKmh reads).
@@ -1822,14 +1818,14 @@ void Decelerate(MoveHost& host, MoveReq& req) {
   // ponytail: the +0x4d0 interface's flag (P-KIN) is what clears this arm.
   const bool reorientClear = true;
   const float distance = (hitEnd - static_cast<float>(liveFrame)) / f2468 + k.half;
-  const float firstBearing = AngleDiffDeg(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
+  const float firstBearing = InlineDiffDeg(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
   if (reorientClear && hitTotal <= liveFrame && liveFrame <= (static_cast<int>(hitEnd) + hitTotal) / 2) {
     float desired = req.F(moveword::kRecordStampB);
     if (firstBearing < k.deg90) {
       desired = FirstAngle(req.F(moveword::kFacing), req.F(moveword::kHeading), k);
     }
-    const float secondBearing =
-        AngleDiffDeg(req.F(moveword::kRecordStampB), req.F(moveword::kFacing), k);
+    // PES: FUN_14043a0a0(facing, lock) with a magnitude gate; desired stands in for the lock (StepStamp, not ported).
+    const float secondBearing = std::fabs(PesAngleDiff(req.F(moveword::kFacing), desired, k));
     const float perTick = secondBearing / distance;
     if (perTick < k.deg45) {
       req.SetU(moveword::kTurnFrames, static_cast<uint32_t>(distance));
@@ -1851,8 +1847,9 @@ void Decelerate(MoveHost& host, MoveReq& req) {
   }
 
   // Arm B's measurements.
-  const float firstBearingA = AngleDiffDeg(req.F(moveword::kHeading), req.F(moveword::kHeading), k);
-  const float secondBearingA = AngleDiffDeg(req.F(moveword::kHeading), req.F(moveword::kLookHeading), k);
+  const float firstBearingA = PesAngleDiff(req.F(moveword::kRecordStampB), req.F(moveword::kLookHeading), k);
+  // INF: the PES threshold on a look bearing is not located (sign table row 1855), so this stays the inline difference.
+  const float secondBearingA = InlineDiffDeg(req.F(moveword::kHeading), req.F(moveword::kLookHeading), k);
   const bool fastTurn =
       !(firstBearingA * firstBearingA < k.kmh95sq) && req.U(moveword::kPrecise) == 1u;
   const int drawnTick =
@@ -1942,7 +1939,7 @@ void Decelerate(MoveHost& host, MoveReq& req) {
     if (!fastTurn) {
       if (req.U(moveword::kPrecise) == 1u &&
           ((lookDist < k.quota3 &&
-            AngleDiffDeg(req.F(moveword::kTurn), req.F(moveword::kFacing), k) < k.deg1125b) ||
+            InlineDiffDeg(req.F(moveword::kTurn), req.F(moveword::kFacing), k) < k.deg1125b) ||
            lookDist < GroundSpeedKmh(host, k))) {
         // The precise arm's threshold: (rate ceiling - 0.6) / 2 from the +0xac0 interface.
         const float ceiling = host.RateCeiling();
@@ -2055,6 +2052,8 @@ int JostleStyle(MoveHost& host, MoveReq& req, int base, float& turn) {
   team.Velocity(own, selfVel);
   team.Position(opp, other);
   team.Velocity(opp, otherVel);
+  // ponytail: the same GF-coords read as ProximityCap (index 1 is -PES z). Live here: no ActionBit27 gate. See
+  // TeamAi::Position (pesmovestep.cpp); the frame fix waits for a decision.
   const float dx = (other[0] + n * otherVel[0]) - (self[0] + n * selfVel[0]);
   const float dz = (other[1] + n * otherVel[1]) - (self[1] + n * selfVel[1]);
   // The threshold: 0.7 up to 1.0 at PC 95, 0.3 wide (the install's 0.7, 0.3, 50 and 45).
@@ -2063,8 +2062,8 @@ int JostleStyle(MoveHost& host, MoveReq& req, int base, float& turn) {
   if (host.AnimeState() == kReplayAnimeState) threshold = k.replay45;
   const float bearing = FoldFull(std::atan2(dx, dz) * host.StyleConstantsView().radToDeg, k);
   const float facing = req.F(moveword::kFacing);
-  turn = AngleDiffDeg(facing, bearing, k);
-  const float face = std::fabs(AngleDiffDeg(facing, team.Heading(opp), k));
+  turn = PesAngleDiff(facing, bearing, k);
+  const float face = std::fabs(PesAngleDiff(facing, team.Heading(opp), k));
   const float magnitude = std::fabs(turn);
   if (!(std::sqrt(dx * dx + dz * dz) < threshold && k.deg1125 < magnitude && face < k.deg675)) return base;
   int cand = 6;
@@ -2464,7 +2463,7 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
   const int kind = static_cast<int>(req.U(moveword::kKind));
   const int motion = host.CurrentMotion();
   const float ground = GroundSpeedKmh(host, k);
-  const float bearing = AngleDiffDeg(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
+  const float bearing = PesAngleDiff(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
   const float bearingMag = std::fabs(bearing);
   // PES's unsigned compare `band < (67.5 <= bearing)`: negative (that is, the gate passes)
   // when the bearing's magnitude is under 67.5 degrees.
@@ -2487,7 +2486,8 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
   // Arm 3's measurements: the desired angle and the bucket.
   float desired = req.F(moveword::kTurn);
   if (k.deg5p625 < bearingMag) {
-    desired = AngleDiffDeg(FirstAngle(req.F(moveword::kBodyDirection), req.F(moveword::kFacing), k) *
+    // ponytail: FirstAngle(bodyDir, facing) * blend08 stands in for PES's StepStamp(bodyDir, facing, cap); the sign follows PES.
+    desired = PesAngleDiff(FirstAngle(req.F(moveword::kBodyDirection), req.F(moveword::kFacing), k) *
                                k.blend08,
                            req.F(moveword::kHeading), k);
   }

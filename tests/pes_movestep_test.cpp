@@ -494,13 +494,23 @@ pes::RunConstants SyntheticAngles() {
 }
 }  // namespace
 
-TEST(AngleDiffDeg, WrapsTheDifferenceIntoMinusHalfToHalfTurn) {
+TEST(InlineDiffDeg, WrapsTheDifferenceIntoMinusHalfToHalfTurn) {
   const auto k = SyntheticAngles();
-  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(45.0f, 10.0f, k), 35.0f);
-  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(10.0f, 45.0f, k), -35.0f);
-  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(0.0f, 350.0f, k), 10.0f);
-  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(350.0f, 0.0f, k), -10.0f);
-  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(180.0f, 0.0f, k), 180.0f);
+  EXPECT_FLOAT_EQ(pes::InlineDiffDeg(45.0f, 10.0f, k), 35.0f);
+  EXPECT_FLOAT_EQ(pes::InlineDiffDeg(10.0f, 45.0f, k), -35.0f);
+  EXPECT_FLOAT_EQ(pes::InlineDiffDeg(0.0f, 350.0f, k), 10.0f);
+  EXPECT_FLOAT_EQ(pes::InlineDiffDeg(350.0f, 0.0f, k), -10.0f);
+  EXPECT_FLOAT_EQ(pes::InlineDiffDeg(180.0f, 0.0f, k), 180.0f);
+}
+
+// FUN_14043a0a0 is b minus a, wrapped once past 180: the reverse of the inline difference, and -180 at the boundary.
+TEST(PesAngleDiff, IsFun14043a0a0BMinusAWrappedOnce) {
+  const auto k = SyntheticAngles();
+  EXPECT_FLOAT_EQ(pes::PesAngleDiff(45.0f, 10.0f, k), -35.0f);
+  EXPECT_FLOAT_EQ(pes::PesAngleDiff(10.0f, 45.0f, k), 35.0f);
+  EXPECT_FLOAT_EQ(pes::PesAngleDiff(0.0f, 350.0f, k), -10.0f);
+  EXPECT_FLOAT_EQ(pes::PesAngleDiff(350.0f, 0.0f, k), 10.0f);
+  EXPECT_FLOAT_EQ(pes::PesAngleDiff(180.0f, 0.0f, k), -180.0f);
 }
 
 TEST(FoldFull, FoldsAHeadingIntoTheUnitTurn) {
@@ -1067,6 +1077,26 @@ TEST(LocomotionStyle, DribbleTakesAFastBallThatTurnsAway) {
   RateHost host = StyleHost();
   host.ballSample[2][2] = 0.1f;
   host.ballMotionHeadingDeg = 90.0f;
+  pes::MoveReq req = StyleReq(5, 0.2f);
+  req.SetByte(pes::moveword::kUseClassRate, 1);
+  EXPECT_EQ(Style(host, req, 0.2f), 8);
+}
+
+// PES's dribble gates are magnitudes (FUN_1404583b0 and FUN_14043a020 return fabs): a ball 60 degrees to the far side
+// of the facing is out of the arm, and a fast ball turning 60 degrees to the far side is a turn away that the arm takes.
+TEST(LocomotionStyle, DribbleRefusesABallOnTheFarSideOfTheFacing) {
+  RateHost host = StyleHost();
+  host.ballSample[18][0] = -0.8660254f;  // bearing -60 degrees from the facing
+  host.ballSample[18][2] = 0.5f;
+  pes::MoveReq req = StyleReq(5, 0.2f);
+  req.SetByte(pes::moveword::kUseClassRate, 1);
+  EXPECT_EQ(Style(host, req, 0.2f), 0);
+}
+
+TEST(LocomotionStyle, DribbleTakesAFastBallThatTurnsToTheFarSide) {
+  RateHost host = StyleHost();
+  host.ballSample[2][2] = 0.1f;
+  host.ballMotionHeadingDeg = -60.0f;  // 60 degrees to the far side of the facing
   pes::MoveReq req = StyleReq(5, 0.2f);
   req.SetByte(pes::moveword::kUseClassRate, 1);
   EXPECT_EQ(Style(host, req, 0.2f), 8);

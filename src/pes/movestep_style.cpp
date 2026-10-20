@@ -44,7 +44,7 @@ bool DribbleArm(MoveHost& host, MoveReq& req) {
   const float facing = host.FacingDeg();
   // FUN_140439e50 (the bearing to the ball) and FUN_1404583b0 (against the facing).
   const float bearing = FoldFull(std::atan2(dx, dz) * s.radToDeg, r);
-  if (!(AngleDiffDeg(bearing, facing, r) < r.deg45)) return false;
+  if (!(std::fabs(PesAngleDiff(facing, bearing, r)) < r.deg45)) return false;
   if (!(std::sqrt(dx * dx + dz * dz) < host.MoveConstantsView().dist3)) return false;
   if (!(ball[1] < (host.PlayerHeightCm() / s.heightDiv) * r.half)) return false;  // PES's height is index 1
   // FUN_140a57650 (the ball's displacement over one tick) through FUN_14042d470 (km/h).
@@ -55,7 +55,7 @@ bool DribbleArm(MoveHost& host, MoveReq& req) {
   const float perTick = std::sqrt((second[2] - first[2]) * (second[2] - first[2]) +
                                   (second[0] - first[0]) * (second[0] - first[0]));
   const float speedKmh = perTick * host.TicksPerSecond() * r.kmh60 * r.kmh60 / s.kmhScale;
-  if (s.speed16 <= speedKmh && AngleDiffDeg(host.BallMotionHeadingDeg(), facing, r) <= r.deg45) {
+  if (s.speed16 <= speedKmh && std::fabs(PesAngleDiff(facing, host.BallMotionHeadingDeg(), r)) <= r.deg45) {
     return false;
   }
   return true;

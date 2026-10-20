@@ -188,7 +188,7 @@ bool StepLetsRunTurn(MoveHost& host, MoveReq& req) {
 //   2. The rate target: with req[0xb] the class rate (the interface's), else 0 for kind 3/6 at
 //      class 0, else FUN_1406b9e80's for the desired speed. req[0x4a] walks toward it by 0.05
 //      per tick, clamped to [0, rate ceiling].
-//   3. The heading error is FUN_14043a0a0(req[0x18], req[1]); the body error is the wrapped
+//   3. The heading error is FUN_14043a0a0(req[0x18], req[1]): req[1] minus req[0x18]. The body error is the wrapped
 //      difference between req[1] and the body direction, which is req[0x4] except while
 //      req[0x2d] < req[0x2e] * 0.25, when the heading of the last tick's displacement is used.
 //   4. With the class -1, or either error past its gate (2025 and 12656.25 squared degrees), the
@@ -222,7 +222,7 @@ void RunToStep(MoveHost& host, MoveReq& req) {
     req.SetF(moveword::kRate, lowered <= ceiling && target <= lowered ? lowered : target);
   }
 
-  const float headingError = Wrap180(req.F(moveword::kRecordStampB) - req.F(moveword::kHeading));
+  const float headingError = Wrap180(req.F(moveword::kHeading) - req.F(moveword::kRecordStampB));
 
   // 3. The body direction: the request's, or the displacement heading while the dwell is
   //    nearly out.

@@ -85,6 +85,9 @@ class AdapterTeam final : public pes::TeamAi {
   }
   // ponytail: FUN_140a581c0's condition byte: GF has no condition record, so the full value stands in.
   int Condition(int) const override { return kFullCondition; }
+  // ponytail: GF coords, not PES's frame (index 1 is GF depth = -PES z, index 2 the height). ProximityCap reads index 1 as
+  // PES z, behind ActionBit27 (inert while that is false). JostleStyle (movestep_run.cpp, team.Position) reads it with no
+  // gate, so it is live: the PesFrame copy flips AThrowInIsNotAwardedAgainOnItsOwnSpot red, so it waits for a decision.
   void Position(int slot, float out[3]) const override {
     const Player* p = Who(slot);
     const Vector3 v = p ? p->GetPosition() : Vector3{};
