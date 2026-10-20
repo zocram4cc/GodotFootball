@@ -267,6 +267,7 @@ Conclusion: the score (`0x140587E70` reads `base+4+8·rank`), list (`0x140A714E0
 ### 3.4 NearestList `MA+0x22E4C + 200·i` (writer OPEN, teamctx §2.4)
 
 - Layout CONFIRMED (teamctx §2.1). No writer by immediate scan (the `0x22E4C` immediate appears only in reads). The pair `0x22CBC/0x22D84` ends at `0x22E4C` (`0x22D84 + 0xC8 = 0x22E4C`, CONFIRMED arithmetic), so the pair is the last 200-B row before the NearestList.
+- GF port (`TeamAIController::TickScoreRows`, teamAIcontroller.cpp): the S1 writer (`pes::ScoreRowWriter`, pesscorerows.hpp) writes nothing before its latch, and the latch is the stage's flag (`fullRefresh`). The team passes a full refresh until the writer is latched, so the first team tick writes every block, the NearestList included. Before this, a match that opened with `Match::StartPlay()` and no stoppage read empty rows until its first stoppage, and `NearestOpponent` answered nothing meanwhile (`PesNearestOpponent`, `PesMoveStepJostle`).
 
 ---
 
