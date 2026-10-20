@@ -1447,7 +1447,10 @@ void RunTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   }
 
   // The tolerance shaping (0x1406c3bc0..0x1406c3c20).
-  float faceAbs = std::fabs(Wrap180Diff(req.F(moveword::kFacing), req.F(moveword::kFacingError), k));
+  // PES at 0x1406C3B4C: FUN_14043a0a0(req[0x18], req[0x01]) = wrap180(kHeading - kRecordStampB).
+  // The magnitude is the decompile's local_res20, which the ladder compares against the
+  // tolerance and the 45-deg gate.
+  float faceAbs = std::fabs(Wrap180Diff(req.F(moveword::kRecordStampB), req.F(moveword::kHeading), k));
   {
     const float dist = req.F(moveword::kDistToTarget);  // param_2[0x11]
     if (req.U(moveword::kPrecise) == 0 && 0 < static_cast<int>(req.U(moveword::kClassWord))) {
@@ -1460,18 +1463,24 @@ void RunTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
       } else {
         turnTol = narrow * 0.0f + turnTol;
       }
-    } else if (req.U(moveword::kPrecise) == 1 && k.angle1125 < faceAbs &&
+    } else if (req.U(moveword::kPrecise) == 1 && k.angle1125 < std::fabs(req.F(moveword::kFacingError)) &&
                clipFrame < static_cast<int>(spanF)) {
+      // PES at 0x1406C3BD2 reads req[0x1c] (word 7, the facing error) directly, not a
+      // difference of two headings.
       turnTol = k.angle675;
     }
   }
-  float gateAbs =
-      std::fabs(Wrap180Diff(req.F(moveword::kHeading), req.F(moveword::kHeading), k));
-  const bool near = curMotion == 0xbd6 ? gateAbs < k.angle40 : gateAbs < k.angle45;
+  // PES at 0x1406C3C02: FUN_14043a0a0(req[0x02], req[0x04]) = wrap180(kBodyDirection -
+  // kFacing). The magnitude drives the `near` gate (40 deg for motion 0xbd6, 45 deg otherwise).
+  const float bodyFacingDelta =
+      std::fabs(Wrap180Diff(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k));
+  const bool near = curMotion == 0xbd6 ? bodyFacingDelta < k.angle40 : bodyFacingDelta < k.angle45;
   const bool scripted = host.AnimeState() == 0x4a;  // (+0xab8 vt+0x28)() == 0x4a
   float stopBand = k.speed1475;  // fVar24 = DAT_1425ddf88
+  // The class ladder's own comparison (0x1406C3F54): the signed difference of the body
+  // direction and the facing, not the magnitude.
   const float facingDelta =
-      std::fabs(Wrap180Diff(req.F(moveword::kHeading), req.F(moveword::kHeading), k));
+      Wrap180Diff(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k);
 
   // 5. The ladder. The scripted tail and the class ladder both start from here.
   if (scripted) {
@@ -1518,12 +1527,16 @@ void RunTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
         float band = k.five;
         if (curMotion == 0xb4c) {
           if (static_cast<int>(rowFixed) <= clipFrame && speed < k.speed1475) {
-            const bool eq = quarter == facingDelta;
-            const bool lt = quarter < facingDelta;
+            // PES at 0x1406C3E82 compares req[0x06] (word 6, the turn angle) with 90 directly.
+            const float turn = req.F(moveword::kTurn);
+            const bool eq = quarter == turn;
+            const bool lt = quarter < turn;
             if (!lt && !eq) band = k.five;
           }
         } else if (curMotion == 0xbcf) {
-          if (static_cast<int>(rowFixed) <= clipFrame && k.angle135 < gateAbs) top = scale;
+          // PES at 0x1406C3C02 reads the signed body-direction difference (fVar23 in the
+          // decompile), not its magnitude.
+          if (static_cast<int>(rowFixed) <= clipFrame && k.angle135 < facingDelta) top = scale;
         } else if (curMotion == 0xbd6) {
           if ((static_cast<int>(rowFixedB) + static_cast<int>(rowFixed)) / 2 < clipFrame) top = scale;
         } else if (curMotion == 0xc02) {
@@ -1614,7 +1627,8 @@ void RunTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
           req.SetF(moveword::kSpeedWord, k.five);
         }
         if (!EnterStepTurnRun(host, req, k)) {
-          if (speed < stopBand + k.three && quarter < std::fabs(facingDelta)) {
+          // PES at 0x1406C3F4B compares req[0x06] (word 6, the turn angle) with 90.
+          if (speed < stopBand + k.three && quarter < std::fabs(req.F(moveword::kTurn))) {
             req.SetU(moveword::kClassWord, 0);  // LAB_1406c3f2b
             req.SetF(moveword::kSpeedWord, k.five);
             EnterGotoRun(host, req, false);  // FUN_1406ce820
