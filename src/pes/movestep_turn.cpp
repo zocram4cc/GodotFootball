@@ -3501,6 +3501,35 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
     } else {
       kmh = 0x10;
     }
+    // PES's final class ladder (0x1406C9B0B-0x1406C9B54): the ball's distance from the
+    // player, scaled by 54 * 60 * 60 / 1000 = 194.4, picks the class when the residual turn is
+    // inside the tolerance. The ball's position comes from FUN_141EB50B0(P, out, 1) - the
+    // same displacement the port reads through PositionAt.
+    {
+      float ball[3] = {0.0f, 0.0f, 0.0f};
+      host.PositionAt(1, ball);
+      const float ballDistance = std::sqrt(ball[0] * ball[0] + ball[1] * ball[1] + ball[2] * ball[2]);
+      const float scaled = (54.0f * 60.0f * 60.0f / 1000.0f) * ballDistance;
+      const float residual =
+          std::fabs(Wrap180Diff(req.F(moveword::kBodyDirection), req.F(moveword::kHeading), k));
+      if (residual <= k.angle45) {
+        if (scaled < k.speedA && 1 < cls) {
+          cls = 1;
+          kmh = static_cast<int>(k.speedB);  // 11.0 (0x14259bdfc)
+        }
+      } else if (k.speedA <= scaled) {
+        if (scaled < 13.5f) {  // 0x1425a1ffc
+          cls = 1;
+          kmh = static_cast<int>(k.speedB);  // 11.0 (0x14259bdfc)
+        } else {
+          cls = 2;
+          kmh = 16;  // 0x14259be10
+        }
+      } else {
+        cls = 0;
+        kmh = static_cast<int>(k.five);
+      }
+    }
     int kind = static_cast<int>(req.U(moveword::kKind));
     if (kind < 2) {
       kind = 2;

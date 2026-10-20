@@ -843,6 +843,38 @@ TEST(StepTurnStep, TheRootFacingMovesTowardsTheLookHeading) {
   EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 90.0f, 0.01f);
 }
 
+// PES's final class ladder (0x1406C9B0B-0x1406C9B54): the ball's distance from the player,
+// scaled by 54 * 60 * 60 / 1000 = 194.4, picks the class. The port used the live class word
+// instead, so the band never followed the ball.
+TEST(StepTurnStep, TheFinalClassLadderFollowsTheBallDistance) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.record = TurnRecordWithOffset();
+  host.currentClipFrames = 60;  // past the row's end: the final grid select runs
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 3);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  // The body direction is 60 degrees from the heading, so the residual is past 45 and the
+  // ladder's distance arm applies: the ball's scaled distance is 19.44, past 13.5, so the
+  // class is 2 and the speed 16 - the port's live class would have left it at 3 and 11.
+  req.SetF(pes::moveword::kBodyDirection, 60.0f);
+  req.SetU(0x20, 1u);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 14.0f);
+  // The ball is 0.1 metres away: the scaled distance is 19.44, past 13.5, so the class is 2
+  // and the speed 16 - the port's live class would have left it at 3 and 11.
+  host.displacement[0] = 0.1f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.0f;
+  StepTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(req.U(pes::moveword::kClassWord) & 0xffu, 2u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 16.0f);
+}
+
 // ---------------------------------------------------------------------------------------------
 // STEP_TURN_STEP, FUN_1406c8d80.
 // ---------------------------------------------------------------------------------------------
