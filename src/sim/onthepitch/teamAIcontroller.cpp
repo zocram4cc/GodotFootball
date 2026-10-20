@@ -1064,8 +1064,21 @@ void TeamAIController::ApplyOffsideTrap(Vector3& position) const {
   }
 }
 
+// PES's goal kick: the keeper runs to the ball and is released on reaching it (A5 §4.7; pessetpiecetaker.hpp).
+// The walk is pending from the placement until he is within the reach of the ball.
+bool TeamAIController::IsPieceTakerWalking(const Player* player) const {
+  return pieceWalk && player == taker && !PieceTakerArrived();
+}
+
+bool TeamAIController::PieceTakerArrived() const {
+  if (!pieceWalk || taker == nullptr) return true;
+  const float reach = match->GetPesSetPieceTakerConstants().takerReach_m;
+  return (pieceWalkTarget - taker->GetPosition()).Get2D().GetLength() < reach;
+}
+
 void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
   setPieceType = setPiece;
+  pieceWalk = false;
   // Ring 5 records every restart but the throw-in (transitions 1.2): the
   // kick-off timer runs only after a kick-off record.
   if (setPiece != e_SetPiece_None && setPiece != e_SetPiece_ThrowIn) {
@@ -1596,15 +1609,21 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
     }
 
     if (taker == 0) taker = AI_GetClosestPlayer(team, ballPos);
-    // A keeper who ends up with a restart is placed where that restart wants
-    // him, not where the outfield placement put him.
+    // A keeper who ends up with a restart is placed where that restart wants him, not where the outfield placement
+    // put him. On the PES path a goal kick keeper runs to the ball instead (below).
     if (taker && taker->GetFormationEntry().role == e_PlayerRole_GK &&
-        (setPiece == e_SetPiece_GoalKick || setPiece == e_SetPiece_FreeKick)) {
+        ((setPiece == e_SetPiece_GoalKick && !match->PesLoop()) || setPiece == e_SetPiece_FreeKick)) {
       taker->ResetPosition(
           Vector3(ballPos.coords[0] - team->GetSide() * 1.5f, ballPos.coords[1], 0), ballPos);
     }
 
-    if (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_KickOff) {
+    if (setPiece == e_SetPiece_GoalKick && match->PesLoop()) {
+      // PES's goal kick: the keeper runs to the ball and kicks it from there (A5 §4.7). He is not placed on it.
+      // ponytail: the ball stays on its spot through the stoppage (seed 7 trace, S1Port); a ball moved in it is not
+      // followed.
+      pieceWalk = true;
+      pieceWalkTarget = ballPos;
+    } else if (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_KickOff) {
       taker->ResetPosition(ballPos + ballPos.GetNormalized(Vector3(0, -team->GetSide(), 0)) * 0.3f,
                            ballPos);
     } else if (setPiece == e_SetPiece_FreeKick) {

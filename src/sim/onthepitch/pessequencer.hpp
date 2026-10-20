@@ -34,9 +34,11 @@ Spot GoalKickSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 Spot ThrowInSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 
 // The taker may release once this many frames have passed since the restart was armed. A
-// kick-off is not timed (the receiver's ball test decides it), so its gate is zero.
+// kick-off and goal kick are not timed (the receiver's ball test, or the keeper's reach): their gate is zero.
 int ReleaseFrames(e_SetPiece kind);
-bool MayRelease(e_SetPiece kind, int framesSinceArmed);
+// A goal kick is released when its keeper reaches the ball (A5 §4.7); takerArrived says whether he has. The timed
+// restarts ignore it.
+bool MayRelease(e_SetPiece kind, int framesSinceArmed, bool takerArrived);
 
 // A restart programme (decode 3.2): the stoppage beats in the order they run, from the whistle
 // to the armed restart. Hold is the players' hold; Wipe prepares the restart; UiAndTeleport is

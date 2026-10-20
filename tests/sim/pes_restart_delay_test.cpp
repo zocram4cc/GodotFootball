@@ -126,8 +126,9 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (b.active && b.started && !(lastRelease && *lastRelease == b.stopTime)) {
       lastRelease = b.stopTime;
-      // The taker is released on the first frame at or past the PES gate, give or take the
-      // tick the referee checks it on.
+      // The timed taker is released on the first frame at or past the PES gate, give or take the tick the referee
+      // checks it on. A goal kick has no gate (ReleaseFrames is zero): AGoalKickIsReleasedWhenItsKeeperReachesTheBall
+      // checks it.
       const int gate = pes::ReleaseFrames(b.desiredSetPiece);
       const int frames =
           static_cast<int>((match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
@@ -397,4 +398,26 @@ TEST(PesRestartDelay, AWhistleLeavesNoFlyingBallBehind) {
   });
   EXPECT_GT(stops, 0) << "no stoppage was seen";
   EXPECT_GT(flyingStops, 0) << "no stoppage caught a ball in flight - the test proved nothing";
+}
+
+// A goal kick is released when its keeper reaches the ball, not on a clock: PES releases it on the taker's reach and
+// kick (A5 §4.7; pessetpiecetaker.hpp). The keeper is not placed on the ball; he runs to it. The taker is checked on
+// the tick the restart starts, when the referee has just passed its reach test, so the tolerance is one tick of his
+// movement.
+TEST(PesRestartDelay, AGoalKickIsReleasedWhenItsKeeperReachesTheBall) {
+  constexpr float kReleaseTickTolerance_m = 0.1f;
+  std::optional<unsigned long> checkedStop;
+  int goalKicks = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || !b.started || b.desiredSetPiece != e_SetPiece_GoalKick || !b.taker) return;
+    if (checkedStop && *checkedStop == b.stopTime) return;
+    checkedStop = b.stopTime;
+    goalKicks++;
+    const float reach = match.GetPesSetPieceTakerConstants().takerReach_m;
+    const float off = (b.taker->GetPosition().Get2D() - match.GetBall()->Predict(0).Get2D()).GetLength();
+    EXPECT_LT(off, reach + kReleaseTickTolerance_m)
+        << "the goal kick was released with its keeper " << off << " m from the ball";
+  });
+  EXPECT_GT(goalKicks, 0) << "no goal kick was released";
 }

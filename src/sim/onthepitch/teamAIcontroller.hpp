@@ -104,6 +104,11 @@ public:
   // shootout needs its own rotation to take the kicks.
   void SetPieceTaker(Player* player) { taker = player; }
   e_SetPiece GetSetPieceType() { return setPieceType; }
+  // PES's goal kick: the keeper runs to the ball and is released on reaching it (A5 §4.7; pessetpiecetaker.hpp).
+  // The walk is pending from the placement until he is within the reach.
+  bool IsPieceTakerWalking(const Player* player) const;
+  Vector3 GetPieceWalkTarget() const { return pieceWalkTarget; }
+  bool PieceTakerArrived() const;
   void CalculateSituation();
 
   // PES 2021's open-play defensive line, rebuilt every tick (report 6, 14.1).
@@ -190,6 +195,10 @@ protected:
   Team* team;
   Player* taker;
   e_SetPiece setPieceType;
+  // PES's goal kick: the keeper runs to the ball before he takes it. pieceWalk holds from the placement until he is
+  // within the reach; pieceWalkTarget is the restart's ball spot.
+  bool pieceWalk = false;
+  Vector3 pieceWalkTarget;
 
   Properties baseTeamTactics;
   Properties teamTacticsModMultipliers;

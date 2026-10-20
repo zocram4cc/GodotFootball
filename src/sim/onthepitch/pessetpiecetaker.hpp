@@ -43,6 +43,9 @@ struct SetPieceTakerConstants {
   // corner (byte 0x14259bdf0), and once the partner check passes.
   float shortCornerWindow_s = 2.0f;
   float shortCornerRunningWindow_s = 7.0f;
+  // The taker's reach to the ball, in metres, on which PES releases a goal kick (A5 §4.7; this header's
+  // comment above): 0.65, .rdata 0x14259d5d0, the same reach the throw-in lift uses.
+  float takerReach_m = 0.65f;
 };
 
 std::optional<SetPieceTakerConstants> LoadSetPieceTakerConstants(const PesVfs& vfs,

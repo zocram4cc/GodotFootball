@@ -637,14 +637,15 @@ void Referee::Process() {
           // for a free kick, 54 for a penalty, all measured live. `startTime` is
           // when the referee is ready for the kick; this adds PES's deliberate
           // hold on top of it, so the placement and the wait cannot be confused
-          // for each other. The kick-off, throw-in and goal kick are released by
-          // their own rule and the gate returns true for them immediately.
+          // for each other. The kick-off is released by its own rule, the throw-in by its timer, and a goal kick
+          // when its keeper reaches the ball (PieceTakerArrived).
           // One logic frame is one tick (Milestone A1), so the elapsed count is in
           // PES's frames directly and the frames-per-second is PES's own rate.
           (match->PesLoop()
                ? pes::MayRelease(buffer.desiredSetPiece,
                                  static_cast<int>((match->GetActualTime_ms() - buffer.startTime) /
-                                                  Match::kTick_ms))
+                                                  Match::kTick_ms),
+                                 match->GetTeam(buffer.teamID)->GetController()->PieceTakerArrived())
                : SetPieceLaws::MayTakeRestart(
                      buffer.desiredSetPiece,
                      static_cast<int>((match->GetActualTime_ms() - buffer.startTime) /

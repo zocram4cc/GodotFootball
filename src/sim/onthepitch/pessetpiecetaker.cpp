@@ -13,6 +13,7 @@ constexpr uint64_t FREEKICK_GATE_VA = 0x14258c264;       // 3.0
 constexpr uint64_t ONE_VA = 0x14256ae1c;                 // 1.0
 constexpr uint64_t SHORT_CORNER_WINDOW_VA = 0x142565604;  // 2.0
 constexpr uint64_t SHORT_CORNER_RUNNING_VA = 0x14259bdf0;  // 7.0
+constexpr uint64_t TAKER_REACH_VA = 0x14259d5d0;            // 0.65
 
 bool ReadFloat(const PeImage& exe, uint64_t va, float* out) {
   return exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out));
@@ -28,7 +29,8 @@ std::optional<SetPieceTakerConstants> LoadSetPieceTakerConstants(const PesVfs& v
   for (auto [va, out] :
        {std::pair{CORNER_GATE_VA, &k.cornerGate_s}, std::pair{FREEKICK_GATE_VA, &k.freeKickGate_s},
         std::pair{ONE_VA, &k.penaltyGate_s}, std::pair{SHORT_CORNER_WINDOW_VA, &k.shortCornerWindow_s},
-        std::pair{SHORT_CORNER_RUNNING_VA, &k.shortCornerRunningWindow_s}}) {
+        std::pair{SHORT_CORNER_RUNNING_VA, &k.shortCornerRunningWindow_s},
+        std::pair{TAKER_REACH_VA, &k.takerReach_m}}) {
     if (!ReadFloat(exe, va, out)) {
       char buf[32];
       std::snprintf(buf, sizeof buf, "%#llx", static_cast<unsigned long long>(va));
@@ -40,7 +42,7 @@ std::optional<SetPieceTakerConstants> LoadSetPieceTakerConstants(const PesVfs& v
   // A gate of zero or less would release the kicker instantly; the shipped
   // values are all positive and a failed read must not look like a rule.
   if (k.cornerGate_s <= 0.0f || k.freeKickGate_s <= 0.0f || k.penaltyGate_s <= 0.0f ||
-      k.shortCornerWindow_s <= 0.0f || k.shortCornerRunningWindow_s <= 0.0f) {
+      k.shortCornerWindow_s <= 0.0f || k.shortCornerRunningWindow_s <= 0.0f || k.takerReach_m <= 0.0f) {
     *error = "set-piece taker constant: non-positive gate in .rdata";
     return std::nullopt;
   }
