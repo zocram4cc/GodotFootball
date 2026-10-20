@@ -21,6 +21,10 @@ constexpr LaneScalar LANE_SCALARS[] = {
     {0x142588210, &LaneConstants::coneOffset_deg},
     {0x14259be5c, &LaneConstants::coneFloor_deg},
     {0x14259bdc4, &LaneConstants::crossEps},
+    {0x14256ae1c, &LaneConstants::crossAdvance_m},
+    {0x14259222c, &LaneConstants::crossLen_m},
+    {0x142591140, &LaneConstants::crossCone_deg},
+    {0x142565604, &LaneConstants::crossRad_m},
 };
 
 // Position category 0 is the keeper (spec O1: selector confirmed, meaning INF from the docs).
@@ -141,6 +145,18 @@ bool LaneFree(const LaneConstants& k, const std::array<LanePlayer, kSlots>& play
               const LaneRequest& lane, bool keepKeeper, int horizonFrames) {
   const int opposing = IsAwaySlot(reference) ? 0 : 1;
   return ScanLane(k, players, reference, opposing, lane, keepKeeper, horizonFrames).count == 0;
+}
+
+LaneRequest CrossLane(const LaneConstants& k, offball::Vec2f ball, float aimX_m) {
+  // The aim sits on the pitch's centre line at the goal-area line, so the bearing from the ball
+  // to it is the lane's heading (0x140474C40 over the aim point, 0x14212972F..0x14212974A).
+  const offball::Vec2f aim{aimX_m, 0.0f};
+  const float heading_deg = Bearing(k, ball, aim);
+  // The origin is the ball point advanced one metre along that bearing (0x140A8F7C0 with r = 1.0,
+  // 0x14212974A). dir(theta) = (sin, -cos) in this engine's frame (PES z = -GF y).
+  const offball::Vec2f dir = Dir(k, heading_deg);
+  const offball::Vec2f origin{ball.x + k.crossAdvance_m * dir.x, ball.z + k.crossAdvance_m * dir.z};
+  return {origin, heading_deg, k.crossLen_m, k.crossCone_deg, k.crossRad_m};
 }
 
 }  // namespace pes::lane
