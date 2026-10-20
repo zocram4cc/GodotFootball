@@ -63,3 +63,30 @@ The dial also steers the registry style state: 0/1 → 1, 2 → follows the leve
 - The dial itself moves during a match (scoreline, clock, dice). Who drops has no randomness: slot order and saved lineup data decide.
 
 Open (the agent's): the +0x80D4 skip byte; the var_3C4 gate's meaning; a runtime watch to settle the floor's direction (inferred from construction, not live-proven).
+
+## 5. Two strikers dropping equally (external follow-up, 20-10-26)
+Question: in a two-striker team (one Fox in the Box CF, one Goal Poacher SS), both drop equally on their line. Why, and is the Goal Poacher partner the reason?
+
+> **Main audit 20-10-26:**
+> - `0x1406831E6` `imul rax,r8,0x68` / `0x1406831EE` `movzx r15d,byte [rax+r14+0x58]` (the count byte at linestruct + 104·class + 88): match.
+> - `0x140682477` `inc byte [r8+0x58]` / `0x14068247F` `inc byte [r8+0x59]`: match.
+> - `0x140683272` `cmp r10d,2`; `0x140683285` `cmp r15b,r10b`; `0x140683288` `jbe 0x1406832E7`; `0x14068328A` `cmp r13d,esi`; `0x14068328D` `je 0x1406832E7`: match.
+> - `0x14068330E` loads 1.0 (`0x14256AE1C`); `0x140683350` `je 0x140683561` (level 0: no floor); `0x14068335A` `movss xmm0,[rax+0x44]`; `0x140683363` `maxss xmm0,xmm7`: match.
+> - The agent's own citation fix: the count compare is the pair `0x140683285`/`0x140683288`; `0x14068328D` is the designated-player test.
+
+**Equal drops are the expected behaviour for a two-forward shape:**
+1. **With exactly two forwards both get the same target.** sub_140682320 (called at 0x14068210B) walks the 11 slots, skips role 0 and off-pitch players, classes roles 7/8/9 as forwards and increments count (+0x58) and active (+0x59). A CF (9) and an SS (7) give count = 2. The rank block needs count >= 3 (`cmp r15b, r10b; jbe` with r10b = 2 proven by the class gate) and "not designated". Even with 3+ forwards the ×0.2 / ×0.65 multipliers also need the mode-0 rank test sub_1406405C0 to pass and level < 4. So both strikers compute target = deep + (high − deep)·factor from the same class-2 anchors and the same factor.
+2. **The one asymmetry is conditional.** The floor fmax(−ref, target) (0x140683363, re-applied at 0x1406837B6) applies to the designated forward v21 only, and bites only when the raw target is deeper than the reference ([unitctx+0]+0x44, a half-length-like pitch value; inferred from construction, not runtime-proven). If the −1 target sits above that bound, the floor is slack and both ride the identical line.
+3. **At level 0 (−2) the floor is switched off** (`test bl,bl; je` at 0x140683350). The dial is live-tuned by sub_14051E970 (scoreline, clock, dice), so a team set to −1 can be sitting at −2 mid-match, which alone gives the observation.
+4. **The style layer never differentiates depth.** The +8 m pull applies to every forward past the two gate flags; the Fox in the Box, CF-role and designated exemptions only skip the 5 m window widening, a clamp half-width (target ± xmm6 from 0x1405E7B49), not a depth target.
+
+**The Goal Poacher partner reason is dead, at three levels:**
+1. **Composition.** The strike-partner group (producer sub_14053BB90) takes anchors with the GOAL_POACHER or DUMMY_RUNNER card (record +0x8828 dword == 2, |y| <= 8) and partners with style 9 = FREE_ROAMING (Hole Player), |y| <= 12, |dy| <= 15. A Fox in the Box CF can't be the partner (wrong card), and no SS or CF can pass the partner test at all: CheckStyleAtPosition needs the style bit in PositionCompatibilityTable[role], and the SS row (7) and CF row (9) don't carry bit 9. Only a role-5/6 midfielder with the Hole Player card fills the partner slot. (The agent's earlier "Goal Poacher partners" label was a mask/registry conflation.)
+2. **Consumption.** The group block (counts +0xB8CC; 8-byte {mask, member} records at +0xB8F8, 5 per group, rebuilt every think tick) has no displacement readers across 0x1404F0000-0x140700000; the only +0xB8D8 hits are a different field. It looks write-only (a displacement search can't exclude computed-base readers; a runtime read-watch on +0xB8F8 would close it).
+3. **Even if read, nothing in the pull chain consults it:** sub_140682770 and the master pull branch sweep clean.
+
+**Correction to §3:** the `cmp edi, 9` exemption reads the position-family array at raw TeamData +0x3FB8 (not array B at +0x4C00); r15 in the master is raw TeamData (the +0x80A0 directive word and the +0x80E0 stride-2 phase copies ride the same register), and sub_140682770 reads the same array at 0x1406834DE. Value 9 = CF stands. The +0x80D4 skip byte is in the per-slot byte row 0x80D4-0x80DE.
+
+**The v21 selection loop** reads the same two bytes: active count (+297) > 1 at 0x140683049 (else take and break); count (+296) > 2 at 0x140683064 gates its −10 rank bump. With two forwards the selection score is the lineup feed (+30 if role 9 = CF), then keep-replace decides by slot order.
+
+**To split the two explanations live:** one read of TeamData+0xB8A4 at the moment of the equal drop: byte 1 = −1 with a slack floor; byte 0 = −2 with the floor off.
