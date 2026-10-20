@@ -2175,14 +2175,19 @@ void RunLoop(MoveHost& host, MoveReq& req) {
     return;
   }
   if (!keeperKind && bucketShape && turnGate < turn) {
-    // The run-turn arm's row pick: the bucket's angle clamped into the +/-110 window, the row
-    // at kind + band*8 and the TURN_STOP state request.
-    const int rowBand = req.F(moveword::kRate) < k.rate06 ? 2 : Clamp03(band);
-    const int rowBucket = (bucket == 4) ? 3 : ((bucket == 9) ? 8 : bucket);
-    const MoveCell cell = host.Cell(GotoRowFor(kind, rowBand, t), rowBucket, false);
-    host.Issue(MotionRequest{cell.motionNo, cell.mirror, 0, k.blend1667,
-                             host.MotionStartTime(cell.motionNo), 0.0f});
-    RequestState(req, MoveState::kTurnStop);
+    // The ladder issues through its helpers (EnterStop, EnterTurnStop, EnterRunTurnRun), as PES's E3 does; the arm's own
+    // row issue was a stand-in and is gone.
+    // PES's far-enough ladder (FUN_1406c0170 decompile 274-284): STOP or IDLE (FUN_1406d5d60) when req[0x4A] is under
+    // DAT_142590d98 (0.3), TURN_STOP (FUN_1406d2590) when req[0x12] is at most 2 and not 2, else RUN_TURN_RUN (FUN_1406d6780).
+    if (req.F(moveword::kRate) < k.blend3) {
+      EnterStop(host, req);
+      return;
+    }
+    if (req.F(moveword::kDistToLook) <= k.speed2 && k.speed2 != req.F(moveword::kDistToLook)) {
+      EnterTurnStop(host, req);
+      return;
+    }
+    EnterRunTurnRun(host, req);
     return;
   }
 
