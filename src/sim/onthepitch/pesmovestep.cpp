@@ -9,6 +9,7 @@
 #include "onthepitch/AIsupport/mentalimage.hpp"
 #include "onthepitch/ball.hpp"
 #include "onthepitch/player/player.hpp"
+#include "onthepitch/player/controller/playercontroller.hpp"
 #include "teamAIcontroller.hpp"
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
@@ -181,16 +182,16 @@ class MoveHostAdapter final : public pes::MoveHost {
   float RateCeiling() const override { return player_.GetMoveStep().rateCeiling; }
   // The command's desired speed: the AI's last movement command (vt+0x20 index 0). Its velocity is m/s.
   float CommandSpeedKmh() const override {
-    return player_.GetCurrentAnim()->originatingCommand.desiredVelocityFloat * kKmhPerMps;
+    const PlayerCommand* cmd = Decision();
+    return (cmd ? cmd->desiredVelocityFloat : idleVelocity) * kKmhPerMps;
   }
-  // FUN_1406b7560's command words, from the player's current command: the move target (cmd+0x20) and the look
+  // FUN_1406b7560's command words, from the AI's decision: the move target (cmd+0x20) and the look
   // point (cmd+0x14) in PES's ground frame (x, z = -GF y), the speed band (cmd[0x17]), the desired speed
   // (cmd[0x172]) and the precise flag (cmd[0x15]). A command with no target point projects its direction one
   // second ahead: a ponytail stand-in (see PlayerCommand::useDesiredTarget). No command: the player stands.
   void FillCommandWords(pes::MoveReq& req) const {
     const Vector3 pos = player_.GetPosition();
-    const Anim* anim = player_.GetCurrentAnim();
-    const PlayerCommand* cmd = anim ? &anim->originatingCommand : nullptr;
+    const PlayerCommand* cmd = Decision();
     const float speed = cmd ? cmd->desiredVelocityFloat : idleVelocity;
     const Vector3 dir = cmd ? cmd->desiredDirection : Vector3(0.0f, 0.0f, 0.0f);
     const Vector3 projected(pos.coords[0] + dir.coords[0] * speed,
@@ -209,6 +210,34 @@ class MoveHostAdapter final : public pes::MoveHost {
     in.desiredKmh = speed * kKmhPerMps;
     in.precise = cmd && cmd->preciseArrival;
     pes::movestep::FillMoveTarget(req, in, c_.run, c_.buckets);
+  }
+  // The request block as FUN_1406b7560 copies it in: the dwell words and stamps the record carried from the last tick,
+  // the facing, and the command words of the AI's decision (FillCommandWords).
+  pes::MoveReq Request() {
+    pes::MoveReq req;
+    pes::CarryIn(player_.GetMoveStep(), req);
+    req.SetF(pes::moveword::kFacing, FacingDeg());
+    FillCommandWords(req);
+    return req;
+  }
+  // The AI's decision: the controller's command at its last think (Think). Null before the first think.
+  const PlayerCommand* Decision() const {
+    const std::optional<PlayerCommand>& command = player_.GetPesDecision().command;
+    return command ? &*command : nullptr;
+  }
+  // PES's AI think for this player, every tick: the controller's first command becomes the decision MOVESTEP reads on the
+  // next tick. ponytail: PES's think runs every 25 frames (pes-re-teamtick.md 5.1); GF reads the controller every tick,
+  // which the stall harness prefers. The first candidate stands in for the one the humanoid plays, since SelectAnim
+  // applies a candidate and has side effects.
+  void Think() {
+    // The controller decides from the mental image its process set this tick. The match has none until its first is
+    // built, and the humanoid waits the same way (humanoid.cpp:238).
+    if (!static_cast<PlayerController*>(player_.GetController())->GetMentalImage()) return;
+    PlayerCommandQueue queue;
+    player_.RequestCommand(queue);
+    PesDecision& decision = player_.GetPesDecision();
+    decision.frame = match_.GetPesFrame();
+    decision.command = queue.empty() ? std::nullopt : std::optional<PlayerCommand>(queue.front());
   }
   float CurrentSpeedKmh() const override {
     return player_.GetMovement().GetLength() * c_.run.speed3600;
@@ -438,6 +467,19 @@ pes::MotionRequest DueRequest(const pes::MoveReq& req, int foot) {
   return r;
 }
 
+pes::MoveReq TickRequest(Player& player, Match& match) {
+  MoveHostAdapter host(player, match, match.GetPesMoveStepConstants());
+  return host.Request();
+}
+
+// PES's AI think for one player, run every tick by Player::Process after the controller's process, which sets the mental
+// image the controller decides from.
+void Think(Player& player, Match& match) {
+  if (!match.PesLoop()) return;
+  MoveHostAdapter host(player, match, match.GetPesMoveStepConstants());
+  host.Think();
+}
+
 void ProcessMoveStep(Player& player, Match& match) {
   // MOVESTEP runs only with pes_loop on. Off it leaves the player alone: no FSM tick, no clip, and
   // no playback write (the contact rates of match.cpp keep theirs).
@@ -446,13 +488,8 @@ void ProcessMoveStep(Player& player, Match& match) {
 
   pes::MoveStepRecord& rec = player.GetMoveStep();
   MoveHostAdapter host(player, match, *constants);
-  pes::MoveReq req;
-  pes::CarryIn(rec, req);  // FUN_1406b7560's copy-in: the dwell words and stamps the record carried from the last tick
-
-  // The request block's copy-in words the adapter owns before the handler runs. FillCommandWords writes
-  // the command words from the player's current command; the action-entry stores follow it.
-  req.SetF(pes::moveword::kFacing, host.FacingDeg());
-  host.FillCommandWords(req);
+  // The request block as FUN_1406b7560 copies it in (Request); the action-entry stores below follow the command words.
+  pes::MoveReq req = host.Request();
   // FUN_1406eebb0's stores at action entry, where AnimeState changes (a new action, P+0xac8): the speed class
   // (P+0x245a, FUN_14081e340 of the command's speed at the turn) and the foot band (P+0x245b, anime vt+0x78).
   // GF has no foot sensor; the band stands at the side of the last displacement against the facing.
@@ -496,10 +533,7 @@ void RequestStop(Player& player, Match& match) {
   const MoveHostConstants* constants = &match.GetPesMoveStepConstants();
   pes::MoveStepRecord& rec = player.GetMoveStep();
   MoveHostAdapter host(player, match, *constants);
-  pes::MoveReq req;
-  pes::CarryIn(rec, req);
-  req.SetF(pes::moveword::kFacing, host.FacingDeg());
-  host.FillCommandWords(req);
+  pes::MoveReq req = host.Request();
   pes::movestep::EnterStop(host, req);
   pes::CarryOut(rec, req);
   pes::ApplyTransition(rec, req);

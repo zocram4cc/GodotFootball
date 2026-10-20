@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <map>
+#include <set>
 #include <memory>
 #include <optional>
 #include <string>
@@ -533,4 +534,49 @@ TEST(MoveStepWire, PesFrameIsXHeightGroundZ) {
   EXPECT_FLOAT_EQ(out[0], 1.0f) << "x is GF x";
   EXPECT_FLOAT_EQ(out[1], 3.0f) << "height is GF z";
   EXPECT_FLOAT_EQ(out[2], -2.0f) << "ground z is -GF y";
+}
+
+// The request steers by the AI's decision on the tick the decision changes, not by the clip the mover plays: a decision
+// that turns him from east to north moves the request's move target north the same tick. Built on the clip's own command,
+// the target keeps pointing where the clip's command did until the clip ends.
+TEST(MoveStepWire, TheRequestFollowsTheDecisionOnTheTickItChanges) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  const Vector3 at = p->GetPosition();
+  const auto decide = [&at](const Vector3& offset) {
+    PlayerCommand c;
+    c.useDesiredTarget = true;
+    c.desiredTarget = at + offset;
+    c.desiredVelocityFloat = sprintVelocity;
+    return c;
+  };
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), decide(Vector3(10.0f, 0.0f, 0.0f))};
+  const pes::MoveReq east = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(east.F(pes::moveword::kMoveTargetX), at.coords[0] + 10.0f, 1e-3f);
+  EXPECT_NEAR(east.F(pes::moveword::kMoveTargetZ), -at.coords[1], 1e-3f);
+  // GF +y is PES -z: the AI turns him north on its next decision.
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), decide(Vector3(0.0f, 10.0f, 0.0f))};
+  const pes::MoveReq north = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(north.F(pes::moveword::kMoveTargetX), at.coords[0], 1e-3f);
+  EXPECT_NEAR(north.F(pes::moveword::kMoveTargetZ), -(at.coords[1] + 10.0f), 1e-3f);
+}
+
+// PES's AI thinks every tick in GF (pesmovestep::Think, after the controller's process): the decision is re-taken on nearly
+// every tick, so its frame stamp takes nearly every frame of the run. PES's own cadence would stamp about one tick in 25.
+TEST(MoveStepWire, TheDecisionIsTakenOnEveryTick) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  std::set<int> stamps;
+  for (int tick = 0; tick < 300; ++tick) {
+    match->Process();
+    const int frame = p->GetPesDecision().frame;
+    if (frame >= 0) stamps.insert(frame);
+  }
+  EXPECT_GT(stamps.size(), 250u) << "the decision was re-taken on only " << stamps.size() << " of 300 ticks";
 }
