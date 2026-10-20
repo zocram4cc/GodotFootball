@@ -164,6 +164,16 @@ pes::MotionRecord TurnRecordWithFrames() {
   return r;
 }
 
+// The same record with a non-zero row offset (FUN_1406b1c70), which the mirror's sign test
+// compares against the window's tight value, and a short span so the window's frame count is
+// small enough for the per-frame gate to bite.
+pes::MotionRecord TurnRecordWithOffset() {
+  pes::MotionRecord r;
+  r.rot = {pes::RotRecord{/*offset*/ 120, /*start*/ 25, /*end*/ 26}};
+  r.blend = {26};
+  return r;
+}
+
 // A host answering the handlers with the synthetic values above. Every accessor names the PES
 // read it stands for (movestep.hpp's MoveHost).
 class FakeHost : public MoveHost {
@@ -762,6 +772,44 @@ TEST(StepTurnRun, ReplaysARowThroughTheStepGridWhenTheClipIsYoung) {
   // The clip request carries the step grid's blend duration (1/7.5 s).
   EXPECT_GT(host.issued.motion, 0);
   EXPECT_NEAR(host.issued.duration, 1.0f / 7.5f, 1e-6f);
+}
+
+// PES at 0x1406C905A: the reorient window's tight value is
+// FUN_14043a0a0(req[0x02], turned) = wrap180(turned - facing), where `turned` is the stepped
+// heading. The port read the folded value (the stepped heading plus the bucket's angle) against
+// the facing, which is a different angle - and the per-frame gate then bites.
+TEST(StepTurnStep, TheReorientWindowMeasuresTheSteppedHeadingAgainstTheFacing) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.record = TurnRecordWithOffset();
+  host.currentClipFrames = 45;
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kFacing, 120.0f);
+  // The heading is 60 degrees from the facing, so PES's tight value is wrap180(60 - 120) = -60
+  // and the window's frame count is 2: 60 / 2 is inside the 45-deg-per-frame gate. The port's
+  // folded value would be wrap180(60 + the bucket's 90 - 120) = +30, whose sign differs from
+  // the row offset's (+60) - and the mirror's sign test then flips the other way.
+  req.SetF(pes::moveword::kHeading, 60.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  req.SetF(pes::moveword::kTurnedRow, 0.0f);
+  req.SetF(pes::moveword::kRowAngle, 0.0f);
+  req.SetU(pes::moveword::kMoveBucket, 2);  // the bucket's angle is 45 degrees
+  host.displacement[0] = 3.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 4.0f;
+  StepTurnStep(host, req, SyntheticTurn());
+  // The window ran, so the turned heading was written.
+  EXPECT_TRUE(req.Flag(pes::moveword::kReorientFlag));
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kAngle3d), 60.0f);
+  // The mirror's sign test: PES's tight value is negative and the row offset is positive, so
+  // the signs differ and the mirror is set. The port's folded value is positive, the signs
+  // match, and the mirror stays clear.
+  EXPECT_EQ(req.U(pes::moveword::kMirrorFlag) & 0xffu, 1u);
 }
 
 // ---------------------------------------------------------------------------------------------

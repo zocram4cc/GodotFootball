@@ -3217,7 +3217,11 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
     }
     const float toward = turned + k.bucketAngle[static_cast<int>(req.U(moveword::kMoveBucket)) & 9];
     const float folded = FoldUnit(toward, k);
-    const float tight = std::fabs(Wrap180Diff(folded, req.F(moveword::kFacing), k));
+    // PES at 0x1406C905A: FUN_14043a0a0(req[0x02], turned) = wrap180(turned - facing), where
+    // `turned` is the stepped heading (the value FUN_140a92950 returned), not the folded one.
+    // PES keeps the value SIGNED: the mirror's fix-up compares its sign with the row offset's.
+    const float tightSigned = Wrap180Diff(req.F(moveword::kFacing), turned, k);
+    const float tight = std::fabs(tightSigned);
     if (tight / static_cast<float>(frames) < k.angle45) {
       req.SetF(moveword::kAngle3d, turned);  // param_2[0x3d]
       req.SetByte(moveword::kReorientFlag, 1);  // param_2 + 0x3c = 1
@@ -3227,7 +3231,7 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
       const float ego = rowOffset;
       if (k.angle90 < std::fabs(ego)) {
         const float signEgo = ego < 0.0f ? k.negOne : scale;
-        const float signTight = tight < 0.0f ? k.negOne : scale;
+        const float signTight = tightSigned < 0.0f ? k.negOne : scale;
         if (signEgo != signTight) {
           uint8_t m = static_cast<uint8_t>(req.U(moveword::kMirrorFlag) & 0xffu);
           if (k.angle225m < std::fabs(tight)) m = 1;
