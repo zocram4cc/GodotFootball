@@ -1222,11 +1222,13 @@ bool ElizaController::_SlideCandidate(const pes::DefenderDecisionConstants& k) {
   const float slideBearing = BearingDeg(CastPlayer()->GetPosition(), ballAhead.Get2D());
   if (!pes::SlideDirectionWindow(k, slideBearing, heading)) return false;
   if (!pes::SlideEngageWindow(k, slideBearing, heading)) return false;
-  // ponytail: stand-in. PES's frame test (FUN_14072E360, pes-re-getup-recovery.md section 4) refuses a candidate whose frames
-  // exceed a get-up's remaining frames; at the stand-up's end the remaining frames are zero, so the test refuses every
-  // candidate there. Releasing the defender needs the phase byte (anime+0x245C), which selects the track whose frames are
-  // compared; no writer is found, so the release is not ported. Until it is, this refuses slides only (not movement) while
-  // he is on a get-up clip, and on the first clip after one. Remove it when the phase byte is ported and the test releases.
+  // ponytail: stand-in. The release from a stand-up is not PES's frame test. S1Watch's live capture (not yet in
+  // docs/re) shows Stagger 16 -> FallDown 17 for 80 frames, the phase byte (anime+0x245C) constant at 1, then action
+  // 80 (InplayDemoContact) -> Move 2. The frame test (FUN_14072E360, docs/re/pes-re-getup-recovery.md section 4)
+  // refuses a requeue whose frames exceed the current clip's frames left. PES's remaining field is unconfirmed: the
+  // table value is elapsed clip time, and remaining-at-switch is unread. Until the release is decoded, this refuses
+  // slides only (not movement) while he is on a get-up clip, and on the first clip after one. Remove it when the
+  // release is ported and the boundary test holds without it.
   if (match->PesLoop()) {
     const auto* anim = CastPlayer()->GetCurrentAnim()->anim;
     if (anim && anim->GetVariable("incoming_special_state") != "") return false;
