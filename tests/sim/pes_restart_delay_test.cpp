@@ -720,7 +720,7 @@ TEST(PesRestartDelay, DISABLED_LooseEpisodeMetric) {
 // stoppage that ends the base run near 24458.
 TEST(PesRestartDelay, ASlideStartsOnlyOnAnOddLogicFrame) {
   constexpr unsigned long kEndFrame = 24400;
-  unsigned long evenFrameSlides = 0, lastFrame = 0;
+  unsigned long evenFrameSlides = 0, oddFrameSlides = 0, lastFrame = 0;
   std::map<int, bool> wasSliding;  // by player id: the state at the last tick
   RunMatchWithinTheBound(
       true, MINUTES,
@@ -731,12 +731,18 @@ TEST(PesRestartDelay, ASlideStartsOnlyOnAnOddLogicFrame) {
           match.GetActiveTeamPlayers(t, active);
           for (Player* p : active) {
             const bool sliding = p->GetCurrentFunctionType() == e_FunctionType_Sliding;
-            if (sliding && !wasSliding[p->GetID()] && lastFrame % 2 == 0) ++evenFrameSlides;
+            if (sliding && !wasSliding[p->GetID()]) {
+              if (lastFrame % 2 == 0)
+                ++evenFrameSlides;
+              else
+                ++oddFrameSlides;
+            }
             wasSliding[p->GetID()] = sliding;
           }
         }
       },
       kMaxSimTicks, [](Match& match) { return match.GetSimFrame() >= kEndFrame; }, 11u);
   EXPECT_GE(lastFrame, kEndFrame) << "the match ended before the window";
+  EXPECT_GT(oddFrameSlides, 0ul) << "no slide started in the window, so the parity check proves nothing";
   EXPECT_EQ(evenFrameSlides, 0ul) << evenFrameSlides << " slides started on an even logic frame";
 }
