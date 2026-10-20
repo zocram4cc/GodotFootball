@@ -1267,8 +1267,9 @@ TEST(DampingRecordInstall, ReadsTheFreemoveRecordByNameFromTheInstall) {
 TEST(DampingRecordInstall, ReadsTheFreemoveBoundsFromThePlausibleBlock) {
   // pes-re-a3helpers.md addendum item 2: the live path FUN_141e5ca20(0x2e)+0x10..0x18
   // reads denormals (9.3e-39, 1.85e28, 4.9e-44), not the freemove bounds. On disk the
-  // record's +0x20 block holds the only plausible bounds (42.0, 18.0, 69.5). The
-  // loader must read that block as {lateral, forward, scale}.
+  // record's +0x20 block holds the only plausible bounds, {20.0, 18.0, 67.5} in stock
+  // dt18_all.cpk (the 4cc mod reads {42.0, 18.0, 69.5}). The loader reads that block
+  // from the VFS winner's record by name, so this recomputes it from the same record.
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT unset";
   pes::PesVfs vfs;
@@ -1276,9 +1277,18 @@ TEST(DampingRecordInstall, ReadsTheFreemoveBoundsFromThePlausibleBlock) {
   ASSERT_TRUE(vfs.Mount(root, &err)) << err;
   auto rec = pes::LoadDampingRecord(vfs, &err);
   ASSERT_TRUE(rec.has_value()) << err;
-  EXPECT_FLOAT_EQ(rec->lateralBound, 42.0f);
-  EXPECT_FLOAT_EQ(rec->forwardBound, 18.0f);
-  EXPECT_FLOAT_EQ(rec->scale, 69.5f);
+  auto blob = vfs.Read("common/match/constant/constant_player.bin", &err);
+  ASSERT_TRUE(blob.has_value()) << err;
+  auto table = pes::ParseUniformTable(*blob, &err);
+  ASSERT_TRUE(table.has_value()) << err;
+  auto span = table->Find("freemove.o");
+  ASSERT_TRUE(span.has_value());
+  ASSERT_GE(span->size(), 0x20u + 3u * sizeof(float));
+  float raw[3];
+  std::memcpy(raw, span->data() + 0x20, sizeof raw);
+  EXPECT_EQ(rec->lateralBound, raw[0]);
+  EXPECT_EQ(rec->forwardBound, raw[1]);
+  EXPECT_EQ(rec->scale, raw[2]);
 }
 
 // AccelerationRamp (FUN_1406cbf70, rev2 §4.2). A case sets the team reads it names. The requested

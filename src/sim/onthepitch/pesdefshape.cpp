@@ -71,11 +71,13 @@ std::optional<DefensiveShapeConstants> LoadDefensiveShapeConstants(const PeImage
     return std::nullopt;
   }
   // The live `basePosition.o` record the report read at runtime, at the object
-  // vtable 0x142b5a328 (report 8). Its VFS offset is still a killed hypothesis
-  // (report 11), so these are transcribed rather than read from the install.
+  // vtable 0x142b5a328 (report 8): the values written below are the MOD (4cc) copy
+  // (stock dt18_all.cpk differs; the report quotes the stock column per field).
+  // Its VFS offset is still a killed hypothesis (report 11), so these are
+  // transcribed rather than read from the install.
   // ponytail: read constant_team.bin's basePosition.o through PesVfs once the
   // container's layout is reduced; until then a changed .o would need this block
-  // edited.
+  // edited. The stock block belongs to the same read.
   k.foreCheck_m = -9.0f;
   k.dfLineCenterAdjustMax_m = -8.0f;
   k.dfLineCenterAdjustMin_m = -20.0f;

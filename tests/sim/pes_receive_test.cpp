@@ -18,11 +18,11 @@ namespace {
 // The shape the report gives for these fields (§3, §4, trap.json live).
 pes::ReceiveConstants Synthetic() {
   pes::ReceiveConstants c{};
-  c.lockDefence_s = 0.16f;
-  c.lockDefenceKeep_s = 0.26f;
-  c.lockOffence_s = 0.05f;
-  c.lockShoot_s = 0.5f;
-  c.lockShootSpeedBall_s = 0.75f;
+  c.lockDefence_s = 0.15f;          // stock trap.o +0x3c0 (mod 0.16)
+  c.lockDefenceKeep_s = 0.25f;      // stock trap.o +0x3c4 (mod 0.26)
+  c.lockOffence_s = 0.15f;          // stock trap.o +0x3c8 (mod 0.05)
+  c.lockShoot_s = 0.4f;             // stock trap.o +0x3cc (mod 0.5)
+  c.lockShootSpeedBall_s = 0.5f;    // stock trap.o +0x3d0 (mod 0.75)
   c.busyTime_s = 0.5f;
   c.checkMyBallPass = false;
   c.runTrapStopTurnAngle_deg = 90.0f;
@@ -67,68 +67,68 @@ pes::LockoutInput Loose(float stat99) {
 // --- Re-touch lockout (report §3, FUN_1409fa720) ---
 
 TEST(PesReceiveLockout, OwnedBallIsOffenceForTheOwnerAndDefenceKeepForEveryoneElse) {
-  const auto c = Synthetic();
+  const auto c = Synthetic();  // stock lockouts: offence 0.15, defence-keep 0.25
   pes::LockoutInput in{};
   in.ballOwned = true;
   in.ownerIsMe = true;
-  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), 0.05f);
+  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), c.lockOffence_s);
   in.ownerIsMe = false;
-  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), 0.26f);
+  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), c.lockDefenceKeep_s);
 }
 
 TEST(PesReceiveLockout, LooseBallIsDefencePlusTheBallControlTerm) {
-  const auto c = Synthetic();
+  const auto c = Synthetic();  // stock: defence 0.15 + coefficient 0.1·(1 - s²)
   // s = 0 below the floor: the whole 0.1 s.
-  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, Loose(30.0f)), 0.26f);
+  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, Loose(30.0f)), c.lockDefence_s + c.lockStatCoefficient_s);
   // s = 1 at the ceiling: none of it.
-  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, Loose(99.0f)), 0.16f);
+  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, Loose(99.0f)), c.lockDefence_s);
   // Half way: 1 - s^2 = 0.75.
-  EXPECT_NEAR(pes::RetouchLockout_s(c, Loose(69.5f)), 0.16f + 0.075f, 1e-5f);
+  EXPECT_NEAR(pes::RetouchLockout_s(c, Loose(69.5f)),
+              c.lockDefence_s + 0.75f * c.lockStatCoefficient_s, 1e-5f);
 }
 
 TEST(PesReceiveLockout, MyTeamsPassKeepsTheOffenceWindow) {
-  const auto c = Synthetic();
+  const auto c = Synthetic();  // stock offence 0.15, defence-keep 0.25
   auto in = Loose(40.0f);
   in.eventKind = pes::BallEventKind::kPass;
   in.eventByMyTeam = true;
-  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), 0.05f);
+  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), c.lockOffence_s);
   in.eventByMyTeam = false;
-  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), 0.26f);
+  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), c.lockDefenceKeep_s);
 }
 
 TEST(PesReceiveLockout, AShotOrAHighBallTakesTheShootWindowBySpeed) {
-  const auto c = Synthetic();
+  const auto c = Synthetic();  // stock shoot windows: 0.4 slow, 0.5 fast
   auto in = Loose(99.0f);
   in.eventKind = pes::BallEventKind::kShot;
   in.ballSpeed_mps = 80.0f / 3.6f;  // exactly 80 km/h: still the slow window
-  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), 0.5f);
+  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), c.lockShoot_s);
   in.ballSpeed_mps = 81.0f / 3.6f;
-  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), 0.75f);
+  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), c.lockShootSpeedBall_s);
   in.eventKind = pes::BallEventKind::kHighPass;
   in.ballHeight_m = 0.7f;  // not high enough: the loose window
-  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), 0.16f);
+  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), c.lockDefence_s);
   in.ballHeight_m = 0.8f;
-  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), 0.75f);
+  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), c.lockShootSpeedBall_s);
 }
 
 TEST(PesReceiveLockout, MyOwnKickTriplesAndMyOwnRecentTouchDoubles) {
-  const auto c = Synthetic();
+  const auto c = Synthetic();  // stock: 3·offence = 0.45; 2·defence = 0.30
   auto in = Loose(99.0f);
   in.eventKind = pes::BallEventKind::kPass;
   in.eventByMe = true;
   in.eventByMyTeam = true;
-  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), 0.15f);
+  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), 3.0f * c.lockOffence_s);
   in = Loose(99.0f);
   in.previousEventByMe = true;
-  in.previousEventAge_s = 0.3f;  // inside 2L = 0.32
-  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), 0.32f);
-  in.previousEventAge_s = 0.33f;
-  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), 0.16f);
+  in.previousEventAge_s = 0.29f;  // inside 2L = 0.30
+  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), 2.0f * c.lockDefence_s);
+  in.previousEventAge_s = 0.31f;
+  EXPECT_FLOAT_EQ(pes::RetouchLockout_s(c, in), c.lockDefence_s);
 }
 
 TEST(PesReceiveLockout, TheGateCountsWholeFrames) {
-  const auto c = Synthetic();
-  // int(54 * 0.16) = 8 frames.
+  const auto c = Synthetic();  // stock loose window 0.15 s: int(54 * 0.15) = 8 frames
   EXPECT_FALSE(pes::RetouchAllowed(c, Loose(99.0f), 7.0f / kFps, kFps));
   EXPECT_TRUE(pes::RetouchAllowed(c, Loose(99.0f), 8.0f / kFps, kFps));
 }

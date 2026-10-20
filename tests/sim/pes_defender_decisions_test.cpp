@@ -38,8 +38,8 @@ pes::DefenderDecisionConstants Synthetic() {
   c.safetyCoverAngle_deg = 60.0f;
   c.safetyLastLine_m = 10.0f;
   c.safetyEventFramesDivisor = 9;
-  c.tackleSafetyRateLastLine = 2.6f;
-  c.tackleSafetyRateNoCover = 2.5f;
+  c.tackleSafetyRateLastLine = 0.5f;  // stock tackle.o +0x0c (mod 2.6)
+  c.tackleSafetyRateNoCover = 0.4f;   // stock tackle.o +0x10 (mod 2.5)
   c.slideDistanceBase_m = 4.0f;
   c.slideDistancePerLevel_m = 0.8f;
   c.slideBallHeight_m = 0.5f;
@@ -53,8 +53,8 @@ pes::DefenderDecisionConstants Synthetic() {
   c.blockClipProgressHighScale = 0.5f;
   c.blockHighBall_m = 0.5f;
   c.blockLooseSpeedBall_kmh = 70.0f;
-  c.blockNormal_s = 0.9f;
-  c.blockSpeedBall_s = 2.0f;
+  c.blockNormal_s = 0.2f;     // stock block.o +0x40 (mod 0.9)
+  c.blockSpeedBall_s = 1.0f;  // stock block.o +0x44 (mod 2.0)
   c.challengeLook_s = 12.0f / 60.0f;
   c.challengePathRadius_m = 1.0f;
   c.challengePressDistSq_m2 = 17.64f;
@@ -182,10 +182,15 @@ TEST(PesDefenderTackle, SafetyProgressSineIsZeroAtTheClipsStartAndOneAtItsContac
 }
 
 TEST(PesDefenderTackle, LastManVetoFollowsTheSafetyTermNotAFixedRule) {
-  const pes::DefenderDecisionConstants c = Synthetic();
+  pes::DefenderDecisionConstants c = Synthetic();
   // gs/9 frames at 54 fps = 6 PES frames = 6 sim ticks (Milestone A1: a frame is
   // a tick), so one tick inside the gate and one past it.
   const float gateTicks = (kPesFramesPerSecond / 9.0f) * kTicksPerPesFrame;
+  // A sine-proof pair of thresholds that behave like the report's: under-1 values never veto
+  // (see StockSafetyTermsLetALastManTackle), so the boundary itself is shown with terms over 1.
+  // This probes the function's shape, not any install's numbers.
+  c.tackleSafetyRateNoCover = 2.5f;
+  c.tackleSafetyRateLastLine = 2.6f;
   // Inside the gate the term does not apply yet.
   EXPECT_FALSE(pes::StandingTackleSafetyVeto(c, 0.1f, false, true, gateTicks - 1.0f));
   // Past it, a covering-less defender is refused while the sine is below the
@@ -314,10 +319,14 @@ TEST(PesDefenderBlock, ClipProgressIsSeventyOrEightyAndHalvedForAHighBall) {
 }
 
 TEST(PesDefenderBlock, LooseBallWindowIsNormalOrSpeedBall) {
-  const pes::DefenderDecisionConstants c = Synthetic();
-  EXPECT_FLOAT_EQ(pes::BlockLooseWindow_s(c, 69.9f), 0.9f);
-  EXPECT_FLOAT_EQ(pes::BlockLooseWindow_s(c, 70.0f), 2.0f);
-  EXPECT_FLOAT_EQ(pes::BlockLooseWindow_s(c, 120.0f), 2.0f);
+  pes::DefenderDecisionConstants c = Synthetic();
+  EXPECT_FLOAT_EQ(pes::BlockLooseWindow_s(c, 69.9f), c.blockNormal_s);
+  EXPECT_FLOAT_EQ(pes::BlockLooseWindow_s(c, 70.0f), c.blockSpeedBall_s);
+  EXPECT_FLOAT_EQ(pes::BlockLooseWindow_s(c, 120.0f), c.blockSpeedBall_s);
+  // And the stock constants behind the fixture: tackle.o +0x40/+0x44 read
+  // 0.2/1.0 from dt18_all.cpk (4cc mod: 0.9/2.0).
+  EXPECT_FLOAT_EQ(c.blockNormal_s, 0.2f);
+  EXPECT_FLOAT_EQ(c.blockSpeedBall_s, 1.0f);
 }
 
 // The install test: the loader must read the running game's own numbers, and

@@ -1,5 +1,7 @@
 # Get-up recovery: when may a defender slide or tackle again? (S1Watch, rounds 19–20)
 
+> **Main 19-10-26 (S1Watch round 32, live):** anime+0x245C is the MOVESTEP STATE byte (FUN_1406EADE0 = secondary+0x19A4 = P+0x245C), NOT a get-up phase byte: every "phase 1/2" reading in the stand-up sections below is a MOVESTEP state value and needs re-reading. Live census (20 players, ~120 s): STOP (8) entered ~19.5/min, ACCELERATE (9) ~111.5/min (indicative; the byte also carries other values). The FallDown -> action 80 switch (action byte anime+0xAC9) is unaffected.
+
 > **Main 19-10-26 (rounds 27-30):** the motion-table base is the PRIMARY anime pointer (FUN_1406E6960, longlong* -0x157); +0x35C+k*0x14 is the clip's ELAPSED time. Clip 881 reached 83 elapsed frames at the phase 1->2 switch; its total is not read (the live motion object is unlocated), so "remaining = 0 at the switch" is OPEN. PARKED. Note FUN_1406B11E0 reads n from (w>>0x15)&0xff, unlike FUN_1406B10D0.
 > **Main 19-10-26 (live):** one fall captured: Stagger 16 -> FallDown 17 (phase 1 constant) -> action 80 InplayDemoContact -> Move 2; the release is NOT a phase-2 release. CORRECTION: the current action id is the byte at anime_primary+0xAC9 (secondary+0x11), not anime+0x11.
 
