@@ -461,7 +461,9 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
     }
     for (Player* p : stopped) {
       ++forced;
-      if (p->GetMoveStep().state == pes::MoveState::kStop) ++held;
+      // A ball action that takes the body holds MOVESTEP's FSM (the same-tick precedence, pesmovestep.cpp), so a STOP it
+      // interrupts leaves only when the action ends. Only a STOP no ball action holds must leave within the bound.
+      if (p->GetMoveStep().state == pes::MoveState::kStop && !IsBallActionFunction(p->CastHumanoid()->GetCurrentFunctionType())) ++held;
     }
   }
   EXPECT_GT(forced, 0);
@@ -547,6 +549,42 @@ TEST(MoveStepWire, PesFrameIsXHeightGroundZ) {
   EXPECT_FLOAT_EQ(out[0], 1.0f) << "x is GF x";
   EXPECT_FLOAT_EQ(out[1], 3.0f) << "height is GF z";
   EXPECT_FLOAT_EQ(out[2], -2.0f) << "ground z is -GF y";
+}
+
+// PES's filler reads the AI's movement command, not a pending ball action (docs/re/pes-re-decision-read.md): a queue whose
+// front is a pass hands MOVESTEP the walk behind it.
+TEST(MoveStepWire, TheDecisionIsTheFirstMovementCommandNotAnAction) {
+  PlayerCommand pass;
+  pass.desiredFunctionType = e_FunctionType_ShortPass;
+  PlayerCommand walk;
+  walk.desiredFunctionType = e_FunctionType_Movement;
+  walk.desiredVelocityFloat = sprintVelocity;
+  const PlayerCommandQueue queue = {pass, walk};
+  const std::optional<PlayerCommand> decision = pesmovestep::MovementDecision(queue);
+  ASSERT_TRUE(decision.has_value()) << "no movement command was chosen from a pass and a walk";
+  EXPECT_EQ(decision->desiredFunctionType, e_FunctionType_Movement);
+  EXPECT_FLOAT_EQ(decision->desiredVelocityFloat, sprintVelocity);
+  EXPECT_FALSE(pesmovestep::MovementDecision(PlayerCommandQueue{pass}).has_value()) << "a lone pass is not a movement";
+}
+
+// A move target within 0.2 m of the root steers by the ball's sample 0 (PES's filler: DAT_142598578, 0.2 in the install;
+// pes-re-decision-read.md 2 says 0.4).
+TEST(MoveStepWire, AMoveTargetWithin20CmOfTheRootSteersByTheBall) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  const Vector3 at = p->GetPosition();
+  PlayerCommand c;
+  c.useDesiredTarget = true;
+  c.desiredTarget = at + Vector3(0.1f, 0.0f, 0.0f);
+  c.desiredVelocityFloat = sprintVelocity;
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), c};
+  const Vector3 ball = match->GetBall()->Predict(0);
+  const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(req.F(pes::moveword::kMoveTargetX), ball.coords[0], 1e-3f);
+  EXPECT_NEAR(req.F(pes::moveword::kMoveTargetZ), -ball.coords[1], 1e-3f);
 }
 
 // The request steers by the AI's decision on the tick the decision changes, not by the clip the mover plays: a decision

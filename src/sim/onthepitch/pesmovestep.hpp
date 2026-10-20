@@ -6,6 +6,9 @@
 // keep a `// ponytail:` note naming the site that replaces them.
 #pragma once
 
+#include <optional>
+
+#include "gamedefines.hpp"
 #include "pes/movestep.hpp"
 
 class Player;
@@ -34,5 +37,8 @@ void PesFrame(float gfX, float gfY, float gfZ, float out[3]);
 float PesBearingDeg(const pes::RunConstants& k, float gfX, float gfZ);
 // The PES motion number the humanoid plays (movestep.hpp's CurrentMotion), or -1 when the AI's own clip plays.
 int CurrentMotionOf(Player& player);
+// MOVESTEP's decision: the first queued command that is not a ball action. Ball actions ride the pending ball request the
+// kick dispatcher consumes (docs/re/pes-re-decision-read.md 1 and 3), so MOVESTEP steers by the movement command.
+std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue);
 
 }  // namespace pesmovestep

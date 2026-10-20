@@ -2260,6 +2260,14 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
 
   if (currentAnim->anim->GetVariable("outgoing_special_state").compare("") != 0)
     query.incomingVelocity = e_Velocity_Idle;  // standing up anims always start out idle
+  // ponytail: PES's kick takes the body by the anime phase, not by GF's pose match (pes-re-decision-read.md 3, INF). A ball
+  // action asked while a PES locomotion clip plays is matched on the action alone: GF's incoming-velocity and side vetoes
+  // would refuse every pass and throw on a walk.
+  if (OnPesLocomotion() && IsBallActionFunction(command.desiredFunctionType)) {
+    query.byIncomingVelocity = false;
+    query.byIncomingBodyDirection = false;
+    query.bySide = false;
+  }
 
   DataSet dataSet;
   anims->CrudeSelection(dataSet, query);
