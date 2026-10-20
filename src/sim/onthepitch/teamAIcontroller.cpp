@@ -28,6 +28,8 @@
 #include "../data/playerskills.hpp"
 #include "../data/playingstyles.hpp"
 #include "pessetpieceteam.hpp"
+#include "pessequencer.hpp"
+#include "pes/mbinfo.hpp"
 #include "setpiecelaws.hpp"
 #include "simcontext.hpp"
 #include "../misc/hungarian.h"
@@ -1066,8 +1068,87 @@ void TeamAIController::ApplyOffsideTrap(Vector3& position) const {
   }
 }
 
+// PES's goal kick: the keeper walks to his stand point before he takes it. The walk is pending until the ladder releases
+// the kick (A5 §4.7; pesgoalkick.hpp).
+bool TeamAIController::IsPieceTakerWalking(const Player* player) const {
+  return pieceWalk && player == taker;
+}
+
+// PES's goal kick ladder (sub_142136F00): one tick of it for the armed restart. Its release starts the strike and ends the
+// keeper's walk.
+bool TeamAIController::StepGoalKickLadder() {
+  std::vector<Player*> mates;
+  pes::GoalKickLadderInputs in;
+  in.lofted = PickGoalKickMate(&mates);
+  // ponytail: the restart record's +0x14C4 flag (MI+0x14C4, 0 on a normal goal kick) and the valid special object
+  // (MI+0x400) are not in GF's restart record yet, so a goal kick takes the default route: the lofted window at frame 81.
+  const pes::GoalKickOrder order = pes::StepGoalKickLadder(
+      goalKickLadder, match->GetSimFrame(), pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants()), in);
+  if (!order.released) return false;
+  goalKickReceiver = order.receiver >= 0 ? mates[order.receiver] : nullptr;
+  goalKickStrike.started = true;
+  goalKickStrike.from = taker ? taker->GetPosition() : Vector3();
+  pieceWalk = false;
+  return true;
+}
+
+// The strike (sub_140775780's root-motion warp, carried to the clip's contact): from the release, the keeper's root moves
+// onto the contact root and holds it. The kick may go out once the contact tick has passed.
+void TeamAIController::AdvanceGoalKickStrike() {
+  GoalKickStrike& s = goalKickStrike;
+  if (!s.started || s.contact || taker == nullptr) return;
+  ++s.elapsed;
+  const pes::Vec3 from(s.from.coords[0], s.from.coords[1], s.from.coords[2]);
+  const pes::Vec3 to(s.contactRoot.coords[0], s.contactRoot.coords[1], s.contactRoot.coords[2]);
+  const pes::Vec3 at = pes::GoalKickStrikeRoot(from, to, s.elapsed, s.ticks);
+  taker->OffsetPosition(Vector3(at.x, at.y, at.z) - taker->GetPosition());
+  s.contact = s.elapsed >= s.ticks;
+}
+
+// The lofted picker's mates: the taker's team's active players, rated by technical highpass (the stand-in for the picker,
+// pesgoalkick.hpp). Returns the index the picker names, -1 for none.
+int TeamAIController::PickGoalKickMate(std::vector<Player*>* mates) const {
+  team->GetActivePlayers(*mates);
+  std::vector<float> ratings;
+  int takerIndex = -1;
+  for (Player* mate : *mates) {
+    if (mate == taker) takerIndex = static_cast<int>(ratings.size());
+    ratings.push_back(mate->GetStat("technical_highpass"));
+  }
+  return pes::PickGoalKickReceiver(ratings, takerIndex);
+}
+
+// SetKick's placement (0x140774AE0) and the strike's contact, from the clip's first hit record (gkgoalkick_instep_0_0,
+// 0x6B1). The stand point is the keeper's walk target: a target, not a teleport.
+void TeamAIController::PrepareGoalKickStand(const Vector3& spot) {
+  constexpr int kGoalKickStrikeMotion = 0x6b1;
+  // ponytail: the restart record's heading (PES's +0xC, FUN_14050E770) is not decoded. The keeper faces the pitch at his
+  // end: 90 degrees for the end at -X (the live keeper's yaw), with the sign turned at the other end.
+  constexpr float kKeeperFacingPitch_deg = 90.0f;
+  // ponytail: GF's player data has no preferred-foot byte (PES's playerdata 0x34, FUN_1406E6660): the right foot.
+  constexpr bool kMirror = false;
+  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0.
+  constexpr float kPhysique = 1.0f;
+  const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(kGoalKickStrikeMotion);
+  const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+  const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
+  const float heading = -kKeeperFacingPitch_deg * static_cast<float>(team->GetSide());
+  const pes::Vec3 spotPes(spot.coords[0], spot.coords[1], spot.coords[2]);
+  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
+  const pes::Vec3 stand = pes::GoalKickStandPoint(spotPes, heading, offset);
+  const pes::Vec3 contact = pes::GoalKickContactRoot(stand, heading, pes::Vec3(hit.rootX, 0.0f, hit.rootZ), kMirror, k);
+  // ponytail: the placer's height (the spot's plus the clip's) is not carried: GF's players stand on the ground.
+  pieceWalkTarget = Vector3(stand.x, stand.y, 0.0f);
+  goalKickStrike.contactRoot = Vector3(contact.x, contact.y, 0.0f);
+  goalKickStrike.ticks = pes::GoalKickContactTicks(hit.frame, k);
+}
+
 void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
   setPieceType = setPiece;
+  pieceWalk = false;
+  goalKickLadder = pes::GoalKickLadder();
+  goalKickStrike = GoalKickStrike();
+  goalKickReceiver = nullptr;
   // Ring 5 records every restart but the throw-in (transitions 1.2): the
   // kick-off timer runs only after a kick-off record.
   if (setPiece != e_SetPiece_None && setPiece != e_SetPiece_ThrowIn) {
@@ -1598,15 +1679,22 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
     }
 
     if (taker == 0) taker = AI_GetClosestPlayer(team, ballPos);
-    // A keeper who ends up with a restart is placed where that restart wants
-    // him, not where the outfield placement put him.
+    // A keeper who ends up with a restart is placed where that restart wants him, not where the outfield placement
+    // put him. On the PES path a goal kick keeper runs to the ball instead (below).
     if (taker && taker->GetFormationEntry().role == e_PlayerRole_GK &&
-        (setPiece == e_SetPiece_GoalKick || setPiece == e_SetPiece_FreeKick)) {
+        ((setPiece == e_SetPiece_GoalKick && !match->PesLoop()) || setPiece == e_SetPiece_FreeKick)) {
       taker->ResetPosition(
           Vector3(ballPos.coords[0] - team->GetSide() * 1.5f, ballPos.coords[1], 0), ballPos);
     }
 
-    if (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_KickOff) {
+    if (setPiece == e_SetPiece_GoalKick && match->PesLoop()) {
+      // PES's goal kick (SetKick 0x140774AE0, pesgoalkick.hpp): the keeper walks to his stand point, a target and not a
+      // teleport, until the ladder releases the kick. The strike's contact is fixed here, from the clip.
+      // ponytail: the ball stays on its spot through the stoppage (seed 7 trace, S1Port); a ball moved in it is not followed.
+      PrepareGoalKickStand(ballPos);
+      pieceWalk = true;
+
+    } else if (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_KickOff) {
       taker->ResetPosition(ballPos + ballPos.GetNormalized(Vector3(0, -team->GetSide(), 0)) * 0.3f,
                            ballPos);
     } else if (setPiece == e_SetPiece_FreeKick) {

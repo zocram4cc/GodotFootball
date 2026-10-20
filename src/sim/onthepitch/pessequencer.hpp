@@ -33,9 +33,10 @@ Spot CornerSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 Spot GoalKickSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 Spot ThrowInSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 
-// The taker may release once this many frames have passed since the restart was armed. A
-// kick-off is not timed (the receiver's ball test decides it), so its gate is zero.
+// The taker may release once this many frames have passed since the restart was armed. A kick-off and a goal kick are
+// not timed (the receiver's ball test, or the goal kick's ladder in pesgoalkick.hpp): their gate is zero.
 int ReleaseFrames(e_SetPiece kind);
+// A goal kick is never released by this gate: its ladder releases it (pesgoalkick.hpp).
 bool MayRelease(e_SetPiece kind, int framesSinceArmed);
 
 // A restart programme (decode 3.2): the stoppage beats in the order they run, from the whistle

@@ -127,8 +127,8 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (b.active && b.started && !(lastRelease && *lastRelease == b.stopTime)) {
       lastRelease = b.stopTime;
-      // The taker is released on the first frame at or past the PES gate, give or take the
-      // tick the referee checks it on.
+      // The timed taker is released on the first frame at or past the PES gate, give or take the tick the referee
+      // checks it on. A goal kick has no clock: AGoalKickIsReleasedOnThePesLadder checks its ladder frame.
       const int gate = pes::ReleaseFrames(b.desiredSetPiece);
       const int frames =
           static_cast<int>((match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
@@ -400,6 +400,31 @@ TEST(PesRestartDelay, AWhistleLeavesNoFlyingBallBehind) {
   EXPECT_GT(flyingStops, 0) << "no stoppage caught a ball in flight - the test proved nothing";
 }
 
+// A goal kick is released by PES's timer ladder (sub_142136F00), not by the keeper's arrival: the lofted pass on the
+// ladder's frame 82 from the armed tick when the picker finds a mate, the kick into space on frame 109 when it does not.
+// The keeper walks to his stand point and his strike carries him onto the ball after the release. The gate checks the
+// frame the referee releases on, counted from the armed tick, against the frame the mode the ladder chose allows.
+TEST(PesRestartDelay, AGoalKickIsReleasedOnThePesLadder) {
+  constexpr long kLoftedFrame = 83;   // the ladder's first lofted evaluation is frame 82; the hook reads the clock one tick later (PES live 83)
+  constexpr long kForcedFrame = 110;  // the forced kick on ladder frame 109, read one tick later
+  std::optional<unsigned long> checkedStop;
+  int goalKicks = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || !b.started || b.desiredSetPiece != e_SetPiece_GoalKick || !b.taker) return;
+    if (checkedStop && *checkedStop == b.stopTime) return;
+    checkedStop = b.stopTime;
+    goalKicks++;
+    // The mode comes from the ladder's own answer: a receiver is a lofted pass, none a kick into space.
+    const bool withReceiver = match.GetTeam(b.teamID)->GetController()->GoalKickReceiver() != nullptr;
+    const long expected = withReceiver ? kLoftedFrame : kForcedFrame;
+    const long framesFromArmed =
+        std::lround(static_cast<double>(match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
+    EXPECT_EQ(framesFromArmed, expected)
+        << (withReceiver ? "lofted" : "forced") << " goal kick released off its ladder frame";
+  });
+  EXPECT_GT(goalKicks, 0) << "no goal kick was released";
+}
 // A mover whose PES clip reaches its last frame must go on. On seed 57 a presser (team 0, id 4) held zero speed in
 // ACCELERATE for over a thousand ticks, commanded 8 m/s, on a clip held at its last frame: the clip's end issued motion 0 on
 // every tick, since its exit never wrote the run's motion word. The longest such run must stay under one second.
