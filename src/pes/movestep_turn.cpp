@@ -3248,8 +3248,11 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   // The framing of the ladder's shared values.
   const float narrow = k.angle225m;
   const float quarter = k.angle90;
+  // PES's S3 block: the heading turn is wrap180(kHeading - kTurn) (the decompile's fVar28), and
+  // the S5a class ladder tests it against 56.25 degrees. The port read the turned row against
+  // the heading.
   float dispDelta =
-      std::fabs(Wrap180Diff(req.F(moveword::kTurnedRow), req.F(moveword::kHeading), k));
+      std::fabs(Wrap180Diff(req.F(moveword::kTurn), req.F(moveword::kHeading), k));
   const float lookDelta =
       std::fabs(Wrap180Diff(req.F(moveword::kLookHeading), req.F(moveword::kHeading), k));
   float turnTol = k.angle45;
@@ -3409,12 +3412,14 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
     }
   }
 
-  // 5. The facing write (0x1406c9600..0x1406c9700) and the exit gate.
+  // 5. The facing write (0x1406c96CA..0x1406c97ff) and the exit gate.
   if (rowEndClamped <= clipFrame) {
     req.SetByte(moveword::kReorientFlag, 0);  // param_2 + 0x3c = 0
     AdjustAngleApply(host);
-    float facing = FoldUnit(req.F(moveword::kFacing), k);
-    const int echoRow = static_cast<int>(req.U(moveword::kMoveBucket));
+    // PES: the heading, offset by the row's own turn (+90 for the row 7, -90 for the row 2,
+    // -180 otherwise) and folded.
+    float facing = FoldUnit(req.F(moveword::kHeading), k);
+    const int echoRow = static_cast<int>(req.U(0x20));
     if (echoRow == 7) {
       facing = FoldUnit(facing + quarter, k);
     } else if (echoRow == 2) {
@@ -3422,31 +3427,31 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
     } else {
       facing = FoldUnit(facing - k.halfTurn, k);
     }
-    float toFace = WrapHalf(Wrap180Diff(facing, req.F(moveword::kFacing), k), k);
-    float lookHead = FoldUnit(req.F(moveword::kLookHeading), k);
-    float toLook = std::fabs(Wrap180Diff(facing, lookHead, k));
-    float blend;
-    if (k.angle225m < toLook) {
+    // The residual turn against the look heading, normalised, and the host's own facing.
+    const float lookHead = FoldUnit(req.F(moveword::kLookHeading), k);
+    float residual = facing - lookHead;
+    if (k.halfTurn < std::fabs(residual)) {
+      residual -= (residual < 0.0f ? k.negOne : scale) * k.fullTurn;
+    }
+    // The blend: 0 at a residual of 22.5 degrees, 1 at 45, and 90 + 90 * blend after that.
+    float blend = 0.0f;
+    if (k.angle225m < residual) {
       blend = scale;
-      if (toLook < k.angle45) blend = (toLook - k.angle225m) / k.angle225m;
-    } else {
-      blend = 0.0f;
+      if (residual < k.angle45) blend = (residual - k.angle225m) / k.angle225m;
     }
+    const float span = blend * quarter + quarter;
+    // The frame rate (FUN_141e532d0 = 54.0) is the divisor: this is a fraction of the
+    // residual, not a random draw.
     const float ticks = static_cast<float>(host.TicksPerSecond());
-    float step = (blend * quarter + quarter) / ticks;
-    float stepped = step;
-    if (toFace <= step) {
-      stepped = WrapHalf(WrapHalf(step, k), k);
-      if (stepped <= toFace) stepped = step;
-      stepped = toFace;
-    }
-    float damped = FoldUnit(req.F(moveword::kFacing) + stepped, k);
+    const float reach = span / ticks;
+    // The turn to the host's own facing, and PES's clamp: the reach is the floor, and the
+    // facing takes the turn itself when that is the larger of the two.
+    const float toFace = Wrap180Diff(facing, req.F(moveword::kFacing), k);
+    float damped = std::fabs(reach);
+    if (std::fabs(reach) <= toFace) damped = toFace;
+    damped = FoldUnit(damped + req.F(moveword::kFacing), k);
     req.SetByte(moveword::kRootFacing, 1);
     req.SetF(moveword::kRootFacingAngle, damped);
-    (void)toFace;
-    (void)toLook;
-    (void)blend;
-    (void)lookHead;
   }
   // The exit gate (0x1406c9700..0x1406c9800).
   bool stay = false;
