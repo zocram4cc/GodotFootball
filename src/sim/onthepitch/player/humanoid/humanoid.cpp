@@ -2015,8 +2015,8 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
     // command MOVESTEP was last handed: PlayIssuedClip leaves originatingCommand in place, and
     // MOVESTEP reads its speed and look point from it. The clip therefore does not show what the
     // body is doing. MOVESTEP can hold at its look-at gate with that command still set, and then
-    // every walk to the ball is refused. The momentum check below still weighs the clip's planned
-    // change. ponytail: GF stand-in for the PES locomotion handling of FUN_1406eebb0 (not re-verified).
+    // every walk to the ball is refused. The momentum check below exempts the clip the same way.
+    // ponytail: GF stand-in for the PES locomotion handling of FUN_1406eebb0 (not re-verified).
     if (!OnPesLocomotion() &&
         currentAnim->originatingCommand.desiredFunctionType == command.desiredFunctionType &&
         ((currentAnim->originatingCommand.desiredDirection *
@@ -2040,10 +2040,15 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
       Vector3 desiredMomentumChange =
           (command.desiredDirection * command.desiredVelocityFloat) - spatialState.movement;
 
-      if ((desiredMomentumChange.GetDotProduct(plannedMomentumChange) > 0.0f &&
-           desiredMomentumChange.GetDistance(plannedMomentumChange) < 4.0f) ||
-          desiredMomentumChange.GetDotProduct(plannedMomentumChange) > 0.8f ||
-          desiredMomentumChange.GetDistance(plannedMomentumChange) < 2.0f) {
+      // ponytail: GF stand-in. PES site not located (FUN_1406eebb0 is the action setter, not this
+      // gate). A PES locomotion clip is exempt, as the too-similar gate above exempts it: its planned
+      // change is the clip's own. A stationary clip whose planned change pointed at the ball refused
+      // every walk to it (measured: keeper, goal kick, speed 0), so the taker never moved.
+      if (!OnPesLocomotion() &&
+          ((desiredMomentumChange.GetDotProduct(plannedMomentumChange) > 0.0f &&
+            desiredMomentumChange.GetDistance(plannedMomentumChange) < 4.0f) ||
+           desiredMomentumChange.GetDotProduct(plannedMomentumChange) > 0.8f ||
+           desiredMomentumChange.GetDistance(plannedMomentumChange) < 2.0f)) {
         return false;
       }
     }
