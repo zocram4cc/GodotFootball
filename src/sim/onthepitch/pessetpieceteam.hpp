@@ -190,14 +190,10 @@ struct ArrivalRank {
 // reach the ball within this many metres (`DAT_14259be1c`, 20.0 at `COMISS` 0x14044509b).
 inline constexpr float kSeamlessReach_m = 20.0f;
 
-// ponytail: PES's taker stops where MOVESTEP's arrival test does (FUN_1406b6bb0, 0.2 m;
-// docs/re/pes-re-anim-select.md). GF's walk has no stop radius yet, so 1 m around the walk's target
-// stands in: the ball lies 0.3 m beyond the target, inside the taker's touching range.
-inline constexpr float kThrowInTakerArrival_m = 1.0f;
-// GF's own throw-in stand-off, the 0.3 m the restart teleport used: the taker walks to this point on
-// his own side of the ball, so he never crosses it. PES carries the ball out to F1 + 0.7 first
-// (docs/re/pes-re-throwin-choreography.md 3.2); that carry is not ported.
-inline constexpr float kThrowInTakerStandOff_m = 0.3f;
+// ponytail: the taker picks the ball up within this of it. PES starts the pickup clip inside 5 m
+// (DAT_14259222c, docs/re/pes-re-throwin-choreography.md 3.2) and holds the ball in the hand; GF's walk
+// stops nearer, so the ball is held from the moment the taker is this close.
+inline constexpr float kThrowInPickupReach_m = 1.0f;
 // The walk closes on its target at this many times the gap (1/s), so a sprinting taker stops rather
 // than overshooting into the ball. ponytail: PES's MOVE stop (FUN_1406b6bb0) decides this.
 inline constexpr float kThrowInTakerApproachGain = 2.0f;

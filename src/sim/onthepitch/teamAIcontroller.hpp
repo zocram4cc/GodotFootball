@@ -107,11 +107,16 @@ public:
   // shootout needs its own rotation to take the kicks.
   void SetPieceTaker(Player* player) { taker = player; }
   e_SetPiece GetSetPieceType() { return setPieceType; }
-  // PES's throw-in taker walks to the throw spot instead of being placed on it
-  // (docs/re/pes-re-throwin-choreography.md 3.1); a walk is pending while the spot is set.
+  // PES's throw-in taker walks to the ball, picks it up and carries it to the throw spot, where he lifts it
+  // and throws (docs/re/pes-re-throwin-choreography.md 3.1-3.2). The walk is pending from the placement until
+  // he stands at the spot; the ball rides his hand from the pickup.
   bool IsPieceTakerWalking(const Player* player) const;
   Vector3 GetPieceWalkTarget() const { return pieceWalkTarget; }
-  // True when no walk is pending, or the walking taker stands within reach of his spot.
+  // Advances the walk from the pickup to the carry. The referee calls it each tick before the release gate.
+  void AdvancePieceWalk();
+  // True from the pickup until the release: the taker holds the ball.
+  bool IsCarryingBall() const { return pieceWalk && pieceCarrying; }
+  // True when no walk is pending, or the carrying taker stands at the spot (the lift radius, 3.2).
   bool PieceTakerArrived() const;
   void CalculateSituation();
 
@@ -203,8 +208,10 @@ protected:
   Match* match;
   Team* team;
   Player* taker;
-  bool pieceWalk = false;  // a throw-in taker is walking to pieceWalkTarget (PES path only)
-  Vector3 pieceWalkTarget;
+  bool pieceWalk = false;      // a throw-in walk is pending (PES path only)
+  bool pieceCarrying = false;  // the taker has the ball: pieceWalkTarget is the carry spot
+  Vector3 pieceWalkTarget;     // the pickup point, then the carry spot
+  Vector3 pieceCarrySpot;      // where the taker lifts the ball (3.2)
   e_SetPiece setPieceType;
 
   Properties baseTeamTactics;

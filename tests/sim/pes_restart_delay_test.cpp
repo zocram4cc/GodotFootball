@@ -42,8 +42,6 @@ constexpr int MINUTES = 2;
 constexpr int LONG_MINUTES = 5;
 // Seed 7's home keeper stalls at a goal kick about nineteen minutes in; twenty covers it.
 constexpr int TWENTY_MINUTES = 20;
-// A throw-in is released from the line: its ball may not be further than this from the spot.
-constexpr float kThrowInReleaseTolerance_m = 0.5f;
 // The same 30-minute cap as the other whole-match tests, counted in the 54 Hz logic
 // frames the sim ticks in.
 constexpr unsigned long kMaxSimTicks = 30ul * 60ul * Match::kFramesPerSecond;
@@ -175,8 +173,9 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
 
 // A throw-in is taken from the spot the referee armed. Five minutes of seed 7 stalled here: the
 // taker walked onto the spot while play was off, a body touch pushed the ball past the line, and
-// the throw was refused for a ball out of bounds. The ball must still be at its spot when the
-// throw is released, and the match must run through it.
+// the throw was refused for a ball out of bounds. The ball must be at its spot when the throw is
+// released - the carry spot the taker lifts it at (FUN_140791ec0, 3.2), within the lift radius of
+// the taker - and the match must run through it.
 TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
   std::optional<unsigned long> checkedStop;
   int throwIns = 0;
@@ -187,10 +186,36 @@ TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
     if (checkedStop && *checkedStop == b.stopTime) return;
     checkedStop = b.stopTime;
     throwIns++;
+    const Vector3 spot = match.GetTeam(b.teamID)->GetController()->GetPieceWalkTarget();
     const Vector3 ball = match.GetBall()->Predict(0);
-    const float off = (ball.Get2D() - b.restartPos.Get2D()).GetLength();
-    EXPECT_LE(off, kThrowInReleaseTolerance_m)
+    const float off = (ball.Get2D() - spot.Get2D()).GetLength();
+    EXPECT_LE(off, match.GetPesRestartSpotConstants().throwInCarryStop_m)
         << "throw-in released with the ball " << off << " m from its spot";
+  });
+  EXPECT_GT(throwIns, 0) << "no throw-in was released";
+}
+
+// PES's taker picks the ball up where it lies and carries it out to the throw spot before the throw
+// (FUN_140791ec0, phases 3-4): at the release the taker's spot is the carry spot, 0.7 m outside the
+// touchline and not the restart point, and the ball is in his hand there.
+TEST(PesRestartDelay, AThrowInIsCarriedToItsSpotAndReleasedThere) {
+  std::optional<unsigned long> checkedStop;
+  int throwIns = 0;
+  RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.started) return;
+    if (!match.IsInPlay() || !match.IsInSetPiece()) return;
+    if (checkedStop && *checkedStop == b.stopTime) return;
+    checkedStop = b.stopTime;
+    throwIns++;
+    const pes::RestartSpotConstants& k = match.GetPesRestartSpotConstants();
+    const Vector3 spot = match.GetTeam(b.teamID)->GetController()->GetPieceWalkTarget();
+    const float carried = (spot.Get2D() - b.restartPos.Get2D()).GetLength();
+    EXPECT_GT(carried, 0.4f) << "released at the pickup point, not after the carry";
+    EXPECT_NEAR(std::fabs(spot.coords[1]) - pesFieldHalfWidth, k.throwInCarryOutset_m, 1e-3f);
+    const Vector3 ball = match.GetBall()->Predict(0);
+    EXPECT_LE((ball.Get2D() - spot.Get2D()).GetLength(), k.throwInCarryStop_m)
+        << "the ball was not in the taker's hand at the spot";
   });
   EXPECT_GT(throwIns, 0) << "no throw-in was released";
 }
