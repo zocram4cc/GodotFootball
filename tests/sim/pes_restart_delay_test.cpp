@@ -646,11 +646,44 @@ TEST(PesRestartDelay, DISABLED_LooseEpisodeMetric) {
   bool inEpisode = false;
   unsigned long episodeTicks = 0, episodeStart = 0, episodes = 0, over = 0, excess = 0;
   std::vector<std::pair<unsigned long, unsigned long>> longEpisodes;  // (ticks, start frame)
+  // Each loose tick has a class. A tick with any man (either team, anywhere) on a slide or a get-up clip is `slide`;
+  // otherwise a loose presser more than kPresserNear_m from the ball is `approach`, and one within it is `contact`; with
+  // no presser, the nearest man beyond kFarBall_m is `far`, and a nearer one `near-nopresser`. An over-bound episode takes
+  // its most frequent tick class, and its excess is charged to that class.
+  enum : int { kApproach, kFar, kNearNoPresser, kSlide, kContact, kClassCount };
+  const char* const kClassNames[kClassCount] = {"approach", "far", "near-nopresser", "slide", "contact"};
+  constexpr float kPresserNear_m = 1.5f;
+  constexpr float kFarBall_m = 13.0f;
+  unsigned long classTicks[kClassCount] = {}, classExcess[kClassCount] = {};
+  const auto classifyTick = [&](Match& match) {
+    const Vector3 b = match.GetBall()->Predict(0);
+    float nearest = 1e9f, presser = 1e9f;
+    bool slide = false;
+    for (int t = 0; t < 2; ++t) {
+      std::vector<Player*> active;
+      match.GetActiveTeamPlayers(t, active);
+      for (Player* p : active) {
+        nearest = std::min(nearest, (p->GetPosition().Get2D() - b.Get2D()).GetLength());
+        const auto* anim = p->GetCurrentAnim()->anim;
+        if (p->GetCurrentFunctionType() == e_FunctionType_Sliding ||
+            (anim && anim->GetVariable("incoming_special_state") != ""))
+          slide = true;
+      }
+      if (Player* pr = match.GetTeam(t)->GetController()->GetLoosePressMan())
+        presser = std::min(presser, (pr->GetPosition().Get2D() - b.Get2D()).GetLength());
+    }
+    if (slide) return int(kSlide);
+    if (presser < 1e9f) return presser > kPresserNear_m ? int(kApproach) : int(kContact);
+    return nearest > kFarBall_m ? int(kFar) : int(kNearNoPresser);
+  };
   const auto closeEpisode = [&] {
     if (episodeTicks > kBoundTicks) {
       ++over;
       excess += episodeTicks - kBoundTicks;
       longEpisodes.emplace_back(episodeTicks, episodeStart);
+      const int cls = int(std::max_element(classTicks, classTicks + kClassCount) - classTicks);
+      classExcess[cls] += episodeTicks - kBoundTicks;
+      printf("[loose-class] seed=%u start=%lu ticks=%lu class=%s\n", SEED, episodeStart, episodeTicks, kClassNames[cls]);
     }
   };
   RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
@@ -661,9 +694,11 @@ TEST(PesRestartDelay, DISABLED_LooseEpisodeMetric) {
         inEpisode = true;
         episodeTicks = 0;
         episodeStart = match.GetSimFrame();
+        std::fill(classTicks, classTicks + kClassCount, 0ul);
         ++episodes;
       }
       ++episodeTicks;
+      ++classTicks[classifyTick(match)];
     } else if (inEpisode) {
       inEpisode = false;
       closeEpisode();
@@ -676,6 +711,8 @@ TEST(PesRestartDelay, DISABLED_LooseEpisodeMetric) {
   for (size_t i = 0; i < longEpisodes.size() && i < kTopEpisodes; ++i)
     printf("[loose-top] seed=%u rank=%zu start=%lu ticks=%lu\n", SEED, i + 1, longEpisodes[i].second,
            longEpisodes[i].first);
+  printf("[loose-classes] seed=%u approach=%lu far=%lu near-nopresser=%lu slide=%lu contact=%lu\n", SEED,
+         classExcess[kApproach], classExcess[kFar], classExcess[kNearNoPresser], classExcess[kSlide], classExcess[kContact]);
 }
 
 // The stand-up re-slide (seed 42's cycle at frame 20372, 42/20372): a defender who gets up from the back slides again
