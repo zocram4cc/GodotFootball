@@ -458,6 +458,10 @@ bool HumanoidBase::OnPesLocomotion() const {
              static_cast<int>(pes::PesClipFamily::kLocomotion);
 }
 
+bool HumanoidBase::OnGetUp() const {
+  return currentAnim->anim && currentAnim->anim->GetVariable("incoming_special_state") != "";
+}
+
 bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror) {
   const int locomotion = static_cast<int>(pes::PesClipFamily::kLocomotion);
   const bool onLocomotion = OnPesLocomotion();

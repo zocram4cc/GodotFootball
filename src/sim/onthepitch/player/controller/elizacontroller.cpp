@@ -1222,16 +1222,6 @@ bool ElizaController::_SlideCandidate(const pes::DefenderDecisionConstants& k) {
   const float slideBearing = BearingDeg(CastPlayer()->GetPosition(), ballAhead.Get2D());
   if (!pes::SlideDirectionWindow(k, slideBearing, heading)) return false;
   if (!pes::SlideEngageWindow(k, slideBearing, heading)) return false;
-  // ponytail: PES's slide gate refuses several anime classes (defender-decisions §3: 0x140a6e0d0, 0x140a6e3c0,
-  // 0x140a6e5e0). Whether a get-up is one of them is not decoded, so a get-up clip, one that starts from a lay state
-  // (incoming_special_state), stands in: a slide out of it is the stand-up re-slide cycle (42/20372).
-  const auto* anim = CastPlayer()->GetCurrentAnim()->anim;
-  if (anim && anim->GetVariable("incoming_special_state") != "") return false;
-  // The first clip after a get-up is recovery too. The controller pass can switch a defender off the get-up before this
-  // check runs, so the clip it replaced is the previous anim while the new one has just started (seed 42, player 25,
-  // frame 229). Stand-in: PES's recovery time is not decoded.
-  const auto* prev = CastPlayer()->GetPreviousAnim()->anim;
-  if (prev && prev->GetVariable("incoming_special_state") != "" && CastPlayer()->GetCurrentFrame() <= 1) return false;
   // Ponytail: the anime layer decides whether he is still recovering from a
   // slide; the engine's own current animation is the nearest readable gate.
   const e_FunctionType current = CastPlayer()->GetCurrentFunctionType();

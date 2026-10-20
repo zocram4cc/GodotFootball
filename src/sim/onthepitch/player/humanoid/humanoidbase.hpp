@@ -239,6 +239,9 @@ public:
   // it as it replaces a GF Movement clip. ponytail: stands in for PES's action id (+0xac8, pes-re-fox-registry.md)
   // in the requeue gates; remove when requeue reads that id.
   bool OnPesLocomotion() const;
+  // A get-up clip (incoming_special_state set): the rising man's clip. The assets type the stand-up as movement, so
+  // IsMovementClip() is true for it; the frame test in SelectAnim governs its requeues on the PES path.
+  bool OnGetUp() const;
   bool IsMovementClip() const {
     return currentAnim->functionType == e_FunctionType_Movement || OnPesLocomotion();
   }
