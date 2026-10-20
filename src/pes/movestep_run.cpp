@@ -1370,9 +1370,10 @@ float StepStampTowardHeading(float stamp, float d, float cap, const RunConstants
 
 // PES's blend-point exit (FUN_1406bb570 lines 666-717, then the band-3 clamp 718-745). The dwell words, style and foot flag
 // clear; the 4-tick speed runs the rate ladder when it is at most 16 km/h or a flag is set; the band and speed word come from
-// the interface (vt+0x68, vt+0x48); the clip is issued; then the clamp. ponytail: the 4-tick sample is PositionAt(4), the port's
-// stand-in for FUN_141eb50b0(P, buf, 4). PES reads fixed, event-updated contents at P+0x2fc (slot 0 is zero for player 7; the
-// writer is unknown, docs/re/pes-re-ball-track.md), so the GF position stands in until that writer is decoded.
+// the interface (vt+0x68, vt+0x48); the run entry then requests the loop and writes the run's motion word; then the clamp.
+// ponytail: the 4-tick sample is PositionAt(4), the port's stand-in for FUN_141eb50b0(P, buf, 4). PES reads fixed,
+// event-updated contents at P+0x2fc (slot 0 is zero for player 7; the writer is unknown, docs/re/pes-re-ball-track.md), so
+// the GF position stands in until that writer is decoded.
 void ClipEndExit(MoveHost& host, MoveReq& req, const RunConstants& k, const MoveConstants& m, float hitSigned, float hit2,
                  int liveFrame, bool flagged) {
   req.SetF(moveword::kDwellLimit, 0.0f);
@@ -1409,11 +1410,13 @@ void ClipEndExit(MoveHost& host, MoveReq& req, const RunConstants& k, const Move
     host.PhysiqueG();
     req.SetF(moveword::kStopSpeedWord, host.CommandSpeedKmh() * k.speed3600);
   }
-  // PES 716-717: the clip issue, carried to the adapter as the pending motion with the foot band.
-  req.SetByte(moveword::kMotionPending, 1);
+  // PES 716-717: vt+0 of the +0xac0 interface is the run entry (FUN_1406d2030, EnterRun), called with the request block,
+  // the foot band (vt+0x78) and 0 (CALL [RAX] at 0x1406bca77). It picks the next run motion, writes its motion word and
+  // requests RUN_LOOP; the loop's handler issues the clip on a later tick (its style arm sets the due byte).
+  EnterRun(host, req, host.FootBand(), false);
   // PES 718-745: the band-3 rate clamp, still inside PES's exit block. The rate word is a float: the raw asm stores it with
-  // movss after the vt+0x38 getter, so the decompile's (int) stores are bit copies. ponytail: PES issues the clip before this
-  // block; the adapter sends the rate at tick end, so the clamped value is the one sent.
+  // movss after the vt+0x38 getter, so the decompile's (int) stores are bit copies. ponytail: the loop issues the clip on a
+  // later tick, after this clamp; the adapter sends the rate at tick end, so the clamped value is the one sent.
   if (req.U(moveword::kRateBand) == 3u && speed < k.kmh28 && k.kmh16 < speed) {
     const float ceiling = host.RateCeiling();  // PES 719, 727-739: vt+0x18 on +0xac0
     float rate = (ceiling + k.rate06) * k.half;  // PES 720-721

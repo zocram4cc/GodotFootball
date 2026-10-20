@@ -472,29 +472,42 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
 // While the MOVESTEP FSM holds STOP, the AI's movement command does not pick the body's clip: PES's MOVE action plays the
 // FSM's own clips and MOVESTEP is the only reader of the AI's command block (pes-re-anim-select.md 0 item 5 and 1). On main,
 // a PES clip's last frame hands the body to Humanoid::Process's end-of-clip switch, which selects the AI's movement toward
-// the target, so the body ran while the FSM held the stop.
+// the target, so the body ran while the FSM held the stop. After the clip-end fix this trace holds no natural STOP in its
+// first 1800 ticks, so the holds are forced through PES's STOP entry as AStopOnATurnedBodyLeavesTheStop does, and the match
+// runs on while they hold.
 TEST(MoveStepWire, AnAiMovementClipDoesNotTakeTheBodyWhileTheFsmHoldsAStop) {
   Properties config;
   config.SetBool("pes_loop", true);
   REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
-  constexpr int kHoldTicks = 1800;  // about 33 s of play
+  constexpr int kSnapshots = 6;
+  constexpr int kTicksBetween = 100;
+  constexpr int kHoldTicks = 60;  // about 1.1 s, as AStopOnATurnedBodyLeavesTheStop
   int holdTicks = 0;
   int violations = 0;
   int firstTick = -1;
-  for (int tick = 0; tick < kHoldTicks; ++tick) {
-    match->Process();
+  int tick = 0;
+  for (int s = 0; s < kSnapshots; ++s) {
+    for (int t = 0; t < kTicksBetween; ++t, ++tick) match->Process();
+    std::vector<Player*> stopped;
     for (Player* p : ActivePlayers(*match)) {
-      if (p->GetMoveStep().state != pes::MoveState::kStop) continue;
-      ++holdTicks;
-      const Anim* a = p->GetCurrentAnim();
-      if (a && a->functionType == e_FunctionType_Movement) {
-        if (firstTick < 0) firstTick = tick;
-        ++violations;
+      pesmovestep::RequestStop(*p, *match);
+      if (p->GetMoveStep().state == pes::MoveState::kStop) stopped.push_back(p);
+    }
+    for (int t = 0; t < kHoldTicks; ++t, ++tick) {
+      match->Process();
+      for (Player* p : stopped) {
+        if (p->GetMoveStep().state != pes::MoveState::kStop) continue;
+        ++holdTicks;
+        const Anim* a = p->GetCurrentAnim();
+        if (a && a->functionType == e_FunctionType_Movement) {
+          if (firstTick < 0) firstTick = tick;
+          ++violations;
+        }
       }
     }
   }
-  EXPECT_GT(holdTicks, 0) << "no FSM hold in " << kHoldTicks << " ticks: the check saw nothing";
-  EXPECT_EQ(violations, 0) << "AI movement clips held the body on " << violations << " player-ticks; the first at tick "
+  EXPECT_GT(holdTicks, 0) << "no forced STOP held in the match: the check saw nothing";
+  EXPECT_EQ(violations, 0) << "AI movement clips held the body on " << violations << " STOP player-ticks; the first at tick "
                            << firstTick;
 }
 
@@ -564,8 +577,9 @@ TEST(MoveStepWire, TheRequestFollowsTheDecisionOnTheTickItChanges) {
   EXPECT_NEAR(north.F(pes::moveword::kMoveTargetZ), -(at.coords[1] + 10.0f), 1e-3f);
 }
 
-// PES's AI thinks every tick in GF (pesmovestep::Think, after the controller's process): the decision is re-taken on nearly
-// every tick, so its frame stamp takes nearly every frame of the run. PES's own cadence would stamp about one tick in 25.
+// PES's think cadence is not decoded. GF thinks every tick (pesmovestep::Think, after the controller's process), so the
+// decision is re-taken on nearly every tick and its frame stamp takes nearly every frame of the run. The 25-frame gate
+// that docs/re/pes-re-teamtick.md 5.1 named is computed and never read (raw asm 0x92578f, 0x8bfcf0).
 TEST(MoveStepWire, TheDecisionIsTakenOnEveryTick) {
   Properties config;
   config.SetBool("pes_loop", true);
@@ -579,4 +593,32 @@ TEST(MoveStepWire, TheDecisionIsTakenOnEveryTick) {
     if (frame >= 0) stamps.insert(frame);
   }
   EXPECT_GT(stamps.size(), 250u) << "the decision was re-taken on only " << stamps.size() << " of 300 ticks";
+}
+
+// A PES locomotion clip that has reached its last frame starts again from its first frame when its own motion is issued
+// again. PES's issue is a restart (IssuedClip, movestep.hpp), and the body's own Switch at the last frame is held in STOP
+// and ACCELERATE (humanoid.cpp PesPoseHeld), so a re-issue is the only way such a clip moves on.
+TEST(MoveStepWire, ASameMotionReissueRestartsAFinishedClip) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = nullptr;
+  Played played;
+  for (int tick = 0; tick < 2000 && !p; ++tick) {
+    match->Process();
+    for (Player* q : ActivePlayers(*match)) {
+      const Played now = PlayedOf(q);
+      if (now.family == LocomotionFamily()) {
+        p = q;
+        played = now;
+        break;
+      }
+    }
+  }
+  ASSERT_NE(p, nullptr) << "no player played a PES locomotion clip in 2000 ticks";
+  Anim* anim = const_cast<Anim*>(p->GetCurrentAnim());  // the test sets the clip's frame, as the humanoid does while it plays
+  anim->frameNum = anim->anim->GetFrameCount() - 1;
+  p->CastHumanoid()->PlayIssuedClip(played.motion, 1.0f, false);
+  EXPECT_EQ(p->GetCurrentAnim()->frameNum, 0) << "a finished clip did not start again on its own motion";
 }

@@ -860,7 +860,8 @@ TEST(Accelerate, TheBlendExitTakesTheBandAndSpeedWordsFromTheInterface) {
   req.SetU(pes::moveword::kCommandSpeedClass, 2u);  // level with the band: no flag
   req.SetU(pes::moveword::kRateBand, 2u);
   pes::movestep::Accelerate(h, req);
-  EXPECT_TRUE(req.Flag(pes::moveword::kMotionPending));
+  // PES 716-717: the exit runs the run entry, which requests RUN_LOOP; the run clip is issued on the loop's next tick.
+  EXPECT_EQ(req.U(pes::moveword::kNextState), static_cast<uint32_t>(pes::MoveState::kRunLoop));
   EXPECT_EQ(req.U(pes::moveword::kRateBand), 2u);
   EXPECT_NEAR(req.F(pes::moveword::kStopSpeedWord), 36.0f, 1e-4f);
 }
@@ -920,7 +921,8 @@ TEST(Accelerate, AFlaggedClipEndsBeforeItsBlendPasses) {
   req.SetU(pes::moveword::kCommandSpeedClass, 1u);
   req.SetU(pes::moveword::kRateBand, 2u);
   pes::movestep::Accelerate(h, req);
-  EXPECT_TRUE(req.Flag(pes::moveword::kMotionPending));
+  // PES 716-717: the exit runs the run entry, which requests RUN_LOOP; the run clip is issued on the loop's next tick.
+  EXPECT_EQ(req.U(pes::moveword::kNextState), static_cast<uint32_t>(pes::MoveState::kRunLoop));
   EXPECT_EQ(req.U(pes::moveword::kRateBand), 1u);
 }
 
@@ -1023,7 +1025,7 @@ TEST(ArmH, TheMidTickAndTheTriggerBearingsAreTheRemainAndTheTurnAndBodyError) {
 }
 
 // PES 573-577: the flag arm's gate is the body error (fVar25) under 45 degrees, not the turn. A turn of 50 with a level body still
-// sets the flag: the command class 1 is below the band 2, so the flag ends the clip and its pending motion is set.
+// sets the flag: the command class 1 is below the band 2, so the flag ends the clip and its exit requests the run loop.
 TEST(ArmH, TheFlagArmGateIsTheBodyErrorNotTheTurn) {
   SyntheticHost h;
   ArmHSetUp(h);
@@ -1035,7 +1037,7 @@ TEST(ArmH, TheFlagArmGateIsTheBodyErrorNotTheTurn) {
   req.SetF(pes::moveword::kLookHeading, 50.0f);   // look 0
   req.SetU(pes::moveword::kCommandSpeedClass, 1u);
   pes::movestep::Accelerate(h, req);
-  EXPECT_TRUE(req.Flag(pes::moveword::kMotionPending));
+  EXPECT_EQ(req.U(pes::moveword::kNextState), static_cast<uint32_t>(pes::MoveState::kRunLoop)) << "the flag ends the clip, so its exit requests the run loop";
 }
 
 // PES 599-604: the flag's second clause is 67.5 degrees against the turn (fVar27), not the look. A turn of 70 with a level look
@@ -1051,7 +1053,7 @@ TEST(ArmH, TheFlagArmTurnClauseReadsTheTurnNotTheLook) {
   req.SetF(pes::moveword::kTurn, 30.0f);          // the first clause: 30 is not under the 22.5 span
   req.SetU(pes::moveword::kCommandSpeedClass, 3u);
   pes::movestep::Accelerate(h, req);
-  EXPECT_TRUE(req.Flag(pes::moveword::kMotionPending));
+  EXPECT_EQ(req.U(pes::moveword::kNextState), static_cast<uint32_t>(pes::MoveState::kRunLoop)) << "the flag ends the clip, so its exit requests the run loop";
 }
 
 // PES 443-455: the 0xbe4-0xbe9 motions take the remain as their mid, not (remain + total) / 2. The remain is 7 ticks, so the mid is

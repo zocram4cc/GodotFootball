@@ -150,7 +150,7 @@ INF h: the per-tick set/clear pair for MI and the roster is elsewhere, in the co
 
 ```
 match::Player vtable slot 2 (0x140925750; caller = vtable dispatch, NOT FOUND)
-   wrapper: counter = obj+0x10 (inc); gate = (counter % 25 == obj+0x18)   [CONFIRMED raw 0x140925750–0x1409257a6]
+   wrapper: counter = obj+0x10 (inc); flag (counter % 25 == obj+0x18) is computed at 0x92578f and passed as r8 to 0x8bfcf0, which never reads it (0x8bfcf0-0x8bfd58); FUN_140925470 is called unconditionally at 0x925769   [CONFIRMED raw 0x140925750–0x1409257a6]
    → FUN_140925470  (player driver; rbx = player object; [rbx+0x18] = player index)   [CONFIRMED raw]
        → FUN_140928fc0 (AI decision entry; call at 0x140925724)                     [CONFIRMED]
            → FUN_1409257b0 (0x1409294e4)                                            [CONFIRMED xref]

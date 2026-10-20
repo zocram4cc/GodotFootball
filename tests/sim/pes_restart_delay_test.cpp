@@ -51,11 +51,11 @@ constexpr unsigned long kMaxSimTicks = 30ul * 60ul * Match::kFramesPerSecond;
 // runs about 114600 ticks, past the 30-minute cap above.
 constexpr unsigned long kTwentyMinuteMaxSimTicks = 60ul * 60ul * Match::kFramesPerSecond;
 
-// One match with the tick-order switch set as asked. `onTick` sees the match after each tick;
-// the watch stops the run at the first stall.
-void RunMatchWithinTheBound(bool pesLoop, int minutes,
-                            const std::function<void(Match&)>& onTick,
-                            unsigned long maxSimTicks = kMaxSimTicks) {
+// One match with the tick-order switch set as asked. `onTick` sees the match after each tick; the watch stops the run at
+// the first stall. `seed` picks the match; `judgeEnd` runs the whole-match checks (off for a run that stops short).
+void RunMatchWithinTheBound(bool pesLoop, int minutes, const std::function<void(Match&)>& onTick,
+                            unsigned long maxSimTicks = kMaxSimTicks, unsigned int seed = SEED,
+                            bool judgeEnd = true) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
   pes::PesVfs vfs;
@@ -70,7 +70,7 @@ void RunMatchWithinTheBound(bool pesLoop, int minutes,
   auto setup = std::make_unique<MatchSetup>();
   setup->homeTeamDbId = HOME_TEAM;
   setup->awayTeamDbId = AWAY_TEAM;
-  setup->seed = SEED;
+  setup->seed = seed;
   setup->durationMinutes = minutes;
   setup->animationDir = std::string(GF_SOURCE_DIR) + "/assets/gf_anims";
   setup->rig = &*rig;
@@ -87,12 +87,13 @@ void RunMatchWithinTheBound(bool pesLoop, int minutes,
     if (onTick) onTick(match);
   }
 
-  EXPECT_FALSE(watch.Stalled()) << "a stoppage ran past " << watch.LimitTicks()
-                                << " ticks without a restart (longest "
-                                << watch.LongestTicks() << ")";
-  EXPECT_TRUE(match.IsGameOver()) << "the match did not reach full time";
-  EXPECT_GT(watch.MeasuredStoppages(), 0ul) << "no stoppage was measured";
-  EXPECT_LE(watch.LongestTicks(), watch.LimitTicks());
+  if (judgeEnd) {
+    EXPECT_FALSE(watch.Stalled()) << "a stoppage ran past " << watch.LimitTicks()
+                                  << " ticks without a restart (longest " << watch.LongestTicks() << ")";
+    EXPECT_TRUE(match.IsGameOver()) << "the match did not reach full time";
+    EXPECT_GT(watch.MeasuredStoppages(), 0ul) << "no stoppage was measured";
+    EXPECT_LE(watch.LongestTicks(), watch.LimitTicks());
+  }
 }
 
 }  // namespace
@@ -397,4 +398,25 @@ TEST(PesRestartDelay, AWhistleLeavesNoFlyingBallBehind) {
   });
   EXPECT_GT(stops, 0) << "no stoppage was seen";
   EXPECT_GT(flyingStops, 0) << "no stoppage caught a ball in flight - the test proved nothing";
+}
+
+// A mover whose PES clip reaches its last frame must go on. On seed 57 a presser (team 0, id 4) held zero speed in
+// ACCELERATE for over a thousand ticks, commanded 8 m/s, on a clip held at its last frame: the clip's end issued motion 0 on
+// every tick, since its exit never wrote the run's motion word. The longest such run must stay under one second.
+TEST(PesRestartDelay, AMoverWhoseClipEndsGoesOnAndMoves) {
+  constexpr int kFrozenLimitTicks = 54;  // one second at 54 Hz
+  int run = 0, longest = 0;
+  RunMatchWithinTheBound(
+      true, MINUTES,
+      [&](Match& match) {
+        Player* p = match.GetTeam(0)->GetAllPlayers().at(4).get();
+        const PesDecision& decision = p->GetPesDecision();
+        const bool frozen = p->GetMoveStep().state == pes::MoveState::kAccelerate &&
+                            p->GetMovement().GetLength() < 0.01f && decision.command &&
+                            decision.command->desiredVelocityFloat > 1.0f;
+        run = frozen ? run + 1 : 0;
+        longest = std::max(longest, run);
+      },
+      1300, /*seed=*/57, /*judgeEnd=*/false);
+  EXPECT_LT(longest, kFrozenLimitTicks) << "the presser held zero speed on a finished clip for " << longest << " ticks";
 }

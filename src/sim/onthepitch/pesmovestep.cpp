@@ -226,9 +226,9 @@ class MoveHostAdapter final : public pes::MoveHost {
     return command ? &*command : nullptr;
   }
   // PES's AI think for this player, every tick: the controller's first command becomes the decision MOVESTEP reads on the
-  // next tick. ponytail: PES's think runs every 25 frames (pes-re-teamtick.md 5.1); GF reads the controller every tick,
-  // which the stall harness prefers. The first candidate stands in for the one the humanoid plays, since SelectAnim
-  // applies a candidate and has side effects.
+  // next tick. ponytail: PES's think cadence is not decoded. The 25-frame gate that pes-re-teamtick.md 5.1 named is computed
+  // and never read (raw asm 0x92578f, 0x8bfcf0), so GF thinks every tick. The first candidate stands in for the one the
+  // humanoid plays, since SelectAnim applies a candidate and has side effects.
   void Think() {
     // The controller decides from the mental image its process set this tick. The match has none until its first is
     // built, and the humanoid waits the same way (humanoid.cpp:238).
