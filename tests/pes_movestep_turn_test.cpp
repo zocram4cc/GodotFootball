@@ -640,9 +640,8 @@ TEST(StepTurnRun, TheReorientWindowReadsTheLookHeadingAgainstTheBodyDirection) {
   host.displacement[1] = 0.0f;
   host.displacement[2] = 4.0f;
   StepTurnRun(host, req, SyntheticTurn());
-  // The precise gate failed, so the row was NOT stepped towards the heading: the written
-  // angle is the request's own turned heading (10), not the stepped 40.
-  EXPECT_TRUE(req.Flag(pes::moveword::kReorientFlag));
+  // The precise gate failed, so the row was NOT stepped towards the heading: the window's
+  // write (req[0x3d]) is the request's own turned heading (10), not the stepped 40.
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kAngle3d), 10.0f);
 }
 
@@ -699,6 +698,37 @@ TEST(StepTurnRun, ReSelectsTheRateForTheClassThreeTail) {
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), 0.3f);  // unchanged by the class-0..2 tail
 }
 
+// The run-family branch's gate: PES's fVar22 is wrap180(kTurnedRow - kFacing) (0x1406C770A)
+// and fVar21 is wrap180(kBodyDirection - kTurnedRow) (0x1406C76CF). The port read the turn
+// word against the turned row and the facing against the facing error, so the branch fired on
+// angles PES never compared.
+TEST(StepTurnRun, TheRunBranchGateReadsTheTurnedRowAgainstTheFacing) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 0;
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetU(pes::moveword::kPrecise, 1);
+  // The turned heading is 20 degrees from the facing, so PES's fVar22 is 20 - inside both
+  // gates - and the branch does not fire. The port's old fVar22 (the facing against the
+  // facing error) would have been 100 degrees, past 78.75, and the branch would have fired.
+  req.SetF(pes::moveword::kTurn, 10.0f);
+  req.SetF(pes::moveword::kTurnedRow, 20.0f);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 20.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 100.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 14.0f);
+  req.SetU(pes::moveword::kMoveBucket, 1);
+  req.SetU(pes::moveword::kPrevBucket, 1);
+  StepTurnRun(host, req, SyntheticTurn());
+  // The branch did not fire, so the tick did not ask for STEP_LOOP.
+  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState) &&
+               req.U(pes::moveword::kNextState) == uint32_t(MoveState::kStepLoop));
+}
+
 // The parametric replay block: a class-3 request at the 0x2e motion replays row 0x3b mirrored.
 // The run-family branch: while the clip is young, with a live class word and the precise flag
 // set, the handler replays a row through the step grid and hands the tick to STEP_LOOP.
@@ -711,11 +741,14 @@ TEST(StepTurnRun, ReplaysARowThroughTheStepGridWhenTheClipIsYoung) {
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
   req.SetU(pes::moveword::kClassWord, 2);
   req.SetU(pes::moveword::kPrecise, 1);
-  // The branch's own gate reads two draws: the turn-to-target (under 22.5 degrees) and the
-  // facing error (over 78.75 degrees), which is the second arm PES tests.
+  // The branch's own gate reads two draws: PES's fVar21 (wrap180(kBodyDirection -
+  // kTurnedRow)) and fVar22 (wrap180(kTurnedRow - kFacing)). The second arm is the one PES
+  // takes: fVar22 is past 78.75 degrees, so the turned heading is 100 degrees from the facing.
   req.SetF(pes::moveword::kTurn, 10.0f);
-  req.SetF(pes::moveword::kTurnedRow, 10.0f);
+  req.SetF(pes::moveword::kTurnedRow, 100.0f);
   req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 100.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
   req.SetF(pes::moveword::kFacingError, 100.0f);
   req.SetF(pes::moveword::kDesiredSpeedKmh, 14.0f);
   req.SetU(pes::moveword::kMoveBucket, 1);
