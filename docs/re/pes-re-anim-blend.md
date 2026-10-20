@@ -465,3 +465,19 @@ AR §11 stands unchanged. One addition from this session:
 
 No player or team names; no PES-derived bytes, name lists or number tables beyond the individual
 constants quoted as evidence at their addresses.
+
+## 11. External agent Q&A (20-10-26): the live blend weight and AnimSyncPlugin
+Source: an outside RE agent, archived in substance. **Main audit:** the rec+0x08 store is `movss [rcx+0x8],xmm1` at `0x141af6486`, with xmm1 loaded from the stack at `0x141af6480` (`movss xmm1,[rsp+0x48]`), not a literal: "rec+0x08 = 1.0" fits a stack-held constant but is not byte-proven. The AnimSyncPlugin vtable `0x142ABE340` begins with `0x141b0f730` (plausible). Everything else is the agent's claim.
+
+**Part 1: the live per-layer weight.** Not in the 0x30 transition records (set-once setup: SetMotion sub_141AF61C0 stamps rec+0x08 once, +0x0C/+0x10 = desc[0x0C] x300 fade config; SetSpeed touches only +0x14/+0x18; this explains §9 open item 7's "always 1.0"). It is recomputed every pass and pushed to engine-side anim objects:
+- Chain: W = [animControl+0x88]; mgr = [W+0x10]; perSide = [mgr + 8*side + 0xF8]; two double-buffered animObj pointers at perSide+0x20*idx (active idx = dword[perSide+0x48], other = idx^1). animObj: +0x0C u16 layer count, +0x30 dword offset table, layer subobject = animObj + off[i].
+- **Live weight = float at layer subobject +0x18**, written by two evaluators:
+  - sub_141B0F8F0 (plain crossfade): the per-character transition table at mgr + dword[mgr+0x68], 16-byte entries from index 1: +0x02 i16 side, +0x04 float active marker (>0 = running), **+0x08 float = the live blend fraction t**. Normalizer v = 1/((1-t)·plugin+0x88 + t·plugin+0xC8). Fade-in list (plugin+0x78): w = clamp(rec+0x04·v, 0, 1000). Current list (plugin+0xB8, the records SetSpeed writes): w = (v·rec[lead+0x04]·rec[lead+0x18])·rec[j+0x14] = (leadWeight/total)·(rate_j/rate_lead), lead = plugin+0xD4. The steady path pushes rec+0x14 straight.
+  - sub_141B0FE20 (parametric): rec+0x20/+0x28 = keyframe table {count, ptr}; a segment search keyed on the LEAD layer's phase (subobject+0x0C, sub_14239F110); per-slot totals normalized (plugin+0xA0 old, +0xE0 current); the segment delta written to subobject+0x18 for the active segment only; then a sorted (time, value) insert on the subobject (+0x48 count, +0x4C/+0x6C, sub_14239D210).
+
+**Part 2: AnimSyncPlugin (FUN_141B11420).** Class AnimSyncPlugin@And@cobra, vtable 0x142ABE340; two instances per character from the CobraAndBodyAnimControl constructor sub_141AFB090 (factory sub_141B110E0): [animControl+0xF8] side 0, [animControl+0x100] side 1.
+- **Only the side-1 instance runs the foot-phase sync.** Update dispatch sub_141B11170 steps only when dword[plugin+0x138] > 0; the step requires side != 0, sync mode (plugin+0x150) != 0, and (dword[perSide+0x4C] & 3) == 1 (locomotion state). Side 0 is only symmetric rate handling.
+- Block: +0x138 side, +0x13C flags (0x10 = pending finish), +0x144 countdown, +0x148 ramp (sub_1423989F0: ramp = min(ramp + dt·rate, 1)), +0x150 mode (1 = hold, 2 = blend-out), +0x154 blend-out factor. Destination perSide+0x44 = the sync weight (mode 1: ramp then 1.0; mode 2: (1-ramp)·factor then 0). Finish: sub_1423A2A90 -> sub_14239FB50 walks both animObj slots (gated on subobject flag 0x100000 and phase pointer subobject+0x98; sub_1423B11E0 copies into W+0xB8), stores the final float at perSide+0x54, and perSide+0x4C = (state & ~3) | 0x200 ends the loco gate.
+- **The lead layer:** plugin+0xD4 (current) / +0x94 (fade-in), set from the motion header at SetMotion; its phase (subobject+0x0C) is also the parametric evaluator's segment key.
+
+Open (the agent's): the pose-side reader of subobject+0x18; the static lead-layer index per motion (motion data); the sync-mode setter; sub_1423B11E0.

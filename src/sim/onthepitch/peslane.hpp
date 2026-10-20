@@ -30,6 +30,12 @@ struct LaneConstants {
   float coneOffset_deg;       // 10 (0x142588210): added to the half-cone for the opponent test
   float coneFloor_deg;        // 90 (0x14259BE5C): the opponent test never allows less than this
   float crossEps;             // 1.1920929e-7 (0x14259BDC4): floor on the crossing denominator
+
+  // --- the Cross unit's lane (0x142129590's call at 0x142129804) ---
+  float crossAdvance_m;  // 1.0 (0x14256AE1C): the ball point's advance along the aim bearing
+  float crossLen_m;      // 5.0 (0x14259222C): the lane's length
+  float crossCone_deg;   // 30.0 (0x142591140): the lane's cone
+  float crossRad_m;      // 2.0 (0x142565604): the radius offset of the cone apex behind the origin
 };
 
 std::optional<LaneConstants> LoadLaneConstants(const PeImage& exe, std::string* error);
@@ -74,5 +80,12 @@ LaneScan ScanLane(const LaneConstants& k, const std::array<LanePlayer, kSlots>& 
 // is recorded.
 bool LaneFree(const LaneConstants& k, const std::array<LanePlayer, kSlots>& players, int reference,
               const LaneRequest& lane, bool keepKeeper, int horizonFrames);
+
+// The Cross unit's lane (0x142129590, the call at 0x142129804). The aim is the spot on the pitch's
+// centre line at the goal-area line of the attacked goal, `aimX_m`; the lane's heading is the
+// bearing from the ball to that spot, and its origin is the ball advanced one metre along it.
+// The lane is 5 m long with a 30 degree cone and a 2 m radius offset. The ball point is
+// (x, z) in the lane's ground plane; the attack sign enters through `aimX_m`.
+LaneRequest CrossLane(const LaneConstants& k, offball::Vec2f ball, float aimX_m);
 
 }  // namespace pes::lane

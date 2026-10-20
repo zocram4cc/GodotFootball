@@ -17,3 +17,12 @@ Source: an outside RE agent, archived in substance with names removed. Main's au
 
 ## Port note (Main)
 GF's PES path has no user-cursor exclusion yet. When human control is on the PES path, the brain reset and the planner skip for the held player belong with it.
+
+## Coach mode (follow-up Q&A, 20-10-26)
+> **Main audit:** `0x14216529d` is `call 0x140A571B0` (the cursor switch scan calling the bind): matches.
+
+- "Cursor-held" is a record in the control-slot table, not a UI highlight. A player id enters a record only through cursor movement: the bind sub_140A571B0 (an id swap) runs from the cursor switch scan at 0x14216529d.
+- In coach mode no pad drives a cursor, so no record is ever bound and no player is flagged user-held. The brain gate sub_14210E200 (dead only when "the team has a bound cursor record AND my record flag is clear") passes for everyone: all 22 players run the full AI, including movement planning, and COM styles are live for whoever is on or receiving the ball.
+- So the on-ball state where COM styles fire is: whenever an AI-driven player has or is receiving the ball. In coach mode that is every player all match; in a user match it is the user's 10 AI teammates while he holds someone else, plus the whole opponent team.
+- Not byte-traced end to end: the exact moment the last cursor record is cleared on coach-mode entry. Supporting evidence: ids enter records only through cursor movement; AI-vs-AI matches have no player standing still (a surviving record would freeze one, since the planner skips flagged players at 0x1406b76c7); a Speeding Bullet live capture saw breakthrough checks on 9 different players in 4 minutes.
+- GF note: gfsim's matches are AI vs AI, i.e. coach mode: the cursor exclusion only matters once human control runs on the PES path.
