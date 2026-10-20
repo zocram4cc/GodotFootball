@@ -223,6 +223,7 @@ pes::AngleBucketConstants SyntheticBuckets() {
   pes::AngleBucketConstants k{};
   k.wide = {-100, -80, -60, -40, -20, 0, 20, 40, 60, 80, 100};  // synthetic edges
   k.narrow = {-100, -90, -60, -40, -10, 0, 10, 40, 60, 90, 100};
+  k.centre = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 0.0f, -45.0f, -90.0f, -135.0f, -180.0f};  // DAT_1425dd660
   for (int i = 0; i < 10; ++i) k.bucket[i] = i;  // synthetic identity map
   k.hysteresisUp = 3.0f;                         // synthetic magnitude (the exe's is 5)
   k.hysteresisDown = -3.0f;
@@ -1567,6 +1568,37 @@ TEST(MoveFill, LookHeadingAndFacingErrorWrapAroundTheTurn) {
   pes::movestep::FillMoveTarget(north, in, FoldConstants(), SyntheticBuckets());
   EXPECT_NEAR(north.F(pes::moveword::kLookHeading), 0.0f, 1e-3f);
   EXPECT_NEAR(north.F(pes::moveword::kFacingError), 10.0f, 1e-3f);
+}
+
+TEST(MoveFill, BodyDirectionIsTheFacingPlusTheBucketAngleWrappedTo360) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetZ = 5.0f;
+  in.bodyBucket = 1;  // the flag is set: the bucket angle is +45 degrees
+  pes::MoveReq ahead;
+  pes::movestep::FillMoveTarget(ahead, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(ahead.F(pes::moveword::kBodyDirection), 45.0f, 1e-3f);
+
+  in.facingDeg = 350.0f;  // 350 + 45 wraps to 35
+  pes::MoveReq wrapped;
+  pes::movestep::FillMoveTarget(wrapped, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(wrapped.F(pes::moveword::kBodyDirection), 35.0f, 1e-3f);
+}
+
+TEST(MoveFill, TurnToTheBodyIsFromTheBodyDirectionNotTheFacing) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetX = 5.0f;  // the target is due east: heading 90
+  in.bodyBucket = 1;  // the body is at +45
+  pes::MoveReq east;
+  pes::movestep::FillMoveTarget(east, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(east.F(pes::moveword::kLookDelta), 90.0f, 1e-3f);  // word 5: target minus facing
+  EXPECT_NEAR(east.F(pes::moveword::kTurn), 45.0f, 1e-3f);       // word 6: target minus body
+}
+
+TEST(MoveFill, BodyBucketFlagIsOneWhenTheRecordTimesOneHundredIsInRange) {
+  // PES 0x141194330 (TeamDecode, audited): host+0x2798 = 1 iff record[0x3C] * 100 is in [0, 2^32].
+  EXPECT_EQ(pes::movestep::BodyBucketFlag(1.0f), 1);     // PES's default record stores 1.0
+  EXPECT_EQ(pes::movestep::BodyBucketFlag(-0.01f), 0);   // below zero
+  EXPECT_EQ(pes::movestep::BodyBucketFlag(1.0e9f), 0);   // above 2^32 once times 100
 }
 
 TEST(MoveFill, TurnsAndTheirBucketsAreTheTargetTurnTheBodyTurnAndTheLookError) {

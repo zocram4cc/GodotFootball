@@ -64,6 +64,11 @@ float TargetTurnDeg(float deg, const RunConstants& k) {
 }
 }  // namespace
 
+int BodyBucketFlag(float recordValue) {
+  const float scaled = recordValue * 100.0f;  // 100.0 at 0x14253EE30
+  return 0.0f <= scaled && scaled <= 4294967296.0f ? 1 : 0;  // 2^32 at 0x1427341A0
+}
+
 void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants& k,
                     const AngleBucketConstants& buckets) {
   const float toTargetX = in.targetX - in.originX;
@@ -75,8 +80,9 @@ void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants&
   const float toLookZ = in.lookZ - in.originZ;
   const float lookDist = std::sqrt(toLookX * toLookX + toLookZ * toLookZ);
   const float lookHeading = lookDist > 0.0f ? TargetBearingDeg(toLookX, toLookZ, k) : in.facingDeg;
-  // The body direction is the facing (req[4]); see MoveTargetInput's ponytail.
-  const float body = in.facingDeg;
+  // PES 0x1406B7E25: req[4] = wrap360(DAT_1425DD660[bucket] + facing), FoldFull's single fold. The bucket is
+  // the caller's flag (MoveTargetInput::bodyBucket); PES reads that flag from host+0x2798 (see the header).
+  const float body = FoldFull(buckets.centre[in.bodyBucket] + in.facingDeg, k);
   const float turnToFacing = TargetTurnDeg(targetHeading - in.facingDeg, k);  // req[5]
   const float turnToBody = TargetTurnDeg(targetHeading - body, k);           // req[6]
   const float lookError = TargetTurnDeg(lookHeading - in.facingDeg, k);      // req[7]

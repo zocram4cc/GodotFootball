@@ -761,6 +761,7 @@ struct AngleBucketConstants {
   std::array<int32_t, 10> bucket;  // 0x1425ddf10: window -> bucket
   float hysteresisUp;              // 0x14259222c: +5 degrees
   float hysteresisDown;            // 0x14259be7c: -5 degrees
+  std::array<float, 10> centre;    // 0x1425dd660: bucket -> the bucket's centre angle, degrees (the body fill)
 };
 std::optional<AngleBucketConstants> LoadAngleBucketConstants(const PeImage& exe, std::string* error);
 
@@ -889,12 +890,18 @@ struct MoveTargetInput {
   int speedBand = -1;       // FUN_1406b8de0(cmd[0x17]): 0..3, or -1 for none
   float desiredKmh = 0.0f;  // cmd[0x172]
   bool precise = false;     // cmd[0x15] (2 maps to 1)
+  int bodyBucket = 0;       // the body-bucket flag, 0 or 1 (PES host+0x2798, set at 0x1411944E6)
 };
-// ponytail: req[4] (body) is the facing; PES adds the bucket the anime interface's slot 0x80 picks (not ported).
+// ponytail: req[4] = the bucket's centre (DAT_1425dd660) from the caller's bodyBucket; 0 = the facing. The flag is
+// PES's record rule (BodyBucketFlag); the record loader (0x141194330) is not ported, so GF feeds the default record's
+// 1.0. The continuous body turn (the still-turning branch at 0x1406B798C, the state-byte override at 0x1406B7CA7) is not ported.
 // ponytail: a zero-length target or look takes the facing; PES takes the ball's sample (the B and A
 // substitutions of FUN_1406b7560). ponytail: req[0x12] is req[0x11]; the cmd+0x68 point list is not ported.
 void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants& fold,
                     const AngleBucketConstants& buckets);
+// PES 0x141194330's body-bucket flag (TeamDecode, audited): 1 iff recordValue * 100 is in [0, 2^32] (100.0 at
+// 0x14253EE30, 2^32 at 0x1427341A0). The write is 0x1411944E6.
+int BodyBucketFlag(float recordValue);
 // PES's conversion of a motion-record value to ticks (FUN_1406af620, FUN_1406b1f00, FUN_1406b1d00,
 // FUN_1406af8e0): int(2 v / rate * (ticks / fps) + half), with the host's ticks per second. A rate
 // that is not positive is PES's one. fps and half are the install's DAT_14259a764 and DAT_142565600.

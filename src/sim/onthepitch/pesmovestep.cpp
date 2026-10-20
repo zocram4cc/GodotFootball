@@ -218,6 +218,7 @@ class MoveHostAdapter final : public pes::MoveHost {
     in.speedBand = pes::CommandClassFor(CommandSpeedClassOf(speed), c_.runTables);
     in.desiredKmh = speed * kKmhPerMps;
     in.precise = cmd && cmd->preciseArrival;
+    in.bodyBucket = pes::movestep::BodyBucketFlag(c_.run.one);  // PES's default record value, DAT_14256AE1C
     pes::movestep::FillMoveTarget(req, in, c_.run, c_.buckets);
   }
   // The request block as FUN_1406b7560 copies it in: the dwell words and stamps the record carried from the last tick,

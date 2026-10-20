@@ -163,10 +163,12 @@ std::optional<AngleBucketConstants> LoadAngleBucketConstants(const PeImage& exe,
   constexpr uint64_t BUCKET_VA = 0x1425ddf10;
   constexpr uint64_t HYST_UP_VA = 0x14259222c;
   constexpr uint64_t HYST_DOWN_VA = 0x14259be7c;
+  constexpr uint64_t CENTRE_VA = 0x1425dd660;  // DAT_1425dd660: the bucket centre angles (the body fill)
   AngleBucketConstants k{};
   if (!exe.ReadVa(WIDE_VA, sizeof k.wide, reinterpret_cast<uint8_t*>(k.wide.data())) ||
       !exe.ReadVa(NARROW_VA, sizeof k.narrow, reinterpret_cast<uint8_t*>(k.narrow.data())) ||
       !exe.ReadVa(BUCKET_VA, sizeof k.bucket, reinterpret_cast<uint8_t*>(k.bucket.data())) ||
+      !exe.ReadVa(CENTRE_VA, sizeof k.centre, reinterpret_cast<uint8_t*>(k.centre.data())) ||
       !exe.ReadVa(HYST_UP_VA, sizeof(float), reinterpret_cast<uint8_t*>(&k.hysteresisUp)) ||
       !exe.ReadVa(HYST_DOWN_VA, sizeof(float), reinterpret_cast<uint8_t*>(&k.hysteresisDown))) {
     *error = "angle bucket constants: .rdata unreadable";
