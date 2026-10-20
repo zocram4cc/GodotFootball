@@ -2378,7 +2378,6 @@ void RunLoop(MoveHost& host, MoveReq& req) {
     // the copied-in default (req[0x4b]) is the drift term's (LateralDamping), not the issue's.
     host.Issue(MotionRequest{cell.motionNo, mirror, 0, duration,
                               req.F(moveword::kPlayback), 0.0f});
-    RequestState(req, MoveState::kTurnStop);
     // The turned heading: the bucket's own centre angle with the 11.25 allowance for the
     // buckets 3 and 8, clamped to the swing bearing when it sits inside the window, and
     // added to the request's own word 2.
@@ -2437,6 +2436,8 @@ void RunLoop(MoveHost& host, MoveReq& req) {
   req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
   req.SetU(0x20, 0u);  // req[0x20]: PES clears it in the change; the word has no name yet
   req.SetByte(moveword::kMirrorFlag, 0);
+  // ponytail: PES's style arm writes req[0x39] = 14 (RUN_TO_STEP) here (0x1406C0AF2). Held back: with that request the
+  // throw-in release stalls (PesRestartDelay.AThrowInIsReleasedFromItsSpotAndTaken, 1758 ticks) until the STEP-family path is ported.
 }
 
 

@@ -1982,10 +1982,9 @@ TEST(RunLoop, TakesTheSwingArmWhenTheClassWordIsMinusOne) {
                                 0.0f, -45.0f, -90.0f, -135.0f, -135.0f};
   pes::probe::Reset();
   pes::movestep::RunLoop(h, req);
-  // The swing arm's exit is the TURN_STOP state request, and the bucket word is the one the
-  // swing arm's own picker wrote.
-  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kTurnStop));
-  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  // PES's swing arm writes no state (its arm E leaves req[0x39] alone), so the tick requests none. The bucket word is the
+  // one the swing arm's own picker wrote.
+  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
   EXPECT_GE(h.issues, 1);
   // The swing arm's writes: the bucket word it picked, the turned heading and the previous
   // bucket. The allowance is 11.25 for the buckets 3 and 8, and 0 for the others, so the
@@ -2041,11 +2040,10 @@ TEST(RunLoop, FoldsTheSecondWordWhenTheStatePickersFacingErrorIsPast146) {
   req.SetF(pes::moveword::kDwellElapsed, 0.0f);
   pes::probe::Reset();
   pes::movestep::RunLoop(h, req);
-  // The state picker's fold is visible in the look bucket it rewrote (4 -> 9), and the tick
-  // still ends in the swing arm's TURN_STOP request.
+  // The state picker's fold is visible in the look bucket it rewrote (4 -> 9); the swing arm writes no state request.
   EXPECT_EQ(req.U(pes::moveword::kLookBucketAlt), 9u);
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kLookDelta), -180.0f);
-  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kTurnStop));
+  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
 }
 
 // RUN_LOOP's jostle override (FUN_1406c0170, rev2 §5.2). The nearest opponent stands 0.5 m ahead on the
