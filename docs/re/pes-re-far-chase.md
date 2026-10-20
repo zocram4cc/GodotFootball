@@ -32,3 +32,17 @@ Wanted: loose ball, nearest man > 13 m, the state word `+0x5d0` of the nearest m
 
 - The press writer (`FUN_140536FC0`) is gated by `|ball − MA+0x2482C|² ≤ 169` (13 m) when there is no carrier. Fresh picks and renewals both pass through this gate. It is not a man-to-ball distance.
 - Beyond 13 m, PRESS (0x34) is neither picked nor renewed; `FUN_140536690` resets it. A loose ball beyond 13 m is therefore not chased by PRESS. The sender of the far chase is outside this writer (OPEN; §3.1).
+
+## 6. The ungated press arms (external Q&A, 20-10-26)
+> **Main audit:** `0x1404f7955` = `call 0x140535C60` (the team think tick sub_1404F6C30 → the press pass): match. The state name table at `0x1434A4D50` (8-byte string pointers) reads: 0x1 BASE_POSITION, 0x11 WAIT_TIMER, 0x33 DELAY, 0x34 PRESS, 0x35 SAND, 0x36 MARK, 0x3A MATCH_UP. **Two corrections to the answer below:** its "SAND (0x33)" is DELAY (SAND is 0x35), and its "state 58 = chaser" is 0x3A MATCH_UP (the decimal state numbers 52/53 = PRESS/SAND are right).
+
+The press pass sub_140535C60 (one call per team think tick) runs three arms:
+1. **The 13 m gated assignment** sub_140536FC0 (§1). When it refuses, only its own candidates are lost.
+2. **BallPlayer_PressingCoordinator** sub_140634470 (the setter sites 0x1406345ad / 0x140634993 / 0x1406349e0 / 0x140634a3a): per-slot maintain or release via sub_140632E70. Release unless status == 1, slot < 11, state == 52 (PRESS), the keep-behind-line check passes and the record timing holds. Ball grounded (h <= 1.5): cross-check the holder of state 58 (MATCH_UP per the table; the agent called it the chaser) via sub_140A62960; the presser survives only if he is that man or none exists. Ball airborne: needs the carrier id +120. Survivors get setter(team, slot, 0x34); releases go through sub_140A42B90(..., 0xFF), clearing the target word T+0xB88C + 2·slot. Its target eval **BallPlayer_PressingTargetEval** sub_140633940 picks the man: a scan over roles {1, 2, 16}, scored by sub_1404C8EA0 against dword_1425C73A4, keep-max, then the setter and the target word.
+3. **The ungated sweep** at 0x140536059: for each slot whose mode field [T+0xBD48 + 4·slot] == 38 and whose state is not already 52/53, sub_14062AF10(player) chooses 0x33 (DELAY, per the table) or 0x34 (PRESS) by opponent-side trap/interruptible checks, then the setter. It runs regardless of the 13 m refusal.
+
+So when the 13 m gate refuses, the same pass's ungated arms (the sweep and the coordinator) still arm men; picking happens in the target eval (max score over role-filtered candidates). Assignments and the man word +0x5D0 share this one enum (the 96-entry table above).
+
+**Live cross-reference (§ rounds 32-33, pes-re-live-gk-chase.md):** on far loose-ball frames the men's +0x5D0 toggled 0x1 ↔ 0x36, which is **BASE_POSITION ↔ MARK**: in that sample nobody was in PRESS or DELAY while the ball was far.
+
+Open (the agent's): the semantics of mode == 38; the press-target word's content for a loose ball; the sweep's side scope (slot < 11).
