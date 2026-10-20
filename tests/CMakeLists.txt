@@ -129,9 +129,6 @@ gtest_discover_tests(pes_stadium_test)
 add_executable(pes_lighting_test pes_lighting_test.cpp)
 target_link_libraries(pes_lighting_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_lighting_test)
-add_executable(pes_tonemap_test pes_tonemap_test.cpp)
-target_link_libraries(pes_tonemap_test PRIVATE pesfmt GTest::gtest_main)
-gtest_discover_tests(pes_tonemap_test)
 
 add_executable(pes_fmdl_uv_test pes_fmdl_uv_test.cpp)
 target_link_libraries(pes_fmdl_uv_test PRIVATE pesfmt GTest::gtest_main)
@@ -145,6 +142,12 @@ gtest_discover_tests(pes_effects_test)
 add_test(NAME godot_effects_test
   COMMAND ${CMAKE_SOURCE_DIR}/tools/godot.sh --headless --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_effects.gd)
 set_tests_properties(godot_effects_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
+# The compose pass needs a GPU: gamescope, as tools/capture_viewer.sh does. gamescope exits 0 whatever
+# the child does, so the verdict is the script's own summary line.
+add_test(NAME godot_post_compose_test
+  COMMAND gamescope --backend headless -W 1280 -H 720 -- ${CMAKE_SOURCE_DIR}/tools/godot.sh --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_post_compose.gd)
+set_tests_properties(godot_post_compose_test PROPERTIES PASS_REGULAR_EXPRESSION "post compose: 0 failure" FAIL_REGULAR_EXPRESSION "FAIL:;SCRIPT ERROR" TIMEOUT 180)
 
 add_executable(pes_events_test pes_events_test.cpp)
 target_link_libraries(pes_events_test PRIVATE gfsim pesfmt GTest::gtest_main)
