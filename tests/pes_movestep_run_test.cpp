@@ -1964,7 +1964,7 @@ TEST(RunLoop, TakesTheSwingArmWhenTheClassWordIsMinusOne) {
   ASSERT_GE(h.issues, 1);
   EXPECT_EQ(h.issued.motion, 0x100 + SyntheticTables().gotoRow[2 + 1 * 8]);
   EXPECT_FLOAT_EQ(h.issued.duration, 1.0f / 6.0f);
-  EXPECT_FLOAT_EQ(h.issued.playback, 1.0f);
+  EXPECT_FLOAT_EQ(h.issued.playback, req.F(pes::moveword::kPlayback));  // PES issues from the word the arm leaves in req[0x35]
 }
 
 // The no-class branch's state picker: with the look bucket at 4, the match phase 1 and the

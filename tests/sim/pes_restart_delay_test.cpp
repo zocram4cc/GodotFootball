@@ -450,3 +450,10 @@ TEST(PesRestartDelay, ASeedThreePesIssuePlaysAtAPositiveRate) {
   EXPECT_GT(issues, 0) << "no PES clip was issued";
   EXPECT_EQ(zeroRate, 0) << zeroRate << " of " << issues << " PES clip issues played at rate zero";
 }
+
+// Seed 23's kick-off restarts. On 92a0d28 the kick-off taker looped between idle and GotoRun at the spot, because the
+// RunLoop turn-stop issue read the copied-in default word instead of the playback word its own arm wrote (PES's
+// param_2[0x35], RunLoop), and the stoppage ran past the bound.
+TEST(PesRestartDelay, TheSeedTwentyThreeKickOffRestarts) {
+  RunMatchWithinTheBound(true, MINUTES, nullptr, kMaxSimTicks, 23);
+}

@@ -2362,8 +2362,10 @@ void RunLoop(MoveHost& host, MoveReq& req) {
       (void)dz;
       mirror = !(dy <= 0.0f);
     }
+    // PES's RUN_LOOP block stores its playback in req[0x35] and issues from that word (FUN_1406c0170, decompile lines 380-388);
+    // the copied-in default (req[0x4b]) is the drift term's (LateralDamping), not the issue's.
     host.Issue(MotionRequest{cell.motionNo, mirror, 0, duration,
-                              req.F(moveword::kPlaybackDefault), 0.0f});
+                              req.F(moveword::kPlayback), 0.0f});
     RequestState(req, MoveState::kTurnStop);
     // The turned heading: the bucket's own centre angle with the 11.25 allowance for the
     // buckets 3 and 8, clamped to the swing bearing when it sits inside the window, and
