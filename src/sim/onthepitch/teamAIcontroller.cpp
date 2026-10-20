@@ -1628,7 +1628,9 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
         if (!player->IsActive()) continue;
         pes::ArrivalRank r;
         r.slot = static_cast<int>(i);
-        r.keeper = RoleClassOfSlot(team->FormationSlotOf(player)) == 0;
+        // ponytail: stands for RoleClassOfSlot(FormationSlotOf(player)) == 0 (RoleArrays class 0, the keeper).
+        // Becomes that line when MergeRA (RoleArrays) lands; GF's formation role stands in until then.
+        r.keeper = player->GetFormationEntry().role == e_PlayerRole_GK;
         r.distanceToBall_m = (player->GetPosition() - ballPos).GetLength();
         const float topSpeed_mps = std::max(player->GetMaxVelocity(), 0.1f);
         r.arrivalFrames = r.distanceToBall_m / topSpeed_mps * fps;
