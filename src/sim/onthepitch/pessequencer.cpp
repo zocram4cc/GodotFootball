@@ -52,6 +52,20 @@ Spot ThrowInSpot(float ballX, float ballZ, const RestartSpotConstants& k) {
           Sign(ballZ) * (pesFieldHalfWidth + k.throwInLineOutset_m)};
 }
 
+Spot ThrowInCarrySpot(float restartX, float restartZ, int attackSign, const RestartSpotConstants& k) {
+  const float carryZ = Sign(restartZ) * (pesFieldHalfWidth + k.throwInCarryOutset_m);
+  // The approach line runs from the restart point to the centre of the goal the side attacks,
+  // G = (attackSign * F0, 0) (FUN_140791ec0 phase 1). Where it crosses the carry line, the x is
+  // G.x - carryZ * (G.x - restartX) / restartZ.
+  const float goalX = static_cast<float>(attackSign) * pesFieldHalfLength;
+  float x = goalX - carryZ * (goalX - restartX) / restartZ;
+  // The x stays within the install's clamp of the restart's x (the 2 m test, COMISS at 0x1407921c2).
+  x = std::clamp(x, restartX - k.throwInCarryClamp_m, restartX + k.throwInCarryClamp_m);
+  // Past the end line's inset the spot falls back to the restart's x (the F0 - 0.5 test, 0x1407921f3).
+  if (std::fabs(x) > pesFieldHalfLength - k.throwInCarryEndInset_m) x = restartX;
+  return {x, carryZ};
+}
+
 int ReleaseFrames(e_SetPiece kind) {
   switch (kind) {
     case e_SetPiece_ThrowIn:

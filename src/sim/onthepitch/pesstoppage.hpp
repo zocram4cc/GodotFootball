@@ -87,6 +87,20 @@ struct RestartSpotConstants {
   // (MOVSS XMM2,[0x14256ae1c]; SUBSS at 0x14050eaed) before writing R.x, keeping the throw-in's x
   // at most F0 - inset, off the end line.
   float throwInEndInset_m = 0.0f;
+  // .rdata 0x14257a194 (docs/re/pes-re-throwin-choreography.md 3.2, ADDSS at 0x140792122): the throw-in
+  // carry spot stands this far outside the touchline, S.z = sign(z) * (F1 + this). The goal-area
+  // push-out above reads the same float.
+  float throwInCarryOutset_m = 0.0f;
+  // .rdata 0x142565604 (3.2, COMISS at 0x1407921c2): the carry spot's x stays within this of the
+  // restart point's x.
+  float throwInCarryClamp_m = 0.0f;
+  // .rdata 0x142565600 (3.2, SUBSS at 0x1407921f3 and COMISS at 0x1407921fb): the carry spot's x falls
+  // back to the restart point's x once it is past F0 minus this. The lift also waits for the taker to
+  // be inside that line (phase 4, MOVSS at 0x140792ba6).
+  float throwInCarryEndInset_m = 0.0f;
+  // .rdata 0x14259d5d0 (3.2, phase 4, COMISS at 0x140792bfb): the taker lifts the ball once he is within
+  // this of the carry spot, in 2D.
+  float throwInCarryStop_m = 0.0f;
 };
 std::optional<RestartSpotConstants> LoadRestartSpotConstants(const PeImage& exe, std::string* error);
 
