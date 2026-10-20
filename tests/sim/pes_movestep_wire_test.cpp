@@ -208,10 +208,7 @@ TEST(MoveStepWire, TheFsmLeavesGotoRunAndReachesRunLoop) {
 // The FSM reaches STOP and ACCELERATE in a match: the run loop's pre-empt entries fire once the
 // request carries the look distance PES's gates read. Built before the fill, the look distance
 // is always zero, so both entries refuse and states 8 and 9 never run.
-// DISABLED 20-10-26 (branch ClipWords-integrated-wip, RUN_LOOP port): STOP needs RUN_LOOP's RUN_TO_STEP entry, held back
-// because it stalls the throw-in release until StepFamily's STEP handlers land, and those handlers. PES enters STOP mostly
-// from the STEP states 5, 15 and 14 (live census, S1Watch). Re-enable when StepFamily lands.
-TEST(MoveStepWire, DISABLED_TheFsmReachesStopAndAccelerate) {
+TEST(MoveStepWire, TheFsmReachesStopAndAccelerate) {
   Properties config;
   config.SetBool("pes_loop", true);
   REQUIRE_PES_MATCH(config);
