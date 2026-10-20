@@ -627,18 +627,18 @@ TEST(RunToStep, KeepsTheTickWhileBlendingTheHeading) {
 // STEP_LOOP, FUN_1406c4c10: the STEP_TO_RUN exit.
 // -------------------------------------------------------------------------------------
 
-// PES at 0x1406C567D-0x1406C592A: with the precise word clear, the turn (req[0x06]) and the
-// body turn (wrap180(req[0x04] - req[0x02]) at 0x1406C55C5) inside the 112.5 / 67.5 / 90
-// window, the handler re-issues the clip through FUN_1406BA2F0's style and asks for
-// STEP_TO_RUN (req[0x39] = 0xD at 0x1406C592A). The port never asked for STEP_TO_RUN at all,
-// so the state was unreachable.
+// PES at 0x1406C567D-0x1406C592A: with the CLASS WORD at 0, the precise word clear, the turn
+// (req[0x06]) and the body turn (wrap180(req[0x04] - req[0x02]) at 0x1406C55C5) inside the
+// 112.5 / 67.5 / 90 window, the handler re-issues the clip through FUN_1406BA2F0's style and
+// asks for STEP_TO_RUN (req[0x39] = 0xD at 0x1406C592A). The port never asked for STEP_TO_RUN
+// at all, so the state was unreachable.
 TEST(StepLoop, AsksForStepToRunWhenTheStyleChangesOnANonPreciseStep) {
   FakeHost host;
   MoveReq req;
   req.SetU(pes::moveword::kKind, 2);
   req.SetU(pes::moveword::kCommandSpeedClass, 1);
   req.SetU(pes::moveword::kPrecise, 0u);
-  req.SetU(pes::moveword::kClassWord, 1);
+  req.SetU(pes::moveword::kClassWord, 0);  // the arm's gate at 0x1406C55D2
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kHeading, 10.0f);
   req.SetF(pes::moveword::kLookHeading, 10.0f);
@@ -661,6 +661,36 @@ TEST(StepLoop, AsksForStepToRunWhenTheStyleChangesOnANonPreciseStep) {
   StepLoop(host, req);
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepToRun));
+}
+
+// The arm's class gate: with the class word at 1 the arm does not fire, so the tick falls
+// through to the STEP_LOOP_CHANGE tail instead.
+TEST(StepLoop, TheStepToRunArmNeedsTheClassWordAtZero) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetU(pes::moveword::kClassWord, 1);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  EXPECT_NE(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepToRun));
 }
 
 // The arm's window: the turn is 100 degrees and the body turn is 30 degrees, so the sum is
