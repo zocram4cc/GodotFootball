@@ -416,7 +416,8 @@ struct StepTables {
   std::array<int32_t, 10> bucketColumn;  // 0x1425dd988: bucket -> Animetable column
   std::array<int32_t, 64> kindBandRow;  // 0x1425dd9b0: kind + band * 8 -> Animetable row; 8 bands x 8 kinds (verified: 64 rows, 1325..1385)
   std::array<float, 10> bucketDegrees;   // 0x1425dd960: bucket -> degrees (TURN_STOP entry)
-  std::array<int32_t, 12> styleMotion;   // 0x1425ddcf0: class + style * 4 -> representative motion
+  // The representative motion per style and band (0x1425ddcf0) is RunTables::styleGroup: the
+  // same table, read at the style * 4 + band stride.
   // FUN_1406b70d0's distance rows, four floats each by class: the near bucket (0x1425dde70), the far bucket (0x1425dde80)
   // and the centre (0x1425dde90). The held row (0x1425ddea0) is read only on the carrier path, which GF does not port.
   std::array<float, 4> turnFront;   // 0x1425dde70
@@ -437,12 +438,13 @@ struct StepScalars {
   float deg45, deg67p5, deg78p75, deg90, deg112p5, deg135, deg140p625, deg146p25, deg168p75;
   float deg174p375, deg175, deg270;
   float neg45, neg67p5, neg90, neg112p5, neg180;
-  float dist1p25, dist1p5, dist3, eps1e7, threeQuarters, rate1p6;
+  float dist1p25, dist1p5, dist3, eps1e7, threeQuarters, s0p7;
   float rate0p9, rate0p95, clamp0p8, six;
   float s0p1333;
   float s0p15;  // 0.15, the STEP_LOOP_CHANGE stop-fallback gate (FUN_1406c6480, read at 0x1406c6bb8)
   float s0p1667, s0p2, s0p25, s0p3, s0p35, s0p4, s0p6, s0p85;
   float sq1139, sq2025, sq8100, step0p05;
+  float sq12656p25;  // 12656.25 (0x1425ddfdc): RUN_TO_STEP's body-error gate (FUN_1406c1070, 0x1406c1254)
 };
 std::optional<StepScalars> LoadStepScalars(const PeImage& exe, std::string* error);
 

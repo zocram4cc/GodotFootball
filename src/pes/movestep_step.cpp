@@ -73,6 +73,10 @@ constexpr float kRateHigh = 0.6000000238418579f;  // STEP_LOOP_CHANGE 0x1406c66f
 constexpr float kRateMid = 0.44999998807907104f;  // STEP_LOOP_CHANGE 0x1406c676e
 constexpr float kRateLow = 0.15000000596046448f;  // STEP_LOOP_CHANGE 0x1406c675c
 
+// STEP_LOOP's STEP_TO_RUN arm blend, the immediate PES stores into req[0x1b] and req[0x32]
+// (0x3e888889), opcode-checked as the owner rules allow.
+constexpr float kBlend0266 = 0.2666666805744171f;  // STEP_LOOP 0x1406c5880 / 0x1406c5915
+
 // FUN_1406b9ff0(interface, class, speed, kind): the rate for a class/speed pair. req[0xb] is the
 // "use the class rate" flag; the rate comes from FUN_1406b9e80's 10-knot table, which the
 // contract exposes as SpeedToRate with the same argument order.
@@ -226,13 +230,47 @@ void RunToStep(MoveHost& host, MoveReq& req) {
 
   // 3. The body direction: the request's, or the displacement heading while the dwell is
   //    nearly out.
-  float body = req.F(moveword::kBodyDirection);
-  if (req.F(moveword::kDwellElapsed2) < req.F(moveword::kDwellLimit2) * k.s0p25)
+  //    PES at 0x1406C11A2: the displacement heading is KEPT when 0.25 * limit <= elapsed, and
+  //    the request's own req[2] takes over otherwise.
+  float body = req.F(moveword::kFacing);
+  if (req.F(moveword::kDwellLimit2) * k.s0p25 <= req.F(moveword::kDwellElapsed2))
     body = DisplacementHeading(host);
   const float bodyError = Wrap180(Wrap180(req.F(moveword::kHeading)) - Wrap180(body));
 
-  if (int(req.U(moveword::kCommandSpeedClass)) == -1 || k.sq2025 < headingError * headingError ||
-      k.sq8100 < bodyError * bodyError) {
+  // PES's branch at 0x1406C1232: the class -1, a heading error past 8100 deg^2 (0x1425DDFD8) or
+  // a body error past 12656.25 deg^2 (0x1425DDFDC) goes to the stop arm; only a tick inside
+  // all three gates blends the root facing (0x1406C1261).
+  if (int(req.U(moveword::kCommandSpeedClass)) == -1 || k.sq8100 < headingError * headingError ||
+      k.sq12656p25 < bodyError * bodyError) {
+    // 5. The remaining dwell, the restored band, and the three exits.
+    req.SetF(moveword::kRecordStampA, blended);
+    const float dwellLeft = req.F(moveword::kDwellLimit2) - req.F(moveword::kDwellElapsed2);
+    req.SetF(moveword::kRecordStampB, dwellLeft <= 0.0f ? 0.0f : dwellLeft);
+    // PES at 0x1406C13FC: the window is 0.3 (0x142590D98) when the band is below the previous
+    // band, and 0.7 (0x14257A194) otherwise.
+    const float scale =
+        int(req.U(moveword::kClassWord)) < int(req.U(moveword::kPrevClassWord)) ? k.s0p3 : k.s0p7;
+    if (req.F(moveword::kDwellElapsed2) < req.F(moveword::kDwellLimit2) * scale) {
+      // PES: `req[0x1f] = req[0x24]; req[0x74 word] = req[0x88 word];` — the band and its speed come
+      // back from the previous ones (byte offsets 0x7c/0x88 inside the words 0x1f and 0x22).
+      req.SetU(moveword::kClassWord, req.U(moveword::kPrevClassWord));
+      req.SetF(moveword::kBandSpeedPrev, req.F(moveword::kBandSpeedCopy));
+    }
+    const float bodyTurn = Wrap180(req.F(moveword::kFacing) - req.F(moveword::kLookHeading));
+    if (k.deg22p5 <= std::fabs(bodyTurn) ||
+        (int(req.U(moveword::kClassWord)) < 1 &&
+         int(req.U(moveword::kCommandSpeedClass)) == -1)) {
+      EnterStop(host, req);
+    } else if (int(req.U(moveword::kCommandSpeedClass)) == -1 ||
+               req.F(moveword::kDistToTarget) <= k.one) {
+      EnterTurnStop(host, req);
+    } else {
+      EnterRunTurnRun(host, req);
+    }
+    return;
+  }
+
+  {
     // 4. The blend branch: the wrapped facing, drifted by the blended turn so far.
     const float facing = req.F(moveword::kFacing);
     float drift = facing + blended;
@@ -256,11 +294,13 @@ void RunToStep(MoveHost& host, MoveReq& req) {
       req.SetF(moveword::kRootFacingAngle, FoldHalfTurn(drift + delta));
       req.SetByte(moveword::kRootFacing, 1);
     }
+    // PES's exit gate at 0x1406C1343: the second dwell run out, or the dwell past three
+    // quarters (0x14259BDD4) with a heading error past 1139.0625 deg^2 (0x1425DDFD4), the
+    // precise flag set and the command speed class below the live class word.
     if (req.F(moveword::kDwellLimit2) <= req.F(moveword::kDwellElapsed2) ||
         (req.F(moveword::kDwellLimit2) * k.threeQuarters <= req.F(moveword::kDwellElapsed2) &&
-         (k.sq1139 < headingError * headingError ||
-          (req.Flag(moveword::kPrecise) &&
-           int(req.U(moveword::kCommandSpeedClass)) < int(req.U(moveword::kClassWord)))))) {
+         k.sq1139 < headingError * headingError && req.Flag(moveword::kPrecise) &&
+         int(req.U(moveword::kCommandSpeedClass)) < int(req.U(moveword::kClassWord)))) {
       req.SetU(moveword::kDwellElapsed, 0);
       req.SetU(moveword::kDwellLimit, 0);
       req.SetU(moveword::kDwellElapsed2, 0);
@@ -270,32 +310,6 @@ void RunToStep(MoveHost& host, MoveReq& req) {
       req.SetByte(moveword::kMotionPending, 0);
     }
     return;
-  }
-
-  // 5. The remaining dwell, the restored band, and the three exits.
-  req.SetF(moveword::kRecordStampA, blended);
-  const float dwellLeft = req.F(moveword::kDwellLimit2) - req.F(moveword::kDwellElapsed2);
-  req.SetF(moveword::kRecordStampB, dwellLeft <= 0.0f ? 0.0f : dwellLeft);
-  // PES: `fVar10 = 0.6; if (req[0x1f] < req[0x24]) fVar10 = 0.3;` — the band below the previous
-  // band's threshold halves the window.
-  const float scale =
-      int(req.U(moveword::kClassWord)) < int(req.U(moveword::kPrevClassWord)) ? k.s0p3 : k.s0p6;
-  if (req.F(moveword::kDwellElapsed2) < req.F(moveword::kDwellLimit2) * scale) {
-    // PES: `req[0x1f] = req[0x24]; req[0x74 word] = req[0x88 word];` — the band and its speed come
-    // back from the previous ones (byte offsets 0x7c/0x88 inside the words 0x1f and 0x22).
-    req.SetU(moveword::kClassWord, req.U(moveword::kPrevClassWord));
-    req.SetF(moveword::kBandSpeedPrev, req.F(moveword::kBandSpeedCopy));
-  }
-  const float bodyTurn = Wrap180(req.F(moveword::kFacing) - req.F(moveword::kLookHeading));
-  if (k.deg22p5 <= std::fabs(bodyTurn) ||
-      (int(req.U(moveword::kClassWord)) < 1 &&
-       int(req.U(moveword::kCommandSpeedClass)) == -1)) {
-    EnterStop(host, req);
-  } else if (int(req.U(moveword::kCommandSpeedClass)) == -1 ||
-             req.F(moveword::kDistToTarget) <= k.one) {
-    EnterTurnStop(host, req);
-  } else {
-    EnterRunTurnRun(host, req);
   }
 }
 
@@ -321,10 +335,15 @@ void StepToRun(MoveHost& host, MoveReq& req) {
     blended = req.F(moveword::kRecordStampA) / (tick * req.F(moveword::kDwellLimit));
 
   const float heading = req.F(moveword::kHeading);
-  const float remaining = Wrap180(req.F(moveword::kRecordStampB) - heading);
-  const float facingTurn = Wrap180(req.F(moveword::kFacing) - heading);
+  // PES at 0x1406C6FEC and 0x1406C7000: FUN_14043a0a0(stamp, heading) and
+  // FUN_14043a0a0(facing, heading), i.e. heading - stamp and heading - facing.
+  const float remaining = Wrap180(heading - req.F(moveword::kRecordStampB));
+  const float facingTurn = Wrap180(heading - req.F(moveword::kFacing));
   const int speedClass = int(req.U(moveword::kCommandSpeedClass));
 
+  // PES's stop gate at 0x1406C7005: the class -1 with the precise flag set (req+0x38 is
+  // word 0x0E), or both the remaining heading past 8100 deg^2 (0x1425DDFD8) and the facing
+  // turn past 2025 deg^2 (0x1425CB494).
   if ((speedClass == -1 && req.Flag(moveword::kPrecise)) ||
       (k.sq8100 < remaining * remaining && k.sq2025 < facingTurn * facingTurn)) {
     // 3. A small heading error hands over to a run-turn state instead of stopping.
@@ -499,9 +518,15 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   // 5. The turn into a run, and the stop.
   if (EnterStepTurnRun(host, req)) return;
   const float turnToTarget = Wrap180(req.F(moveword::kLookHeading) - req.F(moveword::kHeading));
-  // FUN_1406d6290 (the sidestep trap) reads the team's marking flag (ctx T+0x255) and the
-  // offside line, which MB-C does not port yet; it cannot fire before then.
-  // ponytail: port FUN_1406d6290 when the team context reaches GF.
+  // FUN_1406D6290 (the TIMING_STEP entry, req[0x39] = 0x16) is called by PES at 0x1406C4E51,
+  // after FUN_1406D38D0 declines. Its rule chain (TeamDecode's decode, §8 of
+  // local://pes-re-step-family.md) needs two things GF does not carry: the FORMATION's home
+  // position and home angle (rules 12 and 13 - the distance window around the side's own
+  // home x, and the angle gate), which the match has no counterpart for. The team possession
+  // latch (rules 2 and 11) IS available - Team::IsPesPossession() - and the adapter's
+  // TeamAi::PossessionLatched is where it would be read.
+  // ponytail: port FUN_1406D6290 when the formation's home position and home angle reach GF
+  // (the two rules that block it), and read the latch through TeamAi::PossessionLatched.
   if (liveBand < 2 &&
       ((k.deg33p75 < std::fabs(req.F(moveword::kTurn)) ||
         (liveBand < 1 && k.deg22p5 < std::fabs(req.F(moveword::kLookDelta)) &&
@@ -530,11 +555,13 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   } else {
     turned += k.full;
   }
-  float bodyTurn = Wrap180(turned - req.F(moveword::kHeading));
-  if (bodyTurn <= k.deg90 && k.neg90 <= bodyTurn) {
-    if (k.deg90 < bodyTurn) bodyTurn = k.deg90;
-  } else {
-    bodyTurn = 0.0f;
+  // PES at 0x1406C4FB9: FUN_14043a0a0(turned, req[0x01]) = wrap180(kHeading - turned), and
+  // the clamp at 0x1406C4FBE-0x1406C4FD8 holds it inside [-90, 90].
+  float bodyTurn = Wrap180(req.F(moveword::kHeading) - turned);
+  if (k.deg90 < bodyTurn) {
+    bodyTurn = k.deg90;
+  } else if (bodyTurn < k.neg90) {
+    bodyTurn = k.neg90;
   }
   if (k.sq1139 < bodyTurn * bodyTurn) {
     bucketMoved = true;
@@ -561,7 +588,8 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   int bucket = AngleBucket(host.AngleBuckets(), bucketAngle + bodyTurn,
                            int(req.U(moveword::kMoveBucket)), false);
   const int currentBucket = int(req.U(moveword::kMoveBucket));
-  const float turnToTargetDeg = Wrap180(req.F(moveword::kLookHeading) - req.F(moveword::kHeading));
+  // PES at 0x1406C4E7A: FUN_14043a0a0(req[0x03], req[0x01]) = wrap180(kHeading - kLookHeading).
+  const float turnToTargetDeg = Wrap180(req.F(moveword::kHeading) - req.F(moveword::kLookHeading));
   const bool turnIsWide = k.deg5p625 <= turnToTargetDeg;
   if (bodyTurn <= 0.0f) {
     if (currentBucket == 0 || currentBucket == 5) {
@@ -578,7 +606,10 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   }
 
   // The heading the step's own angle points at, and the drift from the look heading.
-  const float lookAhead = Wrap180(facing + tables.bucketDegrees[bucket] - req.F(moveword::kHeading));
+  // PES at 0x1406C5FD4: the inline difference is (req[0x01] - the column's angle) - the facing,
+  // and the call at 0x1406C5FE0 is FUN_14043a0a0(facing, that).
+  const float lookAhead =
+      Wrap180(req.F(moveword::kHeading) - tables.bucketDegrees[bucket] - facing);
   const float lookDelta = req.F(moveword::kLookDelta);
   float drift = 0.0f;
   if (!precise) {
@@ -606,6 +637,67 @@ void StepLoop(MoveHost& host, MoveReq& req) {
     }
   } else {
     drift = Wrap180(lookAhead + facing - req.F(moveword::kLookHeading));
+  }
+
+  // 6b. The STEP_TO_RUN arm (0x1406C55CA-0x1406C592A): the CLASS WORD must be 0 (the gate at
+  // 0x1406C55D2), the precise word clear (the decompile's iVar29, the stack slot at
+  // 0x1406C4C67 that holds req[0x38]), the turn (req[0x06]) and the body turn
+  // (wrap180(req[0x04] - req[0x02]) at 0x1406C55C5) inside the 112.5 / 67.5 / 90 window, and
+  // the heading turn (wrap180(req[0x01] - req[0x02]) at 0x1406C55B1) inside its own gate.
+  // Then the handler re-issues the clip through FUN_1406BA2F0's style and asks for
+  // STEP_TO_RUN (req[0x39] = 0xD at 0x1406C592A).
+  if (!precise && int(req.U(moveword::kClassWord)) == 0) {
+    const float bodyTurnArm = Wrap180(req.F(moveword::kBodyDirection) - facing);
+    const float headTurnArm = Wrap180(req.F(moveword::kHeading) - facing);
+    const float turnArm = req.F(moveword::kTurn);
+    if (std::fabs(turnArm + bodyTurnArm) <= k.deg112p5 &&
+        std::fabs(turnArm) < k.deg67p5 && std::fabs(bodyTurnArm) <= k.deg90) {
+      // The re-plan escape (0x1406C5638): when the heading turn and the turn are both past
+      // their gate and FUN_1406b70d0 agrees, the tick goes to FUN_1406d6780 (RUN_TURN_RUN)
+      // instead of the step-to-run request.
+      if (k.deg45 < std::fabs(headTurnArm) && k.deg45 < std::fabs(turnArm) &&
+          StepLetsRunTurn(host, req)) {
+        EnterRunTurnRun(host, req);
+        return;
+      }
+      // The re-issue: FUN_1406BA2F0's style, the representative motion from the style table
+      // (DAT_1425ddcf0), the mirror masks, and the blend words.
+      const float rateArm = req.F(moveword::kRate);
+      const int styleArm = LocomotionStyle(host, host.AnimeState(), rateArm, req,
+                                           host.RateCeiling(), false);
+      // PES at 0x1406C5898: req[0x09] (the command speed class) is clamped into 0..3 and
+      // stored back; that is the class the row uses.
+      const int bandArm = std::clamp(int(req.U(moveword::kCommandSpeedClass)), 0, 3);
+      req.SetU(moveword::kParamState, static_cast<uint32_t>(styleArm));
+      req.SetByte(moveword::kStyle, static_cast<uint8_t>(styleArm));
+      req.SetU(moveword::kCommandSpeedClass, static_cast<uint32_t>(bandArm));
+      req.SetU(moveword::kMotion,
+               static_cast<uint32_t>(host.RunTablesView().styleGroup[styleArm * 4 + bandArm]));
+      bool mirrorArm = host.ClipFlag();
+      if (styleArm < 13 && ((0x1028u >> (styleArm & 31)) & 1u) != 0) {
+        mirrorArm = true;
+      } else if (styleArm < 12 && ((0x814u >> (styleArm & 31)) & 1u) != 0) {
+        mirrorArm = false;
+      } else {
+        mirrorArm = req.Flag(moveword::kFootFlag);
+      }
+      req.SetByte(moveword::kMirror, mirrorArm ? 1 : 0);
+      req.SetF(moveword::kPlayback, k.one);
+      req.SetU(moveword::kTransitionWord, 0u);
+      req.SetF(moveword::kDuration, kBlend0266);
+      req.SetF(moveword::kStartTime, 0.0f);
+      // PES's tail (0x1406C587C-0x1406C592A): both dwell pairs, the live kind, the class word
+      // and the state.
+      req.SetF(moveword::kDwellElapsed, 0.0f);
+      req.SetF(moveword::kDwellLimit, kBlend0266);
+      req.SetF(moveword::kDwellElapsed2, 0.0f);
+      req.SetF(moveword::kDwellLimit2, kBlend0266);
+      req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
+      req.SetU(0x20, 0u);
+      RequestState(req, MoveState::kStepToRun);
+      req.SetByte(moveword::kMotionPending, 0);
+      return;
+    }
   }
 
   // The column window and the row.
@@ -653,19 +745,25 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   // Then the band gate decides which tail runs:
   //     if (A) { if (req[0x1a] < req[0x1b] * 0.25) goto keep; ...issue... }
   //     else   { ...keep the tick, ask for STEP_TURN_RUN... }
-  // with
-  //     A = (band < 0) || ((nextBand < 3 && ((nextBand < 2 || kind == 3) || kind == 6)) || !precise)
-  //         || ((1 < bucket - 3 && 1 < bucket - 8) || (turnToLook <= drift || fVar24 * 22.5 + 45 <= |bodyToTarget|))
-  const float bodyToTarget = Wrap180(req.F(moveword::kFacing) - req.F(moveword::kHeading));
+  // with PES's own A (the decompile's five-way || at 0x1406C5177):
+  //     A = (class < 0)
+  //      || ((nextBand < 3 && ((nextBand < 2 || kind == 3 || kind == 6) || precise != 0))
+  //      || ((rowBucket - 3 > 1 && rowBucket - 8 > 1)
+  //          || (distance <= 4.0 || distanceFactor * 22.5 + 45 <= |wrap180(kHeading - kBodyDirection)|))
+  // The port had the precise test inverted, the bucket term on the column instead of the row
+  // and the distance term on the drift instead of the distance.
+  const float bodyToTarget = Wrap180(req.F(moveword::kHeading) - req.F(moveword::kBodyDirection));
   const int band0 = int(req.U(moveword::kClassWord));
   const float distance = req.F(moveword::kDistToTarget);
   const float distanceFactor =
       k.kmh5 < distance ? (distance < k.kmh5 ? (distance - k.kmh5) / k.dist3 : 1.0f) : 0.0f;
-  const float driftLimit = drift;  // fVar28, the drift after the window clamp
+  // PES's row bucket: param_2[0x20] is the row id, and DAT_1425dd660[it] is that row's angle.
+  // The bucket in 4..7 is the one the term tests.
+  const int rowBucket = int(req.U(0x20));
   const bool gateA =
-      band0 < 0 || ((nextBand < 3 && ((nextBand < 2 || kind == 3) || kind == 6)) || !precise) ||
-      ((1 < bucket - 3 && 1 < bucket - 8) ||
-       (driftLimit <= k.deg67p5 ||
+      band0 < 0 || ((nextBand < 3 && ((nextBand < 2 || kind == 3) || kind == 6)) || precise) ||
+      ((1 < rowBucket - 3 && 1 < rowBucket - 8) ||
+       (distance <= k.four ||
         distanceFactor * k.deg22p5 + k.deg45 <= std::fabs(bodyToTarget)));
   if (!bucketMoved && req.U(0x3f) == 0 && !slowTurn) {
     // LAB_1406c5eba: keep the tick, record only the band and the bucket.
@@ -711,7 +809,11 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   request.playback = StepPlayback(host.PhysiqueG(), host.PlaybackConstantsView());
   request.startTime = startTime;
   host.Issue(request);
-  req.SetF(moveword::kRecordStampA, Wrap180(facing - req.F(moveword::kHeading)));
+  // PES at 0x1406C5FE0 and the store at 0x1406C5FF1: the value written into req[0x17] is
+  // wrap180((req[0x01] - the bucket's angle) - the player's facing), with the bucket's angle
+  // from DAT_1425dd660.
+  req.SetF(moveword::kRecordStampA,
+           Wrap180(req.F(moveword::kHeading) - tables.bucketDegrees[bucket] - facing));
   req.SetF(moveword::kRecordStampB, req.F(moveword::kHeading));
   req.SetU(moveword::kDwellElapsed, 0);
   req.SetU(moveword::kDwellLimit, precise ? 0u : uint32_t(clipBlend));
@@ -764,6 +866,37 @@ void StepLoopKeepsTick(MoveHost& host, MoveReq& req, int bucket, float turn) {
   (void)lookError;
   (void)wide;
   (void)narrow;
+  // PES's root-facing write (0x1406C5EDF-0x1406C5F31 and the block after it): the turn to the
+  // body's own direction, clamped against the clock's draw (180 / the frame rate, 54.0), is
+  // added to the player's facing, and that becomes req[0x3b] with req[0x3a] set.
+  const float bodyTurn = Wrap180(req.F(moveword::kBodyDirection) - req.F(moveword::kHeading));
+  const float draw = k.halfTurn / host.TicksPerSecond();
+  float delta = draw;
+  if (bodyTurn <= draw) {
+    delta = -draw;
+    if (bodyTurn > delta) delta = bodyTurn;
+  }
+  float faced = FoldFull(req.F(moveword::kFacing) + delta, host.RunConstantsView());
+  // The residual against the look heading, and the sign test that can end the tick.
+  const float lookFolded = FoldFull(req.F(moveword::kLookHeading), host.RunConstantsView());
+  float residual = faced - lookFolded;
+  if (k.halfTurn < std::fabs(residual)) {
+    residual -= (residual < 0.0f ? k.negOne : k.one) * k.full;
+  }
+  if (k.deg22p5 <= residual && residual <= k.deg135) {
+    // The facing's own turn against the look heading, and the sign test.
+    const float toLook = Wrap180(req.F(moveword::kLookHeading) - req.F(moveword::kFacing));
+    const float toFacing = FoldFull(req.F(moveword::kFacing), host.RunConstantsView()) - faced;
+    float toFacingWrapped = toFacing;
+    if (k.halfTurn < std::fabs(toFacingWrapped)) {
+      toFacingWrapped -= (toFacingWrapped < 0.0f ? k.negOne : k.one) * k.full;
+    }
+    const bool signToLook = toLook < 0.0f;
+    const bool signToFacing = toFacingWrapped < 0.0f;
+    if (signToLook != signToFacing && req.U(moveword::kPrecise) != 0u) return;
+  }
+  req.SetByte(moveword::kRootFacing, 1);
+  req.SetF(moveword::kRootFacingAngle, faced);
   // The row: the stop row for this bucket, and the mirror from the sameness of the two errors.
   const int row = bucket == 3 || bucket == 8 ? 0x639 : 0x631;
   const MoveCell cell = host.Cell(row, int(tables.bucketColumn[bucket]), false);
@@ -773,6 +906,24 @@ void StepLoopKeepsTick(MoveHost& host, MoveReq& req, int bucket, float turn) {
   req.SetU(moveword::kMotion, uint32_t(motion));
   req.SetByte(moveword::kMirror, mirror ? 1 : 0);
   req.SetF(moveword::kPlayback, StepPlayback(host.PhysiqueG(), host.PlaybackConstantsView()));
+  // PES's tail (0x1406C5CFE-0x1406C5D2B): the class is clamp(req[0x09], 0, 2), the speed band
+  // is the desired speed clamped into [5, 11] (or 5 when it is already at or below 16), the
+  // class word and its speed are carried over, the row's own word 0x20 becomes 0, and the live
+  // kind is the request's own.
+  const int classArm = std::clamp(int(req.U(moveword::kCommandSpeedClass)), 0, 2);
+  float speedArm = req.F(moveword::kDesiredSpeedKmh);
+  if (speedArm <= k.kmh16) {
+    speedArm = k.kmh5;
+  } else {
+    speedArm = std::max(speedArm, k.kmh11);
+  }
+  req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));
+  req.SetU(moveword::kBandSpeedCopy, req.U(moveword::kSpeedWord));
+  req.SetU(moveword::kBucketPrev, req.U(0x20));
+  req.SetU(moveword::kClassWord, static_cast<uint32_t>(classArm));
+  req.SetF(moveword::kSpeedWord, speedArm);
+  req.SetU(0x20, 0u);
+  req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
   req.SetByte(moveword::kMotionPending, 0);
 }
 }  // namespace
@@ -1031,7 +1182,8 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
   }
 
   // 2/3. The band and the rate, then the two run-turn entries.
-  const float turnToTarget = Wrap180(req.F(moveword::kRecordStampB) - req.F(moveword::kHeading));
+  // PES at 0x1406C6632: FUN_14043a0a0(req[0x18], req[0x01]) = wrap180(kHeading - kRecordStampB).
+  const float turnToTarget = Wrap180(req.F(moveword::kHeading) - req.F(moveword::kRecordStampB));
   if (precise && speedClass < 3 && k.deg22p5 < std::fabs(turnToTarget) &&
       int(req.U(moveword::kMoveBucket)) == int(req.U(moveword::kBucketPrev))) {
     if (k.deg45 <= std::fabs(Wrap180(req.F(moveword::kFacing) - DisplacementHeading(host)))) {
@@ -1136,7 +1288,7 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
           : 0.0f;
   if (share * k.deg22p5 + k.deg45 < std::fabs(turnToTarget) &&
       k.deg22p5 < std::fabs(req.F(moveword::kTurn)) &&
-      req.F(moveword::kDwellElapsed2) <= req.F(moveword::kDwellLimit2) * k.rate1p6) {
+      req.F(moveword::kDwellElapsed2) <= req.F(moveword::kDwellLimit2) * k.s0p7) {
     stopFallback = true;
   }
   float blendedTurn = 0.0f;
@@ -1172,12 +1324,16 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
   if (int(req.U(moveword::kMoveBucket)) == int(req.U(moveword::kBucketPrev))) window = k.deg90;
   if (req.F(moveword::kDwellLimit2) * window <= req.F(moveword::kDwellElapsed2) &&
       k.deg5p625 < std::fabs(turnToTarget)) {
-    // The clock draws 180 degrees per tick; below that the drift is clamped to the look heading.
-    const float draw = k.halfTurn / tick;
-    float delta = turnToTarget;
-    if (delta <= draw) {
+    // The clock draws 180 degrees per tick; below that the drift is clamped to the look
+    // heading. PES at 0x1406C6CE6: the draw is 180 / the frame rate (FUN_141e532d0 = 54.0),
+    // NOT 180 divided by the tick interval - the port had 180 * 54.
+    // At 0x1406C6CEB: when the turn is past the draw the delta IS the draw, otherwise it is
+    // the larger of the negated draw and the turn itself.
+    const float draw = k.halfTurn / host.TicksPerSecond();
+    float delta = draw;
+    if (turnToTarget <= draw) {
       delta = -draw;
-      if (-draw <= turnToTarget) delta = turnToTarget;
+      if (turnToTarget > delta) delta = turnToTarget;
     }
     drift += delta;
     if (0.0f <= drift) {
@@ -1214,20 +1370,13 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
     req.SetByte(moveword::kRootFacing, 1);
   }
 
-  // The final gate: the dwell runs out and the loop returns to STEP_LOOP.
+  // The final gate (0x1406C6EF0): the FIRST dwell (req[0x1a] against req[0x1b]) must have run
+  // out; then the loop returns to STEP_LOOP. The first dwell's new limit is 0.05 when the
+  // second dwell is still under four tenths of its limit, and 0 otherwise (0x1406C6EFB).
   const float elapsed = req.F(moveword::kDwellElapsed2);
   const float limit = req.F(moveword::kDwellLimit2);
-  const int bucketNow = int(req.U(moveword::kMoveBucket));
-  const int bucketPrev = int(req.U(moveword::kBucketPrev));
-  if (elapsed < limit &&
-      ((elapsed < limit * k.s0p2 || precise || speedClass < 2) ||
-       (bucketNow == 0 || bucketNow == 5 || bucketNow != bucketPrev))) {
-    if (speedClass != 1 && !(speedClass < 2 && int(req.U(moveword::kClassWord)) > 0) &&
-        !(bucketNow == 0 || bucketNow == 5 || bucketNow != bucketPrev)) {
-      return;
-    }
-  }
-  req.SetU(moveword::kDwellLimit, limit * k.s0p4 <= elapsed ? 0u : uint32_t(0.1f));
+  if (req.F(moveword::kDwellElapsed) < req.F(moveword::kDwellLimit)) return;
+  req.SetU(moveword::kDwellLimit, limit * k.s0p4 <= elapsed ? 0u : uint32_t(0.05f));
   req.SetU(moveword::kDwellElapsed, 0);
   req.SetU(moveword::kDwellElapsed2, 0);
   req.SetU(moveword::kDwellLimit2, 0);
@@ -1285,7 +1434,9 @@ void TurnStop(MoveHost& host, MoveReq& req) {
                             std::sqrt(ground[0] * ground[0] + ground[1] * ground[1] +
                                       ground[2] * ground[2]);
   req.SetF(moveword::kRate, req.F(moveword::kRate) * k.rate0p9);
-  const float turnToTarget = Wrap180(DisplacementHeading(host) - facing);
+  // PES at 0x1406CAD06: FUN_14043a0a0(req[0x02], req[0x01]) = wrap180(kHeading - kFacing).
+  // The result's magnitude (the abs mask at 0x1406CAD24) is the first path's gate.
+  const float turnToTarget = Wrap180(req.F(moveword::kHeading) - facing);
   const float turnToTargetDeg = std::fabs(turnToTarget);
   const float dwellLimit = k.one / tick * k.deg10;  // the clock's 10-degree window
 
@@ -1351,7 +1502,30 @@ void TurnStop(MoveHost& host, MoveReq& req) {
       }
     } else if (int(req.U(moveword::kMoveBucket)) != 0 &&
                int(req.U(moveword::kMoveBucket)) != 5) {
-      if (k.deg22p5 <= std::fabs(turnToTarget)) { /* fall through to the run-turn below */ }
+      // PES's non-precise arm (0x1406CB23A). The gate's angle is the one read at 0x1406CAFF1:
+      // FUN_14043a0a0(facing, the displacement heading) = wrap180(the displacement heading -
+      // the facing), and past 22.5 degrees (0x14259D618) the handler jumps to the class ladder
+      // at 0x1406CB0B6, which writes the class and the speed and then hands the tick to
+      // FUN_1406D38D0 (STEP_TURN_RUN). The port's gate had an empty body, so the ladder never
+      // ran and the tick fell into the run-turn block instead.
+      const float dispTurn = Wrap180(DisplacementHeading(host) - facing);
+      if (k.deg22p5 <= std::fabs(dispTurn)) {
+        if (k.kmh8 <= groundSpeed) {
+          if (k.kmh13p5 <= groundSpeed) {
+            req.SetU(moveword::kClassWord, 2);
+            req.SetF(moveword::kBandSpeed, k.kmh16);
+          } else {
+            req.SetU(moveword::kClassWord, 1);
+            req.SetF(moveword::kBandSpeed, k.kmh11);
+          }
+        } else {
+          req.SetU(moveword::kClassWord, 0);
+          req.SetF(moveword::kBandSpeed, k.kmh5);
+        }
+        // The ladder is not exclusive: PES falls on to the rest of the handler when
+        // FUN_1406D38D0 declines the tick (0x1406CB107).
+        if (EnterStepTurnRun(host, req)) return;
+      }
       if (k.kmh8 < groundSpeed && k.half < req.F(moveword::kDistToTarget) &&
           req.U(0x0f) != 0) {
         if (groundSpeed < k.kmh11 && int(req.U(moveword::kClassWord)) > 1) {
