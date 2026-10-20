@@ -140,6 +140,27 @@ pes::StepTables SyntheticTables() {
   return t;
 }
 
+// The speed-rate table (FUN_1406b9e80's ten records: vHi, vLo, rHi, rLo). One record maps
+// every speed to a rate of 1.0, so the rate walk's target is 1.0.
+pes::SpeedRateTable SyntheticSpeedRate() {
+  pes::SpeedRateTable t{};
+  t.record[0] = {1000.0f, 0.0f, 1.0f, 1.0f};
+  t.kindScale = 1.0f;
+  return t;
+}
+
+// The run constants the shared helpers read: the speed scale (3.6), the one and the fold pair.
+pes::RunConstants SyntheticRunConstants() {
+  pes::RunConstants k{};
+  k.one = 1.0f;
+  k.speed3600 = 3.6f;
+  k.full = 360.0f;
+  k.wrapFull = -360.0f;
+  k.half_turn = 180.0f;
+  k.neg = -1.0f;
+  return k;
+}
+
 // The representative motion per style and band (RunTables::styleGroup, the install's
 // 0x1425ddcf0 table).
 pes::RunTables SyntheticRunTables() {
@@ -259,9 +280,9 @@ class FakeHost : public MoveHost {
   pes::StepTables tables = SyntheticTables();
   pes::PlaybackConstants playback = SyntheticPlayback();
   pes::AngleBucketConstants buckets = SyntheticBuckets();
-  pes::RunConstants runConstants{};
+  pes::RunConstants runConstants = SyntheticRunConstants();
   pes::RunTables runTables = SyntheticRunTables();
-  pes::SpeedRateTable speedRate{};
+  pes::SpeedRateTable speedRate = SyntheticSpeedRate();
   pes::movestep::MoveTurnConstants turnConstants{};
   pes::MoveConstants moveConstants{};
   pes::IdleRowTables idleRows{};
@@ -841,6 +862,44 @@ TEST(StepLoop, TheStepTurnRunArmCarriesTheClassAndTheRowOver) {
   EXPECT_EQ(req.U(0x20), 0u);
 }
 
+// PES's STEP_TURN_RUN arm writes the root facing (0x1406C5EDF-0x1406C5F31 and the block
+// after it): the turn to the body's own direction, clamped against the clock's draw
+// (180 / the frame rate, 54.0), is added to the player's facing, and that becomes req[0x3b].
+// The port computed the values and discarded them, so the facing never moved.
+TEST(StepLoop, TheStepTurnRunArmWritesTheRootFacing) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetU(pes::moveword::kClassWord, 3);
+  req.SetU(0x20, 1u);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 60.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  // The body direction is 30 degrees from the heading, so the turn is -30 and the delta is the
+  // negated draw (-3.33): the facing lands on 356.67.
+  req.SetF(pes::moveword::kBodyDirection, 30.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  req.SetF(pes::moveword::kDistToTarget, 9.0f);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  // The root facing is the player's own facing (0) plus the delta.
+  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 356.66666f, 0.01f);
+}
+
 // -------------------------------------------------------------------------------------
 // STEP_LOOP_CHANGE, FUN_1406c6480.
 // -------------------------------------------------------------------------------------
@@ -1109,10 +1168,6 @@ TEST(TurnStop, KeepsTheTickWhileTheSecondDwellRuns) {
 // entry's own port is tested in its owner's test file.
 namespace pes {
 namespace movestep {
-float SpeedToRate(MoveHost& host, float speedKmh, int tableSelector) {
-  rateSelector = tableSelector;
-  return speedKmh > 0.0f ? 1.0f : 0.0f;
-}
 int LocomotionStyle(MoveHost&, int, float, MoveReq&, float, bool) { return 0; }
 int IdleRow(MoveHost&, MoveReq&) { return 0x5a1; }
 bool StayDecision(MoveHost&, MoveReq&) { return stayDecision; }
