@@ -1502,15 +1502,14 @@ void TurnStop(MoveHost& host, MoveReq& req) {
       }
     } else if (int(req.U(moveword::kMoveBucket)) != 0 &&
                int(req.U(moveword::kMoveBucket)) != 5) {
-      // PES's non-precise arm (the JBE at 0x1406CB075, which jumps to LAB_1406CB0B6): the
-      // gate's angle is the one at 0x1406CAFF1, wrap180(the displacement heading - the move
-      // bucket), and past 28.125 degrees (0x1425DDF94) the handler jumps to the class ladder
-      // and hands the tick to FUN_1406D38D0 (STEP_TURN_RUN). The port ran the run-turn block
-      // instead, because the gate's body was empty, and it compared the heading against the
-      // facing.
-      const float dispTurn = Wrap180(DisplacementHeading(host) -
-                                      tables.bucketDegrees[int(req.U(moveword::kMoveBucket))]);
-      if (k.deg28p125 <= std::fabs(dispTurn)) {
+      // PES's non-precise arm (0x1406CB23A). The gate's angle is the one read at 0x1406CAFF1:
+      // FUN_14043a0a0(facing, the displacement heading) = wrap180(the displacement heading -
+      // the facing), and past 22.5 degrees (0x14259D618) the handler jumps to the class ladder
+      // at 0x1406CB0B6, which writes the class and the speed and then hands the tick to
+      // FUN_1406D38D0 (STEP_TURN_RUN). The port's gate had an empty body, so the ladder never
+      // ran and the tick fell into the run-turn block instead.
+      const float dispTurn = Wrap180(DisplacementHeading(host) - facing);
+      if (k.deg22p5 <= std::fabs(dispTurn)) {
         if (k.kmh8 <= groundSpeed) {
           if (k.kmh13p5 <= groundSpeed) {
             req.SetU(moveword::kClassWord, 2);
@@ -1523,9 +1522,12 @@ void TurnStop(MoveHost& host, MoveReq& req) {
           req.SetU(moveword::kClassWord, 0);
           req.SetF(moveword::kBandSpeed, k.kmh5);
         }
-        if (EnterStepTurnRun(host, req)) return;  // FUN_1406d38d0
-      } else if (k.kmh8 < groundSpeed && k.half < req.F(moveword::kDistToTarget) &&
-                 req.U(0x0f) != 0) {
+        // The ladder is not exclusive: PES falls on to the rest of the handler when
+        // FUN_1406D38D0 declines the tick (0x1406CB107).
+        if (EnterStepTurnRun(host, req)) return;
+      }
+      if (k.kmh8 < groundSpeed && k.half < req.F(moveword::kDistToTarget) &&
+          req.U(0x0f) != 0) {
         if (groundSpeed < k.kmh11 && int(req.U(moveword::kClassWord)) > 1) {
           req.SetU(moveword::kClassWord, 1);
           req.SetF(moveword::kBandSpeed, k.kmh11);

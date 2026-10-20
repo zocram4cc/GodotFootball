@@ -1034,48 +1034,6 @@ TEST(StepLoopChange, TheDriftClampUsesTheDrawWhenTheTurnIsPastIt) {
 // TURN_STOP, FUN_1406cab20: the rate scale and the dwell-return gate.
 // -------------------------------------------------------------------------------------
 
-// PES at 0x1406CB075: with the turn-to-target past 28.125 degrees (0x1425DDF94) the
-// non-precise arm jumps to the class ladder - the class word and its speed from the ground
-// speed - and hands the tick to FUN_1406D38D0 (STEP_TURN_RUN). The port's gate had an empty
-// body, so the ladder never ran and the run-turn block took the tick instead.
-TEST(TurnStop, TheWideTurnRunsTheClassLadder) {
-  FakeHost host;
-  MoveReq req;
-  req.SetU(pes::moveword::kKind, 2);
-  req.SetU(pes::moveword::kCommandSpeedClass, 2);
-  req.SetU(pes::moveword::kPrecise, 0u);
-  req.SetU(pes::moveword::kClassWord, 2);
-  req.SetF(pes::moveword::kFacing, 0.0f);
-  req.SetF(pes::moveword::kHeading, 0.0f);
-  req.SetF(pes::moveword::kLookHeading, 0.0f);
-  req.SetF(pes::moveword::kBodyDirection, 0.0f);
-  // The turn-to-target is 40 degrees, past the 28.125-degree gate.
-  req.SetF(pes::moveword::kTurn, 40.0f);
-  req.SetF(pes::moveword::kLookDelta, 40.0f);
-  req.SetF(pes::moveword::kFacingError, 0.0f);
-  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
-  req.SetF(pes::moveword::kDwellLimit, 1.0f);
-  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
-  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
-  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
-  // The bucket is not 0 or 5, so the arm runs.
-  req.SetU(pes::moveword::kMoveBucket, 3);
-  // Word 0x0f is clear, so the run-turn block (which needs it) cannot run: only the class
-  // ladder can set the class word.
-  req.SetU(0x0f, 0u);
-  // The displacement heading is 160 degrees, and the bucket 3 sits at 135, so the gate's angle
-  // is 25 degrees: inside PES's 28.125-degree gate and outside the port's old 22.5 one. The
-  // ground speed is under 8 km/h, so the ladder - had it run - would have written the class 0
-  // and the 5.0 speed.
-  host.displacement[0] = 3.42f;
-  host.displacement[1] = 0.0f;
-  host.displacement[2] = -9.4f;
-  TurnStop(host, req);
-  // The ladder did not run, so the class word is the request's own.
-  EXPECT_EQ(req.U(pes::moveword::kClassWord), 2u);
-  EXPECT_FLOAT_EQ(req.F(pes::moveword::kBandSpeed), 0.0f);
-}
-
 // The rate is scaled by 0.9 (DAT_14258c260) at the top of the tick, so a request entering with
 // a rate of 1.0 leaves it at 0.9.
 // EnterTurnStop's playback (FUN_1406d2590 arm 1): the interface's vt+0x50 answer
@@ -1152,6 +1110,47 @@ TEST(TurnStop, TheFirstPathGateReadsTheRequestHeadingAgainstTheFacing) {
   // The gate failed, so the first path did not run: the dwell words are untouched.
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 1.0f);
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit2), 1.0f);
+}
+
+// PES at 0x1406CB262: with the displacement turn past 22.5 degrees (0x14259D618) the
+// non-precise arm jumps to the class ladder at 0x1406CB0B6 - the class word and its speed
+// from the ground speed - and hands the tick to FUN_1406D38D0 (STEP_TURN_RUN). The port's
+// gate had an empty body, so the ladder never ran and the run-turn block took the tick
+// instead.
+TEST(TurnStop, TheWideDisplacementTurnRunsTheClassLadder) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  // The bucket is not 0 or 5, so the arm runs.
+  req.SetU(pes::moveword::kMoveBucket, 3);
+  // Word 0x0f is clear, so the run-turn block (which needs it) cannot run: only the class
+  // ladder can write the class word and the speed.
+  req.SetU(0x0f, 0u);
+  // The displacement points at 25 degrees, so the gate's angle - wrap180(the displacement
+  // heading - the facing) - is 25 degrees: past PES's 22.5-degree gate and inside the
+  // 28.125-degree one. The displacement is 10 units long, so the ground speed is under
+  // 8 km/h and the ladder writes the class 0 and the 5.0 speed.
+  host.displacement[0] = 4.2262f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 9.0631f;
+  TurnStop(host, req);
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 0u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kBandSpeed), 5.0f);
 }
 
 // The request's heading level with the facing, so PES's gate passes, while the displacement
