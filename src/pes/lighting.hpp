@@ -16,9 +16,8 @@ namespace pes {
 // The match light rig `light_stNNN_a{f,r}` (docs: docs/re/pes-re-lighting.md
 // §0-8): the TimeOfDay spans with their settings, the sun inputs, the cloud
 // dome, the floodlights, the reflection probes, the shadow and plugin
-// settings. Carries only the groups the lighting uses — the tonemap,
-// colour-grading, demo-exposure, model-intensity and alpha-reflection groups
-// stay in the file for the post chain.
+// settings. Carries only the groups the lighting uses; the colour-grading,
+// demo-exposure, model-intensity and alpha-reflection groups stay in the file for the post chain.
 
 // One lighting group of a TimeOfDaySettings entity (report §2.4): a span's
 // settings replace the global entity's group only where the group's
@@ -46,13 +45,6 @@ struct LightSettings {
   double objFogRgbAmpFuncScale = 1000;
   bool overrideAmbientObscurance = false;
   double saoRadius = 0, saoBias = 0, saoIntensity = 0, saoContrast = 0;
-  // The tonemap group (report §4.1, Part C §3): the film curve and the white point.
-  // The defaults are UE4's FilmSlope/Toe/Shoulder/BlackClip/WhiteClip, used only
-  // when a file omits the field.
-  bool overrideTonemap = false;
-  double acesFilmSlope = 0.88, acesFilmToe = 0.55, acesFilmShoulder = 0.26;
-  double acesFilmBlackClip = 0, acesFilmWhiteClip = 0.04;
-  double whiteTemperature = 6500, whiteTint = 0;
 };
 
 // The merged TimeOfDaySettings for one span: the global entity's groups with
@@ -142,11 +134,10 @@ struct ShadowSettings {
   int temporalSampleCount = 4;
 };
 
-// PesPluginSettings (report Part C §2, §4.1): one per rig. The bloom size sets the
-// Kawase pass count, the brightness extraction is the bright-pass threshold, the
-// weight scales the bloom, and the tonemap speed is the adaptation rate.
+// PesPluginSettings (report Part C §2, §4.1): one per rig. The tonemap speed is the
+// adaptation rate of the eye (the post chain's law).
 struct PluginSettings {
-  double bloomSize = 0.4, bloomBrightnessExtraction = 0.4, bloomWeight = 0.3, tonemapSpeed = 30;
+  double tonemapSpeed = 30;
 };
 
 // A parsed light rig as the lighting surface needs it.

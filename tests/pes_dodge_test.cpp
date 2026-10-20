@@ -661,14 +661,17 @@ pes::NetGateInput RunningAt(float x, float y, float vx, float vy) {
 }
 
 TEST(PesDodgeNetGate, ThePesBearingIsAtan2DxDzWithZeroAlongGfY) {
-  // The gate compares bearings numerically, so the convention is pinned: 0 deg
-  // along +GF y (PES's +z), 90 deg along +GF x, wrapped to [0, 360).
-  EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, 0.0f, 1.0f), 0.0f, 1e-3f);
+  // The gate compares bearings numerically, so the convention is pinned. PES's z is minus GF's y
+  // (PesBearingDeg in pesdodge.cpp, the same convention as pesmovestep.cpp's PesBearingDeg; see
+  // docs/re/pes-re-carrier-port.md, the bearing row): atan2(dx, PES z), wrapped to [0, 360). So 0 deg
+  // runs along -GF y (PES's +z), 90 deg along +GF x and 180 deg along +GF y.
+  EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, 0.0f, -1.0f), 0.0f, 1e-3f);
   EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, 1.0f, 0.0f), 90.0f, 1e-3f);
-  EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, 0.0f, -1.0f), 180.0f, 1e-3f);
+  EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, 0.0f, 1.0f), 180.0f, 1e-3f);
   EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, -1.0f, 0.0f), 270.0f, 1e-3f);
-  EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, 1.0f, 1.0f), 45.0f, 1e-3f);
-  EXPECT_NEAR(pes::PesBearingDeg(2.0f, 3.0f, 2.0f, 4.0f), 0.0f, 1e-3f);
+  EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, 1.0f, -1.0f), 45.0f, 1e-3f);
+  EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, 1.0f, 1.0f), 135.0f, 1e-3f);
+  EXPECT_NEAR(pes::PesBearingDeg(2.0f, 3.0f, 2.0f, 4.0f), 180.0f, 1e-3f);
 }
 
 TEST(PesDodgeNetGate, HeHasToStandWithinTheEdgeMarginOfHisGoalLine) {

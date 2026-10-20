@@ -246,9 +246,9 @@ bool BallDodgeSubTestFast(const DodgeConstants& k, const BallSubTestInput& in);
 // is 8, 9 or 10 (the kicks).
 bool BallDodgeSubTestMouth(const DodgeConstants& k, const BallSubTestInput& in);
 
-// PES's bearing (FUN_140439e50 over FUN_140a92d40): atan2(dx, dz) in degrees,
-// wrapped to [0, 360), with 0 deg = +GF y (PES's +z) and 90 deg = +GF x. The
-// net gate compares bearings numerically, so this convention is load-bearing.
+// PES's bearing (FUN_140439e50 over FUN_140a92d40): atan2(dx, dz) in degrees, wrapped to [0, 360), with PES z =
+// -GF y: 0 deg = -GF y (PES's +z) and 90 deg = +GF x. The net gate compares bearings numerically, so this
+// convention is load-bearing.
 float PesBearingDeg(float fromX, float fromY, float toX, float toY);
 
 // The goal marks both goal gates read (FieldInfo, pes-re-fieldinfo.md §1); the

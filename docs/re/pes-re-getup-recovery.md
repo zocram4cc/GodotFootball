@@ -1,5 +1,10 @@
 # Get-up recovery: when may a defender slide or tackle again? (S1Watch, rounds 19–20)
 
+> **Main 19-10-26 (S1Watch round 32, live):** anime+0x245C is the MOVESTEP STATE byte (FUN_1406EADE0 = secondary+0x19A4 = P+0x245C), NOT a get-up phase byte: every "phase 1/2" reading in the stand-up sections below is a MOVESTEP state value and needs re-reading. Live census (20 players, ~120 s): STOP (8) entered ~19.5/min, ACCELERATE (9) ~111.5/min (indicative; the byte also carries other values). The FallDown -> action 80 switch (action byte anime+0xAC9) is unaffected.
+
+> **Main 19-10-26 (rounds 27-30):** the motion-table base is the PRIMARY anime pointer (FUN_1406E6960, longlong* -0x157); +0x35C+k*0x14 is the clip's ELAPSED time. Clip 881 reached 83 elapsed frames at the phase 1->2 switch; its total is not read (the live motion object is unlocated), so "remaining = 0 at the switch" is OPEN. PARKED. Note FUN_1406B11E0 reads n from (w>>0x15)&0xff, unlike FUN_1406B10D0.
+> **Main 19-10-26 (live):** one fall captured: Stagger 16 -> FallDown 17 (phase 1 constant) -> action 80 InplayDemoContact -> Move 2; the release is NOT a phase-2 release. CORRECTION: the current action id is the byte at anime_primary+0xAC9 (secondary+0x11), not anime+0x11.
+
 > **Main audit 19-10-26:** `0x14072EEFD` is the call inside FUN_14072EA00 (the rise blend set): matches. No fixed get-up timer: the next slide/tackle is gated by the current clip's +0x70 frame test (FallDown FUN_14072E360, Sliding FUN_140787EC0, Tackle FUN_140790160).
 > **Main audit 19-10-26 (round 20):** `0x1406EADE0` `lea rax,[rcx+0x19a4]; ret` on the secondary (anime+0xAB8): the phase byte is anime+0x245C. The release at the stand-up end is not found statically (needs a live match); PARKED.
 
@@ -45,7 +50,7 @@ Bit meanings and the stand-up class are not labelled in the docs (OPEN).
 - `sec+0x38` = `FUN_1406E6960` → `FUN_1406E68C0(clip)`: the clip's entry in the anime's current motion table (count `+0x420`, clip id `+0x354+k·0x14`, duration `+0x35C+k·0x14`), returned as `trunc(54·dur + 0.5)` frames; 0 if absent.
 - The other frame-count helpers (CONFIRMED decompile): `FUN_1406AF8E0(db, clip, speed, idx)` = `(2·f / speed)·(fps/60) + 0.5` with `f = (u32>>13) & 0x3FF` from entry `idx` (`rec+0xA0+8·idx`); `FUN_1406AF620(db, clip, speed)` = the same from the clip header (`rec+0x18`, bits 10..19).
 
-So the refusal reason at the end switch is the frame test: the selected track's frame count must be ≤ `sec+0x38`. FirstTouchPort2 observes `sec+0x38 = 0` at the stand-up end. The test then passes only if the selected track has 0 frames.
+> **[RETRACTED 19-10-26 by S1Watch live]** the release is via action 80 (InplayDemoContact) -> Move, not a zero-remainder frame test; sec+0x38 at the switch is unread. Original text: So the refusal reason at the end switch is the frame test: the selected track's frame count must be ≤ `sec+0x38`. FirstTouchPort2 observes `sec+0x38 = 0` at the stand-up end. The test then passes only if the selected track has 0 frames.
 
 ## 5. Rule: which track a phase selects (CONFIRMED, §4)
 
@@ -77,11 +82,26 @@ So the refusal reason at the end switch is the frame test: the selected track's 
 - Resets: `FUN_1406EB670` writes 0 (docs, `pes-re-gaps-anime.md` §4); `FUN_1406EB440` clears to 0 every tick (docs).
 - **Not found:** a writer inside the FallDown/Stagger/Rise functions. So the release at the end of a stand-up is not a store to this byte in those functions.
 
-**The release branch (INF, not proven).** At the end switch, `sec+0x38 = 0` (FirstTouchPort2). The FallDown test passes only when the selected track has 0 frames. A phase-2 man selects entry 0, so a release needs entry 0 to be zero-length; a non-2 phase selects the last entry. Which phase the stand-up holds at its end, and which track is zero, are open. The decisive live check: read `anime+0x245C`, the entry count, and the entry frame counts of the stand-up clip, on the frame of the switch.
+> **[RETRACTED 19-10-26 by S1Watch live]** the release is via action 80 (InplayDemoContact) -> Move, not a zero-remainder frame test; sec+0x38 at the switch is unread. Original text: **The release branch (INF, not proven).** At the end switch, `sec+0x38 = 0` (FirstTouchPort2). The FallDown test passes only when the selected track has 0 frames. A phase-2 man selects entry 0, so a release needs entry 0 to be zero-length; a non-2 phase selects the last entry. Which phase the stand-up holds at its end, and which track is zero, are open. The decisive live check: read `anime+0x245C`, the entry count, and the entry frame counts of the stand-up clip, on the frame of the switch.
 
 ## 8. Answer to Main's question
 
 - The byte is `anime+0x245C` (accessor `FUN_1406EADE0`), not `anime+0x20`.
 - Meaning: the per-action phase. For FallDown/Sliding the frame test uses only "== 2" versus "≠ 2", and "== 2" selects track 0 while the other values select the last track.
 - Writers: 24 byte-store sites in other action handlers (listed above); none in the FallDown/Stagger code. The release writer is not found.
-- The release is a frame test that compares the selected track's length with `sec+0x38`. At the stand-up end, `sec+0x38 = 0`, so only a zero-length selected track releases. That zero-length case is unverified.
+> **[RETRACTED 19-10-26 by S1Watch live]** the release is via action 80 (InplayDemoContact) -> Move, not a zero-remainder frame test; sec+0x38 at the switch is unread. Original text: - The release is a frame test that compares the selected track's length with `sec+0x38`. At the stand-up end, `sec+0x38 = 0`, so only a zero-length selected track releases. That zero-length case is unverified.
+
+
+## Live rounds 27-30 (S1Watch, appended by Main after a truncating archive was repaired)
+
+## 16. Clip 881 total ticks: NOT established (round 28, final step)
+
+**Formula (CONFIRMED by decompile of FUN_1406B10D0 and its callers).** `FUN_1406B10D0(obj, clip, rate, track)`: record = `*obj + clip·0x390` for `clip < 0x1125` (else `obj[1]`); track header word `w = *(u32 *)(rec+0x90+8·track)`, `n = low8(w>>13) + 2`; ticks = `int(((2n)/rate)·(fps/60) + 0.5)` with `fps = FUN_141E532D0()` (54 per §14). Main's formula matches. Note: the sibling `FUN_1406B11E0` (used for the frame-count path at several callers) reads `n = (w>>0x15) & 0xff` instead, so the two readers do NOT use the same bit field. Do not mix them.
+
+**Object reachability (NOT found).** The motion object `obj` is passed in `rcx` by the callers (for example 0x1406F6EFA, 0x1406CFF72); `*obj` is the record array base. A pointer scan of the match global G (first 0x4000 bytes), MI, and the AnimePlayer (first 0x2000 bytes) for `obj` with `*obj + 881·0x390` giving `n_tr` in 1..32 and a nonzero track word returned only implausible hits (base in image data, track words such as 0xCCC3C032, which are not headers). No valid motion object was confirmed, so clip 881's record was not read live.
+
+**Install data (not tried).** The install motion-record format is not decoded, so I could not read clip 881 from the files.
+
+**Consequence.** The remaining-at-switch test ("total − elapsed ≈ 0") cannot be evaluated from this data. Clip 881's total is unknown; elapsed reached 83 frames at the 1→2 phase switch (§15). §15's status stands: OPEN.
+
+**To close:** find the motion object by the caller's register (the enclosing function's `r12`/`rsi` at 0x1406F6EFA, decoded statically), or read the record through the owning function. Then read `n` at clip 881 track 0 (`*(rec+0x90)` word) and apply the formula above.

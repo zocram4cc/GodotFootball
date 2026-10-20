@@ -35,10 +35,10 @@ float Dist2(Vec2f a, Vec2f b) {
   return d.x * d.x + d.z * d.z;
 }
 
-// 0x140A92C80 is sin in degrees; cos(x) is sin(x + 90), as PES takes it. dir(theta) = (sin, cos).
+// 0x140A92C80 is sin in degrees; cos(x) is sin(x + 90), as PES takes it. dir(theta) = (sin, -cos): PES z = -GF y.
 Vec2f Dir(const LaneConstants& k, float deg) {
   return {TableSinDeg(deg, k.trig.one, k.trig),
-          TableSinDeg(deg + k.trig.quarter, k.trig.one, k.trig)};
+          -TableSinDeg(deg + k.trig.quarter, k.trig.one, k.trig)};
 }
 
 // The fold into [0, 360).
@@ -52,7 +52,7 @@ float Wrap360(float deg, const SpeedClassConstants& t) {
 // ponytail: std::atan2 stands in for PES's atan2 polynomial 0x140A92DC0, undecoded (spec O3).
 float Bearing(const LaneConstants& k, Vec2f a, Vec2f b) {
   if (a.x == b.x && a.z == b.z) return 0.0f;
-  float rad = std::atan2(b.x - a.x, b.z - a.z);
+  float rad = std::atan2(b.x - a.x, a.z - b.z);  // PES z = -GF y: the lane's z is the GF y coordinate
   if (rad < 0.0f) rad += k.twoPi_rad;
   return rad * k.radToDeg;
 }

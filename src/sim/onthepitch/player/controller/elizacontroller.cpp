@@ -361,10 +361,6 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         // while holding the ball, not the pass target - the pass target is the
         // chosen team-mate, which is what this uses it for: he walks toward
         // the free man and GF's pass goes to him.
-        // ponytail: PES picks the mate as the first team-mate in his own
-        // neighbour list with 10 m of space (MA+0x22e4c is the engine's
-        // per-player sorted distance list); this engine's nearest-player rule
-        // to the carry point stands in for that list.
         const pes::KeeperConstants& keeperConstants = match->GetPesKeeperConstants();
         // His own goal-area and box marks (PES F5/F6/F7). The keeper of the -x
         // goal attacks +x, so his own half is -x: the marks are magnitudes and
@@ -374,7 +370,26 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         const pes::DistributionPoint carry = pes::PesAfterCatchCarry(
             player->GetPosition().coords[0], player->GetPosition().coords[1], attackDir, marks,
             keeperConstants);
-        Player* targetPlayer = AI_GetClosestPlayer(team, Vector3(carry.x, carry.z, 0), CastPlayer());
+        // PES's teammate (pes-re-keeper-port.md §2.2): roll over the keeper's own NearestList, his team's
+        // block nearest first, and take the first teammate whose squared distance is under 100.0 (0x14253EE30,
+        // the carrier constant sfCeilOpp_m). INF: block 0 holds the keeper-to-teammate d^2.
+        Player* targetPlayer = nullptr;
+        {
+          std::vector<Player*> squad;
+          team->GetActivePlayers(squad);
+          const auto it = std::find(squad.begin(), squad.end(), CastPlayer());
+          if (it != squad.end() && it - squad.begin() < pes::lane::kSideSize) {
+            const pes::SortedRow& nl = team->GetController()->Rows().nearest[it - squad.begin()];
+            const float pickD2_m2 = match->GetPesCarrierConstants().sfCeilOpp_m;
+            for (int r = 0; r < nl.Count(0); ++r) {
+              const pes::RowEntry& e = nl.Entry(0, r);
+              if (e.value < pickD2_m2) {
+                targetPlayer = squad[e.id];
+                break;
+              }
+            }
+          }
+        }
 
         if (targetPlayer) {
           // check if this player is away from opponents, before throwing ball to him
@@ -836,6 +851,11 @@ bool DeepDefensiveMode(const TeamInstructions::State& instructions) {
   return instructions.mentality == TeamInstructions::e_Mentality_AllOutDefence ||
          instructions.mentality == TeamInstructions::e_Mentality_Defensive;
 }
+
+// PES's role class of a man: the side's array T(side)+0x4BD4[r%11] (0x14063C9F0 stores it; role-writer doc).
+// RoleArrays brings that array to main; until then GF's formation role stands in: class 0 for the keeper,
+// 1 for a field man. ponytail: remove when the array lands; this accessor is the one place to change.
+int CarrierRoleClass(Player* p) { return p->GetFormationEntry().role == e_PlayerRole_GK ? 0 : 1; }
 
 }  // namespace
 
@@ -2121,15 +2141,16 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   {
     const Vector3 facingNow = CastPlayer()->GetDirectionVec();
     const float facingNowAngle =
-        std::atan2(-facingNow.coords[1], -facingNow.coords[0]) * degreesPerRadian;
+        pes::PesBearingDeg(0.0f, 0.0f, facingNow.coords[0], facingNow.coords[1]);
     pes::IntentionInput intent;
     intent.closeBand = pes::IsClose(zone);  // pred+0x9cc
     // ponytail: the pair PES diffs at a3+0x10 and a3+0x30 is not decoded; the
-    // carrier's facing against the direction he is attacking stands in.
-    intent.headingDiff_deg = WrapDeg(facingNowAngle - (attackSign < 0.0f ? 180.0f : 0.0f));
-    // ponytail: (a4+0x14) * (a5+0x40) against pitch[6] - the carrier's advance
-    // against the penalty line, which is the pitch mark GF carries.
-    intent.attackDot = attackSign * carrierPos.coords[0];
+    // carrier's facing against the direction he is attacking stands in. Both are
+    // PES bearings (0 = +z, 90 = +x), the frame T+0x250 is stored in.
+    intent.headingDiff_deg = WrapDeg(facingNowAngle - pes::AttackAngleDeg(attackSign));
+    // 0x142119915: `MOVSS XMM0,[R12+0x14]; MULSS XMM0,[R14+0x40]` - attackSign * K.x (K = ctx4 =
+    // bp+0x78, K+0x40 is the ball x the per-tick copy carries), compared with F[6] at 0x14211991B.
+    intent.attackDot = attackSign * ballPos.coords[0];
     intent.penaltyLine_m = pesFieldHalfLength - SetPieceLaws::kAreaDepth;
     // ponytail: a5+0xB58 and a5+0xB3C are the two stored ball leads PES
     // compares, one of which GF does not carry; the ball's distance from him
@@ -2282,21 +2303,24 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
                            carrier) <= static_cast<int>(c->probability);
     };
     const auto image = [&](int plan) {
-      // ponytail: the manager copies the heading its unit published (+0xC0) and
-      // passes the unit its eval byte +0x6f (the mode-1 rule of 0x14211e0f0);
-      // GF publishes no heading, and the byte stands in as false.
+      // The manager copies the mode its unit published and passes the unit its
+      // eval byte +0x6f (the mode-1 rule of 0x14211e0f0); the byte still stands
+      // in as false. The heading is not the unit's: PES's writer (FUN_14211E650)
+      // runs every frame on the plan record, so it is set below for every mode.
       return pes::PlanImage{pes::PlanImageMode(plan, carrierImage.mode, false, carrierX, carrier),
                             0.0f};
     };
     pes::AdvanceImageSelection(carrierImage, cancel, admit, image);
+    // FUN_14211E650 writes plan+0xC0 every frame from the plan's mode and the
+    // carrier's own position (x along the attack in PES's frame, z across it).
+    carrierImage.heading_deg = pes::PlanHeadingDeg(carrierImage.mode, carrierPos.coords[0],
+                                                   carrierPos.coords[1], attackSign, carrier);
   }
 
   // The shoot decision (report 5.1): the shoot zone, the "just shoot" rule
   // and the box/header rule.
   const Vector3 facing = CastPlayer()->GetDirectionVec();
-  const float facingAngle = std::atan2(-facing.coords[1], -facing.coords[0]) * degreesPerRadian;
-  const float aimVsFacing =
-      std::fabs(WrapDeg((attackSign < 0.0f ? 180.0f : 0.0f) - facingAngle));
+  const float aimVsFacing = pes::AimVsFacingDeg(attackSign, facing.coords[0], facing.coords[1]);
   Player* keeper = match->GetTeam(abs(team->GetID() - 1))->GetGoalie();
   pes::ShootInput shoot;
   shoot.zone = zone;
@@ -2353,11 +2377,6 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // many ticks.
     constexpr float kLaneFrames = 11.0f;
     const float laneTime_s = kLaneFrames * pesball::kPesTick_s;
-    // The receiver offside prediction (report 4.3's status 6): every input to
-    // the carrier's offside line, and the receiver's own position, is read
-    // int(gameSpeed x 0.3) = 16 frames ahead.
-    constexpr float kReceiverFrames = 16.0f;
-    const float receiverPrediction_s = kReceiverFrames * pesball::kPesTick_s;
     const float lowPass = CastPlayer()->GetStat("technical_shortpass");
     const float carrierSpeed_kmh = CastPlayer()->GetMovement().GetLength() * 3.6f;
 
@@ -2380,73 +2399,101 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     std::vector<pes::PassCandidate> candidates;
     std::vector<Player*> mates;
     team->GetActivePlayers(mates);
-    for (Player* mate : mates) {
-      if (mate == CastPlayer()) continue;
-      if (mate->GetFormationEntry().role == e_PlayerRole_GK) continue;  // status 5
-      // The mate's target is his position a lane-time ahead (record A, "to
-      // feet"); record B ("into space") is not ported.
-      const Vector3 matePos = mate->GetPosition();
-      const Vector3 matePred = matePos + mate->GetMovement() * laneTime_s;
-      // PES 2021's receiver enumeration (docs/re/pes-re-carrier-ai.md 4.3):
-      // a team-mate whose position now or his position the receiver
-      // prediction ahead is beyond the carrier's offside line gets status 6
-      // - offside - and is never a pass receiver.
-      if (AI_ReceiverIsOffside(match, _mentalImage, team->GetID(), matePos,
-                               mate->GetMovement(), ballPos, ballMove,
-                               receiverPrediction_s))
-        continue;
-      const Vector3 target3(matePred.coords[0], matePred.coords[1], ballPos.coords[2]);
-      const float dist = (target3 - ballPos).GetLength();
-      if (dist > in.halfLen_m) continue;  // off the pitch
-      const float dx = target3.coords[0] - ballPos.coords[0];
-      const float dz = target3.coords[1] - ballPos.coords[1];
-      // The pass's forward angle is its bearing against the attack direction,
-      // and its turn angle the same bearing against the carrier's facing
-      // (report 4.3's +0xE4 and +0xE8). The absolute bearing stays local: the
-      // openness loop measures each opponent against the pass direction from
-      // it.
-      const float bearing = std::atan2(dz, dx) * degreesPerRadian;
-      const Vector3 facing = CastPlayer()->GetDirectionVec();
-      const float facingAngle = std::atan2(-facing.coords[1], -facing.coords[0]) * degreesPerRadian;
-      const float fwdAngle = WrapDeg(bearing - (attackSign < 0.0f ? 180.0f : 0.0f));
+    // PES 2021's receiver enumeration (0x142117c30, pescarrier.hpp): the pass layer is offered the mates whose
+    // status is valid, and no others. The offside line reads the opponents' S1 list (list 1 when attacking +x):
+    // its first five entries, a keeper skipped, and the ball, each 16 frames ahead.
+    std::vector<Player*> opponents;
+    match->GetTeam(1 - team->GetID())->GetActivePlayers(opponents);
+    const pes::SortedRow& oppList = team->GetController()->Rows().list[attackSign == 1.0f ? 1 : 0];
+    std::vector<pes::OffsideEntry> listed;
+    for (int r = 0; r < oppList.Count(1) && r < static_cast<int>(pes::kOffsideEntries); ++r) {
+      const int j = oppList.Entry(1, r).id - pes::lane::kSideSize;
+      if (j < 0 || j >= static_cast<int>(opponents.size())) continue;
+      Player* opp = opponents[j];
+      listed.push_back({opp->GetPosition().coords[0], opp->GetMovement().coords[0] * pesball::kPesTick_s,
+                        opp->GetFormationEntry().role == e_PlayerRole_GK});
+    }
+    const float offsideLine = pes::CarrierOffsideLine(
+        attackSign, listed, ballPos.coords[0], ballMove.coords[0] * pesball::kPesTick_s,
+        pes::ReceiverOffsideFrames(carrier));
+    const bool inSetPiece = match->IsInSetPiece();
+    const e_SetPiece setPiece = team->GetController()->GetSetPieceType();
+    const Player* taker = team->GetController()->GetPieceTaker();
+    // The receiver record writer (0x1421174F0) for one target. Record A ("to feet") and record B ("into space") take the
+    // same fields, measured from the ball: the forward angle is the bearing against the attack direction, the turn angle
+    // the same bearing against the carrier's facing (report 4.3's +0xE4 and +0xE8), and the openness loop measures each
+    // opponent in front of the pass against its direction.
+    const auto recordFor = [&](const Vector3& tgt) {
+      pes::ReceiverInput r;
+      const float dist = (tgt - ballPos).GetLength();
+      const float dx = tgt.coords[0] - ballPos.coords[0];
+      const float dz = tgt.coords[1] - ballPos.coords[1];
+      const float bearing = pes::PesBearingDeg(ballPos.coords[0], ballPos.coords[1], tgt.coords[0], tgt.coords[1]);
+      const float facingAngle = pes::PesBearingDeg(0.0f, 0.0f, facing.coords[0], facing.coords[1]);
+      const float fwdAngle = WrapDeg(bearing - pes::AttackAngleDeg(attackSign));
       const float turnAngle = WrapDeg(bearing - facingAngle);
-
       // The openness: the minimum over the opponents in front of the pass.
       float bestMargin = 150.0f;
       for (const PlayerImage& opp : opponentPlayerImages) {
-        const float oppDx = opp.position.coords[0] - ballPos.coords[0];
-        const float oppDz = opp.position.coords[1] - ballPos.coords[1];
-        if (std::fabs(WrapDeg(std::atan2(oppDz, oppDx) * degreesPerRadian - bearing)) >
-            carrier.openInFront_deg)
+        const float oppBearing = pes::PesBearingDeg(ballPos.coords[0], ballPos.coords[1], opp.position.coords[0], opp.position.coords[1]);
+        if (std::fabs(WrapDeg(oppBearing - bearing)) > carrier.openInFront_deg)
           continue;
         // The opponent's predicted point along the lane.
-        const Vector3 oppPred =
-            opp.position + opp.movement * laneTime_s;
+        const Vector3 oppPred = opp.position + opp.movement * laneTime_s;
         const float odx = oppPred.coords[0] - ballPos.coords[0];
         const float odz = oppPred.coords[1] - ballPos.coords[1];
         const float laneLen = std::sqrt(dx * dx + dz * dz);
         const float along = (odx * dx + odz * dz) / std::max(laneLen, 0.001f);
         const float perp = std::fabs(odx * dz - odz * dx) / std::max(laneLen, 0.001f);
-        bestMargin = std::min(bestMargin,
-                              pes::LaneOpennessMargin(dx, dz, along, perp, 1.0f, 0.0f, carrier));
+        bestMargin = std::min(bestMargin, pes::LaneOpennessMargin(dx, dz, along, perp, 1.0f, 0.0f, carrier));
       }
-      const float difficulty = pes::ReceiverDifficulty(
-          ballMove.GetLength(), dist, 0.0f,
-          PlayerSkills::Has(skills, PlayerSkills::Skill::OneTouchPass), carrierSpeed_kmh, false,
-          turnAngle, ballHeight, lowPass, carrier);
+      r.target = {tgt.coords[0], tgt.coords[1]};
+      r.passAngle_deg = fwdAngle;
+      r.fwdAngle_deg = fwdAngle;
+      r.turnAngle_deg = turnAngle;
+      r.ballToTarget_m = dist;
+      r.difficulty = pes::ReceiverDifficulty(ballMove.GetLength(), dist, 0.0f,
+                                             PlayerSkills::Has(skills, PlayerSkills::Skill::OneTouchPass),
+                                             carrierSpeed_kmh, false, turnAngle, ballHeight, lowPass, carrier);
+      r.openness = bestMargin;
+      r.opennessClass = pes::OpennessClassFromMargin(bestMargin, carrier);
+      r.dirClass = pes::DirectionClass(fwdAngle, carrier);
+      r.turnClass = pes::TurnClass(turnAngle, carrier);
+      return r;
+    };
+    for (Player* mate : mates) {
+      pes::ReceiverStatusInput status;
+      const Vector3 matePos = mate->GetPosition();
+      const Vector3 mateVel = mate->GetMovement();
+      status.pos = {matePos.coords[0], matePos.coords[1]};
+      status.velPerFrame = {mateVel.coords[0] * pesball::kPesTick_s,
+                            mateVel.coords[1] * pesball::kPesTick_s};
+      status.anime = AnimeClassOf(mate);
+      status.carrier = mate == CastPlayer();
+      status.setPieceTaker = inSetPiece && setPiece == e_SetPiece_FreeKick && mate == taker;
+      status.offsideTested =
+          !(inSetPiece && (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_GoalKick ||
+                           setPiece == e_SetPiece_Corner));
+      status.attackSign = attackSign;
+      status.offsideLine_m = offsideLine;
+      status.halfLen_m = pesFieldHalfLength;
+      status.halfWidth_m = pesFieldHalfWidth;
+      if (pes::ReceiverStatusOf(status, carrier) != pes::kReceiverValid) continue;
+      // The mate's two targets: record A ("to feet") is his position a lane-time ahead; record B ("into space") is the
+      // point of carrier-ai 4.3, from his own position. Each takes the record writer above.
+      const Vector3 matePred = matePos + mateVel * laneTime_s;
+      const Vector3 target3(matePred.coords[0], matePred.coords[1], ballPos.coords[2]);
+      const float mateKmh = mateVel.GetLength() * carrier.kmhPerMs;
+      const pes::CarrierPoint intoSpace = pes::IntoSpaceTarget(
+          {carrierPos.coords[0], carrierPos.coords[1]}, {matePos.coords[0], matePos.coords[1]},
+          pes::PesBearingDeg(0.0f, 0.0f, mateVel.coords[0], mateVel.coords[1]), mateKmh,
+          nearestOppDistance(mate, matePos), pes::AttackAngleDeg(attackSign), carrier);
+      const Vector3 intoSpace3(intoSpace.x, intoSpace.z, ballPos.coords[2]);
 
       pes::PassCandidate c;
       c.index = mate->GetID();
-      c.record.target = {target3.coords[0], target3.coords[1]};
-      c.record.passAngle_deg = fwdAngle;
-      c.record.fwdAngle_deg = fwdAngle;
-      c.record.turnAngle_deg = turnAngle;
-      c.record.ballToTarget_m = dist;
-      c.record.difficulty = difficulty;
-      c.record.openness = bestMargin;
-      c.record.opennessClass = pes::OpennessClassFromMargin(bestMargin, carrier);
-      c.record.dirClass = pes::DirectionClass(fwdAngle, carrier);
-      c.record.turnClass = pes::TurnClass(turnAngle, carrier);
+      c.record = recordFor(target3);
+      c.recordB = recordFor(intoSpace3);
       // The mate's own pressure: the nearest opponent to him decides both the
       // short-forward gate and the lofted tier's keeper-distance stand-in.
       const float mateNearest = nearestOppDistance(mate, matePos);
@@ -2514,19 +2561,20 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // ponytail: full dribble speed; GF has no mode 3, mode 4 or feint movement to map the sub-kind to.
   rawInputVelocityFloat = sprintVelocity;
 
-  // The Dribble default's sub-kind (report 2.1). The attack angle is the one the aim test reads.
-  const float attackAngle = attackSign < 0.0f ? 180.0f : 0.0f;
+  // The Dribble default's sub-kind (report 2.1). The attack angle is the one the aim test reads:
+  // the PES bearing of the attack direction (T+0x250), the same frame as the facing and velocity.
+  const float attackAngle = pes::AttackAngleDeg(attackSign);
   const Vector3 move = CastPlayer()->GetMovement();
   pes::DribbleChooserInput chooser;
   chooser.plan = carrierImage.id;
   chooser.planHeading_deg = attackAngle;  // ponytail: the plan's heading (+0xC0) is the attack direction
-  chooser.facing_deg = facingAngle;
+  chooser.facing_deg = pes::PesBearingDeg(0.0f, 0.0f, facing.coords[0], facing.coords[1]);
   chooser.teamAttack_deg = attackAngle;   // ponytail: team+0x250 is the attack direction
   chooser.forwardOfHalf = attackSign * carrierPos.coords[0] > 0.0f;
   chooser.pressureClass = carrierPressureClass;
   chooser.speed_kmh = move.GetLength() * carrier.kmhPerMs;
   chooser.velZero = move.GetLength() <= 0.0f;
-  chooser.velHeading_deg = std::atan2(-move.coords[1], -move.coords[0]) * degreesPerRadian;
+  chooser.velHeading_deg = pes::PesBearingDeg(0.0f, 0.0f, move.coords[0], move.coords[1]);
   chooser.room_m = nearestOpp;            // ponytail: FUN_140a4ddc0's room test is not ported
   chooser.laneFree = carrierPressureClass == 3;  // ponytail: the free-lane loop is not ported
   // ponytail: FUN_141052e30 (team mode, neutral here), the feint gate 0x14212e970, the turning
@@ -2590,6 +2638,19 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // The GoalFront unit (kind 2; gate 0x14212ABA0, picker 0x1421265C0): outside the central zone,
   // with the lane about the per-slot angle + 180 blocked, the most open mate in front of goal takes
   // a short ball. Its mate records are the receiver records the pass decision just built.
+  // A mate's lane slot in the carrier's lane space, numbered as fillSide numbers it: his index in his
+  // team's active list, the carrier's team at 0..10 and the opponents at 11..21. GetID() is the match's
+  // global allocation (AllocatePlayerID), not a lane slot.
+  const auto laneSlotOf = [&](const Player* p) {
+    std::vector<Player*> own, opp;
+    team->GetActivePlayers(own);
+    match->GetTeam(1 - team->GetID())->GetActivePlayers(opp);
+    for (int j = 0; j < static_cast<int>(own.size()) && j < pes::lane::kSideSize; ++j)
+      if (own[j] == p) return j;
+    for (int j = 0; j < static_cast<int>(opp.size()) && j < pes::lane::kSideSize; ++j)
+      if (opp[j] == p) return pes::lane::kSideSize + j;
+    return pes::lane::kNoSlot;
+  };
   pes::PassAnswer goalFrontPass;
   if (rethink) {
     pes::GoalFrontInput gf;
@@ -2622,7 +2683,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // own facing stands in for it.
     const Vector3 facingVec = CastPlayer()->GetDirectionVec();
     gf.laneHeading_deg =
-        WrapDeg(std::atan2(facingVec.coords[0], facingVec.coords[1]) * degreesPerRadian + 180.0f);
+        WrapDeg(pes::PesBearingDeg(0.0f, 0.0f, facingVec.coords[0], facingVec.coords[1]) + 180.0f);
     gf.central = pes::IsCentral(zone);
     // ponytail: the carrier's human flag (the team mode record +0x6C, the field
     // UnitListInput::humanCarrier leaves off) is not decoded to GF state.
@@ -2637,7 +2698,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       Player* mate = match->GetPlayer(c.index);
       if (mate == nullptr) continue;
       pes::GoalFrontMate m;
-      m.index = c.index;
+      m.index = laneSlotOf(mate);
       m.difficulty = c.record.difficulty;            // record A +0xF0
       m.distance_m = c.record.ballToTarget_m;        // record B +0xEC
       m.angleToFacing_deg = c.record.turnAngle_deg;  // record B +0xE8
@@ -2672,9 +2733,14 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // stand-ins, each named at the field with the PES site that writes it.
   pes::PassAnswer backSpacePass;
   pes::PassAnswer safetyPass;
+  pes::PassAnswer oneTwoPass;
+  pes::PassAnswer directHighPass;
   if (rethink) {
     pes::BackSpaceInput bs;
     pes::SafetyInput sf;
+    // The team's S1 score rows (pesscorerows.hpp, in the lane space) and the attacked goal's row.
+    const pes::ScoreRows& rows = team->GetController()->Rows();
+    const int attackK = static_cast<int>(attackSign);  // the sign k of FUN_140587E70 and FUN_140A714A0
     // The lane core's slot space, as GoalFront fills it above.
     const auto fillLaneSide = [&](Team* side, int base) {
       std::vector<Player*> squad;
@@ -2696,6 +2762,11 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     fillLaneSide(match->GetTeam(1 - team->GetID()), pes::lane::kSideSize);
     sf.players = bs.players;
     sf.carrierSlot = bs.carrierSlot;
+    // The NearestList rank 0 of the side opposite each slot (BackSpace's pass-through validator).
+    for (int q = 0; q < pes::lane::kSlots; ++q)
+      bs.nearestOpponent[q] = rows.nearest[q].Nearest(pes::lane::IsAwaySlot(q) ? 0 : 1);
+    // The gate lane's length: the carrier's d^2 in the row for sign !k (GateRowForSign, 0x140A714A0)
+    sf.carrierGateD2_m2 = pes::GateRowForSign(rows, attackK).ValueOf(bs.carrierSlot);
 
     // The carrier's frame in PES's theta convention: dir(theta) = (sin, cos) over (x, z), so the
     // facing and heading vectors convert directly (this engine's y is PES's z).
@@ -2706,11 +2777,11 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     const pes::CarrierPoint carrierVelFrame{carrierVel.coords[0] * pesball::kPesTick_s,
                                             carrierVel.coords[1] * pesball::kPesTick_s};
     const float facingTheta =
-        std::atan2(carrierDir.coords[0], carrierDir.coords[1]) * degreesPerRadian;
+        pes::PesBearingDeg(0.0f, 0.0f, carrierDir.coords[0], carrierDir.coords[1]);
     const float headingTheta = carrierVel.GetLength() <= 0.0f
                                    ? facingTheta
-                                   : std::atan2(carrierVel.coords[0], carrierVel.coords[1]) *
-                                         degreesPerRadian;
+                                   : pes::PesBearingDeg(0.0f, 0.0f, carrierVel.coords[0],
+                                                        carrierVel.coords[1]);
     const float carrierKmh = carrierVel.GetLength() * carrier.kmhPerMs;
     const float ballKmh = ballMove.GetLength() * carrier.kmhPerMs;
     // ponytail: imageA+0x31C1 (danger, 0x140699960) is not ported; the carrier's own-third pressure
@@ -2730,9 +2801,9 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     bs.sideAngle_deg = attackAngle;  // ponytail: team+0x250 is the attack direction
     bs.attackSign = attackSign;
     bs.teamLineOpp = attackSign * pesFieldHalfLength;  // ponytail: team-table lines are not carried; the goal line stands in
-    bs.pitchBound8 = pesFieldHalfLength;
+    bs.pitchBound8 = pesPenaltySpotX;  // F[8]: gate 3's x limit (0x142122838, raw asm)
     bs.pitchHalfLen_m = pesFieldHalfLength;
-    bs.pitchF6 = pesFieldHalfLength;
+    bs.pitchF6 = pesPenaltyAreaLineX;  // F[6]: the box line of gate 6's zone arm (helpers doc)
     bs.pitchF5 = pesGoalAreaHalfWidth;
     bs.ball = {ballPos.coords[0], ballPos.coords[1]};
     bs.ballHeight_m = ballHeight;
@@ -2749,7 +2820,13 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     // plan 4 never names a target, so the plan-4 arm stays silent.
     bs.planRecordTarget = -1;
     bs.planRecordBytesOk = false;
-    bs.curveGate = false;  // ponytail: the curve table (imageA+0x2B0, runtime) is not carried
+    // The curve table (R2) from the opponents of the carrier's side: the BackSpace gate and G12 read it.
+    // PES's psi (T+0x250) is the bearing 90 (attack +x) or 270 (attack -x); `attackAngle` is that same
+    // value, so the table takes it.
+    const std::optional<pes::Curve> curve =
+        pes::BuildCurve(bs.players, pes::lane::IsAwaySlot(bs.carrierSlot) ? 1 : 0, attackSign,
+                        attackAngle, pesFieldHalfLength, carrier);
+    bs.curve = curve;
     // ponytail: the box scalars (imageA+0xB44/0xB48/0xB3C/0xB40) are not carried; zeros keep the
     // mode-1 arm's skips off.
 
@@ -2763,20 +2840,51 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     sf.sideAngle_deg = attackAngle;
     sf.planHeading_deg = attackAngle;  // ponytail: the plan heading (ctx7+0xC0) stands in with the attack direction
     sf.planMode = carrierImage.mode;
-    sf.teamMode = 2;  // ponytail: the team mode (0x141052E30) is not carried; neutral, as the chooser
+    // The team mode 0x141052E30 = *(u32*)(bp+0x32B0+8), the carrier's Intention the ratchet above
+    // writes (writer 0x1421197B0); ctx[6] is BallPlayer+0x32B0 (carrier-ai §Unit context).
+    sf.teamMode = intention;
     sf.teamLineOpp = attackSign * pesFieldHalfLength;  // ponytail: team-table lines are not carried
     sf.teamLineB = attackSign * pesFieldHalfLength;
     sf.teamLineOwn = 0.0f;  // ponytail: the own-side line (T18+0x40+side*0x14) stands in with the midfield
     sf.pitchHalfLen_m = pesFieldHalfLength;
-    sf.pitchBound8 = pesFieldHalfLength;
-    sf.pitchF6 = pesFieldHalfLength;
+    sf.pitchBound8 = pesPenaltySpotX;  // F[8]
+    sf.pitchF6 = pesPenaltyAreaLineX;  // F[6]
     sf.pitchF5 = pesGoalAreaHalfWidth;
     sf.ball = bs.ball;
     sf.ballSpeed_kmh = ballKmh;
-    sf.ballTrackSet = false;  // ponytail: the ball-track flag (0x140A6D0D0) is not decoded to GF state
-    sf.humanCarrier = false;  // ponytail: ctx4+0x6C is not decoded to GF state
-    sf.receivingFlag = false;  // ponytail: ctx4+0x6E is not decoded to GF state
-    sf.ctx44 = 0.0f;           // ponytail: ctx4+0x44 is not decoded to GF state
+    // B+0x4C (0x140A6D0D0): the validity bit of the ball's sample 0, the first bounce of its track (0x140874100).
+    std::vector<pes::TrackPoint> track;
+    const auto& ballTrack = match->GetBall()->GetTrack();
+    track.reserve(ballTrack.size());
+    for (const Vector3& r : ballTrack) track.push_back({r.coords[0], r.coords[2], r.coords[1]});
+    const pes::BounceSample sample0 = pes::FirstBounceSample(track, carrier.bounceLatchHeight_m);
+    sf.ballTrackSet = sample0.valid;
+    // K+0x40 and its height K+0x44 (FUN_14063A490, 0x14063A854..0x14063A9B5). In a set piece it is the restart display
+    // point MI+0x155C, which GF takes as the live ball clamped to the pitch (the match+0x74c rule is not in GF). In open
+    // play it is the carrier's AI target point P_ai+0x1414, whose meaning the docs leave open, so the carrier's own
+    // ground point stands in and K+0x44 is 0. The replay/special (B+0x2920 == 4) and PASS_GET (carrier +0x5D0 == 5)
+    // branches and the TRAP record branch have no GF state and are off. The set piece is MI+0x116C == 3 here, with the
+    // kind 2..3 exception not mapped.
+    const pes::CtxPoint ctxPoint = pes::CarrierCtxPoint(
+        match->IsInSetPiece(),
+        {std::clamp(ballPos.coords[0], -pesFieldHalfLength, pesFieldHalfLength), ballHeight,
+         std::clamp(ballPos.coords[1], -pesFieldHalfWidth, pesFieldHalfWidth)},
+        {carrierPos.coords[0], 0.0f, carrierPos.coords[1]});
+    // K+0x6E (FUN_14063A490): the volatile-ball flag, from the ctx4 height K+0x44 (the point's height), the carrier's
+    // height P+0xA1 / 100, and K+0x6C off (GF's carriers are AI). It feeds the Safety keeper side arm and the
+    // DirectHighBall gate below.
+    pes::VolatileBallInput volatileIn;
+    volatileIn.ballHeight_m = ctxPoint.y;  // K+0x44
+    volatileIn.carrierHeight_m = CastPlayer()->GetStat("physical_height");
+    volatileIn.ballTrackFlag = sample0.valid;
+    volatileIn.anchor = sample0.xz;
+    volatileIn.ball = {ballPos.coords[0], ballPos.coords[1]};
+    // B+0x80 (r14b) is clear: its writer is undecoded.
+    volatileIn.target = {ctxPoint.x, ctxPoint.z};  // K+0x40
+    const bool volatileBall = pes::VolatileBall(volatileIn);
+    sf.humanCarrier = false;  // K+0x6C is FUN_140A63F80's human-controller test; GF's carriers are AI, so it is 0
+    sf.receivingFlag = volatileBall;
+    sf.ctx44 = ctxPoint.y;  // K+0x44: the ctx4 point's height (the Safety keeper side arm reads it)
     sf.danger = danger;
     sf.goalMouth = false;  // ponytail: imageA+0x31C0 is not ported
     // ponytail: the carrier's pressure counts (+0x30/+0x34/+0x38/+0x20) have no GF state (writer
@@ -2788,20 +2896,54 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     sf.carrierPressClass = carrierPressureClass;
     sf.oppPressPair = 0.0f;  // ponytail: T18+0x2470C (INF meaning, writer undecoded) is not carried
 
+    // The OneTwo and DirectHighBall units (kinds 10, 11): the one-touch predicate's carrier inputs
+    // (G1-G12), and the teammates both units test, built from the same receiver records below.
+    pes::TouchInput touch;
+    touch.players = bs.players;
+    touch.carrierSlot = bs.carrierSlot;
+    touch.carrierPos = carrierXZ;
+    touch.attackSign = attackSign;
+    touch.attackAngle_deg = attackAngle;
+    touch.carrierFacing_deg = facingTheta;
+    touch.carrierSpeed_kmh = carrierKmh;
+    touch.carrierHeading_deg = headingTheta;
+    touch.planHeading_deg = carrierImage.heading_deg;
+    touch.planMode = carrierImage.mode;
+    touch.ownLine_m = -attackSign * pesFieldHalfLength;  // G1: the own goal line stands in for T18+(sd+3)*0x14
+    touch.pitchBound_m = pesFieldHalfLength;             // G2: the pitch half length stands in for F+0x18
+    // G3's team level (T+0xA294 x100, reader 0x140A40BD0): the install's own stock class x 100 (the
+    // writer 0x1B5D8340, setter 0x140A424E0). GF has no match-setting selector (+0x18) and no per-side
+    // +0x9200 byte, so the value is the stock default and the zero flag is false.
+    touch.teamLevelRaw = carrier.teamLevelRaw;
+    touch.teamLevelZero = false;
+    touch.attackLevel = 0;  // G8: T+0xB8A4 is not carried (S4)
+    touch.teamMode = intention;  // G4, G8: 0x141052E30 = the carrier's Intention (writer 0x1421197B0)
+    touch.carrierCategory = bs.carrierSlot >= 0 ? bs.players[bs.carrierSlot].positionCategory : -1;
+    touch.score = pes::ScoreRowForSign(rows, attackK).ValueOf(bs.carrierSlot);  // G5: the S1 row of the sign
+    touch.closeZone = pes::IsClose(zone);
+    touch.humanCarrier = false;    // K+0x6C: GF's carriers here are AI
+    touch.oneTwoRunEvent = false;  // G7: the event record and the one-two run action are not carried (S7)
+    touch.runCount = 0;            // G8: the teammates' one-two runs are not carried (S7)
+    touch.markCount = 0.0f;        // G10: the mark count is not carried (S11); 0 is the decode's value
+    touch.curve = curve;
+    touch.flag15 = false;          // C[0xF] is not carried (S18)
+    std::vector<pes::TouchReceiver> touchMates;
+    std::vector<pes::DirectHighBallMate> dhbMates;
     for (const pes::PassCandidate& c : rethinkCandidates) {
       Player* mate = match->GetPlayer(c.index);
       if (mate == nullptr) continue;
+      const int laneSlot = laneSlotOf(mate);
       const Vector3 matePos = mate->GetPosition();
       const Vector3 mateVel = mate->GetMovement();
       const pes::CarrierPoint matePt{matePos.coords[0], matePos.coords[1]};
       const pes::CarrierPoint mateVelFrame{mateVel.coords[0] * pesball::kPesTick_s,
                                            mateVel.coords[1] * pesball::kPesTick_s};
       const Vector3 mateDir = mate->GetDirectionVec();
-      const float mateFacing = std::atan2(mateDir.coords[0], mateDir.coords[1]) * degreesPerRadian;
+      const float mateFacing = pes::PesBearingDeg(0.0f, 0.0f, mateDir.coords[0], mateDir.coords[1]);
       const float mateHeading =
           mateVel.GetLength() <= 0.0f
               ? mateFacing
-              : std::atan2(mateVel.coords[0], mateVel.coords[1]) * degreesPerRadian;
+              : pes::PesBearingDeg(0.0f, 0.0f, mateVel.coords[0], mateVel.coords[1]);
       const float mateSpeedKmh = mateVel.GetLength() * carrier.kmhPerMs;
       // The mate's zone at his 16-frame prediction, built as the GoalFront picker builds it.
       const Vector3 matePred16 = matePos + mateVel * (16.0f * pesball::kPesTick_s);
@@ -2814,9 +2956,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
           matePred16.coords[0], matePred16.coords[1], attackSign, mate->GetStat("technical_shot"),
           mateLongShotSkill, pesFieldHalfLength, pesGoalInnerHalfWidth, carrier);
       // The pass target's bearing in PES's theta convention: the record-B lane angle.
-      const float passTheta = std::atan2(c.record.target.x - ballPos.coords[0],
-                                         c.record.target.z - ballPos.coords[1]) *
-                              degreesPerRadian;
+      const float passTheta = pes::PesBearingDeg(ballPos.coords[0], ballPos.coords[1], c.recordB.target.x, c.recordB.target.z);
       // ponytail: 0x1404C8E00 (the team table's need) is the mate's nearest-opponent distance here.
       const float mateNeed = c.nearestOppToMate_m;
       const bool mateKeeper = mate->GetFormationEntry().role == e_PlayerRole_GK;
@@ -2825,7 +2965,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       const float turnFacing = std::fabs(c.record.turnAngle_deg);
 
       pes::BackSpaceMate bm;
-      bm.index = c.index;
+      bm.index = laneSlot;
       bm.pos = matePt;
       bm.velPerFrame = mateVelFrame;
       bm.facing_deg = mateFacing;
@@ -2837,11 +2977,11 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       bm.teamNeed_m = mateNeed;
       bm.teamAngle_deg = mateFacing;  // ponytail: the team table's angle (0x140A71260) is undecoded; the facing stands in
       bm.lineValue = attackSign * matePos.coords[0];  // ponytail: the team table's line value (0x14061E7C0) stands in with his x
-      bm.recBTarget = c.record.target;
+      bm.recBTarget = c.recordB.target;
       bm.recBAngle_deg = passTheta;
-      bm.recBDist_m = c.record.ballToTarget_m;
-      bm.recBDifficulty = c.record.difficulty;
-      bm.recBClass = c.record.opennessClass;
+      bm.recBDist_m = c.recordB.ballToTarget_m;
+      bm.recBDifficulty = c.recordB.difficulty;
+      bm.recBClass = c.recordB.opennessClass;
       bm.recAClass = static_cast<float>(c.record.opennessClass);
       // ponytail: the pressure entry's +0x10 (writer 0x14069A500) stands in with the mate's class.
       bm.pressureClass = static_cast<float>(c.pressureClass);
@@ -2850,19 +2990,20 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       bm.closeTest = pes::IsClose(mateZone);
       bm.zoneBuilt = pes::IsCentral(mateZone);  // ponytail: 0x14063E010, the same builders
       bm.zoneAtPred16 = mateZone;
-      bm.roleClass = mateKeeper ? 0 : 1;  // ponytail: the side's B-array class (role-writer §1) stands in with the GK role
+      bm.roleClass = CarrierRoleClass(mate);
       bs.mates.push_back(bm);
 
       pes::SafetyMate sm;
-      sm.index = c.index;
+      sm.index = laneSlot;
       sm.pos = matePt;
       sm.velPerFrame = mateVelFrame;
       sm.facing_deg = mateFacing;
       sm.heading_deg = mateHeading;
       sm.speed_kmh = mateSpeedKmh;
       sm.statusValid = true;  // ponytail: the b6c status byte stands in, as above
-      sm.roleClass = mateKeeper ? 0 : 1;
+      sm.roleClass = CarrierRoleClass(mate);
       sm.nearestOppD2 = mateNeed * mateNeed;  // 0x140587E70: the team table's d2 (the record stands in)
+      sm.score = pes::ScoreRowForSign(rows, attackK).ValueOf(laneSlot);  // gate 4's d^2 (S1 row of the sign)
       sm.pressureClass = static_cast<float>(c.pressureClass);
       sm.zoneMid = pes::IsMid(mateZone);
       sm.zoneAtPred16 = mateZone;
@@ -2871,16 +3012,82 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
       sm.recADist_m = c.record.ballToTarget_m;  // record A +0xEC
       sm.recADifficulty = c.record.difficulty;  // record A +0xF0
       sm.recAClass = c.record.opennessClass;    // record A [0]
-      sm.recBTarget = c.record.target;
+      sm.recBTarget = c.recordB.target;
       sm.recBAngle_deg = passTheta;
-      sm.recBVsFacing_deg = turnFacing;
-      sm.recBDist_m = c.record.ballToTarget_m;
-      sm.recBDifficulty = c.record.difficulty;
-      sm.recBClass = c.record.opennessClass;
+      sm.recBVsFacing_deg = std::fabs(c.recordB.turnAngle_deg);
+      sm.recBDist_m = c.recordB.ballToTarget_m;
+      sm.recBDifficulty = c.recordB.difficulty;
+      sm.recBClass = c.recordB.opennessClass;
       sf.mates.push_back(sm);
+
+      // The OneTwo and DirectHighBall receivers: the same record A and his own fields.
+      pes::TouchReceiver tr;
+      tr.index = laneSlot;
+      tr.pos = matePt;
+      tr.facing_deg = mateFacing;
+      tr.statusValid = true;  // ponytail: the b6c status (0x142118D20 == 0xB, S5) stands in as the filter above
+      // ponytail: his role class is the RoleArrays chain's T(side)+0x4BD4[r%11] (S6, writer OPEN in
+      // lane-inputs §3); CarrierRoleClass stands in until that array is on main.
+      tr.roleClass = CarrierRoleClass(mate);
+      tr.oneTwoRun = false;  // ponytail: player(r)+0x5D0 == 0x25 (P3) has no GF state
+      tr.difficulty = c.record.difficulty;
+      tr.dist_m = c.record.ballToTarget_m;
+      tr.turnFacing_deg = turnFacing;
+      tr.attackAngle_deg = turnAttack;
+      tr.opennessClass = c.record.opennessClass;
+      touchMates.push_back(tr);
+      pes::DirectHighBallMate dm;
+      dm.receiver = tr;
+      dm.velPerFrame = mateVelFrame;
+      dm.heading_deg = mateHeading;
+      dm.speed_kmh = mateSpeedKmh;
+      // ponytail: the per-slot angle table 0x140A71260 (S10, writer OPEN) stands in with his facing.
+      dm.tableAngle_deg = mateFacing;
+      dm.keeper = mateKeeper;
+      dm.recAClass = c.record.opennessClass;
+      dm.score = pes::ScoreRowForSign(rows, attackK).ValueOf(laneSlot);  // the mate's row entry
+      dm.markCount = 0;  // ponytail: AI rec2 +0x12A4 (S11) is not carried
+      dhbMates.push_back(dm);
     }
     backSpacePass = pes::BackSpaceUnit(bs, carrier);
+    // The carrier's NearestList row: his teammates nearest first. The Safety row and both receiver
+    // lists read this order; unlisted players go last.
+    const pes::SortedRow noNeighbours;
+    const pes::SortedRow& carrierNl = bs.carrierSlot >= 0 ? rows.nearest[bs.carrierSlot] : noNeighbours;
+    const auto nlRank = [&](int slot) {
+      const int r = carrierNl.RankOf(slot);
+      return r < 0 ? pes::lane::kSideSize : r;
+    };
+    std::stable_sort(sf.mates.begin(), sf.mates.end(),
+                     [&](const pes::SafetyMate& a, const pes::SafetyMate& b) {
+                       return nlRank(a.index) < nlRank(b.index);
+                     });
     safetyPass = pes::SafetyUnit(sf, carrier);
+    std::stable_sort(touchMates.begin(), touchMates.end(),
+                     [&](const pes::TouchReceiver& a, const pes::TouchReceiver& b) {
+                       return nlRank(a.index) < nlRank(b.index);
+                     });
+    std::stable_sort(dhbMates.begin(), dhbMates.end(),
+                     [&](const pes::DirectHighBallMate& a, const pes::DirectHighBallMate& b) {
+                       return nlRank(a.receiver.index) < nlRank(b.receiver.index);
+                     });
+    pes::OneTwoInput one;
+    one.touch = touch;
+    one.carrierAngle_deg = facingTheta;  // ponytail: K+0x34 (S9, INF) stands in with the carrier's facing
+    one.mates = touchMates;
+    oneTwoPass = pes::OneTwoUnit(one, carrier);
+    pes::DirectHighBallInput dhb;
+    dhb.touch = touch;
+    dhb.ballHeight_m = ballHeight;
+    dhb.ball = {ballPos.coords[0], ballPos.coords[1]};
+    // K+0x6E: the same volatile-ball flag the Safety keeper arm reads (above).
+    dhb.volatileBall = volatileBall;
+    dhb.firstTimeWhileReceiving = false;  // ponytail: AI rec+1 bit 5 (S12) is not carried
+    // ponytail: rec2+0x70+0x31 (S13) is the carrier's height stat 0x31, read here in metres.
+    dhb.carrierHeight_m = CastPlayer()->GetStat("physical_height");
+    dhb.mid = pes::IsMid(zone);
+    dhb.mates = dhbMates;
+    directHighPass = pes::DirectHighBallUnit(dhb, carrier);
   }
   pes::UnitListInput list;
   list.plan = carrierImage.id;
@@ -2895,9 +3102,25 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   list.wideSector = zone.sector == pes::kSectorWide;
   list.pastCrossLine = carrierImage.id == pes::kPlanCross &&
                        attackSign * carrierPos.coords[0] > pesFieldHalfLength - 10.0f;
+  // The lane units answer lane slots (own team 0..10, opponents 11..21, each side in its active-list order); the pass
+  // commands and the walk take global player ids. Convert the five lane answers here, before the walk reads them.
+  std::vector<Player*> ownActive, oppActive;
+  team->GetActivePlayers(ownActive);
+  match->GetTeam(1 - team->GetID())->GetActivePlayers(oppActive);
+  std::vector<int> ownIds, oppIds;
+  for (Player* p : ownActive) ownIds.push_back(p->GetID());
+  for (Player* p : oppActive) oppIds.push_back(p->GetID());
+  const auto toGlobalId = [&](pes::PassAnswer& answer) {
+    if (answer.index >= 0) answer.index = pes::LaneSlotToGlobalId(answer.index, ownIds, oppIds);
+  };
+  toGlobalId(goalFrontPass);
+  toGlobalId(backSpacePass);
+  toGlobalId(safetyPass);
+  toGlobalId(oneTwoPass);
+  toGlobalId(directHighPass);
   const std::vector<pes::UnitSlot> table =
       pes::FillUnitTable(pes::BuildUnitList(list), shotAnswer, pass, longPass, crossPass,
-                         goalFrontPass, backSpacePass, safetyPass);
+                         goalFrontPass, backSpacePass, safetyPass, oneTwoPass, directHighPass);
   pes::WalkContext walk;
   // The restart mode: 3 in a set piece, 1 in play, 2 stopped (report 5, MI+0x116C).
   walk.restartMode = match->IsInSetPiece() ? 3 : (match->IsInPlay() ? 1 : 2);
@@ -2919,8 +3142,12 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
                         match->GetPlayer(longPass.index) != nullptr &&
                         match->GetPlayer(longPass.index)->GetFormationEntry().role == e_PlayerRole_GK;
   walk.keeperWithinNinety = carrierPressureClass >= 2;  // ponytail: 0x140439FE0 is not ported
-  // ponytail: the instant-return event scan (rule 8, 0x140A3E940) reads the
-  // event table GF does not carry; Forward answers always stand.
+  // Rule 8's instant return: the Forward answer goes back to the man who passed to the carrier within two seconds.
+  // The last pass event keeps its passer and its target, both from the kick (humanoid.cpp).
+  const auto& lastPass = match->GetLastPassEvent();
+  walk.forwardIsInstantReturn = pes::ForwardIsInstantReturn(
+      pass.index, lastPass.passer ? lastPass.passer->GetID() : -1, lastPass.target == CastPlayer(),
+      static_cast<float>(match->GetActualTime_ms() - lastPass.time_ms) * 0.001f);
   const pes::UnitSlot won = pes::WalkCarrierUnits(table, walk);
   if (won.kind == 0) addShot();
   else if (won.kind == 4) addPass(pass);
@@ -2929,6 +3156,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   else if (won.kind == 2) addPass(goalFrontPass);
   else if (won.kind == 3) addPass(backSpacePass);
   else if (won.kind == 6) addPass(safetyPass);
+  else if (won.kind == 10) addPass(oneTwoPass);
+  else if (won.kind == 11) addPass(directHighPass);
 }
 
 void ElizaController::_AddPass(std::vector<PlayerCommand>& commandQueue, Player* target,

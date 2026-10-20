@@ -14,6 +14,21 @@ namespace {
 
 using namespace pes::offball;
 
+// The rows the run world reads. In production they are the team AIs' (BuildRunWorld); a test owns them here.
+// Each call rebuilds the storage from the run world's positions, and a test calls it before it reads.
+void BuildNearest(RunWorld& w) {
+  static std::array<pes::ScoreRows, 2> rows;
+  for (int t = 0; t < 2; ++t) {
+    pes::RowPlayers lanes{};
+    for (int lane = 0; lane < pes::lane::kSlots; ++lane) {
+      const int id = lane < kSlots ? t * kSlots + lane : (1 - t) * kSlots + (lane - kSlots);
+      lanes[lane] = pes::RowPlayer{w.p[id].pos.x, w.p[id].pos.z, w.p[id].active};
+    }
+    pes::BuildScoreRows(lanes, pes::ScoreRowConstants{}, 0xFF, rows[t]);
+    w.nearestRows[t] = &rows[t];
+  }
+}
+
 OffBallConstants Synthetic() {
   OffBallConstants k{};
   // selectorVision.o columns: L = 0..4, one row per run in the file's key order.
@@ -1292,8 +1307,9 @@ TEST(NearestList, CountsHoldOnlyTheActivePlayersOfEachTeam) {
   const auto opp = NearestOpponents(w, 0);
   EXPECT_EQ(9u, opp.size());
   for (const auto& n : opp) EXPECT_TRUE(w.p[n.id].active);
-  EXPECT_EQ(kSlots - 1, w.nearest[0].count[0]);  // own block excludes the owner (pes-re-teamtick.md §3.2)
-  EXPECT_EQ(9, w.nearest[0].count[1]);
+  const pes::SortedRow& nl = w.nearestRows[0]->nearest[0];
+  EXPECT_EQ(kSlots - 1, nl.Count(0));  // own block excludes the owner (pes-re-teamtick.md §3.2)
+  EXPECT_EQ(9, nl.Count(1));
 }
 
 TEST(NearestList, RanksGiveTheSlotWithinItsTeamsListAndAbsentForInactive) {
@@ -1301,9 +1317,10 @@ TEST(NearestList, RanksGiveTheSlotWithinItsTeamsListAndAbsentForInactive) {
   w.p[kSlots + 4].active = false;
   BuildNearest(w);
   const auto opp = NearestOpponents(w, 0);
-  for (int k = 0; k < static_cast<int>(opp.size()); ++k) EXPECT_EQ(k, w.nearest[0].rank[opp[k].id]);
-  EXPECT_EQ(kNearRankAbsent, w.nearest[0].rank[kSlots + 4]);
-  EXPECT_EQ(kNearRankAbsent, w.nearest[0].rank[0]);  // the owner is absent from his own block
+  const pes::SortedRow& nl = w.nearestRows[0]->nearest[0];
+  for (int k = 0; k < static_cast<int>(opp.size()); ++k) EXPECT_EQ(k, nl.RankOf(opp[k].id));
+  EXPECT_EQ(-1, nl.RankOf(kSlots + 4));  // inactive: absent from the list
+  EXPECT_EQ(-1, nl.RankOf(0));           // the owner is absent from his own block
 }
 
 TEST(NearestList, ATeamOneOwnerListsTeamZeroAsOpponents) {
@@ -1321,12 +1338,12 @@ TEST(NearestList, OwnersOwnTeamBlockExcludesTheOwner) {
   // pes-re-teamtick.md §3.2, CONFIRMED live: self excluded (owner 0: rank[0] = 10).
   RunWorld w = Spread();
   BuildNearest(w);
-  const auto& own = w.nearest[0].team[0];
-  for (int k = 0; k < w.nearest[0].count[0]; ++k) EXPECT_NE(own[k].id, 0);
-  EXPECT_EQ(w.nearest[0].count[0], kSlots - 1);
-  EXPECT_EQ(kNearRankAbsent, w.nearest[0].rank[0]);
+  const pes::SortedRow& nl = w.nearestRows[0]->nearest[0];
+  for (int k = 0; k < nl.Count(0); ++k) EXPECT_NE(nl.Entry(0, k).id, 0);
+  EXPECT_EQ(nl.Count(0), kSlots - 1);
+  EXPECT_EQ(-1, nl.RankOf(0));
   // The opponents' block is untouched: all 11 opponents listed.
-  EXPECT_EQ(w.nearest[0].count[1], kSlots);
+  EXPECT_EQ(nl.Count(1), kSlots);
 }
 
 

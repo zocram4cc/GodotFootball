@@ -438,34 +438,6 @@ float AI_GetOffsideLine(Match* match, const MentalImage* mentalImage, int teamID
                                    pitchHalfW + lineHalfW, match->GetPesJudgeConstants());
 }
 
-bool AI_ReceiverIsOffside(Match* match, const MentalImage* mentalImage, int attackingTeamID,
-                          const Vector3& receiverPos, const Vector3& receiverVelocity,
-                          const Vector3& ballPos, const Vector3& ballVelocity,
-                          float prediction_s) {
-  // PES 2021's receiver-enumeration offside test (docs/re/pes-re-carrier-ai.md
-  // 4.3, status code 6), for a carrier of `attackingTeamID` weighing a pass
-  // to `receiverPos`. The line is the carrier's own, not the referee's: the
-  // deepest forward point of the five last DEFENDERS and the ball, each
-  // predicted `prediction_s` ahead, in the attacking team's own attack frame.
-  const int attackingSide = -match->GetTeam(attackingTeamID)->GetSide();
-  std::vector<PlayerImage> opponentPlayerImages;
-  mentalImage->GetTeamPlayerImages(abs(attackingTeamID - 1), -1, opponentPlayerImages);
-
-  // The opponents' positions and movements, in the attacking team's frame.
-  std::vector<blunted::Vector3> opponentCentres;
-  std::vector<blunted::Vector3> opponentVelocities;
-  opponentCentres.reserve(opponentPlayerImages.size());
-  opponentVelocities.reserve(opponentPlayerImages.size());
-  for (const PlayerImage& image : opponentPlayerImages) {
-    opponentCentres.push_back(image.position);
-    opponentVelocities.push_back(image.movement);
-  }
-
-  return OffsideRule::ReceiverIsOffside(
-      attackingSide, opponentCentres, opponentVelocities, ballPos, ballVelocity, receiverPos,
-      receiverVelocity, prediction_s);
-}
-
 float veloExpFactor(float velo) {
   return pow(clamp(velo / sprintVelocity, 0.0f, 1.0f), 2.5f) * 3.0f;
 }

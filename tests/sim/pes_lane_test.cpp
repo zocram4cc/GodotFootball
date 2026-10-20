@@ -17,7 +17,7 @@ namespace {
 
 using Players = std::array<lane::LanePlayer, lane::kSlots>;
 
-lane::LaneRequest TestLane() { return {{0.0f, 0.0f}, 0.0f, 15.0f, 60.0f, 2.0f}; }
+lane::LaneRequest TestLane() { return {{0.0f, 0.0f}, 180.0f, 15.0f, 60.0f, 2.0f}; }
 
 void Put(Players& p, int slot, float x, float z, float vx = 0.0f, float vz = 0.0f,
          int category = -1) {
@@ -196,12 +196,12 @@ TEST_F(LaneCoreTest, WideConeUsesTheOffsetFormula) {
 }
 
 TEST_F(LaneCoreTest, LaneAngleWrapsAcrossNorth) {
-  // Heading 350 deg and a man 10 m out at bearing 10 deg: 20 deg apart, so he is in the cone.
+  // Heading 350 deg and a man 10 m out at PES bearing 10 deg (GF y is -PES z): 20 deg apart, so he is in the cone.
   // Without the fold into [-180, 180] the difference is 340 deg and he is refused.
   lane::LaneRequest north = TestLane();
   north.heading_deg = 350.0f;
   Players p{};
-  Put(p, 11, 1.7364818f, 9.8480775f);  // 10 m at bearing 10 deg: (sin, cos)
+  Put(p, 11, 1.7364818f, -9.8480775f);  // 10 m at PES bearing 10 deg: (sin, -cos) in GF
   EXPECT_EQ(lane::ScanLane(k_, p, 3, 1, north, false, 0).count, 1);
 }
 
