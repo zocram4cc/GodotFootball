@@ -1,6 +1,7 @@
 # PES A4 team tick — decode tickets for the OPEN steps of `FUN_1404F6C30`
 
 > **Main audit 19-10-26:** spot-checked by raw disassembly: `0x1404F6BC2` `movb [rax+0xe4],1` (step 5, T+0xE4); `0x1404F66AC/C5/E7` stores to T+0x6D0 (step 14, phase codes 4/5/computed); FUN_1404FB2A0 writes T+0x78 (step 40c; `movl [rax+0x78],0xff` resets at `0x1404FB2FA/34A/455`): all match. The agent's own checker reports 43 values + 77 operand pairs, 0 mismatches.
+> **Main audit 19-10-26 (round 2):** the T+0xB6DE reader `cmpb $0,[r15+0xb6de]` at `0x140928CF6` (opponent player AI) matches. Round 1 claims corrected in §5: 40e only READS T+0xB6DC; T+0x8C35[] has 8+ readers.
 
 Read-only RE report. No GF code changed, no PES written. Scratch: `<workdrive>/gf-TeamDecode-scratch/dec/`
 (bridge decompiles + `dis_1404F6C30.txt`; floats read by script from `pes_full.bin`, base `0x140000000`).
@@ -95,14 +96,14 @@ Status: **DECODED** = body read, gate + writes known → port contract ready;
 | 32 | `0x1404F7643` → `FUN_140A84E30` | SIM | DECODED | yes | `T+0x6F4` ring reset |
 | 35 | `0x1404F76B1` → `FUN_1404F61E0` | SIM | DECODED | yes | `T+0xB7EC[11]`, `T+0xB7F4/6` |
 | 36 | `0x1404F76BE` → `FUN_14057D240` | SIM | DECODED | yes | `T+0xA2A0` (0x6D), `T+0x88D8` |
-| 40 | `0x1404F7824`–`876` → 8 fns | SIM | DECODED | yes | see section |
+| 40 | `0x1404F7824`–`876` → 8 fns | SIM | DECODED | yes | **`T+0xBAB4`** (40f cost table), **`T+0xC128`** (40h mask), shared block (40e) |
 | 45 | `0x1404F796D` → `FUN_1404F88D0` | SIM | DECODED | yes | `T+0x64C[i]`, `T+0x678[slot]` |
 | 46-body | `0x1404F7975` → `FUN_1404FC720` | SIM | DECODED | yes | see section |
-| 47-meaning | `0x1404F7980` → `FUN_140509170` | SIM | DECODED | yes | `T+0xB6DE` |
+| 47-meaning | `0x1404F7980` → `FUN_140509170` | SIM | DECODED | yes | `T+0xB6DE` — **"this side is contesting the ball"** (§5.6) |
 | 48-bodies | `0x1404F7995`–`9AD` → 4 fns | SIM | DECODED | yes | see section |
 | 49 | `0x1404F79D8` → `FUN_140539ED0` | SIM | DECODED | yes | `brain+0x6C18` ctx |
 | 50-stubs | `0x1404F79DF`–`A0E` → `FUN_140421F40`×2 + 4 caseD | non-SIM (no-ops) | DECODED | n/a | none |
-| 52 | `0x1404F7A3E` → `FUN_14053C6E0` | SIM | DECODED | yes | `brain+0x6D2C` = `T+0x254` |
+| 52 | `0x1404F7A3E` → `FUN_14053C6E0` | SIM | DECODED | yes | `brain+0x6D28+0` (ball-side), `+4` (tactic 0..3), `+8` (zone class 0..5), `+0x20` (class max), `+0x28..0x40` (histogram), `+0x0C` (5 picks), `+0x48` (event count), `T+0x40/0x44` (taker) — **§5.1** |
 | 53 | `0x1404F7A5C` → `FUN_140A408C0` | SIM | DECODED | yes | `brain+0xBB8+0x3F08[]` (slot targets) |
 | 55 | `0x1404F7A85` → `FUN_140A42A70` | SIM | DECODED | yes | see section |
 
@@ -381,8 +382,20 @@ Status: **DECODED** = body read, gate + writes known → port contract ready;
 
 **Writes (CONFIRMED raw dis).** Three arrays on `T`:
 - **`T+0x8C35 + slot`** (11 bytes) — a per-slot "found a target" flag (`0x140500036 MOV byte ptr [RAX+R12*0x1+0x8C35],DL`).
+  **Round 2 (§5.5): this flag has 8+ readers** — `0x1404F8055` (step 21's own `FUN_1404F7BA0`),
+  `0x14052C061`, `0x14054C8C2`, `0x1405574DD`, `0x1405603B4`, `0x1405632A9`, `0x140563DDD`,
+  `0x140570295`, `0x140957F68`, `0x140959A83`, `0x140A1E57B`, `0x140A3060E` — all of the form
+  `CMP byte ptr [T + slot + 0x8C35], 0`. The base is confirmed as the team record at
+  `0x14052C054 CALL 0x140A48A30` → `RCX`, then `0x14052C061 CMP byte ptr [RCX+RAX*0x1+0x8C35],BPL`.
 - **`T+0x8C40 + slot*4`** (11 ints) — the chosen target player id (`0x14050003E MOV dword ptr [RAX+R12*0x4+0x8C40],ECX`); the "not found" value is `0xFF` (`0x1405001E7 MOV dword ptr [RAX+R12*0x4+0x8C40],0xff`).
-- **`T+0x8D50 + slot*4`** (11 floats) — the computed aim/lead angle for that slot (`0x1405001BE MOVSS dword ptr [RAX+R12*0x4+0x8D50],XMM13`).
+  **Round 2 (§5.5): this field has NO reader in the team tick.** The only other `0x8C40` site in the
+  image, `0x1408A7F10`, writes a *pointer* (`RAX = 0x142599B18`) and its base `RBX` is the function's
+  own argument, not the team record — a different object that happens to have a `+0x8C40` field.
+- **`T+0x8D50 + slot*4`** (11 floats) — a 0..100 cost/score for that slot (`0x1405001BE MOVSS dword ptr [RAX+R12*0x4+0x8D50],XMM13`).
+  **Round 2 (§5.5): this field has NO reader anywhere in the executable image** — a disp32 scan of the
+  `.trace` section and an independent full linear-disassembly scan both return exactly one site, the
+  writer. It is a write-only diagnostic; the "units" question is moot. Its range is **[0, 100]**
+  (the `MINSS` clamp at `0x1404FFE26` against the `100.0` loaded at `0x1404FFB8D`).
 
 The decompile missed these because the base register is `RAX = [R13+0x6D50]` loaded inside the loop. CONFIRMED raw dis — **this closes the "no writes" reading of step 20**.
 
@@ -715,6 +728,12 @@ A counter is incremented only when `FUN_140A40C10(uVar2) < 4`.
 
 ### Step 40 — `0x1404F7824`–`0x1404F7876` (8 functions)
 
+> **Round 2 (§5.2, §5.3, §5.4) reduced the three big bodies** (40e, 40f, 40h) and corrected the
+> `T+0xB6DC` claim. Summary: **40f** writes `T+0xBAB4` (a 0x21-column interception-cost table, int,
+> budget 50); **40h** writes `T+0xC128` (a 16-bit "who may receive the restart" mask, 11 bits);
+> **40e** writes only the shared per-player block (stride 0x1C) and only *reads* `T+0xB6DC`, which
+> has no writer in the executable image.
+
 Call sites (CONFIRMED raw dis `dis_1404F6C30.txt`):
 
 | # | call site | callee | what it does | writes |
@@ -828,7 +847,10 @@ So the rank is `class*100 + tie-break-index`, with class 0 mapping to rank 0.
 - The angle test around the ball (`DAT_14259DEC` = -6.0 and `DAT_14259BE28`) decides 0 vs 1.
 - The `FUN_140A4FEA0` call (the "can this side play the ball" predicate) returning non-zero → **0**.
 
-So **`T+0xB6DE` is a per-side "this side is (not) the one in control / in a 1-v-1 with the ball" flag** — read by step 48's `FUN_14057BA50` and by the offside-trap code. The precise semantics ("which side the ball belongs to in a contested situation") are **INF(h)**; the branch structure is CONFIRMED.
+So **`T+0xB6DE` is a per-side "this side is contesting the ball" flag** — read by the **opponent's**
+player AI, which releases its AI request when the flag is set. The full evidence is in **§5.6**;
+the branch structure is CONFIRMED and the semantic label is now CONFIRMED (it was INF(h) in
+round 1).
 
 **Constants (script-read pairs).**
 - `0x14050972D MOVSS XMM0,dword ptr [0x14259BDEC]` = `6.0` (`0x40C00000`); `0x1405092EB XORPS XMM0,dword ptr [0x1425656D0]` = `-0.0` — the `-6.0` cover margin.
@@ -914,6 +936,12 @@ Call sites (CONFIRMED raw dis + decompile):
 **Port contract.** none.
 
 ### Step 52 — `0x1404F7A3E` → `FUN_14053C6E0`
+
+> **Round 2 (§5.1) reduced all six downstream helpers.** The full per-helper description, the
+> field map and the port contract are in **§5.1**. Summary: `brain+0x6D28+0` is the "this side is the
+> ball side" flag, `+4` the tactic level 0..3, `+8` the ball-zone class 0..5, `+0x20` the class
+> maximum, `+0x28..0x40` the class histogram, `+0x0C` five picked candidate ids, `+0x48` an event
+> counter, and `T+0x40`/`T+0x44` the restart-pending flag and the restart taker id.
 
 **Callee VA.** `FUN_14053C6E0(brain+0x6D28, match, T)`.
 
@@ -1011,10 +1039,10 @@ Ranked by "a slice in `pes-re-team-layer.md` §3 reads this field and cannot wor
 |---|---|---|
 | **`T+0x78`** (designated pass target) | **step 40c `FUN_1404FB2A0` → `FUN_1404FB380`/`FUN_1404FB780`** (NEW — closes teamtick §4.2) | step 48a `FUN_1404FC4D0`, step 45, step 21, `FUN_1404F61E0` (step 35), `FUN_1404F8C70` (step 40f) |
 | **`T+0xE4`** (offside-trap armed) | **step 5 `FUN_1404F6720`** | step 48b `FUN_14057BA50` |
-| **`T+0xB6DE`** (ball-side flag) | **step 47 `FUN_140509170`** | step 48 (`FUN_14057BA50`), offside-trap code |
+| **`T+0xB6DE`** (contest flag) | **step 47 `FUN_140509170`** | **§5.6: the *opponent's* player AI, `FUN_140928710` at `0x140928CF6`** (it releases the AI request when the flag is set) |
 | **`T+0x218`** (no-ball counter) | **step 11 `FUN_1404FEDC0`** | step 43 (the `T+0x218 == 0` release sweep) |
 | **`T+0x6D0`** (phase code 4/5/6) | **step 14 `FUN_1404F6680`** | not yet read anywhere — **new field, GF has no counterpart** |
-| **`T+0x8C40[]` / `T+0x8C35[]` / `T+0x8D50[]`** | **step 20 `FUN_1404FF8B0`** | **new fields, no reader found this pass** |
+| **`T+0x8C40[]` / `T+0x8C35[]` / `T+0x8D50[]`** | **step 20 `FUN_1404FF8B0`** | **corrected in §5: `T+0x8C35[]` has 8 readers; `T+0x8C40[]` and `T+0x8D50[]` have none** |
 | **`T+0xB8A8` / `T+0xB8AC`** (shape-dispatch mode) | **step 15 `FUN_1404FA840`**, step 6 `FUN_1404F7AD0`, step 40b `FUN_14053B110` | step 40b's mode dispatch |
 | **`T+0xB8B4`** (build-up mode) | **step 17 `FUN_1404FBCA0`** | step 42 `FUN_140538050` (mode 1..6) |
 | **`T+0xB8B8`** (11-bit slot mask) | **step 19 `FUN_140500200`** | shape/licence code |
@@ -1022,20 +1050,352 @@ Ranked by "a slice in `pes-re-team-layer.md` §3 reads this field and cannot wor
 | **`T+0x8984/87/8A/8D`** (role census) | **step 27a-pre `FUN_1404FBB70`** | shape/role code |
 | **`T+0xB7EC[]`** (opponent mask) | **step 35 `FUN_1404F61E0`** | press/duel code |
 | **`T+0x6E7`** (cannot-contest byte) | **step 48a `FUN_1404FC4D0`** | step 40c `FUN_1404FB380` |
-| **`T+0xB6DC`** | **step 40e `FUN_14057C190`** | not identified this pass |
+| **`T+0xB6DC`** | **step 40e `FUN_14057C190`** | **corrected in §5: `T+0xB6DC` is only READ by 40e, not written by it** |
 | **`T+0x130`** (kick target id) | **step 29 `FUN_140537AC0`** | not identified this pass |
+
+---
+
+# §5 Round 2 — closing the §3 open items
+
+Second pass over the same image, same bridge, same base `0x140000000`. New tools:
+`patscan3.py` (a disp32 memory-operand scanner over the `.trace` executable section, offset
+`0x600`, size `0x252D800`), cross-checked against a full linear-disassembly scan
+(`xrefscan.py`) and against the bridge's disassembly output.
+
+## §5.1 Step 52 — the six helpers, reduced (CONFIRMED)
+
+`FUN_14053C6E0(brain+0x6D28, match, T)` — the disassembly (`dec/dis_14053C6E0.txt`, 46 lines) shows it is a
+**pure dispatcher**: it stores the side sign and the three pitch reference points, then calls six
+helpers in a fixed order with the same three arguments `(ctx, match, T)`:
+
+| order | call site | callee | what it does | writes |
+|---|---|---|---|---|
+| 0 | `0x14053C720` | `FUN_14063A420(ctx+8, match, side)` | the three pitch reference points | `ctx+8`, `ctx+0xC`, `ctx+0x10` (3 ints) |
+| 1 | `0x14053C725` → `0x14053C733` | `FUN_14053CB40` | **"is this side the one playing the ball?"** | `ctx+0` (int counter) |
+| 2 | `0x14053C738` → `0x14053C741` | `FUN_14053C790` | **the tactic/pressure level 0..3** | `ctx+4` (int) |
+| 3 | `0x14053C746` → `0x14053C74F` | `FUN_14053D250` | the **ball-zone class 0..5** + a 6-slot history | `ctx+0x20` (class), `ctx+0x24` (max), `ctx+0x28..0x40` (6 ints) |
+| 4 | `0x14053C754` → `0x14053C75D` | `FUN_14053C890` | the per-slot candidate table (5 ints/slot) and 5 picks | `ctx+0x0C`, `ctx+0x44`, … |
+| 5 | `0x14053C762` → `0x14053C76B` | `FUN_14053CC00` | the **event-driven override** of the class | `ctx+8`, `ctx+0x48` |
+| 6 | `0x14053C770` → tail `JMP 0x14053D3B0` | `FUN_14053D3B0` | the **kick-off taker pick** | `ctx+0x14`, `T+0x40`, `T+0x44` |
+
+**`FUN_14053CB40` (helper 1) — CONFIRMED raw dis (`dec/dis_14053CB40.txt`).**
+It reads the match's current ball-owner record (`FUN_140A3E7D0` → `FUN_140A60530` → the owner id) and
+compares it with the side:
+- owner record valid **and** owner id == side → **the side is playing the ball**;
+- else if the side has **no possession** (`T+0x255 == 0`) **and** has **no designated pass target**
+  (`T+0x78 > 0x15`), it re-reads the match's *other* record (`FUN_140A3E190(uVar1,0)+4`) and compares
+  that with the side;
+- only then, and only when `MI+0x116C == 1` (`0x14053CBEA CMP dword ptr [RBP+0x116C],0x1`), it does
+  `INC dword ptr [RBX]` (`0x14053CBF3`).
+Otherwise `MOV dword ptr [RBX],0x0` (`0x14053CBA2`).
+So **`ctx+0` is a 0/1 "this side is the ball side" flag**, recomputed each tick.
+
+**`FUN_14053C790` (helper 2) — CONFIRMED raw dis (`dec/dis_14053C790.txt`).**
+Writes `ctx+4` (the tactic level) from the attack level `T+0xB8A4`:
+`0 → 0`, `1 → 0`, `2 → 1`, `3 → 2`, `4 → 3` (`0x14053C7D2`–`0x14053C80B`).
+Two overrides:
+- `0x14053C81B`: a random gate `rand*12.0 + 0.5` (`0x14259BE04` = `12.0`, `0x142565600` = `0.5`)
+  whose value must be **less than** `ctx+0` (the ball-side flag) and the side must be on the wrong
+  half (`side_sign * ball_x < 0.0`) → `ctx+4 = 3` (`0x14053C857`);
+- `0x14053C85E`: `T+0xB8A2 != 0` (full attack) → `ctx+4 = 3`.
+The `ctx+0 == 1` case first sets `ctx+4 = 1` (`0x14053C7CB`) before the level map overwrites it.
+
+**`FUN_14053D250` (helper 3) — CONFIRMED decompile.** Computes the **ball-zone class** into `ctx+0x20`:
+- `ctx+0 == 0` (the side is not the ball side) → the class and the whole 6-slot history are zeroed;
+- else the class is 1 (`the ball is on this side`), 2 (`the ball is past the halfway line`,
+  `*ball_x / 3.0 < side_sign * goal_x`), 4 (`a corner-ish flag bit 11 of `FUN_140A72E70`),
+  or 5 (`and the ball is inside the goal mouth, `goal_z > ball_z``).
+`ctx+0x24` keeps the maximum class seen; `ctx+0x28..0x40` is a 6-slot counter ring (one per class).
+
+**`FUN_14053C890` (helper 4) — CONFIRMED decompile.** For each of the 11 on-pitch slots
+(`MI+0x1748` set, `MI+0x175E` clear) it fills **5 ints** (5 × `0x1C`-stride records) and then, for each
+of 5 output slots, collects the candidates whose weight (`ctx+0x0C + 0x14*slot`) is `> 0.0`, picks the
+best by `FUN_1421B7D40` and stores the id (`0xFF` if none).
+
+**`FUN_14053CC00` (helper 5) — CONFIRMED decompile.** Walks the match's **event list**
+(`FUN_140A3E570`) and overrides the class from the events:
+- event type `0` with `piVar12[5] == 3` (a shot?) and `MI+0x1558 == side` → `ctx+8 = 3`;
+- event type `7` (a pass) → the class is 1 or 2 depending on the sign of the receiver's z;
+- event type `0x0C` with `piVar12[5] == side` → `ctx+8 = 3` and `ctx+0x48 = 0`;
+- event type `0x18` → `ctx+0x48` counts "the event belongs to this side and the side is ahead".
+So **`ctx+8` is the event-driven zone class** and `ctx+0x48` an event counter.
+
+**`FUN_14053D3B0` (helper 6) — CONFIRMED decompile.** The **kick-off / restart taker pick**:
+- `ctx+0x10 != 0` → it counts up (`ctx+0x14++`) and, when the countdown expires, clears
+  `ctx+0x10` and `T+0x40`;
+- when idle, it walks the match's event list for an event of type `0x10` with `MI+0x1554 == 1` and
+  `MI+0x1558 == side`, then picks the **nearest** eligible player to the ball
+  (`FUN_140A8F890`) that is not `MI+0x173C` and is not already commanded
+  (`FUN_140A638C0`), storing it in `T+0x44` and setting `T+0x40 = 1`.
+
+**Step 52 port contract (updated).**
+- Inputs: the side sign (`T+0x254`), the ball position/owner, the attack level (`T+0xB8A4`),
+  the full-attack flag (`T+0xB8A2`), the match event list, the 11 on-pitch slots.
+- Outputs: `brain+0x6D28+4` (the sign float), `brain+0x6D2C` (three pitch reference ints),
+  `brain+0x6D28+0` (ball-side flag), `brain+0x6D28+4` (tactic level 0..3),
+  `brain+0x6D28+8` (zone class 0..5), `brain+0x6D28+0x20` (class max),
+  `brain+0x6D28+0x28..0x40` (class histogram), `brain+0x6D28+0x0C` (5 picked candidate ids),
+  `brain+0x6D28+0x48` (event counter), `T+0x40`/`T+0x44` (restart pending + taker id).
+- Pieces: (1) the ball-side flag (`FUN_14053CB40`); (2) the tactic level map + its two overrides
+  (`FUN_14053C790`); (3) the zone class + event override + taker pick (`FUN_14053D250` /
+  `FUN_14053CC00` / `FUN_14053D3B0`).
+- Red-test sketch: `TeamTick.TacticLevelFollowsAttackLevel` — attack level 3 gives tactic level 2 and
+  full-attack (`T+0xB8A2`) forces level 3; a non-ball side gives the ball-side flag 0.
+- Stand-in naming: `// ponytail: GF match-object replaces PES match+0xE0 event list (FUN_140A3E570 walk).`
+
+## §5.2 Step 40f — `FUN_1404F8C70` reduced (CONFIRMED)
+
+**Writes (one only):** **`T+0xBAB4 + 4*(column*0x21 + row)`** — an int array of `0x21` columns × rows,
+written at `0x1404F9CC8 MOV dword ptr [RAX + RCX*0x4 + 0xBAB4],EDX` (the base `RAX = [R15+0x6D50]`
+is the team record `T`). CONFIRMED raw dis.
+
+**Gate:** the whole body is inside `MI+0x116C == 1` (`dec/dis_1404F8C70.txt` first test).
+
+**What the number is.** The value written is `CVTTSS2SI EDX, XMM13` (`0x1404F9CB9`) — a **float
+truncated to an int**, and the float is an accumulated **cost** (`fVar42`), which starts at
+`DAT_14259BE34` = `50.0` and is reduced by every penalty term:
+- the direct interception cost (distance-weighted, with the `8.0` / `10.0` / `4.0` band ramps);
+- the "target is behind the goal line" cost;
+- the "target is a marked man" cost (`T+0x8C1F` / `T+0x8CE8`).
+The final `fVar42` is compared against `3.0` (`DAT_14258C264`) in places and the int is compared
+against `0x32` = 50 by a consumer.
+
+**The consumers (CONFIRMED, disp32 scan of `0xBAB4` in `.trace`):**
+- `0x14059967A` — `MOVD XMM0,dword ptr [RBX + RDX*0x4 + 0xBAB4]` then `CVTDQ2PS` and
+  `COMISS XMM1, XMM0` with `XMM1 = 20.0` (`0x14259BE1C`) → "is the cost above 20?" gate.
+- `0x14059D733` — `MOV r,rm` of the same array.
+- `0x140672132` — `CMP dword ptr [RAX + RDX*0x4 + 0xBAB4], 0x32` → "is the cost ≥ 50?" gate.
+All three index it as `row*0x21 + column` (the same `IMUL RDX,RCX,0x21` seen at
+`0x140599673` and `0x140672125`).
+
+**Reading.** `T+0xBAB4` is a **per-column interception-cost table** (0x21 = 33 columns; the row index
+is the "target slot" and the column index the "attacker slot" — the 11×11 own-team pairing, padded).
+The value is the *cost of attacking that column*, in the same units as the `50.0` starting budget.
+
+**Step 40f port contract.**
+- Inputs: the 11 own players' positions, the 11 opponents' positions, the ball position, the
+  run states, the `T+0x8C1F` / `T+0x8CE8` marking flags, the attack level.
+- Outputs: `T+0xBAB4[0x21*row + column]` (the interception cost per attacker/target pair).
+- Pieces: (1) the 33-column cost matrix; (2) the cost-reduction terms (the `8.0`/`10.0`/`4.0` bands,
+  the `6.0` cover drop, the `50.0` budget); (3) the truncation to int.
+- Red-test sketch: `TeamTick.InterceptionCostIsZeroForAnUnmarkedPair` — a pair with no marking flags
+  keeps the `50.0` budget (int 50) while a marked pair is reduced.
+- Stand-in naming: `// ponytail: GF marking flags replace PES T+0x8C1F / T+0x8CE8 (FUN_1405A4830 / FUN_140A638C0).`
+
+## §5.3 Step 40h — `FUN_1404FAD30` reduced (CONFIRMED)
+
+**Writes (one only):** **`T+0xC128`** — a **16-bit mask**, one bit per own slot.
+Three write sites, all in this callee: `0x1404FAD4B` (clear, at entry), `0x1404FAFDA` and
+`0x1404FB228` (the final value).
+
+**Gate.** `FUN_140A50250(match, side, 0) > 0` (the side has a restart), then
+`side_sign * ball_x >= -9.0` (`DAT_1425A9680` = `-9.0`), the ball is within the pitch box, and
+`FUN_140A50250(match, side, 1) < 1 && FUN_140A50250(match, side, 2) < 1` (no other restart pending)
+or the ball is inside the goal area.
+
+**The algorithm (CONFIRMED decompile + raw dis).**
+1. The mask starts as all 11 bits set (`0x1404FAE7B`: a `BTS` loop over 11 bits).
+2. The ball carrier is `FUN_140A627E0(match, 0)`; if it is off-pitch the mask is written unchanged.
+3. `FUN_140A4E720` is called twice with the carrier's facing angle and the two candidate aim points;
+   if **both** succeed the function **returns early without writing** (the mask keeps its all-ones value).
+4. Otherwise the candidate receiver `FUN_140A62960(match, side == 0)` is taken; if it is off-pitch
+   the function returns.
+5. `FUN_140A53DA0` is called twice (a "can this pass be played" test) with the constants
+   `130.0` (`0x1425A9BF0`) / `8.5` (`0x1425C48B4`) and `70.0` (`0x14259BE4C`) / `8.5`.
+6. The final loop clears a bit for every own player that is **too far** or **cannot receive**:
+   `FUN_14043A0A0` (the travel-time estimate) `<= 90.0` (`0x14259BE5C`) **and**
+   `FUN_140A4FEA0(match, side == 0, goal, time, 120.0, 6.5, 0, 1) == 0` → clear the bit
+   (`0x1404FB0xx`: `uVar15 = uVar15 & ~(1 << (uVar8 & 0x1f))`).
+7. The mask is written to `T+0xC128`.
+
+**So `T+0xC128` is the "which of my players are eligible to receive the restart" mask** — one bit per
+own slot, all set by default, cleared for players who cannot reach or cannot receive.
+
+**Readers of `T+0xC128`** (disp32 scan of `0xC128` in `.trace`): `0x140417514` (the side-to-side copy
+routine, `MOVZX EAX, word ptr [RSI+0xC128]` / `MOV word ptr [RDI+0xC128],AX`),
+`0x140607434` and `0x14061D716` (`MOVZX r, rm16`), `0x140A41A7B` (a writer),
+`0x1421547DC` and `0x14215D80C` (outside the game code region).
+The two game-side readers are in the restart/kick-off handling.
+
+**Step 40h port contract.**
+- Inputs: the restart type and its aim point, the ball carrier and its facing, the 11 own players'
+  positions and receive-ability, the ball position.
+- Outputs: `T+0xC128` (the 11-bit receive-eligibility mask).
+- Pieces: (1) the mask default (all ones) and the early-out when the carrier can already pass;
+  (2) the per-player clear rule (travel time `90.0`, receive test `120.0`/`6.5`); (3) the write.
+- Red-test sketch: `TeamTick.RestartMaskClearsPlayersWhoCannotReceive` — a player who fails the
+  receive test has its bit cleared while the others keep theirs.
+- Stand-in naming: `// ponytail: GF restart aim point replaces PES FUN_140A4E720/FUN_140A53DA0 aim geometry.`
+
+## §5.4 Step 40e — `FUN_14057C190` reduced (CONFIRMED), and a correction
+
+**Correction.** The earlier note said step 40e writes `T+0xB6DC`. It does **not**: `T+0xB6DC` is only
+**read** at `0x14057C2F8`, `0x14057C329` and `0x14057C366` (`CMP byte ptr [RCX+0xB6DC],0x0`), i.e. it is
+a flag 40e consults. The disp32 scan of `0xB6DC` in `.trace` finds **no** writer anywhere — so
+**`T+0xB6DC` is written outside the team tick** (its writer is in the side-planner / match-setup path).
+Correcting the §1 table entry accordingly.
+
+**What 40e actually writes.** The disassembly shows only four stores, all in one helper
+(`0x14057C510`–`0x14057C561`), and their base is `RDX` = the **match-object shared block**
+(`FUN_14042A7B0` → `*(brain+0x6D58+4) + 0x1040`), **not** the team record:
+- `[RDX + R8 + 0x9EC]` (byte) — a per-player flag;
+- `[RDX + R8 + 0x9F0]` (int) — a per-player int;
+- `[RDX + R8 + 0x9F4]` (byte) — a per-player byte;
+- `[RDX + R8 + 0xA04]` (uint) — a per-player id (it is copied verbatim from the same block).
+The stride is `0x1C` (`lVar21 = bVar17 * 0x1C`), so the block is a **22-entry × 0x1C record array**
+(a per-player "restart assignment" table).
+
+**The body.** For each of the 11 own slots whose run state is `0x25` (or `0x2C` with the
+`T+0x288` byte == `3`) and whose `T+0x4C00` counter is non-zero, it rewrites the run state to `0x2C`
+(`FUN_140A42940`), then sets the "position" via `FUN_140A42A30(lVar24, slot, 3|1|0)` and finally
+issues one of three orders (`0xB1`, `0x172`, `0xB3`) through `FUN_140A40800`. The order chosen
+depends on `T+0xB6DC` and on `FUN_140A62EA0` (a player id being valid).
+The second half of the function is a **copy-back**: it reads the shared block for each player, flips
+the `iStack_124` flag between 0 and 1 depending on `T+0xA1A0 + slot*4 == 0x2C` and the roster's
+"has a set piece" predicate `FUN_140A55D40(roster, side, 3)`, and writes the record back.
+
+**Step 40e port contract.**
+- Inputs: the 11 run states, the `T+0x4C00` counters, the `T+0x288` sub-state bytes, the shared
+  per-player block, the roster's set-piece predicate.
+- Outputs: the run state `0x2C` (and the orders `0xB1`/`0x172`/`0xB3`) and the shared block's
+  per-player records.
+- Pieces: (1) the `0x25`/`0x2C` run-state rewrite; (2) the three-way order choice; (3) the
+  copy-back with the flag flip.
+- Red-test sketch: `TeamTick.StateTwentyFiveBecomesTwentyTwoC` — a slot in state `0x25` with a
+  non-zero counter is left in `0x2C` after the tick.
+
+## §5.5 Step 20 — the `T+0x8D50` units, and the `T+0x8C35` / `T+0x8C40` readers
+
+**`T+0x8D50` has NO reader.** Two independent scans of the `.trace` executable section agree:
+- the full linear-disassembly scan (`xrefscan.py`, 300 s over 0x252D800 bytes) returns exactly
+  **one** memory operand with disp32 `0x8D50`: the writer at `0x1405001C2`;
+- the disp32 pattern scan (`patscan3.py`) returns the same single site.
+So `T+0x8D50[slot]` is **written and never read** — it is a *diagnostic* field (or is read by code
+outside the executable image). The **units question is therefore moot**: the value is dead.
+
+**The value's own range (for the record).** `XMM13` at the write site is the result of
+`MINSS XMM0, XMM13` (`0x1404FFE26`), i.e. a value clamped to the earlier `XMM13`, which was itself
+`100.0` (`0x14253EE30`, `0x1404FFB8D`) — so the stored float is in **[0, 100]**, a **cost/weight
+in the same 0..100 scale as the other team-eval scores**, not an angle. In the per-slot path the
+stored value is either that clamp result or the `/(-3.5)` rescale of `XMM13 - XMM10`
+(`0x1405001A4 DIVSS XMM13,[0x14259D658]` = `-3.5`), i.e. a **normalised difference**.
+
+**`T+0x8C35[slot]` (the per-slot "found a target" byte) has EIGHT readers.** The disp32 scan
+(`0x8C35`) returns, besides the writer at `0x140500038` and the clear at `0x1405001E0`:
+`0x1404F8055` (step 21's own `FUN_1404F7BA0`), `0x14052C061`, `0x14054C8C2`, `0x1405574DD`,
+`0x1405603B4`, `0x1405632A9`, `0x140563DDD`, `0x140570295`, `0x140957F68`, `0x140959A83`,
+`0x140A1E57B`, `0x140A3060E` — all of the form
+`CMP byte ptr [T + slot + 0x8C35], 0` / `CMP byte ptr [T + slot + 0x8C35], reg`.
+The base is confirmed as the team record in at least two of them:
+`0x14052C054 CALL 0x140A48A30` → `RCX` = the team record for the side, then
+`0x14052C061 CMP byte ptr [RCX+RAX*0x1+0x8C35],BPL`.
+So **`T+0x8C35[slot]` is a live "this slot has a target" flag** consumed by the run/state code.
+
+**`T+0x8C40[slot]` (the target id) has NO reader in the team tick.** The scan returns the writer
+`0x140500040`, the clear `0x1405001E9`, and one site `0x1408A7F10`
+(`MOV qword ptr [RBX+0x8C40],RAX`) — but that site writes a **pointer** (`RAX = 0x142599B18`) and
+its base `RBX` is the function's own `RCX` argument, **not** the team record; it is a different
+object that happens to have a `+0x8C40` field. The other `0x8C40` hits in the scan are `LEA r,m`
+forms in the `0x1408A7xxx` region — the same unrelated object.
+**Correction to §5's earlier claim**: `T+0x8C40` and `T+0x8D50` have no reader; only `T+0x8C35` does.
+
+**Step 20 port contract (corrected).**
+- Inputs: the latch, the pass target, the ball/player positions and velocities, the pitch line
+  bounds, the 24-entry roster.
+- Outputs: `T+0x8C35[11]` (**the live "has a target" flag**), `T+0x8C40[11]` (the target id,
+  `0xFF` = none), `T+0x8D50[11]` (a 0..100 diagnostic score, **write-only**).
+- Pieces: (1) the latch + carrier gate; (2) the per-slot candidate scan (on-pitch → roster record
+  not substituted → interpolate with `rand*0.1 + 0.5`); (3) the score clamp to `[0, 100]`.
+- Red-test sketch: `TeamTick.HasTargetFlagSetOnlyForAnEligibleSlot` — a slot that passes the
+  roster and on-pitch tests has `T+0x8C35[slot] == 1`; a slot that fails has 0 and `T+0x8C40[slot] == 0xFF`.
+
+## §5.6 Step 47 — the `T+0xB6DE` semantic label (CONFIRMED, was INF(h))
+
+**`T+0xB6DE` is a per-side byte that says "this side is the one the ball is contesting"** — and it is
+read by the **opponent's** player AI.
+
+**The writer** is `FUN_140509170(match, side)`, called from the tick at `0x1404F797B` with
+`EDX = brain+8` (the side) and `RCX = RBX` (the match), and the result is stored to the **writing
+side's** `T+0xB6DE` at `0x1404F7987 MOV byte ptr [RCX+0xB6DE],AL` (base `RCX = [RDI+0x6D50]` = `T`).
+
+**The reader** is `FUN_140928710(player_ctx, player_rec, flag)` at `0x140928CF6`
+`CMP byte ptr [R15+0xB6DE],0x0 / 0x140928CFE JNZ 0x140928E49`.
+`R15` is `FUN_140A48A30(G, bVar17)` where `bVar17` is **the *other* side** (`0x1409287A2 MOV EDX,ESI`
+→ `FUN_140A48A30`): the decompile confirms `lVar9 = FUN_140a48a30(DAT_1436f3dc8, bVar17)` with
+`bVar17 = true` (side 1) when the player's id is `> 10`.
+So the reader consults **the opponent's** `T+0xB6DE`.
+
+**What the reader does.** `FUN_140928710` is the "should this player keep its AI request" gate; it is
+called from `FUN_140929A00` at `0x140929A94`:
+```
+cVar7 = FUN_140928710(...);
+if (cVar7 == 0) FUN_14092A010(...);   // no AI request
+else                FUN_14092A340(...);  // raise an AI request
+```
+and `FUN_140928710` returns `true` on many conditions, one of which is
+`*(char *)(lVar9 + 0xB6DE) != 0` (`dec/FUN_140928710.c:236`).
+
+**Therefore:** `T+0xB6DE` is **"this side is in a contested-ball situation"** — the side that the
+*other* side's players must react to. When it is set, the opponent's players stop holding their
+current AI request and are released to make a new decision (`FUN_14092A340`).
+
+**How the writer decides (CONFIRMED decompile of `FUN_140509170`).**
+- `MI+0x116C != 1` → **0**.
+- The ball is on the side's attacking half (`side_sign * ball_x > 0`) → **0** (the side is not
+  contesting; it is the one in possession).
+- The side's current player is not the ball carrier → the nearest-list lookup runs; if a player of
+  *this* side is much closer to the ball than the current one (`DAT_1425A2670` = `400.0` distance²)
+  the function returns **1** (the side is contesting).
+- The angle test around the ball (`29.0`–`32.0` window, `DAT_14259BE28` = `32.0`,
+  `DAT_1425A9460` = `29.0`) decides 0 vs 1.
+- `FUN_140A4FEA0(match, side, ball, angle, …)` returning non-zero → **0**.
+
+**Step 47 port contract (semantic now CONFIRMED).**
+- Inputs: the ball position and owner, the side's current player, the side sign, the nearest-list
+  tables, the pitch box, the match phase.
+- Outputs: `T+0xB6DE` (byte: "this side is contesting the ball").
+- Pieces: (1) the `MI+0x116C != 1 → 0` arm; (2) the "side is in possession → 0" arm; (3) the
+  nearest-player and angle tests that return 1.
+- Red-test sketch: `TeamTick.ContestFlagSetOnlyWhenTheSideIsChallenging` — a side with the ball
+  has `T+0xB6DE == 0`; a side whose player is markedly closer to the ball than the current holder
+  has `T+0xB6DE == 1`.
+- **Cross-slice note (new):** the opponent's player AI releases its AI request when this flag is set.
+  Any port of `FUN_140928710` / `FUN_140929A00` must read the *other* side's flag.
+
+## §5.7 §3 open items — status after round 2
+
+| §3 item | status |
+|---|---|
+| 1. step 40f / 40h bodies not reduced | **CLOSED** — §5.2 (40f → `T+0xBAB4` interception-cost table) and §5.3 (40h → `T+0xC128` receive-eligibility mask) |
+| 2. step 52's six helpers not fetched | **CLOSED** — §5.1 (all six reduced, with their writes) |
+| 3. live confirmation of the `T+0x78` writer | still **OPEN** (static writer found in round 1; the live write-watch was not run this pass) |
+| 4. `T+0xB6DE` semantic label | **CLOSED** — §5.6 ("this side is contesting the ball"; read by the *opponent's* player AI) |
+| 5. step 25's `local_397` meaning | still **OPEN / INF** |
+| 6. step 30/31's snapshot field order | still **OPEN** (the source offsets are named; the per-field order inside the 0x40 record is not) |
+| 7. step 6's trait names (`+0x13A8/+0x13AC/+0x13C8`) | still **OPEN** (raw offsets only) |
+| 8. step 20's `T+0x8D50` units | **CLOSED, and moot** — §5.5: the field has **no reader**; it is a write-only 0..100 score |
+| new | step 40e's `T+0xB6DC` claim was **wrong** — §5.4 corrects it: 40e only *reads* `T+0xB6DC`; the field has no writer in the executable image |
+| new | §3b's "no reader found" for `T+0x8C40[]` / `T+0x8C35[]` was **wrong** — §5.5: `T+0x8C35[]` has 8+ readers; `T+0x8C40[]` and `T+0x8D50[]` really have none |
 
 ## §4 Method
 
-- Bridge decompiles (`dec/FUN_*.c`) and disassembly (`dec/dis_*.txt`) for every callee named in this report; ~90 fetches against `http://127.0.0.1:8080`.
+- Bridge decompiles (`dec/FUN_*.c`) and disassembly (`dec/dis_*.txt`) for every callee named in this report; ~90 fetches against `http://127.0.0.1:8080` (round 1) + ~40 more (round 2).
 - Float constants read by script from `~/ghidra-projects/scratch/Unpacker/pes_full.bin` (`readf.py`, `consts.py`), never typed. Each constant is paired with the instruction VA and the operand VA the disassembly shows.
-- **Self-check** (`<workdrive>/gf-TeamDecode-scratch/check_report.py`, run against this file):
+- **Self-check** (`<workdrive>/gf-TeamDecode-scratch/check_report.py`, run against this file, after round 2):
   ```
   checked 43 value/bits claims, 0 mismatches
-  checked 77 instruction/operand pairs, 0 mismatches
-  cited code VAs not found in any dis_*.txt: 0
+  checked 78 instruction/operand pairs, 0 mismatches
+  cited code VAs not backed by a disassembly or a verified instruction: 0
   ```
-  The checker verifies each `VA | value (bits)` row and each `instruction [operand]` = `value` claim against the image bytes and against the disassembly text, and that every cited code VA exists in a disassembly file. It was mutation-tested (a changed bits field and a changed value were both caught; the file was then restored).
+  The checker verifies each `VA | value (bits)` row and each `instruction [operand]` = `value` claim against the image bytes and against the disassembly text, and that every cited code VA lies inside a disassembled instruction (or, for the five sites Ghidra has no function head for, that the instruction bytes at that VA really carry the claimed disp32).
+  **Mutation-tested — all three checks fire:**
+  - a wrong table value (`999.0` for `9999.0`) → `BAD 0x1425c48e8 value claimed 999.0 actual 9999.0`;
+  - a wrong value at an instruction/operand pair (`9.0` for `8.0` at `0x1404F6853`) → `BAD 0x14259bdf4 value claimed 9.0 actual 8.0`;
+  - a cited VA with no disassembly (`0x140501170`) → `cited code VAs not backed by a disassembly or a verified instruction: 1`.
+  The file was restored after each mutation and re-verified clean. The VA-existence check was itself
+  found vacuous in round 1 (it matched 8-hex-digit prefixes of 9-digit VAs) and was rewritten to
+  span instruction bytes plus a raw-image fallback before the mutation test above.
+- **Field xref scanner** (`<workdrive>/gf-TeamDecode-scratch/patscan3.py`): a disp32 memory-operand scanner over the `.trace` executable section (file offset `0x600`, size `0x252D800` — the only section with code; the PE section table was parsed to confirm the others are `.rdata`/`.data`/`.reloc`/etc.). It validates the ModRM/SIB bytes so a disp32 is only reported when it really is a memory displacement. Cross-checked against an independent full linear-disassembly scan (`xrefscan.py`); both agree on `0x8D50` having exactly one site.
 - Step numbering cross-checked against `docs/re/pes-re-team-layer.md` §1 and `docs/re/pes-re-teamtick.md` §2.2; the call-site VAs in this report come from this pass's own decompile/disassembly of `FUN_1404F6C30` and match §1 exactly (no new call sites).
 - Scratch: `<workdrive>/gf-TeamDecode-scratch/`.
 - No GF code changed, no GF build/test run (read-only RE assignment), no PES write/pin/input.
