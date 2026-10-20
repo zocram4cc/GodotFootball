@@ -3293,7 +3293,11 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
       EnterStop(host, req);  // FUN_1406d5d60
       return;
     }
-    if (dispDelta < k.angle1125b && static_cast<int>(req.U(moveword::kClassWord)) < 3 &&
+    // PES's S5b gate (0x1406C9363): the heading turn (wrap180(kHeading - kTurn), the S3
+    // block's result) is inside 11.25 degrees, the class word is below 3 and the command speed
+    // class is 3.
+    const float headTurnStep = std::fabs(Wrap180Diff(req.F(moveword::kTurn), req.F(moveword::kHeading), k));
+    if (headTurnStep < k.angle1125b && static_cast<int>(req.U(moveword::kClassWord)) < 3 &&
         static_cast<int>(req.U(moveword::kCommandSpeedClass)) == 3) {
       // The three motion ids' replay rows.
       if (motion == 0x35) {
