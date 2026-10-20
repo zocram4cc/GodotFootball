@@ -140,6 +140,27 @@ pes::StepTables SyntheticTables() {
   return t;
 }
 
+// The speed-rate table (FUN_1406b9e80's ten records: vHi, vLo, rHi, rLo). One record maps
+// every speed to a rate of 1.0, so the rate walk's target is 1.0.
+pes::SpeedRateTable SyntheticSpeedRate() {
+  pes::SpeedRateTable t{};
+  t.record[0] = {1000.0f, 0.0f, 1.0f, 1.0f};
+  t.kindScale = 1.0f;
+  return t;
+}
+
+// The run constants the shared helpers read: the speed scale (3.6), the one and the fold pair.
+pes::RunConstants SyntheticRunConstants() {
+  pes::RunConstants k{};
+  k.one = 1.0f;
+  k.speed3600 = 3.6f;
+  k.full = 360.0f;
+  k.wrapFull = -360.0f;
+  k.half_turn = 180.0f;
+  k.neg = -1.0f;
+  return k;
+}
+
 // The representative motion per style and band (RunTables::styleGroup, the install's
 // 0x1425ddcf0 table).
 pes::RunTables SyntheticRunTables() {
@@ -259,9 +280,9 @@ class FakeHost : public MoveHost {
   pes::StepTables tables = SyntheticTables();
   pes::PlaybackConstants playback = SyntheticPlayback();
   pes::AngleBucketConstants buckets = SyntheticBuckets();
-  pes::RunConstants runConstants{};
+  pes::RunConstants runConstants = SyntheticRunConstants();
   pes::RunTables runTables = SyntheticRunTables();
-  pes::SpeedRateTable speedRate{};
+  pes::SpeedRateTable speedRate = SyntheticSpeedRate();
   pes::movestep::MoveTurnConstants turnConstants{};
   pes::MoveConstants moveConstants{};
   pes::IdleRowTables idleRows{};
@@ -841,6 +862,44 @@ TEST(StepLoop, TheStepTurnRunArmCarriesTheClassAndTheRowOver) {
   EXPECT_EQ(req.U(0x20), 0u);
 }
 
+// PES's STEP_TURN_RUN arm writes the root facing (0x1406C5EDF-0x1406C5F31 and the block
+// after it): the turn to the body's own direction, clamped against the clock's draw
+// (180 / the frame rate, 54.0), is added to the player's facing, and that becomes req[0x3b].
+// The port computed the values and discarded them, so the facing never moved.
+TEST(StepLoop, TheStepTurnRunArmWritesTheRootFacing) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetU(pes::moveword::kClassWord, 3);
+  req.SetU(0x20, 1u);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 60.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  // The body direction is 30 degrees from the heading, so the turn is -30 and the delta is the
+  // negated draw (-3.33): the facing lands on 356.67.
+  req.SetF(pes::moveword::kBodyDirection, 30.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  req.SetF(pes::moveword::kDistToTarget, 9.0f);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  // The root facing is the player's own facing (0) plus the delta.
+  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 356.66666f, 0.01f);
+}
+
 // -------------------------------------------------------------------------------------
 // STEP_LOOP_CHANGE, FUN_1406c6480.
 // -------------------------------------------------------------------------------------
@@ -869,10 +928,11 @@ TEST(StepLoopChange, TheDriftFollowsTheSignedTurnToTarget) {
   req.SetU(pes::moveword::kMoveBucket, 1);
   req.SetU(pes::moveword::kBucketPrev, 0);
   StepLoopChange(host, req);
-  // The drift block ran: the root facing is the blended turn (0) plus the facing (100) plus
-  // the clamped turn-to-target (30), so 130.
+  // The drift block ran: the root facing is the blended turn (0) plus the facing (100) plus the
+  // clock's draw. The turn (30 degrees) is past the draw (180 / 54 = 3.33), so the delta IS the
+  // draw - 103.33, not the turn.
   EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
-  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 130.0f, 1e-3f);
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 103.33333f, 1e-3f);
 }
 
 // PES at 0x1406C6EF0: the final gate tests the FIRST dwell (req[0x1a] against req[0x1b]) -
@@ -933,6 +993,41 @@ TEST(StepLoopChange, TheFinalGateAsksForStepLoopOnceTheFirstDwellRunsOut) {
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepLoop));
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 0.0f);
+}
+
+// PES at 0x1406C6CEB: when the turn-to-target is past the clock's draw (180 degrees per tick),
+// the delta added to the drift IS the draw; otherwise it is the larger of the negated draw and
+// the turn itself. The port kept the turn in both cases.
+TEST(StepLoopChange, TheDriftClampUsesTheDrawWhenTheTurnIsPastIt) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  // The precise flag is set, so the drift's sign test can return early: the look heading is
+  // level with the facing, so the signs match and the write happens.
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 340.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  // The turn-to-target is 20 degrees: past the 5.625-degree gate and past the draw
+  // (180 / 54 = 3.33 degrees), so the delta IS the draw.
+  req.SetF(pes::moveword::kRecordStampB, 340.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kRecordStampA, 0.0f);
+  req.SetU(pes::moveword::kMoveBucket, 1);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoopChange(host, req);
+  // The drift is the blended turn (0) plus the facing (0) plus the draw (3.33 degrees) - the
+  // turn (20 degrees) is past the draw, so the delta IS the draw.
+  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 3.3333333f, 0.01f);
 }
 
 // -------------------------------------------------------------------------------------
@@ -1073,10 +1168,6 @@ TEST(TurnStop, KeepsTheTickWhileTheSecondDwellRuns) {
 // entry's own port is tested in its owner's test file.
 namespace pes {
 namespace movestep {
-float SpeedToRate(MoveHost& host, float speedKmh, int tableSelector) {
-  rateSelector = tableSelector;
-  return speedKmh > 0.0f ? 1.0f : 0.0f;
-}
 int LocomotionStyle(MoveHost&, int, float, MoveReq&, float, bool) { return 0; }
 int IdleRow(MoveHost&, MoveReq&) { return 0x5a1; }
 bool StayDecision(MoveHost&, MoveReq&) { return stayDecision; }

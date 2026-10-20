@@ -866,6 +866,37 @@ void StepLoopKeepsTick(MoveHost& host, MoveReq& req, int bucket, float turn) {
   (void)lookError;
   (void)wide;
   (void)narrow;
+  // PES's root-facing write (0x1406C5EDF-0x1406C5F31 and the block after it): the turn to the
+  // body's own direction, clamped against the clock's draw (180 / the frame rate, 54.0), is
+  // added to the player's facing, and that becomes req[0x3b] with req[0x3a] set.
+  const float bodyTurn = Wrap180(req.F(moveword::kBodyDirection) - req.F(moveword::kHeading));
+  const float draw = k.halfTurn / host.TicksPerSecond();
+  float delta = draw;
+  if (bodyTurn <= draw) {
+    delta = -draw;
+    if (bodyTurn > delta) delta = bodyTurn;
+  }
+  float faced = FoldFull(req.F(moveword::kFacing) + delta, host.RunConstantsView());
+  // The residual against the look heading, and the sign test that can end the tick.
+  const float lookFolded = FoldFull(req.F(moveword::kLookHeading), host.RunConstantsView());
+  float residual = faced - lookFolded;
+  if (k.halfTurn < std::fabs(residual)) {
+    residual -= (residual < 0.0f ? k.negOne : k.one) * k.full;
+  }
+  if (k.deg22p5 <= residual && residual <= k.deg135) {
+    // The facing's own turn against the look heading, and the sign test.
+    const float toLook = Wrap180(req.F(moveword::kLookHeading) - req.F(moveword::kFacing));
+    const float toFacing = FoldFull(req.F(moveword::kFacing), host.RunConstantsView()) - faced;
+    float toFacingWrapped = toFacing;
+    if (k.halfTurn < std::fabs(toFacingWrapped)) {
+      toFacingWrapped -= (toFacingWrapped < 0.0f ? k.negOne : k.one) * k.full;
+    }
+    const bool signToLook = toLook < 0.0f;
+    const bool signToFacing = toFacingWrapped < 0.0f;
+    if (signToLook != signToFacing && req.U(moveword::kPrecise) != 0u) return;
+  }
+  req.SetByte(moveword::kRootFacing, 1);
+  req.SetF(moveword::kRootFacingAngle, faced);
   // The row: the stop row for this bucket, and the mirror from the sameness of the two errors.
   const int row = bucket == 3 || bucket == 8 ? 0x639 : 0x631;
   const MoveCell cell = host.Cell(row, int(tables.bucketColumn[bucket]), false);
@@ -1293,12 +1324,16 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
   if (int(req.U(moveword::kMoveBucket)) == int(req.U(moveword::kBucketPrev))) window = k.deg90;
   if (req.F(moveword::kDwellLimit2) * window <= req.F(moveword::kDwellElapsed2) &&
       k.deg5p625 < std::fabs(turnToTarget)) {
-    // The clock draws 180 degrees per tick; below that the drift is clamped to the look heading.
-    const float draw = k.halfTurn / tick;
-    float delta = turnToTarget;
-    if (delta <= draw) {
+    // The clock draws 180 degrees per tick; below that the drift is clamped to the look
+    // heading. PES at 0x1406C6CE6: the draw is 180 / the frame rate (FUN_141e532d0 = 54.0),
+    // NOT 180 divided by the tick interval - the port had 180 * 54.
+    // At 0x1406C6CEB: when the turn is past the draw the delta IS the draw, otherwise it is
+    // the larger of the negated draw and the turn itself.
+    const float draw = k.halfTurn / host.TicksPerSecond();
+    float delta = draw;
+    if (turnToTarget <= draw) {
       delta = -draw;
-      if (-draw <= turnToTarget) delta = turnToTarget;
+      if (turnToTarget > delta) delta = turnToTarget;
     }
     drift += delta;
     if (0.0f <= drift) {
