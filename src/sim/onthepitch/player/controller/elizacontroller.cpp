@@ -1222,6 +1222,19 @@ bool ElizaController::_SlideCandidate(const pes::DefenderDecisionConstants& k) {
   const float slideBearing = BearingDeg(CastPlayer()->GetPosition(), ballAhead.Get2D());
   if (!pes::SlideDirectionWindow(k, slideBearing, heading)) return false;
   if (!pes::SlideEngageWindow(k, slideBearing, heading)) return false;
+  // ponytail: stand-in. PES's frame test (FUN_14072E360, pes-re-getup-recovery.md section 4) refuses a candidate whose frames
+  // exceed a get-up's remaining frames; at the stand-up's end the remaining frames are zero, so the test refuses every
+  // candidate there. Releasing the defender needs the phase byte (anime+0x245C), which selects the track whose frames are
+  // compared; no writer is found, so the release is not ported. Until it is, this refuses slides only (not movement) while
+  // he is on a get-up clip, and on the first clip after one. Remove it when the phase byte is ported and the test releases.
+  if (match->PesLoop()) {
+    const auto* anim = CastPlayer()->GetCurrentAnim()->anim;
+    if (anim && anim->GetVariable("incoming_special_state") != "") return false;
+    // The first clip after a get-up is recovery too: the controller pass can switch him off the get-up before this check
+    // runs (seed 42, player 25, frame 229), so the clip it replaced is the previous anim while the new one has just started.
+    const auto* prev = CastPlayer()->GetPreviousAnim()->anim;
+    if (prev && prev->GetVariable("incoming_special_state") != "" && CastPlayer()->GetCurrentFrame() <= 1) return false;
+  }
   // Ponytail: the anime layer decides whether he is still recovering from a
   // slide; the engine's own current animation is the nearest readable gate.
   const e_FunctionType current = CastPlayer()->GetCurrentFunctionType();

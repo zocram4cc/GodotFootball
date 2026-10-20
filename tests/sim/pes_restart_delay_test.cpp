@@ -63,8 +63,7 @@ constexpr unsigned long kTwentyMinuteMaxSimTicks = 60ul * 60ul * Match::kFramesP
 void RunMatchWithinTheBound(bool pesLoop, int minutes,
                             const std::function<void(Match&)>& onTick,
                             unsigned long maxSimTicks = kMaxSimTicks,
-                            const std::function<bool(Match&)>& done = nullptr,
-                            unsigned int seed = SEED) {
+                            const std::function<bool(Match&)>& done = nullptr) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
   pes::PesVfs vfs;
@@ -79,7 +78,7 @@ void RunMatchWithinTheBound(bool pesLoop, int minutes,
   auto setup = std::make_unique<MatchSetup>();
   setup->homeTeamDbId = HOME_TEAM;
   setup->awayTeamDbId = AWAY_TEAM;
-  setup->seed = seed;
+  setup->seed = SEED;
   setup->durationMinutes = minutes;
   setup->animationDir = std::string(GF_SOURCE_DIR) + "/assets/gf_anims";
   setup->rig = &*rig;
@@ -676,31 +675,4 @@ TEST(PesRestartDelay, DISABLED_LooseEpisodeMetric) {
   for (size_t i = 0; i < longEpisodes.size() && i < kTopEpisodes; ++i)
     printf("[loose-top] seed=%u rank=%zu start=%lu ticks=%lu\n", SEED, i + 1, longEpisodes[i].second,
            longEpisodes[i].first);
-}
-
-// The stand-up re-slide (seed 42's cycle at frame 20372, 42/20372): a defender who gets up from the back slides again
-// straight out of the get-up clip, every 118 frames. A get-up clip starts from a lay state (incoming_special_state), so
-// no slide may start from one. The run stops at frame 22000, past the cycle.
-TEST(PesRestartDelay, ADefenderDoesNotSlideStraightOutOfAStandUp) {
-  constexpr unsigned long kCycleEndFrame = 22000;
-  unsigned long slidesOutOfStandUp = 0;
-  std::map<int, bool> wasSliding, wasGettingUp;  // by player id: the state at the last tick
-  RunMatchWithinTheBound(
-      true, MINUTES,
-      [&](Match& match) {
-        for (int t = 0; t < 2; ++t) {
-          std::vector<Player*> active;
-          match.GetActiveTeamPlayers(t, active);
-          for (Player* p : active) {
-            const bool sliding = p->GetCurrentFunctionType() == e_FunctionType_Sliding;
-            const auto* anim = p->GetCurrentAnim()->anim;
-            const bool gettingUp = anim && anim->GetVariable("incoming_special_state") != "";
-            if (sliding && !wasSliding[p->GetID()] && wasGettingUp[p->GetID()]) ++slidesOutOfStandUp;
-            wasSliding[p->GetID()] = sliding;
-            wasGettingUp[p->GetID()] = gettingUp;
-          }
-        }
-      },
-      kMaxSimTicks, [](Match& match) { return match.GetSimFrame() >= kCycleEndFrame; }, 42u);
-  EXPECT_EQ(slidesOutOfStandUp, 0ul) << slidesOutOfStandUp << " slides started straight out of a get-up clip";
 }

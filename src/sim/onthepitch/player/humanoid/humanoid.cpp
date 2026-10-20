@@ -2774,8 +2774,9 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
   // make it so
 
   // PES's +0x70 frame test for a rising man (FUN_14072E360, pes-re-getup-recovery.md §4): a requeue takes the next clip only
-  // when its frames at speed 1 fit in the get-up's remaining frames. Stand-in: the anime state byte (+0x20) that the decode
-  // switches the operand on is not ported, so the frame count always applies. The clip's own end (Switch) is not a requeue.
+  // when its frames at speed 1 fit in the get-up's remaining frames. Stand-in: the phase byte (anime+0x245C) selects the track
+  // compared (entry 0 or the last), and no writer is found, so the whole-clip frame count applies. The clip's own end (Switch)
+  // is not a requeue.
   if (match->PesLoop() && localInterruptAnim == e_InterruptAnim_ReQueue && selectedAnimID != -1 && OnGetUp() &&
       anims->GetAnim(selectedAnimID)->GetEffectiveFrameCount() >
           currentAnim->anim->GetEffectiveFrameCount() - currentAnim->frameNum) {
