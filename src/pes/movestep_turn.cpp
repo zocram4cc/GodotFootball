@@ -3211,13 +3211,21 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
     float turned = req.F(moveword::kRowAngle);  // param_2[0x17]
     const uint32_t frames =
         static_cast<uint32_t>(static_cast<float>(rowEndClamped - clipFrame) / clipLength + half);
-    const float loose = std::fabs(Wrap180Diff(turned, req.F(moveword::kHeading), k));
+    // PES at 0x1406C8FE5: FUN_14043a0a0(req[0x17], heading - the bucket's angle) =
+    // wrap180((req[0x01] - DAT_1425dd660[bucket]) - req[0x17]).
+    const float loose = std::fabs(Wrap180Diff(
+        turned, req.F(moveword::kHeading) - k.bucketAngle[static_cast<int>(req.U(moveword::kMoveBucket)) & 9],
+        k));
     if (loose < k.angle90) {
       turned = StepHeadingToPoint(turned, req.F(moveword::kHeading), k.angle675, k);
     }
     const float toward = turned + k.bucketAngle[static_cast<int>(req.U(moveword::kMoveBucket)) & 9];
     const float folded = FoldUnit(toward, k);
-    const float tight = std::fabs(Wrap180Diff(folded, req.F(moveword::kFacing), k));
+    // PES at 0x1406C905A: FUN_14043a0a0(req[0x02], turned) = wrap180(turned - facing), where
+    // `turned` is the stepped heading (the value FUN_140a92950 returned), not the folded one.
+    // PES keeps the value SIGNED: the mirror's fix-up compares its sign with the row offset's.
+    const float tightSigned = Wrap180Diff(req.F(moveword::kFacing), turned, k);
+    const float tight = std::fabs(tightSigned);
     if (tight / static_cast<float>(frames) < k.angle45) {
       req.SetF(moveword::kAngle3d, turned);  // param_2[0x3d]
       req.SetByte(moveword::kReorientFlag, 1);  // param_2 + 0x3c = 1
@@ -3227,7 +3235,7 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
       const float ego = rowOffset;
       if (k.angle90 < std::fabs(ego)) {
         const float signEgo = ego < 0.0f ? k.negOne : scale;
-        const float signTight = tight < 0.0f ? k.negOne : scale;
+        const float signTight = tightSigned < 0.0f ? k.negOne : scale;
         if (signEgo != signTight) {
           uint8_t m = static_cast<uint8_t>(req.U(moveword::kMirrorFlag) & 0xffu);
           if (k.angle225m < std::fabs(tight)) m = 1;
@@ -3285,7 +3293,11 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
       EnterStop(host, req);  // FUN_1406d5d60
       return;
     }
-    if (dispDelta < k.angle1125b && static_cast<int>(req.U(moveword::kClassWord)) < 3 &&
+    // PES's S5b gate (0x1406C9363): the heading turn (wrap180(kHeading - kTurn), the S3
+    // block's result) is inside 11.25 degrees, the class word is below 3 and the command speed
+    // class is 3.
+    const float headTurnStep = std::fabs(Wrap180Diff(req.F(moveword::kTurn), req.F(moveword::kHeading), k));
+    if (headTurnStep < k.angle1125b && static_cast<int>(req.U(moveword::kClassWord)) < 3 &&
         static_cast<int>(req.U(moveword::kCommandSpeedClass)) == 3) {
       // The three motion ids' replay rows.
       if (motion == 0x35) {
@@ -3453,8 +3465,9 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
                  rowEndClamped <= clipFrame))) {
       // PES's last arm folds the two precise-flag arms into one test when the row has frames.
       stay = true;
-    } else if (precise == 1 && quarter < std::fabs(req.F(moveword::kLookHeading)) &&
+    } else if (precise == 1 && quarter < std::fabs(req.F(moveword::kFacingError)) &&
                rowEndClamped <= clipFrame) {
+      // PES's last arm (0x1406C9700): kPrecise == 1 and the facing error past 90 degrees.
       stay = true;
     }
   }
