@@ -1142,8 +1142,10 @@ int TeamAIController::PickGoalKickMate(std::vector<Player*>* mates) const {
 // 0x6B1). The stand point is the keeper's walk target: a target, not a teleport.
 void TeamAIController::PrepareGoalKickStand(const Vector3& spot) {
   constexpr int kGoalKickStrikeMotion = 0x6b1;
-  // ponytail: the restart record's heading (PES's +0xC, FUN_14050E770) is not decoded. The keeper faces the pitch at his
-  // end: 90 degrees for the end at -X (the live keeper's yaw), with the sign turned at the other end.
+  // ponytail: PES's keeper heading is the spot record's +0xC (SetKick 0x140774AE0 passes param_5+0xC to FUN_140732D40).
+  // Its writer is SetKick's caller, reached through the standby's indirect vt[8] call, and is not traced; FUN_14050E770 does
+  // not store it. Live evidence: the keeper defending -X has yaw 90 degrees (docs/re/pes-re-setpiece-choreography.md:408).
+  // The sign follows the side: side +1 is a keeper defending +X (heading -90), side -1 one defending -X (heading +90).
   constexpr float kKeeperFacingPitch_deg = 90.0f;
   // ponytail: GF's player data has no preferred-foot byte (PES's playerdata 0x34, FUN_1406E6660): the right foot.
   constexpr bool kMirror = false;

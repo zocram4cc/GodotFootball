@@ -189,7 +189,7 @@ TEST(PesGoalKick, TheMirrorFlipsTheClipOffsetInX) {
   EXPECT_NEAR(left.z, right.z, kPlacementTolerance_m);
 }
 
-TEST(PesGoalKick, TheContactComesOnTheTicksAHitFrameTakesAtFiftyFourFrames) {
+TEST(PesGoalKick, TheContactTickScalesTheThirtyHertzHitFrameToTheLogicRate) {
   pes::GoalKickConstants k;
   if (!InstalledGoalKickConstants(&k)) GTEST_SKIP() << "PES21_ROOT not set: the tick base is PES's";
   // A hit at frame 10 of a 30 Hz clip lands 10 / 30 s in: 18 of PES's 54 logic frames.

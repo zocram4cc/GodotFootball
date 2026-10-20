@@ -57,14 +57,17 @@ GoalKickOrder StepGoalKickLadder(GoalKickLadder& ladder, unsigned long frame, co
   };
   const GoalKickOrder none;
   switch (ladder.phase) {
+    // ponytail: sub_142136F00's phase 0 first tests FUN_140A6E470 on the taker's record and returns when it is false. That test
+    // is not decoded or ported: the ladder steps whenever the restart is armed.
     case GoalKickPhase::kTaker:
       enter(GoalKickPhase::kWaitOne);
       return none;
-    case GoalKickPhase::kWaitOne:  // the 1 s wait: PES adds the rounding to fps itself, with no constant
+    case GoalKickPhase::kWaitOne:  // the 1 s wait: (uint)(fps + 0.5), the 0.5 being the rounding constant at 0x142565600
       if (elapsed >= frames(1.0f)) enter(GoalKickPhase::kShortWindow);
       return none;
     case GoalKickPhase::kShortWindow:
-      // The short-target window (FUN_142132660). GF has no short-target picker yet, so it passes without a hit.
+      // ponytail: FUN_142132660, the short-target picker (sub_142136F00 phase 2), removes this. Until it is ported the window
+      // passes without a hit, so PES's ground pass is never played. Queued first after landing.
       if (elapsed < frames(k.half_s)) return none;
       if (in.specialRestart && in.tactics < k.tacticsGate) {
         enter(GoalKickPhase::kWaitThree);
@@ -73,6 +76,8 @@ GoalKickOrder StepGoalKickLadder(GoalKickLadder& ladder, unsigned long frame, co
       enter(GoalKickPhase::kLoftedWindow);
       return none;
     case GoalKickPhase::kWaitThree:
+      // ponytail: on this route PES writes command 11 (*param_2 = 0xb) when the restart flag MI+0x14C4 is 1 and no special object
+      // is valid (sub_142136F00, 0x142137094..0x1421370A4). Not ported: the command is not emitted during the wait.
       if (!in.specialObjectValid && elapsed < frames(k.threeSeconds_s)) return none;
       enter(GoalKickPhase::kLoftedWindow);
       return none;
