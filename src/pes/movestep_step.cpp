@@ -1300,7 +1300,9 @@ void TurnStop(MoveHost& host, MoveReq& req) {
                             std::sqrt(ground[0] * ground[0] + ground[1] * ground[1] +
                                       ground[2] * ground[2]);
   req.SetF(moveword::kRate, req.F(moveword::kRate) * k.rate0p9);
-  const float turnToTarget = Wrap180(DisplacementHeading(host) - facing);
+  // PES at 0x1406CAD06: FUN_14043a0a0(req[0x02], req[0x01]) = wrap180(kHeading - kFacing).
+  // The result's magnitude (the abs mask at 0x1406CAD24) is the first path's gate.
+  const float turnToTarget = Wrap180(req.F(moveword::kHeading) - facing);
   const float turnToTargetDeg = std::fabs(turnToTarget);
   const float dwellLimit = k.one / tick * k.deg10;  // the clock's 10-degree window
 

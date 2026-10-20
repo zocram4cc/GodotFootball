@@ -22,6 +22,10 @@ pes::MoveState requested = pes::MoveState::kInit;
 // The last table selector SpeedToRate was asked for, so a test can see which table it read.
 int rateSelector = -1;
 
+// Whether the stay decision (FUN_1406b6bb0) agrees to hold the player, so a test can open the
+// paths that gate on it.
+bool stayDecision = false;
+
 namespace {
 
 using pes::MoveHost;
@@ -657,6 +661,69 @@ TEST(TurnStop, ScalesTheRateByTheRecordConstant) {
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), 0.9f);
 }
 
+// PES at 0x1406CAD06: the turn-to-target is FUN_14043a0a0(req[0x02], req[0x01]) =
+// wrap180(kHeading - kFacing); the magnitude of that result is the first path's gate against
+// 22.5 degrees. The port used the player's displacement heading instead of the request's
+// heading, so the gate read a different angle.
+TEST(TurnStop, TheFirstPathGateReadsTheRequestHeadingAgainstTheFacing) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetF(pes::moveword::kRate, 1.0f);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  // The request's heading is 30 degrees from the facing, so PES's gate (30 >= 22.5) fails.
+  req.SetF(pes::moveword::kHeading, 40.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.10f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.10f);
+  // The displacement points at 0 degrees, so the port's old operand (the displacement heading
+  // against the facing) was 10 degrees and would have passed the gate.
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 1.0f;
+  // The stay decision agrees, so the first path's inner gate would open if the gate passed.
+  stayDecision = true;
+  TurnStop(host, req);
+  stayDecision = false;
+  // The gate failed, so the first path did not run: the dwell words are untouched.
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 1.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit2), 1.0f);
+}
+
+// The request's heading level with the facing, so PES's gate passes, while the displacement
+// heading is 60 degrees away - the port's old operand would have failed the gate.
+TEST(TurnStop, TheFirstPathGateAcceptsALevelRequestHeading) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetF(pes::moveword::kRate, 1.0f);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.10f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.10f);
+  // The displacement points at 60 degrees, so the port's old operand was 50 degrees.
+  host.displacement[0] = 0.8660254f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.5f;
+  stayDecision = true;
+  TurnStop(host, req);
+  stayDecision = false;
+  // The gate passed, so the first path wrote the step clip and cleared the dwell words.
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 0.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit2), 0.0f);
+}
+
 // The dwell gate: with the second dwell unfinished the handler returns without a state change.
 TEST(TurnStop, KeepsTheTickWhileTheSecondDwellRuns) {
   FakeHost host;
@@ -690,7 +757,7 @@ float SpeedToRate(MoveHost& host, float speedKmh, int tableSelector) {
 }
 int LocomotionStyle(MoveHost&, int, float, MoveReq&, float, bool) { return 0; }
 int IdleRow(MoveHost&, MoveReq&) { return 0x5a1; }
-bool StayDecision(MoveHost&, MoveReq&) { return false; }
+bool StayDecision(MoveHost&, MoveReq&) { return stayDecision; }
 bool OutOfPlayPreempt(MoveHost&, MoveReq&) { return false; }
 bool EnterAccelerate(MoveHost&, MoveReq&) { return false; }
 void EnterGotoRun(MoveHost&, MoveReq&, bool) { requested = MoveState::kGotoRun; }
