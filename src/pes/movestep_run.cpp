@@ -2429,15 +2429,18 @@ void RunLoop(MoveHost& host, MoveReq& req) {
   req.SetF(moveword::kDuration, (style == 0 && previous != 0u) ? k.blend2 : k.blend1333);
   req.SetF(moveword::kPlayback, k.one);
   req.SetF(moveword::kStartTime, 0.0f);
+  // PES's tail (0x1406C0ACB-0x1406C0AF2): the first dwell and its limit, the second dwell and
+  // its limit, the live kind, the change-state flag and the next state.
   req.SetF(moveword::kDwellElapsed, 0.0f);
-  req.SetF(moveword::kDwellElapsed2, 0.0f);
-  req.SetF(moveword::kDwellLimit2, 0.0f);
   req.SetF(moveword::kDwellLimit, k.blend2);
+  req.SetF(moveword::kDwellElapsed2, 0.0f);
+  req.SetF(moveword::kDwellLimit2, k.blend2);
   req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
   req.SetU(0x20, 0u);  // req[0x20]: PES clears it in the change; the word has no name yet
   req.SetByte(moveword::kMirrorFlag, 0);
-  // ponytail: PES's style arm writes req[0x39] = 14 (RUN_TO_STEP) here (0x1406C0AF2). Held back: with that request the
-  // throw-in release stalls (PesRestartDelay.AThrowInIsReleasedFromItsSpotAndTaken, 1758 ticks) until the STEP-family path is ported.
+  // PES's style arm is the one place that enters the STEP family: req[0x39] = 0xE
+  // (RUN_TO_STEP) at 0x1406C0AF2, with the change-state flag at 0x1406C0AEB.
+  RequestState(req, MoveState::kRunToStep);
 }
 
 

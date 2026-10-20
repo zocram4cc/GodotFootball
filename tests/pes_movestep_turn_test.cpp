@@ -517,6 +517,55 @@ TEST(RunTurnStep, HandsTheTickToTheStopEntryWhenTheClassWordIsUnset) {
   EXPECT_EQ(req.U(pes::moveword::kPrevBucket) & 0xffu, 0u);
 }
 
+// PES at 0x1406C3C02: FUN_14043a0a0(req[0x02], req[0x04]) = wrap180(kBodyDirection -
+// kFacing). The result's magnitude drives the `near` gate (40 deg for motion 0xbd6, 45 deg
+// otherwise) and the class ladder. The port passed kHeading twice, so the value was always 0
+// and the gate always passed.
+TEST(RunTurnStep, TheNearGateReadsTheBodyDirectionAgainstTheFacing) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 100;
+  // The class -1 arm: with `near` true and the ground speed at 8 km/h or more, the handler
+  // writes class 3 and the 28.0 speed word.
+  req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);
+  req.SetU(pes::moveword::kClassWord, 0xffffffffu);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  // The body direction is 100 deg from the facing, so the magnitude is 100 deg: past the 45-deg
+  // gate, so `near` is false and the class word is not raised to 3.
+  req.SetF(pes::moveword::kBodyDirection, 110.0f);
+  host.displacement[0] = 3.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 4.0f;
+  RunTurnStep(host, req, SyntheticTurn());
+  // `near` was false, so the arm fell through to the bucket save and the stop entry, and the
+  // class word kept its -1.
+  EXPECT_EQ(req.U(pes::moveword::kClassWord) & 0xffu, 0xffu);
+}
+
+// The same gate with the body direction inside the 45 degrees: `near` is true and the class
+// word is raised to 3 with the 28.0 speed word.
+TEST(RunTurnStep, TheNearGateAcceptsABodyDirectionInsideFortyFiveDegrees) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  host.currentMotion = 0x1000;
+  host.currentClipFrames = 100;
+  req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);
+  req.SetU(pes::moveword::kClassWord, 0xffffffffu);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 40.0f);  // 30 deg from the facing
+  host.displacement[0] = 3.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 4.0f;
+  RunTurnStep(host, req, SyntheticTurn());
+  EXPECT_EQ(req.U(pes::moveword::kClassWord) & 0xffu, 3u);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kSpeedWord), 28.0f);
+}
+
 // The facing write: once the row has frames and the clip has passed the span, the handler
 // publishes the damped facing in req[0x3a]/req[0x3b].
 TEST(RunTurnStep, HandsTheTickToStepTurnRunWhenTheEntryWritesTheRequest) {

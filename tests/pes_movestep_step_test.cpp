@@ -22,6 +22,10 @@ pes::MoveState requested = pes::MoveState::kInit;
 // The last table selector SpeedToRate was asked for, so a test can see which table it read.
 int rateSelector = -1;
 
+// Whether the stay decision (FUN_1406b6bb0) agrees to hold the player, so a test can open the
+// paths that gate on it.
+bool stayDecision = false;
+
 namespace {
 
 using pes::MoveHost;
@@ -97,10 +101,11 @@ pes::StepScalars SyntheticScalars() {
   k.s0p85 = 0.85f;
   k.six = 6.0f;
   k.threeQuarters = 0.75f;
-  k.rate1p6 = 1.6f;
+  k.s0p7 = 0.7f;
   k.sq1139 = 1139.0625f;
   k.sq2025 = 2025.0f;
   k.sq8100 = 8100.0f;
+  k.sq12656p25 = 12656.25f;
   return k;
 }
 
@@ -415,11 +420,13 @@ TEST(StepToRun, AsksForRunLoopOnceTheSecondDwellRunsOut) {
 // RUN_TO_STEP, FUN_1406c1070.
 // -------------------------------------------------------------------------------------
 
-// With the class -1 the blend branch runs, and the second dwell elapsed asks for STEP_LOOP.
-TEST(RunToStep, AsksForStepLoopWhenTheClassIsMinusOne) {
+// The blend branch asks for STEP_LOOP once the second dwell has run out. The blend branch is
+// only reached when the tick is inside all three of PES's gates at 0x1406C1232: the class is
+// not -1, the heading error is inside 8100 deg^2 and the body error inside 12656.25 deg^2.
+TEST(RunToStep, AsksForStepLoopWhenTheSecondDwellRunsOut) {
   FakeHost host;
   MoveReq req;
-  req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);  // -1
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
   req.SetF(pes::moveword::kDwellLimit2, 1.0f);
   req.SetF(pes::moveword::kDwellElapsed2, 1.0f);
   req.SetF(pes::moveword::kDwellLimit, 1.0f);
@@ -433,6 +440,69 @@ TEST(RunToStep, AsksForStepLoopWhenTheClassIsMinusOne) {
   RunToStep(host, req);
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepLoop));
+}
+
+// PES's branch at 0x1406C1232: the class -1, a heading error past 8100 deg^2 (0x1425DDFD8) or
+// a body error past 12656.25 deg^2 (0x1425DDFDC) sends the tick to the STOP / IDLE / TURN_STOP
+// arm, and only a tick inside all three gates blends the root facing (0x1406C1261).
+// So the class -1 does NOT blend: it stops.
+TEST(RunToStep, StopsInsteadOfBlendingWhenTheClassIsMinusOne) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);  // -1
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.1f);
+  req.SetF(pes::moveword::kRecordStampA, 20.0f);
+  req.SetF(pes::moveword::kRecordStampB, 20.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 12.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetU(pes::moveword::kClassWord, 1u);
+  RunToStep(host, req);
+  // The blend branch never runs: no root facing is written.
+  EXPECT_FALSE(req.Flag(pes::moveword::kRootFacing));
+  // The stop arm runs: the class word is 1, so FUN_1406D5D60 asks for STOP.
+  EXPECT_EQ(requested, MoveState::kStop);
+}
+
+// The heading-error gate is 8100 deg^2 (0x1425DDFD8 = 90 deg), not 2025. A 100-deg heading
+// error is past 8100 deg^2, so the tick stops instead of blending.
+TEST(RunToStep, StopsWhenTheHeadingErrorIsPastNinetyDegrees) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.1f);
+  req.SetF(pes::moveword::kRecordStampA, 20.0f);
+  req.SetF(pes::moveword::kRecordStampB, 110.0f);  // the heading error is 100 deg
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 12.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetU(pes::moveword::kClassWord, 1u);
+  RunToStep(host, req);
+  EXPECT_FALSE(req.Flag(pes::moveword::kRootFacing));
+  EXPECT_EQ(requested, MoveState::kStop);
+}
+
+// A heading error of 80 deg is inside the 90-deg gate, so the tick blends: the root facing is
+// written and no state is asked for while the second dwell still runs.
+TEST(RunToStep, BlendsWhenTheHeadingErrorIsInsideNinetyDegrees) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.1f);
+  req.SetF(pes::moveword::kRecordStampA, 20.0f);
+  req.SetF(pes::moveword::kRecordStampB, 90.0f);  // the heading error is 80 deg
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 12.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  RunToStep(host, req);
+  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
 }
 
 // The rate walk: with the target above the current rate, req[0x4a] rises by 0.05 and stops at
@@ -468,9 +538,9 @@ TEST(RunToStep, RaisesTheRateTowardTheTargetAndStopsAtIt) {
     req.SetF(pes::moveword::kDwellLimit2, 1.0f);
     req.SetF(pes::moveword::kDwellElapsed2, 0.10f);  // under 0.3 * 1.0
     req.SetF(pes::moveword::kRecordStampA, 20.0f);
-    // Both errors inside their gates (heading 0 and body 2 deg), so the tick-keeping tail runs
-    // rather than the blend branch.
-    req.SetF(pes::moveword::kRecordStampB, 10.0f);
+    // The heading error is 100 deg, past PES's 8100 deg^2 gate (0x1425DDFD8), so the tick takes
+    // the stop arm, which restores the band.
+    req.SetF(pes::moveword::kRecordStampB, 110.0f);
     req.SetF(pes::moveword::kHeading, 10.0f);
     req.SetF(pes::moveword::kFacing, 10.0f);
     req.SetF(pes::moveword::kBodyDirection, 12.0f);
@@ -481,8 +551,8 @@ TEST(RunToStep, RaisesTheRateTowardTheTargetAndStopsAtIt) {
     EXPECT_FLOAT_EQ(req.F(pes::moveword::kBandSpeedPrev), 12.0f);
   }
   TEST(RunToStep, RestoresTheBandWithTheWiderWindowWhenTheBandIsUp) {
-    // The band at or above the previous one: the window halves to 0.6 of the limit, so an
-    // elapsed under 0.6 restores and one past it does not.
+    // The band at or above the previous one: the window is 0.7 of the limit (0x14257A194), so
+    // an elapsed under 0.7 restores and one past it does not.
     FakeHost host;
     MoveReq base;
     base.SetU(pes::moveword::kCommandSpeedClass, 3);
@@ -490,23 +560,24 @@ TEST(RunToStep, RaisesTheRateTowardTheTargetAndStopsAtIt) {
     base.SetU(pes::moveword::kPrevClassWord, 2);
     base.SetF(pes::moveword::kDwellLimit2, 1.0f);
     base.SetF(pes::moveword::kRecordStampA, 10.0f);
-    base.SetF(pes::moveword::kRecordStampB, 10.0f);
+    base.SetF(pes::moveword::kRecordStampB, 110.0f);  // the heading error is 100 deg
     base.SetF(pes::moveword::kHeading, 10.0f);
     base.SetF(pes::moveword::kFacing, 10.0f);
     base.SetF(pes::moveword::kBodyDirection, 12.0f);
     base.SetF(pes::moveword::kBandSpeedCopy, 12.0f);
     MoveReq restored = base;
-    restored.SetF(pes::moveword::kDwellElapsed2, 0.50f);  // under 0.6
+    restored.SetF(pes::moveword::kDwellElapsed2, 0.50f);  // under 0.7
     RunToStep(host, restored);
     EXPECT_FLOAT_EQ(restored.F(pes::moveword::kBandSpeedPrev), 12.0f);
     MoveReq held = base;
-    held.SetF(pes::moveword::kDwellElapsed2, 0.70f);  // past 0.6
+    held.SetF(pes::moveword::kDwellElapsed2, 0.80f);  // past 0.7
     RunToStep(host, held);
     EXPECT_FLOAT_EQ(held.F(pes::moveword::kBandSpeedPrev), 0.0f);
   }
   TEST(RunToStep, KeepsTheBandPastTheNarrowWindow) {
-    // The narrow window: the band below the previous one gives 0.3 of the limit, so an elapsed
-    // of 0.5 is past it and does not restore (while 0.5 would restore under the wide window).
+    // The narrow window: the band below the previous one gives 0.3 of the limit (0x142590D98),
+    // so an elapsed of 0.5 is past it and does not restore (while 0.5 would restore under the
+    // wide window).
     FakeHost host;
     MoveReq req;
     req.SetU(pes::moveword::kCommandSpeedClass, 3);
@@ -515,7 +586,7 @@ TEST(RunToStep, RaisesTheRateTowardTheTargetAndStopsAtIt) {
     req.SetF(pes::moveword::kDwellLimit2, 1.0f);
     req.SetF(pes::moveword::kDwellElapsed2, 0.50f);
     req.SetF(pes::moveword::kRecordStampA, 10.0f);
-    req.SetF(pes::moveword::kRecordStampB, 10.0f);
+    req.SetF(pes::moveword::kRecordStampB, 110.0f);  // the heading error is 100 deg
     req.SetF(pes::moveword::kHeading, 10.0f);
     req.SetF(pes::moveword::kFacing, 10.0f);
     req.SetF(pes::moveword::kBodyDirection, 12.0f);
@@ -533,13 +604,47 @@ TEST(RunToStep, KeepsTheTickWhileBlendingTheHeading) {
   req.SetF(pes::moveword::kDwellLimit2, 1.0f);
   req.SetF(pes::moveword::kDwellElapsed2, 0.1f);
   req.SetF(pes::moveword::kRecordStampA, 20.0f);
-  req.SetF(pes::moveword::kRecordStampB, 200.0f);  // past the 2025 deg^2 gate
+  req.SetF(pes::moveword::kRecordStampB, 90.0f);  // the heading error is 80 deg, inside the gate
   req.SetF(pes::moveword::kHeading, 10.0f);
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kBodyDirection, 12.0f);
   RunToStep(host, req);
   EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
   EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+}
+
+// -------------------------------------------------------------------------------------
+// STEP_LOOP_CHANGE, FUN_1406c6480.
+// -------------------------------------------------------------------------------------
+
+// PES at 0x1406C6632: the turn-to-target is FUN_14043a0a0(req[0x18], req[0x01]) =
+// wrap180(kHeading - kRecordStampB). The drift block adds that signed value to the blended
+// root facing, so the sign decides which way the body turns. The port had it the other way
+// round.
+TEST(StepLoopChange, TheDriftFollowsTheSignedTurnToTarget) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetF(pes::moveword::kFacing, 100.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 100.0f);
+  // The stamp is 30 degrees behind the heading, so wrap180(heading - stamp) = +30.
+  req.SetF(pes::moveword::kRecordStampB, 330.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);  // the stop fallback's own turn gate stays closed
+  req.SetU(pes::moveword::kClassWord, 2u);  // the band is up, so the re-plan gates stay closed
+  req.SetU(pes::moveword::kPrecise, 1u);  // the precise flag keeps the non-precise arms closed
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kRecordStampA, 0.0f);
+  req.SetU(pes::moveword::kMoveBucket, 1);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  StepLoopChange(host, req);
+  // The drift block ran: the root facing is the blended turn (0) plus the facing (100) plus
+  // the clamped turn-to-target (30), so 130.
+  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 130.0f, 1e-3f);
 }
 
 // -------------------------------------------------------------------------------------
@@ -590,6 +695,69 @@ TEST(TurnStop, ScalesTheRateByTheRecordConstant) {
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kRate), 0.9f);
 }
 
+// PES at 0x1406CAD06: the turn-to-target is FUN_14043a0a0(req[0x02], req[0x01]) =
+// wrap180(kHeading - kFacing); the magnitude of that result is the first path's gate against
+// 22.5 degrees. The port used the player's displacement heading instead of the request's
+// heading, so the gate read a different angle.
+TEST(TurnStop, TheFirstPathGateReadsTheRequestHeadingAgainstTheFacing) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetF(pes::moveword::kRate, 1.0f);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  // The request's heading is 30 degrees from the facing, so PES's gate (30 >= 22.5) fails.
+  req.SetF(pes::moveword::kHeading, 40.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.10f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.10f);
+  // The displacement points at 0 degrees, so the port's old operand (the displacement heading
+  // against the facing) was 10 degrees and would have passed the gate.
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 1.0f;
+  // The stay decision agrees, so the first path's inner gate would open if the gate passed.
+  stayDecision = true;
+  TurnStop(host, req);
+  stayDecision = false;
+  // The gate failed, so the first path did not run: the dwell words are untouched.
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 1.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit2), 1.0f);
+}
+
+// The request's heading level with the facing, so PES's gate passes, while the displacement
+// heading is 60 degrees away - the port's old operand would have failed the gate.
+TEST(TurnStop, TheFirstPathGateAcceptsALevelRequestHeading) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetF(pes::moveword::kRate, 1.0f);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.10f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.10f);
+  // The displacement points at 60 degrees, so the port's old operand was 50 degrees.
+  host.displacement[0] = 0.8660254f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.5f;
+  stayDecision = true;
+  TurnStop(host, req);
+  stayDecision = false;
+  // The gate passed, so the first path wrote the step clip and cleared the dwell words.
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 0.0f);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit2), 0.0f);
+}
+
 // The dwell gate: with the second dwell unfinished the handler returns without a state change.
 TEST(TurnStop, KeepsTheTickWhileTheSecondDwellRuns) {
   FakeHost host;
@@ -623,7 +791,7 @@ float SpeedToRate(MoveHost& host, float speedKmh, int tableSelector) {
 }
 int LocomotionStyle(MoveHost&, int, float, MoveReq&, float, bool) { return 0; }
 int IdleRow(MoveHost&, MoveReq&) { return 0x5a1; }
-bool StayDecision(MoveHost&, MoveReq&) { return false; }
+bool StayDecision(MoveHost&, MoveReq&) { return stayDecision; }
 bool OutOfPlayPreempt(MoveHost&, MoveReq&) { return false; }
 bool EnterAccelerate(MoveHost&, MoveReq&) { return false; }
 void EnterGotoRun(MoveHost&, MoveReq&, bool) { requested = MoveState::kGotoRun; }
