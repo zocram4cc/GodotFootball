@@ -90,6 +90,7 @@ target_link_libraries(pes_restart_delay_test PRIVATE gfsim pesfmt GTest::gtest_m
 target_compile_definitions(pes_restart_delay_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_restart_delay_test PROPERTIES TIMEOUT 1800)
 
+
 add_executable(pes_random_test pes_random_test.cpp)
 target_link_libraries(pes_random_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_random_test)
@@ -189,6 +190,9 @@ gtest_discover_tests(pes_clips_test PROPERTIES TIMEOUT 1800)
 add_executable(pes_offball_test pes_offball_test.cpp)
 target_link_libraries(pes_offball_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_offball_test)
+add_executable(pes_roles_test pes_roles_test.cpp)
+target_link_libraries(pes_roles_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_roles_test)
 
 add_executable(sim_heading_test sim_heading_test.cpp)
 target_link_libraries(sim_heading_test PRIVATE gfsim pesfmt GTest::gtest_main)

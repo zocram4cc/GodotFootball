@@ -21,12 +21,15 @@
 
 #include <array>
 #include <map>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "../data/formations.hpp"
 #include "../data/setpiececonfig.hpp"
 #include "../gamedefines.hpp"
+#include "onthepitch/pesroles.hpp"
 #include "base/properties.hpp"
 #include "pesrandom.hpp"
 #include "pesstrategy.hpp"
@@ -155,6 +158,13 @@ public:
   // PES's team sheet (docs/re/pes-re-tactics.md 1): the sliders and toggles
   // the AI reads, from the team's tactics with the install's sheet defaults.
   const pes::TeamSheet& GetTeamSheet() const { return teamSheet; }
+  // PES's role arrays (pesroles.hpp): B holds each slot's role class, the value every class
+  // reader uses; A is the stamina-sub class. Setup and the tick's head and tail write them.
+  int RoleClassOfSlot(int slot) const;
+  void SetUpRoleArrays();
+  void WriteRoleArrays(bool head);
+  // The B swap pair (T+0x89D4/0x89D8). No GF event sets it yet: the PES writer is not decoded.
+  void RequestRoleSwap(int a, int b);
   // A team concept's order for one man (T+0xb748/b774/26c, transitions 2-3):
   // the concept id and the point it sends him to. Null when he has none.
   struct ConceptOrder {
@@ -213,6 +223,8 @@ protected:
   Formations::Shape formationShape;
   TeamInstructions::State instructions;
   pes::TeamSheet teamSheet;
+  pes::roles::SideRoles roles;
+  std::optional<std::pair<int, int>> roleSwap;
   // PES's concept selector state (FUN_140579840): running flag and start time
   // per id, the men each concept has ordered, and its own record.
   std::array<bool, pes::kConceptCount> conceptRunning{};

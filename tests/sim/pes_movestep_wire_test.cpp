@@ -675,7 +675,17 @@ TEST(MoveStepWire, AFinishedBallActionHandsTheBodyBack) {
   anim->functionType = e_FunctionType_Trap;
   anim->frameNum = anim->anim->GetFrameCount() - 1;
   p->GetMoveStep().state = pes::MoveState::kAccelerate;
-  for (int t = 0; t < 54; ++t) match->Process();
-  EXPECT_NE(p->GetMoveStep().state, pes::MoveState::kAccelerate) << "the FSM still holds ACCELERATE over a finished trap";
-  EXPECT_NE(p->GetCurrentFunctionType(), e_FunctionType_Trap) << "the finished trap still holds the body after a second";
+  // The trap lets go on the tick its last frame passes, and MOVESTEP hands the body back as IDLE (PES's state after a ball
+  // action is not decoded, so IDLE stands in; pesmovestep.cpp). Later ticks may legitimately re-enter ACCELERATE.
+  bool released = false;
+  pes::MoveState atRelease = pes::MoveState::kAccelerate;
+  for (int t = 0; t < 54 && !released; ++t) {
+    match->Process();
+    if (p->GetCurrentFunctionType() != e_FunctionType_Trap) {
+      released = true;
+      atRelease = p->GetMoveStep().state;
+    }
+  }
+  EXPECT_TRUE(released) << "the finished trap still holds the body";
+  EXPECT_EQ(atRelease, pes::MoveState::kIdle) << "the hand-back did not leave MOVESTEP idle";
 }

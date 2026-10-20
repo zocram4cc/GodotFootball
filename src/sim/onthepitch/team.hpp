@@ -36,6 +36,8 @@ public:
   Player* GetPlayer(int playerID);
   PlayerData* GetPlayerData(int playerID);
   FormationEntry GetFormationEntry(int playerID);
+  // The player's formation slot: his index in the squad, which a substitute inherits.
+  int FormationSlotOf(const Player* player) const;
   void SetFormationEntry(int playerID, FormationEntry entry);
   const std::vector<std::unique_ptr<Player>>& GetAllPlayers() { return players; }
   void GetAllPlayers(std::vector<Player*>& allPlayers) {

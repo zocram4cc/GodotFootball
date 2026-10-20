@@ -173,6 +173,9 @@ int DefenderPredictFrames(const OffBallConstants& k, float runnerBallDist2_m2);
 // the 33 lanes 2 m apart, within the window around the runner's lane.
 std::optional<Vec2f> ChanceLaneTarget(const OffBallConstants& k, const LaneSearchInput& in);
 
+// FUN_140654E60 halves the last reach term when the record's +1 byte (FUN_140A48910(G,id)+1) is 3.
+inline constexpr int kHalvedReachRecordByte = 3;
+
 // One player as the run code reads him. Angles are PES bearings
 // (atan2(dx, dz) in degrees, [0, 360): 90 = +x).
 struct PlayerFacts {
@@ -184,15 +187,17 @@ struct PlayerFacts {
   float facing = 0.0f;   // +0x554, body facing
   int state = kNothing;  // T+0xa2a0
   float t = 0.0f;        // PES frames in the state (ring T+0xa2cc)
-  int roleClass = 0;     // FUN_1408c51f0: GK0 CB1 SB2 DMF3 CMF4 SMF5 AMF6 SS7 WF8 CF9
+  // The slot's class in PES's B array (pesroles.hpp): GK0 CB1 SB2 DMF3 CMF4 SMF5 AMF6 SS7 WF8 CF9.
+  int roleClass = 0;
   uint32_t styleWord = 0;  // the player's style word (his style's engine bit), 0 for none
   Vec2f aim;             // FUN_140596c30 / a76240: the run target, else the position
   Vec2f slotPoint;       // T+0x4b4c + 12·slot: the slot's formation point
   int marker = -1;       // FUN_140a62850: the opponent marking him
   int aiClass = 0;       // FUN_140a580a0 (T+0xc0), the AI class the state tests read
   int runCooldown = 0;   // M+0x17b4 A[s]: PES frames left before the slot may run again
-  int position = 0;      // T+0x4c00: registered position, 0 GK 1 CB 2 LB 3 RB 4 DMF 5 CMF
-                         // 6 LMF 7 RMF 8 AMF 9 LWF 10 RWF 11 SS 12 CF
+  // Record +1 byte (FUN_140A48910(G,id)+1): FramesToReach halves on kHalvedReachRecordByte.
+  // GF has no such byte: BuildRunWorld stands in the keeper, as the old position-0 test did.
+  int recordByte1 = 0;
 };
 
 // The last ball event a3e190(ctx+0xe0, 0). Kinds as PES: 1 pass, 2 through
@@ -231,9 +236,6 @@ struct RunWorld {
 
 // The opponents of `id` in his NearestList, nearest first (PES's rank 0 is the first; pes-re-teamctx.md §2.3).
 std::vector<NearOpponent> NearestOpponents(const RunWorld& w, int id);
-
-// T+0x4c00 registered positions from GF's e_PlayerRole order.
-int Position(int gfRole);
 
 // FUN_140500200: T+0xb8b8, the slots of `team` the Chance mask may take, by
 // attack level (decompiled for this port).
@@ -347,11 +349,6 @@ bool TeamChanceMayRun(const RunWorld& w, int team);
 // cleared when the slot is the pass receiver. A slot on cooldown is not a
 // candidate - the 2 s re-run block the SecondLine mask reads.
 bool RunCooldownBlocks(const RunWorld& w, int id);
-
-// FUN_1408c51f0's role classes (pes-re-stamina-subs.md 1): GK0 CB1 LB/RB2
-// DMF3 CMF4 LMF/RMF5 AMF6 SS7 LWF/RWF8 CF9, from GF's e_PlayerRole order
-// (GK CB LB RB DM CM LM RM AM CF LW RW SS).
-int RoleClass(int gfRole);
 
 // The selector's stop test (vt+0x18) for runner `id` in run `run`: true
 // releases him. Chance 0x140607a60 / Counter 0x14060b410 / SecondLine

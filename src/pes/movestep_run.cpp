@@ -195,9 +195,22 @@ float ClampSpeedKmh(float v, const RunConstants& k) {
 
 }  // namespace
 
-// FUN_140a92950(a, b): the pair's first angle; PES's desired-direction helper passes the facing
-// and the look heading and uses the first.
-float FirstAngle(float a, float /*b*/, const RunConstants& /*k*/) { return a; }
+// FUN_140a92950(heading, target, clamp): the heading stepped toward the target by at most the
+// clamp, wrapped into [0, 360). Ported from its own decompile, keeping PES's comparisons so its
+// NaN behaviour carries: the difference is FUN_14043a0a0's wrapped diff, the step is the smaller
+// of its magnitude and the clamp, the sign steps toward the target, and the fold matches
+// FUN_140a92c80's first fold.
+float StepHeading(float heading, float target, float clampDeg, const RunConstants& k) {
+  const float diff = PesAngleDiff(heading, target, k);
+  const float sign = (0.0f <= diff) ? k.one : k.neg;
+  float step = sign * diff;
+  if (clampDeg <= step) step = clampDeg;
+  heading = FoldFull(heading, k);
+  heading += step * sign;
+  if (0.0f > heading) return heading + k.full;
+  if (k.full <= heading) return heading + k.wrapFull;
+  return heading;
+}
 
 // The clip's hit words, read from the live motion's record at rate 1.0 by GOTO_RUN, ACCELERATE and
 // DECELERATE (FUN_1406bdf10, FUN_1406bb570, FUN_1406bcd20). RotData entry 0 gives the total
@@ -676,9 +689,12 @@ void GotoRun(MoveHost& host, MoveReq& req) {
   if (!isTurnMotion && clipTotal <= clipLen && clipLen < (clipTotal + hit0 * 2) / 3 + 1) {
     float lockHeading = req.F(moveword::kRecordStampB);
     const int lockTicks = static_cast<int>(static_cast<float>(hit0 - clipLen) / req.F(moveword::kRecordStampA) + half);
-    const float alt = FirstAngle(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
-    if (std::fabs(PesAngleDiff(req.F(moveword::kRecordStampB), alt, k)) < k.deg90) lockHeading = alt;
+    // PES's turn-lock (ACCELERATE's block): the stamp steps toward the heading by at most 22.5 degrees when the turn from the
+    // stamp is under 90; the lock is the stamp itself otherwise.
     const float ratio = PesAngleDiff(req.F(moveword::kRecordStampB), req.F(moveword::kHeading), k);
+    if (std::fabs(ratio) < k.deg90) {
+      lockHeading = StepHeading(req.F(moveword::kRecordStampB), req.F(moveword::kHeading), k.deg225, k);
+    }
     if (std::fabs(PesAngleDiff(req.F(moveword::kFacing), lockHeading, k)) / static_cast<float>(lockTicks) < k.deg45) {
       req.SetU(moveword::kRecordStampB, static_cast<uint32_t>(lockHeading));
       req.SetByte(moveword::kReorientFlag, 1);
@@ -712,7 +728,9 @@ void GotoRun(MoveHost& host, MoveReq& req) {
   }
 
   // The desired direction and the two bearings: bVar6 is "no turn needed", bVar5 the fast-turn.
-  const float desired = FirstAngle(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
+  // ponytail: PES's GOTO_RUN has no FUN_140a92950 call at this point (its one helper call is the turn-lock above); the
+  // heading stands here, as FirstAngle's stub had it. The PES value for the desired direction is not decoded yet.
+  const float desired = req.F(moveword::kHeading);
   const float bearing = InlineDiffDeg(desired, req.F(moveword::kFacing), k);
   bool noTurn = false;
   if (hit0 <= clipLen || bearing < k.deg45) noTurn = true;
@@ -828,7 +846,8 @@ void GotoRun(MoveHost& host, MoveReq& req) {
     if (k.deg1125b <= aim) return;
     float turnLimit = k.half_turn;
     if (motion == 0x8d1 || turnFamily) turnLimit = k.deg135;
-    const float speedForTurn = FirstAngle(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
+    // ponytail: PES's speed-for-turn source is not decoded (no FUN_140a92950 call here); the heading stands, as the stub had it.
+    const float speedForTurn = req.F(moveword::kHeading);
     const float speed = InlineDiffDeg(speedForTurn, req.F(moveword::kFacing), k);
     if (k.kmh135 < speed) turnLimit = k.deg1125b;
     if (motion == 0x8d1 || turnFamily) turnLimit = k.deg135;
@@ -1360,14 +1379,6 @@ void TurnStopLadder(MoveHost& host, MoveReq& req, float speedKmh, const RunConst
   EnterTurnStop(host, req);
 }
 
-// PES's FUN_140a92950(stamp, heading, cap), with d = FUN_14043a0a0(stamp, heading) passed in: the stamp moves by the signed
-// turn toward the heading, at most cap degrees, and folds. The fold is the 360 fold of the stamp before the step and of the sum.
-float StepStampTowardHeading(float stamp, float d, float cap, const RunConstants& k) {
-  const float sign = d < 0.0f ? k.neg : k.one;
-  const float magnitude = (cap <= sign * d) ? cap : sign * d;
-  return FoldFull(FoldFull(stamp, k) + sign * magnitude, k);
-}
-
 // PES's blend-point exit (FUN_1406bb570 lines 666-717, then the band-3 clamp 718-745). The dwell words, style and foot flag
 // clear; the 4-tick speed runs the rate ladder when it is at most 16 km/h or a flag is set; the band and speed word come from
 // the interface (vt+0x68, vt+0x48); the run entry then requests the loop and writes the run's motion word; then the clamp.
@@ -1483,7 +1494,7 @@ void Accelerate(MoveHost& host, MoveReq& req) {
     // folds. At 90 degrees or more the lock heading is the stamp itself.
     const float turnFromStamp = PesAngleDiff(stamp, heading, k);
     float lockHeading = stamp;
-    if (std::fabs(turnFromStamp) < k.deg90) lockHeading = StepStampTowardHeading(stamp, turnFromStamp, k.deg225, k);
+    if (std::fabs(turnFromStamp) < k.deg90) lockHeading = StepHeading(stamp, heading, k.deg225, k);
     // PES 164-167: the facing error is FUN_14043a0a0(facing, lock), the lock heading minus the facing. Its size per tick must be
     // under 45 degrees.
     const float facingError = PesAngleDiff(req.F(moveword::kFacing), lockHeading, k);
@@ -1820,17 +1831,19 @@ void Decelerate(MoveHost& host, MoveReq& req) {
   const float distance = (hitEnd - static_cast<float>(liveFrame)) / f2468 + k.half;
   const float firstBearing = InlineDiffDeg(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
   if (reorientClear && hitTotal <= liveFrame && liveFrame <= (static_cast<int>(hitEnd) + hitTotal) / 2) {
+    // PES's turn-lock, as in ACCELERATE: the stamp steps toward the heading by at most 22.5 degrees when the turn from the
+    // stamp is under 90; the lock is the stamp itself otherwise.
     float desired = req.F(moveword::kRecordStampB);
-    if (firstBearing < k.deg90) {
-      desired = FirstAngle(req.F(moveword::kFacing), req.F(moveword::kHeading), k);
+    if (std::fabs(PesAngleDiff(req.F(moveword::kRecordStampB), req.F(moveword::kHeading), k)) < k.deg90) {
+      desired = StepHeading(req.F(moveword::kRecordStampB), req.F(moveword::kHeading), k.deg225, k);
     }
-    // PES: FUN_14043a0a0(facing, lock) with a magnitude gate; desired stands in for the lock (StepStamp, not ported).
+    // PES: FUN_14043a0a0(facing, lock) with a magnitude gate.
     const float secondBearing = std::fabs(PesAngleDiff(req.F(moveword::kFacing), desired, k));
     const float perTick = secondBearing / distance;
     if (perTick < k.deg45) {
       req.SetU(moveword::kTurnFrames, static_cast<uint32_t>(distance));
       req.SetByte(moveword::kReorientFlag, 1);
-      req.SetF(moveword::kAngle3d, desired);  // ponytail: PES writes the lock heading (its own step of the stamp); desired stands in
+      req.SetF(moveword::kAngle3d, desired);
       req.SetByte(moveword::kMirrorFlag, 0);
       req.SetF(moveword::kRecordStampC, desired);
       if (k.deg90 < hitSigned) {
@@ -2052,8 +2065,8 @@ int JostleStyle(MoveHost& host, MoveReq& req, int base, float& turn) {
   team.Velocity(own, selfVel);
   team.Position(opp, other);
   team.Velocity(opp, otherVel);
-  // ponytail: the same GF-coords read as ProximityCap (index 1 is -PES z). Live here: no ActionBit27 gate. See
-  // TeamAi::Position (pesmovestep.cpp); the frame fix waits for a decision.
+  // ponytail: LIVE: JostleStyle reads mirrored coordinates; the fix flips AThrowInIsNotAwarded red, so investigate which is
+  // wrong. The same GF-coords read as ProximityCap (index 1 is -PES z), with no ActionBit27 gate (see TeamAi::Position).
   const float dx = (other[0] + n * otherVel[0]) - (self[0] + n * selfVel[0]);
   const float dz = (other[1] + n * otherVel[1]) - (self[1] + n * selfVel[1]);
   // The threshold: 0.7 up to 1.0 at PC 95, 0.3 wide (the install's 0.7, 0.3, 50 and 45).
@@ -2483,13 +2496,14 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
                                                   host.MirrorChoice(false) ? 1.0f : 0.5f,
                                                   host.PlaybackConstantsView()));
 
-  // Arm 3's measurements: the desired angle and the bucket.
+  // Arm 3: the desired angle and the bucket. PES gates on |FUN_14043a0a0(facing, bodyDir)| (fVar24, the mask abs at
+  // decompile line 76), not on the heading's bearing. Inside the gate, desired = heading - StepStamp(bodyDir, facing,
+  // blend08 * |bodyDir - facing|) (decompile lines 151-154; FUN_140a92950 at 0x1406cd0df, FUN_14043a0a0 at 0x1406cd0ea).
   float desired = req.F(moveword::kTurn);
-  if (k.deg5p625 < bearingMag) {
-    // ponytail: FirstAngle(bodyDir, facing) * blend08 stands in for PES's StepStamp(bodyDir, facing, cap); the sign follows PES.
-    desired = PesAngleDiff(FirstAngle(req.F(moveword::kBodyDirection), req.F(moveword::kFacing), k) *
-                               k.blend08,
-                           req.F(moveword::kHeading), k);
+  const float bodyFacing = std::fabs(PesAngleDiff(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k));
+  if (k.deg5p625 < bodyFacing) {
+    const float stamp = StepHeading(req.F(moveword::kBodyDirection), req.F(moveword::kFacing), k.blend08 * bodyFacing, k);
+    desired = PesAngleDiff(stamp, req.F(moveword::kHeading), k);
   }
   const int bucket = AngleBucket(host.AngleBuckets(), desired, 10, false);
 
