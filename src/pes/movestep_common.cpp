@@ -31,6 +31,14 @@ float AngleDiffDeg(float a, float b, const RunConstants& k) {
   return d;
 }
 
+// FUN_14043a0a0 as PES has it: both folded into [0, 360), then b - a, wrapped by 360 once when its magnitude passes 180.
+float PesAngleDiff(float a, float b, const RunConstants& k) {
+  float d = FoldFull(b, k) - FoldFull(a, k);
+  const float magnitude = d < 0.0f ? -d : d;
+  if (k.half_turn < magnitude) d -= (d < 0.0f ? k.neg : k.one) * k.full;
+  return d;
+}
+
 // The 360 fold of a heading into [0, 360).
 float FoldFull(float a, const RunConstants& k) {
   if (a >= 0.0f) {

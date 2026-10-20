@@ -67,6 +67,12 @@ enum e_FunctionType {
   e_FunctionType_Special
 };
 
+// The ball touches the kick dispatcher consumes: a trap, the three passes, a header and a shot (pes-re-decision-read.md 1).
+inline bool IsBallActionFunction(e_FunctionType f) {
+  return f == e_FunctionType_Trap || f == e_FunctionType_ShortPass || f == e_FunctionType_LongPass ||
+         f == e_FunctionType_HighPass || f == e_FunctionType_Header || f == e_FunctionType_Shot;
+}
+
 // e_SetPiece and e_TouchType live in gametypes.hpp so the SDL-free rule
 // modules can see them.
 

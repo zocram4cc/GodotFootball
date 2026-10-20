@@ -69,6 +69,17 @@ void ApplyTransition(MoveStepRecord& rec, MoveReq& req) {
   rec.Enter(static_cast<MoveState>(req.U(moveword::kNextState) & 0xffu));
 }
 
+// The carried request words: req[0x17..0x2e] (MoveStepRecord::carried), in PES's order.
+static_assert(moveword::kDwellLimit2 - moveword::kRecordStampA + 1 == 24, "carried holds req[0x17..0x2e]");
+void CarryOut(MoveStepRecord& rec, const MoveReq& req) {
+  for (int w = moveword::kRecordStampA; w <= moveword::kDwellLimit2; ++w)
+    rec.carried[w - moveword::kRecordStampA] = req.U(w);
+}
+void CarryIn(const MoveStepRecord& rec, MoveReq& req) {
+  for (int w = moveword::kRecordStampA; w <= moveword::kDwellLimit2; ++w)
+    req.SetU(w, rec.carried[w - moveword::kRecordStampA]);
+}
+
 namespace {
 // The scalars of FUN_14081e340 and FUN_140a92c80, by VA (see SpeedClassConstants).
 struct SpeedScalar {
