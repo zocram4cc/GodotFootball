@@ -90,3 +90,9 @@ Question: in a two-striker team (one Fox in the Box CF, one Goal Poacher SS), bo
 **The v21 selection loop** reads the same two bytes: active count (+297) > 1 at 0x140683049 (else take and break); count (+296) > 2 at 0x140683064 gates its −10 rank bump. With two forwards the selection score is the lineup feed (+30 if role 9 = CF), then keep-replace decides by slot order.
 
 **To split the two explanations live:** one read of TeamData+0xB8A4 at the moment of the equal drop: byte 1 = −1 with a slack floor; byte 0 = −2 with the floor off.
+
+## 6. Live check (S1Watch round 34, 20-10-26)
+The owner moved his managed team's dial by hand (−1, then −2); S1Watch logged TeamData+0xB8A4 and the forwards' depths for 2224 frames.
+- **The dial doesn't move on its own:** the home byte changed only at the owner's inputs (−1 → −2 at frame 1573942); the COM team's byte stayed at 2 in all 2145 frames. The retune claim (sub_14051E970 from scoreline, clock and dice) found no support in this window.
+- **This lineup had three forwards** (one CF role 9, two SS role 7), so the rank block was live (count >= 3). For the two SS: at −1 the median |Δx| was 10.5 m (under 1 m in 8% of frames; slot 9 higher in 747); at −2 the median was 1.6 m (under 1 m in 38%; slot 9 higher in 704, slot 8 in 508). This fits §5: at −1 the rank multipliers and the floor separate them; at −2 the factor is 0 (every forward goes to the deep line) and the floor is off.
+- **Not tested:** the two-forward case itself (§5 predicts identical lines at −1 and −2), v21, the score and clock at each change.
