@@ -2661,23 +2661,27 @@ void StepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   const float angle45 = k.angle45;
   // 2. The reorient window (0x1406c770e..0x1406c7800) and the yaw lock's write.
   if (!ClipHalted(host) && rowStartLive <= clipFrame && clipFrame <= (rowStartLive + rowEndLive) / 2) {
-    uint32_t row = req.U(moveword::kPrevBucket);  // param_2[0x25]
+    // PES's row angle is param_2[0x18] (the turned heading), not the bucket word.
+    float row = req.F(moveword::kTurnedRow);  // param_2[0x18]
     const uint32_t frames =
         static_cast<uint32_t>(static_cast<float>(rowEndLive - clipFrame) / clipLength + half);
+    // PES at 0x1406C7695: the precise gate's inner test is
+    // wrap180(kLookHeading - kBodyDirection), and at 0x1406C76CF the window's own gate is
+    // wrap180(kBodyDirection - kTurnedRow).
     const float bodyDelta =
-        std::fabs(Wrap180Diff(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k));
+        std::fabs(Wrap180Diff(req.F(moveword::kBodyDirection), req.F(moveword::kLookHeading), k));
     const float facingDelta =
-        std::fabs(Wrap180Diff(req.F(moveword::kHeading), req.F(moveword::kFacing), k));
+        std::fabs(Wrap180Diff(req.F(moveword::kTurnedRow), req.F(moveword::kBodyDirection), k));
     if ((req.U(moveword::kPrecise) != 1 || bodyDelta < angle45) && facingDelta < turn7875) {
-      row = static_cast<uint32_t>(StepHeadingToPoint(static_cast<float>(row),
-                                                     req.F(moveword::kHeading), turn675, k));
+      row = StepHeadingToPoint(row, req.F(moveword::kHeading), turn675, k);
     }
+    // PES at 0x1406C7835: the ratio's numerator is wrap180(kLookHeading - kFacing).
     const float ratio =
-        std::fabs(Wrap180Diff(static_cast<float>(row), req.F(moveword::kHeading), k)) /
+        std::fabs(Wrap180Diff(req.F(moveword::kFacing), req.F(moveword::kLookHeading), k)) /
         static_cast<float>(frames);
     if (ratio < angle45) {
       const float bucketRow = static_cast<float>(req.U(moveword::kMoveBucket));
-      const float turned = static_cast<float>(row) + k.bucketAngle[static_cast<int>(bucketRow) & 9];
+      const float turned = row + k.bucketAngle[static_cast<int>(bucketRow) & 9];
       req.SetF(moveword::kAngle3d, turned);  // param_2[0x3d] = uVar23
       req.SetByte(moveword::kReorientFlag, 1);  // param_2 + 0x3c = 1
       req.SetU(moveword::kTurnFrames, frames);   // param_2[0x3e] = uVar18
