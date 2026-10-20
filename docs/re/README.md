@@ -228,6 +228,7 @@ address given.
 |`pes-re-getup-recovery.md`|Get-up recovery: no timer; slide/tackle after a fall gated by the clip's +0x70 frame test; rise-up gate FUN_14072C5C0 (ball within 10 m predicted 1 s); rise rate by Balance|
 |`pes-re-tracked-parts.md`|Trip tracked parts: bones HIP/FOOT_L/FOOT_R/HEAD (0x1425EFBE0), per-part distance FUN_140842BE0 vs the bone block P+0x538, max FUN_140843C50, feet test FUN_140843E30 (0.23); the writer of P+0x508 is open|
 |`pes-re-decision-read.md`|MOVESTEP decision read: request words filled from the AI command record (move target cmd+0x20, kind cmd[0x16], speed cmd[0x17]/[0x172]) by FUN_1406B7560; the pass request is a separate channel AI+0x874..0x8C4; think gate 0x140929A51|
+|`pes-re-motion-substate.md`|Action-state +0x3C = motion substate from the static table 0x14344E380 (byte+12, domain 0..13) via the player motion group +0x2752; 7 = one-touch/elastico, 10 = parry/scissors/fatigue; 14/21 dead; fatigue cliff 70% vs 60% (external agent Q&A, partly audited)|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
