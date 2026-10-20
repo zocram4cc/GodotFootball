@@ -3461,8 +3461,9 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
                  rowEndClamped <= clipFrame))) {
       // PES's last arm folds the two precise-flag arms into one test when the row has frames.
       stay = true;
-    } else if (precise == 1 && quarter < std::fabs(req.F(moveword::kLookHeading)) &&
+    } else if (precise == 1 && quarter < std::fabs(req.F(moveword::kFacingError)) &&
                rowEndClamped <= clipFrame) {
+      // PES's last arm (0x1406C9700): kPrecise == 1 and the facing error past 90 degrees.
       stay = true;
     }
   }
