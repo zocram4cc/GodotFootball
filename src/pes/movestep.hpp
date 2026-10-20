@@ -73,6 +73,7 @@ struct MoveStepRecord {
   float rateCeiling = 0.0f;               // P+0x377c: top running rate (FUN_1406f99f0)
   int rateStamp = 0;                      // P+0x3778: match tick the ceiling was computed on
   float playbackSpeed = 1.0f;             // P+0x3758: the SetMotion playback (FUN_1406f0f70)
+  float playbackDefault = 1.0f;           // P+0x3750: the default playback word, copied into req[0x4b] (OBS copy-in, FUN_1406b7560)
   float yawLock = 0.0f;                    // P+0xbec: the dispatcher's yaw lock and the slip/root-facing tail
   float rate = 0.0f;                      // req[0x4a]: the ramped rate, carried from tick to tick
   uint8_t style = 0;                      // req[0x50]: P+0x27b1, the locomotion style the loop is on

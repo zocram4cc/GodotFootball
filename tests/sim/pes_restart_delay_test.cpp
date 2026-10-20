@@ -420,3 +420,33 @@ TEST(PesRestartDelay, AMoverWhoseClipEndsGoesOnAndMoves) {
       1300, /*seed=*/57, /*judgeEnd=*/false);
   EXPECT_LT(longest, kFrozenLimitTicks) << "the presser held zero speed on a finished clip for " << longest << " ticks";
 }
+
+// Every PES clip MOVESTEP issues on seed 3 plays at a positive rate. The playback word is a float that the copy-in fills
+// from P+0x3750 (1.0); the integer writes into it left 0.0 on the kick-off stance (motion 2220) and others.
+TEST(PesRestartDelay, ASeedThreePesIssuePlaysAtAPositiveRate) {
+  std::map<int, unsigned int> lastSerial;
+  int issues = 0, zeroRate = 0;
+  RunMatchWithinTheBound(
+      true, MINUTES,
+      [&](Match& match) {
+        for (int t = 0; t < 2; ++t) {
+          if (!match.GetTeam(t)) continue;
+          const auto& all = match.GetTeam(t)->GetAllPlayers();
+          for (size_t i = 0; i < all.size(); ++i) {
+            Player* q = all[i].get();
+            if (!q) continue;
+            const pes::IssuedClip& ic = q->GetIssuedClip();
+            const int key = t * 100 + static_cast<int>(i);
+            auto it = lastSerial.find(key);
+            if (it != lastSerial.end() && it->second == ic.serial) continue;
+            lastSerial[key] = ic.serial;
+            if (ic.request.group >= 0 || ic.request.motion < 0) continue;  // PES SetMotion clips only
+            ++issues;
+            if (!(ic.request.playback > 0.0f)) ++zeroRate;
+          }
+        }
+      },
+      kMaxSimTicks, 3, false);
+  EXPECT_GT(issues, 0) << "no PES clip was issued";
+  EXPECT_EQ(zeroRate, 0) << zeroRate << " of " << issues << " PES clip issues played at rate zero";
+}

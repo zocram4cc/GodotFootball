@@ -510,6 +510,7 @@ void ProcessMoveStep(Player& player, Match& match) {
   }
   req.SetByte(pes::moveword::kLiveKind, rec.liveKind);
   req.SetF(pes::moveword::kPlayback, rec.playbackSpeed);
+  req.SetF(pes::moveword::kPlaybackDefault, rec.playbackDefault);
   req.SetF(pes::moveword::kRate, rec.rate);
   req.SetByte(pes::moveword::kStyle, rec.style);
   req.SetU(pes::moveword::kParamState, kSingleClip);  // PES's init: a single clip (req[0x37] == 0x11)
