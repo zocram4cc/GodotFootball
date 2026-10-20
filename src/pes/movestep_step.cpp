@@ -1502,9 +1502,30 @@ void TurnStop(MoveHost& host, MoveReq& req) {
       }
     } else if (int(req.U(moveword::kMoveBucket)) != 0 &&
                int(req.U(moveword::kMoveBucket)) != 5) {
-      if (k.deg22p5 <= std::fabs(turnToTarget)) { /* fall through to the run-turn below */ }
-      if (k.kmh8 < groundSpeed && k.half < req.F(moveword::kDistToTarget) &&
-          req.U(0x0f) != 0) {
+      // PES's non-precise arm (the JBE at 0x1406CB075, which jumps to LAB_1406CB0B6): the
+      // gate's angle is the one at 0x1406CAFF1, wrap180(the displacement heading - the move
+      // bucket), and past 28.125 degrees (0x1425DDF94) the handler jumps to the class ladder
+      // and hands the tick to FUN_1406D38D0 (STEP_TURN_RUN). The port ran the run-turn block
+      // instead, because the gate's body was empty, and it compared the heading against the
+      // facing.
+      const float dispTurn = Wrap180(DisplacementHeading(host) -
+                                      tables.bucketDegrees[int(req.U(moveword::kMoveBucket))]);
+      if (k.deg28p125 <= std::fabs(dispTurn)) {
+        if (k.kmh8 <= groundSpeed) {
+          if (k.kmh13p5 <= groundSpeed) {
+            req.SetU(moveword::kClassWord, 2);
+            req.SetF(moveword::kBandSpeed, k.kmh16);
+          } else {
+            req.SetU(moveword::kClassWord, 1);
+            req.SetF(moveword::kBandSpeed, k.kmh11);
+          }
+        } else {
+          req.SetU(moveword::kClassWord, 0);
+          req.SetF(moveword::kBandSpeed, k.kmh5);
+        }
+        if (EnterStepTurnRun(host, req)) return;  // FUN_1406d38d0
+      } else if (k.kmh8 < groundSpeed && k.half < req.F(moveword::kDistToTarget) &&
+                 req.U(0x0f) != 0) {
         if (groundSpeed < k.kmh11 && int(req.U(moveword::kClassWord)) > 1) {
           req.SetU(moveword::kClassWord, 1);
           req.SetF(moveword::kBandSpeed, k.kmh11);
