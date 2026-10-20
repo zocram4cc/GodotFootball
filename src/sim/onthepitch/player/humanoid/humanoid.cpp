@@ -2044,6 +2044,7 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
       // gate). A PES locomotion clip is exempt, as the too-similar gate above exempts it: its planned
       // change is the clip's own. A stationary clip whose planned change pointed at the ball refused
       // every walk to it (measured: keeper, goal kick, speed 0), so the taker never moved.
+      // Duplicates the same exemption in FirstTouchPort 54413ac; the batch merge dedupes it.
       if (!OnPesLocomotion() &&
           ((desiredMomentumChange.GetDotProduct(plannedMomentumChange) > 0.0f &&
             desiredMomentumChange.GetDistance(plannedMomentumChange) < 4.0f) ||
