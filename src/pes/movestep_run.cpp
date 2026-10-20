@@ -2123,8 +2123,6 @@ void RunLoop(MoveHost& host, MoveReq& req) {
   const int cls = static_cast<int>(req.U(moveword::kCommandSpeedClass));
   const int kind = static_cast<int>(req.U(moveword::kKind));
   const int band = static_cast<int>(req.U(moveword::kRateBand));
-  // PES's bVar22: the class below 1 with the kind 3 or 6 (the keeper kinds).
-  const bool keeperKind = cls < 1 && (kind == 3 || kind == 6);
   const bool running = cls != -1 || (req.U(moveword::kPrecise) != 1u && host.MatchPhase() == 1);
   if (!running) {
     // ponytail: the no-class arm's body (the state picker, the keeper / mode arm, the swing
@@ -2162,39 +2160,42 @@ void RunLoop(MoveHost& host, MoveReq& req) {
   const float ceiling = host.RateCeiling();
   const float threshold = (ceiling - k.rate06) * k.half;
   if (EnterRunTurnStep(host, req, threshold)) return;
-  float turnGate = k.deg5625;
-  if (keeperKind) turnGate = k.deg45;
+  // PES 114-116 (T1): the entry of the swing, style and ladder block. Bucket 0 or 5 with the rate above rampSlope (0.15,
+  // 0x1425c48a0), or the run turn is not allowed: FUN_1406b70d0 == 0, and StepLetsRunTurn returns 1 for 'may', so the
+  // test is its negation.
   const int bucket = static_cast<int>(req.U(moveword::kMoveBucket));
-  const bool bucketShape = bucket == 0 || bucket == 1 || bucket == 5 || bucket == 6;
-  if (keeperKind && bucketShape && req.F(moveword::kRate) < k.blend3) {
-    if (req.F(moveword::kDistToTarget) <= k.speed2) {
-      EnterTurnStop(host, req);
+  const bool t1 = ((bucket == 0 || bucket == 5) && k.rampSlope < req.F(moveword::kRate)) || !StepLetsRunTurn(host, req);
+  // PES 117 (T2): the precise word clear, the class -1, or the second dwell still running: the swing arm.
+  const bool t2 = req.U(moveword::kPrecise) != 1u || cls == -1 ||
+                  req.F(moveword::kDwellElapsed2) < req.F(moveword::kDwellLimit2);
+  // PES 265-266 (E2): the blended rate ceiling below the request's rate: the swing arm. The +0xAC0 interface's slot 0x18 is
+  // FUN_1406eadf0 = P+0x377c, the rate ceiling, which host.RateCeiling() reads.
+  const float blended = (host.RateCeiling() - k.rate06) * k.half + k.rate06;
+  const bool swingNow = t1 && (t2 || blended < req.F(moveword::kRate));
+  // PES 267-286 (E3): the ladder selector, checked against the asm. Bucket 0 and 5 take the style arm; bucket 1 and 6 take the
+  // ladder only under bVar19 (req[0x1F] below 1 with the kind 3 or 6); the other buckets take the ladder.
+  if (t1 && !swingNow) {
+    const bool bVar19 = static_cast<int>(req.U(moveword::kClassWord)) < 1 && (kind == 3 || kind == 6);
+    const bool ladder = (bucket == 1 || bucket == 6) ? bVar19 : (bucket != 0 && bucket != 5);
+    if (ladder) {
+      // PES 274-284: STOP or IDLE below 0.3 (blend3); TURN_STOP at 2 m or less, and not exactly 2; RUN_TURN_RUN otherwise.
+      if (req.F(moveword::kRate) < k.blend3) {
+        EnterStop(host, req);
+        return;
+      }
+      const float toLook = req.F(moveword::kDistToLook);
+      if (toLook <= k.speed2 && k.speed2 != toLook) {
+        EnterTurnStop(host, req);
+        return;
+      }
+      EnterRunTurnRun(host, req);
       return;
     }
-    EnterRunTurnRun(host, req);
-    return;
-  }
-  if (!keeperKind && bucketShape && turnGate < turn) {
-    // The ladder issues through its helpers (EnterStop, EnterTurnStop, EnterRunTurnRun), as PES's E3 does; the arm's own
-    // row issue was a stand-in and is gone.
-    // PES's far-enough ladder (FUN_1406c0170 decompile 274-284): STOP or IDLE (FUN_1406d5d60) when req[0x4A] is under
-    // DAT_142590d98 (0.3), TURN_STOP (FUN_1406d2590) when req[0x12] is at most 2 and not 2, else RUN_TURN_RUN (FUN_1406d6780).
-    if (req.F(moveword::kRate) < k.blend3) {
-      EnterStop(host, req);
-      return;
-    }
-    if (req.F(moveword::kDistToLook) <= k.speed2 && k.speed2 != req.F(moveword::kDistToLook)) {
-      EnterTurnStop(host, req);
-      return;
-    }
-    EnterRunTurnRun(host, req);
-    return;
   }
 
-  // The no-class branch (PES's second half, mv2.a.c:494 onward). PES reaches it when the
-  // request's class word is -1, or when the match phase is 1 without the precise word; it is
-  // the arm that picks the turn-stop row and issues the swing clip.
-  if (!running) {
+  // The swing arm (PES 120-263) runs for T1 with T2 or E2, and for a no-class tick outside T1. PES's tail (408-466, the
+  // T1-false path) is not ported: a no-class tick there keeps the swing arm (ponytail). Otherwise the style arm below runs.
+  if (swingNow || (!t1 && !running)) {
     // The playback read through the +0xac0 interface's slot 0x30 (FUN_140a62960's mirror
     // argument) and slot 0x50's answer.
     // ponytail: the interface's slot pair is the anime player's own; the port uses the

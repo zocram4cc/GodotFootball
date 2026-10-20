@@ -2022,7 +2022,7 @@ TEST(RunLoop, TheStyleArmAsksForRunToStep) {
   pes::MoveReq req;
   req.SetU(pes::moveword::kKind, 2u);
   req.SetU(pes::moveword::kCommandSpeedClass, 1u);  // a live class: the style arm runs
-  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetU(pes::moveword::kPrecise, 1u);  // the precise arrival: PES's T2 is false, so the style arm runs, not the swing arm
   req.SetU(pes::moveword::kRateBand, 1u);
   req.SetU(pes::moveword::kMoveBucket, 0u);
   req.SetU(pes::moveword::kCommandId, 0u);
@@ -2120,6 +2120,7 @@ uint32_t JostledStyle(float facing, uint32_t commandSpeedClass) {
   pes::MoveReq req;
   req.SetF(pes::moveword::kFacing, facing);
   req.SetU(pes::moveword::kCommandSpeedClass, commandSpeedClass);
+  req.SetU(pes::moveword::kPrecise, 1u);  // the precise arrival: PES's T2 is false, so the style arm runs, not the swing arm
   pes::probe::Reset();
   pes::movestep::RunLoop(h, req);
   return req.U(pes::moveword::kStyle) & 0xffu;
