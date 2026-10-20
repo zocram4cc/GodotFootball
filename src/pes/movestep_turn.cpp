@@ -3211,7 +3211,11 @@ void StepTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
     float turned = req.F(moveword::kRowAngle);  // param_2[0x17]
     const uint32_t frames =
         static_cast<uint32_t>(static_cast<float>(rowEndClamped - clipFrame) / clipLength + half);
-    const float loose = std::fabs(Wrap180Diff(turned, req.F(moveword::kHeading), k));
+    // PES at 0x1406C8FE5: FUN_14043a0a0(req[0x17], heading - the bucket's angle) =
+    // wrap180((req[0x01] - DAT_1425dd660[bucket]) - req[0x17]).
+    const float loose = std::fabs(Wrap180Diff(
+        turned, req.F(moveword::kHeading) - k.bucketAngle[static_cast<int>(req.U(moveword::kMoveBucket)) & 9],
+        k));
     if (loose < k.angle90) {
       turned = StepHeadingToPoint(turned, req.F(moveword::kHeading), k.angle675, k);
     }
