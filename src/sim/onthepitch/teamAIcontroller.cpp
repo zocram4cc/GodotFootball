@@ -1066,21 +1066,39 @@ void TeamAIController::ApplyOffsideTrap(Vector3& position) const {
 }
 
 // PES's set-piece takers walk to their spot before they take the restart (A5 §4.7; for a throw-in,
-// docs/re/pes-re-throwin-choreography.md 3.1). The walk is pending until the taker is within reach.
+// docs/re/pes-re-throwin-choreography.md 3.1-3.2). The walk is pending until the taker has arrived.
 bool TeamAIController::IsPieceTakerWalking(const Player* player) const {
   return pieceWalk && player == taker && !PieceTakerArrived();
 }
 
+void TeamAIController::AdvancePieceWalk() {
+  if (!pieceWalk || pieceCarrying || taker == nullptr) return;
+  const Vector3 off = pieceWalkTarget - taker->GetPosition();
+  if (off.Get2D().GetLength() > pes::kThrowInPickupReach_m) return;
+  pieceCarrying = true;
+  pieceWalkTarget = pieceCarrySpot;
+}
+
 bool TeamAIController::PieceTakerArrived() const {
   if (!pieceWalk || taker == nullptr) return true;
-  const Vector3 off = pieceWalkTarget - taker->GetPosition();
-  if (setPieceType == e_SetPiece_ThrowIn) return off.Get2D().GetLength() <= pes::kThrowInTakerArrival_m;
-  return off.Get2D().GetLength() < match->GetPesSetPieceTakerConstants().takerReach_m;
+  if (setPieceType == e_SetPiece_GoalKick) {
+    // PES's goal kick: the keeper is released once he reaches the ball (A5 §4.7; pessetpiecetaker.hpp).
+    return (pieceWalkTarget - taker->GetPosition()).Get2D().GetLength() <
+           match->GetPesSetPieceTakerConstants().takerReach_m;
+  }
+  if (!pieceCarrying) return false;  // still fetching the ball
+  // The lift (phase 4): within the lift radius of the spot, and inside the end line's inset.
+  const pes::RestartSpotConstants& k = match->GetPesRestartSpotConstants();
+  const Vector3 pos = taker->GetPosition();
+  const Vector3 off = pieceWalkTarget - pos;
+  return off.Get2D().GetLength() < k.throwInCarryStop_m &&
+         std::fabs(pos.coords[0]) < pesFieldHalfLength - k.throwInCarryEndInset_m;
 }
 
 void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
   setPieceType = setPiece;
   pieceWalk = false;
+  pieceCarrying = false;
   // Ring 5 records every restart but the throw-in (transitions 1.2): the
   // kick-off timer runs only after a kick-off record.
   if (setPiece != e_SetPiece_None && setPiece != e_SetPiece_ThrowIn) {
@@ -1652,12 +1670,14 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       pieceWalk = true;
       pieceWalkTarget = ballPos;
     } else if (setPiece == e_SetPiece_ThrowIn && match->PesLoop()) {
-      // PES's throw-in taker runs to his spot and is not placed on it (docs/re/pes-re-throwin-choreography.md
-      // 3.1). The spot is on his own side of the ball, so the walk never crosses the ball.
-      const Vector3 outward = ballPos.GetNormalized(Vector3(0, -team->GetSide(), 0));
-      const Vector3 side = (taker->GetPosition() - ballPos).Get2D().GetNormalized(outward * -1.0f);
+      // PES's throw-in taker walks to the ball first, then carries it to the throw spot (3.1-3.2). The carry
+      // spot is where the approach line from the ball to the attacked goal crosses the carry line (3.2).
+      const pes::Spot carry =
+          pes::ThrowInCarrySpot(ballPos.coords[0], ballPos.coords[1], dir, match->GetPesRestartSpotConstants());
       pieceWalk = true;
-      pieceWalkTarget = ballPos + side * pes::kThrowInTakerStandOff_m;
+      pieceCarrying = false;
+      pieceWalkTarget = ballPos;
+      pieceCarrySpot = Vector3(carry.x, carry.z, 0.0f);
     } else if (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_KickOff) {
       taker->ResetPosition(ballPos + ballPos.GetNormalized(Vector3(0, -team->GetSide(), 0)) * 0.3f,
                            ballPos);

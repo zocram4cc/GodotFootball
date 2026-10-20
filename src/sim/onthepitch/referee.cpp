@@ -538,6 +538,19 @@ void Referee::Process() {
               kRestartHoldTolerance_m)
         match->GetBall()->ResetSituation(buffer.restartPos);
 
+      // PES's throw-in carry (FUN_140791ec0 phases 2-4; docs/re/pes-re-throwin-choreography.md 3.2): the taker
+      // picks the ball up where it lies and carries it to the throw spot, where he lifts it and throws. The
+      // ball rides his hand from the pickup until the release.
+      if (match->PesLoop() && buffer.desiredSetPiece == e_SetPiece_ThrowIn && buffer.prepared && !buffer.started &&
+          buffer.taker) {
+        TeamAIController* controller = match->GetTeam(buffer.teamID)->GetController();
+        controller->AdvancePieceWalk();
+        if (controller->IsCarryingBall()) {
+          const Vector3 hand = buffer.taker->GetPosition();
+          match->GetBall()->ResetSituation(Vector3(hand.coords[0], hand.coords[1], 0.0f));
+        }
+      }
+
       // Law 16: the taker waits for the opponents to leave the penalty area. They walk
       // out on their own (elizacontroller.cpp); this holds the whistle until they have,
       // for a bounded time so a wedged player cannot freeze the match.
