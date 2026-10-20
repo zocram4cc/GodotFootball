@@ -437,12 +437,13 @@ struct StepScalars {
   float deg45, deg67p5, deg78p75, deg90, deg112p5, deg135, deg140p625, deg146p25, deg168p75;
   float deg174p375, deg175, deg270;
   float neg45, neg67p5, neg90, neg112p5, neg180;
-  float dist1p25, dist1p5, dist3, eps1e7, threeQuarters, rate1p6;
+  float dist1p25, dist1p5, dist3, eps1e7, threeQuarters, s0p7;
   float rate0p9, rate0p95, clamp0p8, six;
   float s0p1333;
   float s0p15;  // 0.15, the STEP_LOOP_CHANGE stop-fallback gate (FUN_1406c6480, read at 0x1406c6bb8)
   float s0p1667, s0p2, s0p25, s0p3, s0p35, s0p4, s0p6, s0p85;
   float sq1139, sq2025, sq8100, step0p05;
+  float sq12656p25;  // 12656.25 (0x1425ddfdc): RUN_TO_STEP's body-error gate (FUN_1406c1070, 0x1406c1254)
 };
 std::optional<StepScalars> LoadStepScalars(const PeImage& exe, std::string* error);
 

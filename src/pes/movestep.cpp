@@ -236,10 +236,11 @@ const struct {
     {0x1425ddfbc, STEP_FIELD(deg146p25)},
     {0x1425ddfb8, STEP_FIELD(deg140p625)},
     {0x1425ddfd4, STEP_FIELD(sq1139)},
-    {0x1425ddfd8, STEP_FIELD(sq2025)},
+    {0x1425ddfd8, STEP_FIELD(sq8100)},    // 8100.0: FUN_1406c1070 0x1406c1243, FUN_1406c6f80 0x1406c701c
     {0x1425ddfd0, STEP_FIELD(deg174p375)},
     {0x1425a2008, STEP_FIELD(deg270)},
-    {0x1425cb494, STEP_FIELD(sq8100)},
+    {0x1425cb494, STEP_FIELD(sq2025)},    // 2025.0: FUN_1406c6f80 0x1406c702e
+    {0x1425ddfdc, STEP_FIELD(sq12656p25)},  // 12656.25: FUN_1406c1070 0x1406c1254
     {0x1425ddf98, STEP_FIELD(deg31p64)},
     {0x1425c5958, STEP_FIELD(neg90)},
     {0x1425aa1c8, STEP_FIELD(neg45)},
@@ -270,7 +271,7 @@ const struct {
     {0x1425ab120, STEP_FIELD(s0p85)},
     {0x14259bdec, STEP_FIELD(six)},
     {0x14259bdd4, STEP_FIELD(threeQuarters)},
-    {0x14257a194, STEP_FIELD(rate1p6)},
+    {0x14257a194, STEP_FIELD(s0p7)},   // 0.7: FUN_1406c1070 0x1406c1411, FUN_1406c6480 0x1406c6b48
     {0x1425656c0, STEP_FIELD(four)},   // FUN_1406c6480: comiss at 0x1406c6b18
     {0x1425c48a0, STEP_FIELD(s0p15)},  // FUN_1406c6480: movss at 0x1406c6bb8
 };
