@@ -582,7 +582,8 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   int bucket = AngleBucket(host.AngleBuckets(), bucketAngle + bodyTurn,
                            int(req.U(moveword::kMoveBucket)), false);
   const int currentBucket = int(req.U(moveword::kMoveBucket));
-  const float turnToTargetDeg = Wrap180(req.F(moveword::kLookHeading) - req.F(moveword::kHeading));
+  // PES at 0x1406C4E7A: FUN_14043a0a0(req[0x03], req[0x01]) = wrap180(kHeading - kLookHeading).
+  const float turnToTargetDeg = Wrap180(req.F(moveword::kHeading) - req.F(moveword::kLookHeading));
   const bool turnIsWide = k.deg5p625 <= turnToTargetDeg;
   if (bodyTurn <= 0.0f) {
     if (currentBucket == 0 || currentBucket == 5) {
@@ -599,7 +600,10 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   }
 
   // The heading the step's own angle points at, and the drift from the look heading.
-  const float lookAhead = Wrap180(facing + tables.bucketDegrees[bucket] - req.F(moveword::kHeading));
+  // PES at 0x1406C5FD4: the inline difference is (req[0x01] - the column's angle) - the facing,
+  // and the call at 0x1406C5FE0 is FUN_14043a0a0(facing, that).
+  const float lookAhead =
+      Wrap180(req.F(moveword::kHeading) - tables.bucketDegrees[bucket] - facing);
   const float lookDelta = req.F(moveword::kLookDelta);
   float drift = 0.0f;
   if (!precise) {

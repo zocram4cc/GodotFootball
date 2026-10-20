@@ -736,6 +736,40 @@ TEST(StepLoop, TheBodyTurnRunsFromTheHeadingTowardsTheFacing) {
   EXPECT_EQ(req.U(pes::moveword::kMoveBucket), 0u);
 }
 
+// PES at 0x1406C4E7A: the bucket's look test reads
+// FUN_14043a0a0(req[0x03], req[0x01]) = wrap180(kHeading - kLookHeading), and the sign picks
+// the bucket's half (0/5 against 4/9). The port computed the difference the other way round.
+TEST(StepLoop, TheBucketHalfFollowsTheHeadingAgainstTheLookHeading) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  // The look heading is 20 degrees below the heading, so PES's difference is +20 and the
+  // bucket stays in the upper half (0 or 5).
+  req.SetF(pes::moveword::kLookHeading, 340.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 5);
+  req.SetU(pes::moveword::kBucketPrev, 5);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  // The positive difference re-picked the bucket 0; the port's old sign would have kept 5.
+  EXPECT_EQ(req.U(pes::moveword::kMoveBucket), 0u);
+}
+
 // -------------------------------------------------------------------------------------
 // STEP_LOOP_CHANGE, FUN_1406c6480.
 // -------------------------------------------------------------------------------------
