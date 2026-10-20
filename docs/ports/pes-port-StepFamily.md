@@ -24,15 +24,16 @@ whole STEP-family port, not only the last fix. Its own commits, oldest first:
 | `f58680c` | STEP_LOOP: the STEP_TURN_RUN arm never wrote the root facing |
 | `9748401` | STEP_TURN_STEP: the final class ladder ignored the ball's distance |
 | `a71fb7d` | TURN_STOP: the non-precise arm's gate had an empty body, so the ladder never ran |
-| `af8baab` | this report |
+| `4d2a09a` | RUN_TO_STEP: the stop arm's gate read the look heading, not the body direction |
+| `cb3bdb6` | the report's corrections (the census's label mapping, the run.cpp scope) and its move to docs/ports/ |
 
 `7025f5c` (an earlier TURN_STOP attempt) is on the branch's history but is **superseded**
 by `a71fb7d`: it used 28.125 where this arm uses 22.5, it compared the wrong angle, and it
-hung the sim. Merge `af8baab`, not `7025f5c`.
+hung the sim. Merge the branch's tip, not `7025f5c`.
 
 `git ls-remote origin StepFamily`:
 ```
-af8baab9e47888eb27cd2ec41cd7e60e0381dcfe	refs/heads/StepFamily
+cb3bdb62569766f0cf5d55bbf8410e7e1ac760e2	refs/heads/StepFamily
 ```
 
 ## The one divergence found and fixed: TURN_STOP's non-precise arm
@@ -101,6 +102,42 @@ The test's angle is 25 degrees on purpose: past PES's 22.5 gate and inside 28.12
 pins the constant as well as the operand. Word `0x0f` is cleared so the run-turn block
 cannot run, so only the ladder can write the class word and the speed.
 
+## The second divergence: RUN_TO_STEP's stop arm read the wrong word
+
+`src/pes/movestep_step.cpp`, `RunToStep` (PES `FUN_1406c1070`), the stop arm's gate.
+
+PES at **0x1406C142A**: `MOVSS XMM1, [RBX+0x4]` (req word 4 = `kBodyDirection`),
+`MOVSS XMM0, [RDI+0x20]` (the host's facing), then `FUN_14043a0a0` ->
+`wrap180(the facing - the body direction)`, compared against 22.5 degrees
+(`[0x14259d618]`). Past 22.5 the handler calls **FUN_1406D5D60 (STOP / IDLE)**; otherwise
+it calls **FUN_1406D2590 (TURN_STOP)** when the class is -1 or the distance is under 1.0
+(`XMM9 = [0x14256ae1c] = 1.0` at 0x1406C11F2, compared against `req[0x11]` at 0x1406C146A),
+and **FUN_1406D6780 (RUN_TURN_RUN)** otherwise.
+
+The port read **req word 3, the look heading**, where PES reads **req word 4, the body
+direction**. A player whose body direction was level with his facing but whose look
+heading was 40 degrees away therefore took the STOP arm where PES takes the TURN_STOP
+arm.
+
+The fix (commit `4d2a09a`): the body direction.
+
+### Red-to-green
+
+- `RunToStep.TheStopArmReadsTheBodyDirectionAndNotTheLookHeading` (new): the look heading
+  40 degrees from the facing, the body direction level with it, so the tick takes the
+  TURN_STOP arm (`req[0x39] = 6`) and not the stop arm.
+- `RunToStep.StopsWhenTheHeadingErrorIsPastNinetyDegrees`: the body direction is now 40
+  degrees from the facing, so the stop arm's gate opens and the tick stops.
+
+Both fail on the parent `4d2a09a^` and pass on `4d2a09a`; the mutation - the operand back
+to the look heading - fails both.
+
+The tests' `requested` global is now reset at the start of every test that reads it, so
+each one starts from a clean state and passes on its own. Before the reset the
+`requested` global kept the state an earlier test had left behind, which is why
+`RunToStep.StopsWhenTheHeadingErrorIsPastNinetyDegrees` passed in the full binary and
+failed when run alone.
+
 ## The throw-in test: the exit is not in this branch's reach
 
 Main's throw-in stall (`PesRestartDelay.AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine`)
@@ -160,12 +197,12 @@ branch's total diff against c8906a5 is much wider than the STEP family alone.
 
 ## The verification
 
-The movestep suites, all green on `a71fb7d`:
+The movestep suites, all green on `4d2a09a`:
 
 ```
 pes_movestep_test: [  PASSED  ] 104 tests.
 pes_movestep_run_test: [  PASSED  ] 76 tests.
-pes_movestep_step_test: [  PASSED  ] 35 tests.
+pes_movestep_step_test: [  PASSED  ] 36 tests.
 pes_movestep_turn_test: [  PASSED  ] 51 tests.
 ```
 
