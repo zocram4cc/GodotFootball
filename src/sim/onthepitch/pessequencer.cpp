@@ -17,7 +17,7 @@ namespace {
 
 // ponytail: frames from arming to release, live (A5Live 9.3). These fixed gates stand in for PES's taker reach and kick
 // action (9.2, 9.4) until that action is ported. Each value is the shortest release measured live; the DOC gate it
-// replaces is named beside it. A throw-in and a goal kick have no gate: their taker is released on arrival (MayRelease).
+// replaces is named beside it. A throw-in has no gate: its taker is released on arrival (MayRelease).
 constexpr int kCornerReleaseFrames = 365;    // live 365-379; DOC 189 not reproduced
 constexpr int kFreeKickReleaseFrames = 355;  // live 355-356; DOC 162 not reproduced
 constexpr int kPenaltyReleaseFrames = 54;    // DOC fps*1 (setpiece 12); not observed live
@@ -69,8 +69,6 @@ int ReleaseFrames(e_SetPiece kind) {
   switch (kind) {
     case e_SetPiece_ThrowIn:
       return 0;  // no timer: the taker's arrival releases it (MayRelease)
-    case e_SetPiece_GoalKick:
-      return 0;  // no timer: the keeper's arrival releases him (MayRelease)
     case e_SetPiece_Corner:
       return kCornerReleaseFrames;
     case e_SetPiece_FreeKick:
@@ -78,12 +76,13 @@ int ReleaseFrames(e_SetPiece kind) {
     case e_SetPiece_Penalty:
       return kPenaltyReleaseFrames;
     default:
-      return 0;  // kick-off and goal kick: no clock (the receiver's ball test, or the keeper's reach; see MayRelease)
+      return 0;  // kick-off and goal kick: no clock (the receiver's ball test, or the goal kick's ladder; pesgoalkick.hpp)
   }
 }
 
 bool MayRelease(e_SetPiece kind, int framesSinceArmed, bool takerArrived) {
-  if (kind == e_SetPiece_ThrowIn || kind == e_SetPiece_GoalKick) return takerArrived;  // PES's reach and kick (A5 9.3, §4.7)
+  if (kind == e_SetPiece_GoalKick) return false;  // the goal kick's ladder releases it (pesgoalkick.hpp), never this gate
+  if (kind == e_SetPiece_ThrowIn) return takerArrived;  // PES's arrival and kick (A5 9.3, §4.7)
   return framesSinceArmed >= ReleaseFrames(kind);
 }
 

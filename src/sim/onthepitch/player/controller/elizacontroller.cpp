@@ -299,26 +299,17 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       bool pesGoalKick = false;
 
       if (team->GetController()->GetSetPieceType() == e_SetPiece_GoalKick && match->PesLoop()) {
-        // PES's goal kick is a lofted pass after the keeper's set-play wait (pesgoalkick.hpp): to
-        // the mate the lofted picker names, or into space when there is none. Replaces the GF coin
-        // below on pes_loop.
+        // PES's goal kick (pesgoalkick.hpp): the ladder's order, released by the referee. The strike owns the keeper's root
+        // until its contact tick, so no kick command goes out before it.
+        if (!team->GetController()->GoalKickInContact()) return;
         pesGoalKick = true;
-        std::vector<Player*> mates;
-        team->GetActivePlayers(mates);
-        std::vector<float> ratings;
-        int takerIndex = -1;
-        for (Player* mate : mates) {
-          if (mate == CastPlayer()) takerIndex = static_cast<int>(ratings.size());
-          ratings.push_back(mate->GetStat("technical_highpass"));
-        }
-        const int receiver = pes::PickGoalKickReceiver(ratings, takerIndex);
         actionCommand.desiredFunctionType = e_FunctionType_HighPass;
-        if (pes::GoalKickAfterWait(receiver >= 0) == pes::GoalKickCommand::kLoftedToReceiver) {
-          actionCommand.touchInfo.forcedTargetPlayer = mates[receiver];
-          desiredTargetPosition = mates[receiver]->GetPosition();
+        if (Player* receiver = team->GetController()->GoalKickReceiver()) {
+          actionCommand.touchInfo.forcedTargetPlayer = receiver;
+          desiredTargetPosition = receiver->GetPosition();
         } else {
-          // ponytail: PES's receiver-less kick (player 0xff) has no decoded target. GF aims at the
-          // midfield point on the attacking side, the old stand-in's x, until that is traced.
+          // ponytail: PES's receiver-less kick (player 0xff) has no decoded target. GF aims at the midfield point on the
+          // attacking side, the old stand-in's x, until that is traced.
           desiredTargetPosition = Vector3((pitchHalfW * -team->GetSide()) * 0.2f,
                                           player->GetPosition().coords[1], 0.0f);
         }

@@ -18,8 +18,8 @@
 //
 // The kick-off is not governed by these numbers - its pass is released by the
 // receiver's own ball-ownership check (KickoffReceiver, 0x140781fc0) - and
-// neither are throw-ins or goal kicks, whose release is the taker's arrival and
-// readiness. `waitTimerMin` in constant::BallplayerSetplay (+0x28) is NOT read on
+// neither are throw-ins, whose release is the taker's arrival and readiness, nor goal kicks, whose release is the timer
+// ladder of sub_142136F00 (pesgoalkick.hpp). `waitTimerMin` in constant::BallplayerSetplay (+0x28) is NOT read on
 // any of these paths: the gates are the fps multiples above, and the JSON value
 // is recorded so that nobody ports it.
 //
@@ -43,9 +43,14 @@ struct SetPieceTakerConstants {
   // corner (byte 0x14259bdf0), and once the partner check passes.
   float shortCornerWindow_s = 2.0f;
   float shortCornerRunningWindow_s = 7.0f;
-  // The taker's reach to the ball, in metres, on which PES releases a goal kick (A5 §4.7; this header's
-  // comment above): 0.65, .rdata 0x14259d5d0, the same reach the throw-in lift uses.
-  float takerReach_m = 0.65f;
+  // The goal kick's ladder (sub_142136F00, pesgoalkick.hpp) and its placement (SetKick 0x140774AE0). freeKickGate_s is
+  // also the ladder's three-second wait: the same .rdata word.
+  float halfSecond_s = 0.5f;         // 0.5, .rdata 0x142565600: the ladder's windows, and the rounding of its waits
+  float goalKickTacticsGate = 0.3f;  // 0.3, .rdata 0x142590d98: the special restart's early-out
+  float centimetre_m = 0.01f;        // 0.01, .rdata 0x14256ae18: the Mbinfo hit records are in cm
+  float physiqueLow = 0.9166f;       // .rdata 0x1425ddf78: FUN_1406e8cc0's physique clamp, low (x and z)
+  float physiqueHigh = 1.0833f;      // .rdata 0x1425ddf80: and high
+  float hitTickDivisor = 60.0f;      // 60, .rdata 0x14259a764: a hit's tick divisor (FUN_1406b03d0)
 };
 
 std::optional<SetPieceTakerConstants> LoadSetPieceTakerConstants(const PesVfs& vfs,

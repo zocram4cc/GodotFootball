@@ -180,9 +180,9 @@ TEST(PesRestartSequencer, EachRestartIsReleasedOnItsMeasuredFrame) {
   EXPECT_TRUE(pes::MayRelease(e_SetPiece_Corner, 365, false));
   EXPECT_FALSE(pes::MayRelease(e_SetPiece_FreeKick, 354, false));
   EXPECT_TRUE(pes::MayRelease(e_SetPiece_FreeKick, 355, false));
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 100000, false)) << "a goal kick has no clock";
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 0, false)) << "a keeper who has not reached the ball waits";
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_GoalKick, 0, true));
+  // A goal kick is released by its ladder (pesgoalkick.hpp), whatever the clock and the keeper's arrival say.
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 100000, false));
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 100000, true));
   EXPECT_FALSE(pes::MayRelease(e_SetPiece_Penalty, 53, false));
   EXPECT_TRUE(pes::MayRelease(e_SetPiece_Penalty, 54, false));
   EXPECT_TRUE(pes::MayRelease(e_SetPiece_KickOff, 0, false));

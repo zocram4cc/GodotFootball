@@ -34,6 +34,7 @@
 #include "pesrandom.hpp"
 #include "pesstrategy.hpp"
 #include "pesoffball.hpp"
+#include "pesgoalkick.hpp"
 #include "pesscorerows.hpp"
 #include "pesdefshape.hpp"
 #include "teaminstructions.hpp"
@@ -109,7 +110,7 @@ public:
   e_SetPiece GetSetPieceType() { return setPieceType; }
   // PES's set-piece takers walk to their spot instead of being placed on it (A5 §4.7). A throw-in's taker walks to the
   // ball, picks it up and carries it to the throw spot, where he lifts it and throws (docs/re/pes-re-throwin-choreography.md
-  // 3.1-3.2). A goal kick's keeper walks to the ball and is released on reaching it. The walk is pending from the placement.
+  // 3.1-3.2). A goal kick's keeper walks to his stand point (SetKick's target) until the ladder releases the kick.
   bool IsPieceTakerWalking(const Player* player) const;
   Vector3 GetPieceWalkTarget() const { return pieceWalkTarget; }
   // Advances the walk from the pickup to the carry. The referee calls it each tick before the release gate.
@@ -118,6 +119,15 @@ public:
   bool IsCarryingBall() const { return pieceWalk && pieceCarrying; }
   // True when no walk is pending, or the carrying taker stands at the spot (the lift radius, 3.2).
   bool PieceTakerArrived() const;
+  // PES's goal kick (pesgoalkick.hpp): the ladder releases it (sub_142136F00) and the strike carries the keeper onto the
+  // ball. StepGoalKickLadder runs one tick of the armed restart's ladder and returns true on its release.
+  bool StepGoalKickLadder();
+  // One tick of the strike from the release: the keeper's root moves onto the contact root.
+  void AdvanceGoalKickStrike();
+  // True from the strike's contact tick: the keeper may kick.
+  bool GoalKickInContact() const { return goalKickStrike.contact; }
+  // The mate the goal kick is passed to, or null for a kick into space.
+  Player* GoalKickReceiver() const { return goalKickReceiver; }
   void CalculateSituation();
 
   // PES 2021's open-play defensive line, rebuilt every tick (report 6, 14.1).
@@ -215,6 +225,23 @@ protected:
   Vector3 pieceWalkTarget;     // the walk's target: a throw-in's pickup point, then its carry spot; a keeper's ball spot
   Vector3 pieceCarrySpot;      // where the taker lifts the ball (3.2)
   e_SetPiece setPieceType;
+  // The goal kick's ladder and strike (PES path). The strike's root is in GF metres, from the release to the contact.
+  struct GoalKickStrike {
+    bool started = false;       // released: the strike owns the keeper's root
+    bool contact = false;       // the contact tick has passed: the keeper may kick
+    unsigned long ticks = 0;    // the contact tick, counted from the release
+    unsigned long elapsed = 0;  // ticks since the release
+    Vector3 from;               // the keeper's root at the release
+    Vector3 contactRoot;        // the root on the clip's contact
+  };
+  GoalKickStrike goalKickStrike;
+  pes::GoalKickLadder goalKickLadder;
+  Player* goalKickReceiver = nullptr;  // the mate the ladder passes to; null for a kick into space
+  // Places the goal kick's stand point (the walk's target) and the strike's contact from SetKick's clip (pesgoalkick.hpp).
+  void PrepareGoalKickStand(const Vector3& spot);
+  // The lofted picker's mates: the taker's team's active players, rated by technical highpass. Returns the index the
+  // picker names (-1 for none) and fills `mates` with the list that index refers to.
+  int PickGoalKickMate(std::vector<Player*>* mates) const;
 
   Properties baseTeamTactics;
   Properties teamTacticsModMultipliers;
