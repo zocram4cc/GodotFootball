@@ -660,3 +660,22 @@ TEST(MoveStepWire, ASameMotionReissueRestartsAFinishedClip) {
   p->CastHumanoid()->PlayIssuedClip(played.motion, 1.0f, false);
   EXPECT_EQ(p->GetCurrentAnim()->frameNum, 0) << "a finished clip did not start again on its own motion";
 }
+
+// A finished ball action gives the body back. A trap clip held at its last frame while MOVESTEP is in ACCELERATE kept the
+// body: the FSM skipped its tick while the trap played, and its hold blocked the end-of-clip switch, so nothing handed the
+// body back (FirstTouchPort2's seed-42 freeze on b1f958a).
+TEST(MoveStepWire, AFinishedBallActionHandsTheBodyBack) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  for (int t = 0; t < 60; ++t) match->Process();
+  Player* p = FirstPlayer(*match);
+  Anim* anim = const_cast<Anim*>(p->GetCurrentAnim());  // the test sets the clip the humanoid plays, as the humanoid does
+  anim->functionType = e_FunctionType_Trap;
+  anim->frameNum = anim->anim->GetFrameCount() - 1;
+  p->GetMoveStep().state = pes::MoveState::kAccelerate;
+  for (int t = 0; t < 54; ++t) match->Process();
+  EXPECT_NE(p->GetMoveStep().state, pes::MoveState::kAccelerate) << "the FSM still holds ACCELERATE over a finished trap";
+  EXPECT_NE(p->GetCurrentFunctionType(), e_FunctionType_Trap) << "the finished trap still holds the body after a second";
+}

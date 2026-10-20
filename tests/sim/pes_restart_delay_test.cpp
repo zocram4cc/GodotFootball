@@ -480,3 +480,32 @@ TEST(PesRestartDelay, ASeedThreePesIssuePlaysAtAPositiveRate) {
 TEST(PesRestartDelay, TheSeedTwentyThreeKickOffRestarts) {
   RunMatchWithinTheBound(true, MINUTES, nullptr, kMaxSimTicks, 23);
 }
+
+// A finished trap must not freeze a mover. On seed 42 (b1f958a) a loose presser sat in a trap clip at zero speed while
+// commanded past a metre a second, for hundreds of ticks: the clip's end never handed the body back, because the FSM's hold
+// blocked the end-of-clip switch (FirstTouchPort2's freeze). No mover may hold that state for 120 ticks.
+TEST(PesRestartDelay, AFinishedTrapDoesNotFreezeAMover) {
+  constexpr int kFrozenLimitTicks = 120;
+  std::map<int, int> run;
+  int longest = 0;
+  RunMatchWithinTheBound(
+      true, MINUTES,
+      [&](Match& match) {
+        for (int t = 0; t < 2; ++t) {
+          std::vector<Player*> active;
+          match.GetActiveTeamPlayers(t, active);
+          for (size_t i = 0; i < active.size(); ++i) {
+            Player* pl = active[i];
+            if (!pl) continue;
+            const bool frozen = pl->CastHumanoid() && pl->GetCurrentFunctionType() == e_FunctionType_Trap &&
+                                pl->GetMovement().GetLength() < 0.05f && pl->GetPesDecision().command &&
+                                pl->GetPesDecision().command->desiredVelocityFloat > 1.0f;
+            int& r = run[t * 100 + static_cast<int>(i)];
+            r = frozen ? r + 1 : 0;
+            if (r > longest) longest = r;
+          }
+        }
+      },
+      12000, 42, false);
+  EXPECT_LT(longest, kFrozenLimitTicks) << "a mover held a trap at zero speed while commanded for " << longest << " ticks";
+}
