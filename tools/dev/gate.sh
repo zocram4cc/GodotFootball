@@ -37,3 +37,10 @@ for tag in off pesloop; do
 done
 echo "== ctest"; grep -E "tests passed|Total Test time" "$build/gate.ctest.log"
 sed -n '/The following tests FAILED/,$p' "$build/gate.ctest.log" | grep -E "^\s+[0-9]+ - " || true
+
+# The verdict comes from the logs, not the background jobs' exit codes: green means every test passed
+# and both smokes reached full time.
+green=1
+grep -q "100% tests passed" "$build/gate.ctest.log" || green=0
+for tag in off pesloop; do grep -q "sim ticks to full time" "$build/gate.smoke-$tag.log" || green=0; done
+if [ "$green" = 1 ]; then echo "GATE GREEN"; else echo "GATE RED"; exit 1; fi
