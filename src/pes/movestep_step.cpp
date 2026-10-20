@@ -1046,7 +1046,8 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
   }
 
   // 2/3. The band and the rate, then the two run-turn entries.
-  const float turnToTarget = Wrap180(req.F(moveword::kRecordStampB) - req.F(moveword::kHeading));
+  // PES at 0x1406C6632: FUN_14043a0a0(req[0x18], req[0x01]) = wrap180(kHeading - kRecordStampB).
+  const float turnToTarget = Wrap180(req.F(moveword::kHeading) - req.F(moveword::kRecordStampB));
   if (precise && speedClass < 3 && k.deg22p5 < std::fabs(turnToTarget) &&
       int(req.U(moveword::kMoveBucket)) == int(req.U(moveword::kBucketPrev))) {
     if (k.deg45 <= std::fabs(Wrap180(req.F(moveword::kFacing) - DisplacementHeading(host)))) {

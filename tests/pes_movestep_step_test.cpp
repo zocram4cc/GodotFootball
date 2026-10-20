@@ -614,6 +614,40 @@ TEST(RunToStep, KeepsTheTickWhileBlendingTheHeading) {
 }
 
 // -------------------------------------------------------------------------------------
+// STEP_LOOP_CHANGE, FUN_1406c6480.
+// -------------------------------------------------------------------------------------
+
+// PES at 0x1406C6632: the turn-to-target is FUN_14043a0a0(req[0x18], req[0x01]) =
+// wrap180(kHeading - kRecordStampB). The drift block adds that signed value to the blended
+// root facing, so the sign decides which way the body turns. The port had it the other way
+// round.
+TEST(StepLoopChange, TheDriftFollowsTheSignedTurnToTarget) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetF(pes::moveword::kFacing, 100.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 100.0f);
+  // The stamp is 30 degrees behind the heading, so wrap180(heading - stamp) = +30.
+  req.SetF(pes::moveword::kRecordStampB, 330.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);  // the stop fallback's own turn gate stays closed
+  req.SetU(pes::moveword::kClassWord, 2u);  // the band is up, so the re-plan gates stay closed
+  req.SetU(pes::moveword::kPrecise, 1u);  // the precise flag keeps the non-precise arms closed
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kRecordStampA, 0.0f);
+  req.SetU(pes::moveword::kMoveBucket, 1);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  StepLoopChange(host, req);
+  // The drift block ran: the root facing is the blended turn (0) plus the facing (100) plus
+  // the clamped turn-to-target (30), so 130.
+  EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
+  EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 130.0f, 1e-3f);
+}
+
+// -------------------------------------------------------------------------------------
 // TURN_STOP, FUN_1406cab20: the rate scale and the dwell-return gate.
 // -------------------------------------------------------------------------------------
 
