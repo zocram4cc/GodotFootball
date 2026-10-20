@@ -91,7 +91,7 @@ Carried in (not re-derived): `pes-re-animselect.md` (AR), `pes-re-anim-blend.md`
 | `req` | Source | Meaning |
 |---|---|---|
 | `[0]` | `cmd[0x16]` (8 → 2) | move kind 0..7 (selects the row column-block: 0–2 mid, 3 far, 4–6 keeper near/mid/far, 7 keeper holding the ball) |
-| `[1]` | `atan2` to `cmd+0x14` target, deg 0..360 | heading to the move target |
+| `[1]` | `atan2` to `cmd+0x20` target, deg 0..360 (corrected by ClipWords 19-10-26, was `cmd+0x14`; see `docs/ports/pes-port-ClipWords.md`) | heading to the move target |
 | `[2]` | `P+0x20` | current facing |
 | `[3]` | heading to `cmd+0x20` (look-at point) | desired body direction |
 | `[5]/[6]/[7]` | `FUN_14043a0a0` = wrap180 differences | `[6]` = target − facing, the turn angle |
