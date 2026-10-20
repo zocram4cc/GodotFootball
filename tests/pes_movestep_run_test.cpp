@@ -1698,6 +1698,45 @@ TEST(EnterAccelerate, IssuesThePlaybackWordWithTheStartLadder) {
   EXPECT_LE(h.issued.startTime, 1.0f) << "the start time is the 0.15/0.75/0.5 ladder";
 }
 
+// EnterAccelerate's desired angle (FUN_1406ccd00 lines 150-154): with the body 150 degrees from the facing, the entry
+// desires heading - StepStamp(bodyDir, facing, 0.8 * |bodyDir - facing|) = 12 - 40 = -28: window 3, bucket 6.
+TEST(EnterAccelerate, DesiresTheHeadingLessTheBodyDirectionsStepStamp) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 2;
+  h.positions[1][0] = 1.0f;  // a 194.4 km/h ground speed: past the 11 km/h gate
+  // The install's window edges (0x1425ddeb0), window -> bucket (0x1425ddf10) and hysteresis (0x14259222c, 0x14259be7c).
+  h.buckets.wide = {-180.0f, -157.5f, -112.5f, -67.5f, -22.5f, 0.0f, 22.5f, 67.5f, 112.5f, 157.5f, 180.0f};
+  h.buckets.bucket = {9, 8, 7, 6, 5, 0, 1, 2, 3, 4};
+  h.buckets.hysteresisUp = 5.0f;
+  h.buckets.hysteresisDown = -5.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 160.0f);
+  req.SetF(pes::moveword::kHeading, 12.0f);
+  req.SetF(pes::moveword::kRecordStampB, 12.0f);
+  req.SetF(pes::moveword::kLookHeading, 12.0f);
+  req.SetF(pes::moveword::kTurn, 2.0f);
+  req.SetF(pes::moveword::kFacingError, 2.0f);
+  req.SetF(pes::moveword::kLookDelta, 2.0f);
+  req.SetF(pes::moveword::kDistToLook, 3.0f);  // over 2 m
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  req.SetU(pes::moveword::kMoveBucket, 3u);
+  pes::probe::Reset();
+  ASSERT_TRUE(pes::movestep::EnterAccelerate(h, req));
+  // desired = 12 - (160 + 0.8 * (10 - 160)) = -28 degrees: window 3, bucket 6, column bucketColumn[6]
+  EXPECT_EQ(h.lastCellColumn, h.runTables.bucketColumn[6]) << "desired is not heading - StepStamp(bodyDir, facing)";
+}
+
 // EnterDecelerate (FUN_1406cdaf0): with the class word above 1 the entry refuses outright.
 TEST(EnterDecelerate, RefusesToWriteWhenTheClassWordIsAboveOne) {
   SyntheticHost h;

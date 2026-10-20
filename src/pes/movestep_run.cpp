@@ -2052,8 +2052,8 @@ int JostleStyle(MoveHost& host, MoveReq& req, int base, float& turn) {
   team.Velocity(own, selfVel);
   team.Position(opp, other);
   team.Velocity(opp, otherVel);
-  // ponytail: the same GF-coords read as ProximityCap (index 1 is -PES z). Live here: no ActionBit27 gate. See
-  // TeamAi::Position (pesmovestep.cpp); the frame fix waits for a decision.
+  // ponytail: LIVE: JostleStyle reads mirrored coordinates; the fix flips AThrowInIsNotAwarded red, so investigate which is
+  // wrong. The same GF-coords read as ProximityCap (index 1 is -PES z), with no ActionBit27 gate (see TeamAi::Position).
   const float dx = (other[0] + n * otherVel[0]) - (self[0] + n * selfVel[0]);
   const float dz = (other[1] + n * otherVel[1]) - (self[1] + n * selfVel[1]);
   // The threshold: 0.7 up to 1.0 at PC 95, 0.3 wide (the install's 0.7, 0.3, 50 and 45).
@@ -2483,13 +2483,16 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
                                                   host.MirrorChoice(false) ? 1.0f : 0.5f,
                                                   host.PlaybackConstantsView()));
 
-  // Arm 3's measurements: the desired angle and the bucket.
+  // Arm 3: the desired angle and the bucket. PES gates on |FUN_14043a0a0(facing, bodyDir)| (fVar24, the mask abs at
+  // decompile line 76), not on the heading's bearing. Inside the gate, desired = heading - StepStamp(bodyDir, facing,
+  // blend08 * |bodyDir - facing|) (decompile lines 151-154; FUN_140a92950 at 0x1406cd0df, FUN_14043a0a0 at 0x1406cd0ea).
   float desired = req.F(moveword::kTurn);
-  if (k.deg5p625 < bearingMag) {
-    // ponytail: FirstAngle(bodyDir, facing) * blend08 stands in for PES's StepStamp(bodyDir, facing, cap); the sign follows PES.
-    desired = PesAngleDiff(FirstAngle(req.F(moveword::kBodyDirection), req.F(moveword::kFacing), k) *
-                               k.blend08,
-                           req.F(moveword::kHeading), k);
+  const float bodyFacing = std::fabs(PesAngleDiff(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k));
+  if (k.deg5p625 < bodyFacing) {
+    const float stamp = StepStampTowardHeading(req.F(moveword::kBodyDirection),
+                                               PesAngleDiff(req.F(moveword::kBodyDirection), req.F(moveword::kFacing), k),
+                                               k.blend08 * bodyFacing, k);
+    desired = PesAngleDiff(stamp, req.F(moveword::kHeading), k);
   }
   const int bucket = AngleBucket(host.AngleBuckets(), desired, 10, false);
 
