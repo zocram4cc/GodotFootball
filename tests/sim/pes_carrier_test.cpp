@@ -1497,6 +1497,17 @@ TEST(PesCarrierBearing, APassFromAManAttackingMinusXRunsAtThePesBearing) {
   EXPECT_NEAR(pes::PesBearingDeg(0.0f, 0.0f, -1.0f, 0.0f), 270.0f, 1e-3f);
 }
 
+// The lane units answer lane slots (own team 0..10, opponents 11..21, each side in its active-list order), so their
+// answer indices become global player ids before a pass command resolves them. An away carrier's own slot 9 is his
+// tenth man (global id 20), never the home player with id 9.
+TEST(PesCarrierLaneSlots, AnAwayCarriersSlotNamesHisOwnTeamNotTheOtherSide) {
+  const std::vector<int> away = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21};
+  const std::vector<int> home = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+  EXPECT_EQ(pes::LaneSlotToGlobalId(9, away, home), 20);
+  EXPECT_EQ(pes::LaneSlotToGlobalId(11, away, home), 0);
+  EXPECT_EQ(pes::LaneSlotToGlobalId(22, away, home), -1);
+}
+
 TEST(PesCarrierLongUnit, ANonOwnedCarrierWithNoDangerStaysSilent) {
   // Kind 9 (0x14212AD40): without the ball and no danger flag, no answer.
   pes::LongUnitInput in;

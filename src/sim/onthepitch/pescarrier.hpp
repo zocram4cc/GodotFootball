@@ -874,6 +874,11 @@ std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnsw
                                     const PassAnswer& oneTwo = PassAnswer{},
                                     const PassAnswer& directHigh = PassAnswer{});
 
+// A lane unit's answer names a lane slot (own team 0..10, opponents 11..21, each side in its active-list order); the
+// pass command takes a global player id, so the answer converts through the two active lists. -1 when the slot
+// names no player.
+int LaneSlotToGlobalId(int slot, const std::vector<int>& ownIds, const std::vector<int>& oppIds);
+
 // The walk's context (0x14210f110's reads): the match restart mode and the FSM state, the ball's
 // owner and the carrier's own side, and the skill and zone bits the rules test.
 struct WalkContext {

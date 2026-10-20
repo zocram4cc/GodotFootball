@@ -3093,6 +3093,22 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   list.wideSector = zone.sector == pes::kSectorWide;
   list.pastCrossLine = carrierImage.id == pes::kPlanCross &&
                        attackSign * carrierPos.coords[0] > pesFieldHalfLength - 10.0f;
+  // The lane units answer lane slots (own team 0..10, opponents 11..21, each side in its active-list order); the pass
+  // commands and the walk take global player ids. Convert the five lane answers here, before the walk reads them.
+  std::vector<Player*> ownActive, oppActive;
+  team->GetActivePlayers(ownActive);
+  match->GetTeam(1 - team->GetID())->GetActivePlayers(oppActive);
+  std::vector<int> ownIds, oppIds;
+  for (Player* p : ownActive) ownIds.push_back(p->GetID());
+  for (Player* p : oppActive) oppIds.push_back(p->GetID());
+  const auto toGlobalId = [&](pes::PassAnswer& answer) {
+    if (answer.index >= 0) answer.index = pes::LaneSlotToGlobalId(answer.index, ownIds, oppIds);
+  };
+  toGlobalId(goalFrontPass);
+  toGlobalId(backSpacePass);
+  toGlobalId(safetyPass);
+  toGlobalId(oneTwoPass);
+  toGlobalId(directHighPass);
   const std::vector<pes::UnitSlot> table =
       pes::FillUnitTable(pes::BuildUnitList(list), shotAnswer, pass, longPass, crossPass,
                          goalFrontPass, backSpacePass, safetyPass, oneTwoPass, directHighPass);

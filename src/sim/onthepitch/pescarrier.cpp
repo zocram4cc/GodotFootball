@@ -2434,6 +2434,17 @@ std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnsw
   return table;
 }
 
+// A lane unit's answer names a lane slot (own team 0..10, opponents 11..21, each side in its active-list order); the
+// pass command takes a global player id, so the answer converts through the same two lists.
+int LaneSlotToGlobalId(int slot, const std::vector<int>& ownIds, const std::vector<int>& oppIds) {
+  if (slot >= 0 && slot < lane::kSideSize) return slot < static_cast<int>(ownIds.size()) ? ownIds[slot] : -1;
+  if (slot >= lane::kSideSize && slot < 2 * lane::kSideSize) {
+    const int j = slot - lane::kSideSize;
+    return j < static_cast<int>(oppIds.size()) ? oppIds[j] : -1;
+  }
+  return -1;
+}
+
 int DribbleChooser(const DribbleChooserInput& in, const CarrierConstants& k) {
   // The feint gate: the facing inside 30 degrees of the attack and of the plan heading, the carrier
   // past halfway, and the caller's feint test (0x14212e970).
