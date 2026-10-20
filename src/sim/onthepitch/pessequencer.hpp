@@ -32,6 +32,12 @@ int AwardedTeamAfterBallOut(int lastTouchTeam);
 Spot CornerSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 Spot GoalKickSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 Spot ThrowInSpot(float ballX, float ballZ, const RestartSpotConstants& k);
+// The throw-in carry spot (FUN_140791ec0 phase 1, docs/re/pes-re-throwin-choreography.md 3.2): where the
+// taker lifts the ball, on the carry line outside the touchline. It lies on the line from the restart
+// point to the centre of the goal the restarting side attacks (attackSign: +1 or -1), its x stays within
+// the clamp of the restart's x, and it falls back to the restart's x near the end line. The restart
+// point's z is a touchline's z, so it is never 0.
+Spot ThrowInCarrySpot(float restartX, float restartZ, int attackSign, const RestartSpotConstants& k);
 
 // The taker may release once this many frames have passed since the restart was armed. A
 // kick-off, throw-in and goal kick are not timed: the receiver's ball test or the taker's arrival decides them (their gate is
