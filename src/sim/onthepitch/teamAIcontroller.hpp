@@ -200,15 +200,11 @@ protected:
   Match* match;
   Team* team;
   Player* taker;
-  bool pieceWalk = false;      // a throw-in walk is pending (PES path only)
-  bool pieceCarrying = false;  // the taker has the ball: pieceWalkTarget is the carry spot
-  Vector3 pieceWalkTarget;     // the pickup point, then the carry spot
+  bool pieceWalk = false;      // a set-piece walk is pending (PES path only): a throw-in taker's or a goal-kick keeper's
+  bool pieceCarrying = false;  // a throw-in taker has the ball: pieceWalkTarget is the carry spot
+  Vector3 pieceWalkTarget;     // the walk's target: a throw-in's pickup point, then its carry spot; a keeper's ball spot
   Vector3 pieceCarrySpot;      // where the taker lifts the ball (3.2)
   e_SetPiece setPieceType;
-  // PES's goal kick: the keeper runs to the ball before he takes it. pieceWalk holds from the placement until he is
-  // within the reach; pieceWalkTarget is the restart's ball spot.
-  bool pieceWalk = false;
-  Vector3 pieceWalkTarget;
 
   Properties baseTeamTactics;
   Properties teamTacticsModMultipliers;
