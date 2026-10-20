@@ -10,6 +10,7 @@
 
 #include "gametypes.hpp"
 #include "pes/uniform.hpp"
+#include "onthepitch/pesroles.hpp"
 
 namespace pes {
 namespace {
@@ -403,6 +404,10 @@ std::optional<TeamConceptConstants> LoadTeamConceptConstants(const PeImage& exe,
   }
   k.runnerChannelShare = shareNum / shareDen;
   if (!LoadEnables(vfs, &k.enabled, error)) return std::nullopt;
+  // FUN_1408C51F0's class map, read from the install with the other constants (pesroles.cpp).
+  auto classMap = roles::LoadRoleClassMap(exe, error);
+  if (!classMap) return std::nullopt;
+  k.roleClassOfRegistered = *classMap;
   return k;
 }
 
@@ -504,6 +509,13 @@ void TeamSheet::SetRole(int slot, int role, int phase, int plan) {  // FUN_1408c
   plan = ResolvePlan(plan);
   if (!ValidSlotPhase(plan, slot, phase) || role < 0 || role >= kSheetRoleBound) return;
   WriteU32(kSheetRoleOffset + 4 * SlotPhaseIndex(plan, slot, phase), static_cast<uint32_t>(role));
+}
+
+void TeamSheet::SetRegisteredRole(int slot, int role, int phase, int plan) {
+  plan = ResolvePlan(plan);
+  if (!ValidSlotPhase(plan, slot, phase) || role < 0 || role >= kSheetRoleBound) return;
+  WriteU32(kSheetRegisteredRoleOffset + 4 * SlotPhaseIndex(plan, slot, phase),
+           static_cast<uint32_t>(role));
 }
 
 int TeamSheet::CoordX(int i, int phase, int plan) const {  // FUN_1408c5130: 0 when refused
