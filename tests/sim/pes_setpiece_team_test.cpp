@@ -500,3 +500,13 @@ TEST(SeamlessThrowInTaker, AKeeperAtRankZeroGivesWayToRankOne) {
       {3, true, 5.0f}, {5, false, 35.0f}, {7, false, 40.0f}};
   EXPECT_EQ(pes::SeamlessThrowInTaker(ranked, kFps, pes::SetPieceTeamCounts()), 5);
 }
+
+// PES's seamless candidate must reach the ball (FUN_140444f00, docs/re/pes-re-throwin-choreography.md
+// 3.1, EV-TI-0007): a man more than 20 m from the ball is not eligible, however his arrival time
+// reads. The arrival time alone cannot tell a near man from a far one when the stat is clamped.
+TEST(SeamlessThrowInTaker, AManBeyondTheReachIsNotTakenWhateverHisArrival) {
+  // Rank 0 looks fastest on time but stands 100 m from the ball. The man at 5 m is the taker.
+  const std::vector<pes::ArrivalRank> ranked{{1, false, 54.0f, 116.0f},
+                                             {2, false, 54.0f, 5.0f}};
+  EXPECT_EQ(pes::SeamlessThrowInTaker(ranked, kFps, pes::SetPieceTeamCounts()), 2);
+}

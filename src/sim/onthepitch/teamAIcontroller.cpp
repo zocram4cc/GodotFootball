@@ -1598,9 +1598,10 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       }
     } else if (setPiece == e_SetPiece_ThrowIn && match->PesLoop()) {
       // PES's seamless throw-in taker (FUN_14044e230, docs/re/pes-re-throwin-choreography.md 2.2):
-      // the team's ball-arrival order, the keeper test and the fps/3 bias.
-      // ponytail: PES's ceremony taker (FUN_1404a93a0, 2.1) is not ported, so every PES throw-in
-      // takes this rule. The order is GF's time-to-ball, not the AI's list (AIctx+0x2470c).
+      // the ball-arrival order, the keeper test, the fps/3 bias and the reach gate (EV-TI-0007).
+      // ponytail: PES's arrival list (AIctx+0x2470c) is not decoded: GF's time-to-ball is clamped to
+      // one second for every man (UpdatePossessionStats), so the arrival here is the distance to the
+      // ball at the man's top speed, which is what the clamp hides.
       const std::vector<std::unique_ptr<Player>>& roster = team->GetAllPlayers();
       const float fps = static_cast<float>(Match::kFramesPerSecond);
       std::vector<pes::ArrivalRank> ranked;
@@ -1610,7 +1611,9 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
         pes::ArrivalRank r;
         r.slot = static_cast<int>(i);
         r.keeper = RoleClassOfSlot(team->FormationSlotOf(player)) == 0;
-        r.arrivalFrames = player->GetTimeNeededToGetToBall_ms() * fps / 1000.0f;
+        r.distanceToBall_m = (player->GetPosition() - ballPos).GetLength();
+        const float topSpeed_mps = std::max(player->GetMaxVelocity(), 0.1f);
+        r.arrivalFrames = r.distanceToBall_m / topSpeed_mps * fps;
         ranked.push_back(r);
       }
       std::stable_sort(ranked.begin(), ranked.end(),

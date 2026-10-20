@@ -183,7 +183,12 @@ struct ArrivalRank {
   int slot = -1;
   bool keeper = false;
   float arrivalFrames = 0.0f;
+  float distanceToBall_m = 0.0f;  // the man's distance to the ball, for the reach gate
 };
+
+// FUN_140444f00's reach (docs/re/pes-re-throwin-choreography.md 3.1, EV-TI-0007): the candidate must
+// reach the ball within this many metres (`DAT_14259be1c`, 20.0 at `COMISS` 0x14044509b).
+inline constexpr float kSeamlessReach_m = 20.0f;
 
 // ponytail: PES's taker stops where MOVESTEP's arrival test does (FUN_1406b6bb0, 0.2 m;
 // docs/re/pes-re-anim-select.md). GF's walk has no stop radius yet, so 1 m around the walk's target
