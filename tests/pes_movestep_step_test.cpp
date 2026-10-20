@@ -373,6 +373,7 @@ TEST(StepLoop, WalksTheBandDownAfterTheShorterKeeperThreshold) {
 // The slow-player re-plan: with the arrival flag req[0x3f] set, a live band below 3, no precise
 // arrival and the ground speed under 16 km/h, the handler re-plans through GOTO_RUN.
 TEST(StepLoop, RePlansASlowPlayerThroughGotoRun) {
+  requested = pes::MoveState::kInit;  // a test double's record: reset it, so the test reads only what this tick requested
   FakeHost host;
   MoveReq req;
   host.displacement[0] = 0.0f;  // a stationary player: the ground speed is 0
@@ -402,6 +403,7 @@ TEST(StepLoop, RePlansASlowPlayerThroughGotoRun) {
 // Both heading gates fire: the remaining heading past 2025 deg^2 and the facing-turn past
 // 8100 deg^2. The handler stops (FUN_1406d5d60) and leaves the remaining dwell in req[0x18].
 TEST(StepToRun, StopsWhenBothHeadingGatesFire) {
+  requested = pes::MoveState::kInit;  // a test double's record: reset it, so the test reads only what this tick requested
   FakeHost host;
   MoveReq req;
   req.SetF(pes::moveword::kDwellLimit, 1.0f);
@@ -478,6 +480,7 @@ TEST(RunToStep, AsksForStepLoopWhenTheSecondDwellRunsOut) {
 // arm, and only a tick inside all three gates blends the root facing (0x1406C1261).
 // So the class -1 does NOT blend: it stops.
 TEST(RunToStep, StopsInsteadOfBlendingWhenTheClassIsMinusOne) {
+  requested = pes::MoveState::kInit;  // a test double's record: reset it, so the test reads only what this tick requested
   FakeHost host;
   MoveReq req;
   req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);  // -1
@@ -500,6 +503,7 @@ TEST(RunToStep, StopsInsteadOfBlendingWhenTheClassIsMinusOne) {
 // The heading-error gate is 8100 deg^2 (0x1425DDFD8 = 90 deg), not 2025. A 100-deg heading
 // error is past 8100 deg^2, so the tick stops instead of blending.
 TEST(RunToStep, StopsWhenTheHeadingErrorIsPastNinetyDegrees) {
+  requested = pes::MoveState::kInit;  // a test double's record: reset it, so the test reads only what this tick requested
   FakeHost host;
   MoveReq req;
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
@@ -509,6 +513,7 @@ TEST(RunToStep, StopsWhenTheHeadingErrorIsPastNinetyDegrees) {
   req.SetF(pes::moveword::kRecordStampB, 110.0f);  // the heading error is 100 deg
   req.SetF(pes::moveword::kHeading, 10.0f);
   req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, -20.0f);  // the look turn is 30 degrees, past 22.5: the stop arm takes STOP (FUN_1406d5d60)
   req.SetF(pes::moveword::kBodyDirection, 12.0f);
   req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
   req.SetU(pes::moveword::kClassWord, 1u);
