@@ -86,8 +86,8 @@ class AdapterTeam final : public pes::TeamAi {
   // ponytail: FUN_140a581c0's condition byte: GF has no condition record, so the full value stands in.
   int Condition(int) const override { return kFullCondition; }
   // ponytail: GF coords, not PES's frame (index 1 is GF depth = -PES z, index 2 the height). ProximityCap reads index 1 as
-  // PES z, behind ActionBit27 (inert while that is false). JostleStyle (movestep_run.cpp, team.Position) reads it with no
-  // gate, so it is live: the PesFrame copy flips AThrowInIsNotAwardedAgainOnItsOwnSpot red, so it waits for a decision.
+  // PES z, behind ActionBit27 (inert while that is false). LIVE: JostleStyle reads mirrored coordinates; the fix flips
+  // AThrowInIsNotAwarded red, so investigate which is wrong (movestep_run.cpp, JostleStyle).
   void Position(int slot, float out[3]) const override {
     const Player* p = Who(slot);
     const Vector3 v = p ? p->GetPosition() : Vector3{};
@@ -495,7 +495,16 @@ void ProcessMoveStep(Player& player, Match& match) {
   if (!match.PesLoop()) return;
   // ponytail: PES skips MOVESTEP while a kick sets the anime phase away from 0 (pes-re-decision-read.md 3, INF; the caller
   // check is undecoded). GF skips it while a ball action clip plays, the same precedence without the phase byte.
-  if (IsBallActionFunction(player.CastHumanoid()->GetCurrentFunctionType())) return;
+  if (IsBallActionFunction(player.CastHumanoid()->GetCurrentFunctionType())) {
+    // A ball action at its last frame is over and hands the body back. Its hold (STOP or ACCELERATE) would block the
+    // end-of-clip switch (humanoid.cpp PesPoseHeld), so the FSM lets go here, and this tick's humanoid step can switch.
+    // ponytail: PES's state after a ball action is not decoded; IDLE stands in.
+    const Anim* clip = player.GetCurrentAnim();
+    pes::MoveStepRecord& fsm = player.GetMoveStep();
+    if (clip->frameNum >= clip->anim->GetFrameCount() - 1 && pes::HoldsBodyPose(fsm.state))
+      fsm.Enter(pes::MoveState::kIdle);
+    return;
+  }
   const MoveHostConstants* constants = &match.GetPesMoveStepConstants();
 
   pes::MoveStepRecord& rec = player.GetMoveStep();
