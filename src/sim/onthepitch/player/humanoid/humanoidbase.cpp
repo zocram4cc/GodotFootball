@@ -468,9 +468,11 @@ bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror) {
   // The body takes a MOVESTEP clip only where GF's own selection would let a movement clip take it: an
   // AI movement clip, or the locomotion clip already on the body. A ball action keeps the body.
   if (currentAnim->functionType != e_FunctionType_Movement && !onLocomotion) return false;
-  // The same motion plays on: a re-issue changes its rate only. At the clip's end the humanoid's own
-  // Switch consults the AI, and the next issue restarts the motion from its first frame.
-  if (onLocomotion && std::atoi(currentAnim->anim->GetVariable("specialvar2").c_str()) == motion) {
+  // The same motion plays on: a re-issue changes its rate only, while the clip has frames left. A clip at its last frame
+  // starts again from its first (PES's issue is a restart, movestep.hpp IssuedClip), because the body's own Switch at the
+  // last frame is held in STOP and ACCELERATE (PesPoseHeld), so a re-issue is the only way that clip moves on.
+  const bool finished = currentAnim->frameNum >= currentAnim->anim->GetFrameCount() - 1;
+  if (onLocomotion && !finished && std::atoi(currentAnim->anim->GetVariable("specialvar2").c_str()) == motion) {
     currentAnim->playbackRate = playback;
     return true;
   }

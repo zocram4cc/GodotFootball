@@ -1,5 +1,7 @@
 # PES team tick, MA nearest lists, and the team/player interface (A4TeamTick)
 
+> **Main correction 19-10-26 (FirstTouchPort2 raw decode, audited):** the "per-player think every 25 frames" reading of §5.1 is WRONG. The driver call `0x140925769` (`call 0x140925470`) is unconditional; the `counter % 25 == index` flag (`cmp r8d,[rbx+0x18]; sete r8b` at `0x14092578B/8F`) only goes to `0x1408BFCF0` (`0x140925793`), which never reads r8. The decoded per-frame cadence is instead the slide predicate's odd-frame gate in `FUN_140971BA0` (`mov eax,[rbx+0x1198]; and eax,1; test al,al; je 0x140971C9D` at `0x140971CB6..CC1`, `0x140971C9D` = `xor al,al`).
+
 Tags: **CONFIRMED** = decompile (Ghidra MCP), raw disassembly of the running `PES2021.exe`, or live read (`/proc/<pid>/mem`, pread only, pid 2510857). **INF(h/m/l)** = inference. **OPEN** = not settled; the blocker is named.
 
 Scratch (read-only, no writes to PES): `<workdrive>/gf-A4TeamTick-scratch/` (`probe_ma.py`, `probe2.py` (live), `store_scan.py`/`store_scan.txt`, `g_scan.py`, `player_loop_scan.py`/`player_loop_hits.txt`, `player_table_scan.py`, `binder_stores.txt`). The 120 M-line `pes_text.asm` (objdump of the running exe) was deleted after use.
@@ -150,7 +152,7 @@ INF h: the per-tick set/clear pair for MI and the roster is elsewhere, in the co
 
 ```
 match::Player vtable slot 2 (0x140925750; caller = vtable dispatch, NOT FOUND)
-   wrapper: counter = obj+0x10 (inc); gate = (counter % 25 == obj+0x18)   [CONFIRMED raw 0x140925750–0x1409257a6]
+   wrapper: counter = obj+0x10 (inc); flag (counter % 25 == obj+0x18) is computed at 0x92578f and passed as r8 to 0x8bfcf0, which never reads it (0x8bfcf0-0x8bfd58); FUN_140925470 is called unconditionally at 0x925769   [CONFIRMED raw 0x140925750–0x1409257a6]
    → FUN_140925470  (player driver; rbx = player object; [rbx+0x18] = player index)   [CONFIRMED raw]
        → FUN_140928fc0 (AI decision entry; call at 0x140925724)                     [CONFIRMED]
            → FUN_1409257b0 (0x1409294e4)                                            [CONFIRMED xref]

@@ -1,133 +1,76 @@
-# Wave 1 MB-F: ball record and prediction. Multi-seed table, pass-drop diagnosis, merge decision
+# Ball-track arm, player +0x661 flag, P+0x2FC ring (S1Watch, rounds 11–13)
 
-Branch `Wave1MBF` on origin, not merged. Base `453640f`. Commits:
-- `7f61a5a` pesmover: F4 floored velocity, F6 mover velocity, heading.
-- `5714da4` pesballtrack: PES's 250-record track (F5; F3 = record 0), read by the AI through a floor.
-- `faae222` AI reads interpolate between PES's records (the floor read's defect removed). Gate green: 725 tests, 100%, two standing install skips.
+> **Main correction 19-10-26 (from S1Port):** §5 item 5 cites FUN_140A489F0 (P_ai), not FUN_140A48910, for the 0x1414/0x1420 pick; the x of the B+0x2920==4 branch is the live player x [player+0x55C]; the +0x5D0 compare is on the player record.
 
-Worktrees: `gf-Wave1MBF` (branch, clean), `gf-Wave1MBF-base` (reference 453640f), `gf-Wave1MBF-diag` (diagnostic only, never committed). Logs: `gf-Wave1MBF-scratch/runs/`.
+> **Main correction 19-10-26:** the K+0x6E ball-track arm is an AND, not the OR written in §7: raw asm `0x14063AAFA` `cmp [r12+0x4c],r13b; je skip`, `0x14063AB01` `test r14b,r14b; jne skip`, `0x14063AB06` set. So the flag is set iff B+0x4C != 0 AND r14 == 0 (r14 = the distance test via `cmova` at `0x14063AAF6`, combined with B+0x80).
+> **Main audit 19-10-26:** `0x14063A520` `mov rax,[rcx+0x40]` (B = *(G+0x40)), `0x140876014` `movb [rcx+0x4c],1`, `0x140876019` `movb [rcx+0x4c],0`, `0x140433DF5` `movups xmm1,[rdx-0x30]` (the per-frame B<-N block copy): all match. B+0x4C = validity of the ball's first predicted point (pred[0].y >= 0).
+> **Main audit 19-10-26 (round 12):** `0x1406BC829` `cmp [rax+0x661],r15b` (reader) and `0x1408C4CDD` `movb [rdi+0x729],0` (the clear) match. Several cited VAs (`0x140432AA5`, `0x140432AAD`, `0x140414A6C`, `0x1408C4CE4`) are hardware-watch trap IPs, i.e. the instruction AFTER the store. The P+0x2FC ring did not change in 90 s for any player (cadence unobserved).
+> **Main 19-10-26 (round 13):** P+0x2FC ring static between events in every window measured (120 s, 21 kicks, stoppages); the writer is not found. +0x661 is set via the bVar2 copy path in FUN_1408C48C0, with the conditions open. Both PARKED.
 
-## 1. Answer
+Tags: **CONFIRMED** = decompile, image byte, or live read/watch with VA. **INF** = inference. **OPEN** = not resolved. Watch method: `perf record -I -e mem:<4-aligned addr>:w -t <tid>` on each JobGraph worker and the main thread. "Trap IP" = the address reported by perf, which is the instruction after the one that wrote. Source and destination come from the trap registers.
 
-- **The pass drop does not reproduce.** Seed 7's −22 was one of five paired differences. The branch as first pushed (`5714da4`, floor read) is +5.8 passes against base on average (t 0.74).
-- **The fix leans down, not significantly.** `faae222` is −7.6 passes on average (paired −36, +16, +4, −27, +5; SE 10). The two large negatives are seeds 7 and 11.
-- **The defect was real and large.** The floor read gave zero ball movement in the intercept optimiser for 52% of calls in a full match, against 12% on base. The exact-time read gives 9%. The defect is gone in `faae222`; the outcome is not measurably changed.
-- **The residual cause is the tick mismatch, not the reader.** The live ball runs on GF's 10 ms integrator. The AI now predicts on PES's 1/54 s tick. In a match the interpolated track misses the ball by 0.175 m at 1 s; the GF grid it replaced misses by 0.113 m.
-- **A consistent variant (live ball on PES's tick, diagnostic) reads at base or above, and removes the mismatch.** It is +9 passes on four seeds (t 1.25), with completion +9 points, goals 37 against 21, and forced stalemate 4085 against 10332. It is a sim-wide change and not part of MB-F.
+## 1. B+0x4C (round 11, CONFIRMED)
 
-## 2. Multi-seed table (20 min per match, serial under the fleet lock)
+- `B = *(G+0x40)` (`FUN_14063A490` loads `[rcx+0x40]` at `0x14063A520`). Arm B at `0x14063AB06` sets `K+0x6E` when `K+0x6C == 0 && B+0x4C != 0 && (B+0x80 == 0 || !(d2 > d1))`.
+- `B+0x4C == (B.pred[0].y >= 0)`, `pred[0] = B+0x1C`. Writer `FUN_140875FD0(obj, idx, vec)`: `obj+0x4C = (vec.y >= 0)` when `idx == 0` (stores at `0x140876014`/`0x140876019`). 1,211/1,211 live frames.
+- `B+0x4C` is a mirror of `N+0x4C` (`N = B+0x296C`), restored each frame by `FUN_140433CF0` (trap `0x140433DF5`, dst `B`, src `N`).
 
-Passes = pass attempts, H-A. Completion = accuracy, mean of the two teams.
+## 2. Player +0x661 (ACCELERATE tail flag), CONFIRMED except where noted
 
-| variant | seeds | passes mean | completion | shots total | goals total | forced mean |
-|---|---|---:|---:|---:|---:|---:|
-| base 453640f | 7, 8, 9, 11, 1000 | 87.4 | 49.1% | 147 | 28 | 10891 |
-| floor read 5714da4 | 7, 8, 9, 11, 1000 | 93.2 | 54.4% | 171 | 35 | 11226 |
-| interpolated read faae222 | 7, 8, 9, 11, 1000 | 79.8 | 49.2% | 141 | 32 | 9419 |
-| live ball on PES tick (diagnostic) | 8, 9, 11, 1000 | 92.2 | 57.1% | 134 | 37 | 4085 |
+**Reader.** `FUN_1406BB570` lines 653–658: `lVar20 = FUN_140A48A10(G, id)` (player object `p = *(G+0x1DD8+0x28·id)`), then `if (*(char*)(p+0x661) != 0)` (`cmp byte [rax+0x661], r15b` at `0x1406BC829`). Round-13 correction (ClipWords): the anime `vt+0x08` slot selects the record; the `+0x661` read sets only bVar23 (653–658). The bit stays a named input until the sub-functions below are decoded.
 
-Same four seeds (8, 9, 11, 1000): base 83.0 passes, floor 95.8, interpolated 82.5, live-PES 92.2.
+**Mirror.** `p+0xD1D == p+0x661` in 2,711 / 2,711 frames, transitions on the same frame.
 
-Per seed (passes total):
+**Per-frame copies into the player (CONFIRMED, registers at trap):**
+- `FUN_1404313C0(dst, src)` (0x52-byte struct copy; byte moves at trap IPs `0x14043147E`/`0x140431486` write `dst+0x50`, `dst+0x51`). Per frame: `dst = p+0xCCC`, `src = A+0x6D8` (the AI record A).
+- Block loop trap `0x140432AA5`/`0x140432AAD` (`FUN_140432D30` region, 128-byte stride): copies `p+0xD1C → p+0x660`, delta `+0x6BC`. So `p+0x661 = p+0xD1D` one frame later.
 
-| seed | base | floor | interpolated | live-PES |
-|---|---:|---:|---:|---:|
-| 7 | 105 | 83 | 69 | — |
-| 8 | 69 | 77 | 85 | 100 |
-| 9 | 80 | 84 | 84 | 86 |
-| 11 | 99 | 124 | 72 | 100 |
-| 1000 | 84 | 98 | 89 | 83 |
+**AI record A.** `A` is `param_1` of `FUN_1408C48C0`. For player 7, `A = 0x32C1FB80`. `A+0x18` = player index. `A+0x6D8` = the 0x52-byte state record, so the flag byte is `A+0x6D8+0x51 = A+0x729` (CONFIRMED live: the source byte equals `p+0x661` in 730 samples).
 
-Paired passes against base: floor −22, +8, +4, +25, +14 (mean +5.8, SE 7.8). Interpolated −36, +16, +4, −27, +5 (mean −7.6, SE 10.1). Live-PES on the four common seeds +31, +6, +1, −1 (mean +9.3, SE 7.4). Seed-to-seed spread is about ±20 passes for any change, so none of these reads as a result.
+**Writer of `A+0x729` (`FUN_1408C48C0`, 173 lines, CONFIRMED structure):**
+- Top gate: `lVar8 = FUN_141B985E0(); if (lVar8[0xB9A0] == 0) goto LAB_1408C4CDD` (clear).
+- `bVar2 = cVar4 || cVar5 || cVar6`: `cVar4 = FUN_1408C2760(A, &local_d0, A+0x624)`, `cVar5 = FUN_1408C31C0(A, &local_d0, &local_b8, local_d8)` (only if `cVar4 == 0`), `cVar6 = FUN_1408C3D10(A, &local_b8)`.
+- `local_68 = CONCAT11(1, local_68)` is executed unconditionally after the bVar2 test (before the branch below). `local_68` is the 2-byte stack variable whose high byte sits at `local_b8 + 0x51` (INF from Ghidra's rbp-relative naming, which puts the 0x52-byte struct `local_b8..+0x51` ending exactly on `local_68`'s high byte). Data support: the byte `A+0x729` is 1 only right after a copy-in event (18 events in 150 s, flag 1 in 730 samples).
+- `if (bVar2)`: `FUN_1404313C0(A+0x72C, A+0x6D8)` (save previous), `FUN_1404313C0(A+0x6D8, &local_b8)` (write current; the **rising-edge** trap), `A+0x77D = 0`, return.
+- Else (`LAB_1408C4CDD`): `A+0x729 = 0` (trap `0x1408C4CDD` + 7 bytes = `0x1408C4CE4`) and `A+0x948 = 0`. This clear trapped about 8,060 times in 150 s (roughly every frame while the flag is 0).
 
-Determinism hashes (per seed) are in `gf-Wave1MBF-scratch/table-all.md`. They differ on every seed, as expected, since the AI reads change.
+**The three sub-functions (what writes into `local_b8`, CONFIRMED by grep of the decompile):**
+- `FUN_1408C2760(A, &local_d0, A+0x624)`: does not receive `&local_b8`, so it cannot write the struct. Its return is `cVar4`. Body not decoded further here.
+- `FUN_1408C31C0(A, &local_d0, &local_b8, local_d8)` (398 lines): writes `local_b8+0x18+slot = 1` (line 293, `slot = FUN_14081D8B0` list entry, ≤ 21) and `local_b8+0x1F = 1` (line 359, player 7's own flag), and dword fields `[0..0xE]`, `[0x12]`, `[0x13]`. It writes `local_d8[0] = 1` (`param_4`, line 275) which feeds only the `cVar3` test. It does **not** write `+0x51`.
+- `FUN_1408C3D10(A, &local_b8)` (111 lines): reads `local_b8+0x1F`; for each entry calls `FUN_1408C3FA0(A, …, entry, &local_b8)` and returns `uVar13 = 1` if any call returns true. It writes nothing to `local_b8` itself.
+- `FUN_1408C3FA0` (139 lines, `param_6 = &local_b8`): writes `+0x10 = 1` (line 94), `+0x18+slot = 1` (line 95), and dwords `[0]`, `[1..3]`, `[5]`, `[0xB]`, `[0x12]`, `[0x13]`. It does not write `+0x51` by constant offset.
 
-## 3. Diagnostic evidence (full 20-minute match, seed 8 unless stated)
+**Conclusion for item 2:** no sub-function writes `local_b8+0x51` by a constant offset. The byte is set by `CONCAT11(1, …)` in `FUN_1408C48C0`. So `A+0x729 = 1` exactly when the bVar2 copy path ran in that frame; `bVar2` is the OR of the three return values, and their conditions are as above (the return-value conditions inside `FUN_1408C2760` and `FUN_1408C3FA0` are not fully decoded: OPEN).
 
-Controls and non-interference:
-- The diagnostic gf10 read path (the base's 10 ms reads, through the branch's code) reproduces base seed 8 exactly: hash `c20f0efee27df7d0`, same summary. So the live sim is identical to base, and all differences come through the AI reads.
-- The probe build (`floor`) reproduces the branch's seed-8 hash `098b63b6ce2cad92`. The instrumentation does not alter the sim.
-- `faae222` reproduces the diagnostic interpolated run's seed-8 hash `22c265d8d027b6c4`. The committed code is the diagnosed path.
+**Caller gate (CONFIRMED, `FUN_1409F1640` line 25):** `if (*(char*)(A+0x7C8) != 0 && *(longlong*)(A+0x7D8) != 0)` then `FUN_1408C48C0(A)`. Second caller at `0x140A367E4` (not decoded). Writers of `A+0x7C8` (byte) and `A+0x7D8` (pointer): OPEN. The raw scan returns about 580 stores at `+0x7C8` and 82 at `+0x7D8`, mostly unrelated displacements, so they need a narrower filter.
 
-Records read (mental image): the image copies 250 records per tick and reads **162** (indices 0–161, 0–2.98 s). Records 162–249 are computed each tick and never read. Reads past 3 s are 4.2% of all reads, with the horizon clamp.
+## 3. P+0x2FC ring (round 13, corrected)
 
-Phase: the floor read is early by −8.2 ms on average and 18.5 ms at most (match probe). The harness puts 98% of reads off the grid.
+**Reader.** `FUN_141EB50B0(P, out, idx)`: `k = min(idx/10, 5)`; `out.xy = *(P+0x2FC+12k)`, `out.z = *(P+0x304+12k)`. Six 12-byte slots at `P+0x2FC..0x343`.
 
-Intercept finite difference (`AI_GetToBallMovement`, `ballMovementRough = (P(T+10) − P(T))·100`, AIfunctions.cpp:872):
+**Copy chain (CORRECTED).** Earlier I said the source was `A+0x1384`. The trap registers show the source of the slot-0 dword is `dst + 0x15755778`, i.e. `0x32C20F44` for dst `p+0x9B8` (dst `p+0x978+0x40`, copy trap `0x140414A6C`). Also `p+0x9B8 → p+0x2FC` is the `0x140432AAD` loop. **`A+0x1384` is not the ring source.** The copy chain is `0x32C20F44 → p+0x9B8 → p+0x2FC` each frame (CONFIRMED by trap registers; the source address is an inference from the delta).
 
-| variant | zero movement |
-|---|---:|
-| base (gf10 control) | 12.2% |
-| floor | 52.2% |
-| interpolated | 9.3% |
-| live-PES (interpolated reads) | 11.0% |
+**Writers.** Watch of `0x32C20F04` (the region I had called `A+0x1384`), 240 s on all workers and main: **0 writes**. Watch of the ring's source `0x32C20F44` was not run. The `0x32C20F04..0x32C20F4B` region changes in play (966 of 6,137 frames sampled in 120 s), but the changing dwords are not the one watched.
 
-Other finite-difference sites with 10–60 ms spacing: `humanoid.cpp:2144` (180−120), `2859–2860` (250−240), `3148–3149` (touch frame +10). `elizacontroller.cpp:846` reads `int(f × frame_ms)`, which can truncate an exact frame to one record early. Interpolation removes that.
+**Values and triggers (CONFIRMED, player 7, `ev1.json`, 6,137 frames over 120 s, 21 kick-like ball jumps ≥10 m/s, 5 match-state transitions, states 1/2/3 all present):**
+- The player-7 ring `p+0x2FC` (slots 0–5) never changed value, in any state, including the kicks and the stoppages. The earlier 90 s all-player sample also had zero changes for all 22 players.
+- Contents in play: slot 0 `(0,0,0)`, slot 1 `(0,0,−1)`, slot 2 `(1.02,0,0)`, slot 3 `(0,0,0)`, slot 4 `(0,0,−1)`, slot 5 `(0.15,0,0)`. These are fixed values (sentinel `z = −1` in slots 1 and 4). **Kickoff contents were not sampled.**
+- Cadence: no change observed at any trigger in these windows (kick, restart, stoppage). The ring is **static between events** as far as these windows show. The event that does update it, if any, was not observed.
 
-Prediction against what the ball did (passive ticks; touches and resets excluded), full match:
+**OPEN.** The writer of the ring's real source (`0x32C20F44`-region, not yet watched), and whether a clip start (a motion change, not a kick) writes it.
 
-| variant | horizon | GF 10 ms grid | track, floor | track, interpolated |
-|---|---|---:|---:|---:|
-| branch ball on GF tick (seed 8) | 100 ms | 2 mm | 36 mm | 6 mm |
-| | 300 ms | 11 mm | 38 mm | 26 mm |
-| | 1000 ms | 88 mm | 151 mm | 151 mm |
-| interpolated (seed 8) | 1000 ms | 113 mm | 175 mm | 175 mm |
-| live-PES ball on PES tick (seed 8) | 100 ms | 85 mm | 14 mm | 53 mm |
-| | 1000 ms | 619 mm | 45 mm | 45 mm |
+## 4. K+0x40 point (round 11, CONFIRMED)
 
-The GF grid is the integrator the ball runs on, so its 2 mm at 100 ms is the probe's floor. It is 88 mm at 1 s, which I suspect is the grounder counter (section 6), not verified. In the live-PES ball the stair-step is the real motion, so the floor read is the faithful comparison at short horizons.
+`P = K+0x40` (default `MA+0x2482C`); branches: `MI+0x155C` if `K.mode == 1`; `player+0x560/+0x564` if `B+0x2920 == 4`; a per-player branch through `FUN_140A6E300` (not decoded); `B+0x1414`/`+0x1420` by `FUN_140A58320`; else `FUN_140A57800(B)`.
 
-Blend: changes a read only when the mental and live predictions differ by more than 2.5 m. That happened in 90,653 of 7.7 M reads (1.2%). It is GF's reaction-delay construct, with no PES site (the foundation doc lists it as GF-only, DESIGNED). Under PES-wins it should be replaced by the per-tick MA copy (MB-B), not kept as a GF term. `faae222` leaves it unchanged.
+## 5. Rules sent
 
-Rule rate: the same PES rules at 1/54 s and 1/108 s differ by up to 4.8 m over 3 s (roll 20 m/s; harness). The per-tick snaps (bounce, spin rebuild, stop gate) are not rate-invariant, so the `k^0.54` conversion does not make the 10 ms integrator PES. Against PES's own track, the 10 ms rules are 0.6 m (kick), 2.2 m (lob), 0.6 m (roll 8), 2.3 m (roll 20) off on average over 3 s.
+- S1Port: B+0x4C rule (round 11).
+- ClipWords: RULE 1 (flag chain, with the A+0x729 correction) and RULE 2 (ring; corrected in round 13 — the source is not `A+0x1384`, and the ring did not change across kicks or stoppages in the measured windows).
 
-## 4. Tick equivalence: does not hold
+## 6. Open
 
-1. Read mapping (floor): fixed by `faae222`.
-2. Physics: the live ball runs on GF's 10 ms integrator, the track on PES's 1/54 s tick. Prediction misses the ball by 0.11–0.18 m at 1 s in a real match, depending on variant. Open; see section 7.
-3. Rule rate-dependence (section 3): the GF integrator is not PES at any rate. The keep-factor conversion is exact (`KeepFactorPerStep(0.981, 0.01)` equals `pow(0.981, 0.01·54)` to nine digits), but the snaps are per tick.
-
-## 5. The pass result, interpreted
-
-- Floor read (`5714da4`): the defect (52% zero) did not show in the outcomes. The +5.8 mean is noise.
-- Interpolated read (`faae222`): outcomes at base level in four seeds (paired mean −0.5 on 8, 9, 11, 1000), and −7.6 on five (seed 7 added). The lean comes from seeds 7 and 11. The named candidate is the tick mismatch: the AI predicts PES's ball, 0.06 m further from the real ball at 1 s than the GF grid was. The data cannot attribute an effect of that size: its SE (10) is larger than the effect.
-- Live-PES (diagnostic): the mismatch is gone. Passes +9, completion +9 points, goals +16, forced stalemate −60%. Four seeds, t 1.25. The flow change is large enough to need its own gate.
-
-## 6. Pre-existing findings (not changed here)
-
-- `contactTicks` is advanced inside every prediction pass (`ball.cpp:210`), by the constructor, `Touch`, `SetMomentum`, `SetRotation` and `Process`. A rolling ball advances it by up to 299 per call. The grounder gate therefore runs on a count that is not PES's contact-tick count. Suspected source of the GF grid's 88 mm at 1 s; unverified.
-- Dead-ball loop: in every variant, the stalemate log shows restarts prepared but never started (`prepared 1 started 0`, `start-in −1.0 s`). 19–43 lines per match on base and branch alike. Not investigated.
-- AI reads that bypass the mental image call `GetBall()->Predict(ms)` directly (playercontroller 214–268, humanoid 504 and 1950). These stay on the GF grid in every variant. Under a PES-tick ball they are inconsistent (62 cm at 1 s on the grid).
-- The live netting stand-in runs on the first prediction step only. The track has no netting (named ponytail). The live-PES diagnostic also drops netting.
-
-## 7. Merge decision
-
-Not mergeable on the criteria as they stand.
-
-- The floor read (`5714da4`) has a real defect (52% zero movement in intercepts) and an unfaithful reader. Do not merge.
-- `faae222` fixes the defect with a named stand-in (linear interpolation of PES's records). Its outcome is at base level on four seeds, and −7.6 on five (SE 10). Its prediction is PES-correct but inconsistent with the sim ball (0.175 m against 0.113 m for the grid it replaced). That is a named cause, but it sits in the live ball's tick, which the branch does not own. So it is not "noise with a faithful structure behind it". Do not merge alone.
-
-Decision for Main, in order:
-- **(A) Faithful path, recommended in principle.** Move the live ball onto PES's 1/54 s tick, as in the diagnostic. This also needs: (i) floor reads for a stair-stepped ball, not interpolation, (ii) the 10 ms finite differences (four sites) rewritten as record differences times 54, (iii) `Predict(ms)` direct reads moved to the track, (iv) netting on the PES tick. It is sim-wide. It needs its own ticket, a gate, and at least eight seeds.
-- **(B) Hold.** Keep MB-F unmerged until (A) is decided. Base's AI reads stay in place. The branch's structures stay unread.
-
-I did not commit a doc. The RE rule sends reports through the archive tool; this table lives in this local report.
-
-## 8. Corrections
-
-- `docs/re/pes-re-ball-contact.md` §4 says `FUN_140869500` is the BallInfo future-data writer. Refuted. It is a launch-vector solver: it loops the integrator up to `[matchctx+0xd0]` steps and writes two caller-supplied float vectors. It stores nothing into BallInfo.
-- **Track writer not found.** Six integrator callers contain 250-step loops: FUN_140817af0, FUN_1408183c0 (lines 331–370), FUN_140869d10, FUN_14086a3f0, FUN_14086ab90, FUN_14086b690 (lines 167–183). They are kick and landing solvers that write their own outputs. None has a 40-byte-stride store into BallInfo. FUN_1408183c0 copies one dword at +0xBC between two structures (lines 143–151), not traced further; FUN_14086b690 reads +0xBC once. The other integrator callers (40 call sites in 21 named functions, plus two outside any named function) have no 250-step bound. Doc §5.3's "shifted every tick" is unverified.
-- Earlier report, section "Stand-ins": "Track rebuilt in full each tick, equal to a shift when unperturbed [INFERENCE]" is not verified. The writer is not found, and a rebuilt track differs from a shifted one wherever the 54 Hz phase changes.
-- Earlier report: "the 2.5 m blend is kept and named" is corrected. It changes 1.2% of reads, and it is GF's construct (section 3).
-- Earlier report: the seed-7 "passes 49-56 → 47-36" is not a symptom of the floor branch. It is one of five paired differences.
-- Earlier report: "the AI reads the PES prediction, faithfully" is corrected. The reader was broken (52% zero movement), now fixed in `faae222`. The prediction is PES's and is inconsistent with the sim ball.
-- Earlier report: "the live numerics are unchanged". Confirmed: the seed-8 control hash equals base.
-- The first report's "one-seed shift" framing is withdrawn; see section 2.
-
-## 9. Artefacts
-
-- Commits: `7f61a5a`, `5714da4`, `faae222` (on origin `Wave1MBF`; not merged).
-- Gate (on `faae222`): full `ctest`, 725 tests, 100% (two standing install skips). PII scan clean.
-- Mutation checks on `faae222`'s tests: floor read fails 3 tests; no horizon clamp fails 1 test. Earlier mutations on the mover and sampler are in the first report.
-- Diagnostic-only (in `gf-Wave1MBF-diag`, not committed): `diag_grid_test.cpp` (tick-equivalence harness, PES 1/54 reference), `diagprobe.hpp` and its hooks (counters, read modes `DIAG_READ`, blend `DIAG_BLEND`, gf10 control `DIAG_SRC`, live PES `DIAG_LIVE`).
-- Harness output: `gf-Wave1MBF-scratch/diag-grid2.txt`.
+1. The writer of the ring's real source (`0x32C20F44` region) and any clip-start trigger.
+2. The return-value conditions of `FUN_1408C2760` and `FUN_1408C3FA0` (bVar2).
+3. Writers of `A+0x7C8` and `A+0x7D8`, and the second caller `0x140A367E4`.
+4. Kickoff ring contents (no kickoff in the measured windows).

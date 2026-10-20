@@ -9,6 +9,7 @@
 #include "onthepitch/AIsupport/mentalimage.hpp"
 #include "onthepitch/ball.hpp"
 #include "onthepitch/player/player.hpp"
+#include "onthepitch/player/controller/playercontroller.hpp"
 #include "teamAIcontroller.hpp"
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
@@ -16,6 +17,8 @@
 #include "pes/movestep_turn.hpp"
 
 namespace {
+// PES's filler fallback distance (DAT_142598578, script-read from the install: 0.2; pes-re-decision-read.md 2 says 0.4).
+constexpr float kBallFallbackDistance_m = 0.2f;
 
 // The install constants the MOVESTEP handlers read: the match's own bundle (MatchSetup), read from
 // the user's install by the caller. The adapter never reads the environment.
@@ -181,22 +184,26 @@ class MoveHostAdapter final : public pes::MoveHost {
   float RateCeiling() const override { return player_.GetMoveStep().rateCeiling; }
   // The command's desired speed: the AI's last movement command (vt+0x20 index 0). Its velocity is m/s.
   float CommandSpeedKmh() const override {
-    return player_.GetCurrentAnim()->originatingCommand.desiredVelocityFloat * kKmhPerMps;
+    const PlayerCommand* cmd = Decision();
+    return (cmd ? cmd->desiredVelocityFloat : idleVelocity) * kKmhPerMps;
   }
-  // FUN_1406b7560's command words, from the player's current command: the move target (cmd+0x20) and the look
+  // FUN_1406b7560's command words, from the AI's decision: the move target (cmd+0x20) and the look
   // point (cmd+0x14) in PES's ground frame (x, z = -GF y), the speed band (cmd[0x17]), the desired speed
   // (cmd[0x172]) and the precise flag (cmd[0x15]). A command with no target point projects its direction one
   // second ahead: a ponytail stand-in (see PlayerCommand::useDesiredTarget). No command: the player stands.
   void FillCommandWords(pes::MoveReq& req) const {
     const Vector3 pos = player_.GetPosition();
-    const Anim* anim = player_.GetCurrentAnim();
-    const PlayerCommand* cmd = anim ? &anim->originatingCommand : nullptr;
+    const PlayerCommand* cmd = Decision();
     const float speed = cmd ? cmd->desiredVelocityFloat : idleVelocity;
     const Vector3 dir = cmd ? cmd->desiredDirection : Vector3(0.0f, 0.0f, 0.0f);
     const Vector3 projected(pos.coords[0] + dir.coords[0] * speed,
                             pos.coords[1] + dir.coords[1] * speed, pos.coords[2]);
-    const Vector3 target = cmd && cmd->useDesiredTarget ? cmd->desiredTarget : projected;
-    const Vector3 look = cmd && cmd->useDesiredLookAt ? cmd->desiredLookAt : target;
+    const Vector3 aim = cmd && cmd->useDesiredTarget ? cmd->desiredTarget : projected;
+    // PES's filler: a move target within 0.2 m of the root steers by the ball's sample 0 (DAT_142598578, 0.2 in the install;
+    // pes-re-decision-read.md 2 says 0.4). ponytail: GF's ball Predict(0) stands in for PES's BallInfo sample 0 (FUN_140A6CF70).
+    const bool atRoot = cmd && (aim.Get2D() - pos.Get2D()).GetLength() < kBallFallbackDistance_m;
+    const Vector3 target = atRoot ? match_.GetBall()->Predict(0) : aim;
+    const Vector3 look = cmd && cmd->useDesiredLookAt ? cmd->desiredLookAt : aim;
     pes::movestep::MoveTargetInput in;
     in.originX = pos.coords[0];
     in.originZ = -pos.coords[1];  // PES z = -coords[1] (referee.cpp:197 in.ballZ_m)
@@ -209,6 +216,34 @@ class MoveHostAdapter final : public pes::MoveHost {
     in.desiredKmh = speed * kKmhPerMps;
     in.precise = cmd && cmd->preciseArrival;
     pes::movestep::FillMoveTarget(req, in, c_.run, c_.buckets);
+  }
+  // The request block as FUN_1406b7560 copies it in: the dwell words and stamps the record carried from the last tick,
+  // the facing, and the command words of the AI's decision (FillCommandWords).
+  pes::MoveReq Request() {
+    pes::MoveReq req;
+    pes::CarryIn(player_.GetMoveStep(), req);
+    req.SetF(pes::moveword::kFacing, FacingDeg());
+    FillCommandWords(req);
+    return req;
+  }
+  // The AI's decision: the controller's command at its last think (Think). Null before the first think.
+  const PlayerCommand* Decision() const {
+    const std::optional<PlayerCommand>& command = player_.GetPesDecision().command;
+    return command ? &*command : nullptr;
+  }
+  // PES's AI think for this player, every tick: the first queued movement command (MovementDecision) becomes the decision
+  // MOVESTEP reads on the next tick. ponytail: PES's think cadence is not decoded. The 25-frame gate that pes-re-teamtick.md
+  // 5.1 named is computed and never read (raw asm 0x92578f, 0x8bfcf0), so GF thinks every tick. SelectAnim applies a
+  // candidate with side effects, so the humanoid's own choice is not read here.
+  void Think() {
+    // The controller decides from the mental image its process set this tick. The match has none until its first is
+    // built, and the humanoid waits the same way (humanoid.cpp:238).
+    if (!static_cast<PlayerController*>(player_.GetController())->GetMentalImage()) return;
+    PlayerCommandQueue queue;
+    player_.RequestCommand(queue);
+    PesDecision& decision = player_.GetPesDecision();
+    decision.frame = match_.GetPesFrame();
+    decision.command = pesmovestep::MovementDecision(queue);
   }
   float CurrentSpeedKmh() const override {
     return player_.GetMovement().GetLength() * c_.run.speed3600;
@@ -438,20 +473,32 @@ pes::MotionRequest DueRequest(const pes::MoveReq& req, int foot) {
   return r;
 }
 
+pes::MoveReq TickRequest(Player& player, Match& match) {
+  MoveHostAdapter host(player, match, match.GetPesMoveStepConstants());
+  return host.Request();
+}
+
+// PES's AI think for one player, run every tick by Player::Process after the controller's process, which sets the mental
+// image the controller decides from.
+void Think(Player& player, Match& match) {
+  if (!match.PesLoop()) return;
+  MoveHostAdapter host(player, match, match.GetPesMoveStepConstants());
+  host.Think();
+}
+
 void ProcessMoveStep(Player& player, Match& match) {
   // MOVESTEP runs only with pes_loop on. Off it leaves the player alone: no FSM tick, no clip, and
   // no playback write (the contact rates of match.cpp keep theirs).
   if (!match.PesLoop()) return;
+  // ponytail: PES skips MOVESTEP while a kick sets the anime phase away from 0 (pes-re-decision-read.md 3, INF; the caller
+  // check is undecoded). GF skips it while a ball action clip plays, the same precedence without the phase byte.
+  if (IsBallActionFunction(player.CastHumanoid()->GetCurrentFunctionType())) return;
   const MoveHostConstants* constants = &match.GetPesMoveStepConstants();
 
   pes::MoveStepRecord& rec = player.GetMoveStep();
   MoveHostAdapter host(player, match, *constants);
-  pes::MoveReq req;
-
-  // The request block's copy-in words the adapter owns before the handler runs. FillCommandWords writes
-  // the command words from the player's current command; the action-entry stores follow it.
-  req.SetF(pes::moveword::kFacing, host.FacingDeg());
-  host.FillCommandWords(req);
+  // The request block as FUN_1406b7560 copies it in (Request); the action-entry stores below follow the command words.
+  pes::MoveReq req = host.Request();
   // FUN_1406eebb0's stores at action entry, where AnimeState changes (a new action, P+0xac8): the speed class
   // (P+0x245a, FUN_14081e340 of the command's speed at the turn) and the foot band (P+0x245b, anime vt+0x78).
   // GF has no foot sensor; the band stands at the side of the last displacement against the facing.
@@ -486,6 +533,18 @@ void ProcessMoveStep(Player& player, Match& match) {
   rec.rate = req.F(pes::moveword::kRate);
   rec.style = static_cast<uint8_t>(req.U(pes::moveword::kStyle) & 0xffu);
   rec.liveKind = static_cast<uint8_t>(req.U(pes::moveword::kLiveKind) & 0xffu);
+  pes::CarryOut(rec, req);  // FUN_1406b6a90's copy-back: the words the next tick reads back
+  pes::ApplyTransition(rec, req);
+}
+
+void RequestStop(Player& player, Match& match) {
+  if (!match.PesLoop()) return;
+  const MoveHostConstants* constants = &match.GetPesMoveStepConstants();
+  pes::MoveStepRecord& rec = player.GetMoveStep();
+  MoveHostAdapter host(player, match, *constants);
+  pes::MoveReq req = host.Request();
+  pes::movestep::EnterStop(host, req);
+  pes::CarryOut(rec, req);
   pes::ApplyTransition(rec, req);
 }
 
@@ -497,6 +556,14 @@ int CurrentMotionOf(Player& player) {
   const int family = std::atoi(anim->anim->GetVariable("specialvar1").c_str());
   if (!pes::IsPesClipFamily(family) && !pes::IsPesLocomotionFamily(family)) return -1;
   return std::atoi(anim->anim->GetVariable("specialvar2").c_str());
+}
+
+// MOVESTEP's decision: the first queued command that is not a ball action (pes-re-decision-read.md 1 and 3).
+std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue) {
+  for (const PlayerCommand& command : queue) {
+    if (!IsBallActionFunction(command.desiredFunctionType)) return command;
+  }
+  return std::nullopt;
 }
 
 }  // namespace pesmovestep

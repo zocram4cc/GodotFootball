@@ -1563,3 +1563,21 @@ TEST(MoveFill, DesiredSpeedIsTheCommandsDesiredKmhForTwoCommands) {
   pes::movestep::FillMoveTarget(b, in, FoldConstants(), SyntheticBuckets());
   EXPECT_FLOAT_EQ(b.F(pes::moveword::kDesiredSpeedKmh), 27.0f);
 }
+
+// FUN_1406b6a90 (copy-back, after the dispatch) and FUN_1406b7560 (copy-in, in the fill): req[0x17..0x2e], the stamps, the dwell
+// clocks and the band words, live in the record between ticks. No other request word does.
+TEST(MoveStepRecord, CarriesTheDwellWordsOutAndBackInButNoOtherWord) {
+  pes::MoveStepRecord rec;
+  pes::MoveReq written;
+  written.SetF(pes::moveword::kDwellElapsed2, 0.25f);
+  written.SetF(pes::moveword::kDwellLimit2, 0.5f);
+  written.SetF(pes::moveword::kRecordStampB, 33.0f);
+  written.SetF(pes::moveword::kDistToLook, 4.0f);  // word 0x12: outside the carried range
+  pes::CarryOut(rec, written);
+  pes::MoveReq next;
+  pes::CarryIn(rec, next);
+  EXPECT_FLOAT_EQ(next.F(pes::moveword::kDwellElapsed2), 0.25f);
+  EXPECT_FLOAT_EQ(next.F(pes::moveword::kDwellLimit2), 0.5f);
+  EXPECT_FLOAT_EQ(next.F(pes::moveword::kRecordStampB), 33.0f);
+  EXPECT_FLOAT_EQ(next.F(pes::moveword::kDistToLook), 0.0f);
+}
