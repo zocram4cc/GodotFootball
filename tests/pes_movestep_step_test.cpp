@@ -391,6 +391,7 @@ TEST(StepLoop, RePlansASlowPlayerThroughGotoRun) {
   req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
   req.SetU(pes::moveword::kMoveBucket, 0);
   req.SetU(pes::moveword::kBucketPrev, 0);
+  requested = MoveState::kInit;  // each test starts from a clean state
   StepLoop(host, req);
   EXPECT_EQ(requested, MoveState::kGotoRun);
 }
@@ -404,6 +405,7 @@ TEST(StepLoop, RePlansASlowPlayerThroughGotoRun) {
 TEST(StepToRun, StopsWhenBothHeadingGatesFire) {
   FakeHost host;
   MoveReq req;
+  requested = MoveState::kInit;  // each test starts from a clean state
   req.SetF(pes::moveword::kDwellLimit, 1.0f);
   req.SetF(pes::moveword::kDwellElapsed, 0.25f);
   // Both gates fire: the remaining heading past 90 deg (8100 deg^2) and the facing-turn past
@@ -480,6 +482,7 @@ TEST(RunToStep, AsksForStepLoopWhenTheSecondDwellRunsOut) {
 TEST(RunToStep, StopsInsteadOfBlendingWhenTheClassIsMinusOne) {
   FakeHost host;
   MoveReq req;
+  requested = MoveState::kInit;  // each test starts from a clean state
   req.SetU(pes::moveword::kCommandSpeedClass, 0xffffffffu);  // -1
   req.SetF(pes::moveword::kDwellLimit2, 1.0f);
   req.SetF(pes::moveword::kDwellElapsed2, 0.1f);
@@ -498,10 +501,14 @@ TEST(RunToStep, StopsInsteadOfBlendingWhenTheClassIsMinusOne) {
 }
 
 // The heading-error gate is 8100 deg^2 (0x1425DDFD8 = 90 deg), not 2025. A 100-deg heading
-// error is past 8100 deg^2, so the tick stops instead of blending.
+// error is past 8100 deg^2, so the tick leaves the blend branch and takes the stop arm.
+// The stop arm's own gate (PES at 0x1406C142A) is wrap180(the facing - the body direction),
+// and it must be past 22.5 degrees for FUN_1406D5D60: the body direction is 40 degrees from
+// the facing here.
 TEST(RunToStep, StopsWhenTheHeadingErrorIsPastNinetyDegrees) {
   FakeHost host;
   MoveReq req;
+  requested = MoveState::kInit;  // each test starts from a clean state
   req.SetU(pes::moveword::kCommandSpeedClass, 3);
   req.SetF(pes::moveword::kDwellLimit2, 1.0f);
   req.SetF(pes::moveword::kDwellElapsed2, 0.1f);
@@ -509,12 +516,38 @@ TEST(RunToStep, StopsWhenTheHeadingErrorIsPastNinetyDegrees) {
   req.SetF(pes::moveword::kRecordStampB, 110.0f);  // the heading error is 100 deg
   req.SetF(pes::moveword::kHeading, 10.0f);
   req.SetF(pes::moveword::kFacing, 10.0f);
-  req.SetF(pes::moveword::kBodyDirection, 12.0f);
+  req.SetF(pes::moveword::kBodyDirection, 50.0f);  // the body turn is 40 deg
   req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
   req.SetU(pes::moveword::kClassWord, 1u);
   RunToStep(host, req);
   EXPECT_FALSE(req.Flag(pes::moveword::kRootFacing));
   EXPECT_EQ(requested, MoveState::kStop);
+}
+
+// The stop arm's gate is the body direction, not the look heading: with the look heading 40
+// degrees from the facing and the body direction level with it, the tick takes the TURN_STOP
+// arm (FUN_1406D2590), not the stop arm.
+TEST(RunToStep, TheStopArmReadsTheBodyDirectionAndNotTheLookHeading) {
+  FakeHost host;
+  MoveReq req;
+  requested = MoveState::kInit;  // each test starts from a clean state
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.1f);
+  req.SetF(pes::moveword::kRecordStampA, 20.0f);
+  req.SetF(pes::moveword::kRecordStampB, 110.0f);  // the heading error is 100 deg
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);  // the body turn is 0 deg
+  req.SetF(pes::moveword::kLookHeading, 50.0f);     // the look heading is 40 deg from the facing
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetU(pes::moveword::kClassWord, 1u);
+  RunToStep(host, req);
+  EXPECT_FALSE(req.Flag(pes::moveword::kRootFacing));
+  // The body turn is inside 22.5 degrees, so the stop arm does not run; the class is not -1
+  // and the distance is 0, so the TURN_STOP arm does.
+  EXPECT_NE(requested, MoveState::kStop);
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kTurnStop));
 }
 
 // A heading error of 80 deg is inside the 90-deg gate, so the tick blends: the root facing is

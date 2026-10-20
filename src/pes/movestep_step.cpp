@@ -256,7 +256,9 @@ void RunToStep(MoveHost& host, MoveReq& req) {
       req.SetU(moveword::kClassWord, req.U(moveword::kPrevClassWord));
       req.SetF(moveword::kBandSpeedPrev, req.F(moveword::kBandSpeedCopy));
     }
-    const float bodyTurn = Wrap180(req.F(moveword::kFacing) - req.F(moveword::kLookHeading));
+    // PES at 0x1406C142A: FUN_14043a0a0(P+0x20, req[0x04]) = wrap180(the facing - the body
+    // direction). The port read the look heading (req[0x03]) instead of the body direction.
+    const float bodyTurn = Wrap180(req.F(moveword::kFacing) - req.F(moveword::kBodyDirection));
     if (k.deg22p5 <= std::fabs(bodyTurn) ||
         (int(req.U(moveword::kClassWord)) < 1 &&
          int(req.U(moveword::kCommandSpeedClass)) == -1)) {

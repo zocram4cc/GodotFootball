@@ -104,9 +104,9 @@ cannot run, so only the ladder can write the class word and the speed.
 ## The throw-in test: the exit is not in this branch's reach
 
 Main's throw-in stall (`PesRestartDelay.AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine`)
-was reproduced in a scratch worktree (`/mnt/Extra4/gf-StepFamilyThrow` = `origin/GoalKickLadder-wip`
-44e26da merged with 9748401) with a per-tick probe of the taker's state, next-state request,
-the requesting site and the rate/speed words.
+was reproduced in a scratch worktree beside the main checkout (`gf-StepFamilyThrow` =
+`origin/GoalKickLadder-wip` 44e26da merged with 9748401) with a per-tick probe of the
+taker's state, next-state request, the requesting site and the rate/speed words.
 
 **The test still fails, before and after this branch's change, with the same two
 assertions:**
@@ -169,10 +169,10 @@ pes_movestep_step_test: [  PASSED  ] 35 tests.
 pes_movestep_turn_test: [  PASSED  ] 51 tests.
 ```
 
-The 2-minute seed-7 smokes with `PES21_ROOT=/mnt/Extra4/PES21`:
+The 2-minute seed-7 smokes with `PES21_ROOT=<workdrive>/PES21`:
 
 ```
-build/apps/gfsim_run --db-sql assets/fixtures/teams.sql --home 1 --away 2 --seed 7 --minutes 2 --pes21-root /mnt/Extra4/PES21
+build/apps/gfsim_run --db-sql assets/fixtures/teams.sql --home 1 --away 2 --seed 7 --minutes 2 --pes21-root "$PES21_ROOT"
 [determinism] 75a11cdb2b3c8ec5
 [restarts] 17 stoppages, longest 23.1 s (1250 ticks), bound 32.5 s (1757 ticks)
 [ticks] 24090 sim ticks to full time (cap 194400)
@@ -183,7 +183,7 @@ The switch-off hash `75a11cdb2b3c8ec5` is the reference hash (tasks/19-10-26.md 
 **unchanged**.
 
 ```
-build/apps/gfsim_run --db-sql assets/fixtures/teams.sql --home 1 --away 2 --seed 7 --minutes 2 --pes21-root /mnt/Extra4/PES21 --pes-loop
+build/apps/gfsim_run --db-sql assets/fixtures/teams.sql --home 1 --away 2 --seed 7 --minutes 2 --pes21-root "$PES21_ROOT" --pes-loop
 [determinism] f00edc980284c148
 [ticks] 40067 sim ticks to full time (cap 194400)
 [idle] 28 episodes, stalls 18
