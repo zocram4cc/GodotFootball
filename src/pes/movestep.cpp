@@ -69,6 +69,17 @@ void ApplyTransition(MoveStepRecord& rec, MoveReq& req) {
   rec.Enter(static_cast<MoveState>(req.U(moveword::kNextState) & 0xffu));
 }
 
+// The carried request words: req[0x17..0x2e] (MoveStepRecord::carried), in PES's order.
+static_assert(moveword::kDwellLimit2 - moveword::kRecordStampA + 1 == 24, "carried holds req[0x17..0x2e]");
+void CarryOut(MoveStepRecord& rec, const MoveReq& req) {
+  for (int w = moveword::kRecordStampA; w <= moveword::kDwellLimit2; ++w)
+    rec.carried[w - moveword::kRecordStampA] = req.U(w);
+}
+void CarryIn(const MoveStepRecord& rec, MoveReq& req) {
+  for (int w = moveword::kRecordStampA; w <= moveword::kDwellLimit2; ++w)
+    req.SetU(w, rec.carried[w - moveword::kRecordStampA]);
+}
+
 namespace {
 // The scalars of FUN_14081e340 and FUN_140a92c80, by VA (see SpeedClassConstants).
 struct SpeedScalar {
@@ -288,6 +299,14 @@ std::optional<StepTables> LoadStepTables(const PeImage& exe, std::string* error)
   std::memcpy(t.bucketDegrees.data(), degrees, sizeof degrees);
   if (!ReadI32Array(exe, STEP_STYLE_TABLE_VA, t.styleMotion.data(), t.styleMotion.size())) {
     *error = "movestep step: the style/class motion table is unreadable";
+    return std::nullopt;
+  }
+  // FUN_1406b70d0's distance rows (StepTables' turn rows), four floats each.
+  constexpr uint64_t TURN_FRONT_VA = 0x1425dde70, TURN_BACK_VA = 0x1425dde80, TURN_CENTRE_VA = 0x1425dde90;
+  if (!exe.ReadVa(TURN_FRONT_VA, sizeof t.turnFront, reinterpret_cast<uint8_t*>(t.turnFront.data())) ||
+      !exe.ReadVa(TURN_BACK_VA, sizeof t.turnBack, reinterpret_cast<uint8_t*>(t.turnBack.data())) ||
+      !exe.ReadVa(TURN_CENTRE_VA, sizeof t.turnCentre, reinterpret_cast<uint8_t*>(t.turnCentre.data()))) {
+    *error = "movestep step: the run-turn distance rows are unreadable";
     return std::nullopt;
   }
   return t;

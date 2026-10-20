@@ -36,19 +36,11 @@ inline constexpr int kBandSpeedCopy = 0x22;  // STEP_LOOP: the band speed paired
 inline constexpr int kBucketPrev = 0x25;     // STEP_LOOP: the bucket before the last change (OBS)
 inline constexpr int kBlendA = 0x2b;         // STEP_LOOP_CHANGE: the blended heading integral
 inline constexpr int kBlendB = 0x2c;         // STEP_LOOP_CHANGE: the blended heading remainder
+inline constexpr int kTurnGateFlags = 0x0f;   // req[0xf] byte (req+0x3c): FUN_1406b70d0's gate flags
+inline constexpr int kTurnCommandFlag = 0x15;  // req[0x15] byte (req+0x54): FUN_1406b70d0's answer inside the front gate
 }  // namespace moveword
 
 namespace movestep {
-
-// FUN_1406b70d0's four tables, indexed by req[0x7c] (the foot band side). Read from the exe;
-// the port's StepTables carries them and the install relations test checks their sizes.
-struct TurnDistances {
-  std::array<float, 4> front;   // 0x1425dde70: the near bucket's distance
-  std::array<float, 4> back;    // 0x1425dde80: the far bucket's distance
-  std::array<float, 4> centre;  // 0x1425dde90: the centre's distance
-  std::array<float, 4> held;    // 0x1425ddea0: the held ball's distance
-};
-std::optional<TurnDistances> LoadTurnDistances(const PeImage& exe, std::string* error);
 
 // The handlers, each taking the shared host and the request. The PES body of each is named in
 // the comment.
@@ -64,10 +56,8 @@ void EnterTurnStop(MoveHost& host, MoveReq& req);  // FUN_1406d2590
 // Group C's own helpers, ported here because only group C calls them.
 // FUN_1406b6ee0: whether the step loop must stop.
 bool StepStops(MoveHost& host, MoveReq& req, bool live);
-// FUN_1406b70d0: whether the step loop may turn into a run turn. The four distance tables are
-// the exe's own, loaded by LoadTurnDistances; the handler takes them as a parameter because
-// only group C reads them (no host accessor until another group does).
-bool StepLetsRunTurn(MoveHost& host, const TurnDistances& d, MoveReq& req);
+// FUN_1406b70d0: whether the step loop may turn into a run turn. Its distance rows are StepTables' turn rows.
+bool StepLetsRunTurn(MoveHost& host, MoveReq& req);
 
 }  // namespace movestep
 }  // namespace pes

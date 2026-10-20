@@ -15,6 +15,7 @@
 #include <cstring>
 
 #include "pes/exe.hpp"
+#include "pes/movestep_step.hpp"
 
 namespace pes {
 namespace {
@@ -42,10 +43,8 @@ float FoldUnit(float x, const MoveTurnConstants& k) {
 // FUN_14043a0a0(a, b): both folded into [0, 360), then the difference into (-180, 180].
 float Wrap180Diff(float a, float b, const MoveTurnConstants& k) {
   const float d = FoldUnit(b, k) - FoldUnit(a, k);
-  if (k.halfTurn < d) {
-    if (d < 0.0f) return d - k.negOne * k.fullTurn;
-    return d - k.one * k.fullTurn;
-  }
+  if (k.halfTurn < d) return d - k.one * k.fullTurn;
+  if (d < -k.halfTurn) return d - k.negOne * k.fullTurn;
   return d;
 }
 
@@ -146,10 +145,6 @@ void AdjustAngleApply(const MoveHost&) {}
 // P+0xac0's own readers (the interface the handlers issue through).
 // ponytail: the interface readers; the host publishes the action's own values.
 float OwnRate(const MoveHost& host) { return host.RateCeiling(); }
-int PlaybackOf(const MoveHost& host) {
-  const float r = host.RateCeiling();
-  return r > 0.0f ? static_cast<int>(r) : 0;
-}
 int InterfaceClass(const MoveHost& host) { return host.CommandSpeedClass(); }
 float InterfaceSpeed(const MoveHost& host) { return host.CommandSpeedKmh(); }
 
@@ -249,11 +244,6 @@ float DispSpeedKmh(const MoveHost& host, const MoveTurnConstants& k) {
 
 namespace pes {
 namespace movestep {
-
-// FUN_1406d2590 (group C's TURN_STOP entry). The contract does not declare it, so group D
-// declares the single call it makes, in PES's argument order; group C's own port defines it.
-// ponytail: the contract declares EnterTurnStop when group C's header lands on main.
-void EnterTurnStop(MoveHost& host, MoveReq& req);
 
 // The vt+0x10 clip request, in PES's argument order: (interface, req, motion, mirror, 0, blend,
 // playback, start). The clip is a SetMotion (group -1): the start is its start time in seconds.
@@ -468,18 +458,6 @@ void RunTurnStepReselect(MoveHost& host, MoveReq& req, const MoveTurnConstants& 
   (void)rowFixedB;
 }
 }  // namespace
-
-
-
-// The step grid's own gate FUN_1406b70d0 reads (group C's port keeps its own copy); group D names
-// the shared site so both groups read one decision.
-// ponytail: group C's StepLetsRunTurn; the contract moves it when group C lands on main.
-bool StepLetsRunTurn(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
-  (void)host;
-  (void)req;
-  (void)k;
-  return false;
-}
 
 // LAB_1406c7c9e / LAB_1406c8339: the joined TURN_STOP ladder. PES reaches the same ladder from
 // the class-3 write and from the class-unset path, so the port funnels both into one block.
@@ -1740,7 +1718,8 @@ void EnterRunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
   const int rowNow = AnimeRow(host, slot);
   const bool mirrorSlot =
       rowNow < 0x16 && static_cast<int>(req.U(moveword::kClassWord)) == rowNow;
-  req.SetU(moveword::kPlayback, static_cast<uint32_t>(rowNow >= 0 ? rowNow : 0));  // vt+0x50
+  req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(), host.MirrorChoice(false) ? 1.0f : 0.5f,
+                                                  host.PlaybackConstantsView()));  // vt+0x50: a float store
   const int speedWord = static_cast<int>(req.U(moveword::kClassWord));
   const int kind = static_cast<int>(req.U(moveword::kKind));
   const int bucket = static_cast<int>(req.U(moveword::kMoveBucket));
@@ -2177,12 +2156,9 @@ bool EnterRunTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k, 
       req.SetU(moveword::kRowAngle, req.U(moveword::kHeading));  // param_2[0x18] = param_2[1]
       req.SetF(moveword::kRowAngle,
                req.F(moveword::kHeading) + k.halfTurn);  // param_2[0x17] = req[1] + 180
-      {
-        const int playerSlot = AnimeSlot(host);
-        req.SetU(moveword::kPlayback, static_cast<uint32_t>(playerSlot >= 0 ? playerSlot : 0));
-      }
-      IssueClip(host, pick.motion, mirror, k.clipBlend,
-                static_cast<float>(req.U(moveword::kPlayback)), 0.0f);  // OPEN: the arm above stored a slot in req[0x35]; PES's playback is a float (pes-re-anim-select.md 1)
+      req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(), host.MirrorChoice(false) ? 1.0f : 0.5f,
+                                                      host.PlaybackConstantsView()));  // vt+0x50: a float store
+      IssueClip(host, pick.motion, mirror, k.clipBlend, req.F(moveword::kPlayback), 0.0f);
       req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));  // param_2[0x24] = [0x1f]
       req.SetU(moveword::kPrevSpeedWord, req.U(moveword::kSpeedWord));  // param_2[0x22] = [0x1d]
       req.SetU(moveword::kClassWord, static_cast<uint32_t>(cls));      // param_2[0x1f]
@@ -2247,12 +2223,9 @@ bool EnterRunTurnStep(MoveHost& host, MoveReq& req, const MoveTurnConstants& k, 
     req.SetU(moveword::kRowAngle, req.U(moveword::kHeading));
     req.SetF(moveword::kRowAngle,
              req.F(moveword::kHeading) - (stepped < 0.0f ? k.neg90 : k.angle90));
-    {
-      const int playerSlot = AnimeSlot(host);
-      req.SetU(moveword::kPlayback, static_cast<uint32_t>(playerSlot >= 0 ? playerSlot : 0));
-    }
-    IssueClip(host, pick.motion, mirror, k.clipBlend,
-              static_cast<float>(req.U(moveword::kPlayback)), 0.0f);  // OPEN: as at 2227
+    req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(), host.MirrorChoice(false) ? 1.0f : 0.5f,
+                                                    host.PlaybackConstantsView()));  // vt+0x50: a float store
+    IssueClip(host, pick.motion, mirror, k.clipBlend, req.F(moveword::kPlayback), 0.0f);
     req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));
     req.SetU(moveword::kPrevSpeedWord, req.U(moveword::kSpeedWord));
     req.SetU(moveword::kClassWord, static_cast<uint32_t>(cls));
@@ -2456,10 +2429,11 @@ bool EnterStepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) 
         if (!PickRow(host, motion, col2).found) return false;
         const RowPick pick = PickRow(host, motion, col2);
         IssueClip(host, pick.motion, pick.mirror, k.clipBlend,
-                  static_cast<float>(req.U(moveword::kPlayback)), 0.0f);  // OPEN: as at 2227
+                  req.F(moveword::kPlayback), 0.0f);
         req.SetByte(moveword::kFootFlag, pick.mirror ? 1 : 0);
         req.SetU(moveword::kRowAngle, req.U(moveword::kHeading));  // param_2[0x18] = param_2[1]
-        req.SetU(moveword::kPlayback, static_cast<uint32_t>(PlaybackOf(host)));
+        req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(), host.MirrorChoice(false) ? 1.0f : 0.5f,
+                                                        host.PlaybackConstantsView()));
         int classWord = 2;
         if (speedClass < 3) {
           classWord = speedClass < 0 ? 0 : speedClass;
@@ -2519,7 +2493,7 @@ bool EnterStepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) 
         if (!PickRow(host, row, col).found) return false;
         const RowPick pick = PickRow(host, row, col);
         IssueClip(host, pick.motion, pick.mirror, k.clipBlend,
-                  static_cast<float>(req.U(moveword::kPlayback)), 0.0f);  // OPEN: as at 2227
+                  req.F(moveword::kPlayback), 0.0f);
         const int classWord = speedClass < 3 ? (speedClass < 0 ? 0 : speedClass) : 3;
         float speed = req.F(moveword::kDesiredSpeedKmh);
         const bool slow = !(speed <= k.speedD) || !(k.five <= speed);
@@ -2592,10 +2566,11 @@ bool EnterStepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) 
     if (!PickRow(host, row, col).found) return false;
     const RowPick pick = PickRow(host, row, col);
     IssueClip(host, pick.motion, pick.mirror, k.clipBlend,
-              static_cast<float>(req.U(moveword::kPlayback)), 0.0f);  // OPEN: as at 2227
+              req.F(moveword::kPlayback), 0.0f);
     req.SetByte(moveword::kFootFlag, pick.mirror ? 1 : 0);
     req.SetU(moveword::kRowAngle, req.U(moveword::kHeading));
-    req.SetU(moveword::kPlayback, static_cast<uint32_t>(PlaybackOf(host)));
+    req.SetF(moveword::kPlayback, pes::TurnPlayback(host.PhysiqueG(), host.MirrorChoice(false) ? 1.0f : 0.5f,
+                                                    host.PlaybackConstantsView()));
     const int classWord = speedClass < 4 ? (speedClass < 0 ? 0 : speedClass) : 3;
     float speed = req.F(moveword::kDesiredSpeedKmh);
     const bool slow = !(speed <= k.speed28) || !(k.five <= speed);
@@ -2919,7 +2894,7 @@ void StepTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
               EnterGotoRun(host, req, false);  // FUN_1406ce820
               return;
             }
-          } else if (StepLetsRunTurn(host, req, k)) {  // FUN_1406b70d0
+          } else if (movestep::StepLetsRunTurn(host, req)) {  // FUN_1406b70d0
             req.SetF(moveword::kRate, 0.6f);
             if (band8 <= dispKmh) {
               if (band135 <= dispKmh) {

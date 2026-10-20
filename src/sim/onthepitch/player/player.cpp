@@ -471,6 +471,8 @@ void Player::Process() {
     desiredTimeToBall_ms = std::max(desiredTimeToBall_ms - Match::kTick_ms, 0.0);
 
     CastController()->Process();
+    // PES's AI think, after the controller's process has set the mental image it decides from (pesmovestep::Think).
+    pesmovestep::Think(*this, *match);
 
     if (match->IsInPlay()) {
       if (match->IsFrameSecond()) {

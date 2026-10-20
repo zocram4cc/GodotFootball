@@ -338,7 +338,10 @@ class RateHost : public pes::MoveHost {
   void SetRecordF0bec(float value) override { f0bec = value; ++f0becWrites; }
   const pes::AngleBucketConstants& AngleBuckets() const override { return buckets; }
   void PositionAt(int index, float out[3]) const override {
-    for (int i = 0; i < 3; ++i) out[i] = index == 0 ? position[i] : 0.0f;
+    for (int i = 0; i < 3; ++i) out[i] = index < 2 ? 0.0f : position[i];
+  }
+  void OwnPosition(float out[3]) const override {
+    for (int i = 0; i < 3; ++i) out[i] = position[i];
   }
   bool IsReplay() const override { return false; }
   void Issue(const pes::MotionRequest&) override {}
@@ -491,13 +494,23 @@ pes::RunConstants SyntheticAngles() {
 }
 }  // namespace
 
-TEST(AngleDiffDeg, WrapsTheDifferenceIntoMinusHalfToHalfTurn) {
+TEST(InlineDiffDeg, WrapsTheDifferenceIntoMinusHalfToHalfTurn) {
   const auto k = SyntheticAngles();
-  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(45.0f, 10.0f, k), 35.0f);
-  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(10.0f, 45.0f, k), -35.0f);
-  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(0.0f, 350.0f, k), 10.0f);
-  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(350.0f, 0.0f, k), -10.0f);
-  EXPECT_FLOAT_EQ(pes::AngleDiffDeg(180.0f, 0.0f, k), 180.0f);
+  EXPECT_FLOAT_EQ(pes::InlineDiffDeg(45.0f, 10.0f, k), 35.0f);
+  EXPECT_FLOAT_EQ(pes::InlineDiffDeg(10.0f, 45.0f, k), -35.0f);
+  EXPECT_FLOAT_EQ(pes::InlineDiffDeg(0.0f, 350.0f, k), 10.0f);
+  EXPECT_FLOAT_EQ(pes::InlineDiffDeg(350.0f, 0.0f, k), -10.0f);
+  EXPECT_FLOAT_EQ(pes::InlineDiffDeg(180.0f, 0.0f, k), 180.0f);
+}
+
+// FUN_14043a0a0 is b minus a, wrapped once past 180: the reverse of the inline difference, and -180 at the boundary.
+TEST(PesAngleDiff, IsFun14043a0a0BMinusAWrappedOnce) {
+  const auto k = SyntheticAngles();
+  EXPECT_FLOAT_EQ(pes::PesAngleDiff(45.0f, 10.0f, k), -35.0f);
+  EXPECT_FLOAT_EQ(pes::PesAngleDiff(10.0f, 45.0f, k), 35.0f);
+  EXPECT_FLOAT_EQ(pes::PesAngleDiff(0.0f, 350.0f, k), -10.0f);
+  EXPECT_FLOAT_EQ(pes::PesAngleDiff(350.0f, 0.0f, k), 10.0f);
+  EXPECT_FLOAT_EQ(pes::PesAngleDiff(180.0f, 0.0f, k), -180.0f);
 }
 
 TEST(FoldFull, FoldsAHeadingIntoTheUnitTurn) {
@@ -693,16 +706,50 @@ TEST(Demo, IssuesTheIdleClipWhenTheClipHasRunPastTheRandomThreshold) {
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kDuration), 0.3f);
 }
 
-TEST(StayDecision, StaysWhenTheFacingErrorIsInsideTheBearingGate) {
+// FUN_1406b6bb0 (StayDecision): true sends the idle player to GOTO_RUN (FUN_1406bf0c0 lines 39-42). Past the threshold distance
+// a precise command answers true inside the bearing gate, 112.5 degrees (DAT_1425cb30c) unless the record's actions set a share
+// of 45 + 67.5 degrees. A command that is not precise answers true whatever the facing error (FUN_1406b6bb0 line 98).
+TEST(StayDecision, APreciseCommandGoesToTheRunInsideTheBearingGate) {
+  RateHost host = IdleHost();
+  host.recordActionA = 0;  // not the 5/5 share branch: the gate is PES's default 112.5 degrees
+  host.recordActionB = 0;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 1);
+  req.SetU(pes::moveword::kPrecise, 1);
+  req.SetF(pes::moveword::kDistToTarget, 10.0f);
+  req.SetF(pes::moveword::kFacingError, 10.0f);
+  host.ballBearingDeg = 0.0f;
+  host.run.deg1125b = 112.5f;  // PES's installed gate (DAT_1425cb30c); the synthetic angles do not set it
+  EXPECT_TRUE(pes::movestep::StayDecision(host, req));
+  req.SetF(pes::moveword::kFacingError, 200.0f);
+  EXPECT_FALSE(pes::movestep::StayDecision(host, req)) << "200 degrees is past the 112.5 gate";
+}
+
+TEST(StayDecision, ANonPreciseCommandGoesToTheRunWhateverTheFacingError) {
   RateHost host = IdleHost();
   pes::MoveReq req;
   req.SetU(pes::moveword::kCommandSpeedClass, 1);
-  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetU(pes::moveword::kPrecise, 0);
   req.SetF(pes::moveword::kDistToTarget, 10.0f);
+  req.SetF(pes::moveword::kFacingError, 200.0f);
   host.ballBearingDeg = 0.0f;
   EXPECT_TRUE(pes::movestep::StayDecision(host, req));
-  req.SetF(pes::moveword::kFacingError, 200.0f);
-  EXPECT_FALSE(pes::movestep::StayDecision(host, req));
+}
+
+// The presser of FirstTouchPort2's seed-7 trace: precise, 2.31 m from a resting ball, 10 degrees off the look point. PES's IDLE
+// takes the run (true). The port's gate was the 3.0 m span (dist3) instead of 112.5 degrees, so the 10-degree error refused.
+TEST(StayDecision, ThePresserTwoPointThreeMetresFromTheBallGoesToTheRun) {
+  RateHost host = IdleHost();
+  host.recordActionA = 0;  // not the 5/5 share branch: the gate is PES's default 112.5 degrees
+  host.recordActionB = 0;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kPrecise, 1);
+  req.SetF(pes::moveword::kDistToTarget, 2.31f);
+  req.SetF(pes::moveword::kFacingError, 10.0f);
+  host.ballBearingDeg = 0.0f;
+  host.run.deg1125b = 112.5f;  // PES's installed gate (DAT_1425cb30c); the synthetic angles do not set it
+  EXPECT_TRUE(pes::movestep::StayDecision(host, req)) << "10 degrees is inside the 112.5 gate";
 }
 
 // INIT's stay decision (docs/re/pes-re-anim-select.md 2.3): a still command whose stay decision
@@ -884,8 +931,8 @@ RateHost StyleHost() {
   host.run.rampSlope = 0.15f;
   host.style = SyntheticStyle();
   host.moveConstants.dist3 = 3.0f;
-  host.ballSample[18][1] = 1.0f;  // GF order: x, z, height
-  host.ballSample[18][2] = 0.2f;
+  host.ballSample[18][1] = 0.2f;  // PES order: x, height, ground z. The ball is 1 m ahead, 0.2 m high.
+  host.ballSample[18][2] = 1.0f;
   return host;
 }
 
@@ -996,7 +1043,7 @@ TEST(LocomotionStyle, DribbleAtTheFeetIsEight) {
 TEST(LocomotionStyle, DribbleNeedsTheBallInFront) {
   RateHost host = StyleHost();
   host.ballSample[18][0] = 1.0f;  // now 90 degrees off the facing
-  host.ballSample[18][1] = 0.0f;
+  host.ballSample[18][2] = 0.0f;
   pes::MoveReq req = StyleReq(5, 0.2f);
   req.SetByte(pes::moveword::kUseClassRate, 1);
   EXPECT_EQ(Style(host, req, 0.2f), 0);
@@ -1004,7 +1051,7 @@ TEST(LocomotionStyle, DribbleNeedsTheBallInFront) {
 
 TEST(LocomotionStyle, DribbleNeedsTheBallNearby) {
   RateHost host = StyleHost();
-  host.ballSample[18][1] = 4.0f;
+  host.ballSample[18][2] = 4.0f;
   pes::MoveReq req = StyleReq(5, 0.2f);
   req.SetByte(pes::moveword::kUseClassRate, 1);
   EXPECT_EQ(Style(host, req, 0.2f), 0);
@@ -1012,7 +1059,7 @@ TEST(LocomotionStyle, DribbleNeedsTheBallNearby) {
 
 TEST(LocomotionStyle, DribbleNeedsTheBallLow) {
   RateHost host = StyleHost();
-  host.ballSample[18][2] = 1.0f;  // above half the 1.8 m height
+  host.ballSample[18][1] = 1.0f;  // above half the 1.8 m height (index 1 is the height)
   pes::MoveReq req = StyleReq(5, 0.2f);
   req.SetByte(pes::moveword::kUseClassRate, 1);
   EXPECT_EQ(Style(host, req, 0.2f), 0);
@@ -1020,7 +1067,7 @@ TEST(LocomotionStyle, DribbleNeedsTheBallLow) {
 
 TEST(LocomotionStyle, DribbleYieldsToABallRunningAlongTheFacing) {
   RateHost host = StyleHost();
-  host.ballSample[2][1] = 0.1f;  // 0.1 m a tick: 19.4 km/h at 54 ticks a second
+  host.ballSample[2][2] = 0.1f;  // 0.1 m a tick along z: 19.4 km/h at 54 ticks a second
   pes::MoveReq req = StyleReq(5, 0.2f);
   req.SetByte(pes::moveword::kUseClassRate, 1);
   EXPECT_EQ(Style(host, req, 0.2f), 0);
@@ -1028,8 +1075,28 @@ TEST(LocomotionStyle, DribbleYieldsToABallRunningAlongTheFacing) {
 
 TEST(LocomotionStyle, DribbleTakesAFastBallThatTurnsAway) {
   RateHost host = StyleHost();
-  host.ballSample[2][1] = 0.1f;
+  host.ballSample[2][2] = 0.1f;
   host.ballMotionHeadingDeg = 90.0f;
+  pes::MoveReq req = StyleReq(5, 0.2f);
+  req.SetByte(pes::moveword::kUseClassRate, 1);
+  EXPECT_EQ(Style(host, req, 0.2f), 8);
+}
+
+// PES's dribble gates are magnitudes (FUN_1404583b0 and FUN_14043a020 return fabs): a ball 60 degrees to the far side
+// of the facing is out of the arm, and a fast ball turning 60 degrees to the far side is a turn away that the arm takes.
+TEST(LocomotionStyle, DribbleRefusesABallOnTheFarSideOfTheFacing) {
+  RateHost host = StyleHost();
+  host.ballSample[18][0] = -0.8660254f;  // bearing -60 degrees from the facing
+  host.ballSample[18][2] = 0.5f;
+  pes::MoveReq req = StyleReq(5, 0.2f);
+  req.SetByte(pes::moveword::kUseClassRate, 1);
+  EXPECT_EQ(Style(host, req, 0.2f), 0);
+}
+
+TEST(LocomotionStyle, DribbleTakesAFastBallThatTurnsToTheFarSide) {
+  RateHost host = StyleHost();
+  host.ballSample[2][2] = 0.1f;
+  host.ballMotionHeadingDeg = -60.0f;  // 60 degrees to the far side of the facing
   pes::MoveReq req = StyleReq(5, 0.2f);
   req.SetByte(pes::moveword::kUseClassRate, 1);
   EXPECT_EQ(Style(host, req, 0.2f), 8);
@@ -1386,4 +1453,161 @@ TEST(RampsBeforeDispatch, TheDampingRunsInEveryState) {
   pes::movestep::RampsBeforeDispatch(host, req);
   EXPECT_NEAR(req.F(pes::moveword::kDriftX), 3.0f - 120.0f / 54.0f, 1e-4f);
   EXPECT_EQ(req.F(pes::moveword::kDriftZ), 0.0f);
+}
+
+// ---------------------------------------------------------------------------------------------
+// FUN_1406b7560's target fill (docs/re/pes-re-anim-select.md 1.1, raw asm 0x1406b7824..0x1406b7fd8).
+// The move target is cmd+0x20 (req[1], req[0x11]); the look point is cmd+0x14 (req[3], req[7]);
+// the speed band is cmd[0x17] (req[9]); the desired speed is cmd[0x172] (req[0xa]); the precise
+// word is cmd[0x15] (req[0xe]). The bucket edges are synthetic: the tests relate each bucket word
+// to the bucket of the angle it was fed from, they do not pin a PES table.
+// ---------------------------------------------------------------------------------------------
+namespace {
+
+pes::RunConstants FoldConstants() {
+  pes::RunConstants k{};
+  k.one = 1.0f;
+  k.neg = -1.0f;
+  k.half_turn = 180.0f;
+  k.full = 360.0f;
+  k.wrapFull = -360.0f;
+  return k;
+}
+
+// A command from the origin facing heading 0, with a walk band and a 5 km/h desired speed.
+pes::movestep::MoveTargetInput OriginCommand() {
+  pes::movestep::MoveTargetInput in;
+  in.facingDeg = 0.0f;
+  in.speedBand = 0;
+  in.desiredKmh = 5.0f;
+  return in;
+}
+
+}  // namespace
+
+TEST(MoveFill, SpeedBandIsTheCommandsOwnBandForTwoCommands) {
+  pes::movestep::MoveTargetInput walk = OriginCommand();
+  walk.targetX = 3.0f;
+  walk.targetZ = 4.0f;
+  walk.speedBand = 0;
+  pes::MoveReq a;
+  pes::movestep::FillMoveTarget(a, walk, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(static_cast<int>(a.U(pes::moveword::kCommandSpeedClass)), 0);
+
+  pes::movestep::MoveTargetInput dash = walk;
+  dash.speedBand = 3;
+  pes::MoveReq b;
+  pes::movestep::FillMoveTarget(b, dash, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(static_cast<int>(b.U(pes::moveword::kCommandSpeedClass)), 3);
+}
+
+TEST(MoveFill, PreciseWordIsTheCommandsStopFlagForTwoCommands) {
+  pes::movestep::MoveTargetInput stop = OriginCommand();
+  stop.targetZ = 6.0f;
+  stop.speedBand = 1;
+  stop.precise = true;
+  pes::MoveReq a;
+  pes::movestep::FillMoveTarget(a, stop, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(a.U(pes::moveword::kPrecise), 1u);
+
+  pes::movestep::MoveTargetInput run = stop;
+  run.speedBand = 2;
+  run.precise = false;
+  pes::MoveReq b;
+  pes::movestep::FillMoveTarget(b, run, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(b.U(pes::moveword::kPrecise), 0u);
+}
+
+TEST(MoveFill, HeadingAndDistanceAreToTheMoveTargetNotTheLookPoint) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetX = 3.0f;  // 5 m at 36.87 degrees
+  in.targetZ = 4.0f;
+  in.lookX = -4.0f;  // the look point is elsewhere: it must not feed these words
+  in.lookZ = 6.0f;  // 7.2 m: a look distance that differs from the 5 m target distance
+  pes::MoveReq ahead;
+  pes::movestep::FillMoveTarget(ahead, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(ahead.F(pes::moveword::kHeading), 36.8699f, 1e-3f);
+  EXPECT_NEAR(ahead.F(pes::moveword::kDistToTarget), 5.0f, 1e-4f);
+
+  // From (1, 1) to (1, -3): due south (180 degrees), 4 m.
+  in.originX = 1.0f;
+  in.originZ = 1.0f;
+  in.targetX = 1.0f;
+  in.targetZ = -3.0f;
+  pes::MoveReq south;
+  pes::movestep::FillMoveTarget(south, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(south.F(pes::moveword::kHeading), 180.0f, 1e-3f);
+  EXPECT_NEAR(south.F(pes::moveword::kDistToTarget), 4.0f, 1e-4f);
+}
+
+TEST(MoveFill, LookHeadingAndFacingErrorWrapAroundTheTurn) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetZ = 5.0f;  // target straight ahead
+  in.lookX = 10.0f;   // look point due east: heading 90
+  pes::MoveReq east;
+  pes::movestep::FillMoveTarget(east, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(east.F(pes::moveword::kLookHeading), 90.0f, 1e-3f);
+  EXPECT_NEAR(east.F(pes::moveword::kFacingError), 90.0f, 1e-3f);
+
+  // Facing 350 with the look point due north: the error is +10, not -350.
+  in.facingDeg = 350.0f;
+  in.lookX = 0.0f;
+  in.lookZ = 10.0f;
+  pes::MoveReq north;
+  pes::movestep::FillMoveTarget(north, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(north.F(pes::moveword::kLookHeading), 0.0f, 1e-3f);
+  EXPECT_NEAR(north.F(pes::moveword::kFacingError), 10.0f, 1e-3f);
+}
+
+TEST(MoveFill, TurnsAndTheirBucketsAreTheTargetTurnTheBodyTurnAndTheLookError) {
+  const pes::AngleBucketConstants buckets = SyntheticBuckets();
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetX = 1.0f;  // target at 30 degrees
+  in.targetZ = 1.7320508f;
+  in.lookX = 0.7660444f;  // look point at 50 degrees
+  in.lookZ = 0.6427876f;
+  pes::MoveReq req;
+  pes::movestep::FillMoveTarget(req, in, FoldConstants(), buckets);
+  EXPECT_NEAR(req.F(pes::moveword::kLookDelta), 30.0f, 1e-2f);   // word 5: target minus facing
+  EXPECT_NEAR(req.F(pes::moveword::kTurn), 30.0f, 1e-2f);        // word 6: target minus body
+  EXPECT_NEAR(req.F(pes::moveword::kFacingError), 50.0f, 1e-2f);  // word 7: look minus facing
+  EXPECT_EQ(req.U(pes::moveword::kLookBucket),
+            uint32_t(pes::movestep::AngleBucket(buckets, req.F(pes::moveword::kLookDelta), 10, false)));
+  EXPECT_EQ(req.U(pes::moveword::kMoveBucket),
+            uint32_t(pes::movestep::AngleBucket(buckets, req.F(pes::moveword::kTurn), 10, false)));
+  EXPECT_EQ(req.U(pes::moveword::kLookBucketAlt),
+            uint32_t(pes::movestep::AngleBucket(buckets, req.F(pes::moveword::kFacingError), 10, false)));
+  EXPECT_NE(req.U(pes::moveword::kLookBucket), req.U(pes::moveword::kLookBucketAlt));
+}
+
+TEST(MoveFill, DesiredSpeedIsTheCommandsDesiredKmhForTwoCommands) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetZ = 2.0f;
+  in.desiredKmh = 12.5f;
+  pes::MoveReq a;
+  pes::movestep::FillMoveTarget(a, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_FLOAT_EQ(a.F(pes::moveword::kDesiredSpeedKmh), 12.5f);
+
+  in.desiredKmh = 27.0f;
+  pes::MoveReq b;
+  pes::movestep::FillMoveTarget(b, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_FLOAT_EQ(b.F(pes::moveword::kDesiredSpeedKmh), 27.0f);
+}
+
+// FUN_1406b6a90 (copy-back, after the dispatch) and FUN_1406b7560 (copy-in, in the fill): req[0x17..0x2e], the stamps, the dwell
+// clocks and the band words, live in the record between ticks. No other request word does.
+TEST(MoveStepRecord, CarriesTheDwellWordsOutAndBackInButNoOtherWord) {
+  pes::MoveStepRecord rec;
+  pes::MoveReq written;
+  written.SetF(pes::moveword::kDwellElapsed2, 0.25f);
+  written.SetF(pes::moveword::kDwellLimit2, 0.5f);
+  written.SetF(pes::moveword::kRecordStampB, 33.0f);
+  written.SetF(pes::moveword::kDistToLook, 4.0f);  // word 0x12: outside the carried range
+  pes::CarryOut(rec, written);
+  pes::MoveReq next;
+  pes::CarryIn(rec, next);
+  EXPECT_FLOAT_EQ(next.F(pes::moveword::kDwellElapsed2), 0.25f);
+  EXPECT_FLOAT_EQ(next.F(pes::moveword::kDwellLimit2), 0.5f);
+  EXPECT_FLOAT_EQ(next.F(pes::moveword::kRecordStampB), 33.0f);
+  EXPECT_FLOAT_EQ(next.F(pes::moveword::kDistToLook), 0.0f);
 }

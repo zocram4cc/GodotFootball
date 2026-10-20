@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <map>
+#include <set>
 #include <memory>
 #include <optional>
 #include <string>
@@ -33,6 +34,9 @@ namespace {
 constexpr int kHomeTeam = 1, kAwayTeam = 2;
 constexpr unsigned int kSeed = 1000;
 constexpr int kTicks = 900;  // about 17 s of play
+// The gfsim configuration of the trace that found a STOP held for 72 ticks (player 4 at tick 1258).
+constexpr unsigned int kTraceSeed = 7;
+constexpr int kTraceMinutes = 2;
 
 blunted::Database* SharedDb() {
   static blunted::Database db;
@@ -58,25 +62,27 @@ const pesrig::Rig* SharedRig() {
   return rig ? &*rig : nullptr;
 }
 
-std::unique_ptr<Match> MakeMatch(const Properties& config) {
+std::unique_ptr<Match> MakeMatch(const Properties& config, unsigned int seed = kSeed, int minutes = 5) {
   MatchSetup setup;
   setup.homeTeamDbId = kHomeTeam;
   setup.awayTeamDbId = kAwayTeam;
-  setup.seed = kSeed;
-  setup.durationMinutes = 5;
+  setup.seed = seed;
+  setup.durationMinutes = minutes;
   setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
   setup.rig = SharedRig();
   if (!pestest::FillMissingPesConstants(&setup)) return nullptr;
   return std::unique_ptr<Match>(new Match(new MatchData(kHomeTeam, kAwayTeam), setup, config));
 }
 
-#define REQUIRE_PES_MATCH(config)                                                          \
+#define REQUIRE_PES_MATCH_AT(config, seed, minutes)                                        \
   if (!SharedRig()) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton comes from PES"; \
   blunted::Database* db = SharedDb();                                                    \
   ASSERT_TRUE(db) << "assets/fixtures/teams.sql";                                        \
   SetDB(db);                                                                             \
-  std::unique_ptr<Match> match = MakeMatch(config);                                      \
+  std::unique_ptr<Match> match = MakeMatch(config, seed, minutes);                       \
   if (!match) GTEST_SKIP() << "PES2021.exe: the match constants are unavailable"
+
+#define REQUIRE_PES_MATCH(config) REQUIRE_PES_MATCH_AT(config, kSeed, 5)
 
 // PES21_ROOT is restored when the test ends, whatever the test did to it.
 struct EnvRestore {
@@ -424,4 +430,233 @@ TEST(MoveStepWire, CurrentMotionIsThePesMotionTheBodyPlays) {
   }
   printf("[movestep-motion] checks %d\n", checks);
   EXPECT_GT(checks, 0);
+}
+
+// A STOP leaves the stop on a turned body. PES's STOP (FUN_1406c9e20) exits to IDLE_TURN through FUN_1406d1390 when the
+// look bucket (word 0xd) is off straight and the facing error's magnitude is at least 33.75 degrees (VA 0x1425cc688); the
+// call is at VA 0x1406ca51f. Built on main, that else arm is empty and the bucket it tests is the move bucket (word 8), so
+// a stop with a turned body holds for the whole match: the trace held one for 72 ticks. Every active player is set into
+// STOP, and none may still be in STOP after 60 ticks.
+TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  // Snapshots through play: at each one every active player enters STOP through PES's STOP entry (FUN_1406d5d60, as a handler
+  // does), and the players the entry leaves in STOP step 60 ticks on the AI's commands of that moment. The geometry a stopping
+  // body meets is a turn toward a target, looked past the turn.
+  constexpr int kSnapshots = 6;
+  constexpr int kTicksBetween = 100;
+  constexpr int kStopTicks = 60;  // about 1.1 s: the second dwell (0.35 s) and the turn ramp's scale fit inside it
+  int forced = 0;
+  int held = 0;
+  for (int s = 0; s < kSnapshots; ++s) {
+    for (int t = 0; t < kTicksBetween; ++t) match->Process();
+    std::vector<Player*> stopped;
+    for (Player* p : ActivePlayers(*match)) {
+      pesmovestep::RequestStop(*p, *match);
+      if (p->GetMoveStep().state == pes::MoveState::kStop) stopped.push_back(p);
+    }
+    for (int t = 0; t < kStopTicks; ++t) {
+      for (Player* p : stopped) pesmovestep::ProcessMoveStep(*p, *match);
+    }
+    for (Player* p : stopped) {
+      ++forced;
+      // A ball action that takes the body holds MOVESTEP's FSM (the same-tick precedence, pesmovestep.cpp), so a STOP it
+      // interrupts leaves only when the action ends. Only a STOP no ball action holds must leave within the bound.
+      if (p->GetMoveStep().state == pes::MoveState::kStop && !IsBallActionFunction(p->CastHumanoid()->GetCurrentFunctionType())) ++held;
+    }
+  }
+  EXPECT_GT(forced, 0);
+  EXPECT_EQ(held, 0) << held << " of " << forced << " forced STOPs still held after " << kStopTicks << " ticks";
+}
+
+
+// While the MOVESTEP FSM holds STOP, the AI's movement command does not pick the body's clip: PES's MOVE action plays the
+// FSM's own clips and MOVESTEP is the only reader of the AI's command block (pes-re-anim-select.md 0 item 5 and 1). On main,
+// a PES clip's last frame hands the body to Humanoid::Process's end-of-clip switch, which selects the AI's movement toward
+// the target, so the body ran while the FSM held the stop. After the clip-end fix this trace holds no natural STOP in its
+// first 1800 ticks, so the holds are forced through PES's STOP entry as AStopOnATurnedBodyLeavesTheStop does, and the match
+// runs on while they hold.
+TEST(MoveStepWire, AnAiMovementClipDoesNotTakeTheBodyWhileTheFsmHoldsAStop) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  constexpr int kSnapshots = 6;
+  constexpr int kTicksBetween = 100;
+  constexpr int kHoldTicks = 60;  // about 1.1 s, as AStopOnATurnedBodyLeavesTheStop
+  int holdTicks = 0;
+  int violations = 0;
+  int firstTick = -1;
+  int tick = 0;
+  for (int s = 0; s < kSnapshots; ++s) {
+    for (int t = 0; t < kTicksBetween; ++t, ++tick) match->Process();
+    std::vector<Player*> stopped;
+    for (Player* p : ActivePlayers(*match)) {
+      pesmovestep::RequestStop(*p, *match);
+      if (p->GetMoveStep().state == pes::MoveState::kStop) stopped.push_back(p);
+    }
+    for (int t = 0; t < kHoldTicks; ++t, ++tick) {
+      match->Process();
+      for (Player* p : stopped) {
+        if (p->GetMoveStep().state != pes::MoveState::kStop) continue;
+        ++holdTicks;
+        const Anim* a = p->GetCurrentAnim();
+        if (a && a->functionType == e_FunctionType_Movement) {
+          if (firstTick < 0) firstTick = tick;
+          ++violations;
+        }
+      }
+    }
+  }
+  EXPECT_GT(holdTicks, 0) << "no forced STOP held in the match: the check saw nothing";
+  EXPECT_EQ(violations, 0) << "AI movement clips held the body on " << violations << " STOP player-ticks; the first at tick "
+                           << firstTick;
+}
+
+// While the MOVESTEP FSM runs ACCELERATE, the AI's movement command does not pick the body's clip, the same rule as the STOP
+// hold above. An AI movement clip on an ACCELERATE tick leaves the handler with no motion record (CurrentMotion -1), so
+// every arm falls through and the state never leaves ACCELERATE.
+TEST(MoveStepWire, AnAiMovementClipDoesNotTakeTheBodyWhileTheFsmRunsAccelerate) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  constexpr int kAccelerateTicks = 1800;  // about 33 s of play
+  int accelerateTicks = 0;
+  int violations = 0;
+  int firstTick = -1;
+  for (int tick = 0; tick < kAccelerateTicks; ++tick) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      if (p->GetMoveStep().state != pes::MoveState::kAccelerate) continue;
+      ++accelerateTicks;
+      const Anim* a = p->GetCurrentAnim();
+      if (a && a->functionType == e_FunctionType_Movement) {
+        if (firstTick < 0) firstTick = tick;
+        ++violations;
+      }
+    }
+  }
+  EXPECT_GT(accelerateTicks, 0) << "no ACCELERATE in " << kAccelerateTicks << " ticks: the check saw nothing";
+  EXPECT_EQ(violations, 0) << "AI movement clips held the body on " << violations << " ACCELERATE player-ticks; the first at tick "
+                           << firstTick;
+}
+
+// The adapter's PES frame (PesFrame): PES reads the height at P+0xc and the ground z at P+0x10, so out is (x, height, z)
+// with height = GF z and ground z = -GF y (GF's coords[2] is the height: ball.cpp reads it as the height).
+TEST(MoveStepWire, PesFrameIsXHeightGroundZ) {
+  float out[3] = {0.0f, 0.0f, 0.0f};
+  pesmovestep::PesFrame(1.0f, 2.0f, 3.0f, out);
+  EXPECT_FLOAT_EQ(out[0], 1.0f) << "x is GF x";
+  EXPECT_FLOAT_EQ(out[1], 3.0f) << "height is GF z";
+  EXPECT_FLOAT_EQ(out[2], -2.0f) << "ground z is -GF y";
+}
+
+// PES's filler reads the AI's movement command, not a pending ball action (docs/re/pes-re-decision-read.md): a queue whose
+// front is a pass hands MOVESTEP the walk behind it.
+TEST(MoveStepWire, TheDecisionIsTheFirstMovementCommandNotAnAction) {
+  PlayerCommand pass;
+  pass.desiredFunctionType = e_FunctionType_ShortPass;
+  PlayerCommand walk;
+  walk.desiredFunctionType = e_FunctionType_Movement;
+  walk.desiredVelocityFloat = sprintVelocity;
+  const PlayerCommandQueue queue = {pass, walk};
+  const std::optional<PlayerCommand> decision = pesmovestep::MovementDecision(queue);
+  ASSERT_TRUE(decision.has_value()) << "no movement command was chosen from a pass and a walk";
+  EXPECT_EQ(decision->desiredFunctionType, e_FunctionType_Movement);
+  EXPECT_FLOAT_EQ(decision->desiredVelocityFloat, sprintVelocity);
+  EXPECT_FALSE(pesmovestep::MovementDecision(PlayerCommandQueue{pass}).has_value()) << "a lone pass is not a movement";
+}
+
+// A move target within 0.2 m of the root steers by the ball's sample 0 (PES's filler: DAT_142598578, 0.2 in the install;
+// pes-re-decision-read.md 2 says 0.4).
+TEST(MoveStepWire, AMoveTargetWithin20CmOfTheRootSteersByTheBall) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  const Vector3 at = p->GetPosition();
+  PlayerCommand c;
+  c.useDesiredTarget = true;
+  c.desiredTarget = at + Vector3(0.1f, 0.0f, 0.0f);
+  c.desiredVelocityFloat = sprintVelocity;
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), c};
+  const Vector3 ball = match->GetBall()->Predict(0);
+  const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(req.F(pes::moveword::kMoveTargetX), ball.coords[0], 1e-3f);
+  EXPECT_NEAR(req.F(pes::moveword::kMoveTargetZ), -ball.coords[1], 1e-3f);
+}
+
+// The request steers by the AI's decision on the tick the decision changes, not by the clip the mover plays: a decision
+// that turns him from east to north moves the request's move target north the same tick. Built on the clip's own command,
+// the target keeps pointing where the clip's command did until the clip ends.
+TEST(MoveStepWire, TheRequestFollowsTheDecisionOnTheTickItChanges) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  const Vector3 at = p->GetPosition();
+  const auto decide = [&at](const Vector3& offset) {
+    PlayerCommand c;
+    c.useDesiredTarget = true;
+    c.desiredTarget = at + offset;
+    c.desiredVelocityFloat = sprintVelocity;
+    return c;
+  };
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), decide(Vector3(10.0f, 0.0f, 0.0f))};
+  const pes::MoveReq east = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(east.F(pes::moveword::kMoveTargetX), at.coords[0] + 10.0f, 1e-3f);
+  EXPECT_NEAR(east.F(pes::moveword::kMoveTargetZ), -at.coords[1], 1e-3f);
+  // GF +y is PES -z: the AI turns him north on its next decision.
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), decide(Vector3(0.0f, 10.0f, 0.0f))};
+  const pes::MoveReq north = pesmovestep::TickRequest(*p, *match);
+  EXPECT_NEAR(north.F(pes::moveword::kMoveTargetX), at.coords[0], 1e-3f);
+  EXPECT_NEAR(north.F(pes::moveword::kMoveTargetZ), -(at.coords[1] + 10.0f), 1e-3f);
+}
+
+// PES's think cadence is not decoded. GF thinks every tick (pesmovestep::Think, after the controller's process), so the
+// decision is re-taken on nearly every tick and its frame stamp takes nearly every frame of the run. The 25-frame gate
+// that docs/re/pes-re-teamtick.md 5.1 named is computed and never read (raw asm 0x92578f, 0x8bfcf0).
+TEST(MoveStepWire, TheDecisionIsTakenOnEveryTick) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = FirstPlayer(*match);
+  std::set<int> stamps;
+  for (int tick = 0; tick < 300; ++tick) {
+    match->Process();
+    const int frame = p->GetPesDecision().frame;
+    if (frame >= 0) stamps.insert(frame);
+  }
+  EXPECT_GT(stamps.size(), 250u) << "the decision was re-taken on only " << stamps.size() << " of 300 ticks";
+}
+
+// A PES locomotion clip that has reached its last frame starts again from its first frame when its own motion is issued
+// again. PES's issue is a restart (IssuedClip, movestep.hpp), and the body's own Switch at the last frame is held in STOP
+// and ACCELERATE (humanoid.cpp PesPoseHeld), so a re-issue is the only way such a clip moves on.
+TEST(MoveStepWire, ASameMotionReissueRestartsAFinishedClip) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  Player* p = nullptr;
+  Played played;
+  for (int tick = 0; tick < 2000 && !p; ++tick) {
+    match->Process();
+    for (Player* q : ActivePlayers(*match)) {
+      const Played now = PlayedOf(q);
+      if (now.family == LocomotionFamily()) {
+        p = q;
+        played = now;
+        break;
+      }
+    }
+  }
+  ASSERT_NE(p, nullptr) << "no player played a PES locomotion clip in 2000 ticks";
+  Anim* anim = const_cast<Anim*>(p->GetCurrentAnim());  // the test sets the clip's frame, as the humanoid does while it plays
+  anim->frameNum = anim->anim->GetFrameCount() - 1;
+  p->CastHumanoid()->PlayIssuedClip(played.motion, 1.0f, false);
+  EXPECT_EQ(p->GetCurrentAnim()->frameNum, 0) << "a finished clip did not start again on its own motion";
 }
