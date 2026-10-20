@@ -206,6 +206,8 @@ GF stand-ins carry `// ponytail:` naming the PES site that removes them (brief-r
 - Depends: A. DOC defshape §14.4, taker-map.
 
 ### Explicitly NOT sliced (OPEN bodies, no contract to port)
+
+> **19-10-26:** now decoded with port contracts in `pes-re-team-tickets.md` (TeamDecode, audited); only 40f/40h and the step-52 helpers remain open.
 Steps 1–2, 5–6, 8–9, 11, 14–17, 19–25, 27a-pre (`FUN_1404FBB70`), 29–32, 35–36, 40 (8 fn), 45, 46-body, 47-meaning, 48bodies, 49, 50-stubs, 52–53, 55. Each needs its own decode ticket; porting any now would invent gates.
 
 ## §4 Corrections to existing docs (doc:line, old, new, evidence)

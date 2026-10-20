@@ -82,8 +82,8 @@ flagged every attacker behind the ball at his team's touch. Mutation-checked —
 | `Referee::GetOffsideCategory(Player*)` (new) | exposes the per-player category 0..2 (−1 unflagged) |
 | `OffsideRule::OffsideBlocksChase(category)` (new, pure) | FUN_14045e0d0's `c < 2` ball list |
 | `Team::GetBestPossessionPlayer` skips a category 0/1 player (with a "nobody left → closest goes anyway" fallback) | FUN_14045e0d0's ball list |
-| `OffsideRule::ReceiverIsOffside` (new, pure) | FUN_142117c30's status 6, `LAB_14211818f` |
-| `AI_ReceiverIsOffside` (new) + the carrier's pass-candidate loop skips a status-6 mate | carrier-ai §4.3 |
+| `pes::CarrierOffsideLine` and `pes::ReceiverStatusOf` (new, pure; they replace `OffsideRule::ReceiverIsOffside` and `AI_ReceiverIsOffside`, deleted) | FUN_142117c30's whole enumeration: statuses 1, 2, 4, 5, 6, 7–10, 0x0B |
+| the carrier's pass-candidate loop takes only the mates whose status is 0x0B; the GK skip and the ball-to-target cut are gone | carrier-ai §4.3 |
 | `matchreport.cpp`: `[balance-offside] offsides N-N \| free kicks N-N` | telemetry so a smoke run can read the rate |
 
 `elizacontroller.cpp`'s own offside heuristics (`GetSupportPosition`'s `offsideRating`,
@@ -92,7 +92,7 @@ consistent with PES's line and were left alone — with the frame fixed they now
 
 ### ponytail: comments in code
 
-- `offsiderule.cpp` `ReceiverIsOffside`: no per-limb points — a centre stands in for every defender's rear
+- `pescarrier.cpp` `CarrierOffsideLine`: no per-limb points — a centre stands in for every defender's rear
   surface (the same approximation `OffsideLineX` already makes).
 - `team.cpp` `GetBestPossessionPlayer`: PES lists category 2 as a chaser too; PES's list would read 0xff with
   everybody blocked, so with nobody left to send the closest man goes anyway.

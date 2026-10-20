@@ -158,6 +158,30 @@ TeamAIController::~TeamAIController() {
     printf("done\n");
 }
 
+void TeamAIController::TickScoreRows() {
+  // The lane space of the team's carrier controller: its own active players at 0..10 and the
+  // opponents at 11..21, each side in squad order (ElizaController's fillSide).
+  pes::RowPlayers players{};
+  const auto fillSide = [&](Team* side, int base) {
+    std::vector<Player*> squad;
+    side->GetActivePlayers(squad);
+    for (int j = 0; j < pes::lane::kSideSize && j < static_cast<int>(squad.size()); ++j) {
+      const Vector3 pos = squad[j]->GetPosition();
+      players[base + j] = pes::RowPlayer{pos.coords[0], pos.coords[1], true};
+    }
+  };
+  fillSide(team, 0);
+  fillSide(match->GetTeam(1 - team->GetID()), pes::lane::kSideSize);
+  const pes::CarrierConstants& carrier = match->GetPesCarrierConstants();
+  const pes::ScoreRowConstants k{pesFieldHalfLength, pesFieldHalfWidth, carrier.s1RadToDeg,
+                                 carrier.s1TwoPi};
+  // PES's writer writes nothing until a stoppage latches it: the flag is the stage's (pesscorerows.hpp,
+  // FUN_140457070's argument; Team::Process). A match opens stopped (inPlay starts false), so its first
+  // tick latches the writer. A seam that starts play with no stoppage (Match::StartPlay) would leave the
+  // rows unwritten until one came, so until the writer is latched every tick is its full refresh.
+  scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay() || !scoreRows_.Latched());
+}
+
 void TeamAIController::Process() {
   if (match->IsFrameSecond())
     UpdateTactics();
@@ -2380,7 +2404,8 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
     w.ev.pos = Flat(ev.from);
     w.ev.target = ev.target ? idOf(ev.target) : -1;
   }
-  ob::BuildNearest(w);
+  // PES's NearestList is each team AI's S1 row (MA+0x22E4C + 200 i), read live through the run world.
+  w.nearestRows = {&match->GetTeam(0)->GetController()->Rows(), &match->GetTeam(1)->GetController()->Rows()};
   return w;
 }
 

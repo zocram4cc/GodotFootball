@@ -1,5 +1,7 @@
 # PES 2021 attacking decisions: offside detection, open carrier units, off-ball run scorers (AttackDecisionsRE)
 
+> **Main correction 20-10-26 (CrossLane):** §2.1 labels F[4] as "half-width 34.06"; 34.06 is F[1] (the touchline). F[4] = 47.06 is the goal-area line, and the Cross aim is k*F[4].
+
 Read-only RE against the full live image. Image base 0x140000000; all VAs below are image VAs.
 Tools: `~/ghidra-projects/scratch/Unpacker/` (`resolve.py`, `dec.sh` on the PESLive project via
 `proj.lock`, `annot.py`, capstone-over-`pes_full.bin` re-checks). Raw bytes re-checked for every

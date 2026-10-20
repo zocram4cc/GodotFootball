@@ -1,5 +1,6 @@
 # How MOVESTEP gets its movement decision from the AI (S1Watch, round 26)
 
+> **Main audit 19-10-26 (rev 2):** the target fallback threshold `0x142598578` = **0.2 m** (script read; the 0.4 stated below is wrong).
 > **Main audit 19-10-26:** the think gate is `cmpb $0x16,[r13+0x11b0]` at `0x140929A51` (not 0x140929A4B). MOVESTEP steers by the command record move target cmd+0x20 (FUN_1406B7560); the ball/pass request is a separate channel (AI+0x874..0x8C4). Open: the code-to-cmd bridge and the caller's phase check.
 
 Status: **static decode of the reader and filler CONFIRMED; the think's full case table is partly decoded.** Tags: CONFIRMED = decompile or instruction read this round; INF = inference; OPEN = not resolved.

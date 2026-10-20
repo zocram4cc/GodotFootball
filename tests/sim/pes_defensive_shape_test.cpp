@@ -38,9 +38,11 @@ namespace {
 
 constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;
 
-// A synthetic constant set with every relation the shape needs, in the same
-// units PES's live read carried (report 8). The tests vary one field at a time,
-// so the numbers themselves are not what is pinned.
+// A synthetic constant set with every relation the shape needs. It copies the report's live
+// (4cc mod) basePosition values (foreCheck -9, centre -8/-20, lengths 46/42/32, widths 15/19/23,
+// 0.33, 2.85, 6/5, 0.61/0.34, margin -10, mid gap 7.25, shift 36); the stock dt18 column differs
+// (report quotes stock per field). The tests vary one field at a time, so the numbers themselves
+// are not what is pinned.
 pes::DefensiveShapeConstants Synthetic() {
   pes::DefensiveShapeConstants k{};
   k.foreCheck_m = -9.0f;
@@ -415,6 +417,10 @@ TEST(HandOffDelay, MaxSixtyFramesForTheWorstOrganiser) {
 
 // The loader reads the image's own floats, so the synthetic set must not have
 // invented a PES value that the exe disagrees with by more than its own noise.
+// The basePosition pins below are the MOD values (4cc live read, report 8): the
+// loader transcribes the mod copy, so they must equal the transcription, not the
+// stock dt18 column. Replace with the VFS read when it lands (see the loader's
+// ponytail); until then the stock crib is the report's stock column.
 TEST(DefensiveShapeLoader, ReadsTheImagesOwnValues) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";

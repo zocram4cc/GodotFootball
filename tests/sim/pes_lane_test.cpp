@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <string>
 
+#include "gametypes.hpp"
 #include "onthepitch/peslane.hpp"
 #include "pes/exe.hpp"
 
@@ -17,7 +18,7 @@ namespace {
 
 using Players = std::array<lane::LanePlayer, lane::kSlots>;
 
-lane::LaneRequest TestLane() { return {{0.0f, 0.0f}, 0.0f, 15.0f, 60.0f, 2.0f}; }
+lane::LaneRequest TestLane() { return {{0.0f, 0.0f}, 180.0f, 15.0f, 60.0f, 2.0f}; }
 
 void Put(Players& p, int slot, float x, float z, float vx = 0.0f, float vz = 0.0f,
          int category = -1) {
@@ -196,12 +197,12 @@ TEST_F(LaneCoreTest, WideConeUsesTheOffsetFormula) {
 }
 
 TEST_F(LaneCoreTest, LaneAngleWrapsAcrossNorth) {
-  // Heading 350 deg and a man 10 m out at bearing 10 deg: 20 deg apart, so he is in the cone.
+  // Heading 350 deg and a man 10 m out at PES bearing 10 deg (GF y is -PES z): 20 deg apart, so he is in the cone.
   // Without the fold into [-180, 180] the difference is 340 deg and he is refused.
   lane::LaneRequest north = TestLane();
   north.heading_deg = 350.0f;
   Players p{};
-  Put(p, 11, 1.7364818f, 9.8480775f);  // 10 m at bearing 10 deg: (sin, cos)
+  Put(p, 11, 1.7364818f, -9.8480775f);  // 10 m at PES bearing 10 deg: (sin, -cos) in GF
   EXPECT_EQ(lane::ScanLane(k_, p, 3, 1, north, false, 0).count, 1);
 }
 
@@ -234,6 +235,47 @@ TEST_F(LaneCoreTest, AnnulusBoundsAreExclusive) {
 TEST_F(LaneCoreTest, HeadingAddWrapsIntoOneTurn) {
   EXPECT_FLOAT_EQ(lane::HeadingAdd(k_, 350.0f, 180.0f), 170.0f);
   EXPECT_FLOAT_EQ(lane::HeadingAdd(k_, -10.0f, 0.0f), 350.0f);
+}
+
+// The Cross unit's lane (0x142129590, the core call at 0x142129804): the aim is the spot on the
+// pitch's centre line at the attacked goal's goal-area line, the heading is the bearing from the
+// ball to that spot, and the origin is the ball advanced one metre along it.
+TEST_F(LaneCoreTest, CrossLaneGeometryComesFromTheBallAndTheGoalAreaLine) {
+  // The ball on the centre line 20 m from the centre, attacking +x: the aim is at
+  // (pesGoalAreaLineX, 0), so the bearing is due +x (90 deg) and the origin is one metre along it.
+  const lane::LaneRequest l = lane::CrossLane(k_, {0.0f, 0.0f}, pesGoalAreaLineX);
+  EXPECT_FLOAT_EQ(l.heading_deg, 90.0f);
+  EXPECT_FLOAT_EQ(l.origin.x, 1.0f);
+  EXPECT_FLOAT_EQ(l.origin.z, 0.0f);
+  EXPECT_FLOAT_EQ(l.len_m, 5.0f);
+  EXPECT_FLOAT_EQ(l.cone_deg, 30.0f);
+  EXPECT_FLOAT_EQ(l.rad_m, 2.0f);
+}
+
+TEST_F(LaneCoreTest, CrossLaneHeadingPointsAtTheAimAndAdvancesOneMetre) {
+  // The ball at (-40, 0) attacking -x: the aim is at (-pesGoalAreaLineX, 0), the bearing is due
+  // -x (270 deg) and the origin sits one metre towards it.
+  const lane::LaneRequest l = lane::CrossLane(k_, {-40.0f, 0.0f}, -pesGoalAreaLineX);
+  EXPECT_FLOAT_EQ(l.heading_deg, 270.0f);
+  EXPECT_FLOAT_EQ(l.origin.x, -41.0f);
+  EXPECT_FLOAT_EQ(l.origin.z, 0.0f);
+}
+
+TEST_F(LaneCoreTest, CrossLaneScansTheOpponentsAndCountsThem) {
+  // The carrier is the home side (slot 3), so the Cross lane scans the away side (11..21).
+  // A ball on the centre line 20 m out attacking +x, and one opponent standing on the lane.
+  const lane::LaneRequest l = lane::CrossLane(k_, {20.0f, 0.0f}, pesGoalAreaLineX);
+  Players clear{};
+  EXPECT_TRUE(lane::LaneFree(k_, clear, 3, l, /*keepKeeper*/ false, /*horizonFrames*/ 0));
+
+  Players blocked{};
+  // The lane runs from (21, 0) towards +x with a 30 deg cone and a 2 m apex offset, so its
+  // annulus reaches 2..7 m from (23, 0). An opponent at (25, 0) is inside it.
+  Put(blocked, 11, 25.0f, 0.0f);
+  const lane::LaneScan s = lane::ScanLane(k_, blocked, 3, 1, l, /*keepKeeper*/ false, 0);
+  EXPECT_EQ(s.count, 1);
+  EXPECT_EQ(s.nearest, 11);
+  EXPECT_FALSE(lane::LaneFree(k_, blocked, 3, l, false, 0));
 }
 
 }  // namespace

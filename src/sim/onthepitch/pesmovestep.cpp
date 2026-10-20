@@ -64,8 +64,8 @@ class AdapterTeam final : public pes::TeamAi {
 
   // The rank-0 opponent of the own record in the team's last run world (NearestList's NearestOpponents over
   // the RunWorld, pesoffball.hpp). Its slot is the run world's: team·11 + roster index.
-  // ponytail: the run world is built on the team's parity tick, so the ranking is at most one frame old, and
-  // a substitute has no slot until the next in-play build. Upgrade: PES's writer of MA+0x22e4c (pes-re-teamctx.md §2.4).
+  // The rank-0 opponent reads the team AI's S1 row through the run world (NearestOpponents, read live).
+  // ponytail: a substitute has no run slot until the next in-play build (RunSlotOf's roster). Upgrade: the writer's lane map.
   int NearestOpponent(int own) const override {
     if (own != OwnSlot()) return kNoPlayer;
     const Player* opp = Controller().NearestOpponentOf(&player_);

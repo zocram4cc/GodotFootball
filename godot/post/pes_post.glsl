@@ -1,60 +1,67 @@
 #version 450
-// PES post chain (docs/re/pes-re-lighting.md Part C). One kernel per PASS_* define,
-// compiled by pes_post_effect.gd. Per frame, in order: REDUCE (tile sums of the
-// pre-exposed luminance), LAW (one group: the exposure step, EV state), BRIGHT
-// (quarter-resolution threshold), KAWASE (one dispatch per bloom kernel,
-// accumulated), COMPOSE (bloom add, white balance, FilmToneMap, display encode,
-// written back to the colour buffer).
+// PES post chain (docs/re/pes-re-lighting.md Part C; the grading pair is
+// docs/render/pes-render-grading-lut.md §1.3 and §3). One kernel per PASS_* define, compiled by
+// pes_post_effect.gd. Per frame, in order: REDUCE (tile sums of the pre-exposed luminance), LAW
+// (one group: the exposure step, EV state), COMPOSE (the exposure, then PES's grading pair: the
+// ColorCorrection_CubeLut stub and SdrDisplayMapping), written back to the colour buffer.
 //
-// Params buffer (32 floats, std430; written by src/gdext/pes_lighting.cpp):
-//   [0..11]  white balance, column j at [4j .. 4j+2] (linear sRGB, column vectors)
-//   [12..19] film: toeMatch, straightMatch, shoulderMatch, slope, black, white, toeScale, shoulderScale
-//   [20..23] exposure: key, compensation, minEV, maxEV
-//   [24..25] tonemapSpeed, stepGain (1 − 0.98^(60·dt), dt = 1/60)
-//   [26..29] bloom: threshold, weight, kernel count, offset scale (0 for the copy branch)
-// Push constants (all floats): idx = (EV read slot, EV write slot, kernel index, first pass),
-// kern = (offset in quarter-res texels, pass weight, copy scale), ext = (pixel count, partial count).
+// Params buffer (6 floats, std430; written by src/gdext/pes_lighting.cpp):
+//   [0..3]  exposure: key, compensation, minEV, maxEV
+//   [4..5]  tonemapSpeed, stepGain (1 − 0.98^(60·dt), dt = 1/60)
+// Push constants: slots = (EV read slot, EV write slot), ext = (pixel count, partial count).
 
-// ponytail: not applied, open in docs/re/pes-re-lighting.md. The 33³ grading LUT
-// (ColorGrading; input domain and encoding unresolved, the shipped CubeLut body is a
-// stub: dump ColorCorrection_CubeLut from the live process). AA (FXAA/TAA), sharpen
-// and grain (Part C §5). The reduction is an arithmetic mean over the full frame
-// (type open, §1) and omits the 32·a² alpha term (Godot's alpha is not PES's bright-pixel
-// code). The bright pass samples the scene bilinearly at quarter-res texel centres (the
-// PES downsample filter is not decoded, §2).
+// ponytail: not applied: AA (FXAA/TAA), sharpen and grain (Part C §5). The 33³ grading LUT is
+// bound by PES's stub but never sampled (grading-lut §1.3), so there is nothing to port. The
+// reduction is an arithmetic mean over the full frame (type open, §1) and omits the 32·a² alpha
+// term (Godot's alpha is not PES's bright-pixel code).
 
 layout(push_constant, std430) uniform Push {
-	vec4 idx;
-	vec4 kern;
-	vec4 ext;
+	vec2 slots;
+	vec2 ext;
 } pc;
 
 // Tonemap_Lum weights (OBS, pes-re-lighting.md §1).
 const vec3 LUMA = vec3(0.2125, 0.7154, 0.0721);
 const float LUMA_FLOOR = 0.001;        // Tonemap_Lum's floor
-const float BRIGHT_CAP = 128.0;        // TonemapBrightpass's cap (§2)
-const float RRT_SATURATION = 0.96;     // FilmToneMap pre-desaturation (§3)
-const float POST_DESATURATION = 0.93;  // FilmToneMap post-desaturation (§3)
-const float DISPLAY_GAMMA = 2.2;       // pow(1/2.2) display encode (§3)
 const float ADAPT_KEY_FLOOR = 0.001;   // log2(key + 0.001) (§1)
 const float ADAPT_MAX_STEP = 0.5;      // min(|Δ|, 0.5) (§1)
 const float ADAPT_TARGET_HALF = 0.5;   // the target takes half the log error (§1)
-const float BLOOM_CHROMA_TEXELS = 8.0; // composition's R/B fringe (§2)
 
-// UE4 AP1 matrices (the first rows are OBS, §3; the rest are the same standard constants).
-// Written as columns: each column is the matching column of UE4's row-major matrix.
-const mat3 SRGB_TO_AP1 = mat3(
-	vec3(0.613191485, 0.0699417293, 0.0206157697),
-	vec3(0.33951208, 0.916338623, 0.109594166),
-	vec3(0.0473663323, 0.0137248794, 0.869790077));
-const mat3 AP1_TO_SRGB = mat3(
-	vec3(1.70505154, -0.130256429, -0.0240032743),
-	vec3(-0.621790707, 1.14080286, -0.128969777),
-	vec3(-0.0832583979, -0.0105485261, 1.15297317));
-const vec3 AP1_Y = vec3(0.272228718, 0.674081743, 0.0536895171);
+// The grading pair's literals, read from the install's shader bytecode (GrSystemShaders_dx11.fsop:
+// ColorCorrection_CubeLut.ps and disp/SdrDisplayMapping.ps). Each names its asm line in those
+// dumps (vkd3d d3d-asm), with the immediate as it prints.
+const float SRGB_BREAK = 0.0031308;            // stub L22: 3.13080009e-03, the linear/power select
+const float SRGB_LINEAR_SLOPE = 12.92;         // stub L21: 1.29200001e+01
+const float SRGB_SCALE = 1.055;                // stub L19: 1.05499995
+const float SRGB_OFFSET = 0.055;               // stub L20: -5.49999997e-02; display L11: +5.49999997e-02
+const float SRGB_POW_EXPONENT = 2.4;           // stub L17 (divide), display L15 (multiply): 2.40000010
+const float SRGB_POW_FLOOR = 1e-5;             // stub L15, display L13: 9.99999975e-06
+const float CUBE_LUT_GAIN = 0.25;              // stub L24: 2.50000000e-01
+const float DISPLAY_DECODE_GAIN = 4.0;         // display L11 mad: 4.0
+const float DISPLAY_INV_SCALE = 0.947867334;   // display L12: 9.47867334e-01 (1/1.055)
+const float DISPLAY_DARK_BREAK = 0.00982;      // display L17: 9.82000027e-03
+const float DISPLAY_DARK_SLOPE = 4.0 / 12.92;  // display L23: 3.09597522e-01
 
-vec3 srgb_to_linear(vec3 c) {
-	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), greaterThan(c, vec3(0.04045)));
+vec3 srgb_encode_piecewise(vec3 scene) {
+	return mix(SRGB_LINEAR_SLOPE * scene,
+		SRGB_SCALE * exp(log(max(scene, SRGB_POW_FLOOR)) / SRGB_POW_EXPONENT) - SRGB_OFFSET,
+		greaterThanEqual(scene, vec3(SRGB_BREAK)));
+}
+
+// ColorCorrection_CubeLut as the match binds it: the piecewise sRGB encode of the point-sampled
+// scene, then x0.25. Its 33³ LUT is bound and never sampled.
+vec3 cube_lut_stub(vec3 scene) {
+	// ponytail: the bypass (cb5[10].x = 1 when (vp+0x650) & 0xf == 2; upload at 0x1418044bf-0x141804515)
+	// is not modelled. The live match reads 0, so the x0.25 always applies.
+	return CUBE_LUT_GAIN * srgb_encode_piecewise(scene);
+}
+
+// SdrDisplayMapping: the sRGB decode of 4x its input, the x4 folded into both branches. Inputs at
+// or below DISPLAY_DARK_BREAK take the linear branch. The result is linear light.
+vec3 sdr_display_mapping(vec3 v) {
+	vec3 decoded = exp(log(max((DISPLAY_DECODE_GAIN * v + SRGB_OFFSET) * DISPLAY_INV_SCALE, SRGB_POW_FLOOR))
+		* SRGB_POW_EXPONENT);
+	return mix(decoded, DISPLAY_DARK_SLOPE * v, lessThanEqual(v, vec3(DISPLAY_DARK_BREAK)));
 }
 
 #ifdef PASS_REDUCE
@@ -70,7 +77,7 @@ void main() {
 	ivec2 px = ivec2(gl_GlobalInvocationID.xy);
 	float value = 0.0;
 	if (all(lessThan(px, size))) {
-		float scale = exp2(ev[int(pc.idx.x)]);
+		float scale = exp2(ev[int(pc.slots.x)]);
 		value = max(dot(imageLoad(color, px).rgb, LUMA) * scale, LUMA_FLOOR);
 	}
 	tile[gl_LocalInvocationIndex] = value;
@@ -89,7 +96,7 @@ void main() {
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 layout(std430, set = 0, binding = 0) readonly buffer Partials { float sums[]; };
 layout(std430, set = 0, binding = 1) buffer Ev { float ev[2]; };
-layout(std430, set = 0, binding = 2) readonly buffer Params { float v[32]; } prm;
+layout(std430, set = 0, binding = 2) readonly buffer Params { float v[6]; } prm;
 
 shared float acc[256];
 
@@ -107,108 +114,35 @@ void main() {
 	// The adaptation law (OBS, FUN_1416c7930; §1). Lmeas is the mean of the
 	// pre-exposed luminance; the EV state moves toward its target by a fraction of the error.
 	float lmeas = acc[0] / pc.ext.x;
-	float key = prm.v[20];
-	float compensation = prm.v[21];
-	float minEv = prm.v[22];
-	float maxEv = prm.v[23];
-	float ev0 = clamp(ev[int(pc.idx.x)], minEv, maxEv);
+	float key = prm.v[0];
+	float compensation = prm.v[1];
+	float minEv = prm.v[2];
+	float maxEv = prm.v[3];
+	float ev0 = clamp(ev[int(pc.slots.x)], minEv, maxEv);
 	// ponytail: the EV→offset table g() is zero in the live state (its source is open,
 	// §1), so Lc = Lmeas·2^−comp.
 	float lc = lmeas * exp2(-compensation);
 	float target = clamp(ev0 + ADAPT_TARGET_HALF * (log2(key + ADAPT_KEY_FLOOR) - log2(lc + ADAPT_KEY_FLOOR)), minEv, maxEv);
 	float delta = target - ev0;
-	float step = prm.v[25] * prm.v[24] * min(abs(delta), ADAPT_MAX_STEP) * delta;
-	ev[int(pc.idx.y)] = (abs(step) < abs(delta)) ? ev0 + step : target;
-}
-#endif
-
-#ifdef PASS_BRIGHT
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-layout(set = 0, binding = 0) uniform sampler2D color_tex;
-layout(rgba16f, set = 0, binding = 1) uniform writeonly image2D bright;
-layout(std430, set = 0, binding = 2) readonly buffer Ev { float ev[2]; };
-layout(std430, set = 0, binding = 3) readonly buffer Params { float v[32]; } prm;
-
-void main() {
-	ivec2 q = ivec2(gl_GlobalInvocationID.xy);
-	ivec2 qsize = imageSize(bright);
-	if (any(greaterThanEqual(q, qsize))) return;
-	vec2 uv = (vec2(q) + 0.5) / vec2(qsize);
-	vec3 pre = texture(color_tex, uv).rgb * exp2(ev[int(pc.idx.x)]);
-	vec3 b = clamp(pre - prm.v[26], 0.0, BRIGHT_CAP);
-	imageStore(bright, q, vec4(b, 1.0));
-}
-#endif
-
-#ifdef PASS_KAWASE
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-layout(set = 0, binding = 0) uniform sampler2D bright_tex;
-layout(rgba16f, set = 0, binding = 1) uniform image2D bloom;
-
-void main() {
-	ivec2 q = ivec2(gl_GlobalInvocationID.xy);
-	ivec2 qsize = imageSize(bloom);
-	if (any(greaterThanEqual(q, qsize))) return;
-	vec2 texel = 1.0 / vec2(qsize);
-	vec2 uv = (vec2(q) + 0.5) * texel;
-	vec2 o = pc.kern.x * texel;
-	vec3 k = texture(bright_tex, uv + vec2(-o.x, -o.y)).rgb + texture(bright_tex, uv + vec2(o.x, -o.y)).rgb
-		+ texture(bright_tex, uv + vec2(-o.x, o.y)).rgb + texture(bright_tex, uv + vec2(o.x, o.y)).rgb;
-	k *= 0.25 * pc.kern.y * pc.kern.z;
-	vec3 base = (pc.idx.w != 0.0) ? vec3(0.0) : imageLoad(bloom, q).rgb;
-	imageStore(bloom, q, vec4(base + k, 1.0));
+	float step = prm.v[5] * prm.v[4] * min(abs(delta), ADAPT_MAX_STEP) * delta;
+	ev[int(pc.slots.y)] = (abs(step) < abs(delta)) ? ev0 + step : target;
 }
 #endif
 
 #ifdef PASS_COMPOSE
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(rgba16f, set = 0, binding = 0) uniform image2D color;
-layout(set = 0, binding = 1) uniform sampler2D bloom_tex;
-layout(std430, set = 0, binding = 2) readonly buffer Ev { float ev[2]; };
-layout(std430, set = 0, binding = 3) readonly buffer Params { float v[32]; } prm;
+layout(std430, set = 0, binding = 1) readonly buffer Ev { float ev[2]; };
 
 void main() {
 	ivec2 px = ivec2(gl_GlobalInvocationID.xy);
 	ivec2 size = imageSize(color);
 	if (any(greaterThanEqual(px, size))) return;
-	vec2 uv = (vec2(px) + 0.5) / vec2(size);
 	vec4 src = imageLoad(color, px);
-	vec3 scene = src.rgb * exp2(ev[int(pc.idx.x)]);
-	// Bloom is added unweighted, with its R and B fringed by 8 texels (§2).
-	vec2 d = BLOOM_CHROMA_TEXELS / vec2(size);
-	vec3 bloom = vec3(texture(bloom_tex, uv + d).r, texture(bloom_tex, uv).g, texture(bloom_tex, uv - d).b);
-	mat3 wb = mat3(vec3(prm.v[0], prm.v[1], prm.v[2]), vec3(prm.v[4], prm.v[5], prm.v[6]), vec3(prm.v[8], prm.v[9], prm.v[10]));
-	vec3 c = wb * (scene + bloom);
-	vec3 a = max(SRGB_TO_AP1 * c, 0.0);
-	a = mix(vec3(dot(a, AP1_Y)), a, RRT_SATURATION);
-	vec3 L = log2(a) * 0.30103001;  // log10 via log2 (§3)
-	float toeMatch = prm.v[12];
-	float straightMatch = prm.v[13];
-	float shoulderMatch = prm.v[14];
-	float slope = prm.v[15];
-	float black = prm.v[16];
-	float white = prm.v[17];
-	float toeScale = prm.v[18];
-	float shoulderScale = prm.v[19];
-	vec3 straight = slope * (L + straightMatch);
-	vec3 toe = -black + 2.0 * toeScale / (1.0 + exp(-2.0 * slope / toeScale * (L - toeMatch)));
-	vec3 shoulder = (1.0 + white) - 2.0 * shoulderScale / (1.0 + exp(2.0 * slope / shoulderScale * (L - shoulderMatch)));
-	toe = mix(straight, toe, lessThan(L, vec3(toeMatch)));
-	shoulder = mix(straight, shoulder, greaterThan(L, vec3(shoulderMatch)));
-	vec3 t;
-	if (shoulderMatch != toeMatch) {
-		t = clamp((L - toeMatch) / (shoulderMatch - toeMatch), 0.0, 1.0);
-	} else {
-		// Toe + shoulder = 1: the blend divides by zero, so it is a hard switch at the toe match.
-		t = vec3(greaterThan(L, vec3(toeMatch)));
-	}
-	if (shoulderMatch < toeMatch) t = 1.0 - t;
-	t = (3.0 - 2.0 * t) * t * t;
-	vec3 tone = mix(toe, shoulder, t);
-	tone = mix(vec3(dot(tone, AP1_Y)), tone, POST_DESATURATION);
-	vec3 display = clamp(pow(max(AP1_TO_SRGB * tone, 0.0), vec3(1.0 / DISPLAY_GAMMA)), 0.0, 1.0);
-	// Godot's final pass sRGB-encodes the colour buffer: store the linear value whose
-	// encode is PES's display value.
-	imageStore(color, px, vec4(srgb_to_linear(display), src.a));
+	vec3 scene = src.rgb * exp2(ev[int(pc.slots.x)]);
+	// The display's linear value is clipped to [0, 1]: highlights are the exposure plus this
+	// clip. Godot's final pass sRGB-encodes the colour buffer, so the stored value is linear.
+	vec3 display = clamp(sdr_display_mapping(cube_lut_stub(scene)), 0.0, 1.0);
+	imageStore(color, px, vec4(display, src.a));
 }
 #endif

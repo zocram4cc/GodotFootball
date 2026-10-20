@@ -27,7 +27,9 @@ Keeper is the home goal-kick taker (log id H10). Trace data: requeue results per
 6. MOVESTEP holds at 2.3 m. Its command speed and look point come from `originatingCommand` (pesmovestep.cpp:45–49), so the carried command is load-bearing and cannot be cleared. The stop is PES's front-gate run-turn decision (`StepLetsRunTurn`, movestep_step.cpp:208–222) with the ball as look point. Adapter gap, not PES: `FillCommandWords` sets the move target one second along the command direction (pesmovestep.cpp:53–57) and leaves class and precise words at PES init (kind RUN, precise clear).
 7. Restart limit (1757 ticks) runs out at t≈63400 with the keeper still at 2.3 m.
 
-Fix: skip the too-similar gate when the current anim is a PES locomotion clip (`!OnPesLocomotion()`). The momentum check below it still weighs the clip's planned change, so a clip already doing the walk is still refused on momentum. Comment in humanoid.cpp names the stand-in (ponytail, FUN_1406eebb0, not re-verified).
+Fix: skip the too-similar gate when the current anim is a PES locomotion clip (`!OnPesLocomotion()`). Comment in humanoid.cpp names the stand-in (ponytail, FUN_1406eebb0 is the action setter, not this gate; not re-verified).
+
+Follow-up: the momentum check below the too-similar gate also refused the walk on every tick. The stationary clip's planned change (outgoing minus incoming movement) pointed at the ball, about (-0.8,-0.8) to (-1.4,-2.3), so the desired change had dot > 0.8 with it while the keeper's speed was 0. The check is now skipped for PES locomotion clips too. Loop 2 min, seed 7: exit 1 at 29 s before; exit 0 at full time after (`[determinism] 3d92d259fe45c5dd`). Off 2 min, seed 7: `75a11cdb2b3c8ec5`, unchanged.
 
 ## Tests
 
