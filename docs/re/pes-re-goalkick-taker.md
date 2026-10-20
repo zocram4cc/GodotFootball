@@ -8,13 +8,15 @@ Source: an outside RE agent (Q&A, 20-10-26), audited by Main against the image.
 ThinkUnitSetPlay's MODE 3 branch (sub_142135C50, gated on the designated taker [MI+5948]) runs sub_142136F00 (fps = FUN_141e532d0, i.e. DAT_14351ae54; each wait is `(uint)(fps·k + 0.5)` frames):
 |phase|what|
 |---|---|
-|0|count on-pitch opponents; none → phase 5 (forced kick)|
+|0|counts on-pitch opponents, but the count is dead: `0x142136FBB` stores 5 when none, then `0x142136FC2` stores 1 unconditionally (Main-verified), so phase 1 always follows|
 |1|wait 1 s|
 |2|0.5 s window: sub_142132660 (short target) every eval; a hit → command 2 (pass) to that receiver, type 0 (ground). Early-out to phase 3 when [+0x14c4] == 1 and a value < 0.3|
 |3|wait 3 s (early-out on a valid special object; [MI+5316] == 1 → command 11)|
 |4|0.5 s window: sub_142135230 (lofted target); a hit → command 2, type 1 (lofted)|
 |5|forced: receiver 255, lofted|
-The earliest exit is 1.5 s (~81 frames); the lofted window opens at 4.5 s (~243). These match the live 83/245 releases.
+fps = 54.0 (`0x14351AE54`). Phase-entry ticks from phase-0 tick F (ThrowInTaker's disassembly): default (MI+0x14C4 == 0): phase 2 at F+54, phase 4 at F+81, the first lofted emission at F+82, phase 5 at F+108, forced at F+109; special (MI+0x14C4 == 1 and tactics+0x18 < 0.3): phase 3 at F+81, phase 4 at F+243, the first emission at F+244. The live 83/245 = emission + 1 frame (inference: observation latency).
+
+Placement (ThrowInTaker): SetKick stores into no keeper field; it writes through two out-pointers via the placer: position = spot.pos + R(spot.heading)·(−clip 0x6b1 root offset, mirror FUN_1406E6660(player, 0x34), x/z negated by the sign mask at `0x1425656D0`); heading = spot+0xC (not a literal 0). The teleport fits EV-SPC-0001 (live: placement in the 20-tick 0x14 window under the wipe). Open: the link from SetKick's out-pointers to the keeper's fields (the vt[8] caller is indirect).
 
 **Reach is dead:** `0x14259d5d0` (0.65) is a compiler-folded constant with 40 consumers; its only compare uses are the penalty strike gate (`0x140782f61`) and sub_140A343E0. Nothing in the goal-kick chain reads it.
 
