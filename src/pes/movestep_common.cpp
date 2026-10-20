@@ -186,9 +186,10 @@ std::optional<DampingRecord> LoadDampingRecord(const PesVfs& vfs, std::string* e
     *error = std::string(DAMPING_RECORD_OBJECT) + " is missing or short";
     return std::nullopt;
   }
-  // The freemove bounds block: the record's +0x20 floats {42.0, 18.0, 69.5}, the only
-  // plausible bounds in the object (pes-re-a3helpers.md addendum item 2: the live path
-  // FUN_141e5ca20(0x2e)+0x10..0x18 reads denormals, not these).
+  // The freemove bounds block: the record's +0x20 floats are stock {20.0, 18.0, 67.5} (dt18_all.cpk;
+  // the 4cc mod reads {42.0, 18.0, 69.5}), the only plausible bounds in the object
+  // (pes-re-a3helpers.md addendum item 2: the live path FUN_141e5ca20(0x2e)+0x10..0x18 reads
+  // denormals, not these).
   // ponytail: no PES path to this record's bounds is known; the live registry path reads
   // the wrong object, so this block stands until that PES path is decoded.
   auto f = [&span](size_t at) {

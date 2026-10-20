@@ -33,7 +33,7 @@ inline pes::PesBallConstants SyntheticConstants() {
   r.dragSpeedMax = 96.995003f;
   r.dragSpeedMin = 56.995602f;
   r.magnusRate = 0.035f;
-  r.nonSpinMax = 106.0f;
+  r.nonSpinMax = 105.0f;  // stock ball.o +0xAC (the 4cc mod ships 106.0)
   r.nonSpinMin = 45.0f;
   r.nonSpinRate = 1.0f;
   r.boundBoundSpeedMax = 12.0f;
