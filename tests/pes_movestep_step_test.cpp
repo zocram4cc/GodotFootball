@@ -137,7 +137,14 @@ pes::StepTables SyntheticTables() {
   for (int i = 0; i < 10; ++i) t.bucketColumn[i] = (i * 2 + 9) % 10;
   for (int i = 0; i < 64; ++i) t.kindBandRow[i] = 0x540 + i;
   for (int i = 0; i < 10; ++i) t.bucketDegrees[i] = (i < 5 ? 45.0f * i : 45.0f * (i - 10));
-  for (int i = 0; i < 12; ++i) t.styleMotion[i] = 0x600 + i;
+  return t;
+}
+
+// The representative motion per style and band (RunTables::styleGroup, the install's
+// 0x1425ddcf0 table).
+pes::RunTables SyntheticRunTables() {
+  pes::RunTables t{};
+  for (int i = 0; i < 64; ++i) t.styleGroup[i] = 0x600 + i;
   return t;
 }
 
@@ -253,7 +260,7 @@ class FakeHost : public MoveHost {
   pes::PlaybackConstants playback = SyntheticPlayback();
   pes::AngleBucketConstants buckets = SyntheticBuckets();
   pes::RunConstants runConstants{};
-  pes::RunTables runTables{};
+  pes::RunTables runTables = SyntheticRunTables();
   pes::SpeedRateTable speedRate{};
   pes::movestep::MoveTurnConstants turnConstants{};
   pes::MoveConstants moveConstants{};
@@ -283,11 +290,14 @@ class FakeHost : public MoveHost {
 
 // The band walk: with the band 0, the previous band 1, and the second dwell past its threshold
 // (0.6 s, or 0.4 s at kind 7), the band becomes 1 and the speed comes back from req[0x22].
+// The request is precise, so the STEP_TO_RUN arm (which needs the precise word clear) stays out
+// of the way and the walk is the only thing that changes.
 TEST(StepLoop, WalksTheBandDownWhenThePreviousBandWasOne) {
   FakeHost host;
   MoveReq req;
   req.SetU(pes::moveword::kKind, 2);
   req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kPrecise, 1u);
   req.SetU(pes::moveword::kClassWord, 0);
   req.SetU(pes::moveword::kPrevClassWord, 1);
   req.SetF(pes::moveword::kDwellLimit2, 1.0f);
@@ -614,6 +624,153 @@ TEST(RunToStep, KeepsTheTickWhileBlendingTheHeading) {
 }
 
 // -------------------------------------------------------------------------------------
+// STEP_LOOP, FUN_1406c4c10: the STEP_TO_RUN exit.
+// -------------------------------------------------------------------------------------
+
+// PES at 0x1406C567D-0x1406C592A: with the precise word clear, the turn (req[0x06]) and the
+// body turn (wrap180(req[0x04] - req[0x02]) at 0x1406C55C5) inside the 112.5 / 67.5 / 90
+// window, the handler re-issues the clip through FUN_1406BA2F0's style and asks for
+// STEP_TO_RUN (req[0x39] = 0xD at 0x1406C592A). The port never asked for STEP_TO_RUN at all,
+// so the state was unreachable.
+TEST(StepLoop, AsksForStepToRunWhenTheStyleChangesOnANonPreciseStep) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetU(pes::moveword::kClassWord, 1);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  // The player's own displacement points at 0 degrees, so the ground speed is the standing one
+  // and the stop helper does not fire.
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepToRun));
+}
+
+// The arm's window: the turn is 100 degrees and the body turn is 30 degrees, so the sum is
+// past 112.5 and the turn is past 67.5 - the arm does not fire, and the tick falls through to
+// the STEP_LOOP_CHANGE tail instead.
+TEST(StepLoop, TheStepToRunArmNeedsTheTurnInsideTheWindow) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetU(pes::moveword::kClassWord, 1);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 40.0f);  // the body turn is 30 degrees
+  req.SetF(pes::moveword::kTurn, 100.0f);          // and the request's turn is 100 degrees
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  // The arm did not fire: the state is not STEP_TO_RUN.
+  EXPECT_NE(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepToRun));
+}
+
+// -------------------------------------------------------------------------------------
+// STEP_LOOP, FUN_1406c4c10: the body turn and the stamp it writes.
+// -------------------------------------------------------------------------------------
+
+// PES at 0x1406C4FB9: the body turn is FUN_14043a0a0(turned, req[0x01]) =
+// wrap180(kHeading - turned), and the clamp at 0x1406C4FBE-0x1406C4FD8 holds it inside
+// [-90, 90]. The port computed the difference the other way round and zeroed the
+// out-of-range values instead of clamping them.
+TEST(StepLoop, TheBodyTurnRunsFromTheHeadingTowardsTheFacing) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  // The bucket 0 sits at 0 degrees, so the turned heading is 0 and a heading of 315 gives PES's
+  // body turn of -45. A negative body turn takes the port's `bodyTurn <= 0` arm, which keeps
+  // the bucket 0 or 5 and re-picks it from the wide turn; a positive one (the port's old
+  // operand) skips that arm and leaves the angle-bucket answer, which is 1.
+  req.SetF(pes::moveword::kHeading, 315.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  // The negative body turn took the `bodyTurn <= 0` arm, which kept the bucket at 0.
+  EXPECT_EQ(req.U(pes::moveword::kMoveBucket), 0u);
+}
+
+// PES at 0x1406C4E7A: the bucket's look test reads
+// FUN_14043a0a0(req[0x03], req[0x01]) = wrap180(kHeading - kLookHeading), and the sign picks
+// the bucket's half (0/5 against 4/9). The port computed the difference the other way round.
+TEST(StepLoop, TheBucketHalfFollowsTheHeadingAgainstTheLookHeading) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  // The look heading is 20 degrees below the heading, so PES's difference is +20 and the
+  // bucket stays in the upper half (0 or 5).
+  req.SetF(pes::moveword::kLookHeading, 340.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 5);
+  req.SetU(pes::moveword::kBucketPrev, 5);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  // The positive difference re-picked the bucket 0; the port's old sign would have kept 5.
+  EXPECT_EQ(req.U(pes::moveword::kMoveBucket), 0u);
+}
+
+// -------------------------------------------------------------------------------------
 // STEP_LOOP_CHANGE, FUN_1406c6480.
 // -------------------------------------------------------------------------------------
 
@@ -645,6 +802,66 @@ TEST(StepLoopChange, TheDriftFollowsTheSignedTurnToTarget) {
   // the clamped turn-to-target (30), so 130.
   EXPECT_TRUE(req.Flag(pes::moveword::kRootFacing));
   EXPECT_NEAR(req.F(pes::moveword::kRootFacingAngle), 130.0f, 1e-3f);
+}
+
+// PES at 0x1406C6EF0: the final gate tests the FIRST dwell (req[0x1a] against req[0x1b]) -
+// the second dwell's pair is only the window for the new limit. The port tested the second
+// dwell's pair, so the handler left for STEP_LOOP on the wrong clock.
+TEST(StepLoopChange, TheFinalGateWaitsForTheFirstDwell) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kRecordStampB, 10.0f);
+  // The second dwell has run out but the first has not, so the handler keeps the tick.
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 1);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoopChange(host, req);
+  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
+}
+
+// The same request with the first dwell also run out: the handler asks for STEP_LOOP and
+// gives the first dwell a 0.05 limit (the second dwell is past four tenths of its limit).
+TEST(StepLoopChange, TheFinalGateAsksForStepLoopOnceTheFirstDwellRunsOut) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kRecordStampB, 10.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 1.0f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 1.0f);
+  req.SetU(pes::moveword::kMoveBucket, 1);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoopChange(host, req);
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(MoveState::kStepLoop));
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 0.0f);
 }
 
 // -------------------------------------------------------------------------------------

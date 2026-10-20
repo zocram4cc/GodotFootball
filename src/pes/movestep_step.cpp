@@ -73,6 +73,10 @@ constexpr float kRateHigh = 0.6000000238418579f;  // STEP_LOOP_CHANGE 0x1406c66f
 constexpr float kRateMid = 0.44999998807907104f;  // STEP_LOOP_CHANGE 0x1406c676e
 constexpr float kRateLow = 0.15000000596046448f;  // STEP_LOOP_CHANGE 0x1406c675c
 
+// STEP_LOOP's STEP_TO_RUN arm blend, the immediate PES stores into req[0x1b] and req[0x32]
+// (0x3e888889), opcode-checked as the owner rules allow.
+constexpr float kBlend0266 = 0.2666666805744171f;  // STEP_LOOP 0x1406c5880 / 0x1406c5915
+
 // FUN_1406b9ff0(interface, class, speed, kind): the rate for a class/speed pair. req[0xb] is the
 // "use the class rate" flag; the rate comes from FUN_1406b9e80's 10-knot table, which the
 // contract exposes as SpeedToRate with the same argument order.
@@ -545,11 +549,13 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   } else {
     turned += k.full;
   }
-  float bodyTurn = Wrap180(turned - req.F(moveword::kHeading));
-  if (bodyTurn <= k.deg90 && k.neg90 <= bodyTurn) {
-    if (k.deg90 < bodyTurn) bodyTurn = k.deg90;
-  } else {
-    bodyTurn = 0.0f;
+  // PES at 0x1406C4FB9: FUN_14043a0a0(turned, req[0x01]) = wrap180(kHeading - turned), and
+  // the clamp at 0x1406C4FBE-0x1406C4FD8 holds it inside [-90, 90].
+  float bodyTurn = Wrap180(req.F(moveword::kHeading) - turned);
+  if (k.deg90 < bodyTurn) {
+    bodyTurn = k.deg90;
+  } else if (bodyTurn < k.neg90) {
+    bodyTurn = k.neg90;
   }
   if (k.sq1139 < bodyTurn * bodyTurn) {
     bucketMoved = true;
@@ -576,7 +582,8 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   int bucket = AngleBucket(host.AngleBuckets(), bucketAngle + bodyTurn,
                            int(req.U(moveword::kMoveBucket)), false);
   const int currentBucket = int(req.U(moveword::kMoveBucket));
-  const float turnToTargetDeg = Wrap180(req.F(moveword::kLookHeading) - req.F(moveword::kHeading));
+  // PES at 0x1406C4E7A: FUN_14043a0a0(req[0x03], req[0x01]) = wrap180(kHeading - kLookHeading).
+  const float turnToTargetDeg = Wrap180(req.F(moveword::kHeading) - req.F(moveword::kLookHeading));
   const bool turnIsWide = k.deg5p625 <= turnToTargetDeg;
   if (bodyTurn <= 0.0f) {
     if (currentBucket == 0 || currentBucket == 5) {
@@ -593,7 +600,10 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   }
 
   // The heading the step's own angle points at, and the drift from the look heading.
-  const float lookAhead = Wrap180(facing + tables.bucketDegrees[bucket] - req.F(moveword::kHeading));
+  // PES at 0x1406C5FD4: the inline difference is (req[0x01] - the column's angle) - the facing,
+  // and the call at 0x1406C5FE0 is FUN_14043a0a0(facing, that).
+  const float lookAhead =
+      Wrap180(req.F(moveword::kHeading) - tables.bucketDegrees[bucket] - facing);
   const float lookDelta = req.F(moveword::kLookDelta);
   float drift = 0.0f;
   if (!precise) {
@@ -621,6 +631,62 @@ void StepLoop(MoveHost& host, MoveReq& req) {
     }
   } else {
     drift = Wrap180(lookAhead + facing - req.F(moveword::kLookHeading));
+  }
+
+  // 6b. The STEP_TO_RUN arm (0x1406C55CA-0x1406C592A): with the precise word clear
+  // (the decompile's iVar29, the stack slot at 0x1406C4C67 that holds req[0x38]), the turn
+  // (req[0x06]) and the body turn (wrap180(req[0x04] - req[0x02]) at 0x1406C55C5) inside the
+  // 112.5 / 67.5 / 90 window, the handler re-issues the clip through FUN_1406BA2F0's style and
+  // asks for STEP_TO_RUN (req[0x39] = 0xD at 0x1406C592A).
+  if (!precise) {
+    const float bodyTurnArm = Wrap180(req.F(moveword::kBodyDirection) - facing);
+    const float turnArm = req.F(moveword::kTurn);
+    if (std::fabs(turnArm + bodyTurnArm) <= k.deg112p5 ||
+        (std::fabs(turnArm) < k.deg67p5 && std::fabs(bodyTurnArm) <= k.deg90)) {
+      // The run-turn gate: FUN_1406b70d0 (0x1406C5664) hands the tick to FUN_1406d6780
+      // (RUN_TURN_RUN) instead of the step-to-run request.
+      if (StepLetsRunTurn(host, req)) {
+        EnterRunTurnRun(host, req);
+        return;
+      }
+      // The re-issue: FUN_1406BA2F0's style, the representative motion from the style table
+      // (DAT_1425ddcf0), the mirror masks, and the blend words.
+      const float rateArm = req.F(moveword::kRate);
+      const int styleArm = LocomotionStyle(host, host.AnimeState(), rateArm, req,
+                                           host.RateCeiling(), false);
+      const int bandArm = std::clamp(int(req.U(moveword::kPrevClassWord)), 0, 3);
+      req.SetU(moveword::kParamState, static_cast<uint32_t>(styleArm));
+      req.SetByte(moveword::kStyle, static_cast<uint8_t>(styleArm));
+      // PES at 0x1406C58AC: req[0x24] (the previous class word) is clamped into 0..3 and stored
+      // back; the class the row uses is that value.
+      req.SetU(moveword::kPrevClassWord, static_cast<uint32_t>(bandArm));
+      req.SetU(moveword::kMotion,
+               static_cast<uint32_t>(host.RunTablesView().styleGroup[styleArm * 4 + bandArm]));
+      bool mirrorArm = host.ClipFlag();
+      if (styleArm < 13 && ((0x1028u >> (styleArm & 31)) & 1u) != 0) {
+        mirrorArm = true;
+      } else if (styleArm < 12 && ((0x814u >> (styleArm & 31)) & 1u) != 0) {
+        mirrorArm = false;
+      } else {
+        mirrorArm = req.Flag(moveword::kFootFlag);
+      }
+      req.SetByte(moveword::kMirror, mirrorArm ? 1 : 0);
+      req.SetF(moveword::kPlayback, k.one);
+      req.SetU(moveword::kTransitionWord, 0u);
+      req.SetF(moveword::kDuration, kBlend0266);
+      req.SetF(moveword::kStartTime, 0.0f);
+      // PES's tail (0x1406C587C-0x1406C592A): both dwell pairs, the live kind, the class word
+      // and the state.
+      req.SetF(moveword::kDwellElapsed, 0.0f);
+      req.SetF(moveword::kDwellLimit, kBlend0266);
+      req.SetF(moveword::kDwellElapsed2, 0.0f);
+      req.SetF(moveword::kDwellLimit2, kBlend0266);
+      req.SetU(moveword::kLiveKind, req.U(moveword::kKind));
+      req.SetU(0x20, 0u);
+      RequestState(req, MoveState::kStepToRun);
+      req.SetByte(moveword::kMotionPending, 0);
+      return;
+    }
   }
 
   // The column window and the row.
@@ -726,7 +792,11 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   request.playback = StepPlayback(host.PhysiqueG(), host.PlaybackConstantsView());
   request.startTime = startTime;
   host.Issue(request);
-  req.SetF(moveword::kRecordStampA, Wrap180(facing - req.F(moveword::kHeading)));
+  // PES at 0x1406C5FE0 and the store at 0x1406C5FF1: the value written into req[0x17] is
+  // wrap180((req[0x01] - the bucket's angle) - the player's facing), with the bucket's angle
+  // from DAT_1425dd660.
+  req.SetF(moveword::kRecordStampA,
+           Wrap180(req.F(moveword::kHeading) - tables.bucketDegrees[bucket] - facing));
   req.SetF(moveword::kRecordStampB, req.F(moveword::kHeading));
   req.SetU(moveword::kDwellElapsed, 0);
   req.SetU(moveword::kDwellLimit, precise ? 0u : uint32_t(clipBlend));
@@ -1230,20 +1300,13 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
     req.SetByte(moveword::kRootFacing, 1);
   }
 
-  // The final gate: the dwell runs out and the loop returns to STEP_LOOP.
+  // The final gate (0x1406C6EF0): the FIRST dwell (req[0x1a] against req[0x1b]) must have run
+  // out; then the loop returns to STEP_LOOP. The first dwell's new limit is 0.05 when the
+  // second dwell is still under four tenths of its limit, and 0 otherwise (0x1406C6EFB).
   const float elapsed = req.F(moveword::kDwellElapsed2);
   const float limit = req.F(moveword::kDwellLimit2);
-  const int bucketNow = int(req.U(moveword::kMoveBucket));
-  const int bucketPrev = int(req.U(moveword::kBucketPrev));
-  if (elapsed < limit &&
-      ((elapsed < limit * k.s0p2 || precise || speedClass < 2) ||
-       (bucketNow == 0 || bucketNow == 5 || bucketNow != bucketPrev))) {
-    if (speedClass != 1 && !(speedClass < 2 && int(req.U(moveword::kClassWord)) > 0) &&
-        !(bucketNow == 0 || bucketNow == 5 || bucketNow != bucketPrev)) {
-      return;
-    }
-  }
-  req.SetU(moveword::kDwellLimit, limit * k.s0p4 <= elapsed ? 0u : uint32_t(0.1f));
+  if (req.F(moveword::kDwellElapsed) < req.F(moveword::kDwellLimit)) return;
+  req.SetU(moveword::kDwellLimit, limit * k.s0p4 <= elapsed ? 0u : uint32_t(0.05f));
   req.SetU(moveword::kDwellElapsed, 0);
   req.SetU(moveword::kDwellElapsed2, 0);
   req.SetU(moveword::kDwellLimit2, 0);
