@@ -549,11 +549,13 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   } else {
     turned += k.full;
   }
-  float bodyTurn = Wrap180(turned - req.F(moveword::kHeading));
-  if (bodyTurn <= k.deg90 && k.neg90 <= bodyTurn) {
-    if (k.deg90 < bodyTurn) bodyTurn = k.deg90;
-  } else {
-    bodyTurn = 0.0f;
+  // PES at 0x1406C4FB9: FUN_14043a0a0(turned, req[0x01]) = wrap180(kHeading - turned), and
+  // the clamp at 0x1406C4FBE-0x1406C4FD8 holds it inside [-90, 90].
+  float bodyTurn = Wrap180(req.F(moveword::kHeading) - turned);
+  if (k.deg90 < bodyTurn) {
+    bodyTurn = k.deg90;
+  } else if (bodyTurn < k.neg90) {
+    bodyTurn = k.neg90;
   }
   if (k.sq1139 < bodyTurn * bodyTurn) {
     bucketMoved = true;
@@ -786,7 +788,11 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   request.playback = StepPlayback(host.PhysiqueG(), host.PlaybackConstantsView());
   request.startTime = startTime;
   host.Issue(request);
-  req.SetF(moveword::kRecordStampA, Wrap180(facing - req.F(moveword::kHeading)));
+  // PES at 0x1406C5FE0 and the store at 0x1406C5FF1: the value written into req[0x17] is
+  // wrap180((req[0x01] - the bucket's angle) - the player's facing), with the bucket's angle
+  // from DAT_1425dd660.
+  req.SetF(moveword::kRecordStampA,
+           Wrap180(req.F(moveword::kHeading) - tables.bucketDegrees[bucket] - facing));
   req.SetF(moveword::kRecordStampB, req.F(moveword::kHeading));
   req.SetU(moveword::kDwellElapsed, 0);
   req.SetU(moveword::kDwellLimit, precise ? 0u : uint32_t(clipBlend));

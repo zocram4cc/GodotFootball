@@ -696,6 +696,47 @@ TEST(StepLoop, TheStepToRunArmNeedsTheTurnInsideTheWindow) {
 }
 
 // -------------------------------------------------------------------------------------
+// STEP_LOOP, FUN_1406c4c10: the body turn and the stamp it writes.
+// -------------------------------------------------------------------------------------
+
+// PES at 0x1406C4FB9: the body turn is FUN_14043a0a0(turned, req[0x01]) =
+// wrap180(kHeading - turned), and the clamp at 0x1406C4FBE-0x1406C4FD8 holds it inside
+// [-90, 90]. The port computed the difference the other way round and zeroed the
+// out-of-range values instead of clamping them.
+TEST(StepLoop, TheBodyTurnRunsFromTheHeadingTowardsTheFacing) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  // The bucket 0 sits at 0 degrees, so the turned heading is 0 and a heading of 315 gives PES's
+  // body turn of -45. A negative body turn takes the port's `bodyTurn <= 0` arm, which keeps
+  // the bucket 0 or 5 and re-picks it from the wide turn; a positive one (the port's old
+  // operand) skips that arm and leaves the angle-bucket answer, which is 1.
+  req.SetF(pes::moveword::kHeading, 315.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDesiredSpeedKmh, 12.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.5f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.5f);
+  req.SetU(pes::moveword::kMoveBucket, 0);
+  req.SetU(pes::moveword::kBucketPrev, 0);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.02f;
+  StepLoop(host, req);
+  // The negative body turn took the `bodyTurn <= 0` arm, which kept the bucket at 0.
+  EXPECT_EQ(req.U(pes::moveword::kMoveBucket), 0u);
+}
+
+// -------------------------------------------------------------------------------------
 // STEP_LOOP_CHANGE, FUN_1406c6480.
 // -------------------------------------------------------------------------------------
 
