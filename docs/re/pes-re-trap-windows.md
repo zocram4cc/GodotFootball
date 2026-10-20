@@ -1,5 +1,7 @@
 # TRAP reach: picker window test for action 7, and the live trap watch (S1Watch, round 15)
 
+> **Main 19-10-26 (live, S1Watch):** 22 TRAP issues (action 2/3 -> 7): issuer distance to the ball (B+0x88) at issue median 9.5 m (min 0.54, max 17.0), consistent with the 10 m issue rule; the anime clip ids read at +0xAE0 are not yet reconciled with the row ids (base check pending). Player->AnimePlayer mapping: AnimePlayer +0x8/+0x10 = player anim position p+0x55C (20/22).
+
 > **Main audit 19-10-26:** `0x142648668` = [0.15, 0.335, 0.56, 0.785] (T1 = 0.335, T2 = 0.56): match. The window test is CONFIRMED; the live trap is not measured (no action-7 pick in 3 min of play). PARKED until a loose-ball window.
 > **Main audit 19-10-26 (§6):** default +0x70 `0x141863350` = `xor al,al; ret`, and the KickoffReceiver/DemoMove/OutofPlay vtables (`0x1425E1220/6428/2810`) +0x70 all point to it: match. A moving man (Move/StepMove) is admitted to TRAP by default.
 
