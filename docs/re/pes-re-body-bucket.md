@@ -1,6 +1,7 @@
 # PES MOVESTEP request word 4 (`kBodyDirection`): the bucket-angle fill, the bucket chooser, and the stop arm
 
 > **Main audit 20-10-26:** the table at `0x1425DD660` = 0, 45, 90, 135, 180, 0, −45, −90, −135, −180; `0x1406B7E25` = `movss [rdi+0x10],xmm6` (the req[4] write); `0x1406B9BC8` = `mov eax,r8d; ret`; `0x1411944E6` = `mov [rbx+0x2798],al`; `0x141194432` `xorps xmm1,xmm1` (the low bound), `0x141194435` loads 100.0 (`0x14253EE30`), `0x14119443D` loads 2^32 (`0x1427341A0`); the default value 1.0 (`0x14256AE1C`): all match. Consequence: with the default record the flag is 1 (bucket angle +45°), so RUN_TO_STEP's stop arm (0x1406C142A, 22.5°) does not fire on the walk.
+> **Main note, final round:** the "only req[4] writer" claim now rests on a decoded scan (ModRM/SIB displacements, request block identified by its stored offsets); the earlier byte-pattern scan missed `movss` stores.
 
 Read-only RE. No GF code changed, no PES written. Scratch: `<workdrive>/gf-TeamDecode-scratch/dec/`.
 Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`.
@@ -33,9 +34,35 @@ angles. **It is not**: the port's `FillCommandWords` and `AngleBucket` are alrea
 
 **The writer VA: `0x1406B7E25 MOVSS dword ptr [RDI + 0x10], XMM6`**, where `RDI` is `param_2`,
 the request block, so `RDI + 0x10` = **req word 4** (`kBodyDirection`). CONFIRMED raw dis.
-This is the **only** store to `req[4]` in the command fill: the two other `[reg+0x10]` hits in
-`FUN_1406B7560` are a *read* of the host's field (`0x1406B7810 MOV EAX,[R14+0x10]`) and the read
-of `req[4]` itself at `0x1406B7E1D`.
+**`0x1406B7E25` is the ONLY writer of `req[4]` in the request block.** This needed a corrected
+scan: the first scan of this report looked for the opcodes `89`/`C7`/`0F` and walked back a
+fixed number of bytes, so it **missed the `F3 0F 11` (`MOVSS`) form** — the very form the real
+writer takes. The corrected scan (`<workdrive>/gf-TeamDecode-scratch/req4byfn.py`) decodes each
+instruction with the validated length decoder, reads its ModRM/SIB to recover the displacement,
+and groups the stores by (enclosing function, base register):
+
+- the displacement `0x10` alone is useless as a filter — there are **37 136** stores to
+  `[some-register+0x10]` in the executable section, and **30** in the MOVESTEP range alone;
+- so a base register is identified as *the request block* by the set of offsets the code stores
+  through it: the request block's own offsets (`0x00` the kind, `0x08` the facing, `0x20` the
+  turn, `0x38` the look bucket, `0x3C` the body direction, `0x44` the rate, `0x58`, `0x5C`,
+  `0x7C`, `0x128`, `0x140`, …). 42 (function, register) groups store at four or more of them;
+- and `req[4]` is a **float**, so its writer must be a **float** store. Of the 25 candidate
+  `req[4]` sites, only **three** are float stores at all: `0x1404174ED` (`MOVUPS` — a 16-byte
+  block copy), `0x1406B7E25` (`MOVSS`, the writer) and `0x14076A824` (`MOVSS`).
+
+**The two other float stores are not the request block:**
+- `0x1404174ED MOVUPS xmm, [RCX+0x10]` is inside `FUN_1404161E0`, whose `RCX` is a *different*
+  struct (it stores at offsets `0, 4, 8, 12, 16, 28, 32, 48, 64` — a 16-byte-aligned block
+  copy, not the request);
+- `0x14076A824 MOVSS dword ptr [RSI+0x10], XMM7` is inside `FUN_140769FE0`, a ten-parameter
+  rendering/animation function whose `RSI` is a rendering struct (the surrounding code writes a
+  **qword** at `[RSI+0x14]` and a pointer at `[RSI+0x30]`).
+
+**=> `0x1406B7E25` is the only `req[4]` writer.** CONFIRMED, by a scan that classifies every
+store's ModRM/SIB rather than guessing at opcodes. (Within `FUN_1406B7560` itself the two other
+`[reg+0x10]` hits are a *read* of the host's field, `0x1406B7810 MOV EAX,[R14+0x10]`, and the
+read of `req[4]` itself at `0x1406B7E1D`.)
 
 **The value.** `XMM6` is formed immediately before the store:
 
@@ -742,6 +769,13 @@ error; §3.4 has the correction and the checker's M9 mutation guards it.)
 - The **exhaustive field scan** (21 instructions with displacement `0x2798`, 6 stores) was done
   with a custom walker that classifies each candidate by its ModRM, so that a `disp32` inside an
   *immediate* is not mistaken for a memory displacement.
+- The **`req[4]` writer scan** (`<workdrive>/gf-TeamDecode-scratch/req4byfn.py` and
+  `req4writers.py`) decodes each instruction with the length-checked decoder and recovers the
+  displacement from the ModRM/SIB, then groups the stores by (function, base register) so that a
+  base register is identified as *the request block* by the set of request-block offsets stored
+  through it. **This replaced an earlier, unsound scan** which looked for the opcodes
+  `89`/`C7`/`0F` and walked back a fixed number of bytes: it missed the `F3 0F 11` (`MOVSS`)
+  form, which is the form the real `req[4]` writer takes, and so could not see it at all.
 - Every float and int32 table entry quoted here was read by script from `pes_full.bin`; none is
   typed by hand.
 - **Self-check** (`<workdrive>/gf-TeamDecode-scratch/check_bodybucket.py`, run against this file):
@@ -753,6 +787,7 @@ error; §3.4 has the correction and the checker's M9 mutation guards it.)
   -> 7 scalar constants checked, 4 report claims cross-checked
   -> 2 range-test bounds checked, 3 report claims cross-checked
   -> the 0x1411944E6 decode checked
+  -> the req[4] writer and the 'only writer' claim checked
   -> the record's pair walk and the pair-6 default checked
   -> 3 chooser operand pairs checked
   -> 6 byte->word mappings checked against the port's header
@@ -779,12 +814,13 @@ error; §3.4 has the correction and the checker's M9 mutation guards it.)
   - a cited VA with no disassembly (`0x140501170` for `0x1406B7E25`) →
     `cited code VAs not inside a disassembled instruction: 1`.
 
-  The file was restored after each mutation and re-verified clean. **Eleven** mutations, all
+  The file was restored after each mutation and re-verified clean. **Thirteen** mutations, all
   firing: a wrong table value; a wrong vtable entry; a wrong scalar claim; a cited VA with no
   disassembly; a wrong int32 class value; a wrong `FUN_1406E9EF0` byte string; a wrong `2^32`
   bound; the `0x1411944E6` decode reverted to the wrong form; the `req[8]` chooser angle changed
-  from `req[6]` to `req[7]`; the pair-6 default changed from `1.0` to `2.0`; and the pair-6
-  value's record offset changed from `0x3C` to `0x3D`.
+  from `req[6]` to `req[7]`; the pair-6 default changed from `1.0` to `2.0`; the pair-6 value's
+  record offset changed from `0x3C` to `0x3D`; the "only `req[4]` writer" claim removed; and a
+  ruled-out writer site dropped.
 
   **Checks that were found vacuous and fixed** (each was caught by the mutation battery, not by
   inspection): the vtable-row matcher skipped the `**`-bolded rows, so the two most important
