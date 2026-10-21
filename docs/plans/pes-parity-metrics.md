@@ -51,3 +51,4 @@ the summary column is the mean distance over the metrics PES has a value for.
 
 |landing (main SHA)|date|M1 dist|M2 dist|M3-M7 dist|M8|M9|M10-M14 dist|mean dist|
 |---|---|---|---|---|---|---|---|---|
+|860e2f1|2026-10-21|pending|pending|pending|pending|pending|pending|pending|
