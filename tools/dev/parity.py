@@ -83,7 +83,8 @@ def seed_values(run):
         v["M1:%d" % s] = 100.0 * n / total if total else 0.0
     for s, n in run.stop.items():
         v["M2:%d" % s] = _rate(n, run.live)
-    v["M8"] = _rate(run.stoppages, run.live)
+    # [restarts] counts the opening kickoff; PES's stoppage count starts at the first whistle, so drop it.
+    v["M8"] = _rate(max(run.stoppages - 1, 0), run.live)
     v["M9"] = run.longest_s
     by_kind = {}
     for kind, frames in run.restarts:

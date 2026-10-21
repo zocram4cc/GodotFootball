@@ -51,8 +51,12 @@ class ParseAndScale(unittest.TestCase):
         run = parity.parse_run(gf_output(live=2 * TWENTY_MINUTES_TICKS, stoppages=8,
                                          actions={"passes": (10, 6)}))
         v = parity.seed_values(run)
-        self.assertAlmostEqual(v["M8"], 4.0)
+        self.assertAlmostEqual(v["M8"], 3.5)  # 8 stoppages less the opening kickoff, halved
         self.assertAlmostEqual(v["M10"], 8.0)
+
+    def test_the_opening_kickoff_is_not_a_stoppage(self):
+        run = parity.parse_run(gf_output(live=TWENTY_MINUTES_TICKS, stoppages=1))
+        self.assertAlmostEqual(parity.seed_values(run)["M8"], 0.0)
 
     def test_stop_entries_are_counted_by_predecessor(self):
         v = parity.seed_values(parity.parse_run(gf_output(stop={1: 5, 3: 2})))
