@@ -1972,6 +1972,14 @@ Player* TeamAIController::GetLoosePressMan() {
   return nullptr;
 }
 
+bool TeamAIController::IsLoosePresser(const PlayerBase* p) const {
+  const auto& players = team->GetAllPlayers();
+  for (int k = 0; k < 11 && k < static_cast<int>(players.size()); ++k) {
+    if (players[k].get() == p) return pes::PressIsLoosePresser(pressState.role, team->GetID(), k);
+  }
+  return false;
+}
+
 void TeamAIController::PesPressTick() {
   // FUN_140535C60 order: the coordinator (FUN_140634470) runs before the sweep, so the writer sees this
   // tick's second presser and keeps him (PressWriterWord).

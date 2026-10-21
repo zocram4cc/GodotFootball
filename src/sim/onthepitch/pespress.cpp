@@ -619,4 +619,9 @@ int PressWriterWord(int man, int winner, int second) {
   return (man == winner || man == second) ? kPressState : kNothingState;
 }
 
+bool PressIsLoosePresser(const int* role, int side, int k) {
+  if (side < 0 || side > 1 || k < 0 || k >= kPressSideMen) return false;
+  return role[side * kPressSideMen + k] == kPressState;
+}
+
 }  // namespace pes

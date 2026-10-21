@@ -114,7 +114,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
   bool extraHaste = false;
 
   // PES's loose-ball presser (press-life 3/10): his movement is the ActionPress below, not a dribble.
-  const bool loosePresser = match->PesLoop() && team->GetController()->GetLoosePressMan() == player;
+  const bool loosePresser = match->PesLoop() && team->GetController()->IsLoosePresser(player);
 
   // celebrate good times come on!
 
@@ -797,7 +797,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     // is what lets him ramp to a sprint; GF's clip-led chase step is gone on
     // this path. For the designated presser the movement magnets below still
     // blend toward the ball - this input is their hint.
-    if (match->PesLoop() && team->GetController()->GetLoosePressMan() == player) {
+    if (match->PesLoop() && team->GetController()->IsLoosePresser(player)) {
       const pes::PressConstants& press = match->GetPesPressConstants();
       const Vector3 ballNow = match->GetBall()->Predict(0);
       const int tick = pes::PressTargetTick(press);

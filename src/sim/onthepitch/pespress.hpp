@@ -156,6 +156,10 @@ inline constexpr int kNothingState = 0;
 // `winner` and `second` are global men, or kPressNoMan.
 int PressWriterWord(int man, int winner, int second);
 
+// PES's ActionPress runs for every man in state PRESS (0x34), not for one picked man: a PRESS man of `side` on a
+// loose ball takes the approach. `role` is the 22-entry role table (side * 11 + slot); `k` is the slot in the side.
+bool PressIsLoosePresser(const int* role, int side, int k);
+
 std::optional<PressConstants> LoadPressConstants(const PeImage& exe, std::string* error);
 
 // Stable ascending sort by score (the picker's FUN_140a79440 insertion branch).

@@ -383,6 +383,23 @@ TEST(PressTeamState, SetActionStoresRoleAndStampsRing) {
   EXPECT_EQ(s.actionRing[3].slots[1].last, 100u);
 }
 
+TEST(PressLoosePresser, EveryPressManOfTheSideTakesTheApproach) {
+  pes::TeamPressState s{};
+  s.SetAction(1 * pes::kPressSideMen + 3, pes::kPressState, 10);
+  s.SetAction(1 * pes::kPressSideMen + 7, pes::kPressState, 10);
+  EXPECT_TRUE(pes::PressIsLoosePresser(s.role, 1, 3));
+  EXPECT_TRUE(pes::PressIsLoosePresser(s.role, 1, 7));
+  EXPECT_FALSE(pes::PressIsLoosePresser(s.role, 1, 5));
+  EXPECT_FALSE(pes::PressIsLoosePresser(s.role, 0, 3));
+}
+
+TEST(PressLoosePresser, OnlyAPressRoleIsALoosePresser) {
+  pes::TeamPressState s{};
+  s.SetAction(2, 0x33, 10);  // DELAY: not a presser
+  EXPECT_FALSE(pes::PressIsLoosePresser(s.role, 0, 2));
+  EXPECT_FALSE(pes::PressIsLoosePresser(s.role, 0, 4));
+}
+
 TEST(PressStampRing, SameIdAsHeadIsANoOp) {
   pes::PressStampRing r{};
   pes::PressStampPush(r, 5, 10);  // slot 0 is empty (first 0 < 10): head -> 1

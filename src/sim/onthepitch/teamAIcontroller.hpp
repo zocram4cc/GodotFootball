@@ -43,6 +43,7 @@
 
 class Match;
 class Team;
+class PlayerBase;
 
 struct TacticalOpponentInfo {
   Player* player;
@@ -196,6 +197,8 @@ public:
   // The role table's PRESS man (T+0xa2a0 == 0x34), or null. The loose-ball
   // presser; the carrier-press stand-in above is untouched.
   Player* GetLoosePressMan();
+  // True for a man who holds PRESS (0x34) in the role table. Every such man of the side takes the loose-ball approach.
+  bool IsLoosePresser(const PlayerBase* p) const;
   // PES's strategy word T+0x134 (docs/re/pes-re-match-management.md 1).
   int GetStrategy() const { return strategy.strategy; }
   // Every team tick, dead balls included: the decider moves the strategy while

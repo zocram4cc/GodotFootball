@@ -405,8 +405,7 @@ bool PlayerController::_ReceiveCandidate() {
   // (Team::PassGetReceiver feeds the designation). On the PES path the
   // loose-ball presser traps too: he is the chaser, and the designation may
   // name another man. PES's entry 3 is not gated by the chase state at all.
-  const bool presser =
-      match->PesLoop() && team->GetController()->GetLoosePressMan() == player;
+  const bool presser = match->PesLoop() && team->GetController()->IsLoosePresser(player);
   if (match->GetDesignatedPossessionPlayer() != player &&
       team->GetDesignatedTeamPossessionPlayer() != player && !presser)
     return false;
