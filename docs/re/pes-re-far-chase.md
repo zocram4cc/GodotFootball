@@ -46,3 +46,6 @@ So when the 13 m gate refuses, the same pass's ungated arms (the sweep and the c
 **Live cross-reference (§ rounds 32-33, pes-re-live-gk-chase.md):** on far loose-ball frames the men's +0x5D0 toggled 0x1 ↔ 0x36, which is **BASE_POSITION ↔ MARK**: in that sample nobody was in PRESS or DELAY while the ball was far.
 
 Open (the agent's): the semantics of mode == 38; the press-target word's content for a loose ball; the sweep's side scope (slot < 11).
+
+## 7. Live answer
+See pes-re-live-farchase.md: the coordinator arm (sub_140634470 → sub_140633940) supplies 99% of far-ball pressers; the ungated sweep almost never arms one on far loose frames.
