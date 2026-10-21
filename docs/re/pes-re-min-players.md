@@ -1,5 +1,7 @@
 # PES minimum-players rule (threshold 7): VA NOT FOUND, patch NOT applied
 
+> **Superseded 22-10-26:** located: docs/re/pes-re-missing-systems.md §2.13 (FUN_140447B50 case 6, fewer than E+0x17 = 7 on the pitch).
+
 Status: **BLOCKED on the VA.** The check, its threshold and its writer were not located in the image, so nothing was ported against an unconfirmed VA (brief §Inputs). No live writes were made. Branch `RedCardRule` is pushed (`git ls-remote`: 989f9eeeb599e269b287f75a0c41e2049f22e2a9) at `origin/main`, with no commit of its own, because there is no script change to carry.
 
 Verdict key: CONFIRMED = read this session (decompile, disassembly, or byte scan of the install image); INF = inference; OPEN = blocker named.
