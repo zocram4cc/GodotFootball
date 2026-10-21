@@ -61,3 +61,9 @@ owner can map ids to players. ID 7511 has no compare anywhere.
 |34873|Diego Souza (pesmaster, PES 2020)|one site|
 |115894|U. Bolt (pesmaster, PES 2018)|a jump inside MOVESTEP's band (0x1406CC720): a locomotion special case|
 |2344|not found in either database|one site|
+
+## 6. Bolt (115894), read in full (Main, 21-10-26)
+- The id occurs exactly once in the whole image: `cmp eax, 0x1C4B6` at 0x1406CC720, inside FUN_1406CBF70 (a MOVESTEP helper: it writes the rate word req[0x4A] and, in kind 3, issues a clip from DAT_1425DDCF0 at [style req[0x50]·0x10 + band]). No data table holds the id.
+- Normal path (FUN_1406CBF70 lines ~175-245): team/designation checks (FUN_140A62690, FUN_140A627E0, FUN_140A62960, the chaser state 0x32, T+0x255), ending in FUN_1406E6660(player, 0x15) (a byte of the player's stat record).
+- Bolt's path: when the side's +0xB6E0 bytes are clear and he is slot < 0x16, the id match jumps straight to LAB_1406CCA88: the rate from FUN_1406E66D0, a ×DAT_1425AB124 scale in one carrier-facing case, req[0x4A] = rate, the band 4/8/12 from the rate thresholds, then the style×band clip. So the id check skips the designation block and goes straight to the run rate and the clip pick.
+- No motion name in the exe's motion table contains "bolt", "usain" or "sprinter" (`pesfmt_dump motions`). Any Bolt-specific animation is therefore not selected by id here; it would come from his style word req[0x50] (the locomotion style, P+0x27B1) or from data. Open: the claim from another RE source that the id selects a special Bolt animation: needs the motion number and the site.
