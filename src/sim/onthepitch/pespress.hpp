@@ -150,6 +150,12 @@ inline constexpr int kPresserRole = 0x3a;
 inline constexpr int kPressState = 0x34;
 inline constexpr int kNothingState = 0;
 
+// The loose-ball writer's word for one man on one tick: PRESS for the picked man and for the coordinator's
+// second presser, NOTHING for the rest. PES FUN_140535C60 skips a slot whose role is already DELAY or PRESS
+// ("1 < role - 0x33U"), so the writer's reset never drops the second presser, whose life the coordinator owns.
+// `winner` and `second` are global men, or kPressNoMan.
+int PressWriterWord(int man, int winner, int second);
+
 std::optional<PressConstants> LoadPressConstants(const PeImage& exe, std::string* error);
 
 // Stable ascending sort by score (the picker's FUN_140a79440 insertion branch).

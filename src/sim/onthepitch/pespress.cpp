@@ -615,4 +615,8 @@ float PressCommandSpeed_ms(const PressConstants& c, float dist_m, float speedKmh
   return std::min(want, cap);
 }
 
+int PressWriterWord(int man, int winner, int second) {
+  return (man == winner || man == second) ? kPressState : kNothingState;
+}
+
 }  // namespace pes

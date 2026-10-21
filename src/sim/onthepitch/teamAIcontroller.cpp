@@ -1973,13 +1973,24 @@ Player* TeamAIController::GetLoosePressMan() {
 }
 
 void TeamAIController::PesPressTick() {
+  // FUN_140535C60 order: the coordinator (FUN_140634470) runs before the sweep, so the writer sees this
+  // tick's second presser and keeps him (PressWriterWord).
+  PesSecondPresserTick();
+  PesLooseWriterTick();
+}
+
+void TeamAIController::PesLooseWriterTick() {
   const int side = team->GetID();
   const uint32_t stamp = static_cast<uint32_t>(match->GetSimFrame());
-  // Renewal + reset is the lifecycle (press-life 10): whoever is not picked
-  // below is reset to NOTHING, so a presser stops the tick the writer drops
-  // him. PES path only: the GF path keeps its designated chase untouched.
+  // Renewal + reset is the lifecycle (press-life 10): whoever is not picked below is reset to NOTHING,
+  // so a presser stops the tick the writer drops him, except the coordinator's second presser, whose life
+  // the coordinator owns (PressWriterWord: PES FUN_140535C60 skips a slot already PRESS). PES path only:
+  // the GF path keeps its designated chase untouched.
   auto resetAll = [&]() {
-    for (int k = 0; k < 11; ++k) pressState.SetAction(side * 11 + k, pes::kNothingState, stamp);
+    for (int k = 0; k < 11; ++k) {
+      const int man = side * 11 + k;
+      pressState.SetAction(man, pes::PressWriterWord(man, pes::kPressNoMan, coordState.second), stamp);
+    }
     for (int i = 0; i < 4; ++i) pressState.pressSlot[i] = -1;
   };
   if (!match->PesLoop() || !match->IsInPlay() || match->IsInSetPiece() ||
@@ -2035,10 +2046,208 @@ void TeamAIController::PesPressTick() {
   const int winner = pes::PressWinner(c, in, bucket);
   for (int k = 0; k < 11; ++k) {
     const int man = side * 11 + k;
-    pressState.SetAction(man, man == winner ? pes::kPressState : pes::kNothingState, stamp);
+    pressState.SetAction(man, pes::PressWriterWord(man, winner, coordState.second), stamp);
   }
   pressState.pressSlot[0] = winner;
   for (int i = 1; i < 4; ++i) pressState.pressSlot[i] = -1;
+}
+
+void TeamAIController::PesSecondPresserTick() {
+  const int side = team->GetID();
+  // T+0x254, the attack sign: the team attacks towards -side (the goalX convention PesLooseWriterTick uses).
+  const float sign = -static_cast<float>(team->GetSide());
+  if (!match->PesLoop()) {
+    coordState = pes::PressCoordState{};
+    return;
+  }
+  const pes::PressConstants& c = match->GetPesPressConstants();
+  const uint32_t stamp = static_cast<uint32_t>(match->GetSimFrame());
+  const int fps = static_cast<int>(c.framesPerSec);
+  const Vector3 ball = match->GetBall()->Predict(0);
+  // B+0x18 and the high test, both read as GF's ball height (ponytail: PES's two ball words are not split).
+  const bool lifted = ball.coords[2] > c.gateBallHeight_m;
+  auto dist2 = [](float ax, float az, float bx, float bz) {
+    return (bx - ax) * (bx - ax) + (bz - az) * (bz - az);
+  };
+
+  // MA+0x2601C: the last toucher (FUN_140457070). ponytail: PES's K=8 touch ring is not routed the same in GF, so
+  // the newest event that names a valid on-pitch actor stands in for the newest touch key.
+  pes::ActorKey touch{};
+  bool touchValid = false;
+  for (int n = 0; n < 8 && !touchValid; ++n) {
+    const pes::NewestEventView view = pes::EventAt(match->GetPesEvents(), n);
+    touchValid = view.present && view.actor.Valid() && view.actor.team < 2 && view.actor.slot < pes::kPressSideMen;
+    if (touchValid) touch = view.actor;
+  }
+  const int holder = touchValid ? static_cast<int>(touch.team) * pes::kPressSideMen + static_cast<int>(touch.slot)
+                                : pes::kPressNoMan;
+  const bool holderValid = holder < pes::kPressTeamMen;
+  // T+0x78: this side's last kick, valid when the newest touch is this side's.
+  const bool kickValid = touchValid && static_cast<int>(touch.team) == side;
+  const int kickMan = kickValid ? holder : pes::kPressNoMan;
+
+  // The men by team index (side * 11 + slot), and this side's slot words.
+  pes::PressEvalInput in;
+  in.side = side;
+  in.sign = sign;
+  in.fps = fps;
+  std::array<Player*, pes::kPressTeamMen> players{};
+  for (int t = 0; t < 2; ++t) {
+    const auto& roster = match->GetTeam(t)->GetAllPlayers();
+    for (int k = 0; k < pes::kPressSideMen && k < static_cast<int>(roster.size()); ++k) {
+      const int man = t * pes::kPressSideMen + k;
+      Player* p = roster[k].get();
+      players[man] = p;
+      in.men[man].x = p->GetPosition().coords[0];
+      in.men[man].z = p->GetPosition().coords[1];
+      in.men[man].active = p->IsActive();
+      // ponytail: the goalkeeper role stands in for the PES kinds the eval excludes.
+      in.men[man].excludedKind = p->GetFormationEntry().role == e_PlayerRole_GK;
+      if (t == side) {
+        in.slots[k].roleClass = RoleClassOfSlot(k);  // ponytail: the B class stands in for T+0x87D0
+        in.slots[k].keepX = in.men[man].x;           // ponytail: T+0x4B4C is not carried; the margin reads his x
+      }
+    }
+  }
+  float hx = 0.0f, hz = 0.0f, holderFacing = 0.0f;
+  if (holderValid && players[holder] != nullptr) {
+    hx = in.men[holder].x;
+    hz = in.men[holder].z;
+    const Vector3 dir = players[holder]->GetDirectionVec();
+    holderFacing = pes::PressBearingDeg(c, 0.0f, 0.0f, dir.coords[0], dir.coords[1]);  // H+0x554 stand-in
+  }
+
+  // The side's active man nearest the holder: the entry-0 man of the holder's list (the match-up man is not carried).
+  auto nearestOwn = [&]() {
+    int best = pes::kPressNoMan;
+    float bestD2 = 0.0f;
+    for (int k = 0; k < pes::kPressSideMen; ++k) {
+      const int man = side * pes::kPressSideMen + k;
+      if (man == holder || !in.men[man].active) continue;
+      const float d = dist2(hx, hz, in.men[man].x, in.men[man].z);
+      if (best == pes::kPressNoMan || d < bestD2) {
+        best = man;
+        bestD2 = d;
+      }
+    }
+    return best;
+  };
+  const int nearest = holderValid ? nearestOwn() : pes::kPressNoMan;
+
+  // FUN_1406324a0 (class 5) and FUN_140632ae0 (the class). Flags 0xd, 4, 6 and 1 are stand-ins false.
+  pes::PressClassFiveInput cin;
+  cin.holder = holder;
+  cin.cand = nearest;
+  cin.clauseOk = !lifted || !kickValid;  // (B+0x18 <= 1.5 and not high) or T+0x78 > 21
+  if (nearest < pes::kPressTeamMen) {
+    cin.keeperKind = in.men[nearest].excludedKind;
+    cin.roleClass = RoleClassOfSlot(nearest % pes::kPressSideMen);
+    cin.ballDist_m = std::sqrt(dist2(ball.coords[0], ball.coords[1], in.men[nearest].x, in.men[nearest].z));
+  }
+  const int classFiveMan = holderValid ? pes::PressClassFiveMan(c, cin) : pes::kPressNoMan;
+  pes::PressClassInput clsIn;
+  clsIn.flagFiveMan = classFiveMan < pes::kPressTeamMen;
+  const int cls = pes::PressClass(clsIn);
+
+  // Step 2: the reason words are cleared, except the second presser's slot (PP[2]).
+  const int prevSecond = coordState.second;
+  const int prevX = coordState.xMan;
+  for (int k = 0; k < pes::kPressSideMen; ++k) {
+    if (!(prevSecond < pes::kPressTeamMen && k == prevSecond % pes::kPressSideMen)) coordState.reason[k] = 0;
+  }
+  // Step 3: maintain (FUN_140632e70) the second presser: keep him as PRESS, or release him.
+  if (prevSecond < pes::kPressTeamMen) {
+    const int k = prevSecond % pes::kPressSideMen;
+    const bool xOk = prevX < pes::kPressTeamMen;
+    pes::PressMaintainInput mi;
+    mi.inPlay = match->IsInPlay() && !match->IsInSetPiece() && !match->GetRefereeBuffer().active;
+    mi.slot = k;
+    mi.man = prevSecond;
+    mi.tableWord = pressState.role[prevSecond];
+    mi.holderNow = holder;
+    mi.holderRecorded = coordState.holder;
+    mi.holderFromTouch = touchValid;
+    mi.reason = coordState.reason[k];
+    mi.classFiveNow = classFiveMan;
+    mi.lifted = lifted;
+    mi.teamKickMan = kickMan;
+    mi.xMan = prevX;
+    mi.roleClass = RoleClassOfSlot(k);
+    if (holderValid) {
+      mi.manToHolderDistSq = dist2(hx, hz, in.men[prevSecond].x, in.men[prevSecond].z);
+      if (xOk) {
+        mi.bearingVsCoverDeg = std::fabs(pes::PressSideAngleDeg(
+            c, pes::PressBearingDeg(c, hx, hz, in.men[prevSecond].x, in.men[prevSecond].z),
+            pes::PressBearingDeg(c, hx, hz, in.men[prevX].x, in.men[prevX].z)));
+      }
+      mi.xCloserToTeamPoint =
+          xOk && dist2(ball.coords[0], ball.coords[1], in.men[prevX].x, in.men[prevX].z) <
+                     dist2(ball.coords[0], ball.coords[1], hx, hz);
+    }
+    if (xOk) mi.manToXDistSq = dist2(in.men[prevX].x, in.men[prevX].z, in.men[prevSecond].x, in.men[prevSecond].z);
+    const pes::PressStampRing& ring = pressState.actionRing[prevSecond];
+    mi.stampFirst = ring.slots[ring.head].first;
+    mi.stampLast = ring.slots[ring.head].last;
+    mi.windowFrames = static_cast<uint32_t>(2 * fps);
+    if (pes::PressPresserKept(c, mi)) {
+      pressState.SetAction(prevSecond, pes::kPressState, stamp);    // FUN_140a42940: keep, PRESS
+    } else {
+      pressState.SetAction(prevSecond, pes::kNothingState, stamp);  // FUN_140a40820: the slot reset
+      coordState.second = pes::kPressNoMan;
+    }
+  }
+
+  // Step 4: PP[0] is the holder. No holder ends the pass.
+  coordState.holder = holder;
+  if (!holderValid) return;
+  // Step 5: PP[1] (T+0x7C stand-in: the side's man nearest the holder), then the in-play test.
+  coordState.xMan = nearest;
+  if (!match->IsInPlay() || match->IsInSetPiece() || match->GetRefereeBuffer().active) return;  // a restart pending (referee buffer) is not PES's state 1
+
+  // Step 7: the gate (FUN_140632780). Classes other than 5 need PP[1].
+  if (cls != pes::kPressClassFive && coordState.xMan >= pes::kPressTeamMen) return;
+  pes::PressGateInput g;
+  g.ballHeight_m = ball.coords[2];
+  g.teamKickValid = kickValid;
+  g.classFive = cls == pes::kPressClassFive;
+  if (coordState.xMan < pes::kPressTeamMen) {
+    const float xx = in.men[coordState.xMan].x;
+    const float xz = in.men[coordState.xMan].z;
+    g.cover = pes::PressCoverByHolder(c, std::sqrt(dist2(hx, hz, xx, xz)), pes::PressBearingDeg(c, hx, hz, xx, xz),
+                                      sign > 0.0f ? 180.0f : 0.0f);  // T+0x6EC stand-in: heading by the sign
+  }
+  // FUN_140481B00: the holder's facing against the attack bearing (T+0x250; ponytail: 90 forward, 270 back).
+  g.facingToAttack_deg = std::fabs(pes::PressSideAngleDeg(c, sign > 0.0f ? 90.0f : 270.0f, holderFacing));
+  if (!pes::PressGatePasses(c, g)) return;
+
+  // Step 9: the aggressive flag A. The press point stands in as the ball (FUN_14063FDC0 is OPEN); the frontline
+  // style is the defensive-style toggle (FUN_140a62180(ctx, side, 4)).
+  bool aggressive = teamSheet.Toggle(pes::kDefensiveStyle) == 0 && sign * ball.coords[0] > 0.0f;
+  aggressive = aggressive || (sign * ball.coords[0] < c.evalThetaBase_m - pesPenaltyAreaLineX &&
+                              std::fabs(ball.coords[1]) < pesPenaltyAreaHalfWidth);
+
+  // Step 10: the dispatch. Class 5 takes the holder's nearest side man; class 7 needs A; the eval picks the rest.
+  if (cls == pes::kPressClassFive) {
+    if (nearest < pes::kPressTeamMen) {
+      coordState.second = nearest;
+      coordState.reason[nearest % pes::kPressSideMen] = pes::kPressClassFive;
+      pressState.SetAction(nearest, pes::kPressState, stamp);
+    }
+    return;
+  }
+  if (cls == pes::kPressClassSix || (cls == pes::kPressClassSeven && !aggressive)) return;
+  pes::PressEvalInput ein = in;
+  ein.ref = holder;
+  ein.excluded = coordState.xMan;
+  ein.incumbent = coordState.second;
+  ein.mode = cls;
+  ein.aggressive = aggressive;
+  const pes::PressEvalResult r = pes::PressEvalPick(c, ein);
+  coordState.second = r.man;  // FUN_140633940 returns PP[2]: the man, or none
+  if (r.man < pes::kPressTeamMen) {
+    coordState.reason[r.man % pes::kPressSideMen] = r.mode;
+    pressState.SetAction(r.man, pes::kPressState, stamp);
+  }
 }
 
 bool TeamAIController::StartConcept(int id) {

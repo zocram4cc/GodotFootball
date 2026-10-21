@@ -357,6 +357,22 @@ TEST(PressExcludedMan, NoEligibleManGivesTheSentinel) {
   EXPECT_EQ(pes::PressExcludedMan(1, on, flag), pes::kPressNoMan);
 }
 
+TEST(PressWriterWord, TheSecondPresserSurvivesTheResetAndTheWinnerIsPressed) {
+  EXPECT_EQ(pes::PressWriterWord(7, 3, 7), pes::kPressState);
+  EXPECT_EQ(pes::PressWriterWord(3, 3, 7), pes::kPressState);
+  EXPECT_EQ(pes::PressWriterWord(0, 3, 7), pes::kNothingState);
+}
+
+TEST(PressWriterWord, NoWinnerStillKeepsTheSecondPresser) {
+  EXPECT_EQ(pes::PressWriterWord(7, pes::kPressNoMan, 7), pes::kPressState);
+  EXPECT_EQ(pes::PressWriterWord(2, pes::kPressNoMan, 7), pes::kNothingState);
+}
+
+TEST(PressWriterWord, WithoutASecondPresserOnlyTheWinnerIsPressed) {
+  EXPECT_EQ(pes::PressWriterWord(7, 3, pes::kPressNoMan), pes::kNothingState);
+  EXPECT_EQ(pes::PressWriterWord(3, 3, pes::kPressNoMan), pes::kPressState);
+}
+
 TEST(PressTeamState, SetActionStoresRoleAndStampsRing) {
   pes::TeamPressState s{};
   s.SetAction(3, 0x34, 100);
