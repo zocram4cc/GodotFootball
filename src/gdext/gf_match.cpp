@@ -99,6 +99,7 @@ Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const
   setup.pesSubstitutionConstants = library->substitution_constants();
   setup.pesOffBallConstants = library->off_ball_constants();
   setup.pesMoveStepConstants = library->movestep_constants();
+  setup.pesPressConstants = library->press_constants();
   Properties config;
   config.SetBool("pes_loop", pes_loop);  // the tick-order switch (SW)
   match_ = std::make_unique<Match>(new MatchData(home, away), setup, config);  // owns the MatchData

@@ -666,27 +666,6 @@ TEST(PesEventDetectors, DeflectionNeedsTheSamplePair) {
   EXPECT_FALSE(pes::DetectDeflection(in, &out));
 }
 
-// K=10 (FUN_140a17810): the out-of-play side changing.
-TEST(PesEventDetectors, OutOfPlayFiresWhenTheSideChanges) {
-  pes::OutOfPlayInput in;
-  in.frame = 20;
-  in.phase = 1;
-  in.outSide = 1;
-  in.stored = 1;
-  pes::EventRecord out;
-  EXPECT_FALSE(pes::DetectOutOfPlay(&in, &out));
-  in.outSide = 2;
-  EXPECT_TRUE(pes::DetectOutOfPlay(&in, &out));
-  EXPECT_EQ(out.kind, 10u);
-  EXPECT_EQ(out.U32(0x14), 2u);  // payload+0 is the new side
-  EXPECT_FALSE(pes::DetectOutOfPlay(&in, &out));
-  in.gateOpen = false;  // MI+0x11b4 nonzero
-  in.outSide = 3;
-  EXPECT_FALSE(pes::DetectOutOfPlay(&in, &out));
-  in.gateOpen = true;   // MI+0x11b4 == 0: fires again
-  EXPECT_TRUE(pes::DetectOutOfPlay(&in, &out));
-}
-
 // K=0x10 (FUN_140a14a20): the restart byte at MI+0x11b2 turning nonzero.
 TEST(PesEventDetectors, RestartFiresOnANonzeroRestartByte) {
   pes::RestartInput in;

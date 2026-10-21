@@ -56,6 +56,13 @@ constexpr FamilyPrefix kFamilies[] = {
     {PesClipFamily::kLocomotion, "idle_"},
     {PesClipFamily::kLocomotion, "gkmove"},
     {PesClipFamily::kLocomotion, "dm_oop_"},
+    // The trap family: the action-7 rows' clips. The trap picker names them by motion number (pesreceive.hpp);
+    // the full names, so no other motion matches a prefix.
+    {PesClipFamily::kTrap, "gkcatch_b00_0_0_y00"},
+    {PesClipFamily::kTrap, "gkcatch_b03_0_0_y08"},
+    {PesClipFamily::kTrap, "gkcatch_b03_0_0_y10"},
+    {PesClipFamily::kTrap, "gkcatch_s01_0_0_y08_back"},
+    {PesClipFamily::kTrap, "gkcatch_s01_0_0_y10_back"},
 };
 
 // Fox (Y up, +Z forward) -> engine (Z up, faces -Y), verbatim on both the
@@ -122,6 +129,10 @@ std::string PesClipAnimText(const PesClip& clip, const pesrig::Rig& rig) {
   text += "<specialvar2>\n\t" + std::to_string(clip.motionNo) + "\n</specialvar2>\n";
   text += "<type>\n\tspecial\n</type>\n<tpose_rig>\n\t1\n</tpose_rig>\n";
   return text;
+}
+
+int PesTouchAnimFrame(int hitFrame) {
+  return static_cast<int>(std::lround(hitFrame * pesrig::PES_FRAME_S / kGfFrame_s));
 }
 
 }  // namespace pes

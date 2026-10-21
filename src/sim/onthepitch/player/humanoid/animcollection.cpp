@@ -581,7 +581,7 @@ void AnimCollection::Load(std::filesystem::path directory) {
   Log(e_Notice, "AnimCollection", "Load", "Ready");
 }
 
-void AnimCollection::AddPesClips(const pes::PesClipSet& clips) {
+void AnimCollection::AddPesClips(const pes::PesClipSet& clips, const pes::Mbinfo& mbinfo) {
   boost::intrusive_ptr<Node> playerNode = BuildPlayerNode(rig);
   std::list<boost::intrusive_ptr<Object>> bodyParts;
   playerNode->GetObjects(e_ObjectType_Geometry, bodyParts, true);
@@ -597,6 +597,16 @@ void AnimCollection::AddPesClips(const pes::PesClipSet& clips) {
     mirrored->Mirror();
     _PrepareAnim(animation, playerNode, bodyParts, nodeMap, false);
     _PrepareAnim(mirrored, playerNode, bodyParts, nodeMap, false);
+    // A trap's touch is its contact frame: the clip's first HitData record, at the engine's 10 ms. The frame
+    // survives mirroring. Other PES families keep GF's -1 until their touch is ported.
+    if (pes::IsPesTrapFamily(int(clip.family))) {
+      const auto& hits = mbinfo.Hits(clip.motionNo);
+      if (!hits.empty()) {
+        const std::string touch = std::to_string(pes::PesTouchAnimFrame(hits[0].frame));
+        animation->SetVariable("touchframe", touch);
+        mirrored->SetVariable("touchframe", touch);
+      }
+    }
   }
   playerNode->Exit();
 }

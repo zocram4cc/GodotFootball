@@ -335,3 +335,44 @@ TEST(PesPossessionInstall, TheGameSpeedIsTheLatchsFrameRate) {
   EXPECT_EQ(pes::PesFrameOf(1000, gs), gs);
   EXPECT_EQ(gs / 6, 9);  // the step-2 window
 }
+
+// FUN_1404F4BE0 (first-touch §3.2), the gates GF can express: a holder id out of range, a side that
+// already has the ball, a missing other head, and the arrival test (budget + our arrival > theirs).
+// Frames are synthetic here; the latch feeds the install's game speed and the time-to-ball stand-in.
+namespace {
+pes::ContestInput Contesting() {
+  pes::ContestInput c;
+  c.holderValid = true;
+  c.teamHasBall = false;
+  c.otherHeadValid = true;
+  c.holderArrival_frames = 40.0f;
+  c.otherArrival_frames = 10.0f;
+  c.budget_frames = 5.0f;
+  return c;
+}
+}  // namespace
+
+TEST(PesContestPredicate, ASideWhoseArrivalPlusTheBudgetIsLaterThanTheOtherHeadsIsContesting) {
+  EXPECT_TRUE(pes::ContestBallPredicate(Contesting()));
+}
+
+TEST(PesContestPredicate, ASideThatArrivesFirstIsNotContesting) {
+  auto c = Contesting();
+  c.holderArrival_frames = 2.0f;  // 2 + 5 frames is not past their 10
+  EXPECT_FALSE(pes::ContestBallPredicate(c));
+}
+
+TEST(PesContestPredicate, ASideThatAlreadyHasTheBallIsNotContesting) {
+  auto c = Contesting();
+  c.teamHasBall = true;
+  EXPECT_FALSE(pes::ContestBallPredicate(c));
+}
+
+TEST(PesContestPredicate, NoHolderOrNoOtherHeadIsNotContesting) {
+  auto noHolder = Contesting();
+  noHolder.holderValid = false;
+  EXPECT_FALSE(pes::ContestBallPredicate(noHolder));
+  auto noOther = Contesting();
+  noOther.otherHeadValid = false;
+  EXPECT_FALSE(pes::ContestBallPredicate(noOther));
+}

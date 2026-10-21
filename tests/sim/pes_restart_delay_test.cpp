@@ -11,6 +11,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "data/matchdata.hpp"
 #include "gametypes.hpp"
@@ -36,7 +37,13 @@
 namespace {
 
 constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;
-constexpr unsigned int SEED = 7;
+constexpr unsigned int kDefaultSeed = 7;
+// GF_SEED picks another seed; tools/dev/loose_episodes.sh runs the metric over several.
+unsigned int SeedFromEnvironment() {
+  const char* s = std::getenv("GF_SEED");
+  return s ? static_cast<unsigned int>(std::strtoul(s, nullptr, 10)) : kDefaultSeed;
+}
+const unsigned int SEED = SeedFromEnvironment();
 constexpr int MINUTES = 2;
 // Seed 7 stalls a throw-in at about four minutes; five covers it.
 constexpr int LONG_MINUTES = 5;
@@ -54,7 +61,8 @@ constexpr unsigned long kTwentyMinuteMaxSimTicks = 60ul * 60ul * Match::kFramesP
 // One match with the tick-order switch set as asked. `onTick` sees the match after each tick; the watch stops the run at
 // the first stall. `seed` picks the match; `judgeEnd` runs the whole-match checks (off for a run that stops short).
 void RunMatchWithinTheBound(bool pesLoop, int minutes, const std::function<void(Match&)>& onTick,
-                            unsigned long maxSimTicks = kMaxSimTicks, unsigned int seed = SEED,
+                            unsigned long maxSimTicks = kMaxSimTicks,
+                            const std::function<bool(Match&)>& done = nullptr, unsigned int seed = SEED,
                             bool judgeEnd = true) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
@@ -85,11 +93,13 @@ void RunMatchWithinTheBound(bool pesLoop, int minutes, const std::function<void(
     match.Process();
     watch.Observe(match);
     if (onTick) onTick(match);
+    if (done && done(match)) return;
   }
 
   if (judgeEnd) {
     EXPECT_FALSE(watch.Stalled()) << "a stoppage ran past " << watch.LimitTicks()
-                                  << " ticks without a restart (longest " << watch.LongestTicks() << ")";
+                                  << " ticks without a restart (longest "
+                                  << watch.LongestTicks() << ")";
     EXPECT_TRUE(match.IsGameOver()) << "the match did not reach full time";
     EXPECT_GT(watch.MeasuredStoppages(), 0ul) << "no stoppage was measured";
     EXPECT_LE(watch.LongestTicks(), watch.LimitTicks());
@@ -205,10 +215,9 @@ TEST(PesRestartDelay, DISABLED_AThrowInIsReleasedFromItsSpotAndTaken) {
 // reached the PES mover, so the ball lay until the restart watch gave up. The bound is GF's
 // stalemate clock, the only time GF gives a dead ball in play before it forces the issue. PES's
 // own pickup time is not decoded, so this is a ponytail bound, not a PES number.
-// DISABLED 17-10-26 (Main): red on main by design until the loose-ball pickup lands. The designated
-// man reaches the ball, then AI_HasPossession hands control to GF's on-ball branch and he walks off;
-// PES's first touch (FUN_1404f4be0 helpers) is undecoded. See docs/ports/pes-port-DeadBall.md.
-TEST(PesRestartDelay, DISABLED_ALooseDeadBallInPlayIsReachedAndPlayed) {
+// Re-enabled on FirstTouchPort: the loose-ball pickup lands here (PRESS chase
+// + HitData touch frame + latch step 4b). Red until then.
+TEST(PesRestartDelay, ALooseDeadBallInPlayIsReachedAndPlayed) {
   constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
   constexpr unsigned long kBoundTicks = static_cast<unsigned long>(
       GameplayTuning::kStalemateForceAction_s * static_cast<float>(Match::kFramesPerSecond));
@@ -228,11 +237,57 @@ TEST(PesRestartDelay, DISABLED_ALooseDeadBallInPlayIsReachedAndPlayed) {
       episodes++;
     }
     episodeTicks++;
+    if (std::getenv("FIRSTTOUCH_TRACE")) {
+      Player* des = match.GetDesignatedPossessionPlayer();
+      const float d = des ? (match.GetBall()->Predict(0).Get2D() - des->GetPosition()).GetLength()
+                          : -1.0f;
+      printf("[ft] f=%lu ep=%lu man=%s dist=%.2f hasPoss=%d func=%d anim=%s lastTouch=%lu\n",
+             match.GetSimFrame(), episodeTicks, des ? des->GetPlayerData()->GetLastName().c_str() : "-",
+             d, des ? (int)des->HasPossession() : -1,
+             des ? (int)des->GetCurrentFunctionType() : -1,
+             des ? des->GetCurrentAnim()->anim->GetName().c_str() : "-",
+             des ? match.GetActualTime_ms() - des->GetLastTouchTime_ms() : 0);
+      const auto presser = [&](int t) -> std::string {
+        Player* p = match.GetTeam(t)->GetController()->GetLoosePressMan();
+        return p ? p->GetPlayerData()->GetLastName() : "-";
+      };
+      printf("[ftp] f=%lu presser=%s|%s\n", match.GetSimFrame(), presser(0).c_str(), presser(1).c_str());
+      if (Player* hp = match.GetTeam(0)->GetController()->GetLoosePressMan()) {
+        printf("[ftpd] f=%lu dist=%.2f func=%d anim=%s speed=%.2f\n", match.GetSimFrame(),
+               (match.GetBall()->Predict(0).Get2D() - hp->GetPosition().Get2D()).GetLength(),
+               static_cast<int>(hp->GetCurrentFunctionType()),
+               hp->GetCurrentAnim()->anim->GetName().c_str(), hp->GetMovement().GetLength());
+      }
+    }
     if (episodeTicks > longestTicks) longestTicks = episodeTicks;
   });
   EXPECT_GT(episodes, 0) << "no loose dead ball in play was observed";
   EXPECT_LE(longestTicks, kBoundTicks)
       << "a loose dead ball in play lay for " << longestTicks << " ticks (bound " << kBoundTicks << ")";
+}
+
+// PES stops renewing a PRESS man once the loose ball is more than 13 m from him (press-life 12, the 0x1425C6788
+// distance row). Seed 7 keeps a presser 13.1 to 13.5 m off a ball lying loose for thousands of ticks.
+TEST(PesRestartDelay, ALoosePresserBeyondThirteenMetresIsNotKept) {
+  constexpr float kRenewalBall_m = 13.0f;  // press-life 12: the 13 m loose-ball gate (0x1425C6788)
+  constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
+  unsigned long farRun = 0, farTicks = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() &&
+                       match.GetBall()->GetMovement().GetLength() <= kRestSpeed_ms;
+    bool far = false;
+    if (loose) {
+      for (int t = 0; t < 2; ++t) {
+        Player* p = match.GetTeam(t)->GetController()->GetLoosePressMan();
+        if (p && (match.GetBall()->Predict(0).Get2D() - p->GetPosition().Get2D()).GetLength() > kRenewalBall_m)
+          far = true;
+      }
+    }
+    farRun = far ? farRun + 1 : 0;
+    if (farRun > 1) ++farTicks;  // one tick of grace: the renewal runs on the team tick
+  });
+  EXPECT_EQ(farTicks, 0ul) << "a presser stood more than " << kRenewalBall_m << " m from a loose ball for " << farTicks
+                           << " ticks";
 }
 
 // A restart taker must take the restart: within the bound after the release he plays a ball action
@@ -448,7 +503,7 @@ TEST(PesRestartDelay, AMoverWhoseClipEndsGoesOnAndMoves) {
         run = frozen ? run + 1 : 0;
         longest = std::max(longest, run);
       },
-      1300, /*seed=*/57, /*judgeEnd=*/false);
+      1300, nullptr, /*seed=*/57, /*judgeEnd=*/false);
   EXPECT_LT(longest, kFrozenLimitTicks) << "the presser held zero speed on a finished clip for " << longest << " ticks";
 }
 
@@ -477,7 +532,7 @@ TEST(PesRestartDelay, ASeedThreePesIssuePlaysAtAPositiveRate) {
           }
         }
       },
-      kMaxSimTicks, 3, false);
+      kMaxSimTicks, nullptr, 3, false);
   EXPECT_GT(issues, 0) << "no PES clip was issued";
   EXPECT_EQ(zeroRate, 0) << zeroRate << " of " << issues << " PES clip issues played at rate zero";
 }
@@ -486,7 +541,7 @@ TEST(PesRestartDelay, ASeedThreePesIssuePlaysAtAPositiveRate) {
 // RunLoop turn-stop issue read the copied-in default word instead of the playback word its own arm wrote (PES's
 // param_2[0x35], RunLoop), and the stoppage ran past the bound.
 TEST(PesRestartDelay, TheSeedTwentyThreeKickOffRestarts) {
-  RunMatchWithinTheBound(true, MINUTES, nullptr, kMaxSimTicks, 23);
+  RunMatchWithinTheBound(true, MINUTES, nullptr, kMaxSimTicks, nullptr, 23);
 }
 
 // A finished trap must not freeze a mover. On seed 42 (b1f958a) a loose presser sat in a trap clip at zero speed while
@@ -514,6 +569,292 @@ TEST(PesRestartDelay, AFinishedTrapDoesNotFreezeAMover) {
           }
         }
       },
-      12000, 42, false);
+      12000, nullptr, 42, false);
   EXPECT_LT(longest, kFrozenLimitTicks) << "a mover held a trap at zero speed while commanded for " << longest << " ticks";
+}
+
+// A throw-in's ball must go inside the touchline when the taker releases it. The release is the taker's
+// touch frame: the referee ends the set piece there (referee.cpp, "check if set piece has been taken"),
+// which is PES's release MI+0x116c 3->1 (docs/re/pes-re-throwin-choreography.md, the summary). A release
+// that launches no ball leaves it on the spot, and the match stalls. 27 ticks is the mid release clip's
+// release event at 54 Hz (the doc's release table); a launched ball is inside the line within a few ticks.
+TEST(PesRestartDelay, AReleasedThrowInCarriesItsBallInsideTheTouchline) {
+  constexpr unsigned long kCrossWithinTicks = 27;
+  unsigned long tick = 0, releasedAt = 0;
+  bool throwInSetPiece = false, awaitingCross = false;
+  int releases = 0, stalls = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    ++tick;
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    const bool inSetPiece = match.IsInSetPiece();
+    if (inSetPiece && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn) throwInSetPiece = true;
+    if (throwInSetPiece && !inSetPiece) {
+      throwInSetPiece = false;
+      awaitingCross = true;
+      releasedAt = tick;
+      releases++;
+    }
+    if (!awaitingCross) return;
+    if (std::fabs(match.GetBall()->Predict(0).coords[1]) <= pesFieldHalfWidth) {
+      awaitingCross = false;
+    } else if (tick - releasedAt > kCrossWithinTicks) {
+      stalls++;
+      awaitingCross = false;
+    }
+  });
+  EXPECT_GT(releases, 0) << "no throw-in was released";
+  EXPECT_EQ(stalls, 0) << stalls << " released throw-in(s) left the ball outside the touchline for more than "
+                       << kCrossWithinTicks << " ticks";
+}
+
+// PES's touchline judge reads the out-of-play event the zone code raises when it changes (K=10). The
+// restart's gate holds the code at 0 while the restart is awarded, so the code changes when the gate
+// releases: a ball resting past the touchline is then judged out. The event is read one tick after it
+// is raised, as the code leads the judge by a frame (docs/re/pes-re-out-side.md 5). The test releases
+// the gate the way the taker's touch does (referee.cpp, "check if set piece has been taken").
+TEST(PesRestartDelay, ABallRestingPastTheTouchlineIsJudgedOutWhenTheGateReleases) {
+  constexpr float kRestPastSpot_m = 0.29f;  // the stall's distance past the spot
+  constexpr unsigned long kJudgeWithinTicks = 2;
+  unsigned long tick = 0, placedAt = 0;
+  bool armed = false, judged = false;
+  RunMatchWithinTheBound(
+      true, MINUTES,
+      [&](Match& match) {
+        ++tick;
+        if (armed) return;
+        const RefereeBuffer& b = match.GetRefereeBuffer();
+        if (!match.IsInSetPiece() || !b.started || !b.active ||
+            b.desiredSetPiece != e_SetPiece_ThrowIn)
+          return;
+        const Vector3 spot = b.restartPos;
+        const float side = spot.coords[1] > 0 ? 1.0f : -1.0f;
+        Ball* ball = match.GetBall();
+        ball->SetPosition(
+            Vector3(spot.coords[0], side * (std::fabs(spot.coords[1]) + kRestPastSpot_m), 0.0f));
+        ball->Stop();
+        match.StopSetPiece();
+        const_cast<RefereeBuffer&>(b).active = false;
+        armed = true;
+        placedAt = tick;
+      },
+      kMaxSimTicks,
+      [&](Match& match) {
+        if (!armed || tick < placedAt + kJudgeWithinTicks) return false;
+        judged = !match.IsInPlay();
+        return true;
+      });
+  EXPECT_TRUE(armed) << "no throw-in was released to place the ball past its spot";
+  EXPECT_TRUE(judged) << "a ball at rest " << kRestPastSpot_m
+                      << " m past its spot was not judged out within " << kJudgeWithinTicks
+                      << " ticks of the gate releasing";
+}
+
+// PES's end-line judge reads the same zone event as the touchline (K=10, bit 0x8; FUN_14050e4a0 case 10).
+// A ball at rest behind the end line when a restart's gate releases is judged once: the event is read
+// once, and the corner or goal kick it awards leaves the ball inside, so no second award follows.
+TEST(PesRestartDelay, ABallAtRestBehindTheEndLineIsJudgedOnceWhenTheGateReleases) {
+  constexpr float kBehindEndLine_m = 0.29f;  // the touchline test's distance past the line
+  constexpr unsigned long kWatchTicks = 600;  // the next restart's hold and taking, about 11 s
+  unsigned long tick = 0, armedAt = 0, lastStop = 0;
+  bool armed = false;
+  int endLineAwards = 0;
+  RunMatchWithinTheBound(
+      true, MINUTES,
+      [&](Match& match) {
+        ++tick;
+        const RefereeBuffer& b = match.GetRefereeBuffer();
+        if (!armed) {
+          if (!match.IsInSetPiece() || !b.started || !b.active ||
+              b.desiredSetPiece != e_SetPiece_ThrowIn)
+            return;
+          match.GetBall()->SetPosition(Vector3(pesFieldHalfLength + kBehindEndLine_m, 0.0f, 0.0f));
+          match.GetBall()->Stop();
+          match.StopSetPiece();
+          const_cast<RefereeBuffer&>(b).active = false;
+          armed = true;
+          armedAt = tick;
+          lastStop = b.stopTime;
+          return;
+        }
+        if (b.stopTime != lastStop && b.active &&
+            (b.desiredSetPiece == e_SetPiece_Corner || b.desiredSetPiece == e_SetPiece_GoalKick)) {
+          endLineAwards++;
+          lastStop = b.stopTime;
+        }
+      },
+      kMaxSimTicks, [&](Match&) { return armed && tick >= armedAt + kWatchTicks; });
+  EXPECT_TRUE(armed) << "no throw-in was released to place the ball behind the end line";
+  EXPECT_EQ(endLineAwards, 1) << endLineAwards << " end-line restart(s) awarded for one ball behind the line";
+}
+
+// PES judges the end line from the zone event one tick after the zone code flips: the judge reads the event on
+// the next frame (docs/re/pes-re-A5Judge.md 1.4; docs/re/pes-re-out-side.md 5, the code leads the judge by a
+// frame). Natural crossing: the first end-line flip of the seed-7 match (trace: the flip at ms 136166, the
+// judge at ms 136185, one 54 Hz tick later). The restart it awards must come on the flip tick plus one.
+TEST(PesRestartDelay, ATheFirstEndLineCrossingIsJudgedOnTheNextTick) {
+  unsigned long tick = 0, flipAt = 0, awardAt = 0, lastStop = 0;
+  e_SetPiece awardKind = e_SetPiece_None;
+  bool live = false;  // the judge's gate at the start of the tick: in play, not in a set piece, none awarded
+  RunMatchWithinTheBound(
+      true, MINUTES,
+      [&](Match& match) {
+        ++tick;
+        const RefereeBuffer& b = match.GetRefereeBuffer();
+        if (flipAt == 0 && live) {
+          const Vector3 p = match.GetBall()->Predict(0);
+          if (pes::OutOfPlayCode(p.coords[0], p.coords[1], match.GetPesBallConstants().image.ballRadius) & 0x8)
+            flipAt = tick;
+        }
+        if (flipAt != 0 && awardAt == 0 && b.active && b.stopTime != lastStop) {
+          awardAt = tick;
+          awardKind = b.desiredSetPiece;
+        }
+        if (flipAt == 0) lastStop = b.stopTime;
+        live = match.IsInPlay() && !match.IsInSetPiece() && !b.active;
+      },
+      kMaxSimTicks, [&](Match&) { return awardAt != 0; });
+  EXPECT_NE(flipAt, 0ul) << "the seed-7 match has no end-line crossing";
+  EXPECT_EQ(awardAt, flipAt + 1) << "the end-line restart came on tick " << awardAt
+                                 << ", not on the judge's tick after the flip at " << flipAt;
+}
+
+// PES scores the goal in the judge, on the judge's frame, one frame after the zone code flips (cc = 1 in
+// FUN_14050e4a0 case 10, docs/re/pes-re-A5Judge.md 1.4). The natural crossing of seed 7 flips at tick 7354 and is
+// judged on 7355 (ATheFirstEndLineCrossingIsJudgedOnTheNextTick). The score must not move on the flip tick.
+TEST(PesRestartDelay, ANaturalGoalIsCountedOnTheJudgesFrame) {
+  unsigned long tick = 0, flipAt = 0, lastStop = 0;
+  bool live = false;
+  int goalsBefore = 0, goalsAtFlip = -1, goalsAfter = -1;
+  const auto goals = [](Match& match) {
+    return match.GetMatchData()->GetGoalCount(0) + match.GetMatchData()->GetGoalCount(1);
+  };
+  RunMatchWithinTheBound(
+      true, MINUTES,
+      [&](Match& match) {
+        ++tick;
+        const RefereeBuffer& b = match.GetRefereeBuffer();
+        if (flipAt == 0 && live) {
+          const Vector3 p = match.GetBall()->Predict(0);
+          if (pes::OutOfPlayCode(p.coords[0], p.coords[1], match.GetPesBallConstants().image.ballRadius) & 0x8) {
+            flipAt = tick;
+            goalsAtFlip = goals(match);
+          }
+        }
+        if (flipAt == 0) {
+          goalsBefore = goals(match);
+          lastStop = b.stopTime;
+        } else if (tick == flipAt + 1) {
+          goalsAfter = goals(match);
+        }
+        live = match.IsInPlay() && !match.IsInSetPiece() && !b.active;
+      },
+      kMaxSimTicks, [&](Match&) { return goalsAfter >= 0; });
+  EXPECT_NE(flipAt, 0ul) << "the seed-7 match has no end-line crossing";
+  EXPECT_EQ(goalsAtFlip, goalsBefore) << "the score moved on the flip tick, before the judge read the event";
+  EXPECT_EQ(goalsAfter, goalsBefore + 1) << "the goal was not counted on the judge's frame";
+}
+
+// The loose-episode metric, the acceptance number on the PES path: per seed, the loose episodes longer than
+// the stall bound (over) and the excess ticks past it. Disabled so the suite does not run four whole matches;
+// tools/dev/loose_episodes.sh runs it over the seeds (--gtest_also_run_disabled_tests).
+TEST(PesRestartDelay, DISABLED_LooseEpisodeMetric) {
+  constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
+  constexpr unsigned long kBoundTicks = static_cast<unsigned long>(
+      GameplayTuning::kStalemateForceAction_s * static_cast<float>(Match::kFramesPerSecond));
+  constexpr size_t kTopEpisodes = 3;  // the longest over-bound episodes per seed, printed for the cause table
+  bool inEpisode = false;
+  unsigned long episodeTicks = 0, episodeStart = 0, episodes = 0, over = 0, excess = 0;
+  std::vector<std::pair<unsigned long, unsigned long>> longEpisodes;  // (ticks, start frame)
+  // Each loose tick has a class. A defender on a slide or a get-up clip is `slide`; otherwise a loose presser more than
+  // kPresserNear_m from the ball is `approach`, and one within it is `contact`; with no presser, the nearest man beyond
+  // kFarBall_m is `far`, and a nearer one `near-nopresser`. An over-bound episode takes its most frequent tick class, and
+  // its excess is charged to that class.
+  enum : int { kApproach, kFar, kNearNoPresser, kSlide, kContact, kClassCount };
+  const char* const kClassNames[kClassCount] = {"approach", "far", "near-nopresser", "slide", "contact"};
+  constexpr float kPresserNear_m = 1.5f;
+  constexpr float kFarBall_m = 13.0f;
+  unsigned long classTicks[kClassCount] = {}, classExcess[kClassCount] = {};
+  const auto classifyTick = [&](Match& match) {
+    const Vector3 b = match.GetBall()->Predict(0);
+    float nearest = 1e9f, presser = 1e9f;
+    bool slide = false;
+    for (int t = 0; t < 2; ++t) {
+      std::vector<Player*> active;
+      match.GetActiveTeamPlayers(t, active);
+      for (Player* p : active) {
+        nearest = std::min(nearest, (p->GetPosition().Get2D() - b.Get2D()).GetLength());
+        const auto* anim = p->GetCurrentAnim()->anim;
+        if (p->GetCurrentFunctionType() == e_FunctionType_Sliding ||
+            (anim && anim->GetVariable("incoming_special_state") != ""))
+          slide = true;
+      }
+      if (Player* pr = match.GetTeam(t)->GetController()->GetLoosePressMan())
+        presser = std::min(presser, (pr->GetPosition().Get2D() - b.Get2D()).GetLength());
+    }
+    if (slide) return int(kSlide);
+    if (presser < 1e9f) return presser > kPresserNear_m ? int(kApproach) : int(kContact);
+    return nearest > kFarBall_m ? int(kFar) : int(kNearNoPresser);
+  };
+  const auto closeEpisode = [&] {
+    if (episodeTicks > kBoundTicks) {
+      ++over;
+      excess += episodeTicks - kBoundTicks;
+      longEpisodes.emplace_back(episodeTicks, episodeStart);
+      const int cls = int(std::max_element(classTicks, classTicks + kClassCount) - classTicks);
+      classExcess[cls] += episodeTicks - kBoundTicks;
+      printf("[loose-class] seed=%u start=%lu ticks=%lu class=%s\n", SEED, episodeStart, episodeTicks, kClassNames[cls]);
+    }
+  };
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() &&
+                       match.GetBall()->GetMovement().GetLength() <= kRestSpeed_ms;
+    if (loose) {
+      if (!inEpisode) {
+        inEpisode = true;
+        episodeTicks = 0;
+        episodeStart = match.GetSimFrame();
+        std::fill(classTicks, classTicks + kClassCount, 0ul);
+        ++episodes;
+      }
+      ++episodeTicks;
+      ++classTicks[classifyTick(match)];
+    } else if (inEpisode) {
+      inEpisode = false;
+      closeEpisode();
+    }
+  });
+  if (inEpisode) closeEpisode();  // an episode still open when the stall watch stopped the run
+  ASSERT_GT(episodes, 0ul) << "no match ran; is PES21_ROOT set?";
+  printf("[loose-episodes] seed=%u episodes=%lu over=%lu excess=%lu\n", SEED, episodes, over, excess);
+  std::sort(longEpisodes.begin(), longEpisodes.end(), std::greater<>());
+  for (size_t i = 0; i < longEpisodes.size() && i < kTopEpisodes; ++i)
+    printf("[loose-top] seed=%u rank=%zu start=%lu ticks=%lu\n", SEED, i + 1, longEpisodes[i].second,
+           longEpisodes[i].first);
+  printf("[loose-classes] seed=%u approach=%lu far=%lu near-nopresser=%lu slide=%lu contact=%lu\n", SEED,
+         classExcess[kApproach], classExcess[kFar], classExcess[kNearNoPresser], classExcess[kSlide], classExcess[kContact]);
+}
+
+// The trap picker names the clip a loose presser plays from the install's trap rows: over seed 7's match, every
+// trap-family clip the presser plays is named by one of the match's trap rows, and the presser plays some.
+TEST(PesRestartDelay, ALoosePresserInTheTrapWindowPlaysThatRowsClip) {
+  constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
+  std::set<int> rowClips;
+  unsigned long trapTicks = 0, strayTicks = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    if (rowClips.empty()) {
+      for (const auto& row : match.GetPesDefenderDecisionConstants().receive.trapRows) rowClips.insert(row.clip);
+    }
+    const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() &&
+                       match.GetBall()->GetMovement().GetLength() <= kRestSpeed_ms;
+    if (!loose) return;
+    Player* pr = nullptr;
+    for (int t = 0; t < 2 && !pr; ++t) pr = match.GetTeam(t)->GetController()->GetLoosePressMan();
+    if (!pr) return;
+    const auto& anim = pr->GetCurrentAnim()->anim;
+    if (anim->GetVariable("specialvar1") != std::to_string(int(pes::PesClipFamily::kTrap))) return;
+    ++trapTicks;
+    if (!rowClips.count(std::stoi(anim->GetVariable("specialvar2")))) ++strayTicks;
+  });
+  EXPECT_GT(trapTicks, 0ul) << "the loose presser never played a PES trap clip";
+  EXPECT_EQ(strayTicks, 0ul) << "a PES trap clip is not named by a trap row";
 }
