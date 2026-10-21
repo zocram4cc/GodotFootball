@@ -89,6 +89,10 @@ add_executable(pes_exe_test pes_exe_test.cpp)
 target_link_libraries(pes_exe_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_exe_test)
 
+add_executable(pes_derivation_test pes_derivation_test.cpp)
+target_link_libraries(pes_derivation_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_derivation_test)
+
 add_executable(pes_handseq_test pes_handseq_test.cpp)
 target_link_libraries(pes_handseq_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_handseq_test)
