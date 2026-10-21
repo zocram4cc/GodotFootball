@@ -919,3 +919,6 @@ error; §3.4 has the correction and the checker's M9 mutation guards it.)
   out of "XMM3"); and the operand-pair check guessed `disp32` encodings where the image uses
   `disp8`. All are fixed and now covered by the mutations above.
 - No GF code changed, no GF build/test run, no PES write/pin/input. The port was read only.
+
+## Open: the live 0..9 byte (Main, 21-10-26)
+S1Watch round 36 read u8(primary + 0x2798) on the AnimePlayer primaries (validated by +0x245C in 0..22 and a finite +0x20) and saw 0..9; i32(+0x2794) varied 0..3. The decoded scan's only 0/1 writer (SETZ at 0x1411944E6) stores into the loader FUN_141194330's param_1 = [RBX+0x48], a pointer-held object, so the live byte on the primary is most likely a different field of a different object. The port is unaffected: it uses the decoded rule (flag 1 iff the record value is out of range; 0 for the default record). Settling it would need a live read through *(primary + …)→+0x2798 on the loader's object.

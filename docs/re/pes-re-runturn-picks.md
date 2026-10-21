@@ -3,6 +3,8 @@
 > **Main audit 20-10-26:** the column table `0x1425DD988` = 9, 11, 13, 15, 17, 8, 6, 4, 2, 0; the row table `0x1425DDA50` = 32 entries 1361..1388; the swing window `0x1406CEFBA` = `lea eax,[r13-0x561]; cmp eax,5; ja; mov ecx,0x29; bt ecx,eax` (range plus bitmask: rows 0x561, 0x564, 0x566 pass): all match.
 > **Main audit, round 2:** `0x1406CF30B` = `mov r13d,0x570` (the 0x56F block's fall-through); `0x1406D7CBE` = `cmp r14d,0x5c5` (the explicit exclusion after the 0xFFFFFFF9 mask): match. The remap list and row list were corrected this round (ClipWords' corrections, confirmed).
 > **Main audit, round 3 (21-10-26):** vt+0xD0 of the +0xAC0 vtable (`0x1425E35B0`+0xD0) = `0x1406B9D80`: match. **Unit correction:** FUN_14042D470 = ticks·60·60/1000·|displacement| is km/h (the port's GroundSpeedKmh), not m/s; the swing rows' 16.0 is 16 km/h.
+> **Main audit, round 4 (21-10-26):** §5g's band walk (0x1406C4DCC-DEB) is accepted. **Its claim that the install's PES2021.exe is a hot-patched build with field offsets shifted by +0x3B00 is FALSE:** the install's exe (PE-mapped) and pes_full.bin carry identical bytes at 0x1406C4DCC (`8b6f7c…`, mov ebp,[rdi+0x7c]), 0x1406C142A and the table 0x1425DD9B0; live reads of +0x245C validate on the install's process.
+> **Main note:** TeamDecode retracted the "modded exe" claim itself (a VA-to-file-offset map applied to the wrong file); §5g now verifies the walk against the install's own bytes.
 
 Read-only RE. No GF code changed, no PES written. Scratch: `<workdrive>/gf-TeamDecode-scratch/dec/`.
 Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`.
@@ -844,16 +846,66 @@ void FUN_1406b9d80(undefined8 param_1, undefined2 *param_2, int *param_3, int *p
 }
 ```
 
-**Its inputs:**
+**Its inputs.** The call site (`FUN_1406D2590`, line 293) is
 
-| argument | what it is |
+```
+(**(code **)(*plVar2 + 0xd0))(plVar2, local_res20, local_res18, local_res10, piVar23, piVar24, 0);
+```
+
+and the function's signature is
+`FUN_1406B9D80(param_1, param_2, param_3, param_4, param_5, param_6, param_7)`, so:
+
+| argument | what it is | where it comes from |
+|---|---|---|
+| `param_2` (out) | the **motion number** (a `short`) and, at `+1`, the **mirror flag** (a `byte`) | `local_res20` |
+| **`param_3`** (in) | the **class** — the request's **class word `req[0x1F]`**, **clamped to 0..3** | `local_res18` = `param_2[0x1f]`, then clamped (`FUN_1406D2590` lines 74-82) |
+| **`param_4`** (in) | the **kind** — the request's `req[0]`, with the **stamp rule** | `local_res10` = `*param_2`, overridden to 1 under the stamp condition (`FUN_1406D2590` lines 286-289) |
+| `param_5` (in) | the **bucket** — the request's `kMoveBucket` (`req[8]`) | `piVar23` = `local_res8` = `param_2[0xc]` |
+| `param_6` (in) | the **action kind** — `param_2 + 0x16`, the request's `kCommandId` (`req[0x16]`) | `piVar24` |
+| `param_7` (in) | the clip table, or 0 for the default (`FUN_1406ABBA0`, the anime table) | the literal `0` |
+
+**=> the class is `req[0x1F]` (the class word), NOT `req[9]`.** `req[9]`
+(`kCommandSpeedClass`) is never read by the selector. The **kind** is `req[0]`, and the
+**override tests the CLASS** (`*param_3 == 2`), not the kind.
+
+**The row's table index** is `*param_4 + *param_3 * 8` — the **kind + class × 8** — and the
+override's `*param_3 == 2` is therefore the **class** too.
+
+**CORRECTION (ClipWords' audit, applied).** This section was written before ClipWords'
+audit of the argument order, and the audit was right: the first draft of this section named
+`req[9]` as the class and had `param_3`/`param_4` swapped. The corrected mapping is in the
+table above and the checker's seven §5d mutations guard it. §5e adds the class
+word's writers. The first draft of this section said the class was
+`req[9]` and the kind `req[0]`, i.e. it had `param_3` and `param_4` **swapped** and named the
+wrong request word for the class. The port's `StopRowFor` (which the first draft cited as
+agreeing) had the *order* right but was cited for the wrong reason.
+
+**The class word's range — and a consequence for the port.** PES clamps it to **0..3**, and
+`DAT_1425DDAD0` has **32 entries** (4 classes × 8 kinds), script-read:
+
+| class | the eight rows (kind 0..7) |
 |---|---|
-| `param_3` (in) | the **kind** — the request's `kKind`; it selects the row's table index and, when it is 2, the override |
-| `param_4` (in) | the **class** — the request's `kCommandSpeedClass` |
-| `param_5` (in) | the **bucket** — the request's `kMoveBucket`; it indexes the column table |
-| `param_6` (in) | the **action kind** — `param_2 + 0x16`, the request's `kCommandId` |
-| `param_2` (out) | the **motion number** (a `short`) and, at `+1`, the **mirror flag** (a `byte`) |
-| `param_7` (in) | the clip table, or 0 for the default (`FUN_1406ABBA0`, the anime table) |
+| 0 | 1398, 1398, 1399, 1400, 1401, 1402, 1403, 1403 |
+| 1 | 1404, 1404, 1405, 1406, 1407, 1408, 1409, 1409 |
+| 2 | 1410, 1410, 1411, 1412, 1413, 1414, 1415, 1415 |
+| **3** | **1416, 1416, 1417, 1418, 1419, 1420, 1421, 1421** |
+
+(The first draft of this section listed only 24 entries and so omitted the whole class-3
+block — a consequence of the same argument mix-up.)
+
+**=> the class can be 3, so the class-3 rows are live.** The class word `req[0x1F]` is
+written with the literal **3** in several places (see §5e), and PES's clamp admits it.
+
+**NO PORT DIFFERENCE — RETRACTED.** This section first claimed that the port's `StopRowFor`
+clamps the class to 0..2 and so drops the class-3 rows. **That was wrong**: it was read off an
+older revision of the working tree. On the branch (`origin/RunTurnRunPicks`) the port has the
+**0..3** clamp (`movestep_run.hpp`: `const int c = cls < 0 ? 0 : (cls > 3 ? 3 : cls);`) and
+`StopRowFor` also takes the action word, so it can implement the selector's
+`action != 1 && action != 0x11 && action != 0x70` guard — which the version I read could not,
+because it hard-coded the "action word is 0" case. The port's `GotoRowFor` and
+`TurnStopRowFor` use the same 0..3 clamp. **The port matches PES; there is nothing to file.**
+(ClipWords' audit of the branch; the class-3 test
+`EnterTurnStop.TheClassWordThreeReadsTheStopTableBeyondItsTwentyFourRows` passes there.)
 
 **The clip table it picks from.** `FUN_1406ABBA0` returns `DAT_1436F2378` — the same **anime
 clip table** the runturn pick uses (`§0` above). So the motion comes from the **same table**,
@@ -862,15 +914,15 @@ at the cell `table[(row * 9 + column) * 2]`.
 **The two tables it uses:**
 
 - **the row**: `DAT_1425DDAD0` (`0x1425DDAD0`), the **stop rows**, indexed by
-  `kind + class * 8` — 24 entries, script-read: **1398, 1398, 1399, 1400, 1401, 1402, 1403,
-  1403, 1404, 1404, 1405, 1406, 1407, 1408, 1409, 1409, 1410, 1410, 1411, 1412, 1413, 1414,
-  1415, 1415**. (This is the table the port calls `t.stopRow`.)
+  `kind + class * 8` — **32 entries** (4 classes × 8 kinds), script-read in the table above.
+  (This is the table the port calls `t.stopRow`.)
 - **the column**: `DAT_1425DD988` (`0x1425DD988`) — **the same 10-entry bucket→column table**
   as §2 above, indexed by the bucket.
 
 **The override.** When the action kind is **not** 1, **not** 0x11, **not** 0x70, the row is not
-already 0x582, **and** the kind is 2, the row is forced to **0x582 (1410)**. (`0x582` is the
-"turn stop" row the port's `StopRowFor` also forces: `if (row != 0x582 && c == 2) row = 0x582`.)
+already 0x582, **and the CLASS is 2**, the row is forced to **0x582 (1410)**. (`0x582` is the
+"turn stop" row the port's `StopRowFor` also forces: `if (row != 0x582 && c == 2) row = 0x582` —
+the port's `c` is the class, matching PES's `*param_3`.)
 
 **What it returns when nothing fits.** `FUN_1406ABB30` (§0) returns **−1** when the
 row × column cell is empty (the cell's bit 15 is set) or the row/column is out of range. That
@@ -879,9 +931,384 @@ whatever `FUN_1406ABD60` returns for that cell (0 if the cell is empty). The cal
 `FUN_1406D2590` then sees a motion of −1 and skips the clip issue.
 
 **=> the rule for ClipWords: EnterTurnStop's motion is
-`StopRowFor(kind, class)` × `DAT_1425DD988[bucket]`, looked up in the anime clip table; when the
-cell is empty the motion is −1 and no clip is issued.** The port's `StopRowFor` and
-`AngleBucket` already implement both halves.
+`StopRowFor(kind, class)` × `DAT_1425DD988[bucket]`, looked up in the anime clip table, where
+the **class is the class word `req[0x1F]` clamped to 0..3** and the **kind is `req[0]`** (with
+the stamp rule); when the cell is empty the motion is −1 and no clip is issued.** The port's
+`StopRowFor` and `AngleBucket` already implement both halves; the only difference is the
+class's upper clamp (the port's 0..2 against PES's 0..3).
+
+---
+
+## §5e The class word `req[0x1F]` — who writes it
+
+*(ClipWords' question: which PES writes of `param_2[0x1f] = 0` are in the decompiles? The
+goto stop arm, `FUN_1406BDF10` around its line 215-230.)*
+
+**The class word is `req[0x1F]` — the request's fourth word.** It is the word the
+`vt+0xD0` selector reads as its class, and the word the port's `StopRowFor` takes as `cls`.
+
+**In `FUN_1406BDF10` (the goto stop arm) there are three writes of `param_2[0x1f] = 0`:**
+
+**At line 227** — the arm that goes to **STOP** (`FUN_1406D5D60`):
+
+```
+1406BDF10's line 223:  param_2[0x25] = iVar12;                 ; the previous bucket
+                      uVar21 = (**(code **)(*(longlong *)(param_1 + 0xac0) + 0x60))();
+                      param_2[0x1d] = 0x40a00000;               ; the blend (5.0)
+                      param_2[0x1f] = 0;                        ; the CLASS word <- 0
+                      param_2[0x20] = uVar21;                   ; the new bucket
+                      FUN_1406d5d60(param_1,param_2);           ; -> STOP
+                      return;
+```
+
+**At line 400** — the arm that goes to the **GOTO_RUN swing** (`FUN_1406CE820`):
+
+```
+LAB_1406BE554:
+  param_2[0x1d] = 0x40a00000;
+  param_2[0x1f] = 0;                          ; the CLASS word <- 0
+  FUN_1406ce820(param_1,param_2,0);
+  return;
+```
+
+**At line 419** — the arm that goes to `FUN_1406D38D0`, where the class word is set from the
+player's **speed**:
+
+```
+if (DAT_14259222c <= fVar22) {                 ; 5.0 <= the per-second distance
+  if (DAT_14259BDFC <= fVar22) { param_2[0x1f] = 2; param_2[0x1d] = 0x41800000; }   ; fast -> class 2
+  else                      { param_2[0x1f] = 1; param_2[0x1d] = 0x41300000; }   ;       -> class 1
+}
+else { param_2[0x1d] = 0x40a00000; param_2[0x1f] = 0; }                         ; slow -> class 0
+```
+
+**=> in the goto stop arm the class word is 0 (stop), 1 or 2 (the swing, by speed), and the
+stop arm clears it to 0 before the STOP handler.** CONFIRMED.
+
+**The class word can be 3.** Across the MOVESTEP functions the literal **3** is written in:
+
+| function | the line | the context |
+|---|---|---|
+| `FUN_1406BA900` (the MOVESTEP dispatcher) | 314 | a class-3 branch |
+| `FUN_1406C14C0` | 288, 900 | two class-3 branches |
+| `FUN_1406C3470` | 308 | a class-3 branch |
+| `FUN_1406C7400` | 322, 431, 468, 629, 657, 764 | six class-3 branches |
+| `FUN_1406C8D80` | 244 | a class-3 branch |
+| `FUN_1406D6780` (the RUN_TURN_RUN entry) | 527, 804, 1042 | three class-3 branches |
+| `FUN_1406D6D60` (the STOP handler) | 527, 804, 1042 | the same three |
+
+**=> the class-3 rows of `DAT_1425DDAD0` (1416..1421) are live, and PES's 0..3 clamp is
+correct.** The port's 0..3 clamp on the branch matches.
+
+**The other class-word writers** (for completeness — the values, not the contexts):
+
+| function | the values it writes |
+|---|---|
+| `FUN_1406BA900` | 0xFFFFFFFF (twice), 0, 1, 2, 3, and two computed values |
+| `FUN_1406BDF10` | 0 (×3), 1, 2, and one computed value |
+| `FUN_1406C0170` | 0, 1, and one computed value |
+| `FUN_1406C1070` (the RUN_TO_STEP handler) | `param_2[0x1f] = param_2[0x24]` — the class is **copied from the previous class** (the byte at `req+0x90`) |
+| `FUN_1406C6480` | 0, 1, 2, and `param_2[0x24]` (the same copy) |
+| `FUN_1406C4C10`, `FUN_1406C6F80`, `FUN_1406C8D80`, `FUN_1406C3470`, `FUN_1406C7400`, `FUN_1406C14C0`, `FUN_1406D2F60`, `FUN_1406D38D0`, `FUN_1406CE820` | 0, 1, 2, 3 and computed values |
+
+**The two "copy" writes** (`req[0x1F] = req[0x24]`) are the ones that make the class word
+*stick* across a tick: `req[0x24]` is the **previous** class word (the byte at `req+0x90`).
+
+---
+
+## §5f The GOTO cruise tail: the `+0xAC0` interface's slot `0x00`
+
+*(ClipWords' queued decode request: the `vt+0x00` of the `+0xAC0` object, called from
+`FUN_1406BDF10`'s GOTO cruise tail.)*
+
+**The call site** (`FUN_1406BDF10`, lines 346-379) — confirmed line for line:
+
+```
+346:  plVar2 = (longlong *)(param_1 + 0xac0);        // the +0xAC0 interface
+       ...                                            // the rate is set at 0x4a
+374:  iVar10 = (**(code **)(*plVar1 + 0x78))();      // plVar1 = param_1 + 0xab8
+375:  param_2[0x1b] = 0;
+376:  param_2[0x2e] = 0;
+377:  *(undefined1 *)(param_2 + 0x50) = 0;             // the style byte
+378:  *(bool *)(param_2 + 0x26) = iVar10 - 1U < 2;    // the foot flag
+379:  (**(code **)*plVar2)(plVar2,param_2,iVar10,0); // the call
+```
+
+**`plVar1` is `param_1 + 0xAB8`** — CONFIRMED, and it is a *different* interface from
+`plVar2` (`param_1 + 0xAC0`). The `vt+0x78` read is on the `+0xAB8` object; the call is on
+the `+0xAC0` one.
+
+### §5f.1 The function
+
+**`FUN_1406D2030` (`0x1406D2030`)** — the `+0xAC0` interface's vtable slot `0x00`
+(script-read from the vtable at `0x1425E35B0 + 0x00`). Its signature is
+`void FUN_1406D2030(longlong *param_1, int *param_2, int param_3, uint8_t param_4)`, where
+`param_1` is the `+0xAC0` object, `param_2` the request block, `param_3` the **foot argument**
+(the `iVar10` from `vt+0x78` of the `+0xAB8` object) and `param_4` the **0** literal.
+
+**The concrete class.** `param_1` is the `+0xAC0` interface of the **AnimePlayer** — the same
+object whose `+0xAC0` field the command fill uses (`FUN_1406B7560`'s `LEA RBX,[R14 + 0xac0]`)
+and whose `vt+0x80` the bucket index comes from. Inside, `param_1[-1]` is the **`+0xAB8`
+interface** (the vtable is at `param_1 - 8`), and `param_1 + 0x158` is the AnimePlayer's own
+record. CONFIRMED.
+
+### §5f.2 Every word and byte of `param_2` it reads or writes
+
+**READ**
+
+| the offset | what |
+|---|---|
+| `param_2[0x00]` (word 0) | the move kind — tested against 3 and 6 |
+| `param_2[0x09]` (word 9) | the command speed class |
+| `param_2[0x0A]` (word 0x0A) | the desired speed |
+| `param_2[0x0B]` (byte 0x2C) | a flag: when set, the class comes from `vt+0x38` instead of the band |
+| `param_2[0x1C]` (byte 0x70) | a flag: when zero, the class-0 / kind-3-or-6 special case applies |
+| `param_2[0x1D]` (word 0x1D) | the blend — read, clamped and written back |
+| `param_2[0x1F]` (word 0x1F) | the class word — read, clamped to 0..3 and written back |
+| `param_2[0x26]` (byte 0x26) | **the foot flag — READ and passed to `FUN_1406BA2F0`** |
+| `param_2[0x50]` (byte 0x50) | the style byte — read and passed to `FUN_1406BA2F0` |
+
+**WRITTEN**
+
+| the offset | the value |
+|---|---|
+| `param_2[0x1F]` | the class word, **clamped to 0..3** |
+| `param_2[0x1D]` | the blend, clamped into `[DAT_1425A2004 (28.0), DAT_14259222C (5.0)]` — the value is kept when it is between 5.0 and 28.0 |
+| `param_2[0x4A]` | the rate: `vt+0x38` of the class (or the kind-3/6 special case), then clamped to `[0, vt+0x18 × DAT_1425AB124]` |
+| `param_2[0x37]` | the **motion number** (from `FUN_1406BA2F0`'s return) |
+| `param_2 + 0x50` (byte) | the motion number again — the style byte is **overwritten with the motion** |
+| `param_2[0x30]` | the motion: `DAT_1425DDCF0[style × 0x10 + band]`, the band (4, 8 or 12) chosen from the rate against `DAT_1425DDF54` (0.225), `DAT_14259B89C` (0.4) and `DAT_14257A194` (0.7) |
+| `param_2[0x4F]` | the playback speed: 0, 0.5, 0.75 or 1.0 (see below) |
+| `param_2 + 0x26` (byte) | **the foot flag** — `param_3 - 1 < 2` |
+| `param_2 + 0x31` (byte) | **the foot flag again**, then possibly forced to 1 or 0 |
+| `param_2[0x09]` | the class, clamped to 0..3 |
+| `param_2[0x36]` | 0 |
+| `param_2[0x1B]` | `0x3DCCCCCD` (0.1) |
+| `param_2[0x2D]` | 0 |
+| `param_2[0x2E]` | 0 |
+| `param_2[0x1A]` | 0 |
+| `param_2[0x20]` | 0 |
+| `param_2 + 0x38` (byte) | 1 — the motion-pending flag |
+| `param_2[0x39]` | 3 — the next state |
+| `param_2[0x32]` | 0.3 (or 0.1666667, or 0.1) — the playback blend |
+| `param_2[0x1E]` | `*param_2` — the kind, copied forward |
+| `param_2[0x35]` | 1.0 |
+| `param_2[0x33]` | 0 |
+| `param_2 + 0x3C` (byte) | 0 |
+
+**=> byte `0x98` is NEVER read or written by this function.** CONFIRMED by a grep of the
+decompile: no `0x98` operand at all. The foot flag lives at **byte `0x26`** (and is mirrored
+into byte **`0x31`**).
+
+**The foot argument and the 0 argument.**
+- `param_3` is the **foot**: the value from `vt+0x78` of the `+0xAB8` object. The foot flag
+  is `param_3 - 1 < 2`, i.e. the foot is 1 or 2 (left/right).
+- `param_4` is the **0** literal at this call site. It is passed straight through to
+  `FUN_1406BA2F0` as its last argument.
+
+**The byte `0x31` rules** (the foot flag's second copy):
+- it is first set to `param_3 - 1 < 2` (the foot flag);
+- if the motion is below 0xD **and** its bit in the mask `0x1028` is set, it is forced to **1**;
+- else, if the motion is above 0xB **and** its bit in the mask `0x814` is set, it is forced to
+  **0**;
+- and `param_2[0x4F]` (the playback) is then chosen from it: the foot flag set → 0 or 0.75
+  (0.5 when `param_3` is 1 or 3), the foot flag clear → 0.5 or 0.25.
+
+### §5f.3 What it issues to the body
+
+**`FUN_1406BA2F0` (`0x1406BA2F0`)** is the issuer:
+
+```c
+uVar3 = FUN_1406ba2f0(plVar1, uVar2, uVar10, param_2, (char)param_2[0x26],
+                     (char)param_2[0x50], 0, uVar11, param_4);
+param_2[0x37] = uVar3;
+*(char *)(param_2 + 0x50) = (char)uVar3;
+```
+
+Its arguments are the AnimePlayer record, the `+0xAB8` object's `vt+0x28` value, the
+`+0xAC0` object's `vt+0x38` value, the request block, **the foot flag (byte 0x26)**, **the
+style byte (byte 0x50)**, a 0, the `+0xAC0` object's `vt+0x18` value, and `param_4`.
+
+So the issue is:
+
+| what | the value |
+|---|---|
+| the **motion** | `FUN_1406BA2F0`'s return, written to `param_2[0x37]` and byte `0x50` |
+| the **motion's clip** | `param_2[0x30]` = `DAT_1425DDCF0[style × 0x10 + band]`, the band (4, 8 or 12) chosen from the rate against `DAT_1425DDF54` and `DAT_14259B89C` |
+| the **mirror** | the foot flag, mirrored into byte `0x31` (and byte `0x26`) |
+| the **blend** | `param_2[0x32]` — 0.3, or 0.1666667 when the player is nearly on the target and the turn is small |
+| the **playback** | `param_2[0x4F]` — 0, 0.25, 0.5 or 0.75, from the foot flag and `param_3` |
+| the **rate** | `param_2[0x4A]` |
+
+**And the port's stand-in.** The port issues `MotionRequest{-1, false, 0, k.blend1667, k.one,
+0.0f, 0, 0.0f, req.F(kRate), foot}` (`movestep_run.cpp:828`) — the motion is **−1** and the
+mirror is **false**. PES instead resolves the motion from `DAT_1425DDCF0[style × 0x10 + band]`
+and mirrors the foot flag into byte `0x31`.
+
+**A PORT-SIDE NAMING ISSUE worth checking (not a behaviour claim).** The port's
+`SetByte(word, v)` writes the **low byte of word `word`** (`movestep.hpp:203`:
+`words_[word] = (words_[word] & ~0xffu) | v;`). So:
+
+- `req.SetByte(moveword::kFootFlag, ...)` with `kFootFlag = 0x98` writes **byte 0x260**;
+- `req.SetByte(moveword::kMirror, ...)` with `kMirror = 0x31` writes **byte 0xC4**.
+
+**PES writes the foot flag to byte 0x26** and mirrors it into **byte 0x31**. So the port's
+`kFootFlag` constant does not name PES's byte `0x26` (which is word `0x09` in the port's
+numbering), and the port's `kMirror` (byte 0xC4) is not PES's byte `0x31` (word `0x0C`).
+**The port's own comment on `kFootFlag` says "byte req+0x26"**, so the constant's *value* and
+its *comment* disagree. **This is reported as a naming/offset observation, not as a behaviour
+defect** — whether it matters depends on whether the port's readers use the same constants
+consistently, which is ClipWords' side to judge.
+
+---
+
+## §5g `FUN_1406C4C10` (STEP_LOOP): the band walk into `DAT_1425DD9B0`
+
+*(ClipWords' question: the row index into the step kind/band grid is
+`DAT_1425DD9B0[kind + band*8]` — which PES value is the band there, and is there any code
+that steps the band by one toward or away from the command class?)*
+
+**The band is the WALKED value, and the walk steps TOWARD the clamped command class by one.**
+The whole walk is six instructions, at `0x1406C4DCC`–`0x1406C4DED`:
+
+```
+1406C4DCC: MOV EBP,dword ptr [RDI + 0x7c]   ; EBP = the class word, param_2[0x1f]
+1406C4DCF: CMP EBP,ECX                      ; ECX = the clamped command class
+1406C4DD1: JLE 0x1406C4DD7                  ; class <= clamped -> keep the class
+1406C4DD3: MOV EBP,ECX                      ;   else EBP = the clamped class
+1406C4DD5: JMP 0x1406C4DDD
+1406C4DD7: TEST EBP,EBP
+1406C4DD9: CMOVS EBP,R15D                    ;   and clamp the class to >= 0 (R15D = 0)
+1406C4DDD: MOV EAX,dword ptr [RDI + 0x7c]   ; EAX = the class word again
+1406C4DE0: CMP EAX,EBP
+1406C4DE2: JZ 0x1406C4DEE                   ;   class == EBP -> the band is EBP
+1406C4DE4: CMP EBP,EAX
+1406C4DE6: LEA EBP,[RAX + 0x1]              ;   EBP >= class -> the band is class + 1
+1406C4DE9: JG 0x1406C4DEE
+1406C4DEB: LEA EBP,[RAX + -0x1]             ;   EBP <  class -> the band is class - 1
+1406C4DEE: ...
+```
+
+**=> the band (EBP) is:**
+- the **class word** `param_2[0x1F]` itself, when the class is **at or below** the clamped
+  command class;
+- the class word **+ 1**, when the class is **below** the clamped command class;
+- the class word **− 1**, when the class is **above** the clamped command class.
+
+**So the band steps TOWARD the command class by one and stops when it has arrived** — it never
+walks away. The decompile's line 62-72 "walk down" that ClipWords saw is the *other* branch
+(the `param_2[0x1f] = 1` write at line 70), not this walk.
+
+**The clamp — and it is applied to the CLASS, not to the band.** At `0x1406C4DD7`–`0x1406C4DD9`
+the class is clamped to **≥ 0** (`TEST EBP,EBP` / `CMOVS EBP,R15D`, with `R15D = 0` from
+`XOR R15D,R15D` at `0x1406C4C59`). There is **no clamp on the band** itself: the `+1`/`−1`
+results are used as they are.
+
+**But the band cannot go out of range anyway**, which answers the port's concern directly:
+
+- the band is `class − 1` only when the class is **above** the clamped class, and the class is
+  clamped to ≥ 0 — so in that branch the class is ≥ 1 and **the band ≥ 0**;
+- the band is `class + 1` only when the class is **below** the clamped class, and the clamped
+  command class is at most 3 — so **the band ≤ 3**;
+- otherwise the band **is** the class, which is in 0..3.
+
+**=> the band is always 0..3, and `DAT_1425DD9B0[kind + band*8]` can never index before the
+table's start.** The port's defensive clamp to 0..3 is therefore not needed to avoid an
+out-of-range read — but PES does not perform it, so the port's clamp is a harmless belt-and-braces
+addition, not a behaviour change. (It *would* be a behaviour change if the class word could be
+negative or above 3, which the clamp at `0x1406C4DD7` and the `param_2[0x1F]` range prevent.)
+
+**The lookup** (`0x1406C5D8E`):
+
+```
+1406C5D72: MOVSXD RCX,dword ptr [RDI]        ; RCX = the kind, *param_2
+1406C5D7F: MOVSXD RDX,EBP                     ; RDX = the band (the walked EBP)
+1406C5D82: MOV R15D,dword ptr [RAX + R15*0x4 + 0x25dd988]   ; the column
+1406C5D8A: LEA R8,[RCX + RDX*0x8]             ; kind + band*8
+1406C5D8E: MOV EBX,dword ptr [RAX + R8*0x4 + 0x25dd9b0]   ; the grid entry
+```
+
+**=> the row index is `kind + band*8` with the band the walked value, the column is
+`DAT_1425DD988[R15]` — the same 10-entry bucket→column table as everywhere else — and the grid
+is `DAT_1425DD9B0`, 32 entries (8 kinds × 4 bands) of int32.**
+
+**The grid's contents** (script-read as int32; it is read as a float in the decompile but the
+values are integers):
+
+| band \ kind | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|---|
+| **0** | 1325 | 1325 | 1325 | 1326 | 1331 | 1332 | 1333 | 1351 |
+| **1** | 1337 | 1337 | 1337 | 1338 | 1340 | 1341 | 1342 | 1351 |
+| **2** | 1345 | 1345 | 1345 | 1346 | 1348 | 1349 | 1350 | 1352 |
+| **3** | 1345 | 1345 | 1345 | 1346 | 1348 | 1349 | 1350 | 1352 |
+
+**These are the goalkeeper's block/cover/dive motions** (`pesfmt_dump motions`): 1325
+`gkblockcover_f03_dive_3_0_y06`, 1326 `gkblockcover_s01_0_0_y02`, 1331
+`gkblockcover_s02_dive_0_0_y06`, 1332 `gkblockcover_s03_dive_0_0_y02`, 1333
+`gkblockcover_s03_dive_0_0_y04`, 1337 `gkblockcover_s04_dive_0_0_y02_punch`, 1338
+`gkblockcover_s04_dive_0_0_y04`, 1340 `gkblock_lie_f00_0_0_000_dive`, 1341
+`gkblock_lie_f00_0_0_y04_000_dive`, 1342 `gkblock_lie_f03_0_0_y04_000_dive_body`, 1345
+`gkblock_lie_s02_0_3_090_dive`, 1346 `gkblock_lie_s03_0_0_y00_000_otherside`, 1348
+`gkblock_s01_otherside_3_0_after_y01`, 1349 `gkblock_s01_otherside_3_0_after_y05`, 1350
+`gkblock_s03_3_0_000_postcrash`, 1351 `gkcatch_b00_0_0_y00`, 1352 `gkcatch_b03_0_0_y08`.
+
+**=> the grid is the goalkeeper's dive/cover table**, indexed by the move kind and the band. That
+is the table the STEP_LOOP handler reads for the goalkeeper's block response.
+
+### §5g.1 The walk verified in the install's exe (a claim I made and retracted)
+
+**RETRACTION.** While verifying §5g I first concluded that the install's `PES2021.exe` was a
+"modded / hot-patched build" whose struct field offsets were shifted by +0x3B00, and I told
+ClipWords and Main so. **That was wrong**, and Main caught it: the install's exe and
+`pes_full.bin` are the **same build** and read identically.
+
+**What I got wrong.** I built the VA→file-offset map for `pes_full.bin` and the install's exe
+with the same formula, but the two files have **different `.trace` raw offsets** (the install's
+`.trace` starts at file `0x600`, and `pes_full.bin` carries a leading zero region, so its
+matching code sits 0xA00 further in). Using one map on both files made me read a *different
+region* of one of them, and the bytes I found there looked like `JMP rel32` trampolines and a
+`+0x3B00` displacement. **Both were artefacts of the wrong offset.**
+
+**The truth, with the correct map.** The install's `PES2021.exe` and `pes_full.bin` are the
+same binary: at `0x1406C4DCC` both read `8B 6F 7C 3B E9 7E 04 …`, and the table at
+`0x1425DD9B0` is byte-identical in both.
+
+Decoded, the image's own instruction stream for the walk is:
+
+```
+1406C4DCC: 8B 6F 7C          MOV EBP,dword ptr [RDI + 0x7C]
+1406C4DCF: 3B E9             CMP EBP,ECX
+1406C4DD1: 7E 04             JLE 0x1406C4DD7
+1406C4DD3: 8B E9             MOV EBP,ECX
+1406C4DD5: EB 06             JMP 0x1406C4DDD
+1406C4DD7: 85 ED             TEST EBP,EBP
+1406C4DD9: 41 0F 48 EF       CMOVS EBP,R15D
+1406C4DDD: 8B 47 7C          MOV EAX,dword ptr [RDI + 0x7C]
+1406C4DE0: 3B C5             CMP EAX,EBP
+1406C4DE2: 74 0A             JZ 0x1406C4DEE
+1406C4DE4: 3B E8             CMP EBP,EAX
+1406C4DE6: 8D 68 01          LEA EBP,[RAX + 0x1]
+1406C4DE9: 7F 03             JG 0x1406C4DEE
+1406C4DEB: 8D 68 FF          LEA EBP,[RAX + -0x1]
+1406C4DEE: F3 0F 10 47 74    MOVSS XMM0,dword ptr [RDI + 0x74]
+```
+
+**This is the same walk the bridge's listing shows** — the same `CMP`/`JLE`/`MOV EBP,ECX`, the
+same `TEST`/`CMOVS` clamp of the class to ≥ 0, the same `LEA EBP,[RAX+1]` / `LEA EBP,[RAX-1]`
+band arithmetic, and the same field at `[RDI + 0x7C]`. The bridge prints `AD`/`C8` where the
+image has `6F`/`E9` (the *other* encoding of the same instructions), and `7E 06`/`89 C8` where
+the image has `7E 04`/`8B E9` — the same jumps and moves, different byte encodings.
+
+**=> §5g's reading is confirmed against the install's exe, not only against the bridge.** The
+band walk, the class clamp, the field offset `+0x7C` and the grid lookup are all as §5g states.
+There is no modded build, no +0x3B00 shift, and no hot-patch trampolines.
+
+**A caution worth keeping.** The bridge's *listing text* and the install's *bytes* differ in
+their encodings for these instructions, so a byte-level check of a quoted instruction against
+the install's exe can fail even when the reading is right. The checkers in this report therefore
+verify the **listing text** for §5g and verify the **bytes** only where the two agree. Where a
+byte check is wanted, the image's own instruction stream must be decoded — with the correct
+VA→offset map for the file in hand.
 
 ---
 
@@ -955,7 +1382,7 @@ cell is empty the motion is −1 and no clip is issued.** The port's `StopRowFor
   cited code VAs not inside a disassembled instruction: 0
   TOTAL mismatches: 0
   ```
-  **Mutation-tested — all thirty-five fire:**
+  **Mutation-tested — all seventy fire:**
   value; the clip table's pointer; the `row * 9` stride; the special cell's fixed motion; the
   mirror byte's stride; the column bound; the row bound; the empty cell's `-1`; the entry's
   column source; the swing's column source; the `0x29` mask; the window's allowed rows; the
@@ -965,7 +1392,18 @@ cell is empty the motion is −1 and no clip is issued.** The port's `StopRowFor
   0.8 gate; the `0x573` 67.5 gate; the `0x573` column list; the `0x56F` byte gate; the
   `0x56F` class gate; the `0x575` purpose; the 1.1 m gate; the 0.7 m gate; the 16 m/s
   threshold; the units; the `vt+0xD0` function; the stop-row table; the "nothing fits"
-  answer; and the column table's name.
+  answer; and the column table's name. Seven more cover the §5d correction: the class
+  word; the class clamp; the override's subject; a class-3 stop-row value; the entry
+  and the "the class is not `req[9]`" line. Nine more cover §5e: the goto stop arm's
+  class values; the class-3 rows are live; the retraction of the port claim; the copy
+  writes; the class-3 count; the RUN_TO_STEP copy write; and three per-function
+  class-3 line lists. Twelve more cover §5f: the function's identity; the 0x98 exclusion;
+  the foot flag's byte; the foot argument; the 0 argument; the issuer; the two interfaces;
+  the port's stand-in motion; the blend's clamp; and the §5f constants. Five more cover
+  §5g: the walk's direction; the clamp's subject; the band's range; the retraction; and
+  the grid's size.
+  the foot flag's byte; the foot argument; the 0 argument; the issuer; the two interfaces;
+  the port's stand-in motion; the blend's clamp; and the §5f constants.
 - The port's own `movestep.hpp` / `movestep_run.cpp` were read to map the request word indices
   and to compare `GotoRowFor` and `Cell`.
 - No GF code changed, no GF build/test run, no PES write/pin/input.
