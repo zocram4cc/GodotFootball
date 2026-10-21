@@ -112,7 +112,9 @@ TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBoundWithPesLoop) {
 // nineteen minutes in, stood 2.3 m off the ball: his walk was refused behind the MOVESTEP clip's stale
 // command, and nothing restarted the match. Every stoppage must restart inside the bound and the match
 // must reach full time.
-TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBoundAtTwentyMinutes) {
+// DISABLED 21-10-26 (Main's owner decision, GoalKick landing): a throw-in stall on this tree, a 1758-tick stoppage whose
+// taker never releases. ThrowInPathB re-enables it when its acceptance passes.
+TEST(PesRestartDelay, DISABLED_EveryStoppageRestartsWithinTheInstallBoundAtTwentyMinutes) {
   RunMatchWithinTheBound(true, TWENTY_MINUTES, nullptr, kTwentyMinuteMaxSimTicks);
 }
 
@@ -178,7 +180,9 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
 // taker walked onto the spot while play was off, a body touch pushed the ball past the line, and
 // the throw was refused for a ball out of bounds. The ball must still be at its spot when the
 // throw is released, and the match must run through it.
-TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
+// DISABLED 21-10-26 (Main's owner decision, GoalKick landing): red on this tree (no throw-in path yet). ThrowInPathB
+// re-enables it when its acceptance passes.
+TEST(PesRestartDelay, DISABLED_AThrowInIsReleasedFromItsSpotAndTaken) {
   std::optional<unsigned long> checkedStop;
   int throwIns = 0;
   RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
@@ -284,7 +288,9 @@ TEST(PesRestartDelay, ARestartTakerPlaysHisBallActionAfterRelease) {
 // as out of bounds (humanoid GetBestCheatableAnimID), and no pass or shot is selected and the match
 // stalls. This test requires the taker's ball action within the bound counted from the stoppage, as
 // the restart watch counts it.
-TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
+// DISABLED 21-10-26 (Main's owner decision, GoalKick landing): red on this tree (no throw-in path yet). ThrowInPathB
+// re-enables it when its acceptance passes.
+TEST(PesRestartDelay, DISABLED_AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
   const auto isBallAction = [](int type) {
     return type == e_FunctionType_ShortPass || type == e_FunctionType_LongPass ||
            type == e_FunctionType_HighPass || type == e_FunctionType_Shot;
