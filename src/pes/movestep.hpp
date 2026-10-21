@@ -902,6 +902,7 @@ struct MoveTargetInput {
   float targetZ = 0.0f;
   float lookX = 0.0f;       // cmd+0x14: the look-at point
   float lookZ = 0.0f;
+  bool lookValid = false;   // the command has a look-at point (PES FUN_140a6e6b0: byte +4 of cmd+0x1A). Without one req[0x12] is the target distance
   int speedBand = -1;       // FUN_1406b8de0(cmd[0x17]): 0..3, or -1 for none
   float desiredKmh = 0.0f;  // cmd[0x172]
   bool precise = false;     // cmd[0x15] (2 maps to 1)

@@ -215,6 +215,7 @@ class MoveHostAdapter final : public pes::MoveHost {
     in.targetZ = -target.coords[1];
     in.lookX = look.coords[0];
     in.lookZ = -look.coords[1];
+    in.lookValid = cmd && cmd->useDesiredLookAt;  // PES FUN_140a6e6b0: the look-at block is valid (the command carries a look point)
     in.speedBand = pes::CommandClassFor(CommandSpeedClassOf(speed), c_.runTables);
     in.desiredKmh = speed * kKmhPerMps;
     in.precise = cmd && cmd->preciseArrival;
