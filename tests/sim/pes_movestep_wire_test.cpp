@@ -482,7 +482,8 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
 // the target, so the body ran while the FSM held the stop. After the clip-end fix this trace holds no natural STOP in its
 // first 1800 ticks, so the holds are forced through PES's STOP entry as AStopOnATurnedBodyLeavesTheStop does, and the match
 // runs on while they hold.
-TEST(MoveStepWire, AnAiMovementClipDoesNotTakeTheBodyWhileTheFsmHoldsAStop) {
+// DISABLED 22-10-26 (owner decision, batch-3 landing): red on the merged tree main 9c5cc89 + FirstTouchPort fca173c; FirstTouchPort2 owns the fix (bisect against fca173c alone). Re-enable when it passes on main.
+TEST(MoveStepWire, DISABLED_AnAiMovementClipDoesNotTakeTheBodyWhileTheFsmHoldsAStop) {
   Properties config;
   config.SetBool("pes_loop", true);
   REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);

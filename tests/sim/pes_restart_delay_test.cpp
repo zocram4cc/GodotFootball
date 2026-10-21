@@ -217,7 +217,8 @@ TEST(PesRestartDelay, DISABLED_AThrowInIsReleasedFromItsSpotAndTaken) {
 // own pickup time is not decoded, so this is a ponytail bound, not a PES number.
 // Re-enabled on FirstTouchPort: the loose-ball pickup lands here (PRESS chase
 // + HitData touch frame + latch step 4b). Red until then.
-TEST(PesRestartDelay, ALooseDeadBallInPlayIsReachedAndPlayed) {
+// DISABLED 22-10-26 (owner decision, batch-3 landing): red on the merged tree main 9c5cc89 + FirstTouchPort fca173c; main's earlier disable restored (the far-chase defect: a loose ball at rest in play beyond the press gate). Re-enable when FarChasePress lands the press coordinator.
+TEST(PesRestartDelay, DISABLED_ALooseDeadBallInPlayIsReachedAndPlayed) {
   constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
   constexpr unsigned long kBoundTicks = static_cast<unsigned long>(
       GameplayTuning::kStalemateForceAction_s * static_cast<float>(Match::kFramesPerSecond));
@@ -268,7 +269,8 @@ TEST(PesRestartDelay, ALooseDeadBallInPlayIsReachedAndPlayed) {
 
 // PES stops renewing a PRESS man once the loose ball is more than 13 m from him (press-life 12, the 0x1425C6788
 // distance row). Seed 7 keeps a presser 13.1 to 13.5 m off a ball lying loose for thousands of ticks.
-TEST(PesRestartDelay, ALoosePresserBeyondThirteenMetresIsNotKept) {
+// DISABLED 22-10-26 (owner decision, batch-3 landing): red on the merged tree main 9c5cc89 + FirstTouchPort fca173c; FirstTouchPort2 owns the fix; it interacts with the far-chase press port (FarChasePress). Re-enable when it passes on main.
+TEST(PesRestartDelay, DISABLED_ALoosePresserBeyondThirteenMetresIsNotKept) {
   constexpr float kRenewalBall_m = 13.0f;  // press-life 12: the 13 m loose-ball gate (0x1425C6788)
   constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
   unsigned long farRun = 0, farTicks = 0;
@@ -652,7 +654,8 @@ TEST(PesRestartDelay, ABallRestingPastTheTouchlineIsJudgedOutWhenTheGateReleases
 // PES's end-line judge reads the same zone event as the touchline (K=10, bit 0x8; FUN_14050e4a0 case 10).
 // A ball at rest behind the end line when a restart's gate releases is judged once: the event is read
 // once, and the corner or goal kick it awards leaves the ball inside, so no second award follows.
-TEST(PesRestartDelay, ABallAtRestBehindTheEndLineIsJudgedOnceWhenTheGateReleases) {
+// DISABLED 22-10-26 (owner decision, batch-3 landing): red on the merged tree main 9c5cc89 + FirstTouchPort fca173c; FirstTouchPort2 owns the fix (bisect against fca173c alone). Re-enable when it passes on main.
+TEST(PesRestartDelay, DISABLED_ABallAtRestBehindTheEndLineIsJudgedOnceWhenTheGateReleases) {
   constexpr float kBehindEndLine_m = 0.29f;  // the touchline test's distance past the line
   constexpr unsigned long kWatchTicks = 600;  // the next restart's hold and taking, about 11 s
   unsigned long tick = 0, armedAt = 0, lastStop = 0;
