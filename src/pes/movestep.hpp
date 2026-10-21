@@ -57,18 +57,29 @@ enum class MoveState : uint8_t {
 };
 inline constexpr int kMoveStateCount = 24;
 
+// The FSM's pose hold: while the state is STOP or ACCELERATE the body keeps its pose. The clip's end does not switch the
+// body and the AI's movement command selects no clip (humanoid.cpp). ponytail: the hold set is STOP and ACCELERATE; the
+// IDLE family is not held, since its exit to GOTO_RUN is not decoded.
+inline bool HoldsBodyPose(MoveState s) { return s == MoveState::kStop || s == MoveState::kAccelerate; }
+
 // The MOVESTEP fields of one player (PES's P+0x245a..0x3758). Writers are named in the .cpp.
 struct MoveStepRecord {
   MoveState state = MoveState::kInit;     // P+0x245c: the current phase (OBS: FUN_1406b8340 tail)
   MoveState previous = MoveState::kInit;  // P+0x245d
   uint8_t speedClass = 0;                 // P+0x245a: the action's speed class 0..4 (A-AN6)
   uint8_t footBand = 0;                   // P+0x245b: foot / start band (A-AN6)
+  int actionAnime = 0;                    // P+0xac8: the anime action the record last ran in; a change is FUN_1406eebb0's entry
+  uint8_t liveKind = 0;                   // req[0x1e]: the live clip's kind, carried tick to tick (FUN_1406d5d60 writes it)
   float rateCeiling = 0.0f;               // P+0x377c: top running rate (FUN_1406f99f0)
   int rateStamp = 0;                      // P+0x3778: match tick the ceiling was computed on
   float playbackSpeed = 1.0f;             // P+0x3758: the SetMotion playback (FUN_1406f0f70)
+  float playbackDefault = 1.0f;           // P+0x3750: the default playback word, copied into req[0x4b] (OBS copy-in, FUN_1406b7560)
   float yawLock = 0.0f;                    // P+0xbec: the dispatcher's yaw lock and the slip/root-facing tail
   float rate = 0.0f;                      // req[0x4a]: the ramped rate, carried from tick to tick
   uint8_t style = 0;                      // req[0x50]: P+0x27b1, the locomotion style the loop is on
+  // req[0x17..0x2e]: the record stamps, the dwell clocks and the band words, carried tick to tick. FUN_1406b6a90 copies them
+  // back to P+0x2770..P+0x27d4 after the dispatch, and the fill (FUN_1406b7560) copies them in before it.
+  std::array<uint32_t, 24> carried{};
 
   // FUN_1406b8340, early-out branch after FUN_140708750: the state falls back to INIT.
   void EnterInit() {
@@ -172,6 +183,8 @@ inline constexpr int kStyle = 0x50;           // req[0x50] byte: the locomotion 
 inline constexpr int kDriftSeed = 0x4c;  // req[0x4c]: the drift's seed (OBS: FUN_1406cbc10 reads req+0x130)
 inline constexpr int kDriftX = 0x4d;     // req[0x4d] (req+0x134): the lateral drift, X (OBS: FUN_1406cbc10)
 inline constexpr int kDriftZ = 0x4e;     // req[0x4e] (req+0x138): the lateral drift, Z (OBS: FUN_1406cbc10)
+inline constexpr int kMoveTargetX = 0x1a6;  // req[0x1a6]: the move target's x, PES ground frame (FUN_1406b7560 stores local_110)
+inline constexpr int kMoveTargetZ = 0x1a8;  // req[0x1a8]: the move target's z, PES ground frame (FUN_1406b7560 stores local_108; z = -GF y)
 }  // namespace moveword
 
 // The move request. Typed views over the same words; PES's bit patterns are kept exact.
@@ -265,6 +278,7 @@ struct RunConstants {
   float rate095;      // 0.95  (0x1425ab124)
   float rate0225;     // 0.225 (0x1425ddf54)
   float rate01;       // 0.1   (0x1425ddf48)
+  float frameGate01;  // 0.1   (0x142588200): ACCELERATE's frame gate (PES's DAT_142588200, separate from rate01's VA)
   float rate05;       // 0.5   (0x142565600)
   float kmh5;         // 5     (0x14259222c)
   float kmh8;         // 8     (0x14259bdf4)
@@ -328,9 +342,12 @@ struct RunConstants {
   float condition10;  // 10    (0x142588210): the condition byte's ceiling for the Acceleration reduction
 };
 
-// FUN_14043a0a0(a, b): the angle difference a - b wrapped into (-180, 180]. Shared by the
-// dispatcher port and group B; the bodies are in movestep_common.cpp.
-float AngleDiffDeg(float a, float b, const RunConstants& k);
+// FUN_14043a0a0 as PES has it: b minus a, both folded into [0, 360) and wrapped once past 180. Every PES call to that
+// helper, signed or magnitude, is a PesAngleDiff call in the PES argument order.
+float PesAngleDiff(float a, float b, const RunConstants& k);
+// a minus b wrapped into (-180, 180], for the differences PES computes inline (SUBSS), which are not FUN_14043a0a0 calls.
+// The body is in movestep_common.cpp.
+float InlineDiffDeg(float a, float b, const RunConstants& k);
 // The 360 fold of a heading into [0, 360), the block every handler opens with.
 float FoldFull(float a, const RunConstants& k);
 
@@ -399,7 +416,13 @@ struct StepTables {
   std::array<int32_t, 10> bucketColumn;  // 0x1425dd988: bucket -> Animetable column
   std::array<int32_t, 64> kindBandRow;  // 0x1425dd9b0: kind + band * 8 -> Animetable row; 8 bands x 8 kinds (verified: 64 rows, 1325..1385)
   std::array<float, 10> bucketDegrees;   // 0x1425dd960: bucket -> degrees (TURN_STOP entry)
-  std::array<int32_t, 12> styleMotion;   // 0x1425ddcf0: class + style * 4 -> representative motion
+  // The representative motion per style and band (0x1425ddcf0) is RunTables::styleGroup: the
+  // same table, read at the style * 4 + band stride.
+  // FUN_1406b70d0's distance rows, four floats each by class: the near bucket (0x1425dde70), the far bucket (0x1425dde80)
+  // and the centre (0x1425dde90). The held row (0x1425ddea0) is read only on the carrier path, which GF does not port.
+  std::array<float, 4> turnFront;   // 0x1425dde70
+  std::array<float, 4> turnBack;    // 0x1425dde80
+  std::array<float, 4> turnCentre;  // 0x1425dde90
 };
 std::optional<StepTables> LoadStepTables(const PeImage& exe, std::string* error);
 
@@ -415,12 +438,13 @@ struct StepScalars {
   float deg45, deg67p5, deg78p75, deg90, deg112p5, deg135, deg140p625, deg146p25, deg168p75;
   float deg174p375, deg175, deg270;
   float neg45, neg67p5, neg90, neg112p5, neg180;
-  float dist1p25, dist1p5, dist3, eps1e7, threeQuarters, rate1p6;
+  float dist1p25, dist1p5, dist3, eps1e7, threeQuarters, s0p7;
   float rate0p9, rate0p95, clamp0p8, six;
   float s0p1333;
   float s0p15;  // 0.15, the STEP_LOOP_CHANGE stop-fallback gate (FUN_1406c6480, read at 0x1406c6bb8)
   float s0p1667, s0p2, s0p25, s0p3, s0p35, s0p4, s0p6, s0p85;
   float sq1139, sq2025, sq8100, step0p05;
+  float sq12656p25;  // 12656.25 (0x1425ddfdc): RUN_TO_STEP's body-error gate (FUN_1406c1070, 0x1406c1254)
 };
 std::optional<StepScalars> LoadStepScalars(const PeImage& exe, std::string* error);
 
@@ -585,10 +609,9 @@ class MoveHost {
   // Group C's install scalars (STEP_LOOP, STEP_LOOP_CHANGE, TURN_STOP and the transitions), read from
   // the exe by VA by the group's loader (movestep_step.hpp).
   virtual const StepScalars& StepConstants() const = 0;
-  // The band's natural speed (km/h) of the anime info record, times 3.6 into req[0x1d] (the parametric
-  // member's speed). PES reads the record region of the anime interface (the table at 0x1425e35d0,
-  // slots 0x1cb4..0x1d0c; its writer is not decoded). ponytail: the adapter supplies the GF stand-in
-  // until that writer is ported.
+  // PES's band speed for `band` at physique `g`, before the callers' speed3600 scale. Its source is not decoded: the
+  // candidate is the 11-knot rate curve at 0x1425DE010 (docs/re/pes-re-speed-inputs.md; the band-to-knot map is open).
+  // ponytail: the adapter stands the player's ground speed for every band until that source is decoded.
   virtual float BandSpeedKmh(int band, float g) const = 0;
   // FUN_140a62960's answer for this player's record: the mirror bit for the side. ponytail: the adapter
   // supplies the GF stand-in until the record writer is ported.
@@ -650,9 +673,13 @@ class MoveHost {
   // The anime state (vt+0x28 of the +0xab8 interface). IsReplay() is AnimeState() == 0x4a.
   virtual int AnimeState() const = 0;
 
-  // FUN_141eb50b0(P, out, index): index 0 or 1 is the last-tick displacement (pos - prev, per axis).
-  // index >= 2 reads the position history ring at P+0x304 (its writer is not decoded yet).
+  // FUN_141eb50b0(P, out, index), in PES's order (x, height, ground z). Index 0 and 1 are the last tick's displacement,
+  // pos - prev: P+8 - P+0x14, P+0xc - P+0x18, P+0x10 - P+0x1c. Index >= 2 is the history ring: sample k = min(index / 10,
+  // 5), with x and height at P+0x2fc + 12k and z at P+0x304 + 12k. GF keeps no ring, so the adapter answers the position.
   virtual void PositionAt(int index, float out[3]) const = 0;
+  // The player's own ground position in PES's order: P+8 (x), P+0xc (height), P+0x10 (ground z). PES reads these
+  // directly; PositionAt(0) is the displacement, not the position.
+  virtual void OwnPosition(float out[3]) const = 0;
   // MI+0x116c: the match phase (MB-E is not ported; a stand-in until it is).
   virtual int MatchPhase() const = 0;
   // The anime predicate vt+0x28 == 0x4a: the replay action.
@@ -665,8 +692,8 @@ class MoveHost {
   virtual int StaminaPercent() const = 0;
   // FUN_1406e7380: the player's height in cm (P+0x3b18 * 180).
   virtual float PlayerHeightCm() const = 0;
-  // FUN_140a6cf70 over the match's ball list: index k is the ball k ticks ahead (0 = now). GF
-  // order: [0] x, [1] z, [2] height.
+  // FUN_140a6cf70 over the match's ball list: index k is the ball k ticks ahead (0 = now). PES order: [0] x, [1] height,
+  // [2] ground z.
   virtual void BallSample(int index, float out[3]) const = 0;
   // ctx+0x2944 (FUN_140a57710): the ball's motion heading in degrees.
   virtual float BallMotionHeadingDeg() const = 0;
@@ -687,6 +714,9 @@ class MoveHost {
 // ---------------------------------------------------------------------------------------------
 void Dispatch(MoveState state, MoveHost& host, MoveReq& req);  // the switch: case k calls its handler
 void ApplyTransition(MoveStepRecord& rec, MoveReq& req);       // req[0x38] set -> rec.Enter(req[0x39])
+// FUN_1406b6a90 (copy-back) and FUN_1406b7560 (copy-in): req[0x17..0x2e] between the record and the request block.
+void CarryOut(MoveStepRecord& rec, const MoveReq& req);
+void CarryIn(const MoveStepRecord& rec, MoveReq& req);
 // FUN_1406d2030's run guard: a run may start only while the rate is at most stepBase (0.95,
 // DAT_1425ab124, the playback floor) times the rate ceiling (P+0x377c, rateMax). Every entry
 // that starts a run calls this one guard; no state keeps its own copy.
@@ -731,6 +761,7 @@ struct AngleBucketConstants {
   std::array<int32_t, 10> bucket;  // 0x1425ddf10: window -> bucket
   float hysteresisUp;              // 0x14259222c: +5 degrees
   float hysteresisDown;            // 0x14259be7c: -5 degrees
+  std::array<float, 10> centre;    // 0x1425dd660: bucket -> the bucket's centre angle, degrees (the body fill)
 };
 std::optional<AngleBucketConstants> LoadAngleBucketConstants(const PeImage& exe, std::string* error);
 
@@ -747,6 +778,7 @@ namespace movestep {
 void Init(MoveHost& host, MoveReq& req);              // 0  FUN_1406ba900's case 0
 void Idle(MoveHost& host, MoveReq& req);               // 1  FUN_1406bf0c0
 void IdleTurn(MoveHost& host, MoveReq& req);           // 2  FUN_1406bfe70
+void EnterIdleTurn(MoveHost& host, MoveReq& req);      // FUN_1406d1390: the idle family's turn exit into IDLE_TURN
 void IdleOther(MoveHost& host, MoveReq& req);          // 17 FUN_1406bf7f0
 void IdlePkPlayer(MoveHost& host, MoveReq& req);       // 20 FUN_1406bfd10
 void IdlePkGk(MoveHost& host, MoveReq& req);           // 21 FUN_1406bfb70
@@ -842,6 +874,34 @@ bool OutOfPlayPreempt(MoveHost& host, MoveReq& req);
 // FUN_1406b9b20: the 10-way angle bucket of an angle in degrees, with the hysteresis of the current
 // bucket (10 = no current bucket). narrow selects the ±10 / ±170 windows.
 int AngleBucket(const AngleBucketConstants& k, float angleDeg, int currentBucket, bool narrow);
+// FUN_1406b7560's target fill (anime-select 1.1; raw asm 0x1406b7824..0x1406b7fd8). The move target is
+// cmd+0x20 (req[1] heading, req[0x11] distance); the look point is cmd+0x14 (req[3] heading). The turns
+// are req[5] (target minus facing), req[6] (target minus body) and req[7] (look minus facing); their
+// 10-way buckets are req[0xc], req[8] and req[0xd]. req[9], req[0xa] and req[0xe] are the command's own
+// speed band, desired speed and precise flag. Positions are PES's ground frame: x, and z = -GF y.
+struct MoveTargetInput {
+  float originX = 0.0f;     // P+8: the player's x
+  float originZ = 0.0f;     // P+0x10: the player's z
+  float facingDeg = 0.0f;   // P+0x20 (req[2])
+  float targetX = 0.0f;     // cmd+0x20: the move target
+  float targetZ = 0.0f;
+  float lookX = 0.0f;       // cmd+0x14: the look-at point
+  float lookZ = 0.0f;
+  int speedBand = -1;       // FUN_1406b8de0(cmd[0x17]): 0..3, or -1 for none
+  float desiredKmh = 0.0f;  // cmd[0x172]
+  bool precise = false;     // cmd[0x15] (2 maps to 1)
+  int bodyBucket = 0;       // the body-bucket flag, 0 or 1 (PES host+0x2798, set at 0x1411944E6)
+};
+// ponytail: req[4] = the bucket's centre (DAT_1425dd660) from the caller's bodyBucket; 0 = the facing. The flag is
+// PES's record rule (BodyBucketFlag); the record loader (0x141194330) is not ported, so GF feeds the default record's
+// 1.0. The continuous body turn (the still-turning branch at 0x1406B798C, the state-byte override at 0x1406B7CA7) is not ported.
+// ponytail: a zero-length target or look takes the facing; PES takes the ball's sample (the B and A
+// substitutions of FUN_1406b7560). ponytail: req[0x12] is req[0x11]; the cmd+0x68 point list is not ported.
+void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants& fold,
+                    const AngleBucketConstants& buckets);
+// PES 0x141194330's body-bucket flag (TeamDecode, audited): 1 iff recordValue * 100 is in [0, 2^32] (100.0 at
+// 0x14253EE30, 2^32 at 0x1427341A0). The write is 0x1411944E6.
+int BodyBucketFlag(float recordValue);
 // PES's conversion of a motion-record value to ticks (FUN_1406af620, FUN_1406b1f00, FUN_1406b1d00,
 // FUN_1406af8e0): int(2 v / rate * (ticks / fps) + half), with the host's ticks per second. A rate
 // that is not positive is PES's one. fps and half are the install's DAT_14259a764 and DAT_142565600.

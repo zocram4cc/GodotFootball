@@ -222,10 +222,37 @@ void Referee::PesTimeUpTick() {
 }
 bool Referee::PesLoop() const { return match->PesLoop(); }
 
+namespace {
+
+// Whether the armed restart is released this tick. On the PES path a goal kick is released by PES's timer ladder
+// (sub_142136F00, stepped here once a tick; pesgoalkick.hpp), and a throw-in by its timer (pes::MayRelease).
+// PES's set-piece AI holds a restart for a frame-rate multiple before the kicker takes it (setpiecelaws.hpp): 189 frames
+// for a corner, 162 for a free kick, 54 for a penalty, all measured live. `startTime` is when the referee is ready for
+// the kick; this adds PES's deliberate hold on top of it, so the placement and the wait cannot be confused for each
+// other. The kick-off is released by its own rule. One logic frame is one tick (Milestone A1), so the elapsed count is in
+// PES's frames directly and the frames-per-second is PES's own rate.
+bool ReleasesRestart(Match* match, const RefereeBuffer& buffer) {
+  const int framesSinceArmed = static_cast<int>((match->GetActualTime_ms() - buffer.startTime) / Match::kTick_ms);
+  if (!match->PesLoop()) {
+    return SetPieceLaws::MayTakeRestart(buffer.desiredSetPiece, framesSinceArmed,
+                                        static_cast<float>(Match::kFramesPerSecond),
+                                        match->GetPesSetPieceTakerConstants());
+  }
+  TeamAIController* controller = match->GetTeam(buffer.teamID)->GetController();
+  if (buffer.desiredSetPiece == e_SetPiece_GoalKick) return controller->StepGoalKickLadder();
+  return pes::MayRelease(buffer.desiredSetPiece, framesSinceArmed);
+}
+
+}  // namespace
+
 void Referee::Process() {
   // printf("%i", match->GetMatchState());
   // PES's judge runs on every tick, in play or not, with the gate open (pes_loop).
   if (match->PesLoop()) PesTimeUpTick();
+  // PES's goal-kick strike (sub_140775780's root-motion warp): from the release, the keeper's root moves onto the contact.
+  if (match->PesLoop() && buffer.active && buffer.desiredSetPiece == e_SetPiece_GoalKick && buffer.taker) {
+    match->GetTeam(buffer.teamID)->GetController()->AdvanceGoalKickStrike();
+  }
 
   if (match->IsInPlay() && !match->IsInSetPiece()) {
     Vector3 ballPos = match->GetBall()->Predict(0);
@@ -631,26 +658,7 @@ void Referee::Process() {
         }
       }
 
-      if (!buffer.started && buffer.startTime <= match->GetActualTime_ms() &&
-          // PES's set-piece AI holds a restart for a frame-rate multiple before
-          // the kicker takes it (setpiecelaws.hpp): 189 frames for a corner, 162
-          // for a free kick, 54 for a penalty, all measured live. `startTime` is
-          // when the referee is ready for the kick; this adds PES's deliberate
-          // hold on top of it, so the placement and the wait cannot be confused
-          // for each other. The kick-off, throw-in and goal kick are released by
-          // their own rule and the gate returns true for them immediately.
-          // One logic frame is one tick (Milestone A1), so the elapsed count is in
-          // PES's frames directly and the frames-per-second is PES's own rate.
-          (match->PesLoop()
-               ? pes::MayRelease(buffer.desiredSetPiece,
-                                 static_cast<int>((match->GetActualTime_ms() - buffer.startTime) /
-                                                  Match::kTick_ms))
-               : SetPieceLaws::MayTakeRestart(
-                     buffer.desiredSetPiece,
-                     static_cast<int>((match->GetActualTime_ms() - buffer.startTime) /
-                                      Match::kTick_ms),
-                     static_cast<float>(Match::kFramesPerSecond),
-                     match->GetPesSetPieceTakerConstants()))) {
+      if (!buffer.started && buffer.startTime <= match->GetActualTime_ms() && ReleasesRestart(match, buffer)) {
         buffer.started = true;
         if (clearingLogged) {
           // How long the taker actually waited, and how far the nearest opponent had

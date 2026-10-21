@@ -21,16 +21,20 @@
 
 #include <array>
 #include <map>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "../data/formations.hpp"
 #include "../data/setpiececonfig.hpp"
 #include "../gamedefines.hpp"
+#include "onthepitch/pesroles.hpp"
 #include "base/properties.hpp"
 #include "pesrandom.hpp"
 #include "pesstrategy.hpp"
 #include "pesoffball.hpp"
+#include "pesgoalkick.hpp"
 #include "pesscorerows.hpp"
 #include "pesdefshape.hpp"
 #include "teaminstructions.hpp"
@@ -104,6 +108,19 @@ public:
   // shootout needs its own rotation to take the kicks.
   void SetPieceTaker(Player* player) { taker = player; }
   e_SetPiece GetSetPieceType() { return setPieceType; }
+  // PES's goal kick: the keeper walks to his stand point (SetKick's target) until the ladder releases the kick (A5 §4.7;
+  // pesgoalkick.hpp).
+  bool IsPieceTakerWalking(const Player* player) const;
+  Vector3 GetPieceWalkTarget() const { return pieceWalkTarget; }
+  // PES's goal kick (pesgoalkick.hpp): the ladder releases it (sub_142136F00) and the strike carries the keeper onto the
+  // ball. StepGoalKickLadder runs one tick of the armed restart's ladder and returns true on its release.
+  bool StepGoalKickLadder();
+  // One tick of the strike from the release: the keeper's root moves onto the contact root.
+  void AdvanceGoalKickStrike();
+  // True from the strike's contact tick: the keeper may kick.
+  bool GoalKickInContact() const { return goalKickStrike.contact; }
+  // The mate the goal kick is passed to, or null for a kick into space.
+  Player* GoalKickReceiver() const { return goalKickReceiver; }
   void CalculateSituation();
 
   // PES 2021's open-play defensive line, rebuilt every tick (report 6, 14.1).
@@ -144,6 +161,13 @@ public:
   // PES's team sheet (docs/re/pes-re-tactics.md 1): the sliders and toggles
   // the AI reads, from the team's tactics with the install's sheet defaults.
   const pes::TeamSheet& GetTeamSheet() const { return teamSheet; }
+  // PES's role arrays (pesroles.hpp): B holds each slot's role class, the value every class
+  // reader uses; A is the stamina-sub class. Setup and the tick's head and tail write them.
+  int RoleClassOfSlot(int slot) const;
+  void SetUpRoleArrays();
+  void WriteRoleArrays(bool head);
+  // The B swap pair (T+0x89D4/0x89D8). No GF event sets it yet: the PES writer is not decoded.
+  void RequestRoleSwap(int a, int b);
   // A team concept's order for one man (T+0xb748/b774/26c, transitions 2-3):
   // the concept id and the point it sends him to. Null when he has none.
   struct ConceptOrder {
@@ -190,6 +214,27 @@ protected:
   Team* team;
   Player* taker;
   e_SetPiece setPieceType;
+  // PES's goal kick: the keeper walks to his stand point before he takes it. pieceWalk holds until the ladder releases
+  // the kick; pieceWalkTarget is the stand point.
+  bool pieceWalk = false;
+  Vector3 pieceWalkTarget;
+  // The goal kick's ladder and strike (PES path). The strike's root is in GF metres, from the release to the contact.
+  struct GoalKickStrike {
+    bool started = false;       // released: the strike owns the keeper's root
+    bool contact = false;       // the contact tick has passed: the keeper may kick
+    unsigned long ticks = 0;    // the contact tick, counted from the release
+    unsigned long elapsed = 0;  // ticks since the release
+    Vector3 from;               // the keeper's root at the release
+    Vector3 contactRoot;        // the root on the clip's contact
+  };
+  GoalKickStrike goalKickStrike;
+  pes::GoalKickLadder goalKickLadder;
+  Player* goalKickReceiver = nullptr;  // the mate the ladder passes to; null for a kick into space
+  // Places the goal kick's stand point (the walk's target) and the strike's contact from SetKick's clip (pesgoalkick.hpp).
+  void PrepareGoalKickStand(const Vector3& spot);
+  // The lofted picker's mates: the taker's team's active players, rated by technical highpass. Returns the index the
+  // picker names (-1 for none) and fills `mates` with the list that index refers to.
+  int PickGoalKickMate(std::vector<Player*>* mates) const;
 
   Properties baseTeamTactics;
   Properties teamTacticsModMultipliers;
@@ -198,6 +243,8 @@ protected:
   Formations::Shape formationShape;
   TeamInstructions::State instructions;
   pes::TeamSheet teamSheet;
+  pes::roles::SideRoles roles;
+  std::optional<std::pair<int, int>> roleSwap;
   // PES's concept selector state (FUN_140579840): running flag and start time
   // per id, the men each concept has ordered, and its own record.
   std::array<bool, pes::kConceptCount> conceptRunning{};

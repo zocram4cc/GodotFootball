@@ -16,8 +16,8 @@
 
 namespace pes {
 
-// FUN_14043a0a0(a, b): the angle difference a - b wrapped into (-180, 180].
-float AngleDiffDeg(float a, float b, const RunConstants& k) {
+// a - b wrapped into (-180, 180]: the difference PES computes inline (SUBSS), not a FUN_14043a0a0 call.
+float InlineDiffDeg(float a, float b, const RunConstants& k) {
   float d = a - b;
   if (d > 0.0f) {
     if (d >= k.full) d += k.wrapFull;
@@ -31,6 +31,14 @@ float AngleDiffDeg(float a, float b, const RunConstants& k) {
   return d;
 }
 
+// FUN_14043a0a0 as PES has it: both folded into [0, 360), then b - a, wrapped by 360 once when its magnitude passes 180.
+float PesAngleDiff(float a, float b, const RunConstants& k) {
+  float d = FoldFull(b, k) - FoldFull(a, k);
+  const float magnitude = d < 0.0f ? -d : d;
+  if (k.half_turn < magnitude) d -= (d < 0.0f ? k.neg : k.one) * k.full;
+  return d;
+}
+
 // The 360 fold of a heading into [0, 360).
 float FoldFull(float a, const RunConstants& k) {
   if (a >= 0.0f) {
@@ -39,6 +47,67 @@ float FoldFull(float a, const RunConstants& k) {
   }
   return a + k.full;
 }
+
+namespace movestep {
+namespace {
+// A unit conversion: atan2 gives radians, the PES headings are degrees.
+constexpr float kDegPerRadian = 180.0f / 3.14159265358979323846f;
+// FUN_140a92d40's heading of a ground vector in PES's frame (x, z), folded into [0, 360).
+float TargetBearingDeg(float dx, float dz, const RunConstants& k) {
+  return FoldFull(std::atan2(dx, dz) * kDegPerRadian, k);
+}
+// FUN_14043a0a0: an angle difference wrapped into (-180, 180].
+float TargetTurnDeg(float deg, const RunConstants& k) {
+  if (k.half_turn < deg) return deg - k.full;
+  if (deg < -k.half_turn) return deg + k.full;
+  return deg;
+}
+}  // namespace
+
+int BodyBucketFlag(float recordValue) {
+  const float scaled = recordValue * 100.0f;  // 100.0 at 0x14253EE30
+  return 0.0f <= scaled && scaled <= 4294967296.0f ? 1 : 0;  // 2^32 at 0x1427341A0
+}
+
+void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants& k,
+                    const AngleBucketConstants& buckets) {
+  const float toTargetX = in.targetX - in.originX;
+  const float toTargetZ = in.targetZ - in.originZ;
+  const float targetDist = std::sqrt(toTargetX * toTargetX + toTargetZ * toTargetZ);
+  const float targetHeading =
+      targetDist > 0.0f ? TargetBearingDeg(toTargetX, toTargetZ, k) : in.facingDeg;
+  const float toLookX = in.lookX - in.originX;
+  const float toLookZ = in.lookZ - in.originZ;
+  const float lookDist = std::sqrt(toLookX * toLookX + toLookZ * toLookZ);
+  const float lookHeading = lookDist > 0.0f ? TargetBearingDeg(toLookX, toLookZ, k) : in.facingDeg;
+  // PES 0x1406B7E25: req[4] = wrap360(DAT_1425DD660[bucket] + facing), FoldFull's single fold. The bucket is
+  // the caller's flag (MoveTargetInput::bodyBucket); PES reads that flag from host+0x2798 (see the header).
+  const float body = FoldFull(buckets.centre[in.bodyBucket] + in.facingDeg, k);
+  const float turnToFacing = TargetTurnDeg(targetHeading - in.facingDeg, k);  // req[5]
+  const float turnToBody = TargetTurnDeg(targetHeading - body, k);           // req[6]
+  const float lookError = TargetTurnDeg(lookHeading - in.facingDeg, k);      // req[7]
+  req.SetF(moveword::kHeading, targetHeading);
+  req.SetF(moveword::kFacing, in.facingDeg);
+  req.SetF(moveword::kLookHeading, lookHeading);
+  req.SetF(moveword::kBodyDirection, body);
+  req.SetF(moveword::kLookDelta, turnToFacing);
+  req.SetF(moveword::kTurn, turnToBody);
+  req.SetF(moveword::kFacingError, lookError);
+  req.SetU(moveword::kMoveBucket,
+           static_cast<uint32_t>(AngleBucket(buckets, turnToBody, 10, false)));
+  req.SetU(moveword::kLookBucket,
+           static_cast<uint32_t>(AngleBucket(buckets, turnToFacing, 10, false)));
+  req.SetU(moveword::kLookBucketAlt,
+           static_cast<uint32_t>(AngleBucket(buckets, lookError, 10, false)));
+  req.SetF(moveword::kDistToTarget, targetDist);
+  req.SetF(moveword::kDistToLook, targetDist);  // ponytail: req[0x12] is req[0x11] (see the header)
+  req.SetU(moveword::kCommandSpeedClass, static_cast<uint32_t>(in.speedBand));
+  req.SetF(moveword::kDesiredSpeedKmh, in.desiredKmh);
+  req.SetU(moveword::kPrecise, in.precise ? 1u : 0u);
+  req.SetF(moveword::kMoveTargetX, in.targetX);  // FUN_1406b7560: param_2[0x1a6] = the target's x
+  req.SetF(moveword::kMoveTargetZ, in.targetZ);  // param_2[0x1a8] = the target's z
+}
+}  // namespace movestep
 
 namespace {
 // FUN_1406b9e80's table: ten records at 0x1425de010, stored low speed first; PES walks them high

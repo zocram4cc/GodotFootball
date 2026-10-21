@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "onthepitch/pesgoalkick.hpp"
+#include "onthepitch/pessetpiecetaker.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
 
@@ -48,11 +49,175 @@ bool LoadBallConstants(pes::PesBallConstants* out) {
   return true;
 }
 
+// The install's goal-kick constants (PES2021.exe), or false when no install is mounted.
+bool InstalledGoalKickConstants(pes::GoalKickConstants* out) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) return false;
+  std::string err;
+  pes::PesVfs vfs;
+  if (!vfs.Mount(root, &err)) return false;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  if (!exe) return false;
+  auto set = pes::LoadSetPieceTakerConstants(vfs, *exe, &err);
+  if (!set) return false;
+  *out = pes::GoalKickConstantsFrom(*set);
+  return true;
+}
+
+constexpr float kPlacementTolerance_m = 1e-4f;
+// The longest ladder ends by its forced kick at frame 109 (no receiver) or 271 (special); this window covers both.
+constexpr unsigned long kLadderWindow_frames = 400;
+
+// The first frame the ladder releases on, counted from its first tick (frame 0), and the order it gives.
+struct Release {
+  long frame = -1;
+  pes::GoalKickOrder order;
+};
+
+template <typename InputsAt>
+Release FirstRelease(const pes::GoalKickConstants& k, InputsAt inputsAt) {
+  pes::GoalKickLadder ladder;
+  for (unsigned long f = 0; f < kLadderWindow_frames; ++f) {
+    const pes::GoalKickOrder order = pes::StepGoalKickLadder(ladder, f, k, inputsAt(f));
+    if (order.released) return {static_cast<long>(f), order};
+  }
+  return {};
+}
+
+pes::GoalKickLadderInputs WithReceiver(int index) {
+  pes::GoalKickLadderInputs in;
+  in.lofted = index;
+  return in;
+}
+
 }  // namespace
 
-TEST(PesGoalKick, TheKickIsLoftedWhetherOrNotAReceiverIsFound) {
-  EXPECT_EQ(pes::GoalKickAfterWait(true), pes::GoalKickCommand::kLoftedToReceiver);
-  EXPECT_EQ(pes::GoalKickAfterWait(false), pes::GoalKickCommand::kLoftedIntoSpace);
+TEST(PesGoalKick, TheDefaultLadderPassesToTheMateOnTheFrameItsLoftedWindowOpens) {
+  pes::GoalKickConstants k;
+  if (!InstalledGoalKickConstants(&k)) GTEST_SKIP() << "PES21_ROOT not set: the ladder's timers are PES's";
+  // The 1 s wait ends on frame 54, the 0.5 s short window on frame 81, and the lofted window is first
+  // evaluated on the frame after its stamp: the transition ticks emit nothing.
+  const Release r = FirstRelease(k, [](unsigned long) { return WithReceiver(2); });
+  EXPECT_EQ(r.frame, 82);
+  EXPECT_EQ(r.order.command, pes::GoalKickCommand::kLoftedToReceiver);
+  EXPECT_EQ(r.order.receiver, 2);
+}
+
+TEST(PesGoalKick, WithoutAReceiverTheKickGoesIntoSpaceWhenTheWindowsHavePassed) {
+  pes::GoalKickConstants k;
+  if (!InstalledGoalKickConstants(&k)) GTEST_SKIP() << "PES21_ROOT not set: the ladder's timers are PES's";
+  // The lofted window runs its own length, and the forced kick comes on the frame after it closes.
+  const Release r = FirstRelease(k, [](unsigned long) { return WithReceiver(-1); });
+  EXPECT_EQ(r.frame, 109);
+  EXPECT_EQ(r.order.command, pes::GoalKickCommand::kLoftedIntoSpace);
+  EXPECT_EQ(r.order.receiver, -1);
+}
+
+TEST(PesGoalKick, AReceiverFoundLateIsPassedToOnTheFrameItAppears) {
+  pes::GoalKickConstants k;
+  if (!InstalledGoalKickConstants(&k)) GTEST_SKIP() << "PES21_ROOT not set: the ladder's timers are PES's";
+  const Release r = FirstRelease(k, [](unsigned long f) { return WithReceiver(f >= 90 ? 4 : -1); });
+  EXPECT_EQ(r.frame, 90);
+  EXPECT_EQ(r.order.receiver, 4);
+}
+
+TEST(PesGoalKick, ASpecialRestartBelowTheTacticsGateWaitsThreeSecondsBeforeItsWindow) {
+  pes::GoalKickConstants k;
+  if (!InstalledGoalKickConstants(&k)) GTEST_SKIP() << "PES21_ROOT not set: the ladder's timers are PES's";
+  const Release r = FirstRelease(k, [&k](unsigned long) {
+    pes::GoalKickLadderInputs in = WithReceiver(2);
+    in.specialRestart = true;
+    in.tactics = k.tacticsGate * 0.5f;
+    return in;
+  });
+  EXPECT_EQ(r.frame, 244);
+}
+
+TEST(PesGoalKick, ASpecialRestartAtTheTacticsGateTakesTheDefaultRoute) {
+  pes::GoalKickConstants k;
+  if (!InstalledGoalKickConstants(&k)) GTEST_SKIP() << "PES21_ROOT not set: the ladder's timers are PES's";
+  const Release r = FirstRelease(k, [&k](unsigned long) {
+    pes::GoalKickLadderInputs in = WithReceiver(2);
+    in.specialRestart = true;
+    in.tactics = k.tacticsGate;  // not below the gate: the three-second wait is skipped
+    return in;
+  });
+  EXPECT_EQ(r.frame, 82);
+}
+
+TEST(PesGoalKick, AValidSpecialObjectSkipsTheThreeSecondWait) {
+  pes::GoalKickConstants k;
+  if (!InstalledGoalKickConstants(&k)) GTEST_SKIP() << "PES21_ROOT not set: the ladder's timers are PES's";
+  const Release r = FirstRelease(k, [&k](unsigned long) {
+    pes::GoalKickLadderInputs in = WithReceiver(2);
+    in.specialRestart = true;
+    in.tactics = k.tacticsGate * 0.5f;
+    in.specialObjectValid = true;
+    return in;
+  });
+  EXPECT_EQ(r.frame, 83);
+}
+
+TEST(PesGoalKick, TheStandPointIsTheSpotLessTheClipsOffsetInXAndZWithItsHeightKept) {
+  // Heading 0: SetKick negates the offset's x and z, and the placer keeps its height.
+  const pes::Vec3 stand =
+      pes::GoalKickStandPoint(pes::Vec3(47.8f, -2.6f, 0.0f), 0.0f, pes::Vec3(1.0f, 0.5f, 2.0f));
+  EXPECT_NEAR(stand.x, 46.8f, kPlacementTolerance_m);
+  EXPECT_NEAR(stand.y, -0.6f, kPlacementTolerance_m);
+  EXPECT_NEAR(stand.z, 0.5f, kPlacementTolerance_m);
+}
+
+TEST(PesGoalKick, TheStandPointTurnsWithTheSpotsHeading) {
+  // A quarter turn carries the offset's z into the pitch's x.
+  const pes::Vec3 stand =
+      pes::GoalKickStandPoint(pes::Vec3(47.8f, -2.6f, 0.0f), 90.0f, pes::Vec3(1.0f, 0.5f, 2.0f));
+  EXPECT_NEAR(stand.x, 45.8f, kPlacementTolerance_m);
+  EXPECT_NEAR(stand.y, -3.6f, kPlacementTolerance_m);
+  EXPECT_NEAR(stand.z, 0.5f, kPlacementTolerance_m);
+}
+
+TEST(PesGoalKick, TheMirrorFlipsTheClipOffsetInX) {
+  pes::GoalKickConstants k;
+  if (!InstalledGoalKickConstants(&k)) GTEST_SKIP() << "PES21_ROOT not set: the centimetre is PES's";
+  // A hit 100 cm across (x), 50 cm up and 200 cm forward (z): the other foot flips only the across component.
+  const pes::Vec3 hit(100.0f, 50.0f, 200.0f);
+  const pes::Vec3 right = pes::ClipOffsetMetres(hit, 1.0f, false, k);
+  const pes::Vec3 left = pes::ClipOffsetMetres(hit, 1.0f, true, k);
+  EXPECT_NEAR(right.x, 1.0f, kPlacementTolerance_m);
+  EXPECT_NEAR(left.x, -1.0f, kPlacementTolerance_m);
+  EXPECT_NEAR(left.y, right.y, kPlacementTolerance_m);
+  EXPECT_NEAR(left.z, right.z, kPlacementTolerance_m);
+}
+
+TEST(PesGoalKick, TheContactComesOnTheTicksAHitFrameTakesAtFiftyFourFrames) {
+  pes::GoalKickConstants k;
+  if (!InstalledGoalKickConstants(&k)) GTEST_SKIP() << "PES21_ROOT not set: the tick base is PES's";
+  // A hit at frame 10 of a 30 Hz clip lands 10 / 30 s in: 18 of PES's 54 logic frames.
+  EXPECT_EQ(pes::GoalKickContactTicks(10, k), 18UL);
+}
+
+TEST(PesGoalKick, TheClipsRootCarriesTheKeeperFromTheStandPointByTheHitRootLength) {
+  pes::GoalKickConstants k;
+  if (!InstalledGoalKickConstants(&k)) GTEST_SKIP() << "PES21_ROOT not set: the centimetre is PES's";
+  const pes::Vec3 stand(51.6f, -0.1f, 0.0f);
+  // The hit record's root is 388 cm along and 252 cm across: the root moves that far in the pitch's plane.
+  const pes::Vec3 contact = pes::GoalKickContactRoot(stand, 0.0f, pes::Vec3(388.0f, 0.0f, 252.0f), false, k);
+  const float dx = contact.x - stand.x;
+  const float dy = contact.y - stand.y;
+  EXPECT_NEAR(std::sqrt(dx * dx + dy * dy), std::sqrt(3.88f * 3.88f + 2.52f * 2.52f), 0.01f);
+}
+
+TEST(PesGoalKick, TheStrikeWarpReachesTheContactRootOnTheContactTick) {
+  const pes::Vec3 from(40.0f, 0.0f, 0.0f);
+  const pes::Vec3 to(50.0f, 4.0f, 0.0f);
+  const pes::Vec3 halfway = pes::GoalKickStrikeRoot(from, to, 5, 10);
+  EXPECT_NEAR(halfway.x, 45.0f, kPlacementTolerance_m);
+  EXPECT_NEAR(halfway.y, 2.0f, kPlacementTolerance_m);
+  const pes::Vec3 onTheTick = pes::GoalKickStrikeRoot(from, to, 10, 10);
+  EXPECT_NEAR(onTheTick.x, 50.0f, kPlacementTolerance_m);
+  EXPECT_NEAR(onTheTick.y, 4.0f, kPlacementTolerance_m);
+  // No ticks to play: the contact root at once.
+  EXPECT_NEAR(pes::GoalKickStrikeRoot(from, to, 0, 0).x, 50.0f, kPlacementTolerance_m);
 }
 
 TEST(PesGoalKick, ThePickerTakesTheBestRatedMateOtherThanTheTaker) {

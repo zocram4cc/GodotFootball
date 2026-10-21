@@ -23,11 +23,11 @@ namespace moveword {
 inline constexpr int kRateBand = 0x1f;       // req[0x1f]: the running speed band 0..2 (OBS: FUN_1406bdf10/FUN_1406bb570 write 0/1/2 here; FUN_1406c9e20 reads it)
 inline constexpr int kSpeedBand = 0x22;      // req[0x22]: the band the run starts in (OBS: FUN_1406ce820 writes clamp(req[0xa], 5, 16); RUN_LOOP copies it to 0x1d)
 inline constexpr int kBandTarget = 0x24;     // req[0x24]: the band to run at (OBS: FUN_1406ce820 writes clamp(req[9], 0, 3))
+// FUN_1406bdf10 writes word 0x1d before its STOP entry (param_2[0x1d] = 5.0 at lines 226-228 of its decompile). The live
+// speed word is also kSpeedWord in movestep_turn.hpp; both name word 0x1d.
+inline constexpr int kStopSpeedWord = 0x1d;
 inline constexpr int kHitMotion = 0x27;      // req[0x27]: the last hit record's motion (OBS: FUN_1406ce820)
 inline constexpr int kHitFrame = 0x28;       // req[0x28]: the last hit record's frame (OBS: FUN_1406ce820)
-inline constexpr int kTurnLockFlag = 0x3d;   // req[0x3d] byte: a turn lock is active (OBS: FUN_1406bdf10)
-inline constexpr int kTurnLockTicks = 0x3e;  // req[0x3e]: the lock's tick count (OBS: FUN_1406bdf10)
-inline constexpr int kTurnLockDir = 0x3f;    // req[0x3f] byte: the lock's direction flag (OBS: FUN_1406bdf10)
 }  // namespace moveword
 
 // The interface's table readers, declared here so the tests can check their arithmetic directly.
@@ -49,21 +49,11 @@ int TurnStopRowFor(int kind, int cls, const RunTables& t);  // FUN_1406ba0d0, 0x
 // The group-B file-local helpers, defined in namespace pes beside the loaders (their callers
 // are the handlers in namespace pes::movestep, which see them through pes::).
 bool TurnLockEligible(MoveHost& host, MoveReq& req);       // FUN_1406d01d0
-float FirstAngle(float a, float b, const RunConstants& k);  // FUN_140a92950
+// FUN_140a92950(heading, target, clamp): the heading stepped toward the target by at most the
+// clamp, wrapped into [0, 360). Group C carries the same helper as StepHeadingToPoint; the two
+// reconcile when the shared contract names it.
+float StepHeading(float heading, float target, float clampDeg, const RunConstants& k);
 int HitRecordCount();                                      // FUN_1406afbc0
-// The group-C helpers STOP's block calls (FUN_1406b70d0 / FUN_1406b6ee0). Group C's
-// declarations live in its own file against its own TurnDistances, which the shared contract
-// does not name, so this group's port carries the two seams until group C lands and the
-// shared contract reconciles them. ponytail: group C's movestep_step.hpp supplies the real
-// signatures; this pair is the group-B port's seam, not a PES site.
-bool StepLetsRunTurnPlaceholder(MoveHost& host);
-bool StepStopsPlaceholder(MoveHost& host, MoveReq& req);
-
-// The cross-group entries group B's handlers call, each with its PES VA. The declarations live in
-// the owning group's file; group B only calls them, as PES does.
-// ponytail: the contract declares EnterTurnStop when group C lands; until then this declaration
-// keeps group B compiling and is the single place to reconcile.
-void EnterTurnStop(MoveHost& host, MoveReq& req);  // FUN_1406d2590 (group C)
 
 // This group's loaders, defined in movestep_run.cpp. They read the shared header's RunConstants
 // and RunTables from the exe by the VAs in the file; tests skip without PES21_ROOT.

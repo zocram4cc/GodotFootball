@@ -25,6 +25,7 @@
 #include "../../match.hpp"
 #include "../../pesclips.hpp"
 #include "../../peskeeper.hpp"
+#include "pes/movestep.hpp"
 #include "../../penaltyshootoutcontroller.hpp"
 #include "../../team.hpp"
 #include "../player.hpp"
@@ -194,6 +195,10 @@ bool PreferImportedAnims(e_FunctionType functionType) {
   return false;
 }
 
+// The FSM holds the body while it is in STOP (pes::HoldsBodyPose): the clip's end does not switch the body, and the AI's
+// movement command selects no clip until the FSM leaves the pose.
+static bool PesPoseHeld(Player* player) { return pes::HoldsBodyPose(player->GetMoveStep().state); }
+
 void Humanoid::Process() {
   _cache_AgilityFactor =
       GetConfiguration()->GetReal("gameplay_agilityfactor", _default_AgilityFactor);
@@ -257,7 +262,7 @@ void Humanoid::Process() {
   */
 
   if (currentAnim->frameNum == currentAnim->anim->GetFrameCount() - 1 &&
-      interruptAnim == e_InterruptAnim_None) {
+      interruptAnim == e_InterruptAnim_None && !PesPoseHeld(CastPlayer())) {
     interruptAnim = e_InterruptAnim_Switch;
   }
 
@@ -381,6 +386,8 @@ void Humanoid::Process() {
       // CastPlayer()->GetTeam()->GetID() == 1) printf("queue at %i has type %i\n", i,
       // command.desiredFunctionType);
 
+      // The FSM owns the body's movement while it holds STOP: the AI's movement command reaches the body only through MOVESTEP.
+      if (PesPoseHeld(CastPlayer()) && command.desiredFunctionType == e_FunctionType_Movement) continue;
       found = SelectAnim(command, interruptAnim, preferPassAndShot);
       if (found)
         break;
@@ -2259,6 +2266,14 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
 
   if (currentAnim->anim->GetVariable("outgoing_special_state").compare("") != 0)
     query.incomingVelocity = e_Velocity_Idle;  // standing up anims always start out idle
+  // ponytail: PES's kick takes the body by the anime phase, not by GF's pose match (pes-re-decision-read.md 3, INF). A ball
+  // action asked while a PES locomotion clip plays is matched on the action alone: GF's incoming-velocity and side vetoes
+  // would refuse every pass and throw on a walk.
+  if (OnPesLocomotion() && IsBallActionFunction(command.desiredFunctionType)) {
+    query.byIncomingVelocity = false;
+    query.byIncomingBodyDirection = false;
+    query.bySide = false;
+  }
 
   DataSet dataSet;
   anims->CrudeSelection(dataSet, query);

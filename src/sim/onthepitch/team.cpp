@@ -152,6 +152,8 @@ void Team::InitPlayers() {
           ", red " + int_to_str(arrowsDealt[4]));
 
   designatedTeamPossessionPlayer = players.at(0).get();
+  // The registry and the first bulk write of the PES role arrays (setup, FUN_141FBB06A).
+  teamController->SetUpRoleArrays();
 }
 
 void Team::GetBenchPlayers(std::vector<Player*>& benchPlayers) {
@@ -281,6 +283,12 @@ FormationEntry Team::GetFormationEntry(int playerID) {
   assert(1 == 2);
   FormationEntry fail;
   return fail;
+}
+
+int Team::FormationSlotOf(const Player* player) const {
+  for (size_t i = 0; i < players.size(); ++i)
+    if (players[i].get() == player) return static_cast<int>(i);
+  return -1;
 }
 
 void Team::SetFormationEntry(int playerID, FormationEntry entry) {
@@ -515,6 +523,8 @@ void Team::UpdatePesPossession() {
 
 void Team::Process() {
   UpdatePesPossession();
+  // FUN_14051D9E0's head write (0x14051DA5A): the bulk writer of the PES role arrays.
+  teamController->WriteRoleArrays(true);
   teamPossessionAmount =
       (float)(match->GetTeam(abs(GetID() - 1))->GetTimeNeededToGetToBall_ms() + 1500) /
       (float)(GetTimeNeededToGetToBall_ms() + 1500);
@@ -559,6 +569,9 @@ void Team::Process() {
       players.at(i)->Process();
     }
   }
+
+  // FUN_14051E2E7 and the B swap at FUN_14051E31E: the tail write, at the end of the team tick.
+  teamController->WriteRoleArrays(false);
 
   // PES's movement selector (pes-re-receiving.md §2) sends the PASS_GET
   // receiver to the ball while a pass is in flight; GF's time-to-ball rating

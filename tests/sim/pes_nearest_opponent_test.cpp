@@ -137,6 +137,15 @@ TEST(PesMoveStepJostle, AwayStarterJostlesTheNearOpponentInRunLoop) {
   // builds on the third logic frame. Run until it has, at most a few frames.
   for (int frame = 0; frame < 4 && away->GetController()->RunSlotOf(own) < 0; ++frame) match->Process();
   ASSERT_EQ(away->GetController()->RunSlotOf(own), 17) << "team 1, roster index 6";
+  // The clearing walk's command (PES cmd[0x15], preciseArrival): RUN_LOOP's T2 needs the precise word, so the style arm,
+  // where the jostle acts, runs. Without a command the precise word is 0 and the tick takes the swing arm.
+  PlayerCommand arrive;
+  arrive.preciseArrival = true;
+  arrive.desiredVelocityFloat = 3.0f;  // a walking command: a speed gives the player a live class (req[9] 0..3), not the no-class branch
+  own->GetPesDecision().command = arrive;
+  // The player's top running rate (P+0x377c): a live match has one, and E2 blends with it. A zero ceiling sends every tick to
+  // the swing arm.
+  own->GetMoveStep().rateCeiling = 1.0f;
 
   // Own faces +z; the opponent 0.57 m away at 45 degrees, facing the same way.
   const auto runAt = [&](float ox, float oz) {

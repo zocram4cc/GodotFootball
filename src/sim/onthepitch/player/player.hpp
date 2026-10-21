@@ -14,6 +14,7 @@
 #include "pes/movestep.hpp"
 
 #include <memory>
+#include <optional>
 
 class Match;
 class Team;
@@ -24,6 +25,13 @@ struct TacticalPlayerSituation {
   float toGoalSpaceRating;
   float spaceRating;
   float forwardRating;
+};
+
+// The AI's movement decision MOVESTEP reads on each tick (pesmovestep.cpp Think): the controller's first command at its
+// last think, and that think's frame (-1: no think yet). The think runs every tick, after the controller's process.
+struct PesDecision {
+  int frame = -1;
+  std::optional<PlayerCommand> command;
 };
 
 class Player : public PlayerBase {
@@ -106,6 +114,8 @@ public:
   pes::MoveStepRecord& GetMoveStep() { return moveStep; }
   // The clip the MOVESTEP machine last issued for this player (the viewer plays it).
   pes::IssuedClip& GetIssuedClip() { return issuedClip; }
+  // The AI's movement decision MOVESTEP reads (PesDecision; pesmovestep.cpp Think).
+  PesDecision& GetPesDecision() { return decision; }
 
   const TacticalPlayerSituation& GetTacticalSituation() { return tacticalSituation; }
 
@@ -207,6 +217,7 @@ protected:
   std::unique_ptr<pes::Random> pesRandom;
   pes::MoveStepRecord moveStep;
   pes::IssuedClip issuedClip;
+  PesDecision decision;
 };
 
 #endif

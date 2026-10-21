@@ -112,8 +112,8 @@ float TurnSlow(MoveHost& host, MoveReq& req, float x) {
     float v[3] = {0.0f, 0.0f, 0.0f};
     host.PositionAt(1, v);
     const float heading =
-        FoldFull(std::atan2(v[0], v[1]) * host.StyleConstantsView().radToDeg, k);
-    turn = AngleDiffDeg(heading, req.F(moveword::kHeading), k);
+        FoldFull(std::atan2(v[0], v[2]) * host.StyleConstantsView().radToDeg, k);  // PES's (x, z) pair: index 2 is z
+    turn = PesAngleDiff(heading, req.F(moveword::kHeading), k);
   }
   const float magnitude = std::fabs(turn);
   const float a = magnitude < k.deg1125 ? 0.0f : std::min(magnitude / k.deg90, k.one);
@@ -143,6 +143,8 @@ float ProximityCap(MoveHost& host, MoveReq& req, float x) {
   team.Velocity(own, selfVel);
   team.Position(opp, other);
   team.Velocity(opp, otherVel);
+  // ponytail: index 1 is PES's z only because TeamAi::Position copies GF coords (pesmovestep.cpp, Position); PES's z is
+  // index 2. Inert while ActionBit27 is false (the gate above); the frame fix waits for a decision.
   const float sx = self[0] + n * selfVel[0];
   const float sz = self[1] + n * selfVel[1];
   const float ox = other[0] + n * otherVel[0];
@@ -155,7 +157,7 @@ float ProximityCap(MoveHost& host, MoveReq& req, float x) {
   if (!(std::sqrt(dx * dx + dz * dz) < threshold)) return x;
 
   const float bearing = FoldFull(std::atan2(dx, dz) * host.StyleConstantsView().radToDeg, k);
-  const float ang = AngleDiffDeg(req.F(moveword::kFacing), bearing, k);
+  const float ang = PesAngleDiff(req.F(moveword::kFacing), bearing, k);
   const float mag = std::fabs(ang);
   float w = k.one;
   if (mag >= k.deg1575) {

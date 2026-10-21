@@ -67,6 +67,12 @@ enum e_FunctionType {
   e_FunctionType_Special
 };
 
+// The ball touches the kick dispatcher consumes: a trap, the three passes, a header and a shot (pes-re-decision-read.md 1).
+inline bool IsBallActionFunction(e_FunctionType f) {
+  return f == e_FunctionType_Trap || f == e_FunctionType_ShortPass || f == e_FunctionType_LongPass ||
+         f == e_FunctionType_HighPass || f == e_FunctionType_Header || f == e_FunctionType_Shot;
+}
+
 // e_SetPiece and e_TouchType live in gametypes.hpp so the SDL-free rule
 // modules can see them.
 
@@ -125,6 +131,8 @@ struct PlayerCommand {
     desiredVelocityFloat = idleVelocity;
     strictMovement = e_StrictMovement_Dynamic;
     useDesiredLookAt = false;
+    useDesiredTarget = false;
+    preciseArrival = false;
     useTripType = false;
     useDesiredTripDirection = false;
     onlyDeflectAnimsThatPickupBall = false;
@@ -146,6 +154,12 @@ struct PlayerCommand {
 
   bool useDesiredLookAt;
   Vector3 desiredLookAt;  // absolute 'look at' position on pitch
+  // PES cmd+0x20, the move target point (FUN_1406b7560). Without one the adapter projects the direction
+  // one second ahead (ponytail: the writers AI_GetBallControlMovement, the pad, trips and basic movement).
+  bool useDesiredTarget;
+  Vector3 desiredTarget;
+  // PES cmd[0x15], the precise arrival flag that stops the walk on its target (req[0xe]).
+  bool preciseArrival;
 
   TouchInfo touchInfo;
 

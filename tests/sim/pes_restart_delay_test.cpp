@@ -51,11 +51,11 @@ constexpr unsigned long kMaxSimTicks = 30ul * 60ul * Match::kFramesPerSecond;
 // runs about 114600 ticks, past the 30-minute cap above.
 constexpr unsigned long kTwentyMinuteMaxSimTicks = 60ul * 60ul * Match::kFramesPerSecond;
 
-// One match with the tick-order switch set as asked. `onTick` sees the match after each tick;
-// the watch stops the run at the first stall.
-void RunMatchWithinTheBound(bool pesLoop, int minutes,
-                            const std::function<void(Match&)>& onTick,
-                            unsigned long maxSimTicks = kMaxSimTicks) {
+// One match with the tick-order switch set as asked. `onTick` sees the match after each tick; the watch stops the run at
+// the first stall. `seed` picks the match; `judgeEnd` runs the whole-match checks (off for a run that stops short).
+void RunMatchWithinTheBound(bool pesLoop, int minutes, const std::function<void(Match&)>& onTick,
+                            unsigned long maxSimTicks = kMaxSimTicks, unsigned int seed = SEED,
+                            bool judgeEnd = true) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
   pes::PesVfs vfs;
@@ -70,7 +70,7 @@ void RunMatchWithinTheBound(bool pesLoop, int minutes,
   auto setup = std::make_unique<MatchSetup>();
   setup->homeTeamDbId = HOME_TEAM;
   setup->awayTeamDbId = AWAY_TEAM;
-  setup->seed = SEED;
+  setup->seed = seed;
   setup->durationMinutes = minutes;
   setup->animationDir = std::string(GF_SOURCE_DIR) + "/assets/gf_anims";
   setup->rig = &*rig;
@@ -87,12 +87,13 @@ void RunMatchWithinTheBound(bool pesLoop, int minutes,
     if (onTick) onTick(match);
   }
 
-  EXPECT_FALSE(watch.Stalled()) << "a stoppage ran past " << watch.LimitTicks()
-                                << " ticks without a restart (longest "
-                                << watch.LongestTicks() << ")";
-  EXPECT_TRUE(match.IsGameOver()) << "the match did not reach full time";
-  EXPECT_GT(watch.MeasuredStoppages(), 0ul) << "no stoppage was measured";
-  EXPECT_LE(watch.LongestTicks(), watch.LimitTicks());
+  if (judgeEnd) {
+    EXPECT_FALSE(watch.Stalled()) << "a stoppage ran past " << watch.LimitTicks()
+                                  << " ticks without a restart (longest " << watch.LongestTicks() << ")";
+    EXPECT_TRUE(match.IsGameOver()) << "the match did not reach full time";
+    EXPECT_GT(watch.MeasuredStoppages(), 0ul) << "no stoppage was measured";
+    EXPECT_LE(watch.LongestTicks(), watch.LimitTicks());
+  }
 }
 
 }  // namespace
@@ -111,7 +112,9 @@ TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBoundWithPesLoop) {
 // nineteen minutes in, stood 2.3 m off the ball: his walk was refused behind the MOVESTEP clip's stale
 // command, and nothing restarted the match. Every stoppage must restart inside the bound and the match
 // must reach full time.
-TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBoundAtTwentyMinutes) {
+// DISABLED 21-10-26 (Main's owner decision, GoalKick landing): a throw-in stall on this tree, a 1758-tick stoppage whose
+// taker never releases. ThrowInPathB re-enables it when its acceptance passes.
+TEST(PesRestartDelay, DISABLED_EveryStoppageRestartsWithinTheInstallBoundAtTwentyMinutes) {
   RunMatchWithinTheBound(true, TWENTY_MINUTES, nullptr, kTwentyMinuteMaxSimTicks);
 }
 
@@ -126,8 +129,8 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (b.active && b.started && !(lastRelease && *lastRelease == b.stopTime)) {
       lastRelease = b.stopTime;
-      // The taker is released on the first frame at or past the PES gate, give or take the
-      // tick the referee checks it on.
+      // The timed taker is released on the first frame at or past the PES gate, give or take the tick the referee
+      // checks it on. A goal kick has no clock: AGoalKickIsReleasedOnThePesLadder checks its ladder frame.
       const int gate = pes::ReleaseFrames(b.desiredSetPiece);
       const int frames =
           static_cast<int>((match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
@@ -177,7 +180,9 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
 // taker walked onto the spot while play was off, a body touch pushed the ball past the line, and
 // the throw was refused for a ball out of bounds. The ball must still be at its spot when the
 // throw is released, and the match must run through it.
-TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
+// DISABLED 21-10-26 (Main's owner decision, GoalKick landing): red on this tree (no throw-in path yet). ThrowInPathB
+// re-enables it when its acceptance passes.
+TEST(PesRestartDelay, DISABLED_AThrowInIsReleasedFromItsSpotAndTaken) {
   std::optional<unsigned long> checkedStop;
   int throwIns = 0;
   RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
@@ -283,7 +288,9 @@ TEST(PesRestartDelay, ARestartTakerPlaysHisBallActionAfterRelease) {
 // as out of bounds (humanoid GetBestCheatableAnimID), and no pass or shot is selected and the match
 // stalls. This test requires the taker's ball action within the bound counted from the stoppage, as
 // the restart watch counts it.
-TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
+// DISABLED 21-10-26 (Main's owner decision, GoalKick landing): red on this tree (no throw-in path yet). ThrowInPathB
+// re-enables it when its acceptance passes.
+TEST(PesRestartDelay, DISABLED_AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
   const auto isBallAction = [](int type) {
     return type == e_FunctionType_ShortPass || type == e_FunctionType_LongPass ||
            type == e_FunctionType_HighPass || type == e_FunctionType_Shot;
@@ -397,4 +404,116 @@ TEST(PesRestartDelay, AWhistleLeavesNoFlyingBallBehind) {
   });
   EXPECT_GT(stops, 0) << "no stoppage was seen";
   EXPECT_GT(flyingStops, 0) << "no stoppage caught a ball in flight - the test proved nothing";
+}
+
+// A goal kick is released by PES's timer ladder (sub_142136F00), not by the keeper's arrival: the lofted pass on the
+// ladder's frame 82 from the armed tick when the picker finds a mate, the kick into space on frame 109 when it does not.
+// The keeper walks to his stand point and his strike carries him onto the ball after the release. The gate checks the
+// frame the referee releases on, counted from the armed tick, against the frame the mode the ladder chose allows.
+TEST(PesRestartDelay, AGoalKickIsReleasedOnThePesLadder) {
+  constexpr long kLoftedFrame = 83;   // the ladder's first lofted evaluation is frame 82; the hook reads the clock one tick later (PES live 83)
+  constexpr long kForcedFrame = 110;  // the forced kick on ladder frame 109, read one tick later
+  std::optional<unsigned long> checkedStop;
+  int goalKicks = 0;
+  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || !b.started || b.desiredSetPiece != e_SetPiece_GoalKick || !b.taker) return;
+    if (checkedStop && *checkedStop == b.stopTime) return;
+    checkedStop = b.stopTime;
+    goalKicks++;
+    // The mode comes from the ladder's own answer: a receiver is a lofted pass, none a kick into space.
+    const bool withReceiver = match.GetTeam(b.teamID)->GetController()->GoalKickReceiver() != nullptr;
+    const long expected = withReceiver ? kLoftedFrame : kForcedFrame;
+    const long framesFromArmed =
+        std::lround(static_cast<double>(match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
+    EXPECT_EQ(framesFromArmed, expected)
+        << (withReceiver ? "lofted" : "forced") << " goal kick released off its ladder frame";
+  });
+  EXPECT_GT(goalKicks, 0) << "no goal kick was released";
+}
+// A mover whose PES clip reaches its last frame must go on. On seed 57 a presser (team 0, id 4) held zero speed in
+// ACCELERATE for over a thousand ticks, commanded 8 m/s, on a clip held at its last frame: the clip's end issued motion 0 on
+// every tick, since its exit never wrote the run's motion word. The longest such run must stay under one second.
+TEST(PesRestartDelay, AMoverWhoseClipEndsGoesOnAndMoves) {
+  constexpr int kFrozenLimitTicks = 54;  // one second at 54 Hz
+  int run = 0, longest = 0;
+  RunMatchWithinTheBound(
+      true, MINUTES,
+      [&](Match& match) {
+        Player* p = match.GetTeam(0)->GetAllPlayers().at(4).get();
+        const PesDecision& decision = p->GetPesDecision();
+        const bool frozen = p->GetMoveStep().state == pes::MoveState::kAccelerate &&
+                            p->GetMovement().GetLength() < 0.01f && decision.command &&
+                            decision.command->desiredVelocityFloat > 1.0f;
+        run = frozen ? run + 1 : 0;
+        longest = std::max(longest, run);
+      },
+      1300, /*seed=*/57, /*judgeEnd=*/false);
+  EXPECT_LT(longest, kFrozenLimitTicks) << "the presser held zero speed on a finished clip for " << longest << " ticks";
+}
+
+// Every PES clip MOVESTEP issues on seed 3 plays at a positive rate. The playback word is a float that the copy-in fills
+// from P+0x3750 (1.0); the integer writes into it left 0.0 on the kick-off stance (motion 2220) and others.
+TEST(PesRestartDelay, ASeedThreePesIssuePlaysAtAPositiveRate) {
+  std::map<int, unsigned int> lastSerial;
+  int issues = 0, zeroRate = 0;
+  RunMatchWithinTheBound(
+      true, MINUTES,
+      [&](Match& match) {
+        for (int t = 0; t < 2; ++t) {
+          if (!match.GetTeam(t)) continue;
+          const auto& all = match.GetTeam(t)->GetAllPlayers();
+          for (size_t i = 0; i < all.size(); ++i) {
+            Player* q = all[i].get();
+            if (!q) continue;
+            const pes::IssuedClip& ic = q->GetIssuedClip();
+            const int key = t * 100 + static_cast<int>(i);
+            auto it = lastSerial.find(key);
+            if (it != lastSerial.end() && it->second == ic.serial) continue;
+            lastSerial[key] = ic.serial;
+            if (ic.request.group >= 0 || ic.request.motion < 0) continue;  // PES SetMotion clips only
+            ++issues;
+            if (!(ic.request.playback > 0.0f)) ++zeroRate;
+          }
+        }
+      },
+      kMaxSimTicks, 3, false);
+  EXPECT_GT(issues, 0) << "no PES clip was issued";
+  EXPECT_EQ(zeroRate, 0) << zeroRate << " of " << issues << " PES clip issues played at rate zero";
+}
+
+// Seed 23's kick-off restarts. On 92a0d28 the kick-off taker looped between idle and GotoRun at the spot, because the
+// RunLoop turn-stop issue read the copied-in default word instead of the playback word its own arm wrote (PES's
+// param_2[0x35], RunLoop), and the stoppage ran past the bound.
+TEST(PesRestartDelay, TheSeedTwentyThreeKickOffRestarts) {
+  RunMatchWithinTheBound(true, MINUTES, nullptr, kMaxSimTicks, 23);
+}
+
+// A finished trap must not freeze a mover. On seed 42 (b1f958a) a loose presser sat in a trap clip at zero speed while
+// commanded past a metre a second, for hundreds of ticks: the clip's end never handed the body back, because the FSM's hold
+// blocked the end-of-clip switch (FirstTouchPort2's freeze). No mover may hold that state for 120 ticks.
+TEST(PesRestartDelay, AFinishedTrapDoesNotFreezeAMover) {
+  constexpr int kFrozenLimitTicks = 120;
+  std::map<int, int> run;
+  int longest = 0;
+  RunMatchWithinTheBound(
+      true, MINUTES,
+      [&](Match& match) {
+        for (int t = 0; t < 2; ++t) {
+          std::vector<Player*> active;
+          match.GetActiveTeamPlayers(t, active);
+          for (size_t i = 0; i < active.size(); ++i) {
+            Player* pl = active[i];
+            if (!pl) continue;
+            const bool frozen = pl->CastHumanoid() && pl->GetCurrentFunctionType() == e_FunctionType_Trap &&
+                                pl->GetMovement().GetLength() < 0.05f && pl->GetPesDecision().command &&
+                                pl->GetPesDecision().command->desiredVelocityFloat > 1.0f;
+            int& r = run[t * 100 + static_cast<int>(i)];
+            r = frozen ? r + 1 : 0;
+            if (r > longest) longest = r;
+          }
+        }
+      },
+      12000, 42, false);
+  EXPECT_LT(longest, kFrozenLimitTicks) << "a mover held a trap at zero speed while commanded for " << longest << " ticks";
 }

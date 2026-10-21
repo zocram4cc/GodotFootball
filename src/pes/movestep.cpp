@@ -69,6 +69,17 @@ void ApplyTransition(MoveStepRecord& rec, MoveReq& req) {
   rec.Enter(static_cast<MoveState>(req.U(moveword::kNextState) & 0xffu));
 }
 
+// The carried request words: req[0x17..0x2e] (MoveStepRecord::carried), in PES's order.
+static_assert(moveword::kDwellLimit2 - moveword::kRecordStampA + 1 == 24, "carried holds req[0x17..0x2e]");
+void CarryOut(MoveStepRecord& rec, const MoveReq& req) {
+  for (int w = moveword::kRecordStampA; w <= moveword::kDwellLimit2; ++w)
+    rec.carried[w - moveword::kRecordStampA] = req.U(w);
+}
+void CarryIn(const MoveStepRecord& rec, MoveReq& req) {
+  for (int w = moveword::kRecordStampA; w <= moveword::kDwellLimit2; ++w)
+    req.SetU(w, rec.carried[w - moveword::kRecordStampA]);
+}
+
 namespace {
 // The scalars of FUN_14081e340 and FUN_140a92c80, by VA (see SpeedClassConstants).
 struct SpeedScalar {
@@ -152,10 +163,12 @@ std::optional<AngleBucketConstants> LoadAngleBucketConstants(const PeImage& exe,
   constexpr uint64_t BUCKET_VA = 0x1425ddf10;
   constexpr uint64_t HYST_UP_VA = 0x14259222c;
   constexpr uint64_t HYST_DOWN_VA = 0x14259be7c;
+  constexpr uint64_t CENTRE_VA = 0x1425dd660;  // DAT_1425dd660: the bucket centre angles (the body fill)
   AngleBucketConstants k{};
   if (!exe.ReadVa(WIDE_VA, sizeof k.wide, reinterpret_cast<uint8_t*>(k.wide.data())) ||
       !exe.ReadVa(NARROW_VA, sizeof k.narrow, reinterpret_cast<uint8_t*>(k.narrow.data())) ||
       !exe.ReadVa(BUCKET_VA, sizeof k.bucket, reinterpret_cast<uint8_t*>(k.bucket.data())) ||
+      !exe.ReadVa(CENTRE_VA, sizeof k.centre, reinterpret_cast<uint8_t*>(k.centre.data())) ||
       !exe.ReadVa(HYST_UP_VA, sizeof(float), reinterpret_cast<uint8_t*>(&k.hysteresisUp)) ||
       !exe.ReadVa(HYST_DOWN_VA, sizeof(float), reinterpret_cast<uint8_t*>(&k.hysteresisDown))) {
     *error = "angle bucket constants: .rdata unreadable";
@@ -188,7 +201,6 @@ namespace {
 // rather than reading wrong numbers.
 constexpr uint64_t STEP_COLUMN_TABLE_VA = 0x1425dd988;    // STEP_LOOP 0x1406c5d82, TURN_STOP 0x1406cb36e
 constexpr uint64_t STEP_GRID_TABLE_VA = 0x1425dd9b0;      // STEP_LOOP 0x1406c5d8e, TURN_STOP 0x1406cb37f
-constexpr uint64_t STEP_STYLE_TABLE_VA = 0x1425ddcf0;     // STEP_LOOP 0x1406c58ba
 constexpr uint64_t STEP_BUCKET_DEGREES_VA = 0x1425dd960;  // TURN_STOP entry 0x1406d2d8e
 
 #define STEP_FIELD(a) &StepScalars::a
@@ -225,10 +237,11 @@ const struct {
     {0x1425ddfbc, STEP_FIELD(deg146p25)},
     {0x1425ddfb8, STEP_FIELD(deg140p625)},
     {0x1425ddfd4, STEP_FIELD(sq1139)},
-    {0x1425ddfd8, STEP_FIELD(sq2025)},
+    {0x1425ddfd8, STEP_FIELD(sq8100)},    // 8100.0: FUN_1406c1070 0x1406c1243, FUN_1406c6f80 0x1406c701c
     {0x1425ddfd0, STEP_FIELD(deg174p375)},
     {0x1425a2008, STEP_FIELD(deg270)},
-    {0x1425cb494, STEP_FIELD(sq8100)},
+    {0x1425cb494, STEP_FIELD(sq2025)},    // 2025.0: FUN_1406c6f80 0x1406c702e
+    {0x1425ddfdc, STEP_FIELD(sq12656p25)},  // 12656.25: FUN_1406c1070 0x1406c1254
     {0x1425ddf98, STEP_FIELD(deg31p64)},
     {0x1425c5958, STEP_FIELD(neg90)},
     {0x1425aa1c8, STEP_FIELD(neg45)},
@@ -259,7 +272,7 @@ const struct {
     {0x1425ab120, STEP_FIELD(s0p85)},
     {0x14259bdec, STEP_FIELD(six)},
     {0x14259bdd4, STEP_FIELD(threeQuarters)},
-    {0x14257a194, STEP_FIELD(rate1p6)},
+    {0x14257a194, STEP_FIELD(s0p7)},   // 0.7: FUN_1406c1070 0x1406c1411, FUN_1406c6480 0x1406c6b48
     {0x1425656c0, STEP_FIELD(four)},   // FUN_1406c6480: comiss at 0x1406c6b18
     {0x1425c48a0, STEP_FIELD(s0p15)},  // FUN_1406c6480: movss at 0x1406c6bb8
 };
@@ -286,8 +299,12 @@ std::optional<StepTables> LoadStepTables(const PeImage& exe, std::string* error)
     return std::nullopt;
   }
   std::memcpy(t.bucketDegrees.data(), degrees, sizeof degrees);
-  if (!ReadI32Array(exe, STEP_STYLE_TABLE_VA, t.styleMotion.data(), t.styleMotion.size())) {
-    *error = "movestep step: the style/class motion table is unreadable";
+  // FUN_1406b70d0's distance rows (StepTables' turn rows), four floats each.
+  constexpr uint64_t TURN_FRONT_VA = 0x1425dde70, TURN_BACK_VA = 0x1425dde80, TURN_CENTRE_VA = 0x1425dde90;
+  if (!exe.ReadVa(TURN_FRONT_VA, sizeof t.turnFront, reinterpret_cast<uint8_t*>(t.turnFront.data())) ||
+      !exe.ReadVa(TURN_BACK_VA, sizeof t.turnBack, reinterpret_cast<uint8_t*>(t.turnBack.data())) ||
+      !exe.ReadVa(TURN_CENTRE_VA, sizeof t.turnCentre, reinterpret_cast<uint8_t*>(t.turnCentre.data()))) {
+    *error = "movestep step: the run-turn distance rows are unreadable";
     return std::nullopt;
   }
   return t;
