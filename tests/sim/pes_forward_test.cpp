@@ -152,6 +152,55 @@ TEST(ForwardLine, LevelZeroHasNoFloor) {
   EXPECT_FLOAT_EQ(r.target[7], -40.0f);  // factor 0, no floor: every forward is at deep
 }
 
+// In possession, mode 1 is the Y-sort: the line's members sorted by Y ascending, ties in slot
+// order. The ball side picks the highest (> 0) or the lowest. Out of possession it is the rank.
+TEST(ForwardLine, InPossessionTheLowestYIsPickedNotTheFirstListed) {
+  Input in = Line(1, -1.0f);
+  in.possession = true;
+  AddForward(in, 1, 7);
+  AddForward(in, 4, 8);
+  AddForward(in, 7, 9);
+  in.slots[1].y = 5.0f;
+  in.slots[4].y = -3.0f;
+  in.slots[7].y = 2.0f;
+  const Result r = ForwardLine(InstallNumbers(), SevenEightNine(), in);
+  // Sorted by Y: slot 4, slot 7, slot 1. The ball side <= 0 picks the lowest, slot 4, so slot 1
+  // (listed first) misses mode 1 and takes the 0.65 scale.
+  EXPECT_FLOAT_EQ(r.target[1], -33.5f);  // -40 + 40 * 0.1625
+  EXPECT_FLOAT_EQ(r.target[4], -30.0f);
+  EXPECT_FLOAT_EQ(r.target[7], -20.0f);
+}
+
+TEST(ForwardLine, InPossessionTheHighestYIsPickedWhenBallIsOnHisSide) {
+  Input in = Line(1, 1.0f);
+  in.possession = true;
+  AddForward(in, 1, 7);
+  AddForward(in, 4, 8);
+  AddForward(in, 7, 9);
+  in.slots[1].y = 5.0f;
+  in.slots[4].y = -3.0f;
+  in.slots[7].y = 2.0f;
+  const Result r = ForwardLine(InstallNumbers(), SevenEightNine(), in);
+  // The highest Y is slot 1, which passes mode 1: 0.2 x 0.25. Out of possession the rank says slot 7.
+  EXPECT_FLOAT_EQ(r.target[1], -38.0f);  // -40 + 40 * 0.05
+  EXPECT_FLOAT_EQ(r.target[4], -30.0f);
+  EXPECT_FLOAT_EQ(r.target[7], -20.0f);
+}
+
+// Equal keys keep slot order (the sort is stable), so slot 1 is the lowest and passes mode 1.
+TEST(ForwardLine, InPossessionTiesKeepSlotOrder) {
+  Input in = Line(1, -1.0f);
+  in.possession = true;
+  AddForward(in, 1, 7);
+  AddForward(in, 4, 8);
+  AddForward(in, 7, 9);
+  in.slots[1].y = 0.0f;
+  in.slots[4].y = 0.0f;
+  in.slots[7].y = 0.0f;
+  const Result r = ForwardLine(InstallNumbers(), SevenEightNine(), in);
+  EXPECT_FLOAT_EQ(r.target[1], -38.0f);
+}
+
 // The install: each constant is read at the VA of the instruction that loads it. Skipped
 // without PES21_ROOT.
 std::optional<pes::PeImage> OpenInstall(std::string* error) {

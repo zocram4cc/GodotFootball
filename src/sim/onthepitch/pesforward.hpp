@@ -73,7 +73,9 @@ struct Input {
   int counterSlot = -1;              // the Counter Target holder (instruction 15); -1 for none
   int forwardCount = 0;              // the forward line's count (+0x128); equal to its active count (+0x129)
   std::array<Slot, kSlots> slots{};
-  std::array<Member, kSlots> family{};  // the records PES reads this pass
+  // The latch's family as PES reads it: slots already written this pass hold this pass's records,
+  // the rest hold the previous pass's (FUN_140682770 reads a slot before it writes that slot).
+  std::array<Member, kSlots> family{};
 };
 
 struct Result {
