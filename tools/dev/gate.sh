@@ -24,6 +24,24 @@ smoke() {  # $1 = log suffix, rest = extra gfsim_run flags
   echo "smoke-$tag rc=$?"
 }
 
+# Prefilter: both smokes first, short (GATE_PRE_MINUTES, default 5 match minutes: the 5-min seed-7 run is where
+# the throw-in stalls showed), in parallel. A stall or crash fails here instead of after the full 20-minute
+# run; GATE_SKIP_PREFILTER=1 skips it.
+if [ "${GATE_SKIP_PREFILTER:-0}" != 1 ]; then
+  for mode in off pesloop; do
+    flags=(); [ "$mode" = pesloop ] && flags=(--pes-loop)
+    nice -n 10 "$build/apps/gfsim_run" --db-sql "$repo/assets/fixtures/teams.sql" --home 1 --away 2 \
+      --seed 7 --minutes "${GATE_PRE_MINUTES:-5}" --pes21-root "$PES21_ROOT" "${flags[@]}" > "$build/gate.pre-$mode.log" 2>&1 &
+  done
+  wait
+  for mode in off pesloop; do
+    grep -q "sim ticks to full time" "$build/gate.pre-$mode.log" || {
+      echo "GATE RED (prefilter: ${GATE_PRE_MINUTES:-5}-min $mode smoke did not reach full time)"
+      grep -hE "\[restart\] stalled|\[stalemate\]" "$build/gate.pre-$mode.log" | head -3; exit 1; }
+    echo "prefilter $mode: $(grep -h '\[determinism\]' "$build/gate.pre-$mode.log")"
+  done
+fi
+
 flock "$lock" bash -c "
   $(declare -f smoke); repo='$repo'; build='$build'; PES21_ROOT='$PES21_ROOT'
   smoke off & smoke pesloop --pes-loop &
