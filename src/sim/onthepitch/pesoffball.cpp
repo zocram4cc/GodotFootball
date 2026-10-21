@@ -1493,41 +1493,51 @@ PassToMeResult PassToMeLock(const RunWorld& w, int id) {
 }
 
 namespace {
-// The team's players front-first by s·x (the a714e0 line list).
-std::vector<int> FrontFirst(const RunWorld& w, int team) {
+// PES's S1 list key for attack sign s: |s·xg − x| (pesscorerows.hpp:72), the float a list entry
+// carries (read at 0x1405006DF). Front-first for s means ascending on this key.
+float ListKey(float s, float x) { return std::fabs(s * pesFieldHalfLength - x); }
+// Block `block` of the S1 list for sign s: its active men in list order (FUN_140A714E0 returns
+// list[1] for s == 1 at 0x140A714E0, list[0] otherwise).
+std::vector<int> ListBlock(const RunWorld& w, int block, float s) {
   std::vector<int> v;
-  for (int i = team * kSlots; i < team * kSlots + kSlots; ++i)
+  for (int i = block * kSlots; i < block * kSlots + kSlots; ++i)
     if (w.p[i].active) v.push_back(i);
-  const float s = w.s[team];
-  std::stable_sort(v.begin(), v.end(),
-                   [&](int a, int b) { return s * w.p[a].pos.x > s * w.p[b].pos.x; });
+  std::stable_sort(v.begin(), v.end(), [&](int a, int b) {
+    return ListKey(s, w.p[a].pos.x) < ListKey(s, w.p[b].pos.x);
+  });
   return v;
 }
+// The team's own list, for its own attack sign.
+std::vector<int> FrontFirst(const RunWorld& w, int team) { return ListBlock(w, team, w.s[team]); }
 int LineRank(const RunWorld& w, int id) {
   const std::vector<int> v = FrontFirst(w, TeamOf(id));
   for (size_t i = 0; i < v.size(); ++i)
     if (v[i] == id) return static_cast<int>(i);
   return kSlots;
 }
-// a4f230: attackers of the team in possession ahead of the ball band.
+// a4f230 (FUN_140A4F230): attackers of the team in possession ahead of the opponents' line.
 int AttackersAhead(const RunWorld& w) {
   const int t = w.possession[0] ? 0 : 1;
   const float s = w.s[t];
+  // ponytail: PES's fallback is the holder MA+0x2483C (0x140A4F2A3), not the receiver. RunWorld
+  // has no holder and BuildRunWorld is the team AI's (not this slice).
   const int owner = Valid(w.carrier) ? w.carrier : w.receiver[t];
+  // The line is the opponents' block (0x140A4F2CB-0x140A4F30C reads block 1 - t) for sign s.
   float line = 0.0f;
-  for (int i : FrontFirst(w, t))
-    if (s * w.p[i].pos.x <= (w.ball.x - s * 1.5f) * s) {
+  for (int i : ListBlock(w, 1 - t, s))
+    if (s * w.p[i].pos.x <= (w.ball.x - s * kAheadBehindBall_m) * s) {
       line = w.p[i].pos.x;
       break;
     }
-  const float back = w.ball.x - s * 7.0f;
+  const float back = w.ball.x - s * kAheadBackClamp_m;
   if (s * line <= back * s) line = back;
   int n = 0;
   for (int i = t * kSlots; i < t * kSlots + kSlots; ++i) {
     if (!w.p[i].active || i == owner) continue;
     const float x = w.p[i].pos.x;
-    if (((w.ball.x - s * 5.0f) * s < s * x || s * line < s * x) &&
-        (w.ball.x - s * 12.0f) * s < s * x && std::fabs(w.p[i].pos.z - w.ball.z) <= 52.0f)
+    if (((w.ball.x - s * kAheadWindowFront_m) * s < s * x || s * line < s * x) &&
+        (w.ball.x - s * kAheadWindowBack_m) * s < s * x &&
+        std::fabs(w.p[i].pos.z - w.ball.z) <= kAheadLateral_m)
       ++n;
   }
   return n;
@@ -1630,9 +1640,10 @@ bool RankAngleOk(const RunWorld& w, int id, int attackLevel) {
 
 uint32_t AttackSlotMask(const RunWorld& w, int team, int L) {
   constexpr uint32_t kAll = (1u << kSlots) - 1;
-  if (L >= 4) return kAll;
-  // ponytail: the 0 < L < 4 FUN_1405aaf00 branch needs instruction 2 (none).
-  const int need = L == 0 ? 0 : L == 1 ? 2 : L == 2 ? 4 : 6;
+  if (L >= kQuotaAllFromLevel) return kAll;
+  // ponytail: the 0 < L < 4 FUN_1405aaf00 branch (class > 1 admitted, no quota) needs instruction 2
+  // (none): RE-7, Q4.
+  const int need = kQuotaNeed[std::max(L, 0)];
   int ahead = AttackersAhead(w);
   const float s = w.s[team];
   int beyond = 0;
@@ -1642,10 +1653,11 @@ uint32_t AttackSlotMask(const RunWorld& w, int team, int L) {
   }
   ahead = std::max(ahead, beyond);
   if (ahead < need) return kAll;
-  // Positions 7+ always qualify (score -100); the rest by distance to the
-  // opponents' goal line (INF med: the line-list value), less up to 5 near
-  // the ball (10 -> 25 m) and 3 on the receiver's turning side; the `need`
-  // lowest take the slots.
+  // The quota list (0x140500600-0x1405007D2): forwards (class >= 7) are admitted at once with
+  // kForwardStampScore and take places like the rest. Each other man is listed by ListKey (the S1
+  // list float, 0x1405006DF), less kQuotaNearBonus_m within kQuotaNearEdge_m of the ball and nothing
+  // from kQuotaFarEdge_m out, and kQuotaSideTerm_m on the receiver's side while he turns. The `need`
+  // lowest take the slots (0x1405007D8-0x14050088E).
   struct E { int slot; float v; };
   std::vector<E> e;
   uint32_t mask = 0;
@@ -1654,7 +1666,9 @@ uint32_t AttackSlotMask(const RunWorld& w, int team, int L) {
   float side = 1.0f;
   if (Valid(q)) {
     const PlayerFacts& r = w.p[q];
-    if (Ad(PVec(r.vel), r.facing) > 15.0f) {
+    // ponytail: GF's velocity-against-facing test; PES's is |team+0x250 - receiver heading| > 15
+    // (0x1405004F0; RE-9, Q3).
+    if (Ad(PVec(r.vel), r.facing) > kTurnThreshold_deg) {
       turning = true;
       side = r.aim.z - r.pos.z < 0.0f ? -1.0f : 1.0f;
     }
@@ -1663,16 +1677,18 @@ uint32_t AttackSlotMask(const RunWorld& w, int team, int L) {
     if (!w.p[i].active) continue;
     const int slot = i - team * kSlots;
     if (w.p[i].roleClass >= pes::roles::kAlwaysAdmitClass) {
-      e.push_back({slot, -100.0f});
+      e.push_back({slot, kForwardStampScore});
       mask |= 1u << slot;
       continue;
     }
-    float v = pesFieldHalfLength - s * w.p[i].pos.x;
+    float v = ListKey(s, w.p[i].pos.x);
     const float d = std::sqrt(Dist2(w.p[i].pos, w.ball));
-    const float near = d <= 10.0f ? 1.0f : d < 25.0f ? (d - 25.0f) / -15.0f : 0.0f;
-    v -= near * 5.0f;
+    const float near = d <= kQuotaNearEdge_m ? 1.0f
+                       : d < kQuotaFarEdge_m ? (d - kQuotaFarEdge_m) / kQuotaFalloff_m
+                                             : 0.0f;
+    v -= near * kQuotaNearBonus_m;
     if (turning && Valid(q) && (w.p[i].pos.z - w.p[q].pos.z < 0.0f ? -1.0f : 1.0f) == side)
-      v += -3.0f;
+      v += kQuotaSideTerm_m;
     e.push_back({slot, v});
   }
   std::stable_sort(e.begin(), e.end(), [](const E& a, const E& b) { return a.v < b.v; });
