@@ -58,6 +58,13 @@ void EnterTurnStop(MoveHost& host, MoveReq& req);  // FUN_1406d2590
 bool StepStops(MoveHost& host, MoveReq& req, bool live);
 // FUN_1406b70d0: whether the step loop may turn into a run turn. Its distance rows are StepTables' turn rows.
 bool StepLetsRunTurn(MoveHost& host, MoveReq& req);
+// FUN_1406c4c10 0x1406C4DCC-0x1406C4DEE: the band the step loop reads, from the live class word and the clamped command
+// class. The loop reads the class word, walks it one step toward the command, and returns the walked band.
+int StepBand(int liveBand, int commandBand);
+// FUN_1406c4c10 lines 86-103: the command class the walk compares with. It is the command speed class below 3, clamped at 0
+// from below, and 2 from 3 up. Under the special condition (the previous state is 0x13 or 0x10 and req[0x1a] is at or below
+// the install's bound and not equal to it) it is the class word itself, read the same way. The bound is DAT_142588200.
+int WalkCommandClass(int commandClass, int classWord, int prevState, float dwellElapsed, float dwellBound);
 
 }  // namespace movestep
 }  // namespace pes

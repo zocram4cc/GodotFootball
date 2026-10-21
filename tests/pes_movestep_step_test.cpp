@@ -372,6 +372,30 @@ TEST(StepLoop, WalksTheBandDownAfterTheShorterKeeperThreshold) {
   EXPECT_NEAR(req.F(pes::moveword::kBandSpeed), 12.0f, 1e-3f);
 }
 
+// PES FUN_1406c4c10 0x1406C4DCC-0x1406C4DEE (verified by disassembly): above the command class the band steps one down
+// toward it; at or below the command class it stays on the live class, except that IDLE's -1 walks up to band 0.
+TEST(StepLoop, TheStepBandWalksDownAboveTheCommandAndUpFromIdle) {
+  EXPECT_EQ(pes::movestep::StepBand(3, 1), 2) << "above the command class: one band down";
+  EXPECT_EQ(pes::movestep::StepBand(0, 2), 1) << "the command class 2 is above the live class 0: one band up (req[9] = 2, req[0x1F] = 0)";
+  EXPECT_EQ(pes::movestep::StepBand(2, 0), 1) << "the command class 0 is below the live class 2: one band down";
+  EXPECT_EQ(pes::movestep::StepBand(-1, 2), 0) << "IDLE's -1 steps up toward the command class";
+  EXPECT_EQ(pes::movestep::StepBand(2, 2), 2) << "at the command class the band is the live class";
+}
+
+// PES FUN_1406c4c10 lines 86-103: a command class of 3 or more reads as 2, and the special condition (the previous state 0x13
+// or 0x10, req[0x1a] below the install's bound 0.1, not equal to it) reads the class word instead.
+TEST(StepLoop, TheWalkCommandClassReadsTwoForAClassOfThreeOrMore) {
+  const float bound = 0.1f;  // DAT_142588200, read from the install (bridge image offset 0x2588200 = 0.1)
+  EXPECT_EQ(pes::movestep::WalkCommandClass(-1, 0, 0, 0.0f, bound), 0) << "a negative command class is 0";
+  EXPECT_EQ(pes::movestep::WalkCommandClass(1, 0, 0, 0.0f, bound), 1) << "a command class below 3 is itself";
+  EXPECT_EQ(pes::movestep::WalkCommandClass(3, 0, 0, 0.0f, bound), 2) << "a command class of 3 reads as 2 (decompile line 89)";
+  EXPECT_EQ(pes::movestep::WalkCommandClass(-1, 2, 0x13, -2.0f, bound), 2) << "the special condition reads the class word";
+  EXPECT_EQ(pes::movestep::WalkCommandClass(2, 1, 0x10, -1.0f, bound), 1) << "req[0x1a] below the bound is special";
+  EXPECT_EQ(pes::movestep::WalkCommandClass(2, 1, 0x10, 0.1f, bound), 2) << "req[0x1a] exactly at the bound is not special";
+  EXPECT_EQ(pes::movestep::WalkCommandClass(2, 1, 0x10, 0.05f, bound), 1) << "req[0x1a] at 0.05 is below the bound: the swap is taken";
+  EXPECT_EQ(pes::movestep::WalkCommandClass(1, 3, 14, -2.0f, bound), 1) << "a previous state of 14 is not special";
+}
+
 // The slow-player re-plan: with the arrival flag req[0x3f] set, a live band below 3, no precise
 // arrival and the ground speed under 16 km/h, the handler re-plans through GOTO_RUN.
 TEST(StepLoop, RePlansASlowPlayerThroughGotoRun) {
