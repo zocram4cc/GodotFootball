@@ -242,6 +242,7 @@ address given.
 |`pes-re-special-players.md`|Hard-coded player IDs: a beckham_2002 curled-kick swap for IDs 815/118718/123447/134448/134563 (FUN_14071E570); a per-player motion substitution table (FUN_1406B3560); six AI/positioning branches for ID 33185|
 |`pes-re-special-players-decode.md`|Every hard-coded player id decoded: the signature-animation file Derivationdatatable.bin (106 entries, packing, two walkers, sub ids), Beckham's kick swap, Neuer's sweeper-keeper branches, CR 0x93/0x94, Neymar 0x7F; no Bolt animation in the exe|
 |`pes-re-live-farchase.md`|Live: far loose balls are chased by the nearest eligible man, PRESS from the press coordinator (99%), reached in a median 1 frame; DELAY is a MATCH_UP behaviour state; mode 38 on 8% of frames|
+|`pes-re-press-eval.md`|The press target eval FUN_140633940: first passing man in the nearest list (thresholds 22/15/13/10 m, +3 incumbent, +10 Block A), the refusal, the mode tests; writes PRESS 0x34 + the mode word|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
