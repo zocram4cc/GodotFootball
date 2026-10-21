@@ -13,6 +13,7 @@
 
 #include "pes/movestep_step.hpp"
 #include "pes/movestep_turn.hpp"
+#include "pes/movestep_run.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -438,6 +439,27 @@ void StepToRun(MoveHost& host, MoveReq& req) {
   req.SetByte(moveword::kMotionPending, 0);
 }
 
+// The band the step loop reads (FUN_1406c4c10 0x1406C4DDD-0x1406C4DEE, from the image bytes): one step from the live class
+// toward the command class E, which is the request's command class clamped to 0..2 (the clamp at 0x1406C4D6C-0x1406C4D7A, see
+// WalkCommandClass): live + 1 when E is above the live class, live - 1 when E is below it, and the live class when they are
+// equal. The step table is read with the result, which stays in 0..3 for a live class of -1 or 0..3.
+int StepBand(int liveBand, int commandBand) {
+  if (commandBand > liveBand) return liveBand + 1;
+  if (commandBand < liveBand) return liveBand - 1;
+  return liveBand;
+}
+
+// FUN_1406c4c10 lines 86-103: the command class the walk compares with. Below 3 it is the value, clamped at 0 from below, and
+// a class of 3 or more reads as 2 (decompile line 89). Under the special condition (the previous state is 0x13 or 0x10, and
+// req[0x1a] is at or below the install's bound and not equal to it) the class word is read the same way instead.
+int WalkCommandClass(int commandClass, int classWord, int prevState, float dwellElapsed, float dwellBound) {
+  const bool special =
+      (prevState == 0x13 || prevState == 0x10) && dwellElapsed <= dwellBound && dwellBound != dwellElapsed;
+  const int value = special ? classWord : commandClass;
+  if (value >= 3) return 2;
+  return value < 0 ? 0 : value;
+}
+
 // -------------------------------------------------------------------------------------------------
 // STEP_LOOP, FUN_1406c4c10 (0x1406c4c10..0x1406c64f7, 901 assembly lines).
 //
@@ -486,22 +508,17 @@ void StepLoop(MoveHost& host, MoveReq& req) {
                        int(req.U(moveword::kCommandSpeedClass)) < 2 &&
                        int(req.U(moveword::kPrevClassWord)) == int(req.U(moveword::kClassWord));
 
-  // 2. The band of the tick and the blended band speed.
-  const int prevState = host.MoveStatePrevious();
-  int classBand = int(req.U(moveword::kCommandSpeedClass));
-  if (classBand < 3) classBand = std::max(classBand, 0);
-  if ((prevState == 19 || prevState == 14) && req.F(moveword::kDwellElapsed) <= k.deg10 &&
-      k.deg10 != req.F(moveword::kDwellElapsed)) {
-    classBand = int(req.U(moveword::kClassWord));
-    if (classBand < 3) classBand = std::max(classBand, 0);
-  }
+  // 2. The band of the tick and the blended band speed. The command class and the band walk are PES's (FUN_1406c4c10 lines
+  // 86-103 and 0x1406C4DCC-0x1406C4DEE); the bound is DAT_142588200, which the install gives as frameGate01 (0.1).
+  const int classBand = WalkCommandClass(int(req.U(moveword::kCommandSpeedClass)), int(req.U(moveword::kClassWord)),
+                                         host.MoveStatePrevious(), req.F(moveword::kDwellElapsed),
+                                         host.RunConstantsView().frameGate01);
   const float desired = req.F(moveword::kDesiredSpeedKmh);
   float speed = k.kmh16;
   if (desired <= k.kmh16 && k.kmh5 <= desired) speed = desired;
   // PES reads `param_2[0x1f]` at each use, so the band walk above is visible here.
   const int liveBand = int(req.U(moveword::kClassWord));
-  int nextBand = classBand;
-  if (liveBand != classBand) nextBand = classBand <= liveBand ? liveBand + 1 : liveBand - 1;
+  int nextBand = StepBand(liveBand, classBand);
 
   // 3. The blended band speed and the ground speed.
   float blendedSpeed = speed * k.half + req.F(moveword::kBandSpeed) * k.half;
@@ -1097,9 +1114,13 @@ BucketDone:;
       kind - 2u < 2)) {
     kind = 1;
   }
-  const int rowId = int(tables.kindBandRow[kind + band * 8]);
-  const MoveCell cell = host.Cell(rowId, int(tables.bucketColumn[bucket]), false);
-  const int motion = cell.motionNo;  // FUN_1406ABB30: -1 for an empty cell, never the row id
+  // PES FUN_1406D2590 (decompile 285-296): the row is the stop-row selector FUN_1406B9D80 at kind + class * 8, with the class the
+  // class word clamped to 0..3 (`band`, lines 74-82) and the action the command id (line 290). The column is the bucket's column
+  // after the 4 -> 3 and 9 -> 8 fold (lines 279-284). FUN_1406ABB30 answers -1 for an empty cell, and PES issues that too.
+  const int stopBucket = bucket == 4 ? 3 : (bucket == 9 ? 8 : bucket);
+  const int stopRow = StopRowFor(kind, band, int(req.U(moveword::kCommandId)), host.RunTablesView());
+  const MoveCell cell = host.Cell(stopRow, int(tables.bucketColumn[stopBucket]), false);
+  const int motion = cell.motionNo;
   // ponytail: PES reads the mirror and the blend from the interface's own answers
   // (vt+0x30 with FUN_140a62960's sameness, and vt+0xd0's motion-record walk); GF has neither
   // record, so the mirror is the table's left flag and the blend the default.

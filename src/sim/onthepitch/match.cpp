@@ -878,10 +878,10 @@ void Match::Process() {
           if (!who) continue;
           const pes::MoveStepRecord& ms = who->GetMoveStep();
           const Anim* a = who->CastHumanoid()->GetCurrentAnim();
-          printf("[stalemate-who] %s (%d): movestep %d<-%d | fn %d clip %s frame %d/%d\n",
+          printf("[stalemate-who] %s (%d): movestep %d<-%d | fn %d clip %s frame %d/%d rate %.2f\n",
                  who->GetPlayerData()->GetLastName().c_str(), who->GetID(), int(ms.state), int(ms.previous),
                  int(a->functionType), a->anim ? a->anim->GetName().c_str() : "-", a->frameNum,
-                 a->anim ? a->anim->GetFrameCount() : 0);
+                 a->anim ? a->anim->GetFrameCount() : 0, a->playbackRate);
         }
       }
     }

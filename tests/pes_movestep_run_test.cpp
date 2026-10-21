@@ -438,9 +438,9 @@ TEST(RunTablesInstall, LoadsTheInterfaceTablesWithTheirRelations) {
 TEST(StopRowIndex, UsesKindPlusClassTimesEightNotTheReverse) {
   const pes::RunTables t = SyntheticTables();
   // The table's entries are 0x576 + index, so the (kind 2, class 1) row is 0x576 + 10.
-  EXPECT_EQ(pes::StopRowFor(2, 1, t), 0x576 + 2 + 1 * 8);
+  EXPECT_EQ(pes::StopRowFor(2, 1, 0, t), 0x576 + 2 + 1 * 8);
   // And the reverse order would give 0x576 + 2*8 + 1 = 0x576 + 17, which must not be it.
-  EXPECT_NE(pes::StopRowFor(2, 1, t), 0x576 + 2 * 8 + 1);
+  EXPECT_NE(pes::StopRowFor(2, 1, 0, t), 0x576 + 2 * 8 + 1);
 }
 
 TEST(StopRowOverride, ForcesRow0x582ForTheClassTwoFamily) {
@@ -448,10 +448,10 @@ TEST(StopRowOverride, ForcesRow0x582ForTheClassTwoFamily) {
   // FUN_1406b9d80's override: for the class-2 family, a row other than 0x582 becomes 0x582
   // (the doc's mid_delay rows); the arg6 selector is the immediate 0 at both call sites, so the
   // guard `iVar2 != 1` always holds there.
-  EXPECT_EQ(pes::StopRowFor(1, 2, t), 0x582);
-  EXPECT_EQ(pes::StopRowFor(3, 2, t), 0x582);
+  EXPECT_EQ(pes::StopRowFor(1, 2, 0, t), 0x582);
+  EXPECT_EQ(pes::StopRowFor(3, 2, 0, t), 0x582);
   // A class below 2 keeps its own row.
-  EXPECT_EQ(pes::StopRowFor(1, 1, t), 0x576 + 1 + 1 * 8);
+  EXPECT_EQ(pes::StopRowFor(1, 1, 0, t), 0x576 + 1 + 1 * 8);
 }
 
 TEST(GotoRowIndex, UsesKindPlusClassTimesEight) {

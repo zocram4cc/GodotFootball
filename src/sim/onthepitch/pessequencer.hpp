@@ -32,12 +32,19 @@ int AwardedTeamAfterBallOut(int lastTouchTeam);
 Spot CornerSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 Spot GoalKickSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 Spot ThrowInSpot(float ballX, float ballZ, const RestartSpotConstants& k);
+// The throw-in carry spot (FUN_140791ec0 phase 1, docs/re/pes-re-throwin-choreography.md 3.2): where the
+// taker lifts the ball, on the carry line outside the touchline. It lies on the line from the restart
+// point to the centre of the goal the restarting side attacks (attackSign: +1 or -1), its x stays within
+// the clamp of the restart's x, and it falls back to the restart's x near the end line. The restart
+// point's z is a touchline's z, so it is never 0.
+Spot ThrowInCarrySpot(float restartX, float restartZ, int attackSign, const RestartSpotConstants& k);
 
 // The taker may release once this many frames have passed since the restart was armed. A kick-off and a goal kick are
 // not timed (the receiver's ball test, or the goal kick's ladder in pesgoalkick.hpp): their gate is zero.
 int ReleaseFrames(e_SetPiece kind);
-// A goal kick is never released by this gate: its ladder releases it (pesgoalkick.hpp).
-bool MayRelease(e_SetPiece kind, int framesSinceArmed);
+// A throw-in is released once its taker has arrived (`takerArrived`): PES releases it on the taker's arrival and kick
+// action (docs/re/pes-re-A5Judge.md 9.3; A5 §4.7). A goal kick is never released by this gate.
+bool MayRelease(e_SetPiece kind, int framesSinceArmed, bool takerArrived);
 
 // A restart programme (decode 3.2): the stoppage beats in the order they run, from the whistle
 // to the armed restart. Hold is the players' hold; Wipe prepares the restart; UiAndTeleport is
