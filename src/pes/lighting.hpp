@@ -193,9 +193,9 @@ struct AtshTable {
 std::optional<AtshTable> ParseAtsh(std::span<const uint8_t> blob, std::string* error);
 // The nearest-time entry's direct-light colour for the rig weather slot.
 Vec3 AtshSunColor(const AtshTable& atsh, bool cloudy, int hour, int minute);
-// The direct sun's colour (sun-radiance §1.2-§1.6): the .atsh colour normalised to its largest
-// component, times π·skyColorSunScale (PES's cb3[1] = I·π·S; the intensity sunLux·fade stays with
-// the light). A null atsh (the install ships none) is white.
+// The direct sun's colour (sun-radiance §1.2-§1.6): the .atsh chromaticity at unit length, times
+// π·skyColorSunScale (PES's cb3[1] has magnitude I·π·S; the intensity sunLux·fade stays with the
+// light). A null atsh (the install ships none) is white.
 Vec3 SunColour(const Atmosphere& atmo, const AtshTable* atsh, bool cloudy, int hour, int minute);
 // The nearest-time SH9 row for the rig weather slot.
 const Vec3 (*AtshSkySh(const AtshTable& atsh, bool cloudy, int hour, int minute))[9];

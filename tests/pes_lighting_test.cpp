@@ -196,9 +196,9 @@ TEST(LightingRig, St002PluginSettings) {
   EXPECT_NEAR(rig->plugin.tonemapSpeed, 10, 1e-6);
 }
 
-// The sun's colour peak is π·skyColorSunScale (sun-radiance §1.2-§1.6): the .atsh colour is
-// normalised to its largest component and scaled; the channel ratios (the chroma) are kept.
-TEST(LightingSun, SunColourPeaksAtPiTimesSkyColorSunScale) {
+// The sun's colour has magnitude π·skyColorSunScale (sun-radiance §1.6: the live pitch row has
+// |cb3[1]| = I·π·S); the .atsh chroma (the channel ratios) is kept.
+TEST(LightingSun, SunColourHasMagnitudePiTimesSkyColorSunScale) {
   std::string err;
   auto blob = MakeAtsh();
   auto t = pes::ParseAtsh(blob, &err);
@@ -206,18 +206,18 @@ TEST(LightingSun, SunColourPeaksAtPiTimesSkyColorSunScale) {
   pes::Atmosphere atmo;
   atmo.skyColorSunScale = 0.2;
   const pes::Vec3 c = pes::SunColour(atmo, &*t, false, 0, 0);
-  EXPECT_NEAR(std::max({c.x, c.y, c.z}), M_PI * 0.2, 1e-6);
+  EXPECT_NEAR(std::sqrt(c.x * c.x + c.y * c.y + c.z * c.z), M_PI * 0.2, 1e-5);
   EXPECT_NEAR(c.y / c.x, 1.0 / 131008.0, 1e-9);  // the .atsh chroma (G/R of the entry)
 }
 
-// No .atsh in the install: white at the same π·S peak.
-TEST(LightingSun, SunColourWithoutAtshIsWhiteAtPiTimesSkyColorSunScale) {
+// No .atsh in the install: white, the same π·S magnitude.
+TEST(LightingSun, SunColourWithoutAtshIsWhiteWithTheSameMagnitude) {
   pes::Atmosphere atmo;
   atmo.skyColorSunScale = 0.5;
   const pes::Vec3 c = pes::SunColour(atmo, nullptr, false, 0, 0);
-  EXPECT_NEAR(c.x, M_PI * 0.5, 1e-6);
-  EXPECT_NEAR(c.y, M_PI * 0.5, 1e-6);
-  EXPECT_NEAR(c.z, M_PI * 0.5, 1e-6);
+  EXPECT_NEAR(c.x, c.y, 1e-6);
+  EXPECT_NEAR(c.y, c.z, 1e-6);
+  EXPECT_NEAR(std::sqrt(c.x * c.x + c.y * c.y + c.z * c.z), M_PI * 0.5, 1e-5);
 }
 
 // The rig must carry the file's own TppAtmosphere.skyColorSunScale: compared with the property

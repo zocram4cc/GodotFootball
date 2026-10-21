@@ -693,9 +693,11 @@ Vec3 AtshSunColor(const AtshTable& atsh, bool cloudy, int hour, int minute) {
 Vec3 SunColour(const Atmosphere& atmo, const AtshTable* atsh, bool cloudy, int hour, int minute) {
   Vec3 c = {1, 1, 1};
   if (atsh) c = AtshSunColor(*atsh, cloudy, hour, minute);
-  const float norm = std::max({c.x, c.y, c.z, 1e-6f});
-  const float peak = float(kPi * atmo.skyColorSunScale);
-  return {c.x / norm * peak, c.y / norm * peak, c.z / norm * peak};
+  // The PES sun row's magnitude is I·π·S (sun-radiance §1.6, live E-A): the .atsh chromaticity at
+  // unit length, times π·S.
+  const float len = std::max(std::sqrt(c.x * c.x + c.y * c.y + c.z * c.z), 1e-6f);
+  const float scale = float(kPi * atmo.skyColorSunScale) / len;
+  return {c.x * scale, c.y * scale, c.z * scale};
 }
 
 const Vec3 (*AtshSkySh(const AtshTable& atsh, bool cloudy, int hour, int minute))[9] {

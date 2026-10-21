@@ -122,8 +122,13 @@ bool PesLighting::setup(const Ref<PesLibrary>& library, int stadium_id, int weat
   sun->set_name("Sun");
   sun->set_transform(Transform3D(Basis().looking_at(Vector3(lightDir.x, lightDir.y, lightDir.z)),
                                  Vector3()));
-  sun->set("light_intensity_lux", float(s.sunLux * fade));
-  sun->set_color(Color(sunColour.x, sunColour.y, sunColour.z));
+  // Godot's directional radiance is colour·lux/π (a Lambert E/π; probe 19-10-26: 1 lux on a white
+  // plane gives 0.3186, against 1/π = 0.3183). PES shades with I·π·S·colour and no 1/π (sun-radiance
+  // §1.4), so the lux carries the π back.
+  sun->set("light_intensity_lux", float(s.sunLux * fade * M_PI));
+  // Godot decodes a light colour from sRGB (probe 19-10-26: colour 0.5 gives 0.214 of the full
+  // output), so the linear PES colour is encoded first.
+  sun->set_color(Color(sunColour.x, sunColour.y, sunColour.z).linear_to_srgb());
   sun->set("light_angular_distance", 2.0f);  // Fox's 1° disk radius (§3.3)
   sun->set_shadow(true);
   sun->set("directional_shadow_mode", DirectionalLight3D::SHADOW_PARALLEL_4_SPLITS);
