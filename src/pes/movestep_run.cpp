@@ -2521,10 +2521,11 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
   // when the bearing's magnitude is under 67.5 degrees.
   const int thresholdBand = bearingMag < k.deg675 ? 0 : 1;
 
-  // Arm 1: the gates.
+  // Arm 1: the gates (FUN_1406ccd00's refusals): the class band, command class 3 only, precise must be 0, rate under 0.65
+  // (DAT_14259d5d0), the ground speed, and the look distance (word 0x12 <= speed2 = 2 m).
   if (band < thresholdBand || band == 3 ||
-      (cls == 3 && req.U(moveword::kPrecise) == 0u && k.ramp65 <= req.F(moveword::kRate)) ||
-      ground <= k.kmh11 || req.F(moveword::kDistToLook) <= k.one) {
+      cls != 3 || req.U(moveword::kPrecise) != 0u || k.ramp65 <= req.F(moveword::kRate) ||
+      ground <= k.kmh11 || req.F(moveword::kDistToLook) <= k.speed2) {
     return false;
   }
 

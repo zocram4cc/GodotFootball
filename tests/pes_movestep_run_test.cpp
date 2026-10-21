@@ -1836,7 +1836,7 @@ TEST(EnterAccelerate, WritesTheBandWordThreeAndTheStateWordNine) {
   h.positions[1][0] = 1.0f;  // a 194.4 km/h ground speed: past the 11 km/h gate
   pes::MoveReq req;
   req.SetU(pes::moveword::kKind, 2u);
-  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);  // PES's ACCELERATE takes command class 3 only (FUN_1406ccd00: req[9] != 3 refuses)
   req.SetU(pes::moveword::kRateBand, 1u);
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kHeading, 12.0f);
@@ -1881,7 +1881,7 @@ TEST(EnterAccelerate, IssuesThePlaybackWordWithTheStartLadder) {
   h.mirrorChoice = true;  // the vt+0x50 p is 1, like the interface's own answer
   pes::MoveReq req;
   req.SetU(pes::moveword::kKind, 2u);
-  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);  // PES's ACCELERATE takes command class 3 only (FUN_1406ccd00: req[9] != 3 refuses)
   req.SetU(pes::moveword::kRateBand, 1u);
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kHeading, 12.0f);
@@ -1919,7 +1919,7 @@ TEST(EnterAccelerate, DesiresTheHeadingLessTheBodyDirectionsStepStamp) {
   h.buckets.hysteresisDown = -5.0f;
   pes::MoveReq req;
   req.SetU(pes::moveword::kKind, 2u);
-  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);  // PES's ACCELERATE takes command class 3 only (FUN_1406ccd00: req[9] != 3 refuses)
   req.SetU(pes::moveword::kRateBand, 1u);
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kBodyDirection, 160.0f);
@@ -2579,4 +2579,58 @@ TEST(StepHeading, TheUnclampedStepReachesTheTarget) {
   const pes::RunConstants k = SyntheticRun();
   EXPECT_NEAR(pes::StepHeading(10.0f, 12.0f, 45.0f, k), 12.0f, 1e-3f);
   EXPECT_NEAR(pes::StepHeading(12.0f, 10.0f, 45.0f, k), 10.0f, 1e-3f);
+}
+
+// PES's ACCELERATE entry refuses a look point within 2 m (FUN_1406ccd00: word 0x12 <= DAT_142565604, the port's speed2).
+// The port's gate stopped at 1 m, so a taker in RUN_LOOP at arrival was handed to ACCELERATE, which held him short of the ball.
+TEST(Accelerate, TheArrivalGateRefusesALookPointWithinTwoMetres) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 1.0f;  // a moving player: the last tick's displacement gives a ground speed above 11 km/h
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetF(pes::moveword::kDistToLook, 1.5f);
+  EXPECT_FALSE(pes::movestep::EnterAccelerate(h, req));
+}
+
+TEST(Accelerate, TheArrivalGateAcceptsALookPointBeyondTwoMetres) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetF(pes::moveword::kDistToLook, 2.5f);
+  EXPECT_TRUE(pes::movestep::EnterAccelerate(h, req));
+}
+
+// PES's ACCELERATE entry refuses a precise arrival (FUN_1406ccd00: req[0xe] != 0), so the run loop's precise arrival never
+// pre-empts into ACCELERATE.
+TEST(Accelerate, ThePreciseArrivalIsRefusedByTheArrivalGate) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kDistToLook, 2.5f);
+  EXPECT_FALSE(pes::movestep::EnterAccelerate(h, req));
+}
+
+// PES's ACCELERATE entry takes only command class 3 (FUN_1406ccd00: req[9] != 3 refuses).
+TEST(Accelerate, OnlyCommandClassThreeEntersAccelerate) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetF(pes::moveword::kDistToLook, 2.5f);
+  EXPECT_FALSE(pes::movestep::EnterAccelerate(h, req));
 }
