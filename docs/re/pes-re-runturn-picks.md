@@ -5,6 +5,7 @@
 > **Main audit, round 3 (21-10-26):** vt+0xD0 of the +0xAC0 vtable (`0x1425E35B0`+0xD0) = `0x1406B9D80`: match. **Unit correction:** FUN_14042D470 = ticks·60·60/1000·|displacement| is km/h (the port's GroundSpeedKmh), not m/s; the swing rows' 16.0 is 16 km/h.
 > **Main audit, round 4 (21-10-26):** §5g's band walk (0x1406C4DCC-DEB) is accepted. **Its claim that the install's PES2021.exe is a hot-patched build with field offsets shifted by +0x3B00 is FALSE:** the install's exe (PE-mapped) and pes_full.bin carry identical bytes at 0x1406C4DCC (`8b6f7c…`, mov ebp,[rdi+0x7c]), 0x1406C142A and the table 0x1425DD9B0; live reads of +0x245C validate on the install's process.
 > **Main note:** TeamDecode retracted the "modded exe" claim itself (a VA-to-file-offset map applied to the wrong file); §5g now verifies the walk against the install's own bytes.
+> **Main audit, round 5 (22-10-26):** §5g's two-path rule is Main-confirmed from the bytes (0x1406C4D63 `mov ecx,2`; the special path's entry at 0x1406C4DAE..DCA): band = live + sgn(E − live), E = clamp(req[9], 0..2), or clamp(req[0x1F], 0..2) on the special path. §5h (the vt+0 issuer FUN_1406BA2F0, which returns a style code) is TeamDecode2's, not yet Main-audited.
 
 Read-only RE. No GF code changed, no PES written. Scratch: `<workdrive>/gf-TeamDecode-scratch/dec/`.
 Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`.
@@ -790,15 +791,19 @@ already documents this shape at `movestep_run.cpp:261`: "`ticks * 60 * 60 / 1000
 is `XMM7 > XMM15` with `XMM7` = `DAT_14259BE10` = 16.0 — the same 16.0 in the other direction.
 
 **=> the `0x575` row is the "the player is moving slowly" row**: it is taken only when the
-per-second travel distance is under 16 m (i.e. under 16 m/s ≈ 57.6 km/h). And `0x573` is the
-opposite test — it is taken when the per-second distance is **over** 16 m.
+speed is under 16 km/h (`FUN_14042D470` returns km/h; see the units below). `0x573` is the
+opposite test: it is taken when the speed is **over** 16 km/h.
 
 **=> `0x573` and `0x575` are the two ends of the same speed test, on opposite sides of
-16 m/s.** That is the sense of the pair: `0x573` for a fast approach, `0x575` for a slow one
+16 km/h.** That is the sense of the pair: `0x573` for a fast approach, `0x575` for a slow one
 (and `0x575` additionally requires the player to be within 1.1 m of the target).
 
-**The units, stated once:** distances in **metres**, speeds in **metres per second**, the tick
-rate in **ticks per second** (54), and the `16.0` threshold is **metres per second**.
+**The units, stated once:** distances in **metres**, the tick rate in **ticks per second** (54), and
+the per-tick speed in **metres per second** (the input is the difference of two stored 3-vectors one
+tick apart, from `FUN_141EB50B0(rec, out, 1)`: INF on the units). `FUN_14042D470` returns
+`v * 54 * 60 * 60 / 1000`, which is **km/h** for `v` in metres per tick, so the `16.0` threshold is
+**16 km/h** (about 4.44 m/s). The §5c.2 label "the distance covered in one second" is wrong for the
+same reason: the output carries the factor 3.6.
 
 ---
 
@@ -1168,55 +1173,81 @@ consistently, which is ClipWords' side to judge.
 `DAT_1425DD9B0[kind + band*8]` — which PES value is the band there, and is there any code
 that steps the band by one toward or away from the command class?)*
 
-**The band is the WALKED value, and the walk steps TOWARD the clamped command class by one.**
-The whole walk is six instructions, at `0x1406C4DCC`–`0x1406C4DED`:
+**The band is the class word `live = req[0x1F]`, walked one step toward a target class `E`:**
+**`band = live + sgn(E - live)`.** Both paths below give this rule. The bridge decompile of the same
+function (`<workdrive>/gf-TeamDecode-scratch/bridge_c4c10.c`, lines 86-108) states it too: `iVar10`
+is `E`, and lines 105-108 are the one-step walk. Two corrections to the earlier text of this section:
+the decompile was **not** mis-reading the block (it agrees with the bytes), and the special condition
+compares `req[0x1A]` with **`0.1`**, not `-1.0` (the earlier quote was a transcription error).
+
+**The clamp** (CONFIRMED, `0x1406C4D60`-`0x1406C4D77`): `clamp(x) = 0` for `x < 0`, `x` for `0 <= x <= 2`,
+and `2` for `x >= 3`. So `E` is always 0..2: a command class of 3 gives the default 2, never 3.
+
+**The special condition** (CONFIRMED): the byte at `param_1+0x245D` is `0x13` or `0x10`
+(`0x1406C4DAE`-`0x1406C4DBC`), **and** `req[0x1A] < 0.1`. The `0.1` is the float at `0x142588200`
+(bits `0x3DCCCCCD`), loaded by `MOVSS XMM0,[0x142588200]` at `0x1406C4DBE`. The test is
+`COMISS XMM0,[RDI+0x68]` at `0x1406C4DC6`, and `JBE` at `0x1406C4DCA` skips the block when it fails.
+A NaN fails the test.
+
+**The trace** (raw image bytes, CONFIRMED). The XMM work between `0x1406C4D77` and `0x1406C4DAE` writes
+neither `EBP` nor `ECX`. `ECX` is set to 2 at `0x1406C4D63`, and nothing writes it again before
+`0x1406C4DCF`; the earlier `ECX = live` at `0x1406C4CD6` is overwritten there.
 
 ```
-1406C4DCC: MOV EBP,dword ptr [RDI + 0x7c]   ; EBP = the class word, param_2[0x1f]
-1406C4DCF: CMP EBP,ECX                      ; ECX = the clamped command class
-1406C4DD1: JLE 0x1406C4DD7                  ; class <= clamped -> keep the class
-1406C4DD3: MOV EBP,ECX                      ;   else EBP = the clamped class
-1406C4DD5: JMP 0x1406C4DDD
-1406C4DD7: TEST EBP,EBP
-1406C4DD9: CMOVS EBP,R15D                    ;   and clamp the class to >= 0 (R15D = 0)
-1406C4DDD: MOV EAX,dword ptr [RDI + 0x7c]   ; EAX = the class word again
-1406C4DE0: CMP EAX,EBP
-1406C4DE2: JZ 0x1406C4DEE                   ;   class == EBP -> the band is EBP
-1406C4DE4: CMP EBP,EAX
-1406C4DE6: LEA EBP,[RAX + 0x1]              ;   EBP >= class -> the band is class + 1
-1406C4DE9: JG 0x1406C4DEE
-1406C4DEB: LEA EBP,[RAX + -0x1]             ;   EBP <  class -> the band is class - 1
-1406C4DEE: ...
+1406C4D60: 8B 6F 24          MOV EBP,[RDI+0x24]        ; EBP = req[9]
+1406C4D63: B9 02 00 00 00    MOV ECX,2                 ; ECX = 2
+1406C4D6D: 3B E9             CMP EBP,ECX
+1406C4D6F: 7E 04             JLE 0x1406C4D75
+1406C4D71: 8B E9             MOV EBP,ECX               ;   req[9] > 2 -> 2
+1406C4D73: EB 06             JMP 0x1406C4D7B
+1406C4D75: 85 ED             TEST EBP,EBP
+1406C4D77: 41 0F 48 EF       CMOVS EBP,R15D            ;   req[9] < 0 -> 0 (R15D = 0)
+   ...                       (1406C4D7B-1406C4DAD: XMM work only)
+1406C4DAE: 41 0F B6 86 5D 24 00 00   MOVZX EAX,byte [R14+0x245D]
+1406C4DB6: 3C 13             CMP AL,0x13
+1406C4DB8: 74 04             JE 0x1406C4DBE
+1406C4DBA: 3C 10             CMP AL,0x10
+1406C4DBC: 75 1F             JNE 0x1406C4DDD           ; common path: E = clamp(req[9])
+1406C4DBE: F3 0F 10 05 3A 34 EC 01   MOVSS XMM0,[0x142588200]   ; 0.1
+1406C4DC6: 0F 2F 47 68       COMISS XMM0,[RDI+0x68]
+1406C4DCA: 76 11             JBE 0x1406C4DDD           ; test failed: common path
+1406C4DCC: 8B 6F 7C          MOV EBP,[RDI+0x7C]        ; special path: EBP = live
+1406C4DCF: 3B E9             CMP EBP,ECX               ; ECX is still 2
+1406C4DD1: 7E 04             JLE 0x1406C4DD7
+1406C4DD3: 8B E9             MOV EBP,ECX               ;   live > 2 -> 2
+1406C4DD5: EB 06             JMP 0x1406C4DDD
+1406C4DD7: 85 ED             TEST EBP,EBP
+1406C4DD9: 41 0F 48 EF       CMOVS EBP,R15D            ;   live < 0 -> 0
+1406C4DDD: 8B 47 7C          MOV EAX,[RDI+0x7C]        ; common tail: EAX = live, EBP = E
+1406C4DE0: 3B C5             CMP EAX,EBP
+1406C4DE2: 74 0A             JZ 0x1406C4DEE            ; E == live: band = live
+1406C4DE4: 3B E8             CMP EBP,EAX               ; flags from E - live
+1406C4DE6: 8D 68 01          LEA EBP,[RAX+1]           ; LEA sets no flags
+1406C4DE9: 7F 03             JG 0x1406C4DEE            ; E > live: band = live + 1
+1406C4DEB: 8D 68 FF          LEA EBP,[RAX-1]           ; E < live: band = live - 1
+1406C4DEE: F3 0F 10 47 74    MOVSS XMM0,[RDI+0x74]
 ```
 
-**=> the band (EBP) is:**
-- the **class word** `param_2[0x1F]` itself, when the class is **at or below** the clamped
-  command class;
-- the class word **+ 1**, when the class is **below** the clamped command class;
-- the class word **− 1**, when the class is **above** the clamped command class.
+**The rule, by path** (CONFIRMED from the trace):
 
-**So the band steps TOWARD the command class by one and stops when it has arrived** — it never
-walks away. The decompile's line 62-72 "walk down" that ClipWords saw is the *other* branch
-(the `param_2[0x1f] = 1` write at line 70), not this walk.
+| path | `E` | band |
+|---|---|---|
+| common: byte is not `0x13` or `0x10`, or `req[0x1A] >= 0.1`, or NaN | `clamp(req[9])` | `live + sgn(E - live)` |
+| special: byte is `0x13` or `0x10`, and `req[0x1A] < 0.1` | `clamp(live)` | `live + sgn(E - live)` |
 
-**The clamp — and it is applied to the CLASS, not to the band.** At `0x1406C4DD7`–`0x1406C4DD9`
-the class is clamped to **≥ 0** (`TEST EBP,EBP` / `CMOVS EBP,R15D`, with `R15D = 0` from
-`XOR R15D,R15D` at `0x1406C4C59`). There is **no clamp on the band** itself: the `+1`/`−1`
-results are used as they are.
+So the walk steps `live` one step toward `E`: `E > live` gives `live + 1`, `E = live` gives `live`, and `E < live` gives `live - 1`. The earlier three-case rule (band = `live` for `live <= cmd`, `live + 1` only for a negative `live`, `live - 1` above `cmd`) holds on the special path only. On the common path it is wrong whenever `0 <= live < E`.
 
-**But the band cannot go out of range anyway**, which answers the port's concern directly:
+**The `live + 1` branch is REACHABLE on both paths**: on the common path when `0 <= live < E`, and on the special path when `live < 0` (`live = -1` gives band 0 on both).
 
-- the band is `class − 1` only when the class is **above** the clamped class, and the class is
-  clamped to ≥ 0 — so in that branch the class is ≥ 1 and **the band ≥ 0**;
-- the band is `class + 1` only when the class is **below** the clamped class, and the clamped
-  command class is at most 3 — so **the band ≤ 3**;
-- otherwise the band **is** the class, which is in 0..3.
+**Worked traces** (CONFIRMED from the instructions above):
+- Common path, byte `0`, `req[9] = 2`, `live = 0`: `E = 2`. `CMP EAX,EBP` gives `0 - 2`, then `CMP EBP,EAX` gives `2 - 0 > 0`, so `LEA EBP,[RAX+1]` runs and `JG` is taken: **band = 1**.
+- Common path, `req[9] = 0`, `live = 2`: `E = 0`. `CMP EBP,EAX` gives `0 - 2 < 0`, so `LEA EBP,[RAX-1]` runs: **band = 1**.
+- Special path, byte `0x13`, `req[0x1A] = 0`, `live = -1`: `JLE` is taken, `TEST` sets SF, and `CMOVS` gives `E = 0`. Then `E > live`: **band = 0**.
+- Special path, byte `0x13`, `req[0x1A] = 0`, `live = 3`: `JLE` is not taken, so `E = ECX = 2`. Then `E < live`: **band = 2**.
 
-**=> the band is always 0..3, and `DAT_1425DD9B0[kind + band*8]` can never index before the
-table's start.** The port's defensive clamp to 0..3 is therefore not needed to avoid an
-out-of-range read — but PES does not perform it, so the port's clamp is a harmless belt-and-braces
-addition, not a behaviour change. (It *would* be a behaviour change if the class word could be
-negative or above 3, which the clamp at `0x1406C4DD7` and the `param_2[0x1F]` range prevent.)
+**Range.** The arithmetic is CONFIRMED; the class word's own range is INF (the writers in §5e and §5f were not re-checked here). `E` is in {0, 1, 2}, so for `live` in {-1, 0, 1, 2, 3} the band is in {0, 1, 2} on both paths. `live = -1` gives 0, `live = 3` gives 2, and the step always stays between `live` and `E`. Band 3 needs `live >= 4`, giving `live - 1`. The walk has **no clamp on the band** itself: the `+1` and `-1` results are used as they are.
+
+**Port's one line:** `band = live + sgn(E - live)`, with `E = clamp(req[0x1F])` when the special condition holds and `E = clamp(req[9])` otherwise.
 
 **The lookup** (`0x1406C5D8E`):
 
@@ -1299,8 +1330,8 @@ band arithmetic, and the same field at `[RDI + 0x7C]`. The bridge prints `AD`/`C
 image has `6F`/`E9` (the *other* encoding of the same instructions), and `7E 06`/`89 C8` where
 the image has `7E 04`/`8B E9` — the same jumps and moves, different byte encodings.
 
-**=> §5g's reading is confirmed against the install's exe, not only against the bridge.** The
-band walk, the class clamp, the field offset `+0x7C` and the grid lookup are all as §5g states.
+**=> §5g's bytes are confirmed against the install's exe, not only against the bridge.** The walk's
+instructions, the field offset `+0x7C`, the constant 2 in `ECX` and the grid lookup are as §5g states.
 There is no modded build, no +0x3B00 shift, and no hot-patch trampolines.
 
 **A caution worth keeping.** The bridge's *listing text* and the install's *bytes* differ in
@@ -1309,6 +1340,91 @@ the install's exe can fail even when the reading is right. The checkers in this 
 verify the **listing text** for §5g and verify the **bytes** only where the two agree. Where a
 byte check is wanted, the image's own instruction stream must be decoded — with the correct
 VA→offset map for the file in hand.
+
+---
+
+## §5h The issuer `FUN_1406BA2F0` and its callees (ClipWords' item 2)
+
+*(ClipWords' question: what the `+0xAC0` object's vt+0 issues through `FUN_1406BA2F0`, and which callees decide it. Every helper here was read from the bridge decompile or the image bytes. The instruction-level claims are checked against the bytes by `check_runtturn.py` §6h.)*
+
+**The issuer returns a style code, not a clip.** `FUN_1406BA2F0` returns one of **0, 8, 10, 13, 15** (CONFIRMED at every return site below). `FUN_1406D2030` stores the code at `param_2[0x37]` and at byte `0x50` (decompile lines 95-96: `param_2[0x37] = uVar3; *(char *)(param_2 + 0x50) = (char)uVar3;`), so the style byte is overwritten by it. The §5f label "motion number" for word `0x37` means this style code. The rest of §5f stands.
+
+### §5h.1 The secondary vtable of `AP+0xAB8` (slots `+0x00` to `+0x28`)
+
+`AP` is the AnimePlayer. The `+0xAB8` interface's vptr is `0x1425E3508` (CONFIRMED: the primary vtable at `0x1425E34D8` has the same entries at its `+0x30` and `+0x38`, so the secondary table starts inside it). Each slot was read from the image (`qword` at `0x1425E3508 + 8k`), and each function was disassembled from its bytes.
+
+| slot | function | body | behaviour | verdict |
+|---|---|---|---|---|
+| `+0x00` | `0x1406EAAF0` | `mov rax,[rcx+0x3008]; ret` | returns the qword at `AP+0x3AC0` | CONFIRMED bytes; name OPEN; the issuer discards the result |
+| `+0x08` | `0x1406EA810` | `movsx eax,byte [rcx+0x19A0]; ret` | returns the player index, byte `AP+0x2458` | CONFIRMED bytes; the issuer requires index `<= 21` and passes it to `FUN_140A489F0` |
+| `+0x10` | `0x1406EF320` | `cmp dx,[rcx+0x28]; je; mov [rcx+0x28],dx; mov byte [rcx+0x2CA6],1; ret` | setter: stores the motion-id word `AP+0xAE0` if it changed, and sets the dirty byte `AP+0x375E` | CONFIRMED bytes |
+| `+0x18` | `0x1406E6BD0` | `lea rax,[rcx+0x28]; ret` | returns the address of the motion-id word `AP+0xAE0` | CONFIRMED bytes; `FUN_1406E6960` reads it as a `u16` (CONFIRMED decompile) |
+| `+0x20` | `0x1406EADE0` | `lea rax,[rcx+0x19A4]; ret` | returns the address of the MOVESTEP phase byte `AP+0x245C` | CONFIRMED bytes; the phase name is from `pes-re-anim-select.md` (`+0x245c`, OBS) |
+| `+0x28` | `0x1406E66B0` | `movsx eax,byte [rcx+0x11]; ret` | returns the action sub-id, byte `AP+0xAC9` | CONFIRMED bytes; the name is from `pes-re-a3helpers.md` (`+0xac9`, sub-id); the issuer tests it against `0x4A` |
+
+The `+0xAC0` interface (vptr `0x1425E35B0`) supplies two more values: slot `+0x18` is `0x1406EADF0` (`movss xmm0,[AP+0x377C]`, the rate ceiling `rateMax`; `pes-re-anim-select.md` §3.5 names `P+0x377c` as rateMax), and slot `+0x38` is `0x1406B9E50` (the band rate, §5h.4). Both CONFIRMED bytes.
+
+### §5h.2 The issuer's arguments
+
+The caller `FUN_1406D2030` calls `FUN_1406BA2F0(AP, sub, rate, req, req[0x26], req[0x50], 0, rateMax, flag)` (decompile lines 92-93). Inside the issuer (CONFIRMED bytes):
+
+- arg1 `RCX` = `AP`; arg2 `EDX` = `sub` (the `+0xAB8` slot `+0x28` value, the sub-id); arg3 `XMM2` = `rate` (the `+0xAC0` slot `+0x38` value, the band rate).
+- arg4 `R9` = the request block `req` (moved to `RSI` at `0x1406BA323`).
+- arg5 (foot, `req[0x26]`), arg6 (style, `req[0x50]`) and arg7 (`0`) are **not read** by the issuer.
+- arg8 `[RSP+0xA8]` = `rateMax` (a `float`, `AP+0x377C`).
+- arg9 `[RSP+0xB0]` = the caller's `param_4` byte (the docs' `+0x30` flag), read at `0x1406BA41A`.
+
+Request words read: `req[0x16]` (`[RSI+0x58]`, the command; 5 is the dribble), `req[0x4A]` (`[RSI+0x128]`, the requested rate), `req[9]` (`[RSI+0x24]`, the command speed class), and byte `req+0x2C` (`[RSI+0x2C]`, a flag).
+
+### §5h.3 The issuer's decision, in the order the bytes test it
+
+Let `G = *(DAT_1436F3DC8)`, `mode = *(*(G+0x270)+0x116C)` (`mode == 1` is open play phase 1, per the docs), `R = *(G+0x1A8)`, `idx` = the `+0x08` slot value, `rec = FUN_140A489F0(G, idx)`, and `stam = FUN_140A58550(rec)` (the stamina %, §5h.4).
+
+- **[A] 15.** If `sub == 0x4A` or `mode != 1` (`0x1406BA32E`-`0x1406BA34A`): if `R.dword[+0x88] != 0` (`0x1406BA365`-`0x1406BA36C`) or `R.dword[+4] != idx` (`0x1406BA375`-`0x1406BA388`), return **15**. The docs' 0x0F text is "not in open play phase 1, or command 0x4a, or another player owns the scripted slot" (`pes-re-anim-select.md` §3.3), and this is that test (CONFIRMED).
+- **[B] 13.** If `idx <= 21` (`0x1406BA397`-`0x1406BA39A`) and the low byte of `stam` is `< 20` (`0x1406BA3C5`, `CMP AL,0x14`), return **13** (`0x1406BA3C9`). The docs' 0x0D text is "in-match stamina byte < 20".
+- **[C] 0.** If `sub == 0x4A` (`0x1406BA3D7`), return **0**.
+- **[D] 10.** Entered when `rate > req[0x4A] + 0.15` (`0x1425C48A0` = 0.15, `0x1406BA3E8`-`0x1406BA3F0`), or when `req[9] == 3` and `req+0x2C != 0` (`0x1406BA3F5`-`0x1406BA3FB`). It returns **10** when all of these hold: `rateMax * 0.895 > req[0x4A]` (`0x1425DDF74`, `0x1406BA40D`-`0x1406BA418`); arg9 `== 0` (`0x1406BA41A`); `req[0x16]` is in `{2, 5, 51, 52, 62}` (mask `0x4018000000000024`, `0x1406BA42D`-`0x1406BA43B`); and `rateMax * 0.825 > req[0x4A]` (`0x1425DDF6C`, `0x1406BA43D`-`0x1406BA44A`). The docs' row for 10 names the commands 2, 5, 0x33, 0x34 and 0x3E, which are the mask's bits (CONFIRMED).
+- **[E] 8 or 0.** Entered when `req[0x16] == 5` and `req+0x2C != 0` and `mode == 1` (`0x1406BA456`-`0x1406BA487`). Then:
+  - `k = int(fps * 20 / 60 + 0.5)`, which is 18 at 54 fps (`0x1406BA4AA`: `*20.0` at `0x14259BE1C`; `0x1406BA4BD`: `/60.0`; `0x1406BA4B5`: `XMM6 = 0.5`; `0x1406BA4C9`: truncation). `S = FUN_140A6CF70(BI, k)` with `BI = *(G+0x40)` (`0x1406BA4CD`).
+  - The bearing is `FUN_140439E50(out, AP.xz, S.xz)` and the angle is `FUN_1404583B0(AP+0x20, bearing)` (`0x1406BA4F1`-`0x1406BA4FD`). The test passes when the angle is `< 45.0` (`0x14259BE30`, `0x1406BA502`-`0x1406BA50D`).
+  - `dist2D(AP.xz, S.xz) < 3.0` (`0x14258C264`, `0x1406BA513`-`0x1406BA542`).
+  - `0.9 * AP+0x3B18 > S.y`. The term is `FUN_1406E7380(AP) / 100 * XMM6`, and `XMM6` is **0.5** on this path, because `0x1406BA4B5` reloaded it: `param_3` is not used here (`0x1406BA551`-`0x1406BA559`).
+  - `speed = FUN_14042D470(FUN_140A57650(BI, 1))`, in km/h. If `speed < 16.0` (`0x14259BE10`, `0x1406BA576`-`0x1406BA581`), return **8** (`0x1406BA5A1`).
+  - Otherwise `angle2 = FUN_14043A020(AP+0x20, FUN_140A57710(BI))`. If `angle2 > 45.0` (`0x1406BA59C`), return **8**.
+  - Otherwise return **0**.
+- Default: return **0** (`0x1406BA5AB`).
+
+The docs' table (`pes-re-anim-select.md` §3.3 and `pes-re-anim-select-2.md` §2.2: `0xf`, `0xd`, `0xa`, `8`, `0`) agrees with this. The bytes add three details: the `0.895` test and the arg9 flag in [D], the `0.15` gate in [D], and the `XMM6 = 0.5` term in [E].
+
+### §5h.4 The callees
+
+| callee | VA | body or semantics | verdict |
+|---|---|---|---|
+| `FUN_142348F80` | `0x142348F80` | `mov eax,[rcx+0x88]; ret`: the dword at `R+0x88` | CONFIRMED bytes; the name (scripted-slot flag) is INF, from the 0x0F docs text |
+| `FUN_140A73E20` | `0x140A73E20` | `lea rax,[rcx+4]; ret`: `R+4`, the scripted slot's owner index | CONFIRMED bytes; name INF |
+| `FUN_140A489F0` | `0x140A489F0` | `idx < 0x16`: `*(G + (idx+0xF3)*0x28)`; else `*(G+0x25F8)`. The per-player record pointer | CONFIRMED decompile; `P_ai` per `pes-re-A4Carrier.md` |
+| `FUN_140A58550` | `0x140A58550` | `100 * V(rec+0xD8 ring) / V(rec+0xF8 ring)`: two checksummed, obfuscated 32-bit fields (rings selected by `rec+0xD4` and `rec+0xF4`; keys `rec+0xD0` and `rec+0xF0`; checks `rec+0xC8` and `rec+0xE8`; FNV-64 checks; a mismatch calls `FUN_1415A1714`). Returns 0 when the `rec+0xF8` value is 0 | CONFIRMED decompile (3955 bytes); the stamina % (`cur * 100 / max`) per `pes-re-clock-record.md` §1 |
+| `FUN_1406E7380` | `0x1406E7380` | `movss xmm0,[P+0x3B18]; mulss xmm0,[180.0]`: `P+0x3B18 * 180` | CONFIRMED bytes; `P+0x3B18` is a per-player scale (`pes-re-a3helpers.md`, the hit solver); name INF |
+| `FUN_141E532D0` | `0x141E532D0` | `movss xmm0,[0x14351AE54]; ret`: fps = 54.0 (a float) | CONFIRMED bytes; `pes-re-first-touch.md` cites `0x14351AE50`, an int 54 at a different word |
+| `FUN_140A6CF70` | `0x140A6CF70` | `k < 250`: `BI + 0x88 + 40k`; else `BI+0x2770` (sample 249). Each sample is floats (x, y = height, z) | CONFIRMED decompile |
+| `FUN_140A57650` | `0x140A57650` | `p == 0`: `sqrt(vx²+vy²+vz²) / fps` at `BI+0x2948/0x294C/0x2950`; `p != 0`: the XZ distance of samples `p` and `p+1`. The issuer uses `p = 1` | CONFIRMED decompile |
+| `FUN_14042D470` | `0x14042D470` | `v * fps * 60 * 60 / 1000` (constants `0x14259A764` = 60.0 and `0x14256AE34` = 1000.0): `v` in m per frame to km/h | CONFIRMED bytes of the constants; the 16.0 gate is km/h |
+| `FUN_140A57710` | `0x140A57710` | `lea rax,[BI+0x2944]; ret`: a pointer to the ball's angle float, which `FUN_14043A020` reads as degrees | CONFIRMED bytes; the field's writer is OPEN |
+| `FUN_140439E50` | `0x140439E50` | `out` = the bearing from A to B in degrees, `[0, 360)`: `FUN_140A92D40(B.x - A.x, ...) * 57.2957763671875` (`0x14259BE40`), wrapped by `360.0` (`0x14259858C`) | CONFIRMED decompile; the atan argument order inside `FUN_140A92D40` is OPEN |
+| `FUN_1404583B0` | `0x1404583B0` | `\|wrap180(*b - *a)\|`: the unsigned angle between `a` and `b` (wrapped by `±360`; the abs mask is `0x7FFFFFFFFFFFFFFF` at `0x142565D30`) | CONFIRMED decompile and mask |
+| `FUN_14043A020` | `0x14043A020` | `\|wrap180(*p - fold360(h))\|`: the unsigned angle between heading `h` and `*p`, with the same abs mask | CONFIRMED decompile and mask. `pes-re-team-mode.md` gives it as signed; the mask makes it unsigned |
+| `FUN_1406B9E50` | `0x1406B9E50` | class `0..3` (and not class 0 with kind 3 or 6): `DAT_1425DDE10[class]`, four floats; else `0.0`. Called as `+0xAC0` slot `+0x38` | CONFIRMED bytes; the table VA is the RIP operand at `0x1406B9E68`, and it is the port's `BAND_RATE_VA` (`movestep_run.cpp:151`) |
+| `FUN_1406EADF0` | `0x1406EADF0` | `movss xmm0,[AP+0x377C]`: `rateMax` | CONFIRMED bytes; `pes-re-anim-select.md` §3.5 |
+| `FUN_141EB51A0` | `0x141EB51A0` | `out = 0`; if `ctx+0xA04 != 0`, `idx < 0x13`, and `DAT_14351E540[idx] != 0`: `out` = the three floats at `ctx+0x538+12*idx` | CONFIRMED decompile; the `ctx` name is OPEN; callers `FUN_1406B8340`, `FUN_1406C3470`, `FUN_1406D2590` |
+| `FUN_1404BCAD0` | `0x1404BCAD0` | rotates `(v[0], v[2])` in place by `angle` (degrees, wrapped to `[0, 360)`), using `FUN_140A92C80(angle + 90, 1.0)` and `FUN_140A92C80(angle, 1.0)` | CONFIRMED decompile; the sign of `FUN_140A92C80` is OPEN; callers `FUN_1406C3470`, `FUN_1406CE820` |
+
+### §5h.5 Corrections and open items
+
+- The §5f "motion number" for word `0x37` and byte `0x50` is the style code (top of this section).
+- The 16.0 gate is **km/h**, not m/s (corrected in §5b's units paragraph). `FUN_14042D470` multiplies by `fps * 60 * 60 / 1000`, so §5b and §5c.2 read km/h after this correction.
+- `FUN_14043A020` and `FUN_1404583B0` are **unsigned** (absolute) angle differences.
+- The stamina test compares the **low byte** of `FUN_140A58550` with 20 (`CMP AL,0x14`).
+- OPEN: the atan argument order in `FUN_140A92D40` and the rotation sign in `FUN_140A92C80`; the name of the record `R = *(G+0x1A8)`; the consumers of `AP+0x3AC0` (slot `+0x00`) and `AP+0x3B18`; the writer of the ball angle at `BI+0x2944`; the `ctx` of `FUN_141EB51A0`.
 
 ---
 
@@ -1382,7 +1498,7 @@ VA→offset map for the file in hand.
   cited code VAs not inside a disassembled instruction: 0
   TOTAL mismatches: 0
   ```
-  **Mutation-tested — all seventy fire:**
+  **Mutation-tested in the previous pass (its script was not kept, so the list is not re-run here):**
   value; the clip table's pointer; the `row * 9` stride; the special cell's fixed motion; the
   mirror byte's stride; the column bound; the row bound; the empty cell's `-1`; the entry's
   column source; the swing's column source; the `0x29` mask; the window's allowed rows; the
@@ -1399,11 +1515,11 @@ VA→offset map for the file in hand.
   writes; the class-3 count; the RUN_TO_STEP copy write; and three per-function
   class-3 line lists. Twelve more cover §5f: the function's identity; the 0x98 exclusion;
   the foot flag's byte; the foot argument; the 0 argument; the issuer; the two interfaces;
-  the port's stand-in motion; the blend's clamp; and the §5f constants. Five more cover
-  §5g: the walk's direction; the clamp's subject; the band's range; the retraction; and
-  the grid's size.
-  the foot flag's byte; the foot argument; the 0 argument; the issuer; the two interfaces;
   the port's stand-in motion; the blend's clamp; and the §5f constants.
+- **§5g and §5h** are checked by `check_runtturn.py` (claims, byte pins, RIP operand targets, constants)
+  and mutation-tested by `mut_runturn.py`: 27 mutations (21 on the report, 6 on the checker's tables),
+  each must fire. All 27 fire. The earlier §5g battery (the three-case rule and its "dead branch" claim)
+  was replaced.
 - The port's own `movestep.hpp` / `movestep_run.cpp` were read to map the request word indices
   and to compare `GotoRowFor` and `Cell`.
 - No GF code changed, no GF build/test run, no PES write/pin/input.
