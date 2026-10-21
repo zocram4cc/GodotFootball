@@ -52,3 +52,8 @@ the summary column is the mean distance over the metrics PES has a value for.
 |landing (main SHA)|date|M1 dist|M2 dist|M3-M7 dist|M8 dist|M9 dist|M10-M14 dist|mean dist|
 |---|---|---|---|---|---|---|---|---|
 |860e2f1|2026-10-21|pending|pending|pending|pending|pending|pending|pending|
+
+## Notes
+- M3 includes the period-start kickoffs (the referee sets the phase at the period-end whistle); seeds ending 0-0 have only those.
+- Open: on 860e2f1, seed 23 shows two period starts where seeds 7 and 11 show three (its third produced no measured stoppage); untraced.
+- `--minutes 20` runs about 28-29 in-play minutes (the match-length factor is clamp(minutes, 5, 90)/90 of the clock); counts are normalised per 20 in-play minutes.
