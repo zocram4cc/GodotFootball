@@ -66,7 +66,9 @@ float TargetTurnDeg(float deg, const RunConstants& k) {
 
 int BodyBucketFlag(float recordValue) {
   const float scaled = recordValue * 100.0f;  // 100.0 at 0x14253EE30
-  return 0.0f <= scaled && scaled <= 4294967296.0f ? 1 : 0;  // 2^32 at 0x1427341A0
+  // PES 0x1411944C6-0x1411944E1 (TeamDecode §4.2b, Main's byte audit): the flag is SETZ of the in-range flag, so it is 1 only
+  // when the value is NOT usable (outside [0, 2^32], 2^32 at 0x1427341A0). The default record (1.0 x 100) is usable: flag 0.
+  return 0.0f <= scaled && scaled <= 4294967296.0f ? 0 : 1;
 }
 
 void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants& k,

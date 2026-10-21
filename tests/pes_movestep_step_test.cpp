@@ -1096,6 +1096,71 @@ TEST(EnterTurnStop, KeepsAStandingTakersPlaybackNonzero) {
   EXPECT_GT(req.F(pes::moveword::kPlayback), 0.0f) << "a standing taker's playback";
 }
 
+// PES FUN_1406D2590 takes its clip's row from the stop-row selector FUN_1406B9D80, through the +0xac0 interface's slot 0xd0
+// (decompile 285-293). The row is DAT_1425DDAD0[kind + class * 8], with the class the class word req[0x1f] clamped to 0..3
+// (lines 74-82) and the action the command id req[0x16] (line 290). The bucket is folded 4 -> 3 and 9 -> 8 first (279-284).
+namespace {
+void StopSelectorRequest(pes::MoveReq& req, int classWord, int command, int lookBucket) {
+  req.SetU(pes::moveword::kKind, 3u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kClassWord, static_cast<uint32_t>(classWord));
+  req.SetU(pes::moveword::kCommandId, static_cast<uint32_t>(command));
+  req.SetU(pes::moveword::kLookBucket, static_cast<uint32_t>(lookBucket));
+  req.SetU(pes::moveword::kLookBucketAlt, static_cast<uint32_t>(lookBucket));
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDistToTarget, 5.0f);
+  req.SetF(pes::moveword::kDistToLook, 5.0f);
+  req.SetF(pes::moveword::kRate, 0.3f);
+}
+}  // namespace
+
+TEST(EnterTurnStop, TheRowIsTheStopSelectorsRowForTheClassWord) {
+  FakeHost host;
+  host.currentKmh = 0.0f;
+  host.runTables.stopRow[3 + 1 * 8] = 0x5ab;  // kind 3, class 1
+  pes::MoveReq req;
+  StopSelectorRequest(req, /*classWord=*/1, /*command=*/0, /*lookBucket=*/0);
+  EnterTurnStop(host, req);
+  EXPECT_EQ(host.lastRow, 0x5ab) << "DAT_1425DDAD0[kind + class * 8], not the step grid";
+}
+
+TEST(EnterTurnStop, TheClassTwoRowIsTheTurnLockRowUnlessTheCommandIsExempt) {
+  FakeHost host;
+  host.currentKmh = 0.0f;
+  host.runTables.stopRow[3 + 2 * 8] = 0x5ac;  // kind 3, class 2
+  pes::MoveReq req;
+  StopSelectorRequest(req, /*classWord=*/2, /*command=*/0, /*lookBucket=*/0);
+  EnterTurnStop(host, req);
+  EXPECT_EQ(host.lastRow, 0x582) << "FUN_1406B9D80 lines 17-18: class 2 forces row 0x582";
+  pes::MoveReq exempt;
+  StopSelectorRequest(exempt, /*classWord=*/2, /*command=*/0x11, /*lookBucket=*/0);
+  EnterTurnStop(host, exempt);
+  EXPECT_EQ(host.lastRow, 0x5ac) << "command ids 1, 0x11 and 0x70 keep the table's row (lines 16-17)";
+}
+
+TEST(EnterTurnStop, TheClassWordThreeReadsTheStopTableBeyondItsTwentyFourRows) {
+  FakeHost host;
+  host.currentKmh = 0.0f;
+  host.runTables.stopRow[3 + 3 * 8] = 0x5bc;  // kind 3, class 3: index 27, past the 24 rows the notes list
+  pes::MoveReq req;
+  StopSelectorRequest(req, /*classWord=*/3, /*command=*/0, /*lookBucket=*/0);
+  EnterTurnStop(host, req);
+  EXPECT_EQ(host.lastRow, 0x5bc) << "the class word reaches 3 (decompile line 81); the table has 32 entries";
+}
+
+TEST(EnterTurnStop, TheStopColumnIsTheFoldedBucketsColumn) {
+  FakeHost host;
+  host.currentKmh = 0.0f;
+  pes::MoveReq req;
+  StopSelectorRequest(req, /*classWord=*/1, /*command=*/0, /*lookBucket=*/4);
+  EnterTurnStop(host, req);
+  EXPECT_EQ(host.lastColumn, 5) << "bucket 4 folds to 3 before the selector (lines 279-284): DAT_1425DD988[3]";
+}
+
 // PES's cell lookup answers -1 for an empty cell (TeamDecode 3). The TURN_STOP entry issued the row id when its step cell was
 // empty; the cell's own motion goes out, -1 when empty.
 TEST(EnterTurnStop, AnEmptyStepCellIssuesMinusOneNotTheRowId) {

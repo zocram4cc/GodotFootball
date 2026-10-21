@@ -1596,11 +1596,12 @@ TEST(MoveFill, TurnToTheBodyIsFromTheBodyDirectionNotTheFacing) {
   EXPECT_NEAR(east.F(pes::moveword::kTurn), 45.0f, 1e-3f);       // word 6: target minus body
 }
 
-TEST(MoveFill, BodyBucketFlagIsOneWhenTheRecordTimesOneHundredIsInRange) {
-  // PES 0x141194330 (TeamDecode, audited): host+0x2798 = 1 iff record[0x3C] * 100 is in [0, 2^32].
-  EXPECT_EQ(pes::movestep::BodyBucketFlag(1.0f), 1);     // PES's default record stores 1.0
-  EXPECT_EQ(pes::movestep::BodyBucketFlag(-0.01f), 0);   // below zero
-  EXPECT_EQ(pes::movestep::BodyBucketFlag(1.0e9f), 0);   // above 2^32 once times 100
+TEST(MoveFill, BodyBucketFlagIsOneOnlyWhenTheRecordTimesOneHundredIsOutOfRange) {
+  // PES 0x141194330 (TeamDecode §4.2b; Main's byte audit): host+0x2798 is SETZ of the in-range flag, so it is 1 only
+  // when record[0x3C] * 100 is NOT in [0, 2^32]. A usable value leaves it 0. The default record stores 1.0, which is usable.
+  EXPECT_EQ(pes::movestep::BodyBucketFlag(1.0f), 0);     // PES's default record: usable, so the flag is 0
+  EXPECT_EQ(pes::movestep::BodyBucketFlag(-0.01f), 1);   // below zero: not usable
+  EXPECT_EQ(pes::movestep::BodyBucketFlag(1.0e9f), 1);   // above 2^32 once times 100: not usable
 }
 
 TEST(MoveFill, TurnsAndTheirBucketsAreTheTargetTurnTheBodyTurnAndTheLookError) {
