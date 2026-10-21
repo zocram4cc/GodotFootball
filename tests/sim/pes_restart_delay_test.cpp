@@ -858,36 +858,3 @@ TEST(PesRestartDelay, ALoosePresserInTheTrapWindowPlaysThatRowsClip) {
   EXPECT_GT(trapTicks, 0ul) << "the loose presser never played a PES trap clip";
   EXPECT_EQ(strayTicks, 0ul) << "a PES trap clip is not named by a trap row";
 }
-
-// PES's slide predicate starts a slide only on an odd logic frame: FUN_140971ba0 returns false on even MI+0x1198 at
-// 0x140971cb6..0x140971cc1 (docs/re/pes-re-defender-decisions.md section 3). Seed 11 is the base's row 11/23840: its
-// slides start on the even frames 24144, 24190, 24262, 24308 and 24380. The run stops at frame 24400, before the
-// stoppage that ends the base run near 24458.
-TEST(PesRestartDelay, ASlideStartsOnlyOnAnOddLogicFrame) {
-  constexpr unsigned long kEndFrame = 24400;
-  unsigned long evenFrameSlides = 0, oddFrameSlides = 0, lastFrame = 0;
-  std::map<int, bool> wasSliding;  // by player id: the state at the last tick
-  RunMatchWithinTheBound(
-      true, MINUTES,
-      [&](Match& match) {
-        lastFrame = match.GetSimFrame();
-        for (int t = 0; t < 2; ++t) {
-          std::vector<Player*> active;
-          match.GetActiveTeamPlayers(t, active);
-          for (Player* p : active) {
-            const bool sliding = p->GetCurrentFunctionType() == e_FunctionType_Sliding;
-            if (sliding && !wasSliding[p->GetID()]) {
-              if (lastFrame % 2 == 0)
-                ++evenFrameSlides;
-              else
-                ++oddFrameSlides;
-            }
-            wasSliding[p->GetID()] = sliding;
-          }
-        }
-      },
-      kMaxSimTicks, [](Match& match) { return match.GetSimFrame() >= kEndFrame; }, 11u);
-  EXPECT_GE(lastFrame, kEndFrame) << "the match ended before the window";
-  EXPECT_GT(oddFrameSlides, 0ul) << "no slide started in the window, so the parity check proves nothing";
-  EXPECT_EQ(evenFrameSlides, 0ul) << evenFrameSlides << " slides started on an even logic frame";
-}

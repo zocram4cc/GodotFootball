@@ -1207,10 +1207,6 @@ bool ElizaController::_TackleCandidate(const pes::DefenderDecisionConstants& k) 
 bool ElizaController::_SlideCandidate(const pes::DefenderDecisionConstants& k) {
   // CPU team only and open play only: GF is AI-vs-AI by construction, and the
   // whole block sits inside match->IsInPlay() && !match->IsInSetPiece().
-  // PES's slide predicate starts a slide only on an odd logic frame: FUN_140971ba0 returns false on even MI+0x1198, the gate at
-  // 0x140971cb6..0x140971cc1. ponytail: the logic frame is GetSimFrame() + 1, because Match::Process bumps the counter after the
-  // teams run (match.cpp:983). MI+0x1198's origin is not decoded; the parity assumes the first tick is frame 1.
-  if (match->PesLoop() && (match->GetSimFrame() + 1) % 2 == 0) return false;
   if (_AnyTeammateSliding()) return false;
   if (match->GetBallRetainer()) return false;
 
