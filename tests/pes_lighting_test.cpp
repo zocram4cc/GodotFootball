@@ -197,17 +197,16 @@ TEST(LightingRig, St002PluginSettings) {
 }
 
 // The sun's colour has magnitude π·skyColorSunScale (sun-radiance §1.6: the live pitch row has
-// |cb3[1]| = I·π·S); the .atsh chroma (the channel ratios) is kept.
+// |cb3[1]| = I·π·S); the .atsh chroma (the channel ratios) is kept. The chroma (2, 2, 1) has peak 2
+// and length 3, so a peak normalisation would fail this.
 TEST(LightingSun, SunColourHasMagnitudePiTimesSkyColorSunScale) {
-  std::string err;
-  auto blob = MakeAtsh();
-  auto t = pes::ParseAtsh(blob, &err);
-  ASSERT_TRUE(t) << err;
+  pes::AtshTable t;
+  t.light[0][0] = {2.0f, 2.0f, 1.0f};
   pes::Atmosphere atmo;
   atmo.skyColorSunScale = 0.2;
-  const pes::Vec3 c = pes::SunColour(atmo, &*t, false, 0, 0);
+  const pes::Vec3 c = pes::SunColour(atmo, &t, false, 0, 0);
   EXPECT_NEAR(std::sqrt(c.x * c.x + c.y * c.y + c.z * c.z), M_PI * 0.2, 1e-5);
-  EXPECT_NEAR(c.y / c.x, 1.0 / 131008.0, 1e-9);  // the .atsh chroma (G/R of the entry)
+  EXPECT_NEAR(c.z / c.x, 0.5, 1e-6);  // the .atsh chroma (B/R of the entry)
 }
 
 // No .atsh in the install: white, the same π·S magnitude.
