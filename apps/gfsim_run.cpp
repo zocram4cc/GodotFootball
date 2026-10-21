@@ -116,14 +116,15 @@ class ParityLog {
 
   // A stoppage runs from the first tick the match is not live to the first live tick after it, as
   // RestartWatch measures it. Kept: a kick-off, throw-in, goal kick, corner or free kick whose whistle
-  // and release fall in the same match period (the pre-match kick-off and the period breaks are not
-  // restarts).
+  // and release fall in the same match period. The opening kick-off (no play before it) and the
+  // period breaks are not restarts.
   void ObserveRestart(Match& match, bool live) {
     if (!live) {
       if (!inStoppage_) {
         inStoppage_ = true;
         whistle_ = ticks_;
         phase_ = match.GetMatchPhase();
+        opening_ = liveTicks_ == 0;
         setPiece_ = e_SetPiece_None;
       }
       for (int teamID = 0; teamID < 2; teamID++) {
@@ -135,7 +136,7 @@ class ParityLog {
     if (!inStoppage_) return;
     inStoppage_ = false;
     const char* name = ParityRestartName(setPiece_);
-    if (name && phase_ != e_MatchPhase_PreMatch && match.GetMatchPhase() == phase_)
+    if (name && !opening_ && match.GetMatchPhase() == phase_)
       restarts_.push_back({name, whistle_, ticks_});
   }
 
@@ -146,6 +147,7 @@ class ParityLog {
   bool inStoppage_ = false;
   unsigned long whistle_ = 0;
   e_MatchPhase phase_ = e_MatchPhase_PreMatch;
+  bool opening_ = false;
   e_SetPiece setPiece_ = e_SetPiece_None;
   std::vector<Restart> restarts_;
 };

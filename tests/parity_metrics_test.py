@@ -73,12 +73,13 @@ class ParseAndScale(unittest.TestCase):
 class Restarts(unittest.TestCase):
     def test_median_frames_per_restart_type_with_n(self):
         run = parity.parse_run(gf_output(restarts=[
-            ("throwin", 100), ("throwin", 300), ("throwin", 200), ("corner", 400), ("corner", 100)]))
+            ("throwin", 100), ("throwin", 110), ("throwin", 900),
+            ("corner", 400), ("corner", 100), ("corner", 100)]))
         v = parity.seed_values(run)
-        self.assertAlmostEqual(v["M4"], 200.0)
-        self.assertAlmostEqual(v["M6"], 250.0)
+        self.assertAlmostEqual(v["M4"], 110.0)  # median; the mean would be 370
+        self.assertAlmostEqual(v["M6"], 100.0)  # median; the mean would be 200
         self.assertEqual(v["n:M4"], 3)
-        self.assertEqual(v["n:M6"], 2)
+        self.assertEqual(v["n:M6"], 3)
         self.assertNotIn("M3", v)  # no kickoff in this run
 
 
