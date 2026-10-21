@@ -1096,6 +1096,31 @@ TEST(EnterTurnStop, KeepsAStandingTakersPlaybackNonzero) {
   EXPECT_GT(req.F(pes::moveword::kPlayback), 0.0f) << "a standing taker's playback";
 }
 
+// PES's cell lookup answers -1 for an empty cell (TeamDecode 3). The TURN_STOP entry issued the row id when its step cell was
+// empty; the cell's own motion goes out, -1 when empty.
+TEST(EnterTurnStop, AnEmptyStepCellIssuesMinusOneNotTheRowId) {
+  FakeHost host;
+  host.currentKmh = 0.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 3u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kClassWord, 1u);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetU(pes::moveword::kLookBucket, 0u);
+  req.SetU(pes::moveword::kLookBucketAlt, 0u);
+  req.SetF(pes::moveword::kDistToTarget, 5.0f);
+  req.SetF(pes::moveword::kDistToLook, 5.0f);
+  req.SetF(pes::moveword::kRate, 0.3f);
+  host.cellMotion = -1;     // the step cell is empty
+  host.issued.motion = -7;  // a sentinel: stays -7 if the entry issued nothing
+  EnterTurnStop(host, req);
+  EXPECT_EQ(host.issued.motion, -1) << "an empty step cell's motion is -1, never the row id";
+}
+
 TEST(TurnStop, ScalesTheRateByTheRecordConstant) {
   FakeHost host;
   MoveReq req;
@@ -1215,6 +1240,94 @@ TEST(TurnStop, TheFirstPathGateAcceptsALevelRequestHeading) {
   // The gate passed, so the first path wrote the step clip and cleared the dwell words.
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 0.0f);
   EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit2), 0.0f);
+}
+
+// PES FUN_1406cab20's first path issues FUN_1406ABB30's cell: the row DAT_1425dd9b0[kind + band * 8] and the column
+// DAT_1425dd988[the move bucket] (decompile 0x1406CB35D-0x1406CB46A). The port issued the foot band as the motion, a value
+// the humanoid refuses every tick, so a standing taker's turn-back clip never played.
+TEST(TurnStop, TheFirstPathIssuesTheStepCellNotTheFootBand) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetF(pes::moveword::kRate, 1.0f);
+  req.SetF(pes::moveword::kFacing, 10.0f);
+  req.SetF(pes::moveword::kHeading, 10.0f);
+  req.SetF(pes::moveword::kLookHeading, 10.0f);
+  req.SetF(pes::moveword::kBodyDirection, 10.0f);
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 0.10f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 0.10f);
+  host.displacement[0] = 0.8660254f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.5f;
+  host.footBand = 2;
+  host.cellMotion = 0x3c5;  // the populated step cell
+  stayDecision = true;
+  TurnStop(host, req);
+  stayDecision = false;
+  EXPECT_EQ(host.lastRow, 0x540 + 2) << "the row is DAT_1425dd9b0[kind 2 + band 0 * 8]";
+  EXPECT_EQ(host.lastColumn, 9) << "the column is DAT_1425dd988[move bucket 0]";
+  EXPECT_EQ(host.issued.motion, 0x3c5) << "the issued motion is the step cell's, not the foot band";
+}
+
+// PES's cell lookup answers -1 for an empty cell (FUN_1406ABB30; TeamDecode 3). TURN_STOP's third path looked the step
+// cell up and issued the row id when it was empty, a motion the humanoid cannot play. The sentinel shows the path issued.
+TEST(TurnStop, AnEmptyStepCellIssuesMinusOneNotTheRowId) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetU(pes::moveword::kPrecise, 1);
+  req.SetF(pes::moveword::kRate, 1.0f);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  req.SetF(pes::moveword::kDistToTarget, 5.0f);
+  req.SetF(pes::moveword::kDwellLimit, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 5.0f);  // past the first and second paths' gates
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 5.0f);
+  host.displacement[0] = 0.0f;
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 1.0f;  // heading 0: the third path's gates read the facing error as 0
+  host.cellMotion = -1;         // the step cell is empty
+  host.issued.motion = -7;      // a sentinel: stays -7 if the path issued nothing
+  TurnStop(host, req);
+  EXPECT_EQ(host.issued.motion, -1) << "the empty cell's motion is -1, never the row id";
+}
+
+// TURN_STOP's stop (decompile block 5, the stop's own motion row IDLE) issues the IDLE row's cell at column 9, as STOP's IDLE
+// arm reads it. The port issued the left/right foot pick (0 or 1) as the motion, which the humanoid refuses.
+TEST(TurnStop, TheStopIssuesTheIdleCellNotTheFootPick) {
+  FakeHost host;
+  MoveReq req;
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 0);
+  req.SetU(pes::moveword::kClassWord, 0);
+  req.SetU(pes::moveword::kPrecise, 0);
+  req.SetF(pes::moveword::kRate, 0.3f);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  // 30 degrees off the facing: past the first path's 22.5-degree gate, inside the stop's 67.5-degree mirror window.
+  req.SetF(pes::moveword::kHeading, 30.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  req.SetF(pes::moveword::kDwellLimit, 100.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 80.0f);  // past the stop's 0.6 gate, and past the first path's clock limit
+  req.SetF(pes::moveword::kDwellLimit2, 1.0f);
+  req.SetF(pes::moveword::kDwellElapsed2, 1.0f);
+  host.displacement[0] = 0.5f;  // heading 30 degrees
+  host.displacement[1] = 0.0f;
+  host.displacement[2] = 0.8660254f;
+  host.cellMotion = 0x3c5;      // the IDLE cell's motion
+  host.issued.motion = -7;      // a sentinel: stays -7 if the stop issued nothing
+  stayDecision = true;
+  TurnStop(host, req);
+  stayDecision = false;
+  EXPECT_EQ(host.issued.motion, 0x3c5) << "the stop's clip is the IDLE cell's motion, not the foot pick";
 }
 
 // The dwell gate: with the second dwell unfinished the handler returns without a state change.
