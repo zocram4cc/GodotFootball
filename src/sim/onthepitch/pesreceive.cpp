@@ -343,4 +343,8 @@ CarrierChange CarrierAfterContact(bool controlTouch, bool toucherHoldsBall, bool
   return CarrierChange::kNone;
 }
 
+CarrierChange CarrierFromTouch(bool touchedThisTick, bool toucherHoldsBall) {
+  return touchedThisTick && toucherHoldsBall ? CarrierChange::kToucher : CarrierChange::kNone;
+}
+
 }  // namespace pes

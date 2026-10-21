@@ -496,6 +496,18 @@ TEST(PesReceiveCarrier, AControlTouchThatMissesLeavesTheHolderWithTheBall) {
   EXPECT_EQ(pes::CarrierAfterContact(true, false, true), pes::CarrierChange::kKeep);
 }
 
+TEST(PesReceiveCarrier, AnyTouchThatLeavesTheBallAtHisFeetMakesHimTheCarrier) {
+  EXPECT_EQ(pes::CarrierFromTouch(true, true), pes::CarrierChange::kToucher);
+}
+
+TEST(PesReceiveCarrier, ATouchThatSendsTheBallAwayMakesNoCarrier) {
+  EXPECT_EQ(pes::CarrierFromTouch(true, false), pes::CarrierChange::kNone);
+}
+
+TEST(PesReceiveCarrier, StandingOnTheBallWithoutATouchMakesNoCarrier) {
+  EXPECT_EQ(pes::CarrierFromTouch(false, true), pes::CarrierChange::kNone);
+}
+
 // The trap picker (FUN_14081ff70 for action 7): a row admits the ball inside its clip-space window (x strictly
 // between xb and xe, z strictly between zb and ze); the lowest priority wins, then the nearest hit; a hit higher
 // than the ball by more than the height tolerance refuses its row. The rows and hits here are synthetic: the

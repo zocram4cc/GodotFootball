@@ -233,6 +233,10 @@ bool RefusedAsDesignatedOwner(const OwnerInput& in, const ActorKey& me);
 enum class CarrierChange { kKeep, kToucher, kNone };
 CarrierChange CarrierAfterContact(bool controlTouch, bool toucherHoldsBall, bool carrierHoldsBall);
 
+// The carrier after any touch this tick: a touch pushes the newest K=8 key (first-touch §5.1), so the toucher takes the
+// carrier when the touch leaves the ball at his feet. A man who only stands on the ball, with no touch, takes none.
+CarrierChange CarrierFromTouch(bool touchedThisTick, bool toucherHoldsBall);
+
 // The trap picker's ball point, in the player's clip space (metres, PES's Fox frame): x lateral (right of the body),
 // y height, z forward. The clips' hit points are in cm (HitData records, pes/mbinfo.hpp).
 struct ClipPoint {
