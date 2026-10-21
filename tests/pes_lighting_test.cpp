@@ -245,5 +245,35 @@ TEST(LightingRig, SkyColorSunScaleIsTheTppAtmosphereProperty) {
   ASSERT_TRUE(p && !p->values.empty());
   EXPECT_DOUBLE_EQ(rig->atmosphere.skyColorSunScale, p->values[0].d);
 }
+// The sky shader's sun and moon/airglow intensities are lux·π·skyColorSunScale (sun-radiance §1.2,
+// §1.6; pes-re-lighting Part B §10). The live day frame's moon slot reads 0.6283 = moonLux·π·0.2, so
+// the span's skyLightSunScale is not part of them.
+TEST(LightingSky, SkyScalesAreLuxPiSkyColorScale) {
+  pes::LightSettings s;
+  s.sunLux = 150000;
+  s.moonLux = 1;
+  s.skyLightSunScale = 0.1;  // must not be used
+  pes::Atmosphere atmo;
+  atmo.skyColorSunScale = 0.2;
+  const pes::SkyIntensities k = pes::SkyRadianceScales(s, atmo, 1.0);
+  EXPECT_NEAR(k.sun, 150000 * M_PI * 0.2, 1e-6 * k.sun);
+  EXPECT_NEAR(k.star, M_PI * 0.2, 1e-9);
+}
+
+// The install's 15:00 span: its skyLightSunScale (0.1) and the TppAtmosphere S differ, so this fails
+// if the sky takes the span's value.
+TEST(LightingRig, St021SkyScalesUseTheTppAtmosphereSkyColorScale) {
+  if (!Vfs()) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto rig = pes::LoadLightRig(*Vfs(), 21, false, &err);
+  ASSERT_TRUE(rig) << err;
+  const pes::TimeSpanSettings& span = rig->SpanForTime(15, 0);
+  ASSERT_NE(span.settings.skyLightSunScale, rig->atmosphere.skyColorSunScale);
+  const pes::Vec3 toSun = pes::SunToDirection(rig->atmosphere, 15, 0);
+  const double fade = pes::SunHorizonFade({-toSun.x, -toSun.y, -toSun.z});
+  const pes::SkyIntensities k = pes::SkyRadianceScales(span.settings, rig->atmosphere, fade);
+  EXPECT_NEAR(k.sun, span.settings.sunLux * fade * M_PI * rig->atmosphere.skyColorSunScale, 1e-6 * k.sun);
+  EXPECT_NEAR(k.star, span.settings.moonLux * M_PI * rig->atmosphere.skyColorSunScale, 1e-9);
+}
 
 }  // namespace

@@ -700,6 +700,10 @@ Vec3 SunColour(const Atmosphere& atmo, const AtshTable* atsh, bool cloudy, int h
   return {c.x * scale, c.y * scale, c.z * scale};
 }
 
+SkyIntensities SkyRadianceScales(const LightSettings& s, const Atmosphere& atmo, double sunFade) {
+  return {s.sunLux * sunFade * kPi * atmo.skyColorSunScale, s.moonLux * kPi * atmo.skyColorSunScale};
+}
+
 const Vec3 (*AtshSkySh(const AtshTable& atsh, bool cloudy, int hour, int minute))[9] {
   return &atsh.sh[cloudy ? 1 : 0][AtshSlot(atsh, hour, minute)];
 }

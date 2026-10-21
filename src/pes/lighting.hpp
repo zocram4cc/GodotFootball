@@ -197,6 +197,14 @@ Vec3 AtshSunColor(const AtshTable& atsh, bool cloudy, int hour, int minute);
 // π·skyColorSunScale (PES's cb3[1] has magnitude I·π·S; the intensity sunLux·fade stays with the
 // light). A null atsh (the install ships none) is white.
 Vec3 SunColour(const Atmosphere& atmo, const AtshTable* atsh, bool cloudy, int hour, int minute);
+// The sky shader's radiance scales (sun-radiance §1.2, §1.6; pes-re-lighting Part B §10): the sun's
+// sunLux·sunFade·π·S and the moon/airglow moonLux·π·S, with S = TppAtmosphere.skyColorSunScale.
+// skyLightSunScale is not part of them.
+struct SkyIntensities {
+  double sun = 0;
+  double star = 0;
+};
+SkyIntensities SkyRadianceScales(const LightSettings& s, const Atmosphere& atmo, double sunFade);
 // The nearest-time SH9 row for the rig weather slot.
 const Vec3 (*AtshSkySh(const AtshTable& atsh, bool cloudy, int hour, int minute))[9];
 // Reads `memberSuffix` (e.g. an .atsh) from an .fpk already in memory.
