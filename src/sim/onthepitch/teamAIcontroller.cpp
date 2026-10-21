@@ -2088,8 +2088,9 @@ void TeamAIController::PesSecondPresserTick() {
     return (bx - ax) * (bx - ax) + (bz - az) * (bz - az);
   };
 
-  // MA+0x2601C: the last toucher (FUN_140457070). ponytail: PES's K=8 touch ring is not routed the same in GF, so
-  // the newest event that names a valid on-pitch actor stands in for the newest touch key.
+  // MA+0x2601C: the last toucher (FUN_140457070). ponytail: W1 reads the newest ring-1 key (K=8), which GF never fills:
+  // DetectType14, the K=8 producer, has no caller, and its gate is the touch probe G+0x2A80 (OPEN, pes-re-first-touch.md
+  // section 5.4). The newest valid ring-0 touch stands in; the opponent-kick fallback T_opp+0x78 (OPEN writer) is absent.
   pes::ActorKey touch{};
   bool touchValid = false;
   for (int n = 0; n < 8 && !touchValid; ++n) {

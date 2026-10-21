@@ -238,8 +238,9 @@ CarrierChange CarrierAfterContact(bool controlTouch, bool toucherHoldsBall, bool
 // ring-1 touch key when that key maps to an on-pitch slot, else 0xFF. Nothing clears it when the ball is lost.
 // GF stand-in: the touch stamped this tick (Team::SetLastTouchPlayer) hands the carrier to its toucher when the touch
 // leaves the ball at his feet. Differences: PES keeps the last toucher on a loose ball, while GF clears the retainer
-// when the ball leaves him (humanoid.cpp, the retain block); PES's K=7 contact needs the touch probe G+0x2A80
-// (first-touch section 5.3, OPEN), and GF takes every stamped touch; the docs decode no control condition for W1.
+// when the ball leaves him (humanoid.cpp, the retain block). ponytail: PES's K=7 contact needs the touch probe
+// G+0x2A80 (first-touch section 5.4, OPEN); GF takes every stamped touch. W1 (press-coord section 4a) writes only
+// when TA+0x11 is set; that flag's caller is not traced.
 CarrierChange CarrierFromTouch(bool touchedThisTick, bool toucherHoldsBall);
 
 // The trap picker's ball point, in the player's clip space (metres, PES's Fox frame): x lateral (right of the body),

@@ -100,6 +100,11 @@ No live process was used. Everything here is static.
   - `0x140ca1a50` = `mov al,1; ret` (true).
 - The shared "loop" CanEnter `0x140782330` returns true iff the interface `+0x28` value (the
   sub-id) is 1.
+- **TryChangeAction's gate (raw, bridge)**: the target's CanEnter is consulted only when the current request kind (`ap+0xab8` vt+0x28) is above 1. Then `ChangeAction(ap, id, 0x5e)` = `0x1406eebb0`.
+- **MOVE (id 2) CanEnter = `0x140782660`**: request kind 3 or 0x4a gives true; kind 0x51–0x53 gives `GetAction(kind)` vt+0x70 (ap, 2); otherwise false. It reads no running clip.
+- **TRAP (id 7) CanEnter = `0x14079bbe0`**: kind 0x17 gives true; kind 0x4a or 0x4f gives true iff `ap+0x3ad8` is set and its byte +0x62 is 0; kinds 2–6, 8–11, 0x10, 0x11, 0x15, 0x44, 0x48, 0x50, 0x51, 0x53 give `GetAction(kind)` vt+0x70 (ap, 7); otherwise false. It reads no running clip.
+- **PRESS has no anime CanEnter.** Its class is the player-layer `ActionPress` (vtable `0x142634948`). Slot 2 `0x140961fb0` is a void setup (calls `0x1409634b0` and `0x1405141f0`, bumps `+0x58`), not a predicate.
+- **Same-id rule in ChangeAction (`0x1406eebb0`)**: the action changes when `id` differs from the current kind, or when `id < 0x3e` and bit `id` of `0x3500000000000000` is set (ids 56, 58, 60, 61). A repeated request for any other id changes nothing. Ids 2, 3, 4, 5 and 0x4a take a pre-check first, not decoded further.
 
 ### 2.3 Who drives the restart kicker (OBS) — `FUN_14092e7e0`
 
