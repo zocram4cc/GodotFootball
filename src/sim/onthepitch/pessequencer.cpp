@@ -15,11 +15,10 @@ namespace {
 // the install's end inset, FUN_14050e770's own clamp (docs/re/pes-re-throwin-choreography.md 1.3;
 // both values from the install, RestartSpotConstants).
 
-// ponytail: frames from arming to release, live (A5Live 9.3). PES releases on the taker's reach
-// and kick action (9.2, 9.4); these fixed gates stand in for it until that action is ported. Each
-// value is the shortest release measured live; the DOC gate it replaces is named beside it.
+// ponytail: frames from arming to release, live (A5Live 9.3). These fixed gates stand in for PES's taker reach and kick
+// action (9.2, 9.4) until that action is ported. Each value is the shortest release measured live; the DOC gate it
+// replaces is named beside it. A goal kick has no gate: its keeper's ladder releases it (pesgoalkick.hpp).
 constexpr int kThrowInReleaseFrames = 118;   // live 118-194; DOC counter 81-83 not reproduced
-constexpr int kGoalKickReleaseFrames = 238;  // live 238-253; DOC counter 83 refuted, 246 inside
 constexpr int kCornerReleaseFrames = 365;    // live 365-379; DOC 189 not reproduced
 constexpr int kFreeKickReleaseFrames = 355;  // live 355-356; DOC 162 not reproduced
 constexpr int kPenaltyReleaseFrames = 54;    // DOC fps*1 (setpiece 12); not observed live
@@ -57,8 +56,6 @@ int ReleaseFrames(e_SetPiece kind) {
   switch (kind) {
     case e_SetPiece_ThrowIn:
       return kThrowInReleaseFrames;
-    case e_SetPiece_GoalKick:
-      return kGoalKickReleaseFrames;
     case e_SetPiece_Corner:
       return kCornerReleaseFrames;
     case e_SetPiece_FreeKick:
@@ -66,11 +63,12 @@ int ReleaseFrames(e_SetPiece kind) {
     case e_SetPiece_Penalty:
       return kPenaltyReleaseFrames;
     default:
-      return 0;  // kick-off: the receiver's ball-ownership test decides it (decode 4.1), no timer
+      return 0;  // kick-off and goal kick: no clock (the receiver's ball test, or the goal kick's ladder; pesgoalkick.hpp)
   }
 }
 
 bool MayRelease(e_SetPiece kind, int framesSinceArmed) {
+  if (kind == e_SetPiece_GoalKick) return false;  // the goal kick's ladder releases it (pesgoalkick.hpp), never this gate
   return framesSinceArmed >= ReleaseFrames(kind);
 }
 

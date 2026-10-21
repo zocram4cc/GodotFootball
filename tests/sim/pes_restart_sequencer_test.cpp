@@ -108,15 +108,17 @@ TEST(PesRestartSequencer, AThrowInIsTakenJustOutsideTheTouchlineAndInsideTheEndL
   EXPECT_NEAR(spot.x, pesFieldHalfLength - k.throwInEndInset_m, 1e-4);
 }
 
-// The release gate, in frames from arming, is the live-measured wait (A5Live 9.3): each restart
-// is released on the first frame at or past its gate, and a kick-off is not timed at all.
+// The release gate for a timed restart, in frames from arming, is the live-measured wait (A5Live 9.3): each is released
+// on the first frame at or past its gate, and a kick-off is not timed at all. A goal kick has no clock: its ladder
+// releases it (pesgoalkick.hpp), however long that takes.
 TEST(PesRestartSequencer, EachRestartIsReleasedOnItsMeasuredFrame) {
   EXPECT_FALSE(pes::MayRelease(e_SetPiece_Corner, 364));
   EXPECT_TRUE(pes::MayRelease(e_SetPiece_Corner, 365));
   EXPECT_FALSE(pes::MayRelease(e_SetPiece_FreeKick, 354));
   EXPECT_TRUE(pes::MayRelease(e_SetPiece_FreeKick, 355));
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 237));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_GoalKick, 238));
+  // A goal kick is released by its ladder (pesgoalkick.hpp), whatever the clock says: this gate never releases it.
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 100000)) << "a goal kick has no clock";
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 0)) << "a goal kick waits for its ladder";
   EXPECT_FALSE(pes::MayRelease(e_SetPiece_ThrowIn, 117));
   EXPECT_TRUE(pes::MayRelease(e_SetPiece_ThrowIn, 118));
   EXPECT_FALSE(pes::MayRelease(e_SetPiece_Penalty, 53));
