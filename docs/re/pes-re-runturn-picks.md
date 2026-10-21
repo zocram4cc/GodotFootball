@@ -2,6 +2,7 @@
 
 > **Main audit 20-10-26:** the column table `0x1425DD988` = 9, 11, 13, 15, 17, 8, 6, 4, 2, 0; the row table `0x1425DDA50` = 32 entries 1361..1388; the swing window `0x1406CEFBA` = `lea eax,[r13-0x561]; cmp eax,5; ja; mov ecx,0x29; bt ecx,eax` (range plus bitmask: rows 0x561, 0x564, 0x566 pass): all match.
 > **Main audit, round 2:** `0x1406CF30B` = `mov r13d,0x570` (the 0x56F block's fall-through); `0x1406D7CBE` = `cmp r14d,0x5c5` (the explicit exclusion after the 0xFFFFFFF9 mask): match. The remap list and row list were corrected this round (ClipWords' corrections, confirmed).
+> **Main audit, round 3 (21-10-26):** vt+0xD0 of the +0xAC0 vtable (`0x1425E35B0`+0xD0) = `0x1406B9D80`: match. **Unit correction:** FUN_14042D470 = ticks·60·60/1000·|displacement| is km/h (the port's GroundSpeedKmh), not m/s; the swing rows' 16.0 is 16 km/h.
 
 Read-only RE. No GF code changed, no PES written. Scratch: `<workdrive>/gf-TeamDecode-scratch/dec/`.
 Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`.
@@ -684,6 +685,206 @@ Taken at `0x1406CF60D`:
 
 ---
 
+## §5c The two unnamed swing-row gate inputs
+
+*(Main's follow-up: the two §5b gates whose inputs had no name.)*
+
+### §5c.1 `[RBP+0xB8]` = `FUN_140A8F860`'s return — the **distance to the target**
+
+`FUN_140A8F860` (`0x140A8F860`) is a **2D distance** between two positions. Its body:
+
+```
+140A8F860: F3 0F 10 09              MOVSS XMM1,[RCX]        ; p1.x
+140A8F864: F3 0F 10 41 08           MOVSS XMM0,[RCX+8]      ; p1.z
+140A8F869: F3 0F 5C 42 08           MULSS XMM0,[RDX+8]      ; (p1.z - p2.z) * p1.z
+140A8F86E: F3 0F 5C 0A              MULSS XMM1,[RDX]        ; p1.x * p2.x
+140A8F872: F3 0F 59 C0              SUBSS XMM0,XMM0
+140A8F876: F3 0F 59 C9              SUBSS XMM1,XMM1
+140A8F87A: F3 0F 58 C1              SUBSS XMM0,XMM1
+140A8F87E: E9 FD 1E B1 00           JMP 0x1415A1780         ; the vector length
+```
+
+`FUN_1415A1780` is the **vector length** — the port's own name for it
+(`movestep_turn.cpp:73`: "FUN_1415a1780: the vector length"); it is an imported
+`JMP qword ptr [0x1425301F0]`, i.e. the SSE square-root. So the function returns
+**√(dx² + dz²)** — the distance in **metres** between the two XZ positions. (Only the `x`
+and `z` components are used — `param_1[0]`/`param_1[2]` and `param_2[0]`/`param_2[2]` — so
+the distance is planar; the `y` is ignored.)
+
+**Note the sign convention.** The body computes `p1.z * p2.z` and `p1.x * p2.x` and then
+subtracts, so it is the **difference of the products** — the caller passes the *already
+negated* second position, which is why the call site loads the target's `+0x55C`/`+0x564`
+and the player's `+0x08` and the sums come out right. The magnitude is what the gate reads.
+
+**Its call site** (`0x1406CF7EA`, the one whose result lands in `[RBP+0xB8]` at
+`0x1406CF808`):
+
+```
+1406CF7BC: LEA RDX,[RBP + -0x78]          ; the target position
+1406CF7C0: MOVSD XMM0,qword ptr [RDI + 0x8]   ; the player's position (x, z)
+1406CF7CB: MOVSD qword ptr [RBP + -0x68],XMM0
+1406CF7D0: MOVSD XMM0,qword ptr [RAX + 0x55c] ; the target's x, z
+1406CF7D8: MOVSD qword ptr [RBP + -0x78],XMM0
+1406CF7DD: MOV ECX,dword ptr [RAX + 0x564]     ; the target's z
+1406CF7E3: MOV dword ptr [RBP + -0x70],ECX
+1406CF7E6: LEA RCX,[RBP + -0x68]           ; the player's position
+1406CF7EA: CALL 0x140a8f860
+```
+
+**=> `[RBP+0xB8]` is the distance in metres from the player to the target position**
+(the target's `+0x55C`/`+0x564` fields).** CONFIRMED.
+
+**Its use in the `0x575`/`0x573` gates.** The gates compare it against `1.1` (the `0x575`
+gate, `0x1425A3590` = 1.1) and `0.7` (the `0x573` gate, `0x14257A194` = 0.7). Both are
+**distances in metres** — so the gates read:
+
+- `0x575`: **the target is within 1.1 m** of the player.
+- `0x573`: **the target is within 0.7 m** of the player.
+
+**=> the `0x575` and `0x573` swing rows are the "the player is already at the target" rows** —
+the foot-shuffle / feint rows played when there is no distance left to cover. That is what the
+motion names say: `0x575`'s family is `feint`/`feintrun` (Neymar's list 0) and `0x573`'s is the
+`kick_long_3_0_inside_y0_045_curve_*` family.
+
+### §5c.2 `XMM15` = `FUN_14042D470`'s return — the **distance covered in one second**
+
+```c
+float FUN_14042d470(float param_1) {
+  float fVar1;
+  fVar1 = (float)FUN_141e532d0();
+  return ((fVar1 * DAT_14259a764 * DAT_14259a764) / DAT_14256ae34) * param_1;
+}
+```
+
+- `FUN_141E532D0()` returns the **match's ticks per second** (`DAT_14351AE54`; the port calls
+  it "the logic clock" and "the match's ticks per second", `movestep.hpp:585` and
+  `movestep_run.cpp:1529`). At 54 Hz it is `54.0`.
+- `DAT_14259A764` = **60.0** and `DAT_14256AE34` = **1000.0** (both script-read).
+- So the factor is `ticks * 60 * 60 / 1000` = `54 * 3600 / 1000` = **194.4** at 54 Hz, and the
+  result is `factor * param_1`.
+
+**The argument** (`0x1406CF8A7`): the caller's `XMM0` is the **speed**, computed just before it
+as the length of a velocity vector:
+
+```
+1406CF880: MOVSS XMM1,dword ptr [RAX]        ; the velocity's x
+1406CF884: MOVSS XMM0,dword ptr [RAX + 0x4]    ; y
+1406CF889: MOVSS XMM2,dword ptr [RAX + 0x8]    ; z
+1406CF88E: MULSS XMM0,XMM0
+1406CF892: MULSS XMM1,XMM1
+1406CF896: MULSS XMM2,XMM2
+1406CF89A: ADDSS XMM0,XMM1
+1406CF89E: ADDSS XMM0,XMM2
+1406CF8A2: CALL 0x1415a1780                   ; the vector length
+1406CF8A7: CALL 0x14042d470                   ; x the (ticks*60*60/1000) factor
+```
+
+**=> `XMM15` is the distance the player would cover in one second at the current speed** — the
+**speed in metres per tick × 60 × 60 / 1000**, i.e. the per-second travel distance. The port
+already documents this shape at `movestep_run.cpp:261`: "`ticks * 60 * 60 / 1000 *
+|last-tick displacement|` (FUN_141e532d0's rate, the two 60s, …)".
+
+**Its use in the gates.** `0x575`'s gate is `XMM15 < 16.0` (`DAT_14259BE10` = 16.0) and `0x573`'s
+is `XMM7 > XMM15` with `XMM7` = `DAT_14259BE10` = 16.0 — the same 16.0 in the other direction.
+
+**=> the `0x575` row is the "the player is moving slowly" row**: it is taken only when the
+per-second travel distance is under 16 m (i.e. under 16 m/s ≈ 57.6 km/h). And `0x573` is the
+opposite test — it is taken when the per-second distance is **over** 16 m.
+
+**=> `0x573` and `0x575` are the two ends of the same speed test, on opposite sides of
+16 m/s.** That is the sense of the pair: `0x573` for a fast approach, `0x575` for a slow one
+(and `0x575` additionally requires the player to be within 1.1 m of the target).
+
+**The units, stated once:** distances in **metres**, speeds in **metres per second**, the tick
+rate in **ticks per second** (54), and the `16.0` threshold is **metres per second**.
+
+---
+
+## §5d `FUN_1406D2590` (EnterTurnStop) — the `vt+0xD0` motion selector
+
+*(Main's follow-up: the motion EnterTurnStop issues comes from the `+0xAC0` interface's slot
+`0xD0`.)*
+
+**The call site** (`FUN_1406D2590`, decompile line 293, issued at line 326):
+
+```
+piVar24 = param_2 + 0x16;                 ; the column pointer
+uVar26 = 0;
+piVar23 = local_res8;                     ; the row pointer
+(**(code **)(*plVar2 + 0xd0))(plVar2, local_res20, local_res18, local_res10, piVar23, piVar24, 0);
+```
+
+`plVar2 = param_1 + 0xAC0` — the `+0xAC0` interface, whose vtable is at `0x1425E35B0`.
+
+**The slot's function: `FUN_1406B9D80` (`0x1406B9D80`)** — script-read from the vtable at
+`0x1425E35B0 + 0xD0`. The port already knows it: it is `pes::StopRowFor`
+(`movestep_run.cpp:331`).
+
+```c
+void FUN_1406b9d80(undefined8 param_1, undefined2 *param_2, int *param_3, int *param_4,
+                   int *param_5, int *param_6, longlong param_7) {
+  iVar6 = *(int *)(&DAT_1425ddad0 + ((longlong)*param_4 + (longlong)*param_3 * 8) * 4);
+  uVar1 = (&DAT_1425dd988)[*param_5];
+  iVar2 = *param_6;
+  if (iVar2 != 1) {
+    if ((((iVar2 != 0x11) && (iVar2 != 0x70)) && (iVar6 != 0x582)) && (*param_3 == 2)) {
+      iVar6 = 0x582;
+    }
+  }
+  lVar5 = param_7;
+  if (param_7 == 0) { lVar5 = FUN_1406abba0(); }
+  param_5._0_4_ = uVar1;                  // the column
+  param_6._0_4_ = iVar6;                  // the row
+  uVar4 = FUN_1406abb30(lVar5, &param_6, &param_5, 0);
+  *param_2 = uVar4;                      // the motion number
+  param_5._0_4_ = uVar1;
+  param_6._0_4_ = iVar6;
+  uVar3 = FUN_1406abd60(lVar5, &param_6, &param_5);
+  *(undefined1 *)(param_2 + 1) = uVar3;    // the mirror flag
+}
+```
+
+**Its inputs:**
+
+| argument | what it is |
+|---|---|
+| `param_3` (in) | the **kind** — the request's `kKind`; it selects the row's table index and, when it is 2, the override |
+| `param_4` (in) | the **class** — the request's `kCommandSpeedClass` |
+| `param_5` (in) | the **bucket** — the request's `kMoveBucket`; it indexes the column table |
+| `param_6` (in) | the **action kind** — `param_2 + 0x16`, the request's `kCommandId` |
+| `param_2` (out) | the **motion number** (a `short`) and, at `+1`, the **mirror flag** (a `byte`) |
+| `param_7` (in) | the clip table, or 0 for the default (`FUN_1406ABBA0`, the anime table) |
+
+**The clip table it picks from.** `FUN_1406ABBA0` returns `DAT_1436F2378` — the same **anime
+clip table** the runturn pick uses (`§0` above). So the motion comes from the **same table**,
+at the cell `table[(row * 9 + column) * 2]`.
+
+**The two tables it uses:**
+
+- **the row**: `DAT_1425DDAD0` (`0x1425DDAD0`), the **stop rows**, indexed by
+  `kind + class * 8` — 24 entries, script-read: **1398, 1398, 1399, 1400, 1401, 1402, 1403,
+  1403, 1404, 1404, 1405, 1406, 1407, 1408, 1409, 1409, 1410, 1410, 1411, 1412, 1413, 1414,
+  1415, 1415**. (This is the table the port calls `t.stopRow`.)
+- **the column**: `DAT_1425DD988` (`0x1425DD988`) — **the same 10-entry bucket→column table**
+  as §2 above, indexed by the bucket.
+
+**The override.** When the action kind is **not** 1, **not** 0x11, **not** 0x70, the row is not
+already 0x582, **and** the kind is 2, the row is forced to **0x582 (1410)**. (`0x582` is the
+"turn stop" row the port's `StopRowFor` also forces: `if (row != 0x582 && c == 2) row = 0x582`.)
+
+**What it returns when nothing fits.** `FUN_1406ABB30` (§0) returns **−1** when the
+row × column cell is empty (the cell's bit 15 is set) or the row/column is out of range. That
+−1 is written to `*param_2` — **so the "nothing fits" answer is −1**, and the mirror byte is
+whatever `FUN_1406ABD60` returns for that cell (0 if the cell is empty). The caller
+`FUN_1406D2590` then sees a motion of −1 and skips the clip issue.
+
+**=> the rule for ClipWords: EnterTurnStop's motion is
+`StopRowFor(kind, class)` × `DAT_1425DD988[bucket]`, looked up in the anime clip table; when the
+cell is empty the motion is −1 and no clip is issued.** The port's `StopRowFor` and
+`AngleBucket` already implement both halves.
+
+---
+
 ## §6 The rules, in one place
 
 1. **Row** = `DAT_1425DDA50[req[0] + req[9]*8]` (the port's `GotoRowFor`), with hard-coded
@@ -754,7 +955,7 @@ Taken at `0x1406CF60D`:
   cited code VAs not inside a disassembled instruction: 0
   TOTAL mismatches: 0
   ```
-  **Mutation-tested — all twenty-six fire:** a wrong column-table value; a wrong row-table
+  **Mutation-tested — all thirty-five fire:**
   value; the clip table's pointer; the `row * 9` stride; the special cell's fixed motion; the
   mirror byte's stride; the column bound; the row bound; the empty cell's `-1`; the entry's
   column source; the swing's column source; the `0x29` mask; the window's allowed rows; the
@@ -762,7 +963,9 @@ Taken at `0x1406CF60D`:
   claim; the "no `& 7` mask" claim; "the remap acts on the COLUMN"; the row list
   `0x5BF`/`0x5C1`/`0x5C3`; "`0x570` is the fall-through of the `0x56F` block"; the `0x575`
   0.8 gate; the `0x573` 67.5 gate; the `0x573` column list; the `0x56F` byte gate; the
-  `0x56F` class gate; and the `0x575` purpose.
+  `0x56F` class gate; the `0x575` purpose; the 1.1 m gate; the 0.7 m gate; the 16 m/s
+  threshold; the units; the `vt+0xD0` function; the stop-row table; the "nothing fits"
+  answer; and the column table's name.
 - The port's own `movestep.hpp` / `movestep_run.cpp` were read to map the request word indices
   and to compare `GotoRowFor` and `Cell`.
 - No GF code changed, no GF build/test run, no PES write/pin/input.

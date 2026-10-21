@@ -189,6 +189,33 @@ TEST(PesClipsInstall, ASpecialQueryNamesExactlyOneTackleClip) {
   ASSERT_EQ(found.size(), 2u);  // as authored and mirrored
   for (int id : found) EXPECT_EQ(anims.GetAnim(id)->GetName().rfind(wanted->name, 0), 0u);
 }
+
+// The standby motions MOVESTEP's refusals name (4154 mid_jocky_standby_noloop, 4155 near_delay_standby_goalline_noloop).
+// They are loaded in the locomotion family as special clips, so the locomotion special query finds them: the load is not
+// the cause of their refusals (the body's dodge clip is; PlayIssuedClip's first gate).
+TEST(PesClipsInstall, TheStandbyMotionsAreInTheLocomotionSpecialSet) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto rig = pesrig::BuildRig(vfs, &err);
+  ASSERT_TRUE(rig.has_value()) << err;
+  auto clips = pes::LoadPesClips(*exe, vfs, &err);
+  ASSERT_TRUE(clips.has_value()) << err;
+  const pes::PesClip* standby = nullptr;
+  for (const auto& clip : clips->clips)
+    if (clip.motionNo == 4154) standby = &clip;
+  ASSERT_NE(standby, nullptr);
+  EXPECT_EQ(standby->family, pes::PesClipFamily::kLocomotion);
+  AnimCollection anims(*rig);
+  anims.AddPesClips(*clips);
+  const int locomotion = int(pes::PesClipFamily::kLocomotion);
+  EXPECT_TRUE(anims.HasSpecial(locomotion, 4154)) << "HasSpecial(102, 4154) after AddPesClips";
+  EXPECT_TRUE(anims.HasSpecial(locomotion, 4155)) << "HasSpecial(102, 4155) after AddPesClips";
+}
 // The stalled free-kick taker (seed 7) drifts ~90 deg off his walk command while
 // idle_0_3_run_045_mirror plays. A mirrored clip must mirror the root travel on
 // the lateral axis only: same forward (engine -Y) travel, negated sideways (X).
