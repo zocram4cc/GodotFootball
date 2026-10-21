@@ -2634,3 +2634,73 @@ TEST(Accelerate, OnlyCommandClassThreeEntersAccelerate) {
   req.SetF(pes::moveword::kDistToLook, 2.5f);
   EXPECT_FALSE(pes::movestep::EnterAccelerate(h, req));
 }
+
+// PES's ACCELERATE gate takes its ground-speed floor from the desired turn (FUN_1406ccd00: 0.5 km/h when the turn is under 67.5
+// degrees, else 11 km/h). A 5 km/h arrival under 67.5 degrees is accepted.
+TEST(Accelerate, TheGroundFloorIsHalfAKilometreHourUnderSixtySevenAndAHalfDegrees) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 5.0f / 194.4f;  // 5 km/h: the last displacement times 54 * 60 * 60 / 1000
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetF(pes::moveword::kDistToLook, 2.5f);
+  req.SetF(pes::moveword::kTurn, 30.0f);
+  req.SetF(pes::moveword::kHeading, 30.0f);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  EXPECT_TRUE(pes::movestep::EnterAccelerate(h, req));
+}
+
+// At 0.4 km/h the floor refuses under 67.5 degrees.
+TEST(Accelerate, TheGroundFloorRefusesAnArrivalUnderHalfAKilometreHour) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 0.4f / 194.4f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetF(pes::moveword::kDistToLook, 2.5f);
+  req.SetF(pes::moveword::kTurn, 30.0f);
+  req.SetF(pes::moveword::kHeading, 30.0f);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  EXPECT_FALSE(pes::movestep::EnterAccelerate(h, req));
+}
+
+// Past 67.5 degrees the floor is 11 km/h, so the same 5 km/h arrival is refused.
+TEST(Accelerate, TheGroundFloorIsElevenKilometreHourPastSixtySevenAndAHalfDegrees) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 5.0f / 194.4f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetF(pes::moveword::kDistToLook, 2.5f);
+  req.SetF(pes::moveword::kTurn, 80.0f);
+  req.SetF(pes::moveword::kHeading, 80.0f);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  EXPECT_FALSE(pes::movestep::EnterAccelerate(h, req));
+}
+
+// PES reads the gate's band and floor from the desired turn (word 6, after the body's stamp), not from the heading against the
+// facing: a heading 90 degrees off the facing with a desired turn of 10 degrees is in band 0, which the gate accepts.
+TEST(Accelerate, TheBandGateReadsTheDesiredTurnNotTheHeadingToFacing) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 0u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetF(pes::moveword::kDistToLook, 2.5f);
+  req.SetF(pes::moveword::kTurn, 10.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kFacing, 90.0f);
+  req.SetF(pes::moveword::kBodyDirection, 90.0f);
+  EXPECT_TRUE(pes::movestep::EnterAccelerate(h, req));
+}

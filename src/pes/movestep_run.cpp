@@ -2515,17 +2515,24 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
   const int kind = static_cast<int>(req.U(moveword::kKind));
   const int motion = host.CurrentMotion();
   const float ground = GroundSpeedKmh(host, k);
-  const float bearing = PesAngleDiff(req.F(moveword::kHeading), req.F(moveword::kFacing), k);
-  const float bearingMag = std::fabs(bearing);
-  // PES's unsigned compare `band < (67.5 <= bearing)`: negative (that is, the gate passes)
-  // when the bearing's magnitude is under 67.5 degrees.
-  const int thresholdBand = bearingMag < k.deg675 ? 0 : 1;
+  // The desired turn PES gates on (FUN_1406ccd00 lines 150-154): word 6, or the body's step stamp against the heading when the body
+  // is past 5.625 degrees off the facing. Under 67.5 degrees the band is 0 and the ground floor is 0.5 km/h (fVar25); otherwise the
+  // band is 1 and the floor is 11 km/h.
+  float desired = req.F(moveword::kTurn);
+  const float bodyFacing = std::fabs(PesAngleDiff(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k));
+  if (k.deg5p625 < bodyFacing) {
+    const float stamp = StepHeading(req.F(moveword::kBodyDirection), req.F(moveword::kFacing), k.blend08 * bodyFacing, k);
+    desired = PesAngleDiff(stamp, req.F(moveword::kHeading), k);
+  }
+  const bool underSixtySeven = std::fabs(desired) < k.deg675;
+  const int thresholdBand = underSixtySeven ? 0 : 1;
+  const float groundFloor = underSixtySeven ? k.half : k.kmh11;
 
   // Arm 1: the gates (FUN_1406ccd00's refusals): the class band, command class 3 only, precise must be 0, rate under 0.65
   // (DAT_14259d5d0), the ground speed, and the look distance (word 0x12 <= speed2 = 2 m).
   if (band < thresholdBand || band == 3 ||
       cls != 3 || req.U(moveword::kPrecise) != 0u || k.ramp65 <= req.F(moveword::kRate) ||
-      ground <= k.kmh11 || req.F(moveword::kDistToLook) <= k.speed2) {
+      ground <= groundFloor || req.F(moveword::kDistToLook) <= k.speed2) {
     return false;
   }
 
@@ -2536,15 +2543,7 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req) {
                                                   host.MirrorChoice(false) ? 1.0f : 0.5f,
                                                   host.PlaybackConstantsView()));
 
-  // Arm 3: the desired angle and the bucket. PES gates on |FUN_14043a0a0(facing, bodyDir)| (fVar24, the mask abs at
-  // decompile line 76), not on the heading's bearing. Inside the gate, desired = heading - StepStamp(bodyDir, facing,
-  // blend08 * |bodyDir - facing|) (decompile lines 151-154; FUN_140a92950 at 0x1406cd0df, FUN_14043a0a0 at 0x1406cd0ea).
-  float desired = req.F(moveword::kTurn);
-  const float bodyFacing = std::fabs(PesAngleDiff(req.F(moveword::kFacing), req.F(moveword::kBodyDirection), k));
-  if (k.deg5p625 < bodyFacing) {
-    const float stamp = StepHeading(req.F(moveword::kBodyDirection), req.F(moveword::kFacing), k.blend08 * bodyFacing, k);
-    desired = PesAngleDiff(stamp, req.F(moveword::kHeading), k);
-  }
+  // Arm 3: the bucket of the desired turn, computed with the gate above.
   const int bucket = AngleBucket(host.AngleBuckets(), desired, 10, false);
 
   // Arm 4: the bucket's column, the held-clip family's rows and the out-of-play arm.
