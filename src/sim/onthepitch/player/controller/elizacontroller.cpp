@@ -163,10 +163,10 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       const Vector3 spot = team->GetController()->GetPieceWalkTarget();
       const Vector3 toSpot = (spot - player->GetPosition()).Get2D();
       command.desiredDirection = toSpot.GetNormalized(player->GetDirectionVec());
-      // ponytail: PES's run speed (the MOVE speed class, cmd[0x17]) is not decoded. The walk pace stands in for it: a
-      // sprint-capped command stops in the RUN_LOOP tail (be31198) on the merged tree; the pace closes on the spot.
-      const float approach = pes::kPieceTakerApproachGain * toSpot.GetLength();
-      command.desiredVelocityFloat = approach < walkVelocity ? approach : walkVelocity;
+      // ponytail: PES's run speed (the MOVE speed class, cmd[0x17]) is not decoded: walk pace stands in for it. A sprint
+      // from a stopped body turned him about 170 degrees and stalled the approach in the seed-7 and seed-11 probes
+      // (docs/ports/pes-port-ThrowInTaker.md).
+      command.desiredVelocityFloat = walkVelocity;
       command.useDesiredLookAt = true;
       command.desiredLookAt = match->GetBall()->Predict(0).Get2D();
       command.useDesiredTarget = true;
@@ -473,12 +473,24 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         run.useDesiredMovement = true;
         run.desiredDirection = toBall.GetNormalized(player->GetDirectionVec());
         const float approach = pes::kPieceTakerApproachGain * toBall.GetLength();
-        run.desiredVelocityFloat = approach < walkVelocity ? approach : walkVelocity;
+        run.desiredVelocityFloat = approach < sprintVelocity ? approach : sprintVelocity;
         run.useDesiredLookAt = true;
         run.desiredLookAt = ballNow.Get2D();
         run.useDesiredTarget = true;
         run.desiredTarget = ballNow.Get2D();
         commandQueue.push_back(run);
+        return;
+      } else if (restart == e_SetPiece_ThrowIn) {
+        // PES's throw-in taker without the ball and out of his reach stands: the walk owns his approach, and the
+        // ball-control hover would run him at a ball he is not carrying.
+        PlayerCommand stand;
+        stand.desiredFunctionType = e_FunctionType_Movement;
+        stand.useDesiredMovement = true;
+        stand.desiredDirection = player->GetDirectionVec();
+        stand.desiredVelocityFloat = idleVelocity;
+        stand.useDesiredLookAt = true;
+        stand.desiredLookAt = ballNow.Get2D();
+        commandQueue.push_back(stand);
         return;
       }
     }
