@@ -110,9 +110,11 @@ public:
   e_SetPiece GetSetPieceType() { return setPieceType; }
   // PES's set-piece takers walk to their spot instead of being placed on it (A5 §4.7). A throw-in's taker walks to the
   // ball, picks it up and carries it to the throw spot, where he lifts it and throws (docs/re/pes-re-throwin-choreography.md
-  // 3.1-3.2). A goal kick's keeper walks to his stand point (SetKick's target) until the ladder releases the kick
-  // (pesgoalkick.hpp).
+  // 3.1-3.2). A goal kick's keeper is placed on his stand point when the kick is prepared and held there until the ladder
+  // releases it (pesgoalkick.hpp, docs/re/pes-re-kicker-standby.md section 4).
   bool IsPieceTakerWalking(const Player* player) const;
+  // True while a placed set-piece taker holds his stand point before the release (pes-re-kicker-standby.md section 4).
+  bool IsPieceTakerHeld(const Player* player) const { return pieceHeld && player == taker; }
   Vector3 GetPieceWalkTarget() const { return pieceWalkTarget; }
   // Advances the walk from the pickup to the carry. The referee calls it each tick before the release gate.
   void AdvancePieceWalk();
@@ -231,6 +233,7 @@ protected:
   Player* taker;
   bool pieceWalk = false;      // a set-piece walk is pending (PES path only): a throw-in taker's or a goal-kick keeper's
   bool pieceCarrying = false;  // a throw-in taker has the ball: pieceWalkTarget is the carry spot
+  bool pieceHeld = false;      // the taker was placed on his stand point at prepare and holds it until the release
   Vector3 pieceWalkTarget;     // the walk's target: a throw-in's pickup point, then its carry spot; a keeper's ball spot
   Vector3 pieceCarrySpot;      // where the taker lifts the ball (3.2)
   e_SetPiece setPieceType;
@@ -246,8 +249,9 @@ protected:
   GoalKickStrike goalKickStrike;
   pes::GoalKickLadder goalKickLadder;
   Player* goalKickReceiver = nullptr;  // the mate the ladder passes to; null for a kick into space
-  // Places the goal kick's stand point (the walk's target) and the strike's contact from SetKick's clip (pesgoalkick.hpp).
-  void PrepareGoalKickStand(const Vector3& spot);
+  // Places the goal kick's stand point (SetKick's placement, pesgoalkick.hpp) and the strike's contact from the clip. Returns
+  // the keeper's stand point; the caller places him there.
+  Vector3 PrepareGoalKickStand(const Vector3& spot);
   // The lofted picker's mates: the taker's team's active players, rated by technical highpass. Returns the index the
   // picker names (-1 for none) and fills `mates` with the list that index refers to.
   int PickGoalKickMate(std::vector<Player*>* mates) const;

@@ -20,8 +20,10 @@
 #include "onthepitch/matchsetup.hpp"
 #include "onthepitch/player/player.hpp"
 #include "onthepitch/pesclips.hpp"
+#include "onthepitch/pesgoalkick.hpp"
 #include "onthepitch/pessequencer.hpp"
 #include "onthepitch/restartwatch.hpp"
+#include "pes/mbinfo.hpp"
 #include "pes/vfs.hpp"
 #include "rig/rig.hpp"
 #include "simcontext.hpp"
@@ -466,26 +468,38 @@ TEST(PesRestartDelay, AThrowInTakerWalksToHisSpotAndIsNotPlacedOnIt) {
 }
 
 // PES's ceremony taker (path B, docs/re/pes-re-throwin-choreography.md 2.1) takes a throw-in that no seamless candidate
-// can. He is placed at the stand point, outside the touchline over the restart point (the placement at F0+162: the
-// release point 1.02 m out, facing the pitch), and the ball is in his hand when he releases.
+// can. ThrowinLoop's SetKick (0x140794280, section 4.1) places him on the stand point: the spot less the release key's
+// ball offset from clip 0xcfa's second record (FUN_1406e8cc0, index 1), outside the touchline, facing the pitch. The
+// ball is in his hand when he releases.
 TEST(PesRestartDelay, AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWithTheBallInHand) {
-  constexpr float kStandIn_m = 1.02f;  // the release point's distance outside the line
+  constexpr int kThrowInKeyMotion = 0xcfa;  // the throw-in's SetKick and release clip (pes-re-throwin-choreography.md 4.1)
   constexpr float kStandTolerance_m = 0.1f;
+  std::optional<unsigned long> firstStop;  // the first ceremony (path B) throw-in's stoppage
+  bool firstDone = false;                  // that stoppage has ended: the run stops here
   std::set<unsigned long> placed, released;
   int throwIns = 0, offTheStandPoint = 0, insideTheLine = 0, ballAway = 0;
   float releaseBall_m = 0.0f;  // the farthest the ball lay from the taker's body at any release
   // The release key's ball offset from the body, horizontal (docs/re/pes-re-throwin-choreography.md, SetKick: (0.022, 0.795) m
   // times bodyScale; bodyScale taken as 1). The carry's lift radius (0.65 m) is a different phase and does not apply here.
   constexpr float kReleaseHandReach_m = 0.80f;
+  // The first ceremony throw-in moves with every change to the match before it, so the test follows it, as the path-A tests do.
   RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
     const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!firstStop && b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker && b.prepared &&
+        !match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker))
+      firstStop = b.stopTime;
+    if (firstStop && (!b.active || b.stopTime != *firstStop)) firstDone = true;
+    if (!firstStop || b.stopTime != *firstStop) return;
     if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker) return;
     if (match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker)) return;  // a walker is path A
     const Vector3 at = b.taker->GetPosition();
     if (b.prepared && placed.insert(b.stopTime).second) {
       throwIns++;
       const float off = (at.Get2D() - b.restartPos.Get2D()).GetLength();
-      if (std::fabs(off - kStandIn_m) > kStandTolerance_m) offTheStandPoint++;
+      const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
+      const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
+      const float standIn_m = hits.size() > 1 ? std::hypot(hits[1].ballX, hits[1].ballZ) * k.centimetre_m : -1.0f;
+      if (standIn_m < 0.0f || std::fabs(off - standIn_m) > kStandTolerance_m) offTheStandPoint++;
       if (std::fabs(at.coords[1]) <= pesFieldHalfWidth) insideTheLine++;
     }
     if (b.started && released.insert(b.stopTime).second) {
@@ -494,7 +508,7 @@ TEST(PesRestartDelay, AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWith
       releaseBall_m = std::max(releaseBall_m, away);
       if (away > kReleaseHandReach_m) ballAway++;
     }
-  }, kFirstThrowInWindowTicks, nullptr, SEED, false);
+  }, kMaxSimTicks, [&](const Match&) { return firstDone; }, SEED, false);
   EXPECT_GT(throwIns, 0) << "no ceremony throw-in was placed";
   EXPECT_EQ(offTheStandPoint, 0) << offTheStandPoint << " ceremony taker(s) placed off the stand point";
   EXPECT_EQ(insideTheLine, 0) << insideTheLine << " ceremony taker(s) placed inside the touchline";
@@ -569,7 +583,7 @@ TEST(PesRestartDelay, AWhistleLeavesNoFlyingBallBehind) {
 
 // A goal kick is released by PES's timer ladder (sub_142136F00), not by the keeper's arrival: the lofted pass on the
 // ladder's frame 82 from the armed tick when the picker finds a mate, the kick into space on frame 109 when it does not.
-// The keeper walks to his stand point and his strike carries him onto the ball after the release. The gate checks the
+// The keeper is placed on his stand point at prepare and strikes onto the ball after the release. The gate checks the
 // frame the referee releases on, counted from the armed tick, against the frame the mode the ladder chose allows.
 TEST(PesRestartDelay, AGoalKickIsReleasedOnThePesLadder) {
   constexpr long kLoftedFrame = 83;   // the ladder's first lofted evaluation is frame 82; the hook reads the clock one tick later (PES live 83)

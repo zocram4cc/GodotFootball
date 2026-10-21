@@ -166,23 +166,24 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       const Vector3 spot = team->GetController()->GetPieceWalkTarget();
       const Vector3 toSpot = (spot - player->GetPosition()).Get2D();
       command.desiredDirection = toSpot.GetNormalized(player->GetDirectionVec());
-      if (team->GetController()->GetSetPieceType() == e_SetPiece_GoalKick) {
-        // The goal kick keeper walks as the goal-kick port has him: no precise target, the approach at the gain up to the
-        // sprint. A precise target from a stopped body turned him in the 2-minute pes-loop smoke (the goal-kick stall).
-        // ponytail: PES's run speed (the MOVE speed class, cmd[0x17]) is not decoded; the sprint is the ceiling.
-        const float approach = pes::kPieceTakerApproachGain * toSpot.GetLength();
-        command.desiredVelocityFloat = approach < sprintVelocity ? approach : sprintVelocity;
-      } else {
-        // The throw-in carrier closes at 2 x the gap, snapped up to a movement level (FloorVelocity): a speed off the level
-        // table is class none, which reads as TURN_STOP with the precise target set (ClipWords, RUN_LOOP's no-class rule).
-        // He stands once he is within the lift radius.
-        const float gap = toSpot.GetLength();
-        command.desiredVelocityFloat = gap <= match->GetPesRestartSpotConstants().throwInCarryStop_m
-                                           ? idleVelocity
-                                           : FloorVelocity(pes::kPieceTakerApproachGain * gap);
-        command.useDesiredTarget = true;
-        command.desiredTarget = spot;
-      }
+      // The throw-in carrier closes at 2 x the gap, snapped up to a movement level (FloorVelocity): a speed off the level
+      // table is class none, which reads as TURN_STOP with the precise target set (ClipWords, RUN_LOOP's no-class rule).
+      // He stands once he is within the lift radius.
+      const float gap = toSpot.GetLength();
+      command.desiredVelocityFloat = gap <= match->GetPesRestartSpotConstants().throwInCarryStop_m
+                                         ? idleVelocity
+                                         : FloorVelocity(pes::kPieceTakerApproachGain * gap);
+      command.useDesiredTarget = true;
+      command.desiredTarget = spot;
+      command.useDesiredLookAt = true;
+      command.desiredLookAt = match->GetBall()->Predict(0).Get2D();
+      commandQueue.push_back(command);
+      return;
+    }
+    // A placed set-piece taker holds his stand point until the kick is released (pes-re-kicker-standby.md section 4).
+    // ponytail: PES holds the body in the standby clip with the default locomotion skipped; GF holds it with this idle stand
+    // until the standby clip family lands (docs/re/pes-re-kicker-standby.md section 3).
+    if (team->GetController()->IsPieceTakerHeld(CastPlayer())) {
       command.useDesiredLookAt = true;
       command.desiredLookAt = match->GetBall()->Predict(0).Get2D();
       commandQueue.push_back(command);

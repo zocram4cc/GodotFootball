@@ -152,6 +152,11 @@ add_executable(pes_setpiece_taker_test pes_setpiece_taker_test.cpp)
 target_link_libraries(pes_setpiece_taker_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_setpiece_taker_test)
 
+add_executable(pes_setpiece_stand_test pes_setpiece_stand_test.cpp)
+target_link_libraries(pes_setpiece_stand_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_setpiece_stand_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(pes_setpiece_stand_test PROPERTIES TIMEOUT 900)
+
 add_executable(pes_goal_kick_test pes_goal_kick_test.cpp)
 target_link_libraries(pes_goal_kick_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_goal_kick_test PROPERTIES TIMEOUT 900)
