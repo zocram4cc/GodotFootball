@@ -131,4 +131,8 @@ std::string PesClipAnimText(const PesClip& clip, const pesrig::Rig& rig) {
   return text;
 }
 
+int PesTouchAnimFrame(int hitFrame) {
+  return static_cast<int>(std::lround(hitFrame * pesrig::PES_FRAME_S / kGfFrame_s));
+}
+
 }  // namespace pes

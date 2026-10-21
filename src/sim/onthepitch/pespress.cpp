@@ -338,6 +338,28 @@ float PressPickRadius_m(const PressConstants& c, float root) {
   return c.carrierRampStart_m + c.carrierRampSpan_m * ramp;
 }
 
+// ponytail: FUN_140536FC0's gate (0x140537332; S1Watch's decode: xz only, squared distance against 169) measures the
+// ball sample (B+0x88, sample 0) against the MA ball copy at MA+0x2482C/+0x24834 (pes-re-defensive-shape.md §0; the object
+// at team+0x18, its type not decoded). GF sets both to the ball now (PesPressTick), so the gate never refuses here. PES
+// refuses where the two are more than 13 m apart; whether that happens (the docs put the in-flight gap at metres) is not
+// measured. The copy's lag is not modelled: its writer (0x140a6f29e) is NOFUNC and its cadence is not decoded. Upgrade:
+// measure the gap in a live match, then model it.
+bool PressBallGatePasses(const PressPickInput& in) {
+  const float dx = in.sampleX - in.ballX;
+  const float dz = in.sampleZ - in.ballZ;
+  return dx * dx + dz * dz <= kPressBallGate_m * kPressBallGate_m;
+}
+
+int PressWinner(const PressConstants& c, const PressPickInput& in,
+                const std::vector<PressCandidate>& bucket) {
+  if (bucket.empty() || !PressBallGatePasses(in)) return -1;
+  const int man = bucket[0].man;
+  const float dx = in.posX[man] - in.ballX;
+  const float dz = in.posZ[man] - in.ballZ;
+  const float radius = PressPickRadius_m(c, std::sqrt(bucket[0].score));
+  return dx * dx + dz * dz <= radius * radius ? man : -1;
+}
+
 bool PressTargetIsBall(PressPoint sample, PressPoint ball, PressPoint base) {
   const float toBall = (sample.x - ball.x) * (sample.x - ball.x) +
                        (sample.z - ball.z) * (sample.z - ball.z);

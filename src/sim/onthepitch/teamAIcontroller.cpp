@@ -2011,8 +2011,12 @@ void TeamAIController::PesPressTick() {
   // or the ball-goal bearing under T+0xb712) is not decoded; the ball-to-goal
   // bearing stands in, preferring goal-side pressers.
   const float goalX = -static_cast<float>(team->GetSide()) * pitchHalfW;
+  // The writer's gate (FUN_140536FC0, 0x140537332; S1Watch's decode): the sample is BallInfo sample 0, the ball now, and the
+  // point is the MA ball copy (MA+0x2482C/+0x24834). GF stand-in: both are the ball now (Predict(0)).
   in.ballX = ball.coords[0];
   in.ballZ = ball.coords[1];
+  in.sampleX = ball.coords[0];
+  in.sampleZ = ball.coords[1];
   in.referenceDeg = pes::PressBearingDeg(c, ball.coords[0], ball.coords[1], goalX, 0.0f);
   for (int k = 0; k < 11 && k < static_cast<int>(players.size()); ++k) {
     const int man = side * 11 + k;
@@ -2027,18 +2031,8 @@ void TeamAIController::PesPressTick() {
   }
   for (int i = 0; i < 4; ++i) in.pressSlotMan[i] = pressState.pressSlot[i];
   const std::vector<pes::PressCandidate> bucket = pes::RunPresserPass1(c, in, side);
-  int winner = -1;
-  if (!bucket.empty()) {
-    const int man = bucket[0].man;
-    const float dx = in.posX[man] - in.ballX;
-    const float dz = in.posZ[man] - in.ballZ;
-    const float radius = pes::PressPickRadius_m(c, std::sqrt(bucket[0].score));
-    // press-life 12: PRESS is not renewed once the loose ball is 13 m off (0x1425C6788). Applied to the fresh pick
-    // too, since a pick beyond 13 m would be renewed on the next tick. ponytail: the fresh-pick half is inferred.
-    constexpr float kPressRenewalBall_m = 13.0f;
-    const float distSq = dx * dx + dz * dz;
-    if (distSq <= radius * radius && distSq <= kPressRenewalBall_m * kPressRenewalBall_m) winner = man;
-  }
+  // The gate (FUN_140536FC0, 0x140537332) and the pick: the same test for a fresh pick and a renewal.
+  const int winner = pes::PressWinner(c, in, bucket);
   for (int k = 0; k < 11; ++k) {
     const int man = side * 11 + k;
     pressState.SetAction(man, man == winner ? pes::kPressState : pes::kNothingState, stamp);

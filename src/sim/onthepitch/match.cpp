@@ -285,7 +285,7 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
 
   anims = std::make_shared<AnimCollection>(*rig);
   anims->Load(setup.animationDir);
-  anims->AddPesClips(*setup.pesClips);
+  anims->AddPesClips(*setup.pesClips, *pesMbinfo);
 
   // cache animation positions
 

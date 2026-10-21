@@ -165,7 +165,8 @@ struct PressPickState {
 // Inputs of pass 2 for one side. Men are team indices 0..21 (side*11 + slot);
 // role is the side's role table indexed by man % 11.
 struct PressPickInput {
-  float ballX = 0, ballZ = 0;                         // MA+0x2482c / +0x24834
+  float ballX = 0, ballZ = 0;                         // MA ball copy, MA+0x2482c / +0x24834 (stand-in: the ball now)
+  float sampleX = 0, sampleZ = 0;                     // BallInfo sample 0, FUN_140a57800(G+0x40): the ball now
   float refX = 0, refZ = 0;                           // func_0x140a57800: carrier reference
   float referenceDeg = 0;                             // FUN_140a71540: side reference, [0, 360)
   bool presserFlag = false;                           // team+0xf1
@@ -230,6 +231,16 @@ PressFillResult PressCandidateFill(const PressConstants& c, const std::array<Pre
 // times the score ramp of the winner's sqrt(score) `root` (1 at or below
 // pass2Lo, 0 at or above pass2Hi, linear on pass2Div between).
 float PressPickRadius_m(const PressConstants& c, float root);
+
+// The writer's gate on the ball (FUN_140536FC0, 0x140537332; S1Watch's decode, local://pes-re-far-chase.md §1): with no
+// carrier, the ball sample (BallInfo sample 0) must lie within kPressBallGate_m of the MA ball copy, or the writer picks
+// and renews nobody. The gate compares squared distance with 169 = 13^2 (0x1425C6788).
+inline constexpr float kPressBallGate_m = 13.0f;
+bool PressBallGatePasses(const PressPickInput& in);
+
+// The writer's winner: -1 when the gate refuses; else the top pass-1 man when he is within the pick radius
+// (PressPickRadius_m). A fresh pick and a renewal are the same test.
+int PressWinner(const PressConstants& c, const PressPickInput& in, const std::vector<PressCandidate>& bucket);
 
 // FUN_140639100's no-carrier arm: true when the ball sample at k ticks is at
 // least as near the ball now as the presser's base (squared metres, ties go

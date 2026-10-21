@@ -532,3 +532,47 @@ TEST(PressCommandSpeed, DistanceSlopeCappedOneBandAbove) {
 }
 
 }  // namespace
+
+// The writer's gate on the ball (FUN_140536FC0): with no carrier the ball sample must lie within kPressBallGate_m of the
+// MA ball copy, or nobody is picked, fresh or renewed. The pick is the top man within the pick radius, the same test for a
+// fresh pick and a renewal. Geometry: the copy at the origin, the ball sample 10 m out (inside the gate), the man 5 m from
+// the copy and 15 m from the ball. The radius is the synthetic one (10 m at the top root).
+TEST(PressGate, ThePresserIsPickedAndKeptWhileTheGateHolds) {
+  auto c = Synthetic();
+  pes::PressPickInput in;
+  in.ballX = 0.0f;
+  in.ballZ = 0.0f;
+  in.sampleX = 10.0f;
+  in.sampleZ = 0.0f;
+  in.posX[0] = -5.0f;
+  in.posZ[0] = 0.0f;
+  in.onField[0] = true;
+  in.role[0] = pes::kPresserRole;
+  in.posX[1] = -40.0f;
+  in.posZ[1] = 0.0f;
+  in.onField[1] = true;
+  in.role[1] = pes::kPresserRole;
+  EXPECT_TRUE(pes::PressBallGatePasses(in));
+  EXPECT_EQ(pes::PressWinner(c, in, pes::RunPresserPass1(c, in, 0)), 0);  // a fresh pick
+  in.pressSlotMan[0] = 0;                                                 // a renewal: he holds the slot
+  EXPECT_EQ(pes::PressWinner(c, in, pes::RunPresserPass1(c, in, 0)), 0);
+}
+
+TEST(PressGate, NobodyIsPickedOrRenewedWhileTheGateRefuses) {
+  auto c = Synthetic();
+  pes::PressPickInput in;
+  in.ballX = 0.0f;
+  in.ballZ = 0.0f;
+  in.sampleX = pes::kPressBallGate_m + 0.1f;  // just outside the gate, though the man is 5 m from the copy
+  in.sampleZ = 0.0f;
+  in.posX[0] = -5.0f;
+  in.posZ[0] = 0.0f;
+  in.onField[0] = true;
+  in.role[0] = pes::kPresserRole;
+  EXPECT_FALSE(pes::PressBallGatePasses(in));
+  EXPECT_EQ(pes::PressWinner(c, in, pes::RunPresserPass1(c, in, 0)), -1);
+  in.pressSlotMan[0] = 0;  // a renewal is refused by the same gate
+  EXPECT_EQ(pes::PressWinner(c, in, pes::RunPresserPass1(c, in, 0)), -1);
+  in.sampleX = pes::kPressBallGate_m;  // exactly on the gate: 169 is not exceeded, so it passes
+  EXPECT_TRUE(pes::PressBallGatePasses(in));
+}

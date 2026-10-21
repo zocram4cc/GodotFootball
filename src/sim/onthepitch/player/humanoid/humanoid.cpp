@@ -649,7 +649,8 @@ void Humanoid::Process() {
                              currentAnim->anim->GetOutgoingBodyAngle() +
                              currentAnim->rotationSmuggle.end;
 
-      if (currentAnim->functionType == e_FunctionType_Trap ||
+      // A PES trap clip is a Special clip; its contact frame is a trap touch (OnPesTrap).
+      if (currentAnim->functionType == e_FunctionType_Trap || OnPesTrap() ||
           (currentAnim->functionType == e_FunctionType_BallControl &&
            CastPlayer()->HasPossession() == false)) {
         // printf("trap!\n");
@@ -2262,7 +2263,8 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
   //        goals 1-5 / 1-3 / 3-0 / 0-1 / 0-2 (16); shots 4-18 / 7-7 / 8-4 / 2-6 / 4-8 (68)
   // Passes fall on every seed. Decide again once the roster-slot term is ported.
   const bool pesClip = command.useSpecialVar1 && (pes::IsPesClipFamily(command.specialVar1) ||
-                                                  pes::IsPesLocomotionFamily(command.specialVar1));
+                                                  pes::IsPesLocomotionFamily(command.specialVar1) ||
+                                                  pes::IsPesTrapFamily(command.specialVar1));
   if (command.useSpecialVar1)
     query.properties.Set("specialvar1", command.specialVar1);
   if (command.useSpecialVar2)
@@ -2688,6 +2690,12 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
       command.desiredFunctionType == e_FunctionType_Special) {
     selectedAnimID = *dataSet.begin();
     Animation* nextAnim = anims->GetAnim(selectedAnimID);
+    // A PES trap's touch is its clip's contact frame (AnimCollection::AddPesClips sets touchframe from the install's
+    // hit record); the ball's place then is its prediction there, as CalculateAnim places any touch.
+    if (command.useSpecialVar1 && pes::IsPesTrapFamily(command.specialVar1)) {
+      touchFrame_tmp = std::atoi(nextAnim->GetVariable("touchframe").c_str());
+      if (touchFrame_tmp > 0) touchPos_tmp = currentMentalImage->GetBallPrediction(touchFrame_tmp * 10);
+    }
     Vector3 desiredMovement = command.desiredDirection * command.desiredVelocityFloat;
     if (command.desiredDirection.coords[2] != 0.0f) {
       command.desiredDirection.Print();
