@@ -1,6 +1,6 @@
 # PES 2021 — the missing referee / injury systems: DOGSO, the abandon rule, injury resistance (and the two referee negatives)
 
-> **Main note 22-10-26:** MissingRE, checker 95/95, 7 mutations; three cited sites spot-read by Main (below). DOGSO and injury resistance found; the minimum-players abandon rule is dead code in this build (GF should not implement it); handball and time-wasting rules do not exist.
+> **Main note 22-10-26:** MissingRE, checker 95/95, 7 mutations; three cited sites spot-read by Main (below). DOGSO and injury resistance found; the minimum-players abandon rule was reported as dead code, but that is REFUTED by the owner's live evidence (endless-match runs cancelled and voided 3-0 by it): the rule runs live and its writer is being re-traced; handball and time-wasting rules do not exist.
 
 Scope: the three inventory rows still marked "missing" in
 `docs/plans/pes-inventory-trackA.md` (**K9 DOGSO**, **K11 minimum-players
