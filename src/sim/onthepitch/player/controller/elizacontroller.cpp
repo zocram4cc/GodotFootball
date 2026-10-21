@@ -163,10 +163,14 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       const Vector3 spot = team->GetController()->GetPieceWalkTarget();
       const Vector3 toSpot = (spot - player->GetPosition()).Get2D();
       command.desiredDirection = toSpot.GetNormalized(player->GetDirectionVec());
-      // ponytail: PES's run speed (the MOVE speed class, cmd[0x17]) is not decoded: walk pace stands in for it. A sprint
-      // from a stopped body turned him about 170 degrees and stalled the approach in the seed-7 and seed-11 probes
-      // (docs/ports/pes-port-ThrowInTaker.md).
-      command.desiredVelocityFloat = walkVelocity;
+      // ponytail: PES's run speed (the MOVE speed class, cmd[0x17]) is not decoded. The approach closes at 2 x the gap,
+      // snapped up to a movement level (FloorVelocity): a speed off the level table is class none, which reads as TURN_STOP
+      // with the precise target set (ClipWords, RUN_LOOP's no-class rule), and the taker stopped short of the spot.
+      // He stands once he is within the lift radius.
+      const float gap = toSpot.GetLength();
+      command.desiredVelocityFloat = gap <= match->GetPesRestartSpotConstants().throwInCarryStop_m
+                                         ? idleVelocity
+                                         : FloorVelocity(pes::kPieceTakerApproachGain * gap);
       command.useDesiredLookAt = true;
       command.desiredLookAt = match->GetBall()->Predict(0).Get2D();
       command.useDesiredTarget = true;
@@ -473,7 +477,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         run.useDesiredMovement = true;
         run.desiredDirection = toBall.GetNormalized(player->GetDirectionVec());
         const float approach = pes::kPieceTakerApproachGain * toBall.GetLength();
-        run.desiredVelocityFloat = approach < sprintVelocity ? approach : sprintVelocity;
+        run.desiredVelocityFloat = FloorVelocity(approach);
         run.useDesiredLookAt = true;
         run.desiredLookAt = ballNow.Get2D();
         run.useDesiredTarget = true;
