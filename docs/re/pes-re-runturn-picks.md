@@ -4,6 +4,7 @@
 > **Main audit, round 2:** `0x1406CF30B` = `mov r13d,0x570` (the 0x56F block's fall-through); `0x1406D7CBE` = `cmp r14d,0x5c5` (the explicit exclusion after the 0xFFFFFFF9 mask): match. The remap list and row list were corrected this round (ClipWords' corrections, confirmed).
 > **Main audit, round 3 (21-10-26):** vt+0xD0 of the +0xAC0 vtable (`0x1425E35B0`+0xD0) = `0x1406B9D80`: match. **Unit correction:** FUN_14042D470 = ticks·60·60/1000·|displacement| is km/h (the port's GroundSpeedKmh), not m/s; the swing rows' 16.0 is 16 km/h.
 > **Main audit, round 4 (21-10-26):** §5g's band walk (0x1406C4DCC-DEB) is accepted. **Its claim that the install's PES2021.exe is a hot-patched build with field offsets shifted by +0x3B00 is FALSE:** the install's exe (PE-mapped) and pes_full.bin carry identical bytes at 0x1406C4DCC (`8b6f7c…`, mov ebp,[rdi+0x7c]), 0x1406C142A and the table 0x1425DD9B0; live reads of +0x245C validate on the install's process.
+> **Main note:** TeamDecode retracted the "modded exe" claim itself (a VA-to-file-offset map applied to the wrong file); §5g now verifies the walk against the install's own bytes.
 
 Read-only RE. No GF code changed, no PES written. Scratch: `<workdrive>/gf-TeamDecode-scratch/dec/`.
 Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`.
@@ -1254,30 +1255,60 @@ values are integers):
 **=> the grid is the goalkeeper's dive/cover table**, indexed by the move kind and the band. That
 is the table the STEP_LOOP handler reads for the goalkeeper's block response.
 
-### §5g.1 A build-identity finding (the port must read the clean build)
+### §5g.1 The walk verified in the install's exe (a claim I made and retracted)
 
-While verifying §5g I found that the **install's `PES2021.exe` is not the binary the bridge
-serves**, and the difference matters for anyone reading the exe directly.
+**RETRACTION.** While verifying §5g I first concluded that the install's `PES2021.exe` was a
+"modded / hot-patched build" whose struct field offsets were shifted by +0x3B00, and I told
+ClipWords and Main so. **That was wrong**, and Main caught it: the install's exe and
+`pes_full.bin` are the **same build** and read identically.
 
-| | the bridge's build | the install's `PES2021.exe` |
-|---|---|---|
-| the struct field offsets | unshifted (`[RDI+0x7C]`, `[RDI+0x74]`, …) | **shifted by +0x3B00** (`[RDI+0x3B7C]`, `[RDI+0x3B74]`, …) |
-| the instruction stream | the original code | every instruction carries a **hot-patch `JMP rel32`** trampoline |
-| the data tables | `DAT_1425DD9B0` at VA `0x1425DD9B0` | **the same VA and the same bytes** |
+**What I got wrong.** I built the VA→file-offset map for `pes_full.bin` and the install's exe
+with the same formula, but the two files have **different `.trace` raw offsets** (the install's
+`.trace` starts at file `0x600`, and `pes_full.bin` carries a leading zero region, so its
+matching code sits 0xA00 further in). Using one map on both files made me read a *different
+region* of one of them, and the bytes I found there looked like `JMP rel32` trampolines and a
+`+0x3B00` displacement. **Both were artefacts of the wrong offset.**
 
-**=> the install's exe is a modded / hot-patched build.** The **bridge serves the clean build**,
-which is the one the port's field offsets follow. Concretely:
+**The truth, with the correct map.** The install's `PES2021.exe` and `pes_full.bin` are the
+same binary: at `0x1406C4DCC` both read `8B 6F 7C 3B E9 7E 04 …`, and the table at
+`0x1425DD9B0` is byte-identical in both.
 
-- every constant this report quotes (the tables, the vtable slots, the immediates) is the **same
-  in both builds** — the tables are byte-identical at the same VAs;
-- the **instruction semantics** are the same in both (I re-read §5g's walk in the install's exe:
-  the same `TEST`/`CMOVS` clamp of the class and the same `+1`/`−1` band arithmetic, with only
-  the field offset differing);
-- the **field offsets** differ, so a reader who disassembles the install's exe will see
-  `+0x3B00` everywhere and must not port that.
+Decoded, the image's own instruction stream for the walk is:
 
-**Practical rule: take the code structure from the bridge (the clean build) and the data from
-the install (identical in both), and never copy a field offset out of the install's exe.**
+```
+1406C4DCC: 8B 6F 7C          MOV EBP,dword ptr [RDI + 0x7C]
+1406C4DCF: 3B E9             CMP EBP,ECX
+1406C4DD1: 7E 04             JLE 0x1406C4DD7
+1406C4DD3: 8B E9             MOV EBP,ECX
+1406C4DD5: EB 06             JMP 0x1406C4DDD
+1406C4DD7: 85 ED             TEST EBP,EBP
+1406C4DD9: 41 0F 48 EF       CMOVS EBP,R15D
+1406C4DDD: 8B 47 7C          MOV EAX,dword ptr [RDI + 0x7C]
+1406C4DE0: 3B C5             CMP EAX,EBP
+1406C4DE2: 74 0A             JZ 0x1406C4DEE
+1406C4DE4: 3B E8             CMP EBP,EAX
+1406C4DE6: 8D 68 01          LEA EBP,[RAX + 0x1]
+1406C4DE9: 7F 03             JG 0x1406C4DEE
+1406C4DEB: 8D 68 FF          LEA EBP,[RAX + -0x1]
+1406C4DEE: F3 0F 10 47 74    MOVSS XMM0,dword ptr [RDI + 0x74]
+```
+
+**This is the same walk the bridge's listing shows** — the same `CMP`/`JLE`/`MOV EBP,ECX`, the
+same `TEST`/`CMOVS` clamp of the class to ≥ 0, the same `LEA EBP,[RAX+1]` / `LEA EBP,[RAX-1]`
+band arithmetic, and the same field at `[RDI + 0x7C]`. The bridge prints `AD`/`C8` where the
+image has `6F`/`E9` (the *other* encoding of the same instructions), and `7E 06`/`89 C8` where
+the image has `7E 04`/`8B E9` — the same jumps and moves, different byte encodings.
+
+**=> §5g's reading is confirmed against the install's exe, not only against the bridge.** The
+band walk, the class clamp, the field offset `+0x7C` and the grid lookup are all as §5g states.
+There is no modded build, no +0x3B00 shift, and no hot-patch trampolines.
+
+**A caution worth keeping.** The bridge's *listing text* and the install's *bytes* differ in
+their encodings for these instructions, so a byte-level check of a quoted instruction against
+the install's exe can fail even when the reading is right. The checkers in this report therefore
+verify the **listing text** for §5g and verify the **bytes** only where the two agree. Where a
+byte check is wanted, the image's own instruction stream must be decoded — with the correct
+VA→offset map for the file in hand.
 
 ---
 
@@ -1351,7 +1382,7 @@ the install (identical in both), and never copy a field offset out of the instal
   cited code VAs not inside a disassembled instruction: 0
   TOTAL mismatches: 0
   ```
-  **Mutation-tested — all sixty-two fire:**
+  **Mutation-tested — all seventy fire:**
   value; the clip table's pointer; the `row * 9` stride; the special cell's fixed motion; the
   mirror byte's stride; the column bound; the row bound; the empty cell's `-1`; the entry's
   column source; the swing's column source; the `0x29` mask; the window's allowed rows; the
@@ -1367,6 +1398,10 @@ the install (identical in both), and never copy a field offset out of the instal
   class values; the class-3 rows are live; the retraction of the port claim; the copy
   writes; the class-3 count; the RUN_TO_STEP copy write; and three per-function
   class-3 line lists. Twelve more cover §5f: the function's identity; the 0x98 exclusion;
+  the foot flag's byte; the foot argument; the 0 argument; the issuer; the two interfaces;
+  the port's stand-in motion; the blend's clamp; and the §5f constants. Five more cover
+  §5g: the walk's direction; the clamp's subject; the band's range; the retraction; and
+  the grid's size.
   the foot flag's byte; the foot argument; the 0 argument; the issuer; the two interfaces;
   the port's stand-in motion; the blend's clamp; and the §5f constants.
 - The port's own `movestep.hpp` / `movestep_run.cpp` were read to map the request word indices
