@@ -106,20 +106,22 @@ void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants&
   req.SetU(moveword::kCommandSpeedClass, static_cast<uint32_t>(in.speedBand));
   req.SetF(moveword::kDesiredSpeedKmh, in.desiredKmh);
   req.SetU(moveword::kPrecise, in.precise ? 1u : 0u);
-  req.SetU(moveword::kKind, static_cast<uint32_t>(in.moveKind));  // PES 228: *param_2 = cmd[0x16] with 8 to 2
+  const int kind = in.moveKind == 8 ? 2 : in.moveKind;  // PES 55-57: cmd[0x16] of 8 is written as kind 2
+  req.SetU(moveword::kKind, static_cast<uint32_t>(kind));  // PES 228: *param_2 = the remapped kind
+  req.SetU(moveword::kCommandId, static_cast<uint32_t>(in.commandId));  // PES 313: param_2[0x16] = cmd[0] (the command id)
   // PES 274-281 (the set): kinds 4 or 5 under class 3, or command ids 0x33, 0x34 and 2 with the kind under 2, the flag
   // clear, a class from 1 to 3 and the anime state byte nonzero. The gate MI+0x1775 != 0x0b is open in GF: 0x0b is the
   // abandon mode (pes-re-min-players, undecoded), which GF has no rule for. ponytail: the restart byte 0x17 (1404F6EE8)
   // is a different gate, so nothing here reads it.
   const int cls = in.commandSpeedClass;
-  const bool setKindFourOrFive = (in.moveKind == 4 || in.moveKind == 5) && cls < 3;
+  const bool setKindFourOrFive = (kind == 4 || kind == 5) && cls < 3;
   const bool setCommandClause = (in.commandId == 0x33 || in.commandId == 0x34 || in.commandId == 2) && !in.precise &&
-                                in.moveKind < 2 && cls < 4 && cls != 0 && in.animeStateNonzero;
+                                kind < 2 && cls < 4 && cls != 0 && in.animeStateNonzero;
   if (setKindFourOrFive || setCommandClause) req.SetU(moveword::kPrecise, 1u);
   // PES 282-288 (the clear): kinds 3 or 6 under class 4 clear the word while |req[3] - req[1]| (the look minus the
   // target, asm 0x1406b7ebe..0x1406b7efd) is under 22.5 degrees. The gate P+0x3725 == 0 is open in GF: the pending-action
   // flag is not ported (FUN_1406ba900 lines 61-94 consume it), so the port never has it set.
-  const bool clearKindThreeOrSix = in.moveKind == 3 || in.moveKind == 6;
+  const bool clearKindThreeOrSix = kind == 3 || kind == 6;
   if (req.U(moveword::kPrecise) == 1u && clearKindThreeOrSix && cls < 4 &&
       std::fabs(TargetTurnDeg(lookHeading - targetHeading, k)) < k.deg225) {
     req.SetU(moveword::kPrecise, 0u);

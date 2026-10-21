@@ -1617,6 +1617,16 @@ TEST(MoveFill, DerivedPreciseClearUsesTheLookMinusTheTargetNotTheBodyTurn) {
   EXPECT_EQ(a.U(pes::moveword::kPrecise), 1u) << "PES 282-288 (asm): the clear reads |req[3] - req[1]|, the look minus the target";
 }
 
+TEST(MoveFill, MoveKindEightIsWrittenAsKindTwo) {
+  // PES FUN_1406b7560 lines 55-57: a command kind of 8 is written to req[0] as 2 (*param_2 = local_dc after the remap).
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetZ = 5.0f;
+  in.moveKind = 8;
+  pes::MoveReq a;
+  pes::movestep::FillMoveTarget(a, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(a.U(pes::moveword::kKind), 2u) << "PES 55-57: cmd[0x16] of 8 is kind 2";
+}
+
 TEST(MoveFill, HeadingAndDistanceAreToTheMoveTargetNotTheLookPoint) {
   pes::movestep::MoveTargetInput in = OriginCommand();
   in.targetX = 3.0f;  // 5 m at 36.87 degrees

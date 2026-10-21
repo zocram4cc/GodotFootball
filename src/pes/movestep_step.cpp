@@ -503,6 +503,10 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   const int liveBand = int(req.U(moveword::kClassWord));
   int nextBand = classBand;
   if (liveBand != classBand) nextBand = classBand <= liveBand ? liveBand + 1 : liveBand - 1;
+  // ponytail: the walk's output stays in PES's class domain 0..3 (FUN_1406D2030 writes the class word clamped to 0..3). From
+  // IDLE's class -1, or a walk down from band 0, it was -1 or -2, and the step table was read before its start (the 2-minute
+  // smoke's segfault in StepLoop). The walk's direction is open: TeamDecode to confirm it against PES's per-use reads of 0x1f.
+  nextBand = std::clamp(nextBand, 0, 3);
 
   // 3. The blended band speed and the ground speed.
   float blendedSpeed = speed * k.half + req.F(moveword::kBandSpeed) * k.half;
