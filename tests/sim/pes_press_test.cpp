@@ -44,6 +44,12 @@ pes::PressConstants Synthetic() {
   c.pass2ZeroRoleDistSq = 81.0f;
   c.pass2SameCodeAdd = 8.0f;
   c.pass2ActionAdd = 4.0f;
+  c.speedCut0_kmh = 0.05f;
+  c.speedCut1_kmh = 8.0f;
+  c.speedCut2_kmh = 13.5f;
+  c.speedCut3_kmh = 22.0f;
+  c.targetTickRate = 0.1f;
+  c.targetTickBias = 0.5f;
   return c;
 }
 
@@ -467,6 +473,62 @@ TEST(PressConstantsLoader, ImageRelationsHold) {
   EXPECT_FLOAT_EQ(c->framesPerSec, 54.0f);
   EXPECT_FLOAT_EQ(c->secPerMinute, 60.0f);
   EXPECT_FLOAT_EQ(c->metresPerKm, 1000.0f);
+  // The chase additions: ordered cuts, a 21.5 m table, the k = 5 tick rule.
+  EXPECT_LT(c->speedCut0_kmh, c->speedCut1_kmh);
+  EXPECT_LT(c->speedCut1_kmh, c->speedCut2_kmh);
+  EXPECT_LT(c->speedCut2_kmh, c->speedCut3_kmh);
+  // table radius is the (18+7r) pick; no separate field used by the chase.
+  EXPECT_EQ(pes::PressTargetTick(*c), 5);
+}
+
+TEST(PressPickRadius, RampLegs) {
+  pes::PressConstants c = Synthetic();
+  // root <= pass2Lo (2): full span; root >= pass2Hi (5): base only.
+  EXPECT_NEAR(pes::PressPickRadius_m(c, 1.0f), 20.0f, kEps);
+  EXPECT_NEAR(pes::PressPickRadius_m(c, 2.0f), 20.0f, kEps);
+  EXPECT_NEAR(pes::PressPickRadius_m(c, 5.0f), 10.0f, kEps);
+  EXPECT_NEAR(pes::PressPickRadius_m(c, 9.0f), 10.0f, kEps);
+  // Between: (root - hi) / div = (3.5 - 5) / -3 = 0.5 -> 10 + 10*0.5.
+  EXPECT_NEAR(pes::PressPickRadius_m(c, 3.5f), 15.0f, kEps);
+}
+
+TEST(PressTarget, BallNowOrOwnBase) {
+  // Sample nearer the ball now than the base: the ball.
+  EXPECT_TRUE(pes::PressTargetIsBall({1.0f, 0.0f}, {0.0f, 0.0f}, {10.0f, 0.0f}));
+  // Sample nearer the base: the base.
+  EXPECT_FALSE(pes::PressTargetIsBall({9.0f, 0.0f}, {0.0f, 0.0f}, {10.0f, 0.0f}));
+  // Tie goes to the ball (<=).
+  EXPECT_TRUE(pes::PressTargetIsBall({5.0f, 0.0f}, {0.0f, 0.0f}, {10.0f, 0.0f}));
+}
+
+TEST(PressTargetTick, FpsTimesRatePlusBias) {
+  pes::PressConstants c = Synthetic();
+  c.framesPerSec = 54.0f;
+  // int(54 * 0.1 + 0.5) = int(5.9) = 5.
+  EXPECT_EQ(pes::PressTargetTick(c), 5);
+}
+
+TEST(PressSpeedClass, CutLegs) {
+  pes::PressConstants c = Synthetic();
+  EXPECT_EQ(pes::PressSpeedClass(c, 0.0f), 0);
+  EXPECT_EQ(pes::PressSpeedClass(c, 0.05f), 0);
+  EXPECT_EQ(pes::PressSpeedClass(c, 0.06f), 1);
+  EXPECT_EQ(pes::PressSpeedClass(c, 8.0f), 1);
+  EXPECT_EQ(pes::PressSpeedClass(c, 8.01f), 2);
+  EXPECT_EQ(pes::PressSpeedClass(c, 13.5f), 2);
+  EXPECT_EQ(pes::PressSpeedClass(c, 13.51f), 3);
+  EXPECT_EQ(pes::PressSpeedClass(c, 22.0f), 3);
+  EXPECT_EQ(pes::PressSpeedClass(c, 22.01f), 4);
+}
+
+TEST(PressCommandSpeed, DistanceSlopeCappedOneBandAbove) {
+  pes::PressConstants c = Synthetic();
+  // Standing (class 0): capped at the class-1 top, 8 km/h = 2.22 m/s.
+  EXPECT_NEAR(pes::PressCommandSpeed_ms(c, 11.0f, 0.0f, 2.6f), 8.0f / 3.6f, 0.01f);
+  // Near the ball: the slope wins over the cap.
+  EXPECT_NEAR(pes::PressCommandSpeed_ms(c, 0.5f, 0.0f, 2.6f), 0.5f * 2.6f, kEps);
+  // Sprinting (class 4): no cap below the slope.
+  EXPECT_NEAR(pes::PressCommandSpeed_ms(c, 11.0f, 25.0f, 2.6f), 11.0f * 2.6f, kEps);
 }
 
 }  // namespace

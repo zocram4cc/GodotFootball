@@ -139,12 +139,6 @@ protected:
 
   int afterSetPieceRelaxTime_ms;  // throw-ins cause immediate new throw-ins, because ball is still
                                   // outside the lines at the moment of throwing ;)
-  // pes_loop: whether the ball was over the touchline at the last tick in play, or where the restart
-  // put it. PES's judge acts on a ball-event record gated by flag bit 2 (FUN_14050e4a0, docs/re/
-  // pes-re-A5Judge.md 1.4), not on the ball's position, so a ball already over the line when play
-  // resumes is judged out only once it has come in and crossed again. ponytail: the writer of that
-  // record is not decoded; this crossing test stands in for it.
-  bool ballOverSideline = false;
 
   // The players currently flagged offside, with PES's category of each call.
   std::map<Player*, OffsideFlag> offsidePlayers;  // player, position at time of touch

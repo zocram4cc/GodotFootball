@@ -152,3 +152,11 @@ set_tests_properties(godot_post_compose_test PROPERTIES PASS_REGULAR_EXPRESSION 
 add_executable(pes_events_test pes_events_test.cpp)
 target_link_libraries(pes_events_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_events_test)
+
+add_executable(pes_possession_test pes_possession_test.cpp)
+target_link_libraries(pes_possession_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_possession_test)
+
+add_executable(pes_outside_test pes_outside_test.cpp)
+target_link_libraries(pes_outside_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_outside_test)

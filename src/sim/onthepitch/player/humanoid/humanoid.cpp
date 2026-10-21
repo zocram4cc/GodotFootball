@@ -35,6 +35,7 @@
 #include "humanoid_utils.hpp"
 #include "onthepitch/gameplaytuning.hpp"
 #include "onthepitch/pesballphysics.hpp"
+#include "onthepitch/pesreceive.hpp"
 #include "utils/animationextensions/footballanimationextension.hpp"
 
 namespace {
@@ -676,6 +677,14 @@ void Humanoid::Process() {
             GetTouchTypeForBodyPart(currentAnim->anim->GetVariable("touch_bodypart")));
         match->GetMatchData()->RecordBallTouch(team->GetID());
         CastPlayer()->UpdatePossessionStats(false);
+        // PES's carrier (MA+0x2601C, FUN_140457070; first-touch §5.1): a control touch that leaves the ball
+        // at his feet hands him the carrier. PES path only.
+        if (match->PesLoop() &&
+            pes::CarrierAfterContact(true, AI_HasPossession(match->GetBall(), CastPlayer()),
+                                     match->GetBallRetainer() != nullptr &&
+                                         AI_HasPossession(match->GetBall(), match->GetBallRetainer())) ==
+                pes::CarrierChange::kToucher)
+          match->SetBallRetainer(CastPlayer());
         // Did the trap actually kill the ball (breakdown: trap)?
         //
         // It used to ask `HasPossession()`, and the comment above claimed
@@ -1359,8 +1368,11 @@ void Humanoid::Process() {
             GameplayTuning::CrossedInsideGoalFrame(would, goalHalfWidth, goalHeight));
       }
     } else {
-      // no longer retaining
-      match->SetBallRetainer(0);
+      // no longer retaining. PES's carrier (MA+0x2601C) outlasts the touch while he holds the ball.
+      if (!match->PesLoop() ||
+          pes::CarrierAfterContact(false, false, AI_HasPossession(match->GetBall(), CastPlayer())) !=
+              pes::CarrierChange::kKeep)
+        match->SetBallRetainer(0);
     }
   }
 
@@ -2034,14 +2046,18 @@ bool Humanoid::SelectAnim(const PlayerCommand& command, e_InterruptAnim localInt
     }
 
     // requeue not needed?
-    if ((IsMovementClip() &&
-         command.desiredFunctionType == e_FunctionType_Movement) ||
-        (currentAnim->functionType == e_FunctionType_BallControl &&
-         command.desiredFunctionType == e_FunctionType_BallControl) ||
-        (currentAnim->functionType == e_FunctionType_Trap &&
-         command.desiredFunctionType == e_FunctionType_BallControl) ||
-        (currentAnim->functionType == e_FunctionType_Trap &&
-         command.desiredFunctionType == e_FunctionType_Trap)) {
+    // A PES locomotion clip's planned change is MOVESTEP's plan, not the body's motion: the trace
+    // had 6 m/s planned while the body stood still for 900 ticks, so this test does not refuse it.
+    // ponytail: the "too similar" test above makes the same exception.
+    if (!OnPesLocomotion() &&
+        ((IsMovementClip() &&
+          command.desiredFunctionType == e_FunctionType_Movement) ||
+         (currentAnim->functionType == e_FunctionType_BallControl &&
+          command.desiredFunctionType == e_FunctionType_BallControl) ||
+         (currentAnim->functionType == e_FunctionType_Trap &&
+          command.desiredFunctionType == e_FunctionType_BallControl) ||
+         (currentAnim->functionType == e_FunctionType_Trap &&
+          command.desiredFunctionType == e_FunctionType_Trap))) {
       // current change in momentum
       Vector3 plannedMomentumChange = currentAnim->outgoingMovement - currentAnim->incomingMovement;
       Vector3 desiredMomentumChange =
@@ -3199,13 +3215,15 @@ signed int Humanoid::GetBestCheatableAnimID(
         // where the ball is dead: a body touch can nudge it off and the throw still carries it.
         constexpr float kOwnSpotWindow_m = 0.5f;
         const RefereeBuffer& rb = match->GetRefereeBuffer();
+        // The throw's candidates are chosen during the hold, before the set piece starts, so the gate
+        // is the award (active), not IsInSetPiece(), which is still false then.
         const bool atOwnSpot =
-            match->PesLoop() && match->IsInSetPiece() &&
+            match->PesLoop() && rb.active &&
             rb.desiredSetPiece == e_SetPiece_ThrowIn && rb.taker == player &&
             (absBallPos.Get2D() - rb.restartPos.Get2D()).GetLength() < kOwnSpotWindow_m;
         if (!atOwnSpot &&
             (fabs(absBallPos.coords[0]) > pitchHalfW + lineHalfW + 0.11f ||
-             fabs(absBallPos.coords[1]) > pitchHalfH + lineHalfW + 0.11f)) {
+            fabs(absBallPos.coords[1]) > (match->PesLoop() ? pesFieldHalfWidth : pitchHalfH) + lineHalfW + 0.11f)) {
           touchNum++;
           continue;
         }

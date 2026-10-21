@@ -392,6 +392,27 @@ TEST(PesReceiveInstall, TheInstallCarriesTheGamesOwnReceive) {
   EXPECT_LT(k->receivingPointMargin_m, 1.0f);
 }
 
+// The trap picker's rows (FUN_14081ff70 over DAT_14348dac0) come from the install: every row is an action-7 row,
+// names a clip, and has a non-empty clip-space window. The picker reads them; no PES number is written here.
+TEST(PesReceiveInstall, TheTrapRowsAreTheInstallsActionSevenWindows) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto k = pes::LoadReceiveConstants(*exe, vfs, &err);
+  ASSERT_TRUE(k.has_value()) << err;
+  ASSERT_FALSE(k->trapRows.empty());
+  for (const pes::ActionRow& row : k->trapRows) {
+    EXPECT_EQ(row.action, pes::kTrapActionRow) << "clip " << row.clip;
+    EXPECT_GT(row.clip, 0) << "a trap row names a clip";
+    EXPECT_LT(row.xb, row.xe) << "clip " << row.clip;
+    EXPECT_LT(row.zb, row.ze) << "clip " << row.clip;
+  }
+}
+
 }  // namespace
 
 // The store's action kinds (PES ring-0 +0) as the receive gates name them: 1 a
@@ -402,4 +423,119 @@ TEST(PesReceiveEventKind, StoreActionKindsMapOntoTheReceiveKinds) {
   EXPECT_EQ(pes::ReceiveEventKindOf(5), pes::BallEventKind::kShot);
   EXPECT_EQ(pes::ReceiveEventKindOf(7), pes::BallEventKind::kTouch);
   EXPECT_EQ(pes::ReceiveEventKindOf(0x10), pes::BallEventKind::kTouch);
+}
+
+// --- Designated owner (first-touch §7.2 gate 4c, MA+0x2600C) ---
+
+namespace {
+pes::ActorKey Man(uint32_t team, uint32_t slot) {
+  pes::ActorKey k;
+  k.team = team;
+  k.slot = slot;
+  return k;
+}
+}  // namespace
+
+TEST(PesReceiveOwner, ChaserOfAnUnownedBallIsNotRefused) {
+  // The newest touch was the other side's and nobody holds the ball: no owner.
+  pes::OwnerInput in;
+  in.newestActor = Man(1, 4);
+  in.newestActorHoldsBall = false;
+  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(in, Man(0, 7)));
+}
+
+TEST(PesReceiveOwner, ANewestToucherIsNotTheOwnerOnceTheBallRollsAway) {
+  pes::OwnerInput in;
+  in.newestActor = Man(0, 7);
+  in.newestActorHoldsBall = false;
+  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(in, Man(0, 7)));
+}
+
+TEST(PesReceiveOwner, TheManWhoHoldsTheBallAfterTheNewestTouchIsRefused) {
+  pes::OwnerInput in;
+  in.newestActor = Man(0, 7);
+  in.newestActorHoldsBall = true;
+  EXPECT_TRUE(pes::RefusedAsDesignatedOwner(in, Man(0, 7)));
+  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(in, Man(0, 8)));
+}
+
+TEST(PesReceiveOwner, TheRestartTakerOwnsTheBallWhileTheRestartIsHeld) {
+  pes::OwnerInput in;
+  in.restartTaker = Man(0, 10);
+  in.newestActor = Man(1, 4);
+  in.newestActorHoldsBall = true;
+  EXPECT_TRUE(pes::RefusedAsDesignatedOwner(in, Man(0, 10)));
+  EXPECT_FALSE(pes::RefusedAsDesignatedOwner(in, Man(1, 4)));
+}
+
+// --- Carrier (MA+0x2601C, FUN_140457070; first-touch §5.1) ---
+// A control touch (trap or ball control) that leaves the ball at the toucher's feet makes him the carrier;
+// the carrier keeps the ball while he holds it, and is dropped when he does not.
+
+TEST(PesReceiveCarrier, AControlTouchThatKeepsTheBallMakesTheToucherTheCarrier) {
+  EXPECT_EQ(pes::CarrierAfterContact(true, true, false), pes::CarrierChange::kToucher);
+}
+
+TEST(PesReceiveCarrier, AControlTouchThatLeavesTheBallOffTheToucherMakesNoCarrier) {
+  EXPECT_EQ(pes::CarrierAfterContact(true, false, false), pes::CarrierChange::kNone);
+}
+
+TEST(PesReceiveCarrier, ACarrierKeepsTheBallWithoutAnotherTouch) {
+  EXPECT_EQ(pes::CarrierAfterContact(false, false, true), pes::CarrierChange::kKeep);
+}
+
+TEST(PesReceiveCarrier, ACarrierIsDroppedOnceTheBallLeavesHim) {
+  EXPECT_EQ(pes::CarrierAfterContact(false, false, false), pes::CarrierChange::kNone);
+}
+
+TEST(PesReceiveCarrier, ANewControlTouchTakesTheCarrierFromTheHolder) {
+  EXPECT_EQ(pes::CarrierAfterContact(true, true, true), pes::CarrierChange::kToucher);
+}
+
+TEST(PesReceiveCarrier, AControlTouchThatMissesLeavesTheHolderWithTheBall) {
+  EXPECT_EQ(pes::CarrierAfterContact(true, false, true), pes::CarrierChange::kKeep);
+}
+
+// The trap picker (FUN_14081ff70 for action 7): a row admits the ball inside its clip-space window (x strictly
+// between xb and xe, z strictly between zb and ze); the lowest priority wins, then the nearest hit; a hit higher
+// than the ball by more than the height tolerance refuses its row. The rows and hits here are synthetic: the
+// tests state the rule, not PES's numbers.
+TEST(PesReceivePicker, TheBallInsideARowsWindowGetsThatRowsClip) {
+  pes::ReceiveConstants k{};
+  k.trapRows = {pes::ActionRow{10, pes::kTrapActionRow, 1, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f}};
+  const auto hit = [](int) { return pes::ClipPoint{}; };
+  auto inside = pes::PickTrapClip(k, {0.1f, 0.0f, 0.0f}, hit);
+  ASSERT_TRUE(inside.has_value());
+  EXPECT_EQ(*inside, 10);
+  EXPECT_FALSE(pes::PickTrapClip(k, {0.6f, 0.0f, 0.0f}, hit).has_value());  // beyond xe
+  EXPECT_FALSE(pes::PickTrapClip(k, {0.1f, 0.0f, 0.5f}, hit).has_value());  // the z edge is outside
+}
+
+TEST(PesReceivePicker, TheLowestPriorityRowWinsThenTheNearestHit) {
+  pes::ReceiveConstants k{};
+  k.trapRows = {
+      pes::ActionRow{10, pes::kTrapActionRow, 1, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
+      pes::ActionRow{11, pes::kTrapActionRow, 0, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
+      pes::ActionRow{12, pes::kTrapActionRow, 0, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
+  };
+  const auto hit = [](int clip) {  // hits in cm
+    return clip == 12 ? pes::ClipPoint{100.0f, 0.0f, 0.0f} : pes::ClipPoint{20.0f, 0.0f, 0.0f};
+  };
+  auto r = pes::PickTrapClip(k, {0.1f, 0.0f, 0.0f}, hit);
+  ASSERT_TRUE(r.has_value());
+  EXPECT_EQ(*r, 11);  // 11 and 12 share priority 0, and 11's hit is nearer; row 10 has the worse priority
+}
+
+TEST(PesReceivePicker, AHitHigherThanTheBallRefusesItsRow) {
+  pes::ReceiveConstants k{};
+  k.trapRows = {
+      pes::ActionRow{20, pes::kTrapActionRow, 0, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
+      pes::ActionRow{21, pes::kTrapActionRow, 1, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
+  };
+  const auto hit = [](int clip) {  // y is the height, in cm
+    return clip == 20 ? pes::ClipPoint{0.0f, 100.0f, 0.0f} : pes::ClipPoint{0.0f, 0.0f, 0.0f};
+  };
+  auto r = pes::PickTrapClip(k, {0.1f, 0.0f, 0.0f}, hit);
+  ASSERT_TRUE(r.has_value());
+  EXPECT_EQ(*r, 21);  // row 20 has the better priority but its hit is a metre above the ball
 }

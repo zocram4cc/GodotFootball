@@ -3,10 +3,12 @@
 // player line; one install test converts every imported clip and loads it.
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
 #include "onthepitch/pesclips.hpp"
+#include "onthepitch/pesreceive.hpp"
 #include "rig/clip_pose.hpp"
 #include "rig/rig_names.hpp"
 #include "onthepitch/player/humanoid/animcollection.hpp"
@@ -101,14 +103,15 @@ TEST(PesClipsInstall, EveryDodgeClipConvertsAndLoads) {
   // Every clip of the dodge family: the ball dodges (dodge_*), the human
   // dodges (avoidjump_/avoidslide_) and the goal-net dodges (goalnet_*).
   for (const auto& clip : clips->clips) {
-    // The dodge family, the tackle family and the locomotion family the MOVESTEP handoff plays: every
-    // clip of the set belongs to one of them, and each has its own conversion test below.
+    // The dodge, tackle, locomotion and trap families: every clip of the set belongs to one of them, and each
+    // has its own conversion test below.
     const bool dodgeFamily =
         clip.name.rfind("dodge_", 0) == 0 || clip.name.rfind("avoid", 0) == 0 ||
         clip.name.rfind("goalnet_", 0) == 0 || clip.name.rfind("rapid", 0) == 0;
     const bool tackleFamily = clip.family == pes::PesClipFamily::kTackle;
     const bool locomotionFamily = clip.family == pes::PesClipFamily::kLocomotion;
-    EXPECT_TRUE(dodgeFamily || tackleFamily || locomotionFamily) << clip.name;
+    const bool trapFamily = clip.family == pes::PesClipFamily::kTrap;
+    EXPECT_TRUE(dodgeFamily || tackleFamily || locomotionFamily || trapFamily) << clip.name;
     if (tackleFamily) continue;  // the tackle family has its own test below
     Animation anim;
     anim.LoadText(clip.name, pes::PesClipAnimText(clip, *rig));
@@ -271,4 +274,27 @@ TEST(PesClips, LocomotionIsPlayedAsPesPicksItAndIsNeverAChallenge) {
   EXPECT_TRUE(pes::PesFamilyPoseMatched(int(pes::PesClipFamily::kDodge)));
   EXPECT_TRUE(pes::PesFamilyPoseMatched(int(pes::PesClipFamily::kTackle)));
   EXPECT_FALSE(pes::IsPesClipFamily(int(pes::PesClipFamily::kLocomotion)));
+}
+
+// The trap picker names its clips by motion number: the action-7 rows of the action-clip table (pesreceive.hpp).
+// Each of those clips must be loaded in the trap family, or the picker would name a clip the engine cannot play.
+TEST(PesClipsInstall, TheTrapFamilyHoldsTheClipsTheTrapRowsName) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto receive = pes::LoadReceiveConstants(*exe, vfs, &err);
+  ASSERT_TRUE(receive.has_value()) << err;
+  auto clips = pes::LoadPesClips(*exe, vfs, &err);
+  ASSERT_TRUE(clips.has_value()) << err;
+  ASSERT_FALSE(receive->trapRows.empty());
+  for (const pes::ActionRow& row : receive->trapRows) {
+    const bool loaded = std::any_of(clips->clips.begin(), clips->clips.end(), [&](const pes::PesClip& c) {
+      return c.family == pes::PesClipFamily::kTrap && c.motionNo == row.clip;
+    });
+    EXPECT_TRUE(loaded) << "trap row clip " << row.clip << " is not in the trap family";
+  }
 }

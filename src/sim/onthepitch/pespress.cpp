@@ -51,6 +51,12 @@ constexpr PressVa kPressVas[] = {
     {0x1425c6780, &PressConstants::pass2ZeroRoleDistSq},
     {0x14259bdf4, &PressConstants::pass2SameCodeAdd},
     {0x1425656c0, &PressConstants::pass2ActionAdd},
+    {0x1425a8a28, &PressConstants::speedCut0_kmh},
+    {0x14259bdf4, &PressConstants::speedCut1_kmh},
+    {0x1425a1ffc, &PressConstants::speedCut2_kmh},
+    {0x1425c48c0, &PressConstants::speedCut3_kmh},
+    {0x142588200, &PressConstants::targetTickRate},
+    {0x142565600, &PressConstants::targetTickBias},
 };
 
 }  // namespace
@@ -318,6 +324,53 @@ PressFillResult PressCandidateFill(const PressConstants& c, const std::array<Pre
     if (m.angleCode >= 0 && m.angleCode < 4) r.slotSet[m.angleCode] = true;
   }
   return r;
+}
+
+float PressPickRadius_m(const PressConstants& c, float root) {
+  float ramp;
+  if (root <= c.pass2Lo) {
+    ramp = 1.0f;
+  } else if (root < c.pass2Hi) {
+    ramp = (root - c.pass2Hi) / c.pass2Div;
+  } else {
+    ramp = 0.0f;
+  }
+  return c.carrierRampStart_m + c.carrierRampSpan_m * ramp;
+}
+
+bool PressTargetIsBall(PressPoint sample, PressPoint ball, PressPoint base) {
+  const float toBall = (sample.x - ball.x) * (sample.x - ball.x) +
+                       (sample.z - ball.z) * (sample.z - ball.z);
+  const float toBase = (sample.x - base.x) * (sample.x - base.x) +
+                       (sample.z - base.z) * (sample.z - base.z);
+  return toBall <= toBase;
+}
+
+int PressTargetTick(const PressConstants& c) {
+  return static_cast<int>(c.framesPerSec * c.targetTickRate + c.targetTickBias);
+}
+
+int PressSpeedClass(const PressConstants& c, float speedKmh) {
+  if (speedKmh <= c.speedCut0_kmh) return 0;
+  if (speedKmh <= c.speedCut1_kmh) return 1;
+  if (speedKmh <= c.speedCut2_kmh) return 2;
+  if (speedKmh <= c.speedCut3_kmh) return 3;
+  return 4;
+}
+
+float PressCommandSpeed_ms(const PressConstants& c, float dist_m, float speedKmh, float slope) {
+  const float want = dist_m * slope;
+  const int cls = PressSpeedClass(c, speedKmh);
+  // One band above the current class, in m/s (km/h / 3.6); class 4 uncapped.
+  // The divisor is arithmetic, not a PES number.
+  float cap = want;
+  if (cls == 0)
+    cap = c.speedCut1_kmh / 3.6f;
+  else if (cls == 1)
+    cap = c.speedCut2_kmh / 3.6f;
+  else if (cls == 2)
+    cap = c.speedCut3_kmh / 3.6f;
+  return std::min(want, cap);
 }
 
 }  // namespace pes

@@ -309,10 +309,16 @@ void Referee::Process() {
       }
     }
 
-    // goal kick / corner
-
-    if (fabs(ballPos.coords[0]) >
-        (match->PesLoop() ? pesFieldHalfLength : pitchHalfW + lineHalfW + 0.11)) {
+    // goal kick / corner. pes_loop: PES's judge acts on the zone event (K=10, bit 0x8 of the code), as
+    // the touchline does (FUN_14050e4a0 case 10, docs/re/pes-re-A5Judge.md 1.4). The goal is the match's.
+    const bool endLineOut =
+        match->PesLoop()
+            ? match->PesOutOfPlayEvent() && fabs(ballPos.coords[0]) > pesFieldHalfLength
+            : fabs(ballPos.coords[0]) > pitchHalfW + lineHalfW + 0.11;
+    if (endLineOut) {
+      if (match->PesLoop())
+        match->RecordGoal(match->GoalMouthHolds(ballPos, match->GetTeam(0)->GetSide()),
+                          match->GoalMouthHolds(ballPos, match->GetTeam(1)->GetSide()));
       foul.advantage = false;
       bool isFoul = false;
       if (!match->IsGoalScored())
@@ -390,15 +396,16 @@ void Referee::Process() {
 
     // over sideline
 
-    // pes_loop judges the crossing, not the state: a throw-in's ball lies over the line at its spot
-    // and is not out again until it has come in and crossed (ballOverSideline).
+    // pes_loop: PES's judge (FUN_14050e4a0 case 10, docs/re/pes-re-A5Judge.md 1.4) acts on the out-of-play
+    // event (K=10), which the event stage raises when the zone code changes, and tests the raw ball:
+    // touchline when |x| <= F0 and |z| > F1 (docs/re/pes-re-out-side.md 6).
     const bool overSideline =
-        fabs(ballPos.coords[1]) >
-        (match->PesLoop() ? pesFieldHalfWidth : pitchHalfH + lineHalfW + 0.11);
-    const bool crossedSideline = match->PesLoop() ? overSideline && !ballOverSideline : overSideline;
-    ballOverSideline = overSideline;
+        match->PesLoop()
+            ? match->PesOutOfPlayEvent() && fabs(ballPos.coords[0]) <= pesFieldHalfLength &&
+                  fabs(ballPos.coords[1]) > pesFieldHalfWidth
+            : fabs(ballPos.coords[1]) > pitchHalfH + lineHalfW + 0.11;
     if (afterSetPieceRelaxTime_ms == 0) {
-      if (crossedSideline) {
+      if (overSideline) {
         foul.advantage = false;
         if (!CheckFoul()) {
           match->StopPlay();
@@ -767,7 +774,6 @@ void Referee::PrepareSetPiece(e_SetPiece setPiece) {
         buffer.restartPos, -static_cast<int>(match->GetTeam(buffer.teamID)->GetSide()), setPiece,
         match->GetPesRestartSpotConstants());
   match->ResetSituation(buffer.restartPos);
-  ballOverSideline = fabs(buffer.restartPos.coords[1]) > pesFieldHalfWidth;
   match->GetMatchData()->RecordPassRestart();
 
   match->GetTeam(0)->GetController()->PrepareSetPiece(setPiece, buffer.teamID);
