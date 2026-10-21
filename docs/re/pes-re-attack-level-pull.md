@@ -120,3 +120,10 @@ docs/plans/pes-plan-mentality.md §4 disputes four points above: forwards take t
 **Plain-language summary:** with three strikers the team sheet decides: the last-listed is protected, the first-listed drops (to 65% of the −1 height, or 20% when the ball is on his side), the middle one keeps the normal −1 height. A Counter Target overrides the sheet. Afterwards all three are pulled partway back toward the highest striker, and the +8 m pull lands on all. No stats, form or skill: list order, every pass.
 
 Open: the +0x3BA4 record's v108 semantics; live confirmation of the T+0x255 reading in a three-forward match.
+
+## 9. The possession latch and the blend record (external follow-up, 21-10-26)
+> **Main audit:** `0x1404FEB8D` = `call 0x140A428D0`; `0x140A428D0` = `test dl,dl; setne al; mov [rcx+0x255],al; ret`: match. T+0x255 is the possession latch (the agent accepts the correction).
+
+- sub_1404FE9C0 computes "has the ball" (holder + match-event arbitration), sets the latch through sub_140A428D0, and returns new ^ old ("possession changed").
+- sub_1406405C0: the latch selects both the record family and mode 1. Out of possession (0): class/rank from +0x7B88/+0x7B8C (written by sub_140682770 every pass), mode 1 = the ball-side pick by rank. In possession (1): records +0x7BE0/+0x7BE4, mode 1 = the Y-sort (members: +0x3FB8 dword != 0 and the +0x7BE0 class match; key: the Y float of the +0x3A9C records).
+- The blend's v108: the +0 float of a 12-byte record {float, dword player id, float} at +0x3BA4 + 12·gidx (the other-phase view at +0x3CAC when phase != 1), normalised into the class band (lo, hi from [unitctx+288] + 20·class), clamped 0..1; target = deep + (v158 − deep)·v108. Written by the pass-option scoring pass sub_1404F9DC0 (0x1404FA676-6F, accumulated with addss); the set-piece/positioning family also touches it; the sorted-list builder sorts on the +8 float (+0x3BAC). Open: the +0 float's meaning (the agent's working name: a per-player accumulated pass-scoring value).
