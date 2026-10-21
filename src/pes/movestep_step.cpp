@@ -13,6 +13,7 @@
 
 #include "pes/movestep_step.hpp"
 #include "pes/movestep_turn.hpp"
+#include "pes/movestep_run.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -502,6 +503,10 @@ void StepLoop(MoveHost& host, MoveReq& req) {
   const int liveBand = int(req.U(moveword::kClassWord));
   int nextBand = classBand;
   if (liveBand != classBand) nextBand = classBand <= liveBand ? liveBand + 1 : liveBand - 1;
+  // ponytail: the walk's output stays in PES's class domain 0..3 (FUN_1406D2030 writes the class word clamped to 0..3). From
+  // IDLE's class -1, or a walk down from band 0, it was -1 or -2, and the step table was read before its start (the 2-minute
+  // smoke's segfault in StepLoop). The walk's direction is open: TeamDecode to confirm it against PES's per-use reads of 0x1f.
+  nextBand = std::clamp(nextBand, 0, 3);
 
   // 3. The blended band speed and the ground speed.
   float blendedSpeed = speed * k.half + req.F(moveword::kBandSpeed) * k.half;
@@ -1097,9 +1102,13 @@ BucketDone:;
       kind - 2u < 2)) {
     kind = 1;
   }
-  const int rowId = int(tables.kindBandRow[kind + band * 8]);
-  const MoveCell cell = host.Cell(rowId, int(tables.bucketColumn[bucket]), false);
-  const int motion = cell.motionNo;  // FUN_1406ABB30: -1 for an empty cell, never the row id
+  // PES FUN_1406D2590 (decompile 285-296): the row is the stop-row selector FUN_1406B9D80 at kind + class * 8, with the class the
+  // class word clamped to 0..3 (`band`, lines 74-82) and the action the command id (line 290). The column is the bucket's column
+  // after the 4 -> 3 and 9 -> 8 fold (lines 279-284). FUN_1406ABB30 answers -1 for an empty cell, and PES issues that too.
+  const int stopBucket = bucket == 4 ? 3 : (bucket == 9 ? 8 : bucket);
+  const int stopRow = StopRowFor(kind, band, int(req.U(moveword::kCommandId)), host.RunTablesView());
+  const MoveCell cell = host.Cell(stopRow, int(tables.bucketColumn[stopBucket]), false);
+  const int motion = cell.motionNo;
   // ponytail: PES reads the mirror and the blend from the interface's own answers
   // (vt+0x30 with FUN_140a62960's sameness, and vt+0xd0's motion-record walk); GF has neither
   // record, so the mirror is the table's left flag and the blend the default.

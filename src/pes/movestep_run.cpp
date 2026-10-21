@@ -341,20 +341,6 @@ int GotoRowFor(int kind, int cls, const pes::RunTables& t) {
   return t.gotoRow[k + c * 8];
 }
 
-// FUN_1406b9d80, the stop-row picker (0x1425ddad0). Both call sites settle the mapping: the
-// class is arg3 and the kind is arg4, and the row index is *arg4 + *arg3 * 8, i.e.
-// kind + class * 8 (ASM of 0x1406d5d60: R8 = &clamped class, R9 = &the-kind, so
-// `UNK_1425ddad0 + ((longlong)*param_4 + (longlong)*param_3 * 8) * 4` = kind + class*8).
-// arg6 (the selector) is the immediate 0 at both call sites, so the override's guard
-// `iVar2 != 1` holds and the override fires for the class-2 family.
-int StopRowFor(int kind, int cls, const pes::RunTables& t) {
-  const int k = kind < 0 ? 0 : kind;
-  const int c = cls < 0 ? 0 : (cls > 2 ? 2 : cls);
-  int row = t.stopRow[k + c * 8];
-  if (row != 0x582 && c == 2) row = 0x582;
-  return row;
-}
-
 // FUN_1406ba0d0's table (the turn-stop rows), same kind + class*8 order as the other two
 // pickers (the group C/D call sites use the identical shape; see GotoRowFor's evidence).
 int TurnStopRowFor(int kind, int cls, const pes::RunTables& t) {
@@ -611,7 +597,7 @@ void EnterStop(MoveHost& host, MoveReq& req) {
   // The stop row (FUN_1406b9d80) with the bucket and the kind (8 maps to 2). Its band is the class word req[0x1f] clamped to
   // 0..2: FUN_1406d5d60 passes param_2[0x1f] to the picker, not the band word req[0x51].
   const int rowBand = cls < 3 ? (cls < 0 ? 0 : cls) : 2;
-  const int row = StopRowFor(rowKind, rowBand, t);
+  const int row = StopRowFor(rowKind, rowBand, /*action=*/0, t);  // FUN_1406d5d60's param_6 is the immediate 0
   const MoveCell cell = host.Cell(row, bucket, false);
   host.Issue(MotionRequest{cell.motionNo, cell.mirror, 0, k.blend2, playback, 0.0f, -1, 0.0f, 0.0f, 0});
   req.SetU(moveword::kMotion, static_cast<uint32_t>(cell.motionNo));

@@ -37,7 +37,18 @@ int ClassForRateFor(float rate, const RunTables& t);        // FUN_1406ba030, 0x
 
 // The interface's row pickers, declared here so the tests can check the index order directly
 // (FUN_1406ce820 writes the same order inline at d_1406ce820.c:321). Defined in movestep_run.cpp.
-int StopRowFor(int kind, int cls, const RunTables& t);    // FUN_1406b9d80, 0x1425ddad0
+// FUN_1406b9d80, the stop-row picker (0x1425ddad0). TURN_STOP's entry reaches it through the +0xac0 interface's slot 0xd0
+// (FUN_1406d2590 lines 293-296) and FUN_1406d5d60 calls it directly. PES's index is kind + class * 8 (ASM of 0x1406d5d60: R8 =
+// &clamped class, R9 = &the-kind). The table has 32 entries and TURN_STOP's class word reaches 3. The row is 0x582 when the class
+// is 2, the action word (param_6: the command id req[0x16] at TURN_STOP, the immediate 0 at STOP) is not 1, 0x11 or 0x70, and
+// the row is not already 0x582 (decompile lines 16-19).
+inline int StopRowFor(int kind, int cls, int action, const RunTables& t) {
+  const int k = kind < 0 ? 0 : (kind > 7 ? 7 : kind);
+  const int c = cls < 0 ? 0 : (cls > 3 ? 3 : cls);
+  int row = t.stopRow[k + c * 8];
+  if (action != 1 && action != 0x11 && action != 0x70 && row != 0x582 && c == 2) row = 0x582;
+  return row;
+}
 int GotoRowFor(int kind, int cls, const RunTables& t);    // FUN_1406b9bd0, 0x1425dda50
 int TurnStopRowFor(int kind, int cls, const RunTables& t);  // FUN_1406ba0d0, 0x1425ddb50
 

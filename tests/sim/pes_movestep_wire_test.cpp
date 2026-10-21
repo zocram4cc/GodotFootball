@@ -573,6 +573,51 @@ TEST(MoveStepWire, TheDecisionIsTheFirstMovementCommandNotAnAction) {
   EXPECT_FALSE(pesmovestep::MovementDecision(PlayerCommandQueue{pass}).has_value()) << "a lone pass is not a movement";
 }
 
+// PES's command id (cmd[0], req[0x16]) and move kind (cmd[0x16], req[0]) come from the AI's command in FUN_1406b7560's
+// copy-in. GF's AI has no PES action table, so the adapter takes both from the movement command (CommandIdFor, MoveKindFor).
+TEST(MoveStepWire, AMovementCommandIsPesMoveActionTwoAndAKeepersMoveIsTheNearKeeperKind) {
+  PlayerCommand walk;
+  walk.desiredFunctionType = e_FunctionType_Movement;
+  walk.desiredVelocityFloat = sprintVelocity;
+  EXPECT_EQ(pesmovestep::CommandIdFor(&walk), 2) << "PES's MOVE action (2), the id the running trap takes (pes-re-transitions.md:330)";
+  PlayerCommand pass;
+  pass.desiredFunctionType = e_FunctionType_ShortPass;
+  EXPECT_EQ(pesmovestep::CommandIdFor(&pass), 0) << "a ball action rides the pass channel, so it has no movement id";
+  EXPECT_EQ(pesmovestep::CommandIdFor(nullptr), 0) << "no command, no id";
+  EXPECT_EQ(pesmovestep::MoveKindFor(false), 0) << "an outfield move takes the mid kind (pes-re-anim-select.md:93)";
+  EXPECT_EQ(pesmovestep::MoveKindFor(true), 4) << "a keeper's move takes the near keeper kind (4..6 are near, mid and far)";
+}
+
+// The end-to-end wiring: a jog-class movement command with the anime state set (RequestStop gives a non-zero state by PES's
+// own STOP entry) reaches the request block as MOVE (2) with the mid kind, and the derived precise word is set (FUN_1406b7560
+// lines 274-281). TickRequest returns the block ProcessMoveStep fills before the handler.
+TEST(MoveStepWire, AJogMoveWiresTheMoveIdAndDerivesThePreciseWord) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  // An outfield player: the home goalkeeper's move takes the keeper kind (4), which is a separate case.
+  Player* p = nullptr;
+  for (Player* q : ActivePlayers(*match)) {
+    if (q->GetFormationEntry().role != e_PlayerRole_GK) {
+      p = q;
+      break;
+    }
+  }
+  ASSERT_NE(p, nullptr) << "the match has outfield players";
+  pesmovestep::RequestStop(*p, *match);
+  PlayerCommand jog;
+  jog.desiredFunctionType = e_FunctionType_Movement;
+  jog.useDesiredTarget = true;
+  jog.desiredTarget = p->GetPosition() + Vector3(10.0f, 0.0f, 0.0f);
+  jog.desiredVelocityFloat = 3.5f;  // the dribble level: a jog (class 2) in CommandSpeedClassOf
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), jog};
+  const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
+  EXPECT_EQ(req.U(pes::moveword::kCommandId), 2u) << "cmd[0] is the MOVE action";
+  EXPECT_EQ(req.U(pes::moveword::kKind), 0u) << "an outfield move is the mid kind";
+  EXPECT_EQ(req.U(pes::moveword::kPrecise), 1u) << "the set clause: MOVE at a jog with the anime state set";
+}
+
 // A move target within 0.2 m of the root steers by the ball's sample 0 (PES's filler: DAT_142598578, 0.2 in the install;
 // pes-re-decision-read.md 2 says 0.4).
 TEST(MoveStepWire, AMoveTargetWithin20CmOfTheRootSteersByTheBall) {
