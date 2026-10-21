@@ -210,8 +210,10 @@ TEST(PesClipsInstall, TheStandbyMotionsAreInTheLocomotionSpecialSet) {
     if (clip.motionNo == 4154) standby = &clip;
   ASSERT_NE(standby, nullptr);
   EXPECT_EQ(standby->family, pes::PesClipFamily::kLocomotion);
+  auto mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
+  ASSERT_TRUE(mbinfo.has_value()) << err;
   AnimCollection anims(*rig);
-  anims.AddPesClips(*clips);
+  anims.AddPesClips(*clips, *mbinfo);
   const int locomotion = int(pes::PesClipFamily::kLocomotion);
   EXPECT_TRUE(anims.HasSpecial(locomotion, 4154)) << "HasSpecial(102, 4154) after AddPesClips";
   EXPECT_TRUE(anims.HasSpecial(locomotion, 4155)) << "HasSpecial(102, 4155) after AddPesClips";
@@ -231,8 +233,10 @@ TEST(PesClipsInstall, AMirroredLocomotionClipMirrorsRootTravelSideways) {
   ASSERT_TRUE(rig.has_value()) << err;
   auto clips = pes::LoadPesClips(*exe, vfs, &err);
   ASSERT_TRUE(clips.has_value()) << err;
+  auto mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
+  ASSERT_TRUE(mbinfo.has_value()) << err;
   AnimCollection anims(*rig);
-  anims.AddPesClips(*clips);
+  anims.AddPesClips(*clips, *mbinfo);
   const pes::PesClip* wanted = nullptr;
   for (const auto& clip : clips->clips)
     if (clip.name == "idle_0_3_run_045") wanted = &clip;
