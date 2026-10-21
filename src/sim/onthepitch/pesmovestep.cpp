@@ -518,12 +518,16 @@ void ProcessMoveStep(Player& player, Match& match) {
   // MOVESTEP runs only with pes_loop on. Off it leaves the player alone: no FSM tick, no clip, and
   // no playback write (the contact rates of match.cpp keep theirs).
   if (!match.PesLoop()) return;
-  // ponytail: PES skips MOVESTEP while a kick sets the anime phase away from 0 (pes-re-decision-read.md 3, INF; the caller
-  // check is undecoded). GF skips it while a ball action clip plays, the same precedence without the phase byte.
-  if (IsBallActionFunction(player.CastHumanoid()->GetCurrentFunctionType())) {
-    // A ball action at its last frame is over and hands the body back. Its hold (STOP or ACCELERATE) would block the
-    // end-of-clip switch (humanoid.cpp PesPoseHeld), so the FSM lets go here, and this tick's humanoid step can switch.
-    // ponytail: PES's state after a ball action is not decoded; IDLE stands in.
+  // PES runs the MOVESTEP entry only in the MOVE, STEP_MOVE, DRIBBLE_STEP_MOVE and DEMO_MOVE actions (anime ids 2, 3, 6, 74):
+  // their Update functions FUN_1407824A0, FUN_140789DD0, FUN_1407D1E60 and the thunk at 0x1407347B0 are the entry FUN_1406B8340's
+  // only callers (call sites 0x140782552, 0x140789E42, 0x1407D23A2, jump 0x1407347B6). A dodge, tackle, trap or kick owns the body
+  // in its own action, so the FSM does not tick while such a clip plays.
+  // ponytail: GF has no PES action id for the body (PES's +0xAC8). IsMovementClip stands in for "in MOVE": a Movement function,
+  // or a PES locomotion clip the FSM itself issued. Remove when the body carries its action id.
+  if (!player.CastHumanoid()->IsMovementClip()) {
+    // A clip at its last frame hands the body back. The FSM is frozen while such a clip plays, so a hold (STOP or ACCELERATE)
+    // would block the end-of-clip switch (humanoid.cpp PesPoseHeld). ponytail: PES's state after the action is not decoded; IDLE
+    // stands in.
     const Anim* clip = player.GetCurrentAnim();
     pes::MoveStepRecord& fsm = player.GetMoveStep();
     if (clip->frameNum >= clip->anim->GetFrameCount() - 1 && pes::HoldsBodyPose(fsm.state))
