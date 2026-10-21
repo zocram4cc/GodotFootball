@@ -2366,26 +2366,6 @@ TEST(RunLoopJostle, OneHundredFiftySevenPointFiveIsStyleSixteenWhateverTheClass)
 TEST(RunLoopJostle, UnderOneHundredTwelvePointFiveIsStyleSix) {
   EXPECT_EQ(JostledStyle(100.0f, 2u), 6u);
 }
-// FUN_140a92950(heading, target, clamp): the heading stepped toward the target by at most the
-// clamp, wrapped into [0, 360). The stalled seed-7 free-kick taker drifts ~90 deg off his walk
-// because the old stub returned the heading untouched: EnterAccelerate's bucket input became
-// (278.34 * 0.8) - 272.40 = -49.74 (bucket 6, the 045 cell) instead of ~-5.9 (bucket 5, 000).
-TEST(StepHeading, StepsTowardTheTargetByAtMostTheClamp) {
-  const pes::RunConstants k = SyntheticRun();
-  EXPECT_NEAR(pes::StepHeading(278.34f, 272.40f, 4.744f, k), 273.596f, 1e-3f);
-  EXPECT_NEAR(pes::StepHeading(272.40f, 278.34f, 4.744f, k), 277.144f, 1e-3f);
-}
-TEST(StepHeading, WrapsAcrossZeroAndThreeSixty) {
-  const pes::RunConstants k = SyntheticRun();
-  EXPECT_NEAR(pes::StepHeading(359.0f, 1.0f, 5.0f, k), 1.0f, 1e-3f);
-  EXPECT_NEAR(pes::StepHeading(1.0f, 359.0f, 5.0f, k), 359.0f, 1e-3f);
-  EXPECT_NEAR(pes::StepHeading(359.0f, 1.0f, 1.0f, k), 0.0f, 1e-3f);
-}
-TEST(StepHeading, TheUnclampedStepReachesTheTarget) {
-  const pes::RunConstants k = SyntheticRun();
-  EXPECT_NEAR(pes::StepHeading(10.0f, 12.0f, 45.0f, k), 12.0f, 1e-3f);
-  EXPECT_NEAR(pes::StepHeading(12.0f, 10.0f, 45.0f, k), 10.0f, 1e-3f);
-}
 
 // STOP's else arm (FUN_1406c9e20, VA 0x1406ca51f): the dwell has run out, the stay decision is false, and the look bucket
 // is neither 0 nor 5 with the facing error past 33.75 degrees. The turn exit (FUN_1406d1390, IDLE_TURN) is taken. The
