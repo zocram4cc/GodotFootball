@@ -26,7 +26,7 @@ namespace pes {
 
 // The specialvar1 families imported clips carry. Celebrations and cards use
 // 1..3 (gamedefines.hpp), so imported families start well clear of them.
-enum class PesClipFamily : int { kDodge = 100, kTackle = 101, kLocomotion = 102 };
+enum class PesClipFamily : int { kDodge = 100, kTackle = 101, kLocomotion = 102, kTrap = 103 };
 
 struct PesClip {
   std::string name;
@@ -51,6 +51,10 @@ std::optional<PesClipSet> LoadPesClips(const PeImage& exe, const PesVfs& vfs, st
 // engine's 10 ms frame.
 std::string PesClipAnimText(const PesClip& clip, const pesrig::Rig& rig);
 
+// The engine frame (10 ms) a HitData frame lands on. A hit's frame counts gani frames at 30 Hz (pesrig::PES_FRAME_S),
+// the same clock PesClipAnimText samples the clip on, so the touch and the clip's pose agree.
+int PesTouchAnimFrame(int hitFrame);
+
 // The contact action of a player whose current clip is a Special command:
 // a PES clip is the action its family names (the player carries which one in
 // his PES challenge - SetPesChallenge at the command), and every other special
@@ -60,14 +64,16 @@ inline bool IsPesClipFamily(int specialVar1) {
   return specialVar1 == int(PesClipFamily::kDodge) || specialVar1 == int(PesClipFamily::kTackle);
 }
 
-// PES's locomotion clips (the MOVESTEP handlers' rows, A-MOV). PES decides which clip plays; GF's
-// pose matching (incoming velocity, body direction, side) is the stand-in that PES does not have,
-// so it applies to the dodge and tackle families only. Locomotion clips are played as PES picked
-// them.
+// PES's locomotion clips (the MOVESTEP handlers' rows, A-MOV) and its trap clips (the action-7 rows of the
+// action-clip table, FUN_14081ff70) are played as PES picked them. GF's pose matching (incoming velocity, body
+// direction, side) is the stand-in that PES does not have, so it applies to the dodge and tackle families only.
 inline bool IsPesLocomotionFamily(int specialVar1) {
   return specialVar1 == int(PesClipFamily::kLocomotion);
 }
-inline bool PesFamilyPoseMatched(int specialVar1) { return !IsPesLocomotionFamily(specialVar1); }
+inline bool IsPesTrapFamily(int specialVar1) { return specialVar1 == int(PesClipFamily::kTrap); }
+inline bool PesFamilyPoseMatched(int specialVar1) {
+  return !IsPesLocomotionFamily(specialVar1) && !IsPesTrapFamily(specialVar1);
+}
 
 inline ContactAction SpecialClipAction(int specialVar1, ContactAction challenge) {
   return IsPesClipFamily(specialVar1) ? challenge : ContactAction::kOther;

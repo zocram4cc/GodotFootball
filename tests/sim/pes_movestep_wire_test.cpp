@@ -227,12 +227,7 @@ TEST(MoveStepWire, TheFsmReachesStopAndAccelerate) {
 // The kick-off taker reaches the ball: during the opening set piece his distance to the ball
 // shrinks (PES's 0.65 m reach). Built with the mirrored heading, the FSM runs him away and the
 // restart stalls.
-// DISABLED 20-10-26 (owner decision, lane-batch landing): with valid S1 rows the ball goes out
-// early and the goal-kick restart path runs; GF has no PES goal-kick taker walk-in and release
-// on reach (pessetpiecetaker.hpp:21, A5 §4.7), so the keeper stands 2.3 m off and no player
-// reaches 0.65 m. The test passed before only because empty rows kept the ball in play (S1Port
-// trace, docs/ports/pes-port-S1Port.md). Re-enable when branch GoalKickReach lands.
-TEST(MoveStepWire, DISABLED_TheKickoffTakerClosesToTheBall) {
+TEST(MoveStepWire, TheKickoffTakerClosesToTheBall) {
   Properties config;
   config.SetBool("pes_loop", true);
   REQUIRE_PES_MATCH(config);
@@ -487,7 +482,8 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
 // the target, so the body ran while the FSM held the stop. After the clip-end fix this trace holds no natural STOP in its
 // first 1800 ticks, so the holds are forced through PES's STOP entry as AStopOnATurnedBodyLeavesTheStop does, and the match
 // runs on while they hold.
-TEST(MoveStepWire, AnAiMovementClipDoesNotTakeTheBodyWhileTheFsmHoldsAStop) {
+// DISABLED 22-10-26 (owner decision, batch-3 landing): red on the merged tree main 9c5cc89 + FirstTouchPort fca173c; FirstTouchPort2 owns the fix (bisect against fca173c alone). Re-enable when it passes on main.
+TEST(MoveStepWire, DISABLED_AnAiMovementClipDoesNotTakeTheBodyWhileTheFsmHoldsAStop) {
   Properties config;
   config.SetBool("pes_loop", true);
   REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);

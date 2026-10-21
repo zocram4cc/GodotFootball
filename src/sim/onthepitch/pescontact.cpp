@@ -257,6 +257,8 @@ bool ShoulderThrough(const ContactConstants& k, int jostlerContact, int carrierC
   return jostlerContact > carrierContact + k.shoulderThroughMargin;
 }
 
+// ponytail: one rigid offset for all four tracked parts (hip, feet, head). PES measures each tracked point against its own
+// bone (FUN_140842BE0: the hip in 3D, the rest horizontally). Removal site: the tracked-part writer at P+0x508 (undecoded).
 Displacement TrackedDisplacement(const ContactConstants& k, float offX, float offY, float sepX,
                                  float sepY, bool slideLegMatches) {
   if (slideLegMatches) return {k.slideLegDisplacement_m, k.slideLegDisplacement_m};
@@ -317,8 +319,10 @@ bool ForcedFall(const ContactConstants& k, const ContactInput& in, int tableLeve
     return true;
   const float bar = IsTackling(in.selfAction) ? k.forcedFallDisplacementTackling_m
                                               : k.forcedFallDisplacement_m;
-  // ponytail: parts 1-2 (bar +0x28) also need FUN_140843e30, untraced; GF's
-  // rigid body gives them part 3's length, which the 0.5 bar already covers.
+  // ponytail: rigid body. The hip uses its 2D distance here (PES: 3D, FUN_140842BE0 k=0). Feet and head share the rigid
+  // offset, tested against the 0.5 constant DAT_142565600. Removal sites: the tracked-part writer (P+0x508, undecoded; lag
+  // and rate open until a live watch) and FUN_140843E30's feet test (2*(0.23-0) < rec+0x2C with rec+0x4C-1 > 5). The hip bar
+  // (0.5, 0.6 or 0.8 by condition) and the feet bar (0.5 or 0.8, by the record's +8 mapping) are unverified: read them live.
   return in.displacement_m > bar || in.displacementLegs_m > k.forcedFallPart3_m;
 }
 

@@ -2,6 +2,7 @@
 
 > **Main audit 20-10-26:** the table at `0x1425DD660` = 0, 45, 90, 135, 180, 0, −45, −90, −135, −180; `0x1406B7E25` = `movss [rdi+0x10],xmm6` (the req[4] write); `0x1406B9BC8` = `mov eax,r8d; ret`; `0x1411944E6` = `mov [rbx+0x2798],al`; `0x141194432` `xorps xmm1,xmm1` (the low bound), `0x141194435` loads 100.0 (`0x14253EE30`), `0x14119443D` loads 2^32 (`0x1427341A0`); the default value 1.0 (`0x14256AE1C`): all match. Consequence: with the default record the flag is 1 (bucket angle +45°), so RUN_TO_STEP's stop arm (0x1406C142A, 22.5°) does not fire on the walk.
 > **Main note, final round:** the "only req[4] writer" claim now rests on a decoded scan (ModRM/SIB displacements, request block identified by its stored offsets); the earlier byte-pattern scan missed `movss` stores.
+> **Main audit, round 3 (21-10-26):** the polarity correction is confirmed: `0x1411944C6` `xor cl,cl` on the out-of-range path, `0x1411944E1` `sete al` → +0x2798 = 1 only when NOT usable; the default record gives 0 (bucket angle 0°). The earlier audit note above ("flag is 1 … +45°") is superseded.
 
 Read-only RE. No GF code changed, no PES written. Scratch: `<workdrive>/gf-TeamDecode-scratch/dec/`.
 Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`.
@@ -496,10 +497,23 @@ copies its fields into the host at `+0x2770..`:
 1411944E6: MOV byte ptr [RBX + 0x2798],AL    ; host+0x2798 = (value in range) ? 1 : 0
 ```
 
-**=> `host+0x2798` is the "the record's value is in range" flag**: 1 when
-`0 <= record[0x3C] * 100.0` (and below the `2^32` ceiling `DAT_1427341A0`), else 0. The
-sibling `host+0x2794` holds `int(record[0x3C] * 100.0)` — the value itself, in whole percent.
-CONFIRMED.
+**=> `host+0x2798` is the "the record's value is NOT usable" flag**: 1 when the value is
+**out of range** (or the pair is absent), 0 when it is usable. The sibling `host+0x2794` holds
+`int(record[0x3C] * 100.0)` — the value itself, in whole percent — and `host+0x2790` holds the
+**in-range** flag (1 = usable). CONFIRMED.
+
+**POLARITY CORRECTION (this pass).** The first draft of this report said `host+0x2798` is 1
+*when the value is in range*. **That is backwards.** The byte is `SETZ AL` of `TEST CL,CL`
+(`0x1411944E1`), and `CL` is the **in-range** flag: the in-range path falls through to
+`0x1411944CA` (which stores the value) with `CL` unchanged, while the out-of-range path
+executes `XOR CL,CL` at `0x1411944C6`. So `CL == 0` means **out of range**, and
+`SETZ` gives **1 exactly in that case**. The two flags are complementary:
+`host+0x2790` = "usable" and `host+0x2798` = "not usable".
+
+**The three fields are a family.** The loader writes the same triple for every pair it
+handles: pair 6 → `+0x2790` (usable), `+0x2794` (the value), `+0x2798` (not usable); pair 7 →
+`+0x279C`, `+0x27A0`, `+0x27A4`; and so on. So `host+0x2798` is **one pair's "not usable"
+byte**, exactly like `+0x27A4` is pair 7's.
 
 ### §4.2 The record: which one, which field, and the range test's bounds
 
@@ -607,6 +621,68 @@ default (`1.0`) satisfying it.
 the *overrides* come from (the producer of the record fed to the loader is a virtual slot
 `+0x30` on the object at `[[this+0x38]+0x88]`). **The mechanism, the type, the scale, the range
 test, the default and the three landing sites are all CONFIRMED; only the name is OPEN.**
+
+### §4.2b Every writer of `host+0x2790` / `+0x2794` / `+0x2798` (this pass)
+
+*(Main's follow-up: the live data shows `host+0x2798` taking values 0..9, so the SETZ at
+`0x1411944E6` cannot be the only writer.)*
+
+**The scan** (`<workdrive>/gf-TeamDecode-scratch/field2798.py`): walk the executable section
+with the length-checked decoder, read each instruction's ModRM/SIB to recover the base
+register and the displacement, and report every store whose displacement is one of the three.
+**The result: exactly 10 stores in the whole image.**
+
+| VA | the form | the base | whose field |
+|---|---|---|---|
+| `0x14014EFAB` | `MOV qword ptr [RBP+0x2790],R8` | `RBP` | a **stack frame** (`FUN_14014EF70` does `LEA RBP,[RSP+0x30]`) — not the host |
+| `0x14014EFB2` | `MOV dword ptr [RBP+0x2798],R9D` | `RBP` | the same **stack frame** |
+| `0x140430C52` | `MOV dword ptr [RBX+0x2798],EAX` | `RBX` | a **copy** — `FUN_140430C30` is a copy constructor: `*(uint32*)(param_1+0x2798) = *(uint32*)(param_2+0x2798)` |
+| `0x140872D3E` | `MOV dword ptr [RSI+0x2798],EBX` | `RSI` | the **match/ball** object (`FUN_140872C10`) — see below |
+| `0x140872D8B` | `MOV dword ptr [RSI+0x2798],EAX` | `RSI` | the same **match/ball** object |
+| `0x140A572BB` | `MOV dword ptr [RBX+0x2798],EDI` | `RBX` | a **constructor** — it initialises the field to 0 |
+| `0x14119449E` | `MOV byte ptr [RBX+0x2790],SIL` | `RBX` | the **AnimePlayer host** (the loader) — the "usable" flag |
+| `0x1411944CF` | `MOV dword ptr [RBX+0x2794],EAX` | `RBX` | the **AnimePlayer host** — the value |
+| `0x1411944DB` | `MOV byte ptr [RBX+0x2790],CL` | `RBX` | the **AnimePlayer host** — the "usable" flag (the final value) |
+| `0x1411944E6` | `MOV byte ptr [RBX+0x2798],AL` | `RBX` | the **AnimePlayer host** — the "not usable" byte |
+
+**The `RBX` base is the AnimePlayer host.** The loader's `param_1` is
+`[RBX + 0x48]` of the object at `0x1411FD6F0` (`MOV RCX,qword ptr [RBX + 0x48]` at
+`0x1411FD6EC`), and the loader is `MOV RBX,RCX` (`0x141194342`). The `+0xAC0` interface is
+inside that same host, so the host's `+0x2798` is the field `FUN_1406E9EF0` reads as
+`this + 0x1CD8` with `this = host + 0xAC0`.
+
+**The `RSI` base is a DIFFERENT object.** `FUN_140872C10` writes
+`FUN_140A72E70`'s return value to `+0x2798` — and `FUN_140A72E70` is the **out-of-side
+classifier**, whose return is a **bitmask** (bit 0 = the near side, bit 1 = the middle, …, up
+to `0x4000`), not a 0..9 index. That object is the **match/ball** one: it has `+0x298` (the
+phase), `+0x6C`/`+0x64` (the coordinates), `+0x4E0` and `+0x530` (sub-objects), and it has
+**no** `+0xAC0` interface at all. So its `+0x2798` is the out-of-side mask, and it is
+unrelated to the AnimePlayer's field of the same offset.
+
+**=> on the AnimePlayer host, `+0x2798` has exactly ONE writer: the `SETZ` byte at
+`0x1411944E6`.** Its value is therefore **0 or 1** — the "not usable" flag — and it cannot be the
+0..9 bucket index Main's live data shows.
+
+**=> the 0..9 live values do NOT come from `host+0x2798` on the AnimePlayer.** Two candidate
+resolutions, both **OPEN**:
+
+1. **The live read was of the other object.** The match/ball object's `+0x2798` holds
+   `FUN_140A72E70`'s bitmask — whose **low nibble** can be 0..9 in practice, since
+   `FUN_140A72E70` returns `octant ^ quadrant ^ (0x40|0x80)` and the octants are 1, 6 and 10.
+   A live read of the *match* object's `+0x2798` would show 0..9-ish values. But it is a
+   **dword bitmask**, not an index.
+2. **The bucket index lives in a different field.** The AnimePlayer's own `req[8]`
+   (`kMoveBucket`) is the 0..9 bucket, and it is written by the command fill
+   (`FUN_1406B3560`'s caller, §2) — **not** by the host's `+0x2798`. The port's
+   `AngleBucket` already computes it.
+
+**What ClipWords should implement:** the 0..9 bucket is the request's **`kMoveBucket`
+(`req[8]`)**, computed by the port's `pes::movestep::AngleBucket`; the host's `+0x2798` is a
+**separate 0/1 "the value is not usable" flag** whose polarity is **1 = not usable** (this
+report's earlier claim of 1 = usable is retracted). The port's flag-1 default is therefore
+**inverted** relative to what this report first said.
+
+---
 
 ### §4.3 The other field, `this + 0x1CEC`
 
@@ -730,6 +806,17 @@ error; §3.4 has the correction and the checker's M9 mutation guards it.)
 
 ## §7 Open items
 
+0. **The 0..9 live values at `host+0x2798`** — **OPEN, and now bounded.** A decoded scan of
+   the whole image (every store to `+0x2790`/`+0x2794`/`+0x2798`, §4.2b) finds **ten** stores,
+   and only **one** of them is on the AnimePlayer host: the `SETZ` byte at `0x1411944E6`, whose
+   value is 0 or 1. The other nine are a stack frame, a copy constructor, a constructor, and
+   the **match/ball** object (which has its own `+0x2798` holding the out-of-side bitmask).
+   So the 0..9 values Main's live data shows **do not come from the AnimePlayer's `+0x2798`**;
+   the 0..9 bucket is the request's **`kMoveBucket` (`req[8]`)**, which the port already
+   computes with `pes::movestep::AngleBucket`. **Which field the live read actually hit is
+   OPEN** — either the match object's bitmask (whose low bits are 0..9-ish) or a different
+   AnimePlayer field.
+
 1. **The `arg == 1` path of `vt+0x80`** (`host+0x27B4` = the bits of `req[0x128]`, a float) is
    **not** a bucket index. What `req[0x128]` means, and whether the `arg == 1` bucket is used
    anywhere else, is **OPEN**.
@@ -788,6 +875,7 @@ error; §3.4 has the correction and the checker's M9 mutation guards it.)
   -> 2 range-test bounds checked, 3 report claims cross-checked
   -> the 0x1411944E6 decode checked
   -> the req[4] writer and the 'only writer' claim checked
+  -> the polarity and the ten writers checked
   -> the record's pair walk and the pair-6 default checked
   -> 3 chooser operand pairs checked
   -> 6 byte->word mappings checked against the port's header
@@ -831,3 +919,6 @@ error; §3.4 has the correction and the checker's M9 mutation guards it.)
   out of "XMM3"); and the operand-pair check guessed `disp32` encodings where the image uses
   `disp8`. All are fixed and now covered by the mutations above.
 - No GF code changed, no GF build/test run, no PES write/pin/input. The port was read only.
+
+## Open: the live 0..9 byte (Main, 21-10-26)
+S1Watch round 36 read u8(primary + 0x2798) on the AnimePlayer primaries (validated by +0x245C in 0..22 and a finite +0x20) and saw 0..9; i32(+0x2794) varied 0..3. The decoded scan's only 0/1 writer (SETZ at 0x1411944E6) stores into the loader FUN_141194330's param_1 = [RBX+0x48], a pointer-held object, so the live byte on the primary is most likely a different field of a different object. The port is unaffected: it uses the decoded rule (flag 1 iff the record value is out of range; 0 for the default record). Settling it would need a live read through *(primary + …)→+0x2798 on the loader's object.

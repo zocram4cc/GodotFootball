@@ -237,6 +237,23 @@ struct RunWorld {
 // The opponents of `id` in his NearestList, nearest first (PES's rank 0 is the first; pes-re-teamctx.md §2.3).
 std::vector<NearOpponent> NearestOpponents(const RunWorld& w, int id);
 
+// FUN_140500200's quota constants and the ahead gate's (FUN_140A4F230). Each is the operand its
+// instruction reads, at the VA in its comment; OffBallQuotaInstall pins them to PES2021.exe.
+inline constexpr int kQuotaAllFromLevel = 4;         // CMP EBX,imm8 at 0x140500232: level >= 4 admits all
+inline constexpr int kQuotaNeed[4] = {0, 2, 4, 6};   // MOV byte [RSP+0x20],imm8 at 0x140500321/31A/313/30C
+inline constexpr float kQuotaNearEdge_m = 10.0f;     // 0x142588210 (0x14050059B)
+inline constexpr float kQuotaFarEdge_m = 25.0f;      // 0x14259BE20 (0x1405005AE)
+inline constexpr float kQuotaFalloff_m = -15.0f;     // 0x14259D668 (0x1405005B9)
+inline constexpr float kQuotaNearBonus_m = 5.0f;     // 0x14259222C (0x1405005C2)
+inline constexpr float kQuotaSideTerm_m = -3.0f;     // 0x14259D654 (0x1405005CB)
+inline constexpr float kForwardStampScore = -100.0f; // MOV dword [..],imm32 0xC2C80000 at 0x140500693
+inline constexpr float kTurnThreshold_deg = 15.0f;   // 0x14259BE0C (0x1405004F0)
+inline constexpr float kAheadBehindBall_m = 1.5f;    // 0x14259BDDC (0x140A4F2E5)
+inline constexpr float kAheadBackClamp_m = 7.0f;     // 0x14259BDF0 (0x140A4F39E)
+inline constexpr float kAheadWindowFront_m = 5.0f;   // 0x14259222C (0x140A4F3D2)
+inline constexpr float kAheadWindowBack_m = 12.0f;   // 0x14259BE04 (0x140A4F3DB)
+inline constexpr float kAheadLateral_m = 52.0f;      // 0x1425CDAA0 (0x140A4F3E4)
+
 // FUN_140500200: T+0xb8b8, the slots of `team` the Chance mask may take, by
 // attack level (decompiled for this port).
 uint32_t AttackSlotMask(const RunWorld& w, int team, int attackLevel);

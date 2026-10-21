@@ -33,6 +33,14 @@ constexpr unsigned kSubKindOneCSpan = 3;
 
 }  // namespace
 
+bool ContestBallPredicate(const ContestInput& in) {
+  if (!in.holderValid) return false;     // FUN_1404F4BE0: an id above 21 returns 0 (asm 4BF3)
+  if (in.teamHasBall) return false;      // the holder's side already has the ball (asm 4C8D)
+  if (!in.otherHeadValid) return false;  // the other side's head must be on the pitch (asm 4DA2)
+  // The arrival test (asm 4FA5-4FC0): our arrival plus the budget is later than theirs.
+  return in.budget_frames + in.holderArrival_frames > in.otherArrival_frames;
+}
+
 bool TeamPossessionLatch(const PossessionLatchInput& in) {
   // Rule R first: restart state 3, or state 2 with the gate shut.
   const bool restartRule =

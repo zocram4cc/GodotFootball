@@ -45,6 +45,9 @@ struct Rig;
 #include "pesclips.hpp"
 #include "pesdodge.hpp"
 #include "pestackle.hpp"
+// PES 2021's presser picker (docs/re/pes-re-press-layer-port.md) and the
+// loose-ball PRESS chase (docs/re/pes-re-press-life.md).
+#include "pespress.hpp"
 #include "pesstrategy.hpp"
 #include "pesteamconcepts.hpp"
 #include "pessubs.hpp"
@@ -167,6 +170,11 @@ struct MatchSetup {
   // PES 2021's MOVESTEP machine (docs/re/pes-re-anim-select.md): the install constants its
   // handlers read, loaded from the install by the caller. Required: without them a player has no FSM.
   const pes::MoveStepConstants* pesMoveStepConstants = nullptr;
+  // PES 2021's presser picker and loose-ball PRESS chase (docs/re/pes-re-press-life.md):
+  // the pick score, the candidate radius, the speed-class cuts and the
+  // ActionPress target rule, read from the install's exe. Required: without
+  // them no side can send a man to a loose ball.
+  const pes::PressConstants* pesPressConstants = nullptr;
 };
 
 #endif

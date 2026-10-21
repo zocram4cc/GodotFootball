@@ -1099,7 +1099,7 @@ BucketDone:;
   }
   const int rowId = int(tables.kindBandRow[kind + band * 8]);
   const MoveCell cell = host.Cell(rowId, int(tables.bucketColumn[bucket]), false);
-  const int motion = cell.found ? cell.motionNo : rowId;
+  const int motion = cell.motionNo;  // FUN_1406ABB30: -1 for an empty cell, never the row id
   // ponytail: PES reads the mirror and the blend from the interface's own answers
   // (vt+0x30 with FUN_140a62960's sameness, and vt+0xd0's motion-record walk); GF has neither
   // record, so the mirror is the table's left flag and the blend the default.
@@ -1467,9 +1467,14 @@ void TurnStop(MoveHost& host, MoveReq& req) {
       const int band = host.BandSpeedKmh(int(req.F(moveword::kRate)), host.PhysiqueG());
       req.SetU(moveword::kClassWord, uint32_t(band));
       req.SetF(moveword::kBandSpeed, host.RateCeiling() * k.s0p6 * k.kmh3p6);
-      const int footBand = host.FootBand();
+      // PES FUN_1406cab20 (0x1406CB35D-0x1406CB46A): the step clip is FUN_1406ABB30's cell, at the row
+      // DAT_1425dd9b0[kind + band * 8] and the column DAT_1425dd988[the move bucket]. An empty cell answers -1, which PES
+      // issues as it is; the foot band is never a motion.
+      const int stepRow = int(tables.kindBandRow[kind + std::max(band, 0) * 8]);
+      const int moveBucket = std::clamp(int(req.U(moveword::kMoveBucket)), 0, 9);  // the install's 10 buckets
+      const MoveCell stepCell = host.Cell(stepRow, int(tables.bucketColumn[moveBucket]), false);
       pes::MotionRequest request;
-      request.motion = footBand;
+      request.motion = stepCell.motionNo;
       request.mirror = (foot - 1u) < 2;
       host.Issue(request);
       return;
@@ -1575,7 +1580,7 @@ void TurnStop(MoveHost& host, MoveReq& req) {
         speed = std::fabs(req.F(moveword::kBandSpeed));
       const int rowId = int(tables.kindBandRow[kind + bandNow * 8]);
       const MoveCell cell = host.Cell(rowId, int(tables.bucketColumn[bucket]), false);
-      const int motion = cell.found ? cell.motionNo : rowId;
+      const int motion = cell.motionNo;  // PES FUN_1406ABB30: -1 for an empty cell, never the row id
       req.SetU(moveword::kMoveBucket, uint32_t(bucket));
       req.SetU(moveword::kPrevClassWord, req.U(moveword::kClassWord));
       req.SetU(moveword::kBandSpeedCopy, uint32_t(speed));
@@ -1649,13 +1654,16 @@ void TurnStop(MoveHost& host, MoveReq& req) {
         float left[3], right[3];
         host.PositionAt(3, left);
         host.PositionAt(6, right);
-        const int row = host.PickN(2);
-        req.SetByte(moveword::kMirror, row == 1 ? 1 : 0);
+        const int footPick = host.PickN(2);  // the left/right foot pick: the mirror only, never a motion
+        req.SetByte(moveword::kMirror, footPick == 1 ? 1 : 0);
         req.SetU(moveword::kDwellLimit, 0);
         req.SetU(moveword::kDwellLimit2, 0);
         req.SetByte(moveword::kStyle, 0);
+        // PES's stop motion is the IDLE row's cell at column 9, read as STOP's IDLE arm reads it (FUN_1406b93a0's row).
+        const int idleRow = kind < 8 ? IdleRow(host, req) : 0x5a1;
+        const MoveCell idleCell = host.Cell(idleRow, 9, false);
         pes::MotionRequest request;
-        request.motion = row;
+        request.motion = idleCell.motionNo;
         host.Issue(request);
         req.SetF(moveword::kRate, kRateMid);
         return;
