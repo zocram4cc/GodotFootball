@@ -2,7 +2,7 @@
 # Landing gate: build, the full ctest suite and both 20-minute seed-7 smokes (switch-off and
 # --pes-loop), with the smokes running in parallel with the suite. One summary at the end.
 # Usage: PES21_ROOT=<PES 2021 install root> tools/dev/gate.sh [build-dir]
-#   GATE_JOBS (default 6) sets ctest -j; the suite's floor is its longest test (the 20-min restart
+#   GATE_JOBS (default 4) sets ctest -j; the suite's floor is its longest test (the 20-min restart
 #   test, ~14 min), so more jobs only help while cores are free. Logs go under <build-dir>/gate.*.
 #   The suite and the smokes run under the shared sim lock, so concurrent gates queue instead of
 #   oversubscribing the machine.
@@ -10,7 +10,7 @@ set -euo pipefail
 : "${PES21_ROOT:?set PES21_ROOT to the PES 2021 install root}"
 repo=$(git rev-parse --show-toplevel)
 build=${1:-$repo/build}
-jobs=${GATE_JOBS:-6}
+jobs=${GATE_JOBS:-4}
 lock=${GF_SIM_LOCK:-$(dirname "$repo")/gf-sim.lock}  # worktrees and the main checkout share a parent
 save=$(find ~/Documents/KONAMI/'eFootball PES 2021 SEASON UPDATE' -name EDIT00000000 2>/dev/null | head -1)
 
