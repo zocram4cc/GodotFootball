@@ -28,10 +28,17 @@ All rates are per 20 in-play match minutes; frames are 54 Hz logic frames (GF's 
 GF runs: `gfsim_run --db-sql assets/fixtures/teams.sql --home 1 --away 2 --minutes 20 --pes-loop --pes21-root <PES21>`
 at seeds 7, 11 and 23; report the mean and the min..max over the three seeds.
 
+Run: `GF_SIM_LOCK=<shared lock> tools/dev/parity.py --pes21-root <PES21> [--record <SHA>]`, after `build/apps/gfsim_run`
+is built. Each seed runs with `--parity-log`, a read-only observer that prints the state, STOP, restart and action
+lines; it writes nothing back, so the determinism hash is the same with and without it. Counts are per 20 in-play
+minutes (the clock's own ticks). Both teams are summed.
+
 ## PES baseline
 
 S1Watch round 36, live: /biz/ vs /xs/, Akihabara denki-gai, endless-match patch (`tools/dev/pes_endless_match.py`).
 One match, so treat it as one sample, not a distribution.
+
+Fill one row per metric, `|M3|142 (n=9)|notes|` (the first number is the value). M1 and M2 take one row per state, `|M1:8|4.2|notes|`.
 
 |id|PES value|notes|
 |---|---|---|
