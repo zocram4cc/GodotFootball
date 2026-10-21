@@ -163,18 +163,25 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       const Vector3 spot = team->GetController()->GetPieceWalkTarget();
       const Vector3 toSpot = (spot - player->GetPosition()).Get2D();
       command.desiredDirection = toSpot.GetNormalized(player->GetDirectionVec());
-      // ponytail: PES's run speed (the MOVE speed class, cmd[0x17]) is not decoded. The approach closes at 2 x the gap,
-      // snapped up to a movement level (FloorVelocity): a speed off the level table is class none, which reads as TURN_STOP
-      // with the precise target set (ClipWords, RUN_LOOP's no-class rule), and the taker stopped short of the spot.
-      // He stands once he is within the lift radius.
-      const float gap = toSpot.GetLength();
-      command.desiredVelocityFloat = gap <= match->GetPesRestartSpotConstants().throwInCarryStop_m
-                                         ? idleVelocity
-                                         : FloorVelocity(pes::kPieceTakerApproachGain * gap);
+      if (team->GetController()->GetSetPieceType() == e_SetPiece_GoalKick) {
+        // The goal kick keeper walks as the goal-kick port has him: no precise target, the approach at the gain up to the
+        // sprint. A precise target from a stopped body turned him in the 2-minute pes-loop smoke (the goal-kick stall).
+        // ponytail: PES's run speed (the MOVE speed class, cmd[0x17]) is not decoded; the sprint is the ceiling.
+        const float approach = pes::kPieceTakerApproachGain * toSpot.GetLength();
+        command.desiredVelocityFloat = approach < sprintVelocity ? approach : sprintVelocity;
+      } else {
+        // The throw-in carrier closes at 2 x the gap, snapped up to a movement level (FloorVelocity): a speed off the level
+        // table is class none, which reads as TURN_STOP with the precise target set (ClipWords, RUN_LOOP's no-class rule).
+        // He stands once he is within the lift radius.
+        const float gap = toSpot.GetLength();
+        command.desiredVelocityFloat = gap <= match->GetPesRestartSpotConstants().throwInCarryStop_m
+                                           ? idleVelocity
+                                           : FloorVelocity(pes::kPieceTakerApproachGain * gap);
+        command.useDesiredTarget = true;
+        command.desiredTarget = spot;
+      }
       command.useDesiredLookAt = true;
       command.desiredLookAt = match->GetBall()->Predict(0).Get2D();
-      command.useDesiredTarget = true;
-      command.desiredTarget = spot;
       commandQueue.push_back(command);
       return;
     }
