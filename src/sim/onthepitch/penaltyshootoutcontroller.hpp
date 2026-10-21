@@ -1,6 +1,6 @@
-// Runs the penalty shootout during e_MatchPhase_Penalties: picks takers, rolls
-// each kick through PenaltyShootout, narrates the outcome and decides the match.
-// See TECHNICAL_ROADMAP.md section 3C.
+// Runs the penalty shootout during e_MatchPhase_Penalties: picks takers, aims each
+// kick by PES's penalty scatter, narrates the outcome and decides the match. The
+// verdict is what the ball does (ObserveKick). See TECHNICAL_ROADMAP.md section 3C.
 
 #ifndef _HPP_PENALTY_SHOOTOUT_CONTROLLER
 #define _HPP_PENALTY_SHOOTOUT_CONTROLLER
@@ -40,8 +40,9 @@ public:
   bool IsKeepingKick(int teamID) const { return IsKickLive() && state.shootingTeam != teamID; }
   float GetAimY() const { return aimY; }
   float GetAimPower() const { return aimPower; }
-  // Outcome rolled from the stats before the current kick; the aim is built to show it.
-  PenaltyShootout::e_Outcome GetPlannedOutcome() const { return plannedOutcome; }
+  // The kick's height aim (m). ponytail: no strike reads it yet. The taker's touch direction
+  // is built with z = 0 in elizacontroller.cpp (shootout branch); that is where it goes.
+  float GetAimHeight() const { return aimHeight; }
   // Every kick in the shootout is taken at the same end, as in a real shootout.
   float GetGoalX() const;
 
@@ -69,8 +70,9 @@ protected:
   // Which players have already taken a kick this round, per team.
   unsigned int takenMask[2];
   unsigned long kickStartTime_ms;
-  // Placement and weight of the current kick.
+  // Aim of the current kick (goal-line lateral and height, metres) and its weight.
   float aimY;
+  float aimHeight;
   float aimPower;
   // Match score at the start of the shootout; shootout kicks do not change it.
   int baseScore[2];
@@ -80,8 +82,6 @@ protected:
   // Whether the taker has actually struck the ball yet. Until he has, the ball
   // sitting still on the spot must not be read as a kick that has finished.
   bool ballStruck;
-  // Outcome rolled from the two players' stats before the kick is taken.
-  PenaltyShootout::e_Outcome plannedOutcome;
   // Side of the pitch the shootout is held at (-1 or 1), drawn at the start.
   int shootoutEndSide;
   Player* currentTaker;

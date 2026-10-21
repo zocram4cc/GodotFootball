@@ -1,12 +1,14 @@
-// Penalty shootout: a stat-driven resolution ("dice roll") plus the shootout
-// state machine. Outcomes are decided from player attributes and caller-supplied
-// random samples, so the visuals can simply play the animation that matches.
-// See TECHNICAL_ROADMAP.md section 3C.
+// Penalty shootout: the shootout's state machine and the verdict classifier. A kick is
+// aimed by PES's kick-kind-54 scatter (pespenaltyscatter.hpp); the ball's flight and the
+// keeper decide the outcome. See TECHNICAL_ROADMAP.md section 3C.
 
 #ifndef _HPP_PENALTY_SHOOTOUT
 #define _HPP_PENALTY_SHOOTOUT
 
 #include <vector>
+
+#include "pesrandom.hpp"
+#include "pespenaltyscatter.hpp"
 
 namespace PenaltyShootout {
 
@@ -24,33 +26,8 @@ enum e_Outcome {
   e_Outcome_Miss,
 };
 
-struct Shooter {
-  float vision = 0.5f;  // mental_vision
-  float shot = 0.5f;    // technical_shot
-};
-
-struct Keeper {
-  float reflexes = 0.5f;   // gk_reflexes: getting down to it
-  float awareness = 0.5f;  // gk_awareness: reading the kick
-};
-
-// Point the shooter is aiming at, relative to the centre of the goal line:
-// x is lateral (positive to the shooter's right), z is height.
-struct Aim {
-  float x = 0.0f;
-  float z = 0.0f;
-};
-
 // Regulation kicks per team before sudden death.
 const int regulationKicks = 5;
-// Height the ball is aimed at with a neutral sample.
-const float aimCentreHeight = 1.0f;
-// Best case lateral spread of the accuracy cone, in metres.
-const float minAimSpread = 2.0f;
-// Additional spread for a shooter with no vision or technique.
-const float maxExtraAimSpread = 4.0f;
-// A keeper can never be certain, however good he is.
-const float maxSaveChance = 0.55f;
 
 // What the engine reports about a kick that is being played out.
 struct KickObservation {
@@ -78,16 +55,20 @@ struct State {
   e_Outcome lastOutcome = e_Outcome_Pending;
 };
 
-// `lateralSample` and `heightSample` are expected in [-1, 1].
-Aim CalculateAim(const Shooter& shooter, float lateralSample, float heightSample);
-bool IsOnTarget(const Aim& aim);
+// PES's kick-kind-54 aim for one penalty, in goal-line coordinates: the lateral is
+// along the goal line from its centre, the height is up, both in metres, and the
+// radius is the scatter's bound on the jitter.
+struct KickAim {
+  float lateral_m = 0.0f;
+  float height_m = 0.0f;
+  float radius_m = 0.0f;
+};
 
-// Probability the keeper reaches this kick.
-float GetSaveChance(const Keeper& keeper, const Aim& aim);
-
-// `keeperSample` is expected in [0, 1).
-e_Outcome ResolveKick(const Shooter& shooter, const Keeper& keeper, float lateralSample,
-                      float heightSample, float keeperSample);
+// The taker's aim for one kick: the base point moved by the scatter. `taker` holds his
+// abilities, card and charge and the goal's post and bar; the jitter draws from his own
+// generator (pes::Random slot 2).
+KickAim AimPenaltyKick(const pes::PenaltyScatterConstants& k, pes::Random& rng,
+                       const pes::PenaltyScatterInput& taker);
 
 // Classifies a kick from what actually happened on the pitch. Returns
 // e_Outcome_Pending while the ball is still live.
