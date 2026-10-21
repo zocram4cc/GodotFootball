@@ -319,14 +319,20 @@ TEST(MoveStepWire, APlayedClipAdvancesAndIsNotRestartedByItsOwnMotion) {
     // The clip is the Animation the humanoid's Anim struct holds: the struct is one object per player.
     std::vector<const Animation*> before;
     std::vector<int> frameBefore;
+    std::vector<int> placementBefore;
     for (Player* p : ps) {
       const Anim* a = p->GetCurrentAnim();
       before.push_back(a ? a->anim : nullptr);
       frameBefore.push_back(a ? a->frameNum : 0);
+      placementBefore.push_back(p->CastHumanoid()->GetPlacementCount());
     }
     match->Process();
     for (size_t i = 0; i < ps.size(); ++i) {
       const Anim* a = ps[i]->GetCurrentAnim();
+      // GF's set-piece placement (Referee::PrepareSetPiece -> Match::ResetSituation -> PlayerBase::ResetSituation ->
+      // HumanoidBase::ResetPosition) takes the body off its clip; the clip is issued again from frame 0. That tick says
+      // nothing about a clip that stayed on the body, so it is skipped for that player only.
+      if (ps[i]->CastHumanoid()->GetPlacementCount() != placementBefore[i]) continue;
       if (!a || !a->anim || a->anim != before[i] || PlayedOf(ps[i]).family != LocomotionFamily()) continue;
       ++sameClip;
       if (a->frameNum > frameBefore[i]) ++advanced;

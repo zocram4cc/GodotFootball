@@ -15,7 +15,7 @@ Command block: cmd+0x14 = look point A (x, y, z at +0x14, +0x18, +0x1c); cmd+0x2
 | [0x11] | horizontal distance origin to B | B = cmd+0x20 | 0x1406b786c CALL 0x140a8f860 (RDX = B, RCX = origin), store [RDI+0x44] |
 | [0x12] | = [0x11] when byte cmd+0x6c is 0 | else distance to point list cmd+0x68 | 0x1406b7893..0x1406b78b1 |
 | [3] | bearing of A minus origin, deg | A = cmd+0x14 | 0x1406b7c36 CALL 0x140a92d40 |
-| [4] | body direction = facing + bucket angle | vt+0x80 choice (cVar5), table DAT_1425dd660 | 0x1406b7c83, store 0x1406b7e25 |
+| [4] | body direction = wrap360(DAT_1425dd660[flag] + facing), the flag from the record rule (BodyBucketFlag) | ported: centre table from the install (AngleBucketConstants.centre), FoldFull wrap. Flag = 1 for the default producer value 1.0 (FUN_14119D380). OPEN: the per-player record source (flag write 0x1411944E6, loader FUN_141194330). The continuous body turn (0x1406B798C, state-byte override 0x1406B7CA7) is not ported | 0x1406b7c83 (vt+0x80 choice), store 0x1406b7e25 |
 | [5] | wrap(req[1] - req[2]) = target minus facing | | 0x1406b7f0e (XMM0 = facing, XMM1 = req[1]) |
 | [6] | wrap(req[1] - req[4]) = target minus body | | 0x1406b7e2a (XMM0 = body, XMM1 = req[1]) |
 | [7] | wrap(req[3] - req[2]) = look minus facing | | 0x1406b7f23 |
