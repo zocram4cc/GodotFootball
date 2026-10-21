@@ -4,6 +4,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <array>
+#include <unordered_map>
+#include <vector>
 
 #include "data/matchdata.hpp"
 #include "onthepitch/match.hpp"
@@ -18,7 +21,10 @@
 #include "onthepitch/pesoffball.hpp"
 #include "onthepitch/pesclock.hpp"
 #include "onthepitch/restartwatch.hpp"
+#include "onthepitch/player/player.hpp"
+#include "onthepitch/teamAIcontroller.hpp"
 #include "pes/exe.hpp"
+#include "pes/movestep.hpp"
 #include "pes/vfs.hpp"
 #include "rig/rig.hpp"
 #include "simcontext.hpp"
@@ -38,9 +44,113 @@ constexpr int EXIT_USAGE = 2;
 
 int Usage(const char* why) {
   std::fprintf(stderr, "%s\nusage: gfsim_run --db-sql FILE --home ID --away ID --pes21-root DIR "
-                       "[--seed N] [--minutes N] [--timescale X] [--anims DIR] [--set key=value]... [--pes-loop]\n", why);
+                       "[--seed N] [--minutes N] [--timescale X] [--anims DIR] [--set key=value]... [--pes-loop] [--parity-log]\n", why);
   return EXIT_USAGE;
 }
+
+// --parity-log: a read-only observer for tools/dev/parity.py. It reads the match after each
+// Process() and writes nothing back, so the determinism hash is the same with and without it.
+// Its lines follow the report and are named for the metric each feeds (docs/plans/pes-parity-metrics.md).
+const char* ParityRestartName(e_SetPiece setPiece) {
+  switch (setPiece) {
+    case e_SetPiece_KickOff: return "kickoff";
+    case e_SetPiece_ThrowIn: return "throwin";
+    case e_SetPiece_GoalKick: return "goalkick";
+    case e_SetPiece_Corner: return "corner";
+    case e_SetPiece_FreeKick: return "freekick";
+    default: return nullptr;  // penalties and stoppages with no set piece are not in the metric set
+  }
+}
+
+class ParityLog {
+ public:
+  // Call once after every Match::Process().
+  void Observe(Match& match) {
+    ++ticks_;
+    const bool live = match.IsInPlay() && !match.IsInSetPiece();
+    if (live) ++liveTicks_;
+    ObserveMoveSteps(match);
+    ObserveRestart(match, live);
+  }
+
+  void Print(Match& match, FILE* out) {
+    std::fprintf(out, "[parity-state] ticks %lu live %lu |", ticks_, liveTicks_);
+    for (int s = 0; s < pes::kMoveStateCount; s++) std::fprintf(out, " %d:%lu", s, stateTicks_[s]);
+    std::fprintf(out, "\n[parity-stop] ");
+    for (int s = 0; s < pes::kMoveStateCount; s++)
+      std::fprintf(out, "%s%d:%lu", s ? " " : "", s, stopFrom_[s]);
+    std::fprintf(out, "\n");
+    for (const Restart& r : restarts_)
+      std::fprintf(out, "[parity-restart] %s whistle=%lu release=%lu frames=%lu\n", r.name, r.whistle,
+                   r.release, r.release - r.whistle);
+    MatchData* data = match.GetMatchData();
+    std::fprintf(out, "[parity-actions] passes %d-%d crosses %d-%d shots %d-%d tackles %d-%d slides %d-%d\n",
+                 data->GetPassAttempts(0), data->GetPassAttempts(1), data->GetCrosses(0), data->GetCrosses(1),
+                 data->GetShots(0), data->GetShots(1), data->GetChallengesTackles(0),
+                 data->GetChallengesTackles(1), data->GetChallengesSlides(0), data->GetChallengesSlides(1));
+  }
+
+ private:
+  struct Restart {
+    const char* name;
+    unsigned long whistle;
+    unsigned long release;
+  };
+
+  // Every active player's MOVESTEP state this tick (M1), and each entry into STOP by the state
+  // before it in this per-tick stream (M2).
+  void ObserveMoveSteps(Match& match) {
+    for (int teamID = 0; teamID < 2; teamID++) {
+      players_.clear();  // GetActivePlayers appends
+      match.GetActiveTeamPlayers(teamID, players_);
+      for (Player* player : players_) {
+        const pes::MoveState state = player->GetMoveStep().state;
+        ++stateTicks_[static_cast<int>(state)];
+        const auto seen = lastState_.find(player);
+        if (seen != lastState_.end() && state == pes::MoveState::kStop && seen->second != state)
+          ++stopFrom_[static_cast<int>(seen->second)];
+        lastState_[player] = state;
+      }
+    }
+  }
+
+  // A stoppage runs from the first tick the match is not live to the first live tick after it, as
+  // RestartWatch measures it. Kept: a kick-off, throw-in, goal kick, corner or free kick whose whistle
+  // and release fall in the same match period. The opening kick-off (no play before it) and the
+  // period breaks are not restarts.
+  void ObserveRestart(Match& match, bool live) {
+    if (!live) {
+      if (!inStoppage_) {
+        inStoppage_ = true;
+        whistle_ = ticks_;
+        phase_ = match.GetMatchPhase();
+        opening_ = liveTicks_ == 0;
+        setPiece_ = e_SetPiece_None;
+      }
+      for (int teamID = 0; teamID < 2; teamID++) {
+        const e_SetPiece setPiece = match.GetTeam(teamID)->GetController()->GetSetPieceType();
+        if (setPiece != e_SetPiece_None) setPiece_ = setPiece;  // the last set piece named in the stoppage
+      }
+      return;
+    }
+    if (!inStoppage_) return;
+    inStoppage_ = false;
+    const char* name = ParityRestartName(setPiece_);
+    if (name && !opening_ && match.GetMatchPhase() == phase_)
+      restarts_.push_back({name, whistle_, ticks_});
+  }
+
+  unsigned long ticks_ = 0, liveTicks_ = 0;
+  std::array<unsigned long, pes::kMoveStateCount> stateTicks_{}, stopFrom_{};
+  std::unordered_map<const Player*, pes::MoveState> lastState_;
+  std::vector<Player*> players_;
+  bool inStoppage_ = false;
+  unsigned long whistle_ = 0;
+  e_MatchPhase phase_ = e_MatchPhase_PreMatch;
+  bool opening_ = false;
+  e_SetPiece setPiece_ = e_SetPiece_None;
+  std::vector<Restart> restarts_;
+};
 
 }  // namespace
 
@@ -50,11 +160,16 @@ int main(int argc, char** argv) {
   int home = 0, away = 0, minutes = DEFAULT_MINUTES;
   unsigned int seed = DEFAULT_SEED;
   float timeScale = DEFAULT_TIMESCALE;
+  bool parityLog = false;  // --parity-log: the read-only observer in ParityLog
   Properties config;
   for (int i = 1; i < argc; ++i) {
     const std::string a = argv[i];
     if (a == "--pes-loop") {  // the PES tick order (SW): a flag, no value
       config.SetBool("pes_loop", true);
+      continue;
+    }
+    if (a == "--parity-log") {
+      parityLog = true;
       continue;
     }
     if (i + 1 >= argc) return Usage(("missing value for " + a).c_str());
@@ -222,6 +337,7 @@ int main(int argc, char** argv) {
   // classified by the pre-tick state (no sim state touched).
   unsigned long inPlayTicks = 0, holdTicks = 0;
   double inPlaySeconds = 0.0, holdSeconds = 0.0;
+  ParityLog parity;
   while (!match.IsGameOver()) {
     if (watch.Ticks() >= kMaxSimTicks)
       return std::fprintf(stderr, "[cap] no full time after %lu sim ticks\n", kMaxSimTicks), 1;
@@ -238,6 +354,7 @@ int main(int argc, char** argv) {
       holdSeconds += tickSeconds_;
     }
     watch.Observe(match);
+    if (parityLog) parity.Observe(match);
     if (watch.Stalled())
       return std::fprintf(stderr,
                           "[restart] stalled: no restart within %lu ticks (limit %lu ticks)\n",
@@ -252,5 +369,6 @@ int main(int argc, char** argv) {
               inPlaySeconds, holdTicks, holdSeconds);
   std::printf("[ticks] %lu sim ticks to full time (cap %lu)\n", watch.Ticks(), kMaxSimTicks);
   std::printf("[idle] %lu episodes, stalls %lu\n", watch.IdleEpisodes(), watch.IdleStallEpisodes());
+  if (parityLog) parity.Print(match, stdout);
   return 0;
 }

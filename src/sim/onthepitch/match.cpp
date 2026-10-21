@@ -866,6 +866,17 @@ void Match::Process() {
                buf.startTime > actualTime_ms ? (buf.startTime - actualTime_ms) / 1000.0f : -1.0,
                closest->GetPlayerData()->GetLastName().c_str(), closest->GetID(),
                (closest->GetPosition() - ballNow).GetLength());
+        // Who is stuck and on what: the MOVESTEP state pair and the clip on the body, for the taker and the forced man.
+        // Three investigations each re-added this by hand; it costs one line per report.
+        for (Player* who : {buf.taker, closest}) {
+          if (!who) continue;
+          const pes::MoveStepRecord& ms = who->GetMoveStep();
+          const Anim* a = who->CastHumanoid()->GetCurrentAnim();
+          printf("[stalemate-who] %s (%d): movestep %d<-%d | fn %d clip %s frame %d/%d\n",
+                 who->GetPlayerData()->GetLastName().c_str(), who->GetID(), int(ms.state), int(ms.previous),
+                 int(a->functionType), a->anim ? a->anim->GetName().c_str() : "-", a->frameNum,
+                 a->anim ? a->anim->GetFrameCount() : 0);
+        }
       }
     }
   }
