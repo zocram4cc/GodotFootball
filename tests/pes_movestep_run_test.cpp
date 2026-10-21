@@ -2024,6 +2024,59 @@ TEST(EnterGotoRun, TakesTheDrawRowWhenTheBallIsWithinReach) {
   EXPECT_EQ(h2.lastCellRow, 0x661);
 }
 
+// PES 0x1406CEF83-0x1406CEFA4 (TeamDecode 4, override 2): the turn-lock byte 0x3F sets the GOTO row to 0x566 whatever the
+// column; the column changes only when it is 8 or 9 already. The port set 0x564 and only for columns 8 and 9.
+TEST(EnterGotoRun, TheTurnLockByteSetsTheRowToTheTurnLockRowForAnyColumn) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 0;
+  h.phase = 1;
+  h.runTables.bucketColumn = {9, 11, 13, 15, 17, 8, 6, 4, 2, 0};  // DAT_1425dd988, read from the install
+  h.populatedColumns = {9, 11, 13, 15, 17, 8, 6, 4, 2, 0};
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetU(pes::moveword::kMoveBucket, 3u);
+  req.SetU(pes::moveword::kLookBucket, 3u);
+  req.SetU(pes::moveword::kLookBucketAlt, 3u);  // bucket 3: column 15, which override 2 leaves alone
+  req.SetByte(pes::moveword::kMirrorFlag, 1);  // the turn-lock byte 0x3F
+  req.SetF(pes::moveword::kFacingError, 10.0f);
+  req.SetF(pes::moveword::kLookDelta, 10.0f);
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  pes::movestep::EnterGotoRun(h, req, false);
+  EXPECT_EQ(h.lastCellRow, 0x566) << "PES writes 0x566 under the turn-lock byte, for any column";
+}
+
+TEST(EnterGotoRun, TheTurnLockColumnIsNineWhenTheFacingErrorIsNegative) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 0.0f;
+  h.currentMotion = 0x8bb;
+  h.currentClipFrames = 0;
+  h.phase = 1;
+  h.runTables.bucketColumn = {9, 11, 13, 15, 17, 8, 6, 4, 2, 0};
+  h.populatedColumns = {9, 11, 13, 15, 17, 8, 6, 4, 2, 0};
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kKind, 2u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetU(pes::moveword::kMoveBucket, 5u);
+  req.SetU(pes::moveword::kLookBucket, 5u);
+  req.SetU(pes::moveword::kLookBucketAlt, 5u);  // bucket 5: column 8, which override 2 may move
+  req.SetByte(pes::moveword::kMirrorFlag, 1);
+  req.SetF(pes::moveword::kFacingError, -10.0f);  // XMM8 (0.0) > req[7] (-10): column 9
+  req.SetF(pes::moveword::kLookDelta, 10.0f);
+  req.SetF(pes::moveword::kRate, 0.6f);
+  req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
+  pes::movestep::EnterGotoRun(h, req, false);
+  EXPECT_EQ(h.lastCellColumn, 9) << "PES's column is 9 when req[7] < 0 (SETA on XMM8 = 0.0)";
+  EXPECT_EQ(h.lastCellRow, 0x566);
+}
+
 // EnterGotoRun's out-of-play arm (FUN_1406ce820 block 6): outside open-play phase 1, a row in
 // the two 0xa014-bit bands takes row 0x5cc. In play the arm never fires.
 TEST(EnterGotoRun, TakesTheOutOfPlayRowOnlyOutsideOpenPlay) {
