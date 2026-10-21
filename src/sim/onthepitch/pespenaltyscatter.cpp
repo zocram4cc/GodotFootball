@@ -41,10 +41,10 @@ std::optional<PenaltyScatterConstants> LoadPenaltyScatterConstants(const PeImage
       {0x14259b89c, &k.chipScatterNoControl}, {0x142598578, &k.qScatterWeight},
       {0x142590d98, &k.qPowerWeight},         {0x142598578, &k.powerLo},
       {0x142572348, &k.powerSpan},            {0x142572348, &k.chargeGain},
-      {0x142588200, &k.qHeightWeight},        {0x1425c48a0, &k.heightGain},
-      {0x142598578, &k.qLateralWeight},       {0x142590d98, &k.lateralGain},
-      {0x14258c264, &k.aimHeightDivisor},     {0x142592228, &k.aimLateralRatio},
-      {0x14258c260, &k.aimTopRatio},          {0x14256ae34, &k.mmPerUnit}};
+      {0x142588200, &k.qLateralWeight},       {0x1425c48a0, &k.lateralGain},
+      {0x142598578, &k.qHeightWeight},        {0x142590d98, &k.heightGain},
+      {0x14258c264, &k.lateralDivisor},       {0x142592228, &k.heightRatio},
+      {0x14258c260, &k.topRatio},             {0x14256ae34, &k.mmPerUnit}};
   for (auto [va, out] : rdata)
     ok &= exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out));
   if (!ok) {
@@ -73,33 +73,34 @@ float PenaltyScatterRadius(const PenaltyScatterConstants& k, const PenaltyScatte
   const float charge = Ramp(in.charge, k.powerLo, k.powerLo + k.powerSpan, k.powerSpan);
 
   // The two aim-point ramps (0x1406b41bf-0x1406b4273). The first reads the
-  // aim record's height (+8) as a magnitude against the bar's scale, the
-  // second its lateral (+4) against the post's scale.
-  const float heightLo = in.heightScale / k.aimHeightDivisor;
-  const float heightHi = in.heightScale * k.aimTopRatio;
-  const float height = Ramp(std::abs(in.aimHeight), heightLo, heightHi, heightHi - heightLo);
-  const float lateralLo = in.lateralScale * k.aimLateralRatio;
-  const float lateralHi = in.lateralScale * k.aimTopRatio;
+  // aim record's lateral (+8) as a magnitude against the post, the second its
+  // height (+4) against the bar.
+  const float lateralLo = in.postScale / k.lateralDivisor;
+  const float lateralHi = in.postScale * k.topRatio;
   const float lateral =
       Ramp(std::abs(in.aimLateral), lateralLo, lateralHi, lateralHi - lateralLo);
+  const float heightLo = in.barScale * k.heightRatio;
+  const float heightHi = in.barScale * k.topRatio;
+  const float height = Ramp(std::abs(in.aimHeight), heightLo, heightHi, heightHi - heightLo);
 
   return (base - q * k.qScatterWeight) + charge * (k.chargeGain - q * k.qPowerWeight) +
-         height * (k.heightGain - q * k.qHeightWeight) +
-         lateral * (k.lateralGain - q * k.qLateralWeight);
+         lateral * (k.lateralGain - q * k.qLateralWeight) +
+         height * (k.heightGain - q * k.qHeightWeight);
 }
 
 PenaltyAim ApplyPenaltyJitter(Random& rng, const PenaltyScatterConstants& k, float radius_m,
                               const PenaltyAim& base) {
   // 0x1406e3421-0x1406e3482: the radius times 1000 is the modulus of two
-  // signed draws, the height's first and the lateral's second.
+  // signed draws, the lateral's first and the height's second.
   const int modulus = static_cast<int>(radius_m * k.mmPerUnit);
-  const float height_mm = static_cast<float>(SignedDraw(rng, modulus)) / k.mmPerUnit;
   const float lateral_mm = static_cast<float>(SignedDraw(rng, modulus)) / k.mmPerUnit;
+  const float height_mm = static_cast<float>(SignedDraw(rng, modulus)) / k.mmPerUnit;
 
   PenaltyAim aim;
-  aim.height_m = base.height_m + height_mm;
-  // The lateral's sum is clamped at zero (0x1406e347d-0x1406e3482).
-  aim.lateral_m = std::max(0.0f, base.lateral_m + lateral_mm);
+  aim.lateral_m = base.lateral_m + lateral_mm;
+  // The height's sum is clamped at zero (0x1406e347d-0x1406e3482): the ball
+  // cannot be aimed below the ground.
+  aim.height_m = std::max(0.0f, base.height_m + height_mm);
   return aim;
 }
 

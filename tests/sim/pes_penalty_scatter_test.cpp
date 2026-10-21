@@ -34,13 +34,13 @@ pes::PenaltyScatterConstants Synthetic() {
   k.powerLo = 0.2f;
   k.powerSpan = 0.8f;
   k.chargeGain = 0.8f;
-  k.qHeightWeight = 0.1f;
-  k.heightGain = 0.15f;
-  k.qLateralWeight = 0.2f;
-  k.lateralGain = 0.3f;
-  k.aimHeightDivisor = 3.0f;
-  k.aimLateralRatio = 0.25f;
-  k.aimTopRatio = 0.9f;
+  k.qLateralWeight = 0.1f;
+  k.lateralGain = 0.15f;
+  k.qHeightWeight = 0.2f;
+  k.heightGain = 0.3f;
+  k.lateralDivisor = 3.0f;
+  k.heightRatio = 0.25f;
+  k.topRatio = 0.9f;
   k.mmPerUnit = 1000.0f;
   return k;
 }
@@ -54,8 +54,8 @@ pes::PenaltyScatterInput Neutral() {
   in.charge = 0.2f;
   in.aimLateral = 0.0f;
   in.aimHeight = 0.0f;
-  in.heightScale = 2.44f;   // F3, the bar
-  in.lateralScale = 3.66f;  // F2, the post
+  in.postScale = 3.66f;  // F2, the post
+  in.barScale = 2.44f;   // F3, the bar
   return in;
 }
 
@@ -131,21 +131,21 @@ TEST(PesPenaltyScatter, TheChargeIsTheLargestTerm) {
 TEST(PesPenaltyScatter, AimingAtThePostAndAimingHighAddTheirTerms) {
   const auto k = Synthetic();
 
-  // The lateral ramp runs from F2 * 0.25 = 0.915 to F2 * 0.9 = 3.294, so a
-  // lateral at the post is at the ramp's top and adds the full 0.3.
+  // The lateral ramp runs from the post / 3 = 1.22 to the post * 0.9 = 3.294,
+  // so a lateral at the post is at the ramp's top and adds the full 0.15.
   pes::PenaltyScatterInput in = Neutral();
   in.aimLateral = 3.66f;
-  EXPECT_NEAR(pes::PenaltyScatterRadius(k, in), 0.5f + 0.3f, 1e-5f);
+  EXPECT_NEAR(pes::PenaltyScatterRadius(k, in), 0.5f + 0.15f, 1e-5f);
 
-  // The height ramp runs from F3 / 3 = 0.813 to F3 * 0.9 = 2.196, so a height
-  // at the bar is at the ramp's top and adds the full 0.15.
+  // The height ramp runs from the bar * 0.25 = 0.61 to the bar * 0.9 = 2.196,
+  // so a height at the bar is at the ramp's top and adds the full 0.3.
   in = Neutral();
   in.aimHeight = 2.44f;
-  EXPECT_NEAR(pes::PenaltyScatterRadius(k, in), 0.5f + 0.15f, 1e-5f);
+  EXPECT_NEAR(pes::PenaltyScatterRadius(k, in), 0.5f + 0.3f, 1e-5f);
 
   // Both together add both.
   in.aimLateral = 3.66f;
-  EXPECT_NEAR(pes::PenaltyScatterRadius(k, in), 0.5f + 0.3f + 0.15f, 1e-5f);
+  EXPECT_NEAR(pes::PenaltyScatterRadius(k, in), 0.5f + 0.15f + 0.3f, 1e-5f);
 }
 
 // The jitter draws two signed values inside the radius, in millimetres.
@@ -166,8 +166,9 @@ TEST(PesPenaltyScatter, TheJitterStaysInsideTheRadius) {
   }
 }
 
-// The lateral's sum is clamped at zero, the height's is not.
-TEST(PesPenaltyScatter, TheLateralIsClampedAtZeroAndTheHeightIsNot) {
+// The height's sum is clamped at zero - the ball cannot be aimed below the
+// ground - and the lateral's is not.
+TEST(PesPenaltyScatter, TheHeightIsClampedAtZeroAndTheLateralIsNot) {
   const auto k = Synthetic();
   const auto r = SyntheticRng();
   pes::Random rng(r);
@@ -176,14 +177,14 @@ TEST(PesPenaltyScatter, TheLateralIsClampedAtZeroAndTheHeightIsNot) {
   base.lateral_m = 0.0f;
   base.height_m = 0.0f;
 
-  bool sawClampedLateral = false;
+  bool sawClampedHeight = false;
   for (int draw = 0; draw < 200; draw++) {
     const pes::PenaltyAim aim = pes::ApplyPenaltyJitter(rng, k, 0.5f, base);
-    EXPECT_GE(aim.lateral_m, 0.0f);
-    if (aim.lateral_m == 0.0f) sawClampedLateral = true;
-    EXPECT_GE(aim.height_m, -0.5f - 1e-6f);
+    EXPECT_GE(aim.height_m, 0.0f);
+    if (aim.height_m == 0.0f) sawClampedHeight = true;
+    EXPECT_GE(aim.lateral_m, -0.5f - 1e-6f);
   }
-  EXPECT_TRUE(sawClampedLateral);
+  EXPECT_TRUE(sawClampedHeight);
 }
 
 // The install's own bytes: the loader reads the stock values.
