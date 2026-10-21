@@ -99,3 +99,24 @@ The owner moved his managed team's dial by hand (−1, then −2); S1Watch logge
 
 ## 7. Disputed by the port plan (unaudited)
 docs/plans/pes-plan-mentality.md §4 disputes four points above: forwards take the quota's first `need` sorted entries (not excluded); the protection scan also breaks on the scalar advance byte [ctx+0x118]+0x129; the pick arms are classes 7/8/9 (the directive doc's 6/7/8 is off by one); at levels 1-3 FUN_1405AAF00 can admit every class > 1 slot without the quota (RNG-gated). Plan v3 then found the forward pull's P is RoleArrays' S = T+0xC48 (so the pull reads RoleArrays B, and A for line membership), and that the pull is gated by the possession flag F (EC600 arg4 → local_458+0x10C, inverted on even frames once MI+0x119C > 1), not by the phase. To be settled by the RE slice before porting.
+
+## 8. One, two and three forwards (external follow-up, 20-10-26)
+> **Main audit:** `0x140683049` `cmp byte [rax+0x129],1` / `0x140683050` `jbe` (active count, early take-and-break); `0x140683064` `cmp byte [rax+0x128],2` (count > 2 gates the bump); `0x140683089` adds `[0x14259BE84]` = −10.0; `0x140683095` `cmovae r13d,ebx` (keep-replace); `0x140682E30` `mulss xmm7,xmm15`; `0x140683809` stores the class at +0x7B88+8·gidx and `0x140683818` the rank at +0x7B8C+8·gidx: all match. **Correction:** the agent calls TeamData+0x255 a "formation flag"; our decodes (pes-re-possession-latch.md, pes-re-A4Carrier.md) identify T+0x255 as the team possession latch (FUN_1404FE9C0, "team has the ball"). So mode 1's "rank pick vs Y-sort" switch is possession, not formation: rank-based when the team does not have the ball, a Y-sort when it does.
+
+**1 or 2 forwards:** the rank block is skipped (count <= 2, `jbe 0x1406832E7`), so every forward gets the plain factor (level·0.25): the line still drops (75% of the way back at −1), the designated forward v21 gets the floor (level != 0), a Counter Target forces 1.0, and the +8 m style pull hits all. With one forward the selection loop breaks early (active <= 1) and he is v21.
+
+**3 forwards (count 3, ranks = team-sheet order among live forwards, refreshed every pass by this function's own writes at 0x140683809/18):**
+- v21: the score is the lineup feed (+30 for role 9 CF), with a −10 bump from mode 0 when count > 2; keep-replace against −100000.0 means the last-listed forward wins regardless (the bump is inert).
+- Pre-pass (0x140682E28..E53): each forward's candidate target, halved factor for mode-0 passers; v158 = the highest = the class-2 blend target.
+- Per forward (non-v21): mode 0 = rank is first or last; mode 1 (with T+0x255 == 0): ball-side pick by rank (dir·ballY > 0 → last, else first); with T+0x255 != 0: a Y-sort of same-class slots by the +0x3A9C records' Y.
+
+  |rank (sheet order)|at −1, no Counter Target|
+  |---|---|
+  |2 (last)|v21: plain 0.25, floored|
+  |0 (first)|mode 0 passes → mode 1 pass: 0.2·0.25 = 0.05 (near-full retreat); fail: 0.65·0.25 = 0.1625|
+  |1 (middle)|mode 0 fails: plain 0.25, no floor|
+- Blend (0x1406836C0..9D): every class-2 player is pulled toward v158 by a per-player factor from his +0x3BA4 record: deep + (v158 − deep)·v108; v21 is floored again.
+
+**Plain-language summary:** with three strikers the team sheet decides: the last-listed is protected, the first-listed drops (to 65% of the −1 height, or 20% when the ball is on his side), the middle one keeps the normal −1 height. A Counter Target overrides the sheet. Afterwards all three are pulled partway back toward the highest striker, and the +8 m pull lands on all. No stats, form or skill: list order, every pass.
+
+Open: the +0x3BA4 record's v108 semantics; live confirmation of the T+0x255 reading in a three-forward match.
