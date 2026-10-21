@@ -28,6 +28,8 @@
 #include "../../match.hpp"
 #include "../../pesballphysics.hpp"
 #include "../../team.hpp"
+#include "onthepitch/pesclips.hpp"
+#include "onthepitch/pesreceive.hpp"
 #include "../humanoid/humanoid_utils.hpp"
 #include "../player.hpp"
 #include "onthepitch/gameplaytuning.hpp"
@@ -383,11 +385,30 @@ bool PlayerController::_ReceiveCandidate() {
       (match->GetBall()->Predict(0).Get2D() - player->GetPosition().Get2D()).GetLength();
   if (!pes::WithinBallDistanceTable(k, ballDistance * ballDistance)) return false;
   if (match->GetBallRetainer() != 0) return false;
-  if (hasPossession) return false;
+  // PES's reaction entry 3 (FUN_1409f8220) refuses the designated owner (first-touch §7.2 gate
+  // 4c): the restart taker while a restart is held, else the newest touch's actor while he still
+  // holds the ball. GF's possession gate is not a PES gate (same doc §8), so on the PES path a
+  // chaser of a loose ball may trap it. The GF path keeps its gate, so switch-off is unchanged.
+  if (match->PesLoop()) {
+    pes::OwnerInput owner;
+    const RefereeBuffer& buffer = match->GetRefereeBuffer();
+    if (buffer.active && buffer.taker) owner.restartTaker = match->PesActorKeyOf(buffer.taker);
+    const pes::NewestEventView newest = pes::NewestEvent(match->GetPesEvents());
+    Player* newestMan = match->GetPesActorPlayer(newest.actor);
+    owner.newestActor = newest.actor;
+    owner.newestActorHoldsBall = newestMan && newestMan->HasPossession();
+    if (pes::RefusedAsDesignatedOwner(owner, match->PesActorKeyOf(CastPlayer()))) return false;
+  } else if (hasPossession) {
+    return false;
+  }
   // Who goes: the PASS_GET receiver / the team's designated man
-  // (Team::PassGetReceiver feeds the designation).
+  // (Team::PassGetReceiver feeds the designation). On the PES path the
+  // loose-ball presser traps too: he is the chaser, and the designation may
+  // name another man. PES's entry 3 is not gated by the chase state at all.
+  const bool presser =
+      match->PesLoop() && team->GetController()->GetLoosePressMan() == player;
   if (match->GetDesignatedPossessionPlayer() != player &&
-      team->GetDesignatedTeamPossessionPlayer() != player)
+      team->GetDesignatedTeamPossessionPlayer() != player && !presser)
     return false;
 
   // FUN_1409fa720: the re-touch lockout, over the store's newest event and the one before it.
@@ -455,8 +476,11 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
   in.halfLength = pitchHalfW;
   in.halfWidth = pitchHalfH;
   // GF has no DELAY / PRESS movement state; the team's pressure man is its
-  // presser (the same stand-in the defender port uses).
-  in.pressOrDelay = team->GetController()->GetTeamPressurePlayer() == player;
+  // presser (the same stand-in the defender port uses). On the PES path the
+  // role table's loose-ball PRESS man counts too: P+0x5d0 in {0x33, 0x34} is
+  // his current state, and the role table is what the writer wrote.
+  in.pressOrDelay = team->GetController()->GetTeamPressurePlayer() == player ||
+                    (match->PesLoop() && team->GetController()->GetLoosePressMan() == player);
   const pes::FirstTouch touch = pes::ChooseFirstTouch(k, in, kPesFps);
 
   PlayerCommand command;
@@ -477,6 +501,31 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
   command.useDesiredLookAt = true;
   command.desiredLookAt = CastPlayer()->GetPosition() + CastPlayer()->GetMovement() * 0.3f +
                           command.desiredDirection * 10.0f;
+  if (match->PesLoop()) {
+    // PES picks the trap clip by window (FUN_14081ff70 over the action-7 rows): the ball, in the presser's clip space
+    // (metres), must lie in a row's window, or there is no trap. The command names the clip by family and motion
+    // number, as the dodge and tackle commands do, so the clip the window picked is the clip that plays.
+    const Vector3 dir = CastPlayer()->GetDirectionVec();
+    const float dirLength = std::hypot(dir.coords[0], dir.coords[1]);
+    const float fx = dirLength > 0.0f ? dir.coords[0] / dirLength : 1.0f;
+    const float fy = dirLength > 0.0f ? dir.coords[1] / dirLength : 0.0f;
+    const Vector3 ballPos = match->GetBall()->Predict(0);
+    const Vector3 at = ballPos - CastPlayer()->GetPosition();
+    const pes::ClipPoint ball{(-fy * at.coords[0] + fx * at.coords[1]) / pes::kPlayerClipScale,
+                              ballPos.coords[2] / pes::kPlayerClipScale,
+                              (fx * at.coords[0] + fy * at.coords[1]) / pes::kPlayerClipScale};
+    const auto hitCm = [this](int clip) {
+      const auto& hits = match->GetPesMbinfo().Hits(clip);
+      return hits.empty() ? pes::ClipPoint{} : pes::ClipPoint{hits[0].ballX, hits[0].ballY, hits[0].ballZ};
+    };
+    const std::optional<int> clip = pes::PickTrapClip(k, ball, hitCm);
+    if (!clip) return;
+    command.desiredFunctionType = e_FunctionType_Special;
+    command.useSpecialVar1 = true;
+    command.specialVar1 = static_cast<int>(pes::PesClipFamily::kTrap);
+    command.useSpecialVar2 = true;
+    command.specialVar2 = *clip;
+  }
   commandQueue.push_back(command);
 }
 

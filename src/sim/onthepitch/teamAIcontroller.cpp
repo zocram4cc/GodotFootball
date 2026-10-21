@@ -1963,6 +1963,84 @@ Player* TeamAIController::GetTeamPressurePlayer() {
                                                      : nullptr;
 }
 
+Player* TeamAIController::GetLoosePressMan() {
+  const int side = team->GetID();
+  const auto& players = team->GetAllPlayers();
+  for (int k = 0; k < 11 && k < static_cast<int>(players.size()); ++k) {
+    if (pressState.role[side * 11 + k] == pes::kPressState) return players[k].get();
+  }
+  return nullptr;
+}
+
+void TeamAIController::PesPressTick() {
+  const int side = team->GetID();
+  const uint32_t stamp = static_cast<uint32_t>(match->GetSimFrame());
+  // Renewal + reset is the lifecycle (press-life 10): whoever is not picked
+  // below is reset to NOTHING, so a presser stops the tick the writer drops
+  // him. PES path only: the GF path keeps its designated chase untouched.
+  auto resetAll = [&]() {
+    for (int k = 0; k < 11; ++k) pressState.SetAction(side * 11 + k, pes::kNothingState, stamp);
+    for (int i = 0; i < 4; ++i) pressState.pressSlot[i] = -1;
+  };
+  if (!match->PesLoop() || !match->IsInPlay() || match->IsInSetPiece() ||
+      match->GetBallRetainer() != nullptr) {
+    resetAll();
+    return;
+  }
+  // Owned is not loose. ponytail: PES reads its carrier (MA+0x2601c); GF's
+  // retainer misses dribblers, so ownership is proximity plus the newest touch
+  // being his. Any owner's ball stops both sides' loose pick.
+  const pes::NewestEventView newest = pes::NewestEvent(match->GetPesEvents());
+  Player* newestMan = newest.present ? match->GetPesActorPlayer(newest.actor) : nullptr;
+  for (int s = 0; s < 2; ++s) {
+    for (const auto& p : match->GetTeam(s)->GetAllPlayers()) {
+      if (p->HasPossession() && p.get() == newestMan) {
+        resetAll();
+        return;
+      }
+    }
+  }
+  // The pick: the §6 pass-1 score over the enrolled men, winner within the
+  // (18+7r) radius. Enrolment is the §5 table's shape (on-pitch, outfield,
+  // not owning); the §5 tally itself serves the skipped §3.2 multi-press.
+  const pes::PressConstants& c = match->GetPesPressConstants();
+  const Vector3 ball = match->GetBall()->Predict(0);
+  const auto& players = team->GetAllPlayers();
+  pes::PressPickInput in;
+  // ponytail: the side reference (FUN_140a71540, straight-back FUN_140a4db20
+  // or the ball-goal bearing under T+0xb712) is not decoded; the ball-to-goal
+  // bearing stands in, preferring goal-side pressers.
+  const float goalX = -static_cast<float>(team->GetSide()) * pitchHalfW;
+  // The writer's gate (FUN_140536FC0, 0x140537332; S1Watch's decode): the sample is BallInfo sample 0, the ball now, and the
+  // point is the MA ball copy (MA+0x2482C/+0x24834). GF stand-in: both are the ball now (Predict(0)).
+  in.ballX = ball.coords[0];
+  in.ballZ = ball.coords[1];
+  in.sampleX = ball.coords[0];
+  in.sampleZ = ball.coords[1];
+  in.referenceDeg = pes::PressBearingDeg(c, ball.coords[0], ball.coords[1], goalX, 0.0f);
+  for (int k = 0; k < 11 && k < static_cast<int>(players.size()); ++k) {
+    const int man = side * 11 + k;
+    Player* p = players[k].get();
+    in.posX[man] = p->GetPosition().coords[0];
+    in.posZ[man] = p->GetPosition().coords[1];
+    // The keeper's rush owns him (the keeper branch); an owning man is owned.
+    const bool keeper = p->GetFormationEntry().role == e_PlayerRole_GK;
+    in.onField[man] =
+        p->IsActive() && !keeper && !(p->HasPossession() && p == newestMan);
+    in.role[k] = pressState.role[man];
+  }
+  for (int i = 0; i < 4; ++i) in.pressSlotMan[i] = pressState.pressSlot[i];
+  const std::vector<pes::PressCandidate> bucket = pes::RunPresserPass1(c, in, side);
+  // The gate (FUN_140536FC0, 0x140537332) and the pick: the same test for a fresh pick and a renewal.
+  const int winner = pes::PressWinner(c, in, bucket);
+  for (int k = 0; k < 11; ++k) {
+    const int man = side * 11 + k;
+    pressState.SetAction(man, man == winner ? pes::kPressState : pes::kNothingState, stamp);
+  }
+  pressState.pressSlot[0] = winner;
+  for (int i = 1; i < 4; ++i) pressState.pressSlot[i] = -1;
+}
+
 bool TeamAIController::StartConcept(int id) {
   const pes::TeamConceptConstants& k = match->GetPesTeamConceptConstants();
   std::vector<Player*> men;

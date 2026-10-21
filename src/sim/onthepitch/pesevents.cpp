@@ -1,6 +1,9 @@
 #include "onthepitch/pesevents.hpp"
 
+#include <cmath>
 #include <cstring>
+
+#include "gametypes.hpp"
 
 namespace pes {
 namespace {
@@ -390,12 +393,37 @@ bool DetectDeflection(const DeflectionInput& in, EventRecord* out) {
   return true;
 }
 
+int OutOfPlayCode(float x, float z, float radius) {
+  // sgn(v) = -1 if v < 0 else +1: the point moves toward the centre by one radius, so a bit fires
+  // once the whole ball is past the line (pes-re-out-side.md 3).
+  const float xs = x - (x < 0.0f ? -radius : radius);
+  const float zs = z - (z < 0.0f ? -radius : radius);
+  const float ax = std::fabs(xs), az = std::fabs(zs);
+  // The band edges 12 and 8 metres (0x14259be04, 0x14259bdf4; pes-re-out-side.md 4).
+  constexpr float kBandNear_m = 12.0f;
+  constexpr float kBandInset_m = 8.0f;
+  const float penaltyLine = pesPenaltyAreaLineX, penaltyHalf = pesPenaltyAreaHalfWidth;
+  int code = 0;
+  code |= (ax <= pesFieldHalfLength && az <= pesFieldHalfWidth) ? 0x1 : 0x2;
+  if (az > pesFieldHalfWidth && ax <= pesFieldHalfLength) code |= 0x4;
+  if (ax > pesFieldHalfLength) code |= 0x8;
+  code |= xs <= 0.0f ? 0x10 : 0x20;
+  if (zs > 0.0f) code |= 0x40;
+  if (zs < 0.0f) code |= 0x80;
+  if (az >= penaltyHalf) code |= 0x100;
+  if (az >= penaltyHalf && ax > kBandNear_m && ax < penaltyLine - kBandInset_m) code |= 0x2000;
+  if (az >= penaltyHalf && ax > penaltyLine - kBandInset_m && ax < pesFieldHalfLength) code |= 0x1000;
+  if (ax >= penaltyLine && az < penaltyHalf) code |= xs > 0.0f ? 0x800 : 0x400;
+  if (ax >= pesGoalAreaLineX && az < pesGoalAreaHalfWidth) code |= 0x200;
+  if (ax < pesCircleRadius && az < pesCircleRadius) code |= 0x4000;
+  return code;
+}
+
 bool DetectOutOfPlay(OutOfPlayInput* in, EventRecord* out) {
-  if (!in->gateOpen) return false;
-  if (in->stored == in->outSide) return false;
-  in->stored = in->outSide;
-  out->Write(10, in->frame, in->frame, in->state, in->phase);
-  out->SetU32(0x14, static_cast<uint32_t>(in->outSide));
+  if (in->stored == in->code) return false;
+  in->stored = in->code;
+  // The new code is the record's first payload word (pes-re-out-side.md 5, the K=10 payload).
+  out->Write(0x0a, in->frame, in->frame, in->code, 0);
   return true;
 }
 
