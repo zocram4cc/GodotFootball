@@ -745,7 +745,10 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     // ball control?
     // PES: a loose ball is reached by the reaction's TRAP (pes-re-first-touch §7.2); ball control belongs to the
     // man who has the ball. ponytail: PES's carrier brain (MA+0x2601C) is not decoded here.
-    if (!match->PesLoop() || CastPlayer()->HasPossession())
+    // A keeper whose PES rush has won the race (KP_PRESS, pes-re-goalkeeper.md 10.3) goes for the ball.
+    // ponytail: PES moves him with its keeper mover (action 0x3e, not decoded); GF's ball control stands in for it.
+    const bool keeperRush = CastPlayer()->GetFormationEntry().role == e_PlayerRole_GK && keeperRushing;
+    if (!match->PesLoop() || CastPlayer()->HasPossession() || keeperRush)
       _BallControlCommand(commandQueue, false, false,
                           false);  // last param true == enable sticky run direction.
 
