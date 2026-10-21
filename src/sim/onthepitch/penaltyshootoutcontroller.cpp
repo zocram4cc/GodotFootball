@@ -31,8 +31,8 @@ const float kStatPerUnit = 100.0f;
 // PES's scatter inputs for a taker (FUN_1406b4000): Place Kicking and Finishing as abilities,
 // the Penalty Specialist card and the charge. ponytail: Place Kicking reads technical_setpiece,
 // the stat the PK Specialist card sits on (playerskills.cpp); the charge reads physical_shotpower
-// where PES reads Kicking Power through the penalty tuning table (0x140815cc8). The post and bar
-// are GF's goalHalfWidth and goalHeight, not PES's geometry object (+0x8/+0xC).
+// where PES reads Kicking Power through the penalty tuning table (0x140815cc8). The post and bar are PES's geometry
+// object's +0x8 / +0xC (*(*(0x1436f3dc8) + 0x2aa8), read live: 3.66 and 2.44): the goal's INNER half width and height.
 pes::PenaltyScatterInput ScatterInputFor(Player* taker) {
   pes::PenaltyScatterInput in;
   in.placeKicking = taker->GetStat("technical_setpiece") * kStatPerUnit;
@@ -40,8 +40,8 @@ pes::PenaltyScatterInput ScatterInputFor(Player* taker) {
   in.penaltySpecialist = PlayerSkills::Has(taker->GetPlayerData()->GetSkills(),
                                            PlayerSkills::Skill::PenaltySpecialist);
   in.charge = taker->GetStat("physical_shotpower");
-  in.postScale = goalHalfWidth;
-  in.barScale = goalHeight;
+  in.postScale = pesGoalInnerHalfWidth;
+  in.barScale = pesGoalInnerHeight;
   return in;
 }
 
