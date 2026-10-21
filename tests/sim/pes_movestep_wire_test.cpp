@@ -20,6 +20,7 @@
 #include "onthepitch/pesclips.hpp"
 #include "onthepitch/pesmovestep.hpp"
 #include "onthepitch/player/player.hpp"
+#include "onthepitch/player/humanoid/animcollection.hpp"
 #include "onthepitch/team.hpp"
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
@@ -651,4 +652,34 @@ TEST(MoveStepWire, AFinishedBallActionHandsTheBodyBack) {
   }
   EXPECT_TRUE(released) << "the finished trap still holds the body";
   EXPECT_EQ(atRelease, pes::MoveState::kIdle) << "the hand-back did not leave MOVESTEP idle";
+}
+
+// PES runs the MOVESTEP entry FUN_1406B8340 only from the Update functions of anime ids 2, 3, 6 and 74 (MOVE, STEP_MOVE,
+// DRIBBLE_STEP_MOVE, DEMO_MOVE; call sites 0x140782552, 0x140789E42, 0x1407D23A2 and the thunk 0x1407347B0). A PES dodge owns
+// the body in DODGE (21), so the FSM does not tick while the dodge clip plays. Built on main, ProcessMoveStep ticks on any clip
+// that is not a ball action, and the FSM leaves INIT on the dodge.
+TEST(MoveStepWire, MoveStepIsNotTickedWhileAPesDodgeClipPlays) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  for (int t = 0; t < 60; ++t) match->Process();
+  Player* p = FirstPlayer(*match);
+  // The install's dodge clip: the first clip of the match's animation collection whose family is kDodge.
+  Animation* dodge = nullptr;
+  for (Animation* a : match->GetAnimCollection()->GetAnimations()) {
+    if (a->GetVariable("specialvar1") == std::to_string(static_cast<int>(pes::PesClipFamily::kDodge))) {
+      dodge = a;
+      break;
+    }
+  }
+  ASSERT_NE(dodge, nullptr) << "the install has no PES dodge clip";
+  Anim* anim = const_cast<Anim*>(p->GetCurrentAnim());  // the test puts the dodge on the body, as the humanoid does
+  anim->anim = dodge;
+  anim->functionType = e_FunctionType_Special;
+  anim->frameNum = 0;
+  ASSERT_EQ(PlayedOf(p).family, static_cast<int>(pes::PesClipFamily::kDodge));
+  p->GetMoveStep().state = pes::MoveState::kInit;
+  pesmovestep::ProcessMoveStep(*p, *match);
+  EXPECT_EQ(p->GetMoveStep().state, pes::MoveState::kInit) << "MOVESTEP ticked while a dodge owned the body";
 }
