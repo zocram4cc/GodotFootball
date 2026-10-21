@@ -1194,10 +1194,12 @@ void EnterGotoRun(MoveHost& host, MoveReq& req, bool runStopVariant) {
   // (FUN_1406ce820 line 561: *(req+0x26) = FUN_1406abd60's answer).
   req.SetByte(moveword::kFootFlag, host.Cell(row, column, false).mirror ? 1 : 0);
 
-  // Block 4: the three row overrides.
-  if (req.Flag(moveword::kMirrorFlag) && static_cast<uint32_t>(column - 8) < 2u) {
-    column = static_cast<int>(k.negHalf < req.F(moveword::kFacingError)) + 8;
-    row = 0x564;  // FUN_1406b9bd0's table's override for the turn-lock family.
+  // Block 4: the three row overrides. PES 0x1406CEF83-0x1406CEFA4 (TeamDecode 4, override 2): the turn-lock byte 0x3F sets the
+  // row 0x566 whatever the column; the column changes only when it is 8 or 9 already, to 9 when req[7] is negative (SETA on
+  // XMM8 = 0.0, XORPS at 0x1406CE960).
+  if (req.Flag(moveword::kMirrorFlag)) {
+    row = 0x566;
+    if (static_cast<uint32_t>(column - 8) < 2u) column = req.F(moveword::kFacingError) < 0.0f ? 9 : 8;
   }
   // The foot-band rows 0x561..0x566 and the band 0x55f..0x571 overrides: the row-id gate is
   // the anime state below 0x16 with the picked row id below 0x12 in the 0x2a015 band and the
