@@ -609,7 +609,10 @@ TEST(GotoRun, TheStopArmWaitsForIdleSecondDwellAfterLeavingIdle) {
   req.SetF(pes::moveword::kDwellElapsed2, 0.0f);
   req.SetF(pes::moveword::kDwellLimit2, 0.35f);
   pes::movestep::GotoRun(h, req);
-  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
+  // The stop arm waits, so the handler falls through to the cruise, whose run entry (PES's vt+0, FUN_1406bdf10 line 630)
+  // requests RUN_LOOP. The stop arm's own exits (STOP, IDLE) are not taken.
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
 }
 
 // PES's GOTO_RUN STOP entry writes the class word 0x1f to 0 before FUN_1406d5d60 (FUN_1406bdf10 line 227 of its
@@ -630,6 +633,48 @@ TEST(GotoRun, TheStopEntryClearsTheClassWordSoTheStopAnswersIdle) {
   pes::movestep::GotoRun(h, req);
   EXPECT_EQ(req.U(pes::moveword::kClassWord), 0u);
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+}
+
+// PES's GOTO exit ends in the +0xac0 vt+0 call (FUN_1406bdf10 line 630), the run entry FUN_1406d2030. It picks the style's
+// motion row at the rate band, writes the 0.1 dwell limit and the mirror, and requests RUN_LOOP; the dispatcher's tail issues
+// the clip. The cruise used to issue a motion of -1 from its own stand-in instead.
+TEST(GotoRun, TheCruiseHandsOverToTheRunEntryAndRequestsRunLoop) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  for (int i = 0; i < 64; ++i) h.runTables.styleGroup[i] = 0x100 + i;  // distinct rows: a wrong row reads a wrong motion
+  pes::MoveReq req;
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 90.0f);  // 90 degrees: past the 45-degree cruise allowance
+  pes::movestep::GotoRun(h, req);
+  EXPECT_EQ(h.issues, 0) << "the run entry issues nothing; the dispatcher's tail issues the clip";
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 0.1f);
+  const float rate = req.F(pes::moveword::kRate);
+  const int band = rate < h.runConstants.rate0225 ? 0 : (rate < h.runConstants.blend04 ? 1 : (rate < h.runConstants.rate07 ? 2 : 3));
+  EXPECT_EQ(req.U(pes::moveword::kMotion), uint32_t(h.runTables.styleGroup[req.U(pes::moveword::kParamState) * 4 + band]))
+      << "the motion is the style's row at the rate band";
+}
+
+// The run entry's motion row is the style's row at the band its rate falls in (FUN_1406d2030 lines 109-121). With the
+// class-rate flag the rate is the class's band rate, so classes 0 to 2 reach bands 0 to 2 in turn.
+TEST(RunEntry, TheMotionRowIsTheStyleRowAtTheRateBand) {
+  for (uint32_t cls = 0; cls <= 2; ++cls) {
+    SyntheticHost h;
+    h.runConstants = SyntheticRun();
+    h.runTables = SyntheticTables();
+    for (int i = 0; i < 64; ++i) h.runTables.styleGroup[i] = 0x100 + i;
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kCommandSpeedClass, cls);
+    req.SetByte(pes::moveword::kUseClassRate, 1);
+    req.SetU(pes::moveword::kKind, 2u);
+    pes::movestep::EnterRun(h, req, 0, false);
+    const float rate = req.F(pes::moveword::kRate);
+    const int band = rate < h.runConstants.rate0225 ? 0 : (rate < h.runConstants.blend04 ? 1 : (rate < h.runConstants.rate07 ? 2 : 3));
+    EXPECT_EQ(req.U(pes::moveword::kMotion), uint32_t(h.runTables.styleGroup[req.U(pes::moveword::kParamState) * 4 + band]))
+        << "class " << cls;
+  }
 }
 
 // ---------------------------------------------------------------------------------------------

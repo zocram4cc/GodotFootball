@@ -807,12 +807,9 @@ void GotoRun(MoveHost& host, MoveReq& req) {
     req.SetU(moveword::kCommandSpeedClass, static_cast<uint32_t>(ClassForRateFor(req.F(moveword::kRate), t)));
     req.SetF(moveword::kDesiredSpeedKmh, host.BandSpeedKmh(cls, host.PhysiqueG()) * k.speed3600);
     if (EnterRunTurnStep(host, req, (ceiling - k.rate06) * half)) return;
-    const int foot = host.FootBand();
-    req.SetF(moveword::kDwellLimit, 0.0f);
-    req.SetF(moveword::kDwellLimit2, 0.0f);
-    req.SetByte(moveword::kStyle, 0);
-    req.SetByte(moveword::kMirror, static_cast<uint32_t>(foot - 1) < 2u ? 1 : 0);
-    host.Issue(MotionRequest{-1, false, 0, k.blend1667, k.one, 0.0f, 0, 0.0f, req.F(moveword::kRate), foot});
+    // PES's GOTO exit ends in the +0xac0 vt+0 call (FUN_1406bdf10 line 630): the run entry picks the style's motion row, the
+    // mirror and the 0.1 dwell limit, and requests RUN_LOOP. The dispatcher's tail issues the clip.
+    EnterRun(host, req, host.FootBand(), false);
     return;
   }
 
