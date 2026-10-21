@@ -824,6 +824,8 @@ bool EnterAccelerate(MoveHost& host, MoveReq& req);
 // FUN_1406cdaf0 (group B): returns whether it wrote the request (undefined8 in PES).
 bool EnterDecelerate(MoveHost& host, MoveReq& req);
 void EnterRunTurnRun(MoveHost& host, MoveReq& req);    // FUN_1406d6780 (group D)
+// FUN_1406d6780's turn-family column remap (0x1406D7CAC): the column a turn row's cell lookup uses. The entry applies it per lookup.
+int TurnFamilyColumn(const MoveReq& req, int row, int column, float fVar34);
 // FUN_1406d2f60 (group D): the entry takes a float threshold and returns whether it wrote the
 // request. true = the request is written and RUN_TURN_STEP is entered (RequestState); false = the
 // calling state keeps the tick. Callers: RUN_TURN_STEP twice (threshold 0), RUN_LOOP (rateMax term),

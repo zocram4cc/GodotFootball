@@ -193,7 +193,7 @@ RowPick PickRow(MoveHost& host, int row, int column) {
   const MoveCell mirrorCell = host.Cell(row, column, false);
   RowPick pick;
   pick.found = cell.found || mirrorCell.found;
-  pick.motion = cell.motionNo >= 0 ? cell.motionNo : row;
+  pick.motion = cell.motionNo;  // an empty cell answers -1 (FUN_1406ABB30): never the row id as a motion
   pick.mirror = mirrorCell.mirror;
   return pick;
 }
@@ -257,6 +257,35 @@ void IssueClip(MoveHost& host, int motion, bool mirror, float blend, float playb
   clip.startTime = start;
   clip.group = -1;  // SetMotion (req[0x37] == 0x11)
   host.Issue(clip);
+}
+
+// PES's cell lookup in the RUN_TURN_RUN entry: an empty cell (FUN_1406ABDD0 answers 0) issues no clip and the entry hands
+// the tick to TURN_STOP (LAB_1406D8523 -> FUN_1406D2590). Returns false once the tick has been handed over.
+bool IssueRowOrTurnStop(MoveHost& host, MoveReq& req, int row, int column, float blend, float playback) {
+  const RowPick pick = PickRow(host, row, column);
+  if (!pick.found) {
+    EnterTurnStop(host, req);
+    return false;
+  }
+  IssueClip(host, pick.motion, pick.mirror, blend, playback, 0.0f);
+  return true;
+}
+
+// PES's turn-family column remap (FUN_1406d6780 at 0x1406D7CAC; TeamDecode's jump table at 0x1406D85E4): on the turn rows
+// 0x5BF, 0x5C1 and 0x5C3 (the test (row - 0x5BF) & ~6 == 0, with 0x5C5 excluded) and req[0x11] <= fVar34, the column steps
+// back two buckets: 2->0, 4->2, 6->4, 11->13, 13->15, 15->17. Other columns and other rows keep theirs.
+int TurnFamilyColumn(const MoveReq& req, int row, int column, float fVar34) {
+  const bool turnRow = ((static_cast<uint32_t>(row) - 0x5bfu) & 0xfffffff9u) == 0u && row != 0x5c5;
+  if (!turnRow || !(req.F(moveword::kDistToTarget) <= fVar34)) return column;
+  switch (column) {
+    case 2: return 0;
+    case 4: return 2;
+    case 6: return 4;
+    case 11: return 13;
+    case 13: return 15;
+    case 15: return 17;
+    default: return column;
+  }
 }
 
 namespace {
@@ -1845,7 +1874,10 @@ void EnterRunTurnRun(MoveHost& host, MoveReq& req, const MoveTurnConstants& k) {
 LAB_1406d6c22:
   EntryPrologue(host, req, k);  // FUN_1406d8730
   relaxSpan = k.three;          // fVar34 = DAT_14258c264
-  const int column = static_cast<int>(static_cast<uint32_t>(k.bucketColumn[bucket & 7]));
+  // PES reads the column as DAT_1425dd988[req[8]] with no mask (0x1406D6C31-0x1406D6C43).
+  const int column = static_cast<int>(static_cast<uint32_t>(k.bucketColumn[bucket]));
+  // The turn-family remap (0x1406D7CAC) applies to each turn row's own lookup, with the row the entry has picked.
+  const auto turnColumn = [&](int row) { return TurnFamilyColumn(req, row, column, relaxSpan); };
   if (speedWord > 1) {
     if (speedWord == 2) {
       if (!req.Flag(0xf)) {
@@ -1897,16 +1929,17 @@ LAB_1406d6c22:
         }
         // The stamp-tick draw, then the row's own select.
         const int stampTicks = static_cast<int>(scale * k.thirty + 2.0f);
-        const RowPick pick = PickRow(host, motion, column);
-        if (pick.found) {
-          if (!host.Percent(pick.motion)) {
-            if (host.Percent(stampTicks)) motion = 0x5d4;
-            reselect = true;
-          }
+        const RowPick pick = PickRow(host, motion, turnColumn(motion));
+        if (!pick.found) {  // FUN_1406ABDD0 answers 0 for this cell: no clip, and the entry hands the tick to TURN_STOP
+          EnterTurnStop(host, req);
+          return;
+        }
+        if (!host.Percent(pick.motion)) {
+          if (host.Percent(stampTicks)) motion = 0x5d4;
+          reselect = true;
         }
       }
-      IssueClip(host, PickRow(host, motion, column).motion, PickRow(host, motion, column).mirror,
-                k.clipBlend, playback, 0.0f);
+      if (!IssueRowOrTurnStop(host, req, motion, turnColumn(motion), k.clipBlend, playback)) return;
       const int classWord = reselect ? 3 : 2;
       float speed = reselect ? 30.0f : k.speedD;  // 0x41800000 for class 2
       if (motion == 0x5d5) {
@@ -1982,7 +2015,7 @@ LAB_1406d6c22:
         motion = host.Percent(ability) ? 0x5d0 : 0x5cf;
         const int win = static_cast<int>(scale * k.thirty +
                                          (k.angle90 < req.F(moveword::kTurn) ? 5.0f : 2.0f));
-        const RowPick pick = PickRow(host, motion, column);
+        const RowPick pick = PickRow(host, motion, turnColumn(motion));
         if (pick.found) {
           if (!host.Percent(pick.motion)) {
             if (host.Percent(2)) motion = 0x5d1;
@@ -1994,18 +2027,19 @@ LAB_1406d6c22:
         // LAB_1406d7d6b's arm: the row's own select.
         const int win = static_cast<int>(scale * k.speed15 +
                                          (k.angle90 < req.F(moveword::kTurn) ? 5.0f : 2.0f));
-        const RowPick pick = PickRow(host, motion, column);
-        if (pick.found) {
-          if (!host.Percent(pick.motion)) {
-            if (host.Percent(2)) motion = 0x5d4;
-            reselect = true;
-          }
+        const RowPick pick = PickRow(host, motion, turnColumn(motion));
+        if (!pick.found) {  // FUN_1406ABDD0 answers 0 for this cell: no clip, and the entry hands the tick to TURN_STOP
+          EnterTurnStop(host, req);
+          return;
+        }
+        if (!host.Percent(pick.motion)) {
+          if (host.Percent(2)) motion = 0x5d4;
+          reselect = true;
         }
         (void)win;
       }
     }
-    IssueClip(host, PickRow(host, motion, column).motion, PickRow(host, motion, column).mirror,
-              k.clipBlend, playback, 0.0f);
+    if (!IssueRowOrTurnStop(host, req, motion, turnColumn(motion), k.clipBlend, playback)) return;
     req.SetU(moveword::kPrevClassWord, static_cast<uint32_t>(speedWord));
     req.SetU(moveword::kPrevSpeedWord, req.U(moveword::kSpeedWord));
     if (motion == 0x5d5) {
@@ -2051,8 +2085,7 @@ LAB_1406d6c22:
     // FUN_140a58550's ability byte against 0x14 (20).
     if (AbilityByte(host, 0) < 0x14) motion = 0x5b6;
   }
-  IssueClip(host, PickRow(host, motion, column).motion, PickRow(host, motion, column).mirror,
-            k.clipBlend, playback, 0.0f);
+  if (!IssueRowOrTurnStop(host, req, motion, turnColumn(motion), k.clipBlend, playback)) return;
   req.SetU(moveword::kPrevClassWord, static_cast<uint32_t>(speedWord));
   req.SetU(moveword::kPrevSpeedWord, req.U(moveword::kSpeedWord));
   req.SetF(moveword::kSpeedWord, 11.0f);  // 0x41300000
