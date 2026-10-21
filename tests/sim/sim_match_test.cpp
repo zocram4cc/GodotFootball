@@ -35,12 +35,10 @@ constexpr int SHORT_MATCH_MINUTES = 2;  // long enough for set pieces and shots
 constexpr int FULL_MATCH_MINUTES = 5;
 // A match must end: the clock covers the duration plus generous added time.
 constexpr unsigned long kMaxSimTime_ms = 30ul * 60ul * 1000ul;
-// PES 2021's live matches call a handful of offsides per 20 minutes
-// (docs/re/pes-re-offside-port.md 4). Scaled to the 5-minute fixture below and
-// given room for the fixture's higher tempo, this is the band the ported rule
-// and the AI's offside readers keep the count inside: with the line read in the
-// wrong frame it goes past ten.
-constexpr int kPesOffsideBand_5min = 5;
+// A tripwire, not a PES rate: no live offside rate has been measured (the one live sample is a single whistled offside
+// in about 10 minutes, docs/re/pes-re-defence-leftovers.md 7.4). It catches the gross defect: with the line read in the
+// wrong frame the 5-minute fixture calls more than ten.
+constexpr int kOffsideTripwire_5min = 5;
 
 const pesrig::Rig* SharedRig() {
   static std::optional<pesrig::Rig> rig;
@@ -412,15 +410,15 @@ TEST(SimMatch, AIManagerSwitchGovernsTactics) {
 // same match then whistles 23 (10 for one side, 13 for the other). With the
 // frame right the count sits inside PES's band, which for this side's tempo
 // means single digits over the whole five minutes.
-TEST(SimMatch, OffsideRateStaysInPessBand) {
+TEST(SimMatch, OffsideCountStaysUnderTheWrongFrameTripwire) {
   REQUIRE_RIG();
   const Outcome o = Play(SEED, FULL_MATCH_MINUTES);
   const int offsides = o.offsides[0] + o.offsides[1];
-  EXPECT_LE(offsides, kPesOffsideBand_5min) << o.report;
+  EXPECT_LE(offsides, kOffsideTripwire_5min) << o.report;
   // Both sides are treated by the same rule, so neither side can run away with
   // the whole of it.
-  EXPECT_LE(o.offsides[0], kPesOffsideBand_5min);
-  EXPECT_LE(o.offsides[1], kPesOffsideBand_5min);
+  EXPECT_LE(o.offsides[0], kOffsideTripwire_5min);
+  EXPECT_LE(o.offsides[1], kOffsideTripwire_5min);
 }
 
 TEST(SimMatch, SameSeedPlaysTheSameMatch) {
