@@ -8,6 +8,7 @@
 #include "pes/fpk.hpp"
 
 #include <cmath>
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -319,6 +320,7 @@ std::optional<LightRig> ParseLightRig(const Fox2File& file, std::string* error) 
     a.month = Int(*atmo, "month", a.month);
     a.day = Int(*atmo, "day", a.day);
     a.starLight = Num(*atmo, "starLight", a.starLight);
+    a.skyColorSunScale = Num(*atmo, "skyColorSunScale", a.skyColorSunScale);
     a.skyLightLuminanceScale = Num(*atmo, "skyLightLuminanceScale", a.skyLightLuminanceScale);
     a.daySkyAmbientScale = Num(*atmo, "daySkyAmbientScale", a.daySkyAmbientScale);
     a.cloudiness = Num(*atmo, "cloudiness", a.cloudiness);
@@ -686,6 +688,14 @@ Vec3 AtshSunColor(const AtshTable& atsh, bool cloudy, int hour, int minute) {
   // The two weather slots are identical in the shipped files; the cloudy slot
   // is read when the rain rig (cloudiness 0.7) is active.
   return atsh.light[cloudy ? 1 : 0][AtshSlot(atsh, hour, minute)];
+}
+
+Vec3 SunColour(const Atmosphere& atmo, const AtshTable* atsh, bool cloudy, int hour, int minute) {
+  Vec3 c = {1, 1, 1};
+  if (atsh) c = AtshSunColor(*atsh, cloudy, hour, minute);
+  const float norm = std::max({c.x, c.y, c.z, 1e-6f});
+  const float peak = float(kPi * atmo.skyColorSunScale);
+  return {c.x / norm * peak, c.y / norm * peak, c.z / norm * peak};
 }
 
 const Vec3 (*AtshSkySh(const AtshTable& atsh, bool cloudy, int hour, int minute))[9] {

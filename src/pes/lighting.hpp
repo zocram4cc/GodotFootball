@@ -69,6 +69,7 @@ struct Atmosphere {
   int year = 2019, month = 3, day = 6;
   double starLight = 0, skyLightLuminanceScale = 1, daySkyAmbientScale = 1, cloudiness = 0,
          influenceOfFog = 0;
+  double skyColorSunScale = 1;  // TppAtmosphere S: the sun colour's π·S peak (1 if the file omits it)
   std::string atshPath;  // .atshFilePath, e.g. the light's own AtmosphereSHCoefficients
   double shadowRange = 120, shadowRangeExtra = 80, hiResShadowRange = 35;
   double shadowProjectionRange = 30, shadowFadeRange = 0, selfShadowBias = -15;
@@ -192,6 +193,10 @@ struct AtshTable {
 std::optional<AtshTable> ParseAtsh(std::span<const uint8_t> blob, std::string* error);
 // The nearest-time entry's direct-light colour for the rig weather slot.
 Vec3 AtshSunColor(const AtshTable& atsh, bool cloudy, int hour, int minute);
+// The direct sun's colour (sun-radiance §1.2-§1.6): the .atsh colour normalised to its largest
+// component, times π·skyColorSunScale (PES's cb3[1] = I·π·S; the intensity sunLux·fade stays with
+// the light). A null atsh (the install ships none) is white.
+Vec3 SunColour(const Atmosphere& atmo, const AtshTable* atsh, bool cloudy, int hour, int minute);
 // The nearest-time SH9 row for the rig weather slot.
 const Vec3 (*AtshSkySh(const AtshTable& atsh, bool cloudy, int hour, int minute))[9];
 // Reads `memberSuffix` (e.g. an .atsh) from an .fpk already in memory.

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -193,6 +194,57 @@ TEST(LightingRig, St002PluginSettings) {
   // The rig's one PesPluginSettings: this install's af file reads this value
   // (the report's survey row for st002 differs; the file is authoritative).
   EXPECT_NEAR(rig->plugin.tonemapSpeed, 10, 1e-6);
+}
+
+// The sun's colour peak is π·skyColorSunScale (sun-radiance §1.2-§1.6): the .atsh colour is
+// normalised to its largest component and scaled; the channel ratios (the chroma) are kept.
+TEST(LightingSun, SunColourPeaksAtPiTimesSkyColorSunScale) {
+  std::string err;
+  auto blob = MakeAtsh();
+  auto t = pes::ParseAtsh(blob, &err);
+  ASSERT_TRUE(t) << err;
+  pes::Atmosphere atmo;
+  atmo.skyColorSunScale = 0.2;
+  const pes::Vec3 c = pes::SunColour(atmo, &*t, false, 0, 0);
+  EXPECT_NEAR(std::max({c.x, c.y, c.z}), M_PI * 0.2, 1e-6);
+  EXPECT_NEAR(c.y / c.x, 1.0 / 131008.0, 1e-9);  // the .atsh chroma (G/R of the entry)
+}
+
+// No .atsh in the install: white at the same π·S peak.
+TEST(LightingSun, SunColourWithoutAtshIsWhiteAtPiTimesSkyColorSunScale) {
+  pes::Atmosphere atmo;
+  atmo.skyColorSunScale = 0.5;
+  const pes::Vec3 c = pes::SunColour(atmo, nullptr, false, 0, 0);
+  EXPECT_NEAR(c.x, M_PI * 0.5, 1e-6);
+  EXPECT_NEAR(c.y, M_PI * 0.5, 1e-6);
+  EXPECT_NEAR(c.z, M_PI * 0.5, 1e-6);
+}
+
+// The rig must carry the file's own TppAtmosphere.skyColorSunScale: compared with the property
+// read here straight from the fox2, not through the rig parser.
+TEST(LightingRig, SkyColorSunScaleIsTheTppAtmosphereProperty) {
+  if (!Vfs()) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto rig = pes::LoadLightRig(*Vfs(), 21, false, &err);
+  ASSERT_TRUE(rig) << err;
+  auto blob = Vfs()->Read(pes::LightRigPath(21, false), &err);
+  ASSERT_TRUE(blob) << err;
+  auto fpkd = pes::FpkArchive::Parse(*blob, &err);
+  ASSERT_TRUE(fpkd) << err;
+  std::optional<pes::Fox2File> fox2;
+  for (const auto& e : fpkd->entries)
+    if (e.path.size() > 5 && e.path.compare(e.path.size() - 5, 5, ".fox2") == 0) {
+      fox2 = pes::ParseFox2(std::span<const uint8_t>(blob->data() + e.offset, e.size), &err);
+      break;
+    }
+  ASSERT_TRUE(fox2) << err;
+  const pes::Fox2Entity* atmo = nullptr;
+  for (const auto& e : fox2->entities)
+    if (e.className == "TppAtmosphere") atmo = &e;
+  ASSERT_NE(atmo, nullptr);
+  const pes::Fox2Property* p = atmo->Find("skyColorSunScale");
+  ASSERT_TRUE(p && !p->values.empty());
+  EXPECT_DOUBLE_EQ(rig->atmosphere.skyColorSunScale, p->values[0].d);
 }
 
 }  // namespace

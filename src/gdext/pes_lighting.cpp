@@ -106,19 +106,16 @@ bool PesLighting::setup(const Ref<PesLibrary>& library, int stadium_id, int weat
   const int useHour = s.overrideDateTime ? s.dateTimeHour : span.startHour;
   const int useMinute = s.overrideDateTime ? s.dateTimeMinute : span.startMinute;
 
-  // The sun: direction from the §3.3 fit, colour from the .atsh light colour
-  // for this time (report Part B §9: sunLux × transmittance), off when the
-  // span disables it. Its basis −Z is the light direction (report §3.3).
+  // The sun: direction from the §3.3 fit, colour from the .atsh light colour for this time, peak
+  // π·skyColorSunScale (sun-radiance §1.2), off when the span disables it. Its basis −Z is the
+  // light direction (report §3.3).
   const pes::Vec3 toSun = pes::SunToDirection(rig->atmosphere, useHour, useMinute);
   const pes::Vec3 lightDir = {-toSun.x, -toSun.y, -toSun.z};
   const double fade = pes::SunHorizonFade(lightDir);
   const bool sunOn = s.sunLightMode != pes::LightSettings::SUN_DISABLE && fade > 0;
-  pes::Vec3 sunColour = {1, 1, 1};
-  if (auto atsh = pes::LoadAtsh(library->vfs(), stadium_id, rain, &err)) {
-    const pes::Vec3 c = pes::AtshSunColor(*atsh, rain, useHour, useMinute);
-    const float norm = std::max({c.x, c.y, c.z, 1e-6f});
-    sunColour = {c.x / norm, c.y / norm, c.z / norm};
-  }
+  const std::optional<pes::AtshTable> atsh = pes::LoadAtsh(library->vfs(), stadium_id, rain, &err);
+  const pes::Vec3 sunColour =
+      pes::SunColour(rig->atmosphere, atsh ? &*atsh : nullptr, rain, useHour, useMinute);
   ClearChildren(this);
 
   DirectionalLight3D* sun = memnew(DirectionalLight3D);
