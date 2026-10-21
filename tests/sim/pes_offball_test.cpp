@@ -6,6 +6,7 @@
 
 #include <cstdlib>
 #include <cmath>
+#include <cstring>
 
 #include "gametypes.hpp"
 #include "onthepitch/pesoffball.hpp"
@@ -249,6 +250,136 @@ TEST(OffBallMask, AttackSlotsOpenToAllUntilEnoughAttackersAreForward) {
   EXPECT_EQ(others, 2);
   EXPECT_TRUE((m >> 7) & 1u);  // the two nearest the goal line among the rest
   EXPECT_TRUE((m >> 8) & 1u);
+}
+
+// The quota's world (FUN_140500200): team 0 attacks +x from the ball at its carrier (id 0); only
+// the men a test places are active. Team 1 stands on the 40 m line. No slot has a receiver, so
+// nothing turns.
+void Place(RunWorld& w, int id, Vec2f pos, int roleClass) {
+  PlayerFacts& f = w.p[id];
+  f.active = true;
+  f.pos = f.aim = f.slotPoint = pos;
+  f.roleClass = roleClass;
+}
+RunWorld QuotaWorld(Vec2f ball) {
+  RunWorld w;
+  w.ball = ball;
+  w.carrier = 0;
+  w.receiver = {-1, -1};
+  w.possession = {true, false};
+  Place(w, 0, ball, 4);
+  Place(w, kSlots + 0, {40.0f, -10.0f}, 4);
+  Place(w, kSlots + 1, {45.0f, 0.0f}, 4);
+  Place(w, kSlots + 2, {50.0f, 10.0f}, 4);
+  return w;
+}
+constexpr uint32_t kEverySlot = (1u << kSlots) - 1;
+constexpr uint32_t SlotBit(int slot) { return 1u << slot; }
+uint32_t SlotRange(int from, int to) {
+  uint32_t m = 0;
+  for (int s = from; s <= to; ++s) m |= SlotBit(s);
+  return m;
+}
+
+// FUN_140A4F230 draws its offside line from the opponents' S1 list. The defenders have no man
+// behind the 1.5 m band, so the line is the back clamp at ball - 7 m (13 m). Team 0's own deepest
+// man behind the band stands at 18 m: a line taken from the attackers' own list would pick him.
+// From the defenders' line the men at 14, 18, 22 and 30 m are ahead: 4, so level 2 (need 4) runs
+// the quota. From the attackers' line there are 3 and every slot is admitted.
+TEST(OffBallMask, AheadCountUsesTheOpponentsLine) {
+  RunWorld w = QuotaWorld({20.0f, 0.0f});
+  Place(w, 1, {14.0f, 0.0f}, 4);
+  Place(w, 2, {18.0f, 0.0f}, 4);
+  Place(w, 3, {22.0f, 0.0f}, 4);
+  Place(w, 4, {30.0f, 0.0f}, 4);
+  EXPECT_EQ(AttackSlotMask(w, 0, 1), SlotBit(3) | SlotBit(4));  // need 2: the two nearest the goal
+  EXPECT_EQ(AttackSlotMask(w, 0, 2), SlotBit(0) | SlotBit(2) | SlotBit(3) | SlotBit(4));  // need 4
+}
+
+// The ladder (FUN_140500200): need 0, 2, 4, 6 for levels 0..3, and every slot from level 4.
+TEST(OffBallMask, QuotaLadderByLevel) {
+  RunWorld w = QuotaWorld({0.0f, 0.0f});
+  for (int k = 1; k <= 8; ++k) Place(w, k, {24.0f + k, 0.0f}, 4);  // 25..32 m ahead, no bonus
+  EXPECT_EQ(AttackSlotMask(w, 0, 0), 0u);
+  EXPECT_EQ(AttackSlotMask(w, 0, 1), SlotRange(7, 8));
+  EXPECT_EQ(AttackSlotMask(w, 0, 2), SlotRange(5, 8));
+  EXPECT_EQ(AttackSlotMask(w, 0, 3), SlotRange(3, 8));
+  EXPECT_EQ(AttackSlotMask(w, 0, 4), kEverySlot);
+}
+
+// A forward is admitted whatever his distance (the BTS path), and his −100 list score takes one
+// of the quota's places: three forwards fill a level-1 quota and no non-forward gets in.
+TEST(OffBallMask, ForwardsAdmittedAndCountTowardNeed) {
+  RunWorld w = QuotaWorld({0.0f, 0.0f});
+  Place(w, 1, {30.0f, 0.0f}, 7);
+  Place(w, 2, {28.0f, 5.0f}, 8);
+  Place(w, 3, {26.0f, -5.0f}, 9);
+  for (int k = 4; k <= 8; ++k) Place(w, k, {20.0f, 0.0f}, 4);
+  EXPECT_EQ(AttackSlotMask(w, 0, 1), SlotBit(1) | SlotBit(2) | SlotBit(3));
+}
+
+// The ahead gate: with fewer than `need` men ahead of the ball band (one here), level 2 (need 4)
+// admits every slot. The quota starts only at four.
+TEST(OffBallMask, AheadGateAdmitsEveryone) {
+  RunWorld w = QuotaWorld({0.0f, 0.0f});
+  Place(w, 1, {25.0f, 0.0f}, 4);
+  for (int k = 2; k <= 6; ++k) Place(w, k, {-20.0f, 0.0f}, 4);
+  EXPECT_EQ(AttackSlotMask(w, 0, 2), kEverySlot);
+}
+
+// The distance terms: a man within 10 m of the ball is listed 5 m nearer the goal than his
+// distance, and one 25 m or more away gets nothing. The 5 m bonus puts the 10 m man (17.56) ahead
+// of the 27.8 m man (18.56); with a 3 m bonus the 27.8 m man would take the second place.
+TEST(OffBallMask, FalloffAndSideAreImageConstants) {
+  RunWorld w = QuotaWorld({20.0f, 0.0f});
+  Place(w, 1, {50.0f, 0.0f}, 4);   // 2.56, first
+  Place(w, 2, {30.0f, 0.0f}, 4);   // 10 m from the ball: 22.56 - 5
+  Place(w, 3, {34.0f, 24.0f}, 4);  // 27.8 m from the ball: 18.56
+  EXPECT_EQ(AttackSlotMask(w, 0, 1), SlotBit(1) | SlotBit(2));
+}
+
+// The quota's constants are the install's own. Each float is the operand its instruction reads;
+// the level gate, the ladder and the forward stamp are instruction immediates, opcode-checked.
+TEST(OffBallQuotaInstall, QuotaConstantsAreTheExesOwn) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT unset";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe) << err;
+  auto read = [&](uint64_t va) {
+    std::array<uint8_t, 8> b{};
+    EXPECT_TRUE(exe->ReadVa(va, b.size(), b.data()));
+    return b;
+  };
+  auto f32 = [&](uint64_t va, size_t at = 0) {
+    const auto b = read(va);
+    float v = 0.0f;
+    std::memcpy(&v, b.data() + at, sizeof v);
+    return v;
+  };
+  EXPECT_FLOAT_EQ(f32(0x142588210), kQuotaNearEdge_m);
+  EXPECT_FLOAT_EQ(f32(0x14259BE20), kQuotaFarEdge_m);
+  EXPECT_FLOAT_EQ(f32(0x14259D668), kQuotaFalloff_m);
+  EXPECT_FLOAT_EQ(f32(0x14259222C), kQuotaNearBonus_m);
+  EXPECT_FLOAT_EQ(f32(0x14259D654), kQuotaSideTerm_m);
+  EXPECT_FLOAT_EQ(f32(0x14259BE0C), kTurnThreshold_deg);
+  EXPECT_FLOAT_EQ(f32(0x14259BDDC), kAheadBehindBall_m);
+  EXPECT_FLOAT_EQ(f32(0x14259BDF0), kAheadBackClamp_m);
+  EXPECT_FLOAT_EQ(f32(0x14259222C), kAheadWindowFront_m);
+  EXPECT_FLOAT_EQ(f32(0x14259BE04), kAheadWindowBack_m);
+  EXPECT_FLOAT_EQ(f32(0x1425CDAA0), kAheadLateral_m);
+  // CMP EBX,imm8 (83 FB ib) at 0x140500232.
+  EXPECT_EQ(read(0x140500232)[0], 0x83);
+  EXPECT_EQ(read(0x140500232)[2], kQuotaAllFromLevel);
+  // MOV byte [RSP+0x20],imm8 (C6 44 24 20 ib) at 0x14050030C (3), 0x140500313 (2), 0x14050031A (1).
+  for (int l = 1; l <= 3; ++l) {
+    const uint64_t va = l == 1 ? 0x14050031A : l == 2 ? 0x140500313 : 0x14050030C;
+    EXPECT_EQ(read(va)[0], 0xC6);
+    EXPECT_EQ(read(va)[4], kQuotaNeed[l]);
+  }
+  // MOV dword [RSP+RAX*8+0x44],imm32 (C7 44 C4 44 id) at 0x140500693: the stamp is −100.0.
+  EXPECT_EQ(read(0x140500693)[0], 0xC7);
+  EXPECT_FLOAT_EQ(f32(0x140500693, 4), kForwardStampScore);
 }
 
 // T+0x4C00 holds PES's role CLASS 0..9 (docs/re/pes-re-role-writer.md §5). Each fixture sets the
