@@ -444,8 +444,12 @@ TEST(DerivationInstall, NeymarsFeintIsItsOwnDoubleTouchSoleClip) {
   ASSERT_TRUE(LoadInstall(root, &in, &err)) << err;
   const int feint = MotionOf(in, "feintrun_doubletouch_3_3_f090");
   ASSERT_GE(feint, 0);
-  constexpr int kNeymar = 40352;  // card id, the first row of list 0
-  EXPECT_EQ(NameOf(in, pes::DerivePlayerMotion(in.table, kNeymar, feint, 0)),
+  // List 0 is Neymar's eight feints (docs §1): its first row is this feint, and the row names the card.
+  ASSERT_FALSE(in.table.lists[0].empty());
+  const pes::DerivationEntry& row = in.table.lists[0].front();
+  ASSERT_EQ(row.motionIn, feint);
+  ASSERT_TRUE(row.playerId);
+  EXPECT_EQ(NameOf(in, pes::DerivePlayerMotion(in.table, *row.playerId, feint, 0)),
             "feintrun_ballroll_onetime_3_3_f090_y0_Ltouch_in_ver03");
 }
 
