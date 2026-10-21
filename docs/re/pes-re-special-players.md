@@ -40,7 +40,7 @@ owner can map ids to players. ID 7511 has no compare anywhere.
 |1631 / 4522|0x140727040 / 0x140727031, 0x1407D98A6, 0x1407D98E5, 0x140823A65|either id (or style 0x1C via FUN_1406EAD40) sets FUN_1406FA9F0/FAAA0(player, 1)|
 |2344|0x14085EE4E (A62D90)|not decoded|
 |34873|0x14084D93E|not decoded|
-|34908 / 40352|0x1407DDF7C / 0x1407DDF69, 0x1407D9D03, 0x1407D9D69, 0x14047B172|40352 forces param_3 = 0x93 / 0x94 (an action/clip kind) at 0x1407D9D03..|
+|34908 / 40352 (CORRECTED: 0x93/0x94 are Cristiano Ronaldo's; Neymar/Marcelo get 0x7F and 0x9; see pes-re-special-players-decode.md)|0x1407DDF7C / 0x1407DDF69, 0x1407D9D03, 0x1407D9D69, 0x14047B172|40352 forces param_3 = 0x93 / 0x94 (an action/clip kind) at 0x1407D9D03..|
 |115894|0x1406CC720 (A62D90)|in MOVESTEP's band: jumps to LAB_1406CCA88 for him|
 |33185 and the five kick ids|§1, §3||
 
@@ -60,10 +60,13 @@ owner can map ids to players. ID 7511 has no compare anywhere.
 |40352|Neymar (pesmaster)|forces action kind 0x93/0x94|
 |34873|Diego Souza (pesmaster, PES 2020)|one site|
 |115894|U. Bolt (pesmaster, PES 2018)|a jump inside MOVESTEP's band (0x1406CC720): a locomotion special case|
-|2344|not found in either database|one site|
+|2344|not found in either database; GUESS (owner, unverified): Roberto Baggio|one site|
 
 ## 6. Bolt (115894), read in full (Main, 21-10-26)
 - The id occurs exactly once in the whole image: `cmp eax, 0x1C4B6` at 0x1406CC720, inside FUN_1406CBF70 (a MOVESTEP helper: it writes the rate word req[0x4A] and, in kind 3, issues a clip from DAT_1425DDCF0 at [style req[0x50]·0x10 + band]). No data table holds the id.
 - Normal path (FUN_1406CBF70 lines ~175-245): team/designation checks (FUN_140A62690, FUN_140A627E0, FUN_140A62960, the chaser state 0x32, T+0x255), ending in FUN_1406E6660(player, 0x15) (a byte of the player's stat record).
 - Bolt's path: when the side's +0xB6E0 bytes are clear and he is slot < 0x16, the id match jumps straight to LAB_1406CCA88: the rate from FUN_1406E66D0, a ×DAT_1425AB124 scale in one carrier-facing case, req[0x4A] = rate, the band 4/8/12 from the rate thresholds, then the style×band clip. So the id check skips the designation block and goes straight to the run rate and the clip pick.
 - No motion name in the exe's motion table contains "bolt", "usain" or "sprinter" (`pesfmt_dump motions`). Any Bolt-specific animation is therefore not selected by id here; it would come from his style word req[0x50] (the locomotion style, P+0x27B1) or from data. Open: the claim from another RE source that the id selects a special Bolt animation: needs the motion number and the site.
+
+## 7. Full decode
+See pes-re-special-players-decode.md: the six substitution lists are the file common/anime/playerID/bin/Derivationdatatable.bin (106 entries, per-player signature animations, all named); every site's gate and effect; Bolt has no animation of his own in the exe.
