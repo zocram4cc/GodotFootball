@@ -320,4 +320,52 @@ PressFillResult PressCandidateFill(const PressConstants& c, const std::array<Pre
   return r;
 }
 
+// ---- Second presser (FUN_140632bc0, FUN_140632ae0, FUN_140632e70). ----
+
+bool PressHolderKindExcluded(int pesKind) {
+  constexpr int kExcludedKindBase = 0x11;
+  constexpr uint64_t kExcludedKindMask = 0x8000000000000009ull;  // kinds 0x11, 0x14, 0x50
+  constexpr unsigned kExcludedMaskBits = 64;
+  constexpr int kExcludedKindA = 0x52;
+  constexpr int kExcludedKindB = 0x57;
+  const unsigned offset = static_cast<unsigned>(pesKind) - static_cast<unsigned>(kExcludedKindBase);
+  const bool inMask = offset < kExcludedMaskBits && ((kExcludedKindMask >> offset) & 1u) != 0;
+  return inMask || pesKind == kExcludedKindA || pesKind == kExcludedKindB;
+}
+
+int PressHolder(int possessionMan, int otherCarrier, int otherCarrierKind) {
+  if (static_cast<unsigned>(possessionMan) < static_cast<unsigned>(kPressTeamMen)) return possessionMan;
+  if (static_cast<unsigned>(otherCarrier) < static_cast<unsigned>(kPressTeamMen) &&
+      !PressHolderKindExcluded(otherCarrierKind)) {
+    return otherCarrier;
+  }
+  return kPressNoMan;
+}
+
+int PressClass(const PressClassInput& in) {
+  if (in.flagFiveMan) return kPressClassFive;
+  if (in.flagDNone) return kPressClassSeven;
+  if (in.testFun632850) return kPressClassFour;
+  if (in.teamB716) return kPressClassSix;
+  return in.testFun632320 ? kPressClassOne : kPressClassSeven;
+}
+
+bool PressPresserKept(const PressConstants& c, const PressMaintainInput& in) {
+  // The rules in PES order; each returns at its own keep or release.
+  if (!in.inPlay) return false;
+  if (in.slot >= kPressSideMen || in.tableWord != kPressAction) return false;
+  if (in.keeperHoldsBall) return false;
+  if (in.holderNow != in.holderRecorded) return false;
+  if (in.flag == kPressSlotFlagFive && in.flag5Man != in.man) return false;
+  if (in.carrier < kPressTeamMen) {
+    if (in.ballLifted) return false;
+    if (in.matchUpMan != in.carrier) return false;  // no MATCH_UP man is kPressNoMan, never a carrier
+  }
+  if (in.flag == kPressSlotFlagThree && in.carrierRecorded != in.flag3Stamp) return true;
+  if (in.refused || in.distanceRefused) return false;
+  if (in.recordAgeFrames <= in.windowFrames) return true;
+  if (in.carrierRecorded >= kPressTeamMen) return true;
+  return in.scoreToCarrier <= c.carrierRampEnd_m;
+}
+
 }  // namespace pes

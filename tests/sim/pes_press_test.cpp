@@ -470,3 +470,191 @@ TEST(PressConstantsLoader, ImageRelationsHold) {
 }
 
 }  // namespace
+
+namespace {
+
+// Baseline inputs for the maintain gate: every rule passes, so the presser is kept. Each test
+// changes one input and checks the outcome that rule decides.
+pes::PressMaintainInput KeptPresser() {
+  pes::PressMaintainInput in;
+  in.inPlay = true;
+  in.man = 3;
+  in.slot = 3;
+  in.tableWord = pes::kPressAction;
+  in.holderNow = 7;
+  in.holderRecorded = 7;
+  in.windowFrames = 108;
+  return in;
+}
+
+}  // namespace
+
+TEST(PressHolderKind, GoalkeeperKindsAreNotHolders) {
+  for (int kind : {0x11, 0x14, 0x50, 0x52, 0x57}) EXPECT_TRUE(pes::PressHolderKindExcluded(kind)) << kind;
+  for (int kind : {0x10, 0x12, 0x51, 0x53, 0x58}) EXPECT_FALSE(pes::PressHolderKindExcluded(kind)) << kind;
+}
+
+TEST(PressHolder, PossessionManBeatsTheOtherCarrier) {
+  EXPECT_EQ(pes::PressHolder(3, 15, 0x20), 3);
+}
+
+TEST(PressHolder, OtherCarrierStandsInWithoutAPossessionMan) {
+  EXPECT_EQ(pes::PressHolder(pes::kPressNoMan, 15, 0x20), 15);
+}
+
+TEST(PressHolder, AnExcludedKindOrNoCarrierGivesNoHolder) {
+  EXPECT_EQ(pes::PressHolder(pes::kPressNoMan, 15, 0x52), pes::kPressNoMan);
+  EXPECT_EQ(pes::PressHolder(pes::kPressNoMan, pes::kPressNoMan, 0x20), pes::kPressNoMan);
+}
+
+TEST(PressClass, FlagFiveManWinsOverEveryLaterTest) {
+  pes::PressClassInput in;
+  in.flagFiveMan = true;
+  in.flagDNone = true;
+  in.testFun632850 = true;
+  in.teamB716 = true;
+  in.testFun632320 = true;
+  EXPECT_EQ(pes::PressClass(in), 5);
+}
+
+TEST(PressClass, FlagDNoneIsSevenBeforeTheFourTest) {
+  pes::PressClassInput in;
+  in.flagDNone = true;
+  in.testFun632850 = true;
+  EXPECT_EQ(pes::PressClass(in), 7);
+}
+
+TEST(PressClass, FourThenSixThenTheBandTestThenSeven) {
+  pes::PressClassInput in;
+  in.testFun632850 = true;
+  EXPECT_EQ(pes::PressClass(in), 4);
+  in = {};
+  in.teamB716 = true;
+  EXPECT_EQ(pes::PressClass(in), 6);
+  in = {};
+  in.testFun632320 = true;
+  EXPECT_EQ(pes::PressClass(in), 1);
+  in = {};
+  EXPECT_EQ(pes::PressClass(in), 7);
+}
+
+TEST(PressMaintain, BaselinePresserIsKept) {
+  auto c = Synthetic();
+  EXPECT_TRUE(pes::PressPresserKept(c, KeptPresser()));
+}
+
+TEST(PressMaintain, NotInPlayReleases) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.inPlay = false;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, OnlyPressSlotsBelowElevenAreKept) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.tableWord = 0x3a;  // MATCH_UP in the table, not PRESS
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+  in = KeptPresser();
+  in.slot = 11;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, KeeperWithTheBallReleases) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.keeperHoldsBall = true;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, HolderChangeReleases) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.holderNow = 8;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, FlagFiveKeepsOnlyTheFlagMan) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.flag = 5;
+  in.flag5Man = 4;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+  in.flag5Man = 3;
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, LiftedBallReleasesWhenTheTeamHasACarrier) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.ballLifted = true;
+  in.carrier = 4;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+  in.carrier = pes::kPressNoMan;
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, GroundedCarrierNeedsHimAsTheMatchUpMan) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.carrier = 4;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));  // no MATCH_UP man
+  in.matchUpMan = 5;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));  // another man
+  in.matchUpMan = 4;
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, FlagThreeKeepsWhenTheCarrierChanged) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.flag = 3;
+  in.carrierRecorded = 2;
+  in.flag3Stamp = 9;
+  in.refused = true;  // the keep comes before the refusal gate
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, RefusedReleases) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.refused = true;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, DistanceVerdictReleases) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.distanceRefused = true;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, RecordWindowKeepsAPresserWithACarrier) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.carrierRecorded = 2;
+  in.scoreToCarrier = c.carrierRampEnd_m + 100.0f;
+  in.recordAgeFrames = in.windowFrames;
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+  in.recordAgeFrames = in.windowFrames + 1;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, NoCarrierOnTheSideKeepsAnyPresser) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.recordAgeFrames = 1000;
+  in.scoreToCarrier = 1e9f;
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, ScoreWithinTheCarrierRampEndKeeps) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.carrierRecorded = 2;
+  in.recordAgeFrames = 1000;
+  in.scoreToCarrier = c.carrierRampEnd_m;
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+  in.scoreToCarrier = c.carrierRampEnd_m + 0.5f;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+}

@@ -211,4 +211,71 @@ struct PressFillResult {
 // Gate and tally for FUN_140639830 over the side's 11 men (local index k).
 PressFillResult PressCandidateFill(const PressConstants& c, const std::array<PressFillMan, 11>& mans);
 
+// ---- Second presser: the coordinator's holder, class and maintain gates (PES FUN_140632bc0,
+// FUN_140632ae0, FUN_140632e70; coordinator FUN_140634470). ----
+
+// Team-man and side-man counts of the coordinator's tests (PES compares men with 0x16, slots with 0xb).
+inline constexpr int kPressTeamMen = 22;
+inline constexpr int kPressSideMen = 11;
+// The assignment-table word of a presser: PES T+0xa2a0[slot] == 0x34 (state 52, PRESS).
+inline constexpr int kPressAction = 0x34;
+// Slot flags in T+0xb88c[slot] that the maintain gate reads (PES FUN_140632e70: 3 and 5).
+inline constexpr int kPressSlotFlagThree = 3;
+inline constexpr int kPressSlotFlagFive = 5;
+// Classes FUN_140632ae0 returns.
+inline constexpr int kPressClassOne = 1;
+inline constexpr int kPressClassFour = 4;
+inline constexpr int kPressClassFive = 5;
+inline constexpr int kPressClassSix = 6;
+inline constexpr int kPressClassSeven = 7;
+
+// True for the PES player kinds that cannot hold the press: 0x11, 0x14 and 0x50 (a bitmask over
+// kind - 0x11), plus 0x52 and 0x57 (FUN_140632bc0, FUN_1406324a0).
+bool PressHolderKindExcluded(int pesKind);
+
+// PES FUN_140632bc0: the side's holder for the press pass. The possession man (MA+0x2601C through
+// FUN_140a627e0(ctx, 0)) wins when he is a team man; otherwise the other side's carrier (+0x78)
+// stands in unless his kind is excluded. kPressNoMan when neither holds.
+int PressHolder(int possessionMan, int otherCarrier, int otherCarrierKind);
+
+// Inputs of FUN_140632ae0, in the order it tests them. Each callee result is the caller's.
+struct PressClassInput {
+  bool flagFiveMan = false;     // FUN_1406324a0(ctx, team) names a team man
+  bool flagDNone = false;       // FUN_140a63950(ctx, side, 0xd, 0xff)
+  bool testFun632850 = false;   // FUN_140632850(...) != 0 (not decoded: caller)
+  bool teamB716 = false;        // ctx+0xb716 != 0
+  bool testFun632320 = false;   // FUN_140632320(...) (not decoded: caller)
+};
+
+// PES FUN_140632ae0: the press class of a side.
+int PressClass(const PressClassInput& in);
+
+// Inputs of FUN_140632e70, the coordinator's maintain test for one side-local slot. The caller reads
+// every field from the side's state; `man` is side * 11 + slot.
+struct PressMaintainInput {
+  bool inPlay = false;                // MI+0x116c == 1
+  int man = kPressNoMan;              // side * 11 + slot
+  int slot = kPressNoMan;             // side-local slot (param_4)
+  int tableWord = 0;                  // T+0xa2a0[slot]
+  int flag = 0;                       // T+0xb88c[slot] (0 for slots past 10)
+  bool keeperHoldsBall = false;       // FUN_140a53f90(ctx, 0xff) != 0 (not decoded: caller)
+  int holderNow = kPressNoMan;        // FUN_140632bc0(side, ctx)
+  int holderRecorded = kPressNoMan;   // the coordinator's holder (param_1[0])
+  int flag5Man = kPressNoMan;         // FUN_1406324a0(ctx, team) (partly decoded: caller)
+  int carrier = kPressNoMan;          // T+0x78
+  bool ballLifted = false;            // (ball+0x18 > 1.5) or the +4 height term, DAT_14259bddc
+  int matchUpMan = kPressNoMan;       // FUN_140a62960(side), the MATCH_UP man (not decoded: caller)
+  int carrierRecorded = kPressNoMan;  // the coordinator's carrier (param_1[1], team+0x7c)
+  int flag3Stamp = kPressNoMan;       // T+0x4b10
+  bool refused = false;               // FUN_140633350(...) != 0 (not decoded: caller)
+  bool distanceRefused = false;       // the distance sub-branch verdict (not ported: caller)
+  uint32_t recordAgeFrames = 0;       // T+0xa2cc[slot] stamp: last - first
+  uint32_t windowFrames = 0;          // FUN_141e532e0() * 2
+  float scoreToCarrier = 0.0f;        // FUN_1404c8ea0(team, carrierRecorded, man) (not decoded: caller)
+};
+
+// PES FUN_140632e70: true keeps the presser (PES returns 0), false releases him (PES returns 1).
+// PARTIAL: the distance sub-branch is the caller's verdict until its helpers are ported.
+bool PressPresserKept(const PressConstants& c, const PressMaintainInput& in);
+
 }  // namespace pes
