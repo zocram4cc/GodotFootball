@@ -96,10 +96,8 @@ constexpr float pesCrossbarThickness = 0.12f;     // F15
 constexpr float pesPostThickness = 0.12f;         // F16
 constexpr float pesCircleRadius = 9.15f;          // F17: centre circle and the penalty arc
 
-// GF's own goal geometry, which stands in for PES inputs the table does not feed yet.
-// ponytail: the net's post centre. PES's posts are F2 (inner, 3.66) and F2 + F16/2
-// (centre, 3.72); the ball, keeper and net gates move to the table in the net-model commit.
-const float goalHalfWidth = 3.7f;
+// The goal's post centreline, PES's F2 + F16/2 (3.66 + 0.06 = 3.72): the ball, keeper and net gates use the posts' centres.
+constexpr float goalHalfWidth = pesGoalInnerHalfWidth + pesPostThickness * 0.5f;
 // ponytail: GF's net depth. PES's net backs are F13 and F14, 1.76 m and 1.87 m behind
 // the goal line; replaced by the table in the net-model commit.
 const float goalDepth = 2.55f;

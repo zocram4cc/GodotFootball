@@ -2,6 +2,7 @@
 #define _HPP_FOOTBALL_ONTHEPITCH_BALLPHYSICS
 
 #include "base/math/vector3.hpp"
+#include "gametypes.hpp"
 
 struct BallPhysicsState {
   blunted::Vector3 position;
@@ -11,8 +12,8 @@ struct BallPhysicsState {
 struct GoalNettingConfig {
   float pitchHalfW = 52.5f;  // gametypes.hpp pitchHalfW: 105x68 pitch since 8163845
   float goalDepth = 2.55f;
-  float goalHeight = 2.5f;
-  float goalHalfWidth = 3.7f;
+  float goalHeight = ::goalHeight;        // gametypes.hpp: F3 + F15/2
+  float goalHalfWidth = ::goalHalfWidth;  // gametypes.hpp: F2 + F16/2
   float ballRadius = 0.11f;
 };
 

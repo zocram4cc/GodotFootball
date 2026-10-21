@@ -1127,14 +1127,14 @@ bool Match::CheckForGoal(signed int side) {
   line.SetVertex(1, ball->Predict(0));
 
   Triangle goal1;
-  goal1.SetVertex(0, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, 3.7f, 0));
-  goal1.SetVertex(1, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, -3.7f, 0));
-  goal1.SetVertex(2, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, 3.7f, 2.5f));
+  goal1.SetVertex(0, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, goalHalfWidth, 0));
+  goal1.SetVertex(1, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, -goalHalfWidth, 0));
+  goal1.SetVertex(2, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, goalHalfWidth, goalHeight));
   goal1.SetNormals(Vector3(-side, 0, 0));
   Triangle goal2;
-  goal2.SetVertex(0, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, -3.7f, 0));
-  goal2.SetVertex(1, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, -3.7f, 2.5f));
-  goal2.SetVertex(2, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, 3.7f, 2.5f));
+  goal2.SetVertex(0, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, -goalHalfWidth, 0));
+  goal2.SetVertex(1, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, -goalHalfWidth, goalHeight));
+  goal2.SetVertex(2, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, goalHalfWidth, goalHeight));
   goal2.SetNormals(Vector3(-side, 0, 0));
 
   // match->SetDebugPilon(Vector3(55 * side, 3.66, 2.44));

@@ -74,6 +74,9 @@ std::optional<KickErrorConstants> LoadKickErrorConstants(const PeImage& exe, std
     *error = "kick error constant: .rdata unreadable";
     return std::nullopt;
   }
+  auto penalty = LoadPenaltyScatterConstants(exe, error);
+  if (!penalty) return std::nullopt;
+  k.penaltyScatter = *penalty;
   return k;
 }
 
