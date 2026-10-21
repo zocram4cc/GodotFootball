@@ -51,6 +51,9 @@ struct SetPieceTakerConstants {
   float physiqueLow = 0.9166f;       // .rdata 0x1425ddf78: FUN_1406e8cc0's physique clamp, low (x and z)
   float physiqueHigh = 1.0833f;      // .rdata 0x1425ddf80: and high
   float hitTickDivisor = 60.0f;      // 60, .rdata 0x14259a764: a hit's tick divisor (FUN_1406b03d0)
+  // The throw-in's pickup reach: PES starts the pickup clip inside this (DAT_14259222c, docs/re/pes-re-throwin-choreography.md
+  // 3.2). Until the loader reads it, the old GF stand-in of 1 m stands here.
+  float throwInPickupReach_m = 1.0f;
 };
 
 std::optional<SetPieceTakerConstants> LoadSetPieceTakerConstants(const PesVfs& vfs,

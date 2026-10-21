@@ -17,8 +17,8 @@ namespace {
 
 // ponytail: frames from arming to release, live (A5Live 9.3). These fixed gates stand in for PES's taker reach and kick
 // action (9.2, 9.4) until that action is ported. Each value is the shortest release measured live; the DOC gate it
-// replaces is named beside it. A goal kick has no gate: its keeper's ladder releases it (pesgoalkick.hpp).
-constexpr int kThrowInReleaseFrames = 118;   // live 118-194; DOC counter 81-83 not reproduced
+// replaces is named beside it. A throw-in has no gate: its taker is released on arrival (MayRelease), and a goal kick by
+// its ladder (pesgoalkick.hpp).
 constexpr int kCornerReleaseFrames = 365;    // live 365-379; DOC 189 not reproduced
 constexpr int kFreeKickReleaseFrames = 355;  // live 355-356; DOC 162 not reproduced
 constexpr int kPenaltyReleaseFrames = 54;    // DOC fps*1 (setpiece 12); not observed live
@@ -52,10 +52,26 @@ Spot ThrowInSpot(float ballX, float ballZ, const RestartSpotConstants& k) {
           Sign(ballZ) * (pesFieldHalfWidth + k.throwInLineOutset_m)};
 }
 
+Spot ThrowInCarrySpot(float restartX, float restartZ, int attackSign, const RestartSpotConstants& k) {
+  const float carryZ = Sign(restartZ) * (pesFieldHalfWidth + k.throwInCarryOutset_m);
+  // The approach line runs from the restart point to the centre of the goal the side attacks,
+  // G = (attackSign * F0, 0) (FUN_140791ec0 phase 1). Where it crosses the carry line, the x is
+  // G.x - carryZ * (G.x - restartX) / restartZ.
+  const float goalX = static_cast<float>(attackSign) * pesFieldHalfLength;
+  float x = goalX - carryZ * (goalX - restartX) / restartZ;
+  // The x stays within the install's clamp of the restart's x (the 2 m test, COMISS at 0x1407921c2).
+  x = std::clamp(x, restartX - k.throwInCarryClamp_m, restartX + k.throwInCarryClamp_m);
+  // Past the end line's inset the spot falls back to the restart's x (the F0 - 0.5 test, 0x1407921f3).
+  if (std::fabs(x) > pesFieldHalfLength - k.throwInCarryEndInset_m) x = restartX;
+  return {x, carryZ};
+}
+
 int ReleaseFrames(e_SetPiece kind) {
   switch (kind) {
     case e_SetPiece_ThrowIn:
-      return kThrowInReleaseFrames;
+      return 0;  // no timer: the taker's arrival releases it (MayRelease)
+    case e_SetPiece_GoalKick:
+      return 0;  // no timer: the keeper's arrival releases him (MayRelease)
     case e_SetPiece_Corner:
       return kCornerReleaseFrames;
     case e_SetPiece_FreeKick:
@@ -67,8 +83,9 @@ int ReleaseFrames(e_SetPiece kind) {
   }
 }
 
-bool MayRelease(e_SetPiece kind, int framesSinceArmed) {
+bool MayRelease(e_SetPiece kind, int framesSinceArmed, bool takerArrived) {
   if (kind == e_SetPiece_GoalKick) return false;  // the goal kick's ladder releases it (pesgoalkick.hpp), never this gate
+  if (kind == e_SetPiece_ThrowIn) return takerArrived;  // PES's arrival and kick (A5 9.3, §4.7)
   return framesSinceArmed >= ReleaseFrames(kind);
 }
 

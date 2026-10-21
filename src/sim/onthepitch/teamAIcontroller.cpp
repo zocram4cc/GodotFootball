@@ -1070,6 +1070,8 @@ void TeamAIController::ApplyOffsideTrap(Vector3& position) const {
 
 // PES's goal kick: the keeper walks to his stand point before he takes it. The walk is pending until the ladder releases
 // the kick (A5 §4.7; pesgoalkick.hpp).
+// PES's set-piece takers walk to their spot before they take the restart (A5 §4.7; for a throw-in,
+// docs/re/pes-re-throwin-choreography.md 3.1-3.2). The walk is pending until the taker has arrived.
 bool TeamAIController::IsPieceTakerWalking(const Player* player) const {
   return pieceWalk && player == taker;
 }
@@ -1143,9 +1145,64 @@ void TeamAIController::PrepareGoalKickStand(const Vector3& spot) {
   goalKickStrike.ticks = pes::GoalKickContactTicks(hit.frame, k);
 }
 
+void TeamAIController::AdvancePieceWalk() {
+  if (!pieceWalk || pieceCarrying || taker == nullptr) return;
+  const Vector3 off = pieceWalkTarget - taker->GetPosition();
+  if (off.Get2D().GetLength() > match->GetPesSetPieceTakerConstants().throwInPickupReach_m) return;
+  pieceCarrying = true;
+  pieceWalkTarget = pieceCarrySpot;
+}
+
+bool TeamAIController::PieceTakerArrived() const {
+  if (!pieceWalk || taker == nullptr) return true;
+  if (!pieceCarrying) return false;  // still fetching the ball
+  // The lift (phase 4): within the lift radius of the spot, and inside the end line's inset.
+  const pes::RestartSpotConstants& k = match->GetPesRestartSpotConstants();
+  const Vector3 pos = taker->GetPosition();
+  const Vector3 off = pieceWalkTarget - pos;
+  return off.Get2D().GetLength() < k.throwInCarryStop_m &&
+         std::fabs(pos.coords[0]) < pesFieldHalfLength - k.throwInCarryEndInset_m;
+}
+
+namespace {
+
+// PES's role class of a GF role (docs/re/pes-re-throwin-choreography.md 2.1, INF): 0 GK, 1 CB, 2 SB, 3 DMF, 4 CMF, 5 SMF,
+// 6 AMF, 7 the forwards. ponytail: stands for RoleClassOfSlot(FormationSlotOf(player)) until RoleArrays lands.
+int CeremonyRoleClass(e_PlayerRole role) {
+  switch (role) {
+    case e_PlayerRole_GK:
+      return 0;
+    case e_PlayerRole_CB:
+      return 1;
+    case e_PlayerRole_LB:
+    case e_PlayerRole_RB:
+      return 2;
+    case e_PlayerRole_DM:
+      return 3;
+    case e_PlayerRole_CM:
+      return 4;
+    case e_PlayerRole_LM:
+    case e_PlayerRole_RM:
+      return 5;
+    case e_PlayerRole_AM:
+      return 6;
+    default:
+      return 7;
+  }
+}
+
+// A placed throw-in taker's body stands this far outside the touchline, over the restart point: PES's release point is
+// 1.02 m outside the line (the placement at F0+162, docs/re/pes-re-throwin-choreography.md). ponytail: GF places the body
+// centre there, not the hands.
+constexpr float kThrowInStandIn_m = 1.02f;
+
+}  // namespace
+
 void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
   setPieceType = setPiece;
   pieceWalk = false;
+  pieceCarrying = false;
+  bool seamlessRestart = false;
   goalKickLadder = pes::GoalKickLadder();
   goalKickStrike = GoalKickStrike();
   goalKickReceiver = nullptr;
@@ -1664,6 +1721,48 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
           break;
         }
       }
+    } else if (setPiece == e_SetPiece_ThrowIn && match->PesLoop()) {
+      // PES's seamless throw-in taker (FUN_14044e230, docs/re/pes-re-throwin-choreography.md 2.2): the ball-arrival order,
+      // the keeper test, the fps/3 bias and the ball and reach gates (EV-TI-0007, 3.1). When no candidate qualifies, the
+      // ceremony taker takes it (FUN_1404a93a0, 2.1), placed rather than walking.
+      // ponytail: PES's arrival list (AIctx+0x2470c) is not decoded: GF's time-to-ball is clamped to one second for every
+      // man (UpdatePossessionStats), so the arrival here is the distance to the ball at the man's top speed.
+      const std::vector<std::unique_ptr<Player>>& roster = team->GetAllPlayers();
+      const float fps = static_cast<float>(Match::kFramesPerSecond);
+      const Vector3 restart = match->GetReferee()->GetBuffer().restartPos;
+      const Vector3 ball3 = match->GetBall()->Predict(0);
+      std::vector<pes::ArrivalRank> ranked;
+      std::vector<pes::CeremonyMan> men;
+      for (unsigned int i = 0; i < roster.size(); i++) {
+        Player* player = roster.at(i).get();
+        if (!player->IsActive()) continue;
+        pes::ArrivalRank r;
+        r.slot = static_cast<int>(i);
+        // ponytail: stands for RoleClassOfSlot(FormationSlotOf(player)) == 0 (RoleArrays class 0, the keeper).
+        // Becomes that line when MergeRA (RoleArrays) lands; GF's formation role stands in until then.
+        r.keeper = player->GetFormationEntry().role == e_PlayerRole_GK;
+        r.distanceToBall_m = (player->GetPosition() - ballPos).GetLength();
+        const float topSpeed_mps = std::max(player->GetMaxVelocity(), 0.1f);
+        r.arrivalFrames = r.distanceToBall_m / topSpeed_mps * fps;
+        ranked.push_back(r);
+        // ponytail: the flank is the man's current side (PES's slot base z is not decoded here).
+        pes::CeremonyMan man;
+        man.slot = static_cast<int>(i);
+        man.roleClass = CeremonyRoleClass(player->GetFormationEntry().role);
+        man.distanceToRestart_m = (player->GetPosition() - restart).Get2D().GetLength();
+        man.sameFlank = (player->GetPosition().coords[1] > 0.0f) == (restart.coords[1] > 0.0f);
+        men.push_back(man);
+      }
+      std::stable_sort(ranked.begin(), ranked.end(),
+                       [](const pes::ArrivalRank& a, const pes::ArrivalRank& b) {
+                         return a.arrivalFrames < b.arrivalFrames;
+                       });
+      const bool ballGate = pes::SeamlessBallGate(match->GetBall()->GetMovement().GetLength() * 3.6f, ball3.coords[2],
+                                                  restart.coords[0] - ball3.coords[0]);
+      const int pick = ballGate ? pes::SeamlessThrowInTaker(ranked, fps, spc) : -1;
+      seamlessRestart = pick >= 0;
+      const int slot = seamlessRestart ? pick : pes::CeremonyThrowInTaker(men);
+      taker = slot >= 0 ? roster.at(slot).get() : nullptr;
     } else {
       // A corner, a penalty or anything else without a sheet: the best
       // suitability, first on ties (FUN_140a621f0's shape).
@@ -1678,7 +1777,9 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       }
     }
 
-    if (taker == 0) taker = AI_GetClosestPlayer(team, ballPos);
+    // The closest man stands in for a restart with no taker, except the PES throw-in, which has its ceremony pick above.
+    if (taker == 0 && !(setPiece == e_SetPiece_ThrowIn && match->PesLoop()))
+      taker = AI_GetClosestPlayer(team, ballPos);
     // A keeper who ends up with a restart is placed where that restart wants him, not where the outfield placement
     // put him. On the PES path a goal kick keeper runs to the ball instead (below).
     if (taker && taker->GetFormationEntry().role == e_PlayerRole_GK &&
@@ -1693,7 +1794,21 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       // ponytail: the ball stays on its spot through the stoppage (seed 7 trace, S1Port); a ball moved in it is not followed.
       PrepareGoalKickStand(ballPos);
       pieceWalk = true;
-
+    } else if (setPiece == e_SetPiece_ThrowIn && match->PesLoop()) {
+      // PES's throw-in taker. A seamless candidate (path A) walks to the ball, picks it up and carries it to the throw
+      // spot (3.1-3.2). A ceremony taker (path B) is placed outside the line with the ball, and does not walk.
+      const pes::Spot carry =
+          pes::ThrowInCarrySpot(ballPos.coords[0], ballPos.coords[1], dir, match->GetPesRestartSpotConstants());
+      pieceWalk = seamlessRestart;
+      pieceCarrying = false;
+      pieceWalkTarget = ballPos;
+      pieceCarrySpot = Vector3(carry.x, carry.z, 0.0f);
+      if (!seamlessRestart && taker) {
+        const Vector3 restart = match->GetReferee()->GetBuffer().restartPos;
+        const float outward = restart.coords[1] > 0.0f ? 1.0f : -1.0f;
+        taker->ResetPosition(Vector3(restart.coords[0], restart.coords[1] + outward * kThrowInStandIn_m, 0.0f),
+                             ballPos);
+      }
     } else if (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_KickOff) {
       taker->ResetPosition(ballPos + ballPos.GetNormalized(Vector3(0, -team->GetSide(), 0)) * 0.3f,
                            ballPos);
@@ -1703,7 +1818,7 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       taker->ResetPosition(ballPos + ballPos.GetNormalized(Vector3(0, -team->GetSide(), 0)) * 2.3f,
                            ballPos);
     }
-    if (setPiece == e_SetPiece_ThrowIn) {
+    if (setPiece == e_SetPiece_ThrowIn && taker) {
       taker->SelectRetainAnim();
     }
     if (setPiece == e_SetPiece_Penalty) {

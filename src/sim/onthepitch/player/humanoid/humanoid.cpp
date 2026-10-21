@@ -3210,25 +3210,21 @@ signed int Humanoid::GetBestCheatableAnimID(
       // out of bounds?
       if (match->GetBallRetainer() != player) {
         Vector3 absBallPos = match->GetBall()->Predict(animTouchFrame * 10);
-        // The throw-in ball sits F1 + the install's outset outside the touchline (0x142592228,
-        // docs/re/pes-re-throwin-choreography.md 1.3), at the taker's restart spot. His own throw
-        // must not be refused for standing there: the ball is dead at his feet and the throw
-        // The exemption is the taker's own spot only - a ball that is not at
-        // his restart spot, or a touch by anyone else, is still pruned as out of bounds.
-        // ponytail: the stand-in is the out-of-bounds prune itself, not this window. PES's
-        // on-pitch test FUN_140a72e70 has no off-pitch refusal at all (docs/re/pes-decode-
-        // TouchReach.md 1: |x| <= F0 and |z| <= F1, no margin, and the touch path does not call
-        // it), so porting that classifier deletes the prune and this window with it. Until then
-        // the window stands for the writer's spot (0.25 m at 0x142592228, throwin doc 1.3),
-        // where the ball is dead: a body touch can nudge it off and the throw still carries it.
-        constexpr float kOwnSpotWindow_m = 0.5f;
+        // The throw-in is taken from the carry spot, where the taker holds the ball in his hand (docs/re/
+        // pes-re-throwin-choreography.md 3.2). His own throw must not be refused for standing there: the
+        // exemption is the carrying taker's ball within the lift radius of him. A ball that is not in his hand,
+        // or a touch by anyone else, is still pruned as out of bounds.
+        // ponytail: the stand-in is the out-of-bounds prune itself. PES's on-pitch test FUN_140a72e70 has no
+        // off-pitch refusal (docs/re/pes-decode-TouchReach.md 1: |x| <= F0 and |z| <= F1, no margin, and the
+        // touch path does not call it), so porting that classifier deletes the prune and this exemption with it.
         const RefereeBuffer& rb = match->GetRefereeBuffer();
         // The throw's candidates are chosen during the hold, before the set piece starts, so the gate
         // is the award (active), not IsInSetPiece(), which is still false then.
         const bool atOwnSpot =
-            match->PesLoop() && rb.active &&
-            rb.desiredSetPiece == e_SetPiece_ThrowIn && rb.taker == player &&
-            (absBallPos.Get2D() - rb.restartPos.Get2D()).GetLength() < kOwnSpotWindow_m;
+            match->PesLoop() && rb.active && rb.desiredSetPiece == e_SetPiece_ThrowIn &&
+            rb.taker == player && match->GetTeam(rb.teamID)->GetController()->IsCarryingBall() &&
+            (absBallPos.Get2D() - player->GetPosition().Get2D()).GetLength() <
+                match->GetPesRestartSpotConstants().throwInCarryStop_m;
         if (!atOwnSpot &&
             (fabs(absBallPos.coords[0]) > pitchHalfW + lineHalfW + 0.11f ||
             fabs(absBallPos.coords[1]) > (match->PesLoop() ? pesFieldHalfWidth : pitchHalfH) + lineHalfW + 0.11f)) {

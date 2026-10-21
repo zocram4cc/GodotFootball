@@ -225,7 +225,7 @@ bool Referee::PesLoop() const { return match->PesLoop(); }
 namespace {
 
 // Whether the armed restart is released this tick. On the PES path a goal kick is released by PES's timer ladder
-// (sub_142136F00, stepped here once a tick; pesgoalkick.hpp), and a throw-in by its timer (pes::MayRelease).
+// (sub_142136F00, stepped here once a tick; pesgoalkick.hpp), and a throw-in on its taker's arrival (pes::MayRelease).
 // PES's set-piece AI holds a restart for a frame-rate multiple before the kicker takes it (setpiecelaws.hpp): 189 frames
 // for a corner, 162 for a free kick, 54 for a penalty, all measured live. `startTime` is when the referee is ready for
 // the kick; this adds PES's deliberate hold on top of it, so the placement and the wait cannot be confused for each
@@ -240,7 +240,7 @@ bool ReleasesRestart(Match* match, const RefereeBuffer& buffer) {
   }
   TeamAIController* controller = match->GetTeam(buffer.teamID)->GetController();
   if (buffer.desiredSetPiece == e_SetPiece_GoalKick) return controller->StepGoalKickLadder();
-  return pes::MayRelease(buffer.desiredSetPiece, framesSinceArmed);
+  return pes::MayRelease(buffer.desiredSetPiece, framesSinceArmed, controller->PieceTakerArrived());
 }
 
 }  // namespace
@@ -571,6 +571,19 @@ void Referee::Process() {
           match->GetBall()->GetPositionBuffer().Get2D().GetDistance(buffer.restartPos.Get2D()) >
               kRestartHoldTolerance_m)
         match->GetBall()->ResetSituation(buffer.restartPos);
+
+      // PES's throw-in carry (FUN_140791ec0 phases 2-4; docs/re/pes-re-throwin-choreography.md 3.2): the taker
+      // picks the ball up where it lies and carries it to the throw spot, where he lifts it and throws. The
+      // ball rides his hand from the pickup until the release.
+      if (match->PesLoop() && buffer.desiredSetPiece == e_SetPiece_ThrowIn && buffer.prepared && !buffer.started &&
+          buffer.taker) {
+        TeamAIController* controller = match->GetTeam(buffer.teamID)->GetController();
+        controller->AdvancePieceWalk();
+        if (controller->IsCarryingBall()) {
+          const Vector3 hand = buffer.taker->GetPosition();
+          match->GetBall()->ResetSituation(Vector3(hand.coords[0], hand.coords[1], 0.0f));
+        }
+      }
 
       // Law 16: the taker waits for the opponents to leave the penalty area. They walk
       // out on their own (elizacontroller.cpp); this holds the whistle until they have,
