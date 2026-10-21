@@ -2117,6 +2117,101 @@ int JostleStyle(MoveHost& host, MoveReq& req, int base, float& turn) {
 // ponytail: that half's state picker and swing arm are the foundation's event store; the port
 // keeps the running branch's own arms here and names where the other half stands.
 // ---------------------------------------------------------------------------------------------
+// PES 408-466: RUN_LOOP's T1-false tail (FUN_1406c0170 after its T1 block). It runs on the T1-false path only, where the T1
+// gate's FUN_1406b70d0 operand has already set fVar22 = one and fVar3 = DAT_1425cca34 (67.5). The rate starts at rate06 and
+// the turn ramp lowers it. Block A exits to RUN_TURN_RUN or TURN_STOP; block B exits to STOP, from the speed scaled by the
+// body's cosine to the displacement (the sine table at |gap| + 90, FUN_140a92c80).
+void RunLoopTail(MoveHost& host, MoveReq& req) {
+  const RunConstants& k = host.RunConstantsView();
+  const MoveConstants& m = host.MoveConstantsView();
+  const float one = k.one;                               // fVar22, set by the T1 gate's operand
+  const float half = k.half;                             // fVar20 (PES 109)
+  const float turn = std::fabs(req.F(moveword::kTurn));  // PES 408-409: |req[6]|
+  const int classWord = static_cast<int>(req.U(moveword::kClassWord));
+
+  // PES 410-422: the turn ramp over the 67.5..135 degree band lowers the rate, clamped to [blend3, rate06].
+  float ramp = 0.0f;
+  if (k.deg675 < turn) {
+    ramp = one;
+    if (turn < k.deg135) ramp = (turn - k.deg675) / k.deg675;
+  }
+  float rate = k.rate06;  // fVar23 (PES 52)
+  const float lowered = rate - (ramp * k.rate07 + k.blend2) * k.blend3;
+  if (lowered <= rate) rate = (k.blend3 <= lowered) ? lowered : k.blend3;
+  // PES 423: the anime interface's vt+0x08 (P+0xab8) is not ported (ponytail: the clip clock is the host's).
+
+  if (req.U(moveword::kPrecise) != 1u || 2 < classWord || rate < req.F(moveword::kRate)) {
+    // Block A (PES 425-447): RUN_TURN_RUN when the look is far enough and the run turn may be taken, else TURN_STOP.
+    float f = k.speed4;  // DAT_1425656c0 (PES 426)
+    if (classWord != 3) {
+      f = half;  // PES 427
+      if (classWord == 2) {
+        f = m.dist2m5;  // DAT_14259bde4 (PES 428)
+        if (static_cast<int>(req.U(moveword::kCommandSpeedClass)) < 2) f = one;  // PES 429
+      }
+    }
+    // PES 431-437: the factor over the 90..157.5 degree band scales it by 1 - factor * half.
+    float factor = 0.0f;
+    if (k.deg90 < turn) {
+      factor = one;
+      if (turn < k.deg1575) factor = (turn - k.deg90) / k.deg675;
+    }
+    f *= one - factor * half;
+    // PES 438-442: the look gap is tested unless the walk is precise in class 0..2.
+    const bool gapOk = req.U(moveword::kPrecise) != 1u || 2 < classWord ||
+                       std::fabs(PesAngleDiff(req.F(moveword::kHeading), req.F(moveword::kLookHeading), k)) <= k.deg5625;
+    if (gapOk && f <= req.F(moveword::kDistToLook)) {
+      EnterRunTurnRun(host, req);  // FUN_1406d6780
+      return;
+    }
+    EnterTurnStop(host, req);  // FUN_1406d2590
+    return;
+  }
+
+  // Block B (PES 449-466): the speed scaled by the body's cosine to the displacement decides STOP.
+  const float heading = DisplacementBearingDeg(host, k);  // FUN_14046f230 of the last tick's displacement
+  const float gap = std::fabs(PesAngleDiff(req.F(moveword::kFacing), heading, k));  // FUN_1404583b0(P+0x20, heading)
+  const float cosine = TableSinDeg(gap + k.deg90, one, host.SpeedClassConstantsView());  // FUN_140a92c80(gap + 90, one)
+  const float speed = host.CurrentSpeedKmh() * cosine;  // vt+0x20, the ground speed in km/h (PES 453-454)
+  const int previous = host.MoveStatePrevious();        // P+0x245d
+  if (speed <= k.kmh5 || (speed <= k.kmh135 && (previous == static_cast<int>(MoveState::kTurnStop) ||
+                                                previous == static_cast<int>(MoveState::kStop)))) {
+    req.SetU(moveword::kClassWord, 0u);  // PES 457
+  } else {
+    if (speed <= k.kmh5 || k.kmh11 <= speed) {
+      EnterStop(host, req);  // PES 460: goto the STOP entry with no word written
+      return;
+    }
+    req.SetU(moveword::kClassWord, 1u);  // PES 462
+  }
+  // PES 463: word 0x1d takes the speed as a whole number (x86's cvttss2si keeps the sign of a negative speed).
+  req.SetU(moveword::kStopSpeedWord, static_cast<uint32_t>(static_cast<int64_t>(speed)));
+  EnterStop(host, req);  // PES 466: FUN_1406d5d60
+}
+namespace {
+// PES 267-286 (E3): the ladder selector, checked against the asm. Bucket 0 and 5 take the style arm; bucket 1 and 6 take the
+// ladder only under bVar19 (req[0x1F] below 1 with the kind 3 or 6); the other buckets take the ladder. Returns whether the
+// ladder answered the tick (STOP, TURN_STOP or RUN_TURN_RUN); false leaves the tick to the style arm (PES 287-398).
+bool RunLoopLadder(MoveHost& host, MoveReq& req, const RunConstants& k, int kind) {
+  const int bucket = static_cast<int>(req.U(moveword::kMoveBucket));
+  const bool bVar19 = static_cast<int>(req.U(moveword::kClassWord)) < 1 && (kind == 3 || kind == 6);
+  const bool ladder = (bucket == 1 || bucket == 6) ? bVar19 : (bucket != 0 && bucket != 5);
+  if (!ladder) return false;
+  // PES 274-284: STOP or IDLE below 0.3 (blend3); TURN_STOP at 2 m or less, and not exactly 2; RUN_TURN_RUN otherwise.
+  if (req.F(moveword::kRate) < k.blend3) {
+    EnterStop(host, req);
+    return true;
+  }
+  const float toLook = req.F(moveword::kDistToLook);
+  if (toLook <= k.speed2 && k.speed2 != toLook) {
+    EnterTurnStop(host, req);
+    return true;
+  }
+  EnterRunTurnRun(host, req);
+  return true;
+}
+}  // namespace
+
 void RunLoop(MoveHost& host, MoveReq& req) {
   const RunConstants& k = host.RunConstantsView();
   const RunTables& t = host.RunTablesView();
@@ -2124,10 +2219,11 @@ void RunLoop(MoveHost& host, MoveReq& req) {
   const int kind = static_cast<int>(req.U(moveword::kKind));
   const int band = static_cast<int>(req.U(moveword::kRateBand));
   const bool running = cls != -1 || (req.U(moveword::kPrecise) != 1u && host.MatchPhase() == 1);
+  // PES 57-61: a no-class tick (class word -1) with the precise word set, or outside the match phase 1, is TURN_STOP
+  // (FUN_1406d2590) before any other arm.
   if (!running) {
-    // ponytail: the no-class arm's body (the state picker, the keeper / mode arm, the swing
-    // arm and the 0x662 / 0x661 rows) is not ported; its state request is TURN_STOP, which
-    // the running branch's own row pick also reaches.
+    EnterTurnStop(host, req);
+    return;
   }
 
   // Arm 1: the turn-lock re-plan.
@@ -2172,30 +2268,18 @@ void RunLoop(MoveHost& host, MoveReq& req) {
   // FUN_1406eadf0 = P+0x377c, the rate ceiling, which host.RateCeiling() reads.
   const float blended = (host.RateCeiling() - k.rate06) * k.half + k.rate06;
   const bool swingNow = t1 && (t2 || blended < req.F(moveword::kRate));
-  // PES 267-286 (E3): the ladder selector, checked against the asm. Bucket 0 and 5 take the style arm; bucket 1 and 6 take the
-  // ladder only under bVar19 (req[0x1F] below 1 with the kind 3 or 6); the other buckets take the ladder.
-  if (t1 && !swingNow) {
-    const bool bVar19 = static_cast<int>(req.U(moveword::kClassWord)) < 1 && (kind == 3 || kind == 6);
-    const bool ladder = (bucket == 1 || bucket == 6) ? bVar19 : (bucket != 0 && bucket != 5);
-    if (ladder) {
-      // PES 274-284: STOP or IDLE below 0.3 (blend3); TURN_STOP at 2 m or less, and not exactly 2; RUN_TURN_RUN otherwise.
-      if (req.F(moveword::kRate) < k.blend3) {
-        EnterStop(host, req);
-        return;
-      }
-      const float toLook = req.F(moveword::kDistToLook);
-      if (toLook <= k.speed2 && k.speed2 != toLook) {
-        EnterTurnStop(host, req);
-        return;
-      }
-      EnterRunTurnRun(host, req);
-      return;
-    }
-  }
+  // PES 267-286 (E3): the ladder answers the tick unless its bucket takes the style arm (see RunLoopLadder).
+  if (t1 && !swingNow && RunLoopLadder(host, req, k, kind)) return;
 
-  // The swing arm (PES 120-263) runs for T1 with T2 or E2, and for a no-class tick outside T1. PES's tail (408-466, the
-  // T1-false path) is not ported: a no-class tick there keeps the swing arm (ponytail). Otherwise the style arm below runs.
-  if (swingNow || (!t1 && !running)) {
+  // PES 408-466: the T1-false tail for a running class.
+  if (!t1 && running) {
+    RunLoopTail(host, req);
+    return;
+  }
+  // The swing arm (PES 120-263) runs for T1 with T2 or E2. It writes the look words and issues no clip of its own.
+  if (swingNow) {
+    // PES 120 (E0): the swing entry returns with nothing written while the first dwell is still running.
+    if (swingNow && req.F(moveword::kDwellElapsed) < req.F(moveword::kDwellLimit)) return;
     // The playback read through the +0xac0 interface's slot 0x30 (FUN_140a62960's mirror
     // argument) and slot 0x50's answer.
     // ponytail: the interface's slot pair is the anime player's own; the port uses the
@@ -2339,51 +2423,9 @@ void RunLoop(MoveHost& host, MoveReq& req) {
       if (a != b) lookBucket = SwingBucketAngle(host, -card);
     }
   swing_write : {
-    // The bucket's own folds (4 -> 3, 9 -> 8) and the kind word's set-piece fold.
+    // The bucket's own folds (4 -> 3, 9 -> 8): the bucket word the E3 ladder reads.
     if (lookBucket == 4) lookBucket = 3;
     if (lookBucket == 9) lookBucket = 8;
-    int rowKind = kind;
-    if (RecordClass17Byte() < 0x16 &&
-        ((req.U(moveword::kCommandId) - 0x33u < 2u || req.U(moveword::kCommandId) == 0x4du) &&
-         rowKind - 2u < 2u)) {
-      rowKind = 1;
-    }
-    // The row pick through the +0xac0 interface's slot 0xd0 - FUN_1406ba900's own row
-    // selector, whose arguments are the playback struct, the band word, the kind word, the
-    // bucket word, the command word and the live clip's motion. The port's GotoRowFor is
-    // the same table's reader (kind + class*8), which PES's own FUN_1406b9bd0 uses.
-    const int row = GotoRowFor(rowKind, bandWord, t);
-    const MoveCell cell = host.Cell(row, lookBucket, false);
-    // The swing clip's duration and playback: 0.1667 by default, 0.2 with the 22.5 /
-    // bearing-sign pair for the 0xbee..0xc23 / 0xbc2 / 0xb45 family, 0.25 for the 0xe2d
-    // family whose foot test decides the mirror.
-    float duration = k.blend1667;
-    bool mirror = cell.mirror;
-    const int cellMotion = static_cast<int>(cell.motionNo);
-    if ((static_cast<uint32_t>(cellMotion - 0xbee) < 0x36u) ||
-        cellMotion == 0xbc2 || (static_cast<uint32_t>(cellMotion - 0xb45) < 2u)) {
-      duration = k.blend2;
-      if (k.deg225 < std::fabs(bodyTurn) &&
-          ((0.0f < bodyTurn && mirror) || (bodyTurn < 0.0f && !mirror))) {
-        duration = k.rampSlope;  // 0.15 (0x1425c48a0)
-      }
-    } else if (cellMotion == 0xe2d) {
-      // The 0xe2d family's foot test over the bones 3 and 6.
-      float footA[3] = {0.0f, 0.0f, 0.0f};
-      float footB[3] = {0.0f, 0.0f, 0.0f};
-      host.PositionAt(3, footA);
-      host.PositionAt(6, footB);
-      const float dx = footA[0] - footB[0];
-      const float dy = footA[1] - footB[1];
-      const float dz = footA[2] - footB[2];
-      (void)dx;
-      (void)dz;
-      mirror = !(dy <= 0.0f);
-    }
-    // PES's RUN_LOOP block stores its playback in req[0x35] and issues from that word (FUN_1406c0170, decompile lines 380-388);
-    // the copied-in default (req[0x4b]) is the drift term's (LateralDamping), not the issue's.
-    host.Issue(MotionRequest{cell.motionNo, mirror, 0, duration,
-                              req.F(moveword::kPlayback), 0.0f});
     // The turned heading: the bucket's own centre angle with the 11.25 allowance for the
     // buckets 3 and 8, clamped to the swing bearing when it sits inside the window, and
     // added to the request's own word 2.
@@ -2399,7 +2441,9 @@ void RunLoop(MoveHost& host, MoveReq& req) {
     req.SetU(moveword::kMoveBucket, static_cast<uint32_t>(lookBucket));
     req.SetU(moveword::kLiveKind, static_cast<uint32_t>(kind));
     req.SetByte(moveword::kMirrorFlag, 0);
-    return;
+    // PES 265-286: the swing words are written, then the E3 ladder answers the tick; a bucket that takes the style arm falls
+    // through to it (PES 287-398).
+    if (RunLoopLadder(host, req, k, kind)) return;
   }
   }
 

@@ -200,7 +200,7 @@ class FakeHost : public MoveHost {
     lastColumn = column;
     lastWalk = walkFlag;
     pes::MoveCell c;
-    c.motionNo = cellMotion >= 0 ? cellMotion : row;
+    c.motionNo = cellMotion >= 0 ? cellMotion : -1;  // an empty cell answers -1 (FUN_1406ABB30's answer)
     c.mirror = false;
     c.found = cellMotion >= 0;
     return c;
@@ -237,7 +237,7 @@ class FakeHost : public MoveHost {
   }
   int MatchPhase() const override { return 1; }
   bool IsReplay() const override { return false; }
-  void Issue(const pes::MotionRequest& request) override { issued = request; }
+  void Issue(const pes::MotionRequest& request) override { issued = request; ++issues; }
 
   const pes::StepScalars& StepConstants() const override { return scalars; }
   float BandSpeedKmh(int band, float g) const override { return 0.0f; }
@@ -259,6 +259,8 @@ class FakeHost : public MoveHost {
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
+  // The turn tests do not reach RUN_LOOP's tail, so the sine view is never read here.
+  const pes::SpeedClassConstants& SpeedClassConstantsView() const override { static const pes::SpeedClassConstants none{}; return none; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
   float FacingDeg() const override { return 0.0f; }
   float BallBearingDeg() const override { return 0.0f; }
@@ -311,6 +313,7 @@ class FakeHost : public MoveHost {
   int lastPercent = -1;
   bool percentAnswer = false;
   pes::MotionRequest issued{};
+  int issues = 0;
 };
 
 // The request words group D's tests use, in the order the handlers read them.
@@ -498,7 +501,8 @@ bool OutOfPlayPreempt(MoveHost&, MoveReq&) { return false; }
 bool EnterAccelerate(MoveHost&, MoveReq&) { return false; }
 void EnterGotoRun(MoveHost&, MoveReq&, bool) {}
 void EnterStop(MoveHost&, MoveReq&) {}
-void EnterTurnStop(MoveHost&, MoveReq&) {}  // group C's own; the stub keeps group D linking
+int turnStopEntries = 0;  // counts the hand-offs to TURN_STOP (group C's EnterTurnStop, stubbed here)
+void EnterTurnStop(MoveHost&, MoveReq&) { ++turnStopEntries; }  // group C's own; the stub keeps group D linking
 // Group C's FUN_1406b70d0 gate (movestep_step.cpp): the group-D tests take its "no", as the port did before group C landed.
 bool StepLetsRunTurn(MoveHost&, MoveReq&) { return false; }
 }  // namespace movestep
@@ -604,6 +608,7 @@ TEST(RunTurnStep, HandsTheTickToStepTurnRunWhenTheEntryWritesTheRequest) {
   host.displacement[0] = 3.0f;
   host.displacement[1] = 0.0f;
   host.displacement[2] = 4.0f;
+  host.cellMotion = 0x5be;  // PES's entry picks a populated cell (FUN_1406ABDD0); an empty one goes to TURN_STOP
   RunTurnStep(host, req, SyntheticTurn());
   // PES's ladder writes the class 2 / 16.0 pair, then FUN_1406d38d0 refuses, so the tick falls
   // through to the RUN_TURN_RUN entry (FUN_1406d6780), which asks for state 12.
@@ -763,6 +768,7 @@ TEST(StepTurnRun, ReplaysARowThroughTheStepGridWhenTheClipIsYoung) {
   req.SetF(pes::moveword::kDesiredSpeedKmh, 14.0f);
   req.SetU(pes::moveword::kMoveBucket, 1);
   req.SetU(pes::moveword::kPrevBucket, 1);
+  host.cellMotion = 0x5be;  // the replay issues the step grid's populated cell (FUN_1406ABB30); an empty one answers -1
   StepTurnRun(host, req, SyntheticTurn());
   // The branch writes the class/speed pair from the drawn speed and asks for STEP_LOOP.
   EXPECT_EQ(req.U(pes::moveword::kClassWord) & 0xffu, 2u);
@@ -955,6 +961,68 @@ TEST(EnterRunTurnRun, SelectsTheRowAndAsksForTheRunTurnRunState) {
   // The entry issues the ladder's row with the vt+0x10 blend duration.
   EXPECT_EQ(host.issued.motion, 0x5be);
   EXPECT_NEAR(host.issued.duration, 1.0f / 6.0f, 1e-6f);
+}
+
+// PES's entry takes its cell at row 0xBE5 when the kind-2 band-2 request has no precise flag (the default motion). Row
+// 0xBE5 is one past the clip table, so FUN_1406ABDD0 answers 0 (empty): the entry issues no clip and goes to TURN_STOP
+// (decompile 0x1406D75C1 -> JZ 0x1406D8523 -> FUN_1406D2590). The port issued the row id as a motion instead.
+TEST(EnterRunTurnRun, AnEmptyCellSendsTheEntryToTurnStopWithNoClip) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kMoveBucket, 3);
+  req.SetU(pes::moveword::kKind, 2);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  host.currentMotion = 0x1000;
+  host.cellMotion = -1;  // the cell is empty
+  pes::movestep::turnStopEntries = 0;
+  EnterRunTurnRun(host, req, SyntheticTurn());
+  EXPECT_EQ(host.issues, 0) << "an empty cell issues no clip";
+  EXPECT_EQ(pes::movestep::turnStopEntries, 1) << "an empty cell hands the tick to TURN_STOP (FUN_1406D2590)";
+}
+
+// PES reads the column as DAT_1425dd988[req[8]] with no mask (FUN_1406d6780 at 0x1406D6C31-0x1406D6C43). Bucket 8 is column
+// 2; the port's old `& 7` read bucket 0's column 9.
+TEST(EnterRunTurnRun, TheEntryReadsTheRawBucketColumnWithNoMask) {
+  FakeHost host;
+  MoveReq req;
+  FillRequest(&req);
+  req.SetU(pes::moveword::kClassWord, 2);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3);
+  req.SetU(pes::moveword::kMoveBucket, 8);
+  req.SetU(pes::moveword::kKind, 2);
+  host.currentMotion = 0x1000;
+  host.cellMotion = 0x5be;
+  EnterRunTurnRun(host, req, SyntheticTurn());
+  EXPECT_EQ(host.lastColumn, 2) << "DAT_1425dd988[8] is column 2";
+}
+
+// PES's turn-family remap (FUN_1406d6780 at 0x1406D7CAC; the jump table at 0x1406D85E4, decoded in TeamDecode's report):
+// on the rows 0x5BF, 0x5C1 and 0x5C3 (the mask (row - 0x5BF) & ~6 == 0, with 0x5C5 excluded) and req[0x11] <= fVar34,
+// the column steps back: 2->0, 4->2, 6->4, 11->13, 13->15, 15->17. Other columns keep theirs.
+TEST(TurnFamilyRemap, StepsTheColumnBackOnTheTurnRowsWithinFVar34) {
+  MoveReq req;
+  req.SetF(pes::moveword::kDistToTarget, 1.0f);
+  const float fVar34 = 3.0f;
+  EXPECT_EQ(pes::movestep::TurnFamilyColumn(req, 0x5bf, 4, fVar34), 2);
+  EXPECT_EQ(pes::movestep::TurnFamilyColumn(req, 0x5c1, 2, fVar34), 0);
+  EXPECT_EQ(pes::movestep::TurnFamilyColumn(req, 0x5c3, 6, fVar34), 4);
+  EXPECT_EQ(pes::movestep::TurnFamilyColumn(req, 0x5c3, 11, fVar34), 13);
+  EXPECT_EQ(pes::movestep::TurnFamilyColumn(req, 0x5c1, 13, fVar34), 15);
+  EXPECT_EQ(pes::movestep::TurnFamilyColumn(req, 0x5bf, 15, fVar34), 17);
+  EXPECT_EQ(pes::movestep::TurnFamilyColumn(req, 0x5c1, 3, fVar34), 3) << "column 3 has no remap";
+}
+
+TEST(TurnFamilyRemap, LeavesTheColumnOnOtherRowsAndBeyondFVar34) {
+  MoveReq req;
+  req.SetF(pes::moveword::kDistToTarget, 1.0f);
+  EXPECT_EQ(pes::movestep::TurnFamilyColumn(req, 0x5c5, 4, 3.0f), 4) << "0x5C5 is excluded";
+  EXPECT_EQ(pes::movestep::TurnFamilyColumn(req, 0x5c0, 4, 3.0f), 4) << "0x5C0 fails the (row - 0x5BF) & ~6 test";
+  EXPECT_EQ(pes::movestep::TurnFamilyColumn(req, 0x5cc, 4, 3.0f), 4) << "0x5CC fails the (row - 0x5BF) & ~6 test";
+  req.SetF(pes::moveword::kDistToTarget, 5.0f);
+  EXPECT_EQ(pes::movestep::TurnFamilyColumn(req, 0x5c3, 4, 3.0f), 4) << "beyond fVar34 the remap stays off";
 }
 
 // FUN_1406d2f60's first guard: kind 7 refuses outright, even with a request every later gate

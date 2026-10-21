@@ -389,6 +389,7 @@ class MoveHostAdapter final : public pes::MoveHost {
   bool ClipFlag() const override { return false; }
 
   const pes::MoveConstants& MoveConstantsView() const override { return c_.move; }
+  const pes::SpeedClassConstants& SpeedClassConstantsView() const override { return c_.speedClass; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return c_.idleRows; }
   float FacingDeg() const override {
     const Vector3 dir = player_.GetDirectionVec();

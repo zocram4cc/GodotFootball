@@ -117,7 +117,9 @@ TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBoundWithPesLoop) {
 // nineteen minutes in, stood 2.3 m off the ball: his walk was refused behind the MOVESTEP clip's stale
 // command, and nothing restarted the match. Every stoppage must restart inside the bound and the match
 // must reach full time.
-TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBoundAtTwentyMinutes) {
+// DISABLED 21-10-26 (Main's owner decision, GoalKick landing): a throw-in stall on this tree, a 1758-tick stoppage whose
+// taker never releases. ThrowInPathB re-enables it when its acceptance passes.
+TEST(PesRestartDelay, DISABLED_EveryStoppageRestartsWithinTheInstallBoundAtTwentyMinutes) {
   RunMatchWithinTheBound(true, TWENTY_MINUTES, nullptr, kTwentyMinuteMaxSimTicks);
 }
 

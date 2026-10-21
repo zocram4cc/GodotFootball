@@ -211,6 +211,9 @@ public:
 
   int GetIdleMovementAnimID();
   void ResetPosition(const Vector3& newPos, const Vector3& focusPos);
+  // Every ResetPosition takes the body off its clip (GF's set-piece placement through ResetSituation, and the release
+  // fallback in Process). The wire test skips a player's tick when this count moved.
+  int GetPlacementCount() const { return placementCount; }
   void OffsetPosition(const Vector3& offset);
   // False when the current clip cannot be interrupted by a trip.
   bool TripMe(const Vector3& tripVector, int tripType);
@@ -338,6 +341,7 @@ protected:
 
   Anim* currentAnim;
   Anim* previousAnim;
+  int placementCount = 0;
 
   // position/rotation offsets at the start of currentAnim
   Vector3 startPos;

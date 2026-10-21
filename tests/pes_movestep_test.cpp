@@ -366,6 +366,8 @@ class RateHost : public pes::MoveHost {
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
+  // The movestep tests do not reach RUN_LOOP's tail, so the sine view is never read here.
+  const pes::SpeedClassConstants& SpeedClassConstantsView() const override { static const pes::SpeedClassConstants none{}; return none; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
   float FacingDeg() const override { return facingDeg; }
   float BallBearingDeg() const override { return ballBearingDeg; }

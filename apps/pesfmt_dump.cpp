@@ -19,6 +19,7 @@
 #include "pes/anim_names.hpp"
 #include "pes/ask.hpp"
 #include "pes/clips.hpp"
+#include "pes/exe.hpp"
 #include "pes/fmdl.hpp"
 #include "pes/fpk.hpp"
 #include "pes/ftex.hpp"
@@ -54,7 +55,7 @@ std::string Q4(pes::Quat q) {
 }
 
 int Usage() {
-  std::fprintf(stderr, "usage: pesfmt_dump <mounts|ls PREFIX|cat PATH|ask PATH|skl FPK SUFFIX|fmdl FPK|rig> --pes21-root DIR\n");
+  std::fprintf(stderr, "usage: pesfmt_dump <mounts|ls PREFIX|cat PATH|ask PATH|skl FPK SUFFIX|fmdl FPK|rig|motions [NO ...]> --pes21-root DIR\n");
   return 2;
 }
 
@@ -115,6 +116,20 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "%s\n", err.c_str());
     return 1;
   };
+  // The exe's motion table (pes::MotionNames): MOVESTEP issues motions by number; this names them.
+  if (cmd == "motions") {
+    auto exe = pes::PeImage::Open(root + "/PES2021.exe", &err);
+    if (!exe) return fail();
+    auto names = pes::MotionNames(*exe, vfs, &err);
+    if (!names) return fail();
+    if (pos.size() == 1)
+      for (size_t i = 0; i < names->size(); ++i) std::printf("%zu %s\n", i, (*names)[i].c_str());
+    for (size_t k = 1; k < pos.size(); ++k) {
+      const long no = std::strtol(pos[k].c_str(), nullptr, 0);
+      std::printf("%ld %s\n", no, no >= 0 && size_t(no) < names->size() ? (*names)[no].c_str() : "(out of range)");
+    }
+    return 0;
+  }
   if (cmd == "ask" && pos.size() == 2) {
     auto bytes = vfs.Read(pos[1], &err);
     if (!bytes) return fail();
