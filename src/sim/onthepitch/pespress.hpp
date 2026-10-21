@@ -160,6 +160,10 @@ int PressWriterWord(int man, int winner, int second);
 // loose ball takes the approach. `role` is the 22-entry role table (side * 11 + slot); `k` is the slot in the side.
 bool PressIsLoosePresser(const int* role, int side, int k);
 
+// PES's first-touch flag pressOrDelay (pesreceive.hpp: P+0x5d0 in {0x33, 0x34}): the team's pressure man, or any
+// man holding PRESS in the role table. `role` is the 22-entry role table; `k` is the slot in `side`.
+bool PressOrDelayFlag(bool teamPressurePlayer, const int* role, int side, int k);
+
 std::optional<PressConstants> LoadPressConstants(const PeImage& exe, std::string* error);
 
 // Stable ascending sort by score (the picker's FUN_140a79440 insertion branch).

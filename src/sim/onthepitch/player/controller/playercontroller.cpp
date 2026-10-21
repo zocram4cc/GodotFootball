@@ -478,8 +478,7 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
   // presser (the same stand-in the defender port uses). On the PES path the
   // role table's loose-ball PRESS man counts too: P+0x5d0 in {0x33, 0x34} is
   // his current state, and the role table is what the writer wrote.
-  in.pressOrDelay = team->GetController()->GetTeamPressurePlayer() == player ||
-                    (match->PesLoop() && team->GetController()->GetLoosePressMan() == player);
+  in.pressOrDelay = team->GetController()->PressOrDelay(player);
   const pes::FirstTouch touch = pes::ChooseFirstTouch(k, in, kPesFps);
 
   PlayerCommand command;

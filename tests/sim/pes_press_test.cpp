@@ -400,6 +400,17 @@ TEST(PressLoosePresser, OnlyAPressRoleIsALoosePresser) {
   EXPECT_FALSE(pes::PressIsLoosePresser(s.role, 0, 4));
 }
 
+TEST(PressOrDelayFlag, EveryPressManAndTheTeamPressurePlayerControlTheBall) {
+  pes::TeamPressState s{};
+  s.SetAction(1 * pes::kPressSideMen + 3, pes::kPressState, 10);
+  s.SetAction(1 * pes::kPressSideMen + 7, pes::kPressState, 10);
+  EXPECT_TRUE(pes::PressOrDelayFlag(false, s.role, 1, 3));
+  EXPECT_TRUE(pes::PressOrDelayFlag(false, s.role, 1, 7));  // red on the first-man stub
+  EXPECT_FALSE(pes::PressOrDelayFlag(false, s.role, 1, 5));
+  EXPECT_TRUE(pes::PressOrDelayFlag(true, s.role, 0, 2));
+  EXPECT_FALSE(pes::PressOrDelayFlag(false, s.role, 0, 2));
+}
+
 TEST(PressStampRing, SameIdAsHeadIsANoOp) {
   pes::PressStampRing r{};
   pes::PressStampPush(r, 5, 10);  // slot 0 is empty (first 0 < 10): head -> 1

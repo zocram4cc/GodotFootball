@@ -624,4 +624,8 @@ bool PressIsLoosePresser(const int* role, int side, int k) {
   return role[side * kPressSideMen + k] == kPressState;
 }
 
+bool PressOrDelayFlag(bool teamPressurePlayer, const int* role, int side, int k) {
+  return teamPressurePlayer || PressIsLoosePresser(role, side, k);
+}
+
 }  // namespace pes
