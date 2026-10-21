@@ -113,6 +113,9 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
   bool manualMovement = false;
   bool extraHaste = false;
 
+  // PES's loose-ball presser (press-life 3/10): his movement is the ActionPress below, not a dribble.
+  const bool loosePresser = match->PesLoop() && team->GetController()->GetLoosePressMan() == player;
+
   // celebrate good times come on!
 
   if (!match->IsInPlay() && match->IsGoalScored()) {
@@ -353,6 +356,25 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       } else if (team->GetController()->GetSetPieceType() == e_SetPiece_ThrowIn) {
         actionCommand.desiredFunctionType = e_FunctionType_ShortPass;
         desiredTargetPosition = player->GetPosition();  // closest to player
+        // PES's throw is aimed at a receiver inside the touchline (docs/re/pes-re-throwin-choreography.md
+        // 6.1). A mate on the line sends the ball along it, out again, so the nearest mate inside the
+        // line is the target. ponytail: PES's receiver search (FUN_142135700) and course test are not
+        // ported; the nearest inside mate stands in for them.
+        if (match->PesLoop()) {
+          Player* inside = nullptr;
+          float nearest = 10000.0f;
+          for (const auto& mate : team->GetAllPlayers()) {
+            if (!mate->IsActive() || mate.get() == player ||
+                std::fabs(mate->GetPosition().coords[1]) >= pesFieldHalfWidth)
+              continue;
+            const float d = (mate->GetPosition() - player->GetPosition()).GetLength();
+            if (d < nearest) {
+              nearest = d;
+              inside = mate.get();
+            }
+          }
+          actionCommand.touchInfo.forcedTargetPlayer = inside;
+        }
         // Long Throw: hurled towards the box rather than to the nearest man.
         if (PlayerSkills::Has(CastPlayer()->GetPlayerData()->GetSkills(),
                               PlayerSkills::Skill::LongThrow)) {
@@ -531,24 +553,27 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       // leave the measured case untouched. Close, designated, and without it:
       // step onto it.
       if (!hasIt && ballSpeed_ms <= GameplayTuning::kStalemateBallSpeed_ms) {
-        const Vector3 toBall =
-            match->GetBall()->GetPositionBuffer() - CastPlayer()->GetPosition();
-        if (toBall.GetLength() > 0.1f) {
-          PlayerCommand step;
-          step.desiredFunctionType = e_FunctionType_Movement;
-          step.useDesiredMovement = false;
-          step.useDesiredLookAt = true;
-          // 2D: the ball's height must not enter the heading.
-          step.desiredDirection = toBall.Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
-          step.desiredVelocityFloat = sprintVelocity;
-          step.desiredLookAt = match->GetBall()->GetPositionBuffer();
-          step.useDesiredTarget = true;
-          step.desiredTarget = match->GetBall()->GetPositionBuffer();
-          commandQueue.push_back(step);
-          extraHaste = true;
+        // GF's chase step, off the PES path: a PES loose ball is approached by the PRESS man's ActionPress
+        // (pes-re-press-life §8), and the designated man is no chaser (pes-re-first-touch §7.1).
+        if (!match->PesLoop()) {
+          const Vector3 toBall =
+              match->GetBall()->GetPositionBuffer() - CastPlayer()->GetPosition();
+          if (toBall.GetLength() > 0.1f) {
+            PlayerCommand step;
+            step.desiredFunctionType = e_FunctionType_Movement;
+            step.useDesiredMovement = false;
+            step.useDesiredLookAt = true;
+            // 2D: the ball's height must not enter the heading.
+            step.desiredDirection = toBall.Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
+            step.desiredVelocityFloat = sprintVelocity;
+            step.desiredLookAt = match->GetBall()->GetPositionBuffer();
+            commandQueue.push_back(step);
+            extraHaste = true;
+          }
         }
-      } else {
+      } else if (!loosePresser || hasIt) {
         GetOnTheBallCommands(commandQueue, rawInputDirection, rawInputVelocityFloat);
+        // A loose-ball presser without the ball: nothing here, the press steers him below.
       }
     } else {
       // Out of reach of the ball, so he cannot pass or dribble it - but he can
@@ -556,8 +581,9 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       // designated ball-goer stood still while every other player held his
       // shape, and a ball at rest more than a second from everyone froze the
       // whole pitch for the rest of the half (measured: 32:19 to 45:00).
+      // A loose-ball presser steers through the movement command below.
       const Vector3 toBall = match->GetBall()->GetPositionBuffer() - CastPlayer()->GetPosition();
-      if (toBall.GetLength() > 0.5f) {
+      if (!match->PesLoop() && toBall.GetLength() > 0.5f) {
         PlayerCommand run;
         run.desiredFunctionType = e_FunctionType_Movement;
         run.useDesiredMovement = false;
@@ -662,8 +688,11 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
 
   if (match->IsInPlay() && !match->IsInSetPiece()) {
     // ball control?
-    _BallControlCommand(commandQueue, false, false,
-                        false);  // last param true == enable sticky run direction.
+    // PES: a loose ball is reached by the reaction's TRAP (pes-re-first-touch §7.2); ball control belongs to the
+    // man who has the ball. ponytail: PES's carrier brain (MA+0x2601C) is not decoded here.
+    if (!match->PesLoop() || CastPlayer()->HasPossession())
+      _BallControlCommand(commandQueue, false, false,
+                          false);  // last param true == enable sticky run direction.
 
     // PES 2021's one ordered reaction table for the engaging defender
     // (docs/re/pes-re-defender-decisions.md 1): walked every tick, the first
@@ -756,6 +785,34 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       }  // else (!forceMagnet)
 
     }  // !designated
+
+    // PES 2021's ActionPress target and pace (docs/re/pes-re-press-life.md
+    // 7/9, FUN_140639100/FUN_140a75be0) for the loose-ball presser: the ball
+    // now or his own base, whichever the ball sample at k ticks sits nearer,
+    // at the arrival slope capped one class band above his current pace. The
+    // movement command below runs it command-led (useDesiredMovement), which
+    // is what lets him ramp to a sprint; GF's clip-led chase step is gone on
+    // this path. For the designated presser the movement magnets below still
+    // blend toward the ball - this input is their hint.
+    if (match->PesLoop() && team->GetController()->GetLoosePressMan() == player) {
+      const pes::PressConstants& press = match->GetPesPressConstants();
+      const Vector3 ballNow = match->GetBall()->Predict(0);
+      const int tick = pes::PressTargetTick(press);
+      const Vector3 sample = match->GetBall()->Predict(
+          static_cast<unsigned int>(tick * Match::kTick_ms));
+      // ponytail: his base (AI+0x1414) is GF's adapted formation position.
+      const Vector3 base = team->GetController()->GetAdaptedFormationPosition(CastPlayer(), true);
+      const bool toBall = pes::PressTargetIsBall({sample.coords[0], sample.coords[1]},
+                                                 {ballNow.coords[0], ballNow.coords[1]},
+                                                 {base.coords[0], base.coords[1]});
+      const Vector3 target = toBall ? ballNow.Get2D() : base.Get2D();
+      const Vector3 toTarget = target - CastPlayer()->GetPosition();
+      // m/s to km/h is arithmetic (3600/1000), not a PES number.
+      const float speedKmh = CastPlayer()->GetMovement().GetLength() * 3.6f;
+      inputDirection = toTarget.Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
+      inputVelocityFloat = pes::PressCommandSpeed_ms(press, toTarget.GetLength(), speedKmh,
+                                                     distanceToVelocityMultiplier);
+    }
 
     inputVelocityFloat = RangeVelocity(inputVelocityFloat);  // emulate controller quantization
 

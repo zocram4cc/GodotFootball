@@ -113,6 +113,12 @@ public:
   void StartSetPiece() { inSetPiece = true; }
   void StopSetPiece() { inSetPiece = false; }
   bool IsInSetPiece() const { return inSetPiece; }
+  // PES scores a goal in its judge, on the judge's frame (FUN_14050e4a0 case 10, cc = 1). GF's per-tick check
+  // stays on the GF path; RecordGoal is the scoring both paths share.
+  void RecordGoal(bool t1goal, bool t2goal);
+  bool GoalMouthHolds(const Vector3& pos, signed int side) const;
+  // True on the tick the judge reads the out-of-play event (K=10, raised one tick earlier).
+  bool PesOutOfPlayEvent() const { return pesDetectors.outConsumable; }
   Referee* GetReferee() { return referee.get(); }
   Officials* GetOfficials() { return officials.get(); }
   const RefereeBuffer& GetRefereeBuffer() { return referee->GetBuffer(); };
@@ -264,6 +270,8 @@ public:
   const pes::TackleConstants& GetPesTackleConstants() const { return pesTackleConstants; }
   // PES 2021's MOVESTEP handlers' install constants (docs/re/pes-re-anim-select.md).
   const pes::MoveStepConstants& GetPesMoveStepConstants() const { return pesMoveStepConstants; }
+  // PES 2021's presser picker and loose-ball PRESS chase (docs/re/pes-re-press-life.md).
+  const pes::PressConstants& GetPesPressConstants() const { return pesPressConstants; }
   // PES 2021's off-ball run manager (docs/re/pes-re-off-ball.md).
   const pes::offball::OffBallConstants& GetPesOffBallConstants() const {
     return pesOffBallConstants;
@@ -544,9 +552,11 @@ protected:
     int phase = 0;
     int restart = 0;
     int foul = 0;
-    int outSide = 0;
     bool possessionFlip = false;
     pes::PossessionSequenceState sequence;
+    int outCode = 0;            // K=10's stored copy of the zone code (pes-re-out-side.md)
+    bool outRaised = false;     // K=10 fired this tick
+    bool outConsumable = false; // K=10 fired last tick: the judge reads it one tick later
   };
   PesDetectorState pesDetectors;
   // The event stage (PES's step 3, tick order in matchevents.cpp).
@@ -600,6 +610,8 @@ protected:
   pes::TackleConstants pesTackleConstants{};
   // PES 2021's MOVESTEP handlers' install constants, copied from MatchSetup at construction.
   pes::MoveStepConstants pesMoveStepConstants{};
+  // PES 2021's presser picker and loose-ball PRESS chase.
+  pes::PressConstants pesPressConstants{};
   std::unique_ptr<pes::PesClock> pesClock;
   std::unique_ptr<pes::StaminaConstants> pesStaminaConstants;
 

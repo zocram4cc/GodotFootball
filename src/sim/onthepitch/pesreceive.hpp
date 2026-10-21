@@ -26,12 +26,29 @@
 
 #include <optional>
 #include <string>
+#include <functional>
 #include <vector>
 
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
+#include "onthepitch/pesevents.hpp"
 
 namespace pes {
+
+// One row of the action-clip table the trap picker walks (DAT_14348dac0, FUN_14081ff70). A row names a clip
+// and the clip-space window the ball must lie in for that clip to play: x in [xb, xe) and z in (zb, ze), in
+// metres, both bounds absolute. The lowest priority wins; the keys are the picker's candidate gate.
+struct ActionRow {
+  int clip = 0;        // the motion number the picker returns
+  uint8_t action = 0;  // the action the row belongs to
+  uint8_t prio = 0;    // +5: the lowest priority wins
+  uint8_t keyA = 0;    // +6: compared with the request's second key
+  uint8_t keyB = 0;    // +7: the request's third key
+  float xb = 0.0f, zb = 0.0f, xe = 0.0f, ze = 0.0f;  // +8, +0xc, +0x10, +0x14
+};
+
+// The action of a trap row: the picker's action argument for a trap (FUN_14081ff70's param_3).
+inline constexpr uint8_t kTrapActionRow = 7;
 
 struct ReceiveConstants {
   // --- trap.o (VFS); the store offsets FUN_1409fa720/1409fbce0 read ---
@@ -77,6 +94,8 @@ struct ReceiveConstants {
   // --- who may touch (FUN_1409fa400) and where to meet it (ActionPassGet) ---
   float ballDistanceTableMaxSq_m2 = 0.0f;  // 0x14253ee30, MA+0x24710 entries are squared metres
   float receivingPointMargin_m = 0.0f;     // 0x1425e5ab8 (FUN_14094e3a0)
+  // --- the trap picker's rows: the action-7 rows of the install's action-clip table (DAT_14348dac0) ---
+  std::vector<ActionRow> trapRows;
 };
 
 std::optional<ReceiveConstants> LoadReceiveConstants(const PeImage& exe, const PesVfs& vfs,
@@ -190,4 +209,48 @@ Point2 ReceivingPoint(const ReceiveConstants& c, const std::vector<Point2>& ball
 
 FirstTouch ChooseFirstTouch(const ReceiveConstants& c, const FirstTouchInput& in, float fps);
 
+// --- Designated owner (first-touch §7.2 gate 4c) ---
+
+// What the owner rule reads: the restart taker while a restart is held, and the newest ball
+// event's actor with whether he still holds the ball.
+struct OwnerInput {
+  ActorKey restartTaker;  // invalid when no restart is held
+  ActorKey newestActor;   // invalid when the store has no newest event
+  bool newestActorHoldsBall = false;
+};
+
+// PES's reaction-3 refusal of the designated owner (MA+0x2600C == me): he never traps through
+// entry 3. ponytail: FUN_140457070's ring-0 scan is not decoded. Stand-in: the restart taker while
+// a restart is held, else the newest touch's actor while he still holds the ball. A loose ball has
+// no owner, so a chaser of one is not refused.
+bool RefusedAsDesignatedOwner(const OwnerInput& in, const ActorKey& me);
+
+// PES's carrier after one frame's ball contact (MA+0x2601C, FUN_140457070; first-touch §5.1). PES takes
+// the carrier from the newest valid K=8 key, which a touch pushes. GF stand-in: a control touch (trap or
+// ball control) that leaves the ball at the toucher's feet hands him the carrier; the carrier keeps it
+// while he holds the ball and loses it when he does not.
+// ponytail: the K=8 push flags of the touch record (FUN_140A0DFD0 +0x18/+0x19) are not decoded.
+enum class CarrierChange { kKeep, kToucher, kNone };
+CarrierChange CarrierAfterContact(bool controlTouch, bool toucherHoldsBall, bool carrierHoldsBall);
+
+// The trap picker's ball point, in the player's clip space (metres, PES's Fox frame): x lateral (right of the body),
+// y height, z forward. The clips' hit points are in cm (HitData records, pes/mbinfo.hpp).
+struct ClipPoint {
+  float x = 0.0f, y = 0.0f, z = 0.0f;
+};
+
+// The hit records' cm to metres (0x14256AE18: FUN_14081ff70's picker scales the hit by it).
+inline constexpr float kHitCmToMetres = 0.01f;
+// A trap row's height tolerance: a clip's hit may sit at most this far above the ball (S1Watch, pes-re-trap-windows
+// §3: 1.15 * (T2 - T1), T1 = 0.335 and T2 = 0.56).
+inline constexpr float kTrapHeightTolerance_m = 0.25875f;
+// The anime's per-player scale (P+0x3b18), 1.0 in PES's constructor; GF keeps no per-player scale.
+inline constexpr float kPlayerClipScale = 1.0f;
+
+// FUN_14081ff70 for a trap (action 7): the rows whose window holds the ball are candidates; the lowest priority
+// wins, then the nearest hit. A row whose hit sits more than the height tolerance above the ball is refused. The
+// candidate-key gate is open: GF's caller has no PES request keys yet (a stand-in). hitCm gives a clip's first hit
+// record in cm. Nothing is picked when no row's window holds the ball.
+std::optional<int> PickTrapClip(const ReceiveConstants& k, const ClipPoint& ball,
+                                const std::function<ClipPoint(int clip)>& hitCm);
 }  // namespace pes

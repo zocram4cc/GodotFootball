@@ -286,6 +286,9 @@ int main(int argc, char** argv) {
   // handlers read, handed to the Match through MatchSetup.
   auto moveStepConstants = pes::LoadMoveStepConstants(*exe, vfs, &err);
   if (!moveStepConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  // PES 2021's presser picker and loose-ball PRESS chase (docs/re/pes-re-press-life.md).
+  auto pressConstants = pes::LoadPressConstants(*exe, &err);
+  if (!pressConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
 
   blunted::Database db;
   if (!db.LoadSqlScript(dbSql)) return std::fprintf(stderr, "cannot load %s\n", dbSql.c_str()), 1;
@@ -313,6 +316,7 @@ int main(int argc, char** argv) {
   setup.pesCarrierConstants = &*carrierConstants;
   setup.pesDefensiveShapeConstants = &*defensiveShapeConstants;
   setup.pesDefenderDecisionConstants = &*defenderDecisionConstants;
+  setup.pesPressConstants = &*pressConstants;
   setup.pesContactConstants = &*contactConstants;
   setup.pesEventRingTable = &*eventRingTable;
   setup.pesEventConstants = &*eventConstants;

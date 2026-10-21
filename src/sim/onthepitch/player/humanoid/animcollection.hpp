@@ -11,6 +11,7 @@
 #include "scene/objects/geometry.hpp"
 #include "utils/animation.hpp"
 #include "onthepitch/pesclips.hpp"
+#include "pes/mbinfo.hpp"
 
 using namespace blunted;
 
@@ -142,7 +143,7 @@ public:
   void Load(std::filesystem::path directory);
   // PES clips converted from the install (pesclips.hpp): each joins as a
   // special animation, authored and mirrored, prepared like a loaded file.
-  void AddPesClips(const pes::PesClipSet& clips);
+  void AddPesClips(const pes::PesClipSet& clips, const pes::Mbinfo& mbinfo);
 
   const std::vector<Animation*>& GetAnimations() const;
 
