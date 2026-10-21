@@ -218,6 +218,10 @@ class MoveHostAdapter final : public pes::MoveHost {
     in.speedBand = pes::CommandClassFor(CommandSpeedClassOf(speed), c_.runTables);
     in.desiredKmh = speed * kKmhPerMps;
     in.precise = cmd && cmd->preciseArrival;
+    in.commandSpeedClass = CommandSpeedClassOf(speed);
+    // ponytail: GF's AI writes no PES command kind or id yet (cmd[0x16] and cmd[0]), so MoveTargetInput's moveKind and
+    // commandId stay 0 and the derived set and clear of the precise word are inert in GF until that writer is wired.
+    in.animeStateNonzero = static_cast<int>(player_.GetMoveStep().state) != 0;
     in.bodyBucket = pes::movestep::BodyBucketFlag(c_.run.one);  // OPEN: the per-player record (loader FUN_141194330, flag write 0x1411944E6); GF feeds PES's default producer value
     pes::movestep::FillMoveTarget(req, in, c_.run, c_.buckets);
   }

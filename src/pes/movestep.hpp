@@ -896,6 +896,13 @@ struct MoveTargetInput {
   int speedBand = -1;       // FUN_1406b8de0(cmd[0x17]): 0..3, or -1 for none
   float desiredKmh = 0.0f;  // cmd[0x172]
   bool precise = false;     // cmd[0x15] (2 maps to 1)
+  // PES FUN_1406b7560's derived-precise inputs (lines 227 and 274-288): cmd[0x16] with 8 to 2 (req[0], the move kind),
+  // cmd[0] (the command id), cmd[0x17] raw (the speed class 0..4, fVar16), and whether the anime state byte (vt+0x20 of
+  // +0xab8, P+0x245c) is nonzero. GF's AI writes the first two nowhere yet, so the adapter leaves them 0.
+  int moveKind = 0;
+  int commandId = 0;
+  int commandSpeedClass = 0;
+  bool animeStateNonzero = false;
   int bodyBucket = 0;       // the body-bucket flag, 0 or 1 (PES host+0x2798, set at 0x1411944E6)
 };
 // ponytail: req[4] = the bucket's centre (DAT_1425dd660) from the caller's bodyBucket; 0 = the facing. The flag is

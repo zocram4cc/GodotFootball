@@ -1484,6 +1484,7 @@ pes::RunConstants FoldConstants() {
   k.half_turn = 180.0f;
   k.full = 360.0f;
   k.wrapFull = -360.0f;
+  k.deg225 = 22.5f;  // PES DAT_14259d618: the clear rule's turn bound (FUN_1406b7560 line 285)
   return k;
 }
 
@@ -1529,6 +1530,91 @@ TEST(MoveFill, PreciseWordIsTheCommandsStopFlagForTwoCommands) {
   pes::MoveReq b;
   pes::movestep::FillMoveTarget(b, run, FoldConstants(), SyntheticBuckets());
   EXPECT_EQ(b.U(pes::moveword::kPrecise), 0u);
+}
+
+// PES 274-288 (FUN_1406b7560): the derived precise word. GF's command kind and id are 0 until the AI writer is wired, so
+// these tests set them directly.
+TEST(MoveFill, DerivedPreciseIsSetForKindFourOrFiveBelowClassThree) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetZ = 5.0f;
+  in.moveKind = 4;
+  in.commandSpeedClass = 2;
+  pes::MoveReq a;
+  pes::movestep::FillMoveTarget(a, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(a.U(pes::moveword::kKind), 4u);
+  EXPECT_EQ(a.U(pes::moveword::kPrecise), 1u) << "PES 274-281: kind 4 or 5 below class 3 sets the precise word";
+
+  pes::movestep::MoveTargetInput fast = in;
+  fast.commandSpeedClass = 3;
+  pes::MoveReq b;
+  pes::movestep::FillMoveTarget(b, fast, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(b.U(pes::moveword::kPrecise), 0u) << "the first clause needs the class under 3";
+}
+
+TEST(MoveFill, DerivedPreciseIsSetForCommandTwoWhileTheAnimeStateIsSet) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetZ = 5.0f;
+  in.commandId = 2;
+  in.commandSpeedClass = 3;
+  in.animeStateNonzero = true;
+  pes::MoveReq a;
+  pes::movestep::FillMoveTarget(a, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(a.U(pes::moveword::kPrecise), 1u) << "PES 276-279: command 2, 0x33 or 0x34 with the anime state set";
+
+  pes::movestep::MoveTargetInput idle = in;
+  idle.animeStateNonzero = false;
+  pes::MoveReq b;
+  pes::movestep::FillMoveTarget(b, idle, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(b.U(pes::moveword::kPrecise), 0u) << "PES 279: the anime state byte is part of the second clause";
+
+  pes::movestep::MoveTargetInput other = in;
+  other.commandId = 7;
+  pes::MoveReq c;
+  pes::movestep::FillMoveTarget(c, other, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(c.U(pes::moveword::kPrecise), 0u) << "PES 276: only command ids 0x33, 0x34 and 2 take the second clause";
+}
+
+TEST(MoveFill, DerivedPreciseIsClearedForKindThreeUnderTwentyTwoAndAHalfDegrees) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetZ = 5.0f;  // straight ahead: the turn to the body is 0
+  in.precise = true;
+  in.moveKind = 3;
+  in.commandSpeedClass = 2;
+  pes::MoveReq a;
+  pes::movestep::FillMoveTarget(a, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(a.U(pes::moveword::kPrecise), 0u) << "PES 282-288: kind 3 under 22.5 degrees of turn clears the precise word";
+
+  pes::movestep::MoveTargetInput turning = in;
+  turning.targetX = 5.0f;  // due east: a 90 degree turn to the body
+  turning.targetZ = 0.0f;
+  pes::MoveReq b;
+  pes::movestep::FillMoveTarget(b, turning, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(b.U(pes::moveword::kPrecise), 1u) << "a turn of 22.5 degrees or more keeps the precise word";
+
+  pes::movestep::MoveTargetInput fourth = in;
+  fourth.commandSpeedClass = 4;
+  pes::MoveReq c;
+  pes::movestep::FillMoveTarget(c, fourth, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(c.U(pes::moveword::kPrecise), 1u) << "the clear needs the class under 4";
+
+  pes::movestep::MoveTargetInput kindZero = in;
+  kindZero.moveKind = 0;
+  pes::MoveReq d;
+  pes::movestep::FillMoveTarget(d, kindZero, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(d.U(pes::moveword::kPrecise), 1u) << "only kinds 3 and 6 clear the word";
+}
+
+TEST(MoveFill, DerivedPreciseClearUsesTheLookMinusTheTargetNotTheBodyTurn) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetZ = 5.0f;  // the target straight ahead: the turn to the body is 0
+  in.lookX = 5.0f;    // the look point due east: the look minus the target is 90 degrees
+  in.lookZ = 0.0f;
+  in.precise = true;
+  in.moveKind = 3;
+  in.commandSpeedClass = 2;
+  pes::MoveReq a;
+  pes::movestep::FillMoveTarget(a, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_EQ(a.U(pes::moveword::kPrecise), 1u) << "PES 282-288 (asm): the clear reads |req[3] - req[1]|, the look minus the target";
 }
 
 TEST(MoveFill, HeadingAndDistanceAreToTheMoveTargetNotTheLookPoint) {
