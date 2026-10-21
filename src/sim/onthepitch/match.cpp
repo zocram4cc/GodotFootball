@@ -878,10 +878,10 @@ void Match::Process() {
           if (!who) continue;
           const pes::MoveStepRecord& ms = who->GetMoveStep();
           const Anim* a = who->CastHumanoid()->GetCurrentAnim();
-          printf("[stalemate-who] %s (%d): movestep %d<-%d | fn %d clip %s frame %d/%d\n",
+          printf("[stalemate-who] %s (%d): movestep %d<-%d | fn %d clip %s frame %d/%d rate %.2f\n",
                  who->GetPlayerData()->GetLastName().c_str(), who->GetID(), int(ms.state), int(ms.previous),
                  int(a->functionType), a->anim ? a->anim->GetName().c_str() : "-", a->frameNum,
-                 a->anim ? a->anim->GetFrameCount() : 0);
+                 a->anim ? a->anim->GetFrameCount() : 0, a->playbackRate);
         }
       }
     }
@@ -1127,14 +1127,14 @@ bool Match::CheckForGoal(signed int side) {
   line.SetVertex(1, ball->Predict(0));
 
   Triangle goal1;
-  goal1.SetVertex(0, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, 3.7f, 0));
-  goal1.SetVertex(1, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, -3.7f, 0));
-  goal1.SetVertex(2, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, 3.7f, 2.5f));
+  goal1.SetVertex(0, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, goalHalfWidth, 0));
+  goal1.SetVertex(1, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, -goalHalfWidth, 0));
+  goal1.SetVertex(2, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, goalHalfWidth, goalHeight));
   goal1.SetNormals(Vector3(-side, 0, 0));
   Triangle goal2;
-  goal2.SetVertex(0, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, -3.7f, 0));
-  goal2.SetVertex(1, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, -3.7f, 2.5f));
-  goal2.SetVertex(2, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, 3.7f, 2.5f));
+  goal2.SetVertex(0, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, -goalHalfWidth, 0));
+  goal2.SetVertex(1, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, -goalHalfWidth, goalHeight));
+  goal2.SetVertex(2, Vector3((pitchHalfW + lineHalfW + 0.11f) * side, goalHalfWidth, goalHeight));
   goal2.SetNormals(Vector3(-side, 0, 0));
 
   // match->SetDebugPilon(Vector3(55 * side, 3.66, 2.44));

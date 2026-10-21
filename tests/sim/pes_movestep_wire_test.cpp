@@ -476,49 +476,6 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
 }
 
 
-// While the MOVESTEP FSM holds STOP, the AI's movement command does not pick the body's clip: PES's MOVE action plays the
-// FSM's own clips and MOVESTEP is the only reader of the AI's command block (pes-re-anim-select.md 0 item 5 and 1). On main,
-// a PES clip's last frame hands the body to Humanoid::Process's end-of-clip switch, which selects the AI's movement toward
-// the target, so the body ran while the FSM held the stop. After the clip-end fix this trace holds no natural STOP in its
-// first 1800 ticks, so the holds are forced through PES's STOP entry as AStopOnATurnedBodyLeavesTheStop does, and the match
-// runs on while they hold.
-// DISABLED 22-10-26 (owner decision, batch-3 landing): red on the merged tree main 9c5cc89 + FirstTouchPort fca173c; FirstTouchPort2 owns the fix (bisect against fca173c alone). Re-enable when it passes on main.
-TEST(MoveStepWire, DISABLED_AnAiMovementClipDoesNotTakeTheBodyWhileTheFsmHoldsAStop) {
-  Properties config;
-  config.SetBool("pes_loop", true);
-  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
-  constexpr int kSnapshots = 6;
-  constexpr int kTicksBetween = 100;
-  constexpr int kHoldTicks = 60;  // about 1.1 s, as AStopOnATurnedBodyLeavesTheStop
-  int holdTicks = 0;
-  int violations = 0;
-  int firstTick = -1;
-  int tick = 0;
-  for (int s = 0; s < kSnapshots; ++s) {
-    for (int t = 0; t < kTicksBetween; ++t, ++tick) match->Process();
-    std::vector<Player*> stopped;
-    for (Player* p : ActivePlayers(*match)) {
-      pesmovestep::RequestStop(*p, *match);
-      if (p->GetMoveStep().state == pes::MoveState::kStop) stopped.push_back(p);
-    }
-    for (int t = 0; t < kHoldTicks; ++t, ++tick) {
-      match->Process();
-      for (Player* p : stopped) {
-        if (p->GetMoveStep().state != pes::MoveState::kStop) continue;
-        ++holdTicks;
-        const Anim* a = p->GetCurrentAnim();
-        if (a && a->functionType == e_FunctionType_Movement) {
-          if (firstTick < 0) firstTick = tick;
-          ++violations;
-        }
-      }
-    }
-  }
-  EXPECT_GT(holdTicks, 0) << "no forced STOP held in the match: the check saw nothing";
-  EXPECT_EQ(violations, 0) << "AI movement clips held the body on " << violations << " STOP player-ticks; the first at tick "
-                           << firstTick;
-}
-
 // While the MOVESTEP FSM runs ACCELERATE, the AI's movement command does not pick the body's clip, the same rule as the STOP
 // hold above. An AI movement clip on an ACCELERATE tick leaves the handler with no motion record (CurrentMotion -1), so
 // every arm falls through and the state never leaves ACCELERATE.

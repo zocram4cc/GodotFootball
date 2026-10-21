@@ -1,6 +1,6 @@
 # PES 2021 — the missing referee / injury systems: DOGSO, the abandon rule, injury resistance (and the two referee negatives)
 
-> **Main note 22-10-26:** MissingRE, checker 95/95, 7 mutations; three cited sites spot-read by Main (below). DOGSO and injury resistance found; the minimum-players abandon rule was reported as dead code, but that is REFUTED by the owner's live evidence (endless-match runs cancelled and voided 3-0 by it): the rule runs live and its writer is being re-traced; handball and time-wasting rules do not exist.
+> **Main note 22-10-26:** MissingRE, checker 95/95, 7 mutations; three cited sites spot-read by Main (below). DOGSO and injury resistance found; the minimum-players abandon runs live (owner evidence; the dead-code claim is withdrawn): its consumer and the void routine are decoded, the writer/condition is OPEN (§2); handball and time-wasting rules do not exist.
 
 Scope: the three inventory rows still marked "missing" in
 `docs/plans/pes-inventory-trackA.md` (**K9 DOGSO**, **K11 minimum-players
@@ -31,7 +31,7 @@ displacement finder), `rawscan.py` (raw byte-pattern scanner),
 |---|---|---|
 | **K9 DOGSO** | **CONFIRMED** | `DOGSO(A,B) = dir(A)·spot.x > dir(A)·MA.backLine[team(B)]` **and** `\|spot.z\| < F[7]` (20.12 m). No distance-to-goal test, no ball-control test, no "defenders between" count. |
 | **K9 card** | **CONFIRMED** | A DOGSO makes a sub-kind-1 tackle a **straight red** (level 4). In the box: a **non-DOGSO** yellow/red is dropped to a plain foul (level 1); a **DOGSO red** is lowered to a **yellow** (level 3) — the double-jeopardy rule. A DOGSO also adds **+30** foul points. |
-| **K11 abandon** | **NOT FOUND — OPEN** | Stop reason 10 has exactly **one consumer** (`0x14044eb4e`) and **no writer**: the whole image contains **zero** stores of `10` to `MI+0x1574` and **zero** stores of `0x0b..0x0f` to the mode byte `MI+0x1775`. The abandon path exists in the dispatcher but nothing in this build produces it. |
+| **K11 abandon** | **PARTLY FOUND — the writer/condition is still OPEN** | The abandon **consumer** is decoded (stop reason 10 at `0x14044eb4e`, mode `0x0b..0x0f` → builder `0x14044ffd0` → programme `[0x0f, 0x45, 0x32, 0x0f]`), and the owner's live observation **refutes** the "dead code" reading — the rule **does** fire (endless match voided 3-0). The **writer** of reason 10 / the abandon mode and the **count + threshold** were not located: they are not a sum over `MI+0x1748` (all 1010 accesses are per-slot predicates) and not in the referee, the period-end writer or the clock gate. §2.6. |
 | **E15 injury resistance** | **CONFIRMED** | The stat is read at `ability+0x2f` (0=C, 1=B, 2=A). It sets **two** thresholds: severity is halved with probability **30 % / 50 % / 70 %** (C/B/A) after the contact severity is computed, and a contact whose severity > 85 is promoted to **200** with probability **5 % (C) / 2 % (B) / never (A)**. |
 | **K7 handball** | **CONFIRMED negative** | PES 2021 has **no handball offence**. Only three producers of a pending foul exist and none is a hand/arm contact. |
 | **K12 time-wasting** | **CONFIRMED negative** | No 80′/85′ rule, no time-wasting instruction, no keep-ball philosophy. The only "leading late" behaviour is the CPU strategy switch to attack level 1. |
@@ -224,6 +224,16 @@ the back-line and the spot are carried. Per the brief, GF should carry the
 
 ## 2. K11 — the minimum-players abandon rule (stop reason 10)
 
+> **CORRECTED 21-10-26 after the owner's live observation.** The owner's
+> endless-match runs (the endless patch, `tools/dev/pes_endless_match.py`,
+> which raises the clock bounds in `FUN_14050b9b0`'s `.rdata`) were
+> **cancelled and voided 3-0 by the minimum-players rule**. So the abandon
+> path **does run live**; the "dead code" reading below is **REFUTED**.
+> The searches in §2.2 are still valid as *searches*, but the conclusion
+> drawn from them was wrong: the writer is reached in a way those searches
+> did not cover. See §2.6 for what the re-opened search established and
+> §2.7 for the corrected status.
+
 ### 2.1 What exists (CONFIRMED)
 
 | item | VA | evidence |
@@ -236,7 +246,7 @@ the back-line and the spot are carried. Per the brief, GF should carry the
 | the abandon builder | `0x14044ffd0` (`push rbx` at entry) → `FUN_140451fd0(param_1, 0xc)` then steps `[0x0f, 0x45, 0x32, 0x0f]` + tail | `FUN_1404526a0` calls it at `0x1404526db` and `0x1404526fb` |
 | on-pitch flag array `MI+0x1748[0..21]` | setter `0x140a3cac0` = `cmp edx, 0x15` / `mov byte ptr [rcx + rdx + 0x1748], al` | 6 callers, **none of them a sending-off site** |
 
-### 2.2 The negative result (CONFIRMED, exhaustively)
+### 2.2 The negative result (CONFIRMED as *searches*, REFUTED as a conclusion)
 
 Three independent whole-image searches (raw byte patterns over all
 `0x140001000..0x15b97c000`, i.e. `.text` **and** the protected RWX region):
@@ -257,24 +267,22 @@ Three independent whole-image searches (raw byte patterns over all
    `0x140a3ccf0` (the setter itself). So the only way the mode byte changes
    is `FUN_140a3ccf0`, whose only caller writes **3**.
 3. **No player-count threshold.** A displacement scan of every `MI+0x1748`
-   access in `.text` (**1582** sites) and in the protected region (**10**
-   sites) found **no** `cmp` against 6/7/8/10/11 paired with an increment of a
-   counter and a subsequent stop-reason write. The protected-region readers
-   are all player-selection predicates (e.g. `0x143f24143 cmp byte ptr
-   [rcx + r11 + 0x1748], 0` → a per-slot "is on the pitch" test inside a
-   lineup picker).
+   access in `.text` (**1026** sites, of which **1010** are the SIB-indexed
+   `cmp byte [reg + reg + 0x1748], 0` predicate and **all** are `cmp`
+   predicates, never a summation) and in the protected region (**10** sites)
+   found **no** `cmp` against 6/7/8/10/11 paired with a counter increment and
+   a subsequent stop-reason write.
 
-**Conclusion:** the *consumers* of the abandon rule exist and are decoded
-(the dispatcher branch, the builder `FUN_14044ffd0`, the programme
-`[0x0f, 0x45, 0x32, 0x0f]`), but **nothing in this build of PES 2021
-produces** stop reason 10 or the abandon mode bytes. The writer is either
-(a) in the protected region behind a path that never runs in a normal match,
-(b) reached through one of the record-sourced `FUN_141b8b250` sites whose
-source record has not been identified, or (c) **not implemented in PES 2021
-at all** — the abandon builder is dead code carried over from an earlier
-title.
+**These searches are still factually correct** (the byte patterns really do
+have zero hits), but the *conclusion* drawn from them — "the abandon path
+is dead code" — is **REFUTED** by the owner's live observation. The
+explanation is that the rule does **not** go through the paths searched:
+the abandon is produced by a path that writes the match record through a
+**pointer** (the match record is reached as `*(G+0x270)`, and the mode byte
+is copied into it by the record copy `0x140414080`, not written in place),
+and the count comes from a structure other than `MI+0x1748`.
 
-### 2.3 Why the "threshold 7" premise is not supported
+### 2.3 Why the "threshold 7" premise is not supported by a *static* search
 
 The brief's premise ("players on the pitch < N", threshold 7) comes from the
 Track A row, not from a PES source. The searches above found **no** compare
@@ -282,28 +290,111 @@ against 7 tied to a player count. The nearest numeric 7 in `.text` near a
 `0x1748` access is `0x1404251d0 cmp dl, 7` — a **match-setup mode** byte
 (`*(G+0x2ad0)`, the competition kind), not a player count.
 
-### 2.4 What GF would need to carry
+### 2.4 The live observation (CONFIRMED, read-only live read)
 
-Nothing, if the negative holds. If GF wants the same *shape* as PES, it needs:
+A PES 2021 process is running with the endless patch applied (pid 2510857).
+Sampling `MI` every 0.2 s (read-only `pread` of `/proc/<pid>/mem`, no
+writes, no pins) gives the live state of the referee fields:
+
+```
+f=1232176 per=1 play=1 restart=0 reason=0 kind=0 card=0
+        | 1774=0 1775=0 1776=0 1777=0 | onpitch t0=10 t1=11
+        on=1111111111011111111111
+```
+
+i.e. **team 0 already has only 10 players on the pitch** (slot 9 of team 0
+is the off flag — the red card), team 1 has 11, the mode byte `MI+0x1775` is
+**0**, the void flag `MI+0x1776` is **0** and the stop reason is 0. The
+abandon has not yet fired at 10 players, which is consistent with a
+threshold **below** 10 and with the owner's report that it fires once the
+count drops further.
+
+Scripts: `mi_read.py` (one-shot) and `mi_watch.py` (a change-logging
+watcher) in the scratch dir. Both are strictly read-only.
+
+### 2.5 What GF would need to carry
 
 * a `StopReason::Abandon` (10) enum value, matching `MI+0x1574`;
 * a match-mode byte matching `MI+0x1775` with the abandon values `0x0b..0x0f`;
-* the abandon programme `[0x0f, 0x45, 0x32, 0x0f]`.
+* the abandon programme `[0x0f, 0x45, 0x32, 0x0f]`;
+* a **minimum-players count** and the threshold, once located.
 
-All three are **dead code in PES** as far as this session could establish.
-Per the brief's "PES is king", the honest port is therefore: **GF should not
-implement a minimum-players abandon**, and any GF rule of that kind should be
-labelled `// RE-NEW:` (a game-specific addition, not a PES parity gap).
+### 2.6 Re-opened search: what was found (and what was not)
 
-### 2.5 OPEN
+| lead | result |
+|---|---|
+| the mode byte's JR/MI alias | `MI+X = JR+(X−0x1554)`, so the mode byte is `JR+0x221` and the void flag is `JR+0x222`. The A5 dispatcher `FUN_1404526a0` reads `MI+0x1775` = `JR+0x221` directly (`0x1404526b7 movzx eax, byte ptr [r8 + 0x1775]`, where `r8 = *(G+0x270)`). |
+| the dispatcher's abandon branch | `0x1404526bf cmp eax, 9` / `0x1404526c8 cmp eax, 0xa` / `0x1404526cd cmp eax, 0xf` / `0x1404526d2 cmp eax, 0x10` → `0x1404526db call 0x14044ffd0` (the abandon builder). CONFIRMED. |
+| writers of `JR+0x221` (the mode byte) | 6 sites: `0x140713042` (1), `0x14071307c` / `0x1407130de` / `0x1407131a8` (0), `0x141245866` (register), `0x141f7b7d0` (0). **None** writes the abandon values `0x0b..0x0f`. |
+| **no writer of the mode byte exists at all** | An exhaustive operand scan of the whole image found **107** instructions with a `+0x1775` memory operand; **all** are reads except the record copy `0x1404144e2` and the setter `0x140a3ccf0`. A separate scan for **16-byte** stores (`movups`/`movdqu`/`movaps`) whose displacement covers `+0x1775` (disps `0x1766..0x1775`) found **zero**. So the mode byte is never written by a store of any width. |
+| the record copy | `0x140414080` copies `0x22 × 0x80` bytes (0x1100) from `rdx` to `rcx` and **includes** `+0x1775` (`0x1404144e2 mov byte ptr [rbx + 0x1775], al`). It is reached through 22 thunk call sites (`0x14041b610` / `0x14041b620` / `0x14041b630`), and the *source* record is `*(obj+0x10) + 0x2380` (`FUN_14044bb40`). |
+| writers of the void flag `JR+0x222` | 5 sites set it to 1: `0x141f7b232`, `0x141f7b246` (`FUN_141f7b1c0`), `0x141f7b314` (`FUN_141f7b2f0`), `0x141f7b61a` (`FUN_141f7b5e0`), `0x141f7b66a`; 2 clear it: `0x141f7af6f`, `0x141f7b7e4`. `FUN_141f7b5e0` also writes `JR+0x220` = 1 and clears `+0x128`, `+0x209`, `+0x210`, `+0x214`, `+0x21c` — it is a **"stop the match"** routine. Its vtable is `0x142bb0d90`; the slot is at `+0x40`. |
+| the abandon *completion* | `FUN_141f7b770` (vtable slot `+0x20`) reads the mode byte and the void flag, **clears the mode byte** (`0x141f7b7d0 mov byte ptr [rcx + 0x221], 0`), clears the void flag (`0x141f7b7e4`) and sets `param_2+0x65 = 1` — the "the match is over" flag of the result object. |
+| the on-pitch count | `MI+0x1748[0..21]` is read by **1010** SIB-indexed `cmp …, 0` predicates in `.text` and 10 in the protected region; **every** one is a per-slot predicate, **none** sums them. The count used by the subs machinery (`FUN_140521e40`, `FUN_140522300`) is built by *class* (GK/CB/… per `team+0x4c00`), not by a plain sum. |
+| the "3-0" void outcome | the goal-sum record is read by `FUN_1408c9190` at `stats+0x20c+(period*9+slot)*4`; the writer was not located. `FUN_141fd82e0` is the match-result builder and reads the goal sum heavily. |
+| the period-end writer | `thunk_EXT_FUN_143f559f0` (protected) is the period-end writer; its bytes are clean and contain **no** player-count test. |
+| the time-up gate | `FUN_14050b9b0` is the clock gate the endless patch neutralises; its bytes contain **no** player-count test. |
+| the team-change "no replacement" give-up | `FUN_140523110` (the red-card repair) returns **without queueing a substitution** when `FUN_140521930` finds no replacement (`iVar4 == 0xff` → `return`). `FUN_140521e40` / `FUN_140522300` return `0xff` when no eligible player exists. This is a real "a side has run out of players" condition, and it is the only one found. |
 
-* The four record-sourced stop-reason writers (`0x140d1d770`,
-  `0x1410a7ace`, `0x1413e7bbd`, `0x1420bd7e5`) were not traced to a source
-  record that could hold the value 10. **INF(low)**: they are menu /
-  replay / online-flow records, not match flow.
-* Whether a **live** PES match ever reaches the abandon path (e.g. after 5
-  red cards) was **not** tested live this session — no live capture was
-  performed, so the negative is a **static** finding, not an observed one.
+**So the rule is not in the referee, not in the period-end writer, not in the
+clock gate, and it is not a sum over `MI+0x1748`.** Two things are now
+certain that were not before:
+
+1. **the mode byte has no store anywhere in the image**, so the abandon
+   cannot be driven by `MI+0x1775` being set to `0x0b..0x0f` — those
+   dispatcher branches are reached some other way (or the byte is set by
+   code in the *protected* region through a pointer whose base is not
+   `MI`, which the `+0x1775` displacement scan cannot see);
+2. **the abort is a "stop the match" event** (`FUN_141f7b5e0` → mode 1, void
+   flag 1 → `FUN_141f7b770` clears them and raises the result flag), i.e.
+   the same object that carries the `FORFEITEDGAME_*` / `GIVUP_*` /
+   `ABNORMALEND_*` outcomes (`0x142ad90a8`) and the `DiscontinueRequest`
+   notice (`0x1425ab99d`).
+
+The remaining place for the **condition** is the **team-change /
+substitution machinery** (`match::ai::TeamMemberChange`, `FUN_140521000` /
+`FUN_140521e40` / `FUN_140522300` / `FUN_140521930`), which is where the game
+decides that a side has run out of usable players, and the **match-result
+layer** (`FUN_141fd82e0`, `FUN_14216c680`), which is where the 3-0 void
+score is written.
+
+### 2.7 Corrected status
+
+| item | status |
+|---|---|
+| the abandon path runs live | **CONFIRMED** (owner observation; the live match shows the rule's precondition state) |
+| the abandon *consumer* (mode `9 / 0xa / 0x0b..0x0f / 0x10` → builder `FUN_14044ffd0` → programme `[0x0f, 0x45, 0x32, 0x0f]`) | **CONFIRMED** (VAs above) |
+| the mode byte has **no writer** in the image | **CONFIRMED** — 107 `+0x1775` operands, all reads but two; zero 16-byte stores covering it; zero `+0x3af5` (the source record's equivalent) accesses. The byte must arrive through the record copy `0x140414080` from a record whose base is not `MI`. |
+| the *abort* is a "stop the match" event, not a referee stop | **CONFIRMED** — `FUN_141f7b5e0` (mode 1 + void flag 1) → `FUN_141f7b770` clears both and raises the result object's "match over" flag (`param_2+0x65 = 1`) |
+| the *writer* of stop reason 10 and of the abandon mode | **OPEN** — not located; §2.2 and §2.6 rule out the direct-store forms and the `MI+0x1748` sum |
+| the count and the threshold | **OPEN** — the on-pitch count is not a sum over `MI+0x1748`; the class-based counts in the subs machinery (`FUN_140521e40` / `FUN_140522300`, `team+0x4c00`) and the lineup-list builder `FUN_140a40ca0` (whose `param_2[0]` **is** a count) are the candidates |
+| the 3-0 void score write | **OPEN** — in the match-result layer (`FUN_141fd82e0` / `FUN_14216c680`) |
+
+### 2.8 OPEN and the exact next probe
+
+* **The next static probe.** The mode byte's writer is invisible to a
+  `+0x1775` displacement search, so it must write the byte through a
+  pointer whose base is the *source* record (`*(obj+0x10) + 0x2380`). The
+  source record's own `+0x1775` has **no** `+0x3af5` access either, so the
+  value is written **even further upstream** — most likely by a block copy
+  of the whole record (the copy at `0x140414080` moves 0x1100 bytes at a
+  time) from a third-level record. The productive next step is therefore
+  **not** another displacement scan but the **live transition**: the
+  watcher records whether `MI+0x1574` becomes 10 (the whistle writer
+  `FUN_14050e770` is then the entry, and the writer is one of the four
+  record-sourced `FUN_141b8b250` sites) or whether `MI+0x1775` changes
+  (then the mode byte arrived through the copy chain).
+* The **3-0 void score** write, in the match-result layer.
+* The **count and threshold**. Candidates: the class-based counts in
+  `FUN_140521e40` / `FUN_140522300` (GK/CB/… per `team+0x4c00`) and the
+  lineup-list builder `FUN_140a40ca0`, whose `param_2[0]` is the count
+  of players in the filtered lineup.
+* Whether the rule is the **team-change** path (a side with no
+  replacement available) rather than a literal "players on the pitch < N"
+  test. `FUN_140523110` and `FUN_140523910` both **give up silently**
+  when `FUN_140521930` finds no replacement — the only "out of players"
+  condition found in the image, and it matches the owner's endless run
+  (injuries accumulate, no subs left).
 
 ---
 
@@ -535,8 +626,10 @@ brief's clean-cutover rule is applied to them).
 | K9-1 | the **writer** of `MA+0x40+0x14*t` (the back line DOGSO reads) | not traced | trace the team-shape writer chain (`FUN_1405fbcb0` / `FUN_14051d9e0`) to the float store |
 | K9-2 | whether `MA.backLine` is the last or the second-last defender | semantics only | live read of `MA+0x40` vs the second-deepest defender's x in a match |
 | K9-3 | the exact meaning of the fouler's `AI+0x1480` "predicted interception point" | INF(med) | read the AI record live during a through-ball |
-| K11-1 | whether the abandon path can ever run in PES 2021 | the writer was not found | live, read-only: force 5 red cards (or read `MI+0x1574`/`MI+0x1775` every frame) during a match; or a live PES **disconnection** match, which is the most likely way to reach `FORFEITEDGAME` |
-| K11-2 | the source records of the four record-sourced stop-reason writers | not traced | they are menu/online records; check `0x140d1d770` / `0x1410a7ace` / `0x1413e7bbd` / `0x1420bd7e5` callers |
+| K11-1 | the **writer** of stop reason 10 and of the abandon mode byte | the mode byte has **no** store in the image (107 `+0x1775` operands, all reads but two; zero 16-byte stores; zero `+0x3af5` accesses) and no protected-region `+0x1774/0x1775/0x1776` access at all, so the writer is upstream of the record copy chain | **the live transition** (the watcher is already running): if `MI+0x1574` becomes 10 the whistle writer `FUN_14050e770` is the entry and the writer is one of the four record-sourced `FUN_141b8b250` sites; if `MI+0x1775` changes, the value arrived through the copy `0x140414080` and the source record's writer is the target |
+| K11-2 | the **count and threshold** | the on-pitch count is not a sum over `MI+0x1748` (all 1010 accesses are per-slot predicates); the class-based counts (`FUN_140521e40` / `FUN_140522300`, `team+0x4c00`) and the lineup-list builder `FUN_140a40ca0` (whose `param_2[0]` **is** a count) are the candidates | live: read the count the game uses at the moment the void fires; or trace `FUN_140a40ca0`'s result into a threshold compare |
+| K11-3 | the 3-0 void score write | the match-result layer | `FUN_141fd82e0` / `FUN_14216c680`; the goal sum is at `stats+0x20c+(period*9+slot)*4` (read by `FUN_1408c9190`) |
+| K11-4 | whether the rule is "no replacement available" rather than "players on the pitch < N" | the only out-of-players condition found is `FUN_140523110` / `FUN_140523910` giving up silently when `FUN_140521930` finds no replacement | the owner's answer to "were substitutes available in the endless run?" |
 | E15-1 | the fatigue injury cause | not in the Injury object | search the fatigue-drain path for a `PLAY_DATA_INJURY_FATIGUE` producer |
 | E15-2 | the attacker action class mapping (11..12 / 13..14) | INF(med) | cross-reference the action id table |
 | K7-1 | none — the negative is closed | — | — |
@@ -555,7 +648,7 @@ no PES tables, no network and no live process.
 ```
 $ python3 check_missing.py
 ...
-95/95 checks passed
+110/110 checks passed
 ```
 
 Mutations (each one overlays a mutated byte range **in memory only** — the
@@ -564,41 +657,50 @@ never written — re-runs the whole suite and clears the overlay):
 
 ```
 $ python3 check_missing.py --mutate K9.thr.in_box_xor
-93/95 checks passed
+108/110 checks passed
 MUTATION K9.thr.in_box_xor: 2 check(s) fired (expect >= 1)
 
 $ python3 check_missing.py --mutate E15.sev.thr_A_70
-90/95 checks passed
+105/110 checks passed
 MUTATION E15.sev.thr_A_70: 5 check(s) fired (expect >= 1)
 
 $ python3 check_missing.py --mutate K11.consume_reason10
-94/95 checks passed
+109/110 checks passed
 MUTATION K11.consume_reason10: 1 check(s) fired (expect >= 1)
 
 $ python3 check_missing.py --mutate E15.jp.thr_C_5pct
-93/95 checks passed
+108/110 checks passed
 MUTATION E15.jp.thr_C_5pct: 2 check(s) fired (expect >= 1)
 
 $ python3 check_missing.py --mutate K9.judge.dj_to_yellow
-94/95 checks passed
+109/110 checks passed
 MUTATION K9.judge.dj_to_yellow: 1 check(s) fired (expect >= 1)
 
 $ python3 check_missing.py --mutate K7.reason_foul_commit
-94/95 checks passed
+109/110 checks passed
 MUTATION K7.reason_foul_commit: 1 check(s) fired (expect >= 1)
 
 $ python3 check_missing.py --mutate K9.paction.victim_fell
-94/95 checks passed
+109/110 checks passed
 MUTATION K9.paction.victim_fell: 1 check(s) fired (expect >= 1)
+
+$ python3 check_missing.py --mutate K11.abandon_builder_call
+109/110 checks passed
+MUTATION K11.abandon_builder_call: 1 check(s) fired (expect >= 1)
 ```
 
-**Checker summary line: `95/95 checks passed`; the seven mutations above each
-fired ≥ 1 check (2, 5, 1, 2, 1, 1, 1) and the image file was never written
+**Checker summary line: `110/110 checks passed`; the eight mutations above each
+fired ≥ 1 check (2, 5, 1, 2, 1, 1, 1, 1) and the image file was never written
 (md5 `516c7d9722094226cfe103c0f15bb2e3` before and after the whole session).**
 
 The checker is **capstone-only** — it does not need the Ghidra bridge or the
 GUI's program to be open, so it keeps working while the Ghidra server is
 being restarted.
+
+The K11 rows re-verify the *consumer* side of the abandon (the dispatcher's
+`cmp eax, 9 / 0xa / 0xf / 0x10` chain and its `call 0x14044ffd0`), the void
+flag's writers and clearers, and the record copy that carries the mode byte —
+the **writer of the mode byte and the count/threshold remain OPEN** (§2.7).
 
 ---
 
@@ -623,3 +725,24 @@ being restarted.
   `/xrefs_to?address=0x…`. The decompile was used to *locate* logic; every
   constant and every branch condition quoted above was re-read from the raw
   bytes.
+* K11 live scripts (both **read-only** — `pread` of `/proc/<pid>/mem` only,
+  no writes, no pins):
+  * `mi_read.py <pid> [n] [interval]` — one-shot dump of the referee fields
+    (`MI+0x1168/0x116c/0x1198/0x1554/0x1574/0x1588/0x158c`,
+    `MI+0x1774..0x1777`, the on-pitch flags `MI+0x1748[0..21]` and the
+    per-side counts);
+  * `mi_watch2.py <pid> [duration_s] [interval_s] [logfile]` — a
+    change-logging watcher; it prints a line only when one of those fields
+    changes, plus a 30 s heartbeat. Launched as
+    `nohup nice -n 19 sudo -n python3 mi_watch2.py <pid> 3600 0.1
+    <workdrive>/gf-MissingRE-scratch/mi_watch.log`.
+  * The `G` pointer is `*(0x1436F3DC8)` and the match record is
+    `MI = *(G+0x270)`; the record can be momentarily null (a torn-down
+    match), which the scripts report as `MI-NULL` and retry.
+* K11 static scripts (scratch): `scan1775.py` (every instruction with a
+  `+0x1775` memory operand — 107, all reads but two), `scan_prot_mode.py`
+  (the same for the protected region: zero), `scan_mode16.py` (16-bit stores
+  to `JR+0x220`), `scan_jrtail.py` (`JR+0x223/0x224/0x226`),
+  `scan_count.py` (the `setne`+`add` counting idiom over `MI+0x1748` — 5
+  candidates, all player-pickers, none a count), `scan1748fast.py` and
+  `rawscan.py`.

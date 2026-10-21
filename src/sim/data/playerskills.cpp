@@ -551,10 +551,6 @@ Distribution PickDistribution(Mask mask, float roll) {
   return options[std::min(count - 1, static_cast<int>(Clamp01(roll / 0.75f) * count))];
 }
 
-float GetPenaltyReflexes(Mask mask, float reflexes) {
-  return Has(mask, Skill::GkPenaltySaver) ? std::min(1.0f, reflexes + 0.15f) : reflexes;
-}
-
 float GetPenaltyRating(Mask mask, float baseRating) {
   return Has(mask, Skill::PenaltySpecialist) ? std::min(1.0f, baseRating + 0.2f) : baseRating;
 }

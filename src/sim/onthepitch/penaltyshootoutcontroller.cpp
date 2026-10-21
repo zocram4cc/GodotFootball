@@ -25,6 +25,26 @@ const float keeperGrabDistance = 1.2f;
 // abandoned. Generous: it only exists so a stuck taker cannot hang the phase.
 const unsigned long runUpTimeout_ms = 12000;
 
+// GF's abilities are 0..1 and PES's scale is 0..99; humanoid.cpp reads them the same way.
+const float kStatPerUnit = 100.0f;
+
+// PES's scatter inputs for a taker (FUN_1406b4000): Place Kicking and Finishing as abilities,
+// the Penalty Specialist card and the charge. ponytail: Place Kicking reads technical_setpiece,
+// the stat the PK Specialist card sits on (playerskills.cpp); the charge reads physical_shotpower
+// where PES reads Kicking Power through the penalty tuning table (0x140815cc8). The post and bar are PES's geometry
+// object's +0x8 / +0xC (*(*(0x1436f3dc8) + 0x2aa8), read live: 3.66 and 2.44): the goal's INNER half width and height.
+pes::PenaltyScatterInput ScatterInputFor(Player* taker) {
+  pes::PenaltyScatterInput in;
+  in.placeKicking = taker->GetStat("technical_setpiece") * kStatPerUnit;
+  in.finishing = taker->GetStat("technical_shot") * kStatPerUnit;
+  in.penaltySpecialist = PlayerSkills::Has(taker->GetPlayerData()->GetSkills(),
+                                           PlayerSkills::Skill::PenaltySpecialist);
+  in.charge = taker->GetStat("physical_shotpower");
+  in.postScale = pesGoalInnerHalfWidth;
+  in.barScale = pesGoalInnerHeight;
+  return in;
+}
+
 std::string OutcomeText(PenaltyShootout::e_Outcome outcome) {
   switch (outcome) {
     case PenaltyShootout::e_Outcome_Goal:
@@ -50,6 +70,7 @@ void PenaltyShootoutController::Reset() {
   nextEventTime_ms = 0;
   kickStartTime_ms = 0;
   aimY = 0.0f;
+  aimHeight = 0.0f;
   aimPower = 0.8f;
   baseScore[0] = 0;
   baseScore[1] = 0;
@@ -60,7 +81,6 @@ void PenaltyShootoutController::Reset() {
   keeperHauledBack = false;
   ballStruck = false;
   shootoutEndSide = 1;
-  plannedOutcome = PenaltyShootout::e_Outcome_Pending;
 }
 
 void PenaltyShootoutController::Start() {
@@ -164,55 +184,16 @@ void PenaltyShootoutController::SetUpKick() {
   // piece then plays the kick out with the real shot and dive animations.
   currentTaker = SelectTaker(state.shootingTeam);
 
-  PenaltyShootout::Shooter shooter;
+  // PES's kick-kind-54 scatter moves the aim off the goal's centre, drawn from the
+  // taker's own generator. Nothing rolls the outcome: the ball's flight and the keeper
+  // decide it.
   if (currentTaker) {
-    shooter.vision = currentTaker->GetStat("mental_vision");
-    shooter.shot = PlayerSkills::GetPenaltyRating(currentTaker->GetPlayerData()->GetSkills(),
-                                                  currentTaker->GetStat("technical_shot"));
-  }
-  const int keepingTeam = state.shootingTeam == 0 ? 1 : 0;
-  Player* keeperPlayer = match->GetTeam(keepingTeam)->GetGoalie();
-  PenaltyShootout::Keeper keeper;
-  if (keeperPlayer) {
-    // PES's GK attributes; PlayerData defaults them from physical_reaction and
-    // mental_defensivepositioning for profiles written before they existed. A
-    // GK Penalty Saver reads the kick better than his reflexes alone say.
-    keeper.reflexes = PlayerSkills::GetPenaltyReflexes(keeperPlayer->GetPlayerData()->GetSkills(),
-                                                       keeperPlayer->GetStat("gk_reflexes"));
-    keeper.awareness = keeperPlayer->GetStat("gk_awareness");
-  }
-
-  // The outcome comes from the players' stats, as the roadmap prescribes: the
-  // engine's open-play shot physics are far too unreliable from twelve yards to
-  // decide a shootout with. The kick is then aimed so that the animation the
-  // player sees matches the outcome that was rolled.
-  const PenaltyShootout::Aim aim =
-      PenaltyShootout::CalculateAim(shooter, random(-1.0f, 1.0f), random(-1.0f, 1.0f));
-  if (!PenaltyShootout::IsOnTarget(aim)) {
-    plannedOutcome = PenaltyShootout::e_Outcome_Miss;
-  } else if (random(0.0f, 1.0f) < PenaltyShootout::GetSaveChance(keeper, aim)) {
-    plannedOutcome = PenaltyShootout::e_Outcome_Save;
-  } else {
-    plannedOutcome = PenaltyShootout::e_Outcome_Goal;
-  }
-
-  const float placementSide = aim.x >= 0.0f ? 1.0f : -1.0f;
-  switch (plannedOutcome) {
-    case PenaltyShootout::e_Outcome_Goal:
-      // Placed inside the post, away from the keeper.
-      aimY = placementSide * clamp(std::fabs(aim.x), 1.8f, goalHalfWidth - 0.6f);
-      aimPower = clamp(0.8f + aim.z * 0.1f, 0.75f, 1.0f);
-      break;
-    case PenaltyShootout::e_Outcome_Save:
-      // Straight at the keeper, who is standing in the middle of his goal.
-      aimY = placementSide * 0.6f;
-      aimPower = 0.55f;
-      break;
-    default:
-      // Dragged wide of the post.
-      aimY = placementSide * (goalHalfWidth + 1.6f);
-      aimPower = clamp(0.7f + aim.z * 0.2f, 0.6f, 1.0f);
-      break;
+    const pes::PenaltyScatterInput taker = ScatterInputFor(currentTaker);
+    const PenaltyShootout::KickAim aim = PenaltyShootout::AimPenaltyKick(
+        match->GetPesKickErrorConstants().penaltyScatter, currentTaker->GetPesRandom(), taker);
+    aimY = aim.lateral_m;
+    aimHeight = aim.height_m;
+    aimPower = taker.charge;
   }
 
   const Vector3 goalCentre = GetGoalCentre();
@@ -373,9 +354,7 @@ void PenaltyShootoutController::Process() {
     return;
 
   // While a kick is live, let it play out on the pitch. What the ball does is
-  // what gets recorded: the roll in SetUpKick only aims the kick, it does not
-  // decide it. Recording the roll instead was how the tally came to disagree
-  // with what the camera plainly showed.
+  // what gets recorded: the scatter in SetUpKick aims the kick and decides nothing.
   if (state.phase == PenaltyShootout::e_Phase_Execution) {
     // One of the two keepers is defending the end he did not defend during the
     // match, so his instinct is to walk back to his own goal. He is only hauled
@@ -411,11 +390,9 @@ void PenaltyShootoutController::Process() {
     // be checked against what the camera showed without trusting the classifier.
     const Vector3 verdictPos = match->GetBall()->Predict(0);
     Log(e_Notice, "PenaltyShootoutController", "Process",
-        "verdict " + OutcomeText(observed) + " (aimed for " + OutcomeText(plannedOutcome) +
-            ") ball at x=" + real_to_str(verdictPos.coords[0]) + " y=" +
-            real_to_str(verdictPos.coords[1]) + " z=" + real_to_str(verdictPos.coords[2]) +
-            " goalline x=" + real_to_str(GetGoalX()) +
-            (observed != plannedOutcome ? " [MISMATCH: recording what the ball did]" : ""));
+        "verdict " + OutcomeText(observed) + " ball at x=" + real_to_str(verdictPos.coords[0]) +
+            " y=" + real_to_str(verdictPos.coords[1]) + " z=" + real_to_str(verdictPos.coords[2]) +
+            " goalline x=" + real_to_str(GetGoalX()));
 
     FinishKick(observed);
     nextEventTime_ms =

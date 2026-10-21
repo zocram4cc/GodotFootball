@@ -1,32 +1,10 @@
 #include "penaltyshootout.hpp"
 
 #include <algorithm>
-#include <cmath>
-
-#include "../gametypes.hpp"
 
 namespace PenaltyShootout {
 
 namespace {
-
-float Clamp01(float value) {
-  return std::max(0.0f, std::min(value, 1.0f));
-}
-
-float ClampSample(float sample) {
-  return std::max(-1.0f, std::min(sample, 1.0f));
-}
-
-// Vision and technique together decide how tight the accuracy cone is.
-float GetShooterSkill(const Shooter& shooter) {
-  return Clamp01((Clamp01(shooter.vision) + Clamp01(shooter.shot)) * 0.5f);
-}
-
-// Best case vertical spread, and the extra a poor striker adds.
-const float minHeightSpread = 0.6f;
-const float maxExtraHeightSpread = 1.8f;
-// How much of the save chance a perfectly placed kick takes away.
-const float placementSaveRelief = 0.85f;
 
 int Other(int team) {
   return team == 0 ? 1 : 0;
@@ -38,40 +16,24 @@ int RemainingRegulationKicks(const State& state, int team) {
 
 }  // namespace
 
-Aim CalculateAim(const Shooter& shooter, float lateralSample, float heightSample) {
-  const float skill = GetShooterSkill(shooter);
-  const float lateralSpread = minAimSpread + maxExtraAimSpread * (1.0f - skill);
-  const float heightSpread = minHeightSpread + maxExtraHeightSpread * (1.0f - skill);
+KickAim AimPenaltyKick(const pes::PenaltyScatterConstants& k, pes::Random& rng,
+                       const pes::PenaltyScatterInput& taker) {
+  // ponytail: the base height is bar/2. PES's FUN_1408abc30 gives (bar - (tune[+0x2C] * C +
+  // geom[+0x3C] * 0.5)) * 0.5, and the kind-54 tuning entry and geom +0x3C are runtime values
+  // not yet read. The lateral is zero: the penalty branch of FUN_1408b7550 passes a zero
+  // lateral scale to FUN_1408abc30.
+  constexpr float kBaseHeightShare = 0.5f;
+  pes::PenaltyScatterInput base = taker;
+  base.aimLateral = 0.0f;
+  base.aimHeight = taker.barScale * kBaseHeightShare;
 
-  Aim aim;
-  aim.x = ClampSample(lateralSample) * lateralSpread;
-  aim.z = aimCentreHeight + ClampSample(heightSample) * heightSpread;
+  KickAim aim;
+  aim.radius_m = pes::PenaltyScatterRadius(k, base);
+  const pes::PenaltyAim jittered = pes::ApplyPenaltyJitter(
+      rng, k, aim.radius_m, pes::PenaltyAim{base.aimLateral, base.aimHeight});
+  aim.lateral_m = jittered.lateral_m;
+  aim.height_m = jittered.height_m;
   return aim;
-}
-
-bool IsOnTarget(const Aim& aim) {
-  return std::fabs(aim.x) <= goalHalfWidth && aim.z >= 0.0f && aim.z <= goalHeight;
-}
-
-float GetSaveChance(const Keeper& keeper, const Aim& aim) {
-  const float ability = Clamp01((Clamp01(keeper.reflexes) + Clamp01(keeper.awareness)) * 0.5f);
-
-  // How far into the corner the kick is placed, 0 down the middle and 1 right in
-  // the angle. A well-placed penalty is unreachable however good the keeper is.
-  const float lateral = Clamp01(std::fabs(aim.x) / goalHalfWidth);
-  const float height = Clamp01(std::fabs(aim.z - aimCentreHeight) / goalHeight);
-  const float placement = Clamp01(std::sqrt(lateral * lateral + height * height));
-
-  return Clamp01(maxSaveChance * ability * (1.0f - placementSaveRelief * placement));
-}
-
-e_Outcome ResolveKick(const Shooter& shooter, const Keeper& keeper, float lateralSample,
-                      float heightSample, float keeperSample) {
-  const Aim aim = CalculateAim(shooter, lateralSample, heightSample);
-  if (!IsOnTarget(aim))
-    return e_Outcome_Miss;
-
-  return keeperSample < GetSaveChance(keeper, aim) ? e_Outcome_Save : e_Outcome_Goal;
 }
 
 e_Outcome ObserveKick(const KickObservation& observation, unsigned long elapsedSinceKick_ms) {
