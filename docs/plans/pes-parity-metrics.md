@@ -17,7 +17,7 @@ All rates are per 20 in-play match minutes; frames are 54 Hz logic frames (GF's 
 |M5|whistle-to-release, goal kick|frames, median (n)|〃|〃|
 |M6|whistle-to-release, corner|frames, median (n)|〃|〃|
 |M7|whistle-to-release, free kick|frames, median (n)|〃|〃|
-|M8|stoppages|count|referee state|`[restarts]` line|
+|M8|stoppages (excluding the opening kickoff, which is not a stoppage in PES's count)|count|referee state|`[restarts]` line|
 |M9|longest stoppage|s|〃|〃|
 |M10|passes|count|action id (anime+0xAC9) or the decision layer, as S1Watch names it|the matching GF action|
 |M11|crosses|count|〃|〃|
@@ -28,10 +28,17 @@ All rates are per 20 in-play match minutes; frames are 54 Hz logic frames (GF's 
 GF runs: `gfsim_run --db-sql assets/fixtures/teams.sql --home 1 --away 2 --minutes 20 --pes-loop --pes21-root <PES21>`
 at seeds 7, 11 and 23; report the mean and the min..max over the three seeds.
 
+Run: `GF_SIM_LOCK=<shared lock> tools/dev/parity.py --pes21-root <PES21> [--record <SHA>]`, after `build/apps/gfsim_run`
+is built. Each seed runs with `--parity-log`, a read-only observer that prints the state, STOP, restart and action
+lines; it writes nothing back, so the determinism hash is the same with and without it. Counts are per 20 in-play
+minutes (the clock's own ticks). Both teams are summed.
+
 ## PES baseline
 
 S1Watch round 36, live: /biz/ vs /xs/, Akihabara denki-gai, endless-match patch (`tools/dev/pes_endless_match.py`).
 One match, so treat it as one sample, not a distribution.
+
+Fill one row per metric, `|M3|142 (n=9)|notes|` (the first number is the value). M1 and M2 take one row per state, `|M1:8|4.2|notes|`.
 
 |id|PES value|notes|
 |---|---|---|
@@ -42,5 +49,6 @@ One match, so treat it as one sample, not a distribution.
 One row per main landing (the code SHA), filled by the GF parity script. Distance = |GF − PES| / PES per metric;
 the summary column is the mean distance over the metrics PES has a value for.
 
-|landing (main SHA)|date|M1 dist|M2 dist|M3-M7 dist|M8|M9|M10-M14 dist|mean dist|
+|landing (main SHA)|date|M1 dist|M2 dist|M3-M7 dist|M8 dist|M9 dist|M10-M14 dist|mean dist|
 |---|---|---|---|---|---|---|---|---|
+|860e2f1|2026-10-21|pending|pending|pending|pending|pending|pending|pending|
