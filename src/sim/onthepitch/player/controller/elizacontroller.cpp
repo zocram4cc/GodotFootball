@@ -1096,6 +1096,9 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
   // contact point, and it is the direction any of these commands runs at.
   const Vector3 contact = _mentalImage->GetBallPrediction(200).Get2D();
   const pes::DefenderReaction chosen = pes::ChooseReaction(in);
+  if (!match->GetBallRetainer() && (CastPlayer()->GetPosition().Get2D() - match->GetBall()->Predict(0).Get2D()).GetLength() < 6.0f)
+    printf("[dia] f=%lu t=%d id=%d chosen=%d slide=%d receive=%d\n", static_cast<unsigned long>(match->GetSimFrame() + 1),
+           static_cast<int>(team->GetID()), static_cast<int>(CastPlayer()->GetID()), static_cast<int>(chosen), int(in.slide), int(in.receive));  // DIAG (throwaway; never committed)
   int dodgeKind = 0;
   switch (chosen) {
     case pes::DefenderReaction::kDodgeBall: dodgeKind = dodgeKindBall; break;
