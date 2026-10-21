@@ -28,6 +28,15 @@ namespace movestep {
 struct MoveTurnConstants;
 }
 
+// PES's play state MI+0x116c (pes-re-A5Judge.md): 1 in play, 2 stopped, 3 set-play ready.
+// ponytail: GF's referee buffer stands for PES's restart sequencer. An awarded restart that is prepared or started is 3
+// (PES holds 3 through the TAKE and writes 1 at the kick); any other stop is 2. PES's per-restart writer is OPEN
+// (pes-re-A6Writers.md section 4), so this split follows the docs' state names, not a traced writer.
+inline int PlayStateFor(bool inPlay, bool restartAwarded, bool armedOrTaken) {
+  if (inPlay) return 1;
+  return restartAwarded && armedOrTaken ? 3 : 2;
+}
+
 // FUN_1406ba900's switch cases 0..23, by the MOVESTEP_* names at 0x1425dd698 (AS 2.1).
 enum class MoveState : uint8_t {
   kInit = 0,

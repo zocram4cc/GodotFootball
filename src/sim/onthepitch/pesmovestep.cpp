@@ -316,9 +316,10 @@ class MoveHostAdapter final : public pes::MoveHost {
     pesmovestep::PesFrame(v.coords[0], v.coords[1], v.coords[2], out);
   }
   int MatchPhase() const override {
-    // PES MI+0x116c is not ported (MB-E). Open play is PES's phase 1; every stopped phase is
-    // the adapter's "not 1" until the phase block lands.
-    return match_.IsInPlay() ? 1 : 0;
+    // PES MI+0x116c (pes-re-A5Judge.md): an awarded restart (buffer active) that is prepared or started is set-play ready (3);
+    // any other stop is 2, and open play is 1.
+    const auto& buf = match_.GetReferee()->GetBuffer();
+    return pes::PlayStateFor(match_.IsInPlay(), buf.active, buf.prepared || buf.started);
   }
   bool IsReplay() const override { return false; }
   // The handoff (FUN_1406b8340's tail): the issued clip plays on the body. A SetMotion plays its own
