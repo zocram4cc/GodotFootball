@@ -163,6 +163,13 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     // docs/re/pes-re-throwin-choreography.md 3.1). They are not placed on it, so until one arrives his command is the run
     // to the spot.
     if (team->GetController()->IsPieceTakerWalking(CastPlayer())) {
+      // PES's pickup clip plays with the body still: the root warp moves him onto the ball (docs/re/pes-re-throwin-choreography.md 3.2).
+      if (team->GetController()->IsPickingUp()) {
+        command.useDesiredLookAt = true;
+        command.desiredLookAt = match->GetBall()->Predict(0).Get2D();
+        commandQueue.push_back(command);
+        return;
+      }
       const Vector3 spot = team->GetController()->GetPieceWalkTarget();
       const Vector3 toSpot = (spot - player->GetPosition()).Get2D();
       command.desiredDirection = toSpot.GetNormalized(player->GetDirectionVec());

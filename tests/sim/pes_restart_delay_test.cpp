@@ -1003,3 +1003,32 @@ TEST(PesRestartDelay, ACarriedThrowInReachesItsSpot) {
   EXPECT_TRUE(pickupTick.has_value()) << "no throw-in carrier picked the ball up";
   EXPECT_TRUE(arrived) << "the carrier did not reach his spot within " << kCarryBoundTicks << " ticks of the pickup";
 }
+
+// A throw-in carrier holds the ball only within reach of it. PES's pickup clip root-warps the taker onto the ball, so his hands
+// meet the ball at the contact frame (docs/re/pes-re-throwin-choreography.md 3.2, phase 1). Seed 7's five-minute walker held
+// the ball 4.0 m from where it had lain, and the ball jumped into his hand.
+TEST(PesRestartDelay, AThrowInCarrierHoldsTheBallWithinHandReach) {
+  constexpr float kHandReach_m = 0.80f;  // the release key's ball offset from the body (choreography 3.2), as the ceremony test
+  std::optional<float> pickupReach;      // the carrier's distance to the loose ball on the tick he first holds it
+  Vector3 looseBall;
+  bool haveLooseBall = false;
+  size_t pickupClipHits = 0;
+  RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker || b.started) return;
+    const TeamAIController* c = match.GetTeam(b.teamID)->GetController();
+    if (!c->IsCarryingBall()) {
+      looseBall = match.GetBall()->GetPositionBuffer();
+      haveLooseBall = true;
+      return;
+    }
+    if (!pickupReach && haveLooseBall) {
+      pickupReach = (b.taker->GetPosition() - looseBall).Get2D().GetLength();
+      pickupClipHits = match.GetPesMbinfo().Hits(0xcf5).size();
+    }
+  }, kMaxSimTicks, [&](Match&) { return pickupReach.has_value(); }, SEED, false);
+  EXPECT_TRUE(pickupReach.has_value()) << "no throw-in carrier picked the ball up";
+  if (pickupReach)
+    EXPECT_LE(*pickupReach, kHandReach_m) << "the carrier held the ball " << *pickupReach << " m from where it lay (the pickup clip 0xCF5 has "
+                                          << pickupClipHits << " hit records)";
+}

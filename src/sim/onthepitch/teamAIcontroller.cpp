@@ -1154,10 +1154,32 @@ Vector3 TeamAIController::PrepareGoalKickStand(const Vector3& spot) {
 
 void TeamAIController::AdvancePieceWalk() {
   if (!pieceWalk || pieceCarrying || taker == nullptr) return;
-  const Vector3 off = pieceWalkTarget - taker->GetPosition();
-  if (off.Get2D().GetLength() > match->GetPesSetPieceTakerConstants().throwInPickupReach_m) return;
-  pieceCarrying = true;
-  pieceWalkTarget = pieceCarrySpot;
+  // PES's SeamlessThrowin phase 1 (docs/re/pes-re-throwin-choreography.md 3.2): the pickup clip 0xCF5 plays when the ball, at the
+  // clip's contact frame, is within its reach of the taker (the 5 m abort). Until then the walk runs to that predicted ball.
+  constexpr int kPickupClipMotion = 0xcf5;
+  const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(kPickupClipMotion);
+  const unsigned long contactTicks =
+      hits.empty() ? 0ul
+                   : pes::GoalKickContactTicks(hits.front().frame,
+                                               pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants()));
+  if (!pieceWarping) {
+    pieceWalkTarget = match->GetBall()->Predict(static_cast<int>(contactTicks)).Get2D();
+    const Vector3 toBall = (pieceWalkTarget - taker->GetPosition()).Get2D();
+    if (toBall.GetLength() > match->GetPesSetPieceTakerConstants().throwInPickupReach_m) return;
+    pieceWarping = true;
+    pieceWarpTicks = contactTicks > 0 ? contactTicks : 1;
+    pieceWarpTo = pieceWalkTarget;
+  }
+  // The root warp: the clip's root motion, root-warped so the hands meet the ball at the contact frame. An even step per tick
+  // to the contact point; at the contact the taker holds the ball.
+  const float ticksLeft = static_cast<float>(pieceWarpTicks);
+  taker->OffsetPosition((pieceWarpTo - taker->GetPosition()).Get2D() * (1.0f / ticksLeft));
+  --pieceWarpTicks;
+  if (pieceWarpTicks == 0) {
+    pieceWarping = false;
+    pieceCarrying = true;
+    pieceWalkTarget = pieceCarrySpot;
+  }
 }
 
 bool TeamAIController::PieceTakerArrived() const {
@@ -1217,6 +1239,8 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
   pieceHeld = false;
   pieceWalk = false;
   pieceCarrying = false;
+  pieceWarping = false;
+  pieceWarpTicks = 0;
   bool seamlessRestart = false;
   goalKickLadder = pes::GoalKickLadder();
   goalKickStrike = GoalKickStrike();

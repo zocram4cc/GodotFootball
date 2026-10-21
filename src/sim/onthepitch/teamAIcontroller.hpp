@@ -120,6 +120,8 @@ public:
   void AdvancePieceWalk();
   // True from the pickup until the release: the taker holds the ball.
   bool IsCarryingBall() const { return pieceWalk && pieceCarrying; }
+  // True while the pickup clip plays: the taker stands and his root warps onto the predicted ball until the contact frame.
+  bool IsPickingUp() const { return pieceWarping; }
   // True when no walk is pending, or the carrying taker stands at the spot (the lift radius, 3.2).
   bool PieceTakerArrived() const;
   // PES's goal kick (pesgoalkick.hpp): the ladder releases it (sub_142136F00) and the strike carries the keeper onto the
@@ -233,6 +235,9 @@ protected:
   Player* taker;
   bool pieceWalk = false;      // a set-piece walk is pending (PES path only): a throw-in taker's or a goal-kick keeper's
   bool pieceCarrying = false;  // a throw-in taker has the ball: pieceWalkTarget is the carry spot
+  bool pieceWarping = false;   // the pickup clip is playing: the root warps onto pieceWarpTo until the contact frame
+  unsigned long pieceWarpTicks = 0;  // ticks left to the pickup's contact frame
+  Vector3 pieceWarpTo;         // the predicted ball at the contact frame, where the warp ends
   bool pieceHeld = false;      // the taker was placed on his stand point at prepare and holds it until the release
   Vector3 pieceWalkTarget;     // the walk's target: a throw-in's pickup point, then its carry spot; a keeper's ball spot
   Vector3 pieceCarrySpot;      // where the taker lifts the ball (3.2)
