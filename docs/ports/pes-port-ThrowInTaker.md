@@ -33,7 +33,7 @@ Before the RunLoopTail merge (`4e168cc` plus the same port): `EveryStoppageResta
 ## Blockers
 
 1. **RunLoopTail (`be31198`) creeps set-piece bodies.** A stopped body commanded toward a target behind it enters RUN_TURN_RUN. The entry clip is refused: the table column is the raw look bucket, which names empty cells on odd buckets (ClipWords' port; the fix is stashed, pending Main's scope ruling). The body then creeps at about 0.03 deg per tick, and RUN_TURN_RUN never exits, so every walker and carrier stalls the restart. Not caused by this port; the merged tree is red because of it.
-2. **Seed 7 has no seamless throw-in** in its five-minute or twenty-minute runs. All three throw-ins in 20 minutes are path B: the four nearest teammates are 36 to 50 m from the spot, outside the 20 m reach. Seed 11 has a seamless throw-in at tick 2307 (taker 15.8 m away, arrival 110 frames). The four path-A tests cannot see one on seed 7. A scenario decision is needed: the path-A tests on seed 11, and the ceremony test on the twenty-minute run.
+2. **Seed 7 has no seamless throw-in** in its five-minute or twenty-minute runs. All three throw-ins in 20 minutes are path B; for the first, the four nearest teammates are 36 to 50 m from the spot, outside the 20 m reach. Seed 11 has a seamless throw-in at tick 2307 (taker 15.8 m away, arrival 110 frames). The four path-A tests cannot see one on seed 7. A scenario decision is needed: the path-A tests on seed 11, and the ceremony test on the twenty-minute run.
 3. The seamless walk has not completed a pickup on any tree yet (blocked by 1).
 
 ## Ponytails (stand-ins, PES site named)
