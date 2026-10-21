@@ -43,3 +43,21 @@ owner can map ids to players. ID 7511 has no compare anywhere.
 |34908 / 40352|0x1407DDF7C / 0x1407DDF69, 0x1407D9D03, 0x1407D9D69, 0x14047B172|40352 forces param_3 = 0x93 / 0x94 (an action/clip kind) at 0x1407D9D03..|
 |115894|0x1406CC720 (A62D90)|in MOVESTEP's band: jumps to LAB_1406CCA88 for him|
 |33185 and the five kick ids|§1, §3||
+
+## 5. Names (looked up 21-10-26: pesdb.net/pes2021?id=N, pesmaster.com player pages)
+|id|player|site behaviour (§1-§4)|
+|---|---|---|
+|815, 118718, 134563|D. Beckham (three cards; pesdb)|the beckham_2002 curled long kick (§1)|
+|123447, 134448|not in either 2021 database [INF: further Beckham cards, by their place in the same compare chain]|same; 134448 also in FUN_1406B3560|
+|33185|M. Neuer (pesdb)|six branches incl. two keeper-positioning sites reading the team point (§3): the sweeper keeper|
+|972|F. Inzaghi (pesdb)|six team-AI sites (A62D90), not decoded|
+|1624|R. Carlos (pesdb)|six sites, not decoded|
+|1630|Romário (pesdb)|with 102618, an action-kind branch|
+|102618|H. Mastour (pesmaster)|same branch as Romário|
+|1631|Ronaldinho (pesmaster)|with 4522: the two per-player flags|
+|4522|Cristiano Ronaldo (pesdb search, pesmaster)|same flags as Ronaldinho, plus three more sites|
+|34908|Marcelo (pesmaster)|with Neymar|
+|40352|Neymar (pesmaster)|forces action kind 0x93/0x94|
+|34873|Diego Souza (pesmaster, PES 2020)|one site|
+|115894|U. Bolt (pesmaster, PES 2018)|a jump inside MOVESTEP's band (0x1406CC720): a locomotion special case|
+|2344|not found in either database|one site|
