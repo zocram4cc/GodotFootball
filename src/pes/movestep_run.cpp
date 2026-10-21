@@ -2117,6 +2117,77 @@ int JostleStyle(MoveHost& host, MoveReq& req, int base, float& turn) {
 // ponytail: that half's state picker and swing arm are the foundation's event store; the port
 // keeps the running branch's own arms here and names where the other half stands.
 // ---------------------------------------------------------------------------------------------
+// PES 408-466: RUN_LOOP's T1-false tail (FUN_1406c0170 after its T1 block). It runs on the T1-false path only, where the T1
+// gate's FUN_1406b70d0 operand has already set fVar22 = one and fVar3 = DAT_1425cca34 (67.5). The rate starts at rate06 and
+// the turn ramp lowers it. Block A exits to RUN_TURN_RUN or TURN_STOP; block B exits to STOP, from the speed scaled by the
+// body's cosine to the displacement (the sine table at |gap| + 90, FUN_140a92c80).
+void RunLoopTail(MoveHost& host, MoveReq& req) {
+  const RunConstants& k = host.RunConstantsView();
+  const MoveConstants& m = host.MoveConstantsView();
+  const float one = k.one;                               // fVar22, set by the T1 gate's operand
+  const float half = k.half;                             // fVar20 (PES 109)
+  const float turn = std::fabs(req.F(moveword::kTurn));  // PES 408-409: |req[6]|
+  const int classWord = static_cast<int>(req.U(moveword::kClassWord));
+
+  // PES 410-422: the turn ramp over the 67.5..135 degree band lowers the rate, clamped to [blend3, rate06].
+  float ramp = 0.0f;
+  if (k.deg675 < turn) {
+    ramp = one;
+    if (turn < k.deg135) ramp = (turn - k.deg675) / k.deg675;
+  }
+  float rate = k.rate06;  // fVar23 (PES 52)
+  const float lowered = rate - (ramp * k.rate07 + k.blend2) * k.blend3;
+  if (lowered <= rate) rate = (k.blend3 <= lowered) ? lowered : k.blend3;
+  // PES 423: the anime interface's vt+0x08 (P+0xab8) is not ported (ponytail: the clip clock is the host's).
+
+  if (req.U(moveword::kPrecise) != 1u || 2 < classWord || rate < req.F(moveword::kRate)) {
+    // Block A (PES 425-447): RUN_TURN_RUN when the look is far enough and the run turn may be taken, else TURN_STOP.
+    float f = k.speed4;  // DAT_1425656c0 (PES 426)
+    if (classWord != 3) {
+      f = half;  // PES 427
+      if (classWord == 2) {
+        f = m.dist2m5;  // DAT_14259bde4 (PES 428)
+        if (static_cast<int>(req.U(moveword::kCommandSpeedClass)) < 2) f = one;  // PES 429
+      }
+    }
+    // PES 431-437: the factor over the 90..157.5 degree band scales it by 1 - factor * half.
+    float factor = 0.0f;
+    if (k.deg90 < turn) {
+      factor = one;
+      if (turn < k.deg1575) factor = (turn - k.deg90) / k.deg675;
+    }
+    f *= one - factor * half;
+    // PES 438-442: the look gap is tested unless the walk is precise in class 0..2.
+    const bool gapOk = req.U(moveword::kPrecise) != 1u || 2 < classWord ||
+                       std::fabs(PesAngleDiff(req.F(moveword::kHeading), req.F(moveword::kLookHeading), k)) <= k.deg5625;
+    if (gapOk && f <= req.F(moveword::kDistToLook)) {
+      EnterRunTurnRun(host, req);  // FUN_1406d6780
+      return;
+    }
+    EnterTurnStop(host, req);  // FUN_1406d2590
+    return;
+  }
+
+  // Block B (PES 449-466): the speed scaled by the body's cosine to the displacement decides STOP.
+  const float heading = DisplacementBearingDeg(host, k);  // FUN_14046f230 of the last tick's displacement
+  const float gap = std::fabs(PesAngleDiff(req.F(moveword::kFacing), heading, k));  // FUN_1404583b0(P+0x20, heading)
+  const float cosine = TableSinDeg(gap + k.deg90, one, host.SpeedClassConstantsView());  // FUN_140a92c80(gap + 90, one)
+  const float speed = host.CurrentSpeedKmh() * cosine;  // vt+0x20, the ground speed in km/h (PES 453-454)
+  const int previous = host.MoveStatePrevious();        // P+0x245d
+  if (speed <= k.kmh5 || (speed <= k.kmh135 && (previous == static_cast<int>(MoveState::kTurnStop) ||
+                                                previous == static_cast<int>(MoveState::kStop)))) {
+    req.SetU(moveword::kClassWord, 0u);  // PES 457
+  } else {
+    if (speed <= k.kmh5 || k.kmh11 <= speed) {
+      EnterStop(host, req);  // PES 460: goto the STOP entry with no word written
+      return;
+    }
+    req.SetU(moveword::kClassWord, 1u);  // PES 462
+  }
+  // PES 463: word 0x1d takes the speed as a whole number (x86's cvttss2si keeps the sign of a negative speed).
+  req.SetU(moveword::kStopSpeedWord, static_cast<uint32_t>(static_cast<int64_t>(speed)));
+  EnterStop(host, req);  // PES 466: FUN_1406d5d60
+}
 void RunLoop(MoveHost& host, MoveReq& req) {
   const RunConstants& k = host.RunConstantsView();
   const RunTables& t = host.RunTablesView();
@@ -2193,9 +2264,16 @@ void RunLoop(MoveHost& host, MoveReq& req) {
     }
   }
 
-  // The swing arm (PES 120-263) runs for T1 with T2 or E2, and for a no-class tick outside T1. PES's tail (408-466, the
-  // T1-false path) is not ported: a no-class tick there keeps the swing arm (ponytail). Otherwise the style arm below runs.
+  // PES 408-466: the T1-false tail for a running class. A no-class tick outside T1 keeps the swing arm below (ponytail: the
+  // no-class arm's own body is not ported).
+  if (!t1 && running) {
+    RunLoopTail(host, req);
+    return;
+  }
+  // The swing arm (PES 120-263) runs for T1 with T2 or E2, and for a no-class tick outside T1. Otherwise the style arm runs.
   if (swingNow || (!t1 && !running)) {
+    // PES 120 (E0): the swing entry returns with nothing written while the first dwell is still running.
+    if (swingNow && req.F(moveword::kDwellElapsed) < req.F(moveword::kDwellLimit)) return;
     // The playback read through the +0xac0 interface's slot 0x30 (FUN_140a62960's mirror
     // argument) and slot 0x50's answer.
     // ponytail: the interface's slot pair is the anime player's own; the port uses the

@@ -560,6 +560,7 @@ inline constexpr int kAbilityPc = 0x28;
 inline constexpr int kAbilityDa = 0x15;
 inline constexpr int kReplayAnimeState = 0x4a;  // vt+0x28 == 0x4a: the replay action
 
+struct SpeedClassConstants;  // the sine table of FUN_140a92c80 (defined below, with TableSinDeg)
 class MoveHost {
  public:
   virtual ~MoveHost() = default;
@@ -649,6 +650,8 @@ class MoveHost {
 
   // Group A's match, roster and record reads. Each method names the PES read it stands for.
   virtual const MoveConstants& MoveConstantsView() const = 0;
+  // FUN_140a92c80's sine table and scalars (0x142655950), read by RUN_LOOP's T1-false tail.
+  virtual const SpeedClassConstants& SpeedClassConstantsView() const = 0;
   virtual const IdleRowTables& IdleRowTablesView() const = 0;
   virtual float FacingDeg() const = 0;
   virtual float BallBearingDeg() const = 0;
@@ -787,6 +790,7 @@ void Demo(MoveHost& host, MoveReq& req);               // 23 FUN_1406bdd70
 
 // Group B
 void RunLoop(MoveHost& host, MoveReq& req);            // 3  FUN_1406c0170
+void RunLoopTail(MoveHost& host, MoveReq& req);        // RUN_LOOP's T1-false tail (PES 408-466)
 void GotoRun(MoveHost& host, MoveReq& req);            // 7  FUN_1406bdf10
 void Stop(MoveHost& host, MoveReq& req);               // 8  FUN_1406c9e20
 void Accelerate(MoveHost& host, MoveReq& req);         // 9  FUN_1406bb570

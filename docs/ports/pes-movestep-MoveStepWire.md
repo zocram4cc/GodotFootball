@@ -22,6 +22,13 @@ Branch `MoveStepWire` at `9939c40` (pushed, `ls-remote` confirmed). Merged `orig
 6. Ordering: `Player::Process` runs MOVESTEP first, then `Match::CheckHumanoidCollisions` (push, then `ProcessPesContacts`, `match.cpp:865`). MOVESTEP never writes a Trip body: `PlayIssuedClip` refuses a non-Movement, non-locomotion clip, and the contact stage writes only Trip bodies. Guarded by `MoveStepLeavesATrippedBodysContactRateAlone`. The PES-side contact order is taken from the existing code comment, not re-decoded [INFERENCE].
 7. gdext: `gf_match.cpp` passes `library->movestep_constants()`. No `getenv` left under `src/gdext` or in MOVESTEP code. `godotfootball` target builds (exit 0) after `bf94903`. Not run in Godot.
 
+## RUN_LOOP tail (T1-false) and E0 (RunLoopTail)
+- `RunLoopTail` (`src/pes/movestep_run.cpp`): RUN_LOOP's T1-false path for a running class, decompile lines 408-466 of FUN_1406c0170. Exits to RUN_TURN_RUN (FUN_1406d6780), TURN_STOP (FUN_1406d2590) or STOP (FUN_1406d5d60). `RunLoop` runs it for `!t1 && running`.
+- E0 (decompile line 120): the swing entry returns with nothing written while the first dwell runs.
+- Ponytail: the tail's `vt+0x08` call on `P+0xab8` (decompile line 423) is not modelled; no host side effect exists for it yet.
+- Wire: the played-clip test skips a player's tick when `HumanoidBase::GetPlacementCount` moved. The count moves in `ResetPosition`, which GF's set-piece placement (through `ResetSituation`) and the release fallback in `Humanoid::Process` call. At tick 363 of that test, the placement took player 18's body off motion 2250 (2250 re-issued from frame 0), the only counted restart. The clip-on-body check is unchanged.
+- Open: `PesRestartDelay.AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine` fails (onLocomotion 0). ThrowInTaker's ThrowInPathB owns that path.
+
 ## Tests (wire binary `build/tests/sim/pes_movestep_wire_test`: 11/11 green)
 Red on main's code (first 8, verified before fixes): constants (rate 0), off-path (player changed), playback (quiet ticks overwritten), GOTO_RUN (stuck in state 7 for 19800 ticks), ceiling (0.0000), link (3782 issued, 0 played), advance (0 same-clip ticks), CurrentMotion (-1 vs PES motion, 1110 mismatches).
 

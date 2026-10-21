@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdlib>
+#include <cmath>
 #include <string>
 
 #include "pes/exe.hpp"
@@ -42,6 +43,21 @@ void Reset();
 
 namespace {
 
+// The sine table of FUN_140a92c80: 513 samples of sin(i * 90 / 512 degrees) with the install's scalars.
+pes::SpeedClassConstants SyntheticSpeedClass() {
+  pes::SpeedClassConstants k{};
+  k.full = 360.0f;
+  k.wrapFull = -360.0f;
+  k.half = 180.0f;
+  k.wrapHalf = -180.0f;
+  k.neg = -1.0f;
+  k.one = 1.0f;
+  k.quarter = 90.0f;
+  k.tabScale = 512.0f;
+  for (int i = 0; i <= 512; ++i) k.sinQuarter[i] = std::sin(static_cast<float>(i) * 3.14159265f / 1024.0f);
+  return k;
+}
+
 // A minimal MoveHost for the tests that need one: every read returns a fixed synthetic value, so
 // a test states exactly what it sets. The interface helpers the dispatcher port owns (IdleRow,
 // SpeedToRate, LocomotionStyle) are not defined yet, so no test here drives a handler that calls
@@ -50,6 +66,7 @@ class SyntheticHost : public pes::MoveHost {
  public:
   // LocomotionStyle's reads: the run tests do not drive the style ladder.
   pes::StyleConstants style{};
+  pes::SpeedClassConstants speedClass = SyntheticSpeedClass();
   // LateralDamping's reads: the run tests do not drive the drift.
   pes::DampingConstants damping{};
   pes::DampingRecord dampingRecord{};
@@ -116,6 +133,7 @@ class SyntheticHost : public pes::MoveHost {
   const pes::MotionRecord& Motion(int) const override { return record; }
   bool ClipFlag() const override { return false; }
   const pes::MoveConstants& MoveConstantsView() const override { return moveConstants; }
+  const pes::SpeedClassConstants& SpeedClassConstantsView() const override { return speedClass; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return idleRows; }
   float FacingDeg() const override { return facingDeg; }
   float BallBearingDeg() const override { return 0.0f; }
@@ -1582,6 +1600,138 @@ TEST(RunLoop, RePlansIntoGotoRunWhenTheClassIsHighAndTheRateIsLow) {
   EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
 }
 
+// PES 408-466: RUN_LOOP's T1-false tail. It runs only on the T1-false path, where the T1 gate's FUN_1406b70d0
+// operand has set the one and the 67.5-degree divisor. The factor starts at the half for a class that is not 2 or 3;
+// the turn ramp is zero for a straight body; the stop block scales the speed by the cosine of the body's gap to the
+// displacement, taken from the sine table at |gap| + 90 (FUN_140a92c80).
+TEST(RunLoopTail, RunTurnRunWhenTheLookIsFarEnoughAndTheRunTurnIsAllowed) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 1.0f;  // the last displacement heads 0 degrees
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kClassWord, 0u);     // not 2 or 3: the factor is the half
+  req.SetU(pes::moveword::kPrecise, 0u);       // not 1: the run turn is allowed
+  req.SetF(pes::moveword::kRate, 0.9f);        // above the tail's rate, so block A runs
+  req.SetF(pes::moveword::kTurn, 0.0f);        // straight: the ramp is zero
+  req.SetF(pes::moveword::kDistToLook, 1.0f);  // the factor 0.5 is at or below it
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::RunLoopTail(h, req);
+  EXPECT_EQ(pes::probe::runTurnRunCalls, 1);
+  EXPECT_EQ(pes::probe::turnStopCalls, 0);
+}
+
+TEST(RunLoopTail, TurnStopWhenTheLookIsTooFarForTheRunTurn) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kClassWord, 0u);
+  req.SetU(pes::moveword::kPrecise, 0u);
+  req.SetF(pes::moveword::kRate, 0.9f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kDistToLook, 0.1f);  // the factor 0.5 is past it
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::RunLoopTail(h, req);
+  EXPECT_EQ(pes::probe::turnStopCalls, 1);
+  EXPECT_EQ(pes::probe::runTurnRunCalls, 0);
+}
+
+// Block B: the speed between 5 and 11 km/h (the cosine of a body that faces its displacement is 1) with no stop
+// before it writes the class word 1 and the stop speed word, then the STOP entry.
+TEST(RunLoopTail, StopsWithTheClassWordOneWhenTheSpeedIsBetweenFiveAndElevenKmh) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 8.0f;
+  h.previousState = static_cast<int>(pes::MoveState::kRunLoop);
+  h.positions[1][2] = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kClassWord, 1u);     // not above 2: block B
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kRate, 0.1f);        // at or below the tail's rate: block B
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::RunLoopTail(h, req);
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 1u);
+  EXPECT_EQ(req.U(pes::moveword::kStopSpeedWord), 8u);  // PES 463 stores the speed as a whole number, (uint)fVar29
+  EXPECT_EQ(pes::probe::runTurnRunCalls, 0);
+  EXPECT_EQ(pes::probe::turnStopCalls, 0);
+}
+
+// Block B's first branch: after a TURN_STOP the speed up to 13.5 km/h clears the class word to 0.
+TEST(RunLoopTail, ClearsTheClassWordAfterATurnStopWhenTheSpeedIsBelowThirteenAndAHalf) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 8.0f;
+  h.previousState = static_cast<int>(pes::MoveState::kTurnStop);
+  h.positions[1][2] = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kClassWord, 1u);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kRate, 0.1f);
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::RunLoopTail(h, req);
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 0u);
+  EXPECT_EQ(req.U(pes::moveword::kStopSpeedWord), 8u);  // PES 463: the whole number of the speed
+}
+
+// Block B above 11 km/h: the STOP entry is taken with no class or speed word written by the tail (PES 460).
+TEST(RunLoopTail, LeavesTheWordsAloneWhenTheSpeedIsAboveElevenKmh) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.currentKmh = 12.0f;
+  h.previousState = static_cast<int>(pes::MoveState::kRunLoop);
+  h.positions[1][2] = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kClassWord, 2u);  // not above 2: block B (class 3 would take block A); no class write above 11
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kRate, 0.1f);     // at or below the tail's rate: block B
+  req.SetF(pes::moveword::kTurn, 0.0f);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  pes::probe::Reset();
+  pes::movestep::RunLoopTail(h, req);
+  EXPECT_EQ(req.U(pes::moveword::kClassWord), 2u);
+  EXPECT_EQ(req.U(pes::moveword::kStopSpeedWord), 0u);
+}
+
+// PES 120 (E0): the swing arm's entry returns with nothing written while the first dwell is still running.
+TEST(RunLoop, TheSwingArmReturnsWithNothingWrittenWhileTheFirstDwellRuns) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);  // a running class (not -1)
+  req.SetU(pes::moveword::kMoveBucket, 0u);         // bucket 0 with the rate above 0.15 holds T1
+  req.SetF(pes::moveword::kRate, 0.5f);
+  req.SetU(pes::moveword::kPrecise, 0u);            // not 1 holds T2: the swing arm
+  req.SetF(pes::moveword::kDwellElapsed, 0.05f);    // below the limit: E0 returns
+  req.SetF(pes::moveword::kDwellLimit, 0.1f);
+  pes::probe::Reset();
+  pes::movestep::RunLoop(h, req);
+  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(h.issues, 0);
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellElapsed), 0.05f);
+}
+
 // ---------------------------------------------------------------------------------------------
 // The two entries' decision arms. EnterAccelerate (FUN_1406ccd00) refuses before writing
 // when any of its gates fails: the band word at or above the bearing's 67.5 threshold, the
@@ -1973,7 +2123,7 @@ TEST(RunLoop, TakesTheSwingArmWhenTheClassWordIsMinusOne) {
   req.SetF(pes::moveword::kRate, 0.6f);
   req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
   req.SetF(pes::moveword::kDwellLimit, 1.0f);
-  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 1.0f);  // the first dwell has run out: E0 (PES 120) lets the swing body run
   h.bandSpeeds[0] = 4.0f;
   h.bandSpeeds[1] = 8.0f;
   h.bandSpeeds[2] = 14.0f;
@@ -2092,7 +2242,7 @@ TEST(RunLoop, FoldsTheSecondWordWhenTheStatePickersFacingErrorIsPast146) {
   req.SetF(pes::moveword::kRate, 0.6f);
   req.SetF(pes::moveword::kPlaybackDefault, 1.0f);
   req.SetF(pes::moveword::kDwellLimit, 1.0f);
-  req.SetF(pes::moveword::kDwellElapsed, 0.0f);
+  req.SetF(pes::moveword::kDwellElapsed, 1.0f);  // the first dwell has run out: E0 (PES 120) lets the swing body run
   pes::probe::Reset();
   pes::movestep::RunLoop(h, req);
   // The state picker's fold is visible in the look bucket it rewrote (4 -> 9); the swing arm writes no state request.

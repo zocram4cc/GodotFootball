@@ -519,6 +519,7 @@ bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror) {
 }
 
 void HumanoidBase::ResetPosition(const Vector3& newPos, const Vector3& focusPos) {
+  ++placementCount;
   startPos = newPos;
   startAngle = FixAngle((focusPos - newPos).GetNormalized(Vector3(0, -1, 0)).GetAngle2D());
   nextStartPos = startPos;
