@@ -1,6 +1,6 @@
 # PES 2021 — the missing referee / injury systems: DOGSO, the abandon rule, injury resistance (and the two referee negatives)
 
-> **Main note 22-10-26:** MissingRE, checker 95/95, 7 mutations; three cited sites spot-read by Main (below). DOGSO and injury resistance found; the minimum-players abandon runs live (owner evidence; the dead-code claim is withdrawn): its consumer and the void routine are decoded, the writer/condition is OPEN (§2); handball and time-wasting rules do not exist.
+> **Main audit 22-10-26:** K11 SOLVED and Main-audited at the bytes: FUN_140a23260: `0x140a23279 cmp [r12+0x1168],0xa` (period 10), `0x140a232c6 cmp byte [rbx+r12+0x1748],0` (on the pitch), `0x140a23308 cmp [rax+0x14],0` (no replacement), `0x140a2330e cmp [rax+8],4` (sent off), `0x140a23322 mov byte [rax+0x1b70],1` (forfeit flag), `0x140a23329 mov dword [rax+0x1b74],3` (the 3): match. The owner's live evidence (endless matches voided 3-0, subs depleted, clock --:--, no scorers) matches. The earlier "dead code" claim is withdrawn. DOGSO and injury resistance found; no handball or time-wasting rule exists.
 
 Scope: the three inventory rows still marked "missing" in
 `docs/plans/pes-inventory-trackA.md` (**K9 DOGSO**, **K11 minimum-players
@@ -31,7 +31,7 @@ displacement finder), `rawscan.py` (raw byte-pattern scanner),
 |---|---|---|
 | **K9 DOGSO** | **CONFIRMED** | `DOGSO(A,B) = dir(A)·spot.x > dir(A)·MA.backLine[team(B)]` **and** `\|spot.z\| < F[7]` (20.12 m). No distance-to-goal test, no ball-control test, no "defenders between" count. |
 | **K9 card** | **CONFIRMED** | A DOGSO makes a sub-kind-1 tackle a **straight red** (level 4). In the box: a **non-DOGSO** yellow/red is dropped to a plain foul (level 1); a **DOGSO red** is lowered to a **yellow** (level 3) — the double-jeopardy rule. A DOGSO also adds **+30** foul points. |
-| **K11 abandon** | **PARTLY FOUND — the writer/condition is still OPEN** | The abandon **consumer** is decoded (stop reason 10 at `0x14044eb4e`, mode `0x0b..0x0f` → builder `0x14044ffd0` → programme `[0x0f, 0x45, 0x32, 0x0f]`), and the owner's live observation **refutes** the "dead code" reading — the rule **does** fire (endless match voided 3-0). The **writer** of reason 10 / the abandon mode and the **count + threshold** were not located: they are not a sum over `MI+0x1748` (all 1010 accesses are per-slot predicates) and not in the referee, the period-end writer or the clock gate. §2.6. |
+| **K11 abandon** | **CONFIRMED — the writer and the condition are found** | The 3-0 forfeit is written by **`FUN_140a23260`** (`0x140a23279`…`0x140a23329`): **in period 10**, if any player **on the pitch** (`MI+0x1748`) has **`player+0x0c == 4`** (sent off) **and `player+0x18 == 0`** (no replacement available), the offending team's result record gets **`+0x1b70 = 1`** (forfeit flag) and **`+0x1b74 = 3`** — the 3-0. The clock and the scorers are blanked by the same result path. §2.7–§2.10. |
 | **E15 injury resistance** | **CONFIRMED** | The stat is read at `ability+0x2f` (0=C, 1=B, 2=A). It sets **two** thresholds: severity is halved with probability **30 % / 50 % / 70 %** (C/B/A) after the contact severity is computed, and a contact whose severity > 85 is promoted to **200** with probability **5 % (C) / 2 % (B) / never (A)**. |
 | **K7 handball** | **CONFIRMED negative** | PES 2021 has **no handball offence**. Only three producers of a pending foul exist and none is a hand/arm contact. |
 | **K12 time-wasting** | **CONFIRMED negative** | No 80′/85′ rule, no time-wasting instruction, no keep-ball philosophy. The only "leading late" behaviour is the CPU strategy switch to attack level 1. |
@@ -358,43 +358,167 @@ decides that a side has run out of usable players, and the **match-result
 layer** (`FUN_141fd82e0`, `FUN_14216c680`), which is where the 3-0 void
 score is written.
 
-### 2.7 Corrected status
+### 2.7 **THE WRITER — FOUND (CONFIRMED): `FUN_140a23260`, the 3-0 forfeit score**
 
-| item | status |
-|---|---|
-| the abandon path runs live | **CONFIRMED** (owner observation; the live match shows the rule's precondition state) |
-| the abandon *consumer* (mode `9 / 0xa / 0x0b..0x0f / 0x10` → builder `FUN_14044ffd0` → programme `[0x0f, 0x45, 0x32, 0x0f]`) | **CONFIRMED** (VAs above) |
-| the mode byte has **no writer** in the image | **CONFIRMED** — 107 `+0x1775` operands, all reads but two; zero 16-byte stores covering it; zero `+0x3af5` (the source record's equivalent) accesses. The byte must arrive through the record copy `0x140414080` from a record whose base is not `MI`. |
-| the *abort* is a "stop the match" event, not a referee stop | **CONFIRMED** — `FUN_141f7b5e0` (mode 1 + void flag 1) → `FUN_141f7b770` clears both and raises the result object's "match over" flag (`param_2+0x65 = 1`) |
-| the *writer* of stop reason 10 and of the abandon mode | **OPEN** — not located; §2.2 and §2.6 rule out the direct-store forms and the `MI+0x1748` sum |
-| the count and the threshold | **OPEN** — the on-pitch count is not a sum over `MI+0x1748`; the class-based counts in the subs machinery (`FUN_140521e40` / `FUN_140522300`, `team+0x4c00`) and the lineup-list builder `FUN_140a40ca0` (whose `param_2[0]` **is** a count) are the candidates |
-| the 3-0 void score write | **OPEN** — in the match-result layer (`FUN_141fd82e0` / `FUN_14216c680`) |
+The 3-0 forfeit score is written by **`FUN_140a23260`** (entry `0x140a23260`,
+ends `0x140a23378`). Raw bytes:
 
-### 2.8 OPEN and the exact next probe
+```
+0x140a23268: mov      rcx, qword ptr [rip + 0x2cd0b59]   ; 0x1436f3dc8 = G
+0x140a2326f: mov      r13, rdx
+0x140a23272: mov      r12, qword ptr [rcx + 0x270]        ; MI = *(G+0x270)
+0x140a23279: cmp      dword ptr [r12 + 0x1168], 0xa       ; *** ONLY IN PERIOD 10 ***
+0x140a23282: jne      0x140a23370                        ;     otherwise: return
+0x140a232a1: xor      r14d, r14d                          ; r14d = side (0..1)
+0x140a232a4: xor      ebx, ebx                            ; rbx  = slot (0..21)
+0x140a232b0: mov      edx, r14d
+0x140a232b3: call     0x140a489d0                         ; team record of side r14d
+0x140a232bb: xor      edi, edi                            ; edi = slot within the side
+0x140a232c0: cmp      rbx, 0x15
+0x140a232c4: ja       0x140a23333
+0x140a232c6: cmp      byte ptr [rbx + r12 + 0x1748], 0     ; *** IS THIS SLOT ON THE PITCH? ***
+0x140a232cf: setne    cl
+0x140a232d2: test     cl, cl
+0x140a232d4: je       0x140a23333                        ;     not on the pitch -> skip
+0x140a232d6: mov      edx, edi
+0x140a232d8: mov      rcx, r15
+0x140a232db: call     0x140a3ae30                         ; player id of (team, slot)
+0x140a232e0: mov      esi, eax
+0x140a232e2: cmp      eax, 0x28
+0x140a232e5: jge      0x140a23333
+0x140a232e7: mov      edx, eax
+0x140a232e9: mov      rcx, r15
+0x140a232ec: call     0x140a3af30                         ; the player object
+0x140a23303: call     0x140a73e20                         ; rax = player + 4  (the match record)
+0x140a23308: cmp      dword ptr [rax + 0x14], 0           ; *** player+0x18 == 0 ***
+0x140a2330c: jne      0x140a23333                        ;     (a value there -> skip)
+0x140a2330e: cmp      dword ptr [rax + 0x8], 4            ; *** player+0x0c == 4 ***
+0x140a23312: jne      0x140a23333                        ;     (a different state -> skip)
+0x140a23314: mov      r8d, esi
+0x140a23317: mov      edx, r14d
+0x140a2331a: mov      rcx, r13
+0x140a2331d: call     0x1408c7210                         ; the per-team result record
+0x140a23322: mov      byte ptr [rax + 0x1b70], 1          ; *** FORFEIT FLAG = 1 ***
+0x140a23329: mov      dword ptr [rax + 0x1b74], 3         ; *** THE 3  (the forfeit score) ***
+0x140a23333: inc      edi
+0x140a23335: inc      rbx
+0x140a23338: cmp      edi, 0xb
+0x140a2333b: jl       0x140a232c0                        ;     next slot of this side
+0x140a2333d: inc      r14d
+0x140a23340: cmp      r14d, 2
+0x140a23344: jge      0x140a23352                        ;     next side
+0x140a23346: mov      rcx, qword ptr [rip + 0x2cd0a7b]   ; 0x1436f3dc8 = G
+0x140a2334d: jmp      0x140a232b0
+```
 
-* **The next static probe.** The mode byte's writer is invisible to a
-  `+0x1775` displacement search, so it must write the byte through a
-  pointer whose base is the *source* record (`*(obj+0x10) + 0x2380`). The
-  source record's own `+0x1775` has **no** `+0x3af5` access either, so the
-  value is written **even further upstream** — most likely by a block copy
-  of the whole record (the copy at `0x140414080` moves 0x1100 bytes at a
-  time) from a third-level record. The productive next step is therefore
-  **not** another displacement scan but the **live transition**: the
-  watcher records whether `MI+0x1574` becomes 10 (the whistle writer
-  `FUN_14050e770` is then the entry, and the writer is one of the four
-  record-sourced `FUN_141b8b250` sites) or whether `MI+0x1775` changes
-  (then the mode byte arrived through the copy chain).
-* The **3-0 void score** write, in the match-result layer.
-* The **count and threshold**. Candidates: the class-based counts in
-  `FUN_140521e40` / `FUN_140522300` (GK/CB/… per `team+0x4c00`) and the
-  lineup-list builder `FUN_140a40ca0`, whose `param_2[0]` is the count
-  of players in the filtered lineup.
-* Whether the rule is the **team-change** path (a side with no
-  replacement available) rather than a literal "players on the pitch < N"
-  test. `FUN_140523110` and `FUN_140523910` both **give up silently**
-  when `FUN_140521930` finds no replacement — the only "out of players"
-  condition found in the image, and it matches the owner's endless run
-  (injuries accumulate, no subs left).
+**The rule, in one line:**
+
+> In period **10** (the endless / extra period), if **any** player who is
+> **on the pitch** (`MI+0x1748[side*11+slot] != 0`) has
+> **`player+0x0c == 4`** (the "sent off, no replacement" state) **and**
+> **`player+0x18 == 0`** (nothing available to put in his place), then the
+> team's result record gets **`+0x1b70 = 1`** (forfeit flag) and
+> **`+0x1b74 = 3`** — the **3-0** forfeit score.
+
+The per-team result record is `FUN_1408c7210(stats, side, period)` =
+`stats + 0x64d8 + side*0x59650 + period*0x2134` (`0x1408c7210`), so the
+forfeit lands in the record of **the side that owns the offending player**
+— i.e. the side that ran out of players is the side that is **written 3
+against** (a 0-3 loss for them, the "3-0" the owner saw).
+
+**The reader that consumes the forfeit** is `0x140a105b5 cmp byte ptr
+[rax + 0x1b70], 0` / `0x140a105be cmp dword ptr [rax + 0x1b74], 3` — the
+same two fields, tested together: *forfeit flag set* **and** *forfeit score
+== 3* ⇒ the team is counted as having **lost 3-0**; the clock and the
+scorers are blanked by the same path (the owner's observation that the time
+shows `--:--` and nobody gets a goal).
+
+### 2.8 The call path into the match tick
+
+```
+per-team stats tick  FUN_140a0d190 (0x140a0d190)
+ ├ FUN_140a0c3e0(param_1, *(param_2 + 0xe0))   : the record kinds of the other side
+ ├ FUN_140a23c10(param_1, param_2)
+ ├ loop over the record kinds:  FUN_140a3e8e0 / FUN_140a3e570
+ │    └ FUN_140a22130(param_1, param_2, kind)     @0x140a0d33e
+ │         switch (*kind):
+ │           case 1: FUN_140a23260(param_1, stats, param_2, kind)   @0x140a22294   <== FORFEIT
+ │           case 0: FUN_140a23380   case 4: FUN_140a236a0   case 6/7: ...
+ └ if (*piVar4 != 0x37 && piVar4[5] == 10) *(uint *)(param_1 + 0x2048) = 1
+```
+
+`FUN_140a22130` is the **per-team statistics-record updater**; the "kind"
+byte selects which part of the team record is recomputed, and **kind 1** is
+the one that carries the forfeit. `FUN_140a0d190` is the per-team tick that
+runs it, so the forfeit is evaluated **every tick**, not at a stoppage —
+which is why the endless match voids mid-play.
+
+### 2.9 Why this was invisible to the earlier searches (and what they still prove)
+
+* the forfeit is **not** a stop reason and **not** the mode byte: it is a
+  field in the **per-team statistics record** (`stats+0x64d8+…+0x1b70/0x1b74`),
+  a completely different object from the match record `MI`;
+* the "no replacement" condition is **per player** (`player+0x18 == 0`), not
+  a count of the on-pitch flags — so no `cmp` against a player count exists
+  (as the searches of §2.2 item 3 showed);
+* the period gate is `MI+0x1168 == 10` — period 10 is a **normal PES
+  period** (the period writers `FUN_1404494E0` / `FUN_1404493D0` /
+  `FUN_1404499D0` set 2, 4, 6, 8, 9 and **10**;
+  `pes-re-A6Writers.md` §5/§7), so the rule fires in the **last period of
+  a match that reaches its end** — which is exactly what an endless run
+  eventually does (the endless patch only raises the *clock* threshold, so
+  the period still advances when the match's own flow reaches period 10).
+
+### 2.10 LIVE VALIDATION of the mapping (read-only, 21-10-26)
+
+The mapping was re-derived **fresh** from the running process (pid 2510857,
+no cached pointers, no writes, no pins — the brief forbids pinning
+`MI+0x1168/0x116c/0x1574`):
+
+| item | value read live | how |
+|---|---|---|
+| `G` | `0x1eb942c0` | `*(0x1436F3DC8)` |
+| `MI` | `0x1d404608` | `*(G+0x270)` (it is **null in ~4-9 % of polls** — the record is torn down/rebuilt; every script retries) |
+| period id | **1** | `int32 at MI+0x1168` — a **dword, not a pointer** (`0x14050b9fa lea rcx,[r8+0x1168]` then `0x14050ba0c mov eax,[rcx]`) |
+| play state | 1 / 2 / 3 | `int32 at MI+0x116C` |
+| on-pitch flags | `1111111111011111111111` | `MI+0x1748[0..21]` — team 0 has **10** on the pitch (slot 9 off), team 1 has 11 |
+| team record (the one the forfeit loop walks) | side 0 `0x1d471e04`, side 1 `0x1d48ff14` | `*(G + (0xa3+side)*0x28)` = `FUN_140a489d0`; the attack sign at `+0x254` read **+1 / −1**, which confirms the mapping |
+| slot → player id | `[0,5,3,17,1,18,6,19,22,9,4]` (side 0) | `*(u32)(team + 4 + slot*4)` = `FUN_140a3ae30` |
+| player object | `team + 0xa8 + slot*0x128` | `FUN_140a3af30` |
+| `player+0x0c` | **0** for every on-pitch player | the per-player match state |
+| `player+0x18` | **0** or **1** | the "available replacements" counter |
+| `FORFEIT` | **empty** | no on-pitch player has `+0x0c == 4` — consistent with the owner's report that **nobody has been sent off yet** in the live match (only injuries) |
+
+**So the live match does not satisfy the condition** (no send-off, period 1),
+and the 3-0 the owner saw happened in a run that had reached period 10 with
+a side that had no replacement left. That is the whole rule.
+
+### 2.11 What GF would need to carry
+
+* a **forfeit** outcome on the team result record (flag `+0x1b70` + the
+  score `+0x1b74 = 3`);
+* the per-player **"sent off with no replacement"** state
+  (`player+0x0c == 4` and `player+0x18 == 0`) — GF needs the equivalent of
+  "a red card and the bench cannot supply a replacement";
+* the **period-10** gate, if GF is to reproduce the behaviour (GF's own
+  endless mode would need the same period id);
+* the result display: the clock shown as `--:--` and the scorers cleared
+  (the owner's observation).
+
+### 2.12 OPEN
+
+* the exact meaning of `player+0x0c == 4` and of `player+0x18`. The record
+  is the per-player match record at `player+4`; `player+0x0c` is the same
+  field the red-card repair path tests as `> 1` for a "send-off marker"
+  (`pes-re-match-management.md` §2.2(1)) — the value **4** is the
+  "cannot be replaced" case. **INF(med)**.
+* the writer of `player+0x18` (the "available replacements" counter) was
+  not located — only the read at `0x140a23308`.
+* the `+0x2048` flag set by `FUN_140a0d190` when `piVar4[5] == 10` (its
+  consumer was not traced).
+* whether the *other* side's record is also written (the loop walks **both**
+  sides but writes only the offending side's record, so the result ends
+  0-3 / 3-0 depending on which side ran out).
 
 ---
 
@@ -648,7 +772,7 @@ no PES tables, no network and no live process.
 ```
 $ python3 check_missing.py
 ...
-110/110 checks passed
+124/124 checks passed
 ```
 
 Mutations (each one overlays a mutated byte range **in memory only** — the
@@ -657,50 +781,69 @@ never written — re-runs the whole suite and clears the overlay):
 
 ```
 $ python3 check_missing.py --mutate K9.thr.in_box_xor
-108/110 checks passed
+122/124 checks passed
 MUTATION K9.thr.in_box_xor: 2 check(s) fired (expect >= 1)
 
 $ python3 check_missing.py --mutate E15.sev.thr_A_70
-105/110 checks passed
+119/124 checks passed
 MUTATION E15.sev.thr_A_70: 5 check(s) fired (expect >= 1)
 
 $ python3 check_missing.py --mutate K11.consume_reason10
-109/110 checks passed
+123/124 checks passed
 MUTATION K11.consume_reason10: 1 check(s) fired (expect >= 1)
 
 $ python3 check_missing.py --mutate E15.jp.thr_C_5pct
-108/110 checks passed
+122/124 checks passed
 MUTATION E15.jp.thr_C_5pct: 2 check(s) fired (expect >= 1)
 
 $ python3 check_missing.py --mutate K9.judge.dj_to_yellow
-109/110 checks passed
+123/124 checks passed
 MUTATION K9.judge.dj_to_yellow: 1 check(s) fired (expect >= 1)
 
 $ python3 check_missing.py --mutate K7.reason_foul_commit
-109/110 checks passed
+123/124 checks passed
 MUTATION K7.reason_foul_commit: 1 check(s) fired (expect >= 1)
 
 $ python3 check_missing.py --mutate K9.paction.victim_fell
-109/110 checks passed
+123/124 checks passed
 MUTATION K9.paction.victim_fell: 1 check(s) fired (expect >= 1)
 
 $ python3 check_missing.py --mutate K11.abandon_builder_call
-109/110 checks passed
+123/124 checks passed
 MUTATION K11.abandon_builder_call: 1 check(s) fired (expect >= 1)
+
+$ python3 check_missing.py --mutate K11.ff_score_write
+123/124 checks passed
+MUTATION K11.ff_score_write: 1 check(s) fired (expect >= 1)
+
+$ python3 check_missing.py --mutate K11.ff_state4_test
+120/124 checks passed
+MUTATION K11.ff_state4_test: 4 check(s) fired (expect >= 1)
+
+$ python3 check_missing.py --mutate K11.ff_period_gate
+123/124 checks passed
+MUTATION K11.ff_period_gate: 1 check(s) fired (expect >= 1)
+
+$ python3 check_missing.py --mutate K11.ff_norepl_test
+120/124 checks passed
+MUTATION K11.ff_norepl_test: 4 check(s) fired (expect >= 1)
 ```
 
-**Checker summary line: `110/110 checks passed`; the eight mutations above each
-fired ≥ 1 check (2, 5, 1, 2, 1, 1, 1, 1) and the image file was never written
-(md5 `516c7d9722094226cfe103c0f15bb2e3` before and after the whole session).**
+**Checker summary line: `124/124 checks passed`; the twelve mutations above each
+fired ≥ 1 check (2, 5, 1, 2, 1, 1, 1, 1, 1, 4, 1, 4) and the image file was
+never written (md5 `516c7d9722094226cfe103c0f15bb2e3` before and after the
+whole session).**
 
 The checker is **capstone-only** — it does not need the Ghidra bridge or the
 GUI's program to be open, so it keeps working while the Ghidra server is
 being restarted.
 
-The K11 rows re-verify the *consumer* side of the abandon (the dispatcher's
-`cmp eax, 9 / 0xa / 0xf / 0x10` chain and its `call 0x14044ffd0`), the void
-flag's writers and clearers, and the record copy that carries the mode byte —
-the **writer of the mode byte and the count/threshold remain OPEN** (§2.7).
+The K11 rows re-verify the **whole** chain: the dispatcher that selects the
+forfeit writer by record kind (`0x140a22294`), the writer itself
+(`0x140a23260`: the period-10 gate, the on-pitch test, the "no replacement"
+and "state 4" tests, and the two stores that set the forfeit flag and the 3),
+and the reader that turns the pair into a 3-0 loss (`0x140a105b5`,
+`0x140a105be`).
 
 ---
 
@@ -725,20 +868,32 @@ the **writer of the mode byte and the count/threshold remain OPEN** (§2.7).
   `/xrefs_to?address=0x…`. The decompile was used to *locate* logic; every
   constant and every branch condition quoted above was re-read from the raw
   bytes.
-* K11 live scripts (both **read-only** — `pread` of `/proc/<pid>/mem` only,
+* K11 live scripts (all **read-only** — `pread` of `/proc/<pid>/mem` only,
   no writes, no pins):
   * `mi_read.py <pid> [n] [interval]` — one-shot dump of the referee fields
     (`MI+0x1168/0x116c/0x1198/0x1554/0x1574/0x1588/0x158c`,
     `MI+0x1774..0x1777`, the on-pitch flags `MI+0x1748[0..21]` and the
     per-side counts);
   * `mi_watch2.py <pid> [duration_s] [interval_s] [logfile]` — a
-    change-logging watcher; it prints a line only when one of those fields
-    changes, plus a 30 s heartbeat. Launched as
-    `nohup nice -n 19 sudo -n python3 mi_watch2.py <pid> 3600 0.1
-    <workdrive>/gf-MissingRE-scratch/mi_watch.log`.
-  * The `G` pointer is `*(0x1436F3DC8)` and the match record is
-    `MI = *(G+0x270)`; the record can be momentarily null (a torn-down
-    match), which the scripts report as `MI-NULL` and retry.
+    change-logging watcher on those fields, with a 30 s heartbeat;
+  * `forfeit_cond.py <pid> [duration_s] [interval_s] [logfile]` — the
+    **forfeit-condition** watcher: it re-derives every pointer from `G` on
+    every sample (no cached pointers) and logs the period, the on-pitch
+    counts, every player's `+0x0c` / `+0x18`, and the **FORFEIT** set
+    (the on-pitch players that satisfy `+0x0c == 4 && +0x18 == 0`);
+  * `forfeit_probe.py <pid>` / `forfeit_read.py <pid>` — one-shot probes.
+  * The `G` pointer is `*(0x1436F3DC8)`, the match record is
+    `MI = *(G+0x270)`, the period id is the **dword** at `MI+0x1168` (not a
+    pointer), the team records the forfeit loop walks are
+    `*(G + (0xa3+side)*0x28)` (`FUN_140a489d0`), the slot→player-id table is
+    `team + 4 + slot*4` (`FUN_140a3ae30`) and the player object is
+    `team + 0xa8 + slot*0x128` (`FUN_140a3af30`); the per-player match
+    record is that object **+ 4** (`FUN_140a73e20`), so the two fields the
+    rule reads are `player+0x0c` and `player+0x18`.
+  * `MI` is **null in ~4-9 % of polls** (the record is torn down and rebuilt);
+    every script retries instead of treating that as an error.
+  * Launched as
+    `nohup nice -n 19 sudo -n python3 <script> <pid> 3600 0.2 <log>`.
 * K11 static scripts (scratch): `scan1775.py` (every instruction with a
   `+0x1775` memory operand — 107, all reads but two), `scan_prot_mode.py`
   (the same for the protected region: zero), `scan_mode16.py` (16-bit stores

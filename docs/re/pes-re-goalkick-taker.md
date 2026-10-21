@@ -2,7 +2,7 @@
 
 Source: an outside RE agent (Q&A, 20-10-26), audited by Main against the image.
 
-> **Main audit 20-10-26:** GoalKickStandby vtable `0x1425E0BD0`: slot 0 = `0x1407748F0` (Update), slot 6 = `0x140775730` (clip-layer config), slot 8 = `0x140774AE0` (SetKick): match. `sub_142136F00` decompiled: phase word unit+0x48, elapsed = unit+0x40 − unit+0x44, phases 0-5 as below; constants `0x142565600` = 0.5, `0x14258c264` = 3.0, `0x142590d98` = 0.3, and `[+0x14c4] == 1` (5316): match. `0x14259d5d0` = 0.65; its compare at `0x140782f61` is in the penalty strike-power gate: match.
+> **Main audit 20-10-26:** GoalKickStandby vtable `0x1425E0BB0` (corrected; 0x1425E0BD0 is mid-table): slot 0 = `0x1407748F0` (Update), slot 6 = `0x140775730` (clip-layer config), slot 8 = `0x140774AE0` (SetKick): match. `sub_142136F00` decompiled: phase word unit+0x48, elapsed = unit+0x40 − unit+0x44, phases 0-5 as below; constants `0x142565600` = 0.5, `0x14258c264` = 3.0, `0x142590d98` = 0.3, and `[+0x14c4] == 1` (5316): match. `0x14259d5d0` = 0.65; its compare at `0x140782f61` is in the penalty strike-power gate: match.
 
 ## The release is a timer ladder, not reach
 ThinkUnitSetPlay's MODE 3 branch (sub_142135C50, gated on the designated taker [MI+5948]) runs sub_142136F00 (fps = FUN_141e532d0, i.e. DAT_14351ae54; each wait is `(uint)(fps·k + 0.5)` frames):

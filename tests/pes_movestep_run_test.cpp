@@ -609,7 +609,10 @@ TEST(GotoRun, TheStopArmWaitsForIdleSecondDwellAfterLeavingIdle) {
   req.SetF(pes::moveword::kDwellElapsed2, 0.0f);
   req.SetF(pes::moveword::kDwellLimit2, 0.35f);
   pes::movestep::GotoRun(h, req);
-  EXPECT_FALSE(req.Flag(pes::moveword::kChangeState));
+  // The stop arm waits, so the handler falls through to the cruise, whose run entry (PES's vt+0, FUN_1406bdf10 line 630)
+  // requests RUN_LOOP. The stop arm's own exits (STOP, IDLE) are not taken.
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
 }
 
 // PES's GOTO_RUN STOP entry writes the class word 0x1f to 0 before FUN_1406d5d60 (FUN_1406bdf10 line 227 of its
@@ -630,6 +633,48 @@ TEST(GotoRun, TheStopEntryClearsTheClassWordSoTheStopAnswersIdle) {
   pes::movestep::GotoRun(h, req);
   EXPECT_EQ(req.U(pes::moveword::kClassWord), 0u);
   EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kIdle));
+}
+
+// PES's GOTO exit ends in the +0xac0 vt+0 call (FUN_1406bdf10 line 630), the run entry FUN_1406d2030. It picks the style's
+// motion row at the rate band, writes the 0.1 dwell limit and the mirror, and requests RUN_LOOP; the dispatcher's tail issues
+// the clip. The cruise used to issue a motion of -1 from its own stand-in instead.
+TEST(GotoRun, TheCruiseHandsOverToTheRunEntryAndRequestsRunLoop) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  for (int i = 0; i < 64; ++i) h.runTables.styleGroup[i] = 0x100 + i;  // distinct rows: a wrong row reads a wrong motion
+  pes::MoveReq req;
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 90.0f);  // 90 degrees: past the 45-degree cruise allowance
+  pes::movestep::GotoRun(h, req);
+  EXPECT_EQ(h.issues, 0) << "the run entry issues nothing; the dispatcher's tail issues the clip";
+  EXPECT_TRUE(req.Flag(pes::moveword::kChangeState));
+  EXPECT_EQ(req.U(pes::moveword::kNextState), uint32_t(pes::MoveState::kRunLoop));
+  EXPECT_FLOAT_EQ(req.F(pes::moveword::kDwellLimit), 0.1f);
+  const float rate = req.F(pes::moveword::kRate);
+  const int band = rate < h.runConstants.rate0225 ? 0 : (rate < h.runConstants.blend04 ? 1 : (rate < h.runConstants.rate07 ? 2 : 3));
+  EXPECT_EQ(req.U(pes::moveword::kMotion), uint32_t(h.runTables.styleGroup[req.U(pes::moveword::kParamState) * 4 + band]))
+      << "the motion is the style's row at the rate band";
+}
+
+// The run entry's motion row is the style's row at the band its rate falls in (FUN_1406d2030 lines 109-121). With the
+// class-rate flag the rate is the class's band rate, so classes 0 to 2 reach bands 0 to 2 in turn.
+TEST(RunEntry, TheMotionRowIsTheStyleRowAtTheRateBand) {
+  for (uint32_t cls = 0; cls <= 2; ++cls) {
+    SyntheticHost h;
+    h.runConstants = SyntheticRun();
+    h.runTables = SyntheticTables();
+    for (int i = 0; i < 64; ++i) h.runTables.styleGroup[i] = 0x100 + i;
+    pes::MoveReq req;
+    req.SetU(pes::moveword::kCommandSpeedClass, cls);
+    req.SetByte(pes::moveword::kUseClassRate, 1);
+    req.SetU(pes::moveword::kKind, 2u);
+    pes::movestep::EnterRun(h, req, 0, false);
+    const float rate = req.F(pes::moveword::kRate);
+    const int band = rate < h.runConstants.rate0225 ? 0 : (rate < h.runConstants.blend04 ? 1 : (rate < h.runConstants.rate07 ? 2 : 3));
+    EXPECT_EQ(req.U(pes::moveword::kMotion), uint32_t(h.runTables.styleGroup[req.U(pes::moveword::kParamState) * 4 + band]))
+        << "class " << cls;
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1791,7 +1836,7 @@ TEST(EnterAccelerate, WritesTheBandWordThreeAndTheStateWordNine) {
   h.positions[1][0] = 1.0f;  // a 194.4 km/h ground speed: past the 11 km/h gate
   pes::MoveReq req;
   req.SetU(pes::moveword::kKind, 2u);
-  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);  // PES's ACCELERATE takes command class 3 only (FUN_1406ccd00: req[9] != 3 refuses)
   req.SetU(pes::moveword::kRateBand, 1u);
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kHeading, 12.0f);
@@ -1836,7 +1881,7 @@ TEST(EnterAccelerate, IssuesThePlaybackWordWithTheStartLadder) {
   h.mirrorChoice = true;  // the vt+0x50 p is 1, like the interface's own answer
   pes::MoveReq req;
   req.SetU(pes::moveword::kKind, 2u);
-  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);  // PES's ACCELERATE takes command class 3 only (FUN_1406ccd00: req[9] != 3 refuses)
   req.SetU(pes::moveword::kRateBand, 1u);
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kHeading, 12.0f);
@@ -1874,7 +1919,7 @@ TEST(EnterAccelerate, DesiresTheHeadingLessTheBodyDirectionsStepStamp) {
   h.buckets.hysteresisDown = -5.0f;
   pes::MoveReq req;
   req.SetU(pes::moveword::kKind, 2u);
-  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);  // PES's ACCELERATE takes command class 3 only (FUN_1406ccd00: req[9] != 3 refuses)
   req.SetU(pes::moveword::kRateBand, 1u);
   req.SetF(pes::moveword::kFacing, 10.0f);
   req.SetF(pes::moveword::kBodyDirection, 160.0f);
@@ -2534,4 +2579,128 @@ TEST(StepHeading, TheUnclampedStepReachesTheTarget) {
   const pes::RunConstants k = SyntheticRun();
   EXPECT_NEAR(pes::StepHeading(10.0f, 12.0f, 45.0f, k), 12.0f, 1e-3f);
   EXPECT_NEAR(pes::StepHeading(12.0f, 10.0f, 45.0f, k), 10.0f, 1e-3f);
+}
+
+// PES's ACCELERATE entry refuses a look point within 2 m (FUN_1406ccd00: word 0x12 <= DAT_142565604, the port's speed2).
+// The port's gate stopped at 1 m, so a taker in RUN_LOOP at arrival was handed to ACCELERATE, which held him short of the ball.
+TEST(Accelerate, TheArrivalGateRefusesALookPointWithinTwoMetres) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 1.0f;  // a moving player: the last tick's displacement gives a ground speed above 11 km/h
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetF(pes::moveword::kDistToLook, 1.5f);
+  EXPECT_FALSE(pes::movestep::EnterAccelerate(h, req));
+}
+
+TEST(Accelerate, TheArrivalGateAcceptsALookPointBeyondTwoMetres) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetF(pes::moveword::kDistToLook, 2.5f);
+  EXPECT_TRUE(pes::movestep::EnterAccelerate(h, req));
+}
+
+// PES's ACCELERATE entry refuses a precise arrival (FUN_1406ccd00: req[0xe] != 0), so the run loop's precise arrival never
+// pre-empts into ACCELERATE.
+TEST(Accelerate, ThePreciseArrivalIsRefusedByTheArrivalGate) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetU(pes::moveword::kPrecise, 1u);
+  req.SetF(pes::moveword::kDistToLook, 2.5f);
+  EXPECT_FALSE(pes::movestep::EnterAccelerate(h, req));
+}
+
+// PES's ACCELERATE entry takes only command class 3 (FUN_1406ccd00: req[9] != 3 refuses).
+TEST(Accelerate, OnlyCommandClassThreeEntersAccelerate) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 2u);
+  req.SetF(pes::moveword::kDistToLook, 2.5f);
+  EXPECT_FALSE(pes::movestep::EnterAccelerate(h, req));
+}
+
+// PES's ACCELERATE gate takes its ground-speed floor from the desired turn (FUN_1406ccd00: 0.5 km/h when the turn is under 67.5
+// degrees, else 11 km/h). A 5 km/h arrival under 67.5 degrees is accepted.
+TEST(Accelerate, TheGroundFloorIsHalfAKilometreHourUnderSixtySevenAndAHalfDegrees) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 5.0f / 194.4f;  // 5 km/h: the last displacement times 54 * 60 * 60 / 1000
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetF(pes::moveword::kDistToLook, 2.5f);
+  req.SetF(pes::moveword::kTurn, 30.0f);
+  req.SetF(pes::moveword::kHeading, 30.0f);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  EXPECT_TRUE(pes::movestep::EnterAccelerate(h, req));
+}
+
+// At 0.4 km/h the floor refuses under 67.5 degrees.
+TEST(Accelerate, TheGroundFloorRefusesAnArrivalUnderHalfAKilometreHour) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 0.4f / 194.4f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetF(pes::moveword::kDistToLook, 2.5f);
+  req.SetF(pes::moveword::kTurn, 30.0f);
+  req.SetF(pes::moveword::kHeading, 30.0f);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  EXPECT_FALSE(pes::movestep::EnterAccelerate(h, req));
+}
+
+// Past 67.5 degrees the floor is 11 km/h, so the same 5 km/h arrival is refused.
+TEST(Accelerate, TheGroundFloorIsElevenKilometreHourPastSixtySevenAndAHalfDegrees) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 5.0f / 194.4f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 1u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetF(pes::moveword::kDistToLook, 2.5f);
+  req.SetF(pes::moveword::kTurn, 80.0f);
+  req.SetF(pes::moveword::kHeading, 80.0f);
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kBodyDirection, 0.0f);
+  EXPECT_FALSE(pes::movestep::EnterAccelerate(h, req));
+}
+
+// PES reads the gate's band and floor from the desired turn (word 6, after the body's stamp), not from the heading against the
+// facing: a heading 90 degrees off the facing with a desired turn of 10 degrees is in band 0, which the gate accepts.
+TEST(Accelerate, TheBandGateReadsTheDesiredTurnNotTheHeadingToFacing) {
+  SyntheticHost h;
+  h.runConstants = SyntheticRun();
+  h.runTables = SyntheticTables();
+  h.positions[1][2] = 1.0f;
+  pes::MoveReq req;
+  req.SetU(pes::moveword::kRateBand, 0u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 3u);
+  req.SetF(pes::moveword::kDistToLook, 2.5f);
+  req.SetF(pes::moveword::kTurn, 10.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kFacing, 90.0f);
+  req.SetF(pes::moveword::kBodyDirection, 90.0f);
+  EXPECT_TRUE(pes::movestep::EnterAccelerate(h, req));
 }
