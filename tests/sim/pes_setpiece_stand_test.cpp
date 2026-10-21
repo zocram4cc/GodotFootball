@@ -141,3 +141,39 @@ TEST(SetKickStand, TheThrowInStandIsTheReleaseKeyOffsetAtTheLiveBodyScale) {
       pes::ClipOffsetMetres(pes::Vec3(hits[1].ballX, hits[1].ballY, hits[1].ballZ), kLiveBodyScale, false, k);
   EXPECT_NEAR(std::hypot(offset.x, offset.z), kLiveStandIn_m, 0.01f);
 }
+
+// The angle between two ground directions, in degrees.
+float AngleBetweenDeg(const Vector3& a, const Vector3& b) {
+  const float cross = a.coords[0] * b.coords[1] - a.coords[1] * b.coords[0];
+  const float dot = a.coords[0] * b.coords[0] + a.coords[1] * b.coords[1];
+  const float radToDeg = 180.0f / std::acos(-1.0f);
+  return std::fabs(std::atan2(cross, dot)) * radToDeg;
+}
+
+// A placed keeper faces into the pitch and keeps that heading while he waits for the kick: PES's standby plays with the
+// SetKick yaw, not the ball (docs/re/pes-re-kicker-standby.md section 4). The spot is off the keeper's axis, so a heading
+// toward the ball is not the pitch. The keeper at the -X end faces +X.
+TEST(SetKickStand, ThePlacedKeeperKeepsHisHeadingWhileHeWaits) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  constexpr int kWaitTicks = 600;                // eleven seconds: past the restart's hold and the goal kick ladder's windows
+  constexpr float kHeadingTolerance_deg = 5.0f;  // a GF tolerance, not a PES value
+  const Vector3 spot(-47.0f, 3.0f, 0.0f);
+  const Vector3 pitch(1.0f, 0.0f, 0.0f);
+  Player* taker = PrepareRestart(*match, e_SetPiece_GoalKick, 0, spot);
+  ASSERT_NE(taker, nullptr) << "no goal kick taker was chosen";
+  const TeamAIController* controller = match->GetTeam(0)->GetController();
+  ASSERT_TRUE(controller->IsPieceTakerHeld(taker)) << "the keeper is not held after the placement";
+  const Vector3 placed = taker->GetDirectionVec();
+  EXPECT_LE(AngleBetweenDeg(pitch, placed), kHeadingTolerance_deg)
+      << "the placed keeper does not face the pitch (" << placed.coords[0] << ", " << placed.coords[1] << ")";
+  float worst = 0.0f;
+  for (int t = 0; t < kWaitTicks; ++t) {
+    match->Process();
+    if (!controller->IsPieceTakerHeld(taker)) break;  // released: the wait is over
+    const float turned = AngleBetweenDeg(placed, taker->GetDirectionVec());
+    if (turned > worst) worst = turned;
+  }
+  EXPECT_LE(worst, kHeadingTolerance_deg) << "the placed keeper turned " << worst << " degrees while he waited";
+}

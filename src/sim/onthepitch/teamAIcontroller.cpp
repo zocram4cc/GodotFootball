@@ -1119,13 +1119,21 @@ int TeamAIController::PickGoalKickMate(std::vector<Player*>* mates) const {
   return pes::PickGoalKickReceiver(ratings, takerIndex);
 }
 
+namespace {
+// The keeper faces the pitch from his end: 90 degrees for the end at -X, turned at the other end (the live keeper's yaw).
+// ponytail: the restart record's heading (PES's +0xC, FUN_14050E770) is not decoded, so this constant stands for it.
+constexpr float kKeeperFacingPitch_deg = 90.0f;
+// The unit direction of that heading at a side, in GF ground coordinates.
+Vector3 KeeperFacingPitch(int side) {
+  const float radians = -kKeeperFacingPitch_deg * static_cast<float>(side) * (std::acos(-1.0f) / 180.0f);
+  return Vector3(0, -1, 0).GetRotated2D(radians);
+}
+}  // namespace
+
 // SetKick's placement (0x140774AE0) and the strike's contact, from the clip's first hit record (gkgoalkick_instep_0_0,
 // 0x6B1). The keeper is placed on the returned stand point when the kick is prepared (pes-re-kicker-standby.md section 4).
 Vector3 TeamAIController::PrepareGoalKickStand(const Vector3& spot) {
   constexpr int kGoalKickStrikeMotion = 0x6b1;
-  // ponytail: the restart record's heading (PES's +0xC, FUN_14050E770) is not decoded. The keeper faces the pitch at his
-  // end: 90 degrees for the end at -X (the live keeper's yaw), with the sign turned at the other end.
-  constexpr float kKeeperFacingPitch_deg = 90.0f;
   // ponytail: GF's player data has no preferred-foot byte (PES's playerdata 0x34, FUN_1406E6660): the right foot.
   constexpr bool kMirror = false;
   // ponytail: the physique (PES's player +0x3B18) is taken as 1.0.
@@ -1802,7 +1810,9 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       // ponytail: the stand point is set from the restart spot at prepare; a ball moved in the stoppage is not followed.
       const Vector3 stand = PrepareGoalKickStand(ballPos);
       if (taker) {
-        taker->ResetPosition(stand, ballPos);
+        // The keeper faces the pitch from his end and holds that heading while he waits (PES's standby plays with the
+        // SetKick yaw).
+        taker->ResetPosition(stand, stand + KeeperFacingPitch(team->GetSide()));
         pieceHeld = true;
       }
     } else if (setPiece == e_SetPiece_ThrowIn && match->PesLoop()) {

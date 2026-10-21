@@ -176,7 +176,9 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       command.useDesiredTarget = true;
       command.desiredTarget = spot;
       command.useDesiredLookAt = true;
-      command.desiredLookAt = match->GetBall()->Predict(0).Get2D();
+      // PES's carrier turns toward his carry spot (docs/re/pes-re-throwin-choreography.md 3.2, phase 4), not the ball in his
+      // hand: a look point at his own feet is zero metres from him, and MOVESTEP's look distance then fails ACCELERATE's gate.
+      command.desiredLookAt = team->GetController()->IsCarryingBall() ? spot.Get2D() : match->GetBall()->Predict(0).Get2D();
       commandQueue.push_back(command);
       return;
     }

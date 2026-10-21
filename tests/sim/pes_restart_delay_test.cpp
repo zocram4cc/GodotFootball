@@ -980,3 +980,26 @@ TEST(PesRestartDelay, ALoosePresserInTheTrapWindowPlaysThatRowsClip) {
   EXPECT_GT(trapTicks, 0ul) << "the loose presser never played a PES trap clip";
   EXPECT_EQ(strayTicks, 0ul) << "a PES trap clip is not named by a trap row";
 }
+
+// A throw-in carrier who has picked the ball up walks to his carry spot and stands there, ready to lift it (PES's
+// SeamlessThrowin phase 4, docs/re/pes-re-throwin-choreography.md 3.2). Seed 7's five-minute match picked a walker's ball
+// up at 130 s, 4.6 m short of the spot, and the carrier never arrived: the stoppage ran past its bound.
+TEST(PesRestartDelay, ACarriedThrowInReachesItsSpot) {
+  // The carry is a few seconds of one-handed running. A carrier four or five metres from his spot is there within this.
+  constexpr unsigned long kCarryBoundTicks = 5ul * Match::kFramesPerSecond;
+  std::optional<unsigned long> pickupTick;
+  bool arrived = false;
+  RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker || b.started) return;
+    const TeamAIController* c = match.GetTeam(b.teamID)->GetController();
+    if (!pickupTick && c->IsCarryingBall()) pickupTick = static_cast<unsigned long>(match.GetSimFrame());
+    if (pickupTick && c->PieceTakerArrived()) arrived = true;
+  }, kMaxSimTicks,
+  [&](Match& match) {
+    return arrived || (pickupTick && static_cast<unsigned long>(match.GetSimFrame()) - *pickupTick > kCarryBoundTicks);
+  },
+  SEED, false);
+  EXPECT_TRUE(pickupTick.has_value()) << "no throw-in carrier picked the ball up";
+  EXPECT_TRUE(arrived) << "the carrier did not reach his spot within " << kCarryBoundTicks << " ticks of the pickup";
+}
