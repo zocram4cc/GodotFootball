@@ -201,8 +201,6 @@ float GetBallDuelLikeliness(Mask mask, float baseLikeliness);
 
 enum class Distribution { Default, LongThrow, LowPunt, HighPunt };
 Distribution PickDistribution(Mask mask, float roll);
-// GK Penalty Saver: reflexes as seen from the spot.
-float GetPenaltyReflexes(Mask mask, float reflexes);
 // Penalty Specialist: rating and composure from twelve yards.
 float GetPenaltyRating(Mask mask, float baseRating);
 

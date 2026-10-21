@@ -13,6 +13,7 @@
 
 #include "pes/exe.hpp"
 #include "pesrandom.hpp"
+#include "pespenaltyscatter.hpp"
 
 namespace pes {
 
@@ -79,6 +80,9 @@ struct KickErrorConstants {
   float fullTurn_deg = 0.0f;    // 360 @0x14259858c
   float quarterTurn_deg = 0.0f; // 90  @0x14259be5c
   std::array<float, kNormalTableSize> logTable{};  // 0x1426548c0, raw: -ln(512/i)*4096
+
+  // --- Penalty aim scatter (FUN_1406b4000, FUN_1406e3210; pespenaltyscatter.*) ---
+  PenaltyScatterConstants penaltyScatter{};
 };
 
 std::optional<KickErrorConstants> LoadKickErrorConstants(const PeImage& exe, std::string* error);
