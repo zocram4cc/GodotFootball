@@ -115,9 +115,10 @@ class ParityLog {
   }
 
   // A stoppage runs from the first tick the match is not live to the first live tick after it, as
-  // RestartWatch measures it. Kept: a kick-off, throw-in, goal kick, corner or free kick whose whistle
-  // and release fall in the same match period. The opening kick-off (no play before it) and the
-  // period breaks are not restarts.
+  // RestartWatch measures it. Kept: a kick-off, throw-in, goal kick, corner or free kick, except the
+  // opening kick-off (no play before it). A period start is kept too: the referee moves the match phase
+  // at the whistle (referee.cpp, the period writer), before this observer sees the stoppage, so the phase
+  // check below drops only a restart whose phase changes inside the stoppage.
   void ObserveRestart(Match& match, bool live) {
     if (!live) {
       if (!inStoppage_) {
