@@ -536,6 +536,7 @@ void HumanoidBase::ResetPosition(const Vector3& newPos, const Vector3& focusPos)
   spatialState.position = startPos;
   spatialState.angle = startAngle;
   spatialState.directionVec = Vector3(0, -1, 0).GetRotated2D(startAngle);
+  spatialState.rootDirectionVec = spatialState.directionVec;
   spatialState.floatVelocity = 0;
   spatialState.enumVelocity = e_Velocity_Idle;
   spatialState.movement = Vector3(0);
@@ -1326,6 +1327,7 @@ void HumanoidBase::CalculateSpatialState() {
 
   Vector3 bodyDirectionVec =
       Vector3(0, -1, 0).GetRotated2D(z + startAngle + currentAnim->rotationSmuggleOffset);
+  spatialState.rootDirectionVec = bodyDirectionVec;
 
   spatialState.floatVelocity = spatialState.movement.GetLength();
   spatialState.enumVelocity = FloatToEnumVelocity(spatialState.floatVelocity);

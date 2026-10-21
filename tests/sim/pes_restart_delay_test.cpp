@@ -436,33 +436,40 @@ TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
 }
 
 // A throw-in taker walks to his spot (PES's seamless run, docs/re/pes-re-throwin-choreography.md
-// 3.1): he is not placed on it. Right after the placement he is still away from the restart
-// point, and at the release he is on it.
+// 3.1): he is not placed on it, and at the release he is on it. "Not placed" is the humanoid's own
+// placement count (ResetPosition), unchanged from before the stoppage is prepared to its release. The
+// test used to read it from the taker's distance at the preparation (more than 2 m from the spot),
+// which a taker who happens to stand near the ball fails without being placed.
 TEST(PesRestartDelay, AThrowInTakerWalksToHisSpotAndIsNotPlacedOnIt) {
   std::optional<unsigned long> firstStop;  // the first seamless (walker) throw-in's stoppage
   bool firstDone = false;                  // that stoppage has ended: the run stops here
   constexpr float kOnTheSpot_m = 2.0f;  // the spot is about half a metre off the restart point
-  std::set<unsigned long> placed, released;
-  int throwIns = 0, awayAtPlacement = 0, offSpotAtRelease = 0;
+  std::map<const Player*, int> countBeforePrepare;  // each would-be taker's placement count while the restart is armed
+  std::optional<int> countAtPrepare;
+  Player* walker = nullptr;
+  std::set<unsigned long> released;
+  int throwIns = 0, placedOnTheWay = 0, offSpotAtRelease = 0;
   RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
     const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!firstStop && b.active && !b.prepared && b.taker)
+      countBeforePrepare[b.taker] = b.taker->CastHumanoid()->GetPlacementCount();
     // The first seamless (walker) throw-in of the run is the one this test follows: its stoppage, then done when it ends.
     if (!firstStop && b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker && b.prepared &&
-        match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker))
+        match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker)) {
       firstStop = b.stopTime;
-    if (firstStop && (!b.active || b.stopTime != *firstStop)) firstDone = true;
-    if (!firstStop || b.stopTime != *firstStop) return;
-    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker) return;
-    if (!match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker)) return;  // path A only
-    const float off = (b.taker->GetPosition().Get2D() - b.restartPos.Get2D()).GetLength();
-    if (b.prepared && placed.insert(b.stopTime).second) {
+      walker = b.taker;
       throwIns++;
-      if (off > kOnTheSpot_m) awayAtPlacement++;
+      const auto it = countBeforePrepare.find(walker);
+      countAtPrepare = it != countBeforePrepare.end() ? it->second : walker->CastHumanoid()->GetPlacementCount();
     }
+    if (firstStop && (!b.active || b.stopTime != *firstStop)) firstDone = true;
+    if (!firstStop || b.stopTime != *firstStop || !b.active || b.taker != walker) return;
+    if (walker->CastHumanoid()->GetPlacementCount() != *countAtPrepare) placedOnTheWay = 1;
+    const float off = (walker->GetPosition().Get2D() - b.restartPos.Get2D()).GetLength();
     if (b.started && released.insert(b.stopTime).second && off > kOnTheSpot_m) offSpotAtRelease++;
   }, kSeamlessSearchTicks, [&](const Match&) { return firstDone; }, SEAMLESS_SEED, false);
-  EXPECT_GT(throwIns, 0) << "no seamless throw-in was placed";
-  EXPECT_GT(awayAtPlacement, 0) << "every seamless throw-in taker was placed on his spot";
+  EXPECT_GT(throwIns, 0) << "no seamless throw-in was prepared";
+  EXPECT_EQ(placedOnTheWay, 0) << "the seamless throw-in taker was placed (ResetPosition) instead of walking";
   EXPECT_EQ(offSpotAtRelease, 0) << offSpotAtRelease << " throw-in taker(s) released off their spot";
   EXPECT_GT(released.size(), 0u) << "no seamless throw-in was released, so no release spot was checked";
 }
