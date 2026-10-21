@@ -652,3 +652,40 @@ TEST(MoveStepWire, AFinishedBallActionHandsTheBodyBack) {
   EXPECT_TRUE(released) << "the finished trap still holds the body";
   EXPECT_EQ(atRelease, pes::MoveState::kIdle) << "the hand-back did not leave MOVESTEP idle";
 }
+
+// MOVESTEP's facing (req[2], P+0x20) is PES's root yaw, the angle a turn clip rotates. GF's directionVec is the travel
+// direction once the body moves (humanoidbase.cpp: directionVec = movement), so on a side-stepping or turning clip it is
+// not the facing: built on main, a throw-in carrier whose turn clip slid him sideways read the slide as his facing and
+// the FSM turned him back and forth (DodgeGate's carry trace). Through open play, every body whose root yaw and travel
+// direction differ by more than 30 degrees must hand MOVESTEP its root yaw.
+TEST(MoveStepWire, TheFacingWordIsTheRootYawNotTheTravelDirection) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  constexpr int kTicks = 1500;
+  constexpr float kSplitDeg = 30.0f;     // a root yaw this far from the travel direction is a turn or a side step
+  constexpr float kToleranceDeg = 0.5f;  // the word is the heading of the same vector
+  constexpr float kDegPerRad = 57.2957795f;
+  auto heading = [&](const Vector3& v) {  // PES's bearing of a GF vector: atan2(x, z) with PES z = -y, in [0, 360)
+    float deg = std::atan2(v.coords[0], -v.coords[1]) * kDegPerRad;
+    return deg < 0.0f ? deg + 360.0f : deg;
+  };
+  auto diff = [](float a, float b) {
+    float d = std::fmod(a - b + 540.0f, 360.0f) - 180.0f;
+    return std::fabs(d);
+  };
+  int split = 0, wrong = 0;
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const Vector3 root = p->GetRootDirectionVec();
+      const Vector3 travel = p->GetDirectionVec();
+      if (root.GetLength() < 0.5f || diff(heading(root), heading(travel)) <= kSplitDeg) continue;
+      ++split;
+      const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
+      if (diff(req.F(pes::moveword::kFacing), heading(root)) > kToleranceDeg) ++wrong;
+    }
+  }
+  ASSERT_GT(split, 0) << "no body's root yaw left its travel direction";
+  EXPECT_EQ(wrong, 0) << wrong << " of " << split << " split ticks read the travel direction as the facing";
+}

@@ -49,6 +49,7 @@ public:
   }
   inline Vector3 GetDirectionVec() const { return humanoid->GetDirectionVec(); }
   inline Vector3 GetBodyDirectionVec() const { return humanoid->GetBodyDirectionVec(); }
+  inline Vector3 GetRootDirectionVec() const { return humanoid->GetRootDirectionVec(); }
   inline Vector3 GetMovement() const { return humanoid->GetMovement(); }
   inline radian GetAngle() const { return humanoid->GetAngle(); }
   inline radian GetRelBodyAngle() const { return humanoid->GetRelBodyAngle(); }

@@ -107,7 +107,7 @@ class AdapterTeam final : public pes::TeamAi {
   float Heading(int slot) const override {
     const Player* p = Who(slot);
     if (!p) return 0.0f;
-    const Vector3 dir = p->GetDirectionVec();
+    const Vector3 dir = p->GetRootDirectionVec();  // PES's yaw of that player: his root, not his travel (FacingDeg)
     return HeadingDeg(dir.coords[0], dir.coords[1], c_.run);
   }
   // ponytail: P+0x5d0, the player's sub-state byte, has no GF record yet.
@@ -392,7 +392,9 @@ class MoveHostAdapter final : public pes::MoveHost {
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { return c_.speedClass; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return c_.idleRows; }
   float FacingDeg() const override {
-    const Vector3 dir = player_.GetDirectionVec();
+    // PES's facing (req[2], P+0x20) is the root yaw a turn clip rotates; GF's directionVec is the travel direction
+    // once the body moves, so a sliding turn clip would read as a facing change (humanoidbase.hpp rootDirectionVec).
+    const Vector3 dir = player_.GetRootDirectionVec();
     return HeadingDeg(dir.coords[0], dir.coords[1], c_.run);
   }
   float BallBearingDeg() const override {
