@@ -25,3 +25,5 @@ anim_names*.txt
 # render captures
 captures/
 extern/
+tools/dev/pes_forfeit_patch.json
+tools/dev/pes_min_players_gag.json

@@ -33,7 +33,7 @@ displacement finder), `rawscan.py` (raw byte-pattern scanner),
 | **K9 DOGSO** | **CONFIRMED** | `DOGSO(A,B) = dir(A)·spot.x > dir(A)·MA.backLine[team(B)]` **and** `\|spot.z\| < F[7]` (20.12 m). No distance-to-goal test, no ball-control test, no "defenders between" count. |
 | **K9 card** | **CONFIRMED** | A DOGSO makes a sub-kind-1 tackle a **straight red** (level 4). In the box: a **non-DOGSO** yellow/red is dropped to a plain foul (level 1); a **DOGSO red** is lowered to a **yellow** (level 3) — the double-jeopardy rule. A DOGSO also adds **+30** foul points. |
 | **K11 abandon** | **CONFIRMED: the minimum-players rule reaches period 10 without the clock; threshold `E+0x17` = 7 (live)** | `FUN_140447b50` case 6 (§2.13) counts each side's on-pitch players (`FUN_140a3bfc0`). A side under `E+0x17` gets period 10 (`DRV+0x2790 := 10`), restart 7 and stop reason 2, and is named in `DRV+0x2aa8`. The endless patch blocks only the clock gate, so an endless match reaches post-match (§2.9a). The 3-0 is written by `FUN_140a23260` (period 10; on-pitch `player+0x0c == 4` and `player+0x18 == 0`) or by `FUN_140a23380` (any period; score = `player+0x20`). Which one fired in the owner's runs is OPEN. |
-| **Live gag (21-10-26)** | **Forfeit compare patched in the running PES: a side is short only with 0 players on the pitch (owner request; code patch, not the byte).** | §2.14–§2.15. The threshold byte `E+0x17` is no longer read by the forfeit; it stays at 7 (stock), so the other readers keep stock behaviour. Revert: `forfeit_patch.py <pid> revert`. Not observed live: the compare runs only in a stoppage with a side under 7. |
+| **Live gag (21-10-26)** | **Forfeit compare patched in the running PES: a side is short only with 0 players on the pitch (owner request; code patch, not the byte).** | §2.14–§2.15. The threshold byte `E+0x17` is no longer read by the forfeit; it stays at 7 (stock), so the other readers keep stock behaviour. Revert: `tools/dev/pes_forfeit_patch.py <pid> revert`. Not observed live: the compare runs only in a stoppage with a side under 7. |
 | **E15 injury resistance** | **CONFIRMED** | The stat is read at `ability+0x2f` (0=C, 1=B, 2=A). It sets **two** thresholds: severity is halved with probability **30 % / 50 % / 70 %** (C/B/A) after the contact severity is computed, and a contact whose severity > 85 is promoted to **200** with probability **5 % (C) / 2 % (B) / never (A)**. |
 | **K7 handball** | **CONFIRMED negative** | PES 2021 has **no handball offence**. Only three producers of a pending foul exist and none is a hand/arm contact. |
 | **K12 time-wasting** | **CONFIRMED negative** | No 80′/85′ rule, no time-wasting instruction, no keep-ball philosophy. The only "leading late" behaviour is the CPU strategy switch to attack level 1. |
@@ -580,7 +580,7 @@ A second, un-gated route to the 3-0 exists (§2.7, `FUN_140a23380`, any period).
 | `FUN_1404819a0`, `0x140481a1f` | on-pitch count **above** the byte | injury state 3 → 4 (stretcher request) |
 | `FUN_1404898b0`, `0x140489df9` and `0x14048a022` | count `iVar12` **above** the byte, both side branches | substitution-plan executor |
 
-**The write.** `min_players_gag.py apply` checks the pointer chain and that the byte reads 7, saves the old value to `min_players_gag.json`, writes 1 to the one byte, and reads it back. Four applies, each read back as 1.
+**The write.** `tools/dev/pes_min_players_gag.py apply` checks the pointer chain and that the byte reads 7, saves the old value to `min_players_gag.json`, writes 1 to the one byte, and reads it back. Four applies, each read back as 1.
 
 **What happened (read-only traces, 21-10-26, unix seconds).**
 - Apply 1 (~1792611022): the settings chain read invalid for about 20 s; the same object then read 7.
@@ -598,7 +598,7 @@ So the game sets the byte back to 7 during goal-kick stoppages (two traced cases
 
 **Status.** The byte reads 7 (stock), so the byte-only gag is off. The forfeit gag is the code patch in §2.15, which does not read the byte.
 
-**Revert and re-apply.** The byte: `min_players_gag.py <pid> revert` writes 7 back when the byte reads 1; `apply` writes 1 only when it reads 7. The forfeit: `forfeit_patch.py <pid> status | apply | revert` (§2.15). `gag_trace.py <pid> [seconds] [poll]` and `min_players_gag.py <pid> status | watch` are read-only.
+**Revert and re-apply.** The byte: `tools/dev/pes_min_players_gag.py <pid> revert` writes 7 back when the byte reads 1; `apply` writes 1 only when it reads 7. The forfeit: `tools/dev/pes_forfeit_patch.py <pid> status | apply | revert` (§2.15). `tools/dev/pes_gag_trace.py <pid> [seconds] [poll]` and `tools/dev/pes_min_players_gag.py <pid> status | watch` are read-only.
 
 **Limits.** Live writes this pass: four byte applies (§2.14) and one code patch (§2.15), all on the owner's instruction, which overrides the brief's read-only rule for those bytes. Nothing in the PES image, the install or GF changed. The checker covers the static readers only (§7).
 
@@ -610,7 +610,7 @@ So the game sets the byte back to 7 during goal-kick stoppages (two traced cases
 
 **Why code, not data.** The endless mod (`tools/dev/pes_endless_match.py`) makes the match endless by writing two float constants in `.rdata`: 162000.0 at 0x142647C68 and 54000.0 at 0x142647C64, both set to 1e12. It checks the stock floats first and aborts on any other value, writes through `/proc/<pid>/mem`, reads back, and `--revert` restores the stock values. A constant can be overwritten in place, so no code changes. The forfeit threshold is the byte `E+0x17`, which the game sets back to 7 during stoppages (§2.14), so a data write cannot hold. The forfeit patch uses the same method on code: check the stock bytes, write, read back, keep the stock bytes for revert.
 
-**Method and checks.** `forfeit_patch.py <pid> apply` checks that the process is PES2021.exe, that the mapping containing the VA is private, that the 3 stock bytes are `3a4217`, and that the 5 bytes after them match the image. It writes `3c0190`, reads back, and saves the stock bytes to `forfeit_patch.json`. The mapping is `140001000-14252f000 r-xp 00000000 00:00 0`: anonymous and private, so the write is copy-on-write in the process, and `PES2021.exe` on disk is not touched. Live result: `3c0190` (`cmp al, 1 ; nop`) read back, and the bytes after it still match. A later status read showed the patch still in place.
+**Method and checks.** `tools/dev/pes_forfeit_patch.py <pid> apply` checks that the process is PES2021.exe, that the mapping containing the VA is private, that the 3 stock bytes are `3a4217`, and that the 5 bytes after them match the image. It writes `3c0190`, reads back, and saves the stock bytes to `tools/dev/pes_forfeit_patch.json` (gitignored). The mapping is `140001000-14252f000 r-xp 00000000 00:00 0`: anonymous and private, so the write is copy-on-write in the process, and `PES2021.exe` on disk is not touched. Live result: `3c0190` (`cmp al, 1 ; nop`) read back, and the bytes after it still match. A later status read showed the patch still in place.
 
 **Effect.** The count route into period 10 now needs a side with 0 players on the pitch. The patched compare does not read `E+0x17`, so the byte can stay at 7 and the other readers keep stock behaviour (emergency substitution at 7, stretcher above 7, the substitution-plan readers). Not closed by this patch: the period-10 entries through the step-0x43 path and the end-of-match state machine (§2.9a), and the per-player writer `FUN_140a23380` (§2.7).
 
@@ -618,7 +618,7 @@ So the game sets the byte back to 7 during goal-kick stoppages (two traced cases
 
 **Owner's first forfeit.** The owner reports it came with fewer than 7 on the pitch. That is the test case 6 makes, so this route is the trigger the owner saw. Case 6 only sets period 10, and the 3-0 itself needs one of the writers in §2.7, so which one wrote it is still open.
 
-**Revert.** `sudo -n nice -n 19 python3 forfeit_patch.py <pid> revert` writes `3a4217` back when the bytes read `3c0190`. The pid changes if PES restarts; a restart also restores the stock code.
+**Revert.** `sudo -n nice -n 19 python3 tools/dev/pes_forfeit_patch.py <pid> revert` writes `3a4217` back when the bytes read `3c0190`. The pid changes if PES restarts; a restart also restores the stock code.
 
 
 ---
@@ -997,7 +997,7 @@ and the reader that turns the pair into a 3-0 loss (`0x140a105b5`,
   * Launched as
     `nohup nice -n 19 sudo -n python3 <script> <pid> 3600 0.2 <log>`.
 * Period and minimum-players pass (MissingRE2, 21-10-26), all scratch, all read-only: `stores.py <disp> [lo] [hi]` (store-only displacement scan; wraps `dispfind.find`), `callargs.py <target> <needle> [lo] [hi]` (every `E8` call to `target` whose 48-byte argument setup contains `needle`), `minplayers_read.py <pid>` (live `E+0x17`, on-pitch counts, period, restart, stop reason, mode), `score_read.py <pid>` (live forfeit flag and score per side, and `player+0x0c/+0x18/+0x20` of on-pitch or flagged players). Live reads need `sudo -n` (`/proc/<pid>/mem`); the team base is `G+(0xa3+side)*0x28` (`FUN_140a489d0`), and a torn-down match shows as a null `MI` for a few polls. The Ghidra bridge endpoint for cross-references is `/xrefs_to?address=…` (`/get_xrefs_to` returns 404).
-* Gag tools (21-10-26, scratch): `min_players_gag.py <pid> status|apply|revert|watch` (`apply` writes one byte, `E+0x17`, 7 → 1, after checking the pointer chain and that the byte reads 7; the old value is saved in `min_players_gag.json`; `revert` writes it back when the byte reads 1); `gag_trace.py <pid> [seconds] [poll]` (read-only: `E`, `E+0x17`, period, play, restart, stop reason and on-pitch counts, printed on change); `thr_scan.py` (the reader scan of §2.14; positive control `0x140447e72` / `0x140447e79`).
+* Gag tools (21-10-26, scratch): `tools/dev/pes_min_players_gag.py <pid> status|apply|revert|watch` (`apply` writes one byte, `E+0x17`, 7 → 1, after checking the pointer chain and that the byte reads 7; the old value is saved in `min_players_gag.json`; `revert` writes it back when the byte reads 1); `tools/dev/pes_gag_trace.py <pid> [seconds] [poll]` (read-only: `E`, `E+0x17`, period, play, restart, stop reason and on-pitch counts, printed on change); `thr_scan.py` (the reader scan of §2.14; positive control `0x140447e72` / `0x140447e79`).
 * K11 static scripts (scratch): `scan1775.py` (every instruction with a
   `+0x1775` memory operand — 107, all reads but two), `scan_prot_mode.py`
   (the same for the protected region: zero), `scan_mode16.py` (16-bit stores
