@@ -72,6 +72,8 @@ What each agent changed in GF, how it was tested, and what it left open. The dec
 |`pes-port-MentalityF1.md`|MentalityF1 (LANDED 9c5cc89): pure forward-line module pesforward (factor, protected scan, rank block, floor, blend); unwired|
 |`pes-port-MentalityQ1.md`|MentalityQ1 (LANDED 9c5cc89): attack-join quota: the ahead line from the opponents' S1 list (FUN_140A4F230); C4/C5/C7/C13 confirmed|
 |`pes-port-PenaltyScatter.md`|PenaltyScatter (partial): the PES penalty scatter radius + jitter as a tested pure module; integration into the shootout not done (design points listed)|
+|`pes-port-PenaltyIntegrate.md`|PenaltyIntegrate: shootout aim from the PES scatter; dice deleted (LANDED 4adaa25); height carrier open|
+|`pes-port-SignatureAnims.md`|SignatureAnims: Derivationdatatable.bin loader + the two walkers + the Beckham swap, unwired (LANDED 4adaa25)|
 |`pes-merge-A5Merge.md`|A5Merge: A5Tail stack on DeadBall (`9ca351e`, not landed) — A5Tail2's tip reverted its own mental-image fix; the merged tree stalls 1758 ticks on a throw-in chain that neither parent shows (DeadBall requeue gates × A5Tail's restart pieces)|
 |`pes-port-A5Tail.md`|A5Tail: throw-in spot F1+0.25, release on reach (0.65 m), kick-off receiver gate, ball dead at the whistle (`Ball::Stop`); on-path stalls traced to the taker's pass anim being refused by the picker (bestAdv 0 at all distances), shared with DeadBall|
 |`pes-port-DeadBall.md`|DeadBall: why a loose ball sits dead on the PES path: `SelectAnim` refuses a Movement command while the current clip is Special (`humanoid.cpp:1972-1978`), and PES locomotion clips are Special, so the step at the ball is never applied; a chase stand-in; shared root with A5Tail's taker that never kicks|
