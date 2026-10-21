@@ -194,7 +194,8 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     // until the standby clip family lands (docs/re/pes-re-kicker-standby.md section 3).
     if (team->GetController()->IsPieceTakerHeld(CastPlayer())) {
       command.useDesiredLookAt = true;
-      command.desiredLookAt = match->GetBall()->Predict(0).Get2D();
+      // A corner taker looks along his SetKick heading (PES's standby holds the SetKick yaw); the others look at the ball.
+      command.desiredLookAt = team->GetController()->HeldTakerLookAt(match->GetBall()->Predict(0)).Get2D();
       commandQueue.push_back(command);
       return;
     }

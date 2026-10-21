@@ -157,10 +157,15 @@ TEST(SetKickStand, ThePlacedKeeperKeepsHisHeadingWhileHeWaits) {
   Properties config;
   config.SetBool("pes_loop", true);
   REQUIRE_PES_MATCH(config);
-  constexpr int kWaitTicks = 600;                // eleven seconds: past the restart's hold and the goal kick ladder's windows
+  // Two and a half seconds: the ladder releases the kick about 240 frames after the restart is ready (pes-re-A5Judge.md 9.3),
+  // and the strike's own motion is not part of the wait.
+  constexpr int kWaitTicks = 150;
   constexpr float kHeadingTolerance_deg = 5.0f;  // a GF tolerance, not a PES value
   const Vector3 spot(-47.0f, 3.0f, 0.0f);
   const Vector3 pitch(1.0f, 0.0f, 0.0f);
+  // The match's first tick prepares its opening kick-off, which would take the keeper's placement back: the restart is
+  // prepared after that tick.
+  match->Process();
   Player* taker = PrepareRestart(*match, e_SetPiece_GoalKick, 0, spot);
   ASSERT_NE(taker, nullptr) << "no goal kick taker was chosen";
   const TeamAIController* controller = match->GetTeam(0)->GetController();
@@ -171,9 +176,128 @@ TEST(SetKickStand, ThePlacedKeeperKeepsHisHeadingWhileHeWaits) {
   float worst = 0.0f;
   for (int t = 0; t < kWaitTicks; ++t) {
     match->Process();
-    if (!controller->IsPieceTakerHeld(taker)) break;  // released: the wait is over
+    if (match->IsInPlay()) break;  // released: the kick is in play
+    EXPECT_TRUE(controller->IsPieceTakerHeld(taker)) << "the keeper lost his hold at tick " << t;
     const float turned = AngleBetweenDeg(placed, taker->GetDirectionVec());
     if (turned > worst) worst = turned;
   }
   EXPECT_LE(worst, kHeadingTolerance_deg) << "the placed keeper turned " << worst << " degrees while he waited";
+}
+
+// PES's corner SetKick turns the stand point by the corner heading: the side yaw plus the bearing from the spot to the
+// penalty spot on the spot's own end (FUN_1408B4560, restart kind 4). The bearing points at that penalty spot from either
+// end and either touchline.
+TEST(SetKickStand, TheCornerRestartYawPointsAtThePenaltySpotFromEitherEnd) {
+  constexpr float kAimTolerance_deg = 0.5f;  // a GF tolerance, not a PES value
+  const float radPerDeg = std::acos(-1.0f) / 180.0f;
+  for (const Vector3 spot : {Vector3(52.0f, 33.5f, 0.0f), Vector3(52.0f, -33.5f, 0.0f), Vector3(-52.0f, 33.5f, 0.0f),
+                             Vector3(-52.0f, -33.5f, 0.0f)}) {
+    const pes::Vec3 spotPes(spot.coords[0], spot.coords[1], spot.coords[2]);
+    const float yaw = pes::CornerRestartYawDeg(spotPes, pesPenaltySpotX) * radPerDeg;
+    // Both vectors are in PES's ground plane (X along the goal axis, Z across). GF's y is -Z, so the penalty spot (sign * X, 0)
+    // lies at (targetX - x, y) from the spot.
+    const float targetX = spot.coords[0] < 0.0f ? -pesPenaltySpotX : pesPenaltySpotX;
+    const Vector3 toTarget(targetX - spot.coords[0], spot.coords[1], 0.0f);
+    const Vector3 aim(std::sin(yaw), std::cos(yaw), 0.0f);
+    EXPECT_LE(AngleBetweenDeg(aim, toTarget), kAimTolerance_deg)
+        << "the corner restart yaw does not point at the penalty spot from (" << spot.coords[0] << ", " << spot.coords[1]
+        << ")";
+  }
+}
+
+// The corner placer turns the side yaw (315 for the straight run-up, 45 for the mirrored one) by the restart bearing, and
+// each is wrapped to [0, 360).
+TEST(SetKickStand, TheCornerHeadingIsTheSideYawPlusTheRestartBearing) {
+  constexpr float kHeadingTolerance_deg = 0.01f;  // float arithmetic, not a PES value
+  const auto facing = [](float deg) {
+    const float rad = deg * std::acos(-1.0f) / 180.0f;
+    return Vector3(std::sin(rad), std::cos(rad), 0.0f);
+  };
+  for (const float restart_deg : {0.0f, 197.1f, 350.0f}) {
+    EXPECT_LE(AngleBetweenDeg(facing(pes::CornerSetKickHeadingDeg(restart_deg, false)), facing(315.0f + restart_deg)),
+              kHeadingTolerance_deg)
+        << "the straight run-up does not turn the side yaw by the restart bearing " << restart_deg;
+    EXPECT_LE(AngleBetweenDeg(facing(pes::CornerSetKickHeadingDeg(restart_deg, true)), facing(45.0f + restart_deg)),
+              kHeadingTolerance_deg)
+        << "the mirrored run-up does not turn the side yaw by the restart bearing " << restart_deg;
+  }
+}
+
+// PES's corner taker stands on his SetKick stand point when the corner is prepared and holds it: the run-up clip's contact
+// offset is the stand's length from the corner spot (as for the goal kick), and his body faces the corner heading.
+TEST(SetKickStand, TheCornerTakerIsPlacedOnTheStandPointFacingTheCornerHeading) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  constexpr float kHeadingTolerance_deg = 5.0f;  // a GF tolerance, not a PES value
+  const float radPerDeg = std::acos(-1.0f) / 180.0f;
+  // The run-up is the anime cell at row 0x509, column 9: the cell the placer reads.
+  const int runUpMotion = match->GetPesAnimetable().Cell(0x509, 9).motionNo;
+  ASSERT_GE(runUpMotion, 0) << "the corner run-up cell (0x509, kind 9) is empty in the install";
+  const float expected = ContactOffsetLengthM(*match, runUpMotion);
+  const TeamAIController* controller = match->GetTeam(0)->GetController();
+  for (const Vector3 spot : {Vector3(52.0f, 33.5f, 0.0f), Vector3(-52.0f, -33.5f, 0.0f)}) {
+    Player* taker = PrepareRestart(*match, e_SetPiece_Corner, 0, spot);
+    ASSERT_NE(taker, nullptr) << "no corner taker was chosen";
+    EXPECT_TRUE(controller->IsPieceTakerHeld(taker)) << "the corner taker is not held on his stand point";
+    EXPECT_NEAR(DistanceFromSpotM(*taker, spot), expected, kPlacementTolerance_m)
+        << "the corner taker is not on the SetKick stand point for the spot (" << spot.coords[0] << ", " << spot.coords[1]
+        << ")";
+    const pes::Vec3 spotPes(spot.coords[0], spot.coords[1], spot.coords[2]);
+    const float heading = pes::CornerSetKickHeadingDeg(pes::CornerRestartYawDeg(spotPes, pesPenaltySpotX), false);
+    // A body facing heading h faces (sin h, cos h) in PES's ground plane, which is (sin h, -cos h) in GF's (y is -Z).
+    const float rad = heading * radPerDeg;
+    const Vector3 facing(std::sin(rad), -std::cos(rad), 0.0f);
+    EXPECT_LE(AngleBetweenDeg(taker->GetDirectionVec(), facing), kHeadingTolerance_deg)
+        << "the corner taker does not face the corner heading (" << taker->GetDirectionVec().coords[0] << ", "
+        << taker->GetDirectionVec().coords[1] << ")";
+  }
+}
+
+// A placed corner taker keeps his heading while he waits, as the placed keeper does (PES's standby plays with the SetKick yaw).
+TEST(SetKickStand, ThePlacedCornerTakerKeepsHisHeadingWhileHeWaits) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  // Two and a half seconds: the ladder releases the kick about 240 frames after the restart is ready (pes-re-A5Judge.md 9.3),
+  // and the strike's own motion is not part of the wait.
+  constexpr int kWaitTicks = 150;
+  constexpr float kHeadingTolerance_deg = 5.0f;  // a GF tolerance, not a PES value
+  const Vector3 spot(52.0f, 33.5f, 0.0f);
+  // The match's first tick prepares its opening kick-off, which would take the corner taker's placement back: the restart is
+  // prepared after that tick.
+  match->Process();
+  Player* taker = PrepareRestart(*match, e_SetPiece_Corner, 0, spot);
+  ASSERT_NE(taker, nullptr) << "no corner taker was chosen";
+  const TeamAIController* controller = match->GetTeam(0)->GetController();
+  ASSERT_TRUE(controller->IsPieceTakerHeld(taker)) << "the corner taker is not held after the placement";
+  const Vector3 placed = taker->GetDirectionVec();
+  float worst = 0.0f;
+  for (int t = 0; t < kWaitTicks; ++t) {
+    match->Process();
+    if (match->IsInPlay()) break;  // released: the restart is in play and the taker runs to the ball
+    EXPECT_TRUE(controller->IsPieceTakerHeld(taker)) << "the corner taker lost his hold at tick " << t;
+    const float turned = AngleBetweenDeg(placed, taker->GetDirectionVec());
+    if (turned > worst) worst = turned;
+  }
+  EXPECT_LE(worst, kHeadingTolerance_deg) << "the placed corner taker turned " << worst << " degrees while he waited";
+}
+
+// Two live corner kickers (docs/re/pes-re-setpiece-choreography.md section 4.1) faced the straight run-up's heading: the side
+// yaw (315) plus the restart bearing from their corner to the penalty spot. The live readings are one decimal.
+TEST(SetKickStand, TheCornerHeadingMatchesTheLiveKickerYaws) {
+  constexpr float kLiveTolerance_deg = 0.5f;  // a GF tolerance, not a PES value
+  struct LiveCorner {
+    Vector3 spot;
+    float yaw_deg;
+  };
+  // GF's y is -Z: the live corners are PES (x, z) = (-51.781, -33.61) and (52.252, -33.214).
+  for (const LiveCorner& live : {LiveCorner{Vector3(-51.781f, 33.61f, 0.0f), 331.9f},
+                                 LiveCorner{Vector3(52.252f, 33.214f, 0.0f), 297.2f}}) {
+    const pes::Vec3 spotPes(live.spot.coords[0], live.spot.coords[1], live.spot.coords[2]);
+    const float heading = pes::CornerSetKickHeadingDeg(pes::CornerRestartYawDeg(spotPes, pesPenaltySpotX), false);
+    EXPECT_LE(std::fabs(std::remainder(heading - live.yaw_deg, 360.0f)), kLiveTolerance_deg)
+        << "the corner heading at (" << live.spot.coords[0] << ", " << live.spot.coords[1] << ") is " << heading
+        << " degrees";
+  }
 }

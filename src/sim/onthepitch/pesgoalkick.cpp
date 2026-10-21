@@ -21,6 +21,16 @@ Vec3 FromFox(const Vec3& fox) { return Vec3(fox.x, -fox.z, fox.y); }
 constexpr float kPi = 3.14159265358979323846f;
 constexpr float kHalfTurn_deg = 180.0f;
 
+// The corner placer's side yaws: DAT_1425AA1C0 (315) for the straight run-up and DAT_14259BE30 (45) for the mirrored one.
+constexpr float kCornerYawStraight_deg = 315.0f;
+constexpr float kCornerYawMirrored_deg = 45.0f;
+
+// A bearing wrapped to [0, 360).
+float Wrap360Deg(float deg) {
+  const float wrapped = std::fmod(deg, 360.0f);
+  return wrapped < 0.0f ? wrapped + 360.0f : wrapped;
+}
+
 // The placer's turn (sub_140732D40): an offset in the heading's frame, turned in the ground plane with its height kept.
 // The sine and cosine are the install's table (FUN_140A92C80), here the library's.
 Vec3 TurnByHeading(const Vec3& local, float headingDeg) {
@@ -104,6 +114,26 @@ pes::Vec3 GoalKickStandPoint(const pes::Vec3& spot, float headingDeg, const pes:
   const Vec3 turned = TurnByHeading(negated, headingDeg);
   const Vec3 fox = ToFox(spot);
   return FromFox(Vec3(fox.x + turned.x, fox.y + turned.y, fox.z + turned.z));
+}
+
+float CornerRestartYawDeg(const Vec3& spot, float penaltySpotX_m) {
+  // FUN_1408B4560 (restart kind 4) works in Fox space: X along the goal axis, Z across.
+  const Vec3 fox = ToFox(spot);
+  const float targetX = (fox.x < 0.0f ? -1.0f : 1.0f) * penaltySpotX_m;
+  // FUN_14092E7E0 takes 0 when the spot is the target itself; otherwise the bearing (0 = +Z, 90 = +X) of target - spot.
+  if (fox.z == 0.0f && targetX == fox.x) return 0.0f;
+  return Wrap360Deg(std::atan2(targetX - fox.x, -fox.z) * kHalfTurn_deg / kPi);
+}
+
+float CornerSetKickHeadingDeg(float restartYawDeg, bool mirror) {
+  const float side = mirror ? kCornerYawMirrored_deg : kCornerYawStraight_deg;
+  return Wrap360Deg(Wrap360Deg(side) + restartYawDeg);
+}
+
+Vec3 PlacerLookPoint(const Vec3& stand, float headingDeg) {
+  const Vec3 fox = ToFox(stand);
+  const Vec3 facing = TurnByHeading(Vec3(0.0f, 0.0f, 1.0f), headingDeg);
+  return FromFox(Vec3(fox.x + facing.x, fox.y + facing.y, fox.z + facing.z));
 }
 
 pes::Vec3 GoalKickContactRoot(const pes::Vec3& stand, float headingDeg, const pes::Vec3& hitRootCm, bool mirror,

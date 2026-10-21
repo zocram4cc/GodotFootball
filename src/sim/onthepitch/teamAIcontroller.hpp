@@ -115,6 +115,8 @@ public:
   bool IsPieceTakerWalking(const Player* player) const;
   // True while a placed set-piece taker holds his stand point before the release (pes-re-kicker-standby.md section 4).
   bool IsPieceTakerHeld(const Player* player) const { return pieceHeld && player == taker; }
+  // The point a held taker looks at: his SetKick look point when the placement set one (a corner's heading), else the ball.
+  Vector3 HeldTakerLookAt(const Vector3& ball) const { return pieceHasLookAt ? pieceLookAt : ball; }
   Vector3 GetPieceWalkTarget() const { return pieceWalkTarget; }
   // Advances the walk from the pickup to the carry. The referee calls it each tick before the release gate.
   void AdvancePieceWalk();
@@ -239,6 +241,8 @@ protected:
   unsigned long pieceWarpTicks = 0;  // ticks left to the pickup's contact frame
   Vector3 pieceWarpTo;         // the predicted ball at the contact frame, where the warp ends
   bool pieceHeld = false;      // the taker was placed on his stand point at prepare and holds it until the release
+  bool pieceHasLookAt = false;  // the placement set pieceLookAt (a corner's SetKick heading)
+  Vector3 pieceLookAt;          // where the held taker looks while he waits, when pieceHasLookAt
   Vector3 pieceWalkTarget;     // the walk's target: a throw-in's pickup point, then its carry spot; a keeper's ball spot
   Vector3 pieceCarrySpot;      // where the taker lifts the ball (3.2)
   e_SetPiece setPieceType;
@@ -257,6 +261,9 @@ protected:
   // Places the goal kick's stand point (SetKick's placement, pesgoalkick.hpp) and the strike's contact from the clip. Returns
   // the keeper's stand point; the caller places him there.
   Vector3 PrepareGoalKickStand(const Vector3& spot);
+  // SetKick's placement for a corner (pesgoalkick.hpp): the stand point for the restart spot, and the look point the taker
+  // faces (the corner heading). The caller places him there and holds him.
+  Vector3 PrepareCornerStand(const Vector3& spot, Vector3* lookAt);
   // The lofted picker's mates: the taker's team's active players, rated by technical highpass. Returns the index the
   // picker names (-1 for none) and fills `mates` with the list that index refers to.
   int PickGoalKickMate(std::vector<Player*>* mates) const;

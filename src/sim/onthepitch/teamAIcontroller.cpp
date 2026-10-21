@@ -1152,6 +1152,31 @@ Vector3 TeamAIController::PrepareGoalKickStand(const Vector3& spot) {
   return Vector3(stand.x, stand.y, 0.0f);
 }
 
+// SetKick's placement for a corner (sub_1407331A0; docs/re/pes-re-kicker-standby.md section 4). The run-up clip is the anime
+// cell at row 0x509, column 9. Its first ball hit gives the contact offset, and the stand is the spot plus that offset turned
+// by the corner heading: the side yaw plus the restart bearing to the penalty spot (FUN_1408B4560, restart kind 4).
+Vector3 TeamAIController::PrepareCornerStand(const Vector3& spot, Vector3* lookAt) {
+  constexpr int kCornerRunUpRow = 0x509;
+  constexpr int kCornerRunUpColumn = 9;
+  // ponytail: the taker strikes with his right foot. PES reads the foot from the player record (FUN_1406E6660(player, 0x34),
+  // playerdata + 0x34), which GF's roster does not carry until the PES player-database loader lands.
+  constexpr bool kMirror = false;
+  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0.
+  constexpr float kPhysique = 1.0f;
+  const int motion = match->GetPesAnimetable().Cell(kCornerRunUpRow, kCornerRunUpColumn).motionNo;
+  const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(motion);
+  const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+  const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
+  const pes::Vec3 spotPes(spot.coords[0], spot.coords[1], spot.coords[2]);
+  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
+  const float heading = pes::CornerSetKickHeadingDeg(pes::CornerRestartYawDeg(spotPes, pesPenaltySpotX), kMirror);
+  const pes::Vec3 stand = pes::GoalKickStandPoint(spotPes, heading, offset);
+  const pes::Vec3 look = pes::PlacerLookPoint(stand, heading);
+  *lookAt = Vector3(look.x, look.y, 0.0f);
+  // ponytail: the placer's height (the spot's plus the clip's) is not carried: GF's players stand on the ground.
+  return Vector3(stand.x, stand.y, 0.0f);
+}
+
 void TeamAIController::AdvancePieceWalk() {
   if (!pieceWalk || pieceCarrying || taker == nullptr) return;
   // PES's SeamlessThrowin phase 1 (docs/re/pes-re-throwin-choreography.md 3.2): the pickup clip 0xCF5 plays when the ball, at the
@@ -1237,6 +1262,7 @@ float ThrowInStandLength_m(Match& match) {
 void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
   setPieceType = setPiece;
   pieceHeld = false;
+  pieceHasLookAt = false;
   pieceWalk = false;
   pieceCarrying = false;
   pieceWarping = false;
@@ -1836,8 +1862,11 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       if (taker) {
         // The keeper faces the pitch from his end and holds that heading while he waits (PES's standby plays with the
         // SetKick yaw).
-        taker->ResetPosition(stand, stand + KeeperFacingPitch(team->GetSide()));
+        const Vector3 facing = stand + KeeperFacingPitch(team->GetSide());
+        taker->ResetPosition(stand, facing);
         pieceHeld = true;
+        pieceHasLookAt = true;
+        pieceLookAt = facing;
       }
     } else if (setPiece == e_SetPiece_ThrowIn && match->PesLoop()) {
       // PES's throw-in taker. A seamless candidate (path A) walks to the ball, picks it up and carries it to the throw
@@ -1861,6 +1890,18 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
                            ballPos);
     } else if (setPiece == e_SetPiece_FreeKick) {
       taker->ResetPosition(ballPos + Vector3(team->GetSide(), 0, 0) * 2.3f, ballPos);
+    } else if (setPiece == e_SetPiece_Corner && match->PesLoop()) {
+      // PES's corner taker (SetKick, pesgoalkick.hpp): placed on his stand point when the corner is prepared, facing the
+      // corner heading, and held there until the release (pes-re-kicker-standby.md section 4).
+      // ponytail: the stand point is set from the restart spot at prepare; a ball moved in the stoppage is not followed.
+      if (taker) {
+        Vector3 lookAt;
+        const Vector3 stand = PrepareCornerStand(ballPos, &lookAt);
+        taker->ResetPosition(stand, lookAt);
+        pieceHeld = true;
+        pieceHasLookAt = true;
+        pieceLookAt = lookAt;
+      }
     } else {
       taker->ResetPosition(ballPos + ballPos.GetNormalized(Vector3(0, -team->GetSide(), 0)) * 2.3f,
                            ballPos);
