@@ -218,6 +218,11 @@ class MoveHostAdapter final : public pes::MoveHost {
     in.speedBand = pes::CommandClassFor(CommandSpeedClassOf(speed), c_.runTables);
     in.desiredKmh = speed * kKmhPerMps;
     in.precise = cmd && cmd->preciseArrival;
+    in.commandSpeedClass = CommandSpeedClassOf(speed);
+    // The PES command id and move kind (cmd[0] and cmd[0x16]) come from the movement command: see CommandIdFor and MoveKindFor.
+    in.commandId = pesmovestep::CommandIdFor(cmd);
+    in.moveKind = pesmovestep::MoveKindFor(player_.GetFormationEntry().role == e_PlayerRole_GK);
+    in.animeStateNonzero = static_cast<int>(player_.GetMoveStep().state) != 0;
     in.bodyBucket = pes::movestep::BodyBucketFlag(c_.run.one);  // OPEN: the per-player record (loader FUN_141194330, flag write 0x1411944E6); GF feeds PES's default producer value
     pes::movestep::FillMoveTarget(req, in, c_.run, c_.buckets);
   }
@@ -455,6 +460,24 @@ void PesFrame(float gfX, float gfY, float gfZ, float out[3]) {
 float PesBearingDeg(const pes::RunConstants& k, float gfX, float gfZ) {
   return pes::FoldFull(std::atan2(gfX, -gfZ) * kDegPerRad, k);  // PES z = -coords[1]
 }
+
+// PES's command id (cmd[0], req[0x16]) is the AI's action id, and the copy-in stores it as req[0x16] (FUN_1406b7560 line 313).
+// GF's AI has no PES action table, so a movement command is PES's MOVE action (2), the id the running trap takes
+// (pes-re-transitions.md:330). A ball action rides the pass channel in PES (pes-re-decision-read.md 1), so it has no movement
+// id. ponytail: PRESS (0x33), DELAY (0x34) and WAIT_TIMER (0x11) come from GF states that are not ported, so GF gives them 0.
+constexpr int kPesCommandMove = 2;
+int CommandIdFor(const PlayerCommand* cmd) {
+  if (cmd == nullptr || cmd->desiredFunctionType != e_FunctionType_Movement) return 0;
+  return kPesCommandMove;
+}
+
+// PES's move kind (cmd[0x16], req[0]) selects the anime row block: 0..2 mid, 3 far, 4..6 keeper near, mid and far, 7 keeper
+// holding the ball (pes-re-anim-select.md:93). GF's AI writes no kind. A keeper's move takes the near keeper kind and an
+// outfield move the mid kind. ponytail: the far kind (3), the keeper's mid and far kinds (5, 6) and the holding kind (7)
+// need PES's writer of cmd+0x58, which is not decoded.
+constexpr int kPesMoveKindMid = 0;
+constexpr int kPesMoveKindKeeperNear = 4;
+int MoveKindFor(bool keeper) { return keeper ? kPesMoveKindKeeperNear : kPesMoveKindMid; }
 
 
 // The single-clip word of req[0x37] (FUN_1406b68d0's init): a SetMotion. Any other value is a style index.

@@ -466,3 +466,101 @@ TEST(SetPieceTeamConstants, ReadFromTheExe) {
     GTEST_SKIP() << "PES21_ROOT not set: the constants are read from the install's exe";
   }
 }
+
+// The seamless throw-in taker (FUN_14044e230, docs/re/pes-re-throwin-choreography.md 2.2,
+// EV-TI-0006). The ranks are the AI's ball-arrival order, which is not sorted by arrival.
+namespace {
+constexpr float kFps = 54.0f;  // the logic rate every frame count below is in
+}  // namespace
+
+TEST(SeamlessThrowInTaker, TheFastestOfTheFirstFourRanksTakesIt) {
+  // Rank 2 (slot 7) arrives 30 frames before rank 0. Rank 4 (slot 1) is faster still, but it is
+  // not among the first four and cannot take it.
+  const std::vector<pes::ArrivalRank> ranked{{3, false, 40.0f},
+                                             {5, false, 35.0f},
+                                             {7, false, 10.0f},
+                                             {9, false, 25.0f},
+                                             {1, false, 2.0f}};
+  EXPECT_EQ(pes::SeamlessThrowInTaker(ranked, kFps, pes::SetPieceTeamCounts()), 7);
+}
+
+TEST(SeamlessThrowInTaker, ALaterRankMustBeatTheBiasToTakeIt) {
+  // The bias is fps / 3 frames. A rank that arrives within the bias of the candidate keeps him.
+  const float bias = kFps / static_cast<float>(pes::SetPieceTeamCounts().seamlessBiasDivisor);
+  const std::vector<pes::ArrivalRank> held{
+      {3, false, 30.0f}, {5, false, 60.0f}, {7, false, 30.0f - bias + 1.0f}};
+  EXPECT_EQ(pes::SeamlessThrowInTaker(held, kFps, pes::SetPieceTeamCounts()), 3);
+  const std::vector<pes::ArrivalRank> beaten{
+      {3, false, 30.0f}, {5, false, 60.0f}, {7, false, 30.0f - bias - 1.0f}};
+  EXPECT_EQ(pes::SeamlessThrowInTaker(beaten, kFps, pes::SetPieceTeamCounts()), 7);
+}
+
+TEST(SeamlessThrowInTaker, AKeeperAtRankZeroGivesWayToRankOne) {
+  const std::vector<pes::ArrivalRank> ranked{
+      {3, true, 5.0f}, {5, false, 35.0f}, {7, false, 40.0f}};
+  EXPECT_EQ(pes::SeamlessThrowInTaker(ranked, kFps, pes::SetPieceTeamCounts()), 5);
+}
+
+// PES's seamless candidate must reach the ball (FUN_140444f00, docs/re/pes-re-throwin-choreography.md
+// 3.1, EV-TI-0007): a man more than 20 m from the ball is not eligible, however his arrival time
+// reads. The arrival time alone cannot tell a near man from a far one when the stat is clamped.
+TEST(SeamlessThrowInTaker, AManBeyondTheReachIsNotTakenWhateverHisArrival) {
+  // Rank 0 looks fastest on time but stands 100 m from the ball. The man at 5 m is the taker.
+  const std::vector<pes::ArrivalRank> ranked{{1, false, 54.0f, 116.0f},
+                                             {2, false, 54.0f, 5.0f}};
+  EXPECT_EQ(pes::SeamlessThrowInTaker(ranked, kFps, pes::SetPieceTeamCounts()), 2);
+}
+
+// EV-TI-0007's arrival gate (docs/re/pes-re-throwin-choreography.md 3.1): a candidate whose arrival estimate is four
+// seconds or more is not a seamless taker, even when he is the only man in reach.
+TEST(SeamlessThrowInTaker, ACandidateArrivingInFourSecondsOrMoreIsNotTaken) {
+  const std::vector<pes::ArrivalRank> late{{3, false, 4.0f * kFps, 5.0f}};
+  EXPECT_EQ(pes::SeamlessThrowInTaker(late, kFps, pes::SetPieceTeamCounts()), -1);
+  const std::vector<pes::ArrivalRank> onTime{{3, false, 4.0f * kFps - 1.0f, 5.0f}};
+  EXPECT_EQ(pes::SeamlessThrowInTaker(onTime, kFps, pes::SetPieceTeamCounts()), 3);
+}
+
+// EV-TI-0007's ball gate (FUN_140444f00): 12 km/h, 1.5 m high, and the restart point within 20 m of the ball along x.
+TEST(SeamlessBallGate, ASlowLowBallNearTheRestartPointIsSeamless) {
+  EXPECT_TRUE(pes::SeamlessBallGate(12.0f, 0.1f, 0.0f));
+  EXPECT_TRUE(pes::SeamlessBallGate(5.0f, 1.5f, 19.5f));
+}
+
+TEST(SeamlessBallGate, AFastBallIsNotSeamless) { EXPECT_FALSE(pes::SeamlessBallGate(12.5f, 0.1f, 0.0f)); }
+
+TEST(SeamlessBallGate, AHighBallIsNotSeamless) { EXPECT_FALSE(pes::SeamlessBallGate(5.0f, 1.6f, 0.0f)); }
+
+TEST(SeamlessBallGate, ABallMoreThanTwentyMetresFromTheRestartIsNotSeamless) {
+  EXPECT_FALSE(pes::SeamlessBallGate(5.0f, 0.1f, 20.5f));
+}
+
+// The ceremony taker (FUN_1404a93a0, docs/re/pes-re-throwin-choreography.md 2.1): the same-flank full-back, unless a
+// midfielder is more than twenty metres nearer; the DMF and AMF count ten metres further; centre-backs are not in pass one.
+TEST(CeremonyThrowInTaker, TheSameFlankFullBackTakesItUnlessAMidfielderIsTwentyMetresNearer) {
+  const std::vector<pes::CeremonyMan> fullBack{{2, 2, 25.0f, true, true}, {4, 4, 10.0f, true, true}};
+  EXPECT_EQ(pes::CeremonyThrowInTaker(fullBack), 2);  // 25 - 20 = 5, under the midfielder's 10
+  const std::vector<pes::CeremonyMan> nearer{{2, 2, 25.0f, true, true}, {4, 4, 4.0f, true, true}};
+  EXPECT_EQ(pes::CeremonyThrowInTaker(nearer), 4);  // 4 is under the full-back's 5
+}
+
+TEST(CeremonyThrowInTaker, AFullBackOnTheFarFlankIsNotInPassOne) {
+  const std::vector<pes::CeremonyMan> men{{2, 2, 2.0f, false, true}, {5, 5, 30.0f, true, true}};
+  EXPECT_EQ(pes::CeremonyThrowInTaker(men), 5);
+}
+
+TEST(CeremonyThrowInTaker, DefensiveAndAttackingMidfieldersCountTenMetresFurther) {
+  const std::vector<pes::CeremonyMan> men{{3, 3, 10.0f, true, true}, {4, 4, 15.0f, true, true}};
+  EXPECT_EQ(pes::CeremonyThrowInTaker(men), 4);  // 10 + 10 = 20, over the midfielder's 15
+}
+
+TEST(CeremonyThrowInTaker, CentreBacksAreTakenOnlyWhenNobodyElseIs) {
+  const std::vector<pes::CeremonyMan> withMidfielder{{1, 1, 1.0f, true, true}, {4, 4, 40.0f, true, true}};
+  EXPECT_EQ(pes::CeremonyThrowInTaker(withMidfielder), 4);
+  const std::vector<pes::CeremonyMan> alone{{1, 1, 3.0f, true, true}, {9, 7, 9.0f, true, true}};
+  EXPECT_EQ(pes::CeremonyThrowInTaker(alone), 1);  // nobody in pass one: the nearest man on the pitch
+}
+
+TEST(CeremonyThrowInTaker, AManOffThePitchIsNeverChosen) {
+  const std::vector<pes::CeremonyMan> men{{4, 4, 1.0f, true, false}, {5, 5, 30.0f, true, true}};
+  EXPECT_EQ(pes::CeremonyThrowInTaker(men), 5);
+}

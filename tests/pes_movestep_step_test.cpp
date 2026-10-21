@@ -372,6 +372,30 @@ TEST(StepLoop, WalksTheBandDownAfterTheShorterKeeperThreshold) {
   EXPECT_NEAR(req.F(pes::moveword::kBandSpeed), 12.0f, 1e-3f);
 }
 
+// PES FUN_1406c4c10 0x1406C4DCC-0x1406C4DEE (verified by disassembly): above the command class the band steps one down
+// toward it; at or below the command class it stays on the live class, except that IDLE's -1 walks up to band 0.
+TEST(StepLoop, TheStepBandWalksDownAboveTheCommandAndUpFromIdle) {
+  EXPECT_EQ(pes::movestep::StepBand(3, 1), 2) << "above the command class: one band down";
+  EXPECT_EQ(pes::movestep::StepBand(0, 2), 1) << "the command class 2 is above the live class 0: one band up (req[9] = 2, req[0x1F] = 0)";
+  EXPECT_EQ(pes::movestep::StepBand(2, 0), 1) << "the command class 0 is below the live class 2: one band down";
+  EXPECT_EQ(pes::movestep::StepBand(-1, 2), 0) << "IDLE's -1 steps up toward the command class";
+  EXPECT_EQ(pes::movestep::StepBand(2, 2), 2) << "at the command class the band is the live class";
+}
+
+// PES FUN_1406c4c10 lines 86-103: a command class of 3 or more reads as 2, and the special condition (the previous state 0x13
+// or 0x10, req[0x1a] below the install's bound 0.1, not equal to it) reads the class word instead.
+TEST(StepLoop, TheWalkCommandClassReadsTwoForAClassOfThreeOrMore) {
+  const float bound = 0.1f;  // DAT_142588200, read from the install (bridge image offset 0x2588200 = 0.1)
+  EXPECT_EQ(pes::movestep::WalkCommandClass(-1, 0, 0, 0.0f, bound), 0) << "a negative command class is 0";
+  EXPECT_EQ(pes::movestep::WalkCommandClass(1, 0, 0, 0.0f, bound), 1) << "a command class below 3 is itself";
+  EXPECT_EQ(pes::movestep::WalkCommandClass(3, 0, 0, 0.0f, bound), 2) << "a command class of 3 reads as 2 (decompile line 89)";
+  EXPECT_EQ(pes::movestep::WalkCommandClass(-1, 2, 0x13, -2.0f, bound), 2) << "the special condition reads the class word";
+  EXPECT_EQ(pes::movestep::WalkCommandClass(2, 1, 0x10, -1.0f, bound), 1) << "req[0x1a] below the bound is special";
+  EXPECT_EQ(pes::movestep::WalkCommandClass(2, 1, 0x10, 0.1f, bound), 2) << "req[0x1a] exactly at the bound is not special";
+  EXPECT_EQ(pes::movestep::WalkCommandClass(2, 1, 0x10, 0.05f, bound), 1) << "req[0x1a] at 0.05 is below the bound: the swap is taken";
+  EXPECT_EQ(pes::movestep::WalkCommandClass(1, 3, 14, -2.0f, bound), 1) << "a previous state of 14 is not special";
+}
+
 // The slow-player re-plan: with the arrival flag req[0x3f] set, a live band below 3, no precise
 // arrival and the ground speed under 16 km/h, the handler re-plans through GOTO_RUN.
 TEST(StepLoop, RePlansASlowPlayerThroughGotoRun) {
@@ -1094,6 +1118,71 @@ TEST(EnterTurnStop, KeepsAStandingTakersPlaybackNonzero) {
   req.SetF(pes::moveword::kRate, 0.3f);
   EnterTurnStop(host, req);
   EXPECT_GT(req.F(pes::moveword::kPlayback), 0.0f) << "a standing taker's playback";
+}
+
+// PES FUN_1406D2590 takes its clip's row from the stop-row selector FUN_1406B9D80, through the +0xac0 interface's slot 0xd0
+// (decompile 285-293). The row is DAT_1425DDAD0[kind + class * 8], with the class the class word req[0x1f] clamped to 0..3
+// (lines 74-82) and the action the command id req[0x16] (line 290). The bucket is folded 4 -> 3 and 9 -> 8 first (279-284).
+namespace {
+void StopSelectorRequest(pes::MoveReq& req, int classWord, int command, int lookBucket) {
+  req.SetU(pes::moveword::kKind, 3u);
+  req.SetU(pes::moveword::kCommandSpeedClass, 1u);
+  req.SetU(pes::moveword::kClassWord, static_cast<uint32_t>(classWord));
+  req.SetU(pes::moveword::kCommandId, static_cast<uint32_t>(command));
+  req.SetU(pes::moveword::kLookBucket, static_cast<uint32_t>(lookBucket));
+  req.SetU(pes::moveword::kLookBucketAlt, static_cast<uint32_t>(lookBucket));
+  req.SetF(pes::moveword::kFacing, 0.0f);
+  req.SetF(pes::moveword::kHeading, 0.0f);
+  req.SetF(pes::moveword::kLookHeading, 0.0f);
+  req.SetF(pes::moveword::kLookDelta, 0.0f);
+  req.SetF(pes::moveword::kFacingError, 0.0f);
+  req.SetF(pes::moveword::kDistToTarget, 5.0f);
+  req.SetF(pes::moveword::kDistToLook, 5.0f);
+  req.SetF(pes::moveword::kRate, 0.3f);
+}
+}  // namespace
+
+TEST(EnterTurnStop, TheRowIsTheStopSelectorsRowForTheClassWord) {
+  FakeHost host;
+  host.currentKmh = 0.0f;
+  host.runTables.stopRow[3 + 1 * 8] = 0x5ab;  // kind 3, class 1
+  pes::MoveReq req;
+  StopSelectorRequest(req, /*classWord=*/1, /*command=*/0, /*lookBucket=*/0);
+  EnterTurnStop(host, req);
+  EXPECT_EQ(host.lastRow, 0x5ab) << "DAT_1425DDAD0[kind + class * 8], not the step grid";
+}
+
+TEST(EnterTurnStop, TheClassTwoRowIsTheTurnLockRowUnlessTheCommandIsExempt) {
+  FakeHost host;
+  host.currentKmh = 0.0f;
+  host.runTables.stopRow[3 + 2 * 8] = 0x5ac;  // kind 3, class 2
+  pes::MoveReq req;
+  StopSelectorRequest(req, /*classWord=*/2, /*command=*/0, /*lookBucket=*/0);
+  EnterTurnStop(host, req);
+  EXPECT_EQ(host.lastRow, 0x582) << "FUN_1406B9D80 lines 17-18: class 2 forces row 0x582";
+  pes::MoveReq exempt;
+  StopSelectorRequest(exempt, /*classWord=*/2, /*command=*/0x11, /*lookBucket=*/0);
+  EnterTurnStop(host, exempt);
+  EXPECT_EQ(host.lastRow, 0x5ac) << "command ids 1, 0x11 and 0x70 keep the table's row (lines 16-17)";
+}
+
+TEST(EnterTurnStop, TheClassWordThreeReadsTheStopTableBeyondItsTwentyFourRows) {
+  FakeHost host;
+  host.currentKmh = 0.0f;
+  host.runTables.stopRow[3 + 3 * 8] = 0x5bc;  // kind 3, class 3: index 27, past the 24 rows the notes list
+  pes::MoveReq req;
+  StopSelectorRequest(req, /*classWord=*/3, /*command=*/0, /*lookBucket=*/0);
+  EnterTurnStop(host, req);
+  EXPECT_EQ(host.lastRow, 0x5bc) << "the class word reaches 3 (decompile line 81); the table has 32 entries";
+}
+
+TEST(EnterTurnStop, TheStopColumnIsTheFoldedBucketsColumn) {
+  FakeHost host;
+  host.currentKmh = 0.0f;
+  pes::MoveReq req;
+  StopSelectorRequest(req, /*classWord=*/1, /*command=*/0, /*lookBucket=*/4);
+  EnterTurnStop(host, req);
+  EXPECT_EQ(host.lastColumn, 5) << "bucket 4 folds to 3 before the selector (lines 279-284): DAT_1425DD988[3]";
 }
 
 // PES's cell lookup answers -1 for an empty cell (TeamDecode 3). The TURN_STOP entry issued the row id when its step cell was

@@ -40,5 +40,9 @@ int CurrentMotionOf(Player& player);
 // MOVESTEP's decision: the first queued command that is not a ball action. Ball actions ride the pending ball request the
 // kick dispatcher consumes (docs/re/pes-re-decision-read.md 1 and 3), so MOVESTEP steers by the movement command.
 std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue);
+// PES's command id (cmd[0], req[0x16]) for GF's movement command: MOVE (2), or 0 with no command or a ball action.
+int CommandIdFor(const PlayerCommand* cmd);
+// PES's move kind (cmd[0x16], req[0]) for a player's move: the near keeper kind (4) for a keeper, else the mid kind (0).
+int MoveKindFor(bool keeper);
 
 }  // namespace pesmovestep

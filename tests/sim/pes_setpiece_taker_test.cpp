@@ -150,3 +150,17 @@ TEST(SetPieceTakerGate, GatesReadFromTheExe) {
     GTEST_SKIP() << "PES21_ROOT not set: the gates are read from the install's exe";
   }
 }
+
+// The throw-in's pickup reach is the install's 5 m (DAT_14259222c, docs/re/pes-re-throwin-choreography.md 3.2).
+TEST(SetPieceTakerGate, ThrowInPickupReachIsReadFromTheExe) {
+  if (const char* root = std::getenv("PES21_ROOT")) {
+    pes::PesVfs vfs;
+    std::string err;
+    auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+    if (!exe) GTEST_SKIP() << "PES2021.exe unreadable: " << err;
+    if (!vfs.Mount(root, &err)) GTEST_SKIP() << "PES install unreadable: " << err;
+    auto k = pes::LoadSetPieceTakerConstants(vfs, *exe, &err);
+    ASSERT_TRUE(k.has_value()) << err;
+    EXPECT_FLOAT_EQ(k->throwInPickupReach_m, 5.0f);
+  }
+}

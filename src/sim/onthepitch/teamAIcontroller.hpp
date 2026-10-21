@@ -108,10 +108,18 @@ public:
   // shootout needs its own rotation to take the kicks.
   void SetPieceTaker(Player* player) { taker = player; }
   e_SetPiece GetSetPieceType() { return setPieceType; }
-  // PES's goal kick: the keeper walks to his stand point (SetKick's target) until the ladder releases the kick (A5 §4.7;
-  // pesgoalkick.hpp).
+  // PES's set-piece takers walk to their spot instead of being placed on it (A5 §4.7). A throw-in's taker walks to the
+  // ball, picks it up and carries it to the throw spot, where he lifts it and throws (docs/re/pes-re-throwin-choreography.md
+  // 3.1-3.2). A goal kick's keeper walks to his stand point (SetKick's target) until the ladder releases the kick
+  // (pesgoalkick.hpp).
   bool IsPieceTakerWalking(const Player* player) const;
   Vector3 GetPieceWalkTarget() const { return pieceWalkTarget; }
+  // Advances the walk from the pickup to the carry. The referee calls it each tick before the release gate.
+  void AdvancePieceWalk();
+  // True from the pickup until the release: the taker holds the ball.
+  bool IsCarryingBall() const { return pieceWalk && pieceCarrying; }
+  // True when no walk is pending, or the carrying taker stands at the spot (the lift radius, 3.2).
+  bool PieceTakerArrived() const;
   // PES's goal kick (pesgoalkick.hpp): the ladder releases it (sub_142136F00) and the strike carries the keeper onto the
   // ball. StepGoalKickLadder runs one tick of the armed restart's ladder and returns true on its release.
   bool StepGoalKickLadder();
@@ -221,11 +229,11 @@ protected:
   Match* match;
   Team* team;
   Player* taker;
+  bool pieceWalk = false;      // a set-piece walk is pending (PES path only): a throw-in taker's or a goal-kick keeper's
+  bool pieceCarrying = false;  // a throw-in taker has the ball: pieceWalkTarget is the carry spot
+  Vector3 pieceWalkTarget;     // the walk's target: a throw-in's pickup point, then its carry spot; a keeper's ball spot
+  Vector3 pieceCarrySpot;      // where the taker lifts the ball (3.2)
   e_SetPiece setPieceType;
-  // PES's goal kick: the keeper walks to his stand point before he takes it. pieceWalk holds until the ladder releases
-  // the kick; pieceWalkTarget is the stand point.
-  bool pieceWalk = false;
-  Vector3 pieceWalkTarget;
   // The goal kick's ladder and strike (PES path). The strike's root is in GF metres, from the release to the contact.
   struct GoalKickStrike {
     bool started = false;       // released: the strike owns the keeper's root

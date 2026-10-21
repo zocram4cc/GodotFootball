@@ -35,6 +35,7 @@
 #include "onthepitch/matchpressure.hpp"
 #include "onthepitch/peskeeper.hpp"
 #include "onthepitch/setpiecelaws.hpp"
+#include "onthepitch/pessetpieceteam.hpp"
 #include "onthepitch/penaltyshootoutcontroller.hpp"
 #include "onthepitch/teaminstructions.hpp"
 #include "strategies/offtheball/default_def.hpp"
@@ -158,16 +159,30 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       command.desiredDirection = player->GetDirectionVec();
     }
     command.desiredVelocityFloat = idleVelocity;
-    // PES's goal kick: the keeper runs to the ball before he takes it (A5 §4.7). He is not placed on it, so until
-    // he reaches it his command is the run to the ball.
+    // PES's set-piece takers run to their spot before they take the restart (A5 §4.7; for a throw-in,
+    // docs/re/pes-re-throwin-choreography.md 3.1). They are not placed on it, so until one arrives his command is the run
+    // to the spot.
     if (team->GetController()->IsPieceTakerWalking(CastPlayer())) {
       const Vector3 spot = team->GetController()->GetPieceWalkTarget();
       const Vector3 toSpot = (spot - player->GetPosition()).Get2D();
       command.desiredDirection = toSpot.GetNormalized(player->GetDirectionVec());
-      // ponytail: PES's run speed (the MOVE speed class, cmd[0x17]) is not decoded; the sprint is the ceiling, and
-      // the approach closes on the ball in proportion to the gap.
-      const float approach = pes::kGoalKickTakerApproachGain * toSpot.GetLength();
-      command.desiredVelocityFloat = approach < sprintVelocity ? approach : sprintVelocity;
+      if (team->GetController()->GetSetPieceType() == e_SetPiece_GoalKick) {
+        // The goal kick keeper walks as the goal-kick port has him: no precise target, the approach at the gain up to the
+        // sprint. A precise target from a stopped body turned him in the 2-minute pes-loop smoke (the goal-kick stall).
+        // ponytail: PES's run speed (the MOVE speed class, cmd[0x17]) is not decoded; the sprint is the ceiling.
+        const float approach = pes::kPieceTakerApproachGain * toSpot.GetLength();
+        command.desiredVelocityFloat = approach < sprintVelocity ? approach : sprintVelocity;
+      } else {
+        // The throw-in carrier closes at 2 x the gap, snapped up to a movement level (FloorVelocity): a speed off the level
+        // table is class none, which reads as TURN_STOP with the precise target set (ClipWords, RUN_LOOP's no-class rule).
+        // He stands once he is within the lift radius.
+        const float gap = toSpot.GetLength();
+        command.desiredVelocityFloat = gap <= match->GetPesRestartSpotConstants().throwInCarryStop_m
+                                           ? idleVelocity
+                                           : FloorVelocity(pes::kPieceTakerApproachGain * gap);
+        command.useDesiredTarget = true;
+        command.desiredTarget = spot;
+      }
       command.useDesiredLookAt = true;
       command.desiredLookAt = match->GetBall()->Predict(0).Get2D();
       commandQueue.push_back(command);
@@ -472,6 +487,46 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     }
 
     // remember, we are still in the 'set piece / ballretainer' if{}
+
+    // PES's set-piece taker who does not have the ball yet. A throw-in carrier holds it from the pickup to the throw
+    // (docs/re/pes-re-throwin-choreography.md 3.2), so one the walk has let go of takes it up again within the pickup reach
+    // (the install's 5 m). A free kick, corner or penalty taker runs to the ball and strikes it, as PES's kicker does: GF's
+    // ball-control hover stood off the ball instead (seed 7's free kick, 2.3 m away and not moving, the 1758-tick stall).
+    // ponytail: PES's approach to a free kick, corner or penalty is not decoded; the run to the ball stands in for it.
+    const e_SetPiece restart = team->GetController()->GetSetPieceType();
+    const Vector3 ballNow = match->GetBall()->Predict(0);
+    if (match->PesLoop() && match->GetBallRetainer() != player && team->GetController()->GetPieceTaker() == player) {
+      const Vector3 toBall = (ballNow - player->GetPosition()).Get2D();
+      if (restart == e_SetPiece_ThrowIn &&
+          toBall.GetLength() <= match->GetPesSetPieceTakerConstants().throwInPickupReach_m) {
+        CastPlayer()->SelectRetainAnim();
+      } else if (restart == e_SetPiece_FreeKick || restart == e_SetPiece_Corner || restart == e_SetPiece_Penalty) {
+        PlayerCommand run;
+        run.desiredFunctionType = e_FunctionType_Movement;
+        run.useDesiredMovement = true;
+        run.desiredDirection = toBall.GetNormalized(player->GetDirectionVec());
+        const float approach = pes::kPieceTakerApproachGain * toBall.GetLength();
+        run.desiredVelocityFloat = FloorVelocity(approach);
+        run.useDesiredLookAt = true;
+        run.desiredLookAt = ballNow.Get2D();
+        run.useDesiredTarget = true;
+        run.desiredTarget = ballNow.Get2D();
+        commandQueue.push_back(run);
+        return;
+      } else if (restart == e_SetPiece_ThrowIn) {
+        // PES's throw-in taker without the ball and out of his reach stands: the walk owns his approach, and the
+        // ball-control hover would run him at a ball he is not carrying.
+        PlayerCommand stand;
+        stand.desiredFunctionType = e_FunctionType_Movement;
+        stand.useDesiredMovement = true;
+        stand.desiredDirection = player->GetDirectionVec();
+        stand.desiredVelocityFloat = idleVelocity;
+        stand.useDesiredLookAt = true;
+        stand.desiredLookAt = ballNow.Get2D();
+        commandQueue.push_back(stand);
+        return;
+      }
+    }
 
     if (match->GetBallRetainer() != player) {  // must be set piece taker, then
       PlayerCommand command;
