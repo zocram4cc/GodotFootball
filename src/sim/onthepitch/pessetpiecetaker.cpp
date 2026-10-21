@@ -19,6 +19,7 @@ constexpr uint64_t CENTIMETRE_VA = 0x14256ae18;        // 0.01: the Mbinfo hit r
 constexpr uint64_t PHYSIQUE_LOW_VA = 0x1425ddf78;      // 0.9166: FUN_1406E8CC0's physique clamp, low
 constexpr uint64_t PHYSIQUE_HIGH_VA = 0x1425ddf80;     // 1.0833: and high
 constexpr uint64_t HIT_TICK_DIVISOR_VA = 0x14259a764;  // 60: a hit's tick divisor (FUN_1406B03D0)
+constexpr uint64_t THROW_IN_PICKUP_REACH_VA = 0x14259222c;  // 5.0: the throw-in pickup clip's reach (choreography 3.2)
 
 bool ReadFloat(const PeImage& exe, uint64_t va, float* out) {
   return exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out));
@@ -37,7 +38,8 @@ std::optional<SetPieceTakerConstants> LoadSetPieceTakerConstants(const PesVfs& v
         std::pair{SHORT_CORNER_RUNNING_VA, &k.shortCornerRunningWindow_s},
         std::pair{HALF_SECOND_VA, &k.halfSecond_s}, std::pair{TACTICS_GATE_VA, &k.goalKickTacticsGate},
         std::pair{CENTIMETRE_VA, &k.centimetre_m}, std::pair{PHYSIQUE_LOW_VA, &k.physiqueLow},
-        std::pair{PHYSIQUE_HIGH_VA, &k.physiqueHigh}, std::pair{HIT_TICK_DIVISOR_VA, &k.hitTickDivisor}}) {
+        std::pair{PHYSIQUE_HIGH_VA, &k.physiqueHigh}, std::pair{HIT_TICK_DIVISOR_VA, &k.hitTickDivisor},
+        std::pair{THROW_IN_PICKUP_REACH_VA, &k.throwInPickupReach_m}}) {
     if (!ReadFloat(exe, va, out)) {
       char buf[32];
       std::snprintf(buf, sizeof buf, "%#llx", static_cast<unsigned long long>(va));

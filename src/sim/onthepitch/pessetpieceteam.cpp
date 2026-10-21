@@ -351,4 +351,57 @@ WallJumpState WallJumpStateStart(int wallSize) {
   return s;
 }
 
+int SeamlessThrowInTaker(const std::vector<ArrivalRank>& ranked, float framesPerSecond,
+                         const SetPieceTeamCounts& counts) {
+  const int window = std::min(counts.seamlessRanks, static_cast<int>(ranked.size()));
+  if (window <= 0) return -1;
+  // A man beyond the reach, or arriving in four seconds or more, cannot take it (FUN_140444f00, EV-TI-0007).
+  const float arrivalLimit = kSeamlessArrivalSeconds * framesPerSecond;
+  auto eligible = [&](const ArrivalRank& r) {
+    return r.distanceToBall_m <= kSeamlessReach_m && r.arrivalFrames < arrivalLimit;
+  };
+  // A keeper at rank 0 is ineligible, and rank 1 takes it outright (FUN_14044e230's keeper branch).
+  if (ranked[0].keeper) return window > 1 && eligible(ranked[1]) ? ranked[1].slot : -1;
+  const float bias = framesPerSecond / static_cast<float>(counts.seamlessBiasDivisor);
+  int best = -1;
+  for (int rank = 0; rank < window; ++rank) {
+    if (!eligible(ranked[rank])) continue;
+    if (best < 0 || ranked[rank].arrivalFrames + bias < ranked[best].arrivalFrames) best = rank;
+  }
+  return best < 0 ? -1 : ranked[best].slot;
+}
+
+bool SeamlessBallGate(float ballKmh, float ballHeight_m, float restartToBallX_m) {
+  return ballKmh <= kSeamlessBallKmh && ballHeight_m <= kSeamlessBallHeight_m &&
+         std::fabs(restartToBallX_m) <= kSeamlessReach_m;
+}
+
+int CeremonyThrowInTaker(const std::vector<CeremonyMan>& men) {
+  // Pass one: the roles 2 to 6 (and the unknown); the flank men only on the restart's side. The search starts at
+  // 500 m (DAT_14259be74).
+  constexpr float kSearchCap_m = 500.0f;
+  int best = -1;
+  float bestScore = kSearchCap_m;
+  for (const CeremonyMan& man : men) {
+    if (!man.onPitch) continue;
+    const int role = man.roleClass;
+    if (role >= 0 && (role < 2 || role > 6)) continue;
+    if ((role == 2 || role == 5) && !man.sameFlank) continue;
+    float score = man.distanceToRestart_m;
+    if (role == 3 || role == 6) score += kCeremonyDefenderMidfieldPenalty_m;
+    if (role == 2) score -= kCeremonyFullBackBonus_m;
+    if (score < bestScore) {
+      bestScore = score;
+      best = man.slot;
+    }
+  }
+  if (best >= 0) return best;
+  // Nobody qualified in pass one: the nearest man on the pitch, of any role (the rule's own fallback).
+  const CeremonyMan* nearest = nullptr;
+  for (const CeremonyMan& man : men) {
+    if (man.onPitch && (!nearest || man.distanceToRestart_m < nearest->distanceToRestart_m)) nearest = &man;
+  }
+  return nearest ? nearest->slot : -1;
+}
+
 }  // namespace pes

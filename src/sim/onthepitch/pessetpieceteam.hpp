@@ -105,6 +105,10 @@ struct SetPieceTeamCounts {
   // FUN_1404f6680's box-attacker count: 4 + min(attack level, 2).
   int boxAttackerBase = 4;
   int boxAttackerCap = 2;
+  // FUN_14044e230 (EV-TI-0006): the seamless taker looks at ranks 0..3 (`CMP EBX,0x4` at
+  // 0x14044e40a) and biases by fps / 3 frames (`MOV EAX,0xaaaaaaab` at 0x14044e3c1, the /3).
+  int seamlessRanks = 4;
+  int seamlessBiasDivisor = 3;
 };
 
 std::optional<SetPieceTeamConstants> LoadSetPieceTeamConstants(const PeImage& exe,
@@ -171,6 +175,59 @@ struct FreeKickRepick {
   bool secondNone = false;
 };
 FreeKickRepick FreeKickRepickGate(bool firstValid, bool secondValid, int fkType);
+
+// One team-mate in PES's ball-arrival order, in rank order: his roster slot, whether he is a
+// keeper (B-array role class 0, `team+0x4c00[slot] == 0` in FUN_14044e230), and his frames to the
+// ball.
+struct ArrivalRank {
+  int slot = -1;
+  bool keeper = false;
+  float arrivalFrames = 0.0f;
+  float distanceToBall_m = 0.0f;  // the man's distance to the ball, for the reach gate
+};
+
+// FUN_140444f00's reach (docs/re/pes-re-throwin-choreography.md 3.1, EV-TI-0007): the candidate must
+// reach the ball within this many metres (`DAT_14259be1c`, 20.0 at `COMISS` 0x14044509b).
+inline constexpr float kSeamlessReach_m = 20.0f;
+
+// EV-TI-0007's arrival gate (docs/re/pes-re-throwin-choreography.md 3.1): a candidate arrives in under four seconds
+// (4 x 54 = 216 frames).
+inline constexpr float kSeamlessArrivalSeconds = 4.0f;
+
+// The walk closes on its target at this many times the gap (1/s), so a sprinting taker stops rather
+// than overshooting into the ball. Shared by the throw-in taker and the goal-kick keeper (both walk to a ball spot).
+// ponytail: PES's MOVE stop (FUN_1406b6bb0) decides this.
+inline constexpr float kPieceTakerApproachGain = 2.0f;
+
+// FUN_14044e230 (docs/re/pes-re-throwin-choreography.md 2.2, EV-TI-0006): the seamless throw-in
+// taker. Rank 0 is the candidate unless he is a keeper, then rank 1. A rank among the first
+// `counts.seamlessRanks` replaces the candidate when it arrives more than fps / seamlessBiasDivisor
+// frames sooner than the best so far. Returns the slot, or -1 when no ranked man qualifies.
+int SeamlessThrowInTaker(const std::vector<ArrivalRank>& ranked, float framesPerSecond,
+                         const SetPieceTeamCounts& counts);
+
+// EV-TI-0007's ball gate (FUN_140444f00, docs/re/pes-re-throwin-choreography.md 3.1): the seamless candidate runs only
+// for a ball at most 12 km/h, at most 1.5 m high, and within 20 m of the restart point along the touchline.
+inline constexpr float kSeamlessBallKmh = 12.0f;
+inline constexpr float kSeamlessBallHeight_m = 1.5f;
+bool SeamlessBallGate(float ballKmh, float ballHeight_m, float restartToBallX_m);
+
+// One man for the ceremony taker of the no-candidate path (FUN_1404a93a0, docs/re/pes-re-throwin-choreography.md 2.1).
+// roleClass is PES's role class: 0 GK, 1 CB, 2 SB, 3 DMF, 4 CMF, 5 SMF, 6 AMF, 7 and up the forwards; -1 when unknown.
+struct CeremonyMan {
+  int slot = -1;
+  int roleClass = -1;
+  float distanceToRestart_m = 0.0f;  // his 2D distance to the restart point
+  bool sameFlank = true;             // his base side is the restart point's side
+  bool onPitch = true;
+};
+// The slot of the taker. Pass one takes the roles 2 to 6 on the restart's flank (the full-back 20 m nearer, the DMF
+// and AMF 10 m further); when nobody qualifies, the nearest man on the pitch takes it. -1 when nobody is on the pitch.
+// The ceremony taker's constants (docs/re/pes-re-throwin-choreography.md 2.1): the full-back's bonus (DAT_1425a946c,
+// -20) and the DMF and AMF penalty (DAT_142588210, +10).
+inline constexpr float kCeremonyFullBackBonus_m = 20.0f;
+inline constexpr float kCeremonyDefenderMidfieldPenalty_m = 10.0f;
+int CeremonyThrowInTaker(const std::vector<CeremonyMan>& men);
 
 // FUN_1404a9920: how many men stand in the wall. `ballAngle_deg` is the ball's
 // angle off the goal's centre line.

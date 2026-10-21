@@ -108,22 +108,93 @@ TEST(PesRestartSequencer, AThrowInIsTakenJustOutsideTheTouchlineAndInsideTheEndL
   EXPECT_NEAR(spot.x, pesFieldHalfLength - k.throwInEndInset_m, 1e-4);
 }
 
+// The throw-in carry spot (FUN_140791ec0, phase 1; docs/re/pes-re-throwin-choreography.md 3.2): the
+// taker lifts the ball where the line from the restart point to the centre of the goal the side
+// attacks crosses the carry line, 0.7 m outside the touchline on the restart's own side.
+TEST(PesRestartSequencer, TheCarrySpotStandsOutsideTheTouchlineOnTheRestartsSide) {
+  const Install& install = InstallConstants();
+  if (!install.spots) GTEST_SKIP() << "PES21_ROOT not set";
+  const pes::RestartSpotConstants& k = *install.spots;
+  EXPECT_GT(k.throwInCarryOutset_m, 0.0f);
+  EXPECT_LT(k.throwInCarryOutset_m, 1.0f);
+
+  const float touchline = pesFieldHalfWidth + k.throwInLineOutset_m;
+  pes::Spot spot = pes::ThrowInCarrySpot(20.0f, touchline, +1, k);
+  EXPECT_NEAR(spot.z, pesFieldHalfWidth + k.throwInCarryOutset_m, 1e-4);
+  spot = pes::ThrowInCarrySpot(20.0f, -touchline, +1, k);
+  EXPECT_NEAR(spot.z, -(pesFieldHalfWidth + k.throwInCarryOutset_m), 1e-4);
+}
+
+// The carry runs along the line from the restart point to the centre of the goal the side attacks,
+// so the spot lies on that line whichever way the side attacks.
+TEST(PesRestartSequencer, TheCarrySpotLiesOnTheApproachLineToTheAttackedGoalCentre) {
+  const Install& install = InstallConstants();
+  if (!install.spots) GTEST_SKIP() << "PES21_ROOT not set";
+  const pes::RestartSpotConstants& k = *install.spots;
+  const float restartZ = pesFieldHalfWidth + k.throwInLineOutset_m;
+  for (const float restartX : {-30.0f, 0.0f, 20.0f}) {
+    for (const int attack : {+1, -1}) {
+      const pes::Spot spot = pes::ThrowInCarrySpot(restartX, restartZ, attack, k);
+      const float goalX = static_cast<float>(attack) * pesFieldHalfLength;
+      // The distance from the spot to the line through the restart point and the goal centre.
+      const float dx = goalX - restartX;
+      const float dz = -restartZ;
+      const float cross = (spot.x - restartX) * dz - (spot.z - restartZ) * dx;
+      EXPECT_NEAR(std::fabs(cross) / std::hypot(dx, dz), 0.0f, 1e-3f)
+          << "restart x " << restartX << ", attacking " << attack;
+    }
+  }
+}
+
+// The spot's x stays within the install's clamp of the restart's x (FUN_140791ec0, the 2 m test at
+// 0x1407921c2). At the stock outset the approach line never leans that far, so this widens the outset
+// for the test to put the clamp on the line.
+TEST(PesRestartSequencer, TheCarrySpotsXIsClampedToTheInstalledWidthOfTheRestart) {
+  const Install& install = InstallConstants();
+  if (!install.spots) GTEST_SKIP() << "PES21_ROOT not set";
+  pes::RestartSpotConstants wide = *install.spots;
+  wide.throwInCarryOutset_m = 5.0f;
+  const float restartX = 0.0f;
+  const pes::Spot spot =
+      pes::ThrowInCarrySpot(restartX, pesFieldHalfWidth + wide.throwInLineOutset_m, +1, wide);
+  EXPECT_NEAR(spot.x, restartX - wide.throwInCarryClamp_m, 1e-4);
+}
+
+// Near the end line the spot's x falls back to the restart's x, so the carry never runs past the goal
+// line (FUN_140791ec0, the F0 minus inset test at 0x1407921f3).
+TEST(PesRestartSequencer, TheCarrySpotFallsBackToTheRestartsXNearTheEndLine) {
+  const Install& install = InstallConstants();
+  if (!install.spots) GTEST_SKIP() << "PES21_ROOT not set";
+  const pes::RestartSpotConstants& k = *install.spots;
+  const float restartX = -(pesFieldHalfLength - 0.2f);
+  const pes::Spot spot =
+      pes::ThrowInCarrySpot(restartX, pesFieldHalfWidth + k.throwInLineOutset_m, +1, k);
+  EXPECT_NEAR(spot.x, restartX, 1e-4);
+}
+
 // The release gate for a timed restart, in frames from arming, is the live-measured wait (A5Live 9.3): each is released
 // on the first frame at or past its gate, and a kick-off is not timed at all. A goal kick has no clock: its ladder
 // releases it (pesgoalkick.hpp), however long that takes.
 TEST(PesRestartSequencer, EachRestartIsReleasedOnItsMeasuredFrame) {
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_Corner, 364));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_Corner, 365));
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_FreeKick, 354));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_FreeKick, 355));
-  // A goal kick is released by its ladder (pesgoalkick.hpp), whatever the clock says: this gate never releases it.
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 100000)) << "a goal kick has no clock";
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 0)) << "a goal kick waits for its ladder";
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_ThrowIn, 117));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_ThrowIn, 118));
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_Penalty, 53));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_Penalty, 54));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_KickOff, 0));
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_Corner, 364, false));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_Corner, 365, false));
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_FreeKick, 354, false));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_FreeKick, 355, false));
+  // A goal kick is released by its ladder (pesgoalkick.hpp), whatever the clock and the keeper's arrival say.
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 100000, false)) << "a goal kick has no clock";
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 100000, true));
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_Penalty, 53, false));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_Penalty, 54, false));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_KickOff, 0, false));
+}
+
+// A throw-in has no frame count: its taker's arrival releases it, however long he took. A timer
+// would release him before he arrives, and PES releases on the taker's reach and kick action
+// (docs/re/pes-re-A5Judge.md 9.3).
+TEST(PesRestartSequencer, AThrowInIsReleasedOnItsTakersArrivalAndNotBefore) {
+  constexpr int kLongAfterArming = 10000;  // far past any frame count a timer could hold
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_ThrowIn, kLongAfterArming, false));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_ThrowIn, 0, true));
 }
 
 // The programme runs the whole stoppage bracket for a corner: the hold, the wipe that
