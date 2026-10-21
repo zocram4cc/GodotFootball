@@ -1,6 +1,7 @@
 # PES RUN_TURN_RUN's clip pick: the row, the column, the empty-cell rule, and the swing rows
 
 > **Main audit 20-10-26:** the column table `0x1425DD988` = 9, 11, 13, 15, 17, 8, 6, 4, 2, 0; the row table `0x1425DDA50` = 32 entries 1361..1388; the swing window `0x1406CEFBA` = `lea eax,[r13-0x561]; cmp eax,5; ja; mov ecx,0x29; bt ecx,eax` (range plus bitmask: rows 0x561, 0x564, 0x566 pass): all match.
+> **Main audit, round 2:** `0x1406CF30B` = `mov r13d,0x570` (the 0x56F block's fall-through); `0x1406D7CBE` = `cmp r14d,0x5c5` (the explicit exclusion after the 0xFFFFFFF9 mask): match. The remap list and row list were corrected this round (ClipWords' corrections, confirmed).
 
 Read-only RE. No GF code changed, no PES written. Scratch: `<workdrive>/gf-TeamDecode-scratch/dec/`.
 Base `0x140000000`, image `~/ghidra-projects/scratch/Unpacker/pes_full.bin`.
@@ -230,31 +231,32 @@ computation itself — the `switch` on the bucket at `0x1406D7CAC` and the `uVar
 `0x5C3`, `0x5C5`, `0x5CC`, `0x5D0`, `0x5D1`, `0x5D2`, `0x5D3`, `0x5D4`, `0x5D5`, `0xBE5`) — not by
 retrying the cell lookup.
 
-**One more guard on the column: the bucket remap.** At `0x1406D7CAC` the entry remaps the
-column *bucket* before the lookup, when the row is in the "turn" family:
+**One more guard on the column: the column remap.** At `0x1406D7CAC` the entry remaps the
+**column** before the lookup, when the row is in the "turn" family. (The first draft of this
+report said the *bucket* was remapped — that was wrong; see §5b's correction (a) for the
+listing and the jump table.) The listing:
 
 ```
-1406D7CAC: if (((uVar23 - 0x5bf & 0xfffffff9) == 0) && (uVar23 != 0x5c5) &&
-                ((float)param_2[0x11] <= fVar34)) {
-   switch(uVar10) {                 // uVar10 = the bucket
-   case 2:   uVar10 = 0;  break;
-   case 4:   uVar10 = 2;  break;
-   case 6:   uVar10 = 4;  break;
-   case 0xb: uVar10 = 0xd; break;
-   case 0xd: uVar10 = 0xf; break;
-   case 0xf: uVar10 = 0x11;
-   }
-}
+1406D7CAC: LEA EAX,[R14 + -0x5bf]      ; the ROW
+1406D7CB3: TEST EAX,0xfffffff9         ; the mask: 0x5BF / 0x5C1 / 0x5C3 / 0x5C5 / ...
+1406D7CB8: JNZ 0x1406d7d5e
+1406D7CBE: CMP R14D,0x5c5               ; ... excluding 0x5C5
+1406D7CC5: JZ 0x1406d7d5e
+1406D7CCB: COMISS XMM12,dword ptr [RSI + 0x44]
+1406D7CD0: JC 0x1406d7d5e
+1406D7CD6: LEA EAX,[R13 + -0x2]         ; the COLUMN - 2
+1406D7CDA: CMP EAX,0xd
+1406D7CDD: JA 0x1406d7d5e
+1406D7CE8: MOV ECX,dword ptr [RDX + RAX*0x4 + 0x6d85e4]   ; the jump table
+1406D7CF2: JMP RCX
 ```
 
-**=> the bucket is remapped `2→0, 4→2, 6→4, 11→13, 13→15, 15→17`** (a shift down by two
-buckets, i.e. by 90° of turn), under the condition that the row is one of
-`0x5BF, 0x5C0, 0x5C1, 0x5C3, 0x5C4, 0x5CC` (the `(row - 0x5BF) & ~6 == 0` test, excluding
-`0x5C5`) **and** `req[0x11] <= fVar34`. `req[0x11]` is **word 0x11** = `kDistToTarget`
-(`movestep.hpp:138`).
-
-Note this remap is applied to the **bucket**, *before* it indexes `DAT_1425DD988` — so the
-remapped bucket then goes through the column table like any other.
+**=> the column is remapped through the jump table at `0x1406D85E4`, indexed by `column - 2`**,
+for the columns **2, 4, 6, 11, 13 and 15**; every other column in 2..15 is left alone. The
+remap applies only when the row is one of **`0x5BF`, `0x5C1`, `0x5C3`** (the mask
+`0xFFFFFFF9` admits `0x5BF`/`0x5C1`/`0x5C3`/`0x5C5`/…, and the separate `CMP R14D,0x5C5`
+excludes `0x5C5`), and when `req[0x44]` (`kDistToTarget`) passes the `XMM12` comparison.
+§5b lists the jump table's fourteen script-read entries.
 
 ---
 
@@ -434,6 +436,254 @@ The byte `0x3D` is at request offset `0x3D` = word `0x0F` = `kPrecise`
 
 ---
 
+## §5b The later swing rows `0x56F`, `0x570`, `0x571`, `0x573`, `0x575` — their conditions
+
+*(Main's follow-up; ClipWords asked for these. All CONFIRMED from the raw dis of
+`FUN_1406CE820`.)*
+
+**First, two corrections to this report, both from ClipWords and both confirmed against the
+listing:**
+
+**(a) The turn-family remap acts on the COLUMN, not on the bucket.** The first draft of this
+report said the *bucket* was remapped before the lookup. The listing shows the switch is on
+**`R13D`, which by then holds `DAT_1425DD988[req[8]]` — the COLUMN**:
+
+```
+1406D6C31: MOVSXD RAX,dword ptr [RSI + 0x20]   ; req[8]
+1406D6C43: MOV R13D,dword ptr [RCX + RAX*0x4 + 0x25dd988]   ; the COLUMN
+...
+1406D7CAC: LEA EAX,[R14 + -0x5bf]      ; the ROW
+1406D7CB3: TEST EAX,0xfffffff9
+1406D7CB8: JNZ 0x1406d7d5e
+1406D7CBE: CMP R14D,0x5c5
+1406D7CC5: JZ 0x1406d7d5e
+1406D7CCB: COMISS XMM12,dword ptr [RSI + 0x44]
+1406D7CD0: JC 0x1406d7d5e
+1406D7CD6: LEA EAX,[R13 + -0x2]        ; the COLUMN - 2
+1406D7CDA: CMP EAX,0xd
+1406D7CDD: JA 0x1406d7d5e
+1406D7CDF: LEA RDX,[0x140000000]
+1406D7CE6: CDQE
+1406D7CE8: MOV ECX,dword ptr [RDX + RAX*0x4 + 0x6d85e4]   ; the jump table
+1406D7CEF: ADD RCX,RDX
+1406D7CF2: JMP RCX
+```
+
+The remap is a **jump table at `0x1406D85E4`**, indexed by `column - 2` (0..13). Script-read, the
+fourteen entries are:
+
+| column − 2 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| target | `0x1406D7D5B` | `0x1406D7D5E` | `0x1406D7D53` | `0x1406D7D5E` | `0x1406D7D4B` | `0x1406D7D5E` | `0x1406D7D5E` | `0x1406D7D5E` | `0x1406D7D5E` | `0x1406D7D33` | `0x1406D7D5E` | `0x1406D7D3B` | `0x1406D7D5E` | `0x1406D7D43` |
+
+**=> the remapped columns are 2→`0x1406D7D5B`, 4→`0x1406D7D53`, 6→`0x1406D7D4B`,
+11→`0x1406D7D33`, 13→`0x1406D7D3B`, 15→`0x1406D7D43`**; every other column in 2..15 goes to
+`0x1406D7D5E` (no remap). The first draft's "2→0, 4→2, 6→4, 11→13, 13→15, 15→17" was the
+decompiler's rendering of the *old* switch and is **retracted**; the values above are the
+jump table's real targets.
+
+**(b) The row list is `0x5BF`/`0x5C1`/`0x5C3` only.** The mask is `TEST EAX,0xFFFFFFF9` with
+`EAX = row - 0x5BF`; `0xFFFFFFF9` clears bits 0 and 1, so the test passes for `row - 0x5BF` in
+`{0, 2, 4, 6, ...}` — that is rows `0x5BF`, `0x5C1`, `0x5C3`, `0x5C5` and every other even
+offset. The **separate** `CMP R14D,0x5C5` / `JZ` at `0x1406D7CBE` then excludes `0x5C5`.
+**=> the effective list is exactly `0x5BF`, `0x5C1`, `0x5C3`** — the first draft's
+"`0x5BF, 0x5C0, 0x5C1, 0x5C3, 0x5C4, 0x5CC`" was wrong on all three excluded rows.
+(Checked arithmetically: `0x5C0`→1, `0x5C2`→3, `0x5C4`→5 and `0x5CC`→13 all have a cleared bit
+and fail the mask; `0x5C5`→6 passes the mask but is caught by the explicit compare.)
+
+**The remap's other two gates** (besides the row list): `COMISS XMM12,[RSI+0x44]` / `JC` — the
+`req[0x44]` word (byte `0x44` = word `0x11` = `kDistToTarget`) against `XMM12` — and
+`req[0x11] <= fVar34` in the decompile's rendering. The jump table's six remapped columns are
+the ones the decompile's `switch` showed as `case 2/4/6/0xb/0xd/0xf`; the **column** values
+are 2, 4, 6, 11, 13, 15 (the `column - 2` indices 0, 2, 4, 9, 11, 13).
+
+---
+
+### §5b.1 `0x575` (1397) — the RUN_LOOP EnterAccelerate stand-in
+
+**This is the row ClipWords' throw-in stall needs.** The gate is at `0x1406CFA2A`, and the row
+is taken when **all** of the following hold (the block is skipped — to `0x1406CFA86` — otherwise):
+
+```
+1406CF9B6: MOVSS XMM0,dword ptr [0x1425a3590]      ; 1.1
+1406CF9BE: COMISS XMM0,dword ptr [RBP + 0xb8]      ; (1) 1.1 >  the local at [RBP+0xB8]
+1406CF9C5: JBE 0x1406cfa86
+1406CF9CB: COMISS XMM11,XMM8                       ; (2) XMM11 > 0.0
+1406CF9CF: JBE 0x1406cfa86
+1406CF9D5: CVTPS2PD XMM0,XMM6
+1406CF9D8: ANDPS XMM0,XMM9                         ; |XMM6|
+1406CF9DC: CVTPD2PS XMM1,XMM0
+1406CF9E0: COMISS XMM14,XMM1                       ; (3) 0.8 > |XMM6|
+1406CF9E4: JBE 0x1406cfa86
+1406CF9EA: COMISS XMM13,XMM12                       ; (4) 67.5 > XMM12
+1406CF9EE: JBE 0x1406cfa86
+1406CF9F4: COMISS XMM7,XMM15                        ; (5) 16.0 > XMM15
+1406CF9F8: JBE 0x1406cfa86
+1406CF9FE: LEA EAX,[R15 + -0xd]
+1406CFA02: TEST EAX,0xfffffffd                     ; (6) the column is 0xD or 0xF
+1406CFA07: JZ 0x1406cfa1d
+1406CFA09: LEA EAX,[R15 + -0x2]
+1406CFA0D: TEST EAX,0xfffffffd                     ;   or the column is 0x2 or 0x4
+1406CFA12: JNZ 0x1406cfa86
+1406CFA14: COMISS XMM6,dword ptr [0x142588200]      ;   then |XMM6| vs +0.1
+1406CFA1B: JMP 0x1406cfa28
+1406CFA1D: MOVSS XMM0,dword ptr [0x14259d648]      ;   or -0.1 vs XMM6
+1406CFA25: COMISS XMM0,XMM6
+1406CFA28: JBE 0x1406cfa86
+1406CFA2A: MOV R13D,0x575
+```
+
+**The register meanings** (all traced in this pass):
+
+| register | value | where it comes from |
+|---|---|---|
+| `R15D` | the **column** | `DAT_1425DD988[req[8]]` (or the remapped one) |
+| `XMM8` | `0.0` | `XORPS XMM8,XMM8` at `0x1406CE960` |
+| `XMM11` | a displacement | `[RSP+0x68]`, loaded at `0x1406CF8C1`; built at `0x1406CF81B` as `pos.z - target.z` (`[RBP-0x70] - [RBP-0x60]`) |
+| `XMM6` | a displacement | `[RSP+0x60]`, loaded at `0x1406CF8C8`; built at `0x1406CF7F9` as `pos.x - target.x` |
+| `XMM12` | `|req[1]|` (the heading) | `0x1406CF85D CVTPD2PS XMM12,XMM1` from `req[1]` |
+| `XMM13` | `67.5` | `0x1425CCA34` |
+| `XMM14` | `0.8` | `0x142572348` |
+| `XMM15` | a speed-ish value | `0x1406CF8BD MOVAPS XMM15,XMM0` from `FUN_14042D470` |
+| `XMM7` | `16.0` | `0x14259BE10` |
+| `[RBP+0xB8]` | a float | `0x1406CF808 MOVSS dword ptr [RBP+0xb8],XMM0` — `FUN_140A8F860`'s return |
+
+**=> the `0x575` rule**: take the row `0x575` when
+`1.1 > [RBP+0xB8]` **and** `XMM11 > 0` **and** `|XMM6| < 0.8` **and** `|req[1]| < 67.5` **and**
+`XMM15 < 16.0` **and** (the column is `0xD` or `0xF` **and** `XMM6 < −0.1`) **or**
+(the column is `0x2` or `0x4` **and** `XMM6 > +0.1`).
+
+(The `(6)` sub-test's `TEST EAX,0xFFFFFFFD` clears bit 1, so `R15D - 0xD == 0` admits `0xD` and
+`0xF`, and `R15D - 0x2 == 0` admits `0x2` and `0x4`. The final `COMISS` is a strict
+comparison in each direction, so the two branches are `XMM6 < −0.1` and `XMM6 > +0.1`
+respectively.)
+
+### §5b.2 `0x573` (1395)
+
+The same five gates as `0x575`, then a **column** test, at `0x1406CF962`:
+
+```
+1406CF8AC: COMISS XMM9,dword ptr [RBP + 0xb8]      ; (1) 0.7 >  the local at [RBP+0xB8]
+1406CF8E0: JBE 0x1406cf9b1
+1406CF8E6: COMISS XMM11,XMM8                       ; (2) XMM11 > 0.0
+1406CF8EA: JBE 0x1406cf9b1
+1406CF8F0: MOVSS XMM0,dword ptr [0x142565600]      ; 0.5
+1406CF903: COMISS XMM0,XMM2                        ; (3) 0.5 > |XMM6|
+1406CF906: JBE 0x1406cf9b1
+1406CF90C: COMISS XMM13,XMM12                       ; (4) 67.5 > XMM12
+1406CF910: JBE 0x1406cf9b1
+1406CF916: COMISS XMM7,XMM15                        ; (5) XMM7 > XMM15
+1406CF91A: JBE 0x1406cf9b1
+1406CF920: CMP R15D,0xd
+1406CF924: JZ 0x1406cf949
+1406CF926: CMP R15D,0x4
+1406CF92A: JZ 0x1406cf949
+1406CF92C: CMP R15D,0xf
+1406CF930: JZ 0x1406cf956
+1406CF932: CMP R15D,0x2
+1406CF936: JZ 0x1406cf956
+1406CF938: CMP R15D,0x11
+1406CF93C: JZ 0x1406cf943
+1406CF93E: TEST R15D,R15D
+1406CF941: JNZ 0x1406cf9b1                          ; the column must be 0, 0xD, 0xF, 0x2, 0x4 or 0x11
+1406CF943: COMISS XMM14,XMM2                        ; for the column 0/0x11: 0.8 > |XMM6|
+1406CF947: JMP 0x1406cf954
+1406CF949: MOVSS XMM0,dword ptr [0x142590d98]      ; for the column 0xD/0x4: 0.3 > |XMM6|
+1406CF951: COMISS XMM0,XMM2
+1406CF954: JBE 0x1406cf9b1
+1406CF956: ...
+1406CF962: MOV R13D,0x573
+```
+
+**=> the `0x573` rule**: take the row `0x573` when `0.7 > [RBP+0xB8]` **and** `XMM11 > 0` **and**
+`|XMM6| < 0.5` **and** `|req[1]| < 67.5` **and** `XMM7 > XMM15` **and** the column is one of
+`0`, `0x2`, `0x4`, `0xD`, `0xF`, `0x11`, **and** (the column is `0` or `0x11` and `|XMM6| < 0.8`)
+or (the column is `0x4` or `0xD` and `|XMM6| < 0.3`).
+
+### §5b.3 `0x56F` (1391) and `0x570` (1392)
+
+**`0x570` is the FALL-THROUGH of the `0x56F` block**, not a row with a condition of its own:
+every path that declines the `0x56F` row jumps to `0x1406CF30B`, which is
+`MOV R13D,0x570`. (The jumpers are `0x1406CF103`, `0x1406CF114`, `0x1406CF161`, `0x1406CF18E`
+and `0x1406CF19C`.)
+
+**`0x56F`'s condition** — the row is taken at `0x1406CF0F1` when:
+
+```
+1406CF0CB: MOVZX ECX,byte ptr [RSI + 0x3d]        ; req byte 0x3D
+1406CF0CF: TEST CL,CL
+1406CF0D1: JNZ 0x1406cf0dc
+1406CF0D3: CMP byte ptr [RSI + 0x3e],CL           ; req byte 0x3E
+1406CF0D6: JZ 0x1406cf384                        ;   both 0 -> the other path
+1406CF0DC: CMP dword ptr [RSI + 0x24],0x1        ; req[9] (the class)
+1406CF0E0: JLE 0x1406cf384                        ;   class <= 1 -> the other path
+1406CF0E6: TEST CL,CL                             ; req byte 0x3D
+1406CF0E8: JZ 0x1406cf0fc
+1406CF0EA: CMP byte ptr [RSP + 0x40],0x0          ;   and the swing flag
+1406CF0EF: JNZ 0x1406cf0fc
+1406CF0F1: MOV R13D,0x56f
+```
+
+**=> the `0x56F` rule**: take the row `0x56F` when **at least one of the request bytes `0x3D`
+or `0x3E` is non-zero**, **and** `req[9] > 1`, **and** (byte `0x3D` is zero **or** the swing
+flag at `[RSP+0x40]` is zero).
+
+(The `0x3D`/`0x3E` test is the same pair that gates the swing's own row/column work in §5;
+`req[9]` is `kCommandSpeedClass`; the `[RSP+0x40]` byte is the swing flag set at
+`0x1406CEF3C`.)
+
+**The `0x570` row's own follow-on.** When `0x56F` is declined, `0x570` is used, and the code
+then *rewrites* `req[0x0C]` and `req[5]` — the same 4-or-9 dance as §5, but on the **column**
+index rather than the bucket:
+
+```
+1406CF2CF: MOV EAX,dword ptr [RSI + 0x30]          ; req[0x0C]
+1406CF2D2: MOV ECX,0x4
+1406CF2D7: SUB EAX,0x3
+1406CF2DA: CMP EAX,0x1                            ; req[0x0C] in {3, 4}
+1406CF2DD: MOV EAX,0x9
+1406CF2E2: CMOVA EAX,ECX                          ;   -> 4, else 9
+1406CF2E5: MOV dword ptr [RSI + 0x30],EAX
+1406CF2E8: CMP EAX,ECX
+1406CF2EA: JNZ 0x1406cf2f6
+1406CF2EC: MOVSS XMM0,dword ptr [0x1425ddffc]     ;   req[0x0C] == 4 -> req[5] = -180.0
+1406CF2F6: MOVAPS XMM0,XMM15                      ;   else req[5] = XMM15
+1406CF2FA: MOVSS dword ptr [RSI + 0x14],XMM0
+```
+
+### §5b.4 `0x571` (1393)
+
+Taken at `0x1406CF60D`:
+
+```
+1406CF5BF: COMISS XMM0,XMM6                        ; a magnitude test
+1406CF5C2: JBE 0x1406cf683
+1406CF5C8: MOV EAX,dword ptr [RSI + 0x24]          ; req[9] (the class)
+1406CF5CB: MOV EDX,R12D
+1406CF5CE: CMP EAX,0x3
+1406CF5D1: SETZ DL                                ; DL = (req[9] == 3)
+1406CF5D4: CMP byte ptr [RBP + 0xb8],0x0
+1406CF5DB: JZ 0x1406cf5ed
+1406CF5DD: CMP EAX,0x3
+1406CF5E0: MOV EDX,0x14                           ; 20
+1406CF5E5: MOV ECX,0x1e                           ; 30
+1406CF5EA: CMOVZ EDX,ECX                          ;   req[9] == 3 -> 30, else 20
+1406CF5ED: TEST DIL,DIL
+1406CF5F0: JNZ 0x1406cf602
+1406CF5F2: MOV RCX,RBX
+1406CF5F5: CALL 0x1406ebf30                       ; the percentage roll
+1406CF5FA: TEST AL,AL
+1406CF5FC: JZ 0x1406cf683
+1406CF602: ...
+1406CF60D: MOV R13D,0x571
+```
+
+**=> the `0x571` rule**: take the row `0x571` when the magnitude test at `0x1406CF5BF` passes
+**and** (`req[9] == 3` **or** the percentage roll `FUN_1406EBF30` with the percentage
+`20` (or `30` when `req[9] == 3` and the swing flag at `[RBP+0xB8]` is set) succeeds.
+
+---
+
 ## §6 The rules, in one place
 
 1. **Row** = `DAT_1425DDA50[req[0] + req[9]*8]` (the port's `GotoRowFor`), with hard-coded
@@ -448,7 +698,10 @@ The byte `0x3D` is at request offset `0x3D` = word `0x0F` = `kPrecise`
    `FUN_1406ABB30` returns **−1**. The caller does **not** retry: it falls through to
    `LAB_1406D8523` → `FUN_1406D2590` (TURN_STOP). The port's "−1 means no clip" is right.
 4. **Swing rows** = `GotoRowFor`'s table for the default, plus the hard-coded `0x566`/`0x572`
-   overrides and the `0x561..0x566` window.
+   overrides and the `0x561..0x566` window. The later rows `0x56F`/`0x570`/`0x571`/`0x573`/
+   `0x575` have their own conditions, reduced in **§5b**.
+   **The turn-family remap acts on the COLUMN, not the bucket** (§5b's correction (a)), and
+   its row list is **`0x5BF`/`0x5C1`/`0x5C3` only** (§5b's correction (b)).
 5. **Swing column** = `DAT_1425DD988[req[0x0C]]`, read after the swing has written
    `req[0x0C] = 4` (or `9` when it was already `4`) and set `req[5]` to `∓180.0`.
 
@@ -463,9 +716,12 @@ The byte `0x3D` is at request offset `0x3D` = word `0x0F` = `kPrecise`
    `0xA2A0` table to use, and `FUN_140A62960` is called with the *interface*'s value) is
    **OPEN** — the `0xA2A0` table is populated at runtime and its contents are not in the image.
 2. **The `0x3E` request byte** has no name in the port's `moveword` header.
-3. **The later swing rows** `0x56F`/`0x570`/`0x571`/`0x573`/`0x575` were located but their
-   **branch conditions were not reduced** in this pass — only the two overrides the port needs
-   (`0x566` and `0x572`) and the `0x561..0x566` window are fully decoded.
+3. **The later swing rows** `0x56F`/`0x570`/`0x571`/`0x573`/`0x575` — **CLOSED** in §5b:
+   each row's condition is reduced, with the registers traced to their sources. Two of the
+   §5b gates still name a local the report does not give a PES name: the float at
+   `[RBP+0xB8]` (the "1.1 >" / "0.7 >" gate) and `XMM15` (the "16.0 >" / "XMM7 >" gate).
+   `XMM15` is `FUN_14042D470`'s return; `[RBP+0xB8]` is `FUN_140A8F860`'s return. What those
+   two functions compute is **OPEN** — the gates themselves are CONFIRMED.
 4. **The `FUN_1406B9BD0` row table's other users**: `DAT_1425DDA50` is read by the port's
    `GotoRowFor`; the swing's hard-coded rows do not appear in that table (1382, 1391..1395 and
    1397 are not among its 1361..1388).
@@ -490,15 +746,23 @@ The byte `0x3D` is at request offset `0x3D` = word `0x0F` = `kPrecise`
   -> the swing row constants and the 0x561..0x566 window checked
   -> the two column-table reads and the row-table read checked
   -> 18 textual claims checked
+  -> the 14-entry remap jump table checked (6 remapped columns)
+  -> the row mask and the row list checked
+  -> the five later rows' constants checked
+  -> the 12 §5b gate constants checked
+  -> the §5b textual claims checked
   cited code VAs not inside a disassembled instruction: 0
   TOTAL mismatches: 0
   ```
-  **Mutation-tested — all seventeen fire:** a wrong column-table value; a wrong row-table
+  **Mutation-tested — all twenty-six fire:** a wrong column-table value; a wrong row-table
   value; the clip table's pointer; the `row * 9` stride; the special cell's fixed motion; the
   mirror byte's stride; the column bound; the row bound; the empty cell's `-1`; the entry's
   column source; the swing's column source; the `0x29` mask; the window's allowed rows; the
   empty cell's fallback handler; the swing's column write; the "the swing rows are hard-coded"
-  claim; and the "no `& 7` mask" claim.
+  claim; the "no `& 7` mask" claim; "the remap acts on the COLUMN"; the row list
+  `0x5BF`/`0x5C1`/`0x5C3`; "`0x570` is the fall-through of the `0x56F` block"; the `0x575`
+  0.8 gate; the `0x573` 67.5 gate; the `0x573` column list; the `0x56F` byte gate; the
+  `0x56F` class gate; and the `0x575` purpose.
 - The port's own `movestep.hpp` / `movestep_run.cpp` were read to map the request word indices
   and to compare `GotoRowFor` and `Cell`.
 - No GF code changed, no GF build/test run, no PES write/pin/input.
