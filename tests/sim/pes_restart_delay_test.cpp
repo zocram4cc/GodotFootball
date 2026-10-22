@@ -197,9 +197,8 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
 
 // A throw-in is taken from the spot the referee armed. Five minutes of seed 7 stalled here: the
 // taker walked onto the spot while play was off, a body touch pushed the ball past the line, and
-// the throw was refused for a ball out of bounds. The ball must be at its spot when the throw is
-// released - the carry spot the taker lifts it at (FUN_140791ec0, 3.2), within the lift radius of
-// the taker - and the match must run through it.
+// the throw was refused for a ball out of bounds. The taker's root must stand on the carry spot when the
+// throw is released (PES's lift, 3.2 phase 4, is measured on the root), and the match must run through it.
 TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
   std::optional<unsigned long> firstStop;  // the first seamless (walker) throw-in's stoppage
   bool firstDone = false;                  // that stoppage has ended: the run stops here
@@ -218,21 +217,24 @@ TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
     if (checkedStop && *checkedStop == b.stopTime) return;
     checkedStop = b.stopTime;
     throwIns++;
-    // A seamless taker's spot is his pickup point and carry spot. A ceremony taker (path B) is placed and releases from his hand.
+    // PES measures the lift on the taker's root, not the ball: the root warps onto the carry spot once it is within the lift
+    // radius (docs/re/pes-re-throwin-choreography.md 3.2, phase 4), and the release follows. The ball is in his hand, so only
+    // the root is compared. A seamless taker's spot is his pickup point and carry spot; a ceremony taker (path B) releases from
+    // his hand.
     const TeamAIController* controller = match.GetTeam(b.teamID)->GetController();
     const Vector3 spot =
         controller->IsPieceTakerWalking(b.taker) ? controller->GetPieceWalkTarget() : b.taker->GetPosition();
-    const Vector3 ball = match.GetBall()->Predict(0);
-    const float off = (ball.Get2D() - spot.Get2D()).GetLength();
+    const float off = (b.taker->GetPosition().Get2D() - spot.Get2D()).GetLength();
     EXPECT_LE(off, match.GetPesRestartSpotConstants().throwInCarryStop_m)
-        << "throw-in released with the ball " << off << " m from its spot";
+        << "throw-in released with the taker's root " << off << " m from its spot";
   }, kSeamlessSearchTicks, [&](const Match&) { return firstDone; }, SEAMLESS_SEED, false);
   EXPECT_GT(throwIns, 0) << "no throw-in was released";
 }
 
 // PES's taker picks the ball up where it lies and carries it out to the throw spot before the throw
-// (FUN_140791ec0, phases 3-4): at the release the taker's spot is the carry spot, 0.7 m outside the
-// touchline and not the restart point, and the ball is in his hand there.
+// (FUN_140791ec0, phases 3-4): at the release the taker's root is on the carry spot, 0.7 m outside the
+// touchline and not the restart point. The ball is in his hand at the release key, 0.8 m ahead of the root;
+// GF's pin rides the ball on the root instead, so the ball is not asserted here.
 TEST(PesRestartDelay, AThrowInIsCarriedToItsSpotAndReleasedThere) {
   std::optional<unsigned long> firstStop;  // the first seamless (walker) throw-in's stoppage
   bool firstDone = false;                  // that stoppage has ended: the run stops here
@@ -257,9 +259,10 @@ TEST(PesRestartDelay, AThrowInIsCarriedToItsSpotAndReleasedThere) {
     const float carried = (spot.Get2D() - b.restartPos.Get2D()).GetLength();
     EXPECT_GT(carried, 0.4f) << "released at the pickup point, not after the carry";
     EXPECT_NEAR(std::fabs(spot.coords[1]) - pesFieldHalfWidth, k.throwInCarryOutset_m, 1e-3f);
-    const Vector3 ball = match.GetBall()->Predict(0);
-    EXPECT_LE((ball.Get2D() - spot.Get2D()).GetLength(), k.throwInCarryStop_m)
-        << "the ball was not in the taker's hand at the spot";
+    // The lift is measured on the root (phase 4): the release follows once the root stands within the lift radius of the spot.
+    const Vector3 root = b.taker->GetPosition();
+    EXPECT_LE((root.Get2D() - spot.Get2D()).GetLength(), k.throwInCarryStop_m)
+        << "the taker's root was not on the carry spot at the release";
   }, kSeamlessSearchTicks, [&](const Match&) { return firstDone; }, SEAMLESS_SEED, false);
   EXPECT_GT(throwIns, 0) << "no seamless throw-in was released";
 }
