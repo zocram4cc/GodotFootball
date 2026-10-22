@@ -150,6 +150,12 @@ Vec3 PickupContactRoot(const Vec3& ball, float headingDeg, const Vec3& offsetFox
   return FromFox(Vec3(fox.x - turned.x, fox.y - turned.y, fox.z - turned.z));
 }
 
+Vec3 HandBallFromRoot(const Vec3& root, float headingDeg, const Vec3& offsetFox_m) {
+  const Vec3 fox = ToFox(root);
+  const Vec3 turned = TurnByHeading(offsetFox_m, headingDeg);
+  return FromFox(Vec3(fox.x + turned.x, fox.y + turned.y, fox.z + turned.z));
+}
+
 pes::Vec3 GoalKickContactRoot(const pes::Vec3& stand, float headingDeg, const pes::Vec3& hitRootCm, bool mirror,
                               const GoalKickConstants& k) {
   // The root's motion to the hit, in metres, mirrored like the offset and turned by the heading. The hit record

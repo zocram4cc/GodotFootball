@@ -1251,6 +1251,24 @@ bool TeamAIController::PieceTakerArrived() const {
   return pieceLifted;
 }
 
+void TeamAIController::PinBallAtRelease() {
+  if (!IsCarryingBall()) return;
+  // ponytail: PES's release row is chosen by the throw's distance (<= 13 m short, else mid; throwin 4.2). The referee does
+  // not hold the throw's target, so the short carry row (0x9bb, throwin_release_run_000_short) stands in for both.
+  constexpr int kThrowInReleaseRunShort = 0x9bb;
+  constexpr float kPhysique = 1.0f;  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0, as the pickup does
+  constexpr bool kMirror = false;    // ponytail: the 000 column (unmirrored), as the pickup does
+  const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(kThrowInReleaseRunShort);
+  const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+  const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
+  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
+  const Vector3 pos = taker->GetPosition();
+  const Vector3 facing = taker->GetDirectionVec();
+  const float heading = pes::FacingHeadingDeg(pes::Vec3(facing.coords[0], facing.coords[1], facing.coords[2]));
+  const pes::Vec3 hand = pes::HandBallFromRoot(pes::Vec3(pos.coords[0], pos.coords[1], 0.0f), heading, offset);
+  match->GetBall()->ResetSituation(Vector3(hand.x, hand.y, hand.z));
+}
+
 namespace {
 
 // PES's role class of a GF role (docs/re/pes-re-throwin-choreography.md 2.1, INF): 0 GK, 1 CB, 2 SB, 3 DMF, 4 CMF, 5 SMF,

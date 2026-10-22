@@ -90,10 +90,10 @@ target_link_libraries(pes_restart_delay_test PRIVATE gfsim pesfmt GTest::gtest_m
 target_compile_definitions(pes_restart_delay_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_restart_delay_test PROPERTIES TIMEOUT 1800)
 
-add_executable(pes_throwin_refusal_test pes_throwin_refusal_test.cpp)
-target_link_libraries(pes_throwin_refusal_test PRIVATE gfsim pesfmt GTest::gtest_main)
-target_compile_definitions(pes_throwin_refusal_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-gtest_discover_tests(pes_throwin_refusal_test PROPERTIES TIMEOUT 1800)
+add_executable(pes_throwin_release_test pes_throwin_release_test.cpp)
+target_link_libraries(pes_throwin_release_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_throwin_release_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(pes_throwin_release_test PROPERTIES TIMEOUT 1800)
 
 add_executable(pes_random_test pes_random_test.cpp)
 target_link_libraries(pes_random_test PRIVATE gfsim pesfmt GTest::gtest_main)

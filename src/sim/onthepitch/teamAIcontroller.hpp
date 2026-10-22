@@ -129,6 +129,9 @@ public:
   bool IsPickingUp() const { return pieceWarping; }
   // True when no walk is pending, or the lift has finished and the carrying taker stands on the spot (3.2 phase 5).
   bool PieceTakerArrived() const;
+  // The release, held: from the pickup through the take, PES holds the ball in the hand at the release clip's key offset
+  // (FUN_140792E10 phase 1; pes-re-throwin-choreography.md 4.2, 5.3). The referee calls it while the throw is taken.
+  void PinBallAtRelease();
   // PES's goal kick (pesgoalkick.hpp): the ladder releases it (sub_142136F00) and the strike carries the keeper onto the
   // ball. StepGoalKickLadder runs one tick of the armed restart's ladder and returns true on its release.
   bool StepGoalKickLadder();
