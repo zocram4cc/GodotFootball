@@ -583,7 +583,35 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       // whole pitch for the rest of the half (measured: 32:19 to 45:00).
       // A loose-ball presser steers through the movement command below.
       const Vector3 toBall = match->GetBall()->GetPositionBuffer() - CastPlayer()->GetPosition();
-      if (!match->PesLoop() && toBall.GetLength() > 0.5f) {
+      if (match->PesLoop() && !match->GetBallRetainer()) {
+        // PES's ActionPress approach (docs/re/pes-re-press-life.md sections 7 and 9): the ball now, or his own base when the
+        // ball sample at k ticks sits nearer the base, at the press speed curve. PES sends a PRESS man to a loose ball; GF's
+        // designated man stands in for him here. MOVESTEP steers by this command's target (pesmovestep MovementDecision).
+        const pes::PressConstants& press = match->GetPesPressConstants();
+        const Vector3 ballNow = match->GetBall()->Predict(0);
+        const Vector3 sample = match->GetBall()->Predict(
+            static_cast<unsigned int>(pes::PressTargetTick(press) * Match::kTick_ms));
+        // ponytail: his base (AI+0x1414) is GF's adapted formation position.
+        const Vector3 base = team->GetController()->GetAdaptedFormationPosition(CastPlayer(), true);
+        const bool atBall = pes::PressTargetIsBall({sample.coords[0], sample.coords[1]},
+                                                   {ballNow.coords[0], ballNow.coords[1]},
+                                                   {base.coords[0], base.coords[1]});
+        const Vector3 target = atBall ? ballNow.Get2D() : base.Get2D();
+        const Vector3 toTarget = target - CastPlayer()->GetPosition();
+        // m/s to km/h is arithmetic (3600/1000), not a PES number.
+        const float speedKmh = CastPlayer()->GetMovement().GetLength() * 3.6f;
+        PlayerCommand approach;
+        approach.desiredFunctionType = e_FunctionType_Movement;
+        approach.useDesiredMovement = false;
+        approach.useDesiredLookAt = true;
+        approach.desiredDirection = toTarget.Get2D().GetNormalized(CastPlayer()->GetDirectionVec());
+        approach.desiredVelocityFloat = pes::PressCommandSpeed_ms(press, toTarget.GetLength(), speedKmh,
+                                                                  distanceToVelocityMultiplier);
+        approach.desiredLookAt = target;
+        approach.useDesiredTarget = true;
+        approach.desiredTarget = target;
+        commandQueue.push_back(approach);
+      } else if (!match->PesLoop() && toBall.GetLength() > 0.5f) {
         PlayerCommand run;
         run.desiredFunctionType = e_FunctionType_Movement;
         run.useDesiredMovement = false;
