@@ -228,6 +228,11 @@ target_link_libraries(sim_missing_player_test PRIVATE gfsim pesfmt GTest::gtest_
 target_compile_definitions(sim_missing_player_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(sim_missing_player_test PROPERTIES TIMEOUT 1800)
 
+add_executable(pes_playerdb_wiring_test pes_playerdb_wiring_test.cpp)
+target_link_libraries(pes_playerdb_wiring_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_playerdb_wiring_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(pes_playerdb_wiring_test PROPERTIES TIMEOUT 1800)
+
 add_executable(pes_nearest_opponent_test pes_nearest_opponent_test.cpp)
 target_link_libraries(pes_nearest_opponent_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_nearest_opponent_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

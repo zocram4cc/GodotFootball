@@ -8,6 +8,7 @@
 #include "pes/exe.hpp"
 #include "pes/locomotion.hpp"
 #include "pes/stadium.hpp"
+#include "pes/playerdb.hpp"
 
 namespace godot {
 namespace {
@@ -83,6 +84,12 @@ Error PesLibrary::open(const String& root) {
   if (exe) staminaConstants_ = pes::LoadStaminaConstants(*exe, &err);
   if (!staminaConstants_) {
     UtilityFunctions::push_error("PES21 stamina constants unavailable: ", ToGd(err));
+    return ERR_PARSE_ERROR;
+  }
+  // PES 2021's player database (docs/re/pes-re-matchlogic.md 1.2): the injury tier and stronger foot of each player.
+  playerDatabase_ = pes::PlayerDatabase::Load(vfs_, &err);
+  if (!playerDatabase_) {
+    UtilityFunctions::push_error("PES21 player database unavailable: ", ToGd(err));
     return ERR_PARSE_ERROR;
   }
   // PES 2021's ball-carrier decision layer (docs/re/pes-re-carrier-ai.md).

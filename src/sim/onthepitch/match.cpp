@@ -251,6 +251,7 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES stamina constants missing: read them from the install with "
         "pes::LoadStaminaConstants into MatchSetup::pesStaminaConstants");
   pesStaminaConstants = std::make_unique<pes::StaminaConstants>(*setup.pesStaminaConstants);
+  if (setup.pesPlayerDatabase) pesPlayerDatabase = *setup.pesPlayerDatabase;
   // PES 2021's set-piece taker wait (docs/re/pes-re-setpiece-choreography.md 9
   // item 2): every number lives in the image, so a match without the install's
   // constants cannot be built - there is no fallback to invent.
@@ -1025,6 +1026,32 @@ void Match::ReplacePlayerReferences(Player* playerOut, Player* playerIn) {
   bestPossessionTeamID = -1;
 }
 
+namespace {
+
+// ponytail: a player with no Player.bin record takes the middle tier and the right foot, the stand-ins this engine used
+// before the install's database was read. GF's synthetic squads number their players 1..32 (assets/fixtures/teams.sql),
+// which are not PES player ids, so the fixture takes this path. Upgrade: a PES roster keyed by PES player ids, as
+// pes_character.cpp already keys the appearance by the same id.
+constexpr int kFallbackInjuryResistance = 1;  // B
+constexpr bool kFallbackLeftFooted = false;   // right foot
+
+std::optional<pes::PlayerTraits> TraitsOf(const std::optional<pes::PlayerDatabase>& database, const PlayerData* data) {
+  if (!database || !data) return std::nullopt;
+  return database->Find(data->GetDatabaseID());
+}
+
+}  // namespace
+
+int Match::InjuryResistanceOf(const PlayerData* data) const {
+  const auto traits = TraitsOf(pesPlayerDatabase, data);
+  return traits ? traits->injuryResistance : kFallbackInjuryResistance;
+}
+
+bool Match::LeftFootedOf(const PlayerData* data) const {
+  const auto traits = TraitsOf(pesPlayerDatabase, data);
+  return traits ? traits->leftFooted : kFallbackLeftFooted;
+}
+
 // PES 2021's injury roll for one contact
 // (docs/re/pes-re-stamina-drain.md 6): the victim's severity accumulates from
 // both players' speeds, the attacker's action state and the approach angle,
@@ -1037,17 +1064,14 @@ void Match::InjureFromContact(Player* victim, Player* attacker) {
   // e_FunctionType_Trip state this engine's bumps already produce), which
   // doubles the severity's base.
   const bool down = victim->GetCurrentFunctionType() == e_FunctionType_Trip;
-  // ponytail: PES reads the injury resistance off the roster byte at
-  // PMS+0x70+0x2f, which this engine does not load. The middle tier (B, the
-  // 50-point roll) is what the report ships; 0.20's low outfield gk_* stats
-  // make the third tier the obvious next step when that byte does load.
-  constexpr int kInjuryResistance = 1;
+  // PES reads the victim's injury resistance off his ability record (ability+0x2f, docs/re/pes-re-missing-systems.md
+  // 3.1): the tier his Player.bin record carries for his database id (InjuryResistanceOf).
   // ponytail: the approach angle is the attacker's heading against the line
   // to the victim; this engine's contact already carries both directions, so
   // the victim's own heading stands in for the pair.
   const float toAttackerAngle =
       victim->GetAngle() - (attacker->GetPosition() - victim->GetPosition()).GetAngle2D();
-  pes::RecordContact(*pesStaminaConstants, &victim->GetStamina(), kInjuryResistance, down,
+  pes::RecordContact(*pesStaminaConstants, &victim->GetStamina(), InjuryResistanceOf(victim->GetPlayerData()), down,
                      victim->GetMovement().GetLength() * 3.6f,
                      attacker->GetMovement().GetLength() * 3.6f,
                      attacker->GetCurrentFunctionType() == e_FunctionType_Sliding,

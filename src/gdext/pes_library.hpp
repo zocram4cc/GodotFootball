@@ -36,6 +36,7 @@
 #include "pes/handseq.hpp"
 #include "rig/clip_pose.hpp"
 #include "pes/vfs.hpp"
+#include "pes/playerdb.hpp"
 #include "rig/rig.hpp"
 
 namespace godot {
@@ -103,6 +104,10 @@ class PesLibrary : public RefCounted {
   // PES 2021's stamina model (docs/re/pes-re-stamina-drain.md).
   const pes::StaminaConstants* stamina_constants() const {
     return staminaConstants_ ? &*staminaConstants_ : nullptr;
+  }
+  // PES 2021's player database (docs/re/pes-re-matchlogic.md 1.2): each player's injury tier and stronger foot.
+  const pes::PlayerDatabase* player_database() const {
+    return playerDatabase_ ? &*playerDatabase_ : nullptr;
   }
   // PES 2021's ball-carrier decision layer (docs/re/pes-re-carrier-ai.md).
   const pes::CarrierConstants* carrier_constants() const {
@@ -191,6 +196,7 @@ class PesLibrary : public RefCounted {
 
  private:
   pes::PesVfs vfs_;
+  std::optional<pes::PlayerDatabase> playerDatabase_;
   std::optional<pesrig::Rig> rig_;
   pes::AppearanceTable appearances_;
   std::optional<std::vector<std::string>> motionNames_;
