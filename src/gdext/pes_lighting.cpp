@@ -228,6 +228,17 @@ bool PesLighting::setup(const Ref<PesLibrary>& library, int stadium_id, int weat
       const pes::SkyIntensities radiance = pes::SkyRadianceScales(s, a, fade);
       skyMat->set_shader_parameter("sun_intensity", float(radiance.sun));
       skyMat->set_shader_parameter("star_intensity", float(radiance.star));
+      // Fox's sky-light SH9 (docs/re/pes-re-lighting.md Part B §5): the span's .atsh row, rendered on the
+      // sky's AT_CUBEMAP pass (pes_sky.gdshader), so Godot's sky ambient is its convolution.
+      skyMat->set_shader_parameter("ambient_scale", float(a.skyLightLuminanceScale));
+      if (atsh) {
+        const pes::Vec3 (*row)[9] = pes::AtshSkySh(*atsh, rain, useHour, useMinute);
+        for (int k = 0; k < 9; ++k) {
+          const pes::Vec3& c = (*row)[k];
+          skyMat->set_shader_parameter(godot::String("ambient_sh9_") + godot::String::num_int64(k),
+                                       Vector3(c.x, c.y, c.z));
+        }
+      }
       skyMat->set_shader_parameter("ground_color",
                                     Vector3(a.groundColor.x, a.groundColor.y, a.groundColor.z));
       Ref<Sky> sky;
