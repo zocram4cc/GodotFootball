@@ -251,6 +251,11 @@ bool PesLighting::setup(const Ref<PesLibrary>& library, int stadium_id, int weat
       // (background_intensity, default 30000 nits) must stay the identity.
       env->set_bg_intensity(1.0f);
       env->set_ambient_source(Environment::AMBIENT_SOURCE_SKY);
+      // ponytail: the ambient energy is daySkyAmbientScale, and the cubemap scale is skyLightLuminanceScale;
+      // neither is decoded. PES's diffuse sky light is SH_SphereMap's cb7 matrices, and their CPU writer is
+      // not found, so the normalisation is open. Bound at the 15:00 span: this energy gives 0.064 of the
+      // sun-lit grass luminance; the candidate PES normalisations give 0.108 to 0.269. Remove when cb7's
+      // writer is decoded.
       env->set_ambient_light_energy(float(a.daySkyAmbientScale));
       // Global height fog (§7.5): density/1000, height scale/1000.
       env->set_fog_enabled(s.globalFogEnabled);
