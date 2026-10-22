@@ -639,3 +639,12 @@ PES game-specific abstractions (OBS values).
 | EV-TI-0019 | throwin.o layout/values (supersedes setpiece-referee §1.3) | Confirmed | deserializer 0x141e6ff10, live object, shipped blob |
 
 > **Orchestrator note 2026-10-13:** §12 open item 2 ("launch velocity never measured") is superseded by the live measurements in §5.3. Ledger row EV-TI-0015's counter is 83 in 10 of 11 observed throw-ins (once 138), not "83 ×5".
+
+## 14. GF port notes (DodgeGate2)
+
+The GF implementation of phases 1, 4 and 5 is described in `docs/ports/pes-port-DodgeGate.md` (sections 3, 4 and 6). In short:
+
+- Phase 1 (pickup): the walk warps the taker's root onto the pickup contact root once it is within 5 m (`PickupContactRoot`). The walk's target stays the predicted ball until then.
+- Phase 4 (lift): a 14-frame root warp onto the carry spot, once the root is within 0.65 m and inside the end-line inset. The yaw-warp to 180 / 0 degrees is not ported.
+- Phase 5 (release): the release waits for the lift (`pieceLifted`). The ball is pinned to the taker's root until the release. That is a stand-in: PES holds it 0.8 m ahead at 1.85 m height (sections 3.2 and 4.1).
+- The carry approach stays at 2 x gap through `FloorVelocity`. A sprint (8 m/s) overshoots the spot and re-awards the throw. The walk level (5 m/s) leaves a released ball outside the touchline and stalls a goal-line throw-in. The writer of PES's desired speed (cmd+0x172) is the open item.
