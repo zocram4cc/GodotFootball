@@ -143,13 +143,14 @@ to the root; read through the GF loader on the install, `ballCm` as `(x, height,
 - **Forward is -z (CONFIRMED from the data).** The contacts of trap clips are in front of the root, and every one lies at
   `z < 0`: -0.10 m for the ground clip, -0.50 m for the chest and head clips. The windows agree: all five sit at `z < 0`.
   A plain `+z` forward would put every trap contact behind the root.
-- **Consequence in the port (measured, then reverted).** The port still passes `z = +forward`, so a ground ball 0.5 m ahead
-  matches no row: the designated loose presser's trap picks were 13,959 `NO CLIP` against 149 found in one DISABLED run.
-  Flipping to the hit-record frame (`z = -forward`) made the trap happen: the trap-window test and the enabled pair stayed
-  green, and the 5-minute repro did not stall. But the DISABLED longest loose episode rose from 589 to 796 ticks, a different
-  episode with the forced man 3.5 m from the ball, so the flip was reverted. The out-of-reach designated man gets no movement
-  command in PES loop mode (`elizacontroller.cpp`, the `!match->PesLoop()` guard in the designated branch). The patch is kept
-  outside the repository until that path is decided.
+- **Consequence in the port (landed).** `pes::TrapBallClipPoint` (pesreceive.cpp) sets `z = -forward`, and `_TrapCommand`
+  uses it. Before the flip a ground ball 0.5 m ahead matched no row: the designated loose presser's trap picks were 13,959
+  `NO CLIP` against 149 found in one DISABLED run. With the flip the trap happens: the trap-window test and the enabled pair
+  stay green, and the 5-minute repro does not stall. The DISABLED longest loose episode rose from 589 to 796 ticks: the trap
+  now fires and exposes the next gap, a designated man beyond the trap reach who gets no movement in PES loop mode
+  (`elizacontroller.cpp`, the `!match->PesLoop()` guard in the designated branch). Pinned by
+  `PesReceiveInstall.AGroundBallAheadIsTrappedByTheGroundRowAndOneBehindIsNot` (red on the old sign, a mutation red, green
+  on the flip).
 - **Origin and axes (caller side, INF in parts).** The picker's point comes from `FUN_140769FE0`: the ball minus the
   anime's position record (the player's ground position, not a bone: INF), then rotated by the body record's angle. The
   rotation is `FUN_1404BCAD0`'s, with the angle negated by `FUN_140581CE0` (multiplier -1.0, `DAT_142588218`) and the table

@@ -504,14 +504,10 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
     // (metres), must lie in a row's window, or there is no trap. The command names the clip by family and motion
     // number, as the dodge and tackle commands do, so the clip the window picked is the clip that plays.
     const Vector3 dir = CastPlayer()->GetDirectionVec();
-    const float dirLength = std::hypot(dir.coords[0], dir.coords[1]);
-    const float fx = dirLength > 0.0f ? dir.coords[0] / dirLength : 1.0f;
-    const float fy = dirLength > 0.0f ? dir.coords[1] / dirLength : 0.0f;
     const Vector3 ballPos = match->GetBall()->Predict(0);
     const Vector3 at = ballPos - CastPlayer()->GetPosition();
-    const pes::ClipPoint ball{(-fy * at.coords[0] + fx * at.coords[1]) / pes::kPlayerClipScale,
-                              ballPos.coords[2] / pes::kPlayerClipScale,
-                              (fx * at.coords[0] + fy * at.coords[1]) / pes::kPlayerClipScale};
+    const pes::ClipPoint ball = pes::TrapBallClipPoint(dir.coords[0], dir.coords[1], at.coords[0], at.coords[1],
+                                                       ballPos.coords[2], pes::kPlayerClipScale);
     const auto hitCm = [this](int clip) {
       const auto& hits = match->GetPesMbinfo().Hits(clip);
       return hits.empty() ? pes::ClipPoint{} : pes::ClipPoint{hits[0].ballX, hits[0].ballY, hits[0].ballZ};

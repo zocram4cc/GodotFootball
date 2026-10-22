@@ -228,6 +228,19 @@ std::optional<int> PickTrapClip(const ReceiveConstants& k, const ClipPoint& ball
   return best;
 }
 
+ClipPoint TrapBallClipPoint(float facingX, float facingY, float aheadX, float aheadY, float height_m, float scale) {
+  const float len = std::hypot(facingX, facingY);
+  const float fx = len > 0.0f ? facingX / len : 1.0f;
+  const float fy = len > 0.0f ? facingY / len : 0.0f;
+  const float forward = fx * aheadX + fy * aheadY;
+  const float lateral = -fy * aheadX + fx * aheadY;
+  // The clip frame's forward is -z (pes-re-trap-windows.md section 9). Every action-7 row's first hit lies in its window
+  // at z < 0 in front of the root: clip 0x547 at (0, 11.6, -10) cm, clip 0x57D at (45, 191, -50) cm. The picker's point is
+  // built by FUN_140769FE0, which rotates the ball by the body record through FUN_1404BCAD0; which record the trap path
+  // rotates by is not traced. Lateral x: sign OPEN (only rows 0x57D and 0x57F depend on it).
+  return ClipPoint{lateral / scale, height_m / scale, -forward / scale};
+}
+
 bool ShotRunsThrough(const ReceiveConstants& c, const ShotThroughInput& in) {
   if (!in.ownTeamShot) return false;
   const float toPostA = HeadingDeg(in.goalX - in.ballX, in.goalHalfWidth - in.ballY);

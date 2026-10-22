@@ -243,8 +243,9 @@ CarrierChange CarrierAfterContact(bool controlTouch, bool toucherHoldsBall, bool
 // when TA+0x11 is set; that flag's caller is not traced.
 CarrierChange CarrierFromTouch(bool touchedThisTick, bool toucherHoldsBall);
 
-// The trap picker's ball point, in the player's clip space (metres, PES's Fox frame): x lateral (right of the body),
-// y height, z forward. The clips' hit points are in cm (HitData records, pes/mbinfo.hpp).
+// The trap picker's ball point, in the player's clip space (metres, PES's Fox frame): x lateral (sign not yet decoded),
+// y height, z backward. A trap clip's contact lies at z < 0 in front of the root in its own hit records (pes-re-trap-
+// windows.md section 9), so forward is -z. The clips' hit points are in cm (HitData records, pes/mbinfo.hpp).
 struct ClipPoint {
   float x = 0.0f, y = 0.0f, z = 0.0f;
 };
@@ -263,4 +264,8 @@ inline constexpr float kPlayerClipScale = 1.0f;
 // record in cm. Nothing is picked when no row's window holds the ball.
 std::optional<int> PickTrapClip(const ReceiveConstants& k, const ClipPoint& ball,
                                 const std::function<ClipPoint(int clip)>& hitCm);
+
+// The trap picker's ball point for a ball at (aheadX, aheadY) from a player facing (facingX, facingY), at height_m: the
+// ball's lateral and forward components on the body's axes, in the clip frame of ClipPoint. scale is kPlayerClipScale.
+ClipPoint TrapBallClipPoint(float facingX, float facingY, float aheadX, float aheadY, float height_m, float scale);
 }  // namespace pes
