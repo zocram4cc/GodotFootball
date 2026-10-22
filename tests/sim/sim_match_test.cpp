@@ -432,9 +432,10 @@ TEST(SimMatch, PesLoopStepsTheTeamTickFromTheStrategy) {
     while (!match.IsGameOver() && (!attacking || !flagsRan) &&
            match.GetMatchMinute() < kSwitchDeadlineMinute) {
       match.Process();
-      if (match.GetMatchPhase() != e_MatchPhase_PreMatch &&
-          data->GetGoalCount(0) >= data->GetGoalCount(1))
-        break;  // no longer trailing
+      // The strategy's input is the scoreline: hold it at 0-3 so a goal in play cannot shrink the deficit the test is about
+      // (on the role-array trajectory the home side scores twice and trails by one, where level 2 is the right answer).
+      data->SetGoalCount(0, 0);
+      data->SetGoalCount(1, kAwayLead);
       const pes::TeamTick tick = match.GetTeam(0)->GetController()->GetTeamTick();
       if (tick.b8c0Frame > 0) flagsRan = (tick.b8a4 >= 4) == tick.b8a2;
       attacking = tick.b8a4 >= 3;

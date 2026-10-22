@@ -598,7 +598,9 @@ TEST(PesRestartDelay, AGoalKickIsReleasedOnThePesLadder) {
   constexpr long kForcedFrame = 110;  // the forced kick on ladder frame 109, read one tick later
   std::optional<unsigned long> checkedStop;
   int goalKicks = 0;
-  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+  // The goal kicks of seed 7's twenty-minute match, wherever the trajectory puts them; three exercise both ladder modes.
+  constexpr int kGoalKicksChecked = 3;
+  RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (!b.active || !b.started || b.desiredSetPiece != e_SetPiece_GoalKick || !b.taker) return;
     if (checkedStop && *checkedStop == b.stopTime) return;
@@ -611,7 +613,7 @@ TEST(PesRestartDelay, AGoalKickIsReleasedOnThePesLadder) {
         std::lround(static_cast<double>(match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
     EXPECT_EQ(framesFromArmed, expected)
         << (withReceiver ? "lofted" : "forced") << " goal kick released off its ladder frame";
-  });
+  }, kTwentyMinuteMaxSimTicks, [&](const Match&) { return goalKicks >= kGoalKicksChecked; }, SEED, false);
   EXPECT_GT(goalKicks, 0) << "no goal kick was released";
 }
 
