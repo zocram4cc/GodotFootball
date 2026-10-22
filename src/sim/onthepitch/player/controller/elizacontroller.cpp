@@ -389,21 +389,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         // 6.1). A mate on the line sends the ball along it, out again, so the nearest mate inside the
         // line is the target. ponytail: PES's receiver search (FUN_142135700) and course test are not
         // ported; the nearest inside mate stands in for them.
-        if (match->PesLoop()) {
-          Player* inside = nullptr;
-          float nearest = 10000.0f;
-          for (const auto& mate : team->GetAllPlayers()) {
-            if (!mate->IsActive() || mate.get() == player ||
-                std::fabs(mate->GetPosition().coords[1]) >= pesFieldHalfWidth)
-              continue;
-            const float d = (mate->GetPosition() - player->GetPosition()).GetLength();
-            if (d < nearest) {
-              nearest = d;
-              inside = mate.get();
-            }
-          }
-          actionCommand.touchInfo.forcedTargetPlayer = inside;
-        }
+        if (match->PesLoop()) actionCommand.touchInfo.forcedTargetPlayer = team->GetController()->ThrowInTargetMate(CastPlayer());
         // Long Throw: hurled towards the box rather than to the nearest man.
         if (PlayerSkills::Has(CastPlayer()->GetPlayerData()->GetSkills(),
                               PlayerSkills::Skill::LongThrow)) {

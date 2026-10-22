@@ -1251,6 +1251,45 @@ bool TeamAIController::PieceTakerArrived() const {
   return pieceLifted;
 }
 
+Player* TeamAIController::ThrowInTargetMate(Player* thrower) const {
+  // PES aims a throw-in at a receiver inside the touchline (docs/re/pes-re-throwin-choreography.md 6.1): the nearest mate
+  // inside the line. ponytail: PES's receiver search (FUN_142135700) and course test are not ported; the nearest mate stands in.
+  Player* inside = nullptr;
+  float nearest = 10000.0f;
+  for (const auto& mate : team->GetAllPlayers()) {
+    if (!mate->IsActive() || mate.get() == thrower || std::fabs(mate->GetPosition().coords[1]) >= pesFieldHalfWidth)
+      continue;
+    const float d = (mate->GetPosition() - thrower->GetPosition()).GetLength();
+    if (d < nearest) {
+      nearest = d;
+      inside = mate.get();
+    }
+  }
+  return inside;
+}
+
+void TeamAIController::PinBallAtRelease() {
+  if (!IsCarryingBall()) return;
+  // PES chooses the carry's release row as the take starts, from the distance to the throw's target (FUN_140792E10, throwin 4.2).
+  if (pieceReleaseRow == 0) {
+    Player* mate = ThrowInTargetMate(taker);
+    const Vector3 to = mate ? mate->GetPosition() : taker->GetPosition();
+    pieceReleaseRow = pes::ThrowInCarryReleaseRow((taker->GetPosition().Get2D() - to.Get2D()).GetLength(),
+                                                  match->GetPesSetPieceTakerConstants().throwInReleaseShort_m);
+  }
+  constexpr float kPhysique = 1.0f;  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0, as the pickup does
+  constexpr bool kMirror = false;    // ponytail: the 000 column; PES's column is the angle class of the throw (FUN_1406de990)
+  const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(pieceReleaseRow);
+  const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+  const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
+  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
+  const Vector3 pos = taker->GetPosition();
+  const Vector3 facing = taker->GetDirectionVec();
+  const float heading = pes::FacingHeadingDeg(pes::Vec3(facing.coords[0], facing.coords[1], facing.coords[2]));
+  const pes::Vec3 hand = pes::HandBallFromRoot(pes::Vec3(pos.coords[0], pos.coords[1], 0.0f), heading, offset);
+  match->GetBall()->ResetSituation(Vector3(hand.x, hand.y, hand.z));
+}
+
 namespace {
 
 // PES's role class of a GF role (docs/re/pes-re-throwin-choreography.md 2.1, INF): 0 GK, 1 CB, 2 SB, 3 DMF, 4 CMF, 5 SMF,
@@ -1298,6 +1337,7 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
   pieceHasLookAt = false;
   pieceWalk = false;
   pieceCarrying = false;
+  pieceReleaseRow = 0;
   pieceWarping = false;
   pieceWarpTicks = 0;
   pieceLifted = false;
