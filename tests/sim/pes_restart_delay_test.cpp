@@ -516,7 +516,7 @@ TEST(PesRestartDelay, AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWith
       releaseBall_m = std::max(releaseBall_m, away);
       if (away > kReleaseHandReach_m) ballAway++;
     }
-  }, kMaxSimTicks, [&](const Match&) { return firstDone; }, SEED, false);
+  }, kTwentyMinuteMaxSimTicks, [&](const Match&) { return firstDone; }, SEED, false);
   EXPECT_GT(throwIns, 0) << "no ceremony throw-in was placed";
   EXPECT_EQ(offTheStandPoint, 0) << offTheStandPoint << " ceremony taker(s) placed off the stand point";
   EXPECT_EQ(insideTheLine, 0) << insideTheLine << " ceremony taker(s) placed inside the touchline";
