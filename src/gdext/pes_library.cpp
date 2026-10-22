@@ -176,6 +176,11 @@ Error PesLibrary::open(const String& root) {
     UtilityFunctions::push_error("PES21 stoppage constants unavailable: ", ToGd(err));
     return ERR_PARSE_ERROR;
   }
+  if (exe) forfeitConstants_ = pes::LoadForfeitConstants(*exe, &err);
+  if (!forfeitConstants_) {
+    UtilityFunctions::push_error("PES21 forfeit constants unavailable: ", ToGd(err));
+    return ERR_PARSE_ERROR;
+  }
   if (exe) restartSpotConstants_ = pes::LoadRestartSpotConstants(*exe, &err);
   if (!restartSpotConstants_) {
     UtilityFunctions::push_error("PES21 restart spot constants unavailable: ", ToGd(err));

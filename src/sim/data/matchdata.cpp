@@ -68,3 +68,12 @@ void MatchData::AddPossessionTime(int teamID, double tick_ms) {
   else if (teamID == 1)
     possession60seconds = std::min(possession60seconds + played_s, 60.0f);
 }
+
+void MatchData::RecordForfeit(int teamID, int score) {
+  forfeited[teamID] = true;
+  const int other = 1 - teamID;
+  goalCount[teamID] = 0;
+  goalCount[other] = forfeited[other] ? 0 : score;
+  // The scorers of a forfeited match are not counted (PES blanks them with the forfeit).
+  std::erase_if(events, [](const Event& e) { return e.kind == Event::Goal || e.kind == Event::OwnGoal; });
+}

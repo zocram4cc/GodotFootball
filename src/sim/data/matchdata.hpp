@@ -26,6 +26,9 @@ public:
   TeamData* GetTeamData(int id) { return teamData[id].get(); }
   int GetGoalCount(int id) { return goalCount[id]; }
   void SetGoalCount(int id, int amount) { goalCount[id] = amount; }
+  // PES's per-side forfeit (FUN_140A23260's result record): see RecordForfeit.
+  bool IsForfeited(int id) const { return forfeited[id]; }
+  void RecordForfeit(int teamID, int score);
   // Advances the possession clock and the debug match clock by one simulation
   // tick (Milestone A1: 1/54 s, not GF's 10 ms).
   void AddPossessionTime(int teamID, double tick_ms);
@@ -767,6 +770,7 @@ protected:
   std::array<std::unique_ptr<TeamData>, 2> teamData;
 
   int goalCount[2];
+  bool forfeited[2] = {false, false};
   int badPass = 0;
   int badPassToOpponent[2] = {0, 0};
   int goalkeeperLost[2] = {0, 0};

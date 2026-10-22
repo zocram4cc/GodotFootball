@@ -222,6 +222,8 @@ class PesClock {
   // The period writer at a whistle (FUN_1404494E0): the record moves to the break or to full time,
   // as PeriodAfterWhistle names.
   void EndPeriod(bool scoresLevel);
+  // PES's period writer for the post-match period (FUN_14102CAD0 with 10, FUN_140447B50 case 6).
+  void SetPeriod(uint32_t period) { record.period = period; }
   bool AddedTimeAnnounced() const { return addedTimeAnnounced; }
 
   // GF's display clock: the game-seconds the match has run, stoppages included.

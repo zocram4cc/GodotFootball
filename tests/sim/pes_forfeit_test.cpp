@@ -1,6 +1,6 @@
 // PES's minimum-players rule and the 3-0 forfeit (docs/re/pes-re-missing-systems.md 2.7, 2.13).
-// The rule's immediates come from PES2021.exe under PES21_ROOT; the install-backed tests skip
-// without it. Matches are real: the synthetic fixture teams, driven in pes_loop mode.
+// The rule's immediates come from PES2021.exe under PES21_ROOT; without an install the tests skip,
+// and with one a missing constant fails. Matches are real: the synthetic fixture teams, pes_loop mode.
 
 #include <gtest/gtest.h>
 
@@ -34,6 +34,8 @@ constexpr unsigned long kNeverSentOff_ms = 1000000000000ul;
 constexpr unsigned long kFirstStoppageWindow_ms = 10ul * 60ul * 1000ul;
 constexpr int kMatchMinutes = 20;
 
+bool HaveInstall() { return std::getenv("PES21_ROOT") != nullptr; }
+
 const pesrig::Rig* SharedRig() {
   static std::optional<pesrig::Rig> rig;
   static bool tried = false;
@@ -48,17 +50,18 @@ const pesrig::Rig* SharedRig() {
   return rig ? &*rig : nullptr;
 }
 
-// The install's forfeit immediates, or nullopt without an install.
-std::optional<pes::ForfeitConstants> InstalledForfeitConstants() {
-  const char* root = std::getenv("PES21_ROOT");
-  if (!root) return std::nullopt;
+// The install's forfeit immediates (the caller has checked that an install is present).
+std::optional<pes::ForfeitConstants> InstalledForfeitConstants(std::string* error) {
   std::string err;
-  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
-  if (!exe) return std::nullopt;
-  return pes::LoadForfeitConstants(*exe, &err);
+  auto exe = pes::PeImage::Open(std::string(std::getenv("PES21_ROOT")) + "/PES2021.exe", &err);
+  if (!exe) {
+    *error = err;
+    return std::nullopt;
+  }
+  return pes::LoadForfeitConstants(*exe, error);
 }
 
-// A real match from the fixture, every PES constant from the install. Null without one.
+// A real match from the fixture, every PES constant from the install. Null when one is missing.
 std::unique_ptr<Match> BuildMatch() {
   static std::unique_ptr<blunted::Database> held;  // the engine reads a process-wide database
   held = std::make_unique<blunted::Database>();
@@ -78,9 +81,10 @@ std::unique_ptr<Match> BuildMatch() {
   return std::make_unique<Match>(new MatchData(HOME_TEAM, AWAY_TEAM), setup, config);
 }
 
-// Kicks the match off and runs it until play is live.
+// Kicks the match off and runs it until play is live with no set piece in progress, so that
+// the restart's taker is on the pitch and the next stoppage is the first one a test sees.
 void PlayUntilLive(Match& match) {
-  for (int i = 0; i < 100000 && !match.IsInPlay(); ++i) match.Process();
+  for (int i = 0; i < 100000 && !(match.IsInPlay() && !match.IsInSetPiece()); ++i) match.Process();
 }
 
 // Deactivates `team`'s outfield players (never the keeper, never `keep`) until `remaining` stay on the pitch.
@@ -124,8 +128,10 @@ TEST(PesForfeitRule, ASideIsShortOnlyBelowTheMinimum) {
 // --- the forfeit's immediates and the per-player test (install) ---
 
 TEST(PesForfeitInstall, TheOffenceIsTheExactSentOffStateWithNoInjuryMarker) {
-  const auto k = InstalledForfeitConstants();
-  if (!k) GTEST_SKIP() << "PES21_ROOT not set: the forfeit's values are PES's";
+  if (!HaveInstall()) GTEST_SKIP() << "PES21_ROOT not set: the forfeit's values are PES's";
+  std::string err;
+  const auto k = InstalledForfeitConstants(&err);
+  ASSERT_TRUE(k) << err;
   // player+0x0c == 4 and player+0x18 == 0 (FUN_140A23260, 0x140A2330E and 0x140A23308).
   EXPECT_TRUE(pes::forfeit::IsForfeitOffence(*k, k->sentOffState, 0));
   // A marker set on player+0x18 (an injury: 1 live, §2.12) clears the offence.
@@ -136,8 +142,10 @@ TEST(PesForfeitInstall, TheOffenceIsTheExactSentOffStateWithNoInjuryMarker) {
 }
 
 TEST(PesForfeitInstall, ThePostMatchPeriodIsTheOneTheWhistleWrites) {
-  const auto k = InstalledForfeitConstants();
-  if (!k) GTEST_SKIP() << "PES21_ROOT not set: the forfeit's values are PES's";
+  if (!HaveInstall()) GTEST_SKIP() << "PES21_ROOT not set: the forfeit's values are PES's";
+  std::string err;
+  const auto k = InstalledForfeitConstants(&err);
+  ASSERT_TRUE(k) << err;
   // The min-players writer (0x140447EF8) and the full-time writer agree on the post-match period.
   EXPECT_EQ(static_cast<int>(pes::PeriodAfterWhistle(3, false)), k->postMatchPeriod);
 }
@@ -146,9 +154,12 @@ TEST(PesForfeitInstall, ThePostMatchPeriodIsTheOneTheWhistleWrites) {
 
 // A side one short of the minimum: the match ends at its next stoppage, in period 10, with play stopped.
 TEST(PesForfeitMatch, ASideShortOfTheMinimumEndsTheMatchAtItsNextStoppage) {
-  const auto k = InstalledForfeitConstants();
+  if (!HaveInstall()) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
+  std::string err;
+  const auto k = InstalledForfeitConstants(&err);
+  ASSERT_TRUE(k) << err;
   auto match = BuildMatch();
-  if (!k || !match) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
+  ASSERT_TRUE(match) << "a match constant or the rig is missing from the install";
   PlayUntilLive(*match);
   ShrinkTeamTo(*match, HOME, pes::forfeit::kPesMinimumPlayers - 1, nullptr);
   RunToFullTimeOrWindow(*match);
@@ -159,8 +170,9 @@ TEST(PesForfeitMatch, ASideShortOfTheMinimumEndsTheMatchAtItsNextStoppage) {
 
 // Exactly the minimum keeps the match going: the rule is "fewer than", not "at most".
 TEST(PesForfeitMatch, ASideAtTheMinimumKeepsPlaying) {
+  if (!HaveInstall()) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
   auto match = BuildMatch();
-  if (!match) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
+  ASSERT_TRUE(match) << "a match constant or the rig is missing from the install";
   PlayUntilLive(*match);
   ShrinkTeamTo(*match, HOME, pes::forfeit::kPesMinimumPlayers, nullptr);
   RunToFullTimeOrWindow(*match);
@@ -170,9 +182,12 @@ TEST(PesForfeitMatch, ASideAtTheMinimumKeepsPlaying) {
 // The offender's yellow-then-red (state 4) and no injury marker: the side is written 0-3 and the
 // scorers on the record are dropped.
 TEST(PesForfeitMatch, TheOffendingSideLosesThreeNilAndItsScorersAreNotCounted) {
-  const auto k = InstalledForfeitConstants();
+  if (!HaveInstall()) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
+  std::string err;
+  const auto k = InstalledForfeitConstants(&err);
+  ASSERT_TRUE(k) << err;
   auto match = BuildMatch();
-  if (!k || !match) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
+  ASSERT_TRUE(match) << "a match constant or the rig is missing from the install";
   PlayUntilLive(*match);
   Player* offender = FirstOutfielder(*match, HOME);
   ASSERT_TRUE(offender);
@@ -199,9 +214,12 @@ TEST(PesForfeitMatch, TheOffendingSideLosesThreeNilAndItsScorersAreNotCounted) {
 
 // An injured player (a marker on player+0x18) with the sent-off state is not the offence.
 TEST(PesForfeitMatch, AnInjuredSentOffPlayerDoesNotForfeitTheSide) {
-  const auto k = InstalledForfeitConstants();
+  if (!HaveInstall()) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
+  std::string err;
+  const auto k = InstalledForfeitConstants(&err);
+  ASSERT_TRUE(k) << err;
   auto match = BuildMatch();
-  if (!k || !match) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
+  ASSERT_TRUE(match) << "a match constant or the rig is missing from the install";
   PlayUntilLive(*match);
   Player* offender = FirstOutfielder(*match, HOME);
   ASSERT_TRUE(offender);
