@@ -20,6 +20,7 @@ constexpr uint64_t PHYSIQUE_LOW_VA = 0x1425ddf78;      // 0.9166: FUN_1406E8CC0'
 constexpr uint64_t PHYSIQUE_HIGH_VA = 0x1425ddf80;     // 1.0833: and high
 constexpr uint64_t HIT_TICK_DIVISOR_VA = 0x14259a764;  // 60: a hit's tick divisor (FUN_1406B03D0)
 constexpr uint64_t THROW_IN_PICKUP_REACH_VA = 0x14259222c;  // 5.0: the throw-in pickup clip's reach (choreography 3.2)
+constexpr uint64_t THROW_IN_RELEASE_SHORT_VA = 0x1425c5948;  // 13.0: the carry's release row switches to the mid row beyond it
 
 bool ReadFloat(const PeImage& exe, uint64_t va, float* out) {
   return exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out));
@@ -39,7 +40,8 @@ std::optional<SetPieceTakerConstants> LoadSetPieceTakerConstants(const PesVfs& v
         std::pair{HALF_SECOND_VA, &k.halfSecond_s}, std::pair{TACTICS_GATE_VA, &k.goalKickTacticsGate},
         std::pair{CENTIMETRE_VA, &k.centimetre_m}, std::pair{PHYSIQUE_LOW_VA, &k.physiqueLow},
         std::pair{PHYSIQUE_HIGH_VA, &k.physiqueHigh}, std::pair{HIT_TICK_DIVISOR_VA, &k.hitTickDivisor},
-        std::pair{THROW_IN_PICKUP_REACH_VA, &k.throwInPickupReach_m}}) {
+        std::pair{THROW_IN_PICKUP_REACH_VA, &k.throwInPickupReach_m},
+        std::pair{THROW_IN_RELEASE_SHORT_VA, &k.throwInReleaseShort_m}}) {
     if (!ReadFloat(exe, va, out)) {
       char buf[32];
       std::snprintf(buf, sizeof buf, "%#llx", static_cast<unsigned long long>(va));
@@ -62,6 +64,10 @@ std::optional<SetPieceTakerConstants> LoadSetPieceTakerConstants(const PesVfs& v
   // loaders, which do read constant_*.bin records out of the install.
   (void)vfs;
   return k;
+}
+
+int ThrowInCarryReleaseRow(float distance_m, float shortReach_m) {
+  return distance_m > shortReach_m ? kThrowInReleaseRunMid : kThrowInReleaseRunShort;
 }
 
 }  // namespace pes

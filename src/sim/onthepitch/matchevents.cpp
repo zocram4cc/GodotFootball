@@ -77,12 +77,16 @@ void Match::ProcessPesEventStage() {
   const Vector3 ballNow = GetBall()->Predict(0);
   const Vector3 ballNext = GetBall()->Predict(kNextRecordMs);
 
-  // K=10 (docs/re/pes-re-out-side.md): fires when the pitch-zone code changes. The code is 0 while the restart is
-  // armed (PES's p+0x298 == 3): awarded and not yet taken. The gate opens when the taker's kick action begins
-  // (pes-re-A5Judge.md 9.4; INF on the exact frame), while PES's in-play flag (MI+0x116C) stays 3 until the release
-  // event (pes-re-out-side.md 7.3: 116C == 3 with a nonzero code), so a ball already over the line at the release
-  // raises nothing (pes-re-throwin-choreography.md 4.2). Else the classifier of the ball. The judge reads the event
-  // one tick later: the code leads the judge state by one frame.
+  // K=10 (docs/re/pes-re-out-side.md): fires when the pitch-zone code changes. The code is the record's payload word
+  // (FUN_140a17810), and the judge acts only on an out-of-play code, bit 0x2 (pes-re-A5Judge.md 1.4). The code is 0
+  // while the restart holds the ball (PES's p+0x298 == 3, out-side.md 3); GF opens the gate at its take start, the
+  // referee's release (buffer.started). The gate's direction is not established: out-side.md 7 item 3 marks what
+  // p+0x298 == 3 means as not established, and its live data show 116C == 3 with a nonzero code (out-side.md 7.3).
+  // ponytail: the exit frame of p+0x298 is open. The arm is FUN_1408722c0 (writes 3), called from FUN_140425a90 at
+  // 0x140425c16 and 0x140425d7a; the exits are FUN_140870a40 (0x14042583d, writes 1 or 2) and FUN_140872210 (0x140426316,
+  // writes 2). Decode the exit condition there and drop the take-start stand-in. An event raised during the take is read
+  // while the judge is closed (IsInSetPiece). Else the classifier of the ball. The judge reads the event one tick later:
+  // the code leads the judge state by one frame.
   if (PesLoop()) {
     pesDetectors.outConsumable = pesDetectors.outRaised;
     pesDetectors.outRaised = false;
@@ -91,12 +95,13 @@ void Match::ProcessPesEventStage() {
                      ? 0
                      : pes::OutOfPlayCode(ballNow.coords[0], ballNow.coords[1],
                                           GetPesBallConstants().image.ballRadius);
+    outIn.state = kStateWord;
     outIn.frame = frame;
     outIn.stored = pesDetectors.outCode;
     pes::EventRecord outRec;
     if (pes::DetectOutOfPlay(&outIn, &outRec)) {
       pesEvents.Route(pesEventRings, outRec);
-      pesDetectors.outRaised = true;
+      pesDetectors.outRaised = pes::JudgeActsOnOutOfPlay(outRec);
     }
     pesDetectors.outCode = outIn.stored;
   }

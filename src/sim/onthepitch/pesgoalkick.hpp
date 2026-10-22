@@ -100,6 +100,10 @@ pes::Vec3 PlacerLookPoint(const pes::Vec3& stand, float headingDeg);
 // clip's ball place in Fox space (ClipOffsetMetres).
 pes::Vec3 PickupContactRoot(const pes::Vec3& ball, float headingDeg, const pes::Vec3& offsetFox_m);
 
+// The ball in the taker's hand at the release (PES's release key, FUN_140792E10, pes-re-throwin-choreography.md 4.2): the
+// clip's ball place in Fox space, turned by the heading, is ahead of the root. The inverse of PickupContactRoot, GF space.
+pes::Vec3 HandBallFromRoot(const pes::Vec3& root, float headingDeg, const pes::Vec3& offsetFox_m);
+
 // The PES heading (0 is +Z, 90 is +X) of a GF ground direction: a body's facing yaw.
 float FacingHeadingDeg(const pes::Vec3& gfDirection);
 

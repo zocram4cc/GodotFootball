@@ -715,6 +715,9 @@ void Referee::Process() {
       if (match->GetMatchPhase() == e_MatchPhase_PreMatch) {
         match->SetMatchPhase(e_MatchPhase_1stHalf);
       }
+    } else if (match->PesLoop() && buffer.desiredSetPiece == e_SetPiece_ThrowIn && buffer.started) {
+      // PES holds the ball in the taker's hand until the release (FUN_140792E10; throwin 4.2). The take pins it there.
+      match->GetTeam(buffer.teamID)->GetController()->PinBallAtRelease();
     }
   }
 
