@@ -39,6 +39,7 @@
 #include "pesdefshape.hpp"
 #include "teaminstructions.hpp"
 #include "pesteamconcepts.hpp"
+#include "pesteamtick.hpp"
 #include "pespress.hpp"
 
 class Match;
@@ -179,6 +180,8 @@ public:
   // PES's role arrays (pesroles.hpp): B holds each slot's role class, the value every class
   // reader uses; A is the stamina-sub class. Setup and the tick's head and tail write them.
   int RoleClassOfSlot(int slot) const;
+  // PES's designation publisher (FUN_14051E350, team tick step 27b): the side's record, rebuilt each tick.
+  void UpdatePesDesignation();
   void SetUpRoleArrays();
   void WriteRoleArrays(bool head);
   // The B swap pair (T+0x89D4/0x89D8). No GF event sets it yet: the PES writer is not decoded.
@@ -211,6 +214,9 @@ public:
   // Every team tick, dead balls included: the decider moves the strategy while
   // the ball is dead and the attack level follows it once play resumes.
   void UpdateStrategy();
+  // PES's per-tick team words (pesteamtick.hpp): the attack level T+0xB8A4,
+  // its flags and the restart word, stepped every team tick on the PES path.
+  const pes::TeamTick& GetTeamTick() const { return teamTick; }
 
   // PES's off-ball run or designated-supporter target for this player, if any
   // (pes-re-off-ball.md 1, 4.1).
@@ -302,6 +308,10 @@ protected:
   // generator.
   pes::StrategyState strategy;
   std::optional<pes::Random> strategyRng;
+  // PES's per-tick team words (pesteamtick.hpp), stepped in UpdateStrategy on
+  // the PES path. Last tick's latch for the restart word's flip test.
+  pes::TeamTick teamTick;
+  bool lastTickPossession = false;
 
   float offensivenessBias;
 
@@ -372,6 +382,9 @@ protected:
   void ProcessRunManager(Player* carrier);
   pes::offball::RunWorld BuildRunWorld(std::array<std::vector<Player*>, 2>* ids) const;
   void ProcessDesignatedSupporter(Player* carrier);
+  // The men FUN_14051B8B0 places in the box, in placement order (the PES path of the corner box).
+  std::vector<Player*> PesBoxMen(int boxCount);
+  pes::designation::DesignationRecord pesDesignation{};
   std::map<const Player*, RunRecord> runs;
   long lastRunFrame = -1;
   Player* designatedSupporter = nullptr;

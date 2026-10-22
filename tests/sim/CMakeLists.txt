@@ -90,7 +90,6 @@ target_link_libraries(pes_restart_delay_test PRIVATE gfsim pesfmt GTest::gtest_m
 target_compile_definitions(pes_restart_delay_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_restart_delay_test PROPERTIES TIMEOUT 1800)
 
-
 add_executable(pes_random_test pes_random_test.cpp)
 target_link_libraries(pes_random_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_random_test)
@@ -206,6 +205,10 @@ add_executable(pes_forward_test pes_forward_test.cpp)
 target_link_libraries(pes_forward_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_forward_test)
 
+add_executable(pes_team_tick_test pes_team_tick_test.cpp)
+target_link_libraries(pes_team_tick_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_team_tick_test)
+
 add_executable(sim_heading_test sim_heading_test.cpp)
 target_link_libraries(sim_heading_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(sim_heading_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -228,3 +231,7 @@ gtest_discover_tests(pes_lane_test PROPERTIES TIMEOUT 1800)
 add_executable(penalty_shootout_aim_test penalty_shootout_aim_test.cpp)
 target_link_libraries(penalty_shootout_aim_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(penalty_shootout_aim_test)
+
+add_executable(pes_designation_test pes_designation_test.cpp)
+target_link_libraries(pes_designation_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_designation_test)

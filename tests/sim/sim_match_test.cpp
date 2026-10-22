@@ -20,6 +20,7 @@
 #include "onthepitch/pesstoppage.hpp"
 #include "onthepitch/pesrandom.hpp"
 #include "onthepitch/pesclock.hpp"
+#include "onthepitch/pesteamtick.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
 #include "rig/rig.hpp"
@@ -400,6 +401,48 @@ TEST(SimMatch, AIManagerSwitchGovernsTactics) {
   REQUIRE_RIG();
   EXPECT_TRUE(EverAttacksWhileTrailing(true));
   EXPECT_FALSE(EverAttacksWhileTrailing(false));
+}
+// On the PES path (pes_loop) the team's attack level is the per-tick struct
+// (pesteamtick.hpp), stepped every team tick from the strategy: trailing by
+// three, the CPU side must reach level 3+ from the second half's switch
+// minute, and WriteAttackFlags must have run (level 4 sets B8A2).
+TEST(SimMatch, PesLoopStepsTheTeamTickFromTheStrategy) {
+  REQUIRE_RIG();
+  blunted::Database db;
+  EXPECT_TRUE(db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql"));
+  SetDB(&db);
+  MatchSetup setup;
+  setup.homeTeamDbId = HOME_TEAM;
+  setup.awayTeamDbId = AWAY_TEAM;
+  setup.seed = SEED;
+  setup.durationMinutes = 1;
+  setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
+  setup.rig = SharedRig();
+  bool attacking = false;
+  bool flagsRan = false;
+  {
+    MatchData* data = new MatchData(HOME_TEAM, AWAY_TEAM);
+    pestest::FillMissingPesConstants(&setup);
+    Properties config;
+    config.SetBool("pes_loop", true);
+    Match match(data, setup, config);
+    constexpr int kAwayLead = 3;
+    data->SetGoalCount(1, kAwayLead);
+    constexpr int kSwitchDeadlineMinute = 70;
+    while (!match.IsGameOver() && (!attacking || !flagsRan) &&
+           match.GetMatchMinute() < kSwitchDeadlineMinute) {
+      match.Process();
+      if (match.GetMatchPhase() != e_MatchPhase_PreMatch &&
+          data->GetGoalCount(0) >= data->GetGoalCount(1))
+        break;  // no longer trailing
+      const pes::TeamTick tick = match.GetTeam(0)->GetController()->GetTeamTick();
+      if (tick.b8c0Frame > 0) flagsRan = (tick.b8a4 >= 4) == tick.b8a2;
+      attacking = tick.b8a4 >= 3;
+    }
+    EXPECT_TRUE(attacking) << "level never left 2 while trailing 0-3";
+    EXPECT_TRUE(flagsRan) << "B8A2 never matched level >= 4 after a drift";
+  }
+  SetDB(nullptr);
 }
 
 // The offside port's end-to-end effect (docs/re/pes-re-offside-port.md 4): a

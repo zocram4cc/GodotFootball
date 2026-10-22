@@ -415,9 +415,9 @@ void TeamAIController::CalculateDefensiveShape() {
                              : 0.0f;
   }
 
-  // ponytail: PES's attack level `T+0xb8a4` has no GF counterpart; PES's live
-  // teams both sat on level 2, which is what the line ramp uses.
-  const int attackLevel = 2;
+  // PES's attack level T+0xB8A4: the per-tick struct on the PES path, level 2
+  // (PES's live value for both teams) off it.
+  const int attackLevel = match->PesLoop() ? teamTick.b8a4 : 2;
   // The team sheet's own bytes (tactics 1, 4): Defensive Style, Defensive Line,
   // Compactness, and Pressuring = Conservative, which gives the marker 2 m more
   // room (FUN_140623750).
@@ -433,7 +433,8 @@ void TeamAIController::CalculateDefensiveShape() {
 
   float ownFrameLine =
       pes::DefensiveLineHeight(k, field, facts, lineSlider, style, attackLevel, match->IsInPlay(),
-                               carrierIsOpponent, previousLineHeight);
+                               carrierIsOpponent, previousLineHeight,
+                               match->PesLoop() ? teamTick.b8a3 : false);
 
   // FUN_1405efbd0's catch-up: the back line steps a quarter of the gap to the
   // midfield band upfield when the midfield has been caught upfield of it.
@@ -1313,8 +1314,13 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
 
   if (takerTeamID == -1)
     assert(setPieceType == e_SetPiece_None);
-  if (setPieceType == e_SetPiece_None)
+  if (setPieceType == e_SetPiece_None) {
+    // No restart pending: the kicker committed for the last one is released with it. The
+    // stand-still branch reads "our kick" from GetPieceTaker (elizacontroller), so a stale
+    // keeper here made the side that did not take a later restart skip its walk-out.
+    taker = 0;
     return;
+  }
 
   Match* match = team->GetMatch();
   const Vector3 ballPos = match->GetBall()->Predict(0).Get2D();
@@ -1328,8 +1334,10 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
   // that team attacks in - PES's `dir` (choreography §2).
   const int restartingSide = takerTeam->GetSide();
   const int dir = -restartingSide;
-  // PES's attack level (choreography 11.6) is the team's mentality rung.
-  const int attackLevel = pes::AttackLevel((int)GetInstructions().mentality);
+  // PES's attack level T+0xB8A4 (choreography 11.6): the per-tick struct on the
+  // PES path, the mentality rung off it.
+  const int attackLevel =
+      match->PesLoop() ? teamTick.b8a4 : pes::AttackLevel((int)GetInstructions().mentality);
 
   std::vector<Player*> players;
   team->GetActivePlayers(players);
@@ -1492,11 +1500,13 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
           }
         }
       }
-      // The attacking side's men in the box: 4 + min(attack level, 2)
-      // (FUN_1404f6680). Who they are is PES's own ranking, which is the same
-      // aerial score with the defenders demoted.
+      // The attacking side's men in the box. PES path: the men FUN_14051B8B0 places in stages one and
+      // two, in placement order, so the box rank is PES's. Switch-off keeps GF's stand-in: the top men
+      // by the same aerial score.
       std::vector<Player*> boxAttackers;
-      if (isTakerTeam) {
+      if (isTakerTeam && match->PesLoop()) {
+        boxAttackers = PesBoxMen(pes::BoxAttackerCount(attackLevel, spc));
+      } else if (isTakerTeam) {
         std::vector<Player*> outfield = players;
         std::sort(outfield.begin(), outfield.end(), [&aerial](Player* a, Player* b) {
           return aerial(a) > aerial(b);
@@ -2156,7 +2166,9 @@ pes::DefenceConceptInput TeamAIController::DefenceInput() {
   // FUN_140a55d40(ball, side, 2): the opponents own the ball.
   in.opponentsHoldBall = retainer ? retainer->GetTeam() != team : oppTeamHasPossession;
   in.keeperHolds = retainer && retainer->GetFormationEntry().role == e_PlayerRole_GK;
-  in.attackLevelZero = instructions.mentality == TeamInstructions::e_Mentality_AllOutDefence;
+  in.attackLevelZero = match->PesLoop()
+                           ? teamTick.b8a3
+                           : instructions.mentality == TeamInstructions::e_Mentality_AllOutDefence;
   if (retainer && retainer->GetTeam() != team) {
     // Anime 8 LONG_PASS: GF's long and high pass functions.
     const e_FunctionType f = retainer->GetCurrentFunctionType();
@@ -2491,9 +2503,29 @@ void TeamAIController::UpdateTactics() {
 // pes::AttackLevel), so every reader of the mentality sees PES's level.
 void TeamAIController::UpdateStrategy() {
   if (!match->AIManagerRunsTeam(team->GetID())) return;
-  if (match->IsInPlay() && !match->IsInSetPiece()) {
-    instructions.mentality =
-        static_cast<TeamInstructions::e_Mentality>(pes::StrategyAttackLevel(strategy.strategy));
+  // PES path: the per-tick team words (pesteamtick.hpp) step every team tick -
+  // the drift (FUN_1404F8350), the flags (0x1404F6E1C-58), the restart word
+  // (0x1404F6F91) - and the strategy decider below moves the strategy on dead
+  // balls underneath them. Off the path the level is the mentality rung.
+  const bool pesPath = match->PesLoop();
+  const bool inPlay = match->IsInPlay() && !match->IsInSetPiece();
+  if (pesPath) {
+    // ponytail: T+0x210 (the manual/target word) has no GF counterpart and no
+    // decoded in-match writer (tactics §3 O4); balanced stands in, so the
+    // manual arm never fires until the writer lands.
+    constexpr int kManualBalanced = 2;
+    pes::DriftAttackLevel(&teamTick, strategy.strategy, kManualBalanced, inPlay,
+                           match->GetPesFrame());
+    pes::WriteAttackFlags(&teamTick);
+    const bool latch = team->IsPesPossession();
+    pes::WriteRestartWord(&teamTick, inPlay, latch != lastTickPossession);
+    lastTickPossession = latch;
+  }
+  if (inPlay) {
+    if (!pesPath) {
+      instructions.mentality = static_cast<TeamInstructions::e_Mentality>(
+          pes::StrategyAttackLevel(strategy.strategy));
+    }
     return;
   }
   pes::StrategyInputs in;
@@ -2742,6 +2774,52 @@ int TeamAIController::RoleClassOfSlot(int slot) const {
   return roles.b[slot];
 }
 
+void TeamAIController::UpdatePesDesignation() {
+  // The lateral key of each slot is the team-frame lateral of its formation point. ponytail: PES's key
+  // is the slot-point row's f2 (FUN_140A40CA0 reads it raw; FUN_1404A8620 copies it from the sheet
+  // triple FUN_1408C50E0(sheet, slot, 0, 3)); GF's adapted formation point stands in for that triple.
+  const std::vector<std::unique_ptr<Player>>& all = team->GetAllPlayers();
+  std::array<float, pes::designation::kSideSlots> lateral{};
+  for (int slot = 0; slot < pes::designation::kSideSlots; ++slot) {
+    const Vector3 point = GetAdaptedFormationPosition(all[slot].get(), false);
+    lateral[slot] = pes::designation::TeamFrameLateral(team->GetSide(), point.coords[1]);
+  }
+  pesDesignation = pes::designation::Publish(
+      team->GetID(), roles.b, lateral,
+      team->GetMatch()->GetPesTeamConceptConstants().designation.order);
+}
+
+std::vector<Player*> TeamAIController::PesBoxMen(int boxCount) {
+  // FUN_140A64030(slot, 0xF): the bit-15 style (Extra Frontman) on the man, and his class's compat row.
+  constexpr int kExtraFrontmanBit = 15;
+  Match* match = team->GetMatch();
+  const pes::designation::Constants& designation = match->GetPesTeamConceptConstants().designation;
+  const pes::style::Compat& compat = match->GetPesOffBallConstants().styleCompat;
+  const std::vector<std::unique_ptr<Player>>& all = team->GetAllPlayers();
+  pes::designation::OrdinalInput in;
+  in.side = team->GetID();
+  for (int slot = 0; slot < pes::designation::kSideSlots; ++slot) {
+    Player* player = all[slot].get();
+    auto* data = player->GetPlayerData();
+    in.onPitch[slot] = player->IsActive();
+    in.classB[slot] = RoleClassOfSlot(slot);
+    in.aerial[slot] = data->GetHeight() + player->GetStat("physical_jump") +
+                      player->GetStat("technical_header");
+    in.extraFrontman[slot] = pes::style::Gate(compat, in.classB[slot],
+                                              pes::style::StyleWord(data->GetPlayingStyle()),
+                                              kExtraFrontmanBit);
+    if (in.onPitch[slot]) ++in.eligibleCount;
+  }
+  in.boxCount = boxCount;
+  in.list = &pesDesignation;
+  in.lowRank = designation.lowRank;
+  in.highClassBonus = designation.highClassBonus;
+  const pes::designation::OrdinalFill fill = pes::designation::FillOrdinals(in);
+  std::vector<Player*> men;
+  for (int i = 0; i < fill.placedCount; ++i) men.push_back(all[fill.placed[i]].get());
+  return men;
+}
+
 // ponytail: the swap pair T+0x89D4/0x89D8 has no decoded writer and no GF event supplies one, so
 // GF never swaps B. The writer of that pair removes this stand-in.
 void TeamAIController::RequestRoleSwap(int a, int b) { roleSwap = std::make_pair(a, b); }
@@ -2889,7 +2967,7 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   // Select pass. Overlap (registered first) and the selectors after Chance are
   // not ported (report: pes-re-off-ball-port.md); Chance is the only one.
   if (!openPlay || !carrier) return;
-  const int level = static_cast<int>(GetInstructions().mentality);
+  const int level = match->PesLoop() ? teamTick.b8a4 : static_cast<int>(GetInstructions().mentality);
   // Instruction 6 (TIKI_TAKA): GF carries no advanced instructions (their
   // in-match writer is not found, teaminstructions.hpp), so it is never set.
   constexpr bool tikiTaka = false;

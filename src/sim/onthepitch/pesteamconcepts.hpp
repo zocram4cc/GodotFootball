@@ -22,6 +22,7 @@
 #include "base/math/vector3.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
+#include "onthepitch/pesdesignation.hpp"
 
 namespace pes {
 
@@ -173,6 +174,9 @@ struct TeamConceptConstants {
   int defaultSlotTarget = 0;
   // FUN_1408C51F0's class map, read from the install (pesroles.cpp): registered role 0..12 -> class 0..9.
   std::array<int, kSheetRoleBound> roleClassOfRegistered{};
+  // The designation publisher's order table and the ordinal fill's rank constants, read from the
+  // install (pesdesignation.hpp: DAT_142643596, DAT_14259D674, DAT_14256AE34).
+  pes::designation::Constants designation{};
   // team/subConcept.json (constant_team.bin subConcept.o): an id <= 0 is skipped.
   std::array<bool, kConceptCount> enabled{};
   float endTestAfter_s = 0;  // 0.1 (0x142588200): slot 3 runs once a concept is older
