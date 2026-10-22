@@ -1,6 +1,7 @@
 # PES 2021 — the missing referee / injury systems: DOGSO, the abandon rule, injury resistance (and the two referee negatives)
 
 > **Main audit 22-10-26:** K11 SOLVED and Main-audited at the bytes: FUN_140a23260: `0x140a23279 cmp [r12+0x1168],0xa` (period 10), `0x140a232c6 cmp byte [rbx+r12+0x1748],0` (on the pitch), `0x140a23308 cmp [rax+0x14],0` (no replacement), `0x140a2330e cmp [rax+8],4` (sent off), `0x140a23322 mov byte [rax+0x1b70],1` (forfeit flag), `0x140a23329 mov dword [rax+0x1b74],3` (the 3): match. The owner's live evidence (endless matches voided 3-0, subs depleted, clock --:--, no scorers) matches. The earlier "dead code" claim is withdrawn. DOGSO and injury resistance found; no handball or time-wasting rule exists.
+> **Main note, round 2 (MissingRE2):** period 10 is post-match (the period table in §2.9a); the minimum-players rule is FUN_140447B50 case 6: a side with fewer on the pitch than E+0x17 (live: 7; `cmp al,[rdx+0x17]` at 0x140447E79) gets period 10 at the next stoppage (through the setter call `call 0x14102cad0` at 0x140447F0F; Main-checked: a call, not a direct store). player+0x18 is an injury marker, not a replacement count (corrects round 1). A second forfeit writer FUN_140A23380 exists.
 
 Scope: the three inventory rows still marked "missing" in
 `docs/plans/pes-inventory-trackA.md` (**K9 DOGSO**, **K11 minimum-players
@@ -31,7 +32,8 @@ displacement finder), `rawscan.py` (raw byte-pattern scanner),
 |---|---|---|
 | **K9 DOGSO** | **CONFIRMED** | `DOGSO(A,B) = dir(A)·spot.x > dir(A)·MA.backLine[team(B)]` **and** `\|spot.z\| < F[7]` (20.12 m). No distance-to-goal test, no ball-control test, no "defenders between" count. |
 | **K9 card** | **CONFIRMED** | A DOGSO makes a sub-kind-1 tackle a **straight red** (level 4). In the box: a **non-DOGSO** yellow/red is dropped to a plain foul (level 1); a **DOGSO red** is lowered to a **yellow** (level 3) — the double-jeopardy rule. A DOGSO also adds **+30** foul points. |
-| **K11 abandon** | **CONFIRMED — the writer and the condition are found** | The 3-0 forfeit is written by **`FUN_140a23260`** (`0x140a23279`…`0x140a23329`): **in period 10**, if any player **on the pitch** (`MI+0x1748`) has **`player+0x0c == 4`** (sent off) **and `player+0x18 == 0`** (no replacement available), the offending team's result record gets **`+0x1b70 = 1`** (forfeit flag) and **`+0x1b74 = 3`** — the 3-0. The clock and the scorers are blanked by the same result path. §2.7–§2.10. |
+| **K11 abandon** | **CONFIRMED: the minimum-players rule reaches period 10 without the clock; threshold `E+0x17` = 7 (live)** | `FUN_140447b50` case 6 (§2.13) counts each side's on-pitch players (`FUN_140a3bfc0`). A side under `E+0x17` gets period 10 (`DRV+0x2790 := 10`), restart 7 and stop reason 2, and is named in `DRV+0x2aa8`. The endless patch blocks only the clock gate, so an endless match reaches post-match (§2.9a). The 3-0 is written by `FUN_140a23260` (period 10; on-pitch `player+0x0c == 4` and `player+0x18 == 0`) or by `FUN_140a23380` (any period; score = `player+0x20`). Which one fired in the owner's runs is OPEN. |
+| **Live gag (21-10-26)** | **Forfeit compare patched in the running PES: a side is short only with 0 players on the pitch (owner request; code patch, not the byte).** | §2.14–§2.15. The threshold byte `E+0x17` is no longer read by the forfeit; it stays at 7 (stock), so the other readers keep stock behaviour. Revert: `tools/dev/pes_forfeit_patch.py <pid> revert`. Not observed live: the compare runs only in a stoppage with a side under 7. |
 | **E15 injury resistance** | **CONFIRMED** | The stat is read at `ability+0x2f` (0=C, 1=B, 2=A). It sets **two** thresholds: severity is halved with probability **30 % / 50 % / 70 %** (C/B/A) after the contact severity is computed, and a contact whose severity > 85 is promoted to **200** with probability **5 % (C) / 2 % (B) / never (A)**. |
 | **K7 handball** | **CONFIRMED negative** | PES 2021 has **no handball offence**. Only three producers of a pending foul exist and none is a hand/arm contact. |
 | **K12 time-wasting** | **CONFIRMED negative** | No 80′/85′ rule, no time-wasting instruction, no keep-ball philosophy. The only "leading late" behaviour is the CPU strategy switch to attack level 1. |
@@ -223,6 +225,8 @@ the back-line and the spot are carried. Per the brief, GF should carry the
 ---
 
 ## 2. K11 — the minimum-players abandon rule (stop reason 10)
+> **MissingRE2 update (21-10-26):** the period-10 gate is now closed and the threshold is sourced. §2.9a gives the period table and the writers of period 10; §2.13 gives the minimum-players rule. Where the text below calls the period gate OPEN, §2.9a supersedes it.
+
 
 > **CORRECTED 21-10-26 after the owner's live observation.** The owner's
 > endless-match runs (the endless patch, `tools/dev/pes_endless_match.py`,
@@ -282,11 +286,9 @@ the abandon is produced by a path that writes the match record through a
 is copied into it by the record copy `0x140414080`, not written in place),
 and the count comes from a structure other than `MI+0x1748`.
 
-### 2.3 Why the "threshold 7" premise is not supported by a *static* search
+### 2.3 The threshold is now sourced: `E+0x17`, live 7 (MissingRE2, 21-10-26)
 
-The brief's premise ("players on the pitch < N", threshold 7) comes from the
-Track A row, not from a PES source. The searches above found **no** compare
-against 7 tied to a player count. The nearest numeric 7 in `.text` near a
+The count rule compares the on-pitch count with a settings byte, not with a constant: `cmp al, byte ptr [rdx + 0x17]` at 0x140447e79, with `rdx = *(G+0x2c0)` (§2.13). The live value in the owner's match is 7. The first-pass search below found no compare against 7 tied to a player count. That stands for constants, and is kept as history. The nearest numeric 7 in `.text` near a
 `0x1748` access is `0x1404251d0 cmp dl, 7` — a **match-setup mode** byte
 (`*(G+0x2ad0)`, the competition kind), not a player count.
 
@@ -302,12 +304,7 @@ f=1232176 per=1 play=1 restart=0 reason=0 kind=0 card=0
         on=1111111111011111111111
 ```
 
-i.e. **team 0 already has only 10 players on the pitch** (slot 9 of team 0
-is the off flag — the red card), team 1 has 11, the mode byte `MI+0x1775` is
-**0**, the void flag `MI+0x1776` is **0** and the stop reason is 0. The
-abandon has not yet fired at 10 players, which is consistent with a
-threshold **below** 10 and with the owner's report that it fires once the
-count drops further.
+i.e. **team 0 already has only 10 players on the pitch**: slot 10 is the off flag (pid 4, `player+0x18 = 1`, an injury marker, not a red card; §2.12). Team 1 has 11. The mode byte `MI+0x1775` is **0**, the void flag `MI+0x1776` is **0** and the stop reason is 0. The minimum-players rule did not fire: the live threshold `E+0x17` is **7** (§2.13), so 10 is not short. The earlier "slot 9 is the red card" reading was wrong.
 
 Scripts: `mi_read.py` (one-shot) and `mi_watch.py` (a change-logging
 watcher) in the scratch dir. Both are strictly read-only.
@@ -433,6 +430,10 @@ same two fields, tested together: *forfeit flag set* **and** *forfeit score
 scorers are blanked by the same path (the owner's observation that the time
 shows `--:--` and nobody gets a goal).
 
+**CORRECTION (MissingRE2, 21-10-26): `FUN_140a23260` is not the only forfeit writer.** `FUN_140a23380` (case 0 of `FUN_140a22130`, record sub-kind 2) sets `+0x1b70 = 1` and `+0x1b74 = player+0x20` for every player who is on the pitch (`MI+0x1748`) or at `MI+0x175e` and has `player+0x18 == 1`. The writes are at 0x140a2361a and 0x140a23629 (CONFIRMED bytes; the gate is from the decompile). It has no period test. The writer above (`FUN_140a23260`) is gated on period 10. The reader needs score 3, so the second route yields 3-0 only when `player+0x20 == 3` (§2.13).
+**Correction to the correction (21-10-26, later).** The second writer stores its two fields in a per-player record, `FUN_1408c9cf0(stats, player id)` (`lVar7` in `FUN_140a23380`, writes at 0x140a2361a and 0x140a23629), not in the per-team result record `FUN_1408c7210(stats, side, period)` that `FUN_140a23260` writes. Which record the reader at 0x140a105b5 tests is OPEN (its base register was not traced). So the second route is not yet a demonstrated 3-0 path.
+
+
 ### 2.8 The call path into the match tick
 
 ```
@@ -461,13 +462,45 @@ which is why the endless match voids mid-play.
 * the "no replacement" condition is **per player** (`player+0x18 == 0`), not
   a count of the on-pitch flags — so no `cmp` against a player count exists
   (as the searches of §2.2 item 3 showed);
-* the period gate is `MI+0x1168 == 10` — period 10 is a **normal PES
-  period** (the period writers `FUN_1404494E0` / `FUN_1404493D0` /
-  `FUN_1404499D0` set 2, 4, 6, 8, 9 and **10**;
-  `pes-re-A6Writers.md` §5/§7), so the rule fires in the **last period of
-  a match that reaches its end** — which is exactly what an endless run
-  eventually does (the endless patch only raises the *clock* threshold, so
-  the period still advances when the match's own flow reaches period 10).
+* the period gate is `MI+0x1168 == 10`.
+
+### 2.9a Period 10 is the post-match phase; how an endless match reaches it (MissingRE2, 21-10-26)
+
+**Plain answer.** Period 10 (`MI+0x1168`) is **full time / post-match**: the match is over. An endless match reaches it through the **minimum-players rule** (§2.13), not through the clock. The endless patch blocks only the time-up gate `FUN_14050b9b0`, and `FUN_140447b50` never calls that gate.
+
+Period table. Writers are CONFIRMED by bytes at the VA unless marked; behaviour is from the decompile.
+
+| period | meaning | writer (VA) |
+|---|---|---|
+| 1 | 1st half; clock runs (time-up threshold 162000) | match-setup function at `0x1404558b3` (`mov edx, 1`, CONFIRMED) |
+| 2 | half-time break; judge tick skipped | switch 1→2, `0x140449925` (CONFIRMED) |
+| 3 | 2nd half; clock runs | kick-off setup record `G+0x2a80`, `int` at `+0x60` (default 1 when 0), written by `FUN_1404514f0` event 0x14 (decompile) |
+| 4 | break before extra time (tied, extra time enabled) | `FUN_1404493d0` returns 4 (decompile); `FUN_140443e30` runs on that path |
+| 5 | extra time, 1st half; clock runs (threshold 54000) | same record `+0x60` (INF) |
+| 6 | extra-time break; judge tick skipped | switch 5→6, `0x140449912` (CONFIRMED) |
+| 7 | extra time, 2nd half; clock runs | same record `+0x60` (INF) |
+| 8 | break before the shoot-out (tied, shoot-out enabled) | `FUN_1404493d0` / `FUN_1404499d0` return 8 (decompile) |
+| 9 | penalty shoot-out; judge tick skipped | `FUN_1404a51b0` first state, `0x1404a5295` (CONFIRMED) |
+| 10 | post-match / full time; judge tick skipped | four writers, next |
+
+Writers of 10:
+- **a. Normal switch.** `FUN_1404494e0` under `DRV+0x49c0 == 7`, with `MI+0x1775 == 0`, from period 3 or 7. `FUN_1404493d0` (from 3) returns 4 when tied with extra time enabled, 8 when tied with the shoot-out enabled, and 10 otherwise. `FUN_1404499d0` (from 7) returns 8 when tied with the shoot-out enabled, and 10 otherwise (decompile). Calls at `0x14044991c` and `0x140449909`; store at `0x140449931` (CONFIRMED).
+- **b. Minimum players.** `FUN_140447b50` case 6, store at `0x140447f0f` (§2.13; CONFIRMED).
+- **c. Step 0x43.** `FUN_140452e00` (caller `0x14044cbbc`), store at `0x140452e6e`, with UI event `0x1050054` (`mov edx, 0x1050054` at `0x140452e58`). It also sets restart 7 and stop reason 1, and queues steps 0x10, 0x26, 0x45. The builder that queues 0x43 (near `0x14044f94a`) is not named.
+- **d. End-of-match state machine.** `FUN_1404a3fa0` (steps 0x29–0x31 through `FUN_14044a180`, call at `0x14044a22a`). State 2 runs `FUN_140447b10` (kind 0xb) at `0x1404a4089`, then writes 10 at `0x1404a409a`. State 3 writes 10 (decompile).
+
+Why 10 is post-match and not a timeout: the judge tick is skipped in periods {2, 6, 9, 10} (mask `0x644`, `0x14050c3e0`). The period-end cutscene table maps 8 and 10 to the full-time scene `FUN_140486b10`, and `FUN_1404a3fa0` state 0 keys on the end-of-match scene id `0x7002b`. The period-10 programme holds step 0x26 (post-match UI) and 0x24.
+
+Why an endless run reaches 10 (static chain):
+1. The time-up whistle is `FUN_14050c3e0` → `FUN_14050b9b0` (gate call at `0x14050c425`) → the protected period-end writer, which sets restart 7 (`lea r8d, [r9 + 6]` at `0x143f55a60`, with `mov r9d, 1` at `0x143f55a5a`). The endless patch makes the gate false. The whistle also fires when `judge+0xdc != 0`; the only writer of that field I found is the judge reset `FUN_14050aa30` (decompile and store scan; INF that no other non-zero writer exists).
+2. Route b does not need the gate. A side under `E+0x17` (7, live) makes the next restart programme that reaches step 0x13 write period 10.
+3. Live (21-10-26, read-only): the owner's match is in period 1 with 10 and 11 on the pitch, so route b has not fired in that snapshot. The owner's 3-0 is consistent with route b plus a forfeit writer (§2.7, §2.12).
+
+Correction to §4 (K7): the protected period-end call stores its foul kind from the incoming `r9d` at `0x143f55a50`, before `mov r9d, 1` at `0x143f55a5a`. The foul kind is therefore not 1, and the K7 table entry for that row is wrong.
+
+Correction to the first pass: "period 10 is the endless period" was wrong, and so was "an endless run cannot reach 10". Route b reaches it without the clock.
+
+Open: which route the owner's runs used (b, c or d); whether the step-0x43 and step-0x29 builders can run in an endless match (their triggers are not traced); the writers of `E+0x66` / `E+0x67` (the extra-time and shoot-out flags).
 
 ### 2.10 LIVE VALIDATION of the mapping (read-only, 21-10-26)
 
@@ -481,17 +514,19 @@ no cached pointers, no writes, no pins — the brief forbids pinning
 | `MI` | `0x1d404608` | `*(G+0x270)` (it is **null in ~4-9 % of polls** — the record is torn down/rebuilt; every script retries) |
 | period id | **1** | `int32 at MI+0x1168` — a **dword, not a pointer** (`0x14050b9fa lea rcx,[r8+0x1168]` then `0x14050ba0c mov eax,[rcx]`) |
 | play state | 1 / 2 / 3 | `int32 at MI+0x116C` |
-| on-pitch flags | `1111111111011111111111` | `MI+0x1748[0..21]` — team 0 has **10** on the pitch (slot 9 off), team 1 has 11 |
+| on-pitch flags | `1111111111011111111111` | `MI+0x1748[0..21]` — team 0 has **10** on the pitch (slot 10 off, injured), team 1 has 11 |
 | team record (the one the forfeit loop walks) | side 0 `0x1d471e04`, side 1 `0x1d48ff14` | `*(G + (0xa3+side)*0x28)` = `FUN_140a489d0`; the attack sign at `+0x254` read **+1 / −1**, which confirms the mapping |
 | slot → player id | `[0,5,3,17,1,18,6,19,22,9,4]` (side 0) | `*(u32)(team + 4 + slot*4)` = `FUN_140a3ae30` |
 | player object | `team + 0xa8 + slot*0x128` | `FUN_140a3af30` |
 | `player+0x0c` | **0** for every on-pitch player | the per-player match state |
-| `player+0x18` | **0** or **1** | the "available replacements" counter |
+| `player+0x18` | **0** or **1** | the injury marker (§2.12): `FUN_140523910` queues a replacement for `!= 0` |
 | `FORFEIT` | **empty** | no on-pitch player has `+0x0c == 4` — consistent with the owner's report that **nobody has been sent off yet** in the live match (only injuries) |
 
-**So the live match does not satisfy the condition** (no send-off, period 1),
-and the 3-0 the owner saw happened in a run that had reached period 10 with
-a side that had no replacement left. That is the whole rule.
+**So the live match satisfies neither gate**: no send-off (`player+0x0c` is 0
+for every on-pitch player) and **period 1, not 10**. The live match is an
+endless run, and the endless patch raises only the *clock* threshold, so
+the period never advances and this rule cannot fire there. See §2.9a for the
+conflict with the owner's observation and the next probe.
 
 ### 2.11 What GF would need to carry
 
@@ -505,20 +540,86 @@ a side that had no replacement left. That is the whole rule.
 * the result display: the clock shown as `--:--` and the scorers cleared
   (the owner's observation).
 
-### 2.12 OPEN
+### 2.12 The K11 fields, closed or narrowed (MissingRE2, 21-10-26)
 
-* the exact meaning of `player+0x0c == 4` and of `player+0x18`. The record
-  is the per-player match record at `player+4`; `player+0x0c` is the same
-  field the red-card repair path tests as `> 1` for a "send-off marker"
-  (`pes-re-match-management.md` §2.2(1)) — the value **4** is the
-  "cannot be replaced" case. **INF(med)**.
-* the writer of `player+0x18` (the "available replacements" counter) was
-  not located — only the read at `0x140a23308`.
-* the `+0x2048` flag set by `FUN_140a0d190` when `piVar4[5] == 10` (its
-  consumer was not traced).
-* whether the *other* side's record is also written (the loop walks **both**
-  sides but writes only the offending side's record, so the result ends
-  0-3 / 3-0 depending on which side ran out).
+| field | meaning | evidence |
+|---|---|---|
+| `player+0x0c` (match record `+8`) | a removal marker. Values `> 1` make the red-card path try a kind-2 replacement. The forfeit tests the exact value **4** (`cmp dword ptr [rax + 8], 4`, 0x140a2330e). The writer of 4 is OPEN. Meaning of 4 beyond "a `> 1` removal state": INF(med) | `FUN_140523110` reads `mov ecx, dword ptr [rax + 8]` at 0x140523181 and tests `> 1` (decompile). Live: 0 for every on-pitch player |
+| `player+0x18` (match record `+0x14`) | an **injury marker**, not a replacement count. `FUN_140523910` (injury scan) queues a kind-2 replacement for an on-pitch player with `+0x18 != 0` (CONFIRMED read at 0x140523981). Live (21-10-26): injured players show `+0x18 = 1`, on-pitch side 0 slots 4 and 7, side 1 slot 10; off-pitch side 0 slots 8 and 10. Writer: OPEN | `mov ecx, dword ptr [rax + 0x14]` at 0x140523981 |
+| `MB+0x2048` (brain flag) | consumer = `FUN_140a0d190`. Value 0: the full brain tick, which runs the kind loop (`FUN_140a22130`, so both forfeit writers) and then sets 1 when record kind 10 is found. Value 1: a one-shot setup tick that sets 2. Values 2 and -1: no-op. So the forfeit evaluation runs only while the flag is 0; the earlier "every tick" wording holds only in that state | reads at 0x140a0d1df; writes 1 at 0x140a0d3d5 and 2 at 0x140a0d2e5 (CONFIRMED bytes). -1 at 0x140ce7c03 and `eax` stores at 0x140cecc45 / 0x141cc9de7 come from other owners, not traced |
+| the other side's record | `FUN_140a23260` writes `FUN_1408c7210(stats, side, period)` for the side of the matching player only (`mov edx, r14d` at 0x140a23317, then the call at 0x140a2331d). The other side is written only if its own player matches. `FUN_140447b50` case 6 writes `DRV+0x2aa8` = the short side. Reader of `DRV+0x2aa8` for the 3-0: OPEN | 0x140a23317 (CONFIRMED bytes); 0x140447ec9 (CONFIRMED bytes) |
+
+### 2.13 The minimum-players rule: `FUN_140447b50` case 6 (CONFIRMED bytes, 21-10-26)
+
+The owner's "minimum-players abandon" is this rule. It runs inside the restart sub-machine, and it does not use the clock, so the endless patch does not touch it.
+
+1. Entry: `FUN_14044c880` case 0x13 calls `FUN_140447b50` at **0x14044ca10** (checker `K11.mp_caller`). Restart-programme builders queue step 0x13: for example `FUN_14044f1c0` (stores at 0x14044f24b, template 0x16, 0x12, 0x13, 0x14, 0x15 ...), and the period-8 end programme `[0x13, 0x29]` from `FUN_1404505d0` (decompile). So the check runs at a stoppage whose programme reaches 0x13.
+2. Gates: the function returns at once when `MI+0x1775 != 0` (the mode byte) or when the tutorial flag `G+0x3b0` is set (decompile). The count runs in sub-state 6 (`DRV+0x8f2`), gated by `cmp byte ptr [rbp + 0x1775], r14b` at 0x140447e4a (`MI+0x1775 == 0`).
+3. Count: `FUN_140a3bfc0(MI, side)` at 0x140447e66 counts the nonzero bytes `MI+0x1748+11*side` over 11 slots (`mov byte` flags of the on-pitch array; decompile).
+4. Threshold: `cmp al, byte ptr [rdx + 0x17]` at 0x140447e79, with `rdx = *(G+0x2c0)` = `E`. A side is short when its count is below `E+0x17`; the flag is stored at 0x140447e7e. **Live (21-10-26, `minplayers_read.py`): `E+0x17 = 7`**, with 10 and 11 on the pitch, so no trigger in that match.
+5. Forfeit side: one flagged side is the short side (decompile: `esi = (flag0 == 0)`). Both flagged: decided by `MI+0x1558` (decompile, not byte-checked). Stored at `DRV+0x2aa8` (0x140447ec9), and `DRV+0x2aac` follows.
+6. Period 10: `mov edx, 0xa` at 0x140447ef8, then `FUN_14102cad0(DRV+0x2790, 10)` at 0x140447f0f.
+7. Restart 7 and stop reason 2 in the DRV copy: `mov edx, 7` at 0x140447f14 with `lea rcx, [rdi + 0x49c0]` at 0x140447f19, then the setter at 0x140447f20; `mov edx, 2` at 0x140447f25 (stop reason via `FUN_141b8b250`, decompile). `FUN_1404a7d60` then copies the DRV restart record into `MI+0x1554` (argument order CONFIRMED; the publish semantics are INF). With `MI+0x1574 == 2`, case 0x13 calls `FUN_1404505d0`, the period-10 end programme (steps 0x26 and 0x24, and 0x0f for stop reason 2).
+8. The 3-0 then needs `FUN_140a23260` (§2.7): an on-pitch player with `player+0x0c == 4` and `player+0x18 == 0` (0x140a23308, 0x140a2330e).
+
+What the owner saw fits this rule. An endless run has no time-up, so the clock never ends a half; the count rule still fires at the next stoppage once a side has fewer than 7 on the pitch. Subs depleted plus injuries (the `+0x18` markers) gives that count. Not verified: which stoppage fired it, and why the scorers were blanked and the clock showed `--:--` (INF: period 10 is the post-match phase, and its clock is hidden).
+
+A second, un-gated route to the 3-0 exists (§2.7, `FUN_140a23380`, any period). If an on-pitch or flagged injured player has `player+0x20 == 3`, the reader would count the side as 3-0. Live `player+0x20` values for injured players were 1 and 2 (`score_read.py`, 21-10-26). Which route the owner used is OPEN.
+
+### 2.14 The live gag: `E+0x17` set to 1, and the game sets it back (21-10-26, owner request)
+
+**Request.** Set the minimum number of players a side needs for the match to continue to **1 per side**, as a gag, in the running PES (pid 2510857), then document it.
+
+**The byte.** `E+0x17`, with `E = *(G+0x2c0)` (G = `*(0x1436F3DC8)`; live G `0x1eb942c0`, E `0xa3ef534`, the same object through this pass). It is one byte shared by both sides. Five functions read it. The scan (`thr_scan.py`) follows every `mov R, [X+0x2c0]` and reports byte accesses through `R+0x17` within 40 instructions, so it is not exhaustive.
+
+| reader (VA of the read) | comparison | gates |
+|---|---|---|
+| `FUN_140447b50` case 6, `0x140447e79` | on-pitch count **below** the byte | a short side → period-10 forfeit route (§2.13) |
+| `FUN_140452f30`, `0x140453008` | on-pitch count **equal** to the byte | emergency substitution pass: candidate flags at `DRV+0x2804`, timer at `DRV+0x280c` |
+| `FUN_140444220`, `0x14044453a` | 11-flag count at `DRV+0x56d0` **above** the byte | side pick for that pass |
+| `FUN_1404819a0`, `0x140481a1f` | on-pitch count **above** the byte | injury state 3 → 4 (stretcher request) |
+| `FUN_1404898b0`, `0x140489df9` and `0x14048a022` | count `iVar12` **above** the byte, both side branches | substitution-plan executor |
+
+**The write.** `tools/dev/pes_min_players_gag.py apply` checks the pointer chain and that the byte reads 7, saves the old value to `min_players_gag.json`, writes 1 to the one byte, and reads it back. Four applies, each read back as 1.
+
+**What happened (read-only traces, 21-10-26, unix seconds).**
+- Apply 1 (~1792611022): the settings chain read invalid for about 20 s; the same object then read 7.
+- Apply 2 (~1792611133): read 1 for about 43 s, through short `E = 0` flickers every 1–3 s; read 7 by 1792611233. No trace covered the gap.
+- Apply 3 (~1792611352): read 1 for about 68 s. At 1792611425.4 it read 7 during a goal-kick stoppage (play 2, restart 3, stop reason 4; the stoppage began between 1792611397.6 and 1792611405.9). It stayed 7 when play resumed (1792611435.2 on).
+- Apply 4 (~1792611567, during a goal-kick stoppage): read 1 at 1792611571.4, then 7 at 1792611572.1, still in the same stoppage. It read 7 when play resumed (1792611581.1 on).
+
+So the game sets the byte back to 7 during goal-kick stoppages (two traced cases). A write made in play is lost at the next such stoppage. The forfeit rule (case 6) is a restart-programme step (§2.13), so it runs during stoppages; whether it runs before or after the reset was not measured.
+
+**Count question (21-10-26).** On every trace row the on-pitch counts were side 0 = 8 and side 1 = 11 (the status read agrees). Both are above 7, so neither side is short under either value, and the on-pitch tests (case 6, the emergency pass, the stretcher test) give the same answer at 7 and at 1 for these counts. The difference appears at 7 and below. Under stock, side 0 at 7 starts the emergency pass; under the gag it does not. Side 0 at 6 or fewer is short under stock (forfeit at the next step 0x13); under the gag only at 0. Unmeasured: the two substitution-count readers, which use other counts.
+
+**What the gag changes, statically.** Forfeit: short only at 0 on the pitch, not below 7. Emergency pass: at 1, not 7. Stretcher request: for any count above 1, not above 7, so with 2–7 on the pitch the 3 → 4 transition in this function now happens (with stock it did not). Substitution counts: changed, not measured.
+
+**Not changed.** The period-10 route `FUN_140a23260` (gated on period 10, on-pitch `player+0x0c == 4` and `player+0x18 == 0`) and `FUN_140a23380` (any period; §2.7 correction). The owner reports the first forfeit came with fewer than 7 on the pitch, which is the test case 6 makes, so the count route is the trigger the owner saw. Case 6 only sets period 10; the 3-0 itself needs one of those writers, so which one wrote it is still open.
+
+**Status.** The byte reads 7 (stock), so the byte-only gag is off. The forfeit gag is the code patch in §2.15, which does not read the byte.
+
+**Revert and re-apply.** The byte: `tools/dev/pes_min_players_gag.py <pid> revert` writes 7 back when the byte reads 1; `apply` writes 1 only when it reads 7. The forfeit: `tools/dev/pes_forfeit_patch.py <pid> status | apply | revert` (§2.15). `tools/dev/pes_gag_trace.py <pid> [seconds] [poll]` and `tools/dev/pes_min_players_gag.py <pid> status | watch` are read-only.
+
+**Limits.** Live writes this pass: four byte applies (§2.14) and one code patch (§2.15), all on the owner's instruction, which overrides the brief's read-only rule for those bytes. Nothing in the PES image, the install or GF changed. The checker covers the static readers only (§7).
+
+**Open.** What writes 7 back to the byte (the writer was not located; the byte no longer affects the forfeit); whether the reader list is complete; which writer produced the owner's 3-0 (§2.7, §2.15).
+
+### 2.15 The forfeit compare patch (21-10-26, owner request)
+
+**What changed.** `FUN_140447b50` case 6 at **`0x140447e79`**: the three bytes `3a 42 17` (`cmp al, byte ptr [rdx + 0x17]`, the on-pitch count against the threshold byte `E+0x17`) became `3c 01 90` (`cmp al, 1` ; nop). A side is short only when its on-pitch count is below 1, i.e. it has no player on the pitch. The jump after the compare (`73 03`, `jae 0x140447e81`) and the flag store (`c6 06 01`, `mov byte ptr [rsi], 1`) are unchanged. The image bytes at those addresses (`pes_full.bin`, offset VA − 0x140000000) are `3a4217`, `7303` and `c60601`.
+
+**Why code, not data.** The endless mod (`tools/dev/pes_endless_match.py`) makes the match endless by writing two float constants in `.rdata`: 162000.0 at 0x142647C68 and 54000.0 at 0x142647C64, both set to 1e12. It checks the stock floats first and aborts on any other value, writes through `/proc/<pid>/mem`, reads back, and `--revert` restores the stock values. A constant can be overwritten in place, so no code changes. The forfeit threshold is the byte `E+0x17`, which the game sets back to 7 during stoppages (§2.14), so a data write cannot hold. The forfeit patch uses the same method on code: check the stock bytes, write, read back, keep the stock bytes for revert.
+
+**Method and checks.** `tools/dev/pes_forfeit_patch.py <pid> apply` checks that the process is PES2021.exe, that the mapping containing the VA is private, that the 3 stock bytes are `3a4217`, and that the 5 bytes after them match the image. It writes `3c0190`, reads back, and saves the stock bytes to `tools/dev/pes_forfeit_patch.json` (gitignored). The mapping is `140001000-14252f000 r-xp 00000000 00:00 0`: anonymous and private, so the write is copy-on-write in the process, and `PES2021.exe` on disk is not touched. Live result: `3c0190` (`cmp al, 1 ; nop`) read back, and the bytes after it still match. A later status read showed the patch still in place.
+
+**Effect.** The count route into period 10 now needs a side with 0 players on the pitch. The patched compare does not read `E+0x17`, so the byte can stay at 7 and the other readers keep stock behaviour (emergency substitution at 7, stretcher above 7, the substitution-plan readers). Not closed by this patch: the period-10 entries through the step-0x43 path and the end-of-match state machine (§2.9a), and the per-player writer `FUN_140a23380` (§2.7).
+
+**Not observed.** The compare runs only in a stoppage with a side under 7. None occurred in the traces, so "no forfeit at 1–6, forfeit at 0" is verified by readback and decode only, not by a live match.
+
+**Owner's first forfeit.** The owner reports it came with fewer than 7 on the pitch. That is the test case 6 makes, so this route is the trigger the owner saw. Case 6 only sets period 10, and the 3-0 itself needs one of the writers in §2.7, so which one wrote it is still open.
+
+**Revert.** `sudo -n nice -n 19 python3 tools/dev/pes_forfeit_patch.py <pid> revert` writes `3a4217` back when the bytes read `3c0190`. The pid changes if PES restarts; a restart also restores the stock code.
+
 
 ---
 
@@ -702,7 +803,7 @@ document a deviation.
    | throw-in `0x14050e47d` | **4** | **0** | `0x14050e455 mov r9d, 4`, `0x14050e465 mov dword ptr [rsp+0x28], 0` |
    | PK shoot-out `0x14050ccbc` | **9** | **0** | `0x14050cc98 mov r9d, 9`, `0x14050cca6 mov dword ptr [rsp+0x28], 0` |
    | foul commit (protected) `0x143f54758` | **5** | **2** | `0x143f5473a mov r9d, 5`; the kind comes from the pending record |
-   | period end (protected) `0x143f55a64` | **1** | **1** | `0x143f55a5a mov r9d, 1`, `0x143f55a50 mov dword ptr [rsp+0x28], r9d` |
+   | period end (protected) `0x143f55a64` | **1** | **incoming `r9d`** (not 1; corrected 21-10-26) | `0x143f55a50 mov dword ptr [rsp+0x28], r9d`, stored before `0x143f55a5a mov r9d, 1`; restart 7 comes from `lea r8d, [r9+6]` at `0x143f55a60` |
 
    **The only non-zero foul kinds in the whole image are 1 (offside), 2
    (direct foul) and 3 (indirect / dive).** There is **no hand/arm kind
@@ -750,10 +851,12 @@ brief's clean-cutover rule is applied to them).
 | K9-1 | the **writer** of `MA+0x40+0x14*t` (the back line DOGSO reads) | not traced | trace the team-shape writer chain (`FUN_1405fbcb0` / `FUN_14051d9e0`) to the float store |
 | K9-2 | whether `MA.backLine` is the last or the second-last defender | semantics only | live read of `MA+0x40` vs the second-deepest defender's x in a match |
 | K9-3 | the exact meaning of the fouler's `AI+0x1480` "predicted interception point" | INF(med) | read the AI record live during a through-ball |
-| K11-1 | the **writer** of stop reason 10 and of the abandon mode byte | the mode byte has **no** store in the image (107 `+0x1775` operands, all reads but two; zero 16-byte stores; zero `+0x3af5` accesses) and no protected-region `+0x1774/0x1775/0x1776` access at all, so the writer is upstream of the record copy chain | **the live transition** (the watcher is already running): if `MI+0x1574` becomes 10 the whistle writer `FUN_14050e770` is the entry and the writer is one of the four record-sourced `FUN_141b8b250` sites; if `MI+0x1775` changes, the value arrived through the copy `0x140414080` and the source record's writer is the target |
-| K11-2 | the **count and threshold** | the on-pitch count is not a sum over `MI+0x1748` (all 1010 accesses are per-slot predicates); the class-based counts (`FUN_140521e40` / `FUN_140522300`, `team+0x4c00`) and the lineup-list builder `FUN_140a40ca0` (whose `param_2[0]` **is** a count) are the candidates | live: read the count the game uses at the moment the void fires; or trace `FUN_140a40ca0`'s result into a threshold compare |
-| K11-3 | the 3-0 void score write | the match-result layer | `FUN_141fd82e0` / `FUN_14216c680`; the goal sum is at `stats+0x20c+(period*9+slot)*4` (read by `FUN_1408c9190`) |
-| K11-4 | whether the rule is "no replacement available" rather than "players on the pitch < N" | the only out-of-players condition found is `FUN_140523110` / `FUN_140523910` giving up silently when `FUN_140521930` finds no replacement | the owner's answer to "were substitutes available in the endless run?" |
+| K11-1 | the **writers** of period 10 and of the forfeit result | **Period-10 writers: CLOSED** (four routes, §2.9a: switch 3/7→10, `FUN_140447b50` case 6, `FUN_140452e00` step 0x43, `FUN_1404a3fa0` states 2/3). **Forfeit-result writers: partly OPEN**: `FUN_140a23260` (period 10) and `FUN_140a23380` (any period; score = `player+0x20`) are both known; which one fired in the owner's runs, and the meaning of `player+0x20`, are not settled | live: log `player+0x20` of injured players across a run (`score_read.py`); decode the `player+0x20` writers; trace the reader at 0x140a105b5 and its use of `DRV+0x2aa8` |
+| K11-2 | the **count and threshold** | **CLOSED**: count = `FUN_140a3bfc0` (nonzero `MI+0x1748` flags per side); threshold = `E+0x17`, read live as **7** in the owner's match (`minplayers_read.py`). **OPEN**: the writer of `E+0x17` (the settings loader; not located) | trace the settings loader that fills `G+0x2c0` |
+| K11-3 | the 3-0 void score write | `FUN_140a23260` writes flag 1 and score 3 for the offending side (period 10). `FUN_140a23380` writes flag 1 and score `player+0x20` (any period). The reader at 0x140a105b5/0x140a105be needs flag and score 3. **OPEN**: which of these produced the owner's 3-0 | as K11-1 |
+| K11-4 | whether the rule is "no replacement available" rather than "players on the pitch < N" | **Answered**: the period-10 rule is the count rule (K11-2). "No replacement" is a separate test: `FUN_140523110` (`player+0x0c > 1`) and `FUN_140523910` (`player+0x18 != 0`) queue a kind-2 replacement and return silently when `FUN_140521930` finds none | none |
+| K11-5 | the writers of `player+0x0c == 4` and of `player+0x18` (injury marker) | **OPEN**: meanings partly decoded (§2.12); writers not located | trace the player-state writers: the injury machine (`FUN_1404812b0`, `FUN_1404819a0`) for `+0x18`; the card path for `+0x0c` |
+| K11-6 | what writes `E+0x17` back to 7 | **OPEN**: traced twice during goal-kick stoppages (play 2, restart 3, stop reason 4; 21-10-26, §2.14). One earlier reset followed a 20-s invalid settings chain. No byte store to `+0x17` found after a `[X+0x2c0]` load | trace the settings object's writes at a restart (a block copy would not show as a byte store); or check whether the 7 is read from match data at each restart (INF) |
 | E15-1 | the fatigue injury cause | not in the Injury object | search the fatigue-drain path for a `PLAY_DATA_INJURY_FATIGUE` producer |
 | E15-2 | the attacker action class mapping (11..12 / 13..14) | INF(med) | cross-reference the action id table |
 | K7-1 | none — the negative is closed | — | — |
@@ -829,10 +932,9 @@ $ python3 check_missing.py --mutate K11.ff_norepl_test
 MUTATION K11.ff_norepl_test: 4 check(s) fired (expect >= 1)
 ```
 
-**Checker summary line: `124/124 checks passed`; the twelve mutations above each
-fired ≥ 1 check (2, 5, 1, 2, 1, 1, 1, 1, 1, 4, 1, 4) and the image file was
-never written (md5 `516c7d9722094226cfe103c0f15bb2e3` before and after the
-whole session).**
+**Checker summary line: `162/162 checks passed`** (the 124 checks of the first pass plus 38 added on 21-10-26 for the period table and the K11 minimum-players chain). Each of the 38 new names has a `check_missing.py --mutate <name>` run; each fired 1–4 checks (`P.switch_call_1404493d0` 3, `P.switch_call_1404499d0` 4, `P.switch_setter` 1, `P.switch_from5_six` 4, `P.switch_from1_two` 2, `P.pk_period9` 2, `P.pk_period9_call` 1, `P.fulltime43_caller` 1, `P.fulltime43_uievent` 3, `P.fulltime43_p10` 2, `P.fulltime43_p7` 1, `P.judge_gate_call` 1, `P.whistle_period_read` 1, `P.whistle_restart7_lea` 2, `P.whistle_call` 1, `K11.mp_*` 1–4 each, `K11.sm_*` 1–4 each, `K11.redcard_reads_0c` 1, `K11.injury_reads_18` 1, `K11.ff2_flag_store` 2, `K11.ff2_score_store` 1, `K11.brain_flag_*` 1 each). The image file was not written: the checker only reads `pes_full.bin`, and each mutation overlays 32 NOP bytes in memory.
+
+**Update (21-10-26, later): `167/167 checks passed`.** Five reader checks for `E+0x17` were added (`E17.read.fn140444220`, `E17.read.fn140452f30`, `E17.read.fn1404819a0`, `E17.read.fn1404898b0.a`, `E17.read.fn1404898b0.b`). Each mutation (`check_missing.py --mutate <name>`) fired one check. The live gag (§2.14) is not in the checker: it is a live write, not an image claim.
 
 The checker is **capstone-only** — it does not need the Ghidra bridge or the
 GUI's program to be open, so it keeps working while the Ghidra server is
@@ -894,6 +996,8 @@ and the reader that turns the pair into a 3-0 loss (`0x140a105b5`,
     every script retries instead of treating that as an error.
   * Launched as
     `nohup nice -n 19 sudo -n python3 <script> <pid> 3600 0.2 <log>`.
+* Period and minimum-players pass (MissingRE2, 21-10-26), all scratch, all read-only: `stores.py <disp> [lo] [hi]` (store-only displacement scan; wraps `dispfind.find`), `callargs.py <target> <needle> [lo] [hi]` (every `E8` call to `target` whose 48-byte argument setup contains `needle`), `minplayers_read.py <pid>` (live `E+0x17`, on-pitch counts, period, restart, stop reason, mode), `score_read.py <pid>` (live forfeit flag and score per side, and `player+0x0c/+0x18/+0x20` of on-pitch or flagged players). Live reads need `sudo -n` (`/proc/<pid>/mem`); the team base is `G+(0xa3+side)*0x28` (`FUN_140a489d0`), and a torn-down match shows as a null `MI` for a few polls. The Ghidra bridge endpoint for cross-references is `/xrefs_to?address=…` (`/get_xrefs_to` returns 404).
+* Gag tools (21-10-26, scratch): `tools/dev/pes_min_players_gag.py <pid> status|apply|revert|watch` (`apply` writes one byte, `E+0x17`, 7 → 1, after checking the pointer chain and that the byte reads 7; the old value is saved in `min_players_gag.json`; `revert` writes it back when the byte reads 1); `tools/dev/pes_gag_trace.py <pid> [seconds] [poll]` (read-only: `E`, `E+0x17`, period, play, restart, stop reason and on-pitch counts, printed on change); `thr_scan.py` (the reader scan of §2.14; positive control `0x140447e72` / `0x140447e79`).
 * K11 static scripts (scratch): `scan1775.py` (every instruction with a
   `+0x1775` memory operand — 107, all reads but two), `scan_prot_mode.py`
   (the same for the protected region: zero), `scan_mode16.py` (16-bit stores
