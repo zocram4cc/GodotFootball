@@ -132,6 +132,8 @@ public:
   // The release, held: from the pickup through the take, PES holds the ball in the hand at the release clip's key offset
   // (FUN_140792E10 phase 1; pes-re-throwin-choreography.md 4.2, 5.3). The referee calls it while the throw is taken.
   void PinBallAtRelease();
+  // The receiver a throw-in is aimed at: the nearest mate inside the touchline (the throw's target; PES's ap+0x2bf4/0x2bfc).
+  Player* ThrowInTargetMate(Player* thrower) const;
   // PES's goal kick (pesgoalkick.hpp): the ladder releases it (sub_142136F00) and the strike carries the keeper onto the
   // ball. StepGoalKickLadder runs one tick of the armed restart's ladder and returns true on its release.
   bool StepGoalKickLadder();
@@ -257,6 +259,7 @@ protected:
   Player* taker;
   bool pieceWalk = false;      // a set-piece walk is pending (PES path only): a throw-in taker's or a goal-kick keeper's
   bool pieceCarrying = false;  // a throw-in taker has the ball: pieceWalkTarget is the carry spot
+  int pieceReleaseRow = 0;     // the carry's release row, chosen as the take starts (0: not yet)
   bool pieceWarping = false;   // the pickup clip is playing: the root warps onto pieceWarpTo until the contact frame
   unsigned long pieceWarpTicks = 0;  // ticks left to the pickup's contact frame
   Vector3 pieceWarpTo;         // the predicted ball at the contact frame, where the warp ends

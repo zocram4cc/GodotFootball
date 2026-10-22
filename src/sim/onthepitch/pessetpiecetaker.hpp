@@ -54,7 +54,17 @@ struct SetPieceTakerConstants {
   // The throw-in's pickup reach: PES starts the pickup clip inside this (DAT_14259222c, docs/re/pes-re-throwin-choreography.md
   // 3.2). Until the loader reads it, the old GF stand-in of 1 m stands here.
   float throwInPickupReach_m = 1.0f;
+  // PES's carry release row (FUN_140792E10, carry branch; docs/re/pes-re-throwin-choreography.md 4.2): the short run row while the
+  // taker is within this ground distance of the throw's target, the mid row beyond it. 13.0 from .rdata 0x1425c5948.
+  float throwInReleaseShort_m = 0.0f;
 };
+
+// PES's throw-in carry release rows (throwin 4.2): throwin_release_run_000_short and _mid, the 000 column.
+inline constexpr int kThrowInReleaseRunShort = 0x9bb;
+inline constexpr int kThrowInReleaseRunMid = 0x9bc;
+// The carry's release row for a taker `distance_m` from the throw's target: the short row up to `shortReach_m`, the mid row
+// beyond it (FUN_140792E10: the compare at 0x140792f13 selects 0x9bc when the distance is above the reach).
+int ThrowInCarryReleaseRow(float distance_m, float shortReach_m);
 
 std::optional<SetPieceTakerConstants> LoadSetPieceTakerConstants(const PesVfs& vfs,
                                                                 const PeImage& exe,
