@@ -19,7 +19,7 @@ The 5-minute repro is the ticket's gate. Its earlier numbers were taken with a s
 
 - The corner taker's SetKick heading is `wrap360(wrap360(side) + restartYaw)`. `side` is 315 for the straight run-up and 45 for the mirrored one (`CornerSetKickHeadingDeg`, `src/sim/onthepitch/pesgoalkick.cpp`).
 - `restartYaw` is the bearing from the restart spot to `(sign(spot.x) * F8, 0)`, where F8 is `pesPenaltySpotX` (41.56). The chain is FUN_14092E7E0 (taker branch), then FUN_1408B4560 (restart kind 4). The record's +0xC is stored in FUN_1406B3DB0.
-- The mirror is `FUN_1406E6660(player, 0x34) == 1`, the preferred foot in playerdata +0x34. The stronger foot now comes from the install's Player.bin record (`Match::LeftFootedOf`); the right foot stands in only for a player with no record (pes-port-PlayerDB).
+- The mirror is `FUN_1406E6660(player, 0x34) == 1`, the preferred foot in playerdata +0x34. The stronger foot comes from the PES player database through the player's PES id (`Match::LeftFootedOf`); the right foot stands in only for a player with no PES id or no record (pes-port-PlayerDB).
 - Checked against two live kickers (331.9 and 297.2 degrees): `TheCornerHeadingMatchesTheLiveKickerYaws`.
 - Not ported: the field clamp FUN_141E5D4C0 (a wrapper over FUN_141E5CA20).
 
@@ -60,7 +60,7 @@ The 5-minute repro is the ticket's gate. Its earlier numbers were taken with a s
 
 | Stand-in | PES site it replaces | Status |
 |---|---|---|
-| Right foot for the corner and goal-kick mirror | playerdata +0x34, FUN_1406E6660 | Closed (PlayerDB): `Match::LeftFootedOf`, Player.bin stronger foot (bit 514); right foot for a player with no record |
+| Right foot for the corner and goal-kick mirror | playerdata +0x34, FUN_1406E6660 | Closed (PlayerDB): `Match::LeftFootedOf` through the PES id; Player.bin stronger foot (bit 514); right foot for a player with no PES id or record |
 | Physique 1.0 | player +0x3B18, FUN_1406E8CC0 | Open |
 | Carrier approach at 2 x gap | the writer of the desired speed (cmd+0x172) | Open: decode in progress |
 | Keeper facing at 90 degrees times the side | restart record heading +0xC | Open |

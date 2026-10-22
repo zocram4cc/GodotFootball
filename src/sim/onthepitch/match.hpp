@@ -240,6 +240,10 @@ public:
   // database, by his database id (docs/re/pes-re-matchlogic.md 1.2). A player with no record takes the named fallback.
   int InjuryResistanceOf(const PlayerData* data) const;
   bool LeftFootedOf(const PlayerData* data) const;
+  // The named stand-ins for a player with no PES record of his own: the middle injury tier and the right foot.
+  // ponytail: they stand in for the install's per-player values (docs/ports/pes-port-DodgeGate.md).
+  static constexpr int kFallbackInjuryResistance = 1;  // B
+  static constexpr bool kFallbackLeftFooted = false;   // right foot
   // The tick-order switch (config pes_loop), read once when the match is built.
   bool PesLoop() const { return pesLoop; }
   // PES 2021's restart timings (docs/re/pes-re-foul-choreography.md 9).

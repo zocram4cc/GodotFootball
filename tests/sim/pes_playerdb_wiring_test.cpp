@@ -1,7 +1,10 @@
-// The match reads a player's injury tier and stronger foot from the PES player database record of his database id
-// (the PES player id). A player with no record takes the named fallback (the middle tier, the right foot).
+// The match reads a player's injury tier and stronger foot from the PES player database through his PES id only
+// (PlayerData::GetPesPlayerId). A player with no PES id, the synthetic fixture squads among them, takes the named
+// fallback whatever record the database holds under his database id.
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -27,16 +30,27 @@ namespace {
 constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;
 constexpr unsigned int SEED = 1000;
 constexpr int MATCH_MINUTES = 5;
+// teams.sql numbers its synthetic players 1..32.
+constexpr int kFixturePlayerCount = 32;
+// Raw injury tiers (matchlogic 1.2: 0 C, 1 B, 2 A) and the Player.bin bits the tests write.
+constexpr uint8_t kTierC = 0, kTierA = 2;
+constexpr size_t kInjuryBit = 458;
+constexpr size_t kFootBit = 514;
 
-// One Player.bin record for `id` with raw injury tier 2 (A) and the stronger foot on the left, as the file
-// writes them: the id u32 at +8, the tier at bit 458, the foot at bit 514.
-std::vector<uint8_t> LeftFootedAStarRecord(int id) {
+// One Player.bin record for `id` with raw injury tier `tier`, and the stronger foot on the left when `left`.
+std::vector<uint8_t> RecordFor(int id, uint8_t tier, bool left) {
   std::vector<uint8_t> rec(pes::kPlayerRecordBytes, 0);
   const uint32_t id32 = uint32_t(id);
   std::memcpy(&rec[pes::kPlayerIdOffset], &id32, 4);
-  rec[458 / 8] |= uint8_t(2u << (458 % 8));
-  rec[514 / 8] |= uint8_t(1u << (514 % 8));
+  rec[kInjuryBit / 8] |= uint8_t(tier << (kInjuryBit % 8));
+  if (left) rec[kFootBit / 8] |= uint8_t(1u << (kFootBit % 8));
   return rec;
+}
+
+std::vector<uint8_t> Concat(const std::vector<std::vector<uint8_t>>& records) {
+  std::vector<uint8_t> out;
+  for (const auto& rec : records) out.insert(out.end(), rec.begin(), rec.end());
+  return out;
 }
 
 const pesrig::Rig* SharedRig() {
@@ -53,13 +67,15 @@ const pesrig::Rig* SharedRig() {
   return rig ? &*rig : nullptr;
 }
 
-// The fixture match with the install's skeleton and constants, given the PES database to read traits from.
+// The fixture match over the synthetic squads, reading PES traits from `playerDb` (null: none). `statements` run on the
+// squads' database before the match is built, for a test's own rows.
 struct FixtureMatch {
   blunted::Database db;
   std::unique_ptr<Match> match;
 
-  explicit FixtureMatch(const pes::PlayerDatabase* playerDb) {
+  explicit FixtureMatch(const pes::PlayerDatabase* playerDb, const std::vector<std::string>& statements = {}) {
     if (!db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql")) return;
+    for (const std::string& statement : statements) db.Query(statement);
     SetDB(&db);
     MatchSetup setup;
     setup.homeTeamDbId = HOME_TEAM;
@@ -78,46 +94,104 @@ struct FixtureMatch {
   }
 };
 
-// The first two active home players: the one with a PES record and the one without.
-std::vector<Player*> FirstTwoActive(Team* team) {
-  std::vector<Player*> out;
-  for (const auto& player : team->GetAllPlayers())
-    if (player->IsActive() && out.size() < 2) out.push_back(player.get());
-  return out;
+// The player of team `team` (0 home, 1 away) whose database id is `databaseId`, or null.
+Player* PlayerWithDatabaseId(Match& match, int team, int databaseId) {
+  for (const auto& player : match.GetTeam(team)->GetAllPlayers())
+    if (player->GetPlayerData() && player->GetPlayerData()->GetDatabaseID() == databaseId) return player.get();
+  return nullptr;
+}
+
+// Every squad member of both sides reads the fallback. Returns how many were checked, so a test can see it was not vacuous.
+int ExpectEveryPlayerTakesTheFallback(Match& match) {
+  int checked = 0;
+  for (int team = 0; team < 2; ++team)
+    for (const auto& player : match.GetTeam(team)->GetAllPlayers()) {
+      const PlayerData* data = player->GetPlayerData();
+      if (!data) continue;
+      ++checked;
+      EXPECT_EQ(match.InjuryResistanceOf(data), Match::kFallbackInjuryResistance)
+          << "database id " << data->GetDatabaseID();
+      EXPECT_EQ(match.LeftFootedOf(data), Match::kFallbackLeftFooted) << "database id " << data->GetDatabaseID();
+    }
+  return checked;
 }
 
 }  // namespace
 
-TEST(PlayerDatabaseWiring, APlayerWithARecordReadsItsInjuryTierAndForeFoot) {
-  // The fixture's players carry database ids 1..32; a record for the first active home player's id.
-  FixtureMatch probe(nullptr);
-  if (!probe.match) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
-  const std::vector<Player*> home = FirstTwoActive(probe.match->GetTeam(0));
-  ASSERT_EQ(home.size(), 2u);
-  const int withRecord = home[0]->GetPlayerData()->GetDatabaseID();
-  const int withoutRecord = home[1]->GetPlayerData()->GetDatabaseID();
-  ASSERT_NE(withRecord, withoutRecord);
-  probe.match.reset();
-
+// A fixture player is a synthetic squad member, not a PES player: a PES record under his database id is never read.
+// The fixture's ids 1..32 are ids a stock install's Player.bin holds, so this is the hazard in practice.
+TEST(PlayerDatabaseWiring, AFixturePlayerWhoseIdHasARecordStillTakesTheFallback) {
+  std::vector<std::vector<uint8_t>> records;
+  for (int id = 1; id <= kFixturePlayerCount; ++id) records.push_back(RecordFor(id, kTierA, true));
   std::string err;
-  auto playerDb = pes::PlayerDatabase::Parse(LeftFootedAStarRecord(withRecord), &err);
+  auto playerDb = pes::PlayerDatabase::Parse(Concat(records), &err);
   ASSERT_TRUE(playerDb.has_value()) << err;
   FixtureMatch fixture(&*playerDb);
-  ASSERT_TRUE(fixture.match);
-  const std::vector<Player*> players = FirstTwoActive(fixture.match->GetTeam(0));
-  ASSERT_EQ(players.size(), 2u);
+  if (!fixture.match) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+  EXPECT_GT(ExpectEveryPlayerTakesTheFallback(*fixture.match), 0);
+}
 
-  EXPECT_EQ(fixture.match->InjuryResistanceOf(players[0]->GetPlayerData()), 2);  // A from the record
-  EXPECT_TRUE(fixture.match->LeftFootedOf(players[0]->GetPlayerData()));
-  EXPECT_EQ(fixture.match->InjuryResistanceOf(players[1]->GetPlayerData()), 1);  // no record: B, the fallback
-  EXPECT_FALSE(fixture.match->LeftFootedOf(players[1]->GetPlayerData()));
+// The same rule on the install's own Player.bin: a fixture player whose id is a record the install holds still takes the
+// fallback. The record is chosen at run time, and only one whose traits differ from the fallback can tell the two apart.
+TEST(PlayerDatabaseWiring, AFixturePlayerWhoseIdIsAnInstallRecordStillTakesTheFallback) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto blob = vfs.Read(pes::kPlayerDatabasePath, &err);
+  ASSERT_TRUE(blob.has_value()) << err;
+  auto playerDb = pes::PlayerDatabase::Parse(*blob, &err);
+  ASSERT_TRUE(playerDb.has_value()) << err;
+  // An id outside the fixture's 1..32, so the rename below cannot collide with a squad member's id.
+  std::optional<int> recordId;
+  for (size_t at = 0; at + pes::kPlayerRecordBytes <= blob->size() && !recordId; at += pes::kPlayerRecordBytes) {
+    uint32_t id = 0;
+    std::memcpy(&id, &(*blob)[at + pes::kPlayerIdOffset], 4);
+    const auto traits = playerDb->Find(int(id));
+    if (id > uint32_t(kFixturePlayerCount) && traits &&
+        (traits->injuryResistance != Match::kFallbackInjuryResistance || traits->leftFooted != Match::kFallbackLeftFooted))
+      recordId = int(id);
+  }
+  if (!recordId) GTEST_SKIP() << "no record of this install differs from the fallback, so it cannot tell them apart";
+
+  FixtureMatch fixture(&*playerDb, {"UPDATE players SET id = " + std::to_string(*recordId) + " WHERE id = 1"});
+  if (!fixture.match) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+  Player* renamed = PlayerWithDatabaseId(*fixture.match, 0, *recordId);
+  ASSERT_NE(renamed, nullptr) << "the renamed fixture player is not in the home squad";
+  EXPECT_EQ(fixture.match->InjuryResistanceOf(renamed->GetPlayerData()), Match::kFallbackInjuryResistance);
+  EXPECT_EQ(fixture.match->LeftFootedOf(renamed->GetPlayerData()), Match::kFallbackLeftFooted);
+}
+
+// A player whose row carries a PES id reads the record of that id. The match keys the database by the PES id, so the
+// synthetic player 2, who has a PES record under his own database id, still takes the fallback.
+TEST(PlayerDatabaseWiring, AnImportedPlayerReadsTheRecordOfHisPesId) {
+  constexpr int kPesIdOfImportedPlayer = 9001;  // synthetic: no fixture player carries it
+  blunted::Database schema;
+  ASSERT_TRUE(schema.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql"));
+  const auto columns = schema.Query("select * from players limit 1");
+  ASSERT_NE(std::find(columns->header.begin(), columns->header.end(), "pes_player_id"), columns->header.end())
+      << "the fixture's players table has no pes_player_id column, so no player can be imported from PES";
+
+  std::string err;
+  auto playerDb = pes::PlayerDatabase::Parse(
+      Concat({RecordFor(kPesIdOfImportedPlayer, kTierA, true), RecordFor(2, kTierC, false)}), &err);
+  ASSERT_TRUE(playerDb.has_value()) << err;
+  FixtureMatch fixture(&*playerDb, {"UPDATE players SET pes_player_id = " + std::to_string(kPesIdOfImportedPlayer) +
+                                    " WHERE id = 1"});
+  if (!fixture.match) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
+  Player* imported = PlayerWithDatabaseId(*fixture.match, 0, 1);
+  Player* synthetic = PlayerWithDatabaseId(*fixture.match, 0, 2);
+  ASSERT_NE(imported, nullptr);
+  ASSERT_NE(synthetic, nullptr);
+  EXPECT_EQ(fixture.match->InjuryResistanceOf(imported->GetPlayerData()), kTierA);
+  EXPECT_TRUE(fixture.match->LeftFootedOf(imported->GetPlayerData()));
+  EXPECT_EQ(fixture.match->InjuryResistanceOf(synthetic->GetPlayerData()), Match::kFallbackInjuryResistance);
+  EXPECT_EQ(fixture.match->LeftFootedOf(synthetic->GetPlayerData()), Match::kFallbackLeftFooted);
 }
 
 TEST(PlayerDatabaseWiring, WithoutADatabaseEveryPlayerTakesTheFallback) {
   FixtureMatch fixture(nullptr);
   if (!fixture.match) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton and constants come from PES";
-  for (Player* player : FirstTwoActive(fixture.match->GetTeam(0))) {
-    EXPECT_EQ(fixture.match->InjuryResistanceOf(player->GetPlayerData()), 1);
-    EXPECT_FALSE(fixture.match->LeftFootedOf(player->GetPlayerData()));
-  }
+  EXPECT_GT(ExpectEveryPlayerTakesTheFallback(*fixture.match), 0);
 }

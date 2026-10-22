@@ -1028,16 +1028,10 @@ void Match::ReplacePlayerReferences(Player* playerOut, Player* playerIn) {
 
 namespace {
 
-// ponytail: a player with no Player.bin record takes the middle tier and the right foot, the stand-ins this engine used
-// before the install's database was read. GF's synthetic squads number their players 1..32 (assets/fixtures/teams.sql),
-// which are not PES player ids, so the fixture takes this path. Upgrade: a PES roster keyed by PES player ids, as
-// pes_character.cpp already keys the appearance by the same id.
-constexpr int kFallbackInjuryResistance = 1;  // B
-constexpr bool kFallbackLeftFooted = false;   // right foot
-
+// A player's PES record is read only through his PES id; a player with none (the synthetic squads) is never looked up.
 std::optional<pes::PlayerTraits> TraitsOf(const std::optional<pes::PlayerDatabase>& database, const PlayerData* data) {
-  if (!database || !data) return std::nullopt;
-  return database->Find(data->GetDatabaseID());
+  if (!database || !data || !data->GetPesPlayerId()) return std::nullopt;
+  return database->Find(*data->GetPesPlayerId());
 }
 
 }  // namespace
