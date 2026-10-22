@@ -1,5 +1,7 @@
 # PES attack level (mentality) → GF port plan (v3)
 
+> **Main note 22-10-26:** live captures (owner's RE agent; `docs/re/pes-re-mentality-reclass-live.md`) show the dial's main output is line reclassification (class records at +0x7B88 rewritten: forwards fold into midfield at −1/−2, a fullback is promoted at +2), two blocks run one per team (A `682770`, B `67B640`, B shields the CF), and rank is not sheet order. Re-plan F1-F4 on that before porting further; reconcile with this plan's flag-F block choice first.
+
 > **Main note 20-10-26:** plan v3 (MentalityPlan), read-only. It supersedes v2: the forward pull's array P (`[ctx+0xBA8]`) is the same pointer as RoleArrays' S = T+0xC48, so the pull reads RoleArrays B (and A for line membership); the pull is gated by the possession flag F (local_458+0x10C, inverted on even frames once MI+0x119C > 1), not the phase. Its corrections to pes-re-attack-level-pull.md are not yet Main-audited.
 
 v3 supersedes v2. v2's base claims and gating were partly wrong. What changed:
