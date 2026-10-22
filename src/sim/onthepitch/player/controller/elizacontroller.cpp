@@ -173,18 +173,16 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       const Vector3 spot = team->GetController()->GetPieceWalkTarget();
       const Vector3 toSpot = (spot - player->GetPosition()).Get2D();
       command.desiredDirection = toSpot.GetNormalized(player->GetDirectionVec());
-      // The carrier closes at 2 x the gap. A speed off the movement table reads as no class in MOVESTEP (TURN_STOP, with the
-      // precise target set; ClipWords' RUN_LOOP no-class rule), so the approach is a level. Under the dribble floor he keeps the
-      // floor, so the last metres still close. Above it he walks: a sprint overshoots the spot with the body's momentum, and the
-      // throw then goes out again at the spot (AThrowInIsNotAwardedAgainOnItsOwnSpot). PES's MOVE stops him at its arrival radius
-      // (StayDecision, FUN_1406b6bb0), and the lift (docs/re/pes-re-throwin-choreography.md 3.2, phase 4) takes him onto the spot
-      // within 0.65 m. He stands once the lift has finished.
-      // ponytail: PES's desired speed (the MOVE command's writer, cmd+0x172) is not decoded; the walk level is GF's stand-in.
+      // The carrier closes at 2 x the gap. FloorVelocity floors only the small speeds, so above 4 m the command is off the movement
+      // table, and MOVESTEP reads an off-table speed as no class (TURN_STOP, with the precise target set; ClipWords' RUN_LOOP
+      // no-class rule): the crawl. PES's MOVE stops him at its arrival radius (StayDecision, FUN_1406b6bb0, ported), and the lift
+      // (docs/re/pes-re-throwin-choreography.md 3.2, phase 4) takes him onto the spot within 0.65 m. He stands once the lift has
+      // finished.
+      // ponytail: PES's desired speed (the MOVE command's writer, cmd+0x172) is not decoded; the 2 x gap rule is GF's stand-in.
       const float gap = toSpot.GetLength();
-      const float approach = pes::kPieceTakerApproachGain * gap;
-      command.desiredVelocityFloat = team->GetController()->PieceTakerArrived() ? idleVelocity
-                                     : approach < dribbleVelocity               ? dribbleVelocity
-                                                                                : walkVelocity;
+      command.desiredVelocityFloat = team->GetController()->PieceTakerArrived()
+                                         ? idleVelocity
+                                         : FloorVelocity(pes::kPieceTakerApproachGain * gap);
       command.useDesiredTarget = true;
       command.desiredTarget = spot;
       command.useDesiredLookAt = true;
