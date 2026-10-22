@@ -301,3 +301,18 @@ TEST(SetKickStand, TheCornerHeadingMatchesTheLiveKickerYaws) {
         << " degrees";
   }
 }
+
+// PES's pickup root (FUN_140791EC0 phase 1, the clip's ball-contact root point): the taker's root stands the clip's ball offset
+// behind the ball, so the hands meet the ball at the contact frame. A ball 0.8 m ahead of the root puts the root 0.8 m on the far
+// side. Heading 0 is +Z in PES, which is -y in GF; heading 90 is +X.
+TEST(SetKickStand, ThePickupRootStandsTheClipsBallOffsetBehindTheBall) {
+  constexpr float kPointTolerance_m = 1e-4f;  // float arithmetic, not a PES value
+  const pes::Vec3 ball(10.0f, 4.0f, 0.0f);
+  const pes::Vec3 ahead(0.0f, 0.0f, 0.8f);  // the ball's place in the clip's frame: 0.8 m forward (+Z)
+  const pes::Vec3 atZero = pes::PickupContactRoot(ball, 0.0f, ahead);
+  EXPECT_NEAR(atZero.x, 10.0f, kPointTolerance_m);
+  EXPECT_NEAR(atZero.y, 4.8f, kPointTolerance_m) << "heading 0 faces +Z, so the root is 0.8 m on the -Z side of the ball";
+  const pes::Vec3 atNinety = pes::PickupContactRoot(ball, 90.0f, ahead);
+  EXPECT_NEAR(atNinety.x, 9.2f, kPointTolerance_m) << "heading 90 faces +X, so the root is 0.8 m on the -X side of the ball";
+  EXPECT_NEAR(atNinety.y, 4.0f, kPointTolerance_m);
+}

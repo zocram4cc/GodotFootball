@@ -19,6 +19,14 @@ const float bodyRotationSmoothingFactor = 1.0f;
 const float bodyRotationSmoothingMaxAngle = 0.25f * pi;
 const float initialReQueueDelayFrames = 32;
 
+namespace {
+// A clip's root cache is in the anim's own frame, where forward is (0,-1). The body's positions are world frame, so the cache
+// is turned by the body's angle when it is installed: the frame the selected clips' positions are in (CalculatePhysicsVector).
+void TurnCacheToBody(std::vector<Vector3>& positions, radian bodyAngle) {
+  for (Vector3& position : positions) position = position.GetRotated2D(bodyAngle);
+}
+}  // namespace
+
 HumanoidBase::HumanoidBase(PlayerBase* player, Match* match,
                            boost::intrusive_ptr<Node> humanoidSourceNode,
                            std::shared_ptr<AnimCollection> animCollection)
@@ -515,6 +523,7 @@ bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror) {
   currentAnim->positionOffset = Vector3(0);
   currentAnim->incomingMovement = spatialState.movement;
   currentAnim->positions = match->GetAnimPositionCache(currentAnim->anim);
+  TurnCacheToBody(currentAnim->positions, spatialState.angle);
   currentAnim->outgoingMovement = CalculateOutgoingMovement(currentAnim->positions);
   // The clip starts where the body is now, as a selected anim does.
   startPos = spatialState.position;
@@ -551,6 +560,7 @@ void HumanoidBase::ResetPosition(const Vector3& newPos, const Vector3& focusPos)
   currentAnim->anim = anims->GetAnim(currentAnim->id);
   currentAnim->positions.clear();
   currentAnim->positions = match->GetAnimPositionCache(currentAnim->anim);
+  TurnCacheToBody(currentAnim->positions, startAngle);
   currentAnim->frameNum = AnimeRandom().Range0(currentAnim->anim->GetEffectiveFrameCount());
   currentAnim->radiusOffset = 0.0;
   currentAnim->touchFrame = -1;

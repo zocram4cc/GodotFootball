@@ -118,13 +118,14 @@ public:
   // The point a held taker looks at: his SetKick look point when the placement set one (a corner's heading), else the ball.
   Vector3 HeldTakerLookAt(const Vector3& ball) const { return pieceHasLookAt ? pieceLookAt : ball; }
   Vector3 GetPieceWalkTarget() const { return pieceWalkTarget; }
-  // Advances the walk from the pickup to the carry. The referee calls it each tick before the release gate.
+  // Advances the walk from the pickup, through the carry, to the lift. The referee calls it each tick before the release gate.
   void AdvancePieceWalk();
   // True from the pickup until the release: the taker holds the ball.
   bool IsCarryingBall() const { return pieceWalk && pieceCarrying; }
-  // True while the pickup clip plays: the taker stands and his root warps onto the predicted ball until the contact frame.
+  // True while a pickup or lift clip plays: the taker stands and his root warps onto the predicted ball (the pickup's contact
+  // frame) or onto the carry spot (the lift, 3.2 phase 4).
   bool IsPickingUp() const { return pieceWarping; }
-  // True when no walk is pending, or the carrying taker stands at the spot (the lift radius, 3.2).
+  // True when no walk is pending, or the lift has finished and the carrying taker stands on the spot (3.2 phase 5).
   bool PieceTakerArrived() const;
   // PES's goal kick (pesgoalkick.hpp): the ladder releases it (sub_142136F00) and the strike carries the keeper onto the
   // ball. StepGoalKickLadder runs one tick of the armed restart's ladder and returns true on its release.
@@ -240,6 +241,7 @@ protected:
   bool pieceWarping = false;   // the pickup clip is playing: the root warps onto pieceWarpTo until the contact frame
   unsigned long pieceWarpTicks = 0;  // ticks left to the pickup's contact frame
   Vector3 pieceWarpTo;         // the predicted ball at the contact frame, where the warp ends
+  bool pieceLifted = false;    // the lift clip has finished: the taker stands on the spot and the release may come (3.2 phase 5)
   bool pieceHeld = false;      // the taker was placed on his stand point at prepare and holds it until the release
   bool pieceHasLookAt = false;  // the placement set pieceLookAt (a corner's SetKick heading)
   Vector3 pieceLookAt;          // where the held taker looks while he waits, when pieceHasLookAt

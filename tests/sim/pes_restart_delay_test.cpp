@@ -848,10 +848,12 @@ TEST(PesRestartDelay, ATheFirstEndLineCrossingIsJudgedOnTheNextTick) {
 }
 
 // PES scores the goal in the judge, on the judge's frame, one frame after the zone code flips (cc = 1 in
-// FUN_14050e4a0 case 10, docs/re/pes-re-A5Judge.md 1.4). The natural crossing of seed 7 flips at tick 7354 and is
-// judged on 7355 (ATheFirstEndLineCrossingIsJudgedOnTheNextTick). The score must not move on the flip tick.
+// FUN_14050e4a0 case 10, docs/re/pes-re-A5Judge.md 1.4). The first end-line crossing that scores flips and is judged on the next
+// tick (ATheFirstEndLineCrossingIsJudgedOnTheNextTick). The score must not move on the flip tick. A crossing that is a miss is
+// skipped: the body-frame fix (humanoidbase.cpp TurnCacheToBody) moved seed 7's first crossing to a miss, so this test follows the
+// first goal rather than the first crossing.
 TEST(PesRestartDelay, ANaturalGoalIsCountedOnTheJudgesFrame) {
-  unsigned long tick = 0, flipAt = 0, lastStop = 0;
+  unsigned long tick = 0, flipAt = 0;
   bool live = false;
   int goalsBefore = 0, goalsAtFlip = -1, goalsAfter = -1;
   const auto goals = [](Match& match) {
@@ -871,14 +873,18 @@ TEST(PesRestartDelay, ANaturalGoalIsCountedOnTheJudgesFrame) {
         }
         if (flipAt == 0) {
           goalsBefore = goals(match);
-          lastStop = b.stopTime;
         } else if (tick == flipAt + 1) {
           goalsAfter = goals(match);
+          // A crossing that is no goal is not the event: wait for the next one.
+          if (goalsAfter == goalsAtFlip) {
+            flipAt = 0;
+            goalsAfter = -1;
+          }
         }
         live = match.IsInPlay() && !match.IsInSetPiece() && !b.active;
       },
       kMaxSimTicks, [&](Match&) { return goalsAfter >= 0; });
-  EXPECT_NE(flipAt, 0ul) << "the seed-7 match has no end-line crossing";
+  EXPECT_NE(flipAt, 0ul) << "the seed-7 match has no goal from an end-line crossing";
   EXPECT_EQ(goalsAtFlip, goalsBefore) << "the score moved on the flip tick, before the judge read the event";
   EXPECT_EQ(goalsAfter, goalsBefore + 1) << "the goal was not counted on the judge's frame";
 }
@@ -998,9 +1004,11 @@ TEST(PesRestartDelay, ACarriedThrowInReachesItsSpot) {
   bool arrived = false;
   RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
     const RefereeBuffer& b = match.GetRefereeBuffer();
-    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker || b.started) return;
+    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker) return;
     const TeamAIController* c = match.GetTeam(b.teamID)->GetController();
     if (!pickupTick && c->IsCarryingBall()) pickupTick = static_cast<unsigned long>(match.GetSimFrame());
+    // The arrival and the release land on one tick (PES's release follows the lift), so the arrival is read whatever the
+    // referee's started flag says.
     if (pickupTick && c->PieceTakerArrived()) arrived = true;
   }, kMaxSimTicks,
   [&](Match& match) {
@@ -1011,15 +1019,18 @@ TEST(PesRestartDelay, ACarriedThrowInReachesItsSpot) {
   EXPECT_TRUE(arrived) << "the carrier did not reach his spot within " << kCarryBoundTicks << " ticks of the pickup";
 }
 
-// A throw-in carrier holds the ball only within reach of it. PES's pickup clip root-warps the taker onto the ball, so his hands
-// meet the ball at the contact frame (docs/re/pes-re-throwin-choreography.md 3.2, phase 1). Seed 7's five-minute walker held
-// the ball 4.0 m from where it had lain, and the ball jumped into his hand.
-TEST(PesRestartDelay, AThrowInCarrierHoldsTheBallWithinHandReach) {
-  constexpr float kHandReach_m = 0.80f;  // the release key's ball offset from the body (choreography 3.2), as the ceremony test
-  std::optional<float> pickupReach;      // the carrier's distance to the loose ball on the tick he first holds it
+// A throw-in carrier stands at the pickup clip's contact offset from the ball, not within a hand reach. PES's pickup clip 0xCF5
+// puts the ball at its contact frame at the clip's offset from the taker's root, and the root warps onto the ball less that
+// offset (docs/re/pes-re-throwin-choreography.md 3.2, phase 1). So on the tick he first holds the ball, his root stands that
+// offset's length from where the ball lay. Seed 7's five-minute walker held the ball 4.0 m from where it had lain: the root gate
+// (AdvancePieceWalk) was the fault, and the 0.80 m hand reach this test used before was a stand-in.
+TEST(PesRestartDelay, AThrowInCarrierStandsAtThePickupClipsContactOffset) {
+  // A test tolerance, not a PES value: the ball may roll a few centimetres before the contact frame.
+  constexpr float kOffsetTolerance_m = 0.15f;
+  std::optional<float> pickupReach;    // the carrier's root to where the ball lay, on the tick he first holds it
+  std::optional<float> contactOffset;  // the pickup clip's contact offset, horizontal, from the clip the gate reads
   Vector3 looseBall;
   bool haveLooseBall = false;
-  size_t pickupClipHits = 0;
   RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker || b.started) return;
@@ -1031,11 +1042,20 @@ TEST(PesRestartDelay, AThrowInCarrierHoldsTheBallWithinHandReach) {
     }
     if (!pickupReach && haveLooseBall) {
       pickupReach = (b.taker->GetPosition() - looseBall).Get2D().GetLength();
-      pickupClipHits = match.GetPesMbinfo().Hits(0xcf5).size();
+      const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(0xcf5);
+      if (!hits.empty()) {
+        const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
+        const pes::HitRecord& hit = hits.front();
+        // ponytail: the physique and mirror are the gate's (1.0 and unmirrored), so the test reads the offset the gate warps by.
+        const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), 1.0f, false, k);
+        contactOffset = std::sqrt(offset.x * offset.x + offset.z * offset.z);
+      }
     }
   }, kMaxSimTicks, [&](Match&) { return pickupReach.has_value(); }, SEED, false);
   EXPECT_TRUE(pickupReach.has_value()) << "no throw-in carrier picked the ball up";
-  if (pickupReach)
-    EXPECT_LE(*pickupReach, kHandReach_m) << "the carrier held the ball " << *pickupReach << " m from where it lay (the pickup clip 0xCF5 has "
-                                          << pickupClipHits << " hit records)";
+  EXPECT_TRUE(contactOffset.has_value()) << "the pickup clip 0xCF5 has no hit record";
+  if (pickupReach && contactOffset)
+    EXPECT_NEAR(*pickupReach, *contactOffset, kOffsetTolerance_m)
+        << "the carrier stood " << *pickupReach << " m from where the ball lay; the clip's contact offset is "
+        << *contactOffset << " m";
 }

@@ -173,13 +173,18 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       const Vector3 spot = team->GetController()->GetPieceWalkTarget();
       const Vector3 toSpot = (spot - player->GetPosition()).Get2D();
       command.desiredDirection = toSpot.GetNormalized(player->GetDirectionVec());
-      // The throw-in carrier closes at 2 x the gap, snapped up to a movement level (FloorVelocity): a speed off the level
-      // table is class none, which reads as TURN_STOP with the precise target set (ClipWords, RUN_LOOP's no-class rule).
-      // He stands once he is within the lift radius.
+      // The carrier closes at 2 x the gap. A speed off the movement table reads as no class in MOVESTEP (TURN_STOP, with the
+      // precise target set; ClipWords' RUN_LOOP no-class rule), so the approach is a level. Under the dribble floor he keeps the
+      // floor, so the last metres still close. Above it he walks: a sprint overshoots the spot with the body's momentum, and the
+      // throw then goes out again at the spot (AThrowInIsNotAwardedAgainOnItsOwnSpot). PES's MOVE stops him at its arrival radius
+      // (StayDecision, FUN_1406b6bb0), and the lift (docs/re/pes-re-throwin-choreography.md 3.2, phase 4) takes him onto the spot
+      // within 0.65 m. He stands once the lift has finished.
+      // ponytail: PES's desired speed (the MOVE command's writer, cmd+0x172) is not decoded; the walk level is GF's stand-in.
       const float gap = toSpot.GetLength();
-      command.desiredVelocityFloat = gap <= match->GetPesRestartSpotConstants().throwInCarryStop_m
-                                         ? idleVelocity
-                                         : FloorVelocity(pes::kPieceTakerApproachGain * gap);
+      const float approach = pes::kPieceTakerApproachGain * gap;
+      command.desiredVelocityFloat = team->GetController()->PieceTakerArrived() ? idleVelocity
+                                     : approach < dribbleVelocity               ? dribbleVelocity
+                                                                                : walkVelocity;
       command.useDesiredTarget = true;
       command.desiredTarget = spot;
       command.useDesiredLookAt = true;

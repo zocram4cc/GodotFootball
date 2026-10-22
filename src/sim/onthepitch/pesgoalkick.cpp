@@ -136,6 +136,20 @@ Vec3 PlacerLookPoint(const Vec3& stand, float headingDeg) {
   return FromFox(Vec3(fox.x + facing.x, fox.y + facing.y, fox.z + facing.z));
 }
 
+float FacingHeadingDeg(const Vec3& gfDirection) {
+  // PES's facing yaw: 0 is +Z and 90 is +X in Fox space, where GF's y is -Z.
+  const Vec3 fox = ToFox(gfDirection);
+  return std::atan2(fox.x, fox.z) * kHalfTurn_deg / kPi;
+}
+
+Vec3 PickupContactRoot(const Vec3& ball, float headingDeg, const Vec3& offsetFox_m) {
+  // The ball's place in the clip's frame, turned by the heading, is ahead of the root: the root stands that offset behind the
+  // ball, so the hands meet the ball at the contact frame (the same turn the placer applies to the stand point).
+  const Vec3 fox = ToFox(ball);
+  const Vec3 turned = TurnByHeading(offsetFox_m, headingDeg);
+  return FromFox(Vec3(fox.x - turned.x, fox.y - turned.y, fox.z - turned.z));
+}
+
 pes::Vec3 GoalKickContactRoot(const pes::Vec3& stand, float headingDeg, const pes::Vec3& hitRootCm, bool mirror,
                               const GoalKickConstants& k) {
   // The root's motion to the hit, in metres, mirrored like the offset and turned by the heading. The hit record
