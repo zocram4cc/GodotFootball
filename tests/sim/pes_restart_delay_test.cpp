@@ -370,13 +370,13 @@ TEST(PesRestartDelay, ARestartTakerPlaysHisBallActionAfterRelease) {
                         << " ticks of release:" << who;
 }
 
-// A throw-in must be taken within the bound, and its taker must play a ball action then. Seed 7's
-// first throw-in is released with its taker in a PES locomotion clip. The throw-in spot sits F1 + the
-// install's outset outside the touchline (the referee's real restart path), so the taker's candidate
-// touches all predict a ball past the line and, without the taker's-own-spot exemption, are refused
-// as out of bounds (humanoid GetBestCheatableAnimID), and no pass or shot is selected and the match
-// stalls. This test requires the taker's ball action within the bound counted from the stoppage, as
-// the restart watch counts it.
+// A throw-in must be taken within the bound, and its taker must play a ball action then. The throw-in spot sits F1 +
+// the install's outset outside the touchline (the referee's real restart path), so the taker's candidate touches all
+// predict a ball past the line and, without the taker's-own-spot exemption, are refused as out of bounds (humanoid
+// GetBestCheatableAnimID), and no pass or shot is selected and the match stalls. This test requires the taker's ball
+// action within the bound counted from the stoppage, as the restart watch counts it. The clip family is not asserted:
+// PES names the seamless carry and release motions throwin_* (docs/re/pes-re-throwin-choreography.md 3.2, 4.2), which
+// the MOVESTEP locomotion prefixes (pesclips.cpp, kLocomotion) do not match.
 // Path A only: a ceremony taker (path B) is placed and releases from his hand, which
 // AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWithTheBallInHand covers.
 TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
@@ -395,7 +395,7 @@ TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
   std::map<unsigned long, Taking> taking;            // released, not yet taken
   std::set<unsigned long> seen;
   unsigned long tick = 0, bound = 0;
-  int throwIns = 0, onLocomotion = 0, untaken = 0;
+  int throwIns = 0, untaken = 0;
   std::string who;
   RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
     ++tick;
@@ -411,10 +411,6 @@ TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
       stoppedAt.emplace(b.stopTime, tick);
     if (b.active && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker &&
         match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker) && seen.insert(b.stopTime).second) {
-      const Anim* anim = b.taker->GetCurrentAnim();
-      if (anim && anim->functionType == e_FunctionType_Special && anim->anim &&
-          pes::IsPesLocomotionFamily(std::atoi(anim->anim->GetVariable("specialvar1").c_str())))
-        onLocomotion++;
       throwIns++;
       taking[b.stopTime] =
           Taking{b.taker, stoppedAt[b.stopTime], b.taker->GetPlayerData()->GetLastName()};
@@ -433,7 +429,6 @@ TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
     }
   }, kSeamlessSearchTicks, [&](const Match&) { return firstDone; }, SEAMLESS_SEED, false);
   EXPECT_GT(throwIns, 0) << "no seamless throw-in was released";
-  EXPECT_GT(onLocomotion, 0) << "no throw-in taker was in a PES locomotion clip at release";
   EXPECT_EQ(untaken, 0) << untaken << " throw-in taker(s) played no ball action within " << bound
                         << " ticks of the stoppage with the ball over the line:" << who;
 }

@@ -77,16 +77,20 @@ void Match::ProcessPesEventStage() {
   const Vector3 ballNow = GetBall()->Predict(0);
   const Vector3 ballNext = GetBall()->Predict(kNextRecordMs);
 
-  // K=10 (docs/re/pes-re-out-side.md): fires when the pitch-zone code changes. The code is 0 while the
-  // restart is awarded (PES's p+0x298 == 3; the restart state 3 above), else the classifier of the ball.
-  // The judge reads the event one tick later: the code leads the judge state by one frame.
+  // K=10 (docs/re/pes-re-out-side.md): fires when the pitch-zone code changes. The code is 0 while the restart is
+  // armed (PES's p+0x298 == 3): awarded and not yet taken. The gate opens when the taker's kick action begins
+  // (pes-re-A5Judge.md 9.4; INF on the exact frame), while PES's in-play flag (MI+0x116C) stays 3 until the release
+  // event (pes-re-out-side.md 7.3: 116C == 3 with a nonzero code), so a ball already over the line at the release
+  // raises nothing (pes-re-throwin-choreography.md 4.2). Else the classifier of the ball. The judge reads the event
+  // one tick later: the code leads the judge state by one frame.
   if (PesLoop()) {
     pesDetectors.outConsumable = pesDetectors.outRaised;
     pesDetectors.outRaised = false;
     pes::OutOfPlayInput outIn;
-    outIn.code = buffer.active ? 0
-                               : pes::OutOfPlayCode(ballNow.coords[0], ballNow.coords[1],
-                                                    GetPesBallConstants().image.ballRadius);
+    outIn.code = buffer.active && !buffer.started
+                     ? 0
+                     : pes::OutOfPlayCode(ballNow.coords[0], ballNow.coords[1],
+                                          GetPesBallConstants().image.ballRadius);
     outIn.frame = frame;
     outIn.stored = pesDetectors.outCode;
     pes::EventRecord outRec;
