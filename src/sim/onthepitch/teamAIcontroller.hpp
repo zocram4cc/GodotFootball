@@ -129,8 +129,9 @@ public:
   bool IsPickingUp() const { return pieceWarping; }
   // True when no walk is pending, or the lift has finished and the carrying taker stands on the spot (3.2 phase 5).
   bool PieceTakerArrived() const;
-  // The release, held: from the pickup through the take, PES holds the ball in the hand at the release clip's key offset
-  // (FUN_140792E10 phase 1; pes-re-throwin-choreography.md 4.2, 5.3). The referee calls it while the throw is taken.
+  // Holds the ball in the carrying taker's hand at the release row's key offset while the touch is pending. PES keeps it
+  // there until the release (FUN_140792E10 phase 1; pes-re-throwin-choreography.md 4.2, 5.3). Before the take the ball rides
+  // at the taker's root (the carry pin in referee.cpp). The referee calls this from the start of the take until the touch.
   void PinBallAtRelease();
   // The receiver a throw-in is aimed at: the nearest mate inside the touchline (the throw's target; PES's ap+0x2bf4/0x2bfc).
   Player* ThrowInTargetMate(Player* thrower) const;
