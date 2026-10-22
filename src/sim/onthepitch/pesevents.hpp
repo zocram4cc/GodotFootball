@@ -357,11 +357,16 @@ struct OutOfPlayInput {
   int code = 0;    // this tick's zone code
   int stored = 0;  // the detector's copy of the last code (+8)
   int frame = 0;
+  float state = 0.f;  // the record's state word (GF's kStateWord, matchevents.cpp)
 };
 // The zone classifier FUN_140a72e70 on the ball pulled in by one radius (FUN_140872c10): 0x1 inside,
 // 0x2 out of play, 0x4 touchline, 0x8 end line, and the band bits (pes-re-out-side.md section 5).
 int OutOfPlayCode(float x, float z, float radius);
 bool DetectOutOfPlay(OutOfPlayInput* in, EventRecord* out);
+// The judge's gate on K=10 (FUN_14050e4a0 case 10, pes-re-A5Judge.md 1.4): the judge acts on the event only when the
+// code it carries is out of play, bit 0x2 of the first payload word (pes-re-out-side.md 5).
+constexpr uint32_t kOutOfPlayBit = 0x2;
+bool JudgeActsOnOutOfPlay(const EventRecord& rec);
 
 // K=11 (the snapshot body 0x140a158a9-0x140a15a91, site 0x140a15978): the first
 // ring-0 record that is not busy and is the other team's, copied into the new

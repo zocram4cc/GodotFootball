@@ -555,7 +555,7 @@ protected:
     bool possessionFlip = false;
     pes::PossessionSequenceState sequence;
     int outCode = 0;            // K=10's stored copy of the zone code (pes-re-out-side.md)
-    bool outRaised = false;     // K=10 fired this tick
+    bool outRaised = false;     // K=10 fired this tick, with an out-of-play code the judge acts on
     bool outConsumable = false; // K=10 fired last tick: the judge reads it one tick later
   };
   PesDetectorState pesDetectors;

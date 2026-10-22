@@ -422,10 +422,14 @@ int OutOfPlayCode(float x, float z, float radius) {
 bool DetectOutOfPlay(OutOfPlayInput* in, EventRecord* out) {
   if (in->stored == in->code) return false;
   in->stored = in->code;
-  // The new code is the record's first payload word (pes-re-out-side.md 5, the K=10 payload).
-  out->Write(0x0a, in->frame, in->frame, in->code, 0);
+  // FUN_140a17810 (pes-re-out-side.md 5): the new code is the record's first payload word, +0x14. The judge's
+  // gate reads that word's bit 0x2 (FUN_14050e4a0 case 10).
+  out->Write(0x0a, in->frame, in->frame, in->state, 0);
+  out->SetU32(0x14, static_cast<uint32_t>(in->code));
   return true;
 }
+
+bool JudgeActsOnOutOfPlay(const EventRecord& rec) { return (rec.U32(0x14) & kOutOfPlayBit) != 0; }
 
 bool DetectSnapshot(const SnapshotInput& in, EventRecord* out) {
   if (in.store == nullptr || in.current == nullptr) return false;
