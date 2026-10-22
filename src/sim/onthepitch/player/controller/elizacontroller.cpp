@@ -823,8 +823,10 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     // at the arrival slope capped one class band above his current pace. The
     // movement command below runs it command-led (useDesiredMovement), which
     // is what lets him ramp to a sprint; GF's clip-led chase step is gone on
-    // this path. For the designated presser the movement magnets below still
+    // this path. The command carries the target too (useDesiredTarget), so MOVESTEP
+    // steers to it. For the designated presser the movement magnets below still
     // blend toward the ball - this input is their hint.
+    std::optional<Vector3> pressTarget;  // the ActionPress target, when this block computes one
     if (match->PesLoop() && team->GetController()->IsLoosePresser(player)) {
       const pes::PressConstants& press = match->GetPesPressConstants();
       const Vector3 ballNow = match->GetBall()->Predict(0);
@@ -837,6 +839,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
                                                  {ballNow.coords[0], ballNow.coords[1]},
                                                  {base.coords[0], base.coords[1]});
       const Vector3 target = toBall ? ballNow.Get2D() : base.Get2D();
+      pressTarget = target;
       const Vector3 toTarget = target - CastPlayer()->GetPosition();
       // m/s to km/h is arithmetic (3600/1000), not a PES number.
       const float speedKmh = CastPlayer()->GetMovement().GetLength() * 3.6f;
@@ -853,7 +856,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
     if (team->PassGetReceiver() == player && !hasPossession)
       _PassGetApproach(commandQueue);
     else
-      _MovementCommand(commandQueue, forceMagnet, extraHaste);
+      _MovementCommand(commandQueue, forceMagnet, extraHaste, pressTarget);
 
   } else {  // keeper?
 

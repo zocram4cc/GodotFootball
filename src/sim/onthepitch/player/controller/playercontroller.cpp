@@ -524,7 +524,7 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
 }
 
 void PlayerController::_MovementCommand(PlayerCommandQueue& commandQueue, bool forceMagnet,
-                                        bool extraHaste) {
+                                        bool extraHaste, const std::optional<Vector3>& desiredTarget) {
   int defaultLookAtTime_ms = 40;
 
   // a heading is flat: height in the input is not a direction (SelectAnim asserts it)
@@ -718,6 +718,11 @@ void PlayerController::_MovementCommand(PlayerCommandQueue& commandQueue, bool f
 
     Vector3 resultLookDirection = autoLookDirection;
     command.desiredLookAt = player->GetPosition() + resultLookDirection * 10.0f;
+  }
+
+  if (desiredTarget) {
+    command.useDesiredTarget = true;
+    command.desiredTarget = *desiredTarget;
   }
 
   commandQueue.push_back(command);

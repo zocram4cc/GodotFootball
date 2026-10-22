@@ -6,6 +6,8 @@
 #ifndef _HPP_FOOTBALL_ONTHEPITCH_PLAYERCONTROLLER
 #define _HPP_FOOTBALL_ONTHEPITCH_PLAYERCONTROLLER
 
+#include <optional>
+
 #include "icontroller.hpp"
 
 class PlayerController : public IController {
@@ -51,8 +53,11 @@ protected:
   // PES 2021's reaction entry 3, the receive (docs/re/pes-re-receiving.md §1,
   // §3) as a predicate for the reaction walk.
   bool _ReceiveCandidate();
+  // PES's ActionPress target (pes-re-press-life.md section 8, step 6), when the caller has one. MOVESTEP steers to a
+  // command's target; without one it projects the direction a second ahead (pesmovestep FillCommandWords).
   virtual void _MovementCommand(PlayerCommandQueue& commandQueue, bool forceMagnet = false,
-                                bool extraHaste = false);
+                                bool extraHaste = false,
+                                const std::optional<Vector3>& desiredTarget = std::nullopt);
 
   Vector3 inputDirection;
   float inputVelocityFloat;
