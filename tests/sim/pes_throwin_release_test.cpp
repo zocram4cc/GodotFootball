@@ -31,10 +31,10 @@ constexpr int kMinutes = 2;
 // The release key's horizontal length is checked to this tolerance (m): the key is measured against the root the hold used.
 constexpr float kKeyTolerance_m = 0.05f;
 
-// The install's set-piece taker constants, read as the match reads them (PES21_ROOT).
+// The install's set-piece taker constants, read as the match reads them. The caller has checked PES21_ROOT.
 void LoadTakerConstants(pes::SetPieceTakerConstants* out) {
   const char* root = std::getenv("PES21_ROOT");
-  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(root != nullptr) << "PES21_ROOT not set";
   pes::PesVfs vfs;
   std::string err;
   ASSERT_TRUE(vfs.Mount(root, &err)) << err;
@@ -49,7 +49,7 @@ void LoadTakerConstants(pes::SetPieceTakerConstants* out) {
 // Runs a PES-loop match for two minutes, calling `onTick` after every tick.
 void RunMatch(const std::function<void(Match&)>& onTick) {
   const char* root = std::getenv("PES21_ROOT");
-  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  ASSERT_TRUE(root != nullptr) << "PES21_ROOT not set";
   pes::PesVfs vfs;
   std::string err;
   ASSERT_TRUE(vfs.Mount(root, &err)) << err;
@@ -83,6 +83,7 @@ void RunMatch(const std::function<void(Match&)>& onTick) {
 // taker is within the install's release distance of the throw's target, the mid row beyond it. The threshold is read from the
 // install (0x1425c5948), so the test asserts the rule against it, on either side.
 TEST(PesThrowInRelease, ACarriedThrowUsesTheShortRowUpToThePesDistanceAndTheMidRowBeyond) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
   pes::SetPieceTakerConstants k;
   LoadTakerConstants(&k);
   const float reach_m = k.throwInReleaseShort_m;
@@ -95,6 +96,7 @@ TEST(PesThrowInRelease, ACarriedThrowUsesTheShortRowUpToThePesDistanceAndTheMidR
 // until the release (pes-re-throwin-choreography.md 4.2, 5.3). So when the throw's touch ends the set piece, the ball lies
 // inside the line. Counted over a two-minute seed-7 match.
 TEST(PesThrowInRelease, AThrowInIsReleasedFromInsideTheLine) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
   int releases = 0, outside = 0;
   bool throwInTaking = false;
   RunMatch([&](Match& match) {
@@ -110,12 +112,14 @@ TEST(PesThrowInRelease, AThrowInIsReleasedFromInsideTheLine) {
   EXPECT_EQ(outside, 0) << outside << " of " << releases << " released throw-ins lay outside the touchline at the touch";
 }
 
-// A carried throw-in's ball is held at the release clip's key offset from the taker's root, the row being the one PES's
-// distance rule picks as the take starts. The hold of a tick places the ball from the root the tick began with, which is the
-// root the previous tick ended with, so the check pairs the last held ball with that root. The key's horizontal length is
-// independent of the heading: the Fox X and Z of the installed key equal the ball's horizontal distance from the root.
-// Ceremony takers hold the ball at their own stand-point key and are not counted here.
-TEST(PesThrowInRelease, ACarriedThrowInIsReleasedAtThePesReleaseKeyOfItsDistance) {
+// A carried throw-in's ball is held at its release row's key offset from the taker's root until the touch. The hold of a
+// tick places the ball from the root the previous tick ended with, so the check pairs the last held ball with that root.
+// The key's horizontal length is independent of the heading (the Fox X and Z of the key), so the check is the hold's
+// distance from the root. It checks the hold against the row's first hit record, which the hold reads; it does not check
+// that this record is PES's release key (OPEN, pes-re-throwin-choreography.md 5). Ceremony takers hold the ball at their
+// own stand-point key and are not counted.
+TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
   pes::SetPieceTakerConstants k;
   LoadTakerConstants(&k);
   int carried = 0, mismatched = 0;
