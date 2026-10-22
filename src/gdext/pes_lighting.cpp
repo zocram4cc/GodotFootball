@@ -251,6 +251,9 @@ bool PesLighting::setup(const Ref<PesLibrary>& library, int stadium_id, int weat
       // (background_intensity, default 30000 nits) must stay the identity.
       env->set_bg_intensity(1.0f);
       env->set_ambient_source(Environment::AMBIENT_SOURCE_SKY);
+      // The sky feeds the diffuse ambient only: PES's SH sky light is diffuse (Part B §5), and its reflections come
+      // from the probes built above (Part B §6), not from the sky. So the environment's reflection source is off.
+      env->set_reflection_source(Environment::REFLECTION_SOURCE_DISABLED);
       // ponytail: the ambient energy is daySkyAmbientScale, and the cubemap scale is skyLightLuminanceScale;
       // neither is decoded. PES's diffuse sky light is SH_SphereMap's cb7 matrices, and their CPU writer is
       // not found, so the normalisation is open. Bound at the 15:00 span: this energy gives 0.064 of the
