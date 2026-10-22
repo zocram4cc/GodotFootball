@@ -246,6 +246,7 @@ address given.
 |`pes-re-press-coord.md`|The press coordinator FUN_140634470: per-tick flow (maintain, holder, class 5/7/4/6/1, the gate, the eval call); the holder MA+0x2601C = the last toucher (FUN_140457070)|
 |`pes-re-missing-systems.md`|DOGSO (spot beyond the back line and |z| < 20.12 m: straight red / double-jeopardy downgrade), injury-resistance gates (halve 30/50/70 %, promote 5/2/0 %), the 3-0 forfeit (FUN_140a23260: period 10, an on-pitch man sent off with no replacement), no handball, no time-wasting rule|
 |`pes-re-kicker-standby.md`|Set-piece kicker standby actions (GK 62, FK 30/34, corner 49, throw-in 26, penalty 53, kickoff 22-24): placement at ready, the idle hold, the sub-id hand-over to the kick action|
+|`pes-re-walk-speed.md`|The set-piece walker's speed: `FUN_1406b7560`'s walk-down caps a run-class approach to 11 km/h (`DAT_14259bdfc`, call `0x1406b77d6`); the throw-in carry is root-warped|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
