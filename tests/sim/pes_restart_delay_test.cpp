@@ -52,10 +52,10 @@ constexpr int LONG_MINUTES = 5;
 // Seed 7's home keeper stalls at a goal kick about nineteen minutes in; twenty covers it.
 constexpr int TWENTY_MINUTES = 20;
 // The path-A tests follow the first seamless (walker) throw-in of seed 3's twenty-minute match: the earliest of seeds 11,
-// 13, 23 and 3 on the census (first walker prepared at ticks 21459, 7425, none within 30000, and 2461). The search stops
-// at 30000 ticks. A trajectory change moves that throw-in, so the tests follow it rather than a fixed window.
+// 13, 23 and 3 on the census (first walker prepared at ticks 21459, 7425, none within 30000, and 2461). A trajectory change
+// moves that throw-in (the role arrays put it past 30000 ticks), so the tests follow it through the whole twenty-minute
+// match and stop when its stoppage ends.
 constexpr unsigned int SEAMLESS_SEED = 3;
-constexpr unsigned long kSeamlessSearchTicks = 30000;
 // Seed 7's first throw-in on the twenty-minute match is a placed (ceremony) throw-in: prepared at tick 14428 and released
 // at 14521 (docs/ports/pes-port-ThrowInTaker.md). The windowed tests run just past it.
 constexpr unsigned long kFirstThrowInWindowTicks = 15000;
@@ -65,6 +65,8 @@ constexpr unsigned long kMaxSimTicks = 30ul * 60ul * Match::kFramesPerSecond;
 // The 60-minute cap the install's gfsim_run uses, for the twenty-minute match: with its stoppages it
 // runs about 114600 ticks, past the 30-minute cap above.
 constexpr unsigned long kTwentyMinuteMaxSimTicks = 60ul * 60ul * Match::kFramesPerSecond;
+// The path-A search (SEAMLESS_SEED above) runs through the whole twenty-minute match.
+constexpr unsigned long kSeamlessSearchTicks = kTwentyMinuteMaxSimTicks;
 
 // One match with the tick-order switch set as asked. `onTick` sees the match after each tick; the watch stops the run at
 // the first stall, and `done` (when it returns true) stops the run early. `seed` picks the match; `judgeEnd` runs the
@@ -139,8 +141,8 @@ TEST(PesRestartDelay, DISABLED_EveryStoppageRestartsWithinTheInstallBoundAtTwent
 
 // With pes_loop on, each set piece is armed where PES puts it (a goal kick on the goal-area line, a
 // throw-in on the line just outside the touchline), to the programme's spacing, and released on
-// its frame. Its side is the team that did not touch the ball last. No corner occurs before seed 7's
-// first throw-in (kFirstThrowInWindowTicks); the corner's spot, side and gate are covered by pes_restart_sequencer_test.
+// its frame. Its side is the team that did not touch the ball last. The run stops once a goal kick and a throw-in have both
+// been armed, wherever the trajectory puts them; the corner's spot, side and gate are covered by pes_restart_sequencer_test.
 TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrames) {
   std::optional<unsigned long> lastStop, lastRelease;
   std::map<int, int> armed;
@@ -190,7 +192,8 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
         return;
     }
     EXPECT_EQ(b.teamID, pes::AwardedTeamAfterBallOut(lastTouch->GetID()));
-  }, kFirstThrowInWindowTicks, nullptr, SEED, false);
+  }, kTwentyMinuteMaxSimTicks,
+     [&](const Match&) { return armed[e_SetPiece_GoalKick] > 0 && armed[e_SetPiece_ThrowIn] > 0; }, SEED, false);
   EXPECT_GT(armed[e_SetPiece_GoalKick], 0) << "no goal kick was armed";
   EXPECT_GT(armed[e_SetPiece_ThrowIn], 0) << "no throw-in was armed";
 }
