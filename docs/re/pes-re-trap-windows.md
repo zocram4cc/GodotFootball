@@ -126,3 +126,37 @@ Recorded at the trigger frame (anime action becomes 7): issuer sim xz to ball sa
 
 **Result.** At the trigger frame the sample-0 distance is ≤ 10 m in most cases, so sample 0 is the better match for a "within 10 m" trigger. The rule "first frame within 10 m" cannot be tested from trigger-frame values alone: it needs the distance on the frames before the trigger, which were not recorded. Status: sample-0 consistent, rule not yet confirmed, sample N not favoured.
 > **Main 19-10-26:** the 10 m trap issue rule is accepted (17/19 issues at sample 0 within 10 m; the two overs 10.26/10.63 m).
+
+## 9. The clip frame: forward is -z (decoded from the hit records, FarChasePress)
+
+Each action-7 row's window holds that row's own first hit (the `HitData` record that `Mbinfo::Hits` returns, cm, relative
+to the root; read through the GF loader on the install, `ballCm` as `(x, height, z)`):
+
+| clip | row | window x | window z | first hit `(x, height, z)` cm |
+|---|---|---|---|---|
+| 0x547 | 34 | (-0.250, 0.250) | (-0.557, 0.218) | (0, 11.6, -10) |
+| 0x548 | 35 | (-0.180, 0.270) | (-0.767, -0.353) | (0, 191, -50) |
+| 0x549 | 36 | (-0.300, 0.210) | (-1.013, -0.143) | (0, 236, -50) |
+| 0x57D | 84 | (0.256, 0.620) | (-0.729, -0.323) | (45, 191, -50) |
+| 0x57F | 86 | (0.138, 0.860) | (-0.913, -0.153) | (45, 236, -50) |
+
+- **Forward is -z (CONFIRMED from the data).** The contacts of trap clips are in front of the root, and every one lies at
+  `z < 0`: -0.10 m for the ground clip, -0.50 m for the chest and head clips. The windows agree: all five sit at `z < 0`.
+  A plain `+z` forward would put every trap contact behind the root.
+- **Consequence in the port (measured, then reverted).** The port still passes `z = +forward`, so a ground ball 0.5 m ahead
+  matches no row: the designated loose presser's trap picks were 13,959 `NO CLIP` against 149 found in one DISABLED run.
+  Flipping to the hit-record frame (`z = -forward`) made the trap happen: the trap-window test and the enabled pair stayed
+  green, and the 5-minute repro did not stall. But the DISABLED longest loose episode rose from 589 to 796 ticks, a different
+  episode with the forced man 3.5 m from the ball, so the flip was reverted. The out-of-reach designated man gets no movement
+  command in PES loop mode (`elizacontroller.cpp`, the `!match->PesLoop()` guard in the designated branch). The patch is kept
+  outside the repository until that path is decided.
+- **Origin and axes (caller side, INF in parts).** The picker's point comes from `FUN_140769FE0`: the ball minus the
+  anime's position record (the player's ground position, not a bone: INF), then rotated by the body record's angle. The
+  rotation is `FUN_1404BCAD0`'s, with the angle negated by `FUN_140581CE0` (multiplier -1.0, `DAT_142588218`) and the table
+  `FUN_140A92C80` read as sine in degrees (`peslane.cpp:42`; the constants `DAT_14259BE5C` = 90, `DAT_14256AE1C` = 1).
+  Whether that rotation lands the forward axis on `-z` depends on which body record the trap path rotates by: OPEN. If the
+  record were the PES atan2 heading the picker's `z` would be `+forward`, which the contacts rule out, so the trap path's
+  record must differ. Not traced.
+- **Lateral sign: OPEN.** The rows with `x > 0` (0x57D, 0x57F, contact `x = +45` cm) need the right/left sign of `x`, which
+  the hit data do not fix. The central ground row is symmetric in `x`, so the ground case does not depend on it.
+- **Not measured live.** The windows and hits are data; no live trap has been observed in this frame (section 3).
