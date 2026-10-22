@@ -83,3 +83,31 @@ The 5-minute repro is the ticket's gate. Its earlier numbers were taken with a s
 
 - The tests assert behaviour, not source text.
 - The stoppage bound (1757 ticks at 54 Hz) is the install's bound. Any change to the sim changes the determinism hash.
+
+## Handover 22-10-26 (DodgeGate's stopping report)
+
+
+Branch: `DodgeGate2`. Head: `9eaad1e` (merge of `origin/RestartRef` 869a43a). Pushed; the remote confirms it.
+Tree: clean. Nothing uncommitted, so there is no patch to carry over.
+
+## Commits on the branch (oldest first, on 7db5e59)
+- `8e8a925` WIP: pickup contact-root gate, carry lift, body-frame clip cache, goal-kick placer yaw 0.
+- `0c1f7da` WIP: the two carry tests measure the taker's root (PES lift semantics).
+- `d85b017` WIP: carrier approach back to the 2 x gap stand-in (the walk-level cap and the sprint snap are reverted).
+- `414513c` merge of `origin/HeldStandby` 0698c6e (held taker not steered by MOVESTEP; ResetPosition idle anchor).
+- `a1f75b8` docs: `docs/ports/pes-port-DodgeGate.md` and the throw-in note's section 14.
+- `9eaad1e` merge of `origin/RestartRef` 869a43a (judge gate; reframe of AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine). Approved by the integration owner.
+
+## Verified
+- On `414513c` after a full rebuild: 5-minute seed-7 `--pes-loop` repro reaches full time (HOM 2-1 AWA, 47198 ticks, longest stoppage 1251 ticks against the 1757 bound, determinism 74b70dd49a3a9522). Stand 10/10. Wire 27/27. Restart 22/23; the red was the reframed test, which `9eaad1e` now covers.
+- `9eaad1e` is not verified by this branch. The integration owner is verifying it in the integration branch.
+
+## Open
+1. Approach speed. `src/sim/onthepitch/player/controller/elizacontroller.cpp`, the walk branch, uses `FloorVelocity(pes::kPieceTakerApproachGain * gap)`. Above about 4 m that is off the movement table, and MOVESTEP reads it as TURN_STOP. PES's writer of `cmd[0x172]` (desired speed) and `cmd[0x17]` (class) for the set-piece walker is NOT decoded. A bridge-bounded attempt (20 requests) found the MOVE-family callers `0x1407824A0`, `0x140789DD0`, `0x1407D1E60` (which reach FUN_1406B8340), but no writer and no formula.
+2. Release path (RestartRef's items 1 and 2): `StartPlay` at `started` against PES's phase-5 release event (116C 3 to 1), and the generic ShortPass release clip against the throwin_release rows. The owner is not assigned.
+3. The carry yaw-warp (phase 4, 180 / 0 degrees) is not ported. The field clamp FUN_141E5D4C0 is not ported.
+4. Stand-ins are listed with their PES sites in `docs/ports/pes-port-DodgeGate.md`: right foot, physique 1.0, approach speed, keeper facing, ball pinned to the root during the carry.
+
+## Next concrete action
+- Decode the `cmd[0x172]` / `cmd[0x17]` writer for the set-piece walker. Start from the throw-in sequencer `FUN_140791EC0` (phase 1 walk and phase 4 carry) and from the MOVE command builder that `FUN_1406B8340` consumes. Search the decompiles for stores at command word `0x172` (desired speed) and `0x17` (class). One bridge request at a time.
+- Then replace the walk branch's `FloorVelocity` rule with the decoded one, and verify: `AThrowInIsNotAwardedAgainOnItsOwnSpot`, `ACarriedThrowInReachesItsSpot`, `AReleasedThrowInCarriesItsBallInsideTheTouchline`, `TheSeedTwentyThreeKickOffRestarts`, and the 5-minute seed-7 repro. Do not replace the rule without these.
