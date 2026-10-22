@@ -1,6 +1,6 @@
 # PES press, FarChasePressMain: handover report
 
-> **Main note 22-10-26:** branch FarChasePress2 `92f153f`, NOT on main (lands after batch B: merge main in and re-measure). The holder latch is a patch in scratch, red by one tick; the decision is in tasks/22-10-26.md.
+> **Main note 22-10-26:** branch FarChasePress2 `92f153f`, landed on main in batch C `8168d4c` (gate green); on main the far-ball test is 359 ticks against 270. The holder latch is a patch in scratch, red by one tick; the decision is in tasks/22-10-26.md.
 
 ## Branch state
 - origin/FarChasePress2 = 92f153f (A landed and pushed). Nothing else is committed.
