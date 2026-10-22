@@ -20,6 +20,7 @@
 #include "onthepitch/pesclips.hpp"
 #include "onthepitch/pesmovestep.hpp"
 #include "onthepitch/player/player.hpp"
+#include "onthepitch/player/humanoid/animcollection.hpp"
 #include "onthepitch/team.hpp"
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
@@ -441,7 +442,7 @@ TEST(MoveStepWire, CurrentMotionIsThePesMotionTheBodyPlays) {
 // look bucket (word 0xd) is off straight and the facing error's magnitude is at least 33.75 degrees (VA 0x1425cc688); the
 // call is at VA 0x1406ca51f. Built on main, that else arm is empty and the bucket it tests is the move bucket (word 8), so
 // a stop with a turned body holds for the whole match: the trace held one for 72 ticks. Every active player is set into
-// STOP, and none may still be in STOP after 60 ticks.
+// STOP, and none on a MOVE clip may still be in STOP after 60 ticks.
 TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
   Properties config;
   config.SetBool("pes_loop", true);
@@ -452,7 +453,8 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
   constexpr int kSnapshots = 6;
   constexpr int kTicksBetween = 100;
   constexpr int kStopTicks = 60;  // about 1.1 s: the second dwell (0.35 s) and the turn ramp's scale fit inside it
-  int forced = 0;
+  int forced = 0;   // every STOP the entry left in place
+  int counted = 0;  // those on a MOVE clip that no ball action holds
   int held = 0;
   for (int s = 0; s < kSnapshots; ++s) {
     for (int t = 0; t < kTicksBetween; ++t) match->Process();
@@ -466,13 +468,19 @@ TEST(MoveStepWire, AStopOnATurnedBodyLeavesTheStop) {
     }
     for (Player* p : stopped) {
       ++forced;
-      // A ball action that takes the body holds MOVESTEP's FSM (the same-tick precedence, pesmovestep.cpp), so a STOP it
-      // interrupts leaves only when the action ends. Only a STOP no ball action holds must leave within the bound.
-      if (p->GetMoveStep().state == pes::MoveState::kStop && !IsBallActionFunction(p->CastHumanoid()->GetCurrentFunctionType())) ++held;
+      // MOVESTEP's entry FUN_1406B8340 is reached only from MOVE, STEP_MOVE, DRIBBLE_STEP_MOVE and DEMO_MOVE (the four callers
+      // of the 2026-10-21 caller map, pes-port-DodgeGate.md section 1). A body on another action's clip is not ticked, so a
+      // STOP there leaves only when that action ends, and such a body is exempt. So is a ball action that takes the body, by
+      // the same precedence (pesmovestep.cpp). Only a STOP on a MOVE clip must leave within the bound.
+      auto* body = p->CastHumanoid();
+      if (!body->IsMovementClip() || IsBallActionFunction(body->GetCurrentFunctionType())) continue;
+      ++counted;
+      if (p->GetMoveStep().state == pes::MoveState::kStop) ++held;
     }
   }
-  EXPECT_GT(forced, 0);
-  EXPECT_EQ(held, 0) << held << " of " << forced << " forced STOPs still held after " << kStopTicks << " ticks";
+  EXPECT_GT(counted, 0) << "no forced STOP was on a MOVE clip, so the bound was not tested (" << forced << " forced)";
+  EXPECT_EQ(held, 0) << held << " of " << counted << " forced STOPs on a MOVE clip still held after " << kStopTicks
+                     << " ticks";
 }
 
 
@@ -528,51 +536,6 @@ TEST(MoveStepWire, TheDecisionIsTheFirstMovementCommandNotAnAction) {
   EXPECT_EQ(decision->desiredFunctionType, e_FunctionType_Movement);
   EXPECT_FLOAT_EQ(decision->desiredVelocityFloat, sprintVelocity);
   EXPECT_FALSE(pesmovestep::MovementDecision(PlayerCommandQueue{pass}).has_value()) << "a lone pass is not a movement";
-}
-
-// PES's command id (cmd[0], req[0x16]) and move kind (cmd[0x16], req[0]) come from the AI's command in FUN_1406b7560's
-// copy-in. GF's AI has no PES action table, so the adapter takes both from the movement command (CommandIdFor, MoveKindFor).
-TEST(MoveStepWire, AMovementCommandIsPesMoveActionTwoAndAKeepersMoveIsTheNearKeeperKind) {
-  PlayerCommand walk;
-  walk.desiredFunctionType = e_FunctionType_Movement;
-  walk.desiredVelocityFloat = sprintVelocity;
-  EXPECT_EQ(pesmovestep::CommandIdFor(&walk), 2) << "PES's MOVE action (2), the id the running trap takes (pes-re-transitions.md:330)";
-  PlayerCommand pass;
-  pass.desiredFunctionType = e_FunctionType_ShortPass;
-  EXPECT_EQ(pesmovestep::CommandIdFor(&pass), 0) << "a ball action rides the pass channel, so it has no movement id";
-  EXPECT_EQ(pesmovestep::CommandIdFor(nullptr), 0) << "no command, no id";
-  EXPECT_EQ(pesmovestep::MoveKindFor(false), 0) << "an outfield move takes the mid kind (pes-re-anim-select.md:93)";
-  EXPECT_EQ(pesmovestep::MoveKindFor(true), 4) << "a keeper's move takes the near keeper kind (4..6 are near, mid and far)";
-}
-
-// The end-to-end wiring: a jog-class movement command with the anime state set (RequestStop gives a non-zero state by PES's
-// own STOP entry) reaches the request block as MOVE (2) with the mid kind, and the derived precise word is set (FUN_1406b7560
-// lines 274-281). TickRequest returns the block ProcessMoveStep fills before the handler.
-TEST(MoveStepWire, AJogMoveWiresTheMoveIdAndDerivesThePreciseWord) {
-  Properties config;
-  config.SetBool("pes_loop", true);
-  REQUIRE_PES_MATCH(config);
-  match->StartPlay();
-  // An outfield player: the home goalkeeper's move takes the keeper kind (4), which is a separate case.
-  Player* p = nullptr;
-  for (Player* q : ActivePlayers(*match)) {
-    if (q->GetFormationEntry().role != e_PlayerRole_GK) {
-      p = q;
-      break;
-    }
-  }
-  ASSERT_NE(p, nullptr) << "the match has outfield players";
-  pesmovestep::RequestStop(*p, *match);
-  PlayerCommand jog;
-  jog.desiredFunctionType = e_FunctionType_Movement;
-  jog.useDesiredTarget = true;
-  jog.desiredTarget = p->GetPosition() + Vector3(10.0f, 0.0f, 0.0f);
-  jog.desiredVelocityFloat = 3.5f;  // the dribble level: a jog (class 2) in CommandSpeedClassOf
-  p->GetPesDecision() = PesDecision{match->GetPesFrame(), jog};
-  const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
-  EXPECT_EQ(req.U(pes::moveword::kCommandId), 2u) << "cmd[0] is the MOVE action";
-  EXPECT_EQ(req.U(pes::moveword::kKind), 0u) << "an outfield move is the mid kind";
-  EXPECT_EQ(req.U(pes::moveword::kPrecise), 1u) << "the set clause: MOVE at a jog with the anime state set";
 }
 
 // A move target within 0.2 m of the root steers by the ball's sample 0 (PES's filler: DAT_142598578, 0.2 in the install;
@@ -696,4 +659,116 @@ TEST(MoveStepWire, AFinishedBallActionHandsTheBodyBack) {
   }
   EXPECT_TRUE(released) << "the finished trap still holds the body";
   EXPECT_EQ(atRelease, pes::MoveState::kIdle) << "the hand-back did not leave MOVESTEP idle";
+}
+
+// PES runs the MOVESTEP entry FUN_1406B8340 only from the Update functions of anime ids 2, 3, 6 and 74 (MOVE, STEP_MOVE,
+// DRIBBLE_STEP_MOVE, DEMO_MOVE; call sites 0x140782552, 0x140789E42, 0x1407D23A2 and the thunk 0x1407347B0). A PES dodge owns
+// the body in DODGE (21), so the FSM does not tick while the dodge clip plays. Built on main, ProcessMoveStep ticks on any clip
+// that is not a ball action, and the FSM leaves INIT on the dodge.
+TEST(MoveStepWire, MoveStepIsNotTickedWhileAPesDodgeClipPlays) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  for (int t = 0; t < 60; ++t) match->Process();
+  Player* p = FirstPlayer(*match);
+  // The install's dodge clip: the first clip of the match's animation collection whose family is kDodge.
+  Animation* dodge = nullptr;
+  for (Animation* a : match->GetAnimCollection()->GetAnimations()) {
+    if (a->GetVariable("specialvar1") == std::to_string(static_cast<int>(pes::PesClipFamily::kDodge))) {
+      dodge = a;
+      break;
+    }
+  }
+  ASSERT_NE(dodge, nullptr) << "the install has no PES dodge clip";
+  Anim* anim = const_cast<Anim*>(p->GetCurrentAnim());  // the test puts the dodge on the body, as the humanoid does
+  anim->anim = dodge;
+  anim->functionType = e_FunctionType_Special;
+  anim->frameNum = 0;
+  ASSERT_EQ(PlayedOf(p).family, static_cast<int>(pes::PesClipFamily::kDodge));
+  p->GetMoveStep().state = pes::MoveState::kInit;
+  pesmovestep::ProcessMoveStep(*p, *match);
+  EXPECT_EQ(p->GetMoveStep().state, pes::MoveState::kInit) << "MOVESTEP ticked while a dodge owned the body";
+}
+
+// MOVESTEP's facing (req[2], P+0x20) is PES's root yaw, the angle a turn clip rotates. GF's directionVec is the travel
+// direction once the body moves (humanoidbase.cpp: directionVec = movement), so on a side-stepping or turning clip it is
+// not the facing: built on main, a throw-in carrier whose turn clip slid him sideways read the slide as his facing and
+// the FSM turned him back and forth (DodgeGate's carry trace). Through open play, every body whose root yaw and travel
+// direction differ by more than 30 degrees must hand MOVESTEP its root yaw.
+TEST(MoveStepWire, TheFacingWordIsTheRootYawNotTheTravelDirection) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  constexpr int kTicks = 1500;
+  constexpr float kSplitDeg = 30.0f;     // a root yaw this far from the travel direction is a turn or a side step
+  constexpr float kToleranceDeg = 0.5f;  // the word is the heading of the same vector
+  constexpr float kDegPerRad = 57.2957795f;
+  auto heading = [&](const Vector3& v) {  // PES's bearing of a GF vector: atan2(x, z) with PES z = -y, in [0, 360)
+    float deg = std::atan2(v.coords[0], -v.coords[1]) * kDegPerRad;
+    return deg < 0.0f ? deg + 360.0f : deg;
+  };
+  auto diff = [](float a, float b) {
+    float d = std::fmod(a - b + 540.0f, 360.0f) - 180.0f;
+    return std::fabs(d);
+  };
+  int split = 0, wrong = 0;
+  for (int t = 0; t < kTicks; ++t) {
+    match->Process();
+    for (Player* p : ActivePlayers(*match)) {
+      const Vector3 root = p->GetRootDirectionVec();
+      const Vector3 travel = p->GetDirectionVec();
+      if (root.GetLength() < 0.5f || diff(heading(root), heading(travel)) <= kSplitDeg) continue;
+      ++split;
+      const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
+      if (diff(req.F(pes::moveword::kFacing), heading(root)) > kToleranceDeg) ++wrong;
+    }
+  }
+  ASSERT_GT(split, 0) << "no body's root yaw left its travel direction";
+  EXPECT_EQ(wrong, 0) << wrong << " of " << split << " split ticks read the travel direction as the facing";
+}
+
+// PES's command id (cmd[0], req[0x16]) and move kind (cmd[0x16], req[0]) come from the AI's command in FUN_1406b7560's
+// copy-in. GF's AI has no PES action table, so the adapter takes both from the movement command (CommandIdFor, MoveKindFor).
+TEST(MoveStepWire, AMovementCommandIsPesMoveActionTwoAndAKeepersMoveIsTheNearKeeperKind) {
+  PlayerCommand walk;
+  walk.desiredFunctionType = e_FunctionType_Movement;
+  walk.desiredVelocityFloat = sprintVelocity;
+  EXPECT_EQ(pesmovestep::CommandIdFor(&walk), 2) << "PES's MOVE action (2), the id the running trap takes (pes-re-transitions.md:330)";
+  PlayerCommand pass;
+  pass.desiredFunctionType = e_FunctionType_ShortPass;
+  EXPECT_EQ(pesmovestep::CommandIdFor(&pass), 0) << "a ball action rides the pass channel, so it has no movement id";
+  EXPECT_EQ(pesmovestep::CommandIdFor(nullptr), 0) << "no command, no id";
+  EXPECT_EQ(pesmovestep::MoveKindFor(false), 0) << "an outfield move takes the mid kind (pes-re-anim-select.md:93)";
+  EXPECT_EQ(pesmovestep::MoveKindFor(true), 4) << "a keeper's move takes the near keeper kind (4..6 are near, mid and far)";
+}
+
+// The end-to-end wiring: a jog-class movement command with the anime state set (RequestStop gives a non-zero state by PES's
+// own STOP entry) reaches the request block as MOVE (2) with the mid kind, and the derived precise word is set (FUN_1406b7560
+// lines 274-281). TickRequest returns the block ProcessMoveStep fills before the handler.
+TEST(MoveStepWire, AJogMoveWiresTheMoveIdAndDerivesThePreciseWord) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  match->StartPlay();
+  // An outfield player: the home goalkeeper's move takes the keeper kind (4), which is a separate case.
+  Player* p = nullptr;
+  for (Player* q : ActivePlayers(*match)) {
+    if (q->GetFormationEntry().role != e_PlayerRole_GK) {
+      p = q;
+      break;
+    }
+  }
+  ASSERT_NE(p, nullptr) << "the match has outfield players";
+  pesmovestep::RequestStop(*p, *match);
+  PlayerCommand jog;
+  jog.desiredFunctionType = e_FunctionType_Movement;
+  jog.useDesiredTarget = true;
+  jog.desiredTarget = p->GetPosition() + Vector3(10.0f, 0.0f, 0.0f);
+  jog.desiredVelocityFloat = 3.5f;  // the dribble level: a jog (class 2) in CommandSpeedClassOf
+  p->GetPesDecision() = PesDecision{match->GetPesFrame(), jog};
+  const pes::MoveReq req = pesmovestep::TickRequest(*p, *match);
+  EXPECT_EQ(req.U(pes::moveword::kCommandId), 2u) << "cmd[0] is the MOVE action";
+  EXPECT_EQ(req.U(pes::moveword::kKind), 0u) << "an outfield move is the mid kind";
+  EXPECT_EQ(req.U(pes::moveword::kPrecise), 1u) << "the set clause: MOVE at a jog with the anime state set";
 }

@@ -102,7 +102,7 @@ void FillMoveTarget(MoveReq& req, const MoveTargetInput& in, const RunConstants&
   req.SetU(moveword::kLookBucketAlt,
            static_cast<uint32_t>(AngleBucket(buckets, lookError, 10, false)));
   req.SetF(moveword::kDistToTarget, targetDist);
-  req.SetF(moveword::kDistToLook, targetDist);  // ponytail: req[0x12] is req[0x11] (see the header)
+  req.SetF(moveword::kDistToLook, in.lookValid ? lookDist : targetDist);  // PES FUN_1406b7560 lines 129-136: the look distance when the look block is valid, else the target distance
   req.SetU(moveword::kCommandSpeedClass, static_cast<uint32_t>(in.speedBand));
   req.SetF(moveword::kDesiredSpeedKmh, in.desiredKmh);
   req.SetU(moveword::kPrecise, in.precise ? 1u : 0u);

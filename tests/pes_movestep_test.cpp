@@ -1532,6 +1532,31 @@ TEST(MoveFill, PreciseWordIsTheCommandsStopFlagForTwoCommands) {
   EXPECT_EQ(b.U(pes::moveword::kPrecise), 0u);
 }
 
+// PES's copy-in (FUN_1406b7560 lines 126-137) writes req[0x12], the look-at distance, when the look-at block is valid
+// (FUN_140a6e6b0: its byte +4). Only without a look block does req[0x12] take req[0x11], the target distance.
+TEST(MoveFill, TheLookWordIsTheLookDistanceWhenTheCommandHasALookPoint) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetZ = 8.0f;  // the move target, 8 m ahead
+  in.lookX = 3.0f;    // the look-at point, 5 m away
+  in.lookZ = 4.0f;
+  in.lookValid = true;
+  pes::MoveReq req;
+  pes::movestep::FillMoveTarget(req, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(req.F(pes::moveword::kDistToTarget), 8.0f, 1e-4f);
+  EXPECT_NEAR(req.F(pes::moveword::kDistToLook), 5.0f, 1e-4f) << "PES 129-136: the look distance when the look block is valid";
+}
+
+TEST(MoveFill, TheLookWordFallsBackToTheTargetDistanceWithoutALookPoint) {
+  pes::movestep::MoveTargetInput in = OriginCommand();
+  in.targetZ = 8.0f;
+  in.lookX = 3.0f;
+  in.lookZ = 4.0f;
+  in.lookValid = false;
+  pes::MoveReq req;
+  pes::movestep::FillMoveTarget(req, in, FoldConstants(), SyntheticBuckets());
+  EXPECT_NEAR(req.F(pes::moveword::kDistToLook), 8.0f, 1e-4f) << "PES 130-131: req[0x12] = req[0x11] without a look block";
+}
+
 // PES 274-288 (FUN_1406b7560): the derived precise word. GF's command kind and id are 0 until the AI writer is wired, so
 // these tests set them directly.
 TEST(MoveFill, DerivedPreciseIsSetForKindFourOrFiveBelowClassThree) {

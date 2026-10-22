@@ -167,6 +167,11 @@ struct SpatialState {
   radian relBodyAngle;
   Vector3 relBodyDirectionVec;  // for efficiency, vector version of relBodyAngle
   Vector3 relBodyDirectionVecNonquantized;
+  // The clip's own root yaw (the "body" node's rotation plus the clip's start angle), before GF's velocity and
+  // body-angle adaptations below. This is PES's facing: a turn clip rotates PES's root (P's yaw, MOVESTEP's req[2]),
+  // while directionVec follows the travel direction once the body moves and bodyDirectionVec is clamped to GF's
+  // allowed body angles.
+  Vector3 rootDirectionVec;
   e_Foot foot;
 };
 
@@ -193,6 +198,7 @@ public:
   inline Vector3 GetPosition() const { return spatialState.position; }
   inline Vector3 GetDirectionVec() const { return spatialState.directionVec; }
   inline Vector3 GetBodyDirectionVec() const { return spatialState.bodyDirectionVec; }
+  inline Vector3 GetRootDirectionVec() const { return spatialState.rootDirectionVec; }
   inline radian GetAngle() const { return spatialState.angle; }
   inline radian GetRelBodyAngle() const { return spatialState.relBodyAngle; }
   inline e_Velocity GetEnumVelocity() const { return spatialState.enumVelocity; }

@@ -211,6 +211,18 @@ Positions at the ready frame (OBS; home attacks +x, all y = 0):
   root offset with base yaw 315° or 45° by side (`0x1425aa1c0` / `0x14259be30`) and clamps the request against the
   stadium bounds with a 0.5 m margin (fox-registry §4.1).
 - Waiting: `CornerKickLoop` (49) plays row 0x507 `fk_idle` (style remap; live clip `fk_idle`).
+- **Heading (decoded, static).** The record's yaw (`+0xC`) is computed each tick by `FUN_14092E7E0` for the taker: `FUN_1408B4560`
+  (restart kind 4; the corner row of the JR table in `pes-re-A5Judge.md`) gives the bearing from the spot to `(sign(x)·F8, 0)`,
+  where `F8` is the penalty mark `pesPenaltySpotX` (41.56, bit pattern 0x42263D70), wrapped to [0, 360). `FUN_1406B3DB0` stores it
+  at record `+0xC` and calls the SetKick through slot 12 of `FUN_1406D9010(player+0xC40, 0x31)`. The corner heading is
+  `wrap360(wrap360(side) + yaw)`, with `side` = 45 (DAT_14259BE30) when the mirror flag is set and 315 (DAT_1425AA1C0)
+  otherwise. The mirror is `FUN_1406E6660(player, 0x34) == 1`, the preferred foot at `playerdata + 0x34`; GF uses the right
+  foot until the PES player-database loader brings the byte.
+- **Check against the live samples above.** Both live kickers, at the two corners with z < 0, read 315 plus the decoded bearing:
+  331.9° at (−51.781, −33.61) and 297.2° at (52.252, −33.214). Both are the straight run-up, not the mirrored one.
+- **Open.** The placer's clamp to the field (`FUN_141E5D4C0`, a wrapper over `FUN_141E5CA20`) is not decoded, so GF does not clamp
+  the stand point. Earlier notes that cite DAT_1425CCA48 and DAT_1425CCA34 for the corner yaw are wrong: the install values are
+  DAT_1425AA1C0 (315) and DAT_14259BE30 (45).
 
 ### 4.2 Kick timing (OBS live, 4 corners)
 

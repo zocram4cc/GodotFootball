@@ -115,6 +115,11 @@ gtest_discover_tests(pes_movestep_run_test)
 add_executable(pes_movestep_turn_test pes_movestep_turn_test.cpp)
 target_link_libraries(pes_movestep_turn_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_movestep_turn_test)
+
+add_executable(pes_playstate_test pes_playstate_test.cpp)
+target_link_libraries(pes_playstate_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_playstate_test)
+
 add_executable(pes_movestep_step_test pes_movestep_step_test.cpp)
 target_link_libraries(pes_movestep_step_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_movestep_step_test)

@@ -84,6 +84,25 @@ pes::Vec3 ClipOffsetMetres(const pes::Vec3& hitBallCm, float physique, bool mirr
 // heading (the placer sub_140732D40). The height is the spot's plus the offset's.
 pes::Vec3 GoalKickStandPoint(const pes::Vec3& spot, float headingDeg, const pes::Vec3& clipOffsetFox_m);
 
+// The corner SetKick's restart yaw (the record's +0xC, FUN_1408B4560 for restart kind 4): the bearing in degrees from the
+// spot to the penalty spot on the spot's own end, (sign(spot.x) * penaltySpotX_m, 0). The spot is GF space.
+float CornerRestartYawDeg(const pes::Vec3& spot, float penaltySpotX_m);
+
+// The corner placer's heading (sub_140732D40): the side yaw, 315 for the straight run-up or 45 for the mirrored one, plus
+// the restart yaw, each wrapped to [0, 360).
+float CornerSetKickHeadingDeg(float restartYawDeg, bool mirror);
+
+// The look point a placed body faces: one metre from the stand point along the heading, GF space.
+pes::Vec3 PlacerLookPoint(const pes::Vec3& stand, float headingDeg);
+
+// The pickup clip's contact root (PES's phase 1 reach, FUN_140791EC0): the ball stands the clip's offset ahead of the root, so
+// the root sits the offset behind the ball, turned by the heading. The ball and the result are GF space; the offset is the
+// clip's ball place in Fox space (ClipOffsetMetres).
+pes::Vec3 PickupContactRoot(const pes::Vec3& ball, float headingDeg, const pes::Vec3& offsetFox_m);
+
+// The PES heading (0 is +Z, 90 is +X) of a GF ground direction: a body's facing yaw.
+float FacingHeadingDeg(const pes::Vec3& gfDirection);
+
 // The root at the clip's contact, GF space: the stand point plus the clip's root motion to its first hit record (cm,
 // Fox), turned by the heading and mirrored like the offset.
 pes::Vec3 GoalKickContactRoot(const pes::Vec3& stand, float headingDeg, const pes::Vec3& hitRootCm, bool mirror,

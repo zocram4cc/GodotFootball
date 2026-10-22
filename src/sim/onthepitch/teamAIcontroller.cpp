@@ -1090,7 +1090,6 @@ bool TeamAIController::StepGoalKickLadder() {
   goalKickReceiver = order.receiver >= 0 ? mates[order.receiver] : nullptr;
   goalKickStrike.started = true;
   goalKickStrike.from = taker ? taker->GetPosition() : Vector3();
-  pieceWalk = false;
   return true;
 }
 
@@ -1120,13 +1119,21 @@ int TeamAIController::PickGoalKickMate(std::vector<Player*>* mates) const {
   return pes::PickGoalKickReceiver(ratings, takerIndex);
 }
 
+namespace {
+// The keeper faces the pitch from his end: 90 degrees for the end at -X, turned at the other end (the live keeper's yaw).
+// ponytail: the restart record's heading (PES's +0xC, FUN_14050E770) is not decoded, so this constant stands for it.
+constexpr float kKeeperFacingPitch_deg = 90.0f;
+// The unit direction of that heading at a side, in GF ground coordinates.
+Vector3 KeeperFacingPitch(int side) {
+  const float radians = -kKeeperFacingPitch_deg * static_cast<float>(side) * (std::acos(-1.0f) / 180.0f);
+  return Vector3(0, -1, 0).GetRotated2D(radians);
+}
+}  // namespace
+
 // SetKick's placement (0x140774AE0) and the strike's contact, from the clip's first hit record (gkgoalkick_instep_0_0,
-// 0x6B1). The stand point is the keeper's walk target: a target, not a teleport.
-void TeamAIController::PrepareGoalKickStand(const Vector3& spot) {
+// 0x6B1). The keeper is placed on the returned stand point when the kick is prepared (pes-re-kicker-standby.md section 4).
+Vector3 TeamAIController::PrepareGoalKickStand(const Vector3& spot) {
   constexpr int kGoalKickStrikeMotion = 0x6b1;
-  // ponytail: the restart record's heading (PES's +0xC, FUN_14050E770) is not decoded. The keeper faces the pitch at his
-  // end: 90 degrees for the end at -X (the live keeper's yaw), with the sign turned at the other end.
-  constexpr float kKeeperFacingPitch_deg = 90.0f;
   // ponytail: GF's player data has no preferred-foot byte (PES's playerdata 0x34, FUN_1406E6660): the right foot.
   constexpr bool kMirror = false;
   // ponytail: the physique (PES's player +0x3B18) is taken as 1.0.
@@ -1134,34 +1141,113 @@ void TeamAIController::PrepareGoalKickStand(const Vector3& spot) {
   const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(kGoalKickStrikeMotion);
   const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
   const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
-  const float heading = -kKeeperFacingPitch_deg * static_cast<float>(team->GetSide());
+  // PES's GoalKickStandby::SetKick places him through the shared placer at yaw 0 (docs/re/pes-re-goalkick-taker.md, "He doesn't
+  // walk to the ball"), so the stand and the contact root sit in one frame at both ends. The keeper's body facing is a separate
+  // stand-in (KeeperFacingPitch), not this placer heading.
+  const float heading = 0.0f;
   const pes::Vec3 spotPes(spot.coords[0], spot.coords[1], spot.coords[2]);
   const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
   const pes::Vec3 stand = pes::GoalKickStandPoint(spotPes, heading, offset);
   const pes::Vec3 contact = pes::GoalKickContactRoot(stand, heading, pes::Vec3(hit.rootX, 0.0f, hit.rootZ), kMirror, k);
   // ponytail: the placer's height (the spot's plus the clip's) is not carried: GF's players stand on the ground.
-  pieceWalkTarget = Vector3(stand.x, stand.y, 0.0f);
   goalKickStrike.contactRoot = Vector3(contact.x, contact.y, 0.0f);
   goalKickStrike.ticks = pes::GoalKickContactTicks(hit.frame, k);
+  return Vector3(stand.x, stand.y, 0.0f);
+}
+
+// SetKick's placement for a corner (sub_1407331A0; docs/re/pes-re-kicker-standby.md section 4). The run-up clip is the anime
+// cell at row 0x509, column 9. Its first ball hit gives the contact offset, and the stand is the spot plus that offset turned
+// by the corner heading: the side yaw plus the restart bearing to the penalty spot (FUN_1408B4560, restart kind 4).
+Vector3 TeamAIController::PrepareCornerStand(const Vector3& spot, Vector3* lookAt) {
+  constexpr int kCornerRunUpRow = 0x509;
+  constexpr int kCornerRunUpColumn = 9;
+  // ponytail: the taker strikes with his right foot. PES reads the foot from the player record (FUN_1406E6660(player, 0x34),
+  // playerdata + 0x34), which GF's roster does not carry until the PES player-database loader lands.
+  constexpr bool kMirror = false;
+  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0.
+  constexpr float kPhysique = 1.0f;
+  const int motion = match->GetPesAnimetable().Cell(kCornerRunUpRow, kCornerRunUpColumn).motionNo;
+  const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(motion);
+  const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+  const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
+  const pes::Vec3 spotPes(spot.coords[0], spot.coords[1], spot.coords[2]);
+  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
+  const float heading = pes::CornerSetKickHeadingDeg(pes::CornerRestartYawDeg(spotPes, pesPenaltySpotX), kMirror);
+  const pes::Vec3 stand = pes::GoalKickStandPoint(spotPes, heading, offset);
+  const pes::Vec3 look = pes::PlacerLookPoint(stand, heading);
+  *lookAt = Vector3(look.x, look.y, 0.0f);
+  // ponytail: the placer's height (the spot's plus the clip's) is not carried: GF's players stand on the ground.
+  return Vector3(stand.x, stand.y, 0.0f);
 }
 
 void TeamAIController::AdvancePieceWalk() {
-  if (!pieceWalk || pieceCarrying || taker == nullptr) return;
-  const Vector3 off = pieceWalkTarget - taker->GetPosition();
-  if (off.Get2D().GetLength() > match->GetPesSetPieceTakerConstants().throwInPickupReach_m) return;
-  pieceCarrying = true;
-  pieceWalkTarget = pieceCarrySpot;
+  if (!pieceWalk || taker == nullptr) return;
+  // PES's SeamlessThrowin phase 1 (docs/re/pes-re-throwin-choreography.md 3.2): the pickup clip 0xCF5 plays when the ball, at the
+  // clip's contact frame, is within its reach of the taker (the 5 m abort). Until then the walk runs to that predicted ball.
+  constexpr int kPickupClipMotion = 0xcf5;
+  // PES's lift (phase 4): the lift clip roots him onto the spot over its 14 frames (throwin_seamless_liftupball).
+  constexpr unsigned long kLiftTicks = 14;
+  const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(kPickupClipMotion);
+  const unsigned long contactTicks =
+      hits.empty() ? 0ul
+                   : pes::GoalKickContactTicks(hits.front().frame,
+                                               pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants()));
+  if (!pieceWarping) {
+    if (!pieceCarrying) {
+      // PES's reach (FUN_140791EC0 phase 1): the pickup clip plays when its ball-contact root point is less than the reach (5 m,
+      // DAT_14259222C) from the taker's root. The root then warps onto that point, so the hands meet the ball at the contact frame.
+      // Until then the walk runs to the predicted ball.
+      const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
+      const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+      // ponytail: the physique (PES's player +0x3B18) is taken as 1.0, and the clip is taken unmirrored (the 000 column).
+      constexpr float kPhysique = 1.0f;
+      constexpr bool kMirror = false;
+      const Vector3 ball = match->GetBall()->Predict(static_cast<int>(contactTicks));
+      pieceWalkTarget = ball.Get2D();
+      const Vector3 facing = taker->GetDirectionVec();
+      const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
+      const pes::Vec3 root = pes::PickupContactRoot(
+          pes::Vec3(ball.coords[0], ball.coords[1], ball.coords[2]),
+          pes::FacingHeadingDeg(pes::Vec3(facing.coords[0], facing.coords[1], facing.coords[2])), offset);
+      const Vector3 rootPoint(root.x, root.y, 0.0f);
+      if ((rootPoint - taker->GetPosition()).Get2D().GetLength() >= match->GetPesSetPieceTakerConstants().throwInPickupReach_m)
+        return;
+      pieceWarping = true;
+      pieceWarpTicks = contactTicks > 0 ? contactTicks : 1;
+      pieceWarpTo = rootPoint;
+    } else {
+      // PES's lift trigger (phase 4): |ap - S| < 0.65 m (DAT_14259d5d0) and |x| inside the end line's inset. Until then the carry
+      // walks on: PES's MOVE stops him at its arrival radius.
+      if (pieceLifted) return;
+      const pes::RestartSpotConstants& rk = match->GetPesRestartSpotConstants();
+      const Vector3 pos = taker->GetPosition();
+      if ((pieceCarrySpot - pos).Get2D().GetLength() >= rk.throwInCarryStop_m ||
+          std::fabs(pos.coords[0]) >= pesFieldHalfLength - rk.throwInCarryEndInset_m)
+        return;
+      pieceWarping = true;
+      pieceWarpTicks = kLiftTicks;
+      pieceWarpTo = pieceCarrySpot;
+    }
+  }
+  // The root warp of the clip: an even step per tick onto the warp's end (the contact point, or the carry spot).
+  const float ticksLeft = static_cast<float>(pieceWarpTicks);
+  taker->OffsetPosition((pieceWarpTo - taker->GetPosition()).Get2D() * (1.0f / ticksLeft));
+  --pieceWarpTicks;
+  if (pieceWarpTicks == 0) {
+    pieceWarping = false;
+    if (pieceCarrying) {
+      pieceLifted = true;
+    } else {
+      pieceCarrying = true;
+      pieceWalkTarget = pieceCarrySpot;
+    }
+  }
 }
 
 bool TeamAIController::PieceTakerArrived() const {
   if (!pieceWalk || taker == nullptr) return true;
-  if (!pieceCarrying) return false;  // still fetching the ball
-  // The lift (phase 4): within the lift radius of the spot, and inside the end line's inset.
-  const pes::RestartSpotConstants& k = match->GetPesRestartSpotConstants();
-  const Vector3 pos = taker->GetPosition();
-  const Vector3 off = pieceWalkTarget - pos;
-  return off.Get2D().GetLength() < k.throwInCarryStop_m &&
-         std::fabs(pos.coords[0]) < pesFieldHalfLength - k.throwInCarryEndInset_m;
+  // The release follows the lift (docs/re/pes-re-throwin-choreography.md 3.2, phase 5: at the lift clip's end the loop starts).
+  return pieceLifted;
 }
 
 namespace {
@@ -1191,17 +1277,29 @@ int CeremonyRoleClass(e_PlayerRole role) {
   }
 }
 
-// A placed throw-in taker's body stands this far outside the touchline, over the restart point: PES's release point is
-// 1.02 m outside the line (the placement at F0+162, docs/re/pes-re-throwin-choreography.md). ponytail: GF places the body
-// centre there, not the hands.
-constexpr float kThrowInStandIn_m = 1.02f;
+// A placed throw-in taker's stand point (PES's ThrowinLoop SetKick, 0x140794280, docs/re/pes-re-throwin-choreography.md 4.1):
+// the release key's ball offset from clip 0xcfa's second record (FUN_1406E8CC0 at index 1), its horizontal length outside
+// the touchline over the restart point. ponytail: the body scale (PES's player +0x3B18) is taken as 1.
+constexpr int kThrowInKeyMotion = 0xcfa;
+float ThrowInStandLength_m(Match& match) {
+  const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
+  const pes::HitRecord key = hits.size() > 1 ? hits[1] : pes::HitRecord();
+  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(key.ballX, key.ballY, key.ballZ), 1.0f, false,
+                                                 pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants()));
+  return std::hypot(offset.x, offset.z);
+}
 
 }  // namespace
 
 void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
   setPieceType = setPiece;
+  pieceHeld = false;
+  pieceHasLookAt = false;
   pieceWalk = false;
   pieceCarrying = false;
+  pieceWarping = false;
+  pieceWarpTicks = 0;
+  pieceLifted = false;
   bool seamlessRestart = false;
   goalKickLadder = pes::GoalKickLadder();
   goalKickStrike = GoalKickStrike();
@@ -1789,14 +1887,24 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
     }
 
     if (setPiece == e_SetPiece_GoalKick && match->PesLoop()) {
-      // PES's goal kick (SetKick 0x140774AE0, pesgoalkick.hpp): the keeper walks to his stand point, a target and not a
-      // teleport, until the ladder releases the kick. The strike's contact is fixed here, from the clip.
-      // ponytail: the ball stays on its spot through the stoppage (seed 7 trace, S1Port); a ball moved in it is not followed.
-      PrepareGoalKickStand(ballPos);
-      pieceWalk = true;
+      // PES's goal kick (SetKick 0x140774AE0, pesgoalkick.hpp): the keeper is placed on his stand point when the kick is
+      // prepared and held there until the ladder releases the kick (pes-re-kicker-standby.md section 4). The strike's
+      // contact is fixed here.
+      // ponytail: the stand point is set from the restart spot at prepare; a ball moved in the stoppage is not followed.
+      const Vector3 stand = PrepareGoalKickStand(ballPos);
+      if (taker) {
+        // The keeper faces the pitch from his end and holds that heading while he waits (PES's standby plays with the
+        // SetKick yaw).
+        const Vector3 facing = stand + KeeperFacingPitch(team->GetSide());
+        taker->ResetPosition(stand, facing);
+        pieceHeld = true;
+        pieceHasLookAt = true;
+        pieceLookAt = facing;
+      }
     } else if (setPiece == e_SetPiece_ThrowIn && match->PesLoop()) {
       // PES's throw-in taker. A seamless candidate (path A) walks to the ball, picks it up and carries it to the throw
-      // spot (3.1-3.2). A ceremony taker (path B) is placed outside the line with the ball, and does not walk.
+      // spot (3.1-3.2). A ceremony taker (path B) is placed on his SetKick stand point outside the line and holds it until
+      // the release (pes-re-throwin-choreography.md 4.1).
       const pes::Spot carry =
           pes::ThrowInCarrySpot(ballPos.coords[0], ballPos.coords[1], dir, match->GetPesRestartSpotConstants());
       pieceWalk = seamlessRestart;
@@ -1806,14 +1914,27 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       if (!seamlessRestart && taker) {
         const Vector3 restart = match->GetReferee()->GetBuffer().restartPos;
         const float outward = restart.coords[1] > 0.0f ? 1.0f : -1.0f;
-        taker->ResetPosition(Vector3(restart.coords[0], restart.coords[1] + outward * kThrowInStandIn_m, 0.0f),
-                             ballPos);
+        const float standIn_m = ThrowInStandLength_m(*match);
+        taker->ResetPosition(Vector3(restart.coords[0], restart.coords[1] + outward * standIn_m, 0.0f), ballPos);
+        pieceHeld = true;
       }
     } else if (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_KickOff) {
       taker->ResetPosition(ballPos + ballPos.GetNormalized(Vector3(0, -team->GetSide(), 0)) * 0.3f,
                            ballPos);
     } else if (setPiece == e_SetPiece_FreeKick) {
       taker->ResetPosition(ballPos + Vector3(team->GetSide(), 0, 0) * 2.3f, ballPos);
+    } else if (setPiece == e_SetPiece_Corner && match->PesLoop()) {
+      // PES's corner taker (SetKick, pesgoalkick.hpp): placed on his stand point when the corner is prepared, facing the
+      // corner heading, and held there until the release (pes-re-kicker-standby.md section 4).
+      // ponytail: the stand point is set from the restart spot at prepare; a ball moved in the stoppage is not followed.
+      if (taker) {
+        Vector3 lookAt;
+        const Vector3 stand = PrepareCornerStand(ballPos, &lookAt);
+        taker->ResetPosition(stand, lookAt);
+        pieceHeld = true;
+        pieceHasLookAt = true;
+        pieceLookAt = lookAt;
+      }
     } else {
       taker->ResetPosition(ballPos + ballPos.GetNormalized(Vector3(0, -team->GetSide(), 0)) * 2.3f,
                            ballPos);

@@ -20,8 +20,10 @@
 #include "onthepitch/matchsetup.hpp"
 #include "onthepitch/player/player.hpp"
 #include "onthepitch/pesclips.hpp"
+#include "onthepitch/pesgoalkick.hpp"
 #include "onthepitch/pessequencer.hpp"
 #include "onthepitch/restartwatch.hpp"
+#include "pes/mbinfo.hpp"
 #include "pes/vfs.hpp"
 #include "rig/rig.hpp"
 #include "simcontext.hpp"
@@ -195,9 +197,8 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
 
 // A throw-in is taken from the spot the referee armed. Five minutes of seed 7 stalled here: the
 // taker walked onto the spot while play was off, a body touch pushed the ball past the line, and
-// the throw was refused for a ball out of bounds. The ball must be at its spot when the throw is
-// released - the carry spot the taker lifts it at (FUN_140791ec0, 3.2), within the lift radius of
-// the taker - and the match must run through it.
+// the throw was refused for a ball out of bounds. The taker's root must stand on the carry spot when the
+// throw is released (PES's lift, 3.2 phase 4, is measured on the root), and the match must run through it.
 TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
   std::optional<unsigned long> firstStop;  // the first seamless (walker) throw-in's stoppage
   bool firstDone = false;                  // that stoppage has ended: the run stops here
@@ -216,21 +217,24 @@ TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
     if (checkedStop && *checkedStop == b.stopTime) return;
     checkedStop = b.stopTime;
     throwIns++;
-    // A seamless taker's spot is his pickup point and carry spot. A ceremony taker (path B) is placed and releases from his hand.
+    // PES measures the lift on the taker's root, not the ball: the root warps onto the carry spot once it is within the lift
+    // radius (docs/re/pes-re-throwin-choreography.md 3.2, phase 4), and the release follows. The ball is in his hand, so only
+    // the root is compared. A seamless taker's spot is his pickup point and carry spot; a ceremony taker (path B) releases from
+    // his hand.
     const TeamAIController* controller = match.GetTeam(b.teamID)->GetController();
     const Vector3 spot =
         controller->IsPieceTakerWalking(b.taker) ? controller->GetPieceWalkTarget() : b.taker->GetPosition();
-    const Vector3 ball = match.GetBall()->Predict(0);
-    const float off = (ball.Get2D() - spot.Get2D()).GetLength();
+    const float off = (b.taker->GetPosition().Get2D() - spot.Get2D()).GetLength();
     EXPECT_LE(off, match.GetPesRestartSpotConstants().throwInCarryStop_m)
-        << "throw-in released with the ball " << off << " m from its spot";
+        << "throw-in released with the taker's root " << off << " m from its spot";
   }, kSeamlessSearchTicks, [&](const Match&) { return firstDone; }, SEAMLESS_SEED, false);
   EXPECT_GT(throwIns, 0) << "no throw-in was released";
 }
 
 // PES's taker picks the ball up where it lies and carries it out to the throw spot before the throw
-// (FUN_140791ec0, phases 3-4): at the release the taker's spot is the carry spot, 0.7 m outside the
-// touchline and not the restart point, and the ball is in his hand there.
+// (FUN_140791ec0, phases 3-4): at the release the taker's root is on the carry spot, 0.7 m outside the
+// touchline and not the restart point. The ball is in his hand at the release key, 0.8 m ahead of the root;
+// GF's pin rides the ball on the root instead, so the ball is not asserted here.
 TEST(PesRestartDelay, AThrowInIsCarriedToItsSpotAndReleasedThere) {
   std::optional<unsigned long> firstStop;  // the first seamless (walker) throw-in's stoppage
   bool firstDone = false;                  // that stoppage has ended: the run stops here
@@ -255,9 +259,10 @@ TEST(PesRestartDelay, AThrowInIsCarriedToItsSpotAndReleasedThere) {
     const float carried = (spot.Get2D() - b.restartPos.Get2D()).GetLength();
     EXPECT_GT(carried, 0.4f) << "released at the pickup point, not after the carry";
     EXPECT_NEAR(std::fabs(spot.coords[1]) - pesFieldHalfWidth, k.throwInCarryOutset_m, 1e-3f);
-    const Vector3 ball = match.GetBall()->Predict(0);
-    EXPECT_LE((ball.Get2D() - spot.Get2D()).GetLength(), k.throwInCarryStop_m)
-        << "the ball was not in the taker's hand at the spot";
+    // The lift is measured on the root (phase 4): the release follows once the root stands within the lift radius of the spot.
+    const Vector3 root = b.taker->GetPosition();
+    EXPECT_LE((root.Get2D() - spot.Get2D()).GetLength(), k.throwInCarryStop_m)
+        << "the taker's root was not on the carry spot at the release";
   }, kSeamlessSearchTicks, [&](const Match&) { return firstDone; }, SEAMLESS_SEED, false);
   EXPECT_GT(throwIns, 0) << "no seamless throw-in was released";
 }
@@ -434,58 +439,77 @@ TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
 }
 
 // A throw-in taker walks to his spot (PES's seamless run, docs/re/pes-re-throwin-choreography.md
-// 3.1): he is not placed on it. Right after the placement he is still away from the restart
-// point, and at the release he is on it.
+// 3.1): he is not placed on it, and at the release he is on it. "Not placed" is the humanoid's own
+// placement count (ResetPosition), unchanged from before the stoppage is prepared to its release. The
+// test used to read it from the taker's distance at the preparation (more than 2 m from the spot),
+// which a taker who happens to stand near the ball fails without being placed.
 TEST(PesRestartDelay, AThrowInTakerWalksToHisSpotAndIsNotPlacedOnIt) {
   std::optional<unsigned long> firstStop;  // the first seamless (walker) throw-in's stoppage
   bool firstDone = false;                  // that stoppage has ended: the run stops here
   constexpr float kOnTheSpot_m = 2.0f;  // the spot is about half a metre off the restart point
-  std::set<unsigned long> placed, released;
-  int throwIns = 0, awayAtPlacement = 0, offSpotAtRelease = 0;
+  std::map<const Player*, int> countBeforePrepare;  // each would-be taker's placement count while the restart is armed
+  std::optional<int> countAtPrepare;
+  Player* walker = nullptr;
+  std::set<unsigned long> released;
+  int throwIns = 0, placedOnTheWay = 0, offSpotAtRelease = 0;
   RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
     const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!firstStop && b.active && !b.prepared && b.taker)
+      countBeforePrepare[b.taker] = b.taker->CastHumanoid()->GetPlacementCount();
     // The first seamless (walker) throw-in of the run is the one this test follows: its stoppage, then done when it ends.
     if (!firstStop && b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker && b.prepared &&
-        match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker))
+        match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker)) {
       firstStop = b.stopTime;
-    if (firstStop && (!b.active || b.stopTime != *firstStop)) firstDone = true;
-    if (!firstStop || b.stopTime != *firstStop) return;
-    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker) return;
-    if (!match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker)) return;  // path A only
-    const float off = (b.taker->GetPosition().Get2D() - b.restartPos.Get2D()).GetLength();
-    if (b.prepared && placed.insert(b.stopTime).second) {
+      walker = b.taker;
       throwIns++;
-      if (off > kOnTheSpot_m) awayAtPlacement++;
+      const auto it = countBeforePrepare.find(walker);
+      countAtPrepare = it != countBeforePrepare.end() ? it->second : walker->CastHumanoid()->GetPlacementCount();
     }
+    if (firstStop && (!b.active || b.stopTime != *firstStop)) firstDone = true;
+    if (!firstStop || b.stopTime != *firstStop || !b.active || b.taker != walker) return;
+    if (walker->CastHumanoid()->GetPlacementCount() != *countAtPrepare) placedOnTheWay = 1;
+    const float off = (walker->GetPosition().Get2D() - b.restartPos.Get2D()).GetLength();
     if (b.started && released.insert(b.stopTime).second && off > kOnTheSpot_m) offSpotAtRelease++;
   }, kSeamlessSearchTicks, [&](const Match&) { return firstDone; }, SEAMLESS_SEED, false);
-  EXPECT_GT(throwIns, 0) << "no seamless throw-in was placed";
-  EXPECT_GT(awayAtPlacement, 0) << "every seamless throw-in taker was placed on his spot";
+  EXPECT_GT(throwIns, 0) << "no seamless throw-in was prepared";
+  EXPECT_EQ(placedOnTheWay, 0) << "the seamless throw-in taker was placed (ResetPosition) instead of walking";
   EXPECT_EQ(offSpotAtRelease, 0) << offSpotAtRelease << " throw-in taker(s) released off their spot";
   EXPECT_GT(released.size(), 0u) << "no seamless throw-in was released, so no release spot was checked";
 }
 
 // PES's ceremony taker (path B, docs/re/pes-re-throwin-choreography.md 2.1) takes a throw-in that no seamless candidate
-// can. He is placed at the stand point, outside the touchline over the restart point (the placement at F0+162: the
-// release point 1.02 m out, facing the pitch), and the ball is in his hand when he releases.
+// can. ThrowinLoop's SetKick (0x140794280, section 4.1) places him on the stand point: the spot less the release key's
+// ball offset from clip 0xcfa's second record (FUN_1406e8cc0, index 1), outside the touchline, facing the pitch. The
+// ball is in his hand when he releases.
 TEST(PesRestartDelay, AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWithTheBallInHand) {
-  constexpr float kStandIn_m = 1.02f;  // the release point's distance outside the line
+  constexpr int kThrowInKeyMotion = 0xcfa;  // the throw-in's SetKick and release clip (pes-re-throwin-choreography.md 4.1)
   constexpr float kStandTolerance_m = 0.1f;
+  std::optional<unsigned long> firstStop;  // the first ceremony (path B) throw-in's stoppage
+  bool firstDone = false;                  // that stoppage has ended: the run stops here
   std::set<unsigned long> placed, released;
   int throwIns = 0, offTheStandPoint = 0, insideTheLine = 0, ballAway = 0;
   float releaseBall_m = 0.0f;  // the farthest the ball lay from the taker's body at any release
   // The release key's ball offset from the body, horizontal (docs/re/pes-re-throwin-choreography.md, SetKick: (0.022, 0.795) m
   // times bodyScale; bodyScale taken as 1). The carry's lift radius (0.65 m) is a different phase and does not apply here.
   constexpr float kReleaseHandReach_m = 0.80f;
+  // The first ceremony throw-in moves with every change to the match before it, so the test follows it, as the path-A tests do.
   RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
     const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!firstStop && b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker && b.prepared &&
+        !match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker))
+      firstStop = b.stopTime;
+    if (firstStop && (!b.active || b.stopTime != *firstStop)) firstDone = true;
+    if (!firstStop || b.stopTime != *firstStop) return;
     if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker) return;
     if (match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker)) return;  // a walker is path A
     const Vector3 at = b.taker->GetPosition();
     if (b.prepared && placed.insert(b.stopTime).second) {
       throwIns++;
       const float off = (at.Get2D() - b.restartPos.Get2D()).GetLength();
-      if (std::fabs(off - kStandIn_m) > kStandTolerance_m) offTheStandPoint++;
+      const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
+      const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
+      const float standIn_m = hits.size() > 1 ? std::hypot(hits[1].ballX, hits[1].ballZ) * k.centimetre_m : -1.0f;
+      if (standIn_m < 0.0f || std::fabs(off - standIn_m) > kStandTolerance_m) offTheStandPoint++;
       if (std::fabs(at.coords[1]) <= pesFieldHalfWidth) insideTheLine++;
     }
     if (b.started && released.insert(b.stopTime).second) {
@@ -494,7 +518,7 @@ TEST(PesRestartDelay, AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWith
       releaseBall_m = std::max(releaseBall_m, away);
       if (away > kReleaseHandReach_m) ballAway++;
     }
-  }, kFirstThrowInWindowTicks, nullptr, SEED, false);
+  }, kMaxSimTicks, [&](const Match&) { return firstDone; }, SEED, false);
   EXPECT_GT(throwIns, 0) << "no ceremony throw-in was placed";
   EXPECT_EQ(offTheStandPoint, 0) << offTheStandPoint << " ceremony taker(s) placed off the stand point";
   EXPECT_EQ(insideTheLine, 0) << insideTheLine << " ceremony taker(s) placed inside the touchline";
@@ -569,7 +593,7 @@ TEST(PesRestartDelay, AWhistleLeavesNoFlyingBallBehind) {
 
 // A goal kick is released by PES's timer ladder (sub_142136F00), not by the keeper's arrival: the lofted pass on the
 // ladder's frame 82 from the armed tick when the picker finds a mate, the kick into space on frame 109 when it does not.
-// The keeper walks to his stand point and his strike carries him onto the ball after the release. The gate checks the
+// The keeper is placed on his stand point at prepare and strikes onto the ball after the release. The gate checks the
 // frame the referee releases on, counted from the armed tick, against the frame the mode the ladder chose allows.
 TEST(PesRestartDelay, AGoalKickIsReleasedOnThePesLadder) {
   constexpr long kLoftedFrame = 83;   // the ladder's first lofted evaluation is frame 82; the hook reads the clock one tick later (PES live 83)
@@ -827,10 +851,12 @@ TEST(PesRestartDelay, ATheFirstEndLineCrossingIsJudgedOnTheNextTick) {
 }
 
 // PES scores the goal in the judge, on the judge's frame, one frame after the zone code flips (cc = 1 in
-// FUN_14050e4a0 case 10, docs/re/pes-re-A5Judge.md 1.4). The natural crossing of seed 7 flips at tick 7354 and is
-// judged on 7355 (ATheFirstEndLineCrossingIsJudgedOnTheNextTick). The score must not move on the flip tick.
+// FUN_14050e4a0 case 10, docs/re/pes-re-A5Judge.md 1.4). The first end-line crossing that scores flips and is judged on the next
+// tick (ATheFirstEndLineCrossingIsJudgedOnTheNextTick). The score must not move on the flip tick. A crossing that is a miss is
+// skipped: the body-frame fix (humanoidbase.cpp TurnCacheToBody) moved seed 7's first crossing to a miss, so this test follows the
+// first goal rather than the first crossing.
 TEST(PesRestartDelay, ANaturalGoalIsCountedOnTheJudgesFrame) {
-  unsigned long tick = 0, flipAt = 0, lastStop = 0;
+  unsigned long tick = 0, flipAt = 0;
   bool live = false;
   int goalsBefore = 0, goalsAtFlip = -1, goalsAfter = -1;
   const auto goals = [](Match& match) {
@@ -850,14 +876,18 @@ TEST(PesRestartDelay, ANaturalGoalIsCountedOnTheJudgesFrame) {
         }
         if (flipAt == 0) {
           goalsBefore = goals(match);
-          lastStop = b.stopTime;
         } else if (tick == flipAt + 1) {
           goalsAfter = goals(match);
+          // A crossing that is no goal is not the event: wait for the next one.
+          if (goalsAfter == goalsAtFlip) {
+            flipAt = 0;
+            goalsAfter = -1;
+          }
         }
         live = match.IsInPlay() && !match.IsInSetPiece() && !b.active;
       },
       kMaxSimTicks, [&](Match&) { return goalsAfter >= 0; });
-  EXPECT_NE(flipAt, 0ul) << "the seed-7 match has no end-line crossing";
+  EXPECT_NE(flipAt, 0ul) << "the seed-7 match has no goal from an end-line crossing";
   EXPECT_EQ(goalsAtFlip, goalsBefore) << "the score moved on the flip tick, before the judge read the event";
   EXPECT_EQ(goalsAfter, goalsBefore + 1) << "the goal was not counted on the judge's frame";
 }
@@ -965,4 +995,70 @@ TEST(PesRestartDelay, ALoosePresserInTheTrapWindowPlaysThatRowsClip) {
   });
   EXPECT_GT(trapTicks, 0ul) << "the loose presser never played a PES trap clip";
   EXPECT_EQ(strayTicks, 0ul) << "a PES trap clip is not named by a trap row";
+}
+
+// A throw-in carrier who has picked the ball up walks to his carry spot and stands there, ready to lift it (PES's
+// SeamlessThrowin phase 4, docs/re/pes-re-throwin-choreography.md 3.2). Seed 7's five-minute match picked a walker's ball
+// up at 130 s, 4.6 m short of the spot, and the carrier never arrived: the stoppage ran past its bound.
+TEST(PesRestartDelay, ACarriedThrowInReachesItsSpot) {
+  // The carry is a few seconds of one-handed running. A carrier four or five metres from his spot is there within this.
+  constexpr unsigned long kCarryBoundTicks = 5ul * Match::kFramesPerSecond;
+  std::optional<unsigned long> pickupTick;
+  bool arrived = false;
+  RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker) return;
+    const TeamAIController* c = match.GetTeam(b.teamID)->GetController();
+    if (!pickupTick && c->IsCarryingBall()) pickupTick = static_cast<unsigned long>(match.GetSimFrame());
+    // The arrival and the release land on one tick (PES's release follows the lift), so the arrival is read whatever the
+    // referee's started flag says.
+    if (pickupTick && c->PieceTakerArrived()) arrived = true;
+  }, kMaxSimTicks,
+  [&](Match& match) {
+    return arrived || (pickupTick && static_cast<unsigned long>(match.GetSimFrame()) - *pickupTick > kCarryBoundTicks);
+  },
+  SEED, false);
+  EXPECT_TRUE(pickupTick.has_value()) << "no throw-in carrier picked the ball up";
+  EXPECT_TRUE(arrived) << "the carrier did not reach his spot within " << kCarryBoundTicks << " ticks of the pickup";
+}
+
+// A throw-in carrier stands at the pickup clip's contact offset from the ball, not within a hand reach. PES's pickup clip 0xCF5
+// puts the ball at its contact frame at the clip's offset from the taker's root, and the root warps onto the ball less that
+// offset (docs/re/pes-re-throwin-choreography.md 3.2, phase 1). So on the tick he first holds the ball, his root stands that
+// offset's length from where the ball lay. Seed 7's five-minute walker held the ball 4.0 m from where it had lain: the root gate
+// (AdvancePieceWalk) was the fault, and the 0.80 m hand reach this test used before was a stand-in.
+TEST(PesRestartDelay, AThrowInCarrierStandsAtThePickupClipsContactOffset) {
+  // A test tolerance, not a PES value: the ball may roll a few centimetres before the contact frame.
+  constexpr float kOffsetTolerance_m = 0.15f;
+  std::optional<float> pickupReach;    // the carrier's root to where the ball lay, on the tick he first holds it
+  std::optional<float> contactOffset;  // the pickup clip's contact offset, horizontal, from the clip the gate reads
+  Vector3 looseBall;
+  bool haveLooseBall = false;
+  RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
+    const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker || b.started) return;
+    const TeamAIController* c = match.GetTeam(b.teamID)->GetController();
+    if (!c->IsCarryingBall()) {
+      looseBall = match.GetBall()->GetPositionBuffer();
+      haveLooseBall = true;
+      return;
+    }
+    if (!pickupReach && haveLooseBall) {
+      pickupReach = (b.taker->GetPosition() - looseBall).Get2D().GetLength();
+      const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(0xcf5);
+      if (!hits.empty()) {
+        const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
+        const pes::HitRecord& hit = hits.front();
+        // ponytail: the physique and mirror are the gate's (1.0 and unmirrored), so the test reads the offset the gate warps by.
+        const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), 1.0f, false, k);
+        contactOffset = std::sqrt(offset.x * offset.x + offset.z * offset.z);
+      }
+    }
+  }, kMaxSimTicks, [&](Match&) { return pickupReach.has_value(); }, SEED, false);
+  EXPECT_TRUE(pickupReach.has_value()) << "no throw-in carrier picked the ball up";
+  EXPECT_TRUE(contactOffset.has_value()) << "the pickup clip 0xCF5 has no hit record";
+  if (pickupReach && contactOffset)
+    EXPECT_NEAR(*pickupReach, *contactOffset, kOffsetTolerance_m)
+        << "the carrier stood " << *pickupReach << " m from where the ball lay; the clip's contact offset is "
+        << *contactOffset << " m";
 }

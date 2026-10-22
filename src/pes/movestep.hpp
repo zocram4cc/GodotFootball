@@ -28,6 +28,15 @@ namespace movestep {
 struct MoveTurnConstants;
 }
 
+// PES's play state MI+0x116c (pes-re-A5Judge.md): 1 in play, 2 stopped, 3 set-play ready.
+// ponytail: GF's referee buffer stands for PES's restart sequencer. An awarded restart that is prepared or started is 3
+// (PES holds 3 through the TAKE and writes 1 at the kick); any other stop is 2. PES's per-restart writer is OPEN
+// (pes-re-A6Writers.md section 4), so this split follows the docs' state names, not a traced writer.
+inline int PlayStateFor(bool inPlay, bool restartAwarded, bool armedOrTaken) {
+  if (inPlay) return 1;
+  return restartAwarded && armedOrTaken ? 3 : 2;
+}
+
 // FUN_1406ba900's switch cases 0..23, by the MOVESTEP_* names at 0x1425dd698 (AS 2.1).
 enum class MoveState : uint8_t {
   kInit = 0,
@@ -893,6 +902,7 @@ struct MoveTargetInput {
   float targetZ = 0.0f;
   float lookX = 0.0f;       // cmd+0x14: the look-at point
   float lookZ = 0.0f;
+  bool lookValid = false;   // the command has a look-at point (PES FUN_140a6e6b0: byte +4 of cmd+0x1A). Without one req[0x12] is the target distance
   int speedBand = -1;       // FUN_1406b8de0(cmd[0x17]): 0..3, or -1 for none
   float desiredKmh = 0.0f;  // cmd[0x172]
   bool precise = false;     // cmd[0x15] (2 maps to 1)

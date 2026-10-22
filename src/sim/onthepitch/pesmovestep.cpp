@@ -107,7 +107,7 @@ class AdapterTeam final : public pes::TeamAi {
   float Heading(int slot) const override {
     const Player* p = Who(slot);
     if (!p) return 0.0f;
-    const Vector3 dir = p->GetDirectionVec();
+    const Vector3 dir = p->GetRootDirectionVec();  // PES's yaw of that player: his root, not his travel (FacingDeg)
     return HeadingDeg(dir.coords[0], dir.coords[1], c_.run);
   }
   // ponytail: P+0x5d0, the player's sub-state byte, has no GF record yet.
@@ -215,6 +215,7 @@ class MoveHostAdapter final : public pes::MoveHost {
     in.targetZ = -target.coords[1];
     in.lookX = look.coords[0];
     in.lookZ = -look.coords[1];
+    in.lookValid = cmd && cmd->useDesiredLookAt;  // PES FUN_140a6e6b0: the look-at block is valid (the command carries a look point)
     in.speedBand = pes::CommandClassFor(CommandSpeedClassOf(speed), c_.runTables);
     in.desiredKmh = speed * kKmhPerMps;
     in.precise = cmd && cmd->preciseArrival;
@@ -316,9 +317,10 @@ class MoveHostAdapter final : public pes::MoveHost {
     pesmovestep::PesFrame(v.coords[0], v.coords[1], v.coords[2], out);
   }
   int MatchPhase() const override {
-    // PES MI+0x116c is not ported (MB-E). Open play is PES's phase 1; every stopped phase is
-    // the adapter's "not 1" until the phase block lands.
-    return match_.IsInPlay() ? 1 : 0;
+    // PES MI+0x116c (pes-re-A5Judge.md): an awarded restart (buffer active) that is prepared or started is set-play ready (3);
+    // any other stop is 2, and open play is 1.
+    const auto& buf = match_.GetReferee()->GetBuffer();
+    return pes::PlayStateFor(match_.IsInPlay(), buf.active, buf.prepared || buf.started);
   }
   bool IsReplay() const override { return false; }
   // The handoff (FUN_1406b8340's tail): the issued clip plays on the body. A SetMotion plays its own
@@ -397,7 +399,9 @@ class MoveHostAdapter final : public pes::MoveHost {
   const pes::SpeedClassConstants& SpeedClassConstantsView() const override { return c_.speedClass; }
   const pes::IdleRowTables& IdleRowTablesView() const override { return c_.idleRows; }
   float FacingDeg() const override {
-    const Vector3 dir = player_.GetDirectionVec();
+    // PES's facing (req[2], P+0x20) is the root yaw a turn clip rotates; GF's directionVec is the travel direction
+    // once the body moves, so a sliding turn clip would read as a facing change (humanoidbase.hpp rootDirectionVec).
+    const Vector3 dir = player_.GetRootDirectionVec();
     return HeadingDeg(dir.coords[0], dir.coords[1], c_.run);
   }
   float BallBearingDeg() const override {
@@ -518,12 +522,20 @@ void ProcessMoveStep(Player& player, Match& match) {
   // MOVESTEP runs only with pes_loop on. Off it leaves the player alone: no FSM tick, no clip, and
   // no playback write (the contact rates of match.cpp keep theirs).
   if (!match.PesLoop()) return;
-  // ponytail: PES skips MOVESTEP while a kick sets the anime phase away from 0 (pes-re-decision-read.md 3, INF; the caller
-  // check is undecoded). GF skips it while a ball action clip plays, the same precedence without the phase byte.
-  if (IsBallActionFunction(player.CastHumanoid()->GetCurrentFunctionType())) {
-    // A ball action at its last frame is over and hands the body back. Its hold (STOP or ACCELERATE) would block the
-    // end-of-clip switch (humanoid.cpp PesPoseHeld), so the FSM lets go here, and this tick's humanoid step can switch.
-    // ponytail: PES's state after a ball action is not decoded; IDLE stands in.
+  // A held set-piece taker is in his standby action, and every standby but the two kick-off loops answers 1 from its slot 10,
+  // which makes the default locomotion driver FUN_1406F0C20 return before any steering (call at 0x1406F0C93;
+  // docs/re/pes-re-kicker-standby.md 1-2). The kick-off takers are never held (TeamAIController::pieceHeld).
+  if (player.GetTeam()->GetController()->IsPieceTakerHeld(&player)) return;
+  // PES runs the MOVESTEP entry only in the MOVE, STEP_MOVE, DRIBBLE_STEP_MOVE and DEMO_MOVE actions (anime ids 2, 3, 6, 74):
+  // their Update functions FUN_1407824A0, FUN_140789DD0, FUN_1407D1E60 and the thunk at 0x1407347B0 are the entry FUN_1406B8340's
+  // only callers (call sites 0x140782552, 0x140789E42, 0x1407D23A2, jump 0x1407347B6). A dodge, tackle, trap or kick owns the body
+  // in its own action, so the FSM does not tick while such a clip plays.
+  // ponytail: GF has no PES action id for the body (PES's +0xAC8). IsMovementClip stands in for "in MOVE": a Movement function,
+  // or a PES locomotion clip the FSM itself issued. Remove when the body carries its action id.
+  if (!player.CastHumanoid()->IsMovementClip()) {
+    // A clip at its last frame hands the body back. The FSM is frozen while such a clip plays, so a hold (STOP or ACCELERATE)
+    // would block the end-of-clip switch (humanoid.cpp PesPoseHeld). ponytail: PES's state after the action is not decoded; IDLE
+    // stands in.
     const Anim* clip = player.GetCurrentAnim();
     pes::MoveStepRecord& fsm = player.GetMoveStep();
     if (clip->frameNum >= clip->anim->GetFrameCount() - 1 && pes::HoldsBodyPose(fsm.state))
