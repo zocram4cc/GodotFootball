@@ -154,6 +154,11 @@ TEST(PesMoveStepJostle, AwayStarterJostlesTheNearOpponentInRunLoop) {
     pes::MoveStepRecord& rec = own->GetMoveStep();
     rec.state = pes::MoveState::kRunLoop;
     rec.style = 0;
+    // A RUN_LOOP with no dwell running: T2 (PES 117) takes the swing arm while the second dwell (req[0x2d] < req[0x2e]) runs,
+    // and the frames played above leave one running. The style block, where the jostle acts, needs T2 false. The test used to
+    // pass only through ACCELERATE, which entered on this precise walk before its gates were made PES's (FUN_1406ccd00
+    // refuses a precise command, req[0xe] != 0).
+    rec.carried.fill(0);
     pesmovestep::ProcessMoveStep(*own, *match);
     return rec.style;
   };
