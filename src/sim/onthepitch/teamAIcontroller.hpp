@@ -44,6 +44,7 @@
 
 class Match;
 class Team;
+class PlayerBase;
 
 struct TacticalOpponentInfo {
   Player* player;
@@ -206,9 +207,18 @@ public:
   // side's presser and renews his PRESS 0x34, resetting the rest to 0. Runs
   // every team tick on the PES path, before the possession latch.
   void PesPressTick();
+  // The loose-ball writer and the second presser's coordinator (FUN_140634470 with its maintain). The
+  // coordinator runs first, then the writer, in the same tick (the FUN_140535C60 order). The writer keeps
+  // the second presser (PressWriterWord).
+  void PesLooseWriterTick();
+  void PesSecondPresserTick();
   // The role table's PRESS man (T+0xa2a0 == 0x34), or null. The loose-ball
   // presser; the carrier-press stand-in above is untouched.
   Player* GetLoosePressMan();
+  // True for a man who holds PRESS (0x34) in the role table. Every such man of the side takes the loose-ball approach.
+  bool IsLoosePresser(const PlayerBase* p) const;
+  // The first-touch flag pressOrDelay (pesreceive): the team's pressure man, or any PRESS man of the side (PES loop).
+  bool PressOrDelay(const PlayerBase* p);
   // PES's strategy word T+0x134 (docs/re/pes-re-match-management.md 1).
   int GetStrategy() const { return strategy.strategy; }
   // Every team tick, dead balls included: the decider moves the strategy while
@@ -337,6 +347,8 @@ protected:
   float defensiveLineHeight;
   float defensiveTeamLength;
   pes::TeamPressState pressState;
+  // The coordinator state (PP and B88C): the holder, the excluded man, the second presser, the reason words.
+  pes::PressCoordState coordState;
   // The PES slider readings the shape uses this tick (report 14.6), mapped from
   // GF's live tactics; the band code reads them so the line and its width come
   // from one place.

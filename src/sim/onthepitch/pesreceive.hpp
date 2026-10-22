@@ -233,8 +233,19 @@ bool RefusedAsDesignatedOwner(const OwnerInput& in, const ActorKey& me);
 enum class CarrierChange { kKeep, kToucher, kNone };
 CarrierChange CarrierAfterContact(bool controlTouch, bool toucherHoldsBall, bool carrierHoldsBall);
 
-// The trap picker's ball point, in the player's clip space (metres, PES's Fox frame): x lateral (right of the body),
-// y height, z forward. The clips' hit points are in cm (HitData records, pes/mbinfo.hpp).
+// PES's holder MA+0x2601C (docs/re/pes-re-press-coord.md section 4a; pes-re-first-touch.md section 5.1). Its only valid
+// writer is W1 = VA 0x14045725A (MOV dword ptr [RBP+0x2601C],EDI) in FUN_140457070: it stores the actor of the newest
+// ring-1 touch key when that key maps to an on-pitch slot, else 0xFF. Nothing clears it when the ball is lost.
+// GF stand-in: the touch stamped this tick (Team::SetLastTouchPlayer) hands the carrier to its toucher when the touch
+// leaves the ball at his feet. Differences: PES keeps the last toucher on a loose ball, while GF clears the retainer
+// when the ball leaves him (humanoid.cpp, the retain block). ponytail: PES's K=7 contact needs the touch probe
+// G+0x2A80 (first-touch section 5.4, OPEN); GF takes every stamped touch. W1 (press-coord section 4a) writes only
+// when TA+0x11 is set; that flag's caller is not traced.
+CarrierChange CarrierFromTouch(bool touchedThisTick, bool toucherHoldsBall);
+
+// The trap picker's ball point, in the player's clip space (metres, PES's Fox frame): x lateral (sign not yet decoded),
+// y height, z backward. A trap clip's contact lies at z < 0 in front of the root in its own hit records (pes-re-trap-
+// windows.md section 9), so forward is -z. The clips' hit points are in cm (HitData records, pes/mbinfo.hpp).
 struct ClipPoint {
   float x = 0.0f, y = 0.0f, z = 0.0f;
 };
@@ -253,4 +264,8 @@ inline constexpr float kPlayerClipScale = 1.0f;
 // record in cm. Nothing is picked when no row's window holds the ball.
 std::optional<int> PickTrapClip(const ReceiveConstants& k, const ClipPoint& ball,
                                 const std::function<ClipPoint(int clip)>& hitCm);
+
+// The trap picker's ball point for a ball at (aheadX, aheadY) from a player facing (facingX, facingY), at height_m: the
+// ball's lateral and forward components on the body's axes, in the clip frame of ClipPoint. scale is kPlayerClipScale.
+ClipPoint TrapBallClipPoint(float facingX, float facingY, float aheadX, float aheadY, float height_m, float scale);
 }  // namespace pes

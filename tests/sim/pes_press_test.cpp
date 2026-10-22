@@ -50,6 +50,32 @@ pes::PressConstants Synthetic() {
   c.speedCut3_kmh = 22.0f;
   c.targetTickRate = 0.1f;
   c.targetTickBias = 0.5f;
+  c.evalThetaBase_m = 10.0f;
+  c.evalThetaFar_m = 20.0f;
+  c.evalThetaZ_m = 16.0f;
+  c.evalThetaB29_m = 14.0f;
+  c.evalIncumbentTheta_m = 3.0f;
+  c.evalIncumbentStep_m = 4.0f;
+  c.evalBlockASpeedKmh = 5.0f;
+  c.evalBlockAHeading_deg = 60.0f;
+  c.evalBlockAAdd_m = 10.0f;
+  c.evalWindowSec_s = 5.0f;
+  c.evalThetaTwoLow_m = 6.0f;
+  c.evalThetaTwoHigh_m = 12.0f;
+  c.evalMode7Angle_deg = 50.0f;
+  c.evalMode7IncAngle_deg = 40.0f;
+  c.evalMode4Angle_deg = 100.0f;
+  c.evalMode4Margin_m = 10.0f;
+  c.coverNear_m = 2.5f;
+  c.coverFar_m = 14.0f;
+  c.coverOuter_m = 11.0f;
+  c.coverCone_deg = 140.0f;
+  c.gateFacing_deg = 60.0f;
+  c.gateBallHeight_m = 1.5f;
+  c.classFiveDist_m = 3.0f;
+  c.classFiveKindTen_m = 5.0f;
+  c.maintainReason5DistSq_m2 = 9.0f;
+  c.maintainBearing_deg = 45.0f;
   return c;
 }
 
@@ -331,6 +357,22 @@ TEST(PressExcludedMan, NoEligibleManGivesTheSentinel) {
   EXPECT_EQ(pes::PressExcludedMan(1, on, flag), pes::kPressNoMan);
 }
 
+TEST(PressWriterWord, TheSecondPresserSurvivesTheResetAndTheWinnerIsPressed) {
+  EXPECT_EQ(pes::PressWriterWord(7, 3, 7), pes::kPressState);
+  EXPECT_EQ(pes::PressWriterWord(3, 3, 7), pes::kPressState);
+  EXPECT_EQ(pes::PressWriterWord(0, 3, 7), pes::kNothingState);
+}
+
+TEST(PressWriterWord, NoWinnerStillKeepsTheSecondPresser) {
+  EXPECT_EQ(pes::PressWriterWord(7, pes::kPressNoMan, 7), pes::kPressState);
+  EXPECT_EQ(pes::PressWriterWord(2, pes::kPressNoMan, 7), pes::kNothingState);
+}
+
+TEST(PressWriterWord, WithoutASecondPresserOnlyTheWinnerIsPressed) {
+  EXPECT_EQ(pes::PressWriterWord(7, 3, pes::kPressNoMan), pes::kNothingState);
+  EXPECT_EQ(pes::PressWriterWord(3, 3, pes::kPressNoMan), pes::kPressState);
+}
+
 TEST(PressTeamState, SetActionStoresRoleAndStampsRing) {
   pes::TeamPressState s{};
   s.SetAction(3, 0x34, 100);
@@ -339,6 +381,34 @@ TEST(PressTeamState, SetActionStoresRoleAndStampsRing) {
   s.SetAction(3, 0x34, 200);  // same action as head: role rewritten, stamp unchanged
   EXPECT_EQ(s.role[3], 0x34);
   EXPECT_EQ(s.actionRing[3].slots[1].last, 100u);
+}
+
+TEST(PressLoosePresser, EveryPressManOfTheSideTakesTheApproach) {
+  pes::TeamPressState s{};
+  s.SetAction(1 * pes::kPressSideMen + 3, pes::kPressState, 10);
+  s.SetAction(1 * pes::kPressSideMen + 7, pes::kPressState, 10);
+  EXPECT_TRUE(pes::PressIsLoosePresser(s.role, 1, 3));
+  EXPECT_TRUE(pes::PressIsLoosePresser(s.role, 1, 7));
+  EXPECT_FALSE(pes::PressIsLoosePresser(s.role, 1, 5));
+  EXPECT_FALSE(pes::PressIsLoosePresser(s.role, 0, 3));
+}
+
+TEST(PressLoosePresser, OnlyAPressRoleIsALoosePresser) {
+  pes::TeamPressState s{};
+  s.SetAction(2, 0x33, 10);  // DELAY: not a presser
+  EXPECT_FALSE(pes::PressIsLoosePresser(s.role, 0, 2));
+  EXPECT_FALSE(pes::PressIsLoosePresser(s.role, 0, 4));
+}
+
+TEST(PressOrDelayFlag, EveryPressManAndTheTeamPressurePlayerControlTheBall) {
+  pes::TeamPressState s{};
+  s.SetAction(1 * pes::kPressSideMen + 3, pes::kPressState, 10);
+  s.SetAction(1 * pes::kPressSideMen + 7, pes::kPressState, 10);
+  EXPECT_TRUE(pes::PressOrDelayFlag(false, s.role, 1, 3));
+  EXPECT_TRUE(pes::PressOrDelayFlag(false, s.role, 1, 7));  // red on the first-man stub
+  EXPECT_FALSE(pes::PressOrDelayFlag(false, s.role, 1, 5));
+  EXPECT_TRUE(pes::PressOrDelayFlag(true, s.role, 0, 2));
+  EXPECT_FALSE(pes::PressOrDelayFlag(false, s.role, 0, 2));
 }
 
 TEST(PressStampRing, SameIdAsHeadIsANoOp) {
@@ -532,6 +602,454 @@ TEST(PressCommandSpeed, DistanceSlopeCappedOneBandAbove) {
 }
 
 }  // namespace
+
+namespace {
+
+// Eval fixture: the holder is man 11 (side 1) at the origin, and side 0 attacks +x (sign +1). Every man is
+// active and far away unless a test moves him. Man 10 is the excluded man (X) at (0, -30): his bearing from the
+// holder is 180 degrees, and his class 0 gives the mode-7 takeover LR of 1.
+pes::PressEvalInput EvalFixture() {
+  pes::PressEvalInput in;
+  in.side = 0;
+  in.sign = 1.0f;
+  in.ref = 11;
+  in.excluded = 10;
+  in.mode = 7;
+  in.men[11].active = true;
+  for (int k = 0; k < 11; ++k) {
+    in.men[k].active = true;
+    in.men[k].x = 40.0f;
+    in.men[k].z = 0.0f;
+    in.slots[k].roleClass = 1;
+  }
+  in.men[10].x = 0.0f;
+  in.men[10].z = -30.0f;
+  in.slots[10].roleClass = 0;
+  return in;
+}
+
+// Baseline maintain inputs: every step passes, and the stamp window keeps the presser. Each test changes one input.
+pes::PressMaintainInput KeptPresser() {
+  pes::PressMaintainInput in;
+  in.inPlay = true;
+  in.slot = 3;
+  in.man = 3;
+  in.tableWord = pes::kPressAction;
+  in.holderNow = 7;
+  in.holderRecorded = 7;
+  in.holderFromTouch = true;
+  in.classFiveNow = pes::kPressNoMan;
+  in.xMan = 5;
+  in.roleClass = 1;
+  in.windowFrames = 108;
+  in.manToXDistSq = 100.0f;
+  return in;
+}
+
+}  // namespace
+
+TEST(PressHolderKind, GoalkeeperKindsAreNotHolders) {
+  for (int kind : {0x11, 0x14, 0x50, 0x52, 0x57}) EXPECT_TRUE(pes::PressHolderKindExcluded(kind)) << kind;
+  for (int kind : {0x10, 0x12, 0x51, 0x53, 0x58}) EXPECT_FALSE(pes::PressHolderKindExcluded(kind)) << kind;
+}
+
+TEST(PressHolder, PossessionManBeatsTheOtherCarrier) {
+  EXPECT_EQ(pes::PressHolder(3, 15, 0x20), 3);
+}
+
+TEST(PressHolder, OtherCarrierStandsInWithoutAPossessionMan) {
+  EXPECT_EQ(pes::PressHolder(pes::kPressNoMan, 15, 0x20), 15);
+}
+
+TEST(PressHolder, AnExcludedKindOrNoCarrierGivesNoHolder) {
+  EXPECT_EQ(pes::PressHolder(pes::kPressNoMan, 15, 0x52), pes::kPressNoMan);
+  EXPECT_EQ(pes::PressHolder(pes::kPressNoMan, pes::kPressNoMan, 0x20), pes::kPressNoMan);
+}
+
+TEST(PressClass, FlagFiveManWinsOverEveryLaterTest) {
+  pes::PressClassInput in;
+  in.flagFiveMan = true;
+  in.flagDNone = true;
+  in.testFun632850 = true;
+  in.teamB716 = true;
+  in.testFun632320 = true;
+  EXPECT_EQ(pes::PressClass(in), 5);
+}
+
+TEST(PressClass, FlagDNoneIsSevenBeforeTheFourTest) {
+  pes::PressClassInput in;
+  in.flagDNone = true;
+  in.testFun632850 = true;
+  EXPECT_EQ(pes::PressClass(in), 7);
+}
+
+TEST(PressClass, FourThenSixThenTheBandTestThenSeven) {
+  pes::PressClassInput in;
+  in.testFun632850 = true;
+  EXPECT_EQ(pes::PressClass(in), 4);
+  in = {};
+  in.teamB716 = true;
+  EXPECT_EQ(pes::PressClass(in), 6);
+  in = {};
+  in.testFun632320 = true;
+  EXPECT_EQ(pes::PressClass(in), 1);
+  in = {};
+  EXPECT_EQ(pes::PressClass(in), 7);
+}
+
+TEST(PressMaintain, BaselineIsKeptByTheStampWindow) {
+  auto c = Synthetic();
+  EXPECT_TRUE(pes::PressPresserKept(c, KeptPresser()));
+}
+
+TEST(PressMaintain, NotInPlayReleases) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.inPlay = false;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, OnlyAPressAssignmentInASlotBelowElevenIsKept) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.tableWord = 0x3a;  // MATCH_UP in the table, not PRESS
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+  in = KeptPresser();
+  in.slot = 11;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, KeeperWithTheBallReleases) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.keeperHolds = true;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, HolderChangeReleases) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.holderNow = 8;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, ReasonFiveNeedsTheClassFiveMan) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.reason = 5;
+  in.classFiveNow = 4;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+  in.classFiveNow = in.man;
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, LiftedBallReleasesWhenThisSideMadeTheLastKick) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.lifted = true;
+  in.teamKickMan = 2;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+  in.teamKickMan = pes::kPressNoMan;
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, GroundedKickerNeedsHimAsTheMatchUpMan) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.teamKickMan = 2;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));  // no match-up man
+  in.matchUp = 5;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));  // another man
+  in.matchUp = 2;
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, ReasonFiveReleasesFromThreeMetresOfTheHolder) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.reason = 5;
+  in.classFiveNow = in.man;
+  in.manToHolderDistSq = 9.0f;  // 3 m: released at the boundary
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+  in.manToHolderDistSq = 8.0f;
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, OpponentHolderReleasesWhenTheMarkerIsNearerTheBall) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.holderFromTouch = false;
+  in.xCloserToTeamPoint = true;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+  in.xCloserToTeamPoint = false;
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, ReasonFourOrSevenNeedsTheBearingBandAndAKickerRole) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.reason = 4;
+  in.bearingVsCoverDeg = 30.0f;  // inside the 45 degree band with flag 13 off: released
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+  in.bearingVsCoverDeg = 60.0f;
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+  in.bearingVsCoverDeg = 30.0f;
+  in.flag13 = true;  // flag 13 switches the band off
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+  in.flag13 = false;
+  in.bearingVsCoverDeg = 60.0f;
+  in.roleClass = 0;  // no kicker role: released
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, StaleStampFallsThroughToTheMarkerDistanceAtTheKeepRadius) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.stampLast = 200;  // 200 frames > 108: the stamp window no longer keeps him
+  in.manToXDistSq = c.carrierRampEnd_m;  // exactly the keep radius: kept
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+  in.manToXDistSq = c.carrierRampEnd_m + 0.5f;
+  EXPECT_FALSE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressMaintain, WithoutAMarkerAStalePresserIsKept) {
+  auto c = Synthetic();
+  pes::PressMaintainInput in = KeptPresser();
+  in.stampLast = 200;
+  in.xMan = pes::kPressNoMan;
+  in.manToXDistSq = 1000.0f;
+  EXPECT_TRUE(pes::PressPresserKept(c, in));
+}
+
+TEST(PressEval, TheManWithinTheRadiusIsPickedAndTheModeIsWritten) {
+  auto c = Synthetic();
+  pes::PressEvalInput in = EvalFixture();
+  in.men[0].x = 4.0f;  // 4 m ahead of the holder
+  const pes::PressEvalResult r = pes::PressEvalPick(c, in);
+  EXPECT_EQ(r.man, 0);
+  EXPECT_EQ(r.mode, 7);
+}
+
+TEST(PressEval, ManBeyondTheDefaultRadiusIsRefused) {
+  auto c = Synthetic();
+  pes::PressEvalInput in = EvalFixture();
+  in.men[0].x = 12.0f;  // 12 m beyond the 10 m default radius
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, pes::kPressNoMan);
+}
+
+TEST(PressEval, FlagThirteenWidensTheRadiusAndTheAcceptTwo) {
+  auto c = Synthetic();
+  pes::PressEvalInput in = EvalFixture();
+  in.flag13 = true;
+  in.men[0].x = 18.0f;  // 18 m inside the widened 20 m radius
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, 0);
+}
+
+TEST(PressEval, AcceptTwoNeedsSixMetresUnlessTheAttackLevelIsThree) {
+  auto c = Synthetic();
+  pes::PressEvalInput in = EvalFixture();
+  in.men[0].x = 8.0f;  // inside the 10 m radius, outside the 6 m accept-two radius
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, pes::kPressNoMan);
+  in.attackLevel = 3;  // accept-two radius becomes max(12, radius) = 12
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, 0);
+}
+
+TEST(PressEval, ManBehindTheHolderIsRefusedUnlessFlagThirteen) {
+  auto c = Synthetic();
+  pes::PressEvalInput in = EvalFixture();
+  in.men[0].x = -4.0f;  // behind the holder on the attack side
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, pes::kPressNoMan);
+  in.flag13 = true;
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, 0);
+}
+
+TEST(PressEval, IncumbentGetsTheRadiusBonusAtAttackLevelThree) {
+  auto c = Synthetic();
+  pes::PressEvalInput in = EvalFixture();
+  in.attackLevel = 3;
+  in.men[0].x = 11.5f;  // beyond 10 m, inside 10 + 3 for the incumbent
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, pes::kPressNoMan);
+  in.incumbent = 0;
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, 0);
+}
+
+TEST(PressEval, ExcludedManIsSkipped) {
+  auto c = Synthetic();
+  pes::PressEvalInput in = EvalFixture();
+  in.men[10].x = 4.0f;  // the excluded man is nearest and in front
+  in.men[10].z = 0.0f;
+  in.mode = 1;  // no mode test, so only the G3 skip keeps the excluded man out
+  in.men[1].x = 1.0f;
+  in.men[1].z = 5.0f;
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, 1);
+}
+
+TEST(PressEval, InactiveAndExcludedKindMenAreSkipped) {
+  auto c = Synthetic();
+  pes::PressEvalInput in = EvalFixture();
+  in.men[0].x = 4.0f;
+  in.men[0].active = false;
+  in.men[1].x = 1.0f;
+  in.men[1].z = 5.0f;
+  in.men[2].x = 4.5f;  // in front, but a keeper kind
+  in.men[2].excludedKind = true;
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, 1);
+}
+
+TEST(PressEval, FlagFifteenAndOrderTwentyFourAreSkipped) {
+  auto c = Synthetic();
+  pes::PressEvalInput in = EvalFixture();
+  in.men[0].x = 4.0f;
+  in.men[0].flag15 = true;
+  in.men[1].x = 1.0f;
+  in.men[1].z = 5.0f;
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, 1);
+  in.men[0].flag15 = false;
+  in.slots[0].orderTwentyFour = true;
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, 1);
+}
+
+TEST(PressEval, TheNearestPassingManWinsWhateverHisIndex) {
+  auto c = Synthetic();
+  pes::PressEvalInput in = EvalFixture();
+  in.men[0].x = 4.0f;  // 4 m
+  in.men[1].x = 2.0f;  // 2 m: nearer, and later in the table
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, 1);
+}
+
+TEST(PressEval, ModeSevenNeedsABearingAwayFromTheExcludedMan) {
+  auto c = Synthetic();
+  pes::PressEvalInput in = EvalFixture();
+  in.men[0].x = 1.0f;  // (1, -3): nearer, but only 18 degrees from the excluded man's bearing
+  in.men[0].z = -3.0f;
+  in.men[1].x = 4.0f;  // (4, 0): 90 degrees from the excluded man's bearing
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, 1);
+}
+
+TEST(PressEval, BlockAWidensTheAcceptTwoWhenTheHolderRunsAtTheMan) {
+  auto c = Synthetic();
+  pes::PressEvalInput in = EvalFixture();
+  in.phaseAggressive = true;  // radius 14, accept two 12
+  in.levelClass = 6;
+  in.blockAOppFree = true;
+  in.refSpeedKmh = 6.0f;      // above 5
+  in.men[0].x = 13.0f;        // 13 m: inside 14, outside 12
+  in.refHeadingDeg = 0.0f;    // running 90 degrees off the man: no widening
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, pes::kPressNoMan);
+  in.refHeadingDeg = 80.0f;   // running at the man: 10 degrees off, widened
+  EXPECT_EQ(pes::PressEvalPick(c, in).man, 0);
+}
+
+TEST(PressEval, ModeFourNeedsTheManOverAHundredDegreesFromTheExcludedMan) {
+  auto c = Synthetic();
+  pes::PressEvalInput in = EvalFixture();
+  in.mode = 4;
+  in.men[0].x = 1.0f;  // (1, -3): 18 degrees from the excluded man's bearing: refused
+  in.men[0].z = -3.0f;
+  in.men[1].x = 5.0f;  // (5, 1): about 101 degrees from it: accepted
+  in.men[1].z = 1.0f;
+  const pes::PressEvalResult r = pes::PressEvalPick(c, in);
+  EXPECT_EQ(r.man, 1);
+  EXPECT_EQ(r.mode, 4);
+}
+
+TEST(PressEval, NoPassingManWritesNothing) {
+  auto c = Synthetic();
+  EXPECT_EQ(pes::PressEvalPick(c, EvalFixture()).man, pes::kPressNoMan);
+}
+
+TEST(PressGate, AHighBallOrAKickByThisSideFailsWhateverElseHolds) {
+  auto c = Synthetic();
+  pes::PressGateInput in;
+  in.flag13 = true;
+  in.cover = true;
+  in.ballHeight_m = 2.0f;  // above 1.5 m
+  EXPECT_FALSE(pes::PressGatePasses(c, in));
+  in.ballHeight_m = 0.0f;
+  in.teamKickValid = true;
+  EXPECT_FALSE(pes::PressGatePasses(c, in));
+}
+
+TEST(PressGate, AnyCoverFlagPassesWhateverTheFacing) {
+  auto c = Synthetic();
+  pes::PressGateInput in;
+  in.facingToAttack_deg = 170.0f;  // would fail on facing alone
+  EXPECT_FALSE(pes::PressGatePasses(c, in));
+  in.pressTimer = true;
+  EXPECT_TRUE(pes::PressGatePasses(c, in));
+  in.pressTimer = false;
+  in.flag13 = true;
+  EXPECT_TRUE(pes::PressGatePasses(c, in));
+  in.flag13 = false;
+  in.attackLevel = 3;
+  EXPECT_TRUE(pes::PressGatePasses(c, in));
+  in.attackLevel = 0;
+  in.classFive = true;
+  EXPECT_TRUE(pes::PressGatePasses(c, in));
+  in.classFive = false;
+  in.cover = true;
+  EXPECT_TRUE(pes::PressGatePasses(c, in));
+}
+
+TEST(PressGate, FacingWithinSixtyDegreesPassesAndBeyondFails) {
+  auto c = Synthetic();
+  pes::PressGateInput in;
+  in.facingToAttack_deg = 60.0f;
+  EXPECT_TRUE(pes::PressGatePasses(c, in));
+  in.facingToAttack_deg = 61.0f;
+  EXPECT_FALSE(pes::PressGatePasses(c, in));
+}
+
+TEST(PressCover, HoldsInsideTheNearBand) {
+  auto c = Synthetic();
+  EXPECT_TRUE(pes::PressCoverByHolder(c, 2.0f, 170.0f, 0.0f));  // any bearing, under 2.5 m
+}
+
+TEST(PressCover, FailsBeyondTheFarBandAndOutsideTheOuterRadius) {
+  auto c = Synthetic();
+  EXPECT_FALSE(pes::PressCoverByHolder(c, 15.0f, 0.0f, 0.0f));
+  EXPECT_FALSE(pes::PressCoverByHolder(c, 12.0f, 0.0f, 0.0f));  // beyond the 11 m cone
+}
+
+TEST(PressCover, TheConeDecidesTheMiddleBand) {
+  auto c = Synthetic();
+  EXPECT_TRUE(pes::PressCoverByHolder(c, 8.0f, 10.0f, 0.0f));   // 10 degrees off the axis: inside
+  EXPECT_FALSE(pes::PressCoverByHolder(c, 8.0f, 90.0f, 0.0f));  // 90 degrees off: outside
+}
+
+TEST(PressClassFive, TheNearestSideManWithinThreeMetresIsTheClassFiveMan) {
+  auto c = Synthetic();
+  pes::PressClassFiveInput in;
+  in.holder = 11;
+  in.cand = 3;
+  in.clauseOk = true;
+  in.roleClass = 2;
+  in.ballDist_m = 2.0f;
+  EXPECT_EQ(pes::PressClassFiveMan(c, in), 3);
+  in.ballDist_m = 3.0f;  // strictly inside 3 m
+  EXPECT_EQ(pes::PressClassFiveMan(c, in), pes::kPressNoMan);
+}
+
+TEST(PressClassFive, MatchUpKeeperAndTheClauseExcludeTheMan) {
+  auto c = Synthetic();
+  pes::PressClassFiveInput in;
+  in.holder = 11;
+  in.cand = 3;
+  in.clauseOk = true;
+  in.roleClass = 2;
+  in.ballDist_m = 1.0f;
+  in.matchUp = 3;
+  EXPECT_EQ(pes::PressClassFiveMan(c, in), pes::kPressNoMan);
+  in.matchUp = pes::kPressNoMan;
+  in.keeperKind = true;
+  EXPECT_EQ(pes::PressClassFiveMan(c, in), pes::kPressNoMan);
+  in.keeperKind = false;
+  in.roleClass = 0;  // the keeper class, and no kind 10
+  EXPECT_EQ(pes::PressClassFiveMan(c, in), pes::kPressNoMan);
+  in.roleClass = 2;
+  in.clauseOk = false;
+  EXPECT_EQ(pes::PressClassFiveMan(c, in), pes::kPressNoMan);
+}
 
 // The writer's gate on the ball (FUN_140536FC0): with no carrier the ball sample must lie within kPressBallGate_m of the
 // MA ball copy, or nobody is picked, fresh or renewed. The pick is the top man within the pick radius, the same test for a

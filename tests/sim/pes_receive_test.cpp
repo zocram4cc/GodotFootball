@@ -413,6 +413,40 @@ TEST(PesReceiveInstall, TheTrapRowsAreTheInstallsActionSevenWindows) {
   }
 }
 
+// The trap picker's clip frame is forward = -z (pes::TrapBallClipPoint). The action-7 hit records put the contact in front
+// of the root at z < 0: clip 0x547's first hit is (0, 11.6, -10) cm and clip 0x57D's (45, 191, -50) cm, and each row's
+// window holds its own contact. So a ground ball half a metre straight ahead is trapped by the ground row (0x547), and a
+// ball as far behind is not trapped at all.
+TEST(PesReceiveInstall, AGroundBallAheadIsTrappedByTheGroundRowAndOneBehindIsNot) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  pes::PesVfs vfs;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto k = pes::LoadReceiveConstants(*exe, vfs, &err);
+  ASSERT_TRUE(k.has_value()) << err;
+  // Each row's first hit record in cm, from the install's HitData (Mbinfo::Hits): the contact the window must hold.
+  const auto hitCm = [](int clip) -> pes::ClipPoint {
+    switch (clip) {
+      case 1351: return {0.0f, 11.6f, -10.0f};
+      case 1352: return {0.0f, 191.0f, -50.0f};
+      case 1353: return {0.0f, 236.0f, -50.0f};
+      case 1405: return {45.0f, 191.0f, -50.0f};
+      case 1407: return {45.0f, 236.0f, -50.0f};
+      default: return {};
+    }
+  };
+  constexpr float kStationaryBallHeight_m = 0.109f;  // the stalled ball's height in the trace (y of the clip point)
+  const pes::ClipPoint ahead =
+      pes::TrapBallClipPoint(1.0f, 0.0f, 0.5f, 0.0f, kStationaryBallHeight_m, pes::kPlayerClipScale);
+  EXPECT_EQ(pes::PickTrapClip(*k, ahead, hitCm), std::optional<int>(1351));
+  const pes::ClipPoint behind =
+      pes::TrapBallClipPoint(1.0f, 0.0f, -0.5f, 0.0f, kStationaryBallHeight_m, pes::kPlayerClipScale);
+  EXPECT_FALSE(pes::PickTrapClip(*k, behind, hitCm).has_value());
+}
+
 }  // namespace
 
 // The store's action kinds (PES ring-0 +0) as the receive gates name them: 1 a
@@ -494,6 +528,18 @@ TEST(PesReceiveCarrier, ANewControlTouchTakesTheCarrierFromTheHolder) {
 
 TEST(PesReceiveCarrier, AControlTouchThatMissesLeavesTheHolderWithTheBall) {
   EXPECT_EQ(pes::CarrierAfterContact(true, false, true), pes::CarrierChange::kKeep);
+}
+
+TEST(PesReceiveCarrier, AnyTouchThatLeavesTheBallAtHisFeetMakesHimTheCarrier) {
+  EXPECT_EQ(pes::CarrierFromTouch(true, true), pes::CarrierChange::kToucher);
+}
+
+TEST(PesReceiveCarrier, ATouchThatSendsTheBallAwayMakesNoCarrier) {
+  EXPECT_EQ(pes::CarrierFromTouch(true, false), pes::CarrierChange::kNone);
+}
+
+TEST(PesReceiveCarrier, StandingOnTheBallWithoutATouchMakesNoCarrier) {
+  EXPECT_EQ(pes::CarrierFromTouch(false, true), pes::CarrierChange::kNone);
 }
 
 // The trap picker (FUN_14081ff70 for action 7): a row admits the ball inside its clip-space window (x strictly

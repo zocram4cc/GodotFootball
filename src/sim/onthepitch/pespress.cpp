@@ -3,6 +3,7 @@
 
 #include "onthepitch/pespress.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -57,6 +58,32 @@ constexpr PressVa kPressVas[] = {
     {0x1425c48c0, &PressConstants::speedCut3_kmh},
     {0x142588200, &PressConstants::targetTickRate},
     {0x142565600, &PressConstants::targetTickBias},
+    {0x142588210, &PressConstants::evalThetaBase_m},
+    {0x1425c48c0, &PressConstants::evalThetaFar_m},
+    {0x14259be0c, &PressConstants::evalThetaZ_m},
+    {0x1425c5948, &PressConstants::evalThetaB29_m},
+    {0x14258c264, &PressConstants::evalIncumbentTheta_m},
+    {0x14259222c, &PressConstants::evalIncumbentStep_m},
+    {0x14259222c, &PressConstants::evalBlockASpeedKmh},
+    {0x14259a764, &PressConstants::evalBlockAHeading_deg},
+    {0x142588210, &PressConstants::evalBlockAAdd_m},
+    {0x14259222c, &PressConstants::evalWindowSec_s},
+    {0x14259bdec, &PressConstants::evalThetaTwoLow_m},
+    {0x14259be04, &PressConstants::evalThetaTwoHigh_m},
+    {0x14259be34, &PressConstants::evalMode7Angle_deg},
+    {0x14259be2c, &PressConstants::evalMode7IncAngle_deg},
+    {0x14253ee30, &PressConstants::evalMode4Angle_deg},
+    {0x142588210, &PressConstants::evalMode4Margin_m},
+    {0x14259bde4, &PressConstants::coverNear_m},
+    {0x1425c48b8, &PressConstants::coverFar_m},
+    {0x14259bdfc, &PressConstants::coverOuter_m},
+    {0x14259be64, &PressConstants::coverCone_deg},
+    {0x14259a764, &PressConstants::gateFacing_deg},
+    {0x14259bddc, &PressConstants::gateBallHeight_m},
+    {0x14258c264, &PressConstants::classFiveDist_m},
+    {0x14259222c, &PressConstants::classFiveKindTen_m},
+    {0x14259d60c, &PressConstants::maintainReason5DistSq_m2},
+    {0x14259be30, &PressConstants::maintainBearing_deg},
 };
 
 }  // namespace
@@ -326,6 +353,199 @@ PressFillResult PressCandidateFill(const PressConstants& c, const std::array<Pre
   return r;
 }
 
+// ---- Second presser (FUN_140632bc0, FUN_140632ae0, FUN_140632e70). ----
+
+bool PressHolderKindExcluded(int pesKind) {
+  constexpr int kExcludedKindBase = 0x11;
+  constexpr uint64_t kExcludedKindMask = 0x8000000000000009ull;  // kinds 0x11, 0x14, 0x50
+  constexpr unsigned kExcludedMaskBits = 64;
+  constexpr int kExcludedKindA = 0x52;
+  constexpr int kExcludedKindB = 0x57;
+  const unsigned offset = static_cast<unsigned>(pesKind) - static_cast<unsigned>(kExcludedKindBase);
+  const bool inMask = offset < kExcludedMaskBits && ((kExcludedKindMask >> offset) & 1u) != 0;
+  return inMask || pesKind == kExcludedKindA || pesKind == kExcludedKindB;
+}
+
+int PressHolder(int possessionMan, int otherCarrier, int otherCarrierKind) {
+  if (static_cast<unsigned>(possessionMan) < static_cast<unsigned>(kPressTeamMen)) return possessionMan;
+  if (static_cast<unsigned>(otherCarrier) < static_cast<unsigned>(kPressTeamMen) &&
+      !PressHolderKindExcluded(otherCarrierKind)) {
+    return otherCarrier;
+  }
+  return kPressNoMan;
+}
+
+int PressClass(const PressClassInput& in) {
+  if (in.flagFiveMan) return kPressClassFive;
+  if (in.flagDNone) return kPressClassSeven;
+  if (in.testFun632850) return kPressClassFour;
+  if (in.teamB716) return kPressClassSix;
+  return in.testFun632320 ? kPressClassOne : kPressClassSeven;
+}
+
+
+namespace {
+
+// Squared distance on the pitch plane (x, z).
+float PlaneDistSq(float ax, float az, float bx, float bz) {
+  const float dx = bx - ax;
+  const float dz = bz - az;
+  return dx * dx + dz * dz;
+}
+
+// Signed difference of the bearings from `o` to `a` and from `o` to `b`, folded into [-180, 180].
+float BearingDiffDeg(const PressConstants& c, float ox, float oz, float ax, float az, float bx, float bz) {
+  return PressSideAngleDeg(c, PressBearingDeg(c, ox, oz, ax, az), PressBearingDeg(c, ox, oz, bx, bz));
+}
+
+// The assignment word the mode-7 takeover refuses (T+0xA2A0 == 0x3C; FUN_140633940 at 0x1406340BF).
+constexpr int kAssignmentRefusedMode7 = 0x3c;
+
+}  // namespace
+
+PressEvalResult PressEvalPick(const PressConstants& c, const PressEvalInput& in) {
+  if (in.ref < 0 || in.ref >= kPressTeamMen) return {};
+  const PressEvalMan& holder = in.men[in.ref];
+  // The early exit: flag 13 with the holder already past the line on the attack side.
+  if (in.flag13 && in.sign * holder.x > in.sign * in.earlyLine) return {};
+  // The side's block of the holder's nearest list, ascending d^2; ties keep the table order.
+  const int base = in.side * kPressSideMen;
+  std::array<int, kPressSideMen> order{};
+  for (int k = 0; k < kPressSideMen; ++k) order[k] = k;
+  std::stable_sort(order.begin(), order.end(), [&](int a, int b) {
+    const PressEvalMan& ma = in.men[base + a];
+    const PressEvalMan& mb = in.men[base + b];
+    return PlaneDistSq(holder.x, holder.z, ma.x, ma.z) < PlaneDistSq(holder.x, holder.z, mb.x, mb.z);
+  });
+  bool w = in.flag13;  // W: the D_ev test sets it, and it stays set for the later men
+  for (int k : order) {
+    const int cand = base + k;
+    const PressEvalMan& m = in.men[cand];
+    const PressEvalSlot& sl = in.slots[k];
+    if (cand == in.excluded || !m.active) continue;      // G3, G2
+    if (w && m.g180Reject) continue;                     // G4 (only while W)
+    if (m.excludedKind) continue;                        // G5
+    if (!sl.flagged || m.flag15) continue;               // G6
+    if (sl.orderTwentyFour) continue;                    // G7
+    if (in.windowEvent) w = true;                        // the D_ev test
+    const bool inc = cand == in.incumbent;
+    if (in.mode == 4) {                                  // the mode-4 pre-gate
+      if (in.levelClass == 6 || w || in.phaseAggressive || sl.roleClass != 2) {
+        if (sl.roleClass == 0) continue;
+      } else if (!m.recordBit23 && in.attackLevel <= 2) {
+        continue;
+      }
+    }
+    // S = |ref - cand|, and the radius: the press timer or flag 13 widen it, flag 14 and the aggressive phase narrow it.
+    const float dist = std::sqrt(PlaneDistSq(holder.x, holder.z, m.x, m.z));
+    float theta = c.evalThetaBase_m;
+    if (in.pressTimer || w) theta = c.evalThetaFar_m;
+    else if (in.flag14) theta = c.evalThetaZ_m;
+    else if (in.phaseAggressive) theta = c.evalThetaB29_m;
+    if (inc) theta += c.evalIncumbentTheta_m;
+    // Block A: a fast holder running at the man widens the accept-two gate.
+    bool blockA = false;
+    const float headingToCand = PressBearingDeg(c, holder.x, holder.z, m.x, m.z);
+    if (in.blockAOppFree && in.refSpeedKmh > c.evalBlockASpeedKmh && in.levelClass == 6 &&
+        std::fabs(PressSideAngleDeg(c, headingToCand, PressWrapDeg(c, in.refHeadingDeg))) <
+            c.evalBlockAHeading_deg) {
+      blockA = true;
+      if (theta < c.evalThetaBase_m) theta += c.evalBlockAAdd_m;
+    }
+    if (dist > theta) continue;                          // accept 1
+    const bool window =
+        in.pressTimer && static_cast<int>(c.evalWindowSec_s * in.fps + 0.5f) < in.pressTimerY;
+    if (!(w || window || in.sign * m.x > in.sign * holder.x)) continue;  // G_sub: ahead of the holder
+    float theta2;
+    if (in.attackLevel >= 3) theta2 = std::max(c.evalThetaTwoHigh_m, theta);
+    else if (in.mode == 4) theta2 = theta;
+    else theta2 = (in.levelClass == 6 || in.phaseAggressive) ? c.evalThetaTwoHigh_m : c.evalThetaTwoLow_m;
+    if (!(dist <= theta2 || blockA || w || window)) continue;  // accept 2
+    if (in.mode == 7) {                                  // the mode-7 takeover
+      int lr = 3;
+      if (in.excluded >= 0 && in.excluded < kPressTeamMen) {
+        const int riX = in.slots[in.excluded % kPressSideMen].roleClass;
+        if (riX == 0) lr = 1;
+        else if (riX == 1) lr = 2;
+        else if (riX == 2 && in.aggressive) lr = 2;
+        const float d = BearingDiffDeg(c, holder.x, holder.z, m.x, m.z, in.men[in.excluded].x,
+                                       in.men[in.excluded].z);
+        if (std::fabs(d) < (inc ? c.evalMode7IncAngle_deg : c.evalMode7Angle_deg)) continue;
+      }
+      if (!((sl.roleClass == lr || w) && sl.roleClass != 0 && sl.assignment != kAssignmentRefusedMode7)) {
+        continue;
+      }
+    }
+    if (in.mode == 4) {                                  // the mode-4 lateral test
+      if (!inc && in.excluded >= 0 && in.excluded < kPressTeamMen) {
+        const float d = BearingDiffDeg(c, holder.x, holder.z, m.x, m.z, in.men[in.excluded].x,
+                                       in.men[in.excluded].z);
+        if (std::fabs(d) < c.evalMode4Angle_deg) continue;
+      }
+      const float incStep = inc ? c.evalIncumbentStep_m : 0.0f;
+      if (!(in.sign * m.x - c.evalMode4Margin_m <= in.sign * sl.keepX + incStep)) continue;
+    }
+    PressEvalResult accepted;
+    accepted.man = cand;
+    accepted.mode = in.mode;
+    return accepted;
+  }
+  return {};
+}
+
+bool PressGatePasses(const PressConstants& c, const PressGateInput& in) {
+  if (in.ballHeight_m > c.gateBallHeight_m) return false;
+  if (in.teamKickValid) return false;
+  if (in.pressTimer || in.flag13 || in.attackLevel >= 3 || in.classFive || in.cover) return true;
+  return in.facingToAttack_deg <= c.gateFacing_deg;
+}
+
+bool PressCoverByHolder(const PressConstants& c, float dist_m, float bearingDeg, float headingDeg) {
+  if (dist_m < c.coverNear_m) return true;
+  if (dist_m > c.coverFar_m) return false;
+  if (!(dist_m > 0.0f && dist_m < c.coverOuter_m)) return false;
+  return std::fabs(PressSideAngleDeg(c, bearingDeg, headingDeg)) < 0.5f * c.coverCone_deg;
+}
+
+int PressClassFiveMan(const PressConstants& c, const PressClassFiveInput& in) {
+  if (in.holder < 0 || in.holder >= kPressTeamMen) return kPressNoMan;
+  if (!in.clauseOk) return kPressNoMan;
+  if (in.cand < 0 || in.cand >= kPressTeamMen || in.cand == in.matchUp) return kPressNoMan;
+  if (in.keeperKind) return kPressNoMan;
+  if (in.roleClass == 0 && !in.kindTen) return kPressNoMan;
+  const float threshold = in.kindTen ? c.classFiveKindTen_m : c.classFiveDist_m;
+  return in.ballDist_m < threshold ? in.cand : kPressNoMan;
+}
+
+bool PressPresserKept(const PressConstants& c, const PressMaintainInput& in) {
+  if (!in.inPlay) return false;                                                // step 1
+  if (in.slot >= kPressSideMen || in.tableWord != kPressAction) return false;  // step 2
+  if (in.keeperHolds) return false;                                            // step 3
+  if (in.holderNow != in.holderRecorded) return false;                         // step 4
+  if (in.reason == 5 && in.classFiveNow != in.man) return false;               // step 5
+  const bool kickValid = in.teamKickMan < kPressTeamMen;
+  if (in.lifted && kickValid) return false;                                    // step 6, lifted
+  if (!in.lifted && kickValid && !(in.matchUp < kPressTeamMen && in.matchUp == in.teamKickMan)) {
+    return false;                                                              // step 6, grounded
+  }
+  // Step 7 (reason 3) is unreachable: nothing writes reason 3 here. Step 8 (the refusal) is the eval's, not ported.
+  if (in.reason == 5) {                                                        // step 9a
+    if (in.holderNow >= kPressTeamMen) return false;
+    if (in.manToHolderDistSq >= c.maintainReason5DistSq_m2) return false;
+  }
+  if (!in.holderFromTouch && in.holderNow < kPressTeamMen && in.xMan < kPressTeamMen &&
+      in.xCloserToTeamPoint) {
+    return false;                                                              // step 9b
+  }
+  if (in.reason == 4 || in.reason == 7) {                                      // step 9c
+    if (!in.flag13 && in.bearingVsCoverDeg < c.maintainBearing_deg) return false;
+    if (in.roleClass == 0) return false;
+  }
+  if (in.stampLast - in.stampFirst <= in.windowFrames) return true;            // step 9d
+  if (in.xMan >= kPressTeamMen) return true;                                   // step 9e
+  return in.manToXDistSq <= c.carrierRampEnd_m;                                // step 9f
+}
+
 float PressPickRadius_m(const PressConstants& c, float root) {
   float ramp;
   if (root <= c.pass2Lo) {
@@ -393,6 +613,19 @@ float PressCommandSpeed_ms(const PressConstants& c, float dist_m, float speedKmh
   else if (cls == 2)
     cap = c.speedCut3_kmh / 3.6f;
   return std::min(want, cap);
+}
+
+int PressWriterWord(int man, int winner, int second) {
+  return (man == winner || man == second) ? kPressState : kNothingState;
+}
+
+bool PressIsLoosePresser(const int* role, int side, int k) {
+  if (side < 0 || side > 1 || k < 0 || k >= kPressSideMen) return false;
+  return role[side * kPressSideMen + k] == kPressState;
+}
+
+bool PressOrDelayFlag(bool teamPressurePlayer, const int* role, int side, int k) {
+  return teamPressurePlayer || PressIsLoosePresser(role, side, k);
 }
 
 }  // namespace pes

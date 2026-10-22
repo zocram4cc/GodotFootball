@@ -66,6 +66,34 @@ struct PressConstants {
   float speedCut3_kmh;     // 0x1425c48c0 (22): class 3/4 cut
   float targetTickRate;    // 0x142588200 (0.1): k = fps*rate + bias ticks
   float targetTickBias;    // 0x142565600 (0.5)
+  // Target eval, gate, cover and coordinator constants (FUN_140633940, FUN_140632780, FUN_140632c70,
+  // FUN_1406324a0, FUN_140632e70). Each names its .rdata VA; the value is the image's word.
+  float evalThetaBase_m;           // 0x142588210 (10): default acceptance radius; also the Block A add
+  float evalThetaFar_m;            // 0x1425c48c0 (22): radius with the press timer or flag 13
+  float evalThetaZ_m;              // 0x14259be0c (15): radius with flag 14; VA from pes-re-press-coord.md (eval claims none)
+  float evalThetaB29_m;            // 0x1425c5948 (13): radius in the aggressive phase
+  float evalIncumbentTheta_m;      // 0x14258c264 (3): radius bonus for the incumbent
+  float evalIncumbentStep_m;       // 0x14259222c (5): mode-4 add for the incumbent
+  float evalBlockASpeedKmh;        // 0x14259222c (5): holder speed for Block A
+  float evalBlockAHeading_deg;     // 0x14259a764 (60): Block A heading window
+  float evalBlockAAdd_m;           // 0x142588210 (10): radius add when Block A fires below the base
+  float evalWindowSec_s;           // 0x14259222c (5): press window seconds (G_sub and accept-2)
+  float evalThetaTwoLow_m;         // 0x14259bdec (6): accept-2 radius by default
+  float evalThetaTwoHigh_m;        // 0x14259be04 (12): accept-2 radius at attack level 3, class 6 or aggressive
+  float evalMode7Angle_deg;        // 0x14259be34 (50): mode-7 bearing from the excluded man
+  float evalMode7IncAngle_deg;     // 0x14259be2c (40): the same for the incumbent
+  float evalMode4Angle_deg;        // 0x14253ee30 (100): mode-4 bearing from the excluded man
+  float evalMode4Margin_m;         // 0x142588210 (10): mode-4 final margin
+  float coverNear_m;               // 0x14259bde4 (2.5): the cover holds inside this distance
+  float coverFar_m;                // 0x1425c48b8 (14): the cover fails beyond this distance
+  float coverOuter_m;              // 0x14259bdfc (11): the cone's outer radius
+  float coverCone_deg;             // 0x14259be64 (140): the cone's full angle
+  float gateFacing_deg;            // 0x14259a764 (60): holder facing limit against the attack bearing
+  float gateBallHeight_m;          // 0x14259bddc (1.5): ball height limit
+  float classFiveDist_m;           // 0x14258c264 (3): class-5 distance to the ball
+  float classFiveKindTen_m;        // 0x14259222c (5): the same for kind 10
+  float maintainReason5DistSq_m2;  // 0x14259d60c (9): reason-5 release distance squared
+  float maintainBearing_deg;       // 0x14259be30 (45): reason 4/7 bearing band
 };
 
 // Role-class table at 0x1426484f0 (94 u32 entries). Bits read by the writer:
@@ -121,6 +149,20 @@ inline constexpr int kPresserRole = 0x3a;
 // PRESS 0x34 for the picked man, NOTHING 0 for the reset rest.
 inline constexpr int kPressState = 0x34;
 inline constexpr int kNothingState = 0;
+
+// The loose-ball writer's word for one man on one tick: PRESS for the picked man and for the coordinator's
+// second presser, NOTHING for the rest. PES FUN_140535C60 skips a slot whose role is already DELAY or PRESS
+// ("1 < role - 0x33U"), so the writer's reset never drops the second presser, whose life the coordinator owns.
+// `winner` and `second` are global men, or kPressNoMan.
+int PressWriterWord(int man, int winner, int second);
+
+// PES's ActionPress runs for every man in state PRESS (0x34), not for one picked man: a PRESS man of `side` on a
+// loose ball takes the approach. `role` is the 22-entry role table (side * 11 + slot); `k` is the slot in the side.
+bool PressIsLoosePresser(const int* role, int side, int k);
+
+// PES's first-touch flag pressOrDelay (pesreceive.hpp: P+0x5d0 in {0x33, 0x34}): the team's pressure man, or any
+// man holding PRESS in the role table. `role` is the 22-entry role table; `k` is the slot in `side`.
+bool PressOrDelayFlag(bool teamPressurePlayer, const int* role, int side, int k);
 
 std::optional<PressConstants> LoadPressConstants(const PeImage& exe, std::string* error);
 
@@ -225,6 +267,160 @@ struct PressFillResult {
 // Gate and tally for FUN_140639830 over the side's 11 men (local index k).
 PressFillResult PressCandidateFill(const PressConstants& c, const std::array<PressFillMan, 11>& mans);
 
+// ---- Second presser: the coordinator's holder, class and maintain gates (PES FUN_140632bc0,
+// FUN_140632ae0, FUN_140632e70; coordinator FUN_140634470). ----
+
+// Team-man and side-man counts of the coordinator's tests (PES compares men with 0x16, slots with 0xb).
+inline constexpr int kPressTeamMen = 22;
+inline constexpr int kPressSideMen = 11;
+// The assignment-table word of a presser: PES T+0xa2a0[slot] == 0x34 (state 52, PRESS).
+inline constexpr int kPressAction = 0x34;
+// Slot flags in T+0xb88c[slot] that the maintain gate reads (PES FUN_140632e70: 3 and 5).
+inline constexpr int kPressSlotFlagThree = 3;
+inline constexpr int kPressSlotFlagFive = 5;
+// Classes FUN_140632ae0 returns.
+inline constexpr int kPressClassOne = 1;
+inline constexpr int kPressClassFour = 4;
+inline constexpr int kPressClassFive = 5;
+inline constexpr int kPressClassSix = 6;
+inline constexpr int kPressClassSeven = 7;
+
+// True for the PES player kinds that cannot hold the press: 0x11, 0x14 and 0x50 (a bitmask over
+// kind - 0x11), plus 0x52 and 0x57 (FUN_140632bc0, FUN_1406324a0).
+bool PressHolderKindExcluded(int pesKind);
+
+// PES FUN_140632bc0: the side's holder for the press pass. The possession man (MA+0x2601C through
+// FUN_140a627e0(ctx, 0)) wins when he is a team man; otherwise the other side's carrier (+0x78)
+// stands in unless his kind is excluded. kPressNoMan when neither holds.
+int PressHolder(int possessionMan, int otherCarrier, int otherCarrierKind);
+
+// Inputs of FUN_140632ae0, in the order it tests them. Each callee result is the caller's.
+struct PressClassInput {
+  bool flagFiveMan = false;     // FUN_1406324a0(ctx, team) names a team man
+  bool flagDNone = false;       // FUN_140a63950(ctx, side, 0xd, 0xff)
+  bool testFun632850 = false;   // FUN_140632850(...) != 0 (not decoded: caller)
+  bool teamB716 = false;        // ctx+0xb716 != 0
+  bool testFun632320 = false;   // FUN_140632320(...) (not decoded: caller)
+};
+
+// PES FUN_140632ae0: the press class of a side.
+int PressClass(const PressClassInput& in);
+
+// ---- The target eval (FUN_140633940; docs/re/pes-re-press-eval.md §2). ----
+// Per man of the team pair (index 0..21), read by the caller from the match.
+struct PressEvalMan {
+  float x = 0.0f, z = 0.0f;   // pitch position (player +0x55c / +0x564)
+  bool active = false;        // MI+0x1748[man] != 0: on the pitch
+  bool excludedKind = false;  // kind in {0x11,0x14,0x50,0x52,0x57} (G5). ponytail: GF's goalkeeper role
+  bool flag15 = false;        // FUN_140a63950(ctx, side, 15, man) != 0 (G6b). ponytail: not carried, false
+  bool g180Reject = false;    // G4, read only while W: a G180 entry with flag 0. ponytail: not carried, false
+  bool recordBit23 = false;   // record +0xB0 bit 23 (mode-4 pre-gate). ponytail: not carried, false
+};
+// Per slot k of the presser side: the team words read at slot k = man % 11.
+struct PressEvalSlot {
+  bool flagged = true;          // T+0x4C00[k] != 0 (G6a). ponytail: GF counts every on-pitch man as flagged
+  bool orderTwentyFour = false; // T+0xB748[k] == 0x24 (G7). ponytail: concept orders not mapped, false
+  int roleClass = 0;            // RI = T+0x87D0[8k]; class 0 is the keeper class
+  int assignment = 0;           // T+0xA2A0[k] (mode-7 test: != 0x3C). ponytail: GF keeps no table, 0
+  float keepX = 0.0f;           // f32 T+0x4B4C[12k] (mode-4 test). ponytail: the caller passes the man's x
+};
+struct PressEvalInput {
+  int side = 0;                  // s: the presser side
+  float sign = 1.0f;             // T+0x254: the side's attack sign, +1 or -1
+  int ref = kPressNoMan;         // the holder: the pivot of the nearest list
+  int excluded = kPressNoMan;    // PP[1] (X): skipped, and the bearing reference of modes 4 and 7
+  int incumbent = kPressNoMan;   // PP[2]: the man the coordinator already holds
+  int mode = 0;                  // the class: 7, 4 or 1 (class 5 never reaches the eval)
+  bool aggressive = false;       // the coordinator's aggressive flag (A)
+  bool flag13 = false;           // W0 = FUN_140a63950(ctx, s, 13, 0xFF)
+  bool flag14 = false;           // FUN_140a63950(ctx, s, 14, ref): the Z test
+  bool windowEvent = false;      // D_ev < 4K and MI+0x14C8[s==0] == 1: sets W, sticky across the men
+  bool pressTimer = false;       // X = T+0xA53C != 0
+  int pressTimerY = 0;           // Y = T+0xA544
+  int attackLevel = 0;           // T+0xB8A4
+  int levelClass = 0;            // CLS = FUN_140a60340(FUN_140a40bd0(T))
+  bool phaseAggressive = false;  // B29 = (T+0xA298 == 3)
+  int fps = 54;                  // K = FUN_141e532e0()
+  float earlyLine = 0.0f;        // L = f32 MA+0x40+0x14*(s==0): the early exit while flag13
+  bool blockAOppFree = false;    // P10(ctx, 1-s) == 0 (FUN_140a51d50). ponytail: its tail is OPEN, so false
+  float refSpeedKmh = 0.0f;      // FUN_140477130(ref)
+  float refHeadingDeg = 0.0f;    // FUN_140458740(ref, 0.6944/fps): the holder's heading of motion
+  std::array<PressEvalMan, kPressTeamMen> men{};
+  std::array<PressEvalSlot, kPressSideMen> slots{};
+};
+struct PressEvalResult {
+  int man = kPressNoMan;  // the accepted man, or kPressNoMan (nothing is written then)
+  int mode = 0;           // written to B88C[man % 11] on accept
+};
+// FUN_140633940: the first man of `in.side` in the nearest list of `in.ref` (ascending d^2, table order on ties)
+// who passes every gate. There is no keep-max. The caller applies the accept writes.
+PressEvalResult PressEvalPick(const PressConstants& c, const PressEvalInput& in);
+
+// ---- The gate, the cover and the class-5 predicate (FUN_140632780, FUN_140632c70, FUN_1406324a0). ----
+struct PressGateInput {
+  float ballHeight_m = 0.0f;       // B+4: the raw ball height
+  bool teamKickValid = false;      // T+0x78 valid: this side made the last kick, so the gate fails
+  bool pressTimer = false;         // T+0xA53C != 0
+  bool flag13 = false;             // FUN_140a63950(ctx, side, 0xd, 0xff)
+  int attackLevel = 0;             // T+0xB8A4
+  bool classFive = false;          // the class is 5
+  bool cover = false;              // PressCoverByHolder
+  float facingToAttack_deg = 0.0f; // |wrap180(T+0x250 - holder facing)| (FUN_140481b00)
+};
+bool PressGatePasses(const PressConstants& c, const PressGateInput& in);
+
+// FUN_140632c70: the holder covers the excluded man. `dist_m` = |X - H|, `bearingDeg` = bearing(H -> X),
+// `headingDeg` = the cone axis (the caller's T+0x6EC branch).
+bool PressCoverByHolder(const PressConstants& c, float dist_m, float bearingDeg, float headingDeg);
+
+// FUN_1406324a0: the class-5 man, or kPressNoMan.
+struct PressClassFiveInput {
+  int holder = kPressNoMan;   // c: MA+0x2601C, else the opponent's last kick
+  int cand = kPressNoMan;     // the side's nearest man to c, or the next one when that is the match-up man
+  int matchUp = kPressNoMan;  // FUN_140a62960. ponytail: GF has no match-up table, so none
+  bool clauseOk = false;      // (B+0x18 <= 1.5 and not high) or T+0x78 > 21
+  bool keeperKind = false;    // the G5 exclusion
+  int roleClass = 0;          // class of cand's slot (class 0 is the keeper class)
+  bool kindTen = false;       // kind 10. ponytail: GF has no kinds, so false
+  float ballDist_m = 0.0f;    // FUN_14044e0d0: the ball's distance to cand
+};
+int PressClassFiveMan(const PressConstants& c, const PressClassFiveInput& in);
+
+// ---- The coordinator state (PP and B88C) and maintain (FUN_140632e70; docs/re/pes-re-press-coord.md §7). ----
+struct PressCoordState {
+  int holder = kPressNoMan;                 // PP[0]
+  int xMan = kPressNoMan;                   // PP[1]
+  int second = kPressNoMan;                 // PP[2]
+  std::array<int, kPressSideMen> reason{};  // B88C[k]
+};
+// The maintain inputs. The caller computes every distance and bearing (squared where named).
+struct PressMaintainInput {
+  bool inPlay = false;               // MI+0x116c == 1
+  int slot = kPressNoMan;            // k
+  int man = kPressNoMan;             // side * 11 + k
+  int tableWord = 0;                 // T+0xA2A0[k]
+  bool keeperHolds = false;          // FUN_140a53f90 != 0. ponytail: keeper hold not carried, false
+  int holderNow = kPressNoMan;       // FUN_140632bc0 this tick
+  int holderRecorded = kPressNoMan;  // PP[0]
+  bool holderFromTouch = false;      // MA+0x2601C valid: the holder is the newest toucher
+  int reason = 0;                    // B88C[k]
+  int classFiveNow = kPressNoMan;    // FUN_1406324a0 this tick
+  bool lifted = false;               // B+0x18 > 1.5, or the high test
+  int teamKickMan = kPressNoMan;     // T+0x78: this side's last kick (kPressNoMan when invalid)
+  int matchUp = kPressNoMan;         // FUN_140a62960. ponytail: none
+  int xMan = kPressNoMan;            // PP[1]
+  bool xCloserToTeamPoint = false;   // dist(X, TP) < dist(H, TP); TP = the ball copy (ponytail)
+  float manToHolderDistSq = 0.0f;    // dist^2(M, H)
+  float bearingVsCoverDeg = 0.0f;    // |fold(bearing(H->M) - bearing(H->X))|
+  bool flag13 = false;               // FUN_140a63950(ctx, side, 0xd, 0xff)
+  int roleClass = 0;                 // T+0x87D0[8k]
+  uint32_t stampFirst = 0;           // the head stamp's first frame (rec+4)
+  uint32_t stampLast = 0;            // the head stamp's last frame (rec+8)
+  uint32_t windowFrames = 0;         // 2 * fps (the stamp window)
+  float manToXDistSq = 0.0f;         // FUN_1404c8ea0(MA, X, M): asm-checked as a d^2 (the coord doc says sqrt)
+};
+// PES order; each step returns at its first decision. True keeps the presser (PES returns 0).
+bool PressPresserKept(const PressConstants& c, const PressMaintainInput& in);
 // --- Loose-ball chase (press-life 6/7/9) ---
 
 // FUN_140639a20's pick radius in metres: carrierRampStart_m + carrierRampSpan_m

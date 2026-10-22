@@ -405,8 +405,7 @@ bool PlayerController::_ReceiveCandidate() {
   // (Team::PassGetReceiver feeds the designation). On the PES path the
   // loose-ball presser traps too: he is the chaser, and the designation may
   // name another man. PES's entry 3 is not gated by the chase state at all.
-  const bool presser =
-      match->PesLoop() && team->GetController()->GetLoosePressMan() == player;
+  const bool presser = match->PesLoop() && team->GetController()->IsLoosePresser(player);
   if (match->GetDesignatedPossessionPlayer() != player &&
       team->GetDesignatedTeamPossessionPlayer() != player && !presser)
     return false;
@@ -479,8 +478,7 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
   // presser (the same stand-in the defender port uses). On the PES path the
   // role table's loose-ball PRESS man counts too: P+0x5d0 in {0x33, 0x34} is
   // his current state, and the role table is what the writer wrote.
-  in.pressOrDelay = team->GetController()->GetTeamPressurePlayer() == player ||
-                    (match->PesLoop() && team->GetController()->GetLoosePressMan() == player);
+  in.pressOrDelay = team->GetController()->PressOrDelay(player);
   const pes::FirstTouch touch = pes::ChooseFirstTouch(k, in, kPesFps);
 
   PlayerCommand command;
@@ -506,14 +504,10 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
     // (metres), must lie in a row's window, or there is no trap. The command names the clip by family and motion
     // number, as the dodge and tackle commands do, so the clip the window picked is the clip that plays.
     const Vector3 dir = CastPlayer()->GetDirectionVec();
-    const float dirLength = std::hypot(dir.coords[0], dir.coords[1]);
-    const float fx = dirLength > 0.0f ? dir.coords[0] / dirLength : 1.0f;
-    const float fy = dirLength > 0.0f ? dir.coords[1] / dirLength : 0.0f;
     const Vector3 ballPos = match->GetBall()->Predict(0);
     const Vector3 at = ballPos - CastPlayer()->GetPosition();
-    const pes::ClipPoint ball{(-fy * at.coords[0] + fx * at.coords[1]) / pes::kPlayerClipScale,
-                              ballPos.coords[2] / pes::kPlayerClipScale,
-                              (fx * at.coords[0] + fy * at.coords[1]) / pes::kPlayerClipScale};
+    const pes::ClipPoint ball = pes::TrapBallClipPoint(dir.coords[0], dir.coords[1], at.coords[0], at.coords[1],
+                                                       ballPos.coords[2], pes::kPlayerClipScale);
     const auto hitCm = [this](int clip) {
       const auto& hits = match->GetPesMbinfo().Hits(clip);
       return hits.empty() ? pes::ClipPoint{} : pes::ClipPoint{hits[0].ballX, hits[0].ballY, hits[0].ballZ};
@@ -530,7 +524,7 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
 }
 
 void PlayerController::_MovementCommand(PlayerCommandQueue& commandQueue, bool forceMagnet,
-                                        bool extraHaste) {
+                                        bool extraHaste, const std::optional<Vector3>& desiredTarget) {
   int defaultLookAtTime_ms = 40;
 
   // a heading is flat: height in the input is not a direction (SelectAnim asserts it)
@@ -724,6 +718,11 @@ void PlayerController::_MovementCommand(PlayerCommandQueue& commandQueue, bool f
 
     Vector3 resultLookDirection = autoLookDirection;
     command.desiredLookAt = player->GetPosition() + resultLookDirection * 10.0f;
+  }
+
+  if (desiredTarget) {
+    command.useDesiredTarget = true;
+    command.desiredTarget = *desiredTarget;
   }
 
   commandQueue.push_back(command);

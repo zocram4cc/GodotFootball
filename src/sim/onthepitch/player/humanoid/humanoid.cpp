@@ -678,14 +678,6 @@ void Humanoid::Process() {
             GetTouchTypeForBodyPart(currentAnim->anim->GetVariable("touch_bodypart")));
         match->GetMatchData()->RecordBallTouch(team->GetID());
         CastPlayer()->UpdatePossessionStats(false);
-        // PES's carrier (MA+0x2601C, FUN_140457070; first-touch §5.1): a control touch that leaves the ball
-        // at his feet hands him the carrier. PES path only.
-        if (match->PesLoop() &&
-            pes::CarrierAfterContact(true, AI_HasPossession(match->GetBall(), CastPlayer()),
-                                     match->GetBallRetainer() != nullptr &&
-                                         AI_HasPossession(match->GetBall(), match->GetBallRetainer())) ==
-                pes::CarrierChange::kToucher)
-          match->SetBallRetainer(CastPlayer());
         // Did the trap actually kill the ball (breakdown: trap)?
         //
         // It used to ask `HasPossession()`, and the comment above claimed
@@ -1332,6 +1324,13 @@ void Humanoid::Process() {
       }
     }
   }
+  // PES's carrier (MA+0x2601C, FUN_140457070; first-touch §5.1): a touch that leaves the ball at his feet hands him the
+  // carrier, whatever the clip (a touch pushes the newest key). This tick's touch is the one SetLastTouchPlayer stamped.
+  // PES path only.
+  const bool touchedThisTick = match->PesLoop() && CastPlayer()->GetLastTouchTime_ms() == match->GetActualTime_ms();
+  if (touchedThisTick &&
+      pes::CarrierFromTouch(touchedThisTick, AI_HasPossession(match->GetBall(), CastPlayer())) == pes::CarrierChange::kToucher)
+    match->SetBallRetainer(CastPlayer());
 
   if (match->GetBallRetainer() == player) {
     if ((currentAnim->touchFrame <= currentAnim->frameNum &&
