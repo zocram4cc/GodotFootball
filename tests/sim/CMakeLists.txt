@@ -23,6 +23,11 @@ target_link_libraries(pes_period_end_test PRIVATE gfsim pesfmt GTest::gtest_main
 target_compile_definitions(pes_period_end_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_period_end_test PROPERTIES TIMEOUT 1800)
 
+add_executable(pes_forfeit_test pes_forfeit_test.cpp)
+target_link_libraries(pes_forfeit_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_forfeit_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(pes_forfeit_test PROPERTIES TIMEOUT 1800)
+
 add_executable(pes_keeper_test pes_keeper_test.cpp)
 target_link_libraries(pes_keeper_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_keeper_test)
