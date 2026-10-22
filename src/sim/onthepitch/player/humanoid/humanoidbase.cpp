@@ -562,6 +562,16 @@ void HumanoidBase::ResetPosition(const Vector3& newPos, const Vector3& focusPos)
   currentAnim->positions = match->GetAnimPositionCache(currentAnim->anim);
   TurnCacheToBody(currentAnim->positions, startAngle);
   currentAnim->frameNum = AnimeRandom().Range0(currentAnim->anim->GetEffectiveFrameCount());
+  // The idle clip starts mid-clip, so its root already carries the clip's offset at that frame. Anchor the clip there: the
+  // body stands on newPos at the starting frame, and the first step reads only the clip's own frame-to-frame motion. With
+  // the clip anchored at startPos instead, the first step read the frame's whole offset as one tick of movement (2.49 m/s
+  // backwards on a placed keeper), and GF's direction, which follows the movement, flipped for that tick.
+  if (currentAnim->positions.size() > static_cast<unsigned int>(currentAnim->frameNum)) {
+    Vector3 offset = currentAnim->positions.at(currentAnim->frameNum);
+    offset.coords[2] = 0.0f;
+    startPos = newPos - offset;
+    nextStartPos = startPos;
+  }
   currentAnim->radiusOffset = 0.0;
   currentAnim->touchFrame = -1;
   currentAnim->originatingInterrupt = e_InterruptAnim_None;

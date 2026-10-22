@@ -522,6 +522,10 @@ void ProcessMoveStep(Player& player, Match& match) {
   // MOVESTEP runs only with pes_loop on. Off it leaves the player alone: no FSM tick, no clip, and
   // no playback write (the contact rates of match.cpp keep theirs).
   if (!match.PesLoop()) return;
+  // A held set-piece taker is in his standby action, and every standby but the two kick-off loops answers 1 from its slot 10,
+  // which makes the default locomotion driver FUN_1406F0C20 return before any steering (call at 0x1406F0C93;
+  // docs/re/pes-re-kicker-standby.md 1-2). The kick-off takers are never held (TeamAIController::pieceHeld).
+  if (player.GetTeam()->GetController()->IsPieceTakerHeld(&player)) return;
   // PES runs the MOVESTEP entry only in the MOVE, STEP_MOVE, DRIBBLE_STEP_MOVE and DEMO_MOVE actions (anime ids 2, 3, 6, 74):
   // their Update functions FUN_1407824A0, FUN_140789DD0, FUN_1407D1E60 and the thunk at 0x1407347B0 are the entry FUN_1406B8340's
   // only callers (call sites 0x140782552, 0x140789E42, 0x1407D23A2, jump 0x1407347B6). A dodge, tackle, trap or kick owns the body

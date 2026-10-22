@@ -25,6 +25,7 @@
 #include "onthepitch/teamAIcontroller.hpp"
 #include "pes/exe.hpp"
 #include "pes/mbinfo.hpp"
+#include "pes/movestep.hpp"
 #include "pes/vfs.hpp"
 #include "pes_match_constants.hpp"
 #include "rig/rig.hpp"
@@ -182,6 +183,32 @@ TEST(SetKickStand, ThePlacedKeeperKeepsHisHeadingWhileHeWaits) {
     if (turned > worst) worst = turned;
   }
   EXPECT_LE(worst, kHeadingTolerance_deg) << "the placed keeper turned " << worst << " degrees while he waited";
+}
+
+// A held set-piece taker is not steered by the default locomotion. Every standby but the two kick-off loops returns 1 from
+// its slot 10, and FUN_1406F0C20 (the default locomotion driver) returns on that answer before any steering
+// (docs/re/pes-re-kicker-standby.md 1-2: GoalKickStandby 0x140775730, FreeKickLoop 0x140742D90, CornerKickLoop 0x1407343A0,
+// ThrowinLoop 0x1407952D0, PenaltyKickLoop 0x140742BC0). Built on main, MOVESTEP took the placed keeper into TURN_STOP on
+// the first tick and turned him toward the ball.
+TEST(SetKickStand, AHeldTakerIsNotSteeredByMoveStep) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  constexpr int kWaitTicks = 150;
+  match->Process();  // the opening kick-off's preparation, as the heading test does
+  Player* taker = PrepareRestart(*match, e_SetPiece_GoalKick, 0, Vector3(-47.0f, 3.0f, 0.0f));
+  ASSERT_NE(taker, nullptr) << "no goal kick taker was chosen";
+  const TeamAIController* controller = match->GetTeam(0)->GetController();
+  const pes::MoveState before = taker->GetMoveStep().state;
+  int heldTicks = 0, steered = 0;
+  for (int t = 0; t < kWaitTicks; ++t) {
+    match->Process();
+    if (match->IsInPlay() || !controller->IsPieceTakerHeld(taker)) break;
+    ++heldTicks;
+    if (taker->GetMoveStep().state != before) ++steered;
+  }
+  ASSERT_GT(heldTicks, 0) << "the keeper was never held";
+  EXPECT_EQ(steered, 0) << "MOVESTEP left its state on " << steered << " of " << heldTicks << " held ticks";
 }
 
 // PES's corner SetKick turns the stand point by the corner heading: the side yaw plus the bearing from the spot to the
