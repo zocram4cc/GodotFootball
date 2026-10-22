@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -193,6 +194,86 @@ TEST(LightingRig, St002PluginSettings) {
   // The rig's one PesPluginSettings: this install's af file reads this value
   // (the report's survey row for st002 differs; the file is authoritative).
   EXPECT_NEAR(rig->plugin.tonemapSpeed, 10, 1e-6);
+}
+
+// The sun's colour has magnitude π·skyColorSunScale (sun-radiance §1.6: the live pitch row has
+// |cb3[1]| = I·π·S); the .atsh chroma (the channel ratios) is kept. The chroma (2, 2, 1) has peak 2
+// and length 3, so a peak normalisation would fail this.
+TEST(LightingSun, SunColourHasMagnitudePiTimesSkyColorSunScale) {
+  pes::AtshTable t;
+  t.light[0][0] = {2.0f, 2.0f, 1.0f};
+  pes::Atmosphere atmo;
+  atmo.skyColorSunScale = 0.2;
+  const pes::Vec3 c = pes::SunColour(atmo, &t, false, 0, 0);
+  EXPECT_NEAR(std::sqrt(c.x * c.x + c.y * c.y + c.z * c.z), M_PI * 0.2, 1e-5);
+  EXPECT_NEAR(c.z / c.x, 0.5, 1e-6);  // the .atsh chroma (B/R of the entry)
+}
+
+// No .atsh in the install: white, the same π·S magnitude.
+TEST(LightingSun, SunColourWithoutAtshIsWhiteWithTheSameMagnitude) {
+  pes::Atmosphere atmo;
+  atmo.skyColorSunScale = 0.5;
+  const pes::Vec3 c = pes::SunColour(atmo, nullptr, false, 0, 0);
+  EXPECT_NEAR(c.x, c.y, 1e-6);
+  EXPECT_NEAR(c.y, c.z, 1e-6);
+  EXPECT_NEAR(std::sqrt(c.x * c.x + c.y * c.y + c.z * c.z), M_PI * 0.5, 1e-5);
+}
+
+// The rig must carry the file's own TppAtmosphere.skyColorSunScale: compared with the property
+// read here straight from the fox2, not through the rig parser.
+TEST(LightingRig, SkyColorSunScaleIsTheTppAtmosphereProperty) {
+  if (!Vfs()) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto rig = pes::LoadLightRig(*Vfs(), 21, false, &err);
+  ASSERT_TRUE(rig) << err;
+  auto blob = Vfs()->Read(pes::LightRigPath(21, false), &err);
+  ASSERT_TRUE(blob) << err;
+  auto fpkd = pes::FpkArchive::Parse(*blob, &err);
+  ASSERT_TRUE(fpkd) << err;
+  std::optional<pes::Fox2File> fox2;
+  for (const auto& e : fpkd->entries)
+    if (e.path.size() > 5 && e.path.compare(e.path.size() - 5, 5, ".fox2") == 0) {
+      fox2 = pes::ParseFox2(std::span<const uint8_t>(blob->data() + e.offset, e.size), &err);
+      break;
+    }
+  ASSERT_TRUE(fox2) << err;
+  const pes::Fox2Entity* atmo = nullptr;
+  for (const auto& e : fox2->entities)
+    if (e.className == "TppAtmosphere") atmo = &e;
+  ASSERT_NE(atmo, nullptr);
+  const pes::Fox2Property* p = atmo->Find("skyColorSunScale");
+  ASSERT_TRUE(p && !p->values.empty());
+  EXPECT_DOUBLE_EQ(rig->atmosphere.skyColorSunScale, p->values[0].d);
+}
+// The sky shader's sun and moon/airglow intensities are lux·π·skyColorSunScale (sun-radiance §1.2,
+// §1.6; pes-re-lighting Part B §10). The live day frame's moon slot reads 0.6283 = moonLux·π·0.2, so
+// the span's skyLightSunScale is not part of them.
+TEST(LightingSky, SkyScalesAreLuxPiSkyColorScale) {
+  pes::LightSettings s;
+  s.sunLux = 150000;
+  s.moonLux = 1;
+  s.skyLightSunScale = 0.1;  // must not be used
+  pes::Atmosphere atmo;
+  atmo.skyColorSunScale = 0.2;
+  const pes::SkyIntensities k = pes::SkyRadianceScales(s, atmo, 1.0);
+  EXPECT_NEAR(k.sun, 150000 * M_PI * 0.2, 1e-6 * k.sun);
+  EXPECT_NEAR(k.star, M_PI * 0.2, 1e-9);
+}
+
+// The install's 15:00 span: its skyLightSunScale (0.1) and the TppAtmosphere S differ, so this fails
+// if the sky takes the span's value.
+TEST(LightingRig, St021SkyScalesUseTheTppAtmosphereSkyColorScale) {
+  if (!Vfs()) GTEST_SKIP() << "PES21_ROOT not set";
+  std::string err;
+  auto rig = pes::LoadLightRig(*Vfs(), 21, false, &err);
+  ASSERT_TRUE(rig) << err;
+  const pes::TimeSpanSettings& span = rig->SpanForTime(15, 0);
+  ASSERT_NE(span.settings.skyLightSunScale, rig->atmosphere.skyColorSunScale);
+  const pes::Vec3 toSun = pes::SunToDirection(rig->atmosphere, 15, 0);
+  const double fade = pes::SunHorizonFade({-toSun.x, -toSun.y, -toSun.z});
+  const pes::SkyIntensities k = pes::SkyRadianceScales(span.settings, rig->atmosphere, fade);
+  EXPECT_NEAR(k.sun, span.settings.sunLux * fade * M_PI * rig->atmosphere.skyColorSunScale, 1e-6 * k.sun);
+  EXPECT_NEAR(k.star, span.settings.moonLux * M_PI * rig->atmosphere.skyColorSunScale, 1e-9);
 }
 
 }  // namespace

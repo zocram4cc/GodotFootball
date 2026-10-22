@@ -8,6 +8,7 @@
 #include "pes/fpk.hpp"
 
 #include <cmath>
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -319,6 +320,7 @@ std::optional<LightRig> ParseLightRig(const Fox2File& file, std::string* error) 
     a.month = Int(*atmo, "month", a.month);
     a.day = Int(*atmo, "day", a.day);
     a.starLight = Num(*atmo, "starLight", a.starLight);
+    a.skyColorSunScale = Num(*atmo, "skyColorSunScale", a.skyColorSunScale);
     a.skyLightLuminanceScale = Num(*atmo, "skyLightLuminanceScale", a.skyLightLuminanceScale);
     a.daySkyAmbientScale = Num(*atmo, "daySkyAmbientScale", a.daySkyAmbientScale);
     a.cloudiness = Num(*atmo, "cloudiness", a.cloudiness);
@@ -686,6 +688,20 @@ Vec3 AtshSunColor(const AtshTable& atsh, bool cloudy, int hour, int minute) {
   // The two weather slots are identical in the shipped files; the cloudy slot
   // is read when the rain rig (cloudiness 0.7) is active.
   return atsh.light[cloudy ? 1 : 0][AtshSlot(atsh, hour, minute)];
+}
+
+Vec3 SunColour(const Atmosphere& atmo, const AtshTable* atsh, bool cloudy, int hour, int minute) {
+  Vec3 c = {1, 1, 1};
+  if (atsh) c = AtshSunColor(*atsh, cloudy, hour, minute);
+  // The PES sun row's magnitude is I·π·S (sun-radiance §1.6, live E-A): the .atsh chromaticity at
+  // unit length, times π·S.
+  const float len = std::max(std::sqrt(c.x * c.x + c.y * c.y + c.z * c.z), 1e-6f);
+  const float scale = float(kPi * atmo.skyColorSunScale) / len;
+  return {c.x * scale, c.y * scale, c.z * scale};
+}
+
+SkyIntensities SkyRadianceScales(const LightSettings& s, const Atmosphere& atmo, double sunFade) {
+  return {s.sunLux * sunFade * kPi * atmo.skyColorSunScale, s.moonLux * kPi * atmo.skyColorSunScale};
 }
 
 const Vec3 (*AtshSkySh(const AtshTable& atsh, bool cloudy, int hour, int minute))[9] {

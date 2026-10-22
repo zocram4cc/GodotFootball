@@ -106,27 +106,29 @@ bool PesLighting::setup(const Ref<PesLibrary>& library, int stadium_id, int weat
   const int useHour = s.overrideDateTime ? s.dateTimeHour : span.startHour;
   const int useMinute = s.overrideDateTime ? s.dateTimeMinute : span.startMinute;
 
-  // The sun: direction from the §3.3 fit, colour from the .atsh light colour
-  // for this time (report Part B §9: sunLux × transmittance), off when the
-  // span disables it. Its basis −Z is the light direction (report §3.3).
+  // The sun: direction from the §3.3 fit, colour from the .atsh light colour for this time, peak
+  // π·skyColorSunScale (sun-radiance §1.2), off when the span disables it. Its basis −Z is the
+  // light direction (report §3.3).
   const pes::Vec3 toSun = pes::SunToDirection(rig->atmosphere, useHour, useMinute);
   const pes::Vec3 lightDir = {-toSun.x, -toSun.y, -toSun.z};
   const double fade = pes::SunHorizonFade(lightDir);
   const bool sunOn = s.sunLightMode != pes::LightSettings::SUN_DISABLE && fade > 0;
-  pes::Vec3 sunColour = {1, 1, 1};
-  if (auto atsh = pes::LoadAtsh(library->vfs(), stadium_id, rain, &err)) {
-    const pes::Vec3 c = pes::AtshSunColor(*atsh, rain, useHour, useMinute);
-    const float norm = std::max({c.x, c.y, c.z, 1e-6f});
-    sunColour = {c.x / norm, c.y / norm, c.z / norm};
-  }
+  const std::optional<pes::AtshTable> atsh = pes::LoadAtsh(library->vfs(), stadium_id, rain, &err);
+  const pes::Vec3 sunColour =
+      pes::SunColour(rig->atmosphere, atsh ? &*atsh : nullptr, rain, useHour, useMinute);
   ClearChildren(this);
 
   DirectionalLight3D* sun = memnew(DirectionalLight3D);
   sun->set_name("Sun");
   sun->set_transform(Transform3D(Basis().looking_at(Vector3(lightDir.x, lightDir.y, lightDir.z)),
                                  Vector3()));
+  // The sun's radiance on PES's shaders is albedo·cb3[1]·NdotL with cb3[1] = I·π·S·chroma (sun-radiance
+  // §1.2, §1.6), and the custom light() path has no 1/π (measured 21-10-26 on a white plane: lux 0.25 gives
+  // 0.250; StandardMaterial3D gives lux/π). So the lux stays sunLux·fade and the π·S is in the colour.
   sun->set("light_intensity_lux", float(s.sunLux * fade));
-  sun->set_color(Color(sunColour.x, sunColour.y, sunColour.z));
+  // Godot decodes a light colour from sRGB (measured 21-10-26: colour 0.5 gives 0.214 of the output on the
+  // custom path too), so the linear PES colour is encoded first.
+  sun->set_color(Color(sunColour.x, sunColour.y, sunColour.z).linear_to_srgb());
   sun->set("light_angular_distance", 2.0f);  // Fox's 1° disk radius (§3.3)
   sun->set_shadow(true);
   sun->set("directional_shadow_mode", DirectionalLight3D::SHADOW_PARALLEL_4_SPLITS);
@@ -221,10 +223,11 @@ bool PesLighting::setup(const Ref<PesLibrary>& library, int stadium_id, int weat
       skyMat->set_shader_parameter("mie_g", float(a.mieAnisotropy));
       skyMat->set_shader_parameter("mie_absorption", float(a.mieAbsorptionRate));
       skyMat->set_shader_parameter("sun_direction", Vector3(toSun.x, toSun.y, toSun.z));
-      skyMat->set_shader_parameter("sun_intensity",
-                                    float(s.sunLux * fade * M_PI * s.skyLightSunScale));
-      skyMat->set_shader_parameter("star_intensity",
-                                    float(s.moonLux * M_PI * s.skyLightSunScale));
+      // The sky's sun and moon/airglow intensities are lux·π·skyColorSunScale (sun-radiance §1.6: the live
+      // moon slot reads 0.6283 = moonLux·π·0.2); the span's skyLightSunScale is not in them.
+      const pes::SkyIntensities radiance = pes::SkyRadianceScales(s, a, fade);
+      skyMat->set_shader_parameter("sun_intensity", float(radiance.sun));
+      skyMat->set_shader_parameter("star_intensity", float(radiance.star));
       skyMat->set_shader_parameter("ground_color",
                                     Vector3(a.groundColor.x, a.groundColor.y, a.groundColor.z));
       Ref<Sky> sky;
