@@ -1240,6 +1240,7 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
 bool ElizaController::_TackleCandidate(const pes::DefenderDecisionConstants& k) {
   Player* carrier = _Carrier();
   if (!carrier || carrier->GetTeamID() == team->GetID()) return false;
+  if (match->PesLoop() && team->GetController()->IsMarkedByTable(CastPlayer())) return false;
 
   // The anime layer has to be free of a committed challenge, and he may not
   // tackle in the first second after his own touch (PES's event-by-me gate).

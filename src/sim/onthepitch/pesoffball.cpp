@@ -1545,6 +1545,8 @@ std::optional<NearOpponent> FirstOpponent(const RunWorld& w, int id) {
   const pes::RowEntry& e = row.Entry(1, 0);
   return NearOpponent{GlobalOf(t, e.id), e.value};
 }
+}  // namespace (RowD2/RowBearing live in pes::offball per the header)
+}  // namespace (close outer anon before hoisted RowD2/RowBearing)
 // FUN_14043B8B0: the squared distance of `target` in `id`'s S1 row, either side. NaN when the row does not list him.
 float RowD2(const RunWorld& w, int id, int target) {
   const int t = TeamOf(id);
@@ -1557,6 +1559,7 @@ float RowBearing(const RunWorld& w, int id, int target) {
   if (w.nearestRows[t] == nullptr) return 0.0f;
   return w.nearestRows[t]->bearing[LaneOf(t, id)][LaneOf(t, target)];
 }
+namespace {
 // FUN_140458740 over the floor (FUN_140A6C6D0 squares it against |v|): a man under the floor speed reads his facing.
 // ponytail: PES also tests the record's movement state; GF's run world carries no such byte, and a still or slow man
 // is the only one under the floor.
@@ -1567,7 +1570,6 @@ float CarrierHeading(const PlayerFacts& p) {
 }
 }  // namespace
 
-}  // namespace
 // FUN_1404F6720 (step 5, 0x1404F6720-0x1404F6BC2): whether team `t`'s offside-trap flag T+0xE4 is set this tick. The
 // gates run in PES's order and each cites its VA. Three of them cannot pass together: 0x1404F68E4 (10 m behind the
 // trapping line) and 0x1404F6A5B (4 m past it) read the same team line f40(T) and sign: together they need

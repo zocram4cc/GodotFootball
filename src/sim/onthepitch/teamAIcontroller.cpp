@@ -187,6 +187,10 @@ void TeamAIController::TickScoreRows() {
   scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay() || !scoreRows_.Latched());
 }
 
+void TeamAIController::TickMarkTable() {
+  markTableState.mark.fill(0);
+}
+
 void TeamAIController::Process() {
   if (match->IsFrameSecond())
     UpdateTactics();
@@ -2976,6 +2980,12 @@ float TeamAIController::NearestOpponentDistance(const Player* own) const {
   if (slot < 0) return 1000.0f;
   const auto near = ob::NearestOpponents(lastRunWorld, slot);
   return near.empty() ? 1000.0f : std::sqrt(near.front().d2);
+}
+
+bool TeamAIController::IsMarkedByTable(const Player* player) const {
+  const int k = OwnRunSlot(player);  // 0..10 within-side (R1 `slotOf(me)`, 0x140969970 RAX)
+  if (k < 0 || k >= pes::marktable::kSlots) return false;
+  return markTableState.mark[static_cast<size_t>(k)] != 0;
 }
 
 int TeamAIController::RunSlotOf(const Player* player) const {
