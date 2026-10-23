@@ -1360,6 +1360,7 @@ bool ElizaController::_BlockCandidate(const pes::DefenderDecisionConstants& k) {
   // Entry 8's owner half: an opponent owner inside the block radius.
   if (match->GetBallRetainer() == 0) return false;
   Player* carrier = _Carrier();
+  if (match->PesLoop() && team->GetController()->IsMarkedByTable(CastPlayer())) return true;
   if (!carrier || carrier->GetTeamID() == team->GetID()) return false;
   if (match->GetBallRetainer() != carrier) return false;
   // PES's PRESS state: the MATCH_UP man while ForeCheckPress runs.
@@ -1378,6 +1379,7 @@ bool ElizaController::_PassDuelCandidate(const pes::DefenderDecisionConstants& k
   // radius of where it is going. It sits behind entry 8 in the table, so PES
   // reaches it only when the owner's own radius did not catch him.
   if (match->GetBallRetainer()) return false;
+  if (match->PesLoop() && team->GetController()->IsMarkedByTable(CastPlayer())) return true;
   Player* kicker = match->GetLastTouchPlayer();
   if (!kicker) return false;
   const float speed = match->GetBall()->GetMovement().GetLength() * 3.6f;
