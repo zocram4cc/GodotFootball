@@ -221,6 +221,11 @@ public:
   // fallback in Process). The wire test skips a player's tick when this count moved.
   int GetPlacementCount() const { return placementCount; }
   void OffsetPosition(const Vector3& offset);
+  // A clip's root warp (PES's pickup and lift, docs/re/pes-re-throwin-choreography.md 3.2): moves the root by `offset` and turns
+  // it by `yaw` (GF's angle, counter-clockwise) without a placement and without booking the move as locomotion, so GF does not
+  // read the warp's travel as the body's direction. OffsetPosition books its offset as movement (a bump), which made GF's
+  // direction, and with it the start angle of every clip the warp's ticks began, follow the warp instead of the root.
+  void WarpRoot(const Vector3& offset, radian yaw);
   // False when the current clip cannot be interrupted by a trip.
   bool TripMe(const Vector3& tripVector, int tripType);
 
@@ -279,6 +284,11 @@ protected:
       const PlayerCommand& command, e_InterruptAnim localInterruptAnim,
       bool preferPassAndShot = false);  // returns false on no applicable anim found
   void CalculatePredictedSituation(Vector3& predictedPos, radian& predictedAngle);
+  // The start angle that keeps the root's yaw: the root is the start angle plus the body node's yaw at frame 0
+  // (CalculateSpatialState), so the start turns that yaw back out. The throw-in hold and a held taker's clips start this way.
+  radian RootStartAngle(const Animation* anim) const;
+  // True while the body keeps its root yaw through its clips (a throw-in taker from the lift to the release): see Humanoid.
+  virtual bool HoldsRootYaw() { return false; }
   Vector3 CalculateOutgoingMovement(const std::vector<Vector3>& positions) const;
 
   void CalculateSpatialState();         // realtime properties, based on 'physics'

@@ -36,6 +36,7 @@ public:
     humanoid->ResetPosition(newPos, focusPos);
   }
   void OffsetPosition(const Vector3& offset) { humanoid->OffsetPosition(offset); }
+  void WarpRoot(const Vector3& offset, radian yaw) { humanoid->WarpRoot(offset, yaw); }
 
   inline int GetFrameNum() { return humanoid->GetFrameNum(); }
   inline int GetFrameCount() { return humanoid->GetFrameCount(); }

@@ -57,6 +57,10 @@ struct SetPieceTakerConstants {
   // PES's carry release row (FUN_140792E10, carry branch; docs/re/pes-re-throwin-choreography.md 4.2): the short run row while the
   // taker is within this ground distance of the throw's target, the mid row beyond it. 13.0 from .rdata 0x1425c5948.
   float throwInReleaseShort_m = 0.0f;
+  // The MOVE command filler's walk-down (FUN_1406b7560, call 0x1406b77d6 -> FUN_140a76070(2)): a run-class set-piece walker far
+  // from his target has his desired speed replaced by this one, 11 km/h from .rdata 0x14259bdfc
+  // (docs/re/pes-re-walk-speed.md). Held in m/s; the loader converts.
+  float walkDown_ms = 0.0f;
 };
 
 // PES's throw-in carry release rows (throwin 4.2): throwin_release_run_000_short and _mid, the 000 column.

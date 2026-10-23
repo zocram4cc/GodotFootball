@@ -42,7 +42,9 @@ if [ "${GATE_SKIP_PREFILTER:-0}" != 1 ]; then
   done
 fi
 
-flock "$lock" bash -c "
+# The gate runs ctest and both smokes at once, so it holds every sim slot (tools/dev/simslot.sh): slot 0 is the lock file
+# itself, slot 1 is "$lock.1".
+flock "$lock.1" flock "$lock" bash -c "
   $(declare -f smoke); repo='$repo'; build='$build'; PES21_ROOT='$PES21_ROOT'
   smoke off & smoke pesloop --pes-loop &
   env PES21_ROOT='$PES21_ROOT' PES21_EDIT_SAVE='$save' nice -n 19 \

@@ -526,6 +526,10 @@ void ProcessMoveStep(Player& player, Match& match) {
   // which makes the default locomotion driver FUN_1406F0C20 return before any steering (call at 0x1406F0C93;
   // docs/re/pes-re-kicker-standby.md 1-2). The kick-off takers are never held (TeamAIController::pieceHeld).
   if (player.GetTeam()->GetController()->IsPieceTakerHeld(&player)) return;
+  // A throw-in walker in his pickup or lift is in SEAMLESS_THROWIN (anime id 29, Update 0x140791EC0, phases 1 and 4), not in a
+  // MOVE action, so the MOVESTEP entry does not run while the clip's root warp carries him (the gate below, for this action).
+  if (player.GetTeam()->GetController()->IsPieceTakerWalking(&player) && player.GetTeam()->GetController()->IsPickingUp())
+    return;
   // PES runs the MOVESTEP entry only in the MOVE, STEP_MOVE, DRIBBLE_STEP_MOVE and DEMO_MOVE actions (anime ids 2, 3, 6, 74):
   // their Update functions FUN_1407824A0, FUN_140789DD0, FUN_1407D1E60 and the thunk at 0x1407347B0 are the entry FUN_1406B8340's
   // only callers (call sites 0x140782552, 0x140789E42, 0x1407D23A2, jump 0x1407347B6). A dodge, tackle, trap or kick owns the body
