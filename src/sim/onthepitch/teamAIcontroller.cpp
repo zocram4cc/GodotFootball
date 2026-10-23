@@ -1322,23 +1322,39 @@ void TeamAIController::PinBallAtRelease() {
   // PES holds the ball in the placed taker's hand from his stand point to the release (throwin 4.1), as on the carry.
   // ponytail: GF pins it from the take start, not from the placement.
   if (!IsCarryingBall() && !IsPieceTakerHeld(taker)) return;
-  // PES chooses the carry's release row as the take starts, from the distance to the throw's target (FUN_140792E10, throwin 4.2).
+  // PES picks the release clip as the take starts, from the distance to the throw's target (FUN_140792E10, throwin 4.2): the
+  // carry's run row for a carried throw, the idle row for a placed taker who has never carried the ball (the loop's entry).
   if (pieceReleaseRow == 0) {
     Player* mate = ThrowInTargetMate(taker);
     const Vector3 to = mate ? mate->GetPosition() : taker->GetPosition();
-    pieceReleaseRow = pes::ThrowInCarryReleaseRow((taker->GetPosition().Get2D() - to.Get2D()).GetLength(),
-                                                  match->GetPesSetPieceTakerConstants().throwInReleaseShort_m);
+    const float distance_m = (taker->GetPosition().Get2D() - to.Get2D()).GetLength();
+    const pes::SetPieceTakerConstants& k = match->GetPesSetPieceTakerConstants();
+    pieceReleaseRow = IsCarryingBall()
+                          ? pes::ThrowInCarryReleaseRow(distance_m, k.throwInReleaseShort_m)
+                          : pes::ThrowInIdleReleaseRow(distance_m, k.throwInReleaseShort_m, k.throwInReleaseLong_m);
   }
   constexpr float kPhysique = 1.0f;  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0, as the pickup does
   constexpr bool kMirror = false;    // ponytail: the 000 column; PES's column is the angle class of the throw (FUN_1406de990)
-  const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(pieceReleaseRow);
+  // The row names the release clip in the animetable; the clip's first hit record is its release key (the 000 column, plain).
+  const int releaseMotion = match->GetPesAnimetable().Cell(pieceReleaseRow, pes::kThrowInPlainZeroColumn).motionNo;
+  const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(releaseMotion);
   const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
   const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
   const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
   const Vector3 pos = taker->GetPosition();
-  const Vector3 facing = taker->GetDirectionVec();
+  const Vector3 facing = taker->GetRootDirectionVec();  // PES's hand sits on the root yaw, not on the travel direction
   const float heading = pes::FacingHeadingDeg(pes::Vec3(facing.coords[0], facing.coords[1], facing.coords[2]));
-  const pes::Vec3 hand = pes::HandBallFromRoot(pes::Vec3(pos.coords[0], pos.coords[1], 0.0f), heading, offset);
+  pes::Vec3 hand = pes::HandBallFromRoot(pes::Vec3(pos.coords[0], pos.coords[1], 0.0f), heading, offset);
+  // PES pushes the taker before the release, so the hand further outside stays kReleaseMargin_m inside the touchline: the ball is
+  // released from behind the line (throwin 4.2, phase 1). The push moves the root, and the ball follows the hand.
+  // ponytail: the 0.1 m inset is the doc's F[1] + 0.1 m (DAT_142588200); the install read is not in the loader yet.
+  constexpr float kReleaseMargin_m = 0.1f;
+  const float side = pos.coords[1] < 0.0f ? -1.0f : 1.0f;
+  const float excess = side * hand.y - (pesFieldHalfWidth - kReleaseMargin_m);
+  if (excess > 0.0f) {
+    taker->OffsetPosition(Vector3(0.0f, -side * excess, 0.0f));
+    hand.y -= side * excess;
+  }
   match->GetBall()->ResetSituation(Vector3(hand.x, hand.y, hand.z));
 }
 
