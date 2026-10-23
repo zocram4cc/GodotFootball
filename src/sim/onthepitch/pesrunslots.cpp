@@ -7,9 +7,9 @@
 namespace pes::run {
 namespace {
 
-constexpr int kTargetOffset = 0x20;  // the 32-byte target block sits at block + 0x20 (T+0x28C + 0x40k)
-constexpr int kTargetBytes = 0x20;
+constexpr int kTargetOffset = 0x20;         // the target block sits at block + 0x20 (T+0x28C + 0x40k)
 constexpr int kReleaseClearedBytes = 0x1d;  // release clears block bytes 0..0x1c; 0x1d..0x1f are not written
+constexpr int kSupporterFlagAt = 0x10;      // the byte step 38 sets in its record (0x1404F77ED)
 
 static_assert(sizeof(float) * 3 == 12, "the concept point is three float32 at block bytes 0..11");
 
@@ -38,7 +38,7 @@ uint32_t Age(const Ring& ring) {
 }
 
 void ZeroTargetBlock(uint8_t* p, int v) {
-  std::fill(p, p + kTargetBytes, uint8_t{0});
+  std::fill(p, p + kTargetOffset, uint8_t{0});
   const auto put = [p](int at, std::initializer_list<uint8_t> bytes) {
     for (uint8_t b : bytes) p[at++] = b;
   };
@@ -48,7 +48,7 @@ void ZeroTargetBlock(uint8_t* p, int v) {
   }
   if (v <= 0x1c) return;
   if (v < 0x20) {
-    put(16, {0x00, 0x01, 0x01, 0x00});                        // the dword 0x10100 at +16
+    put(16, {0x00, 0x01, 0x01, 0x00});                          // the dword 0x10100 at +16
     put(20, {0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00});  // the qword 0x10101 at +20
     return;
   }
@@ -66,11 +66,31 @@ void Assign(Slot* slot, int id, uint32_t stamp) {
   ZeroTargetBlock(slot->block.data() + kTargetOffset, id);
 }
 
+void Take(Slot* slot, int id, uint32_t stamp, const std::array<uint8_t, kTargetBytes>& record) {
+  slot->state = id;
+  Push(&slot->ring, id, stamp);
+  ZeroTargetBlock(slot->block.data() + kTargetOffset, id);
+  std::copy(record.begin(), record.end(), slot->block.begin() + kTargetOffset);
+}
+
+std::array<uint8_t, kTargetBytes> SupporterRecord(const Slot& slot) {
+  std::array<uint8_t, kTargetBytes> record{};
+  std::copy(slot.block.begin() + kTargetOffset, slot.block.begin() + kTargetOffset + kTargetBytes,
+            record.begin());
+  record[kSupporterFlagAt] = 1;
+  return record;
+}
+
 void Release(Slot* slot, uint32_t stamp) {
   slot->state = 0;
   Push(&slot->ring, 0, stamp);
   std::fill(slot->block.begin(), slot->block.begin() + kReleaseClearedBytes, uint8_t{0});
   ZeroTargetBlock(slot->block.data() + kTargetOffset, 0);
+}
+
+void ReleaseSweep(std::array<Slot, kSlots>* slots, int noBallCounter, uint32_t stamp) {
+  if (noBallCounter != 0) return;
+  for (Slot& slot : *slots) Release(&slot, stamp);
 }
 
 std::array<float, 3> Point(const Slot& slot) {

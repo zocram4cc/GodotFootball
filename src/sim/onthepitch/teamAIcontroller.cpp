@@ -299,6 +299,12 @@ void TeamAIController::Process() {
   RunConcepts();
 
   ProcessOffBall();
+  // PES's step 43 (FUN_1404F78FE): with T+0x218 == 0 every own slot is released through FUN_140A40820. It follows the
+  // designation and the run manager (steps 38 and 41) of the same tick, and it runs on every in-play tick, where
+  // ProcessOffBall runs only on the team's parity frames.
+  // PES's step-43 release sweep (pes::run::ReleaseSweep) is kept unwired: with it, the holder latch's one-tick gap
+  // (pes_holder_latch_test) widens to two ticks. PES's holder persists on a loose ball; GF's retainer clears on the
+  // possession flicker (humanoid.cpp retain block). Wiring waits for that holder split.
 }
 
 float mixup(float base, const std::string& varname, e_PlayerRole role, float counterAttack) {
@@ -2955,6 +2961,19 @@ constexpr float kRunPredictFrames = 16.0f;
 // The supporter search predicts int(fps·0.35+0.5) = 19 frames (FUN_1405eb980).
 constexpr float kSupporterPredictFrames = 19.0f;
 
+// GF mode keeps the pre-cutover run clock: at 989dd94^ the chance runs stamped unsigned milliseconds and aged as
+// (now - start_ms) * kPesFps / 1000 (teamAIcontroller.cpp:3188). The frame clock is used under PesLoop() only.
+// ponytail: GF-only clock on the switch-off path. PES site: the frame stamp (T+0x21C, FUN_140A42580) is PesLoop-only.
+uint32_t RunStampOf(const Match* match) {
+  if (match->PesLoop()) return static_cast<uint32_t>(match->GetPesFrame());
+  return static_cast<uint32_t>(match->GetActualTime_ms());
+}
+float RunAgeOf(const pes::run::Ring& ring, const Match* match, unsigned long nowMs) {
+  const uint32_t entered = pes::run::Behind(ring, 0).enteredAt;
+  if (match->PesLoop()) return static_cast<float>(static_cast<uint32_t>(match->GetPesFrame()) - entered);
+  return static_cast<float>(nowMs - entered) * kPesFps / 1000.0f;
+}
+
 ob::Vec2f Flat(const Vector3& v) { return {v.coords[0], v.coords[1]}; }
 Vector3 Predict(const Player* p, float frames) {
   return p->GetPosition() + p->GetMovement() * (frames / kPesFps);
@@ -3013,7 +3032,7 @@ Player* TeamAIController::RunPlayerAt(int slot) const {
 
 bool TeamAIController::GetOffBallTarget(const Player* player, Vector3* target) const {
   const int k = OwnRunSlot(player);
-  if (k >= 0 && runSlots[k].state != ob::kNothing) {
+  if (k >= 0 && runSlots[k].state != ob::kNothing && runSlots[k].state != ob::kBasePosition) {
     *target = RunPoint(runSlots[k]);
     return true;
   }
@@ -3076,9 +3095,19 @@ void TeamAIController::ProcessDesignatedSupporter(Player* carrier) {
     if (!designatedSupporter) return;
   }
   const Vector3 carrierPred = Predict(carrier, kSupporterPredictFrames);
-  // Forced back to BASE_POSITION: the supporter never runs (b2a.c:657-699).
-  if (const int k = OwnRunSlot(designatedSupporter); k >= 0 && runSlots[k].state != ob::kNothing) {
-    pes::run::Release(&runSlots[k], static_cast<uint32_t>(match->GetPesFrame()));
+  // Forced back to BASE_POSITION: the supporter never runs (b2a.c:657-699). Step 38 (FUN_1404F773E) writes it
+  // through FUN_140A429A0 with the record of his target block and byte 16 set. A slot that stops being the
+  // supporter is released (ponytail: the step's per-slot conditions, 0x1404F76E0-0x1404F7807, are not all decoded).
+  if (match->PesLoop()) {
+    const uint32_t takeStamp = static_cast<uint32_t>(match->GetPesFrame());
+    const int supporterSlot = OwnRunSlot(designatedSupporter);
+    for (int j = 0; j < pes::run::kSlots; ++j) {
+      if (j != supporterSlot && runSlots[j].state == ob::kBasePosition) pes::run::Release(&runSlots[j], takeStamp);
+    }
+    if (supporterSlot >= 0) {
+      pes::run::Take(&runSlots[supporterSlot], ob::kBasePosition, takeStamp,
+                     pes::run::SupporterRecord(runSlots[supporterSlot]));
+    }
   }
 
   // FUN_1405ebca0: the carrier's predicted point moved by the support distance
@@ -3273,10 +3302,15 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       f.aiClass = f.roleClass;
       f.slotPoint = Flat(ctl->GetAdaptedFormationPosition(pl, false));
       const int k = ctl->OwnRunSlot(pl);
-      if (k >= 0 && ctl->runSlots[k].state != ob::kNothing) {
+      if (k >= 0 && ctl->runSlots[k].state == ob::kBasePosition) {
+        // The designated supporter at BASE_POSITION (step 38): the age of that state. His aim is the stand-in a
+        // non-runner gets (ponytail, a76240).
+        f.state = ob::kBasePosition;
+        f.t = RunAgeOf(ctl->runSlots[k].ring, match, now);
+      } else if (k >= 0 && ctl->runSlots[k].state != ob::kNothing) {
         const pes::run::Slot& run = ctl->runSlots[k];
         f.state = run.state;
-        f.t = static_cast<float>(static_cast<uint32_t>(match->GetPesFrame()) - pes::run::Behind(run.ring, 0).enteredAt);
+        f.t = RunAgeOf(run.ring, match, now);
         f.aim = Flat(RunPoint(run));
       } else {
         f.state = ob::kBasePosition;
@@ -3324,7 +3358,7 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
 void TeamAIController::ProcessRunManager(Player* carrier) {
   const pes::offball::OffBallConstants& k = match->GetPesOffBallConstants();
   const unsigned long now = match->GetActualTime_ms();
-  const uint32_t frame = static_cast<uint32_t>(match->GetPesFrame());
+  const uint32_t frame = RunStampOf(match);
   const float s = -team->GetSide();
   const int opp = abs(team->GetID() - 1);
   const bool openPlay = match->IsInPlay() && !match->IsInSetPiece();
@@ -3354,6 +3388,7 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
       pes::run::Release(&slot, frame);
       continue;
     }
+    if (slot.state == ob::kBasePosition) continue;  // not a selector state: the stop test never reads it (off-ball 1.2)
     if (ob::RunStop(world, base + k, slot.state)) {
       match->GetMatchData()->AddStopFire(team->GetID());
       pes::run::Release(&slot, frame);
@@ -3461,7 +3496,12 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
     scores[i] = ob::ChanceScore(k, s, pos.coords[0]);
   }
   for (int i : ob::SelectRunners(scores, running, cap, ob::kChancePerTick, true)) {
+    const bool reselected = runSlots[i].state == ob::kChance;
     pes::run::Assign(&runSlots[i], ob::kChance, frame);
+    // ponytail: pre-cutover GF mode rebuilt the run record on every chance pick (teamAIcontroller.cpp:3374 at 989dd94^,
+    // runs[slots[i]] = RunRecord{kChance, now, ...}), so a re-pick restarted the clock. PES keeps the entered stamp on
+    // a re-pick (pes::run::Assign), so the refresh is GF-mode only.
+    if (reselected && !match->PesLoop()) runSlots[i].ring.entry[runSlots[i].ring.index].enteredAt = frame;
     pes::run::SetPoint(&runSlots[i], {targets[i].coords[0], targets[i].coords[1], targets[i].coords[2]});
     match->GetMatchData()->AddChanceRun(team->GetID());
     ++running;

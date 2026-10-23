@@ -1,5 +1,7 @@
 # PES condition arrows: what the bytes confirm (22-10-26)
 
+> **Correction (ConditionImportRE, `pes-re-condition-import.md`):** Form does not feed the arrow (the condition mixer has no Form input; field 0x2D / +0x178 differ from Form on disk). In an exhibition match the arrow is fixed per data file: condition defaults to 0x46 → band 2 → Normal, no kick-off roll.
+
 > **Source.** The owner relayed a separate RE agent's answer to "does a higher spot on the player ID list give better odds
 > of a green condition arrow?". Main checked each receipt against `pes_full.bin`; results below. Verdict: list position
 > is not an input anywhere that was checked. The arrow's writer and band thresholds are still open.
