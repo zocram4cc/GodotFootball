@@ -61,29 +61,21 @@ GF comparison (CONFIRMED from source):
 - `offsiderule.cpp` `RestartPosition` (lines 156–160) clamps to F0/F1 (corrected 17-10-26 from pes-re-A5Judge.md §7: the earlier "fold about 52.0 / 34.0" description is stale). It does not know the restart kind; the 33.8 y-fold figure for the stalled case is withdrawn.
 - PES clamps to F0 (52.56) and F1 (34.06), with an extra 2.0 m inset for free kicks (32.06). Those numbers differ from GF's 52.0, 34.0 and 33.8. The GF comment ("clamping it flat onto it aims along it") is a design choice PES does not share.
 
-## 3. Goal stoppage of 1758 ticks against a 1757-tick bound: OPEN (arithmetic CONFIRMED; overrun cause not found)
+## 3. Goal stoppage: the schedule is PES's pool now (GoalTiming). The 1758-tick overrun below was measured on main's old schedule
 
-**Bound arithmetic (CONFIRMED):**
-- `restartwatch.cpp:31-33`: `goal_ms = GoalSequence::RestartKickOffAt_ms(0, kLongestCelebration_ms)`. `kLongestCelebration_ms = 29000` (`goalsequence.hpp:43`). `RestartPrepareAt_ms = 29000 + kRestartPrepareAfterReplay_ms (1500)` = 30500. `RestartKickOffAt_ms = 30500 + kKickOffAfterPrepare_ms (2000)` = **32500 ms**.
-- `kTick_ms = 1000 · kPesTick_s = 1000/54` (`match.hpp:51`, `pesballphysics.hpp:27`). Float: `kTick_ms` = 18.518518656 (float `1/54` then ×1000). `32500 / kTick_ms` = 1754.99998692, so `ceil` = 1755. Bound = `1755 + kGateSlackTicks (2)` = **1757**. Exact double `1000/54` gives 1755.0 and the same 1757.
+**Superseded schedule (main c6e5fdc, CONFIRMED on that commit).** `GoalSequence::kCelebration_ms = 19000` set the goal's prepare at 20500 ms and its kick-off at 22500 ms (1215 ticks). The bound `RestartLimitTicks` used `RestartKickOffAt_ms(0, kLongestCelebration_ms = 29000)` = 32500 ms, i.e. 1755 ticks, plus `kGateSlackTicks` 2 = **1757**. The 1758-tick stoppage was measured against that bound. Its overrun cause was not found, and the discriminating trace below was not run.
 
-**What the goal schedule actually uses (CONFIRMED):**
-- `referee.cpp:251-252`: `prepareTime = RestartPrepareAt_ms(now)`, `startTime = RestartKickOffAt_ms(now)`, both with the **default** celebration `kCelebration_ms = 19000` (`goalsequence.hpp`). So prepare = 20500 ms and start = **22500 ms** after the goal. 22500 / kTick = **1215.0 ticks**.
-- The 29-s term is used by nothing that schedules a goal. `CelebrationLength_ms`, `ReplayFiresAt_ms` and `RestartKickOffAt_ms` have no caller in `match.cpp` or `goalcelebration.cpp`. The `match.cpp:UpdateIngameCamera` push-back that the `goalsequence.hpp` comment describes does not exist in this tree. So the restart watch's 32.5-s bound is about 10 s looser than any goal schedule this build runs.
+**Current schedule (`GoalTiming`, CONFIRMED by the code and the install).**
+- Celebration length: `pes::fixdemo::LoadGoalScenes` reads `common/demo/fixdemo/goal/table_goal.bin` through the VFS. A scene lasts Σ(maxTime/60 + fade) over its steps, each step's cut being its group's first variant's first `.fdc`, maxTime of the first Cut record (1/60 s ticks; `pes-re-foul-choreography.md` §9.2).
+- Pick: `GoalSequence::PickCelebration` draws the primary from the generic pool (bit 6; goal level bit 11 as a stand-in), redrawn while it repeats the last goal's scene (ten draws, then scene 0). `GoalSequence::PickHug` draws the hug (bits 2 or 3, level bits 12 or 13) from the same generator, and the sequence is their sum (`pes-re-cutscenes.md` §4.3). Under that draw 10% of goals land in the live window (A5Judge §9.3a).
+- Post-scene programme: `pes::RunGoalProgramme` = wipe 100 ms (install), UI and teleport 980 ms (GF's `foulsequence.hpp`), fade-in 1000 ms (install), tail 250 ms (install). Prepare at the scene's end + 100 ms; armed at + 2330 ms.
+- Kick-off release: 88 frames after armed (`kKickOffReleaseFrames`; ponytail, A5Judge §9.3a).
+- Bound: `RestartLimitTicks` takes the longest sequence the pool can draw (`GoalSequence::LongestCelebration_ms`: the longest primary plus the longest hug) through the same programme, plus the 88 frames.
 
-**How a stoppage ends (CONFIRMED):**
-- `RestartWatch::Observe`: `restarted = IsInPlay() && !IsInSetPiece()`. For a kick-off, `referee.cpp` `StartPlay(); StartSetPiece();` runs at `startTime` (`referee.cpp:~535-552`). The stoppage therefore runs until `StopSetPiece()`, which happens only when `buffer.taker->TouchAnim() && !TouchPending()` (`referee.cpp:~578-583`). The bound does **not** include that taker-touch latency. Only the 2-tick slack covers it.
-- `Match::Process` runs `referee->Process()` (`match.cpp:717`) before `actualTime_ms += kTick_ms` (`match.cpp:843`). So the referee compares `startTime` with the time at the start of the tick. The match does not pause (no `pause` in `match.cpp`; the `goalsequence.hpp` comment about a paused clock is stale).
-- The longest goal stoppage in the fixed run was 1251 ticks (A2Stall doc). That fits 1215 + about 36 ticks of kick-off latency (INF).
-
-**Why 1758 is about 10 s longer than the schedule (OPEN):** The 1758-tick run was about 543 ticks (≈10.1 s) beyond `1215 + typical latency`. The in-tree paths that can add that time:
-1. `AlterSetPiecePrepareTime` (`referee.cpp:681-716`, called only from `match.cpp:957`, the yellow/red card special hold). It pushes prepare to `now + 1000` each tick while the card's special function runs, capped at `stopTime + kMaxRestartDeferral_ms` = 30000 (`referee.cpp:40`). This fits a goal stoppage only if a yellow or red foul type was still current (`GetCurrentFoulType`). Unverified.
-2. A taker that never produces `TouchAnim()`. The kick is refused, the stoppage holds, and the stalemate forcer re-picks at `kStalemateForceAction_s = 5.0` (`gameplaytuning.hpp:357`). This is the same failure class as the touchline freeze in `pes-re-touchline-restart-stall.md`, so Section 1 matters here. Unverified.
-
-Discriminating experiment (for the implementer; not run here): a read-only per-tick trace from the goal tick to the stoppage end, logging `buffer.startTime`, `buffer.prepareTime`, `buffer.started`, `buffer.prepared`, `GetCurrentFoulType()`, `buffer.taker->TouchAnim()`, `TouchPending()`, and the taker id. Path 1 shows up as a moving `prepareTime`; path 2 shows up as a fixed `startTime` with `started = 1` and no touch.
+**Still open.** The 1758-tick overrun on main; the discriminating trace (per-tick `startTime`, `prepareTime`, `started`, `TouchAnim`, `TouchPending`); the goal-level source and the other scenes of the goal list, which decide whether the draw matches PES's window (A5Judge §9.3a); and which scenes the owner's live goals drew (not logged).
 
 ## Open items
 1. Section 1: find the PES caller chain that refuses a touch for an off-pitch predicted ball. Start at the `FUN_140769fe0` callers of `FUN_14081ff70`.
 2. Section 2: decode the foul-commit caller `0x143f546f0` (protected). Confirm the spot argument is the fouled player's point. Check whether any player-position clamp exists.
-3. Section 3: run the trace above on the pre-fix seed-7 trajectory. Decide whether the restart watch's bound should use the goal schedule the referee actually runs (22.5 s, 1215 ticks) plus measured taker latency, not the 29-s constant.
-4. Stale comments to fix with the implementer: `goalsequence.hpp` (push-back that does not exist), `restartwatch.hpp` (goal bound described as the longest celebration).
+3. Section 3: the 1758-tick overrun belongs to main's schedule. Run the trace above on main's seed-7 trajectory if it still matters. The bound now follows the pool.
+4. Stale comments: fixed on `GoalTiming` (`goalsequence.hpp`, `restartwatch.hpp`).
