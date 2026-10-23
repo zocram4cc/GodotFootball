@@ -27,6 +27,7 @@
 #include "pes/movestep.hpp"
 #include "pes/vfs.hpp"
 #include "pes/playerdb.hpp"
+#include "pes/formation.hpp"
 #include "rig/rig.hpp"
 #include "simcontext.hpp"
 
@@ -231,6 +232,10 @@ int main(int argc, char** argv) {
   // PES 2021's player database (common/etc/pesdb/Player.bin): each player's injury tier and stronger foot.
   auto playerDatabase = pes::PlayerDatabase::Load(vfs, &err);
   if (!playerDatabase) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  auto formationTables = pes::formation::FormationTables::Load(vfs, &err);
+  if (!formationTables) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  auto sheetConstants = pes::formation::ReadSheetConstants(*exe, &err);
+  if (!sheetConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   auto stoppageConstants = pes::LoadStoppageConstants(*exe, &err);
   if (!stoppageConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   auto forfeitConstants = pes::LoadForfeitConstants(*exe, &err);
@@ -318,6 +323,8 @@ int main(int argc, char** argv) {
   setup.pesSetPieceTeamConstants = &*setPieceTeamConstants;
   setup.pesStaminaConstants = &*staminaConstants;
   setup.pesPlayerDatabase = &*playerDatabase;
+  setup.pesFormations = &*formationTables;
+  setup.pesSheetConstants = &*sheetConstants;
   setup.pesStoppageConstants = &*stoppageConstants;
   setup.pesForfeitConstants = &*forfeitConstants;
   setup.pesRestartSpotConstants = &*restartSpotConstants;

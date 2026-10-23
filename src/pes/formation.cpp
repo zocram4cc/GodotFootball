@@ -149,6 +149,14 @@ std::optional<SheetGrid> ReadSheetGrid(const pes::PeImage& exe, std::string* err
   return SheetGrid{*cells, *subdivisions, *halfStep};
 }
 
+std::optional<SheetConstants> ReadSheetConstants(const pes::PeImage& exe, std::string* error) {
+  auto grid = ReadSheetGrid(exe, error);
+  if (!grid) return std::nullopt;
+  auto keeper = ReadKeeperRow(exe, error);
+  if (!keeper) return std::nullopt;
+  return SheetConstants{*grid, *keeper};
+}
+
 std::optional<Point3> ReadKeeperRow(const pes::PeImage& exe, std::string* error) {
   uint8_t op[7] = {};
   if (!exe.ReadVa(kKeeperInstructionVa, sizeof op, op)) {

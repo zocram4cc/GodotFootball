@@ -120,4 +120,11 @@ std::optional<SheetGrid> ReadSheetGrid(const pes::PeImage& exe, std::string* err
 // stores the keeper's x, -50.0; y and z are zero.
 std::optional<Point3> ReadKeeperRow(const pes::PeImage& exe, std::string* error);
 
+// The sheet constants one match reads from the exe: the grid and the keeper row.
+struct SheetConstants {
+  SheetGrid grid;
+  Point3 keeper;
+};
+std::optional<SheetConstants> ReadSheetConstants(const pes::PeImage& exe, std::string* error);
+
 }  // namespace pes::formation
