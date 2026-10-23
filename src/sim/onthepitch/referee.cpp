@@ -349,8 +349,9 @@ void Referee::Process() {
           // Preparing the restart calls Match::ResetSituation, which clears the goal state the replay trigger waits on, so
           // the programme starts at the end of the celebration the replay follows (GoalSequence::ReplayFiresAt_ms).
           // PES's goal programme (pessequencer, A5Judge 4.1) arms the kick-off after its wipe, teleport and fade-in.
-          const pes::Timing goal = pes::RunGoalProgramme(GoalSequence::ReplayFiresAt_ms(match->GetActualTime_ms()),
-                                                         GetStoppageConstants());
+          const unsigned long celebration_ms = match->PickGoalCelebration_ms();
+          const pes::Timing goal = pes::RunGoalProgramme(
+              GoalSequence::ReplayFiresAt_ms(match->GetActualTime_ms(), 0, celebration_ms), GetStoppageConstants());
           buffer.prepareTime = goal.prepareAt_ms;
           buffer.startTime = goal.armedAt_ms;
           buffer.restartPos = Vector3(0, 0, 0);

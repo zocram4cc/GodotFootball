@@ -124,19 +124,6 @@ unsigned long IntroHold_ms(int introFrames) {
   return length > 0 ? length : kIntroHold_ms;
 }
 
-unsigned long CelebrationTotal_ms(int introFrames, int loopFrames) {
-  const unsigned long intro = IntroHold_ms(introFrames);
-  const unsigned long loop = ClipLength_ms(loopFrames);
-  // With no loop to measure, the sequence's own default decides how long the
-  // performance runs - but never less than the intro needs.
-  const unsigned long total = loop > 0 ? intro + loop
-                                       : (intro > GoalSequence::kCelebration_ms
-                                              ? intro
-                                              : GoalSequence::kCelebration_ms);
-  return total > GoalSequence::kLongestCelebration_ms ? GoalSequence::kLongestCelebration_ms
-                                                      : total;
-}
-
 bool IsPerforming(unsigned long sinceGoal_ms, unsigned long celebrationLength_ms) {
   if (sinceGoal_ms < kReactionDelay_ms)
     return false;

@@ -36,6 +36,7 @@ class PlayerData;
 #include "penaltyshootoutcontroller.hpp"
 #include "player/humanoid/animcollection.hpp"
 #include "referee.hpp"
+#include "goalsequence.hpp"
 #include "scene/scene3d/scene3d.hpp"
 #include "substitutions.hpp"
 #include "team.hpp"
@@ -255,6 +256,23 @@ public:
   const pes::StoppageConstants& GetPesStoppageConstants() const {
     return pesStoppageConstants;
   }
+  // PES's goal sequence (FUN_140477400, FUN_140474b20): a primary celebration drawn from the generic pool at the
+  // goal level, then the hug that follows it, both on the goal generator. Returns the sequence's total length.
+  unsigned long PickGoalCelebration_ms() {
+    pes::Random draw(GetPesRngConstants());
+    draw.SetSeed(pes::kRange0Slot, goalRngState);
+    const pes::fixdemo::GoalScene scene =
+        GoalSequence::PickCelebration(pesGoalScenes, GoalSequence::kGoalLevel, lastGoalCelebration, draw);
+    const pes::fixdemo::GoalScene hug = GoalSequence::PickHug(pesGoalScenes, draw);
+    goalRngState = draw.State(pes::kRange0Slot);
+    lastGoalCelebration = scene.index;
+    goalCelebration_ms = GoalSequence::CelebrationMs(scene.length_s) +
+                         (hug.index >= 0 ? GoalSequence::CelebrationMs(hug.length_s) : 0ul);
+    return goalCelebration_ms;
+  }
+  // The length of the celebration the last goal drew, and the pool the draws come from.
+  unsigned long GetGoalCelebrationLength_ms() const { return goalCelebration_ms; }
+  const pes::fixdemo::GoalScenes& GetPesGoalScenes() const { return pesGoalScenes; }
   const pes::ForfeitConstants& GetPesForfeitConstants() const { return pesForfeitConstants; }
   const pes::RestartSpotConstants& GetPesRestartSpotConstants() const {
     return pesRestartSpotConstants;
@@ -609,6 +627,10 @@ protected:
   pes::JudgeConstants pesJudgeConstants{};
   pes::KeeperConstants pesKeeperConstants{};
   pes::StoppageConstants pesStoppageConstants{};
+  pes::fixdemo::GoalScenes pesGoalScenes;  // PES's goal celebrations (pes/fixdemo.hpp), from MatchSetup
+  unsigned int goalRngState = 0;           // the goal generator's state (PES: FUN_140a92530 on rng+0xc)
+  int lastGoalCelebration = -1;            // the scene index of the last goal's celebration (repeat check)
+  unsigned long goalCelebration_ms = 0;
   pes::ForfeitConstants pesForfeitConstants{};
   pes::RestartSpotConstants pesRestartSpotConstants{};
   pes::KickErrorConstants pesKickErrorConstants{};

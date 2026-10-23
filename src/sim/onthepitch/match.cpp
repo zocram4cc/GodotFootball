@@ -69,6 +69,7 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   rngSource = std::make_unique<RngSource>(*setup.pesRngConstants);
   pes::SeedAtKickoff(rngSource->rng, setup.seed);
   matchSeed = setup.seed;
+  goalRngState = setup.seed + GoalSequence::kGoalCelebrationSalt;
   // RandomInfo (report 3.14): PES's producer seeds its generator from the match value L, the
   // int at +0x18 of its channel's record (0x140435e10 reads it through 0x140435c70 and the
   // getter 0x141b86cd0). ponytail: that channel's source is not decoded, so the match seed
@@ -129,6 +130,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES stoppage constants missing: read them from the install with "
         "pes::LoadStoppageConstants into MatchSetup::pesStoppageConstants");
   pesStoppageConstants = *setup.pesStoppageConstants;
+  if (setup.pesGoalScenes == nullptr)
+    throw std::runtime_error(
+        "PES goal celebrations missing: read them from the install with "
+        "pes::fixdemo::LoadGoalScenes into MatchSetup::pesGoalScenes");
+  pesGoalScenes = *setup.pesGoalScenes;
   if (setup.pesForfeitConstants == nullptr)
     throw std::runtime_error(
         "PES forfeit constants missing: read them from the install with "

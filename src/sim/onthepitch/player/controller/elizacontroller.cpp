@@ -3561,7 +3561,7 @@ void ElizaController::_AddCelebration(std::vector<PlayerCommand>& commandQueue) 
       match->GetLastGoalScorer() != player ||
       GoalCelebration::HasArrived(toTarget, match->GetGoalScoredTimer());
   if (ready && GoalCelebration::IsPerforming(match->GetGoalScoredTimer(),
-                                             GoalSequence::kCelebration_ms)) {
+                                             match->GetGoalCelebrationLength_ms())) {
     PlayerCommand command;
     command.desiredFunctionType = e_FunctionType_Special;
     command.useSpecialVar1 = true;

@@ -99,7 +99,8 @@ void RunMatchWithinTheBound(bool pesLoop, int minutes, const std::function<void(
   config.SetBool("pes_loop", pesLoop);
   Match match(new MatchData(HOME_TEAM, AWAY_TEAM), *setup, config);
   RestartWatch watch(
-      RestartLimitTicks(*setup->pesStoppageConstants, *setup->pesSetPieceTakerConstants));
+      RestartLimitTicks(*setup->pesStoppageConstants, *setup->pesSetPieceTakerConstants,
+                        GoalSequence::LongestCelebration_ms(*setup->pesGoalScenes)));
   while (!match.IsGameOver() && !watch.Stalled() && watch.Ticks() < maxSimTicks) {
     match.Process();
     watch.Observe(match);
@@ -389,7 +390,8 @@ TEST(PesRestartDelay, ARestartTakerPlaysHisBallActionAfterRelease) {
   std::string who;  // the untaken restarts, named in the failure message
   RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
     ++tick;
-    bound = RestartLimitTicks(match.GetPesStoppageConstants(), match.GetPesSetPieceTakerConstants());
+    bound = RestartLimitTicks(match.GetPesStoppageConstants(), match.GetPesSetPieceTakerConstants(),
+                              GoalSequence::LongestCelebration_ms(match.GetPesGoalScenes()));
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (b.active && b.started && b.taker && seen.insert(b.stopTime).second) {
       taking[b.stopTime] = Taking{b.taker, tick, b.desiredSetPiece, b.taker->GetPlayerData()->GetLastName()};
@@ -442,7 +444,8 @@ TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
   std::string who;
   RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
     ++tick;
-    bound = RestartLimitTicks(match.GetPesStoppageConstants(), match.GetPesSetPieceTakerConstants());
+    bound = RestartLimitTicks(match.GetPesStoppageConstants(), match.GetPesSetPieceTakerConstants(),
+                              GoalSequence::LongestCelebration_ms(match.GetPesGoalScenes()));
     const RefereeBuffer& b = match.GetRefereeBuffer();
     // The first seamless (walker) throw-in of the run is the one this test follows: its stoppage, then done when it ends.
     if (!firstStop && b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker && b.prepared &&
@@ -1106,4 +1109,25 @@ TEST(PesRestartDelay, AThrowInCarrierStandsAtThePickupClipsContactOffset) {
     EXPECT_NEAR(*pickupReach, *contactOffset, kOffsetTolerance_m)
         << "the carrier stood " << *pickupReach << " m from where the ball lay; the clip's contact offset is "
         << *contactOffset << " m";
+}
+
+// A goal's restart is armed once the celebration the pool drew for it has run and the post-scene programme
+// (pes::RunGoalProgramme) has played out. The celebration the match reports is the one the referee scheduled from.
+TEST(PesRestartDelay, AGoalIsArmedAfterTheCelebrationItDrew) {
+  std::optional<unsigned long> stopAt, armedAt;
+  unsigned long celebration_ms = 0, afterScene_ms = 0;
+  RunMatchWithinTheBound(
+      true, TWENTY_MINUTES,
+      [&](Match& match) {
+        const RefereeBuffer& b = match.GetRefereeBuffer();
+        if (stopAt || !b.active || !b.goalRestart) return;
+        stopAt = b.stopTime;
+        armedAt = b.startTime;
+        celebration_ms = match.GetGoalCelebrationLength_ms();
+        afterScene_ms = pes::RunGoalProgramme(0, match.GetPesStoppageConstants()).armedAt_ms;
+      },
+      kMaxSimTicks, [&](Match&) { return armedAt.has_value(); }, SEED, false);
+  ASSERT_TRUE(armedAt) << "seed 7's match scored no goal";
+  EXPECT_GT(celebration_ms, 0ul);
+  EXPECT_EQ(*armedAt - *stopAt, celebration_ms + afterScene_ms);
 }

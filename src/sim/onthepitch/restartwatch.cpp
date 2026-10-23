@@ -20,7 +20,7 @@ constexpr unsigned long kGateSlackTicks = 2;
 }  // namespace
 
 unsigned long RestartLimitTicks(const pes::StoppageConstants& stoppage,
-                                const pes::SetPieceTakerConstants& taker) {
+                                const pes::SetPieceTakerConstants& taker, unsigned long longestCelebration_ms) {
   // Holding table[1] with a player down is the longest whistle stop the referee arms.
   const double bracket_ms = static_cast<double>(FoulSequence::RestartTakeAt_ms(0, stoppage, true, 1));
   const float longestGate_s =
@@ -30,7 +30,7 @@ unsigned long RestartLimitTicks(const pes::StoppageConstants& stoppage,
   // A goal restart is the kick-off at the end of the longest celebration the sequence allows: the goal programme from
   // the celebration's end, then the kick-off's hold (pes::ReleaseFrames).
   const pes::Timing goal = pes::RunGoalProgramme(
-      GoalSequence::ReplayFiresAt_ms(0, 0, GoalSequence::kLongestCelebration_ms), stoppage);
+      GoalSequence::ReplayFiresAt_ms(0, 0, longestCelebration_ms), stoppage);
   const double goal_ms =
       static_cast<double>(goal.armedAt_ms) + pes::ReleaseFrames(e_SetPiece_KickOff) * Match::kTick_ms;
   // A period break is the half-time walk-off, then the kick-off of the next period.

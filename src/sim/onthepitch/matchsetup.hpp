@@ -25,6 +25,7 @@ struct Rig;
 #include "pesjudge.hpp"
 #include "peskeeper.hpp"
 #include "pesrandom.hpp"
+#include "pes/fixdemo.hpp"
 #include "pessetpiecetaker.hpp"
 #include "pessetpieceteam.hpp"
 #include "pessetpieceteam.hpp"
@@ -87,6 +88,9 @@ struct MatchSetup {
   // PES 2021's generator (docs/re/pes-re-rng.md 1): every random draw of the
   // match comes from it, seeded at kick-off from `seed`. Required.
   const pes::RngConstants* pesRngConstants = nullptr;
+  // PES 2021's goal celebrations (pes/fixdemo.hpp: the FixDemo goal table and its cut lengths, read from the
+  // install). Required: a goal draws its celebration from them.
+  const pes::fixdemo::GoalScenes* pesGoalScenes = nullptr;
   // PES 2021's goalkeeper deflect point and post-catch distribution target
   // (docs/re/pes-re-keeper-port.md). Required.
   const pes::KeeperConstants* pesKeeperConstants = nullptr;

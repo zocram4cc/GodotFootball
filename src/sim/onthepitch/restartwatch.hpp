@@ -23,11 +23,11 @@ struct SetPieceTakerConstants;
 //     wait, bounded by SetPieceLaws::kMaxWait_ms (a GF bound); plus the longest taker
 //     gate of corner, free kick and penalty, from the exe (pessetpiecetaker.hpp).
 //   - goal: the kick-off at the end of the longest celebration the sequence allows
-//     (pes::RunGoalProgramme from GoalSequence::kLongestCelebration_ms, plus the kick-off's hold; a GF bound).
+//     (pes::RunGoalProgramme from the pool's longest celebration, plus the kick-off's hold; a GF bound).
 //   - period break: the half-time kick-off (SetPieceLaws::HalfTimeTakeAt_ms, GF).
 // Plus one tick per gate of slack for the referee's once-per-tick checks.
 unsigned long RestartLimitTicks(const pes::StoppageConstants& stoppage,
-                                const pes::SetPieceTakerConstants& taker);
+                                const pes::SetPieceTakerConstants& taker, unsigned long longestCelebration_ms);
 
 class RestartWatch {
  public:
