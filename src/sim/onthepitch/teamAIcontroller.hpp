@@ -30,6 +30,7 @@
 #include "../data/setpiececonfig.hpp"
 #include "../gamedefines.hpp"
 #include "onthepitch/pesroles.hpp"
+#include "pes/formation.hpp"
 #include "base/properties.hpp"
 #include "pesrandom.hpp"
 #include "pesstrategy.hpp"
@@ -194,6 +195,7 @@ public:
   void UpdatePesDesignation();
   void SetUpRoleArrays();
   void WriteRoleArrays(bool head);
+  void WriteSlotPoints(int phase);
   // The B swap pair (T+0x89D4/0x89D8). No GF event sets it yet: the PES writer is not decoded.
   void RequestRoleSwap(int a, int b);
   // A team concept's order for one man (T+0xb748/b774/26c, transitions 2-3):
@@ -310,6 +312,8 @@ protected:
   // the readers of PES's planObj+0x7CD4 are not decoded.
   std::vector<int> foldSlots;
   std::optional<std::pair<int, int>> roleSwap;
+  // PES's slot-point rows P+0x3A9C (FUN_1404F5F10): each slot's sheet triple at the tick's phase.
+  std::array<pes::formation::Point3, pes::formation::kSlots> slotPoints{};
   // PES's concept selector state (FUN_140579840): running flag and start time
   // per id, the men each concept has ordered, and its own record.
   std::array<bool, pes::kConceptCount> conceptRunning{};

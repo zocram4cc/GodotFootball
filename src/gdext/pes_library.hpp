@@ -38,6 +38,7 @@
 #include "rig/clip_pose.hpp"
 #include "pes/vfs.hpp"
 #include "pes/playerdb.hpp"
+#include "pes/formation.hpp"
 #include "rig/rig.hpp"
 
 namespace godot {
@@ -105,6 +106,14 @@ class PesLibrary : public RefCounted {
   // PES 2021's stamina model (docs/re/pes-re-stamina-drain.md).
   const pes::StaminaConstants* stamina_constants() const {
     return staminaConstants_ ? &*staminaConstants_ : nullptr;
+  }
+  // PES 2021's formation tables (pesdb Tactics.bin, TacticsFormation.bin) and sheet constants (exe): the inputs of
+  // the slot-point rows (docs/re/pes-re-sheet-triple.md). Required by the PES loop's team AI.
+  const pes::formation::FormationTables* formation_tables() const {
+    return formationTables_ ? &*formationTables_ : nullptr;
+  }
+  const pes::formation::SheetConstants* sheet_constants() const {
+    return sheetConstants_ ? &*sheetConstants_ : nullptr;
   }
   // PES 2021's player database (docs/re/pes-re-matchlogic.md 1.2): each player's injury tier and stronger foot.
   const pes::PlayerDatabase* player_database() const {
@@ -202,6 +211,8 @@ class PesLibrary : public RefCounted {
  private:
   pes::PesVfs vfs_;
   std::optional<pes::PlayerDatabase> playerDatabase_;
+  std::optional<pes::formation::FormationTables> formationTables_;
+  std::optional<pes::formation::SheetConstants> sheetConstants_;
   std::optional<pesrig::Rig> rig_;
   pes::AppearanceTable appearances_;
   std::optional<std::vector<std::string>> motionNames_;

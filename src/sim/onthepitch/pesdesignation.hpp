@@ -45,10 +45,7 @@ struct Constants {
 
 std::optional<Constants> LoadConstants(const PeImage& exe, std::string* error);
 
-// The key the publisher sorts by is the team-frame lateral: f2 of the slot-point row, which
-// FUN_140A40CA0 reads raw for both sides. `direction` is the team's sign (+1 or -1) that maps a
-// world z to that frame.
-float TeamFrameLateral(int direction, float worldZ);
+// The key the publisher sorts by is the slot point's f2, read raw for both sides (FUN_140A40CA0): no side factor.
 
 // FUN_140A40CA0's bucket of a folded class: {1,2}->1 {3,4}->3 {5,6}->6 {7,8,9}->9, else 0.
 int FoldClass(int roleClass);

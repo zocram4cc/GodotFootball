@@ -380,8 +380,6 @@ constexpr int kStoppedPlayState = 2;
 int PesPlayState(bool openPlay) {
   return openPlay ? pes::mentality::kPlayStateInPlay : kStoppedPlayState;
 }
-// MI+0x1554, the restart kind. GF has no writer for it (MOVESTEP's MatchState1554 stands in 0 too).
-constexpr int kRestartKindStandIn = 0;  // ponytail: MI+0x1554 has no GF writer; the override stays off.
 
 }  // namespace
 
@@ -3118,7 +3116,7 @@ void TeamAIController::SetUpRoleArrays() {
                              pes::mentality::RoleLevel(
                                  team->GetID() == 0,
                                  PesPlayState(match->IsInPlay() && !match->IsInSetPiece()),
-                                 kRestartKindStandIn),
+                                 match->PesRestartKind()),
                              &roles);
 }
 
@@ -3131,17 +3129,33 @@ void TeamAIController::SetUpRoleArrays() {
 void TeamAIController::WriteRoleArrays(bool head) {
   const bool possession = team->IsPesPossession();
   const int level = pes::mentality::RoleLevel(
-      possession, PesPlayState(match->IsInPlay() && !match->IsInSetPiece()), kRestartKindStandIn);
+      possession, PesPlayState(match->IsInPlay() && !match->IsInSetPiece()), match->PesRestartKind());
   for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) {
     const e_PlayerRole role = team->GetAllPlayers()[slot]->GetDynamicFormationEntry().role;
     teamSheet.SetRegisteredRole(slot, pes::roles::RegisteredRoleOf(role), level);
   }
   pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamSheet,
                              level, &roles);
+  WriteSlotPoints(level);
   if (head) return;
   // The tail swap (FUN_14051E31E) also needs FUN_140A41BE0's latch (TailSwapAllowed).
   if (roleSwap && possession && pes::roles::TailSwapAllowed(roles))
     pes::roles::SwapB(&roles, roleSwap->first, roleSwap->second);
+}
+
+// FUN_1404F5F10's rows: each slot's sheet triple at the tick's phase, through FUN_1408C50E0's record A.
+// ponytail: the plan is the setup default, 0. PES reads it from setup+0xb34+side*0xa8 (FUN_1408E16D0; the
+// writer is OPEN) and changes it in play (FUN_140500B90: mode +0xBCC, flag +0xB8A3). pes-re-sheet-triple §9.
+void TeamAIController::WriteSlotPoints(int phase) {
+  if (!match->PesLoop()) return;  // the PES path only: the install's tables exist on it
+  constexpr int kSetupPlan = 0;
+  const pes::formation::FormationTables* tables = match->GetPesFormations();
+  const pes::formation::SheetConstants* sheet = match->GetPesSheetConstants();
+  assert(tables && sheet);  // the PES loop is built with the install's tables (gfsim_run loads them)
+  const auto plan = tables->PlanOf(static_cast<uint32_t>(team->GetTeamData()->GetDatabaseID()), kSetupPlan);
+  assert(plan);  // every fixture team has a plan-0 record
+  slotPoints = pes::formation::SlotPointRows(*plan, phase, pesFieldHalfLength, pesFieldHalfWidth,
+                                             sheet->grid, sheet->keeper);
 }
 
 int TeamAIController::RoleClassOfSlot(int slot) const {
@@ -3161,15 +3175,9 @@ int TeamAIController::DefensiveLineOf(Player* p, e_PlayerRole role) const {
 }
 
 void TeamAIController::UpdatePesDesignation() {
-  // The lateral key of each slot is the team-frame lateral of its formation point. ponytail: PES's key
-  // is the slot-point row's f2 (FUN_140A40CA0 reads it raw; FUN_1404A8620 copies it from the sheet
-  // triple FUN_1408C50E0(sheet, slot, 0, 3)); GF's adapted formation point stands in for that triple.
-  const std::vector<std::unique_ptr<Player>>& all = team->GetAllPlayers();
+  // The lateral key is the slot point's f2, read raw for both sides (FUN_140A40CA0; pes-re-sheet-triple §2).
   std::array<float, pes::designation::kSideSlots> lateral{};
-  for (int slot = 0; slot < pes::designation::kSideSlots; ++slot) {
-    const Vector3 point = GetAdaptedFormationPosition(all[slot].get(), false);
-    lateral[slot] = pes::designation::TeamFrameLateral(team->GetSide(), point.coords[1]);
-  }
+  for (int slot = 0; slot < pes::designation::kSideSlots; ++slot) lateral[slot] = slotPoints[slot].z;
   pesDesignation = pes::designation::Publish(
       team->GetID(), roles.b, lateral,
       team->GetMatch()->GetPesTeamConceptConstants().designation.order);

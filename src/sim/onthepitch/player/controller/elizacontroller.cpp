@@ -3520,8 +3520,10 @@ void ElizaController::_AddCelebration(std::vector<PlayerCommand>& commandQueue) 
   // Flat by contract: Humanoid::SelectAnim asserts a movement direction has no
   // height. A scorer lifted off the turf by his own anim would otherwise hand it
   // a tilted direction.
+  // A player already on his celebration point (or on his team-mate: a substitute stands where the man he replaced
+  // stood) has no displacement, so the direction keeps his facing rather than normalising a zero vector to NaN.
   Vector3 desiredDirection =
-      (celebrationPosition - player->GetPosition()).Get2D().GetNormalized();
+      (celebrationPosition - player->GetPosition()).Get2D().GetNormalized(player->GetDirectionVec());
   float desiredVelocityFloat =
       ClampVelocity((celebrationPosition - player->GetPosition()).GetLength() / 4.0f);
   Vector3 desiredLookAt = player->GetPosition() + player->GetDirectionVec() * 1000;
@@ -3548,7 +3550,7 @@ void ElizaController::_AddCelebration(std::vector<PlayerCommand>& commandQueue) 
               ((team->GetLastTouchPlayer()->GetPosition() * 0.5 + celebrationPosition * 0.5) -
                player->GetPosition())
                   .Get2D()
-                  .GetNormalized();
+                  .GetNormalized(player->GetDirectionVec());
           desiredVelocityFloat = ClampVelocity(
               (team->GetLastTouchPlayer()->GetPosition() - player->GetPosition()).GetLength() /
               2.0);
