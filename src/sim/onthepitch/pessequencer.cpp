@@ -23,6 +23,14 @@ constexpr int kCornerReleaseFrames = 365;    // live 365-379; DOC 189 not reprod
 constexpr int kFreeKickReleaseFrames = 355;  // live 355-356; DOC 162 not reproduced
 constexpr int kPenaltyReleaseFrames = 54;    // DOC fps*1 (setpiece 12); not observed live
 
+// ponytail: PES holds a goal's kick-off for its receiver test (KickoffReceiver, 0x140781fc0), which this engine does not
+// port. PES's live goal -> kick-off is 125 frames from ready to in play (A5Judge 9.3a; 125-137 over seven, 9.3). GF's
+// taker touches kKickOffTouchFrames after the restart is released (main, 22-10-26: 37 whole frames; 37.96 from a ready
+// time between ticks), so the hold is the live 125 less that touch.
+constexpr int kPesKickOffReadyToInPlayFrames = 125;
+constexpr int kKickOffTouchFrames = 37;
+constexpr int kKickOffReleaseFrames = kPesKickOffReadyToInPlayFrames - kKickOffTouchFrames;
+
 float Sign(float v) { return v < 0.0f ? -1.0f : 1.0f; }
 
 unsigned long ToMs(float seconds) {
@@ -78,8 +86,10 @@ int ReleaseFrames(e_SetPiece kind) {
       return kFreeKickReleaseFrames;
     case e_SetPiece_Penalty:
       return kPenaltyReleaseFrames;
+    case e_SetPiece_KickOff:
+      return kKickOffReleaseFrames;
     default:
-      return 0;  // kick-off and goal kick: no clock (the receiver's ball test, or the goal kick's ladder; pesgoalkick.hpp)
+      return 0;  // no gate
   }
 }
 
@@ -129,6 +139,10 @@ Timing RunProgramme(const std::vector<Beat>& beats, unsigned long stopTime_ms,
   }
   timing.armedAt_ms = at_ms;
   return timing;
+}
+
+Timing RunGoalProgramme(unsigned long celebrationEnd_ms, const StoppageConstants& k) {
+  return RunProgramme({Beat::Wipe, Beat::UiAndTeleport, Beat::FadeIn, Beat::Tail}, celebrationEnd_ms, k, false, 0);
 }
 
 }  // namespace pes

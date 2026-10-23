@@ -126,6 +126,7 @@ void ScheduleStop(Referee* referee, unsigned long stopTime_ms, bool downed, int 
 
 Referee::Referee(Match* match) : match(match) {
   buffer.desiredSetPiece = e_SetPiece_KickOff;
+  buffer.goalRestart = false;
   buffer.teamID = 0;
   buffer.stopTime = 0;
   buffer.holdTime = 0;
@@ -240,6 +241,8 @@ bool ReleasesRestart(Match* match, const RefereeBuffer& buffer) {
   }
   TeamAIController* controller = match->GetTeam(buffer.teamID)->GetController();
   if (buffer.desiredSetPiece == e_SetPiece_GoalKick) return controller->StepGoalKickLadder();
+  // Only a goal's kick-off is held (PES's measured goal programme); the other kick-offs are released at once.
+  if (buffer.desiredSetPiece == e_SetPiece_KickOff && !buffer.goalRestart) return true;
   return pes::MayRelease(buffer.desiredSetPiece, framesSinceArmed, controller->PieceTakerArrived());
 }
 
@@ -276,6 +279,7 @@ void Referee::Process() {
         match->StopPlay();
 
         buffer.desiredSetPiece = e_SetPiece_KickOff;
+        buffer.goalRestart = false;
         buffer.stopTime = match->GetActualTime_ms();
         // The walk-off plays first; the reset for the next period waits for it
         // (SetPieceLaws::kHalfTimeCutscene_ms is also what SetMatchPhase gives
@@ -340,13 +344,15 @@ void Referee::Process() {
 
         if (match->IsGoalScored()) {
           buffer.desiredSetPiece = e_SetPiece_KickOff;
+          buffer.goalRestart = true;
           buffer.stopTime = match->GetActualTime_ms();
-          // Preparing the restart calls Match::ResetSituation, which clears the
-          // goal state the replay trigger waits on - so it has to come after the
-          // replay has fired. GoalSequence owns both timings for that reason;
-          // the six seconds this used to wait killed the goal replay outright.
-          buffer.prepareTime = GoalSequence::RestartPrepareAt_ms(match->GetActualTime_ms());
-          buffer.startTime = GoalSequence::RestartKickOffAt_ms(match->GetActualTime_ms());
+          // Preparing the restart calls Match::ResetSituation, which clears the goal state the replay trigger waits on, so
+          // the programme starts at the end of the celebration the replay follows (GoalSequence::ReplayFiresAt_ms).
+          // PES's goal programme (pessequencer, A5Judge 4.1) arms the kick-off after its wipe, teleport and fade-in.
+          const pes::Timing goal = pes::RunGoalProgramme(GoalSequence::ReplayFiresAt_ms(match->GetActualTime_ms()),
+                                                         GetStoppageConstants());
+          buffer.prepareTime = goal.prepareAt_ms;
+          buffer.startTime = goal.armedAt_ms;
           buffer.restartPos = Vector3(0, 0, 0);
           buffer.teamID = abs(match->GetLastGoalTeamID() - 1);
 
@@ -508,6 +514,7 @@ void Referee::Process() {
               break;
             case SetPieceLaws::e_DeadBallRestart::KickOff:
               buffer.desiredSetPiece = e_SetPiece_KickOff;
+              buffer.goalRestart = false;
               break;
             case SetPieceLaws::e_DeadBallRestart::None:
               break;

@@ -15,23 +15,12 @@
 
 namespace GoalSequence {
 
-// How long a celebration runs when nothing else decides it. It used to be the whole
-// answer - a flat nine seconds - which both cut long celebrations off partway and
-// held short ones on a player running in place. The clips say how long they are:
-// measured over the 387 imported celebration animations at 10 ms a frame, they run
-// 0.4 s to 10.0 s, median 2.7 s and p90 6.8 s. So the length comes from the clip and
-// this is only the floor for a very short one.
-//
-// The floor is set from the reference broadcast (docs/PRESENTATION_SPEC.md §3.1),
-// where the celebration shot runs about five seconds and is followed by a two to
-// three second spotlight on the scorer. Four seconds put the restart in motion
-// while the celebration was still the thing on screen; with a median clip of 2.7 s
-// the floor is what most goals actually get, so it has to cover the beat.
-// The montage below is the floor and the default now: three shots run back to
-// back whatever the clip does, because PES's celebration is as long as its
-// SHOTS, not as long as the scorer's animation (a 2.7 s median clip used to
-// mean a 6 s celebration and a thirty-second sequence).
-constexpr unsigned long kMinCelebration_ms = 19000;  // = the seven cuts
+// How long the goal celebration runs when nothing else decides it: the goal scene PES plays. ponytail: PES's scene
+// length is the sum of its cut lengths (pes-re-cutscenes.md 3.3: a goal cut's maxTime, 700 at 60 Hz = 11.67 s;
+// pes-re-foul-choreography.md 9.2: scene length = sum of cut maxTime plus 0.5 s step fades). The engine does not read
+// that table yet, so the scene stands in as a constant. 12.5 s with the 2.33 s of pes::RunGoalProgramme puts goal ->
+// ready at 801 frames, the centre of PES's live 757-843 window (docs/re/pes-re-A5Judge.md 9.3a).
+constexpr unsigned long kMinCelebration_ms = 12500;
 
 // Kept as the plain default for callers with no clip to hand.
 constexpr unsigned long kCelebration_ms = kMinCelebration_ms;
@@ -51,15 +40,6 @@ constexpr unsigned long kReplayLeadIn_ms = 10000;
 // longer reach the goal and plays back the celebration instead of the action.
 constexpr unsigned long kReplayBuffer_ms = kLongestCelebration_ms + kReplayLeadIn_ms;
 
-// Gap between the replay firing and the referee preparing the restart. The
-// match clock is frozen while the replay plays (Match::Process runs its
-// simulation under `if (!pause)`), so this is the delay that remains once the
-// viewer is done with it.
-constexpr unsigned long kRestartPrepareAfterReplay_ms = 1500;
-
-// Prepared set piece to actual kickoff.
-constexpr unsigned long kKickOffAfterPrepare_ms = 2000;
-
 // PES's goal sequence is a MONTAGE of SHORT cuts, not held shots. Read frame
 // by frame off VGL 26 day 12 at 5:09:59 (docs/VGL26_DAY12_REFERENCE.md §4):
 // the goal goes in on the live camera, then six cuts of two to four seconds
@@ -77,14 +57,16 @@ constexpr unsigned long kKickOffAfterPrepare_ms = 2000;
 // animation machinery and jogs back (Match::UpdateCutsceneChoreo).
 enum class Shot { Behind = 0, Front, TwoShot, MobClose, MobWide, Crowd, CrowdTwo };
 constexpr int kShotCount = 7;
+// The cut lengths sum to kMinCelebration_ms (static_assert in goalsequence.cpp): the reference's seven cuts re-timed to the
+// scene. ShotAt has no live caller yet, and nothing here is checked against a captured frame.
 constexpr unsigned long kShotLength_ms[kShotCount] = {
-    2000,  // Behind: scorer from behind, low, arms up, tracking his run
-    2000,  // Front: front medium, low, ad boards behind him
-    3500,  // TwoShot: from behind as the first teammate arrives; the name ribbon
-    2000,  // MobClose: three heads
-    2500,  // MobWide: four players, low angle
-    4000,  // Crowd: the stands react (audience pool)
-    3000,  // CrowdTwo: a second stand
+    1500,  // Behind: scorer from behind, low, arms up, tracking his run
+    1500,  // Front: front medium, low, ad boards behind him
+    2500,  // TwoShot: from behind as the first teammate arrives; the name ribbon
+    1500,  // MobClose: three heads
+    2000,  // MobWide: four players, low angle
+    2000,  // Crowd: the stands react (audience pool)
+    1500,  // CrowdTwo: a second stand
 };
 // How far out PES authored the camera for each of the player shots, in
 // metres from the scorer - what Match matches a goal camtrack against. The
@@ -110,8 +92,7 @@ constexpr unsigned long kRibbonIn_ms = kScorerBugIn_ms;
 // goal replay replayed the celebration that had just been on screen. Each
 // angle plays a window ending at the goal. Times are WALL time: the wide
 // angle plays 9000 ms of tape at full speed, the close angle 3500 ms of tape
-// at half speed - both 9000/7000 ms on screen, and the sum below is what the
-// sequence costs (WholeSequence_ms and the 60-80 s test read it).
+// at half speed - both 9000/7000 ms on screen, and the sum below is the replay's wall time.
 constexpr unsigned long kReplayWideAngle_ms = 5500;
 constexpr unsigned long kReplaySideAngle_ms = 5000;
 constexpr unsigned long kReplayCloseAngle_ms = 5000;  // 2500 ms of tape at half speed
@@ -128,24 +109,12 @@ Shot ShotAt(unsigned long celebration_ms, unsigned long celebrationLength_ms);
 unsigned long ShotStartedAt_ms(unsigned long celebration_ms,
                                unsigned long celebrationLength_ms);
 
-// Goal to kickoff, for the test that pins the reference's window (35-50 s).
-unsigned long WholeSequence_ms(unsigned long animLength_ms);
-
 // When the replay should fire for a goal scored at `goalTime_ms`.
 // `cutsceneEnd_ms` is the end of a goal cutscene if one is playing, 0 if not;
 // a cutscene running past the celebration wins, a shorter one does not cut it short.
 // `celebrationLength_ms` is what CelebrationLength_ms returned for the clip on screen.
 unsigned long ReplayFiresAt_ms(unsigned long goalTime_ms, unsigned long cutsceneEnd_ms = 0,
                                unsigned long celebrationLength_ms = kCelebration_ms);
-
-// When the referee should prepare the kickoff, and when it should start - both
-// behind the replay for the celebration that is actually on screen. The referee
-// schedules these the tick after the goal, before the clip has been chosen, so
-// Match pushes them back once it knows (match.cpp, UpdateIngameCamera).
-unsigned long RestartPrepareAt_ms(unsigned long goalTime_ms,
-                                  unsigned long celebrationLength_ms = kCelebration_ms);
-unsigned long RestartKickOffAt_ms(unsigned long goalTime_ms,
-                                  unsigned long celebrationLength_ms = kCelebration_ms);
 
 // How far back the replay should start, given how long the celebration
 // actually ran (the elapsed goal timer at the moment it fires).
