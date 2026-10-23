@@ -1,5 +1,7 @@
 # PES mark table: T+0xB7D8 writer, cone test, clear gate, reader payloads (MarkConeRE, 23-10-26)
 
+> **Correction (MarkGateRE, `pes-re-mark-gate.md`):** the count gate `FUN_140A4EAF0` takes radius **12.0**, not 64.0; see that doc.
+
 Title: T7a blockers closed to port spec. `T+0xB7D8` = per-team within-side slot word (0..10, 0xFF empty), writers CONFIRMED. Cone `FUN_140A53DA0/53DF0` CONFIRMED at the bytes. Clear gate `FUN_140579E10` + teardown CONFIRMED. Three presence readers CONFIRMED as tests, payloads INF.
 
 Read-only RE. Image `pes_full.bin`, file offset = VA − 0x140000000. Bridge `http://127.0.0.1:8080`.
