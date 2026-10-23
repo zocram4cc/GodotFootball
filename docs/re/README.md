@@ -249,6 +249,7 @@ address given.
 |`pes-re-walk-speed.md`|The set-piece walker's speed: `FUN_1406b7560`'s walk-down caps a run-class approach to 11 km/h (`DAT_14259bdfc`, call `0x1406b77d6`); the throw-in carry is root-warped|
 |`pes-re-mentality-reclass-live.md`|Live: the mentality dial reclassifies lines (forwards fold to midfield at −1/−2, a fullback promoted at +2); two defensive blocks, one per team (A `682770`, B `67B640`, B shields the CF); rank is not sheet order. Owner-relayed, to re-verify|
 |`pes-re-condition-arrows.md`|Condition arrows: list position is not an input; arrow at record+0x64, green skips the write, multiplier table `0x142632D70` (5 per tier), roll shape `FUN_14089BAE0`; two relayed values and one offset corrected; writer and bands open|
+|`pes-re-motion-remap.md`|The free-kick and penalty run-up remap object `_DAT_1436F2600`: Derivationdatatable.bin records, 6 kind slots; default FK `fk_runup` unchanged, default penalty `pk_runup` → `pk_runup_neymar` (2931); key getters and placer sequence for the port|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
