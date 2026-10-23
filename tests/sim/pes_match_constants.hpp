@@ -68,6 +68,8 @@ struct PesMatchConstants {
   std::optional<pes::offball::OffBallConstants> offBall;
   std::optional<pes::MoveStepConstants> moveStep;
   std::optional<pes::PressConstants> press;
+  std::optional<pes::formation::FormationTables> formationTables;
+  std::optional<pes::formation::SheetConstants> sheetConstants;
 };
 
 inline const PesMatchConstants& SharedPesMatchConstants() {
@@ -112,6 +114,8 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
   if (mounted) c.offBall = pes::offball::LoadOffBallConstants(*exe, vfs, &err);
   if (mounted) c.moveStep = pes::LoadMoveStepConstants(*exe, vfs, &err);
   c.press = pes::LoadPressConstants(*exe, &err);
+  if (mounted) c.formationTables = pes::formation::FormationTables::Load(vfs, &err);
+  c.sheetConstants = pes::formation::ReadSheetConstants(*exe, &err);
   return c;
 }
 
@@ -141,6 +145,8 @@ inline bool FillMissingPesConstants(MatchSetup* setup) {
   fill(setup->pesDefenderDecisionConstants, c.defenderDecisions);
   fill(setup->pesContactConstants, c.contact);
   fill(setup->pesEventRingTable, c.eventRing);
+  fill(setup->pesFormations, c.formationTables);
+  fill(setup->pesSheetConstants, c.sheetConstants);
   fill(setup->pesEventConstants, c.event);
   fill(setup->pesClips, c.clips);
   fill(setup->pesDodgeConstants, c.dodge);
