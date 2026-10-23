@@ -191,12 +191,6 @@ bool Team::Substitute(Player* playerOut, Player* playerIn) {
   if (match->GetMatchPhase() == e_MatchPhase_Penalties)
     return false;
 
-  // KNOWN BUG: building the substitute's humanoid segfaults (crash lands inside
-  // Humanoid construction, right after "prepare full body model"). Until that is
-  // found, swaps are opt-in through "substitutions_enabled" so a match cannot
-  // crash under a player; the rules and the menu around it are complete.
-  if (!GetConfiguration()->GetBool("substitutions_enabled", false))
-    return false;
   if (!playerOut->IsActive() || playerIn->IsActive())
     return false;
   if (HasBeenSubstituted(playerIn->GetID()))
@@ -229,6 +223,11 @@ bool Team::Substitute(Player* playerOut, Player* playerIn) {
   if (designatedTeamPossessionPlayer == playerOut)
     designatedTeamPossessionPlayer = playerIn;
   if (passTarget == playerOut) passTarget = playerIn;
+  // The last touch passes to the substitute with the other references above: left on the man who
+  // walked off, a celebration aims at a player off the pitch who stands where the substitute now stands.
+  for (Player*& touched : lastTouchPlayers)
+    if (touched == playerOut) touched = playerIn;
+  if (lastTouchPlayer == playerOut) lastTouchPlayer = playerIn;
 
   // Everything that cached the outgoing player has to let go of him: the match's
   // designated possession player and the mental images the AI reads.

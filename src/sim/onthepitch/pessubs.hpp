@@ -34,6 +34,9 @@ struct SubstitutionConstants {
   float tierGap;   // 1.0
   float fitWide;   // 15.0
   float fitNear;   // 8.0
+  // PES's substitution allowance per team: the menu default, `mov eax, 6` (the store to
+  // settings+0x8d; docs/re/pes-re-team-ai-leftovers.md 4.1). Read from the install.
+  int substitutionLimit;
 };
 
 std::optional<SubstitutionConstants> LoadSubstitutionConstants(const PeImage& exe,

@@ -38,6 +38,10 @@ constexpr Imm MODE2_THIRD{0x140523cab, {0x83, 0xfe}, 2};       // 15
 constexpr Imm MODE3_FULL{0x140523c91, {0x83, 0xfe}, 2};        // 20
 constexpr Imm MODE3_TWO_THIRDS{0x140523c96, {0x83, 0xfe}, 2};  // 10
 
+// The menu's default substitution allowance, stored to settings+0x8d: `mov eax, imm32` (0xb8) on
+// the default branch of the team-setup switch (docs/re/pes-re-team-ai-leftovers.md 4.1).
+constexpr Imm SUBSTITUTION_LIMIT{0x141fba4ce, {0xb8}, 1};
+
 // The class switch `cmp ecx(class-2), 7; jmp [table]` and its four blocks.
 // Each block sets ebx = threshold and esi = base for the mode in eax: mode 1
 // by `lea ebx, [rax + d8]` (rax = 1), mode 3 by a `cmove` immediate, any other
@@ -157,6 +161,9 @@ std::optional<SubstitutionConstants> LoadSubstitutionConstants(const PeImage& ex
   k.mode2ThirdFrom = m2b;
   k.mode3FullFrom = m3a;
   k.mode3TwoThirdsFrom = m3b;
+  int32_t limit = 0;
+  if (!ReadImm(exe, SUBSTITUTION_LIMIT, &limit, error)) return std::nullopt;
+  k.substitutionLimit = limit;
   // GK and CB: `class <= 1 -> continue` ahead of the switch.
   for (int c = 0; c < FIRST_SWITCHED_CLASS; ++c) k.neverSubbed[c] = true;
   for (int c = FIRST_SWITCHED_CLASS; c < kSubRoleClasses; ++c) {
