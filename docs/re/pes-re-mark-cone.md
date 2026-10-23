@@ -1,5 +1,7 @@
 # PES mark table: T+0xB7D8 writer, cone test, clear gate, reader payloads (MarkConeRE, 23-10-26)
 
+> **Correction (MarkSlotRE, `pes-re-mark-slot.md`):** T+0xB7D8 holds the record's **own** row slot (% 11), not the marked opponent: `FUN_140546FB0`'s live arm stores it every pass, its match arm clears to 0xFF on the 0→1 phase advance, `FUN_140549D30` stores the peer slot (+0x24).
+
 > **Correction (MarkGateRE, `pes-re-mark-gate.md`):** the count gate `FUN_140A4EAF0` takes radius **12.0**, not 64.0; see that doc.
 
 Title: T7a blockers closed to port spec. `T+0xB7D8` = per-team within-side slot word (0..10, 0xFF empty), writers CONFIRMED. Cone `FUN_140A53DA0/53DF0` CONFIRMED at the bytes. Clear gate `FUN_140579E10` + teardown CONFIRMED. Three presence readers CONFIRMED as tests, payloads INF.
