@@ -103,6 +103,75 @@ TEST(MentalityReclassify, RoleGroupsShareALineAndTheGroupsDiffer) {
   EXPECT_EQ(mentality::kBackLine, line(0));
   EXPECT_EQ(mentality::kBackLine, line(10));
 }
+// Rule 5: the out-of-possession lane line (FUN_1405CE150's B-words, lane-writers §3).
+// GF inputs only: no T+0x46EC second float (lane inputs, doc OPEN), no F760/F490 distances, so the
+// special arm, the 15/instruction arm and the off-pitch sides stay unported ponytail leaves.
+TEST(MentalityLaneB, KeeperIsThreeAndDesignatedIsTwo) {
+  std::array<int, 11> b{0, 1, 1, 3, 4, 5, 6, 7, 8, 9, 2};
+  mentality::LaneInput in;
+  in.classes = b;
+  in.designated = 5;
+  const auto w = mentality::LaneBWords(in);
+  EXPECT_EQ(3, w[0]);
+  EXPECT_EQ(2, w[5]);
+  for (int k = 1; k < 11; ++k) {
+    if (k == 5) continue;
+    EXPECT_EQ(mentality::ReclassifyLineOf(b[k]), w[k]);
+  }
+}
+
+TEST(MentalityLaneB, InactiveSlotTakesItsClassLine) {
+  std::array<int, 11> b{0, 1, 1, 3, 4, 5, 6, 7, 8, 9, 2};
+  mentality::LaneInput in;
+  in.classes = b;
+  in.active[3] = false;
+  EXPECT_EQ(mentality::ReclassifyLineOf(3), mentality::LaneBWords(in)[3]);
+}
+
+TEST(MentalityLaneB, WrapperMapsTheWordToTheLane) {
+  EXPECT_EQ(1, mentality::LaneOfWord(0));
+  EXPECT_EQ(4, mentality::LaneOfWord(1));
+  EXPECT_EQ(7, mentality::LaneOfWord(2));
+  EXPECT_EQ(0, mentality::LaneOfWord(3));
+}
+
+// The sort FUN_140A79640 (lane-leaves §1): ascending, stable; rank = index in the sorted order.
+TEST(MentalityLaneSort, AscendingStableWithRank) {
+  std::array<uint8_t, 11> slots{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+  const std::array<float, 11> keys{1.0f, 0.0f, 0.0f, 2.0f, 0.0f, 5.0f, 5.0f, 4.0f, 3.0f, 3.0f, 3.0f};
+  std::array<uint8_t, 11> order{};
+  std::array<uint8_t, 11> rank{};
+  mentality::SortLaneSlots(slots, keys, order, rank);
+  EXPECT_EQ((std::array<uint8_t, 11>{1, 2, 4, 0, 3, 7, 8, 9, 10, 6, 5}), order);
+  EXPECT_EQ(3u, rank[0]);
+  EXPECT_EQ(0u, rank[1]);
+  EXPECT_EQ(1u, rank[2]);
+}
+
+// The A-words FUN_1405CE4F0 (lane-writers §2): the recompute default is 3; designated or B == 2
+// forces 2; otherwise the slot's B class line; inactive is 3; the copy path takes the B words.
+TEST(MentalityLaneA, RecomputeDefaultsDesignatedAndFallback) {
+  std::array<int, 11> b{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 2};
+  std::array<int, 11> a{};
+  mentality::LaneAWords(b, a, 5);
+  EXPECT_EQ(3, a[0]);
+  EXPECT_EQ(2, a[5]);
+  EXPECT_EQ(mentality::ReclassifyLineOf(1), a[1]);
+  EXPECT_EQ(2, a[10]);
+  a.fill(0);
+  std::array<int, 11> active{};
+  active.fill(1);
+  active[2] = 0;
+  mentality::LaneAWords(b, a, -1, active);
+  EXPECT_EQ(3, a[2]);
+}
+
+TEST(MentalityLaneA, CopyPathTakesTheBWords) {
+  std::array<int, 11> b{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 2};
+  std::array<int, 11> a{};
+  mentality::CopyLaneAWords(b, a);
+  for (int k = 0; k < 11; ++k) EXPECT_EQ(b[k], a[k]);
+}
 
 // Rule 3: the block choice by the possession flag (EC600 @ 0x1405ECC21).
 TEST(MentalityBlock, OutOfPossessionRunsBlockAAndInPossessionRunsBlockB) {

@@ -11,10 +11,10 @@
 //   4. block B's fold pick chooses the slots it folds (FoldPicks).
 
 #include <array>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
-
 namespace pes {
 class PeImage;
 }
@@ -48,6 +48,9 @@ std::optional<LineTable> LoadReclassifyLines(const PeImage& exe, std::string* er
 // A class 1..9 takes its line; any other class (GK, and past 9) takes the default arm, the back line.
 int ReclassifyLine(const LineTable& table, int cls);
 
+// The line of a class through the stock reclassify (MentalityPort doc §15): 3-6 -> 1, 7-9 -> 2,
+// else 0. For the lane writers, which need the class line without the install table.
+int ReclassifyLineOf(int cls);
 // The block choice (blocks §1): F = (T+0x255 != 0), tested at EC600 @ 0x1405ECC21. F == 0 runs
 // block A (681FF0 -> 682770), F != 0 runs block B (67B640).
 enum class Block { kOutOfPossession, kInPossession };
@@ -81,6 +84,38 @@ int FoldCount(int dial);
 
 // Stand-in for the protected forward (planObj+0x4B40, the CF shield): the last slot of class 9, or
 // -1. The full protected scan (pesforward's ProtectedSlot, R5) is not wired yet.
+// The out-of-possession lane line (FUN_1405CE150/CE4F0, lane-writers §§2-3; the wrapper map at
+// blockA-forward-pull §2). Pure over GF-carried inputs; every arm needing a missing PES word
+// (the A64410 special predicate + F760/F490 distances, the 15/instruction table, the band rows,
+// the post-step writers, the T+0x78 tree) stays a `// ponytail:` leaf at its VA.
+struct LaneInput {
+  std::array<int, kSlots> classes{};  // B classes 0..9 (P+0x3FB8)
+  std::array<int, kSlots> active{};   // MI+0x1748, 0 = inactive; all active when all zero
+  int designated = -1;                // P+0x3EF8, -1 when none (GF: the publisher has no slot id yet)
+};
+
+// FUN_1405CE150, GF-carried arms only: keeper -> 3, designated -> 2, else the reclassify of the
+// slot's class. Inactive slots take their class line (the recompute path overwrites them with 3;
+// CE4F0 copy path keeps the B words for all 11, including inactive).
+std::array<int, kSlots> LaneBWords(const LaneInput& in);
+
+// The wrapper map (0x140682090-0x1406820B4): A 0 -> lane 1, 1 -> 4, 2 -> 7, else 0 (skipped).
+int LaneOfWord(int a);
+
+// FUN_1405CE4F0's recompute, GF-carried arms only: every word := 3; active slots with word > 1 and
+// (slot == designated or B == 2) -> 2; inactive -> 3, else active with word > 2 take their B word.
+// ponytail: the CF310/CFC80/CFFE0 post-steps run before this loop at CE4F0 l.65-140.
+void LaneAWords(const std::array<int, kSlots>& b, std::array<int, kSlots>& a, int designated,
+                const std::array<int, kSlots>& active = {});
+
+// CE4F0's copy path (flag LX+0x1B0 == 0): A-record := B-record for all 11 slots.
+void CopyLaneAWords(const std::array<int, kSlots>& b, std::array<int, kSlots>& a);
+
+// FUN_140A79640 (lane-leaves §1): ascending by float key, stable (ties keep slot order); order[i]
+// is the i-th slot, rank[slot] the index. Only param_2 == 0 is ported (no lane caller uses the
+// other arm).
+void SortLaneSlots(const std::array<uint8_t, kSlots>& slots, const std::array<float, kSlots>& keys,
+                   std::array<uint8_t, kSlots>& order, std::array<uint8_t, kSlots>& rank);
 int ProtectedSlot(const std::array<int, kSlots>& classes);
 
 }  // namespace pes::mentality

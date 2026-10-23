@@ -68,6 +68,14 @@ int RoleLevel(bool possession, int playState, int restartKind) {
   return possession ? kLevelInPossession : kLevelOutOfPossession;
 }
 
+int ReclassifyLineOf(int cls) {
+  // The stock reclassify (MentalityPort doc §15): classes 3-6 -> 1, 7-9 -> 2, else 0. The lane
+  // writers need the class line without threading the install table through the tick.
+  if (cls >= 3 && cls <= 6) return kMidLine;
+  if (cls >= 7 && cls <= 9) return kForwardLine;
+  return kBackLine;
+}
+
 std::optional<LineTable> LoadReclassifyLines(const PeImage& exe, std::string* error) {
   LineTable table;
   for (int i = 0; i < kLineTableEntries; ++i) {
@@ -147,4 +155,76 @@ int ProtectedSlot(const std::array<int, kSlots>& classes) {
   return -1;
 }
 
+std::array<int, kSlots> LaneBWords(const LaneInput& in) {
+  // FUN_1405CE150 (lane-writers §3): keeper (B 0) -> 3, designated (P+0x3EF8) -> 2, else the
+  // reclassify of the slot's class (FUN_1405CD540). Inactive slots keep their B word here; the
+  // recompute path (LaneAWords) overwrites them with 3.
+  // ponytail: the restart-kind-4 + instruction-15 arm (FUN_140A63950, VA 0x140A63950) reads the
+  // instruction table MA+0x25CF8/0x25D38, which GF does not carry; the A64410 special arm reads the
+  // slot-point rows + F760/F490 distances, also not carried.
+  std::array<int, kSlots> w{};
+  for (int k = 0; k < kSlots; ++k) {
+    if (in.classes[k] == 0) {
+      w[k] = 3;
+    } else if (k == in.designated) {
+      w[k] = 2;
+    } else {
+      w[k] = ReclassifyLineOf(in.classes[k]);
+    }
+  }
+  return w;
+}
+
+int LaneOfWord(int a) {
+  // The wrapper map (0x140682090-0x1406820B4): A 0 -> lane 1, 1 -> 4, 2 -> 7, else 0 (skipped).
+  if (a == 0) return 1;
+  if (a == 1) return 4;
+  if (a == 2) return 7;
+  return 0;
+}
+
+void LaneAWords(const std::array<int, kSlots>& b, std::array<int, kSlots>& a, int designated,
+                const std::array<int, kSlots>& active) {
+  // FUN_1405CE4F0's recompute (lane-writers §2): every A-word := 3; active slots with A > 1 and
+  // (designated or B == 2) -> 2; inactive -> 3, else active with A > 2 take their B word.
+  // ponytail: the CFFE0 -> CF310 -> CFC80 post-steps run before these loops at CE4F0 l.65-140.
+  // An all-zero `active` means no mask was passed: every slot is active.
+  bool anyActive = false;
+  for (int k = 0; k < kSlots; ++k) anyActive = anyActive || active[k] != 0;
+  a.fill(3);
+  for (int k = 0; k < kSlots; ++k) {
+    if (anyActive && active[k] == 0) continue;
+    if (k == designated || b[k] == 2) a[k] = 2;
+  }
+  for (int k = 0; k < kSlots; ++k) {
+    if (anyActive && active[k] == 0) {
+      a[k] = 3;
+    } else if (a[k] > 2) {
+      a[k] = b[k];
+    }
+  }
+}
+
+void CopyLaneAWords(const std::array<int, kSlots>& b, std::array<int, kSlots>& a) {
+  // CE4F0's copy path (flag LX+0x1B0 == 0, l.52-64): A-record := B-record for all 11 slots.
+  a = b;
+}
+
+void SortLaneSlots(const std::array<uint8_t, kSlots>& slots, const std::array<float, kSlots>& keys,
+                   std::array<uint8_t, kSlots>& order, std::array<uint8_t, kSlots>& rank) {
+  // FUN_140A79640 with param_2 = 0 (lane-leaves §1): insertion sort, ascending; equal keys keep
+  // their pre-sort relative order (slot order from the compact step). Rank = index in the order.
+  order = slots;
+  for (int i = 1; i < kSlots; ++i) {
+    const uint8_t s = order[i];
+    const float key = keys[s];
+    int j = i;
+    while (j > 0 && keys[order[j - 1]] > key) {
+      order[j] = order[j - 1];
+      --j;
+    }
+    order[j] = s;
+  }
+  for (int i = 0; i < kSlots; ++i) rank[order[i]] = static_cast<uint8_t>(i);
+}
 }  // namespace pes::mentality
