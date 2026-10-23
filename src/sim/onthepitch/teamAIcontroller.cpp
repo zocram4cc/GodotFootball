@@ -1287,7 +1287,9 @@ Player* TeamAIController::ThrowInTargetMate(Player* thrower) const {
 }
 
 void TeamAIController::PinBallAtRelease() {
-  if (!IsCarryingBall()) return;
+  // PES holds the ball in the placed taker's hand from his stand point to the release (throwin 4.1), as on the carry.
+  // ponytail: GF pins it from the take start, not from the placement.
+  if (!IsCarryingBall() && !IsPieceTakerHeld(taker)) return;
   // PES chooses the carry's release row as the take starts, from the distance to the throw's target (FUN_140792E10, throwin 4.2).
   if (pieceReleaseRow == 0) {
     Player* mate = ThrowInTargetMate(taker);

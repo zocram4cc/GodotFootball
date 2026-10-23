@@ -91,12 +91,14 @@ Gtest XML and logs. `base3` = `d85b017` clean. `fix4` = `d85b017` + the two comm
 - [INF] Refusals should be rare for a carrying taker: `humanoid.cpp` `atOwnSpot` (about line 3224) exempts his touch while he carries the ball near his spot. Coverage not measured.
 - Next action: build the case in a test (touch refused, ball out) and assert that a restart follows. If none does, the judge needs a raw-ball check at the set-piece end. PES's behaviour there is not decoded (OPEN).
 
-### 5.3 In-play flag rises at take start; PES rises at the release event [DodgeGate's files; owner not assigned]
+### 5.3 In-play flag rises at take start; PES rises at the release event [PORTED on InPlayRelease2; one throw-in test red]
 
-- [CONFIRMED, GF] The `ReleasesRestart` block in `referee.cpp` calls `StartPlay()` and `StartSetPiece()` at take start, 25 ticks before the touch (DodgeGate measured about 27).
-- [doc] PES raises 116C 3 → 1 at the release event: `FUN_1406EC260` → `FUN_140445750` (`pes-re-throwin-choreography.md` §4.2, phase 1). The clip's release row is in §4.2.
-- [INF] Moving it changes which stop or play branch each player runs during the take (`elizacontroller.cpp`, the `!IsInPlay()` branch near line 150). Not tested. The judge stays closed during the take (`IsInSetPiece`), so this does not decide the re-award.
-- Next action: confirm the release-event call chain from the doc's VAs (ThrowinNormal `0x140792E10`, phase 1), then move `StartPlay` to the touch under a red test, checking the restart watch and the branch effects.
+- [CONFIRMED, GF] Was: the `ReleasesRestart` block in `referee.cpp` called `StartPlay()` at take start. Now `StartPlay()` runs in the touch block, the release, and the take stays out of play.
+- [CONFIRMED, Ghidra decompile of `pes_full.bin` this session] PES's release is ThrowinNormal shared Update `0x140792E10` phase 1: `ap+0x2460 |= 0x80`, then `FUN_140445750` (`0x140445750`) flips the flow's in-play field. Kicks end in the same writer: `FUN_14047FEB0` (`0x14047FEB0`) calls `FUN_140445750` (`pes-re-A5Judge.md` 3.6). The same writer runs at ball-held (phase 3, bits `0x300`); the release bit is what marks the release.
+- [CONFIRMED, test] `PesThrowInRelease.ARestartIsInPlayAtTheReleaseNotAtTheTakeStart`: red on c6e5fdc (741 of 741 take ticks in play), green after the port: every take of a seed-7 two-minute match is out of play and in play at its touch.
+- [CONFIRMED, GF] A ceremony taker (path B) holds the ball from his stand point to the release: `PinBallAtRelease` now pins it while `IsPieceTakerHeld`. `ponytail:` the pin starts at the take, not at the placement.
+- [OPEN] `PesThrowInRelease.AThrowInIsReleasedFromInsideTheLine` is red on the merged tree: 1 of 4 path-B releases lies 0.24 m outside the touchline. The path-B taker turns toward the ball during the take (the set-piece ShortPass approach, `elizacontroller.cpp` set-piece branch). PES's phase 0 yaws him toward the throw target instead (`pes-re-throwin-choreography.md` 4.2). Next action: hold a path-B taker's facing on the throw target during the take.
+- [OPEN] The full sim suite is not yet run on this branch. The whistle test (`AWhistleLeavesNoFlyingBallBehind`) and the keeper placed-heading test are not re-checked.
 
 ### 5.4 The release clip [DodgeGate's files; owner not assigned]
 

@@ -166,6 +166,37 @@ TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
                            << worst_m << " m)";
 }
 
+// PES raises the in-play flag at the release, not at the take start: the release block sets ap+0x2460 |= 0x80 and tells
+// the flow (FUN_140445750), which takes MI+0x116C 3 -> 1 (ThrowinNormal shared Update 0x140792E10 phase 1;
+// docs/re/pes-re-throwin-choreography.md 4.2). The kicks end in the same writer, FUN_14047FEB0 -> FUN_140445750 under the
+// kick dispatcher FUN_140446390 (docs/re/pes-re-A5Judge.md 3.6). So every take the referee starts is out of play for all of
+// its ticks and back in play on the tick its set piece ends. Counted over every take of a two-minute seed-7 match.
+TEST(PesThrowInRelease, ARestartIsInPlayAtTheReleaseNotAtTheTakeStart) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  int takes = 0, takeTicks = 0, inPlayTakeTicks = 0, releases = 0, inPlayReleases = 0;
+  bool taking = false;
+  RunMatch([&](Match& match) {
+    if (!taking && match.IsInSetPiece() && match.GetRefereeBuffer().started) {
+      taking = true;
+      takes++;
+    }
+    if (!taking) return;
+    if (match.IsInSetPiece()) {
+      takeTicks++;
+      if (match.IsInPlay()) inPlayTakeTicks++;
+      return;
+    }
+    taking = false;  // the touch ended the set piece
+    releases++;
+    if (match.IsInPlay()) inPlayReleases++;
+  });
+  EXPECT_GT(takes, 0) << "no set-piece take in two minutes";
+  EXPECT_EQ(inPlayTakeTicks, 0) << inPlayTakeTicks << " of " << takeTicks
+                                << " take ticks were already in play; PES rises at the release, not the take start";
+  EXPECT_EQ(inPlayReleases, releases) << "play did not resume at a release";
+  EXPECT_EQ(releases, takes) << "a take did not end in a release";
+}
+
 // PES's lift turns a carried throw-in's taker to face the pitch: SeamlessThrowin phase 4 (FUN_140791EC0 case 4,
 // docs/re/pes-re-throwin-choreography.md 3.2) plays throwin_seamless_liftupball and yaw-warps the root to 180 degrees, or to
 // 0 when the spot's PES z is negative, over the clip. In GF's frame (PES z = -y) that is -y from the +y touchline and +y from
