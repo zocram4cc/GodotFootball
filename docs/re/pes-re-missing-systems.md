@@ -1,5 +1,11 @@
 # PES 2021 — the missing referee / injury systems: DOGSO, the abandon rule, injury resistance (and the two referee negatives)
 
+> **Live read 22-10-26 (Main, read-only, owner's endless match with 8+ players sent off; forfeit_cond.py chain: player = team + 0xA8 + slot*0x128):**
+> `player+0x0C` read **0 for all 22 players**, including every dismissed one, so the forfeit's `+0x0C == 4` is not the red-card state and
+> a dismissal does not write it (its writer and meaning stay OPEN). `player+0x18` read 1 on ten players (/biz/ slots 4, 7, 8, 9, 10; /xs/
+> slots 4, 7, 8, 9, 10), on and off the pitch, including the booked /xs/ CF still on it, so it tracks a booking or card flag rather than only
+> an injury (revises §2.14's "injury marker"; INF until mapped slot by slot against the sheet). `MI+0x175E` read all zero: not a sent-off array.
+
 > **Main audit 22-10-26:** K11 SOLVED and Main-audited at the bytes: FUN_140a23260: `0x140a23279 cmp [r12+0x1168],0xa` (period 10), `0x140a232c6 cmp byte [rbx+r12+0x1748],0` (on the pitch), `0x140a23308 cmp [rax+0x14],0` (no replacement), `0x140a2330e cmp [rax+8],4` (sent off), `0x140a23322 mov byte [rax+0x1b70],1` (forfeit flag), `0x140a23329 mov dword [rax+0x1b74],3` (the 3): match. The owner's live evidence (endless matches voided 3-0, subs depleted, clock --:--, no scorers) matches. The earlier "dead code" claim is withdrawn. DOGSO and injury resistance found; no handball or time-wasting rule exists.
 > **Main note, round 2 (MissingRE2):** period 10 is post-match (the period table in §2.9a); the minimum-players rule is FUN_140447B50 case 6: a side with fewer on the pitch than E+0x17 (live: 7; `cmp al,[rdx+0x17]` at 0x140447E79) gets period 10 at the next stoppage (through the setter call `call 0x14102cad0` at 0x140447F0F; Main-checked: a call, not a direct store). player+0x18 is an injury marker, not a replacement count (corrects round 1). A second forfeit writer FUN_140A23380 exists.
 
