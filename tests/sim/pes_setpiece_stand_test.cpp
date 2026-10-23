@@ -178,7 +178,7 @@ TEST(SetKickStand, ThePlacedKeeperKeepsHisHeadingWhileHeWaits) {
   float worst = 0.0f;
   for (int t = 0; t < kWaitTicks; ++t) {
     match->Process();
-    if (match->IsInPlay()) break;  // released: the kick is in play
+    if (match->GetRefereeBuffer().started) break;  // released: the restart has started; the in-play flag rises at the touch
     EXPECT_TRUE(controller->IsPieceTakerHeld(taker)) << "the keeper lost his hold at tick " << t;
     const float turned = AngleBetweenDeg(placed, taker->GetDirectionVec());
     if (turned > worst) worst = turned;

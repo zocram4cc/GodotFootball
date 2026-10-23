@@ -115,12 +115,11 @@ TEST(PesThrowInRelease, AThrowInIsReleasedFromInsideTheLine) {
   EXPECT_EQ(outside, 0) << outside << " of " << releases << " released throw-ins lay outside the touchline at the touch";
 }
 
-// A carried throw-in's ball is held at its release row's key offset from the taker's root until the touch. The hold of a
-// tick places the ball from the root the previous tick ended with, so the check pairs the last held ball with that root.
-// The key's horizontal length is independent of the heading (the Fox X and Z of the key), so the check is the hold's
-// distance from the root. It checks the hold against the row's first hit record, which the hold reads; it does not check
-// that this record is PES's release key (OPEN, pes-re-throwin-choreography.md 5). Ceremony takers hold the ball at their
-// own stand-point key and are not counted.
+// A carried throw-in's ball is held at its release clip's key offset from the taker's root until the touch. The hold of a tick
+// places the ball from the root the previous tick ended with, so the check pairs the last held ball with that root. The key's
+// horizontal length is independent of the heading (the Fox X and Z of the key), so the check is the hold's distance from the
+// root. The release clip is the release row's cell in the 000 column (plain), and its first hit record is the key. Ceremony
+// takers are not counted: they never carry the ball.
 TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
   pes::SetPieceTakerConstants k;
@@ -151,7 +150,8 @@ TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
     throwInTaking = false;
     if (!carrying) return;
     carried++;
-    const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(takeRow);
+    const int releaseMotion = match.GetPesAnimetable().Cell(takeRow, pes::kThrowInPlainZeroColumn).motionNo;
+    const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(releaseMotion);
     const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
     const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
     const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), 1.0f, false, g);
