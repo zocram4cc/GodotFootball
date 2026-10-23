@@ -374,6 +374,14 @@ int PesLineIndexForRole(e_PlayerRole role) {
   }
 }
 
+// MI+0x116C: open play is 1. The role level's override only tests for 1, so any other state is 2 here.
+constexpr int kStoppedPlayState = 2;
+int PesPlayState(bool openPlay) {
+  return openPlay ? pes::mentality::kPlayStateInPlay : kStoppedPlayState;
+}
+// MI+0x1554, the restart kind. GF has no writer for it (MOVESTEP's MatchState1554 stands in 0 too).
+constexpr int kRestartKindStandIn = 0;  // ponytail: MI+0x1554 has no GF writer; the override stays off.
+
 }  // namespace
 
 void TeamAIController::CalculateDefensiveShape() {
@@ -431,6 +439,29 @@ void TeamAIController::CalculateDefensiveShape() {
   defensiveCompactSlider = compactSlider;
   defensivePressing = teamSheet.Toggle(pes::kPressuring) == 1;
 
+  // PES's defence-row dispatch (FUN_1405EC600 @ 0x1405ECC21): the possession flag picks block B (67B640),
+  // which runs the fold pick on the PES path. Block A's forward pull (682770) is not ported yet (F2-F4), so
+  // out of possession the GF target stands. The fold's consumer (the readers of planObj+0x7CD4) is not decoded.
+  foldSlots.clear();
+  if (match->PesLoop() &&
+      pes::mentality::BlockFor(team->IsPesPossession()) == pes::mentality::Block::kInPossession) {
+    std::array<pes::mentality::FoldCandidate, pes::roles::kSideSlots> cands{};
+    std::array<int, pes::roles::kSideSlots> classes{};
+    const auto& players = team->GetAllPlayers();
+    for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) {
+      Player* p = players[slot].get();
+      classes[slot] = roles.b[slot];
+      cands[slot].onPitch = p->IsActive();
+      cands[slot].cls = roles.b[slot];
+      // ponytail: the candidate position (67C4B0's local_238) has no decoded writer; the pitch position stands.
+      cands[slot].x = p->GetPosition().coords[0];
+      cands[slot].z = p->GetPosition().coords[1];
+    }
+    foldSlots = pes::mentality::FoldPicks(match->GetPesTeamConceptConstants().fold, cands,
+                                          pes::mentality::ProtectedSlot(classes),
+                                          pes::mentality::FoldCount(teamTick.b8a4), teamTick.b8a2);
+  }
+
   float ownFrameLine =
       pes::DefensiveLineHeight(k, field, facts, lineSlider, style, attackLevel, match->IsInPlay(),
                                carrierIsOpponent, previousLineHeight,
@@ -443,7 +474,7 @@ void TeamAIController::CalculateDefensiveShape() {
   std::vector<Player*> active;
   team->GetActivePlayers(active);
   for (Player* p : active) {
-    if (PesLineIndexForRole(p->GetFormationEntry().role) != 1) continue;
+    if (DefensiveLineOf(p) != pes::mentality::kMidLine) continue;
     const float x = p->GetPosition().coords[0] * dir;
     const float midLower = ownFrameLine + gap;
     midScores.push_back(x <= midLower + 2.0f ? 100.0f
@@ -489,7 +520,7 @@ float TeamAIController::MeasuredLine(int line, float ref) const {
   int n = 0;
   for (Player* p : active) {
     const e_PlayerRole role = p->GetFormationEntry().role;
-    if (role == e_PlayerRole_GK || PesLineIndexForRole(role) != line) continue;
+    if (role == e_PlayerRole_GK || DefensiveLineOf(p) != line) continue;
     sum += std::clamp(p->GetPosition().coords[0], ref - clamp_m, ref + clamp_m);
     ++n;
   }
@@ -628,7 +659,7 @@ Vector3 TeamAIController::GetAdaptedFormationPosition(Player* player,
     // defender's depth and width terms both come from the line he plays in. PES
     // rebuilds both shapes every tick and the out-of-possession one is what a
     // defending team plays in.
-    const int lineIndex = PesLineIndexForRole(role);
+    const int lineIndex = DefensiveLineOf(player);
     const float line = defensiveLineHeight;
     const float len = defensiveTeamLength;
     // The back line sits on the line height itself (report 14.7: a back-line
@@ -657,7 +688,7 @@ Vector3 TeamAIController::GetAdaptedFormationPosition(Player* player,
     int headCount = 0;
     for (Player* mate : teammates)
       if (mate->GetFormationEntry().role != e_PlayerRole_GK &&
-          PesLineIndexForRole(mate->GetFormationEntry().role) == lineIndex)
+          DefensiveLineOf(mate) == lineIndex)
         ++headCount;
     const Vector3 currentBall = match->GetBall()->Predict(0);
     const float dir = static_cast<float>(-team->GetSide());
@@ -3019,23 +3050,29 @@ void TeamAIController::SetUpRoleArrays() {
       teamSheet.SetRegisteredRole(slot, role, phase);
   }
   pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamSheet,
-                             pes::roles::WritePhase(team->GetID() == 0), &roles);
+                             pes::mentality::RoleLevel(
+                                 team->GetID() == 0,
+                                 PesPlayState(match->IsInPlay() && !match->IsInSetPiece()),
+                                 kRestartKindStandIn),
+                             &roles);
 }
 
-// The bulk writer FUN_1404F5F10 at the team tick's head and tail (FUN_14051D9E0). The head takes
-// flag 0 and the tail takes the possession latch T+0x255. Both are gated on MI+0x1775 == 0; GF has
+// The bulk writer FUN_1404F5F10 at the team tick's head and tail (FUN_14051D9E0). Both take the level of
+// the possession latch T+0x255 (RoleLevel). PES's head flag is F, the latch on the usual path (its parity
+// sub-path is RE-25, not ported). Both are gated on MI+0x1775 == 0; GF has
 // no such byte and its stand-in (pesmovestep.cpp's MatchModeByte) is 0, so the gate is open.
 // ponytail: PES's registry is the sheet's role per phase. GF has no sheet phases, so each write
 // mirrors the role its slot's player holds now (the dynamic formation entry the readers used).
 void TeamAIController::WriteRoleArrays(bool head) {
   const bool possession = team->IsPesPossession();
-  const int phase = pes::roles::WritePhase(!head && possession);
+  const int level = pes::mentality::RoleLevel(
+      possession, PesPlayState(match->IsInPlay() && !match->IsInSetPiece()), kRestartKindStandIn);
   for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) {
     const e_PlayerRole role = team->GetAllPlayers()[slot]->GetDynamicFormationEntry().role;
-    teamSheet.SetRegisteredRole(slot, pes::roles::RegisteredRoleOf(role), phase);
+    teamSheet.SetRegisteredRole(slot, pes::roles::RegisteredRoleOf(role), level);
   }
   pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamSheet,
-                             phase, &roles);
+                             level, &roles);
   if (head) return;
   // The tail swap (FUN_14051E31E) also needs FUN_140A41BE0's latch (TailSwapAllowed).
   if (roleSwap && possession && pes::roles::TailSwapAllowed(roles))
@@ -3045,6 +3082,17 @@ void TeamAIController::WriteRoleArrays(bool head) {
 int TeamAIController::RoleClassOfSlot(int slot) const {
   assert(slot >= 0 && slot < pes::roles::kSideSlots);
   return roles.b[slot];
+}
+
+int TeamAIController::DefensiveLineOf(Player* p) const {
+  if (!match->PesLoop()) return PesLineIndexForRole(p->GetFormationEntry().role);
+  // PES's line of a slot is the reclassify of its B class (EC600's line store at 0x1405ECBB0).
+  const auto& players = team->GetAllPlayers();
+  for (int slot = 0; slot < pes::roles::kSideSlots && slot < static_cast<int>(players.size()); ++slot)
+    if (players[slot].get() == p)
+      return pes::mentality::ReclassifyLine(match->GetPesTeamConceptConstants().reclassifyLines,
+                                            roles.b[slot]);
+  return PesLineIndexForRole(p->GetFormationEntry().role);
 }
 
 void TeamAIController::UpdatePesDesignation() {
