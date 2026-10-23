@@ -53,6 +53,7 @@ struct Rig;
 #include "pessubs.hpp"
 // PES 2021's MOVESTEP machine (docs/re/pes-re-anim-select.md): the install constants its handlers read.
 #include "pes/movestep_bundle.hpp"
+#include "pes/derivation.hpp"
 
 struct MatchSetup {
   int homeTeamDbId = 0;
@@ -148,6 +149,9 @@ struct MatchSetup {
   // constants.
   const pes::Animetable* pesAnimetable = nullptr;
   const pes::Mbinfo* pesMbinfo = nullptr;
+  // PES 2021's run-up remap (Derivationdatatable.bin, pes/derivation.hpp): the free kick's and the penalty's walks. Required, read
+  // from the install with pes::LoadDerivationTable.
+  const pes::DerivationTable* pesDerivation = nullptr;
   // PES 2021's standing-tackle sub-kind (pestackle.hpp): the per-kind group
   // tables and the readiness mask's constants, read from the install's exe.
   // Required: the Tackle action's sub-kind choice is these tables.

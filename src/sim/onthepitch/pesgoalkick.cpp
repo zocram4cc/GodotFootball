@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "pesballtrack.hpp"
+#include "gametypes.hpp"
 
 namespace pes {
 namespace {
@@ -39,6 +40,26 @@ Vec3 TurnByHeading(const Vec3& local, float headingDeg) {
   const float c = std::cos(rad);
   return Vec3(local.z * s + local.x * c, local.y, local.z * c - local.x * s);
 }
+
+constexpr float kFullTurn_deg = 360.0f;  // the placer's fold, 0x14259858C
+// The penalty's restart yaws (FUN_1408B4560, MODE 6): 90 (0x14259BE5C) from the +X side, 270 (0x1425A2008) from the -X side.
+constexpr float kPenaltyRestartNear_deg = 90.0f;
+constexpr float kPenaltyRestartFar_deg = 270.0f;
+// The free kick's tail (FUN_1407411F0): the corner pull-in, 0.5 m (0x142565600), and the clamp's margin past the marks, 1.5 m
+// (0x14259BDDC).
+constexpr float kFreeKickCornerPullIn_m = 0.5f;
+constexpr float kFreeKickClampMargin_m = 1.5f;
+
+// The placer's fold of one turn (FUN_1404BEF90, and FUN_140782930's own at 0x140782A56-0x140782A76): one turn added below zero,
+// one taken at or above 360. A single step, as PES does it.
+float FoldOnce360(float deg) {
+  if (deg < 0.0f) return deg + kFullTurn_deg;
+  if (deg >= kFullTurn_deg) return deg - kFullTurn_deg;
+  return deg;
+}
+
+// The sign the placer takes: negative below zero, positive otherwise (zero is +1, as its JBE branches go).
+float Sign1(float v) { return v < 0.0f ? -1.0f : 1.0f; }
 
 }  // namespace
 
@@ -134,6 +155,49 @@ Vec3 PlacerLookPoint(const Vec3& stand, float headingDeg) {
   const Vec3 fox = ToFox(stand);
   const Vec3 facing = TurnByHeading(Vec3(0.0f, 0.0f, 1.0f), headingDeg);
   return FromFox(Vec3(fox.x + facing.x, fox.y + facing.y, fox.z + facing.z));
+}
+
+float FreeKickRestartYawDeg(const Vec3& spot, float attackSign) {
+  // FUN_1408B4560's MODE 5 works in Fox space. The goal the side attacks is at (+F0 or -F0, 0): the sign is the attack sign's
+  // (0x1408B45CA-0x1408B4615, `CMP R8B,1`: only +1 keeps F0 positive).
+  const Vec3 fox = ToFox(spot);
+  const float targetX = (attackSign > 0.0f ? 1.0f : -1.0f) * pesFieldHalfLength;
+  // A spot on the goal's own axis has no bearing, and the placer's answer is 0 (0x1408B469B).
+  if (fox.z == 0.0f && targetX == fox.x) return 0.0f;
+  return Wrap360Deg(std::atan2(targetX - fox.x, -fox.z) * kHalfTurn_deg / kPi);
+}
+
+float PenaltyRestartYawDeg(const Vec3& spot) {
+  // FUN_1408B4560's MODE 6 (0x1408B45AB-0x1408B45D5): the spot's x against zero.
+  return ToFox(spot).x >= 0.0f ? kPenaltyRestartNear_deg : kPenaltyRestartFar_deg;
+}
+
+float ContactYawDeg(int rotOffset, bool mirror) {
+  // FUN_1406B1C70 returns the record's offset; the mirror flag scales it by -1 (0x1406B1CC7-0x1406B1CDB).
+  return FoldOnce360(static_cast<float>(mirror ? -rotOffset : rotOffset));
+}
+
+float SetKickHeadingDeg(float contactYawDeg, float restartYawDeg) {
+  // FUN_1404BEF90 folds the restart yaw, adds the contact yaw, and folds the sum. The placer adds nothing after it.
+  return FoldOnce360(FoldOnce360(restartYawDeg) + contactYawDeg);
+}
+
+Vec3 FreeKickFieldClamp(const Vec3& stand) {
+  Vec3 fox = ToFox(stand);
+  const float halfLength = pesFieldHalfLength, halfWidth = pesFieldHalfWidth;
+  // The stand's overshoot past the corner (F0, F1) on each axis. Within 0.5 m of the corner, the axis that overshoots more is pulled
+  // in to its mark less 0.5 m: x when |x| - F0 is the larger (0x74148B), else z (0x7414BE).
+  const float overX = std::fabs(fox.x) - halfLength, overZ = std::fabs(fox.z) - halfWidth;
+  if (std::sqrt(overX * overX + overZ * overZ) < kFreeKickCornerPullIn_m) {
+    if (std::fabs(overX) > std::fabs(overZ))
+      fox.x = Sign1(fox.x) * (halfLength - kFreeKickCornerPullIn_m);
+    else
+      fox.z = Sign1(fox.z) * (halfWidth - kFreeKickCornerPullIn_m);
+  }
+  // Each axis is clamped to its mark plus 1.5 m, keeping its sign (0x7414E9-0x741522).
+  if (std::fabs(fox.x) > halfLength + kFreeKickClampMargin_m) fox.x = Sign1(fox.x) * (halfLength + kFreeKickClampMargin_m);
+  if (std::fabs(fox.z) > halfWidth + kFreeKickClampMargin_m) fox.z = Sign1(fox.z) * (halfWidth + kFreeKickClampMargin_m);
+  return FromFox(fox);
 }
 
 float FacingHeadingDeg(const Vec3& gfDirection) {

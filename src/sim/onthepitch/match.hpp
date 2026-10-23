@@ -265,6 +265,8 @@ public:
   // the dodge selectors read.
   const pes::Animetable& GetPesAnimetable() const { return *pesAnimetable; }
   const pes::Mbinfo& GetPesMbinfo() const { return *pesMbinfo; }
+  // PES 2021's run-up remap table (pes/derivation.hpp): the free kick's and the penalty's walks.
+  const pes::DerivationTable& GetPesDerivation() const { return *pesDerivation; }
   // PES 2021's standing-tackle sub-kind (pes-re-contact-port.md stage C): the
   // per-kind group tables and the readiness mask's constants.
   const pes::TackleConstants& GetPesTackleConstants() const { return pesTackleConstants; }
@@ -606,6 +608,7 @@ protected:
   pes::DodgeConstants pesDodgeConstants{};
   std::unique_ptr<pes::Animetable> pesAnimetable;
   std::unique_ptr<pes::Mbinfo> pesMbinfo;
+  std::unique_ptr<pes::DerivationTable> pesDerivation;
   // PES 2021's standing-tackle sub-kind (stage C).
   pes::TackleConstants pesTackleConstants{};
   // PES 2021's MOVESTEP handlers' install constants, copied from MatchSetup at construction.

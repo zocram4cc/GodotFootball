@@ -85,6 +85,31 @@ int DerivePlayerMotion(const DerivationTable& t, int playerId, int motionIn, int
 // minus one is the stat. Returns motionIn when nothing substitutes it.
 int DeriveGenericMotion(const DerivationTable& t, int stat, int motionIn, int kind);
 
+// The second kicker gate of FUN_1407411F0 (0x1407412A1-0x1407412D2): MI+0x1740 holds the published second kicker, and a value
+// above 0x15 means there is none. Ids 0..21 are players.
+inline constexpr int kSecondKickerIdLimit = 0x15;
+// What GF publishes when there is no second kicker: 255, the value MI+0x1740 holds in every record of the live watch with none
+// set (docs/re/pes-re-setpiece-kicker.md, the watch of 47 changes). GF has no second free-kick kicker yet.
+inline constexpr int kNoSecondKicker = 0xFF;
+// The list kinds the two placers walk: 2 is the free kick (FUN_1407411F0 `mov r9d,2` at 0x1407412ED and 0x14074130E), 4 the
+// penalty (FUN_140782930 `mov r9d,4` at 0x1407829C1 and 0x1407829E2).
+inline constexpr int kFreeKickListKind = 2;
+inline constexpr int kPenaltyListKind = 4;
+
+// The keys a placer passes its walks: the taker's card id (FUN_1406EA7B0; GF has no signature cards, so 0), his stat (FUN_1406E81F0
+// for the free kick, FUN_1406EA760 for the penalty; GF has no style record, so 0), and the published second kicker.
+struct SetPieceKeys {
+  int cardId = 0;
+  int stat = 0;
+  int secondKicker = kNoSecondKicker;
+};
+
+// FUN_1407411F0's run-up (docs/re/pes-re-motion-remap.md section 5.1). With no second kicker the player walk runs, and the stat
+// walk runs when it changed nothing. A second kicker skips the player walk and zeroes the stat (CMOVBE at 0x741289).
+int DeriveFreeKickRunUp(const DerivationTable& t, const SetPieceKeys& k, int baseMotion);
+// FUN_140782930's run-up. The player walk runs whatever the second kicker is, then the stat walk when it changed nothing.
+int DerivePenaltyRunUp(const DerivationTable& t, const SetPieceKeys& k, int baseMotion);
+
 // FUN_14071E570's inputs, each read by the caller: the player's id; the clip FUN_1406ABB30 picked
 // for the row and column; the caller's flag (param_4); the anime state, which is vt+0x28 of the
 // player's anime interface (player+0xAB8) and must equal the Beckham variant; whether the picked

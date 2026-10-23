@@ -297,6 +297,76 @@ TEST(DerivationLongKick, TheRemapsRewriteTheirClipsWhateverTheWalksSaid) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// The placers' run-up walks (docs/re/pes-re-motion-remap.md section 5, six mutations in section 7). FUN_1407411F0, the
+// free kick (list kind 2), runs the player walk only when no second kicker is set (MI+0x1740 > 0x15), zeroes its stat when
+// one is set, and runs the stat walk when the player walk changes nothing. FUN_140782930, the penalty (list kind 4), runs
+// the player walk always, then the stat walk. The rows here are synthetic, not stock values.
+// ---------------------------------------------------------------------------------------------
+
+constexpr int kFreeKickBase = 600;       // the cell's free kick run-up
+constexpr int kFreeKickGeneric = 610;    // a generic row: a card 0 taker matches it, and its sub minus one is 1
+constexpr int kFreeKickCardSeven = 611;  // card 7's own row
+constexpr int kPenaltyBase = 700;        // the cell's penalty run-up
+constexpr int kPenaltyFirst = 710;       // the first generic row for the base
+constexpr int kPenaltyLater = 720;       // a later generic row for the same base
+constexpr int kNoRowCard = 999;          // a card that owns no row
+
+// The free kick's list: a generic row, then card 7's own row, both for the base.
+pes::DerivationTable FreeKickRows() {
+  return Table({{2, std::nullopt, kFreeKickBase, kFreeKickGeneric, 2}, {2, 7, kFreeKickBase, kFreeKickCardSeven, 3}});
+}
+
+// The penalty's list: two generic rows for the base, the first listed first.
+pes::DerivationTable PenaltyRows() {
+  return Table({{4, std::nullopt, kPenaltyBase, kPenaltyFirst, 4}, {4, std::nullopt, kPenaltyBase, kPenaltyLater, 2}});
+}
+
+pes::SetPieceKeys Keys(int cardId, int stat, int secondKicker) {
+  pes::SetPieceKeys k;
+  k.cardId = cardId;
+  k.stat = stat;
+  k.secondKicker = secondKicker;
+  return k;
+}
+
+// Mutation 1 (the free kick gate dropped): a second kicker skips the player walk. Card 0 would take the generic row.
+TEST(RunUpWalks, FreeKickWalkIsSkippedWhenASecondKickerIsSet) {
+  EXPECT_EQ(pes::DeriveFreeKickRunUp(FreeKickRows(), Keys(0, 0, 5), kFreeKickBase), kFreeKickBase);
+}
+
+// Mutation 2 (the free kick stat not zeroed): with a second kicker the stat is zero, so the stat walk finds nothing. A
+// kept stat of 1 would match the generic row's sub 2.
+TEST(RunUpWalks, FreeKickStatIsZeroedWhenASecondKickerIsSet) {
+  EXPECT_EQ(pes::DeriveFreeKickRunUp(FreeKickRows(), Keys(0, 1, 5), kFreeKickBase), kFreeKickBase);
+}
+
+// Mutations 4 and 5 (a card 0 matched by id; the first match reversed): a taker with no second kicker walks the list, and
+// a card 0 matches every row by motion alone, so the first row listed wins.
+TEST(RunUpWalks, AFreeKickTakerWithNoSecondKickerTakesTheFirstCardZeroRow) {
+  EXPECT_EQ(pes::DeriveFreeKickRunUp(FreeKickRows(), Keys(0, 0, pes::kNoSecondKicker), kFreeKickBase), kFreeKickGeneric);
+}
+
+TEST(RunUpWalks, AFreeKickCardMatchesOnlyItsOwnRows) {
+  EXPECT_EQ(pes::DeriveFreeKickRunUp(FreeKickRows(), Keys(7, 0, pes::kNoSecondKicker), kFreeKickBase), kFreeKickCardSeven);
+  EXPECT_EQ(pes::DeriveFreeKickRunUp(FreeKickRows(), Keys(kNoRowCard, 0, pes::kNoSecondKicker), kFreeKickBase), kFreeKickBase);
+}
+
+// Mutation 6 (the stat walk matches sub, not sub minus one): stat 2 must not match the generic row, whose sub minus one is 1.
+TEST(RunUpWalks, TheFreeKickStatWalkMatchesSubMinusOne) {
+  EXPECT_EQ(pes::DeriveFreeKickRunUp(FreeKickRows(), Keys(kNoRowCard, 2, pes::kNoSecondKicker), kFreeKickBase), kFreeKickBase);
+}
+
+// Mutation 4 and 5 for the penalty: a default penalty taker remaps to the first row, not the later one, and card 0 matches it.
+TEST(RunUpWalks, APenaltyTakerWithNoCardTakesTheFirstPenaltyRow) {
+  EXPECT_EQ(pes::DerivePenaltyRunUp(PenaltyRows(), Keys(0, 0, pes::kNoSecondKicker), kPenaltyBase), kPenaltyFirst);
+}
+
+// Mutation 3 (the free kick gate added to the penalty): the penalty's walk runs whatever the second kicker is.
+TEST(RunUpWalks, ThePenaltyWalkIsNotGatedBySecondKicker) {
+  EXPECT_EQ(pes::DerivePenaltyRunUp(PenaltyRows(), Keys(0, 0, 5), kPenaltyBase), kPenaltyFirst);
+}
+
+// ---------------------------------------------------------------------------------------------
 // The install: the user's own file and exe, through the VFS winner
 // ---------------------------------------------------------------------------------------------
 
@@ -466,6 +536,24 @@ TEST(DerivationInstall, ListFivesPlacekickVariantsResolveByTheirSub) {
   EXPECT_EQ(NameOf(in, pes::DeriveGenericMotion(in.table, 1, placekick, 5)), "kick_long_3_0_inside_y0_045_curve_silva");
   EXPECT_EQ(NameOf(in, pes::DeriveGenericMotion(in.table, 2, placekick, 5)), "kick_long_3_0_inside_y0_045_curve_ozil");
   EXPECT_EQ(NameOf(in, pes::DeriveGenericMotion(in.table, 9, placekick, 5)), "kick_long_3_0_inside_y0_045_curve_coutinho");
+}
+
+// A default taker (no signature card, no style stat, no second kicker) on the stock table. The free kick's cell is fk_runup,
+// and the first kind-2 row for it is taken by card 0 (the card id is not tested by the walk), so the taker runs fk_runup_robecal,
+// not fk_runup. The penalty's cell is pk_runup and its first kind-4 row is pk_runup_neymar.
+TEST(DerivationInstall, ADefaultTakersRunUpsAreTheStockRows) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  if (DownloadShipsTheTable(root)) GTEST_SKIP() << "a download/ pack ships the table";
+  Install in;
+  std::string err;
+  ASSERT_TRUE(LoadInstall(root, &in, &err)) << err;
+  const int freeKick = MotionOf(in, "fk_runup"), penalty = MotionOf(in, "pk_runup");
+  ASSERT_GE(freeKick, 0);
+  ASSERT_GE(penalty, 0);
+  const pes::SetPieceKeys defaultTaker{};
+  EXPECT_EQ(NameOf(in, pes::DeriveFreeKickRunUp(in.table, defaultTaker, freeKick)), "fk_runup_robecal");
+  EXPECT_EQ(NameOf(in, pes::DerivePenaltyRunUp(in.table, defaultTaker, penalty)), "pk_runup_neymar");
 }
 
 }  // namespace

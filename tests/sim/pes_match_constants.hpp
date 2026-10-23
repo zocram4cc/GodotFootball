@@ -33,6 +33,7 @@
 #include "onthepitch/pesteamconcepts.hpp"
 #include "onthepitch/pessubs.hpp"
 #include "pes/exe.hpp"
+#include "pes/derivation.hpp"
 #include "pes/vfs.hpp"
 
 namespace pestest {
@@ -57,6 +58,7 @@ struct PesMatchConstants {
   std::optional<pes::DodgeConstants> dodge;
   std::optional<pes::Animetable> animetable;
   std::optional<pes::Mbinfo> mbinfo;
+  std::optional<pes::DerivationTable> derivation;
   std::optional<pes::TackleConstants> tackle;
   std::optional<pes::StrategyConstants> strategy;
   std::optional<pes::TeamConceptConstants> teamConcepts;
@@ -102,6 +104,7 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
   if (mounted) c.dodge = pes::LoadDodgeConstants(*exe, &err);
   if (mounted) c.animetable = pes::LoadAnimetable(*exe, vfs, &err);
   if (mounted) c.mbinfo = pes::LoadMbinfo(vfs, *exe, &err);
+  if (mounted) c.derivation = pes::LoadDerivationTable(*exe, vfs, &err);
   if (mounted) c.tackle = pes::LoadTackleConstants(*exe, &err);
     c.strategy = pes::LoadStrategyConstants(*exe, &err);
     c.substitutions = pes::LoadSubstitutionConstants(*exe, &err);
@@ -142,6 +145,7 @@ inline bool FillMissingPesConstants(MatchSetup* setup) {
   fill(setup->pesDodgeConstants, c.dodge);
   fill(setup->pesAnimetable, c.animetable);
   fill(setup->pesMbinfo, c.mbinfo);
+  fill(setup->pesDerivation, c.derivation);
   fill(setup->pesTackleConstants, c.tackle);
   fill(setup->pesStrategyConstants, c.strategy);
   fill(setup->pesTeamConceptConstants, c.teamConcepts);
