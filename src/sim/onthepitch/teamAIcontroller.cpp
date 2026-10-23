@@ -27,6 +27,7 @@
 
 #include "../data/playerskills.hpp"
 #include "../data/playingstyles.hpp"
+#include "pes/movestep.hpp"
 #include "pessetpieceteam.hpp"
 #include "pessequencer.hpp"
 #include "pes/mbinfo.hpp"
@@ -2827,6 +2828,19 @@ void TeamAIController::UpdateStrategy() {
   const bool pesPath = match->PesLoop();
   const bool inPlay = match->IsInPlay() && !match->IsInSetPiece();
   if (pesPath) {
+    // Steps 8 and 9 first, as in PES's order: the stopped select (8) and the out-of-play clear of
+    // the reaction delays (9) read the latch, MI+0x116C and MI+0x1554 before the drift reads anything.
+    const bool latch = team->IsPesPossession();
+    const RefereeBuffer& buffer = match->GetRefereeBuffer();
+    const int playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
+                                            buffer.prepared || buffer.started);
+    pes::StoppedSelect(&teamTick, !latch, playState, match->PesRestartKind());
+    pes::ClearReactionDelays(&teamTick, playState);
+    // Step 11's head (FUN_1404FEDC0): R8B is the latch change this tick, the flip the restart word
+    // reads too. ponytail: DL (0x1404F6D89-0x1404F6D97) needs MI+0x119C, the raw kick sum, which
+    // has no GF counterpart (team.cpp), so the score-on branch stays off.
+    const bool flipped = latch != lastTickPossession;
+    pes::SupportWeights(&teamTick, latch, flipped, playState, /*scoreFlag=*/false);
     // ponytail: T+0x210 (the manual/target word) has no GF counterpart and no
     // decoded in-match writer (tactics §3 O4); balanced stands in, so the
     // manual arm never fires until the writer lands.
@@ -2834,8 +2848,7 @@ void TeamAIController::UpdateStrategy() {
     pes::DriftAttackLevel(&teamTick, strategy.strategy, kManualBalanced, inPlay,
                            match->GetPesFrame());
     pes::WriteAttackFlags(&teamTick);
-    const bool latch = team->IsPesPossession();
-    pes::WriteRestartWord(&teamTick, inPlay, latch != lastTickPossession);
+    pes::WriteRestartWord(&teamTick, inPlay, flipped);
     lastTickPossession = latch;
     // Step 15's in-play arm (FUN_1404FA840, 0x1404FA869-0x1404FA887).
     if (inPlay) pes::ArmInPlayCounters(&teamTick);
