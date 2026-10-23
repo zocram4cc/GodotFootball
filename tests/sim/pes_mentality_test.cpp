@@ -142,23 +142,23 @@ TEST(MentalityLaneSort, AscendingStableWithRank) {
   std::array<uint8_t, 11> order{};
   std::array<uint8_t, 11> rank{};
   mentality::SortLaneSlots(slots, keys, order, rank);
-  EXPECT_EQ((std::array<uint8_t, 11>{1, 2, 4, 0, 3, 7, 8, 9, 10, 6, 5}), order);
+  EXPECT_EQ((std::array<uint8_t, 11>{1, 2, 4, 0, 3, 8, 9, 10, 7, 5, 6}), order);
   EXPECT_EQ(3u, rank[0]);
   EXPECT_EQ(0u, rank[1]);
   EXPECT_EQ(1u, rank[2]);
 }
 
 // The A-words FUN_1405CE4F0 (lane-writers §2): the recompute default is 3; designated or B == 2
-// forces 2; otherwise the slot's B class line; inactive is 3; the copy path takes the B words.
+// forces 2; otherwise the slot's B word; inactive is 3; the copy path takes the B words.
 TEST(MentalityLaneA, RecomputeDefaultsDesignatedAndFallback) {
-  std::array<int, 11> b{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 2};
+  // B words here (not classes): keeper B = 3, slot 1 holds line 1, slot 10 holds line 2.
+  std::array<int, 11> b{3, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2};
   std::array<int, 11> a{};
-  mentality::LaneAWords(b, a, 5);
+  mentality::LaneAWords(b, a, 5, std::array<int, 11>{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1});
   EXPECT_EQ(3, a[0]);
   EXPECT_EQ(2, a[5]);
-  EXPECT_EQ(mentality::ReclassifyLineOf(1), a[1]);
+  EXPECT_EQ(1, a[1]);
   EXPECT_EQ(2, a[10]);
-  a.fill(0);
   std::array<int, 11> active{};
   active.fill(1);
   active[2] = 0;
