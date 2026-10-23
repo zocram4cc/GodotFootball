@@ -23,6 +23,10 @@ constexpr float kAtanMidHigh = 2.4375f;
 // The sine table's last index passed to the lookup: idx > 0x1ff returns the
 // signed amplitude (FUN_140a92c80 0x140a92cff).
 constexpr uint32_t kSineLastIndex = 0x1ffu;
+// FUN_140503430 0x140503590 passes 2 as the limit of FUN_140a55d40's count.
+constexpr int kHolderGateLimit = 2;
+// FUN_140a55d40 0x140a55dac: an int of 4 reads the entry's byte +0x68 (FUN_141f9c3b0).
+constexpr int32_t kIndirectValue = 4;
 
 bool ReadFloat(const PeImage& exe, uint64_t va, float* out) {
   uint8_t bytes[sizeof(float)];
@@ -238,6 +242,30 @@ bool ClosestT(const Vec3& a, const Vec3& b, const Vec3& c, float eps, float* t) 
   *t = ((dx * c.x) + (dz * c.z) - ((dx * a.x) + (dz * a.z))) / len2;
   return true;
 }
+int SideOfSlot(int slot) { return (slot >= 11 && slot <= 21) ? 1 : 0; }
+
+bool SideHasEntryAtMost(const Roster& roster, int side, int limit) {
+  for (int i = 0; i < Roster::kEntries; ++i) {
+    const RosterEntry& e = roster.entries[static_cast<size_t>(i)];
+    if (e.b06 != 0) continue;                                    // +0x06 set: skipped
+    if (static_cast<uint32_t>(e.slot20) > kLastSlot) continue;   // 0x140a55d88: slot <= 0x15
+    if (e.b0d != 0) continue;                                    // +0x0d set: skipped
+    if (SideOfSlot(e.slot20) != side) continue;
+    int32_t value = roster.values[static_cast<size_t>(i)];       // M+0x10e8+4*i
+    if (value == kIndirectValue) value = static_cast<int32_t>(e.b68);
+    if (value <= limit) return true;
+  }
+  return false;
+}
+
+bool FirstEntryFlagClear(const Roster& roster, int slot) {
+  if (static_cast<uint32_t>(slot) > kLastSlot) return false;     // 0x140479476: slot <= 0x15
+  for (int i = 0; i < Roster::kEntries; ++i) {
+    const RosterEntry& e = roster.entries[static_cast<size_t>(i)];
+    if (e.slot20 == slot) return e.b0d == 0;                     // the first match decides
+  }
+  return false;
+}
 
 Block9Result ComputeBlock9(const Block9Inputs& in, const Tables& t) {
   const Constants& k = t.k;
@@ -247,7 +275,8 @@ Block9Result ComputeBlock9(const Block9Inputs& in, const Tables& t) {
   // 0x140503555-0x1405035c4: the forced flag, from the slot's action.
   bool forced = false;
   if (in.live.action == 0x34) {
-    forced = !in.gate34SideOk || in.gate34SlotTaken;
+    forced = !SideHasEntryAtMost(in.roster, SideOfSlot(in.slot), kHolderGateLimit) ||
+             FirstEntryFlagClear(in.roster, in.slot);
   } else if (in.live.action == 0x35) {
     forced = true;
   }

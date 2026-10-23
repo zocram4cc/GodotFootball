@@ -94,7 +94,7 @@ Block9Inputs Base() {
   in.live.pos = Vec3{0.0f, 0.0f, 0.0f};
   in.anchor = Vec3{0.6f, 0.0f, 0.3f};
   in.reach = 10.0f;
-  in.gate34SideOk = true;
+
   return in;
 }
 
@@ -494,6 +494,94 @@ TEST(PesReactionBlock, ReadsTheInstallConstantsAndQuarterWaveTable) {
   EXPECT_NEAR(loaded->sine[256], 0.70710678f, 1e-6f);  // sin(45 degrees)
   EXPECT_TRUE(std::any_of(loaded->classes.words.begin(), loaded->classes.words.end(),
                           [](uint32_t w) { return w != 0u; }));
+}
+
+// ---- the holder predicates (FUN_140a55d40, FUN_140479470) over the roster -----
+
+// A roster whose entry 0 names `slot` with `value`; the other entries name slot 0.
+pes::reactionblock::Roster OneEntry(int slot, int value, uint8_t b06 = 0, uint8_t b0d = 0,
+                                    uint8_t b68 = 0) {
+  pes::reactionblock::Roster r;
+  r.entries[0].b06 = b06;
+  r.entries[0].slot20 = slot;
+  r.entries[0].b0d = b0d;
+  r.entries[0].b68 = b68;
+  r.values[0] = value;
+  return r;
+}
+
+TEST(PesReactionBlockRoster, SideOfSlotIsTheSecondSideForElevenToTwentyOne) {
+  using pes::reactionblock::SideOfSlot;
+  EXPECT_EQ(SideOfSlot(0), 0);
+  EXPECT_EQ(SideOfSlot(10), 0);
+  EXPECT_EQ(SideOfSlot(11), 1);
+  EXPECT_EQ(SideOfSlot(21), 1);
+  EXPECT_EQ(SideOfSlot(22), 0);
+  EXPECT_EQ(SideOfSlot(-1), 0);
+}
+
+TEST(PesReactionBlockRoster, SideEntryNeedsAValueAtMostTheLimitOnItsSide) {
+  using pes::reactionblock::SideHasEntryAtMost;
+  pes::reactionblock::Roster r = OneEntry(12, 1);
+  EXPECT_TRUE(SideHasEntryAtMost(r, 1, 2));
+  r.values[0] = 3;
+  EXPECT_FALSE(SideHasEntryAtMost(r, 1, 2));
+  r.values[0] = 1;
+  for (int i = 1; i < pes::reactionblock::Roster::kEntries; ++i) r.entries[i].b06 = 1;  // only entry 0 counts
+  EXPECT_FALSE(SideHasEntryAtMost(r, 0, 2));  // slot 12 is the second side
+}
+
+TEST(PesReactionBlockRoster, IndirectValueFourReadsTheEntryByte) {
+  using pes::reactionblock::SideHasEntryAtMost;
+  pes::reactionblock::Roster r = OneEntry(12, 4, 0, 0, 2);  // byte +0x68 = 2 <= 2
+  EXPECT_TRUE(SideHasEntryAtMost(r, 1, 2));
+  r.entries[0].b68 = 3;
+  EXPECT_FALSE(SideHasEntryAtMost(r, 1, 2));
+}
+
+TEST(PesReactionBlockRoster, InvalidEntriesAreSkipped) {
+  using pes::reactionblock::SideHasEntryAtMost;
+  EXPECT_FALSE(SideHasEntryAtMost(OneEntry(12, 0, /*b06=*/1), 1, 2));
+  EXPECT_FALSE(SideHasEntryAtMost(OneEntry(12, 0, 0, /*b0d=*/1), 1, 2));
+  EXPECT_FALSE(SideHasEntryAtMost(OneEntry(22, 0), 1, 2));  // slot 22 names no player; side 0 entries are not side 1
+}
+
+TEST(PesReactionBlockRoster, FirstEntryForTheSlotDecidesItsFlag) {
+  using pes::reactionblock::FirstEntryFlagClear;
+  pes::reactionblock::Roster r;
+  r.entries[0].slot20 = 7;
+  r.entries[0].b0d = 1;  // the first match is flagged
+  r.entries[5].slot20 = 7;
+  r.entries[5].b0d = 0;  // a later match is clear: it does not count
+  EXPECT_FALSE(FirstEntryFlagClear(r, 7));
+  r.entries[0].b0d = 0;
+  r.entries[5].b0d = 1;
+  EXPECT_TRUE(FirstEntryFlagClear(r, 7));
+  EXPECT_FALSE(FirstEntryFlagClear(r, 30));  // above 21
+  EXPECT_FALSE(FirstEntryFlagClear(r, 9));   // no entry names slot 9
+}
+
+TEST(PesReactionBlockRoster, Action34IsForcedWhenTheSideOrTheSlotEntryFails) {
+  const Tables t = StockTables();
+  // The default roster names slot 0 on every entry: a free side-0 entry with value 0.
+  Block9Inputs side0 = Moving(kSpeedUnit);
+  side0.live.action = 0x34;
+  EXPECT_NEAR(ComputeBlock9(side0, t).block[0], 1.0f / 3.0f, 1e-5f);  // not forced
+
+  Block9Inputs side1 = Moving(kSpeedUnit);
+  side1.slot = 12;  // side 1 has no free entry in the default roster
+  side1.live.action = 0x34;
+  EXPECT_FLOAT_EQ(ComputeBlock9(side1, t).block[0], 1.0f);  // forced
+
+  Block9Inputs flagged = Moving(kSpeedUnit);
+  flagged.live.action = 0x34;
+  flagged.roster.entries[0].slot20 = 3;
+  flagged.roster.entries[0].b0d = 0;  // the first entry for slot 3 is clear
+  EXPECT_FLOAT_EQ(ComputeBlock9(flagged, t).block[0], 1.0f);  // forced by FirstEntryFlagClear
+
+  Block9Inputs taken = flagged;
+  taken.roster.entries[0].b0d = 1;  // flagged: not forced
+  EXPECT_NEAR(ComputeBlock9(taken, t).block[0], 1.0f / 3.0f, 1e-5f);
 }
 
 }  // namespace

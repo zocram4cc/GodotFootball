@@ -8,9 +8,8 @@
 //   block[4] = the p5 gate (and the DL override), maxed with the p6 term.
 // Pure functions over the facts the asm reads; constants and the two tables are
 // read from the install's image. Unwired: nothing calls ComputeBlock9 yet.
-// Two holder predicates (FUN_140a55d40, FUN_140479470) are inputs, not ported:
-// ponytail: their decode (PES 0x140a55d40 / 0x140479470, the team-slot table at
-// M+0x10e8) is the next step; the caller supplies their results.
+// The two holder predicates (FUN_140a55d40, FUN_140479470) read the match's roster
+// table at G+0x180 (see Roster); they are ported here, the table comes from the caller.
 
 #pragma once
 
@@ -124,6 +123,35 @@ struct CardFacts {
   bool bit11AtEight = false;
 };
 
+// One entry of the match's roster table at G+0x180: the 0x74-byte records at
+// M + 0x74*i, i = 0..23. Only the fields the two holder predicates read.
+struct RosterEntry {
+  uint8_t b06 = 0;     // +0x06: an entry with this set is skipped
+  int32_t slot20 = 0;  // +0x20: the slot the entry names (0..21 are players)
+  uint8_t b0d = 0;     // +0x0d: a set flag marks the entry taken
+  uint8_t b68 = 0;     // +0x68: the value of an int of 4 (FUN_141f9c3b0 reads this byte)
+};
+
+// The roster table: the 24 entries, and the 24 ints at M+0x10e8 that give each
+// entry's value (4 means "read the entry's byte +0x68"). Zero-initialised.
+struct Roster {
+  static constexpr int kEntries = 24;
+  std::array<RosterEntry, kEntries> entries{};
+  std::array<int32_t, kEntries> values{};
+};
+
+// FUN_140503430 0x14050356f-0x14050358e and FUN_140a55d40 0x140a55d94-0x140a55da2:
+// 1 for slots 11..21, 0 for 0..10 and for any slot outside 0..21.
+int SideOfSlot(int slot);
+
+// FUN_140a55d40 (side, limit): true when an entry on the side has its flags clear
+// and a value at most the limit (a value of 4 reads the entry's byte +0x68).
+bool SideHasEntryAtMost(const Roster& roster, int side, int limit);
+
+// FUN_140479470 (slot): the first entry for the slot decides, true when its +0x0d
+// flag is clear; false for slots above 21 and for slots no entry names.
+bool FirstEntryFlagClear(const Roster& roster, int slot);
+
 // Everything one FUN_140503430 call reads. Slots are the 27A0 values: slot is
 // S[0], holder is S[1] (0..21 valid, else the substitution rule applies).
 struct Block9Inputs {
@@ -145,8 +173,7 @@ struct Block9Inputs {
   std::optional<CardFacts> cardHolder;     // FUN_140a48910(G, holder), holder valid only
   std::optional<CardFacts> cardSub;        // FUN_140a48910(G, sub), sub = holder or teamSubSlot
   float holderSlotTable = 0.0f;            // FUN_140439fe0(TM, holder, slot)
-  bool gate34SideOk = false;               // FUN_140a55d40(G+0x180, side, 2) != 0 (action 0x34)
-  bool gate34SlotTaken = false;            // FUN_140479470(G+0x180, slot) != 0 (action 0x34)
+  Roster roster;   // G+0x180: the roster table the two holder predicates read (action 0x34)
   // The newest event E0 = FUN_140a3e190(MA+0xE0, 0): kind, payload +0x40, +0x45, +0x46.
   uint32_t kind = 0;
   int32_t sub = 0;
