@@ -62,6 +62,9 @@ set_tests_properties(godot_match_scene_test PROPERTIES SKIP_RETURN_CODE 77 TIMEO
 add_test(NAME godot_motion_test
   COMMAND ${CMAKE_SOURCE_DIR}/tools/godot.sh --headless --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_motion.gd)
 set_tests_properties(godot_motion_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+add_test(NAME godot_pes_loop_kickoff_test
+  COMMAND ${CMAKE_SOURCE_DIR}/tools/godot.sh --headless --path ${CMAKE_SOURCE_DIR}/godot res://tests/test_pes_loop_kickoff.tscn)
+set_tests_properties(godot_pes_loop_kickoff_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
 add_test(NAME godot_camera_test
   COMMAND ${CMAKE_SOURCE_DIR}/tools/godot.sh --headless --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_camera.gd)
 set_tests_properties(godot_camera_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)

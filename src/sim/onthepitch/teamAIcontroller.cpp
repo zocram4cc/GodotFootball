@@ -3046,7 +3046,7 @@ void TeamAIController::SetUpRoleArrays() {
 // mirrors the role its slot's player holds now (the dynamic formation entry the readers used).
 void TeamAIController::WriteRoleArrays(bool head) {
   const bool possession = team->IsPesPossession();
-  const int phase = pes::roles::WritePhase(!head && possession);
+  const int phase = match->PesLoop() && KickOffRestartPending() ? 0 : pes::roles::WritePhase(!head && possession);
   for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) {
     const e_PlayerRole role = team->GetAllPlayers()[slot]->GetDynamicFormationEntry().role;
     teamSheet.SetRegisteredRole(slot, pes::roles::RegisteredRoleOf(role), phase);
@@ -3064,6 +3064,7 @@ void TeamAIController::WriteRoleArrays(bool head) {
 // ponytail: the plan is the setup default, 0. PES reads it from setup+0xb34+side*0xa8 (FUN_1408E16D0; the
 // writer is OPEN) and changes it in play (FUN_140500B90: mode +0xBCC, flag +0xB8A3). pes-re-sheet-triple §9.
 void TeamAIController::WriteSlotPoints(int phase) {
+  if (!match->PesLoop()) return;  // the PES path only: the install's tables exist on it
   constexpr int kSetupPlan = 0;
   const pes::formation::FormationTables* tables = match->GetPesFormations();
   const pes::formation::SheetConstants* sheet = match->GetPesSheetConstants();
@@ -3072,6 +3073,15 @@ void TeamAIController::WriteSlotPoints(int phase) {
   assert(plan);  // every fixture team has a plan-0 record
   slotPoints = pes::formation::SlotPointRows(*plan, phase, pesFieldHalfLength, pesFieldHalfWidth,
                                              sheet->grid, sheet->keeper);
+}
+
+// The restart override of FUN_1404F5F10 (f = 0 when MI+0x116C != 1 && MI+0x1554 == 1): not in play, and the pending
+// restart is a kick-off (MI+0x1554 == 1, docs/re/pes-re-A5Judge.md §1). It sets the phase of both the roles and the
+// slot-point rows, as the one writer does.
+// ponytail: GF's pending set piece stands for MI+0x1554. A goal's kick-off is PES kind 7 (INF, docs/re/pes-re-foul-
+// choreography.md §0), so this covers it too until the goal kinds are mapped.
+bool TeamAIController::KickOffRestartPending() const {
+  return !match->IsInPlay() && match->GetReferee()->GetBuffer().desiredSetPiece == e_SetPiece_KickOff;
 }
 
 int TeamAIController::RoleClassOfSlot(int slot) const {

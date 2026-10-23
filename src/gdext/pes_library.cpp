@@ -9,6 +9,7 @@
 #include "pes/locomotion.hpp"
 #include "pes/stadium.hpp"
 #include "pes/playerdb.hpp"
+#include "pes/formation.hpp"
 
 namespace godot {
 namespace {
@@ -90,6 +91,18 @@ Error PesLibrary::open(const String& root) {
   playerDatabase_ = pes::PlayerDatabase::Load(vfs_, &err);
   if (!playerDatabase_) {
     UtilityFunctions::push_error("PES21 player database unavailable: ", ToGd(err));
+    return ERR_PARSE_ERROR;
+  }
+  // PES 2021's formation tables and sheet constants: the slot-point rows' inputs (docs/re/pes-re-sheet-triple.md).
+  // The PES loop's team AI writes the rows every tick, so they are required, as the player database is.
+  formationTables_ = pes::formation::FormationTables::Load(vfs_, &err);
+  if (!formationTables_) {
+    UtilityFunctions::push_error("PES21 formation tables unavailable: ", ToGd(err));
+    return ERR_PARSE_ERROR;
+  }
+  if (exe) sheetConstants_ = pes::formation::ReadSheetConstants(*exe, &err);
+  if (!sheetConstants_) {
+    UtilityFunctions::push_error("PES21 sheet constants unavailable: ", ToGd(err));
     return ERR_PARSE_ERROR;
   }
   // PES 2021's ball-carrier decision layer (docs/re/pes-re-carrier-ai.md).

@@ -196,6 +196,8 @@ public:
   void SetUpRoleArrays();
   void WriteRoleArrays(bool head);
   void WriteSlotPoints(int phase);
+  // The restart override of FUN_1404F5F10: not in play and a kick-off pending (MI+0x116C != 1 && MI+0x1554 == 1).
+  bool KickOffRestartPending() const;
   // The B swap pair (T+0x89D4/0x89D8). No GF event sets it yet: the PES writer is not decoded.
   void RequestRoleSwap(int a, int b);
   // A team concept's order for one man (T+0xb748/b774/26c, transitions 2-3):
