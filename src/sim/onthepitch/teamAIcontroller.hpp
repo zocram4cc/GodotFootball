@@ -285,10 +285,10 @@ protected:
   Player* goalKickReceiver = nullptr;  // the mate the ladder passes to; null for a kick into space
   // Places the goal kick's stand point (SetKick's placement, pesgoalkick.hpp) and the strike's contact from the clip. Returns
   // the keeper's stand point; the caller places him there.
-  Vector3 PrepareGoalKickStand(const Vector3& spot);
+  Vector3 PrepareGoalKickStand(const Vector3& spot, Player* taker);
   // SetKick's placement for a corner (pesgoalkick.hpp): the stand point for the restart spot, and the look point the taker
   // faces (the corner heading). The caller places him there and holds him.
-  Vector3 PrepareCornerStand(const Vector3& spot, Vector3* lookAt);
+  Vector3 PrepareCornerStand(const Vector3& spot, Player* taker, Vector3* lookAt);
   // The lofted picker's mates: the taker's team's active players, rated by technical highpass. Returns the index the
   // picker names (-1 for none) and fills `mates` with the list that index refers to.
   int PickGoalKickMate(std::vector<Player*>* mates) const;

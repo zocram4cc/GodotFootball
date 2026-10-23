@@ -26,6 +26,7 @@
 #include "pes/exe.hpp"
 #include "pes/movestep.hpp"
 #include "pes/vfs.hpp"
+#include "pes/playerdb.hpp"
 #include "rig/rig.hpp"
 #include "simcontext.hpp"
 
@@ -227,6 +228,9 @@ int main(int argc, char** argv) {
   // read from the install's own exe.
   auto staminaConstants = pes::LoadStaminaConstants(*exe, &err);
   if (!staminaConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  // PES 2021's player database (common/etc/pesdb/Player.bin): each player's injury tier and stronger foot.
+  auto playerDatabase = pes::PlayerDatabase::Load(vfs, &err);
+  if (!playerDatabase) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   auto stoppageConstants = pes::LoadStoppageConstants(*exe, &err);
   if (!stoppageConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   auto restartSpotConstants = pes::LoadRestartSpotConstants(*exe, &err);
@@ -311,6 +315,7 @@ int main(int argc, char** argv) {
   setup.pesSetPieceTakerConstants = &*setPieceTakerConstants;
   setup.pesSetPieceTeamConstants = &*setPieceTeamConstants;
   setup.pesStaminaConstants = &*staminaConstants;
+  setup.pesPlayerDatabase = &*playerDatabase;
   setup.pesStoppageConstants = &*stoppageConstants;
   setup.pesRestartSpotConstants = &*restartSpotConstants;
   setup.pesKickErrorConstants = &*kickErrorConstants;

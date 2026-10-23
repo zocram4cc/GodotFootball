@@ -53,6 +53,7 @@ struct Rig;
 #include "pessubs.hpp"
 // PES 2021's MOVESTEP machine (docs/re/pes-re-anim-select.md): the install constants its handlers read.
 #include "pes/movestep_bundle.hpp"
+#include "pes/playerdb.hpp"
 
 struct MatchSetup {
   int homeTeamDbId = 0;
@@ -112,6 +113,10 @@ struct MatchSetup {
   // break bonus and the injury roll's constants, read from the install's exe.
   // Required like the others: the model's every number lives in the image.
   const pes::StaminaConstants* pesStaminaConstants = nullptr;
+  // The install's player database (common/etc/pesdb/Player.bin, pes/playerdb.hpp): each player's injury tier and
+  // stronger foot, by his database id, which is the PES player id. Optional: without it every player takes the named
+  // fallback (match.cpp). The match copies it.
+  const pes::PlayerDatabase* pesPlayerDatabase = nullptr;
   // PES 2021's ball-carrier decision layer (docs/re/pes-re-carrier-ai.md):
   // the shoot zone, the receiver openness formula, PassForward's tiers and
   // the rolled plan probabilities. Required: every one of those numbers lives

@@ -1133,10 +1133,10 @@ Vector3 KeeperFacingPitch(int side) {
 
 // SetKick's placement (0x140774AE0) and the strike's contact, from the clip's first hit record (gkgoalkick_instep_0_0,
 // 0x6B1). The keeper is placed on the returned stand point when the kick is prepared (pes-re-kicker-standby.md section 4).
-Vector3 TeamAIController::PrepareGoalKickStand(const Vector3& spot) {
+Vector3 TeamAIController::PrepareGoalKickStand(const Vector3& spot, Player* taker) {
   constexpr int kGoalKickStrikeMotion = 0x6b1;
-  // ponytail: GF's player data has no preferred-foot byte (PES's playerdata 0x34, FUN_1406E6660): the right foot.
-  constexpr bool kMirror = false;
+  // The keeper strikes with his stronger foot (FUN_1406E6660(player, 0x34) == 1): the mirror of the clip offset and root.
+  const bool mirror = match->LeftFootedOf(taker ? taker->GetPlayerData() : nullptr);
   // ponytail: the physique (PES's player +0x3B18) is taken as 1.0.
   constexpr float kPhysique = 1.0f;
   const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(kGoalKickStrikeMotion);
@@ -1147,9 +1147,9 @@ Vector3 TeamAIController::PrepareGoalKickStand(const Vector3& spot) {
   // stand-in (KeeperFacingPitch), not this placer heading.
   const float heading = 0.0f;
   const pes::Vec3 spotPes(spot.coords[0], spot.coords[1], spot.coords[2]);
-  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
+  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, mirror, k);
   const pes::Vec3 stand = pes::GoalKickStandPoint(spotPes, heading, offset);
-  const pes::Vec3 contact = pes::GoalKickContactRoot(stand, heading, pes::Vec3(hit.rootX, 0.0f, hit.rootZ), kMirror, k);
+  const pes::Vec3 contact = pes::GoalKickContactRoot(stand, heading, pes::Vec3(hit.rootX, 0.0f, hit.rootZ), mirror, k);
   // ponytail: the placer's height (the spot's plus the clip's) is not carried: GF's players stand on the ground.
   goalKickStrike.contactRoot = Vector3(contact.x, contact.y, 0.0f);
   goalKickStrike.ticks = pes::GoalKickContactTicks(hit.frame, k);
@@ -1159,12 +1159,12 @@ Vector3 TeamAIController::PrepareGoalKickStand(const Vector3& spot) {
 // SetKick's placement for a corner (sub_1407331A0; docs/re/pes-re-kicker-standby.md section 4). The run-up clip is the anime
 // cell at row 0x509, column 9. Its first ball hit gives the contact offset, and the stand is the spot plus that offset turned
 // by the corner heading: the side yaw plus the restart bearing to the penalty spot (FUN_1408B4560, restart kind 4).
-Vector3 TeamAIController::PrepareCornerStand(const Vector3& spot, Vector3* lookAt) {
+Vector3 TeamAIController::PrepareCornerStand(const Vector3& spot, Player* taker, Vector3* lookAt) {
   constexpr int kCornerRunUpRow = 0x509;
   constexpr int kCornerRunUpColumn = 9;
-  // ponytail: the taker strikes with his right foot. PES reads the foot from the player record (FUN_1406E6660(player, 0x34),
-  // playerdata + 0x34), which GF's roster does not carry until the PES player-database loader lands.
-  constexpr bool kMirror = false;
+  // The taker strikes with his stronger foot (FUN_1406E6660(player, 0x34) == 1): the mirror of the run-up's offset and
+  // heading (Match::LeftFootedOf).
+  const bool mirror = match->LeftFootedOf(taker->GetPlayerData());
   // ponytail: the physique (PES's player +0x3B18) is taken as 1.0.
   constexpr float kPhysique = 1.0f;
   const int motion = match->GetPesAnimetable().Cell(kCornerRunUpRow, kCornerRunUpColumn).motionNo;
@@ -1172,8 +1172,8 @@ Vector3 TeamAIController::PrepareCornerStand(const Vector3& spot, Vector3* lookA
   const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
   const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
   const pes::Vec3 spotPes(spot.coords[0], spot.coords[1], spot.coords[2]);
-  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
-  const float heading = pes::CornerSetKickHeadingDeg(pes::CornerRestartYawDeg(spotPes, pesPenaltySpotX), kMirror);
+  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, mirror, k);
+  const float heading = pes::CornerSetKickHeadingDeg(pes::CornerRestartYawDeg(spotPes, pesPenaltySpotX), mirror);
   const pes::Vec3 stand = pes::GoalKickStandPoint(spotPes, heading, offset);
   const pes::Vec3 look = pes::PlacerLookPoint(stand, heading);
   *lookAt = Vector3(look.x, look.y, 0.0f);
@@ -1941,7 +1941,7 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       // prepared and held there until the ladder releases the kick (pes-re-kicker-standby.md section 4). The strike's
       // contact is fixed here.
       // ponytail: the stand point is set from the restart spot at prepare; a ball moved in the stoppage is not followed.
-      const Vector3 stand = PrepareGoalKickStand(ballPos);
+      const Vector3 stand = PrepareGoalKickStand(ballPos, taker);
       if (taker) {
         // The keeper faces the pitch from his end and holds that heading while he waits (PES's standby plays with the
         // SetKick yaw).
@@ -1979,7 +1979,7 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       // ponytail: the stand point is set from the restart spot at prepare; a ball moved in the stoppage is not followed.
       if (taker) {
         Vector3 lookAt;
-        const Vector3 stand = PrepareCornerStand(ballPos, &lookAt);
+        const Vector3 stand = PrepareCornerStand(ballPos, taker, &lookAt);
         taker->ResetPosition(stand, lookAt);
         pieceHeld = true;
         pieceHasLookAt = true;
