@@ -497,9 +497,10 @@ float TeamAIController::MeasuredLine(int line, float ref) const {
 }
 
 bool TeamAIController::IsOffsideTrapArmed() const {
-  // PES arms the trap only on its team flag `T+0xe4` (report 14.4); GF has no
-  // touchline button for it, so the tactic stands in and defaults to PES's live
-  // value for both teams, off.
+  // PES arms the trap on its team flag T+0xe4 (step 5, FUN_1404F6720; report 14.4). On the PES path the team tick holds
+  // that bit, set from the run world on the run frame.
+  if (match->PesLoop()) return teamTick.trapArmed;
+  // Off the PES path GF has no touchline button for it, so the tactic stands in (PES's live value is off).
   return GetLiveTacticReal("offside_trap", 0.0f) > 0.5f;
 }
 
@@ -2805,6 +2806,10 @@ void TeamAIController::UpdateStrategy() {
     const bool latch = team->IsPesPossession();
     pes::WriteRestartWord(&teamTick, inPlay, latch != lastTickPossession);
     lastTickPossession = latch;
+    // Step 15's in-play arm (FUN_1404FA840, 0x1404FA869-0x1404FA887).
+    if (inPlay) pes::ArmInPlayCounters(&teamTick);
+    // FUN_140501260 clears T+0xE4 every team tick (0x1405012D0); step 5 can only set it in play.
+    if (!inPlay) teamTick.trapArmed = false;
   }
   if (inPlay) {
     if (!pesPath) {
@@ -3224,6 +3229,9 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   std::array<std::vector<Player*>, 2> ids;
   lastRunWorld = BuildRunWorld(&ids);
   lastRunIds = std::move(ids);
+  // Step 5 (FUN_1404F6720) arms T+0xE4 from this run world. ponytail: the run world is built on the team's run frame,
+  // so the bit holds for the PES frame between; the chain cannot set it (pesoffball.cpp).
+  if (match->PesLoop()) teamTick.trapArmed = ob::OffsideTrapArmed(lastRunWorld, team->GetID());
   const ob::RunWorld& world = lastRunWorld;
   const std::vector<Player*>& slots = lastRunIds[team->GetID()];
   const int base = team->GetID() * ob::kSlots;

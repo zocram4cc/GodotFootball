@@ -13,6 +13,7 @@ struct Rig;
 // PES 2021's match clock (docs/re/pes-re-tactics-clock.md): its constants are
 // read from the install's PES2021.exe by the caller and handed to the Match.
 #include "pesclock.hpp"
+#include "pesforfeit.hpp"
 // PES 2021's ball flight and ground contact
 // (docs/re/pes-re-ball-contact.md, docs/re/pes-re-officials-ball.md 6.3): its
 // constants come from the install's constant_match.bin `ball.o` and the exe
@@ -93,6 +94,8 @@ struct MatchSetup {
   // holds, the wipe, the fade-in and the tail. Read from the install's exe.
   // Required.
   const pes::StoppageConstants* pesStoppageConstants = nullptr;
+  // PES 2021's minimum-players and forfeit immediates (pesforfeit.hpp LoadForfeitConstants). Required.
+  const pes::ForfeitConstants* pesForfeitConstants = nullptr;
   // PES 2021's restart-spot writer offsets (pesstoppage.hpp LoadRestartSpotConstants). Required.
   const pes::RestartSpotConstants* pesRestartSpotConstants = nullptr;
   // PES 2021's kick execution error (docs/re/pes-re-kick-scatter.md). Required.
