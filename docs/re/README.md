@@ -258,6 +258,7 @@ address given.
 |`pes-re-sheet-triple.md`|The slot-point rows' source: the triple accessor `FUN_1408C50E0`, the rows writer `FUN_1404F5F10`, sheet records A/B and their writers; install source `TacticsFormation.bin` (33 entries per record) via `Tactics.bin`; which record fills each side's plan is OPEN (M1)|
 |`pes-re-mark-table.md`|Team-tick slice T7a's mark table (mask T+0xB7EC, `FUN_1404F61E0`, ramp base 7.0) and the pair-bearing table TM+0x23F7C's writer `FUN_14045B420` (split displacement 0x228D4 + 0x16A8); T7a blocked on T+0xB7D8 and the cone `FUN_140A53DA0`|
 |`pes-re-mark-cone.md`|The mark table's blockers: T+0xB7D8 (the marked slot within the side, 0xFF empty; writers `FUN_140546FB0` / `FUN_140549D30`), the cone test `FUN_140A53DA0` (strict radius band and half-cone bearing), the clear gate, the three presence readers|
+|`pes-re-mark-gate.md`|The mark table's last inputs: the count gate `FUN_140A4EAF0`/`4E7C0` (radius 12.0), the head vector +0x5EC, the action word pl+0x5D0; the ramp base's source OPEN; the three duel readers mapped (INF)|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
