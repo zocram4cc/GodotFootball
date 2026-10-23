@@ -129,6 +129,43 @@ TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBoundWithPesLoop) {
   RunMatchWithinTheBound(true, MINUTES, nullptr);
 }
 
+// A goal's restart follows PES's live goal programme (docs/re/pes-re-A5Judge.md 9.3a, live 22-10-26): goal -> ready
+// (play 2 -> 3) is 757, 761 and 843 frames, and ready -> in play (3 -> 1) is 125 frames for a kick-off (9.3: 125-137 x7).
+// Read off the referee's own schedule for the first goal of seed 7's match.
+TEST(PesRestartDelay, AGoalIsReadyInPesWindowAndInPlayAfterItsKickOff) {
+  constexpr double kFrames = Match::kFramesPerSecond;
+  constexpr double kGoalToReadyMinFrames = 757, kGoalToReadyMaxFrames = 843;
+  constexpr double kReadyToInPlayMinFrames = 125, kReadyToInPlayMaxFrames = 137;
+  bool goalSeen = false, scheduled = false, inPlay = false;
+  unsigned long stopAt = 0, readyAt = 0, playAt = 0;
+  RunMatchWithinTheBound(
+      true, TWENTY_MINUTES,
+      [&](Match& match) {
+        const int goals = match.GetMatchData()->GetGoalCount(0) + match.GetMatchData()->GetGoalCount(1);
+        if (goals > 0) goalSeen = true;
+        const RefereeBuffer& b = match.GetRefereeBuffer();
+        if (goalSeen && !scheduled && b.stopTime > 0 && b.desiredSetPiece == e_SetPiece_KickOff) {
+          scheduled = true;
+          stopAt = b.stopTime;
+          readyAt = b.startTime;
+        }
+        if (scheduled && !inPlay && match.IsInPlay() && !match.IsInSetPiece()) {
+          inPlay = true;
+          playAt = match.GetActualTime_ms();
+        }
+      },
+      kMaxSimTicks, [&](Match&) { return inPlay; }, SEED, false);
+  ASSERT_TRUE(goalSeen) << "seed 7 scored no goal in the run";
+  ASSERT_TRUE(scheduled) << "the goal's restart was never scheduled";
+  ASSERT_TRUE(inPlay) << "the goal's restart never put the ball in play";
+  const double goalToReady = (static_cast<double>(readyAt) - static_cast<double>(stopAt)) * kFrames / 1000.0;
+  const double readyToInPlay = (static_cast<double>(playAt) - static_cast<double>(readyAt)) * kFrames / 1000.0;
+  EXPECT_GE(goalToReady, kGoalToReadyMinFrames) << "goal -> ready is " << goalToReady << " frames";
+  EXPECT_LE(goalToReady, kGoalToReadyMaxFrames) << "goal -> ready is " << goalToReady << " frames";
+  EXPECT_GE(readyToInPlay, kReadyToInPlayMinFrames) << "ready -> in play is " << readyToInPlay << " frames";
+  EXPECT_LE(readyToInPlay, kReadyToInPlayMaxFrames) << "ready -> in play is " << readyToInPlay << " frames";
+}
+
 // The whole match at twenty minutes with pes_loop on. Seed 7's home keeper, taking a goal kick about
 // nineteen minutes in, stood 2.3 m off the ball: his walk was refused behind the MOVESTEP clip's stale
 // command, and nothing restarted the match. Every stoppage must restart inside the bound and the match
@@ -162,7 +199,7 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
     }
     if (!b.active || (lastStop && *lastStop == b.stopTime)) return;
     lastStop = b.stopTime;
-    if (b.desiredSetPiece == e_SetPiece_KickOff) return;  // timed by GoalSequence, not PES's programme
+    if (b.desiredSetPiece == e_SetPiece_KickOff) return;  // timed by the goal programme (pes::RunGoalProgramme), not a spot
 
     const pes::RestartSpotConstants& k = match.GetPesRestartSpotConstants();
     const pes::StoppageConstants& stoppage = match.GetPesStoppageConstants();
