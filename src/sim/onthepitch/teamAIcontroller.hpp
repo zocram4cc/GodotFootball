@@ -235,8 +235,8 @@ public:
   bool PressOrDelay(const PlayerBase* p);
   // PES's strategy word T+0x134 (docs/re/pes-re-match-management.md 1).
   int GetStrategy() const { return strategy.strategy; }
-  // Every team tick, dead balls included: the decider moves the strategy while
-  // the ball is dead and the attack level follows it once play resumes.
+  // Every team tick: the decider moves the strategy in PES state 3 (restart armed or taken), and the
+  // attack level follows it once play resumes.
   void UpdateStrategy();
   // PES's in-play plan selector (FUN_140500B90): the sheet plan, once per PES team tick after UpdateStrategy.
   void UpdatePesSheetPlan();

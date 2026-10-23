@@ -2813,25 +2813,25 @@ void TeamAIController::UpdateTactics() {
   }
 }
 
-// PES 2021's CPU strategy decider (docs/re/pes-re-match-management.md 1): the
-// strategy moves while the ball is dead, the attack level follows it only once
-// the ball is back in play. The level is GF's mentality rung (one-to-one, see
-// pes::AttackLevel), so every reader of the mentality sees PES's level.
+// PES 2021's CPU strategy decider (docs/re/pes-re-match-management.md 1): the strategy moves in
+// PES state 3 (restart armed or taken; pesstrategy.hpp DeciderMovesIn), and the attack level
+// follows it once play resumes. The level is GF's mentality rung (one-to-one, see pes::AttackLevel),
+// so every reader of the mentality sees PES's level.
 void TeamAIController::UpdateStrategy() {
   if (!match->AIManagerRunsTeam(team->GetID())) return;
   // PES path: the per-tick team words (pesteamtick.hpp) step every team tick -
   // the drift (FUN_1404F8350), the flags (0x1404F6E1C-58), the restart word
-  // (0x1404F6F91) - and the strategy decider below moves the strategy on dead
-  // balls underneath them. Off the path the level is the mentality rung.
+  // (0x1404F6F91) - and the strategy decider below moves the strategy in state 3
+  // underneath them. Off the path the level is the mentality rung.
   const bool pesPath = match->PesLoop();
   const bool inPlay = match->IsInPlay() && !match->IsInSetPiece();
+  const RefereeBuffer& buffer = match->GetRefereeBuffer();
+  const int playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
+                                          buffer.prepared || buffer.started);
   if (pesPath) {
     // Steps 8 and 9 first, as in PES's order: the stopped select (8) and the out-of-play clear of
     // the reaction delays (9) read the latch, MI+0x116C and MI+0x1554 before the drift reads anything.
     const bool latch = team->IsPesPossession();
-    const RefereeBuffer& buffer = match->GetRefereeBuffer();
-    const int playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
-                                            buffer.prepared || buffer.started);
     pes::StoppedSelect(&teamTick, !latch, playState, match->PesRestartKind());
     pes::ClearReactionDelays(&teamTick, playState);
     // Step 11's head (FUN_1404FEDC0): R8B is the latch change this tick, the flip the restart word
@@ -2860,6 +2860,8 @@ void TeamAIController::UpdateStrategy() {
     }
     return;
   }
+  // PES's decider moves the strategy in state 3 only; the PES path returns in every other state.
+  if (pesPath && !pes::DeciderMovesIn(playState)) return;
   pes::StrategyInputs in;
   switch (match->GetMatchPhase()) {
     case e_MatchPhase_PreMatch:
