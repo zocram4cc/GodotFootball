@@ -7,19 +7,41 @@
 
 #include <cstdint>
 
+#include "gametypes.hpp"
+
 namespace pes {
 
 // One side's per-tick team words. `b8a4` is the attack level 0..4
 // (FUN_1404F8350); `b8a2`/`b8a3` the full-attack/full-defence flags
 // (FUN_1404F6C30 inline at 0x1404F6E1C-58); `t80` the restart word
-// (0x1404F6F91); `b8c0Frame` the stamp of the last level change (T+0xB8C0).
+// (0x1404F6F91); `b8c0Frame` the stamp of the last level change (T+0xB8C0);
+// `b6c40` the stopped-select word (brain+0x6C40, step 8: FUN_1405008E0).
 struct TeamTick {
   int b8a4 = 2;  // init FUN_140A415A0 -> 2 (tactics §3)
   bool b8a2 = false;
   bool b8a3 = false;
   uint32_t t80 = 0;
   int b8c0Frame = 0;
+  int b6c40 = 0;
 };
+
+// MI+0x116C, the play state (pes-re-A5Judge.md): 1 is play in progress.
+constexpr int kPlayStateInPlay = 1;
+
+// MI+0x1554, the restart kind (pes-re-A5Judge.md's JR table): 1 kick-off, 2 throw-in,
+// 3 goal kick, 4 corner, 5 free kick, 6 penalty kick; 0 is no restart.
+constexpr int kRestartFreeKick = 5;
+
+// The restart kind of a referee set piece (MI+0x1554). The referee's desired set piece is the last
+// award, kept until CancelSetPiece clears it (referee.cpp), which stands in for PES's JR word.
+int RestartKindOf(e_SetPiece setPiece);
+
+// Step 8 (FUN_1405008E0) at 0x1405008F8-0x14050095B: brain+0x6C40 = 2 when the latch (T+0x255) is
+// clear, play is stopped (MI+0x116C != 1) and the restart is a free kick (MI+0x1554 == 5). Its
+// roster scan (0x140500970-0x1405009D6) calls FUN_140A66FF0, a pure getter whose result is
+// discarded, so the store is the whole effect. Nothing else in this slice reads b6c40 yet: step 9
+// (T2b) does, and it is OPEN.
+void StoppedSelect(TeamTick* tick, bool latchClear, int playState, int restartKind);
 
 // The strategy word T+0x134 -> wanted level map: 0/1/3/4 one-to-one,
 // anything else 2 (jump ladder 0x1404F8619-63E).

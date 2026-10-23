@@ -27,6 +27,7 @@
 
 #include "../data/playerskills.hpp"
 #include "../data/playingstyles.hpp"
+#include "pes/movestep.hpp"
 #include "pessetpieceteam.hpp"
 #include "pessequencer.hpp"
 #include "pes/mbinfo.hpp"
@@ -2778,6 +2779,14 @@ void TeamAIController::UpdateStrategy() {
   const bool pesPath = match->PesLoop();
   const bool inPlay = match->IsInPlay() && !match->IsInSetPiece();
   if (pesPath) {
+    // Step 8 (FUN_1405008E0) first, as in PES's order: the stopped select reads the latch,
+    // MI+0x116C and MI+0x1554 before the drift and the restart word read anything.
+    const bool latch = team->IsPesPossession();
+    const RefereeBuffer& buffer = match->GetRefereeBuffer();
+    pes::StoppedSelect(&teamTick, !latch,
+                       pes::PlayStateFor(match->IsInPlay(), buffer.active,
+                                         buffer.prepared || buffer.started),
+                       pes::RestartKindOf(buffer.desiredSetPiece));
     // ponytail: T+0x210 (the manual/target word) has no GF counterpart and no
     // decoded in-match writer (tactics §3 O4); balanced stands in, so the
     // manual arm never fires until the writer lands.
@@ -2785,7 +2794,6 @@ void TeamAIController::UpdateStrategy() {
     pes::DriftAttackLevel(&teamTick, strategy.strategy, kManualBalanced, inPlay,
                            match->GetPesFrame());
     pes::WriteAttackFlags(&teamTick);
-    const bool latch = team->IsPesPossession();
     pes::WriteRestartWord(&teamTick, inPlay, latch != lastTickPossession);
     lastTickPossession = latch;
   }

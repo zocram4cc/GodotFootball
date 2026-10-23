@@ -57,4 +57,27 @@ void WriteRestartWord(TeamTick* tick, bool inPlay, bool possessionFlipped) {
   // counterpart; the predicate is not decoded.
 }
 
+void StoppedSelect(TeamTick* tick, bool latchClear, int playState, int restartKind) {
+  // The gate at 0x1405008F8-0x140500927: T+0x255 clear, MI+0x116C != 1, MI+0x1554 == 5.
+  if (!latchClear || playState == kPlayStateInPlay || restartKind != kRestartFreeKick) return;
+  // The store at 0x14050095B. The roster scan after it only calls FUN_140A66FF0 (a pure getter)
+  // and discards the result, so nothing else changes.
+  tick->b6c40 = 2;
+}
+
+int RestartKindOf(e_SetPiece setPiece) {
+  // The JR restart kinds (pes-re-A5Judge.md): 1 kick-off, 2 throw-in, 3 goal kick, 4 corner,
+  // 5 free kick, 6 penalty kick. A referee with no set piece gives 0.
+  switch (setPiece) {
+    case e_SetPiece_KickOff: return 1;
+    case e_SetPiece_ThrowIn: return 2;
+    case e_SetPiece_GoalKick: return 3;
+    case e_SetPiece_Corner: return 4;
+    case e_SetPiece_FreeKick: return 5;
+    case e_SetPiece_Penalty: return 6;
+    case e_SetPiece_None: return 0;
+  }
+  return 0;
+}
+
 }  // namespace pes

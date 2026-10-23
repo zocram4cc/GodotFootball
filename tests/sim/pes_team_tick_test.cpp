@@ -102,4 +102,43 @@ TEST(PesTeamTick, ManualOverridePullsLevel) {
   EXPECT_EQ(tick.b8a4, 3);
 }
 
+// T2a: step 8 (FUN_1405008E0) sets brain+0x6C40 = 2 only when the latch (T+0x255) is clear, play
+// is stopped (MI+0x116C != 1) and the restart is a free kick (MI+0x1554 == 5). Its roster scan has
+// no effect: FUN_140A66FF0 is a pure getter and its result is discarded.
+TEST(PesTeamTick, StoppedSelectSets6C40OnlyWhenLatchClear) {
+  pes::TeamTick tick;
+  pes::StoppedSelect(&tick, /*latchClear=*/false, /*playState=*/2, pes::kRestartFreeKick);
+  EXPECT_EQ(tick.b6c40, 0);
+  pes::StoppedSelect(&tick, /*latchClear=*/true, /*playState=*/2, pes::kRestartFreeKick);
+  EXPECT_EQ(tick.b6c40, 2);
+  // A set-piece-ready stop (MI+0x116C == 3) passes the gate too.
+  tick.b6c40 = 0;
+  pes::StoppedSelect(&tick, /*latchClear=*/true, /*playState=*/3, pes::kRestartFreeKick);
+  EXPECT_EQ(tick.b6c40, 2);
+}
+
+TEST(PesTeamTick, StoppedSelectNeedsAStoppedFreeKick) {
+  // Every restart kind but the free kick (5) leaves the word alone.
+  for (int kind : {0, 1, 2, 3, 4, 6, 7}) {
+    pes::TeamTick tick;
+    pes::StoppedSelect(&tick, /*latchClear=*/true, /*playState=*/2, kind);
+    EXPECT_EQ(tick.b6c40, 0) << "restart kind " << kind;
+  }
+  // In play (MI+0x116C == 1) the gate is shut even for a free kick.
+  pes::TeamTick inPlay;
+  pes::StoppedSelect(&inPlay, /*latchClear=*/true, /*playState=*/1, pes::kRestartFreeKick);
+  EXPECT_EQ(inPlay.b6c40, 0);
+}
+
+// The restart kinds (MI+0x1554) by referee set piece: pes-re-A5Judge.md's JR table.
+TEST(PesTeamTick, RestartKindIsThePesStoppageCode) {
+  EXPECT_EQ(pes::RestartKindOf(e_SetPiece_None), 0);
+  EXPECT_EQ(pes::RestartKindOf(e_SetPiece_KickOff), 1);
+  EXPECT_EQ(pes::RestartKindOf(e_SetPiece_ThrowIn), 2);
+  EXPECT_EQ(pes::RestartKindOf(e_SetPiece_GoalKick), 3);
+  EXPECT_EQ(pes::RestartKindOf(e_SetPiece_Corner), 4);
+  EXPECT_EQ(pes::RestartKindOf(e_SetPiece_FreeKick), 5);
+  EXPECT_EQ(pes::RestartKindOf(e_SetPiece_Penalty), 6);
+}
+
 }  // namespace
