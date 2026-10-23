@@ -425,3 +425,29 @@ TEST(SetKickStand, AFarSetPieceWalkerReachesHisMarkInTheWalkWindow) {
   }
   EXPECT_TRUE(arrived) << "the walker was still " << gap << " m from his mark after " << kWalkTicks << " ticks";
 }
+
+// A placed goal-kick keeper keeps his body through the strike. The strike clip ends before its contact tick, and the controller
+// gives no command until contact (elizacontroller.cpp, the goal kick branch), so the clip's end found no animation: the body was
+// reset to face the ball, a turn of 123 degrees in one tick on the merged tree. Measured from the placement to the end of the take.
+TEST(SetKickStand, TheKeeperTurnsContinuouslyThroughHisGoalKickStrike) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  constexpr float kMaxTurnPerTick_deg = 45.0f;  // a GF tolerance: a reset turns the body to face the ball in one tick
+  constexpr int kMaxTicks = 2700;               // fifty seconds: the ladder releases the kick well inside this
+  match->Process();  // the opening kick-off's preparation, as the heading tests do
+  Player* taker = PrepareRestart(*match, e_SetPiece_GoalKick, 0, Vector3(-47.0f, 3.0f, 0.0f));
+  ASSERT_NE(taker, nullptr) << "no goal kick taker was chosen";
+  const RefereeBuffer& buffer = match->GetRefereeBuffer();
+  float worst = 0.0f;
+  Vector3 previous = taker->GetRootDirectionVec();
+  for (int t = 0; t < kMaxTicks; ++t) {
+    match->Process();
+    const Vector3 root = taker->GetRootDirectionVec();
+    worst = std::max(worst, AngleBetweenDeg(previous, root));
+    previous = root;
+    if (buffer.started && !match->IsInSetPiece()) break;  // the kick has been taken
+  }
+  ASSERT_TRUE(buffer.started) << "the goal kick was not released within " << kMaxTicks << " ticks";
+  EXPECT_LE(worst, kMaxTurnPerTick_deg) << "the keeper's root turned " << worst << " degrees in one tick during his strike";
+}

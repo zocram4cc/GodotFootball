@@ -372,9 +372,10 @@ bool EverAttacksWhileTrailing(bool aiManagerRunsHome) {
     Match match(data, setup, Properties());
     const TeamInstructions::e_Mentality sheet =
         match.GetTeam(0)->GetController()->GetInstructions().mentality;
-    // A deficit no short match can close: the switch is what is under test, not
-    // whether the side can come back.
-    constexpr int kAwayLead = 3;
+    // A deficit no short match can close: the switch is what is under test, not whether the side can come back. Five goals, not
+    // three: once InPlayRelease2 moved the set-piece flow, the trailing side scored twice on this seed before the second half, and
+    // the decider holds a side one goal down (pesstrategy.cpp), so the switch never came. The lead must survive that flow.
+    constexpr int kAwayLead = 5;
     data->SetGoalCount(1, kAwayLead);
     // The decider's switch minute (pesstrategy.cpp, the second half's minute-28
     // hold) is the deadline: past it a trailing side has had every chance the

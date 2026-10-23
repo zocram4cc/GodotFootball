@@ -343,7 +343,19 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       if (team->GetController()->GetSetPieceType() == e_SetPiece_GoalKick && match->PesLoop()) {
         // PES's goal kick (pesgoalkick.hpp): the ladder's order, released by the referee. The strike owns the keeper's root
         // until its contact tick, so no kick command goes out before it.
-        if (!team->GetController()->GoalKickInContact()) return;
+        if (!team->GetController()->GoalKickInContact()) {
+          // The strike owns the keeper's root until its contact tick, so no kick command goes out before it. He stands on his
+          // stand point meanwhile (PES's standby), so the strike clip's end finds an idle clip and not no command (RED ALERT).
+          PlayerCommand stand;
+          stand.desiredFunctionType = e_FunctionType_Movement;
+          stand.useDesiredMovement = true;
+          stand.desiredDirection = player->GetDirectionVec();
+          stand.desiredVelocityFloat = idleVelocity;
+          stand.useDesiredLookAt = true;
+          stand.desiredLookAt = match->GetBall()->Predict(0).Get2D();
+          commandQueue.push_back(stand);
+          return;
+        }
         pesGoalKick = true;
         actionCommand.desiredFunctionType = e_FunctionType_HighPass;
         if (Player* receiver = team->GetController()->GoalKickReceiver()) {
