@@ -171,6 +171,19 @@ TEST(MentalityLaneB, RankCountsEarlierSameWordSlots) {
   EXPECT_EQ(3u, bRank[10]);
 }
 
+// Step 1: the CE150 B-word rule (lane-writers §3) as GF can carry it: keeper 3, designated 2,
+// else the reclassify of the class. The restart-kind-4 + instruction-15 arm (FUN_140A63950,
+// VA 0x140A63950) and the special arm (FUN_140A64410 -> FUN_1405CCD50 distances, VAs 0x140A64410 /
+// 0x1405CCD50) are ponytail leaves: GF carries no instruction table and no distance scores.
+TEST(MentalityLaneB, RestartKindFourWithoutInstructionTableKeepsClassLine) {
+  std::array<int, 11> b{0, 1, 1, 3, 4, 5, 6, 7, 8, 9, 2};
+  mentality::LaneInput in;
+  in.classes = b;
+  in.designated = -1;
+  const auto w = mentality::LaneBWords(in);
+  for (int k = 1; k < 11; ++k) EXPECT_EQ(mentality::ReclassifyLineOf(b[k]), w[k]);
+}
+
 // The sort FUN_140A79640 (lane-leaves §1): ascending, stable; rank = index in the sorted order.
 TEST(MentalityLaneSort, AscendingStableWithRank) {
   std::array<uint8_t, 11> slots{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
