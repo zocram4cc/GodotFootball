@@ -68,3 +68,14 @@ void MatchData::AddPossessionTime(int teamID, double tick_ms) {
   else if (teamID == 1)
     possession60seconds = std::min(possession60seconds + played_s, 60.0f);
 }
+
+void MatchData::RecordForfeit(int teamID, int score) {
+  forfeited[teamID] = true;
+  const int other = 1 - teamID;
+  goalCount[teamID] = 0;
+  // ponytail: when both sides hold a forfeit offence, PES picks the short side from MI+0x1558 (FUN_140447B50,
+  // docs/re/pes-re-missing-systems.md 2.13 step 5, not byte-checked). Until that is decoded, both sides read 0-0.
+  goalCount[other] = forfeited[other] ? 0 : score;
+  // The scorers of a forfeited match are not counted (PES blanks them with the forfeit).
+  std::erase_if(events, [](const Event& e) { return e.kind == Event::Goal || e.kind == Event::OwnGoal; });
+}

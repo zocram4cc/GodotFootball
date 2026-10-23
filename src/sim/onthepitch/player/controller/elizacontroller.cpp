@@ -173,22 +173,34 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       const Vector3 spot = team->GetController()->GetPieceWalkTarget();
       const Vector3 toSpot = (spot - player->GetPosition()).Get2D();
       command.desiredDirection = toSpot.GetNormalized(player->GetDirectionVec());
-      // The carrier closes at 2 x the gap. FloorVelocity floors only the small speeds, so above 4 m the command is off the movement
-      // table, and MOVESTEP reads an off-table speed as no class (TURN_STOP, with the precise target set; ClipWords' RUN_LOOP
-      // no-class rule): the crawl. PES's MOVE stops him at its arrival radius (StayDecision, FUN_1406b6bb0, ported), and the lift
-      // (docs/re/pes-re-throwin-choreography.md 3.2, phase 4) takes him onto the spot within 0.65 m. He stands once the lift has
-      // finished.
-      // ponytail: PES's desired speed (the MOVE command's writer, cmd+0x172) is not decoded; the 2 x gap rule is GF's stand-in.
+      // PES's walker is a MOVE command, and FUN_1406b7560 (the MOVE filler every MOVE handler reaches) replaces a run-class
+      // walker's desired speed with FUN_140a76070(2) = 11 km/h, the install's walk-down speed (call 0x1406b77d6, .rdata
+      // 0x14259bdfc; docs/re/pes-re-walk-speed.md). GF's 2 x gap rule went through FloorVelocity, which rounds anything above the
+      // walk level up to the sprint level, so the walker sprinted at every gap past about 2.5 m. PES's MOVE stops him at its
+      // arrival radius (StayDecision, FUN_1406b6bb0, ported), and the lift (docs/re/pes-re-throwin-choreography.md 3.2, phase 4)
+      // takes him onto the spot within 0.65 m. He stands once the lift has finished.
+      // ponytail: PES applies the walk-down only past its gate (in play, the route flag, the route and collision test, and the
+      // distance in frames over the frame budget; match+0x116c, playerRec+0x25930, FUN_140479470 undecoded); GF applies it to
+      // the whole walk. The carry is not a MOVE in PES (the root warp takes him onto the spot), so it keeps GF's 2 x gap.
       const float gap = toSpot.GetLength();
-      command.desiredVelocityFloat = team->GetController()->PieceTakerArrived()
-                                         ? idleVelocity
-                                         : FloorVelocity(pes::kPieceTakerApproachGain * gap);
+      const float walk = team->GetController()->IsCarryingBall()
+                             ? FloorVelocity(pes::kPieceTakerApproachGain * gap)
+                             : match->GetPesSetPieceTakerConstants().walkDown_ms;
+      command.desiredVelocityFloat = team->GetController()->PieceTakerArrived() ? idleVelocity : walk;
       command.useDesiredTarget = true;
       command.desiredTarget = spot;
       command.useDesiredLookAt = true;
       // PES's carrier turns toward his carry spot (docs/re/pes-re-throwin-choreography.md 3.2, phase 4), not the ball in his
       // hand: a look point at his own feet is zero metres from him, and MOVESTEP's look distance then fails ACCELERATE's gate.
-      command.desiredLookAt = team->GetController()->IsCarryingBall() ? spot.Get2D() : match->GetBall()->Predict(0).Get2D();
+      // Once the lift has stood him on the spot (phase 5: THROWIN_LOOP), he keeps the lift's yaw: he looks along his root, not
+      // at the spot, which is now under his feet and has no direction.
+      constexpr float kHeldLookAhead_m = 1.0f;  // the look point's distance along the root: any length gives the same heading
+      if (team->GetController()->PieceTakerArrived()) {
+        command.desiredLookAt = (player->GetPosition() + player->GetRootDirectionVec() * kHeldLookAhead_m).Get2D();
+      } else {
+        command.desiredLookAt =
+            team->GetController()->IsCarryingBall() ? spot.Get2D() : match->GetBall()->Predict(0).Get2D();
+      }
       commandQueue.push_back(command);
       return;
     }

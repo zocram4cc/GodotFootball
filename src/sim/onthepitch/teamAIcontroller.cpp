@@ -498,9 +498,10 @@ float TeamAIController::MeasuredLine(int line, float ref) const {
 }
 
 bool TeamAIController::IsOffsideTrapArmed() const {
-  // PES arms the trap only on its team flag `T+0xe4` (report 14.4); GF has no
-  // touchline button for it, so the tactic stands in and defaults to PES's live
-  // value for both teams, off.
+  // PES arms the trap on its team flag T+0xe4 (step 5, FUN_1404F6720; report 14.4). On the PES path the team tick holds
+  // that bit, set from the run world on the run frame.
+  if (match->PesLoop()) return teamTick.trapArmed;
+  // Off the PES path GF has no touchline button for it, so the tactic stands in (PES's live value is off).
   return GetLiveTacticReal("offside_trap", 0.0f) > 0.5f;
 }
 
@@ -1231,9 +1232,26 @@ void TeamAIController::AdvancePieceWalk() {
       pieceWarpTo = pieceCarrySpot;
     }
   }
-  // The root warp of the clip: an even step per tick onto the warp's end (the contact point, or the carry spot).
+  // The root warp of the clip: an even step per tick onto the warp's end (the contact point, or the carry spot). It is the clip's
+  // root moving, not a step, so it goes through WarpRoot, not OffsetPosition (a bump booked as movement).
   const float ticksLeft = static_cast<float>(pieceWarpTicks);
-  taker->OffsetPosition((pieceWarpTo - taker->GetPosition()).Get2D() * (1.0f / ticksLeft));
+  const Vector3 step = (pieceWarpTo - taker->GetPosition()).Get2D() * (1.0f / ticksLeft);
+  float yawStep = 0.0f;
+  if (pieceCarrying) {
+    // The lift's yaw warp (phase 4, docs/re/pes-re-throwin-choreography.md 3.2): over the clip the root turns to PES's heading
+    // 180 degrees, or 0 when the spot's PES z is negative, i.e. to face the pitch. PES's z is GF's -y, and a PES heading h is
+    // GF's direction (sin h, -cos h); GF's angle of a direction v is atan2(v.x, -v.y). The turn is the same even step per tick.
+    constexpr float kLiftHeadingFar_deg = 180.0f;  // the lift's yaw when the spot's PES z is not negative
+    constexpr float kLiftHeadingNear_deg = 0.0f;   // and when it is
+    const float spotPesZ = -pieceCarrySpot.coords[1];
+    const float heading_rad =
+        (spotPesZ < 0.0f ? kLiftHeadingNear_deg : kLiftHeadingFar_deg) * static_cast<float>(pi) / 180.0f;
+    const Vector3 root = taker->GetRootDirectionVec();
+    const float target = std::atan2(std::sin(heading_rad), std::cos(heading_rad));  // atan2(x, -y) of (sin h, -cos h)
+    const float now = std::atan2(root.coords[0], -root.coords[1]);
+    yawStep = ModulateIntoRange(-pi, pi, target - now) * (1.0f / ticksLeft);
+  }
+  taker->WarpRoot(step, yawStep);
   --pieceWarpTicks;
   if (pieceWarpTicks == 0) {
     pieceWarping = false;
@@ -2801,6 +2819,10 @@ void TeamAIController::UpdateStrategy() {
     pes::WriteAttackFlags(&teamTick);
     pes::WriteRestartWord(&teamTick, inPlay, flipped);
     lastTickPossession = latch;
+    // Step 15's in-play arm (FUN_1404FA840, 0x1404FA869-0x1404FA887).
+    if (inPlay) pes::ArmInPlayCounters(&teamTick);
+    // FUN_140501260 clears T+0xE4 every team tick (0x1405012D0); step 5 can only set it in play.
+    if (!inPlay) teamTick.trapArmed = false;
   }
   if (inPlay) {
     if (!pesPath) {
@@ -3220,6 +3242,9 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   std::array<std::vector<Player*>, 2> ids;
   lastRunWorld = BuildRunWorld(&ids);
   lastRunIds = std::move(ids);
+  // Step 5 (FUN_1404F6720) arms T+0xE4 from this run world. ponytail: the run world is built on the team's run frame,
+  // so the bit holds for the PES frame between; the chain cannot set it (pesoffball.cpp).
+  if (match->PesLoop()) teamTick.trapArmed = ob::OffsideTrapArmed(lastRunWorld, team->GetID());
   const ob::RunWorld& world = lastRunWorld;
   const std::vector<Player*>& slots = lastRunIds[team->GetID()];
   const int base = team->GetID() * ob::kSlots;

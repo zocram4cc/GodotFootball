@@ -233,6 +233,8 @@ int main(int argc, char** argv) {
   if (!playerDatabase) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   auto stoppageConstants = pes::LoadStoppageConstants(*exe, &err);
   if (!stoppageConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  auto forfeitConstants = pes::LoadForfeitConstants(*exe, &err);
+  if (!forfeitConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   auto restartSpotConstants = pes::LoadRestartSpotConstants(*exe, &err);
   if (!restartSpotConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   // PES 2021's kick execution error (docs/re/pes-re-kick-scatter.md).
@@ -317,6 +319,7 @@ int main(int argc, char** argv) {
   setup.pesStaminaConstants = &*staminaConstants;
   setup.pesPlayerDatabase = &*playerDatabase;
   setup.pesStoppageConstants = &*stoppageConstants;
+  setup.pesForfeitConstants = &*forfeitConstants;
   setup.pesRestartSpotConstants = &*restartSpotConstants;
   setup.pesKickErrorConstants = &*kickErrorConstants;
   setup.pesCarrierConstants = &*carrierConstants;

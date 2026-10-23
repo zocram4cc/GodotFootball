@@ -1551,4 +1551,36 @@ TEST(OffBallStyleRunDepth, RolesFiveAndSixWaitForTheUndecodedTeamByte) {
   EXPECT_FLOAT_EQ(StyleRunDepth(WithStyles(), 6, kPoacherWord, kNothing, false), 0.0f);
 }
 
+// T1a: the offside-trap arm (FUN_1404F6720, step 5, 0x1404F6720-0x1404F6BC2). The carrier is team 1's slot 0 (id 11)
+// at (2, 0), facing -x and standing still. Team 0, the trapping side, has its nearest man (id 0) 1 m in front of him.
+// Team 1's designated man (id 12) is his most advanced player and within 3 m. Every other man is out of the cones the
+// chain tests. Each scene passes the chain up to the one gate it names. The 10 m line gate, the 4 m line gate and the
+// 20 m^2 designated-man gate cannot all pass: the first two differ by (D.x - c.x) * s, and the third caps |D.x - c.x|
+// below 4.5 m. So the arm is unreachable; these scenes check the gates that stop it.
+RunWorld TrapScene(float trapLine_m, Vec2f designated) {
+  RunWorld w;
+  for (int i = 0; i < 2 * kSlots; ++i) w.p[i].active = true;
+  w.p[0].pos = {1.0f, 0.0f};
+  static const float kFarZ[] = {-30.0f, -25.0f, -20.0f, -15.0f, -10.0f, -5.0f, 0.0f, 5.0f, 10.0f, 15.0f};
+  for (int k = 1; k < kSlots; ++k) w.p[k].pos = {-50.0f, kFarZ[k - 1]};
+  w.p[kSlots].pos = {2.0f, 0.0f};
+  w.p[kSlots].facing = 270.0f;
+  w.p[kSlots + 1].pos = designated;
+  static const float kBackZ[] = {-20.0f, -15.0f, -10.0f, -5.0f, 0.0f, 5.0f, 10.0f, 15.0f, 20.0f};
+  for (int k = 2; k < kSlots; ++k) w.p[kSlots + k].pos = {12.0f, kBackZ[k - 2]};
+  w.carrier = kSlots;
+  w.lineX = {trapLine_m, 0.0f};
+  BuildNearest(w);
+  return w;
+}
+
+TEST(OffBallTrap, TrapArmedOnlyWhenFullPassChain) {
+  // 0x1404F68E4 (10 m): the carrier is 5 m short of the trapping line, not 10 m behind it.
+  EXPECT_FALSE(OffsideTrapArmed(TrapScene(-3.0f, {-0.598f, 1.5f}), 0));
+  // 0x1404F6A5B (4 m): the trapping line is 9.4 m beyond the designated man.
+  EXPECT_FALSE(OffsideTrapArmed(TrapScene(-10.0f, {-0.598f, 1.5f}), 0));
+  // 0x1404F6A45 (20 m^2): the designated man is 8 m away (64 m^2) and both line gates pass.
+  EXPECT_FALSE(OffsideTrapArmed(TrapScene(-8.5f, {-4.928f, 4.0f}), 0));
+}
+
 }  // namespace
