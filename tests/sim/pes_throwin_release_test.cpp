@@ -172,11 +172,10 @@ TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
 // the -y one. Built on main, the lift warped only the position, so a carrier who walked in facing the line ended the lift
 // with his root facing out, and the release hold put the ball outside it. At the end of every carried throw-in's lift in a
 // two-minute seed-7 match, the root must face the pitch.
-// DISABLED: the lift's warp ends on PES's heading (checked tick by tick), but on seed 7's first carried throw-in the idle clip
-// that starts on the lift's last tick takes its start angle from GF's travel angle, not from the root, and the root lands 54
-// degrees off (humanoidbase.cpp: a new clip's startAngle = spatialState.angle). That is GF's clip-switch rule, one item on its
-// own (tasks/22-10-26.md); this test re-enables when a new clip starts from the root yaw.
-TEST(PesThrowInRelease, DISABLED_TheLiftTurnsACarriedThrowInTakerToFaceThePitch) {
+// The lift's warp ends on PES's heading. On seed 7's first carried throw-in, the retain clip the carrier starts on the lift's last
+// tick (SelectRetainAnim) took its start angle from facing the pitch centre, and the root landed 54 degrees off. The hold now
+// starts from the root yaw (HumanoidBase::RootStartAngle).
+TEST(PesThrowInRelease, TheLiftTurnsACarriedThrowInTakerToFaceThePitch) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
   constexpr float kFacingTolerance_deg = 5.0f;  // a GF tolerance, not a PES value: the warp ends on the heading exactly
   const float cosTolerance = std::cos(kFacingTolerance_deg * std::acos(-1.0f) / 180.0f);

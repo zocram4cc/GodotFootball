@@ -1886,11 +1886,11 @@ void Humanoid::SelectRetainAnim() {
                    [this](int a, int b) { return CompareMovementSimilarity(a, b); });
 #endif
 
-  startAngle = FixAngle((Vector3(0) - startPos).GetAngle2D());  // 0.5 * pi; (facing right)
-
   currentAnim->positions.clear();
   currentAnim->anim = anims->GetAnim(*dataSet.begin());
   currentAnim->id = *dataSet.begin();
+  // The hold keeps the root's yaw, the facing the lift turned him to, not the pitch centre (PES's throw-in hold continues the root).
+  startAngle = RootStartAngle(currentAnim->anim);
   currentAnim->frameNum = 0;
   currentAnim->playbackRate = 1.0f;
   currentAnim->framePhase = 0.0f;

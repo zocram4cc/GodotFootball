@@ -1280,6 +1280,11 @@ bool HumanoidBase::SelectAnim(
   return false;
 }
 
+radian HumanoidBase::RootStartAngle(const Animation* anim) const {
+  return ModulateIntoRange(-pi, pi,
+                           FixAngle(spatialState.rootDirectionVec.GetAngle2D()) - anim->GetIncomingBodyAngle());
+}
+
 void HumanoidBase::CalculatePredictedSituation(Vector3& predictedPos, radian& predictedAngle) {
   if (currentAnim->positions.size() > (unsigned int)currentAnim->frameNum) {
     assert(currentAnim->positions.size() >

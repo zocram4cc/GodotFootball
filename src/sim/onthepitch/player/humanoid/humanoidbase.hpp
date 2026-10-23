@@ -284,6 +284,9 @@ protected:
       const PlayerCommand& command, e_InterruptAnim localInterruptAnim,
       bool preferPassAndShot = false);  // returns false on no applicable anim found
   void CalculatePredictedSituation(Vector3& predictedPos, radian& predictedAngle);
+  // The start angle that keeps the root's yaw: the root is the start angle plus the body node's yaw at frame 0
+  // (CalculateSpatialState), so the start turns that yaw back out. Only the throw-in hold starts this way (SelectRetainAnim).
+  radian RootStartAngle(const Animation* anim) const;
   Vector3 CalculateOutgoingMovement(const std::vector<Vector3>& positions) const;
 
   void CalculateSpatialState();         // realtime properties, based on 'physics'
