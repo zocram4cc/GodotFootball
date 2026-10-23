@@ -95,6 +95,36 @@ TEST(PesDefenderChooser, FirstTruePredicateWinsInPesOrder) {
   EXPECT_EQ(pes::ChooseReaction(in), pes::DefenderReaction::kNone);
 }
 
+// R3 (FUN_1409AD830): a marked man skips the holder duel (tackle, block and
+// the pass jostle) and falls through to the action dispatch (dodge/slide/
+// receive here; PES falls through to its +0x54 ladder). RED: no skip yet, so a
+// marked holder-duel input still wins.
+TEST(PesDefenderMarked, MarkedSkipsTheHolderDuel) {
+  pes::DefenderReactionInput in;
+  in.tackle = true;
+  in.block = true;
+  in.jostleForPass = true;
+  EXPECT_EQ(pes::ChooseMarkedReaction(in, true), pes::DefenderReaction::kNone);
+  EXPECT_EQ(pes::ChooseMarkedReaction(in, false), pes::DefenderReaction::kTackle);
+}
+
+TEST(PesDefenderMarked, MarkedFallsThroughToSlideAndReceive) {
+  pes::DefenderReactionInput in;
+  in.tackle = true;
+  in.slide = true;
+  EXPECT_EQ(pes::ChooseMarkedReaction(in, true), pes::DefenderReaction::kSlide);
+  in.slide = false;
+  in.receive = true;
+  EXPECT_EQ(pes::ChooseMarkedReaction(in, true), pes::DefenderReaction::kReceive);
+}
+TEST(PesDefenderMarked, MarkedDodgeStillBeatsBlock) {
+  // Mutation: the skip must only clear the holder duel, not the dispatch.
+  pes::DefenderReactionInput in;
+  in.block = true;
+  in.dodgeBall = true;
+  EXPECT_EQ(pes::ChooseMarkedReaction(in, true), pes::DefenderReaction::kDodgeBall);
+}
+
 TEST(PesDefenderChooser, AReactionFromTheFrontOfTheTableHidesTheRest) {
   // No score competition and no tie-break: the walk stops at the first yes.
   pes::DefenderReactionInput only_slide;

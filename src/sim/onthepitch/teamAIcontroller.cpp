@@ -188,7 +188,68 @@ void TeamAIController::TickScoreRows() {
 }
 
 void TeamAIController::TickMarkTable() {
+  // PES 2021's step 35 (FUN_1404F61E0, T7a `0x1404F76B1`): rebuild the mark
+  // table from the run world each team tick on the PES path. T7a runs inside
+  // the team tick (after the prep steps, before step 38/WriteRoleArrays), so
+  // this runs in Team::Process next to TickScoreRows and is active in every
+  // match state, not only in play. The GF path keeps its own man-marking and
+  // never reads markTableState, so the build is PES-path only.
   markTableState.mark.fill(0);
+  markTableState.markSlot = pes::marktable::kNoSlot;
+  if (!match->PesLoop()) return;
+  // The engaging man owns the B7D8 word: PES's tgt skip keeps the already
+  // engaged man out of the marking candidacy, and GF's engaged man is its
+  // designated possession player (the MATCH_UP/chaser read at :2192).
+  // ponytail: B7D8's exact writers (FUN_140546FB0/549D30) are not decoded to GF
+  // state; the designation is the closest decoded carrier.
+  {
+    Player* const engaging = team->GetDesignatedTeamPossessionPlayer();
+    markTableState.markSlot = engaging != nullptr ? RunSlotOf(engaging) : -1;
+  }
+  // The holder: the ball's owner (FUN_140A627E0 names the carrier; MA+0x2483C
+  // tracks him). No retainer, no holder, no marks. The run slot comes from the
+  // run table: team*11 + roster index (RunSlotOf; -1 when he is not in it).
+  Player* const owner = match->GetBallRetainer();
+  if (owner == nullptr) return;
+  const int holder = RunSlotOf(owner);
+  if (holder < 0 || holder >= 2 * pes::marktable::kSlots) return;
+  // This tick's facts: the candidate rows, the pair bearings, the positions
+  // and the holder point, straight out of the run world the manager builds on
+  // the team's parity tick.
+  const pes::offball::RunWorld& w = lastRunWorld;
+  pes::marktable::Facts facts;
+  facts.side = team->GetID();
+  facts.holder = holder;
+  const pes::offball::PlayerFacts& hf = w.p[holder];
+  facts.holderIsKeeper = hf.goalie;
+  facts.sign = w.s[team->GetID()];
+  facts.holderX = hf.pos.x;
+  facts.holderZ = hf.pos.z;
+  facts.goalAreaHalfWidth_m = pesGoalAreaHalfWidth;  // FieldInfo F[5], readers doc section 4
+  int out = 0;
+  for (const pes::offball::NearOpponent& near : pes::offball::NearestOpponents(w, holder)) {
+    if (out >= pes::marktable::kSlots) break;
+    const pes::offball::PlayerFacts& cf = w.p[near.id];
+    pes::marktable::Candidate& dst = facts.candidates[out++];
+    dst.id = near.id;
+    dst.d2 = near.d2;
+    dst.actionWord = cf.passGet ? 1 : 0x3F;
+    dst.posX = cf.pos.x;
+    dst.posZ = cf.pos.z;
+    dst.pairToTarget =
+        pes::offball::RowBearing(w, near.id, facts.side * pes::marktable::kSlots + markTableState.markSlot);
+    dst.pairToHolder = pes::offball::RowBearing(w, near.id, holder);
+    dst.headPosX = cf.pos.x;
+    dst.headPosZ = cf.pos.z;
+    dst.headPointX = cf.aim.x;
+    dst.headPointZ = cf.aim.z;
+    dst.head = cf.facing;
+  }
+  for (int i = 0; i < pes::offball::kSlots; ++i) {
+    const pes::offball::PlayerFacts& mf = w.p[(holder / pes::offball::kSlots) * pes::offball::kSlots + i];
+    facts.gateMates[i] = {mf.pos.x, mf.pos.z};
+  }
+  pes::marktable::BuildMarkTable(&markTableState, facts, match->GetPesMarkTableConstants());
 }
 
 void TeamAIController::Process() {

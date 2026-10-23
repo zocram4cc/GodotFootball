@@ -26,14 +26,13 @@
 #include "onthepitch/pessetpiecetaker.hpp"
 #include "onthepitch/pessetpieceteam.hpp"
 #include "onthepitch/pespress.hpp"
+#include "onthepitch/pesmarktable.hpp"
 #include "onthepitch/pesstoppage.hpp"
 #include "onthepitch/pesforfeit.hpp"
 #include "onthepitch/peskickerror.hpp"
 #include "onthepitch/pesoffball.hpp"
 #include "onthepitch/pesstrategy.hpp"
 #include "onthepitch/pesteamconcepts.hpp"
-#include "onthepitch/pessubs.hpp"
-#include "pes/exe.hpp"
 #include "pes/vfs.hpp"
 
 namespace pestest {
@@ -68,6 +67,7 @@ struct PesMatchConstants {
   std::optional<pes::offball::OffBallConstants> offBall;
   std::optional<pes::MoveStepConstants> moveStep;
   std::optional<pes::PressConstants> press;
+  std::optional<pes::marktable::Constants> markTable;
   std::optional<pes::formation::FormationTables> formationTables;
   std::optional<pes::formation::SheetConstants> sheetConstants;
 };
@@ -114,6 +114,7 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
   if (mounted) c.offBall = pes::offball::LoadOffBallConstants(*exe, vfs, &err);
   if (mounted) c.moveStep = pes::LoadMoveStepConstants(*exe, vfs, &err);
   c.press = pes::LoadPressConstants(*exe, &err);
+  c.markTable = pes::marktable::LoadMarkTableConstants(*exe, &err);
   if (mounted) c.formationTables = pes::formation::FormationTables::Load(vfs, &err);
   c.sheetConstants = pes::formation::ReadSheetConstants(*exe, &err);
   return c;
@@ -159,6 +160,7 @@ inline bool FillMissingPesConstants(MatchSetup* setup) {
   fill(setup->pesOffBallConstants, c.offBall);
   fill(setup->pesMoveStepConstants, c.moveStep);
   fill(setup->pesPressConstants, c.press);
+  fill(setup->pesMarkTableConstants, c.markTable);
   return ok;
 }
 

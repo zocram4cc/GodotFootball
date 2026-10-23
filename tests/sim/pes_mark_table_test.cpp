@@ -8,6 +8,26 @@
 
 #include "onthepitch/pesmarktable.hpp"
 #include "pes/exe.hpp"
+#include <memory>
+#include <vector>
+
+#include "base/properties.hpp"
+#include "data/matchdata.hpp"
+#include "gamedefines.hpp"
+#include "onthepitch/match.hpp"
+#include "onthepitch/matchsetup.hpp"
+#include "onthepitch/player/player.hpp"
+#include "onthepitch/team.hpp"
+#include "pes/vfs.hpp"
+#include "simcontext.hpp"
+#include "utils/database.hpp"
+#include "rig/rig.hpp"
+
+#include "pes_match_constants.hpp"
+
+#ifndef GF_SOURCE_DIR
+#define GF_SOURCE_DIR "."
+#endif
 
 namespace {
 
@@ -60,6 +80,49 @@ Facts PassingFacts() {
   c.head = 0.0f;  // the facing word: subtrahend only, the wrap tests use headArg
   f.candidates[0] = c;
   return f;
+}
+// RED (step 1): the team tick must rebuild marks on the PES path (T7a
+// FUN_1404F61E0 at team-tick `0x1404F76AC`), so that the readers (R1/R2/R3)
+// see live marks instead of a zeroed table. A live PES-loop match must show a
+// marked slot on some tick (the pre-wiring run left every mark zero; a live
+// table proves the builder call is wired to the run world).
+TEST(MarkTableTick, LiveMatchTickSetsAMark) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set: the tick feed runs a live match";
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto rig = pesrig::BuildRig(vfs, &err);
+  ASSERT_TRUE(rig) << err;
+  blunted::Database db;
+  ASSERT_TRUE(db.LoadSqlScript(std::string(GF_SOURCE_DIR) + "/assets/fixtures/teams.sql"));
+  SetDB(&db);
+  auto setup = std::make_unique<MatchSetup>();
+  setup->homeTeamDbId = 1;
+  setup->awayTeamDbId = 2;
+  setup->seed = 7;
+  setup->durationMinutes = 2;
+  setup->animationDir = std::string(GF_SOURCE_DIR) + "/assets/gf_anims";
+  setup->rig = &*rig;
+  ASSERT_TRUE(pestest::FillMissingPesConstants(setup.get())) << "install constants unavailable";
+  Properties config;
+  config.SetBool("pes_loop", true);
+  Match match(new MatchData(1, 2), *setup, config);
+  bool marked = false;
+  for (unsigned long t = 0; !match.IsGameOver() && t < 6ul * 60ul * 54ul && !marked; ++t) {
+    match.Process();
+    for (int team = 0; team < 2 && !marked; ++team) {
+      std::vector<Player*> players;
+      match.GetTeam(team)->GetActivePlayers(players);
+      for (Player* p : players) {
+        if (match.GetTeam(team)->GetController()->IsMarkedByTable(p)) {
+          marked = true;
+          break;
+        }
+      }
+    }
+  }
+  EXPECT_TRUE(marked);
 }
 
 TEST(MarkTable, ZeroedOnEntry) {
