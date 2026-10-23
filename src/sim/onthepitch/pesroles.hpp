@@ -48,12 +48,9 @@ struct SideRoles {
 };
 
 // FUN_1404F5F10's bulk write for one side: A[i] = B[i] = the class of slot i's registered role
-// at `phase` of the current plan (FUN_1408C51F0 with plan 3). A role past 12 reads class 0.
+// at `level` (pesmentality's RoleLevel). A role past 12 reads class 0.
 void WriteSideRoles(const std::array<int, kRegisteredRoles>& classOf, const TeamSheet& sheet,
-                    int phase, SideRoles* roles);
-
-// The phase the bulk writer takes from its flag, `2 - (flag != 0)`.
-int WritePhase(bool flag);
+                    int level, SideRoles* roles);
 
 // FUN_140A41BE0: the tail swap runs only while its last pair is two slots (both latches < 11).
 bool TailSwapAllowed(const SideRoles& roles);

@@ -69,17 +69,15 @@ std::optional<std::array<int, kRegisteredRoles>> LoadRoleClassMap(const PeImage&
 }
 
 void WriteSideRoles(const std::array<int, kRegisteredRoles>& classOf, const TeamSheet& sheet,
-                    int phase, SideRoles* roles) {
+                    int level, SideRoles* roles) {
   for (int slot = 0; slot < kSideSlots; ++slot) {
-    const int role = sheet.RegisteredRole(slot, phase);
+    const int role = sheet.RegisteredRole(slot, level);
     // FUN_1408C51F0: a registered role past 12 returns class 0 (its JA to the zero tail).
     const int cls = role >= 0 && role < kRegisteredRoles ? classOf[role] : 0;
     roles->a[slot] = cls;
     roles->b[slot] = cls;
   }
 }
-
-int WritePhase(bool flag) { return 2 - (flag ? 1 : 0); }
 
 bool TailSwapAllowed(const SideRoles& roles) {
   return roles.lastSwapA < kSideSlots && roles.lastSwapB < kSideSlots;

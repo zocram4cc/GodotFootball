@@ -23,6 +23,7 @@
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
 #include "onthepitch/pesdesignation.hpp"
+#include "onthepitch/pesmentality.hpp"
 
 namespace pes {
 
@@ -174,6 +175,10 @@ struct TeamConceptConstants {
   int defaultSlotTarget = 0;
   // FUN_1408C51F0's class map, read from the install (pesroles.cpp): registered role 0..12 -> class 0..9.
   std::array<int, kSheetRoleBound> roleClassOfRegistered{};
+  // The shared reclassify's class -> line table (EC600 @ 0x1405ED1F4) and block B's fold constants
+  // (67C4B0), read from the install with the rest.
+  mentality::LineTable reclassifyLines{};
+  mentality::FoldConstants fold{};
   // The designation publisher's order table and the ordinal fill's rank constants, read from the
   // install (pesdesignation.hpp: DAT_142643596, DAT_14259D674, DAT_14256AE34).
   pes::designation::Constants designation{};

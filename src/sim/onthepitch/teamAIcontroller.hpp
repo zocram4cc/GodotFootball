@@ -187,6 +187,8 @@ public:
   // PES's role arrays (pesroles.hpp): B holds each slot's role class, the value every class
   // reader uses; A is the stamina-sub class. Setup and the tick's head and tail write them.
   int RoleClassOfSlot(int slot) const;
+  // The defensive line of a player: the reclassify of his slot's B class on the PES path (pesmentality.hpp).
+  int DefensiveLineOf(Player* p, e_PlayerRole role) const;
   // PES's designation publisher (FUN_14051E350, team tick step 27b): the side's record, rebuilt each tick.
   void UpdatePesDesignation();
   void SetUpRoleArrays();
@@ -301,6 +303,9 @@ protected:
   TeamInstructions::State instructions;
   pes::TeamSheet teamSheet;
   pes::roles::SideRoles roles;
+  // Block B's fold picks of this tick (pesmentality.hpp FoldPicks), PES path only. Nothing reads them yet:
+  // the readers of PES's planObj+0x7CD4 are not decoded.
+  std::vector<int> foldSlots;
   std::optional<std::pair<int, int>> roleSwap;
   // PES's concept selector state (FUN_140579840): running flag and start time
   // per id, the men each concept has ordered, and its own record.

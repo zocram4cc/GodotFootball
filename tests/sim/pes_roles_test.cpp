@@ -40,11 +40,6 @@ TEST(PesRolesInstall, ClassMapHoldsRelationsOfTheRegisteredRoles) {
   EXPECT_NE(c[11], c[12]);                    // SS and CF differ
 }
 
-TEST(PesRoles, WritePhaseIsTwoMinusTheFlag) {
-  EXPECT_EQ(2, pes::roles::WritePhase(false));
-  EXPECT_EQ(1, pes::roles::WritePhase(true));
-}
-
 TEST(PesRoles, WriteSideRolesFillsBothArraysWithEachSlotsClass) {
   std::array<int, pes::roles::kRegisteredRoles> classOf{};
   for (int r = 0; r < pes::roles::kRegisteredRoles; ++r) classOf[r] = r % 10;
