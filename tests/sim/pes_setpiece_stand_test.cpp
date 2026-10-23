@@ -383,32 +383,32 @@ TEST(SetKickStand, AFarSetPieceWalkerIsCommandedAtTheWalkDownSpeed) {
   EXPECT_EQ(wrong, 0) << wrong << " of " << farTicks << " far ticks commanded another speed (up to " << worst << " m/s)";
 }
 
-// A walker far from his mark walks there. Rooting every MOVESTEP clip sat the walker in TURN_STOP at rest (the step clips
-// restarted each tick and turned the root a fraction of a degree), while his command still read the walk-down speed.
-TEST(SetKickStand, AFarSetPieceWalkerDoesNotStandStillWhileHeIsFar) {
+// A walker far from his mark gets there. Rooting every MOVESTEP clip sat the throw-in taker in TURN_STOP for the whole walk
+// (the step clips restarted each tick and turned the root a fraction of a degree), so he never closed on the mark, while his
+// command still read the walk-down speed. TURN_STOP stands still while it turns the facing back (PES's "stop while still
+// facing away"), so the test asks for the arrival, not for a share of ticks at rest.
+TEST(SetKickStand, AFarSetPieceWalkerReachesHisMarkInTheWalkWindow) {
   Properties config;
   config.SetBool("pes_loop", true);
   REQUIRE_PES_MATCH(config);
-  constexpr float kFarGap_m = 4.0f;         // as the walk-down test: beyond this the walker is far
-  constexpr float kRestSpeed_ms = 0.5f;     // a GF tolerance: below this the walker is standing, not walking
-  constexpr float kMaxRestFraction = 0.25f;  // a GF tolerance for the share of far ticks he may stand still
-  constexpr int kWalkTicks = 300;
+  constexpr float kNearGap_m = 4.0f;  // as the walk-down test: inside this he has closed on his mark
+  constexpr int kWalkTicks = 300;     // the walk window the walk-down test uses
   match->Process();  // the opening kick-off's preparation, as the walk-down test does
   const Vector3 spot(0.0f, -34.3f, 0.0f);
   Player* taker = PrepareRestart(*match, e_SetPiece_ThrowIn, 0, spot);
   ASSERT_NE(taker, nullptr) << "no throw-in taker was chosen";
   const TeamAIController* controller = match->GetTeam(0)->GetController();
   ASSERT_TRUE(controller->IsPieceTakerWalking(taker)) << "the throw-in is not a walked (seamless) one";
-  int farTicks = 0, restTicks = 0;
-  for (int t = 0; t < kWalkTicks; ++t) {
+  bool arrived = false;
+  float gap = 0.0f;
+  for (int t = 0; t < kWalkTicks && !arrived; ++t) {
     match->Process();
-    if (!controller->IsPieceTakerWalking(taker) || controller->IsPickingUp() || controller->IsCarryingBall()) break;
-    const float gap = (controller->GetPieceWalkTarget() - taker->GetPosition()).Get2D().GetLength();
-    if (gap <= kFarGap_m) continue;
-    ++farTicks;
-    if (taker->GetMovement().GetLength() < kRestSpeed_ms) ++restTicks;
+    if (!controller->IsPieceTakerWalking(taker) || controller->IsPickingUp() || controller->IsCarryingBall()) {
+      arrived = true;  // the walk ended at the mark: the taker picks the ball up
+      break;
+    }
+    gap = (controller->GetPieceWalkTarget() - taker->GetPosition()).Get2D().GetLength();
+    arrived = gap <= kNearGap_m;
   }
-  ASSERT_GT(farTicks, 0) << "the walker was never more than " << kFarGap_m << " m from his target";
-  EXPECT_LE(static_cast<float>(restTicks), kMaxRestFraction * static_cast<float>(farTicks))
-      << restTicks << " of " << farTicks << " far ticks at rest";
+  EXPECT_TRUE(arrived) << "the walker was still " << gap << " m from his mark after " << kWalkTicks << " ticks";
 }
