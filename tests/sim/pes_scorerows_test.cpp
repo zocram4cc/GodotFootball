@@ -145,5 +145,6 @@ TEST(ScoreRows, PairBearingsAreOwnerMinusOtherFoldedToZeroTo360) {
   const pes::ScoreRows& r = w.Rows();
   EXPECT_NEAR(r.bearing[0][1], 180.0f, kBearingTol_deg);  // atan2(0, -10)
   EXPECT_NEAR(r.bearing[1][0], 0.0f, kBearingTol_deg);    // atan2(0, 10)
-  EXPECT_NEAR(r.bearing[0][2], 0.0f, kBearingTol_deg);    // coincident: 0, not NaN
+  EXPECT_EQ(r.bearing[0][2], 0.0f);  // coincident: the zero arm, exactly 0
+  EXPECT_EQ(r.bearing[2][0], 0.0f);
 }
