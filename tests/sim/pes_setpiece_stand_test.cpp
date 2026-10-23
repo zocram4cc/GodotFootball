@@ -538,3 +538,82 @@ TEST(SetKickStand, AFarSetPieceWalkerIsCommandedAtTheWalkDownSpeed) {
   ASSERT_GT(farTicks, 0) << "the walker was never more than " << kFarGap_m << " m from his target";
   EXPECT_EQ(wrong, 0) << wrong << " of " << farTicks << " far ticks commanded another speed (up to " << worst << " m/s)";
 }
+
+namespace {
+
+// The restart as the referee takes it: armed the way the dead-ball path arms one (referee.cpp), then run until the referee
+// releases it and until the taker's kick ends it. The two waits are GF bounds, not PES values.
+struct ReleasedRestart {
+  bool released = false;
+  bool heldAtRelease = false;
+  bool taken = false;
+  float takerToBall_m = 0.0f;
+};
+
+ReleasedRestart RunRestart(Match& match, e_SetPiece kind, const Vector3& spot) {
+  constexpr int kReleaseWindowTicks = 2000;
+  constexpr int kTakeWindowTicks = 3000;
+  ReleasedRestart out;
+  match.StopPlay();
+  match.ResetSituation(spot);
+  RefereeBuffer& buffer = match.GetReferee()->Buffer();
+  const unsigned long now = match.GetActualTime_ms();
+  buffer.desiredSetPiece = kind;
+  buffer.teamID = 0;
+  buffer.restartPos = spot;
+  buffer.stopTime = now;
+  buffer.prepareTime = now;
+  buffer.startTime = now;
+  buffer.active = true;
+  buffer.prepared = false;
+  buffer.started = false;
+  int ticks = 0;
+  while (!match.IsInSetPiece() && ticks++ < kReleaseWindowTicks) match.Process();
+  out.released = match.IsInSetPiece();
+  if (!out.released || buffer.taker == nullptr) return out;
+  Player* taker = buffer.taker;
+  out.heldAtRelease = match.GetTeam(0)->GetController()->IsPieceTakerHeld(taker);
+  ticks = 0;
+  while (match.IsInSetPiece() && ticks++ < kTakeWindowTicks) match.Process();
+  out.taken = !match.IsInSetPiece();
+  out.takerToBall_m = (taker->GetPosition() - match.GetBall()->Predict(0)).Get2D().GetLength();
+  return out;
+}
+
+}  // namespace
+
+// PES releases a placed free kick on its frame count (ReleaseFrames, pessequencer.cpp), and the kick action takes the body over
+// from the stand (pes-re-kicker-standby.md sections 5 and 6): the taker runs up from his stand point, and the restart ends when
+// his kick touches the ball. A taker still held past the release never moves, so the restart holds for the rest of the period
+// (the forfeit match's red card, pes_forfeit_test.cpp).
+TEST(SetKickStand, AHeldFreeKickTakerIsReleasedAndTakesTheKick) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  const ReleasedRestart r = RunRestart(*match, e_SetPiece_FreeKick, Vector3(20.0f, 0.0f, 0.0f));
+  ASSERT_TRUE(r.released) << "the free kick was never released";
+  EXPECT_FALSE(r.heldAtRelease) << "the released free kick taker is still held at his stand point";
+  EXPECT_TRUE(r.taken) << "the released free kick was not taken: the taker stands " << r.takerToBall_m << " m from the ball";
+}
+
+// The same release for the penalty (kPenaltyReleaseFrames) and the corner (kCornerReleaseFrames): the taker leaves his stand
+// at the release and takes the restart.
+TEST(SetKickStand, AHeldPenaltyTakerIsReleasedAndTakesTheKick) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  const ReleasedRestart r = RunRestart(*match, e_SetPiece_Penalty, Vector3(pesPenaltySpotX, 0.0f, 0.0f));
+  ASSERT_TRUE(r.released) << "the penalty was never released";
+  EXPECT_FALSE(r.heldAtRelease) << "the released penalty taker is still held at his stand point";
+  EXPECT_TRUE(r.taken) << "the released penalty was not taken: the taker stands " << r.takerToBall_m << " m from the ball";
+}
+
+TEST(SetKickStand, AHeldCornerTakerIsReleasedAndTakesTheKick) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  const ReleasedRestart r = RunRestart(*match, e_SetPiece_Corner, Vector3(52.0f, 33.5f, 0.0f));
+  ASSERT_TRUE(r.released) << "the corner was never released";
+  EXPECT_FALSE(r.heldAtRelease) << "the released corner taker is still held at his stand point";
+  EXPECT_TRUE(r.taken) << "the released corner was not taken: the taker stands " << r.takerToBall_m << " m from the ball";
+}
