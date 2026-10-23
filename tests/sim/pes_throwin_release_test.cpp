@@ -15,6 +15,9 @@
 #include "onthepitch/matchsetup.hpp"
 #include "onthepitch/pesgoalkick.hpp"
 #include "onthepitch/pessetpiecetaker.hpp"
+#include "onthepitch/player/player.hpp"
+#include "onthepitch/team.hpp"
+#include "onthepitch/teamAIcontroller.hpp"
 #include "pes/vfs.hpp"
 #include "rig/rig.hpp"
 #include "simcontext.hpp"
@@ -192,4 +195,41 @@ TEST(PesThrowInRelease, ARestartIsInPlayAtTheReleaseNotAtTheTakeStart) {
                                 << " take ticks were already in play; PES rises at the release, not the take start";
   EXPECT_EQ(inPlayReleases, releases) << "play did not resume at a release";
   EXPECT_EQ(releases, takes) << "a take did not end in a release";
+}
+
+// PES's lift turns a carried throw-in's taker to face the pitch: SeamlessThrowin phase 4 (FUN_140791EC0 case 4,
+// docs/re/pes-re-throwin-choreography.md 3.2) plays throwin_seamless_liftupball and yaw-warps the root to 180 degrees, or to
+// 0 when the spot's PES z is negative, over the clip. In GF's frame (PES z = -y) that is -y from the +y touchline and +y from
+// the -y one. Built on main, the lift warped only the position, so a carrier who walked in facing the line ended the lift
+// with his root facing out, and the release hold put the ball outside it. At the end of every carried throw-in's lift in a
+// two-minute seed-7 match, the root must face the pitch.
+// The lift's warp ends on PES's heading. On seed 7's first carried throw-in, the retain clip the carrier starts on the lift's last
+// tick (SelectRetainAnim) took its start angle from facing the pitch centre, and the root landed 54 degrees off. From the lift on,
+// the taker's clips start from the root yaw (HumanoidBase::RootStartAngle, Humanoid::HoldsRootYaw); on the merged tree the MOVESTEP
+// clip that follows the lift started from the travel direction and faced him out.
+TEST(PesThrowInRelease, TheLiftTurnsACarriedThrowInTakerToFaceThePitch) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  constexpr float kFacingTolerance_deg = 5.0f;  // a GF tolerance, not a PES value: the warp ends on the heading exactly
+  const float cosTolerance = std::cos(kFacingTolerance_deg * std::acos(-1.0f) / 180.0f);
+  int lifts = 0, facingOut = 0;
+  float worstDot = 1.0f;
+  bool wasArrived[2] = {true, true};
+  RunMatch([&](Match& match) {
+    for (int t = 0; t < 2; ++t) {
+      TeamAIController* c = match.GetTeam(t)->GetController();
+      Player* taker = c->GetPieceTaker();
+      const bool walking = taker && c->IsPieceTakerWalking(taker);
+      const bool arrived = !walking || c->PieceTakerArrived();
+      if (walking && arrived && !wasArrived[t]) {  // the tick the lift ends
+        ++lifts;
+        const Vector3 pitchward(0.0f, c->GetPieceWalkTarget().coords[1] > 0.0f ? -1.0f : 1.0f, 0.0f);
+        const float dot = taker->GetRootDirectionVec().GetDotProduct(pitchward);
+        worstDot = std::min(worstDot, dot);
+        if (dot < cosTolerance) ++facingOut;
+      }
+      wasArrived[t] = arrived;
+    }
+  });
+  ASSERT_GT(lifts, 0) << "no carried throw-in was lifted within two minutes";
+  EXPECT_EQ(facingOut, 0) << facingOut << " of " << lifts << " lifted takers did not face the pitch (worst cos " << worstDot << ")";
 }

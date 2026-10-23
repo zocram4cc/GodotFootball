@@ -45,8 +45,10 @@ constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;  // fixture database ids
 constexpr unsigned int SEED = 7;
 constexpr int kMatchMinutes = 20;
 constexpr int kShortMatchMinutes = 2;  // reaches full time quickly in simulated time
-// Simulated time in which a stoppage must arrive or a match must end.
-constexpr unsigned long kWindow_ms = 10ul * 60ul * 1000ul;
+// Simulated time in which a stoppage must arrive or a match must end. A two-minute match with PES's set-piece walks (the
+// 11 km/h walk-down, docs/re/pes-re-walk-speed.md) and a red card's stoppages runs about eleven simulated minutes (seed's
+// red-card match: 655.6 s), so ten minutes was a window the old sprinting walk happened to fit.
+constexpr unsigned long kWindow_ms = 15ul * 60ul * 1000ul;
 // A card whose removal never takes effect within the match (the reachable window at full time).
 constexpr unsigned long kNeverSentOff_ms = 1000000000000ul;
 // One PES frame-second is 54 logic frames: a stoppage must stay open this long for the substitution
