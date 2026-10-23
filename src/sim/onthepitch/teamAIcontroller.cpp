@@ -299,6 +299,12 @@ void TeamAIController::Process() {
   RunConcepts();
 
   ProcessOffBall();
+  // PES's step 43 (FUN_1404F78FE): with T+0x218 == 0 every own slot is released through FUN_140A40820. It follows the
+  // designation and the run manager (steps 38 and 41) of the same tick, and it runs on every in-play tick, where
+  // ProcessOffBall runs only on the team's parity frames.
+  if (match->PesLoop()) {
+    pes::run::ReleaseSweep(&runSlots, teamTick.noBallCounter, static_cast<uint32_t>(match->GetPesFrame()));
+  }
 }
 
 float mixup(float base, const std::string& varname, e_PlayerRole role, float counterAttack) {
@@ -2998,7 +3004,7 @@ Player* TeamAIController::RunPlayerAt(int slot) const {
 
 bool TeamAIController::GetOffBallTarget(const Player* player, Vector3* target) const {
   const int k = OwnRunSlot(player);
-  if (k >= 0 && runSlots[k].state != ob::kNothing) {
+  if (k >= 0 && runSlots[k].state != ob::kNothing && runSlots[k].state != ob::kBasePosition) {
     *target = RunPoint(runSlots[k]);
     return true;
   }
@@ -3061,9 +3067,19 @@ void TeamAIController::ProcessDesignatedSupporter(Player* carrier) {
     if (!designatedSupporter) return;
   }
   const Vector3 carrierPred = Predict(carrier, kSupporterPredictFrames);
-  // Forced back to BASE_POSITION: the supporter never runs (b2a.c:657-699).
-  if (const int k = OwnRunSlot(designatedSupporter); k >= 0 && runSlots[k].state != ob::kNothing) {
-    pes::run::Release(&runSlots[k], static_cast<uint32_t>(match->GetPesFrame()));
+  // Forced back to BASE_POSITION: the supporter never runs (b2a.c:657-699). Step 38 (FUN_1404F773E) writes it
+  // through FUN_140A429A0 with the record of his target block and byte 16 set. A slot that stops being the
+  // supporter is released (ponytail: the step's per-slot conditions, 0x1404F76E0-0x1404F7807, are not all decoded).
+  if (match->PesLoop()) {
+    const uint32_t takeStamp = static_cast<uint32_t>(match->GetPesFrame());
+    const int supporterSlot = OwnRunSlot(designatedSupporter);
+    for (int j = 0; j < pes::run::kSlots; ++j) {
+      if (j != supporterSlot && runSlots[j].state == ob::kBasePosition) pes::run::Release(&runSlots[j], takeStamp);
+    }
+    if (supporterSlot >= 0) {
+      pes::run::Take(&runSlots[supporterSlot], ob::kBasePosition, takeStamp,
+                     pes::run::SupporterRecord(runSlots[supporterSlot]));
+    }
   }
 
   // FUN_1405ebca0: the carrier's predicted point moved by the support distance
@@ -3248,7 +3264,13 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       f.aiClass = f.roleClass;
       f.slotPoint = Flat(ctl->GetAdaptedFormationPosition(pl, false));
       const int k = ctl->OwnRunSlot(pl);
-      if (k >= 0 && ctl->runSlots[k].state != ob::kNothing) {
+      if (k >= 0 && ctl->runSlots[k].state == ob::kBasePosition) {
+        // The designated supporter at BASE_POSITION (step 38): the age of that state. His aim is the stand-in a
+        // non-runner gets (ponytail, a76240).
+        f.state = ob::kBasePosition;
+        f.t = static_cast<float>(static_cast<uint32_t>(match->GetPesFrame()) -
+                                 pes::run::Behind(ctl->runSlots[k].ring, 0).enteredAt);
+      } else if (k >= 0 && ctl->runSlots[k].state != ob::kNothing) {
         const pes::run::Slot& run = ctl->runSlots[k];
         f.state = run.state;
         f.t = static_cast<float>(static_cast<uint32_t>(match->GetPesFrame()) - pes::run::Behind(run.ring, 0).enteredAt);
@@ -3329,6 +3351,7 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
       pes::run::Release(&slot, frame);
       continue;
     }
+    if (slot.state == ob::kBasePosition) continue;  // not a selector state: the stop test never reads it (off-ball 1.2)
     if (ob::RunStop(world, base + k, slot.state)) {
       match->GetMatchData()->AddStopFire(team->GetID());
       pes::run::Release(&slot, frame);
