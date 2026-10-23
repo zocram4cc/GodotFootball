@@ -2929,7 +2929,9 @@ void TeamAIController::Reset() {
   offsideTrapX = 0;
 
   for (int id = 0; id < pes::kConceptCount; ++id) StopConcept(id);
-  runs.clear();
+  for (pes::run::Slot& slot : runSlots) {
+    if (slot.state != pes::offball::kNothing) pes::run::Release(&slot, static_cast<uint32_t>(match->GetPesFrame()));
+  }
   lastRunFrame = -1;
   designatedSupporter = nullptr;
 
@@ -2965,9 +2967,22 @@ bool IsGoalie(Player* p) { return p->GetFormationEntry().role == e_PlayerRole_GK
 }  // namespace
 
 int TeamAIController::GetRunState(const Player* player) const {
-  auto it = runs.find(player);
-  return it == runs.end() ? ob::kNothing : it->second.state;
+  const int k = OwnRunSlot(player);
+  return k < 0 ? ob::kNothing : runSlots[k].state;
 }
+
+int TeamAIController::OwnRunSlot(const Player* player) const {
+  const int s = RunSlotOf(player);
+  const int k = s - team->GetID() * ob::kSlots;
+  return k >= 0 && k < pes::run::kSlots ? k : -1;
+}
+
+// The point a run aims at: the concept point of the run's slot (T+0x26C).
+static Vector3 RunPoint(const pes::run::Slot& slot) {
+  const std::array<float, 3> p = pes::run::Point(slot);
+  return Vector3(p[0], p[1], p[2]);
+}
+static_assert(pes::run::kSlots == ob::kSlots, "the run table holds one slot per own roster slot");
 
 Player* TeamAIController::NearestOpponentOf(const Player* own) const {
   const int slot = RunSlotOf(own);
@@ -3000,9 +3015,9 @@ Player* TeamAIController::RunPlayerAt(int slot) const {
 }
 
 bool TeamAIController::GetOffBallTarget(const Player* player, Vector3* target) const {
-  auto it = runs.find(player);
-  if (it != runs.end() && it->second.state != ob::kNothing) {
-    *target = it->second.target;
+  const int k = OwnRunSlot(player);
+  if (k >= 0 && runSlots[k].state != ob::kNothing) {
+    *target = RunPoint(runSlots[k]);
     return true;
   }
   if (player == designatedSupporter) {
@@ -3065,7 +3080,9 @@ void TeamAIController::ProcessDesignatedSupporter(Player* carrier) {
   }
   const Vector3 carrierPred = Predict(carrier, kSupporterPredictFrames);
   // Forced back to BASE_POSITION: the supporter never runs (b2a.c:657-699).
-  runs.erase(designatedSupporter);
+  if (const int k = OwnRunSlot(designatedSupporter); k >= 0 && runSlots[k].state != ob::kNothing) {
+    pes::run::Release(&runSlots[k], static_cast<uint32_t>(match->GetPesFrame()));
+  }
 
   // FUN_1405ebca0: the carrier's predicted point moved by the support distance
   // along the bearing carrier -> supporter.
@@ -3248,11 +3265,12 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       // the closest analogue: the class the AI treats the player as.
       f.aiClass = f.roleClass;
       f.slotPoint = Flat(ctl->GetAdaptedFormationPosition(pl, false));
-      auto run = ctl->runs.find(pl);
-      if (run != ctl->runs.end()) {
-        f.state = run->second.state;
-        f.t = (now - run->second.start_ms) * kPesFps / 1000.0f;
-        f.aim = Flat(run->second.target);
+      const int k = ctl->OwnRunSlot(pl);
+      if (k >= 0 && ctl->runSlots[k].state != ob::kNothing) {
+        const pes::run::Slot& run = ctl->runSlots[k];
+        f.state = run.state;
+        f.t = static_cast<float>(static_cast<uint32_t>(match->GetPesFrame()) - pes::run::Behind(run.ring, 0).enteredAt);
+        f.aim = Flat(RunPoint(run));
       } else {
         f.state = ob::kBasePosition;
         f.t = 1e9f;
@@ -3299,6 +3317,7 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
 void TeamAIController::ProcessRunManager(Player* carrier) {
   const pes::offball::OffBallConstants& k = match->GetPesOffBallConstants();
   const unsigned long now = match->GetActualTime_ms();
+  const uint32_t frame = static_cast<uint32_t>(match->GetPesFrame());
   const float s = -team->GetSide();
   const int opp = abs(team->GetID() - 1);
   const bool openPlay = match->IsInPlay() && !match->IsInSetPiece();
@@ -3321,18 +3340,16 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   // (off-ball 2.3: the Chance mask's raw body never reads ctx+0x38), so it is
   // not kept or applied on the Chance path - see RunCooldownBlocks's note and
   // the fitness test that pins it to SecondLine.
-  for (auto it = runs.begin(); it != runs.end();) {
-    const auto at = std::find(slots.begin(), slots.end(), it->first);
-    if (at == slots.end()) {
-      it = runs.erase(it);
+  for (int k = 0; k < pes::run::kSlots; ++k) {
+    pes::run::Slot& slot = runSlots[k];
+    if (slot.state == ob::kNothing) continue;
+    if (k >= static_cast<int>(slots.size())) {
+      pes::run::Release(&slot, frame);
       continue;
     }
-    const int id = base + static_cast<int>(at - slots.begin());
-    if (ob::RunStop(world, id, it->second.state)) {
+    if (ob::RunStop(world, base + k, slot.state)) {
       match->GetMatchData()->AddStopFire(team->GetID());
-      it = runs.erase(it);
-    } else {
-      it = std::next(it);
+      pes::run::Release(&slot, frame);
     }
   }
 
@@ -3345,7 +3362,7 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   constexpr bool tikiTaka = false;
   const int cap = ob::RunCap(k, ob::kCapChance, level, tikiTaka);
   int running = 0;
-  for (const auto& [p, r] : runs) running += r.state == ob::kChance;
+  for (const pes::run::Slot& slot : runSlots) running += slot.state == ob::kChance;
   const int runningAtStart = running;
 
   std::vector<Player*> opponents;
@@ -3400,7 +3417,7 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
       auto it = std::find_if(slots.begin(), slots.end(),
                              [&](Player* p) { return GetRunState(p) == ob::kChance; });
       if (it == slots.end()) break;
-      runs.erase(*it);
+      pes::run::Release(&runSlots[it - slots.begin()], frame);
       --excess;
     }
     return;
@@ -3437,7 +3454,8 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
     scores[i] = ob::ChanceScore(k, s, pos.coords[0]);
   }
   for (int i : ob::SelectRunners(scores, running, cap, ob::kChancePerTick, true)) {
-    runs[slots[i]] = RunRecord{ob::kChance, now, targets[i]};
+    pes::run::Assign(&runSlots[i], ob::kChance, frame);
+    pes::run::SetPoint(&runSlots[i], {targets[i].coords[0], targets[i].coords[1], targets[i].coords[2]});
     match->GetMatchData()->AddChanceRun(team->GetID());
     ++running;
   }
@@ -3448,7 +3466,7 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
     auto it = std::find_if(slots.begin(), slots.end(),
                            [&](Player* p) { return GetRunState(p) == ob::kChance; });
     if (it == slots.end()) break;
-    runs.erase(*it);
+    pes::run::Release(&runSlots[it - slots.begin()], frame);
     --excess;
   }
 }
