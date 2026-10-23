@@ -8,11 +8,6 @@
 // its card book are not reachable from outside the referee (both protected), so the card's issue
 // step is the entry point; the foul that led to it is not driven. Scores and scorers in the forfeit
 // test are data, set through MatchData, because a goal cannot be scored on demand.
-//
-// Substitutions are opt-in in GF: Team::Substitute executes a swap only when the configuration flag
-// `substitutions_enabled` is set (a known crash in building the substitute's humanoid, team.cpp). The
-// injury tests set it in their match's configuration, which the Match constructor installs as the
-// process configuration; every other test here leaves it off.
 
 #include <gtest/gtest.h>
 
@@ -56,8 +51,6 @@ constexpr unsigned long kNeverSentOff_ms = 1000000000000ul;
 constexpr int kStoppageSampleTicks = 64;
 // Contacts that take a player to PES's injured level (the contact path, pes_stamina_test's slide).
 constexpr int kInjuringContacts = 200;
-// GF's opt-in for substitutions (Team::Substitute).
-constexpr const char* kSubstitutionsFlag = "substitutions_enabled";
 
 bool HaveInstall() { return std::getenv("PES21_ROOT") != nullptr; }
 
@@ -87,8 +80,7 @@ std::optional<pes::ForfeitConstants> InstalledForfeitConstants(std::string* erro
 }
 
 // A real match from the fixture, every PES constant from the install. Null when one is missing.
-// `substitutions` sets GF's substitution opt-in in the match's own configuration.
-std::unique_ptr<Match> BuildMatch(int minutes, bool substitutions = false) {
+std::unique_ptr<Match> BuildMatch(int minutes) {
   static std::unique_ptr<blunted::Database> held;  // the engine reads a process-wide database
   held = std::make_unique<blunted::Database>();
   if (!held->LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql")) return nullptr;
@@ -104,7 +96,6 @@ std::unique_ptr<Match> BuildMatch(int minutes, bool substitutions = false) {
   if (!pestest::FillMissingPesConstants(&setup)) return nullptr;
   Properties config;
   config.SetBool("pes_loop", true);
-  config.SetBool(kSubstitutionsFlag, substitutions);
   return std::make_unique<Match>(new MatchData(HOME_TEAM, AWAY_TEAM), setup, config);
 }
 
@@ -270,40 +261,42 @@ TEST(PesForfeitMatch, ASideAtTheMinimumKeepsPlaying) {
 
 // PES's injury scan (FUN_140523910) keeps an injured player on the pitch when the picker finds no
 // bench player: FUN_140521930 returns 0xFF once the side's allowance is used (FUN_140521000). GF's
-// ProcessAutoSubstitutions does the same. Here the three substitutions go through the real request
-// and execution path, then a real contact injures a player with no sub left.
-TEST(PesForfeitMatch, AnInjuredPlayerStaysOnThePitchWhenTheSubsAreUsedUp) {
+// ProcessAutoSubstitutions does the same. Here the bench's swaps go through the real request and
+// execution path, then a real contact injures a player with no bench player left.
+TEST(PesForfeitMatch, AnInjuredPlayerStaysOnThePitchWhenTheBenchIsUsedUp) {
   if (!HaveInstall()) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
-  auto match = BuildMatch(kMatchMinutes, /*substitutions=*/true);
+  auto match = BuildMatch(kMatchMinutes);
   ASSERT_TRUE(match) << "a match constant or the rig is missing from the install";
   PlayUntilLive(*match);
   ASSERT_TRUE(RunToStoppage(*match)) << "no stoppage to make substitutions in";
-  ASSERT_EQ(RequestSubstitutions(*match, HOME, Substitutions::maxSubstitutions),
-            Substitutions::maxSubstitutions);
-  for (int i = 0; i < 4 && SubstitutionsLeft(*match, HOME) > 0; ++i) match->Process();
-  ASSERT_EQ(SubstitutionsLeft(*match, HOME), 0) << "the side's allowance was not used up";
+  const int allowance = SubstitutionsLeft(*match, HOME);
+  const int benched = RequestSubstitutions(*match, HOME, allowance);  // capped by the bench
+  ASSERT_GT(benched, 0) << "no bench player to bring on";
+  for (int i = 0; i < 4; ++i) match->Process();
+  ASSERT_EQ(SubstitutionsLeft(*match, HOME), allowance - benched) << "the swaps were not made";
   std::vector<Player*> outfield = OutfieldOnPitch(*match, HOME);
   ASSERT_FALSE(outfield.empty());
   Player* injured = outfield.front();
   ASSERT_TRUE(InjureByContact(*match, injured)) << "the contact path did not injure him";
   ASSERT_TRUE(RunThroughAStoppage(*match)) << "no stoppage after the injury";
   EXPECT_TRUE(injured->IsActive()) << "an injured player with no sub left came off the pitch";
-  EXPECT_EQ(SubstitutionsLeft(*match, HOME), 0);
+  EXPECT_EQ(SubstitutionsLeft(*match, HOME), allowance - benched);
 }
 
 // The control for the test above: with a sub left, the injured player is replaced.
 TEST(PesForfeitMatch, AnInjuredPlayerIsReplacedWhileASubIsLeft) {
   if (!HaveInstall()) GTEST_SKIP() << "PES21_ROOT not set: the match's constants come from PES";
-  auto match = BuildMatch(kMatchMinutes, /*substitutions=*/true);
+  auto match = BuildMatch(kMatchMinutes);
   ASSERT_TRUE(match) << "a match constant or the rig is missing from the install";
   PlayUntilLive(*match);
+  const int allowance = SubstitutionsLeft(*match, HOME);
   std::vector<Player*> outfield = OutfieldOnPitch(*match, HOME);
   ASSERT_FALSE(outfield.empty());
   Player* injured = outfield.front();
   ASSERT_TRUE(InjureByContact(*match, injured)) << "the contact path did not injure him";
   ASSERT_TRUE(RunThroughAStoppage(*match)) << "no stoppage after the injury";
   EXPECT_FALSE(injured->IsActive()) << "a bench player was available and the injured player stayed";
-  EXPECT_LT(SubstitutionsLeft(*match, HOME), Substitutions::maxSubstitutions);
+  EXPECT_LT(SubstitutionsLeft(*match, HOME), allowance);
 }
 
 // --- the live match: a red card through GF's path, and the forfeit ---
