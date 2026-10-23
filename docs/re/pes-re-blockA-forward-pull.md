@@ -1,5 +1,7 @@
 # PES block A (FUN_140681FF0 wrapper → FUN_140682770 forward pull): decode, checker, GF readers (BlockAPull, 23-10-26)
 
+> **Correction (BlockAPull's later pass, `pes-re-lane-writers.md`):** every `T+0x58` / `T+0x5C` / `T+0xB0` lane offset below is **`ctx+0x58` / `ctx+0x5C` / `ctx+0xB0`**, with `ctx = Y+0x10` (`Y` = `FUN_1404F6C30`'s `param_1`), not the team record T.
+
 Image: `pes_full.bin` (file offset = VA − 0x140000000). Checker: `gf-BlockAPull-scratch/checker_block_a.py`, 36 checks (25 instruction-byte checks, 11 RIP-relative operand pairs); `RESULT OK`; `--selftest` flips a byte and moves an operand, and both are detected. Verdicts: CONFIRMED = read as bytes by the checker, or in asm/decompile; INF = inference; OPEN = writer or input not decoded.
 
 ## §0 Constants (script output, pasted; the checker prints these from the image)
