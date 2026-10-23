@@ -228,6 +228,17 @@ bool PesLighting::setup(const Ref<PesLibrary>& library, int stadium_id, int weat
       const pes::SkyIntensities radiance = pes::SkyRadianceScales(s, a, fade);
       skyMat->set_shader_parameter("sun_intensity", float(radiance.sun));
       skyMat->set_shader_parameter("star_intensity", float(radiance.star));
+      // Fox's sky-light SH9 (docs/re/pes-re-lighting.md Part B §5): the span's .atsh row, rendered on the
+      // sky's AT_CUBEMAP pass (pes_sky.gdshader), so Godot's sky ambient is its convolution.
+      skyMat->set_shader_parameter("ambient_scale", float(a.skyLightLuminanceScale));
+      if (atsh) {
+        const pes::Vec3 (*row)[9] = pes::AtshSkySh(*atsh, rain, useHour, useMinute);
+        for (int k = 0; k < 9; ++k) {
+          const pes::Vec3& c = (*row)[k];
+          skyMat->set_shader_parameter(godot::String("ambient_sh9_") + godot::String::num_int64(k),
+                                       Vector3(c.x, c.y, c.z));
+        }
+      }
       skyMat->set_shader_parameter("ground_color",
                                     Vector3(a.groundColor.x, a.groundColor.y, a.groundColor.z));
       Ref<Sky> sky;
@@ -240,6 +251,14 @@ bool PesLighting::setup(const Ref<PesLibrary>& library, int stadium_id, int weat
       // (background_intensity, default 30000 nits) must stay the identity.
       env->set_bg_intensity(1.0f);
       env->set_ambient_source(Environment::AMBIENT_SOURCE_SKY);
+      // The sky feeds the diffuse ambient only: PES's SH sky light is diffuse (Part B §5), and its reflections come
+      // from the probes built above (Part B §6), not from the sky. So the environment's reflection source is off.
+      env->set_reflection_source(Environment::REFLECTION_SOURCE_DISABLED);
+      // ponytail: the ambient energy is daySkyAmbientScale, and the cubemap scale is skyLightLuminanceScale;
+      // neither is decoded. PES's diffuse sky light is SH_SphereMap's cb7 matrices, and their CPU writer is
+      // not found, so the normalisation is open. Bound at the 15:00 span: this energy gives 0.064 of the
+      // sun-lit grass luminance; the candidate PES normalisations give 0.108 to 0.269. Remove when cb7's
+      // writer is decoded.
       env->set_ambient_light_energy(float(a.daySkyAmbientScale));
       // Global height fog (§7.5): density/1000, height scale/1000.
       env->set_fog_enabled(s.globalFogEnabled);

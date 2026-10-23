@@ -6,6 +6,8 @@
 #ifndef _HPP_PLAYERDATA
 #define _HPP_PLAYERDATA
 
+#include <optional>
+
 #include "../gamedefines.hpp"
 #include "../onthepitch/matchpressure.hpp"
 #include "../utils.hpp"
@@ -59,12 +61,17 @@ public:
   std::string GetHairStyle() { return hairStyle; }
   std::string GetHairColor() { return hairColor; }
   float GetHeight() { return height; }
+  // The PES 2021 player id this player was imported with: his players row's pes_player_id. None for a player who was not
+  // imported (the synthetic fixture squads): the PES player database is never read for him, whatever it holds under his
+  // database id.
+  std::optional<int> GetPesPlayerId() const { return pesPlayerId; }
 
 protected:
   // Profiles from before PES's remaining attributes had keys get each missing
   // one from its nearest older neighbour, so GetStat never asserts on them.
   void FillMissingStats();
   int databaseID;
+  std::optional<int> pesPlayerId;
   std::string firstName;
   std::string lastName;
   std::vector<e_PlayerRole> roles;
