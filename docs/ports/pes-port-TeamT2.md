@@ -20,6 +20,11 @@ Bytes are read from `pes_full.bin` (file offset = VA - 0x140000000) and from the
 - At 0x14050247E: `MI+0x116C != 1` zeroes `T+0xB860[0..10]` and `T+0x6A4[0..10]` (0x140502726-0x140502740). This runs on every call, so it is exact on its own.
 - GF: `pes::ClearReactionDelays` (returns whether it cleared), `TeamTick::reactionDelay` (T+0x6A4) and `reactionDelayMirror` (T+0xB860).
 
+### Step 9 in-play, FDD20 early branch (T2b slice A, UNWIRED)
+- Pure functions `pes::EvaluateEarlyReaction`, `EarlyReactionAdmitted`, `LoadEarlyReactionConstants` (`src/sim/onthepitch/pesreaction.{hpp,cpp}`); tests `tests/sim/pes_reaction_test.cpp`.
+- Covers FDD20's per-receiver early path: the kind map (1, 2, 3, 16 store; 4, p5, or an actor on the other side go to the main pass; 11-13 gate first, with the holder test and the 54-frame window), the DL/BPL flags, the ball-track extension, the ramp, and the word `T+0x6A4[k]`, k = 0..10.
+- NOT called by the match yet. The table is still written only by the out-of-play clear. Slice D supplies the facts from the match; the block-B loop is not exact yet.
+
 ### Step 11, `FUN_1404FEDC0`: head and score-off fill (T2c)
 - Inputs at the call site (`FUN_1404F6C30`): `R8B` = the return of `FUN_1404FE9C0` (0x1404F6D60, `MOVZX ESI,AL`, `MOVZX R8D,SIL` at 0x1404F6D9B), which is the latch change this tick. GF passes `latch != lastTickPossession`, the same flip the restart word reads (step 28). `DL` (0x1404F6D75-0x1404F6D97) is 1 only in play with `MI+0x119C > 1`.
 - Head (0x1404FEDC0-0x1404FEF9B):
@@ -37,6 +42,7 @@ Bytes are read from `pes_full.bin` (file offset = VA - 0x140000000) and from the
 - `docs/re/pes-re-team-tickets.md` step 9: the `B+0x291C == 3` branch zeroes both banks (0x140502274-0x140502292); it does not decrement `T+0xB860`. The decrements are on `T+0x6A4` (0x1405024AC, 0x140502526, 0x140502707).
 - `docs/re/pes-re-team-tickets.md` step 9: `FUN_141E5D4C0(brain+0x62B4, 0xF)` is not a per-player "has instruction" byte. It ignores its first argument and returns `menuList[15]+8` from the constant registry (`FUN_141E5CA20`, count `FUN_141E5DE80` = 0xEA). Entry 15 is `match/pes15Test.json` (constant_match.bin; `docs/re/pes-re-tick-steps3.md:157-160`).
 - `docs/re/pes-re-team-tickets.md` step 11 and `pes-re-tick-steps.md` §6: the score-off branch (`DL == 0`) fills the base weights with 1.0 (`XMM7` = `[0x14256AE1C]`). It does not zero the scores.
+- `docs/re/pes-re-treact.md`: the early branch's "rnd" is the constant 54 (`FUN_141e532d0` reads a cell whose only writer, `FUN_141e532f0`, stores 54.0f); the early kinds are {1,2,3,16}; the ramp reads the ball speed B+0x2940; the table index is the local slot k; the ball-track scan defaults to n, not -1; payload +0x46 never changes the value.
 
 ## OPEN, not ported (each with its VA)
 
@@ -44,9 +50,10 @@ Step 9 (`FUN_140502190`, 359 asm lines):
 1. The in-play switch on the newest event kind: jump table at VA `0x140502758` (16 entries, index kind-1). Kinds 1-5, 7, 9, 10-14 and 16 call `FUN_1404FDD20` (0x1405025BD, 0x1405025C0); kind 6 calls `FUN_1405027A0` (0x1405025E5); kinds 8, 15 and the default go to the tail at 0x140502615.
 2. The seed-10 tail (0x140502615-0x140502705): runs only when `X+0x38 == 0`, where `X = FUN_141E5D4C0(_,0xF)` (0x140502251, tested at 0x140502260 and 0x14050261A). Its seed writes `T+0x6A4[k] = T+0xB860[k] = 10`.
 3. Block B (0x140502260-0x14050247E): runs only when `X+0x38 != 0`. Its zero path (`B+0x291C == 3`, 0x140502274-0x140502292) and its per-player `FUN_1405027A0` calls (0x14050244F, 0x140502610) are OPEN. Block B also needs player action codes (`pl+0x5D0`, 0x14050237C), the anime class bits `FUN_140A6E1C0`/`FUN_140A6E5E0` (0x1405023D4, 0x1405023F7), and record fields (`r+0x1C`, `r+0x38`, `r+0x40`, `r+8` bit 19).
-4. `FUN_1404FDD20` (763 asm lines), `FUN_1405027A0` (778 asm lines) and `FUN_1404FC0D0` (242 asm lines, the 6C40 payload at 0x140502512): T-REACT.
+4. `FUN_1404FDD20` main pass (non-keepers via 27A0; keepers' GK formula), `FUN_1405027A0` (778 asm lines; its base term needs `FUN_140503430`, 750 lines), and `FUN_1404FC0D0` (242 asm lines, the 6C40 payload at 0x140502512): slices B and C.
 5. The in-play decrements (0x1405024CC-0x140502544) and the frame-mismatch decrement (0x140502549-0x140502707): left out, since they hold only on the path items 1-3 decide.
 6. `MI+0x1775 == 0x18` (0x1405024A1, 0x140502549): GF's play state is 1, 2 or 3 only, so 24 never occurs.
+7. The early branch's draw. `FUN_141e532d0` reads a cell that only `FUN_141e532f0` writes (54.0f). That writer is called from `FUN_141fbe2a0` (via 141fbf13f) and from `FUN_140447b50` (via `FUN_14044c880`). The trigger chain is not confirmed to run before step 9 in a match; if it does not, the cell is unset and every early word is 0.
 
 Step 11 (`FUN_1404FEDC0`, 524 asm lines):
 7. The score-on branch (`DL != 0`, 0x1404FEFDF-0x1404FF75F): the per-slot scores (ball sample `FUN_140A6CF70` at 0x1404FF08D, the player records `FUN_140A48A10`, `FUN_140A489F0`, `FUN_14124DAD0`, stamina `FUN_140A58550`, `FUN_140A62960`, `FUN_1415A1780`, `FUN_141E532D0`), the predicate `FUN_1404F52E0` (decompile line 293), and the recovery toward 1.0 while the stamp is above 0 (decompile lines 297-313).
@@ -73,6 +80,7 @@ Step 11 (`FUN_1404FEDC0`, 524 asm lines):
 | `ReactionDelaysClearWhenPlayIsStopped` | T2b out-of-play clear (both banks, return value) |
 | `LatchClearNegatesWeights` | T2c sign and scale of the bank |
 | `StoppedPlayFillsOnes` | T2c out-of-play bank and stamp |
+| `PesReaction.*` (13) and `PesReactionInstall.LoadsTheInstallConstants` | slice A: gates, flags, ball track, ramp, word, install constants (`tests/sim/pes_reaction_test.cpp`) |
 | `SkipFlagIncrements218` | T2c counter |
 | `ZeroScoreFlagFillsOnes` | T2c score-off fill |
 | `RestartKind.TheMatchReportsTheRefereesDesiredSetPiece` | Match accessor (install-backed) |
