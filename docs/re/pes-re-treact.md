@@ -1,5 +1,11 @@
 # PES step 9 (T2b) decode: the `T+0x6a4 / B860` support-timer writers
 
+> **Corrections (TeamT1's asm pass, 23-10-26; supersede the text below):**
+> 1. FDD20's early-branch kinds are {1, 2, 3, 16}, not {0..2, 16}.
+> 2. The early ramp reads the **ball record** B+0x2940, not T+0x2940.
+> 3. FDD20's main branch sends every non-keeper slot (T+0x4C00 != 0) to 27A0 (p5 = the early flag, p6 = FDD20's p5, p7 = gl) and stores nothing itself; only keepers use FDD20's own formula.
+> 4. 27A0's base term takes three factors from `FUN_140503430` (written to [RSP+0x68..0x77] at 0x140502B42-0x140502B57); the XMM9 spill is not an input.
+
 > **Main audit 22-10-26 (bytes):** jump table `0x140502758` read from the image: kinds 1-5, 7, 9, 16 → `0x1405025BD` (FDD20, param_5 = 0), 10-14 → `0x1405025C0` (param_5 = 1), 6 → `0x1405025E5` (27A0), 8 and 15 → `0x140502615` (dead tail): match. Correction: `CMP 0xF` bounds the table at **16** entries; the 17th dword (`0x10CCCCCCC`) is padding, not an entry.
 
 Batch: Team-tick step 9 (`FUN_140502190`, `docs/re/pes-re-tick-steps.md` slice T2b). Image

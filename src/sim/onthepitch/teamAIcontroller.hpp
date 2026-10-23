@@ -191,13 +191,13 @@ public:
   // PES's role arrays (pesroles.hpp): B holds each slot's role class, the value every class
   // reader uses; A is the stamina-sub class. Setup and the tick's head and tail write them.
   int RoleClassOfSlot(int slot) const;
+  // The defensive line of a player: the reclassify of his slot's B class on the PES path (pesmentality.hpp).
+  int DefensiveLineOf(Player* p, e_PlayerRole role) const;
   // PES's designation publisher (FUN_14051E350, team tick step 27b): the side's record, rebuilt each tick.
   void UpdatePesDesignation();
   void SetUpRoleArrays();
   void WriteRoleArrays(bool head);
   void WriteSlotPoints(int phase);
-  // The restart override of FUN_1404F5F10: not in play and a kick-off pending (MI+0x116C != 1 && MI+0x1554 == 1).
-  bool KickOffRestartPending() const;
   // The B swap pair (T+0x89D4/0x89D8). No GF event sets it yet: the PES writer is not decoded.
   void RequestRoleSwap(int a, int b);
   // A team concept's order for one man (T+0xb748/b774/26c, transitions 2-3):
@@ -308,6 +308,9 @@ protected:
   TeamInstructions::State instructions;
   pes::TeamSheet teamSheet;
   pes::roles::SideRoles roles;
+  // Block B's fold picks of this tick (pesmentality.hpp FoldPicks), PES path only. Nothing reads them yet:
+  // the readers of PES's planObj+0x7CD4 are not decoded.
+  std::vector<int> foldSlots;
   std::optional<std::pair<int, int>> roleSwap;
   // PES's slot-point rows P+0x3A9C (FUN_1404F5F10): each slot's sheet triple at the tick's phase.
   std::array<pes::formation::Point3, pes::formation::kSlots> slotPoints{};

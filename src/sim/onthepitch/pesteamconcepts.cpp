@@ -408,6 +408,13 @@ std::optional<TeamConceptConstants> LoadTeamConceptConstants(const PeImage& exe,
   auto classMap = roles::LoadRoleClassMap(exe, error);
   if (!classMap) return std::nullopt;
   k.roleClassOfRegistered = *classMap;
+  // The reclassify's table and block B's fold constants, read from the install with the class map.
+  auto lines = mentality::LoadReclassifyLines(exe, error);
+  if (!lines) return std::nullopt;
+  k.reclassifyLines = *lines;
+  auto fold = mentality::LoadFoldConstants(exe, error);
+  if (!fold) return std::nullopt;
+  k.fold = *fold;
   // The publisher's order table and the ordinal fill's constants, read from the install with the rest.
   auto designationConstants = designation::LoadConstants(exe, error);
   if (!designationConstants) return std::nullopt;

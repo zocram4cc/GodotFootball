@@ -345,6 +345,19 @@ TEST(SetKickStand, ThePickupRootStandsTheClipsBallOffsetBehindTheBall) {
   EXPECT_NEAR(atNinety.y, 4.0f, kPointTolerance_m);
 }
 
+// MI+0x1554, the restart kind the event store records, is the referee's desired set piece: the
+// last award, which the referee starts at the kick-off. A free kick reads 5 and a penalty 6.
+TEST(RestartKind, TheMatchReportsTheRefereesDesiredSetPiece) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  EXPECT_EQ(match->PesRestartKind(), 1);
+  match->GetReferee()->Buffer().desiredSetPiece = e_SetPiece_FreeKick;
+  EXPECT_EQ(match->PesRestartKind(), 5);
+  match->GetReferee()->Buffer().desiredSetPiece = e_SetPiece_Penalty;
+  EXPECT_EQ(match->PesRestartKind(), 6);
+}
+
 // A set-piece walker far from his target walks at PES's walk-down speed. FUN_1406b7560, the MOVE command filler every MOVE
 // handler reaches, replaces a run-class walker's desired speed with FUN_140a76070(2) = 11 km/h (call 0x1406b77d6, .rdata
 // 0x14259bdfc; docs/re/pes-re-walk-speed.md). Built on main, the throw-in walker was commanded at 2 x his gap, off the movement
