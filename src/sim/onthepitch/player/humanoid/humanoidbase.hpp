@@ -221,6 +221,11 @@ public:
   // fallback in Process). The wire test skips a player's tick when this count moved.
   int GetPlacementCount() const { return placementCount; }
   void OffsetPosition(const Vector3& offset);
+  // A clip's root warp (PES's pickup and lift, docs/re/pes-re-throwin-choreography.md 3.2): moves the root by `offset` and turns
+  // it by `yaw` (GF's angle, counter-clockwise) without a placement and without booking the move as locomotion, so GF does not
+  // read the warp's travel as the body's direction. OffsetPosition books its offset as movement (a bump), which made GF's
+  // direction, and with it the start angle of every clip the warp's ticks began, follow the warp instead of the root.
+  void WarpRoot(const Vector3& offset, radian yaw);
   // False when the current clip cannot be interrupted by a trip.
   bool TripMe(const Vector3& tripVector, int tripType);
 

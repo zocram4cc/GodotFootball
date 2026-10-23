@@ -655,6 +655,23 @@ void HumanoidBase::OffsetPosition(const Vector3& offset) {
   currentAnim->positionOffset += offset * cheat;
 }
 
+void HumanoidBase::WarpRoot(const Vector3& offset, radian yaw) {
+  assert(offset.coords[2] == 0.0f);
+  startPos += offset;
+  nextStartPos += offset;
+  spatialState.position += offset;
+  previousPosition2D += offset;  // the warp is not a step: the next movement reads only the clip's own motion
+  startAngle = ModulateIntoRange(-pi, pi, startAngle + yaw);
+  nextStartAngle = ModulateIntoRange(-pi, pi, nextStartAngle + yaw);
+  spatialState.rootDirectionVec = spatialState.rootDirectionVec.GetRotated2D(yaw);
+  // GF's own frame turns with the root: a clip that starts on this tick takes its start angle from spatialState.angle, so a
+  // stale angle would snap the root back to the pre-warp heading.
+  spatialState.angle = ModulateIntoRange(-pi, pi, spatialState.angle + yaw);
+  spatialState.directionVec = spatialState.directionVec.GetRotated2D(yaw);
+  spatialState.bodyDirectionVec = spatialState.bodyDirectionVec.GetRotated2D(yaw);
+  spatialState.bodyAngle = ModulateIntoRange(-pi, pi, spatialState.bodyAngle + yaw);
+}
+
 bool HumanoidBase::TripMe(const Vector3& tripVector, int tripType) {
   if (currentAnim->anim->GetVariable("incoming_special_state").compare("") == 0 &&
       currentAnim->anim->GetVariable("outgoing_special_state").compare("") == 0) {
