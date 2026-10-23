@@ -77,8 +77,6 @@ std::optional<Constants> LoadConstants(const PeImage& exe, std::string* error) {
   return k;
 }
 
-float TeamFrameLateral(int direction, float worldZ) { return static_cast<float>(direction) * worldZ; }
-
 int FoldClass(int roleClass) {
   switch (roleClass) {
     case 1:  // CB

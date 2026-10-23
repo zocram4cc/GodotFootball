@@ -23,6 +23,7 @@ class PlayerData;
 #include "matchprogression.hpp"
 #include "pesstamina.hpp"
 #include "pes/playerdb.hpp"
+#include "pes/formation.hpp"
 #include "pesforfeit.hpp"
 #include "pessetpiecetaker.hpp"
 #include "pessetpieceteam.hpp"
@@ -314,6 +315,12 @@ public:
   float GetTeamSetupStrength(int teamID) const { return teamSetupStrength[teamID]; }
   // PES 2021's team sheet defaults and concepts (docs/re/pes-re-tactics.md 2).
   const pes::TeamConceptConstants& GetPesTeamConceptConstants() const { return pesTeamConceptConstants; }
+  const pes::formation::FormationTables* GetPesFormations() const {
+    return pesFormations ? &*pesFormations : nullptr;
+  }
+  const pes::formation::SheetConstants* GetPesSheetConstants() const {
+    return pesSheetConstants ? &*pesSheetConstants : nullptr;
+  }
   // PES 2021's generator constants (docs/re/pes-re-rng.md 1): the values the
   // per-decision generators are built from. The match generator itself is
   // `rngSource` and is not shared: PES builds a throw-away generator for each
@@ -659,6 +666,8 @@ protected:
   std::unique_ptr<pes::PesClock> pesClock;
   std::unique_ptr<pes::StaminaConstants> pesStaminaConstants;
   std::optional<pes::PlayerDatabase> pesPlayerDatabase;
+  std::optional<pes::formation::FormationTables> pesFormations;
+  std::optional<pes::formation::SheetConstants> pesSheetConstants;
 
   std::map<Animation*, std::vector<Vector3>> animPositionCache;
 

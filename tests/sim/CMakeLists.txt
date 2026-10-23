@@ -198,6 +198,11 @@ add_executable(pes_subs_test pes_subs_test.cpp)
 target_link_libraries(pes_subs_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_subs_test)
 
+add_executable(sim_substitution_test sim_substitution_test.cpp)
+target_link_libraries(sim_substitution_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(sim_substitution_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(sim_substitution_test PROPERTIES TIMEOUT 1800)
+
 add_executable(pes_kick_error_test pes_kick_error_test.cpp)
 target_link_libraries(pes_kick_error_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_kick_error_test)

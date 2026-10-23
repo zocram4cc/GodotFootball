@@ -56,6 +56,7 @@ struct Rig;
 // PES 2021's MOVESTEP machine (docs/re/pes-re-anim-select.md): the install constants its handlers read.
 #include "pes/movestep_bundle.hpp"
 #include "pes/playerdb.hpp"
+#include "pes/formation.hpp"
 
 struct MatchSetup {
   int homeTeamDbId = 0;
@@ -124,6 +125,9 @@ struct MatchSetup {
   // stronger foot, by his database id, which is the PES player id. Optional: without it every player takes the named
   // fallback (match.cpp). The match copies it.
   const pes::PlayerDatabase* pesPlayerDatabase = nullptr;
+  // PES 2021's formation tables and sheet constants (docs/re/pes-re-sheet-triple.md): the slot-point rows.
+  const pes::formation::FormationTables* pesFormations = nullptr;
+  const pes::formation::SheetConstants* pesSheetConstants = nullptr;
   // PES 2021's ball-carrier decision layer (docs/re/pes-re-carrier-ai.md):
   // the shoot zone, the receiver openness formula, PassForward's tiers and
   // the rolled plan probabilities. Required: every one of those numbers lives

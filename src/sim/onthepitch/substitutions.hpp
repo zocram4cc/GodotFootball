@@ -1,5 +1,5 @@
-// Substitution rules for coach mode: three per team, at stoppages only, and
-// only with players who are actually available.
+// Substitution rules for coach mode: PES's allowance per team (read from the install), at stoppages
+// only, and only with players who are actually available.
 // See TECHNICAL_ROADMAP.md section 3B.2.
 
 #ifndef _HPP_SUBSTITUTIONS
@@ -16,9 +16,8 @@ enum e_Result {
   e_Result_PlayerNotAvailable,
 };
 
-const int maxSubstitutions = 3;
-
 struct State {
+  int limit = 0;  // PES's allowance per team: SubstitutionConstants::substitutionLimit
   int used[2] = {0, 0};
 };
 
@@ -41,7 +40,9 @@ bool IsSubstitutionWindow(bool isInPlay, bool hasKickedOff, bool isInEntrance);
 
 int GetRemaining(const State& state, int teamID);
 
-e_Result Validate(const State& state, int teamID, const SquadView& squad, bool isStoppage);
+// `queued` is the team's requests already accepted and waiting for the tick that executes them.
+e_Result Validate(const State& state, int teamID, const SquadView& squad, bool isStoppage,
+                  int queued);
 
 // Spends one of the team's substitutions.
 void Commit(State& state, int teamID);
