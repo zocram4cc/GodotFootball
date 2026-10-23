@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 
 #include "gametypes.hpp"
@@ -16,9 +17,26 @@ namespace pes {
 // (FUN_1404F6C30 inline at 0x1404F6E1C-58); `t80` the restart word
 // (0x1404F6F91); `b8c0Frame` the stamp of the last level change (T+0xB8C0);
 // `b6c40` the stopped-select word (brain+0x6C40, step 8: FUN_1405008E0); `reactionDelay` and
-// `reactionDelayMirror` the step 9 banks T+0x6A4[11] and T+0xB860[11].
+// `reactionDelayMirror` the step 9 banks T+0x6A4[11] and T+0xB860[11];
+// `noBallCounter`, `supportWeight`, `supportBank` and `supportStamp` the step 11 words (T+0x218,
+// T+0x224[11], brain+0x6CC4[11] and brain+0x6CF4).
 // The players per side that step 9 keeps a reaction delay for (the count 0xB at 0x14050225B).
 constexpr int kReactionSlots = 11;
+
+// The unit value of step 11's bank and base weights: the float 1.0 at 0x14256AE1C, read from the
+// image (bytes 00 00 80 3F).
+constexpr float kUnitValue = 1.0f;
+// The latch-clear sign of step 11's bank: the float at 0x142588218, -1.0 (read from the image).
+constexpr float kLatchClearSign = -1.0f;
+
+// The base weights start at 1.0. PES fills T+0x224..0x24C from the team sheet (OPEN, its loader is
+// not ported). Step 11's score-off fill sets them to 1.0 on every call, so 1.0 is the stand-in
+// until the loader lands.
+inline std::array<float, kReactionSlots> UnitWeights() {
+  std::array<float, kReactionSlots> w;
+  w.fill(kUnitValue);
+  return w;
+}
 
 struct TeamTick {
   int b8a4 = 2;  // init FUN_140A415A0 -> 2 (tactics §3)
@@ -29,6 +47,10 @@ struct TeamTick {
   int b6c40 = 0;
   int reactionDelay[kReactionSlots] = {};
   int reactionDelayMirror[kReactionSlots] = {};
+  int noBallCounter = 0;                                            // T+0x218 (step 11)
+  std::array<float, kReactionSlots> supportWeight = UnitWeights();  // T+0x224[11] (step 11)
+  std::array<float, kReactionSlots> supportBank{};                  // brain+0x6CC4[11] (step 11)
+  int supportStamp = -1;                                            // brain+0x6CF4 (step 11)
 };
 
 // MI+0x116C, the play state (pes-re-A5Judge.md): 1 is play in progress.
@@ -54,6 +76,12 @@ void StoppedSelect(TeamTick* tick, bool latchClear, int playState, int restartKi
 // OPEN: the event switch (jump table 0x140502758), the seed-10 tail (gated on registry entry 15,
 // X+0x38) and block B. Until those land, the banks keep their values in play.
 bool ClearReactionDelays(TeamTick* tick, int playState);
+
+// Step 11 (FUN_1404FEDC0) head, 0x1404FEDC0-0x1404FEF9B, and its score-off fill (0x1404FF760).
+// `latchSet` is T+0x255 != 0, `flipped` is R8B (the latch changed this tick, FUN_1404FE9C0's
+// return), `playState` is MI+0x116C and `scoreFlag` is DL (the per-slot scores, OPEN). Sets the
+// counter T+0x218, the stamp and the bank; fills the base weights when `scoreFlag` is off.
+void SupportWeights(TeamTick* tick, bool latchSet, bool flipped, int playState, bool scoreFlag);
 
 // The strategy word T+0x134 -> wanted level map: 0/1/3/4 one-to-one,
 // anything else 2 (jump ladder 0x1404F8619-63E).

@@ -2787,6 +2787,11 @@ void TeamAIController::UpdateStrategy() {
                                             buffer.prepared || buffer.started);
     pes::StoppedSelect(&teamTick, !latch, playState, match->PesRestartKind());
     pes::ClearReactionDelays(&teamTick, playState);
+    // Step 11's head (FUN_1404FEDC0): R8B is the latch change this tick, the flip the restart word
+    // reads too. ponytail: DL (0x1404F6D89-0x1404F6D97) needs MI+0x119C, the raw kick sum, which
+    // has no GF counterpart (team.cpp), so the score-on branch stays off.
+    const bool flipped = latch != lastTickPossession;
+    pes::SupportWeights(&teamTick, latch, flipped, playState, /*scoreFlag=*/false);
     // ponytail: T+0x210 (the manual/target word) has no GF counterpart and no
     // decoded in-match writer (tactics §3 O4); balanced stands in, so the
     // manual arm never fires until the writer lands.
@@ -2794,7 +2799,7 @@ void TeamAIController::UpdateStrategy() {
     pes::DriftAttackLevel(&teamTick, strategy.strategy, kManualBalanced, inPlay,
                            match->GetPesFrame());
     pes::WriteAttackFlags(&teamTick);
-    pes::WriteRestartWord(&teamTick, inPlay, latch != lastTickPossession);
+    pes::WriteRestartWord(&teamTick, inPlay, flipped);
     lastTickPossession = latch;
   }
   if (inPlay) {

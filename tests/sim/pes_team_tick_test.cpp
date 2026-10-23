@@ -162,4 +162,54 @@ TEST(PesTeamTick, ReactionDelaysClearWhenPlayIsStopped) {
   EXPECT_EQ(tick.reactionDelay[0], 0);
 }
 
+// T2c: step 11's head (FUN_1404FEDC0, 0x1404FEDC0-0x1404FEF9B). With the latch set the bank is the
+// base weight times +1.0; with the latch clear it is the base weight times [0x142588218] = -1.0.
+// The fill of the base weights to 1.0 (0x1404FF760) runs after the bank, in the same call.
+TEST(PesTeamTick, LatchClearNegatesWeights) {
+  pes::TeamTick tick;
+  for (int i = 0; i < 11; ++i) tick.supportWeight[i] = 0.25f * (i + 1);
+  pes::SupportWeights(&tick, /*latchSet=*/true, /*flipped=*/true, /*playState=*/1, /*scoreFlag=*/false);
+  for (int i = 0; i < 11; ++i) EXPECT_FLOAT_EQ(tick.supportBank[i], 0.25f * (i + 1)) << "slot " << i;
+  for (int i = 0; i < 11; ++i) tick.supportWeight[i] = 0.25f * (i + 1);
+  pes::SupportWeights(&tick, /*latchSet=*/false, /*flipped=*/true, /*playState=*/1, /*scoreFlag=*/false);
+  for (int i = 0; i < 11; ++i) EXPECT_FLOAT_EQ(tick.supportBank[i], -0.25f * (i + 1)) << "slot " << i;
+}
+
+// Out of play (MI+0x116C != 1) the bank is all 1.0 whatever the latch, and the stamp is -1
+// (0x1404FEF56-0x1404FEF89 and 0x1404FEF91-0x1404FEF9B).
+TEST(PesTeamTick, StoppedPlayFillsOnes) {
+  pes::TeamTick tick;
+  tick.supportStamp = 5;
+  for (int i = 0; i < 11; ++i) tick.supportBank[i] = 7.0f;
+  pes::SupportWeights(&tick, /*latchSet=*/false, /*flipped=*/true, /*playState=*/2, /*scoreFlag=*/false);
+  for (int i = 0; i < 11; ++i) EXPECT_FLOAT_EQ(tick.supportBank[i], 1.0f) << "slot " << i;
+  EXPECT_EQ(tick.supportStamp, -1);
+  // Without a flip the stamp is still -1 out of play (0x1404FEF91-0x1404FEF9B runs on every call).
+  tick.supportStamp = 5;
+  pes::SupportWeights(&tick, /*latchSet=*/false, /*flipped=*/false, /*playState=*/2, /*scoreFlag=*/false);
+  EXPECT_EQ(tick.supportStamp, -1);
+}
+
+// Without a latch flip (R8B == 0) the counter T+0x218 counts up and the bank is left alone; a
+// flip resets the counter to 0 (0x1404FEF8B INC, 0x1404FEE33 MOV).
+TEST(PesTeamTick, SkipFlagIncrements218) {
+  pes::TeamTick tick;
+  for (int i = 0; i < 11; ++i) tick.supportBank[i] = 7.0f;
+  pes::SupportWeights(&tick, /*latchSet=*/true, /*flipped=*/false, /*playState=*/1, /*scoreFlag=*/false);
+  pes::SupportWeights(&tick, /*latchSet=*/true, /*flipped=*/false, /*playState=*/1, /*scoreFlag=*/false);
+  EXPECT_EQ(tick.noBallCounter, 2);
+  EXPECT_FLOAT_EQ(tick.supportBank[0], 7.0f) << "no flip leaves the bank";
+  pes::SupportWeights(&tick, /*latchSet=*/true, /*flipped=*/true, /*playState=*/1, /*scoreFlag=*/false);
+  EXPECT_EQ(tick.noBallCounter, 0);
+}
+
+// The score flag DL == 0 (0x1404FEFD7 TEST DL, 0x1404FF760) sets every base weight to 1.0 after
+// the bank has been taken from the old weights.
+TEST(PesTeamTick, ZeroScoreFlagFillsOnes) {
+  pes::TeamTick tick;
+  for (int i = 0; i < 11; ++i) tick.supportWeight[i] = 0.3f;
+  pes::SupportWeights(&tick, /*latchSet=*/true, /*flipped=*/false, /*playState=*/1, /*scoreFlag=*/false);
+  for (int i = 0; i < 11; ++i) EXPECT_FLOAT_EQ(tick.supportWeight[i], 1.0f) << "slot " << i;
+}
+
 }  // namespace

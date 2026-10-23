@@ -79,6 +79,37 @@ bool ClearReactionDelays(TeamTick* tick, int playState) {
   return true;
 }
 
+void SupportWeights(TeamTick* tick, bool latchSet, bool flipped, int playState, bool scoreFlag) {
+  // The sign XMM14 at 0x1404FEE10-0x1404FEE28: 1.0 when T+0x255 is set, else -1.0.
+  const float sign = latchSet ? kUnitValue : kLatchClearSign;
+  if (flipped) {
+    // 0x1404FEE33-0x1404FEE39: the counter is reset and the stamp is -1.
+    tick->noBallCounter = 0;
+    tick->supportStamp = -1;
+    for (int slot = 0; slot < kReactionSlots; ++slot) {
+      // In play the bank is the sign times the base weight (0x1404FEE58-0x1404FEF52, eight floats
+      // of T+0x224..0x240 and three of T+0x244..0x24C). Out of play it is 1.0 (0x1404FEF56-0x1404FEF89).
+      tick->supportBank[slot] =
+          playState == kPlayStateInPlay ? sign * tick->supportWeight[slot] : kUnitValue;
+    }
+  } else {
+    // 0x1404FEF8B: no flip counts the frames the counter has run; the bank is left alone.
+    tick->noBallCounter += 1;
+  }
+  // 0x1404FEF91-0x1404FEF9B: out of play the stamp is -1.
+  if (playState != kPlayStateInPlay) tick->supportStamp = -1;
+  if (!scoreFlag) {
+    // The score-off fill (0x1404FF760-0x1404FF776): each base weight becomes XMM7 = 1.0, after the
+    // bank above has read the old weights (the PES order).
+    for (int slot = 0; slot < kReactionSlots; ++slot) tick->supportWeight[slot] = kUnitValue;
+    return;
+  }
+  // ponytail: the score-on branch (0x1404FEFDF-0x1404FF75F) is not ported: the per-slot scores,
+  // the recovery toward 1.0 while the stamp is above 0, and the stamp write from MI+0x1198 are
+  // OPEN. The weights keep their values. The caller passes scoreFlag = false: PES's flag needs
+  // MI+0x119C, the raw kick sum, which has no GF counterpart (team.cpp).
+}
+
 int RestartKindOf(e_SetPiece setPiece) {
   // The JR restart kinds (pes-re-A5Judge.md): 1 kick-off, 2 throw-in, 3 goal kick, 4 corner,
   // 5 free kick, 6 penalty kick. A referee with no set piece gives 0.
