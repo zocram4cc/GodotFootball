@@ -53,7 +53,7 @@ Step 9 (`FUN_140502190`, 359 asm lines):
 4. `FUN_1404FDD20` main pass (non-keepers via 27A0; keepers' GK formula), `FUN_1405027A0` (778 asm lines; its base term needs `FUN_140503430`, 750 lines), and `FUN_1404FC0D0` (242 asm lines, the 6C40 payload at 0x140502512): slices B and C.
 5. The in-play decrements (0x1405024CC-0x140502544) and the frame-mismatch decrement (0x140502549-0x140502707): left out, since they hold only on the path items 1-3 decide.
 6. `MI+0x1775 == 0x18` (0x1405024A1, 0x140502549): GF's play state is 1, 2 or 3 only, so 24 never occurs.
-7. The early branch's draw. `FUN_141e532d0` reads a cell that only `FUN_141e532f0` writes (54.0f). That writer is called from `FUN_141fbe2a0` (via 141fbf13f) and from `FUN_140447b50` (via `FUN_14044c880`). The trigger chain is not confirmed to run before step 9 in a match; if it does not, the cell is unset and every early word is 0.
+7. CONFIRMED live (23-10-26, Main's read-only pread of the running PES, mid-match, G = 0x1EB942C0): `DAT_14351AE54 = 54.0f` (raw 00 00 58 42). So the initializer chain (`FUN_141e532f0`, callers `FUN_141fbe2a0` via 141fbf13f and `FUN_140447b50` via `FUN_14044c880`) has run by match time, and the early draw is the constant 54, as decoded in slice A.
 
 Step 11 (`FUN_1404FEDC0`, 524 asm lines):
 7. The score-on branch (`DL != 0`, 0x1404FEFDF-0x1404FF75F): the per-slot scores (ball sample `FUN_140A6CF70` at 0x1404FF08D, the player records `FUN_140A48A10`, `FUN_140A489F0`, `FUN_14124DAD0`, stamina `FUN_140A58550`, `FUN_140A62960`, `FUN_1415A1780`, `FUN_141E532D0`), the predicate `FUN_1404F52E0` (decompile line 293), and the recovery toward 1.0 while the stamp is above 0 (decompile lines 297-313).
