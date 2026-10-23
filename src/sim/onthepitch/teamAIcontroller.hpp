@@ -40,6 +40,7 @@
 #include "teaminstructions.hpp"
 #include "pesteamconcepts.hpp"
 #include "pesteamtick.hpp"
+#include "pesrunslots.hpp"
 #include "pespress.hpp"
 
 class Match;
@@ -244,6 +245,8 @@ public:
   // The last run world (ProcessRunManager, on the team's parity tick) is the ranking MOVESTEP's team seam
   // reads. A player's slot is team·11 + his index in that build's roster; -1 when he is not in it.
   int RunSlotOf(const Player* player) const;
+  // The own-roster index (0..10) of `player` in the run table; -1 when he is not one of this team's slots.
+  int OwnRunSlot(const Player* player) const;
   Player* RunPlayerAt(int slot) const;
   // The rank-0 opponent of `own` in that world (NearestOpponents, pesoffball.hpp); nullptr when none.
   Player* NearestOpponentOf(const Player* own) const;
@@ -389,17 +392,8 @@ protected:
   pes::DefenceConceptInput DefenceInput();
   float MeasuredLine(int line, float ref) const;
 
-  // PES's run manager (pesoffball.hpp): one record per player in a run.
-  // `cooldown_ms` counts down from the tick a run ended: step 2 of the manager
-  // tick sets A[s] to int(fps·2+0.5) frames when a slot leaves a run state, and
-  // the mask skips a slot while it is nonzero (off-ball 1.2, the 2 s re-run
-  // block). A player never in a run carries 0.
-  struct RunRecord {
-    int state = pes::offball::kNothing;
-    unsigned long start_ms = 0;
-    Vector3 target;
-    long cooldown_ms = 0;  // < 0: not on cooldown
-  };
+  // The run manager (pesoffball.hpp) keeps each own slot's run in runSlots; state 0 is no run. A slot leaves
+  // a run through pes::run::Release (FUN_140A40820), so its ring records the stop.
   void ProcessOffBall();
   void ProcessRunManager(Player* carrier);
   pes::offball::RunWorld BuildRunWorld(std::array<std::vector<Player*>, 2>* ids) const;
@@ -407,7 +401,8 @@ protected:
   // The men FUN_14051B8B0 places in the box, in placement order (the PES path of the corner box).
   std::vector<Player*> PesBoxMen(int boxCount);
   pes::designation::DesignationRecord pesDesignation{};
-  std::map<const Player*, RunRecord> runs;
+  // PES's per-slot run table of this team (pesrunslots.hpp): the state, the history ring and the point of each slot.
+  std::array<pes::run::Slot, pes::run::kSlots> runSlots{};
   long lastRunFrame = -1;
   Player* designatedSupporter = nullptr;
   Vector3 supporterTarget;
