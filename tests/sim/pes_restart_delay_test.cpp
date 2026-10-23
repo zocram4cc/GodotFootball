@@ -482,6 +482,9 @@ TEST(PesRestartDelay, AThrowInTakerWalksToHisSpotAndIsNotPlacedOnIt) {
 TEST(PesRestartDelay, AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWithTheBallInHand) {
   constexpr int kThrowInKeyMotion = 0xcfa;  // the throw-in's SetKick and release clip (pes-re-throwin-choreography.md 4.1)
   constexpr float kStandTolerance_m = 0.1f;
+  // The first ceremony throw-in moves with every change to the match before it (the run-slot cutover left the default
+  // seed's twenty minutes with none), so the test searches matches in turn and checks the first ceremony throw-in it meets.
+  const unsigned int kCeremonySeeds[] = {SEED, 3u, 5u, 11u, 13u};
   std::optional<unsigned long> firstStop;  // the first ceremony (path B) throw-in's stoppage
   bool firstDone = false;                  // that stoppage has ended: the run stops here
   std::set<unsigned long> placed, released;
@@ -490,34 +493,36 @@ TEST(PesRestartDelay, AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWith
   // The release key's ball offset from the body, horizontal (docs/re/pes-re-throwin-choreography.md, SetKick: (0.022, 0.795) m
   // times bodyScale; bodyScale taken as 1). The carry's lift radius (0.65 m) is a different phase and does not apply here.
   constexpr float kReleaseHandReach_m = 0.80f;
-  // The first ceremony throw-in moves with every change to the match before it, so the test follows it, as the path-A tests do.
-  RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
-    const RefereeBuffer& b = match.GetRefereeBuffer();
-    if (!firstStop && b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker && b.prepared &&
-        !match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker))
-      firstStop = b.stopTime;
-    if (firstStop && (!b.active || b.stopTime != *firstStop)) firstDone = true;
-    if (!firstStop || b.stopTime != *firstStop) return;
-    if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker) return;
-    if (match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker)) return;  // a walker is path A
-    const Vector3 at = b.taker->GetPosition();
-    if (b.prepared && placed.insert(b.stopTime).second) {
-      throwIns++;
-      const float off = (at.Get2D() - b.restartPos.Get2D()).GetLength();
-      const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
-      const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
-      const float standIn_m = hits.size() > 1 ? std::hypot(hits[1].ballX, hits[1].ballZ) * k.centimetre_m : -1.0f;
-      if (standIn_m < 0.0f || std::fabs(off - standIn_m) > kStandTolerance_m) offTheStandPoint++;
-      if (std::fabs(at.coords[1]) <= pesFieldHalfWidth) insideTheLine++;
-    }
-    if (b.started && released.insert(b.stopTime).second) {
-      const Vector3 ball = match.GetBall()->Predict(0);
-      const float away = (ball.Get2D() - at.Get2D()).GetLength();
-      releaseBall_m = std::max(releaseBall_m, away);
-      if (away > kReleaseHandReach_m) ballAway++;
-    }
-  }, kTwentyMinuteMaxSimTicks, [&](const Match&) { return firstDone; }, SEED, false);
-  EXPECT_GT(throwIns, 0) << "no ceremony throw-in was placed";
+  for (const unsigned int seed : kCeremonySeeds) {
+    if (firstStop) break;
+    RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
+      const RefereeBuffer& b = match.GetRefereeBuffer();
+      if (!firstStop && b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker && b.prepared &&
+          !match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker))
+        firstStop = b.stopTime;
+      if (firstStop && (!b.active || b.stopTime != *firstStop)) firstDone = true;
+      if (!firstStop || b.stopTime != *firstStop) return;
+      if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker) return;
+      if (match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker)) return;  // a walker is path A
+      const Vector3 at = b.taker->GetPosition();
+      if (b.prepared && placed.insert(b.stopTime).second) {
+        throwIns++;
+        const float off = (at.Get2D() - b.restartPos.Get2D()).GetLength();
+        const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
+        const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
+        const float standIn_m = hits.size() > 1 ? std::hypot(hits[1].ballX, hits[1].ballZ) * k.centimetre_m : -1.0f;
+        if (standIn_m < 0.0f || std::fabs(off - standIn_m) > kStandTolerance_m) offTheStandPoint++;
+        if (std::fabs(at.coords[1]) <= pesFieldHalfWidth) insideTheLine++;
+      }
+      if (b.started && released.insert(b.stopTime).second) {
+        const Vector3 ball = match.GetBall()->Predict(0);
+        const float away = (ball.Get2D() - at.Get2D()).GetLength();
+        releaseBall_m = std::max(releaseBall_m, away);
+        if (away > kReleaseHandReach_m) ballAway++;
+      }
+    }, kTwentyMinuteMaxSimTicks, [&](const Match&) { return firstDone; }, seed, false);
+  }
+  EXPECT_GT(throwIns, 0) << "no ceremony throw-in was placed in any searched match";
   EXPECT_EQ(offTheStandPoint, 0) << offTheStandPoint << " ceremony taker(s) placed off the stand point";
   EXPECT_EQ(insideTheLine, 0) << insideTheLine << " ceremony taker(s) placed inside the touchline";
   EXPECT_EQ(ballAway, 0) << ballAway << " ceremony taker(s) released with the ball " << releaseBall_m
