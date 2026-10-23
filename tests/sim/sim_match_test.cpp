@@ -361,7 +361,7 @@ bool EverAttacksWhileTrailing(bool aiManagerRunsHome) {
   setup.homeTeamDbId = HOME_TEAM;
   setup.awayTeamDbId = AWAY_TEAM;
   setup.seed = SEED;
-  setup.durationMinutes = 1;
+  setup.durationMinutes = 2;
   setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
   setup.rig = SharedRig();
   setup.aiManagerRuns[0] = aiManagerRunsHome;
