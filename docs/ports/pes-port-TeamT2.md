@@ -213,7 +213,7 @@ Decisions requested: (a) approve a PES-faithful per-slot run table beside `runs`
   3. A slot re-selected while running keeps its entered stamp: PES's push of an equal id is a no-op (`FUN_140A40200`, 0x140A40200). The old GF code refreshed `start_ms` on re-select. This is a difference on the switch-off path too (see below).
   4. The reset releases running slots (GF's reset in `teamAIcontroller.cpp`, where the old code cleared the map). No PES site is decoded for the reset.
   5. The age is in PES frames: `FUN_140A401C0` (0x140A401C0) with the state-frames reader (`docs/re/pes-re-run-targets-s1.md`), and the frame is `GetPesFrame` (the PES logic frame, MI+0x1198, `pes::PesFrameOf`).
-- Verification (5 min, seed 7, `simslot`, `--pes-loop`, `--pes21-root /mnt/Extra4/PES21`):
+- Verification (5 min, seed 7, `simslot`, `--pes-loop`, `--pes21-root <workdrive>/PES21`):
   - Pre-cutover HEAD `1e61a92` (before the merge): `a5fe3f7b1a6f7faa`, 34380 ticks.
   - Cutover `989dd94` (before the merge): `a5fe3f7b1a6f7faa`, 34380 ticks. The cutover does not change this seed.
   - Merged HEAD (`origin/main` merged; no take, no sweep): `aac900c9f6462838`, 25933 ticks. The change is origin/main's, not the cutover's.
