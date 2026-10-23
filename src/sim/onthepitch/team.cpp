@@ -223,6 +223,11 @@ bool Team::Substitute(Player* playerOut, Player* playerIn) {
   if (designatedTeamPossessionPlayer == playerOut)
     designatedTeamPossessionPlayer = playerIn;
   if (passTarget == playerOut) passTarget = playerIn;
+  // The last touch passes to the substitute with the other references above: left on the man who
+  // walked off, a celebration aims at a player off the pitch who stands where the substitute now stands.
+  for (Player*& touched : lastTouchPlayers)
+    if (touched == playerOut) touched = playerIn;
+  if (lastTouchPlayer == playerOut) lastTouchPlayer = playerIn;
 
   // Everything that cached the outgoing player has to let go of him: the match's
   // designated possession player and the mental images the AI reads.

@@ -1,8 +1,10 @@
-// PES 2021's CPU substitutions on a real match: the swap itself, through Team::Substitute, the
-// request path a stoppage takes, and the allowance. Matches are real: the fixture teams, every PES
-// constant from the install (PES21_ROOT); without an install the tests skip.
+// PES 2021's CPU substitutions on a real match: the swap itself, through Team::Substitute, the request
+// path a stoppage takes, the allowance, and the state a substitute carries through a goal celebration.
+// Matches are real: the fixture teams, every PES constant from the install (PES21_ROOT); without an
+// install the tests skip.
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <cstdlib>
 #include <memory>
 #include <optional>
@@ -30,6 +32,12 @@ constexpr unsigned int SEED = 7;
 constexpr int kMatchMinutes = 20;
 // Logic frames the new man plays on after the swap (a few seconds of play).
 constexpr int kFramesAfterSwap = 600;
+// The two-minute match whose goal celebration runs with substitutes on the pitch. Before the fix it
+// aborted with "FLYING PLAYERS, height: -nan". Seed and length are the reproducer's.
+constexpr unsigned int kCelebrationSeed = 1001;
+constexpr int kCelebrationMatchMinutes = 2;
+// The sim's cap on a whole match (sim_match_test.cpp uses the same).
+constexpr int kMaxTicks = 30 * 60 * 100;
 
 bool HaveInstall() { return std::getenv("PES21_ROOT") != nullptr; }
 
@@ -47,7 +55,7 @@ const pesrig::Rig* SharedRig() {
   return rig ? &*rig : nullptr;
 }
 
-std::unique_ptr<Match> BuildMatch(int minutes) {
+std::unique_ptr<Match> BuildMatch(int minutes, unsigned int seed = SEED, bool pesLoop = true) {
   static std::unique_ptr<blunted::Database> held;  // the engine reads a process-wide database
   held = std::make_unique<blunted::Database>();
   if (!held->LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql")) return nullptr;
@@ -55,14 +63,14 @@ std::unique_ptr<Match> BuildMatch(int minutes) {
   MatchSetup setup;
   setup.homeTeamDbId = HOME_TEAM;
   setup.awayTeamDbId = AWAY_TEAM;
-  setup.seed = SEED;
+  setup.seed = seed;
   setup.durationMinutes = minutes;
   setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
   setup.rig = SharedRig();
   if (!setup.rig) return nullptr;
   if (!pestest::FillMissingPesConstants(&setup)) return nullptr;
   Properties config;
-  config.SetBool("pes_loop", true);
+  config.SetBool("pes_loop", pesLoop);
   return std::make_unique<Match>(new MatchData(HOME_TEAM, AWAY_TEAM), setup, config);
 }
 
@@ -143,8 +151,28 @@ TEST(SimSubstitution, TheAllowanceIsTheInstallsSubstitutionLimit) {
   EXPECT_EQ(Substitutions::GetRemaining(match->GetSubstitutionState(), HOME), k->substitutionLimit);
 }
 
-// A request that would take the side past its allowance is refused when it is made, because the
-// requests already accepted for the coming tick count against it (PES's queue count).
+// A goal's celebration runs on every man on the pitch, a substitute included. The substitute stands
+// where the man he replaced stood, so his position must stay finite from the stoppage on into play.
+TEST(SimSubstitution, ASubstituteRunsOnWithFiniteStateThroughACelebration) {
+  if (!HaveInstall()) GTEST_SKIP() << "needs PES21_ROOT";
+  auto match = BuildMatch(kCelebrationMatchMinutes, kCelebrationSeed, /*pesLoop=*/false);
+  ASSERT_TRUE(match) << "fixture match";
+  for (int tick = 0; tick < kMaxTicks && !match->IsGameOver(); ++tick) {
+    match->Process();
+    for (int teamID = 0; teamID < 2; ++teamID) {
+      std::vector<Player*> onPitch;
+      match->GetTeam(teamID)->GetActivePlayers(onPitch);
+      for (const Player* player : onPitch) {
+        const auto position = player->GetPosition();
+        ASSERT_TRUE(std::isfinite(position.coords[0]) && std::isfinite(position.coords[1]))
+            << "player " << player->GetID() << " has no finite position at tick " << tick;
+      }
+    }
+  }
+  const Substitutions::State& state = match->GetSubstitutionState();
+  EXPECT_GT(state.used[0] + state.used[1], 0) << "the match made no substitution, so it proved nothing";
+}
+
 TEST(SubstitutionsAllowance, AQueuedRequestCountsAgainstTheAllowance) {
   Substitutions::State state;
   state.limit = 2;
