@@ -131,3 +131,40 @@ TEST(PesRunBlock, TheTargetVariantsWriteTheirOwnBytes) {
 }
 
 }  // namespace
+
+namespace {
+
+TEST(PesRunTake, TheRecordReplacesTheVariantAndTheStateRingIsPushed) {
+  Slot s;
+  pes::run::SetPoint(&s, {4.0f, 5.0f, 6.0f});
+  std::array<uint8_t, pes::run::kTargetBytes> record{};
+  for (int i = 0; i < pes::run::kTargetBytes; ++i) record[i] = static_cast<uint8_t>(0x40 + i);
+  pes::run::Take(&s, 1, 200, record);
+  EXPECT_EQ(s.state, 1);
+  EXPECT_EQ(s.ring.entry[s.ring.index].id, 1);
+  EXPECT_EQ(s.ring.entry[s.ring.index].enteredAt, 200u);
+  for (int i = 0; i < pes::run::kTargetBytes; ++i) EXPECT_EQ(s.block[0x20 + i], record[i]) << "byte " << i;
+  EXPECT_FLOAT_EQ(Point(s)[1], 5.0f);
+}
+
+TEST(PesRunTake, TheSupporterRecordKeepsTheBlockAndSetsByteSixteen) {
+  Slot s;
+  for (int i = 0; i < pes::run::kTargetBytes; ++i) s.block[0x20 + i] = static_cast<uint8_t>(i + 1);
+  const auto record = pes::run::SupporterRecord(s);
+  for (int i = 0; i < pes::run::kTargetBytes; ++i) EXPECT_EQ(record[i], i == 16 ? 1 : i + 1) << "byte " << i;
+}
+
+TEST(PesRunSweep, EverySlotIsReleasedOnlyWhenTheCounterIsZero) {
+  std::array<Slot, pes::run::kSlots> slots{};
+  for (Slot& s : slots) Assign(&s, kChance, 100);
+  pes::run::ReleaseSweep(&slots, 1, 150);  // the counter is not zero: nothing happens
+  for (const Slot& s : slots) EXPECT_EQ(s.state, kChance);
+  pes::run::ReleaseSweep(&slots, 0, 150);  // the counter is zero: every slot is released
+  for (const Slot& s : slots) {
+    EXPECT_EQ(s.state, 0);
+    EXPECT_EQ(s.ring.entry[s.ring.index].id, 0);
+    EXPECT_EQ(s.ring.entry[s.ring.index].enteredAt, 150u);
+  }
+}
+
+}  // namespace
