@@ -3126,8 +3126,9 @@ void TeamAIController::WriteRoleArrays(bool head) {
 }
 
 // FUN_1404F5F10's rows: each slot's sheet triple at the tick's phase, through FUN_1408C50E0's record A.
-// The plan is the sheet's (FUN_1421B7D40); its setup start value is 0 (DefaultTeamSheet), the setup
-// writer of a non-zero start is OPEN (pes-re-sheet-triple §9); the in-play selector moves it below.
+// The plan is the sheet's (FUN_1421B7D40); the in-play selector moves it (UpdatePesSheetPlan).
+// ponytail: the sheet starts at plan 0 (DefaultTeamSheet). PES starts it at setup+0xB34+side*0xA8
+// (FUN_1408E16D0, read by the setup builder FUN_141FC1590 l.101-102); its non-zero writer is OPEN.
 void TeamAIController::WriteSlotPoints(int phase) {
   if (!match->PesLoop()) return;  // the PES path only: the install's tables exist on it
   const pes::formation::FormationTables* tables = match->GetPesFormations();
