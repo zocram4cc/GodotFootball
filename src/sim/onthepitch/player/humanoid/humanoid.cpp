@@ -1875,10 +1875,6 @@ void Humanoid::CalculateGeomOffsets() {
   }
 }
 
-bool Humanoid::HoldsRootYaw() {
-  return CastPlayer()->GetTeam()->GetController()->HoldsRoot(CastPlayer());
-}
-
 void Humanoid::SelectRetainAnim() {
   CrudeSelectionQuery query;
   query.byFunctionType = true;

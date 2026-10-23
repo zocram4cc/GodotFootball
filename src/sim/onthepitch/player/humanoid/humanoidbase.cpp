@@ -522,9 +522,9 @@ bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror) {
   currentAnim->rotationSmuggleOffset = 0;
   currentAnim->positionOffset = Vector3(0);
   currentAnim->incomingMovement = spatialState.movement;
-  // A throw-in taker keeps the root yaw the lift left him with (PES's throw-in loop keeps the lift's yaw), so his clips start
-  // from it. Any other body starts from the travel direction, as before.
-  const radian clipAngle = HoldsRootYaw() ? RootStartAngle(currentAnim->anim) : spatialState.angle;
+  // PES continues every motion from the root's yaw: the clip turns the root by its own yaw change, so its first frame is the
+  // root the body already had.
+  const radian clipAngle = RootStartAngle(currentAnim->anim);
   startAngle = clipAngle;
   currentAnim->positions = match->GetAnimPositionCache(currentAnim->anim);
   TurnCacheToBody(currentAnim->positions, clipAngle);

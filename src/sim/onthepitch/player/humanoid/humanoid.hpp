@@ -33,7 +33,6 @@ public:
   int GetCurrentFrame() { return currentAnim->frameNum; }
 
   void SelectRetainAnim();
-  bool HoldsRootYaw() override;
 
   virtual void ResetSituation(const Vector3& focusPos);
 
