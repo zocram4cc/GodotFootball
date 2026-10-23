@@ -38,8 +38,10 @@ struct Constants {
   float wrapSide = 0.0f;    // 0x142596E6C = 80.0 (0x1404F650D/532 COMISS pair)
   float coneDeg = 0.0f;     // 0x14259BE5C = 90.0 (0x1404F653C, cone arg)
   float coneLen = 0.0f;     // 0x14259BE04 = 12.0 (0x1404F6558, cone outer)
-  float gateRadius = 0.0f;  // 0x14259BE44 = 64.0 (0x1404F656C, count-gate arg)
   float half = 0.0f;        // 0x142565600 = 0.5 (0x140A53E49 half-cone scale)
+  float gateFrac = 0.0f;    // 0x14259BE44 = 64.0 (0x1404F656C, count-gate folded v)
+  float gateRadius = 0.0f;  // 0x14259BE04 = 12.0 (T7a stack slot, count-gate radius)
+  float gateWidth = 0.0f;   // 0x142565604 = 2.0 (0x140A4E905, count-gate width)
 };
 
 std::optional<Constants> LoadMarkTableConstants(const PeImage& exe, std::string* error);
@@ -49,9 +51,16 @@ std::optional<Constants> LoadMarkTableConstants(const PeImage& exe, std::string*
 struct Candidate {
   int id = -1;
   float d2 = 0.0f;
+  int actionWord = 0;  // cand pl+0x5D0: admit iff 1 or 0x3F (0x1404F6484-492; writer FUN_140A6CA10)
+  float posX = 0.0f;  // cand pl+0x55C (FUN_140A4C720's candX, 0x1404F6469/6F read pair)
+  float posZ = 0.0f;  // cand pl+0x564 (cone live-bearing origin)
   float pairToTarget = 0.0f;
   float pairToHolder = 0.0f;
-  float head = 0.0f;  // the candidate's head bearing (FUN_1404AB8E0 over +0x5EC)
+  float headPosX = 0.0f;    // cand pl+0x55C (FUN_1404AB8E0's first point, 0x1404F64A8)
+  float headPosZ = 0.0f;    // cand pl+0x564
+  float headPointX = 0.0f;  // cand +0x5EC (FUN_1404AB8E0's second point)
+  float headPointZ = 0.0f;  // cand +0x5F4
+  float head = 0.0f;  // the candidate's facing word [cand+0x554] (0x1404F6498 MOVSS)
 };
 
 // Everything one BuildMarkTable call reads. Slots are global (0..21, 0xFF = none).
@@ -61,16 +70,14 @@ struct Facts {
   bool holderIsKeeper = false;  // FUN_140A6E320(holderClass) != 0 (0x1404F626D)
   float sign = 1.0f;           // [T+0x254] side sign (0x1404F6316)
   float holderX = 0.0f;        // holder pl+0x55C (0x1404F6348 MULSS)
-  float rampWind = 0.0f;       // [[G+0x2AA8]+0x18] ramp width (0x1404F633C-343)
-  // --- MarkGateRE's four (ponytail sites below): caller-supplied until decoded ---
-  // ponytail: FUN_140A4C720(holderX, candX, sign, cone) side test (0x1404F6477).
-  // ponytail: pl+0x5D0 in {1, 0x3F} action word (0x1404F6484-492).
-  // ponytail: +0x5EC head vector feeding FUN_1404AB8E0 (0x1404F64A8).
-  // ponytail: FUN_140A4EAF0 count gate <= (cone != 0) (0x1404F6567-59F).
-  bool sideOk = true;
-  bool actionOk = true;
-  bool coneOk = true;
-  bool partnerOk = true;
+  float holderZ = 0.0f;        // holder pl+0x564 (cone live-bearing origin)
+  float goalAreaHalfWidth_m = 0.0f;  // FieldInfo F[5] (0x1404F633C-343 reads [[G+0x2AA8]+0x18])
+  // The holder-side mates for the FUN_140A4EAF0 count gate (0x1404F656C-59F): ground-plane
+  // positions; the gate counts mates within 12 m agreeing with u = P[cand][holder] to 32 deg.
+  std::array<std::array<float, 2>, kSlots> gateMates{};
+  // --- The two remaining open inputs (ponytail sites below): caller-supplied until decoded ---
+  // ponytail: FUN_140A53DA0/53DF0 cone test (0x1404F6567: strict annulus + half-cone; T7a args 90/12/0).
+  // ponytail: FUN_140A4EAF0/4E7C0 count gate <= (cone != 0) (0x1404F659D-59F; 12.0 radius, 32 deg band).
   std::array<Candidate, kSlots> candidates{};
 };
 

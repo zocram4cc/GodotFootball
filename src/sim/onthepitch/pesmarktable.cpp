@@ -32,7 +32,9 @@ constexpr uint64_t kVaWrapCap = 0x1425C48D0;
 constexpr uint64_t kVaWrapSide = 0x142596E6C;
 constexpr uint64_t kVaConeDeg = 0x14259BE5C;
 constexpr uint64_t kVaConeLen = 0x14259BE04;
-constexpr uint64_t kVaGateRadius = 0x14259BE44;
+constexpr uint64_t kVaGateFrac = 0x14259BE44;
+constexpr uint64_t kVaGateRadius = 0x14259BE04;
+constexpr uint64_t kVaGateWidth = 0x142565604;
 constexpr uint64_t kVaHalf = 0x142565600;
 
 // Wrap to (-180, 180]: FUN_14043A0A0's single-fold diff (matches GF WrapDeg).
@@ -42,17 +44,63 @@ float Wrap180(float d) {
   return d;
 }
 
-// The cone ramp of 0x1404F6354-0x1404F638A: clamp((sign*holderX - (wind - base)) / top)
-// in [0, 1], then cone = ramp - offset. Zero when the wind is missing (no GF carrier).
-float ConeHead(float sign, float holderX, float wind, const Constants& k) {
-  const float lo = wind - k.rampBase;
-  float ramp = (sign * holderX - lo) / k.rampTop;
-  if (ramp < 0.0f) ramp = 0.0f;
-  if (ramp > 1.0f) ramp = 1.0f;
+// The cone ramp of 0x1404F6354-0x1404F638F: lo = F[5] - 7.0, top = F[5] + 3.0,
+// (sign*holderX - lo) / (top - lo) through the COMISS ladder, then cone = ramp - 15.0.
+// FieldInfo F[5] is the goal-area half-width (9.16 m); GF carries it (pesGoalAreaHalfWidth).
+float ConeHead(float sign, float holderX, float goalAreaHalfWidth_m, const Constants& k) {
+  const float lo = goalAreaHalfWidth_m - k.rampBase;
+  const float top = goalAreaHalfWidth_m + k.rampTop;
+  float ramp = 0.0f;
+  if (lo < sign * holderX) ramp = (sign * holderX >= top) ? 1.0f : (sign * holderX - lo) / (top - lo);
   return ramp - k.coneOffset;
 }
 
+// Bearing (a -> b) in [0, 360): FUN_140439FE0's rule over FUN_140A92D40. Coincident reads 0.0.
+// ponytail: std::atan2 stands in for PES's atan2 polynomial 0x140A92D40 (lane-core O3).
+float PairBearing(float ax, float az, float bx, float bz) {
+  if (ax == bx && az == bz) return 0.0f;
+  float r = std::atan2(bx - ax, bz - az) * 57.295776f;
+  if (r < 0.0f) r += 360.0f;
+  return r;
+}
+
+// The head bearing (FUN_1404AB8E0 over +0x5EC, via FUN_140439E50): bearing from the
+// candidate's position (pl+0x55C/0x564) to the stored point (+0x5EC/0x5F4), 0.0 when coincident.
+float HeadBearing(float posX, float posZ, float pointX, float pointZ) {
+  return PairBearing(posX, posZ, pointX, pointZ);
+}
 }  // namespace
+
+
+// The cone test (FUN_140A53DA0 -> FUN_140A53DF0): strict annulus on the outer radius
+// (inner is 0.0: T7a's stack slot holds 0x00000001 ~= 1.4e-45), then |wrap180(live - headArg)|
+// < 0.5 * coneDeg where live is the bearing from the candidate to the holder (FUN_140439EF0).
+// candPos/holderPos are ground-plane (x, z); headArg is P[cand][holder].
+bool ConePasses(float candX, float candZ, float holderX, float holderZ, float headArg,
+                const Constants& k) {
+  const float dx = holderX - candX;
+  const float dz = holderZ - candZ;
+  if (dx * dx + dz * dz >= k.coneLen * k.coneLen) return false;  // 0x140A53E20/26/2D JBE
+  const float live = PairBearing(candX, candZ, holderX, holderZ);
+  return std::fabs(Wrap180(live - headArg)) < k.half * k.coneDeg;  // 0x140A53E81 CMOVA
+}
+
+// The count gate (FUN_140A4EAF0 -> FUN_140A4E7C0): counts the holder-side mates within
+// 12 m of the holder whose bearing-from-holder agrees with u = P[cand][holder] to within
+// 32.0 (64.0 / 2.0). T7a commits iff count <= (cone != 0).
+int CountGate(float holderX, float holderZ, float u, const Facts& facts, const Constants& k) {
+  const float radius2 = k.gateRadius * k.gateRadius;
+  const float band = k.gateFrac / k.gateWidth;
+  int count = 0;
+  for (int i = 0; i < kSlots; ++i) {
+    const float dx = facts.gateMates[i][0] - holderX;
+    const float dz = facts.gateMates[i][1] - holderZ;
+    if (dx * dx + dz * dz >= radius2) continue;  // 0x140A4E9D5/9D8 JNC: touching fails
+    const float b = PairBearing(holderX, holderZ, facts.gateMates[i][0], facts.gateMates[i][1]);
+    if (std::fabs(Wrap180(b - u)) <= band) ++count;  // 0x140A4EA42/45 JA: touching counts
+  }
+  return count;
+}
 
 std::optional<Constants> LoadMarkTableConstants(const PeImage& exe, std::string* error) {
   Constants c;
@@ -68,7 +116,9 @@ std::optional<Constants> LoadMarkTableConstants(const PeImage& exe, std::string*
       {kVaWrapSide, &c.wrapSide},
       {kVaConeDeg, &c.coneDeg},
       {kVaConeLen, &c.coneLen},
+      {kVaGateFrac, &c.gateFrac},
       {kVaGateRadius, &c.gateRadius},
+      {kVaGateWidth, &c.gateWidth},
       {kVaHalf, &c.half},
   };
   for (const auto& entry : table) {
@@ -93,21 +143,28 @@ void BuildMarkTable(MarkState* state, const Facts& facts, const Constants& k) {
   if (facts.holder < 0 || facts.holder > kLastSlot) return;
   if (facts.holderIsKeeper) return;
   if (facts.holder == tgt) return;
-  const float cone = ConeHead(facts.sign, facts.holderX, facts.rampWind, k);
+  const float cone = ConeHead(facts.sign, facts.holderX, facts.goalAreaHalfWidth_m, k);
   int marks = 0;
   for (const Candidate& cand : facts.candidates) {
+    const float headArg = HeadBearing(cand.headPosX, cand.headPosZ, cand.headPointX, cand.headPointZ);
     if (cand.id < 0 || cand.id > kLastSlot) continue;  // 0x1404F6400 JA skip
     if (cand.id == facts.holder) continue;             // 0x1404F6409 JZ skip
     if (cand.id == tgt) continue;                      // 0x1404F6411 JZ skip
     if (cand.d2 > k.ceilD2) return;  // 0x1404F6439/43D JA: hard exit, not continue
-    if (!facts.sideOk) continue;     // 0x1404F647C JZ skip (FUN_140A4C720)
-    if (!facts.actionOk) continue;   // 0x1404F648D/492 (pl+0x5D0 in {1, 0x3F})
+    // FUN_140A4C720(holderX, candX, sign, cone): (sign*cone + holderX)*sign < sign*candX.
+    if ((facts.sign * cone + facts.holderX) * facts.sign >= facts.sign * cand.posX) continue;
+    if (cand.actionWord != 1 && cand.actionWord != 0x3F) continue;  // 0x1404F6484-492
     // Wrap tests (0x1404F64D9 cap 105, 0x1404F650D side 80, 0x1404F6532 floor 80).
-    if (std::fabs(Wrap180(cand.pairToTarget - cand.head)) > k.wrapCap) continue;
-    if (std::fabs(Wrap180(cand.pairToHolder - cand.head)) > k.wrapSide) continue;
+    // uVar2 = [cand+0x554] enters only the subtrahend; the head under test is 4AB8E0's output.
+    if (std::fabs(Wrap180(cand.pairToTarget - headArg)) > k.wrapCap) continue;
+    if (std::fabs(Wrap180(cand.pairToHolder - headArg)) > k.wrapSide) continue;
     if (k.wrapSide > std::fabs(Wrap180(cand.pairToHolder - cone))) continue;
-    if (!facts.coneOk) continue;     // 0x1404F6574-59F (FUN_140A53DA0)
-    if (!facts.partnerOk) continue;  // 0x1404F659D-59F (FUN_140A4EAF0 <= cone)
+    const bool coneHit = ConePasses(cand.posX, cand.posZ, facts.holderX, facts.holderZ,
+                                    cand.pairToHolder, k);  // 0x1404F6567 TEST AL,AL
+    // 0x1404F6595 CMOVNZ + 0x1404F659D CMP AL,BL: count <= (cone != 0).
+    if (CountGate(facts.holderX, facts.holderZ, cand.pairToHolder, facts, k) >
+        (coneHit ? 1 : 0))
+      continue;
     state->mark[cand.id % kFold] = 1;  // 0x1404F65CF
     if (++marks >= kMaxMarks) return;  // 0x1404F65D7/DB
   }
