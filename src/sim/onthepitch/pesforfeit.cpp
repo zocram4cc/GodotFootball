@@ -56,6 +56,10 @@ namespace forfeit {
 
 bool BelowMinimumPlayers(int onPitch, int minimum) { return onPitch < minimum; }
 
+// ponytail: the two inputs are GF's card and injury state standing in for PES's player record. The PES
+// writer of player+0x0C == 4 is OPEN (docs/re/pes-re-missing-systems.md 2.12): GF's cards == 4 (yellow
+// then red) stands in for it, and injuryLevel == 0 for the player+0x18 marker. Replace both when the
+// writer is decoded.
 bool IsForfeitOffence(const ForfeitConstants& k, int cardState, int injuryMarker) {
   return cardState == k.sentOffState && injuryMarker == 0;
 }
