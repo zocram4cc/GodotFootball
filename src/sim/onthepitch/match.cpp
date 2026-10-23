@@ -251,6 +251,7 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES substitution constants missing: read them from the install with "
         "pes::LoadSubstitutionConstants into MatchSetup::pesSubstitutionConstants");
   pesSubstitutionConstants = *setup.pesSubstitutionConstants;
+  substitutionState.limit = pesSubstitutionConstants.substitutionLimit;
   if (setup.pesStaminaConstants == nullptr)
     throw std::runtime_error(
         "PES stamina constants missing: read them from the install with "
@@ -645,8 +646,11 @@ Substitutions::e_Result Match::RequestSubstitution(int teamID, Player* playerOut
                                                    Player* playerIn) {
   Team* team = GetTeam(teamID);
   const Substitutions::SquadView squad = team->DescribeSwap(playerOut, playerIn);
+  int queued = 0;
+  for (const PendingSubstitution& sub : pendingSubstitutions)
+    if (sub.teamID == teamID) ++queued;
   const Substitutions::e_Result result =
-      Substitutions::Validate(substitutionState, teamID, squad, IsSubstitutionWindow());
+      Substitutions::Validate(substitutionState, teamID, squad, IsSubstitutionWindow(), queued);
   if (result != Substitutions::e_Result_Accepted)
     return result;
 
@@ -663,8 +667,8 @@ void Match::ExecutePendingSubstitutions() {
     // conditions may have changed since the request; re-validate quietly
     const Substitutions::SquadView squad =
         team->DescribeSwap(sub.playerOut, sub.playerIn);
-    if (Substitutions::Validate(substitutionState, sub.teamID, squad,
-                                IsSubstitutionWindow()) != Substitutions::e_Result_Accepted)
+    if (Substitutions::Validate(substitutionState, sub.teamID, squad, IsSubstitutionWindow(),
+                                /*queued=*/0) != Substitutions::e_Result_Accepted)
       continue;
     if (!team->Substitute(sub.playerOut, sub.playerIn))
       continue;
@@ -695,8 +699,8 @@ void Match::ProcessAutoSubstitutions() {
   // (FUN_140523b60, kind 3) take the tired below their role class's threshold,
   // under a per-mode cap that opens up through the second half.
   // ponytail: PES's mode comes from a settings byte GF does not carry (1 low
-  // .. 3 high, INF med); the middle mode stands in. PES's cap byte is the
-  // stamina-sub cap; GF's substitution limit stands in.
+  // .. 3 high, INF med); the middle mode stands in. PES's stamina cap is the
+  // settings+0x18 byte, whose default is not decoded; the allowance stands in.
   constexpr int kCpuSubMode = 2;
   constexpr int kInjured = 3;  // StaminaState::injuryLevel: 3 = injured, 2 = a knock
   constexpr unsigned long kHalfLength_ms = 45UL * 60000UL;
@@ -745,9 +749,9 @@ void Match::ProcessAutoSubstitutions() {
     const int minute = static_cast<int>(
         (secondHalf && matchTime_ms >= kHalfLength_ms ? matchTime_ms - kHalfLength_ms : matchTime_ms) /
         kMsPerMinute);
-    const int used = Substitutions::maxSubstitutions - remaining;
-    const int cap = pes::StaminaSubCap(k, kCpuSubMode, firstHalf, secondHalf, minute,
-                                       Substitutions::maxSubstitutions);
+    const int limit = substitutionState.limit;
+    const int used = limit - remaining;
+    const int cap = pes::StaminaSubCap(k, kCpuSubMode, firstHalf, secondHalf, minute, limit);
     std::vector<pes::StaminaSubCandidate> tired;
     for (size_t i = 0; i < onPitch.size(); ++i) {
       const pes::StaminaState& st = onPitch[i]->GetStamina();
