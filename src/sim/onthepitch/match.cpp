@@ -19,6 +19,7 @@
 #include "matchduration.hpp"
 #include "matchreport.hpp"
 #include "pesclips.hpp"
+#include "pesteamtick.hpp"
 #include "pespossession.hpp"
 #include "pesstoppage.hpp"
 #include "player/playerofficial.hpp"
@@ -483,6 +484,10 @@ void Match::AdvanceMatchFrames(uint32_t frames) {
 
 int Match::GetPesFrame() const {
   return pes::PesFrameOf(actualTime_ms, static_cast<int>(GetPesClockConstants().gameSpeed));
+}
+
+int Match::PesRestartKind() const {
+  return referee ? pes::RestartKindOf(referee->GetBuffer().desiredSetPiece) : 0;
 }
 
 void Match::ResetSituation(const Vector3& focusPos) {

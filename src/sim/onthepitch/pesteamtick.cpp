@@ -65,6 +65,20 @@ void StoppedSelect(TeamTick* tick, bool latchClear, int playState, int restartKi
   tick->b6c40 = 2;
 }
 
+bool ClearReactionDelays(TeamTick* tick, int playState) {
+  // The branch at 0x14050247E-0x140502740: MI+0x116C != 1 zeroes T+0xB860 and T+0x6A4 together
+  // (0x140502726-0x140502740, one loop of 11 stores to each bank).
+  if (playState == kPlayStateInPlay) return false;
+  // ponytail: the in-play half of step 9 (the event switch at 0x140502758, the seed-10 tail
+  // gated on registry entry 15, and block B at 0x140502260) is not ported. Until it lands the
+  // banks hold their values in play.
+  for (int slot = 0; slot < kReactionSlots; ++slot) {
+    tick->reactionDelay[slot] = 0;
+    tick->reactionDelayMirror[slot] = 0;
+  }
+  return true;
+}
+
 int RestartKindOf(e_SetPiece setPiece) {
   // The JR restart kinds (pes-re-A5Judge.md): 1 kick-off, 2 throw-in, 3 goal kick, 4 corner,
   // 5 free kick, 6 penalty kick. A referee with no set piece gives 0.

@@ -141,4 +141,25 @@ TEST(PesTeamTick, RestartKindIsThePesStoppageCode) {
   EXPECT_EQ(pes::RestartKindOf(e_SetPiece_Penalty), 6);
 }
 
+// T2b: step 9's out-of-play branch (0x14050247E-0x140502740) zeroes both reaction-delay banks,
+// T+0x6A4[11] and T+0xB860[11], on every call while MI+0x116C != 1. The in-play half of step 9 is
+// OPEN, so this test checks the return of the call in play and not the banks it leaves there.
+TEST(PesTeamTick, ReactionDelaysClearWhenPlayIsStopped) {
+  pes::TeamTick tick;
+  for (int i = 0; i < 11; ++i) {
+    tick.reactionDelay[i] = 7 + i;
+    tick.reactionDelayMirror[i] = 20 + i;
+  }
+  EXPECT_FALSE(pes::ClearReactionDelays(&tick, /*playState=*/1)) << "in play the clear does not run";
+  EXPECT_TRUE(pes::ClearReactionDelays(&tick, /*playState=*/2));
+  for (int i = 0; i < 11; ++i) {
+    EXPECT_EQ(tick.reactionDelay[i], 0) << "bank T+0x6A4, slot " << i;
+    EXPECT_EQ(tick.reactionDelayMirror[i], 0) << "bank T+0xB860, slot " << i;
+  }
+  // A set piece awaiting its take (MI+0x116C == 3) is stopped too.
+  tick.reactionDelay[0] = 5;
+  EXPECT_TRUE(pes::ClearReactionDelays(&tick, /*playState=*/3));
+  EXPECT_EQ(tick.reactionDelay[0], 0);
+}
+
 }  // namespace

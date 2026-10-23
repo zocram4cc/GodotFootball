@@ -343,3 +343,16 @@ TEST(SetKickStand, ThePickupRootStandsTheClipsBallOffsetBehindTheBall) {
   EXPECT_NEAR(atNinety.x, 9.2f, kPointTolerance_m) << "heading 90 faces +X, so the root is 0.8 m on the -X side of the ball";
   EXPECT_NEAR(atNinety.y, 4.0f, kPointTolerance_m);
 }
+
+// MI+0x1554, the restart kind the event store records, is the referee's desired set piece: the
+// last award, which the referee starts at the kick-off. A free kick reads 5 and a penalty 6.
+TEST(RestartKind, TheMatchReportsTheRefereesDesiredSetPiece) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  EXPECT_EQ(match->PesRestartKind(), 1);
+  match->GetReferee()->Buffer().desiredSetPiece = e_SetPiece_FreeKick;
+  EXPECT_EQ(match->PesRestartKind(), 5);
+  match->GetReferee()->Buffer().desiredSetPiece = e_SetPiece_Penalty;
+  EXPECT_EQ(match->PesRestartKind(), 6);
+}

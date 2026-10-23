@@ -325,6 +325,8 @@ public:
   // actual time at the game speed. ponytail: PES's counter also holds in its halted states
   // (the half-time screen, a pinned clock; docs/re/pes-re-clock-live.md); GF's does not.
   int GetPesFrame() const;
+  // PES's restart kind MI+0x1554: the referee's desired set piece as pes::RestartKindOf codes it.
+  int PesRestartKind() const;
   // Advances the match clock by `frames` logic frames, frozen while play is stopped (report 3.3:
   // a stoppage adds no time).
   void AdvanceMatchFrames(uint32_t frames);
