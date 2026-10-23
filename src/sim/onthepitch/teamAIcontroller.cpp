@@ -1322,6 +1322,15 @@ bool TeamAIController::PieceTakerArrived() const {
   return pieceLifted;
 }
 
+void TeamAIController::ReleasePieceTaker() {
+  // PES's standby for a run-up kick ends at the release (pes-re-kicker-standby.md section 5). The taker stops holding his stand
+  // point, and the approach to the ball moves him: the stand-in for the run-up clip (pes-re-kicker-standby.md section 10). The
+  // keeper and the throw-in taker keep their holds, since their releases are the goal kick strike and the throw-in release clip.
+  if (setPieceType != e_SetPiece_FreeKick && setPieceType != e_SetPiece_Corner && setPieceType != e_SetPiece_Penalty) return;
+  pieceHeld = false;
+  pieceHasLookAt = false;
+}
+
 Player* TeamAIController::ThrowInTargetMate(Player* thrower) const {
   // PES aims a throw-in at a receiver inside the touchline (docs/re/pes-re-throwin-choreography.md 6.1): the nearest mate
   // inside the line. ponytail: PES's receiver search (FUN_142135700) and course test are not ported; the nearest mate stands in.

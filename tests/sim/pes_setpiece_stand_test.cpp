@@ -617,3 +617,14 @@ TEST(SetKickStand, AHeldCornerTakerIsReleasedAndTakesTheKick) {
   EXPECT_FALSE(r.heldAtRelease) << "the released corner taker is still held at his stand point";
   EXPECT_TRUE(r.taken) << "the released corner was not taken: the taker stands " << r.takerToBall_m << " m from the ball";
 }
+
+// The goal kick keeper keeps his hold through the strike: the strike is the release's own warp, so the run-up takers' release
+// (ReleasePieceTaker) must not reach him. A goal kick is released by its ladder, not by a frame count.
+TEST(SetKickStand, AHeldGoalKeeperStaysHeldThroughHisStrike) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  const ReleasedRestart r = RunRestart(*match, e_SetPiece_GoalKick, Vector3(-47.0f, 0.0f, 0.0f));
+  ASSERT_TRUE(r.released) << "the goal kick was never released";
+  EXPECT_TRUE(r.heldAtRelease) << "the goal kick keeper was released with the run-up takers";
+}

@@ -688,6 +688,8 @@ void Referee::Process() {
           return;
         }
         buffer.started = true;
+        // The standby ends at the release (pes-re-kicker-standby.md section 5): a run-up taker stops holding his stand point here.
+        if (match->PesLoop()) match->GetTeam(buffer.teamID)->GetController()->ReleasePieceTaker();
         if (clearingLogged) {
           // How long the taker actually waited, and how far the nearest opponent had
           // got by the time he kicked. Both are the point of the law: a restart that

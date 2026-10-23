@@ -117,6 +117,10 @@ public:
   bool IsPieceTakerWalking(const Player* player) const;
   // True while a placed set-piece taker holds his stand point before the release (pes-re-kicker-standby.md section 4).
   bool IsPieceTakerHeld(const Player* player) const { return pieceHeld && player == taker; }
+  // The standby ends at the release (pes-re-kicker-standby.md sections 5-6): a free kick, corner or penalty taker stops holding his
+  // stand point, and the approach to the ball takes the body over. The goal kick keeps its keeper held through the strike, and a
+  // throw-in keeps its ceremony taker held through his release clip.
+  void ReleasePieceTaker();
   // True from the lift's end until the restart is over: the taker keeps the root yaw the lift left him with (PES's throw-in loop
   // keeps the lift's yaw), so his clips start from it.
   bool HoldsRoot(const Player* player) const { return pieceLifted && player == taker; }
