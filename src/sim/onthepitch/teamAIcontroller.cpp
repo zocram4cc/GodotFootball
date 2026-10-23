@@ -302,9 +302,9 @@ void TeamAIController::Process() {
   // PES's step 43 (FUN_1404F78FE): with T+0x218 == 0 every own slot is released through FUN_140A40820. It follows the
   // designation and the run manager (steps 38 and 41) of the same tick, and it runs on every in-play tick, where
   // ProcessOffBall runs only on the team's parity frames.
-  if (match->PesLoop()) {
-    pes::run::ReleaseSweep(&runSlots, teamTick.noBallCounter, static_cast<uint32_t>(match->GetPesFrame()));
-  }
+  // PES's step-43 release sweep (pes::run::ReleaseSweep) is kept unwired: with it, the holder latch's one-tick gap
+  // (pes_holder_latch_test) widens to two ticks. PES's holder persists on a loose ball; GF's retainer clears on the
+  // possession flicker (humanoid.cpp retain block). Wiring waits for that holder split.
 }
 
 float mixup(float base, const std::string& varname, e_PlayerRole role, float counterAttack) {
