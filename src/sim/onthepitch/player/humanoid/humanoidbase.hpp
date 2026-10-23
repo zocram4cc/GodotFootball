@@ -285,8 +285,10 @@ protected:
       bool preferPassAndShot = false);  // returns false on no applicable anim found
   void CalculatePredictedSituation(Vector3& predictedPos, radian& predictedAngle);
   // The start angle that keeps the root's yaw: the root is the start angle plus the body node's yaw at frame 0
-  // (CalculateSpatialState), so the start turns that yaw back out. Only the throw-in hold starts this way (SelectRetainAnim).
+  // (CalculateSpatialState), so the start turns that yaw back out. The throw-in hold and a held taker's clips start this way.
   radian RootStartAngle(const Animation* anim) const;
+  // True while the body keeps its root yaw through its clips (a throw-in taker from the lift to the release): see Humanoid.
+  virtual bool HoldsRootYaw() { return false; }
   Vector3 CalculateOutgoingMovement(const std::vector<Vector3>& positions) const;
 
   void CalculateSpatialState();         // realtime properties, based on 'physics'

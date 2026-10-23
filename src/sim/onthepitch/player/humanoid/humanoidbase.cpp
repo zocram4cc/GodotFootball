@@ -522,12 +522,15 @@ bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror) {
   currentAnim->rotationSmuggleOffset = 0;
   currentAnim->positionOffset = Vector3(0);
   currentAnim->incomingMovement = spatialState.movement;
+  // A throw-in taker keeps the root yaw the lift left him with (PES's throw-in loop keeps the lift's yaw), so his clips start
+  // from it. Any other body starts from the travel direction, as before.
+  const radian clipAngle = HoldsRootYaw() ? RootStartAngle(currentAnim->anim) : spatialState.angle;
+  startAngle = clipAngle;
   currentAnim->positions = match->GetAnimPositionCache(currentAnim->anim);
-  TurnCacheToBody(currentAnim->positions, spatialState.angle);
+  TurnCacheToBody(currentAnim->positions, clipAngle);
   currentAnim->outgoingMovement = CalculateOutgoingMovement(currentAnim->positions);
   // The clip starts where the body is now, as a selected anim does.
   startPos = spatialState.position;
-  startAngle = spatialState.angle;
   CalculatePredictedSituation(nextStartPos, nextStartAngle);
   animApplyBuffer.anim = currentAnim->anim;
   animApplyBuffer.smooth = false;
@@ -1281,8 +1284,14 @@ bool HumanoidBase::SelectAnim(
 }
 
 radian HumanoidBase::RootStartAngle(const Animation* anim) const {
-  return ModulateIntoRange(-pi, pi,
-                           FixAngle(spatialState.rootDirectionVec.GetAngle2D()) - anim->GetIncomingBodyAngle());
+  // The body node's yaw at frame 0, read as CalculateSpatialState reads it. GetIncomingBodyAngle is not that yaw for an
+  // idle start: ConvertToStartFacingForwardIfIdle turns the body keys but leaves the cached angle as it was.
+  Quaternion bodyOrientation;
+  Vector3 bodyPosition;
+  anim->GetKeyFrame("body", 0, bodyOrientation, bodyPosition);
+  radian x, y, z;
+  bodyOrientation.GetAngles(x, y, z);
+  return ModulateIntoRange(-pi, pi, FixAngle(spatialState.rootDirectionVec.GetAngle2D()) - z);
 }
 
 void HumanoidBase::CalculatePredictedSituation(Vector3& predictedPos, radian& predictedAngle) {

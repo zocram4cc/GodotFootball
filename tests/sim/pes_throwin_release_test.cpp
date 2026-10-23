@@ -173,8 +173,9 @@ TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
 // with his root facing out, and the release hold put the ball outside it. At the end of every carried throw-in's lift in a
 // two-minute seed-7 match, the root must face the pitch.
 // The lift's warp ends on PES's heading. On seed 7's first carried throw-in, the retain clip the carrier starts on the lift's last
-// tick (SelectRetainAnim) took its start angle from facing the pitch centre, and the root landed 54 degrees off. The hold now
-// starts from the root yaw (HumanoidBase::RootStartAngle).
+// tick (SelectRetainAnim) took its start angle from facing the pitch centre, and the root landed 54 degrees off. From the lift on,
+// the taker's clips start from the root yaw (HumanoidBase::RootStartAngle, Humanoid::HoldsRootYaw); on the merged tree the MOVESTEP
+// clip that follows the lift started from the travel direction and faced him out.
 TEST(PesThrowInRelease, TheLiftTurnsACarriedThrowInTakerToFaceThePitch) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
   constexpr float kFacingTolerance_deg = 5.0f;  // a GF tolerance, not a PES value: the warp ends on the heading exactly
