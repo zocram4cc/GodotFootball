@@ -3109,18 +3109,27 @@ void TeamAIController::WriteRoleArrays(bool head) {
 }
 
 // FUN_1404F5F10's rows: each slot's sheet triple at the tick's phase, through FUN_1408C50E0's record A.
-// ponytail: the plan is the setup default, 0. PES reads it from setup+0xb34+side*0xa8 (FUN_1408E16D0; the
-// writer is OPEN) and changes it in play (FUN_140500B90: mode +0xBCC, flag +0xB8A3). pes-re-sheet-triple §9.
+// The plan is the sheet's (FUN_1421B7D40); its setup start value is 0 (DefaultTeamSheet), the setup
+// writer of a non-zero start is OPEN (pes-re-sheet-triple §9); the in-play selector moves it below.
 void TeamAIController::WriteSlotPoints(int phase) {
   if (!match->PesLoop()) return;  // the PES path only: the install's tables exist on it
-  constexpr int kSetupPlan = 0;
   const pes::formation::FormationTables* tables = match->GetPesFormations();
   const pes::formation::SheetConstants* sheet = match->GetPesSheetConstants();
   assert(tables && sheet);  // the PES loop is built with the install's tables (gfsim_run loads them)
-  const auto plan = tables->PlanOf(static_cast<uint32_t>(team->GetTeamData()->GetDatabaseID()), kSetupPlan);
-  assert(plan);  // every fixture team has a plan-0 record
+  const auto plan = tables->PlanOf(static_cast<uint32_t>(team->GetTeamData()->GetDatabaseID()),
+                                   teamSheet.Plan());
+  assert(plan);  // every team has a tactics record for each plan (Tactics.bin: two per team)
   slotPoints = pes::formation::SlotPointRows(*plan, phase, pesFieldHalfLength, pesFieldHalfWidth,
                                              sheet->grid, sheet->keeper);
+}
+
+// PES's in-play plan selector (FUN_140500B90, reached from the team tick at 0x1404F6EAD): once per PES
+// team tick, after the decider and the full-defence flag of this tick.
+// ponytail: FUN_140500B90's roster-gated pre-branch (l.40-271) and its plan-2 stoppage branch (l.291-320)
+// are not ported; OPEN.
+void TeamAIController::UpdatePesSheetPlan() {
+  if (!match->PesLoop() || !match->AIManagerRunsTeam(team->GetID())) return;
+  teamSheet.SetPlan(pes::formation::InPlayPlan(strategy.strategy, teamTick.b8a3, teamSheet.Plan()));
 }
 
 int TeamAIController::RoleClassOfSlot(int slot) const {

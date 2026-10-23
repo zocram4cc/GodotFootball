@@ -237,6 +237,8 @@ public:
   // Every team tick, dead balls included: the decider moves the strategy while
   // the ball is dead and the attack level follows it once play resumes.
   void UpdateStrategy();
+  // PES's in-play plan selector (FUN_140500B90): the sheet plan, once per PES team tick after UpdateStrategy.
+  void UpdatePesSheetPlan();
   // PES's per-tick team words (pesteamtick.hpp): the attack level T+0xB8A4,
   // its flags and the restart word, stepped every team tick on the PES path.
   const pes::TeamTick& GetTeamTick() const { return teamTick; }
