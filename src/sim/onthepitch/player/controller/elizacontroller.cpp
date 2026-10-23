@@ -147,7 +147,7 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
 
   // stand still
 
-  else if (!match->IsInPlay()) {  // this whole if/then/else structure is ugly and unclear
+  else if (!match->IsInPlay() && !match->IsInSetPiece()) {  // this whole if/then/else structure is ugly and unclear
 
     PlayerCommand command;
     command.desiredFunctionType = e_FunctionType_Movement;

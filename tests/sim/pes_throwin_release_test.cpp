@@ -3,6 +3,7 @@
 #include "pes_match_constants.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdlib>
 #include <functional>
@@ -46,8 +47,9 @@ void LoadTakerConstants(pes::SetPieceTakerConstants* out) {
   *out = *setup->pesSetPieceTakerConstants;
 }
 
-// Runs a PES-loop match for two minutes, calling `onTick` after every tick.
-void RunMatch(const std::function<void(Match&)>& onTick) {
+// Runs a PES-loop match for two minutes, calling `onTick` after every tick. If `stop` is given, the loop ends when
+// it points at true, so a test that needs only the first restart can stop at its release instead of the full match.
+void RunMatch(const std::function<void(Match&)>& onTick, std::atomic<bool>* stop = nullptr) {
   const char* root = std::getenv("PES21_ROOT");
   ASSERT_TRUE(root != nullptr) << "PES21_ROOT not set";
   pes::PesVfs vfs;
@@ -74,6 +76,7 @@ void RunMatch(const std::function<void(Match&)>& onTick) {
   while (!match.IsGameOver()) {
     match.Process();
     if (onTick) onTick(match);
+    if (stop && *stop) break;
   }
 }
 
@@ -161,4 +164,54 @@ TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
   EXPECT_GT(carried, 0) << "no carried throw-in was released within two minutes";
   EXPECT_EQ(mismatched, 0) << mismatched << " of " << carried << " carried releases were not at the key's horizontal offset (worst "
                            << worst_m << " m)";
+}
+// PES raises the in-play flag at the release event, not at the take start: MI+0x116c goes 3 -> 1 there (throwin
+// FUN_140792e10 -> FUN_140445750, docs/re/pes-re-throwin-choreography.md 4.2; the kicks end in the same writer,
+// FUN_14047feb0 -> FUN_140445750 under the kick dispatcher FUN_140446390, docs/re/pes-re-A5Judge.md 3.6 TAKE -> PLAY).
+// Every restart runs the same referee take -> touch path, so the first restart of the match - the opening kick-off,
+// released at frame 0 - is a deterministic probe of the rule: while the take runs (the ball held / at the spot) play
+// is not in progress; it becomes in progress at the touch that ends the set piece. The test stops at the first release.
+TEST(PesThrowInRelease, ARestartIsInPlayAtTheReleaseNotAtTheTakeStart) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  int takeTicks = 0, inPlayTakeTicks = 0, releases = 0, inPlayReleases = 0;
+  bool taking = false, sawTake = false;
+  std::atomic<bool> stop;
+  stop = false;
+  int sawStarted = 0;
+  RunMatch(
+      [&](Match& match) {
+        const RefereeBuffer& b = match.GetRefereeBuffer();
+        if (b.started && sawStarted < 4) {
+          sawStarted++;
+          fprintf(stderr, "T%d started inPlay=%d inSetPiece=%d desired=%d frame=%lu\n", sawStarted,
+                  (int)match.IsInPlay(), (int)match.IsInSetPiece(), (int)b.desiredSetPiece,
+                  match.GetSimFrame());
+        }
+        if (!taking && match.IsInSetPiece() && b.started) {
+          taking = true;
+          sawTake = true;
+          fprintf(stderr, "TAKE_START inPlay=%d desired=%d frame=%lu\n", (int)match.IsInPlay(),
+                  (int)b.desiredSetPiece, match.GetSimFrame());
+        }
+        if (taking && !match.IsInSetPiece()) {  // the touch ended the set piece
+          taking = false;
+          releases++;
+          if (match.IsInPlay()) inPlayReleases++;
+          stop = true;
+          return;
+        }
+        if (taking) {
+          takeTicks++;
+          if (match.IsInPlay()) inPlayTakeTicks++;
+        }
+      },
+      &stop);
+  fprintf(stderr, "END sawTake=%d takeTicks=%d inPlayTake=%d releases=%d\n", (int)sawTake, takeTicks,
+          inPlayTakeTicks, releases);
+  EXPECT_TRUE(sawTake) << "no set-piece take observed within two minutes";
+  EXPECT_EQ(inPlayTakeTicks, 0)
+      << inPlayTakeTicks << " of " << takeTicks << " take ticks were already in play; PES rises at the release "
+      "(116c 3->1), not the take start";
+  EXPECT_EQ(releases, 1);
+  EXPECT_EQ(inPlayReleases, 1) << "play did not resume at the release";
 }

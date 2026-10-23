@@ -692,7 +692,6 @@ void Referee::Process() {
         }
         clearingLogged = false;
         clearingAnnounced = false;
-        match->StartPlay();
         match->StartSetPiece();
       }
     }
@@ -706,6 +705,10 @@ void Referee::Process() {
       buffer.active = false;
       buffer.chiefSpot.reset();
       match->StopSetPiece();
+      // PES raises the in-play flag at the release event, not the take start: MI+0x116c goes 3 -> 1 at the
+      // taker's release (FUN_140445750; docs/re/pes-re-throwin-choreography.md 4.2, docs/re/pes-re-A5Judge.md
+      // 3.6 TAKE -> PLAY). The take keeps inPlay false so the ball is held; play resumes at the touch.
+      match->StartPlay();
       match->GetTeam(0)->GetController()->PrepareSetPiece(e_SetPiece_None);
       match->GetTeam(1)->GetController()->PrepareSetPiece(e_SetPiece_None);
       if (!match->PesLoop()) afterSetPieceRelaxTime_ms = 400;
