@@ -238,14 +238,21 @@ public:
   // PES 2021's stamina model (docs/re/pes-re-stamina-drain.md): its constants,
   // read from the install's exe, required like the clock's and the ball's.
   const pes::StaminaConstants& GetPesStaminaConstants() const { return *pesStaminaConstants; }
-  // PES 2021's injury tier (0 C, 1 B, 2 A) and stronger foot for a player: his Player.bin record in the install's
-  // database, by his database id (docs/re/pes-re-matchlogic.md 1.2). A player with no record takes the named fallback.
+  // PES 2021's injury tier (0 C, 1 B, 2 A), stronger foot, Form and condition byte for a player: his Player.bin
+  // record in the install's database, by his database id (docs/re/pes-re-matchlogic.md 1.2). A player with no record
+  // takes the named fallback.
   int InjuryResistanceOf(const PlayerData* data) const;
   bool LeftFootedOf(const PlayerData* data) const;
-  // The named stand-ins for a player with no PES record of his own: the middle injury tier and the right foot.
+  int FormOf(const PlayerData* data) const;
+  uint8_t ConditionByteOf(const PlayerData* data) const;
+  // The named stand-ins for a player with no PES record of his own: the middle injury tier, the right foot, raw
+  // Form 3 and the 0x46 condition default. The synthetic squads deal Normal from the default, as PES's unedited
+  // records do (condition-import 1).
   // ponytail: they stand in for the install's per-player values (docs/ports/pes-port-DodgeGate.md).
   static constexpr int kFallbackInjuryResistance = 1;  // B
   static constexpr bool kFallbackLeftFooted = false;   // right foot
+  static constexpr int kFallbackForm = 3;              // raw (UI 4)
+  static constexpr uint8_t kFallbackCondition = 0x46;  // the unedited-record default
   // The tick-order switch (config pes_loop), read once when the match is built.
   bool PesLoop() const { return pesLoop; }
   // PES 2021's restart timings (docs/re/pes-re-foul-choreography.md 9).

@@ -30,21 +30,6 @@ bool StartsWith(const char* stat, const char* prefix) {
   return std::strncmp(stat, prefix, std::strlen(prefix)) == 0;
 }
 
-// The Form attribute shapes the draw: the cumulative bands below are the five
-// arrows' shares. A steady player (form 1.0) is Normal three matches in four
-// and never Terrible; a volatile one (form 0.0) is Normal one in three and
-// lands at either end one match in five.
-void ArrowBands(float form01, float out[(int)Arrow::Count]) {
-  const float f = std::clamp(form01, 0.0f, 1.0f);
-  const float ends = 0.20f - 0.20f * f;        // Terrible and Top each
-  const float nearEnds = 0.15f - 0.05f * f;    // Poor and Great each
-  const float normal = 1.0f - 2.0f * (ends + nearEnds);
-  out[0] = ends;
-  out[1] = ends + nearEnds;
-  out[2] = ends + nearEnds + normal;
-  out[3] = ends + nearEnds + normal + nearEnds;
-  out[4] = 1.0f;
-}
 
 }  // namespace
 
@@ -72,49 +57,50 @@ const char* ArrowColour(Arrow arrow) {
   return "green";
 }
 
-const char* PolicyName(Policy policy) {
-  switch (policy) {
-    case Policy::RandomPerPlayer: return "random";
-    case Policy::AllTerrible: return "purple";
-    case Policy::AllPoor: return "blue";
-    case Policy::AllNormal: return "green";
-    case Policy::AllGreat: return "orange";
-    case Policy::AllTop: return "red";
-    case Policy::Count: break;
+int Band(unsigned int conditionByte) {
+  // FUN_140AF2DA0: CMP EAX,0x41/JC then <0x46/4B/50/55/5A/5F. Edges read from
+  // the install with opcode checks at load; the ladder shape is the code port.
+  if (conditionByte <= 0x40) return 0;
+  if (conditionByte < 0x46) return 1;
+  if (conditionByte < 0x4B) return 2;
+  if (conditionByte < 0x50) return 3;
+  if (conditionByte < 0x55) return 4;
+  if (conditionByte < 0x5A) return 5;
+  if (conditionByte < 0x5F) return 6;
+  return 7;
+}
+
+Arrow ArrowForBand(int band) {
+  // FUN_141FC1380's inverse map {4,3,2,1,0,2,2,2} in PES space, 4 - PES in GF's.
+  switch (band) {
+    case 0: return Arrow::Terrible;
+    case 1: return Arrow::Poor;
+    case 3: return Arrow::Great;
+    case 4: return Arrow::Top;
+    default: return Arrow::Normal;  // bands 2, 5, 6, 7
   }
-  return "random";
 }
 
-Policy ParsePolicy(const std::string& text) {
-  for (int i = 0; i < (int)Policy::Count; i++)
-    if (text == PolicyName((Policy)i)) return (Policy)i;
-  // The arrow names are accepted too, so a config can say "top" or "red".
-  for (int i = 0; i < (int)Arrow::Count; i++)
-    if (text == ArrowName((Arrow)i)) return (Policy)(i + 1);
-  return Policy::RandomPerPlayer;
+Arrow ArrowForConditionByte(unsigned int conditionByte) { return ArrowForBand(Band(conditionByte)); }
+
+Arrow ApplyTeamShift(Arrow arrow, bool ownTeam, bool teamModeThree, bool levelClassSix) {
+  // FUN_14092AF10 (0x14092B4CE-0x14092B5DB), translated to GF space where Top=4
+  // and PES index = 4 - GF arrow. Own team with T+0xA298 state 3 -> PES index
+  // 0 = Top; the opponent one step worse (PES min(arrow+1,4)), both gated by
+  // the /100 == 6 level-class predicate (docs/re/pes-re-team-status.md).
+  int pes = 4 - (int)arrow;
+  if (ownTeam) {
+    if (teamModeThree) pes = 0;
+  } else if (levelClassSix && pes < 4) {
+    pes += 1;
+  }
+  return (Arrow)(4 - pes);
 }
 
-std::string SerializePolicy(Policy policy) { return PolicyName(policy); }
-
-Arrow Draw(Policy policy, float form01, float roll) {
-  if (policy != Policy::RandomPerPlayer) return (Arrow)((int)policy - 1);
-  float bands[(int)Arrow::Count];
-  ArrowBands(form01, bands);
-  const float r = std::clamp(roll, 0.0f, 0.999999f);
-  for (int i = 0; i < (int)Arrow::Count; i++)
-    if (r < bands[i]) return (Arrow)i;
-  return Arrow::Normal;
-}
-
-Arrow ArrowForPlayer(Policy policy, float form01, unsigned int seed, int teamID,
-                     int playerIndex) {
-  // splitmix32 on (seed, team, index): no state, uniform enough for a dice
-  // roll, identical wherever it is computed.
-  unsigned int x = seed ^ (0x9E3779B9u * (unsigned int)(teamID * 64 + playerIndex + 1));
-  x ^= x >> 16; x *= 0x7FEB352Du;
-  x ^= x >> 15; x *= 0x846CA68Bu;
-  x ^= x >> 16;
-  return Draw(policy, form01, (x >> 8) / 16777216.0f);
+bool ArrowWritesStats(Arrow arrow) {
+  // 0x14092B59B CMP EBX,5 / 0x14092B5A0 CMP EBX,2: green and out-of-range skip.
+  const int pes = 4 - (int)arrow;
+  return pes != 2 && pes < 5;
 }
 
 ArrowTier ArrowTierOf(const char* stat) {

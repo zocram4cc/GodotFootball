@@ -1100,6 +1100,16 @@ bool Match::LeftFootedOf(const PlayerData* data) const {
   return traits ? traits->leftFooted : kFallbackLeftFooted;
 }
 
+int Match::FormOf(const PlayerData* data) const {
+  const auto traits = TraitsOf(pesPlayerDatabase, data);
+  return traits ? traits->form : kFallbackForm;
+}
+
+uint8_t Match::ConditionByteOf(const PlayerData* data) const {
+  const auto traits = TraitsOf(pesPlayerDatabase, data);
+  return traits ? traits->condition : kFallbackCondition;
+}
+
 // PES 2021's injury roll for one contact
 // (docs/re/pes-re-stamina-drain.md 6): the victim's severity accumulates from
 // both players' speeds, the attacker's action state and the approach angle,

@@ -20,6 +20,8 @@ constexpr size_t kIdAt = 8;             // the record's u32 id
 constexpr size_t kInjuryBit = 458;      // Injury Resistance, accessor 0x2E (matchlogic 1.2)
 constexpr size_t kInjuryBits = 2;
 constexpr size_t kFootBit = 514;        // Stronger Foot, accessor 0x0F (matchlogic 1.2)
+constexpr size_t kFormBit = 438;        // Form, accessor 0x2D (matchlogic 1.2)
+constexpr size_t kFormBits = 3;
 
 // Synthetic player ids: the tests need records, not a PES roster.
 constexpr int kFirstId = 9001;
@@ -64,8 +66,10 @@ TEST(PlayerDatabaseParse, ReadsTheInjuryTierAndStrongerFootOfEachRecord) {
   Blob a = MakeRecord(kFirstId);
   SetBits(a, kInjuryBit, kInjuryBits, 2);  // A
   SetBits(a, kFootBit, 1, 1);              // left
+  SetBits(a, kFormBit, kFormBits, 5);      // raw Form 5 (UI 6)
   Blob b = MakeRecord(kSecondId);
   SetBits(b, kInjuryBit, kInjuryBits, 0);  // C
+  SetBits(b, kFormBit, kFormBits, 1);      // raw Form 1 (UI 2)
   const Blob file = Concat({a, b});
 
   std::string err;
@@ -76,11 +80,41 @@ TEST(PlayerDatabaseParse, ReadsTheInjuryTierAndStrongerFootOfEachRecord) {
   ASSERT_TRUE(first.has_value());
   EXPECT_EQ(first->injuryResistance, 2);
   EXPECT_TRUE(first->leftFooted);
+  EXPECT_EQ(first->form, 5);
   auto second = db->Find(kSecondId);
   ASSERT_TRUE(second.has_value());
   EXPECT_EQ(second->injuryResistance, 0);
   EXPECT_FALSE(second->leftFooted);
+  EXPECT_EQ(second->form, 1);
   EXPECT_FALSE(db->Find(5).has_value());
+}
+
+TEST(PlayerDatabaseParse, FormIsTheThreeBitFieldAtBit438AndNothingBeside) {
+  // Raw 6 at bits 438..440, with the neighbours 437 and 441 set: a reader that is off by one bit
+  // sees a different Form.
+  Blob rec = MakeRecord(13);
+  SetBits(rec, kFormBit, kFormBits, 6);
+  SetBits(rec, kFormBit - 1, 1, 1);
+  SetBits(rec, kFormBit + kFormBits, 1, 1);
+  std::string err;
+  auto db = pes::PlayerDatabase::Parse(rec, &err);
+  ASSERT_TRUE(db.has_value()) << err;
+  auto traits = db->Find(13);
+  ASSERT_TRUE(traits.has_value());
+  EXPECT_EQ(traits->form, 6);
+}
+
+TEST(PlayerDatabaseParse, ConditionTakesTheDefaultPathUntilTheMixerLands) {
+  // ponytail: the WROW weights at 0x142B47B10 are not read yet, so every record takes FUN_1414E2120's
+  // 0x46 default path. This test pins the interim behaviour and goes with the mixer port.
+  Blob rec = MakeRecord(17);
+  SetBits(rec, kFormBit, kFormBits, 7);  // Form at its max must not move the condition byte
+  std::string err;
+  auto db = pes::PlayerDatabase::Parse(rec, &err);
+  ASSERT_TRUE(db.has_value()) << err;
+  auto traits = db->Find(17);
+  ASSERT_TRUE(traits.has_value());
+  EXPECT_EQ(traits->condition, 0x46);
 }
 
 TEST(PlayerDatabaseParse, InjuryTierIsTheTwoBitFieldAtBit458AndNothingBeside) {
