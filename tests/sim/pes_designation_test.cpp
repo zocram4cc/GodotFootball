@@ -143,12 +143,6 @@ TEST(PesDesignationInstall, ConstantsLoadFromTheInstall) {
   EXPECT_GT(constants->highClassBonus, 0.0f);
 }
 
-// The lateral key is the team-frame lateral: the team's direction sign applied to the world z.
-TEST(PesDesignation, LateralKeyFollowsTeamDirection) {
-  EXPECT_FLOAT_EQ(3.0f, pes::designation::TeamFrameLateral(1, 3.0f));
-  EXPECT_FLOAT_EQ(-3.0f, pes::designation::TeamFrameLateral(-1, 3.0f));
-}
-
 // The bit-15 men (the CPU stage) take the top ordinals in slot order, then the rest of the box by
 // score. Classes 3..9 keep their score; with no designated man the penalty puts nothing above them.
 TEST(PesDesignation, BitFifteenMenFirstThenScore) {

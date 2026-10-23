@@ -17,15 +17,16 @@ bool IsSubstitutionWindow(bool isInPlay, bool hasKickedOff, bool isInEntrance) {
 }
 
 int GetRemaining(const State& state, int teamID) {
-  return std::max(0, maxSubstitutions - state.used[ValidTeam(teamID)]);
+  return std::max(0, state.limit - state.used[ValidTeam(teamID)]);
 }
 
-e_Result Validate(const State& state, int teamID, const SquadView& squad, bool isStoppage) {
+e_Result Validate(const State& state, int teamID, const SquadView& squad, bool isStoppage,
+                  int queued) {
   // Play has to be stopped first; that condition resolves itself, so report it
   // before complaining about the squad.
   if (!isStoppage)
     return e_Result_NotAStoppage;
-  if (GetRemaining(state, teamID) <= 0)
+  if (GetRemaining(state, teamID) - queued <= 0)
     return e_Result_NoSubstitutionsLeft;
   if (!squad.playerOutIsOnPitch)
     return e_Result_PlayerNotOnPitch;
@@ -39,7 +40,7 @@ e_Result Validate(const State& state, int teamID, const SquadView& squad, bool i
 
 void Commit(State& state, int teamID) {
   const int team = ValidTeam(teamID);
-  state.used[team] = std::min(state.used[team] + 1, maxSubstitutions);
+  state.used[team] = std::min(state.used[team] + 1, state.limit);
 }
 
 }  // namespace Substitutions
