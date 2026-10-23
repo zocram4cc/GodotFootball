@@ -210,6 +210,38 @@ void CopyLaneAWords(const std::array<int, kSlots>& b, std::array<int, kSlots>& a
   a = b;
 }
 
+bool StoppageResetsCopyFlag(int playState116c, int word11d4, int word11b0) {
+  // CE4F0 l.41-50 (lane-writers §2 step 3): MI+0x11D4 == 0 and (MI+0x116C == 2, or MI+0x116C == 3
+  // with the frame gate, or MI+0x11B0 < 0x15) clears the flag. GF carries no frame counter for
+  // the == 3 arm and no MI+0x11B0 word, so only the == 2 and < 0x15 arms port; the == 3 arm is a
+  // ponytail leaf at VA 0x1405CE4F0.
+  if (word11d4 != 0) return false;
+  if (playState116c == 2) return true;
+  return word11b0 < 0x15;
+}
+
+bool CopyPathRuns(bool copyFlagSet) {
+  // CE4F0's gate (lane-writers §2 step 2): flag LX+0x1B0 == 0 runs the copy path (A := B).
+  // GF stores the flag set (copy runs while set) and clears it on the stoppage step above.
+  return copyFlagSet;
+}
+
+std::array<uint8_t, kSlots> LaneBRank(const std::array<int, kSlots>& b,
+                                      const std::array<uint8_t, kSlots>& order) {
+  // CE150's B-rank (lane-writers §3, decompile l.150-182): per slot in the sorted order, the
+  // count of earlier slots with the same B-word; inactive slots keep rank 0.
+  std::array<uint8_t, kSlots> rank{};
+  std::array<int, 4> seen{};
+  for (int i = 0; i < kSlots; ++i) {
+    const int slot = order[i];
+    const int word = b[slot];
+    if (word < 0 || word > 3) continue;
+    rank[slot] = static_cast<uint8_t>(seen[word]);
+    ++seen[word];
+  }
+  return rank;
+}
+
 void SortLaneSlots(const std::array<uint8_t, kSlots>& slots, const std::array<float, kSlots>& keys,
                    std::array<uint8_t, kSlots>& order, std::array<uint8_t, kSlots>& rank) {
   // FUN_140A79640 with param_2 = 0 (lane-leaves §1): insertion sort, ascending; equal keys keep

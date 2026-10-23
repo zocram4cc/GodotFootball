@@ -93,11 +93,22 @@ struct LaneInput {
   std::array<int, kSlots> active{};   // MI+0x1748, 0 = inactive; all active when all zero
   int designated = -1;                // P+0x3EF8, -1 when none (GF: the publisher has no slot id yet)
 };
+// FUN_1405CE4F0's stoppage step (lane-writers §2 step 3): MI+0x11D4 == 0 and (MI+0x116C == 2 or
+// MI+0x11B0 < 0x15) clears the copy flag LX+0x1B0, so the copy path runs once. GF passes its
+// WriteRoleArrays play state (PesPlayState: 1 in play, 2 stopped) for MI+0x116C.
+bool StoppageResetsCopyFlag(int playState116c, int word11d4, int word11b0);
+// CE4F0's copy gate (flag LX+0x1B0 == 0): true runs the copy path, false the recompute.
+bool CopyPathRuns(bool copyFlagSet);
 
 // FUN_1405CE150, GF-carried arms only: keeper -> 3, designated -> 2, else the reclassify of the
 // slot's class. Inactive slots take their class line (the recompute path overwrites them with 3;
 // CE4F0 copy path keeps the B words for all 11, including inactive).
 std::array<int, kSlots> LaneBWords(const LaneInput& in);
+
+// FUN_1405CE150's B-rank (lane-writers §3): per slot, the count of earlier same-B-word slots in the
+// sorted order. `order` is the sorted slot list (SortLaneSlots).
+std::array<uint8_t, kSlots> LaneBRank(const std::array<int, kSlots>& b,
+                                      const std::array<uint8_t, kSlots>& order);
 
 // The wrapper map (0x140682090-0x1406820B4): A 0 -> lane 1, 1 -> 4, 2 -> 7, else 0 (skipped).
 int LaneOfWord(int a);

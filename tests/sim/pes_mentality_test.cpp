@@ -135,6 +135,42 @@ TEST(MentalityLaneB, WrapperMapsTheWordToTheLane) {
   EXPECT_EQ(0, mentality::LaneOfWord(3));
 }
 
+// Step 2: the CE4F0 stoppage step (MI+0x11D4 == 0 and (MI+0x116C == 2 or MI+0x11B0 < 0x15),
+// lane-writers §2 step 3). GF uses WriteRoleArrays' PesPlayState mapping (agreed with SheetTriple).
+TEST(MentalityLaneC, StoppageStepResetsCopyFlag) {
+  // MI+0x116C == 2 clears even with MI+0x11B0 at the bound (the arms are ORed, lane-writers §2).
+  EXPECT_TRUE(mentality::StoppageResetsCopyFlag(2, 0, 0x15));
+  // MI+0x11B0 < 0x15 clears even in play.
+  EXPECT_TRUE(mentality::StoppageResetsCopyFlag(1, 0, 0x14));
+  // MI+0x11D4 != 0 blocks; both arms above the bound keep the flag.
+  EXPECT_FALSE(mentality::StoppageResetsCopyFlag(2, 1, 0x14));
+  EXPECT_FALSE(mentality::StoppageResetsCopyFlag(1, 0, 0x15));
+}
+
+// Step 2: the CE4F0 copy gate. A set ban flag copies; a cleared flag recomputes.
+TEST(MentalityLaneC, CopyFlagSelectsCopyOrRecompute) {
+  EXPECT_TRUE(mentality::CopyPathRuns(true));
+  EXPECT_FALSE(mentality::CopyPathRuns(false));
+}
+
+// Step 1: the CE150 B-rank (lane-writers §3): per same-word position in the sorted order.
+TEST(MentalityLaneB, RankCountsEarlierSameWordSlots) {
+  std::array<int, 11> b{3, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2};
+  std::array<uint8_t, 11> slots{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+  std::array<float, 11> keys{};
+  for (int k = 0; k < 11; ++k) keys[k] = static_cast<float>(k);
+  std::array<uint8_t, 11> order{};
+  std::array<uint8_t, 11> rank{};
+  mentality::SortLaneSlots(slots, keys, order, rank);
+  const auto bRank = mentality::LaneBRank(b, order);
+  EXPECT_EQ(0u, bRank[0]);
+  EXPECT_EQ(0u, bRank[1]);
+  EXPECT_EQ(1u, bRank[2]);
+  EXPECT_EQ(5u, bRank[6]);
+  EXPECT_EQ(0u, bRank[7]);
+  EXPECT_EQ(3u, bRank[10]);
+}
+
 // The sort FUN_140A79640 (lane-leaves §1): ascending, stable; rank = index in the sorted order.
 TEST(MentalityLaneSort, AscendingStableWithRank) {
   std::array<uint8_t, 11> slots{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
