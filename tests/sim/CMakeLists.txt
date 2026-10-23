@@ -246,6 +246,10 @@ gtest_discover_tests(pes_reaction_block_test)
 add_executable(pes_attrs_test pes_attrs_test.cpp)
 target_link_libraries(pes_attrs_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_attrs_test)
+add_executable(pes_mark_table_test pes_mark_table_test.cpp)
+target_link_libraries(pes_mark_table_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_mark_table_test)
+
 
 add_executable(pes_run_slots_test pes_run_slots_test.cpp)
 target_link_libraries(pes_run_slots_test PRIVATE gfsim pesfmt GTest::gtest_main)
