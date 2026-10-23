@@ -194,11 +194,12 @@ inline constexpr float kSeamlessReach_m = 20.0f;
 // (4 x 54 = 216 frames).
 inline constexpr float kSeamlessArrivalSeconds = 4.0f;
 
-// The walk closes on its target at this many times the gap (1/s), so a sprinting taker stops rather than overshooting into
-// the ball. Shared by the throw-in carrier's walk and the in-play approach run (elizacontroller.cpp).
-// ponytail: the approach speed is GF's stand-in. PES's desired speed (the MOVE command's writer, cmd+0x172) is not decoded.
-// PES's stop is MOVESTEP's StayDecision (FUN_1406b6bb0, arrival radius 0.2 m), which MOVESTEP applies; the throw-in carry's
-// lift (docs/re/pes-re-throwin-choreography.md 3.2, phase 4) takes the carrier onto the spot.
+// The carry and the free-kick/corner/penalty run close on their target at this many times the gap (1/s), so a sprinting taker
+// stops rather than overshooting into the ball (elizacontroller.cpp).
+// ponytail: GF's stand-in for two motions PES does not drive by speed: the throw-in carry is a root warp
+// (docs/re/pes-re-throwin-choreography.md 3.2, phases 3-4), and a placed kicker's run-up is the run-up clip (SetKick, not yet
+// ported for the free kick and the penalty). The walk to the ball is PES's walk-down speed instead
+// (SetPieceTakerConstants::walkDown_ms, docs/re/pes-re-walk-speed.md).
 inline constexpr float kPieceTakerApproachGain = 2.0f;
 
 // FUN_14044e230 (docs/re/pes-re-throwin-choreography.md 2.2, EV-TI-0006): the seamless throw-in
