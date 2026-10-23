@@ -189,7 +189,10 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
       lastRelease = b.stopTime;
       // The timed taker is released on the first frame at or past the PES gate, give or take the tick the referee
       // checks it on. A goal kick has no clock: AGoalKickIsReleasedOnThePesLadder checks its ladder frame.
-      const int gate = pes::ReleaseFrames(b.desiredSetPiece);
+      // A goal's kick-off is held to its PES gate; the other kick-offs (the first, the half-time and dead-ball ones) are released at
+      // once (referee.cpp ReleasesRestart), so their gate is zero.
+      const bool held = b.desiredSetPiece != e_SetPiece_KickOff || b.goalRestart;
+      const int gate = held ? pes::ReleaseFrames(b.desiredSetPiece) : 0;
       const int frames =
           static_cast<int>((match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
       if (gate > 0) {
