@@ -265,6 +265,7 @@ address given.
 |`pes-re-holder.md`|PES's ball holder MA+0x2601C: two writers (`FUN_140457070` per-tick recompute from the ring's newest key actor, `FUN_140A71C30` init to 0xFF), no clear on a loose ball; 19 readers; the step-43 sweep's gate takes no holder input|
 |`pes-re-holder-leaves.md`|The holder's leaves: TA+0x11 is set by W1 itself under the MI+0x11B0 phase switch; the listener chain to W1; P+0x19BA (= P+0x2472) written in `FUN_1407F4760` as the sign of a wrapped angle; T+0x78's writer OPEN|
 |`pes-re-condition-writer.md`|Condition arrows' writer chain: the edit record's band byte (+0x147 & 7) → `FUN_141FC1380`'s inverse map → provider+0x58 → record+0x64; deterministic at match prep (no RNG); the apply-time team shift confirmed; `FUN_14089BAE0` killed as the roll; band edges decompile-only|
+|`pes-re-condition-bands.md`|Condition arrows' band edges byte-verified (`FUN_140AF2DA0`: 0x41/46/4B/50/55/5A/5F), the RNG and seed path, Player.bin's Form (bit 438), +0xA298's writer; the band byte +0x147's writer OPEN (narrowed)|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|

@@ -1,5 +1,7 @@
 # PES condition arrows: the writer chain (ConditionRE, 23-10-26)
 
+> **Superseded in part by `pes-re-condition-bands.md`:** the band edges are byte-verified there (the first edge is `cmp 0x41`, so ≤ 0x40 → 0), and no in-memory threshold table exists.
+
 > **Main audit 23-10-26 (bytes):** `0x14092B4EF cmp eax, 3`, `0x14092B580 inc ebx` (the opponent's one-step-worse shift), `0x140922D00 mov [rdi+0x64], eax` (the record store): match. The agent's own checker was specified but not written (budget); the band edges in §4 are decompile-only and must be script-read before a port.
 
 
