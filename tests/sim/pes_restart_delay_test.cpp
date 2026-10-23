@@ -1111,11 +1111,11 @@ TEST(PesRestartDelay, AThrowInCarrierStandsAtThePickupClipsContactOffset) {
         << *contactOffset << " m";
 }
 
-// A goal's restart is armed once the celebration the pool drew for it has run and the post-scene programme
-// (pes::RunGoalProgramme) has played out. The celebration the match reports is the one the referee scheduled from.
+// A goal's restart is armed once the whole sequence the pool drew for it has run (the scorer's celebration and the hug
+// after it) and the post-scene programme (pes::RunGoalProgramme) has played out.
 TEST(PesRestartDelay, AGoalIsArmedAfterTheCelebrationItDrew) {
   std::optional<unsigned long> stopAt, armedAt;
-  unsigned long celebration_ms = 0, afterScene_ms = 0;
+  unsigned long celebration_ms = 0, sequence_ms = 0, afterScene_ms = 0;
   RunMatchWithinTheBound(
       true, TWENTY_MINUTES,
       [&](Match& match) {
@@ -1124,10 +1124,12 @@ TEST(PesRestartDelay, AGoalIsArmedAfterTheCelebrationItDrew) {
         stopAt = b.stopTime;
         armedAt = b.startTime;
         celebration_ms = match.GetGoalCelebrationLength_ms();
+        sequence_ms = match.GetGoalSequenceLength_ms();
         afterScene_ms = pes::RunGoalProgramme(0, match.GetPesStoppageConstants()).armedAt_ms;
       },
       kMaxSimTicks, [&](Match&) { return armedAt.has_value(); }, SEED, false);
   ASSERT_TRUE(armedAt) << "seed 7's match scored no goal";
   EXPECT_GT(celebration_ms, 0ul);
-  EXPECT_EQ(*armedAt - *stopAt, celebration_ms + afterScene_ms);
+  EXPECT_LE(celebration_ms, sequence_ms) << "the scorer's celebration is the first scene of the sequence";
+  EXPECT_EQ(*armedAt - *stopAt, sequence_ms + afterScene_ms);
 }
