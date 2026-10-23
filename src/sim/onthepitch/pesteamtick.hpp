@@ -19,6 +19,14 @@ struct TeamTick {
   bool b8a3 = false;
   uint32_t t80 = 0;
   int b8c0Frame = 0;
+  // Step 15's counters T+0xB8A8 and T+0xB8AC, and the done flag brain+0x6D44 (step 17's, FUN_1404FBCA0). The brain
+  // keeps that byte, not T; GF keeps the controller's per-side words in this struct, so it lives here.
+  int b8a8 = 0;
+  int b8ac = 0;
+  bool counterDone = false;
+  // T+0xE4, the offside-trap arm of step 5 (FUN_1404F6720). FUN_140501260 clears it at the top of each team tick
+  // (0x1405012D0); step 5 sets it. Only the chain's gates can set it (pesoffball.cpp).
+  bool trapArmed = false;
 };
 
 // The strategy word T+0x134 -> wanted level map: 0/1/3/4 one-to-one,
@@ -43,5 +51,9 @@ void WriteAttackFlags(TeamTick* tick);
 // Step 28: T+0x80 = 0xFF when the ball is not in play (MI+0x116C != 1) or
 // the latch flipped this tick (FUN_1404FE9C0 returns old^new 0x255).
 void WriteRestartWord(TeamTick* tick, bool inPlay, bool possessionFlipped);
+
+// Step 15's in-play arm: B8A8 = 8, B8AC = 4, brain+0x6D44 = 0 (0x1404FA869-0x1404FA887). The stopped ladder
+// (0x1404FA897 on) is not ported.
+void ArmInPlayCounters(TeamTick* tick);
 
 }  // namespace pes
