@@ -1,4 +1,5 @@
 # PES attack level (mentality) → GF port plan (v3)
+> **Main note 22-10-26 (MentalityRE, audited):** this plan's block polarity is backwards. F = (T+0x255 != 0), per tick and per team: F == 0 runs block A (`0x140681FF0` → `682770`), F != 0 runs block B (`0x14067B640`). See `docs/re/pes-re-mentality-blocks.md` §7 for the port order (reclassify → +0x3FB8 input → F dispatch → block B pick → block A switch).
 
 > **Main note 22-10-26:** live captures (owner's RE agent; `docs/re/pes-re-mentality-reclass-live.md`) show the dial's main output is line reclassification (class records at +0x7B88 rewritten: forwards fold into midfield at −1/−2, a fullback is promoted at +2), two blocks run one per team (A `682770`, B `67B640`, B shields the CF), and rank is not sheet order. Re-plan F1-F4 on that before porting further; reconcile with this plan's flag-F block choice first.
 
