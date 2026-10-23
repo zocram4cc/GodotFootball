@@ -1343,10 +1343,9 @@ void TeamAIController::PinBallAtRelease() {
   const Vector3 facing = taker->GetRootDirectionVec();  // PES's hand sits on the root yaw, not on the travel direction
   const float heading = pes::FacingHeadingDeg(pes::Vec3(facing.coords[0], facing.coords[1], facing.coords[2]));
   pes::Vec3 hand = pes::HandBallFromRoot(pes::Vec3(pos.coords[0], pos.coords[1], 0.0f), heading, offset);
-  // PES pushes the taker before the release, so the hand further outside stays kReleaseMargin_m inside the touchline: the ball is
-  // released from behind the line (throwin 4.2, phase 1). The push moves the root, and the ball follows the hand.
-  // ponytail: the 0.1 m inset is the doc's F[1] + 0.1 m (DAT_142588200); the install read is not in the loader yet.
-  constexpr float kReleaseMargin_m = 0.1f;
+  // PES pushes the taker before the release, so the hand further outside stays inside the touchline by the install's inset
+  // (throwin 4.2, phase 1): the ball is released from behind the line. The push moves the root, and the ball follows the hand.
+  const float kReleaseMargin_m = match->GetPesSetPieceTakerConstants().throwInPushInset_m;
   const float side = pos.coords[1] < 0.0f ? -1.0f : 1.0f;
   const float excess = side * hand.y - (pesFieldHalfWidth - kReleaseMargin_m);
   if (excess > 0.0f) {
