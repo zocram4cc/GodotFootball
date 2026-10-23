@@ -1562,9 +1562,11 @@ float CarrierHeading(const PlayerFacts& p) {
 
 }  // namespace
 // FUN_1404F6720 (step 5, 0x1404F6720-0x1404F6BC2): whether team `t`'s offside-trap flag T+0xE4 is set this tick. The
-// gates run in PES's order and each cites its VA. They cannot all pass: 0x1404F68E4 (10 m) and 0x1404F6A5B (4 m) differ
-// by (D.x - c.x) * s, so both need |D.x - c.x| > 6 m, while 0x1404F6A45 needs d2(c, D) < 20, which caps |D.x - c.x|
-// below 4.5 m. So the flag stays clear on every input, and the gates after the pair are kept for the port's fidelity.
+// gates run in PES's order and each cites its VA. Three of them cannot pass together: 0x1404F68E4 (10 m behind the
+// trapping line) and 0x1404F6A5B (4 m past it) read the same team line f40(T) and sign: together they need
+// |D.x - c.x| > 6 m, while 0x1404F6A45 (d2(c, D) < 20) caps it below 4.5 m. Live PES agrees: T+0xe4 = 0 in all
+// 1986 in-play records (docs/re/pes-re-defensive-shape.md:554). The chain stays whole, as PES wrote it: it is right
+// if f40's inputs ever change.
 bool OffsideTrapArmed(const RunWorld& w, int t) {
   // 0x1404F6785-0x1404F6793: the sheet check FUN_1408C5000 (byte [T+0x8E08+0x1464] = T+0xA26C) and the concept gate
   // FUN_140CA1A50(0x12), which is constant 1 (MOV AL,1). ponytail: GF keeps no sheet-valid byte; the designation
