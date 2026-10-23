@@ -37,40 +37,46 @@ Bytes are read from `pes_full.bin` (file offset = VA - 0x140000000) and from the
 - `FUN_1405027A0` (27A0): NOT PORTED. Run 4 decoded its helpers (below) and mapped its inputs; the port stops at the unbound inputs listed under "27A0 inputs (run 4)".
 
 ### Run 4: helpers of 27A0 (EXACT, unwired: `src/sim/onthepitch/pesattrs.{hpp,cpp}`, tests `pes_attrs_test`)
-- `FUN_140A603C0` rating curve: row k (0..33) of the install table at 0x142645A40 (32 bytes: a flag dword, then seven floats T[0..6]); q = value/100 clamped to 0..6, r = value%100 (C division); q < 1 returns T[0]; with the row's flag byte set, r != 0 and q != 6, the result is ((T[q+1]-T[q])*f*100)/100 + T[q] with f = r/100; otherwise T[q]. Scale DAT_14253EE30 = 100 (checked by the loader). 27A0 calls it once, with row 0x20 on the keeper branch (`LEA EDX,[RAX+0x20]`, 0x140502e60, EAX = 0). PES's `q > 6` alias (DAT_142645A5C) is unreachable after the clamp.
+- `FUN_140A603C0` rating curve: row k (0..33) of the install table at 0x142645A40 (32 bytes: a flag dword, then seven floats T[0..6]); q = value/100 clamped to 0..6, r = value%100 (C division); q < 1 returns T[0]; with the row's flag byte set, r != 0 and q != 6, the result is ((T[q+1]-T[q])*f*100)/100 + T[q] with f = r/100; otherwise T[q]. Scale DAT_14253EE30 = 100 (checked by the loader). 27A0 calls it once, with row 0x20, only when T+0x4C00[k] == 0 (the keeper class: `JNZ` at 0x140502e5b skips the call otherwise; `LEA EDX,[RAX+0x20]` at 0x140502e5d; `CALL` at 0x140502e60). PES's `q > 6` alias (DAT_142645A5C) is unreachable after the clamp.
 - `FUN_140A62610(side, team)`: the first starter k in 0..10 with MI+0x1748[side*11+k] != 0 and team+0x4C00[k] == 0 (the keeper class); returns k or 0xff. `FUN_140A62690(MA, side)` = side*11 + k. GF carriers: the on-pitch flag (MI+0x1748, CPU path) and `pes::roles::SideRoles::b` (T+0x4C00, `pesroles.hpp`), both 1:1.
 - `FUN_140A60500()` = 0xff00000002 = the no-actor key {team 2, slot 0xff}: GF `kNoActorTeam`/`kNoActorSlot` (`pesevents.hpp`), 1:1.
 - `FUN_140A58450` (slot record +0xE8 hash, +0xF0 f, +0xF4 index, +0xF8 ring[4]) and `FUN_140A58350` (+0xC8, +0xD0, +0xD4, +0xD8): the normal path returns the encoded word W. Ring word w = ring[index & 3]; keystream K_i = byte i of (3f + 4i); e_i = (w_i + K_i) ^ (K_i * 63), all mod 256; W = e0 | e1<<8 | e2<<16 | e3<<24; the check is FNV-1a 64 over e0, e1, e2, e3 (basis 0xcbf29ce484222325, prime 0x100000001b3) against the stored hash. TAMPER PATH (named, not ported): on a mismatch the code calls `FUN_1415A1714(0, 0, e2, e1, (3f+12) byte)`, an indirect call through the PES pointer at 0x14252FDE0. The port returns `kTampered` and does nothing else; the caller must treat it as unreachable.
 - `FUN_140A4D660` (the kind-5 check): NOT an input of 27A0. 27A0's only call of `FUN_140A6CE10` (0x140502d02) passes p3 = 0 (`XOR R8D,R8D`), and `FUN_140A6CE10` calls `FUN_140A4D660` only when p3 != 0. (`FUN_1404F0E50` calls it directly; that path is outside 27A0.)
 
-### 27A0 inputs (run 4): bound and unbound
-Bound (a GF state carries the same quantity):
-- Event store: E0 and E1..E9 kind, frame and actor key; E+0x180700 (second key) and the newest copy (`EventStore`, `EventAt`, `NewestSecondKey`). Caveat: payload +0x45/+0x46 (DL of kinds 2/3) sit in the raw record (GF 0x59/0x5A); no GF writer sets them, so their values are 0 in GF (ponytail).
-- MI: play state +0x116C (== 1), on pitch +0x1748 (the CPU on-pitch flag), frame +0x1198 (the match frame).
-- Ball: sample 0 (B+0x88, the track) and height (B+4).
-- Holder: TM+0x2601C (`GetBallRetainer`).
-- Team: side byte T+0x254; role class T+0x4C00 (`SideRoles::b`); table T+0x6A4 (`reactionDelay`, the old value 27A0 maxes against).
-- Live player: action +0x5D0; position +0x55C; facing +0x554; velocity +0x574. Mode +0x5B0 is a stand-in (ponytail: speed floor).
-- Rating table and the keeper index: the helpers above.
-Unbound (no GF state carries the quantity 1:1 yet; the 1:1 state each would need is named):
-1. T+0x558[k] (the starter's slot id): carrier is the formation slot of starter k; the equality with the writer is not verified.
-2. T+0x620[k] (int per starter; 27A0 compares it with T+0xB8D0): meaning undecoded. A new per-starter int in TeamTick would carry it.
-3. T+0xB8D0 (int): meaning undecoded; a new TeamTick int.
-4. T+0x8E08 table (`FUN_1408C50A0`, the value at T+0x964C + 4*(11*side + k), side from the word at T+0x8E08): meaning undecoded; a per-side starter int in TeamTick.
-5. T+0xA294 and T+0xA29C (`FUN_140A40BD0`, the rating input of `FUN_140A603C0`): meaning undecoded; a team keeper-rating int (x100) with a flag.
-6. T+0xB860[k] (the mirror 27A0 writes): GF dropped it (no GF reader); a PES reader is still unknown.
-7. T+0x255 (a flag 27A0 and step 11 read): meaning undecoded.
-8. Live +0x6B8 (an int added to the table value): meaning undecoded; a new per-player int.
-9. P_slot+0x70 block: bytes +0x84/+0x85 (the rating bytes FUN_140503430's callers read), u64 +0x40 (keeper bit 0x24): undecoded; GF Player rating fields are not mapped to them.
-10. P_slot+0x1414 (the anchor vector of the closest point): undecoded.
-11. Protected word sets P_slot+0xC8..0x107 (two sets: hash, f, index, ring[4]): their writers are NOT decoded (a search of the image for the FNV prime found no match). The 1:1 state would be a per-player `GuardedWordSet` pair, filled by writers that are not yet known.
-12. Card (PA) words: +8 bit 11 (read by FUN_140503430), +0x1A/+0x1C (clip counters, below the scan floor), +0x38, +0x40, +0x60: undecoded.
-13. Team match record TM: +0x24838 (the holder clamp), +0x24710 (the squared reach table; the foundation doc calls it unwired), +0x247BE (role byte by slot), +0x23F7C (the holder pair table), +0x228D4/+0x228D8 (team angles), +0x25CF8/+0x25D38 (active instruction pairs): undecoded or unwired.
-14. Ball: B+0x80 (flag; OPEN in the docs), B+0x2948 (V2) and B+0x2960 (V1) (the vectors ComputeBlock9 takes as inputs): undecoded.
-15. Roster G+0x180 (the 24 entries and values): ComputeBlock9 takes it as input; GF has no 24-entry roster table with those fields.
-16. Field geometry G+0x2AA8 (F): GF pitch geometry probably carries it; the exact field mapping is not verified.
-
-Verdict: 27A0 has unbound inputs (items 2-15 above), so it is not ported. The next run decodes the writers and readers of T+0x620, T+0xB8D0, T+0xA294, T+0x8E08, live +0x6B8, P_slot +0x70/+0x1414/+0xC8..0x107, the card words, the TM tables and B+0x80/+0x2948/+0x2960.
+### 27A0 inputs (run 4): nameable and unbound
+Nameable (meaning decoded; GF state named; existing unless marked NEW):
+- Event store (kind, frame, actor key) and the second key E+0x180700: `EventStore`, `EventAt`, `NewestSecondKey` (existing). Caveat: payload +0x45/+0x46 (DL of kinds 2/3) are not written in GF (ponytail: 0).
+- MI+0x116C play state (== 1), MI+0x1748 on-pitch flag, MI+0x1198 match frame: existing (`pessetpieceteam.hpp`, the tick count).
+- Ball: sample 0 (B+0x88), height (B+4), velocity (B+0x2948, m/s, `pes-re-throwin-choreography.md`): existing ball track, height and velocity.
+- Ball owner TM+0x24838 (clamped `< 0x16`): `GetBallRetainer()` as a slot (existing).
+- Latch T+0x255 (`pes-re-team-tickets.md` "latch"; step 11 sign): GF `latch` / `lastTickPossession` (`teamAIcontroller.cpp:2811-2821`, existing).
+- Role class T+0x4C00[k] (0 = keeper): `pes::roles::SideRoles::b` (existing).
+- Starter slot id T+0x558[k] (valid 0..21; the MARK target, `pes-re-press-eval.md:67`): NEW per-starter field unless it equals the GF lineup index (not verified).
+- Reaction delay T+0x6A4[k]: `reactionDelay` (existing).
+- Stamina `cur` (PMS+0xC8; getter 0x140A58350, called from 27A0 at 0x140503155) and `max` (PMS+0xE8; getter 0x140A58450, called from 27A0): `pes::StaminaState::cur` and `::max` (`pesstamina.hpp:126-129`, existing ints; the decoded word is the PES value).
+- Live player: action +0x5D0, position +0x55C, facing +0x554, velocity +0x574 (existing per run 3).
+- Frames-held counter, live +0x6B8 (`pes-re-A4Carrier.md:405-407`): NEW per-player counter (no GF counterpart found).
+- Target id T+0xB8D0 (0xFF = none; writer `FUN_1404F7BA0`, team-tickets step 21): NEW TeamTick field.
+- Lane id T+0x620[k] (PCC lane, 0xFF cleared; `pes-re-defensive-shape.md:925`): NEW per-starter field.
+- Tactics sheet T+0x8E08 (`FUN_1408C50A0`, `pes-re-foundation-verify.md:54`): GF tactics stand-in (partial); field mapping not checked.
+- Press level T+0xA294 / T+0xA29C (`FUN_140A40BD0`, `pes-re-press-coord.md:58`): NEW team field; its writer is not decoded (unbound 9).
+- Roster G+0x180 (24 entries, the predicates): `Roster` (ported); NEW GF table.
+- NearestEntry TM+0x24710 (d²) and TM+0x247BE (rank) (`pes-re-image-rows.md:249`): NEW (no GF nearest table found).
+- Goal geometry TM+0x228D4 / +0x228D8 (`pes-re-image-rows.md` §3.1): NEW (GF goal positions not mapped).
+- Field geometry G+0x2AA8 (F+0x18, F+0x1C): GF pitch extents (mapping not verified).
+Unbound (meaning undecoded or OPEN in the docs; no state can be named):
+1. Rating bytes PMS+0x84/+0x85 = stat ids 0x14/0x15 (`PMS+0x70+id`): meaning OPEN (`pes-re-anim-select-2.md:375`).
+2. Block 9 keeper bit at P+0x40 (0x24): undecoded.
+3. Anchor P+0x1414 (+0x141C): OPEN (base, target or predicted line; `pes-re-carrier-port.md:346`).
+4. B+0x80 flag: OPEN (`pes-re-carrier-port.md:327`).
+5. B+0x2960 (V1): undecoded.
+6. Card words PA+0x1A/+0x1C/+0x38/+0x40/+0x60: undecoded.
+7. TM+0x23F7C (per-holder pair table): undecoded.
+8. TM+0x25CF8 / +0x25D38 (instruction flags 13/14/15): undecoded for 27A0's use.
+9. Press level writer (T+0xA294 / T+0xA29C): the writer and the unit are undecoded.
+Outside 27A0's tree: breath B (PMS+0x108) is read by `FUN_14092B950` (xref 0x14092ba96), not by 27A0.
+Protected words, decoded this run: the initializer `FUN_140A3B640` (VA 0x140A3B640; FNV constants at 0x140A3B655) stores the hash 0x4D25767F9DCE13F5 (equal to FNV-1a64 of four zero bytes, checked) and a ring word that decodes to 0. Its seed (`_DAT_7FFE0008`, the interrupt-time low dword) and the address-derived key select only the ring slot, so the decoded word is deterministic. The helper `FUN_140A3CBC0` was not decoded. Setters (`pes-re-stamina-drain.md:33-35`): cur 0x140A592C0, max 0x140A595C0, breath 0x140A58F60 (not decoded here).
+Verdict: 27A0 is NOT ported; unbound items 1-9 remain. Next run: the press-level writer, the rating-byte stat meanings (0x14/0x15), the anchor, B+0x80, and the PA/TM tables.
 
 ### Step 11, `FUN_1404FEDC0`: head and score-off fill (T2c)
 - Inputs at the call site (`FUN_1404F6C30`): `R8B` = the return of `FUN_1404FE9C0` (0x1404F6D60, `MOVZX ESI,AL`, `MOVZX R8D,SIL` at 0x1404F6D9B), which is the latch change this tick. GF passes `latch != lastTickPossession`, the same flip the restart word reads (step 28). `DL` (0x1404F6D75-0x1404F6D97) is 1 only in play with `MI+0x119C > 1`.
