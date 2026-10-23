@@ -188,7 +188,7 @@ public:
   // reader uses; A is the stamina-sub class. Setup and the tick's head and tail write them.
   int RoleClassOfSlot(int slot) const;
   // The defensive line of a player: the reclassify of his slot's B class on the PES path (pesmentality.hpp).
-  int DefensiveLineOf(Player* p) const;
+  int DefensiveLineOf(Player* p, e_PlayerRole role) const;
   // PES's designation publisher (FUN_14051E350, team tick step 27b): the side's record, rebuilt each tick.
   void UpdatePesDesignation();
   void SetUpRoleArrays();

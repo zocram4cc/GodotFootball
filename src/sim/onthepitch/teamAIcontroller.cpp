@@ -474,7 +474,7 @@ void TeamAIController::CalculateDefensiveShape() {
   std::vector<Player*> active;
   team->GetActivePlayers(active);
   for (Player* p : active) {
-    if (DefensiveLineOf(p) != pes::mentality::kMidLine) continue;
+    if (DefensiveLineOf(p, p->GetFormationEntry().role) != pes::mentality::kMidLine) continue;
     const float x = p->GetPosition().coords[0] * dir;
     const float midLower = ownFrameLine + gap;
     midScores.push_back(x <= midLower + 2.0f ? 100.0f
@@ -520,7 +520,7 @@ float TeamAIController::MeasuredLine(int line, float ref) const {
   int n = 0;
   for (Player* p : active) {
     const e_PlayerRole role = p->GetFormationEntry().role;
-    if (role == e_PlayerRole_GK || DefensiveLineOf(p) != line) continue;
+    if (role == e_PlayerRole_GK || DefensiveLineOf(p, role) != line) continue;
     sum += std::clamp(p->GetPosition().coords[0], ref - clamp_m, ref + clamp_m);
     ++n;
   }
@@ -659,7 +659,7 @@ Vector3 TeamAIController::GetAdaptedFormationPosition(Player* player,
     // defender's depth and width terms both come from the line he plays in. PES
     // rebuilds both shapes every tick and the out-of-possession one is what a
     // defending team plays in.
-    const int lineIndex = DefensiveLineOf(player);
+    const int lineIndex = DefensiveLineOf(player, role);
     const float line = defensiveLineHeight;
     const float len = defensiveTeamLength;
     // The back line sits on the line height itself (report 14.7: a back-line
@@ -688,7 +688,7 @@ Vector3 TeamAIController::GetAdaptedFormationPosition(Player* player,
     int headCount = 0;
     for (Player* mate : teammates)
       if (mate->GetFormationEntry().role != e_PlayerRole_GK &&
-          DefensiveLineOf(mate) == lineIndex)
+          DefensiveLineOf(mate, mate->GetFormationEntry().role) == lineIndex)
         ++headCount;
     const Vector3 currentBall = match->GetBall()->Predict(0);
     const float dir = static_cast<float>(-team->GetSide());
@@ -3084,15 +3084,15 @@ int TeamAIController::RoleClassOfSlot(int slot) const {
   return roles.b[slot];
 }
 
-int TeamAIController::DefensiveLineOf(Player* p) const {
-  if (!match->PesLoop()) return PesLineIndexForRole(p->GetFormationEntry().role);
+int TeamAIController::DefensiveLineOf(Player* p, e_PlayerRole role) const {
+  if (!match->PesLoop()) return PesLineIndexForRole(role);
   // PES's line of a slot is the reclassify of its B class (EC600's line store at 0x1405ECBB0).
   const auto& players = team->GetAllPlayers();
   for (int slot = 0; slot < pes::roles::kSideSlots && slot < static_cast<int>(players.size()); ++slot)
     if (players[slot].get() == p)
       return pes::mentality::ReclassifyLine(match->GetPesTeamConceptConstants().reclassifyLines,
                                             roles.b[slot]);
-  return PesLineIndexForRole(p->GetFormationEntry().role);
+  return PesLineIndexForRole(role);
 }
 
 void TeamAIController::UpdatePesDesignation() {
