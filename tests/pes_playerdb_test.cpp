@@ -187,6 +187,7 @@ TEST(PlayerDatabaseInstall, EveryRecordReadsBackFromItsOwnBytes) {
     std::memcpy(&id, rec + kIdAt, 4);
     const uint32_t tier = (rec[kInjuryBit / 8] >> (kInjuryBit % 8)) & 3u;
     const uint32_t foot = (rec[kFootBit / 8] >> (kFootBit % 8)) & 1u;
+    const uint32_t form = ((rec[kFormBit / 8] >> (kFormBit % 8)) | (rec[kFormBit / 8 + 1] << 2)) & 7u;
     auto traits = db->Find(int(id));
     if (tier > 2) {
       EXPECT_FALSE(traits.has_value()) << "id " << id;
@@ -194,6 +195,7 @@ TEST(PlayerDatabaseInstall, EveryRecordReadsBackFromItsOwnBytes) {
       ASSERT_TRUE(traits.has_value()) << "id " << id;
       EXPECT_EQ(traits->injuryResistance, int(tier)) << "id " << id;
       EXPECT_EQ(traits->leftFooted, foot == 1) << "id " << id;
+      EXPECT_EQ(traits->form, int(form)) << "id " << id;
     }
     ++checked;
   }

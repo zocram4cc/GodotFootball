@@ -63,6 +63,10 @@ TEST(ConditionShift, OpponentShiftsOneStepWorseCappedAtTerrible) {
   EXPECT_EQ(FormState::ApplyTeamShift(FormState::Arrow::Terrible, /*ownTeam=*/false,
                                      /*teamModeThree=*/false, /*levelClassSix=*/true),
             FormState::Arrow::Terrible);
+  // PES index 3 shifts to 4 (Poor -> Terrible): the cap is at 4, not below it.
+  EXPECT_EQ(FormState::ApplyTeamShift(FormState::Arrow::Poor, /*ownTeam=*/false,
+                                     /*teamModeThree=*/false, /*levelClassSix=*/true),
+            FormState::Arrow::Terrible);
   // Without the /100 == 6 gate the opponent shift does not apply.
   EXPECT_EQ(FormState::ApplyTeamShift(FormState::Arrow::Top, /*ownTeam=*/false,
                                      /*teamModeThree=*/false, /*levelClassSix=*/false),
@@ -74,6 +78,24 @@ TEST(ConditionShift, GreenAndOutOfRangeSkip) {
   EXPECT_FALSE(FormState::ArrowWritesStats(FormState::Arrow::Normal));
   EXPECT_TRUE(FormState::ArrowWritesStats(FormState::Arrow::Top));
   EXPECT_TRUE(FormState::ArrowWritesStats(FormState::Arrow::Terrible));
+}
+
+TEST(ConditionChain, TheSameDataDealsTheSameArrowsWhateverTheSeed) {
+  // FUN_141FE3830 is RNG-clean (no FUN_140A924E0 in its disassembly): the arrow is a pure
+  // function of the condition byte and the team state, so there is no seed to pass and no
+  // way for two matches over the same data to differ.
+  for (unsigned int cond = 0x28; cond <= 0x6D; ++cond) {
+    const FormState::Arrow home = FormState::ApplyTeamShift(FormState::ArrowForConditionByte(cond),
+                                                           /*ownTeam=*/true, false, false);
+    const FormState::Arrow away = FormState::ApplyTeamShift(FormState::ArrowForConditionByte(cond),
+                                                           /*ownTeam=*/false, false, true);
+    EXPECT_EQ(home, FormState::ApplyTeamShift(FormState::ArrowForConditionByte(cond),
+                                             /*ownTeam=*/true, false, false))
+        << "cond " << cond;
+    EXPECT_EQ(away, FormState::ApplyTeamShift(FormState::ArrowForConditionByte(cond),
+                                             /*ownTeam=*/false, false, true))
+        << "cond " << cond;
+  }
 }
 
 }  // namespace
