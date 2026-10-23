@@ -5,6 +5,7 @@
 // card, style stat or second kicker, so every taker walks with the defaults. The tests read the record from the install.
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <initializer_list>
@@ -498,4 +499,42 @@ TEST(SetKickStand, TheFreeKickStandIsPulledInFromTheCornerAndClampedToTheMarks) 
   const pes::Vec3 far = pes::FreeKickFieldClamp(pes::Vec3(-70.0f, 60.0f, 0.0f));
   EXPECT_NEAR(far.x, -(pesFieldHalfLength + 1.5f), kPointTolerance_m);
   EXPECT_NEAR(far.y, pesFieldHalfWidth + 1.5f, kPointTolerance_m);
+}
+
+// A set-piece walker far from his target walks at PES's walk-down speed. FUN_1406b7560, the MOVE command filler every MOVE
+// handler reaches, replaces a run-class walker's desired speed with FUN_140a76070(2) = 11 km/h (call 0x1406b77d6, .rdata
+// 0x14259bdfc; docs/re/pes-re-walk-speed.md). Built on main, the throw-in walker was commanded at 2 x his gap, off the movement
+// table beyond 4 m. The carry is not a MOVE in PES (the root warp takes him onto the spot), so it is not checked here.
+TEST(SetKickStand, AFarSetPieceWalkerIsCommandedAtTheWalkDownSpeed) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  constexpr float kFarGap_m = 4.0f;            // beyond this, 2 x the gap was off the movement table
+  constexpr float kSpeedTolerance_ms = 1e-4f;  // the command carries the loaded speed itself
+  constexpr int kWalkTicks = 300;
+  const float walkDown = match->GetPesSetPieceTakerConstants().walkDown_ms;
+  ASSERT_NEAR(walkDown * 3.6f, 11.0f, 1e-3f) << "the install's walk-down speed (0x14259bdfc) is not 11 km/h";
+  match->Process();  // the opening kick-off's preparation, as the heading tests do
+  const Vector3 spot(0.0f, -34.3f, 0.0f);  // on the touchline at halfway: a seamless throw-in whose walker starts past 4 m
+  Player* taker = PrepareRestart(*match, e_SetPiece_ThrowIn, 0, spot);
+  ASSERT_NE(taker, nullptr) << "no throw-in taker was chosen";
+  const TeamAIController* controller = match->GetTeam(0)->GetController();
+  ASSERT_TRUE(controller->IsPieceTakerWalking(taker)) << "the throw-in is not a walked (seamless) one";
+  int farTicks = 0, wrong = 0;
+  float worst = 0.0f;
+  for (int t = 0; t < kWalkTicks; ++t) {
+    match->Process();
+    if (!controller->IsPieceTakerWalking(taker) || controller->IsPickingUp() || controller->IsCarryingBall()) break;
+    const float gap = (controller->GetPieceWalkTarget() - taker->GetPosition()).Get2D().GetLength();
+    const std::optional<PlayerCommand>& cmd = taker->GetPesDecision().command;
+    if (gap <= kFarGap_m || !cmd) continue;
+    ++farTicks;
+    const float off = std::fabs(cmd->desiredVelocityFloat - walkDown);
+    if (off > kSpeedTolerance_ms) {
+      ++wrong;
+      worst = std::max(worst, cmd->desiredVelocityFloat);
+    }
+  }
+  ASSERT_GT(farTicks, 0) << "the walker was never more than " << kFarGap_m << " m from his target";
+  EXPECT_EQ(wrong, 0) << wrong << " of " << farTicks << " far ticks commanded another speed (up to " << worst << " m/s)";
 }

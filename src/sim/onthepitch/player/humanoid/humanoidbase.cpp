@@ -522,12 +522,15 @@ bool HumanoidBase::PlayIssuedClip(int motion, float playback, bool mirror) {
   currentAnim->rotationSmuggleOffset = 0;
   currentAnim->positionOffset = Vector3(0);
   currentAnim->incomingMovement = spatialState.movement;
+  // A throw-in taker keeps the root yaw the lift left him with (PES's throw-in loop keeps the lift's yaw), so his clips start
+  // from it. Any other body starts from the travel direction, as before.
+  const radian clipAngle = HoldsRootYaw() ? RootStartAngle(currentAnim->anim) : spatialState.angle;
+  startAngle = clipAngle;
   currentAnim->positions = match->GetAnimPositionCache(currentAnim->anim);
-  TurnCacheToBody(currentAnim->positions, spatialState.angle);
+  TurnCacheToBody(currentAnim->positions, clipAngle);
   currentAnim->outgoingMovement = CalculateOutgoingMovement(currentAnim->positions);
   // The clip starts where the body is now, as a selected anim does.
   startPos = spatialState.position;
-  startAngle = spatialState.angle;
   CalculatePredictedSituation(nextStartPos, nextStartAngle);
   animApplyBuffer.anim = currentAnim->anim;
   animApplyBuffer.smooth = false;
@@ -653,6 +656,23 @@ void HumanoidBase::OffsetPosition(const Vector3& offset) {
   if (decayingPositionOffset.GetLength() > 0.1f)
     decayingPositionOffset = decayingPositionOffset.GetNormalized() * 0.1f;
   currentAnim->positionOffset += offset * cheat;
+}
+
+void HumanoidBase::WarpRoot(const Vector3& offset, radian yaw) {
+  assert(offset.coords[2] == 0.0f);
+  startPos += offset;
+  nextStartPos += offset;
+  spatialState.position += offset;
+  previousPosition2D += offset;  // the warp is not a step: the next movement reads only the clip's own motion
+  startAngle = ModulateIntoRange(-pi, pi, startAngle + yaw);
+  nextStartAngle = ModulateIntoRange(-pi, pi, nextStartAngle + yaw);
+  spatialState.rootDirectionVec = spatialState.rootDirectionVec.GetRotated2D(yaw);
+  // GF's own frame turns with the root: a clip that starts on this tick takes its start angle from spatialState.angle, so a
+  // stale angle would snap the root back to the pre-warp heading.
+  spatialState.angle = ModulateIntoRange(-pi, pi, spatialState.angle + yaw);
+  spatialState.directionVec = spatialState.directionVec.GetRotated2D(yaw);
+  spatialState.bodyDirectionVec = spatialState.bodyDirectionVec.GetRotated2D(yaw);
+  spatialState.bodyAngle = ModulateIntoRange(-pi, pi, spatialState.bodyAngle + yaw);
 }
 
 bool HumanoidBase::TripMe(const Vector3& tripVector, int tripType) {
@@ -1261,6 +1281,17 @@ bool HumanoidBase::SelectAnim(
   }
 
   return false;
+}
+
+radian HumanoidBase::RootStartAngle(const Animation* anim) const {
+  // The body node's yaw at frame 0, read as CalculateSpatialState reads it. GetIncomingBodyAngle is not that yaw for an
+  // idle start: ConvertToStartFacingForwardIfIdle turns the body keys but leaves the cached angle as it was.
+  Quaternion bodyOrientation;
+  Vector3 bodyPosition;
+  anim->GetKeyFrame("body", 0, bodyOrientation, bodyPosition);
+  radian x, y, z;
+  bodyOrientation.GetAngles(x, y, z);
+  return ModulateIntoRange(-pi, pi, FixAngle(spatialState.rootDirectionVec.GetAngle2D()) - z);
 }
 
 void HumanoidBase::CalculatePredictedSituation(Vector3& predictedPos, radian& predictedAngle) {
