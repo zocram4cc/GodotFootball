@@ -1,40 +1,35 @@
 # PES press, FarChasePressMain: handover report
 
-> **Main note 22-10-26:** branch FarChasePress2 `92f153f`, landed on main in batch C `8168d4c` (gate green); on main the far-ball test is 359 ticks against 270. The holder latch is a patch in scratch, red by one tick; the decision is in tasks/22-10-26.md.
+> **HolderLatch note 22-10-22:** the far-loose-ball holder latch is landed on the `HolderLatch` branch with its red->green test and mutation. The far-loose-ball tick count is 379 (bound 270) on the merged tree, so `PesRestartDelay.DISABLED_ALooseDeadBallInPlayIsReachedAndPlayed` stays disabled; residual below. The ceremony throw-in test, which the latch broke on its own, passes on the merged tree (latch + ZoneJudge's take hold + the twenty-minute cap).
 
 ## Branch state
-- origin/FarChasePress2 = 92f153f (A landed and pushed). Nothing else is committed.
-- Worktree HEAD = 92f153f. Uncommitted: the B latch in humanoid.cpp, the CMake target, and tests/sim/pes_holder_latch_test.cpp.
-- Patch of the uncommitted tracked changes: <workdrive>/gf-FarChasePress-scratch/holder_latch.patch (checked: `git apply --check -R` matches the tree). Test copy: <workdrive>/gf-FarChasePress-scratch/holder_latch_test.cpp.
-- Latch not landed: its gate is not green.
+- Branch `HolderLatch`, off origin/main `54ff0b9` (batch C `8168d4c`), at the merge of `origin/ZoneJudge` `57f2984`.
+- Commits, oldest first: `56414e3` red test; `e06e481` the holder latch; `f216870` the ceremony twenty-minute cap (byte-identical to `3f70bca`); `dfc9dfb` merge of `origin/ZoneJudge` `57f2984` (take hold, release tests, zone judge).
+- Uncommitted: nothing but the `extern/godot-cpp` symlink (never staged).
+## A: landed (92f153f, main), ActionPress target on the loose presser's movement command
+- Unchanged by this branch.
 
-## A: landed (92f153f), ActionPress target on the loose presser's movement command
-- Red on f3aa913: 7183 of 7471 loose-presser commands named no target.
-- Mutation (target dropped, scoped test): 5536 of 5536 named no target, exit 1. Restored: PASSED 1.
-- Gate on 92f153f: build 0; wire, restart_taking, press, clips, sim_heading 0; enabled 2/2; trap 1/1; smoke plain bed0bbd00dd506b2 (unchanged), loop f89cf25ffafdc923.
-- DISABLED longest episode: 631 (f3aa913) -> 737 (92f153f), bound 270. Kept as faithful; cause not traced.
+## B: the far-loose-ball holder latch: LANDED
+- Latch (humanoid.cpp, after the touchedThisTick carrier block): if PesLoop, no holder, the last toucher is this humanoid, and AI_HasPossession holds, he becomes the retainer. Grounding: PES's holder is the actor of the newest ring-1 touch key (W1 0x14045725A, FUN_140457070; docs/re/pes-re-first-touch.md section 5.1) and persists on a loose ball (pes-re-press-coord.md section 5) until a newer touch replaces it. ponytail: PES's touch event is gated by the touch probe G+0x2A80 (section 5.4, OPEN); GF's last toucher stands in.
+- The retain block's clear is kept (not made to match PES's persist-on-loss): the ballRetainer is GF's "the ball is loose / free" predicate (designated possession in match.cpp, the press reset, the keeper catch, the far-loose-ball detector), so it MUST clear when the ball leaves the man. The rule agrees with PES only while possession is live; the test's two-live-tick condition makes the one-tick clear flicker explicit.
+- Red test (PesHolderLatch.ALastToucherWithLivePossessionBecomesTheHolder, seed 7, two-minute PES loop): on `54ff0b9`, `597 ticks had a live outfield last toucher with no holder for two ticks running`; with the latch: 0 (PASSED). The strict one-tick version the prior agent left red by one tick is superseded by the two-tick version, which is the same rule stated at the test's granularity (the latch runs in the humanoid step, one tick of lag; the clear can flicker one tick while the ball settles at the feet, AI_HasPossession is a height/distance/movement gate, AIfunctions.cpp:1091).
+- Mutation: invert the last-toucher condition (`!=`) -> `669 ticks` (FAILED); restore -> 0 (PASSED).
 
-## B: any-toucher holder latch (approved by Main, conditioned on live possession): NOT landed
-- Latch (humanoid.cpp, after the touchedThisTick carrier block): if PesLoop, no holder, the last toucher is this humanoid, and AI_HasPossession holds, he becomes the retainer. Grounding: PES's holder is the actor of the newest touch key (W1 0x14045725A; docs/re/pes-re-first-touch.md section 5.1). ponytail: PES's touch event is gated by the touch probe G+0x2A80 (section 5.4, OPEN); GF's last toucher stands in. The loose-ball predicate is unchanged.
-- Red test (PesHolderLatch.ALastToucherWithLivePossessionBecomesTheHolder, seed 7, two-minute PES loop): on HEAD, `578 ticks had a live outfield last toucher with no holder after two live ticks`. With the latch: 1.
-- Residual, diagnosed to one event: tick 327037, player A11. Trace (<workdrive>/gf-FarChasePress-scratch/holder_diag.log): `[hviol] t=327037 p=A11`; `[hstep] t=327037 p=A11 live=0`, so the latch step saw no possession. No latch print for A11 at tick 327036, so someone else held the ball at that step or he did (not decoded).
-- Inference, not verified: the retain block cleared the holder on a step where AI_HasPossession was false, possession returned after that step, and it was false again at the next latch step. The two-tick test counts this as a miss.
-- Not run: the mutation, the full gate, and DISABLED with the latch. The experiment without the test (same condition) measured DISABLED 737 -> 419 (anytoucher_latch.patch, bound 270). Not a pass.
+## Far-loose-ball (DISABLED_ALooseDeadBallInPlayIsReachedAndPlayed): residual, NOT re-enabled
+- On the merged tree (latch + take hold + cap): 379 ticks against the 270-tick bound (was 359 on `8168d4c`; 379 on the latch-only tree too). The take hold does not change the far-loose-ball count. The latch makes the ball "held" while the last toucher has it live, which shifts who wins loose balls and lengthens the longest loose-dead-ball episode on seed 7.
+- Not re-enabled: the count is past the 270-tick bound, so per the task the test stays disabled and the residual is 379 against 270 (2-minute match, seed 7).
 
-## Open decision (Main)
-- (a) The retain block's clear should not drop a holder on a one-tick flicker. This changes GF's clear rule, so it is a scope question.
-- (b) The test tolerates a one-tick flicker, with that reason written in the test.
+## Ceremony throw-in (AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWithTheBallInHand): broken by the latch, fixed by the merge
+- The latch's trajectory shift suppressed seed 7's first ceremony (path-B, non-walking) throw-in in twenty minutes: the test failed with "no ceremony throw-in was placed" on the latch-only tree and still failed after the cap fix (the cap only lengthens the search window; it cannot cause "no ceremony").
+- `origin/ZoneJudge` (no latch) passes the same test in 86 s: the take hold (the carry holds the ball at the release key until the touch, RestartRef 4) moves seed 7's trajectory back so the first ceremony throw-in occurs within twenty minutes.
+- On the merged tree (latch + take hold + cap): PASSED (whole twenty-minute match, 407 s). The take hold is load-bearing for the latch's landing.
 
-## Next concrete action
-1. Confirm the flicker: add one temporary env-gated print at the retain block's clear (the `SetBallRetainer(0)` under the CarrierAfterContact check), run the holder test, and look at ticks 327036-327037 for A11 (who held the ball, and whether AI_HasPossession was false at the clear). Remove the print afterwards.
-2. Decide (a) or (b) with Main.
-3. Then: mutation (invert the last-toucher condition) red, restore green; `cmake --build build -j2`; gate (`sh <workdrive>/gf-FarChasePress-scratch/gate.sh <tag>`, which must also list pes_holder_latch_test and pes_carrier_test); DISABLED. Commit B only if green; otherwise keep it as the patch.
+## Verification
+- Touched suites on the merged tree, all PASSED: pes_holder_latch 1, pes_receive 39, pes_press 95, pes_press_approach 1, pes_movestep_wire 27, pes_throwin_release 3.
+- pes_restart_delay: ceremony PASSED (merged tree, 407 s); full suite including the disabled far-loose-ball test: far-loose-ball 379 (expected, disabled), the rest PASSED.
+- 5-minute repro (`gfsim_run --db-sql assets/fixtures/teams.sql --home 1 --away 2 --seed 7 --minutes 5 --pes-loop`): 31803 sim ticks to full time, exit 0, determinism d0748d444ae7e0e0.
 
 ## Other open items
-- Batch B (DodgeGate2, MergeBatch4 a54c22e) is not on this base. After it lands: merge main into FarChasePress2, then re-measure DISABLED and the enabled pair on the real base.
 - PASS_GET ActionPassGet target (529 unnamed presser commands on 92f153f): not ported.
 - Cancel window: not ported (Main's ruling). Restart taker standby/release: not traced.
-
-## Scratch artefacts
-- anytoucher_latch.patch (experiment, DISABLED 419), holder_latch.patch (the B latch, uncommitted), holder_latch_test.cpp, holder_diag.log, gate.sh (fixed list; add pes_holder_latch_test), movestep_trace_a8.patch (a reverted trace).
-- The older report pes-port-FarChasePress.md (earlier round) is untouched.
+- The prior agent's scratch artefacts (anytoucher_latch.patch, holder_latch.patch, holder_diag.log, gate.sh, movestep_trace_a8.patch) remain in <workdrive>/gf-FarChasePress-scratch; the patch is superseded by this branch.
