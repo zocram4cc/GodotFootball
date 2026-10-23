@@ -261,6 +261,7 @@ address given.
 |`pes-re-mark-gate.md`|The mark table's last inputs: the count gate `FUN_140A4EAF0`/`4E7C0` (radius 12.0), the head vector +0x5EC, the action word pl+0x5D0; the ramp base's source OPEN; the three duel readers mapped (INF)|
 |`pes-re-mark-readers.md`|The mark table's three duel readers (`FUN_1409696A0` tackle exemption, `FUN_1409931C0` block/pass-duel OR-leg, `FUN_1409AD830` duel-core ladder skip) with their GF counterparts; the ramp base is FieldInfo F[5] = 9.16 m (GF's `pitchF5`)|
 |`pes-re-lane-post.md`|The mentality lane line's last pieces: the special-slot predicate `FUN_140A64410`, the distance branch `FUN_1405CCD50`, the B-rank sort key, the three post-step A-writers (CF310 / CFC80 / CFFE0); open leaves: the sort comparator `FUN_140A79640`, CF310's second half|
+|`pes-re-step-rate.md`|MOVESTEP's two virtual reads: `vt+0x68` = `FUN_1406BA030` (rate ladder; TURN_STOP and STEP_LOOP_CHANGE, not STEP_LOOP), `vt+0x78` = `FUN_1406E80B0` (the anime foot from the clip's FootType event frames); P+0x19BA's writer OPEN|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
