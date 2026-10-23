@@ -235,6 +235,10 @@ add_executable(pes_reaction_block_test pes_reaction_block_test.cpp)
 target_link_libraries(pes_reaction_block_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_reaction_block_test)
 
+add_executable(pes_attrs_test pes_attrs_test.cpp)
+target_link_libraries(pes_attrs_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_attrs_test)
+
 add_executable(sim_heading_test sim_heading_test.cpp)
 target_link_libraries(sim_heading_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(sim_heading_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
