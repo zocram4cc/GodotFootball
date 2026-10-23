@@ -222,6 +222,14 @@ public:
   }
   Player* GetBallRetainer() { return ballRetainer; }
   void SetBallRetainer(Player* retainer) { ballRetainer = retainer; }
+  // PES's holder MA+0x2601C (docs/re/pes-re-press-coord.md section 4a; pes-re-first-touch.md section 5.1): the
+  // actor of the newest ring-1 touch key. W1 (0x14045725A, MOV [RBP+0x2601C],EDI in FUN_140457070) rewrites it
+  // from that key every listener step and nothing clears it: W2 (0x140A71DF9) stores 0xFF only in the object
+  // reset (HolderRE runs 3-4). It persists on a loose ball until a newer touch replaces it, so it is carried
+  // apart from ballRetainer, which is GF's own loose-ball predicate and clears on the possession flicker
+  // (humanoid.cpp's retain block).
+  Player* GetPesHolder() const { return pesHolder; }
+  void SetPesHolder(Player* holder) { pesHolder = holder; }
 
   float GetAveragePossessionSide(int time_ms) const {
     return possessionSideHistory->GetAverage(time_ms);
@@ -594,6 +602,8 @@ protected:
   signed int bestPossessionTeamID = -1;
   Player* designatedPossessionPlayer = nullptr;
   Player* ballRetainer = nullptr;
+  // PES's holder MA+0x2601C, kept apart from the retainer above: see GetPesHolder.
+  Player* pesHolder = nullptr;
 
   bool gameOver = false;
 
