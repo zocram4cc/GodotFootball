@@ -1,11 +1,17 @@
 # PES 2021 — the missing referee / injury systems: DOGSO, the abandon rule, injury resistance (and the two referee negatives)
 
-> **Live read 22-10-26 (Main, read-only), RETRACTED as stated and re-read:** the first read took the player object at `team + 0xA8 + slot*0x128`,
-> but `FUN_140A3AF60` indexes those objects by player id (`team+4` maps slot to id; side 0's map was [0,5,3,17,1,18,6,19,22,9,4]). Re-read through
-> the map (team base `*(G + (0xA3+side)*0x28)`): `+0x0C` is 0 on all 22 slot-mapped objects, but `+0x08` holds float-like values (e.g. 0x3FA3D70A) and
-> `+0x14` looks unstructured, so this struct may not be the record the forfeit writer reads (via `FUN_140A3AF30` and `FUN_140A73E20` = player+4);
-> the team base (`0xA3+side` vs A5Judge's `0xA1+t`, `FUN_140A489D0`) is also unverified. Plausible but unproven: `+0x18` ∈ {0,1} and `+0x20` ∈ {0,1,2}
-> track bookings and dismissals on the /biz/ side. Whether a dismissal writes `+0x0C` is therefore OPEN. `MI+0x175E` all zero (not a sent-off array) stands.
+> **Live read 22-10-26 (Main, read-only; chain verified by ForfeitPort round 5: team = `*(G+(0xA3+t)*0x28)`, obj = `team + 0xA8 + 0x128*id`,
+> the writers test obj+0x0C / obj+0x18 and copy obj+0x20; record F = `S + 0x750D0 + t*0x59650 + 0x64D8 + id*0x2134`, `S = *(MB+0xBD08)`,
+> sanity `S+0x1900` = 8). Owner's endless match with 8+ dismissals, all 40 ids per side read:**
+> - `obj+0x0C` is **0 for every id on both sides**, dismissed players included: a dismissal does not write it; writer 1's `== 4` input stays OPEN.
+> - **Writer 2 has fired for every id with `obj+0x18 == 1`** (side 0: ids 4, 7, 8, 9, 10, 19, 22; side 1: ids 4, 7, 8, 9, 10), all off the pitch:
+>   flag `F+0x1B70` = 1 and score `F+0x1B74` = `obj+0x20` ∈ {1, 2}. So `F+0x1B70/+0x1B74` is a **per-player record** that writer 2 fills for
+>   every removed player with his `+0x20` value; writer 1's score 3 is one special value in it, not a per-side score. No id holds score 3 (no forfeit).
+> - `obj+0x20` alone does not mean removed: the /xs/ CF on the pitch reads `+0x18` 0, `+0x20` 2 and has no record. `+0x18 == 1` is the
+>   "removed" mark (INF: by dismissal); `+0x20`'s meaning (1 vs 2) is OPEN.
+> - The validity gate `*0x14351AE34` reads 0 live, and every `obj+0x34` is non-zero (valid).
+> - `MI+0x175E` all zero: not a sent-off array.
+> - The earlier slot-indexed read is withdrawn (it indexed objects by slot instead of id).
 
 > **Main audit 22-10-26:** K11 SOLVED and Main-audited at the bytes: FUN_140a23260: `0x140a23279 cmp [r12+0x1168],0xa` (period 10), `0x140a232c6 cmp byte [rbx+r12+0x1748],0` (on the pitch), `0x140a23308 cmp [rax+0x14],0` (no replacement), `0x140a2330e cmp [rax+8],4` (sent off), `0x140a23322 mov byte [rax+0x1b70],1` (forfeit flag), `0x140a23329 mov dword [rax+0x1b74],3` (the 3): match. The owner's live evidence (endless matches voided 3-0, subs depleted, clock --:--, no scorers) matches. The earlier "dead code" claim is withdrawn. DOGSO and injury resistance found; no handball or time-wasting rule exists.
 > **Main note, round 2 (MissingRE2):** period 10 is post-match (the period table in §2.9a); the minimum-players rule is FUN_140447B50 case 6: a side with fewer on the pitch than E+0x17 (live: 7; `cmp al,[rdx+0x17]` at 0x140447E79) gets period 10 at the next stoppage (through the setter call `call 0x14102cad0` at 0x140447F0F; Main-checked: a call, not a direct store). player+0x18 is an injury marker, not a replacement count (corrects round 1). A second forfeit writer FUN_140A23380 exists.
