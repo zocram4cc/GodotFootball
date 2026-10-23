@@ -554,15 +554,6 @@ void Player::SendOff() {
     int newGoalieID = (*activePlayers.begin())->GetID();
     team->SetFormationEntry(newGoalieID, entry);
   }
-
-  std::vector<Player*> activePlayers;
-  team->GetActivePlayers(activePlayers);
-  int remainingPlayers = activePlayers.size();
-  if (remainingPlayers <= 6) {
-    // too many red cards - forfeit
-    // todo: referee should do this. also, make sure the forfeiting team will actually lose :P
-    match->GameOver();
-  }
 }
 
 float Player::GetStat(const char* name) const {

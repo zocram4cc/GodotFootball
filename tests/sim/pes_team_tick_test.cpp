@@ -102,4 +102,19 @@ TEST(PesTeamTick, ManualOverridePullsLevel) {
   EXPECT_EQ(tick.b8a4, 3);
 }
 
+// T1b: step 15's in-play arm (FUN_1404FA840, 0x1404FA869-0x1404FA887): T+0xB8A8 = 8, T+0xB8AC = 4, brain+0x6D44 = 0.
+TEST(PesTeamTick, CountersSeed8And4InPlay) {
+  pes::TeamTick tick;
+  pes::ArmInPlayCounters(&tick);
+  EXPECT_EQ(tick.b8a8, 8);
+  EXPECT_EQ(tick.b8ac, 4);
+}
+
+TEST(PesTeamTick, InPlayArmClearsDoneFlag) {
+  pes::TeamTick tick;
+  tick.counterDone = true;
+  pes::ArmInPlayCounters(&tick);
+  EXPECT_FALSE(tick.counterDone);
+}
+
 }  // namespace

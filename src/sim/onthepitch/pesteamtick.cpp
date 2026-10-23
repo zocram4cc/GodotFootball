@@ -3,6 +3,12 @@
 #include <algorithm>
 
 namespace pes {
+namespace {
+// FUN_1404FA840's in-play arm: 8 to T+0xB8A8 (EBP = 8 at 0x1404FA853, stored at 0x1404FA870) and 4 to T+0xB8AC
+// (0x1404FA87D).
+constexpr int kInPlayB8A8 = 8;
+constexpr int kInPlayB8AC = 4;
+}  // namespace
 
 int StrategyWantLevel(int strategy) {
   // The jump ladder at 0x1404F8619-63E: 0->0, 1->1, 3->3, 4->4, else 2.
@@ -55,6 +61,12 @@ void WriteRestartWord(TeamTick* tick, bool inPlay, bool possessionFlipped) {
   if (!inPlay || possessionFlipped) tick->t80 = 0xFF;
   // ponytail: T+0x6E6 = 0 (gated on FUN_140A3E190(...) != 5) has no GF
   // counterpart; the predicate is not decoded.
+}
+
+void ArmInPlayCounters(TeamTick* tick) {
+  tick->b8a8 = kInPlayB8A8;
+  tick->b8ac = kInPlayB8AC;
+  tick->counterDone = false;  // MOV byte [RCX+0x6D44],0 at 0x1404FA887
 }
 
 }  // namespace pes

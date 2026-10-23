@@ -237,6 +237,10 @@ struct RunWorld {
 // The opponents of `id` in his NearestList, nearest first (PES's rank 0 is the first; pes-re-teamctx.md §2.3).
 std::vector<NearOpponent> NearestOpponents(const RunWorld& w, int id);
 
+// FUN_1404F6720 (step 5): whether team `t`'s offside-trap flag T+0xE4 is set this tick. The gates run in PES's order
+// (see pesoffball.cpp); the flag cannot be set by any input there.
+bool OffsideTrapArmed(const RunWorld& w, int t);
+
 // FUN_140500200's quota constants and the ahead gate's (FUN_140A4F230). Each is the operand its
 // instruction reads, at the VA in its comment; OffBallQuotaInstall pins them to PES2021.exe.
 inline constexpr int kQuotaAllFromLevel = 4;         // CMP EBX,imm8 at 0x140500232: level >= 4 admits all
