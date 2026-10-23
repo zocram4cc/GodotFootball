@@ -1,9 +1,10 @@
 // PES's per-slot run table of one team: the state word of each own slot (T+0xA2A0[k]), its history ring
 // (T+0xA2CC + 0x34k: four (id, entered, seen) entries and the index at +0x30) and its block (T+0x26C + 0x40k:
 // the concept point in bytes 0..11, the fields the release clears, and the 32-byte target block at +0x20).
-// Decoded: the setter FUN_140A42940 (docs/re/pes-re-press-eval.md), the ring push FUN_140A40200, the state
-// age FUN_140A401C0 / FUN_140A401F0 (pes-re-run-targets-s1.md), the block variants FUN_140A85AA0 and the
-// release FUN_140A40820 (docs/re/pes-re-tick-steps3.md, step 43). Pure: the team AI owns the table.
+// Decoded: the setter FUN_140A42940 (docs/re/pes-re-press-eval.md), the take FUN_140A429A0 (step 38's
+// designated-supporter write, docs/re/pes-re-team-layer.md row 38), the ring push FUN_140A40200, the state age
+// FUN_140A401C0 / FUN_140A401F0 (pes-re-run-targets-s1.md), the block variants FUN_140A85AA0 and the release
+// FUN_140A40820 (docs/re/pes-re-tick-steps3.md, step 43). Pure: the team AI owns the table.
 #pragma once
 
 #include <array>
@@ -11,9 +12,10 @@
 
 namespace pes::run {
 
-constexpr int kSlots = 11;         // T+0xA2A0[11]: the own side's slots 0..10
-constexpr int kRingEntries = 4;    // the history ring: four entries of 12 bytes, the index at +0x30
-constexpr int kBlockBytes = 0x40;  // T+0x26C + 0x40k
+constexpr int kSlots = 11;          // T+0xA2A0[11]: the own side's slots 0..10
+constexpr int kRingEntries = 4;     // the history ring: four entries of 12 bytes, the index at +0x30
+constexpr int kBlockBytes = 0x40;   // T+0x26C + 0x40k
+constexpr int kTargetBytes = 0x20;  // the 32-byte target block at block + 0x20 (T+0x28C + 0x40k)
 
 // One ring entry: +0 the state id, +4 the stamp the state was entered at, +8 the stamp last seen.
 struct RingEntry {
@@ -53,9 +55,20 @@ void ZeroTargetBlock(uint8_t* p, int v);
 // FUN_140A42940(slot, id, stamp): the state word, the ring push, and the target block's variant for id.
 void Assign(Slot* slot, int id, uint32_t stamp);
 
+// FUN_140A429A0(slot, id, stamp, record): the take. The state word, the ring push and the target block's variant
+// for id, then the 32-byte record copied over the target block (the copy comes last, so it replaces the variant).
+void Take(Slot* slot, int id, uint32_t stamp, const std::array<uint8_t, kTargetBytes>& record);
+
+// The record step 38 (FUN_1404F773E, 0x1404F77C9-0x1404F77ED) passes to the take for the designated supporter: the
+// slot's current 32 target bytes with byte 16 set to 1.
+std::array<uint8_t, kTargetBytes> SupporterRecord(const Slot& slot);
+
 // FUN_140A40820(slot, stamp): the state word to 0, a push of (0, stamp), block bytes 0..0x1c cleared,
 // and the target block zeroed. Bytes 0x1d..0x1f are not written.
 void Release(Slot* slot, uint32_t stamp);
+
+// Step 43 (FUN_1404F78FE): with T+0x218 == 0, every own slot is released (FUN_140A40820); otherwise nothing.
+void ReleaseSweep(std::array<Slot, kSlots>* slots, int noBallCounter, uint32_t stamp);
 
 // The concept point: three float32 at block bytes 0..11 (x, y, z).
 std::array<float, 3> Point(const Slot& slot);
