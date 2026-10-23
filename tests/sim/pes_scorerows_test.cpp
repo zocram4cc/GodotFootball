@@ -132,3 +132,18 @@ TEST(ScoreRows, TheRowOfAnAttackSignIsTheGoalBehindTheAttack) {
   EXPECT_FLOAT_EQ(pes::GateRowForSign(w.Rows(), 1).ValueOf(0), 1806.25f);
   EXPECT_FLOAT_EQ(pes::GateRowForSign(w.Rows(), -1).ValueOf(0), 3906.25f);
 }
+
+TEST(ScoreRows, PairBearingsAreOwnerMinusOtherFoldedToZeroTo360) {
+  // FUN_14045B420's pair table (MA+0x23F7C, read by FUN_140439FE0): P[a][b] is the bearing of
+  // (a - b), folded to [0, 360); 0 when the two coincide.
+  pes::RowPlayers p{};
+  Place(p, 0, 10.0f, 0.0f);
+  Place(p, 1, 10.0f, 10.0f);
+  Place(p, 2, 10.0f, 0.0f);  // coincident with slot 0: bearing 0
+  pes::ScoreRowWriter w;
+  w.Tick(p, Goal(), 0, /*fullRefresh=*/true);
+  const pes::ScoreRows& r = w.Rows();
+  EXPECT_NEAR(r.bearing[0][1], 180.0f, kBearingTol_deg);  // atan2(0, -10)
+  EXPECT_NEAR(r.bearing[1][0], 0.0f, kBearingTol_deg);    // atan2(0, 10)
+  EXPECT_NEAR(r.bearing[0][2], 0.0f, kBearingTol_deg);    // coincident: 0, not NaN
+}

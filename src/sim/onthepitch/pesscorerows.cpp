@@ -108,6 +108,24 @@ void BuildScoreRows(const RowPlayers& p, const ScoreRowConstants& k, uint8_t mas
     below.Seal();
   }
 
+  // The pair-bearing table (MA+0x23F7C, FUN_14045B420's owner loop at 0x14045BB80-0x14045BD27):
+  // each call zeroes every row, then for each on-pitch owner a and every b != a stores the
+  // bearing of (a - b) folded to [0, 360), 0 when the two coincide (0x14045BCC6-0x14045BD06).
+  // ponytail: the wrap second pass (0x14045BD2D-0x14045BE35) is not ported: it overwrites the
+  // bearing in place and no reader of the wrapped value is known. std::atan2 stands in for
+  // PES's polynomial (FUN_140A92D40, lane-core O3).
+  for (auto& row : rows.bearing) row.fill(0.0f);
+  for (int a = 0; a < lane::kSlots; ++a) {
+    if (!p[a].onPitch) continue;
+    for (int b = 0; b < lane::kSlots; ++b) {
+      if (b == a || !p[b].onPitch) continue;
+      const float dx = p[a].x - p[b].x;
+      const float dz = p[a].z - p[b].z;
+      if (dx == 0.0f && dz == 0.0f) continue;  // coincident: the row stays 0
+      rows.bearing[a][b] = BearingDeg(dx, dz, k);
+    }
+  }
+
   // The NearestList is rebuilt on every call, whatever the mask: each on-pitch slot lists every
   // other on-pitch slot by squared distance. An off-pitch slot has an empty list.
   for (int i = 0; i < lane::kSlots; ++i) {

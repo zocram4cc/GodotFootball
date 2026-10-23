@@ -76,6 +76,10 @@ struct ScoreRows {
   // angle[0]: bearing about (-xg, 0), MA+0x22A7C. angle[1]: about (+xg, 0), MA+0x22C64. Degrees
   // in [0, 360); 0 for a slot that is off the pitch.
   std::array<std::array<float, lane::kSlots>, 2> angle{};
+  // bearing[a][b]: the bearing of (a - b) in degrees in [0, 360), 0 when the two coincide
+  // (MA+0x23F7C + 0x58 a + 4 b, writer FUN_14045B420, reader FUN_140439FE0). Rebuilt on every
+  // call, whatever the mask. Off-pitch rows stay 0.
+  std::array<std::array<float, lane::kSlots>, lane::kSlots> bearing{};
   // nearest[i]: every other on-pitch player by squared distance from i, MA+0x22E4C + 200 i.
   // Empty when i is off the pitch.
   std::array<SortedRow, lane::kSlots> nearest{};
