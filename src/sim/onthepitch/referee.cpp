@@ -679,6 +679,14 @@ void Referee::Process() {
       }
 
       if (!buffer.started && buffer.startTime <= match->GetActualTime_ms() && ReleasesRestart(match, buffer)) {
+        // PES's minimum-players rule (FUN_140447B50 case 6, docs/re/pes-re-missing-systems.md 2.13): a side
+        // short of the minimum at a restart ends the match in the post-match period instead of taking it.
+        // The period-end restart is not a stoppage of play, so it is exempt.
+        // ponytail: PES runs the count in the restart programme (step 0x13); GF runs it when the restart is taken.
+        if (!buffer.endPhase && match->SideBelowMinimumPlayers()) {
+          match->EndForMinimumPlayers();
+          return;
+        }
         buffer.started = true;
         if (clearingLogged) {
           // How long the taker actually waited, and how far the nearest opponent had

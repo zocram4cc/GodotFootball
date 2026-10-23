@@ -23,6 +23,7 @@ class PlayerData;
 #include "matchprogression.hpp"
 #include "pesstamina.hpp"
 #include "pes/playerdb.hpp"
+#include "pesforfeit.hpp"
 #include "pessetpiecetaker.hpp"
 #include "pessetpieceteam.hpp"
 #include "pessetpieceteam.hpp"
@@ -254,6 +255,7 @@ public:
   const pes::StoppageConstants& GetPesStoppageConstants() const {
     return pesStoppageConstants;
   }
+  const pes::ForfeitConstants& GetPesForfeitConstants() const { return pesForfeitConstants; }
   const pes::RestartSpotConstants& GetPesRestartSpotConstants() const {
     return pesRestartSpotConstants;
   }
@@ -349,6 +351,12 @@ public:
       static_cast<unsigned long>(pes::kPesTickHz);
 
   void GameOver();
+  // PES's minimum-players rule (FUN_140447B50 case 6): a side has fewer players on the pitch than the minimum.
+  bool SideBelowMinimumPlayers();
+  // The minimum-players end: the post-match period, then the match is over.
+  void EndForMinimumPlayers();
+  // PES's forfeit writer (FUN_140A23260): the side owning a sent-off player with no injury marker is written 0-3.
+  void ApplyPostMatchForfeits();
   bool IsGameOver() const { return gameOver; }
 
   // Player IDs phase per-player work ((frame + id) % 10 in Player::Process), so
@@ -601,6 +609,7 @@ protected:
   pes::JudgeConstants pesJudgeConstants{};
   pes::KeeperConstants pesKeeperConstants{};
   pes::StoppageConstants pesStoppageConstants{};
+  pes::ForfeitConstants pesForfeitConstants{};
   pes::RestartSpotConstants pesRestartSpotConstants{};
   pes::KickErrorConstants pesKickErrorConstants{};
   pes::CarrierConstants pesCarrierConstants{};

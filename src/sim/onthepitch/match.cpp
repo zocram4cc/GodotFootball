@@ -128,6 +128,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES stoppage constants missing: read them from the install with "
         "pes::LoadStoppageConstants into MatchSetup::pesStoppageConstants");
   pesStoppageConstants = *setup.pesStoppageConstants;
+  if (setup.pesForfeitConstants == nullptr)
+    throw std::runtime_error(
+        "PES forfeit constants missing: read them from the install with "
+        "pes::LoadForfeitConstants into MatchSetup::pesForfeitConstants");
+  pesForfeitConstants = *setup.pesForfeitConstants;
   if (setup.pesRestartSpotConstants == nullptr)
     throw std::runtime_error(
         "PES restart spot constants missing: read them from the install with "
@@ -594,6 +599,44 @@ signed int Match::GetBestPossessionTeamID() {
 
 void Match::GameOver() {
   gameOver = true;
+  // PES's forfeit writer (FUN_140A23260) runs every tick of the post-match period. GF ends the
+  // match at the period change, so it runs once here, on the on-pitch state that change leaves.
+  // ponytail: PES re-runs the writer on each period-10 tick; the match is over before a second one.
+  if (pesClock->Record().period == static_cast<uint32_t>(pesForfeitConstants.postMatchPeriod))
+    ApplyPostMatchForfeits();
+}
+
+bool Match::SideBelowMinimumPlayers() {
+  // The count runs in a period with a clock only: a break, the shoot-out and full time have none.
+  if (!pes::PeriodHasClock(pesClock->Record().period)) return false;
+  for (int teamID = 0; teamID < 2; teamID++) {
+    std::vector<Player*> onPitch;
+    teams[teamID]->GetActivePlayers(onPitch);
+    if (pes::forfeit::BelowMinimumPlayers(static_cast<int>(onPitch.size()),
+                                          pes::forfeit::kPesMinimumPlayers))
+      return true;
+  }
+  return false;
+}
+
+void Match::EndForMinimumPlayers() {
+  // FUN_14102CAD0 writes the post-match period (FUN_140447B50 case 6).
+  pesClock->SetPeriod(static_cast<uint32_t>(pesForfeitConstants.postMatchPeriod));
+  GameOver();
+}
+
+void Match::ApplyPostMatchForfeits() {
+  for (int teamID = 0; teamID < 2; teamID++) {
+    std::vector<Player*> onPitch;
+    teams[teamID]->GetActivePlayers(onPitch);
+    for (Player* player : onPitch) {
+      if (pes::forfeit::IsForfeitOffence(pesForfeitConstants, player->GetCards(),
+                                         player->GetStamina().injuryLevel)) {
+        matchData->RecordForfeit(teamID, pesForfeitConstants.forfeitScore);
+        break;
+      }
+    }
+  }
 }
 
 bool Match::IsSubstitutionWindow() const {

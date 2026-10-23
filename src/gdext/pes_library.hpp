@@ -27,6 +27,7 @@
 #include "onthepitch/pessetpiecetaker.hpp"
 #include "onthepitch/pessetpieceteam.hpp"
 #include "onthepitch/pesstoppage.hpp"
+#include "onthepitch/pesforfeit.hpp"
 #include "onthepitch/peskickerror.hpp"
 #include "onthepitch/pesoffball.hpp"
 #include "onthepitch/pesrandom.hpp"
@@ -172,6 +173,10 @@ class PesLibrary : public RefCounted {
   const pes::StoppageConstants* stoppage_constants() const {
     return stoppageConstants_ ? &*stoppageConstants_ : nullptr;
   }
+  // PES 2021's minimum-players and forfeit immediates (docs/re/pes-re-missing-systems.md 2.7, 2.13).
+  const pes::ForfeitConstants* forfeit_constants() const {
+    return forfeitConstants_ ? &*forfeitConstants_ : nullptr;
+  }
   // PES 2021's restart-spot writer offsets (docs/re/pes-re-foul-choreography.md 9).
   const pes::RestartSpotConstants* restart_spot_constants() const {
     return restartSpotConstants_ ? &*restartSpotConstants_ : nullptr;
@@ -228,6 +233,7 @@ class PesLibrary : public RefCounted {
   std::optional<pes::KeeperConstants> keeperConstants_;
   std::optional<pes::StaminaConstants> staminaConstants_;
   std::optional<pes::StoppageConstants> stoppageConstants_;
+  std::optional<pes::ForfeitConstants> forfeitConstants_;
   std::optional<pes::RestartSpotConstants> restartSpotConstants_;
   std::optional<pes::KickErrorConstants> kickErrorConstants_;
   std::optional<pes::offball::OffBallConstants> offBallConstants_;

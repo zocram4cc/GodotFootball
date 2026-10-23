@@ -1,5 +1,13 @@
 # PES 2021 set-piece taker: selection, preparation, run-up, delivery, wall/teammate reaction (RE report, SetpieceKickerRE)
 
+> **Live dead end (Main, 22-10-26, read-only poll of MI while non-null):** with the owner's minimum-players patch (tools/dev/pes_forfeit_patch.py)
+> a side can fall to 2. On a /xs/ corner with only the keeper and a CF on the pitch: `MI+0x1554` = 4 (corner), `MI+0x116C` = 3 (ready,
+> never 1), `MI+0x1558` = 1 (the taking side), on-pitch `MI+0x1748` = slots 11 and 21 only, `MI+0x173C` = `MI+0x1740` = 255. The corner's
+> picker (`FUN_1404a8620`: designated, then the rating fallback with no GK and no CF, row 40 below) has no candidate, so no kicker is
+> published and the release never comes; the HUD's set-piece countdown (top right) ran to 0 and could not force the take either. Stock
+> PES cannot reach this: the minimum-players rule (FUN_140447B50 case 6, fewer than 7) ends the match first. `MI+0x175E` read all zero
+> with eight or more players sent off, so it is not a sent-off array (corrects that lead in pes-re-missing-systems.md).
+
 Read-only RE. Sources: Ghidra PESLive decompiles via `dec.sh` (scratch `~/ghidra-projects/scratch/Unpacker/out/spk1..6.c`),
 capstone over `<scratch>/pesmem.bin` (raw checks), read-only `pread` of the running AI-vs-AI match (`kwatch.py`, an extension of
 `SetPieceChoreoRE/spwatch.py` that also logs the taker's request block `ap+0x2bb0..0x2d1f` and the ball trajectory

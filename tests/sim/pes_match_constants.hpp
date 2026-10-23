@@ -27,6 +27,7 @@
 #include "onthepitch/pessetpieceteam.hpp"
 #include "onthepitch/pespress.hpp"
 #include "onthepitch/pesstoppage.hpp"
+#include "onthepitch/pesforfeit.hpp"
 #include "onthepitch/peskickerror.hpp"
 #include "onthepitch/pesoffball.hpp"
 #include "onthepitch/pesstrategy.hpp"
@@ -45,6 +46,7 @@ struct PesMatchConstants {
   std::optional<pes::RngConstants> rng;
   std::optional<pes::KeeperConstants> keeper;
   std::optional<pes::StoppageConstants> stoppage;
+  std::optional<pes::ForfeitConstants> forfeit;
   std::optional<pes::RestartSpotConstants> restartSpot;
   std::optional<pes::KickErrorConstants> kickError;
   std::optional<pes::SetPieceTakerConstants> setPieceTaker;
@@ -88,6 +90,7 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
   c.rng = pes::LoadRngConstants(*exe, &err);
   c.keeper = pes::LoadKeeperConstants(*exe, &err);
   c.stoppage = pes::LoadStoppageConstants(*exe, &err);
+  c.forfeit = pes::LoadForfeitConstants(*exe, &err);
   c.restartSpot = pes::LoadRestartSpotConstants(*exe, &err);
   c.kickError = pes::LoadKickErrorConstants(*exe, &err);
   if (mounted) c.setPieceTaker = pes::LoadSetPieceTakerConstants(vfs, *exe, &err);
@@ -130,6 +133,7 @@ inline bool FillMissingPesConstants(MatchSetup* setup) {
   fill(setup->pesRngConstants, c.rng);
   fill(setup->pesKeeperConstants, c.keeper);
   fill(setup->pesStoppageConstants, c.stoppage);
+  fill(setup->pesForfeitConstants, c.forfeit);
   fill(setup->pesRestartSpotConstants, c.restartSpot);
   fill(setup->pesKickErrorConstants, c.kickError);
   fill(setup->pesSetPieceTakerConstants, c.setPieceTaker);

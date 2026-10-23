@@ -1,5 +1,7 @@
 # PES 2021: the player-keyed motion remap object `_DAT_1436F2600` (the FK / penalty run-up remap)
 
+> **Correction 22-10-26 (TeamT1, FKPenaltyPlace):** the default free-kick result in §4.2, §5 and §7 is wrong. MI+0x1740 is the published second kicker, 255 = none (`docs/re/pes-re-setpiece-kicker.md`:116), so the FK player walk runs, and a default taker gets `fk_runup_robecal` (1261), not `fk_runup` (1248). The install test `ADefaultTakersRunUpsAreTheStockRows` pins this.
+
 > **Main note 22-10-26:** RemapRE's decode, not yet re-audited by Main at the bytes. The records are Derivationdatatable.bin, which GF already loads (`src/pes/derivation.*`); the free-kick and penalty placement port needs the three key getters and the placer sequence (§6) and the six mutations (§7).
 
 > Decode of the object the free-kick and penalty `SetKick` placers pass a base motion through, to

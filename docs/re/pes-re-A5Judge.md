@@ -508,6 +508,21 @@ Frames are `MI+0x1198` (match frame), measured from play 2→3 (set-play ready) 
 
 - The release follows the taker's reach and kick action (§9.2), not a fixed counter. Kick-off always reads 56 and throw-ins 88–110, so the counter is per kind and is not a time base.
 
+### 9.3a Goal → kick-off, live (Main, 22-10-26; read-only change logger on `MI` polled while non-null, the owner's endless match)
+
+Four goal stoppages by /biz/ in 5 minutes, frames = `MI+0x1198` (54 per second). Raw log: the session scratch `goal_cycle.log`.
+
+| goal (reason 3, play 2) | → ready (play 3) | → in play (play 1) | goal → in play |
+|---|---|---|---|
+| +1002 | +1759 (757) | +1884 (125) | 882 frames, 16.3 s |
+| +3463 | +4224 (761) | +4349 (125) | 886 frames, 16.4 s |
+| +7341 | +8184 (843) | +8309 (125) | 968 frames, 17.9 s |
+
+- Ready → in play is 125 frames every time, inside §9.3's 125–137 (×7): the taker-driven kick-off.
+- Goal → ready varies with the celebration (757–843 frames, 14.0–15.6 s).
+- **GF schedules the goal restart from a fixed 19 s celebration** (`goalsequence.hpp`, `referee.cpp:251-252`; about 1215 ticks, 22.5 s, goal → kick-off per `docs/re/pes-decode-TouchReach.md` §3), about 5 s longer than PES's 16.3–17.9 s. A port item: derive the goal schedule from PES's goal → ready programme instead of GF's celebration constant.
+- Same log: the kick-off kicker is the /xs/ CF (slot 21; a CF may take a kick-off, not a corner, §1.1 row 40); a throw-in (kind 2) went stop → ready 177 frames, ready → in play 332; a free kick (kind 5) 710 and 517.
+
 ### 9.4 OPEN-2, OPEN-3, OPEN-4 (armed exit, judge-tick restart guard): CONFIRMED structure
 
 - **Armed handler `FUN_14044d2e0`** (step `0x1a`; `d_0x14044d2e0.c`): first, `if (Flow+0x49c0 != 0) { FUN_1404537b0(Flow); goto LAB_14044dac9; }`. A JR restart written while armed restarts the programme at step 1 (index 0) before the armed body runs. `FUN_1404537b0` (`d_0x1404537b0.c`) resets to step 1, copies kickers, and sets the side and the `Flow+0x27fc` rule.

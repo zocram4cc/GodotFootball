@@ -7,6 +7,7 @@
 #include "gametypes.hpp"
 #include "pes/uniform.hpp"
 #include "onthepitch/pesroles.hpp"
+#include "onthepitch/pescarrier.hpp"
 
 namespace pes::offball {
 namespace {
@@ -1515,6 +1516,130 @@ int LineRank(const RunWorld& w, int id) {
     if (v[i] == id) return static_cast<int>(i);
   return kSlots;
 }
+
+namespace {
+// T+0xa2a0 == 0x3B: the offside-trap run state. FUN_140A61CF0 (0x140A61D16) scans a side's 11 slots for it.
+constexpr int kOffsideTrapState = 0x3B;
+// FUN_1404F6720's constants, each read at the VA in its comment (see the report, §2).
+constexpr float kTrapSweepRadius_m = 8.0f;     // 0x14259BDF4: the first closing sweep's outer radius
+constexpr float kTrapSweepCone_deg = 135.0f;   // 0x14259BE60: its cone
+constexpr float kTrapLineBehind_m = 10.0f;     // 0x142588210: the carrier's distance behind the trapping line
+constexpr float kTrapMarkedD2_m2 = 3.0f;       // 0x14258C264: a man within 3 m^2 of another is in contact
+constexpr float kTrapDesignatedD2_m2 = 20.0f;  // 0x14259BE1C: the designated man's d2 from the carrier
+constexpr float kTrapDesignatedLine_m = 4.0f;  // 0x1425656C0: the designated man's distance past the line
+constexpr float kTrapAimCone_deg = 45.0f;      // 0x14259BE30: the designated man's bearing to the attack
+constexpr float kTrapVetoCone_deg = 80.0f;     // 0x142596E6C: a free man in the carrier's forward cone vetoes
+constexpr float kTrapArmAngle_deg = 90.0f;     // 0x14259BE5C: the carrier 90 degrees off the attack arms
+constexpr float kTrapFinalCone_deg = 20.0f;    // 0x14259BE1C: the final sweep's cone (the same constant)
+constexpr int kTrapFinalFrames = 15;           // 0x1404F6BAB: the final sweep's frame byte, 0xF
+constexpr float kNoOpponentD2 = -1.0f;         // 0x142588218: FUN_140A4DCC0's answer for a man with no opponent
+// 0x14259BDD0 / fps: the speed floor of the carrier's heading (FUN_140458740 at 0x1404F69B0).
+constexpr float kCarrierSpeedFloor_mps = 0.6944444179534912f;
+
+// The man nearest to `id` on the other side: the first entry of the other block of his S1 row (FUN_140A4EDF0 with
+// k = 0, which FUN_140A4DCC0 reads too). Empty when his row lists nobody.
+std::optional<NearOpponent> FirstOpponent(const RunWorld& w, int id) {
+  const int t = TeamOf(id);
+  const pes::SortedRow& row = w.nearestRows[t]->nearest[LaneOf(t, id)];
+  if (row.Count(1) == 0) return std::nullopt;
+  const pes::RowEntry& e = row.Entry(1, 0);
+  return NearOpponent{GlobalOf(t, e.id), e.value};
+}
+// FUN_14043B8B0: the squared distance of `target` in `id`'s S1 row, either side. NaN when the row does not list him.
+float RowD2(const RunWorld& w, int id, int target) {
+  const int t = TeamOf(id);
+  return w.nearestRows[t]->nearest[LaneOf(t, id)].ValueOf(LaneOf(t, target));
+}
+// FUN_140458740 over the floor (FUN_140A6C6D0 squares it against |v|): a man under the floor speed reads his facing.
+// ponytail: PES also tests the record's movement state; GF's run world carries no such byte, and a still or slow man
+// is the only one under the floor.
+float CarrierHeading(const PlayerFacts& p) {
+  const float speed2 = p.vel.x * p.vel.x + p.vel.z * p.vel.z;
+  if (speed2 < kCarrierSpeedFloor_mps * kCarrierSpeedFloor_mps) return p.facing;
+  return PVec(p.vel);
+}
+}  // namespace
+
+}  // namespace
+// FUN_1404F6720 (step 5, 0x1404F6720-0x1404F6BC2): whether team `t`'s offside-trap flag T+0xE4 is set this tick. The
+// gates run in PES's order and each cites its VA. Three of them cannot pass together: 0x1404F68E4 (10 m behind the
+// trapping line) and 0x1404F6A5B (4 m past it) read the same team line f40(T) and sign: together they need
+// |D.x - c.x| > 6 m, while 0x1404F6A45 (d2(c, D) < 20) caps it below 4.5 m. Live PES agrees: T+0xe4 = 0 in all
+// 1986 in-play records (docs/re/pes-re-defensive-shape.md:554). The chain stays whole, as PES wrote it: it is right
+// if f40's inputs ever change.
+bool OffsideTrapArmed(const RunWorld& w, int t) {
+  // 0x1404F6785-0x1404F6793: the sheet check FUN_1408C5000 (byte [T+0x8E08+0x1464] = T+0xA26C) and the concept gate
+  // FUN_140CA1A50(0x12), which is constant 1 (MOV AL,1). ponytail: GF keeps no sheet-valid byte; the designation
+  // publisher runs before play, so the sheet gate reads set.
+  // 0x1404F6799: MI+0x116C == 1, open play.
+  if (!w.openPlay) return false;
+  // The S1 rows are the team AIs' writer output; without them there are no nearest men.
+  if (w.nearestRows[0] == nullptr || w.nearestRows[1] == nullptr) return false;
+  // FUN_140A61CF0 (0x1404F67B0): no man of the trapping side is already in the trap state.
+  for (int k = t * kSlots; k < t * kSlots + kSlots; ++k)
+    if (w.p[k].state == kOffsideTrapState) return false;
+  // The carrier, FUN_140A627E0 (0x1404F67CE), is a slot 0..21 on the other side (0x1404F67D5-0x1404F67EE).
+  const int c = w.carrier;
+  if (c < 0 || c >= 2 * kSlots) return false;
+  const int cs = c / kSlots;
+  if (cs == t) return false;
+  const PlayerFacts& me = w.p[c];
+  const float sT = w.s[t];   // T+0x254 of the trapping side (0x1404F69E7)
+  const float sC = w.s[cs];  // T+0x254 of the carrier's side (0x1404F68BF)
+  // D, the carrier side's designated man: the first of that side's block in the S1 list for its sign (FUN_140A714E0
+  // at 0x1404F683E, then dword [list + 0x58·cs] at 0x1404F695E).
+  const std::vector<int> block = ListBlock(w, cs, sC);
+  if (block.empty()) return false;
+  const int D = block.front();
+  if (D == c) return false;  // 0x1404F684D
+  const PlayerFacts& dm = w.p[D];
+  // The carrier side's attack bearing, T+0x250 (0x1404F6865, pes::AttackAngleDeg).
+  const float attackDeg = pes::AttackAngleDeg(sC);
+  // The first closing sweep (FUN_140A4E720 at 0x1404F6896): an opponent 0 to 8 m out in the 135-degree forward cone.
+  // Both sweeps pass the on-pitch byte as 1 (0x1404F6896, 0x1404F6BB7), a test that GF's active flag carries.
+  if (ConeOpp(w, c, attackDeg, kTrapSweepCone_deg, kTrapSweepRadius_m) == 0) return false;
+  // ponytail: 0x1404F68EA reads G+0x2AA8+0x18, a pitch-table float (not decoded; it is not the ball). GF has no entry
+  // for it, so this gate passes; the chain stays unarmed through the gates named in the header either way.
+  // Q, the trapping side's man nearest the carrier (FUN_140A4EDF0 at 0x1404F6917), within 3 m^2 of him (FUN_14043B8B0
+  // at 0x1404F6936; JNC at 0x1404F6948).
+  const std::optional<NearOpponent> q = FirstOpponent(w, c);
+  if (!q || q->d2 >= kTrapMarkedD2_m2) return false;
+  // The team lines: 0x1404F68CB (MA+0x40+0x14·t) and 0x1404F6A0B (MA+0x38+0x14·cs). ponytail: GF's RunWorld::lineX
+  // stands in for both; its documented offset (+0x44) is not checked against the raw reads.
+  const float lineT = w.lineX[t];
+  const float lineC = w.lineX[cs];
+  // 0x1404F68E4: the carrier is more than 10 m behind the trapping line, on the carrier side's attack.
+  if ((lineT - me.pos.x) * sC <= kTrapLineBehind_m) return false;
+  // 0x1404F6A04-0x1404F6A12: the trapping line is not past the carrier side's line, on the trapping side's attack.
+  if (sT * lineT > sT * lineC) return false;
+  // 0x1404F6A1B-0x1404F6A3F: the designated man is on his side of the centre line.
+  if (0.0f > dm.pos.x * sC) return false;
+  // 0x1404F6A45: the designated man is within 20 m^2 of the carrier (his d2 in the carrier's own row).
+  const float dCD = RowD2(w, c, D);
+  if (dCD >= kTrapDesignatedD2_m2) return false;
+  // 0x1404F6A53-0x1404F6A5B: the designated man is not 4 m or more past the trapping line.
+  if ((lineT - dm.pos.x) * sC >= kTrapDesignatedLine_m) return false;
+  // The carrier's bearing to D: M[c][D] (0x1404F69D2, FUN_140439FE0). ponytail: the live bearing stands in for the
+  // pair table, as pescarrier.cpp does. It is within 45 degrees of the attack bearing (0x1404F6A7D, 0x1404F6A98).
+  const float bearingCD = PBrg(me.pos, dm.pos);
+  if (Ad(attackDeg, bearingCD) > kTrapAimCone_deg) return false;
+  // The veto (0x1404F6AD0-0x1404F6B37): a carrier-side man other than D, on the pitch, whose nearest opponent is 3 m^2
+  // or more away (FUN_140A4DCC0, JC at 0x1404F6B13), and who lies inside 80 degrees of the carrier's heading.
+  const float heading = CarrierHeading(me);
+  for (int slot = cs * kSlots; slot < cs * kSlots + kSlots; ++slot) {
+    if (!w.p[slot].active || slot == D) continue;
+    const std::optional<NearOpponent> near = FirstOpponent(w, slot);
+    const float nearD2 = near ? near->d2 : kNoOpponentD2;
+    if (!(nearD2 >= kTrapMarkedD2_m2)) continue;
+    if (Ad(heading, PBrg(me.pos, w.p[slot].pos)) <= kTrapVetoCone_deg) return false;
+  }
+  // 0x1404F6B4C-0x1404F6B83: the carrier faces 90 degrees or more off the attack bearing: armed.
+  if (!(Ad(attackDeg, me.facing) < kTrapArmAngle_deg)) return true;
+  // 0x1404F6B85-0x1404F6BB9: otherwise the final sweep toward D (20 degrees, 15 frames, radius d2) must be empty.
+  return ConeOpp(w, c, bearingCD, kTrapFinalCone_deg, dCD, kTrapFinalFrames) == 0;
+}
+
+namespace {
 // a4f230 (FUN_140A4F230): attackers of the team in possession ahead of the opponents' line.
 int AttackersAhead(const RunWorld& w) {
   const int t = w.possession[0] ? 0 : 1;
