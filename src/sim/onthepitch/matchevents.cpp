@@ -121,6 +121,7 @@ void Match::ProcessPesEventStage() {
     in.phase = phase;
     in.state = kStateWord;
     in.restartState = restartState;
+    in.restartKind = PesRestartKind();  // MI+0x1554: the event's payload +0x1c when byte +0x2d is set
     in.store = &pesEvents;
     in.constants = &pesEventConstants;
     pes::EventRecord touchRecord;

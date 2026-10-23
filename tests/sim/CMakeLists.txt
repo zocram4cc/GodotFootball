@@ -222,10 +222,29 @@ gtest_discover_tests(pes_roles_test)
 add_executable(pes_forward_test pes_forward_test.cpp)
 target_link_libraries(pes_forward_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_forward_test)
+add_executable(pes_mentality_test pes_mentality_test.cpp)
+target_link_libraries(pes_mentality_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_mentality_test)
 
 add_executable(pes_team_tick_test pes_team_tick_test.cpp)
 target_link_libraries(pes_team_tick_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_team_tick_test)
+
+add_executable(pes_reaction_test pes_reaction_test.cpp)
+target_link_libraries(pes_reaction_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_reaction_test)
+
+add_executable(pes_reaction_block_test pes_reaction_block_test.cpp)
+target_link_libraries(pes_reaction_block_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_reaction_block_test)
+
+add_executable(pes_attrs_test pes_attrs_test.cpp)
+target_link_libraries(pes_attrs_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_attrs_test)
+
+add_executable(pes_run_slots_test pes_run_slots_test.cpp)
+target_link_libraries(pes_run_slots_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_run_slots_test)
 
 add_executable(sim_heading_test sim_heading_test.cpp)
 target_link_libraries(sim_heading_test PRIVATE gfsim pesfmt GTest::gtest_main)

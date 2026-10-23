@@ -27,6 +27,7 @@
 
 #include "../data/playerskills.hpp"
 #include "../data/playingstyles.hpp"
+#include "pes/movestep.hpp"
 #include "pessetpieceteam.hpp"
 #include "pessequencer.hpp"
 #include "pes/mbinfo.hpp"
@@ -374,6 +375,14 @@ int PesLineIndexForRole(e_PlayerRole role) {
   }
 }
 
+// MI+0x116C: open play is 1. The role level's override only tests for 1, so any other state is 2 here.
+constexpr int kStoppedPlayState = 2;
+int PesPlayState(bool openPlay) {
+  return openPlay ? pes::mentality::kPlayStateInPlay : kStoppedPlayState;
+}
+// MI+0x1554, the restart kind. GF has no writer for it (MOVESTEP's MatchState1554 stands in 0 too).
+constexpr int kRestartKindStandIn = 0;  // ponytail: MI+0x1554 has no GF writer; the override stays off.
+
 }  // namespace
 
 void TeamAIController::CalculateDefensiveShape() {
@@ -431,6 +440,29 @@ void TeamAIController::CalculateDefensiveShape() {
   defensiveCompactSlider = compactSlider;
   defensivePressing = teamSheet.Toggle(pes::kPressuring) == 1;
 
+  // PES's defence-row dispatch (FUN_1405EC600 @ 0x1405ECC21): the possession flag picks block B (67B640),
+  // which runs the fold pick on the PES path. Block A's forward pull (682770) is not ported yet (F2-F4), so
+  // out of possession the GF target stands. The fold's consumer (the readers of planObj+0x7CD4) is not decoded.
+  foldSlots.clear();
+  if (match->PesLoop() &&
+      pes::mentality::BlockFor(team->IsPesPossession()) == pes::mentality::Block::kInPossession) {
+    std::array<pes::mentality::FoldCandidate, pes::roles::kSideSlots> cands{};
+    std::array<int, pes::roles::kSideSlots> classes{};
+    const auto& players = team->GetAllPlayers();
+    for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) {
+      Player* p = players[slot].get();
+      classes[slot] = roles.b[slot];
+      cands[slot].onPitch = p->IsActive();
+      cands[slot].cls = roles.b[slot];
+      // ponytail: the candidate position (67C4B0's local_238) has no decoded writer; the pitch position stands.
+      cands[slot].x = p->GetPosition().coords[0];
+      cands[slot].z = p->GetPosition().coords[1];
+    }
+    foldSlots = pes::mentality::FoldPicks(match->GetPesTeamConceptConstants().fold, cands,
+                                          pes::mentality::ProtectedSlot(classes),
+                                          pes::mentality::FoldCount(teamTick.b8a4), teamTick.b8a2);
+  }
+
   float ownFrameLine =
       pes::DefensiveLineHeight(k, field, facts, lineSlider, style, attackLevel, match->IsInPlay(),
                                carrierIsOpponent, previousLineHeight,
@@ -443,7 +475,7 @@ void TeamAIController::CalculateDefensiveShape() {
   std::vector<Player*> active;
   team->GetActivePlayers(active);
   for (Player* p : active) {
-    if (PesLineIndexForRole(p->GetFormationEntry().role) != 1) continue;
+    if (DefensiveLineOf(p, p->GetFormationEntry().role) != pes::mentality::kMidLine) continue;
     const float x = p->GetPosition().coords[0] * dir;
     const float midLower = ownFrameLine + gap;
     midScores.push_back(x <= midLower + 2.0f ? 100.0f
@@ -489,7 +521,7 @@ float TeamAIController::MeasuredLine(int line, float ref) const {
   int n = 0;
   for (Player* p : active) {
     const e_PlayerRole role = p->GetFormationEntry().role;
-    if (role == e_PlayerRole_GK || PesLineIndexForRole(role) != line) continue;
+    if (role == e_PlayerRole_GK || DefensiveLineOf(p, role) != line) continue;
     sum += std::clamp(p->GetPosition().coords[0], ref - clamp_m, ref + clamp_m);
     ++n;
   }
@@ -628,7 +660,7 @@ Vector3 TeamAIController::GetAdaptedFormationPosition(Player* player,
     // defender's depth and width terms both come from the line he plays in. PES
     // rebuilds both shapes every tick and the out-of-possession one is what a
     // defending team plays in.
-    const int lineIndex = PesLineIndexForRole(role);
+    const int lineIndex = DefensiveLineOf(player, role);
     const float line = defensiveLineHeight;
     const float len = defensiveTeamLength;
     // The back line sits on the line height itself (report 14.7: a back-line
@@ -657,7 +689,7 @@ Vector3 TeamAIController::GetAdaptedFormationPosition(Player* player,
     int headCount = 0;
     for (Player* mate : teammates)
       if (mate->GetFormationEntry().role != e_PlayerRole_GK &&
-          PesLineIndexForRole(mate->GetFormationEntry().role) == lineIndex)
+          DefensiveLineOf(mate, mate->GetFormationEntry().role) == lineIndex)
         ++headCount;
     const Vector3 currentBall = match->GetBall()->Predict(0);
     const float dir = static_cast<float>(-team->GetSide());
@@ -2796,6 +2828,19 @@ void TeamAIController::UpdateStrategy() {
   const bool pesPath = match->PesLoop();
   const bool inPlay = match->IsInPlay() && !match->IsInSetPiece();
   if (pesPath) {
+    // Steps 8 and 9 first, as in PES's order: the stopped select (8) and the out-of-play clear of
+    // the reaction delays (9) read the latch, MI+0x116C and MI+0x1554 before the drift reads anything.
+    const bool latch = team->IsPesPossession();
+    const RefereeBuffer& buffer = match->GetRefereeBuffer();
+    const int playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
+                                            buffer.prepared || buffer.started);
+    pes::StoppedSelect(&teamTick, !latch, playState, match->PesRestartKind());
+    pes::ClearReactionDelays(&teamTick, playState);
+    // Step 11's head (FUN_1404FEDC0): R8B is the latch change this tick, the flip the restart word
+    // reads too. ponytail: DL (0x1404F6D89-0x1404F6D97) needs MI+0x119C, the raw kick sum, which
+    // has no GF counterpart (team.cpp), so the score-on branch stays off.
+    const bool flipped = latch != lastTickPossession;
+    pes::SupportWeights(&teamTick, latch, flipped, playState, /*scoreFlag=*/false);
     // ponytail: T+0x210 (the manual/target word) has no GF counterpart and no
     // decoded in-match writer (tactics §3 O4); balanced stands in, so the
     // manual arm never fires until the writer lands.
@@ -2803,8 +2848,7 @@ void TeamAIController::UpdateStrategy() {
     pes::DriftAttackLevel(&teamTick, strategy.strategy, kManualBalanced, inPlay,
                            match->GetPesFrame());
     pes::WriteAttackFlags(&teamTick);
-    const bool latch = team->IsPesPossession();
-    pes::WriteRestartWord(&teamTick, inPlay, latch != lastTickPossession);
+    pes::WriteRestartWord(&teamTick, inPlay, flipped);
     lastTickPossession = latch;
     // Step 15's in-play arm (FUN_1404FA840, 0x1404FA869-0x1404FA887).
     if (inPlay) pes::ArmInPlayCounters(&teamTick);
@@ -2867,7 +2911,9 @@ void TeamAIController::Reset() {
   offsideTrapX = 0;
 
   for (int id = 0; id < pes::kConceptCount; ++id) StopConcept(id);
-  runs.clear();
+  for (pes::run::Slot& slot : runSlots) {
+    if (slot.state != pes::offball::kNothing) pes::run::Release(&slot, static_cast<uint32_t>(match->GetPesFrame()));
+  }
   lastRunFrame = -1;
   designatedSupporter = nullptr;
 
@@ -2903,9 +2949,22 @@ bool IsGoalie(Player* p) { return p->GetFormationEntry().role == e_PlayerRole_GK
 }  // namespace
 
 int TeamAIController::GetRunState(const Player* player) const {
-  auto it = runs.find(player);
-  return it == runs.end() ? ob::kNothing : it->second.state;
+  const int k = OwnRunSlot(player);
+  return k < 0 ? ob::kNothing : runSlots[k].state;
 }
+
+int TeamAIController::OwnRunSlot(const Player* player) const {
+  const int s = RunSlotOf(player);
+  const int k = s - team->GetID() * ob::kSlots;
+  return k >= 0 && k < pes::run::kSlots ? k : -1;
+}
+
+// The point a run aims at: the concept point of the run's slot (T+0x26C).
+static Vector3 RunPoint(const pes::run::Slot& slot) {
+  const std::array<float, 3> p = pes::run::Point(slot);
+  return Vector3(p[0], p[1], p[2]);
+}
+static_assert(pes::run::kSlots == ob::kSlots, "the run table holds one slot per own roster slot");
 
 Player* TeamAIController::NearestOpponentOf(const Player* own) const {
   const int slot = RunSlotOf(own);
@@ -2938,9 +2997,9 @@ Player* TeamAIController::RunPlayerAt(int slot) const {
 }
 
 bool TeamAIController::GetOffBallTarget(const Player* player, Vector3* target) const {
-  auto it = runs.find(player);
-  if (it != runs.end() && it->second.state != ob::kNothing) {
-    *target = it->second.target;
+  const int k = OwnRunSlot(player);
+  if (k >= 0 && runSlots[k].state != ob::kNothing) {
+    *target = RunPoint(runSlots[k]);
     return true;
   }
   if (player == designatedSupporter) {
@@ -3003,7 +3062,9 @@ void TeamAIController::ProcessDesignatedSupporter(Player* carrier) {
   }
   const Vector3 carrierPred = Predict(carrier, kSupporterPredictFrames);
   // Forced back to BASE_POSITION: the supporter never runs (b2a.c:657-699).
-  runs.erase(designatedSupporter);
+  if (const int k = OwnRunSlot(designatedSupporter); k >= 0 && runSlots[k].state != ob::kNothing) {
+    pes::run::Release(&runSlots[k], static_cast<uint32_t>(match->GetPesFrame()));
+  }
 
   // FUN_1405ebca0: the carrier's predicted point moved by the support distance
   // along the bearing carrier -> supporter.
@@ -3036,23 +3097,29 @@ void TeamAIController::SetUpRoleArrays() {
       teamSheet.SetRegisteredRole(slot, role, phase);
   }
   pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamSheet,
-                             pes::roles::WritePhase(team->GetID() == 0), &roles);
+                             pes::mentality::RoleLevel(
+                                 team->GetID() == 0,
+                                 PesPlayState(match->IsInPlay() && !match->IsInSetPiece()),
+                                 kRestartKindStandIn),
+                             &roles);
 }
 
-// The bulk writer FUN_1404F5F10 at the team tick's head and tail (FUN_14051D9E0). The head takes
-// flag 0 and the tail takes the possession latch T+0x255. Both are gated on MI+0x1775 == 0; GF has
+// The bulk writer FUN_1404F5F10 at the team tick's head and tail (FUN_14051D9E0). Both take the level of
+// the possession latch T+0x255 (RoleLevel). PES's head flag is F, the latch on the usual path (its parity
+// sub-path is RE-25, not ported). Both are gated on MI+0x1775 == 0; GF has
 // no such byte and its stand-in (pesmovestep.cpp's MatchModeByte) is 0, so the gate is open.
 // ponytail: PES's registry is the sheet's role per phase. GF has no sheet phases, so each write
 // mirrors the role its slot's player holds now (the dynamic formation entry the readers used).
 void TeamAIController::WriteRoleArrays(bool head) {
   const bool possession = team->IsPesPossession();
-  const int phase = pes::roles::WritePhase(!head && possession);
+  const int level = pes::mentality::RoleLevel(
+      possession, PesPlayState(match->IsInPlay() && !match->IsInSetPiece()), kRestartKindStandIn);
   for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) {
     const e_PlayerRole role = team->GetAllPlayers()[slot]->GetDynamicFormationEntry().role;
-    teamSheet.SetRegisteredRole(slot, pes::roles::RegisteredRoleOf(role), phase);
+    teamSheet.SetRegisteredRole(slot, pes::roles::RegisteredRoleOf(role), level);
   }
   pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamSheet,
-                             phase, &roles);
+                             level, &roles);
   if (head) return;
   // The tail swap (FUN_14051E31E) also needs FUN_140A41BE0's latch (TailSwapAllowed).
   if (roleSwap && possession && pes::roles::TailSwapAllowed(roles))
@@ -3062,6 +3129,17 @@ void TeamAIController::WriteRoleArrays(bool head) {
 int TeamAIController::RoleClassOfSlot(int slot) const {
   assert(slot >= 0 && slot < pes::roles::kSideSlots);
   return roles.b[slot];
+}
+
+int TeamAIController::DefensiveLineOf(Player* p, e_PlayerRole role) const {
+  if (!match->PesLoop()) return PesLineIndexForRole(role);
+  // PES's line of a slot is the reclassify of its B class (EC600's line store at 0x1405ECBB0).
+  const auto& players = team->GetAllPlayers();
+  for (int slot = 0; slot < pes::roles::kSideSlots && slot < static_cast<int>(players.size()); ++slot)
+    if (players[slot].get() == p)
+      return pes::mentality::ReclassifyLine(match->GetPesTeamConceptConstants().reclassifyLines,
+                                            roles.b[slot]);
+  return PesLineIndexForRole(role);
 }
 
 void TeamAIController::UpdatePesDesignation() {
@@ -3169,11 +3247,12 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       // the closest analogue: the class the AI treats the player as.
       f.aiClass = f.roleClass;
       f.slotPoint = Flat(ctl->GetAdaptedFormationPosition(pl, false));
-      auto run = ctl->runs.find(pl);
-      if (run != ctl->runs.end()) {
-        f.state = run->second.state;
-        f.t = (now - run->second.start_ms) * kPesFps / 1000.0f;
-        f.aim = Flat(run->second.target);
+      const int k = ctl->OwnRunSlot(pl);
+      if (k >= 0 && ctl->runSlots[k].state != ob::kNothing) {
+        const pes::run::Slot& run = ctl->runSlots[k];
+        f.state = run.state;
+        f.t = static_cast<float>(static_cast<uint32_t>(match->GetPesFrame()) - pes::run::Behind(run.ring, 0).enteredAt);
+        f.aim = Flat(RunPoint(run));
       } else {
         f.state = ob::kBasePosition;
         f.t = 1e9f;
@@ -3220,6 +3299,7 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
 void TeamAIController::ProcessRunManager(Player* carrier) {
   const pes::offball::OffBallConstants& k = match->GetPesOffBallConstants();
   const unsigned long now = match->GetActualTime_ms();
+  const uint32_t frame = static_cast<uint32_t>(match->GetPesFrame());
   const float s = -team->GetSide();
   const int opp = abs(team->GetID() - 1);
   const bool openPlay = match->IsInPlay() && !match->IsInSetPiece();
@@ -3242,18 +3322,16 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   // (off-ball 2.3: the Chance mask's raw body never reads ctx+0x38), so it is
   // not kept or applied on the Chance path - see RunCooldownBlocks's note and
   // the fitness test that pins it to SecondLine.
-  for (auto it = runs.begin(); it != runs.end();) {
-    const auto at = std::find(slots.begin(), slots.end(), it->first);
-    if (at == slots.end()) {
-      it = runs.erase(it);
+  for (int k = 0; k < pes::run::kSlots; ++k) {
+    pes::run::Slot& slot = runSlots[k];
+    if (slot.state == ob::kNothing) continue;
+    if (k >= static_cast<int>(slots.size())) {
+      pes::run::Release(&slot, frame);
       continue;
     }
-    const int id = base + static_cast<int>(at - slots.begin());
-    if (ob::RunStop(world, id, it->second.state)) {
+    if (ob::RunStop(world, base + k, slot.state)) {
       match->GetMatchData()->AddStopFire(team->GetID());
-      it = runs.erase(it);
-    } else {
-      it = std::next(it);
+      pes::run::Release(&slot, frame);
     }
   }
 
@@ -3266,7 +3344,7 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   constexpr bool tikiTaka = false;
   const int cap = ob::RunCap(k, ob::kCapChance, level, tikiTaka);
   int running = 0;
-  for (const auto& [p, r] : runs) running += r.state == ob::kChance;
+  for (const pes::run::Slot& slot : runSlots) running += slot.state == ob::kChance;
   const int runningAtStart = running;
 
   std::vector<Player*> opponents;
@@ -3321,7 +3399,7 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
       auto it = std::find_if(slots.begin(), slots.end(),
                              [&](Player* p) { return GetRunState(p) == ob::kChance; });
       if (it == slots.end()) break;
-      runs.erase(*it);
+      pes::run::Release(&runSlots[it - slots.begin()], frame);
       --excess;
     }
     return;
@@ -3358,7 +3436,8 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
     scores[i] = ob::ChanceScore(k, s, pos.coords[0]);
   }
   for (int i : ob::SelectRunners(scores, running, cap, ob::kChancePerTick, true)) {
-    runs[slots[i]] = RunRecord{ob::kChance, now, targets[i]};
+    pes::run::Assign(&runSlots[i], ob::kChance, frame);
+    pes::run::SetPoint(&runSlots[i], {targets[i].coords[0], targets[i].coords[1], targets[i].coords[2]});
     match->GetMatchData()->AddChanceRun(team->GetID());
     ++running;
   }
@@ -3369,7 +3448,7 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
     auto it = std::find_if(slots.begin(), slots.end(),
                            [&](Player* p) { return GetRunState(p) == ob::kChance; });
     if (it == slots.end()) break;
-    runs.erase(*it);
+    pes::run::Release(&runSlots[it - slots.begin()], frame);
     --excess;
   }
 }
