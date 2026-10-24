@@ -14,6 +14,10 @@
  "regions_init": {},
  "patch_addrs": {},
  "inputs": {
+  "G_14351AE54": {
+   "absolute": "0x14351AE54",
+   "enc": "f32"
+  },
   "scalar_rcx": {
    "reg": "rcx",
    "enc": "u32"
@@ -36,6 +40,12 @@
   }
  },
  "input_schema": {
+  "G_14351AE54": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50; the .data global the callee 141E532D0 loads (case-varied)"
+  },
   "scalar_rcx": {
    "kind": "u8",
    "lo": 0,
@@ -80,9 +90,7 @@
   "indirect_calls": [],
   "tailjumps": [],
   "unresolved_mem": 0,
-  "live_data_reads": [
-   "IMG"
-  ],
+  "live_data_reads": [],
   "live_data_writes": [],
   "rdata_constant_reads": [
    "IMG"

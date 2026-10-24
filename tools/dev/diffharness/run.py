@@ -290,6 +290,10 @@ def set_inputs(mu, spec, inputs):
             mu.mem_write(base + int(loc["offset"], 16), blob)
         elif "stack_offset" in loc:
             mu.mem_write(stack_top(spec) + int(loc["stack_offset"], 16), blob)
+        elif "absolute" in loc:
+            # A global the code reads at a fixed image VA (case-varied; the
+            # harness writes it per case, and the diff main writes the same bytes).
+            mu.mem_write(int(loc["absolute"], 16), blob)
         else:
             raise KeyError("input %s has no location" % name)
 

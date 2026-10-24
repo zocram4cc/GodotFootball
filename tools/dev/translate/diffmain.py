@@ -101,6 +101,9 @@ def gen(spec, va, callees):
         elif "region" in loc:
             n = {"u8": 1, "u32": 4, "u64": 8, "i32": 4, "f32": 4}[enc]
             L.append('    { auto it = jl.in.find("%s"); uint64_t _v = it == jl.in.end() ? 0 : (it->second.t == JVal::BITS ? it->second.bits : (uint64_t)it->second.n); s.wr(base_%s + %s, _v, %d); }' % (name, ids[loc["region"]], loc["offset"], n))
+        elif "absolute" in loc:
+            n = {"u8": 1, "u32": 4, "u64": 8, "i32": 4, "f32": 4}[enc]
+            L.append('    { auto it = jl.in.find("%s"); uint64_t _v = it == jl.in.end() ? 0 : (it->second.t == JVal::BITS ? it->second.bits : (uint64_t)it->second.n); s.wr(%sULL, _v, %d); }' % (name, loc["absolute"], n))
         elif "absfill" in loc:
             rname, off_key, typ = loc["absfill"]
             n = {"u8": 1, "u32": 4, "u64": 8, "i32": 4, "f32": 4}[typ]
