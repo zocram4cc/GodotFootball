@@ -155,7 +155,10 @@ def reg_write(name, expr):
 
 def sext(expr, bits):
     sh = 64 - bits
-    return "((int64_t)(((uint64_t)(%s) << %d) >> %d))" % (expr, sh, sh)
+    # Cast to int64 BEFORE the right shift: the >> must be arithmetic.
+    # ((int64_t)(bits << sh) >> sh) sign-extends; the old order shifted
+    # the unsigned value (logical) and cast after, which zero-extends.
+    return "(((int64_t)(((uint64_t)(%s) << %d))) >> %d)" % (expr, sh, sh)
 
 
 def parse_mem(inner):
@@ -576,7 +579,9 @@ class Emitter:
             r = "((_a & %sULL) >> (_c & %d))" % (mm,
                                                  w - 1 if w < 64 else 63)
         else:
-            r = "((uint64_t)(((int64_t)((uint64_t)(_a << %d)) >> %d) >> " \
+            # SAR: sign-extend the w-bit value to 64 first (arithmetic
+            # shift of the signed value), then shift right arithmetically.
+            r = "((uint64_t)((((int64_t)((uint64_t)(_a) << %d)) >> %d) >> " \
                 "(_c & %d)) & %sULL)" % (64 - w, 64 - w,
                                          w - 1 if w < 64 else 63, mm)
         out = ["{ uint64_t _a = (uint64_t)(%s), _c = (uint64_t)(%s) & 0xFF;"
@@ -748,7 +753,9 @@ class Emitter:
     def x_lane(self, op):
         o = op.strip().lower()
         if o in GPR or o in SUB:
-            return "(s.x_f32_from_int(%s))" % reg_read(o)
+            # Integer register as float source (MOVD/MOVSS reg): the low
+            # 32 bits are IEEE-754 bits, not an integer value.
+            return "(PesState::f32((uint32_t)(%s)))" % reg_read(o)
         if o.startswith("xmm") and "[" not in o:
             return "s.x_f32(%d)" % int(o[3:])
         inner = o[o.find("["):] if "[" in o else o
@@ -933,13 +940,14 @@ class Emitter:
         if m == "CVTPS2PD":
             if s.startswith("xmm") and "[" not in s:
                 y = int(s[3:])
-                lo = ("(double)(float)(uint32_t)s.xmm[%d][0]" % y)
-                hi = ("(double)(float)(uint32_t)(s.xmm[%d][0] >> 32)" % y)
+                lo = ("(double)PesState::f32((uint32_t)s.xmm[%d][0]" % y)
+                hi = ("(double)PesState::f32((uint32_t)(s.xmm[%d][0] >> 32))"
+                      % y)
             else:
                 inner = src[src.find("["):]
                 e = self.mem_val(inner, 64, None)
-                lo = "(double)(float)(uint32_t)(%s)" % e
-                hi = "(double)(float)(uint32_t)((%s) >> 32)" % e
+                lo = "(double)PesState::f32((uint32_t)(%s))" % e
+                hi = "(double)PesState::f32((uint32_t)((%s) >> 32))" % e
             return ["{ double _lo = %s, _hi = %s; uint64_t _u0, _u1;"
                     % (lo, hi),
                     "  memcpy(&_u0, &_lo, 8); memcpy(&_u1, &_hi, 8);",
