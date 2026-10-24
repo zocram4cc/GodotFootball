@@ -250,6 +250,11 @@ gtest_discover_tests(pes_reaction_block_test)
 add_executable(pes_attrs_test pes_attrs_test.cpp)
 target_link_libraries(pes_attrs_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_attrs_test)
+add_executable(pes_mark_table_test pes_mark_table_test.cpp)
+target_link_libraries(pes_mark_table_test PRIVATE gfsim pesfmt GTest::gtest_main)
+target_compile_definitions(pes_mark_table_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_discover_tests(pes_mark_table_test)
+
 
 add_executable(pes_run_slots_test pes_run_slots_test.cpp)
 target_link_libraries(pes_run_slots_test PRIVATE gfsim pesfmt GTest::gtest_main)

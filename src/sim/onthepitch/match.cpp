@@ -289,6 +289,14 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES press constants missing: read them from the install with "
         "pes::LoadPressConstants into MatchSetup::pesPressConstants");
   pesPressConstants = *setup.pesPressConstants;
+  // PES 2021's mark table (team-tick step 35, FUN_1404F61E0): the build rule's
+  // image constants. Required like the rest: a mark build without them would be
+  // guessing.
+  if (setup.pesMarkTableConstants == nullptr)
+    throw std::runtime_error(
+        "PES mark table constants missing: read them from the install with "
+        "pes::marktable::LoadMarkTableConstants into MatchSetup::pesMarkTableConstants");
+  pesMarkTableConstants = *setup.pesMarkTableConstants;
 
   dynamicNode = boost::intrusive_ptr<Node>(new Node("dynamicNode"));
   scene3D->AddNode(dynamicNode);
@@ -836,6 +844,19 @@ void Match::Process() {
     ProcessRefereeStage();
     ProcessBallStage();
     ProcessPesEventStage();
+  }
+
+  if (pesLoop) {
+    // W1's recompute runs off the restart step each tick, before anything reads the holder. ponytail:
+    // PES's cursor MI+0x11B0 has no GF state - its per-value writer is OPEN (docs/re/pes-re-restart-step.md 2,
+    // 7) - so GF's stoppage state stands in for the step values: a dead ball or the referee buffer's
+    // award-to-kick window reads as 0x0B (out-of-play hold, one of the arm-and-run steps 8/0xB/0xE/0x12) and
+    // open play as 0x16 (one of the run-if-latched steps 0x14/0x15/0x16). The switch's skip steps have no GF
+    // state to name, so no GF tick reads as one; the switch itself (RecomputePesHolder) stays exact.
+    constexpr uint8_t kArmAndRunStep = 0x0B;
+    constexpr uint8_t kRunIfLatchedStep = 0x16;
+    pesRestartStep = (!IsInPlay() || GetRefereeBuffer().active) ? kArmAndRunStep : kRunIfLatchedStep;
+    RecomputePesHolder();
   }
 
   // The team tick. ponytail: PES builds the MA inside the per-side team tick, after the

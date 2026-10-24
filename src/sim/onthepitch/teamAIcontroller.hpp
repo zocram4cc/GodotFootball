@@ -42,6 +42,7 @@
 #include "pesteamconcepts.hpp"
 #include "pesteamtick.hpp"
 #include "pesrunslots.hpp"
+#include "pesmarktable.hpp"
 #include "pespress.hpp"
 
 class Match;
@@ -162,6 +163,9 @@ public:
   const pes::ScoreRows& Rows() const { return scoreRows_.Rows(); }
   void TickScoreRows();
   pes::ScoreRowWriter scoreRows_;
+  // PES 2021's mark table (team-tick step 35, FUN_1404F61E0, T7a `0x1404F76B1`):
+  // rebuild markTableState from the run world each team tick on the PES path.
+  void TickMarkTable();
 
   const Formations::Shape& GetFormationShape() const { return formationShape; }
   // Writes a shape's roles and positions into the team's formation slots. Any
@@ -198,6 +202,7 @@ public:
   void UpdatePesDesignation();
   void SetUpRoleArrays();
   void WriteRoleArrays(bool head);
+  void UpdateLaneLine();
   void WriteSlotPoints(int phase);
   // The B swap pair (T+0x89D4/0x89D8). No GF event sets it yet: the PES writer is not decoded.
   void RequestRoleSwap(int a, int b);
@@ -235,9 +240,11 @@ public:
   bool PressOrDelay(const PlayerBase* p);
   // PES's strategy word T+0x134 (docs/re/pes-re-match-management.md 1).
   int GetStrategy() const { return strategy.strategy; }
-  // Every team tick, dead balls included: the decider moves the strategy while
-  // the ball is dead and the attack level follows it once play resumes.
+  // Every team tick: the decider moves the strategy in PES state 3 (restart armed or taken), and the
+  // attack level follows it once play resumes.
   void UpdateStrategy();
+  // PES's in-play plan selector (FUN_140500B90): the sheet plan, once per PES team tick after UpdateStrategy.
+  void UpdatePesSheetPlan();
   // PES's per-tick team words (pesteamtick.hpp): the attack level T+0xB8A4,
   // its flags and the restart word, stepped every team tick on the PES path.
   const pes::TeamTick& GetTeamTick() const { return teamTick; }
@@ -256,6 +263,10 @@ public:
   Player* NearestOpponentOf(const Player* own) const;
   // The distance from `own` to his rank-0 opponent in that world; 1000 m when he has none.
   float NearestOpponentDistance(const Player* own) const;
+  // PES 2021's mark table (team-tick step 35, FUN_1404F61E0, T+0xB7EC[11]):
+  // whether `player`'s own-roster slot is marked this tick. Readers R1/R2/R3
+  // (docs/re/pes-re-mark-readers.md) gate the duel predicates on it.
+  bool IsMarkedByTable(const Player* player) const;
 
 
   const std::vector<TacticalOpponentInfo>& GetTacticalOpponentInfo() {
@@ -344,6 +355,9 @@ protected:
   // the PES path. Last tick's latch for the restart word's flip test.
   pes::TeamTick teamTick;
   bool lastTickPossession = false;
+  // PES 2021's mark table (team-tick step 35, FUN_1404F61E0): T+0xB7D8's slot
+  // word plus T+0xB7EC[11], rebuilt each team tick on the PES path.
+  pes::marktable::MarkState markTableState;
 
   float offensivenessBias;
 

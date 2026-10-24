@@ -50,6 +50,8 @@ struct Rig;
 // PES 2021's presser picker (docs/re/pes-re-press-layer-port.md) and the
 // loose-ball PRESS chase (docs/re/pes-re-press-life.md).
 #include "pespress.hpp"
+// PES 2021's mark table (team-tick step 35, FUN_1404F61E0).
+#include "pesmarktable.hpp"
 #include "pesstrategy.hpp"
 #include "pesteamconcepts.hpp"
 #include "pessubs.hpp"
@@ -191,6 +193,10 @@ struct MatchSetup {
   // ActionPress target rule, read from the install's exe. Required: without
   // them no side can send a man to a loose ball.
   const pes::PressConstants* pesPressConstants = nullptr;
+  // PES 2021's mark table (team-tick step 35, FUN_1404F61E0): the build rule's
+  // image constants, read from the install's exe. Required: the build's every
+  // number lives in the image.
+  const pes::marktable::Constants* pesMarkTableConstants = nullptr;
 };
 
 #endif

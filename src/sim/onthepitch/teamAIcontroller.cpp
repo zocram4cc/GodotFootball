@@ -184,7 +184,72 @@ void TeamAIController::TickScoreRows() {
   // FUN_140457070's argument; Team::Process). A match opens stopped (inPlay starts false), so its first
   // tick latches the writer. A seam that starts play with no stoppage (Match::StartPlay) would leave the
   // rows unwritten until one came, so until the writer is latched every tick is its full refresh.
-  scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay() || !scoreRows_.Latched());
+  scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay() || !scoreRows_.Latched(),
+                  match->PesLoop());
+}
+
+void TeamAIController::TickMarkTable() {
+  // PES 2021's step 35 (FUN_1404F61E0, T7a `0x1404F76B1`): rebuild the mark
+  // table from the run world each team tick on the PES path. T7a runs inside
+  // the team tick (after the prep steps, before step 38/WriteRoleArrays), so
+  // this runs in Team::Process next to TickScoreRows and is active in every
+  // match state, not only in play. The GF path keeps its own man-marking and
+  // never reads markTableState, so the build is PES-path only.
+  markTableState.mark.fill(0);
+  markTableState.markSlot = pes::marktable::kNoSlot;
+  if (!match->PesLoop()) return;
+  // ponytail: B7D8's writers (FUN_140546FB0 at 0x140547814, FUN_140549D30 at
+  // 0x140549E34) store [param_1+0x1C/0x20/0x24 words] % 11, which no decoded GF
+  // state names (mark-cone.md section 1: the designated possession player is
+  // not that value, only the closest decoded engaging-man carrier).
+  {
+    Player* const engaging = team->GetDesignatedTeamPossessionPlayer();
+    markTableState.markSlot = engaging != nullptr ? RunSlotOf(engaging) : -1;
+  }
+  // The T7a holder is FUN_140A627E0 else MA+0x2483C (PES path: MA+0x2601C); the split landed it, so the stand-in
+  // is gone: the holder (Match::RecomputePesHolder) feeds the slot directly. The run slot is team*11 + roster
+  // index (RunSlotOf; -1 when he is not in it).
+  Player* const owner = match->GetPesHolder();
+  if (owner == nullptr) return;
+  const int holder = RunSlotOf(owner);
+  if (holder < 0 || holder >= 2 * pes::marktable::kSlots) return;
+  // This tick's facts: the candidate rows, the pair bearings, the positions
+  // and the holder point, straight out of the run world the manager builds on
+  // the team's parity tick.
+  const pes::offball::RunWorld& w = lastRunWorld;
+  pes::marktable::Facts facts;
+  facts.side = team->GetID();
+  facts.holder = holder;
+  const pes::offball::PlayerFacts& hf = w.p[holder];
+  facts.holderIsKeeper = hf.goalie;
+  facts.sign = w.s[team->GetID()];
+  facts.holderX = hf.pos.x;
+  facts.holderZ = hf.pos.z;
+  facts.goalAreaHalfWidth_m = pesGoalAreaHalfWidth;  // FieldInfo F[5], readers doc section 4
+  int out = 0;
+  for (const pes::offball::NearOpponent& near : pes::offball::NearestOpponents(w, holder)) {
+    if (out >= pes::marktable::kSlots) break;
+    const pes::offball::PlayerFacts& cf = w.p[near.id];
+    pes::marktable::Candidate& dst = facts.candidates[out++];
+    dst.id = near.id;
+    dst.d2 = near.d2;
+    dst.actionWord = cf.passGet ? 1 : 0x3F;
+    dst.posX = cf.pos.x;
+    dst.posZ = cf.pos.z;
+    dst.pairToTarget =
+        pes::offball::RowBearing(w, near.id, facts.side * pes::marktable::kSlots + markTableState.markSlot);
+    dst.pairToHolder = pes::offball::RowBearing(w, near.id, holder);
+    dst.headPosX = cf.pos.x;
+    dst.headPosZ = cf.pos.z;
+    dst.headPointX = cf.aim.x;
+    dst.headPointZ = cf.aim.z;
+    dst.head = cf.facing;
+  }
+  for (int i = 0; i < pes::offball::kSlots; ++i) {
+    const pes::offball::PlayerFacts& mf = w.p[(holder / pes::offball::kSlots) * pes::offball::kSlots + i];
+    facts.gateMates[i] = {mf.pos.x, mf.pos.z};
+  }
+  pes::marktable::BuildMarkTable(&markTableState, facts, match->GetPesMarkTableConstants());
 }
 
 void TeamAIController::Process() {
@@ -299,12 +364,13 @@ void TeamAIController::Process() {
   RunConcepts();
 
   ProcessOffBall();
-  // PES's step 43 (FUN_1404F78FE): with T+0x218 == 0 every own slot is released through FUN_140A40820. It follows the
-  // designation and the run manager (steps 38 and 41) of the same tick, and it runs on every in-play tick, where
-  // ProcessOffBall runs only on the team's parity frames.
-  // PES's step-43 release sweep (pes::run::ReleaseSweep) is kept unwired: with it, the holder latch's one-tick gap
-  // (pes_holder_latch_test) widens to two ticks. PES's holder persists on a loose ball; GF's retainer clears on the
-  // possession flicker (humanoid.cpp retain block). Wiring waits for that holder split.
+  // PES's step 43 (FUN_1404F78FE, the gate at 0x1404F78DB CMP [T+0x218],0): with T+0x218 == 0 every own slot is
+  // released through FUN_140A40820. It follows the designation and the run manager (steps 38 and 41) of the same
+  // tick, and it runs on every in-play tick, where ProcessOffBall runs only on the team's parity frames. The gate
+  // and the release are ReleaseSweep's; the stamp is the frame clock T+0x21C (GetPesFrame on the PES path).
+  if (match->PesLoop())
+    pes::run::ReleaseSweep(&runSlots, teamTick.noBallCounter,
+                           static_cast<uint32_t>(match->GetPesFrame()));
 }
 
 float mixup(float base, const std::string& varname, e_PlayerRole role, float counterAttack) {
@@ -2430,9 +2496,19 @@ void TeamAIController::PesSecondPresserTick() {
     return (bx - ax) * (bx - ax) + (bz - az) * (bz - az);
   };
 
-  // MA+0x2601C: the last toucher (FUN_140457070). ponytail: W1 reads the newest ring-1 key (K=8), which GF never fills:
-  // DetectType14, the K=8 producer, has no caller, and its gate is the touch probe G+0x2A80 (OPEN, pes-re-first-touch.md
-  // section 5.4). The newest valid ring-0 touch stands in; the opponent-kick fallback T_opp+0x78 (OPEN writer) is absent.
+  // MA+0x2601C (FUN_140457070, W1 0x14045725A; the per-tick recompute Match::RecomputePesHolder): the holder,
+  // carried apart from GF's retainer (Match::GetPesHolder) - it persists on a loose ball, so the reaction keeps
+  // its man while the ball is in transit.
+  const Player* holderPlayer = match->GetPesHolder();
+  int holder = pes::kPressNoMan;
+  if (holderPlayer != nullptr) {
+    const pes::ActorKey key = match->PesActorKeyOf(holderPlayer);
+    if (key.Valid() && key.team < 2 && key.slot < pes::kPressSideMen)
+      holder = static_cast<int>(key.team) * pes::kPressSideMen + static_cast<int>(key.slot);
+  }
+  const bool holderValid = holder < pes::kPressTeamMen;
+  // The newest valid ring-0 touch: the T+0x78 stand-in for this side's last kick (the real writer is OPEN; the
+  // opponent-kick fallback T_opp+0x78 is absent).
   pes::ActorKey touch{};
   bool touchValid = false;
   for (int n = 0; n < 8 && !touchValid; ++n) {
@@ -2440,12 +2516,9 @@ void TeamAIController::PesSecondPresserTick() {
     touchValid = view.present && view.actor.Valid() && view.actor.team < 2 && view.actor.slot < pes::kPressSideMen;
     if (touchValid) touch = view.actor;
   }
-  const int holder = touchValid ? static_cast<int>(touch.team) * pes::kPressSideMen + static_cast<int>(touch.slot)
-                                : pes::kPressNoMan;
-  const bool holderValid = holder < pes::kPressTeamMen;
-  // T+0x78: this side's last kick, valid when the newest touch is this side's.
   const bool kickValid = touchValid && static_cast<int>(touch.team) == side;
-  const int kickMan = kickValid ? holder : pes::kPressNoMan;
+  const int kickMan = kickValid ? static_cast<int>(touch.team) * pes::kPressSideMen + static_cast<int>(touch.slot)
+                                : pes::kPressNoMan;
 
   // The men by team index (side * 11 + slot), and this side's slot words.
   pes::PressEvalInput in;
@@ -2527,7 +2600,7 @@ void TeamAIController::PesSecondPresserTick() {
     mi.tableWord = pressState.role[prevSecond];
     mi.holderNow = holder;
     mi.holderRecorded = coordState.holder;
-    mi.holderFromTouch = touchValid;
+    mi.holderFromTouch = holderValid;  // MA+0x2601C valid: the holder is the newest toucher (W1's rule)
     mi.reason = coordState.reason[k];
     mi.classFiveNow = classFiveMan;
     mi.lifted = lifted;
@@ -2819,25 +2892,25 @@ void TeamAIController::UpdateTactics() {
   }
 }
 
-// PES 2021's CPU strategy decider (docs/re/pes-re-match-management.md 1): the
-// strategy moves while the ball is dead, the attack level follows it only once
-// the ball is back in play. The level is GF's mentality rung (one-to-one, see
-// pes::AttackLevel), so every reader of the mentality sees PES's level.
+// PES 2021's CPU strategy decider (docs/re/pes-re-match-management.md 1): the strategy moves in
+// PES state 3 (restart armed or taken; pesstrategy.hpp DeciderMovesIn), and the attack level
+// follows it once play resumes. The level is GF's mentality rung (one-to-one, see pes::AttackLevel),
+// so every reader of the mentality sees PES's level.
 void TeamAIController::UpdateStrategy() {
   if (!match->AIManagerRunsTeam(team->GetID())) return;
   // PES path: the per-tick team words (pesteamtick.hpp) step every team tick -
   // the drift (FUN_1404F8350), the flags (0x1404F6E1C-58), the restart word
-  // (0x1404F6F91) - and the strategy decider below moves the strategy on dead
-  // balls underneath them. Off the path the level is the mentality rung.
+  // (0x1404F6F91) - and the strategy decider below moves the strategy in state 3
+  // underneath them. Off the path the level is the mentality rung.
   const bool pesPath = match->PesLoop();
   const bool inPlay = match->IsInPlay() && !match->IsInSetPiece();
+  const RefereeBuffer& buffer = match->GetRefereeBuffer();
+  const int playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
+                                          buffer.prepared || buffer.started);
   if (pesPath) {
     // Steps 8 and 9 first, as in PES's order: the stopped select (8) and the out-of-play clear of
     // the reaction delays (9) read the latch, MI+0x116C and MI+0x1554 before the drift reads anything.
     const bool latch = team->IsPesPossession();
-    const RefereeBuffer& buffer = match->GetRefereeBuffer();
-    const int playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
-                                            buffer.prepared || buffer.started);
     pes::StoppedSelect(&teamTick, !latch, playState, match->PesRestartKind());
     pes::ClearReactionDelays(&teamTick, playState);
     // Step 11's head (FUN_1404FEDC0): R8B is the latch change this tick, the flip the restart word
@@ -2866,6 +2939,8 @@ void TeamAIController::UpdateStrategy() {
     }
     return;
   }
+  // PES's decider moves the strategy in state 3 only; the PES path returns in every other state.
+  if (pesPath && !pes::DeciderMovesIn(playState)) return;
   pes::StrategyInputs in;
   switch (match->GetMatchPhase()) {
     case e_MatchPhase_PreMatch:
@@ -2995,6 +3070,12 @@ float TeamAIController::NearestOpponentDistance(const Player* own) const {
   if (slot < 0) return 1000.0f;
   const auto near = ob::NearestOpponents(lastRunWorld, slot);
   return near.empty() ? 1000.0f : std::sqrt(near.front().d2);
+}
+
+bool TeamAIController::IsMarkedByTable(const Player* player) const {
+  const int k = OwnRunSlot(player);  // 0..10 within-side (R1 `slotOf(me)`, 0x140969970 RAX)
+  if (k < 0 || k >= pes::marktable::kSlots) return false;
+  return markTableState.mark[static_cast<size_t>(k)] != 0;
 }
 
 int TeamAIController::RunSlotOf(const Player* player) const {
@@ -3149,29 +3230,55 @@ void TeamAIController::WriteRoleArrays(bool head) {
                              level, &roles);
   WriteSlotPoints(level);
   if (head) return;
+  if (match->PesLoop()) UpdateLaneLine();
   // The tail swap (FUN_14051E31E) also needs FUN_140A41BE0's latch (TailSwapAllowed).
   if (roleSwap && possession && pes::roles::TailSwapAllowed(roles))
     pes::roles::SwapB(&roles, roleSwap->first, roleSwap->second);
 }
 
 // FUN_1404F5F10's rows: each slot's sheet triple at the tick's phase, through FUN_1408C50E0's record A.
-// ponytail: the plan is the setup default, 0. PES reads it from setup+0xb34+side*0xa8 (FUN_1408E16D0; the
-// writer is OPEN) and changes it in play (FUN_140500B90: mode +0xBCC, flag +0xB8A3). pes-re-sheet-triple §9.
+// The plan is the sheet's (FUN_1421B7D40); the in-play selector moves it (UpdatePesSheetPlan).
+// ponytail: the sheet starts at plan 0 (DefaultTeamSheet). PES starts it at setup+0xB34+side*0xA8
+// (FUN_1408E16D0, read by the setup builder FUN_141FC1590 l.101-102); its non-zero writer is OPEN.
 void TeamAIController::WriteSlotPoints(int phase) {
   if (!match->PesLoop()) return;  // the PES path only: the install's tables exist on it
-  constexpr int kSetupPlan = 0;
   const pes::formation::FormationTables* tables = match->GetPesFormations();
   const pes::formation::SheetConstants* sheet = match->GetPesSheetConstants();
   assert(tables && sheet);  // the PES loop is built with the install's tables (gfsim_run loads them)
-  const auto plan = tables->PlanOf(static_cast<uint32_t>(team->GetTeamData()->GetDatabaseID()), kSetupPlan);
-  assert(plan);  // every fixture team has a plan-0 record
+  const auto plan = tables->PlanOf(static_cast<uint32_t>(team->GetTeamData()->GetDatabaseID()),
+                                   teamSheet.Plan());
+  assert(plan);  // every team has a tactics record for each plan (Tactics.bin: two per team)
   slotPoints = pes::formation::SlotPointRows(*plan, phase, pesFieldHalfLength, pesFieldHalfWidth,
                                              sheet->grid, sheet->keeper);
+}
+
+// PES's in-play plan selector (FUN_140500B90, reached from the team tick at 0x1404F6EAD): once per PES
+// team tick, after the decider and the full-defence flag of this tick.
+// ponytail: FUN_140500B90's roster-gated pre-branch (l.40-271) and its plan-2 stoppage branch (l.291-320)
+// are not ported; OPEN.
+void TeamAIController::UpdatePesSheetPlan() {
+  if (!match->PesLoop() || !match->AIManagerRunsTeam(team->GetID())) return;
+  teamSheet.SetPlan(pes::formation::InPlayPlan(strategy.strategy, teamTick.b8a3, teamSheet.Plan()));
 }
 
 int TeamAIController::RoleClassOfSlot(int slot) const {
   assert(slot >= 0 && slot < pes::roles::kSideSlots);
   return roles.b[slot];
+}
+
+void TeamAIController::UpdateLaneLine() {
+  if (!match->PesLoop()) return;
+  pes::mentality::LaneWordsInput in;
+  const auto& players = team->GetAllPlayers();
+  for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) {
+    in.b[slot] = roles.b[slot];
+    in.cls[slot] = roles.b[slot];
+    in.active[slot] = (slot < (int)players.size() && players[slot] && players[slot]->IsActive()) ? 1 : 0;
+  }
+  in.designated = -1;
+  in.copyPath = false;
+  in.playState116c = PesPlayState(match->IsInPlay() && !match->IsInSetPiece());
+  roles.a = pes::mentality::LaneWords(in, roles.a);
 }
 
 int TeamAIController::DefensiveLineOf(Player* p, e_PlayerRole role) const {
@@ -3180,8 +3287,7 @@ int TeamAIController::DefensiveLineOf(Player* p, e_PlayerRole role) const {
   const auto& players = team->GetAllPlayers();
   for (int slot = 0; slot < pes::roles::kSideSlots && slot < static_cast<int>(players.size()); ++slot)
     if (players[slot].get() == p)
-      return pes::mentality::ReclassifyLine(match->GetPesTeamConceptConstants().reclassifyLines,
-                                            roles.b[slot]);
+      return roles.a[slot];
   return PesLineIndexForRole(role);
 }
 
@@ -3239,6 +3345,7 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
   w.ball = Flat(ball);
   // The style gate is a pes_loop input: off that path the GF stand-in holds (StyleLb).
   if (match->PesLoop()) w.styleCompat = match->GetPesOffBallConstants().styleCompat;
+  w.pesPath = match->PesLoop();
   w.openPlay = match->IsInPlay() && !match->IsInSetPiece();
   auto pesDeg = [](const Vector3& v) {
     return (v.coords[0] == 0.0f && v.coords[1] == 0.0f)
