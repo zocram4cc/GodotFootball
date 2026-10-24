@@ -103,6 +103,7 @@ class Image:
         self.path = path
         self.f = open(path, "rb")
         self.size = os.fstat(self.f.fileno()).st_size
+        self._secs = None
 
     def read(self, va, n):
         off = va - BASE
@@ -113,6 +114,43 @@ class Image:
         if len(blob) != n:
             raise SystemExit("xlate: image unreadable at %#x" % va)
         return blob
+
+    def writable(self, va):
+        """True if the VA lives in a writable image section (.data etc).
+
+        Reads the section table from the image itself (no bridge). The
+        unpacked dump keeps the packed layout's section table, so VAs
+        map the same way. Unknown VA -> writable (safe: live memory
+        read, never a stale baked constant).
+        """
+        if self._secs is None:
+            self._secs = []
+            try:
+                self.f.seek(0x3C)
+                pe = int.from_bytes(self.f.read(4), "little")
+                self.f.seek(pe + 6)
+                nsec = int.from_bytes(self.f.read(2), "little")
+                self.f.seek(pe + 24 + 32)
+                base = int.from_bytes(self.f.read(8), "little")
+                self.f.seek(pe + 24 + 32 + 224)
+                for _ in range(min(nsec, 64)):
+                    raw = self.f.read(40)
+                    if len(raw) < 40:
+                        break
+                    vsize, rva = int.from_bytes(raw[8:12], "little"), \
+                        int.from_bytes(raw[12:16], "little")
+                    rsize = int.from_bytes(raw[16:20], "little")
+                    flags = int.from_bytes(raw[36:40], "little")
+                    size = max(vsize, rsize)
+                    if size and rsize:
+                        self._secs.append((base + rva, size,
+                                           bool(flags & 0x80000000)))
+            except OSError:
+                pass
+        for sva, ssize, wr in self._secs:
+            if sva <= va < sva + ssize:
+                return wr
+        return True
 
 
 def reg_parent(name):
@@ -238,6 +276,20 @@ class Emitter:
             return "/*BADMEM %s*/0ULL" % memtxt
         if mp["absolute"] is not None:
             va = mp["absolute"]
+            if self.img.writable(va):
+                # Writable section (.data etc.) or unknown: a live global
+                # the harness maps (patch_addrs shadows, region linkage).
+                # Never bake: read the same memory the harness provides.
+                n = 4 if (flt == "f32" or width == 32) else width // 8
+                if flt == "f64":
+                    n = 8
+                if width == 128:
+                    return "s.rd128(0x%XULL)" % va
+                if flt == "f32":
+                    return "s.rdf(0x%XULL)" % va
+                if flt == "f64":
+                    return "s.rdd(0x%XULL)" % va
+                return "s.rd(0x%XULL, %d)" % (va, n)
             if width == 128:
                 self.bake(va, 16)
                 return "(k_c%X)" % va
