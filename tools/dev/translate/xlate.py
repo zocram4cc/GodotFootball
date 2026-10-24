@@ -1384,6 +1384,10 @@ def const_decls(em):
                 decls.append("static constexpr uint32_t k_c%X_w = 0x%08XU;" % (va, vals[0]))
                 f = struct.unpack("<f", blob[:4])[0]
                 decls.append("static constexpr float k_c%X_f = %af; // %r" % (va, f, f))
+            if n % 4 == 2:
+                decls.append("static constexpr uint16_t k_c%X_h = 0x%04XU;" % (va, struct.unpack("<H", blob[:2])[0]))
+            if n % 2 == 1:
+                decls.append("static constexpr uint8_t k_c%X_b = 0x%02XU;" % (va, blob[0]))
     return decls
 
 
