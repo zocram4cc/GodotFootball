@@ -1,6 +1,6 @@
-// The match reads a player's injury tier and stronger foot from the PES player database through his PES id only
-// (PlayerData::GetPesPlayerId). A player with no PES id, the synthetic fixture squads among them, takes the named
-// fallback whatever record the database holds under his database id.
+// The match reads a player's injury tier, stronger foot, Form and condition byte from the PES player database
+// through his PES id only (PlayerData::GetPesPlayerId). A player with no PES id, the synthetic fixture squads
+// among them, takes the named fallback whatever record the database holds under his database id.
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -36,14 +36,19 @@ constexpr int kFixturePlayerCount = 32;
 constexpr uint8_t kTierC = 0, kTierA = 2;
 constexpr size_t kInjuryBit = 458;
 constexpr size_t kFootBit = 514;
+constexpr size_t kFormBit = 438;
+constexpr size_t kFormBits = 3;
 
-// One Player.bin record for `id` with raw injury tier `tier`, and the stronger foot on the left when `left`.
-std::vector<uint8_t> RecordFor(int id, uint8_t tier, bool left) {
+// One Player.bin record for `id` with raw injury tier `tier`, the stronger foot on the left when `left`, and
+// raw Form `form`.
+std::vector<uint8_t> RecordFor(int id, uint8_t tier, bool left, uint8_t form = 3) {
   std::vector<uint8_t> rec(pes::kPlayerRecordBytes, 0);
   const uint32_t id32 = uint32_t(id);
   std::memcpy(&rec[pes::kPlayerIdOffset], &id32, 4);
   rec[kInjuryBit / 8] |= uint8_t(tier << (kInjuryBit % 8));
   if (left) rec[kFootBit / 8] |= uint8_t(1u << (kFootBit % 8));
+  for (size_t i = 0; i < kFormBits; ++i)
+    if ((form >> i) & 1u) rec[(kFormBit + i) / 8] |= uint8_t(1u << ((kFormBit + i) % 8));
   return rec;
 }
 
@@ -112,6 +117,8 @@ int ExpectEveryPlayerTakesTheFallback(Match& match) {
       EXPECT_EQ(match.InjuryResistanceOf(data), Match::kFallbackInjuryResistance)
           << "database id " << data->GetDatabaseID();
       EXPECT_EQ(match.LeftFootedOf(data), Match::kFallbackLeftFooted) << "database id " << data->GetDatabaseID();
+      EXPECT_EQ(match.FormOf(data), Match::kFallbackForm) << "database id " << data->GetDatabaseID();
+      EXPECT_EQ(match.ConditionByteOf(data), Match::kFallbackCondition) << "database id " << data->GetDatabaseID();
     }
   return checked;
 }
@@ -161,6 +168,8 @@ TEST(PlayerDatabaseWiring, AFixturePlayerWhoseIdIsAnInstallRecordStillTakesTheFa
   ASSERT_NE(renamed, nullptr) << "the renamed fixture player is not in the home squad";
   EXPECT_EQ(fixture.match->InjuryResistanceOf(renamed->GetPlayerData()), Match::kFallbackInjuryResistance);
   EXPECT_EQ(fixture.match->LeftFootedOf(renamed->GetPlayerData()), Match::kFallbackLeftFooted);
+  EXPECT_EQ(fixture.match->FormOf(renamed->GetPlayerData()), Match::kFallbackForm);
+  EXPECT_EQ(fixture.match->ConditionByteOf(renamed->GetPlayerData()), Match::kFallbackCondition);
 }
 
 // A player whose row carries a PES id reads the record of that id. The match keys the database by the PES id, so the
@@ -175,7 +184,7 @@ TEST(PlayerDatabaseWiring, AnImportedPlayerReadsTheRecordOfHisPesId) {
 
   std::string err;
   auto playerDb = pes::PlayerDatabase::Parse(
-      Concat({RecordFor(kPesIdOfImportedPlayer, kTierA, true), RecordFor(2, kTierC, false)}), &err);
+      Concat({RecordFor(kPesIdOfImportedPlayer, kTierA, true, 6), RecordFor(2, kTierC, false, 1)}), &err);
   ASSERT_TRUE(playerDb.has_value()) << err;
   FixtureMatch fixture(&*playerDb, {"UPDATE players SET pes_player_id = " + std::to_string(kPesIdOfImportedPlayer) +
                                     " WHERE id = 1"});
@@ -186,8 +195,12 @@ TEST(PlayerDatabaseWiring, AnImportedPlayerReadsTheRecordOfHisPesId) {
   ASSERT_NE(synthetic, nullptr);
   EXPECT_EQ(fixture.match->InjuryResistanceOf(imported->GetPlayerData()), kTierA);
   EXPECT_TRUE(fixture.match->LeftFootedOf(imported->GetPlayerData()));
+  EXPECT_EQ(fixture.match->FormOf(imported->GetPlayerData()), 6);
+  EXPECT_EQ(fixture.match->ConditionByteOf(imported->GetPlayerData()), 0x46);
   EXPECT_EQ(fixture.match->InjuryResistanceOf(synthetic->GetPlayerData()), Match::kFallbackInjuryResistance);
   EXPECT_EQ(fixture.match->LeftFootedOf(synthetic->GetPlayerData()), Match::kFallbackLeftFooted);
+  EXPECT_EQ(fixture.match->FormOf(synthetic->GetPlayerData()), Match::kFallbackForm);
+  EXPECT_EQ(fixture.match->ConditionByteOf(synthetic->GetPlayerData()), Match::kFallbackCondition);
 }
 
 TEST(PlayerDatabaseWiring, WithoutADatabaseEveryPlayerTakesTheFallback) {
