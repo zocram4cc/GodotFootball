@@ -5,6 +5,7 @@
 #include "pes/exe.hpp"
 #include "pes/inflate.hpp"
 #include "pes/vfs.hpp"
+#include "sim/onthepitch/pesstrategy.hpp"
 
 namespace pes::formation {
 namespace {
@@ -171,6 +172,14 @@ std::optional<Point3> ReadKeeperRow(const pes::PeImage& exe, std::string* error)
   float x = 0.0f;
   std::memcpy(&x, &bits, sizeof x);
   return Point3{x, 0.0f, 0.0f};
+}
+
+int InPlayPlan(int strategy, bool fullDefence, int current) {
+  if (strategy < 0) return current;
+  if (strategy < pes::kStrategyBalanced) return 1;
+  if (strategy == pes::kStrategyBalanced) return fullDefence ? 1 : 0;
+  if (strategy <= pes::kStrategyAllOut) return 0;  // attacking (3) and all-out (4)
+  return current;
 }
 
 }  // namespace pes::formation

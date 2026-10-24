@@ -1184,6 +1184,10 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
   in.tackle = _TackleCandidate(k);
   in.slide = _SlideCandidate(k);
   in.block = _BlockCandidate(k);
+  // Entry 11, the pass jostle (R2 reads the mark inside _PassDuelCandidate). Batch K's R3 wiring dropped it from the
+  // call site on both paths. PES's R3 (FUN_1409AD830, docs/re/pes-re-mark-readers.md) skips the holder duel only for a
+  // marked man, and ChooseMarkedReaction clears jostleForPass for him; an unmarked man evaluates it in both modes.
+  in.jostleForPass = _PassDuelCandidate(k);
   // Each dodge predicate (entries 4-7) carries its own kind
   // (FUN_14073bc70's cmd+0x1094). They are separate entries, so the chooser's
   // winner names which kind the command runs; each predicate stores its own.
