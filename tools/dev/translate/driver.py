@@ -43,7 +43,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 RUN_PY = os.path.join(REPO, "tools", "dev", "diffharness", "run.py")
 DEF_SPEC_DIR = os.path.join(REPO, "tools", "dev", "diffharness",
                             "specs", "pilot")
-VENV_PY = "/mnt/Extra4/gf-DiffHarnessRE-scratch/venv/bin/python"
+# The harness Python (unicorn + capstone), the same variable the gate and tests/diff use.
+VENV_PY = os.environ.get("GF_DIFF_PYTHON", sys.executable)
 
 sys.path.insert(0, HERE)
 
@@ -329,7 +330,13 @@ def main():
     ap.add_argument("--cxx", default="g++")
     ap.add_argument("--timeout", type=int, default=600)
     ap.add_argument("--jobs", type=int, default=2)
+    ap.add_argument("--check", action="store_true",
+                    help="re-run every VA results.json records as diffed; exit 1 if any no longer diffs bit-exact. "
+                         "Never writes the repo results.json (the gate's pilot test).")
     args = ap.parse_args()
+    repo_json = os.path.join(REPO, "tools", "dev", "translate", "results.json")
+    if args.check:
+        args.only = [r["va"] for r in json.load(open(repo_json))["results"] if r["diffed"]]
 
     specs = sorted(f for f in os.listdir(args.spec_dir)
                    if f.endswith(".json"))
@@ -363,7 +370,8 @@ def main():
             r["va"], r["translated"], r["diffed"], r["cases"],
             r["failure_class"], r["note"][:100]))
 
-    # results.json: committed (repo copy) + build copy. Sort by VA.
+    # results.json: build copy always; the committed repo copy only from a full run (a subset or a check run
+    # must never overwrite the record of the whole set). Sort by VA.
     results.sort(key=lambda r: r["va"])
     payload = {"results": results,
                "note": "Pilot translation results. diffed = bit-exact vs "
@@ -372,14 +380,19 @@ def main():
                        "values."}
     build_json = os.path.join(args.out_dir, "results.json")
     json.dump(payload, open(build_json, "w"), indent=1, sort_keys=True)
-    repo_json = os.path.join(REPO, "tools", "dev", "translate",
-                             "results.json")
-    json.dump(payload, open(repo_json, "w"), indent=1, sort_keys=True)
+    if not args.only:
+        json.dump(payload, open(repo_json, "w"), indent=1, sort_keys=True)
     att = sum(1 for _ in results)
     tra = sum(1 for r in results if r["translated"])
     dif = sum(1 for r in results if r["diffed"])
     print("driver: attempted %d translated %d diffed %d -> %s"
           % (att, tra, dif, build_json))
+    if args.check:
+        lost = [r["va"] for r in results if not r["diffed"]]
+        if lost:
+            print("driver --check: %d recorded-diffed functions no longer diff: %s" % (len(lost), " ".join(lost)))
+            return 1
+        print("driver --check: all %d recorded-diffed functions still diff bit-exact" % att)
     return 0
 
 

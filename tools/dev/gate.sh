@@ -69,4 +69,15 @@ fi
 green=1
 grep -q "100% tests passed" "$build/gate.ctest.log" || green=0
 for tag in off pesloop; do grep -q "sim ticks to full time" "$build/gate.smoke-$tag.log" || green=0; done
+# The PES differential suites (tests/diff, tests/pilot) skip (rc 77) without the harness Python or the unpacked image, and a
+# build configured without PES_EXE compiles every pilot test to a skip stub: green while nothing was compared. With both
+# set, a skipped diff test is a red gate.
+if [ -n "${GF_DIFF_PYTHON:-}" ] && [ -n "${PES_EXE:-}" ]; then
+  skipped=$(grep -cE "Test +#[0-9]+: (diff_|Diff).*Skipped" "$build/gate.ctest.log")
+  if [ "$skipped" != 0 ]; then
+    echo "GATE RED: $skipped PES diff tests skipped (reconfigure with PES_EXE set: cmake -S . -B build)"; green=0
+  fi
+else
+  echo "gate: GF_DIFF_PYTHON or PES_EXE unset, so the PES diff suites did not run"
+fi
 if [ "$green" = 1 ]; then echo "GATE GREEN"; else echo "GATE RED"; exit 1; fi
