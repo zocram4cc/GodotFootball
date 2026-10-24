@@ -61,6 +61,20 @@ the translator and the driver, split by file. Main lands everything. Concurrency
 | 30-70% | Fix the top failure classes in the translator and struct map, then re-pilot. |
 | < 30% | Report why with the failure breakdown and propose the alternative. Never fall back to the old method silently. |
 
+## Owner ruling 24-10-26: ship translated code; the harness stays the oracle
+
+PES 2021 is off sale with no forward path for its mods; reading the user's own running copy for interoperability is in
+scope. Translated code is generated at build time from an image the user's install produces, and the diff harness
+stays the correctness oracle in the gate. GF's hand port remains the fallback only where no image is present.
+
+The image is `pes_full.bin`: a read-only dump of the running game's image range (`/proc/<pid>/mem`, opened O_RDONLY;
+offset = VA - 0x140000000), not a decryption of the file on disk. It becomes one script in `tools/pes21_import/`, with:
+
+- a defined dump moment, or specs that never read the writable `.data` pages (their content depends on when the dump
+  was taken);
+- a committed SHA-256 of the read-only and code sections (a hash, not PES bytes), so the gate can check a user's dump
+  is the image the specs were authored against.
+
 ## Constraints (unchanged)
 
 - No PES-derived bytes committed; everything regenerates from the user's PES21 by script.
