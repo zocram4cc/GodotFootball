@@ -367,6 +367,10 @@ class Emitter:
             if sx and width < 64:
                 e = sext(e, width)
             return e
+        if o.lower().startswith("xmm") and "[" not in o.lower():
+            # Bare xmm source in integer context (MOVD eax,xmm2): the
+            # low 32 bits of lane 0.
+            return "((uint64_t)(uint32_t)s.xmm[%d][0])" % int(o.lower()[3:])
         # memory
         return self.mem_val(o, width, None)
 
