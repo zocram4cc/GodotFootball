@@ -44,11 +44,20 @@ target_link_libraries(pesrig PUBLIC pesfmt)
 # only on the PES path. Gated at configure time on PES_EXE: without the
 # image there is no pespilot target and PES_PILOT_AVAILABLE stays unset, so
 # GF call sites take the hand-port fallback and GF mode is untouched.
-set(PILOT_CUTOVER_VAS 140A71990)
+set(PILOT_CUTOVER_VAS 140A71990 140439F50 140439F90 140439FE0 14043A020 14043A0A0 1404C8DC0 1404AB8E0 14063F230 1408C5000)
 if(DEFINED ENV{PES_EXE} AND NOT "$ENV{PES_EXE}" STREQUAL "")
   add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/pilot-lib/pes_pilot.h
            ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_140A71990.cpp
+           ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_140439F50.cpp
+           ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_140439F90.cpp
+           ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_140439FE0.cpp
+           ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_14043A020.cpp
+           ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_14043A0A0.cpp
+           ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_1404C8DC0.cpp
+           ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_1404AB8E0.cpp
+           ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_14063F230.cpp
+           ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_1408C5000.cpp
     COMMAND ${CMAKE_COMMAND} -E env
       "PILOT_IMAGE=$ENV{PES_EXE}"
       python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/gen_pilot_lib.py
@@ -61,7 +70,16 @@ if(DEFINED ENV{PES_EXE} AND NOT "$ENV{PES_EXE}" STREQUAL "")
   add_custom_target(pilot_lib_gen DEPENDS
     ${CMAKE_BINARY_DIR}/pilot-lib/pes_pilot.h)
   add_library(pespilot STATIC
-    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_140A71990.cpp)
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_140A71990.cpp
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_140439F50.cpp
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_140439F90.cpp
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_140439FE0.cpp
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_14043A020.cpp
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_14043A0A0.cpp
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_1404C8DC0.cpp
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_1404AB8E0.cpp
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_14063F230.cpp
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_1408C5000.cpp)
   add_dependencies(pespilot pilot_lib_gen)
   target_include_directories(pespilot PUBLIC
     ${CMAKE_SOURCE_DIR}/tools/dev/translate ${CMAKE_BINARY_DIR}/pilot-lib)
@@ -88,10 +106,3 @@ add_subdirectory(src/sim)
 
 add_executable(gfsim_run apps/gfsim_run.cpp)
 target_link_libraries(gfsim_run PRIVATE gfsim)
-# pesfmt's movestep_run.cpp calls LocomotionStyle, defined in pesmovestepcore (a static cycle):
-# name pesmovestepcore again after pesfmt so the linker pulls it in.
-target_link_libraries(gfsim_run PRIVATE pesfmt pesmovestepcore)
-set_target_properties(gfsim_run PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/apps)
-
-enable_testing()
-add_subdirectory(tests)

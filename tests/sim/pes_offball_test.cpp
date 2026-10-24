@@ -1610,3 +1610,20 @@ TEST(NearestTeamBlock, TheMarkingSideBlockIsThatSidesListWhoeverHolds) {
 }
 
 }  // namespace
+
+#ifdef PES_PILOT_AVAILABLE
+#include "pes/pespilot.hpp"
+#include "pes_state.hpp"
+#endif
+
+TEST(OffBallLane, TranslatedLaneZDirect) {
+#ifdef PES_PILOT_AVAILABLE
+  PesState s;
+  s.set_x_f32(0, pesFieldHalfWidth);
+  s.gpr[2] = static_cast<uint64_t>(static_cast<uint8_t>(3));
+  ::pes_fn_140A71990(s);
+  EXPECT_FLOAT_EQ(s.x_f32(0), pesFieldHalfWidth - 2.0f - 2.0f * 3.0f);
+#else
+  GTEST_SKIP() << "pilot not available";
+#endif
+}

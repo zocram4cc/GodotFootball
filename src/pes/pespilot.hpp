@@ -16,3 +16,22 @@ struct PesState;
 // The TU defines ::pes_fn_<va>; GF calls the global name (the TU knows
 // no C++ namespaces).
 void pes_fn_140A71990(PesState& s);
+
+// 0x140439F50
+void pes_fn_140439F50(PesState& s);
+// 0x140439F90
+void pes_fn_140439F90(PesState& s);
+// 0x140439FE0
+void pes_fn_140439FE0(PesState& s);
+// 0x14043A020
+void pes_fn_14043A020(PesState& s);
+// 0x14043A0A0
+void pes_fn_14043A0A0(PesState& s);
+// 0x1404C8DC0
+void pes_fn_1404C8DC0(PesState& s);
+// 0x1404AB8E0
+void pes_fn_1404AB8E0(PesState& s);
+// 0x14063F230
+void pes_fn_14063F230(PesState& s);
+// 0x1408C5000
+void pes_fn_1408C5000(PesState& s);
