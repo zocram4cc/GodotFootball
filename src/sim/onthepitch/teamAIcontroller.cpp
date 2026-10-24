@@ -227,7 +227,7 @@ void TeamAIController::TickMarkTable() {
   facts.holderZ = hf.pos.z;
   facts.goalAreaHalfWidth_m = pesGoalAreaHalfWidth;  // FieldInfo F[5], readers doc section 4
   int out = 0;
-  for (const pes::offball::NearOpponent& near : pes::offball::NearestOpponents(w, holder)) {
+  for (const pes::offball::NearOpponent& near : pes::offball::NearestTeamBlock(w, holder, facts.side)) {
     if (out >= pes::marktable::kSlots) break;
     const pes::offball::PlayerFacts& cf = w.p[near.id];
     pes::marktable::Candidate& dst = facts.candidates[out++];

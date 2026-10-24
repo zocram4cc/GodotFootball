@@ -1327,9 +1327,8 @@ float HeadingFactor(float deg, float scale) {
   return folded < 0.0f ? -scale * v : scale * v;
 }
 
-// The owner's NearestList is his own team's S1 row (pesscorerows.hpp), in the copy BuildRunWorld took: the
-// opponents' block, nearest first. A row's lanes map to run-world ids: lanes 0..10 are the writer's own
-// team, 11..21 the other team.
+// The owner's NearestList is his own team's S1 row (pesscorerows.hpp), in the copy BuildRunWorld took. Its two blocks are
+// the two sides: block 0 is the writer's own team (lanes 0..10), block 1 the other (lanes 11..21).
 namespace {
 int LaneOf(int t, int id) { return TeamOf(id) == t ? id % kSlots : kSlots + id % kSlots; }
 int GlobalOf(int t, int lane) {
@@ -1337,17 +1336,23 @@ int GlobalOf(int t, int lane) {
 }
 }  // namespace
 
-std::vector<NearOpponent> NearestOpponents(const RunWorld& w, int id) {
+std::vector<NearOpponent> NearestTeamBlock(const RunWorld& w, int id, int side) {
   const int t = TeamOf(id);
   std::vector<NearOpponent> out;
   if (w.nearestRows[t] == nullptr) return out;
+  // Block `side` (absolute team, PES's entry side*11+k): the row's block 0 is team t, so the other side is block 1.
+  const int block = side == t ? 0 : 1;
   const pes::SortedRow& row = w.nearestRows[t]->nearest[LaneOf(t, id)];
-  out.reserve(row.Count(1));
-  for (int r = 0; r < row.Count(1); ++r) {
-    const pes::RowEntry& e = row.Entry(1, r);
+  out.reserve(row.Count(block));
+  for (int r = 0; r < row.Count(block); ++r) {
+    const pes::RowEntry& e = row.Entry(block, r);
     out.push_back({GlobalOf(t, e.id), e.value});
   }
   return out;
+}
+
+std::vector<NearOpponent> NearestOpponents(const RunWorld& w, int id) {
+  return NearestTeamBlock(w, id, 1 - TeamOf(id));
 }
 
 // FUN_140655660 + FUN_140654e60: the frames for player `id` to reach `X`.
