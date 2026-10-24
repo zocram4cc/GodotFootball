@@ -78,6 +78,9 @@ constexpr float kRateLow = 0.15000000596046448f;  // STEP_LOOP_CHANGE 0x1406c675
 // (0x3e888889), opcode-checked as the owner rules allow.
 constexpr float kBlend0266 = 0.2666666805744171f;  // STEP_LOOP 0x1406c5880 / 0x1406c5915
 
+// kindBandRow holds 8 kinds x 4 bands (32 entries, movestep_run.hpp); TURN_STOP's class word reaches 3.
+constexpr int kStepBandCount = 4;
+
 // FUN_1406b9ff0(interface, class, speed, kind): the rate for a class/speed pair. req[0xb] is the
 // "use the class rate" flag; the rate comes from FUN_1406b9e80's 10-knot table, which the
 // contract exposes as SpeedToRate with the same argument order.
@@ -1485,7 +1488,10 @@ void TurnStop(MoveHost& host, MoveReq& req) {
       } else {
         req.SetF(moveword::kRate, kRateLow);
       }
-      const int band = host.BandSpeedKmh(int(req.F(moveword::kRate)), host.PhysiqueG());
+      // ponytail: PES's class word is vt+0x68(rate) of the +0xac0 interface (FUN_1406cab20). The port's class stand-in is
+      // CommandSpeedClass (InterfaceClass, movestep_turn.cpp). BandSpeedKmh stands for a speed, and its ground-speed stand-in
+      // here made the step row flip with each clip's first-frame displacement.
+      const int band = std::clamp(host.CommandSpeedClass(), 0, kStepBandCount - 1);
       req.SetU(moveword::kClassWord, uint32_t(band));
       req.SetF(moveword::kBandSpeed, host.RateCeiling() * k.s0p6 * k.kmh3p6);
       // PES FUN_1406cab20 (0x1406CB35D-0x1406CB46A): the step clip is FUN_1406ABB30's cell, at the row

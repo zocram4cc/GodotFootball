@@ -755,6 +755,33 @@ TEST(MoveStepWire, TheThrowInHoldKeepsTheRootYawWhileTheTravelDiffers) {
       << "the retain clip turned the facing from " << facing << " to " << heading(p->GetRootDirectionVec()) << " degrees";
 }
 
+// PES continues every motion from the root's yaw; the throw-in hold keeps that for the taker alone. A MOVESTEP clip issued to
+// a body whose travel has left its facing starts where the root already is: the clip turns the root by its own yaw change.
+TEST(MoveStepWire, AnIssuedClipStartsFromTheRootYawOfAnyBody) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH_AT(config, kTraceSeed, kTraceMinutes);
+  constexpr float kDegPerRad = 57.2957795f;
+  constexpr float kSplitDeg = 45.0f;       // the sideways step leaves the travel this far from the facing
+  constexpr float kToleranceDeg = 0.5f;    // the clip's frame-0 root is the root the body had, to float error
+  constexpr int kLocomotionMotion = 2844;  // a MOVESTEP locomotion motion (PES motion 2844, mid_delay_1_1)
+  auto heading = [&](const Vector3& v) { return std::atan2(v.coords[0], -v.coords[1]) * kDegPerRad; };
+  auto diff = [](float a, float b) { return std::fabs(std::fmod(a - b + 540.0f, 360.0f) - 180.0f); };
+  match->Process();  // the first tick creates the mental images the humanoid reads
+  Player* p = ActivePlayers(*match).at(0);
+  p->ResetPosition(Vector3(-30.0f, 20.0f, 0.0f), Vector3(-30.0f, 0.0f, 0.0f));  // faces heading 0; the pitch centre is 56 degrees off
+  p->OffsetPosition(Vector3(0.2f, 0.0f, 0.0f));
+  p->CastHumanoid()->Process();
+  ASSERT_GT(diff(heading(p->GetDirectionVec()), heading(p->GetRootDirectionVec())), kSplitDeg)
+      << "the sideways step did not leave the travel direction off the facing";
+  const float facing = heading(p->GetRootDirectionVec());
+  ASSERT_TRUE(p->CastHumanoid()->PlayIssuedClip(kLocomotionMotion, 1.0f, false))
+      << "motion " << kLocomotionMotion << " is not a locomotion clip in this install";
+  p->CastHumanoid()->Process();
+  EXPECT_LT(diff(heading(p->GetRootDirectionVec()), facing), kToleranceDeg)
+      << "the issued clip turned the facing from " << facing << " to " << heading(p->GetRootDirectionVec()) << " degrees";
+}
+
 // PES's command id (cmd[0], req[0x16]) and move kind (cmd[0x16], req[0]) come from the AI's command in FUN_1406b7560's
 // copy-in. GF's AI has no PES action table, so the adapter takes both from the movement command (CommandIdFor, MoveKindFor).
 TEST(MoveStepWire, AMovementCommandIsPesMoveActionTwoAndAKeepersMoveIsTheNearKeeperKind) {

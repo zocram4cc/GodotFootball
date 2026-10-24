@@ -178,7 +178,7 @@ TEST(SetKickStand, ThePlacedKeeperKeepsHisHeadingWhileHeWaits) {
   float worst = 0.0f;
   for (int t = 0; t < kWaitTicks; ++t) {
     match->Process();
-    if (match->IsInPlay()) break;  // released: the kick is in play
+    if (match->GetRefereeBuffer().started) break;  // released: the restart has started; the in-play flag rises at the touch
     EXPECT_TRUE(controller->IsPieceTakerHeld(taker)) << "the keeper lost his hold at tick " << t;
     const float turned = AngleBetweenDeg(placed, taker->GetDirectionVec());
     if (turned > worst) worst = turned;
@@ -394,4 +394,60 @@ TEST(SetKickStand, AFarSetPieceWalkerIsCommandedAtTheWalkDownSpeed) {
   }
   ASSERT_GT(farTicks, 0) << "the walker was never more than " << kFarGap_m << " m from his target";
   EXPECT_EQ(wrong, 0) << wrong << " of " << farTicks << " far ticks commanded another speed (up to " << worst << " m/s)";
+}
+
+// A walker far from his mark gets there. Rooting every MOVESTEP clip sat the throw-in taker in TURN_STOP for the whole walk
+// (the step clips restarted each tick and turned the root a fraction of a degree), so he never closed on the mark, while his
+// command still read the walk-down speed. TURN_STOP stands still while it turns the facing back (PES's "stop while still
+// facing away"), so the test asks for the arrival, not for a share of ticks at rest.
+TEST(SetKickStand, AFarSetPieceWalkerReachesHisMarkInTheWalkWindow) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  constexpr float kNearGap_m = 4.0f;  // as the walk-down test: inside this he has closed on his mark
+  constexpr int kWalkTicks = 300;     // the walk window the walk-down test uses
+  match->Process();  // the opening kick-off's preparation, as the walk-down test does
+  const Vector3 spot(0.0f, -34.3f, 0.0f);
+  Player* taker = PrepareRestart(*match, e_SetPiece_ThrowIn, 0, spot);
+  ASSERT_NE(taker, nullptr) << "no throw-in taker was chosen";
+  const TeamAIController* controller = match->GetTeam(0)->GetController();
+  ASSERT_TRUE(controller->IsPieceTakerWalking(taker)) << "the throw-in is not a walked (seamless) one";
+  bool arrived = false;
+  float gap = 0.0f;
+  for (int t = 0; t < kWalkTicks && !arrived; ++t) {
+    match->Process();
+    if (!controller->IsPieceTakerWalking(taker) || controller->IsPickingUp() || controller->IsCarryingBall()) {
+      arrived = true;  // the walk ended at the mark: the taker picks the ball up
+      break;
+    }
+    gap = (controller->GetPieceWalkTarget() - taker->GetPosition()).Get2D().GetLength();
+    arrived = gap <= kNearGap_m;
+  }
+  EXPECT_TRUE(arrived) << "the walker was still " << gap << " m from his mark after " << kWalkTicks << " ticks";
+}
+
+// A placed goal-kick keeper keeps his body through the strike. The strike clip ends before its contact tick, and the controller
+// gives no command until contact (elizacontroller.cpp, the goal kick branch), so the clip's end found no animation: the body was
+// reset to face the ball, a turn of 123 degrees in one tick on the merged tree. Measured from the placement to the end of the take.
+TEST(SetKickStand, TheKeeperTurnsContinuouslyThroughHisGoalKickStrike) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  constexpr float kMaxTurnPerTick_deg = 45.0f;  // a GF tolerance: a reset turns the body to face the ball in one tick
+  constexpr int kMaxTicks = 2700;               // fifty seconds: the ladder releases the kick well inside this
+  match->Process();  // the opening kick-off's preparation, as the heading tests do
+  Player* taker = PrepareRestart(*match, e_SetPiece_GoalKick, 0, Vector3(-47.0f, 3.0f, 0.0f));
+  ASSERT_NE(taker, nullptr) << "no goal kick taker was chosen";
+  const RefereeBuffer& buffer = match->GetRefereeBuffer();
+  float worst = 0.0f;
+  Vector3 previous = taker->GetRootDirectionVec();
+  for (int t = 0; t < kMaxTicks; ++t) {
+    match->Process();
+    const Vector3 root = taker->GetRootDirectionVec();
+    worst = std::max(worst, AngleBetweenDeg(previous, root));
+    previous = root;
+    if (buffer.started && !match->IsInSetPiece()) break;  // the kick has been taken
+  }
+  ASSERT_TRUE(buffer.started) << "the goal kick was not released within " << kMaxTicks << " ticks";
+  EXPECT_LE(worst, kMaxTurnPerTick_deg) << "the keeper's root turned " << worst << " degrees in one tick during his strike";
 }

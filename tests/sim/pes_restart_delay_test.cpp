@@ -22,6 +22,7 @@
 #include "onthepitch/pesclips.hpp"
 #include "onthepitch/pesgoalkick.hpp"
 #include "onthepitch/pessequencer.hpp"
+#include "onthepitch/pessetpiecetaker.hpp"
 #include "onthepitch/restartwatch.hpp"
 #include "pes/mbinfo.hpp"
 #include "pes/vfs.hpp"
@@ -56,9 +57,6 @@ constexpr int TWENTY_MINUTES = 20;
 // moves that throw-in (the role arrays put it past 30000 ticks), so the tests follow it through the whole twenty-minute
 // match and stop when its stoppage ends.
 constexpr unsigned int SEAMLESS_SEED = 3;
-// Seed 7's first throw-in on the twenty-minute match is a placed (ceremony) throw-in: prepared at tick 14428 and released
-// at 14521 (docs/ports/pes-port-ThrowInTaker.md). The windowed tests run just past it.
-constexpr unsigned long kFirstThrowInWindowTicks = 15000;
 // The same 30-minute cap as the other whole-match tests, counted in the 54 Hz logic
 // frames the sim ticks in.
 constexpr unsigned long kMaxSimTicks = 30ul * 60ul * Match::kFramesPerSecond;
@@ -115,6 +113,26 @@ void RunMatchWithinTheBound(bool pesLoop, int minutes, const std::function<void(
     EXPECT_GT(watch.MeasuredStoppages(), 0ul) << "no stoppage was measured";
     EXPECT_LE(watch.LongestTicks(), watch.LimitTicks());
   }
+}
+
+// The horizontal reach of PES's three idle release clips (throwin 4.2): the row's cell in the 000 column (plain) and its first
+// hit record, the clip's release key, read from the install. Short, mid and long, in that order.
+std::vector<float> IdleReleaseReaches(Match& match) {
+  std::vector<float> reaches;
+  const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
+  for (int row : {pes::kThrowInReleaseIdleShort, pes::kThrowInReleaseIdleMid, pes::kThrowInReleaseIdleLong}) {
+    const int motion = match.GetPesAnimetable().Cell(row, pes::kThrowInPlainZeroColumn).motionNo;
+    const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(motion);
+    if (hits.size() < 2) {
+      ADD_FAILURE() << "release motion " << motion << " has fewer than two ball keys";
+      continue;
+    }
+    const pes::HitRecord hit =
+        *std::max_element(hits.begin(), hits.end(), [](const pes::HitRecord& a, const pes::HitRecord& b) { return a.frame < b.frame; });
+    const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), 1.0f, false, g);
+    reaches.push_back(std::sqrt(key.x * key.x + key.z * key.z));
+  }
+  return reaches;
 }
 
 }  // namespace
@@ -218,7 +236,7 @@ TEST(PesRestartDelay, AThrowInIsReleasedFromItsSpotAndTaken) {
     if (firstStop && (!b.active || b.stopTime != *firstStop)) firstDone = true;
     if (!firstStop || b.stopTime != *firstStop) return;
     if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.started) return;
-    if (!match.IsInPlay() || !match.IsInSetPiece()) return;
+    if (!match.IsInSetPiece()) return;  // PES raises the in-play flag at the release (MI+0x116C 3 -> 1): the set piece is the window
     if (checkedStop && *checkedStop == b.stopTime) return;
     checkedStop = b.stopTime;
     throwIns++;
@@ -254,7 +272,7 @@ TEST(PesRestartDelay, AThrowInIsCarriedToItsSpotAndReleasedThere) {
     if (firstStop && (!b.active || b.stopTime != *firstStop)) firstDone = true;
     if (!firstStop || b.stopTime != *firstStop) return;
     if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.started) return;
-    if (!match.IsInPlay() || !match.IsInSetPiece()) return;
+    if (!match.IsInSetPiece()) return;  // PES raises the in-play flag at the release (MI+0x116C 3 -> 1): the set piece is the window
     if (!match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker)) return;  // path A only
     if (checkedStop && *checkedStop == b.stopTime) return;
     checkedStop = b.stopTime;
@@ -492,12 +510,14 @@ TEST(PesRestartDelay, AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWith
   std::set<unsigned long> placed, released;
   int throwIns = 0, offTheStandPoint = 0, insideTheLine = 0, ballAway = 0;
   float releaseBall_m = 0.0f;  // the farthest the ball lay from the taker's body at any release
-  // The release key's ball offset from the body, horizontal (docs/re/pes-re-throwin-choreography.md, SetKick: (0.022, 0.795) m
-  // times bodyScale; bodyScale taken as 1). The carry's lift radius (0.65 m) is a different phase and does not apply here.
-  constexpr float kReleaseHandReach_m = 0.80f;
+  // The placed taker releases from PES's idle row for the throw's distance (docs/re/pes-re-throwin-choreography.md 4.2): the short,
+  // mid or long clip. Each clip's release key sets the hand's reach from the root, read from the install.
+  constexpr float kReachTolerance_m = 0.02f;  // a GF tolerance: the float error of a pinned ball, no PES value
+  std::vector<float> reaches;
   for (const unsigned int seed : kCeremonySeeds) {
     if (firstStop) break;
     RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
+      if (reaches.empty()) reaches = IdleReleaseReaches(match);
       const RefereeBuffer& b = match.GetRefereeBuffer();
       if (!firstStop && b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker && b.prepared &&
           !match.GetTeam(b.teamID)->GetController()->IsPieceTakerWalking(b.taker))
@@ -520,7 +540,9 @@ TEST(PesRestartDelay, AThrowInCeremonyTakerIsPlacedOutsideTheLineAndReleasedWith
         const Vector3 ball = match.GetBall()->Predict(0);
         const float away = (ball.Get2D() - at.Get2D()).GetLength();
         releaseBall_m = std::max(releaseBall_m, away);
-        if (away > kReleaseHandReach_m) ballAway++;
+        bool atAKey = false;
+        for (float reach : reaches) atAKey = atAKey || std::fabs(away - reach) <= kReachTolerance_m;
+        if (!atAKey) ballAway++;
       }
     }, kTwentyMinuteMaxSimTicks, [&](const Match&) { return firstDone; }, seed, false);
   }
@@ -555,7 +577,8 @@ TEST(PesRestartDelay, AThrowInIsNotAwardedAgainOnItsOwnSpot) {
       releasedAt_ms = now_ms;
       throwIns++;
     }
-  }, kFirstThrowInWindowTicks, nullptr, SEED, false);
+  // The first release of the run, wherever the match puts it: the bound is the match, and the run stops at that release.
+  }, kTwentyMinuteMaxSimTicks, [&](const Match&) { return throwIns > 0; }, SEED, false);
   EXPECT_GT(throwIns, 0) << "no throw-in was released";
   EXPECT_EQ(reawarded, 0) << reawarded << " throw-in(s) awarded again within a second of a release, at the spot";
 }

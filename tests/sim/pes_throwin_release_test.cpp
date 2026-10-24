@@ -95,9 +95,10 @@ TEST(PesThrowInRelease, ACarriedThrowUsesTheShortRowUpToThePesDistanceAndTheMidR
   EXPECT_EQ(pes::ThrowInCarryReleaseRow(reach_m + 0.01f, reach_m), pes::kThrowInReleaseRunMid);
 }
 
-// PES releases a throw-in from behind the line: the release holds the ball at the hand's key offset, inside the touchline,
-// until the release (pes-re-throwin-choreography.md 4.2, 5.3). So when the throw's touch ends the set piece, the ball lies
-// inside the line. Counted over a two-minute seed-7 match.
+// PES releases a throw-in from behind the line (pes-re-throwin-choreography.md 4.2: the taker is pushed so the outer hand
+// stays ≥ F[1] + 0.1 m outside until release), and at the first in-play frame the ball has crossed inside (live OBS, 5.3:
+// 33.87 / 33.81 < 34.0). So when the throw's touch ends the set piece, the ball lies inside the line. Counted over a
+// two-minute seed-7 match.
 TEST(PesThrowInRelease, AThrowInIsReleasedFromInsideTheLine) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
   int releases = 0, outside = 0;
@@ -115,12 +116,12 @@ TEST(PesThrowInRelease, AThrowInIsReleasedFromInsideTheLine) {
   EXPECT_EQ(outside, 0) << outside << " of " << releases << " released throw-ins lay outside the touchline at the touch";
 }
 
-// A carried throw-in's ball is held at its release row's key offset from the taker's root until the touch. The hold of a
-// tick places the ball from the root the previous tick ended with, so the check pairs the last held ball with that root.
-// The key's horizontal length is independent of the heading (the Fox X and Z of the key), so the check is the hold's
-// distance from the root. It checks the hold against the row's first hit record, which the hold reads; it does not check
-// that this record is PES's release key (OPEN, pes-re-throwin-choreography.md 5). Ceremony takers hold the ball at their
-// own stand-point key and are not counted.
+// A carried throw-in's ball is held at its release clip's key offset from the taker's root until the touch. The hold of a tick
+// places the ball from the root the previous tick ended with, so the check pairs the last held ball with that root. The key's
+// horizontal length is independent of the heading (the Fox X and Z of the key), so the check is the hold's distance from the
+// root. The release clip is the release row's cell in the 000 column (plain), and its second hit record is the key
+// (choreography 4.2: the run_000_short and run_000_mid keys). Ceremony
+// takers are not counted: they never carry the ball.
 TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
   pes::SetPieceTakerConstants k;
@@ -151,9 +152,15 @@ TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
     throwInTaking = false;
     if (!carrying) return;
     carried++;
-    const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(takeRow);
+    const int releaseMotion = match.GetPesAnimetable().Cell(takeRow, pes::kThrowInPlainZeroColumn).motionNo;
+    const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(releaseMotion);
     const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
-    const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+    // The release key is the later of the clip's two ball keys, by frame. The pin reaches it by index 1, so the two agree only
+    // if index 1 is the later key.
+    EXPECT_GE(hits.size(), 2u) << "release row " << releaseMotion << " has fewer than two ball keys";
+    if (hits.size() < 2) return;
+    const pes::HitRecord hit =
+        *std::max_element(hits.begin(), hits.end(), [](const pes::HitRecord& a, const pes::HitRecord& b) { return a.frame < b.frame; });
     const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), 1.0f, false, g);
     const float keyHorizontal_m = std::sqrt(key.x * key.x + key.z * key.z);
     const float dx = heldBall.coords[0] - heldRoot.coords[0], dy = heldBall.coords[1] - heldRoot.coords[1];
@@ -166,6 +173,37 @@ TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
                            << worst_m << " m)";
 }
 
+// PES raises the in-play flag at the release, not at the take start: the release block sets ap+0x2460 |= 0x80 and tells
+// the flow (FUN_140445750), which takes MI+0x116C 3 -> 1 (ThrowinNormal shared Update 0x140792E10 phase 1;
+// docs/re/pes-re-throwin-choreography.md 4.2). The kicks end in the same writer, FUN_14047FEB0 -> FUN_140445750 under the
+// kick dispatcher FUN_140446390 (docs/re/pes-re-A5Judge.md 3.6). So every take the referee starts is out of play for all of
+// its ticks and back in play on the tick its set piece ends. Counted over every take of a two-minute seed-7 match.
+TEST(PesThrowInRelease, ARestartIsInPlayAtTheReleaseNotAtTheTakeStart) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  int takes = 0, takeTicks = 0, inPlayTakeTicks = 0, releases = 0, inPlayReleases = 0;
+  bool taking = false;
+  RunMatch([&](Match& match) {
+    if (!taking && match.IsInSetPiece() && match.GetRefereeBuffer().started) {
+      taking = true;
+      takes++;
+    }
+    if (!taking) return;
+    if (match.IsInSetPiece()) {
+      takeTicks++;
+      if (match.IsInPlay()) inPlayTakeTicks++;
+      return;
+    }
+    taking = false;  // the touch ended the set piece
+    releases++;
+    if (match.IsInPlay()) inPlayReleases++;
+  });
+  EXPECT_GT(takes, 0) << "no set-piece take in two minutes";
+  EXPECT_EQ(inPlayTakeTicks, 0) << inPlayTakeTicks << " of " << takeTicks
+                                << " take ticks were already in play; PES rises at the release, not the take start";
+  EXPECT_EQ(inPlayReleases, releases) << "play did not resume at a release";
+  EXPECT_EQ(releases, takes) << "a take did not end in a release";
+}
+
 // PES's lift turns a carried throw-in's taker to face the pitch: SeamlessThrowin phase 4 (FUN_140791EC0 case 4,
 // docs/re/pes-re-throwin-choreography.md 3.2) plays throwin_seamless_liftupball and yaw-warps the root to 180 degrees, or to
 // 0 when the spot's PES z is negative, over the clip. In GF's frame (PES z = -y) that is -y from the +y touchline and +y from
@@ -174,7 +212,7 @@ TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
 // two-minute seed-7 match, the root must face the pitch.
 // The lift's warp ends on PES's heading. On seed 7's first carried throw-in, the retain clip the carrier starts on the lift's last
 // tick (SelectRetainAnim) took its start angle from facing the pitch centre, and the root landed 54 degrees off. From the lift on,
-// the taker's clips start from the root yaw (HumanoidBase::RootStartAngle, Humanoid::HoldsRootYaw); on the merged tree the MOVESTEP
+// the taker's clips start from the root yaw (HumanoidBase::RootStartAngle); on the merged tree the MOVESTEP
 // clip that follows the lift started from the travel direction and faced him out.
 TEST(PesThrowInRelease, TheLiftTurnsACarriedThrowInTakerToFaceThePitch) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";

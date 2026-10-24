@@ -21,6 +21,8 @@ constexpr uint64_t PHYSIQUE_HIGH_VA = 0x1425ddf80;     // 1.0833: and high
 constexpr uint64_t HIT_TICK_DIVISOR_VA = 0x14259a764;  // 60: a hit's tick divisor (FUN_1406B03D0)
 constexpr uint64_t THROW_IN_PICKUP_REACH_VA = 0x14259222c;  // 5.0: the throw-in pickup clip's reach (choreography 3.2)
 constexpr uint64_t THROW_IN_RELEASE_SHORT_VA = 0x1425c5948;  // 13.0: the carry's release row switches to the mid row beyond it
+constexpr uint64_t THROW_IN_RELEASE_LONG_VA = 0x14259be20;  // 25.0: the placed taker's idle release row switches to the long row beyond it
+constexpr uint64_t THROW_IN_PUSH_INSET_VA = 0x142588200;  // 0.1: the release margin the taker keeps OUTSIDE the touchline (throwin 4.2, FUN_140792E10)
 constexpr uint64_t WALK_DOWN_KMH_VA = 0x14259bdfc;  // 11.0 km/h: the MOVE filler's walk-down speed (FUN_1406b7560)
 constexpr float kKmhPerMps = 3.6f;                  // a unit conversion: km/h per m/s
 
@@ -43,7 +45,9 @@ std::optional<SetPieceTakerConstants> LoadSetPieceTakerConstants(const PesVfs& v
         std::pair{CENTIMETRE_VA, &k.centimetre_m}, std::pair{PHYSIQUE_LOW_VA, &k.physiqueLow},
         std::pair{PHYSIQUE_HIGH_VA, &k.physiqueHigh}, std::pair{HIT_TICK_DIVISOR_VA, &k.hitTickDivisor},
         std::pair{THROW_IN_PICKUP_REACH_VA, &k.throwInPickupReach_m},
-        std::pair{THROW_IN_RELEASE_SHORT_VA, &k.throwInReleaseShort_m}}) {
+        std::pair{THROW_IN_RELEASE_SHORT_VA, &k.throwInReleaseShort_m},
+        std::pair{THROW_IN_RELEASE_LONG_VA, &k.throwInReleaseLong_m},
+        std::pair{THROW_IN_PUSH_INSET_VA, &k.throwInPushInset_m}}) {
     if (!ReadFloat(exe, va, out)) {
       char buf[32];
       std::snprintf(buf, sizeof buf, "%#llx", static_cast<unsigned long long>(va));
@@ -76,6 +80,11 @@ std::optional<SetPieceTakerConstants> LoadSetPieceTakerConstants(const PesVfs& v
 
 int ThrowInCarryReleaseRow(float distance_m, float shortReach_m) {
   return distance_m > shortReach_m ? kThrowInReleaseRunMid : kThrowInReleaseRunShort;
+}
+
+int ThrowInIdleReleaseRow(float distance_m, float shortReach_m, float longReach_m) {
+  if (distance_m <= shortReach_m) return kThrowInReleaseIdleShort;
+  return distance_m <= longReach_m ? kThrowInReleaseIdleMid : kThrowInReleaseIdleLong;
 }
 
 }  // namespace pes

@@ -1383,24 +1383,43 @@ Player* TeamAIController::ThrowInTargetMate(Player* thrower) const {
 }
 
 void TeamAIController::PinBallAtRelease() {
-  if (!IsCarryingBall()) return;
-  // PES chooses the carry's release row as the take starts, from the distance to the throw's target (FUN_140792E10, throwin 4.2).
+  // PES holds the ball in the placed taker's hand from his stand point to the release (throwin 4.1), as on the carry.
+  // ponytail: GF pins it from the take start, not from the placement.
+  if (!IsCarryingBall() && !IsPieceTakerHeld(taker)) return;
+  // PES picks the release clip as the take starts, from the distance to the throw's target (FUN_140792E10, throwin 4.2): the
+  // carry's run row for a carried throw, the idle row for a placed taker who has never carried the ball (the loop's entry).
   if (pieceReleaseRow == 0) {
     Player* mate = ThrowInTargetMate(taker);
     const Vector3 to = mate ? mate->GetPosition() : taker->GetPosition();
-    pieceReleaseRow = pes::ThrowInCarryReleaseRow((taker->GetPosition().Get2D() - to.Get2D()).GetLength(),
-                                                  match->GetPesSetPieceTakerConstants().throwInReleaseShort_m);
+    const float distance_m = (taker->GetPosition().Get2D() - to.Get2D()).GetLength();
+    const pes::SetPieceTakerConstants& k = match->GetPesSetPieceTakerConstants();
+    pieceReleaseRow = IsCarryingBall()
+                          ? pes::ThrowInCarryReleaseRow(distance_m, k.throwInReleaseShort_m)
+                          : pes::ThrowInIdleReleaseRow(distance_m, k.throwInReleaseShort_m, k.throwInReleaseLong_m);
   }
   constexpr float kPhysique = 1.0f;  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0, as the pickup does
   constexpr bool kMirror = false;    // ponytail: the 000 column; PES's column is the angle class of the throw (FUN_1406de990)
-  const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(pieceReleaseRow);
-  const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+  // The row names the release clip in the animetable. Its release key is the clip's second ball key (choreography 4.2: the
+  // table's run_000_short and run_000_mid keys are hit 1 of motions 3324 and 3323). at() throws if a release row has one key.
+  const int releaseMotion = match->GetPesAnimetable().Cell(pieceReleaseRow, pes::kThrowInPlainZeroColumn).motionNo;
+  const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(releaseMotion);
+  const pes::HitRecord hit = hits.at(1);
   const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
   const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
   const Vector3 pos = taker->GetPosition();
-  const Vector3 facing = taker->GetDirectionVec();
+  const Vector3 facing = taker->GetRootDirectionVec();  // PES's hand sits on the root yaw, not on the travel direction
   const float heading = pes::FacingHeadingDeg(pes::Vec3(facing.coords[0], facing.coords[1], facing.coords[2]));
-  const pes::Vec3 hand = pes::HandBallFromRoot(pes::Vec3(pos.coords[0], pos.coords[1], 0.0f), heading, offset);
+  pes::Vec3 hand = pes::HandBallFromRoot(pes::Vec3(pos.coords[0], pos.coords[1], 0.0f), heading, offset);
+  // PES pushes the taker before the release (FUN_140792E10, throwin 4.2 phase 1) until the outer edge is the install's
+  // inset OUTSIDE the touchline: the ball is then released from behind the line. The push moves the root; the ball follows.
+  // ponytail: the root's edge stands in for PES's further-outside of bones 3/6 (FUN_141eb51a0); the two-bone push replaces it.
+  const float kReleaseMargin_m = match->GetPesSetPieceTakerConstants().throwInPushInset_m;
+  const float side = pos.coords[1] < 0.0f ? -1.0f : 1.0f;
+  const float excess = (pesFieldHalfWidth + kReleaseMargin_m) - side * pos.coords[1];
+  if (excess > 0.0f) {
+    taker->OffsetPosition(Vector3(0.0f, side * excess, 0.0f));
+    hand.y += side * excess;
+  }
   match->GetBall()->ResetSituation(Vector3(hand.x, hand.y, hand.z));
 }
 

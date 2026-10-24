@@ -120,9 +120,6 @@ public:
   bool IsPieceTakerWalking(const Player* player) const;
   // True while a placed set-piece taker holds his stand point before the release (pes-re-kicker-standby.md section 4).
   bool IsPieceTakerHeld(const Player* player) const { return pieceHeld && player == taker; }
-  // True from the lift's end until the restart is over: the taker keeps the root yaw the lift left him with (PES's throw-in loop
-  // keeps the lift's yaw), so his clips start from it.
-  bool HoldsRoot(const Player* player) const { return pieceLifted && player == taker; }
   // The point a held taker looks at: his SetKick look point when the placement set one (a corner's heading), else the ball.
   Vector3 HeldTakerLookAt(const Vector3& ball) const { return pieceHasLookAt ? pieceLookAt : ball; }
   Vector3 GetPieceWalkTarget() const { return pieceWalkTarget; }
