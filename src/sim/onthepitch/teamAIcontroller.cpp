@@ -206,10 +206,10 @@ void TeamAIController::TickMarkTable() {
     Player* const engaging = team->GetDesignatedTeamPossessionPlayer();
     markTableState.markSlot = engaging != nullptr ? RunSlotOf(engaging) : -1;
   }
-  // ponytail: the T7a holder is FUN_140A627E0 else MA+0x2483C (HolderSplit owns
-  // the MA+0x2601C split); GF's ball retainer stands in for it here. The run
-  // slot is team*11 + roster index (RunSlotOf; -1 when he is not in it).
-  Player* const owner = match->GetBallRetainer();
+  // The T7a holder is FUN_140A627E0 else MA+0x2483C (PES path: MA+0x2601C); the split landed it, so the stand-in
+  // is gone: the holder (Match::RecomputePesHolder) feeds the slot directly. The run slot is team*11 + roster
+  // index (RunSlotOf; -1 when he is not in it).
+  Player* const owner = match->GetPesHolder();
   if (owner == nullptr) return;
   const int holder = RunSlotOf(owner);
   if (holder < 0 || holder >= 2 * pes::marktable::kSlots) return;
