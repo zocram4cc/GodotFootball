@@ -202,6 +202,7 @@ public:
   void UpdatePesDesignation();
   void SetUpRoleArrays();
   void WriteRoleArrays(bool head);
+  void UpdateLaneLine();
   void WriteSlotPoints(int phase);
   // The B swap pair (T+0x89D4/0x89D8). No GF event sets it yet: the PES writer is not decoded.
   void RequestRoleSwap(int a, int b);
@@ -239,8 +240,8 @@ public:
   bool PressOrDelay(const PlayerBase* p);
   // PES's strategy word T+0x134 (docs/re/pes-re-match-management.md 1).
   int GetStrategy() const { return strategy.strategy; }
-  // Every team tick, dead balls included: the decider moves the strategy while
-  // the ball is dead and the attack level follows it once play resumes.
+  // Every team tick: the decider moves the strategy in PES state 3 (restart armed or taken), and the
+  // attack level follows it once play resumes.
   void UpdateStrategy();
   // Team tick step 55 (FUN_140A42A70 at 0x1404F7A8F; restart arm 26c at
   // 0x1404F6F0E): the per-slot gated self-copy of the run history plus the
@@ -254,6 +255,8 @@ public:
   // counterpart yet (helpers sect 1-3), so the dispatcher exits and no slot
   // takes until those land. Returns the route, so tests pin the seam.
   pes::run::ReleaseRoute PesStep48();
+  // PES's in-play plan selector (FUN_140500B90): the sheet plan, once per PES team tick after UpdateStrategy.
+  void UpdatePesSheetPlan();
   // PES's per-tick team words (pesteamtick.hpp): the attack level T+0xB8A4,
   // its flags and the restart word, stepped every team tick on the PES path.
   const pes::TeamTick& GetTeamTick() const { return teamTick; }

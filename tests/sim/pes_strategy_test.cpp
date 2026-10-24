@@ -218,3 +218,16 @@ TEST(PesStrategyInstall, LoadsTheDrawLiteralsFromTheExe) {
   EXPECT_GE(k->rngSlot, 0);
   EXPECT_LT(k->rngSlot, pes::kWeakSlot);
 }
+
+// PES's decider entry and its moves by play state (pesstrategy.hpp). FUN_14051e910's test at
+// 0x14051E92E-0x14051E93C calls the decider in states 1 and 3; the body returns at once in state 1.
+TEST(DeciderGate, TheEntryCallsTheDeciderInStatesOneAndThreeOnly) {
+  for (int state = -2; state <= 6; ++state)
+    EXPECT_EQ(pes::DeciderCalledIn(state), state == 1 || state == 3) << "state " << state;
+}
+
+TEST(DeciderGate, OnlyRestartStateThreeMovesTheStrategy) {
+  EXPECT_FALSE(pes::DeciderMovesIn(1));  // open play: the body returns at once
+  EXPECT_FALSE(pes::DeciderMovesIn(2));  // stopped: the entry does not call it
+  EXPECT_TRUE(pes::DeciderMovesIn(3));
+}
