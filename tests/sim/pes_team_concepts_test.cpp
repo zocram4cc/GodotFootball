@@ -337,6 +337,9 @@ TEST(PesTeamSheet, ResetPutsARecordBackToThePesResetState) {
   EXPECT_EQ(s.InstructionSlotFlag(3, 9, 2), 0);
 }
 
+// The sheet starts at plan 0 on both sides (plan-selector §3): the only writer of setup+0xB34 is
+// the reset (MOV [RBX+0xB34/0xBDC],EDI at 0x1408ADEA5/0x1408ADFAD with EDI = 0), so the exhibition
+// reader (FUN_1408E16D0) picks up 0.
 TEST(PesTeamSheetDefaults, DefaultsAreTheConstructorStoresFromTheInstall) {
   pes::TeamConceptConstants k;
   k.defaultSliders[pes::kSliderSupportRange] = 6;
