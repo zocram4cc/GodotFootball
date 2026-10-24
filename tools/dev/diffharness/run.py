@@ -25,24 +25,38 @@ def align_up(x, a=PAGE):
 
 
 def image_kind(path):
-    """'flat' for the unpacker's pes_full.bin (a live dump with headers: file
-    offset = VA - 0x140000000), 'pe' for the packed PES2021.exe.
+    """'flat' for the unpacked image (file offset = VA - 0x140000000),
+    'pe' for the packed PES2021.exe.
 
-    The dump keeps the header page but unpacks every section to its VA, so the
-    section table's raw ranges no longer address the code: probe the band
-    ladder's bytes through the table, and call it flat when they miss.
+    Discriminator is structural, never byte content (probe bytes would be
+    PES bytes, which never enter the repo): the dump keeps the packed
+    layout's section table but appends live pages, so its filesize exceeds
+    the table's max raw end; the packed exe ends exactly there. A packed
+    exe's bytes differ from the image's at every code VA (band/strategy/
+    cone/tick entries and .rdata alike, per the DiffHarnessRE byte diff),
+    so it must never be emulated.
     """
+    import os
     with open(path, "rb") as f:
         head = f.read(0x400)
     if head[:2] != b"MZ":
-        return "flat"
-    for va, size, raw in parse_pe_sections(path):
-        if va <= 0x140AF2EAC < va + size:
-            with open(path, "rb") as f:
-                f.seek(raw + (0x140AF2EAC - va))
-                if f.read(3) == b"\x83\xf8\x41":
-                    return "pe"
-            break
+        raise SystemExit("diffharness: %s has no MZ header" % path)
+    pe = struct.unpack("<I", head[0x3C:0x40])[0]
+    count = struct.unpack("<H", head[pe + 6:pe + 8])[0]
+    opt = struct.unpack("<H", head[pe + 20:pe + 22])[0]
+    end = 0
+    with open(path, "rb") as f:
+        f.seek(pe + 24 + opt)
+        for _ in range(count):
+            s = f.read(40)
+            if len(s) < 40:
+                break
+            vsize, _, rsize, rptr = struct.unpack("<IIII", s[8:24])
+            if vsize == 0 and rsize == 0:
+                break
+            end = max(end, rptr + rsize)
+    if os.path.getsize(path) == end:
+        return "pe"
     return "flat"
 
 FLAT_BASE = 0x140000000
@@ -123,16 +137,12 @@ def check_spec(spec, sections, image_path):
     for key in ("va", "entry", "end"):
         if key in spec and read_va_from(image_path, sections, int(spec[key], 16), 3) is None:
             errors.append("%s %s unreadable" % (key, spec[key]))
-    # The probe is the function's first bytes, script-read from the unpacked
-    # image: a packed executable (encrypted code) fails here instead of
-    # emulating garbage.
-    probe = spec.get("probe")
-    if probe:
-        got = read_va_from(image_path, sections, int(probe["va"], 16),
-                           len(probe["bytes"]) // 2)
-        if got is None or got.hex() != probe["bytes"]:
-            errors.append("probe at %s mismatch: image is not the unpacked "
-                          "executable (set PES_EXE to an unpacked image)" % probe["va"])
+    # A packed exe is refused outright: its bytes differ from the unpacked
+    # image's at every code VA, so emulating it computes garbage. The guard
+    # is the file size, not probe bytes (those would be PES bytes in repo).
+    if image_kind(image_path) != "flat":
+        errors.append("refusing packed exe %s: unpack once to an image "
+                      "(file offset = VA - 0x140000000) and set PES_EXE" % image_path)
     for name, stub in (spec.get("stubs") or {}).items():
         if read_va_from(image_path, sections, int(stub["va"], 16), 1) is None:
             errors.append("stub %s va %s unreadable" % (name, stub["va"]))
@@ -548,6 +558,10 @@ def gen_inputs(spec, seed, count):
                     case[name] = f32_bits(rnd.uniform(rule.get("lo", -50.0), rule.get("hi", 50.0)))
             elif kind == "choice":
                 case[name] = rnd.choice(rule["values"])
+            elif kind == "derived":
+                # Address derived from already-drawn inputs (schema order):
+                # side-strided words, never degenerate (provenance: RE notes).
+                case[name] = eval(rule["expr"], {"__builtins__": {}}, dict(case))
         cases.append(case)
     # Static per-case defaults that must not consume the random stream.
     for case in cases:

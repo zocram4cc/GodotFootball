@@ -27,9 +27,10 @@
 
 namespace {
 
+// Constants come from the PACKED executable (its section table addresses
+// .rdata/.text correctly); the corpus comes from the unpacked image
+// (PES_EXE). PeImage cannot read the dump's stale section table.
 std::string ExePath() {
-  const char* exe = std::getenv("PES_EXE");
-  if (exe) return exe;
   const char* root = std::getenv("PES21_ROOT");
   if (!root) return "";
   return std::string(root) + "/PES2021.exe";
@@ -48,7 +49,7 @@ float BitsToFloat(const diff::Value& v) {
 }
 
 TEST(DiffStrategy, MinuteZeroMatchesPESBitForBit) {
-  if (ExePath().empty()) GTEST_SKIP() << "PES21_ROOT/PES_EXE not set";
+  if (ExePath().empty()) GTEST_SKIP() << "PES21_ROOT not set";
   auto cases = diff::ReadCorpus(diff::CorpusPath("strategy_minute0"));
   if (cases.empty()) GTEST_SKIP() << "no corpus (generator skipped)";
   std::string err;
@@ -86,7 +87,7 @@ TEST(DiffStrategy, MinuteZeroMatchesPESBitForBit) {
 TEST(DiffStrategy, StoppedGateKeepsStrategy) {
   // MI+0x116C==1 early return (the E910 wrapper's gate, inside E970):
   // the step leaves strat3/5/6 untouched.
-  if (ExePath().empty()) GTEST_SKIP() << "PES21_ROOT/PES_EXE not set";
+  if (ExePath().empty()) GTEST_SKIP() << "PES21_ROOT not set";
   auto cases = diff::ReadCorpus(diff::CorpusPath("strategy_minute0"));
   if (cases.empty()) GTEST_SKIP() << "no corpus (generator skipped)";
   int checked = 0;

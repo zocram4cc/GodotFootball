@@ -18,16 +18,17 @@
 
 namespace {
 
+// Constants come from the PACKED executable (its section table addresses
+// .rdata/.text correctly); the corpus comes from the unpacked image
+// (PES_EXE). PeImage cannot read the dump's stale section table.
 std::string ExePath() {
-  const char* exe = std::getenv("PES_EXE");
-  if (exe) return exe;
   const char* root = std::getenv("PES21_ROOT");
   if (!root) return "";
   return std::string(root) + "/PES2021.exe";
 }
 
 TEST(DiffCondBand, LadderMatchesPESBitForBit) {
-  if (ExePath().empty()) GTEST_SKIP() << "PES21_ROOT/PES_EXE not set";
+  if (ExePath().empty()) GTEST_SKIP() << "PES21_ROOT not set";
   auto cases = diff::ReadCorpus(diff::CorpusPath("band"));
   if (cases.empty()) GTEST_SKIP() << "no corpus (generator skipped)";
   std::string err;

@@ -75,9 +75,5 @@
     }
   },
   "constants": {},
-  "probe": {
-    "va": "0x141FC1380",
-    "bytes": "40534883ec20"
-  },
   "count": 8
 }

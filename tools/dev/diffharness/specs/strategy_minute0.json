@@ -272,10 +272,8 @@
       ]
     },
     "ma_off": {
-      "kind": "choice",
-      "values": [
-        155638
-      ]
+      "kind": "derived",
+      "expr": "0x25FF4+mode+side*8"
     },
     "own_float": {
       "kind": "f32",
@@ -283,11 +281,8 @@
       "hi": 90.0
     },
     "own_off": {
-      "kind": "choice",
-      "values": [
-        50180,
-        60424
-      ]
+      "kind": "derived",
+      "expr": "0xC404+side*0x2804"
     },
     "chal_float": {
       "kind": "f32",
@@ -295,11 +290,8 @@
       "hi": 90.0
     },
     "chal_off": {
-      "kind": "choice",
-      "values": [
-        50180,
-        60424
-      ]
+      "kind": "derived",
+      "expr": "0xC404+(1-side)*0x2804"
     },
     "sheet": {
       "kind": "choice",
@@ -908,10 +900,6 @@
     "rng_scale": {
       "va": "0x1426550D8"
     }
-  },
-  "probe": {
-    "va": "0x14051E970",
-    "bytes": "4055565741544155415641574881ec80"
   },
   "regions_init": {
     "GROOT+0x270": "MI",
