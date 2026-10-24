@@ -240,7 +240,7 @@ class Emitter:
             va = mp["absolute"]
             if width == 128:
                 self.bake(va, 16)
-                return "s.rd128(k_c%X)" % va
+                return "(k_c%X)" % va
             n = 4 if (flt == "f32" or width == 32) else width // 8
             if flt == "f64":
                 n = 8
