@@ -105,6 +105,73 @@ bool CopyPathRuns(bool copyFlagSet);
 // CE4F0 copy path keeps the B words for all 11, including inactive).
 std::array<int, kSlots> LaneBWords(const LaneInput& in);
 
+// FUN_140A63950 (lane-post §4d): the instruction table, four (id, slot) rows per side
+// (MA+0x25CF8/0x25D38). GF carries no instruction table: an all-zero table claims nothing
+// (no row can match id 0xF/0x10), which is the exact rule over GF's input.
+struct InstrTable {
+  std::array<std::array<int, 4>, 2> ids{};
+  std::array<std::array<int, 4>, 2> slots{};
+};
+// Nonzero iff some row j < 4 of the side holds (id, slot) (VA 0x140A63950; side < 2, id < 17).
+bool InstructionClaimed(const InstrTable& table, int side, int id, int slot);
+
+// FUN_140A64410 (lane-post §1): the SMF/WF special predicate. `slot` is the local k, `roles`
+// the side's T+0x4C00 row (roles.b 1:1), `active` MI+0x1748, `slotF0` the S+0x3A9C f0 column
+// (slotPoints[k].x), `secondF0` the T+0x46EC column. GF carries no T+0x46EC: pass zeros with
+// the ponytail at the call (the sign arm is unreachable with an empty table, step 2).
+struct SpecialInput {
+  int slot = 0;                          // local k 0..10
+  int side = 0;                          // 0 or 1
+  InstrTable instr;                      // MA+0x25CF8/0x25D38
+  std::array<int, kSlots> roles{};       // T+0x4C00
+  std::array<int, kSlots> active{};      // MI+0x1748
+  std::array<float, kSlots> slotF0{};    // S+0x3A9C f0
+  std::array<float, kSlots> secondF0{};  // T+0x46EC
+};
+// 1 = special (CE150 takes the CCD50 branch), 0 = normal (CE150 takes CD540).
+bool SpecialPredicate(const SpecialInput& in);
+
+// FUN_1405CD540 (lane-post §2a): B[k] 0 -> 3; 1-2 -> 0; 3-6 -> 1; 7-9 -> 2.
+int Cd540Line(int cls);
+
+// FUN_1405CCD50's float operands (lane-post §0, script-read from the install):
+// DAT_14259B89C = 0.4, DAT_142565600 = 0.5, DAT_14257A190 = 0.6.
+struct LaneThresholds {
+  float backZero = 0.0f;     // 0.4: the back arm's threshold when B[k] == 0
+  float backNonZero = 0.0f;  // 0.5: the back arm's threshold otherwise
+  float fwdOne = 0.0f;       // 0.5: the forward arm's threshold when B[k] == 1
+  float fwdOther = 0.0f;     // 0.6: the forward arm's threshold otherwise
+};
+std::optional<LaneThresholds> LoadLaneThresholds(const PeImage& exe, std::string* error);
+
+// FUN_1405CCD50 (lane-post §2): the distance branch. `backDist`/`fwdDist` are the
+// FUN_14063F760/14063F490 scores (interiors INF, lane-post §2b); `fwdProductNeg` is the
+// T+0x254-signed MA+0x2482C product < 0. The debug ring (LX+0x1B4/0x1BC/0x1C4) has no
+// reader that affects the word, so only the return value ports. Returns {0, 1, 2}.
+struct Ccd50Input {
+  int cls = 0;              // the B class of the slot (local_148 record)
+  int playState116c = 1;    // MI+0x116C
+  int mi54 = 0;             // MI+0x54 (ponytail: no GF word)
+  int restartKind1554 = 0;  // MI+0x1554
+  float backDist = 0.0f;    // FUN_14063F760 score (ponytail: interior INF)
+  float fwdDist = 0.0f;     // FUN_14063F490 score (ponytail: interior INF)
+  bool fwdProductNeg = false;  // T+0x254-signed MA+0x2482C product < 0 (ponytail: analysis ball)
+};
+int Ccd50Word(const LaneThresholds& t, const Ccd50Input& in);
+
+// FUN_1405CE930's head (lane-leaves §3.1): the recompute-path A-rank writer. `order` is the
+// side's depth-sorted slot list (SortLaneSlots over Ce930Key values); `a` the current A-words.
+// Per slot in order: active (MI+0x1748), on-pitch (class != 0) slots take the count of earlier
+// same-word slots; the count starts at 0 per word. Slots off the path keep 0xA0 (the 0xA0 fill).
+std::array<uint8_t, kSlots> Ce930Ranks(const std::array<int, kSlots>& a,
+                                       const std::array<uint8_t, kSlots>& order,
+                                       const std::array<int, kSlots>& cls,
+                                       const std::array<int, kSlots>& active);
+// FUN_1405CE930's key (VA 0x1405CE930, lane-leaves §3.1): a special (A64410) slot whose
+// S+0x3AA4-depth row (slotPoints[k].z) is above 0 uses the +100000.0 override
+// (DAT_1425C65FC); otherwise the slot keeps its |depth - ballX| key.
+float Ce930Key(float depthKey, bool special, float f2);
+
 // FUN_1405CE150's B-rank (lane-writers §3): per slot, the count of earlier same-B-word slots in the
 // sorted order. `order` is the sorted slot list (SortLaneSlots).
 std::array<uint8_t, kSlots> LaneBRank(const std::array<int, kSlots>& b,

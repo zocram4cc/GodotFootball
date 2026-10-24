@@ -184,6 +184,72 @@ TEST(MentalityLaneB, RestartKindFourWithoutInstructionTableKeepsClassLine) {
   for (int k = 1; k < 11; ++k) EXPECT_EQ(mentality::ReclassifyLineOf(b[k]), w[k]);
 }
 
+// FUN_140A63950 (lane-post §4d): nonzero iff the side's instruction table holds (id, slot).
+TEST(MentalityLaneSpecial, InstructionClaimNeedsIdAndSlotMatch) {
+  mentality::InstrTable table{};
+  table.ids[0][0] = 0xF;
+  table.slots[0][0] = 7;
+  EXPECT_TRUE(mentality::InstructionClaimed(table, 0, 0xF, 7));
+  EXPECT_FALSE(mentality::InstructionClaimed(table, 0, 0xF, 6));
+  EXPECT_FALSE(mentality::InstructionClaimed(table, 0, 0x10, 7));
+  EXPECT_FALSE(mentality::InstructionClaimed(table, 1, 0xF, 7));
+}
+
+// FUN_140A64410 (lane-post §1): without a 0x10 instruction row the slot is never special.
+TEST(MentalityLaneSpecial, NoSixteenRowIsNeverSpecial) {
+  mentality::SpecialInput in;
+  in.slot = 3;
+  in.side = 0;
+  in.roles[3] = 8;
+  in.active[3] = 1;
+  EXPECT_FALSE(mentality::SpecialPredicate(in));
+}
+
+// FUN_1405CD540 (lane-post §2a): keeper class maps to 3, the lines as the reclassify.
+TEST(MentalityLaneSpecial, Cd540MapsKeeperToThree) {
+  EXPECT_EQ(3, mentality::Cd540Line(0));
+  EXPECT_EQ(0, mentality::Cd540Line(1));
+  EXPECT_EQ(1, mentality::Cd540Line(4));
+  EXPECT_EQ(2, mentality::Cd540Line(9));
+}
+
+// FUN_1405CCD50 (lane-post §2): out of play with restart kinds 3-5 returns 0.
+TEST(MentalityLaneSpecial, Ccd50StoppageReturnsZero) {
+  mentality::Ccd50Input in;
+  in.cls = 4;
+  in.playState116c = 2;
+  in.mi54 = 0;
+  in.restartKind1554 = 4;
+  EXPECT_EQ(0, mentality::Ccd50Word(mentality::LaneThresholds(), in));
+}
+
+
+// FUN_1405CE930's head (lane-leaves §3): A-ranks count same-word slots ahead in depth order.
+TEST(MentalityLaneRank, CountsSameWordSlotsAheadInDepthOrder) {
+  // Two back-line slots (A = 0): the nearer in depth ranks 0, the farther 1.
+  std::array<int, 11> a{0, 0, 1, 1, 2, 3, 3, 3, 3, 3, 3};
+  std::array<uint8_t, 11> order{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+  std::array<int, 11> cls{1, 1, 3, 4, 7, 0, 1, 2, 3, 4, 5};
+  std::array<int, 11> active{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  const auto rank = mentality::Ce930Ranks(a, order, cls, active);
+  EXPECT_EQ(0u, rank[0]);
+  EXPECT_EQ(1u, rank[1]);
+  EXPECT_EQ(0u, rank[2]);
+  EXPECT_EQ(1u, rank[3]);
+  EXPECT_EQ(0u, rank[4]);
+}
+
+// FUN_1405CE930's special-key arm (lane-leaves §3.1): an A64410 slot with f2 > 0 uses +100000.
+TEST(MentalityLaneRank, SpecialSlotWithPositiveF2SortsLast) {
+  std::array<float, 11> keys{5.0f, 1.0f, 2.0f, 3.0f, 4.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f};
+  // Slot 0 is special with f2 > 0: its key becomes the +100000 override.
+  EXPECT_EQ(100000.0f, mentality::Ce930Key(keys[0], true, 1.0f));
+  // A non-special slot keeps its depth key.
+  EXPECT_EQ(5.0f, mentality::Ce930Key(keys[0], false, 1.0f));
+  // A special slot with f2 <= 0 keeps its depth key too.
+  EXPECT_EQ(5.0f, mentality::Ce930Key(keys[0], true, 0.0f));
+  EXPECT_EQ(5.0f, mentality::Ce930Key(keys[0], true, -2.0f));
+}
 // The sort FUN_140A79640 (lane-leaves §1): ascending, stable; rank = index in the sorted order.
 TEST(MentalityLaneSort, AscendingStableWithRank) {
   std::array<uint8_t, 11> slots{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};

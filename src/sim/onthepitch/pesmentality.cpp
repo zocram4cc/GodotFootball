@@ -149,6 +149,105 @@ std::vector<int> FoldPicks(const FoldConstants& k, const std::array<FoldCandidat
 
 int FoldCount(int dial) { return dial < kNeutralDial ? kNeutralDial - dial : 0; }
 
+namespace {
+// The instruction ids CE150 tests (lane-post §1 steps 2-3, CE150 l.113-115).
+constexpr int kInstrSixteen = 0x10;
+constexpr int kInstrFifteen = 0xF;
+constexpr int kInstrPartnerNone = 0xFF;
+constexpr int kInstrRows = 4;
+// The SMF/WF band (lane-post §1 step 4): roles 5/8 are the midfield line 1.
+constexpr int kSmfRole = 5;
+constexpr int kWfRole = 8;
+// The SB roles counted in step 6 (roles 1, 2: role - 1 < 2); the special needs fewer than 5.
+constexpr int kSbCountCap = 5;
+}  // namespace
+
+bool InstructionClaimed(const InstrTable& table, int side, int id, int slot) {
+  // FUN_140A63950 (VA 0x140A63950): id < 17, side < 2; some row j < 4 holds (id, slot).
+  if (id >= 17 || side < 0 || side >= 2) return false;
+  for (int j = 0; j < kInstrRows; ++j)
+    if (table.ids[side][j] == id && table.slots[side][j] == slot) return true;
+  return false;
+}
+
+bool SpecialPredicate(const SpecialInput& in) {
+  // FUN_140A64410 (VA 0x140A64410, lane-post §1): uVar15 = side·11 + k; GF passes the local
+  // k with the side, and only slots < 0x16 occur (CE150 loops k 0..10).
+  if (in.side < 0 || in.side >= 2 || in.slot < 0 || in.slot >= kSlots) return false;
+  // Step 2: some (0x10, 0xFF) row must exist on the side, else 0.
+  bool sixteen = false;
+  for (int j = 0; j < kInstrRows; ++j)
+    if (in.instr.ids[in.side][j] == kInstrSixteen &&
+        in.instr.slots[in.side][j] == kInstrPartnerNone)
+      sixteen = true;
+  if (!sixteen) return false;
+  // Step 3: an instruction-15 claim on this slot excludes the special.
+  if (InstructionClaimed(in.instr, in.side, kInstrFifteen, in.side * kSlots + in.slot))
+    return false;
+  // Step 4: the own role must be SMF/WF (roles[k] reads T+0x4C00 row-wise; GF roles.b is 1:1).
+  const int ownRole = in.roles[in.slot];
+  if (ownRole != kSmfRole && ownRole != kWfRole) return false;
+  // Step 5: the slot must be active (MI+0x1748).
+  if (in.active[in.slot] == 0) return false;
+  // Step 6: 5 or more SB (roles 1, 2) on the side forces special.
+  int sb = 0;
+  for (int m = 0; m < kSlots; ++m)
+    if (in.roles[m] - 1 < 2) ++sb;
+  if (sb >= kSbCountCap) return true;
+  // Step 7: a WF (role 8) is special without the sign scan.
+  if (ownRole != kSmfRole) return true;
+  // Step 8: an SMF (role 5) needs a same-sign role-5 mate: s = +1 unless (f <= 0 && f != 0).
+  // s1 reads the S+0x3A9C f0 of k; s2 the T+0x46EC float of the mate (ponytail: not carried).
+  const float f1 = in.slotF0[in.slot];
+  const float s1 = (f1 <= 0.0f && f1 != 0.0f) ? -1.0f : 1.0f;
+  for (int m = 0; m < kSlots; ++m) {
+    if (m == in.slot || in.roles[m] != kSmfRole || in.active[m] == 0) continue;
+    const float f2 = in.secondF0[m];
+    const float s2 = (f2 <= 0.0f && f2 != 0.0f) ? -1.0f : 1.0f;
+    if (s1 == s2) return false;
+  }
+  return true;
+}
+
+int Cd540Line(int cls) {
+  // FUN_1405CD540 (lane-post §2a): B[k] 0 -> 3; 1-2 -> 0; 3-6 -> 1; 7-9 -> 2.
+  if (cls == kKeeperClass) return 3;
+  return ReclassifyLineOf(cls);
+}
+std::optional<LaneThresholds> LoadLaneThresholds(const PeImage& exe, std::string* error) {
+  // CCD50's float operands (lane-post §0): DAT_14259B89C, DAT_142565600, DAT_14257A190.
+  LaneThresholds t;
+  constexpr uint64_t kBackZeroVa = 0x14259B89C;
+  constexpr uint64_t kBackNonZeroVa = 0x142565600;
+  constexpr uint64_t kFwdOtherVa = 0x14257A190;
+  if (!ReadF32(exe, kBackZeroVa, &t.backZero) || !ReadF32(exe, kBackNonZeroVa, &t.backNonZero) ||
+      !ReadF32(exe, kFwdOtherVa, &t.fwdOther) || !ReadF32(exe, kBackNonZeroVa, &t.fwdOne)) {
+    *error = "lane thresholds: unreadable";
+    return std::nullopt;
+  }
+  // The back arm's 0.4-for-keeper vs 0.5 select, and the forward arm's 0.5/0.6 select.
+  if (!(t.backZero < t.backNonZero) || !(t.fwdOne < t.fwdOther)) {
+    *error = "lane thresholds: out of order";
+    return std::nullopt;
+  }
+  return t;
+}
+
+int Ccd50Word(const LaneThresholds& t, const Ccd50Input& in) {
+  // FUN_1405CCD50 (VA 0x1405CCD50, lane-post §2). uVar15 = side·11 + k; GF passes local k.
+  // Pre-branch: out of play (MI+0x116C != 1) with MI+0x54 == 0 and restart kind 3/4/5 -> 0.
+  if (in.playState116c != kPlayStateInPlay && in.mi54 == 0 && in.restartKind1554 - 3 < 3)
+    return 0;
+  const int line = Cd540Line(in.cls);
+  // The class record at LX+0xB8 selects the threshold (CCD50 reads the B class, not the line).
+  if (line != kForwardLine || !in.fwdProductNeg) {
+    const float threshold = (in.cls == kKeeperClass) ? t.backZero : t.backNonZero;
+    return (in.backDist <= threshold) ? 0 : 1;
+  }
+  const float threshold = (in.cls == 1) ? t.fwdOne : t.fwdOther;
+  return ((in.fwdDist <= threshold) ? 0 : 1) + 1;
+}
+
 int ProtectedSlot(const std::array<int, kSlots>& classes) {
   for (int slot = kSlots - 1; slot >= 0; --slot)
     if (classes[slot] == kCentreForwardClass) return slot;
@@ -240,6 +339,37 @@ std::array<uint8_t, kSlots> LaneBRank(const std::array<int, kSlots>& b,
     ++seen[word];
   }
   return rank;
+}
+std::array<uint8_t, kSlots> Ce930Ranks(const std::array<int, kSlots>& a,
+                                       const std::array<uint8_t, kSlots>& order,
+                                       const std::array<int, kSlots>& cls,
+                                       const std::array<int, kSlots>& active) {
+  // FUN_1405CE930's head (VA 0x1405CE930, lane-leaves §3.1): local_2E4 counts start at 0 per
+  // word; per slot in the sorted order, active on-pitch (class != 0) slots take the count for
+  // their current A-word. 0x3A-state slots are substituted by local_2DC (the nearest slot);
+  // the tail that resolves it needs OPEN gates, so the caller passes the substituted order.
+  // ponytail: the param_3 != 0 tail (l.123-424, FUN_1408C5900/CD5E0/76240/C8EA0 gates) is OPEN.
+  constexpr uint8_t kUnranked = 0xA0;  // the 0xA0 fill of the rank bytes
+  std::array<uint8_t, kSlots> rank{};
+  rank.fill(kUnranked);
+  std::array<int, 4> seen{};
+  for (int i = 0; i < kSlots; ++i) {
+    const int slot = order[i];
+    if (active[slot] == 0 || cls[slot] == 0) continue;
+    const int word = a[slot];
+    if (word < 0 || word > 3) continue;
+    rank[slot] = static_cast<uint8_t>(seen[word]);
+    ++seen[word];
+  }
+  return rank;
+}
+
+float Ce930Key(float depthKey, bool special, float f2) {
+  // FUN_1405CE930 (VA 0x1405CE930, lane-leaves §3.1): an A64410 slot whose S+0x3AA4-depth row
+  // is above 0 sorts at +100000.0 (DAT_1425C65FC, fVar22); otherwise the |depth - ballX| key.
+  // ponytail: 100000.0 is DAT_1425C65FC, the same install word as the fold's initial best.
+  if (special && f2 > 0.0f) return 100000.0f;
+  return depthKey;
 }
 
 void SortLaneSlots(const std::array<uint8_t, kSlots>& slots, const std::array<float, kSlots>& keys,
