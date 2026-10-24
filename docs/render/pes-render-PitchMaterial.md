@@ -1,5 +1,7 @@
 # PES pitch material vs GF: the shader matches — the 2× red is the post WB path, the 2× luma is not in the shader
 
+> **Settled (ComposePathRE, `pes-render-ComposePath.md`):** in a match PES composes through the CubeLut stub (t0 only, sRGB encode, ×0.25), which never reads the white-balance constants: white balance is structurally bypassed. Metering is the arithmetic mean over a UV sub-rectangle (cb5[12]), no content weights. GF's white balance in match post is the 2× red.
+
 Decode of the pitch colour path at the instruction level, per-term GF comparison with numeric effects, and the exact port spec. Read-only work: repo at `<workdrive>/GodotFootball`, install VFS at `<workdrive>/PES21`, scratch at `<workdrive>/gf-Pitchmat-scratch` (all outputs with absolute paths there; nothing written to the repo).
 
 Status: shader terms CONFIRMED matching except one real-but-negligible tangent-frame divergence (T1). The ~2× red/blue chroma excess is CONFIRMED as the post white-balance path (not the pitch shader). The ~2× luminance excess is CONFIRMED NOT to be in the pitch shader's math; decomposed below with the open remainder.
