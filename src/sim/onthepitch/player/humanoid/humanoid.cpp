@@ -1903,6 +1903,9 @@ void Humanoid::SelectRetainAnim() {
   currentAnim->id = *dataSet.begin();
   // The hold keeps the root's yaw, the facing the lift turned him to, not the pitch centre (PES's throw-in hold continues the root).
   startAngle = RootStartAngle(currentAnim->anim);
+  // The hold starts where the body is now, as PlayIssuedClip and a selected anim do, not from the previous clip's start.
+  startPos = spatialState.position;
+  CalculatePredictedSituation(nextStartPos, nextStartAngle);
   currentAnim->frameNum = 0;
   currentAnim->playbackRate = 1.0f;
   currentAnim->framePhase = 0.0f;
