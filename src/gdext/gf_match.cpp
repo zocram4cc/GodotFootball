@@ -84,6 +84,7 @@ Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const
   setup.pesStoppageConstants = library->stoppage_constants();
   setup.pesForfeitConstants = library->forfeit_constants();
   setup.pesRestartSpotConstants = library->restart_spot_constants();
+  setup.pesGoalScenes = library->goal_scenes();
   setup.pesKickErrorConstants = library->kick_error_constants();
   setup.pesCarrierConstants = library->carrier_constants();
   setup.pesSetPieceTakerConstants = library->setpiece_taker_constants();

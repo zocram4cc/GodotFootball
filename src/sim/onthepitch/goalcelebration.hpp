@@ -102,11 +102,6 @@ unsigned long ClipLength_ms(int frames);
 // their last pose.
 unsigned long IntroHold_ms(int introFrames);
 
-// The whole performance, intro then loop. Capped to what the replay buffer can reach
-// back past (GoalSequence::kLongestCelebration_ms), because a celebration that
-// outruns it takes the goal out of its own replay.
-unsigned long CelebrationTotal_ms(int introFrames, int loopFrames);
-
 // The engine asks for a special animation by specialvar1/specialvar2. A loop is the
 // same mood with specialvar2 raised by ten, which is how install_anims.py files it.
 int LoopVariable(int introVariable);
@@ -120,7 +115,7 @@ const unsigned long kReactionDelay_ms = 2000;
 const unsigned long kMinimumPerformance_ms = 1500;
 
 // Whether the celebration should still be performed. `celebrationLength_ms` is what
-// GoalSequence::CelebrationLength_ms returned for the clip on screen; 0 when nothing
+// the goal's celebration length (Match::GetGoalCelebrationLength_ms) for the clip on screen; 0 when nothing
 // is known about it, which falls back to the plain hold rather than ending at once.
 //
 // This was a flat slice of the stoppage - after 2 s and before 4 s - while the clips

@@ -34,6 +34,7 @@
 #include "onthepitch/pesrandom.hpp"
 #include "onthepitch/pesclock.hpp"
 #include "pes/editsave.hpp"
+#include "pes/fixdemo.hpp"
 #include "gdext/pes_marking.hpp"
 #include "pes/handseq.hpp"
 #include "rig/clip_pose.hpp"
@@ -189,6 +190,8 @@ class PesLibrary : public RefCounted {
   const pes::RestartSpotConstants* restart_spot_constants() const {
     return restartSpotConstants_ ? &*restartSpotConstants_ : nullptr;
   }
+  // PES 2021's goal celebrations (pes/fixdemo.hpp), read from the install's FixDemo goal table.
+  const pes::fixdemo::GoalScenes* goal_scenes() const { return goalScenes_ ? &*goalScenes_ : nullptr; }
   // PES 2021's kick execution error (docs/re/pes-re-kick-scatter.md).
   const pes::KickErrorConstants* kick_error_constants() const {
     return kickErrorConstants_ ? &*kickErrorConstants_ : nullptr;
@@ -248,6 +251,7 @@ class PesLibrary : public RefCounted {
   std::optional<pes::StoppageConstants> stoppageConstants_;
   std::optional<pes::ForfeitConstants> forfeitConstants_;
   std::optional<pes::RestartSpotConstants> restartSpotConstants_;
+  std::optional<pes::fixdemo::GoalScenes> goalScenes_;
   std::optional<pes::KickErrorConstants> kickErrorConstants_;
   std::optional<pes::offball::OffBallConstants> offBallConstants_;
   std::optional<pes::MoveStepConstants> moveStepConstants_;

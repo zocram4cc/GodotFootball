@@ -23,6 +23,12 @@ constexpr int kCornerReleaseFrames = 365;    // live 365-379; DOC 189 not reprod
 constexpr int kFreeKickReleaseFrames = 355;  // live 355-356; DOC 162 not reproduced
 constexpr int kPenaltyReleaseFrames = 54;    // DOC fps*1 (setpiece 12); not observed live
 
+// PES's kick-off leaves its armed step when the taker kicks (3 -> 1, A5Judge 9.4): 118-139 frames after arming over the
+// owner's live capture (local://kickoff-counter-capture.md, 23-10-26), 125 frames over the seven of A5Judge 9.3. The
+// measured interval is the hold. It is not a GF touch term: GF's taker touches later, and the KickoffReceiver pass gate
+// (0x140781fc0) is not the release (it needs MI+0x11AC > 972; the release comes at 47-56).
+constexpr int kKickOffReleaseFrames = 125;
+
 float Sign(float v) { return v < 0.0f ? -1.0f : 1.0f; }
 
 unsigned long ToMs(float seconds) {
@@ -78,8 +84,10 @@ int ReleaseFrames(e_SetPiece kind) {
       return kFreeKickReleaseFrames;
     case e_SetPiece_Penalty:
       return kPenaltyReleaseFrames;
+    case e_SetPiece_KickOff:
+      return kKickOffReleaseFrames;
     default:
-      return 0;  // kick-off and goal kick: no clock (the receiver's ball test, or the goal kick's ladder; pesgoalkick.hpp)
+      return 0;  // no gate
   }
 }
 
@@ -129,6 +137,10 @@ Timing RunProgramme(const std::vector<Beat>& beats, unsigned long stopTime_ms,
   }
   timing.armedAt_ms = at_ms;
   return timing;
+}
+
+Timing RunGoalProgramme(unsigned long celebrationEnd_ms, const StoppageConstants& k) {
+  return RunProgramme({Beat::Wipe, Beat::UiAndTeleport, Beat::FadeIn, Beat::Tail}, celebrationEnd_ms, k, false, 0);
 }
 
 }  // namespace pes

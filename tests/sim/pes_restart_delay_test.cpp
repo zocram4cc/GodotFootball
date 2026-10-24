@@ -97,7 +97,8 @@ void RunMatchWithinTheBound(bool pesLoop, int minutes, const std::function<void(
   config.SetBool("pes_loop", pesLoop);
   Match match(new MatchData(HOME_TEAM, AWAY_TEAM), *setup, config);
   RestartWatch watch(
-      RestartLimitTicks(*setup->pesStoppageConstants, *setup->pesSetPieceTakerConstants));
+      RestartLimitTicks(*setup->pesStoppageConstants, *setup->pesSetPieceTakerConstants,
+                        GoalSequence::LongestCelebration_ms(*setup->pesGoalScenes)));
   while (!match.IsGameOver() && !watch.Stalled() && watch.Ticks() < maxSimTicks) {
     match.Process();
     watch.Observe(match);
@@ -147,6 +148,64 @@ TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBoundWithPesLoop) {
   RunMatchWithinTheBound(true, MINUTES, nullptr);
 }
 
+// The first goal's restart in seed 7's pes-loop match: when its stoppage starts, when it is armed (PES's ready, 2 -> 3),
+// and the first tick in play (PES's 3 -> 1: MI+0x116C == 1, which IsInPlay() reads). The referee's own schedule.
+struct GoalRestartTiming {
+  bool scored = false;
+  bool inPlay = false;
+  unsigned long stopAt = 0, armedAt = 0, inPlayAt = 0;
+};
+GoalRestartTiming FirstGoalRestart() {
+  GoalRestartTiming t;
+  RunMatchWithinTheBound(
+      true, TWENTY_MINUTES,
+      [&](Match& match) {
+        const RefereeBuffer& b = match.GetRefereeBuffer();
+        if (!t.scored && b.active && b.goalRestart) {
+          t.scored = true;
+          t.stopAt = b.stopTime;
+          t.armedAt = b.startTime;
+        }
+        if (t.scored && !t.inPlay && match.IsInPlay()) {
+          t.inPlay = true;
+          t.inPlayAt = match.GetActualTime_ms();
+        }
+      },
+      kMaxSimTicks, [&](Match&) { return t.inPlay; }, SEED, false);
+  return t;
+}
+
+// PES's kick-off leaves its armed step on the taker's kick action: 3 -> 1 comes 118-139 frames after arming over the
+// owner's live capture (local://kickoff-counter-capture.md, 23-10-26), and 125 frames over the seven kick-offs of
+// docs/re/pes-re-A5Judge.md 9.3. The window is the capture's bracket. The hold is measured to PES's state, not to GF's
+// taker's touch, which comes later.
+TEST(PesRestartDelay, AGoalsKickOffPutsTheBallInPlayInPesWindowAfterArming) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  constexpr double kFrames = Match::kFramesPerSecond;
+  constexpr double kArmedToInPlayMinFrames = 118, kArmedToInPlayMaxFrames = 139;
+  const GoalRestartTiming t = FirstGoalRestart();
+  ASSERT_TRUE(t.scored) << "seed 7 scored no goal in the run";
+  ASSERT_TRUE(t.inPlay) << "the goal's restart never put the ball in play";
+  const double armedToInPlay =
+      (static_cast<double>(t.inPlayAt) - static_cast<double>(t.armedAt)) * kFrames / 1000.0;
+  EXPECT_GE(armedToInPlay, kArmedToInPlayMinFrames) << "armed -> in play is " << armedToInPlay << " frames";
+  EXPECT_LE(armedToInPlay, kArmedToInPlayMaxFrames) << "armed -> in play is " << armedToInPlay << " frames";
+}
+
+// A goal's restart is armed once the celebration its draw picked has run (docs/re/pes-re-A5Judge.md 9.3a: goal -> ready
+// is 757-843 frames). Seed 7's first goal draws its celebration from the install's pool, so this window depends on the
+// level and the scenes the draw uses, which are not all decoded (A5Judge 9.3a, open).
+TEST(PesRestartDelay, AGoalIsReadyInPesWindowAfterItsScoring) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  constexpr double kFrames = Match::kFramesPerSecond;
+  constexpr double kGoalToReadyMinFrames = 757, kGoalToReadyMaxFrames = 843;
+  const GoalRestartTiming t = FirstGoalRestart();
+  ASSERT_TRUE(t.scored) << "seed 7 scored no goal in the run";
+  const double goalToReady = (static_cast<double>(t.armedAt) - static_cast<double>(t.stopAt)) * kFrames / 1000.0;
+  EXPECT_GE(goalToReady, kGoalToReadyMinFrames) << "goal -> ready is " << goalToReady << " frames";
+  EXPECT_LE(goalToReady, kGoalToReadyMaxFrames) << "goal -> ready is " << goalToReady << " frames";
+}
+
 // The whole match at twenty minutes with pes_loop on. Seed 7's home keeper, taking a goal kick about
 // nineteen minutes in, stood 2.3 m off the ball: his walk was refused behind the MOVESTEP clip's stale
 // command, and nothing restarted the match. Every stoppage must restart inside the bound and the match
@@ -170,7 +229,10 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
       lastRelease = b.stopTime;
       // The timed taker is released on the first frame at or past the PES gate, give or take the tick the referee
       // checks it on. A goal kick has no clock: AGoalKickIsReleasedOnThePesLadder checks its ladder frame.
-      const int gate = pes::ReleaseFrames(b.desiredSetPiece);
+      // A goal's kick-off is held to its PES gate; the other kick-offs (the first, the half-time and dead-ball ones) are released at
+      // once (referee.cpp ReleasesRestart), so their gate is zero.
+      const bool held = b.desiredSetPiece != e_SetPiece_KickOff || b.goalRestart;
+      const int gate = held ? pes::ReleaseFrames(b.desiredSetPiece) : 0;
       const int frames =
           static_cast<int>((match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
       if (gate > 0) {
@@ -180,8 +242,8 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
     }
     if (!b.active || (lastStop && *lastStop == b.stopTime)) return;
     lastStop = b.stopTime;
-    // Timed by GoalSequence, not PES's programme; kind 7 (the period end) schedules exactly like a kick-off
-    // (gametypes.hpp, docs/re/pes-re-plan-selector.md §4).
+    // Timed by the goal programme (pes::RunGoalProgramme), not a spot; kind 7 (the period end) schedules exactly
+    // like a kick-off (gametypes.hpp, docs/re/pes-re-plan-selector.md §4).
     if (b.desiredSetPiece == e_SetPiece_KickOff || b.desiredSetPiece == e_SetPiece_PeriodEnd) return;
 
     const pes::RestartSpotConstants& k = match.GetPesRestartSpotConstants();
@@ -369,7 +431,8 @@ TEST(PesRestartDelay, ARestartTakerPlaysHisBallActionAfterRelease) {
   std::string who;  // the untaken restarts, named in the failure message
   RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
     ++tick;
-    bound = RestartLimitTicks(match.GetPesStoppageConstants(), match.GetPesSetPieceTakerConstants());
+    bound = RestartLimitTicks(match.GetPesStoppageConstants(), match.GetPesSetPieceTakerConstants(),
+                              GoalSequence::LongestCelebration_ms(match.GetPesGoalScenes()));
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (b.active && b.started && b.taker && seen.insert(b.stopTime).second) {
       taking[b.stopTime] = Taking{b.taker, tick, b.desiredSetPiece, b.taker->GetPlayerData()->GetLastName()};
@@ -422,7 +485,8 @@ TEST(PesRestartDelay, AThrowInTakerPlaysABallActionWhenTheBallLiesOverTheLine) {
   std::string who;
   RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
     ++tick;
-    bound = RestartLimitTicks(match.GetPesStoppageConstants(), match.GetPesSetPieceTakerConstants());
+    bound = RestartLimitTicks(match.GetPesStoppageConstants(), match.GetPesSetPieceTakerConstants(),
+                              GoalSequence::LongestCelebration_ms(match.GetPesGoalScenes()));
     const RefereeBuffer& b = match.GetRefereeBuffer();
     // The first seamless (walker) throw-in of the run is the one this test follows: its stoppage, then done when it ends.
     if (!firstStop && b.active && b.desiredSetPiece == e_SetPiece_ThrowIn && b.taker && b.prepared &&
@@ -1099,4 +1163,27 @@ TEST(PesRestartDelay, AThrowInCarrierStandsAtThePickupClipsContactOffset) {
     EXPECT_NEAR(*pickupReach, *contactOffset, kOffsetTolerance_m)
         << "the carrier stood " << *pickupReach << " m from where the ball lay; the clip's contact offset is "
         << *contactOffset << " m";
+}
+
+// A goal's restart is armed once the whole sequence the pool drew for it has run (the scorer's celebration and the hug
+// after it) and the post-scene programme (pes::RunGoalProgramme) has played out.
+TEST(PesRestartDelay, AGoalIsArmedAfterTheCelebrationItDrew) {
+  std::optional<unsigned long> stopAt, armedAt;
+  unsigned long celebration_ms = 0, sequence_ms = 0, afterScene_ms = 0;
+  RunMatchWithinTheBound(
+      true, TWENTY_MINUTES,
+      [&](Match& match) {
+        const RefereeBuffer& b = match.GetRefereeBuffer();
+        if (stopAt || !b.active || !b.goalRestart) return;
+        stopAt = b.stopTime;
+        armedAt = b.startTime;
+        celebration_ms = match.GetGoalCelebrationLength_ms();
+        sequence_ms = match.GetGoalSequenceLength_ms();
+        afterScene_ms = pes::RunGoalProgramme(0, match.GetPesStoppageConstants()).armedAt_ms;
+      },
+      kMaxSimTicks, [&](Match&) { return armedAt.has_value(); }, SEED, false);
+  ASSERT_TRUE(armedAt) << "seed 7's match scored no goal";
+  EXPECT_GT(celebration_ms, 0ul);
+  EXPECT_LE(celebration_ms, sequence_ms) << "the scorer's celebration is the first scene of the sequence";
+  EXPECT_EQ(*armedAt - *stopAt, sequence_ms + afterScene_ms);
 }

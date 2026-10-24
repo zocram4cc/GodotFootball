@@ -242,6 +242,9 @@ int main(int argc, char** argv) {
   if (!forfeitConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   auto restartSpotConstants = pes::LoadRestartSpotConstants(*exe, &err);
   if (!restartSpotConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  // PES 2021's goal celebrations (docs/re/pes-re-cutscenes.md §2-3): the goal table and its cut lengths.
+  auto goalScenes = pes::fixdemo::LoadGoalScenes(vfs, &err);
+  if (!goalScenes) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
   // PES 2021's kick execution error (docs/re/pes-re-kick-scatter.md).
   auto kickErrorConstants = pes::LoadKickErrorConstants(*exe, &err);
   if (!kickErrorConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
@@ -331,6 +334,7 @@ int main(int argc, char** argv) {
   setup.pesStoppageConstants = &*stoppageConstants;
   setup.pesForfeitConstants = &*forfeitConstants;
   setup.pesRestartSpotConstants = &*restartSpotConstants;
+  setup.pesGoalScenes = &*goalScenes;
   setup.pesKickErrorConstants = &*kickErrorConstants;
   setup.pesCarrierConstants = &*carrierConstants;
   setup.pesDefensiveShapeConstants = &*defensiveShapeConstants;
@@ -355,7 +359,8 @@ int main(int argc, char** argv) {
   // A stalled restart freezes the match clock (it only moves while play is on and no
   // set piece is armed), so the match would never reach full time. The watch stops
   // the run at the first stoppage that runs past the install's bound on its restart.
-  RestartWatch watch(RestartLimitTicks(*stoppageConstants, *setPieceTakerConstants));
+  RestartWatch watch(RestartLimitTicks(*stoppageConstants, *setPieceTakerConstants,
+                                       GoalSequence::LongestCelebration_ms(*goalScenes)));
   // Wall-time split: PES's hold timing is the sim, so every tick runs; this
   // only records which ticks had live play. std::chrono around Process,
   // classified by the pre-tick state (no sim state touched).

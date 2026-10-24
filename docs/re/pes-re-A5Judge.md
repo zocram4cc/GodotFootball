@@ -277,7 +277,7 @@ Verdicts: programme = CONFIRMED (builder code) and sample = DOC (live OBS). Timi
 - **Half start:** reason 0 → `FUN_14044fef0`: `[0x0f, 0x45] + tail(0xc)` → `1 f 45 23 16 12 13 14 15 c 34 19 1a` (DOC sample). CONFIRMED builder; sample DOC.
 - **After goal:** reason 3 → `FUN_14044f8a0`: reset(10); `FUN_140452260(·,0,0)` (emits step 3, then 4 for reason 3); `0x1d` if no sub; if card-scene or `FUN_140a3f580` false: `[3, 0x11, 8]` then tail; else the scene branch `0x43, 7, 0x44`. DOC sample `3 4 45 1d 3 11 8 23 16 12 13 14 15 e 34 19 1a`.
 - Placement: `FUN_14050c490` case 0/3/9 sets the kick-off record (`local_d0 = DAT_14259be84`); live: referee at `(−dir·5, 0, −dir·10)` (DOC setpiece §3.2).
-- **Taker release:** `KickoffReceiver` (`0x140781fc0`) ball-ownership test, not a timer (DOC setpiece §12). Live 28 frames after armed (×3).
+- **Taker release:** refuted by the live capture (§9.3a, Main 23-10-26): the kick-off's 3 → 1 comes at the taker's kick, 118–139 frames after arming. The `KickoffReceiver` (`0x140781fc0`) pass gate is not the release (§9.3a). The 28-frame figure of setpiece §10 does not match the capture and is not used.
 - **Side:** the conceding team (CONFIRMED, §1.5 code 1).
 
 ### 4.2 Throw-in (restart 2)
@@ -323,7 +323,7 @@ Verdicts: programme = CONFIRMED (builder code) and sample = DOC (live OBS). Timi
 
 | restart | gate | frames at 54 Hz | live |
 |---|---|---|---|
-| kick-off | `KickoffReceiver` ball ownership (`0x140781fc0`) | — | 28 ×3 |
+| kick-off | the taker's kick, 3 → 1 (capture, 23-10-26); the KickoffReceiver gate is not it (§9.3a) | 125 (ported) | 118–139 frames (capture); 125 (§9.3) |
 | throw-in | taker reach + kick (live); DOC counter ≥ 81 (+2) | ≈83 | 118–194 frames; counter 88–110 at release (§9.3) |
 | corner (long) | `fps·3.5` (DOC) | 189 | 365–379 frames (§9.3) |
 | corner (short) | inside `fps·2`, partner test | 108 | not sampled |
@@ -520,7 +520,9 @@ Four goal stoppages by /biz/ in 5 minutes, frames = `MI+0x1198` (54 per second).
 
 - Ready → in play is 125 frames every time, inside §9.3's 125–137 (×7): the taker-driven kick-off.
 - Goal → ready varies with the celebration (757–843 frames, 14.0–15.6 s).
-- **GF schedules the goal restart from a fixed 19 s celebration** (`goalsequence.hpp`, `referee.cpp:251-252`; about 1215 ticks, 22.5 s, goal → kick-off per `docs/re/pes-decode-TouchReach.md` §3), about 5 s longer than PES's 16.3–17.9 s. A port item: derive the goal schedule from PES's goal → ready programme instead of GF's celebration constant.
+- **Goal sequence, ported on `GoalTiming` (supersedes the 22-10-26 port item).** The fixed 19 s celebration and its 22.5 s goal → kick-off are gone. A goal plays a primary scene from the FixDemo goal pool (`common/demo/fixdemo/goal/table_goal.bin`, generic bit 6, goal level 0 as a stand-in), then a hug drawn from the scenes with bit 2 or 3 and level bits 12 or 13 (FUN_140474b20; all 60 hugs the install carries have bits 11, 12 and 13), both from the goal generator. The sequence lasts their sum (`pes-re-cutscenes.md` §4.3 item 4). Each scene's length is Σ(first cut `maxTime`/60 + fade) over its steps (`pes-re-foul-choreography.md` §9.2), read by `pes::fixdemo` through the VFS. The post-scene programme is `pes::RunGoalProgramme`: wipe 0.1 s, fade-in 1.0 s and tail 0.25 s (install), UI and teleport 0.98 s (GF's `foulsequence.hpp`): 2.33 s. Goal → armed = sequence + 2.33 s. Stand-ins, both `// ponytail:`: the level is 0 (FUN_140477400's goal-ctx[0] is not decoded), and the signature, edit-slot, golazo and mode branches are not ported.
+- **The pool does not reproduce the live window (open).** Under that draw only 10% of goals land in 757–843 frames (level 0 13%, level 1 11%, level 2 8%; counted from the install's lists), with a mean near 922 frames. The three live goals in the §9.3a table (its text says four; the table has three rows) were all inside the window, which that draw makes about 0.1% likely, so PES's goal list is not that draw. Missing: the goal-ctx[0] level source and the other scenes of FUN_140477bc0 (items 1–4: pre-scene, team-mates, turn, coach). On the branch, seed 7's first goal misses the window (`AGoalIsReadyInPesWindowAfterItsScoring`, red, not re-pinned).
+- **Kick-off release, resolved (Main, 23-10-26, `local://kickoff-counter-capture.md`).** The release is the taker's kick: MI+0x11AC is 47–56 at release (the counter runs only while armed) and arm-to-release is 118–139 frames. The KickoffReceiver's Update (`0x140781fc0`) passes the kicker only when `FUN_1407816b0` is true: MI+0x116C == 3, MI+0x11B3 != 0 and `FUN_140a3bdf0() − MI+0x11AC < −(int)(54·3.0 + 0.5)` (3.0 at `0x14258c264`, 0.5 at `0x142565600`), with `FUN_140a3bdf0` = 54·15 = 810: MI+0x11AC > 972. That gate cannot be the release. The port holds a goal's kick-off `kKickOffReleaseFrames = 125` frames after arming (PES's measured interval, no GF touch term; `pessequencer.cpp`). The capture's geometry is polluted (one outfield player per side), so its 47/56 split is not used.
 - Same log: the kick-off kicker is the /xs/ CF (slot 21; a CF may take a kick-off, not a corner, §1.1 row 40); a throw-in (kind 2) went stop → ready 177 frames, ready → in play 332; a free kick (kind 5) 710 and 517.
 
 ### 9.4 OPEN-2, OPEN-3, OPEN-4 (armed exit, judge-tick restart guard): CONFIRMED structure

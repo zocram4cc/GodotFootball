@@ -39,8 +39,8 @@ Spot ThrowInSpot(float ballX, float ballZ, const RestartSpotConstants& k);
 // point's z is a touchline's z, so it is never 0.
 Spot ThrowInCarrySpot(float restartX, float restartZ, int attackSign, const RestartSpotConstants& k);
 
-// The taker may release once this many frames have passed since the restart was armed. A kick-off and a goal kick are
-// not timed (the receiver's ball test, or the goal kick's ladder in pesgoalkick.hpp): their gate is zero.
+// The taker may release once this many frames have passed since the restart was armed. A goal's kick-off is held to PES's
+// live ready -> in play (kKickOffReleaseFrames); a goal kick is never timed (its ladder, pesgoalkick.hpp).
 int ReleaseFrames(e_SetPiece kind);
 // A throw-in is released once its taker has arrived (`takerArrived`): PES releases it on the taker's arrival and kick
 // action (docs/re/pes-re-A5Judge.md 9.3; A5 §4.7). A goal kick is never released by this gate.
@@ -61,5 +61,10 @@ struct Timing {
 // foul (table[1]), 5 for an out-of-play stop (table[5]); a downed player adds his extra hold.
 Timing RunProgramme(const std::vector<Beat>& beats, unsigned long stopTime_ms,
                     const StoppageConstants& k, bool downed, int holdKind);
+
+// The kick-off after a goal (A5Judge 4.1, FUN_14044f8a0). The celebration scene runs up to `celebrationEnd_ms`; from
+// there the wipe, the UI and teleport, the fade-in and the tail reach the armed step (A5Judge 9.3a, play 3): the beats a
+// stop runs after its hold.
+Timing RunGoalProgramme(unsigned long celebrationEnd_ms, const StoppageConstants& k);
 
 }  // namespace pes

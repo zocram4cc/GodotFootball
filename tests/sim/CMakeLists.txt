@@ -90,6 +90,10 @@ add_executable(pes_restart_sequencer_test pes_restart_sequencer_test.cpp)
 target_link_libraries(pes_restart_sequencer_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_restart_sequencer_test)
 
+add_executable(pes_goal_scene_test pes_goal_scene_test.cpp)
+target_link_libraries(pes_goal_scene_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_goal_scene_test PROPERTIES TIMEOUT 900)
+
 add_executable(pes_restart_delay_test pes_restart_delay_test.cpp)
 target_link_libraries(pes_restart_delay_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_restart_delay_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

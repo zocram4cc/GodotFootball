@@ -42,6 +42,9 @@ struct RefereeBuffer {
   // 10x scale produced three kick-offs and not one other set piece.
   bool prepared;
   bool started;
+  // The restart is the kick-off after a goal: its hold is PES's goal programme (pes::ReleaseFrames). The other kick-offs
+  // (the first, the half-time one and GF's dead-ball kick-off) are not held.
+  bool goalRestart;
   // Where the chief referee stands for this restart (pes::ChiefRefereeSpot), held
   // until it is taken. Empty when PES leaves him where he is.
   std::optional<Vector3> chiefSpot;
