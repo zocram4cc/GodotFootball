@@ -275,7 +275,10 @@ void Referee::Process() {
         timeUpBlown = false;
         match->StopPlay();
 
-        buffer.desiredSetPiece = e_SetPiece_KickOff;
+        // The period-end restart kind 7 (plan-selector §4): PES's judge raises 7 through the
+        // protected thunk (0x143F559F0) and holds it until the next award overwrites it. The break
+        // schedules exactly like the kick-off it precedes, so only the kind differs here.
+        buffer.desiredSetPiece = e_SetPiece_PeriodEnd;
         buffer.stopTime = match->GetActualTime_ms();
         // The walk-off plays first; the reset for the next period waits for it
         // (SetPieceLaws::kHalfTimeCutscene_ms is also what SetMatchPhase gives
@@ -688,6 +691,10 @@ void Referee::Process() {
           return;
         }
         buffer.started = true;
+        // The 7 is consumed by the period dispatcher; the next kick-off starts at a fresh 1
+        // (plan-selector §4: PES does not re-read the 7, the normal award path writes 1).
+        if (buffer.desiredSetPiece == e_SetPiece_PeriodEnd)
+          buffer.desiredSetPiece = e_SetPiece_KickOff;
         if (clearingLogged) {
           // How long the taker actually waited, and how far the nearest opponent had
           // got by the time he kicked. Both are the point of the law: a restart that

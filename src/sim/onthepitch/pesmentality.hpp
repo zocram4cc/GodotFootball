@@ -37,6 +37,14 @@ inline constexpr int kRestartKindOne = 1;
 // 2 when the team is out of possession, 1 when it has the ball, and 0 when the play state is not
 // open play and MI+0x1554 == 1. The matrix row read is the level (RoleRow in pesroles).
 int RoleLevel(bool possession, int playState, int restartKind);
+// The play state the role level reads (plan-selector §1 vs roles §2): 1 while the ball is in play,
+// even with a set piece armed or taken (the seed-7 run's 754 ticks take PES's in-play arm there);
+// 2 in every stoppage. The set-piece flag is deliberately not an input: EC600's override tests
+// MI+0x116C == 1 first, so it cannot fire in play.
+inline int RolePlayState(bool inPlay, bool inSetPiece) {
+  (void)inSetPiece;
+  return inPlay ? kPlayStateInPlay : 2;
+}
 
 // The shared reclassify (blocks §2). FUN_1405EC600 dispatches class -> line through a jump table
 // at VA 0x1405ED1F4 (nine RVAs, index class - 1, dispatch 0x1405ECB3D-47); each arm stores its
@@ -96,7 +104,7 @@ struct LaneInput {
 };
 // FUN_1405CE4F0's stoppage step (lane-writers §2 step 3): MI+0x11D4 == 0 and (MI+0x116C == 2 or
 // MI+0x11B0 < 0x15) clears the copy flag LX+0x1B0, so the copy path runs once. GF passes its
-// WriteRoleArrays play state (PesPlayState: 1 in play, 2 stopped) for MI+0x116C.
+// role play state (RolePlayState: 1 in play, 2 stopped) for MI+0x116C.
 bool StoppageResetsCopyFlag(int playState116c, int word11d4, int word11b0);
 // CE4F0's copy gate (flag LX+0x1B0 == 0): true runs the copy path, false the recompute.
 bool CopyPathRuns(bool copyFlagSet);
