@@ -243,6 +243,9 @@ public:
   // Every team tick: the decider moves the strategy in PES state 3 (restart armed or taken), and the
   // attack level follows it once play resumes.
   void UpdateStrategy();
+  // The decider body (FUN_14051E970): one StrategyStep where DeciderMovesIn holds (the caller's
+  // S1 extract: the PES path runs this before the drift so the tick reads decider → copy → drift).
+  void StepStrategyDecider(int playState);
   // PES's in-play plan selector (FUN_140500B90): the sheet plan, once per PES team tick after UpdateStrategy.
   void UpdatePesSheetPlan();
   // PES's per-tick team words (pesteamtick.hpp): the attack level T+0xB8A4,

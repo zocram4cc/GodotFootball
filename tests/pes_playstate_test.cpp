@@ -18,3 +18,11 @@ TEST(PlayState, AStopWithoutAnArmedAwardedRestartIsStopped) {
   EXPECT_EQ(pes::PlayStateFor(false, false, false), 2);
   EXPECT_EQ(pes::PlayStateFor(false, false, true), 2);
 }
+
+// The seed-7 run's 754 ticks (plan-selector §1 vs roles §2): in play with a set piece armed or
+// taken, PES's team-tick state is 1 however the award flags read. The role state agrees.
+TEST(PlayState, InPlayWithASetPieceIsOneWhateverTheAwardReads) {
+  EXPECT_EQ(pes::PlayStateFor(true, false, false), 1);
+  EXPECT_EQ(pes::PlayStateFor(true, true, false), 1);
+  EXPECT_EQ(pes::PlayStateFor(true, false, true), 1);
+}

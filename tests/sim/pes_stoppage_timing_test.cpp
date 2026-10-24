@@ -372,7 +372,8 @@ TEST(PesStoppageTiming, AMeasuredStopRunsPesBracketNotFifteenSeconds) {
     // A kick-off is not a stop this report times: PES's bracket is the foul and
     // out-of-play stops, and a goal's celebration beats (which hold the kick-off
     // back) are the next plan's business. Everything else the whistle stops is.
-    if (s.kind == e_SetPiece_KickOff) continue;
+    // Kind 7 (the period end) schedules exactly like a kick-off (gametypes.hpp, pes-re-plan-selector.md §4).
+    if (s.kind == e_SetPiece_KickOff || s.kind == e_SetPiece_PeriodEnd) continue;
     const unsigned long takeDelay = s.take - s.stop;
     ++measured;
     std::fprintf(stderr, "[stoppage] kind %d stop %lu take %lu ms\n", (int)s.kind, s.stop, takeDelay);
