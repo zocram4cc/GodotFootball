@@ -1,5 +1,7 @@
 # TurfColour: white balance is applied as the stored block's columns (the fix was wrong and is reverted); the exposure gap is a direct-sun radiance scale, not the key, compensation, clamp, or metering type
 
+> **Update (PitchShaderRE, `pes-render-PitchMaterial.md`):** the pitch shader and its install constants match GF term for term; the 2× red is GF's white-balance in post (PES's frame is un-white-balanced), and the luma splits into ~1.7× global (metering content, INF) and ~1.2× material residual (OPEN). One small shader divergence (the T1 frame, specular only).
+
 Branch `TurfColour` on `origin/main` `8fc3292`. Commits: `4397248` (cherry-pick of ExposureMatch `db1f2a6`, `match.gd --camera-pose`, kept for reproducing the pose), `99b9ae9` (the rows fix, now refuted), `17aef74` (revert of the WB orientation; `git ls-remote origin TurfColour` = `17aef745a3271708dbe6938a9c4e2a577b9bacfb`). No other code is kept. The branch holds no experiment edits.
 
 ## 0. Verdicts
