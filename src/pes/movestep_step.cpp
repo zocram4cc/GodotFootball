@@ -78,9 +78,6 @@ constexpr float kRateLow = 0.15000000596046448f;  // STEP_LOOP_CHANGE 0x1406c675
 // (0x3e888889), opcode-checked as the owner rules allow.
 constexpr float kBlend0266 = 0.2666666805744171f;  // STEP_LOOP 0x1406c5880 / 0x1406c5915
 
-// kindBandRow holds 8 kinds x 4 bands (32 entries, movestep_run.hpp); TURN_STOP's class word reaches 3.
-constexpr int kStepBandCount = 4;
-
 // FUN_1406b9ff0(interface, class, speed, kind): the rate for a class/speed pair. req[0xb] is the
 // "use the class rate" flag; the rate comes from FUN_1406b9e80's 10-knot table, which the
 // contract exposes as SpeedToRate with the same argument order.
@@ -1250,8 +1247,9 @@ void StepLoopChange(MoveHost& host, MoveReq& req) {
       } else {
         req.SetF(moveword::kRate, kRateLow);
       }
-      const int band = host.BandSpeedKmh(int(req.F(moveword::kRate)), host.PhysiqueG());
-      req.SetU(moveword::kClassWord, uint32_t(band));
+      // PES FUN_1406c6480 (0x1406c66E6-799): the class word is vt+0x68(rate) of the +0xac0 interface, the rate class
+      // (FUN_1406ba030, ladder 0x1425dde20), not a band speed (port audit 3 R2; step-rate §1c).
+      req.SetU(moveword::kClassWord, uint32_t(ClassForRateFor(req.F(moveword::kRate), host.RunTablesView())));
       req.SetF(moveword::kBandSpeed, host.RateCeiling() * k.s0p6 * k.kmh3p6);
       // FUN_1406d2f60's threshold: (rate ceiling - 0.6) * the clock step.
       if (EnterRunTurnStep(host, req, (ceiling - k.s0p6) * tick)) return;
@@ -1488,10 +1486,9 @@ void TurnStop(MoveHost& host, MoveReq& req) {
       } else {
         req.SetF(moveword::kRate, kRateLow);
       }
-      // ponytail: PES's class word is vt+0x68(rate) of the +0xac0 interface (FUN_1406cab20). The port's class stand-in is
-      // CommandSpeedClass (InterfaceClass, movestep_turn.cpp). BandSpeedKmh stands for a speed, and its ground-speed stand-in
-      // here made the step row flip with each clip's first-frame displacement.
-      const int band = std::clamp(host.CommandSpeedClass(), 0, kStepBandCount - 1);
+      // PES FUN_1406cab20 (0x1406caf20-30): the class word is vt+0x68(req[0x4a] = rate) of the +0xac0 interface, stored
+      // to req[0x1F]: the rate class (FUN_1406ba030, ladder 0x1425dde20), not the AI command's class (port audit 3 R1).
+      const int band = ClassForRateFor(req.F(moveword::kRate), host.RunTablesView());
       req.SetU(moveword::kClassWord, uint32_t(band));
       req.SetF(moveword::kBandSpeed, host.RateCeiling() * k.s0p6 * k.kmh3p6);
       // PES FUN_1406cab20 (0x1406CB35D-0x1406CB46A): the step clip is FUN_1406ABB30's cell, at the row

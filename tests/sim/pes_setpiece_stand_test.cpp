@@ -496,15 +496,17 @@ TEST(SetKickStand, TheSetKickHeadingIsTheContactYawPlusTheRestartYaw) {
   EXPECT_NEAR(pes::SetKickHeadingDeg(200.0f, 270.0f), 110.0f, kAngleTolerance_deg);
 }
 
-// The free kick's stand is pulled in when it lies within 0.5 m of the corner, on the axis it overshoots less, and then clamped
-// to the marks plus 1.5 m (FUN_1407411F0's tail, 0x741473-0x741564; the constants 0x142565600 and 0x14259BDDC).
+// The free kick's stand is pulled in when it lies within 0.5 m of the corner, on the axis whose raw coordinate is larger
+// (0x14074148B / 0x1407414BE compare the stand's |x| and |z|, not the overshoots), and then clamped to the marks plus 1.5 m
+// (FUN_1407411F0's tail, 0x741473-0x741564; the constants 0x142565600 and 0x14259BDDC).
 TEST(SetKickStand, TheFreeKickStandIsPulledInFromTheCornerAndClampedToTheMarks) {
   constexpr float kPointTolerance_m = 1e-3f;  // float arithmetic, not a PES value
-  // 0.17 m from the corner: x overshoots by 0.06 m and z by 0.16 m, so z is pulled in to the touchline's inset.
-  const pes::Vec3 nearZ = pes::FreeKickFieldClamp(pes::Vec3(pesFieldHalfLength - 0.06f, pesFieldHalfWidth - 0.16f, 0.0f));
-  EXPECT_NEAR(std::fabs(nearZ.x), pesFieldHalfLength - 0.06f, kPointTolerance_m);
-  EXPECT_NEAR(std::fabs(nearZ.y), pesFieldHalfWidth - 0.5f, kPointTolerance_m) << "z is pulled in by 0.5 m";
-  // 0.11 m from the corner with x the larger overshoot: x is pulled in to the goal line's inset and z stays.
+  // 0.17 m from the corner, z overshooting less: the goal line's half-length is the larger coordinate, so x is pulled in to
+  // the goal line's inset and z stays. An overshoot comparison would pull z here.
+  const pes::Vec3 zCloser = pes::FreeKickFieldClamp(pes::Vec3(pesFieldHalfLength - 0.06f, pesFieldHalfWidth - 0.16f, 0.0f));
+  EXPECT_NEAR(std::fabs(zCloser.x), pesFieldHalfLength - 0.5f, kPointTolerance_m) << "x is pulled in by 0.5 m";
+  EXPECT_NEAR(std::fabs(zCloser.y), pesFieldHalfWidth - 0.16f, kPointTolerance_m);
+  // 0.11 m from the corner with x the larger overshoot: x is pulled in again and z stays.
   const pes::Vec3 nearX = pes::FreeKickFieldClamp(pes::Vec3(pesFieldHalfLength - 0.1f, pesFieldHalfWidth - 0.05f, 0.0f));
   EXPECT_NEAR(std::fabs(nearX.x), pesFieldHalfLength - 0.5f, kPointTolerance_m) << "x is pulled in by 0.5 m";
   EXPECT_NEAR(std::fabs(nearX.y), pesFieldHalfWidth - 0.05f, kPointTolerance_m);

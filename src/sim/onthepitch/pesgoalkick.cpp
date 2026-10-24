@@ -185,11 +185,12 @@ float SetKickHeadingDeg(float contactYawDeg, float restartYawDeg) {
 Vec3 FreeKickFieldClamp(const Vec3& stand) {
   Vec3 fox = ToFox(stand);
   const float halfLength = pesFieldHalfLength, halfWidth = pesFieldHalfWidth;
-  // The stand's overshoot past the corner (F0, F1) on each axis. Within 0.5 m of the corner, the axis that overshoots more is pulled
-  // in to its mark less 0.5 m: x when |x| - F0 is the larger (0x74148B), else z (0x7414BE).
+  // The stand's overshoot past the corner (F0, F1) on each axis. Within 0.5 m of the corner one axis is pulled in to its mark less
+  // 0.5 m: x when the stand's |x| is the larger coordinate (0x14074148B), else z (0x1407414BE). PES compares the raw coordinates,
+  // not the overshoots, so at a corner (F0 much larger than F1) it pulls x (port audit 3 F1).
   const float overX = std::fabs(fox.x) - halfLength, overZ = std::fabs(fox.z) - halfWidth;
   if (std::sqrt(overX * overX + overZ * overZ) < kFreeKickCornerPullIn_m) {
-    if (std::fabs(overX) > std::fabs(overZ))
+    if (std::fabs(fox.x) > std::fabs(fox.z))
       fox.x = Sign1(fox.x) * (halfLength - kFreeKickCornerPullIn_m);
     else
       fox.z = Sign1(fox.z) * (halfWidth - kFreeKickCornerPullIn_m);
