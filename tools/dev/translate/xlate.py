@@ -445,12 +445,13 @@ class Emitter:
             return [self.mem_store(inner, v, w, None)]
         if "[" in src:
             inner = src[src.find("["):]
-            v = self.mem_val(inner, w, None)
+            # MOVZX/MOVSX load as wide as the SOURCE operand (MOVZX eax, byte
+            # ptr [..] reads one byte); MOVSXD reads a dword.
+            sw = self.op_width(src) if ext else w
+            if ext == "sx" and sw == 64:
+                sw = 32
+            v = self.mem_val(inner, sw, None)
             if ext == "sx":
-                # source width: from src ptr size or 32 for MOVSXD
-                sw = self.op_width(src)
-                if sw == 64:
-                    sw = 32
                 v = sext(v, sw)
             return [reg_write(dst, v)]
         v = self.val_of(src, w)
