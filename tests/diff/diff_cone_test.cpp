@@ -75,7 +75,8 @@ TEST(DiffCone, ConeTestMatchesPES) {
     const float cx = BitsToFloat(c.in.At("cand_x")), cz = BitsToFloat(c.in.At("cand_z"));
     const float hx = BitsToFloat(c.in.At("hold_x")), hz = BitsToFloat(c.in.At("hold_z"));
     const float head = BitsToFloat(c.in.At("headbits"));
-    const bool gf = pes::marktable::ConePasses(cx, cz, hx, hz, head, *k);
+    const float inner = BitsToFloat(c.in.At("innerbits"));
+    const bool gf = pes::marktable::ConePasses(cx, cz, hx, hz, head, inner, *k);
     const int pes = c.out.At("cone_hit").AsInt();
     if (gf == (pes != 0)) continue;
     // Mismatch: only tolerable inside the documented atan2 margin.

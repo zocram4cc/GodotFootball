@@ -49,145 +49,38 @@
   },
   "input_schema": {
     "b": {
-      "kind": "u8",
-      "lo": 0,
-      "hi": 255
+      "kind": "all_u8"
     },
     "counter0": {
-      "kind": "i32",
-      "lo": 0,
-      "hi": 2000000
+      "kind": "choice",
+      "values": [
+        0
+      ]
+    },
+    "copy_tail": {
+      "kind": "choice",
+      "values": [
+        0
+      ]
     }
   },
   "fixed_cases": [
     {
-      "b": 0,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 40,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 63,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 64,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 65,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 66,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 69,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
+      "name": "counter-zero",
       "b": 70,
       "counter0": 0,
       "copy_tail": 0
     },
     {
-      "b": 71,
-      "counter0": 0,
+      "name": "counter-one",
+      "b": 70,
+      "counter0": 1,
       "copy_tail": 0
     },
     {
-      "b": 74,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 75,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 76,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 79,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 80,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 81,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 84,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 85,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 86,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 89,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 90,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 91,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 94,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 95,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 96,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 109,
-      "counter0": 0,
-      "copy_tail": 0
-    },
-    {
-      "b": 255,
-      "counter0": 0,
+      "name": "counter-max",
+      "b": 70,
+      "counter0": 2000000,
       "copy_tail": 0
     }
   ],
@@ -291,5 +184,8 @@
     "copy_tail": 0
   },
   "seed": 11,
-  "count": 326
+  "count": 300,
+  "labels": [
+    "name"
+  ]
 }

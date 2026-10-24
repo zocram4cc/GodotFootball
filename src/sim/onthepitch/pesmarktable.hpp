@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <optional>
 #include <string>
 
@@ -81,12 +82,26 @@ struct Facts {
   std::array<Candidate, kSlots> candidates{};
 };
 
-// The cone test (FUN_140A53DA0 -> FUN_140A53DF0): strict annulus on the outer radius
-// (inner is 0.0: T7a's stack slot holds 0x00000001 ~= 1.4e-45), then |wrap180(live - headArg)|
-// < 0.5 * coneDeg where live is the bearing from the candidate to the holder (FUN_140439EF0).
-// candPos/holderPos are ground-plane (x, z); headArg is P[cand][holder].
+// T7a's cone inner word: 0x1404F654F writes 0.0 to the stack slot, 0x1404F6580
+// overwrites its low byte with 1, i.e. 0x00000001 ~= 1.4e-45. Constructed in
+// code (never transcribed): d2 <= inner^2 can only fire at coincident points,
+// where quirk and 0.0 are indistinguishable in f32 arithmetic.
+inline float InnerQuirk() {
+  uint32_t bits = 1;
+  float v = 0.0f;
+  static_assert(sizeof(v) == sizeof(bits));
+  std::memcpy(&v, &bits, sizeof v);
+  return v;
+}
+
+// The cone test (FUN_140A53DA0 -> FUN_140A53DF0): strict annulus inner^2 < d^2 < outer^2
+// on the ground plane (0x140A53E20/26/2D + 0x140A53E2F/38/3F JBE: touching either
+// radius FAILS), then |wrap180(live - headArg)| < 0.5 * coneDeg where live is the
+// bearing from the candidate to the holder (FUN_140439EF0).
+// candPos/holderPos are ground-plane (x, z); headArg is P[cand][holder]; inner is
+// T7a's stack word (InnerQuirk() at the BuildMarkTable call site).
 bool ConePasses(float candX, float candZ, float holderX, float holderZ, float headArg,
-                const Constants& k);
+                float inner, const Constants& k);
 
 // The count gate (FUN_140A4EAF0 -> FUN_140A4E7C0): counts the holder-side mates within
 // 12 m of the holder whose bearing-from-holder agrees with u = P[cand][holder] to within

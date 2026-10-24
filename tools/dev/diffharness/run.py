@@ -531,23 +531,106 @@ def run_case(mu, spec, RET_SENTINEL, inputs, timeout_ms=5000):
     return out, None
 
 
-def gen_inputs(spec, seed, count):
+def read_image_f32(sections, image_path, va):
+    """Read one float from the user's image (constants for boundary builders)."""
+    blob = read_va_from(image_path, sections, va, 4)
+    if blob is None:
+        raise SystemExit("diffharness: boundary constant unreadable at %#x" % va)
+    return struct.unpack("<f", blob)[0]
+
+
+def build_boundary(spec, b, image):
+    """One edge-vector case from image-read constants. kinds:
+    - cone_edge: cand/hold geometry around the annulus + half-angle edges.
+      args: side ("ahead"|"behind"), radius ("touch"|"inside"|"dust"),
+      angle ("center"|"edge"|"flip"), with cone/outer/inner from post_fill.
+    - strength_edge: own/chal floats straddling the 0.9 margin read from the image.
+    """
+    sections, image_path = image
+    kind = b.get("boundary")
+    if kind == "cone_edge":
+        outer = read_image_f32(sections, image_path, 0x14259BE04)
+        cone_deg = read_image_f32(sections, image_path, 0x14259BE5C)
+        half = read_image_f32(sections, image_path, 0x142565600)
+        case = {"name": b.get("name", kind)}
+        dist = {"touch": outer, "inside": outer * (1 - 2**-20),
+                "dust": 0.0}[b.get("radius", "inside")]
+        if b.get("side", "ahead") == "ahead":
+            case.update(cand_x=0.0, cand_z=-dist, hold_x=0.0, hold_z=0.0)
+        else:
+            case.update(cand_x=0.0, cand_z=dist, hold_x=0.0, hold_z=0.0)
+        half_angle = half * cone_deg
+        head = {"center": 0.0, "edge": half_angle, "flip": 180.0}[b.get("angle", "center")]
+        case["headbits"] = head
+        if b.get("inner", "zero") == "quirk":
+            # T7a's inner-word quirk (0x1404F654F writes 0.0, 0x1404F6580
+            # overwrites the low byte with 1): constructed, never committed.
+            blob = bytearray(struct.pack("<f", 0.0))
+            blob[0] = 1
+            case["innerbits"] = {"bits": "0x%08X" % struct.unpack("<I", bytes(blob))[0]}
+        else:
+            case["innerbits"] = 0.0
+        return case
+    if kind == "strength_edge":
+        margin = read_image_f32(sections, image_path, 0x14258C260)
+        base = b.get("base", 75.0)
+        delta = {"above": 1.0, "below": -1.0, "at": 0.0}[b.get("dirn", "above")]
+        side, mode = b.get("team_side", 0), b.get("mode", 0)
+        case = {"name": b.get("name", kind)}
+        case.update(side=side, mode=mode, strat3_in=2, strat4=0, strat5=0,
+                    strat6=0, rng2=1, r8_entry=0, mi116c=0, mi1168=0,
+                    minute=0, clock_base=100.0, maskbit=4, sup0=3, sup1=4,
+                    teamw0=1, teamw1=2, ma_fill=0,
+                    ma_off=0x25FF4 + mode + side * 8,
+                    own_float=float(base + delta), own_off=0xC404 + side * 0x2804,
+                    chal_float=float(base), chal_off=0xC404 + (1 - side) * 0x2804,
+                    sheet={})
+        return case
+    raise SystemExit("diffharness: unknown boundary %r" % (b,))
+
+
+def gen_inputs(spec, seed, count, image=None):
     import random
     rnd = random.Random(seed)
     cases = [dict(c) for c in spec.get("fixed_cases") or []]
     schema = spec.get("input_schema") or {}
+    # Algorithmic boundaries: edge vectors computed at generation time from
+    # constants read out of the user's image (never committed).
+    for b in spec.get("boundary_cases") or []:
+        cases.append(build_boundary(spec, b, image))
     # Normalize fixed f32 cases to bits form.
     for c in cases:
         for name, value in list(c.items()):
             loc = (spec.get("inputs") or {}).get(name, {})
             if loc.get("enc") == "f32" and not isinstance(value, dict):
                 c[name] = f32_bits(value)
+    # Full-range kinds enumerate every value (band: all 256 bytes).
+    full = []
+    for name, rule in schema.items():
+        if rule.get("kind") == "all_u8":
+            full.append(name)
+    if full:
+        import itertools
+        lo, hi = 0, 255
+        for combo in itertools.product(range(lo, hi + 1), repeat=len(full)):
+            case = {}
+            for name, rule in schema.items():
+                kind = rule.get("kind", "u8")
+                if kind == "all_u8":
+                    case[name] = combo[full.index(name)]
+                elif kind == "choice":
+                    case[name] = rule["values"][0]
+                elif kind == "derived":
+                    case[name] = eval(rule["expr"], {"__builtins__": {}}, dict(case))
+            for name, val in (spec.get("post_fill") or {}).items():
+                case.setdefault(name, val)
+            cases.append(case)
     while len(cases) < count:
         case = {}
         for name, rule in schema.items():
             loc = (spec.get("inputs") or {}).get(name, {})
             kind = rule.get("kind", "u8")
-            if kind == "u8":
+            if kind in ("u8", "all_u8"):
                 case[name] = rnd.randint(rule.get("lo", 0), rule.get("hi", 255))
             elif kind == "i32":
                 case[name] = rnd.randint(rule.get("lo", -100), rule.get("hi", 100))
@@ -556,6 +639,15 @@ def gen_inputs(spec, seed, count):
                     case[name] = f32_bits({"bits": rnd.choice(rule["edges"])})
                 else:
                     case[name] = f32_bits(rnd.uniform(rule.get("lo", -50.0), rule.get("hi", 50.0)))
+            elif kind == "quirk_or_zero":
+                # T7a's inner word: usually 0.0, occasionally the low-byte-1
+                # quirk word (constructed as in build_boundary, never committed).
+                if rnd.random() < 0.1:
+                    blob = bytearray(struct.pack("<f", 0.0))
+                    blob[0] = 1
+                    case[name] = {"bits": "0x%08X" % struct.unpack("<I", bytes(blob))[0]}
+                else:
+                    case[name] = f32_bits(0.0)
             elif kind == "choice":
                 case[name] = rnd.choice(rule["values"])
             elif kind == "derived":
@@ -564,9 +656,15 @@ def gen_inputs(spec, seed, count):
                 case[name] = eval(rule["expr"], {"__builtins__": {}}, dict(case))
         cases.append(case)
     # Static per-case defaults that must not consume the random stream.
+    # {"from_image": VA} reads the float from the user's image at gen time.
     for case in cases:
         for name, val in (spec.get("post_fill") or {}).items():
-            case.setdefault(name, val)
+            if isinstance(val, dict) and "from_image" in val:
+                sections, image_path = image
+                case.setdefault(name, f32_bits(read_image_f32(
+                    sections, image_path, int(val["from_image"], 16))))
+            else:
+                case.setdefault(name, val)
     return cases[:count]
 
 
@@ -596,7 +694,7 @@ def main():
     install_hooks(mu, spec, RET)
     seed = args.seed if args.seed != 1 or "seed" not in spec else spec["seed"]
     count = args.count if args.count != 300 or "count" not in spec else spec["count"]
-    cases = gen_inputs(spec, seed, count)
+    cases = gen_inputs(spec, seed, count, (sections, args.exe))
     out = open(args.out, "w") if args.out else sys.stdout
     for n, inputs in enumerate(cases):
         result, err = run_case(mu, spec, RET, inputs)

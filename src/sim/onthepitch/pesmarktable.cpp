@@ -72,10 +72,12 @@ float HeadBearing(float posX, float posZ, float pointX, float pointZ) {
 }  // namespace
 
 bool ConePasses(float candX, float candZ, float holderX, float holderZ, float headArg,
-                const Constants& k) {
+                float inner, const Constants& k) {
   const float dx = holderX - candX;
   const float dz = holderZ - candZ;
-  if (dx * dx + dz * dz >= k.coneLen * k.coneLen) return false;  // 0x140A53E20/26/2D JBE
+  const float d2 = dx * dx + dz * dz;
+  if (d2 >= k.coneLen * k.coneLen) return false;  // 0x140A53E20/26/2D JBE
+  if (d2 <= inner * inner) return false;          // 0x140A53E2F/38/3F JBE
   const float live = PairBearing(candX, candZ, holderX, holderZ);
   return std::fabs(Wrap180(live - headArg)) < k.half * k.coneDeg;  // 0x140A53E81 CMOVA
 }
@@ -152,7 +154,7 @@ void BuildMarkTable(MarkState* state, const Facts& facts, const Constants& k) {
     if (std::fabs(Wrap180(cand.pairToHolder - headArg)) > k.wrapSide) continue;
     if (k.wrapSide > std::fabs(Wrap180(cand.pairToHolder - cone))) continue;
     const bool coneHit = ConePasses(cand.posX, cand.posZ, facts.holderX, facts.holderZ,
-                                    cand.pairToHolder, k);  // 0x1404F6567 TEST AL,AL
+                                    cand.pairToHolder, InnerQuirk(), k);  // 0x1404F6567 TEST AL,AL
     // 0x1404F6595 CMOVNZ + 0x1404F659D CMP AL,BL: count <= (cone != 0).
     if (CountGate(facts.holderX, facts.holderZ, cand.pairToHolder, facts, k) >
         (coneHit ? 1 : 0))
