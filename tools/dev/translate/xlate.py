@@ -130,9 +130,11 @@ class Image:
                 pe = int.from_bytes(self.f.read(4), "little")
                 self.f.seek(pe + 6)
                 nsec = int.from_bytes(self.f.read(2), "little")
-                self.f.seek(pe + 24 + 32)
+                self.f.seek(pe + 20)
+                ohsize = int.from_bytes(self.f.read(2), "little")
+                self.f.seek(pe + 24 + 24)
                 base = int.from_bytes(self.f.read(8), "little")
-                self.f.seek(pe + 24 + 32 + 224)
+                self.f.seek(pe + 24 + ohsize)
                 for _ in range(min(nsec, 64)):
                     raw = self.f.read(40)
                     if len(raw) < 40:
