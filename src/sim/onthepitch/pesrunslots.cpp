@@ -32,6 +32,17 @@ const RingEntry& Behind(const Ring& ring, int behind) {
 
 void Touch(Ring* ring, uint32_t stamp) { ring->entry[ring->index].seenAt = stamp; }
 
+void SnapshotCopy(std::array<Slot, kSlots>* dst, const std::array<Slot, kSlots>& src, uint32_t stamp) {
+  for (int s = 0; s < kSlots; ++s) {
+    if ((*dst)[s].state == 0x25) continue;
+    const RingEntry& d = Behind((*dst)[s].ring, 1);
+    const RingEntry& r = Behind(src[s].ring, 1);
+    if (d.id != r.id || d.enteredAt != r.enteredAt) continue;
+    (*dst)[s].ring = src[s].ring;
+    Touch(&(*dst)[s].ring, stamp);
+  }
+}
+
 uint32_t Age(const Ring& ring) {
   const RingEntry& head = Behind(ring, 0);
   return head.seenAt - head.enteredAt;

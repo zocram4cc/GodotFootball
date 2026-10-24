@@ -74,4 +74,7 @@ void ReleaseSweep(std::array<Slot, kSlots>* slots, int noBallCounter, uint32_t s
 std::array<float, 3> Point(const Slot& slot);
 void SetPoint(Slot* slot, const std::array<float, 3>& point);
 
+// FUN_140A42A70: per-slot gated snapshot copy of the history ring, then Touch.
+void SnapshotCopy(std::array<Slot, kSlots>* dst, const std::array<Slot, kSlots>& src, uint32_t stamp);
+
 }  // namespace pes::run

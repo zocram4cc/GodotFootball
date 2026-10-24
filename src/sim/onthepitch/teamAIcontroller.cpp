@@ -2856,6 +2856,7 @@ void TeamAIController::UpdateStrategy() {
     lastTickPossession = latch;
     // Step 15's in-play arm (FUN_1404FA840, 0x1404FA869-0x1404FA887).
     if (inPlay) pes::ArmInPlayCounters(&teamTick);
+    if (pesPath) pes::run::SnapshotCopy(&runSlots, runSlots, static_cast<uint32_t>(match->GetPesFrame()));
     // FUN_140501260 clears T+0xE4 every team tick (0x1405012D0); step 5 can only set it in play.
     if (!inPlay) teamTick.trapArmed = false;
   }

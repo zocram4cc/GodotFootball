@@ -167,4 +167,34 @@ TEST(PesRunSweep, EverySlotIsReleasedOnlyWhenTheCounterIsZero) {
   }
 }
 
+
+TEST(PesRunSlots, SnapshotCopiesOnlyWhenPairMatches) {
+  std::array<pes::run::Slot, pes::run::kSlots> dst{}, src{};
+  // make pair match on slot 0
+  dst[0].state = 0x10;
+  dst[0].ring.entry[0] = {7, 5, 5};
+  dst[0].ring.index = 1;
+  src[0].ring.entry[0] = {7, 5, 9};
+  src[0].ring.index = 1;
+  pes::run::SnapshotCopy(&dst, src, 42);
+  EXPECT_EQ(dst[0].ring.entry[dst[0].ring.index].seenAt, 42u);
+  // mismatched pair skipped
+  dst[1].state = 0x10;
+  dst[1].ring.entry[0] = {1, 1, 1};
+  dst[1].ring.index = 1;
+  src[1].ring.entry[0] = {2, 2, 2};
+  src[1].ring.index = 1;
+  auto before = dst[1].ring;
+  pes::run::SnapshotCopy(&dst, src, 99);
+  EXPECT_EQ(dst[1].ring.entry[0].id, before.entry[0].id);
+}
+
+TEST(PesRunSlots, TouchSetsHeadSeenToFrame) {
+  pes::run::Ring r{};
+  r.entry[0] = {1, 2, 3};
+  r.index = 0;
+  pes::run::Touch(&r, 77);
+  EXPECT_EQ(r.entry[0].seenAt, 77u);
+}
+
 }  // namespace
