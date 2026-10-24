@@ -1,9 +1,9 @@
-<!-- LEDGER-STAMP 8bf96209eb9e7eb9 -->
+<!-- LEDGER-STAMP cabbf365b13bdeef -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (`--funclist` from the bridge's function list), `hand.json`, `offpath_allow.json`).
 
-Statuses: **ported** / **diffed** / **stand-in** (GF code cites the VA), **decoded** (a report gives a verdict), **leaf accessor** (<= 10 instructions, no call, no jump out, no vtable reference), **engine** (boundary: not walked, not match logic), **undecoded** (walked or unresolved, no verdict), **inert** (hand.json), **out of scope** (a rule below: edit mode, career, save/load, online).
+Statuses: **ported** / **diffed** (GF code cites the VA; diffed is bit-exact against the harness) / **translated** (the translator emitted C++, undiffed) / **stand-in** (GF code cites the VA), **decoded** (a report gives a verdict), **leaf accessor** (<= 10 instructions, no call, no jump out, no vtable reference), **engine** (boundary: not walked, not match logic), **undecoded** (walked or unresolved, no verdict), **inert** (hand.json), **out of scope** (a rule below: edit mode, career, save/load, online).
 
 Scope: **in scope** is everything a player goes through to play a match: the pre-match select flow, the match, its presentation (replay, camera, audio, crowd, HUD, cutscenes) and its in-match menus. **Out of scope** is only edit mode, career modes, save/load and online: the rules are under *Scope rules*. Out-of-scope rows are counted, not listed.
 
@@ -16,6 +16,7 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 | total | 18374 | 19481 | 37855 |
 | ported | 557 | 0 | 557 |
 | diffed | 8 | 0 | 8 |
+| translated | 0 | 0 | 0 |
 | stand-in | 99 | 0 | 99 |
 | decoded | 1223 | 0 | 1223 |
 | leaf accessor | 1843 | 0 | 1843 |
@@ -139,24 +140,24 @@ Crawl counters (universe.py meta.rules): boundary:crt 45, boundary:doc 6, bounda
 
 Rows per subsystem and status:
 
-| subsystem | rows | ported | diffed | stand-in | decoded | leaf accessor | engine | undecoded | inert |
-|---|---|---|---|---|---|---|---|---|---|
-| pre-match | 1453 | 14 | 0 | 0 | 11 | 174 | 135 | 1119 | 0 |
-| gameplay | 3517 | 124 | 0 | 9 | 407 | 344 | 106 | 2527 | 0 |
-| ball | 368 | 40 | 0 | 14 | 75 | 59 | 4 | 176 | 0 |
-| AI | 1362 | 221 | 6 | 47 | 411 | 129 | 12 | 536 | 0 |
-| referee | 98 | 14 | 0 | 2 | 29 | 30 | 0 | 23 | 0 |
-| restart | 652 | 37 | 1 | 13 | 124 | 148 | 4 | 325 | 0 |
-| animation | 837 | 77 | 0 | 8 | 44 | 58 | 49 | 601 | 0 |
-| camera | 568 | 12 | 0 | 2 | 14 | 71 | 26 | 443 | 0 |
-| replay | 740 | 0 | 0 | 0 | 8 | 88 | 91 | 553 | 0 |
-| audio | 556 | 1 | 0 | 0 | 0 | 52 | 6 | 497 | 0 |
-| crowd | 147 | 0 | 0 | 0 | 0 | 17 | 1 | 129 | 0 |
-| HUD | 164 | 1 | 0 | 1 | 1 | 19 | 3 | 139 | 0 |
-| cutscene | 3846 | 4 | 0 | 0 | 73 | 256 | 456 | 3057 | 0 |
-| in-match menu | 3777 | 12 | 1 | 3 | 26 | 398 | 60 | 3276 | 1 |
-| render | 289 | 0 | 0 | 0 | 0 | 0 | 289 | 0 | 0 |
-| total | 18374 | 557 | 8 | 99 | 1223 | 1843 | 1242 | 13401 | 1 |
+| subsystem | rows | ported | diffed | translated | stand-in | decoded | leaf accessor | engine | undecoded | inert |
+|---|---|---|---|---|---|---|---|---|---|---|
+| pre-match | 1453 | 14 | 0 | 0 | 0 | 11 | 174 | 135 | 1119 | 0 |
+| gameplay | 3517 | 124 | 0 | 0 | 9 | 407 | 344 | 106 | 2527 | 0 |
+| ball | 368 | 40 | 0 | 0 | 14 | 75 | 59 | 4 | 176 | 0 |
+| AI | 1362 | 221 | 6 | 0 | 47 | 411 | 129 | 12 | 536 | 0 |
+| referee | 98 | 14 | 0 | 0 | 2 | 29 | 30 | 0 | 23 | 0 |
+| restart | 652 | 37 | 1 | 0 | 13 | 124 | 148 | 4 | 325 | 0 |
+| animation | 837 | 77 | 0 | 0 | 8 | 44 | 58 | 49 | 601 | 0 |
+| camera | 568 | 12 | 0 | 0 | 2 | 14 | 71 | 26 | 443 | 0 |
+| replay | 740 | 0 | 0 | 0 | 0 | 8 | 88 | 91 | 553 | 0 |
+| audio | 556 | 1 | 0 | 0 | 0 | 0 | 52 | 6 | 497 | 0 |
+| crowd | 147 | 0 | 0 | 0 | 0 | 0 | 17 | 1 | 129 | 0 |
+| HUD | 164 | 1 | 0 | 0 | 1 | 1 | 19 | 3 | 139 | 0 |
+| cutscene | 3846 | 4 | 0 | 0 | 0 | 73 | 256 | 456 | 3057 | 0 |
+| in-match menu | 3777 | 12 | 1 | 0 | 3 | 26 | 398 | 60 | 3276 | 1 |
+| render | 289 | 0 | 0 | 0 | 0 | 0 | 0 | 289 | 0 | 0 |
+| total | 18374 | 557 | 8 | 0 | 99 | 1223 | 1843 | 1242 | 13401 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
