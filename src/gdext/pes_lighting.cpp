@@ -64,8 +64,9 @@ constexpr double kAdaptRatePerSecond = 60.0;
 constexpr double kAdaptDtSeconds = 1.0 / 60.0;
 
 // The post chain's GPU parameters, in the layout godot/post/pes_post.glsl reads: the exposure
-// law and the adaptation rate. The grading pair takes none.
-constexpr int kPostParamFloats = 6;  // godot/post/pes_post_effect.gd PARAM_FLOATS
+// law and the adaptation rate, plus PES's Tonemap_Lum metering rect cb5[12] (xy offset, zw scale;
+// FUN_141805840, ComposePath §4). The grading pair takes none.
+constexpr int kPostParamFloats = 10;  // godot/post/pes_post_effect.gd PARAM_FLOATS
 PackedFloat32Array PostParams(const pes::LightSettings& s, const pes::PluginSettings& plugin) {
   PackedFloat32Array p;
   p.resize(kPostParamFloats);
@@ -76,6 +77,14 @@ PackedFloat32Array PostParams(const pes::LightSettings& s, const pes::PluginSett
   p[4] = float(plugin.tonemapSpeed);
   // The adaptation step gain 1 − 0.98^(60·dt), dt = 1/60 per rendered frame.
   p[5] = float(1.0 - std::pow(kAdaptDecayBase, kAdaptRatePerSecond * kAdaptDtSeconds));
+  // PES's decoded static upload inputs (ComposePath §4): xy = (0.5/W, 0.5/H) + comp[0x8c..]·bss,
+  // zw = comp[0x94..] clamped [0,1]. The comp block's rect writer is untraced, so the offsets are
+  // zero and bss is 1.0 (live) — a full-frame rect — until the live values are read.
+  // ponytail: full-frame static inputs until the live comp-block rect is read.
+  p[6] = 0.0f;
+  p[7] = 0.0f;
+  p[8] = 1.0f;
+  p[9] = 1.0f;
   return p;
 }
 

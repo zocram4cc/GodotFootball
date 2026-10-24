@@ -3096,8 +3096,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     touch.ownLine_m = -attackSign * pesFieldHalfLength;  // G1: the own goal line stands in for T18+(sd+3)*0x14
     touch.pitchBound_m = pesFieldHalfLength;             // G2: the pitch half length stands in for F+0x18
     // G3's team level (T+0xA294 x100, reader 0x140A40BD0): the install's own stock class x 100 (the
-    // writer 0x1B5D8340, setter 0x140A424E0). GF has no match-setting selector (+0x18) and no per-side
-    // +0x9200 byte, so the value is the stock default and the zero flag is false.
+    // §2 setup paths through the setter 0x140A424E0). GF has no match-setting selector (+0x18) and no
+    // per-side +0x9200 byte, so the value is the stock default and the zero flag is false.
     touch.teamLevelRaw = carrier.teamLevelRaw;
     touch.teamLevelZero = false;
     touch.attackLevel = 0;  // G8: T+0xB8A4 is not carried (S4)
