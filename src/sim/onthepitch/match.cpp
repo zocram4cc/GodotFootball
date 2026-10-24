@@ -840,6 +840,19 @@ void Match::Process() {
     ProcessPesEventStage();
   }
 
+  if (pesLoop) {
+    // W1's recompute runs off the restart step each tick, before anything reads the holder. ponytail:
+    // PES's cursor MI+0x11B0 has no GF state - its per-value writer is OPEN (docs/re/pes-re-restart-step.md 2,
+    // 7) - so GF's stoppage state stands in for the step values: a dead ball or the referee buffer's
+    // award-to-kick window reads as 0x0B (out-of-play hold, one of the arm-and-run steps 8/0xB/0xE/0x12) and
+    // open play as 0x16 (one of the run-if-latched steps 0x14/0x15/0x16). The switch's skip steps have no GF
+    // state to name, so no GF tick reads as one; the switch itself (RecomputePesHolder) stays exact.
+    constexpr uint8_t kArmAndRunStep = 0x0B;
+    constexpr uint8_t kRunIfLatchedStep = 0x16;
+    pesRestartStep = (!IsInPlay() || GetRefereeBuffer().active) ? kArmAndRunStep : kRunIfLatchedStep;
+    RecomputePesHolder();
+  }
+
   // The team tick. ponytail: PES builds the MA inside the per-side team tick, after the
   // run manager and the 11-player loop; GF's mental image is built once, at the head of
   // the tick, and the teams follow.
