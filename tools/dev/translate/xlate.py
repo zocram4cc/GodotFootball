@@ -941,6 +941,8 @@ class Emitter:
             if s.startswith("xmm") and "[" not in s:
                 y = int(s[3:])
                 lo = ("(double)PesState::f32((uint32_t)s.xmm[%d][0])" % y)
+                hi = ("(double)PesState::f32((uint32_t)(s.xmm[%d][0] >> 32))"
+                      % y)
             else:
                 inner = src[src.find("["):]
                 e = self.mem_val(inner, 64, None)
