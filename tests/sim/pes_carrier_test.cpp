@@ -2766,8 +2766,8 @@ TEST(PesCarrierInstall, TheStockTeamLevelIsAClassScaledByAHundred) {
   ASSERT_TRUE(exe) << err;
   auto k = pes::LoadCarrierConstants(*exe, &err);
   ASSERT_TRUE(k) << err;
-  // 0x1B5D8340 stores clamp(class x 100, 0, 700) with class = the masked global (0x14810F4E0 ^ the
-  // immediate at 0x1401B5D8378); 0x140A602B0 is the scale, 0x140A602B5 the cap. GF has no
+  // 0x140A602B0 stores clamp(class x 100, 0, 700) with class = the masked global (0x14810F4E0 ^ the
+  // immediate at 0x15B5D8378); 0x140A602B0 is the scale, 0x140A602B5 the cap. GF has no
   // match-setting selector, so the value is the stock default class.
   EXPECT_GT(k->teamLevelRaw, 0);                      // read, not left at the 0 stand-in
   EXPECT_EQ(k->teamLevelRaw % 100, 0);                // a class scaled by the game's own 100
