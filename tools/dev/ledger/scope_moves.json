@@ -1,46 +1,1124 @@
 {
-  "entries": [
-    {
-      "va": "0x1402B75F0",
-      "from": "engine",
-      "to": "undecoded",
-      "reason": "Engine boundary from an RTTI owner in menu:: or flow::, which are no longer engine: in-match menus and HUD are in scope (owner ruling 24-10-26). Walked from the cutscene and animation roots. No verdict or port lost.",
-      "cite": "universe.py ENGINE_ROOTS"
-    },
-    {
-      "va": "0x1402B8290",
-      "from": "engine",
-      "to": "undecoded",
-      "reason": "As 0x1402B75F0 (menu:: or flow:: owner no longer engine). Walked from the cutscene and animation roots.",
-      "cite": "universe.py ENGINE_ROOTS"
-    },
-    {
-      "va": "0x1402B8A50",
-      "from": "engine",
-      "to": "undecoded",
-      "reason": "As 0x1402B75F0 (menu:: or flow:: owner no longer engine). Walked from the cutscene and animation roots.",
-      "cite": "universe.py ENGINE_ROOTS"
-    },
-    {
-      "va": "0x1404183E0",
-      "from": "engine",
-      "to": "undecoded",
-      "reason": "As 0x1402B75F0 (menu:: or flow:: owner no longer engine). Reached from the camera, replay, gameplay and in-match menu roots.",
-      "cite": "universe.py ENGINE_ROOTS"
-    },
-    {
-      "va": "0x140E4C030",
-      "from": "engine",
-      "to": "undecoded",
-      "reason": "As 0x1402B75F0 (menu:: or flow:: owner no longer engine). Reached from the in-match menu, cutscene and gameplay roots.",
-      "cite": "universe.py ENGINE_ROOTS"
-    },
-    {
-      "va": "0x1404A3FA0",
-      "from": "out of scope",
-      "to": "undecoded",
-      "reason": "Hand out-of-scope row dropped: the end-of-match scene-id state machine is presentation, in scope as cutscene (owner ruling 24-10-26). No verdict lost (it had none).",
-      "cite": "docs/re/pes-re-missing-systems.md §2.9a"
-    }
-  ]
+ "entries": [
+  {
+   "cite": "universe.py ENGINE_ROOTS",
+   "from": "engine",
+   "reason": "Engine boundary from an RTTI owner in menu:: or flow::, which are no longer engine: in-match menus and HUD are in scope (owner ruling 24-10-26). Walked from the cutscene and animation roots. No verdict or port lost.",
+   "to": "undecoded",
+   "va": "0x1402B75F0"
+  },
+  {
+   "cite": "universe.py ENGINE_ROOTS",
+   "from": "engine",
+   "reason": "As 0x1402B75F0 (menu:: or flow:: owner no longer engine). Walked from the cutscene and animation roots.",
+   "to": "undecoded",
+   "va": "0x1402B8290"
+  },
+  {
+   "cite": "universe.py ENGINE_ROOTS",
+   "from": "engine",
+   "reason": "As 0x1402B75F0 (menu:: or flow:: owner no longer engine). Walked from the cutscene and animation roots.",
+   "to": "undecoded",
+   "va": "0x1402B8A50"
+  },
+  {
+   "cite": "universe.py ENGINE_ROOTS",
+   "from": "engine",
+   "reason": "As 0x1402B75F0 (menu:: or flow:: owner no longer engine). Reached from the camera, replay, gameplay and in-match menu roots.",
+   "to": "undecoded",
+   "va": "0x1404183E0"
+  },
+  {
+   "cite": "universe.py ENGINE_ROOTS",
+   "from": "engine",
+   "reason": "As 0x1402B75F0 (menu:: or flow:: owner no longer engine). Reached from the in-match menu, cutscene and gameplay roots.",
+   "to": "undecoded",
+   "va": "0x140E4C030"
+  },
+  {
+   "cite": "docs/re/pes-re-missing-systems.md \u00a72.9a",
+   "from": "out of scope",
+   "reason": "Hand out-of-scope row dropped: the end-of-match scene-id state machine is presentation, in scope as cutscene (owner ruling 24-10-26). No verdict lost (it had none).",
+   "to": "undecoded",
+   "va": "0x1404A3FA0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140439EF0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140439F50"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140439F90"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x14043A020"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1404583B0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140458740"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x14046F230"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x14046F260"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140479470"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x1404A53E0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x1404AB8E0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x1404BCAD0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1404C8DC0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1404C8E60"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1404F4AB0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1404F5F10"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1404F61E0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x1404F6680"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x1405008E0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140501160"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140529330"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x1405969B0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1405A4790"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x1405A4830"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1405AEF10"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x1405BB170"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x1405CCD00"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1405CD540"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1405CD780"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x1405CFC80"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x1405CFFE0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1405E0C60"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1405EBCA0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1405FC860"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140632320"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140632850"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140632BC0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140639600"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x14063A3A0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x14063C9F0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x14063F230"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x14063FA70"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x14063FDC0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140653480"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140682320"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140687820"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140687FB0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140688300"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1408C5000"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1408C5020"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1408C5030"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1408C5060"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1408C5080"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1408C50A0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1408C50E0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1408C51B0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1408C51F0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1408C52E0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1408C6430"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x1408CB0B0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x1409FA0B0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x1409FBCE0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A3B320"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A3B520"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A3C950"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A3C9B0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A3D4F0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A3E150"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A3E5D0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A3E7D0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A3E840"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A3E880"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A3FE50"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A40000"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A40050"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A401C0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A401F0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A40200"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A40820"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A40BD0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A41190"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A41B30"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A41BE0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A42430"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A42590"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A425A0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A42880"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A42940"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A429A0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A431E0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A489D0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A4C720"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A4E3F0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A4E7C0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A4EDF0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A4F210"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A4F230"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A4F720"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A4FBC0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A4FEA0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A51320"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A53DF0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A55CF0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A55D40"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A57710"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A57720"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A57730"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A58320"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A602B0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A60340"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A603C0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A60500"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A60530"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A606C0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A61CF0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A62140"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A62180"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A62610"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A62690"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A62EA0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A62FE0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A63020"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A64410"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A66FF0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A6BD60"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A6C6D0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A6C990"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A6CE00"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A6CEF0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A6E150"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A6E1C0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A6E320"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A6E340"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A6E3F0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A6E450"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A6E540"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A6E6B0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A714A0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A714C0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A714E0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A71500"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A71520"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A71990"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A74EC0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A75BE0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A76070"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A85AA0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "translated",
+   "va": "0x140A8F7C0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A8F890"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A8FF10"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A91120"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A924E0"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A92530"
+  },
+  {
+   "cite": "tools/dev/translate/results.json",
+   "from": "ported",
+   "reason": "Pilot translation (translate+diffharness, 24-10-26): the translator emitted C++ for the function; diffed = bit-exact vs the unicorn harness on the committed spec (results.json). Proof supersedes the hand port until cutover; rank translated=diffed=1.",
+   "to": "diffed",
+   "va": "0x140A92B90"
+  }
+ ]
 }
