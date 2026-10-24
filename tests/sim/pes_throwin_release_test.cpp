@@ -119,7 +119,8 @@ TEST(PesThrowInRelease, AThrowInIsReleasedFromInsideTheLine) {
 // A carried throw-in's ball is held at its release clip's key offset from the taker's root until the touch. The hold of a tick
 // places the ball from the root the previous tick ended with, so the check pairs the last held ball with that root. The key's
 // horizontal length is independent of the heading (the Fox X and Z of the key), so the check is the hold's distance from the
-// root. The release clip is the release row's cell in the 000 column (plain), and its first hit record is the key. Ceremony
+// root. The release clip is the release row's cell in the 000 column (plain), and its second hit record is the key
+// (choreography 4.2: the run_000_short and run_000_mid keys). Ceremony
 // takers are not counted: they never carry the ball.
 TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
@@ -154,7 +155,7 @@ TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
     const int releaseMotion = match.GetPesAnimetable().Cell(takeRow, pes::kThrowInPlainZeroColumn).motionNo;
     const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(releaseMotion);
     const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
-    const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+    const pes::HitRecord hit = hits.size() > 1 ? hits[1] : (hits.empty() ? pes::HitRecord() : hits.front());
     const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), 1.0f, false, g);
     const float keyHorizontal_m = std::sqrt(key.x * key.x + key.z * key.z);
     const float dx = heldBall.coords[0] - heldRoot.coords[0], dy = heldBall.coords[1] - heldRoot.coords[1];

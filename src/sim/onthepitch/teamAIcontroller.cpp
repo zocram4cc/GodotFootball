@@ -1339,23 +1339,23 @@ void TeamAIController::PinBallAtRelease() {
   }
   constexpr float kPhysique = 1.0f;  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0, as the pickup does
   constexpr bool kMirror = false;    // ponytail: the 000 column; PES's column is the angle class of the throw (FUN_1406de990)
-  // The row names the release clip in the animetable; the clip's first hit record is its release key (the 000 column, plain).
+  // The row names the release clip in the animetable. Its release key is the second ball key (choreography 4.2: the
+  // table's run_000_short and run_000_mid keys are hit 1 of motions 3324 and 3323); a clip with one key uses that one.
   const int releaseMotion = match->GetPesAnimetable().Cell(pieceReleaseRow, pes::kThrowInPlainZeroColumn).motionNo;
   const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(releaseMotion);
-  const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+  const pes::HitRecord hit = hits.size() > 1 ? hits[1] : (hits.empty() ? pes::HitRecord() : hits.front());
   const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
   const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
   const Vector3 pos = taker->GetPosition();
   const Vector3 facing = taker->GetRootDirectionVec();  // PES's hand sits on the root yaw, not on the travel direction
   const float heading = pes::FacingHeadingDeg(pes::Vec3(facing.coords[0], facing.coords[1], facing.coords[2]));
   pes::Vec3 hand = pes::HandBallFromRoot(pes::Vec3(pos.coords[0], pos.coords[1], 0.0f), heading, offset);
-  // PES pushes the taker before the release (FUN_140792E10, throwin 4.2 phase 1): the outer hand stays at least the
-  // install's inset OUTSIDE the touchline, so the ball is released from behind the line. The push moves the root, and
-  // the ball follows the hand.
-  // ponytail: the ball hand stands in for PES's bones 3/6 (FUN_141eb51a0); the two-bone push replaces it.
+  // PES pushes the taker before the release (FUN_140792E10, throwin 4.2 phase 1) until the outer edge is the install's
+  // inset OUTSIDE the touchline: the ball is then released from behind the line. The push moves the root; the ball follows.
+  // ponytail: the root's edge stands in for PES's further-outside of bones 3/6 (FUN_141eb51a0); the two-bone push replaces it.
   const float kReleaseMargin_m = match->GetPesSetPieceTakerConstants().throwInPushInset_m;
   const float side = pos.coords[1] < 0.0f ? -1.0f : 1.0f;
-  const float excess = (pesFieldHalfWidth + kReleaseMargin_m) - side * hand.y;
+  const float excess = (pesFieldHalfWidth + kReleaseMargin_m) - side * pos.coords[1];
   if (excess > 0.0f) {
     taker->OffsetPosition(Vector3(0.0f, side * excess, 0.0f));
     hand.y += side * excess;
