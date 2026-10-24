@@ -60,8 +60,10 @@ def image_end(mem):
         raise SystemExit("dump_image: no PE signature at %#x" % (BASE + e_lfanew))
     count = struct.unpack_from("<H", coff, 6)[0]
     optsz = struct.unpack_from("<H", coff, 20)[0]
-    oh = read_mem(mem, BASE + e_lfanew + 24, 32)
-    size_of_image = struct.unpack_from("<I", oh, 28)[0] if oh and len(oh) == 32 else 0
+    # SizeOfImage sits at optional-header+56 (PE32+); read-only fallback when the
+    # section table itself is unreadable.
+    oh = read_mem(mem, BASE + e_lfanew + 24, 60)
+    size_of_image = struct.unpack_from("<I", oh, 56)[0] if oh and len(oh) == 60 else 0
     raw = read_mem(mem, BASE + e_lfanew + 24 + optsz, 40 * count)
     sections = []
     if raw is not None:
