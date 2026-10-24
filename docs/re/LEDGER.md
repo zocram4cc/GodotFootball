@@ -1,4 +1,4 @@
-<!-- LEDGER-STAMP 80575cda4d5e8c34 -->
+<!-- LEDGER-STAMP 50e4db986f2b20c7 -->
 # Match-path ledger (generated — do not edit by hand)
 
 Regenerate: `python3 tools/dev/ledger.py`. Enforced by `tools/dev/gate.sh`. Inputs: `tools/dev/ledger/` (`universe.py` + `universe.json` (bridge crawl with the image, run under the capstone venv), `joins.py` + `joins.json` (`--funclist` from the bridge's function list), `hand.json`, `offpath_allow.json`).
@@ -15,8 +15,8 @@ Subsystem: each row carries the tag of its nearest root (BFS distance). `how` sa
 |---|---|---|---|
 | total | 18374 | 19481 | 37855 |
 | ported | 408 | 0 | 408 |
-| diffed | 153 | 0 | 153 |
-| translated | 64 | 0 | 64 |
+| diffed | 154 | 0 | 154 |
+| translated | 63 | 0 | 63 |
 | stand-in | 100 | 0 | 100 |
 | decoded | 1190 | 0 | 1190 |
 | leaf accessor | 1819 | 0 | 1819 |
@@ -145,7 +145,7 @@ Rows per subsystem and status:
 | pre-match | 1453 | 13 | 1 | 0 | 0 | 11 | 174 | 135 | 1119 | 0 |
 | gameplay | 3517 | 122 | 3 | 1 | 9 | 407 | 343 | 106 | 2526 | 0 |
 | ball | 368 | 38 | 1 | 2 | 14 | 75 | 58 | 4 | 176 | 0 |
-| AI | 1362 | 90 | 127 | 57 | 48 | 383 | 112 | 12 | 533 | 0 |
+| AI | 1362 | 90 | 128 | 56 | 48 | 383 | 112 | 12 | 533 | 0 |
 | referee | 98 | 12 | 2 | 1 | 2 | 29 | 29 | 0 | 23 | 0 |
 | restart | 652 | 36 | 7 | 1 | 13 | 122 | 144 | 4 | 325 | 0 |
 | animation | 837 | 75 | 1 | 1 | 8 | 44 | 58 | 49 | 601 | 0 |
@@ -157,7 +157,7 @@ Rows per subsystem and status:
 | cutscene | 3846 | 2 | 4 | 0 | 0 | 71 | 256 | 456 | 3057 | 0 |
 | in-match menu | 3777 | 9 | 4 | 0 | 3 | 26 | 398 | 60 | 3276 | 1 |
 | render | 289 | 0 | 0 | 0 | 0 | 0 | 0 | 289 | 0 | 0 |
-| total | 18374 | 408 | 153 | 64 | 100 | 1190 | 1819 | 1242 | 13397 | 1 |
+| total | 18374 | 408 | 154 | 63 | 100 | 1190 | 1819 | 1242 | 13397 | 1 |
 
 Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 
@@ -166,7 +166,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | pre-match | 1453 | 369 | 14 | 13 | 1328 | 125 | 0 |
 | gameplay | 3517 | 1342 | 134 | 70 | 3517 | 0 | 0 |
 | ball | 368 | 193 | 53 | 34 | 368 | 0 | 0 |
-| AI | 1362 | 809 | 265 | 164 | 1362 | 0 | 0 |
+| AI | 1362 | 809 | 266 | 165 | 1362 | 0 | 0 |
 | referee | 98 | 60 | 16 | 11 | 98 | 0 | 0 |
 | restart | 652 | 316 | 56 | 32 | 652 | 0 | 0 |
 | animation | 837 | 259 | 84 | 22 | 837 | 0 | 0 |
@@ -178,7 +178,7 @@ Pure computation (call graph, see `pure_rows`) and GF ports per subsystem:
 | cutscene | 3846 | 751 | 6 | 6 | 808 | 3038 | 0 |
 | in-match menu | 3777 | 973 | 16 | 10 | 131 | 3646 | 0 |
 | render | 289 | 0 | 0 | 0 | 0 | 0 | 289 |
-| total | 18374 | 5666 | 661 | 377 | 9946 | 8139 | 289 |
+| total | 18374 | 5666 | 662 | 378 | 9946 | 8139 | 289 |
 
 ## Roots
 
@@ -6740,7 +6740,7 @@ Not found (owner's list):
 | 0x140A3B110 | FUN_140a3b110 | diffed | CONFIRMED | pes-re-extra-frontman.md | - | 3 | 13 | y | doc | 14053BB90>140A64030>140A3B110 |
 | 0x140A3B140 | FUN_140a3b140 | decoded | OBS | pes-re-matchlogic.md | - | 4 | 33 | y | doc | 140975400>140A64230>140A3B140 |
 | 0x140A3B320 | FUN_140a3b320 | diffed | OBS | pes-re-defensive-shape.md | src/sim/onthepitch/pesevents.hpp;src/sim/onthepitch/pesevents.cpp | 39 | 23 | y | doc | 1404F6C30>1404FD4B0>140A3B320 |
-| 0x140A3B520 | FUN_140a3b520 | translated | OBS | pes-re-defender-decisions.md | src/sim/onthepitch/pessetpieceteam.hpp;src/sim/onthepitch/player/controller/elizacontroller.cpp | 26 | 20 | y | doc | 1404F6C30>140520930>140A3B520 |
+| 0x140A3B520 | FUN_140a3b520 | diffed | OBS | pes-re-defender-decisions.md | src/sim/onthepitch/pessetpieceteam.hpp;src/sim/onthepitch/player/controller/elizacontroller.cpp | 26 | 20 | y | doc | 1404F6C30>140520930>140A3B520 |
 | 0x140A3BF10 | FUN_140a3bf10 | undecoded | - | - | - | 3 | 49 | y | doc | 14051D9E0>14051D100>140A3BF10 |
 | 0x140A3C050 | FUN_140a3c050 | stand-in | CONFIRMED | pes-re-A6Period.md | src/sim/onthepitch/pesevents.hpp;src/sim/onthepitch/pesclock.hpp;src/sim/onthepitch/teamAIcontroller.cpp;src/sim/onthepitch/matchevents.cpp | 35 | 8 | - | doc | 140500B90>140A3C050 |
 | 0x140A3C070 | FUN_140a3c070 | ported | CONFIRMED | pes-re-A6Period.md | src/sim/onthepitch/pesevents.hpp;src/sim/onthepitch/pesclock.hpp;src/sim/onthepitch/pesevents.cpp;src/sim/onthepitch/pesclock.cpp | 4 | 68 | - | doc | 140500B90>140A3C050>140A3C070 |

@@ -96,8 +96,9 @@ def fault_class(spec, err):
         return "live state", "harness fault at image VA %#x: %s" % (
             addr, (m.group(0) if m else "")[:160])
     if live:
-        return "live state", "spec reads/writes live globals %s; %s" % (
-            live, (m.group(0) if m else err[-160:]))
+        live_s = "[%s]" % (", ".join("'%s'" % str(v) for v in live)
+                           if isinstance(live, list) else live)
+        return "live state", "spec reads/writes live globals %s" % live_s
     tag = (m.group(0) if m else err[-200:]).replace("\n", " ")
     return "struct map gap", "spec closure gap: %s" % tag[:220]
 
@@ -284,7 +285,8 @@ def build_and_diff(va, spec, args, pilot, nlines):
     if rc != 0:
         # keep the informative lines: errors plus undefined references
         # (ld failures print the missing symbol, not the word 'error')
-        lines = [l for l in err.splitlines()
+        lines = [l.replace(args.out_dir, "<build>")
+                 for l in err.splitlines()
                  if "error" in l or "undefined reference" in l][:6]
         return False, "compile: %s" % " | ".join(lines)[:400], \
             "translator bug"
@@ -299,6 +301,8 @@ def build_and_diff(va, spec, args, pilot, nlines):
         return True, note, None
     detail = (m.group(0) + " " if m else "") + \
         " ".join((out + err).splitlines()[-3:])
+    # Never commit machine paths: the out dir is build-tree scratch.
+    detail = detail.replace(args.out_dir, "<build>")
     return False, "diff: %s" % detail[:240], "translator bug"
 
 
