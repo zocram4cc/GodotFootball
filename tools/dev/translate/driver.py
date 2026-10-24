@@ -33,6 +33,7 @@ import json
 import os
 import re
 import subprocess
+import shutil
 import sys
 
 FAILURE_CLASSES = ("engine call", "live state", "GPU", "translator bug",
@@ -349,6 +350,9 @@ def main():
         want = {v.lower().replace("0x", "") for v in args.only}
         specs = [f for f in specs if f[:-5].lower() in want]
     os.makedirs(args.out_dir, exist_ok=True)
+    # A run generates everything afresh: callee TUs and support headers are reused within a run when they exist, so a
+    # gen dir left by an older translator would link stale code (the gate's build dir persists between gates).
+    shutil.rmtree(os.path.join(args.out_dir, "gen"), ignore_errors=True)
 
     results = []
     if args.jobs and args.jobs > 1:
