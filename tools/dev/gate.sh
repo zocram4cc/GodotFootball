@@ -57,6 +57,12 @@ for tag in off pesloop; do
 done
 echo "== ctest"; grep -E "tests passed|Total Test time" "$build/gate.ctest.log"
 sed -n '/The following tests FAILED/,$p' "$build/gate.ctest.log" | grep -E "^\s+[0-9]+ - " || true
+# Ledger: regenerate from evidence; fail on regression, off-path ports, or a hand edit (stamp mismatch).
+if [ -f "$repo/tools/dev/ledger.py" ]; then
+  python3 "$repo/tools/dev/ledger.py" --check > "$build/gate.ledger.log" 2>&1 || {
+    echo "GATE RED (ledger)"; cat "$build/gate.ledger.log"; exit 1; }
+  sed -n '1,12p' "$build/gate.ledger.log"
+fi
 
 # The verdict comes from the logs, not the background jobs' exit codes: green means every test passed
 # and both smokes reached full time.
