@@ -1184,6 +1184,12 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
   in.tackle = _TackleCandidate(k);
   in.slide = _SlideCandidate(k);
   in.block = _BlockCandidate(k);
+  // Entry 11 (the pass jostle) is GF mode's own: batch K's R3 wiring dropped
+  // it from the call site, which moved GF mode's switch-off hash. The PES
+  // path leaves it to R2/R3 (ChooseMarkedReaction clears it for a marked man
+  // and the path's own wiring decides it), so GF mode evaluates it exactly as
+  // before and the PES path is untouched.
+  if (!match->PesLoop()) in.jostleForPass = _PassDuelCandidate(k);
   // Each dodge predicate (entries 4-7) carries its own kind
   // (FUN_14073bc70's cmd+0x1094). They are separate entries, so the chooser's
   // winner names which kind the command runs; each predicate stores its own.
