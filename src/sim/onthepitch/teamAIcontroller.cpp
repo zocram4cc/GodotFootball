@@ -513,6 +513,8 @@ void TeamAIController::CalculateDefensiveShape() {
   // PES's defence-row dispatch (FUN_1405EC600 @ 0x1405ECC21): the possession flag picks block B (67B640),
   // which runs the fold pick on the PES path. Block A's forward pull (682770) is not ported yet (F2-F4), so
   // out of possession the GF target stands. The fold's consumer (the readers of planObj+0x7CD4) is not decoded.
+  // ponytail: PES alternates the flag per frame once MI+0x119C > 1 in play (FUN_1404F9DC0: odd MI+0x1198 frames read
+  // T+0x255, even frames invert it); GF reads the latch every tick. Port with the block-A pull (audit 5 F7).
   foldSlots.clear();
   if (match->PesLoop() &&
       pes::mentality::BlockFor(team->IsPesPossession()) == pes::mentality::Block::kInPossession) {
@@ -2526,8 +2528,11 @@ void TeamAIController::PesSecondPresserTick() {
       holder = static_cast<int>(key.team) * pes::kPressSideMen + static_cast<int>(key.slot);
   }
   const bool holderValid = holder < pes::kPressTeamMen;
-  // The newest valid ring-0 touch: the T+0x78 stand-in for this side's last kick (the real writer is OPEN; the
-  // opponent-kick fallback T_opp+0x78 is absent).
+  // The newest valid ring-0 touch (for touchValid/holderFromTouch, which genuinely read the newest event),
+  // and this side's own last kick: PES's gate (FUN_140632780) fails only on the side's own valid T+0x78
+  // (lane-leaves §4: the writer FUN_1404FB2A0; audit 7 F6), so an opponent's newer touch must not clear it.
+  // ponytail: the own-side word stands in for T_side+0x78 (its writer chain 4FB2A0/4FB780/4FB380 is decoded,
+  // the final computer FUN_1404F0E50 still OPEN); the opponent-kick fallback T_opp+0x78 is absent.
   pes::ActorKey touch{};
   bool touchValid = false;
   for (int n = 0; n < 8 && !touchValid; ++n) {
@@ -2535,9 +2540,14 @@ void TeamAIController::PesSecondPresserTick() {
     touchValid = view.present && view.actor.Valid() && view.actor.team < 2 && view.actor.slot < pes::kPressSideMen;
     if (touchValid) touch = view.actor;
   }
-  const bool kickValid = touchValid && static_cast<int>(touch.team) == side;
-  const int kickMan = kickValid ? static_cast<int>(touch.team) * pes::kPressSideMen + static_cast<int>(touch.slot)
-                                : pes::kPressNoMan;
+  // This side's own last kick (T_side+0x78): latched when the side touches, kept while the opponent
+  // touches (lane-leaves §4; audit 7 F6). The newest-touch word above cannot serve: it is the opponent's
+  // whenever he touched last, while PES's word stays valid.
+  if (touchValid && static_cast<int>(touch.team) == side)
+    coordState.ownKick =
+        static_cast<int>(touch.team) * pes::kPressSideMen + static_cast<int>(touch.slot);
+  const bool kickValid = coordState.ownKick < pes::kPressTeamMen;
+  const int kickMan = kickValid ? coordState.ownKick : pes::kPressNoMan;
 
   // The men by team index (side * 11 + slot), and this side's slot words.
   pes::PressEvalInput in;
@@ -3233,11 +3243,14 @@ void TeamAIController::SetUpRoleArrays() {
 
 // The bulk writer FUN_1404F5F10 at the team tick's head and tail (FUN_14051D9E0). Both take the level of
 // the possession latch T+0x255 (RoleLevel). PES's head flag is F, the latch on the usual path (its parity
-// sub-path is RE-25, not ported). Both are gated on MI+0x1775 == 0; GF has
+// sub-path FUN_1404F9DC0/MI+0x119C/MI+0x1198 is not ported; audit 5 F7). Both are gated on MI+0x1775 == 0; GF has
 // no such byte and its stand-in (pesmovestep.cpp's MatchModeByte) is 0, so the gate is open.
 // ponytail: PES's registry is the sheet's role per phase. GF has no sheet phases, so each write
 // mirrors the role its slot's player holds now (the dynamic formation entry the readers used).
 void TeamAIController::WriteRoleArrays(bool head) {
+  // The head write mirrors each slot's live dynamic role (audit 7 F12): GetAllPlayers is roster order, so this
+  // assumes the first 11 actives are in slot order (FormationSlotOf would key it by slot).
+  assert(team->GetAllPlayers().size() >= static_cast<size_t>(pes::roles::kSideSlots));
   const bool possession = team->IsPesPossession();
   const int level = pes::mentality::RoleLevel(
       possession, PesPlayState(match->IsInPlay() && !match->IsInSetPiece()), match->PesRestartKind());
@@ -3327,6 +3340,9 @@ std::vector<Player*> TeamAIController::PesBoxMen(int boxCount) {
   const pes::style::Compat& compat = match->GetPesOffBallConstants().styleCompat;
   const std::vector<std::unique_ptr<Player>>& all = team->GetAllPlayers();
   pes::designation::OrdinalInput in;
+  // ponytail: the seven defaults below (humanSide/takers/designated/keeperChase/restartMan) stand in for PES's
+  // sheet takers (FUN_1408C5060), the designated man (P+0x3EF8), the keeper-chase flag (FUN_140509890), the restart
+  // men (MI+0x173C/40) and the human fill (FUN_140A55CF0); audit 7 F4. T+0x87CD's writer is OPEN.
   in.side = team->GetID();
   for (int slot = 0; slot < pes::designation::kSideSlots; ++slot) {
     Player* player = all[slot].get();

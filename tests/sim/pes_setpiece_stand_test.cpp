@@ -396,6 +396,49 @@ TEST(SetKickStand, AFarSetPieceWalkerIsCommandedAtTheWalkDownSpeed) {
   EXPECT_EQ(wrong, 0) << wrong << " of " << farTicks << " far ticks commanded another speed (up to " << worst << " m/s)";
 }
 
+// A carrying walker far from his spot walks at PES's walk-down speed too. FUN_1406b7560's walk-down (call 0x1406b77d6,
+// .rdata 0x14259bdfc; docs/re/pes-re-walk-speed.md) caps every MOVE walker at 11 km/h; the carrier arm kept GF's
+// 2 x gap rule, so a carrier past ~2.5 m sprinted where PES walks. The walk-down test pins the free walk; this one
+// pins the carrying arm, with the ball in the taker arms.
+// A carrying walker far from his spot walks at PES's walk-down speed too. FUN_1406b7560's walk-down
+// (call 0x1406b77d6, .rdata 0x14259bdfc; docs/re/pes-re-walk-speed.md) caps every MOVE walker at 11 km/h;
+// the carrier arm kept GF's 2 x gap rule, so a carrier past ~2.5 m sprinted where PES walks (audit 5 F3).
+// The walk-down test pins the free walk; this one pins the carrying arm. Direct unit check of the arm:
+// with the walk target far away, the carrying branch must command walkDown, not FloorVelocity(2 x gap).
+TEST(SetKickStand, ACarryingWalkerIsCommandedAtTheWalkDownSpeed) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  const float walkDown = match->GetPesSetPieceTakerConstants().walkDown_ms;
+  ASSERT_NEAR(walkDown * 3.6f, 11.0f, 1e-3f) << "the install's walk-down speed (0x14259bdfc) is not 11 km/h";
+  match->Process();
+  const Vector3 spot(0.0f, -34.3f, 0.0f);
+  Player* taker = PrepareRestart(*match, e_SetPiece_ThrowIn, 0, spot);
+  ASSERT_NE(taker, nullptr) << "no throw-in taker was chosen";
+  TeamAIController* controller = match->GetTeam(0)->GetController();
+  ASSERT_TRUE(controller->IsPieceTakerWalking(taker)) << "the throw-in is not a walked (seamless) one";
+  // Drive the walk to the carry: run until the pickup warp fires (IsPickingUp) then until it hands
+  // the ball over (IsCarryingBall). The referee buffer is bypassed by PrepareRestart, so AdvancePieceWalk
+  // is driven directly, as referee.cpp does each tick.
+  bool pickedUp = false, carrying = false;
+  for (int t = 0; t < 3000 && !carrying; ++t) {
+    match->Process();
+    controller->AdvancePieceWalk();
+    if (controller->IsPickingUp()) pickedUp = true;
+    if (controller->IsCarryingBall() && !controller->PieceTakerArrived()) carrying = true;
+  }
+  ASSERT_TRUE(pickedUp) << "the walk never reached the pickup in 3000 ticks";
+  ASSERT_TRUE(carrying) << "the taker never carried the ball on the walk";
+  // Now the carrier arm owns his command: with the carry spot far, it must read walkDown.
+  const float gap = (controller->GetPieceWalkTarget() - taker->GetPosition()).Get2D().GetLength();
+  match->Process();
+  const std::optional<PlayerCommand>& cmd = taker->GetPesDecision().command;
+  ASSERT_TRUE(cmd.has_value()) << "the carrying taker queued no command";
+  EXPECT_NEAR(cmd->desiredVelocityFloat, walkDown, 1e-4f)
+      << "the carrier arm commanded " << cmd->desiredVelocityFloat << " m/s at a " << gap
+      << " m gap instead of the walk-down " << walkDown << " m/s";
+}
+
 // A walker far from his mark gets there. Rooting every MOVESTEP clip sat the throw-in taker in TURN_STOP for the whole walk
 // (the step clips restarted each tick and turned the root a fraction of a degree), so he never closed on the mark, while his
 // command still read the walk-down speed. TURN_STOP stands still while it turns the facing back (PES's "stop while still
@@ -425,6 +468,43 @@ TEST(SetKickStand, AFarSetPieceWalkerReachesHisMarkInTheWalkWindow) {
   }
   EXPECT_TRUE(arrived) << "the walker was still " << gap << " m from his mark after " << kWalkTicks << " ticks";
 }
+
+// A free-kick taker far from the live ball runs at PES's walk-down speed. The run-to-ball arm
+// (elizacontroller.cpp) kept GF's 2 x gap rule behind the undecoded-emitter ponytail; PES's MOVE filler caps it at
+// 11 km/h like every other walker (call 0x1406b77d6, .rdata 0x14259bdfc; docs/re/pes-re-walk-speed.md, audit 7 F9).
+TEST(SetKickStand, AFarFreeKickRunnerIsCommandedAtTheWalkDownSpeed) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  constexpr float kFarGap_m = 4.0f;            // beyond this, 2 x the gap was off the movement table
+  constexpr float kSpeedTolerance_ms = 1e-4f;  // the command carries the loaded speed itself
+  constexpr int kRunTicks = 600;
+  const float walkDown = match->GetPesSetPieceTakerConstants().walkDown_ms;
+  ASSERT_NEAR(walkDown * 3.6f, 11.0f, 1e-3f) << "the install's walk-down speed (0x14259bdfc) is not 11 km/h";
+  match->Process();  // the opening kick-off's preparation, as the walk-down test does
+  const Vector3 spot(20.0f, 10.0f, 0.0f);  // upfield: the taker starts far from the ball at the spot
+  Player* taker = PrepareRestart(*match, e_SetPiece_FreeKick, 0, spot);
+  ASSERT_NE(taker, nullptr) << "no free-kick taker was chosen";
+  int farTicks = 0, wrong = 0;
+  float worst = 0.0f;
+  for (int t = 0; t < kRunTicks; ++t) {
+    match->Process();
+    if (match->GetBallRetainer() == taker) break;  // reached the ball
+    const float gap = (match->GetBall()->Predict(0) - taker->GetPosition()).Get2D().GetLength();
+    const std::optional<PlayerCommand>& cmd = taker->GetPesDecision().command;
+    if (gap <= kFarGap_m || !cmd) continue;
+    ++farTicks;
+    const float off = std::fabs(cmd->desiredVelocityFloat - walkDown);
+    if (off > kSpeedTolerance_ms) {
+      ++wrong;
+      worst = std::max(worst, cmd->desiredVelocityFloat);
+    }
+  }
+  ASSERT_GT(farTicks, 0) << "the free-kick taker was never more than " << kFarGap_m << " m from the ball";
+  EXPECT_EQ(wrong, 0) << wrong << " of " << farTicks << " far run ticks commanded another speed (up to " << worst
+                      << " m/s)";
+}
+
 
 // A placed goal-kick keeper keeps his body through the strike. The strike clip ends before its contact tick, and the controller
 // gives no command until contact (elizacontroller.cpp, the goal kick branch), so the clip's end found no animation: the body was

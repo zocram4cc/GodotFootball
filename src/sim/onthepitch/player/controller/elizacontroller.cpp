@@ -181,11 +181,9 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
       // takes him onto the spot within 0.65 m. He stands once the lift has finished.
       // ponytail: PES applies the walk-down only past its gate (in play, the route flag, the route and collision test, and the
       // distance in frames over the frame budget; match+0x116c, playerRec+0x25930, FUN_140479470 undecoded); GF applies it to
-      // the whole walk. The carry is not a MOVE in PES (the root warp takes him onto the spot), so it keeps GF's 2 x gap.
-      const float gap = toSpot.GetLength();
-      const float walk = team->GetController()->IsCarryingBall()
-                             ? FloorVelocity(pes::kPieceTakerApproachGain * gap)
-                             : match->GetPesSetPieceTakerConstants().walkDown_ms;
+      // the whole walk, carrier arm included (audit 5 F3: PES's walk-down sits in the general filler FUN_1406b7560 every MOVE
+      // handler reaches, so a carrying walker is capped at 11 km/h too).
+      const float walk = match->GetPesSetPieceTakerConstants().walkDown_ms;
       command.desiredVelocityFloat = team->GetController()->PieceTakerArrived() ? idleVelocity : walk;
       command.useDesiredTarget = true;
       command.desiredTarget = spot;
@@ -529,8 +527,9 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
         run.desiredFunctionType = e_FunctionType_Movement;
         run.useDesiredMovement = true;
         run.desiredDirection = toBall.GetNormalized(player->GetDirectionVec());
-        const float approach = pes::kPieceTakerApproachGain * toBall.GetLength();
-        run.desiredVelocityFloat = FloorVelocity(approach);
+        // PES's walk-down caps every MOVE walker at 11 km/h (call 0x1406b77d6, .rdata 0x14259bdfc;
+        // docs/re/pes-re-walk-speed.md; audit 7 F9): the run to the ball is a MOVE through FUN_1406b7560 too.
+        run.desiredVelocityFloat = match->GetPesSetPieceTakerConstants().walkDown_ms;
         run.useDesiredLookAt = true;
         run.desiredLookAt = ballNow.Get2D();
         run.useDesiredTarget = true;

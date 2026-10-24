@@ -392,6 +392,8 @@ struct PressCoordState {
   int xMan = kPressNoMan;                   // PP[1]
   int second = kPressNoMan;                 // PP[2]
   std::array<int, kPressSideMen> reason{};  // B88C[k]
+  int ownKick = kPressNoMan;  // this side's last kick (T+0x78 stand-in): latched when the side touches,
+                              // never cleared by the opponent's touch (audit 7 F6; lane-leaves §4)
 };
 // The maintain inputs. The caller computes every distance and bearing (squared where named).
 struct PressMaintainInput {

@@ -109,7 +109,7 @@ pes::Vec3 ClipOffsetMetres(const pes::Vec3& hitBallCm, float physique, bool mirr
 }
 
 pes::Vec3 GoalKickStandPoint(const pes::Vec3& spot, float headingDeg, const pes::Vec3& clipOffsetFox_m) {
-  // SetKick negates x and z (the sign mask 0x1425656D0) and keeps the height; the placer turns the rest.
+  // SetKick's placer (FUN_1406B3DB0) negates x and z and keeps the height (audit 7 F10); the placer turns the rest.
   const Vec3 negated(-clipOffsetFox_m.x, clipOffsetFox_m.y, -clipOffsetFox_m.z);
   const Vec3 turned = TurnByHeading(negated, headingDeg);
   const Vec3 fox = ToFox(spot);

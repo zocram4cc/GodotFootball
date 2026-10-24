@@ -78,8 +78,9 @@ struct FoldCandidate {
 std::vector<int> FoldPicks(const FoldConstants& k, const std::array<FoldCandidate, kSlots>& cands,
                            int protectedSlot, int count, bool fullAttack);
 
-// Stand-in for the fold count T+0x110, whose writer is not decoded. The live reading
-// (docs/re/pes-re-mentality-reclass-live.md §2): one fold at dial -1, two at -2, none at neutral.
+// Stand-in for the fold count T+0x110, whose writer is not decoded (blocks §7 OPEN): the dial below
+// neutral 2 folds that many (blocks §3.1: the count feeds the 67C4B0 pick iterations; the 2.0 gate at
+// 0x14067D285 is the forward depth push, not the fold gate). foldSlots has no reader yet.
 int FoldCount(int dial);
 
 // Stand-in for the protected forward (planObj+0x4B40, the CF shield): the last slot of class 9, or

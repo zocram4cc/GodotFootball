@@ -97,6 +97,8 @@ public:
   // and the metres of length the team covers from it.
   float GetDefensiveLineHeight() const { return defensiveLineHeight; }
   float GetDefensiveTeamLength() const { return defensiveTeamLength; }
+  // This side's last kick (the T+0x78 stand-in PesSecondPresserTick latches): the gate's kick arm reads it.
+  int PressOwnKick() const { return coordState.ownKick; }
   // The presser state the press picker writes and OffBallPort reads.
   pes::TeamPressState& GetPressState() { return pressState; }
   const pes::TeamPressState& GetPressState() const { return pressState; }
