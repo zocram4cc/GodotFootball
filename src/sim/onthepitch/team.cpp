@@ -476,9 +476,10 @@ void Team::UpdatePesPossession() {
   in.ownHeadValid = GetActivePlayerCount() > 0;
   in.otherHeadValid = match->GetTeam(1 - id)->GetActivePlayerCount() > 0;
 
-  // Step 1. ponytail: PES's carrier (MA+0x2601c, FUN_140a627e0(ctx, 0)) is GF's ball
-  // retainer.
-  Player* carrier = match->GetBallRetainer();
+  // Step 1. PES's carrier (MA+0x2601c, FUN_140a627e0(ctx, 0)) is the holder, carried apart from GF's retainer:
+  // it persists on a loose ball, so the latch keeps the carrier's side through the flicker, as PES's does, and
+  // the step-43 sweep's gate (T+0x218 from the latch flip) follows it.
+  Player* carrier = match->GetPesHolder();
   in.carrierValid = carrier != nullptr;
   in.carrierSide = carrier ? carrier->GetTeamID() : 0;
 

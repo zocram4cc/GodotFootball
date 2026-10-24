@@ -65,17 +65,19 @@ void RunPesLoopMatch(const std::function<void(Match&)>& onTick) {
 
 }  // namespace
 
-// PES's holder is the last toucher: its only valid writer is W1 (VA 0x14045725A, MOV [RBP+0x2601C],EDI in
-// FUN_140457070; docs/re/pes-re-first-touch.md section 5.1). PES's carrier is never cleared on loss (it persists
-// on a loose ball until a newer touch replaces it, docs/re/pes-re-press-coord.md section 5), so the holder is
-// carried as its own state (Match::GetPesHolder) apart from GF's ballRetainer, which is also the "the ball is
-// loose / free" predicate the AI reads (designated possession in match.cpp, the press reset, the keeper catch,
-// and the far-loose-ball detector) and so MUST clear when the ball leaves the man. The holder rule is the latch:
-// while an outfield last toucher has the ball live (AI_HasPossession) and no holder holds it, he becomes the
-// holder. The latch runs in his humanoid step, and AI_HasPossession (AIfunctions.cpp:1091, a height/distance/
-// movement gate) can be false for one step while the ball settles at his feet, so the arm lands one step after
-// the touch. The test therefore tolerates a one-tick gap and counts a miss only while it persists for two ticks
-// running: the man live with no holder this tick and the tick before. In play, not a set piece.
+// PES's holder is the actor of the newest ring-1 touch key: its only writer is W1 (VA 0x14045725A, MOV
+// [RBP+0x2601C],EDI in FUN_140457070; docs/re/pes-re-first-touch.md section 5.1), which GF ports as the per-tick
+// recompute behind the restart-step switch (Match::RecomputePesHolder; docs/re/pes-re-restart-step.md section 3).
+// PES's carrier is never cleared on loss (it persists on a loose ball until a newer touch replaces it, docs/re/
+// pes-re-press-coord.md section 5), so the holder is carried as its own state (Match::GetPesHolder) apart from
+// GF's ballRetainer, which is also the "the ball is loose / free" predicate the AI reads (designated possession in
+// match.cpp, the press reset, the keeper catch, and the far-loose-ball detector) and so MUST clear when the ball
+// leaves the man. The holder arms from a touch that keeps the ball with the man: the touch pushes the key
+// (CarrierFromTouch over AI_HasPossession, AIfunctions.cpp:1091, a height/distance/movement gate that can be
+// false for one step while the ball settles at his feet) and the recompute adopts the key at the next tick's
+// head, so the arm lands one step after the touch. The test therefore tolerates a one-tick gap and counts a miss
+// only while it persists for two ticks running: the man live with no holder this tick and the tick before. In
+// play, not a set piece.
 TEST(PesHolderLatch, ALastToucherWithLivePossessionBecomesTheHolder) {
   std::map<const Player*, bool> unheldLastTick;  // last toucher, ball live, no holder - at the previous post-tick
   unsigned long liveTicks = 0, unheld = 0;

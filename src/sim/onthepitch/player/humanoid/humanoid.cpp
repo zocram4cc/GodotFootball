@@ -1225,6 +1225,11 @@ void Humanoid::Process() {
 
         if (canRetain) {
           match->SetBallRetainer(CastPlayer());
+          // A keeper's catch is a touch that keeps the ball with the man, so it pushes the newest ring-1 key
+          // like a trap (the K=8 producer's probe G+0x2A80 is OPEN, first-touch section 5.4) and the per-tick
+          // recompute adopts the catcher as the holder (Match::RecomputePesHolder). The touch write cannot see
+          // it: the ball is in his hands, above AI_HasPossession's height gate.
+          match->SetPesKeyActor(CastPlayer());
           if (CastPlayer()->GetFormationEntry().role == e_PlayerRole_GK)
             match->GetMatchData()->RecordKeeperHold(team->GetID());
         } else {
@@ -1324,22 +1329,23 @@ void Humanoid::Process() {
       }
     }
   }
-  // PES's carrier (MA+0x2601C, FUN_140457070; first-touch §5.1): a touch that leaves the ball at his feet hands him the
-  // carrier, whatever the clip (a touch pushes the newest key). This tick's touch is the one SetLastTouchPlayer stamped.
-  // PES path only.
+  // PES's carrier (MA+0x2601C, FUN_140457070; first-touch §5.1): a touch that leaves the ball at his feet pushes
+  // the newest ring-1 key, whatever the clip, and W1's per-tick recompute adopts the key as the holder
+  // (Match::RecomputePesHolder; pes-re-restart-step.md 3). This tick's touch is the one SetLastTouchPlayer stamped.
+  // GF's retainer takes the same touch as its possession hand-off, as before. PES path only.
   const bool touchedThisTick = match->PesLoop() && CastPlayer()->GetLastTouchTime_ms() == match->GetActualTime_ms();
   if (touchedThisTick &&
-      pes::CarrierFromTouch(touchedThisTick, AI_HasPossession(match->GetBall(), CastPlayer())) == pes::CarrierChange::kToucher)
+      pes::CarrierFromTouch(touchedThisTick, AI_HasPossession(match->GetBall(), CastPlayer())) == pes::CarrierChange::kToucher) {
     match->SetBallRetainer(CastPlayer());
+    match->SetPesKeyActor(CastPlayer());
+  }
 
-  // PES's holder is the last toucher: the carrier MA+0x2601C is written from the actor of the newest ring-1 touch
-  // key (W1 0x14045725A; pes-re-first-touch.md section 5.1) and persists on a loose ball (pes-re-press-coord.md
-  // section 5) until a newer touch replaces it. GF keeps the retainer apart from the possession flag and clears it
-  // when the ball leaves the man (the retain block below), so a last toucher whose ball settles at his feet after
-  // his contact is never latched above. He holds the ball while it is live with him and no one holds it. That
-  // agrees with PES only while possession is live, so the loose-ball predicate is unchanged. ponytail: PES's touch
-  // event is gated by the touch probe G+0x2A80 (pes-re-first-touch.md section 5.4, OPEN); GF's last toucher stands
-  // in for it.
+  // GF's retainer is apart from PES's holder (Match::GetPesHolder): the retain block below clears it when the
+  // ball leaves the man, and this latch restores it while the ball is live with the last toucher and no one
+  // holds it - a last toucher whose ball settles at his feet after his contact is never caught by the touch
+  // write above. That agrees with PES only while possession is live, so the loose-ball predicate is unchanged.
+  // ponytail: PES's touch event is gated by the touch probe G+0x2A80 (pes-re-first-touch.md section 5.4, OPEN);
+  // GF's last toucher stands in for it.
   if (match->PesLoop() && !match->GetBallRetainer() && match->GetLastTouchPlayer() == CastPlayer() &&
       AI_HasPossession(match->GetBall(), CastPlayer()))
     match->SetBallRetainer(CastPlayer());
