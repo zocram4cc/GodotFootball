@@ -38,6 +38,14 @@ inline std::array<float, kReactionSlots> UnitWeights() {
   return w;
 }
 
+// T+0x8C40's none value (FUN_1404FF8B0: miss stores 0xFF at 0x1405001E7).
+inline constexpr uint32_t kStep20NoTarget = 0xFF;
+inline std::array<uint32_t, kReactionSlots> NoTargetIds() {
+  std::array<uint32_t, kReactionSlots> ids{};
+  ids.fill(kStep20NoTarget);
+  return ids;
+}
+
 // The mode word T+0x134 and its setup source +0xBCC (plan-selector §5: the team tick copies
 // +0xBCC to T+0x134 at 0x1404F6DBD, between the decider and the drift, so the drift reads the
 // previous tick's word). +0xBCC's writer is OPEN (plan-selector §2), so GF carries −1 (keep)
@@ -70,6 +78,11 @@ struct TeamTick {
   // Step 19's eligible mask T+0xB8B8 (FUN_140500200): the slots the Chance
   // mask may take. Port spec §8; init mask 0 (no reader names a nonzero reset).
   uint32_t eligibleMask = 0;
+  // Step 20's receiver tables (FUN_1404FF8B0): T+0x8C35[11] found flags,
+  // T+0x8C40[11] target ids (0xFF none), T+0x8D50[11] write-only scores.
+  std::array<uint8_t, kReactionSlots> slotFlag{};  // T+0x8C35
+  std::array<uint32_t, kReactionSlots> slotTarget = NoTargetIds();  // T+0x8C40
+  std::array<float, kReactionSlots> slotScore{};  // T+0x8D50
 };
 // T+0xB8B8 all-ones: step 19's level >= 4 arm sets every slot bit (11 BTS
 // iterations at 0x140500240, stored at 0x1405008BD).
@@ -113,6 +126,25 @@ struct Step19ListInput {
   std::array<float, kReactionSlots> tableFloat{};  // the A714E0 selected-table floats
 };
 uint32_t Step19ListPick(const Step19ListInput& in);
+// Step 20 (FUN_1404FF8B0): the receiver tables T+0x8C35[11] (u8 found flag,
+// 0x140500036; miss stores 0 at 0x1405001CD/1DE), T+0x8C40[11] (u32 target id,
+// 0xFF = none at 0x14050003E/1E7) and T+0x8D50[11] (f32 score, 0x1405001BE —
+// write-only diagnostic; ported to keep the write stream 1:1). Init: flags 0,
+// ids 0xFF, scores 0. Only the flag table has readers (DOC team-tickets
+// §5.5); the other two keep the stores without a reader.
+// Gates (0x1404FF8D9/8EF/946): T+0x255 != 0, carrier 627E0 < 0x16 else T+0x78
+// < 0x16, MI+0x116C == 1 — else the tick returns with tables untouched.
+struct Step20Gates {
+  bool latchSet = false;  // T+0x255 != 0
+  int carrier = 0xFF;     // 627E0, 0xFF = none
+  int kickMan = 0xFF;     // T+0x78 fallback (lane-leaves §4 rule)
+  int playState = 0;      // MI+0x116C (1 = open play)
+};
+bool Step20GatesPass(const Step20Gates& g);
+// Step 20's band write (0x14050017F-1BE): XMM13 = clamp01((x - 4.0)/-3.5)
+// with the 0.5-select (below 0.5 -> 1.0, above 4.0 -> 0.0, else scaled);
+// T+0x8D50[k] := XMM13 on the hit path only (0x1405001BE).
+float Step20Band(float x);
 
 // MI+0x116C, the play state (pes-re-A5Judge.md): 1 is play in progress.
 constexpr int kPlayStateInPlay = 1;

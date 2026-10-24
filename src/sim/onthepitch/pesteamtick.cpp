@@ -221,4 +221,26 @@ void BuildMarkTableTick(marktable::MarkState* state, const marktable::Facts& fac
   marktable::BuildMarkTable(state, facts, k);
 }
 
+// Step 20's gates (0x1404FF8D9/8EF/946): latch set, carrier-or-kickman valid,
+// in play — else the tick returns with tables untouched (0x140500134).
+bool Step20GatesPass(const Step20Gates& g) {
+  if (!g.latchSet) return false;
+  const bool holderOk = (g.carrier >= 0 && g.carrier < 0x16) ||
+                        (g.kickMan >= 0 && g.kickMan < 0x16);
+  if (!holderOk) return false;
+  return g.playState == kPlayStateInPlay;
+}
+
+// Step 20's band write (0x14050017F-1AD): the 0.5-select (XMM0 = 0.5 at
+// 0x14050017F COMISS): below -> 1.0, above 4.0 -> 0.0, else (x-4.0)/-3.5;
+// -3.5 is 0x14259D658 (0x1405001A4 DIVSS), 4.0 the 0x140500193 arm.
+float Step20Band(float x) {
+  constexpr float kHalf = 0.5f;      // 0x142565600 (0x14050017F)
+  constexpr float kTop = 4.0f;       // 0x140500193 arm
+  constexpr float kSpan = -3.5f;     // 0x14259D658 (0x1405001A4)
+  if (x < kHalf) return 1.0f;
+  if (x > kTop) return 0.0f;
+  return (x - kTop) / kSpan;
+}
+
 }  // namespace pes

@@ -416,4 +416,43 @@ TEST(PesTeamTick, Level0ForwardTakesItsPlace) {
   EXPECT_EQ(pes::Step19ListPick(in), 1u << 1);
 }
 
+// T3b slice 1: step 20's gates (FUN_1404FF8B0, 0x1404FF8D9/8EF/946). The tick
+// needs the latch, a live holder (carrier else T+0x78) and open play; else
+// it returns with the tables untouched (0x140500134).
+TEST(PesTeamTick, NoTargetRecordedWithoutBall) {
+  pes::Step20Gates shut{};
+  shut.latchSet = false;
+  shut.carrier = 5;
+  shut.playState = pes::kPlayStateInPlay;
+  EXPECT_FALSE(pes::Step20GatesPass(shut));
+  pes::Step20Gates deadBall{true, 5, 0xFF, 2};
+  EXPECT_FALSE(pes::Step20GatesPass(deadBall));
+  pes::Step20Gates noHolder{true, 0xFF, 0xFF, pes::kPlayStateInPlay};
+  EXPECT_FALSE(pes::Step20GatesPass(noHolder));
+  pes::Step20Gates live{true, 5, 0xFF, pes::kPlayStateInPlay};
+  EXPECT_TRUE(pes::Step20GatesPass(live));
+  pes::Step20Gates kickFallback{true, 0xFF, 7, pes::kPlayStateInPlay};
+  EXPECT_TRUE(pes::Step20GatesPass(kickFallback));
+}
+
+// Step 20's band write (0x14050017F-1BE): below 0.5 -> 1.0, above 4.0 ->
+// 0.0, else (x-4.0)/-3.5 (0x14259D658 at 0x1405001A4); the store at
+// 0x1405001BE runs on the hit path only.
+TEST(PesTeamTick, ScoreBandClamps) {
+  EXPECT_FLOAT_EQ(pes::Step20Band(0.0f), 1.0f);
+  EXPECT_FLOAT_EQ(pes::Step20Band(5.0f), 0.0f);
+  EXPECT_FLOAT_EQ(pes::Step20Band(2.25f), (2.25f - 4.0f) / -3.5f);
+}
+
+// The receiver tables' reset values (port spec §8): flags 0, ids 0xFF
+// (0x1405001E7), scores 0.0.
+TEST(PesTeamTick, OffPitchSlotMisses) {
+  const pes::TeamTick tick;
+  for (int k = 0; k < pes::kReactionSlots; ++k) {
+    EXPECT_EQ(tick.slotFlag[static_cast<size_t>(k)], 0u);
+    EXPECT_EQ(tick.slotTarget[static_cast<size_t>(k)], pes::kStep20NoTarget);
+    EXPECT_FLOAT_EQ(tick.slotScore[static_cast<size_t>(k)], 0.0f);
+  }
+}
+
 }  // namespace
