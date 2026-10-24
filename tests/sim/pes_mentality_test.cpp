@@ -146,7 +146,7 @@ TEST(MentalityLaneB, WrapperMapsTheWordToTheLane) {
 }
 
 // Step 2: the CE4F0 stoppage step (MI+0x11D4 == 0 and (MI+0x116C == 2 or MI+0x11B0 < 0x15),
-// lane-writers §2 step 3). GF uses WriteRoleArrays' PesPlayState mapping (agreed with SheetTriple).
+// lane-writers §2 step 3). GF uses the role play state mapping (RolePlayState: 1 in play, 2 stopped).
 TEST(MentalityLaneC, StoppageStepResetsCopyFlag) {
   // MI+0x116C == 2 clears even with MI+0x11B0 at the bound (the arms are ORed, lane-writers §2).
   EXPECT_TRUE(mentality::StoppageResetsCopyFlag(2, 0, 0x15));

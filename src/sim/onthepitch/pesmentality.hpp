@@ -103,7 +103,7 @@ struct LaneInput {
 };
 // FUN_1405CE4F0's stoppage step (lane-writers §2 step 3): MI+0x11D4 == 0 and (MI+0x116C == 2 or
 // MI+0x11B0 < 0x15) clears the copy flag LX+0x1B0, so the copy path runs once. GF passes its
-// WriteRoleArrays play state (PesPlayState: 1 in play, 2 stopped) for MI+0x116C.
+// role play state (RolePlayState: 1 in play, 2 stopped) for MI+0x116C.
 bool StoppageResetsCopyFlag(int playState116c, int word11d4, int word11b0);
 // CE4F0's copy gate (flag LX+0x1B0 == 0): true runs the copy path, false the recompute.
 bool CopyPathRuns(bool copyFlagSet);

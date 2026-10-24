@@ -3310,7 +3310,7 @@ void TeamAIController::UpdateLaneLine() {
   }
   in.designated = -1;
   in.copyPath = false;
-  in.playState116c = PesPlayState(match->IsInPlay() && !match->IsInSetPiece());
+  in.playState116c = pes::mentality::RolePlayState(match->IsInPlay(), match->IsInSetPiece());
   roles.a = pes::mentality::LaneWords(in, roles.a);
 }
 
