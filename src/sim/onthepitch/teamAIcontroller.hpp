@@ -255,6 +255,9 @@ public:
   // counterpart yet (helpers sect 1-3), so the dispatcher exits and no slot
   // takes until those land. Returns the route, so tests pin the seam.
   pes::run::ReleaseRoute PesStep48();
+  // The decider body (FUN_14051E970): one StrategyStep where DeciderMovesIn holds (the caller's
+  // S1 extract: the PES path runs this before the drift so the tick reads decider → copy → drift).
+  void StepStrategyDecider(int playState);
   // PES's in-play plan selector (FUN_140500B90): the sheet plan, once per PES team tick after UpdateStrategy.
   void UpdatePesSheetPlan();
   // PES's per-tick team words (pesteamtick.hpp): the attack level T+0xB8A4,

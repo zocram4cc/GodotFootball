@@ -174,11 +174,11 @@ std::optional<Point3> ReadKeeperRow(const pes::PeImage& exe, std::string* error)
   return Point3{x, 0.0f, 0.0f};
 }
 
-int InPlayPlan(int strategy, bool fullDefence, int current) {
-  if (strategy < 0) return current;
-  if (strategy < pes::kStrategyBalanced) return 1;
-  if (strategy == pes::kStrategyBalanced) return fullDefence ? 1 : 0;
-  if (strategy <= pes::kStrategyAllOut) return 0;  // attacking (3) and all-out (4)
+int InPlayPlan(int mode, bool fullDefence, int current) {
+  if (mode < 0) return current;
+  if (mode < pes::kStrategyBalanced) return 1;
+  if (mode == pes::kStrategyBalanced) return fullDefence ? 1 : 0;
+  if (mode <= pes::kStrategyAllOut) return 0;  // attacking (3) and all-out (4)
   return current;
 }
 
