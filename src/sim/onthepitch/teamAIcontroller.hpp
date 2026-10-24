@@ -243,6 +243,8 @@ public:
   // Every team tick: the decider moves the strategy in PES state 3 (restart armed or taken), and the
   // attack level follows it once play resumes.
   void UpdateStrategy();
+  // Step 19's quota mask (FUN_140500200, T+0xB8B8) for this tick, read by the run manager's Chance walk.
+  void UpdateQuotaMask();
   // Team tick step 55 (FUN_140A42A70 at 0x1404F7A8F; restart arm 26c at
   // 0x1404F6F0E): the per-slot gated self-copy of the run history plus the
   // frame touch, run once per team tick after the tail write. Both arms are

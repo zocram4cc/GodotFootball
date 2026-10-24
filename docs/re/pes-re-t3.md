@@ -150,12 +150,15 @@ at `0x1405002BE` (checker row), return. (Note: `> 1`, not `> 0` —
    A714E0(MA,sign)[k]` (`0x140500387`); if `id < 0x16` and
    `A48A10(G,id)` exists and `sign·ballX(G+0x2AA8+0x18) ≤
    sign·pl[id].x` (`0x1405003C1 MULSS / 0x1405003C9 COMISS / JA`)
-   → `R12B++`. `cnt = min(cnt, R12)` (`0x1405003D8–3E9 CMOVC`);
-   if `cnt ≥ licence` (`0x1405003ED CMP / 0x1405003F1 JNC`) → **full
-   mask** (`0x1405003F3 BTS` loop), store at `0x14050088E`, return.
-   (The `T+0x78` fallback's remaining arm: the `JA 0x1405003D1` skip
-   counts only sign-side slots — slots behind the ball-side line
-   never increment R12. No second arm exists; the walk is the whole rule.)
+   → `R12B++`. `cnt = max(cnt, R12)`: `0x1405003D8-3E9` is `CMP CL,R12B;`
+   `MOV EDX,ECX; CMOVC EDX,R12` (CMOVC takes R12 when cnt < R12, a max).
+   Then `CMP DL,[RSP+0x20]` (licence) and `JNC 0x140500402` (`0x1405003F1`):
+   **max ≥ licence jumps to the list**; the fall-through (max < licence) is
+   the **full mask** (`0x1405003F3` BTS loop), stored at `0x14050088E`.
+   **Corrected 24-10-26 (T3Wire): the first draft had min and the inverted
+   arm; `dis_500200.txt:85-134` is the evidence.** (The `JA 0x1405003D1`
+   skip counts only sign-side slots: slots behind the ball-side line never
+   increment R12. No second arm exists.)
 3. Resolver + record test (`0x140500402–53F`): `man =
    FUN_1405969B0(MA, side)` (`0x14050046B`); if `man < 0x16`:
    `rec = A48A10(G, man)`; `ang = 43A0A0(4AB8E0(rec, buf))`
@@ -304,6 +307,7 @@ sentinel on the empty scan); `brain+0x6D40 := MI+0x1198`
 | TeamT2 run-5 "T3b reads P+0x40 / pair table via 439FE0" | step-20 inputs | step 20 calls neither; its bearer inputs are pos/vel/`+0x124`/roster/8C35-self | `dis_4FF8B0.txt` (no `439FE0`, no P+0x40 read) |
 | TeamT2 run-5 "T3c reads NearestEntry" | step-21 input | step 21 reads carrier/`T+0x78`/roster/records; NearestEntry feeds step 19 via 5AAF00 | `dis_4F7BA0.txt` (no `2470C` read) |
 | image-rows §3.2 "tie rule OPEN" | OPEN | CLOSED by transitivity: writer sorts via A79640 = stable/slot-order | lane-leaves §1 + `0x14045B090` writer |
+| §4 item 2 "cnt = min(cnt,R12); cnt ≥ licence → full mask" (first draft) | min; full when ≥ licence | max; full when max < licence | `dis_500200.txt:85-134`: CMOVC is a max; JNC skips the full mask at max ≥ licence; agrees with AttackSlotMask's `ahead < need → kAll` |
 
 ## §8 Port spec (replaces the T3 `// ponytail:` leaves)
 

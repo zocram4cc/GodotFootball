@@ -1772,62 +1772,46 @@ bool RankAngleOk(const RunWorld& w, int id, int attackLevel) {
   return w.ball.x * x.s > 0.0f;
 }
 
-uint32_t AttackSlotMask(const RunWorld& w, int team, int L) {
-  constexpr uint32_t kAll = (1u << kSlots) - 1;
-  if (L >= kQuotaAllFromLevel) return kAll;
-  // ponytail: the 0 < L < 4 FUN_1405aaf00 branch (class > 1 admitted, no quota) needs instruction 2
-  // (none): RE-7, Q4.
-  const int need = kQuotaNeed[std::max(L, 0)];
-  int ahead = AttackersAhead(w);
+pes::Step19ListInput Step19ListFacts(const RunWorld& w, int team) {
+  pes::Step19ListInput in;
   const float s = w.s[team];
+  // The ahead count: FUN_140A4F230's count (AttackersAhead) and the front-first walk down the penalty line.
+  // ponytail: R12 (0x1405003C1-3C9) walks A714E0's selected rows and tests sign*ball.x <= sign*x; the rows'
+  // writer is OPEN (T3RE §2), so the walk stays over the team's front-first order.
   int beyond = 0;
   for (int i : FrontFirst(w, team)) {
     if (s * w.p[i].pos.x < pesPenaltyAreaLineX) break;
     ++beyond;
   }
-  ahead = std::max(ahead, beyond);
-  if (ahead < need) return kAll;
-  // The quota list (0x140500600-0x1405007D2): forwards (class >= 7) are admitted at once with
-  // kForwardStampScore and take places like the rest. Each other man is listed by ListKey (the S1
-  // list float, 0x1405006DF), less kQuotaNearBonus_m within kQuotaNearEdge_m of the ball and nothing
-  // from kQuotaFarEdge_m out, and kQuotaSideTerm_m on the receiver's side while he turns. The `need`
-  // lowest take the slots (0x1405007D8-0x14050088E).
-  struct E { int slot; float v; };
-  std::vector<E> e;
-  uint32_t mask = 0;
+  in.count = std::max(AttackersAhead(w), beyond);
+  in.ballX = w.ball.x;
+  in.ballZ = w.ball.z;
+  // The holder match: the receiver's turn (his velocity against his facing, > 15 deg, 0x1405004F0) and the
+  // side he turns to. ponytail: PES takes the man from the resolver FUN_1405969B0 (0x14050046B), not the
+  // receiver; the receiver stands in until that resolver's arms land.
   const int q = w.receiver[team];
   bool turning = false;
   float side = 1.0f;
   if (Valid(q)) {
     const PlayerFacts& r = w.p[q];
-    // ponytail: GF's velocity-against-facing test; PES's is |team+0x250 - receiver heading| > 15
-    // (0x1405004F0; RE-9, Q3).
     if (Ad(PVec(r.vel), r.facing) > kTurnThreshold_deg) {
       turning = true;
       side = r.aim.z - r.pos.z < 0.0f ? -1.0f : 1.0f;
     }
   }
-  for (int i = team * kSlots; i < team * kSlots + kSlots; ++i) {
-    if (!w.p[i].active) continue;
-    const int slot = i - team * kSlots;
-    if (w.p[i].roleClass >= pes::roles::kAlwaysAdmitClass) {
-      e.push_back({slot, kForwardStampScore});
-      mask |= 1u << slot;
-      continue;
-    }
-    float v = ListKey(s, w.p[i].pos.x);
-    const float d = std::sqrt(Dist2(w.p[i].pos, w.ball));
-    const float near = d <= kQuotaNearEdge_m ? 1.0f
-                       : d < kQuotaFarEdge_m ? (d - kQuotaFarEdge_m) / kQuotaFalloff_m
-                                             : 0.0f;
-    v -= near * kQuotaNearBonus_m;
-    if (turning && Valid(q) && (w.p[i].pos.z - w.p[q].pos.z < 0.0f ? -1.0f : 1.0f) == side)
-      v += kQuotaSideTerm_m;
-    e.push_back({slot, v});
+  for (int k = 0; k < pes::kReactionSlots; ++k) {
+    const PlayerFacts& p = w.p[team * kSlots + k];
+    pes::Step19Slot& man = in.slots[static_cast<size_t>(k)];
+    man.slot = k;
+    man.onPitch = p.active;
+    man.roleClass = p.roleClass;
+    man.manX = p.pos.x;
+    man.manZ = p.pos.z;
+    man.holderMatch = turning && Valid(q) && (p.pos.z - w.p[q].pos.z < 0.0f ? -1.0f : 1.0f) == side;
+    // ponytail: the S1 list float (A714E0's selected table, 0x1405006DF) is stood in by ListKey until its writer lands.
+    in.tableFloat[static_cast<size_t>(k)] = ListKey(s, p.pos.x);
   }
-  std::stable_sort(e.begin(), e.end(), [](const E& a, const E& b) { return a.v < b.v; });
-  for (int i = 0; i < need && i < static_cast<int>(e.size()); ++i) mask |= 1u << e[i].slot;
-  return mask;
+  return in;
 }
 
 bool ChanceMaskBit(const OffBallConstants& k, const RunWorld& w, int id, uint32_t slotMask,

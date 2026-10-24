@@ -331,18 +331,21 @@ TEST(PesTeamTick, ReleaseDispatchForksOnLatch) {
   in.latchSet = true;
   EXPECT_EQ(pes::run::ReleaseDispatch(in), pes::run::ReleaseRoute::kExit);
 }
-// T3a slice 1: step 19's head (FUN_140500200, 0x14050022C-327). Level >= 4
-// stores the all-ones mask at T+0xB8B8 (0x140500240 BTS loop, 0x1405008BD);
-// lower levels leave the mask for the class/list branches.
+// T3a: step 19 (FUN_140500200). Level >= 4 takes every slot (0x140500240 BTS loop, 0x1405008BD) whatever the
+// list holds.
 TEST(PesTeamTick, LevelFourMasksEverySlot) {
-  pes::TeamTick tick;
-  tick.b8a4 = 4;
-  EXPECT_TRUE(pes::Step19Head(&tick));
-  EXPECT_EQ(tick.eligibleMask, (1u << pes::kReactionSlots) - 1u);
-  tick.eligibleMask = 0;
-  tick.b8a4 = 3;
-  EXPECT_FALSE(pes::Step19Head(&tick));
-  EXPECT_EQ(tick.eligibleMask, 0u);
+  const pes::Step19ListInput empty{};
+  EXPECT_EQ(pes::Step19Mask(4, /*classGate=*/true, empty), (1u << pes::kReactionSlots) - 1u);
+}
+
+// The count arm (0x1405003ED-F1): fewer men ahead than the licence and the whole side takes the mask; from
+// the licence on, the list decides.
+TEST(PesTeamTick, FewerAheadThanLicenceTakesEverySlot) {
+  pes::Step19ListInput in;
+  in.count = 1;  // level 1: licence 2
+  EXPECT_EQ(pes::Step19Mask(1, /*classGate=*/false, in), (1u << pes::kReactionSlots) - 1u);
+  in.count = 2;
+  EXPECT_EQ(pes::Step19Mask(1, /*classGate=*/false, in), 0u);  // the list is consulted: no man on the pitch
 }
 
 // Step 19's licence map (0x1405002F2-327): 0->0, 1->2, 2->4, 3->6, else 5.
@@ -354,67 +357,62 @@ TEST(PesTeamTick, LevelLicenceMap) {
   EXPECT_EQ(pes::Step19Licence(9), 5);
   EXPECT_EQ(pes::Step19Licence(-1), 5);
 }
-// T3a slice 2: step 19's class branch (FUN_140500200, 0x14050024F-2C5). With
-// 0 < level and the 5AAF00 gate true, slots whose folded T+0x4C00 class > 1
-// take the mask (0x1405002A7 CMP EAX,0x1; 0x1405002BE store) and the list
-// branch is skipped. Levels <= 0 and a false gate fall through.
+
+// The class branch (0x14050024F-2C5): with 0 < level and the 5AAF00 gate, slots of class > 1 take their bit and
+// the list is skipped. Level 0 and a false gate fall through to the list.
 TEST(PesTeamTick, Level1to3GatesOnClass) {
-  // Class row B (T+0x4C00); slot 0 has class 2 (> 1), slot 1 has class 1.
+  // Slot 0 is class 2 (> 1), slot 1 class 1 (not > 1). Every slot is on the pitch and the count clears.
   const std::array<int, pes::kReactionSlots> classes{2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-  {
-    pes::TeamTick tick;
-    tick.b8a4 = 2;
-    EXPECT_TRUE(pes::Step19Class(&tick, /*levelGate=*/true, classes));
-    EXPECT_EQ(tick.eligibleMask, 1u << 0);
-  }
-  // Level 0 never enters the branch, even with the gate true.
-  {
-    pes::TeamTick tick;
-    tick.b8a4 = 0;
-    EXPECT_FALSE(pes::Step19Class(&tick, /*levelGate=*/true, classes));
-    EXPECT_EQ(tick.eligibleMask, 0u);
-  }
-  // A false gate (5AAF00) skips the branch too.
-  {
-    pes::TeamTick tick;
-    tick.b8a4 = 2;
-    EXPECT_FALSE(pes::Step19Class(&tick, /*levelGate=*/false, classes));
-    EXPECT_EQ(tick.eligibleMask, 0u);
-  }
-}
-// T3a slice 3: step 19's list-branch sort + pick (FUN_140500200, 0x140500544-
-// 88E). Per own slot on the pitch: class >= 7 takes -100 at once (BTS at
-// 0x1405006A2) and ranks last; else key = tableFloat - ramp(d)*5
-// (+ -3 on the holder match), sorted ascending stable (FUN_140A79640 at
-// 0x1405007DF), first `licence` entries take the mask (0x14050086E/885,
-// stored 0x14050088E). Table floats ride a // ponytail (MA+0x229B4/0x22B9C
-// writer OPEN); the distances use the quota's 10/25/-15 ramp already in GF.
-TEST(PesTeamTick, Level0PicksRankedSlots) {
-  // Slot 0 nearer the ball (d=10, ramp 1.0, key 5-5=0) ranks ahead of slot 1
-  // (d=30, ramp 0.0, key 5); licence 1 takes slot 0 only. A descending sort
-  // would take slot 1 instead.
   pes::Step19ListInput in;
-  in.licence = 1;
-  in.slots[0] = {0, 4, 0.0f, 0.0f, false};
-  in.slots[1] = {1, 4, 40.0f, 0.0f, false};
-  in.ballX = 10.0f;
-  in.ballZ = 0.0f;
-  in.tableFloat = {5.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-  const uint32_t mask = pes::Step19ListPick(in);
-  EXPECT_EQ(mask, 1u << 0);
+  in.count = 9;
+  for (int k = 0; k < pes::kReactionSlots; ++k)
+    in.slots[static_cast<size_t>(k)] = {k, classes[static_cast<size_t>(k)], 0.0f, 0.0f, false, true};
+  EXPECT_EQ(pes::Step19Mask(2, /*classGate=*/true, in), 1u << 0);
+  // Without the gate the list decides: every key ties at -5 (d = 0), so the first four slots take the mask.
+  EXPECT_EQ(pes::Step19Mask(2, /*classGate=*/false, in), 0xFu);
+  EXPECT_EQ(pes::Step19Mask(0, /*classGate=*/true, in), 0u);  // level 0: licence 0, no class branch
 }
 
-// A class >= 7 forward takes the mask at once with -100 and holds his place
-// against the quota (the quota tail BTS's him in the same pass).
-TEST(PesTeamTick, Level0ForwardTakesItsPlace) {
+// The list branch (0x140500544-88E): on-pitch slots rank by tableFloat - ramp(d)*5 (+ -3 on the holder match),
+// ascending and stable; the first `licence` take the bit. Slot 0 (d = 10, ramp 1.0, key 0) ranks ahead of
+// slot 1 (d = 30, ramp 0.0, key 5); a descending sort would take slot 1.
+TEST(PesTeamTick, ListRanksNearerManFirst) {
   pes::Step19ListInput in;
   in.licence = 1;
-  in.slots[0] = {0, 4, 0.0f, 0.0f, false};
-  in.slots[1] = {1, 7, 20.0f, 0.0f, false};
+  in.count = 1;
+  in.slots[0] = {0, 4, 0.0f, 0.0f, false, true};
+  in.slots[1] = {1, 4, 40.0f, 0.0f, false, true};
   in.ballX = 10.0f;
   in.ballZ = 0.0f;
   in.tableFloat = {5.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-  // Slot 1's -100 outranks slot 0's (5 - ramp(20)*5 < 0 but above -100).
+  EXPECT_EQ(pes::Step19ListPick(in), 1u << 0);
+}
+
+// A forward (folded class >= 7) takes his bit at once (BTS at 0x140500663-6A6) and ranks -100 with the rest.
+TEST(PesTeamTick, ForwardsTakeTheirBitAtOnce) {
+  pes::Step19ListInput in;
+  in.licence = 1;
+  in.count = 1;
+  in.slots[0] = {0, 7, 20.0f, 0.0f, false, true};  // forward
+  in.slots[1] = {1, 7, 30.0f, 0.0f, false, true};  // forward
+  in.slots[2] = {2, 4, 10.0f, 0.0f, false, true};  // nearer the ball, not a forward
+  in.ballX = 10.0f;
+  in.ballZ = 0.0f;
+  in.tableFloat = {5.0f, 5.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  // Both forwards keep their bits past the licence of 1; the non-forward ranks last at key 0.
+  EXPECT_EQ(pes::Step19ListPick(in), (1u << 0) | (1u << 1));
+}
+
+// An off-pitch man is not listed (0x140500621), however near the ball he stands.
+TEST(PesTeamTick, OffPitchSlotsAreNotListed) {
+  pes::Step19ListInput in;
+  in.licence = 1;
+  in.count = 1;
+  in.slots[0] = {0, 4, 10.0f, 0.0f, false, false};  // off the pitch, on the ball
+  in.slots[1] = {1, 4, 30.0f, 0.0f, false, true};
+  in.ballX = 10.0f;
+  in.ballZ = 0.0f;
+  in.tableFloat = {5.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
   EXPECT_EQ(pes::Step19ListPick(in), 1u << 1);
 }
 

@@ -92,45 +92,45 @@ struct TeamTick {
 // T+0xB8B8 all-ones: step 19's level >= 4 arm sets every slot bit (11 BTS
 // iterations at 0x140500240, stored at 0x1405008BD).
 inline constexpr uint32_t kStep19AllSlots = (1u << kReactionSlots) - 1;
+// The level from which step 19 takes every slot (CMP EBX,0x4 at 0x140500232; JL past the BTS loop).
+inline constexpr int kStep19AllFromLevel = 4;
+// Forwards (folded class >= 7, 0x140500693) take their bit at once (BTS at 0x140500663-6A6) and rank -100
+// (0xC2C80000).
+inline constexpr int kStep19ForwardClass = 7;
 
-// Step 19 (FUN_140500200) head, 0x14050022C-240: level >= 4 stores the
-// all-ones mask at T+0xB8B8 and claims the tick; lower levels continue into
-// the class/list branches. Returns true when the head claimed the mask.
-bool Step19Head(TeamTick* tick);
-// Step 19's licence map (0x1405002F2-327: TEST + SUB/JZ chain): 0->0, 1->2,
-// 2->4, 3->6, anything else 5. Meaningful below level 4 (level >= 4 takes the
-// all-ones arm above); negative levels land on the else arm.
+// Step 19's licence map (0x1405002F2-327: TEST + SUB/JZ chain): 0->0, 1->2, 2->4, 3->6, anything else 5.
 int Step19Licence(int level);
-// Step 19's class branch (FUN_140500200, 0x14050024F-2C5): with 0 < level and
-// the FUN_1405AAF00 gate true, slots < 0x16 whose folded (slot%11) T+0x4C00
-// class > 1 (0x1405002A7 CMP EAX,0x1) take the mask at 0x1405002BE and the
-// tick is claimed. `classes` is the caller's T+0x4C00 row (SideRoles::b 1:1);
-// `gate` is the 5AAF00 verdict, whose roster/run-state/RNG/ball arms ride a
-// // ponytail at the controller call. Returns true when the branch claimed it.
-bool Step19Class(TeamTick* tick, bool gate, const std::array<int, kReactionSlots>& classes);
-// Step 19's list-branch sort + pick (FUN_140500200, 0x140500544-88E): per
-// own slot on the pitch, class >= 7 ranks with -100 (BTS at 0x1405006A2);
-// else key = tableFloat - ramp(d)*5 (+ -3.0 on the holder match), ramp(d) =
-// d<=10 ? 1 : d>=25 ? 0 : (d-25)/-15, d = man-to-ball; ascending stable sort
-// (FUN_140A79640 at 0x1405007DF); the first `licence` entries take the mask
-// (0x14050086E/885, stored at 0x14050088E). Table floats + holder-match ride
-// a // ponytail at the controller call (selected-table writers OPEN,
-// §2/§4 item 3); the distances reuse the quota's decoded ramp.
+
+// One own slot as step 19's list sees him (T+0x4C00 class row, SideRoles::b 1:1). `onPitch` is MI+0x1748
+// (0x140500621): an off-pitch slot is not listed. `holderMatch` is the [RSP+0x22] flag (0x14050074F-78E);
+// its resolver rides a ponytail at the caller (T3RE §4 item 3).
 struct Step19Slot {
   int slot = 0;        // own-side slot 0..10
-  int roleClass = 0;   // T+0x4C00 row (SideRoles::b 1:1)
+  int roleClass = 0;   // T+0x4C00 row
   float manX = 0.0f;   // the man's x (man-to-ball distance arm)
   float manZ = 0.0f;   // the man's z
-  bool holderMatch = false;  // the [RSP+0x22] holder-match flag for this slot
+  bool holderMatch = false;
+  bool onPitch = false;
 };
 struct Step19ListInput {
-  int licence = 0;  // [RSP+0x20], from Step19Licence
+  // max(FUN_140A4F230's ahead count, R12). Below the licence the whole side takes the mask (0x1405003D8-3F1:
+  // CMOVC takes the max; JNC skips the full mask once it reaches the licence).
+  int count = 0;
+  int licence = 0;  // [RSP+0x20], set by Step19Mask from the level
   std::array<Step19Slot, kReactionSlots> slots{};
   float ballX = 0.0f;  // MA+0x2482C (analysis ball; GF: the ball now)
   float ballZ = 0.0f;  // MA+0x24834
   std::array<float, kReactionSlots> tableFloat{};  // the A714E0 selected-table floats
 };
+// Step 19's list branch (0x140500544-88E). count < licence takes every slot; else forwards take their bit and
+// rank -100, the other on-pitch slots rank by tableFloat - ramp(d)*5 (+ -3 on the holder match), ramp(d) =
+// d<=10 ? 1 : d>=25 ? 0 : (d-25)/-15. The ascending stable sort (FUN_140A79640 at 0x1405007DF) gives the first
+// `licence` entries their bit (0x14050086E/885).
 uint32_t Step19ListPick(const Step19ListInput& in);
+// Step 19 as a whole (FUN_140500200): level >= 4 takes every slot; else with 0 < level and the 5AAF00 gate
+// (`classGate`; its arms ride a ponytail at the caller) the slots of class > 1 take their bit (0x1405002A7);
+// else the list branch at Step19Licence(level).
+uint32_t Step19Mask(int level, bool classGate, const Step19ListInput& list);
 // Step 20 (FUN_1404FF8B0): the receiver tables T+0x8C35[11] (u8 found flag,
 // 0x140500036; miss stores 0 at 0x1405001CD/1DE), T+0x8C40[11] (u32 target id,
 // 0xFF = none at 0x14050003E/1E7) and T+0x8D50[11] (f32 score, 0x1405001BE —

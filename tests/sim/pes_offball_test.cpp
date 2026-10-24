@@ -233,16 +233,21 @@ RunWorld Running() {
   return w;
 }
 
+// The quota mask as the team tick reads it: the run world's facts through Step19Mask (class gate off).
+uint32_t QuotaMask(const RunWorld& w, int team, int level) {
+  return pes::Step19Mask(level, /*classGate=*/false, Step19ListFacts(w, team));
+}
+
 TEST(OffBallMask, AttackSlotsOpenToAllUntilEnoughAttackersAreForward) {
   RunWorld w = Running();
   // Classes of the slots' roles: GK, CB, the back pair, DMF, CMF, class 5 for 6..8, CF for 9, 10.
   static const int kRoles[kSlots] = {0, 1, 2, 2, 3, 4, 5, 5, 5, 9, 9};
   for (int i = 0; i < kSlots; ++i) w.p[i].roleClass = kRoles[i];
-  EXPECT_EQ(AttackSlotMask(w, 0, 4), (1u << kSlots) - 1);
+  EXPECT_EQ(QuotaMask(w, 0, 4), (1u << kSlots) - 1);
   // Level 2 needs 4 attackers ahead of the ball band; only the runner is.
-  EXPECT_EQ(AttackSlotMask(w, 0, 2), (1u << kSlots) - 1);
+  EXPECT_EQ(QuotaMask(w, 0, 2), (1u << kSlots) - 1);
   for (int i = 7; i < kSlots; ++i) w.p[i].pos = {12.0f, -10.0f + 5.0f * i - 35.0f};
-  const uint32_t m = AttackSlotMask(w, 0, 2);
+  const uint32_t m = QuotaMask(w, 0, 2);
   EXPECT_TRUE((m >> 9) & 1u);  // forwards always, and they count toward the 4
   EXPECT_TRUE((m >> 10) & 1u);
   int others = 0;
@@ -292,19 +297,19 @@ TEST(OffBallMask, AheadCountUsesTheOpponentsLine) {
   Place(w, 2, {18.0f, 0.0f}, 4);
   Place(w, 3, {22.0f, 0.0f}, 4);
   Place(w, 4, {30.0f, 0.0f}, 4);
-  EXPECT_EQ(AttackSlotMask(w, 0, 1), SlotBit(3) | SlotBit(4));  // need 2: the two nearest the goal
-  EXPECT_EQ(AttackSlotMask(w, 0, 2), SlotBit(0) | SlotBit(2) | SlotBit(3) | SlotBit(4));  // need 4
+  EXPECT_EQ(QuotaMask(w, 0, 1), SlotBit(3) | SlotBit(4));  // need 2: the two nearest the goal
+  EXPECT_EQ(QuotaMask(w, 0, 2), SlotBit(0) | SlotBit(2) | SlotBit(3) | SlotBit(4));  // need 4
 }
 
 // The ladder (FUN_140500200): need 0, 2, 4, 6 for levels 0..3, and every slot from level 4.
 TEST(OffBallMask, QuotaLadderByLevel) {
   RunWorld w = QuotaWorld({0.0f, 0.0f});
   for (int k = 1; k <= 8; ++k) Place(w, k, {24.0f + k, 0.0f}, 4);  // 25..32 m ahead, no bonus
-  EXPECT_EQ(AttackSlotMask(w, 0, 0), 0u);
-  EXPECT_EQ(AttackSlotMask(w, 0, 1), SlotRange(7, 8));
-  EXPECT_EQ(AttackSlotMask(w, 0, 2), SlotRange(5, 8));
-  EXPECT_EQ(AttackSlotMask(w, 0, 3), SlotRange(3, 8));
-  EXPECT_EQ(AttackSlotMask(w, 0, 4), kEverySlot);
+  EXPECT_EQ(QuotaMask(w, 0, 0), 0u);
+  EXPECT_EQ(QuotaMask(w, 0, 1), SlotRange(7, 8));
+  EXPECT_EQ(QuotaMask(w, 0, 2), SlotRange(5, 8));
+  EXPECT_EQ(QuotaMask(w, 0, 3), SlotRange(3, 8));
+  EXPECT_EQ(QuotaMask(w, 0, 4), kEverySlot);
 }
 
 // A forward is admitted whatever his distance (the BTS path), and his −100 list score takes one
@@ -315,7 +320,7 @@ TEST(OffBallMask, ForwardsAdmittedAndCountTowardNeed) {
   Place(w, 2, {28.0f, 5.0f}, 8);
   Place(w, 3, {26.0f, -5.0f}, 9);
   for (int k = 4; k <= 8; ++k) Place(w, k, {20.0f, 0.0f}, 4);
-  EXPECT_EQ(AttackSlotMask(w, 0, 1), SlotBit(1) | SlotBit(2) | SlotBit(3));
+  EXPECT_EQ(QuotaMask(w, 0, 1), SlotBit(1) | SlotBit(2) | SlotBit(3));
 }
 
 // The ahead gate: with fewer than `need` men ahead of the ball band (one here), level 2 (need 4)
@@ -324,7 +329,7 @@ TEST(OffBallMask, AheadGateAdmitsEveryone) {
   RunWorld w = QuotaWorld({0.0f, 0.0f});
   Place(w, 1, {25.0f, 0.0f}, 4);
   for (int k = 2; k <= 6; ++k) Place(w, k, {-20.0f, 0.0f}, 4);
-  EXPECT_EQ(AttackSlotMask(w, 0, 2), kEverySlot);
+  EXPECT_EQ(QuotaMask(w, 0, 2), kEverySlot);
 }
 
 // The distance terms: a man within 10 m of the ball is listed 5 m nearer the goal than his
@@ -335,7 +340,7 @@ TEST(OffBallMask, FalloffAndSideAreImageConstants) {
   Place(w, 1, {50.0f, 0.0f}, 4);   // 2.56, first
   Place(w, 2, {30.0f, 0.0f}, 4);   // 10 m from the ball: 22.56 - 5
   Place(w, 3, {34.0f, 24.0f}, 4);  // 27.8 m from the ball: 18.56
-  EXPECT_EQ(AttackSlotMask(w, 0, 1), SlotBit(1) | SlotBit(2));
+  EXPECT_EQ(QuotaMask(w, 0, 1), SlotBit(1) | SlotBit(2));
 }
 
 // The quota's constants are the install's own. Each float is the operand its instruction reads;
@@ -429,7 +434,7 @@ TEST(OffBallMask, ARightMidfielderAndAnAttackingMidfielderAreScoredNotAdmitted) 
   w.p[8].roleClass = 6;   // AMF
   w.p[9].roleClass = 5;   // RMF
   w.p[10].roleClass = 7;  // SS: admitted outright
-  const uint32_t m = AttackSlotMask(w, 0, 2);
+  const uint32_t m = QuotaMask(w, 0, 2);
   EXPECT_EQ(0u, (m >> 8) & 1u);
   EXPECT_EQ(0u, (m >> 9) & 1u);
   EXPECT_EQ(1u, (m >> 10) & 1u);

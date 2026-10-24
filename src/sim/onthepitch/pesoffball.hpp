@@ -12,6 +12,8 @@
 //
 // This file is the decision core: pure functions over plain inputs, so every
 // rule is testable without a Match. TeamAIController builds the inputs.
+#include "onthepitch/pesteamtick.hpp"
+
 //
 // Where the numbers live:
 //   - selectorVision.o / spaceRun.o: records of
@@ -268,9 +270,10 @@ inline constexpr float kAheadWindowFront_m = 5.0f;   // 0x14259222C (0x140A4F3D2
 inline constexpr float kAheadWindowBack_m = 12.0f;   // 0x14259BE04 (0x140A4F3DB)
 inline constexpr float kAheadLateral_m = 52.0f;      // 0x1425CDAA0 (0x140A4F3E4)
 
-// FUN_140500200: T+0xb8b8, the slots of `team` the Chance mask may take, by
-// attack level (decompiled for this port).
-uint32_t AttackSlotMask(const RunWorld& w, int team, int attackLevel);
+// Step 19's list facts from the run world (FUN_140500200's count and list arms): the ahead count
+// max(FUN_140A4F230's count, R12), and each own slot's man (on-pitch flag, class, position, holder-match arm)
+// with its S1 list float. The caller takes the mask with pes::Step19Mask.
+pes::Step19ListInput Step19ListFacts(const RunWorld& w, int team);
 
 // FUN_14068b1a0 (raw 0x14068b1a0): the crowded-mate stop. An SB (AI class 2)
 // runner within 20 m of the ball and no more than 7 m behind the opponents'

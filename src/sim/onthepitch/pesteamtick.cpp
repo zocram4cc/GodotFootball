@@ -148,16 +148,7 @@ void ArmInPlayCounters(TeamTick* tick) {
   tick->counterDone = false;  // MOV byte [RCX+0x6D44],0 at 0x1404FA887
 }
 
-// Step 19 (FUN_140500200) head: the level ladder at 0x14050022C-240 (CMP
-// EBX,0x4; JL past the BTS loop) and the licence map at 0x1405002F2-327.
-bool Step19Head(TeamTick* tick) {
-  if (tick->b8a4 >= 4) {
-    tick->eligibleMask = kStep19AllSlots;
-    return true;
-  }
-  return false;
-}
-
+// Step 19's licence map: 0->0, 1->2, 2->4, 3->6, anything else 5.
 int Step19Licence(int level) {
   if (level == 0) return 0;
   if (level == 1) return 2;
@@ -166,54 +157,61 @@ int Step19Licence(int level) {
   return 5;
 }
 
-// Step 19's class branch: 11-scan from side*11 (0x140500266-2BC); slot<0x16,
-// fold slot%11, T+0x4C00[fold] > 1 admits (0x1405002A7/2AA).
-// GF-side indexing already folds: roles.b[k] is T+0x4C00[(side*11+k)%11], so
-// the caller's classes[k] is the folded word (RoleClassOfSlot reads b[slot]).
-bool Step19Class(TeamTick* tick, bool gate, const std::array<int, kReactionSlots>& classes) {
-  if (tick->b8a4 <= 0 || !gate) return false;
-  uint32_t mask = 0;
-  for (int k = 0; k < kReactionSlots; ++k)
-    if (classes[static_cast<size_t>(k)] > 1) mask |= 1u << k;
-  tick->eligibleMask = mask;
-  return true;
-}
-
-// Step 19's sort-key ramp (0x140500726-746): the quota's decoded 10/25/-15
-// ramp (pesoffball.hpp: kQuotaNearEdge/FarEdge/Falloff) times 5.0
-// (0x140500746, XMM11); -3.0 on the holder match (0x14050078E, XMM10).
+// Step 19's list branch (FUN_140500200, 0x140500544-88E); see pesteamtick.hpp.
 uint32_t Step19ListPick(const Step19ListInput& in) {
-  // The distances reuse the quota's decoded edges (pesoffball constants are
-  // the same image words: 10.0 at 0x142588210, 25.0 at 0x14259BE20,
-  // -15.0 at 0x14259D668, 5.0 at 0x14259222C, -3.0 at 0x14259D654).
-  constexpr float kNear_m = 10.0f;    // 0x142588210
-  constexpr float kFar_m = 25.0f;     // 0x14259BE20
-  constexpr float kFalloff_m = -15.0f;  // 0x14259D668
-  constexpr float kScale = 5.0f;      // 0x14259222C (0x140500746)
-  constexpr float kHolderAdd = -3.0f;  // 0x14259D654 (0x14050078E)
+  // The count arm (0x1405003ED-F1): fewer men ahead than the licence and the whole side takes the mask.
+  if (in.count < in.licence) return kStep19AllSlots;
+  // The sort-key constants are the quota's decoded image words: 10.0 at 0x142588210, 25.0 at 0x14259BE20,
+  // -15.0 at 0x14259D668, 5.0 at 0x14259222C (0x140500746, XMM11), -3.0 at 0x14259D654 (0x14050078E, XMM10).
+  constexpr float kNear_m = 10.0f;
+  constexpr float kFar_m = 25.0f;
+  constexpr float kFalloff_m = -15.0f;
+  constexpr float kScale = 5.0f;
+  constexpr float kHolderAdd = -3.0f;
   constexpr float kForwardKey = -100.0f;  // 0xC2C80000 at 0x140500693
-  struct Entry { int slot; float key; };
+  struct Entry {
+    int slot;
+    float key;
+  };
   std::array<Entry, kReactionSlots> entries{};
-  for (int k = 0; k < kReactionSlots; ++k) {
-    entries[static_cast<size_t>(k)] = {in.slots[static_cast<size_t>(k)].slot, 0.0f};
-    if (in.slots[static_cast<size_t>(k)].roleClass >= 7) {
-      entries[static_cast<size_t>(k)].key = kForwardKey;
+  int listed = 0;
+  uint32_t mask = 0;
+  for (const Step19Slot& man : in.slots) {
+    if (!man.onPitch) continue;  // 0x140500621: an off-pitch slot is not listed
+    if (man.roleClass >= kStep19ForwardClass) {
+      mask |= 1u << man.slot;  // BTS at 0x140500663-6A6: taken at once, and he ranks too
+      entries[static_cast<size_t>(listed++)] = {man.slot, kForwardKey};
       continue;
     }
-    const float dx = in.slots[static_cast<size_t>(k)].manX - in.ballX;
-    const float dz = in.slots[static_cast<size_t>(k)].manZ - in.ballZ;
+    const float dx = man.manX - in.ballX;
+    const float dz = man.manZ - in.ballZ;
     const float d = std::sqrt(dx * dx + dz * dz);
     const float ramp = d <= kNear_m ? 1.0f : d >= kFar_m ? 0.0f : (d - kFar_m) / kFalloff_m;
-    float key = in.tableFloat[static_cast<size_t>(k)] - ramp * kScale;
-    if (in.slots[static_cast<size_t>(k)].holderMatch) key += kHolderAdd;
-    entries[static_cast<size_t>(k)].key = key;
+    float key = in.tableFloat[static_cast<size_t>(man.slot)] - ramp * kScale;
+    if (man.holderMatch) key += kHolderAdd;
+    entries[static_cast<size_t>(listed++)] = {man.slot, key};
   }
-  // FUN_140A79640 (0x1405007DF): ascending by key, stable (slot order kept).
-  std::stable_sort(entries.begin(), entries.end(),
+  // FUN_140A79640 (0x1405007DF): ascending by key, stable (slot order kept on ties).
+  std::stable_sort(entries.begin(), entries.begin() + listed,
                    [](const Entry& a, const Entry& b) { return a.key < b.key; });
-  uint32_t mask = 0;
-  for (int i = 0; i < in.licence && i < kReactionSlots; ++i) mask |= 1u << entries[static_cast<size_t>(i)].slot;
+  for (int i = 0; i < in.licence && i < listed; ++i)
+    mask |= 1u << entries[static_cast<size_t>(i)].slot;
   return mask;
+}
+
+// Step 19 as a whole (FUN_140500200): level >= 4 takes every slot; then the class branch; then the list at
+// the level's licence.
+uint32_t Step19Mask(int level, bool classGate, const Step19ListInput& list) {
+  if (level >= kStep19AllFromLevel) return kStep19AllSlots;
+  if (level > 0 && classGate) {
+    uint32_t mask = 0;
+    for (const Step19Slot& man : list.slots)
+      if (man.roleClass > 1) mask |= 1u << man.slot;
+    return mask;
+  }
+  Step19ListInput in = list;
+  in.licence = Step19Licence(level);
+  return Step19ListPick(in);
 }
 
 void BuildMarkTableTick(marktable::MarkState* state, const marktable::Facts& facts,

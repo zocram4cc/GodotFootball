@@ -2893,7 +2893,10 @@ void TeamAIController::UpdateTactics() {
 // follows it once play resumes. The level is GF's mentality rung (one-to-one, see pes::AttackLevel),
 // so every reader of the mentality sees PES's level.
 void TeamAIController::UpdateStrategy() {
-  if (!match->AIManagerRunsTeam(team->GetID())) return;
+  if (!match->AIManagerRunsTeam(team->GetID())) {
+    UpdateQuotaMask();  // every team reads the quota in the run manager, AI or not
+    return;
+  }
   // PES path: the per-tick team words (pesteamtick.hpp) step every team tick in FUN_1404F6C30's
   // order: the decider (0x1404F6DB8), the mode-word copy (0x1404F6DBD: T+0x134 = +0xBCC), the drift
   // (FUN_1404F8350), the flags (0x1404F6E1C-58), the restart word (0x1404F6F91) - and the strategy
@@ -2932,50 +2935,31 @@ void TeamAIController::UpdateStrategy() {
     pes::WriteAttackFlags(&teamTick);
     pes::WriteRestartWord(&teamTick, pesInPlay, flipped);
     lastTickPossession = latch;
-    // Step 19 (FUN_140500200) runs every team tick after the drift in PES's
-    // step order (tick-steps §7). Head: level >= 4 claims the all-ones mask.
-    // Else the class branch (0 < level, 5AAF00 gate), else the list branch.
-    // ponytail: the 5AAF00 gate reads the holder/run-state/RNG/ball-height
-    // arms with no GF counterpart yet (T3RE §4 item 3); off until they land.
-    // ponytail: the list table floats + holder-match read the selected-table
-    // rows whose writers are OPEN (T3RE §2); the sort/pick shape is exact over
-    // GF's ball and quota ramp.
-    if (!pes::Step19Head(&teamTick)) {
-      std::array<int, pes::roles::kSideSlots> b8b8Classes{};
-      for (int k = 0; k < pes::roles::kSideSlots; ++k) b8b8Classes[static_cast<size_t>(k)] = RoleClassOfSlot(k);
-      constexpr bool kStep19ClassGate = false;
-      if (!pes::Step19Class(&teamTick, kStep19ClassGate, b8b8Classes)) {
-        pes::Step19ListInput listIn;
-        listIn.licence = pes::Step19Licence(teamTick.b8a4);
-        const Vector3 ballNow = match->GetBall()->Predict(0);
-        listIn.ballX = ballNow.coords[0];
-        listIn.ballZ = ballNow.coords[1];
-        const auto& players = team->GetAllPlayers();
-        for (int k = 0; k < pes::roles::kSideSlots; ++k) {
-          listIn.slots[static_cast<size_t>(k)].slot = k;
-          listIn.slots[static_cast<size_t>(k)].roleClass =
-              b8b8Classes[static_cast<size_t>(k)];
-          if (k < static_cast<int>(players.size()) && players[static_cast<size_t>(k)] &&
-              players[static_cast<size_t>(k)]->IsActive()) {
-            listIn.slots[static_cast<size_t>(k)].manX =
-                players[static_cast<size_t>(k)]->GetPosition().coords[0];
-            listIn.slots[static_cast<size_t>(k)].manZ =
-                players[static_cast<size_t>(k)]->GetPosition().coords[1];
-          }
-        }
-        teamTick.eligibleMask = pes::Step19ListPick(listIn);
-      }
-    }
   }
-  if (inPlay) {
-    if (!pesPath) {
-      instructions.mentality = static_cast<TeamInstructions::e_Mentality>(
-          pes::StrategyAttackLevel(strategy.strategy));
-    }
-    return;
+  // Off the PES path the in-play attack level is the strategy's rung: the level the run manager reads.
+  if (inPlay && !pesPath) {
+    instructions.mentality = static_cast<TeamInstructions::e_Mentality>(
+        pes::StrategyAttackLevel(strategy.strategy));
   }
+  // Step 19 after the drift (PES order 19 -> 20 -> 21). ponytail: steps 20 and 21 (T3b/T3c) are not wired yet;
+  // their per-slot scans need the helper decodes that pes-re-t3.md §5-§6 names.
+  UpdateQuotaMask();
+  if (inPlay) return;
   // The PES path already stepped the decider above (S1: before the drift); the GF path steps it here.
   if (!pesPath) StepStrategyDecider(playState);
+}
+
+// Step 19 (FUN_140500200): the quota mask the Chance walk reads (T+0xB8B8). The PES level is the drift's word;
+// off the PES path it is the mentality.
+void TeamAIController::UpdateQuotaMask() {
+  // ponytail: the 5AAF00 gate (T3RE §4 item 3: holder, run-state, RNG and ball-height arms) has no GF
+  // counterpart yet, so the class branch stays off.
+  constexpr bool kStep19ClassGate = false;
+  const int level = match->PesLoop() ? teamTick.b8a4 : static_cast<int>(GetInstructions().mentality);
+  std::array<std::vector<Player*>, 2> ids;
+  const pes::offball::RunWorld world = BuildRunWorld(&ids);
+  teamTick.eligibleMask =
+      pes::Step19Mask(level, kStep19ClassGate, pes::offball::Step19ListFacts(world, team->GetID()));
 }
 
 // PES 2021's CPU strategy decider body (FUN_14051E970, reached from the team tick at 0x1404F6DB8):
@@ -3628,7 +3612,7 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   // out-ranking a Chance runner it then releases (claim gates 5abcc0/5ab380/
   // 5ab990). ponytail: those gates are undecoded, so no swap happens; the
   // cap simply holds.
-  const uint32_t slotMask = ob::AttackSlotMask(world, team->GetID(), level);
+  const uint32_t slotMask = teamTick.eligibleMask;  // Step 19's quota, computed this tick by UpdateQuotaMask
   const bool buildUpLong = teamSheet.Toggle(pes::kBuildUp) == 0;
   // FUN_1405938a0, the Chance mask's team head. The raw calls it once per
   // FUN_140606cd0, before that function's own loop over the 11 slots
