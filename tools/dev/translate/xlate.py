@@ -1204,15 +1204,20 @@ def capstone_decode(image_path, va):
             if not pending:
                 break
         if m == "jmp":
-            # Unconditional JMP imm: a local goto continues the body, but
-            # a tail jump to another VA ends it (call-closed set: the
+            # Unconditional JMP imm: a local goto continues the body.
+            # A tail jump to another VA ends it (call-closed set: the
             # target is a different function, in-set or out; the bridge
-            # listings end there too). JMP reg (switch) never ends the
-            # body here: its targets resolve in prepass.
+            # listings end there too) -- but only when no known branch
+            # target still lies ahead (dead code after the jump that a
+            # Jcc reaches, e.g. 140A533A0's JNZ->0x140A533EC). JMP reg
+            # (switch) never ends the body here: its targets resolve in
+            # prepass.
             try:
                 t = int(ins.op_str.strip().split(",")[0].strip(), 16)
                 if t < va or t >= va + 0x2000:
-                    break
+                    pending = {x for x in pending if x > ins.address}
+                    if not pending:
+                        break
             except ValueError:
                 pass
     return out
