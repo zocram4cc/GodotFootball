@@ -1,0 +1,106 @@
+{
+ "note": "x",
+ "sections": {
+  ".bss": {
+   "sha256": "2b74b28433980fdb157d986db9c30cf0b1aa9beaeacb25b7d2ea888983894cac",
+   "va": "0x143c98000",
+   "vsz": "0x9000"
+  },
+  ".data1": {
+   "sha256": "7525e3481553a12a0452c3883dc2aa9bb4be20528557487c08fb75a3ae1c5919",
+   "va": "0x143ca1000",
+   "vsz": "0x73000"
+  },
+  ".edata": {
+   "sha256": "a95c39f57f5754a16604e68ec270ffec4979c31a0094fd5dcc76776871d6ee4f",
+   "va": "0x15b969000",
+   "vsz": "0x12ee8"
+  },
+  ".idata": {
+   "sha256": "722309d5dc8af2b607bab11fcdb189334ffd204b7ac743b7ed75c07aa73c95e6",
+   "va": "0x15b95d000",
+   "vsz": "0x5a0"
+  },
+  ".pdata": {
+   "sha256": "f8004d610eafa07e9871fe0dabf1c00c1145034dabd610a676cb0ea1646228b8",
+   "va": "0x143ac5000",
+   "vsz": "0x1d1000"
+  },
+  ".rdata": {
+   "mask": [
+    [
+     "0x142647c64",
+     8
+    ]
+   ],
+   "sha256": "e6e1d06d4e6409521c8209b9f9ffdcb11ed42b7cde82106262eaf4da4bf9dbc4",
+   "va": "0x14252f000",
+   "vsz": "0xe6c000"
+  },
+  ".reloc": {
+   "sha256": "8d042a6284c53d4ea10c6e806f7cbf85ded9ee13ad8447c7dcd2469bd7dd4673",
+   "va": "0x15b952000",
+   "vsz": "0x3bcc"
+  },
+  ".rsrc": {
+   "sha256": "28fb91bb7620c5f978c2586731b748235861c0fa149e7b8335e3b8f81159dbf8",
+   "va": "0x15b957000",
+   "vsz": "0x14"
+  },
+  ".sbss": {
+   "sha256": "8a8b6450ba83daca529b91d0461a4b11dfc08995557bdad1daa4ad9c0e5e23f4",
+   "va": "0x15b95f000",
+   "vsz": "0x61"
+  },
+  ".sxdata": {
+   "sha256": "7c4fd702d4308f8803d36f37c21bcb582c8e2998aab83d558d84df1b2d8f43e0",
+   "va": "0x15b95e000",
+   "vsz": "0x5"
+  },
+  ".text1": {
+   "sha256": "8f613ce8b28de4ea436795f073b040826da38d0634991f121efd0da1a3ab32a1",
+   "va": "0x15b958000",
+   "vsz": "0x1600"
+  },
+  ".tls": {
+   "sha256": "913e9b32e3a3d8741df4bcee4d7a84bf60c7136df6d5e4394e306b636acef5fa",
+   "va": "0x143c97000",
+   "vsz": "0x1000"
+  },
+  ".tls$": {
+   "sha256": "26b26351b096abb3935c92b635d43a2146cdb6268d8a703c420898e961e0aca5",
+   "va": "0x15b960000",
+   "vsz": "0x8da0"
+  },
+  ".trace": {
+   "mask": [
+    [
+     "0x140447e79",
+     3
+    ]
+   ],
+   "sha256": "f126d60219399ccc3eb968e2101f49001a582fa7fd33fb746edef03b4c285776",
+   "va": "0x140001000",
+   "vsz": "0x252d800"
+  },
+  ".xcode": {
+   "sha256": "73200fa2df5f80bc5a2a8aa0826b7a9ca3b2e2718944dde75b286fef20166417",
+   "va": "0x15b956000",
+   "vsz": "0x1f5"
+  },
+  ".xtext": {
+   "sha256": "1b966ff17bcfb13d711a8cd108607b43898827aa35054c053c62285f08cd4a49",
+   "va": "0x143c96000",
+   "vsz": "0x1000"
+  },
+  ".xtls": {
+   "sha256": "add68f7efb11da57c7d757f51e82e1518e692aebfc9d312a3a53ac9317180996",
+   "va": "0x15b95a000",
+   "vsz": "0x2910"
+  }
+ },
+ "unstable": [
+  ".data",
+  ".impdata"
+ ]
+}
