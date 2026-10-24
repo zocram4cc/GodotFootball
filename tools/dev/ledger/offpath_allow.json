@@ -5,8 +5,16 @@
    "files": [
     "src/sim/onthepitch/match.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140435B30"
+  },
+  {
+   "cite": "pes-re-com-styles.md",
+   "files": [
+    "src/sim/onthepitch/pesrandom.hpp"
+   ],
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
+   "va": "0x140435EF0"
   },
   {
    "cite": "pes-re-match-management.md",
@@ -14,7 +22,7 @@
     "src/sim/onthepitch/pessubs.hpp",
     "src/sim/onthepitch/pessubs.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140520390"
   },
   {
@@ -22,7 +30,7 @@
    "files": [
     "src/sim/onthepitch/pessubs.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140521930"
   },
   {
@@ -31,7 +39,7 @@
     "src/sim/onthepitch/pessubs.hpp",
     "src/sim/onthepitch/pessubs.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140522970"
   },
   {
@@ -40,7 +48,7 @@
     "src/sim/onthepitch/pessubs.hpp",
     "src/sim/onthepitch/match.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140523B60"
   },
   {
@@ -49,7 +57,7 @@
     "src/sim/onthepitch/pesteamconcepts.cpp",
     "src/sim/onthepitch/pesroles.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14053E9A0"
   },
   {
@@ -58,192 +66,23 @@
     "src/sim/onthepitch/pesteamconcepts.cpp",
     "src/sim/onthepitch/pesteamconcepts.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14053F510"
   },
   {
-   "cite": "pes-re-team-concepts-port.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.cpp",
-    "src/sim/onthepitch/pesroles.hpp",
-    "src/sim/onthepitch/pesteamconcepts.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140541010"
-  },
-  {
-   "cite": "pes-re-press-life.md",
-   "files": [
-    "src/sim/onthepitch/teamAIcontroller.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x1405415B0"
-  },
-  {
-   "cite": "pes-re-concept-index.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140543F40"
-  },
-  {
-   "cite": "README.md",
-   "files": [
-    "src/sim/onthepitch/teamAIcontroller.cpp",
-    "src/sim/onthepitch/pesmarktable.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140546FB0"
-  },
-  {
    "cite": "README.md",
    "files": [
     "src/sim/onthepitch/teamAIcontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140549D30"
   },
   {
    "cite": "pes-re-concept-index.md",
    "files": [
-    "src/sim/onthepitch/pesteamconcepts.cpp",
-    "src/sim/onthepitch/pesteamconcepts.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140574200"
-  },
-  {
-   "cite": "pes-re-concept-index.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.cpp",
-    "src/sim/onthepitch/pesteamconcepts.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140574710"
-  },
-  {
-   "cite": "pes-re-concept-index.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.cpp",
-    "src/sim/onthepitch/pesteamconcepts.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x1405747F0"
-  },
-  {
-   "cite": "pes-re-concept-index.md",
-   "files": [
     "src/sim/onthepitch/pesteamconcepts.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140574910"
-  },
-  {
-   "cite": "pes-re-team-concepts-port.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140574940"
-  },
-  {
-   "cite": "pes-re-team-concepts-port.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140574A30"
-  },
-  {
-   "cite": "pes-re-team-concepts-port.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140574AB0"
-  },
-  {
-   "cite": "pes-re-concept-index.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140574B00"
-  },
-  {
-   "cite": "pes-re-team-concepts-port.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.cpp",
-    "src/sim/onthepitch/pesteamconcepts.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140574BB0"
-  },
-  {
-   "cite": "pes-re-concept-index.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140574EA0"
-  },
-  {
-   "cite": "pes-re-team-concepts-port.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.cpp",
-    "src/sim/onthepitch/pesteamconcepts.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140574F40"
-  },
-  {
-   "cite": "pes-re-team-concepts-port.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.cpp",
-    "src/sim/onthepitch/pesteamconcepts.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140575210"
-  },
-  {
-   "cite": "pes-re-concept-index.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x1405752A0"
-  },
-  {
-   "cite": "pes-re-concept-index.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140575300"
-  },
-  {
-   "cite": "pes-re-team-plans.md",
-   "files": [
-    "src/sim/onthepitch/teamAIcontroller.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140575390"
-  },
-  {
-   "cite": "pes-re-team-concepts-port.md",
-   "files": [
-    "src/sim/onthepitch/teamAIcontroller.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140575410"
-  },
-  {
-   "cite": "pes-re-concept-index.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140575930"
   },
   {
@@ -253,32 +92,15 @@
     "src/sim/onthepitch/teamAIcontroller.cpp",
     "src/sim/onthepitch/pesteamconcepts.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140575B60"
-  },
-  {
-   "cite": "pes-re-concept-index.md",
-   "files": [
-    "src/sim/onthepitch/pesteamconcepts.cpp",
-    "src/sim/onthepitch/pesteamconcepts.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140575DB0"
-  },
-  {
-   "cite": "pes-re-concept-index.md",
-   "files": [
-    "src/sim/onthepitch/teamAIcontroller.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140575EA0"
   },
   {
    "cite": "pes-re-attack-leftovers.md",
    "files": [
     "src/sim/onthepitch/pesoffball.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140592FD0"
   },
   {
@@ -287,7 +109,7 @@
     "src/sim/onthepitch/pesoffball.hpp",
     "src/sim/onthepitch/pesoffball.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140593290"
   },
   {
@@ -296,7 +118,7 @@
     "src/sim/onthepitch/pesoffball.hpp",
     "src/sim/onthepitch/pesoffball.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140593430"
   },
   {
@@ -307,7 +129,7 @@
     "src/sim/onthepitch/pesoffball.hpp",
     "src/sim/onthepitch/pesoffball.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1405938A0"
   },
   {
@@ -315,7 +137,7 @@
    "files": [
     "src/sim/onthepitch/pesoffball.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140595CB0"
   },
   {
@@ -323,111 +145,42 @@
    "files": [
     "src/sim/onthepitch/pesoffball.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14059BA60"
   },
   {
    "cite": "pes-re-attack-leftovers.md",
    "files": [
-    "src/sim/onthepitch/pesoffball.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x1405A1CC0"
-  },
-  {
-   "cite": "pes-re-chance-lanes.md",
-   "files": [
-    "src/sim/onthepitch/pesoffball.hpp",
     "src/sim/onthepitch/pesoffball.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x1405A5240"
-  },
-  {
-   "cite": "pes-re-attack-leftovers.md",
-   "files": [
-    "src/sim/onthepitch/pesoffball.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1405A59D0"
   },
   {
-   "cite": "pes-re-attack-decisions.md",
-   "files": [
-    "src/sim/onthepitch/pesoffball.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140606060"
-  },
-  {
    "cite": "pes-re-attack-leftovers.md",
    "files": [
     "src/sim/onthepitch/pesoffball.hpp",
     "src/sim/onthepitch/pesoffball.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406067C0"
   },
   {
-   "cite": "pes-re-attack-decisions.md",
-   "files": [
-    "src/sim/onthepitch/pesoffball.hpp",
-    "src/sim/onthepitch/pesoffball.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140607A60"
-  },
-  {
    "cite": "pes-re-attack-leftovers.md",
    "files": [
     "src/sim/onthepitch/pesoffball.hpp",
     "src/sim/onthepitch/pesoffball.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140608AC0"
   },
   {
-   "cite": "pes-re-off-ball.md",
-   "files": [
-    "src/sim/onthepitch/pesoffball.hpp",
-    "src/sim/onthepitch/pesoffball.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x14060B410"
-  },
-  {
-   "cite": "pes-re-off-ball.md",
-   "files": [
-    "src/sim/onthepitch/pesoffball.hpp",
-    "src/sim/onthepitch/pesoffball.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x1406118E0"
-  },
-  {
-   "cite": "pes-re-off-ball.md",
-   "files": [
-    "src/sim/onthepitch/pesoffball.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140615090"
-  },
-  {
    "cite": "pes-carrier-A4Cont.md",
    "files": [
     "src/sim/onthepitch/pescarrier.hpp",
     "src/sim/onthepitch/player/controller/elizacontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x14061E7C0"
-  },
-  {
-   "cite": "pes-carrier-A4Cont.md",
-   "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14063E010"
   },
   {
@@ -435,7 +188,7 @@
    "files": [
     "src/sim/onthepitch/pescarrier.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14063E140"
   },
   {
@@ -444,7 +197,7 @@
     "src/sim/onthepitch/pescarrier.hpp",
     "src/sim/onthepitch/player/controller/elizacontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14063E270"
   },
   {
@@ -452,7 +205,7 @@
    "files": [
     "src/sim/onthepitch/teamAIcontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140644FE0"
   },
   {
@@ -460,7 +213,7 @@
    "files": [
     "src/sim/onthepitch/pesoffball.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140664EE0"
   },
   {
@@ -468,50 +221,15 @@
    "files": [
     "src/sim/onthepitch/pesoffball.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14066D720"
-  },
-  {
-   "cite": "pes-re-attack-leftovers.md",
-   "files": [
-    "src/sim/onthepitch/pesoffball.hpp",
-    "src/sim/onthepitch/pesoffball.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140688C00"
-  },
-  {
-   "cite": "pes-re-attack-leftovers.md",
-   "files": [
-    "src/sim/onthepitch/pesoffball.hpp",
-    "src/sim/onthepitch/pesoffball.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x14068AEB0"
-  },
-  {
-   "cite": "pes-re-attack-leftovers.md",
-   "files": [
-    "src/sim/onthepitch/pesoffball.hpp",
-    "src/sim/onthepitch/pesoffball.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x14068B1A0"
-  },
-  {
-   "cite": "pes-re-attack-leftovers.md",
-   "files": [
-    "src/sim/onthepitch/pesoffball.hpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140691300"
   },
   {
    "cite": "pes-re-carrier-ai.md",
    "files": [
     "src/sim/onthepitch/pescarrier.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406996F0"
   },
   {
@@ -519,7 +237,7 @@
    "files": [
     "src/sim/onthepitch/pescarrier.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140699750"
   },
   {
@@ -527,7 +245,7 @@
    "files": [
     "src/sim/onthepitch/pescarrier.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406997E0"
   },
   {
@@ -536,7 +254,7 @@
     "src/pes/animetable.hpp",
     "src/pes/animetable.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406AA440"
   },
   {
@@ -544,7 +262,7 @@
    "files": [
     "src/pes/mbinfo.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406AD170"
   },
   {
@@ -552,7 +270,7 @@
    "files": [
     "src/pes/mbinfo.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406AD300"
   },
   {
@@ -560,7 +278,7 @@
    "files": [
     "src/pes/mbinfo.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406AE350"
   },
   {
@@ -568,7 +286,7 @@
    "files": [
     "src/pes/mbinfo.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406AE4F0"
   },
   {
@@ -576,7 +294,7 @@
    "files": [
     "src/pes/mbinfo.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406AE670"
   },
   {
@@ -585,7 +303,7 @@
     "src/pes/mbinfo.hpp",
     "src/pes/mbinfo.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406AEF60"
   },
   {
@@ -593,7 +311,7 @@
    "files": [
     "src/pes/derivation.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406B2080"
   },
   {
@@ -602,7 +320,7 @@
     "src/pes/mbinfo.hpp",
     "src/pes/mbinfo.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406B20E0"
   },
   {
@@ -611,7 +329,7 @@
     "src/pes/locomotion.cpp",
     "src/pes/locomotion.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406B2950"
   },
   {
@@ -620,7 +338,7 @@
     "src/pes/derivation.hpp",
     "src/pes/derivation.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406B3560"
   },
   {
@@ -629,7 +347,7 @@
     "src/pes/derivation.hpp",
     "src/pes/derivation.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406B3780"
   },
   {
@@ -639,7 +357,7 @@
     "src/sim/onthepitch/penaltyshootoutcontroller.cpp",
     "src/sim/onthepitch/peskickerror.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406B4000"
   },
   {
@@ -649,7 +367,7 @@
     "src/pes/movestep.hpp",
     "src/pes/movestep.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406B9B20"
   },
   {
@@ -659,7 +377,7 @@
     "src/pes/movestep_run.hpp",
     "src/pes/movestep.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406B9BD0"
   },
   {
@@ -670,7 +388,7 @@
     "src/pes/movestep.hpp",
     "src/pes/movestep_step.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406B9D80"
   },
   {
@@ -680,7 +398,7 @@
     "src/pes/movestep_run.hpp",
     "src/pes/movestep.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406BA0D0"
   },
   {
@@ -690,7 +408,7 @@
     "src/pes/movestep_run.hpp",
     "src/pes/movestep.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406D2030"
   },
   {
@@ -699,7 +417,7 @@
     "src/sim/onthepitch/pespenaltyscatter.hpp",
     "src/sim/onthepitch/peskickerror.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406E3210"
   },
   {
@@ -707,7 +425,7 @@
    "files": [
     "src/pes/movestep.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406E4230"
   },
   {
@@ -715,7 +433,7 @@
    "files": [
     "src/sim/onthepitch/pesmovestep.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406E7EB0"
   },
   {
@@ -724,9 +442,10 @@
     "src/sim/onthepitch/teamAIcontroller.cpp",
     "src/sim/onthepitch/pesgoalkick.cpp",
     "src/sim/onthepitch/pessetpiecetaker.cpp",
-    "src/sim/onthepitch/pessetpiecetaker.hpp"
+    "src/sim/onthepitch/pessetpiecetaker.hpp",
+    "src/sim/onthepitch/pesgoalkick.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406E8CC0"
   },
   {
@@ -737,7 +456,7 @@
     "src/pes/movestep_step.cpp",
     "src/pes/movestep.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406E9F10"
   },
   {
@@ -745,7 +464,7 @@
    "files": [
     "src/pes/movestep.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406E9F90"
   },
   {
@@ -753,7 +472,7 @@
    "files": [
     "src/pes/movestep_run.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406EA110"
   },
   {
@@ -764,7 +483,7 @@
     "src/sim/onthepitch/player/player.cpp",
     "src/pes/movestep.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406EB670"
   },
   {
@@ -774,8 +493,17 @@
     "src/sim/onthepitch/player/controller/elizacontroller.cpp",
     "src/sim/onthepitch/player/controller/elizacontroller.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1406ECBB0"
+  },
+  {
+   "cite": "pes-re-contact.md",
+   "files": [
+    "src/sim/onthepitch/peskickerror.hpp",
+    "src/sim/onthepitch/player/humanoid/humanoid.cpp"
+   ],
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
+   "va": "0x14071D770"
   },
   {
    "cite": "README.md",
@@ -783,7 +511,7 @@
     "src/pes/derivation.hpp",
     "src/pes/derivation.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14071E570"
   },
   {
@@ -791,7 +519,7 @@
    "files": [
     "src/sim/onthepitch/peskickerror.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140723320"
   },
   {
@@ -799,7 +527,7 @@
    "files": [
     "src/sim/onthepitch/match.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14072F3B0"
   },
   {
@@ -808,7 +536,7 @@
     "src/sim/onthepitch/pesgoalkick.cpp",
     "src/sim/onthepitch/pesgoalkick.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140732D40"
   },
   {
@@ -817,7 +545,7 @@
     "src/sim/onthepitch/pesdodge.hpp",
     "src/sim/onthepitch/pesdodge.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140735700"
   },
   {
@@ -826,7 +554,7 @@
     "src/sim/onthepitch/pesdodge.hpp",
     "src/sim/onthepitch/pesdodge.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140735870"
   },
   {
@@ -835,7 +563,7 @@
     "src/sim/onthepitch/pesdodge.hpp",
     "src/sim/onthepitch/pesdodge.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1407358E0"
   },
   {
@@ -844,7 +572,7 @@
     "src/sim/onthepitch/pesdodge.hpp",
     "src/sim/onthepitch/pesdodge.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1407368D0"
   },
   {
@@ -853,7 +581,7 @@
     "src/sim/onthepitch/pesdodge.hpp",
     "src/sim/onthepitch/pesdodge.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140736CE0"
   },
   {
@@ -862,7 +590,7 @@
     "src/sim/onthepitch/pesdodge.hpp",
     "src/sim/onthepitch/pesdodge.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140736D30"
   },
   {
@@ -871,7 +599,7 @@
     "src/sim/onthepitch/pesdodge.hpp",
     "src/sim/onthepitch/pesdodge.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140739F90"
   },
   {
@@ -882,7 +610,7 @@
     "src/sim/onthepitch/player/controller/elizacontroller.cpp",
     "src/sim/onthepitch/player/controller/elizacontroller.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14073A3D0"
   },
   {
@@ -892,7 +620,7 @@
     "src/sim/onthepitch/player/controller/elizacontroller.cpp",
     "src/sim/onthepitch/player/controller/elizacontroller.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14073BC70"
   },
   {
@@ -900,7 +628,7 @@
    "files": [
     "src/sim/onthepitch/player/controller/elizacontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14073C520"
   },
   {
@@ -910,7 +638,7 @@
     "src/sim/onthepitch/pesdodge.cpp",
     "src/sim/onthepitch/player/controller/elizacontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14073C5D0"
   },
   {
@@ -918,7 +646,7 @@
    "files": [
     "src/sim/onthepitch/player/controller/elizacontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14073C9C0"
   },
   {
@@ -926,7 +654,7 @@
    "files": [
     "src/sim/onthepitch/pesdodge.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14073CBC0"
   },
   {
@@ -934,7 +662,7 @@
    "files": [
     "src/sim/onthepitch/pesreceive.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140769FE0"
   },
   {
@@ -944,7 +672,7 @@
     "src/sim/onthepitch/pesgoalkick.hpp",
     "src/sim/onthepitch/referee.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140775780"
   },
   {
@@ -952,7 +680,7 @@
    "files": [
     "src/sim/onthepitch/match.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140780870"
   },
   {
@@ -960,7 +688,7 @@
    "files": [
     "src/sim/onthepitch/pestackle.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14078A640"
   },
   {
@@ -969,7 +697,7 @@
     "src/sim/onthepitch/pestackle.cpp",
     "src/sim/onthepitch/pestackle.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14078B550"
   },
   {
@@ -978,7 +706,7 @@
     "src/sim/onthepitch/pestackle.cpp",
     "src/sim/onthepitch/pestackle.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14078E5A0"
   },
   {
@@ -987,7 +715,7 @@
     "src/sim/onthepitch/pestackle.cpp",
     "src/sim/onthepitch/pestackle.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14078F290"
   },
   {
@@ -997,7 +725,7 @@
     "src/sim/onthepitch/pestackle.hpp",
     "src/sim/onthepitch/player/controller/elizacontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14078F4F0"
   },
   {
@@ -1006,7 +734,7 @@
     "src/sim/onthepitch/pestackle.cpp",
     "src/sim/onthepitch/pestackle.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14078FE90"
   },
   {
@@ -1014,7 +742,7 @@
    "files": [
     "src/sim/onthepitch/teamAIcontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140794280"
   },
   {
@@ -1022,7 +750,7 @@
    "files": [
     "src/sim/onthepitch/pescontact.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1407A5CC0"
   },
   {
@@ -1033,7 +761,7 @@
     "src/sim/onthepitch/pesreceive.hpp",
     "src/sim/onthepitch/player/controller/playercontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14081FF70"
   },
   {
@@ -1042,7 +770,7 @@
     "src/sim/onthepitch/peskickerror.cpp",
     "src/sim/onthepitch/peskickerror.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14083CC30"
   },
   {
@@ -1050,7 +778,7 @@
    "files": [
     "src/sim/onthepitch/peskickerror.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408413C0"
   },
   {
@@ -1058,7 +786,7 @@
    "files": [
     "src/sim/onthepitch/pescontact.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408424C0"
   },
   {
@@ -1066,7 +794,7 @@
    "files": [
     "src/sim/onthepitch/pescontact.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140842950"
   },
   {
@@ -1074,7 +802,7 @@
    "files": [
     "src/sim/onthepitch/pescontact.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140842BE0"
   },
   {
@@ -1082,7 +810,7 @@
    "files": [
     "src/sim/onthepitch/pescontact.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140842D20"
   },
   {
@@ -1090,7 +818,7 @@
    "files": [
     "src/sim/onthepitch/pescontact.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140843A20"
   },
   {
@@ -1098,7 +826,7 @@
    "files": [
     "src/sim/onthepitch/pescontact.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140843C30"
   },
   {
@@ -1106,7 +834,7 @@
    "files": [
     "src/sim/onthepitch/pescontact.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140843C50"
   },
   {
@@ -1115,7 +843,7 @@
     "src/sim/onthepitch/pescontact.cpp",
     "src/sim/onthepitch/pescontact.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140843E30"
   },
   {
@@ -1124,7 +852,7 @@
     "src/sim/onthepitch/match.cpp",
     "src/sim/onthepitch/pescontact.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408440F0"
   },
   {
@@ -1133,7 +861,7 @@
     "src/sim/onthepitch/pescontact.cpp",
     "src/sim/onthepitch/pescontact.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140844540"
   },
   {
@@ -1142,15 +870,23 @@
     "src/sim/onthepitch/match.cpp",
     "src/sim/onthepitch/pescontact.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140844CB0"
+  },
+  {
+   "cite": "-",
+   "files": [
+    "src/sim/onthepitch/pesreceive.cpp"
+   ],
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
+   "va": "0x140845BD0"
   },
   {
    "cite": "README.md",
    "files": [
     "src/sim/onthepitch/pesballcollision.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14086D6F0"
   },
   {
@@ -1158,33 +894,31 @@
    "files": [
     "src/sim/onthepitch/pesballcollision.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14086FC60"
   },
   {
-   "cite": "-",
+   "cite": "pes-re-camera-settings.md",
    "files": [
-    "src/sim/onthepitch/pescarrier.hpp",
-    "src/sim/onthepitch/pescarrier.cpp",
-    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
+    "src/pes/camera.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140874100"
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
+   "va": "0x1408A1A70"
   },
   {
-   "cite": "README.md",
+   "cite": "pes-re-camera-target.md",
    "files": [
-    "src/sim/onthepitch/pescarrier.cpp"
+    "src/pes/camera.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140875FD0"
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
+   "va": "0x1408A2180"
   },
   {
    "cite": "-",
    "files": [
     "src/sim/onthepitch/penaltyshootout.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408ABC30"
   },
   {
@@ -1193,7 +927,7 @@
     "src/sim/onthepitch/pespenaltyscatter.hpp",
     "src/sim/onthepitch/penaltyshootout.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408B7550"
   },
   {
@@ -1202,7 +936,7 @@
     "src/sim/onthepitch/pesteamconcepts.cpp",
     "src/sim/onthepitch/pesteamconcepts.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408C5130"
   },
   {
@@ -1211,7 +945,7 @@
     "src/sim/onthepitch/pesteamconcepts.cpp",
     "src/sim/onthepitch/pesteamconcepts.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408C5170"
   },
   {
@@ -1221,7 +955,7 @@
     "src/sim/onthepitch/teamAIcontroller.cpp",
     "src/sim/onthepitch/pesteamconcepts.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408C5390"
   },
   {
@@ -1230,7 +964,7 @@
     "src/sim/onthepitch/pesteamconcepts.cpp",
     "src/sim/onthepitch/pesteamconcepts.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408C5C70"
   },
   {
@@ -1239,7 +973,7 @@
     "src/sim/onthepitch/pesteamconcepts.cpp",
     "src/sim/onthepitch/pesteamconcepts.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408C5D10"
   },
   {
@@ -1249,7 +983,7 @@
     "src/sim/onthepitch/pesteamconcepts.hpp",
     "src/pes/formation.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408C5D50"
   },
   {
@@ -1258,7 +992,7 @@
     "src/sim/onthepitch/pesteamconcepts.cpp",
     "src/sim/onthepitch/pesteamconcepts.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408C5DF0"
   },
   {
@@ -1267,7 +1001,7 @@
     "src/sim/onthepitch/pesteamconcepts.cpp",
     "src/sim/onthepitch/pesteamconcepts.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408C5E30"
   },
   {
@@ -1277,7 +1011,7 @@
     "src/sim/onthepitch/pesteamconcepts.hpp",
     "src/pes/formation.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408C5E90"
   },
   {
@@ -1285,7 +1019,7 @@
    "files": [
     "src/sim/onthepitch/teamAIcontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1408E16D0"
   },
   {
@@ -1293,7 +1027,7 @@
    "files": [
     "src/sim/onthepitch/pesstamina.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140922DD0"
   },
   {
@@ -1301,7 +1035,7 @@
    "files": [
     "src/sim/onthepitch/pesreceive.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14094E3A0"
   },
   {
@@ -1309,7 +1043,7 @@
    "files": [
     "src/sim/onthepitch/pesdefenderdecisions.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x14096FDA0"
   },
   {
@@ -1318,7 +1052,7 @@
     "src/sim/onthepitch/pesdefenderdecisions.hpp",
     "src/sim/onthepitch/player/controller/elizacontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140971BA0"
   },
   {
@@ -1327,7 +1061,7 @@
     "src/sim/onthepitch/pesdefenderdecisions.hpp",
     "src/sim/onthepitch/player/controller/elizacontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1409AD830"
   },
   {
@@ -1335,7 +1069,7 @@
    "files": [
     "src/sim/onthepitch/peskeeper.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1409DE8C0"
   },
   {
@@ -1343,7 +1077,7 @@
    "files": [
     "src/sim/onthepitch/peskeeper.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1409DF7D0"
   },
   {
@@ -1352,7 +1086,7 @@
     "src/sim/onthepitch/peskeeper.hpp",
     "src/sim/onthepitch/peskeeper.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1409E0390"
   },
   {
@@ -1360,7 +1094,7 @@
    "files": [
     "src/sim/onthepitch/player/controller/strategies/offtheball/goalie_default.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1409E5600"
   },
   {
@@ -1369,7 +1103,7 @@
     "src/sim/onthepitch/peskeeper.hpp",
     "src/sim/onthepitch/peskeeper.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x1409E5E10"
   },
   {
@@ -1378,7 +1112,7 @@
     "src/sim/onthepitch/pesdodge.hpp",
     "src/sim/onthepitch/player/controller/elizacontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A072D0"
   },
   {
@@ -1387,7 +1121,7 @@
     "src/sim/onthepitch/pesdodge.hpp",
     "src/sim/onthepitch/pesdodge.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A07570"
   },
   {
@@ -1396,7 +1130,7 @@
     "src/sim/onthepitch/pesdodge.hpp",
     "src/sim/onthepitch/pesdodge.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A07880"
   },
   {
@@ -1406,7 +1140,7 @@
     "src/sim/onthepitch/pesdodge.cpp",
     "src/sim/onthepitch/player/controller/elizacontroller.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A07BF0"
   },
   {
@@ -1416,7 +1150,7 @@
     "src/sim/onthepitch/pesevents.cpp",
     "src/sim/onthepitch/pesreceive.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A0DFD0"
   },
   {
@@ -1424,7 +1158,7 @@
    "files": [
     "src/sim/onthepitch/pesevents.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A13BC0"
   },
   {
@@ -1432,7 +1166,7 @@
    "files": [
     "src/sim/onthepitch/pesevents.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A14280"
   },
   {
@@ -1440,7 +1174,7 @@
    "files": [
     "src/sim/onthepitch/pesevents.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A14D40"
   },
   {
@@ -1448,7 +1182,7 @@
    "files": [
     "src/sim/onthepitch/pesevents.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A156B0"
   },
   {
@@ -1456,7 +1190,7 @@
    "files": [
     "src/sim/onthepitch/pesevents.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A156F0"
   },
   {
@@ -1465,7 +1199,7 @@
     "src/sim/onthepitch/pesevents.hpp",
     "src/sim/onthepitch/pesevents.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A15F50"
   },
   {
@@ -1473,7 +1207,15 @@
    "files": [
     "src/sim/onthepitch/pesevents.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
+   "va": "0x140A16930"
+  },
+  {
+   "cite": "-",
+   "files": [
+    "src/sim/onthepitch/pesevents.cpp"
+   ],
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A17690"
   },
   {
@@ -1483,7 +1225,7 @@
     "src/sim/onthepitch/matchevents.cpp",
     "src/sim/onthepitch/pesevents.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A17810"
   },
   {
@@ -1491,7 +1233,7 @@
    "files": [
     "src/sim/onthepitch/pesevents.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A178D0"
   },
   {
@@ -1500,7 +1242,7 @@
     "src/sim/onthepitch/pesevents.hpp",
     "src/sim/onthepitch/pesevents.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A17B30"
   },
   {
@@ -1509,7 +1251,7 @@
     "src/sim/onthepitch/pesevents.cpp",
     "src/sim/onthepitch/pesclock.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A17E10"
   },
   {
@@ -1518,7 +1260,7 @@
     "src/sim/onthepitch/pesevents.hpp",
     "src/sim/onthepitch/pesevents.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A18690"
   },
   {
@@ -1527,7 +1269,7 @@
     "src/sim/onthepitch/pesevents.hpp",
     "src/sim/onthepitch/pesevents.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A18810"
   },
   {
@@ -1536,7 +1278,7 @@
     "src/sim/onthepitch/pesevents.hpp",
     "src/sim/onthepitch/pesevents.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A18940"
   },
   {
@@ -1545,7 +1287,7 @@
     "src/sim/onthepitch/pesevents.hpp",
     "src/sim/onthepitch/pesevents.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A19120"
   },
   {
@@ -1553,7 +1295,7 @@
    "files": [
     "src/sim/onthepitch/pesevents.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A1A4C0"
   },
   {
@@ -1561,7 +1303,7 @@
    "files": [
     "src/sim/onthepitch/pesjudge.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A38B00"
   },
   {
@@ -1569,7 +1311,7 @@
    "files": [
     "src/sim/onthepitch/pesevents.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A3D060"
   },
   {
@@ -1578,7 +1320,7 @@
     "src/sim/onthepitch/pesevents.hpp",
     "src/sim/onthepitch/pesevents.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A3D0C0"
   },
   {
@@ -1589,7 +1331,7 @@
     "src/sim/onthepitch/pesmentality.cpp",
     "src/sim/onthepitch/pescarrier.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A415A0"
   },
   {
@@ -1598,7 +1340,7 @@
     "src/sim/onthepitch/pesteamconcepts.cpp",
     "src/sim/onthepitch/pesteamconcepts.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A42600"
   },
   {
@@ -1606,7 +1348,7 @@
    "files": [
     "src/sim/onthepitch/pescarrier.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A428B0"
   },
   {
@@ -1614,7 +1356,7 @@
    "files": [
     "src/sim/onthepitch/pesevents.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A57930"
   },
   {
@@ -1622,7 +1364,7 @@
    "files": [
     "src/sim/onthepitch/pesevents.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A57950"
   },
   {
@@ -1630,7 +1372,7 @@
    "files": [
     "src/sim/onthepitch/pesstamina.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A581B0"
   },
   {
@@ -1638,7 +1380,7 @@
    "files": [
     "src/sim/onthepitch/pesjudge.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A7B7A0"
   },
   {
@@ -1647,7 +1389,7 @@
     "src/sim/onthepitch/pesevents.hpp",
     "src/sim/onthepitch/pesevents.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A867A0"
   },
   {
@@ -1655,7 +1397,7 @@
    "files": [
     "src/sim/onthepitch/pesevents.cpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140A867D0"
   },
   {
@@ -1664,18 +1406,11 @@
     "src/sim/data/formstate.hpp",
     "src/sim/data/formstate.cpp",
     "src/sim/onthepitch/team.cpp",
-    "src/pes/condition.cpp"
+    "src/pes/condition.cpp",
+    "src/pes/condition.hpp"
    ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140AF2DA0"
-  },
-  {
-   "cite": "pes-re-com-styles.md",
-   "files": [
-    "src/sim/onthepitch/pescarrier.cpp"
-   ],
-   "reason": "reached only through vtable/event dispatch the bridge cannot attribute; direct-call crawl cannot cross it",
-   "va": "0x140E8CFF0"
   }
  ]
 }
