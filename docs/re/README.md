@@ -294,6 +294,7 @@ address given.
 |`pes-re-port-audit-8.md`|The last seven port reports audited (bisect accuracy, the A1 liftoff series, salvage, propagation): no code findings; every port report on main is now byte-audited|
 |`pes-re-t12b.md`|T12b closed: `FUN_140579E10` is a row selector over 46 inline objects at [H+0x450+side·8]+0x62B8 (read live: 46 valid vtables, both sides identical); GF carries every input; a likely Chase/Press index mismatch (0x23 vs 0x24, 0x20/0x21) INF|
 |`pes-re-concept-index.md`|The 46 concept rows, PES vs GF: GF's ids 0x21-0x25 bind PES's rows exactly (no off-by-one); the live dump's labels 0x15-0x2D were one low (docs-only); true row 0x15 unread|
+|`pes-re-kickoff-trigger.md`|The kick-off release scan `FUN_14044D2E0`: G+0x180 gates, the player array's action byte releases (< 0xF8, & 0x7F not in {0, 0x12, 0x13, 0x3A}), a timeout backstop; live: six kick-offs at 132-134 frames; concept row 0x15 read; the kick's action-byte writer OPEN|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
