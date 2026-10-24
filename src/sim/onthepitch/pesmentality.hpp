@@ -37,6 +37,14 @@ inline constexpr int kRestartKindOne = 1;
 // 2 when the team is out of possession, 1 when it has the ball, and 0 when the play state is not
 // open play and MI+0x1554 == 1. The matrix row read is the level (RoleRow in pesroles).
 int RoleLevel(bool possession, int playState, int restartKind);
+// The play state the role level reads (plan-selector §1 vs roles §2): 1 while the ball is in play,
+// even with a set piece armed or taken (the seed-7 run's 754 ticks take PES's in-play arm there);
+// 2 in every stoppage. The set-piece flag is deliberately not an input: EC600's override tests
+// MI+0x116C == 1 first, so it cannot fire in play.
+inline int RolePlayState(bool inPlay, bool inSetPiece) {
+  (void)inSetPiece;
+  return inPlay ? kPlayStateInPlay : 2;
+}
 
 // The shared reclassify (blocks §2). FUN_1405EC600 dispatches class -> line through a jump table
 // at VA 0x1405ED1F4 (nine RVAs, index class - 1, dispatch 0x1405ECB3D-47); each arm stores its

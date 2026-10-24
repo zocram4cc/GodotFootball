@@ -38,10 +38,17 @@ inline std::array<float, kReactionSlots> UnitWeights() {
   return w;
 }
 
+// The mode word T+0x134 and its setup source +0xBCC (plan-selector §5: the team tick copies
+// +0xBCC to T+0x134 at 0x1404F6DBD, between the decider and the drift, so the drift reads the
+// previous tick's word). +0xBCC's writer is OPEN (plan-selector §2), so GF carries −1 (keep)
+// until it lands; the copy below mirrors PES's order now, the drift reads 134 once the writer
+// does. ponytail: modeBcc stands in for +0xBCC (0x140501076); remove when its writer lands.
 struct TeamTick {
   int b8a4 = 2;  // init FUN_140A415A0 -> 2 (tactics §3)
   bool b8a2 = false;
   bool b8a3 = false;
+  int modeBcc = -1;  // setup +0xBCC: −1/absent keeps
+  int word134 = -1;  // T+0x134: the 0x1404F6DBD copy of modeBcc
   uint32_t t80 = 0;
   int b8c0Frame = 0;
   int b6c40 = 0;
@@ -63,10 +70,15 @@ struct TeamTick {
 
 // MI+0x116C, the play state (pes-re-A5Judge.md): 1 is play in progress.
 constexpr int kPlayStateInPlay = 1;
+// MI+0x116C == 2: stopped but no restart is armed or taken (plan-selector §1's stoppage arm tests
+// for exactly this; PlayStateFor in pes/movestep.hpp produces it).
+inline constexpr int kPlayStateStopped = 2;
 
 // MI+0x1554, the restart kind (pes-re-A5Judge.md's JR table): 1 kick-off, 2 throw-in,
-// 3 goal kick, 4 corner, 5 free kick, 6 penalty kick; 0 is no restart.
+// 3 goal kick, 4 corner, 5 free kick, 6 penalty kick, 7 period end (plan-selector §4: the
+// period-end thunk 0x143F559F0 behind gate 0x14050C3E0); 0 is no restart.
 constexpr int kRestartFreeKick = 5;
+constexpr int kRestartPeriodEnd = 7;
 
 // The restart kind of a referee set piece (MI+0x1554). The referee's desired set piece is the last
 // award, kept until CancelSetPiece clears it (referee.cpp), which stands in for PES's JR word.
@@ -90,6 +102,14 @@ bool ClearReactionDelays(TeamTick* tick, int playState);
 // return), `playState` is MI+0x116C and `scoreFlag` is DL (the per-slot scores, OPEN). Sets the
 // counter T+0x218, the stamp and the bank; fills the base weights when `scoreFlag` is off.
 void SupportWeights(TeamTick* tick, bool latchSet, bool flipped, int playState, bool scoreFlag);
+
+// The 0x1404F6DBD copy (plan-selector §5): T+0x134 = +0xBCC, between the decider and the drift.
+void CopyModeWord(TeamTick* tick);
+
+// The stoppage plan-2 rule (plan-selector §1: 0x140500FA9-DB7): when the stoppage arm reaches the
+// plan write with the sheet's current plan, the setup word keeps it when zero, plan 2 keeps
+// itself, and anything else becomes plan 2.
+int StoppagePlan2(int currentPlan, bool setupWordNonZero);
 
 // The strategy word T+0x134 -> wanted level map: 0/1/3/4 one-to-one,
 // anything else 2 (jump ladder 0x1404F8619-63E).

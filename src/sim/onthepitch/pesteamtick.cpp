@@ -38,6 +38,14 @@ int ManualOverrideLevel(int want, int manual, int level) {
   // the freeze below holds the level, so the arm is unreachable here.
 }
 
+void CopyModeWord(TeamTick* tick) { tick->word134 = tick->modeBcc; }
+
+int StoppagePlan2(int currentPlan, bool setupWordNonZero) {
+  if (!setupWordNonZero) return currentPlan;  // MOV EDX,2 is past the setup+0x1FC == 0 return
+  if (currentPlan == 2) return currentPlan;  // CMP EAX,2; JZ return keeps plan 2
+  return 2;
+}
+
 void DriftAttackLevel(TeamTick* tick, int strategy, int manual, bool inPlay, int frame) {
   const int old = tick->b8a4;
   int want = ManualOverrideLevel(StrategyWantLevel(strategy), manual, old);
@@ -118,7 +126,8 @@ void SupportWeights(TeamTick* tick, bool latchSet, bool flipped, int playState, 
 
 int RestartKindOf(e_SetPiece setPiece) {
   // The JR restart kinds (pes-re-A5Judge.md): 1 kick-off, 2 throw-in, 3 goal kick, 4 corner,
-  // 5 free kick, 6 penalty kick. A referee with no set piece gives 0.
+  // 5 free kick, 6 penalty kick, 7 period end (plan-selector §4: raised when the period ends and
+  // held until the next award overwrites it). A referee with no set piece gives 0.
   switch (setPiece) {
     case e_SetPiece_KickOff: return 1;
     case e_SetPiece_ThrowIn: return 2;
@@ -126,6 +135,7 @@ int RestartKindOf(e_SetPiece setPiece) {
     case e_SetPiece_Corner: return 4;
     case e_SetPiece_FreeKick: return 5;
     case e_SetPiece_Penalty: return 6;
+    case e_SetPiece_PeriodEnd: return kRestartPeriodEnd;
     case e_SetPiece_None: return 0;
   }
   return 0;

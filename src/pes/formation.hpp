@@ -127,10 +127,11 @@ struct SheetConstants {
 };
 std::optional<SheetConstants> ReadSheetConstants(const pes::PeImage& exe, std::string* error);
 
-// PES's in-play plan selector (FUN_140500B90 l.272-288): the strategy word picks the sheet plan on
-// the team tick. A negative mode keeps `current`; below the defensive rung plan 1; balanced reads the
-// full-defence flag T+0xB8A3 (plan 1 when set, else 0); attacking and all-out plan 0; any other value
-// keeps `current`.
-int InPlayPlan(int strategy, bool fullDefence, int current);
+// PES's in-play plan selector (FUN_140500B90 l.272-289, plan-selector §2): the mode word +0xBCC
+// (0x140501076) picks the sheet plan on the team tick. A negative mode keeps `current`; below the
+// defensive rung plan 1; balanced reads the full-defence flag T+0xB8A3 (plan 1 when set, else 0);
+// attacking and all-out plan 0; any other value keeps `current`. The T+0x134 copy (0x1404F6DBD)
+// carries the same word to the drift.
+int InPlayPlan(int mode, bool fullDefence, int current);
 
 }  // namespace pes::formation
