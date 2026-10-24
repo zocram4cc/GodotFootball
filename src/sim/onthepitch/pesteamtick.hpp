@@ -47,7 +47,10 @@ struct TeamTick {
   int b8a4 = 2;  // init FUN_140A415A0 -> 2 (tactics §3)
   bool b8a2 = false;
   bool b8a3 = false;
-  int modeBcc = -1;  // setup +0xBCC: −1/absent keeps
+  // modeBcc and word134 are one PES word seen twice: ctx+0xBCC is R[3] of the decider block (LEA RCX,[RDI+0xBC0] at
+  // 0x1404F6DB1, stored by the decider's param_1[3] writes), copied to T+0x134 at 0x1404F6DC4/DCA and read by the
+  // selector at 0x140501076 (docs/re/pes-re-port-audit-6.md F1). GF keeps the two fields to mirror the copy's order.
+  int modeBcc = -1;  // ctx+0xBCC (R[3]): −1/absent keeps
   int word134 = -1;  // T+0x134: the 0x1404F6DBD copy of modeBcc
   bool deciderRan = false;  // S2: the decider has moved the word at least once
   uint32_t t80 = 0;
