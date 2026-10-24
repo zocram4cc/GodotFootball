@@ -361,7 +361,7 @@ bool EverAttacksWhileTrailing(bool aiManagerRunsHome) {
   setup.homeTeamDbId = HOME_TEAM;
   setup.awayTeamDbId = AWAY_TEAM;
   setup.seed = SEED;
-  setup.durationMinutes = 2;
+  setup.durationMinutes = 3;  // 3, not 2: on the kick-off-125 trajectory (b0a9387) the trailing side's switch lands between minutes 2 and 3 (measured: 2 fails, 3 passes).
   setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
   setup.rig = SharedRig();
   setup.aiManagerRuns[0] = aiManagerRunsHome;
