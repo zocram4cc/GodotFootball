@@ -572,4 +572,88 @@ TEST(PesTeamTick, EmptyScanKeepsFF) {
                                                       -2000.0f, -2000.0f, -2000.0f};
   EXPECT_EQ(pes::Step21Best(below), 0xFF);
 }
+
+pes::Step21Input TwoValidCands() {
+  pes::Step21Input in;
+  in.side = 0;
+  in.holder = 2;
+  in.incumbent = 11;
+  in.level = 2;  // loose
+  in.ramp = 0.0f;
+  in.frame = 4242;
+  for (int k = 0; k < pes::kReactionSlots; ++k) {
+    pes::Step21Slot& s = in.slots[static_cast<size_t>(k)];
+    s.onPitch = true;
+    s.admitted = true;
+    s.dist = 20.0f;
+    s.base = 20.0f;
+    s.angle = 100.0f;
+  }
+  return in;
+}
+
+// Step 21's loop (T3InteriorRE §2): the carrier is skipped, a near-clump cand is excluded, a tight
+// cone keeps only angle <= 60, and the take-over writes (B8D0, stamp) = (global id, frame).
+TEST(PesTeamTick, NearClumpExcluded) {
+  pes::Step21Input in = TwoValidCands();
+  in.holder = 12;  // opposed-half cand 1 (11 + 1)
+  in.slots[0].dist = 2.0f;  // below 5·0+5: the anti-clump arm skips him (0x1404F810F)
+  in.slots[2].dist = 30.0f;
+  in.slots[3].onPitch = false;
+  pes::TeamTick tick;
+  pes::Step21Pick(&tick, in);
+  // Slot 1 is the carrier (skip); slot 0 clumps (skip); slot 2's lower score still takes over
+  // first-valid.
+  EXPECT_EQ(tick.bestSlot, 13u);
+  EXPECT_EQ(tick.bestStamp, 4242);
+}
+
+// The incumbent is admitted without the 8C35/B8C4 tests (0x1404F802B) and pays the -10 handicap
+// (0x1404F819D/1A1): the handicapped incumbent takes over first-valid at the lower score, and a
+// later un-handicapped rival with the same inputs overtakes him.
+TEST(PesTeamTick, IncumbentHandicapped) {
+  pes::Step21Input in = TwoValidCands();
+  in.slots[0].admitted = false;  // incumbent (cand 11) is admitted without the tests
+  // Both sit above the 30 loose floor (angle 100, no loose add): the rival's +6.1 d overtakes the
+  // incumbent's 6.0 handicap by strict-greater (0x1404F8284).
+  in.slots[0].base = 40.0f;
+  in.slots[1].base = 40.0f;
+  in.slots[1].dist = 26.1f;
+  for (int k = 2; k < pes::kReactionSlots; ++k) in.slots[static_cast<size_t>(k)].onPitch = false;
+  pes::TeamTick tick;
+  pes::Step21Pick(&tick, in);
+  EXPECT_EQ(tick.bestSlot, 12u);
+  EXPECT_EQ(tick.bestStamp, 4242);
+  pes::Step21Input lone = TwoValidCands();
+  lone.slots[0].admitted = false;
+  for (int k = 1; k < pes::kReactionSlots; ++k) lone.slots[static_cast<size_t>(k)].onPitch = false;
+  pes::TeamTick tick2;
+  pes::Step21Pick(&tick2, lone);
+  EXPECT_EQ(tick2.bestSlot, 11u);
+  EXPECT_EQ(tick2.bestStamp, 4242);
+}
+
+// Tight level (B8A4 <= 1): only angle <= 60 survives (0x1404F81D6-E4). A restart-kind support adds
+// 20 (0x1404F826C). A pick out of the 0x15 range writes no stamp.
+TEST(PesTeamTick, TightConeAndSupportAndStamp) {
+  pes::Step21Input in = TwoValidCands();
+  in.level = 1;
+  in.slots[0].angle = 70.0f;  // tight cone skips
+  in.slots[1].angle = 60.0f;
+  in.slots[1].isSupport = true;
+  pes::TeamTick tick;
+  pes::Step21Pick(&tick, in);
+  EXPECT_EQ(tick.bestSlot, 12u);
+  EXPECT_EQ(tick.bestStamp, 4242);
+  // An empty loop writes 0xFF and leaves the stamp alone (0x1404F82E8, stamp-gated 0x1404F82EF).
+  pes::Step21Input empty = TwoValidCands();
+  empty.incumbent = 0xFF;
+  for (int k = 0; k < pes::kReactionSlots; ++k) empty.slots[static_cast<size_t>(k)].admitted = false;
+  pes::TeamTick tick3;
+  tick3.bestSlot = 7;
+  tick3.bestStamp = 111;
+  pes::Step21Pick(&tick3, empty);
+  EXPECT_EQ(tick3.bestSlot, 0xFFu);
+  EXPECT_EQ(tick3.bestStamp, 111);
+}
 }  // namespace

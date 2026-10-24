@@ -192,8 +192,32 @@ bool Step21GatesPass(const Step21Gates& g);
 float Step21LooseCone(float score, float angleDeg);
 float Step21Score(float base, float dist, bool incumbent, float support);
 // Step 21's best tracking (0x1404F8274-28A): NaN-safe strict-greater
-// take-over from -1000.0 (0x14256AE38). Returns the winning id.
+// take-over from -1000.0 (0x14256AE38, 0x1404F7EB1). No take-over leaves
+// 0xFF (R15D init 0x1404F7EBA); 0x15 is only the stamp-gate bound.
 int Step21Best(const std::array<float, kReactionSlots>& scores);
+// Step 21's per-slot loop (FUN_1404F7BA0, T3InteriorRE §2): scan the opposing half, admit past the
+// incumbent/8C35/B8C4 tests, gate on the (5·ramp+5)..40 m band, score (diff − 10·incumbent)·0.6 + d
+// + loose cone + 20·support, and write T+0xB8D0 = best (0xFF on empty) plus the stamp when
+// best ≤ 0x15. Contract order below follows the slots: 0..10 index the OPPONENT half, so
+// cand = (side == 0)·11 + k.
+struct Step21Slot {
+  bool onPitch = false;   // MI+0x1748
+  bool admitted = false;  // past the admit test (incumbent else 8C35-row/B8C4 arms, §2.3)
+  float dist = 0.0f;    // |carrier − pred| (0x1404F80E3-103)
+  float base = 0.0f;    // |wrap180(bearing − facing)| (0x1404F814C-8E)
+  float angle = 0.0f;             // 43A020(oppMan, buf) for the cones
+  bool isSupport = false;         // A62EA0 == cand on a restart kind: +20.0 (0x1404F8268/6C)
+};
+struct Step21Input {
+  int side = 0;  // 0 or 1: the own half; cands live on the folded half
+  int holder = 0;      // carrier global id (skipped, 0x1404F80DA)
+  int incumbent = 0xFF;  // old B8D0 (admit w/o tests, −10 handicap)
+  int level = 0;  // B8A4: tight cone iff ≤ 1 (0x1404F81C9)
+  float ramp = 0.0f;    // the sign-projected ball ramp (0x1404F7EFD-F5F)
+  int frame = 0;  // MI+0x1198: the stamp on a pick
+  std::array<Step21Slot, kReactionSlots> slots{};
+};
+void Step21Pick(TeamTick* tick, const Step21Input& in);
 
 // MI+0x116C, the play state (pes-re-A5Judge.md): 1 is play in progress.
 constexpr int kPlayStateInPlay = 1;

@@ -334,4 +334,49 @@ int Step21Best(const std::array<float, kReactionSlots>& scores) {
   return id;
 }
 
+// Step 21's per-slot loop (T3InteriorRE §2): the scan k = 0..10 over the opposing half
+// (cand = (side==0)·11 + k, 0x1404F7F75-84). Off-pitch skips; the incumbent admits without the
+// tests (0x1404F802B), else the caller folds the 8C35-row/B8C4 arms into `admitted`; the carrier
+// is skipped (0x1404F80DA); the (5·ramp+5)..40 m band excludes the near clump and the far field
+// (0x1404F810F-2F); tight level (B8A4 ≤ 1, 0x1404F81C9) keeps angle ≤ 60 else skips; loose adds
+// Step21LooseCone; a restart-kind support adds 20 (0x1404F826C). Best from −1000 (0x1404F7EB1) by
+// NaN-safe strict-greater take-over (first valid takes over via JZ, 0x1404F8274-8A). Post-loop
+// always writes B8D0 (0xFF on empty); the stamp writes only when best ≤ 0x15 (0x1404F82EF-FC).
+void Step21Pick(TeamTick* tick, const Step21Input& in) {
+  constexpr float kBestFloor = -1000.0f;  // 0x14256AE38 (0x1404F7EB1)
+  constexpr float kNearBase = 5.0f;  // the 5·ramp+5 near arm (0x1404F810F)
+  constexpr float kNearSpan = 5.0f;
+  constexpr float kFar = 40.0f;  // 0x14259BE2C (0x1404F8128)
+  constexpr float kTightCap = 60.0f;  // 0x14259A764 (0x1404F81DB)
+  constexpr float kSupportAdd = 20.0f;  // 0x14259BE1C (0x1404F826C)
+  constexpr int kTightLevel = 1;  // 0x1404F81C9: tight iff B8A4 ≤ 1
+  float best = kBestFloor;
+  int id = 0xFF;
+  for (int k = 0; k < kReactionSlots; ++k) {
+    const int cand = (in.side == 0 ? kReactionSlots : 0) + k;
+    if (cand > 0x15) continue;
+    const Step21Slot& s = in.slots[static_cast<size_t>(k)];
+    if (!s.onPitch) continue;
+    const bool incumbent = cand == in.incumbent;
+    if (!incumbent && !s.admitted) continue;
+    if (cand == in.holder) continue;
+    if (s.dist < kNearSpan * in.ramp + kNearBase) continue;
+    if (s.dist > kFar) continue;
+    float support = 0.0f;
+    float loose = 0.0f;
+    if (in.level <= kTightLevel) {
+      if (s.angle > kTightCap) continue;
+    } else {
+      loose = Step21LooseCone(Step21Score(s.base, s.dist, incumbent, 0.0f), s.angle);
+    }
+    if (s.isSupport) support = kSupportAdd;
+    const float score = Step21Score(s.base, s.dist, incumbent, loose + support);
+    if (!(score > best)) continue;  // NaN-safe: NaN never takes over
+    best = score;
+    id = cand;
+  }
+  tick->bestSlot = static_cast<uint32_t>(id);
+  if (id >= 0 && id <= 0x15) tick->bestStamp = in.frame;
+}
+
 }  // namespace pes
