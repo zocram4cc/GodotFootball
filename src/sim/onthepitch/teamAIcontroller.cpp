@@ -3310,6 +3310,7 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
   w.ball = Flat(ball);
   // The style gate is a pes_loop input: off that path the GF stand-in holds (StyleLb).
   if (match->PesLoop()) w.styleCompat = match->GetPesOffBallConstants().styleCompat;
+  w.pesPath = match->PesLoop();
   w.openPlay = match->IsInPlay() && !match->IsInSetPiece();
   auto pesDeg = [](const Vector3& v) {
     return (v.coords[0] == 0.0f && v.coords[1] == 0.0f)

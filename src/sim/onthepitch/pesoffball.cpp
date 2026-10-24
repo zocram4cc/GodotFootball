@@ -1630,7 +1630,7 @@ bool OffsideTrapArmed(const RunWorld& w, int t) {
   if ((lineT - dm.pos.x) * sC >= kTrapDesignatedLine_m) return false;
   // The carrier's bearing to D: M[c][D] (0x1404F69D2, FUN_140439FE0). The pair table carries it;
   // without rows the live bearing is the fallback. Within 45 degrees of the attack (0x1404F6A7D/98).
-  const float bearingCD = w.nearestRows[cs] != nullptr ? RowBearing(w, c, D) : PBrg(me.pos, dm.pos);
+  const float bearingCD = w.pesPath && w.nearestRows[cs] != nullptr ? RowBearing(w, c, D) : PBrg(me.pos, dm.pos);
   if (Ad(attackDeg, bearingCD) > kTrapAimCone_deg) return false;
   // The veto (0x1404F6AD0-0x1404F6B37): a carrier-side man other than D, on the pitch, whose nearest opponent is 3 m^2
   // or more away (FUN_140A4DCC0, JC at 0x1404F6B13), and who lies inside 80 degrees of the carrier's heading.
