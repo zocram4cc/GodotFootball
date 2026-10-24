@@ -172,6 +172,39 @@ std::array<uint8_t, kSlots> Ce930Ranks(const std::array<int, kSlots>& a,
 // (DAT_1425C65FC); otherwise the slot keeps its |depth - ballX| key.
 float Ce930Key(float depthKey, bool special, float f2);
 
+// FUN_14063FA70 (lane-post §4): per-line on-pitch headcount. Counts active slots with class
+// != 0 whose reclassified class (ReclassifyLineOf) == line.
+int Fa70Count(const std::array<int, kSlots>& cls, const std::array<int, kSlots>& active, int line);
+// FUN_140A4C720 (lane-post §7): (c*z + x)*c < c*y; the float (int)c sign-selects the side.
+bool OpponentLine(float x, float y, int sideSign, float z);
+// FUN_1405CCD00 (lane-post §4d): nonzero iff the action state word is 0x3A (58).
+// GF has no 0x3A word yet (run states max at kMark 0x36): the caller passes the man's state.
+inline constexpr int kActionState38 = 0x3A;
+bool Is38State(int actionState);
+// FUN_1405CD780 (lane-post §4d): nonzero iff out of play (MI+0x116C != 1) at restart kind 4
+// (MI+0x1554 == 4) with an instruction-15 claim (FUN_140A63950) on the slot.
+bool Cd780Claimed(const InstrTable& table, int side, int slot, int playState116c, int restartKind1554);
+
+// FUN_1405CFC80's first loop (lane-post §4b): the A := 1 pass. `backTarget` is CD0F0,
+// `forwardTarget` CD320; `designated` P+0x3EF8 (-1 none); `outlet` T+0x4B40 (-1 none);
+// `states` the T+0xA2A0 words; `fullAttack` T+0xB8A2; `attackLevel` T+0xB8A4.
+// GF carries no 0x3A states and no outlet word: pass zeros (no slot 0x3A) and -1.
+struct Cfc80Input {
+  std::array<int, kSlots> a{};       // the current A-words (LX+0x8 records)
+  std::array<int, kSlots> b{};       // the B-words (LX+0x60 records)
+  std::array<int, kSlots> cls{};     // the B classes (P+0x3FB8)
+  std::array<int, kSlots> active{};  // MI+0x1748
+  std::array<int, kSlots> states{};  // T+0xA2A0 action states
+  int designated = -1;               // P+0x3EF8
+  int outlet = -1;                   // T+0x4B40
+  int forwardTarget = 0;             // CD320
+  int backTarget = 0;                // CD0F0
+  bool fullAttack = false;           // T+0xB8A2
+  int attackLevel = 0;               // T+0xB8A4
+};
+// Runs the first loop only (slot order; the sorted-order second loop needs the A71500 table).
+std::array<int, kSlots> Cfc80FirstLoop(const Cfc80Input& in);
+
 // FUN_1405CE150's B-rank (lane-writers §3): per slot, the count of earlier same-B-word slots in the
 // sorted order. `order` is the sorted slot list (SortLaneSlots).
 std::array<uint8_t, kSlots> LaneBRank(const std::array<int, kSlots>& b,

@@ -250,6 +250,95 @@ TEST(MentalityLaneRank, SpecialSlotWithPositiveF2SortsLast) {
   EXPECT_EQ(5.0f, mentality::Ce930Key(keys[0], true, 0.0f));
   EXPECT_EQ(5.0f, mentality::Ce930Key(keys[0], true, -2.0f));
 }
+
+// FUN_14063FA70 (lane-post §4): counts active on-pitch slots whose reclassified class == line.
+TEST(MentalityLanePost, Fa70CountsLineMembers) {
+  std::array<int, 11> cls{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 1};
+  std::array<int, 11> active{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  EXPECT_EQ(3, mentality::Fa70Count(cls, active, 0));
+  EXPECT_EQ(4, mentality::Fa70Count(cls, active, 1));
+  EXPECT_EQ(3, mentality::Fa70Count(cls, active, 2));
+  active[7] = 0;
+  EXPECT_EQ(2, mentality::Fa70Count(cls, active, 2));
+}
+
+// FUN_140A4C720 (lane-post §7): (c*z + x)*c < c*y, the float (int)c sign-selects the side.
+TEST(MentalityLanePost, OpponentLineSelectsBySide) {
+  EXPECT_TRUE(mentality::OpponentLine(1.0f, 2.0f, 1, 0.0f));
+  EXPECT_FALSE(mentality::OpponentLine(3.0f, 2.0f, 1, 0.0f));
+  EXPECT_FALSE(mentality::OpponentLine(-3.0f, -2.0f, -1, 0.0f));
+  EXPECT_TRUE(mentality::OpponentLine(-1.0f, -2.0f, -1, 0.0f));
+}
+
+// FUN_1405CCD00 (lane-post §4d): nonzero iff the man's action state is 0x3A (58).
+TEST(MentalityLanePost, Is38StateNeedsTheStateWord) {
+  EXPECT_TRUE(mentality::Is38State(0x3A));
+  EXPECT_FALSE(mentality::Is38State(0));
+  EXPECT_FALSE(mentality::Is38State(0x36));
+}
+
+// FUN_1405CD780 (lane-post §4d): instruction-15 claims count only out of play at kind 4.
+TEST(MentalityLanePost, Cd780NeedsKindFourOutOfPlay) {
+  mentality::InstrTable table{};
+  table.ids[0][0] = 0xF;
+  table.slots[0][0] = 3;
+  EXPECT_TRUE(mentality::Cd780Claimed(table, 0, 3, 2, 4));
+  EXPECT_FALSE(mentality::Cd780Claimed(table, 0, 3, 1, 4));
+  EXPECT_FALSE(mentality::Cd780Claimed(table, 0, 3, 2, 3));
+  EXPECT_FALSE(mentality::Cd780Claimed(table, 0, 4, 2, 4));
+}
+
+// FUN_1405CFC80's first loop (lane-post §4b): sets A := 1 for eligible mid slots until the
+// count (CD0F0 - alreadyZeroAt0 + forwardTarget) is reached.
+TEST(MentalityLanePost, Cfc80FirstLoopLiftsEligibleMids) {
+  // Slot 2: active, on-pitch, A = 2 > 1, B = 1. Slot 5: designated, B = 2 (not B == 1).
+  std::array<int, 11> a{3, 3, 2, 3, 3, 2, 3, 3, 3, 3, 3};
+  std::array<int, 11> b{3, 0, 1, 1, 1, 2, 1, 2, 2, 2, 2};
+  std::array<int, 11> cls{0, 1, 3, 1, 1, 4, 1, 7, 8, 9, 2};
+  std::array<int, 11> active{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  std::array<int, 11> states{};
+  mentality::Cfc80Input in;
+  in.a = a;
+  in.b = b;
+  in.cls = cls;
+  in.active = active;
+  in.states = states;
+  in.designated = 5;
+  in.forwardTarget = 1;
+  in.backTarget = 0;
+  in.fullAttack = false;
+  in.attackLevel = 0;
+  in.outlet = -1;
+  const auto out = mentality::Cfc80FirstLoop(in);
+  // Slot 2 lifts (A 2 -> B 1 eligible, count 1 not yet reached); slot 5 is B = 2, skipped here.
+  EXPECT_EQ(1, out[2]);
+  EXPECT_EQ(2, out[5]);
+}
+
+// FUN_1405CFC80's count gate (lane-post §4b): no lift when the target is already met.
+TEST(MentalityLanePost, Cfc80FirstLoopStopsAtCount) {
+  std::array<int, 11> a{1, 3, 2, 3, 3, 3, 3, 3, 3, 3, 3};
+  std::array<int, 11> b{1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2};
+  std::array<int, 11> cls{3, 1, 3, 1, 1, 1, 1, 7, 8, 9, 2};
+  std::array<int, 11> active{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  std::array<int, 11> states{};
+  mentality::Cfc80Input in;
+  in.a = a;
+  in.b = b;
+  in.cls = cls;
+  in.active = active;
+  in.states = states;
+  in.designated = -1;
+  in.forwardTarget = 1;
+  in.backTarget = 0;
+  in.fullAttack = false;
+  in.attackLevel = 0;
+  in.outlet = -1;
+  const auto out = mentality::Cfc80FirstLoop(in);
+  // Slot 0 already A == 1 fills the count (backTarget - alreadyZeroAt0 + forwardTarget = 0 - 0
+  // + 1 = 1 reached by the initial bVar16 = 1): slot 2 keeps A = 2.
+  EXPECT_EQ(2, out[2]);
+}
 // The sort FUN_140A79640 (lane-leaves §1): ascending, stable; rank = index in the sorted order.
 TEST(MentalityLaneSort, AscendingStableWithRank) {
   std::array<uint8_t, 11> slots{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};

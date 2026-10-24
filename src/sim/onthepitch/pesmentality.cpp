@@ -248,6 +248,70 @@ int Ccd50Word(const LaneThresholds& t, const Ccd50Input& in) {
   return ((in.fwdDist <= threshold) ? 0 : 1) + 1;
 }
 
+int Fa70Count(const std::array<int, kSlots>& cls, const std::array<int, kSlots>& active, int line) {
+  // FUN_14063FA70 (VA 0x14063FA70, lane-post §4): per active slot with class != 0, the switch
+  // maps 3-6 -> 1, 7-9 -> 2, default -> 0 (ReclassifyLineOf); counts line matches.
+  int count = 0;
+  for (int k = 0; k < kSlots; ++k) {
+    if (active[k] == 0 || cls[k] == 0) continue;
+    if (ReclassifyLineOf(cls[k]) == line) ++count;
+  }
+  return count;
+}
+
+bool OpponentLine(float x, float y, int sideSign, float z) {
+  // FUN_140A4C720 (VA 0x140A4C720, lane-post §7): (c*z + x)*c < c*y with c = (float)(int)sideSign.
+  const float c = static_cast<float>(sideSign);
+  return (c * z + x) * c < c * y;
+}
+
+bool Is38State(int actionState) {
+  // FUN_1405CCD00 (VA 0x1405CCD00, lane-post §4d): the T+0xA2A0 word == 0x3A.
+  return actionState == kActionState38;
+}
+
+bool Cd780Claimed(const InstrTable& table, int side, int slot, int playState116c,
+                   int restartKind1554) {
+  // FUN_1405CD780 (VA 0x1405CD780, lane-post §4d): in play (MI+0x116C == 1) -> false; restart
+  // kind 4 (MI+0x1554 == 4) with FUN_140A63950(side-team, side, 0xF, slot).
+  if (playState116c == kPlayStateInPlay || restartKind1554 != 4) return false;
+  return InstructionClaimed(table, side, kInstrFifteen, slot);
+}
+std::array<int, kSlots> Cfc80FirstLoop(const Cfc80Input& in) {
+  // FUN_1405CFC80's first loop (VA 0x1405CFC80, lane-post §4b): per on-pitch slot (class != 0)
+  // with CCD00 == 0 (not 0x3A), CD780 == 0 (no instruction-15 claim at kind 4), slot != outlet,
+  // the 0x3A arm (slot%11 > 10, never, or state != 0x3A), T+0xB8A2 == 0 or B != 2, and
+  // (A > 1 && (B == 1 || (T+0xB8A4 < 2 && B != 0))): A := 1 until
+  // (backTarget - alreadyOneAt1 + forwardTarget) <= done. The sorted-order second loop needs
+  // the A71500 table: ponytail at VA 0x1405CFC80 (second loop).
+  // GF: CD780's instruction table is empty and kind-4 play state comes from the caller, so the
+  // claim test runs exact over the caller's words; outlets stay -1 (ponytail: T+0x4B40).
+  std::array<int, kSlots> a = in.a;
+  int alreadyOne = 0;
+  int alreadyZero = 0;
+  for (int k = 0; k < kSlots; ++k) {
+    if (in.active[k] == 0) continue;
+    if (a[k] == 1) ++alreadyOne;
+    if (a[k] == 0) ++alreadyZero;
+  }
+  int need = in.backTarget - alreadyZero;
+  if (need < 0) need = 0;
+  int done = 0;
+  for (int k = 0; k < kSlots; ++k) {
+    if (in.cls[k] == 0) continue;
+    if (in.active[k] == 0) continue;
+    if (Is38State(in.states[k])) continue;
+    if (k == in.outlet) continue;
+    if (in.fullAttack && in.b[k] == 2) continue;
+    if (a[k] <= 1) continue;
+    if (!(in.b[k] == 1 || (in.attackLevel < 2 && in.b[k] != 0))) continue;
+    ++done;
+    a[k] = 1;
+    if (need - alreadyOne + in.forwardTarget <= done) break;
+  }
+  return a;
+}
+
 int ProtectedSlot(const std::array<int, kSlots>& classes) {
   for (int slot = kSlots - 1; slot >= 0; --slot)
     if (classes[slot] == kCentreForwardClass) return slot;
