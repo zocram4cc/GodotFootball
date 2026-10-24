@@ -1253,6 +1253,59 @@ Vector3 TeamAIController::PrepareGoalKickStand(const Vector3& spot, Player* take
   return Vector3(stand.x, stand.y, 0.0f);
 }
 
+// The placer's stand and look point for one run-up motion on `spot` (FUN_1407411F0 and FUN_140782930; docs/re/pes-re-kicker-
+// standby.md section 4, docs/re/pes-re-motion-remap.md section 5). The contact offset is the run-up's first ball hit record,
+// negated in x and z (FUN_1406E8CC0 at index 0); the heading is the run-up's contact yaw plus the restart yaw (FUN_140732D40).
+Vector3 TeamAIController::PlaceRunUpStand(int motion, bool mirror, const Vector3& spot, float restartYawDeg, bool fieldClamp,
+                                          Vector3* lookAt) {
+  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0.
+  constexpr float kPhysique = 1.0f;
+  const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(motion);
+  const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+  const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
+  const pes::Vec3 spotPes(spot.coords[0], spot.coords[1], spot.coords[2]);
+  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, mirror, k);
+  const float contactYaw = pes::ContactYawDeg(match->GetPesMbinfo().Motion(motion).Rot(0).offset, mirror);
+  const float heading = pes::SetKickHeadingDeg(contactYaw, restartYawDeg);
+  pes::Vec3 stand = pes::GoalKickStandPoint(spotPes, heading, offset);
+  if (fieldClamp) stand = pes::FreeKickFieldClamp(stand);
+  const pes::Vec3 look = pes::PlacerLookPoint(stand, heading);
+  *lookAt = Vector3(look.x, look.y, 0.0f);
+  // ponytail: the placer's height (the spot's plus the clip's) is not carried: GF's players stand on the ground.
+  return Vector3(stand.x, stand.y, 0.0f);
+}
+
+// SetKick's placement for a free kick (FreeKickLoop 0x1407411F0): the run-up is the anime cell at row 0x509, column 9, walked through
+// the player remap (DeriveFreeKickRunUp). The restart yaw is the bearing to the goal the taker's side attacks (FUN_1408B4560, MODE 5).
+Vector3 TeamAIController::PrepareFreeKickStand(const Vector3& spot, Player* taker, Vector3* lookAt) {
+  // The taker strikes with his stronger foot (FUN_1406E6660(player, 0x34) == 1): the mirror of the run-up (Match::LeftFootedOf).
+  const bool mirror = match->LeftFootedOf(taker->GetPlayerData());
+  constexpr int kFreeKickRunUpRow = 0x509;
+  constexpr int kFreeKickRunUpColumn = 9;
+  const int base = match->GetPesAnimetable().Cell(kFreeKickRunUpRow, kFreeKickRunUpColumn).motionNo;
+  // ponytail: GF's taker carries no signature card (FUN_1406EA7B0 reads 0), no style stat (FUN_1406E81F0: 0), and no second kicker
+  // (MI+0x1740 publishes 0xFF), so the walks run as they do for a taker like that.
+  const int motion = pes::DeriveFreeKickRunUp(match->GetPesDerivation(), pes::SetPieceKeys{}, base);
+  // PES's attack sign of the taker's team (T+0x254): the negated GF side, as BuildRunWorld takes it.
+  const float attackSign = -static_cast<float>(team->GetSide());
+  const pes::Vec3 spotPes(spot.coords[0], spot.coords[1], spot.coords[2]);
+  return PlaceRunUpStand(motion, mirror, spot, pes::FreeKickRestartYawDeg(spotPes, attackSign), true, lookAt);
+}
+
+// SetKick's placement for a penalty (PenaltyKickLoop 0x140782930): the run-up is the anime cell at row 0x8EB, column 9, walked
+// through the player remap (DerivePenaltyRunUp). The restart yaw is 90 from the +X mark and 270 from the -X mark (FUN_1408B4560, MODE 6).
+Vector3 TeamAIController::PreparePenaltyStand(const Vector3& spot, Player* taker, Vector3* lookAt) {
+  // The taker strikes with his stronger foot (FUN_1406E6660(player, 0x34) == 1): the mirror of the run-up (Match::LeftFootedOf).
+  const bool mirror = match->LeftFootedOf(taker->GetPlayerData());
+  constexpr int kPenaltyRunUpRow = 0x8eb;
+  constexpr int kPenaltyRunUpColumn = 9;
+  const int base = match->GetPesAnimetable().Cell(kPenaltyRunUpRow, kPenaltyRunUpColumn).motionNo;
+  // ponytail: as the free kick, GF's taker carries no signature card (FUN_1406EA7B0: 0) and no style stat (FUN_1406EA760: 0).
+  const int motion = pes::DerivePenaltyRunUp(match->GetPesDerivation(), pes::SetPieceKeys{}, base);
+  const pes::Vec3 spotPes(spot.coords[0], spot.coords[1], spot.coords[2]);
+  return PlaceRunUpStand(motion, mirror, spot, pes::PenaltyRestartYawDeg(spotPes), false, lookAt);
+}
+
 // SetKick's placement for a corner (sub_1407331A0; docs/re/pes-re-kicker-standby.md section 4). The run-up clip is the anime
 // cell at row 0x509, column 9. Its first ball hit gives the contact offset, and the stand is the spot plus that offset turned
 // by the corner heading: the side yaw plus the restart bearing to the penalty spot (FUN_1408B4560, restart kind 4).
@@ -1363,6 +1416,15 @@ bool TeamAIController::PieceTakerArrived() const {
   if (!pieceWalk || taker == nullptr) return true;
   // The release follows the lift (docs/re/pes-re-throwin-choreography.md 3.2, phase 5: at the lift clip's end the loop starts).
   return pieceLifted;
+}
+
+void TeamAIController::ReleasePieceTaker() {
+  // PES's standby for a run-up kick ends at the release (pes-re-kicker-standby.md section 5). The taker stops holding his stand
+  // point, and the approach to the ball moves him: the stand-in for the run-up clip (pes-re-kicker-standby.md section 10). The
+  // keeper and the throw-in taker keep their holds, since their releases are the goal kick strike and the throw-in release clip.
+  if (setPieceType != e_SetPiece_FreeKick && setPieceType != e_SetPiece_Corner && setPieceType != e_SetPiece_Penalty) return;
+  pieceHeld = false;
+  pieceHasLookAt = false;
 }
 
 Player* TeamAIController::ThrowInTargetMate(Player* thrower) const {
@@ -1546,7 +1608,8 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       at = Vector3(outX, outZ, 0);
     }
     if (!keepHim) return;  // the kicker and the two back roles stay put
-    player->ResetPosition(at, ballPos);
+    // The placed taker keeps the heading he was placed with (his SetKick look point), not the ball. Everyone else faces the ball.
+    player->ResetPosition(at, player == taker ? HeldTakerLookAt(ballPos) : ballPos);
   };
 
   // Keepers are not in the placement list, but they are placed too, and PES
@@ -2106,6 +2169,18 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
     } else if (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_KickOff) {
       taker->ResetPosition(ballPos + ballPos.GetNormalized(Vector3(0, -team->GetSide(), 0)) * 0.3f,
                            ballPos);
+    } else if (setPiece == e_SetPiece_FreeKick && match->PesLoop()) {
+      // PES's free kick taker (FreeKickLoop SetKick, pes-re-kicker-standby.md section 4): placed on his stand point when the free kick
+      // is prepared, facing the goal heading, and held until the release.
+      // ponytail: the stand point is set from the restart spot at prepare; a ball moved in the stoppage is not followed.
+      if (taker) {
+        Vector3 lookAt;
+        const Vector3 stand = PrepareFreeKickStand(ballPos, taker, &lookAt);
+        taker->ResetPosition(stand, lookAt);
+        pieceHeld = true;
+        pieceHasLookAt = true;
+        pieceLookAt = lookAt;
+      }
     } else if (setPiece == e_SetPiece_FreeKick) {
       taker->ResetPosition(ballPos + Vector3(team->GetSide(), 0, 0) * 2.3f, ballPos);
     } else if (setPiece == e_SetPiece_Corner && match->PesLoop()) {
@@ -2120,6 +2195,18 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
         pieceHasLookAt = true;
         pieceLookAt = lookAt;
       }
+    } else if (setPiece == e_SetPiece_Penalty && match->PesLoop()) {
+      // PES's penalty taker (PenaltyKickLoop SetKick, pes-re-kicker-standby.md section 4): placed on his stand point at the mark when
+      // the penalty is prepared, facing the run-up's heading, and held until the release.
+      // ponytail: the stand point is set from the restart spot at prepare; a ball moved in the stoppage is not followed.
+      if (taker) {
+        Vector3 lookAt;
+        const Vector3 stand = PreparePenaltyStand(ballPos, taker, &lookAt);
+        taker->ResetPosition(stand, lookAt);
+        pieceHeld = true;
+        pieceHasLookAt = true;
+        pieceLookAt = lookAt;
+      }
     } else {
       taker->ResetPosition(ballPos + ballPos.GetNormalized(Vector3(0, -team->GetSide(), 0)) * 2.3f,
                            ballPos);
@@ -2127,7 +2214,8 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
     if (setPiece == e_SetPiece_ThrowIn && taker) {
       taker->SelectRetainAnim();
     }
-    if (setPiece == e_SetPiece_Penalty) {
+    // The GF penalty stand-in (3.0 m out) stays off the PES path, where the placement above holds the taker.
+    if (setPiece == e_SetPiece_Penalty && !match->PesLoop()) {
       taker->ResetPosition(ballPos + Vector3(team->GetSide(), 0, 0) * 3.0, ballPos);
     }
 

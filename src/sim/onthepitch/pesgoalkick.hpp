@@ -95,6 +95,19 @@ float CornerSetKickHeadingDeg(float restartYawDeg, bool mirror);
 // The look point a placed body faces: one metre from the stand point along the heading, GF space.
 pes::Vec3 PlacerLookPoint(const pes::Vec3& stand, float headingDeg);
 
+// The free kick's restart yaw (FUN_1408B4560, MODE 5): the bearing in degrees from the spot to the centre of the goal the side
+// attacks, (attackSign * F0, 0). `attackSign` is PES's T+0x254 of the taker's team (+1 attacks +X). The spot is GF space.
+float FreeKickRestartYawDeg(const pes::Vec3& spot, float attackSign);
+// The penalty's restart yaw (FUN_1408B4560, MODE 6): 90 from a spot on the +X side (x >= 0), 270 from the -X side.
+float PenaltyRestartYawDeg(const pes::Vec3& spot);
+// A run-up's contact yaw (FUN_1406B1C70): its rotation record's offset, negated when mirrored, folded by the placer to [0, 360).
+float ContactYawDeg(int rotOffset, bool mirror);
+// The placed heading (FUN_140732D40 through FUN_1404BEF90): the restart yaw folded, plus the contact yaw, folded again.
+float SetKickHeadingDeg(float contactYawDeg, float restartYawDeg);
+// The free kick's stand point after the placer's tail (FUN_1407411F0, 0x741473-0x741564), GF space. A stand within 0.5 m of the
+// pitch corner is pulled in on the axis that overshoots more; then |x| and |z| are clamped to the marks plus 1.5 m.
+pes::Vec3 FreeKickFieldClamp(const pes::Vec3& stand);
+
 // The pickup clip's contact root (PES's phase 1 reach, FUN_140791EC0): the ball stands the clip's offset ahead of the root, so
 // the root sits the offset behind the ball, turned by the heading. The ball and the result are GF space; the offset is the
 // clip's ball place in Fox space (ClipOffsetMetres).

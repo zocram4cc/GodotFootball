@@ -33,6 +33,7 @@
 #include "onthepitch/pesoffball.hpp"
 #include "onthepitch/pesrandom.hpp"
 #include "onthepitch/pesclock.hpp"
+#include "pes/derivation.hpp"
 #include "pes/editsave.hpp"
 #include "pes/fixdemo.hpp"
 #include "gdext/pes_marking.hpp"
@@ -140,6 +141,7 @@ class PesLibrary : public RefCounted {
   }
   const pes::Animetable* animetable() const { return animetable_ ? &*animetable_ : nullptr; }
   const pes::Mbinfo* mbinfo() const { return mbinfo_ ? &*mbinfo_ : nullptr; }
+  const pes::DerivationTable* derivation() const { return derivation_ ? &*derivation_ : nullptr; }
   // PES 2021's standing-tackle sub-kind (docs/re/pes-re-contact-port.md stage C).
   const pes::TackleConstants* tackle_constants() const {
     return tackleConstants_ ? &*tackleConstants_ : nullptr;
@@ -241,6 +243,7 @@ class PesLibrary : public RefCounted {
   std::optional<pes::DodgeConstants> dodgeConstants_;
   std::optional<pes::Animetable> animetable_;
   std::optional<pes::Mbinfo> mbinfo_;
+  std::optional<pes::DerivationTable> derivation_;
   std::optional<pes::TackleConstants> tackleConstants_;
   std::optional<pes::StrategyConstants> strategyConstants_;
   std::optional<pes::TeamConceptConstants> teamConceptConstants_;

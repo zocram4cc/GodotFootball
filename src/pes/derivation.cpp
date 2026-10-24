@@ -255,6 +255,21 @@ int DeriveGenericMotion(const DerivationTable& t, int stat, int motionIn, int ki
   return out;
 }
 
+int DeriveFreeKickRunUp(const DerivationTable& t, const SetPieceKeys& k, int baseMotion) {
+  const bool secondKicker = k.secondKicker <= kSecondKickerIdLimit;
+  if (!secondKicker) {
+    const int motion = DerivePlayerMotion(t, k.cardId, baseMotion, kFreeKickListKind);
+    if (motion != baseMotion) return motion;
+  }
+  return DeriveGenericMotion(t, secondKicker ? 0 : k.stat, baseMotion, kFreeKickListKind);
+}
+
+int DerivePenaltyRunUp(const DerivationTable& t, const SetPieceKeys& k, int baseMotion) {
+  const int motion = DerivePlayerMotion(t, k.cardId, baseMotion, kPenaltyListKind);
+  if (motion != baseMotion) return motion;
+  return DeriveGenericMotion(t, k.stat, baseMotion, kPenaltyListKind);
+}
+
 int SelectLongKickClip(const DerivationTable& t, const LongKickInput& in) {
   const DerivationRules& r = t.rules;
   const bool beckhamCard = std::find(r.beckhamIds.begin(), r.beckhamIds.end(), in.playerId) != r.beckhamIds.end();

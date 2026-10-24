@@ -703,6 +703,8 @@ void Referee::Process() {
         // (plan-selector §4: PES does not re-read the 7, the normal award path writes 1).
         if (buffer.desiredSetPiece == e_SetPiece_PeriodEnd)
           buffer.desiredSetPiece = e_SetPiece_KickOff;
+        // The standby ends at the release (pes-re-kicker-standby.md section 5): a run-up taker stops holding his stand point here.
+        if (match->PesLoop()) match->GetTeam(buffer.teamID)->GetController()->ReleasePieceTaker();
         if (clearingLogged) {
           // How long the taker actually waited, and how far the nearest opponent had
           // got by the time he kicked. Both are the point of the law: a restart that

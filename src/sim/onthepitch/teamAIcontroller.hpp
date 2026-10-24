@@ -120,6 +120,13 @@ public:
   bool IsPieceTakerWalking(const Player* player) const;
   // True while a placed set-piece taker holds his stand point before the release (pes-re-kicker-standby.md section 4).
   bool IsPieceTakerHeld(const Player* player) const { return pieceHeld && player == taker; }
+  // The standby ends at the release (pes-re-kicker-standby.md sections 5-6): a free kick, corner or penalty taker stops holding his
+  // stand point, and the approach to the ball takes the body over. The goal kick keeps its keeper held through the strike, and a
+  // throw-in keeps its ceremony taker held through his release clip.
+  void ReleasePieceTaker();
+  // True from the lift's end until the restart is over: the taker keeps the root yaw the lift left him with (PES's throw-in loop
+  // keeps the lift's yaw), so his clips start from it.
+  bool HoldsRoot(const Player* player) const { return pieceLifted && player == taker; }
   // The point a held taker looks at: his SetKick look point when the placement set one (a corner's heading), else the ball.
   Vector3 HeldTakerLookAt(const Vector3& ball) const { return pieceHasLookAt ? pieceLookAt : ball; }
   Vector3 GetPieceWalkTarget() const { return pieceWalkTarget; }
@@ -325,6 +332,12 @@ protected:
   // SetKick's placement for a corner (pesgoalkick.hpp): the stand point for the restart spot, and the look point the taker
   // faces (the corner heading). The caller places him there and holds him.
   Vector3 PrepareCornerStand(const Vector3& spot, Player* taker, Vector3* lookAt);
+  // SetKick's placement for a free kick and a penalty (FreeKickLoop 0x1407411F0, PenaltyKickLoop 0x140782930): the stand point
+  // for the restart spot, and the look point the taker faces. The caller places him there and holds him.
+  Vector3 PrepareFreeKickStand(const Vector3& spot, Player* taker, Vector3* lookAt);
+  Vector3 PreparePenaltyStand(const Vector3& spot, Player* taker, Vector3* lookAt);
+  // The placer's stand and look point for one run-up motion on a spot. A free kick's stand is clamped to the field (its tail).
+  Vector3 PlaceRunUpStand(int motion, bool mirror, const Vector3& spot, float restartYawDeg, bool fieldClamp, Vector3* lookAt);
   // The lofted picker's mates: the taker's team's active players, rated by technical highpass. Returns the index the
   // picker names (-1 for none) and fills `mates` with the list that index refers to.
   int PickGoalKickMate(std::vector<Player*>* mates) const;

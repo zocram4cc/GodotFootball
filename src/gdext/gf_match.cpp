@@ -98,6 +98,7 @@ Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const
   setup.pesDodgeConstants = library->dodge_constants();
   setup.pesAnimetable = library->animetable();
   setup.pesMbinfo = library->mbinfo();
+  setup.pesDerivation = library->derivation();
   setup.pesTackleConstants = library->tackle_constants();
   setup.pesStrategyConstants = library->strategy_constants();
   setup.pesTeamConceptConstants = library->team_concept_constants();

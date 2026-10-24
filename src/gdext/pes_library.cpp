@@ -139,6 +139,11 @@ Error PesLibrary::open(const String& root) {
   }
   if (exe) mbinfo_ = pes::LoadMbinfo(vfs_, *exe, &err);
   if (exe) tackleConstants_ = pes::LoadTackleConstants(*exe, &err);
+  if (exe) derivation_ = pes::LoadDerivationTable(*exe, vfs_, &err);
+  if (!derivation_) {
+    UtilityFunctions::push_error("PES21 derivation table unavailable: ", ToGd(err));
+    return ERR_PARSE_ERROR;
+  }
   if (!mbinfo_) {
     UtilityFunctions::push_error("PES21 mbinfo unavailable: ", ToGd(err));
     return ERR_PARSE_ERROR;
