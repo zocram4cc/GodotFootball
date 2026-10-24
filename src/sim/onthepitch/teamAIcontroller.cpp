@@ -2884,25 +2884,25 @@ void TeamAIController::UpdateTactics() {
   }
 }
 
-// PES 2021's CPU strategy decider (docs/re/pes-re-match-management.md 1): the
-// strategy moves while the ball is dead, the attack level follows it only once
-// the ball is back in play. The level is GF's mentality rung (one-to-one, see
-// pes::AttackLevel), so every reader of the mentality sees PES's level.
+// PES 2021's CPU strategy decider (docs/re/pes-re-match-management.md 1): the strategy moves in
+// PES state 3 (restart armed or taken; pesstrategy.hpp DeciderMovesIn), and the attack level
+// follows it once play resumes. The level is GF's mentality rung (one-to-one, see pes::AttackLevel),
+// so every reader of the mentality sees PES's level.
 void TeamAIController::UpdateStrategy() {
   if (!match->AIManagerRunsTeam(team->GetID())) return;
   // PES path: the per-tick team words (pesteamtick.hpp) step every team tick -
   // the drift (FUN_1404F8350), the flags (0x1404F6E1C-58), the restart word
-  // (0x1404F6F91) - and the strategy decider below moves the strategy on dead
-  // balls underneath them. Off the path the level is the mentality rung.
+  // (0x1404F6F91) - and the strategy decider below moves the strategy in state 3
+  // underneath them. Off the path the level is the mentality rung.
   const bool pesPath = match->PesLoop();
   const bool inPlay = match->IsInPlay() && !match->IsInSetPiece();
+  const RefereeBuffer& buffer = match->GetRefereeBuffer();
+  const int playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
+                                          buffer.prepared || buffer.started);
   if (pesPath) {
     // Steps 8 and 9 first, as in PES's order: the stopped select (8) and the out-of-play clear of
     // the reaction delays (9) read the latch, MI+0x116C and MI+0x1554 before the drift reads anything.
     const bool latch = team->IsPesPossession();
-    const RefereeBuffer& buffer = match->GetRefereeBuffer();
-    const int playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
-                                            buffer.prepared || buffer.started);
     pes::StoppedSelect(&teamTick, !latch, playState, match->PesRestartKind());
     pes::ClearReactionDelays(&teamTick, playState);
     // Step 11's head (FUN_1404FEDC0): R8B is the latch change this tick, the flip the restart word
@@ -2931,6 +2931,8 @@ void TeamAIController::UpdateStrategy() {
     }
     return;
   }
+  // PES's decider moves the strategy in state 3 only; the PES path returns in every other state.
+  if (pesPath && !pes::DeciderMovesIn(playState)) return;
   pes::StrategyInputs in;
   switch (match->GetMatchPhase()) {
     case e_MatchPhase_PreMatch:
@@ -3226,18 +3228,28 @@ void TeamAIController::WriteRoleArrays(bool head) {
 }
 
 // FUN_1404F5F10's rows: each slot's sheet triple at the tick's phase, through FUN_1408C50E0's record A.
-// ponytail: the plan is the setup default, 0. PES reads it from setup+0xb34+side*0xa8 (FUN_1408E16D0; the
-// writer is OPEN) and changes it in play (FUN_140500B90: mode +0xBCC, flag +0xB8A3). pes-re-sheet-triple §9.
+// The plan is the sheet's (FUN_1421B7D40); the in-play selector moves it (UpdatePesSheetPlan).
+// ponytail: the sheet starts at plan 0 (DefaultTeamSheet). PES starts it at setup+0xB34+side*0xA8
+// (FUN_1408E16D0, read by the setup builder FUN_141FC1590 l.101-102); its non-zero writer is OPEN.
 void TeamAIController::WriteSlotPoints(int phase) {
   if (!match->PesLoop()) return;  // the PES path only: the install's tables exist on it
-  constexpr int kSetupPlan = 0;
   const pes::formation::FormationTables* tables = match->GetPesFormations();
   const pes::formation::SheetConstants* sheet = match->GetPesSheetConstants();
   assert(tables && sheet);  // the PES loop is built with the install's tables (gfsim_run loads them)
-  const auto plan = tables->PlanOf(static_cast<uint32_t>(team->GetTeamData()->GetDatabaseID()), kSetupPlan);
-  assert(plan);  // every fixture team has a plan-0 record
+  const auto plan = tables->PlanOf(static_cast<uint32_t>(team->GetTeamData()->GetDatabaseID()),
+                                   teamSheet.Plan());
+  assert(plan);  // every team has a tactics record for each plan (Tactics.bin: two per team)
   slotPoints = pes::formation::SlotPointRows(*plan, phase, pesFieldHalfLength, pesFieldHalfWidth,
                                              sheet->grid, sheet->keeper);
+}
+
+// PES's in-play plan selector (FUN_140500B90, reached from the team tick at 0x1404F6EAD): once per PES
+// team tick, after the decider and the full-defence flag of this tick.
+// ponytail: FUN_140500B90's roster-gated pre-branch (l.40-271) and its plan-2 stoppage branch (l.291-320)
+// are not ported; OPEN.
+void TeamAIController::UpdatePesSheetPlan() {
+  if (!match->PesLoop() || !match->AIManagerRunsTeam(team->GetID())) return;
+  teamSheet.SetPlan(pes::formation::InPlayPlan(strategy.strategy, teamTick.b8a3, teamSheet.Plan()));
 }
 
 int TeamAIController::RoleClassOfSlot(int slot) const {

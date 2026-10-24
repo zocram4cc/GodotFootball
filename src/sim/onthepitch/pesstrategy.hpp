@@ -22,6 +22,16 @@ inline constexpr int kStrategyBalanced = 2;
 inline constexpr int kStrategyAttacking = 3;
 inline constexpr int kStrategyAllOut = 4;
 
+// The decider's entry and its moves by PES's play state MI+0x116C: 1 open play, 2 stopped, 3 restart
+// armed or taken. FUN_14051e910 calls the decider where `(state - 1) & ~2 == 0`, its test at
+// 0x14051E92E-0x14051E93C (DEC EAX; TEST EAX,0xFFFFFFFD; JNZ): states 1 and 3. FUN_14051e970 returns
+// at once in state 1 (CMP [RBX+0x116C],1 at 0x14051E9CF; JZ 0x14051F3F4), so only state 3 moves it.
+inline constexpr int kDeciderInPlayState = 1;
+inline bool DeciderCalledIn(int playState) { return ((playState - 1) & ~2) == 0; }
+inline bool DeciderMovesIn(int playState) {
+  return playState != kDeciderInPlayState && DeciderCalledIn(playState);
+}
+
 // The minute-0 draw's literals, read out of FUN_14051e970's instructions.
 struct StrategyConstants {
   float strengthMargin;        // 0.9 @0x14258c260
@@ -56,8 +66,8 @@ struct StrategyInputs {
   float ownStrength = 0.0f, oppStrength = 0.0f;
 };
 
-// One call of the decider; PES runs it every team tick while the ball is dead.
-// `rng` is the decider's own GameRandom (it draws only at minute 0).
+// One call of the decider's body (FUN_14051e970), made only where DeciderMovesIn holds. `rng` is the
+// decider's own GameRandom; it draws on every call at minute 0 (FUN_14051e970 l.252, `uVar7 == 0`).
 void StrategyStep(const StrategyConstants& k, const StrategyInputs& in, Random& rng,
                   StrategyState* s);
 
