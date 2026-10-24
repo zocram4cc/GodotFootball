@@ -556,6 +556,10 @@
  "outputs": {
   "ret_eax": {
    "reg": "eax"
+  },
+  "ret_xmm0": {
+   "reg": "xmm0",
+   "enc": "f32"
   }
  },
  "ret_note": "eax (integer/bool return; upper bits unchecked)",
