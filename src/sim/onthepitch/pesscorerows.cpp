@@ -69,7 +69,7 @@ int SortedRow::Nearest(int side) const {
 }
 
 void BuildScoreRows(const RowPlayers& p, const ScoreRowConstants& k, uint8_t mask,
-                    ScoreRows& rows) {
+                    ScoreRows& rows, bool pesPath) {
   // The score, list and angle blocks of each goal: side 0 measures from (-xg, 0), side 1 from
   // (+xg, 0). Each is written only when its mask bit is set.
   for (int side = 0; side < 2; ++side) {
@@ -108,6 +108,24 @@ void BuildScoreRows(const RowPlayers& p, const ScoreRowConstants& k, uint8_t mas
     below.Seal();
   }
 
+  // The pair-bearing table (MA+0x23F7C, FUN_14045B420's owner loop at 0x14045BB80-0x14045BD27):
+  // a PES-only read (FUN_140439FE0 family), so GF mode keeps its old rows
+  // exactly: off the PES path the table stays zero, while the NearestList
+  // below still rebuilds (GF's own readers use it).
+  if (pesPath) {
+    for (auto& row : rows.bearing) row.fill(0.0f);
+    for (int a = 0; a < lane::kSlots; ++a) {
+      if (!p[a].onPitch) continue;
+      for (int b = 0; b < lane::kSlots; ++b) {
+        if (b == a || !p[b].onPitch) continue;
+        const float dx = p[a].x - p[b].x;
+        const float dz = p[a].z - p[b].z;
+        if (dx == 0.0f && dz == 0.0f) continue;  // coincident: the row stays 0
+        rows.bearing[a][b] = BearingDeg(dx, dz, k);
+      }
+    }
+  }
+
   // The NearestList is rebuilt on every call, whatever the mask: each on-pitch slot lists every
   // other on-pitch slot by squared distance. An off-pitch slot has an empty list.
   for (int i = 0; i < lane::kSlots; ++i) {
@@ -125,11 +143,11 @@ void BuildScoreRows(const RowPlayers& p, const ScoreRowConstants& k, uint8_t mas
 }
 
 void ScoreRowWriter::Tick(const RowPlayers& players, const ScoreRowConstants& k,
-                          unsigned long frame, bool fullRefresh) {
+                          unsigned long frame, bool fullRefresh, bool pesPath) {
   if (fullRefresh) latched_ = true;  // FUN_140457070's flag branch sets TA+0x11
   if (!latched_) return;             // and the call returns early while TA+0x11 is 0
   const uint8_t mask = fullRefresh ? kMaskAll : kRotation[frame & 3u];
-  BuildScoreRows(players, k, mask, rows_);
+  BuildScoreRows(players, k, mask, rows_, pesPath);
 }
 
 // The selectors of the S1 rows by attack sign (see the header): FUN_140A714C0 and FUN_140A714A0.

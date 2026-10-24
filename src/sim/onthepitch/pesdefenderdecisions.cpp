@@ -195,6 +195,15 @@ DefenderReaction ChooseReaction(const DefenderReactionInput& in) {
   return DefenderReaction::kNone;
 }
 
+DefenderReaction ChooseMarkedReaction(const DefenderReactionInput& in, bool marked) {
+  if (!marked) return ChooseReaction(in);
+  DefenderReactionInput fallthrough = in;
+  fallthrough.tackle = false;
+  fallthrough.block = false;
+  fallthrough.jostleForPass = false;
+  return ChooseReaction(fallthrough);
+}
+
 bool StandingTackleBallGate(const DefenderDecisionConstants& c, float ballAheadDistance_m,
                             float ballAheadHeadingAngle_deg) {
   const float d2 = ballAheadDistance_m * ballAheadDistance_m;
