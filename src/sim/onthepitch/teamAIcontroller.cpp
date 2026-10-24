@@ -239,10 +239,6 @@ void TeamAIController::TickMarkTable() {
     dst.pairToTarget =
         pes::offball::RowBearing(w, near.id, facts.side * pes::marktable::kSlots + markTableState.markSlot);
     dst.pairToHolder = pes::offball::RowBearing(w, near.id, holder);
-    dst.headPosX = cf.pos.x;
-    dst.headPosZ = cf.pos.z;
-    dst.headPointX = cf.aim.x;
-    dst.headPointZ = cf.aim.z;
     dst.head = cf.facing;
   }
   for (int i = 0; i < pes::offball::kSlots; ++i) {

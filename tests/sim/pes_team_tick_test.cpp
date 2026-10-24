@@ -245,7 +245,6 @@ TEST(PesTeamTick, MarkBuildCommitsMarkedCandidate) {
   c.posX = 10.0f;
   c.pairToTarget = 10.0f;
   c.pairToHolder = 70.0f;
-  c.headPointX = 10.0f;
   facts.candidates[0] = c;
   pes::marktable::Constants k;
   k.rampBase = 7.0f;

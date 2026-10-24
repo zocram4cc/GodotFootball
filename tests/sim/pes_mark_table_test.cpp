@@ -73,15 +73,10 @@ Facts PassingFacts() {
   c.actionWord = 1;
   c.posX = 10.0f;  // side line at cone + holderX = 0.70 < 10 passes
   c.posZ = 0.0f;
-  // headArg = bearing(pos -> point): point at (10, 0) from pos (0, 0) reads 90 deg;
-  // |10 - 90| = 80 <= 105, |70 - 90| = 20 <= 80, floor |70 + 14| = 84 >= 80.
+  // Facing 0 (the wrap tests' subtrahend): |10 - 0| = 10 <= 105, |70 - 0| = 70 <= 80, floor |70 + 14| = 84 >= 80.
   c.pairToTarget = 10.0f;
   c.pairToHolder = 70.0f;
-  c.headPosX = 0.0f;
-  c.headPosZ = 0.0f;
-  c.headPointX = 10.0f;
-  c.headPointZ = 0.0f;
-  c.head = 0.0f;  // the facing word: subtrahend only, the wrap tests use headArg
+  c.head = 0.0f;  // the facing word [cand+0x554]: the wrap tests' subtrahend
   f.candidates[0] = c;
   return f;
 }
@@ -173,10 +168,6 @@ TEST(MarkTable, MarksIdModElevenUpToThree) {
     f.candidates[i].posZ = 0.0f;
     f.candidates[i].pairToTarget = 10.0f;
     f.candidates[i].pairToHolder = 70.0f;
-    f.candidates[i].headPosX = 0.0f;
-    f.candidates[i].headPosZ = 0.0f;
-    f.candidates[i].headPointX = 10.0f;
-    f.candidates[i].headPointZ = 0.0f;
     f.candidates[i].head = 0.0f;
   }
   pes::marktable::BuildMarkTable(&s, f, k);
@@ -201,10 +192,6 @@ TEST(MarkTable, GlobalIdFoldsModEleven) {
   f.candidates[0].actionWord = 1;
   f.candidates[0].pairToTarget = 10.0f;
   f.candidates[0].pairToHolder = 70.0f;
-  f.candidates[0].headPosX = 0.0f;
-  f.candidates[0].headPosZ = 0.0f;
-  f.candidates[0].headPointX = 10.0f;
-  f.candidates[0].headPointZ = 0.0f;
   f.candidates[0].head = 0.0f;
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[1], 1);
@@ -224,10 +211,6 @@ TEST(MarkTable, FarCandidateHardExits) {
   f.candidates[1].actionWord = 1;
   f.candidates[1].pairToTarget = 10.0f;
   f.candidates[1].pairToHolder = 70.0f;
-  f.candidates[1].headPosX = 0.0f;
-  f.candidates[1].headPosZ = 0.0f;
-  f.candidates[1].headPointX = 10.0f;
-  f.candidates[1].headPointZ = 0.0f;
   f.candidates[1].head = 0.0f;
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[2], 0);
@@ -241,10 +224,6 @@ TEST(MarkTable, WrapBoundaryPasses) {
   Facts f = PassingFacts();
   f.candidates[0].pairToTarget = 105.0f;
   f.candidates[0].pairToHolder = 70.0f;
-  f.candidates[0].headPosX = 0.0f;
-  f.candidates[0].headPosZ = 0.0f;
-  f.candidates[0].headPointX = 10.0f;
-  f.candidates[0].headPointZ = 0.0f;
   f.candidates[0].head = 0.0f;
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[7], 1);
@@ -309,6 +288,7 @@ TEST(MarkTable, ConeRejectsOutside) {
   f.candidates[0].posZ = 7.7101007f;
   f.candidates[0].d2 = 100.0f;
   f.candidates[0].pairToHolder = 120.0f;
+  f.candidates[0].head = 100.0f;  // the facing word agrees with the pairs: 10 and 120 clear 105 and 80 around it
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[7], 0);
 }
@@ -325,6 +305,7 @@ TEST(MarkTable, CountBandEdgeCounts) {
   f.candidates[0].posZ = 7.7101007f;
   f.candidates[0].d2 = 100.0f;
   f.candidates[0].pairToHolder = 120.0f;
+  f.candidates[0].head = 100.0f;  // the facing word agrees with the pairs (see ConeRejectsOutside)
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[7], 0);
 }
@@ -339,18 +320,6 @@ TEST(MarkTable, CountGateRejectsCrowd) {
   f.gateMates[1] = {19.3969262f, 3.4202014f};
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[7], 0);
-}
-
-TEST(MarkTable, HeadUsesPointNotFacing) {
-  // headArg = 90 from the stored point; the facing word (0.0) would fail the side gate.
-  // pairToHolder = 170: |170 - 90| = 80 <= 80 passes; |170 - 0| = 170 would reject.
-  const Constants k = TestConstants();
-  MarkState s;
-  s.markSlot = 3;
-  Facts f = PassingFacts();
-  f.candidates[0].pairToHolder = 170.0f;
-  pes::marktable::BuildMarkTable(&s, f, k);
-  EXPECT_EQ(s.mark[7], 1);
 }
 
 TEST(MarkTable, WrapTestsSubtractTheFacingWord) {
