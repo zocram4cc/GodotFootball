@@ -205,6 +205,51 @@ struct Cfc80Input {
 // Runs the first loop only (slot order; the sorted-order second loop needs the A71500 table).
 std::array<int, kSlots> Cfc80FirstLoop(const Cfc80Input& in);
 
+// FUN_1405CF310's first half (lane-post §4a): the A := 0 pass. `bRank` is CE150's B-rank;
+// `manLateral/manDepth` the P+0x55C/0x564 man coords; `ballX` the T+0x2482C analysis-ball word
+// (GF stand-in: the ball now); `sideSign` T+0x254 (+1/-1); `states` the T+0xA2A0 words.
+// Only the in-play arm ports: the CD460/A57800 arm needs T+0x44/T+0x8 (OPEN, ponytail) and the
+// stoppage arm MI+0x1554 3/4 with the A714C0 rank table (ponytail: A714C0/sqrt).
+struct Cf310Input {
+  std::array<int, kSlots> a{};         // the current A-words (LX+0x8 records)
+  std::array<int, kSlots> b{};         // the B-words (LX+0x60 records)
+  std::array<int, kSlots> cls{};       // the B classes (P+0x3FB8)
+  std::array<int, kSlots> active{};   // MI+0x1748
+  std::array<int, kSlots> states{};   // T+0xA2A0 action states
+  std::array<uint8_t, kSlots> bRank{};  // CE150's B-rank (LX+0xB8 records)
+  std::array<float, kSlots> manLateral{};  // P+0x55C
+  std::array<float, kSlots> manDepth{};   // P+0x564
+  int designated = -1;                 // P+0x3EF8
+  int outlet = -1;                     // T+0x4B40
+  int playState116c = 1;              // MI+0x116C
+  int restartKind1554 = 0;            // MI+0x1554
+  float ballX = 0.0f;                 // T+0x2482C (ponytail: analysis ball; GF passes the ball now)
+  int sideSign = 1;                   // T+0x254
+};
+std::array<int, kSlots> Cf310FirstHalf(const Cf310Input& in);
+
+// FUN_1405CFFE0's band arms (lane-post §4c): the A := iVar22 value rule over 0x3A-state men.
+// `ballDepth` is local_f0 (the T+0x2482C depth word, GF: the ball now, signed by side);
+// `backEdge/midEdge/fwdEdge` the fVar24/28/29 band edges (T+0x38/0x3C/0x40, GF: not carried);
+// `guarded` is bVar5 (on-pitch men > back + mid headcounts); `fpsMatters` gates the keeper
+// fall-through (needs T+0x10/MI+0x1198 frames and the fps word: ponytail, not carried).
+// Only the keeper and behind/mid-band arms port; the forward deep-narrow arm needs the A71500
+// table, the 4C720 ball words and T+0x8770/T+0x18 (ponytail: CFFE0 forward arm).
+struct Cffe0Input {
+  std::array<int, kSlots> a{};       // the current A-words (LX+0x8 records)
+  std::array<int, kSlots> b{};       // the B-words (LX+0x60 records)
+  std::array<int, kSlots> cls{};     // the B classes (P+0x3FB8)
+  std::array<int, kSlots> active{};  // MI+0x1748
+  std::array<int, kSlots> states{};  // T+0xA2A0 action states
+  float ballDepth = 0.0f;            // local_f0
+  float backEdge = 0.0f;             // fVar24 (T+0x38, side-signed)
+  float midEdge = 0.0f;              // fVar28 (T+0x3C, side-signed)
+  float fwdEdge = 0.0f;              // fVar29 (T+0x40, side-signed)
+  bool guarded = true;               // bVar5
+  bool fpsMatters = false;           // the keeper 0x3A fall-through (ponytail: frames/fps)
+};
+std::array<int, kSlots> Cffe0Bands(const Cffe0Input& in);
+
 // FUN_1405CE150's B-rank (lane-writers §3): per slot, the count of earlier same-B-word slots in the
 // sorted order. `order` is the sorted slot list (SortLaneSlots).
 std::array<uint8_t, kSlots> LaneBRank(const std::array<int, kSlots>& b,

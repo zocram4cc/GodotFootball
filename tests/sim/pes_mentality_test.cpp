@@ -339,6 +339,120 @@ TEST(MentalityLanePost, Cfc80FirstLoopStopsAtCount) {
   // + 1 = 1 reached by the initial bVar16 = 1): slot 2 keeps A = 2.
   EXPECT_EQ(2, out[2]);
 }
+
+// FUN_1405CF310's first half (lane-post §4a): zeroes A-words of B-rank-0 active slots that pass
+// the gate and the in-play arm. B-rank comes from the caller (CE150's sort).
+TEST(MentalityLanePost, Cf310ZeroesRankZeroSlotInPlay) {
+  std::array<int, 11> a{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3};
+  std::array<int, 11> b{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  std::array<int, 11> cls{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  std::array<int, 11> active{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  std::array<int, 11> states{};
+  std::array<uint8_t, 11> bRank{};
+  bRank[2] = 0;  // only slot 2 has B-rank 0
+  for (int k = 0; k < 11; ++k)
+    if (k != 2) bRank[k] = 1;
+  mentality::Cf310Input in;
+  in.a = a;
+  in.b = b;
+  in.cls = cls;
+  in.active = active;
+  in.states = states;
+  in.bRank = bRank;
+  in.designated = -1;
+  in.outlet = -1;
+  in.playState116c = 1;
+  in.restartKind1554 = 0;
+  in.manLateral = {0.0f, 0.0f, 100.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  in.manDepth = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  in.ballX = 0.0f;
+  in.sideSign = 1;
+  const auto out = mentality::Cf310FirstHalf(in);
+  EXPECT_EQ(0, out[2]);
+  for (int k = 0; k < 11; ++k)
+    if (k != 2) EXPECT_EQ(3, out[k]);
+}
+
+// FUN_1405CF310's 0x3A gate (lane-post §4a): a 0x3A-state slot keeps its A-word.
+TEST(MentalityLanePost, Cf310Skips38StateSlot) {
+  std::array<int, 11> a{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3};
+  std::array<int, 11> b{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  std::array<int, 11> cls{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  std::array<int, 11> active{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  std::array<int, 11> states{};
+  states[2] = 0x3A;
+  std::array<uint8_t, 11> bRank{};
+  for (int k = 0; k < 11; ++k) bRank[k] = 1;
+  bRank[2] = 0;
+  mentality::Cf310Input in;
+  in.a = a;
+  in.b = b;
+  in.cls = cls;
+  in.active = active;
+  in.states = states;
+  in.bRank = bRank;
+  in.designated = -1;
+  in.outlet = -1;
+  in.playState116c = 1;
+  in.restartKind1554 = 0;
+  in.manLateral = {0.0f, 0.0f, 100.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  in.manDepth = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  in.ballX = 0.0f;
+  in.sideSign = 1;
+  const auto out = mentality::Cf310FirstHalf(in);
+  EXPECT_EQ(3, out[2]);
+}
+
+// FUN_1405CFFE0's keeper arm (lane-post §4c): a keeper B-word (3) keeps 3 over band input.
+TEST(MentalityLanePost, Cffe80KeeperKeepsThree) {
+  std::array<int, 11> a{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3};
+  std::array<int, 11> b{3, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2};
+  std::array<int, 11> cls{0, 1, 3, 1, 1, 1, 1, 7, 8, 9, 2};
+  std::array<int, 11> active{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  std::array<int, 11> states{};
+  mentality::Cffe0Input in;
+  in.a = a;
+  in.b = b;
+  in.cls = cls;
+  in.active = active;
+  in.states = states;
+  in.ballDepth = -50.0f;
+  in.backEdge = 0.0f;
+  in.midEdge = 10.0f;
+  in.fwdEdge = 20.0f;
+  const auto out = mentality::Cffe0Bands(in);
+  EXPECT_EQ(3, out[0]);
+}
+
+// FUN_1405CFFE0's band arms (lane-post §4c): behind the back edge an unguarded B == 1 slot
+// takes (backEdge + 5 <= ballDepth) + 1.
+TEST(MentalityLanePost, Cffe80BehindBackEdgeLiftsByFive) {
+  std::array<int, 11> a{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3};
+  std::array<int, 11> b{1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2};
+  std::array<int, 11> cls{3, 1, 1, 1, 1, 1, 1, 7, 8, 9, 2};
+  std::array<int, 11> active{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  std::array<int, 11> states{};
+  states[2] = 0x3A;
+  states[5] = 0x3A;
+  mentality::Cffe0Input in;
+  in.a = a;
+  in.b = b;
+  in.cls = cls;
+  in.active = active;
+  in.states = states;
+  in.ballDepth = -50.0f;
+  in.backEdge = 0.0f;
+  in.midEdge = 10.0f;
+  in.fwdEdge = 20.0f;
+  in.guarded = false;
+  const auto out = mentality::Cffe0Bands(in);
+  // backEdge + 5 = 5 <= ballDepth(-50)? No -> 0 + 1 = 1.
+  EXPECT_EQ(1, out[2]);
+  in.ballDepth = 6.0f;
+  const auto out2 = mentality::Cffe0Bands(in);
+  // backEdge + 5 = 5 <= 6, still behind the mid edge (10) -> 1 + 1 = 2.
+  EXPECT_EQ(2, out2[2]);
+}
 // The sort FUN_140A79640 (lane-leaves §1): ascending, stable; rank = index in the sorted order.
 TEST(MentalityLaneSort, AscendingStableWithRank) {
   std::array<uint8_t, 11> slots{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};

@@ -311,6 +311,86 @@ std::array<int, kSlots> Cfc80FirstLoop(const Cfc80Input& in) {
   }
   return a;
 }
+std::array<int, kSlots> Cf310FirstHalf(const Cf310Input& in) {
+  // FUN_1405CF310's first half (VA 0x1405CF310, lane-post §4a): per slot with B-rank 0, active,
+  // on-pitch (class != 0), A-word != 0, CCD00 == 0 (not 0x3A), slot != outlet and CD780 == 0:
+  // the in-play arm (local_1D0 == 0, local_1E0 == 0) zeroes A when
+  // OpponentLine(sideSign * fVar22, manLateral, sideSign) with
+  // fVar22 = 12.0 + ({3 if B == 3} / {+3 if B in {5,6}} / {-20 if B < 3}).
+  // 12.0 = DAT_14259BE04, 3.0 = DAT_14258C264, 20.0 = DAT_14259BE1C (lane-post §0).
+  // ponytail: the CD460/A57800 arm (T+0x44/T+0x8, OPEN) and the stoppage arm (A714C0, OPEN);
+  // GF passes the ball now for the analysis ball and zeros (no 0x3A states yet).
+  constexpr float kBase = 12.0f;    // DAT_14259BE04
+  constexpr float kThree = 3.0f;    // DAT_14258C264
+  constexpr float kTwenty = 20.0f;  // DAT_14259BE1C
+  std::array<int, kSlots> a = in.a;
+  for (int k = 0; k < kSlots; ++k) {
+    if (in.bRank[k] != 0) continue;
+    if (in.active[k] == 0) continue;
+    if (in.cls[k] == 0) continue;
+    if (a[k] == 0) continue;
+    if (Is38State(in.states[k])) continue;
+    if (k == in.outlet) continue;
+    float adjust = -kTwenty;
+    if (in.b[k] == 5 || in.b[k] == 6) {
+      adjust = kThree;
+    } else if (in.b[k] >= 3) {
+      adjust = kThree;
+    }
+    const float fVar22 = kBase + adjust;
+    if (OpponentLine(static_cast<float>(in.sideSign) * fVar22, in.manLateral[k], in.sideSign, 0.0f))
+      a[k] = 0;
+  }
+  return a;
+}
+std::array<int, kSlots> Cffe0Bands(const Cffe0Input& in) {
+  // FUN_1405CFFE0's value rule (VA 0x1405CFFE0, lane-post §4c): per active on-pitch 0x3A-state
+  // slot, iVar2 is the B-word, iVar18 the B class. Keeper B (iVar2 == 3) keeps 3 (unless the
+  // 0x3A frame/fps fall-through fires: ponytail, in.fpsMatters). Else the band compare of
+  // ballDepth vs back/mid/fwd edges picks cVar16: behind (0) -> 1, or (backEdge + 5 <= depth)
+  // + 1 when !guarded and B == 1 and class == 1; mid (1) -> 1 when !guarded, else the ramp
+  // (((back - mid) * 50) / 100 + mid <= depth) + 1 with the B == 2/1 overrides. 5.0, 50.0 and
+  // 100.0 are DAT_14259222C/14259BE34/14253EE30 (lane-post §0).
+  // ponytail: the F9C3B0 early arm (OPEN), the forward deep-narrow arm (A71500/4C720/T+0x8770),
+  // and the cVar16 == 3 arm. GF has no 0x3A states yet, so the gate is dormant on the PES path.
+  constexpr float kFive = 5.0f;      // DAT_14259222C
+  constexpr float kFifty = 50.0f;    // DAT_14259BE34
+  constexpr float kHundred = 100.0f;  // DAT_14253EE30
+  std::array<int, kSlots> a = in.a;
+  for (int k = 0; k < kSlots; ++k) {
+    if (in.active[k] == 0) continue;
+    if (in.cls[k] == 0) continue;
+    if (!Is38State(in.states[k])) continue;
+    const int word = in.b[k];
+    if (word == 3 && !in.fpsMatters) {
+      a[k] = 3;
+      continue;
+    }
+    int band = 0;
+    if (in.ballDepth >= in.midEdge) band = (in.ballDepth >= in.fwdEdge) ? 2 : 1;
+    if (band == 0) {
+      int v = 1;
+      if (!in.guarded && word == 1 && in.cls[k] == 1)
+        v = ((in.backEdge + kFive <= in.ballDepth) ? 1 : 0) + 1;
+      a[k] = v;
+    } else if (band == 1) {
+      if (!in.guarded) {
+        a[k] = 1;
+      } else {
+        float edge = in.midEdge;
+        if (word == 2 && in.cls[k] == 2) {
+          edge = kHundred - 1.0f;  // ponytail: 100 - T+0x254[opp]; side word not carried
+        } else if (word == 1 && in.cls[k] == 1) {
+          edge = kHundred;
+        } else {
+          edge = ((in.backEdge - in.midEdge) * kFifty) / kHundred + in.midEdge;
+        }
+        a[k] = ((edge <= in.ballDepth) ? 1 : 0) + 1;
+      }
+    }
+  }
+  return a;
+}
 
 int ProtectedSlot(const std::array<int, kSlots>& classes) {
   for (int slot = kSlots - 1; slot >= 0; --slot)
