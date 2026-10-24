@@ -2932,10 +2932,40 @@ void TeamAIController::UpdateStrategy() {
     pes::WriteAttackFlags(&teamTick);
     pes::WriteRestartWord(&teamTick, pesInPlay, flipped);
     lastTickPossession = latch;
-    // Step 15's in-play arm (FUN_1404FA840, 0x1404FA869-0x1404FA887).
-    if (inPlay) pes::ArmInPlayCounters(&teamTick);
-    // FUN_140501260 clears T+0xE4 every team tick (0x1405012D0); step 5 can only set it in play.
-    if (!inPlay) teamTick.trapArmed = false;
+    // Step 19 (FUN_140500200) runs every team tick after the drift in PES's
+    // step order (tick-steps §7). Head: level >= 4 claims the all-ones mask.
+    // Else the class branch (0 < level, 5AAF00 gate), else the list branch.
+    // ponytail: the 5AAF00 gate reads the holder/run-state/RNG/ball-height
+    // arms with no GF counterpart yet (T3RE §4 item 3); off until they land.
+    // ponytail: the list table floats + holder-match read the selected-table
+    // rows whose writers are OPEN (T3RE §2); the sort/pick shape is exact over
+    // GF's ball and quota ramp.
+    if (!pes::Step19Head(&teamTick)) {
+      std::array<int, pes::roles::kSideSlots> b8b8Classes{};
+      for (int k = 0; k < pes::roles::kSideSlots; ++k) b8b8Classes[static_cast<size_t>(k)] = RoleClassOfSlot(k);
+      constexpr bool kStep19ClassGate = false;
+      if (!pes::Step19Class(&teamTick, kStep19ClassGate, b8b8Classes)) {
+        pes::Step19ListInput listIn;
+        listIn.licence = pes::Step19Licence(teamTick.b8a4);
+        const Vector3 ballNow = match->GetBall()->Predict(0);
+        listIn.ballX = ballNow.coords[0];
+        listIn.ballZ = ballNow.coords[1];
+        const auto& players = team->GetAllPlayers();
+        for (int k = 0; k < pes::roles::kSideSlots; ++k) {
+          listIn.slots[static_cast<size_t>(k)].slot = k;
+          listIn.slots[static_cast<size_t>(k)].roleClass =
+              b8b8Classes[static_cast<size_t>(k)];
+          if (k < static_cast<int>(players.size()) && players[static_cast<size_t>(k)] &&
+              players[static_cast<size_t>(k)]->IsActive()) {
+            listIn.slots[static_cast<size_t>(k)].manX =
+                players[static_cast<size_t>(k)]->GetPosition().coords[0];
+            listIn.slots[static_cast<size_t>(k)].manZ =
+                players[static_cast<size_t>(k)]->GetPosition().coords[1];
+          }
+        }
+        teamTick.eligibleMask = pes::Step19ListPick(listIn);
+      }
+    }
   }
   if (inPlay) {
     if (!pesPath) {
