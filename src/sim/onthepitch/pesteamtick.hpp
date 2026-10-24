@@ -83,6 +83,13 @@ bool Step19Head(TeamTick* tick);
 // 2->4, 3->6, anything else 5. Meaningful below level 4 (level >= 4 takes the
 // all-ones arm above); negative levels land on the else arm.
 int Step19Licence(int level);
+// Step 19's class branch (FUN_140500200, 0x14050024F-2C5): with 0 < level and
+// the FUN_1405AAF00 gate true, slots < 0x16 whose folded (slot%11) T+0x4C00
+// class > 1 (0x1405002A7 CMP EAX,0x1) take the mask at 0x1405002BE and the
+// tick is claimed. `classes` is the caller's T+0x4C00 row (SideRoles::b 1:1);
+// `gate` is the 5AAF00 verdict, whose roster/run-state/RNG/ball arms ride a
+// // ponytail at the controller call. Returns true when the branch claimed it.
+bool Step19Class(TeamTick* tick, bool gate, const std::array<int, kReactionSlots>& classes);
 
 // MI+0x116C, the play state (pes-re-A5Judge.md): 1 is play in progress.
 constexpr int kPlayStateInPlay = 1;

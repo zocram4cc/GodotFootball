@@ -165,6 +165,19 @@ int Step19Licence(int level) {
   return 5;
 }
 
+// Step 19's class branch: 11-scan from side*11 (0x140500266-2BC); slot<0x16,
+// fold slot%11 (0x140500280-28A MUL/SHR/IMUL/SUB), T+0x4C00[fold] > 1 admits
+// (0x1405002A7 CMP EAX,0x1; 0x1405002AA JLE skip). Side folds out: PES scans
+// the side's own 11 slots, so fold == slot here.
+bool Step19Class(TeamTick* tick, bool gate, const std::array<int, kReactionSlots>& classes) {
+  if (tick->b8a4 <= 0 || !gate) return false;
+  uint32_t mask = 0;
+  for (int k = 0; k < kReactionSlots; ++k)
+    if (classes[static_cast<size_t>(k)] > 1) mask |= 1u << k;
+  tick->eligibleMask = mask;
+  return true;
+}
+
 void BuildMarkTableTick(marktable::MarkState* state, const marktable::Facts& facts,
                         const marktable::Constants& k) {
   marktable::BuildMarkTable(state, facts, k);

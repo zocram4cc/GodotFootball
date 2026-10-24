@@ -354,5 +354,33 @@ TEST(PesTeamTick, LevelLicenceMap) {
   EXPECT_EQ(pes::Step19Licence(9), 5);
   EXPECT_EQ(pes::Step19Licence(-1), 5);
 }
+// T3a slice 2: step 19's class branch (FUN_140500200, 0x14050024F-2C5). With
+// 0 < level and the 5AAF00 gate true, slots whose folded T+0x4C00 class > 1
+// take the mask (0x1405002A7 CMP EAX,0x1; 0x1405002BE store) and the list
+// branch is skipped. Levels <= 0 and a false gate fall through.
+TEST(PesTeamTick, Level1to3GatesOnClass) {
+  // Class row B (T+0x4C00); slot 0 has class 2 (> 1), slot 1 has class 1.
+  const std::array<int, pes::kReactionSlots> classes{2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  {
+    pes::TeamTick tick;
+    tick.b8a4 = 2;
+    EXPECT_TRUE(pes::Step19Class(&tick, /*levelGate=*/true, classes));
+    EXPECT_EQ(tick.eligibleMask, 1u << 0);
+  }
+  // Level 0 never enters the branch, even with the gate true.
+  {
+    pes::TeamTick tick;
+    tick.b8a4 = 0;
+    EXPECT_FALSE(pes::Step19Class(&tick, /*levelGate=*/true, classes));
+    EXPECT_EQ(tick.eligibleMask, 0u);
+  }
+  // A false gate (5AAF00) skips the branch too.
+  {
+    pes::TeamTick tick;
+    tick.b8a4 = 2;
+    EXPECT_FALSE(pes::Step19Class(&tick, /*levelGate=*/false, classes));
+    EXPECT_EQ(tick.eligibleMask, 0u);
+  }
+}
 
 }  // namespace
