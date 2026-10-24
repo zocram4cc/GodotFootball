@@ -3151,6 +3151,7 @@ void TeamAIController::WriteRoleArrays(bool head) {
                              level, &roles);
   WriteSlotPoints(level);
   if (head) return;
+  if (match->PesLoop()) UpdateLaneLine();
   // The tail swap (FUN_14051E31E) also needs FUN_140A41BE0's latch (TailSwapAllowed).
   if (roleSwap && possession && pes::roles::TailSwapAllowed(roles))
     pes::roles::SwapB(&roles, roleSwap->first, roleSwap->second);
@@ -3186,14 +3187,28 @@ int TeamAIController::RoleClassOfSlot(int slot) const {
   return roles.b[slot];
 }
 
+void TeamAIController::UpdateLaneLine() {
+  if (!match->PesLoop()) return;
+  pes::mentality::LaneWordsInput in;
+  const auto& players = team->GetAllPlayers();
+  for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) {
+    in.b[slot] = roles.b[slot];
+    in.cls[slot] = roles.b[slot];
+    in.active[slot] = (slot < (int)players.size() && players[slot] && players[slot]->IsActive()) ? 1 : 0;
+  }
+  in.designated = -1;
+  in.copyPath = false;
+  in.playState116c = PesPlayState(match->IsInPlay() && !match->IsInSetPiece());
+  roles.a = pes::mentality::LaneWords(in, roles.a);
+}
+
 int TeamAIController::DefensiveLineOf(Player* p, e_PlayerRole role) const {
   if (!match->PesLoop()) return PesLineIndexForRole(role);
   // PES's line of a slot is the reclassify of its B class (EC600's line store at 0x1405ECBB0).
   const auto& players = team->GetAllPlayers();
   for (int slot = 0; slot < pes::roles::kSideSlots && slot < static_cast<int>(players.size()); ++slot)
     if (players[slot].get() == p)
-      return pes::mentality::ReclassifyLine(match->GetPesTeamConceptConstants().reclassifyLines,
-                                            roles.b[slot]);
+      return roles.a[slot];
   return PesLineIndexForRole(role);
 }
 

@@ -561,4 +561,38 @@ void SortLaneSlots(const std::array<uint8_t, kSlots>& slots, const std::array<fl
   }
   for (int i = 0; i < kSlots; ++i) rank[order[i]] = static_cast<uint8_t>(i);
 }
+std::array<int, kSlots> LaneWords(const LaneWordsInput& in, const std::array<int, kSlots>& /*a*/) {
+  std::array<int, kSlots> cls = in.cls;
+  for (int k = 0; k < kSlots; ++k) if (cls[k] == 0 && in.classes[k] != 0) cls[k] = in.classes[k];
+  std::array<int, kSlots> a{};
+  if (in.copyPath) { a = in.b; return a; }
+  a.fill(3);
+  Cffe0Input ci;
+  ci.a = a; ci.b = in.b; ci.cls = cls; ci.active = in.active; ci.states = in.states;
+  ci.ballDepth = in.ballDepth; ci.backEdge = in.backEdge; ci.midEdge = in.midEdge; ci.fwdEdge = in.fwdEdge;
+  ci.guarded = in.guarded; ci.fpsMatters = in.fpsMatters;
+  a = Cffe0Bands(ci);
+  Cf310Input fi;
+  fi.a = a; fi.b = in.b; fi.cls = cls; fi.active = in.active; fi.states = in.states;
+  fi.bRank = in.bRank; fi.manLateral = in.manLateral; fi.manDepth = in.manDepth;
+  fi.designated = in.designated; fi.outlet = in.outlet; fi.playState116c = in.playState116c;
+  fi.restartKind1554 = in.restartKind1554; fi.ballX = in.ballX; fi.sideSign = in.sideSign;
+  a = Cf310FirstHalf(fi);
+  Cfc80Input ci2;
+  ci2.a = a; ci2.b = in.b; ci2.cls = cls; ci2.active = in.active; ci2.states = in.states;
+  ci2.designated = in.designated; ci2.outlet = in.outlet; ci2.forwardTarget = in.forwardTarget;
+  ci2.backTarget = in.backTarget; ci2.fullAttack = in.fullAttack; ci2.attackLevel = in.attackLevel;
+  a = Cfc80FirstLoop(ci2);
+  for (int k = 0; k < kSlots; ++k) {
+    if (in.active[k] == 0) continue;
+    if (cls[k] == 0) continue;
+    if (a[k] <= 1) continue;
+    if (k == in.designated || in.b[k] == 2) a[k] = 2;
+  }
+  for (int k = 0; k < kSlots; ++k) {
+    if (in.active[k] == 0) a[k] = 3;
+    else if (a[k] > 2) a[k] = in.b[k];
+  }
+  return a;
+}
 }  // namespace pes::mentality

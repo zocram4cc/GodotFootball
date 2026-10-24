@@ -487,6 +487,36 @@ TEST(MentalityLaneKick, RampClampsZeroToOne) {
   EXPECT_FLOAT_EQ(1.0f, mentality::KickRamp(6.0f, 3.0f, 5.0f));
   EXPECT_FLOAT_EQ(0.5f, mentality::KickRamp(4.0f, 3.0f, 5.0f));
 }
+
+// The CE4F0 copy/recompute assembly (lane-writers §2 + lane-post §4): the copy path takes the
+// B-words; otherwise the recompute runs CFFE0 -> CF310 -> CFC80 -> designated/B -> fallback.
+TEST(MentalityLaneWire, CopyPathTakesBWordsVerbatim) {
+  std::array<int, 11> b{3, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2};
+  std::array<int, 11> a{};
+  mentality::LaneWordsInput in;
+  in.b = b;
+  in.copyPath = true;
+  EXPECT_EQ(b, mentality::LaneWords(in, a));
+}
+
+// The recompute default (post-steps dormant on GF inputs): 3, then designated/B -> 2, B fallback.
+TEST(MentalityLaneWire, RecomputeFallsBackToBWords) {
+  std::array<int, 11> b{3, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2};
+  std::array<int, 11> a{};
+  mentality::LaneWordsInput in;
+  in.b = b;
+  in.cls = {0, 1, 3, 4, 5, 6, 1, 7, 8, 9, 2};
+  in.active = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  in.states = {};
+  in.bRank = {};
+  in.designated = 5;
+  in.copyPath = false;
+  const auto out = mentality::LaneWords(in, a);
+  EXPECT_EQ(3, out[0]);
+  EXPECT_EQ(0, out[5]);
+  EXPECT_EQ(0, out[2]);
+  EXPECT_EQ(0, out[10]);
+}
 // The sort FUN_140A79640 (lane-leaves §1): ascending, stable; rank = index in the sorted order.
 TEST(MentalityLaneSort, AscendingStableWithRank) {
   std::array<uint8_t, 11> slots{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};

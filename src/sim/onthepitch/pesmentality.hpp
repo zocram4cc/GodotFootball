@@ -281,6 +281,43 @@ int LaneOfWord(int a);
 void LaneAWords(const std::array<int, kSlots>& b, std::array<int, kSlots>& a, int designated,
                 const std::array<int, kSlots>& active = {});
 
+
+// FUN_1405CE4F0's full assembly (lane-writers §2 + lane-post §4 + lane-leaves): B-words already
+// computed (LaneBWords); runs the copy or recompute path including the CFFE0 -> CF310 -> CFC80
+// post-steps, the designated/B loop and the inactive fallback, producing each slot's A-word
+// (the lane word: 0 back, 1 mid, 2 forward, 3 none). `a` is the current A-words (used as the
+// starting point on the copy path's input side; the recompute path resets to 3).
+struct LaneWordsInput {
+  std::array<int, kSlots> b{};          // B-words
+  std::array<int, kSlots> cls{};        // B classes (P+0x3FB8); `classes` is an alias field
+  std::array<int, kSlots> classes{};
+  std::array<int, kSlots> active{};     // MI+0x1748
+  std::array<int, kSlots> states{};     // T+0xA2A0
+  std::array<uint8_t, kSlots> bRank{};  // CE150 B-rank
+  int designated = -1;                  // P+0x3EF8
+  bool copyPath = false;                // LX+0x1B0 == 0
+  int outlet = -1;                     // T+0x4B40
+  int forwardTarget = 0;               // CD320
+  int backTarget = 0;                   // CD0F0
+  bool fullAttack = false;              // T+0xB8A2
+  int attackLevel = 0;                 // T+0xB8A4
+  std::array<float, kSlots> manLateral{};  // P+0x55C
+  std::array<float, kSlots> manDepth{};   // P+0x564
+  float ballX = 0.0f;                 // T+0x2482C
+  int sideSign = 1;                   // T+0x254
+  int playState116c = 1;              // MI+0x116C
+  int restartKind1554 = 0;            // MI+0x1554
+  float ballDepth = 0.0f;             // local_f0
+  float backEdge = 0.0f;              // fVar24
+  float midEdge = 0.0f;               // fVar28
+  float fwdEdge = 0.0f;               // fVar29
+  bool guarded = true;                // bVar5
+  bool fpsMatters = false;            // keeper fall-through
+  std::array<int, kSlots> roles{};    // T+0x4C00
+  int side = 0;
+  int mi = 0;                         // MI+0x54 stand-in
+};
+std::array<int, kSlots> LaneWords(const LaneWordsInput& in, const std::array<int, kSlots>& a);
 // CE4F0's copy path (flag LX+0x1B0 == 0): A-record := B-record for all 11 slots.
 void CopyLaneAWords(const std::array<int, kSlots>& b, std::array<int, kSlots>& a);
 
