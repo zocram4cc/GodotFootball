@@ -243,4 +243,61 @@ float Step20Band(float x) {
   return (x - kTop) / kSpan;
 }
 
+// Step 21's gates (§6): latch clear (T+0x255 == 0, 0x1404F7BB3 JNZ fail),
+// roster A55D40 != 0 (0x1404F7BCC), level words A40BD0/A60340 >= 5
+// (0x1404F7C05-15), side-1 flag clear (0x1404F7C1B-33), carrier-or-kickman
+// < 0x16 (0x1404F7C46-72; 0x1404F7C76 JA leaves B8D0 untouched — modeled by
+// the caller keeping the old value when no carrier resolves).
+bool Step21GatesPass(const Step21Gates& g) {
+  if (!g.latchClear) return false;
+  if (!g.rosterOk) return false;
+  if (!g.levelOk) return false;
+  if (!g.sideFlagClear) return false;
+  const bool holderOk = (g.carrier >= 0 && g.carrier < 0x16) ||
+                        (g.kickMan >= 0 && g.kickMan < 0x16);
+  return holderOk;
+}
+
+// Step 21's loose cone (0x1404F81E9-21E): score > 30 → 0; angle >= 160 → 50;
+// else ((angle - 30)/130)*50. Floor 30.0 is XMM15 (0x140591140, 0x1404F7F64);
+// span 130.0 is 0x1425A9BF0 (0x1404F820E), scale 50.0 is 0x14259BE34.
+float Step21LooseCone(float score, float angleDeg) {
+  constexpr float kFloor = 30.0f;    // XMM15 (0x1404F7F64)
+  constexpr float kCap = 160.0f;     // 0x14259BE6C (0x1404F81FA)
+  constexpr float kSpan = 130.0f;    // 0x1425A9BF0 (0x1404F820E)
+  constexpr float kScale = 50.0f;    // 0x14259BE34 (0x1404F8216)
+  if (score > kFloor) return 0.0f;
+  if (angleDeg >= kCap) return kScale;
+  return ((angleDeg - kFloor) / kSpan) * kScale;
+}
+
+// Step 21's score arms: incumbent -10.0 (0x1404F81A1), ×0.6 (0x1404F81B8 →
+// 0x14257A190, NOT 0.7 per §7), +d (0x1404F81D0), support +20.0
+// (0x1404F826C) when A62EA0 == cand.
+float Step21Score(float base, float dist, bool incumbent, float support) {
+  constexpr float kIncumbentPenalty = -10.0f;  // 0x14259BE84 (0x1404F81A1)
+  constexpr float kScale = 0.6f;               // 0x14257A190 (0x1404F81B8)
+  float score = base;
+  if (incumbent) score += kIncumbentPenalty;
+  score *= kScale;
+  score += dist;
+  score += support;
+  return score;
+}
+
+// Step 21's best tracking (0x1404F8274-28A): NaN-safe strict-greater
+// take-over (UCOMISS/JP/JZ/JBE) from -1000.0 (0x14256AE38, 0x1404F7BCC).
+int Step21Best(const std::array<float, kReactionSlots>& scores) {
+  constexpr float kFloor = -1000.0f;  // 0x14256AE38 (0x1404F7EB1)
+  float best = kFloor;
+  int id = 0x15;  // the empty-scan row sentinel
+  for (int k = 0; k < kReactionSlots; ++k) {
+    const float s = scores[static_cast<size_t>(k)];
+    if (!(s > best)) continue;  // NaN-safe: NaN never takes over
+    best = s;
+    id = k;
+  }
+  return id;
+}
+
 }  // namespace pes

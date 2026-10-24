@@ -390,11 +390,13 @@ TEST(PesTeamTick, Level1to3GatesOnClass) {
 // stored 0x14050088E). Table floats ride a // ponytail (MA+0x229B4/0x22B9C
 // writer OPEN); the distances use the quota's 10/25/-15 ramp already in GF.
 TEST(PesTeamTick, Level0PicksRankedSlots) {
-  // Two on-pitch candidates; slot 0 nearer the ball, so it ranks first.
+  // Slot 0 nearer the ball (d=10, ramp 1.0, key 5-5=0) ranks ahead of slot 1
+  // (d=30, ramp 0.0, key 5); licence 1 takes slot 0 only. A descending sort
+  // would take slot 1 instead.
   pes::Step19ListInput in;
   in.licence = 1;
   in.slots[0] = {0, 4, 0.0f, 0.0f, false};
-  in.slots[1] = {1, 4, 20.0f, 0.0f, false};
+  in.slots[1] = {1, 4, 40.0f, 0.0f, false};
   in.ballX = 10.0f;
   in.ballZ = 0.0f;
   in.tableFloat = {5.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
@@ -450,9 +452,66 @@ TEST(PesTeamTick, OffPitchSlotMisses) {
   const pes::TeamTick tick;
   for (int k = 0; k < pes::kReactionSlots; ++k) {
     EXPECT_EQ(tick.slotFlag[static_cast<size_t>(k)], 0u);
-    EXPECT_EQ(tick.slotTarget[static_cast<size_t>(k)], pes::kStep20NoTarget);
+    // Literal 0xFF: the miss-store immediate at 0x1405001E7, so the test
+    // catches a wrong constant value rather than echoing it.
+    EXPECT_EQ(tick.slotTarget[static_cast<size_t>(k)], 0xFFu);
     EXPECT_FLOAT_EQ(tick.slotScore[static_cast<size_t>(k)], 0.0f);
   }
 }
 
+// T3c slice 1: step 21's gates (FUN_1404F7BA0, 0x1404F7BB3-D15). The pick
+// needs the no-possession arm (T+0x255 == 0), the roster, the level words
+// and the clear side flag, plus a live holder; any fail writes 0xFF
+// (0x1404F7BE3) — only the holder-missing tail leaves B8D0 untouched.
+TEST(PesTeamTick, RestartReceiverOnlyWithoutPossession) {
+  pes::Step21Gates latched{false, true, true, true, 5, 0xFF};
+  EXPECT_FALSE(pes::Step21GatesPass(latched));
+  pes::Step21Gates open{true, true, true, true, 5, 0xFF};
+  EXPECT_TRUE(pes::Step21GatesPass(open));
+  // Each gate arm fails the tick on its own (0x1404F7BCC-D15).
+  pes::Step21Gates noRoster{true, false, true, true, 5, 0xFF};
+  EXPECT_FALSE(pes::Step21GatesPass(noRoster));
+  pes::Step21Gates lowLevel{true, true, false, true, 5, 0xFF};
+  EXPECT_FALSE(pes::Step21GatesPass(lowLevel));
+  pes::Step21Gates sideSet{true, true, true, false, 5, 0xFF};
+  EXPECT_FALSE(pes::Step21GatesPass(sideSet));
+  pes::Step21Gates noHolder{true, true, true, true, 0xFF, 0xFF};
+  EXPECT_FALSE(pes::Step21GatesPass(noHolder));
+  pes::Step21Gates kickFallback{true, true, true, true, 0xFF, 7};
+  EXPECT_TRUE(pes::Step21GatesPass(kickFallback));
+}
+
+// Step 21's tight/loose cones (0x1404F81C9-E4/E9-21E): tight (level <= 1)
+// skips past 60.0 (0x14259A764); loose adds 0 above score 30 (XMM15 floor),
+// 50 at/above 160, else the ((angle-30)/130)*50 ramp.
+TEST(PesTeamTick, TightConeKeepsSixty) {
+  EXPECT_FLOAT_EQ(pes::Step21LooseCone(40.0f, 170.0f), 0.0f);
+  EXPECT_FLOAT_EQ(pes::Step21LooseCone(0.0f, 170.0f), 50.0f);
+  EXPECT_FLOAT_EQ(pes::Step21LooseCone(0.0f, 160.0f), 50.0f);
+  EXPECT_FLOAT_EQ(pes::Step21LooseCone(0.0f, 95.0f), ((95.0f - 30.0f) / 130.0f) * 50.0f);
+}
+
+// Step 21's score arms (0x1404F81A1/1B8/1D0/26C): incumbent -10.0, x0.6
+// (0x14257A190, §7 correction vs 0.7), +d, support +20.0.
+TEST(PesTeamTick, LooseConeAddsFifty) {
+  EXPECT_FLOAT_EQ(pes::Step21Score(10.0f, 5.0f, false, 0.0f), 10.0f * 0.6f + 5.0f);
+  EXPECT_FLOAT_EQ(pes::Step21Score(10.0f, 5.0f, true, 0.0f), (10.0f - 10.0f) * 0.6f + 5.0f);
+  EXPECT_FLOAT_EQ(pes::Step21Score(10.0f, 5.0f, false, 20.0f), 10.0f * 0.6f + 5.0f + 20.0f);
+}
+
+// Step 21's stamp (0x1404F82FC): brain+0x6D40 := MI+0x1198 only when the
+// pick is a slot (best <= 0x15); 0xFF writes no stamp.
+TEST(PesTeamTick, StampWrittenOnlyOnPick) {
+  const pes::TeamTick tick;
+  EXPECT_EQ(tick.bestSlot, pes::kStep21None);
+  EXPECT_EQ(tick.bestStamp, -1);
+  const std::array<float, pes::kReactionSlots> scores{1.0f, 3.0f, 2.0f, 0.0f, 0.0f, 0.0f,
+                                                      0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  EXPECT_EQ(pes::Step21Best(scores), 1);
+  // Ties keep the earlier slot (strict-greater take-over, 0x1404F8284 JBE
+  // skips equals); a >= take-over would hand the tie to the later slot.
+  const std::array<float, pes::kReactionSlots> tied{2.0f, 3.0f, 3.0f, 0.0f, 0.0f, 0.0f,
+                                                     0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  EXPECT_EQ(pes::Step21Best(tied), 1);
+}
 }  // namespace

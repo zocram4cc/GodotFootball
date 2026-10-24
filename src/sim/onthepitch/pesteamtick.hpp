@@ -45,7 +45,8 @@ inline std::array<uint32_t, kReactionSlots> NoTargetIds() {
   ids.fill(kStep20NoTarget);
   return ids;
 }
-
+// T+0xB8D0's none value (FUN_1404F7BA0: fail writes 0xFF at 0x1404F7BE3).
+inline constexpr uint32_t kStep21None = 0xFF;
 // The mode word T+0x134 and its setup source +0xBCC (plan-selector §5: the team tick copies
 // +0xBCC to T+0x134 at 0x1404F6DBD, between the decider and the drift, so the drift reads the
 // previous tick's word). +0xBCC's writer is OPEN (plan-selector §2), so GF carries −1 (keep)
@@ -83,6 +84,10 @@ struct TeamTick {
   std::array<uint8_t, kReactionSlots> slotFlag{};  // T+0x8C35
   std::array<uint32_t, kReactionSlots> slotTarget = NoTargetIds();  // T+0x8C40
   std::array<float, kReactionSlots> slotScore{};  // T+0x8D50
+  // Step 21's pick + stamp (FUN_1404F7BA0): T+0xB8D0 (0xFF none, 0x15 row
+  // sentinel) and brain+0x6D40 (MI+0x1198, written only when best <= 0x15).
+  uint32_t bestSlot = kStep21None;  // T+0xB8D0
+  int bestStamp = -1;  // brain+0x6D40
 };
 // T+0xB8B8 all-ones: step 19's level >= 4 arm sets every slot bit (11 BTS
 // iterations at 0x140500240, stored at 0x1405008BD).
@@ -145,6 +150,30 @@ bool Step20GatesPass(const Step20Gates& g);
 // with the 0.5-select (below 0.5 -> 1.0, above 4.0 -> 0.0, else scaled);
 // T+0x8D50[k] := XMM13 on the hit path only (0x1405001BE).
 float Step20Band(float x);
+// Step 21 (FUN_1404F7BA0): the supporter pick T+0xB8D0 (0x1404F82E8;
+// 0xFF = none, 0x15 row sentinel) and its stamp brain+0x6D40
+// (MI+0x1198 frame, 0x1404F82FC, only when best <= 0x15). Init 0xFF / -1.
+// Gates (fail writes 0xFF at 0x1404F7BE3): T+0x255 == 0 clear, roster
+// A55D40 == 0, A40BD0/A60340 < 5, side-1 flag set. The carrier reads 627E0
+// else T+0x78 (0x1404F7C53-6E); still > 0x15 leaves B8D0 untouched.
+struct Step21Gates {
+  bool latchClear = false;  // T+0x255 == 0 (the no-possession arm)
+  bool rosterOk = false;    // FUN_140A55D40 != 0
+  bool levelOk = false;     // FUN_140A60340(A40BD0) >= 5
+  bool sideFlagClear = false;  // MA+0x24C68+side == 0
+  int carrier = 0xFF;       // 627E0, 0xFF = none
+  int kickMan = 0xFF;       // T+0x78 fallback
+};
+bool Step21GatesPass(const Step21Gates& g);
+// Step 21's score arms (0x1404F81A1/1B8/1D0/216/26C): incumbent -10.0, x0.6
+// (0x14257A190, NOT 0.7), +d, loose cone (score > 30 ? 0 : angle >= 160 ?
+// 50 : ((angle-30)/130)*50; 30.0 = XMM15 floor at 0x1404F7F64), support
+// +20.0 (A62EA0 == cand). Tight cone (level <= 1): 43A020 <= 60.0 else skip.
+float Step21LooseCone(float score, float angleDeg);
+float Step21Score(float base, float dist, bool incumbent, float support);
+// Step 21's best tracking (0x1404F8274-28A): NaN-safe strict-greater
+// take-over from -1000.0 (0x14256AE38). Returns the winning id.
+int Step21Best(const std::array<float, kReactionSlots>& scores);
 
 // MI+0x116C, the play state (pes-re-A5Judge.md): 1 is play in progress.
 constexpr int kPlayStateInPlay = 1;
