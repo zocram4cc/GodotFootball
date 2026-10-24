@@ -993,6 +993,12 @@ class Emitter:
         if m == "RET":
             return ["return;"]
         if m == "CALL":
+            if not is_imm(ops[0].strip()):
+                # Indirect call (vtable / register / memory): an engine
+                # boundary, not pure computation. Emit a zero return and
+                # let the driver class it; never crash the translator.
+                return ["/*INDIRECT CALL %s: engine boundary*/ s.gpr[0] = 0;"
+                        % ops[0].strip()]
             tgt = "0x%X" % imm_val(ops[0])
             stub = (ctx.get("stubs") or {}).get(tgt)
             if stub is not None:
@@ -1141,6 +1147,18 @@ def capstone_decode(image_path, va):
             pending = {t for t in pending if t > ins.address}
             if not pending:
                 break
+        if m == "jmp":
+            # Unconditional JMP imm: a local goto continues the body, but
+            # a tail jump to another VA ends it (call-closed set: the
+            # target is a different function, in-set or out; the bridge
+            # listings end there too). JMP reg (switch) never ends the
+            # body here: its targets resolve in prepass.
+            try:
+                t = int(ins.op_str.strip().split(",")[0].strip(), 16)
+                if t < va or t >= va + 0x2000:
+                    break
+            except ValueError:
+                pass
     return out
 
 
