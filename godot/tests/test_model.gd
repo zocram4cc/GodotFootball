@@ -79,6 +79,13 @@ func _initialize() -> void:
 		# pitch_scratch is fox3DDC_Blin (fox3ddf_blin_decal). Both are decals, not opaque Blin.
 		check(shaders.has("res://shaders/pes_ggx_decal.gdshader"), "lines draw as the GGX decal (%s)" % str(shaders.keys()))
 		check(shaders.has("res://shaders/pes_blin_decal.gdshader"), "pitch_scratch draws as the Blin decal (%s)" % str(shaders.keys()))
+		# The turf3d fin cover's derived equivalent (TurfMask section 4): the turf
+		# shader carries the decoded net 0.775 over grass only; paint is a decal
+		# mesh, so no decal shader may carry it.
+		var pitch_src := FileAccess.get_file_as_string("res://shaders/pes_pitch.gdshader")
+		check(pitch_src.contains("FIN_NET = 0.775"), "turf carries the fin-cover darkening (FIN_NET 0.775)")
+		check(not FileAccess.get_file_as_string("res://shaders/pes_ggx_decal.gdshader").contains("FIN_NET"),
+				"paint decal carries no fin darkening")
 
 	check(builder.build_model(library, "Asset/model/none/#Win/none.fpk", "") == null, "a missing pack builds nothing")
 	quit(1 if failures > 0 else 0)

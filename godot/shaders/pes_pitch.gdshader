@@ -4,9 +4,9 @@
 // 3 and 7 give the same formulas; where that report and the asm differ, the asm
 // is followed and the difference is named in the deviation list below.
 //
-// Not in this material: the mowing stripes. They come from the turf3d grass mesh
-// (pes3ddf_turf3d_2020, priority 5 of the report, open), so this surface has none.
-//
+// The mowing stripes ride the turf3d fin path (world-space mask UV); the fin
+// cover below carries the decoded net darkening (FIN_NET), stripes excluded.
+
 // Space: PES works in world space with Y up (Fox axes, the same as Godot's world).
 // Godot's VIEW and NORMAL are view space, so the shader converts them with
 // INV_VIEW_MATRIX and writes the normal back through VIEW_MATRIX.
@@ -52,6 +52,19 @@ uniform sampler2D GrainNormal_Tex_LIN : filter_linear_mipmap_anisotropic;       
 uniform sampler2D SlopeTable_Tex_LIN : filter_linear, repeat_disable;                // t5 grass_slopetable, clamp
 uniform sampler2D Mask_Tex_SRGB : hint_default_black, filter_nearest_mipmap, repeat_enable;  // t6, unbound in st002
 uniform sampler2D Grain_Tex_LIN : filter_nearest_mipmap, repeat_enable;              // t7 pitch_grain_alp, untiled, point (s7)
+
+// ---- fin darkening: PES's turf3d grass-fin cover, derived equivalent -------
+// The full fin pass (turf3dtexlodu4 over the play rect, pes3ddf_turf3d_2020,
+// alpha test t7.w < 0.3) is not built; this carries its decoded net instead.
+// Per-fragment o0 = v3 * v1.z * r0.y, each term <= 1 (turf3d.ps.asm:26-49),
+// so the fins only attenuate: net = (1-f) + f*r over grass only, never over
+// line/paint decals (paint shows no mow modulation: DarkTurf section 0).
+// r = 0.50, f = 0.45 -> net 0.775 (TurfMask section 4 mid-band; needed band
+// 0.67-0.83). Grassfin alpha>=0.3 survival at broadcast mip0 is 0.303
+// (TurfFins section 0, re-verified from the install in this branch).
+// // ponytail: stands for the turf3d fin geometry pass (turf3dtexlodu4 mesh +
+// // pes3ddf_turf3d_2020 VS/PS); remove when the fin mesh is instanced.
+const float FIN_NET = 0.775; // (1-0.45) + 0.45*0.50, the applied darkening
 
 // ---- constants the PS hard-codes ------------------------------------------
 // SSLighting's shading-model-3 tint and F0 (pes-re-shaders.md 2.3; metalness 0).
@@ -152,6 +165,7 @@ void fragment() {
 	vec3 tOut = n * m2;                                                       // asm 110
 	vec3 uOut = vec3(0.8) - tOut;                                             // asm 111
 	ALBEDO = clamp(ao * uOut + tOut, 0.0, 1.0);                               // asm 112
+	ALBEDO *= FIN_NET; // the fin cover over grass (never over paint: paint is a decal mesh)
 
 	// ---- normal (asm 114-152) -----------------------------------------------
 	// n1 is the turf normal, tiled (asm 114-121); g is the flattened grain normal
