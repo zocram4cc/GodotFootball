@@ -245,6 +245,9 @@ public:
   void UpdateStrategy();
   // Step 19's quota mask (FUN_140500200, T+0xB8B8) for this tick, read by the run manager's Chance walk.
   void UpdateQuotaMask();
+  // The decider body (FUN_14051E970): one StrategyStep where DeciderMovesIn holds (the caller's
+  // S1 extract: the PES path runs this before the drift so the tick reads decider → copy → drift).
+  void StepStrategyDecider(int playState);
   // Team tick step 55 (FUN_140A42A70 at 0x1404F7A8F; restart arm 26c at
   // 0x1404F6F0E): the per-slot gated self-copy of the run history plus the
   // frame touch, run once per team tick after the tail write. Both arms are
@@ -257,9 +260,7 @@ public:
   // counterpart yet (helpers sect 1-3), so the dispatcher exits and no slot
   // takes until those land. Returns the route, so tests pin the seam.
   pes::run::ReleaseRoute PesStep48();
-  // The decider body (FUN_14051E970): one StrategyStep where DeciderMovesIn holds (the caller's
-  // S1 extract: the PES path runs this before the drift so the tick reads decider → copy → drift).
-  void StepStrategyDecider(int playState);
+
   // PES's in-play plan selector (FUN_140500B90): the sheet plan, once per PES team tick after UpdateStrategy.
   void UpdatePesSheetPlan();
   // PES's per-tick team words (pesteamtick.hpp): the attack level T+0xB8A4,
