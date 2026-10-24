@@ -391,6 +391,34 @@ std::array<int, kSlots> Cffe0Bands(const Cffe0Input& in) {
   }
   return a;
 }
+int KickManKeep(int current, int mode1775, int phase116c, bool gate431E0, bool gate23E7FD0) {
+  // FUN_1404FB2A0 (VA 0x1404FB2A0, lane-leaves §4): mode 0x0C keeps; in play (1) both gates
+  // must hold, else 0xFF; phases 2/3 run 4FB780/4FB380 (not here); any other phase clears.
+  // ponytail: 4FB780/4FB380 arms, and the 431E0/23E7FD0 gate interiors, are OPEN or
+  // HolderSplit's; GF's MatchModeByte stand-in is 0, so the keep arm never fires.
+  if (mode1775 == kKeepMode) return current;
+  if (phase116c == kPlayStateInPlay) return (gate431E0 && gate23E7FD0) ? current : kNoKickMan;
+  if (phase116c == 2 || phase116c == 3) return current;  // 4FB780/4FB380 own these phases
+  return kNoKickMan;
+}
+
+int KickManFallback(int carrier, int carrierSide, int holder, int holderSide, int current,
+                     int currentSide, int side) {
+  // FUN_140A63020 (VA 0x140A63020, lane-leaves §4): carrier (MA+0x2601C) -> holder
+  // (MA+0x2483C) -> T+0x78, each gated by id < 0x16 and sideMatch(id) == side.
+  constexpr int kSideSlots = 22;  // ids 0..21 are the two sides' slots; 0xFF = none
+  if (carrier >= 0 && carrier < kSideSlots && carrierSide == side) return carrier;
+  if (holder >= 0 && holder < kSideSlots && holderSide == side) return holder;
+  if (current >= 0 && current < kSideSlots && currentSide == side) return current;
+  return kNoKickMan;
+}
+
+float KickRamp(float a, float b, float c) {
+  // FUN_1404F4AB0 (holder-tree §4, 11 lines): a<=b ? 0 : c<=a ? 1 : (a-b)/(c-b).
+  if (a <= b) return 0.0f;
+  if (c <= a) return 1.0f;
+  return (a - b) / (c - b);
+}
 
 int ProtectedSlot(const std::array<int, kSlots>& classes) {
   for (int slot = kSlots - 1; slot >= 0; --slot)

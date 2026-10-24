@@ -250,6 +250,23 @@ struct Cffe0Input {
 };
 std::array<int, kSlots> Cffe0Bands(const Cffe0Input& in);
 
+// FUN_1404FB2A0 (lane-leaves §4): the T+0x78 keep-or-clear gate. `mode` is MI+0x1775 (GF
+// stand-in 0: the 0x0C keep arm never fires), `phase` MI+0x116C, `gate431E0/gate23E7FD0` the
+// FUN_140A431E0/FUN_1423E7FD0 gates (OPEN: pass the caller's words). Phases 2/3 run
+// 4FB780/4FB380 (their arms are separate functions); other non-play phases clear to 0xFF.
+// 0xFF = no kick man.
+inline constexpr int kNoKickMan = 0xFF;
+inline constexpr int kKeepMode = 0x0C;  // MI+0x1775 keep value
+int KickManKeep(int current, int mode1775, int phase116c, bool gate431E0, bool gate23E7FD0);
+// FUN_140A63020 (lane-leaves §4): the 3-level fallback. carrier = MA+0x2601C, holder =
+// MA+0x2483C, current = T+0x78; each needs id < 0x16 and sideMatch(id) == side (GF: the
+// side each id belongs to, from the caller's rosters), else 0xFF. HolderSplit owns the
+// carrier/holder words; this is the pure rule for their use.
+int KickManFallback(int carrier, int carrierSide, int holder, int holderSide, int current,
+                     int currentSide, int side);
+// FUN_1404F4AB0 (holder-tree §4): the 0..1 ramp a<=b ? 0 : c<=a ? 1 : (a-b)/(c-b). Pure.
+float KickRamp(float a, float b, float c);
+
 // FUN_1405CE150's B-rank (lane-writers §3): per slot, the count of earlier same-B-word slots in the
 // sorted order. `order` is the sorted slot list (SortLaneSlots).
 std::array<uint8_t, kSlots> LaneBRank(const std::array<int, kSlots>& b,

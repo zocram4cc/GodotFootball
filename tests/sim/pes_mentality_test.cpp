@@ -453,6 +453,40 @@ TEST(MentalityLanePost, Cffe80BehindBackEdgeLiftsByFive) {
   // backEdge + 5 = 5 <= 6, still behind the mid edge (10) -> 1 + 1 = 2.
   EXPECT_EQ(2, out2[2]);
 }
+
+// FUN_1404FB2A0 (lane-leaves §4): the T+0x78 keep-or-clear gate.
+TEST(MentalityLaneKick, KeepAtModeByteAndClearOutOfPlay) {
+  // MI+0x1775 == 0x0C keeps whatever id is set.
+  EXPECT_EQ(7, mentality::KickManKeep(7, 0x0C, 1, true, true));
+  // In play (116C == 1) with both gates true keeps; either gate false clears to 0xFF.
+  EXPECT_EQ(7, mentality::KickManKeep(7, 0, 1, true, true));
+  EXPECT_EQ(0xFF, mentality::KickManKeep(7, 0, 1, false, true));
+  EXPECT_EQ(0xFF, mentality::KickManKeep(7, 0, 1, true, false));
+  // Any non-play phase except 2/3 clears to 0xFF.
+  EXPECT_EQ(0xFF, mentality::KickManKeep(7, 0, 4, true, true));
+  EXPECT_EQ(0xFF, mentality::KickManKeep(7, 0, 0, true, true));
+}
+
+// FUN_140A63020 (lane-leaves §4): carrier -> holder -> T+0x78, each gated by id and side.
+TEST(MentalityLaneKick, FallbackNeedsIdAndSideMatch) {
+  // Carrier valid and side-matched: the carrier wins.
+  EXPECT_EQ(3, mentality::KickManFallback(3, 0, 5, 1, 7, 1, 0));
+  // Carrier valid but other side: holder leg (side-matched) wins.
+  EXPECT_EQ(5, mentality::KickManFallback(3, 1, 5, 0, 7, 1, 0));
+  // Carrier and holder both off-side: the current T+0x78 leg (side-matched) wins.
+  EXPECT_EQ(7, mentality::KickManFallback(3, 1, 5, 1, 7, 0, 0));
+  // Nothing side-matched: 0xFF.
+  EXPECT_EQ(0xFF, mentality::KickManFallback(3, 1, 5, 1, 7, 1, 0));
+  // An out-of-range id (0x16+) never matches.
+  EXPECT_EQ(0xFF, mentality::KickManFallback(0x16, 0, 0x16, 0, 0x16, 0, 0));
+}
+
+// FUN_1404F0E50's ramp (holder-tree §4): FUN_1404F4AB0(a,b,c) clamps 0..1.
+TEST(MentalityLaneKick, RampClampsZeroToOne) {
+  EXPECT_FLOAT_EQ(0.0f, mentality::KickRamp(1.0f, 3.0f, 5.0f));
+  EXPECT_FLOAT_EQ(1.0f, mentality::KickRamp(6.0f, 3.0f, 5.0f));
+  EXPECT_FLOAT_EQ(0.5f, mentality::KickRamp(4.0f, 3.0f, 5.0f));
+}
 // The sort FUN_140A79640 (lane-leaves §1): ascending, stable; rank = index in the sorted order.
 TEST(MentalityLaneSort, AscendingStableWithRank) {
   std::array<uint8_t, 11> slots{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
