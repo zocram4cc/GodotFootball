@@ -1,3 +1,4 @@
+#pragma once
 // cond(code): canonical 2-letter x86 condition code (emitter maps every
 // Jcc/CMOVcc/SETcc mnemonic first: jna->be, jae->nc, jnge->l, ...).
 // Signedness is the opcode's: l/ge/le/g read SF/OF, a/be read CF/ZF,

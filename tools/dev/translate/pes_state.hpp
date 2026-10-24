@@ -68,6 +68,20 @@ struct PesState {
   uint64_t xmm[16][2] = {};
   bool zf = false, pf = false, cf = false, sf = false, of = false;
   PesMem mem;
+  // Emitted-code memory shorthands (forward to mem).
+  uint64_t rd(uint64_t a, unsigned n) const { return mem.rd(a, n); }
+  void wr(uint64_t a, uint64_t v, unsigned n) { mem.wr(a, v, n); }
+  float rdf(uint64_t a) const { return mem.rdf(a); }
+  void wrf(uint64_t a, float f) { mem.wrf(a, f); }
+  double rdd(uint64_t a) const { return mem.rdd(a); }
+  void wrd(uint64_t a, double d) { mem.wrd(a, d); }
+  unsigned __int128 rd128(uint64_t a) const {
+    return ((unsigned __int128)mem.rd(a + 8, 8) << 64) | mem.rd(a, 8);
+  }
+  void wr128(uint64_t a, unsigned __int128 v) {
+    mem.wr(a, (uint64_t)v, 8);
+    mem.wr(a + 8, (uint64_t)(v >> 64), 8);
+  }
   static float f32(uint32_t b) {
     float f;
     std::memcpy(&f, &b, 4);
