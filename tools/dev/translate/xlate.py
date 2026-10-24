@@ -940,9 +940,7 @@ class Emitter:
         if m == "CVTPS2PD":
             if s.startswith("xmm") and "[" not in s:
                 y = int(s[3:])
-                lo = ("(double)PesState::f32((uint32_t)s.xmm[%d][0]" % y)
-                hi = ("(double)PesState::f32((uint32_t)(s.xmm[%d][0] >> 32))"
-                      % y)
+                lo = ("(double)PesState::f32((uint32_t)s.xmm[%d][0])" % y)
             else:
                 inner = src[src.find("["):]
                 e = self.mem_val(inner, 64, None)
@@ -1127,9 +1125,9 @@ def capstone_decode(image_path, va):
         out.append((ins.address, ins.mnemonic.upper(),
                     split_ops(ins.op_str)))
         m = ins.mnemonic.lower()
-        if m in ("jmp", "jz", "jnz", "jc", "jnc", "ja", "jbe", "jl",
-                 "jge", "jle", "jg", "js", "jns", "jp", "jnp",
-                 "jo", "jno"):
+        # cc_of covers every Jcc alias (capstone prints JAE where the
+        # bridge prints JNC for opcode 0x73, etc.).
+        if m == "jmp" or cc_of(m) is not None:
             try:
                 t = int(ins.op_str.strip().split(",")[0].strip(), 16)
                 if t >= va:
