@@ -1,5 +1,7 @@
 # PES RE T12b — concept-row table: corrected layout, live reconciliation, port spec
 
+> **Correction (ConceptIndexRE, `pes-re-concept-index.md`):** the row labels 0x15-0x2D in the §3 table (and `rows_live.txt`) are each one low: the NULL arm 0x14 was conflated with true row 0x15 (+0x488), and true row 0x2E is missing. The suspected Chase/Press index mismatch with GF does not exist: GF's ids 0x21-0x25 bind PES's rows 0x21-0x25 exactly. True row 0x15 was never read live.
+
 Title: `FUN_140579E10` is a row-address selector over 46 inline concept objects, not 48 row pointers; the live capture read the wrong base (missing `[H+0x450]` deref). True rows re-read live: all 46 vtables + methods captured.
 
 ## §0 Script-read float/constant table (image `pes_full.bin`, offset = VA − 0x140000000; pasted tool output)
