@@ -33,6 +33,7 @@ def classify(va, uni, joins, hand):
         return "ported"
     if va in joins["diffed"]:
         return "diffed"
+    dec = joins["decode"].get(va, {}).get("verdict")
     if dec in ("CONFIRMED", "OBS", "DOC", "INF"):
         return "decoded"
     return "undecoded"
@@ -52,6 +53,7 @@ def main():
     joins = load("joins.json")
     hand = load("hand.json")
     hand_map = {vkey(e["va"]): e for e in hand["entries"]}
+    rows = []
     for va, f in uni["functions"].items():
         status = classify(va, uni, joins, hand_map)
         dec = joins["decode"].get(va, {})
@@ -128,6 +130,18 @@ def main():
                  % (r["va"], r["name"], r["status"], r["callers"],
                     r["size"], r["sub"]))
     L.append("")
+    L.append("Overspill-truncated bodies (bridge artifact, tail untrusted) "
+             "are excluded from the size ranking:")
+    L.append("")
+    big = sorted((r for r in gap if r["size"] < 20000),
+                 key=lambda r: -r["size"])
+    L.append("| VA | name | status | callers | size | sub |")
+    L.append("|---|---|---|---|---|---|")
+    for r in big[:10]:
+        L.append("| %s | %s | %s | %d | %d | %s |"
+                 % (r["va"], r["name"], r["status"], r["callers"],
+                    r["size"], r["sub"]))
+    L.append("")
     body = "\n".join(L) + "\n"
     stamp = hashlib.sha256(body.encode()).hexdigest()[:16]
     out = ("<!-- LEDGER-STAMP %s -->\n" % stamp) + body
@@ -138,14 +152,12 @@ def main():
         except OSError:
             print("LEDGER.md missing")
             return 1
-        m = _re.match(r"<!-- LEDGER-STAMP ([0-9a-f]+) -->\n", cur)
-        if not m or m.group(1) != stamp:
-            print("LEDGER.md stamp missing or stale (hand edit or stale "
-                  "copy): regenerate with tools/dev/ledger.py")
-            return 1
-        if _re.sub(r"<!--[^-]*-->\n", "", cur) != body:
-            print("LEDGER.md content differs from generated output "
-                  "(hand edit): regenerate with tools/dev/ledger.py")
+        m = _re.match(r"<!-- LEDGER-STAMP ([0-9a-f]+) -->\n(.*)$",
+                      cur, _re.S)
+        if not m or m.group(1) != stamp or m.group(2) != body:
+            print("LEDGER.md stamp missing/stale or content differs "
+                  "(hand edit or stale copy): regenerate with "
+                  "tools/dev/ledger.py")
             return 1
         old_rows = {}
         for line in cur.splitlines():
@@ -160,11 +172,18 @@ def main():
         if regressed:
             print("ledger regressed: %s" % ", ".join(regressed[:20]))
             return 1
-        offpath = sorted(set(joins["ports"]) - set(uni["functions"]))
-        if offpath:
-            print("src cites %d VAs outside the universe: %s"
-                  % (len(offpath), ", ".join("0x" + v for v in offpath[:20])))
+        funclist = set(joins.get("funclist") or [])
+        offpath = sorted(v for v in set(joins["ports"]) - set(uni["functions"])
+                         if v in funclist)
+        allowed = set(vkey(e["va"]) for e in
+                      (load("offpath_allow.json").get("entries", [])))
+        unknown = [v for v in offpath if v not in allowed]
+        if unknown:
+            print("src ports %d real function(s) outside the universe AND "
+                  "the allow list (off the match path, or typo'd VAs): %s"
+                  % (len(unknown), ", ".join("0x" + v for v in unknown[:20])))
             return 1
+        print("off-path ports: %d (all allow-listed)" % len(offpath))
         print("LEDGER.md current (%d rows)" % len(rows))
         return 0
     open(LEDGER_MD, "w").write(out)

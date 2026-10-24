@@ -17,26 +17,52 @@ BRIDGE = "http://127.0.0.1:8080"
 # (va, subsystem, doc cite). Cites live in docs/re/; VAs verified against the bridge.
 SEEDS = [
     (0x1404F6C30, "TeamTick", "pes-re-teamtick.md §2 (team tick, CONFIRMED)"),
-    (0x14041ECF0, "TeamTick", "pes-re-teamtick.md §2.1 (team-tick owner H, CONFIRMED)"),
+    (0x14041ECF0, "TeamTick", "pes-re-teamtick.md §2.1 (team-tick owner H slot 2, DATA 0x142597590)"),
+    (0x140925750, "Player", "UNRESOLVED in bridge (slot-2 thumb only, DATA 0x1426329b8); seed kept, crawler records the gap"),
     (0x140925470, "Player", "pes-re-teamtick.md §5 correction (player driver, CONFIRMED raw)"),
-    (0x1408BFCF0, "Player", "pes-re-teamtick.md §5 (wrapper callee, raw)"),
+    (0x1408BFCF0, "Player", "pes-re-a3helpers.md (per-player owner tick, called at 0x140925793)"),
+    (0x1408C48C0, "Player", "pes-re-contact.md (PvP contacts, per player per tick)"),
+    (0x1409F8030, "Player", "pes-re-dead-code.md §4.2 (action switch dispatcher)"),
+    (0x1406E5FC0, "Player", "pes-re-anim-select.md (AnimePlayer Exec, per-tick action virtual)"),
     (0x1421019D0, "Player", "pes-re-A4Carrier.md §11 (BallPlayer tick entry)"),
     (0x14092C9F0, "Player", "pes-re-ball-track.md §8 (carrier-sense, tick call L199)"),
     (0x140876360, "Ball", "pes-re-officials-ball.md §0.7 (ball integrator)"),
-    (0x140874470, "Ball", "pes-re-officials-ball.md §0.7 (flight model)"),
+    (0x140874470, "Ball", "pes-re-officials-ball.md §0.7 (acceleration fn)"),
     (0x140874860, "Ball", "pes-re-ball-track.md §8 (ball init/reset)"),
     (0x140873EE0, "Ball", "pes-re-ball-contact.md (ground/air integrator driver)"),
-    (0x1404A56C0, "Referee", "pes-re-A5Judge.md (judge tick, in-play programme step 0x3a)"),
+    (0x140425E20, "Ball", "pes-re-ball-collision.md (net in/out state)"),
+    (0x140424F70, "Ball", "pes-re-ball-collision.md (BallControl slot 4, DATA 0x1425988d0)"),
+    (0x1404A56C0, "Referee", "pes-re-A5Judge.md (judge tick, step 0x3a)"),
     (0x140A38A00, "Referee", "pes-re-officials-ball.md EV-SPC-0008 (referee chief, MODE 1)"),
     (0x140A38A70, "Referee", "pes-re-officials-ball.md EV-SPC-0008 (referee PK placement)"),
+    (0x140A38C40, "Referee", "pes-re-dead-code.md §4.3 (referee dispatcher, DATA 0x142642190)"),
     (0x14044C880, "Restart", "pes-re-foul-choreography.md (situation-sequencer runner)"),
     (0x140445E90, "Restart", "pes-re-foul-choreography.md (sequencer caller)"),
     (0x140422030, "Restart", "pes-re-restart-step.md (restart-step container, caller-traced)"),
+    (0x140423000, "Restart", "pes-re-A5Judge.md (event-driven record slot 3, DATA 0x142598570)"),
+    (0x140418940, "MatchTick", "pes-re-teamorder.md (listener registrar: MatchMain+MatchSub via FUN_14042fe20)"),
+    (0x14042FE20, "MatchTick", "pes-re-teamorder.md (listener builder, MatchMain then MatchSub)"),
+    (0x140433760, "MatchTick", "pes-re-teamorder.md (MatchSub listener, vtable 0x14259b1a8 slot 2)"),
+    (0x1404334E0, "MatchTick", "pes-re-teamorder.md (MatchSub path to team tick via FUN_140a8eff0)"),
+    (0x140A8EFF0, "MatchTick", "pes-re-teamorder.md (MatchSub to team-tick owner H)"),
+    (0x1407824A0, "Player", "pes-re-anim-select.md (action tick, MOVESTEP caller)"),
+    (0x140789DD0, "Player", "pes-re-anim-select.md (class-0x53 gate, MOVESTEP caller)"),
+    (0x1407D1E60, "Player", "pes-re-anim-select.md (velocity integrator, MOVESTEP caller)"),
+    (0x140791EC0, "Player", "pes-re-throwin-choreography.md (SeamlessThrowin phases)"),
+    (0x140792E10, "Player", "pes-re-restart-step.md (restart release phase)"),
+    (0x1409F8220, "Player", "pes-re-receiving.md (receive reaction entry 3, live-data-root)"),
+    (0x140A07E40, "Player", "pes-re-dodge-gates.md (dodge eligibility gate, ported)"),
+    (0x140A08340, "Player", "pes-re-dodge-port.md (POST_DODGE predicate)"),
+    (0x140A08EA0, "Player", "pes-re-run-targets.md (pass/shot block entry 8)"),
     (0x14042B9F0, "MatchTick", "pes-re-foundation-matchball.md §H2 (match tick, 10 steps, OBS)"),
 ]
 
 CALL = re.compile(r"CALL\s+0x([0-9a-fA-F]+)")
 ADDR = re.compile(r"^([0-9a-fA-F]+):")
+# Bridge artifact guard: the boundary walk can run past a jump table into
+# unrelated code (match-tick step 8 FUN_140426A80 reads 1.4M lines). Past
+# this many lines the tail is untrusted: stop and record it as overspill.
+MAX_LINES = 20000
 
 
 def get(path, tries=3):
@@ -90,6 +116,9 @@ def main():
                                   "path": ([parent] if parent else [])}
             continue
         lines = txt.splitlines()
+        overspill = len(lines) > MAX_LINES
+        if overspill:
+            lines = lines[:MAX_LINES]
         addrs = [int(m.group(1), 16) for m in map(ADDR.match, lines) if m]
         lo, hi = (min(addrs), max(addrs)) if addrs else (va, va)
         callees, indirect = {}, []
@@ -115,7 +144,8 @@ def main():
                       "path": (funcs[parent]["path"] + [parent]
                                if parent and parent in funcs and "path" in funcs[parent]
                                else ([parent] if parent else [])) + [key],
-                      "callees": callees, "indirect": indirect}
+                      "callees": callees, "indirect": indirect,
+                      "overspill": overspill or None}
         for t in callees:
             queue.append((int(t, 16), sub, key))
 

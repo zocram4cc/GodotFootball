@@ -16,7 +16,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(
 DOCS = os.path.join(REPO, "docs", "re")
 SRC = os.path.join(REPO, "src")
 
-VA = r"(?:0x|FUN_|sub_)140([0-9a-fA-F]{5,8})"
+VA = r"(?:(?<=0x)|(?<=FUN_)|(?<=sub_))140([0-9A-Fa-f]{6})(?![0-9A-Fa-f])"
 VERDICT = re.compile(r"\*\*(CONFIRMED|INF|DOC|OBS|OPEN)\b(\s*\([hml]\))?")
 
 
@@ -29,7 +29,7 @@ def doc_verdicts():
     rank = {"CONFIRMED": 3, "OBS": 3, "DOC": 3, "INF": 2, "OPEN": 1}
     out = {}
     for fn in sorted(os.listdir(DOCS)):
-        if not fn.endswith(".md"):
+        if not fn.endswith(".md") or fn == "LEDGER.md":
             continue
         text = open(os.path.join(DOCS, fn), encoding="utf-8",
                      errors="replace").read()
@@ -111,14 +111,21 @@ def main():
         spec = json.load(open(sys.argv[sys.argv.index("--diff") + 1]))
         for va, src in spec.items():
             diff_vas[va] = src
+    funclist = set()
+    if "--funclist" in sys.argv:
+        txt = open(sys.argv[sys.argv.index("--funclist") + 1],
+                   encoding="utf-8", errors="replace").read()
+        for m in re.finditer(r"FUN_[0-9a-fA-F]+ at ([0-9a-fA-F]+)", txt):
+            funclist.add(m.group(1).upper())
     joins = {"decode": doc_verdicts(), "ports": src_sites(),
-             "standins": ponytails(), "diffed": diff_vas}
+             "standins": ponytails(), "diffed": diff_vas,
+             "funclist": sorted(funclist)}
     out = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "joins.json")
     json.dump(joins, open(out, "w"), indent=1, sort_keys=True)
-    print("wrote %s: decode=%d ports=%d standins=%d diffed=%d"
+    print("wrote %s: decode=%d ports=%d standins=%d diffed=%d funclist=%d"
           % (out, len(joins["decode"]), len(joins["ports"]),
-             len(joins["standins"]), len(joins["diffed"])))
+             len(joins["standins"]), len(joins["diffed"]), len(funclist)))
 
 
 if __name__ == "__main__":
