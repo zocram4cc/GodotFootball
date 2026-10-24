@@ -115,8 +115,8 @@ def main():
     if "--funclist" in sys.argv:
         txt = open(sys.argv[sys.argv.index("--funclist") + 1],
                    encoding="utf-8", errors="replace").read()
-        for m in re.finditer(r"FUN_[0-9a-fA-F]+ at ([0-9a-fA-F]+)", txt):
-            funclist.add(m.group(1).upper())
+        for m in re.finditer(r"^(?!\s)(.+?) at ([0-9a-fA-F]+)$", txt, re.M):
+            funclist.add(m.group(2).upper())
     joins = {"decode": doc_verdicts(), "ports": src_sites(),
              "standins": ponytails(), "diffed": diff_vas,
              "funclist": sorted(funclist)}
