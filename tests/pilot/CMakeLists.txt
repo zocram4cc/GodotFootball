@@ -11,3 +11,12 @@ add_test(NAME diff_pilot_recorded
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --out-dir '${CMAKE_BINARY_DIR}/pilot-check'")
 set_tests_properties(diff_pilot_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 2400)
+
+# Image check: the user's dump must be the image the pilot specs were authored
+# against. verify_image.py hashes the stable sections (image_hashes.json) and
+# fails naming any section that differs. Skips (77) without PES_EXE, and the
+# gate counts a skipped diff test as red when PES_EXE is set.
+add_test(NAME diff_image_verify
+  COMMAND bash -c "[ -n \"$PES_EXE\" ] && [ -f \"$PES_EXE\" ] || exit 77; \
+python3 '${CMAKE_SOURCE_DIR}/tools/pes21_import/verify_image.py' --image \"$PES_EXE\"")
+set_tests_properties(diff_image_verify PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600)

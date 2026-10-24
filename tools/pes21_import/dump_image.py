@@ -58,7 +58,7 @@ def image_end(mem):
     coff = read_mem(mem, BASE + e_lfanew, 24)
     if coff is None or coff[:4] != b"PE\0\0":
         raise SystemExit("dump_image: no PE signature at %#x" % (BASE + e_lfanew))
-    count = struct.unpack_from("<H", coff, 4)[0]
+    count = struct.unpack_from("<H", coff, 6)[0]
     optsz = struct.unpack_from("<H", coff, 20)[0]
     oh = read_mem(mem, BASE + e_lfanew + 24, 32)
     size_of_image = struct.unpack_from("<I", oh, 28)[0] if oh and len(oh) == 32 else 0
