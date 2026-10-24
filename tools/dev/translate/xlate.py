@@ -718,7 +718,7 @@ class Emitter:
             return ["{ uint64_t _v = s.rd(s.gpr[4], 8); s.gpr[4] += 8; %s }"
                     % self.mem_store(v[v.find("["):], "_v", 64, None)]
         return [reg_write(v, "s.rd(s.gpr[4], 8)").rstrip(";") +
-                " s.gpr[4] += 8;"]
+                "; s.gpr[4] += 8;"]
 
     # ---- SSE scalar (lane 0; upper lanes preserved) ----
     def emit_sse(self, mnem, ops):
@@ -1150,10 +1150,10 @@ def resolve_rip(lines, image_path, va):
     md = Cs(CS_ARCH_X86, CS_MODE_64)
     md.detail = True
     sizes = {}
+    # Full window (no early stop): every rip-relative insn needs its size,
+    # including ones past an early RET that capstone_decode keeps.
     for ins in md.disasm(bytes(code), va):
         sizes[ins.address] = ins.size
-        if ins.mnemonic == "ret":
-            break
     fixed = []
     for addr, mnem, ops in lines:
         size = sizes.get(addr, 0)
