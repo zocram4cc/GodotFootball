@@ -479,7 +479,7 @@ class Emitter:
                            % (w - 1))
                 out.append("  s.cf = (_r < (_a & %sULL)) || "
                            "(_c && _r == (_a & %sULL));" % (mm, mm))
-                out.append("  s.of = (((_a ^ ~_b) & (_a ^ _r)) >> %d) & 1; }"
+                out.append("  s.of = (((_a ^ ~_b) & (_a ^ _r)) >> %d) & 1;"
                            % (w - 1))
             else:
                 out.append("{ uint64_t _a = (uint64_t)(%s), _b = "
@@ -489,7 +489,7 @@ class Emitter:
                            % (w - 1))
                 out.append("  s.cf = ((_a & %sULL) < "
                            "(((_b + _c)) & %sULL));" % (mm, mm))
-                out.append("  s.of = (((_a ^ _b) & (_a ^ _r)) >> %d) & 1; }"
+                out.append("  s.of = (((_a ^ _b) & (_a ^ _r)) >> %d) & 1;"
                            % (w - 1))
         elif len(ops) > 1:
             b = self.val_of(ops[1], w)
@@ -1161,12 +1161,14 @@ def resolve_rip(lines, image_path, va):
         for op in ops:
             lo = op.lower()
             if "rip" in lo:
-                m = re.search(r"rip\s*\+\s*(-?0x[0-9a-f]+|-?\d+)", lo)
+                m = re.search(r"rip\s*([+-])\s*(0x[0-9a-f]+|\d+)", lo)
                 if m and size:
-                    disp = int(m.group(1), 16) if "0x" in m.group(1) \
-                        else int(m.group(1))
+                    sign = -1 if m.group(1) == "-" else 1
+                    mag = m.group(2)
+                    disp = sign * (int(mag, 16) if "0x" in mag
+                                   else int(mag))
                     tgt = addr + size + disp
-                    op = re.sub(r"\[rip\s*\+\s*[^]]+\]",
+                    op = re.sub(r"\[rip\s*[+-]\s*[^]]+\]",
                                 "[0x%X]" % tgt, op, flags=re.I)
                     op = re.sub(r"\brip\b", "0x%X" % (addr + size), op,
                                 flags=re.I)
@@ -1203,22 +1205,25 @@ def prepass(lines, img):
     for addr, mnem, ops in lines:
         if mnem.upper() != "JMP" or not ops or is_imm(ops[0].strip()):
             continue
-        r = ops[0].strip().lower()
+        r = PARENT.get(ops[0].strip().lower(),
+                       ops[0].strip().lower())
         i = pos[addr]
         base = None
         tdisp = None
         count = None
         default = None
+        same = lambda o: PARENT.get(o.strip().lower(),
+                                   o.strip().lower()) == r
         for j in range(i - 1, max(-1, i - 12), -1):
             mn2, ops2 = byaddr[order[j]]
             if mn2.upper() == "ADD" and len(ops2) == 2 and \
-                    ops2[0].strip().lower() == r:
+                    same(ops2[0]):
                 base = ops2[1].strip().lower()
                 break
         for j in range(i - 1, max(-1, i - 12), -1):
             mn2, ops2 = byaddr[order[j]]
             if mn2.upper() == "MOV" and len(ops2) == 2 and \
-                    ops2[0].strip().lower() == r and "[" in ops2[1]:
+                    same(ops2[0]) and "[" in ops2[1]:
                 inner = ops2[1][ops2[1].find("[") + 1:ops2[1].rfind("]")]
                 mp = parse_mem(inner)
                 if mp and mp["scale"] == 4 and mp["index"] is not None:
@@ -1229,7 +1234,7 @@ def prepass(lines, img):
             mn2, ops2 = byaddr[order[j]]
             if mn2.upper() == "LEA" and len(ops2) == 2 and \
                     base is not None and \
-                    ops2[0].strip().lower() == base and "[" in ops2[1]:
+                    same(ops2[0]) and "[" in ops2[1]:
                 inner = ops2[1][ops2[1].find("[") + 1:ops2[1].rfind("]")]
                 mp = parse_mem(inner)
                 if mp and mp["absolute"] is not None:
