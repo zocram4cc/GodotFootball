@@ -227,3 +227,9 @@ func _build_stadium() -> void:
 		add_child(ground)
 		return
 	add_child(stadium)
+	# PES's turf3d fin cover over the ground rect (pes3DDF_Turf3D2020): the
+	# install's turf3dtexlodu4 tile on the kept placer slots. Absent only
+	# when the install lacks the mesh or the exe grid.
+	var fins: Node3D = PesModelBuilder.new().build_turf_fins(library, stadium_id)
+	if fins != null:
+		add_child(fins)

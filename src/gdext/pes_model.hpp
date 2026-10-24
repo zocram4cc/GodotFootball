@@ -21,6 +21,11 @@ class PesModelBuilder : public RefCounted {
   // snow) picks the weather-only layers. Null when the install has no such
   // stadium.
   Node3D* build_stadium(const Ref<PesLibrary>& library, int stadium_id, int weather) const;
+  // PES's turf3d fin cover (docs/render/pes-render-TurfPlacer.md 6.1): the
+  // install's turf3dtexlodu4 tile instanced over the kept placer slots of
+  // the ground rect, drawn with pes3DDF_Turf3D2020 (pes_turf.gdshader).
+  // Null when the install lacks the mesh, the exe grid, or the stadium.
+  Node3D* build_turf_fins(const Ref<PesLibrary>& library, int stadium_id) const;
 
  protected:
   static void _bind_methods();

@@ -2,7 +2,10 @@
 
 #include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/image.hpp>
+#include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
+#include <godot_cpp/classes/multi_mesh.hpp>
+#include <godot_cpp/classes/multi_mesh_instance3d.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/classes/shader_material.hpp>
@@ -10,6 +13,7 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
+#include <cstdio>
 #include <string_view>
 #include <unordered_map>
 
@@ -19,6 +23,7 @@
 #include "pes/fpk.hpp"
 #include "pes/pack_rules.hpp"
 #include "pes/stadium.hpp"
+#include "pes/turffin.hpp"
 
 namespace godot {
 namespace {
@@ -30,6 +35,7 @@ constexpr const char* CONSTANT_BLEND_SHADER = "res://shaders/pes_constant_blend.
 constexpr const char* PITCH_SHADER = "res://shaders/pes_pitch.gdshader";
 constexpr const char* GGX_DECAL_SHADER = "res://shaders/pes_ggx_decal.gdshader";
 constexpr const char* BLIN_DECAL_SHADER = "res://shaders/pes_blin_decal.gdshader";
+constexpr const char* TURF_SHADER = "res://shaders/pes_turf.gdshader";
 constexpr const char* BASE_ROLE = "Base_Tex_SRGB";
 constexpr int NO_FACE = 0;  // static models have no face folder to fall back on
 
@@ -161,6 +167,7 @@ Node3D* MeshMembers(StaticBuild& build, const pes::FpkArchive& fpk, std::span<co
 void PesModelBuilder::_bind_methods() {
   ClassDB::bind_method(D_METHOD("build_model", "library", "fpk_path", "member"), &PesModelBuilder::build_model);
   ClassDB::bind_method(D_METHOD("build_stadium", "library", "stadium_id", "weather"), &PesModelBuilder::build_stadium);
+  ClassDB::bind_method(D_METHOD("build_turf_fins", "library", "stadium_id"), &PesModelBuilder::build_turf_fins);
 }
 
 Node3D* PesModelBuilder::build_model(const Ref<PesLibrary>& library, const String& fpk_path, const String& member) const {
@@ -238,6 +245,143 @@ Node3D* PesModelBuilder::build_stadium(const Ref<PesLibrary>& library, int stadi
     placed->set_meta("pes_rotation_y", q.get_euler(EULER_ORDER_YXZ).y);
     root->add_child(placed);
   }
+  return root;
+}
+
+Node3D* PesModelBuilder::build_turf_fins(const Ref<PesLibrary>& library, int stadium_id) const {
+  if (library.is_null()) return nullptr;
+  const pes::PesVfs& vfs = library->vfs();
+  std::string err;
+  // The grid geometry from the install's turf init path (turffin.cpp).
+  auto exe = pes::PeImage::Open(vfs.Root() + "/PES2021.exe", &err);
+  if (!exe) {
+    UtilityFunctions::push_error("PES turf grid unreadable: ", ToGd(err));
+    return nullptr;
+  }
+  auto grid = pes::TurfGridGeometry(*exe, &err);
+  if (!grid) {
+    UtilityFunctions::push_error("PES turf grid unreadable: ", ToGd(err));
+    return nullptr;
+  }
+  auto affine = pes::TurfMaskAffine(*exe, &err);
+  if (!affine) {
+    UtilityFunctions::push_error("PES turf mask affine unreadable: ", ToGd(err));
+    return nullptr;
+  }
+  // The fin tile: mesh0 of the install's turf3dtexlodu4.fmdl.
+  auto blob = vfs.Read(pes::kTurfFinMeshPath, &err);
+  if (!blob) {
+    UtilityFunctions::push_error("PES fin mesh not found: ", ToGd(err));
+    return nullptr;
+  }
+  auto fmdl = pes::ParseFmdl(*blob, &err);
+  if (!fmdl || fmdl->meshes.empty() || fmdl->meshes[0].indices.empty()) {
+    UtilityFunctions::push_error("PES fin mesh unreadable: ", ToGd(err));
+    return nullptr;
+  }
+  // PES binds the technique's textures by Fox StrCode32 role hash
+  // (TurfPlacerRE 1.1); the fmdl's proxy roles do not apply. Winner per
+  // slot follows TurfMask 6.3: stadium first, common fallback.
+  char folder[16];
+  snprintf(folder, sizeof folder, "st%03d", stadium_id);
+  const std::string st = "Asset/model/bg/" + std::string(folder) + "/sourceimages/tga/#windx11/";
+  const std::string common = "Asset/model/bg/common/pitch/sourceimages/#windx11/";
+  const std::string commonTurf = "Asset/model/bg/common/turf3d/sourceimages/#windx11/";
+  auto pick = [&](const std::string& a, const std::string& b) {
+    if (!a.empty() && vfs.Exists(a)) return a;
+    return b;
+  };
+  const std::pair<const char*, std::string> binds[] = {
+      {"Base_Tex_SRGB", pick(st + "pitch_alp.ftex", common + "pitch_alp.ftex")},
+      {"Grass_MaskMap_Tex_LIN", std::string()},  // ponytail: the runtime ground mask (TurfMask 1.4 OPEN)
+      {"NormalMap_Tex_NRM", pick(st + "turf_grain_alp.ftex", common + "pitch_grain_alp.ftex")},
+      {"SpecularMap_Tex_LIN", pick(st + "turf_srm_alp.ftex", common + "grass_slopetable_alp.ftex")},
+      {"Grass_DetailDiffuseMap_Tex_SRGB",
+       pick(st + "turf_bsm_alp_rgba32.ftex", common + "turf_bsm_alp_rgba32.ftex")},
+      {"Grass_PlanarShadow_Tex_LIN", std::string()},  // ponytail: the runtime shadow target (TurfPlacer 1.4 OPEN)
+      {"Grass_DetailNormalMap_Tex_NRM", pick(st + "turf_nrm.ftex", common + "turf_nrm.ftex")},
+      {"Grass_DiffuseMap_Tex_SRGB", pick(st + "grassfin_bsm_alp.ftex", commonTurf + "grassfin_bsm_alp.ftex")},
+  };
+  Ref<ShaderMaterial> mat;
+  mat.instantiate();
+  mat->set_shader(ResourceLoader::get_singleton()->load(TURF_SHADER));
+  // The two runtime globals (mask t1, planar shadow t5) are GPU-side and
+  // OPEN; Godot's default_black is (0,0,0,1) but the VS reads .w, so the
+  // honest no-input stub is an explicit zero texel (mask alpha 0 opens the
+  // height gate, VS asm 66-70; shadow sum 0 is unshadowed, VS asm 99).
+  Ref<Image> zero = Image::create(1, 1, false, Image::FORMAT_RGBA8);
+  zero->fill(Color(0, 0, 0, 0));
+  Ref<ImageTexture> zeroTex = ImageTexture::create_from_image(zero);
+  for (const auto& [role, path] : binds) {
+    if (path.empty()) {
+      mat->set_shader_parameter(String::utf8(role), zeroTex);
+      continue;
+    }
+    if (!vfs.Exists(path)) continue;
+    std::string terr;
+    Ref<Texture> tex = LoadPesTexture(vfs, path, &terr);
+    if (tex.is_null()) {
+      UtilityFunctions::push_warning("PES turf texture unreadable: ", ToGd(path), " (", ToGd(terr), ")");
+      continue;
+    }
+    mat->set_shader_parameter(String::utf8(role), tex);
+  }
+  mat->set_shader_parameter("PitchOffset", Vector4(affine->x, affine->y, affine->z, affine->w));
+  Ref<ArrayMesh> am;
+  am.instantiate();
+  am->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, FmdlSurfaceArrays(fmdl->meshes[0]));
+  am->surface_set_material(0, mat);
+  Ref<MultiMesh> mm;
+  mm.instantiate();
+  mm->set_transform_format(MultiMesh::TRANSFORM_3D);
+  mm->set_mesh(am);
+  // One instance per kept placer slot (TurfPlacerRE 3.1): (idx-u)*0.5 over
+  // the ground rect. Variant yaw: PES's per-patch pick (3.4) is live state;
+  // GF replays the pick cadence as a yaw so neighbouring tiles vary.
+  // ponytail: variant content is OPEN; yaw stands in for the entry bytes.
+  std::vector<Transform3D> kept;
+  kept.reserve(size_t(grid->countX) * size_t(grid->countZ));
+  const int ux = (grid->countX - 1) / 2, uz = (grid->countZ - 1) / 2;
+  for (int iz = 0; iz < grid->countZ; ++iz)
+    for (int ix = 0; ix < grid->countX; ++ix) {
+      const size_t i = size_t(iz) * size_t(grid->countX) + ix;
+      if (!grid->kept[i]) continue;
+      const float yaw = float(grid->variant[i] % 4) * 1.5707963f;
+      kept.emplace_back(Basis(Vector3(0, 1, 0), yaw),
+                        Vector3(float(ix - ux) * grid->stepM, 0.0f, float(iz - uz) * grid->stepM));
+    }
+  mm->set_instance_count(int(kept.size()));
+  // One set_buffer upload: per-instance set_instance_transform does not stick
+  // from the extension (readback is identity). TRANSFORM_3D packs 12 floats
+  // per instance (basis rows x/y/z, then the origin).
+  PackedFloat32Array buf;
+  buf.resize(int(kept.size()) * 12);
+  for (int i = 0; i < int(kept.size()); ++i) {
+    const Transform3D& t = kept[size_t(i)];
+    float* b = buf.ptrw() + i * 12;
+    b[0] = t.basis[0][0];
+    b[1] = t.basis[0][1];
+    b[2] = t.basis[0][2];
+    b[3] = t.origin.x;
+    b[4] = t.basis[1][0];
+    b[5] = t.basis[1][1];
+    b[6] = t.basis[1][2];
+    b[7] = t.origin.y;
+    b[8] = t.basis[2][0];
+    b[9] = t.basis[2][1];
+    b[10] = t.basis[2][2];
+    b[11] = t.origin.z;
+  }
+  mm->set_buffer(buf);
+  MultiMeshInstance3D* mmi = memnew(MultiMeshInstance3D);
+  mmi->set_multimesh(mm);
+  // The tile AABB covers one slot; the instances span the ground rect, so
+  // the cull bounds are the rect (half-extents + tile margin, y to 1 m).
+  mmi->set_custom_aabb(AABB(Vector3(-grid->widthM / 2 - 1.0f, -1.0f, -grid->heightM / 2 - 1.0f),
+                             Vector3(grid->widthM + 2.0f, 2.0f, grid->heightM + 2.0f)));
+  Node3D* root = memnew(Node3D);
+  root->set_name("TurfFins");
+  root->add_child(mmi);
   return root;
 }
 

@@ -79,6 +79,23 @@ func _initialize() -> void:
 		# pitch_scratch is fox3DDC_Blin (fox3ddf_blin_decal). Both are decals, not opaque Blin.
 		check(shaders.has("res://shaders/pes_ggx_decal.gdshader"), "lines draw as the GGX decal (%s)" % str(shaders.keys()))
 		check(shaders.has("res://shaders/pes_blin_decal.gdshader"), "pitch_scratch draws as the Blin decal (%s)" % str(shaders.keys()))
+	# The turf3d fin cover (TurfPlacer 6.1): one MultiMeshInstance3D per kept
+	# placer slot over the play rect, drawn with pes3DDF_Turf3D2020.
+	var fins: Node3D = builder.build_turf_fins(library, 2)
+	check(fins != null, "turf fins build")
+	if fins != null:
+		var mmis := fins.find_children("*", "MultiMeshInstance3D", true, false)
+		check(mmis.size() == 1, "the fins are one multimesh (%d)" % mmis.size())
+		if mmis.size() == 1:
+			var mm: MultiMesh = mmis[0].multimesh
+			check(mm != null, "the multimesh exists")
+			if mm != null:
+				check(mm.instance_count > 20000 and mm.instance_count < 44679, "kept slots instanced (%d)" % mm.instance_count)
+				var mat := (mm.mesh as ArrayMesh).surface_get_material(0) if mm.mesh is ArrayMesh else null
+				check(mat is ShaderMaterial, "the fin mesh carries a shader material")
+				if mat is ShaderMaterial:
+					check((mat as ShaderMaterial).shader.resource_path == "res://shaders/pes_turf.gdshader", "fins draw with pes3DDF_Turf3D2020")
+					check((mat as ShaderMaterial).get_shader_parameter("Grass_DiffuseMap_Tex_SRGB") != null, "fins read grassfin")
 
 	check(builder.build_model(library, "Asset/model/none/#Win/none.fpk", "") == null, "a missing pack builds nothing")
 	quit(1 if failures > 0 else 0)
