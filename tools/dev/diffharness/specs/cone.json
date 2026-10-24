@@ -1,0 +1,1639 @@
+{
+  "name": "cone",
+  "va": "0x140A53DF0",
+  "note": "FUN_140A53DF0 inner cone test (provenance: DiffHarnessRE specs/cone.json). CAND/HOLD are 16-byte pos structs (x@+0, z@+8, ground plane); RDX=holder, R8=candidate, XMM3=head-deg, stack coneDeg=90.0, outerLen=12.0, innerWord (0x0 default; T7a's quirk 0x00000001~=1.4e-45). No stubs -- bearing/atan2/polynomial run real. Observable: EAX cone_hit.",
+  "entry": "0x140A53DF0",
+  "end": "0x140A53E96",
+  "stack": {
+    "base": "0x10000000",
+    "size": "0x20000"
+  },
+  "reg_defaults": {
+    "rbx": "0x0",
+    "rbp": "stack_top"
+  },
+  "regions": {
+    "cand": {
+      "base": "0x20000000",
+      "size": "0x1000"
+    },
+    "holder": {
+      "base": "0x20001000",
+      "size": "0x1000"
+    }
+  },
+  "args": {
+    "rcx": "cand",
+    "rdx": "holder",
+    "r8": "cand"
+  },
+  "inputs": {
+    "cand_x": {
+      "region": "cand",
+      "offset": "0x0",
+      "enc": "f32"
+    },
+    "cand_z": {
+      "region": "cand",
+      "offset": "0x8",
+      "enc": "f32"
+    },
+    "hold_x": {
+      "region": "holder",
+      "offset": "0x0",
+      "enc": "f32"
+    },
+    "hold_z": {
+      "region": "holder",
+      "offset": "0x8",
+      "enc": "f32"
+    },
+    "headbits": {
+      "reg": "xmm3",
+      "enc": "f32"
+    },
+    "innerbits": {
+      "stack_offset": "0x30",
+      "enc": "f32",
+      "note": "[RSP+0x80] after push+sub"
+    },
+    "cone": {
+      "stack_offset": "0x20",
+      "enc": "f32",
+      "note": "[RSP+0x70] after push+sub"
+    },
+    "outer": {
+      "stack_offset": "0x28",
+      "enc": "f32",
+      "note": "[RSP+0x78] after push+sub"
+    }
+  },
+  "input_schema": {
+    "cand_x": {
+      "kind": "f32",
+      "lo": -15.0,
+      "hi": 15.0
+    },
+    "cand_z": {
+      "kind": "f32",
+      "lo": -15.0,
+      "hi": 15.0
+    },
+    "hold_x": {
+      "kind": "f32",
+      "lo": -30.0,
+      "hi": 30.0
+    },
+    "hold_z": {
+      "kind": "f32",
+      "lo": -30.0,
+      "hi": 30.0
+    },
+    "headbits": {
+      "kind": "choice",
+      "values": [
+        {
+          "bits": "0xC3340000"
+        },
+        {
+          "bits": "0xC2B40000"
+        },
+        {
+          "bits": "0xC2340000"
+        },
+        {
+          "bits": "0x00000000"
+        },
+        {
+          "bits": "0x42340000"
+        },
+        {
+          "bits": "0x42B40000"
+        },
+        {
+          "bits": "0x43070000"
+        },
+        {
+          "bits": "0x43340000"
+        }
+      ]
+    },
+    "innerbits": {
+      "kind": "choice",
+      "values": [
+        {
+          "bits": "0x00000000"
+        },
+        {
+          "bits": "0x00000001"
+        }
+      ]
+    }
+  },
+  "fixed_cases": [
+    {
+      "name": "ahead-zneg",
+      "cand_x": {
+        "bits": "0x00000000"
+      },
+      "cand_z": {
+        "bits": "0xC1200000"
+      },
+      "hold_x": {
+        "bits": "0x00000000"
+      },
+      "hold_z": {
+        "bits": "0x00000000"
+      },
+      "headbits": {
+        "bits": "0x00000000"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "behind-zpos",
+      "cand_x": {
+        "bits": "0x00000000"
+      },
+      "cand_z": {
+        "bits": "0x41200000"
+      },
+      "hold_x": {
+        "bits": "0x00000000"
+      },
+      "hold_z": {
+        "bits": "0x00000000"
+      },
+      "headbits": {
+        "bits": "0x00000000"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "outer-edge-touch",
+      "cand_x": {
+        "bits": "0x00000000"
+      },
+      "cand_z": {
+        "bits": "0xC1400000"
+      },
+      "hold_x": {
+        "bits": "0x00000000"
+      },
+      "hold_z": {
+        "bits": "0x00000000"
+      },
+      "headbits": {
+        "bits": "0x00000000"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "outer-just-inside",
+      "cand_x": {
+        "bits": "0x00000000"
+      },
+      "cand_z": {
+        "bits": "0xC13FFBE7"
+      },
+      "hold_x": {
+        "bits": "0x00000000"
+      },
+      "hold_z": {
+        "bits": "0x00000000"
+      },
+      "headbits": {
+        "bits": "0x00000000"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "inner-just-inside",
+      "cand_x": {
+        "bits": "0x00000000"
+      },
+      "cand_z": {
+        "bits": "0xBF800347"
+      },
+      "hold_x": {
+        "bits": "0x00000000"
+      },
+      "hold_z": {
+        "bits": "0x00000000"
+      },
+      "headbits": {
+        "bits": "0x00000000"
+      },
+      "innerbits": {
+        "bits": "0x00000001"
+      }
+    },
+    {
+      "name": "half-angle-edge",
+      "cand_x": {
+        "bits": "0xC107C28F"
+      },
+      "cand_z": {
+        "bits": "0xC107C28F"
+      },
+      "hold_x": {
+        "bits": "0x00000000"
+      },
+      "hold_z": {
+        "bits": "0x00000000"
+      },
+      "headbits": {
+        "bits": "0x00000000"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "half-angle-inside",
+      "cand_x": {
+        "bits": "0xC1090000"
+      },
+      "cand_z": {
+        "bits": "0xC1090000"
+      },
+      "hold_x": {
+        "bits": "0x00000000"
+      },
+      "hold_z": {
+        "bits": "0x00000000"
+      },
+      "headbits": {
+        "bits": "0x00000000"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "head-180-flips",
+      "cand_x": {
+        "bits": "0x00000000"
+      },
+      "cand_z": {
+        "bits": "0xC1200000"
+      },
+      "hold_x": {
+        "bits": "0x00000000"
+      },
+      "hold_z": {
+        "bits": "0x00000000"
+      },
+      "headbits": {
+        "bits": "0x43340000"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "zero-inner-coin",
+      "cand_x": {
+        "bits": "0x00000000"
+      },
+      "cand_z": {
+        "bits": "0xC1200000"
+      },
+      "hold_x": {
+        "bits": "0x00000000"
+      },
+      "hold_z": {
+        "bits": "0x00000000"
+      },
+      "headbits": {
+        "bits": "0x00000000"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "bearing-wrap",
+      "cand_x": {
+        "bits": "0x41200000"
+      },
+      "cand_z": {
+        "bits": "0x41200000"
+      },
+      "hold_x": {
+        "bits": "0x00000000"
+      },
+      "hold_z": {
+        "bits": "0x00000000"
+      },
+      "headbits": {
+        "bits": "0x43B40000"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-0",
+      "cand_x": {
+        "bits": "0x414F5490"
+      },
+      "cand_z": {
+        "bits": "0x41C70043"
+      },
+      "hold_x": {
+        "bits": "0x40E0E961"
+      },
+      "hold_z": {
+        "bits": "0x41BB443A"
+      },
+      "headbits": {
+        "bits": "0x42983620"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-1",
+      "cand_x": {
+        "bits": "0xC0EBFCFF"
+      },
+      "cand_z": {
+        "bits": "0xC098F371"
+      },
+      "hold_x": {
+        "bits": "0xC105B8F6"
+      },
+      "hold_z": {
+        "bits": "0xC02E2CA7"
+      },
+      "headbits": {
+        "bits": "0xC0B0EFF6"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-2",
+      "cand_x": {
+        "bits": "0x41F69887"
+      },
+      "cand_z": {
+        "bits": "0xC13B66CA"
+      },
+      "hold_x": {
+        "bits": "0x41E538C1"
+      },
+      "hold_z": {
+        "bits": "0xC115FD08"
+      },
+      "headbits": {
+        "bits": "0xC22B8A4C"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-3",
+      "cand_x": {
+        "bits": "0xC1CE16FE"
+      },
+      "cand_z": {
+        "bits": "0xC112D88A"
+      },
+      "hold_x": {
+        "bits": "0xC19EC426"
+      },
+      "hold_z": {
+        "bits": "0xC1062C20"
+      },
+      "headbits": {
+        "bits": "0x42CCBF24"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-4",
+      "cand_x": {
+        "bits": "0xC1039D8E"
+      },
+      "cand_z": {
+        "bits": "0x41CC8170"
+      },
+      "hold_x": {
+        "bits": "0xC10ED8D0"
+      },
+      "hold_z": {
+        "bits": "0x417EBCA2"
+      },
+      "headbits": {
+        "bits": "0xC2E7AC15"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-5",
+      "cand_x": {
+        "bits": "0x41D3F026"
+      },
+      "cand_z": {
+        "bits": "0xC1F3ED19"
+      },
+      "hold_x": {
+        "bits": "0x41E758A8"
+      },
+      "hold_z": {
+        "bits": "0xC1D58F1A"
+      },
+      "headbits": {
+        "bits": "0xC3136AA6"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-6",
+      "cand_x": {
+        "bits": "0xBF8A5B79"
+      },
+      "cand_z": {
+        "bits": "0xC08B2427"
+      },
+      "hold_x": {
+        "bits": "0xC0A7D1D3"
+      },
+      "hold_z": {
+        "bits": "0xC0689B2A"
+      },
+      "headbits": {
+        "bits": "0xC2A08BC3"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-7",
+      "cand_x": {
+        "bits": "0xC0D15993"
+      },
+      "cand_z": {
+        "bits": "0x41AE2E75"
+      },
+      "hold_x": {
+        "bits": "0xC049FEA8"
+      },
+      "hold_z": {
+        "bits": "0x419BF78B"
+      },
+      "headbits": {
+        "bits": "0x4319EAE4"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-8",
+      "cand_x": {
+        "bits": "0x41953643"
+      },
+      "cand_z": {
+        "bits": "0xC201E8E4"
+      },
+      "hold_x": {
+        "bits": "0x41BCD86F"
+      },
+      "hold_z": {
+        "bits": "0xC1C9E463"
+      },
+      "headbits": {
+        "bits": "0x420984C9"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-9",
+      "cand_x": {
+        "bits": "0x41172CAA"
+      },
+      "cand_z": {
+        "bits": "0x41CAF80D"
+      },
+      "hold_x": {
+        "bits": "0x41830252"
+      },
+      "hold_z": {
+        "bits": "0x41C88A6E"
+      },
+      "headbits": {
+        "bits": "0x42B90474"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-10",
+      "cand_x": {
+        "bits": "0xC185B5E1"
+      },
+      "cand_z": {
+        "bits": "0xC1C60DE2"
+      },
+      "hold_x": {
+        "bits": "0xC0DE088B"
+      },
+      "hold_z": {
+        "bits": "0xC1AC2FAF"
+      },
+      "headbits": {
+        "bits": "0xC2D89B52"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-11",
+      "cand_x": {
+        "bits": "0xC15E6E07"
+      },
+      "cand_z": {
+        "bits": "0xC10BC1D8"
+      },
+      "hold_x": {
+        "bits": "0xC123DD3C"
+      },
+      "hold_z": {
+        "bits": "0xC1013A96"
+      },
+      "headbits": {
+        "bits": "0x4329CF0D"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-12",
+      "cand_x": {
+        "bits": "0x41B4A30A"
+      },
+      "cand_z": {
+        "bits": "0xC192E893"
+      },
+      "hold_x": {
+        "bits": "0x41D1760C"
+      },
+      "hold_z": {
+        "bits": "0xC19CB3B2"
+      },
+      "headbits": {
+        "bits": "0x4328C412"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-13",
+      "cand_x": {
+        "bits": "0xC1BEE270"
+      },
+      "cand_z": {
+        "bits": "0xC1377B7A"
+      },
+      "hold_x": {
+        "bits": "0xC1D04FA0"
+      },
+      "hold_z": {
+        "bits": "0xC0EAD127"
+      },
+      "headbits": {
+        "bits": "0x4200C183"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-14",
+      "cand_x": {
+        "bits": "0xC1A0D462"
+      },
+      "cand_z": {
+        "bits": "0xBF51CA52"
+      },
+      "hold_x": {
+        "bits": "0xC182204E"
+      },
+      "hold_z": {
+        "bits": "0xC017AA68"
+      },
+      "headbits": {
+        "bits": "0x430DFEE0"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-15",
+      "cand_x": {
+        "bits": "0x41544B9D"
+      },
+      "cand_z": {
+        "bits": "0x41DBF9CB"
+      },
+      "hold_x": {
+        "bits": "0x41807356"
+      },
+      "hold_z": {
+        "bits": "0x41AF76B6"
+      },
+      "headbits": {
+        "bits": "0x432D6302"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-16",
+      "cand_x": {
+        "bits": "0x418A54E9"
+      },
+      "cand_z": {
+        "bits": "0x401559A9"
+      },
+      "hold_x": {
+        "bits": "0x41A19188"
+      },
+      "hold_z": {
+        "bits": "0x406BF1C6"
+      },
+      "headbits": {
+        "bits": "0x431B05D2"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-17",
+      "cand_x": {
+        "bits": "0xC10A4208"
+      },
+      "cand_z": {
+        "bits": "0xC0EB7737"
+      },
+      "hold_x": {
+        "bits": "0xC12AFA6C"
+      },
+      "hold_z": {
+        "bits": "0xC0AB2AF2"
+      },
+      "headbits": {
+        "bits": "0xC17812D3"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-18",
+      "cand_x": {
+        "bits": "0x41FBD5C9"
+      },
+      "cand_z": {
+        "bits": "0xC1D3F415"
+      },
+      "hold_x": {
+        "bits": "0x41BF5E52"
+      },
+      "hold_z": {
+        "bits": "0xC1C8FAC1"
+      },
+      "headbits": {
+        "bits": "0xC206DAA0"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-19",
+      "cand_x": {
+        "bits": "0xC138122D"
+      },
+      "cand_z": {
+        "bits": "0x416D5F73"
+      },
+      "hold_x": {
+        "bits": "0xC1661D7E"
+      },
+      "hold_z": {
+        "bits": "0x4139EACE"
+      },
+      "headbits": {
+        "bits": "0xC2B85A82"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-20",
+      "cand_x": {
+        "bits": "0x412BBEAD"
+      },
+      "cand_z": {
+        "bits": "0xC1E30C3A"
+      },
+      "hold_x": {
+        "bits": "0x40B7E60B"
+      },
+      "hold_z": {
+        "bits": "0xC1A4134E"
+      },
+      "headbits": {
+        "bits": "0x415A4841"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-21",
+      "cand_x": {
+        "bits": "0xC19A93E9"
+      },
+      "cand_z": {
+        "bits": "0x40F64D6F"
+      },
+      "hold_x": {
+        "bits": "0xC1C54914"
+      },
+      "hold_z": {
+        "bits": "0x41090543"
+      },
+      "headbits": {
+        "bits": "0xC2A18DE0"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-22",
+      "cand_x": {
+        "bits": "0x4165B00B"
+      },
+      "cand_z": {
+        "bits": "0x4027BD2B"
+      },
+      "hold_x": {
+        "bits": "0x41733FAE"
+      },
+      "hold_z": {
+        "bits": "0xC083A2A5"
+      },
+      "headbits": {
+        "bits": "0xC2FE58AD"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-23",
+      "cand_x": {
+        "bits": "0x40D1062C"
+      },
+      "cand_z": {
+        "bits": "0xC1CD2CAF"
+      },
+      "hold_x": {
+        "bits": "0x41191CED"
+      },
+      "hold_z": {
+        "bits": "0xC18766E2"
+      },
+      "headbits": {
+        "bits": "0x427CCF18"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-24",
+      "cand_x": {
+        "bits": "0xC094C65D"
+      },
+      "cand_z": {
+        "bits": "0x410E47E6"
+      },
+      "hold_x": {
+        "bits": "0xC0A4A7B0"
+      },
+      "hold_z": {
+        "bits": "0x417657BF"
+      },
+      "headbits": {
+        "bits": "0xC08BA02A"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-25",
+      "cand_x": {
+        "bits": "0xC0E87237"
+      },
+      "cand_z": {
+        "bits": "0xC1A313BB"
+      },
+      "hold_x": {
+        "bits": "0xC11CA747"
+      },
+      "hold_z": {
+        "bits": "0xC1C96DD0"
+      },
+      "headbits": {
+        "bits": "0xC31834D7"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-26",
+      "cand_x": {
+        "bits": "0x40F037DE"
+      },
+      "cand_z": {
+        "bits": "0xC1D08B80"
+      },
+      "hold_x": {
+        "bits": "0x410F3012"
+      },
+      "hold_z": {
+        "bits": "0xC1DEB6B3"
+      },
+      "headbits": {
+        "bits": "0x430CD704"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-27",
+      "cand_x": {
+        "bits": "0x409C853A"
+      },
+      "cand_z": {
+        "bits": "0x40395CEB"
+      },
+      "hold_x": {
+        "bits": "0x411F0552"
+      },
+      "hold_z": {
+        "bits": "0xBFBEAF56"
+      },
+      "headbits": {
+        "bits": "0x430CFD21"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-28",
+      "cand_x": {
+        "bits": "0xBF8B3B08"
+      },
+      "cand_z": {
+        "bits": "0xC1544EA6"
+      },
+      "hold_x": {
+        "bits": "0xC0B97F5D"
+      },
+      "hold_z": {
+        "bits": "0xC0AAD34F"
+      },
+      "headbits": {
+        "bits": "0xC1F599EF"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-29",
+      "cand_x": {
+        "bits": "0xC020B78A"
+      },
+      "cand_z": {
+        "bits": "0x41DE2CA3"
+      },
+      "hold_x": {
+        "bits": "0xC0ADCF0B"
+      },
+      "hold_z": {
+        "bits": "0x41C8E3FF"
+      },
+      "headbits": {
+        "bits": "0xC3045589"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-30",
+      "cand_x": {
+        "bits": "0xC097D8EA"
+      },
+      "cand_z": {
+        "bits": "0xC117F414"
+      },
+      "hold_x": {
+        "bits": "0xC0B47951"
+      },
+      "hold_z": {
+        "bits": "0xC1497D15"
+      },
+      "headbits": {
+        "bits": "0xC2EFC438"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-31",
+      "cand_x": {
+        "bits": "0xC137D9E7"
+      },
+      "cand_z": {
+        "bits": "0xC1A5EF60"
+      },
+      "hold_x": {
+        "bits": "0xC18BDB98"
+      },
+      "hold_z": {
+        "bits": "0xC1B62C33"
+      },
+      "headbits": {
+        "bits": "0xC2D96DC8"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-32",
+      "cand_x": {
+        "bits": "0xC05CB462"
+      },
+      "cand_z": {
+        "bits": "0x419DA9B0"
+      },
+      "hold_x": {
+        "bits": "0x3EB93188"
+      },
+      "hold_z": {
+        "bits": "0x41BC0027"
+      },
+      "headbits": {
+        "bits": "0x42D24572"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-33",
+      "cand_x": {
+        "bits": "0x418BE2D1"
+      },
+      "cand_z": {
+        "bits": "0xC0314603"
+      },
+      "hold_x": {
+        "bits": "0x41022879"
+      },
+      "hold_z": {
+        "bits": "0xC033EAF3"
+      },
+      "headbits": {
+        "bits": "0xBE819E24"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-34",
+      "cand_x": {
+        "bits": "0x41F13FCB"
+      },
+      "cand_z": {
+        "bits": "0xC19D0E62"
+      },
+      "hold_x": {
+        "bits": "0x41D69945"
+      },
+      "hold_z": {
+        "bits": "0xC1B14BD6"
+      },
+      "headbits": {
+        "bits": "0xC2D66E3D"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-35",
+      "cand_x": {
+        "bits": "0x3FFC1352"
+      },
+      "cand_z": {
+        "bits": "0x3EE926D3"
+      },
+      "hold_x": {
+        "bits": "0x402D0E51"
+      },
+      "hold_z": {
+        "bits": "0xC0F7BF84"
+      },
+      "headbits": {
+        "bits": "0xC3251F04"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-36",
+      "cand_x": {
+        "bits": "0xC1AF1D9A"
+      },
+      "cand_z": {
+        "bits": "0xC169A60A"
+      },
+      "hold_x": {
+        "bits": "0xC19CB577"
+      },
+      "hold_z": {
+        "bits": "0xC1530FC2"
+      },
+      "headbits": {
+        "bits": "0x4288EFFD"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-37",
+      "cand_x": {
+        "bits": "0x41D464F3"
+      },
+      "cand_z": {
+        "bits": "0xC00E02BD"
+      },
+      "hold_x": {
+        "bits": "0x41B1FACF"
+      },
+      "hold_z": {
+        "bits": "0xC0BAA3DC"
+      },
+      "headbits": {
+        "bits": "0xC30207D8"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-38",
+      "cand_x": {
+        "bits": "0xC1C48A0F"
+      },
+      "cand_z": {
+        "bits": "0x41BBCCB9"
+      },
+      "hold_x": {
+        "bits": "0xC1BC92F6"
+      },
+      "hold_z": {
+        "bits": "0x41AC2B90"
+      },
+      "headbits": {
+        "bits": "0xC313012F"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-39",
+      "cand_x": {
+        "bits": "0x4004CEE1"
+      },
+      "cand_z": {
+        "bits": "0x41064F84"
+      },
+      "hold_x": {
+        "bits": "0x40B09D82"
+      },
+      "hold_z": {
+        "bits": "0x41784002"
+      },
+      "headbits": {
+        "bits": "0x42E79ED8"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-40",
+      "cand_x": {
+        "bits": "0x416DAB85"
+      },
+      "cand_z": {
+        "bits": "0x413B208C"
+      },
+      "hold_x": {
+        "bits": "0x41ACB63B"
+      },
+      "hold_z": {
+        "bits": "0x41739931"
+      },
+      "headbits": {
+        "bits": "0x42D4AF18"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-41",
+      "cand_x": {
+        "bits": "0x41D2EA2B"
+      },
+      "cand_z": {
+        "bits": "0x41FDC0EA"
+      },
+      "hold_x": {
+        "bits": "0x418E9F3B"
+      },
+      "hold_z": {
+        "bits": "0x41CBC4AE"
+      },
+      "headbits": {
+        "bits": "0xC2E8671F"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-42",
+      "cand_x": {
+        "bits": "0xC1AEE0BB"
+      },
+      "cand_z": {
+        "bits": "0xC13F557B"
+      },
+      "hold_x": {
+        "bits": "0xC1D01232"
+      },
+      "hold_z": {
+        "bits": "0xC1244A67"
+      },
+      "headbits": {
+        "bits": "0xC287ABFD"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-43",
+      "cand_x": {
+        "bits": "0xC205194C"
+      },
+      "cand_z": {
+        "bits": "0xC10F01C5"
+      },
+      "hold_x": {
+        "bits": "0xC1E6958A"
+      },
+      "hold_z": {
+        "bits": "0xC16AE47A"
+      },
+      "headbits": {
+        "bits": "0xC2FF9047"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-44",
+      "cand_x": {
+        "bits": "0x41D82F28"
+      },
+      "cand_z": {
+        "bits": "0x400FAE0B"
+      },
+      "hold_x": {
+        "bits": "0x41D47F96"
+      },
+      "hold_z": {
+        "bits": "0xC0BBC03C"
+      },
+      "headbits": {
+        "bits": "0xC2AD7FB4"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-45",
+      "cand_x": {
+        "bits": "0xC10A7090"
+      },
+      "cand_z": {
+        "bits": "0x413DBEA7"
+      },
+      "hold_x": {
+        "bits": "0xC0CE8DB3"
+      },
+      "hold_z": {
+        "bits": "0x411B97CA"
+      },
+      "headbits": {
+        "bits": "0x43062A0D"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-46",
+      "cand_x": {
+        "bits": "0xC1C135B3"
+      },
+      "cand_z": {
+        "bits": "0x41B5A5EF"
+      },
+      "hold_x": {
+        "bits": "0xC1C5C6FC"
+      },
+      "hold_z": {
+        "bits": "0x41D651F0"
+      },
+      "headbits": {
+        "bits": "0x42182AA3"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-47",
+      "cand_x": {
+        "bits": "0x41F50799"
+      },
+      "cand_z": {
+        "bits": "0xC1950040"
+      },
+      "hold_x": {
+        "bits": "0x41CD5854"
+      },
+      "hold_z": {
+        "bits": "0xC1A0C20D"
+      },
+      "headbits": {
+        "bits": "0xC2AD014C"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-48",
+      "cand_x": {
+        "bits": "0xC046E02C"
+      },
+      "cand_z": {
+        "bits": "0xC1757EE5"
+      },
+      "hold_x": {
+        "bits": "0xBE9CFF0B"
+      },
+      "hold_z": {
+        "bits": "0xC19BC31E"
+      },
+      "headbits": {
+        "bits": "0xC3282A0A"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-49",
+      "cand_x": {
+        "bits": "0xC08A8421"
+      },
+      "cand_z": {
+        "bits": "0xC19E5552"
+      },
+      "hold_x": {
+        "bits": "0xBF523FC4"
+      },
+      "hold_z": {
+        "bits": "0xC18D1C63"
+      },
+      "headbits": {
+        "bits": "0x4288EABF"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-50",
+      "cand_x": {
+        "bits": "0x41DA064F"
+      },
+      "cand_z": {
+        "bits": "0xC180918F"
+      },
+      "hold_x": {
+        "bits": "0x41A6B002"
+      },
+      "hold_z": {
+        "bits": "0xC0EBC887"
+      },
+      "headbits": {
+        "bits": "0xC0CCEA7D"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-51",
+      "cand_x": {
+        "bits": "0xBF8A78F3"
+      },
+      "cand_z": {
+        "bits": "0x41B721FE"
+      },
+      "hold_x": {
+        "bits": "0x3FDB7131"
+      },
+      "hold_z": {
+        "bits": "0x41AA0BAE"
+      },
+      "headbits": {
+        "bits": "0x430C5450"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-52",
+      "cand_x": {
+        "bits": "0xC17E107F"
+      },
+      "cand_z": {
+        "bits": "0xC17E59B6"
+      },
+      "hold_x": {
+        "bits": "0xC120BA07"
+      },
+      "hold_z": {
+        "bits": "0xC11D7CA9"
+      },
+      "headbits": {
+        "bits": "0x42B3E047"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-53",
+      "cand_x": {
+        "bits": "0x418282C7"
+      },
+      "cand_z": {
+        "bits": "0x41A56BE4"
+      },
+      "hold_x": {
+        "bits": "0x41BC1735"
+      },
+      "hold_z": {
+        "bits": "0x41941DFA"
+      },
+      "headbits": {
+        "bits": "0x42E97439"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-54",
+      "cand_x": {
+        "bits": "0xC2007CEC"
+      },
+      "cand_z": {
+        "bits": "0xBEE87F4B"
+      },
+      "hold_x": {
+        "bits": "0xC1EF9D0D"
+      },
+      "hold_z": {
+        "bits": "0xC0F4FA35"
+      },
+      "headbits": {
+        "bits": "0xC316C573"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-55",
+      "cand_x": {
+        "bits": "0xC0A3D546"
+      },
+      "cand_z": {
+        "bits": "0xC1A9624A"
+      },
+      "hold_x": {
+        "bits": "0xC169F64A"
+      },
+      "hold_z": {
+        "bits": "0xC1A2F203"
+      },
+      "headbits": {
+        "bits": "0x409AE95F"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-56",
+      "cand_x": {
+        "bits": "0xC1AEEE71"
+      },
+      "cand_z": {
+        "bits": "0xC1285EFC"
+      },
+      "hold_x": {
+        "bits": "0xC15A53F4"
+      },
+      "hold_z": {
+        "bits": "0xC1317754"
+      },
+      "headbits": {
+        "bits": "0xC3300B66"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-57",
+      "cand_x": {
+        "bits": "0xC1C5247F"
+      },
+      "cand_z": {
+        "bits": "0x419546B1"
+      },
+      "hold_x": {
+        "bits": "0xC1E1298B"
+      },
+      "hold_z": {
+        "bits": "0x41929E20"
+      },
+      "headbits": {
+        "bits": "0xC296D6FE"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-58",
+      "cand_x": {
+        "bits": "0x41D04A8E"
+      },
+      "cand_z": {
+        "bits": "0x41EA2577"
+      },
+      "hold_x": {
+        "bits": "0x41C38432"
+      },
+      "hold_z": {
+        "bits": "0x41D05C88"
+      },
+      "headbits": {
+        "bits": "0xC305A4F6"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    },
+    {
+      "name": "aimed-59",
+      "cand_x": {
+        "bits": "0x41F3D292"
+      },
+      "cand_z": {
+        "bits": "0x41035827"
+      },
+      "hold_x": {
+        "bits": "0x41ACD5A4"
+      },
+      "hold_z": {
+        "bits": "0x406C42BE"
+      },
+      "headbits": {
+        "bits": "0xC263EBE9"
+      },
+      "innerbits": {
+        "bits": "0x00000000"
+      }
+    }
+  ],
+  "outputs": {
+    "cone_hit": {
+      "reg": "eax"
+    }
+  },
+  "stubs": {},
+  "constants": {
+    "half": {
+      "va": "0x142565600"
+    },
+    "two_pi": {
+      "va": "0x1425795E4"
+    },
+    "deg": {
+      "va": "0x14259BE40"
+    }
+  },
+  "probe": {
+    "va": "0x140A53DF0",
+    "bytes": "40534883ec40"
+  },
+  "post_fill": {
+    "cone": {
+      "bits": "0x42B40000"
+    },
+    "outer": {
+      "bits": "0x41400000"
+    }
+  },
+  "seed": 53,
+  "count": 410,
+  "labels": [
+    "name"
+  ]
+}

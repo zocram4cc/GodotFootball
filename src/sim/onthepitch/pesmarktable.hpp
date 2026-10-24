@@ -81,6 +81,18 @@ struct Facts {
   std::array<Candidate, kSlots> candidates{};
 };
 
+// The cone test (FUN_140A53DA0 -> FUN_140A53DF0): strict annulus on the outer radius
+// (inner is 0.0: T7a's stack slot holds 0x00000001 ~= 1.4e-45), then |wrap180(live - headArg)|
+// < 0.5 * coneDeg where live is the bearing from the candidate to the holder (FUN_140439EF0).
+// candPos/holderPos are ground-plane (x, z); headArg is P[cand][holder].
+bool ConePasses(float candX, float candZ, float holderX, float holderZ, float headArg,
+                const Constants& k);
+
+// The count gate (FUN_140A4EAF0 -> FUN_140A4E7C0): counts the holder-side mates within
+// 12 m of the holder whose bearing-from-holder agrees with u = P[cand][holder] to within
+// 32.0 (64.0 / 2.0). T7a commits iff count <= (cone != 0).
+int CountGate(float holderX, float holderZ, float u, const Facts& facts, const Constants& k);
+
 // Step 35 (FUN_1404F61E0): zero the mask, gate on tgt/holder, walk the 11 candidates, commit
 // mark[id % 11] = 1 up to three. Pure; the caller's Facts carry the open predicates.
 void BuildMarkTable(MarkState* state, const Facts& facts, const Constants& k);

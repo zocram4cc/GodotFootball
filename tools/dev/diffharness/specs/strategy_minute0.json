@@ -1,0 +1,928 @@
+{
+  "name": "strategy",
+  "va": "0x14051E970",
+  "note": "FUN_14051E970 full step, entered directly (provenance: DiffHarnessRE specs/strategy.json). The ticket's FUN_14051E910 is the thin gate; E970 is the harnessed step, with the MI+0x116C==1 entry check inside. STRAT: side/mode/strat3-6 + slot-2 GameRandom rng2@+0x28. P2: +0x18->MA, +0xE0->sheet chain (via DEREF->L11T). MA byte at MA+mode+side*8+0x25FF4 (R9 already holds [P2+0x18], no second +0x18). Strengths: G+own_off / G+chal_off (0xC404 / 0xC404+0x2804 per side). Sheet column comes from the R8 register residue (arm1 loop R8D=2; arms 2/3/4 see entry r8_entry, corpus 0; actual keys logged in getters_seen). Real: FUN_14051E5B0 score helper + CRT/mutex wrappers as noop. Stubbed: sheet getter (keyed blk,idx,col), maskbit, team-word fetch, support counts, clock/minute, GameRandom 0x140A924E0 computed in Python (LCG + float32 path, logged to draws). side is 0|1 only (side=2 reads [0+4]; PES never passes 2; reader FUN_1408E16D0 refuses side>2 to 0). RNG draws happen iff minute==0 && mi1168<2 && strat5>0 (spec notes).",
+  "entry": "0x14051E970",
+  "stack": {
+    "base": "0x10000000",
+    "size": "0x20000"
+  },
+  "regions": {
+    "STRAT": {
+      "base": "0x20000000",
+      "size": "0x1000"
+    },
+    "L11T": {
+      "base": "0x20002000",
+      "size": "0x1000"
+    },
+    "DEREF": {
+      "base": "0x20003000",
+      "size": "0x1000"
+    },
+    "P2": {
+      "base": "0x20004000",
+      "size": "0x1000"
+    },
+    "MI": {
+      "base": "0x20006000",
+      "size": "0x2000"
+    },
+    "GROOT": {
+      "base": "0x20008000",
+      "size": "0x3000"
+    },
+    "G": {
+      "base": "0x2000B000",
+      "size": "0x20000"
+    },
+    "GOBJ": {
+      "base": "0x2002B000",
+      "size": "0x10000"
+    },
+    "MA": {
+      "base": "0x2003B000",
+      "size": "0x30000"
+    }
+  },
+  "patch_addrs": {
+    "0x1436F3DC8": "GROOT"
+  },
+  "args": {
+    "rcx": "STRAT",
+    "rdx": "P2",
+    "r8": "0x0"
+  },
+  "inputs": {
+    "side": {
+      "region": "STRAT",
+      "offset": "0x0",
+      "enc": "u32"
+    },
+    "mode": {
+      "region": "STRAT",
+      "offset": "0x4",
+      "enc": "u32"
+    },
+    "strat3_in": {
+      "region": "STRAT",
+      "offset": "0xC",
+      "enc": "u32"
+    },
+    "strat4": {
+      "region": "STRAT",
+      "offset": "0x10",
+      "enc": "u32"
+    },
+    "strat5": {
+      "region": "STRAT",
+      "offset": "0x14",
+      "enc": "u32"
+    },
+    "strat6": {
+      "region": "STRAT",
+      "offset": "0x18",
+      "enc": "u32"
+    },
+    "rng2": {
+      "region": "STRAT",
+      "offset": "0x30",
+      "enc": "u32",
+      "note": "slot-2 GameRandom state: obj=RDI+0x20, *(obj+8+4*2)=STRAT+0x30; the decider passes stream 2 in R8D (0x14051EB01: MOV R8D,ESI)"
+    },
+    "r8_entry": {
+      "reg": "r8",
+      "enc": "u32"
+    },
+    "mi116c": {
+      "region": "MI",
+      "offset": "0x116C",
+      "enc": "u32"
+    },
+    "mi1168": {
+      "region": "MI",
+      "offset": "0x1168",
+      "enc": "u32"
+    },
+    "minute": {
+      "stub": "minute"
+    },
+    "clock_base": {
+      "stub": "clock"
+    },
+    "maskbit": {
+      "stub": "maskbit"
+    },
+    "sup0": {
+      "stub": "sup0"
+    },
+    "sup1": {
+      "stub": "sup1"
+    },
+    "teamw0": {
+      "stub": "teamw0"
+    },
+    "teamw1": {
+      "stub": "teamw1"
+    },
+    "ma_fill": {
+      "absfill": [
+        "MA",
+        "ma_off",
+        "u8"
+      ]
+    },
+    "ma_off": {
+      "input": true
+    },
+    "own_float": {
+      "absfill": [
+        "G",
+        "own_off",
+        "f32"
+      ]
+    },
+    "own_off": {
+      "input": true
+    },
+    "chal_float": {
+      "absfill": [
+        "G",
+        "chal_off",
+        "f32"
+      ]
+    },
+    "chal_off": {
+      "input": true
+    },
+    "sheet": {
+      "stub": "sheet"
+    }
+  },
+  "input_schema": {
+    "side": {
+      "kind": "choice",
+      "values": [
+        0,
+        1
+      ]
+    },
+    "mode": {
+      "kind": "choice",
+      "values": [
+        0
+      ]
+    },
+    "strat3_in": {
+      "kind": "choice",
+      "values": [
+        2
+      ]
+    },
+    "strat4": {
+      "kind": "choice",
+      "values": [
+        0
+      ]
+    },
+    "strat5": {
+      "kind": "choice",
+      "values": [
+        0
+      ]
+    },
+    "strat6": {
+      "kind": "choice",
+      "values": [
+        0
+      ]
+    },
+    "rng2": {
+      "kind": "i32",
+      "lo": 1,
+      "hi": 2000000000
+    },
+    "r8_entry": {
+      "kind": "choice",
+      "values": [
+        0
+      ]
+    },
+    "mi116c": {
+      "kind": "choice",
+      "values": [
+        0,
+        2,
+        3
+      ]
+    },
+    "mi1168": {
+      "kind": "choice",
+      "values": [
+        0,
+        1
+      ]
+    },
+    "minute": {
+      "kind": "choice",
+      "values": [
+        0
+      ]
+    },
+    "clock_base": {
+      "kind": "choice",
+      "values": [
+        100.0
+      ]
+    },
+    "maskbit": {
+      "kind": "choice",
+      "values": [
+        4
+      ]
+    },
+    "sup0": {
+      "kind": "choice",
+      "values": [
+        3
+      ]
+    },
+    "sup1": {
+      "kind": "choice",
+      "values": [
+        4
+      ]
+    },
+    "teamw0": {
+      "kind": "choice",
+      "values": [
+        1
+      ]
+    },
+    "teamw1": {
+      "kind": "choice",
+      "values": [
+        2
+      ]
+    },
+    "ma_fill": {
+      "kind": "choice",
+      "values": [
+        0
+      ]
+    },
+    "ma_off": {
+      "kind": "choice",
+      "values": [
+        155638
+      ]
+    },
+    "own_float": {
+      "kind": "f32",
+      "lo": 60.0,
+      "hi": 90.0
+    },
+    "own_off": {
+      "kind": "choice",
+      "values": [
+        50180,
+        60424
+      ]
+    },
+    "chal_float": {
+      "kind": "f32",
+      "lo": 60.0,
+      "hi": 90.0
+    },
+    "chal_off": {
+      "kind": "choice",
+      "values": [
+        50180,
+        60424
+      ]
+    },
+    "sheet": {
+      "kind": "choice",
+      "values": [
+        {}
+      ]
+    }
+  },
+  "fixed_cases": [
+    {
+      "side": 0,
+      "mode": 0,
+      "strat3_in": 2,
+      "strat4": 0,
+      "strat5": 0,
+      "strat6": 0,
+      "rng2": 12345,
+      "r8_entry": 0,
+      "mi116c": 3,
+      "mi1168": 0,
+      "minute": 0,
+      "clock_base": 100.0,
+      "maskbit": 4,
+      "sup0": 3,
+      "sup1": 4,
+      "teamw0": 1,
+      "teamw1": 2,
+      "ma_fill": 0,
+      "ma_off": 155638,
+      "own_float": {
+        "bits": "0x42A60000",
+        "f": 83.0
+      },
+      "own_off": 50180,
+      "chal_float": {
+        "bits": "0x42A60000",
+        "f": 83.0
+      },
+      "chal_off": 60424,
+      "sheet": {}
+    },
+    {
+      "name": "re-r16",
+      "side": 0,
+      "mode": 0,
+      "strat3_in": 0,
+      "strat4": 0,
+      "strat5": 5,
+      "strat6": 32,
+      "rng2": 1,
+      "r8_entry": 0,
+      "mi116c": 0,
+      "mi1168": 1,
+      "minute": 0,
+      "clock_base": 100.0,
+      "maskbit": 4,
+      "sup0": 7,
+      "sup1": 0,
+      "teamw0": 2,
+      "teamw1": 2,
+      "ma_fill": 0,
+      "ma_off": 155638,
+      "own_float": {
+        "bits": "0x41ED81BD"
+      },
+      "own_off": 50180,
+      "chal_float": {
+        "bits": "0x41B91F7C"
+      },
+      "chal_off": 60424,
+      "sheet": {
+        "0,5,0": 4,
+        "1,5,0": 8,
+        "0,0,2": 7,
+        "1,0,2": 9,
+        "0,1,2": 8,
+        "1,1,2": 3,
+        "0,2,2": 5,
+        "1,2,2": 3,
+        "0,3,2": 8,
+        "1,3,2": 6,
+        "0,4,2": 0,
+        "1,4,2": 6,
+        "0,5,2": 9,
+        "1,5,2": 7,
+        "0,0,0": 10,
+        "1,0,0": 2,
+        "0,1,0": 8,
+        "1,1,0": 11,
+        "0,2,0": 9,
+        "1,2,0": 11,
+        "0,3,0": 4,
+        "1,3,0": 11,
+        "0,4,0": 7,
+        "1,4,0": 8
+      }
+    },
+    {
+      "name": "re-r129",
+      "side": 0,
+      "mode": 0,
+      "strat3_in": 0,
+      "strat4": 5,
+      "strat5": 100,
+      "strat6": 11,
+      "rng2": 2147483647,
+      "r8_entry": 0,
+      "mi116c": 0,
+      "mi1168": 0,
+      "minute": 0,
+      "clock_base": 100.0,
+      "maskbit": 5,
+      "sup0": 3,
+      "sup1": 9,
+      "teamw0": 1,
+      "teamw1": 0,
+      "ma_fill": 0,
+      "ma_off": 155638,
+      "own_float": {
+        "bits": "0xBF484E9B"
+      },
+      "own_off": 50180,
+      "chal_float": {
+        "bits": "0x41AD9F15"
+      },
+      "chal_off": 60424,
+      "sheet": {
+        "0,5,0": 6,
+        "1,5,0": 5,
+        "0,0,2": 4,
+        "1,0,2": 5,
+        "0,1,2": 1,
+        "1,1,2": 1,
+        "0,2,2": 10,
+        "1,2,2": 2,
+        "0,3,2": 10,
+        "1,3,2": 8,
+        "0,4,2": 9,
+        "1,4,2": 11,
+        "0,5,2": 3,
+        "1,5,2": 7,
+        "0,0,0": 4,
+        "1,0,0": 8,
+        "0,1,0": 7,
+        "1,1,0": 4,
+        "0,2,0": 1,
+        "1,2,0": 4,
+        "0,3,0": 2,
+        "1,3,0": 0,
+        "0,4,0": 6,
+        "1,4,0": 11
+      }
+    },
+    {
+      "name": "re-r146",
+      "side": 1,
+      "mode": 0,
+      "strat3_in": 4,
+      "strat4": 5,
+      "strat5": 10,
+      "strat6": 39,
+      "rng2": 1,
+      "r8_entry": 0,
+      "mi116c": 0,
+      "mi1168": 0,
+      "minute": 0,
+      "clock_base": 100.0,
+      "maskbit": 5,
+      "sup0": 1,
+      "sup1": 1,
+      "teamw0": 1,
+      "teamw1": 0,
+      "ma_fill": 1,
+      "ma_off": 155646,
+      "own_float": {
+        "bits": "0xC11069DA"
+      },
+      "own_off": 60424,
+      "chal_float": {
+        "bits": "0x41832ECA"
+      },
+      "chal_off": 50180,
+      "sheet": {
+        "0,5,0": 7,
+        "1,5,0": 3,
+        "0,0,2": 4,
+        "1,0,2": 10,
+        "0,1,2": 8,
+        "1,1,2": 6,
+        "0,2,2": 8,
+        "1,2,2": 0,
+        "0,3,2": 3,
+        "1,3,2": 11,
+        "0,4,2": 8,
+        "1,4,2": 8,
+        "0,5,2": 1,
+        "1,5,2": 9,
+        "0,0,0": 5,
+        "1,0,0": 10,
+        "0,1,0": 10,
+        "1,1,0": 4,
+        "0,2,0": 4,
+        "1,2,0": 0,
+        "0,3,0": 6,
+        "1,3,0": 7,
+        "0,4,0": 0,
+        "1,4,0": 2
+      }
+    },
+    {
+      "name": "re-r155",
+      "side": 0,
+      "mode": 0,
+      "strat3_in": 3,
+      "strat4": 4,
+      "strat5": 5,
+      "strat6": 4,
+      "rng2": 2147483647,
+      "r8_entry": 0,
+      "mi116c": 0,
+      "mi1168": 1,
+      "minute": 0,
+      "clock_base": 100.0,
+      "maskbit": 5,
+      "sup0": 7,
+      "sup1": 6,
+      "teamw0": 2,
+      "teamw1": 2,
+      "ma_fill": 0,
+      "ma_off": 155638,
+      "own_float": {
+        "bits": "0x41045196"
+      },
+      "own_off": 50180,
+      "chal_float": {
+        "bits": "0xC1E1BA51"
+      },
+      "chal_off": 60424,
+      "sheet": {
+        "0,5,0": 2,
+        "1,5,0": 4,
+        "0,0,2": 3,
+        "1,0,2": 8,
+        "0,1,2": 4,
+        "1,1,2": 10,
+        "0,2,2": 1,
+        "1,2,2": 9,
+        "0,3,2": 2,
+        "1,3,2": 5,
+        "0,4,2": 3,
+        "1,4,2": 2,
+        "0,5,2": 9,
+        "1,5,2": 3,
+        "0,0,0": 6,
+        "1,0,0": 10,
+        "0,1,0": 10,
+        "1,1,0": 2,
+        "0,2,0": 1,
+        "1,2,0": 7,
+        "0,3,0": 11,
+        "1,3,0": 3,
+        "0,4,0": 7,
+        "1,4,0": 8
+      }
+    },
+    {
+      "name": "re-r190",
+      "side": 0,
+      "mode": 0,
+      "strat3_in": 4,
+      "strat4": 1,
+      "strat5": 40,
+      "strat6": 23,
+      "rng2": 0,
+      "r8_entry": 0,
+      "mi116c": 0,
+      "mi1168": 1,
+      "minute": 0,
+      "clock_base": 100.0,
+      "maskbit": 4,
+      "sup0": 6,
+      "sup1": 6,
+      "teamw0": 1,
+      "teamw1": 1,
+      "ma_fill": 255,
+      "ma_off": 155638,
+      "own_float": {
+        "bits": "0xC1DAF8F5"
+      },
+      "own_off": 50180,
+      "chal_float": {
+        "bits": "0xC1C56F84"
+      },
+      "chal_off": 60424,
+      "sheet": {
+        "0,5,0": 7,
+        "1,5,0": 2,
+        "0,0,2": 6,
+        "1,0,2": 8,
+        "0,1,2": 1,
+        "1,1,2": 4,
+        "0,2,2": 3,
+        "1,2,2": 7,
+        "0,3,2": 2,
+        "1,3,2": 4,
+        "0,4,2": 9,
+        "1,4,2": 9,
+        "0,5,2": 1,
+        "1,5,2": 6,
+        "0,0,0": 5,
+        "1,0,0": 6,
+        "0,1,0": 6,
+        "1,1,0": 6,
+        "0,2,0": 2,
+        "1,2,0": 2,
+        "0,3,0": 11,
+        "1,3,0": 5,
+        "0,4,0": 1,
+        "1,4,0": 1
+      }
+    },
+    {
+      "name": "re-r212",
+      "side": 0,
+      "mode": 0,
+      "strat3_in": 2,
+      "strat4": 7,
+      "strat5": 100,
+      "strat6": 31,
+      "rng2": 2147483647,
+      "r8_entry": 0,
+      "mi116c": 0,
+      "mi1168": 1,
+      "minute": 0,
+      "clock_base": 100.0,
+      "maskbit": 0,
+      "sup0": 0,
+      "sup1": 0,
+      "teamw0": 2,
+      "teamw1": 1,
+      "ma_fill": 1,
+      "ma_off": 155638,
+      "own_float": {
+        "bits": "0x409781B6"
+      },
+      "own_off": 50180,
+      "chal_float": {
+        "bits": "0xC1B65CE5"
+      },
+      "chal_off": 60424,
+      "sheet": {
+        "0,5,0": 11,
+        "1,5,0": 3,
+        "0,0,2": 6,
+        "1,0,2": 3,
+        "0,1,2": 5,
+        "1,1,2": 2,
+        "0,2,2": 11,
+        "1,2,2": 5,
+        "0,3,2": 5,
+        "1,3,2": 4,
+        "0,4,2": 8,
+        "1,4,2": 0,
+        "0,5,2": 9,
+        "1,5,2": 4,
+        "0,0,0": 7,
+        "1,0,0": 5,
+        "0,1,0": 1,
+        "1,1,0": 11,
+        "0,2,0": 3,
+        "1,2,0": 6,
+        "0,3,0": 5,
+        "1,3,0": 7,
+        "0,4,0": 6,
+        "1,4,0": 7
+      }
+    },
+    {
+      "name": "re-r225",
+      "side": 0,
+      "mode": 0,
+      "strat3_in": 2,
+      "strat4": 6,
+      "strat5": 100,
+      "strat6": 26,
+      "rng2": 2147483647,
+      "r8_entry": 0,
+      "mi116c": 0,
+      "mi1168": 0,
+      "minute": 0,
+      "clock_base": 100.0,
+      "maskbit": 4,
+      "sup0": 9,
+      "sup1": 7,
+      "teamw0": 0,
+      "teamw1": 0,
+      "ma_fill": 255,
+      "ma_off": 155638,
+      "own_float": {
+        "bits": "0xC1ABB5DA"
+      },
+      "own_off": 50180,
+      "chal_float": {
+        "bits": "0x419EC72D"
+      },
+      "chal_off": 60424,
+      "sheet": {
+        "0,5,0": 8,
+        "1,5,0": 11,
+        "0,0,2": 2,
+        "1,0,2": 1,
+        "0,1,2": 1,
+        "1,1,2": 7,
+        "0,2,2": 7,
+        "1,2,2": 1,
+        "0,3,2": 4,
+        "1,3,2": 10,
+        "0,4,2": 5,
+        "1,4,2": 6,
+        "0,5,2": 9,
+        "1,5,2": 3,
+        "0,0,0": 6,
+        "1,0,0": 9,
+        "0,1,0": 4,
+        "1,1,0": 10,
+        "0,2,0": 1,
+        "1,2,0": 4,
+        "0,3,0": 0,
+        "1,3,0": 9,
+        "0,4,0": 8,
+        "1,4,0": 4
+      }
+    },
+    {
+      "name": "re-r283",
+      "side": 1,
+      "mode": 0,
+      "strat3_in": 1,
+      "strat4": 6,
+      "strat5": 40,
+      "strat6": 19,
+      "rng2": 2147483647,
+      "r8_entry": 0,
+      "mi116c": 0,
+      "mi1168": 0,
+      "minute": 0,
+      "clock_base": 100.0,
+      "maskbit": 2,
+      "sup0": 2,
+      "sup1": 5,
+      "teamw0": 1,
+      "teamw1": 1,
+      "ma_fill": 0,
+      "ma_off": 155646,
+      "own_float": {
+        "bits": "0x408937DB"
+      },
+      "own_off": 60424,
+      "chal_float": {
+        "bits": "0x41AEB867"
+      },
+      "chal_off": 50180,
+      "sheet": {
+        "0,5,0": 7,
+        "1,5,0": 6,
+        "0,0,2": 6,
+        "1,0,2": 6,
+        "0,1,2": 6,
+        "1,1,2": 8,
+        "0,2,2": 0,
+        "1,2,2": 5,
+        "0,3,2": 4,
+        "1,3,2": 2,
+        "0,4,2": 5,
+        "1,4,2": 1,
+        "0,5,2": 2,
+        "1,5,2": 10,
+        "0,0,0": 2,
+        "1,0,0": 7,
+        "0,1,0": 5,
+        "1,1,0": 0,
+        "0,2,0": 7,
+        "1,2,0": 6,
+        "0,3,0": 0,
+        "1,3,0": 1,
+        "0,4,0": 11,
+        "1,4,0": 3
+      }
+    },
+    {
+      "name": "gate116c",
+      "side": 0,
+      "mode": 2,
+      "strat3_in": 9,
+      "strat4": 0,
+      "strat5": 0,
+      "strat6": 0,
+      "rng2": 12345,
+      "r8_entry": 0,
+      "mi116c": 1,
+      "mi1168": 0,
+      "minute": 3,
+      "clock_base": 100.0,
+      "maskbit": 4,
+      "sup0": 3,
+      "sup1": 4,
+      "teamw0": 1,
+      "teamw1": 2,
+      "ma_fill": 0,
+      "ma_off": 155638,
+      "own_float": {
+        "bits": "0x41200000"
+      },
+      "own_off": 50180,
+      "chal_float": {
+        "bits": "0x41200000"
+      },
+      "chal_off": 60424,
+      "sheet": {
+        "0,5,0": 10,
+        "1,5,0": 7
+      }
+    }
+  ],
+  "outputs": {
+    "strat3": {
+      "region": "STRAT",
+      "offset": "0xC",
+      "enc": "u32",
+      "size": 4
+    },
+    "strat5": {
+      "region": "STRAT",
+      "offset": "0x14",
+      "enc": "u32",
+      "size": 4
+    },
+    "strat6": {
+      "region": "STRAT",
+      "offset": "0x18",
+      "enc": "u32",
+      "size": 4
+    }
+  },
+  "stubs": {
+    "resolve_stats": {
+      "va": "0x140A3E8A0",
+      "do": "return_region",
+      "region": "L11T"
+    },
+    "team_obj": {
+      "va": "0x140A48A30",
+      "do": "return_region",
+      "region": "GOBJ"
+    },
+    "clock": {
+      "va": "0x140A3C050",
+      "do": "return_clock"
+    },
+    "minute": {
+      "va": "0x140A6BD60",
+      "do": "return_input",
+      "input": "minute"
+    },
+    "sup": {
+      "va": "0x140A7F0F0",
+      "do": "support"
+    },
+    "sheet": {
+      "va": "0x1408C9DF0",
+      "do": "sheet_getter"
+    },
+    "teamword": {
+      "va": "0x140488230",
+      "do": "teamword"
+    },
+    "maskbit": {
+      "va": "0x1408C71B0",
+      "do": "return_input",
+      "input": "maskbit"
+    },
+    "rng": {
+      "va": "0x140A924E0",
+      "do": "rng_140A924E0_float32"
+    },
+    "crt1": {
+      "va": "0x14159F3E0",
+      "do": "return",
+      "value": 0
+    },
+    "crt2": {
+      "va": "0x14159FA0C",
+      "do": "return",
+      "value": 0
+    },
+    "crt3": {
+      "va": "0x14159EFF8",
+      "do": "return",
+      "value": 0
+    }
+  },
+  "constants": {
+    "strength_margin": {
+      "va": "0x14258C260"
+    },
+    "rng_scale": {
+      "va": "0x1426550D8"
+    }
+  },
+  "probe": {
+    "va": "0x14051E970",
+    "bytes": "4055565741544155415641574881ec80"
+  },
+  "regions_init": {
+    "GROOT+0x270": "MI",
+    "GROOT+0x2AD0": "G",
+    "P2+0x18": "MA",
+    "P2+0xE0": "DEREF",
+    "DEREF+0x0": "L11T"
+  },
+  "seed": 3,
+  "count": 300,
+  "labels": [
+    "name"
+  ]
+}

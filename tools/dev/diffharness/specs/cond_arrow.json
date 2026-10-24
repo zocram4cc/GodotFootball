@@ -1,0 +1,83 @@
+{
+  "name": "cond_arrow",
+  "va": "0x141FC1380",
+  "note": "FUN_141FC1380's inverse map (docs/re/pes-re-condition-bands.md section 2): band in R8D (0..7, masked &7 at the call sites 0x141FE397B/0x141FE4108) to PES arrow index in EBX/EAX (0 Top..4 Terrible). The function also stores the arrow through FUN_1408C7710 ([RCX+0x58]); the spec stubs that store and checks EAX (== EBX at every return). Registers: R8D carries the band in; EAX carries the arrow out.",
+  "entry": "0x141FC1380",
+  "stack": {
+    "base": "0x10000000",
+    "size": "0x20000"
+  },
+  "regions": {
+    "obj": {
+      "base": "0x20000000",
+      "size": "0x1000",
+      "note": "the provider object the stubbed store writes +0x58 to"
+    }
+  },
+  "args": {
+    "rcx": "obj"
+  },
+  "inputs": {
+    "band": {
+      "reg": "r8d",
+      "enc": "u8"
+    }
+  },
+  "input_schema": {
+    "band": {
+      "kind": "u8",
+      "lo": 0,
+      "hi": 7
+    }
+  },
+  "fixed_cases": [
+    {
+      "band": 0
+    },
+    {
+      "band": 1
+    },
+    {
+      "band": 2
+    },
+    {
+      "band": 3
+    },
+    {
+      "band": 4
+    },
+    {
+      "band": 5
+    },
+    {
+      "band": 6
+    },
+    {
+      "band": 7
+    }
+  ],
+  "outputs": {
+    "arrow": {
+      "reg": "eax"
+    },
+    "stored": {
+      "region": "obj",
+      "offset": "0x58",
+      "enc": "u32",
+      "size": 4
+    }
+  },
+  "stubs": {
+    "store_provider": {
+      "va": "0x1408C7710",
+      "do": "store_edx_at_rcx_off",
+      "offset": "0x58"
+    }
+  },
+  "constants": {},
+  "probe": {
+    "va": "0x141FC1380",
+    "bytes": "40534883ec20"
+  },
+  "count": 8
+}
