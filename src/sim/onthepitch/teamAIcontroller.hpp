@@ -248,6 +248,12 @@ public:
   // self-copies (helpers §5b), and GF's tick has no restart split, so the one
   // tail call covers both.
   void PesStep55();
+  // Team tick step 48 (FUN_14057F600 at 0x1404F79A8): the release/claim
+  // dispatcher. Runs every team tick on the PES path, stopped included; the
+  // arm verdicts and per-slot eligibility read record tables with no GF
+  // counterpart yet (helpers sect 1-3), so the dispatcher exits and no slot
+  // takes until those land. Returns the route, so tests pin the seam.
+  pes::run::ReleaseRoute PesStep48();
   // PES's per-tick team words (pesteamtick.hpp): the attack level T+0xB8A4,
   // its flags and the restart word, stepped every team tick on the PES path.
   const pes::TeamTick& GetTeamTick() const { return teamTick; }

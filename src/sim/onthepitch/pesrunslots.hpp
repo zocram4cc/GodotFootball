@@ -77,4 +77,35 @@ void SetPoint(Slot* slot, const std::array<float, 3>& point);
 // FUN_140A42A70: per-slot gated snapshot copy of the history ring, then Touch.
 void SnapshotCopy(std::array<Slot, kSlots>* dst, const std::array<Slot, kSlots>& src, uint32_t stamp);
 
+// Step 48's release/claim dispatcher (FUN_14057F600, team-tick step 48 at
+// 0x1404F79A8). MI+0x116C == 2 exits at once (0x14057F61B); the ==3 arm
+// (FUN_140642670) and the else arm (FUN_14057F590 plus the carrier-record and
+// frame-window gates) collapse into `stoppageClaim`, whose record-table
+// inputs have no GF counterpart yet; then the 2-slot MI+0x173C scan (same
+// tables) and the latch fork (0x14057F6CA): latch set runs the set loop,
+// latch clear needs MI+0x116C == 1 for the clear loop.
+enum class ReleaseRoute { kExit, kLatchSetLoop, kLatchClearLoop };
+struct ReleaseDispatchInput {
+  int playState = 0;       // MI+0x116C: 1 in play, 2 stopped, 3 set-piece ready
+  bool stoppageClaim = false;  // the arm verdict plus the 2-slot scan
+  bool latchSet = false;   // T+0x255 != 0
+};
+ReleaseRoute ReleaseDispatch(const ReleaseDispatchInput& in);
+
+// The latch-set take loop (FUN_14057FDE0): every eligible slot takes 0x10
+// (pes::offball::kMoveOnPass) with the tick's stamp via Assign (FUN_140A42940
+// writes T+0xA2A0[s] = 0x10). `eligible` is the per-slot guard-ladder verdict;
+// its record-table gates are OPEN, so the call site stands in until they land.
+void LatchSetLoop(std::array<Slot, kSlots>* slots, uint32_t stamp,
+                  const std::array<bool, kSlots>& eligible);
+
+// The latch-clear take loop (FUN_14057F720): the head gate fVar25 <
+// 2000.0/(cell * 3600.0) (0x14057F7EC-0x14057F80B; 2000.0 at 0x1425CB004,
+// 3600.0 at 0x142598590, the cell at 0x14351AE54 defaulting to the install tick
+// rate 54.0 at 0x14259D624, carried 1:1 as pes::kPesTickHz) returns early and
+// takes nothing; below it every eligible slot takes 0x10 as above. `eligible`
+// stands in for the class/state gates' record tables as above.
+void LatchClearLoop(std::array<Slot, kSlots>* slots, uint32_t stamp, float headValue,
+                    const std::array<bool, kSlots>& eligible);
+
 }  // namespace pes::run

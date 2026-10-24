@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include "onthepitch/pesteamtick.hpp"
+#include "onthepitch/pesrunslots.hpp"
 
 namespace {
 
@@ -262,6 +263,34 @@ TEST(PesTeamTick, MarkBuildCommitsMarkedCandidate) {
   k.half = 0.5f;
   pes::BuildMarkTableTick(&state, facts, k);
   EXPECT_EQ(state.mark[7], 1);
+}
+
+// T9 (FUN_14057F600 at 0x14057F600): the release/claim dispatcher. MI+0x116C
+// == 2 exits immediately (0x14057F61B), whatever the arms say.
+TEST(PesTeamTick, ReleaseDispatchExitsWhenPlayState2) {
+  pes::run::ReleaseDispatchInput in;
+  in.playState = 2;
+  in.stoppageClaim = true;
+  in.latchSet = true;
+  EXPECT_EQ(pes::run::ReleaseDispatch(in), pes::run::ReleaseRoute::kExit);
+}
+
+// The latch fork (0x14057F6CA): latch set routes to the set loop; latch clear
+// needs MI+0x116C == 1 for the clear loop, else the tick exits.
+TEST(PesTeamTick, ReleaseDispatchForksOnLatch) {
+  pes::run::ReleaseDispatchInput in;
+  in.playState = pes::kPlayStateInPlay;
+  in.stoppageClaim = true;
+  in.latchSet = true;
+  EXPECT_EQ(pes::run::ReleaseDispatch(in), pes::run::ReleaseRoute::kLatchSetLoop);
+  in.latchSet = false;
+  EXPECT_EQ(pes::run::ReleaseDispatch(in), pes::run::ReleaseRoute::kLatchClearLoop);
+  in.playState = 3;
+  EXPECT_EQ(pes::run::ReleaseDispatch(in), pes::run::ReleaseRoute::kExit);
+  in.playState = pes::kPlayStateInPlay;
+  in.stoppageClaim = false;
+  in.latchSet = true;
+  EXPECT_EQ(pes::run::ReleaseDispatch(in), pes::run::ReleaseRoute::kExit);
 }
 
 }  // namespace

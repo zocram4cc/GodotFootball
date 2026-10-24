@@ -1,5 +1,8 @@
 #include "pesrunslots.hpp"
 
+#include "pesball.hpp"
+#include "pesoffball.hpp"
+
 #include <algorithm>
 #include <cstring>
 #include <initializer_list>
@@ -112,6 +115,44 @@ std::array<float, 3> Point(const Slot& slot) {
 
 void SetPoint(Slot* slot, const std::array<float, 3>& point) {
   std::memcpy(slot->block.data(), point.data(), sizeof(point));
+}
+
+ReleaseRoute ReleaseDispatch(const ReleaseDispatchInput& in) {
+  // 0x14057F61B: MI+0x116C == 2 exits at once.
+  if (in.playState == 2) return ReleaseRoute::kExit;
+  // The ==3 arm (FUN_140642670) and the else arm (FUN_14057F590 plus the
+  // carrier-record and frame-window gates) plus the 2-slot MI+0x173C scan:
+  // no claim, no dispatch.
+  if (!in.stoppageClaim) return ReleaseRoute::kExit;
+  // The latch fork (0x14057F6CA): latch set runs the set loop; latch clear
+  // needs MI+0x116C == 1 for the clear loop.
+  if (in.latchSet) return ReleaseRoute::kLatchSetLoop;
+  if (in.playState == 1) return ReleaseRoute::kLatchClearLoop;
+  return ReleaseRoute::kExit;
+}
+
+void LatchSetLoop(std::array<Slot, kSlots>* slots, uint32_t stamp,
+                  const std::array<bool, kSlots>& eligible) {
+  for (int s = 0; s < kSlots; ++s) {
+    if (!eligible[s]) continue;
+    // FUN_140A42940(T, slot, 0x10): the state word, the ring push, and the
+    // target block's variant for id (pes::offball::kMoveOnPass is 0x10).
+    Assign(&(*slots)[s], pes::offball::kMoveOnPass, stamp);
+  }
+}
+
+void LatchClearLoop(std::array<Slot, kSlots>* slots, uint32_t stamp, float headValue,
+                    const std::array<bool, kSlots>& eligible) {
+  // The head gate (0x14057F7EC-0x14057F80B): fVar25 < 2000.0/(cell * 3600.0).
+  // The cell at 0x14351AE54 defaults to the install tick rate, carried 1:1 as
+  // pes::kPesTickHz (docs/re/pes-re-team-helpers.md sect 3.1).
+  constexpr float kHeadGateNumerator = 2000.0f;    // 0x1425CB004
+  constexpr float kHeadGateDivisor = 3600.0f;      // 0x142598590
+  if (!(headValue < kHeadGateNumerator / (pes::kPesTickHz * kHeadGateDivisor))) return;
+  for (int s = 0; s < kSlots; ++s) {
+    if (!eligible[s]) continue;
+    Assign(&(*slots)[s], pes::offball::kMoveOnPass, stamp);
+  }
 }
 
 }  // namespace pes::run

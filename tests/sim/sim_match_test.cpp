@@ -480,6 +480,28 @@ TEST(SimMatch, PesStep55TouchesEverySlotOncePerTeamTick) {
   SetDB(nullptr);
 }
 
+// Step 48 (FUN_14057F600 at 0x1404F79A8) is wired at its step on the PES path.
+// With the record tables OPEN (helpers sect 1-3) the arm verdicts stand in as
+// off, so the dispatcher exits on a live tick and takes nothing.
+TEST(SimMatch, PesStep48DispatchExitsWithRecordTablesOpen) {
+  REQUIRE_RIG();
+  blunted::Database db;
+  ASSERT_TRUE(db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql"));
+  SetDB(&db);
+  MatchSetup setup = MakeSetup(SEED, SHORT_MATCH_MINUTES);
+  pestest::FillMissingPesConstants(&setup);
+  Properties config;
+  config.SetBool("pes_loop", true);
+  Match match(new MatchData(HOME_TEAM, AWAY_TEAM), setup, config);
+  auto* ctl = match.GetTeam(0)->GetController();
+  match.Process();
+  EXPECT_EQ(ctl->PesStep48(), pes::run::ReleaseRoute::kExit);
+  for (int s = 0; s < pes::run::kSlots; ++s) {
+    EXPECT_EQ(ctl->GetRunSlot(s).state, 0) << "slot " << s;
+  }
+  SetDB(nullptr);
+}
+
 // The offside port's end-to-end effect (docs/re/pes-re-offside-port.md 4): a
 // PES-faithful line, test and category plus the AI's offside readers. The pin
 // is the frame the line is read in: with this engine's own-goal side passed to
