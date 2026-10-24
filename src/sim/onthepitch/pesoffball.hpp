@@ -227,6 +227,9 @@ struct RunWorld {
   std::array<float, 2> s{1.0f, -1.0f};   // T+0x254
   std::array<float, 2> lineX{};          // MA+0x44 + 0x14·t: team t's line
   bool openPlay = true;
+  // The PES path (pes_loop): only there do the S1 rows carry the pair-bearing table (ScoreRowWriter builds it on the
+  // PES path only); GF mode keeps its live bearing.
+  bool pesPath = false;
   std::array<bool, 2> possession{};      // T+0x255
   std::array<float, 2> possessionAge{};  // MI+0x11a0, PES frames
   BallEvent ev;
@@ -236,6 +239,13 @@ struct RunWorld {
 
 // The opponents of `id` in his NearestList, nearest first (PES's rank 0 is the first; pes-re-teamctx.md §2.3).
 std::vector<NearOpponent> NearestOpponents(const RunWorld& w, int id);
+
+// FUN_14043B8B0: the squared distance of `target` in `id`'s S1 row, either
+// side. NaN when the row does not list him.
+float RowD2(const RunWorld& w, int id, int target);
+// FUN_140439FE0: the bearing of (id - target) in the pair table, in degrees.
+// 0 when either row is missing or the pair is coincident or off the pitch.
+float RowBearing(const RunWorld& w, int id, int target);
 
 // FUN_1404F6720 (step 5): whether team `t`'s offside-trap flag T+0xE4 is set this tick. The gates run in PES's order
 // (see pesoffball.cpp); the flag cannot be set by any input there.

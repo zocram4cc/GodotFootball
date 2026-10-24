@@ -283,6 +283,14 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES press constants missing: read them from the install with "
         "pes::LoadPressConstants into MatchSetup::pesPressConstants");
   pesPressConstants = *setup.pesPressConstants;
+  // PES 2021's mark table (team-tick step 35, FUN_1404F61E0): the build rule's
+  // image constants. Required like the rest: a mark build without them would be
+  // guessing.
+  if (setup.pesMarkTableConstants == nullptr)
+    throw std::runtime_error(
+        "PES mark table constants missing: read them from the install with "
+        "pes::marktable::LoadMarkTableConstants into MatchSetup::pesMarkTableConstants");
+  pesMarkTableConstants = *setup.pesMarkTableConstants;
 
   dynamicNode = boost::intrusive_ptr<Node>(new Node("dynamicNode"));
   scene3D->AddNode(dynamicNode);

@@ -293,6 +293,8 @@ public:
   const pes::MoveStepConstants& GetPesMoveStepConstants() const { return pesMoveStepConstants; }
   // PES 2021's presser picker and loose-ball PRESS chase (docs/re/pes-re-press-life.md).
   const pes::PressConstants& GetPesPressConstants() const { return pesPressConstants; }
+  // PES 2021's mark table (team-tick step 35, FUN_1404F61E0, T7a `0x1404F76B1`).
+  const pes::marktable::Constants& GetPesMarkTableConstants() const { return pesMarkTableConstants; }
   // PES 2021's off-ball run manager (docs/re/pes-re-off-ball.md).
   const pes::offball::OffBallConstants& GetPesOffBallConstants() const {
     return pesOffBallConstants;
@@ -648,6 +650,8 @@ protected:
   pes::MoveStepConstants pesMoveStepConstants{};
   // PES 2021's presser picker and loose-ball PRESS chase.
   pes::PressConstants pesPressConstants{};
+  // PES 2021's mark table (team-tick step 35, FUN_1404F61E0), copied from MatchSetup at construction.
+  pes::marktable::Constants pesMarkTableConstants{};
   std::unique_ptr<pes::PesClock> pesClock;
   std::unique_ptr<pes::StaminaConstants> pesStaminaConstants;
   std::optional<pes::PlayerDatabase> pesPlayerDatabase;
