@@ -1196,7 +1196,6 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
   in.tackle = _TackleCandidate(k);
   in.slide = _SlideCandidate(k);
   in.block = _BlockCandidate(k);
-  in.jostleForPass = _PassDuelCandidate(k);
   // Each dodge predicate (entries 4-7) carries its own kind
   // (FUN_14073bc70's cmd+0x1094). They are separate entries, so the chooser's
   // winner names which kind the command runs; each predicate stores its own.
@@ -1208,7 +1207,11 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
   // Where the ball will be when he gets there is where PES's solver puts the
   // contact point, and it is the direction any of these commands runs at.
   const Vector3 contact = _mentalImage->GetBallPrediction(200).Get2D();
-  const pes::DefenderReaction chosen = pes::ChooseReaction(in);
+  // R3 (FUN_1409AD830): a marked man skips the holder duel and falls through
+  // to the action dispatch. The mark bit is read on the own-side table
+  // (IsMarkedByTable); the PES path only, like the R1/R2 arms.
+  const bool marked = match->PesLoop() && team->GetController()->IsMarkedByTable(CastPlayer());
+  const pes::DefenderReaction chosen = pes::ChooseMarkedReaction(in, marked);
   int dodgeKind = 0;
   switch (chosen) {
     case pes::DefenderReaction::kDodgeBall: dodgeKind = dodgeKindBall; break;
@@ -1252,6 +1255,7 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
 bool ElizaController::_TackleCandidate(const pes::DefenderDecisionConstants& k) {
   Player* carrier = _Carrier();
   if (!carrier || carrier->GetTeamID() == team->GetID()) return false;
+  if (match->PesLoop() && team->GetController()->IsMarkedByTable(CastPlayer())) return false;
 
   // The anime layer has to be free of a committed challenge, and he may not
   // tackle in the first second after his own touch (PES's event-by-me gate).
@@ -1371,6 +1375,7 @@ bool ElizaController::_BlockCandidate(const pes::DefenderDecisionConstants& k) {
   // Entry 8's owner half: an opponent owner inside the block radius.
   if (match->GetBallRetainer() == 0) return false;
   Player* carrier = _Carrier();
+  if (match->PesLoop() && team->GetController()->IsMarkedByTable(CastPlayer())) return true;
   if (!carrier || carrier->GetTeamID() == team->GetID()) return false;
   if (match->GetBallRetainer() != carrier) return false;
   // PES's PRESS state: the MATCH_UP man while ForeCheckPress runs.
@@ -1389,6 +1394,7 @@ bool ElizaController::_PassDuelCandidate(const pes::DefenderDecisionConstants& k
   // radius of where it is going. It sits behind entry 8 in the table, so PES
   // reaches it only when the owner's own radius did not catch him.
   if (match->GetBallRetainer()) return false;
+  if (match->PesLoop() && team->GetController()->IsMarkedByTable(CastPlayer())) return true;
   Player* kicker = match->GetLastTouchPlayer();
   if (!kicker) return false;
   const float speed = match->GetBall()->GetMovement().GetLength() * 3.6f;

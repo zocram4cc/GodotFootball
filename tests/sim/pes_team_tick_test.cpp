@@ -227,4 +227,41 @@ TEST(PesTeamTick, InPlayArmClearsDoneFlag) {
   EXPECT_FALSE(tick.counterDone);
 }
 
+// T7a (FUN_1404F61E0): the mark table builds each team tick on the PES path.
+TEST(PesTeamTick, MarkBuildCommitsMarkedCandidate) {
+  pes::marktable::MarkState state;
+  state.markSlot = 3;
+  pes::marktable::Facts facts;
+  facts.side = 0;
+  facts.holder = 5;
+  facts.sign = 1.0f;
+  facts.holderX = 14.6984631f;
+  facts.holderZ = 1.7101007f;
+  facts.goalAreaHalfWidth_m = 9.16f;
+  pes::marktable::Candidate c;
+  c.id = 7;
+  c.d2 = 100.0f;
+  c.actionWord = 1;
+  c.posX = 10.0f;
+  c.pairToTarget = 10.0f;
+  c.pairToHolder = 70.0f;
+  c.headPointX = 10.0f;
+  facts.candidates[0] = c;
+  pes::marktable::Constants k;
+  k.rampBase = 7.0f;
+  k.rampTop = 3.0f;
+  k.coneOffset = 15.0f;
+  k.ceilD2 = 1369.0f;
+  k.wrapCap = 105.0f;
+  k.wrapSide = 80.0f;
+  k.coneDeg = 90.0f;
+  k.coneLen = 12.0f;
+  k.gateFrac = 64.0f;
+  k.gateRadius = 12.0f;
+  k.gateWidth = 2.0f;
+  k.half = 0.5f;
+  pes::BuildMarkTableTick(&state, facts, k);
+  EXPECT_EQ(state.mark[7], 1);
+}
+
 }  // namespace
