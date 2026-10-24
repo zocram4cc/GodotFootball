@@ -14,10 +14,12 @@ Usage:
 """
 import argparse
 import json
+import os
 import struct
 import sys
 
 PAGE = 0x1000
+IMAGE_CHUNK = 1 << 24  # bytes per read when streaming the image (16 MiB)
 
 
 def align_up(x, a=PAGE):
@@ -223,13 +225,20 @@ def f32_bits(value):
 def build_emu(spec, image_path, sections):
     from unicorn import Uc, UC_ARCH_X86, UC_MODE_64
     mu = Uc(UC_ARCH_X86, UC_MODE_64)
+    filesize = os.path.getsize(image_path)
     with open(image_path, "rb") as f:
-        image = f.read()
-    for va, size, raw in sections:
-        size = min(size, len(image) - raw)
-        base = va & ~(PAGE - 1)
-        mu.mem_map(base, align_up(va + size) - base)
-        mu.mem_write(va, bytes(image[raw:raw + size]))
+        for va, size, raw in sections:
+            size = min(size, filesize - raw)
+            base = va & ~(PAGE - 1)
+            mu.mem_map(base, align_up(va + size) - base)
+            # Stream each section in bounded chunks: the image is hundreds of
+            # MB, and a whole-file read does not fit the per-process memory cap.
+            f.seek(raw)
+            done = 0
+            while done < size:
+                n = min(IMAGE_CHUNK, size - done)
+                mu.mem_write(va + done, f.read(n))
+                done += n
     for rname, r in (spec.get("regions") or {}).items():
         mu.mem_map(int(r["base"], 16), align_up(int(r["size"], 16)))
     stack = spec.get("stack", {"base": "0x10000000", "size": "0x20000"})
