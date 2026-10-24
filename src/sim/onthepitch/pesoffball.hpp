@@ -237,6 +237,13 @@ struct RunWorld {
 // The opponents of `id` in his NearestList, nearest first (PES's rank 0 is the first; pes-re-teamctx.md §2.3).
 std::vector<NearOpponent> NearestOpponents(const RunWorld& w, int id);
 
+// FUN_14043B8B0: the squared distance of `target` in `id`'s S1 row, either
+// side. NaN when the row does not list him.
+float RowD2(const RunWorld& w, int id, int target);
+// FUN_140439FE0: the bearing of (id - target) in the pair table, in degrees.
+// 0 when either row is missing or the pair is coincident or off the pitch.
+float RowBearing(const RunWorld& w, int id, int target);
+
 // FUN_1404F6720 (step 5): whether team `t`'s offside-trap flag T+0xE4 is set this tick. The gates run in PES's order
 // (see pesoffball.cpp); the flag cannot be set by any input there.
 bool OffsideTrapArmed(const RunWorld& w, int t);
