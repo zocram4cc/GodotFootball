@@ -1,5 +1,7 @@
 # PES condition bands: byte-verified edges, writer chain, port spec (ConditionBandsRE, 23-10-26)
 
+> **Correction (ConditionImportRE, `pes-re-condition-import.md`):** Form does not feed the arrow (the condition mixer has no Form input; field 0x2D / +0x178 differ from Form on disk). In an exhibition match the arrow is fixed per data file: condition defaults to 0x46 → band 2 → Normal, no kick-off roll.
+
 > **Main audit 23-10-26 (bytes):** `FUN_140AF2DA0`'s seven `cmp eax` immediates read from the image at 0x140AF2EAC-0x140AF2EED: 0x41, 0x46, 0x4B, 0x50, 0x55, 0x5A, 0x5F: match.
 
 Parent: `docs/re/pes-re-condition-writer.md` (the writer chain) +

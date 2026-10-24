@@ -193,6 +193,10 @@ struct DefenderReactionInput {
 // The first predicate that returns true wins. PES: `cmd+0x880 = 1` on the
 // winner and the reaction command replaces the movement command.
 DefenderReaction ChooseReaction(const DefenderReactionInput& in);
+// R3 (FUN_1409AD830): the holder-duel skip for a marked man. Marked skips the
+// holder duel (tackle, block, the pass jostle) and falls through to the action
+// dispatch; unmarked walks the table unchanged.
+DefenderReaction ChooseMarkedReaction(const DefenderReactionInput& in, bool marked);
 
 // --- Standing tackle (report 2) ---
 

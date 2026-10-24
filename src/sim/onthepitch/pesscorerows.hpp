@@ -76,6 +76,10 @@ struct ScoreRows {
   // angle[0]: bearing about (-xg, 0), MA+0x22A7C. angle[1]: about (+xg, 0), MA+0x22C64. Degrees
   // in [0, 360); 0 for a slot that is off the pitch.
   std::array<std::array<float, lane::kSlots>, 2> angle{};
+  // bearing[a][b]: the bearing of (a - b) in degrees in [0, 360), 0 when the two coincide
+  // (MA+0x23F7C + 0x58 a + 4 b, writer FUN_14045B420, reader FUN_140439FE0). Rebuilt on every
+  // call, whatever the mask. Off-pitch rows stay 0.
+  std::array<std::array<float, lane::kSlots>, lane::kSlots> bearing{};
   // nearest[i]: every other on-pitch player by squared distance from i, MA+0x22E4C + 200 i.
   // Empty when i is off the pitch.
   std::array<SortedRow, lane::kSlots> nearest{};
@@ -88,8 +92,10 @@ const SortedRow& ScoreRowForSign(const ScoreRows& rows, int k);
 const SortedRow& GateRowForSign(const ScoreRows& rows, int k);
 
 // The writer's body for the blocks `mask` selects. The NearestList is rebuilt on every call.
+// `pesPath` gates the pair-bearing table (FUN_140439FE0 family): GF mode keeps
+// its old rows exactly (all zeroes there).
 void BuildScoreRows(const RowPlayers& players, const ScoreRowConstants& k, uint8_t mask,
-                    ScoreRows& rows);
+                    ScoreRows& rows, bool pesPath);
 
 // The writer as the team tick drives it: the TA+0x11 latch and the frame rotation.
 class ScoreRowWriter {
@@ -97,8 +103,10 @@ class ScoreRowWriter {
   // One call on the step-5 path. `fullRefresh` is FUN_140457070's flag argument: it latches the
   // writer and rewrites every block (mask 0xFF). Otherwise the mask is the rotation of `frame`
   // (MI+0x1198 & 3 onto 0x01, 0x02, 0x24, 0x10), and nothing is written until the latch is set.
+  // `pesPath` gates the pair-bearing table: a PES-only read (FUN_140439FE0 family), so GF mode
+  // keeps its old rows exactly (all zeroes there).
   void Tick(const RowPlayers& players, const ScoreRowConstants& k, unsigned long frame,
-            bool fullRefresh);
+            bool fullRefresh, bool pesPath);
   const ScoreRows& Rows() const { return rows_; }
   bool Latched() const { return latched_; }
 
