@@ -47,7 +47,7 @@ fi
 flock "$lock.1" flock "$lock" bash -c "
   $(declare -f smoke); repo='$repo'; build='$build'; PES21_ROOT='$PES21_ROOT'
   smoke off & smoke pesloop --pes-loop &
-  env PES21_ROOT='$PES21_ROOT' PES21_EDIT_SAVE='$save' nice -n 19 \
+  env PES21_ROOT='$PES21_ROOT' PES21_EDIT_SAVE='$save' GF_DIFF_PYTHON='${GF_DIFF_PYTHON:-}' PES_EXE='${PES_EXE:-}' nice -n 19 \
     ctest --test-dir '$build' -j $jobs --timeout 2400 > '$build/gate.ctest.log' 2>&1
   echo \"ctest rc=\$?\"
   wait"
