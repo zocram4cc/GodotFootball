@@ -73,7 +73,7 @@ for tag in off pesloop; do grep -q "sim ticks to full time" "$build/gate.smoke-$
 # build configured without PES_EXE compiles every pilot test to a skip stub: green while nothing was compared. With both
 # set, a skipped diff test is a red gate.
 if [ -n "${GF_DIFF_PYTHON:-}" ] && [ -n "${PES_EXE:-}" ]; then
-  skipped=$(grep -cE "Test +#[0-9]+: (diff_|Diff).*Skipped" "$build/gate.ctest.log")
+  skipped=$(grep -cE "Test +#[0-9]+: (diff_|Diff).*Skipped" "$build/gate.ctest.log" || true)  # grep -c exits 1 on 0 matches
   if [ "$skipped" != 0 ]; then
     echo "GATE RED: $skipped PES diff tests skipped (reconfigure with PES_EXE set: cmake -S . -B build)"; green=0
   fi
