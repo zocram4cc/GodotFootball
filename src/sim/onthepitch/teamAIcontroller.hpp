@@ -246,11 +246,26 @@ public:
   // The decider body (FUN_14051E970): one StrategyStep where DeciderMovesIn holds (the caller's
   // S1 extract: the PES path runs this before the drift so the tick reads decider → copy → drift).
   void StepStrategyDecider(int playState);
+  // Team tick step 55 (FUN_140A42A70 at 0x1404F7A8F; restart arm 26c at
+  // 0x1404F6F0E): the per-slot gated self-copy of the run history plus the
+  // frame touch, run once per team tick after the tail write. Both arms are
+  // self-copies (helpers §5b), and GF's tick has no restart split, so the one
+  // tail call covers both.
+  void PesStep55();
+  // Team tick step 48 (FUN_14057F600 at 0x1404F79A8): the release/claim
+  // dispatcher. Runs every team tick on the PES path, stopped included; the
+  // arm verdicts and per-slot eligibility read record tables with no GF
+  // counterpart yet (helpers sect 1-3), so the dispatcher exits and no slot
+  // takes until those land. Returns the route, so tests pin the seam.
+  pes::run::ReleaseRoute PesStep48();
   // PES's in-play plan selector (FUN_140500B90): the sheet plan, once per PES team tick after UpdateStrategy.
   void UpdatePesSheetPlan();
   // PES's per-tick team words (pesteamtick.hpp): the attack level T+0xB8A4,
   // its flags and the restart word, stepped every team tick on the PES path.
   const pes::TeamTick& GetTeamTick() const { return teamTick; }
+  // The run table's slot k (pesrunslots.hpp), for tests that pin the team
+  // tick's step sites.
+  const pes::run::Slot& GetRunSlot(int k) const { return runSlots[k]; }
 
   // PES's off-ball run or designated-supporter target for this player, if any
   // (pes-re-off-ball.md 1, 4.1).
