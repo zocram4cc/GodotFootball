@@ -387,6 +387,21 @@ TEST(PesCarrierOpenness, MarginScalesWithThePerpendicularDistance) {
   EXPECT_FLOAT_EQ(pes::LaneOpennessMargin(0, 0, 0.1f, 5.0f, 1.0f, 0.0f, k), 0.0f);
 }
 
+// At along <= 1 PES still performs the margin division (0x142118c42 DIVSS
+// XMM2,XMM7 with T = 0 from 0x142118c0b's MINSS): T = 0, so a positive
+// perpendicular term overflows to +inf and the zero term stays 0.
+TEST(PesCarrierOpenness, MarginAtAlongOneMatchesPesUnguardedDivide) {
+  const pes::CarrierConstants k = Synthetic();
+  // along = 1: T = min(0.6, 0) = 0; 100 * 4 / 0 = +inf.
+  EXPECT_EQ(pes::LaneOpennessMargin(0, 0, 1.0f, 5.0f, 1.0f, 0.0f, k),
+            std::numeric_limits<float>::infinity());
+  // along = 0.5: T = min(0.3, 0) = 0; the same overflow.
+  EXPECT_EQ(pes::LaneOpennessMargin(0, 0, 0.5f, 5.0f, 1.0f, 0.0f, k),
+            std::numeric_limits<float>::infinity());
+  // along = 1 with no perpendicular margin: 100 * 0 / 0 is NaN, as PES's
+  // DIVSS of two zeroes is.
+  EXPECT_TRUE(std::isnan(pes::LaneOpennessMargin(0, 0, 1.0f, 1.0f, 1.0f, 0.0f, k)));
+}
 // --- the receiver difficulty term (report 4.3) ---
 
 TEST(PesCarrierDifficulty, ComponentsAndTheLowPassMultiplier) {
