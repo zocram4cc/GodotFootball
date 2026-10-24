@@ -940,14 +940,12 @@ class Emitter:
         if m == "CVTPS2PD":
             if s.startswith("xmm") and "[" not in s:
                 y = int(s[3:])
-                lo = ("(double)PesState::f32((uint32_t)s.xmm[%d][0])" % y)
-                hi = ("(double)PesState::f32((uint32_t)(s.xmm[%d][0] >> 32))"
-                      % y)
+                lan0 = "s.xmm[%d][0]" % y
             else:
                 inner = src[src.find("["):]
-                e = self.mem_val(inner, 64, None)
-                lo = "(double)PesState::f32((uint32_t)(%s))" % e
-                hi = "(double)PesState::f32((uint32_t)((%s) >> 32))" % e
+                lan0 = "(%s)" % self.mem_val(inner, 64, None)
+            lo = "(double)PesState::f32((uint32_t)%s)" % lan0
+            hi = "(double)PesState::f32((uint32_t)(%s >> 32))" % lan0
             return ["{ double _lo = %s, _hi = %s; uint64_t _u0, _u1;"
                     % (lo, hi),
                     "  memcpy(&_u0, &_lo, 8); memcpy(&_u1, &_hi, 8);",
@@ -1238,11 +1236,14 @@ def prepass(lines, img):
                     tdisp = mp["disp"]
                     break
         baseva = None
+        basep = PARENT.get(base, base) if base is not None else None
         for j in range(i - 1, max(-1, i - 20), -1):
             mn2, ops2 = byaddr[order[j]]
             if mn2.upper() == "LEA" and len(ops2) == 2 and \
-                    base is not None and \
-                    same(ops2[0]) and "[" in ops2[1]:
+                    basep is not None and \
+                    PARENT.get(ops2[0].strip().lower(),
+                               ops2[0].strip().lower()) == basep and \
+                    "[" in ops2[1]:
                 inner = ops2[1][ops2[1].find("[") + 1:ops2[1].rfind("]")]
                 mp = parse_mem(inner)
                 if mp and mp["absolute"] is not None:
