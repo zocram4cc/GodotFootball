@@ -202,6 +202,7 @@ public:
   void UpdatePesDesignation();
   void SetUpRoleArrays();
   void WriteRoleArrays(bool head);
+  void UpdateLaneLine();
   void WriteSlotPoints(int phase);
   // The B swap pair (T+0x89D4/0x89D8). No GF event sets it yet: the PES writer is not decoded.
   void RequestRoleSwap(int a, int b);
