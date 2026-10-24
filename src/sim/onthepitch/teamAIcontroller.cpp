@@ -1404,11 +1404,11 @@ void TeamAIController::PinBallAtRelease() {
   }
   constexpr float kPhysique = 1.0f;  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0, as the pickup does
   constexpr bool kMirror = false;    // ponytail: the 000 column; PES's column is the angle class of the throw (FUN_1406de990)
-  // The row names the release clip in the animetable. Its release key is the second ball key (choreography 4.2: the
-  // table's run_000_short and run_000_mid keys are hit 1 of motions 3324 and 3323); a clip with one key uses that one.
+  // The row names the release clip in the animetable. Its release key is the clip's second ball key (choreography 4.2: the
+  // table's run_000_short and run_000_mid keys are hit 1 of motions 3324 and 3323). at() throws if a release row has one key.
   const int releaseMotion = match->GetPesAnimetable().Cell(pieceReleaseRow, pes::kThrowInPlainZeroColumn).motionNo;
   const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(releaseMotion);
-  const pes::HitRecord hit = hits.size() > 1 ? hits[1] : (hits.empty() ? pes::HitRecord() : hits.front());
+  const pes::HitRecord hit = hits.at(1);
   const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
   const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
   const Vector3 pos = taker->GetPosition();

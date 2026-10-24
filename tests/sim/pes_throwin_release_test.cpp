@@ -155,7 +155,12 @@ TEST(PesThrowInRelease, ACarriedThrowInIsHeldAtItsRowsKeyOffsetUntilTheTouch) {
     const int releaseMotion = match.GetPesAnimetable().Cell(takeRow, pes::kThrowInPlainZeroColumn).motionNo;
     const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(releaseMotion);
     const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
-    const pes::HitRecord hit = hits.size() > 1 ? hits[1] : (hits.empty() ? pes::HitRecord() : hits.front());
+    // The release key is the later of the clip's two ball keys, by frame. The pin reaches it by index 1, so the two agree only
+    // if index 1 is the later key.
+    EXPECT_GE(hits.size(), 2u) << "release row " << releaseMotion << " has fewer than two ball keys";
+    if (hits.size() < 2) return;
+    const pes::HitRecord hit =
+        *std::max_element(hits.begin(), hits.end(), [](const pes::HitRecord& a, const pes::HitRecord& b) { return a.frame < b.frame; });
     const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), 1.0f, false, g);
     const float keyHorizontal_m = std::sqrt(key.x * key.x + key.z * key.z);
     const float dx = heldBall.coords[0] - heldRoot.coords[0], dy = heldBall.coords[1] - heldRoot.coords[1];

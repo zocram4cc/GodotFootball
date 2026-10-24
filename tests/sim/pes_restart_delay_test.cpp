@@ -123,7 +123,12 @@ std::vector<float> IdleReleaseReaches(Match& match) {
   for (int row : {pes::kThrowInReleaseIdleShort, pes::kThrowInReleaseIdleMid, pes::kThrowInReleaseIdleLong}) {
     const int motion = match.GetPesAnimetable().Cell(row, pes::kThrowInPlainZeroColumn).motionNo;
     const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(motion);
-    const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+    if (hits.size() < 2) {
+      ADD_FAILURE() << "release motion " << motion << " has fewer than two ball keys";
+      continue;
+    }
+    const pes::HitRecord hit =
+        *std::max_element(hits.begin(), hits.end(), [](const pes::HitRecord& a, const pes::HitRecord& b) { return a.frame < b.frame; });
     const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), 1.0f, false, g);
     reaches.push_back(std::sqrt(key.x * key.x + key.z * key.z));
   }
@@ -885,6 +890,8 @@ TEST(PesRestartDelay, ANaturalGoalIsCountedOnTheJudgesFrame) {
   const auto goals = [](Match& match) {
     return match.GetMatchData()->GetGoalCount(0) + match.GetMatchData()->GetGoalCount(1);
   };
+  for (const unsigned int seed : {SEED, 3u, 5u, 11u, 13u}) {
+    tick = 0; flipAt = 0; live = false; goalsBefore = 0; goalsAtFlip = -1; goalsAfter = -1;
   RunMatchWithinTheBound(
       true, MINUTES,
       [&](Match& match) {
@@ -909,8 +916,10 @@ TEST(PesRestartDelay, ANaturalGoalIsCountedOnTheJudgesFrame) {
         }
         live = match.IsInPlay() && !match.IsInSetPiece() && !b.active;
       },
-      kMaxSimTicks, [&](Match&) { return goalsAfter >= 0; });
-  EXPECT_NE(flipAt, 0ul) << "the seed-7 match has no goal from an end-line crossing";
+      kMaxSimTicks, [&](Match&) { return goalsAfter >= 0; }, seed, false);
+    if (flipAt != 0) break;
+  }
+  EXPECT_NE(flipAt, 0ul) << "no searched match has a goal from an end-line crossing";
   EXPECT_EQ(goalsAtFlip, goalsBefore) << "the score moved on the flip tick, before the judge read the event";
   EXPECT_EQ(goalsAfter, goalsBefore + 1) << "the goal was not counted on the judge's frame";
 }

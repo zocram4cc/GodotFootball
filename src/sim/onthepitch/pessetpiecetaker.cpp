@@ -22,7 +22,7 @@ constexpr uint64_t HIT_TICK_DIVISOR_VA = 0x14259a764;  // 60: a hit's tick divis
 constexpr uint64_t THROW_IN_PICKUP_REACH_VA = 0x14259222c;  // 5.0: the throw-in pickup clip's reach (choreography 3.2)
 constexpr uint64_t THROW_IN_RELEASE_SHORT_VA = 0x1425c5948;  // 13.0: the carry's release row switches to the mid row beyond it
 constexpr uint64_t THROW_IN_RELEASE_LONG_VA = 0x14259be20;  // 25.0: the placed taker's idle release row switches to the long row beyond it
-constexpr uint64_t THROW_IN_PUSH_INSET_VA = 0x142588200;  // 0.1: the release margin the taker's hand keeps OUTSIDE the touchline (throwin 4.2)
+constexpr uint64_t THROW_IN_PUSH_INSET_VA = 0x142588200;  // 0.1: the release margin the taker keeps OUTSIDE the touchline (throwin 4.2, FUN_140792E10)
 constexpr uint64_t WALK_DOWN_KMH_VA = 0x14259bdfc;  // 11.0 km/h: the MOVE filler's walk-down speed (FUN_1406b7560)
 constexpr float kKmhPerMps = 3.6f;                  // a unit conversion: km/h per m/s
 
