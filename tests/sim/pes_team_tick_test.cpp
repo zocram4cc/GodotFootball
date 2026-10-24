@@ -170,6 +170,16 @@ TEST(PesTeamTick, StoppagePlanTwoRule) {
   EXPECT_EQ(pes::StoppagePlan2(/*current=*/1, /*setupNonZero=*/true), 2);
 }
 
+// S2 (audit-2): the selector's mode word (+0xBCC, 0x140501076) is −1 (keep) until the decider
+// first runs; PES's < 0 arm (TEST EAX,EAX; JS at 0x14050107C) then keeps the default plan.
+TEST(PesTeamTick, SelectorModeHoldsKeepUntilTheDeciderRuns) {
+  EXPECT_EQ(pes::SelectorMode(false, 3), -1);
+  EXPECT_EQ(pes::SelectorMode(true, 3), 3);
+  EXPECT_EQ(pes::SelectorMode(true, -1), -1);
+}
+
+TEST(PesTeamTick, DeciderHasNotRunOnAFreshTick) { EXPECT_FALSE(pes::TeamTick().deciderRan); }
+
 // T2b: step 9's out-of-play branch (0x14050247E-0x140502740) zeroes both reaction-delay banks,
 // T+0x6A4[11] and T+0xB860[11], on every call while MI+0x116C != 1. The in-play half of step 9 is
 // OPEN, so this test checks the return of the call in play and not the banks it leaves there.

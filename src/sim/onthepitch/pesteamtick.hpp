@@ -49,6 +49,7 @@ struct TeamTick {
   bool b8a3 = false;
   int modeBcc = -1;  // setup +0xBCC: −1/absent keeps
   int word134 = -1;  // T+0x134: the 0x1404F6DBD copy of modeBcc
+  bool deciderRan = false;  // S2: the decider has moved the word at least once
   uint32_t t80 = 0;
   int b8c0Frame = 0;
   int b6c40 = 0;
@@ -105,6 +106,10 @@ void SupportWeights(TeamTick* tick, bool latchSet, bool flipped, int playState, 
 
 // The 0x1404F6DBD copy (plan-selector §5): T+0x134 = +0xBCC, between the decider and the drift.
 void CopyModeWord(TeamTick* tick);
+
+// S2 (audit-2): the selector's mode input. +0xBCC is −1 (keep) until the decider first runs
+// (PES's < 0 arm, TEST EAX,EAX; JS at 0x14050107C), then the strategy the decider just moved.
+inline int SelectorMode(bool deciderRan, int strategy) { return deciderRan ? strategy : -1; }
 
 // The stoppage plan-2 rule (plan-selector §1: 0x140500FA9-DB7): when the stoppage arm reaches the
 // plan write with the sheet's current plan, the setup word keeps it when zero, plan 2 keeps

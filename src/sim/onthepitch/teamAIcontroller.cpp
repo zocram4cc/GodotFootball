@@ -2845,6 +2845,9 @@ void TeamAIController::UpdateStrategy() {
     // has no GF counterpart (team.cpp), so the score-on branch stays off.
     const bool flipped = latch != lastTickPossession;
     pes::SupportWeights(&teamTick, latch, flipped, playState, /*scoreFlag=*/false);
+    // S1 (audit-2): PES's tick runs the decider (0x1404F6DB8) before the copy and the drift, so a
+    // state-3 move is already in the strategy when the drift reads it. States 1/2 no-op here.
+    StepStrategyDecider(playState);
     // The 0x1404F6DBD copy, between the decider-source and the drift.
     pes::CopyModeWord(&teamTick);
     // ponytail: T+0x210 (the manual/target word) has no GF counterpart and no
@@ -2868,8 +2871,17 @@ void TeamAIController::UpdateStrategy() {
     }
     return;
   }
+  // The PES path already stepped the decider above (S1: before the drift); the GF path steps it here.
+  if (!pesPath) StepStrategyDecider(playState);
+}
+
+// PES 2021's CPU strategy decider body (FUN_14051E970, reached from the team tick at 0x1404F6DB8):
+// one StrategyStep where the entry gate holds (states 1 and 3) and only state 3 moves anything
+// (DeciderMovesIn; the body returns at once in state 1).
+void TeamAIController::StepStrategyDecider(int playState) {
+  if (!match->AIManagerRunsTeam(team->GetID())) return;
   // PES's decider moves the strategy in state 3 only; the PES path returns in every other state.
-  if (pesPath && !pes::DeciderMovesIn(playState)) return;
+  if (match->PesLoop() && !pes::DeciderMovesIn(playState)) return;
   pes::StrategyInputs in;
   switch (match->GetMatchPhase()) {
     case e_MatchPhase_PreMatch:
@@ -2904,6 +2916,7 @@ void TeamAIController::UpdateStrategy() {
     strategyRng->SetSeed(match->GetPesStrategyConstants().rngSlot, match->GetMatchSeed() + own);
   }
   pes::StrategyStep(match->GetPesStrategyConstants(), in, *strategyRng, &strategy);
+  teamTick.deciderRan = true;
 }
 
 SetPieceParams TeamAIController::GetSetPieceParams(e_SetPiece setPiece) {
@@ -3195,10 +3208,10 @@ void TeamAIController::UpdatePesSheetPlan() {
     return;
   }
   // The in-play mode table (l.272-289): the mode word +0xBCC picks the plan (§2). +0xBCC's writer
-  // is OPEN, so teamTick.modeBcc stands at −1 (keep) and the plan holds until the writer lands;
-  // the table reads the word, never the strategy. ponytail: remove the keep default with the
-  // writer (0x140501076).
-  teamSheet.SetPlan(pes::formation::InPlayPlan(teamTick.modeBcc, teamTick.b8a3, teamSheet.Plan()));
+  // is OPEN, so the word is −1 (keep, PES's < 0 arm) until the decider first runs, then the
+  // strategy the decider just moved (S2). The table reads the word, never the strategy direct.
+  teamSheet.SetPlan(pes::formation::InPlayPlan(pes::SelectorMode(teamTick.deciderRan, strategy.strategy),
+                                               teamTick.b8a3, teamSheet.Plan()));
 }
 
 int TeamAIController::RoleClassOfSlot(int slot) const {
