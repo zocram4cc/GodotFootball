@@ -265,10 +265,14 @@ def main():
 
     specs = sorted(f for f in os.listdir(args.spec_dir)
                    if f.endswith(".json"))
+    # The pilot (call-closed universe) always spans ALL specs; --only
+    # filters which functions get results, not the callee universe.
+    # Otherwise callees outside --only would mistranslate as out-of-set
+    # stubs and every --only diff with calls would spuriously mismatch.
+    pilot = {"0x" + f[:-5].upper() for f in specs}
     if args.only:
         want = {v.lower().replace("0x", "") for v in args.only}
         specs = [f for f in specs if f[:-5].lower() in want]
-    pilot = {"0x" + f[:-5].upper() for f in specs}
     os.makedirs(args.out_dir, exist_ok=True)
 
     results = []
