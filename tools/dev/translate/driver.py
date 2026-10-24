@@ -184,8 +184,28 @@ def build_and_diff(va, spec, args, pilot, nlines):
     stubmap = {}
     for _s in (spec.get("stubs") or {}).values():
         stubmap["0x" + _s["va"][2:].upper()] = _s
-    # translate callees too (their TUs must exist to link)
-    need = [va] + [c for c in callees if c in pilot]
+    # translate callees too (their TUs must exist to link). Closure is
+    # transitive: a callee's own callees must also link (e.g. 140A53DA0
+    # -> 140439EF0). Edges come from each spec's precheck calls.
+    speccache = {va: spec}
+    def calls_of(v):
+        s = speccache.get(v)
+        if s is None:
+            s, _ = load_spec(args.spec_dir, v)
+            speccache[v] = s
+        return ["0x" + c.upper()
+                for c in ((s.get("precheck", {}) or {}).get("calls", [])
+                          if s else [])]
+    need = [va]
+    seen = {va}
+    queue = [va]
+    while queue:
+        cur = queue.pop(0)
+        for c in calls_of(cur):
+            if c in pilot and c not in seen:
+                seen.add(c)
+                need.append(c)
+                queue.append(c)
     for cvi, cv in enumerate(need):
         p = os.path.join(gen, "pes_fn_%s.cpp" % cv[2:])
         if os.path.exists(p):

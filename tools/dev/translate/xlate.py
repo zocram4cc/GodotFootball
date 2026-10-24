@@ -1268,6 +1268,30 @@ def prepass(lines, img):
             tva = baseva + tdisp
             raw = img.read(tva, count * 4)
             words = list(struct.unpack("<%dI" % count, raw))
+            # Two-level dispatch (only 140A40050 in the set): a byte map
+            # [base + idx] feeds the dword table index. If the words do
+            # not land in this function, size the dword table by the byte
+            # map's value range instead of the CMP guard count.
+            if not any(baseva + w in addrs for w in words):
+                bmap = None
+                for j in range(i - 1, max(-1, i - 16), -1):
+                    mn2, ops2 = byaddr[order[j]]
+                    if mn2.upper() in ("MOVZX", "MOVSX", "MOVSXD") and \
+                            len(ops2) == 2 and "[" in ops2[1]:
+                        inner = ops2[1][ops2[1].find("[") + 1:
+                                        ops2[1].rfind("]")]
+                        mp = parse_mem(inner)
+                        if mp and mp["base"] is not None and \
+                                mp["scale"] == 1 and \
+                                mp["absolute"] is None:
+                            bmap = baseva + mp["disp"]
+                            break
+                if bmap is not None:
+                    braw = img.read(bmap, count)
+                    words = list(struct.unpack("<%dB" % count, braw))
+                    n2 = max(words) + 1
+                    raw2 = img.read(tva, n2 * 4)
+                    words = list(struct.unpack("<%dI" % n2, raw2))
             jmpreg[addr] = {"table": tva, "words": words, "base": baseva,
                             "default": default, "index": tidx or "eax"}
             for w in words:
