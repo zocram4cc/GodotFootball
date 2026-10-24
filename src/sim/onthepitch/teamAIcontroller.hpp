@@ -158,8 +158,8 @@ public:
   void UpdateTactics();
 
   // PES's S1 score rows of this team's AI (pesscorerows.hpp), in the lane space: its own team at
-  // 0..10, the opponents at 11..21. TickScoreRows() runs once per team tick, from Team::Process(),
-  // before the in-play gate.
+  // 0..10, the opponents at 11..21. TickScoreRows() runs once per frame for each side, from Match::Process(), before
+  // either side's team tick, so a mark table reads this frame's rows of the other side too.
   const pes::ScoreRows& Rows() const { return scoreRows_.Rows(); }
   void TickScoreRows();
   pes::ScoreRowWriter scoreRows_;

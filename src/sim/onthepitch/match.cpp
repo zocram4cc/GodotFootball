@@ -865,6 +865,11 @@ void Match::Process() {
     mentalImages.pop_back();
   }
 
+  // PES's S1 writer (listener step 5) rewrites both sides' score rows before either team tick, and its flag comes from
+  // the stage (FUN_140458880), so it runs in every state. A side's mark table reads the other side's rows
+  // (RunWorld::nearestRows): both must hold this frame's snapshot before either side's tick runs.
+  teams[0]->GetController()->TickScoreRows();
+  teams[1]->GetController()->TickScoreRows();
   // ponytail: GF's ElizaController and teamAIcontroller still decide inside Team::Process.
   // A4 replaces them with the ported team tick.
   tickStages.push_back(TickStage::Teams);

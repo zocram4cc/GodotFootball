@@ -568,12 +568,8 @@ void Team::Process() {
   // sits outside the in-play gate below.
   teamController->UpdateStrategy();
   teamController->UpdatePesSheetPlan();
-  // PES's S1 writer runs on the team tick in every state, not only in play: its flag comes from the
-  // stage (FUN_140458880), so a stoppage latches it. Ticked before the controller reads the rows.
-  teamController->TickScoreRows();
-  // PES's mark table (team-tick step 35, T7a `0x1404F76AC`, after the prep steps
-  // the cone doc cites) rebuilds from this tick's rows: after TickScoreRows,
-  // before the in-play gate (T7a runs in the team tick in every state).
+  // PES's mark table (team-tick step 35, T7a `0x1404F76AC`, after the prep steps the cone doc cites) rebuilds from the
+  // rows Match::Process ticked for both sides this frame, before the in-play gate (T7a runs in every state).
   teamController->TickMarkTable();
   if (match->IsInPlay() && !match->IsInSetPiece()) {
     teamController->Process();

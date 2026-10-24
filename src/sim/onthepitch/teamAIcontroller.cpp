@@ -181,7 +181,7 @@ void TeamAIController::TickScoreRows() {
   const pes::ScoreRowConstants k{pesFieldHalfLength, pesFieldHalfWidth, carrier.s1RadToDeg,
                                  carrier.s1TwoPi};
   // PES's writer writes nothing until a stoppage latches it: the flag is the stage's (pesscorerows.hpp,
-  // FUN_140457070's argument; Team::Process). A match opens stopped (inPlay starts false), so its first
+  // FUN_140457070's argument; Match::Process). A match opens stopped (inPlay starts false), so its first
   // tick latches the writer. A seam that starts play with no stoppage (Match::StartPlay) would leave the
   // rows unwritten until one came, so until the writer is latched every tick is its full refresh.
   scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay() || !scoreRows_.Latched(),
@@ -189,12 +189,10 @@ void TeamAIController::TickScoreRows() {
 }
 
 void TeamAIController::TickMarkTable() {
-  // PES 2021's step 35 (FUN_1404F61E0, T7a `0x1404F76B1`): rebuild the mark
-  // table from the run world each team tick on the PES path. T7a runs inside
-  // the team tick (after the prep steps, before step 38/WriteRoleArrays), so
-  // this runs in Team::Process next to TickScoreRows and is active in every
-  // match state, not only in play. The GF path keeps its own man-marking and
-  // never reads markTableState, so the build is PES-path only.
+  // PES 2021's step 35 (FUN_1404F61E0, T7a `0x1404F76B1`): rebuild the mark table from the run world each team tick on
+  // the PES path. T7a runs inside the team tick (after the prep steps, before step 38/WriteRoleArrays), reading the rows
+  // Match::Process ticked for both sides this frame. It is active in every match state, not only in play. The GF path
+  // keeps its own man-marking and never reads markTableState, so the build is PES-path only.
   markTableState.mark.fill(0);
   markTableState.markSlot = pes::marktable::kNoSlot;
   if (!match->PesLoop()) return;
@@ -3224,6 +3222,9 @@ void TeamAIController::WriteRoleArrays(bool head) {
   }
   pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamSheet,
                              level, &roles);
+  // ponytail: `level` is the role level, the matrix row of WriteSideRoles. WriteSlotPoints takes the sheet phase
+  // (FUN_1404F5F10: f = 2 - (F != 0), 0 when MI+0x116C != 1 && MI+0x1554 == 1; 0x1404F5F38-4A). They coincide on every
+  // reachable path today (audit F6); split them when a level-0 phase lands.
   WriteSlotPoints(level);
   if (head) return;
   if (match->PesLoop()) UpdateLaneLine();
