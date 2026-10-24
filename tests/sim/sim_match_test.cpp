@@ -353,6 +353,13 @@ TEST(SimMatch, BenchPlayersStartWithTheirOwnFormationEntry) {
 // minute; the level is GF's mentality rung. With the CPU manager switched off
 // for that team, the sheet's own mentality stands all match. The positive run
 // keeps the negative one from passing vacuously.
+// The strategy's input is the scoreline, so the test holds it at 0-3 the way
+// the PES-loop sibling (PesLoopStepsTheTeamTickFromTheStrategy) does: without
+// the hold the home side scores twice in play by minute 8 and trails by one,
+// where Balanced - not Attacking - is the decider's right answer
+// (pesstrategy.cpp, the second half's pre-switch step machine: g < -1 attacks,
+// g = -1 holds). The hold keeps the deficit the test is about; it is scenery
+// for "trailing", not a claim about the score.
 bool EverAttacksWhileTrailing(bool aiManagerRunsHome) {
   blunted::Database db;
   EXPECT_TRUE(db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql"));
@@ -372,21 +379,19 @@ bool EverAttacksWhileTrailing(bool aiManagerRunsHome) {
     Match match(data, setup, Properties());
     const TeamInstructions::e_Mentality sheet =
         match.GetTeam(0)->GetController()->GetInstructions().mentality;
-    // A deficit no short match can close: the switch is what is under test, not
-    // whether the side can come back.
     constexpr int kAwayLead = 3;
     data->SetGoalCount(1, kAwayLead);
     // The decider's switch minute (pesstrategy.cpp, the second half's minute-28
     // hold) is the deadline: past it a trailing side has had every chance the
-    // decider gives it. Stopping there also keeps a comeback from invalidating
-    // the run - a 3-0 lead is scenery for "trailing", not a claim about the score.
+    // decider gives it.
     constexpr int kSwitchDeadlineMinute = 70;
     while (!match.IsGameOver() && !attacking &&
            match.GetMatchMinute() < kSwitchDeadlineMinute) {
       match.Process();
-      if (match.GetMatchPhase() != e_MatchPhase_PreMatch &&
-          data->GetGoalCount(0) >= data->GetGoalCount(1))
-        break;  // no longer trailing
+      // Hold the scoreline the strategy reads: a goal in play must not shrink
+      // the deficit the test is about.
+      data->SetGoalCount(0, 0);
+      data->SetGoalCount(1, kAwayLead);
       const TeamInstructions::e_Mentality now =
           match.GetTeam(0)->GetController()->GetInstructions().mentality;
       attacking = now >= TeamInstructions::e_Mentality_Attacking &&

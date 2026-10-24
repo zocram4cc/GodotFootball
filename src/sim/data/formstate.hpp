@@ -29,30 +29,21 @@ enum class Arrow { Terrible = 0, Poor, Normal, Great, Top, Count };
 const char* ArrowName(Arrow arrow);
 const char* ArrowColour(Arrow arrow);  // "purple" .. "red", for the plan card
 
-// How a side's arrows are decided for the coming match - the pre-match
-// "Condition: Home / Away" row. Random draws one per player from his own
-// form; a fixed choice gives every player on that side the same arrow.
-enum class Policy { RandomPerPlayer = 0, AllTerrible, AllPoor, AllNormal, AllGreat, AllTop, Count };
-
-const char* PolicyName(Policy policy);
-// Parse the configured value ("random", "red", "orange", "green", "blue",
-// "purple"); anything else is random, which is PES's default.
-Policy ParsePolicy(const std::string& text);
-std::string SerializePolicy(Policy policy);
-
-// The arrow a policy hands a player. `form01` is the player's Form attribute
-// on 0..1 (PES's 1-8 scale normalised, physical_form in the profile) and
-// `roll` a uniform in [0, 1): a steady player sits near Normal, a volatile
-// one swings to the ends more often. PES's exact draw is unresolved in the
-// research (its open-questions table names it), so this is the obvious model
-// of what Form is documented to do; the multipliers below are PES's own.
-Arrow Draw(Policy policy, float form01, float roll);
-
-// The arrow a given player is dealt for a given match, reproducibly: the same
-// (seed, team, player) always yields the same arrow, so the pre-match Game
-// Plan card and the Team created at kick-off show one and the same colour.
-// `seed` is match_condition_seed, written by the pre-match sheet.
-Arrow ArrowForPlayer(Policy policy, float form01, unsigned int seed, int teamID, int playerIndex);
+// PES's condition chain (docs/re/pes-re-condition-import.md): the condition byte
+// deals the band, FUN_141FC1380's inverse map deals the arrow. No kick-off RNG.
+// Band is FUN_140AF2DA0's 7-edge ladder; the edge bytes are opcode-checked by
+// the loader, never transcribed. PES index = 4 - GF arrow.
+int Band(unsigned int conditionByte);
+Arrow ArrowForBand(int band);
+Arrow ArrowForConditionByte(unsigned int conditionByte);
+// FUN_14092AF10's apply-time shift (0x14092B4CE-0x14092B5DB): the own team with
+// T+0xA298 state 3 takes index 0; the opponent one step worse capped at 4. The
+// opponent path's /100 == 6 test reads the OTHER side (0x14092B516 R12D^1: the
+// side being shifted), so it takes the opponent side's class, never the own.
+Arrow ApplyTeamShift(Arrow arrow, bool ownTeam, bool teamModeThree, bool ownLevelClassSix,
+                     bool oppLevelClassSix);
+// Green x1.0 and out-of-range indices write nothing (0x14092B59B/5A0).
+bool ArrowWritesStats(Arrow arrow);
 
 // Which of PES's three arrow tiers an attribute key belongs to. Keys are the
 // profile names (physical_velocity ...); unknown keys land in the middle tier.

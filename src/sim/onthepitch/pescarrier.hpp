@@ -398,9 +398,10 @@ struct CarrierConstants {
   float dhbFacing_deg = 0.0f;          // 80, 0x142596e6c: the |X| gate
 
   // G3's team level (`T+0xA294`, x100; reader 0x140A40BD0, comparator 0x140A60360). PES stores
-  // clamp(class x 100, 0, 700) from the match-setting selector (0x1B5D8340, class `*(int*)(setup+0x18)`,
-  // default class 2 when out of 0..6, through 0x140A602B0 into the setter 0x140A424E0). GF carries no
-  // selector, so the loader reads the game's own stock default class and its scale and cap.
+  // clamp(class x 100, 0, 700) through the encoder 0x140A602B0 into the setter 0x140A424E0 (9 sites:
+  // the init `FUN_140A415A0`, `FUN_141FB9FB0`, `FUN_141FBE480`, `FUN_141FCDA30`, `FUN_141FCF130`,
+  // `FUN_140454C00`, `FUN_14044A9D0`; pes-re-team-status.md §2). GF carries no selector, so the
+  // loader reads the game's own stock default class and its scale and cap.
   int teamLevelRaw = 0;
 
   // The lane core's own table and scalars (0x14063CD90 and its packer), loaded here so the

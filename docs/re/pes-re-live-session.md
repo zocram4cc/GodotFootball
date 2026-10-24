@@ -124,3 +124,11 @@ Leave it for the match; grep the log for `T8b=` (nonzero), `T12B nz=48/48`,
 2. PA identity (breakpoint, not pread — named in script, unsampled).
 3. METER rect + InplayCamera pose scan (open shapes, script logs the gap).
 4. P5 follow-up is GF-side (NDR routing + v-check + viewer frame), no PES read.
+
+## Capture 1 (Main, 23-10-26): one hour of the owner's endless match
+
+`live_session.py --dur 3600` against pid 2510857: 20,180 lines, frames 7,251,065 → 7,452,928 (~62 min at 54 fps). **Play never stopped:** every MI sample reads `play=1 restart=0 step11B0=0x16 mode44=0x00` (the owner's endless match, one outfield player per side, stayed in open play for the hour).
+
+- **T6A: confirmed inert live.** The kick-list count `MA+0x24D50` read 0 in all 2,933 samples, as the static verdict (`pes-re-blocked-slices.md`) said.
+- **T12B: (superseded by `pes-re-t12b.md`)** the capture read the wrong base: the rows are 46 inline objects at `[H+0x450+side·8]+0x62B8`, not 48 pointers at `H+0x62B8`, so the floats below are an unrelated region. Original note: 24 of 48 slots are non-zero and constant through the hour, and their values are floats, not pointers (`0xBF800000BF800000` = (−1.0, −1.0) pairs, `0xBF0D78C800000000` ≈ −0.553). Re-decode the slot table's element type before reading it as a pointer table.
+- **T8b, the camera writer, the restart step, the PA identity, the metering rect: unsettled.** Each needs a stoppage or a camera change, and this match had neither (T8b's flags read all zero; `mode44` stayed 0; the step stayed 0x16). Rerun during a normal exhibition match with goals and set pieces.

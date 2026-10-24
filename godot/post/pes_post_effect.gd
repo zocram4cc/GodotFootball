@@ -8,8 +8,8 @@ extends CompositorEffect
 
 const SHADER_PATH := "res://post/pes_post.glsl"
 const PASSES := ["reduce", "law", "compose"]
-const PARAM_FLOATS := 6   # Params layout: see pes_post.glsl and pes_lighting.cpp
-const PARAM_BYTES := 24
+const PARAM_FLOATS := 10  # Params layout: see pes_post.glsl and pes_lighting.cpp
+const PARAM_BYTES := 40
 const PUSH_BYTES := 16    # two vec2 push constants
 const REDUCE_TILE := 16   # reduce kernel's local size
 const WORK_TILE := 8      # compose kernel's local size
@@ -136,7 +136,7 @@ func _create_targets(size: Vector2i, color: RID) -> void:
 	_partials = _rd.storage_buffer_create(_partial_count * 4)
 	_pixel_count = size.x * size.y
 	_sets["reduce"] = _rd.uniform_set_create([
-		_image(0, color), _storage(1, _partials), _storage(2, _ev)], _shader["reduce"], 0)
+		_image(0, color), _storage(1, _partials), _storage(2, _ev), _storage(3, _params_buf)], _shader["reduce"], 0)
 	_sets["law"] = _rd.uniform_set_create([
 		_storage(0, _partials), _storage(1, _ev), _storage(2, _params_buf)], _shader["law"], 0)
 	_sets["compose"] = _rd.uniform_set_create([

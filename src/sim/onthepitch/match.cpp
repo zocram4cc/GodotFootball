@@ -165,6 +165,9 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES carrier constants missing: read them from the install with "
         "pes::LoadCarrierConstants into MatchSetup::pesCarrierConstants");
   pesCarrierConstants = *setup.pesCarrierConstants;
+  // Both sides carry the stock default level word until the team-setup import
+  // sources each side's own (docs/re/pes-re-team-status.md 5).
+  teamLevelRaw = {pesCarrierConstants.teamLevelRaw, pesCarrierConstants.teamLevelRaw};
   // PES 2021's open-play defensive shape (docs/re/pes-re-defensive-shape.md 6,
   // 7, 14): the line ramp's offsets, the 46/42/32 m lengths, the 15/19/23 m line
   // half-widths and the mark arithmetic. Required like the carrier's: a
@@ -1129,6 +1132,16 @@ int Match::InjuryResistanceOf(const PlayerData* data) const {
 bool Match::LeftFootedOf(const PlayerData* data) const {
   const auto traits = TraitsOf(pesPlayerDatabase, data);
   return traits ? traits->leftFooted : kFallbackLeftFooted;
+}
+
+int Match::FormOf(const PlayerData* data) const {
+  const auto traits = TraitsOf(pesPlayerDatabase, data);
+  return traits ? traits->form : kFallbackForm;
+}
+
+uint8_t Match::ConditionByteOf(const PlayerData* data) const {
+  const auto traits = TraitsOf(pesPlayerDatabase, data);
+  return traits ? traits->condition : kFallbackCondition;
 }
 
 // PES 2021's injury roll for one contact

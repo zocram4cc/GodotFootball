@@ -291,3 +291,7 @@ gtest_discover_tests(penalty_shootout_aim_test)
 add_executable(pes_designation_test pes_designation_test.cpp)
 target_link_libraries(pes_designation_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_designation_test)
+
+add_executable(pes_condition_test pes_condition_test.cpp)
+target_link_libraries(pes_condition_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_condition_test)
