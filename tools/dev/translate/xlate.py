@@ -159,10 +159,11 @@ def sext(expr, bits):
 
 
 def parse_mem(inner):
-    parts = [p.strip().lower() for p in inner.split("+")]
+    # Split on + and - (but not on a leading sign or 0x digits). "rdi - 8"
+    # -> ["rdi", "-8"]; "rcx+rax*4-0x10" works the same.
+    tmp = re.sub(r"\s*-\s*", "+-", inner.strip().lower())
+    parts = [p.strip() for p in tmp.split("+") if p.strip() != ""]
     base = None
-
-
     index = None
     scale = 1
     nums = []
@@ -205,6 +206,7 @@ class Emitter:
         self.pilot = pilot  # set of "0x.." in-set callees
         self.consts = {}  # va -> bytes (image constants, VA-cited)
         self.tables = {}  # table VA -> {"words": [...], "base": va}
+        self.siblings = set()  # in-set callees + tail targets referenced
         self.out = []  # body lines (labels included)
 
     def bake(self, va, n):
@@ -243,7 +245,7 @@ class Emitter:
             if flt == "f32":
                 return "k_c%X_f" % va
             if flt == "f64":
-                return "k_c%X_d" % va
+                return "PesState::f64(k_c%X_q)" % va
             if n == 8:
                 return "k_c%X_q" % va
             if n == 4:
@@ -946,15 +948,15 @@ class Emitter:
             if s.startswith("xmm") and "[" not in s:
                 y = int(s[3:])
                 lo = "(float)s.x_f64(%d)" % y
-                hi = ("(float)([](){ double _d; uint64_t _u = s.xmm[%d][1];"
+                hi = ("(float)([&](){ double _d; uint64_t _u = s.xmm[%d][1];"
                       " memcpy(&_d, &_u, 8); return _d; }())" % y)
             else:
                 inner = src[src.find("["):]
                 e = self.mem_val(inner, 128, None)
-                lo = ("(float)([](){ double _d; uint64_t _u = "
+                lo = ("(float)([&](){ double _d; uint64_t _u = "
                       "(uint64_t)(%s); memcpy(&_d, &_u, 8); return _d; }())"
                       % e)
-                hi = ("(float)([](){ double _d; uint64_t _u = "
+                hi = ("(float)([&](){ double _d; uint64_t _u = "
                       "(uint64_t)((%s) >> 64); memcpy(&_d, &_u, 8); "
                       "return _d; }())" % e)
             return ["{ uint32_t _lo = PesState::bits(%s), "
@@ -998,6 +1000,7 @@ class Emitter:
                             "PesState::f32(_b)); }" % (vv & 0xFFFFFFFF)]
                 return ["s.gpr[0] = 0x%XULL;" % (vv & 0xFFFFFFFFFFFFFFFF)]
             if tgt in self.pilot:
+                self.siblings.add(tgt)
                 fn = "pes_fn_%s" % tgt[2:]
                 return ["{ s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); %s(s); "
                         "s.gpr[4] += 8; }" % fn]
@@ -1013,6 +1016,7 @@ class Emitter:
                 if not addrs or imm_val(o) in addrs:
                     return ["goto L_%X;" % imm_val(o)]
                 if tgt in self.pilot:
+                    self.siblings.add(tgt)
                     return ["{ pes_fn_%s(s); return; }" % tgt[2:]]
                 return ["/*OUT-OF-RANGE JMP %s*/return;" % tgt]
             # JMP reg: switch dispatch (resolved in prepass) or tailjump
@@ -1299,9 +1303,12 @@ def const_decls(em):
             decls.append("static constexpr uint32_t k_c%X_w = 0x%08XU;" % (va, vals[0]))
             decls.append("static constexpr float k_c%X_f = %af; // %r" % (va, f, f))
         elif n == 8:
-            d = struct.unpack("<d", blob)[0]
             decls.append("static constexpr uint64_t k_c%X_q = 0x%016XULL;" % (va, struct.unpack("<Q", blob)[0]))
-            decls.append("static constexpr double k_c%X_d = %a; // %r" % (va, d, d))
+            # Non-finite doubles (%a renders nan/inf, invalid C++): always
+            # reference through the bits. Finite doubles keep a literal too.
+            import math as _math
+            if _math.isfinite(struct.unpack("<d", blob)[0]):
+                decls.append("static constexpr double k_c%X_d = %a; // %r" % (va, struct.unpack("<d", blob)[0], struct.unpack("<d", blob)[0]))
         elif n == 16:
             decls.append("static constexpr unsigned __int128 k_c%X = ((unsigned __int128)0x%016XULL << 64) | 0x%016XULL;" % (va, struct.unpack("<Q", blob[8:])[0], struct.unpack("<Q", blob[:8])[0]))
         else:
@@ -1340,10 +1347,12 @@ def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
     head.extend(const_decls(em))
     head.append("")
     head.append("void pes_fn_%s(PesState& s);" % va[2:])
+    for sib in sorted(em.siblings):
+        if sib != va:
+            head.append("void pes_fn_%s(PesState& s);" % sib[2:])
     for (tva, n), blob in sorted(em.consts.items()):
         pass
     src = head + ["", "void pes_fn_%s(PesState& s) {" % va[2:]] + ["  " + b for b in out] + ["}"]
-    # sibling declarations needed
     return src, []
 
 

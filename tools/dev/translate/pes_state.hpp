@@ -92,6 +92,11 @@ struct PesState {
     std::memcpy(&b, &f, 4);
     return b;
   }
+  static double f64(uint64_t u) {
+    double d;
+    std::memcpy(&d, &u, 8);
+    return d;
+  }
   float x_f32(int x) const {
     uint32_t b = (uint32_t)xmm[x][0];
     return f32(b);
