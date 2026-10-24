@@ -90,6 +90,29 @@ int Step19Licence(int level);
 // `gate` is the 5AAF00 verdict, whose roster/run-state/RNG/ball arms ride a
 // // ponytail at the controller call. Returns true when the branch claimed it.
 bool Step19Class(TeamTick* tick, bool gate, const std::array<int, kReactionSlots>& classes);
+// Step 19's list-branch sort + pick (FUN_140500200, 0x140500544-88E): per
+// own slot on the pitch, class >= 7 ranks with -100 (BTS at 0x1405006A2);
+// else key = tableFloat - ramp(d)*5 (+ -3.0 on the holder match), ramp(d) =
+// d<=10 ? 1 : d>=25 ? 0 : (d-25)/-15, d = man-to-ball; ascending stable sort
+// (FUN_140A79640 at 0x1405007DF); the first `licence` entries take the mask
+// (0x14050086E/885, stored at 0x14050088E). Table floats + holder-match ride
+// a // ponytail at the controller call (selected-table writers OPEN,
+// §2/§4 item 3); the distances reuse the quota's decoded ramp.
+struct Step19Slot {
+  int slot = 0;        // own-side slot 0..10
+  int roleClass = 0;   // T+0x4C00 row (SideRoles::b 1:1)
+  float manX = 0.0f;   // the man's x (man-to-ball distance arm)
+  float manZ = 0.0f;   // the man's z
+  bool holderMatch = false;  // the [RSP+0x22] holder-match flag for this slot
+};
+struct Step19ListInput {
+  int licence = 0;  // [RSP+0x20], from Step19Licence
+  std::array<Step19Slot, kReactionSlots> slots{};
+  float ballX = 0.0f;  // MA+0x2482C (analysis ball; GF: the ball now)
+  float ballZ = 0.0f;  // MA+0x24834
+  std::array<float, kReactionSlots> tableFloat{};  // the A714E0 selected-table floats
+};
+uint32_t Step19ListPick(const Step19ListInput& in);
 
 // MI+0x116C, the play state (pes-re-A5Judge.md): 1 is play in progress.
 constexpr int kPlayStateInPlay = 1;

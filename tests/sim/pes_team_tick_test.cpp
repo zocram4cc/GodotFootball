@@ -382,5 +382,38 @@ TEST(PesTeamTick, Level1to3GatesOnClass) {
     EXPECT_EQ(tick.eligibleMask, 0u);
   }
 }
+// T3a slice 3: step 19's list-branch sort + pick (FUN_140500200, 0x140500544-
+// 88E). Per own slot on the pitch: class >= 7 takes -100 at once (BTS at
+// 0x1405006A2) and ranks last; else key = tableFloat - ramp(d)*5
+// (+ -3 on the holder match), sorted ascending stable (FUN_140A79640 at
+// 0x1405007DF), first `licence` entries take the mask (0x14050086E/885,
+// stored 0x14050088E). Table floats ride a // ponytail (MA+0x229B4/0x22B9C
+// writer OPEN); the distances use the quota's 10/25/-15 ramp already in GF.
+TEST(PesTeamTick, Level0PicksRankedSlots) {
+  // Two on-pitch candidates; slot 0 nearer the ball, so it ranks first.
+  pes::Step19ListInput in;
+  in.licence = 1;
+  in.slots[0] = {0, 4, 0.0f, 0.0f, false};
+  in.slots[1] = {1, 4, 20.0f, 0.0f, false};
+  in.ballX = 10.0f;
+  in.ballZ = 0.0f;
+  in.tableFloat = {5.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  const uint32_t mask = pes::Step19ListPick(in);
+  EXPECT_EQ(mask, 1u << 0);
+}
+
+// A class >= 7 forward takes the mask at once with -100 and holds his place
+// against the quota (the quota tail BTS's him in the same pass).
+TEST(PesTeamTick, Level0ForwardTakesItsPlace) {
+  pes::Step19ListInput in;
+  in.licence = 1;
+  in.slots[0] = {0, 4, 0.0f, 0.0f, false};
+  in.slots[1] = {1, 7, 20.0f, 0.0f, false};
+  in.ballX = 10.0f;
+  in.ballZ = 0.0f;
+  in.tableFloat = {5.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  // Slot 1's -100 outranks slot 0's (5 - ramp(20)*5 < 0 but above -100).
+  EXPECT_EQ(pes::Step19ListPick(in), 1u << 1);
+}
 
 }  // namespace

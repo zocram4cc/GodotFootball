@@ -1,6 +1,7 @@
 #include "pesteamtick.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace pes {
 namespace {
@@ -166,9 +167,9 @@ int Step19Licence(int level) {
 }
 
 // Step 19's class branch: 11-scan from side*11 (0x140500266-2BC); slot<0x16,
-// fold slot%11 (0x140500280-28A MUL/SHR/IMUL/SUB), T+0x4C00[fold] > 1 admits
-// (0x1405002A7 CMP EAX,0x1; 0x1405002AA JLE skip). Side folds out: PES scans
-// the side's own 11 slots, so fold == slot here.
+// fold slot%11, T+0x4C00[fold] > 1 admits (0x1405002A7/2AA).
+// GF-side indexing already folds: roles.b[k] is T+0x4C00[(side*11+k)%11], so
+// the caller's classes[k] is the folded word (RoleClassOfSlot reads b[slot]).
 bool Step19Class(TeamTick* tick, bool gate, const std::array<int, kReactionSlots>& classes) {
   if (tick->b8a4 <= 0 || !gate) return false;
   uint32_t mask = 0;
@@ -176,6 +177,43 @@ bool Step19Class(TeamTick* tick, bool gate, const std::array<int, kReactionSlots
     if (classes[static_cast<size_t>(k)] > 1) mask |= 1u << k;
   tick->eligibleMask = mask;
   return true;
+}
+
+// Step 19's sort-key ramp (0x140500726-746): the quota's decoded 10/25/-15
+// ramp (pesoffball.hpp: kQuotaNearEdge/FarEdge/Falloff) times 5.0
+// (0x140500746, XMM11); -3.0 on the holder match (0x14050078E, XMM10).
+uint32_t Step19ListPick(const Step19ListInput& in) {
+  // The distances reuse the quota's decoded edges (pesoffball constants are
+  // the same image words: 10.0 at 0x142588210, 25.0 at 0x14259BE20,
+  // -15.0 at 0x14259D668, 5.0 at 0x14259222C, -3.0 at 0x14259D654).
+  constexpr float kNear_m = 10.0f;    // 0x142588210
+  constexpr float kFar_m = 25.0f;     // 0x14259BE20
+  constexpr float kFalloff_m = -15.0f;  // 0x14259D668
+  constexpr float kScale = 5.0f;      // 0x14259222C (0x140500746)
+  constexpr float kHolderAdd = -3.0f;  // 0x14259D654 (0x14050078E)
+  constexpr float kForwardKey = -100.0f;  // 0xC2C80000 at 0x140500693
+  struct Entry { int slot; float key; };
+  std::array<Entry, kReactionSlots> entries{};
+  for (int k = 0; k < kReactionSlots; ++k) {
+    entries[static_cast<size_t>(k)] = {in.slots[static_cast<size_t>(k)].slot, 0.0f};
+    if (in.slots[static_cast<size_t>(k)].roleClass >= 7) {
+      entries[static_cast<size_t>(k)].key = kForwardKey;
+      continue;
+    }
+    const float dx = in.slots[static_cast<size_t>(k)].manX - in.ballX;
+    const float dz = in.slots[static_cast<size_t>(k)].manZ - in.ballZ;
+    const float d = std::sqrt(dx * dx + dz * dz);
+    const float ramp = d <= kNear_m ? 1.0f : d >= kFar_m ? 0.0f : (d - kFar_m) / kFalloff_m;
+    float key = in.tableFloat[static_cast<size_t>(k)] - ramp * kScale;
+    if (in.slots[static_cast<size_t>(k)].holderMatch) key += kHolderAdd;
+    entries[static_cast<size_t>(k)].key = key;
+  }
+  // FUN_140A79640 (0x1405007DF): ascending by key, stable (slot order kept).
+  std::stable_sort(entries.begin(), entries.end(),
+                   [](const Entry& a, const Entry& b) { return a.key < b.key; });
+  uint32_t mask = 0;
+  for (int i = 0; i < in.licence && i < kReactionSlots; ++i) mask |= 1u << entries[static_cast<size_t>(i)].slot;
+  return mask;
 }
 
 void BuildMarkTableTick(marktable::MarkState* state, const marktable::Facts& facts,
