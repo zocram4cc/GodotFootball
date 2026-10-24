@@ -218,9 +218,11 @@ def build_and_diff(va, spec, args, pilot, nlines):
     rc, _, err = sh([args.cxx, "-std=c++20", "-O1", "-I", gen, "-o", bin_p,
                      main_p] + objs, timeout=300)
     if rc != 0:
-        # keep the first error lines only
-        lines = [l for l in err.splitlines() if "error" in l][:4]
-        return False, "compile: %s" % " | ".join(lines)[:240], \
+        # keep the informative lines: errors plus undefined references
+        # (ld failures print the missing symbol, not the word 'error')
+        lines = [l for l in err.splitlines()
+                 if "error" in l or "undefined reference" in l][:6]
+        return False, "compile: %s" % " | ".join(lines)[:400], \
             "translator bug"
     corpus = os.path.join(gen, "corp_%s.jsonl" % tag)
     rc, out, err = sh([bin_p, corpus], timeout=args.timeout)
