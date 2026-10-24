@@ -17,6 +17,7 @@
 #include "onthepitch/pesdodge.hpp"
 #include "onthepitch/pestackle.hpp"
 #include "onthepitch/pespress.hpp"
+#include "onthepitch/pesmarktable.hpp"
 #include "onthepitch/pesstrategy.hpp"
 #include "onthepitch/pesteamconcepts.hpp"
 #include "onthepitch/pessubs.hpp"
@@ -204,6 +205,10 @@ class PesLibrary : public RefCounted {
   const pes::PressConstants* press_constants() const {
     return pressConstants_ ? &*pressConstants_ : nullptr;
   }
+  // PES 2021's mark table (team-tick step 35, FUN_1404F61E0).
+  const pes::marktable::Constants* mark_table_constants() const {
+    return markTableConstants_ ? &*markTableConstants_ : nullptr;
+  }
 
  protected:
   static void _bind_methods();
@@ -247,6 +252,7 @@ class PesLibrary : public RefCounted {
   std::optional<pes::offball::OffBallConstants> offBallConstants_;
   std::optional<pes::MoveStepConstants> moveStepConstants_;
   std::optional<pes::PressConstants> pressConstants_;
+  std::optional<pes::marktable::Constants> markTableConstants_;
   std::optional<pes::SetPieceTakerConstants> setPieceTakerConstants_;
   std::optional<pes::SetPieceTeamConstants> setPieceTeamConstants_;
 };

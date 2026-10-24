@@ -1545,11 +1545,21 @@ std::optional<NearOpponent> FirstOpponent(const RunWorld& w, int id) {
   const pes::RowEntry& e = row.Entry(1, 0);
   return NearOpponent{GlobalOf(t, e.id), e.value};
 }
+}  // namespace (RowD2/RowBearing live in pes::offball per the header)
+}  // namespace (close outer anon before hoisted RowD2/RowBearing)
 // FUN_14043B8B0: the squared distance of `target` in `id`'s S1 row, either side. NaN when the row does not list him.
 float RowD2(const RunWorld& w, int id, int target) {
   const int t = TeamOf(id);
   return w.nearestRows[t]->nearest[LaneOf(t, id)].ValueOf(LaneOf(t, target));
 }
+// FUN_140439FE0: the bearing of (id - target) in the pair table, in degrees. 0 when either row is
+// missing or the pair is coincident or off the pitch.
+float RowBearing(const RunWorld& w, int id, int target) {
+  const int t = TeamOf(id);
+  if (w.nearestRows[t] == nullptr) return 0.0f;
+  return w.nearestRows[t]->bearing[LaneOf(t, id)][LaneOf(t, target)];
+}
+namespace {
 // FUN_140458740 over the floor (FUN_140A6C6D0 squares it against |v|): a man under the floor speed reads his facing.
 // ponytail: PES also tests the record's movement state; GF's run world carries no such byte, and a still or slow man
 // is the only one under the floor.
@@ -1560,7 +1570,6 @@ float CarrierHeading(const PlayerFacts& p) {
 }
 }  // namespace
 
-}  // namespace
 // FUN_1404F6720 (step 5, 0x1404F6720-0x1404F6BC2): whether team `t`'s offside-trap flag T+0xE4 is set this tick. The
 // gates run in PES's order and each cites its VA. Three of them cannot pass together: 0x1404F68E4 (10 m behind the
 // trapping line) and 0x1404F6A5B (4 m past it) read the same team line f40(T) and sign: together they need
@@ -1619,9 +1628,9 @@ bool OffsideTrapArmed(const RunWorld& w, int t) {
   if (dCD >= kTrapDesignatedD2_m2) return false;
   // 0x1404F6A53-0x1404F6A5B: the designated man is not 4 m or more past the trapping line.
   if ((lineT - dm.pos.x) * sC >= kTrapDesignatedLine_m) return false;
-  // The carrier's bearing to D: M[c][D] (0x1404F69D2, FUN_140439FE0). ponytail: the live bearing stands in for the
-  // pair table, as pescarrier.cpp does. It is within 45 degrees of the attack bearing (0x1404F6A7D, 0x1404F6A98).
-  const float bearingCD = PBrg(me.pos, dm.pos);
+  // The carrier's bearing to D: M[c][D] (0x1404F69D2, FUN_140439FE0). The pair table carries it;
+  // without rows the live bearing is the fallback. Within 45 degrees of the attack (0x1404F6A7D/98).
+  const float bearingCD = w.pesPath && w.nearestRows[cs] != nullptr ? RowBearing(w, c, D) : PBrg(me.pos, dm.pos);
   if (Ad(attackDeg, bearingCD) > kTrapAimCone_deg) return false;
   // The veto (0x1404F6AD0-0x1404F6B37): a carrier-side man other than D, on the pitch, whose nearest opponent is 3 m^2
   // or more away (FUN_140A4DCC0, JC at 0x1404F6B13), and who lies inside 80 degrees of the carrier's heading.
