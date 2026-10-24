@@ -292,7 +292,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
         return False, "compile: %s" % " | ".join(lines)[:400], \
             "translator bug"
     corpus = os.path.join(gen, "corp_%s.jsonl" % tag)
-    rc, out, err = sh([bin_p, corpus], timeout=args.timeout)
+    rc, out, err = sh([bin_p, corpus, args.image], timeout=args.timeout)
     m = re.search(r"(\d+) cases, (\d+) mismatch", out)
     if rc == 0 and m and int(m.group(2)) == 0:
         note = "%d cases bit-exact" % int(m.group(1))
