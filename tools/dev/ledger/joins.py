@@ -77,7 +77,7 @@ def src_sites():
                     if not e["name"]:
                         for j in range(i, max(-1, i - 6), -1):
                             nm = re.search(
-                                r"(?:^|[\s:\[])([A-Za-z_][\w:]*)\s*\(", lines[j])
+                                r"(?:^|[:\[\s])([A-Za-z_][\w:]*)\s*\(", lines[j])
                             if nm and "if" not in nm.group(1):
                                 e["name"] = nm.group(1)[-64:]
                                 break
