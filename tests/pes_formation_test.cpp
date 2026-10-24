@@ -193,8 +193,9 @@ TEST(FormationInstall, TheGridAndTheKeeperRowAreReadFromTheExe) {
   EXPECT_FLOAT_EQ(keeper->z, 0.0f);
 }
 
-// PES's in-play plan selector (FUN_140500B90 l.272-288): the strategy word picks the sheet plan on
-// each team tick. A negative mode keeps the plan; the balanced rung reads the full-defence flag.
+// PES's in-play plan selector (FUN_140500B90 l.272-289, plan-selector §2): the mode word +0xBCC
+// picks the sheet plan on each team tick. A negative mode keeps the plan; the balanced rung reads
+// the full-defence flag.
 TEST(InPlayPlan, DefensiveRungsGiveTheDefensivePlan) {
   EXPECT_EQ(pes::formation::InPlayPlan(pes::kStrategyDefensive, false, 0), 1);
   EXPECT_EQ(pes::formation::InPlayPlan(pes::kStrategyDefensive, true, 0), 1);
@@ -215,3 +216,4 @@ TEST(InPlayPlan, NoRungKeepsThePlan) {
   EXPECT_EQ(pes::formation::InPlayPlan(-1, false, 2), 2);
   EXPECT_EQ(pes::formation::InPlayPlan(pes::kStrategyAllOut + 1, true, 1), 1);
 }
+

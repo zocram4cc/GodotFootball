@@ -37,6 +37,10 @@ enum e_SetPiece {
   e_SetPiece_Corner,
   e_SetPiece_ThrowIn,
   e_SetPiece_Penalty,
+  // The period-end restart (plan-selector §4): PES raises restart kind 7 when the period ends
+  // and holds it until the next award overwrites it with its own kind. It schedules exactly like
+  // a kick-off (the break's own restart is the next period's kick-off); only the JR kind differs.
+  e_SetPiece_PeriodEnd,
 };
 
 enum e_TouchType {

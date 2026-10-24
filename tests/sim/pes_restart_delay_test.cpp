@@ -162,7 +162,9 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
     }
     if (!b.active || (lastStop && *lastStop == b.stopTime)) return;
     lastStop = b.stopTime;
-    if (b.desiredSetPiece == e_SetPiece_KickOff) return;  // timed by GoalSequence, not PES's programme
+    // Timed by GoalSequence, not PES's programme; kind 7 (the period end) schedules exactly like a kick-off
+    // (gametypes.hpp, docs/re/pes-re-plan-selector.md §4).
+    if (b.desiredSetPiece == e_SetPiece_KickOff || b.desiredSetPiece == e_SetPiece_PeriodEnd) return;
 
     const pes::RestartSpotConstants& k = match.GetPesRestartSpotConstants();
     const pes::StoppageConstants& stoppage = match.GetPesStoppageConstants();
