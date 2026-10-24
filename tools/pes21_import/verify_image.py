@@ -7,9 +7,11 @@ Reads each stable (byte-identical across two dumps 11 days apart) section
 from the dump at file offset = VA - 0x140000000, hashes it, and compares
 with tools/pes21_import/image_hashes.json. Exits 1 naming every section
 that differs, so the user knows their dump is not the image the pilot
-specs were authored against. Unstable sections (.data, and the three
-sections with a handful of self-patched bytes) are checked for presence
-only, never hashed.
+specs were authored against. Sections the game self-patches at a few sites
+(the code section .trace and .rdata) are hashed with those sites zeroed
+(each entry's "mask": [va, length] pairs), so the bytes the translator
+reads are still verified. .data (live globals) and .impdata are checked for
+presence only, never hashed.
 """
 import hashlib
 import json
@@ -51,7 +53,8 @@ def section_bounds(image):
     return out
 
 
-def hash_range(image, va, size):
+def hash_range(image, va, size, mask=()):
+    """SHA-256 of [va, va+size) with every masked [mva, mva+len) zeroed."""
     h = hashlib.sha256()
     with open(image, "rb") as f:
         rem, off = size, va - BASE
@@ -62,6 +65,11 @@ def hash_range(image, va, size):
             if len(b) != n:
                 raise SystemExit(
                     "verify_image: %s too short for section at %#x" % (image, va))
+            lo = BASE + off
+            for mva, mlen in mask:
+                s, e = max(mva, lo), min(mva + mlen, lo + n)
+                if s < e:
+                    b = b[:s - lo] + bytes(e - s) + b[e - lo:]
             h.update(b)
             rem -= n
             off += n
@@ -79,7 +87,8 @@ def verify(image, hashes):
         if vsz != int(want["vsz"], 16):
             bad.append("%s (size %s, want %s)" % (name, hex(vsz), want["vsz"]))
             continue
-        if hash_range(image, va, vsz) != want["sha256"]:
+        mask = [(int(a, 16), n) for a, n in want.get("mask", [])]
+        if hash_range(image, va, vsz, mask) != want["sha256"]:
             bad.append(name)
     # Unstable sections must exist but are never hashed.
     for name in hashes.get("unstable", []):

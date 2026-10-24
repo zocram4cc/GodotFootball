@@ -26,6 +26,17 @@
    "va": "0x143ac5000",
    "vsz": "0x1d1000"
   },
+  ".rdata": {
+   "mask": [
+    [
+     "0x142647c64",
+     8
+    ]
+   ],
+   "sha256": "e6e1d06d4e6409521c8209b9f9ffdcb11ed42b7cde82106262eaf4da4bf9dbc4",
+   "va": "0x14252f000",
+   "vsz": "0xe6c000"
+  },
   ".reloc": {
    "sha256": "8d042a6284c53d4ea10c6e806f7cbf85ded9ee13ad8447c7dcd2469bd7dd4673",
    "va": "0x15b952000",
@@ -61,6 +72,17 @@
    "va": "0x15b960000",
    "vsz": "0x8da0"
   },
+  ".trace": {
+   "mask": [
+    [
+     "0x140447e79",
+     3
+    ]
+   ],
+   "sha256": "f126d60219399ccc3eb968e2101f49001a582fa7fd33fb746edef03b4c285776",
+   "va": "0x140001000",
+   "vsz": "0x252d800"
+  },
   ".xcode": {
    "sha256": "73200fa2df5f80bc5a2a8aa0826b7a9ca3b2e2718944dde75b286fef20166417",
    "va": "0x15b956000",
@@ -79,8 +101,6 @@
  },
  "unstable": [
   ".data",
-  ".impdata",
-  ".rdata",
-  ".trace"
+  ".impdata"
  ]
 }
