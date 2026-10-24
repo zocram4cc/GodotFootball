@@ -1,0 +1,191 @@
+{
+  "name": "band",
+  "va": "0x140AF2DA0",
+  "note": "FUN_140AF2DA0 full function (provenance: DiffHarnessRE specs/band.json). REC is the 0x17C player-edit record; EDIT is the edit manager (+0x48 carries CNT, whose +0xD0BCF8 counter the FUN_1414BCCD0 increment models for real); P (param_3) is 0x12345678; real image .data reads kept. Stubbed: the cond thunk 0x1414E2120 (returns input b; hook the JMP target, not the 0x1415130F0 thunk), the 0x30 bitfield writer (replicates rec[6]=(rec[6]&0x8FFFFFFF)|((band&7)<<28)), 0x14150EC40->0, C-runtime/frame teardown (0x1412E2640->0 etc). Observable: REC+0x18 bits 28-30 (w6>>28)&7 -- the fuller boundary; EBX at the 0x140AF2F03 slice-end call equals it on all 326 proven inputs.",
+  "entry": "0x140AF2DA0",
+  "stack": {
+    "base": "0x10000000",
+    "size": "0x20000"
+  },
+  "regions": {
+    "REC": {
+      "base": "0x20000000",
+      "size": "0x2000"
+    },
+    "P": {
+      "base": "0x20004000",
+      "size": "0x1000"
+    },
+    "EDIT": {
+      "base": "0x210000000",
+      "size": "0x1000"
+    },
+    "CNT": {
+      "base": "0x211000000",
+      "size": "0xD10000"
+    }
+  },
+  "args": {
+    "rdx": "REC",
+    "r8": "P",
+    "r9": "EDIT",
+    "rcx": "0x0"
+  },
+  "inputs": {
+    "b": {
+      "stub": "cond_reader",
+      "note": "condition byte, returned by the stubbed cond thunk 0x1414E2120"
+    },
+    "counter0": {
+      "region": "CNT",
+      "offset": "0xD0BCF8",
+      "enc": "u32",
+      "note": "starting counter; the FUN_1414BCCD0 increment models +1 for real"
+    },
+    "copy_tail": {
+      "stub": "copy_tail",
+      "note": "return value of the stubbed 0x1415681C0 tail copy"
+    }
+  },
+  "input_schema": {
+    "b": {
+      "kind": "all_u8"
+    },
+    "counter0": {
+      "kind": "choice",
+      "values": [
+        0
+      ]
+    },
+    "copy_tail": {
+      "kind": "choice",
+      "values": [
+        0
+      ]
+    }
+  },
+  "fixed_cases": [
+    {
+      "name": "counter-zero",
+      "b": 70,
+      "counter0": 0,
+      "copy_tail": 0
+    },
+    {
+      "name": "counter-one",
+      "b": 70,
+      "counter0": 1,
+      "copy_tail": 0
+    },
+    {
+      "name": "counter-max",
+      "b": 70,
+      "counter0": 2000000,
+      "copy_tail": 0
+    }
+  ],
+  "outputs": {
+    "w6": {
+      "region": "REC",
+      "offset": "0x18",
+      "enc": "u32",
+      "size": 4,
+      "note": "band = (w6>>28)&7"
+    },
+    "cond_echo": {
+      "region": "REC",
+      "offset": "0x179",
+      "enc": "u8",
+      "size": 1
+    },
+    "form_echo": {
+      "region": "REC",
+      "offset": "0x178",
+      "enc": "u8",
+      "size": 1
+    }
+  },
+  "stubs": {
+    "cond_thunk": {
+      "va": "0x1414E2120",
+      "do": "return_input",
+      "input": "b",
+      "note": "hook the JMP target, not the 0x1415130F0 thunk"
+    },
+    "writer_30": {
+      "va": "0x1414C6E90",
+      "do": "band_writer"
+    },
+    "overall": {
+      "va": "0x14150EC40",
+      "do": "return",
+      "value": 0
+    },
+    "copytail": {
+      "va": "0x1415681C0",
+      "do": "return_input",
+      "input": "copy_tail"
+    },
+    "edit_mgr": {
+      "va": "0x1414B6A60",
+      "do": "return_region",
+      "region": "EDIT"
+    },
+    "counter": {
+      "va": "0x1414BCCD0",
+      "do": "counter_inc",
+      "offset": "0xD0BCF8"
+    },
+    "teardown": {
+      "va": "0x1412E2640",
+      "do": "return",
+      "value": 0
+    },
+    "form_copy": {
+      "va": "0x1414C04D0",
+      "do": "return",
+      "value": 0,
+      "note": "form-record copier, no observable in corpus"
+    },
+    "field_2d": {
+      "va": "0x1414C66C0",
+      "do": "return",
+      "value": 0,
+      "note": "0x2D field fetch, no observable in corpus"
+    },
+    "x5234e0": {
+      "va": "0x1415234E0",
+      "do": "return",
+      "value": 0
+    },
+    "x5347d0": {
+      "va": "0x1415347D0",
+      "do": "return",
+      "value": 0
+    },
+    "copy_rec": {
+      "va": "0x140AF06D0",
+      "do": "return",
+      "value": 0,
+      "note": "0x17C record copy, no observable in corpus"
+    },
+    "x4bc0a0": {
+      "va": "0x1414BC0A0",
+      "do": "return",
+      "value": 0
+    }
+  },
+  "regions_init": {
+    "EDIT+0x48": "CNT",
+    "P+0x0": 305419896,
+    "REC+0x0": 0
+  },
+  "post_fill": {
+    "copy_tail": 0
+  },
+  "seed": 11,
+  "count": 300,
+  "labels": [
+    "name"
+  ]
+}

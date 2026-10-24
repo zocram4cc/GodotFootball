@@ -71,23 +71,17 @@ float HeadBearing(float posX, float posZ, float pointX, float pointZ) {
 }
 }  // namespace
 
-
-// The cone test (FUN_140A53DA0 -> FUN_140A53DF0): strict annulus on the outer radius
-// (inner is 0.0: T7a's stack slot holds 0x00000001 ~= 1.4e-45), then |wrap180(live - headArg)|
-// < 0.5 * coneDeg where live is the bearing from the candidate to the holder (FUN_140439EF0).
-// candPos/holderPos are ground-plane (x, z); headArg is P[cand][holder].
 bool ConePasses(float candX, float candZ, float holderX, float holderZ, float headArg,
-                const Constants& k) {
+                float inner, const Constants& k) {
   const float dx = holderX - candX;
   const float dz = holderZ - candZ;
-  if (dx * dx + dz * dz >= k.coneLen * k.coneLen) return false;  // 0x140A53E20/26/2D JBE
+  const float d2 = dx * dx + dz * dz;
+  if (d2 >= k.coneLen * k.coneLen) return false;  // 0x140A53E20/26/2D JBE
+  if (d2 <= inner * inner) return false;          // 0x140A53E2F/38/3F JBE
   const float live = PairBearing(candX, candZ, holderX, holderZ);
   return std::fabs(Wrap180(live - headArg)) < k.half * k.coneDeg;  // 0x140A53E81 CMOVA
 }
 
-// The count gate (FUN_140A4EAF0 -> FUN_140A4E7C0): counts the holder-side mates within
-// 12 m of the holder whose bearing-from-holder agrees with u = P[cand][holder] to within
-// 32.0 (64.0 / 2.0). T7a commits iff count <= (cone != 0).
 int CountGate(float holderX, float holderZ, float u, const Facts& facts, const Constants& k) {
   const float radius2 = k.gateRadius * k.gateRadius;
   const float band = k.gateFrac / k.gateWidth;
@@ -160,7 +154,7 @@ void BuildMarkTable(MarkState* state, const Facts& facts, const Constants& k) {
     if (std::fabs(Wrap180(cand.pairToHolder - headArg)) > k.wrapSide) continue;
     if (k.wrapSide > std::fabs(Wrap180(cand.pairToHolder - cone))) continue;
     const bool coneHit = ConePasses(cand.posX, cand.posZ, facts.holderX, facts.holderZ,
-                                    cand.pairToHolder, k);  // 0x1404F6567 TEST AL,AL
+                                    cand.pairToHolder, InnerQuirk(), k);  // 0x1404F6567 TEST AL,AL
     // 0x1404F6595 CMOVNZ + 0x1404F659D CMP AL,BL: count <= (cone != 0).
     if (CountGate(facts.holderX, facts.holderZ, cand.pairToHolder, facts, k) >
         (coneHit ? 1 : 0))
