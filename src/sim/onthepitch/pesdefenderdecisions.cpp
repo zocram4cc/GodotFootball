@@ -204,6 +204,10 @@ DefenderReaction ChooseMarkedReaction(const DefenderReactionInput& in, bool mark
   return ChooseReaction(fallthrough);
 }
 
+bool EntryAdmitted(bool entryGates, bool marked, bool computedVerdict) {
+  return entryGates && (marked || computedVerdict);
+}
+
 bool StandingTackleBallGate(const DefenderDecisionConstants& c, float ballAheadDistance_m,
                             float ballAheadHeadingAngle_deg) {
   const float d2 = ballAheadDistance_m * ballAheadDistance_m;
