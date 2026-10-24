@@ -1,19 +1,22 @@
 #version 450
 // PES post chain (docs/re/pes-re-lighting.md Part C; the grading pair is
 // docs/render/pes-render-grading-lut.md §1.3 and §3). One kernel per PASS_* define, compiled by
-// pes_post_effect.gd. Per frame, in order: REDUCE (tile sums of the pre-exposed luminance), LAW
-// (one group: the exposure step, EV state), COMPOSE (the exposure, then PES's grading pair: the
-// ColorCorrection_CubeLut stub and SdrDisplayMapping), written back to the colour buffer.
+// pes_post_effect.gd. Per frame, in order: REDUCE (tile sums of the pre-exposed luminance over
+// PES's Tonemap_Lum cb5[12] sub-rectangle), LAW (one group: the exposure step, EV state), COMPOSE
+// (the exposure, then PES's grading pair: the ColorCorrection_CubeLut stub and SdrDisplayMapping),
+// written back to the colour buffer.
 //
-// Params buffer (6 floats, std430; written by src/gdext/pes_lighting.cpp):
+// Params buffer (10 floats, std430; written by src/gdext/pes_lighting.cpp):
 //   [0..3]  exposure: key, compensation, minEV, maxEV
 //   [4..5]  tonemapSpeed, stepGain (1 − 0.98^(60·dt), dt = 1/60)
+//   [6..9]  metering rect cb5[12] (xy offset, zw scale): FUN_141805840's upload inputs
+//            (ComposePath §4: xy = (0.5/W, 0.5/H) + comp[0x8c..]*bss, zw = comp[0x94..] clamped [0,1]).
+//            // ponytail: full-frame static inputs until the live comp-block rect is read.
 // Push constants: slots = (EV read slot, EV write slot), ext = (pixel count, partial count).
-
+//
 // ponytail: not applied: AA (FXAA/TAA), sharpen and grain (Part C §5). The 33³ grading LUT is
 // bound by PES's stub but never sampled (grading-lut §1.3), so there is nothing to port. The
-// reduction is an arithmetic mean over the full frame (type open, §1) and omits the 32·a² alpha
-// term (Godot's alpha is not PES's bright-pixel code).
+// reduction omits the 32·a² alpha term (Godot's alpha is not PES's bright-pixel code).
 
 layout(push_constant, std430) uniform Push {
 	vec2 slots;
@@ -69,6 +72,7 @@ layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 layout(rgba16f, set = 0, binding = 0) uniform readonly image2D color;
 layout(std430, set = 0, binding = 1) writeonly buffer Partials { float sums[]; };
 layout(std430, set = 0, binding = 2) readonly buffer Ev { float ev[2]; };
+layout(std430, set = 0, binding = 3) readonly buffer Params { float v[10]; } prm;
 
 shared float tile[256];
 
@@ -77,8 +81,16 @@ void main() {
 	ivec2 px = ivec2(gl_GlobalInvocationID.xy);
 	float value = 0.0;
 	if (all(lessThan(px, size))) {
+		// Tonemap_Lum UV (asm): uv = (ndc*(0.5,-0.5)+0.5)*cb5[12].zw + cb5[12].xy, point-sampled
+		// (s8) from the source. Every meter pixel gathers one rect texel; the mean over the
+		// meter target is the rect content's mean.
+		vec2 ndc = (vec2(px) + vec2(0.5)) / vec2(size) * 2.0 - 1.0;
+		vec2 uv = (ndc * vec2(0.5, -0.5) + vec2(0.5)) * vec2(prm.v[8], prm.v[9])
+			+ vec2(prm.v[6], prm.v[7]);
+		ivec2 srcPx = ivec2(min(uv * vec2(size), vec2(size) - 1));
+		srcPx = ivec2(max(srcPx, ivec2(0)));
 		float scale = exp2(ev[int(pc.slots.x)]);
-		value = max(dot(imageLoad(color, px).rgb, LUMA) * scale, LUMA_FLOOR);
+		value = max(dot(imageLoad(color, srcPx).rgb, LUMA) * scale, LUMA_FLOOR);
 	}
 	tile[gl_LocalInvocationIndex] = value;
 	barrier();
@@ -96,7 +108,7 @@ void main() {
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 layout(std430, set = 0, binding = 0) readonly buffer Partials { float sums[]; };
 layout(std430, set = 0, binding = 1) buffer Ev { float ev[2]; };
-layout(std430, set = 0, binding = 2) readonly buffer Params { float v[6]; } prm;
+layout(std430, set = 0, binding = 2) readonly buffer Params { float v[10]; } prm;
 
 shared float acc[256];
 
@@ -112,7 +124,8 @@ void main() {
 	}
 	if (gl_LocalInvocationIndex != 0u) return;
 	// The adaptation law (OBS, FUN_1416c7930; §1). Lmeas is the mean of the
-	// pre-exposed luminance; the EV state moves toward its target by a fraction of the error.
+	// pre-exposed luminance gathered from PES's metered rect; the EV state moves toward its
+	// target by a fraction of the error.
 	float lmeas = acc[0] / pc.ext.x;
 	float key = prm.v[0];
 	float compensation = prm.v[1];
