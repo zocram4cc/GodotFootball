@@ -208,8 +208,42 @@ def build_and_diff(va, spec, args, pilot, nlines):
                 queue.append(c)
     for cvi, cv in enumerate(need):
         p = os.path.join(gen, "pes_fn_%s.cpp" % cv[2:])
-        if os.path.exists(p):
-            continue
+        if not os.path.exists(p):
+            asp, _ = load_spec(args.spec_dir, cv)
+            try:
+                csrc, _ = translate_one(cv, asm_for(args.asm_dir, cv),
+                                        args.image, pilot, stubs=stubmap)
+                if csrc is None:
+                    return False, "callee %s: no instructions" % cv, \
+                        "translator bug"
+            except Exception as e:  # noqa: BLE001
+                return False, "callee %s translate: %r" % (cv, e)[:220], \
+                    "translator bug"
+            with open(p, "w") as f:
+                f.write("\n".join(csrc) + "\n")
+    # Tail jumps reference siblings the spec calls list misses (JMP, not
+    # CALL). Close over the sibling refs in the generated TUs themselves.
+    changed = True
+    while changed:
+        changed = False
+        for cv in list(need):
+            p = os.path.join(gen, "pes_fn_%s.cpp" % cv[2:])
+            try:
+                body = open(p).read()
+            except OSError:
+                continue
+            for m in re.finditer(r"pes_fn_([0-9A-Fa-f]+)\(", body):
+                dep = "0x" + m.group(1).upper()
+                if dep != cv and dep in pilot and dep not in seen:
+                    seen.add(dep)
+                    need.append(dep)
+                    changed = True
+    # translate any newly discovered deps (loop until fixpoint)
+    pending = [cv for cv in need
+               if not os.path.exists(
+                   os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]))]
+    while pending:
+        cv = pending.pop(0)
         asp, _ = load_spec(args.spec_dir, cv)
         try:
             csrc, _ = translate_one(cv, asm_for(args.asm_dir, cv),
@@ -220,8 +254,18 @@ def build_and_diff(va, spec, args, pilot, nlines):
         except Exception as e:  # noqa: BLE001
             return False, "callee %s translate: %r" % (cv, e)[:220], \
                 "translator bug"
-        with open(p, "w") as f:
+        with open(os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]), "w") as f:
             f.write("\n".join(csrc) + "\n")
+        try:
+            body = open(os.path.join(gen, "pes_fn_%s.cpp" % cv[2:])).read()
+        except OSError:
+            continue
+        for m in re.finditer(r"pes_fn_([0-9A-Fa-f]+)\(", body):
+            dep = "0x" + m.group(1).upper()
+            if dep != cv and dep in pilot and dep not in seen:
+                seen.add(dep)
+                need.append(dep)
+                pending.append(dep)
     main_src = diffmain.gen(spec, va, callees)
     main_p = os.path.join(gen, "diff_%s.cpp" % tag)
     with open(main_p, "w") as f:
