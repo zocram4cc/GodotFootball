@@ -7,7 +7,7 @@
    "base": "bound per function (see bindings); keys: A0",
    "evidence": "A0 root: slot record or team (per-function; provisional)",
    "size": 160252,
-   "functions": 159,
+   "functions": 162,
    "fields": [
     {
      "off": "0x0",
@@ -22,7 +22,7 @@
      "rw": "rw",
      "gf": null,
      "cite": null,
-     "functions": 61
+     "functions": 66
     },
     {
      "off": "IDX+0x0",
@@ -42,6 +42,18 @@
      "width": 2,
      "widths_seen": [
       2
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x3",
+     "width": 1,
+     "widths_seen": [
+      1
      ],
      "kind": "int",
      "rw": "r",
@@ -125,6 +137,18 @@
      "functions": 2
     },
     {
+     "off": "0xD",
+     "width": 1,
+     "widths_seen": [
+      1
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
      "off": "0x10",
      "width": 8,
      "widths_seen": [
@@ -135,7 +159,7 @@
      "rw": "rw",
      "gf": null,
      "cite": null,
-     "functions": 12
+     "functions": 13
     },
     {
      "off": "0x14",
@@ -162,7 +186,7 @@
      "rw": "rw",
      "gf": null,
      "cite": null,
-     "functions": 20
+     "functions": 21
     },
     {
      "off": "0x1C",
@@ -487,7 +511,7 @@
      "widths_seen": [
       8
      ],
-     "kind": "int",
+     "kind": "ptr",
      "rw": "r",
      "gf": null,
      "cite": null,
@@ -625,6 +649,105 @@
      "gf": null,
      "cite": null,
      "functions": 4
+    },
+    {
+     "off": "0x28C",
+     "width": 8,
+     "widths_seen": [
+      4,
+      8
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x290",
+     "width": 2,
+     "widths_seen": [
+      2
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x292",
+     "width": 1,
+     "widths_seen": [
+      1
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x294",
+     "width": 8,
+     "widths_seen": [
+      8
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x29C",
+     "width": 8,
+     "widths_seen": [
+      4,
+      8
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x2A0",
+     "width": 8,
+     "widths_seen": [
+      8
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x2A4",
+     "width": 8,
+     "widths_seen": [
+      1,
+      8
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x2A8",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
     },
     {
      "off": "0x3F4",
@@ -948,13 +1071,49 @@
      "rw": "r",
      "gf": null,
      "cite": null,
-     "functions": 1
+     "functions": 3
     },
     {
      "off": "0x1904",
      "width": 4,
      "widths_seen": [
       4
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 3
+    },
+    {
+     "off": "0x1908",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 2
+    },
+    {
+     "off": "0x191C",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x1924",
+     "width": 8,
+     "widths_seen": [
+      8
      ],
      "kind": "int",
      "rw": "r",
@@ -1245,10 +1404,130 @@
       4
      ],
      "kind": "int",
-     "rw": "r",
+     "rw": "rw",
      "gf": null,
      "cite": null,
      "functions": 2
+    },
+    {
+     "off": "0x8E0C",
+     "width": 8,
+     "widths_seen": [
+      8
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x8E14",
+     "width": 8,
+     "widths_seen": [
+      8
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x8E1C",
+     "width": 8,
+     "widths_seen": [
+      8
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x8E24",
+     "width": 8,
+     "widths_seen": [
+      8
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x8E2C",
+     "width": 8,
+     "widths_seen": [
+      8
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x8E34",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x8E38",
+     "width": 1,
+     "widths_seen": [
+      1
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 2
+    },
+    {
+     "off": "0x8E3C",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x8E40",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x8E74",
+     "width": 1,
+     "widths_seen": [
+      1
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
     },
     {
      "off": "0x9D00",
@@ -1419,6 +1698,54 @@
      "functions": 3
     },
     {
+     "off": "IDX+0xA2CC",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "rw",
+     "gf": null,
+     "cite": null,
+     "functions": 3
+    },
+    {
+     "off": "IDX+0xA2D0",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "rw",
+     "gf": null,
+     "cite": null,
+     "functions": 3
+    },
+    {
+     "off": "IDX+0xA2D4",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 3
+    },
+    {
+     "off": "0xA2FC",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "rw",
+     "gf": null,
+     "cite": null,
+     "functions": 3
+    },
+    {
      "off": "0xA548",
      "width": 4,
      "widths_seen": [
@@ -1459,6 +1786,18 @@
      "width": 1,
      "widths_seen": [
       1
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0xFA50",
+     "width": 4,
+     "widths_seen": [
+      4
      ],
      "kind": "int",
      "rw": "r",
@@ -2647,8 +2986,20 @@
    "base": "bound per function (see bindings); keys: A0.18, A0.48.18, A0.F8.18, A1.0.18, A1.18, A1.48.18, A1.F8.18",
    "evidence": "match array: A0.18 / A1.18 / *.F8.18 / *.48.18; GF MA+0x2482C ball copy (teamAIcontroller.cpp:2442, pespress.cpp:562)",
    "size": 155684,
-   "functions": 29,
+   "functions": 30,
    "fields": [
+    {
+     "off": "0x0",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
     {
      "off": "IDX+0x0",
      "width": 4,
@@ -2659,7 +3010,7 @@
      "rw": "r",
      "gf": null,
      "cite": null,
-     "functions": 1
+     "functions": 2
     },
     {
      "off": "IDX+0x38",
@@ -2708,6 +3059,30 @@
      "gf": null,
      "cite": null,
      "functions": 1
+    },
+    {
+     "off": "0x22E4C",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 2
+    },
+    {
+     "off": "0x22E50",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "f32",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 2
     },
     {
      "off": "IDX+0x23F7C",
@@ -2813,8 +3188,20 @@
    "base": "bound per function (see bindings); keys: A0.0.E0, A0.38.E0, A0.E0, A0.F8.E0, A1.0.E0, A1.E0, A1.F8.E0",
    "evidence": "T+0xE0 lane block: 8 x 800 B ring, count +0x1900, head +0x1904 (pesevents.hpp:20; docs/re/pes-re-record-layouts.md \u00a71)",
    "size": 1574664,
-   "functions": 21,
+   "functions": 25,
    "fields": [
+    {
+     "off": "0x0",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 12
+    },
     {
      "off": "0x4",
      "width": 4,
@@ -2840,7 +3227,69 @@
      "functions": 1
     },
     {
-     "off": "0x1900",
+     "off": "0x14",
+     "width": 16,
+     "widths_seen": [
+      4,
+      16
+     ],
+     "kind": "vec",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 7
+    },
+    {
+     "off": "0x18",
+     "width": 8,
+     "widths_seen": [
+      4,
+      8
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 7
+    },
+    {
+     "off": "0x1C",
+     "width": 2,
+     "widths_seen": [
+      2
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 4
+    },
+    {
+     "off": "0x1E",
+     "width": 2,
+     "widths_seen": [
+      2
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 4
+    },
+    {
+     "off": "0x20",
+     "width": 8,
+     "widths_seen": [
+      8
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 2
+    },
+    {
+     "off": "0x24",
      "width": 4,
      "widths_seen": [
       4
@@ -2852,6 +3301,18 @@
      "functions": 7
     },
     {
+     "off": "0x1900",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 12
+    },
+    {
      "off": "0x1904",
      "width": 4,
      "widths_seen": [
@@ -2861,7 +3322,31 @@
      "rw": "r",
      "gf": null,
      "cite": null,
-     "functions": 7
+     "functions": 12
+    },
+    {
+     "off": "0x1908",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 18
+    },
+    {
+     "off": "0x1924",
+     "width": 8,
+     "widths_seen": [
+      8
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 18
     },
     {
      "off": "0x3208",
@@ -5086,12 +5571,36 @@
    "functions": 2,
    "fields": [
     {
+     "off": "0x0",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
      "off": "0x4",
      "width": 4,
      "widths_seen": [
       4
      ],
      "kind": "f32",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x24",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
      "rw": "r",
      "gf": null,
      "cite": null,
@@ -5467,7 +5976,7 @@
    "base": "bound per function (see bindings); keys: A3",
    "evidence": "A3 root: unnamed; provisional",
    "size": 19464,
-   "functions": 12,
+   "functions": 13,
    "fields": [
     {
      "off": "0x0",
@@ -5482,7 +5991,19 @@
      "rw": "rw",
      "gf": null,
      "cite": null,
-     "functions": 10
+     "functions": 11
+    },
+    {
+     "off": "IDX+0x0",
+     "width": 8,
+     "widths_seen": [
+      8
+     ],
+     "kind": "int",
+     "rw": "w",
+     "gf": null,
+     "cite": null,
+     "functions": 1
     },
     {
      "off": "0x4",
@@ -5494,7 +6015,7 @@
      "rw": "rw",
      "gf": null,
      "cite": null,
-     "functions": 2
+     "functions": 3
     },
     {
      "off": "0x8",
@@ -5503,10 +6024,10 @@
       4
      ],
      "kind": "f32",
-     "rw": "r",
+     "rw": "rw",
      "gf": null,
      "cite": null,
-     "functions": 1
+     "functions": 2
     },
     {
      "off": "0x10",
@@ -5540,7 +6061,7 @@
       1
      ],
      "kind": "int",
-     "rw": "r",
+     "rw": "rw",
      "gf": null,
      "cite": null,
      "functions": 1
@@ -5854,6 +6375,63 @@
    ]
   },
   {
+   "type": "obj:A0.E8",
+   "base": "bound per function (see bindings); keys: A0.E8",
+   "evidence": "unnamed chain object (provisional)",
+   "size": 6412,
+   "functions": 1,
+   "fields": [
+    {
+     "off": "0x0",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x18",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x1900",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
+    {
+     "off": "0x1904",
+     "width": 4,
+     "widths_seen": [
+      4
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    }
+   ]
+  },
+  {
    "type": "obj:A0.118",
    "base": "bound per function (see bindings); keys: A0.118",
    "evidence": "unnamed chain object (provisional)",
@@ -5914,6 +6492,18 @@
    "size": 4336,
    "functions": 1,
    "fields": [
+    {
+     "off": "0x0",
+     "width": 1,
+     "widths_seen": [
+      1
+     ],
+     "kind": "int",
+     "rw": "r",
+     "gf": null,
+     "cite": null,
+     "functions": 1
+    },
     {
      "off": "0x10E8",
      "width": 4,
@@ -6287,6 +6877,10 @@
     "A0.18": {
      "type": "MA",
      "prov": "match array: A0.18 / A1.18 / *.F8.18 / *.48.18; GF MA+0x2482C ball copy (teamAIcontroller.cpp:2442, pespress.cpp:562)"
+    },
+    "A0.E0": {
+     "type": "T.lane",
+     "prov": "T+0xE0 lane block: 8 x 800 B ring, count +0x1900, head +0x1904 (pesevents.hpp:20; docs/re/pes-re-record-layouts.md \u00a71)"
     },
     "IMG.1436F3DC8": {
      "type": "global:1436F3DC8",
@@ -6975,6 +7569,10 @@
      "type": "T.lane",
      "prov": "T+0xE0 lane block: 8 x 800 B ring, count +0x1900, head +0x1904 (pesevents.hpp:20; docs/re/pes-re-record-layouts.md \u00a71)"
     },
+    "A3": {
+     "type": "A3",
+     "prov": "A3 root: unnamed; provisional"
+    },
     "IMG.1436F3DC8": {
      "type": "global:1436F3DC8",
      "prov": "global object: pointer slot at VA 1436F3DC8 (patched in harness)"
@@ -7074,6 +7672,10 @@
     "A0.18": {
      "type": "MA",
      "prov": "match array: A0.18 / A1.18 / *.F8.18 / *.48.18; GF MA+0x2482C ball copy (teamAIcontroller.cpp:2442, pespress.cpp:562)"
+    },
+    "A0.E0": {
+     "type": "T.lane",
+     "prov": "T+0xE0 lane block: 8 x 800 B ring, count +0x1900, head +0x1904 (pesevents.hpp:20; docs/re/pes-re-record-layouts.md \u00a71)"
     },
     "IMG.1436F3DC8": {
      "type": "global:1436F3DC8",
@@ -7595,6 +8197,10 @@
      "type": "MI",
      "prov": "match-info record: A0.28 / A1.28 / A0.0 / A1.0; GF MI+0x116C play state (pesclock.hpp:96; teamAIcontroller.cpp:2897), MI+0x1554 (pesevents.hpp:434)"
     },
+    "A0.E8": {
+     "type": "obj:A0.E8",
+     "prov": "unnamed chain object (provisional)"
+    },
     "A0.F0": {
      "type": "obj:A0.F0",
      "prov": "unnamed chain object (provisional)"
@@ -7606,6 +8212,10 @@
     "A0.F8.18": {
      "type": "MA",
      "prov": "match array: A0.18 / A1.18 / *.F8.18 / *.48.18; GF MA+0x2482C ball copy (teamAIcontroller.cpp:2442, pespress.cpp:562)"
+    },
+    "A0.F8.E0": {
+     "type": "T.lane",
+     "prov": "T+0xE0 lane block: 8 x 800 B ring, count +0x1900, head +0x1904 (pesevents.hpp:20; docs/re/pes-re-record-layouts.md \u00a71)"
     },
     "A0.118": {
      "type": "obj:A0.118",
@@ -7976,7 +8586,12 @@
    }
   },
   "0x140A3E150": {
-   "objects": {}
+   "objects": {
+    "A0": {
+     "type": "slot",
+     "prov": "A0 root: slot record or team (per-function; provisional)"
+    }
+   }
   },
   "0x140A3E190": {
    "objects": {
@@ -8411,6 +9026,10 @@
     "A0": {
      "type": "slot",
      "prov": "A0 root: slot record or team (per-function; provisional)"
+    },
+    "A0.18": {
+     "type": "MA",
+     "prov": "match array: A0.18 / A1.18 / *.F8.18 / *.48.18; GF MA+0x2482C ball copy (teamAIcontroller.cpp:2442, pespress.cpp:562)"
     }
    }
   },
@@ -8684,6 +9303,10 @@
      "type": "slot",
      "prov": "A0 root: slot record or team (per-function; provisional)"
     },
+    "A0.E0": {
+     "type": "T.lane",
+     "prov": "T+0xE0 lane block: 8 x 800 B ring, count +0x1900, head +0x1904 (pesevents.hpp:20; docs/re/pes-re-record-layouts.md \u00a71)"
+    },
     "IMG.1436F3DC8": {
      "type": "global:1436F3DC8",
      "prov": "global object: pointer slot at VA 1436F3DC8 (patched in harness)"
@@ -8779,7 +9402,12 @@
    }
   },
   "0x140A55EF0": {
-   "objects": {}
+   "objects": {
+    "A0": {
+     "type": "slot",
+     "prov": "A0 root: slot record or team (per-function; provisional)"
+    }
+   }
   },
   "0x140A57710": {
    "objects": {}
@@ -9300,6 +9928,10 @@
   },
   "0x140A74EC0": {
    "objects": {
+    "A0": {
+     "type": "slot",
+     "prov": "A0 root: slot record or team (per-function; provisional)"
+    },
     "A1": {
      "type": "A1",
      "prov": "A1 root: unnamed; provisional"

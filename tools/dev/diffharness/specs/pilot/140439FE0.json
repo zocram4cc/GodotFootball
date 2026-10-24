@@ -67,14 +67,12 @@
  "precheck": {
   "indirect_calls": [],
   "tailjumps": [],
-  "unresolved_mem": 1,
+  "unresolved_mem": 0,
   "live_data_reads": [],
   "live_data_writes": [],
   "rdata_constant_reads": [],
   "stack_args": {},
   "calls": [],
-  "flags": [
-   "unresolved-mem@140439FF9"
-  ]
+  "flags": []
  }
 }

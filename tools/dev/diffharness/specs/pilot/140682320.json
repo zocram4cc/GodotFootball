@@ -77,20 +77,10 @@
    "offset": "0x7B21",
    "enc": "u8"
   },
-  "A3_0_b0": {
+  "A3_0": {
    "region": "A3",
    "offset": "0x0",
-   "enc": "u8"
-  },
-  "A3_1_b1": {
-   "region": "A3",
-   "offset": "0x1",
-   "enc": "u8"
-  },
-  "A3_4": {
-   "region": "A3",
-   "offset": "0x4",
-   "enc": "u32"
+   "enc": "u64"
   },
   "A3_58_b0": {
    "region": "A3",
@@ -166,19 +156,7 @@
    "hi": 255,
    "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
-  "A3_0_b0": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  },
-  "A3_1_b1": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  },
-  "A3_4": {
+  "A3_0": {
    "kind": "u8",
    "lo": 0,
    "hi": 255,
@@ -232,17 +210,12 @@
    "offset": "0x7B21",
    "enc": "u8"
   },
-  "w_A3_0_b0": {
+  "w_A3_0_d0": {
    "region": "A3",
    "offset": "0x0",
-   "enc": "u8"
+   "enc": "u32"
   },
-  "w_A3_1_b1": {
-   "region": "A3",
-   "offset": "0x1",
-   "enc": "u8"
-  },
-  "w_A3_4": {
+  "w_A3_4_d1": {
    "region": "A3",
    "offset": "0x4",
    "enc": "u32"
@@ -273,7 +246,7 @@
  "precheck": {
   "indirect_calls": [],
   "tailjumps": [],
-  "unresolved_mem": 8,
+  "unresolved_mem": 5,
   "live_data_reads": [
    "IMG"
   ],
@@ -289,10 +262,7 @@
    "unresolved-mem@1406823DA",
    "unresolved-mem@14068241B",
    "unresolved-mem@140682423",
-   "unresolved-mem@140682458",
-   "unresolved-mem@140682473",
-   "unresolved-mem@140682477",
-   "unresolved-mem@14068247F"
+   "unresolved-mem@140682458"
   ]
  }
 }

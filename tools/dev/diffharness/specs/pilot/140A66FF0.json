@@ -38,11 +38,11 @@
   }
  },
  "outputs": {
-  "ret_eax": {
-   "reg": "eax"
+  "ret_rax": {
+   "reg": "rax"
   }
  },
- "ret_note": "eax (integer/bool return; upper bits unchecked)",
+ "ret_note": "rax (pointer-valued return)",
  "seed": 1198,
  "count": 64,
  "precheck": {

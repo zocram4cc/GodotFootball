@@ -9,13 +9,26 @@
   "base": "0x10000000",
   "size": "0x20000"
  },
- "regions": {},
- "args": {},
+ "regions": {
+  "A0": {
+   "base": "0x20000000",
+   "size": "0x200000"
+  }
+ },
+ "args": {
+  "rcx": "A0"
+ },
  "regions_init": {},
  "patch_addrs": {},
  "inputs": {
-  "scalar_rcx": {
-   "reg": "rcx",
+  "A0_1900": {
+   "region": "A0",
+   "offset": "0x1900",
+   "enc": "u32"
+  },
+  "A0_1904": {
+   "region": "A0",
+   "offset": "0x1904",
    "enc": "u32"
   },
   "scalar_rdx": {
@@ -28,7 +41,13 @@
   }
  },
  "input_schema": {
-  "scalar_rcx": {
+  "A0_1900": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_1904": {
    "kind": "u8",
    "lo": 0,
    "hi": 255,
@@ -58,15 +77,12 @@
  "precheck": {
   "indirect_calls": [],
   "tailjumps": [],
-  "unresolved_mem": 2,
+  "unresolved_mem": 0,
   "live_data_reads": [],
   "live_data_writes": [],
   "rdata_constant_reads": [],
   "stack_args": {},
   "calls": [],
-  "flags": [
-   "unresolved-mem@140A3E16A",
-   "unresolved-mem@140A3E173"
-  ]
+  "flags": []
  }
 }

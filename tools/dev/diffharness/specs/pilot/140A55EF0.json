@@ -9,13 +9,36 @@
   "base": "0x10000000",
   "size": "0x20000"
  },
- "regions": {},
- "args": {},
+ "regions": {
+  "A0": {
+   "base": "0x20000000",
+   "size": "0x200000"
+  }
+ },
+ "args": {
+  "rcx": "A0"
+ },
  "regions_init": {},
  "patch_addrs": {},
  "inputs": {
-  "scalar_rcx": {
-   "reg": "rcx",
+  "A0_0": {
+   "region": "A0",
+   "offset": "0x0",
+   "enc": "u8"
+  },
+  "A0_3": {
+   "region": "A0",
+   "offset": "0x3",
+   "enc": "u8"
+  },
+  "A0_D": {
+   "region": "A0",
+   "offset": "0xD",
+   "enc": "u8"
+  },
+  "A0_10": {
+   "region": "A0",
+   "offset": "0x10",
    "enc": "u32"
   },
   "scalar_rdx": {
@@ -24,7 +47,25 @@
   }
  },
  "input_schema": {
-  "scalar_rcx": {
+  "A0_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_3": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_D": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_10": {
    "kind": "u8",
    "lo": 0,
    "hi": 255,
@@ -48,17 +89,12 @@
  "precheck": {
   "indirect_calls": [],
   "tailjumps": [],
-  "unresolved_mem": 4,
+  "unresolved_mem": 0,
   "live_data_reads": [],
   "live_data_writes": [],
   "rdata_constant_reads": [],
   "stack_args": {},
   "calls": [],
-  "flags": [
-   "unresolved-mem@140A55F20",
-   "unresolved-mem@140A55F26",
-   "unresolved-mem@140A55F2C",
-   "unresolved-mem@140A55F32"
-  ]
+  "flags": []
  }
 }

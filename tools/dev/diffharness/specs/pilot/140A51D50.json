@@ -299,10 +299,50 @@
   "0x1436F3DC8": "IMG.1436F3DC8"
  },
  "inputs": {
+  "A0_18_22E4C": {
+   "region": "A0.18",
+   "offset": "0x22E4C",
+   "enc": "u32"
+  },
+  "A0_18_22E50": {
+   "region": "A0.18",
+   "offset": "0x22E50",
+   "enc": "f32"
+  },
   "A0_18_2601C": {
    "region": "A0.18",
    "offset": "0x2601C",
    "enc": "u32"
+  },
+  "A0_E0_0": {
+   "region": "A0.E0",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "A0_E0_18": {
+   "region": "A0.E0",
+   "offset": "0x18",
+   "enc": "u32"
+  },
+  "A0_E0_1900": {
+   "region": "A0.E0",
+   "offset": "0x1900",
+   "enc": "u32"
+  },
+  "A0_E0_1904": {
+   "region": "A0.E0",
+   "offset": "0x1904",
+   "enc": "u32"
+  },
+  "A0_E0_1908": {
+   "region": "A0.E0",
+   "offset": "0x1908",
+   "enc": "u32"
+  },
+  "A0_E0_1924": {
+   "region": "A0.E0",
+   "offset": "0x1924",
+   "enc": "u64"
   },
   "A0_E0_3208": {
    "region": "A0.E0",
@@ -487,7 +527,72 @@
   }
  },
  "input_schema": {
+  "A0_18_22E4C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_18_22E50": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
   "A0_18_2601C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_E0_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_E0_18": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_E0_1900": {
+   "kind": "choice",
+   "values": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "domain": "ring count 0..8 (pes-re-record-layouts.md \u00a71)"
+  },
+  "A0_E0_1904": {
+   "kind": "choice",
+   "values": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "domain": "ring head 0..7 mod 8 (pes-re-record-layouts.md \u00a71)"
+  },
+  "A0_E0_1908": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_E0_1924": {
    "kind": "u8",
    "lo": 0,
    "hi": 255,
@@ -727,7 +832,7 @@
  "precheck": {
   "indirect_calls": [],
   "tailjumps": [],
-  "unresolved_mem": 6,
+  "unresolved_mem": 1,
   "live_data_reads": [
    "IMG"
   ],
@@ -755,12 +860,7 @@
    "141E532E0"
   ],
   "flags": [
-   "unresolved-mem@140A3E16A",
-   "unresolved-mem@140A3E173",
-   "unresolved-mem@140A520AB",
-   "unresolved-mem@140A520B7",
-   "unresolved-mem@140A52102",
-   "unresolved-mem@140A5226E"
+   "unresolved-mem@140A520B7"
   ]
  }
 }

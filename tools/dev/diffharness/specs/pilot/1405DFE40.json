@@ -316,6 +316,16 @@
    "offset": "0x2601C",
    "enc": "u32"
   },
+  "A1_F8_E0_1908": {
+   "region": "A1.F8.E0",
+   "offset": "0x1908",
+   "enc": "u32"
+  },
+  "A1_F8_E0_1924": {
+   "region": "A1.F8.E0",
+   "offset": "0x1924",
+   "enc": "u64"
+  },
   "A1_F8_E0_3208": {
    "region": "A1.F8.E0",
    "offset": "0x3208",
@@ -454,6 +464,18 @@
    "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
   "A1_F8_18_2601C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_F8_E0_1908": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_F8_E0_1924": {
    "kind": "u8",
    "lo": 0,
    "hi": 255,

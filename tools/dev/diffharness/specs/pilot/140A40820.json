@@ -31,6 +31,26 @@
    "offset": "0xA2A0",
    "enc": "u32"
   },
+  "A0_A2CC": {
+   "region": "A0",
+   "offset": "0xA2CC",
+   "enc": "u32"
+  },
+  "A0_A2D0": {
+   "region": "A0",
+   "offset": "0xA2D0",
+   "enc": "u32"
+  },
+  "A0_A2D4": {
+   "region": "A0",
+   "offset": "0xA2D4",
+   "enc": "u32"
+  },
+  "A0_A2FC": {
+   "region": "A0",
+   "offset": "0xA2FC",
+   "enc": "u32"
+  },
   "scalar_rdx": {
    "reg": "rdx",
    "enc": "u32"
@@ -48,6 +68,30 @@
    "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
   "A0_A2A0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_A2CC": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_A2D0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_A2D4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_A2FC": {
    "kind": "u8",
    "lo": 0,
    "hi": 255,
@@ -72,6 +116,26 @@
    "offset": "0xA2A0",
    "enc": "u32"
   },
+  "w_A0_A2CC": {
+   "region": "A0",
+   "offset": "0xA2CC",
+   "enc": "u32"
+  },
+  "w_A0_A2D0": {
+   "region": "A0",
+   "offset": "0xA2D0",
+   "enc": "u32"
+  },
+  "w_A0_A2D4": {
+   "region": "A0",
+   "offset": "0xA2D4",
+   "enc": "u32"
+  },
+  "w_A0_A2FC": {
+   "region": "A0",
+   "offset": "0xA2FC",
+   "enc": "u32"
+  },
   "ret_xmm0": {
    "reg": "xmm0",
    "enc": "f32"
@@ -85,7 +149,7 @@
   "tailjumps": [
    "tailjump@140A408B9"
   ],
-  "unresolved_mem": 31,
+  "unresolved_mem": 23,
   "live_data_reads": [],
   "live_data_writes": [],
   "rdata_constant_reads": [],
@@ -96,14 +160,6 @@
   ],
   "flags": [
    "tailjump@140A408B9",
-   "unresolved-mem@140A40203",
-   "unresolved-mem@140A4020B",
-   "unresolved-mem@140A40211",
-   "unresolved-mem@140A40223",
-   "unresolved-mem@140A40227",
-   "unresolved-mem@140A4022F",
-   "unresolved-mem@140A40233",
-   "unresolved-mem@140A40238",
    "unresolved-mem@140A40875",
    "unresolved-mem@140A40884",
    "unresolved-mem@140A4088E",

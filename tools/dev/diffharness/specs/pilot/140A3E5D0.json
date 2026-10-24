@@ -21,6 +21,16 @@
  "regions_init": {},
  "patch_addrs": {},
  "inputs": {
+  "A0_0": {
+   "region": "A0",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "A0_FA50": {
+   "region": "A0",
+   "offset": "0xFA50",
+   "enc": "u32"
+  },
   "A0_271F0": {
    "region": "A0",
    "offset": "0x271F0",
@@ -41,6 +51,18 @@
   }
  },
  "input_schema": {
+  "A0_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_FA50": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
   "A0_271F0": {
    "kind": "u8",
    "lo": 0,

@@ -26,6 +26,56 @@
    "offset": "0x8E08",
    "enc": "u32"
   },
+  "A0_8E0C": {
+   "region": "A0",
+   "offset": "0x8E0C",
+   "enc": "u64"
+  },
+  "A0_8E14": {
+   "region": "A0",
+   "offset": "0x8E14",
+   "enc": "u64"
+  },
+  "A0_8E1C": {
+   "region": "A0",
+   "offset": "0x8E1C",
+   "enc": "u64"
+  },
+  "A0_8E24": {
+   "region": "A0",
+   "offset": "0x8E24",
+   "enc": "u64"
+  },
+  "A0_8E2C": {
+   "region": "A0",
+   "offset": "0x8E2C",
+   "enc": "u64"
+  },
+  "A0_8E34": {
+   "region": "A0",
+   "offset": "0x8E34",
+   "enc": "u32"
+  },
+  "A0_8E38": {
+   "region": "A0",
+   "offset": "0x8E38",
+   "enc": "u8"
+  },
+  "A0_8E3C": {
+   "region": "A0",
+   "offset": "0x8E3C",
+   "enc": "u32"
+  },
+  "A0_8E40": {
+   "region": "A0",
+   "offset": "0x8E40",
+   "enc": "u32"
+  },
+  "A0_8E74": {
+   "region": "A0",
+   "offset": "0x8E74",
+   "enc": "u8"
+  },
   "A0_9D00": {
    "region": "A0",
    "offset": "0x9D00",
@@ -92,6 +142,66 @@
  },
  "input_schema": {
   "A0_8E08": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_8E0C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_8E14": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_8E1C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_8E24": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_8E2C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_8E34": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_8E38": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_8E3C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_8E40": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_8E74": {
    "kind": "u8",
    "lo": 0,
    "hi": 255,
@@ -177,6 +287,86 @@
   }
  },
  "outputs": {
+  "w_A0_8E08": {
+   "region": "A0",
+   "offset": "0x8E08",
+   "enc": "u32"
+  },
+  "w_A0_8E0C_d0": {
+   "region": "A0",
+   "offset": "0x8E0C",
+   "enc": "u32"
+  },
+  "w_A0_8E10_d1": {
+   "region": "A0",
+   "offset": "0x8E10",
+   "enc": "u32"
+  },
+  "w_A0_8E14_d0": {
+   "region": "A0",
+   "offset": "0x8E14",
+   "enc": "u32"
+  },
+  "w_A0_8E18_d1": {
+   "region": "A0",
+   "offset": "0x8E18",
+   "enc": "u32"
+  },
+  "w_A0_8E1C_d0": {
+   "region": "A0",
+   "offset": "0x8E1C",
+   "enc": "u32"
+  },
+  "w_A0_8E20_d1": {
+   "region": "A0",
+   "offset": "0x8E20",
+   "enc": "u32"
+  },
+  "w_A0_8E24_d0": {
+   "region": "A0",
+   "offset": "0x8E24",
+   "enc": "u32"
+  },
+  "w_A0_8E28_d1": {
+   "region": "A0",
+   "offset": "0x8E28",
+   "enc": "u32"
+  },
+  "w_A0_8E2C_d0": {
+   "region": "A0",
+   "offset": "0x8E2C",
+   "enc": "u32"
+  },
+  "w_A0_8E30_d1": {
+   "region": "A0",
+   "offset": "0x8E30",
+   "enc": "u32"
+  },
+  "w_A0_8E34": {
+   "region": "A0",
+   "offset": "0x8E34",
+   "enc": "u32"
+  },
+  "w_A0_8E38": {
+   "region": "A0",
+   "offset": "0x8E38",
+   "enc": "u8"
+  },
+  "w_A0_8E3C": {
+   "region": "A0",
+   "offset": "0x8E3C",
+   "enc": "u32"
+  },
+  "w_A0_8E40": {
+   "region": "A0",
+   "offset": "0x8E40",
+   "enc": "u32"
+  },
+  "w_A0_8E74": {
+   "region": "A0",
+   "offset": "0x8E74",
+   "enc": "u8"
+  },
   "w_A0_9D00": {
    "region": "A0",
    "offset": "0x9D00",

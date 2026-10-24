@@ -10,17 +10,42 @@
   "size": "0x20000"
  },
  "regions": {
-  "A1": {
+  "A0": {
    "base": "0x20000000",
+   "size": "0x200000"
+  },
+  "A1": {
+   "base": "0x20400000",
    "size": "0x200000"
   }
  },
  "args": {
+  "rcx": "A0",
   "rdx": "A1"
  },
  "regions_init": {},
  "patch_addrs": {},
  "inputs": {
+  "A0_0": {
+   "region": "A0",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "A0_18": {
+   "region": "A0",
+   "offset": "0x18",
+   "enc": "u32"
+  },
+  "A0_1900": {
+   "region": "A0",
+   "offset": "0x1900",
+   "enc": "u32"
+  },
+  "A0_1904": {
+   "region": "A0",
+   "offset": "0x1904",
+   "enc": "u32"
+  },
   "A1_116C": {
    "region": "A1",
    "offset": "0x116C",
@@ -29,10 +54,6 @@
   "A1_119C": {
    "region": "A1",
    "offset": "0x119C",
-   "enc": "u32"
-  },
-  "scalar_rcx": {
-   "reg": "rcx",
    "enc": "u32"
   },
   "scalar_r8": {
@@ -45,6 +66,30 @@
   }
  },
  "input_schema": {
+  "A0_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_18": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_1900": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_1904": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
   "A1_116C": {
    "kind": "u8",
    "lo": 0,
@@ -52,12 +97,6 @@
    "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
   "A1_119C": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  },
-  "scalar_rcx": {
    "kind": "u8",
    "lo": 0,
    "hi": 255,
@@ -87,7 +126,7 @@
  "precheck": {
   "indirect_calls": [],
   "tailjumps": [],
-  "unresolved_mem": 2,
+  "unresolved_mem": 0,
   "live_data_reads": [
    "IMG"
   ],
@@ -97,9 +136,6 @@
   "calls": [
    "140A3E150"
   ],
-  "flags": [
-   "unresolved-mem@140A3E16A",
-   "unresolved-mem@140A3E173"
-  ]
+  "flags": []
  }
 }

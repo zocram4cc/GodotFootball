@@ -280,6 +280,16 @@
   "0x1436F3DC8": "IMG.1436F3DC8"
  },
  "inputs": {
+  "A0_E0_0": {
+   "region": "A0.E0",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "A0_E0_24": {
+   "region": "A0.E0",
+   "offset": "0x24",
+   "enc": "u32"
+  },
   "A0_E0_1900": {
    "region": "A0.E0",
    "offset": "0x1900",
@@ -289,6 +299,16 @@
    "region": "A0.E0",
    "offset": "0x1904",
    "enc": "u32"
+  },
+  "A0_E0_1908": {
+   "region": "A0.E0",
+   "offset": "0x1908",
+   "enc": "u32"
+  },
+  "A0_E0_1924": {
+   "region": "A0.E0",
+   "offset": "0x1924",
+   "enc": "u64"
   },
   "A0_E0_3208": {
    "region": "A0.E0",
@@ -345,6 +365,18 @@
   }
  },
  "input_schema": {
+  "A0_E0_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_E0_24": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
   "A0_E0_1900": {
    "kind": "choice",
    "values": [
@@ -373,6 +405,18 @@
     7
    ],
    "domain": "ring head 0..7 mod 8 (pes-re-record-layouts.md \u00a71)"
+  },
+  "A0_E0_1908": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_E0_1924": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
   "A0_E0_3208": {
    "kind": "u8",

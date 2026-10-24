@@ -50,42 +50,47 @@
    "base": "0x22400000",
    "size": "0x200000"
   },
-  "IMG.1436F3DC8": {
+  "A3": {
    "base": "0x22800000",
    "size": "0x200000"
   },
-  "IMG.1436F3DC8.270": {
+  "IMG.1436F3DC8": {
    "base": "0x22C00000",
    "size": "0x200000"
   },
-  "IMG.1436F3DC8.1928": {
+  "IMG.1436F3DC8.270": {
    "base": "0x23000000",
    "size": "0x200000"
   },
-  "IMG.1436F3DC8.1978": {
+  "IMG.1436F3DC8.1928": {
    "base": "0x23400000",
    "size": "0x200000"
   },
-  "IMG.1436F3DC8.19C8": {
+  "IMG.1436F3DC8.1978": {
    "base": "0x23800000",
    "size": "0x200000"
   },
-  "IMG.1436F3DC8.1DD8": {
+  "IMG.1436F3DC8.19C8": {
    "base": "0x23C00000",
    "size": "0x200000"
   },
-  "IMG.1436F3DC8.25F8": {
+  "IMG.1436F3DC8.1DD8": {
    "base": "0x24000000",
    "size": "0x200000"
   },
-  "IMG.1436F3DC8.E1EE": {
+  "IMG.1436F3DC8.25F8": {
    "base": "0x24400000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.E1EE": {
+   "base": "0x24800000",
    "size": "0x200000"
   }
  },
  "args": {
   "rcx": "A0",
-  "rdx": "A1"
+  "rdx": "A1",
+  "r9": "A3"
  },
  "regions_init": {
   "A1+0x0": "A1.0",
@@ -450,6 +455,16 @@
    "offset": "0x2601C",
    "enc": "u32"
   },
+  "A1_F8_E0_1908": {
+   "region": "A1.F8.E0",
+   "offset": "0x1908",
+   "enc": "u32"
+  },
+  "A1_F8_E0_1924": {
+   "region": "A1.F8.E0",
+   "offset": "0x1924",
+   "enc": "u64"
+  },
   "A1_F8_E0_3208": {
    "region": "A1.F8.E0",
    "offset": "0x3208",
@@ -459,6 +474,21 @@
    "region": "A1.F8.E0",
    "offset": "0x320C",
    "enc": "u32"
+  },
+  "A3_0": {
+   "region": "A3",
+   "offset": "0x0",
+   "enc": "f32"
+  },
+  "A3_4": {
+   "region": "A3",
+   "offset": "0x4",
+   "enc": "f32"
+  },
+  "A3_8": {
+   "region": "A3",
+   "offset": "0x8",
+   "enc": "f32"
   },
   "IMG_1436F3DC8_0": {
    "region": "IMG.1436F3DC8",
@@ -703,10 +733,6 @@
   "scalar_r8": {
    "reg": "r8",
    "enc": "u32"
-  },
-  "scalar_r9": {
-   "reg": "r9",
-   "enc": "u32"
   }
  },
  "input_schema": {
@@ -842,6 +868,18 @@
    "hi": 255,
    "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
+  "A1_F8_E0_1908": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_F8_E0_1924": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
   "A1_F8_E0_3208": {
    "kind": "u8",
    "lo": 0,
@@ -853,6 +891,24 @@
    "lo": 0,
    "hi": 255,
    "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_0": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A3_4": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A3_8": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
   },
   "IMG_1436F3DC8_0": {
    "kind": "u8",
@@ -1147,12 +1203,6 @@
    "lo": 0,
    "hi": 255,
    "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  },
-  "scalar_r9": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   }
  },
  "outputs": {
@@ -1165,6 +1215,21 @@
    "region": "A0",
    "offset": "0x4FC",
    "enc": "u32"
+  },
+  "w_A3_0": {
+   "region": "A3",
+   "offset": "0x0",
+   "enc": "f32"
+  },
+  "w_A3_4": {
+   "region": "A3",
+   "offset": "0x4",
+   "enc": "f32"
+  },
+  "w_A3_8": {
+   "region": "A3",
+   "offset": "0x8",
+   "enc": "f32"
   },
   "ret_rax": {
    "reg": "rax"
@@ -1179,7 +1244,7 @@
    "tailjump@140A502DE",
    "tailjump@140A57802"
   ],
-  "unresolved_mem": 12,
+  "unresolved_mem": 9,
   "live_data_reads": [
    "IMG"
   ],
@@ -1223,9 +1288,6 @@
    "tailjump@140A57802",
    "unresolved-mem@1405E0CA1",
    "unresolved-mem@1405E104A",
-   "unresolved-mem@1405EBE36",
-   "unresolved-mem@1405EBE3A",
-   "unresolved-mem@1405EBE3F",
    "unresolved-mem@1405EBE49",
    "unresolved-mem@1405EBE77",
    "unresolved-mem@1405EBE80",

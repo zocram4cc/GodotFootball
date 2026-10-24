@@ -1026,16 +1026,16 @@ class Emitter:
                     return ["{ pes_fn_%s(s); return; }" % tgt[2:]]
                 return ["/*OUT-OF-RANGE JMP %s*/return;" % tgt]
             # JMP reg: switch dispatch (resolved in prepass) or tailjump
-            info = ctx.get("jmpreg", {}).get(addr)
             if info and info.get("table") is not None:
                 tva = info["table"]
                 words = info["words"]
                 cases = sorted(set((i, w) for i, w in enumerate(words)))
                 self.tables[tva] = {"words": words,
                                     "base": info["base"]}
-                idx = reg_read(ops[0])
-                lines = ["{ uint32_t _i = (uint32_t)(%s); switch (_i) {"
-                         % idx]
+                # Dispatch on the TABLE INDEX (the CDQE'd reg feeding the
+                # [base + idx*4] load), not the post-ADD target reg (which
+                # holds base+table[idx] by the time JMP runs).
+                idx = reg_read(info.get("index", ops[0]))
                 seen = {}
                 for i, w in cases:
                     tgt = info["base"] + w
@@ -1216,6 +1216,7 @@ def prepass(lines, img):
         i = pos[addr]
         base = None
         tdisp = None
+        tidx = None
         count = None
         default = None
         same = lambda o: PARENT.get(o.strip().lower(),
@@ -1234,6 +1235,7 @@ def prepass(lines, img):
                 mp = parse_mem(inner)
                 if mp and mp["scale"] == 4 and mp["index"] is not None:
                     tdisp = mp["disp"]
+                    tidx = mp["index"]
                     break
         baseva = None
         basep = PARENT.get(base, base) if base is not None else None
@@ -1264,7 +1266,7 @@ def prepass(lines, img):
             raw = img.read(tva, count * 4)
             words = list(struct.unpack("<%dI" % count, raw))
             jmpreg[addr] = {"table": tva, "words": words, "base": baseva,
-                            "default": default}
+                            "default": default, "index": tidx or "eax"}
             for w in words:
                 if baseva + w in addrs:
                     labels.add(baseva + w)

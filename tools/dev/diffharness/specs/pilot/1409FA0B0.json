@@ -318,6 +318,16 @@
    "offset": "0x4",
    "enc": "u32"
   },
+  "A0_38_E0_0": {
+   "region": "A0.38.E0",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "A0_38_E0_24": {
+   "region": "A0.38.E0",
+   "offset": "0x24",
+   "enc": "u32"
+  },
   "A0_38_E0_1900": {
    "region": "A0.38.E0",
    "offset": "0x1900",
@@ -377,6 +387,11 @@
    "region": "IMG.1436F3DC8.40",
    "offset": "0x2950",
    "enc": "f32"
+  },
+  "IMG_1436F3DC8_180_0": {
+   "region": "IMG.1436F3DC8.180",
+   "offset": "0x0",
+   "enc": "u8"
   },
   "IMG_1436F3DC8_180_10E8": {
    "region": "IMG.1436F3DC8.180",
@@ -511,6 +526,18 @@
    "hi": 255,
    "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
+  "A0_38_E0_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_38_E0_24": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
   "A0_38_E0_1900": {
    "kind": "choice",
    "values": [
@@ -599,6 +626,12 @@
    "lo": -50.0,
    "hi": 50.0,
    "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_180_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
   "IMG_1436F3DC8_180_10E8": {
    "kind": "u8",
@@ -767,7 +800,7 @@
  "precheck": {
   "indirect_calls": [],
   "tailjumps": [],
-  "unresolved_mem": 6,
+  "unresolved_mem": 5,
   "live_data_reads": [
    "IMG"
   ],
@@ -806,8 +839,7 @@
    "unresolved-mem@1409FA15C",
    "unresolved-mem@140A55D7D",
    "unresolved-mem@140A55D84",
-   "unresolved-mem@140A55D8D",
-   "unresolved-mem@141F9C3B0"
+   "unresolved-mem@140A55D8D"
   ]
  }
 }
