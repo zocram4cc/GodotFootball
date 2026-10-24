@@ -463,6 +463,51 @@ TEST(PesTeamTick, OffPitchSlotMisses) {
   }
 }
 
+// Step 20's outer loop (T3InteriorRE §1): the first blocking opponent names the slot's target
+// ((0, opp), 0x1404FFE38/0x140500140), an out-of-range slot takes (0, 0xFF) (0x140500149), an open
+// slot takes (1, 0xFF) on exhaust (0x140500015), and the holder's slot keeps its old values
+// (0x140500174 skips the store).
+TEST(PesTeamTick, BlockedSlotNamesOpponent) {
+  pes::TeamTick tick;
+  pes::Step20Input in;
+  in.side = 0;
+  in.holder = 3;
+  for (int k = 0; k < pes::kReactionSlots; ++k) in.slots[static_cast<size_t>(k)].onPitch = true;
+  in.slots[0].blocks = 14;
+  in.slots[2].inRange = false;
+  tick.slotFlag[3] = 9;
+  tick.slotTarget[3] = 9;
+  pes::Step20Table(&tick, in);
+  EXPECT_EQ(tick.slotFlag[0], 0u);
+  EXPECT_EQ(tick.slotTarget[0], 14u);
+  EXPECT_EQ(tick.slotFlag[1], 1u);
+  EXPECT_EQ(tick.slotTarget[1], 0xFFu);
+  EXPECT_EQ(tick.slotFlag[2], 0u);
+  EXPECT_EQ(tick.slotTarget[2], 0xFFu);
+  EXPECT_EQ(tick.slotFlag[3], 9u);
+  EXPECT_EQ(tick.slotTarget[3], 9u);
+}
+
+// An off-pitch slot misses with (0, 0xFF) (0x1404FFA55), and side 1 reads the other half: its
+// holder is his own slot (1·11 + 5), not slot 5.
+TEST(PesTeamTick, OpenSlotScoresFF) {
+  pes::TeamTick tick;
+  pes::Step20Input in;
+  in.side = 1;
+  in.holder = 16;
+  for (int k = 0; k < pes::kReactionSlots; ++k) in.slots[static_cast<size_t>(k)].onPitch = true;
+  in.slots[4].onPitch = false;
+  tick.slotFlag[5] = 7;
+  tick.slotTarget[5] = 7;
+  pes::Step20Table(&tick, in);
+  EXPECT_EQ(tick.slotFlag[4], 0u);
+  EXPECT_EQ(tick.slotTarget[4], 0xFFu);
+  EXPECT_EQ(tick.slotFlag[0], 1u);
+  EXPECT_EQ(tick.slotTarget[0], 0xFFu);
+  EXPECT_EQ(tick.slotFlag[5], 7u);
+  EXPECT_EQ(tick.slotTarget[5], 7u);
+}
+
 // T3c slice 1: step 21's gates (FUN_1404F7BA0, 0x1404F7BB3-D15). The pick
 // needs the no-possession arm (T+0x255 == 0), the roster, the level words
 // and the clear side flag, plus a live holder; any fail writes 0xFF

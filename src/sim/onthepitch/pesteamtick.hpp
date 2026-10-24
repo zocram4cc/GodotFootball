@@ -147,9 +147,29 @@ struct Step20Gates {
 };
 bool Step20GatesPass(const Step20Gates& g);
 // Step 20's band write (0x14050017F-1BE): XMM13 = clamp01((x - 4.0)/-3.5)
-// with the 0.5-select (below 0.5 -> 1.0, above 4.0 -> 0.0, else scaled);
+// with the 0.5-select (COMISS XMM13,0.5 at 0x140500187 + JC, so NaN -> 1.0):
+// below 0.5 -> 1.0, above 4.0 -> 0.0, else scaled;
 // T+0x8D50[k] := XMM13 on the hit path only (0x1405001BE).
 float Step20Band(float x);
+// Step 20's outer loop (FUN_1404FF8B0, T3InteriorRE §1): the per-slot rows T+0x8C35[11] (u8) and
+// T+0x8C40[11] (u32 target, 0xFF = none). Per outer slot k = 0..10, cand = side·11 + k misses
+// (flag 0, 0xFF) when off-pitch (0x1404FFA55); cand == holder keeps scanning without storing
+// (0x140500174). Otherwise the three outcomes at 0x140500015-3E: (1, 0xFF) = loop exhausted (slot
+// open), (0, opp) = opponent opp broke the lane scan, (0, 0xFF) = slot out of holder range.
+// The per-opponent inner geometry (the ring gates, the A8F7C0 advance, the A90FD0 projection) rides
+// on the caller's block verdicts: none of GF's scores is PES's break predicate, so each would be a
+// guess that forks the write stream from PES's.
+struct Step20Slot {
+  bool onPitch = false;  // MI+0x1748
+  int blocks = 0xFF;  // the breaking opponent id, or 0xFF when none blocks
+  bool inRange = true;  // else the (0, 0xFF) ring-gate break (0x140500149)
+};
+struct Step20Input {
+  int side = 0;    // 0 or 1: the own half
+  int holder = 0;  // carrier-or-fallback global id
+  std::array<Step20Slot, kReactionSlots> slots{};
+};
+void Step20Table(TeamTick* tick, const Step20Input& in);
 // Step 21 (FUN_1404F7BA0): the supporter pick T+0xB8D0 (0x1404F82E8;
 // 0xFF = none, 0x15 row sentinel) and its stamp brain+0x6D40
 // (MI+0x1198 frame, 0x1404F82FC, only when best <= 0x15). Init 0xFF / -1.

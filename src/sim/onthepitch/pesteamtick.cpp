@@ -242,6 +242,39 @@ float Step20Band(float x) {
   return (x - kTop) / kSpan;
 }
 
+// Step 20's outer loop (T3InteriorRE §1): the per-slot rows T+0x8C35/T+0x8C40 at 0x140500036/03E. Per
+// outer k the cand side·11 + k misses (flag 0, 0xFF) when off-pitch (0x1404FFA55); the holder keeps
+// the slot's old values without storing (0x140500174). Otherwise: no blocker + in range takes
+// (1, 0xFF) on exhaust (0x140500015), a blocking opp takes (0, opp) (0x1404FFE38/0x140500140), and
+// out of range takes (0, 0xFF) (0x140500149). The 8D50 band write needs the running min the inner
+// geometry (A8F7C0/A90FD0, 0x1404FFC97/0x1404FFD47) reduces; GF has no analogue, so 8D50 keeps its
+// previous values.
+void Step20Table(TeamTick* tick, const Step20Input& in) {
+  for (int k = 0; k < kReactionSlots; ++k) {
+    const int cand = in.side * kReactionSlots + k;
+    if (cand > 0x15) continue;  // 0x1404FFA4C: cand > 0x15 misses
+    const Step20Slot& s = in.slots[static_cast<size_t>(k)];
+    if (!s.onPitch) {
+      tick->slotFlag[static_cast<size_t>(k)] = 0;
+      tick->slotTarget[static_cast<size_t>(k)] = kStep20NoTarget;
+      continue;
+    }
+    if (cand == in.holder) continue;
+    if (!s.inRange) {
+      tick->slotFlag[static_cast<size_t>(k)] = 0;
+      tick->slotTarget[static_cast<size_t>(k)] = kStep20NoTarget;
+      continue;
+    }
+    if (s.blocks >= 0 && s.blocks < 0x16) {
+      tick->slotFlag[static_cast<size_t>(k)] = 0;
+      tick->slotTarget[static_cast<size_t>(k)] = static_cast<uint32_t>(s.blocks);
+      continue;
+    }
+    tick->slotFlag[static_cast<size_t>(k)] = 1;
+    tick->slotTarget[static_cast<size_t>(k)] = kStep20NoTarget;
+  }
+}
+
 // Step 21's gates (§6): latch clear (T+0x255 == 0, 0x1404F7BB3 JNZ fail),
 // roster A55D40 != 0 (0x1404F7BCC), level words A40BD0/A60340 >= 5
 // (0x1404F7C05-15), side-1 flag clear (0x1404F7C1B-33), carrier-or-kickman
