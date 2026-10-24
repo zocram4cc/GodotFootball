@@ -147,4 +147,9 @@ void ArmInPlayCounters(TeamTick* tick) {
   tick->counterDone = false;  // MOV byte [RCX+0x6D44],0 at 0x1404FA887
 }
 
+void BuildMarkTableTick(marktable::MarkState* state, const marktable::Facts& facts,
+                        const marktable::Constants& k) {
+  marktable::BuildMarkTable(state, facts, k);
+}
+
 }  // namespace pes

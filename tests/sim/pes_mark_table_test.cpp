@@ -1,0 +1,397 @@
+// PES 2021's mark table (team-tick step 35, FUN_1404F61E0): the 11-byte opponent mask
+// T+0xB7EC[11]. Pure behaviour tests with synthetic candidates; no install needed except
+// the constants check. MarkGateRE's four open inputs arrive as Facts booleans.
+#include <gtest/gtest.h>
+
+#include <cstdlib>
+#include <string>
+
+#include "onthepitch/pesmarktable.hpp"
+#include "pes/exe.hpp"
+#include <memory>
+#include <vector>
+
+#include "base/properties.hpp"
+#include "data/matchdata.hpp"
+#include "gamedefines.hpp"
+#include "onthepitch/match.hpp"
+#include "onthepitch/matchsetup.hpp"
+#include "onthepitch/player/player.hpp"
+#include "onthepitch/team.hpp"
+#include "pes/vfs.hpp"
+#include "simcontext.hpp"
+#include "utils/database.hpp"
+#include "rig/rig.hpp"
+
+#include "pes_match_constants.hpp"
+
+#ifndef GF_SOURCE_DIR
+#define GF_SOURCE_DIR "."
+#endif
+
+namespace {
+
+using pes::marktable::Candidate;
+using pes::marktable::Constants;
+using pes::marktable::Facts;
+using pes::marktable::MarkState;
+
+Constants TestConstants() {
+  Constants k;
+  k.rampBase = 7.0f;
+  k.rampTop = 3.0f;
+  k.coneOffset = 15.0f;
+  k.ceilD2 = 1369.0f;
+  k.wrapCap = 105.0f;
+  k.wrapSide = 80.0f;
+  k.coneDeg = 90.0f;
+  k.coneLen = 12.0f;
+  k.gateFrac = 64.0f;
+  k.gateRadius = 12.0f;
+  k.gateWidth = 2.0f;
+  k.half = 0.5f;
+  return k;
+}
+
+// A passing scene: side 0 marks slot 3, holder is slot 5, one candidate at slot 7 with
+// bearings that clear the 105/80 wrap gates. The ramp wind puts the cone at 0.5 - 15.
+Facts PassingFacts() {
+  Facts f;
+  f.side = 0;
+  f.holder = 5;
+  f.sign = 1.0f;
+  f.holderX = 14.6984631f;  // bearing(cand -> holder) = 70 deg, agreeing with pairToHolder
+  f.holderZ = 1.7101007f;
+  f.goalAreaHalfWidth_m = 9.16f;  // F[5]: lo = 9.16 - 7 = 2.16, ramp (0 - 2.16 + 3)/3 > 1 -> cone = 1 - 15
+  Candidate c;
+  c.id = 7;
+  c.d2 = 100.0f;
+  c.actionWord = 1;
+  c.posX = 10.0f;  // side line at cone + holderX = 0.70 < 10 passes
+  c.posZ = 0.0f;
+  // headArg = bearing(pos -> point): point at (10, 0) from pos (0, 0) reads 90 deg;
+  // |10 - 90| = 80 <= 105, |70 - 90| = 20 <= 80, floor |70 + 14| = 84 >= 80.
+  c.pairToTarget = 10.0f;
+  c.pairToHolder = 70.0f;
+  c.headPosX = 0.0f;
+  c.headPosZ = 0.0f;
+  c.headPointX = 10.0f;
+  c.headPointZ = 0.0f;
+  c.head = 0.0f;  // the facing word: subtrahend only, the wrap tests use headArg
+  f.candidates[0] = c;
+  return f;
+}
+// RED (step 1): the team tick must rebuild marks on the PES path (T7a
+// FUN_1404F61E0 at team-tick `0x1404F76AC`), so that the readers (R1/R2/R3)
+// see live marks instead of a zeroed table. A live PES-loop match must show a
+// marked slot on some tick (the pre-wiring run left every mark zero; a live
+// table proves the builder call is wired to the run world).
+TEST(MarkTableTick, LiveMatchTickSetsAMark) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set: the tick feed runs a live match";
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto rig = pesrig::BuildRig(vfs, &err);
+  ASSERT_TRUE(rig) << err;
+  blunted::Database db;
+  ASSERT_TRUE(db.LoadSqlScript(std::string(GF_SOURCE_DIR) + "/assets/fixtures/teams.sql"));
+  SetDB(&db);
+  auto setup = std::make_unique<MatchSetup>();
+  setup->homeTeamDbId = 1;
+  setup->awayTeamDbId = 2;
+  setup->seed = 7;
+  setup->durationMinutes = 2;
+  setup->animationDir = std::string(GF_SOURCE_DIR) + "/assets/gf_anims";
+  setup->rig = &*rig;
+  ASSERT_TRUE(pestest::FillMissingPesConstants(setup.get())) << "install constants unavailable";
+  Properties config;
+  config.SetBool("pes_loop", true);
+  Match match(new MatchData(1, 2), *setup, config);
+  bool marked = false;
+  for (unsigned long t = 0; !match.IsGameOver() && t < 6ul * 60ul * 54ul && !marked; ++t) {
+    match.Process();
+    for (int team = 0; team < 2 && !marked; ++team) {
+      std::vector<Player*> players;
+      match.GetTeam(team)->GetActivePlayers(players);
+      for (Player* p : players) {
+        if (match.GetTeam(team)->GetController()->IsMarkedByTable(p)) {
+          marked = true;
+          break;
+        }
+      }
+    }
+  }
+  EXPECT_TRUE(marked);
+}
+
+TEST(MarkTable, ZeroedOnEntry) {
+  MarkState s;
+  s.markSlot = 3;
+  s.mark.fill(1);
+  Facts f = PassingFacts();
+  f.holder = 0xFF;  // gated out: mask keeps only the zero-init
+  pes::marktable::BuildMarkTable(&s, f, TestConstants());
+  for (uint8_t b : s.mark) EXPECT_EQ(b, 0);
+}
+
+TEST(MarkTable, EmptySlotMarksNothing) {
+  MarkState s;  // markSlot = 0xFF
+  Facts f = PassingFacts();
+  pes::marktable::BuildMarkTable(&s, f, TestConstants());
+  for (uint8_t b : s.mark) EXPECT_EQ(b, 0);
+}
+
+TEST(MarkTable, HolderKeeperOrTargetMarksNothing) {
+  const Constants k = TestConstants();
+  MarkState s;
+  s.markSlot = 3;
+  Facts f = PassingFacts();
+  f.holderIsKeeper = true;
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[7], 0);
+  f = PassingFacts();
+  f.holder = 3;  // == tgt (side 0 * 11 + 3)
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[7], 0);
+}
+
+TEST(MarkTable, MarksIdModElevenUpToThree) {
+  const Constants k = TestConstants();
+  MarkState s;
+  s.markSlot = 9;  // tgt 9: none of the ids 1..5 is skipped
+  Facts f = PassingFacts();
+  for (int i = 0; i < 5; ++i) {
+    f.candidates[i].id = i + 1;
+    f.candidates[i].d2 = 100.0f;
+    f.candidates[i].actionWord = 1;
+    f.candidates[i].posX = 10.0f;
+    f.candidates[i].posZ = 0.0f;
+    f.candidates[i].pairToTarget = 10.0f;
+    f.candidates[i].pairToHolder = 70.0f;
+    f.candidates[i].headPosX = 0.0f;
+    f.candidates[i].headPosZ = 0.0f;
+    f.candidates[i].headPointX = 10.0f;
+    f.candidates[i].headPointZ = 0.0f;
+    f.candidates[i].head = 0.0f;
+  }
+  pes::marktable::BuildMarkTable(&s, f, k);
+  int total = 0;
+  for (uint8_t b : s.mark) total += b;
+  EXPECT_EQ(total, 3);
+  EXPECT_EQ(s.mark[1], 1);
+  EXPECT_EQ(s.mark[2], 1);
+  EXPECT_EQ(s.mark[3], 1);
+  EXPECT_EQ(s.mark[4], 0) << "the fourth passing candidate stops at the cap";
+  EXPECT_EQ(s.mark[5], 0);
+}
+
+TEST(MarkTable, GlobalIdFoldsModEleven) {
+  // The commit index is id % 11 (0x1404F65AA MUL 0xBA2E8BA3): id 12 commits slot 1.
+  const Constants k = TestConstants();
+  MarkState s;
+  s.markSlot = 9;
+  Facts f = PassingFacts();
+  f.candidates[0].id = 12;
+  f.candidates[0].d2 = 100.0f;
+  f.candidates[0].actionWord = 1;
+  f.candidates[0].pairToTarget = 10.0f;
+  f.candidates[0].pairToHolder = 70.0f;
+  f.candidates[0].headPosX = 0.0f;
+  f.candidates[0].headPosZ = 0.0f;
+  f.candidates[0].headPointX = 10.0f;
+  f.candidates[0].headPointZ = 0.0f;
+  f.candidates[0].head = 0.0f;
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[1], 1);
+  EXPECT_EQ(s.mark[0], 0);
+}
+
+TEST(MarkTable, FarCandidateHardExits) {
+  // d^2 > 1369 returns (0x1404F643D JA), so a later passing candidate is never reached.
+  const Constants k = TestConstants();
+  MarkState s;
+  s.markSlot = 3;
+  Facts f = PassingFacts();
+  f.candidates[0].id = 1;
+  f.candidates[0].d2 = 2000.0f;
+  f.candidates[1].id = 2;
+  f.candidates[1].d2 = 100.0f;
+  f.candidates[1].actionWord = 1;
+  f.candidates[1].pairToTarget = 10.0f;
+  f.candidates[1].pairToHolder = 70.0f;
+  f.candidates[1].headPosX = 0.0f;
+  f.candidates[1].headPosZ = 0.0f;
+  f.candidates[1].headPointX = 10.0f;
+  f.candidates[1].headPointZ = 0.0f;
+  f.candidates[1].head = 0.0f;
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[2], 0);
+}
+
+TEST(MarkTable, WrapBoundaryPasses) {
+  // 0x1404F64D9 JA: d = 105.0 exactly does not skip (strictly-greater exit).
+  const Constants k = TestConstants();
+  MarkState s;
+  s.markSlot = 9;
+  Facts f = PassingFacts();
+  f.candidates[0].pairToTarget = 105.0f;
+  f.candidates[0].pairToHolder = 70.0f;
+  f.candidates[0].headPosX = 0.0f;
+  f.candidates[0].headPosZ = 0.0f;
+  f.candidates[0].headPointX = 10.0f;
+  f.candidates[0].headPointZ = 0.0f;
+  f.candidates[0].head = 0.0f;
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[7], 1);
+}
+
+TEST(MarkTable, SideGateRejectsFarSide) {
+  // FUN_140A4C720: (sign*cone + holderX)*sign < sign*candX, strict. Cone is -14 here,
+  // so the line is at 0.70: a candidate at x = 0 fails, one at 10 passes.
+  const Constants k = TestConstants();
+  MarkState s;
+  s.markSlot = 3;
+  Facts f = PassingFacts();
+  f.candidates[0].posX = 0.0f;
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[7], 0);
+  f = PassingFacts();
+  f.candidates[0].posX = 10.0f;
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[7], 1);
+  // Edge note: exactly on the line is |cone| >= 14 m from the holder, outside the 12 m
+  // cone, so the cone subsumes the side edge (mutation >= to > survives; PES JA confirmed
+  // at 0x1404F647C/47E by asm).
+}
+
+TEST(MarkTable, ActionWordRejects) {
+  // pl+0x5D0 admits iff 1 or 0x3F (0x1404F6484-492).
+  const Constants k = TestConstants();
+  MarkState s;
+  s.markSlot = 3;
+  Facts f = PassingFacts();
+  f.candidates[0].actionWord = 2;
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[7], 0);
+  f = PassingFacts();
+  f.candidates[0].actionWord = 0x3F;
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[7], 1);
+}
+
+TEST(MarkTable, ConeAllowsOneMateInside) {
+  // count = 1, cone passes: 1 <= 1 commits with one agreeing mate nearby.
+  const Constants k = TestConstants();
+  MarkState s;
+  s.markSlot = 3;
+  Facts f = PassingFacts();
+  f.gateMates[0] = {19.3969269f, 3.4202013f};
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[7], 1);
+}
+
+TEST(MarkTable, ConeRejectsOutside) {
+  // FUN_140A53DF0: touching the 12 m circle fails (JBE). Candidate at d2 = 144 exactly.
+  const Constants k = TestConstants();
+  MarkState s;
+  s.markSlot = 3;
+  Facts f = PassingFacts();
+  // Exactly 12 m from the holder (f32 d2 == 144.0): the JBE arm fails the touch.
+  // live = 120 agrees with pairToHolder = 120, so only the annulus rejects.
+  // With the agreeing mate (count = 1) and coneHit = false, 1 > 0 rejects.
+  f.gateMates[0] = {19.0285912f, -0.7898993f};
+  f.candidates[0].posX = 4.3061590f;
+  f.candidates[0].posZ = 7.7101007f;
+  f.candidates[0].d2 = 100.0f;
+  f.candidates[0].pairToHolder = 120.0f;
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[7], 0);
+}
+
+TEST(MarkTable, CountBandEdgeCounts) {
+  // |b - u| one ulp above 32.0 still counts (JA taken only when strictly above, 0x140A4EA45).
+  // Cone-edge candidate (coneHit = false) + this single mate: exact 1 > 0 rejects.
+  const Constants k = TestConstants();
+  MarkState s;
+  s.markSlot = 3;
+  Facts f = PassingFacts();
+  f.gateMates[0] = {17.0458202f, -2.7046375f};
+  f.candidates[0].posX = 4.3061590f;
+  f.candidates[0].posZ = 7.7101007f;
+  f.candidates[0].d2 = 100.0f;
+  f.candidates[0].pairToHolder = 120.0f;
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[7], 0);
+}
+
+TEST(MarkTable, CountGateRejectsCrowd) {
+  // FUN_140A4EAF0: count <= (cone != 0). Two mates within 12 m agreeing with u push count to 2.
+  const Constants k = TestConstants();
+  MarkState s;
+  s.markSlot = 3;
+  Facts f = PassingFacts();
+  f.gateMates[0] = {14.6984631f + 5.0f, 1.7101007f};
+  f.gateMates[1] = {19.3969262f, 3.4202014f};
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[7], 0);
+}
+
+TEST(MarkTable, HeadUsesPointNotFacing) {
+  // headArg = 90 from the stored point; the facing word (0.0) would fail the side gate.
+  // pairToHolder = 170: |170 - 90| = 80 <= 80 passes; |170 - 0| = 170 would reject.
+  const Constants k = TestConstants();
+  MarkState s;
+  s.markSlot = 3;
+  Facts f = PassingFacts();
+  f.candidates[0].pairToHolder = 170.0f;
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[7], 1);
+}
+
+TEST(MarkTable, RampMidPinsConeValue) {
+  // holderX = 7.16 is mid-ladder: ramp = (7.16 - 2.16)/10 = 0.5, cone = -14.5.
+  // Floor |70 + 14.5| = 84.5 >= 80 passes; without the -15.0 offset it would fail.
+  const Constants k = TestConstants();
+  MarkState s;
+  s.markSlot = 3;
+  Facts f = PassingFacts();
+  f.holderX = 7.16f;
+  f.holderZ = 1.71f;
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[7], 1);
+}
+
+TEST(MarkTable, WrapGatesReject) {
+  const Constants k = TestConstants();
+  MarkState s;
+  s.markSlot = 3;
+  Facts f = PassingFacts();
+  f.candidates[0].pairToTarget = 200.0f;  // |200 - 90| = 110 > 105
+  pes::marktable::BuildMarkTable(&s, f, k);
+  EXPECT_EQ(s.mark[7], 0);
+}
+
+// The install's constants, read from the exe's .rdata at the VAs the header cites.
+TEST(MarkTableInstall, LoadsTheInstallConstants) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set: the mark constants come from the install";
+  std::string err;
+  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  ASSERT_TRUE(exe.has_value()) << err;
+  auto loaded = pes::marktable::LoadMarkTableConstants(*exe, &err);
+  ASSERT_TRUE(loaded.has_value()) << err;
+  const Constants want = TestConstants();
+  EXPECT_FLOAT_EQ(loaded->rampBase, want.rampBase);
+  EXPECT_FLOAT_EQ(loaded->rampTop, want.rampTop);
+  EXPECT_FLOAT_EQ(loaded->coneOffset, want.coneOffset);
+  EXPECT_FLOAT_EQ(loaded->ceilD2, want.ceilD2);
+  EXPECT_FLOAT_EQ(loaded->wrapCap, want.wrapCap);
+  EXPECT_FLOAT_EQ(loaded->wrapSide, want.wrapSide);
+  EXPECT_FLOAT_EQ(loaded->coneDeg, want.coneDeg);
+  EXPECT_FLOAT_EQ(loaded->coneLen, want.coneLen);
+  EXPECT_FLOAT_EQ(loaded->gateRadius, want.gateRadius);
+  EXPECT_FLOAT_EQ(loaded->half, want.half);
+}
+
+}  // namespace

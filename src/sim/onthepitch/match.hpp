@@ -222,6 +222,39 @@ public:
   }
   Player* GetBallRetainer() { return ballRetainer; }
   void SetBallRetainer(Player* retainer) { ballRetainer = retainer; }
+  // PES's holder MA+0x2601C (docs/re/pes-re-press-coord.md section 4a; pes-re-first-touch.md section 5.1): the
+  // actor of the newest ring-1 touch key. Only W1 writes it and nothing clears it: W2 (0x140A71DF9) stores 0xFF
+  // only in the object reset (HolderRE runs 3-4), so it persists on a loose ball until a newer key replaces it.
+  // It is carried apart from ballRetainer, which is GF's own loose-ball predicate and clears on the possession
+  // flicker (humanoid.cpp's retain block). The only writer is RecomputePesHolder below - no public setter.
+  Player* GetPesHolder() const { return pesHolder; }
+  // The newest ring-1 touch key's actor, W1's input: pushed by a touch that keeps the ball with the man and by
+  // the keeper's catch (humanoid.cpp), adopted as the holder by the per-tick recompute below (which reads the
+  // field directly).
+  void SetPesKeyActor(Player* keyActor) { pesKeyActor = keyActor; }
+  // W1's per-tick recompute (0x14045725A, MOV [RBP+0x2601C],EDI in FUN_140457070) behind the step switch
+  // FUN_140458880 (checker 0x140458912; docs/re/pes-re-restart-step.md 3): the arm-and-run steps
+  // 8/0xB/0xE/0x12 latch the run flag (set at 0x140457087/098, never cleared) and run the recompute;
+  // 0x14/0x15/0x16 run it only while the flag is latched; any other step skips it. The holder adopts the
+  // key when it runs, never null, so the holder has no clear of its own.
+  void RecomputePesHolder() {
+    switch (pesRestartStep) {
+      case 0x08:
+      case 0x0B:
+      case 0x0E:
+      case 0x12:
+        pesHolderRunArmed = true;
+        break;
+      case 0x14:
+      case 0x15:
+      case 0x16:
+        if (!pesHolderRunArmed) return;
+        break;
+      default:
+        return;
+    }
+    if (pesKeyActor) pesHolder = pesKeyActor;
+  }
 
   float GetAveragePossessionSide(int time_ms) const {
     return possessionSideHistory->GetAverage(time_ms);
@@ -286,6 +319,8 @@ public:
   const pes::MoveStepConstants& GetPesMoveStepConstants() const { return pesMoveStepConstants; }
   // PES 2021's presser picker and loose-ball PRESS chase (docs/re/pes-re-press-life.md).
   const pes::PressConstants& GetPesPressConstants() const { return pesPressConstants; }
+  // PES 2021's mark table (team-tick step 35, FUN_1404F61E0, T7a `0x1404F76B1`).
+  const pes::marktable::Constants& GetPesMarkTableConstants() const { return pesMarkTableConstants; }
   // PES 2021's off-ball run manager (docs/re/pes-re-off-ball.md).
   const pes::offball::OffBallConstants& GetPesOffBallConstants() const {
     return pesOffBallConstants;
@@ -594,6 +629,11 @@ protected:
   signed int bestPossessionTeamID = -1;
   Player* designatedPossessionPlayer = nullptr;
   Player* ballRetainer = nullptr;
+  // PES's holder MA+0x2601C, its ring-1 key, and the restart-step gate: see GetPesHolder / RecomputePesHolder.
+  Player* pesHolder = nullptr;
+  Player* pesKeyActor = nullptr;
+  uint8_t pesRestartStep = 0;
+  bool pesHolderRunArmed = false;
 
   bool gameOver = false;
 
@@ -641,6 +681,8 @@ protected:
   pes::MoveStepConstants pesMoveStepConstants{};
   // PES 2021's presser picker and loose-ball PRESS chase.
   pes::PressConstants pesPressConstants{};
+  // PES 2021's mark table (team-tick step 35, FUN_1404F61E0), copied from MatchSetup at construction.
+  pes::marktable::Constants pesMarkTableConstants{};
   std::unique_ptr<pes::PesClock> pesClock;
   std::unique_ptr<pes::StaminaConstants> pesStaminaConstants;
   std::optional<pes::PlayerDatabase> pesPlayerDatabase;

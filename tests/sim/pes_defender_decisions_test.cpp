@@ -8,9 +8,25 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
 
 #include "base/math/bluntmath.hpp"
+#include "base/properties.hpp"
+#include "data/matchdata.hpp"
+#include "onthepitch/match.hpp"
+#include "onthepitch/matchsetup.hpp"
+#include "onthepitch/pescontact.hpp"
 #include "onthepitch/pesdefenderdecisions.hpp"
+#include "onthepitch/player/player.hpp"
+#include "onthepitch/team.hpp"
+#include "pes/vfs.hpp"
+#include "pes_match_constants.hpp"
+#include "rig/rig.hpp"
+#include "simcontext.hpp"
+#include "utils/database.hpp"
 
 namespace {
 
@@ -93,6 +109,36 @@ TEST(PesDefenderChooser, FirstTruePredicateWinsInPesOrder) {
 
   in.jostleForPass = false;
   EXPECT_EQ(pes::ChooseReaction(in), pes::DefenderReaction::kNone);
+}
+
+// R3 (FUN_1409AD830): a marked man skips the holder duel (tackle, block and
+// the pass jostle) and falls through to the action dispatch (dodge/slide/
+// receive here; PES falls through to its +0x54 ladder). RED: no skip yet, so a
+// marked holder-duel input still wins.
+TEST(PesDefenderMarked, MarkedSkipsTheHolderDuel) {
+  pes::DefenderReactionInput in;
+  in.tackle = true;
+  in.block = true;
+  in.jostleForPass = true;
+  EXPECT_EQ(pes::ChooseMarkedReaction(in, true), pes::DefenderReaction::kNone);
+  EXPECT_EQ(pes::ChooseMarkedReaction(in, false), pes::DefenderReaction::kTackle);
+}
+
+TEST(PesDefenderMarked, MarkedFallsThroughToSlideAndReceive) {
+  pes::DefenderReactionInput in;
+  in.tackle = true;
+  in.slide = true;
+  EXPECT_EQ(pes::ChooseMarkedReaction(in, true), pes::DefenderReaction::kSlide);
+  in.slide = false;
+  in.receive = true;
+  EXPECT_EQ(pes::ChooseMarkedReaction(in, true), pes::DefenderReaction::kReceive);
+}
+TEST(PesDefenderMarked, MarkedDodgeStillBeatsBlock) {
+  // Mutation: the skip must only clear the holder duel, not the dispatch.
+  pes::DefenderReactionInput in;
+  in.block = true;
+  in.dodgeBall = true;
+  EXPECT_EQ(pes::ChooseMarkedReaction(in, true), pes::DefenderReaction::kDodgeBall);
 }
 
 TEST(PesDefenderChooser, AReactionFromTheFrontOfTheTableHidesTheRest) {
@@ -423,6 +469,66 @@ TEST(PesDefenderTarget, TheCandidateMustBeOnTheBall) {
   in.pressing = false;
   in.myY = 8.0f;
   EXPECT_TRUE(pes::ChallengeTargetValid(c, in));
+}
+
+blunted::Database* SharedDb() {
+  static blunted::Database db;
+  static bool loaded = false;
+  if (!loaded) {
+    loaded = true;
+    if (!db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql")) return nullptr;
+  }
+  return &db;
+}
+
+const pesrig::Rig* SharedRig() {
+  static std::optional<pesrig::Rig> rig;
+  static bool tried = false;
+  if (!tried) {
+    tried = true;
+    const char* root = std::getenv("PES21_ROOT");
+    if (!root) return nullptr;
+    pes::PesVfs vfs;
+    std::string err;
+    if (vfs.Mount(root, &err)) rig = pesrig::BuildRig(vfs, &err);
+  }
+  return rig ? &*rig : nullptr;
+}
+
+// GF mode runs the full reaction table including entry 11 (the pass jostle):
+// a switch-off seed-7 match jostles for an incoming pass within two minutes.
+// RED (GFLeakFix): batch K's R3 wiring dropped the pass-duel predicate from
+// the call site, so entry 11 never fired on either path.
+TEST(PesDefenderJostleGf, SwitchOffMatchJostlesForAPass) {
+  if (!SharedRig()) GTEST_SKIP() << "PES21_ROOT not set: the player skeleton comes from PES";
+  blunted::Database* db = SharedDb();
+  ASSERT_TRUE(db) << "assets/fixtures/teams.sql";
+  SetDB(db);
+  MatchSetup setup;
+  setup.homeTeamDbId = 1;
+  setup.awayTeamDbId = 2;
+  setup.seed = 7;
+  setup.durationMinutes = 2;
+  setup.animationDir = GF_SOURCE_DIR "/assets/gf_anims";
+  setup.rig = SharedRig();
+  if (!pestest::FillMissingPesConstants(&setup)) GTEST_SKIP() << "PES2021.exe unavailable";
+  std::unique_ptr<Match> match(
+      new Match(new MatchData(1, 2), setup, Properties()));  // switch-off: no pes_loop
+  bool jostled = false;
+  for (int t = 0; t < 2 * 60 * 54 && !match->IsGameOver() && !jostled; ++t) {
+    match->Process();
+    for (int team = 0; team < 2 && !jostled; ++team) {
+      std::vector<Player*> players;
+      match->GetActiveTeamPlayers(team, players);
+      for (const Player* p : players) {
+        if (p->GetPesChallenge() == pes::ContactAction::kJostle) {
+          jostled = true;
+          break;
+        }
+      }
+    }
+  }
+  EXPECT_TRUE(jostled) << "GF mode must reach entry 11 (the pass jostle) within two minutes";
 }
 
 }  // namespace

@@ -9,9 +9,9 @@
 #include <cstdint>
 
 #include "gametypes.hpp"
+#include "onthepitch/pesmarktable.hpp"
 
 namespace pes {
-
 // One side's per-tick team words. `b8a4` is the attack level 0..4
 // (FUN_1404F8350); `b8a2`/`b8a3` the full-attack/full-defence flags
 // (FUN_1404F6C30 inline at 0x1404F6E1C-58); `t80` the restart word
@@ -142,5 +142,11 @@ void WriteRestartWord(TeamTick* tick, bool inPlay, bool possessionFlipped);
 // Step 15's in-play arm: B8A8 = 8, B8AC = 4, brain+0x6D44 = 0 (0x1404FA869-0x1404FA887). The stopped ladder
 // (0x1404FA897 on) is not ported.
 void ArmInPlayCounters(TeamTick* tick);
+
+// Step 35 (FUN_1404F61E0): rebuild the mark table from the tick's facts.
+// Thin wrapper over marktable::BuildMarkTable so the team tick owns the call
+// site (T7a `0x1404F76B1`); the facts come from the controller's run world.
+void BuildMarkTableTick(marktable::MarkState* state, const marktable::Facts& facts,
+                        const marktable::Constants& k);
 
 }  // namespace pes
