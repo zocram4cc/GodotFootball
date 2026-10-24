@@ -165,6 +165,9 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES carrier constants missing: read them from the install with "
         "pes::LoadCarrierConstants into MatchSetup::pesCarrierConstants");
   pesCarrierConstants = *setup.pesCarrierConstants;
+  // Both sides carry the stock default level word until the team-setup import
+  // sources each side's own (docs/re/pes-re-team-status.md 5).
+  teamLevelRaw = {pesCarrierConstants.teamLevelRaw, pesCarrierConstants.teamLevelRaw};
   // PES 2021's open-play defensive shape (docs/re/pes-re-defensive-shape.md 6,
   // 7, 14): the line ramp's offsets, the 46/42/32 m lengths, the 15/19/23 m line
   // half-widths and the mark arithmetic. Required like the carrier's: a
@@ -840,6 +843,19 @@ void Match::Process() {
     ProcessPesEventStage();
   }
 
+  if (pesLoop) {
+    // W1's recompute runs off the restart step each tick, before anything reads the holder. ponytail:
+    // PES's cursor MI+0x11B0 has no GF state - its per-value writer is OPEN (docs/re/pes-re-restart-step.md 2,
+    // 7) - so GF's stoppage state stands in for the step values: a dead ball or the referee buffer's
+    // award-to-kick window reads as 0x0B (out-of-play hold, one of the arm-and-run steps 8/0xB/0xE/0x12) and
+    // open play as 0x16 (one of the run-if-latched steps 0x14/0x15/0x16). The switch's skip steps have no GF
+    // state to name, so no GF tick reads as one; the switch itself (RecomputePesHolder) stays exact.
+    constexpr uint8_t kArmAndRunStep = 0x0B;
+    constexpr uint8_t kRunIfLatchedStep = 0x16;
+    pesRestartStep = (!IsInPlay() || GetRefereeBuffer().active) ? kArmAndRunStep : kRunIfLatchedStep;
+    RecomputePesHolder();
+  }
+
   // The team tick. ponytail: PES builds the MA inside the per-side team tick, after the
   // run manager and the 11-player loop; GF's mental image is built once, at the head of
   // the tick, and the teams follow.
@@ -1106,6 +1122,16 @@ int Match::InjuryResistanceOf(const PlayerData* data) const {
 bool Match::LeftFootedOf(const PlayerData* data) const {
   const auto traits = TraitsOf(pesPlayerDatabase, data);
   return traits ? traits->leftFooted : kFallbackLeftFooted;
+}
+
+int Match::FormOf(const PlayerData* data) const {
+  const auto traits = TraitsOf(pesPlayerDatabase, data);
+  return traits ? traits->form : kFallbackForm;
+}
+
+uint8_t Match::ConditionByteOf(const PlayerData* data) const {
+  const auto traits = TraitsOf(pesPlayerDatabase, data);
+  return traits ? traits->condition : kFallbackCondition;
 }
 
 // PES 2021's injury roll for one contact

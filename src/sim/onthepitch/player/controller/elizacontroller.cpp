@@ -1196,6 +1196,10 @@ void ElizaController::_ReactionCommands(PlayerCommandQueue& commandQueue) {
   in.tackle = _TackleCandidate(k);
   in.slide = _SlideCandidate(k);
   in.block = _BlockCandidate(k);
+  // Entry 11, the pass jostle (R2 reads the mark inside _PassDuelCandidate). Batch K's R3 wiring dropped it from the
+  // call site on both paths. PES's R3 (FUN_1409AD830, docs/re/pes-re-mark-readers.md) skips the holder duel only for a
+  // marked man, and ChooseMarkedReaction clears jostleForPass for him; an unmarked man evaluates it in both modes.
+  in.jostleForPass = _PassDuelCandidate(k);
   // Each dodge predicate (entries 4-7) carries its own kind
   // (FUN_14073bc70's cmd+0x1094). They are separate entries, so the chooser's
   // winner names which kind the command runs; each predicate stores its own.
@@ -3102,8 +3106,8 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
     touch.ownLine_m = -attackSign * pesFieldHalfLength;  // G1: the own goal line stands in for T18+(sd+3)*0x14
     touch.pitchBound_m = pesFieldHalfLength;             // G2: the pitch half length stands in for F+0x18
     // G3's team level (T+0xA294 x100, reader 0x140A40BD0): the install's own stock class x 100 (the
-    // writer 0x1B5D8340, setter 0x140A424E0). GF has no match-setting selector (+0x18) and no per-side
-    // +0x9200 byte, so the value is the stock default and the zero flag is false.
+    // §2 setup paths through the setter 0x140A424E0). GF has no match-setting selector (+0x18) and no
+    // per-side +0x9200 byte, so the value is the stock default and the zero flag is false.
     touch.teamLevelRaw = carrier.teamLevelRaw;
     touch.teamLevelZero = false;
     touch.attackLevel = 0;  // G8: T+0xB8A4 is not carried (S4)

@@ -222,6 +222,39 @@ public:
   }
   Player* GetBallRetainer() { return ballRetainer; }
   void SetBallRetainer(Player* retainer) { ballRetainer = retainer; }
+  // PES's holder MA+0x2601C (docs/re/pes-re-press-coord.md section 4a; pes-re-first-touch.md section 5.1): the
+  // actor of the newest ring-1 touch key. Only W1 writes it and nothing clears it: W2 (0x140A71DF9) stores 0xFF
+  // only in the object reset (HolderRE runs 3-4), so it persists on a loose ball until a newer key replaces it.
+  // It is carried apart from ballRetainer, which is GF's own loose-ball predicate and clears on the possession
+  // flicker (humanoid.cpp's retain block). The only writer is RecomputePesHolder below - no public setter.
+  Player* GetPesHolder() const { return pesHolder; }
+  // The newest ring-1 touch key's actor, W1's input: pushed by a touch that keeps the ball with the man and by
+  // the keeper's catch (humanoid.cpp), adopted as the holder by the per-tick recompute below (which reads the
+  // field directly).
+  void SetPesKeyActor(Player* keyActor) { pesKeyActor = keyActor; }
+  // W1's per-tick recompute (0x14045725A, MOV [RBP+0x2601C],EDI in FUN_140457070) behind the step switch
+  // FUN_140458880 (checker 0x140458912; docs/re/pes-re-restart-step.md 3): the arm-and-run steps
+  // 8/0xB/0xE/0x12 latch the run flag (set at 0x140457087/098, never cleared) and run the recompute;
+  // 0x14/0x15/0x16 run it only while the flag is latched; any other step skips it. The holder adopts the
+  // key when it runs, never null, so the holder has no clear of its own.
+  void RecomputePesHolder() {
+    switch (pesRestartStep) {
+      case 0x08:
+      case 0x0B:
+      case 0x0E:
+      case 0x12:
+        pesHolderRunArmed = true;
+        break;
+      case 0x14:
+      case 0x15:
+      case 0x16:
+        if (!pesHolderRunArmed) return;
+        break;
+      default:
+        return;
+    }
+    if (pesKeyActor) pesHolder = pesKeyActor;
+  }
 
   float GetAveragePossessionSide(int time_ms) const {
     return possessionSideHistory->GetAverage(time_ms);
@@ -238,14 +271,21 @@ public:
   // PES 2021's stamina model (docs/re/pes-re-stamina-drain.md): its constants,
   // read from the install's exe, required like the clock's and the ball's.
   const pes::StaminaConstants& GetPesStaminaConstants() const { return *pesStaminaConstants; }
-  // PES 2021's injury tier (0 C, 1 B, 2 A) and stronger foot for a player: his Player.bin record in the install's
-  // database, by his database id (docs/re/pes-re-matchlogic.md 1.2). A player with no record takes the named fallback.
+  // PES 2021's injury tier (0 C, 1 B, 2 A), stronger foot, Form and condition byte for a player: his Player.bin
+  // record in the install's database, by his database id (docs/re/pes-re-matchlogic.md 1.2). A player with no record
+  // takes the named fallback.
   int InjuryResistanceOf(const PlayerData* data) const;
   bool LeftFootedOf(const PlayerData* data) const;
-  // The named stand-ins for a player with no PES record of his own: the middle injury tier and the right foot.
+  int FormOf(const PlayerData* data) const;
+  uint8_t ConditionByteOf(const PlayerData* data) const;
+  // The named stand-ins for a player with no PES record of his own: the middle injury tier, the right foot, raw
+  // Form 3 and the 0x46 condition default. The synthetic squads deal Normal from the default, as PES's unedited
+  // records do (condition-import 1).
   // ponytail: they stand in for the install's per-player values (docs/ports/pes-port-DodgeGate.md).
   static constexpr int kFallbackInjuryResistance = 1;  // B
   static constexpr bool kFallbackLeftFooted = false;   // right foot
+  static constexpr int kFallbackForm = 3;              // raw (UI 4)
+  static constexpr uint8_t kFallbackCondition = 0x46;  // the unedited-record default
   // The tick-order switch (config pes_loop), read once when the match is built.
   bool PesLoop() const { return pesLoop; }
   // PES 2021's restart timings (docs/re/pes-re-foul-choreography.md 9).
@@ -297,6 +337,11 @@ public:
   // PES's per-team setup rating (pes::SetupStrength over the starting eleven),
   // written once at match load: the strategy decider compares the two sides.
   float GetTeamSetupStrength(int teamID) const { return teamSetupStrength[teamID]; }
+  // PES's per-side level word T+0xA294 (docs/re/pes-re-team-status.md 5): the
+  // condition shift's /100 == 6 test reads the side being shifted (FUN_14092AF10
+  // 0x14092B516 R12D^1), so each side carries its own. Both are the stock
+  // default until the team-setup import sources them per side.
+  int GetTeamLevelRaw(int teamID) const { return teamLevelRaw[teamID]; }
   // PES 2021's team sheet defaults and concepts (docs/re/pes-re-tactics.md 2).
   const pes::TeamConceptConstants& GetPesTeamConceptConstants() const { return pesTeamConceptConstants; }
   const pes::formation::FormationTables* GetPesFormations() const {
@@ -596,6 +641,11 @@ protected:
   signed int bestPossessionTeamID = -1;
   Player* designatedPossessionPlayer = nullptr;
   Player* ballRetainer = nullptr;
+  // PES's holder MA+0x2601C, its ring-1 key, and the restart-step gate: see GetPesHolder / RecomputePesHolder.
+  Player* pesHolder = nullptr;
+  Player* pesKeyActor = nullptr;
+  uint8_t pesRestartStep = 0;
+  bool pesHolderRunArmed = false;
 
   bool gameOver = false;
 
@@ -628,6 +678,7 @@ protected:
   pes::offball::OffBallConstants pesOffBallConstants{};
   pes::StrategyConstants pesStrategyConstants{};
   std::array<float, 2> teamSetupStrength{};
+  std::array<int, 2> teamLevelRaw{};
   pes::TeamConceptConstants pesTeamConceptConstants{};
   pes::SubstitutionConstants pesSubstitutionConstants{};
   pes::SetPieceTakerConstants pesSetPieceTakerConstants{};

@@ -169,6 +169,11 @@ add_test(NAME godot_post_compose_test
   COMMAND gamescope --backend headless -W 1280 -H 720 -- ${CMAKE_SOURCE_DIR}/tools/godot.sh --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_post_compose.gd)
 set_tests_properties(godot_post_compose_test PROPERTIES PASS_REGULAR_EXPRESSION "post compose: 0 failure" FAIL_REGULAR_EXPRESSION "FAIL:;SCRIPT ERROR" TIMEOUT 180)
 
+# The meter passes need a GPU for the same reason: the verdict is the script's summary line.
+add_test(NAME godot_post_meter_test
+  COMMAND gamescope --backend headless -W 1280 -H 720 -- ${CMAKE_SOURCE_DIR}/tools/godot.sh --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_post_meter.gd)
+set_tests_properties(godot_post_meter_test PROPERTIES PASS_REGULAR_EXPRESSION "post meter: 0 failure" FAIL_REGULAR_EXPRESSION "FAIL:;SCRIPT ERROR" TIMEOUT 180)
+
 add_executable(pes_events_test pes_events_test.cpp)
 target_link_libraries(pes_events_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_events_test)
@@ -180,5 +185,9 @@ gtest_discover_tests(pes_possession_test)
 add_executable(pes_outside_test pes_outside_test.cpp)
 target_link_libraries(pes_outside_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_outside_test)
+
+add_executable(pes_condition_loader_test pes_condition_test.cpp)
+target_link_libraries(pes_condition_loader_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_condition_loader_test)
 add_test(NAME parity_metrics_test
   COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/parity_metrics_test.py)

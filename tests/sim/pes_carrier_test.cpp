@@ -387,6 +387,21 @@ TEST(PesCarrierOpenness, MarginScalesWithThePerpendicularDistance) {
   EXPECT_FLOAT_EQ(pes::LaneOpennessMargin(0, 0, 0.1f, 5.0f, 1.0f, 0.0f, k), 0.0f);
 }
 
+// At along <= 1 PES still performs the margin division (0x142118c42 DIVSS
+// XMM2,XMM7 with T = 0 from 0x142118c0b's MINSS): T = 0, so a positive
+// perpendicular term overflows to +inf and the zero term stays 0.
+TEST(PesCarrierOpenness, MarginAtAlongOneMatchesPesUnguardedDivide) {
+  const pes::CarrierConstants k = Synthetic();
+  // along = 1: T = min(0.6, 0) = 0; 100 * 4 / 0 = +inf.
+  EXPECT_EQ(pes::LaneOpennessMargin(0, 0, 1.0f, 5.0f, 1.0f, 0.0f, k),
+            std::numeric_limits<float>::infinity());
+  // along = 0.5: T = min(0.3, 0) = 0; the same overflow.
+  EXPECT_EQ(pes::LaneOpennessMargin(0, 0, 0.5f, 5.0f, 1.0f, 0.0f, k),
+            std::numeric_limits<float>::infinity());
+  // along = 1 with no perpendicular margin: 100 * 0 / 0 is NaN, as PES's
+  // DIVSS of two zeroes is.
+  EXPECT_TRUE(std::isnan(pes::LaneOpennessMargin(0, 0, 1.0f, 1.0f, 1.0f, 0.0f, k)));
+}
 // --- the receiver difficulty term (report 4.3) ---
 
 TEST(PesCarrierDifficulty, ComponentsAndTheLowPassMultiplier) {
@@ -2751,8 +2766,8 @@ TEST(PesCarrierInstall, TheStockTeamLevelIsAClassScaledByAHundred) {
   ASSERT_TRUE(exe) << err;
   auto k = pes::LoadCarrierConstants(*exe, &err);
   ASSERT_TRUE(k) << err;
-  // 0x1B5D8340 stores clamp(class x 100, 0, 700) with class = the masked global (0x14810F4E0 ^ the
-  // immediate at 0x1401B5D8378); 0x140A602B0 is the scale, 0x140A602B5 the cap. GF has no
+  // 0x140A602B0 stores clamp(class x 100, 0, 700) with class = the masked global (0x14810F4E0 ^ the
+  // immediate at 0x15B5D8378); 0x140A602B0 is the scale, 0x140A602B5 the cap. GF has no
   // match-setting selector, so the value is the stock default class.
   EXPECT_GT(k->teamLevelRaw, 0);                      // read, not left at the 0 stand-in
   EXPECT_EQ(k->teamLevelRaw % 100, 0);                // a class scaled by the game's own 100

@@ -65,18 +65,19 @@ void RunPesLoopMatch(const std::function<void(Match&)>& onTick) {
 
 }  // namespace
 
-// PES's holder is the last toucher: its only valid writer is W1 (VA 0x14045725A, MOV [RBP+0x2601C],EDI in
-// FUN_140457070; docs/re/pes-re-first-touch.md section 5.1). PES's carrier is never cleared on loss (it persists
-// on a loose ball until a newer touch replaces it, docs/re/pes-re-press-coord.md section 5), but GF's ballRetainer
-// is not purely the carrier: it is also the "the ball is loose / free" predicate the AI reads (designated
-// possession in match.cpp, the press reset, the keeper catch, and the far-loose-ball detector), so it MUST clear
-// when the ball leaves the man. The holder rule is the latch added for that: while an outfield last toucher has
-// the ball live (AI_HasPossession) and no one holds it, he becomes the holder. The latch runs in his humanoid
-// step, and AI_HasPossession (AIfunctions.cpp:1091, a height/distance/movement gate) can be false for one step
-// while the ball settles at his feet, so the retain block's clear (humanoid.cpp, CarrierAfterContact != kKeep)
-// drops the holder and the next step's latch restores it: one tick of lag. The test therefore tolerates a
-// one-tick flicker and counts a miss only while it persists for two ticks running: the man live with no holder
-// this tick and the tick before. In play, not a set piece.
+// PES's holder is the actor of the newest ring-1 touch key: its only writer is W1 (VA 0x14045725A, MOV
+// [RBP+0x2601C],EDI in FUN_140457070; docs/re/pes-re-first-touch.md section 5.1), which GF ports as the per-tick
+// recompute behind the restart-step switch (Match::RecomputePesHolder; docs/re/pes-re-restart-step.md section 3).
+// PES's carrier is never cleared on loss (it persists on a loose ball until a newer touch replaces it, docs/re/
+// pes-re-press-coord.md section 5), so the holder is carried as its own state (Match::GetPesHolder) apart from
+// GF's ballRetainer, which is also the "the ball is loose / free" predicate the AI reads (designated possession in
+// match.cpp, the press reset, the keeper catch, and the far-loose-ball detector) and so MUST clear when the ball
+// leaves the man. The holder arms from a touch that keeps the ball with the man: the touch pushes the key
+// (CarrierFromTouch over AI_HasPossession, AIfunctions.cpp:1091, a height/distance/movement gate that can be
+// false for one step while the ball settles at his feet) and the recompute adopts the key at the next tick's
+// head, so the arm lands one step after the touch. The test therefore tolerates a one-tick gap and counts a miss
+// only while it persists for two ticks running: the man live with no holder this tick and the tick before. In
+// play, not a set piece.
 TEST(PesHolderLatch, ALastToucherWithLivePossessionBecomesTheHolder) {
   std::map<const Player*, bool> unheldLastTick;  // last toucher, ball live, no holder - at the previous post-tick
   unsigned long liveTicks = 0, unheld = 0;
@@ -88,9 +89,9 @@ TEST(PesHolderLatch, ALastToucherWithLivePossessionBecomesTheHolder) {
         if (!p->IsActive() || p->GetFormationEntry().role == e_PlayerRole_GK) continue;
         if (match.GetLastTouchPlayer() != p.get() || !AI_HasPossession(match.GetBall(), p.get())) continue;
         ++liveTicks;
-        if (!match.GetBallRetainer()) {
+        if (!match.GetPesHolder()) {
           unheldNow[p.get()] = true;
-          if (unheldLastTick.count(p.get())) ++unheld;  // no holder for two ticks running, not a one-tick flicker
+          if (unheldLastTick.count(p.get())) ++unheld;  // no holder for two ticks running, not a one-tick gap
         }
       }
     }
@@ -99,4 +100,27 @@ TEST(PesHolderLatch, ALastToucherWithLivePossessionBecomesTheHolder) {
   EXPECT_GT(liveTicks, 0ul) << "no outfield last toucher had the ball live in the match";
   EXPECT_EQ(unheld, 0ul) << unheld
                          << " ticks had a live outfield last toucher with no holder for two ticks running";
+}
+
+// The split from GF's retainer, at the bytes: W1 rewrites MA+0x2601C and only W2, the object reset
+// (0x140A71DF9, HolderRE runs 3-4), stores 0xFF, so once a touch has made a man the holder it stays him through
+// every loose-ball flicker - the ball leaving his feet clears GF's retainer (the retain block) but nothing
+// clears the holder. A miss is an in-play tick with a set-then-null holder; the pre-first-arm window does not
+// count, and it is pinned separately by the arming expectation.
+TEST(PesHolderPersist, ASetHolderIsNeverClearedWhileTheBallIsInPlay) {
+  bool holderArmed = false;
+  unsigned long armedTicks = 0, cleared = 0;
+  RunPesLoopMatch([&](Match& match) {
+    if (!holderArmed) {
+      holderArmed = match.GetPesHolder() != nullptr;
+      return;
+    }
+    if (!match.IsInPlay() || match.IsInSetPiece()) return;
+    ++armedTicks;
+    if (!match.GetPesHolder()) ++cleared;
+  });
+  EXPECT_TRUE(holderArmed) << "no touch ever made a man the holder";
+  EXPECT_GT(armedTicks, 0ul) << "the holder armed too late to observe";
+  EXPECT_EQ(cleared, 0ul) << cleared
+                          << " in-play ticks cleared a set holder (PES clears only in W2's object reset)";
 }

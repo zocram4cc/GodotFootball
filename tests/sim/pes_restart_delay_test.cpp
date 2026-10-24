@@ -882,46 +882,50 @@ TEST(PesRestartDelay, ATheFirstEndLineCrossingIsJudgedOnTheNextTick) {
 // FUN_14050e4a0 case 10, docs/re/pes-re-A5Judge.md 1.4). The first end-line crossing that scores flips and is judged on the next
 // tick (ATheFirstEndLineCrossingIsJudgedOnTheNextTick). The score must not move on the flip tick. A crossing that is a miss is
 // skipped: the body-frame fix (humanoidbase.cpp TurnCacheToBody) moved seed 7's first crossing to a miss, so this test follows the
-// first goal rather than the first crossing.
+// first goal rather than the first crossing, searching matches in turn like the ceremony throw-in test.
 TEST(PesRestartDelay, ANaturalGoalIsCountedOnTheJudgesFrame) {
-  unsigned long tick = 0, flipAt = 0;
-  bool live = false;
-  int goalsBefore = 0, goalsAtFlip = -1, goalsAfter = -1;
-  const auto goals = [](Match& match) {
-    return match.GetMatchData()->GetGoalCount(0) + match.GetMatchData()->GetGoalCount(1);
-  };
-  for (const unsigned int seed : {SEED, 3u, 5u, 11u, 13u}) {
-    tick = 0; flipAt = 0; live = false; goalsBefore = 0; goalsAtFlip = -1; goalsAfter = -1;
-  RunMatchWithinTheBound(
-      true, MINUTES,
-      [&](Match& match) {
-        ++tick;
-        const RefereeBuffer& b = match.GetRefereeBuffer();
-        if (flipAt == 0 && live) {
-          const Vector3 p = match.GetBall()->Predict(0);
-          if (pes::OutOfPlayCode(p.coords[0], p.coords[1], match.GetPesBallConstants().image.ballRadius) & 0x8) {
-            flipAt = tick;
-            goalsAtFlip = goals(match);
+  // The first goal from an end-line crossing moves with every change to the match before it (the sweep wiring
+  // left the default seed's two minutes with none), so the test searches matches in turn and checks the first
+  // goal from an end-line crossing it meets.
+  const unsigned int kGoalSeeds[] = {SEED, 3u, 5u, 11u, 13u};
+  for (const unsigned int seed : kGoalSeeds) {
+    unsigned long tick = 0, flipAt = 0;
+    bool live = false;
+    int goalsBefore = 0, goalsAtFlip = -1, goalsAfter = -1;
+    const auto goals = [](Match& match) {
+      return match.GetMatchData()->GetGoalCount(0) + match.GetMatchData()->GetGoalCount(1);
+    };
+    RunMatchWithinTheBound(
+        true, MINUTES,
+        [&](Match& match) {
+          ++tick;
+          const RefereeBuffer& b = match.GetRefereeBuffer();
+          if (flipAt == 0 && live) {
+            const Vector3 p = match.GetBall()->Predict(0);
+            if (pes::OutOfPlayCode(p.coords[0], p.coords[1], match.GetPesBallConstants().image.ballRadius) & 0x8) {
+              flipAt = tick;
+              goalsAtFlip = goals(match);
+            }
           }
-        }
-        if (flipAt == 0) {
-          goalsBefore = goals(match);
-        } else if (tick == flipAt + 1) {
-          goalsAfter = goals(match);
-          // A crossing that is no goal is not the event: wait for the next one.
-          if (goalsAfter == goalsAtFlip) {
-            flipAt = 0;
-            goalsAfter = -1;
+          if (flipAt == 0) {
+            goalsBefore = goals(match);
+          } else if (tick == flipAt + 1) {
+            goalsAfter = goals(match);
+            // A crossing that is no goal is not the event: wait for the next one.
+            if (goalsAfter == goalsAtFlip) {
+              flipAt = 0;
+              goalsAfter = -1;
+            }
           }
-        }
-        live = match.IsInPlay() && !match.IsInSetPiece() && !b.active;
-      },
-      kMaxSimTicks, [&](Match&) { return goalsAfter >= 0; }, seed, false);
-    if (flipAt != 0) break;
+          live = match.IsInPlay() && !match.IsInSetPiece() && !b.active;
+        },
+        kMaxSimTicks, [&](Match&) { return goalsAfter >= 0; }, seed, false);
+    if (flipAt == 0) continue;
+    EXPECT_EQ(goalsAtFlip, goalsBefore) << "the score moved on the flip tick, before the judge read the event";
+    EXPECT_EQ(goalsAfter, goalsBefore + 1) << "the goal was not counted on the judge's frame";
+    return;
   }
-  EXPECT_NE(flipAt, 0ul) << "no searched match has a goal from an end-line crossing";
-  EXPECT_EQ(goalsAtFlip, goalsBefore) << "the score moved on the flip tick, before the judge read the event";
-  EXPECT_EQ(goalsAfter, goalsBefore + 1) << "the goal was not counted on the judge's frame";
+  FAIL() << "no searched match had a goal from an end-line crossing";
 }
 
 // The loose-episode metric, the acceptance number on the PES path: per seed, the loose episodes longer than

@@ -84,20 +84,21 @@ void Team::InitPlayers() {
 
   Log(e_Notice, "Team", "Team", "Creating players");
 
-  // The condition arrows for the coming match, one side at a time: the
-  // pre-match "Condition: Home / Away" rows (match_condition_home/away) say
-  // whether every player on the side is dealt the same arrow or draws his own
-  // from his Form. Seeded off `match_condition_seed` and the player's own
-  // index (FormState::ArrowForPlayer is a pure hash of the two plus the team),
-  // so a side differs from match to match but not from player to player
-  // within one, and a config that pins the seed deals the same arrows every
-  // run. The wall clock only supplies the seed's DEFAULT, once, when the
-  // pre-match sheet writes it (matchoptions.cpp) - it is not read here, and
-  // saying it was sent a determinism hunt after the wrong suspect.
-  const FormState::Policy conditionPolicy = FormState::ParsePolicy(GetConfiguration()->Get(
-      id == 0 ? "match_condition_home" : "match_condition_away", "random"));
-  const unsigned int conditionSeed =
-      (unsigned int)GetConfiguration()->GetInt("match_condition_seed", 0);
+  // PES's condition arrows (docs/re/pes-re-condition-import.md): the install's Player.bin record, overridden by
+  // the edit save, deals the condition byte; FUN_140AF2DA0's band ladder and FUN_141FC1380's inverse map deal the
+  // arrow; FUN_14092AF10's shift applies at stat time. No kick-off RNG: match prep is deterministic given the
+  // record. There is no pre-match "Condition: Home / Away" option in PES - the old match_condition_home/away/seed
+  // config is gone with the random draw it fed.
+  // ponytail: the edit-save override (EDIT00000000 per-id records) lands with the save import; the level-class-6
+  // gate and T+0xA298 state 3 arm with the team-setup import (docs/re/pes-re-team-status.md). Until then both
+  // sides carry the stock default (class 5, mode 4), so the shift below is inert.
+  // ponytail: T+0xA29C (the zero flag) is always false in GF until the setup record import lands
+  // (docs/re/pes-re-team-status.md 5), so the reader is teamLevelRaw alone.
+  // The shift's /100 == 6 test reads the side being shifted (FUN_14092AF10 0x14092B516 R12D^1):
+  // this team's word feeds both legs - the own leg ignores it (no level gate on the state-3
+  // leg), the opponent leg tests it as the shifted side. Never the other side's word.
+  const bool ownLevelClassSix = match->GetTeamLevelRaw(id) / 100 == 6;
+  const bool oppLevelClassSix = ownLevelClassSix;
   int arrowsDealt[(int)FormState::Arrow::Count] = {0, 0, 0, 0, 0};
 
   // load all players in the team, even the players who sit on the bench. aww.
@@ -105,8 +106,9 @@ void Team::InitPlayers() {
     PlayerData* playerData = teamData->GetPlayerData(i);
     auto playerPtr = std::make_unique<Player>(this, playerData);
     Player* player = playerPtr.get();
-    const FormState::Arrow arrow = FormState::ArrowForPlayer(
-        conditionPolicy, playerData->GetStat("physical_form"), conditionSeed, id, i);
+    const FormState::Arrow arrow = FormState::ApplyTeamShift(
+        FormState::ArrowForConditionByte(match->ConditionByteOf(playerData)),
+        /*ownTeam=*/id == 0, /*teamModeThree=*/false, ownLevelClassSix, oppLevelClassSix);
     player->SetConditionArrow(arrow);
     // PES's stamina tank at kick-off (docs/re/pes-re-stamina-drain.md 2): the
     // Stamina ability with PES's tiered scaling, the condition arrow the same
@@ -146,10 +148,9 @@ void Team::InitPlayers() {
     }
   }
   Log(e_Notice, "Team", "InitPlayers",
-      std::string("condition arrows (") + FormState::PolicyName(conditionPolicy) +
-          "): purple " + int_to_str(arrowsDealt[0]) + ", blue " + int_to_str(arrowsDealt[1]) +
-          ", green " + int_to_str(arrowsDealt[2]) + ", orange " + int_to_str(arrowsDealt[3]) +
-          ", red " + int_to_str(arrowsDealt[4]));
+      std::string("condition arrows (PES): purple ") + int_to_str(arrowsDealt[0]) + ", blue " +
+          int_to_str(arrowsDealt[1]) + ", green " + int_to_str(arrowsDealt[2]) + ", orange " +
+          int_to_str(arrowsDealt[3]) + ", red " + int_to_str(arrowsDealt[4]));
 
   designatedTeamPossessionPlayer = players.at(0).get();
   // The registry and the first bulk write of the PES role arrays (setup, FUN_141FBB06A).
@@ -476,9 +477,10 @@ void Team::UpdatePesPossession() {
   in.ownHeadValid = GetActivePlayerCount() > 0;
   in.otherHeadValid = match->GetTeam(1 - id)->GetActivePlayerCount() > 0;
 
-  // Step 1. ponytail: PES's carrier (MA+0x2601c, FUN_140a627e0(ctx, 0)) is GF's ball
-  // retainer.
-  Player* carrier = match->GetBallRetainer();
+  // Step 1. PES's carrier (MA+0x2601c, FUN_140a627e0(ctx, 0)) is the holder, carried apart from GF's retainer:
+  // it persists on a loose ball, so the latch keeps the carrier's side through the flicker, as PES's does, and
+  // the step-43 sweep's gate (T+0x218 from the latch flip) follows it.
+  Player* carrier = match->GetPesHolder();
   in.carrierValid = carrier != nullptr;
   in.carrierSide = carrier ? carrier->GetTeamID() : 0;
 
@@ -566,6 +568,7 @@ void Team::Process() {
   // PES's strategy decider runs every team tick and acts on dead balls, so it
   // sits outside the in-play gate below.
   teamController->UpdateStrategy();
+  teamController->UpdatePesSheetPlan();
   // PES's S1 writer runs on the team tick in every state, not only in play: its flag comes from the
   // stage (FUN_140458880), so a stoppage latches it. Ticked before the controller reads the rows.
   teamController->TickScoreRows();

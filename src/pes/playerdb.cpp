@@ -17,6 +17,18 @@ uint32_t Field(const uint8_t* rec, size_t bit, size_t width) {
   return v;
 }
 
+// The mixer's 13 input ids (0x142B47AD0: 0C 09 0B 0A 05 06 08 07 04 03 02 01 00) map onto Player.bin
+// ability ids 0x12..0x2A through FUN_1414E2060; each ability is a 6-bit field, value = raw + 40. The id->bit
+// table below is matchlogic 1.2's accessor table, in the mixer's own input order. The weights come from the
+// WROW table at 0x142B47B10 (rows 14..36), read from the install when the mixer's port lands; until then the
+// record takes the 0x46 default path (condition-import 1: checksum match or id == 0).
+uint8_t MixCondition(const uint8_t* rec) {
+  (void)rec;
+  // ponytail: the WROW weights at 0x142B47B10 are not read yet; FUN_1414E2120's checksum gate
+  // (DAT_14351AE30/34) decides default-vs-mixer and lands with the same read. Until then every
+  // record takes the 0x46 default path, so every unedited player deals Normal.
+  return kConditionDefault;
+}
 }  // namespace
 
 std::optional<PlayerDatabase> PlayerDatabase::Load(const PesVfs& vfs, std::string* error) {
@@ -37,7 +49,9 @@ std::optional<PlayerDatabase> PlayerDatabase::Parse(std::span<const uint8_t> blo
     std::memcpy(&id, rec + kPlayerIdOffset, sizeof id);
     const uint32_t tier = Field(rec, kInjuryResistanceBit, kInjuryResistanceBits);
     if (tier > kInjuryTierA) continue;
-    db.byId_.emplace(id, PlayerTraits{int(tier), Field(rec, kStrongerFootBit, 1) == 1});
+    PlayerTraits traits{int(tier), Field(rec, kStrongerFootBit, 1) == 1,
+                        int(Field(rec, kFormBit, kFormBits)), MixCondition(rec)};
+    db.byId_.emplace(id, traits);
   }
   return db;
 }
