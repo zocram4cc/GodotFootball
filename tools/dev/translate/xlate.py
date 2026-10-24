@@ -977,6 +977,17 @@ class Emitter:
             return ["return;"]
         if m == "CALL":
             tgt = "0x%X" % imm_val(ops[0])
+            stub = (ctx.get("stubs") or {}).get(tgt)
+            if stub is not None:
+                # Spec-stubbed callee (out-of-set/live): mirror run.py's
+                # stub semantics as a fixed return. Pilot specs use
+                # "return" (RAX = value); "return_xmm0" also handled.
+                v = stub.get("value", 0)
+                vv = int(v, 16) if isinstance(v, str) else int(v)
+                if stub.get("do", "return") == "return_xmm0":
+                    return ["{ uint32_t _b = 0x%08XU; s.set_x_f32(0, "
+                            "PesState::f32(_b)); }" % (vv & 0xFFFFFFFF)]
+                return ["s.gpr[0] = 0x%XULL;" % (vv & 0xFFFFFFFFFFFFFFFF)]
             if tgt in self.pilot:
                 fn = "pes_fn_%s" % tgt[2:]
                 return ["{ s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); %s(s); "
@@ -1088,12 +1099,67 @@ def capstone_decode(image_path, va):
     md = Cs(CS_ARCH_X86, CS_MODE_64)
     md.detail = False
     out = []
+    # Multi-ret functions: keep decoding past RET while a known branch
+    # target still lies ahead. Stop at the first RET with nothing pending.
+    pending = set()
     for ins in md.disasm(bytes(code), va):
         out.append((ins.address, ins.mnemonic.upper(),
                     split_ops(ins.op_str)))
+        m = ins.mnemonic.lower()
+        if m in ("jmp", "jz", "jnz", "jc", "jnc", "ja", "jbe", "jl",
+                 "jge", "jle", "jg", "js", "jns", "jp", "jnp",
+                 "jo", "jno"):
+            try:
+                t = int(ins.op_str.strip().split(",")[0].strip(), 16)
+                if t >= va:
+                    pending.add(t)
+            except ValueError:
+                pass
+        if m == "ret":
+            pending = {t for t in pending if t > ins.address}
+            if not pending:
+                break
+    return out
+
+
+def resolve_rip(lines, image_path, va):
+    """Rewrite [rip + disp] operands to absolute [0x..] VAs.
+
+    The bridge prints absolute VAs but capstone prints RIP-relative form.
+    Resolved with capstone's own instruction sizes: target = next_addr +
+    disp. Only touches operands mentioning rip; bridge text is unchanged.
+    """
+    if not any("rip" in (op.lower()) for _, _, ops in lines for op in ops):
+        return lines
+    from capstone import Cs, CS_ARCH_X86, CS_MODE_64
+    img = Image(image_path)
+    code = img.read(va, 0x2000)
+    md = Cs(CS_ARCH_X86, CS_MODE_64)
+    md.detail = True
+    sizes = {}
+    for ins in md.disasm(bytes(code), va):
+        sizes[ins.address] = ins.size
         if ins.mnemonic == "ret":
             break
-    return out
+    fixed = []
+    for addr, mnem, ops in lines:
+        size = sizes.get(addr, 0)
+        new_ops = []
+        for op in ops:
+            lo = op.lower()
+            if "rip" in lo:
+                m = re.search(r"rip\s*\+\s*(-?0x[0-9a-f]+|-?\d+)", lo)
+                if m and size:
+                    disp = int(m.group(1), 16) if "0x" in m.group(1) \
+                        else int(m.group(1))
+                    tgt = addr + size + disp
+                    op = re.sub(r"\[rip\s*\+\s*[^]]+\]",
+                                "[0x%X]" % tgt, op, flags=re.I)
+                    op = re.sub(r"\brip\b", "0x%X" % (addr + size), op,
+                                flags=re.I)
+            new_ops.append(op)
+        fixed.append((addr, mnem, new_ops))
+    return fixed
 
 
 def prepass(lines, img):
@@ -1181,9 +1247,9 @@ def prepass(lines, img):
             jmpreg[addr] = {"table": None, "tail": None}
     return labels, jmpreg
 
-def emit_function(em, va, lines, labels, jmpreg, pilot):
+def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
     addrs = {a for a, _, _ in lines}
-    ctx = {"jmpreg": jmpreg, "addrs": addrs}
+    ctx = {"jmpreg": jmpreg, "addrs": addrs, "stubs": stubs or {}}
     body = []
     for addr, mnem, ops in lines:
         if addr in labels:
@@ -1238,7 +1304,8 @@ def const_decls(em):
     return decls
 
 
-def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True):
+def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
+                  stubs=None):
     img = Image(image_path)
     lines = parse_lines(asm_text)
     if not lines and capstone_fallback:
@@ -1246,9 +1313,11 @@ def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True):
         lines = capstone_decode(image_path, v)
     if not lines:
         return None, ["// EMPTY: no instructions at %s" % va]
+    v = va if isinstance(va, int) else int(va, 16)
+    lines = resolve_rip(lines, image_path, v)
     labels, jmpreg = prepass(lines, img)
     em = Emitter(img, va, pilot)
-    body = emit_function(em, va, lines, labels, jmpreg, pilot)
+    body = emit_function(em, va, lines, labels, jmpreg, pilot, stubs)
     # tail jumps to in-set VAs: fill from the sibling set
     out = []
     for b in body:
