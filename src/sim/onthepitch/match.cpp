@@ -812,6 +812,22 @@ void Match::ProcessBallStage() {
   ball->Process();
 }
 
+uint8_t Match::PesRestartStepNow() const {
+  // ponytail: PES's cursor MI+0x11B0 has no GF writer; its per-value writer is OPEN (docs/re/pes-re-restart-step.md 2, 7).
+  // GF reads the referee's programme clock in the order restart-step 4 gives: the hold, the wipe (a skip step), the UI and
+  // teleport window, then placement finish. The fade is not timed apart and falls in the teleport window. A stoppage with no
+  // programme hold (a kick-off, a goal) holds at 0x0B until its prepare time, as it always did. A restart still scheduled
+  // while play goes on arms and runs at 0x0B, as it always did.
+  const auto& buffer = referee->GetBuffer();
+  if (!buffer.active) return IsInPlay() ? kPesStepPlay : kPesStepHold;
+  if (IsInPlay()) return kPesStepHold;
+  const unsigned long now = GetActualTime_ms();
+  if (now < buffer.holdTime) return kPesStepHold;
+  if (now < buffer.prepareTime) return buffer.holdTime > buffer.stopTime ? kPesStepWipe : kPesStepHold;
+  if (now < buffer.startTime) return kPesStepTeleport;
+  return kPesStepPlacement;
+}
+
 void Match::Process() {
   tickStages.clear();
   // RandomInfo is republished before anything reads it this logic frame. Report 3.15: the
@@ -841,15 +857,9 @@ void Match::Process() {
   }
 
   if (pesLoop) {
-    // W1's recompute runs off the restart step each tick, before anything reads the holder. ponytail:
-    // PES's cursor MI+0x11B0 has no GF state - its per-value writer is OPEN (docs/re/pes-re-restart-step.md 2,
-    // 7) - so GF's stoppage state stands in for the step values: a dead ball or the referee buffer's
-    // award-to-kick window reads as 0x0B (out-of-play hold, one of the arm-and-run steps 8/0xB/0xE/0x12) and
-    // open play as 0x16 (one of the run-if-latched steps 0x14/0x15/0x16). The switch's skip steps have no GF
-    // state to name, so no GF tick reads as one; the switch itself (RecomputePesHolder) stays exact.
-    constexpr uint8_t kArmAndRunStep = 0x0B;
-    constexpr uint8_t kRunIfLatchedStep = 0x16;
-    pesRestartStep = (!IsInPlay() || GetRefereeBuffer().active) ? kArmAndRunStep : kRunIfLatchedStep;
+    // W1's recompute runs off the restart-step cursor each tick, before anything reads the holder. The cursor is the
+    // referee's programme clock (PesRestartStepNow); PES's MI+0x11B0 has no GF writer (ponytail: restart-step 2, 7).
+    pesRestartStep = PesRestartStepNow();
     RecomputePesHolder();
   }
 

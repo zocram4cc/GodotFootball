@@ -377,6 +377,10 @@ void Team::SetLastTouchPlayer(Player* player, e_TouchType touchType) {
   player->SetLastTouchType(lastTouchType);
   match->SetLastTouchTeamID(GetID(), touchType);
   match->QueuePesTouch(player, PesActionKindOf(player->GetCurrentFunctionType()));
+  // PES's newest ring-1 key is the K=8 record of every touch (docs/re/pes-re-first-touch.md 5.1-5.3), so every touch
+  // record pushes its toucher as the key actor, a kick, a deflection or a parry included (ponytail: PES's probe G+0x2A80
+  // gates the K=7 record, first-touch 5.4, OPEN; this record stands in for it). W1 adopts the actor on the next recompute.
+  if (match->PesLoop()) match->SetPesKeyActor(player);
 }
 
 Player* Team::PassGetReceiver() {

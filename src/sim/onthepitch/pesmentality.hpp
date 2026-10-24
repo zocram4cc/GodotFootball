@@ -93,12 +93,13 @@ struct LaneInput {
   std::array<int, kSlots> active{};   // MI+0x1748, 0 = inactive; all active when all zero
   int designated = -1;                // P+0x3EF8, -1 when none (GF: the publisher has no slot id yet)
 };
-// FUN_1405CE4F0's stoppage step (lane-writers §2 step 3): MI+0x11D4 == 0 and (MI+0x116C == 2 or
-// MI+0x11B0 < 0x15) clears the copy flag LX+0x1B0, so the copy path runs once. GF passes its
-// WriteRoleArrays play state (PesPlayState: 1 in play, 2 stopped) for MI+0x116C.
+// FUN_1405CE4F0's stoppage step (lane-writers 2 step 3, VA 0x1405CE4F0): MI+0x11D4 == 0 and (MI+0x116C == 2 or MI+0x11B0 <
+// 0x15) sets the copy flag LX+0x1B0 to 0, so the copy path runs. GF passes its PesPlayState (1 in play, 2 stopped) for
+// MI+0x116C and the restart-step cursor (Match::PesRestartStepNow) for MI+0x11B0. GF has no MI+0x11D4 word (read as 0), and
+// the MI+0x116C == 3 arm needs a frame counter GF lacks (ponytail: GF's play states here are 1 and 2).
 bool StoppageResetsCopyFlag(int playState116c, int word11d4, int word11b0);
-// CE4F0's copy gate (flag LX+0x1B0 == 0): true runs the copy path, false the recompute.
-bool CopyPathRuns(bool copyFlagSet);
+// CE4F0's copy gate on the raw flag LX+0x1B0: 0 runs the copy path (A := B), 1 (set) runs the recompute.
+bool CopyPathRuns(int copyFlag);
 
 // FUN_1405CE150, GF-carried arms only: keeper -> 3, designated -> 2, else the reclassify of the
 // slot's class. Inactive slots take their class line (the recompute path overwrites them with 3;
@@ -175,6 +176,14 @@ float Ce930Key(float depthKey, bool special, float f2);
 // FUN_14063FA70 (lane-post §4): per-line on-pitch headcount. Counts active slots with class
 // != 0 whose reclassified class (ReclassifyLineOf) == line.
 int Fa70Count(const std::array<int, kSlots>& cls, const std::array<int, kSlots>& active, int line);
+// FUN_1405CD050 (lane-post 4f): the side's forward roles, the count of role classes 7-9 (SS, WF, CF) over the eleven slots.
+int ForwardRoleCount(const std::array<int, kSlots>& classes);
+// FUN_1405CD0F0 (lane-post 4f) over GF's inputs: `back` is FA70(side,0), `forwardRoles` ForwardRoleCount, `fullAttack` T+0xB8A2
+// and `attackLevel` T+0xB8A4. Its first arm (FUN_1408C5900, OPEN) and T+0xB710 have no GF word: both read false (ponytail).
+int BackLineTarget(int back, int forwardRoles, bool fullAttack, int attackLevel);
+// FUN_1405CD320 (lane-post 4f): FA70(side,1) (`mid`), plus two at attack level 0. Its +1 arm reads T+0x87CD and its special
+// cut reads the instruction table; both are zero here (ponytail).
+int ForwardLineTarget(int mid, int attackLevel);
 // FUN_140A4C720 (lane-post §7): (c*z + x)*c < c*y; the float (int)c sign-selects the side.
 bool OpponentLine(float x, float y, int sideSign, float z);
 // FUN_1405CCD00 (lane-post §4d): nonzero iff the action state word is 0x3A (58).
@@ -282,11 +291,13 @@ void LaneAWords(const std::array<int, kSlots>& b, std::array<int, kSlots>& a, in
                 const std::array<int, kSlots>& active = {});
 
 
-// FUN_1405CE4F0's full assembly (lane-writers §2 + lane-post §4 + lane-leaves): B-words already
-// computed (LaneBWords); runs the copy or recompute path including the CFFE0 -> CF310 -> CFC80
-// post-steps, the designated/B loop and the inactive fallback, producing each slot's A-word
-// (the lane word: 0 back, 1 mid, 2 forward, 3 none). `a` is the current A-words (used as the
-// starting point on the copy path's input side; the recompute path resets to 3).
+// FUN_1405CE4F0's A-word assembly (lane-writers 2, lane-post 4): B-words already computed (LaneBWords); runs the copy or the
+// recompute path: CFFE0 -> CF310 -> CFC80, the designated/B loop and the inactive fallback, producing each slot's A word
+// (0 back, 1 mid, 2 forward, 3 none). `a` is unused: the recompute starts from 3 and the copy path from B. The GF stand-ins
+// (no 0x3A action states, no outlet, no FUN_141F9C3B0) are named at the call in UpdateLaneLine. Not run here: CDF30, D05A0,
+// CC250, CDA40 and CDBD0 (OPEN gates). The A-rank is UpdateLaneLine's (CE930's head, Ce930Ranks). CE930's param_3 tail
+// (lane-leaves 3.3: the nearest search and the count pass) is not ported: its gates FUN_1408C5900, FUN_1405CD5E0,
+// FUN_140A76240 and FUN_1404C8EA0 are OPEN.
 struct LaneWordsInput {
   std::array<int, kSlots> b{};          // B-words
   std::array<int, kSlots> cls{};        // B classes (P+0x3FB8); `classes` is an alias field

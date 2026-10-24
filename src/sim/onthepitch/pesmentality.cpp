@@ -1,5 +1,6 @@
 #include "onthepitch/pesmentality.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 
@@ -491,10 +492,42 @@ bool StoppageResetsCopyFlag(int playState116c, int word11d4, int word11b0) {
   return word11b0 < 0x15;
 }
 
-bool CopyPathRuns(bool copyFlagSet) {
-  // CE4F0's gate (lane-writers §2 step 2): flag LX+0x1B0 == 0 runs the copy path (A := B).
-  // GF stores the flag set (copy runs while set) and clears it on the stoppage step above.
-  return copyFlagSet;
+bool CopyPathRuns(int copyFlag) {
+  // CE4F0's gate on LX+0x1B0 (lane-writers 2 step 2): 0 runs the copy path (A := B), 1 (set) runs the recompute.
+  return copyFlag == 0;
+}
+
+int ForwardRoleCount(const std::array<int, kSlots>& classes) {
+  // FUN_1405CD050 (lane-post 4f): classes 7 (SS), 8 (WF) and 9 (CF) count over all eleven slots; no activity gate.
+  constexpr int kFirstForwardRole = 7;
+  constexpr int kLastForwardRole = 9;
+  int count = 0;
+  for (int k = 0; k < kSlots; ++k)
+    if (classes[k] >= kFirstForwardRole && classes[k] <= kLastForwardRole) ++count;
+  return count;
+}
+
+int BackLineTarget(int back, int forwardRoles, bool fullAttack, int attackLevel) {
+  // FUN_1405CD0F0 (lane-post 4f) over GF's inputs. Its first arm (FUN_1408C5900, OPEN, and the 0x108/0x109 bytes) and
+  // T+0xB710 have no GF word and read false here (ponytail).
+  constexpr int kHardCap = 5;            // `if (5 < bVar7) bVar7 = 5`
+  constexpr int kFullAttackCap = 3;      // a full-attack team with more than two back men takes 3
+  constexpr int kFullAttackBackMax = 2;  // and with two or fewer keeps its back count
+  if (fullAttack) return back > kFullAttackBackMax ? kFullAttackCap : back;
+  int target = back;
+  if (attackLevel < 1) {
+    target = std::max(forwardRoles + 1, back);
+  } else if (attackLevel > 2 && forwardRoles < back) {
+    target = std::max(forwardRoles, back - 1);
+  }
+  return std::min(target, kHardCap);
+}
+
+int ForwardLineTarget(int mid, int attackLevel) {
+  // FUN_1405CD320 (lane-post 4f): FA70(side,1), plus two at attack level 0. The +1 arm reads T+0x87CD and the special cut
+  // reads the instruction table; GF carries neither, so both are zero here (ponytail).
+  constexpr int kLevelZeroBonus = 2;
+  return mid + (attackLevel == 0 ? kLevelZeroBonus : 0);
 }
 
 std::array<uint8_t, kSlots> LaneBRank(const std::array<int, kSlots>& b,

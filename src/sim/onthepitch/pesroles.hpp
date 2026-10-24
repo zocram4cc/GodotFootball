@@ -8,6 +8,7 @@
 // The off-ball and team readers take their class from B (SideRoles::b). A has no GF reader yet, and
 // the stamina-sub reader (pessubs.cpp SubRoleClass) still maps the GF role itself: not ported.
 
+#include <cstdint>
 #include <array>
 #include <optional>
 #include <string>
@@ -42,6 +43,8 @@ std::optional<std::array<int, kRegisteredRoles>> LoadRoleClassMap(const PeImage&
 struct SideRoles {
   std::array<int, kSideSlots> a{};  // A (FUN_140A425A0): the stamina-sub class
   std::array<int, kSideSlots> b{};  // B (FUN_140A42590): the class the run, style and AI readers use
+  // PES's A-rank (LX+0xC+8k, lane-writers 2): CE930's rank, or the copy path's B-rank.
+  std::array<uint8_t, kSideSlots> aRank{};
   // S+0x7D8C / S+0x7D90: the last tail swap's pair, which FUN_140A41BE0 checks before the next.
   int lastSwapA = 0;
   int lastSwapB = 0;

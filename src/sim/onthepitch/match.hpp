@@ -228,6 +228,8 @@ public:
   // It is carried apart from ballRetainer, which is GF's own loose-ball predicate and clears on the possession
   // flicker (humanoid.cpp's retain block). The only writer is RecomputePesHolder below - no public setter.
   Player* GetPesHolder() const { return pesHolder; }
+  // PES's restart-step cursor MI+0x11B0 as GF stands it this tick (set in Match::Process; the ponytail is there).
+  uint8_t GetPesRestartStep() const { return pesRestartStep; }
   // The newest ring-1 touch key's actor, W1's input: pushed by a touch that keeps the ball with the man and by
   // the keeper's catch (humanoid.cpp), adopted as the holder by the per-tick recompute below (which reads the
   // field directly).
@@ -633,6 +635,15 @@ protected:
   Player* pesHolder = nullptr;
   Player* pesKeyActor = nullptr;
   uint8_t pesRestartStep = 0;
+  // PES's restart-step values this port names (docs/re/pes-re-restart-step.md 3-4): the out-of-play hold (0x0B, arm and
+  // run), the wipe after it (0x11, the switch's skip arm), the UI and teleport window (0x14), placement finish (0x15) and
+  // open play (0x16). The last three run only while the holder run flag is latched.
+  static constexpr uint8_t kPesStepHold = 0x0B;
+  static constexpr uint8_t kPesStepWipe = 0x11;
+  static constexpr uint8_t kPesStepTeleport = 0x14;
+  static constexpr uint8_t kPesStepPlacement = 0x15;
+  static constexpr uint8_t kPesStepPlay = 0x16;
+  uint8_t PesRestartStepNow() const;
   bool pesHolderRunArmed = false;
 
   bool gameOver = false;

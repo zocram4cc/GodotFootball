@@ -198,6 +198,9 @@ public:
   int RoleClassOfSlot(int slot) const;
   // The defensive line of a player: the reclassify of his slot's B class on the PES path (pesmentality.hpp).
   int DefensiveLineOf(Player* p, e_PlayerRole role) const;
+  // The lane line's word and A-rank of a slot (pesmentality.hpp); read by the lane tests.
+  int LaneWordOfSlot(int slot) const { return roles.a[slot]; }
+  uint8_t LaneRankOfSlot(int slot) const { return roles.aRank[slot]; }
   // PES's designation publisher (FUN_14051E350, team tick step 27b): the side's record, rebuilt each tick.
   void UpdatePesDesignation();
   void SetUpRoleArrays();
@@ -354,6 +357,9 @@ protected:
   // PES's per-tick team words (pesteamtick.hpp), stepped in UpdateStrategy on
   // the PES path. Last tick's latch for the restart word's flip test.
   pes::TeamTick teamTick;
+  // PES's lane copy flag LX+0x1B0 (lane-writers 2): 1 (set) recomputes the A words; a stoppage reset sets it to 0 for one
+  // pass (the copy path), and that pass sets it back to 1.
+  int laneCopyFlag = 1;
   bool lastTickPossession = false;
   // PES 2021's mark table (team-tick step 35, FUN_1404F61E0): T+0xB7D8's slot
   // word plus T+0xB7EC[11], rebuilt each team tick on the PES path.

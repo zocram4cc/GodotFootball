@@ -147,10 +147,37 @@ TEST(MentalityLaneC, StoppageStepResetsCopyFlag) {
   EXPECT_FALSE(mentality::StoppageResetsCopyFlag(1, 0, 0x15));
 }
 
-// Step 2: the CE4F0 copy gate. A set ban flag copies; a cleared flag recomputes.
+// Step 2: the CE4F0 copy gate on PES's raw flag LX+0x1B0: 0 copies (the stoppage reset), 1 (set) recomputes.
 TEST(MentalityLaneC, CopyFlagSelectsCopyOrRecompute) {
-  EXPECT_TRUE(mentality::CopyPathRuns(true));
-  EXPECT_FALSE(mentality::CopyPathRuns(false));
+  EXPECT_TRUE(mentality::CopyPathRuns(0));
+  EXPECT_FALSE(mentality::CopyPathRuns(1));
+}
+
+// FUN_1405CD0F0 (lane-post 4f) over GF's inputs: a level-0 team lifts the back target to the forward roles plus one; levels
+// 1-2 hold the back count; level 3+ cuts it to the forward roles, floored at back - 1; the cap is 5. A full-attack team with
+// more than two back men takes 3.
+TEST(MentalityLaneTargets, BackTargetFollowsAttackLevelAndForwardRoles) {
+  EXPECT_EQ(3, mentality::BackLineTarget(3, 2, false, 2));
+  EXPECT_EQ(3, mentality::BackLineTarget(3, 2, false, 0));
+  EXPECT_EQ(5, mentality::BackLineTarget(3, 4, false, 0));
+  EXPECT_EQ(3, mentality::BackLineTarget(4, 1, false, 4));
+  EXPECT_EQ(3, mentality::BackLineTarget(4, 3, false, 4));
+  EXPECT_EQ(4, mentality::BackLineTarget(4, 5, false, 4));
+  EXPECT_EQ(3, mentality::BackLineTarget(4, 0, true, 2));
+  EXPECT_EQ(2, mentality::BackLineTarget(2, 0, true, 2));
+}
+
+// FUN_1405CD320 (lane-post 4f): the mid-line headcount, plus two at attack level 0.
+TEST(MentalityLaneTargets, ForwardTargetIsTheMidLinePlusTwoAtLevelZero) {
+  EXPECT_EQ(6, mentality::ForwardLineTarget(4, 0));
+  EXPECT_EQ(4, mentality::ForwardLineTarget(4, 1));
+  EXPECT_EQ(4, mentality::ForwardLineTarget(4, 2));
+}
+
+// FUN_1405CD050 (lane-post 4f): the side's SS, WF and CF classes (7-9) are the forward roles.
+TEST(MentalityLaneTargets, ForwardRolesCountClassesSevenToNine) {
+  std::array<int, 11> classes{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9};
+  EXPECT_EQ(4, mentality::ForwardRoleCount(classes));
 }
 
 // Step 1: the CE150 B-rank (lane-writers §3): per same-word position in the sorted order.

@@ -1329,15 +1329,13 @@ void Humanoid::Process() {
       }
     }
   }
-  // PES's carrier (MA+0x2601C, FUN_140457070; first-touch §5.1): a touch that leaves the ball at his feet pushes
-  // the newest ring-1 key, whatever the clip, and W1's per-tick recompute adopts the key as the holder
-  // (Match::RecomputePesHolder; pes-re-restart-step.md 3). This tick's touch is the one SetLastTouchPlayer stamped.
-  // GF's retainer takes the same touch as its possession hand-off, as before. PES path only.
+  // PES's carrier takes the touch this tick as its possession hand-off (CarrierFromTouch, first-touch 5.1): a touch that
+  // leaves the ball at his feet makes him the retainer. The newest ring-1 key that W1 adopts as the holder is pushed by
+  // every touch record (Team::SetLastTouchPlayer). This tick's touch is the one SetLastTouchPlayer stamped. PES path only.
   const bool touchedThisTick = match->PesLoop() && CastPlayer()->GetLastTouchTime_ms() == match->GetActualTime_ms();
   if (touchedThisTick &&
       pes::CarrierFromTouch(touchedThisTick, AI_HasPossession(match->GetBall(), CastPlayer())) == pes::CarrierChange::kToucher) {
     match->SetBallRetainer(CastPlayer());
-    match->SetPesKeyActor(CastPlayer());
   }
 
   // GF's retainer is apart from PES's holder (Match::GetPesHolder): the retain block below clears it when the

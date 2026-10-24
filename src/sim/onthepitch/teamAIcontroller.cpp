@@ -3268,17 +3268,76 @@ int TeamAIController::RoleClassOfSlot(int slot) const {
 
 void TeamAIController::UpdateLaneLine() {
   if (!match->PesLoop()) return;
-  pes::mentality::LaneWordsInput in;
+  constexpr int kSlots = pes::roles::kSideSlots;
   const auto& players = team->GetAllPlayers();
-  for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) {
-    in.b[slot] = roles.b[slot];
-    in.cls[slot] = roles.b[slot];
-    in.active[slot] = (slot < (int)players.size() && players[slot] && players[slot]->IsActive()) ? 1 : 0;
+  const int playState = PesPlayState(match->IsInPlay() && !match->IsInSetPiece());
+  pes::mentality::LaneWordsInput in;
+  for (int slot = 0; slot < kSlots; ++slot)
+    in.active[slot] = (slot < static_cast<int>(players.size()) && players[slot] && players[slot]->IsActive()) ? 1 : 0;
+  // CE150's B words (lane-writers 3): the class of each slot through LaneBWords (keeper 3, else the line of the class).
+  pes::mentality::LaneInput classes;
+  for (int slot = 0; slot < kSlots; ++slot) classes.classes[slot] = roles.b[slot];
+  in.b = pes::mentality::LaneBWords(classes);
+  in.cls = roles.b;
+  in.classes = roles.b;
+  // CE150's B rank (lane-writers 3): the count of earlier same-B-word men in the sort by the slot point's f2 (lane-post 3,
+  // S+0x3AA4), ascending and stable. Men off the pitch sort last, so they never count ahead of an active man.
+  std::array<uint8_t, kSlots> slotIds{}, order{}, unusedRank{};
+  std::array<float, kSlots> sortKeys{};
+  for (int slot = 0; slot < kSlots; ++slot) {
+    slotIds[slot] = static_cast<uint8_t>(slot);
+    sortKeys[slot] = in.active[slot] ? slotPoints[slot].z : std::numeric_limits<float>::max();
   }
-  in.designated = -1;
-  in.copyPath = false;
-  in.playState116c = PesPlayState(match->IsInPlay() && !match->IsInSetPiece());
+  pes::mentality::SortLaneSlots(slotIds, sortKeys, order, unusedRank);
+  in.bRank = pes::mentality::LaneBRank(in.b, order);
+  // The targets (lane-post 4f): the side's line counts, its forward roles, and the team's attack words.
+  const int backCount = pes::mentality::Fa70Count(in.cls, in.active, pes::mentality::kBackLine);
+  const int midCount = pes::mentality::Fa70Count(in.cls, in.active, pes::mentality::kMidLine);
+  in.backTarget =
+      pes::mentality::BackLineTarget(backCount, pes::mentality::ForwardRoleCount(roles.b), teamTick.b8a2, teamTick.b8a4);
+  in.forwardTarget = pes::mentality::ForwardLineTarget(midCount, teamTick.b8a4);
+  in.fullAttack = teamTick.b8a2;
+  in.attackLevel = teamTick.b8a4;
+  in.playState116c = playState;
+  in.restartKind1554 = match->PesRestartKind();
+  // The own frame of the defensive shape (CalculateDefensiveShape): +x toward the opponents' goal. ponytail: GF's world
+  // positions stand in for the man coordinates (P+0x564 depth, P+0x55C lateral), the analysis ball (T+0x2482C) and the side
+  // sign (T+0x254). The designated man (P+0x3EF8), the outlet (T+0x4B40), the 0x3A action states and the band edges have no
+  // GF word yet and keep their defaults.
+  const float dir = static_cast<float>(-team->GetSide());
+  const Vector3 ball = match->GetBall()->Predict(0);
+  in.sideSign = static_cast<int>(dir);
+  in.ballX = ball.coords[0] * dir;
+  in.ballDepth = in.ballX;
+  for (int slot = 0; slot < kSlots && slot < static_cast<int>(players.size()); ++slot) {
+    if (!players[slot]) continue;
+    const Vector3 pos = players[slot]->GetPosition();
+    in.manDepth[slot] = pos.coords[0] * dir;
+    in.manLateral[slot] = pos.coords[1];
+  }
+  // CE4F0's flag (lane-writers 2): the stoppage step sets it to 0 (MI+0x11D4 has no GF word: 0; MI+0x11B0 is the restart-step
+  // cursor), the copy path runs on 0, and the pass sets it back to 1.
+  if (pes::mentality::StoppageResetsCopyFlag(playState, 0, match->GetPesRestartStep())) laneCopyFlag = 0;
+  in.copyPath = pes::mentality::CopyPathRuns(laneCopyFlag);
   roles.a = pes::mentality::LaneWords(in, roles.a);
+  laneCopyFlag = 1;
+  // CE930's A rank (lane-leaves 3.2): the copy path takes the B rank (CE4F0 l.59-60); the recompute ranks each man among the
+  // men with his A word, in depth order keyed by |depth - ball| (CE930's head; its special key is absent, no 0x10 row).
+  // CE930's param_3 tail is not ported (its count pass has OPEN gates).
+  if (in.copyPath) {
+    roles.aRank = in.bRank;
+    return;
+  }
+  std::array<uint8_t, kSlots> depthIds{}, depthOrder{}, depthRank{};
+  std::array<float, kSlots> depthKeys{};
+  for (int slot = 0; slot < kSlots; ++slot) {
+    depthIds[slot] = static_cast<uint8_t>(slot);
+    depthKeys[slot] = in.active[slot]
+                          ? pes::mentality::Ce930Key(std::fabs(in.manDepth[slot] - in.ballX), false, 0.0f)
+                          : std::numeric_limits<float>::max();
+  }
+  pes::mentality::SortLaneSlots(depthIds, depthKeys, depthOrder, depthRank);
+  roles.aRank = pes::mentality::Ce930Ranks(roles.a, depthOrder, in.cls, in.active);
 }
 
 int TeamAIController::DefensiveLineOf(Player* p, e_PlayerRole role) const {

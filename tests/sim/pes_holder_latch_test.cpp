@@ -124,3 +124,54 @@ TEST(PesHolderPersist, ASetHolderIsNeverClearedWhileTheBallIsInPlay) {
   EXPECT_EQ(cleared, 0ul) << cleared
                           << " in-play ticks cleared a set holder (PES clears only in W2's object reset)";
 }
+
+// PES's restart-step cursor MI+0x11B0 (docs/re/pes-re-restart-step.md 3-4) walks through the wipe (0x11) after the out-of-play
+// hold; the W1 switch skips it (every value outside 0x08, 0x0B, 0x0E, 0x12, 0x14, 0x15 and 0x16). So the skip arm of
+// RecomputePesHolder is reachable on a live stoppage.
+TEST(PesHolderRestartStep, AStoppageWipesThroughTheSkipArm) {
+  unsigned long stoppageTicks = 0, wipeTicks = 0;
+  std::map<int, unsigned long> seen;  // the cursor values read on stoppage ticks
+  RunPesLoopMatch([&](Match& match) {
+    if (match.IsInPlay()) return;
+    ++stoppageTicks;
+    const int step = match.GetPesRestartStep();
+    ++seen[step];
+    if (step == 0x11) ++wipeTicks;
+  });
+  std::string read;
+  for (const auto& [step, count] : seen) read += " " + std::to_string(step) + "x" + std::to_string(count);
+  EXPECT_GT(stoppageTicks, 0ul) << "the match never stopped";
+  EXPECT_GT(wipeTicks, 0ul) << "no stoppage tick read the wipe the holder switch skips; cursor values:" << read;
+}
+
+// PES's holder is the actor of the newest ring-1 key, and every touch writes one: the K=8 key is built from the K=7 touch
+// record (docs/re/pes-re-first-touch.md 5.1-5.3). A key pushed on a tick is adopted by the recompute of the next tick when
+// the switch runs that tick. A touch that does not keep the ball with the man (a kick, a deflection, a parry) therefore
+// makes its toucher the holder too.
+TEST(PesHolderKey, EveryTouchIsAdoptedByTheNextRecompute) {
+  Player* pendingKey = nullptr;  // the toucher whose key the next recompute adopts
+  unsigned long seenStamp = 0;   // the last touch time the test has seen
+  bool armed = false;            // the run flag: an arm step has run (set at 0x140457087)
+  unsigned long touches = 0, checked = 0, missed = 0;
+  RunPesLoopMatch([&](Match& match) {
+    const uint8_t step = match.GetPesRestartStep();
+    const bool arms = step == 0x08 || step == 0x0B || step == 0x0E || step == 0x12;
+    const bool runs = arms || ((step == 0x14 || step == 0x15 || step == 0x16) && armed);
+    if (pendingKey && runs) {
+      ++checked;
+      if (match.GetPesHolder() != pendingKey) ++missed;
+    }
+    if (arms) armed = true;
+    pendingKey = nullptr;
+    Player* last = match.GetLastTouchPlayer();
+    if (last && last->GetLastTouchTime_ms() != seenStamp) {
+      seenStamp = last->GetLastTouchTime_ms();
+      pendingKey = last;
+      ++touches;
+    }
+  });
+  EXPECT_GT(touches, 0ul) << "no touch was seen in the match";
+  EXPECT_GT(checked, 0ul) << "no touch was followed by a recompute";
+  EXPECT_EQ(missed, 0ul) << missed << " of " << checked
+                         << " touches were not adopted as the holder by the next recompute";
+}
