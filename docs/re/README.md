@@ -291,6 +291,7 @@ address given.
 |`pes-re-port-audit-5.md`|Audit of the older ports: forfeit, TeamT1/T2, walk speed and root start, holder latch, held standby, mentality, zone judge, player DB; follow-ups F3 (the carrier's walk speed), F4 (remove the superseded batch-D latch), F6/F7 (comment, stand-in note)|
 |`pes-re-port-audit-6.md`|Pre-landing audit of StrategyFix (land with F1 comment, F2 the stoppage arm's state 3, F3 kind 7's three missing sites; its GF-mode move is the drift/freeze inputs) and CondTactics (G1: the opponent's level word)|
 |`pes-re-port-audit-7.md`|Audit of the earliest ports (batch C: MergeRA, FarChasePress2, Parity; batch B; TurfEV): F6 the press coordinator's gate, F9 the FK/corner/penalty run-up speed, F4/F10/F12 comments and an assert; the rest pass or carry named opens|
+|`pes-re-port-audit-8.md`|The last seven port reports audited (bisect accuracy, the A1 liftoff series, salvage, propagation): no code findings; every port report on main is now byte-audited|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
