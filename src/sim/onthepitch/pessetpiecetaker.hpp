@@ -16,11 +16,11 @@
 // 191 (the 189-frame window seen twice), free kick 164 and 164, penalty not
 // observed, kick-off 28 exactly (three times).
 //
-// The kick-off is not governed by these numbers - its pass is released by the
-// receiver's own ball-ownership check (KickoffReceiver, 0x140781fc0) - and
-// neither are throw-ins, whose release is the taker's arrival and readiness, nor goal kicks, whose release is the timer
-// ladder of sub_142136F00 (pesgoalkick.hpp). `waitTimerMin` in constant::BallplayerSetplay (+0x28) is NOT read on
-// any of these paths: the gates are the fps multiples above, and the JSON value
+// The kick-off is not governed by these numbers. Its release is the taker's kick (A5Judge 9.4, live capture 23-10-26:
+// arming to release 118-139 frames), and the KickoffReceiver pass gate (0x140781fc0) is not that release: it needs
+// MI+0x11AC > 972, and the release comes at 47-56. Neither is a fps multiple. Throw-ins are released on the taker's
+// arrival and readiness, goal kicks on the timer ladder of sub_142136F00 (pesgoalkick.hpp). `waitTimerMin` in
+// constant::BallplayerSetplay (+0x28) is NOT read on any of these paths: the gates are the fps multiples above, and the JSON value
 // is recorded so that nobody ports it.
 //
 // Every value is a plain .rdata float in the install's PES2021.exe, read through
