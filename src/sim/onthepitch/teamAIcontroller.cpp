@@ -447,12 +447,6 @@ int PesLineIndexForRole(e_PlayerRole role) {
   }
 }
 
-// MI+0x116C: open play is 1. The role level's override only tests for 1, so any other state is 2 here.
-constexpr int kStoppedPlayState = 2;
-int PesPlayState(bool openPlay) {
-  return openPlay ? pes::mentality::kPlayStateInPlay : kStoppedPlayState;
-}
-
 }  // namespace
 
 void TeamAIController::CalculateDefensiveShape() {
@@ -1579,6 +1573,8 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
   };
 
   switch (setPiece) {
+    case e_SetPiece_PeriodEnd:  // schedules exactly like the kick-off it breaks for (§4)
+      [[fallthrough]];
     case e_SetPiece_KickOff:
       for (auto* player : players) {
         Vector3 basePos =
@@ -2898,12 +2894,16 @@ void TeamAIController::UpdateTactics() {
 // so every reader of the mentality sees PES's level.
 void TeamAIController::UpdateStrategy() {
   if (!match->AIManagerRunsTeam(team->GetID())) return;
-  // PES path: the per-tick team words (pesteamtick.hpp) step every team tick -
-  // the drift (FUN_1404F8350), the flags (0x1404F6E1C-58), the restart word
-  // (0x1404F6F91) - and the strategy decider below moves the strategy in state 3
-  // underneath them. Off the path the level is the mentality rung.
+  // PES path: the per-tick team words (pesteamtick.hpp) step every team tick in FUN_1404F6C30's
+  // order: the decider (0x1404F6DB8), the mode-word copy (0x1404F6DBD: T+0x134 = +0xBCC), the drift
+  // (FUN_1404F8350), the flags (0x1404F6E1C-58), the restart word (0x1404F6F91) - and the strategy
+  // decider below moves the strategy in state 3 underneath them. Off the path the level is the
+  // mentality rung.
   const bool pesPath = match->PesLoop();
-  const bool inPlay = match->IsInPlay() && !match->IsInSetPiece();
+  // PES's state reads MI+0x116C: 1 while the ball is in play, even with a set piece armed or
+  // taken (plan-selector §1 vs roles §2). Only the in-play-only work below uses the narrower gate.
+  const bool pesInPlay = match->IsInPlay();
+  const bool inPlay = pesInPlay && !match->IsInSetPiece();
   const RefereeBuffer& buffer = match->GetRefereeBuffer();
   const int playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
                                           buffer.prepared || buffer.started);
@@ -2918,14 +2918,19 @@ void TeamAIController::UpdateStrategy() {
     // has no GF counterpart (team.cpp), so the score-on branch stays off.
     const bool flipped = latch != lastTickPossession;
     pes::SupportWeights(&teamTick, latch, flipped, playState, /*scoreFlag=*/false);
+    // S1 (audit-2): PES's tick runs the decider (0x1404F6DB8) before the copy and the drift, so a
+    // state-3 move is already in the strategy when the drift reads it. States 1/2 no-op here.
+    StepStrategyDecider(playState);
+    // The 0x1404F6DBD copy, between the decider-source and the drift.
+    pes::CopyModeWord(&teamTick);
     // ponytail: T+0x210 (the manual/target word) has no GF counterpart and no
     // decoded in-match writer (tactics §3 O4); balanced stands in, so the
     // manual arm never fires until the writer lands.
     constexpr int kManualBalanced = 2;
-    pes::DriftAttackLevel(&teamTick, strategy.strategy, kManualBalanced, inPlay,
+    pes::DriftAttackLevel(&teamTick, strategy.strategy, kManualBalanced, pesInPlay,
                            match->GetPesFrame());
     pes::WriteAttackFlags(&teamTick);
-    pes::WriteRestartWord(&teamTick, inPlay, flipped);
+    pes::WriteRestartWord(&teamTick, pesInPlay, flipped);
     lastTickPossession = latch;
     // Step 15's in-play arm (FUN_1404FA840, 0x1404FA869-0x1404FA887).
     if (inPlay) pes::ArmInPlayCounters(&teamTick);
@@ -2939,8 +2944,17 @@ void TeamAIController::UpdateStrategy() {
     }
     return;
   }
+  // The PES path already stepped the decider above (S1: before the drift); the GF path steps it here.
+  if (!pesPath) StepStrategyDecider(playState);
+}
+
+// PES 2021's CPU strategy decider body (FUN_14051E970, reached from the team tick at 0x1404F6DB8):
+// one StrategyStep where the entry gate holds (states 1 and 3) and only state 3 moves anything
+// (DeciderMovesIn; the body returns at once in state 1).
+void TeamAIController::StepStrategyDecider(int playState) {
+  if (!match->AIManagerRunsTeam(team->GetID())) return;
   // PES's decider moves the strategy in state 3 only; the PES path returns in every other state.
-  if (pesPath && !pes::DeciderMovesIn(playState)) return;
+  if (match->PesLoop() && !pes::DeciderMovesIn(playState)) return;
   pes::StrategyInputs in;
   switch (match->GetMatchPhase()) {
     case e_MatchPhase_PreMatch:
@@ -2975,6 +2989,7 @@ void TeamAIController::UpdateStrategy() {
     strategyRng->SetSeed(match->GetPesStrategyConstants().rngSlot, match->GetMatchSeed() + own);
   }
   pes::StrategyStep(match->GetPesStrategyConstants(), in, *strategyRng, &strategy);
+  teamTick.deciderRan = true;
 }
 
 SetPieceParams TeamAIController::GetSetPieceParams(e_SetPiece setPiece) {
@@ -3207,7 +3222,7 @@ void TeamAIController::SetUpRoleArrays() {
   pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamSheet,
                              pes::mentality::RoleLevel(
                                  team->GetID() == 0,
-                                 PesPlayState(match->IsInPlay() && !match->IsInSetPiece()),
+                                 pes::mentality::RolePlayState(match->IsInPlay(), match->IsInSetPiece()),
                                  match->PesRestartKind()),
                              &roles);
 }
@@ -3221,7 +3236,8 @@ void TeamAIController::SetUpRoleArrays() {
 void TeamAIController::WriteRoleArrays(bool head) {
   const bool possession = team->IsPesPossession();
   const int level = pes::mentality::RoleLevel(
-      possession, PesPlayState(match->IsInPlay() && !match->IsInSetPiece()), match->PesRestartKind());
+      possession,
+      pes::mentality::RolePlayState(match->IsInPlay(), match->IsInSetPiece()), match->PesRestartKind());
   for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) {
     const e_PlayerRole role = team->GetAllPlayers()[slot]->GetDynamicFormationEntry().role;
     teamSheet.SetRegisteredRole(slot, pes::roles::RegisteredRoleOf(role), level);
@@ -3237,9 +3253,10 @@ void TeamAIController::WriteRoleArrays(bool head) {
 }
 
 // FUN_1404F5F10's rows: each slot's sheet triple at the tick's phase, through FUN_1408C50E0's record A.
-// The plan is the sheet's (FUN_1421B7D40); the in-play selector moves it (UpdatePesSheetPlan).
-// ponytail: the sheet starts at plan 0 (DefaultTeamSheet). PES starts it at setup+0xB34+side*0xA8
-// (FUN_1408E16D0, read by the setup builder FUN_141FC1590 l.101-102); its non-zero writer is OPEN.
+// The plan is the sheet's (FUN_1421B7D40); the in-play selector moves it (UpdatePesSheetPlan). The
+// sheet starts at plan 0 (DefaultTeamSheet): PES's only writer of setup+0xB34 is the reset (MOV
+// [RBX+0xB34/0xBDC],EDI at 0x1408ADEA5/0x1408ADFAD with EDI = 0), so exhibitions start at 0
+// (plan-selector §3; the reader is FUN_1408E16D0).
 void TeamAIController::WriteSlotPoints(int phase) {
   if (!match->PesLoop()) return;  // the PES path only: the install's tables exist on it
   const pes::formation::FormationTables* tables = match->GetPesFormations();
@@ -3254,11 +3271,27 @@ void TeamAIController::WriteSlotPoints(int phase) {
 
 // PES's in-play plan selector (FUN_140500B90, reached from the team tick at 0x1404F6EAD): once per PES
 // team tick, after the decider and the full-defence flag of this tick.
-// ponytail: FUN_140500B90's roster-gated pre-branch (l.40-271) and its plan-2 stoppage branch (l.291-320)
-// are not ported; OPEN.
 void TeamAIController::UpdatePesSheetPlan() {
   if (!match->PesLoop() || !match->AIManagerRunsTeam(team->GetID())) return;
-  teamSheet.SetPlan(pes::formation::InPlayPlan(strategy.strategy, teamTick.b8a3, teamSheet.Plan()));
+  // The stoppage arm (l.291-320): the gate byte +0x8D (FUN_140A606C0, one byte at G+0x750D0+0x8D),
+  // the MI+0x116C == 2 test, the G+0x1F8 chain and the in-play-override gate (FUN_140A55CF0 == 0),
+  // then the plan-2 rule (§1). ponytail: +0x8D has no GF carrier and no decoded meaning (its 37
+  // callers are sheet/AI/match uses); the gate stands closed until the byte's meaning lands. The
+  // setup word (setup+0x1FC) likewise stands at 0 (keep) until its writer is found.
+  constexpr bool kRestartGate8D = false;
+  constexpr bool kSetupWordNonZero = false;
+  const RefereeBuffer& buffer = match->GetRefereeBuffer();
+  const int playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
+                                          buffer.prepared || buffer.started);
+  if (playState == pes::kPlayStateStopped && kRestartGate8D) {
+    teamSheet.SetPlan(pes::StoppagePlan2(teamSheet.Plan(), kSetupWordNonZero));
+    return;
+  }
+  // The in-play mode table (l.272-289): the mode word +0xBCC picks the plan (§2). +0xBCC's writer
+  // is OPEN, so the word is −1 (keep, PES's < 0 arm) until the decider first runs, then the
+  // strategy the decider just moved (S2). The table reads the word, never the strategy direct.
+  teamSheet.SetPlan(pes::formation::InPlayPlan(pes::SelectorMode(teamTick.deciderRan, strategy.strategy),
+                                               teamTick.b8a3, teamSheet.Plan()));
 }
 
 int TeamAIController::RoleClassOfSlot(int slot) const {
@@ -3277,7 +3310,7 @@ void TeamAIController::UpdateLaneLine() {
   }
   in.designated = -1;
   in.copyPath = false;
-  in.playState116c = PesPlayState(match->IsInPlay() && !match->IsInSetPiece());
+  in.playState116c = pes::mentality::RolePlayState(match->IsInPlay(), match->IsInSetPiece());
   roles.a = pes::mentality::LaneWords(in, roles.a);
 }
 

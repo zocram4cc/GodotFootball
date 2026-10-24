@@ -182,10 +182,14 @@ float PlacementBudget_s(const SetPieceTeamConstants& k, int setPiece, bool ownSi
                         bool ownKeeper, bool postMan, bool isMarking) {
   // FUN_140927ab0. The kicker, the second kicker, a wall man, the own keeper and
   // the corner post man walk to wherever the choreography wants them (PES passes
-  // FLT_MAX for all five), as do the two restarts with no placement window of
-  // their own: a kick-off and a penalty are re-formed behind their own wipe.
+  // FLT_MAX for all five), as do the restarts with no placement window of their own: a kick-off
+  // and a penalty are re-formed behind their own wipe, and the period end re-forms behind the
+  // break's own wipe exactly like the kick-off it precedes (plan-selector §4: only the JR kind
+  // differs).
   if (kicker || secondKicker || wallMan || ownKeeper || postMan) return -1.0f;
-  if (setPiece == e_SetPiece_KickOff || setPiece == e_SetPiece_Penalty) return -1.0f;
+  if (setPiece == e_SetPiece_KickOff || setPiece == e_SetPiece_Penalty ||
+      setPiece == e_SetPiece_PeriodEnd)
+    return -1.0f;
 
   if (setPiece == e_SetPiece_Corner) return k.budgetCorner_s;
 
