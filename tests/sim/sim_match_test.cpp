@@ -21,6 +21,7 @@
 #include "onthepitch/pesrandom.hpp"
 #include "onthepitch/pesclock.hpp"
 #include "onthepitch/pesteamtick.hpp"
+#include "onthepitch/pesrunslots.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
 #include "rig/rig.hpp"
@@ -442,6 +443,39 @@ TEST(SimMatch, PesLoopStepsTheTeamTickFromTheStrategy) {
     }
     EXPECT_TRUE(attacking) << "level never left 2 while trailing 0-3";
     EXPECT_TRUE(flagsRan) << "B8A2 never matched level >= 4 after a drift";
+  }
+  SetDB(nullptr);
+}
+
+// Step 55 (FUN_140A42A70 at 0x1404F7A8F; restart arm 26c at 0x1404F6F0E) is the
+// team tick's tail copy, not part of the strategy decider: it runs once per
+// team tick on the PES path, after the tail write, and touches every slot head
+// to the tick's frame stamp. The AI is off for this side, so the decider
+// (UpdateStrategy) early-returns: only the tail step can touch the slots.
+TEST(SimMatch, PesStep55TouchesEverySlotOncePerTeamTick) {
+  REQUIRE_RIG();
+  blunted::Database db;
+  ASSERT_TRUE(db.LoadSqlScript(GF_SOURCE_DIR "/assets/fixtures/teams.sql"));
+  SetDB(&db);
+  MatchSetup setup = MakeSetup(SEED, SHORT_MATCH_MINUTES);
+  setup.aiManagerRuns[0] = false;
+  pestest::FillMissingPesConstants(&setup);
+  Properties config;
+  config.SetBool("pes_loop", true);
+  Match match(new MatchData(HOME_TEAM, AWAY_TEAM), setup, config);
+  auto* ctl = match.GetTeam(0)->GetController();
+  match.Process();
+  match.Process();
+  match.Process();
+  ASSERT_FALSE(match.IsInPlay()) << "takes would stamp the heads with the same frame";
+  // The stamp the tail step writes during the next tick: actualTime only
+  // advances at the tick's end, so this is the next tick's in-tick frame.
+  const uint32_t stamp = static_cast<uint32_t>(match.GetPesFrame());
+  ASSERT_GT(stamp, 0u) << "the frame must advance past the fresh rings' stamp";
+  match.Process();
+  for (int s = 0; s < pes::run::kSlots; ++s) {
+    const pes::run::Slot& slot = ctl->GetRunSlot(s);
+    EXPECT_EQ(slot.ring.entry[slot.ring.index].seenAt, stamp) << "slot " << s;
   }
   SetDB(nullptr);
 }

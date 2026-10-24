@@ -592,6 +592,9 @@ void Team::Process() {
 
   // FUN_14051E2E7 and the B swap at FUN_14051E31E: the tail write, at the end of the team tick.
   teamController->WriteRoleArrays(false);
+  // Team tick step 55 (FUN_140A42A70 at 0x1404F7A8F; restart arm 26c at 0x1404F6F0E): the last sim
+  // write of the tick, after every step GF ports. The strategy decider above must not run it.
+  if (match->PesLoop()) teamController->PesStep55();
 
   // PES's movement selector (pes-re-receiving.md §2) sends the PASS_GET
   // receiver to the ball while a pass is in flight; GF's time-to-ball rating
