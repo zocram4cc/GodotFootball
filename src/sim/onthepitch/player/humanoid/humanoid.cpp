@@ -1346,6 +1346,9 @@ void Humanoid::Process() {
   // write above. That agrees with PES only while possession is live, so the loose-ball predicate is unchanged.
   // ponytail: PES's touch event is gated by the touch probe G+0x2A80 (pes-re-first-touch.md section 5.4, OPEN);
   // GF's last toucher stands in for it.
+  // ponytail: stand-in for PES's loose-ball state, not yet decoded (audit 5 F4, docs/re/pes-re-port-audit-5.md). GF's
+  // ballRetainer is the loose-ball predicate and clears on the possession flicker, while PES's holder persists on a
+  // loose ball. This latch re-retains the last toucher until the loose-ball state lands and the predicate can move.
   if (match->PesLoop() && !match->GetBallRetainer() && match->GetLastTouchPlayer() == CastPlayer() &&
       AI_HasPossession(match->GetBall(), CastPlayer()))
     match->SetBallRetainer(CastPlayer());
