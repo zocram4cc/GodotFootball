@@ -1026,6 +1026,7 @@ class Emitter:
                     return ["{ pes_fn_%s(s); return; }" % tgt[2:]]
                 return ["/*OUT-OF-RANGE JMP %s*/return;" % tgt]
             # JMP reg: switch dispatch (resolved in prepass) or tailjump
+            info = ctx.get("jmpreg", {}).get(addr)
             if info and info.get("table") is not None:
                 tva = info["table"]
                 words = info["words"]
@@ -1036,6 +1037,8 @@ class Emitter:
                 # [base + idx*4] load), not the post-ADD target reg (which
                 # holds base+table[idx] by the time JMP runs).
                 idx = reg_read(info.get("index", ops[0]))
+                lines = ["{ uint32_t _i = (uint32_t)(%s); switch (_i) {"
+                         % idx]
                 seen = {}
                 for i, w in cases:
                     tgt = info["base"] + w
