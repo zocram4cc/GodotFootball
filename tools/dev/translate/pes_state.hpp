@@ -71,6 +71,16 @@ struct PesMem {
   }
 };
 
+// Read n bytes at offset off of a baked read-only image window of len bytes
+// (build-time bytes of PES's image). Offsets outside the window read 0; the
+// window's bound comes from the translator's guard analysis (xlate.bounded_index).
+static inline uint64_t ro_rd(const uint8_t* t, uint64_t len, uint64_t off,
+                             unsigned n) {
+  uint64_t v = 0;
+  if (off <= len && n <= len - off) std::memcpy(&v, t + off, n);
+  return v;
+}
+
 struct PesState {
   uint64_t gpr[16] = {};
   // XMM as raw u128: u64[2]; lane views reinterpreted per op.

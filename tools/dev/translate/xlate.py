@@ -201,6 +201,81 @@ def sext(expr, bits):
     return "(((int64_t)(((uint64_t)(%s) << %d))) >> %d)" % (expr, sh, sh)
 
 
+def find_guards(lines):
+    """(cmp index, index register parent, bound, jcc index, jcc, target) for
+    each CMP reg, imm directly followed by a Jcc to a VA in the body."""
+    out = []
+    for i in range(len(lines) - 1):
+        _, m, ops = lines[i]
+        if m != "CMP" or len(ops) != 2 or not is_imm(ops[1]):
+            continue
+        _, m2, ops2 = lines[i + 1]
+        if not m2.startswith("J") or cc_of(m2) is None or not is_imm(ops2[0]):
+            continue
+        out.append((i, PARENT.get(ops[0].strip().lower()), imm_val(ops[1]),
+                    i + 1, m2.upper(), imm_val(ops2[0])))
+    return out
+
+
+def bounded_index(em, p, ia):
+    """How many index values (0..n-1) the guard before access ia admits for
+    index register parent p, or None when no guard governs the access."""
+    lines = em.lines
+    k = ia - 1
+    while k >= 0 and not (lines[k][2] and
+                          PARENT.get(lines[k][2][0].strip().lower()) == p):
+        k -= 1
+    if k < 0 or lines[k][1] not in ("MOVSXD", "MOVZX", "MOV") or \
+            len(lines[k][2]) != 2:
+        return None
+    src = PARENT.get(lines[k][2][1].strip().lower())
+    acc = lines[ia][0]
+    count = None
+    for _, greg, bound, ji, mn, tgt in em.guards:
+        if greg != src or ji >= k:
+            continue
+        if any(lines[x][2] and
+               PARENT.get(lines[x][2][0].strip().lower()) == src
+               for x in range(ji + 1, k)):
+            continue
+        if lines[ji][0] < acc < tgt:  # access on the fall-through path
+            if any(lines[x][0] in em.labels for x in range(ji + 1, ia + 1)):
+                continue
+            if mn in ("JA", "JNBE", "JG", "JNLE"):
+                count = bound + 1
+            elif mn in ("JAE", "JNB", "JGE", "JNL"):
+                count = bound
+        elif acc >= tgt:  # access on the taken path
+            if any(lines[x][0] in em.labels and lines[x][0] > tgt
+                   for x in range(ji + 1, ia + 1)):
+                continue
+            if mn in ("JB", "JNAE", "JL", "JNGE"):
+                count = bound
+            elif mn in ("JBE", "JNA", "JLE", "JNG"):
+                count = bound + 1
+    return count
+
+
+def lea_const(em, breg, ia):
+    """The absolute VA register parent breg holds from a straight-line
+    LEA breg, [abs] before access ia; None where that is not known."""
+    lines = em.lines
+    k = ia - 1
+    while k >= 0:
+        a, m, ops = lines[k]
+        if ops and PARENT.get(ops[0].strip().lower()) == breg:
+            if m == "LEA" and len(ops) == 2 and "[" in ops[1]:
+                mp = parse_mem(ops[1][ops[1].find("[") + 1:ops[1].rfind("]")])
+                if mp and mp["absolute"] is not None and mp["base"] is None \
+                        and mp["index"] is None:
+                    return mp["absolute"]
+            return None
+        if a in em.labels:
+            return None  # a join point between the LEA and the access
+        k -= 1
+    return None
+
+
 def parse_mem(inner):
     # Split on + and - (but not on a leading sign or 0x digits). "rdi - 8"
     # -> ["rdi", "-8"]; "rcx+rax*4-0x10" works the same.
@@ -251,6 +326,11 @@ class Emitter:
         self.tables = {}  # table VA -> {"words": [...], "base": va}
         self.siblings = set()  # in-set callees + tail targets referenced
         self.out = []  # body lines (labels included)
+        self.lines = []  # body being emitted (set by emit_function)
+        self.labels = set()
+        self.guards = []
+        self.cur = None  # index of the instruction being emitted
+        self.ro_tabs = {}  # (window VA, span) -> bytes of baked table windows
 
     def bake(self, va, n):
         if (va, n) not in self.consts:
@@ -268,6 +348,35 @@ class Emitter:
             d = mp["disp"]
             terms.append("(0x%XULL)" % (d & 0xFFFFFFFFFFFFFFFF) if d >= 0 else "(0ULL - 0x%XULL)" % (-d))
         return ("(%s)" % " + ".join(terms)) if terms else "0ULL"
+
+    def bake_ro(self, mp, width, flt):
+        """A register-indexed read of a read-only image table whose base is a
+        LEA constant and whose index a guard bounds: bake the window the guard
+        admits (build-time bytes, VA-cited). None when any part is unknown."""
+        if self.cur is None or width == 128:
+            return None
+        base = lea_const(self, PARENT.get(mp["base"], mp["base"]), self.cur)
+        count = bounded_index(self, PARENT.get(mp["index"], mp["index"]),
+                              self.cur)
+        if base is None or count is None:
+            return None
+        n = 4 if (flt == "f32" or width == 32) else width // 8
+        if flt == "f64":
+            n = 8
+        start = base + mp["disp"]
+        span = count * mp["scale"] + n
+        if not (BASE <= start and start + span <= BASE + self.img.size):
+            return None
+        if self.img.writable(start) or self.img.writable(start + span - 1):
+            return None
+        self.ro_tabs[(start, span)] = self.img.read(start, span)
+        rd = "ro_rd(k_t%X_%X, %d, (uint64_t)(%s) * %dULL, %d)" % (
+            start, span, span, reg_read(mp["index"]), mp["scale"], n)
+        if flt == "f32":
+            return "PesState::f32((uint32_t)%s)" % rd
+        if flt == "f64":
+            return "PesState::f64(%s)" % rd
+        return rd
 
     def mem_val(self, memtxt, width, flt):
         """C expression reading memory. width in bits; flt in (None,'f32','f64')."""
@@ -310,6 +419,10 @@ class Emitter:
             if n == 2:
                 return "k_c%X_h" % va
             return "k_c%X_b" % va
+        if mp["base"] is not None and mp["index"] is not None:
+            baked = self.bake_ro(mp, width, flt)
+            if baked is not None:
+                return baked
         a = self.addr_expr(mp)
         if width == 128:
             return "s.rd128(%s)" % a
@@ -1394,7 +1507,9 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
     addrs = {a for a, _, _ in lines}
     ctx = {"jmpreg": jmpreg, "addrs": addrs, "stubs": stubs or {}}
     body = []
-    for addr, mnem, ops in lines:
+    em.lines, em.labels, em.guards = lines, labels, find_guards(lines)
+    for idx, (addr, mnem, ops) in enumerate(lines):
+        em.cur = idx
         if addr in labels:
             body.append("L_%X:;" % addr)
         m = mnem.upper()
@@ -1454,6 +1569,17 @@ def const_decls(em):
     return decls
 
 
+def ro_decls(em):
+    """Baked read-only image windows: build-time bytes of PES's image."""
+    decls = []
+    for (start, span), blob in sorted(em.ro_tabs.items()):
+        decls.append("// image window @ 0x%X (%d bytes, read-only)"
+                     % (start, span))
+        decls.append("static constexpr uint8_t k_t%X_%X[%d] = {%s};" % (
+            start, span, span, ", ".join("0x%02X" % b for b in blob)))
+    return decls
+
+
 def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
                   stubs=None):
     img = Image(image_path)
@@ -1479,6 +1605,7 @@ def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
             '#include "pes_cond.inl"',
             ""]
     head.extend(const_decls(em))
+    head.extend(ro_decls(em))
     head.append("")
     head.append("void pes_fn_%s(PesState& s);" % va[2:])
     for sib in sorted(em.siblings):
