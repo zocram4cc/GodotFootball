@@ -1364,21 +1364,22 @@ bool ElizaController::_SlideCandidate(const pes::DefenderDecisionConstants& k) {
 }
 
 bool ElizaController::_BlockCandidate(const pes::DefenderDecisionConstants& k) {
-  // Entry 8's owner half: an opponent owner inside the block radius.
+  // Entry 8's owner half: an opponent owner inside the block radius. The entry gates come first; R2's mark arm
+  // (FUN_1409931C0) is an OR-leg of the verdict behind them.
   if (match->GetBallRetainer() == 0) return false;
   Player* carrier = _Carrier();
-  if (match->PesLoop() && team->GetController()->IsMarkedByTable(CastPlayer())) return true;
   if (!carrier || carrier->GetTeamID() == team->GetID()) return false;
   if (match->GetBallRetainer() != carrier) return false;
   // PES's PRESS state: the MATCH_UP man while ForeCheckPress runs.
   const bool pressing = team->GetController()->IsPressing(CastPlayer());
   const float radius = pes::BlockRadius_m(k, pressing, false, false);
-  if ((carrier->GetPosition() - CastPlayer()->GetPosition()).GetLength() > radius) return false;
+  const bool inRadius = (carrier->GetPosition() - CastPlayer()->GetPosition()).GetLength() <= radius;
   // A pass or a shot clip widens the radius to 7 m once it has passed its
   // fraction. GF's clip table carries no pass clip, so the widened radius is
   // read through the requirement that the ball is already in flight towards
   // him - the late window - rather than through a clip's own progress.
-  return true;
+  const bool marked = match->PesLoop() && team->GetController()->IsMarkedByTable(CastPlayer());
+  return pes::EntryAdmitted(true, marked, inRadius);
 }
 
 bool ElizaController::_PassDuelCandidate(const pes::DefenderDecisionConstants& k) {
@@ -1386,7 +1387,6 @@ bool ElizaController::_PassDuelCandidate(const pes::DefenderDecisionConstants& k
   // radius of where it is going. It sits behind entry 8 in the table, so PES
   // reaches it only when the owner's own radius did not catch him.
   if (match->GetBallRetainer()) return false;
-  if (match->PesLoop() && team->GetController()->IsMarkedByTable(CastPlayer())) return true;
   Player* kicker = match->GetLastTouchPlayer();
   if (!kicker) return false;
   const float speed = match->GetBall()->GetMovement().GetLength() * 3.6f;
@@ -1398,7 +1398,9 @@ bool ElizaController::_PassDuelCandidate(const pes::DefenderDecisionConstants& k
   const bool pressing = team->GetController()->IsPressing(CastPlayer());
   const float radius = pes::BlockRadius_m(k, pressing, false, false);
   const Vector3 ballPredict = _mentalImage->GetBallPrediction(200);
-  return (ballPredict - CastPlayer()->GetPosition()).GetLength() <= radius;
+  const bool inRadius = (ballPredict - CastPlayer()->GetPosition()).GetLength() <= radius;
+  const bool marked = match->PesLoop() && team->GetController()->IsMarkedByTable(CastPlayer());
+  return pes::EntryAdmitted(true, marked, inRadius);
 }
 
 // The ball-height band of the ball at a look-ahead time (FUN_1406e69f0), on

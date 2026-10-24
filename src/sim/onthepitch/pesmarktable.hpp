@@ -57,11 +57,10 @@ struct Candidate {
   float posZ = 0.0f;  // cand pl+0x564 (cone live-bearing origin)
   float pairToTarget = 0.0f;
   float pairToHolder = 0.0f;
-  float headPosX = 0.0f;    // cand pl+0x55C (FUN_1404AB8E0's first point, 0x1404F64A8)
-  float headPosZ = 0.0f;    // cand pl+0x564
-  float headPointX = 0.0f;  // cand +0x5EC (FUN_1404AB8E0's second point)
-  float headPointZ = 0.0f;  // cand +0x5F4
-  float head = 0.0f;  // the candidate's facing word [cand+0x554] (0x1404F6498 MOVSS)
+  // The candidate's facing word [cand+0x554] (0x1404F6498 MOVSS into XMM7): the subtrahend of both wrap tests
+  // (FUN_14043A0A0 folds b - a with a = facing, at 0x1404F64C5 and 0x1404F64F9). FUN_1404AB8E0's bearing
+  // (0x1404F64A8) goes to a local that T7a never reads.
+  float head = 0.0f;
 };
 
 // Everything one BuildMarkTable call reads. Slots are global (0..21, 0xFF = none).

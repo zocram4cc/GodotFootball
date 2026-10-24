@@ -197,6 +197,9 @@ DefenderReaction ChooseReaction(const DefenderReactionInput& in);
 // holder duel (tackle, block, the pass jostle) and falls through to the action
 // dispatch; unmarked walks the table unchanged.
 DefenderReaction ChooseMarkedReaction(const DefenderReactionInput& in, bool marked);
+// R2's entry verdict (FUN_1409931C0; its mark flag is read at the stamp gate 0x14099369C). Past the entry gates a marked
+// man takes the cheap verdict: the mark is an OR-leg of the verdict and never admits a man the gates refuse.
+bool EntryAdmitted(bool entryGates, bool marked, bool computedVerdict);
 
 // --- Standing tackle (report 2) ---
 

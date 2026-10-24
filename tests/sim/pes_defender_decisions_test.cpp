@@ -531,4 +531,20 @@ TEST(PesDefenderJostleGf, SwitchOffMatchJostlesForAPass) {
   EXPECT_TRUE(jostled) << "GF mode must reach entry 11 (the pass jostle) within two minutes";
 }
 
+// R2's mark arm (FUN_1409931C0: the flag set at 0x140993265, read at the stamp gate 0x14099369C) is an
+// OR-leg of the verdict, behind the entry gates. A marked man never passes a failed entry gate.
+TEST(PesDefenderR2, MarkNeverBypassesTheEntryGates) {
+  EXPECT_FALSE(pes::EntryAdmitted(false, true, true));
+  EXPECT_FALSE(pes::EntryAdmitted(false, true, false));
+}
+
+TEST(PesDefenderR2, MarkAdmitsPastTheComputedVerdict) {
+  EXPECT_TRUE(pes::EntryAdmitted(true, true, false));
+}
+
+TEST(PesDefenderR2, UnmarkedManNeedsTheComputedVerdict) {
+  EXPECT_FALSE(pes::EntryAdmitted(true, false, false));
+  EXPECT_TRUE(pes::EntryAdmitted(true, false, true));
+}
+
 }  // namespace

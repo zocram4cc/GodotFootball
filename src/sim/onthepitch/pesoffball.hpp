@@ -237,6 +237,9 @@ struct RunWorld {
   std::array<const pes::ScoreRows*, 2> nearestRows{};
 };
 
+// The block `side` of `id`'s NearestList, nearest first: team `side`'s players in run-world ids. PES's T7a walks entry
+// side*11+k of the holder's row (0x1404F63E0), so a holder on that side reads his own team's list, not his opponents'.
+std::vector<NearOpponent> NearestTeamBlock(const RunWorld& w, int id, int side);
 // The opponents of `id` in his NearestList, nearest first (PES's rank 0 is the first; pes-re-teamctx.md §2.3).
 std::vector<NearOpponent> NearestOpponents(const RunWorld& w, int id);
 

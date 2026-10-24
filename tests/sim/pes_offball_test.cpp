@@ -1583,4 +1583,30 @@ TEST(OffBallTrap, TrapArmedOnlyWhenFullPassChain) {
   EXPECT_FALSE(OffsideTrapArmed(TrapScene(-8.5f, {-4.928f, 4.0f}), 0));
 }
 
+// T7a walks NearestList block `side` (0x1404F63E0: entry side*11+k over its eleven entries). A holder on that side
+// has his own team's list in that block, so the mark walk reads his mates. NearestOpponents keeps the other block.
+TEST(NearestTeamBlock, TheMarkingSideBlockIsThatSidesListWhoeverHolds) {
+  pes::ScoreRows rows;
+  // Holder: global 2 (team 0, lane 2). Mates at lanes 0, 1, 3; opponents at lanes 11, 12.
+  pes::SortedRow& row = rows.nearest[2];
+  row.Add(0, 4.0f);
+  row.Add(1, 9.0f);
+  row.Add(3, 1.0f);
+  row.Add(11, 2.0f);
+  row.Add(12, 16.0f);
+  row.Seal();
+  pes::offball::RunWorld w;
+  w.nearestRows[0] = &rows;
+  const auto mates = pes::offball::NearestTeamBlock(w, 2, 0);
+  ASSERT_EQ(mates.size(), 3u);
+  EXPECT_EQ(mates[0].id, 3);
+  EXPECT_EQ(mates[1].id, 0);
+  EXPECT_EQ(mates[2].id, 1);
+  const auto opponents = pes::offball::NearestTeamBlock(w, 2, 1);
+  ASSERT_EQ(opponents.size(), 2u);
+  EXPECT_EQ(opponents[0].id, 11);
+  EXPECT_EQ(opponents[1].id, 12);
+  EXPECT_EQ(pes::offball::NearestOpponents(w, 2).size(), opponents.size());
+}
+
 }  // namespace
