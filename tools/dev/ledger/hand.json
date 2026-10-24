@@ -5,24 +5,6 @@
       "status": "inert",
       "reason": "False start stub (ret 0): the concept manager can never start PossessionMfJoinDefenceLine through it.",
       "cite": "docs/re/pes-re-team-ai-leftovers.md §2.2"
-    },
-    {
-      "va": "0x140486B10",
-      "status": "out of scope",
-      "reason": "Period-end full-time cutscene; presentation, not the match sim.",
-      "cite": "docs/re/pes-re-missing-systems.md (period-end cutscene table)"
-    },
-    {
-      "va": "0x1404A3FA0",
-      "status": "out of scope",
-      "reason": "End-of-match scene-id state machine; presentation, not the match sim.",
-      "cite": "docs/re/pes-re-missing-systems.md §2.9a"
-    },
-    {
-      "va": "0x140EA93C0",
-      "status": "out of scope",
-      "reason": "Match General Settings ball-list query (menu wrapper); the match needs only the BallCondition lookup.",
-      "cite": "docs/re/pes-re-dead-code.md §5.1"
     }
   ]
 }

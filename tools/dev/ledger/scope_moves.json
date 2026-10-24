@@ -1,0 +1,46 @@
+{
+  "entries": [
+    {
+      "va": "0x1402B75F0",
+      "from": "engine",
+      "to": "undecoded",
+      "reason": "Engine boundary from an RTTI owner in menu:: or flow::, which are no longer engine: in-match menus and HUD are in scope (owner ruling 24-10-26). Walked from the cutscene and animation roots. No verdict or port lost.",
+      "cite": "universe.py ENGINE_ROOTS"
+    },
+    {
+      "va": "0x1402B8290",
+      "from": "engine",
+      "to": "undecoded",
+      "reason": "As 0x1402B75F0 (menu:: or flow:: owner no longer engine). Walked from the cutscene and animation roots.",
+      "cite": "universe.py ENGINE_ROOTS"
+    },
+    {
+      "va": "0x1402B8A50",
+      "from": "engine",
+      "to": "undecoded",
+      "reason": "As 0x1402B75F0 (menu:: or flow:: owner no longer engine). Walked from the cutscene and animation roots.",
+      "cite": "universe.py ENGINE_ROOTS"
+    },
+    {
+      "va": "0x1404183E0",
+      "from": "engine",
+      "to": "undecoded",
+      "reason": "As 0x1402B75F0 (menu:: or flow:: owner no longer engine). Reached from the camera, replay, gameplay and in-match menu roots.",
+      "cite": "universe.py ENGINE_ROOTS"
+    },
+    {
+      "va": "0x140E4C030",
+      "from": "engine",
+      "to": "undecoded",
+      "reason": "As 0x1402B75F0 (menu:: or flow:: owner no longer engine). Reached from the in-match menu, cutscene and gameplay roots.",
+      "cite": "universe.py ENGINE_ROOTS"
+    },
+    {
+      "va": "0x1404A3FA0",
+      "from": "out of scope",
+      "to": "undecoded",
+      "reason": "Hand out-of-scope row dropped: the end-of-match scene-id state machine is presentation, in scope as cutscene (owner ruling 24-10-26). No verdict lost (it had none).",
+      "cite": "docs/re/pes-re-missing-systems.md §2.9a"
+    }
+  ]
+}
