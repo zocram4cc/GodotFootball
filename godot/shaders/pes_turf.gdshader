@@ -13,6 +13,8 @@
 // Space: Fox world, Y up, the same as Godot's world. Names below (r0-r11,
 // cb0/cb2/cb4/cb5, t0-t7) are the asm's; each block cites its lines.
 shader_type spatial;
+// The tile carries each quad twice (opposite windings); PES draws both faces.
+render_mode cull_disabled;
 
 // ---- textures: the technique's roles, in lua bind order -------------------
 // Base_Tex_SRGB t0 (VS g_tex_diffuse): the pitch-block map, world-space UV.
@@ -85,8 +87,13 @@ void vertex() {
 	vec3 swayOff = vec3((r1.x - (Parameter0.x + Parameter1.x) * 0.5) * sway, 0.0,
 	                    (r1.z - (Parameter0.z + Parameter1.z) * 0.5) * sway);
 	// VS asm 46-52: the slope-UV radius (r0.w, min 1) and the world-space
-	// mask UV (r2.xy = worldXZ * cb4[1].xy + cb4[1].zw).
-	vec2 slopeD = (r1.zx - UvOffset.xy) * (1.0 / 12.0);
+	// mask UV (r2.xy = worldXZ * cb4[1].xy + cb4[1].zw). r1 is world (the
+	// mask spans the rect), so cb4[2].xy carries the per-patch centre live
+	// (the M1 image const is the default only); GF centres each slot on
+	// its instance origin (the placer position), the decoded per-slot
+	// value. ponytail: per-patch (multi-slot) centre is OPEN (Placer 3.2).
+	vec2 slotCentre = MODEL_MATRIX[3].zx;
+	vec2 slopeD = (r1.zx - slotCentre) * (1.0 / 12.0);
 	float slopeR = min(2.0 * dot(slopeD, slopeD), 1.0);
 	vec2 maskUV = r1.xz * PitchOffset.xy + PitchOffset.zw;
 	// VS asm 53-62: t0 (base, sRGB-decoded) and t1 (mask) at the mask UV,
