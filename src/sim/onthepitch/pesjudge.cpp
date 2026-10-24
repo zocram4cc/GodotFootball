@@ -401,6 +401,9 @@ std::optional<PitchSpot> ChiefRefereeSpot(e_SetPiece kind, PitchSpot r, int atta
                                           const FieldMarks& f, const RefereeSpotConstants& k) {
   const float dir = static_cast<float>(attackDir), sx = Sign(r.x);
   switch (kind) {
+    // Kind 7 (the period end) is held through the break and its take is a kick-off
+    // (docs/re/pes-re-plan-selector.md §4): the referee stands where he stands for a kick-off.
+    case e_SetPiece_PeriodEnd:
     case e_SetPiece_KickOff:
       return PitchSpot{-dir * k.kickOffBehind_m, -dir * k.kickOffAcross_m};
     case e_SetPiece_ThrowIn:

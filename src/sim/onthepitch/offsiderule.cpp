@@ -79,7 +79,8 @@ bool CanCreateOffside(e_SetPiece restart) {
   // PES 2021's gate (docs/re/pes-re-offside.md 2.2): the delivery of its staged
   // set 1..4 - a kick-off, a throw-in, a goal kick or a corner - never arms a
   // flag. A free kick or a penalty can put its receivers offside.
-  return restart != e_SetPiece_KickOff && restart != e_SetPiece_ThrowIn &&
+  // Kind 7 (the period end) is taken as a kick-off (docs/re/pes-re-plan-selector.md §4), so it never arms one either.
+  return restart != e_SetPiece_KickOff && restart != e_SetPiece_PeriodEnd && restart != e_SetPiece_ThrowIn &&
          restart != e_SetPiece_GoalKick && restart != e_SetPiece_Corner;
 }
 

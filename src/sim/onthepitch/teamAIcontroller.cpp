@@ -2084,7 +2084,8 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
         taker->ResetPosition(Vector3(restart.coords[0], restart.coords[1] + outward * standIn_m, 0.0f), ballPos);
         pieceHeld = true;
       }
-    } else if (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_KickOff) {
+    } else if (setPiece == e_SetPiece_ThrowIn || setPiece == e_SetPiece_KickOff ||
+               setPiece == e_SetPiece_PeriodEnd) {  // kind 7 is taken as a kick-off (pes-re-plan-selector.md §4)
       taker->ResetPosition(ballPos + ballPos.GetNormalized(Vector3(0, -team->GetSide(), 0)) * 0.3f,
                            ballPos);
     } else if (setPiece == e_SetPiece_FreeKick) {
@@ -3283,6 +3284,9 @@ void TeamAIController::UpdatePesSheetPlan() {
   const RefereeBuffer& buffer = match->GetRefereeBuffer();
   const int playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
                                           buffer.prepared || buffer.started);
+  // ponytail: when the +0x8D gate opens, PES routes every non-in-play state here (the == 1 split at 0x140500F12), with
+  // the == 2 test inside (0x140500F36), so state 3 keeps the plan rather than reaching the in-play table below
+  // (docs/re/pes-re-port-audit-6.md F2); the arm must become playState != kPlayStateInPlay then.
   if (playState == pes::kPlayStateStopped && kRestartGate8D) {
     teamSheet.SetPlan(pes::StoppagePlan2(teamSheet.Plan(), kSetupWordNonZero));
     return;
