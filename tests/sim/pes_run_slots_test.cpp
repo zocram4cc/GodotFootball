@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "onthepitch/pesrunslots.hpp"
+#include "onthepitch/pesoffball.hpp"
 
 namespace {
 
@@ -165,6 +166,68 @@ TEST(PesRunSweep, EverySlotIsReleasedOnlyWhenTheCounterIsZero) {
     EXPECT_EQ(s.ring.entry[s.ring.index].id, 0);
     EXPECT_EQ(s.ring.entry[s.ring.index].enteredAt, 150u);
   }
+}
+
+
+TEST(PesRunSlots, SnapshotCopiesOnlyWhenPairMatches) {
+  std::array<pes::run::Slot, pes::run::kSlots> dst{}, src{};
+  // make pair match on slot 0
+  dst[0].state = 0x10;
+  dst[0].ring.entry[0] = {7, 5, 5};
+  dst[0].ring.index = 1;
+  src[0].ring.entry[0] = {7, 5, 9};
+  src[0].ring.index = 1;
+  pes::run::SnapshotCopy(&dst, src, 42);
+  EXPECT_EQ(dst[0].ring.entry[dst[0].ring.index].seenAt, 42u);
+  // mismatched pair skipped
+  dst[1].state = 0x10;
+  dst[1].ring.entry[0] = {1, 1, 1};
+  dst[1].ring.index = 1;
+  src[1].ring.entry[0] = {2, 2, 2};
+  src[1].ring.index = 1;
+  auto before = dst[1].ring;
+  pes::run::SnapshotCopy(&dst, src, 99);
+  EXPECT_EQ(dst[1].ring.entry[0].id, before.entry[0].id);
+}
+
+TEST(PesRunSlots, TouchSetsHeadSeenToFrame) {
+  pes::run::Ring r{};
+  r.entry[0] = {1, 2, 3};
+  r.index = 0;
+  pes::run::Touch(&r, 77);
+  EXPECT_EQ(r.entry[0].seenAt, 77u);
+}
+
+// T9 latch-set loop (FUN_14057FDE0): an eligible slot takes 0x10
+// (kMoveOnPass) with the tick's stamp; ineligible slots keep their state.
+TEST(PesRunSlots, LatchSetLoopTakesSlot16) {
+  std::array<pes::run::Slot, pes::run::kSlots> slots{};
+  std::array<bool, pes::run::kSlots> eligible{};
+  eligible[3] = true;
+  pes::run::LatchSetLoop(&slots, 210, eligible);
+  EXPECT_EQ(slots[3].state, pes::offball::kMoveOnPass);
+  EXPECT_EQ(slots[3].ring.entry[slots[3].ring.index].id, pes::offball::kMoveOnPass);
+  EXPECT_EQ(slots[3].ring.entry[slots[3].ring.index].enteredAt, 210u);
+  for (int s = 0; s < pes::run::kSlots; ++s) {
+    if (s == 3) continue;
+    EXPECT_EQ(slots[s].state, 0) << "slot " << s;
+  }
+}
+
+// T9 latch-clear loop (FUN_14057F720): the head gate fVar25 < 2000.0/(cell *
+// 3600.0) with the 54.0 cell returns early, taking nothing; below it an
+// eligible slot takes 0x10 with the tick's stamp.
+TEST(PesRunSlots, LatchClearLoopTakesSlot16) {
+  std::array<pes::run::Slot, pes::run::kSlots> slots{};
+  std::array<bool, pes::run::kSlots> eligible{};
+  eligible[5] = true;
+  // 0.05 sits above the 2000.0/(54.0 * 3600.0) bar but below a 10x-numerator
+  // slip: the gate returns early and takes nothing.
+  pes::run::LatchClearLoop(&slots, 220, /*headValue=*/0.05f, eligible);
+  for (const Slot& s : slots) EXPECT_EQ(s.state, 0);
+  pes::run::LatchClearLoop(&slots, 220, /*headValue=*/0.0f, eligible);
+  EXPECT_EQ(slots[5].state, pes::offball::kMoveOnPass);
+  EXPECT_EQ(slots[5].ring.entry[slots[5].ring.index].enteredAt, 220u);
 }
 
 }  // namespace

@@ -1,0 +1,286 @@
+{
+  "name": "cone",
+  "va": "0x140A53DF0",
+  "note": "FUN_140A53DF0 inner cone test (provenance: DiffHarnessRE specs/cone.json). CAND/HOLD are 16-byte pos structs (x@+0, z@+8, ground plane); RDX=holder, R8=candidate, XMM3=head-deg, stack coneDeg=90.0, outerLen=12.0, innerWord (0x0 default; T7a's quirk 0x00000001~=1.4e-45). No stubs -- bearing/atan2/polynomial run real. Observable: EAX cone_hit.",
+  "entry": "0x140A53DF0",
+  "end": "0x140A53E96",
+  "stack": {
+    "base": "0x10000000",
+    "size": "0x20000"
+  },
+  "reg_defaults": {
+    "rbx": "0x0",
+    "rbp": "stack_top"
+  },
+  "regions": {
+    "cand": {
+      "base": "0x20000000",
+      "size": "0x1000"
+    },
+    "holder": {
+      "base": "0x20001000",
+      "size": "0x1000"
+    }
+  },
+  "args": {
+    "rcx": "cand",
+    "rdx": "holder",
+    "r8": "cand"
+  },
+  "inputs": {
+    "cand_x": {
+      "region": "cand",
+      "offset": "0x0",
+      "enc": "f32"
+    },
+    "cand_z": {
+      "region": "cand",
+      "offset": "0x8",
+      "enc": "f32"
+    },
+    "hold_x": {
+      "region": "holder",
+      "offset": "0x0",
+      "enc": "f32"
+    },
+    "hold_z": {
+      "region": "holder",
+      "offset": "0x8",
+      "enc": "f32"
+    },
+    "headbits": {
+      "reg": "xmm3",
+      "enc": "f32"
+    },
+    "innerbits": {
+      "stack_offset": "0x30",
+      "enc": "f32",
+      "note": "[RSP+0x80] after push+sub"
+    },
+    "cone": {
+      "stack_offset": "0x20",
+      "enc": "f32",
+      "note": "[RSP+0x70] after push+sub"
+    },
+    "outer": {
+      "stack_offset": "0x28",
+      "enc": "f32",
+      "note": "[RSP+0x78] after push+sub"
+    }
+  },
+  "input_schema": {
+    "cand_x": {
+      "kind": "f32",
+      "lo": -15.0,
+      "hi": 15.0
+    },
+    "cand_z": {
+      "kind": "f32",
+      "lo": -15.0,
+      "hi": 15.0
+    },
+    "hold_x": {
+      "kind": "f32",
+      "lo": -30.0,
+      "hi": 30.0
+    },
+    "hold_z": {
+      "kind": "f32",
+      "lo": -30.0,
+      "hi": 30.0
+    },
+    "headbits": {
+      "kind": "f32",
+      "lo": -180.0,
+      "hi": 360.0
+    },
+    "innerbits": {
+      "kind": "quirk_or_zero"
+    }
+  },
+  "fixed_cases": [],
+  "outputs": {
+    "cone_hit": {
+      "reg": "eax"
+    }
+  },
+  "stubs": {},
+  "constants": {
+    "half": {
+      "va": "0x142565600"
+    },
+    "two_pi": {
+      "va": "0x1425795E4"
+    },
+    "deg": {
+      "va": "0x14259BE40"
+    }
+  },
+  "post_fill": {
+    "cone": {
+      "from_image": "0x14259BE5C"
+    },
+    "outer": {
+      "from_image": "0x14259BE04"
+    }
+  },
+  "seed": 53,
+  "count": 410,
+  "labels": [
+    "name"
+  ],
+  "boundary_cases": [
+    {
+      "boundary": "cone_edge",
+      "name": "ahead-touch-center",
+      "side": "ahead",
+      "radius": "touch",
+      "angle": "center",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "ahead-touch-edge",
+      "side": "ahead",
+      "radius": "touch",
+      "angle": "edge",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "ahead-touch-flip",
+      "side": "ahead",
+      "radius": "touch",
+      "angle": "flip",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "ahead-inside-center",
+      "side": "ahead",
+      "radius": "inside",
+      "angle": "center",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "ahead-inside-edge",
+      "side": "ahead",
+      "radius": "inside",
+      "angle": "edge",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "ahead-inside-flip",
+      "side": "ahead",
+      "radius": "inside",
+      "angle": "flip",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "ahead-dust-center",
+      "side": "ahead",
+      "radius": "dust",
+      "angle": "center",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "ahead-dust-edge",
+      "side": "ahead",
+      "radius": "dust",
+      "angle": "edge",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "ahead-dust-flip",
+      "side": "ahead",
+      "radius": "dust",
+      "angle": "flip",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "behind-touch-center",
+      "side": "behind",
+      "radius": "touch",
+      "angle": "center",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "behind-touch-edge",
+      "side": "behind",
+      "radius": "touch",
+      "angle": "edge",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "behind-touch-flip",
+      "side": "behind",
+      "radius": "touch",
+      "angle": "flip",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "behind-inside-center",
+      "side": "behind",
+      "radius": "inside",
+      "angle": "center",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "behind-inside-edge",
+      "side": "behind",
+      "radius": "inside",
+      "angle": "edge",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "behind-inside-flip",
+      "side": "behind",
+      "radius": "inside",
+      "angle": "flip",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "behind-dust-center",
+      "side": "behind",
+      "radius": "dust",
+      "angle": "center",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "behind-dust-edge",
+      "side": "behind",
+      "radius": "dust",
+      "angle": "edge",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "behind-dust-flip",
+      "side": "behind",
+      "radius": "dust",
+      "angle": "flip",
+      "inner": 0
+    },
+    {
+      "boundary": "cone_edge",
+      "name": "inner-quirk",
+      "side": "ahead",
+      "radius": "inside",
+      "angle": "center",
+      "inner": "quirk"
+    }
+  ]
+}

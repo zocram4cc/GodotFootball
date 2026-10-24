@@ -2986,6 +2986,40 @@ void TeamAIController::StepStrategyDecider(int playState) {
   teamTick.deciderRan = true;
 }
 
+void TeamAIController::PesStep55() {
+  pes::run::SnapshotCopy(&runSlots, runSlots, static_cast<uint32_t>(match->GetPesFrame()));
+}
+
+pes::run::ReleaseRoute TeamAIController::PesStep48() {
+  const RefereeBuffer& buffer = match->GetRefereeBuffer();
+  pes::run::ReleaseDispatchInput in;
+  in.playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
+                                    buffer.prepared || buffer.started);
+  // ponytail: the ==3 arm (FUN_140642670), the else arm (FUN_14057F590), the
+  // carrier-record gate (FUN_140A3E190), the MI+0x1198 frame window and the
+  // MI+0x173C 2-slot scan read record tables with no GF counterpart
+  // (docs/re/pes-re-team-helpers.md sect 1-2); the arm verdict stands in as
+  // off until they land, so the dispatcher exits.
+  in.stoppageClaim = false;
+  in.latchSet = team->IsPesPossession();
+  const pes::run::ReleaseRoute route = pes::run::ReleaseDispatch(in);
+  if (route == pes::run::ReleaseRoute::kExit) return route;
+  const uint32_t stamp = static_cast<uint32_t>(match->GetPesFrame());
+  // ponytail: per-slot eligibility reads the same record tables
+  // (docs/re/pes-re-team-helpers.md sect 3); no slot takes until they land.
+  const std::array<bool, pes::run::kSlots> eligible{};
+  if (route == pes::run::ReleaseRoute::kLatchSetLoop) {
+    pes::run::LatchSetLoop(&runSlots, stamp, eligible);
+  } else {
+    // ponytail: the loop-carried fVar25 (0x14057F7EC) is register dataflow with
+    // no GF counterpart (helpers sect 3.1); above the bar stands in, so the
+    // head gate returns early.
+    constexpr float kHeadValueAboveBar = 1.0f;
+    pes::run::LatchClearLoop(&runSlots, stamp, kHeadValueAboveBar, eligible);
+  }
+  return route;
+}
+
 SetPieceParams TeamAIController::GetSetPieceParams(e_SetPiece setPiece) {
   return SetPieceConfig::Load(team->GetTeamData()->GetDatabaseID(), setPiece);
 }
