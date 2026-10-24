@@ -38,6 +38,9 @@ SUB = {"eax": ("rax", 32, 0), "ebx": ("rbx", 32, 0), "ecx": ("rcx", 32, 0),
        "dx": ("rdx", 16, 0), "si": ("rsi", 16, 0), "di": ("rdi", 16, 0),
        "bp": ("rbp", 16, 0), "sp": ("rsp", 16, 0),
        "r8w": ("r8", 16, 0), "r9w": ("r9", 16, 0),
+       "r10w": ("r10", 16, 0), "r11w": ("r11", 16, 0),
+       "r12w": ("r12", 16, 0), "r13w": ("r13", 16, 0),
+       "r14w": ("r14", 16, 0), "r15w": ("r15", 16, 0),
        "al": ("rax", 8, 0), "bl": ("rbx", 8, 0), "cl": ("rcx", 8, 0),
        "dl": ("rdx", 8, 0), "sil": ("rsi", 8, 0), "dil": ("rdi", 8, 0),
        "bpl": ("rbp", 8, 0), "spl": ("rsp", 8, 0),
@@ -339,7 +342,11 @@ class Emitter:
         if mm:
             return {"byte": 8, "word": 16, "dword": 32, "qword": 64,
                     "xmmword": 128, "ymmword": 256}[mm.group(1)]
-        if d.startswith("xmm"):
+        mm = re.match(r"(byte|word|dword|qword|xmmword)\s*\[", d)
+        if mm:
+            return {"byte": 8, "word": 16, "dword": 32, "qword": 64,
+                    "xmmword": 128}[mm.group(1)]
+        if d.startswith("xmm") and "[" not in d:
             return 128
         return 64
 
@@ -740,14 +747,14 @@ class Emitter:
         o = op.strip().lower()
         if o in GPR or o in SUB:
             return "(s.x_f32_from_int(%s))" % reg_read(o)
-        if o.startswith("xmm"):
+        if o.startswith("xmm") and "[" not in o:
             return "s.x_f32(%d)" % int(o[3:])
         inner = o[o.find("["):] if "[" in o else o
         return "(%s)" % self.mem_val(inner, 32, "f32")
 
     def set_lane(self, op, expr):
         o = op.strip().lower()
-        if o.startswith("xmm"):
+        if o.startswith("xmm") and "[" not in o:
             return "s.set_x_f32(%d, (float)(%s));" % (int(o[3:]), expr)
         inner = o[o.find("["):] if "[" in o else o
         return self.mem_store(inner, expr, 32, "f32")
@@ -757,7 +764,7 @@ class Emitter:
         d, s = dst.strip().lower(), src.strip().lower()
         if m == "MOVD":
             # int<->lane0 bit transfer
-            if d.startswith("xmm"):
+            if d.startswith("xmm") and "[" not in d:
                 x = int(d[3:])
                 if s in GPR or s in SUB:
                     return ["s.xmm[%d][0] = (s.xmm[%d][0] & "
@@ -773,9 +780,9 @@ class Emitter:
             return [reg_write(dst, v)]
         if m == "MOVSD":
             # full 64-bit transfer (low quad), upper quad preserved
-            if d.startswith("xmm"):
+            if d.startswith("xmm") and "[" not in d:
                 x = int(d[3:])
-                if s.startswith("xmm"):
+                if s.startswith("xmm") and "[" not in s:
                     return ["s.xmm[%d][0] = s.xmm[%d][0];"
                             % (x, int(s[3:]))]
                 inner = src[src.find("["):]
@@ -786,9 +793,9 @@ class Emitter:
             return ["s.wr(%s, s.xmm[%d][0], 8);"
                     % (self.addr_expr(parse_mem(inner[1:-1])), x)]
         # MOVSS: lane-0 float, upper preserved; mem forms transfer 32 bits
-        if d.startswith("xmm"):
+        if d.startswith("xmm") and "[" not in d:
             x = int(d[3:])
-            if s.startswith("xmm"):
+            if s.startswith("xmm") and "[" not in s:
                 return ["s.set_x_f32(%d, s.x_f32(%d));"
                         % (x, int(s[3:]))]
             inner = src[src.find("["):]
@@ -801,7 +808,7 @@ class Emitter:
     def do_ssarith(self, m, ops):
         dst = ops[0]
         d = dst.strip().lower()
-        if not d.startswith("xmm"):
+        if not (d.startswith("xmm") and "[" not in d):
             return ["/*UNHANDLED %s %s*/(void)0;" % (m, ops)]
         x = int(d[3:])
         a = "s.x_f32(%d)" % x
@@ -855,7 +862,7 @@ class Emitter:
                                                         self.x_lane(src))]
         # CVTSD2SS: lane double -> lane float
         x = int(d[3:])
-        if s.startswith("xmm"):
+        if s.startswith("xmm") and "[" not in s:
             return ["s.set_x_f32(%d, (float)s.x_f64(%d));"
                     % (x, int(s[3:]))]
         inner = src[src.find("["):]
@@ -865,9 +872,11 @@ class Emitter:
     def do_mov128v(self, ops):
         dst, src = ops[0], ops[1]
         d, s = dst.strip().lower(), src.strip().lower()
-        if d.startswith("xmm"):
+        dx, sx = d.startswith("xmm") and "[" not in d, \
+            s.startswith("xmm") and "[" not in s
+        if dx:
             x = int(d[3:])
-            if s.startswith("xmm"):
+            if sx:
                 y = int(s[3:])
                 return ["s.xmm[%d][0] = s.xmm[%d][0]; "
                         "s.xmm[%d][1] = s.xmm[%d][1];" % (x, y, x, y)]
@@ -884,16 +893,16 @@ class Emitter:
     def do_bit128(self, m, ops):
         dst = ops[0]
         d = dst.strip().lower()
-        if not d.startswith("xmm"):
+        if not (d.startswith("xmm") and "[" not in d):
             return ["/*UNHANDLED %s %s*/(void)0;" % (m, ops)]
         x = int(d[3:])
         s = ops[1].strip().lower()
-        if s.startswith("xmm") and int(s[3:]) == x:
+        if s.startswith("xmm") and "[" not in s and int(s[3:]) == x:
             if m in ("XORPS", "XORPD"):
                 return ["s.xmm[%d][0] = 0; s.xmm[%d][1] = 0;" % (x, x)]
             if m in ("ORPS", "ORPD", "ANDPS", "ANDPD"):
                 return ["(void)0;  // %s self-reg identity" % m]
-        if s.startswith("xmm"):
+        if s.startswith("xmm") and "[" not in s:
             y = int(s[3:])
             e = "(s.xmm[%d][0] | ((unsigned __int128)s.xmm[%d][1] << 64))" \
                 % (y, y)
@@ -920,7 +929,7 @@ class Emitter:
         x = int(dst.strip().lower()[3:])
         s = src.strip().lower()
         if m == "CVTPS2PD":
-            if s.startswith("xmm"):
+            if s.startswith("xmm") and "[" not in s:
                 y = int(s[3:])
                 lo = ("(double)(float)(uint32_t)s.xmm[%d][0]" % y)
                 hi = ("(double)(float)(uint32_t)(s.xmm[%d][0] >> 32)" % y)
@@ -934,7 +943,7 @@ class Emitter:
                     "  memcpy(&_u0, &_lo, 8); memcpy(&_u1, &_hi, 8);",
                     "  s.xmm[%d][0] = _u0; s.xmm[%d][1] = _u1; }" % (x, x)]
         if m == "CVTPD2PS":
-            if s.startswith("xmm"):
+            if s.startswith("xmm") and "[" not in s:
                 y = int(s[3:])
                 lo = "(float)s.x_f64(%d)" % y
                 hi = ("(float)([](){ double _d; uint64_t _u = s.xmm[%d][1];"
@@ -953,7 +962,7 @@ class Emitter:
                     "  s.xmm[%d][0] = ((uint64_t)_hi << 32) | _lo; "
                     "s.xmm[%d][1] = 0; }" % (x, x)]
         if m == "CVTDQ2PS":
-            if s.startswith("xmm"):
+            if s.startswith("xmm") and "[" not in s:
                 y = int(s[3:])
                 lanes = ["(float)(int32_t)(uint32_t)(s.xmm[%d][%d] >> %d)"
                          % (y, (i // 2), (i % 2) * 32) for i in range(4)]
