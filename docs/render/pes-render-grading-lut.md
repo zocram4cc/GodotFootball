@@ -1,5 +1,7 @@
 # Grading LUT: matches run the pack's CubeLut stub (CONFIRMED live); t6 LUT bound but never sampled; highlights compress via exposure + sRGB roundtrip clip
 
+> **Correction (RenderSurveyRE, 23-10-26):** the dark-slope constant's digits are transposed below: it is `3.09597522e-01`, not `0.30997522`.
+
 > **Main 19-10-26: CONFIRMED for match frames by the live capture** (bind histogram: only the CubeLut pair bound; live VS md5 `d30ae42a…` = pack `ColorCorrection_CubeLut.vs`, re-checked by Main). Caveat: the pixel shader was not dumped live; its identity with the pack stub rests on the bound pair.
 
 Live PES binds the colour-grading path (registry key `0xcb716e233439` → `ColorGradingParameter`, `lut_s_day_game` live), but the bound `ColorCorrection_CubeLut` program is the pack's 27-line stub that never samples t6. Traced live in a match (BNT vs W, endless clock, frames `match2_dec.png` + `live/now_dec.png`) from the technique slot to the bound pair, its VS bytes, and an 8 s bind histogram, so GF can replace its CubeLut stub (`docs/render/pes-render-b3post.md` open item).
