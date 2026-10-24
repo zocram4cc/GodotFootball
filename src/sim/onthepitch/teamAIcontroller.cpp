@@ -1349,14 +1349,16 @@ void TeamAIController::PinBallAtRelease() {
   const Vector3 facing = taker->GetRootDirectionVec();  // PES's hand sits on the root yaw, not on the travel direction
   const float heading = pes::FacingHeadingDeg(pes::Vec3(facing.coords[0], facing.coords[1], facing.coords[2]));
   pes::Vec3 hand = pes::HandBallFromRoot(pes::Vec3(pos.coords[0], pos.coords[1], 0.0f), heading, offset);
-  // PES pushes the taker before the release, so the hand further outside stays inside the touchline by the install's inset
-  // (throwin 4.2, phase 1): the ball is released from behind the line. The push moves the root, and the ball follows the hand.
+  // PES pushes the taker before the release (FUN_140792E10, throwin 4.2 phase 1): the outer hand stays at least the
+  // install's inset OUTSIDE the touchline, so the ball is released from behind the line. The push moves the root, and
+  // the ball follows the hand.
+  // ponytail: the ball hand stands in for PES's bones 3/6 (FUN_141eb51a0); the two-bone push replaces it.
   const float kReleaseMargin_m = match->GetPesSetPieceTakerConstants().throwInPushInset_m;
   const float side = pos.coords[1] < 0.0f ? -1.0f : 1.0f;
-  const float excess = side * hand.y - (pesFieldHalfWidth - kReleaseMargin_m);
+  const float excess = (pesFieldHalfWidth + kReleaseMargin_m) - side * hand.y;
   if (excess > 0.0f) {
-    taker->OffsetPosition(Vector3(0.0f, -side * excess, 0.0f));
-    hand.y -= side * excess;
+    taker->OffsetPosition(Vector3(0.0f, side * excess, 0.0f));
+    hand.y += side * excess;
   }
   match->GetBall()->ResetSituation(Vector3(hand.x, hand.y, hand.z));
 }

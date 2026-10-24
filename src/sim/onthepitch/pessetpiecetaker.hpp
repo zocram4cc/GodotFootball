@@ -60,8 +60,9 @@ struct SetPieceTakerConstants {
   // PES's placed-taker release rows (throwin 4.2) switch at this distance from the throw's target: the short idle row up to
   // throwInReleaseShort_m, the mid row up to here, the long row beyond. 25.0 from .rdata 0x14259be20.
   float throwInReleaseLong_m = 0.0f;
-  // PES's hand inset from the touchline before a release (throwin 4.2, phase 1): the taker is pushed until the hand further outside
-  // is this far inside it, so the ball is released from behind the line. 0.1 from .rdata 0x142588200 (DAT_142588200).
+  // PES's release margin outside the touchline (throwin 4.2, phase 1): the taker is pushed until the hand further outside
+  // is at least this far outside it, so the ball is released from behind the line (throwin 4.2, FUN_141eb51a0 bones 3/6).
+  // 0.1 from .rdata 0x142588200 (DAT_142588200).
   float throwInPushInset_m = 0.0f;
   // The MOVE command filler's walk-down (FUN_1406b7560, call 0x1406b77d6 -> FUN_140a76070(2)): a run-class set-piece walker far
   // from his target has his desired speed replaced by this one, 11 km/h from .rdata 0x14259bdfc

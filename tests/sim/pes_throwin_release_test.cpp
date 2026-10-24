@@ -95,9 +95,10 @@ TEST(PesThrowInRelease, ACarriedThrowUsesTheShortRowUpToThePesDistanceAndTheMidR
   EXPECT_EQ(pes::ThrowInCarryReleaseRow(reach_m + 0.01f, reach_m), pes::kThrowInReleaseRunMid);
 }
 
-// PES releases a throw-in from behind the line: the release holds the ball at the hand's key offset, inside the touchline,
-// until the release (pes-re-throwin-choreography.md 4.2, 5.3). So when the throw's touch ends the set piece, the ball lies
-// inside the line. Counted over a two-minute seed-7 match.
+// PES releases a throw-in from behind the line (pes-re-throwin-choreography.md 4.2: the taker is pushed so the outer hand
+// stays ≥ F[1] + 0.1 m outside until release), and at the first in-play frame the ball has crossed inside (live OBS, 5.3:
+// 33.87 / 33.81 < 34.0). So when the throw's touch ends the set piece, the ball lies inside the line. Counted over a
+// two-minute seed-7 match.
 TEST(PesThrowInRelease, AThrowInIsReleasedFromInsideTheLine) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
   int releases = 0, outside = 0;
