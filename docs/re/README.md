@@ -284,6 +284,7 @@ address given.
 |`pes-re-slice-survey.md`|Every unported team-tick slice re-assessed: port-ready (T8a, T9b, T10b, T8c-1, T12a skeleton), one small decode away (ten slices), blocked (T8b, T8d, T6a, T4b, T10c, T12c), non-sim steps; new decodes and corrections; the port order|
 |`pes-re-small-decodes.md`|Nine team-tick slices closed to port-ready (T7b, T5b, T8c-2, T4a, T9a, T9c, T10a, T12d-1, T12c) with gate chains, constants and stand-in removals; T12b's 48 concept payload rows OPEN|
 |`pes-re-blocked-slices.md`|The last blocked team-tick slices: T4b, T8d, T10c port-ready; T6a inert in PES (no pusher image-wide, its gate never passes); T8b and T12b need live reads (recipes given)|
+|`pes-re-live-session.md`|One read-only live capture for every remaining live-only item (T8b, T12b, T6a, the PA identity, the camera writer, the restart step, the metering rect): chains byte-validated, run it during an exhibition match; the monitor needs no UV port|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|
