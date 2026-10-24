@@ -196,6 +196,9 @@ bool Team::Substitute(Player* playerOut, Player* playerIn) {
     return false;
   if (HasBeenSubstituted(playerIn->GetID()))
     return false;
+  // A dismissed player cannot come back on (match.cpp's auto-sub pool excludes him the same way).
+  if (playerIn->GetCards() > 1)
+    return false;
 
   int indexOut = -1;
   int indexIn = -1;
