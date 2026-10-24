@@ -13,8 +13,20 @@
  "args": {},
  "regions_init": {},
  "patch_addrs": {},
- "inputs": {},
- "input_schema": {},
+ "inputs": {
+  "G_14351AE54": {
+   "absolute": "0x14351AE54",
+   "enc": "f32"
+  }
+ },
+ "input_schema": {
+  "G_14351AE54": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50; the .data global this leaf loads (case-varied, never the dump's value)"
+  }
+ },
  "outputs": {
   "ret_xmm0": {
    "reg": "xmm0",
@@ -28,9 +40,7 @@
   "indirect_calls": [],
   "tailjumps": [],
   "unresolved_mem": 0,
-  "live_data_reads": [
-   "IMG"
-  ],
+  "live_data_reads": [],
   "live_data_writes": [],
   "rdata_constant_reads": [],
   "stack_args": {},

@@ -5,23 +5,23 @@
    "cases": 64,
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x14042D470"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 55 mismatch case 9: w_A0_0 want 431778D1 got 433ACD85 case 10: w_A0_0 want 4204F3E0 got 40D9B0AD",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x140439E50"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 39 mismatch case 12: ret_xmm0 want 420C3356 got 40D9B0AD case 14: ret_xmm0 want 4249E7DB got 420B4BCB",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x140439EF0"
   },
@@ -59,9 +59,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 31 mismatch case 13: ret_xmm0 want C28B60A4 got 439127D7 case 14: ret_xmm0 want C005AD00 got 43B2F4A6",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x14043A0A0"
   },
@@ -83,25 +83,25 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 1 mismatch case 39: ret_rax want 3F0E90A8 got 1001FED0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140458740"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 52 mismatch case 13: w_A1_0 want 4380092B got FFC00000 case 14: w_A1_0 want 4399B348 got 420B4BCB",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x14046F230"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 43 mismatch case 19: w_A0_0 want 4303969F got 433ACD85 case 21: w_A0_0 want 435FDC62 got 433ACD85",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x14046F260"
   },
@@ -131,25 +131,25 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 48 mismatch case 13: w_A0_0 want 41EFE5BE got 40D9B0AD case 14: w_A0_0 want 4313537C got 433ACD85",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x1404A53E0"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 52 mismatch case 11: w_A1_0 want 438BDF8B got FFC00000 case 12: w_A1_0 want 42DC446E got FFC00000",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x1404AB8E0"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 192 mismatch case 2: ret_xmm0 want C0E4E406 got 80000000 case 3: w_A0_0 want 40808EF8 got 00000000",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x1404BCAD0"
   },
@@ -157,7 +157,7 @@
    "cases": 64,
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x1404C8DC0"
   },
@@ -195,17 +195,17 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: w_A0_6D50_6D0 want 6 got 4 case 9: w_A0_6D50_6D0 want 6 got 4",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x1404F6680"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_rax want 21000000 got 0 case 9: ret_rax want 21000000 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x1405008E0"
   },
@@ -227,9 +227,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want A9 got 0 case 9: ret_eax want 57 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140529430"
   },
@@ -243,17 +243,17 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 192 mismatch case 2: ret_xmm0 want C1402824 got 80000000 case 3: w_A0_0 want C264F274 got 80000000",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140591A10"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want FF got 0 case 9: ret_eax want FF got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x1405969B0"
   },
@@ -283,9 +283,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want 20C00000 got 35A31C00 case 9: ret_eax want 20C00000 got 35A31C00",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x1405AAF00"
   },
@@ -299,9 +299,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 24 mismatch case 22: ret_xmm0 want C2ACEF04 got 4388C43F case 23: ret_xmm0 want 4184ADE0 got 43BC4ADE",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x1405BB170"
   },
@@ -363,9 +363,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_rax want CE got 0 case 9: ret_rax want D1 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x1405CFFE0"
   },
@@ -547,17 +547,17 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 1 mismatch case 32: ret_rax want 23000000 got 1",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140687FB0"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "compile: gen/pes_fn_140A533A0.cpp:27:26: error: label \u2018L_140A533EC\u2019 used but not defined",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140688300"
   },
@@ -755,9 +755,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "compile: gen/pes_fn_140A51320.cpp:52:25: error: label \u2018L_140A51380\u2019 used but not defined",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x1409FBCE0"
   },
@@ -843,9 +843,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 1 mismatch case 3: ret_eax want 20001500 got 227C1500",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x140A3C9B0"
   },
@@ -915,25 +915,25 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 12 mismatch case 40: ret_eax want 0 got 1 case 41: ret_eax want 1 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A40000"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 23 mismatch case 23: ret_eax want 4 got 3 case 24: ret_eax want 5 got 3",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A40050"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 23 mismatch case 26: ret_eax want 5 got 3 case 30: ret_eax want 2 got 3",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A40110"
   },
@@ -1219,9 +1219,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 29 mismatch case 12: ret_rax want FFFFFF00 got 0 case 14: ret_rax want FFFFFF00 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A4F230"
   },
@@ -1259,9 +1259,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "compile: gen/pes_fn_140A51320.cpp:52:25: error: label \u2018L_140A51380\u2019 used but not defined",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A51320"
   },
@@ -1283,9 +1283,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "compile: gen/pes_fn_140A533A0.cpp:27:26: error: label \u2018L_140A533EC\u2019 used but not defined",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A533A0"
   },
@@ -1307,9 +1307,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 54 mismatch case 9: ret_eax want 200 got 0 case 10: ret_eax want 200 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A53F90"
   },
@@ -1451,9 +1451,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want 2040A200 got A200 case 9: ret_eax want 2040A201 got A200",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A61CF0"
   },
@@ -1547,9 +1547,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want FF got 0 case 9: ret_eax want FF got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A63020"
   },
@@ -1667,17 +1667,17 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 25 mismatch case 26: ret_eax want 2000 got 0 case 29: ret_eax want 1000000 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A6E150"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 14 mismatch case 38: ret_eax want 22000 got 0 case 40: ret_eax want 800 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A6E1C0"
   },
@@ -1691,41 +1691,41 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 12 mismatch case 49: ret_eax want 1 got 0 case 51: ret_eax want 1 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A6E320"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 2 mismatch case 29: ret_eax want 1 got 0 case 52: ret_eax want 1 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A6E340"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 7 mismatch case 43: ret_eax want 1 got 0 case 52: ret_eax want 1 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A6E3F0"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 17 mismatch case 34: ret_eax want 10400 got 0 case 35: ret_eax want 80000 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A6E450"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 14 mismatch case 34: ret_eax want 40000 got 0 case 43: ret_eax want 40000 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A6E540"
   },
@@ -1795,9 +1795,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 43 mismatch case 13: ret_eax want 196 got 191 case 14: ret_eax want 1156 got A56",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x140A72E70"
   },
@@ -1835,9 +1835,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 192 mismatch case 2: ret_xmm0 want C06C3C14 got 40020588 case 3: w_A0_0 want C0CBA6C6 got C1058648",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x140A8F7C0"
   },
@@ -1883,9 +1883,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 33 mismatch case 20: ret_xmm0 want 4393E973 got 43B02CAD case 21: ret_xmm0 want 43A7053E got 43AA83DE",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x140A92950"
   },
@@ -1907,9 +1907,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 46 mismatch case 9: ret_xmm0 want BF5B2B33 got 3DF32988 case 10: ret_xmm0 want BF85AD09 got 3F1B985F",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x140A92D40"
   },
@@ -1933,15 +1933,15 @@
    "cases": 64,
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x14149A470"
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 12 mismatch case 45: ret_eax want B got 0 case 52: ret_eax want 2 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x14149F4F0"
   },
@@ -1965,7 +1965,7 @@
    "cases": 64,
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x141E532D0"
   },
@@ -1973,7 +1973,7 @@
    "cases": 64,
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "64 cases bit-exact",
    "translated": true,
    "va": "0x141E532E0"
   },
@@ -1987,9 +1987,9 @@
   },
   {
    "cases": 64,
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want 20C00000 got 0 case 9: ret_eax want 20C00000 got 0",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "translated": true,
    "va": "0x141E5D4C0"
   },

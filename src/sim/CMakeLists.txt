@@ -11,6 +11,11 @@ target_include_directories(gfsim PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/..)
 target_link_libraries(gfsim PUBLIC pesrig pesmovestepcore SQLite3::SQLite3 Boost::headers)
+if(TARGET pespilot)
+  target_link_libraries(gfsim PUBLIC pespilot)
+  target_include_directories(gfsim PUBLIC
+    ${CMAKE_SOURCE_DIR}/tools/dev/translate)
+endif()
 
 # Release-only link-time optimization for the headless sim: same IEEE FP
 # semantics (no fast-math), only cross-TU inlining and codegen. gfsim_run is

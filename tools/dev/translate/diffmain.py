@@ -31,6 +31,10 @@ def gen(spec, va, callees):
     L.append('#include <cstdio>')
     L.append('#include <cstring>')
     L.append('#include <string>')
+    L.append('#include <fcntl.h>')
+    L.append('#include <sys/mman.h>')
+    L.append('#include <sys/stat.h>')
+    L.append('#include <unistd.h>')
     fns = sorted({V} | {c[2:] for c in callees})
     for f in fns:
         L.append('void pes_fn_%s(PesState& s);' % f)
@@ -42,13 +46,21 @@ def gen(spec, va, callees):
     L.append('static const uint64_t stack_base = %sULL;' % stack["base"])
     L.append('static const uint64_t stack_size = %sULL;' % stack["size"])
     L.append('int main(int argc, char** argv) {')
-    L.append('  if (argc < 2) return 2;')
+    L.append('  if (argc < 3) return 2;')
     L.append('  FILE* f = fopen(argv[1], "r"); if (!f) return 2;')
+    L.append('  int ifd = open(argv[2], O_RDONLY); if (ifd < 0) return 2;')
+    L.append('  struct stat ist; if (fstat(ifd, &ist) != 0) return 2;')
+    L.append('  // The image is mapped the way run.py maps a flat dump (file offset = VA - 0x140000000),')
+    L.append('  // copy-on-write, so writes persist across cases exactly as in the harness mapping.')
+    L.append('  void* ip = mmap(nullptr, (size_t)ist.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, ifd, 0);')
+    L.append('  if (ip == MAP_FAILED) return 2;')
+    L.append('  uint8_t* const flat = (uint8_t*)ip; const uint64_t flat_n = (uint64_t)ist.st_size;')
     L.append('  char buf[1 << 22]; long nc = 0, bad = 0;')
     L.append('  while (fgets(buf, sizeof buf, f)) {')
     L.append('    if (buf[0] != \'{\') continue;')
     L.append('    JLine jl; if (!parse_line(buf, jl)) { printf("parse fail\\n"); return 2; }')
     L.append('    PesState s;')
+    L.append('    s.mem.flat = flat; s.mem.flat_base = 0x140000000ULL; s.mem.flat_size = flat_n;')
     for name in rnames:
         L.append('    s.mem.segs.push_back({base_%s, std::vector<uint8_t>(size_%s, 0)});' % (ids[name], ids[name]))
     L.append('    s.mem.segs.push_back({stack_base, std::vector<uint8_t>(stack_size, 0)});')
@@ -68,14 +80,11 @@ def gen(spec, va, callees):
         else:
             L.append('    s.wr(base_%s + %s, (uint64_t)(%s), 4);' % (ids[dname], doff, val))
     # patch_addrs: the image VA holds a pointer the function dereferences
-    # (e.g. 0x1436F3DC8 -> the IMG shadow region). Model it like run.py:
-    # write the region base into memory at the image VA. PesMem.find checks
-    # image runs first, so shadow image VAs in a writable seg that sorts
-    # before any baked image run covering them (segs are checked after img
-    # runs; baked runs never cover these writable-global VAs because the
-    # translated code writes them, not reads constants from them).
+    # (e.g. 0x1436F3DC8 -> the IMG shadow region). run.py writes the region
+    # base there before each case; the flat image view takes the write, so the
+    # translated side reads it back the same way.
     for vas, rname in (sp.get("patch_addrs") or {}).items():
-        L.append('    { bool _covered = false; for (auto& sg : s.mem.segs) if (sg.base <= %sULL && %sULL + 8 <= sg.base + sg.bytes.size()) { uint64_t _b = base_%s; memcpy(sg.bytes.data() + (%sULL - sg.base), &_b, 8); _covered = true; break; } if (!_covered) { PesMem::Seg sg{%sULL, std::vector<uint8_t>(8, 0)}; uint64_t _b = base_%s; memcpy(sg.bytes.data(), &_b, 8); s.mem.segs.push_back(std::move(sg)); } }' % (vas, vas, ids[rname], vas, vas, ids[rname]))
+        L.append('    s.wr(%sULL, base_%s, 8);' % (vas, ids[rname]))
     # inputs
     inputs = sp.get("inputs") or {}
     for name, loc in inputs.items():
@@ -92,6 +101,9 @@ def gen(spec, va, callees):
         elif "region" in loc:
             n = {"u8": 1, "u32": 4, "u64": 8, "i32": 4, "f32": 4}[enc]
             L.append('    { auto it = jl.in.find("%s"); uint64_t _v = it == jl.in.end() ? 0 : (it->second.t == JVal::BITS ? it->second.bits : (uint64_t)it->second.n); s.wr(base_%s + %s, _v, %d); }' % (name, ids[loc["region"]], loc["offset"], n))
+        elif "absolute" in loc:
+            n = {"u8": 1, "u32": 4, "u64": 8, "i32": 4, "f32": 4}[enc]
+            L.append('    { auto it = jl.in.find("%s"); uint64_t _v = it == jl.in.end() ? 0 : (it->second.t == JVal::BITS ? it->second.bits : (uint64_t)it->second.n); s.wr(%sULL, _v, %d); }' % (name, loc["absolute"], n))
         elif "absfill" in loc:
             rname, off_key, typ = loc["absfill"]
             n = {"u8": 1, "u32": 4, "u64": 8, "i32": 4, "f32": 4}[typ]

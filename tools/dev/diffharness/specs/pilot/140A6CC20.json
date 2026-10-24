@@ -124,6 +124,10 @@
   },
   "ret_rax": {
    "reg": "rax"
+  },
+  "ret_xmm0": {
+   "reg": "xmm0",
+   "enc": "f32"
   }
  },
  "ret_note": "rax (pointer-valued return)",

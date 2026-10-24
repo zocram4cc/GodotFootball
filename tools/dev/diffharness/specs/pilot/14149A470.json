@@ -13,8 +13,20 @@
  "args": {},
  "regions_init": {},
  "patch_addrs": {},
- "inputs": {},
- "input_schema": {},
+ "inputs": {
+  "G_143704E38": {
+   "absolute": "0x143704E38",
+   "enc": "u64"
+  }
+ },
+ "input_schema": {
+  "G_143704E38": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 0..255 (case value of the qword this leaf loads, written as u64)"
+  }
+ },
  "outputs": {
   "ret_rax": {
    "reg": "rax"
@@ -27,9 +39,7 @@
   "indirect_calls": [],
   "tailjumps": [],
   "unresolved_mem": 0,
-  "live_data_reads": [
-   "IMG"
-  ],
+  "live_data_reads": [],
   "live_data_writes": [],
   "rdata_constant_reads": [],
   "stack_args": {},

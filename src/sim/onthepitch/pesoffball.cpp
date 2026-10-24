@@ -9,6 +9,11 @@
 #include "onthepitch/pesroles.hpp"
 #include "onthepitch/pescarrier.hpp"
 
+#ifdef PES_PILOT_AVAILABLE
+#include "pes/pespilot.hpp"
+#include "pes_state.hpp"
+#endif
+
 namespace pes::offball {
 namespace {
 
@@ -114,7 +119,21 @@ float Ramp(float v, float a, float b) {
   return std::clamp((v - a) / (b - a), 0.0f, 1.0f);
 }
 
-float LaneZ(int k) { return pesFieldHalfWidth - kLaneSpacing_m - kLaneSpacing_m * k; }
+float LaneZ(int k) {
+#ifdef PES_PILOT_AVAILABLE
+  // Cut over to the translated 0x140A71990 (bit-exact on the harness):
+  // XMM0 = XMM0 - 2 - 2*sext(DL). Entry XMM0 = F1 (field half width),
+  // DL = lane k. Same arithmetic as below in both modes (same F1 from
+  // the VFS winner, same 2.0 m spacing), so GF mode is unchanged.
+  PesState s;
+  s.set_x_f32(0, pesFieldHalfWidth);
+  s.gpr[2] = static_cast<uint64_t>(static_cast<uint8_t>(k));
+  ::pes_fn_140A71990(s);
+  return s.x_f32(0);
+#else
+  return pesFieldHalfWidth - kLaneSpacing_m - kLaneSpacing_m * k;
+#endif
+}
 
 bool ReadF(const PeImage& exe, uint64_t va, float* out, bool* ok) {
   *ok &= exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out));

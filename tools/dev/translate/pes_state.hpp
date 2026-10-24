@@ -15,6 +15,11 @@ struct PesMem {
   // Writable scratch: sorted (base, bytes) regions (harness regions).
   struct Seg { uint64_t base; std::vector<uint8_t> bytes; };
   std::vector<Seg> segs;
+  // Whole-file flat image view (run.py maps a flat dump: file offset = VA -
+  // flat_base). A private copy-on-write mapping in the diff main, so writes
+  // persist across cases as in the harness. Null means no image view.
+  uint8_t* flat = nullptr;
+  uint64_t flat_base = 0, flat_size = 0;
   const uint8_t* find(uint64_t addr, unsigned n) const {
     for (const auto& r : img) {
       if (r.va <= addr && addr + n <= r.va + r.bytes.size())
@@ -24,6 +29,8 @@ struct PesMem {
       if (s.base <= addr && addr + n <= s.base + s.bytes.size())
         return s.bytes.data() + (addr - s.base);
     }
+    if (flat && flat_base <= addr && addr + n <= flat_base + flat_size)
+      return flat + (addr - flat_base);
     return nullptr;
   }
   uint8_t* wfind(uint64_t addr, unsigned n) {
@@ -31,6 +38,8 @@ struct PesMem {
       if (s.base <= addr && addr + n <= s.base + s.bytes.size())
         return s.bytes.data() + (addr - s.base);
     }
+    if (flat && flat_base <= addr && addr + n <= flat_base + flat_size)
+      return flat + (addr - flat_base);
     return nullptr;
   }
   uint64_t rd(uint64_t addr, unsigned n) const {
@@ -61,6 +70,16 @@ struct PesMem {
     if (uint8_t* p = wfind(addr, 8)) std::memcpy(p, &d, 8);
   }
 };
+
+// Read n bytes at offset off of a baked read-only image window of len bytes
+// (build-time bytes of PES's image). Offsets outside the window read 0; the
+// window's bound comes from the translator's guard analysis (xlate.bounded_index).
+static inline uint64_t ro_rd(const uint8_t* t, uint64_t len, uint64_t off,
+                             unsigned n) {
+  uint64_t v = 0;
+  if (off <= len && n <= len - off) std::memcpy(&v, t + off, n);
+  return v;
+}
 
 struct PesState {
   uint64_t gpr[16] = {};

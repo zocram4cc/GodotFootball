@@ -103,6 +103,7 @@ class Image:
         self.path = path
         self.f = open(path, "rb")
         self.size = os.fstat(self.f.fileno()).st_size
+        self._secs = None
 
     def read(self, va, n):
         off = va - BASE
@@ -113,6 +114,45 @@ class Image:
         if len(blob) != n:
             raise SystemExit("xlate: image unreadable at %#x" % va)
         return blob
+
+    def writable(self, va):
+        """True if the VA lives in a writable image section (.data etc).
+
+        Reads the section table from the image itself (no bridge). The
+        unpacked dump keeps the packed layout's section table, so VAs
+        map the same way. Unknown VA -> writable (safe: live memory
+        read, never a stale baked constant).
+        """
+        if self._secs is None:
+            self._secs = []
+            try:
+                self.f.seek(0x3C)
+                pe = int.from_bytes(self.f.read(4), "little")
+                self.f.seek(pe + 6)
+                nsec = int.from_bytes(self.f.read(2), "little")
+                self.f.seek(pe + 20)
+                ohsize = int.from_bytes(self.f.read(2), "little")
+                self.f.seek(pe + 24 + 24)
+                base = int.from_bytes(self.f.read(8), "little")
+                self.f.seek(pe + 24 + ohsize)
+                for _ in range(min(nsec, 64)):
+                    raw = self.f.read(40)
+                    if len(raw) < 40:
+                        break
+                    vsize, rva = int.from_bytes(raw[8:12], "little"), \
+                        int.from_bytes(raw[12:16], "little")
+                    rsize = int.from_bytes(raw[16:20], "little")
+                    flags = int.from_bytes(raw[36:40], "little")
+                    size = max(vsize, rsize)
+                    if size and rsize:
+                        self._secs.append((base + rva, size,
+                                           bool(flags & 0x80000000)))
+            except OSError:
+                pass
+        for sva, ssize, wr in self._secs:
+            if sva <= va < sva + ssize:
+                return wr
+        return True
 
 
 def reg_parent(name):
@@ -159,6 +199,81 @@ def sext(expr, bits):
     # ((int64_t)(bits << sh) >> sh) sign-extends; the old order shifted
     # the unsigned value (logical) and cast after, which zero-extends.
     return "(((int64_t)(((uint64_t)(%s) << %d))) >> %d)" % (expr, sh, sh)
+
+
+def find_guards(lines):
+    """(cmp index, index register parent, bound, jcc index, jcc, target) for
+    each CMP reg, imm directly followed by a Jcc to a VA in the body."""
+    out = []
+    for i in range(len(lines) - 1):
+        _, m, ops = lines[i]
+        if m != "CMP" or len(ops) != 2 or not is_imm(ops[1]):
+            continue
+        _, m2, ops2 = lines[i + 1]
+        if not m2.startswith("J") or cc_of(m2) is None or not is_imm(ops2[0]):
+            continue
+        out.append((i, PARENT.get(ops[0].strip().lower()), imm_val(ops[1]),
+                    i + 1, m2.upper(), imm_val(ops2[0])))
+    return out
+
+
+def bounded_index(em, p, ia):
+    """How many index values (0..n-1) the guard before access ia admits for
+    index register parent p, or None when no guard governs the access."""
+    lines = em.lines
+    k = ia - 1
+    while k >= 0 and not (lines[k][2] and
+                          PARENT.get(lines[k][2][0].strip().lower()) == p):
+        k -= 1
+    if k < 0 or lines[k][1] not in ("MOVSXD", "MOVZX", "MOV") or \
+            len(lines[k][2]) != 2:
+        return None
+    src = PARENT.get(lines[k][2][1].strip().lower())
+    acc = lines[ia][0]
+    count = None
+    for _, greg, bound, ji, mn, tgt in em.guards:
+        if greg != src or ji >= k:
+            continue
+        if any(lines[x][2] and
+               PARENT.get(lines[x][2][0].strip().lower()) == src
+               for x in range(ji + 1, k)):
+            continue
+        if lines[ji][0] < acc < tgt:  # access on the fall-through path
+            if any(lines[x][0] in em.labels for x in range(ji + 1, ia + 1)):
+                continue
+            if mn in ("JA", "JNBE", "JG", "JNLE"):
+                count = bound + 1
+            elif mn in ("JAE", "JNB", "JGE", "JNL"):
+                count = bound
+        elif acc >= tgt:  # access on the taken path
+            if any(lines[x][0] in em.labels and lines[x][0] > tgt
+                   for x in range(ji + 1, ia + 1)):
+                continue
+            if mn in ("JB", "JNAE", "JL", "JNGE"):
+                count = bound
+            elif mn in ("JBE", "JNA", "JLE", "JNG"):
+                count = bound + 1
+    return count
+
+
+def lea_const(em, breg, ia):
+    """The absolute VA register parent breg holds from a straight-line
+    LEA breg, [abs] before access ia; None where that is not known."""
+    lines = em.lines
+    k = ia - 1
+    while k >= 0:
+        a, m, ops = lines[k]
+        if ops and PARENT.get(ops[0].strip().lower()) == breg:
+            if m == "LEA" and len(ops) == 2 and "[" in ops[1]:
+                mp = parse_mem(ops[1][ops[1].find("[") + 1:ops[1].rfind("]")])
+                if mp and mp["absolute"] is not None and mp["base"] is None \
+                        and mp["index"] is None:
+                    return mp["absolute"]
+            return None
+        if a in em.labels:
+            return None  # a join point between the LEA and the access
+        k -= 1
+    return None
 
 
 def parse_mem(inner):
@@ -211,6 +326,11 @@ class Emitter:
         self.tables = {}  # table VA -> {"words": [...], "base": va}
         self.siblings = set()  # in-set callees + tail targets referenced
         self.out = []  # body lines (labels included)
+        self.lines = []  # body being emitted (set by emit_function)
+        self.labels = set()
+        self.guards = []
+        self.cur = None  # index of the instruction being emitted
+        self.ro_tabs = {}  # (window VA, span) -> bytes of baked table windows
 
     def bake(self, va, n):
         if (va, n) not in self.consts:
@@ -229,6 +349,35 @@ class Emitter:
             terms.append("(0x%XULL)" % (d & 0xFFFFFFFFFFFFFFFF) if d >= 0 else "(0ULL - 0x%XULL)" % (-d))
         return ("(%s)" % " + ".join(terms)) if terms else "0ULL"
 
+    def bake_ro(self, mp, width, flt):
+        """A register-indexed read of a read-only image table whose base is a
+        LEA constant and whose index a guard bounds: bake the window the guard
+        admits (build-time bytes, VA-cited). None when any part is unknown."""
+        if self.cur is None or width == 128:
+            return None
+        base = lea_const(self, PARENT.get(mp["base"], mp["base"]), self.cur)
+        count = bounded_index(self, PARENT.get(mp["index"], mp["index"]),
+                              self.cur)
+        if base is None or count is None:
+            return None
+        n = 4 if (flt == "f32" or width == 32) else width // 8
+        if flt == "f64":
+            n = 8
+        start = base + mp["disp"]
+        span = count * mp["scale"] + n
+        if not (BASE <= start and start + span <= BASE + self.img.size):
+            return None
+        if self.img.writable(start) or self.img.writable(start + span - 1):
+            return None
+        self.ro_tabs[(start, span)] = self.img.read(start, span)
+        rd = "ro_rd(k_t%X_%X, %d, (uint64_t)(%s) * %dULL, %d)" % (
+            start, span, span, reg_read(mp["index"]), mp["scale"], n)
+        if flt == "f32":
+            return "PesState::f32((uint32_t)%s)" % rd
+        if flt == "f64":
+            return "PesState::f64(%s)" % rd
+        return rd
+
     def mem_val(self, memtxt, width, flt):
         """C expression reading memory. width in bits; flt in (None,'f32','f64')."""
         if "[" in memtxt:
@@ -238,9 +387,23 @@ class Emitter:
             return "/*BADMEM %s*/0ULL" % memtxt
         if mp["absolute"] is not None:
             va = mp["absolute"]
+            if self.img.writable(va):
+                # Writable section (.data etc.) or unknown: a live global
+                # the harness maps (patch_addrs shadows, region linkage).
+                # Never bake: read the same memory the harness provides.
+                n = 4 if (flt == "f32" or width == 32) else width // 8
+                if flt == "f64":
+                    n = 8
+                if width == 128:
+                    return "s.rd128(0x%XULL)" % va
+                if flt == "f32":
+                    return "s.rdf(0x%XULL)" % va
+                if flt == "f64":
+                    return "s.rdd(0x%XULL)" % va
+                return "s.rd(0x%XULL, %d)" % (va, n)
             if width == 128:
                 self.bake(va, 16)
-                return "s.rd128(k_c%X)" % va
+                return "(k_c%X)" % va
             n = 4 if (flt == "f32" or width == 32) else width // 8
             if flt == "f64":
                 n = 8
@@ -256,6 +419,10 @@ class Emitter:
             if n == 2:
                 return "k_c%X_h" % va
             return "k_c%X_b" % va
+        if mp["base"] is not None and mp["index"] is not None:
+            baked = self.bake_ro(mp, width, flt)
+            if baked is not None:
+                return baked
         a = self.addr_expr(mp)
         if width == 128:
             return "s.rd128(%s)" % a
@@ -391,12 +558,13 @@ class Emitter:
             return [self.mem_store(inner, v, w, None)]
         if "[" in src:
             inner = src[src.find("["):]
-            v = self.mem_val(inner, w, None)
+            # MOVZX/MOVSX load as wide as the SOURCE operand (MOVZX eax, byte
+            # ptr [..] reads one byte); MOVSXD reads a dword.
+            sw = self.op_width(src) if ext else w
+            if ext == "sx" and sw == 64:
+                sw = 32
+            v = self.mem_val(inner, sw, None)
             if ext == "sx":
-                # source width: from src ptr size or 32 for MOVSXD
-                sw = self.op_width(src)
-                if sw == 64:
-                    sw = 32
                 v = sext(v, sw)
             return [reg_write(dst, v)]
         v = self.val_of(src, w)
@@ -1152,15 +1320,23 @@ def capstone_decode(image_path, va):
             if not pending:
                 break
         if m == "jmp":
-            # Unconditional JMP imm: a local goto continues the body, but
-            # a tail jump to another VA ends it (call-closed set: the
+            # Unconditional JMP imm: a local goto continues the body.
+            # A tail jump to another VA ends it (call-closed set: the
             # target is a different function, in-set or out; the bridge
-            # listings end there too). JMP reg (switch) never ends the
-            # body here: its targets resolve in prepass.
+            # listings end there too) unless a branch target inside this
+            # body's window still lies ahead (dead code after the jump that
+            # a Jcc reaches, e.g. 140A533A0's JNZ->0x140A533EC). Targets
+            # outside the window never keep decoding: their code is not
+            # here (140A40820 and 140A42940 ran on into garbage and emitted
+            # gotos to labels that were never defined). JMP reg (switch)
+            # never ends the body here: its targets resolve in prepass.
             try:
                 t = int(ins.op_str.strip().split(",")[0].strip(), 16)
                 if t < va or t >= va + 0x2000:
-                    break
+                    pending = {x for x in pending
+                               if va <= x < va + 0x2000 and x > ins.address}
+                    if not pending:
+                        break
             except ValueError:
                 pass
     return out
@@ -1331,7 +1507,9 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
     addrs = {a for a, _, _ in lines}
     ctx = {"jmpreg": jmpreg, "addrs": addrs, "stubs": stubs or {}}
     body = []
-    for addr, mnem, ops in lines:
+    em.lines, em.labels, em.guards = lines, labels, find_guards(lines)
+    for idx, (addr, mnem, ops) in enumerate(lines):
+        em.cur = idx
         if addr in labels:
             body.append("L_%X:;" % addr)
         m = mnem.upper()
@@ -1391,6 +1569,17 @@ def const_decls(em):
     return decls
 
 
+def ro_decls(em):
+    """Baked read-only image windows: build-time bytes of PES's image."""
+    decls = []
+    for (start, span), blob in sorted(em.ro_tabs.items()):
+        decls.append("// image window @ 0x%X (%d bytes, read-only)"
+                     % (start, span))
+        decls.append("static constexpr uint8_t k_t%X_%X[%d] = {%s};" % (
+            start, span, span, ", ".join("0x%02X" % b for b in blob)))
+    return decls
+
+
 def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
                   stubs=None):
     img = Image(image_path)
@@ -1416,6 +1605,7 @@ def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
             '#include "pes_cond.inl"',
             ""]
     head.extend(const_decls(em))
+    head.extend(ro_decls(em))
     head.append("")
     head.append("void pes_fn_%s(PesState& s);" % va[2:])
     for sib in sorted(em.siblings):

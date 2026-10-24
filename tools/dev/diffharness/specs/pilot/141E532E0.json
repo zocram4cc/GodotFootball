@@ -13,8 +13,20 @@
  "args": {},
  "regions_init": {},
  "patch_addrs": {},
- "inputs": {},
- "input_schema": {},
+ "inputs": {
+  "G_14351AE50": {
+   "absolute": "0x14351AE50",
+   "enc": "u32"
+  }
+ },
+ "input_schema": {
+  "G_14351AE50": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 0..255 (case value of the dword this leaf loads, written as u32)"
+  }
+ },
  "outputs": {
   "ret_eax": {
    "reg": "eax"
@@ -27,9 +39,7 @@
   "indirect_calls": [],
   "tailjumps": [],
   "unresolved_mem": 0,
-  "live_data_reads": [
-   "IMG"
-  ],
+  "live_data_reads": [],
   "live_data_writes": [],
   "rdata_constant_reads": [],
   "stack_args": {},
