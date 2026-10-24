@@ -141,6 +141,35 @@ TEST(PesTeamTick, RestartKindIsThePesStoppageCode) {
   EXPECT_EQ(pes::RestartKindOf(e_SetPiece_Penalty), 6);
 }
 
+// The period-end restart kind (plan-selector §4): PES raises restart 7 (thunk 0x143F559F0 behind
+// gate 0x14050C3E0) and holds it until the next award overwrites it. The next kick-off reads a
+// fresh 1, so 7 changes no branch (the rows rule only special-cases 1, the selector only tests 2).
+TEST(PesTeamTick, PeriodEndRestartKindIsSeven) {
+  EXPECT_EQ(pes::RestartKindOf(e_SetPiece_PeriodEnd), 7);
+}
+
+// The mode-word copy (plan-selector §5: 0x1404F6DBD MOVs +0xBCC to T+0x134 between the decider and
+// the drift, so the drift reads the previous tick's word). The copy carries the whole mode word,
+// including the keep sentinel below zero.
+TEST(PesTeamTick, ModeWordCopyCarriesBccTo134) {
+  pes::TeamTick tick;
+  tick.modeBcc = 3;
+  pes::CopyModeWord(&tick);
+  EXPECT_EQ(tick.word134, 3);
+  tick.modeBcc = -1;
+  pes::CopyModeWord(&tick);
+  EXPECT_EQ(tick.word134, -1);
+}
+
+// The stoppage plan-2 rule (plan-selector §1: 0x140500FA9-DB7): the sheet's current plan stands
+// when the setup word is zero or it is already 2; otherwise the selector writes plan 2.
+TEST(PesTeamTick, StoppagePlanTwoRule) {
+  EXPECT_EQ(pes::StoppagePlan2(/*current=*/0, /*setupNonZero=*/false), 0);
+  EXPECT_EQ(pes::StoppagePlan2(/*current=*/2, /*setupNonZero=*/true), 2);
+  EXPECT_EQ(pes::StoppagePlan2(/*current=*/0, /*setupNonZero=*/true), 2);
+  EXPECT_EQ(pes::StoppagePlan2(/*current=*/1, /*setupNonZero=*/true), 2);
+}
+
 // T2b: step 9's out-of-play branch (0x14050247E-0x140502740) zeroes both reaction-delay banks,
 // T+0x6A4[11] and T+0xB860[11], on every call while MI+0x116C != 1. The in-play half of step 9 is
 // OPEN, so this test checks the return of the call in play and not the banks it leaves there.

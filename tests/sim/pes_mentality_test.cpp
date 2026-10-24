@@ -66,6 +66,16 @@ TEST(MentalityRoleLevel, InPlayIgnoresTheRestartKind) {
   EXPECT_EQ(2, mentality::RoleLevel(false, kPlayStateInPlay, kRestartKindOne));
 }
 
+// The role state at IsInPlay && IsInSetPiece (plan-selector §1 vs roles §2; the seed-7 run's 754
+// ticks): PES's state is 1 there (the in-play arm is taken when MI+0x116C == 1), so the set-piece
+// flag is not folded into the state. The EC600 override then cannot fire in play.
+TEST(MentalityRolePlayState, InPlayWithASetPieceIsStillOne) {
+  EXPECT_EQ(1, mentality::RolePlayState(true, true));
+  EXPECT_EQ(1, mentality::RolePlayState(true, false));
+  EXPECT_EQ(2, mentality::RolePlayState(false, true));
+  EXPECT_EQ(2, mentality::RolePlayState(false, false));
+}
+
 // Rule 1: the role of each slot is read from the matrix row of the level.
 TEST(MentalityRoleRows, EachLevelReadsItsOwnRow) {
   std::array<int, pes::roles::kRegisteredRoles> classOf{};
