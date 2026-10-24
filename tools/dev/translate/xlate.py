@@ -499,7 +499,7 @@ class Emitter:
                 out.append("  s.zf = (_r == 0); s.sf = ((_r >> %d) & 1);"
                            % (w - 1))
                 out.append("  s.cf = (_r < (_a & %sULL));" % mm)
-                out.append("  s.of = (((_a ^ ~_b) & (_a ^ _r)) >> %d) & 1; }"
+                out.append("  s.of = (((_a ^ ~_b) & (_a ^ _r)) >> %d) & 1;"
                            % (w - 1))
             else:  # SUB
                 out.append("{ uint64_t _a = (uint64_t)(%s), _b = "
@@ -509,18 +509,18 @@ class Emitter:
                            % (w - 1))
                 out.append("  s.cf = ((_a & %sULL) < (_b & %sULL));" % (mm,
                                                                         mm))
-                out.append("  s.of = (((_a ^ _b) & (_a ^ _r)) >> %d) & 1; }"
+                out.append("  s.of = (((_a ^ _b) & (_a ^ _r)) >> %d) & 1;"
                            % (w - 1))
         if m not in ("CMP", "TEST"):
             if "[" in dst:
                 inner = dst[dst.find("["):]
-                out.append("  " + self.mem_store(inner, "_r", w, None)
-                           + " }")
+                out.append("  " + self.mem_store(inner, "_r", w, None))
             else:
-                out.append("  " + reg_write(dst, "_r") + " }")
+                out.append("  " + reg_write(dst, "_r"))
+            out.append("}")
         else:
             out.append("}")
-        return [" ".join(out)]
+        return out
     def do_unary(self, m, ops):
         dst = ops[0]
         w = self.op_width(dst)
@@ -531,33 +531,27 @@ class Emitter:
             out = ["{ uint64_t _a = (uint64_t)(%s), _r = (_a + 1) & %sULL;"
                    % (a, mm),
                    "  s.zf = (_r == 0); s.sf = ((_r >> %d) & 1);" % (w - 1),
-                   "  s.of = (_a == %sULL); }" % (mm,)]
+                   "  s.of = (_a == %sULL);" % (mm,)]
         elif m == "DEC":
             out = ["{ uint64_t _a = (uint64_t)(%s), _r = (_a - 1) & %sULL;"
                    % (a, mm),
                    "  s.zf = (_r == 0); s.sf = ((_r >> %d) & 1);" % (w - 1),
-                   "  s.of = (_a == 0); }"]
+                   "  s.of = (_a == 0);"]
         elif m == "NEG":
             out = ["{ uint64_t _a = (uint64_t)(%s), _r = (0ULL - _a) & %sULL;"
                    % (a, mm),
                    "  s.zf = (_r == 0); s.sf = ((_r >> %d) & 1);" % (w - 1),
                    "  s.cf = (_a != 0);",
-                   "  s.of = (_a == (1ULL << %d)); }" % (w - 1)]
+                   "  s.of = (_a == (1ULL << %d));" % (w - 1)]
         else:  # NOT: no flags
             out = ["{ uint64_t _r = (~(uint64_t)(%s)) & %sULL;" % (a, mm)]
-        if m == "NOT":
-            if "[" in dst:
-                out.append(self.mem_store(dst[dst.find("["):], "_r", w,
-                                           None) + " }")
-            else:
-                out.append(reg_write(dst, "_r") + " }")
-            return [" ".join(out)]
         if "[" in dst:
-            out.append(self.mem_store(dst[dst.find("["):], "_r", w,
-                                       None) + " }")
+            out.append("  " + self.mem_store(dst[dst.find("["):], "_r", w,
+                                              None))
         else:
-            out.append(reg_write(dst, "_r") + " }")
-        return [" ".join(out)]
+            out.append("  " + reg_write(dst, "_r"))
+        out.append("}")
+        return out
 
     def do_shift(self, m, ops):
         dst = ops[0]
@@ -566,7 +560,6 @@ class Emitter:
               64: "0xFFFFFFFFFFFFFFFF"}[w]
         a = self.val_of(dst, w)
         c = self.val_of(ops[1], 8) if len(ops) > 1 else "1ULL"
-        sop = {"SHL": "<<", "SHR": ">>", "SAR": ">>"}[m]
         if m == "SHL":
             r = "((_a << (_c & %d)) & %sULL)" % (w - 1 if w < 64 else 63,
                                                  mm)
@@ -584,10 +577,11 @@ class Emitter:
                "  s.cf = false; s.of = false;"]
         if "[" in dst:
             out.append("  " + self.mem_store(dst[dst.find("["):], "_r", w,
-                                              None) + " }")
+                                              None))
         else:
-            out.append("  " + reg_write(dst, "_r") + " }")
-        return [" ".join(out)]
+            out.append("  " + reg_write(dst, "_r"))
+        out.append("}")
+        return out
 
     def do_mul(self, m, ops):
         if m == "MUL" and len(ops) == 1:
@@ -991,7 +985,16 @@ class Emitter:
         if m == "JMP":
             o = ops[0].strip()
             if is_imm(o):
-                return ["goto L_%X;" % imm_val(o)]
+                # In-range target: local goto. Out-of-range target: it is a
+                # tail call to a sibling (the pilot set is call-closed);
+                # emit a direct call + return, never an undefined goto.
+                tgt = "0x%X" % imm_val(o)
+                addrs = ctx.get("addrs", set())
+                if not addrs or imm_val(o) in addrs:
+                    return ["goto L_%X;" % imm_val(o)]
+                if tgt in self.pilot:
+                    return ["{ pes_fn_%s(s); return; }" % tgt[2:]]
+                return ["/*OUT-OF-RANGE JMP %s*/return;" % tgt]
             # JMP reg: switch dispatch (resolved in prepass) or tailjump
             info = ctx.get("jmpreg", {}).get(addr)
             if info and info.get("table") is not None:
@@ -1179,7 +1182,8 @@ def prepass(lines, img):
     return labels, jmpreg
 
 def emit_function(em, va, lines, labels, jmpreg, pilot):
-    ctx = {"jmpreg": jmpreg}
+    addrs = {a for a, _, _ in lines}
+    ctx = {"jmpreg": jmpreg, "addrs": addrs}
     body = []
     for addr, mnem, ops in lines:
         if addr in labels:
