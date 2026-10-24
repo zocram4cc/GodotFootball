@@ -37,9 +37,11 @@ int Band(unsigned int conditionByte);
 Arrow ArrowForBand(int band);
 Arrow ArrowForConditionByte(unsigned int conditionByte);
 // FUN_14092AF10's apply-time shift (0x14092B4CE-0x14092B5DB): the own team with
-// T+0xA298 state 3 takes index 0, the opponent one step worse capped at 4, both
-// gated by the /100 == 6 level-class predicate.
-Arrow ApplyTeamShift(Arrow arrow, bool ownTeam, bool teamModeThree, bool levelClassSix);
+// T+0xA298 state 3 takes index 0; the opponent one step worse capped at 4. The
+// opponent path's /100 == 6 test reads the OTHER side (0x14092B516 R12D^1: the
+// side being shifted), so it takes the opponent side's class, never the own.
+Arrow ApplyTeamShift(Arrow arrow, bool ownTeam, bool teamModeThree, bool ownLevelClassSix,
+                     bool oppLevelClassSix);
 // Green x1.0 and out-of-range indices write nothing (0x14092B59B/5A0).
 bool ArrowWritesStats(Arrow arrow);
 

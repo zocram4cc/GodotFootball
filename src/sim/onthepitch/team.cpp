@@ -94,7 +94,11 @@ void Team::InitPlayers() {
   // sides carry the stock default (class 5, mode 4), so the shift below is inert.
   // ponytail: T+0xA29C (the zero flag) is always false in GF until the setup record import lands
   // (docs/re/pes-re-team-status.md 5), so the reader is teamLevelRaw alone.
-  const bool levelClassSix = match->GetPesCarrierConstants().teamLevelRaw / 100 == 6;
+  // The shift's /100 == 6 test reads the side being shifted (FUN_14092AF10 0x14092B516 R12D^1):
+  // this team's word feeds both legs - the own leg ignores it (no level gate on the state-3
+  // leg), the opponent leg tests it as the shifted side. Never the other side's word.
+  const bool ownLevelClassSix = match->GetTeamLevelRaw(id) / 100 == 6;
+  const bool oppLevelClassSix = ownLevelClassSix;
   int arrowsDealt[(int)FormState::Arrow::Count] = {0, 0, 0, 0, 0};
 
   // load all players in the team, even the players who sit on the bench. aww.
@@ -104,7 +108,7 @@ void Team::InitPlayers() {
     Player* player = playerPtr.get();
     const FormState::Arrow arrow = FormState::ApplyTeamShift(
         FormState::ArrowForConditionByte(match->ConditionByteOf(playerData)),
-        /*ownTeam=*/id == 0, /*teamModeThree=*/false, levelClassSix);
+        /*ownTeam=*/id == 0, /*teamModeThree=*/false, ownLevelClassSix, oppLevelClassSix);
     player->SetConditionArrow(arrow);
     // PES's stamina tank at kick-off (docs/re/pes-re-stamina-drain.md 2): the
     // Stamina ability with PES's tiered scaling, the condition arrow the same

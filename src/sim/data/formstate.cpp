@@ -83,15 +83,19 @@ Arrow ArrowForBand(int band) {
 
 Arrow ArrowForConditionByte(unsigned int conditionByte) { return ArrowForBand(Band(conditionByte)); }
 
-Arrow ApplyTeamShift(Arrow arrow, bool ownTeam, bool teamModeThree, bool levelClassSix) {
+Arrow ApplyTeamShift(Arrow arrow, bool ownTeam, bool teamModeThree, bool ownLevelClassSix,
+                     bool oppLevelClassSix) {
   // FUN_14092AF10 (0x14092B4CE-0x14092B5DB), translated to GF space where Top=4
   // and PES index = 4 - GF arrow. Own team with T+0xA298 state 3 -> PES index
-  // 0 = Top; the opponent one step worse (PES min(arrow+1,4)), both gated by
-  // the /100 == 6 level-class predicate (docs/re/pes-re-team-status.md).
+  // 0 = Top (no level gate on that leg: the state-3 check comes first). The
+  // opponent one step worse (PES min(arrow+1,4)), gated by the /100 == 6 test
+  // on the opponent side's own word (0x14092B516 R12D^1), so ownLevelClassSix
+  // is unused on this path (docs/re/pes-re-team-status.md).
+  (void)ownLevelClassSix;
   int pes = 4 - (int)arrow;
   if (ownTeam) {
     if (teamModeThree) pes = 0;
-  } else if (levelClassSix && pes < 4) {
+  } else if (oppLevelClassSix && pes < 4) {
     pes += 1;
   }
   return (Arrow)(4 - pes);

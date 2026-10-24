@@ -304,6 +304,11 @@ public:
   // PES's per-team setup rating (pes::SetupStrength over the starting eleven),
   // written once at match load: the strategy decider compares the two sides.
   float GetTeamSetupStrength(int teamID) const { return teamSetupStrength[teamID]; }
+  // PES's per-side level word T+0xA294 (docs/re/pes-re-team-status.md 5): the
+  // condition shift's /100 == 6 test reads the side being shifted (FUN_14092AF10
+  // 0x14092B516 R12D^1), so each side carries its own. Both are the stock
+  // default until the team-setup import sources them per side.
+  int GetTeamLevelRaw(int teamID) const { return teamLevelRaw[teamID]; }
   // PES 2021's team sheet defaults and concepts (docs/re/pes-re-tactics.md 2).
   const pes::TeamConceptConstants& GetPesTeamConceptConstants() const { return pesTeamConceptConstants; }
   const pes::formation::FormationTables* GetPesFormations() const {
@@ -635,6 +640,7 @@ protected:
   pes::offball::OffBallConstants pesOffBallConstants{};
   pes::StrategyConstants pesStrategyConstants{};
   std::array<float, 2> teamSetupStrength{};
+  std::array<int, 2> teamLevelRaw{};
   pes::TeamConceptConstants pesTeamConceptConstants{};
   pes::SubstitutionConstants pesSubstitutionConstants{};
   pes::SetPieceTakerConstants pesSetPieceTakerConstants{};

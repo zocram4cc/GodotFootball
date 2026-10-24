@@ -65,11 +65,13 @@ int ConditionArrow(int band) {
   }
 }
 
-int ApplyConditionShift(int pesArrow, bool ownTeam, bool teamModeThree, bool levelClassSix) {
+int ApplyConditionShift(int pesArrow, bool ownTeam, bool teamModeThree, bool ownLevelClassSix,
+                        bool oppLevelClassSix) {
+  (void)ownLevelClassSix;  // the opponent path tests the other side (0x14092B516 R12D^1)
   int arrow = pesArrow;
   if (ownTeam) {
     if (teamModeThree) arrow = 0;  // 0x14092B4EF cmp eax,3 / je -> mov ebx,r14d
-  } else if (levelClassSix && arrow < 4) {
+  } else if (oppLevelClassSix && arrow < 4) {
     arrow += 1;  // 0x14092B57B cmp ebx,4 / 0x14092B580 inc ebx
   }
   return arrow;
