@@ -37,6 +37,14 @@ inline constexpr int kRestartKindOne = 1;
 // 2 when the team is out of possession, 1 when it has the ball, and 0 when the play state is not
 // open play and MI+0x1554 == 1. The matrix row read is the level (RoleRow in pesroles).
 int RoleLevel(bool possession, int playState, int restartKind);
+// The play state the role level reads (plan-selector §1 vs roles §2): 1 while the ball is in play,
+// even with a set piece armed or taken (the seed-7 run's 754 ticks take PES's in-play arm there);
+// 2 in every stoppage. The set-piece flag is deliberately not an input: EC600's override tests
+// MI+0x116C == 1 first, so it cannot fire in play.
+inline int RolePlayState(bool inPlay, bool inSetPiece) {
+  (void)inSetPiece;
+  return inPlay ? kPlayStateInPlay : 2;
+}
 
 // The shared reclassify (blocks §2). FUN_1405EC600 dispatches class -> line through a jump table
 // at VA 0x1405ED1F4 (nine RVAs, index class - 1, dispatch 0x1405ECB3D-47); each arm stores its
@@ -93,10 +101,10 @@ struct LaneInput {
   std::array<int, kSlots> active{};   // MI+0x1748, 0 = inactive; all active when all zero
   int designated = -1;                // P+0x3EF8, -1 when none (GF: the publisher has no slot id yet)
 };
-// FUN_1405CE4F0's stoppage step (lane-writers 2 step 3, VA 0x1405CE4F0): MI+0x11D4 == 0 and (MI+0x116C == 2 or MI+0x11B0 <
-// 0x15) sets the copy flag LX+0x1B0 to 0, so the copy path runs. GF passes its PesPlayState (1 in play, 2 stopped) for
-// MI+0x116C and the restart-step cursor (Match::PesRestartStepNow) for MI+0x11B0. GF has no MI+0x11D4 word (read as 0), and
-// the MI+0x116C == 3 arm needs a frame counter GF lacks (ponytail: GF's play states here are 1 and 2).
+// FUN_1405CE4F0's stoppage step (lane-writers 2 step 3, VA 0x1405CE4F0): MI+0x11D4 == 0 and (MI+0x116C == 2 or MI+0x11B0 < 0x15)
+// sets the copy flag LX+0x1B0 to 0, so the copy path runs. GF passes its RolePlayState (1 in play, 2 stopped) for MI+0x116C and
+// the restart-step cursor (Match::PesRestartStepNow) for MI+0x11B0. GF has no MI+0x11D4 word (read as 0), and the MI+0x116C == 3
+// arm needs a frame counter GF lacks (ponytail: GF's play states here are 1 and 2).
 bool StoppageResetsCopyFlag(int playState116c, int word11d4, int word11b0);
 // CE4F0's copy gate on the raw flag LX+0x1B0: 0 runs the copy path (A := B), 1 (set) runs the recompute.
 bool CopyPathRuns(int copyFlag);

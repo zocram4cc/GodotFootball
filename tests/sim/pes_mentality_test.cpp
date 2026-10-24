@@ -66,6 +66,16 @@ TEST(MentalityRoleLevel, InPlayIgnoresTheRestartKind) {
   EXPECT_EQ(2, mentality::RoleLevel(false, kPlayStateInPlay, kRestartKindOne));
 }
 
+// The role state at IsInPlay && IsInSetPiece (plan-selector §1 vs roles §2; the seed-7 run's 754
+// ticks): PES's state is 1 there (the in-play arm is taken when MI+0x116C == 1), so the set-piece
+// flag is not folded into the state. The EC600 override then cannot fire in play.
+TEST(MentalityRolePlayState, InPlayWithASetPieceIsStillOne) {
+  EXPECT_EQ(1, mentality::RolePlayState(true, true));
+  EXPECT_EQ(1, mentality::RolePlayState(true, false));
+  EXPECT_EQ(2, mentality::RolePlayState(false, true));
+  EXPECT_EQ(2, mentality::RolePlayState(false, false));
+}
+
 // Rule 1: the role of each slot is read from the matrix row of the level.
 TEST(MentalityRoleRows, EachLevelReadsItsOwnRow) {
   std::array<int, pes::roles::kRegisteredRoles> classOf{};
@@ -136,7 +146,7 @@ TEST(MentalityLaneB, WrapperMapsTheWordToTheLane) {
 }
 
 // Step 2: the CE4F0 stoppage step (MI+0x11D4 == 0 and (MI+0x116C == 2 or MI+0x11B0 < 0x15),
-// lane-writers §2 step 3). GF uses WriteRoleArrays' PesPlayState mapping (agreed with SheetTriple).
+// lane-writers §2 step 3). GF uses the role play state mapping (RolePlayState: 1 in play, 2 stopped).
 TEST(MentalityLaneC, StoppageStepResetsCopyFlag) {
   // MI+0x116C == 2 clears even with MI+0x11B0 at the bound (the arms are ORed, lane-writers §2).
   EXPECT_TRUE(mentality::StoppageResetsCopyFlag(2, 0, 0x15));
