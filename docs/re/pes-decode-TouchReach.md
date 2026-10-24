@@ -69,8 +69,8 @@ GF comparison (CONFIRMED from source):
 - Celebration length: `pes::fixdemo::LoadGoalScenes` reads `common/demo/fixdemo/goal/table_goal.bin` through the VFS. A scene lasts Σ(maxTime/60 + fade) over its steps, each step's cut being its group's first variant's first `.fdc`, maxTime of the first Cut record (1/60 s ticks; `pes-re-foul-choreography.md` §9.2).
 - Pick: `GoalSequence::PickCelebration` draws the primary from the generic pool (bit 6; goal level bit 11 as a stand-in), redrawn while it repeats the last goal's scene (ten draws, then scene 0). `GoalSequence::PickHug` draws the hug (bits 2 or 3, level bits 12 or 13) from the same generator, and the sequence is their sum (`pes-re-cutscenes.md` §4.3). Under that draw 10% of goals land in the live window (A5Judge §9.3a).
 - Post-scene programme: `pes::RunGoalProgramme` = wipe 100 ms (install), UI and teleport 980 ms (GF's `foulsequence.hpp`), fade-in 1000 ms (install), tail 250 ms (install). Prepare at the scene's end + 100 ms; armed at + 2330 ms.
-- Kick-off release: 88 frames after armed (`kKickOffReleaseFrames`; ponytail, A5Judge §9.3a).
-- Bound: `RestartLimitTicks` takes the longest sequence the pool can draw (`GoalSequence::LongestCelebration_ms`: the longest primary plus the longest hug) through the same programme, plus the 88 frames.
+- Kick-off release: 125 frames after armed (`kKickOffReleaseFrames`): PES's measured arm → 3 → 1 (`local://kickoff-counter-capture.md`: 118–139; A5Judge §9.3: 125). No GF touch term.
+- Bound: `RestartLimitTicks` takes the longest sequence the pool can draw (`GoalSequence::LongestCelebration_ms`: the longest primary plus the longest hug) through the same programme, plus the 125 frames.
 
 **Still open.** The 1758-tick overrun on main; the discriminating trace (per-tick `startTime`, `prepareTime`, `started`, `TouchAnim`, `TouchPending`); the goal-level source and the other scenes of the goal list, which decide whether the draw matches PES's window (A5Judge §9.3a); and which scenes the owner's live goals drew (not logged).
 

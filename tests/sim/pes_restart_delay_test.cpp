@@ -130,41 +130,62 @@ TEST(PesRestartDelay, EveryStoppageRestartsWithinTheInstallBoundWithPesLoop) {
   RunMatchWithinTheBound(true, MINUTES, nullptr);
 }
 
-// A goal's restart follows PES's live goal programme (docs/re/pes-re-A5Judge.md 9.3a, live 22-10-26): goal -> ready
-// (play 2 -> 3) is 757, 761 and 843 frames, and ready -> in play (3 -> 1) is 125 frames for a kick-off (9.3: 125-137 x7).
-// Read off the referee's own schedule for the first goal of seed 7's match.
-TEST(PesRestartDelay, AGoalIsReadyInPesWindowAndInPlayAfterItsKickOff) {
-  constexpr double kFrames = Match::kFramesPerSecond;
-  constexpr double kGoalToReadyMinFrames = 757, kGoalToReadyMaxFrames = 843;
-  constexpr double kReadyToInPlayMinFrames = 125, kReadyToInPlayMaxFrames = 137;
-  bool goalSeen = false, scheduled = false, inPlay = false;
-  unsigned long stopAt = 0, readyAt = 0, playAt = 0;
+// The first goal's restart in seed 7's pes-loop match: when its stoppage starts, when it is armed (PES's ready, 2 -> 3),
+// and the first tick in play (PES's 3 -> 1: MI+0x116C == 1, which IsInPlay() reads). The referee's own schedule.
+struct GoalRestartTiming {
+  bool scored = false;
+  bool inPlay = false;
+  unsigned long stopAt = 0, armedAt = 0, inPlayAt = 0;
+};
+GoalRestartTiming FirstGoalRestart() {
+  GoalRestartTiming t;
   RunMatchWithinTheBound(
       true, TWENTY_MINUTES,
       [&](Match& match) {
-        const int goals = match.GetMatchData()->GetGoalCount(0) + match.GetMatchData()->GetGoalCount(1);
-        if (goals > 0) goalSeen = true;
         const RefereeBuffer& b = match.GetRefereeBuffer();
-        if (goalSeen && !scheduled && b.stopTime > 0 && b.desiredSetPiece == e_SetPiece_KickOff) {
-          scheduled = true;
-          stopAt = b.stopTime;
-          readyAt = b.startTime;
+        if (!t.scored && b.active && b.goalRestart) {
+          t.scored = true;
+          t.stopAt = b.stopTime;
+          t.armedAt = b.startTime;
         }
-        if (scheduled && !inPlay && match.IsInPlay() && !match.IsInSetPiece()) {
-          inPlay = true;
-          playAt = match.GetActualTime_ms();
+        if (t.scored && !t.inPlay && match.IsInPlay()) {
+          t.inPlay = true;
+          t.inPlayAt = match.GetActualTime_ms();
         }
       },
-      kMaxSimTicks, [&](Match&) { return inPlay; }, SEED, false);
-  ASSERT_TRUE(goalSeen) << "seed 7 scored no goal in the run";
-  ASSERT_TRUE(scheduled) << "the goal's restart was never scheduled";
-  ASSERT_TRUE(inPlay) << "the goal's restart never put the ball in play";
-  const double goalToReady = (static_cast<double>(readyAt) - static_cast<double>(stopAt)) * kFrames / 1000.0;
-  const double readyToInPlay = (static_cast<double>(playAt) - static_cast<double>(readyAt)) * kFrames / 1000.0;
+      kMaxSimTicks, [&](Match&) { return t.inPlay; }, SEED, false);
+  return t;
+}
+
+// PES's kick-off leaves its armed step on the taker's kick action: 3 -> 1 comes 118-139 frames after arming over the
+// owner's live capture (local://kickoff-counter-capture.md, 23-10-26), and 125 frames over the seven kick-offs of
+// docs/re/pes-re-A5Judge.md 9.3. The window is the capture's bracket. The hold is measured to PES's state, not to GF's
+// taker's touch, which comes later.
+TEST(PesRestartDelay, AGoalsKickOffPutsTheBallInPlayInPesWindowAfterArming) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  constexpr double kFrames = Match::kFramesPerSecond;
+  constexpr double kArmedToInPlayMinFrames = 118, kArmedToInPlayMaxFrames = 139;
+  const GoalRestartTiming t = FirstGoalRestart();
+  ASSERT_TRUE(t.scored) << "seed 7 scored no goal in the run";
+  ASSERT_TRUE(t.inPlay) << "the goal's restart never put the ball in play";
+  const double armedToInPlay =
+      (static_cast<double>(t.inPlayAt) - static_cast<double>(t.armedAt)) * kFrames / 1000.0;
+  EXPECT_GE(armedToInPlay, kArmedToInPlayMinFrames) << "armed -> in play is " << armedToInPlay << " frames";
+  EXPECT_LE(armedToInPlay, kArmedToInPlayMaxFrames) << "armed -> in play is " << armedToInPlay << " frames";
+}
+
+// A goal's restart is armed once the celebration its draw picked has run (docs/re/pes-re-A5Judge.md 9.3a: goal -> ready
+// is 757-843 frames). Seed 7's first goal draws its celebration from the install's pool, so this window depends on the
+// level and the scenes the draw uses, which are not all decoded (A5Judge 9.3a, open).
+TEST(PesRestartDelay, AGoalIsReadyInPesWindowAfterItsScoring) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  constexpr double kFrames = Match::kFramesPerSecond;
+  constexpr double kGoalToReadyMinFrames = 757, kGoalToReadyMaxFrames = 843;
+  const GoalRestartTiming t = FirstGoalRestart();
+  ASSERT_TRUE(t.scored) << "seed 7 scored no goal in the run";
+  const double goalToReady = (static_cast<double>(t.armedAt) - static_cast<double>(t.stopAt)) * kFrames / 1000.0;
   EXPECT_GE(goalToReady, kGoalToReadyMinFrames) << "goal -> ready is " << goalToReady << " frames";
   EXPECT_LE(goalToReady, kGoalToReadyMaxFrames) << "goal -> ready is " << goalToReady << " frames";
-  EXPECT_GE(readyToInPlay, kReadyToInPlayMinFrames) << "ready -> in play is " << readyToInPlay << " frames";
-  EXPECT_LE(readyToInPlay, kReadyToInPlayMaxFrames) << "ready -> in play is " << readyToInPlay << " frames";
 }
 
 // The whole match at twenty minutes with pes_loop on. Seed 7's home keeper, taking a goal kick about

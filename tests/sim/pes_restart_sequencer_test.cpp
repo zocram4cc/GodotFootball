@@ -185,9 +185,9 @@ TEST(PesRestartSequencer, EachRestartIsReleasedOnItsMeasuredFrame) {
   EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 100000, true));
   EXPECT_FALSE(pes::MayRelease(e_SetPiece_Penalty, 53, false));
   EXPECT_TRUE(pes::MayRelease(e_SetPiece_Penalty, 54, false));
-  // A kick-off is held to its gate (pessequencer ReleaseFrames: the live 125 frames less the 37-frame touch).
-  EXPECT_FALSE(pes::MayRelease(e_SetPiece_KickOff, 87, false));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_KickOff, 88, false));
+  // A kick-off is held to PES's armed-to-in-play frame (pessequencer ReleaseFrames: 125, A5Judge 9.3 and the capture).
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_KickOff, 124, false));
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_KickOff, 125, false));
 }
 
 // A throw-in has no frame count: its taker's arrival releases it, however long he took. A timer
