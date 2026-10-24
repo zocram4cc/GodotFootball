@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include "onthepitch/pesteamtick.hpp"
+#include "onthepitch/pesrunslots.hpp"
 
 namespace {
 
@@ -141,6 +142,45 @@ TEST(PesTeamTick, RestartKindIsThePesStoppageCode) {
   EXPECT_EQ(pes::RestartKindOf(e_SetPiece_Penalty), 6);
 }
 
+// The period-end restart kind (plan-selector §4): PES raises restart 7 (thunk 0x143F559F0 behind
+// gate 0x14050C3E0) and holds it until the next award overwrites it. The next kick-off reads a
+// fresh 1, so 7 changes no branch (the rows rule only special-cases 1, the selector only tests 2).
+TEST(PesTeamTick, PeriodEndRestartKindIsSeven) {
+  EXPECT_EQ(pes::RestartKindOf(e_SetPiece_PeriodEnd), 7);
+}
+
+// The mode-word copy (plan-selector §5: 0x1404F6DBD MOVs +0xBCC to T+0x134 between the decider and
+// the drift, so the drift reads the previous tick's word). The copy carries the whole mode word,
+// including the keep sentinel below zero.
+TEST(PesTeamTick, ModeWordCopyCarriesBccTo134) {
+  pes::TeamTick tick;
+  tick.modeBcc = 3;
+  pes::CopyModeWord(&tick);
+  EXPECT_EQ(tick.word134, 3);
+  tick.modeBcc = -1;
+  pes::CopyModeWord(&tick);
+  EXPECT_EQ(tick.word134, -1);
+}
+
+// The stoppage plan-2 rule (plan-selector §1: 0x140500FA9-DB7): the sheet's current plan stands
+// when the setup word is zero or it is already 2; otherwise the selector writes plan 2.
+TEST(PesTeamTick, StoppagePlanTwoRule) {
+  EXPECT_EQ(pes::StoppagePlan2(/*current=*/0, /*setupNonZero=*/false), 0);
+  EXPECT_EQ(pes::StoppagePlan2(/*current=*/2, /*setupNonZero=*/true), 2);
+  EXPECT_EQ(pes::StoppagePlan2(/*current=*/0, /*setupNonZero=*/true), 2);
+  EXPECT_EQ(pes::StoppagePlan2(/*current=*/1, /*setupNonZero=*/true), 2);
+}
+
+// S2 (audit-2): the selector's mode word (+0xBCC, 0x140501076) is −1 (keep) until the decider
+// first runs; PES's < 0 arm (TEST EAX,EAX; JS at 0x14050107C) then keeps the default plan.
+TEST(PesTeamTick, SelectorModeHoldsKeepUntilTheDeciderRuns) {
+  EXPECT_EQ(pes::SelectorMode(false, 3), -1);
+  EXPECT_EQ(pes::SelectorMode(true, 3), 3);
+  EXPECT_EQ(pes::SelectorMode(true, -1), -1);
+}
+
+TEST(PesTeamTick, DeciderHasNotRunOnAFreshTick) { EXPECT_FALSE(pes::TeamTick().deciderRan); }
+
 // T2b: step 9's out-of-play branch (0x14050247E-0x140502740) zeroes both reaction-delay banks,
 // T+0x6A4[11] and T+0xB860[11], on every call while MI+0x116C != 1. The in-play half of step 9 is
 // OPEN, so this test checks the return of the call in play and not the banks it leaves there.
@@ -245,7 +285,6 @@ TEST(PesTeamTick, MarkBuildCommitsMarkedCandidate) {
   c.posX = 10.0f;
   c.pairToTarget = 10.0f;
   c.pairToHolder = 70.0f;
-  c.headPointX = 10.0f;
   facts.candidates[0] = c;
   pes::marktable::Constants k;
   k.rampBase = 7.0f;
@@ -262,6 +301,34 @@ TEST(PesTeamTick, MarkBuildCommitsMarkedCandidate) {
   k.half = 0.5f;
   pes::BuildMarkTableTick(&state, facts, k);
   EXPECT_EQ(state.mark[7], 1);
+}
+
+// T9 (FUN_14057F600 at 0x14057F600): the release/claim dispatcher. MI+0x116C
+// == 2 exits immediately (0x14057F61B), whatever the arms say.
+TEST(PesTeamTick, ReleaseDispatchExitsWhenPlayState2) {
+  pes::run::ReleaseDispatchInput in;
+  in.playState = 2;
+  in.stoppageClaim = true;
+  in.latchSet = true;
+  EXPECT_EQ(pes::run::ReleaseDispatch(in), pes::run::ReleaseRoute::kExit);
+}
+
+// The latch fork (0x14057F6CA): latch set routes to the set loop; latch clear
+// needs MI+0x116C == 1 for the clear loop, else the tick exits.
+TEST(PesTeamTick, ReleaseDispatchForksOnLatch) {
+  pes::run::ReleaseDispatchInput in;
+  in.playState = pes::kPlayStateInPlay;
+  in.stoppageClaim = true;
+  in.latchSet = true;
+  EXPECT_EQ(pes::run::ReleaseDispatch(in), pes::run::ReleaseRoute::kLatchSetLoop);
+  in.latchSet = false;
+  EXPECT_EQ(pes::run::ReleaseDispatch(in), pes::run::ReleaseRoute::kLatchClearLoop);
+  in.playState = 3;
+  EXPECT_EQ(pes::run::ReleaseDispatch(in), pes::run::ReleaseRoute::kExit);
+  in.playState = pes::kPlayStateInPlay;
+  in.stoppageClaim = false;
+  in.latchSet = true;
+  EXPECT_EQ(pes::run::ReleaseDispatch(in), pes::run::ReleaseRoute::kExit);
 }
 
 }  // namespace

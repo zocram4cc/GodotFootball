@@ -4,6 +4,8 @@
 #include <gtest/gtest.h>
 
 #include <cstdlib>
+#include <cmath>
+#include <utility>
 #include <string>
 
 #include "onthepitch/pesmarktable.hpp"
@@ -18,6 +20,8 @@
 #include "onthepitch/matchsetup.hpp"
 #include "onthepitch/player/player.hpp"
 #include "onthepitch/team.hpp"
+#include "onthepitch/pesscorerows.hpp"
+#include "onthepitch/teamAIcontroller.hpp"
 #include "pes/vfs.hpp"
 #include "simcontext.hpp"
 #include "utils/database.hpp"
@@ -69,15 +73,10 @@ Facts PassingFacts() {
   c.actionWord = 1;
   c.posX = 10.0f;  // side line at cone + holderX = 0.70 < 10 passes
   c.posZ = 0.0f;
-  // headArg = bearing(pos -> point): point at (10, 0) from pos (0, 0) reads 90 deg;
-  // |10 - 90| = 80 <= 105, |70 - 90| = 20 <= 80, floor |70 + 14| = 84 >= 80.
+  // Facing 0 (the wrap tests' subtrahend): |10 - 0| = 10 <= 105, |70 - 0| = 70 <= 80, floor |70 + 14| = 84 >= 80.
   c.pairToTarget = 10.0f;
   c.pairToHolder = 70.0f;
-  c.headPosX = 0.0f;
-  c.headPosZ = 0.0f;
-  c.headPointX = 10.0f;
-  c.headPointZ = 0.0f;
-  c.head = 0.0f;  // the facing word: subtrahend only, the wrap tests use headArg
+  c.head = 0.0f;  // the facing word [cand+0x554]: the wrap tests' subtrahend
   f.candidates[0] = c;
   return f;
 }
@@ -169,10 +168,6 @@ TEST(MarkTable, MarksIdModElevenUpToThree) {
     f.candidates[i].posZ = 0.0f;
     f.candidates[i].pairToTarget = 10.0f;
     f.candidates[i].pairToHolder = 70.0f;
-    f.candidates[i].headPosX = 0.0f;
-    f.candidates[i].headPosZ = 0.0f;
-    f.candidates[i].headPointX = 10.0f;
-    f.candidates[i].headPointZ = 0.0f;
     f.candidates[i].head = 0.0f;
   }
   pes::marktable::BuildMarkTable(&s, f, k);
@@ -197,10 +192,6 @@ TEST(MarkTable, GlobalIdFoldsModEleven) {
   f.candidates[0].actionWord = 1;
   f.candidates[0].pairToTarget = 10.0f;
   f.candidates[0].pairToHolder = 70.0f;
-  f.candidates[0].headPosX = 0.0f;
-  f.candidates[0].headPosZ = 0.0f;
-  f.candidates[0].headPointX = 10.0f;
-  f.candidates[0].headPointZ = 0.0f;
   f.candidates[0].head = 0.0f;
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[1], 1);
@@ -220,10 +211,6 @@ TEST(MarkTable, FarCandidateHardExits) {
   f.candidates[1].actionWord = 1;
   f.candidates[1].pairToTarget = 10.0f;
   f.candidates[1].pairToHolder = 70.0f;
-  f.candidates[1].headPosX = 0.0f;
-  f.candidates[1].headPosZ = 0.0f;
-  f.candidates[1].headPointX = 10.0f;
-  f.candidates[1].headPointZ = 0.0f;
   f.candidates[1].head = 0.0f;
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[2], 0);
@@ -237,10 +224,6 @@ TEST(MarkTable, WrapBoundaryPasses) {
   Facts f = PassingFacts();
   f.candidates[0].pairToTarget = 105.0f;
   f.candidates[0].pairToHolder = 70.0f;
-  f.candidates[0].headPosX = 0.0f;
-  f.candidates[0].headPosZ = 0.0f;
-  f.candidates[0].headPointX = 10.0f;
-  f.candidates[0].headPointZ = 0.0f;
   f.candidates[0].head = 0.0f;
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[7], 1);
@@ -305,6 +288,7 @@ TEST(MarkTable, ConeRejectsOutside) {
   f.candidates[0].posZ = 7.7101007f;
   f.candidates[0].d2 = 100.0f;
   f.candidates[0].pairToHolder = 120.0f;
+  f.candidates[0].head = 100.0f;  // the facing word agrees with the pairs: 10 and 120 clear 105 and 80 around it
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[7], 0);
 }
@@ -321,6 +305,7 @@ TEST(MarkTable, CountBandEdgeCounts) {
   f.candidates[0].posZ = 7.7101007f;
   f.candidates[0].d2 = 100.0f;
   f.candidates[0].pairToHolder = 120.0f;
+  f.candidates[0].head = 100.0f;  // the facing word agrees with the pairs (see ConeRejectsOutside)
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[7], 0);
 }
@@ -337,16 +322,19 @@ TEST(MarkTable, CountGateRejectsCrowd) {
   EXPECT_EQ(s.mark[7], 0);
 }
 
-TEST(MarkTable, HeadUsesPointNotFacing) {
-  // headArg = 90 from the stored point; the facing word (0.0) would fail the side gate.
-  // pairToHolder = 170: |170 - 90| = 80 <= 80 passes; |170 - 0| = 170 would reject.
+TEST(MarkTable, WrapTestsSubtractTheFacingWord) {
+  // PES's wrap tests subtract the facing word [cand+0x554] (0x1404F6498 MOVSS into XMM7, read by
+  // FUN_14043A0A0 at 0x1404F64C5 and 0x1404F64F9). FUN_1404AB8E0's output (0x1404F64A8) is never read
+  // in T7a. Facing 0 against pairToHolder 170 is |170| > 80: rejected. The stored point's bearing (90)
+  // would have passed it: |170 - 90| = 80.
   const Constants k = TestConstants();
   MarkState s;
   s.markSlot = 3;
   Facts f = PassingFacts();
   f.candidates[0].pairToHolder = 170.0f;
+  f.candidates[0].head = 0.0f;
   pes::marktable::BuildMarkTable(&s, f, k);
-  EXPECT_EQ(s.mark[7], 1);
+  EXPECT_EQ(s.mark[7], 0);
 }
 
 TEST(MarkTable, RampMidPinsConeValue) {
@@ -392,6 +380,55 @@ TEST(MarkTableInstall, LoadsTheInstallConstants) {
   EXPECT_FLOAT_EQ(loaded->coneLen, want.coneLen);
   EXPECT_FLOAT_EQ(loaded->gateRadius, want.gateRadius);
   EXPECT_FLOAT_EQ(loaded->half, want.half);
+}
+
+// PES's S1 writer runs at listener step 5, before any team tick, so both sides' score rows are one snapshot of the
+// frame start: a side's row for an enemy holds the same squared distance as the enemy's row for him. GF ticked team
+// 1's writer after team 0's players had moved in the same tick, so the two rows disagreed. Checked on frames not in
+// play at either end, where both writers rewrite every block.
+TEST(MarkTableTick, BothSidesRowsAgreeOnTheFrameSnapshot) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set: the tick feed runs a live match";
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  auto rig = pesrig::BuildRig(vfs, &err);
+  ASSERT_TRUE(rig) << err;
+  blunted::Database db;
+  ASSERT_TRUE(db.LoadSqlScript(std::string(GF_SOURCE_DIR) + "/assets/fixtures/teams.sql"));
+  SetDB(&db);
+  auto setup = std::make_unique<MatchSetup>();
+  setup->homeTeamDbId = 1;
+  setup->awayTeamDbId = 2;
+  setup->seed = 7;
+  setup->durationMinutes = 2;
+  setup->animationDir = std::string(GF_SOURCE_DIR) + "/assets/gf_anims";
+  setup->rig = &*rig;
+  ASSERT_TRUE(pestest::FillMissingPesConstants(setup.get())) << "install constants unavailable";
+  Properties config;
+  config.SetBool("pes_loop", true);
+  Match match(new MatchData(1, 2), *setup, config);
+  int compared = 0;
+  for (unsigned long t = 0; !match.IsGameOver() && t < 2ul * 60ul * 54ul && compared < 2000; ++t) {
+    const bool stopped = !match.IsInPlay();
+    match.Process();
+    if (!stopped || match.IsInPlay()) continue;
+    // Lanes: a side's own players at 0..10, the enemy's at 11..21 (TickScoreRows).
+    const pes::ScoreRows& home = match.GetTeam(0)->GetController()->Rows();
+    const pes::ScoreRows& away = match.GetTeam(1)->GetController()->Rows();
+    for (int i = 0; i < 11; ++i) {
+      for (int j = 0; j < 11; ++j) {
+        const float fromHome = home.nearest[i].ValueOf(11 + j);  // home's writer: home i, away j
+        const float fromAway = away.nearest[j].ValueOf(11 + i);  // away's writer: away j, home i
+        if (std::isnan(fromHome) || std::isnan(fromAway)) continue;  // not listed: off the pitch
+        EXPECT_NEAR(fromHome, fromAway, 1e-3f * (fromHome > 1.0f ? fromHome : 1.0f))
+            << "tick " << t << ": home " << i << " against away " << j;
+        ++compared;
+      }
+    }
+    if (testing::Test::HasFailure()) break;
+  }
+  EXPECT_GT(compared, 0);
 }
 
 }  // namespace

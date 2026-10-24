@@ -166,7 +166,9 @@ int RequestSubstitutions(Match& match, int team, int count) {
   std::vector<Player*> onPitch = OutfieldOnPitch(match, team);
   std::vector<Player*> bench;
   for (const auto& player : match.GetTeam(team)->GetAllPlayers())
-    if (!player->IsActive() && !match.GetTeam(team)->HasBeenSubstituted(player->GetID()))
+    // The bench pool, as the auto-sub builds it: inactive, unsubstituted, not dismissed.
+    if (!player->IsActive() && !match.GetTeam(team)->HasBeenSubstituted(player->GetID()) &&
+        player->GetCards() <= 1)
       bench.push_back(player.get());
   int accepted = 0;
   for (int i = 0; i < count && i < static_cast<int>(onPitch.size()) && i < static_cast<int>(bench.size());

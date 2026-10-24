@@ -736,10 +736,12 @@ void Match::ProcessAutoSubstitutions() {
     std::vector<pes::BenchCandidate> bench;
     const bool lateSession = matchPhase != e_MatchPhase_1stHalf;  // the super-sub's periods 3..7
     constexpr float kStatPerUnit = 100.0f;
+    // A dismissed player is not a bench candidate (cards > 1 sends him off, player.cpp:540): PES's picker gates every
+    // bench slot on eligibility (benchEligible, pes-re-stamina-subs.md section 3).
     for (Player* player : squadPlayers) {
       if (player->IsActive()) {
         onPitch.push_back(player);
-      } else if (!team->HasBeenSubstituted(player->GetID())) {
+      } else if (!team->HasBeenSubstituted(player->GetID()) && player->GetCards() <= 1) {
         benchPlayers.push_back(player);
         // ponytail: PES rates a bench player for the role from his position
         // block (blk+0x88+role); GF has no per-role rating, his overall stands in.
@@ -868,6 +870,11 @@ void Match::Process() {
     mentalImages.pop_back();
   }
 
+  // PES's S1 writer (listener step 5) rewrites both sides' score rows before either team tick, and its flag comes from
+  // the stage (FUN_140458880), so it runs in every state. A side's mark table reads the other side's rows
+  // (RunWorld::nearestRows): both must hold this frame's snapshot before either side's tick runs.
+  teams[0]->GetController()->TickScoreRows();
+  teams[1]->GetController()->TickScoreRows();
   // ponytail: GF's ElizaController and teamAIcontroller still decide inside Team::Process.
   // A4 replaces them with the ported team tick.
   tickStages.push_back(TickStage::Teams);

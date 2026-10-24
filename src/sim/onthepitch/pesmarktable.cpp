@@ -63,31 +63,19 @@ float PairBearing(float ax, float az, float bx, float bz) {
   if (r < 0.0f) r += 360.0f;
   return r;
 }
-
-// The head bearing (FUN_1404AB8E0 over +0x5EC, via FUN_140439E50): bearing from the
-// candidate's position (pl+0x55C/0x564) to the stored point (+0x5EC/0x5F4), 0.0 when coincident.
-float HeadBearing(float posX, float posZ, float pointX, float pointZ) {
-  return PairBearing(posX, posZ, pointX, pointZ);
-}
 }  // namespace
 
-
-// The cone test (FUN_140A53DA0 -> FUN_140A53DF0): strict annulus on the outer radius
-// (inner is 0.0: T7a's stack slot holds 0x00000001 ~= 1.4e-45), then |wrap180(live - headArg)|
-// < 0.5 * coneDeg where live is the bearing from the candidate to the holder (FUN_140439EF0).
-// candPos/holderPos are ground-plane (x, z); headArg is P[cand][holder].
 bool ConePasses(float candX, float candZ, float holderX, float holderZ, float headArg,
-                const Constants& k) {
+                float inner, const Constants& k) {
   const float dx = holderX - candX;
   const float dz = holderZ - candZ;
-  if (dx * dx + dz * dz >= k.coneLen * k.coneLen) return false;  // 0x140A53E20/26/2D JBE
+  const float d2 = dx * dx + dz * dz;
+  if (d2 >= k.coneLen * k.coneLen) return false;  // 0x140A53E20/26/2D JBE
+  if (d2 <= inner * inner) return false;          // 0x140A53E2F/38/3F JBE
   const float live = PairBearing(candX, candZ, holderX, holderZ);
   return std::fabs(Wrap180(live - headArg)) < k.half * k.coneDeg;  // 0x140A53E81 CMOVA
 }
 
-// The count gate (FUN_140A4EAF0 -> FUN_140A4E7C0): counts the holder-side mates within
-// 12 m of the holder whose bearing-from-holder agrees with u = P[cand][holder] to within
-// 32.0 (64.0 / 2.0). T7a commits iff count <= (cone != 0).
 int CountGate(float holderX, float holderZ, float u, const Facts& facts, const Constants& k) {
   const float radius2 = k.gateRadius * k.gateRadius;
   const float band = k.gateFrac / k.gateWidth;
@@ -146,7 +134,6 @@ void BuildMarkTable(MarkState* state, const Facts& facts, const Constants& k) {
   const float cone = ConeHead(facts.sign, facts.holderX, facts.goalAreaHalfWidth_m, k);
   int marks = 0;
   for (const Candidate& cand : facts.candidates) {
-    const float headArg = HeadBearing(cand.headPosX, cand.headPosZ, cand.headPointX, cand.headPointZ);
     if (cand.id < 0 || cand.id > kLastSlot) continue;  // 0x1404F6400 JA skip
     if (cand.id == facts.holder) continue;             // 0x1404F6409 JZ skip
     if (cand.id == tgt) continue;                      // 0x1404F6411 JZ skip
@@ -155,12 +142,12 @@ void BuildMarkTable(MarkState* state, const Facts& facts, const Constants& k) {
     if ((facts.sign * cone + facts.holderX) * facts.sign >= facts.sign * cand.posX) continue;
     if (cand.actionWord != 1 && cand.actionWord != 0x3F) continue;  // 0x1404F6484-492
     // Wrap tests (0x1404F64D9 cap 105, 0x1404F650D side 80, 0x1404F6532 floor 80).
-    // uVar2 = [cand+0x554] enters only the subtrahend; the head under test is 4AB8E0's output.
-    if (std::fabs(Wrap180(cand.pairToTarget - headArg)) > k.wrapCap) continue;
-    if (std::fabs(Wrap180(cand.pairToHolder - headArg)) > k.wrapSide) continue;
+    // The subtrahend is the facing word: FUN_14043A0A0(a, b) = wrap180(b - a) with a = facing (0x1404F64C5, 0x1404F64F9).
+    if (std::fabs(Wrap180(cand.pairToTarget - cand.head)) > k.wrapCap) continue;    // 0x1404F64D9 JA
+    if (std::fabs(Wrap180(cand.pairToHolder - cand.head)) > k.wrapSide) continue;   // 0x1404F650D JA
     if (k.wrapSide > std::fabs(Wrap180(cand.pairToHolder - cone))) continue;
     const bool coneHit = ConePasses(cand.posX, cand.posZ, facts.holderX, facts.holderZ,
-                                    cand.pairToHolder, k);  // 0x1404F6567 TEST AL,AL
+                                    cand.pairToHolder, InnerQuirk(), k);  // 0x1404F6567 TEST AL,AL
     // 0x1404F6595 CMOVNZ + 0x1404F659D CMP AL,BL: count <= (cone != 0).
     if (CountGate(facts.holderX, facts.holderZ, cand.pairToHolder, facts, k) >
         (coneHit ? 1 : 0))

@@ -196,6 +196,9 @@ bool Team::Substitute(Player* playerOut, Player* playerIn) {
     return false;
   if (HasBeenSubstituted(playerIn->GetID()))
     return false;
+  // A dismissed player cannot come back on (match.cpp's auto-sub pool excludes him the same way).
+  if (playerIn->GetCards() > 1)
+    return false;
 
   int indexOut = -1;
   int indexIn = -1;
@@ -569,12 +572,8 @@ void Team::Process() {
   // sits outside the in-play gate below.
   teamController->UpdateStrategy();
   teamController->UpdatePesSheetPlan();
-  // PES's S1 writer runs on the team tick in every state, not only in play: its flag comes from the
-  // stage (FUN_140458880), so a stoppage latches it. Ticked before the controller reads the rows.
-  teamController->TickScoreRows();
-  // PES's mark table (team-tick step 35, T7a `0x1404F76AC`, after the prep steps
-  // the cone doc cites) rebuilds from this tick's rows: after TickScoreRows,
-  // before the in-play gate (T7a runs in the team tick in every state).
+  // PES's mark table (team-tick step 35, T7a `0x1404F76AC`, after the prep steps the cone doc cites) rebuilds from the
+  // rows Match::Process ticked for both sides this frame, before the in-play gate (T7a runs in every state).
   teamController->TickMarkTable();
   if (match->IsInPlay() && !match->IsInSetPiece()) {
     teamController->Process();
@@ -599,6 +598,13 @@ void Team::Process() {
 
   // FUN_14051E2E7 and the B swap at FUN_14051E31E: the tail write, at the end of the team tick.
   teamController->WriteRoleArrays(false);
+  // Team tick step 48 (FUN_14057F600 at 0x1404F79A8): the release/claim
+  // dispatch, after the run-manager takes above (PES steps 38/41 precede it)
+  // and running stopped too, so outside the in-play gate.
+  if (match->PesLoop()) teamController->PesStep48();
+  // Team tick step 55 (FUN_140A42A70 at 0x1404F7A8F; restart arm 26c at 0x1404F6F0E): the last sim
+  // write of the tick, after every step GF ports. The strategy decider above must not run it.
+  if (match->PesLoop()) teamController->PesStep55();
 
   // PES's movement selector (pes-re-receiving.md §2) sends the PASS_GET
   // receiver to the ball while a pass is in flight; GF's time-to-ball rating

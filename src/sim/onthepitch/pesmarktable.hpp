@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <optional>
 #include <string>
 
@@ -56,11 +57,10 @@ struct Candidate {
   float posZ = 0.0f;  // cand pl+0x564 (cone live-bearing origin)
   float pairToTarget = 0.0f;
   float pairToHolder = 0.0f;
-  float headPosX = 0.0f;    // cand pl+0x55C (FUN_1404AB8E0's first point, 0x1404F64A8)
-  float headPosZ = 0.0f;    // cand pl+0x564
-  float headPointX = 0.0f;  // cand +0x5EC (FUN_1404AB8E0's second point)
-  float headPointZ = 0.0f;  // cand +0x5F4
-  float head = 0.0f;  // the candidate's facing word [cand+0x554] (0x1404F6498 MOVSS)
+  // The candidate's facing word [cand+0x554] (0x1404F6498 MOVSS into XMM7): the subtrahend of both wrap tests
+  // (FUN_14043A0A0 folds b - a with a = facing, at 0x1404F64C5 and 0x1404F64F9). FUN_1404AB8E0's bearing
+  // (0x1404F64A8) goes to a local that T7a never reads.
+  float head = 0.0f;
 };
 
 // Everything one BuildMarkTable call reads. Slots are global (0..21, 0xFF = none).
@@ -80,6 +80,32 @@ struct Facts {
   // ponytail: FUN_140A4EAF0/4E7C0 count gate <= (cone != 0) (0x1404F659D-59F; 12.0 radius, 32 deg band).
   std::array<Candidate, kSlots> candidates{};
 };
+
+// T7a's cone inner word: 0x1404F654F writes 0.0 to the stack slot, 0x1404F6580
+// overwrites its low byte with 1, i.e. 0x00000001 ~= 1.4e-45. Constructed in
+// code (never transcribed): d2 <= inner^2 can only fire at coincident points,
+// where quirk and 0.0 are indistinguishable in f32 arithmetic.
+inline float InnerQuirk() {
+  uint32_t bits = 1;
+  float v = 0.0f;
+  static_assert(sizeof(v) == sizeof(bits));
+  std::memcpy(&v, &bits, sizeof v);
+  return v;
+}
+
+// The cone test (FUN_140A53DA0 -> FUN_140A53DF0): strict annulus inner^2 < d^2 < outer^2
+// on the ground plane (0x140A53E20/26/2D + 0x140A53E2F/38/3F JBE: touching either
+// radius FAILS), then |wrap180(live - headArg)| < 0.5 * coneDeg where live is the
+// bearing from the candidate to the holder (FUN_140439EF0).
+// candPos/holderPos are ground-plane (x, z); headArg is P[cand][holder]; inner is
+// T7a's stack word (InnerQuirk() at the BuildMarkTable call site).
+bool ConePasses(float candX, float candZ, float holderX, float holderZ, float headArg,
+                float inner, const Constants& k);
+
+// The count gate (FUN_140A4EAF0 -> FUN_140A4E7C0): counts the holder-side mates within
+// 12 m of the holder whose bearing-from-holder agrees with u = P[cand][holder] to within
+// 32.0 (64.0 / 2.0). T7a commits iff count <= (cone != 0).
+int CountGate(float holderX, float holderZ, float u, const Facts& facts, const Constants& k);
 
 // Step 35 (FUN_1404F61E0): zero the mask, gate on tgt/holder, walk the 11 candidates, commit
 // mark[id % 11] = 1 up to three. Pure; the caller's Facts carry the open predicates.
