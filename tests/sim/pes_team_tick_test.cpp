@@ -444,6 +444,12 @@ TEST(PesTeamTick, ScoreBandClamps) {
   EXPECT_FLOAT_EQ(pes::Step20Band(2.25f), (2.25f - 4.0f) / -3.5f);
 }
 
+// T3InteriorRE §4: NaN's comparisons both fail, but 0x140500187's COMISS XMM13,0.5 + JC arm takes
+// NaN to 1.0 (JC = CF = unordered).
+TEST(PesTeamTick, NaNGivesOne) {
+  EXPECT_FLOAT_EQ(pes::Step20Band(std::numeric_limits<float>::quiet_NaN()), 1.0f);
+}
+
 // The receiver tables' reset values (port spec §8): flags 0, ids 0xFF
 // (0x1405001E7), scores 0.0.
 TEST(PesTeamTick, OffPitchSlotMisses) {
@@ -511,5 +517,14 @@ TEST(PesTeamTick, StampWrittenOnlyOnPick) {
   const std::array<float, pes::kReactionSlots> tied{2.0f, 3.0f, 3.0f, 0.0f, 0.0f, 0.0f,
                                                      0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
   EXPECT_EQ(pes::Step21Best(tied), 1);
+}
+
+// T3InteriorRE §4: the empty scan writes 0xFF (R15D init at 0x1404F7EBA; no other writer), not the
+// 0x15 stamp-gate bound of T3 §6's misread.
+TEST(PesTeamTick, EmptyScanKeepsFF) {
+  const std::array<float, pes::kReactionSlots> below{-2000.0f, -2000.0f, -2000.0f, -2000.0f,
+                                                      -2000.0f, -2000.0f, -2000.0f, -2000.0f,
+                                                      -2000.0f, -2000.0f, -2000.0f};
+  EXPECT_EQ(pes::Step21Best(below), 0xFF);
 }
 }  // namespace

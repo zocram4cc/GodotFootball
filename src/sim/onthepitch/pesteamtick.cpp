@@ -229,13 +229,14 @@ bool Step20GatesPass(const Step20Gates& g) {
   return g.playState == kPlayStateInPlay;
 }
 
-// Step 20's band write (0x14050017F-1AD): the 0.5-select (XMM0 = 0.5 at
-// 0x14050017F COMISS): below -> 1.0, above 4.0 -> 0.0, else (x-4.0)/-3.5;
+// Step 20's band write (0x14050017F-1BE): the 0.5-select (COMISS XMM13,0.5 at
+// 0x140500187 + JC, so NaN -> 1.0): below -> 1.0, above 4.0 -> 0.0, else (x-4.0)/-3.5;
 // -3.5 is 0x14259D658 (0x1405001A4 DIVSS), 4.0 the 0x140500193 arm.
 float Step20Band(float x) {
-  constexpr float kHalf = 0.5f;      // 0x142565600 (0x14050017F)
-  constexpr float kTop = 4.0f;       // 0x140500193 arm
-  constexpr float kSpan = -3.5f;     // 0x14259D658 (0x1405001A4)
+  constexpr float kHalf = 0.5f;   // 0x142565600 (0x140500187)
+  constexpr float kTop = 4.0f;    // 0x140500193 arm
+  constexpr float kSpan = -3.5f;  // 0x14259D658 (0x1405001A4)
+  if (std::isnan(x)) return 1.0f;
   if (x < kHalf) return 1.0f;
   if (x > kTop) return 0.0f;
   return (x - kTop) / kSpan;
@@ -284,11 +285,13 @@ float Step21Score(float base, float dist, bool incumbent, float support) {
 }
 
 // Step 21's best tracking (0x1404F8274-28A): NaN-safe strict-greater
-// take-over (UCOMISS/JP/JZ/JBE) from -1000.0 (0x14256AE38, 0x1404F7BCC).
+// take-over (UCOMISS/JP/JZ/JBE) from -1000.0 (0x14256AE38, 0x1404F7EB1).
+// No take-over leaves R15D = 0xFF (init 0x1404F7EBA); 0x15 is only the
+// stamp-gate bound (0x1404F82EF).
 int Step21Best(const std::array<float, kReactionSlots>& scores) {
   constexpr float kFloor = -1000.0f;  // 0x14256AE38 (0x1404F7EB1)
   float best = kFloor;
-  int id = 0x15;  // the empty-scan row sentinel
+  int id = 0xFF;
   for (int k = 0; k < kReactionSlots; ++k) {
     const float s = scores[static_cast<size_t>(k)];
     if (!(s > best)) continue;  // NaN-safe: NaN never takes over
