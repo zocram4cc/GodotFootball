@@ -1,0 +1,2021 @@
+{
+ "note": "Pilot translation results. diffed = bit-exact vs the unicorn harness. 'provisional' in a note means the spec reads writable image globals at on-disk values.",
+ "results": [
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x14042D470"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 55 mismatch case 9: w_A0_0 want 431778D1 got 433ACD85 case 10: w_A0_0 want 4204F3E0 got 40D9B0AD /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140439E50.jsonl: 64 cases, 55 mismatch",
+   "translated": true,
+   "va": "0x140439E50"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 39 mismatch case 12: ret_xmm0 want 420C3356 got 40D9B0AD case 14: ret_xmm0 want 4249E7DB got 420B4BCB /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140439EF0.jsonl: 64 cases, 39 mismatch",
+   "translated": true,
+   "va": "0x140439EF0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140439F50"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140439F90"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140439FE0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x14043A020"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 31 mismatch case 13: ret_xmm0 want C28B60A4 got 439127D7 case 14: ret_xmm0 want C005AD00 got 43B2F4A6 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_14043A0A0.jsonl: 64 cases, 31 mismatch",
+   "translated": true,
+   "va": "0x14043A0A0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140456EA0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1404583B0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 1 mismatch case 39: ret_rax want 3F0E90A8 got 1001FED0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140458740.jsonl: 64 cases, 1 mismatch",
+   "translated": true,
+   "va": "0x140458740"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 52 mismatch case 13: w_A1_0 want 4380092B got FFC00000 case 14: w_A1_0 want 4399B348 got 420B4BCB /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_14046F230.jsonl: 64 cases, 52 mismatch",
+   "translated": true,
+   "va": "0x14046F230"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 43 mismatch case 19: w_A0_0 want 4303969F got 433ACD85 case 21: w_A0_0 want 435FDC62 got 433ACD85 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_14046F260.jsonl: 64 cases, 43 mismatch",
+   "translated": true,
+   "va": "0x14046F260"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140470D60"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140479470"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140481B00"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 48 mismatch case 13: w_A0_0 want 41EFE5BE got 40D9B0AD case 14: w_A0_0 want 4313537C got 433ACD85 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_1404A53E0.jsonl: 64 cases, 48 mismatch",
+   "translated": true,
+   "va": "0x1404A53E0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 52 mismatch case 11: w_A1_0 want 438BDF8B got FFC00000 case 12: w_A1_0 want 42DC446E got FFC00000 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_1404AB8E0.jsonl: 64 cases, 52 mismatch",
+   "translated": true,
+   "va": "0x1404AB8E0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 192 mismatch case 2: ret_xmm0 want C0E4E406 got 80000000 case 3: w_A0_0 want 40808EF8 got 00000000 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_1404BCAD0.jsonl: 64 cases, 192 mismatch",
+   "translated": true,
+   "va": "0x1404BCAD0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x1404C8DC0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1404C8E60"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1404F4AB0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x1404F5F10"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x1404F61E0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 64 mismatch case 8: w_A0_6D50_6D0 want 6 got 4 case 9: w_A0_6D50_6D0 want 6 got 4 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_1404F6680.jsonl: 64 cases, 64 mismatch",
+   "translated": true,
+   "va": "0x1404F6680"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 64 mismatch case 8: ret_rax want 21000000 got 0 case 9: ret_rax want 21000000 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_1405008E0.jsonl: 64 cases, 64 mismatch",
+   "translated": true,
+   "va": "0x1405008E0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140501160"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140529330"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want A9 got 0 case 9: ret_eax want 57 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140529430.jsonl: 64 cases, 64 mismatch",
+   "translated": true,
+   "va": "0x140529430"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140581CE0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 192 mismatch case 2: ret_xmm0 want C1402824 got 80000000 case 3: w_A0_0 want C264F274 got 80000000 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140591A10.jsonl: 64 cases, 192 mismatch",
+   "translated": true,
+   "va": "0x140591A10"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want FF got 0 case 9: ret_eax want FF got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_1405969B0.jsonl: 64 cases, 64 mismatch",
+   "translated": true,
+   "va": "0x1405969B0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x1405A0D20"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x1405A4790"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x1405A4830"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want 20C00000 got 35A31C00 case 9: ret_eax want 20C00000 got 35A31C00 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_1405AAF00.jsonl: 64 cases, 64 mismatch",
+   "translated": true,
+   "va": "0x1405AAF00"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1405AEF10"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 24 mismatch case 22: ret_xmm0 want C2ACEF04 got 4388C43F case 23: ret_xmm0 want 4184ADE0 got 43BC4ADE /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_1405BB170.jsonl: 64 cases, 24 mismatch",
+   "translated": true,
+   "va": "0x1405BB170"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x1405CCD00"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x1405CD050"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x1405CD0F0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x1405CD320"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x1405CD540"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1405CD780"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x1405CFC80"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 64 mismatch case 8: ret_rax want CE got 0 case 9: ret_rax want D1 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_1405CFFE0.jsonl: 64 cases, 64 mismatch",
+   "translated": true,
+   "va": "0x1405CFFE0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x1405DFC70"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x1405DFE40"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x1405E0010"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x1405E0C60"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x1405EBCA0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x1405FC860"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x14061E7C0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x14062C400"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140632320"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140632850"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140632BC0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140639600"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x14063A3A0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x14063A420"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x14063C9F0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x14063F230"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x14063F490"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x14063FA70"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x14063FDC0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140653480"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140682320"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140687820"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 1 mismatch case 32: ret_rax want 23000000 got 1 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140687FB0.jsonl: 64 cases, 1 mismatch",
+   "translated": true,
+   "va": "0x140687FB0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "compile: /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/pes_fn_140A533A0.cpp:27:26: error: label \u2018L_140A533EC\u2019 used but not defined",
+   "translated": true,
+   "va": "0x140688300"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C5000"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C5020"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C5030"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C5060"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C5080"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C50A0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C50E0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C51B0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x1408C51F0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C524A"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C5254"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C525E"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C5268"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C5272"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C527C"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C5286"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C5290"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C52E0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C5900"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C6430"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C7550"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408C75C0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1408CB0B0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x1409FA0B0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "compile: /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/pes_fn_140A51320.cpp:52:25: error: label \u2018L_140A51380\u2019 used but not defined",
+   "translated": true,
+   "va": "0x1409FBCE0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A3AE30"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A3AEE0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A3AF30"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A3AF60"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A3AF90"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A3B000"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A3B110"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A3B320"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "compile: /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/pes_fn_140A3B520.cpp:39:79: error: \u2018k_c14351AE30_h\u2019 was not declared in this scope; did you mean \u2018k_c14351AE34_w\u2019? | /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/pes_fn_140A3B520.cpp:40:13: error: \u2018_r\u2019 was not declared in this scope; did you mean \u2018_b\u2019?",
+   "translated": true,
+   "va": "0x140A3B520"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A3C950"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 1 mismatch case 3: ret_eax want 20001500 got 227C1500 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A3C9B0.jsonl: 64 cases, 1 mismatch",
+   "translated": true,
+   "va": "0x140A3C9B0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A3D4F0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A3E150"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140A3E190"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A3E5D0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140A3E7D0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140A3E840"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A3E880"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A3FE50"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 12 mismatch case 40: ret_eax want 0 got 1 case 41: ret_eax want 1 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A40000.jsonl: 64 cases, 12 mismatch",
+   "translated": true,
+   "va": "0x140A40000"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 23 mismatch case 23: ret_eax want 4 got 3 case 24: ret_eax want 5 got 3 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A40050.jsonl: 64 cases, 23 mismatch",
+   "translated": true,
+   "va": "0x140A40050"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 23 mismatch case 26: ret_eax want 5 got 3 case 30: ret_eax want 2 got 3 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A40110.jsonl: 64 cases, 23 mismatch",
+   "translated": true,
+   "va": "0x140A40110"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A401C0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A401F0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A40200"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A40820"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A40BD0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A41190"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A41B30"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A41BE0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A422C0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A42430"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A42580"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A42590"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A425A0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A42880"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A42940"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A429A0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A431E0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A48910"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A489D0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A489F0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A48A10"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A48A30"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A4C4E0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A4C720"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A4C8E0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140A4C930"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140A4C9A0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A4DB20"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A4E3F0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A4E720"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140A4E7C0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140A4EAF0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A4EDF0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A4F1E0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A4F210"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 29 mismatch case 12: ret_rax want FFFFFF00 got 0 case 14: ret_rax want FFFFFF00 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A4F230.jsonl: 64 cases, 29 mismatch",
+   "translated": true,
+   "va": "0x140A4F230"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A4F720"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A4FBC0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A4FEA0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A50250"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "compile: /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/pes_fn_140A51320.cpp:52:25: error: label \u2018L_140A51380\u2019 used but not defined",
+   "translated": true,
+   "va": "0x140A51320"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; A2A0\": 216, \"IMG_1436F3DC8_E1EE_B8A4\": 93, \"scalar_rdx\": 254, \"scalar_r8\": 218, \"scalar_r9\": 1, \"scalar_xmm0\": {\"bits\": \"0xC143355A\", \"f\": -12.20052503710852}}\n",
+   "translated": true,
+   "va": "0x140A51D50"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A532F0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "compile: /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/pes_fn_140A533A0.cpp:27:26: error: label \u2018L_140A533EC\u2019 used but not defined",
+   "translated": true,
+   "va": "0x140A533A0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140A53DA0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A53DF0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 54 mismatch case 9: ret_eax want 200 got 0 case 10: ret_eax want 200 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A53F90.jsonl: 64 cases, 54 mismatch",
+   "translated": true,
+   "va": "0x140A53F90"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A55CF0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A55D40"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A55EF0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A57710"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A57720"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A57730"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A57800"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A580A0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A58320"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A602B0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A60300"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A60340"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A603C0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A60500"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A60530"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A606C0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A60A90"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want 2040A200 got A200 case 9: ret_eax want 2040A201 got A200 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A61CF0.jsonl: 64 cases, 64 mismatch",
+   "translated": true,
+   "va": "0x140A61CF0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140A61F40"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140A62140"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A62180"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A62610"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A62690"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140A627E0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A62850"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140A62960"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A62EA0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A62F20"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140A62FE0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want FF got 0 case 9: ret_eax want FF got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A63020.jsonl: 64 cases, 64 mismatch",
+   "translated": true,
+   "va": "0x140A63020"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A63830"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A63950"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A64030"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A64410"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A66FF0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A6BD60"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A6C6D0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A6C990"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A6CC20"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A6CE00"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A6CEF0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A6CF70"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A6DE20"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "live state",
+   "note": "spec reads/writes live globals ['IMG']; Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x140A6DF00"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 25 mismatch case 26: ret_eax want 2000 got 0 case 29: ret_eax want 1000000 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A6E150.jsonl: 64 cases, 25 mismatch",
+   "translated": true,
+   "va": "0x140A6E150"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 14 mismatch case 38: ret_eax want 22000 got 0 case 40: ret_eax want 800 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A6E1C0.jsonl: 64 cases, 14 mismatch",
+   "translated": true,
+   "va": "0x140A6E1C0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A6E1E0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 12 mismatch case 49: ret_eax want 1 got 0 case 51: ret_eax want 1 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A6E320.jsonl: 64 cases, 12 mismatch",
+   "translated": true,
+   "va": "0x140A6E320"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 2 mismatch case 29: ret_eax want 1 got 0 case 52: ret_eax want 1 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A6E340.jsonl: 64 cases, 2 mismatch",
+   "translated": true,
+   "va": "0x140A6E340"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 7 mismatch case 43: ret_eax want 1 got 0 case 52: ret_eax want 1 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A6E3F0.jsonl: 64 cases, 7 mismatch",
+   "translated": true,
+   "va": "0x140A6E3F0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 17 mismatch case 34: ret_eax want 10400 got 0 case 35: ret_eax want 80000 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A6E450.jsonl: 64 cases, 17 mismatch",
+   "translated": true,
+   "va": "0x140A6E450"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 14 mismatch case 34: ret_eax want 40000 got 0 case 43: ret_eax want 40000 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A6E540.jsonl: 64 cases, 14 mismatch",
+   "translated": true,
+   "va": "0x140A6E540"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A6E6B0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A71260"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A714A0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A714C0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A714E0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A71500"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A71520"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A71990"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 43 mismatch case 13: ret_eax want 196 got 191 case 14: ret_eax want 1156 got A56 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A72E70.jsonl: 64 cases, 43 mismatch",
+   "translated": true,
+   "va": "0x140A72E70"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A74EC0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A75BE0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A76070"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A85AA0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 192 mismatch case 2: ret_xmm0 want C06C3C14 got 40020588 case 3: w_A0_0 want C0CBA6C6 got C1058648 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A8F7C0.jsonl: 64 cases, 192 mismatch",
+   "translated": true,
+   "va": "0x140A8F7C0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A8F890"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A8FF10"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A91120"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A924E0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A92530"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 33 mismatch case 20: ret_xmm0 want 4393E973 got 43B02CAD case 21: ret_xmm0 want 43A7053E got 43AA83DE /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A92950.jsonl: 64 cases, 33 mismatch",
+   "translated": true,
+   "va": "0x140A92950"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A92B90"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x140A92C80"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 46 mismatch case 9: ret_xmm0 want BF5B2B33 got 3DF32988 case 10: ret_xmm0 want BF85AD09 got 3F1B985F /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_140A92D40.jsonl: 64 cases, 46 mismatch",
+   "translated": true,
+   "va": "0x140A92D40"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x140A92DC0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x14124DAD0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x14149A470"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 12 mismatch case 45: ret_eax want B got 0 case 52: ret_eax want 2 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_14149F4F0.jsonl: 64 cases, 12 mismatch",
+   "translated": true,
+   "va": "0x14149F4F0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x141B59E20"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x141B92460"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x141E532D0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "translated": true,
+   "va": "0x141E532E0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: Invalid memory mapping (UC_ERR_MAP)",
+   "translated": true,
+   "va": "0x141E5CA20"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "translator bug",
+   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want 20C00000 got 0 case 9: ret_eax want 20C00000 got 0 /mnt/Extra4/gf-Pilot-scratch/drvfinal/gen/corp_141E5D4C0.jsonl: 64 cases, 64 mismatch",
+   "translated": true,
+   "va": "0x141E5D4C0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x141E5DE80"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x141F9C3B0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
+   "translated": true,
+   "va": "0x1421B7D40"
+  }
+ ]
+}
