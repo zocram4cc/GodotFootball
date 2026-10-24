@@ -457,11 +457,11 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
   ok &= ReadVa(exe, 0x142590d98, &k.receiverFrameScale, error);
   ok &= exe.ReadVa(0x1426484f0, sizeof k.animeClassWord, reinterpret_cast<uint8_t*>(k.animeClassWord.data()));
   ok &= ReadVa(exe, 0x14256ae1c, &k.bounceLatchHeight_m, error);
-  // G3's team level (reader 0x140A40BD0, comparator 0x140A60360). The writer 0x1B5D8340 stores
-  // clamp(class x 100, 0, 700), where the class is `*(int*)(matchSetting+0x18)` through its 7-entry
-  // switch, whose entries are all the same arm, so an out-of-range selector takes the masked global.
-  // GF has no match-setting selector, so the stock default class and the scale/cap come from the
-  // install's own bytes (no transcription).
+  // G3's team level (reader 0x140A40BD0, comparator 0x140A60360). The encoder 0x140A602B0 stores
+  // clamp(class x 100, 0, 700) through the setter 0x140A424E0 (9 sites: `FUN_140A415A0`'s init,
+  // `FUN_141FB9FB0`, `FUN_141FBE480`, `FUN_141FCDA30`, `FUN_141FCF130`, `FUN_140454C00`,
+  // `FUN_14044A9D0`; pes-re-team-status.md §2). GF has no match-setting selector, so the stock
+  // default class and the scale/cap come from the install's own bytes (no transcription).
   {
     uint32_t maskedClass = 0, xorKey = 0, cap = 0;
     uint8_t scale = 0;
@@ -727,6 +727,11 @@ float LaneOpennessMargin(float laneX, float laneZ, float along, float perp, floa
   if (difficulty > 1.0f) t *= difficulty + 1.0f;
   (void)laneX;
   (void)laneZ;
+  // PES 0x142118c42 divides by T with no guard (the only gate is the 0.2
+  // `JA` at 0x142118be4): at along <= 1 T is 0, so a positive term overflows
+  // to +inf and 0/0 is NaN, exactly as DIVSS does. Callers take the minimum
+  // over opponents, so +inf never wins; the NaN arm stays a NaN in and a NaN
+  // out, as in PES's `COMISS`/`JBE` keep-the-best at 0x142118c4e.
   return k.openMarginScale * std::max(perp - k.openLaneMargin_m, 0.0f) / t;
 }
 
