@@ -147,6 +147,24 @@ void ArmInPlayCounters(TeamTick* tick) {
   tick->counterDone = false;  // MOV byte [RCX+0x6D44],0 at 0x1404FA887
 }
 
+// Step 19 (FUN_140500200) head: the level ladder at 0x14050022C-240 (CMP
+// EBX,0x4; JL past the BTS loop) and the licence map at 0x1405002F2-327.
+bool Step19Head(TeamTick* tick) {
+  if (tick->b8a4 >= 4) {
+    tick->eligibleMask = kStep19AllSlots;
+    return true;
+  }
+  return false;
+}
+
+int Step19Licence(int level) {
+  if (level == 0) return 0;
+  if (level == 1) return 2;
+  if (level == 2) return 4;
+  if (level == 3) return 6;
+  return 5;
+}
+
 void BuildMarkTableTick(marktable::MarkState* state, const marktable::Facts& facts,
                         const marktable::Constants& k) {
   marktable::BuildMarkTable(state, facts, k);

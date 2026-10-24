@@ -331,5 +331,28 @@ TEST(PesTeamTick, ReleaseDispatchForksOnLatch) {
   in.latchSet = true;
   EXPECT_EQ(pes::run::ReleaseDispatch(in), pes::run::ReleaseRoute::kExit);
 }
+// T3a slice 1: step 19's head (FUN_140500200, 0x14050022C-327). Level >= 4
+// stores the all-ones mask at T+0xB8B8 (0x140500240 BTS loop, 0x1405008BD);
+// lower levels leave the mask for the class/list branches.
+TEST(PesTeamTick, LevelFourMasksEverySlot) {
+  pes::TeamTick tick;
+  tick.b8a4 = 4;
+  EXPECT_TRUE(pes::Step19Head(&tick));
+  EXPECT_EQ(tick.eligibleMask, (1u << pes::kReactionSlots) - 1u);
+  tick.eligibleMask = 0;
+  tick.b8a4 = 3;
+  EXPECT_FALSE(pes::Step19Head(&tick));
+  EXPECT_EQ(tick.eligibleMask, 0u);
+}
+
+// Step 19's licence map (0x1405002F2-327): 0->0, 1->2, 2->4, 3->6, else 5.
+TEST(PesTeamTick, LevelLicenceMap) {
+  EXPECT_EQ(pes::Step19Licence(0), 0);
+  EXPECT_EQ(pes::Step19Licence(1), 2);
+  EXPECT_EQ(pes::Step19Licence(2), 4);
+  EXPECT_EQ(pes::Step19Licence(3), 6);
+  EXPECT_EQ(pes::Step19Licence(9), 5);
+  EXPECT_EQ(pes::Step19Licence(-1), 5);
+}
 
 }  // namespace

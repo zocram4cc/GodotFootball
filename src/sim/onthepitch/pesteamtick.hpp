@@ -67,7 +67,22 @@ struct TeamTick {
   // T+0xE4, the offside-trap arm of step 5 (FUN_1404F6720). FUN_140501260 clears it at the top of each team tick
   // (0x1405012D0); step 5 sets it. Only the chain's gates can set it (pesoffball.cpp).
   bool trapArmed = false;
+  // Step 19's eligible mask T+0xB8B8 (FUN_140500200): the slots the Chance
+  // mask may take. Port spec §8; init mask 0 (no reader names a nonzero reset).
+  uint32_t eligibleMask = 0;
 };
+// T+0xB8B8 all-ones: step 19's level >= 4 arm sets every slot bit (11 BTS
+// iterations at 0x140500240, stored at 0x1405008BD).
+inline constexpr uint32_t kStep19AllSlots = (1u << kReactionSlots) - 1;
+
+// Step 19 (FUN_140500200) head, 0x14050022C-240: level >= 4 stores the
+// all-ones mask at T+0xB8B8 and claims the tick; lower levels continue into
+// the class/list branches. Returns true when the head claimed the mask.
+bool Step19Head(TeamTick* tick);
+// Step 19's licence map (0x1405002F2-327: TEST + SUB/JZ chain): 0->0, 1->2,
+// 2->4, 3->6, anything else 5. Meaningful below level 4 (level >= 4 takes the
+// all-ones arm above); negative levels land on the else arm.
+int Step19Licence(int level);
 
 // MI+0x116C, the play state (pes-re-A5Judge.md): 1 is play in progress.
 constexpr int kPlayStateInPlay = 1;
