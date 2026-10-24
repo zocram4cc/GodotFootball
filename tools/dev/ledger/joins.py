@@ -111,6 +111,20 @@ def main():
         spec = json.load(open(sys.argv[sys.argv.index("--diff") + 1]))
         for va, src in spec.items():
             diff_vas[va] = src
+    pilot_translated = {}
+    if "--pilot" in sys.argv:
+        # tools/dev/translate/results.json (committed): {"results": [...] or
+        # [...]} with {va, translated, diffed, cases, failure_class, note}.
+        # diffed=true joins the diffed set (bit-exact); translated-only VAs
+        # are recorded for the ledger's translated status.
+        res = json.load(open(sys.argv[sys.argv.index("--pilot") + 1]))
+        rows = res.get("results", res) if isinstance(res, dict) else res
+        for r in rows:
+            va = r.get("va", "").upper().replace("0X", "")
+            if r.get("diffed"):
+                diff_vas[va] = "tools/dev/translate/results.json"
+            elif r.get("translated"):
+                pilot_translated[va] = "tools/dev/translate/results.json"
     funclist = set()
     if "--funclist" in sys.argv:
         txt = open(sys.argv[sys.argv.index("--funclist") + 1],
@@ -119,13 +133,15 @@ def main():
             funclist.add(m.group(2).upper())
     joins = {"decode": doc_verdicts(), "ports": src_sites(),
              "standins": ponytails(), "diffed": diff_vas,
+             "translated": pilot_translated,
              "funclist": sorted(funclist)}
     out = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "joins.json")
     json.dump(joins, open(out, "w"), indent=1, sort_keys=True)
-    print("wrote %s: decode=%d ports=%d standins=%d diffed=%d funclist=%d"
+    print("wrote %s: decode=%d ports=%d standins=%d diffed=%d translated=%d funclist=%d"
           % (out, len(joins["decode"]), len(joins["ports"]),
-             len(joins["standins"]), len(joins["diffed"]), len(funclist)))
+             len(joins["standins"]), len(joins["diffed"]),
+             len(joins["translated"]), len(funclist)))
 
 
 if __name__ == "__main__":

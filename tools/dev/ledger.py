@@ -19,12 +19,13 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(
 LEDGER = os.path.join(REPO, "tools", "dev", "ledger")
 LEDGER_MD = os.path.join(REPO, "docs", "re", "LEDGER.md")
 
-STATUS_ORDER = ["ported", "diffed", "stand-in", "decoded", "leaf accessor",
-                "engine", "undecoded", "inert", "out of scope"]
+STATUS_ORDER = ["ported", "diffed", "translated", "stand-in", "decoded",
+                "leaf accessor", "engine", "undecoded", "inert",
+                "out of scope"]
 # Regression rank. Moving to engine, leaf or out of scope is a reclassification, not lost knowledge.
-RANK = {"ported": 0, "diffed": 1, "stand-in": 2, "decoded": 3,
-        "leaf accessor": 3, "engine": 3, "undecoded": 4, "inert": 5,
-        "out of scope": 3}
+RANK = {"ported": 0, "diffed": 1, "translated": 1, "stand-in": 2,
+        "decoded": 3, "leaf accessor": 3, "engine": 3, "undecoded": 4,
+        "inert": 5, "out of scope": 3}
 # Subsystem tags (owner's list). The tag is the nearest root's; out-of-scope rows carry their category.
 SUBSYSTEMS = ["pre-match", "gameplay", "ball", "AI", "referee", "restart", "animation", "camera",
               "replay", "audio", "crowd", "HUD", "cutscene", "in-match menu", "render"]
@@ -67,6 +68,14 @@ def classify(va, f, joins, hand):
         return "out of scope"
     if va in joins["standins"]:
         return "stand-in"
+    # The pilot's translation proof supersedes the hand port (cutover
+    # follows separately): a bit-exact function reads diffed, an emitted
+    # but undiffed one translated, even where a GF port is cited.
+    if va in joins["diffed"] and joins["diffed"][va] == \
+            "tools/dev/translate/results.json":
+        return "diffed"
+    if va in joins.get("translated", {}):
+        return "translated"
     if joins["ports"].get(va, {}).get("files"):
         return "ported"
     if va in joins["diffed"]:
@@ -189,7 +198,9 @@ def main():
              "run under the capstone venv), `joins.py` + `joins.json` (`--funclist` from the bridge's "
              "function list), `hand.json`, `offpath_allow.json`).")
     L.append("")
-    L.append("Statuses: **ported** / **diffed** / **stand-in** (GF code cites the VA), **decoded** "
+    L.append("Statuses: **ported** / **diffed** (GF code cites the VA; diffed is bit-exact "
+             "against the harness) / **translated** (the translator emitted C++, undiffed) / "
+             "**stand-in** (GF code cites the VA), **decoded** "
              "(a report gives a verdict), **leaf accessor** (<= %s instructions, no call, no jump "
              "out, no vtable reference), **engine** (boundary: not walked, not match logic), "
              "**undecoded** (walked or unresolved, no verdict), **inert** (hand.json), "

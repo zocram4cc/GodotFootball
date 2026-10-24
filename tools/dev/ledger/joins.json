@@ -2010,6 +2010,7 @@
   "140430500": {
    "cites": [
     "README.md",
+    "pes-re-live-capture2.md",
     "pes-re-live-session.md",
     "pes-re-publisher-link.md",
     "pes-re-publisher.md"
@@ -2506,6 +2507,7 @@
     "pes-re-carrier-helpers.md",
     "pes-re-lane-structs.md",
     "pes-re-lane-units2.md",
+    "pes-re-pilot-map.md",
     "pes-re-receiving.md",
     "pes-re-transitions.md"
    ],
@@ -2533,7 +2535,7 @@
     "pes-re-press-eval.md",
     "pes-re-runturn-picks.md",
     "pes-re-stamina-live.md",
-    "pes-re-team-helpers.md"
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "OBS"
   },
@@ -5329,6 +5331,7 @@
     "pes-re-image-rows.md",
     "pes-re-lane-inputs.md",
     "pes-re-s1-writer.md",
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
@@ -11027,6 +11030,7 @@
   },
   "1404F7BA0": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-layer.md",
     "pes-re-team-tickets.md",
@@ -11038,12 +11042,14 @@
   },
   "1404F7BB3": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404F7BCC": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
@@ -11056,18 +11062,21 @@
   },
   "1404F7C05": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404F7C1B": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404F7C46": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
@@ -11086,6 +11095,7 @@
   },
   "1404F7C76": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
@@ -11098,7 +11108,20 @@
   },
   "1404F7D28": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F7D2D": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F7D32": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
@@ -11108,8 +11131,21 @@
    ],
    "verdict": "CONFIRMED"
   },
+  "1404F7D6E": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F7D91": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "1404F7DA7": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
@@ -11120,8 +11156,15 @@
    ],
    "verdict": "CONFIRMED"
   },
+  "1404F7DF5": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "1404F7DFA": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
@@ -11133,9 +11176,21 @@
    ],
    "verdict": "CONFIRMED"
   },
+  "1404F7E22": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "1404F7E31": {
    "cites": [
     "pes-re-team-tickets.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F7E42": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
@@ -11153,6 +11208,7 @@
   },
   "1404F7E85": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
@@ -11165,12 +11221,20 @@
   },
   "1404F7EA3": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F7EAC": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404F7EB1": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
@@ -11179,6 +11243,30 @@
   "1404F7EB9": {
    "cites": [
     "pes-re-tick-steps.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F7EBA": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F7EFD": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F7F20": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F7F29": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
@@ -11191,6 +11279,7 @@
   },
   "1404F7F64": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md",
     "pes-re-tick-steps.md"
@@ -11199,12 +11288,20 @@
   },
   "1404F7F72": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F7F75": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404F7FBD": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md",
     "pes-re-tick-steps.md"
@@ -11225,7 +11322,14 @@
   },
   "1404F802B": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F8033": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
@@ -11242,26 +11346,54 @@
    ],
    "verdict": "CONFIRMED"
   },
+  "1404F805E": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F8087": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F809B": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "1404F80CB": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404F80DA": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F80E3": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404F810F": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404F8128": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-tick-steps.md"
    ],
@@ -11269,12 +11401,26 @@
   },
   "1404F8135": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F814C": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F819D": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404F81A1": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-tick-steps.md"
    ],
@@ -11282,6 +11428,7 @@
   },
   "1404F81B8": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-tick-steps.md"
    ],
@@ -11289,6 +11436,7 @@
   },
   "1404F81C9": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-tick-steps.md"
    ],
@@ -11296,12 +11444,14 @@
   },
   "1404F81D0": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404F81D6": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-tick-steps.md"
    ],
@@ -11309,6 +11459,7 @@
   },
   "1404F81DB": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-tick-steps.md"
    ],
@@ -11316,6 +11467,7 @@
   },
   "1404F81E9": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-tick-steps.md"
    ],
@@ -11328,8 +11480,15 @@
    ],
    "verdict": "CONFIRMED"
   },
+  "1404F81FA": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "1404F820E": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-tick-steps.md"
    ],
@@ -11337,6 +11496,7 @@
   },
   "1404F8216": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-tick-steps.md"
    ],
@@ -11344,12 +11504,20 @@
   },
   "1404F8222": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F8268": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404F826C": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-tick-steps.md"
    ],
@@ -11357,15 +11525,29 @@
   },
   "1404F8274": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-tick-steps.md"
    ],
    "verdict": "CONFIRMED"
   },
+  "1404F828A": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "1404F82E8": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-tick-steps.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404F82EF": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
@@ -11378,6 +11560,7 @@
   },
   "1404F833A": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
@@ -12737,6 +12920,7 @@
   },
   "1404FF8B0": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-layer.md",
     "pes-re-team-tickets.md",
@@ -12749,12 +12933,14 @@
   },
   "1404FF8D9": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FF8EF": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
@@ -12762,6 +12948,18 @@
   "1404FF8FD": {
    "cites": [
     "pes-re-team-tickets.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FF91B": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FF929": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
@@ -12773,6 +12971,7 @@
   },
   "1404FF946": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
@@ -12784,14 +12983,22 @@
    ],
    "verdict": "CONFIRMED"
   },
+  "1404FF95B": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "1404FF9E9": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-tick-steps.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFA0B": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
    ],
    "verdict": "CONFIRMED"
@@ -12804,12 +13011,14 @@
   },
   "1404FFA19": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFA40": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
@@ -12817,6 +13026,7 @@
   },
   "1404FFA4C": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
@@ -12824,12 +13034,20 @@
   },
   "1404FFA55": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFA69": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFA70": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
@@ -12837,8 +13055,15 @@
   },
   "1404FFA75": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFA87": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
@@ -12850,12 +13075,20 @@
   },
   "1404FFA93": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFA9D": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFABC": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
    ],
    "verdict": "CONFIRMED"
@@ -12896,6 +13129,18 @@
    ],
    "verdict": "CONFIRMED"
   },
+  "1404FFB06": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFB22": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "1404FFB2E": {
    "cites": [
     "pes-re-team-tickets.md"
@@ -12904,30 +13149,41 @@
   },
   "1404FFB48": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFB51": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFB5A": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFB5E": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFB7F": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFB8D": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
    ],
    "verdict": "CONFIRMED"
@@ -12935,6 +13191,18 @@
   "1404FFB96": {
    "cites": [
     "pes-re-t3.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFBB0": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFBED": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
@@ -12950,6 +13218,30 @@
    ],
    "verdict": "CONFIRMED"
   },
+  "1404FFC71": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFC97": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFC9E": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFCA8": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "1404FFCD4": {
    "cites": [
     "pes-re-tick-steps.md"
@@ -12958,6 +13250,7 @@
   },
   "1404FFCE4": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
@@ -12969,8 +13262,45 @@
    ],
    "verdict": "CONFIRMED"
   },
+  "1404FFCF4": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFD01": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFD47": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFD79": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFD8F": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFDDD": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "1404FFDE9": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
@@ -12978,6 +13308,7 @@
   },
   "1404FFE00": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md",
     "pes-re-tick-steps.md",
@@ -12987,30 +13318,65 @@
   },
   "1404FFE08": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFE14": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFE19": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFE26": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFE2F": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFE38": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFE41": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFE4F": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFE81": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFE99": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
    ],
    "verdict": "CONFIRMED"
@@ -13021,20 +13387,40 @@
    ],
    "verdict": "CONFIRMED"
   },
+  "1404FFEAD": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFEAE": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "1404FFEB0": {
    "cites": [
     "pes-re-team-tickets.md"
    ],
    "verdict": "CONFIRMED"
   },
+  "1404FFEB1": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "1404FFED6": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFEE9": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
@@ -13042,13 +13428,21 @@
   },
   "1404FFF04": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFF0C": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFF19": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
@@ -13060,12 +13454,14 @@
   },
   "1404FFF5B": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1404FFF67": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md",
     "pes-re-tick-steps.md",
@@ -13075,25 +13471,77 @@
   },
   "1404FFF81": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
    "verdict": "CONFIRMED"
   },
+  "1404FFF89": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "1404FFF93": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFFA8": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFFB4": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFFCF": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "1404FFFDD": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "140500000": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "140500008": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
   "140500015": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "14050001C": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
   "140500036": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md",
     "pes-re-tick-steps.md"
@@ -13108,6 +13556,7 @@
   },
   "14050003E": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md",
     "pes-re-tick-steps.md"
@@ -13120,6 +13569,12 @@
    ],
    "verdict": "CONFIRMED"
   },
+  "140500046": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "140500060": {
    "cites": [
     "pes-re-t3.md"
@@ -13128,12 +13583,20 @@
   },
   "14050006D": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "14050007F": {
+   "cites": [
+    "pes-re-t3-interiors.md"
    ],
    "verdict": "CONFIRMED"
   },
   "1405000AE": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
@@ -13141,19 +13604,40 @@
   },
   "140500134": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
    "verdict": "CONFIRMED"
   },
+  "140500140": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "140500149": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
+  "140500150": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "140500163": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-team-tickets.md"
    ],
    "verdict": "CONFIRMED"
   },
   "140500174": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md"
    ],
    "verdict": "CONFIRMED"
@@ -13165,8 +13649,15 @@
    ],
    "verdict": "CONFIRMED"
   },
+  "140500187": {
+   "cites": [
+    "pes-re-t3-interiors.md"
+   ],
+   "verdict": "CONFIRMED"
+  },
   "1405001A4": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
@@ -13174,6 +13665,7 @@
   },
   "1405001BE": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md",
     "pes-re-tick-steps.md"
@@ -13188,6 +13680,7 @@
   },
   "1405001CD": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
@@ -16436,7 +16929,8 @@
   },
   "140529330": {
    "cites": [
-    "pes-re-defensive-shape.md"
+    "pes-re-defensive-shape.md",
+    "pes-re-pilot-map.md"
    ],
    "verdict": "OBS"
   },
@@ -17045,6 +17539,7 @@
     "pes-re-first-touch.md",
     "pes-re-lane-inputs.md",
     "pes-re-press-life.md",
+    "pes-re-t3-interiors.md",
     "pes-re-teamtick.md"
    ],
    "verdict": "OBS"
@@ -21784,11 +22279,11 @@
     "pes-re-attack-decisions.md",
     "pes-re-attack-leftovers.md",
     "pes-re-chance-lanes.md",
+    "pes-re-live-capture2.md",
     "pes-re-off-ball.md",
     "pes-re-run-targets-b2.md",
     "pes-re-run-targets-b3.md",
-    "pes-re-run-targets-b4.md",
-    "pes-re-run-targets-h1.md"
+    "pes-re-run-targets-b4.md"
    ],
    "verdict": "OBS"
   },
@@ -22001,6 +22496,7 @@
     "pes-re-chance-lanes.md",
     "pes-re-off-ball.md",
     "pes-re-run-targets.md",
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md",
     "pes-re-tick-steps.md"
@@ -23053,7 +23549,8 @@
   },
   "1405CCD00": {
    "cites": [
-    "pes-re-lane-post.md"
+    "pes-re-lane-post.md",
+    "pes-re-pilot-map.md"
    ],
    "verdict": "CONFIRMED"
   },
@@ -23149,6 +23646,7 @@
   "1405CD0F0": {
    "cites": [
     "pes-re-lane-post.md",
+    "pes-re-pilot-map.md",
     "pes-re-port-audit-2.md",
     "pes-re-team-plans.md"
    ],
@@ -23164,6 +23662,7 @@
   "1405CD320": {
    "cites": [
     "pes-re-lane-post.md",
+    "pes-re-pilot-map.md",
     "pes-re-port-audit-2.md"
    ],
    "verdict": "CONFIRMED"
@@ -23505,6 +24004,7 @@
    "cites": [
     "pes-re-lane-post.md",
     "pes-re-lane-writers.md",
+    "pes-re-pilot-map.md",
     "pes-re-port-audit-2.md"
    ],
    "verdict": "CONFIRMED"
@@ -23910,14 +24410,16 @@
   "1405DFC70": {
    "cites": [
     "pes-re-attack-leftovers.md",
-    "pes-re-gaps-match.md"
+    "pes-re-gaps-match.md",
+    "pes-re-pilot-map.md"
    ],
    "verdict": "OBS"
   },
   "1405DFE40": {
    "cites": [
     "pes-re-attack-leftovers.md",
-    "pes-re-gaps-match.md"
+    "pes-re-gaps-match.md",
+    "pes-re-pilot-map.md"
    ],
    "verdict": "OBS"
   },
@@ -26913,6 +27415,7 @@
    "cites": [
     "pes-re-defensive-shape.md",
     "pes-re-foundation-matchball.md",
+    "pes-re-pilot-map.md",
     "pes-re-transitions.md"
    ],
    "verdict": "OBS"
@@ -29611,7 +30114,8 @@
     "pes-re-carrier-helpers.md",
     "pes-re-lane-core.md",
     "pes-re-lane-inputs.md",
-    "pes-re-lane-structs.md"
+    "pes-re-lane-structs.md",
+    "pes-re-pilot-map.md"
    ],
    "verdict": "OBS"
   },
@@ -53754,6 +54258,7 @@
   },
   "140957F68": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-team-tickets.md"
    ],
@@ -55394,6 +55899,7 @@
   "1409FBCE0": {
    "cites": [
     "pes-re-first-touch.md",
+    "pes-re-pilot-map.md",
     "pes-re-receiving.md",
     "pes-re-transitions.md"
    ],
@@ -57316,6 +57822,7 @@
   },
   "140A3E5D0": {
    "cites": [
+    "pes-re-pilot-map.md",
     "pes-re-plan-selector.md"
    ],
    "verdict": "CONFIRMED"
@@ -57328,8 +57835,8 @@
     "pes-re-foundation-matchball.md",
     "pes-re-holder.md",
     "pes-re-net-dodge.md",
-    "pes-re-port-audit-2.md",
-    "pes-re-possession-latch.md"
+    "pes-re-pilot-map.md",
+    "pes-re-port-audit-2.md"
    ],
    "verdict": "OBS"
   },
@@ -59182,7 +59689,8 @@
    "cites": [
     "pes-re-attack-decisions.md",
     "pes-re-carrier-ai.md",
-    "pes-re-carrier-helpers.md"
+    "pes-re-carrier-helpers.md",
+    "pes-re-pilot-map.md"
    ],
    "verdict": "OBS"
   },
@@ -59190,12 +59698,12 @@
    "cites": [
     "pes-re-attack-decisions.md",
     "pes-re-attack-leftovers.md",
+    "pes-re-pilot-map.md",
     "pes-re-run-targets-b2.md",
     "pes-re-run-targets-h1.md",
     "pes-re-run-targets.md",
     "pes-re-small-decodes.md",
-    "pes-re-style-census.md",
-    "pes-re-team-helpers.md"
+    "pes-re-style-census.md"
    ],
    "verdict": "OBS"
   },
@@ -59501,6 +60009,7 @@
     "pes-re-mark-cone.md",
     "pes-re-mark-gate.md",
     "pes-re-mark-table.md",
+    "pes-re-pilot-map.md",
     "pes-re-port-audit.md",
     "pes-re-slice-survey.md",
     "pes-re-team-tickets.md"
@@ -59528,6 +60037,7 @@
   },
   "140A4EDF0": {
    "cites": [
+    "pes-re-pilot-map.md",
     "pes-re-team-tickets.md",
     "pes-re-tick-steps.md"
    ],
@@ -59577,6 +60087,7 @@
   },
   "140A4F230": {
    "cites": [
+    "pes-re-t3-interiors.md",
     "pes-re-t3.md",
     "pes-re-tick-steps.md"
    ],
@@ -59731,6 +60242,7 @@
   "140A533A0": {
    "cites": [
     "pes-re-defensive-shape.md",
+    "pes-re-pilot-map.md",
     "pes-re-setpiece-zones.md",
     "pes-re-team-helpers.md",
     "pes-re-team-plans.md",
@@ -59789,8 +60301,8 @@
     "pes-re-defence-leftovers.md",
     "pes-re-mark-cone.md",
     "pes-re-mark-table.md",
-    "pes-re-port-audit.md",
-    "pes-re-press-coord.md"
+    "pes-re-pilot-map.md",
+    "pes-re-port-audit.md"
    ],
    "verdict": "OBS"
   },
@@ -60004,8 +60516,8 @@
     "pes-re-defensive-shape.md",
     "pes-re-press-coord.md",
     "pes-re-press-eval.md",
-    "pes-re-t3.md",
-    "pes-re-team-plans.md"
+    "pes-re-t3-interiors.md",
+    "pes-re-t3.md"
    ],
    "verdict": "OBS"
   },
@@ -60739,6 +61251,7 @@
   "140A61F40": {
    "cites": [
     "pes-re-defensive-shape.md",
+    "pes-re-pilot-map.md",
     "pes-re-teamctx.md"
    ],
    "verdict": "OBS"
@@ -63490,6 +64003,7 @@
     "pes-re-carrier-units.md",
     "pes-re-defensive-shape.md",
     "pes-re-run-targets-b3.md",
+    "pes-re-t3-interiors.md",
     "pes-re-team-helpers.md"
    ],
    "verdict": "OBS"
@@ -65156,27 +65670,196 @@
   }
  },
  "diffed": {
+  "14042D470": "tools/dev/translate/results.json",
+  "140439F50": "tools/dev/translate/results.json",
+  "140439F90": "tools/dev/translate/results.json",
+  "140439FE0": "tools/dev/translate/results.json",
+  "14043A020": "tools/dev/translate/results.json",
+  "140456EA0": "tools/dev/translate/results.json",
+  "1404583B0": "tools/dev/translate/results.json",
+  "140470D60": "tools/dev/translate/results.json",
+  "140481B00": "tools/dev/translate/results.json",
   "140488230": "tools/dev/diffharness/specs/strategy_minute0.json",
+  "1404C8DC0": "tools/dev/translate/results.json",
+  "1404C8E60": "tools/dev/translate/results.json",
+  "1404F4AB0": "tools/dev/translate/results.json",
+  "1404F5F10": "tools/dev/translate/results.json",
+  "1404F61E0": "tools/dev/translate/results.json",
+  "140501160": "tools/dev/translate/results.json",
   "14051E5B0": "tools/dev/diffharness/specs/strategy_minute0.json",
   "14051E910": "tests/diff/diff_strategy_test.cpp",
   "14051E970": "tests/diff/diff_strategy_test.cpp",
   "14051EB01": "tools/dev/diffharness/specs/strategy_minute0.json",
+  "140581CE0": "tools/dev/translate/results.json",
+  "1405A4790": "tools/dev/translate/results.json",
+  "1405AEF10": "tools/dev/translate/results.json",
+  "1405CD540": "tools/dev/translate/results.json",
+  "1405CD780": "tools/dev/translate/results.json",
+  "1405E0010": "tools/dev/translate/results.json",
+  "1405E0C60": "tools/dev/translate/results.json",
+  "1405EBCA0": "tools/dev/translate/results.json",
+  "1405FC860": "tools/dev/translate/results.json",
+  "14061E7C0": "tools/dev/translate/results.json",
+  "14062C400": "tools/dev/translate/results.json",
+  "140632320": "tools/dev/translate/results.json",
+  "14063A3A0": "tools/dev/translate/results.json",
+  "14063A420": "tools/dev/translate/results.json",
+  "14063F230": "tools/dev/translate/results.json",
+  "14063FA70": "tools/dev/translate/results.json",
+  "140687820": "tools/dev/translate/results.json",
+  "1408C5000": "tools/dev/translate/results.json",
+  "1408C5020": "tools/dev/translate/results.json",
+  "1408C5030": "tools/dev/translate/results.json",
+  "1408C5060": "tools/dev/translate/results.json",
+  "1408C5080": "tools/dev/translate/results.json",
+  "1408C50A0": "tools/dev/translate/results.json",
+  "1408C50E0": "tools/dev/translate/results.json",
+  "1408C51B0": "tools/dev/translate/results.json",
+  "1408C51F0": "tools/dev/translate/results.json",
+  "1408C524A": "tools/dev/translate/results.json",
+  "1408C5254": "tools/dev/translate/results.json",
+  "1408C525E": "tools/dev/translate/results.json",
+  "1408C5268": "tools/dev/translate/results.json",
+  "1408C5272": "tools/dev/translate/results.json",
+  "1408C527C": "tools/dev/translate/results.json",
+  "1408C5286": "tools/dev/translate/results.json",
+  "1408C5290": "tools/dev/translate/results.json",
+  "1408C52E0": "tools/dev/translate/results.json",
+  "1408C5900": "tools/dev/translate/results.json",
+  "1408C6430": "tools/dev/translate/results.json",
   "1408C71B0": "tools/dev/diffharness/specs/strategy_minute0.json",
+  "1408C7550": "tools/dev/translate/results.json",
+  "1408C75C0": "tools/dev/translate/results.json",
   "1408C7710": "tests/diff/diff_cond_arrow_test.cpp",
   "1408C9DF0": "tools/dev/diffharness/specs/strategy_minute0.json",
+  "1408CB0B0": "tools/dev/translate/results.json",
   "1408E16D0": "tools/dev/diffharness/specs/strategy_minute0.json",
+  "140A3AE30": "tools/dev/translate/results.json",
+  "140A3AEE0": "tools/dev/translate/results.json",
+  "140A3AF30": "tools/dev/translate/results.json",
+  "140A3AF60": "tools/dev/translate/results.json",
+  "140A3AF90": "tools/dev/translate/results.json",
+  "140A3B000": "tools/dev/translate/results.json",
+  "140A3B110": "tools/dev/translate/results.json",
+  "140A3B320": "tools/dev/translate/results.json",
+  "140A3B520": "tools/dev/translate/results.json",
   "140A3C050": "tools/dev/diffharness/specs/strategy_minute0.json",
+  "140A3C950": "tools/dev/translate/results.json",
+  "140A3D4F0": "tools/dev/translate/results.json",
+  "140A3E150": "tools/dev/translate/results.json",
+  "140A3E5D0": "tools/dev/translate/results.json",
+  "140A3E880": "tools/dev/translate/results.json",
   "140A3E8A0": "tools/dev/diffharness/specs/strategy_minute0.json",
-  "140A48A30": "tools/dev/diffharness/specs/strategy_minute0.json",
-  "140A53DF0": "tests/diff/diff_cone_test.cpp",
+  "140A3FE50": "tools/dev/translate/results.json",
+  "140A401C0": "tools/dev/translate/results.json",
+  "140A401F0": "tools/dev/translate/results.json",
+  "140A40200": "tools/dev/translate/results.json",
+  "140A40820": "tools/dev/translate/results.json",
+  "140A40BD0": "tools/dev/translate/results.json",
+  "140A41190": "tools/dev/translate/results.json",
+  "140A41B30": "tools/dev/translate/results.json",
+  "140A41BE0": "tools/dev/translate/results.json",
+  "140A422C0": "tools/dev/translate/results.json",
+  "140A42430": "tools/dev/translate/results.json",
+  "140A42580": "tools/dev/translate/results.json",
+  "140A42590": "tools/dev/translate/results.json",
+  "140A425A0": "tools/dev/translate/results.json",
+  "140A42880": "tools/dev/translate/results.json",
+  "140A42940": "tools/dev/translate/results.json",
+  "140A429A0": "tools/dev/translate/results.json",
+  "140A431E0": "tools/dev/translate/results.json",
+  "140A48910": "tools/dev/translate/results.json",
+  "140A489D0": "tools/dev/translate/results.json",
+  "140A489F0": "tools/dev/translate/results.json",
+  "140A48A10": "tools/dev/translate/results.json",
+  "140A48A30": "tools/dev/translate/results.json",
+  "140A4C4E0": "tools/dev/translate/results.json",
+  "140A4C720": "tools/dev/translate/results.json",
+  "140A4C8E0": "tools/dev/translate/results.json",
+  "140A4DB20": "tools/dev/translate/results.json",
+  "140A4E3F0": "tools/dev/translate/results.json",
+  "140A4E720": "tools/dev/translate/results.json",
+  "140A4EDF0": "tools/dev/translate/results.json",
+  "140A4F1E0": "tools/dev/translate/results.json",
+  "140A4F210": "tools/dev/translate/results.json",
+  "140A4F720": "tools/dev/translate/results.json",
+  "140A4FBC0": "tools/dev/translate/results.json",
+  "140A4FEA0": "tools/dev/translate/results.json",
+  "140A50250": "tools/dev/translate/results.json",
+  "140A532F0": "tools/dev/translate/results.json",
+  "140A53DF0": "tools/dev/translate/results.json",
   "140A53E96": "tools/dev/diffharness/specs/cone.json",
-  "140A6BD60": "tools/dev/diffharness/specs/strategy_minute0.json",
+  "140A55CF0": "tools/dev/translate/results.json",
+  "140A55D40": "tools/dev/translate/results.json",
+  "140A55EF0": "tools/dev/translate/results.json",
+  "140A57710": "tools/dev/translate/results.json",
+  "140A57720": "tools/dev/translate/results.json",
+  "140A57730": "tools/dev/translate/results.json",
+  "140A57800": "tools/dev/translate/results.json",
+  "140A580A0": "tools/dev/translate/results.json",
+  "140A58320": "tools/dev/translate/results.json",
+  "140A602B0": "tools/dev/translate/results.json",
+  "140A60300": "tools/dev/translate/results.json",
+  "140A60340": "tools/dev/translate/results.json",
+  "140A603C0": "tools/dev/translate/results.json",
+  "140A60500": "tools/dev/translate/results.json",
+  "140A60530": "tools/dev/translate/results.json",
+  "140A606C0": "tools/dev/translate/results.json",
+  "140A60A90": "tools/dev/translate/results.json",
+  "140A62180": "tools/dev/translate/results.json",
+  "140A62610": "tools/dev/translate/results.json",
+  "140A62690": "tools/dev/translate/results.json",
+  "140A62850": "tools/dev/translate/results.json",
+  "140A62EA0": "tools/dev/translate/results.json",
+  "140A62F20": "tools/dev/translate/results.json",
+  "140A63830": "tools/dev/translate/results.json",
+  "140A63950": "tools/dev/translate/results.json",
+  "140A64030": "tools/dev/translate/results.json",
+  "140A64410": "tools/dev/translate/results.json",
+  "140A66FF0": "tools/dev/translate/results.json",
+  "140A6BD60": "tools/dev/translate/results.json",
+  "140A6C6D0": "tools/dev/translate/results.json",
+  "140A6C990": "tools/dev/translate/results.json",
+  "140A6CC20": "tools/dev/translate/results.json",
+  "140A6CE00": "tools/dev/translate/results.json",
+  "140A6CEF0": "tools/dev/translate/results.json",
+  "140A6CF70": "tools/dev/translate/results.json",
+  "140A6DE20": "tools/dev/translate/results.json",
+  "140A6E1E0": "tools/dev/translate/results.json",
+  "140A6E6B0": "tools/dev/translate/results.json",
+  "140A71260": "tools/dev/translate/results.json",
+  "140A714A0": "tools/dev/translate/results.json",
+  "140A714C0": "tools/dev/translate/results.json",
+  "140A714E0": "tools/dev/translate/results.json",
+  "140A71500": "tools/dev/translate/results.json",
+  "140A71520": "tools/dev/translate/results.json",
+  "140A71990": "tools/dev/translate/results.json",
+  "140A74EC0": "tools/dev/translate/results.json",
+  "140A75BE0": "tools/dev/translate/results.json",
+  "140A76070": "tools/dev/translate/results.json",
   "140A7F0F0": "tools/dev/diffharness/specs/strategy_minute0.json",
-  "140A924E0": "tools/dev/diffharness/specs/strategy_minute0.json",
+  "140A85AA0": "tools/dev/translate/results.json",
+  "140A8F890": "tools/dev/translate/results.json",
+  "140A8FF10": "tools/dev/translate/results.json",
+  "140A91120": "tools/dev/translate/results.json",
+  "140A924E0": "tools/dev/translate/results.json",
+  "140A92530": "tools/dev/translate/results.json",
+  "140A92B90": "tools/dev/translate/results.json",
+  "140A92C80": "tools/dev/translate/results.json",
   "140A92D40": "tests/diff/diff_cone_test.cpp",
+  "140A92DC0": "tools/dev/translate/results.json",
   "140AF06D0": "tools/dev/diffharness/specs/band.json",
   "140AF2DA0": "tests/diff/diff_band_test.cpp",
-  "140AF2F03": "tools/dev/diffharness/specs/band.json"
+  "140AF2F03": "tools/dev/diffharness/specs/band.json",
+  "14124DAD0": "tools/dev/translate/results.json",
+  "14149A470": "tools/dev/translate/results.json",
+  "141B59E20": "tools/dev/translate/results.json",
+  "141B92460": "tools/dev/translate/results.json",
+  "141E532D0": "tools/dev/translate/results.json",
+  "141E532E0": "tools/dev/translate/results.json",
+  "141E5DE80": "tools/dev/translate/results.json",
+  "141F9C3B0": "tools/dev/translate/results.json",
+  "1421B7D40": "tools/dev/translate/results.json"
  },
  "funclist": [
   "140001000",
@@ -182783,7 +183466,6 @@
     "src/sim/onthepitch/peskeeper.cpp",
     "src/sim/onthepitch/pesdodge.cpp",
     "src/sim/onthepitch/pestackle.hpp",
-    "src/sim/onthepitch/pesmarktable.cpp",
     "src/pes/movestep_style.cpp",
     "src/pes/movestep_run.cpp",
     "src/pes/movestep_step.cpp"
@@ -182794,7 +183476,7 @@
    "files": [
     "src/sim/onthepitch/peslane.cpp",
     "src/sim/onthepitch/pescarrier.cpp",
-    "src/sim/onthepitch/pesmarktable.cpp",
+    "src/sim/onthepitch/pesmarktable.hpp",
     "src/pes/movestep_turn.cpp"
    ],
    "name": "bearing"
@@ -182835,6 +183517,7 @@
     "src/sim/onthepitch/pesteamconcepts.cpp",
     "src/sim/onthepitch/pescarrier.hpp",
     "src/sim/onthepitch/pesdodge.cpp",
+    "src/sim/onthepitch/pesmarktable.hpp",
     "src/sim/onthepitch/pesmarktable.cpp",
     "src/pes/movestep_run.cpp",
     "src/pes/movestep.hpp",
@@ -183089,10 +183772,10 @@
   },
   "140458880": {
    "files": [
-    "src/sim/onthepitch/team.cpp",
-    "src/sim/onthepitch/match.hpp"
+    "src/sim/onthepitch/match.hpp",
+    "src/sim/onthepitch/match.cpp"
    ],
-   "name": "stage"
+   "name": "FUN_140458880"
   },
   "140458912": {
    "files": [
@@ -183346,10 +184029,9 @@
   },
   "1404AB8E0": {
    "files": [
-    "src/sim/onthepitch/pesmarktable.hpp",
-    "src/sim/onthepitch/pesmarktable.cpp"
+    "src/sim/onthepitch/pesmarktable.hpp"
    ],
-   "name": "bearing"
+   "name": null
   },
   "1404BCAD0": {
    "files": [
@@ -183410,6 +184092,12 @@
     "src/pes/formation.hpp"
    ],
    "name": "arrays"
+  },
+  "1404F5F38": {
+   "files": [
+    "src/sim/onthepitch/teamAIcontroller.cpp"
+   ],
+   "name": "pes::roles::WriteSideRoles"
   },
   "1404F61E0": {
    "files": [
@@ -183501,30 +184189,36 @@
    ],
    "name": "from"
   },
+  "1404F63E0": {
+   "files": [
+    "src/sim/onthepitch/pesoffball.hpp"
+   ],
+   "name": "row"
+  },
   "1404F6400": {
    "files": [
     "src/sim/onthepitch/pesmarktable.cpp"
    ],
-   "name": "HeadBearing"
+   "name": "for"
   },
   "1404F6409": {
    "files": [
     "src/sim/onthepitch/pesmarktable.cpp"
    ],
-   "name": "HeadBearing"
+   "name": "for"
   },
   "1404F6411": {
    "files": [
     "src/sim/onthepitch/pesmarktable.cpp"
    ],
-   "name": "HeadBearing"
+   "name": "for"
   },
   "1404F6439": {
    "files": [
     "src/sim/onthepitch/pesmarktable.hpp",
     "src/sim/onthepitch/pesmarktable.cpp"
    ],
-   "name": "HeadBearing"
+   "name": "for"
   },
   "1404F6469": {
    "files": [
@@ -183551,12 +184245,26 @@
    ],
    "name": null
   },
+  "1404F64C5": {
+   "files": [
+    "src/sim/onthepitch/pesmarktable.hpp",
+    "src/sim/onthepitch/pesmarktable.cpp"
+   ],
+   "name": "FUN_14043A0A0"
+  },
   "1404F64D9": {
    "files": [
     "src/sim/onthepitch/pesmarktable.hpp",
     "src/sim/onthepitch/pesmarktable.cpp"
    ],
    "name": "tests"
+  },
+  "1404F64F9": {
+   "files": [
+    "src/sim/onthepitch/pesmarktable.hpp",
+    "src/sim/onthepitch/pesmarktable.cpp"
+   ],
+   "name": "FUN_14043A0A0"
   },
   "1404F650D": {
    "files": [
@@ -183577,6 +184285,12 @@
    ],
    "name": null
   },
+  "1404F654F": {
+   "files": [
+    "src/sim/onthepitch/pesmarktable.hpp"
+   ],
+   "name": "test"
+  },
   "1404F6558": {
    "files": [
     "src/sim/onthepitch/pesmarktable.hpp"
@@ -183596,11 +184310,17 @@
    ],
    "name": "gate"
   },
+  "1404F6580": {
+   "files": [
+    "src/sim/onthepitch/pesmarktable.hpp"
+   ],
+   "name": "test"
+  },
   "1404F6595": {
    "files": [
     "src/sim/onthepitch/pesmarktable.cpp"
    ],
-   "name": "ConePasses"
+   "name": "InnerQuirk"
   },
   "1404F659D": {
    "files": [
@@ -183619,7 +184339,7 @@
    "files": [
     "src/sim/onthepitch/pesmarktable.cpp"
    ],
-   "name": null
+   "name": "InnerQuirk"
   },
   "1404F65D7": {
    "files": [
@@ -183891,10 +184611,11 @@
   },
   "1404F6C30": {
    "files": [
+    "src/sim/onthepitch/teamAIcontroller.cpp",
     "src/sim/onthepitch/pesteamtick.hpp",
     "src/sim/onthepitch/player/controller/elizacontroller.cpp"
    ],
-   "name": "freeze"
+   "name": "words"
   },
   "1404F6D89": {
    "files": [
@@ -183908,13 +184629,27 @@
    ],
    "name": "DL"
   },
+  "1404F6DB8": {
+   "files": [
+    "src/sim/onthepitch/teamAIcontroller.cpp"
+   ],
+   "name": "decider"
+  },
+  "1404F6DBD": {
+   "files": [
+    "src/sim/onthepitch/teamAIcontroller.cpp",
+    "src/sim/onthepitch/pesteamtick.hpp",
+    "src/pes/formation.hpp"
+   ],
+   "name": "decider"
+  },
   "1404F6E1C": {
    "files": [
     "src/sim/onthepitch/teamAIcontroller.cpp",
     "src/sim/onthepitch/pesteamtick.hpp",
     "src/sim/onthepitch/pesteamtick.cpp"
    ],
-   "name": "words"
+   "name": "flags"
   },
   "1404F6EAD": {
    "files": [
@@ -183922,13 +184657,20 @@
    ],
    "name": "selector"
   },
+  "1404F6F0E": {
+   "files": [
+    "src/sim/onthepitch/team.cpp",
+    "src/sim/onthepitch/teamAIcontroller.hpp"
+   ],
+   "name": "above"
+  },
   "1404F6F91": {
    "files": [
     "src/sim/onthepitch/teamAIcontroller.cpp",
     "src/sim/onthepitch/pesteamtick.hpp",
     "src/sim/onthepitch/pesteamtick.cpp"
    ],
-   "name": "words"
+   "name": "flags"
   },
   "1404F76AC": {
    "files": [
@@ -183996,20 +184738,35 @@
    ],
    "name": "ProcessOffBall"
   },
+  "1404F79A8": {
+   "files": [
+    "src/sim/onthepitch/team.cpp",
+    "src/sim/onthepitch/pesrunslots.hpp",
+    "src/sim/onthepitch/teamAIcontroller.hpp"
+   ],
+   "name": "once"
+  },
+  "1404F7A8F": {
+   "files": [
+    "src/sim/onthepitch/team.cpp",
+    "src/sim/onthepitch/teamAIcontroller.hpp"
+   ],
+   "name": "above"
+  },
   "1404F8350": {
    "files": [
     "src/sim/onthepitch/teamAIcontroller.cpp",
     "src/sim/onthepitch/pesstrategy.hpp",
     "src/sim/onthepitch/pesteamtick.hpp"
    ],
-   "name": "words"
+   "name": "flags"
   },
   "1404F8619": {
    "files": [
     "src/sim/onthepitch/pesteamtick.hpp",
     "src/sim/onthepitch/pesteamtick.cpp"
    ],
-   "name": "SupportWeights"
+   "name": "StoppagePlan2"
   },
   "1404F8640": {
    "files": [
@@ -184678,6 +185435,25 @@
    ],
    "name": "selector"
   },
+  "140500FA9": {
+   "files": [
+    "src/sim/onthepitch/pesteamtick.hpp"
+   ],
+   "name": "rule"
+  },
+  "140501076": {
+   "files": [
+    "src/sim/onthepitch/pesteamtick.hpp",
+    "src/pes/formation.hpp"
+   ],
+   "name": "OPEN"
+  },
+  "14050107C": {
+   "files": [
+    "src/sim/onthepitch/pesteamtick.hpp"
+   ],
+   "name": "S2"
+  },
   "140501160": {
    "files": [
     "src/sim/onthepitch/pesdesignation.hpp"
@@ -185021,6 +185797,7 @@
    "files": [
     "src/sim/onthepitch/pesclock.hpp",
     "src/sim/onthepitch/referee.hpp",
+    "src/sim/onthepitch/pesteamtick.hpp",
     "src/sim/onthepitch/pesclock.cpp",
     "src/sim/onthepitch/referee.cpp"
    ],
@@ -185183,10 +185960,12 @@
   },
   "14051E970": {
    "files": [
+    "src/sim/onthepitch/teamAIcontroller.cpp",
     "src/sim/onthepitch/pesstrategy.hpp",
-    "src/sim/onthepitch/pesstrategy.cpp"
+    "src/sim/onthepitch/pesstrategy.cpp",
+    "src/sim/onthepitch/teamAIcontroller.hpp"
    ],
-   "name": "DeciderCalledIn"
+   "name": "body"
   },
   "14051E9CF": {
    "files": [
@@ -185820,6 +186599,63 @@
    ],
    "name": "TeamAIController::StopConcept"
   },
+  "14057F590": {
+   "files": [
+    "src/sim/onthepitch/teamAIcontroller.cpp",
+    "src/sim/onthepitch/pesrunslots.cpp",
+    "src/sim/onthepitch/pesrunslots.hpp"
+   ],
+   "name": "arm"
+  },
+  "14057F600": {
+   "files": [
+    "src/sim/onthepitch/team.cpp",
+    "src/sim/onthepitch/pesrunslots.hpp",
+    "src/sim/onthepitch/teamAIcontroller.hpp"
+   ],
+   "name": "dispatcher"
+  },
+  "14057F61B": {
+   "files": [
+    "src/sim/onthepitch/pesrunslots.cpp",
+    "src/sim/onthepitch/pesrunslots.hpp"
+   ],
+   "name": "ReleaseDispatch"
+  },
+  "14057F6CA": {
+   "files": [
+    "src/sim/onthepitch/pesrunslots.cpp",
+    "src/sim/onthepitch/pesrunslots.hpp"
+   ],
+   "name": "fork"
+  },
+  "14057F720": {
+   "files": [
+    "src/sim/onthepitch/pesrunslots.hpp"
+   ],
+   "name": "loop"
+  },
+  "14057F7EC": {
+   "files": [
+    "src/sim/onthepitch/teamAIcontroller.cpp",
+    "src/sim/onthepitch/pesrunslots.cpp",
+    "src/sim/onthepitch/pesrunslots.hpp"
+   ],
+   "name": "fVar25"
+  },
+  "14057F80B": {
+   "files": [
+    "src/sim/onthepitch/pesrunslots.cpp",
+    "src/sim/onthepitch/pesrunslots.hpp"
+   ],
+   "name": "gate"
+  },
+  "14057FDE0": {
+   "files": [
+    "src/sim/onthepitch/pesrunslots.hpp"
+   ],
+   "name": "loop"
+  },
   "140581CE0": {
    "files": [
     "src/pes/movestep_run.cpp",
@@ -186158,7 +186994,7 @@
    "files": [
     "src/sim/onthepitch/pesmentality.hpp"
    ],
-   "name": "RoleLevel"
+   "name": null
   },
   "1405ECB49": {
    "files": [
@@ -186692,6 +187528,14 @@
     "src/sim/onthepitch/pesforward.cpp"
    ],
    "name": "IsForwardSlot"
+  },
+  "140642670": {
+   "files": [
+    "src/sim/onthepitch/teamAIcontroller.cpp",
+    "src/sim/onthepitch/pesrunslots.cpp",
+    "src/sim/onthepitch/pesrunslots.hpp"
+   ],
+   "name": "arm"
   },
   "140644FE0": {
    "files": [
@@ -191343,6 +192187,18 @@
    ],
    "name": "gives"
   },
+  "1408ADEA5": {
+   "files": [
+    "src/sim/onthepitch/teamAIcontroller.cpp"
+   ],
+   "name": "reset"
+  },
+  "1408ADFAD": {
+   "files": [
+    "src/sim/onthepitch/teamAIcontroller.cpp"
+   ],
+   "name": "reset"
+  },
   "1408B4560": {
    "files": [
     "src/sim/onthepitch/teamAIcontroller.cpp",
@@ -191703,7 +192559,7 @@
    "files": [
     "src/sim/onthepitch/teamAIcontroller.cpp"
    ],
-   "name": "it"
+   "name": "reset"
   },
   "140922DD0": {
    "files": [
@@ -192110,6 +192966,19 @@
     "src/sim/onthepitch/pesdefenderdecisions.hpp"
    ],
    "name": "uses"
+  },
+  "1409931C0": {
+   "files": [
+    "src/sim/onthepitch/pesdefenderdecisions.hpp",
+    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
+   ],
+   "name": "verdict"
+  },
+  "14099369C": {
+   "files": [
+    "src/sim/onthepitch/pesdefenderdecisions.hpp"
+   ],
+   "name": "verdict"
   },
   "1409AD830": {
    "files": [
@@ -192819,6 +193688,7 @@
     "src/sim/onthepitch/pespossession.hpp",
     "src/sim/onthepitch/pesevents.hpp",
     "src/sim/onthepitch/pesclock.hpp",
+    "src/sim/onthepitch/teamAIcontroller.cpp",
     "src/sim/onthepitch/pesteamtick.cpp",
     "src/sim/onthepitch/pesreactionblock.hpp",
     "src/sim/onthepitch/pesevents.cpp",
@@ -193045,6 +193915,7 @@
   "140A42940": {
    "files": [
     "src/sim/onthepitch/teamAIcontroller.cpp",
+    "src/sim/onthepitch/pesrunslots.cpp",
     "src/sim/onthepitch/pesrunslots.hpp",
     "src/sim/onthepitch/teamAIcontroller.hpp"
    ],
@@ -193056,6 +193927,14 @@
     "src/sim/onthepitch/pesrunslots.hpp"
    ],
    "name": "runs"
+  },
+  "140A42A70": {
+   "files": [
+    "src/sim/onthepitch/team.cpp",
+    "src/sim/onthepitch/pesrunslots.hpp",
+    "src/sim/onthepitch/teamAIcontroller.hpp"
+   ],
+   "name": "above"
   },
   "140A431E0": {
    "files": [
@@ -193188,7 +194067,7 @@
   },
   "140A4E7C0": {
    "files": [
-    "src/sim/onthepitch/pesmarktable.cpp"
+    "src/sim/onthepitch/pesmarktable.hpp"
    ],
    "name": "gate"
   },
@@ -193212,8 +194091,7 @@
   },
   "140A4EAF0": {
    "files": [
-    "src/sim/onthepitch/pesmarktable.hpp",
-    "src/sim/onthepitch/pesmarktable.cpp"
+    "src/sim/onthepitch/pesmarktable.hpp"
    ],
    "name": "gate"
   },
@@ -193340,8 +194218,7 @@
    "files": [
     "src/sim/onthepitch/pesteamconcepts.cpp",
     "src/sim/onthepitch/pesteamconcepts.hpp",
-    "src/sim/onthepitch/pesmarktable.hpp",
-    "src/sim/onthepitch/pesmarktable.cpp"
+    "src/sim/onthepitch/pesmarktable.hpp"
    ],
    "name": "FUN_140a53da0"
   },
@@ -193351,15 +194228,23 @@
     "src/sim/onthepitch/pescarrier.hpp",
     "src/sim/onthepitch/pescarrier.cpp",
     "src/sim/onthepitch/peslane.hpp",
-    "src/sim/onthepitch/pesmarktable.cpp"
+    "src/sim/onthepitch/pesmarktable.hpp"
    ],
    "name": "AttackHeading"
   },
   "140A53E20": {
    "files": [
+    "src/sim/onthepitch/pesmarktable.hpp",
     "src/sim/onthepitch/pesmarktable.cpp"
    ],
-   "name": "ConePasses"
+   "name": "plane"
+  },
+  "140A53E2F": {
+   "files": [
+    "src/sim/onthepitch/pesmarktable.hpp",
+    "src/sim/onthepitch/pesmarktable.cpp"
+   ],
+   "name": "plane"
   },
   "140A53E49": {
    "files": [
@@ -193383,9 +194268,10 @@
   },
   "140A55CF0": {
    "files": [
+    "src/sim/onthepitch/teamAIcontroller.cpp",
     "src/sim/onthepitch/pesdesignation.hpp"
    ],
-   "name": null
+   "name": "gate"
   },
   "140A55D40": {
    "files": [
@@ -193602,9 +194488,10 @@
   },
   "140A606C0": {
    "files": [
+    "src/sim/onthepitch/teamAIcontroller.cpp",
     "src/sim/onthepitch/pesteamtick.cpp"
    ],
-   "name": null
+   "name": "arm"
   },
   "140A61CF0": {
    "files": [
@@ -194663,7 +195550,7 @@
    "src/pes/movestep_run.cpp:2291"
   ],
   "140439FE0": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3326"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3328"
   ],
   "14043A0A0": [
    "src/pes/movestep_step.cpp:1581"
@@ -194688,17 +195575,17 @@
    "src/pes/movestep_run.cpp:997"
   ],
   "140481B00": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2653"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2643"
   ],
   "1404A8930": [
    "src/sim/onthepitch/pessetpieceteam.hpp:164"
   ],
   "1404C8E00": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2955",
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3142"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2957",
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3144"
   ],
   "1404F4BE0": [
-   "src/sim/onthepitch/team.cpp:512"
+   "src/sim/onthepitch/team.cpp:515"
   ],
   "1404F6567": [
    "src/sim/onthepitch/pesmarktable.hpp:79"
@@ -194707,50 +195594,50 @@
    "src/sim/onthepitch/pesmarktable.hpp:80"
   ],
   "1404F6720": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3461"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3525"
   ],
   "1404F68CB": [
-   "src/sim/onthepitch/pesoffball.cpp:1616"
+   "src/sim/onthepitch/pesoffball.cpp:1621"
   ],
   "1404F68EA": [
-   "src/sim/onthepitch/pesoffball.cpp:1610"
+   "src/sim/onthepitch/pesoffball.cpp:1615"
   ],
   "1404F6A0B": [
-   "src/sim/onthepitch/pesoffball.cpp:1616"
+   "src/sim/onthepitch/pesoffball.cpp:1621"
   ],
   "1404F6D89": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2917"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2911"
   ],
   "1404F6D97": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2917"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2911"
   ],
   "1404F76E0": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3164"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3207"
   ],
   "1404F7807": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3164"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3207"
   ],
   "1404F8675": [
    "src/sim/onthepitch/pesteamtick.cpp:36"
   ],
   "1404FEFDF": [
-   "src/sim/onthepitch/pesteamtick.cpp:113"
+   "src/sim/onthepitch/pesteamtick.cpp:121"
   ],
   "1404FF75F": [
-   "src/sim/onthepitch/pesteamtick.cpp:113"
+   "src/sim/onthepitch/pesteamtick.cpp:121"
   ],
-  "140500B90": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3257"
+  "140501076": [
+   "src/sim/onthepitch/pesteamtick.hpp:45"
   ],
   "140502758": [
-   "src/sim/onthepitch/pesteamtick.cpp:78"
+   "src/sim/onthepitch/pesteamtick.cpp:86"
   ],
   "14050B9B0": [
    "src/sim/onthepitch/pesclock.cpp:199",
    "src/sim/onthepitch/pesclock.cpp:214"
   ],
   "14050E770": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:1228"
+   "src/sim/onthepitch/teamAIcontroller.cpp:1216"
   ],
   "14050F7E0": [
    "src/sim/onthepitch/pesjudge.cpp:310"
@@ -194765,16 +195652,22 @@
    "src/sim/onthepitch/pesteamconcepts.cpp:933"
   ],
   "140546FB0": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:201"
+   "src/sim/onthepitch/teamAIcontroller.cpp:199"
   ],
   "140547814": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:201"
+   "src/sim/onthepitch/teamAIcontroller.cpp:199"
   ],
   "140549D30": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:201"
+   "src/sim/onthepitch/teamAIcontroller.cpp:199"
   ],
   "140579840": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2196"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2186"
+  ],
+  "14057F590": [
+   "src/sim/onthepitch/teamAIcontroller.cpp:2998"
+  ],
+  "14057F7EC": [
+   "src/sim/onthepitch/teamAIcontroller.cpp:3014"
   ],
   "140581CE0": [
    "src/pes/movestep_turn.cpp:769"
@@ -194783,45 +195676,48 @@
    "src/pes/movestep_turn.cpp:769"
   ],
   "1405A0D20": [
-   "src/sim/onthepitch/pesoffball.cpp:1748"
+   "src/sim/onthepitch/pesoffball.cpp:1753"
   ],
   "1405AAF00": [
-   "src/sim/onthepitch/pesoffball.cpp:1778"
+   "src/sim/onthepitch/pesoffball.cpp:1783"
   ],
   "14061E7C0": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3161"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3163"
   ],
   "14063A420": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2443"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2445"
   ],
   "14063E010": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3173"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3175"
   ],
   "14063E270": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3171"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3173"
   ],
   "14063F490": [
-   "src/sim/onthepitch/pesmentality.hpp:157"
+   "src/sim/onthepitch/pesmentality.hpp:165"
   ],
   "14063F760": [
-   "src/sim/onthepitch/pesmentality.hpp:156"
+   "src/sim/onthepitch/pesmentality.hpp:164"
+  ],
+  "140642670": [
+   "src/sim/onthepitch/teamAIcontroller.cpp:2998"
   ],
   "140664EE0": [
    "src/sim/onthepitch/pesoffball.cpp:351"
   ],
   "140698340": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3171"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3173"
   ],
   "140699960": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2766",
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2942",
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2969"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2768",
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2944",
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2971"
   ],
   "14069A3E0": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2865"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2867"
   ],
   "14069A500": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3168"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3170"
   ],
   "1406ABB30": [
    "src/pes/movestep_step.cpp:1706"
@@ -194839,7 +195735,7 @@
    "src/pes/movestep_step.cpp:1432"
   ],
   "1406B4C10": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:1507"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:1509"
   ],
   "1406B7560": [
    "src/pes/movestep.hpp:922"
@@ -194851,7 +195747,7 @@
    "src/pes/movestep_step.cpp:547"
   ],
   "1406DE990": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:1401"
+   "src/sim/onthepitch/teamAIcontroller.cpp:1389"
   ],
   "1406E6660": [
    "src/pes/movestep_turn.cpp:122"
@@ -194871,13 +195767,13 @@
    "src/sim/onthepitch/pesgoalkick.hpp:140"
   ],
   "14073A3D0": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:1605"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:1607"
   ],
   "140775780": [
    "src/sim/onthepitch/pesgoalkick.hpp:121"
   ],
   "140789D00": [
-   "src/sim/onthepitch/match.cpp:1918"
+   "src/sim/onthepitch/match.cpp:1925"
   ],
   "14078A640": [
    "src/sim/onthepitch/pestackle.hpp:194"
@@ -194917,20 +195813,20 @@
    "src/sim/onthepitch/matchevents.cpp:26"
   ],
   "140A3E190": [
-   "src/sim/onthepitch/pesteamtick.cpp:62",
+   "src/sim/onthepitch/pesteamtick.cpp:70",
    "src/pes/movestep_step.cpp:137"
   ],
   "140A422C0": [
    "src/sim/onthepitch/pesroles.hpp:60"
   ],
   "140A42580": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3024"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3067"
   ],
   "140A48910": [
    "src/sim/onthepitch/pescarrier.cpp:2156"
   ],
   "140A489F0": [
-   "src/sim/onthepitch/team.cpp:533"
+   "src/sim/onthepitch/team.cpp:536"
   ],
   "140A48A10": [
    "src/pes/movestep_step.cpp:137"
@@ -194941,17 +195837,17 @@
    "src/pes/movestep_run.cpp:1204"
   ],
   "140A4C820": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3320"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3322"
   ],
   "140A4C8E0": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2571"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2573"
   ],
   "140A4DB20": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2447"
+   "src/sim/onthepitch/teamAIcontroller.cpp:2437"
   ],
   "140A4DDC0": [
    "src/sim/onthepitch/pescarrier.cpp:1709",
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2752"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2754"
   ],
   "140A4E720": [
    "src/sim/onthepitch/pesteamconcepts.cpp:919"
@@ -194960,7 +195856,7 @@
    "src/sim/onthepitch/pesmarktable.hpp:80"
   ],
   "140A4F2A3": [
-   "src/sim/onthepitch/pesoffball.cpp:1656"
+   "src/sim/onthepitch/pesoffball.cpp:1661"
   ],
   "140A51D50": [
    "src/sim/onthepitch/pespress.hpp:345"
@@ -194969,7 +195865,7 @@
    "src/sim/onthepitch/pesmarktable.hpp:79"
   ],
   "140A53F90": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2285",
+   "src/sim/onthepitch/teamAIcontroller.cpp:2275",
    "src/sim/onthepitch/pespress.hpp:402"
   ],
   "140A57800": [
@@ -194977,7 +195873,7 @@
    "src/sim/onthepitch/matchevents.cpp:191"
   ],
   "140A580A0": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3389"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3453"
   ],
   "140A581C0": [
    "src/sim/onthepitch/pesmovestep.cpp:86"
@@ -194990,7 +195886,7 @@
    "src/sim/onthepitch/pessetpieceteam.hpp:164"
   ],
   "140A60300": [
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:1511"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:1513"
   ],
   "140A627E0": [
    "src/sim/onthepitch/pesmovestep.cpp:413",
@@ -195002,7 +195898,7 @@
    "src/pes/movestep_step.cpp:1002"
   ],
   "140A62850": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:3510"
+   "src/sim/onthepitch/teamAIcontroller.cpp:3574"
   ],
   "140A62960": [
    "src/sim/onthepitch/pespress.hpp:380",
@@ -195022,10 +195918,10 @@
    "src/sim/onthepitch/pesmentality.cpp:433"
   ],
   "140A63DA0": [
-   "src/sim/onthepitch/match.cpp:1720"
+   "src/sim/onthepitch/match.cpp:1727"
   ],
   "140A64030": [
-   "src/sim/onthepitch/pesoffball.cpp:1485"
+   "src/sim/onthepitch/pesoffball.cpp:1490"
   ],
   "140A6CF70": [
    "src/sim/onthepitch/pesmovestep.cpp:206",
@@ -195047,12 +195943,12 @@
   ],
   "140A71260": [
    "src/sim/onthepitch/pescarrier.cpp:2332",
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2946",
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3160",
-   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3226"
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:2948",
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3162",
+   "src/sim/onthepitch/player/controller/elizacontroller.cpp:3228"
   ],
   "140A71540": [
-   "src/sim/onthepitch/teamAIcontroller.cpp:2447",
+   "src/sim/onthepitch/teamAIcontroller.cpp:2437",
    "src/pes/movestep_run.cpp:1152",
    "src/pes/movestep_run.cpp:1204"
   ],
@@ -195063,7 +195959,7 @@
    "src/sim/onthepitch/pesmovestep.cpp:276"
   ],
   "140A75740": [
-   "src/sim/onthepitch/pesoffball.cpp:1354"
+   "src/sim/onthepitch/pesoffball.cpp:1359"
   ],
   "140A76240": [
    "src/sim/onthepitch/pescarrier.cpp:2288",
@@ -195088,7 +195984,88 @@
    "src/sim/onthepitch/pesmover.cpp:42"
   ],
   "140CA1A50": [
-   "src/sim/onthepitch/pesoffball.cpp:1581"
+   "src/sim/onthepitch/pesoffball.cpp:1586"
   ]
+ },
+ "translated": {
+  "140439E50": "tools/dev/translate/results.json",
+  "140439EF0": "tools/dev/translate/results.json",
+  "14043A0A0": "tools/dev/translate/results.json",
+  "140458740": "tools/dev/translate/results.json",
+  "14046F230": "tools/dev/translate/results.json",
+  "14046F260": "tools/dev/translate/results.json",
+  "140479470": "tools/dev/translate/results.json",
+  "1404A53E0": "tools/dev/translate/results.json",
+  "1404AB8E0": "tools/dev/translate/results.json",
+  "1404BCAD0": "tools/dev/translate/results.json",
+  "1404F6680": "tools/dev/translate/results.json",
+  "1405008E0": "tools/dev/translate/results.json",
+  "140529330": "tools/dev/translate/results.json",
+  "140529430": "tools/dev/translate/results.json",
+  "140591A10": "tools/dev/translate/results.json",
+  "1405969B0": "tools/dev/translate/results.json",
+  "1405A0D20": "tools/dev/translate/results.json",
+  "1405A4830": "tools/dev/translate/results.json",
+  "1405AAF00": "tools/dev/translate/results.json",
+  "1405BB170": "tools/dev/translate/results.json",
+  "1405CCD00": "tools/dev/translate/results.json",
+  "1405CD050": "tools/dev/translate/results.json",
+  "1405CD0F0": "tools/dev/translate/results.json",
+  "1405CD320": "tools/dev/translate/results.json",
+  "1405CFC80": "tools/dev/translate/results.json",
+  "1405CFFE0": "tools/dev/translate/results.json",
+  "1405DFC70": "tools/dev/translate/results.json",
+  "1405DFE40": "tools/dev/translate/results.json",
+  "140632850": "tools/dev/translate/results.json",
+  "140632BC0": "tools/dev/translate/results.json",
+  "140639600": "tools/dev/translate/results.json",
+  "14063C9F0": "tools/dev/translate/results.json",
+  "14063F490": "tools/dev/translate/results.json",
+  "14063FDC0": "tools/dev/translate/results.json",
+  "140653480": "tools/dev/translate/results.json",
+  "140682320": "tools/dev/translate/results.json",
+  "140687FB0": "tools/dev/translate/results.json",
+  "140688300": "tools/dev/translate/results.json",
+  "1409FA0B0": "tools/dev/translate/results.json",
+  "1409FBCE0": "tools/dev/translate/results.json",
+  "140A3C9B0": "tools/dev/translate/results.json",
+  "140A3E190": "tools/dev/translate/results.json",
+  "140A3E7D0": "tools/dev/translate/results.json",
+  "140A3E840": "tools/dev/translate/results.json",
+  "140A40000": "tools/dev/translate/results.json",
+  "140A40050": "tools/dev/translate/results.json",
+  "140A40110": "tools/dev/translate/results.json",
+  "140A4C930": "tools/dev/translate/results.json",
+  "140A4C9A0": "tools/dev/translate/results.json",
+  "140A4E7C0": "tools/dev/translate/results.json",
+  "140A4EAF0": "tools/dev/translate/results.json",
+  "140A4F230": "tools/dev/translate/results.json",
+  "140A51320": "tools/dev/translate/results.json",
+  "140A51D50": "tools/dev/translate/results.json",
+  "140A533A0": "tools/dev/translate/results.json",
+  "140A53DA0": "tools/dev/translate/results.json",
+  "140A53F90": "tools/dev/translate/results.json",
+  "140A61CF0": "tools/dev/translate/results.json",
+  "140A61F40": "tools/dev/translate/results.json",
+  "140A62140": "tools/dev/translate/results.json",
+  "140A627E0": "tools/dev/translate/results.json",
+  "140A62960": "tools/dev/translate/results.json",
+  "140A62FE0": "tools/dev/translate/results.json",
+  "140A63020": "tools/dev/translate/results.json",
+  "140A6DF00": "tools/dev/translate/results.json",
+  "140A6E150": "tools/dev/translate/results.json",
+  "140A6E1C0": "tools/dev/translate/results.json",
+  "140A6E320": "tools/dev/translate/results.json",
+  "140A6E340": "tools/dev/translate/results.json",
+  "140A6E3F0": "tools/dev/translate/results.json",
+  "140A6E450": "tools/dev/translate/results.json",
+  "140A6E540": "tools/dev/translate/results.json",
+  "140A72E70": "tools/dev/translate/results.json",
+  "140A8F7C0": "tools/dev/translate/results.json",
+  "140A92950": "tools/dev/translate/results.json",
+  "140A92D40": "tools/dev/translate/results.json",
+  "14149F4F0": "tools/dev/translate/results.json",
+  "141E5CA20": "tools/dev/translate/results.json",
+  "141E5D4C0": "tools/dev/translate/results.json"
  }
 }

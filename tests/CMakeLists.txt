@@ -80,6 +80,7 @@ add_test(NAME godot_animation_test
 set_tests_properties(godot_animation_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
 add_subdirectory(sim)
 add_subdirectory(diff)
+add_subdirectory(pilot)
 
 add_executable(pes_uniform_test pes_uniform_test.cpp)
 target_link_libraries(pes_uniform_test PRIVATE pesfmt GTest::gtest_main)

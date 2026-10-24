@@ -1411,6 +1411,15 @@
    ],
    "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
    "va": "0x140AF2DA0"
+  },
+  {
+   "cite": "pes-re-defender-decisions.md",
+   "files": [
+    "src/sim/onthepitch/pesdefenderdecisions.hpp",
+    "src/sim/onthepitch/player/controller/elizacontroller.cpp"
+   ],
+   "reason": "real function cited by a port that no walked edge reaches: not a direct, tail or table target of the universe, not a code slot of a vtable a walked function references; its callers are outside the crawl (an indirect CALL [reg+disp] or JMP reg without a resolvable table)",
+   "va": "0x1409931C0"
   }
  ]
 }
