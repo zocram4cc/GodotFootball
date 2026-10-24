@@ -92,8 +92,10 @@ const SortedRow& ScoreRowForSign(const ScoreRows& rows, int k);
 const SortedRow& GateRowForSign(const ScoreRows& rows, int k);
 
 // The writer's body for the blocks `mask` selects. The NearestList is rebuilt on every call.
+// `pesPath` gates the pair-bearing table (FUN_140439FE0 family): GF mode keeps
+// its old rows exactly (all zeroes there).
 void BuildScoreRows(const RowPlayers& players, const ScoreRowConstants& k, uint8_t mask,
-                    ScoreRows& rows);
+                    ScoreRows& rows, bool pesPath);
 
 // The writer as the team tick drives it: the TA+0x11 latch and the frame rotation.
 class ScoreRowWriter {
@@ -101,8 +103,10 @@ class ScoreRowWriter {
   // One call on the step-5 path. `fullRefresh` is FUN_140457070's flag argument: it latches the
   // writer and rewrites every block (mask 0xFF). Otherwise the mask is the rotation of `frame`
   // (MI+0x1198 & 3 onto 0x01, 0x02, 0x24, 0x10), and nothing is written until the latch is set.
+  // `pesPath` gates the pair-bearing table: a PES-only read (FUN_140439FE0 family), so GF mode
+  // keeps its old rows exactly (all zeroes there).
   void Tick(const RowPlayers& players, const ScoreRowConstants& k, unsigned long frame,
-            bool fullRefresh);
+            bool fullRefresh, bool pesPath);
   const ScoreRows& Rows() const { return rows_; }
   bool Latched() const { return latched_; }
 

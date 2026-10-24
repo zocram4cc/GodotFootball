@@ -184,7 +184,8 @@ void TeamAIController::TickScoreRows() {
   // FUN_140457070's argument; Team::Process). A match opens stopped (inPlay starts false), so its first
   // tick latches the writer. A seam that starts play with no stoppage (Match::StartPlay) would leave the
   // rows unwritten until one came, so until the writer is latched every tick is its full refresh.
-  scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay() || !scoreRows_.Latched());
+  scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay() || !scoreRows_.Latched(),
+                  match->PesLoop());
 }
 
 void TeamAIController::TickMarkTable() {
@@ -197,18 +198,17 @@ void TeamAIController::TickMarkTable() {
   markTableState.mark.fill(0);
   markTableState.markSlot = pes::marktable::kNoSlot;
   if (!match->PesLoop()) return;
-  // The engaging man owns the B7D8 word: PES's tgt skip keeps the already
-  // engaged man out of the marking candidacy, and GF's engaged man is its
-  // designated possession player (the MATCH_UP/chaser read at :2192).
-  // ponytail: B7D8's exact writers (FUN_140546FB0/549D30) are not decoded to GF
-  // state; the designation is the closest decoded carrier.
+  // ponytail: B7D8's writers (FUN_140546FB0 at 0x140547814, FUN_140549D30 at
+  // 0x140549E34) store [param_1+0x1C/0x20/0x24 words] % 11, which no decoded GF
+  // state names (mark-cone.md section 1: the designated possession player is
+  // not that value, only the closest decoded engaging-man carrier).
   {
     Player* const engaging = team->GetDesignatedTeamPossessionPlayer();
     markTableState.markSlot = engaging != nullptr ? RunSlotOf(engaging) : -1;
   }
-  // The holder: the ball's owner (FUN_140A627E0 names the carrier; MA+0x2483C
-  // tracks him). No retainer, no holder, no marks. The run slot comes from the
-  // run table: team*11 + roster index (RunSlotOf; -1 when he is not in it).
+  // ponytail: the T7a holder is FUN_140A627E0 else MA+0x2483C (HolderSplit owns
+  // the MA+0x2601C split); GF's ball retainer stands in for it here. The run
+  // slot is team*11 + roster index (RunSlotOf; -1 when he is not in it).
   Player* const owner = match->GetBallRetainer();
   if (owner == nullptr) return;
   const int holder = RunSlotOf(owner);
