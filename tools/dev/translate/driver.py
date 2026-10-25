@@ -143,14 +143,17 @@ def _why_dispatchable(why):
     if not texts:
         return True
     for t in texts:
-        parts = [p for p in
-                 re.split(r";?\s*(?:call|callee) [0-9A-Fa-f]+:\s*", t)
-                 if p.strip()]
-        if not parts:
-            # A bare reason ("recursion through ...", "call depth > 10").
-            return False
-        if not all(_blocker_dispatchable(p) for p in parts):
-            return False
+        chains = [c for c in
+                  re.split(r";\s*(?=call [0-9A-Fa-f]+:)", t) if c.strip()]
+        for c in chains or [t]:
+            parts = [p for p in
+                     re.split(r";?\s*(?:call|callee) [0-9A-Fa-f]+:\s*", c)
+                     if p.strip()]
+            if not parts:
+                # A bare reason ("recursion", "call depth > 10").
+                return False
+            if not all(_blocker_dispatchable(p) for p in parts):
+                return False
     return True
 
 
@@ -259,12 +262,18 @@ def blocked_reason(spec):
         raw = harness.get("blockers") or ["harness cannot run"]
         # Dispatchable blockers (indirect calls, switch jumps) no longer
         # block: the translator emits a runtime lookup / native switch.
-        # A blocker chain ("call A: callee B: indirect ...") blocks only
-        # when some link is not dispatchable.
-        live = [b for b in raw
-                if not all(_blocker_dispatchable(p) for p in
-                           re.split(r";?\s*(?:call|callee) [0-9A-Fa-f]+:\s*",
-                                    b) if p.strip())]
+        # Each blocker holds '; '-joined chains ("call A: callee B: indirect
+        # ..."); a chain blocks only when some link is not dispatchable.
+        live = []
+        for b in raw:
+            chains = [c for c in
+                      re.split(r";\s*(?=call [0-9A-Fa-f]+:)", b) if c.strip()]
+            for c in chains or [b]:
+                links = [p for p in
+                         re.split(r";?\s*(?:call|callee) [0-9A-Fa-f]+:\s*", c)
+                         if p.strip()]
+                if not all(_blocker_dispatchable(p) for p in links):
+                    live.append(c.strip()[:440])
         if live:
             return "; ".join(live)[:440]
         return None
