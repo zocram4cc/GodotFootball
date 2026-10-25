@@ -50,3 +50,17 @@ Stub usage in the 15: `1415A1780` (sqrt) in 12, `14159F3E0` (noop) in 2.
 
 - 12 struct map gap specs, including the 3 regressions: spec fixes (routed to Main).
 - 23 unmodellable: needs indirect-target resolution (vtable tables) and switch case enumeration.
+
+## Main's comparison with the parallel run (ImpureRun-2, `origin/Impure2` `45c4f0a`, not landed)
+
+Both measured 15/50 bit-exact, agreeing on only 7.
+
+- ImpureRun-2's 8 extra passes are all functions whose closure holds an unmodellable callee (indirect call or
+  undecoded switch table). ImpureRun refuses them, correctly; ImpureRun-2 ran them, and they matched only because no
+  case reached the unmodelled path. Partial coverage, not bit-exact: such functions are never recorded as diffed.
+- ImpureRun-2 fails 8 that ImpureRun passes (returns 0 where PES returns values).
+- ImpureRun-2's 23 "live state" are ImpureRun's 23 unmodellable callees under the broken classifier ImpureRun fixed;
+  its 12 "translator bug" are ImpureRun's 12 struct-map gaps.
+- Worth porting from ImpureRun-2: the MOVABS alias (`45c4f0a`) and the tail-JMP stub model (`b19d588`).
+
+ImpureRun's branch landed: committed stub table shared by harness and translator, working classifier.
