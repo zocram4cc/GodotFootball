@@ -33,6 +33,9 @@ side (diffmain.py) BEFORE the per-case inputs:
 
 Seed JSON (written next to the corpus by run.py):
   {"g_base": "0x...", "regions": [{"name", "base", "off", "size", "hex"}...]}
+
+Bank JSON (--bank-classes): {"class": team|anime|man|slot|none, "instances": [seed JSON...]}.
+Instance k binds A0 to the k-th live record of that class; run.py case n uses instance n % N.
 """
 import json
 import os
@@ -245,6 +248,42 @@ def seed_for_spec(spec, live_dir=None, emulated_dir=None, page=0x1000, team=None
     return artifact_of(spec, seed)
 
 
+# Argument-class banks (live only): case i runs instance i % N. Instances are
+# team records T[s] (s = 0, 1), or the 22 on-pitch player records of one table
+# (anime / man / slot: G-table entries k+0xA5 / k+0xBF / k+0xF3).
+PLAYER_TABLE = {"anime": 0xA5, "man": 0xBF, "slot": 0xF3}
+PLAYER_COUNT = 22  # on-pitch slot entries 0..21 (pes-re-player-record.md 1.1)
+
+
+def instance_roots(read, gbytes, g, cls):
+    """Candidate A0 addresses of argument class cls (null entries dropped)."""
+    if cls == "team":
+        cands = [walk(read, gbytes, g, g, [(s + TEAM_SLOT) * STRIDE]) for s in (0, 1)]
+    elif cls in PLAYER_TABLE:
+        cands = [walk(read, gbytes, g, g, [(k + PLAYER_TABLE[cls]) * STRIDE])
+                 for k in range(PLAYER_COUNT)]
+    else:
+        return []
+    return [c for c in cands if c]
+
+
+def bank_for_spec(spec, live_dir, cls, page=0x1000):
+    """Per-case instance bank (live only): entry k is the seed artifact with A0
+    bound to instance k of class cls. With no live instance (or class none) the
+    bank is the single G-only seed."""
+    meta, index = load_live(live_dir)
+    read = make_reader(index)
+    gbytes = open(live_dir + "/g.bin", "rb").read() if meta.get("g_blob") else b""
+    bank = []
+    for a0 in instance_roots(read, gbytes, meta["g"], cls) or [None]:
+        seed, live = build_live_seed(spec, meta, read, gbytes,
+                                     {"A0": a0} if a0 else {}, page)
+        patch_live_ptrs(spec, seed, live, meta, read)
+        bank.append(artifact_of(spec, seed))
+    return bank
+
+
+
 if __name__ == "__main__":
     import os
     import sys
@@ -258,17 +297,30 @@ if __name__ == "__main__":
     p.add_argument("--only", nargs="*", default=None)
     p.add_argument("--team", type=int, default=None,
                    help="bind the A0 argument root to team record T[N] (live only)")
+    p.add_argument("--bank-classes", default=None,
+                   help="JSON {spec name (lower-case): team|anime|man|slot|none}: write "
+                        "<name>.bank.json (per-case instances, live only) instead of <name>.seed.json")
     args = p.parse_args()
     if not args.live and not args.emulated:
         p.error("one of --live / --emulated")
     os.makedirs(args.out, exist_ok=True)
     live_dir = args.live or None
+    classes = json.load(open(args.bank_classes)) if args.bank_classes else None
+    if classes is not None and live_dir is None:
+        p.error("--bank-classes needs --live")
     for f in sorted(os.listdir(args.spec_dir)):
         if not f.endswith(".json"):
             continue
         if args.only and f[:-5].lower() not in {v.lower() for v in args.only}:
             continue
         spec = json.load(open(os.path.join(args.spec_dir, f)))
+        if classes is not None:
+            cls = classes.get(f[:-5].lower(), "none")
+            bank = bank_for_spec(spec, live_dir, cls, args.page)
+            json.dump({"class": cls, "instances": bank},
+                      open(os.path.join(args.out, f[:-5] + ".bank.json"), "w"))
+            print("%s: class %s, %d instances" % (f[:-5], cls, len(bank)))
+            continue
         a = seed_for_spec(spec, live_dir, args.emulated, args.page, args.team)
         json.dump(a, open(os.path.join(args.out, f[:-5] + ".seed.json"), "w"))
         print("%s: %d regions seeded" % (f[:-5], len(a["regions"])))
