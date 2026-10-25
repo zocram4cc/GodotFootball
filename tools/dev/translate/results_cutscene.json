@@ -28,9 +28,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: w_A0_10_d0 want 0 got 3235104356 case 9: w_A0_10_d0 want 0 got 1094108230 <build>/gen/140001750/corp_140001750.jsonl: 64 cases, 64 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x140001750"
@@ -84,9 +84,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 128 mismatch case 4: w_A0_30_d0 want 2147486561 got 1090050893 case 4: w_A0_38_d2 want 79 got 0 <build>/gen/140003710/corp_140003710.jsonl: 64 cases, 128 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x140003710"
@@ -111,9 +111,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 128 mismatch case 4: w_A0_0 want 1065353216 got 936381697 case 4: w_A0_14 want 1065353216 got 936381697 <build>/gen/140004400/corp_140004400.jsonl: 64 cases, 128 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [],
    "translated": true,
    "va": "0x140004400"
@@ -133,9 +133,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 320 mismatch case 1: w_A1_3C want 439244E0 got 43923A46 case 1: ret_xmm0 want C343B06E got 44E5D46F <build>/gen/140004DC0/corp_140004DC0.jsonl: 64 cases, 320 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [],
    "translated": true,
    "va": "0x140004DC0"
@@ -177,9 +177,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 128 mismatch case 4: w_A0_8 want 40930D38 got BCC8A081 case 4: ret_xmm0 want 40930D38 got 3EF5BE0B <build>/gen/140005340/corp_140005340.jsonl: 64 cases, 128 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [],
    "translated": true,
    "va": "0x140005340"
@@ -207,14 +207,20 @@
    "va": "0x140005480"
   },
   {
-   "cases": 64,
-   "coverage": {},
+   "cases": 66,
+   "coverage": {
+    "0x140005530": {
+     "fraction": 0.9,
+     "reached": 9,
+     "total": 10
+    }
+   },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "translate: TypeError(\"'NoneType' object is not subscriptable\")",
+   "diffed": true,
+   "failure_class": null,
+   "note": "66 cases bit-exact",
    "stubs": [],
-   "translated": false,
+   "translated": true,
    "va": "0x140005530"
   },
   {
@@ -551,9 +557,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 127 mismatch case 4: w_A0_30_d0 want 0 got 235 case 4: w_A0_38_d2 want 0 got 134 <build>/gen/14002A570/corp_14002A570.jsonl: 64 cases, 127 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x14002A570"
@@ -585,9 +591,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_xmm0 want 00000000 got 0000002F case 9: ret_xmm0 want 00000000 got 00000093 <build>/gen/14002A970/corp_14002A970.jsonl: 64 cases, 64 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x14002A970"
@@ -607,9 +613,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 192 mismatch case 2: ret_xmm0 want 3E716076 got 41C72884 case 3: w_A0_0 want BF42E1B9 got 418495F1 <build>/gen/14002AAF0/corp_14002AAF0.jsonl: 64 cases, 192 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x14002AAF0"
@@ -924,9 +930,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 128 mismatch case 4: w_IMG_14372D2E0_30_d0 want 8931 got 1100172299 case 4: w_IMG_14372D2E0_38_d2 want 12125 got 0 <build>/gen/140042140/corp_140042140.jsonl: 64 cases, 128 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [],
    "translated": true,
    "va": "0x140042140"
@@ -1039,9 +1045,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 128 mismatch case 4: w_IMG_14372D330_90_d0 want 0 got 1065353216 case 4: w_IMG_14372D330_B4_d1 want 0 got 1065353216 <build>/gen/1400423C0/corp_1400423C0.jsonl: 64 cases, 128 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [],
    "translated": true,
    "va": "0x1400423C0"
@@ -1338,13 +1344,19 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x1400DB970": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 79
+    }
+   },
    "dead_blocks": {},
    "diffed": false,
-   "failure_class": "translator bug",
-   "note": "translate: TypeError(\"'NoneType' object is not subscriptable\")",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: IndexError: tuple index out of range",
    "stubs": [],
-   "translated": false,
+   "translated": true,
    "va": "0x1400DB970"
   },
   {
@@ -1443,14 +1455,20 @@
    "va": "0x1400EF030"
   },
   {
-   "cases": 64,
-   "coverage": {},
+   "cases": 94,
+   "coverage": {
+    "0x140104DA0": {
+     "fraction": 0.0364,
+     "reached": 2,
+     "total": 55
+    }
+   },
    "dead_blocks": {},
    "diffed": false,
-   "failure_class": "translator bug",
-   "note": "translate: TypeError(\"'NoneType' object is not subscriptable\")",
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 94 cases at own-block 0.04 < floor 0.50",
    "stubs": [],
-   "translated": false,
+   "translated": true,
    "va": "0x140104DA0"
   },
   {
@@ -1906,9 +1924,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 63 mismatch case 8: ret_eax want 17C000 got 0 case 9: ret_eax want 9C000 got 0 <build>/gen/140190DB0/corp_140190DB0.jsonl: 64 cases, 63 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x140190DB0"
@@ -1923,9 +1941,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want 20040002 got 2 case 9: ret_eax want 602C0017 got 16 <build>/gen/140190DD0/corp_140190DD0.jsonl: 64 cases, 64 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x140190DD0"
@@ -1940,9 +1958,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want 5E604982 got 93 case 9: ret_eax want FFC01F00 got 3E <build>/gen/140190DF0/corp_140190DF0.jsonl: 64 cases, 64 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x140190DF0"
@@ -1974,9 +1992,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want 160B00B got 2C case 9: ret_eax want C3D9EC1E got 7B <build>/gen/140190E30/corp_140190E30.jsonl: 64 cases, 64 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x140190E30"
@@ -2244,9 +2262,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 66 cases, 66 mismatch case 8: w_A0_18_20 want 46 got 45 case 9: w_A0_18_20 want 210 got 209 <build>/gen/140285970/corp_140285970.jsonl: 66 cases, 66 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "66 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x140285970"
@@ -2268,7 +2286,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "translator bug",
-   "note": "diff: 71 cases, 4 mismatch case 67: w_A0_18_d0 want 247 got 0 case 67: ret_eax want 25 got 0 <build>/gen/140286A40/corp_140286A40.jsonl: 71 cases, 4 mismatch",
+   "note": "diff: timeout after 600s",
    "stubs": [],
    "translated": true,
    "va": "0x140286A40"
@@ -2651,8 +2669,8 @@
     "0x1403D3EF1": "int3 padding"
    },
    "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 69 cases, 68 mismatch case 8: ret_eax want 83 got 1 case 9: ret_eax want B6 got 1 <build>/gen/1403D2E60/corp_1403D2E60.jsonl: 69 cases, 68 mismatch",
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 69 cases at own-block 0.00 < floor 0.50",
    "stubs": [],
    "translated": true,
    "va": "0x1403D2E60"
@@ -2667,9 +2685,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want BF169F00 got 20400000 case 9: ret_eax want BF169F00 got 20400000 <build>/gen/1403D3600/corp_1403D3600.jsonl: 64 cases, 64 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x1403D3600"
@@ -2701,9 +2719,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 63 mismatch case 8: ret_eax want EC got 1F case 9: ret_eax want 5E got 81 <build>/gen/1403DB210/corp_1403DB210.jsonl: 64 cases, 63 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x1403DB210"
@@ -2718,9 +2736,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 128 mismatch case 4: w_A0_0 want 68 got 69 case 4: ret_eax want 45 got FFFFFFFF <build>/gen/1403DB240/corp_1403DB240.jsonl: 64 cases, 128 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x1403DB240"
@@ -2735,9 +2753,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 128 mismatch case 4: w_A0_0 want 163 got 162 case 4: ret_eax want A2 got 1 <build>/gen/1403DB250/corp_1403DB250.jsonl: 64 cases, 128 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x1403DB250"
@@ -2825,9 +2843,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 66 cases, 65 mismatch case 8: w_A1_0 want 2777057281 got 0 case 9: w_A1_0 want 2777057281 got 0 <build>/gen/1403DB590/corp_1403DB590.jsonl: 66 cases, 65 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "66 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x1403DB590"
@@ -2852,9 +2870,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 71 cases, 71 mismatch case 8: w_A0_0 want 233 got 232 case 9: w_A0_0 want 90 got 89 <build>/gen/1403DB680/corp_1403DB680.jsonl: 71 cases, 71 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "71 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x1403DB680"
@@ -5503,7 +5521,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "translator bug",
-   "note": "diff: 64 cases, 38 mismatch case 14: ret_rax want 7FFFFFFFFFFFFFFF got FFFFFFFFFFFFFFFE case 15: ret_rax want 0 got 1 <build>/gen/1408D4E40/corp_1408D4E40.jsonl: 64 cases, 38 mismatch",
+   "note": "diff: 64 cases, 8 mismatch case 51: ret_rax want 7FFFFFFFFFFFFFFF got FFFFFFFFFFFFFFFF case 52: ret_rax want 7FFFFFFFFFFFFFFF got FFFFFFFFFFFFFFFF <build>/gen/1408D4E40/corp_1408D4E40.jsonl: 64 cases, 8 mismatch",
    "stubs": [],
    "translated": true,
    "va": "0x1408D4E40"
@@ -7664,9 +7682,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 69 cases, 1 mismatch case 41: ret_eax want 1 got 0 <build>/gen/140A7F260/corp_140A7F260.jsonl: 69 cases, 1 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "69 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x140A7F260"
@@ -7816,9 +7834,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 69 cases, 8 mismatch case 57: ret_eax want 0 got 1 case 63: ret_eax want 0 got 1 <build>/gen/140A7F3B0/corp_140A7F3B0.jsonl: 69 cases, 8 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "69 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x140A7F3B0"
@@ -7833,9 +7851,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 69 cases, 4 mismatch case 45: ret_eax want 0 got 1 case 63: ret_eax want 1 got 0 <build>/gen/140A7F3E0/corp_140A7F3E0.jsonl: 69 cases, 4 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "69 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x140A7F3E0"
@@ -7867,9 +7885,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 7 mismatch case 61: ret_eax want 1 got 0 case 62: ret_eax want 0 got 1 <build>/gen/140A7F510/corp_140A7F510.jsonl: 64 cases, 7 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x140A7F510"
@@ -9389,7 +9407,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "struct map gap",
-   "note": "spec closure gap: spec error: regions A0 and A1 overlap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1414bc5c4)",
    "stubs": [],
    "translated": true,
    "va": "0x1414BB950"
@@ -9838,9 +9856,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_xmm0 want 0000A659 got 00001EE1 case 9: ret_xmm0 want 00006C93 got 0000B847 <build>/gen/1415FB180/corp_1415FB180.jsonl: 64 cases, 64 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x1415FB180"
@@ -9942,9 +9960,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 224 mismatch case 2: ret_xmm0 want 00000000 got 8000000F case 3: w_A1_0_d0 want 175 got 14 <build>/gen/1418756C0/corp_1418756C0.jsonl: 64 cases, 224 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x1418756C0"
@@ -10538,9 +10556,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 76 cases, 21 mismatch case 36: ret_xmm0 want 00000000 got 41C5C439 case 43: ret_xmm0 want 00000000 got 423DE3E4 <build>/gen/141AF4BE0/corp_141AF4BE0.jsonl: 76 cases, 21 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "76 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x141AF4BE0"
@@ -10752,9 +10770,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 384 mismatch case 1: w_A2_4 want 00000000 got 00000070 case 1: w_A2_8 want 000000C0 got 00000070 <build>/gen/141B00AE0/corp_141B00AE0.jsonl: 64 cases, 384 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x141B00AE0"
@@ -10769,9 +10787,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 128 mismatch case 4: w_A2_0_d0 want 149 got 0 case 4: w_A2_8 want 122 got 0 <build>/gen/141B00B50/corp_141B00B50.jsonl: 64 cases, 128 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x141B00B50"
@@ -11126,9 +11144,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 1 mismatch case 45: ret_eax want 1 got 0 <build>/gen/141E55990/corp_141E55990.jsonl: 64 cases, 1 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x141E55990"
@@ -11295,9 +11313,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 7 mismatch case 49: ret_eax want 1 got 0 case 57: ret_eax want 1 got 0 <build>/gen/141E55F20/corp_141E55F20.jsonl: 64 cases, 7 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [],
    "translated": true,
    "va": "0x141E55F20"
@@ -11332,9 +11350,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 3 mismatch case 23: ret_eax want 1 got 0 case 51: ret_eax want 0 got 1 <build>/gen/141E55FB0/corp_141E55FB0.jsonl: 64 cases, 3 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [],
    "translated": true,
    "va": "0x141E55FB0"
@@ -11354,9 +11372,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 5 mismatch case 56: ret_eax want 0 got 1 case 61: ret_eax want 0 got 1 <build>/gen/141E56120/corp_141E56120.jsonl: 64 cases, 5 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [],
    "translated": true,
    "va": "0x141E56120"
@@ -14845,7 +14863,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "translator bug",
-   "note": "diff: 71 cases, 71 mismatch case 8: ret_rax want 7FFFFFFFFFFFFFFF got 0 case 9: ret_rax want 1111111111111158 got 0 <build>/gen/141F61660/corp_141F61660.jsonl: 71 cases, 71 mismatch",
+   "note": "diff: 71 cases, 40 mismatch case 15: ret_rax want 7FFFFFFFFFFFFFFF got DDDDDDDDDDDDDDA4 case 19: ret_rax want 7FFFFFFFFFFFFFFF got AAAAAAAAAAAAAA9F <build>/gen/141F61660/corp_141F61660.jsonl: 71 cases, 40 mismatch",
    "stubs": [],
    "translated": true,
    "va": "0x141F61660"
@@ -14955,9 +14973,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_xmm0 want C1AB5C12 got C1A15ADC case 9: ret_xmm0 want 419B3945 got 41A7AADA <build>/gen/141F79BC0/corp_141F79BC0.jsonl: 64 cases, 64 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x141F79BC0"
@@ -15033,7 +15051,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "struct map gap",
-   "note": "spec closure gap: ValueError: invalid literal for int() with base 16: '0x-1'",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x141f7a000)",
    "stubs": [],
    "translated": true,
    "va": "0x141F79FF0"
@@ -15121,9 +15139,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 283 mismatch case 2: w_A0_8_d2 want 206 got 68 case 2: w_A0_10_d0 want 254 got 92 <build>/gen/141F7B130/corp_141F7B130.jsonl: 64 cases, 283 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x141F7B130"
@@ -15342,9 +15360,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 128 mismatch case 4: w_A0_50_118_B0_154_d1 want 1106616066 got 0 case 4: w_A0_50_118_B0_158_d2 want 1102125118 got 0 <build>/gen/141F7F630/corp_141F7F630.jsonl: 64 cases, 128 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x141F7F630"
@@ -15710,8 +15728,8 @@
    },
    "dead_blocks": {},
    "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 71 cases, 142 mismatch case 4: w_A1_8_d0 want 0 got 94 case 4: ret_xmm0 want 00000000 got 0000005E <build>/gen/14202BA30/corp_14202BA30.jsonl: 71 cases, 142 mismatch",
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 71 cases at own-block 0.44 < floor 0.50",
    "stubs": [],
    "translated": true,
    "va": "0x14202BA30"
@@ -15811,9 +15829,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 128 mismatch case 4: w_A0_0 want 313 got 80 case 4: ret_eax want 50 got E9 <build>/gen/1422D2800/corp_1422D2800.jsonl: 64 cases, 128 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x1422D2800"
@@ -16370,9 +16388,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 69 cases, 130 mismatch case 5: ret_eax want 4 got 1 case 5: ret_xmm0 want 00000001 got 00000000 <build>/gen/1423DCBE0/corp_1423DCBE0.jsonl: 69 cases, 130 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "69 cases bit-exact",
    "stubs": [],
    "translated": true,
    "va": "0x1423DCBE0"

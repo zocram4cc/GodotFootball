@@ -868,6 +868,15 @@ class Emitter:
         x = int(dst[3:])
         d = ("((unsigned __int128)s.xmm[%d][0] | "
              "((unsigned __int128)s.xmm[%d][1] << 64))" % (x, x))
+        if m in ("PSLLD", "PSRLD"):
+            n = imm_val(ops[1]) & 0xFF
+            sh = "<<" if m == "PSLLD" else ">>"
+            ex = [("(PesState::lane_u32(_d, %d) %s %d)" % (i, sh, n)) if n < 32 else "0u"
+                  for i in range(4)]
+            return ["{ unsigned __int128 _d = %s, _o = 0; %s "
+                    "s.xmm[%d][0] = (uint64_t)_o; s.xmm[%d][1] = (uint64_t)(_o >> 64); }"
+                    % (d, " ".join("_o = PesState::put_u32(_o, %d, %s);" % (i, e)
+                                   for i, e in enumerate(ex)), x, x)]
         if m == "PSRLDQ":
             n = imm_val(ops[1]) & 0xFF
             o = "0" if n >= 16 else "(_d >> %d)" % (8 * n)
@@ -893,9 +902,12 @@ class Emitter:
             pick = [("_d", imm & 3), ("_d", (imm >> 2) & 3),
                     ("_s", (imm >> 4) & 3), ("_s", (imm >> 6) & 3)]
             ex = ["PesState::lane_u32(%s, %d)" % p for p in pick]
-        elif m == "UNPCKLPS":
+        elif m in ("UNPCKLPS", "PUNPCKLDQ"):
             ex = ["PesState::lane_u32(%s, %d)" % p
                   for p in [("_d", 0), ("_s", 0), ("_d", 1), ("_s", 1)]]
+        elif m == "CVTTPS2DQ":
+            ex = ["(uint32_t)PesState::cvtt_i32((double)PesState::lane_f32(_s, %d))" % i
+                  for i in range(4)]
         else:  # UNPCKHPS
             ex = ["PesState::lane_u32(%s, %d)" % p
                   for p in [("_d", 2), ("_s", 2), ("_d", 3), ("_s", 3)]]
@@ -1081,7 +1093,8 @@ class Emitter:
                  "CVTPD2DQ", "CVTDQ2PD"):
             return self.do_cvtv(m, ops)
         if m in ("ADDPS", "SUBPS", "MULPS", "DIVPS", "PADDD", "PSUBD", "PCMPEQD",
-                 "PSHUFD", "PSRLDQ", "SHUFPS", "UNPCKLPS", "UNPCKHPS"):
+                 "PSHUFD", "PSRLDQ", "SHUFPS", "UNPCKLPS", "UNPCKHPS", "PSLLD", "PSRLD",
+                 "PUNPCKLDQ", "PUNPCKHDQ", "CVTTPS2DQ"):
             return self.do_packed(m, ops)
         if m in ("ADDSD", "SUBSD", "MULSD", "DIVSD"):
             return self.do_sd_arith(m, ops)
@@ -1727,6 +1740,7 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
                    "ANDNPS", "ANDNPD", "CVTPS2PD", "CVTPD2PS", "CVTDQ2PS",
                    "ADDPS", "SUBPS", "MULPS", "DIVPS", "PADDD", "PSUBD", "PCMPEQD",
                    "PSHUFD", "PSRLDQ", "SHUFPS", "UNPCKLPS", "UNPCKHPS",
+                   "PSLLD", "PSRLD", "PUNPCKLDQ", "PUNPCKHDQ", "CVTTPS2DQ",
                    "ADDSD", "SUBSD", "MULSD", "DIVSD", "COMISD", "UCOMISD",
                    "CVTTSD2SI", "CVTSI2SD",
                    "CVTPS2DQ", "CVTPD2DQ", "CVTDQ2PD"):
