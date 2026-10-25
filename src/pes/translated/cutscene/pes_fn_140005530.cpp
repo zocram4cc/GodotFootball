@@ -50,7 +50,7 @@ void pes_fn_140005530(PesState& s) {
     s.gpr[8] = (uint64_t)(uint32_t)(_r);
   }
   { unsigned __int128 _d = ((unsigned __int128)s.xmm[3][0] | ((unsigned __int128)s.xmm[3][1] << 64)), _s = ((k_c1429974B0)), _o = 0; _o = PesState::put_u32(_o, 0, PesState::lane_u32(_s, 0)); _o = PesState::put_u32(_o, 1, PesState::lane_u32(_s, 0)); _o = PesState::put_u32(_o, 2, PesState::lane_u32(_s, 0)); _o = PesState::put_u32(_o, 3, PesState::lane_u32(_s, 0)); s.xmm[3][0] = (uint64_t)_o; s.xmm[3][1] = (uint64_t)(_o >> 64); }
-  /*UNHANDLED MOVQ xmm0, rax*/(void)0;
+  s.xmm[0][0] = s.gpr[0]; s.xmm[0][1] = 0;
   s.gpr[0] = (uint64_t)(s.gpr[1]);
   { unsigned __int128 _d = ((unsigned __int128)s.xmm[2][0] | ((unsigned __int128)s.xmm[2][1] << 64)), _s = ((unsigned __int128)s.xmm[0][0] | ((unsigned __int128)s.xmm[0][1] << 64)), _o = 0; _o = PesState::put_u32(_o, 0, PesState::lane_u32(_s, 0)); _o = PesState::put_u32(_o, 1, PesState::lane_u32(_s, 0)); _o = PesState::put_u32(_o, 2, PesState::lane_u32(_s, 0)); _o = PesState::put_u32(_o, 3, PesState::lane_u32(_s, 0)); s.xmm[2][0] = (uint64_t)_o; s.xmm[2][1] = (uint64_t)(_o >> 64); }
   s.xmm[0][0] = s.xmm[4][0]; s.xmm[0][1] = s.xmm[4][1];
@@ -65,12 +65,12 @@ void pes_fn_140005530(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[10] = (uint64_t)(_r);
   }
-  /*UNHANDLED MOVQ qword ptr [rax + 8], xmm4*/(void)0;
-  /*UNHANDLED MOVQ qword ptr [rax + 0x20], xmm0*/(void)0;
+  s.wr128(((s.gpr[0]) + (0x8ULL)), ((unsigned __int128)s.xmm[4][1] << 64) | s.xmm[4][0]);
+  s.wr128(((s.gpr[0]) + (0x20ULL)), ((unsigned __int128)s.xmm[0][1] << 64) | s.xmm[0][0]);
   s.xmm[5][0] = (s.xmm[5][0] & 0xFFFFFFFF00000000ULL) | ((uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[11])));
   s.gpr[11] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0])), 1));
-  /*UNHANDLED MOVQ qword ptr [rax + 0x10], xmm4*/(void)0;
-  /*UNHANDLED MOVQ qword ptr [rax + 0x28], xmm0*/(void)0;
+  s.wr128(((s.gpr[0]) + (0x10ULL)), ((unsigned __int128)s.xmm[4][1] << 64) | s.xmm[4][0]);
+  s.wr128(((s.gpr[0]) + (0x28ULL)), ((unsigned __int128)s.xmm[0][1] << 64) | s.xmm[0][0]);
   s.xmm[6][0] = (s.xmm[6][0] & 0xFFFFFFFF00000000ULL) | ((uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[11])));
   /*UNHANDLED PUNPCKLBW xmm6, xmm5*/(void)0;
   { unsigned __int128 _v = (((unsigned __int128)s.xmm[6][0] | ((unsigned __int128)s.xmm[6][1] << 64))) & ((s.xmm[3][0] | ((unsigned __int128)s.xmm[3][1] << 64))); s.xmm[6][0] = (uint64_t)_v; s.xmm[6][1] = (uint64_t)(_v >> 64); }
