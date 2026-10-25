@@ -14,6 +14,7 @@ Usage:
 """
 import argparse
 import json
+import math
 import os
 import struct
 import sys
@@ -122,6 +123,40 @@ def read_va_from(path, sections, va, n):
 def read_va_live(uc, va, n):
     """Read VA bytes from the live emulator (image bytes mapped at their VAs)."""
     return bytes(uc.mem_read(va, n))
+
+TRANSLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                             "translate")
+
+
+def sqrt_f32_bits(b):
+    """Bits of sqrtss(b) for the float with bits b (the sqrt_xmm0 hook's model)."""
+    x = struct.unpack("<f", struct.pack("<I", b))[0]
+    if x != x:
+        return (b | 0x00400000) & 0xFFFFFFFF  # NaN: returned quieted
+    if x < 0.0:
+        return 0xFFC00000  # default QNaN, sign set
+    return struct.unpack("<I", struct.pack("<f", math.sqrt(x)))[0]
+
+
+def resolve_stubs(spec):
+    """Add the stubs.json model of every callee in stub_refs to spec["stubs"].
+    The table is shared with the translator (translate/stubs.py)."""
+    sys.path.insert(0, TRANSLATE_DIR)
+    import stubs as stub_table
+    table = stub_table.load()
+    stubs = dict(spec.get("stubs") or {})
+    for ref in sorted(set(spec.get("stub_refs") or [])):
+        entry = table.get(int(ref, 16))
+        if entry is None:
+            raise SystemExit("stub %s: no entry in stubs.json" % ref)
+        if entry["do"] == "unmodellable":
+            raise SystemExit("unmodellable callee %s: %s" % (ref, entry["why"]))
+        if entry["do"] is None:
+            raise SystemExit("stub_refs %s is run-real, not a stub" % ref)
+        stubs["stub_" + ref] = {"va": entry["va"], "do": entry["do"]}
+    spec["stubs"] = stubs
+    return spec
+
 
 def load_spec(path):
     with open(path) as f:
@@ -336,6 +371,7 @@ def install_hooks(mu, spec, RET_SENTINEL):
     mu._bad = None
 
     def hook_code(uc, address, size, data):
+        uc._last_rip = address
         if address == RET_SENTINEL:
             uc.emu_stop()
             return
@@ -450,6 +486,19 @@ def install_hooks(mu, spec, RET_SENTINEL):
             dst = uc.reg_read(reg_const("rcx")) + int(stub["offset"], 16)
             val = uc.reg_read(reg_const("edx")) & 0xFFFFFFFF
             uc.mem_write(dst, struct.pack("<I", val))
+        elif kind == "noop":
+            # engine-noop (stubs.json): no effect on the success path; the
+            # call is dropped, registers untouched, the return is popped below.
+            pass
+        elif kind == "sqrt_xmm0":
+            # return-input (stubs.json, op sqrtf): xmm0 low float = sqrtf(xmm0);
+            # bits 32-127 kept, as sqrtss keeps them. IEEE-754 sqrt is correctly
+            # rounded (double has >= 2*24+2 bits), so float(sqrt(double)) is exact.
+            # x86 SSE sqrtss rules (Intel SDM Vol. 1 §4.8.3): a NaN input is
+            # returned quieted; a negative input gives the default QNaN 0xFFC00000.
+            xmm = uc.reg_read(reg_const("xmm0"))
+            uc.reg_write(reg_const("xmm0"),
+                         (xmm & ~0xFFFFFFFF) | sqrt_f32_bits(xmm & 0xFFFFFFFF))
         else:
             uc._bad = "stub %s has unknown do=%s" % (name, kind)
             uc.emu_stop()
@@ -533,7 +582,7 @@ def run_case(mu, spec, RET_SENTINEL, inputs, timeout_ms=5000):
     try:
         mu.emu_start(entry, end, timeout=timeout_ms * 1000)
     except Exception as e:
-        return None, "emu error: %s" % e
+        return None, "emu error: %s (last RIP %#x)" % (e, getattr(mu, "_last_rip", 0))
     if mu._bad is not None:
         return None, mu._bad
     out = decode(mu, spec)
@@ -690,7 +739,7 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--count", type=int, default=300)
     args = ap.parse_args()
-    spec = load_spec(args.spec)
+    spec = resolve_stubs(load_spec(args.spec))
     kind = image_kind(args.exe)
     sections = flat_sections(args.exe) if kind == "flat" else parse_pe_sections(args.exe)
     if args.check_spec:
@@ -713,7 +762,7 @@ def main():
         result, err = run_case(mu, spec, RET, inputs)
         if err is not None:
             print("case %d failed: %s" % (n, err), file=sys.stderr)
-            print("  inputs: %s" % json.dumps(inputs), file=sys.stderr)
+            print("  inputs: %s" % json.dumps(inputs)[:300], file=sys.stderr)
             return 1
         out.write(json.dumps({"va": spec["va"], "in": inputs, "out": result}) + "\n")
     if args.out:

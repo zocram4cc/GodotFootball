@@ -1,0 +1,261 @@
+{
+ "name": "impure_1404FA720",
+ "va": "0x1404FA720",
+ "entry": "0x1404FA720",
+ "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (fixclosure.py): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
+ "status": "impure-sample",
+ "subsystem": "impure-sample",
+ "stack": {
+  "base": "0x10000000",
+  "size": "0x20000"
+ },
+ "regions": {
+  "A0": {
+   "base": "0x20000000",
+   "size": "0x200000"
+  },
+  "A0.6D48": {
+   "base": "0x20400000",
+   "size": "0x200000"
+  },
+  "A0.6D48.68": {
+   "base": "0x20800000",
+   "size": "0x200000"
+  },
+  "A0.6D50": {
+   "base": "0x20C00000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8": {
+   "base": "0x21000000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.270": {
+   "base": "0x21400000",
+   "size": "0x200000"
+  },
+  "IMG.143704E38": {
+   "base": "0x21800000",
+   "size": "0x200000"
+  }
+ },
+ "args": {
+  "rcx": "A0"
+ },
+ "regions_init": {
+  "A0+0x6D48": "A0.6D48",
+  "A0.6D48+0x68": "A0.6D48.68",
+  "A0+0x6D50": "A0.6D50",
+  "IMG.1436F3DC8+0x270": "IMG.1436F3DC8.270"
+ },
+ "patch_addrs": {
+  "0x1436F3DC8": "IMG.1436F3DC8",
+  "0x143704E38": "IMG.143704E38"
+ },
+ "inputs": {
+  "A0_8": {
+   "region": "A0",
+   "offset": "0x8",
+   "enc": "u32"
+  },
+  "A0_6D48_68_70": {
+   "region": "A0.6D48.68",
+   "offset": "0x70",
+   "enc": "u8"
+  },
+  "A0_6D48_68_74": {
+   "region": "A0.6D48.68",
+   "offset": "0x74",
+   "enc": "u8"
+  },
+  "A0_6D50_B8B0": {
+   "region": "A0.6D50",
+   "offset": "0xB8B0",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_180": {
+   "region": "IMG.1436F3DC8",
+   "offset": "0x180",
+   "enc": "u64"
+  },
+  "IMG_1436F3DC8_270_116C": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x116C",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_1554": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1554",
+   "enc": "u32"
+  },
+  "IMG_143704E38_F0": {
+   "region": "IMG.143704E38",
+   "offset": "0xF0",
+   "enc": "u32"
+  },
+  "scalar_r8": {
+   "reg": "r8",
+   "enc": "u32"
+  },
+  "scalar_r9": {
+   "reg": "r9",
+   "enc": "u32"
+  }
+ },
+ "input_schema": {
+  "A0_8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_6D48_68_70": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_6D48_68_74": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_6D50_B8B0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_180": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_116C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_1554": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_143704E38_F0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_r8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_r9": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  }
+ },
+ "outputs": {
+  "w_A0_6D50_B8B0": {
+   "region": "A0.6D50",
+   "offset": "0xB8B0",
+   "enc": "u32"
+  },
+  "ret_rax": {
+   "reg": "rax"
+  }
+ },
+ "ret_note": "rax (pointer-valued return)",
+ "seed": 1032,
+ "count": 64,
+ "precheck": {
+  "indirect_calls": [],
+  "tailjumps": [
+   "tailjump@140A55D20"
+  ],
+  "unresolved_mem": 3,
+  "live_data_reads": [
+   "IMG"
+  ],
+  "live_data_writes": [],
+  "rdata_constant_reads": [],
+  "stack_args": {},
+  "calls": [
+   "140A55CF0",
+   "140A65580",
+   "140A67010",
+   "140A6E6B0",
+   "14149A470",
+   "14149F4F0"
+  ],
+  "flags": [
+   "callee-outside-set@1404457C0",
+   "callee-outside-set@14044E200",
+   "callee-outside-set@140451250",
+   "tailjump@140A55D20",
+   "unresolved-mem@1404FA7FC",
+   "unresolved-mem@1404FA81A",
+   "unresolved-mem@140A67054"
+  ],
+  "stub_refs": []
+ },
+ "stub_refs": [],
+ "harness": {
+  "harness_class": "harness cannot run",
+  "blockers": [
+   "call 1404457C0: indirect call qword ptr [r10 + 0x88] at 14044580A; callee 141B55830: indirect call qword ptr [rdx + 0x38] at 141B5583F",
+   "call 14044E200: callee 141B52380: computed jump at 141B52392: switch case bodies not enumerated (closure incomplete)",
+   "call 140451250: indirect call qword ptr [rax + 0x10] at 140451267; indirect call qword ptr [rdx + 8] at 140451273"
+  ],
+  "out_of_set_callees": [
+   {
+    "va": "1404457C0",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": []
+   },
+   {
+    "va": "14044E200",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": []
+   },
+   {
+    "va": "140451250",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": []
+   },
+   {
+    "va": "140A65580",
+    "how": "call",
+    "cls": "run-real",
+    "stubs": []
+   },
+   {
+    "va": "140A67010",
+    "how": "call",
+    "cls": "run-real",
+    "stubs": []
+   }
+  ],
+  "indirect_sites": [],
+  "switch_jumps": []
+ },
+ "closure_fix": {
+  "accessors": [],
+  "removed_blanket_E1EE_slots": 0,
+  "child_links": 1,
+  "accessor_slots": 0,
+  "rule": "fixclosure.py: child links + accessor layout from image bytes"
+ }
+}

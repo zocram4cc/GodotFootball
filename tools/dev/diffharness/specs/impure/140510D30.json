@@ -1,0 +1,468 @@
+{
+ "name": "impure_140510D30",
+ "va": "0x140510D30",
+ "entry": "0x140510D30",
+ "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (fixclosure.py): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
+ "status": "impure-sample",
+ "subsystem": "impure-sample",
+ "stack": {
+  "base": "0x10000000",
+  "size": "0x20000"
+ },
+ "regions": {
+  "A0": {
+   "base": "0x20000000",
+   "size": "0x200000"
+  },
+  "A1": {
+   "base": "0x20400000",
+   "size": "0x200000"
+  },
+  "A1.18": {
+   "base": "0x20800000",
+   "size": "0x200000"
+  },
+  "A1.E0": {
+   "base": "0x20C00000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8": {
+   "base": "0x21000000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.270": {
+   "base": "0x21400000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.1928": {
+   "base": "0x21800000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.1978": {
+   "base": "0x21C00000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.2AA8": {
+   "base": "0x22000000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.E1EE": {
+   "base": "0x22400000",
+   "size": "0x200000"
+  }
+ },
+ "args": {
+  "rcx": "A0",
+  "rdx": "A1"
+ },
+ "regions_init": {
+  "A1+0x18": "A1.18",
+  "A1+0xE0": "A1.E0",
+  "IMG.1436F3DC8+0x1928": "IMG.1436F3DC8.1928",
+  "IMG.1436F3DC8+0x1978": "IMG.1436F3DC8.1978",
+  "IMG.1436F3DC8+0x2AA8": "IMG.1436F3DC8.2AA8",
+  "IMG.1436F3DC8+0x270": "IMG.1436F3DC8.270",
+  "IMG.1436F3DC8+0x1950": "IMG.1436F3DC8.E1EE"
+ },
+ "patch_addrs": {
+  "0x1436F3DC8": "IMG.1436F3DC8"
+ },
+ "inputs": {
+  "A0_2C": {
+   "region": "A0",
+   "offset": "0x2C",
+   "enc": "u32"
+  },
+  "A1_18_24A0C_q0": {
+   "region": "A1.18",
+   "offset": "0x24A0C",
+   "enc": "u64"
+  },
+  "A1_18_24A14_q1": {
+   "region": "A1.18",
+   "offset": "0x24A14",
+   "enc": "u64"
+  },
+  "A1_18_24A1C": {
+   "region": "A1.18",
+   "offset": "0x24A1C",
+   "enc": "u32"
+  },
+  "A1_E0_0": {
+   "region": "A1.E0",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "A1_E0_14": {
+   "region": "A1.E0",
+   "offset": "0x14",
+   "enc": "u32"
+  },
+  "A1_E0_4C": {
+   "region": "A1.E0",
+   "offset": "0x4C",
+   "enc": "u32"
+  },
+  "A1_E0_1900": {
+   "region": "A1.E0",
+   "offset": "0x1900",
+   "enc": "u32"
+  },
+  "A1_E0_1904": {
+   "region": "A1.E0",
+   "offset": "0x1904",
+   "enc": "u32"
+  },
+  "A1_E0_180698": {
+   "region": "A1.E0",
+   "offset": "0x180698",
+   "enc": "u32"
+  },
+  "A1_E0_1806D0": {
+   "region": "A1.E0",
+   "offset": "0x1806D0",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_0": {
+   "region": "IMG.1436F3DC8",
+   "offset": "0x0",
+   "enc": "u64"
+  },
+  "IMG_1436F3DC8_270_1198": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1198",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_1554": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1554",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_1558": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1558",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_1928_254": {
+   "region": "IMG.1436F3DC8.1928",
+   "offset": "0x254",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_1978_4": {
+   "region": "IMG.1436F3DC8.1978",
+   "offset": "0x4",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_1978_B4": {
+   "region": "IMG.1436F3DC8.1978",
+   "offset": "0xB4",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_2AA8_0": {
+   "region": "IMG.1436F3DC8.2AA8",
+   "offset": "0x0",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_2AA8_18": {
+   "region": "IMG.1436F3DC8.2AA8",
+   "offset": "0x18",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_2AA8_1C": {
+   "region": "IMG.1436F3DC8.2AA8",
+   "offset": "0x1C",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_E1EE_4": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x4",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_E1EE_B4": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0xB4",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_E1EE_254": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x254",
+   "enc": "u8"
+  },
+  "scalar_r8": {
+   "reg": "r8",
+   "enc": "u32"
+  },
+  "scalar_r9": {
+   "reg": "r9",
+   "enc": "u32"
+  }
+ },
+ "input_schema": {
+  "A0_2C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_18_24A0C_q0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_18_24A14_q1": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_18_24A1C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_E0_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_E0_14": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_E0_4C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_E0_1900": {
+   "kind": "choice",
+   "values": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "domain": "ring count 0..8 (pes-re-record-layouts.md \u00a71)"
+  },
+  "A1_E0_1904": {
+   "kind": "choice",
+   "values": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "domain": "ring head 0..7 mod 8 (pes-re-record-layouts.md \u00a71)"
+  },
+  "A1_E0_180698": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_E0_1806D0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_1198": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_1554": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_1558": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_1928_254": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_1978_4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_1978_B4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_2AA8_0": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_2AA8_18": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_2AA8_1C": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_E1EE_4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_B4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_254": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_r8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_r9": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  }
+ },
+ "outputs": {
+  "ret_eax": {
+   "reg": "eax"
+  }
+ },
+ "ret_note": "eax (integer/bool return; upper bits unchecked)",
+ "seed": 1008,
+ "count": 64,
+ "precheck": {
+  "indirect_calls": [],
+  "tailjumps": [],
+  "unresolved_mem": 1,
+  "live_data_reads": [
+   "IMG"
+  ],
+  "live_data_writes": [],
+  "rdata_constant_reads": [
+   "IMG"
+  ],
+  "stack_args": {},
+  "calls": [
+   "14042D5E0",
+   "140A3AF60",
+   "140A3E190",
+   "140A489D0",
+   "140A48A30",
+   "140A6CBD0",
+   "140A73E20",
+   "141E532E0"
+  ],
+  "flags": [
+   "callee-outside-set@140A3E3B0",
+   "callee-outside-set@14159F3E0",
+   "unresolved-mem@140510EB4"
+  ],
+  "stub_refs": [
+   "14159F3E0"
+  ]
+ },
+ "stub_refs": [
+  "14159F3E0"
+ ],
+ "harness": {
+  "harness_class": "runnable with stubs",
+  "blockers": [],
+  "out_of_set_callees": [
+   {
+    "va": "14042D5E0",
+    "how": "call",
+    "cls": "run-real",
+    "stubs": []
+   },
+   {
+    "va": "140A3E3B0",
+    "how": "call",
+    "cls": "stub",
+    "stubs": [
+     "14159F3E0"
+    ]
+   },
+   {
+    "va": "140A6CBD0",
+    "how": "call",
+    "cls": "run-real",
+    "stubs": []
+   },
+   {
+    "va": "140A73E20",
+    "how": "call",
+    "cls": "run-real",
+    "stubs": []
+   },
+   {
+    "va": "14159F3E0",
+    "how": "call",
+    "cls": "stub",
+    "stubs": [
+     "14159F3E0"
+    ]
+   }
+  ],
+  "indirect_sites": [],
+  "switch_jumps": []
+ },
+ "closure_fix": {
+  "accessors": [
+   "140A48A30"
+  ],
+  "removed_blanket_E1EE_slots": 234,
+  "child_links": 4,
+  "accessor_slots": 2,
+  "rule": "fixclosure.py: child links + accessor layout from image bytes"
+ }
+}

@@ -1,0 +1,703 @@
+{
+ "name": "impure_14057A3E0",
+ "va": "0x14057A3E0",
+ "entry": "0x14057A3E0",
+ "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (fixclosure.py): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
+ "status": "impure-sample",
+ "subsystem": "impure-sample",
+ "stack": {
+  "base": "0x10000000",
+  "size": "0x20000"
+ },
+ "regions": {
+  "A2": {
+   "base": "0x20000000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8": {
+   "base": "0x20400000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.270": {
+   "base": "0x20800000",
+   "size": "0x200000"
+  }
+ },
+ "args": {
+  "r8": "A2"
+ },
+ "regions_init": {
+  "IMG.1436F3DC8+0x270": "IMG.1436F3DC8.270"
+ },
+ "patch_addrs": {
+  "0x1436F3DC8": "IMG.1436F3DC8"
+ },
+ "inputs": {
+  "A2_21C": {
+   "region": "A2",
+   "offset": "0x21C",
+   "enc": "u32"
+  },
+  "A2_6F4": {
+   "region": "A2",
+   "offset": "0x6F4",
+   "enc": "u32"
+  },
+  "A2_71C": {
+   "region": "A2",
+   "offset": "0x71C",
+   "enc": "u32"
+  },
+  "A2_744": {
+   "region": "A2",
+   "offset": "0x744",
+   "enc": "u8"
+  },
+  "A2_74E": {
+   "region": "A2",
+   "offset": "0x74E",
+   "enc": "u32"
+  },
+  "A2_754": {
+   "region": "A2",
+   "offset": "0x754",
+   "enc": "u64"
+  },
+  "A2_75C": {
+   "region": "A2",
+   "offset": "0x75C",
+   "enc": "u64"
+  },
+  "A2_764": {
+   "region": "A2",
+   "offset": "0x764",
+   "enc": "u8"
+  },
+  "A2_768": {
+   "region": "A2",
+   "offset": "0x768",
+   "enc": "u32"
+  },
+  "A2_A2A0": {
+   "region": "A2",
+   "offset": "0xA2A0",
+   "enc": "u32"
+  },
+  "A2_A2CC": {
+   "region": "A2",
+   "offset": "0xA2CC",
+   "enc": "u32"
+  },
+  "A2_A2D0": {
+   "region": "A2",
+   "offset": "0xA2D0",
+   "enc": "u32"
+  },
+  "A2_A2D4": {
+   "region": "A2",
+   "offset": "0xA2D4",
+   "enc": "u32"
+  },
+  "A2_A2FC": {
+   "region": "A2",
+   "offset": "0xA2FC",
+   "enc": "u32"
+  },
+  "A2_B748": {
+   "region": "A2",
+   "offset": "0xB748",
+   "enc": "u32"
+  },
+  "A2_B7A0": {
+   "region": "A2",
+   "offset": "0xB7A0",
+   "enc": "u32"
+  },
+  "A2_B7D8": {
+   "region": "A2",
+   "offset": "0xB7D8",
+   "enc": "u32"
+  },
+  "A2_B7DC": {
+   "region": "A2",
+   "offset": "0xB7DC",
+   "enc": "u64"
+  },
+  "A2_B7E4": {
+   "region": "A2",
+   "offset": "0xB7E4",
+   "enc": "u64"
+  },
+  "A2_B7EC": {
+   "region": "A2",
+   "offset": "0xB7EC",
+   "enc": "u64"
+  },
+  "A2_B7F4_b0": {
+   "region": "A2",
+   "offset": "0xB7F4",
+   "enc": "u8"
+  },
+  "A2_B7F5_b1": {
+   "region": "A2",
+   "offset": "0xB7F5",
+   "enc": "u8"
+  },
+  "A2_B7F6": {
+   "region": "A2",
+   "offset": "0xB7F6",
+   "enc": "u8"
+  },
+  "A2_B7F8": {
+   "region": "A2",
+   "offset": "0xB7F8",
+   "enc": "u64"
+  },
+  "A2_B800": {
+   "region": "A2",
+   "offset": "0xB800",
+   "enc": "u64"
+  },
+  "A2_B808": {
+   "region": "A2",
+   "offset": "0xB808",
+   "enc": "u64"
+  },
+  "A2_B810": {
+   "region": "A2",
+   "offset": "0xB810",
+   "enc": "u64"
+  },
+  "A2_B818": {
+   "region": "A2",
+   "offset": "0xB818",
+   "enc": "u64"
+  },
+  "A2_B820": {
+   "region": "A2",
+   "offset": "0xB820",
+   "enc": "u32"
+  },
+  "A2_B824": {
+   "region": "A2",
+   "offset": "0xB824",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_1198": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1198",
+   "enc": "u32"
+  },
+  "scalar_rcx": {
+   "reg": "rcx",
+   "enc": "u32"
+  },
+  "scalar_rdx": {
+   "reg": "rdx",
+   "enc": "u32"
+  },
+  "scalar_r9": {
+   "reg": "r9",
+   "enc": "u32"
+  }
+ },
+ "input_schema": {
+  "A2_21C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_6F4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_71C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_744": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_74E": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_754": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_75C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_764": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_768": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_A2A0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_A2CC": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_A2D0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_A2D4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_A2FC": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B748": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B7A0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B7D8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B7DC": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B7E4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B7EC": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B7F4_b0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B7F5_b1": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B7F6": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B7F8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B800": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B808": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B810": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B818": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B820": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_B824": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_1198": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_rcx": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_rdx": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_r9": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  }
+ },
+ "outputs": {
+  "w_A2_6F4": {
+   "region": "A2",
+   "offset": "0x6F4",
+   "enc": "u32"
+  },
+  "w_A2_71C": {
+   "region": "A2",
+   "offset": "0x71C",
+   "enc": "u32"
+  },
+  "w_A2_744": {
+   "region": "A2",
+   "offset": "0x744",
+   "enc": "u8"
+  },
+  "w_A2_74E": {
+   "region": "A2",
+   "offset": "0x74E",
+   "enc": "u32"
+  },
+  "w_A2_754_d0": {
+   "region": "A2",
+   "offset": "0x754",
+   "enc": "u32"
+  },
+  "w_A2_758_d1": {
+   "region": "A2",
+   "offset": "0x758",
+   "enc": "u32"
+  },
+  "w_A2_75C_d0": {
+   "region": "A2",
+   "offset": "0x75C",
+   "enc": "u32"
+  },
+  "w_A2_760_d1": {
+   "region": "A2",
+   "offset": "0x760",
+   "enc": "u32"
+  },
+  "w_A2_764": {
+   "region": "A2",
+   "offset": "0x764",
+   "enc": "u8"
+  },
+  "w_A2_768": {
+   "region": "A2",
+   "offset": "0x768",
+   "enc": "u32"
+  },
+  "w_A2_A2A0": {
+   "region": "A2",
+   "offset": "0xA2A0",
+   "enc": "u32"
+  },
+  "w_A2_A2CC": {
+   "region": "A2",
+   "offset": "0xA2CC",
+   "enc": "u32"
+  },
+  "w_A2_A2D0": {
+   "region": "A2",
+   "offset": "0xA2D0",
+   "enc": "u32"
+  },
+  "w_A2_A2D4": {
+   "region": "A2",
+   "offset": "0xA2D4",
+   "enc": "u32"
+  },
+  "w_A2_A2FC": {
+   "region": "A2",
+   "offset": "0xA2FC",
+   "enc": "u32"
+  },
+  "w_A2_B7A0": {
+   "region": "A2",
+   "offset": "0xB7A0",
+   "enc": "u32"
+  },
+  "w_A2_B7D8": {
+   "region": "A2",
+   "offset": "0xB7D8",
+   "enc": "u32"
+  },
+  "w_A2_B7DC_d0": {
+   "region": "A2",
+   "offset": "0xB7DC",
+   "enc": "u32"
+  },
+  "w_A2_B7E0_d1": {
+   "region": "A2",
+   "offset": "0xB7E0",
+   "enc": "u32"
+  },
+  "w_A2_B7E4_d0": {
+   "region": "A2",
+   "offset": "0xB7E4",
+   "enc": "u32"
+  },
+  "w_A2_B7E8_d1": {
+   "region": "A2",
+   "offset": "0xB7E8",
+   "enc": "u32"
+  },
+  "w_A2_B7EC_d0": {
+   "region": "A2",
+   "offset": "0xB7EC",
+   "enc": "u32"
+  },
+  "w_A2_B7F0_d1": {
+   "region": "A2",
+   "offset": "0xB7F0",
+   "enc": "u32"
+  },
+  "w_A2_B7F4_b0": {
+   "region": "A2",
+   "offset": "0xB7F4",
+   "enc": "u8"
+  },
+  "w_A2_B7F5_b1": {
+   "region": "A2",
+   "offset": "0xB7F5",
+   "enc": "u8"
+  },
+  "w_A2_B7F6": {
+   "region": "A2",
+   "offset": "0xB7F6",
+   "enc": "u8"
+  },
+  "w_A2_B7F8_d0": {
+   "region": "A2",
+   "offset": "0xB7F8",
+   "enc": "u32"
+  },
+  "w_A2_B7FC_d1": {
+   "region": "A2",
+   "offset": "0xB7FC",
+   "enc": "u32"
+  },
+  "w_A2_B800_d0": {
+   "region": "A2",
+   "offset": "0xB800",
+   "enc": "u32"
+  },
+  "w_A2_B804_d1": {
+   "region": "A2",
+   "offset": "0xB804",
+   "enc": "u32"
+  },
+  "w_A2_B808_d0": {
+   "region": "A2",
+   "offset": "0xB808",
+   "enc": "u32"
+  },
+  "w_A2_B80C_d1": {
+   "region": "A2",
+   "offset": "0xB80C",
+   "enc": "u32"
+  },
+  "w_A2_B810_d0": {
+   "region": "A2",
+   "offset": "0xB810",
+   "enc": "u32"
+  },
+  "w_A2_B814_d1": {
+   "region": "A2",
+   "offset": "0xB814",
+   "enc": "u32"
+  },
+  "w_A2_B818_d0": {
+   "region": "A2",
+   "offset": "0xB818",
+   "enc": "u32"
+  },
+  "w_A2_B81C_d1": {
+   "region": "A2",
+   "offset": "0xB81C",
+   "enc": "u32"
+  },
+  "w_A2_B820": {
+   "region": "A2",
+   "offset": "0xB820",
+   "enc": "u32"
+  },
+  "w_A2_B824": {
+   "region": "A2",
+   "offset": "0xB824",
+   "enc": "u32"
+  },
+  "ret_xmm0": {
+   "reg": "xmm0",
+   "enc": "f32"
+  }
+ },
+ "ret_note": "no rax write before ret: xmm0 (float) or void",
+ "seed": 1045,
+ "count": 64,
+ "precheck": {
+  "indirect_calls": [
+   "indirect-call@14057A45E"
+  ],
+  "tailjumps": [
+   "tailjump@140A408B9"
+  ],
+  "unresolved_mem": 29,
+  "live_data_reads": [
+   "IMG"
+  ],
+  "live_data_writes": [],
+  "rdata_constant_reads": [],
+  "stack_args": {},
+  "calls": [
+   "140A40200",
+   "140A40820",
+   "140A84E30",
+   "140A85AA0"
+  ],
+  "flags": [
+   "callee-outside-set@140579E10",
+   "indirect-call@14057A45E",
+   "tailjump@140A408B9",
+   "unresolved-mem@14057A421",
+   "unresolved-mem@14057A440",
+   "unresolved-mem@14057A44C",
+   "unresolved-mem@14057A48E",
+   "unresolved-mem@14057A49D",
+   "unresolved-mem@14057A548",
+   "unresolved-mem@140A40875",
+   "unresolved-mem@140A40884",
+   "unresolved-mem@140A4088E",
+   "unresolved-mem@140A40896",
+   "unresolved-mem@140A4089E",
+   "unresolved-mem@140A85AA2",
+   "unresolved-mem@140A85AA5",
+   "unresolved-mem@140A85AA9",
+   "unresolved-mem@140A85AAD",
+   "unresolved-mem@140A85ACA",
+   "unresolved-mem@140A85ACC",
+   "unresolved-mem@140A85AD1",
+   "unresolved-mem@140A85AD3",
+   "unresolved-mem@140A85AD9",
+   "unresolved-mem@140A85ADE",
+   "unresolved-mem@140A85AE5",
+   "unresolved-mem@140A85AED",
+   "unresolved-mem@140A85AF1",
+   "unresolved-mem@140A85AF5",
+   "unresolved-mem@140A85AFD",
+   "unresolved-mem@140A85B00",
+   "unresolved-mem@140A85B03",
+   "unresolved-mem@140A85B07"
+  ],
+  "stub_refs": [
+   "14159F3E0"
+  ]
+ },
+ "stub_refs": [
+  "14159F3E0"
+ ],
+ "harness": {
+  "harness_class": "harness cannot run",
+  "blockers": [
+   "call qword ptr [r9 + 0x20] at 14057A45E"
+  ],
+  "out_of_set_callees": [
+   {
+    "va": "140579E10",
+    "how": "call",
+    "cls": "stub",
+    "stubs": [
+     "14159F3E0"
+    ]
+   },
+   {
+    "va": "140A84E30",
+    "how": "call",
+    "cls": "run-real",
+    "stubs": []
+   }
+  ],
+  "indirect_sites": [
+   "call qword ptr [r9 + 0x20] at 14057A45E"
+  ],
+  "switch_jumps": []
+ },
+ "closure_fix": {
+  "accessors": [],
+  "removed_blanket_E1EE_slots": 0,
+  "child_links": 1,
+  "accessor_slots": 0,
+  "rule": "fixclosure.py: child links + accessor layout from image bytes"
+ }
+}
