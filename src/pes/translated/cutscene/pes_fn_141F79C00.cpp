@@ -16,28 +16,33 @@ void pes_fn_141F79C00(PesState& s);
 void pes_fn_141F79C00(PesState& s) {
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(0)));
   s.set_x_f32(4, k_c14256AE1C_f);
-  if (s.cond("nc")) goto L_141F79C2A;
-  s.cmp_ss((float)(s.x_f32(2)), (float)(s.x_f32(0)));
-  if (s.cond("be")) goto L_141F79C1F;
-  s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(1))));
-  s.set_x_f32(2, (float)((s.x_f32(2)) - (s.x_f32(1))));
-  s.set_x_f32(0, (float)((s.x_f32(0)) / (s.x_f32(2))));
-  return;
-  L_141F79C1F:;
-  s.set_x_f32(1, s.rdf(((s.gpr[4]) + (0x28ULL))));
-  s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(1)));
-  if (s.cond("c")) goto L_141F79C2E;
-  L_141F79C2A:;
-  s.xmm[0][0] = 0; s.xmm[0][1] = 0;
-  return;
-  L_141F79C2E:;
-  s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(3)));
-  if (s.cond("be")) goto L_141F79C43;
-  s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(3))));
-  s.set_x_f32(1, (float)((s.x_f32(1)) - (s.x_f32(3))));
-  s.set_x_f32(0, (float)((s.x_f32(0)) / (s.x_f32(1))));
-  s.set_x_f32(4, (float)((s.x_f32(4)) - (s.x_f32(0))));
-  L_141F79C43:;
-  s.xmm[0][0] = s.xmm[4][0]; s.xmm[0][1] = s.xmm[4][1];
-  return;
+  if (s.cond("nc")) {
+    s.xmm[0][0] = 0; s.xmm[0][1] = 0;
+    return;
+  } else {
+    s.cmp_ss((float)(s.x_f32(2)), (float)(s.x_f32(0)));
+    if (s.cond("be")) {
+      s.set_x_f32(1, s.rdf(((s.gpr[4]) + (0x28ULL))));
+      s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(1)));
+      if (s.cond("c")) {
+        s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(3)));
+        if (!s.cond("be")) {
+          s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(3))));
+          s.set_x_f32(1, (float)((s.x_f32(1)) - (s.x_f32(3))));
+          s.set_x_f32(0, (float)((s.x_f32(0)) / (s.x_f32(1))));
+          s.set_x_f32(4, (float)((s.x_f32(4)) - (s.x_f32(0))));
+        }
+        s.xmm[0][0] = s.xmm[4][0]; s.xmm[0][1] = s.xmm[4][1];
+        return;
+      } else {
+        s.xmm[0][0] = 0; s.xmm[0][1] = 0;
+        return;
+      }
+    } else {
+      s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(1))));
+      s.set_x_f32(2, (float)((s.x_f32(2)) - (s.x_f32(1))));
+      s.set_x_f32(0, (float)((s.x_f32(0)) / (s.x_f32(2))));
+      return;
+    }
+  }
 }

@@ -18,9 +18,9 @@ void pes_fn_141F52470(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = (_a & 0xFFFFFFFFFFFFFFFFULL) < (_b & 0xFFFFFFFFFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 63) & 1; }
-  if (s.cond("z")) goto L_141F52486;
-  s.wr(((s.gpr[0])), (uint64_t)(((uint64_t)(uint32_t)s.gpr[2])), 4);
-  L_141F52486:;
+  if (!s.cond("z")) {
+    s.wr(((s.gpr[0])), (uint64_t)(((uint64_t)(uint32_t)s.gpr[2])), 4);
+  }
   s.gpr[8] = (uint64_t)(uint32_t)(s.rd(((s.gpr[9]) + (0x2810ULL)), 4));
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[2])) & (uint64_t)((4294950912ULL))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);

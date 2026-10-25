@@ -26,14 +26,13 @@ void pes_fn_14230F560(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = (_a & 0xFFFFFFFFFFFFFFFFULL) < (_b & 0xFFFFFFFFFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 63) & 1; }
-  if (s.cond("nz")) goto L_14230F592;
-  s.wr(((s.gpr[2]) + (0xD0ULL)), (uint64_t)(s.gpr[1]), 8);
-  goto L_14230F5A1;
-  L_14230F592:;
-  s.wr(((s.gpr[1]) + (0x8ULL)), (uint64_t)(s.gpr[8]), 8);
-  s.gpr[0] = (uint64_t)(s.rd(((s.gpr[2]) + (0xD8ULL)), 8));
-  s.wr(((s.gpr[0]) + (0x8ULL)), (uint64_t)(s.gpr[1]), 8);
-  L_14230F5A1:;
+  if (s.cond("nz")) {
+    s.wr(((s.gpr[1]) + (0x8ULL)), (uint64_t)(s.gpr[8]), 8);
+    s.gpr[0] = (uint64_t)(s.rd(((s.gpr[2]) + (0xD8ULL)), 8));
+    s.wr(((s.gpr[0]) + (0x8ULL)), (uint64_t)(s.gpr[1]), 8);
+  } else {
+    s.wr(((s.gpr[2]) + (0xD0ULL)), (uint64_t)(s.gpr[1]), 8);
+  }
   { uint64_t _a = (uint64_t)(s.rd(((s.gpr[2]) + (0xE0ULL)), 4)), _r = (_a + 1) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.of = (_a == 0xFFFFFFFFULL);

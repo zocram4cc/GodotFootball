@@ -25,13 +25,14 @@ void pes_fn_140439F50(PesState& s) {
   s.set_x_f32(0, s.rdf(((s.gpr[1]) + ((s.gpr[0])*4ULL) + (0x247D4ULL))));
   s.set_x_f32(0, (float)((s.x_f32(0)) + ((k_c142598580_f))));
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(0)));
-  if (s.cond("be")) goto L_140439F75;
-  s.set_x_f32(0, (float)((s.x_f32(0)) + ((k_c14259858C_f))));
-  return;
-  L_140439F75:;
-  s.cmp_ss((float)(s.x_f32(0)), (float)((k_c14259858C_f)));
-  if (s.cond("c")) goto L_140439F86;
-  s.set_x_f32(0, (float)((s.x_f32(0)) + ((k_c142598598_f))));
-  L_140439F86:;
-  return;
+  if (s.cond("be")) {
+    s.cmp_ss((float)(s.x_f32(0)), (float)((k_c14259858C_f)));
+    if (!s.cond("c")) {
+      s.set_x_f32(0, (float)((s.x_f32(0)) + ((k_c142598598_f))));
+    }
+    return;
+  } else {
+    s.set_x_f32(0, (float)((s.x_f32(0)) + ((k_c14259858C_f))));
+    return;
+  }
 }

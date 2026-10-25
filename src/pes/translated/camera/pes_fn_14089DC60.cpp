@@ -17,21 +17,28 @@ void pes_fn_14089DC60(PesState& s) {
   s.set_x_f32(0, k_c14256AE34_f);
   s.xmm[2][0] = 0; s.xmm[2][1] = 0;
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(0)));
-  if (s.cond("a")) goto L_14089DC77;
-  s.xmm[0][0] = s.xmm[2][0]; s.xmm[0][1] = s.xmm[2][1];
-  s.set_x_f32(0, (float)(((s.x_f32(0)) >= (s.x_f32(1))) ? (s.x_f32(0)) : (s.x_f32(1))));
-  L_14089DC77:;
+  if (!s.cond("a")) {
+    s.xmm[0][0] = s.xmm[2][0]; s.xmm[0][1] = s.xmm[2][1];
+    s.set_x_f32(0, (float)(((s.x_f32(0)) >= (s.x_f32(1))) ? (s.x_f32(0)) : (s.x_f32(1))));
+  }
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(2)));
   s.wrf(((s.gpr[1]) + (0x1910ULL)), s.x_f32(0));
-  if (s.cond("p")) goto L_14089DCA5;
-  if (s.cond("nz")) goto L_14089DCA5;
-  s.wr(((s.gpr[1]) + (0x1900ULL)), (uint64_t)((981668463ULL)), 4);
-  s.wr(((s.gpr[1]) + (0x1920ULL)), (uint64_t)((981668463ULL)), 4);
-  s.wr(((s.gpr[1]) + (0x1930ULL)), (uint64_t)((0ULL)), 4);
-  return;
-  L_14089DCA5:;
-  s.wr(((s.gpr[1]) + (0x1900ULL)), (uint64_t)((1053609165ULL)), 4);
-  s.wr(((s.gpr[1]) + (0x1920ULL)), (uint64_t)((1065353216ULL)), 4);
-  s.wr(((s.gpr[1]) + (0x1930ULL)), (uint64_t)((0ULL)), 4);
-  return;
+  if (s.cond("p")) {
+    s.wr(((s.gpr[1]) + (0x1900ULL)), (uint64_t)((1053609165ULL)), 4);
+    s.wr(((s.gpr[1]) + (0x1920ULL)), (uint64_t)((1065353216ULL)), 4);
+    s.wr(((s.gpr[1]) + (0x1930ULL)), (uint64_t)((0ULL)), 4);
+    return;
+  } else {
+    if (s.cond("nz")) {
+      s.wr(((s.gpr[1]) + (0x1900ULL)), (uint64_t)((1053609165ULL)), 4);
+      s.wr(((s.gpr[1]) + (0x1920ULL)), (uint64_t)((1065353216ULL)), 4);
+      s.wr(((s.gpr[1]) + (0x1930ULL)), (uint64_t)((0ULL)), 4);
+      return;
+    } else {
+      s.wr(((s.gpr[1]) + (0x1900ULL)), (uint64_t)((981668463ULL)), 4);
+      s.wr(((s.gpr[1]) + (0x1920ULL)), (uint64_t)((981668463ULL)), 4);
+      s.wr(((s.gpr[1]) + (0x1930ULL)), (uint64_t)((0ULL)), 4);
+      return;
+    }
+  }
 }

@@ -16,8 +16,8 @@ void pes_fn_1402C5860(PesState& s) {
   { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
-  if (s.cond("z")) goto L_1402C587A;
-  s.wr(((s.gpr[0]) + (0x102ULL)), (uint64_t)((1ULL)), 1);
-  L_1402C587A:;
+  if (!s.cond("z")) {
+    s.wr(((s.gpr[0]) + (0x102ULL)), (uint64_t)((1ULL)), 1);
+  }
   return;
 }

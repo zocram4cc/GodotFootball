@@ -14,8 +14,8 @@ void pes_fn_1419F7EA0(PesState& s) {
   { uint64_t _r = ((uint64_t)(s.gpr[1]) & (uint64_t)(s.gpr[1])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
-  if (s.cond("z")) goto L_1419F7EAB;
-  s.wr(((s.gpr[1]) + (0xCCULL)), (uint64_t)(((uint64_t)(uint8_t)(s.gpr[2] >> 0))), 1);
-  L_1419F7EAB:;
+  if (!s.cond("z")) {
+    s.wr(((s.gpr[1]) + (0xCCULL)), (uint64_t)(((uint64_t)(uint8_t)(s.gpr[2] >> 0))), 1);
+  }
   return;
 }

@@ -50,10 +50,11 @@ void pes_fn_141F611C0(PesState& s) {
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint8_t)(s.gpr[2] >> 0))) & (uint64_t)(((uint64_t)(uint8_t)(s.gpr[2] >> 0)))) & 0xFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = false; s.of = false; }
-  if (s.cond("z")) goto L_141F611EE;
-  s.gpr[0] = (uint64_t)(uint32_t)(((s.gpr[2]) + (0ULL - 0x1ULL)));
-  return;
-  L_141F611EE:;
-  s.gpr[0] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[2] >> 0)));
-  return;
+  if (s.cond("z")) {
+    s.gpr[0] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[2] >> 0)));
+    return;
+  } else {
+    s.gpr[0] = (uint64_t)(uint32_t)(((s.gpr[2]) + (0ULL - 0x1ULL)));
+    return;
+  }
 }

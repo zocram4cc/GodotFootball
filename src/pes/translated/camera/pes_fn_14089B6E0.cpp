@@ -50,9 +50,9 @@ void pes_fn_14089B6E0(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 15) & 1);
     s.cf = (_a & 0xFFFFULL) < (_b & 0xFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 15) & 1; }
-  if (s.cond("z")) goto L_14089B76B;
-  s.wr(((s.gpr[3]) + (0x2A4ULL)), (uint64_t)(((uint64_t)(uint16_t)s.gpr[7])), 2);
-  L_14089B76B:;
+  if (!s.cond("z")) {
+    s.wr(((s.gpr[3]) + (0x2A4ULL)), (uint64_t)(((uint64_t)(uint16_t)s.gpr[7])), 2);
+  }
   s.gpr[3] = (uint64_t)(s.rd(((s.gpr[4]) + (0x30ULL)), 8));
   { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((32ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);

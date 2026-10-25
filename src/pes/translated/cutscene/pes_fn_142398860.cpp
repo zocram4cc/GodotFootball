@@ -15,8 +15,8 @@ void pes_fn_142398860(PesState& s) {
   { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
-  if (s.cond("z")) goto L_14239886D;
-  s.wr(((s.gpr[0]) + (0x10ULL)), (uint64_t)(s.gpr[2]), 8);
-  L_14239886D:;
+  if (!s.cond("z")) {
+    s.wr(((s.gpr[0]) + (0x10ULL)), (uint64_t)(s.gpr[2]), 8);
+  }
   return;
 }

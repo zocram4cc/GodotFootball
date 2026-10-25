@@ -20,14 +20,14 @@ void pes_fn_1422FF94C(PesState& s) {
   s.set_x_f32(2, (float)((s.x_f32(2)) + (s.x_f32(2))));
   s.set_x_f32(3, (float)((s.x_f32(3)) + (s.x_f32(3))));
   s.cmp_ss((float)(s.x_f32(2)), (float)(s.x_f32(3)));
-  if (s.cond("c")) goto L_1422FF95C;
-  s.xmm[2][0] = s.xmm[3][0]; s.xmm[2][1] = s.xmm[3][1];
-  L_1422FF95C:;
+  if (!s.cond("c")) {
+    s.xmm[2][0] = s.xmm[3][0]; s.xmm[2][1] = s.xmm[3][1];
+  }
   s.set_x_f32(0, k_c1425795E4_f);
   s.cmp_ss((float)(s.x_f32(3)), (float)(s.x_f32(0)));
-  if (s.cond("c")) goto L_1422FF96C;
-  s.xmm[3][0] = s.xmm[0][0]; s.xmm[3][1] = s.xmm[0][1];
-  L_1422FF96C:;
+  if (!s.cond("c")) {
+    s.xmm[3][0] = s.xmm[0][0]; s.xmm[3][1] = s.xmm[0][1];
+  }
   s.set_x_f32(2, (float)((s.x_f32(2)) * ((k_c14259BE40_f))));
   s.set_x_f32(3, (float)((s.x_f32(3)) * ((k_c14259BE40_f))));
   s.wrf(((s.gpr[1])), s.x_f32(2));

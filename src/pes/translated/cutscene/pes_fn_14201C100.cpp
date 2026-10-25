@@ -30,12 +30,13 @@ void pes_fn_14201C100(PesState& s) {
   { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
-  if (s.cond("nz")) goto L_14201C116;
-  return;
-  L_14201C116:;
-  s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0]) + (0x2A8ULL)), 4));
-  s.wr(((s.gpr[2]) + (0x4ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
-  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)((1ULL)));
-  s.wr(((s.gpr[2])), (uint64_t)((1ULL)), 1);
-  return;
+  if (s.cond("nz")) {
+    s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0]) + (0x2A8ULL)), 4));
+    s.wr(((s.gpr[2]) + (0x4ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
+    s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)((1ULL)));
+    s.wr(((s.gpr[2])), (uint64_t)((1ULL)), 1);
+    return;
+  } else {
+    return;
+  }
 }

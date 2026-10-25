@@ -16,24 +16,25 @@ void pes_fn_1414A9900(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
-  if (s.cond("c")) goto L_1414A990B;
-  { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
-    s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
-    s.cf = false; s.of = false;
-    s.gpr[0] = (uint64_t)(uint32_t)(_r);
+  if (s.cond("c")) {
+    { uint64_t _a = (uint64_t)(s.rd(((s.gpr[8]) + (0x10ULL)), 1)), _b = (uint64_t)((1ULL)), _r = (_a - _b) & 0xFFULL;
+      s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
+      s.cf = (_a & 0xFFULL) < (_b & 0xFFULL);
+      s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }
+    s.gpr[0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[2]));
+    s.gpr[1] = (uint64_t)(((s.gpr[0]) + ((s.gpr[0])*2ULL)));
+    s.gpr[0] = (uint64_t)(s.rd(((s.gpr[8]) + (0x18ULL)), 8));
+    s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0]) + ((s.gpr[1])*4ULL) + (0x4ULL)), 4));
+    if (!s.cond("nz")) {
+      /*UNHANDLED BSWAP eax*/(void)0;
+    }
+    return;
+  } else {
+    { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
+      s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
+      s.cf = false; s.of = false;
+      s.gpr[0] = (uint64_t)(uint32_t)(_r);
+    }
+    return;
   }
-  return;
-  L_1414A990B:;
-  { uint64_t _a = (uint64_t)(s.rd(((s.gpr[8]) + (0x10ULL)), 1)), _b = (uint64_t)((1ULL)), _r = (_a - _b) & 0xFFULL;
-    s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
-    s.cf = (_a & 0xFFULL) < (_b & 0xFFULL);
-    s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }
-  s.gpr[0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[2]));
-  s.gpr[1] = (uint64_t)(((s.gpr[0]) + ((s.gpr[0])*2ULL)));
-  s.gpr[0] = (uint64_t)(s.rd(((s.gpr[8]) + (0x18ULL)), 8));
-  s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0]) + ((s.gpr[1])*4ULL) + (0x4ULL)), 4));
-  if (s.cond("nz")) goto L_1414A9922;
-  /*UNHANDLED BSWAP eax*/(void)0;
-  L_1414A9922:;
-  return;
 }
