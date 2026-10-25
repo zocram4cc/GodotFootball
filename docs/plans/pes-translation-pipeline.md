@@ -61,6 +61,23 @@ the translator and the driver, split by file. Main lands everything. Concurrency
 | 30-70% | Fix the top failure classes in the translator and struct map, then re-pilot. |
 | < 30% | Report why with the failure breakdown and propose the alternative. Never fall back to the old method silently. |
 
+## Owner ruling 25-10-26: the translated code is committed, and readable
+
+- **Commit the translated layer.** Translated C++ and the constants baked into it are committed to the repo. Builds no
+  longer need a dump or a translation step; a user builds from the repo, with assets still coming from their own install
+  through the import scripts. This replaces the "no PES-derived bytes" rule **for code only**: assets, dumps, corpora,
+  snapshots and seeds stay out of the repo.
+- **The dump becomes a developer tool,** needed only by the harness and the gate to keep proving the committed code
+  equals PES.
+- **Drift check in the gate:** regenerating from the image must reproduce the committed code; once a function is
+  hand-refined, the harness must keep proving it bit-exact.
+- **Readable, in stages** (each stage must keep every function bit-exact in the harness):
+  1. structure: real signatures instead of a register file, locals instead of stack slots, `if`/`while` recovered from
+     gotos, records accessed through named fields from the field map;
+  2. names: functions, fields and constants named from the RE docs and the ledger, in one table the translator reads;
+  3. idiom: flags folded into comparisons, float ops as expressions, vtable calls as virtual calls on recovered classes;
+  4. hand refinement of hot or interesting functions, proven bit-exact, which then becomes the committed version.
+
 ## Owner ruling 25-10-26: priorities within scope
 
 - **Out:** match commentary (the commentator audio system).
