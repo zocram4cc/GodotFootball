@@ -157,6 +157,34 @@ struct PesState {
     pf = false;
     sf = of = false;
   }
+  // COMISD/UCOMISD flags: the cmp_ss rules on doubles.
+  void cmp_sd(double a, double b) {
+    if (__builtin_isnan(a) || __builtin_isnan(b)) {
+      zf = pf = cf = true;
+      sf = of = false;
+      return;
+    }
+    zf = (a == b);
+    cf = (a < b);
+    pf = false;
+    sf = of = false;
+  }
+  // Packed 32-bit lanes of a 128-bit value: lane i is bits 32i..32i+31.
+  static uint32_t lane_u32(unsigned __int128 v, int i) { return (uint32_t)(v >> (32 * i)); }
+  static float lane_f32(unsigned __int128 v, int i) { return f32(lane_u32(v, i)); }
+  static unsigned __int128 put_u32(unsigned __int128 v, int i, uint32_t x) {
+    unsigned __int128 m = (unsigned __int128)0xFFFFFFFFu << (32 * i);
+    return (v & ~m) | ((unsigned __int128)x << (32 * i));
+  }
+  // CVTTSD2SI: truncation; NaN or out of range gives the integer indefinite value.
+  static int32_t cvtt_i32(double d) {
+    if (!(d > -2147483649.0 && d < 2147483648.0)) return (int32_t)0x80000000u;
+    return (int32_t)d;
+  }
+  static int64_t cvtt_i64(double d) {
+    if (!(d >= -9223372036854775808.0 && d < 9223372036854775808.0)) return (int64_t)0x8000000000000000ull;
+    return (int64_t)d;
+  }
   bool cond(const char* cc) const;
 };
 
