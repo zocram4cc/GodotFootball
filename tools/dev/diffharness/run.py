@@ -699,6 +699,506 @@ def build_boundary(spec, b, image):
     raise SystemExit("diffharness: unknown boundary %r" % (b,))
 
 
+_JCC_SIMPLE = {
+    # Jcc -> taken relation on (left - right). Only the integer compares
+    # the steerer solves; FP guards fall through to mutation.
+    "JE": "==", "JZ": "==",
+    "JNE": "!=", "JNZ": "!=",
+    "JL": "<s", "JNGE": "<s",
+    "JGE": ">=s", "JNL": ">=s",
+    "JLE": "<=s", "JNG": "<=s",
+    "JG": ">s", "JNLE": ">s",
+    "JB": "<u", "JC": "<u", "JNAE": "<u",
+    "JAE": ">=u", "JNC": ">=u", "JNB": ">=u",
+    "JA": ">u", "JNBE": ">u",
+    "JBE": "<=u", "JNA": "<=u",
+}
+
+
+def _split_ops(op_str):
+    return [p.strip() for p in op_str.split(",")] if op_str else []
+
+
+def _reg_base(reg):
+    r = reg.strip().lower()
+    sub = {"al": "rax", "ah": "rax", "ax": "rax", "eax": "rax",
+           "bl": "rbx", "bh": "rbx", "bx": "rbx", "ebx": "rbx",
+           "cl": "rcx", "ch": "rcx", "cx": "rcx", "ecx": "rcx",
+           "dl": "rdx", "dh": "rdx", "dx": "rdx", "edx": "rdx",
+           "sil": "rsi", "si": "rsi", "esi": "rsi",
+           "dil": "rdi", "di": "rdi", "edi": "rdi",
+           "bpl": "rbp", "bp": "rbp", "ebp": "rbp",
+           "spl": "rsp", "sp": "rsp", "esp": "rsp",
+           "r8b": "r8", "r8w": "r8", "r8d": "r8",
+           "r9b": "r9", "r9w": "r9", "r9d": "r9",
+           "r10b": "r10", "r10w": "r10", "r10d": "r10",
+           "r11b": "r11", "r11w": "r11", "r11d": "r11",
+           "r12b": "r12", "r12w": "r12", "r12d": "r12",
+           "r13b": "r13", "r13w": "r13", "r13d": "r13",
+           "r14b": "r14", "r14w": "r14", "r14d": "r14",
+           "r15b": "r15", "r15w": "r15", "r15d": "r15"}
+    return sub.get(r, r)
+
+
+def _mem_key(ops):
+    """Canonical key of a memory operand: (base, index, scale, disp)."""
+    import re
+    m = re.match(r"^(?:byte|word|dword|qword|xmmword|ymmword)\s+ptr\s*\[(.*)\]$",
+                 ops.strip(), re.I)
+    if not m:
+        return None
+    inner = m.group(1).strip()
+    if inner.startswith("rip"):
+        return ("rip", inner)
+    base, index, scale, disp = None, None, 1, 0
+    for tok in [t.strip() for t in inner.split("+")]:
+        tm = re.match(r"^([a-z][a-z0-9]*)\*([1248])$", tok, re.I)
+        if tm:
+            index, scale = _reg_base(tm.group(1)), int(tm.group(2))
+            continue
+        if re.match(r"^[a-z][a-z0-9]*$", tok, re.I):
+            if base is None:
+                base = _reg_base(tok)
+            else:
+                return None
+            continue
+        try:
+            disp += int(tok, 0)
+        except ValueError:
+            return None
+    return (base, index, scale, disp)
+
+def _cap_lines(image_path, va):
+    """Capstone decode with xlate's function windowing (stops at the real
+    end instead of running into the next function)."""
+    import sys as _sys
+    import os as _os
+    _sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                      "..", "translate"))
+    import xlate as _x
+    base = int(va, 16) if isinstance(va, str) else va
+    return [(a, mn.upper(), list(ops))
+            for a, mn, ops in _x.capstone_decode(image_path, base)]
+
+
+def _decode_guards(image_path, va):
+    """[(branch_addr, target, fallthrough, mnemonic)] over one function."""
+    import sys as _sys
+    import os as _os
+    _sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                      "..", "translate"))
+    import xlate as _x
+    out = []
+    lines = [(a, mn.upper(), list(ops))
+             for a, mn, ops in _x.capstone_decode(
+                 image_path, int(va, 16) if isinstance(va, str) else va)]
+    aset = {a for a, _, _ in lines}
+    for i, (addr, mn, ops) in enumerate(lines):
+        if mn not in _x.CCMAP and mn != "JMP":
+            continue
+        try:
+            tgt = int(ops[0].strip(), 16)
+        except (ValueError, IndexError):
+            continue  # indirect jump: no static target to steer to
+        if tgt not in aset:
+            continue  # tail jump out of the function, not a local branch
+        fallthru = lines[i + 1][0] if i + 1 < len(lines) else None
+        out.append((addr, tgt, fallthru, mn))
+    return out
+
+
+def _input_addrs(spec):
+    """{input name: (region_base, offset, size)} for region-backed inputs."""
+    sizes = {"u8": 1, "u32": 4, "i32": 4, "u64": 8, "f32": 4}
+    regions = spec.get("regions") or {}
+    out = {}
+    for name, loc in (spec.get("inputs") or {}).items():
+        if "reg" in loc or "stack_offset" in loc or "absolute" in loc \
+                or "absfill" in loc or "stub" in loc or loc.get("input"):
+            continue
+        rname = loc.get("region")
+        if rname not in regions:
+            continue
+        try:
+            off = int(loc.get("offset", "0x0"), 16)
+        except ValueError:
+            continue
+        out[name] = (int(regions[rname]["base"], 16), off,
+                     sizes.get(loc.get("enc", "u32"), 4))
+    return out
+
+
+def _trace_guard_deps(image_path, va, in_addrs, max_ins=400):
+    """{branch_addr: [input names]}: inputs feeding each guard's compare.
+
+    Backward slice over the capstone decode: from the CMP/TEST at the
+    branch, follow MOV/LEA/MOVSXD/SETcc/CMOVcc data flow through
+    registers and memory until a spec input word (region offset) or an
+    untracked source (call result, rip-global, immediate) is reached.
+    Needs are ("reg", base) or ("mem", key); both halves of a compare
+    are tracked (SETcc results resolve through their own flag-setter).
+    """
+    lines = _cap_lines(image_path, va)
+    out = {}
+    for n, (addr, mn, ops) in enumerate(lines):
+        if mn not in _JCC_SIMPLE:
+            continue
+        # The flag-setter: nearest CMP/TEST above the branch.
+        sn = None
+        for k in range(n - 1, max(n - 6, -1), -1):
+            if lines[k][1] in ("CMP", "TEST"):
+                sn = k
+                break
+        if sn is None:
+            out[addr] = []
+            continue
+        _, smn, sops = lines[sn]
+        needs = set()
+        for sop in sops[:2]:
+            if "[" in sop:
+                mk = _mem_key(sop)
+                if mk is not None and mk[0] != "rip":
+                    needs.add(("mem", mk))
+            else:
+                try:
+                    int(sop, 0)
+                except ValueError:
+                    needs.add(("reg", _reg_base(sop)))
+        if smn == "TEST" and len(sops) == 2 and \
+                sops[0].lower() == sops[1].lower():
+            pass  # self-test: the one reg need already added
+        for k in range(sn - 1, max(sn - max_ins, -1), -1):
+            if not needs:
+                break
+            _, kmn, kops = lines[k]
+            if kmn == "CALL" and kops:
+                # Transparent callee: a single MOV reg,[base+disp];RET
+                # forwards one input word (load-load-compare chains). Step
+                # through it: the returned reg is fed by the callee's load.
+                try:
+                    tva = int(kops[0].strip(), 16)
+                except (ValueError, IndexError):
+                    tva = None
+                if tva is not None:
+                    try:
+                        cl = _cap_lines(image_path, tva)
+                    except (OSError, SystemExit, ValueError):
+                        cl = []
+                    if len(cl) == 2 and cl[0][1] == "MOV" and \
+                            len(cl[0][2]) == 2 and cl[1][1] == "RET":
+                        _d, _s = cl[0][2][0], cl[0][2][1]
+                        if "[" not in _d and "[" in _s:
+                            mk = _mem_key(_s)
+                            if mk is not None and mk[0] != "rip":
+                                for nd in list(needs):
+                                    if nd[0] == "reg" and \
+                                            nd[1] == _reg_base(_d):
+                                        needs.discard(nd)
+                                        needs.add(("mem", mk))
+                                continue
+                # Opaque call: results untracked; memory needs survive
+                # (a call cannot rewrite a synthetic region), reg needs die.
+                needs = {nd for nd in needs if nd[0] == "mem"}
+                continue
+            if kmn == "RET":
+                needs = {nd for nd in needs if nd[0] == "mem"}
+                continue
+            if kmn in ("MOV", "MOVZX", "MOVSX", "MOVSXD", "LEA") and kops:
+                dst, src = kops[0], kops[-1]
+                dbase = _reg_base(dst) if "[" not in dst else None
+                dmem = _mem_key(dst) if "[" in dst else None
+                hit = dbase is not None and ("reg", dbase) in needs
+                hitm = dmem is not None and ("mem", dmem) in needs
+                if not hit and not hitm:
+                    continue
+                if hit:
+                    needs.discard(("reg", dbase))
+                if hitm:
+                    needs.discard(("mem", dmem))
+                if kmn == "LEA":
+                    continue  # address math, no input content
+                if "[" in src:
+                    mk = _mem_key(src)
+                    if mk is None:
+                        continue
+                    if mk[0] == "rip":
+                        continue  # image global, not a case input
+                    needs.add(("mem", mk))
+                else:
+                    try:
+                        int(src, 0)
+                    except ValueError:
+                        needs.add(("reg", _reg_base(src)))
+                continue
+            if kmn in ("XOR", "SUB") and kops and len(kops) == 2 and \
+                    kops[0].lower() == kops[1].lower():
+                # reg = 0: a constant, not an input.
+                needs.discard(("reg", _reg_base(kops[0])))
+                continue
+            if kmn.startswith("SET"):
+                # SETcc dst: dst's value is the flag result; resolve the
+                # setter's own compare inputs instead of the flags.
+                if not kops or ("reg", _reg_base(kops[0])) not in needs:
+                    continue
+                needs.discard(("reg", _reg_base(kops[0])))
+                for kk in range(k - 1, max(k - 6, -1), -1):
+                    if lines[kk][1] in ("CMP", "TEST"):
+                        for sop in lines[kk][2][:2]:
+                            if "[" in sop:
+                                mk = _mem_key(sop)
+                                if mk is not None and mk[0] != "rip":
+                                    needs.add(("mem", mk))
+                            else:
+                                try:
+                                    int(sop, 0)
+                                except ValueError:
+                                    needs.add(("reg", _reg_base(sop)))
+                        break
+                continue
+            if kmn.startswith("CMOV"):
+                # CMOVcc dst, src: dst keeps its old value or takes src's;
+                # both are inputs to the result.
+                if not kops or ("reg", _reg_base(kops[0])) not in needs:
+                    continue
+                if "[" in kops[-1]:
+                    mk = _mem_key(kops[-1])
+                    if mk is not None and mk[0] != "rip":
+                        needs.add(("mem", mk))
+                else:
+                    try:
+                        int(kops[-1], 0)
+                    except ValueError:
+                        needs.add(("reg", _reg_base(kops[-1])))
+                continue
+        # Resolve surviving memory needs to input names by offset match
+        # (offsets are unique per spec; the slice loses the base reg).
+        deps = set()
+        for nd in needs:
+            if nd[0] != "mem":
+                continue
+            disp = nd[1][3]
+            for iname, (_, roff, _) in (in_addrs or {}).items():
+                if disp == roff:
+                    deps.add(iname)
+        out[addr] = sorted(deps)
+    return out
+
+def _rand_case(schema, rnd):
+    """One random case from the schema (the main loop's draw, factored)."""
+    case = {}
+    for name, rule in schema.items():
+        kind = rule.get("kind", "u8")
+        if kind in ("u8", "all_u8"):
+            case[name] = rnd.randint(rule.get("lo", 0), rule.get("hi", 255))
+        elif kind == "i32":
+            case[name] = rnd.randint(rule.get("lo", -100), rule.get("hi", 100))
+        elif kind == "f32":
+            if "edges" in rule and rnd.random() < 0.3:
+                case[name] = f32_bits({"bits": rnd.choice(rule["edges"])})
+            else:
+                case[name] = f32_bits(rnd.uniform(rule.get("lo", -50.0), rule.get("hi", 50.0)))
+        elif kind == "quirk_or_zero":
+            if rnd.random() < 0.1:
+                blob = bytearray(struct.pack("<f", 0.0))
+                blob[0] = 1
+                case[name] = {"bits": "0x%08X" % struct.unpack("<I", bytes(blob))[0]}
+            else:
+                case[name] = f32_bits(0.0)
+        elif kind == "choice":
+            case[name] = rnd.choice(rule["values"])
+        elif kind == "derived":
+            case[name] = eval(rule["expr"], {"__builtins__": {}}, dict(case))
+    return case
+
+
+def guided_cases(spec, seed, count, image_path, want_addrs):
+    """Deterministic extra cases steering uncovered branches both ways.
+
+    For each unreached block, find the branch guarding it and the spec
+    input it depends on (backward slice to region+offset words). Solve
+    simple integer compares directly (taken + fallthrough values);
+    otherwise mutate a seeded random case at the dependent input. Fixed
+    seed: the same cases on every run.
+    """
+    import hashlib as _hl
+    import random
+    _gseed = int(_hl.sha256(repr(("guided", seed)).encode()).hexdigest(), 16) % (2**31)
+    schema = spec.get("input_schema") or {}
+    locs = spec.get("inputs") or {}
+    try:
+        guards = _decode_guards(image_path, spec["va"])
+    except (OSError, ValueError):
+        return []
+    try:
+        deps = _trace_guard_deps(image_path, spec["va"], _input_addrs(spec))
+    except (OSError, ValueError):
+        deps = {}
+    if not guards or not want_addrs:
+        return []
+    want = {int(w, 16) if isinstance(w, str) else w for w in want_addrs}
+    # Setter immediates: nearest CMP/TEST above each branch.
+    from capstone import Cs, CS_ARCH_X86, CS_MODE_64
+    start = int(spec["va"], 16)
+    with open(image_path, "rb") as imgf:
+        imgf.seek(start - 0x140000000)
+        code = imgf.read(0x10000)
+    md = Cs(CS_ARCH_X86, CS_MODE_64)
+    md.detail = False
+    dlines = [(i.address, i.mnemonic.upper(), _split_ops(i.op_str))
+              for i in md.disasm(bytes(code), start)]
+    bya = {a: n for n, (a, _, _) in enumerate(dlines)}
+    out = []
+    base_rnd = random.Random(_gseed)
+    seen_vals = set()
+    for (baddr, tgt, fallthru, mn) in guards:
+        if tgt not in want and fallthru not in want:
+            continue
+        names = deps.get(baddr, [])
+        if mn == "JMP" or not names:
+            continue  # unsteerable statically: the mutation pass covers it
+        rel = _JCC_SIMPLE.get(mn)
+        if rel is None:
+            continue
+        sop = None
+        if baddr in bya:
+            for k in range(bya[baddr] - 1, max(bya[baddr] - 6, -1), -1):
+                if dlines[k][1] in ("CMP", "TEST"):
+                    sop = dlines[k][2]
+                    break
+        if not sop:
+            continue
+        # Solve the setter for each side: the imm half gets imm+deltas,
+        # each input half gets domain edges; cases set ALL halves so
+        # multi-input compares (eax==[rsi+8]) can actually flip.
+        full_by_off = {}
+        for iname, _loc in _input_addrs(spec).items():
+            full_by_off.setdefault(_loc[1], iname)
+        in_by_off = {off: nm for off, nm in full_by_off.items()
+                     if nm in names}
+        plan = {}
+        skip = False
+        for half in sop[:2]:
+            if "[" in half:
+                mk = _mem_key(half)
+                hn = in_by_off.get(mk[3]) if mk else None
+                if hn is None:
+                    continue
+                hrule = schema.get(hn, {})
+                if hrule.get("kind") not in ("u8", "all_u8", "i32"):
+                    skip = True
+                    break
+                plan[hn] = [hrule.get("lo", 0), hrule.get("hi", 255), 0, 1]
+            else:
+                try:
+                    int(half, 0)
+                except ValueError:
+                    if names:
+                        hrule = schema.get(names[0], {})
+                        if hrule.get("kind") not in ("u8", "all_u8", "i32"):
+                            skip = True
+                            break
+                        plan[names[0]] = [hrule.get("lo", 0),
+                                          hrule.get("hi", 255), 0, 1]
+        if skip or not plan:
+            continue
+        # Path condition: reaching this branch may require an EARLIER
+        # branch's equality to hold (fallthrough into d8 needs d6's
+        # eax==[rsi+8]). Constrain the earlier compare's input halves
+        # to their equal values too.
+        if fallthru is not None:
+            for (pb, pt, pf, pm) in guards:
+                if pb == baddr:
+                    continue
+                # Earlier branch enters baddr's block: its taken target is
+                # baddr's block start, or its fallthrough block contains
+                # baddr (fallthrough leader <= baddr < branch target).
+                enters = (pt == baddr and pm == "JMP") or \
+                    (pf is not None and pf <= baddr < pt)
+                if enters:
+                    psop = None
+                    if pb in bya:
+                        for k in range(bya[pb] - 1, max(bya[pb] - 6, -1), -1):
+                            if dlines[k][1] in ('CMP', 'TEST'):
+                                psop = dlines[k][2]
+                                break
+                    if psop:
+                        for half in psop[:2]:
+                            if '[' in half:
+                                mk = _mem_key(half)
+                                hn = full_by_off.get(mk[3]) if mk else None
+                                if hn and hn not in plan:
+                                    hrule = schema.get(hn, {})
+                                    if hrule.get('kind') in ('u8', 'all_u8', 'i32'):
+                                        plan[hn] = [0, 1]
+                            else:
+                                try:
+                                    int(half, 0)
+                                except ValueError:
+                                    pass
+        import itertools as _it
+        keys = sorted(plan)
+        vlist = []
+        for k in keys:
+            lo, hi = schema.get(k, {}).get("lo", 0), schema.get(k, {}).get("hi", 255)
+            vlist.append(sorted({v for v in plan[k] if lo <= v <= hi})[:4])
+        # Equalize: when both halves are the same input, only equal pairs
+        # can take the fallthrough; when two inputs share a domain, try
+        # equal pairs too (eax==[rsi+8] needs A0_8 in {0,1}).
+        combos = list(_it.product(*vlist))[:8]
+        if len(keys) == 2:
+            lo0, hi0 = schema.get(keys[0], {}).get("lo", 0), schema.get(keys[0], {}).get("hi", 255)
+            lo1, hi1 = schema.get(keys[1], {}).get("lo", 0), schema.get(keys[1], {}).get("hi", 255)
+            shared = sorted(set(vlist[0]) & set(vlist[1]))
+            shared = [v for v in shared if lo0 <= v <= hi0 and lo1 <= v <= hi1][:4]
+            # Equal pairs first: they are the only ones that satisfy an
+            # equality fallthrough (eax==[rsi+8]).
+            eq = [(v, v) for v in shared if (v, v) not in combos][:4]
+            combos = eq + [c for c in combos if c not in eq][:8 - len(eq)]
+        for combo in combos[:8]:
+            key = tuple(zip(keys, combo))
+            if key in seen_vals:
+                continue
+            seen_vals.add(key)
+            case = _rand_case(schema, base_rnd)
+            for kk, vv in zip(keys, combo):
+                case[kk] = vv
+            out.append(case)
+            if len(out) >= count:
+                return out
+    # Mutation pass: edge values at each dependent input for guards the
+    # solver skipped (floats, TEST bits, call-fed values).
+    mut_rnd = random.Random(_gseed + 1)
+    for (baddr, tgt, fallthru, mn) in guards:
+        if tgt not in want and fallthru not in want:
+            continue
+        for name in deps.get(baddr, [])[:1]:
+            rule = schema.get(name, {})
+            kind = rule.get("kind", "u8")
+            if kind in ("u8", "all_u8"):
+                edges = [rule.get("lo", 0), rule.get("hi", 255)]
+            elif kind == "f32":
+                edges = [f32_bits(rule.get("lo", -50.0)),
+                         f32_bits(rule.get("hi", 50.0)),
+                         f32_bits(0.0), f32_bits(1.0), f32_bits(-1.0)]
+            elif kind == "choice":
+                edges = list(rule.get("values", []))[:4]
+            elif kind == "i32":
+                edges = [rule.get("lo", -100), rule.get("hi", 100), 0, 1, -1]
+            else:
+                continue
+            for v in edges[:4]:
+                if (name, repr(v)) in seen_vals:
+                    continue
+                seen_vals.add((name, repr(v)))
+                case = _rand_case(schema, base_rnd)
+                case[name] = v
+                # Second draw, so the mutation varies the background too.
+                mut_rnd.random()
+                out.append(case)
+                if len(out) >= count:
+                    return out
+    return out
+
 def gen_inputs(spec, seed, count, image=None):
     import random
     rnd = random.Random(seed)
@@ -736,35 +1236,7 @@ def gen_inputs(spec, seed, count, image=None):
                 case.setdefault(name, val)
             cases.append(case)
     while len(cases) < count:
-        case = {}
-        for name, rule in schema.items():
-            loc = (spec.get("inputs") or {}).get(name, {})
-            kind = rule.get("kind", "u8")
-            if kind in ("u8", "all_u8"):
-                case[name] = rnd.randint(rule.get("lo", 0), rule.get("hi", 255))
-            elif kind == "i32":
-                case[name] = rnd.randint(rule.get("lo", -100), rule.get("hi", 100))
-            elif kind == "f32":
-                if "edges" in rule and rnd.random() < 0.3:
-                    case[name] = f32_bits({"bits": rnd.choice(rule["edges"])})
-                else:
-                    case[name] = f32_bits(rnd.uniform(rule.get("lo", -50.0), rule.get("hi", 50.0)))
-            elif kind == "quirk_or_zero":
-                # T7a's inner word: usually 0.0, occasionally the low-byte-1
-                # quirk word (constructed as in build_boundary, never committed).
-                if rnd.random() < 0.1:
-                    blob = bytearray(struct.pack("<f", 0.0))
-                    blob[0] = 1
-                    case[name] = {"bits": "0x%08X" % struct.unpack("<I", bytes(blob))[0]}
-                else:
-                    case[name] = f32_bits(0.0)
-            elif kind == "choice":
-                case[name] = rnd.choice(rule["values"])
-            elif kind == "derived":
-                # Address derived from already-drawn inputs (schema order):
-                # side-strided words, never degenerate (provenance: RE notes).
-                case[name] = eval(rule["expr"], {"__builtins__": {}}, dict(case))
-        cases.append(case)
+        cases.append(_rand_case(schema, rnd))
     # Static per-case defaults that must not consume the random stream.
     # {"from_image": VA} reads the float from the user's image at gen time.
     for case in cases:
@@ -813,6 +1285,71 @@ def main():
     seed = args.seed if args.seed != 1 or "seed" not in spec else spec["seed"]
     count = args.count if args.count != 300 or "count" not in spec else spec["count"]
     cases = gen_inputs(spec, seed, count, (sections, args.exe))
+    # Coverage-guided second round: base cases run first (streamed, so a
+    # corpus is never held twice); unreached block leaders then steer
+    # guided extras (same seed, appended, deterministic).
+    guided_on = image_kind(args.exe) == "flat" and count and args.out
+    if guided_on:
+        import sys as _sys
+        import os as _os
+        _sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                          "..", "translate"))
+        import xlate as _x
+        _lines = _x.capstone_decode(args.exe, int(spec["va"], 16))
+        _addrs = [a for a, _, _ in _lines]
+        _aset = set(_addrs)
+        _leaders = {_addrs[0]} if _addrs else set()
+        for _i, (_a, _mn, _ops) in enumerate(_lines):
+            _m = _mn.upper()
+            _t = None
+            if (_m in _x.CCMAP or _m == "JMP") and _ops:
+                try:
+                    _t = int(_ops[0].strip(), 16)
+                except ValueError:
+                    _t = None
+            if _t is not None and _t in _aset:
+                _leaders.add(_t)
+            if _m in _x.CCMAP or _m in ("JMP", "CALL", "RET"):
+                if _i + 1 < len(_addrs):
+                    _leaders.add(_addrs[_i + 1])
+        _bounds = sorted(_leaders)
+
+        def _block_of(_addr):
+            for _bi, _b in enumerate(_bounds):
+                _end = _bounds[_bi + 1] if _bi + 1 < len(_bounds) else None
+                if _addr >= _b and (_end is None or _addr < _end):
+                    return _bi
+            return None
+        _pre = set(mu._addrs or set()) if mu._addrs is not None else set()
+        out = open(args.out, "w")
+        for _n, _inputs in enumerate(cases):
+            _result, _err = run_case(mu, spec, RET, _inputs)
+            if _err is not None:
+                print("case %d failed: %s" % (_n, _err), file=sys.stderr)
+                print("  inputs: %s" % json.dumps(_inputs)[:300], file=sys.stderr)
+                return 1
+            out.write(json.dumps({"va": spec["va"], "in": _inputs, "out": _result}) + "\n")
+        _hit = {_block_of(a) for a in ((mu._addrs or set()) - _pre)
+                if _block_of(a) is not None}
+        _want = {_b for _bi, _b in enumerate(_bounds) if _bi not in _hit}
+        _guided = guided_cases(spec, seed, count, args.exe, _want)
+        for _m, _inputs in enumerate(_guided[:count]):
+            _result, _err = run_case(mu, spec, RET, _inputs)
+            if _err is not None:
+                print("guided case %d failed: %s" % (_m, _err), file=sys.stderr)
+                print("  inputs: %s" % json.dumps(_inputs)[:300], file=sys.stderr)
+                return 1
+            out.write(json.dumps({"va": spec["va"], "in": _inputs, "out": _result}) + "\n")
+        cases = cases + _guided[:count]
+        out.close()
+        if args.trace_calls is not None:
+            with open(args.trace_calls, "w") as tf:
+                json.dump(mu._trace or {}, tf, indent=1, sort_keys=True)
+        if args.trace_addrs is not None:
+            with open(args.trace_addrs, "w") as tf:
+                json.dump(sorted("0x%X" % a for a in (mu._addrs or set())), tf)
+        print("%d cases (%d guided) -> %s" % (len(cases), len(_guided[:count]), args.out or "stdout"))
+        return 0
     out = open(args.out, "w") if args.out else sys.stdout
     for n, inputs in enumerate(cases):
         result, err = run_case(mu, spec, RET, inputs)
