@@ -14,3 +14,7 @@ struct PesDispatch {
 
 PesDispatch pes_dispatch_lookup(uint64_t t);
 [[noreturn]] void pes_dispatch_missing(uint64_t t);
+
+// The table itself, generated per build (gen_dispatch.py) into the same
+// directory (on the include path in every build).
+#include "pes_dispatch_gen.hpp"
