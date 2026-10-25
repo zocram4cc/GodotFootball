@@ -23,8 +23,8 @@ side (diffmain.py) BEFORE the per-case inputs:
   * the G-shadow region    <- the live/emulated G object bytes (0x2e58).
   * each IMG.* child region <- the live bytes of the object its name chain
     resolves to (live source only).
-  * argument roots (A0/...) <- unresolvable from G (the object is a call
-    argument, not a G child): stays zeroed.
+  * argument roots (A0/...) <- team record T[--team] (arg_roots, live only),
+    its child chains walked from T; unbound roots stay zeroed.
   * pointer slots the spec re-points (regions_init) keep their SYNTHETIC
     bases: the spec linkage is written AFTER the seed, exactly as before.
   * live pointers the G-shadow holds to seeded children are re-pointed at
@@ -73,15 +73,44 @@ def make_reader(index):
     return read
 
 
-def seed_path(spec, rname):
-    """The slot chain a region name shadows, or None (not a G child)."""
+TEAM_SLOT = 0xA1  # team record s: T[s] = *(G + (s + TEAM_SLOT) * STRIDE)
+STRIDE = 0x28
+
+
+def chain_of(rname):
+    """(root, offsets) a region shadows, or None. 'IMG.1436F3DC8.180' ->
+    ('IMG', [0x180]) (G-rooted); 'A0.6D48.E0' -> ('A0', [0x6D48, 0xE0])
+    (argument-rooted, bound by arg_roots)."""
     parts = rname.split(".")
-    if parts[0] != "IMG":
-        return None
-    path = [int(p, 16) for p in parts[1:]]
-    if path and path[0] == GVA:
-        path = path[1:]
-    return path
+    if parts[0] == "IMG":
+        if int(parts[1], 16) != GVA:
+            return None  # not a G slot (an image address or a shared sentinel)
+        return "IMG", [int(p, 16) for p in parts[2:]]
+    if parts[0][:1] == "A" and parts[0][1:].isdigit():
+        return parts[0], [int(p, 16) for p in parts[1:]]
+    return None
+
+
+def walk(read, gbytes, g, start, offs):
+    """Follow the pointer chain offs from start; None on a null hop or
+    uncaptured memory. G's own slots come from g.bin: its live mapping is
+    zero-filled in the snapshot (ArgState probe1)."""
+    addr = start
+    for off in offs:
+        raw = gbytes[off:off + 8] if (addr == g and gbytes) else read(addr + off, 8)
+        if not raw or len(raw) < 8:
+            return None
+        (v,) = struct.unpack("<Q", raw)
+        if v == 0:
+            return None
+        addr = v
+    return addr
+
+
+def arg_roots(read, gbytes, g, team=0):
+    """Argument-root bindings: A0 = team record T[team], walked from G."""
+    t = walk(read, gbytes, g, g, [(team + TEAM_SLOT) * STRIDE])
+    return {"A0": t} if t else {}
 
 
 def region_window(spec, rname):
@@ -96,12 +125,13 @@ def region_window(spec, rname):
     return (top + 0xFFF) & ~0xFFF if top else 0x1000
 
 
-def build_live_seed(spec, meta, read, gbin, page=0x1000):
+def build_live_seed(spec, meta, read, gbytes, roots=None, page=0x1000):
     """
     Returns ({region: [[off, bytes], ...]}, {region: live_addr}). The
     G-shadow and every IMG child whose pointer chain from G resolves to a
-    captured mapping get real bytes; argument-rooted regions (A0/...) and
-    unresolved chains stay zeroed (the zero-run's behaviour for those).
+    captured mapping get real bytes; an argument root (A0/...) gets its
+    object from roots (arg_roots), with its child chain walked the same way.
+    Unbound roots and unresolved chains stay zeroed.
 
     The G-shadow gets the full G object (g.bin, 0x2e58): the function's
     readable set is not known a priori, and the object is small. A child
@@ -109,23 +139,21 @@ def build_live_seed(spec, meta, read, gbin, page=0x1000):
     region (the analyzer's static read/write set) plus slack.
     """
     regions = spec.get("regions") or {}
-    gbytes = open(gbin, "rb").read() if meta.get("g_blob") else b""
+    roots = roots or {}
     out, live = {}, {}
     for rname in regions:
         if is_g(rname):
             if gbytes:
                 out[rname] = [[0, gbytes]]
             continue
-        path = seed_path(spec, rname)
-        if path is None:
-            continue  # argument root
-        addr = meta["g"]
-        for slot in path:
-            (v,) = struct.unpack("<Q", read(addr, 8) or b"\0" * 8)
-            if v == 0:
-                addr = None
-                break
-            addr = v
+        chain = chain_of(rname)
+        if chain is None:
+            continue
+        root, offs = chain
+        start = meta["g"] if root == "IMG" else roots.get(root)
+        if start is None:
+            continue  # unbound argument root
+        addr = walk(read, gbytes, meta["g"], start, offs)
         if addr is None or read(addr, 4) is None:
             continue  # null hop or uncaptured
         blob = read(addr, region_window(spec, rname) or page)
@@ -193,7 +221,7 @@ def artifact_of(spec, seed):
     return a
 
 
-def seed_for_spec(spec, live_dir=None, emulated_dir=None, page=0x1000):
+def seed_for_spec(spec, live_dir=None, emulated_dir=None, page=0x1000, team=None):
     """The per-spec seed artifact (dict) from a live dir or an emulated dir."""
     regions = spec.get("regions") or {}
     gname = next((n for n in regions if is_g(n)), None)
@@ -210,7 +238,9 @@ def seed_for_spec(spec, live_dir=None, emulated_dir=None, page=0x1000):
         return artifact_of(spec, seed)
     meta, index = load_live(live_dir)
     read = make_reader(index)
-    seed, live = build_live_seed(spec, meta, read, live_dir + "/g.bin", page)
+    gbytes = open(live_dir + "/g.bin", "rb").read() if meta.get("g_blob") else b""
+    roots = arg_roots(read, gbytes, meta["g"], team) if team is not None else {}
+    seed, live = build_live_seed(spec, meta, read, gbytes, roots, page)
     patch_live_ptrs(spec, seed, live, meta, read)
     return artifact_of(spec, seed)
 
@@ -226,6 +256,8 @@ if __name__ == "__main__":
     p.add_argument("--out", required=True, help="seed dir (build tree only)")
     p.add_argument("--page", type=lambda s: int(s, 0), default=0x1000)
     p.add_argument("--only", nargs="*", default=None)
+    p.add_argument("--team", type=int, default=None,
+                   help="bind the A0 argument root to team record T[N] (live only)")
     args = p.parse_args()
     if not args.live and not args.emulated:
         p.error("one of --live / --emulated")
@@ -237,6 +269,6 @@ if __name__ == "__main__":
         if args.only and f[:-5].lower() not in {v.lower() for v in args.only}:
             continue
         spec = json.load(open(os.path.join(args.spec_dir, f)))
-        a = seed_for_spec(spec, live_dir, args.emulated, args.page)
+        a = seed_for_spec(spec, live_dir, args.emulated, args.page, args.team)
         json.dump(a, open(os.path.join(args.out, f[:-5] + ".seed.json"), "w"))
         print("%s: %d regions seeded" % (f[:-5], len(a["regions"])))
