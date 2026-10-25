@@ -34,3 +34,20 @@ Two sources:
 
 Setup functions named in the docs (not re-verified): slot record `FUN_14092d230`; MA base and ladder `FUN_140b42350`,
 `FUN_140b41c22`; setter `FUN_1404a2d80`; rule `FUN_140a3fbc0`.
+
+## Measured: seeding G from a live snapshot (LiveState, Main's measurement, 25-10-26)
+
+A live mid-match snapshot (16:23, 3.7 GB, scratch only) seeded each impure spec's G shadow and G's child regions
+(`seed.py`, `run.py --seed-state`; `origin/LiveState` `WIP`, harness side only). Main measured own-block coverage on
+the 27 impure functions that ran both ways:
+
+| | Median own-block coverage | At or above the 50% floor |
+|---|---|---|
+| Unseeded | 20% | 8 |
+| Seeded | 29% | 10 |
+
+3 rose, 1 fell, 23 unchanged. **Seeding G is not enough:** the functions' main object is usually an argument (a player
+slot, a team record, a vtable object passed in a register), and `seed.py` leaves argument roots zero-filled because they
+aren't reachable from G. The next step is to point each argument at a real instance of its type from the snapshot,
+which needs each function's argument types (the field map's `bindings`, whose `A0` root is known to conflate several
+record types).
