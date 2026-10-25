@@ -283,6 +283,20 @@ def build_emu(spec, image_path, sections):
     return mu, RET_SENTINEL
 
 
+def apply_seed(mu, spec, seed_artifact):
+    """Fill the spec regions with real object bytes (a seed.py artifact)
+    before the per-case inputs: the seed is the base state (real vtables,
+    class bytes, init flags, MI); the inputs and spec linkage are applied
+    on top, so the per-case variations still win exactly as in the zero run."""
+    regions = spec.get("regions") or {}
+    for r in seed_artifact.get("regions") or []:
+        rname = r.get("name")
+        if rname not in regions:
+            continue
+        base = int(regions[rname]["base"], 16)
+        mu.mem_write(base + int(r.get("off", 0)), bytes.fromhex(r["hex"]))
+
+
 def stack_top(spec):
     stack = spec.get("stack", {"base": "0x10000000", "size": "0x20000"})
     return int(stack["base"], 16) + int(stack["size"], 16) - 0x100
@@ -566,7 +580,7 @@ def install_hooks(mu, spec, RET_SENTINEL):
     mu.hook_add(UC_HOOK_MEM_WRITE_UNMAPPED, hook_bad, "w")
 
 
-def run_case(mu, spec, RET_SENTINEL, inputs, timeout_ms=5000):
+def run_case(mu, spec, RET_SENTINEL, inputs, timeout_ms=5000, seed=None):
     from unicorn.x86_const import UC_X86_REG_RIP, UC_X86_REG_RSP
     entry = int(spec.get("entry", spec["va"]), 16)
     end = int(spec.get("end", "0x0"), 16) if spec.get("end") else RET_SENTINEL
@@ -589,6 +603,8 @@ def run_case(mu, spec, RET_SENTINEL, inputs, timeout_ms=5000):
             mu.reg_write(reg_const(reg), stack_top(spec))
         else:
             mu.reg_write(reg_const(reg), int(val, 0) if isinstance(val, str) else val)
+    if seed is not None:
+        apply_seed(mu, spec, seed)
     set_inputs(mu, spec, inputs)
     mu._draws = []
     mu._prev = [None, 0]
@@ -1338,6 +1354,10 @@ def main():
     ap.add_argument("--out")
     ap.add_argument("--check-spec", action="store_true")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--seed-state", default=None,
+                    help="dir of per-spec seed artifacts (seed.py: "
+                         "<name>.seed.json): real object bytes filling the "
+                         "spec regions before the per-case inputs")
     ap.add_argument("--count", type=int, default=300)
     ap.add_argument("--trace-calls", default=None,
                     help="write {site: {target: count}} for harness-reached "
@@ -1366,6 +1386,15 @@ def main():
     seed = args.seed if args.seed != 1 or "seed" not in spec else spec["seed"]
     count = args.count if args.count != 300 or "count" not in spec else spec["count"]
     cases = gen_inputs(spec, seed, count, (sections, args.exe))
+    seed_art = None
+    if args.seed_state:
+        _sp = os.path.join(args.seed_state,
+                           os.path.basename(args.spec)[:-5] + ".seed.json")
+        if os.path.exists(_sp):
+            seed_art = json.load(open(_sp))
+        else:
+            print("seed-state: no %s (continuing unseeded)" % os.path.basename(_sp),
+                  file=sys.stderr)
     # Coverage-guided second round: base cases run first (streamed, so a
     # corpus is never held twice); unreached block leaders then steer
     # guided extras (same seed, appended, deterministic).
@@ -1404,7 +1433,7 @@ def main():
         _pre = set(mu._addrs or set()) if mu._addrs is not None else set()
         out = open(args.out, "w")
         for _n, _inputs in enumerate(cases):
-            _result, _err = run_case(mu, spec, RET, _inputs)
+            _result, _err = run_case(mu, spec, RET, _inputs, seed=seed_art)
             if _err is not None:
                 print("case %d failed: %s" % (_n, _err), file=sys.stderr)
                 print("  inputs: %s" % json.dumps(_inputs)[:300], file=sys.stderr)
@@ -1415,7 +1444,7 @@ def main():
         _want = {_b for _bi, _b in enumerate(_bounds) if _bi not in _hit}
         _guided = guided_cases(spec, seed, count, args.exe, _want)
         for _m, _inputs in enumerate(_guided[:count]):
-            _result, _err = run_case(mu, spec, RET, _inputs)
+            _result, _err = run_case(mu, spec, RET, _inputs, seed=seed_art)
             if _err is not None:
                 print("guided case %d failed: %s" % (_m, _err), file=sys.stderr)
                 print("  inputs: %s" % json.dumps(_inputs)[:300], file=sys.stderr)
@@ -1433,7 +1462,7 @@ def main():
         return 0
     out = open(args.out, "w") if args.out else sys.stdout
     for n, inputs in enumerate(cases):
-        result, err = run_case(mu, spec, RET, inputs)
+        result, err = run_case(mu, spec, RET, inputs, seed=seed_art)
         if err is not None:
             print("case %d failed: %s" % (n, err), file=sys.stderr)
             print("  inputs: %s" % json.dumps(inputs)[:300], file=sys.stderr)
