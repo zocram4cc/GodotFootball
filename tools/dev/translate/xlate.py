@@ -1715,6 +1715,7 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
                  "SUB", "CMP", "TEST", "AND", "OR", "XOR", "ADC", "SBB",
                  "INC", "DEC", "NEG", "NOT", "SHL", "SHR", "SAR", "IMUL",
                  "ROR", "ROL", "XADD", "CMPXCHG",
+                 "MUL", "BT", "BTC", "BTR", "BTS", "CDQE", "CDQ", "CQO",
                  "CWD", "CBW", "CWDE", "PUSH", "POP", "LEAVE", "NOP"):
             out = em.emit_alu(m, ops)
         elif m in ("MOVSS", "MOVSD", "MOVD", "ADDSS", "SUBSS", "MULSS",
@@ -1723,6 +1724,7 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
                    "CVTSD2SS", "MOVAPS", "MOVUPS", "MOVAPD", "MOVUPD",
                    "ANDPS", "ORPS", "XORPS", "ANDPD", "ORPD", "XORPD",
                    "PXOR", "PAND", "POR", "PANDN", "MOVDQA", "MOVDQU",
+                   "ANDNPS", "ANDNPD", "CVTPS2PD", "CVTPD2PS", "CVTDQ2PS",
                    "ADDPS", "SUBPS", "MULPS", "DIVPS", "PADDD", "PSUBD", "PCMPEQD",
                    "PSHUFD", "PSRLDQ", "SHUFPS", "UNPCKLPS", "UNPCKHPS",
                    "ADDSD", "SUBSD", "MULSD", "DIVSD", "COMISD", "UCOMISD",
