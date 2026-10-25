@@ -376,6 +376,10 @@ def install_hooks(mu, spec, RET_SENTINEL):
     # their return in-hook, so the fallthrough after them never records.
     mu._trace = {} if getattr(mu, "_trace_on", False) else None
     mu._prev = [None, 0]
+    # --trace-addrs: every executed instruction address (union over cases),
+    # for basic-block coverage in the driver. Stub entries record too (their
+    # in-hook return pops the call, so no stub body pollutes the set).
+    mu._addrs = set() if getattr(mu, "_addrs_on", False) else None
 
     def _is_indirect_site(uc, va):
         try:
@@ -395,6 +399,8 @@ def install_hooks(mu, spec, RET_SENTINEL):
 
     def hook_code(uc, address, size, data):
         uc._last_rip = address
+        if uc._addrs is not None:
+            uc._addrs.add(address)
         if uc._trace is not None:
             prev, psz = uc._prev
             # Entered address after an indirect call/jump is its runtime
@@ -777,6 +783,9 @@ def main():
     ap.add_argument("--trace-calls", default=None,
                     help="write {site: {target: count}} for harness-reached "
                     "indirect calls/jumps (coverage of the dispatch table)")
+    ap.add_argument("--trace-addrs", default=None,
+                    help="write the sorted list of executed instruction "
+                    "addresses (union over cases) for block coverage")
     args = ap.parse_args()
     spec = resolve_stubs(load_spec(args.spec))
     kind = image_kind(args.exe)
@@ -793,6 +802,7 @@ def main():
         return 1
     mu, RET = build_emu(spec, args.exe, sections)
     mu._trace_on = args.trace_calls is not None
+    mu._addrs_on = args.trace_addrs is not None
     install_hooks(mu, spec, RET)
     seed = args.seed if args.seed != 1 or "seed" not in spec else spec["seed"]
     count = args.count if args.count != 300 or "count" not in spec else spec["count"]
@@ -810,6 +820,9 @@ def main():
     if args.trace_calls is not None:
         with open(args.trace_calls, "w") as tf:
             json.dump(mu._trace or {}, tf, indent=1, sort_keys=True)
+    if args.trace_addrs is not None:
+        with open(args.trace_addrs, "w") as tf:
+            json.dump(sorted("0x%X" % a for a in (mu._addrs or set())), tf)
     print("%d cases -> %s" % (len(cases), args.out or "stdout"))
     return 0
 

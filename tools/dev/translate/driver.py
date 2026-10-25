@@ -127,6 +127,113 @@ def stubmap_of(spec):
             raise SystemExit("stub_refs %s has no stubs.json entry" % ref)
         out["0x%X" % int(ref, 16)] = entry
     return out
+def _why_texts(why):
+    if why is None:
+        return []
+    if isinstance(why, str):
+        return [why]
+    return list(why)
+
+
+def _why_dispatchable(why):
+    """A stubs.json why-chain the build can run: every link an indirect
+    call or computed jump (runtime dispatch / native switch). Import
+    slots, global stores, recursion and depth stay unmodellable."""
+    texts = _why_texts(why)
+    if not texts:
+        return True
+    for t in texts:
+        parts = [p for p in
+                 re.split(r";?\s*(?:call|callee) [0-9A-Fa-f]+:\s*", t)
+                 if p.strip()]
+        if not parts:
+            # A bare reason ("recursion through ...", "call depth > 10").
+            return False
+        if not all(_blocker_dispatchable(p) for p in parts):
+            return False
+    return True
+
+
+def runnable_extra(spec, image, depth_cap=25):
+    """Out-of-set direct callees the build can translate and call for
+    real: stubs.json run-real kinds plus unmodellable entries whose whole
+    why-chain is dispatchable. Transitively closed over direct CALLs
+    decoded from the image (capstone, no bridge). Returns (extra, blocked)
+    where blocked is {va: reason} for callees that stay unmodellable."""
+    import xlate
+    harness = spec.get("harness") or {}
+    seeds = []
+    for e in harness.get("out_of_set_callees") or []:
+        if (e.get("how") or "call") != "call":
+            continue
+        va = "0x" + str(e.get("va", "")).upper().replace("0X", "")
+        entry = STUB_TABLE.get(int(va, 16))
+        if entry is None:
+            continue
+        if entry["do"] is None:
+            seeds.append(va)  # run-real: image bytes execute either way
+        elif entry["do"] == "unmodellable" and \
+                _why_dispatchable(entry.get("why")):
+            seeds.append(va)
+    extra = []
+    blocked = {}
+    seen = set()
+    def direct_calls(va):
+        try:
+            lines = xlate.capstone_decode(image, int(va, 16))
+        except Exception:
+            return None
+        out = []
+        for _, mn, ops in lines:
+            if mn == "CALL" and ops and "[" not in ops[0]:
+                try:
+                    out.append("0x%X" % int(ops[0].strip(), 16))
+                except ValueError:
+                    pass
+        return out
+    stack = [(v, 0, [v]) for v in seeds]
+    EXTRA_CAP = 60
+    while stack:
+        if len(extra) + len(stack) > EXTRA_CAP:
+            for v, _, _ in stack:
+                if v not in seen:
+                    blocked[v] = "closure larger than %d" % EXTRA_CAP
+            break
+        va, depth, chain = stack.pop()
+        if va in seen:
+            continue
+        if depth > depth_cap:
+            blocked[va] = "call depth > %d" % depth_cap
+            continue
+        calls = direct_calls(va)
+        if calls is None:
+            blocked[va] = "undecodable from the image"
+            continue
+        seen.add(va)
+        extra.append(va)
+        for c in calls:
+            if c in seen:
+                continue
+            if any(c == v for v in chain):
+                blocked[c] = "recursion through %s" % c
+                continue
+            e = STUB_TABLE.get(int(c, 16))
+            if e is None:
+                # No stubs entry: in-set (the normal closure handles it) or
+                # plain code the harness runs as image bytes. Plain CODE
+                # joins the build; anything outside CODE stays blocked.
+                ci = int(c, 16)
+                if 0x140001000 <= ci < 0x14252E800:
+                    stack.append((c, depth + 1, chain + [c]))
+                else:
+                    blocked[c] = "call outside code range"
+                continue
+            if e["do"] is None or (e["do"] == "unmodellable" and
+                                   _why_dispatchable(e.get("why"))):
+                stack.append((c, depth + 1, chain + [c]))
+            else:
+                blocked[c] = "; ".join(_why_texts(e.get("why")) or [e["do"]])[:200]
+    return extra, blocked
 
 
 def _blocker_dispatchable(text):
@@ -182,12 +289,15 @@ def run_one(va, args, pilot):
     gen = os.path.join(args.out_dir, "gen")
     os.makedirs(gen, exist_ok=True)
     tag = va[2:]
-    # 1. translate: stubs.json models for the spec's stub_refs (stubs.py)
+    # 1. translate: stubs.json models for the spec's stub_refs (stubs.py).
+    # Runnable out-of-set callees join this build's universe so the CALL
+    # emitter links them instead of zeroing rax (OUT-OF-SET).
     stubmap = stubmap_of(spec)
     res["stubs"] = sorted(stubmap)
+    build_pilot = set(pilot) | set(runnable_extra(spec, args.image)[0])
     try:
         asm_text = asm_for(args.asm_dir, va)
-        src, _ = translate_one(va, asm_text, args.image, pilot,
+        src, _ = translate_one(va, asm_text, args.image, build_pilot,
                                stubs=stubmap)
         if src is None:
             res["failure_class"] = "translator bug"
@@ -201,13 +311,16 @@ def run_one(va, args, pilot):
         f.write("\n".join(src) + "\n")
     res["translated"] = True
     # 2. corpus (harness over the user's image) + harness-reached
-    # indirect targets (the driver's callee closure for dispatch).
+    # indirect targets (the driver's callee closure for dispatch) +
+    # executed addresses (block coverage).
     corpus = os.path.join(gen, "corp_%s.jsonl" % tag)
     trace = os.path.join(gen, "trace_%s.json" % tag)
+    addrs = os.path.join(gen, "addrs_%s.json" % tag)
     count = ["--count", str(args.count)] if args.count else []
     rc, _, err = sh([diff_python(), RUN_PY, "--exe", args.image,
                      "--spec", spec_path, "--out", corpus,
-                     "--trace-calls", trace] + count,
+                     "--trace-calls", trace,
+                     "--trace-addrs", addrs] + count,
                     timeout=args.timeout)
     if rc != 0:
         cls, note = fault_class(spec, err or "run.py rc=%d" % rc)
@@ -239,9 +352,16 @@ def build_and_diff(va, spec, args, pilot, nlines):
     gen = os.path.join(args.out_dir, "gen")
     tag = va[2:]
     stubmap = stubmap_of(spec)
+    # Runnable out-of-set callees (dispatchable switches/indirects): the
+    # build translates them and calls them for real, like the harness runs
+    # their image bytes. They join the in-set universe for this build only,
+    # so the CALL emitter links them instead of zeroing rax (OUT-OF-SET).
+    extra, extra_blocked = runnable_extra(spec, args.image)
+    build_pilot = set(pilot) | set(extra)
     # The build declares only callees it links: pilot-universe members that are not stubbed.
     callees = ["0x" + c.upper() for c in (spec.get("precheck", {}) or {}).get("calls", [])]
-    callees = [c for c in callees if c in pilot and c not in stubmap]
+    callees = [c for c in callees if c in build_pilot and c not in stubmap]
+    callees += [c for c in extra if c not in callees]
     # translate callees too (their TUs must exist to link). Closure is
     # transitive: a callee's own callees must also link (e.g. 140A53DA0
     # -> 140439EF0). Edges come from each spec's precheck calls.
@@ -260,10 +380,14 @@ def build_and_diff(va, spec, args, pilot, nlines):
     while queue:
         cur = queue.pop(0)
         for c in calls_of(cur):
-            if c in pilot and c not in seen:
+            if c in build_pilot and c not in seen:
                 seen.add(c)
                 need.append(c)
                 queue.append(c)
+    for c in extra:
+        if c not in seen:
+            seen.add(c)
+            need.append(c)
     # Harness-reached indirect targets: unicorn executes the real bytes,
     # so the trace holds exactly the dispatch targets the cases reach.
     # Each reached target joins the closure (translated + table entry).
@@ -286,7 +410,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
             asp, _ = load_spec(args.spec_dir, cv)
             try:
                 csrc, _ = translate_one(cv, asm_for(args.asm_dir, cv),
-                                        args.image, pilot, stubs=stubmap)
+                                        args.image, build_pilot, stubs=stubmap)
                 if csrc is None:
                     return False, "callee %s: no instructions" % cv, \
                         "translator bug"
@@ -308,7 +432,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
                 continue
             for m in re.finditer(r"pes_fn_([0-9A-Fa-f]+)\(", body):
                 dep = "0x" + m.group(1).upper()
-                if dep != cv and dep in pilot and dep not in seen:
+                if dep != cv and dep in build_pilot and dep not in seen:
                     seen.add(dep)
                     need.append(dep)
                     changed = True
@@ -336,7 +460,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
             continue
         for m in re.finditer(r"pes_fn_([0-9A-Fa-f]+)\(", body):
             dep = "0x" + m.group(1).upper()
-            if dep != cv and dep in pilot and dep not in seen:
+            if dep != cv and dep in build_pilot and dep not in seen:
                 seen.add(dep)
                 need.append(dep)
                 pending.append(dep)
@@ -385,26 +509,92 @@ def build_and_diff(va, spec, args, pilot, nlines):
     return False, "diff: %s" % detail[:240], "translator bug"
 
 
+def block_coverage(image, vas, executed):
+    """{va: (reached, total)} basic-block coverage per function. Blocks
+    split the capstone decode at branch boundaries (entry, Jcc/JMP targets,
+    fallthroughs after branches); a block counts when any executed address
+    lands in it. Undecodable functions map to None (never counted)."""
+    import xlate
+    exe = set(int(a, 16) for a in executed)
+    out = {}
+    for va in vas:
+        try:
+            lines = xlate.capstone_decode(image, int(va, 16))
+        except Exception:
+            out[va] = None
+            continue
+        if not lines:
+            out[va] = None
+            continue
+        addrs = [a for a, _, _ in lines]
+        aset = set(addrs)
+        leaders = {addrs[0]}
+        for i, (a, mn, ops) in enumerate(lines):
+            m = mn.upper()
+            tgt = None
+            if (m in xlate.CCMAP or m == "JMP") and ops:
+                try:
+                    tgt = int(ops[0].strip(), 16)
+                except ValueError:
+                    tgt = None
+            if tgt is not None and tgt in aset:
+                leaders.add(tgt)
+            if m in xlate.CCMAP or m in ("JMP", "CALL", "RET"):
+                if i + 1 < len(addrs):
+                    leaders.add(addrs[i + 1])
+        bounds = sorted(leaders)
+        reached = 0
+        for bi, b in enumerate(bounds):
+            end = bounds[bi + 1] if bi + 1 < len(bounds) else None
+            hit = False
+            for a in addrs:
+                if a < b or (end is not None and a >= end):
+                    continue
+                if a in exe:
+                    hit = True
+                    break
+            if hit:
+                reached += 1
+        out[va] = (reached, len(bounds))
+    return out
+
 def finish_one(va, args, pilot):
     res = run_one(va, args, pilot)
-    # Coverage (recorded, never counted as diffed): harness-reached
-    # indirect sites and their fan-out. A function whose closure reaches
-    # code the cases never execute is never recorded as bit-exact on
-    # partial coverage: the sites the cases missed stay visible here.
-    try:
-        trace = json.load(open(os.path.join(
-            args.out_dir, "gen", "trace_%s.json" % va[2:])))
-    except (OSError, ValueError):
-        trace = {}
-    res["coverage"] = {site: sorted(tgts) for site, tgts in
-                       (trace or {}).items()}
+    # Block coverage (recorded for every translated function, never hidden):
+    # the fraction of basic blocks the harness cases executed, per function
+    # over the translated closure (top + callees the build links). A function
+    # is diffed only with its coverage recorded; low coverage stays visible
+    # in the report instead of passing silently.
+    res["coverage"] = {}
+    if res["translated"]:
+        try:
+            addrs = json.load(open(os.path.join(
+                args.out_dir, "gen", "addrs_%s.json" % va[2:])))
+        except (OSError, ValueError):
+            addrs = []
+        spec, _ = load_spec(args.spec_dir, va)
+        extra, _ = runnable_extra(spec or {}, args.image)
+        in_set = ["0x" + c.upper()
+                  for c in ((spec or {}).get("precheck", {}) or {}).get("calls", [])]
+        vas = [va] + [c for c in in_set + extra if c != va]
+        cov = block_coverage(args.image, vas, addrs or [])
+        res["coverage"] = {
+            v: {"reached": r, "total": t,
+                "fraction": round(r / t, 4) if t else 0.0}
+            for v, (r, t) in cov.items() if isinstance(cov[v], tuple)}
     if res["translated"] and res["failure_class"] is None and \
             res["cases"]:
         spec, _ = load_spec(args.spec_dir, va)
         ok, note, cls = build_and_diff(va, spec, args, pilot, res["cases"])
-        res["diffed"] = ok
-        res["failure_class"] = cls
-        res["note"] = note
+        if ok and not res["coverage"]:
+            # Never record bit-exact without coverage behind it.
+            res["diffed"] = False
+            res["failure_class"] = "harness cannot run"
+            res["note"] = "diff passed but no coverage recorded"
+        else:
+            res["diffed"] = ok
+            res["failure_class"] = cls
+            res["note"] = note
     return res
 
 

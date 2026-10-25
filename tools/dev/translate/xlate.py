@@ -1304,10 +1304,12 @@ def parse_lines(text):
     return out
 
 
+DECODE_WINDOW = 0x10000  # bytes decoded per function (1405DC350 spans > 0x2000)
+
 def capstone_decode(image_path, va):
     from capstone import Cs, CS_ARCH_X86, CS_MODE_64
     img = Image(image_path)
-    code = img.read(va, 0x2000)
+    code = img.read(va, DECODE_WINDOW)
     md = Cs(CS_ARCH_X86, CS_MODE_64)
     md.detail = False
     out = []
@@ -1344,9 +1346,9 @@ def capstone_decode(image_path, va):
             # never ends the body here: its targets resolve in prepass.
             try:
                 t = int(ins.op_str.strip().split(",")[0].strip(), 16)
-                if t < va or t >= va + 0x2000:
+                if t < va or t >= va + DECODE_WINDOW:
                     pending = {x for x in pending
-                               if va <= x < va + 0x2000 and x > ins.address}
+                               if va <= x < va + DECODE_WINDOW and x > ins.address}
                     if not pending:
                         break
             except ValueError:
@@ -1365,7 +1367,7 @@ def resolve_rip(lines, image_path, va):
         return lines
     from capstone import Cs, CS_ARCH_X86, CS_MODE_64
     img = Image(image_path)
-    code = img.read(va, 0x2000)
+    code = img.read(va, DECODE_WINDOW)
     md = Cs(CS_ARCH_X86, CS_MODE_64)
     md.detail = True
     sizes = {}
