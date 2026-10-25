@@ -1,2019 +1,7221 @@
 {
- "note": "Pilot translation results. diffed = bit-exact vs the unicorn harness. 'provisional' in a note means the spec reads writable image globals at on-disk values.",
+ "note": "Pilot results. diffed = bit-exact vs the unicorn harness. 'provisional' in a note means the spec reads writable image globals at on-disk values. 'stubs' lists the callees that stubs.json models.",
  "results": [
   {
    "cases": 64,
+   "coverage": {
+    "0x14042D470": {
+     "fraction": 1.0,
+     "reached": 2,
+     "total": 2
+    },
+    "0x141E532D0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x14042D470"
   },
   {
-   "cases": 64,
+   "cases": 84,
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.6154,
+     "reached": 8,
+     "total": 13
+    },
+    "0x140A92D40": {
+     "fraction": 0.7273,
+     "reached": 8,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 1.0,
+     "reached": 10,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "84 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140439E50"
   },
   {
-   "cases": 64,
+   "cases": 76,
+   "coverage": {
+    "0x140439EF0": {
+     "fraction": 0.6667,
+     "reached": 6,
+     "total": 9
+    },
+    "0x140A92D40": {
+     "fraction": 0.7273,
+     "reached": 8,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 1.0,
+     "reached": 10,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "76 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140439EF0"
   },
   {
-   "cases": 64,
+   "cases": 70,
+   "coverage": {
+    "0x140439F50": {
+     "fraction": 0.6,
+     "reached": 3,
+     "total": 5
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "70 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140439F50"
   },
   {
-   "cases": 64,
+   "cases": 72,
+   "coverage": {
+    "0x140439F90": {
+     "fraction": 0.6667,
+     "reached": 4,
+     "total": 6
+    },
+    "0x140A71260": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "72 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140439F90"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140439FE0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140439FE0"
   },
   {
-   "cases": 64,
+   "cases": 72,
+   "coverage": {
+    "0x14043A020": {
+     "fraction": 0.7778,
+     "reached": 7,
+     "total": 9
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "72 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x14043A020"
   },
   {
-   "cases": 64,
+   "cases": 72,
+   "coverage": {
+    "0x14043A0A0": {
+     "fraction": 0.8462,
+     "reached": 11,
+     "total": 13
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "72 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x14043A0A0"
   },
   {
-   "cases": 64,
+   "cases": 69,
+   "coverage": {
+    "0x140456EA0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "69 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140456EA0"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact",
+   "cases": 72,
+   "coverage": {
+    "0x1404583B0": {
+     "fraction": 0.3333,
+     "reached": 2,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 72 cases at own-block 0.33 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x1404583B0"
   },
   {
-   "cases": 64,
+   "cases": 74,
+   "coverage": {
+    "0x140458740": {
+     "fraction": 0.9,
+     "reached": 9,
+     "total": 10
+    },
+    "0x140A6C6D0": {
+     "fraction": 1.0,
+     "reached": 6,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.8182,
+     "reached": 9,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.9091,
+     "reached": 10,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 1.0,
+     "reached": 10,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "74 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140458740"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x14046F230": {
+     "fraction": 1.0,
+     "reached": 2,
+     "total": 2
+    },
+    "0x14046F260": {
+     "fraction": 0.6154,
+     "reached": 8,
+     "total": 13
+    },
+    "0x140A92D40": {
+     "fraction": 0.7273,
+     "reached": 8,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 1.0,
+     "reached": 10,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x14046F230"
   },
   {
-   "cases": 64,
+   "cases": 78,
+   "coverage": {
+    "0x14046F260": {
+     "fraction": 0.6154,
+     "reached": 8,
+     "total": 13
+    },
+    "0x140A92D40": {
+     "fraction": 0.7273,
+     "reached": 8,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 1.0,
+     "reached": 10,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "78 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x14046F260"
   },
   {
-   "cases": 64,
+   "cases": 68,
+   "coverage": {
+    "0x140470D60": {
+     "fraction": 0.9,
+     "reached": 9,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "68 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140470D60"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140479470": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
    "failure_class": "struct map gap",
-   "note": "spec closure gap: Invalid memory mapping (UC_ERR_MAP)",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140479490)",
+   "stubs": [],
    "translated": true,
    "va": "0x140479470"
   },
   {
-   "cases": 64,
+   "cases": 72,
+   "coverage": {
+    "0x140481B00": {
+     "fraction": 0.8,
+     "reached": 8,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "72 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140481B00"
   },
   {
-   "cases": 64,
+   "cases": 80,
+   "coverage": {
+    "0x1404A53E0": {
+     "fraction": 0.7692,
+     "reached": 10,
+     "total": 13
+    },
+    "0x140A92D40": {
+     "fraction": 0.9091,
+     "reached": 10,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 1.0,
+     "reached": 10,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "80 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1404A53E0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.6154,
+     "reached": 8,
+     "total": 13
+    },
+    "0x1404AB8E0": {
+     "fraction": 1.0,
+     "reached": 2,
+     "total": 2
+    },
+    "0x140A92D40": {
+     "fraction": 0.7273,
+     "reached": 8,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 1.0,
+     "reached": 10,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1404AB8E0"
   },
   {
-   "cases": 64,
+   "cases": 68,
+   "coverage": {
+    "0x1404BCAD0": {
+     "fraction": 0.8571,
+     "reached": 6,
+     "total": 7
+    },
+    "0x140A92C80": {
+     "fraction": 0.8182,
+     "reached": 9,
+     "total": 11
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x1404BCAD0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1404C8DC0": {
+     "fraction": 1.0,
+     "reached": 2,
+     "total": 2
+    },
+    "0x141E532D0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1404C8DC0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1404C8E60": {
+     "fraction": 1.0,
+     "reached": 5,
+     "total": 5
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1404C8E60"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1404F4AB0": {
+     "fraction": 1.0,
+     "reached": 5,
+     "total": 5
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1404F4AB0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1404F5F10": {
+     "fraction": 1.0,
+     "reached": 13,
+     "total": 13
+    },
+    "0x1408C50E0": {
+     "fraction": 1.0,
+     "reached": 7,
+     "total": 7
+    },
+    "0x1408C51F0": {
+     "fraction": 0.5294,
+     "reached": 9,
+     "total": 17
+    },
+    "0x140A42590": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x140A425A0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x1404F5F10"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 121,
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140439FE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140481B00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x1404AB8E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x1404F61E0": {
+     "fraction": 0.12,
+     "reached": 6,
+     "total": 50
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C4E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A4C720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A4E7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 35
+    },
+    "0x140A4EAF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A53DA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.2222,
+     "reached": 2,
+     "total": 9
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A6E320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 121 cases at own-block 0.12 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x1404F61E0"
   },
   {
-   "cases": 64,
+   "cases": 71,
+   "coverage": {
+    "0x1404F6680": {
+     "fraction": 1.0,
+     "reached": 6,
+     "total": 6
+    },
+    "0x140A48A30": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "71 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x1404F6680"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 105,
+   "coverage": {
+    "0x1405008E0": {
+     "fraction": 0.3125,
+     "reached": 5,
+     "total": 16
+    },
+    "0x140A48A30": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A66FF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 105 cases at own-block 0.31 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x1405008E0"
   },
   {
    "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "coverage": {
+    "0x140501160": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 14
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14050117b)",
+   "stubs": [],
    "translated": true,
    "va": "0x140501160"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140529330": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140529430": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x14062C400": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 23
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E150": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A62850": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 19
+    },
+    "0x140A62EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A63950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A6CC20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140529381)",
+   "stubs": [],
    "translated": true,
    "va": "0x140529330"
   },
   {
-   "cases": 64,
+   "cases": 82,
+   "coverage": {
+    "0x140529430": {
+     "fraction": 0.5714,
+     "reached": 4,
+     "total": 7
+    },
+    "0x140A48A30": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "82 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140529430"
   },
   {
-   "cases": 64,
+   "cases": 68,
+   "coverage": {
+    "0x140581CE0": {
+     "fraction": 0.9,
+     "reached": 9,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "68 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140581CE0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140591A10": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.8182,
+     "reached": 9,
+     "total": 11
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140591A10"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 111,
+   "coverage": {
+    "0x1405969B0": {
+     "fraction": 0.2708,
+     "reached": 13,
+     "total": 48
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.2222,
+     "reached": 2,
+     "total": 9
+    },
+    "0x140A6E320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
+   "dead_blocks": {
+    "0x140596A9E": "int3 padding"
+   },
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 111 cases at own-block 0.27 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x1405969B0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1405A0D20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 23
+    },
+    "0x140A3B110": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4F1E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A62EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A64030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x141E532E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a6405c)",
+   "stubs": [],
    "translated": true,
    "va": "0x1405A0D20"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1405A4790": {
+     "fraction": 0.8333,
+     "reached": 5,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x1405A4790"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1405A4790": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1405A4830": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 18
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A580A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405a48ab)",
+   "stubs": [],
    "translated": true,
    "va": "0x1405A4830"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 108,
+   "coverage": {
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x1405AAF00": {
+     "fraction": 0.05,
+     "reached": 2,
+     "total": 40
+    },
+    "0x140A3AF90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A4C9A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A50250": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x141B59E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 108 cases at own-block 0.05 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x1405AAF00"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact",
+   "cases": 72,
+   "coverage": {
+    "0x1405AEF10": {
+     "fraction": 0.4,
+     "reached": 2,
+     "total": 5
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 72 cases at own-block 0.40 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x1405AEF10"
   },
   {
-   "cases": 64,
+   "cases": 72,
+   "coverage": {
+    "0x1405BB170": {
+     "fraction": 0.7778,
+     "reached": 7,
+     "total": 9
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "72 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1405BB170"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1405CCD00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
    "failure_class": "struct map gap",
-   "note": "spec closure gap: Invalid memory mapping (UC_ERR_MAP)",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405ccd3f)",
+   "stubs": [],
    "translated": true,
    "va": "0x1405CCD00"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1405CD050": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405cd083)",
+   "stubs": [],
    "translated": true,
    "va": "0x1405CD050"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1405CD050": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x1405CD0F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 24
+    },
+    "0x14063FA70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 17
+    },
+    "0x1408C5900": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405cd11e)",
+   "stubs": [],
    "translated": true,
    "va": "0x1405CD0F0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1405CD320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 20
+    },
+    "0x14063FA70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 17
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A64410": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 57
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405cd369)",
+   "stubs": [],
    "translated": true,
    "va": "0x1405CD320"
   },
   {
-   "cases": 64,
+   "cases": 68,
+   "coverage": {
+    "0x1405CD540": {
+     "fraction": 0.5882,
+     "reached": 10,
+     "total": 17
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x1405CD540"
   },
   {
-   "cases": 64,
+   "cases": 72,
+   "coverage": {
+    "0x1405CD780": {
+     "fraction": 0.6,
+     "reached": 3,
+     "total": 5
+    },
+    "0x140A63950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "72 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1405CD780"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1405CCD00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x1405CD050": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x1405CD0F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 24
+    },
+    "0x1405CD320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 20
+    },
+    "0x1405CD780": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x1405CFC80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 68
+    },
+    "0x14063FA70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 17
+    },
+    "0x1408C5900": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A63950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A64410": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 57
+    },
+    "0x140A71500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405cd369)",
+   "stubs": [],
    "translated": true,
    "va": "0x1405CFC80"
   },
   {
    "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "coverage": {
+    "0x1405CD050": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x1405CD0F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 24
+    },
+    "0x1405CFFE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 90
+    },
+    "0x14063FA70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 17
+    },
+    "0x1408C5900": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A401C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A71500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141E532E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141F9C3B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405d016b)",
+   "stubs": [],
    "translated": true,
    "va": "0x1405CFFE0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1405DFC70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 27
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405dfcbf)",
+   "stubs": [],
    "translated": true,
    "va": "0x1405DFC70"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1405DFE40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 16
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405dfe89)",
+   "stubs": [],
    "translated": true,
    "va": "0x1405DFE40"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 83,
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x1405DFC70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 27
+    },
+    "0x1405DFE40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 16
+    },
+    "0x1405E0010": {
+     "fraction": 0.4091,
+     "reached": 9,
+     "total": 22
+    },
+    "0x140A3AF90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A50250": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.2222,
+     "reached": 2,
+     "total": 9
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141B59E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 83 cases at own-block 0.41 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x1405E0010"
   },
   {
    "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x1405DFC70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 27
+    },
+    "0x1405DFE40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 16
+    },
+    "0x1405E0010": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x1405E0C60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 70
+    },
+    "0x1408C5030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1408C52E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3AF90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A50250": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62180": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141B59E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1408c5036)",
+   "stubs": [],
    "translated": true,
    "va": "0x1405E0C60"
   },
   {
    "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x1405DFC70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 27
+    },
+    "0x1405DFE40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 16
+    },
+    "0x1405E0010": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x1405E0C60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 70
+    },
+    "0x1405EBCA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 24
+    },
+    "0x1408C5030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1408C52E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3AF90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A50250": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62180": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141B59E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405ebec3)",
+   "stubs": [],
    "translated": true,
    "va": "0x1405EBCA0"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 128,
+   "coverage": {
+    "0x1405FC860": {
+     "fraction": 0.2921,
+     "reached": 26,
+     "total": 89
+    },
+    "0x1408C5060": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A3AF90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A3B000": {
+     "fraction": 0.8889,
+     "reached": 8,
+     "total": 9
+    },
+    "0x140A3B110": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A63950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A64030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A6DF00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x14124DAD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141B59E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 128 cases at own-block 0.29 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x1405FC860"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x14061E7C0": {
+     "fraction": 1.0,
+     "reached": 6,
+     "total": 6
+    },
+    "0x140A714A0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x14061E7C0"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 95,
+   "coverage": {
+    "0x14062C400": {
+     "fraction": 0.1304,
+     "reached": 3,
+     "total": 23
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E150": {
+     "fraction": 0.5,
+     "reached": 3,
+     "total": 6
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A62850": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 19
+    },
+    "0x140A62EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A6CC20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 95 cases at own-block 0.13 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x14062C400"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 80,
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140632320": {
+     "fraction": 0.24,
+     "reached": 6,
+     "total": 25
+    },
+    "0x140A3B320": {
+     "fraction": 0.8,
+     "reached": 8,
+     "total": 10
+    },
+    "0x140A3E190": {
+     "fraction": 0.2,
+     "reached": 2,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.8889,
+     "reached": 8,
+     "total": 9
+    },
+    "0x140A489D0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4F210": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A60500": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x140A62EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A63830": {
+     "fraction": 1.0,
+     "reached": 6,
+     "total": 6
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 80 cases at own-block 0.24 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x140632320"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140632850": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 26
+    },
+    "0x1408C5030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4DB20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A53DA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A62180": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A62960": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14063288d)",
+   "stubs": [],
    "translated": true,
    "va": "0x140632850"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140632BC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140632c2a)",
+   "stubs": [],
    "translated": true,
    "va": "0x140632BC0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140639600": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 36
+    },
+    "0x140A41190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4DB20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140439e56)",
+   "stubs": [],
    "translated": true,
    "va": "0x140639600"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x14063A3A0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x14063A3A0"
   },
   {
    "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "coverage": {
+    "0x14063A420": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1408C5030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A62180": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1408c5036)",
+   "stubs": [],
    "translated": true,
    "va": "0x14063A420"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140470D60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x1405AEF10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x14063A420": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x14063C9F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 54
+    },
+    "0x1408C5030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1408C75C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A3AE30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A3AF30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A40BD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A602B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A62180": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A6E150": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x14124DAD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141B59E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {
+    "0x14063CCE1": "int3 padding"
+   },
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3ae38)",
+   "stubs": [],
    "translated": true,
    "va": "0x14063C9F0"
   },
   {
-   "cases": 64,
+   "cases": 72,
+   "coverage": {
+    "0x14063F230": {
+     "fraction": 0.5,
+     "reached": 5,
+     "total": 10
+    },
+    "0x1408C52E0": {
+     "fraction": 1.0,
+     "reached": 6,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "72 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x14063F230"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x14063F490": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 43
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14063f4f3)",
+   "stubs": [],
    "translated": true,
    "va": "0x14063F490"
   },
   {
    "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "coverage": {
+    "0x14063FA70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 17
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14063fab4)",
+   "stubs": [],
    "translated": true,
    "va": "0x14063FA70"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x14063FDC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A6E340": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x141E532E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14063fe0d)",
+   "stubs": [],
    "translated": true,
    "va": "0x14063FDC0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140653480": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 16
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1406534a6)",
+   "stubs": [],
    "translated": true,
    "va": "0x140653480"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140682320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 21
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1406823b7)",
+   "stubs": [],
    "translated": true,
    "va": "0x140682320"
   },
   {
-   "cases": 64,
+   "cases": 100,
+   "coverage": {
+    "0x140687820": {
+     "fraction": 0.6,
+     "reached": 15,
+     "total": 25
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "100 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140687820"
   },
   {
-   "cases": 64,
+   "cases": 100,
+   "coverage": {
+    "0x14063FDC0": {
+     "fraction": 0.4091,
+     "reached": 9,
+     "total": 22
+    },
+    "0x140687820": {
+     "fraction": 0.6,
+     "reached": 15,
+     "total": 25
+    },
+    "0x140687FB0": {
+     "fraction": 0.9583,
+     "reached": 23,
+     "total": 24
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E190": {
+     "fraction": 0.2,
+     "reached": 2,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A4C720": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.2222,
+     "reached": 2,
+     "total": 9
+    },
+    "0x140A6E340": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x141E532E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "100 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140687FB0"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 128,
+   "coverage": {
+    "0x14063F230": {
+     "fraction": 0.5,
+     "reached": 5,
+     "total": 10
+    },
+    "0x140688300": {
+     "fraction": 0.3741,
+     "reached": 52,
+     "total": 139
+    },
+    "0x1408C52E0": {
+     "fraction": 1.0,
+     "reached": 6,
+     "total": 6
+    },
+    "0x1408C5900": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A3E150": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A40BD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A532F0": {
+     "fraction": 0.3333,
+     "reached": 3,
+     "total": 9
+    },
+    "0x140A533A0": {
+     "fraction": 0.3,
+     "reached": 3,
+     "total": 10
+    },
+    "0x140A602B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A60340": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A63950": {
+     "fraction": 0.375,
+     "reached": 3,
+     "total": 8
+    },
+    "0x140A6CC20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A74EC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x141B92460": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 128 cases at own-block 0.37 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x140688300"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C5000": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C5000"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C5020": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C5020"
   },
   {
-   "cases": 64,
+   "cases": 69,
+   "coverage": {
+    "0x1408C5030": {
+     "fraction": 0.8333,
+     "reached": 5,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "69 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C5030"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C5060": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C5060"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C5080": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C5080"
   },
   {
-   "cases": 64,
+   "cases": 74,
+   "coverage": {
+    "0x1408C50A0": {
+     "fraction": 0.6667,
+     "reached": 4,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "74 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C50A0"
   },
   {
-   "cases": 64,
+   "cases": 84,
+   "coverage": {
+    "0x1408C50E0": {
+     "fraction": 0.5714,
+     "reached": 4,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "84 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C50E0"
   },
   {
-   "cases": 64,
+   "cases": 79,
+   "coverage": {
+    "0x1408C51B0": {
+     "fraction": 0.7143,
+     "reached": 5,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "79 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C51B0"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 74,
+   "coverage": {
+    "0x1408C51F0": {
+     "fraction": 0.4118,
+     "reached": 7,
+     "total": 17
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 74 cases at own-block 0.41 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C51F0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C524A": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C524A"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C5254": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C5254"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C525E": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C525E"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C5268": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C5268"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C5272": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C5272"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C527C": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C527C"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C5286": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C5286"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C5290": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C5290"
   },
   {
-   "cases": 64,
+   "cases": 69,
+   "coverage": {
+    "0x1408C52E0": {
+     "fraction": 1.0,
+     "reached": 6,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "69 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C52E0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C5900": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C5900"
   },
   {
-   "cases": 64,
+   "cases": 74,
+   "coverage": {
+    "0x1408C6430": {
+     "fraction": 0.6667,
+     "reached": 4,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "74 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C6430"
   },
   {
-   "cases": 64,
+   "cases": 69,
+   "coverage": {
+    "0x1408C7550": {
+     "fraction": 0.75,
+     "reached": 3,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "69 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C7550"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C75C0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408C75C0"
   },
   {
-   "cases": 64,
+   "cases": 66,
+   "coverage": {
+    "0x1408CB0B0": {
+     "fraction": 0.75,
+     "reached": 3,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "66 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1408CB0B0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x14043A020": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140458740": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x1404A53E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x1409FA0B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 55
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E880": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A55D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 46
+    },
+    "0x140A57720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A6E150": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6E1E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A75BE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141F9C3B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1409fa1aa)",
+   "stubs": [],
    "translated": true,
    "va": "0x1409FA0B0"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 108,
+   "coverage": {
+    "0x1404583B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140458740": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x14046F230": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x14046F260": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140481B00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x1409FBCE0": {
+     "fraction": 0.1053,
+     "reached": 4,
+     "total": 38
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A51320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A57720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E5D4C0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 108 cases at own-block 0.11 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x1409FBCE0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A3AE30": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3AE30"
   },
   {
-   "cases": 64,
+   "cases": 77,
+   "coverage": {
+    "0x140A3AEE0": {
+     "fraction": 1.0,
+     "reached": 9,
+     "total": 9
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "77 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3AEE0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A3AF30": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3AF30"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A3AF60": {
+     "fraction": 1.0,
+     "reached": 5,
+     "total": 5
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3AF60"
   },
   {
-   "cases": 64,
+   "cases": 85,
+   "coverage": {
+    "0x140A3AF90": {
+     "fraction": 0.8333,
+     "reached": 10,
+     "total": 12
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "85 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3AF90"
   },
   {
-   "cases": 64,
+   "cases": 68,
+   "coverage": {
+    "0x140A3B000": {
+     "fraction": 0.8889,
+     "reached": 8,
+     "total": 9
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "68 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3B000"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A3B110": {
+     "fraction": 1.0,
+     "reached": 5,
+     "total": 5
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3B110"
   },
   {
-   "cases": 64,
+   "cases": 73,
+   "coverage": {
+    "0x140A3B320": {
+     "fraction": 0.9,
+     "reached": 9,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "73 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3B320"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 66,
+   "coverage": {
+    "0x140A3B520": {
+     "fraction": 0.3333,
+     "reached": 2,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 66 cases at own-block 0.33 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3B520"
   },
   {
-   "cases": 64,
+   "cases": 74,
+   "coverage": {
+    "0x140A3C950": {
+     "fraction": 0.5,
+     "reached": 2,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "74 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3C950"
   },
   {
-   "cases": 64,
+   "cases": 72,
+   "coverage": {
+    "0x140A3C9B0": {
+     "fraction": 0.8571,
+     "reached": 6,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "72 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3C9B0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A3D4F0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3D4F0"
   },
   {
-   "cases": 64,
+   "cases": 69,
+   "coverage": {
+    "0x140A3E150": {
+     "fraction": 0.5,
+     "reached": 3,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "69 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3E150"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3e1c6)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3E190"
   },
   {
-   "cases": 64,
+   "cases": 82,
+   "coverage": {
+    "0x140A3E5D0": {
+     "fraction": 0.9333,
+     "reached": 14,
+     "total": 15
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "82 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3E5D0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3e80c)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3E7D0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A3E840": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3e871)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3E840"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A3E880": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3E880"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A3FE50": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A3FE50"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A40000": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A40050": {
+     "fraction": 1.0,
+     "reached": 7,
+     "total": 7
+    },
+    "0x140A40110": {
+     "fraction": 0.7333,
+     "reached": 11,
+     "total": 15
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A40000"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A40050": {
+     "fraction": 1.0,
+     "reached": 7,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A40050"
   },
   {
-   "cases": 64,
+   "cases": 74,
+   "coverage": {
+    "0x140A40050": {
+     "fraction": 0.7143,
+     "reached": 5,
+     "total": 7
+    },
+    "0x140A40110": {
+     "fraction": 0.6,
+     "reached": 9,
+     "total": 15
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "74 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A40110"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A401C0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A401C0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A401F0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A401F0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A40200": {
+     "fraction": 1.0,
+     "reached": 5,
+     "total": 5
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A40200"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A40200": {
+     "fraction": 0.4,
+     "reached": 2,
+     "total": 5
+    },
+    "0x140A40820": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A85AA0": {
+     "fraction": 0.3,
+     "reached": 3,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A40820"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A40BD0": {
+     "fraction": 0.75,
+     "reached": 3,
+     "total": 4
+    },
+    "0x140A602B0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A40BD0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A41190": {
+     "fraction": 1.0,
+     "reached": 5,
+     "total": 5
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A41190"
   },
   {
-   "cases": 64,
+   "cases": 69,
+   "coverage": {
+    "0x140A41B30": {
+     "fraction": 0.8571,
+     "reached": 6,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "69 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A41B30"
   },
   {
-   "cases": 64,
+   "cases": 72,
+   "coverage": {
+    "0x140A41BE0": {
+     "fraction": 1.0,
+     "reached": 4,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "72 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A41BE0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A422C0": {
+     "fraction": 1.0,
+     "reached": 17,
+     "total": 17
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A422C0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C6430": {
+     "fraction": 0.5,
+     "reached": 3,
+     "total": 6
+    },
+    "0x140A42430": {
+     "fraction": 1.0,
+     "reached": 2,
+     "total": 2
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A42430"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A42580": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A42580"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A42590": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A42590"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A425A0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A425A0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C6430": {
+     "fraction": 0.6667,
+     "reached": 4,
+     "total": 6
+    },
+    "0x140A42880": {
+     "fraction": 1.0,
+     "reached": 2,
+     "total": 2
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A42880"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A40200": {
+     "fraction": 1.0,
+     "reached": 5,
+     "total": 5
+    },
+    "0x140A42940": {
+     "fraction": 1.0,
+     "reached": 2,
+     "total": 2
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A42940"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A40200": {
+     "fraction": 1.0,
+     "reached": 5,
+     "total": 5
+    },
+    "0x140A429A0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A85AA0": {
+     "fraction": 0.8,
+     "reached": 8,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A429A0"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact",
+   "cases": 73,
+   "coverage": {
+    "0x140A431E0": {
+     "fraction": 0.3636,
+     "reached": 4,
+     "total": 11
+    },
+    "0x140A60A90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 73 cases at own-block 0.36 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x140A431E0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A48910": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A48910"
   },
   {
-   "cases": 64,
+   "cases": 69,
+   "coverage": {
+    "0x140A489D0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "69 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A489D0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A489F0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A489F0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A48A10": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A48A10"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A48A30": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A48A30"
   },
   {
-   "cases": 64,
+   "cases": 72,
+   "coverage": {
+    "0x140A4C4E0": {
+     "fraction": 0.8,
+     "reached": 8,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "72 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4C4E0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A4C720": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4C720"
   },
   {
    "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "coverage": {
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C8E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 16
+    }
+   },
+   "dead_blocks": {
+    "0x140A4C92E": "int3 padding"
+   },
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a4c95f)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4C8E0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C930": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a4c95f)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4C930"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C9A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a4c9f8)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4C9A0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A4DB20": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4DB20"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 120,
+   "coverage": {
+    "0x140456EA0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140481B00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A48A10": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C4E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A4E3F0": {
+     "fraction": 0.4167,
+     "reached": 15,
+     "total": 36
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 120 cases at own-block 0.42 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4E3F0"
   },
   {
-   "cases": 64,
+   "cases": 68,
+   "coverage": {
+    "0x140456EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140481B00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A48A10": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C4E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A4E3F0": {
+     "fraction": 0.1944,
+     "reached": 7,
+     "total": 36
+    },
+    "0x140A4E720": {
+     "fraction": 0.8333,
+     "reached": 10,
+     "total": 12
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4E720"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140481B00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C4E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A4E7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 35
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a6c6d6)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4E7C0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140481B00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C4E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A4E7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 35
+    },
+    "0x140A4EAF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a6c6d6)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4EAF0"
   },
   {
-   "cases": 64,
+   "cases": 69,
+   "coverage": {
+    "0x140A4EDF0": {
+     "fraction": 0.8571,
+     "reached": 6,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "69 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4EDF0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A4F1E0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4F1E0"
   },
   {
-   "cases": 64,
+   "cases": 69,
+   "coverage": {
+    "0x140A4F210": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "69 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4F210"
   },
   {
-   "cases": 64,
+   "cases": 81,
+   "coverage": {
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A4F230": {
+     "fraction": 0.7742,
+     "reached": 24,
+     "total": 31
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.2222,
+     "reached": 2,
+     "total": 9
+    },
+    "0x140A714E0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "81 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4F230"
   },
   {
    "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "coverage": {
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4F720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a6c6d6)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4F720"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 105,
+   "coverage": {
+    "0x140481B00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4FBC0": {
+     "fraction": 0.2857,
+     "reached": 10,
+     "total": 35
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 105 cases at own-block 0.29 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4FBC0"
   },
   {
-   "cases": 64,
+   "cases": 68,
+   "coverage": {
+    "0x140481B00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4FBC0": {
+     "fraction": 0.2857,
+     "reached": 10,
+     "total": 35
+    },
+    "0x140A4FEA0": {
+     "fraction": 0.8571,
+     "reached": 6,
+     "total": 7
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A4FEA0"
   },
   {
-   "cases": 64,
+   "cases": 66,
+   "coverage": {
+    "0x140A3AF90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A50250": {
+     "fraction": 0.6667,
+     "reached": 8,
+     "total": 12
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.2222,
+     "reached": 2,
+     "total": 9
+    },
+    "0x141B59E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A50250"
   },
   {
-   "cases": 64,
+   "cases": 66,
+   "coverage": {
+    "0x140A3B320": {
+     "fraction": 0.8,
+     "reached": 8,
+     "total": 10
+    },
+    "0x140A3E190": {
+     "fraction": 0.2,
+     "reached": 2,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.5556,
+     "reached": 5,
+     "total": 9
+    },
+    "0x140A489D0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A51320": {
+     "fraction": 0.8333,
+     "reached": 5,
+     "total": 6
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62EA0": {
+     "fraction": 1.0,
+     "reached": 6,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A51320"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140456EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E150": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A51D50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 336
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A6CF70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A74EC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a51e37)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A51D50"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 80,
+   "coverage": {
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A532F0": {
+     "fraction": 0.3333,
+     "reached": 3,
+     "total": 9
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 80 cases at own-block 0.33 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x140A532F0"
   },
   {
-   "cases": 64,
+   "cases": 79,
+   "coverage": {
+    "0x140A3E150": {
+     "fraction": 0.5,
+     "reached": 3,
+     "total": 6
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A532F0": {
+     "fraction": 0.3333,
+     "reached": 3,
+     "total": 9
+    },
+    "0x140A533A0": {
+     "fraction": 0.6,
+     "reached": 6,
+     "total": 10
+    },
+    "0x140A6CC20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "79 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A533A0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A53DA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    }
+   },
+   "dead_blocks": {
+    "0x140A53DE8": "int3 padding"
+   },
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a53df6)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A53DA0"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact",
+   "cases": 72,
+   "coverage": {
+    "0x140439EF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140A53DF0": {
+     "fraction": 0.3333,
+     "reached": 2,
+     "total": 6
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 72 cases at own-block 0.33 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x140A53DF0"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 82,
+   "coverage": {
+    "0x140A3B320": {
+     "fraction": 0.8,
+     "reached": 8,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.8889,
+     "reached": 8,
+     "total": 9
+    },
+    "0x140A489D0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A53F90": {
+     "fraction": 0.4,
+     "reached": 8,
+     "total": 20
+    },
+    "0x140A60500": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x140A60530": {
+     "fraction": 1.0,
+     "reached": 4,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 82 cases at own-block 0.40 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x140A53F90"
   },
   {
    "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "coverage": {
+    "0x140A55CF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 51
+    },
+    "0x14149A470": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14149F4F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {
+    "0x140A55D32": "int3 padding",
+    "0x140A55DF8": "int3 padding",
+    "0x140A55EE3": "int3 padding"
+   },
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a55f20)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A55CF0"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact",
+   "cases": 83,
+   "coverage": {
+    "0x140A55D40": {
+     "fraction": 0.2826,
+     "reached": 13,
+     "total": 46
+    },
+    "0x141F9C3B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {
+    "0x140A55DF8": "int3 padding",
+    "0x140A55EE3": "int3 padding"
+   },
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 83 cases at own-block 0.28 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x140A55D40"
   },
   {
-   "cases": 64,
+   "cases": 79,
+   "coverage": {
+    "0x140A55EF0": {
+     "fraction": 0.9091,
+     "reached": 10,
+     "total": 11
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "79 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A55EF0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A57710": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A57710"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A57720": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A57720"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A57730": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A57730"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A57800": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A57800"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A580A0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A580A0"
   },
   {
-   "cases": 64,
+   "cases": 69,
+   "coverage": {
+    "0x140A58320": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "69 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A58320"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A602B0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A602B0"
   },
   {
-   "cases": 64,
+   "cases": 72,
+   "coverage": {
+    "0x140A60300": {
+     "fraction": 0.75,
+     "reached": 3,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "72 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A60300"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A60340": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A60340"
   },
   {
-   "cases": 64,
+   "cases": 75,
+   "coverage": {
+    "0x140A603C0": {
+     "fraction": 0.8333,
+     "reached": 15,
+     "total": 18
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "75 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A603C0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A60500": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A60500"
   },
   {
-   "cases": 64,
+   "cases": 77,
+   "coverage": {
+    "0x140A60530": {
+     "fraction": 1.0,
+     "reached": 4,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "77 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A60530"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A606C0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A606C0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A60A90": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A60A90"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A61CF0": {
+     "fraction": 1.0,
+     "reached": 7,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A61CF0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C51B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x1408C7550": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A3AF60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A61F40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 33
+    },
+    "0x141B59E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1421B7D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3af73)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A61F40"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1408C51B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x1408C7550": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A3AF60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A61F40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 33
+    },
+    "0x140A62140": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141B59E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1421B7D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3af73)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A62140"
   },
   {
-   "cases": 64,
+   "cases": 66,
+   "coverage": {
+    "0x1408C5030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A62180": {
+     "fraction": 0.5,
+     "reached": 3,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A62180"
   },
   {
    "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact",
+   "coverage": {
+    "0x140A62610": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a6263a)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A62610"
   },
   {
-   "cases": 64,
+   "cases": 66,
+   "coverage": {
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A62610": {
+     "fraction": 0.4545,
+     "reached": 5,
+     "total": 11
+    },
+    "0x140A62690": {
+     "fraction": 0.8,
+     "reached": 4,
+     "total": 5
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A62690"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3e80c)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A627E0"
   },
   {
-   "cases": 64,
+   "cases": 77,
+   "coverage": {
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A62850": {
+     "fraction": 0.5263,
+     "reached": 10,
+     "total": 19
+    }
+   },
+   "dead_blocks": {
+    "0x140A6291D": "int3 padding"
+   },
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "77 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A62850"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A62960": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a62989)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A62960"
   },
   {
-   "cases": 64,
+   "cases": 66,
+   "coverage": {
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A489D0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A62EA0": {
+     "fraction": 0.6667,
+     "reached": 4,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A62EA0"
   },
   {
-   "cases": 64,
+   "cases": 71,
+   "coverage": {
+    "0x140A3AEE0": {
+     "fraction": 0.8889,
+     "reached": 8,
+     "total": 9
+    },
+    "0x140A3D4F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x140A62F20": {
+     "fraction": 0.6154,
+     "reached": 8,
+     "total": 13
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "71 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A62F20"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A62FE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3aef4)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A62FE0"
   },
   {
-   "cases": 64,
+   "cases": 74,
+   "coverage": {
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A63020": {
+     "fraction": 0.9091,
+     "reached": 10,
+     "total": 11
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "74 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A63020"
   },
   {
-   "cases": 64,
+   "cases": 66,
+   "coverage": {
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A489D0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A63830": {
+     "fraction": 0.6667,
+     "reached": 4,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A63830"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact",
+   "cases": 82,
+   "coverage": {
+    "0x140A63950": {
+     "fraction": 0.375,
+     "reached": 3,
+     "total": 8
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 82 cases at own-block 0.38 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x140A63950"
   },
   {
-   "cases": 64,
+   "cases": 68,
+   "coverage": {
+    "0x140A3B110": {
+     "fraction": 0.8,
+     "reached": 4,
+     "total": 5
+    },
+    "0x140A64030": {
+     "fraction": 0.875,
+     "reached": 7,
+     "total": 8
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "68 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A64030"
   },
   {
-   "cases": 64,
-   "diffed": true,
-   "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "cases": 112,
+   "coverage": {
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A64410": {
+     "fraction": 0.1404,
+     "reached": 8,
+     "total": 57
+    }
+   },
+   "dead_blocks": {
+    "0x140A6467D": "int3 padding"
+   },
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 112 cases at own-block 0.14 < floor 0.50",
+   "stubs": [],
    "translated": true,
    "va": "0x140A64410"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A66FF0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A66FF0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A6BD60": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6BD60"
   },
   {
-   "cases": 64,
+   "cases": 73,
+   "coverage": {
+    "0x140A6C6D0": {
+     "fraction": 0.8333,
+     "reached": 5,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.8182,
+     "reached": 9,
+     "total": 11
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "73 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6C6D0"
   },
   {
-   "cases": 64,
+   "cases": 73,
+   "coverage": {
+    "0x140A6C990": {
+     "fraction": 0.8,
+     "reached": 4,
+     "total": 5
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "73 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6C990"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A6CC20": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6CC20"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A6CE00": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6CE00"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A6CEF0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6CEF0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A6CF70": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6CF70"
   },
   {
-   "cases": 64,
+   "cases": 74,
+   "coverage": {
+    "0x140A6DE20": {
+     "fraction": 0.7143,
+     "reached": 10,
+     "total": 14
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "74 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6DE20"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6DF00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x14124DAD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
-   "failure_class": "live state",
-   "note": "spec reads/writes live globals ['IMG']",
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a6df33)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6DF00"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A6E150": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6E150"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A6E1C0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6E1C0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A6E1E0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6E1E0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A6E320": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6E320"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A6E340": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6E340"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A6E3F0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6E3F0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A6E450": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6E450"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A6E540": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6E540"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A6E6B0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A6E6B0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A71260": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A71260"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A714A0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A714A0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A714C0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A714C0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A714E0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A714E0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A71500": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A71500"
   },
   {
-   "cases": 64,
+   "cases": 69,
+   "coverage": {
+    "0x140A71520": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "69 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A71520"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A71990": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A71990"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A72E70": {
+     "fraction": 1.0,
+     "reached": 23,
+     "total": 23
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A72E70"
   },
   {
-   "cases": 64,
+   "cases": 79,
+   "coverage": {
+    "0x140A3E150": {
+     "fraction": 0.5,
+     "reached": 3,
+     "total": 6
+    },
+    "0x140A74EC0": {
+     "fraction": 0.6667,
+     "reached": 4,
+     "total": 6
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "79 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A74EC0"
   },
   {
-   "cases": 64,
+   "cases": 68,
+   "coverage": {
+    "0x140A75BE0": {
+     "fraction": 0.7143,
+     "reached": 5,
+     "total": 7
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "68 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A75BE0"
   },
   {
-   "cases": 64,
+   "cases": 69,
+   "coverage": {
+    "0x140A76070": {
+     "fraction": 0.6667,
+     "reached": 6,
+     "total": 9
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "69 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A76070"
   },
   {
-   "cases": 64,
+   "cases": 69,
+   "coverage": {
+    "0x140A85AA0": {
+     "fraction": 0.8,
+     "reached": 8,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "69 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A85AA0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A8F7C0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.8182,
+     "reached": 9,
+     "total": 11
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A8F7C0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A8F890": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A8F890"
   },
   {
-   "cases": 64,
+   "cases": 68,
+   "coverage": {
+    "0x1404BCAD0": {
+     "fraction": 0.8571,
+     "reached": 6,
+     "total": 7
+    },
+    "0x140A8FF10": {
+     "fraction": 0.8571,
+     "reached": 6,
+     "total": 7
+    },
+    "0x140A92C80": {
+     "fraction": 0.8182,
+     "reached": 9,
+     "total": 11
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A8FF10"
   },
   {
-   "cases": 64,
+   "cases": 68,
+   "coverage": {
+    "0x140A91120": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "68 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A91120"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x140A924E0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A924E0"
   },
   {
-   "cases": 64,
+   "cases": 69,
+   "coverage": {
+    "0x140A92530": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "69 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A92530"
   },
   {
-   "cases": 64,
+   "cases": 68,
+   "coverage": {
+    "0x14043A0A0": {
+     "fraction": 0.6923,
+     "reached": 9,
+     "total": 13
+    },
+    "0x140A92950": {
+     "fraction": 0.8462,
+     "reached": 11,
+     "total": 13
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "68 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A92950"
   },
   {
-   "cases": 64,
+   "cases": 72,
+   "coverage": {
+    "0x140A92B90": {
+     "fraction": 0.5556,
+     "reached": 5,
+     "total": 9
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "72 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A92B90"
   },
   {
-   "cases": 64,
+   "cases": 72,
+   "coverage": {
+    "0x140A92C80": {
+     "fraction": 0.8182,
+     "reached": 9,
+     "total": 11
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "72 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x140A92C80"
   },
   {
-   "cases": 64,
+   "cases": 68,
+   "coverage": {
+    "0x140A92D40": {
+     "fraction": 0.7273,
+     "reached": 8,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 1.0,
+     "reached": 10,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "68 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A92D40"
   },
   {
-   "cases": 64,
+   "cases": 68,
+   "coverage": {
+    "0x140A92DC0": {
+     "fraction": 1.0,
+     "reached": 10,
+     "total": 10
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "note": "68 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x140A92DC0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x14124DAD0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x14124DAD0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x14149A470": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x14149A470"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x14149F4F0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x14149F4F0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x141B59E20": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x141B59E20"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x141B92460": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x141B92460"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x141E532D0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x141E532D0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x141E532E0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x141E532E0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x141E5CA20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x141E5DE80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": false,
    "failure_class": "struct map gap",
-   "note": "spec closure gap: Invalid memory mapping (UC_ERR_MAP)",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x141e5ca52)",
+   "stubs": [],
    "translated": true,
    "va": "0x141E5CA20"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x141E5D4C0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
    "translated": true,
    "va": "0x141E5D4C0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x141E5DE80": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x141E5DE80"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x141F9C3B0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x141F9C3B0"
   },
   {
    "cases": 64,
+   "coverage": {
+    "0x1421B7D40": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact",
+   "stubs": [],
    "translated": true,
    "va": "0x1421B7D40"
   }
