@@ -1,0 +1,164 @@
+{
+ "name": "impure_140A57650",
+ "va": "0x140A57650",
+ "entry": "0x140A57650",
+ "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json.",
+ "status": "impure-sample",
+ "subsystem": "impure-sample",
+ "stack": {
+  "base": "0x10000000",
+  "size": "0x20000"
+ },
+ "regions": {
+  "A0": {
+   "base": "0x20000000",
+   "size": "0x200000"
+  }
+ },
+ "args": {
+  "rcx": "A0"
+ },
+ "regions_init": {},
+ "patch_addrs": {},
+ "inputs": {
+  "A0_2770": {
+   "region": "A0",
+   "offset": "0x2770",
+   "enc": "f32"
+  },
+  "A0_2778": {
+   "region": "A0",
+   "offset": "0x2778",
+   "enc": "f32"
+  },
+  "A0_2948": {
+   "region": "A0",
+   "offset": "0x2948",
+   "enc": "f32"
+  },
+  "A0_294C": {
+   "region": "A0",
+   "offset": "0x294C",
+   "enc": "f32"
+  },
+  "A0_2950": {
+   "region": "A0",
+   "offset": "0x2950",
+   "enc": "f32"
+  },
+  "scalar_rdx": {
+   "reg": "rdx",
+   "enc": "u32"
+  },
+  "scalar_r8": {
+   "reg": "r8",
+   "enc": "u32"
+  },
+  "scalar_r9": {
+   "reg": "r9",
+   "enc": "u32"
+  }
+ },
+ "input_schema": {
+  "A0_2770": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A0_2778": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A0_2948": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A0_294C": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A0_2950": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "scalar_rdx": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_r8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_r9": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  }
+ },
+ "outputs": {
+  "ret_xmm0": {
+   "reg": "xmm0",
+   "enc": "f32"
+  }
+ },
+ "ret_note": "no rax write before ret: xmm0 (float) or void",
+ "seed": 1000,
+ "count": 64,
+ "precheck": {
+  "indirect_calls": [],
+  "tailjumps": [
+   "tailjump@140A5770B"
+  ],
+  "unresolved_mem": 0,
+  "live_data_reads": [
+   "IMG"
+  ],
+  "live_data_writes": [],
+  "rdata_constant_reads": [],
+  "stack_args": {},
+  "calls": [
+   "140A6CF70",
+   "141E532D0"
+  ],
+  "flags": [
+   "callee-outside-set@1415A1780",
+   "tailjump@140A5770B"
+  ],
+  "stub_refs": [
+   "1415A1780"
+  ]
+ },
+ "stub_refs": [
+  "1415A1780"
+ ],
+ "harness": {
+  "harness_class": "runnable with stubs",
+  "blockers": [],
+  "out_of_set_callees": [
+   {
+    "va": "1415A1780",
+    "how": "call",
+    "cls": "stub",
+    "stubs": [
+     "1415A1780"
+    ]
+   }
+  ],
+  "indirect_sites": [],
+  "switch_jumps": []
+ }
+}

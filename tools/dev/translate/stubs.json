@@ -1,0 +1,3620 @@
+{
+ "contract": "per callee: va, kind, why (citations), model (null = unmodellable); callers = sample VAs that call it directly; used_by_closure = reached through a callee closure",
+ "kinds": {
+  "return-input": "computed from its arguments (sqrt, IEEE-exact)",
+  "engine-noop": "CRT/engine call with no effect on the success path",
+  "run-real": "pure: the harness executes the image bytes; the C++ build must translate it too",
+  "run-real-closure": "executes image bytes; its closure calls the listed stubs",
+  "unmodellable": "blocked: see why"
+ },
+ "stubs": [
+  {
+   "va": "140421F40",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14042D5E0",
+   "callers": [
+    "140510D30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 11,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1404362D0",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14043A350: callee 14043DBA0: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 140438F10: callee 14043BE10: callee 14043DBA0: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 140509890: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070",
+    "callee 14043FB60: callee 140A59AF0: callee 140A40CA0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; computed jump at 140A40D52: switch case bodies not enumerated",
+    "callee 14043C880: computed jump at 14043CA40: switch case bodies not enumerated",
+    "callee 14043A350: callee 14043DBA0: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 140438F10: callee 14043BE10: callee 14043DBA0: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 140509890: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070"
+   ],
+   "model": null
+  },
+  {
+   "va": "140437E70",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A59AF0: callee 140A40CA0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; computed jump at 140A40D52: switch case bodies not enumerated",
+    "callee 140A52310: computed jump at 140A52DFA: switch case bodies not enumerated",
+    "callee 140A59AF0: callee 140A40CA0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; computed jump at 140A40D52: switch case bodies not enumerated",
+    "callee 14043FB60: callee 140A59AF0: callee 140A40CA0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; computed jump at 140A40D52: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404386D0",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14043A540: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated",
+    "callee 14043C690: callee 140A52310: computed jump at 140A52DFA: switch case bodies not enumerated",
+    "callee 140509890: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070",
+    "callee 140A55050: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "14043A350",
+   "callers": [
+    "1404386D0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14043DBA0: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated",
+    "callee 140438F10: callee 14043BE10: callee 14043DBA0: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 140509890: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070",
+    "callee 140436820: callee 14043BE10: callee 14043DBA0: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 140439630: callee 14043BE10: callee 14043DBA0: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated",
+    "callee 140436820: callee 14043BE10: callee 14043DBA0: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 140439630: callee 14043BE10: callee 14043DBA0: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "14043A540",
+   "callers": [
+    "1404386D0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated",
+    "callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "14043C430",
+   "callers": [
+    "1406486D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 11,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14043C690",
+   "callers": [
+    "1404386D0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A52310: computed jump at 140A52DFA: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "14043E620",
+   "callers": [
+    "1404386D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 45,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14043EC70",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14043FB60: callee 140A59AF0: callee 140A40CA0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; computed jump at 140A40D52: switch case bodies not enumerated",
+    "callee 141B52380: computed jump at 141B52392: switch case bodies not enumerated",
+    "callee 140A59AF0: callee 140A40CA0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; computed jump at 140A40D52: switch case bodies not enumerated",
+    "callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "14043FB60",
+   "callers": [
+    "1404386D0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A59AF0: callee 140A40CA0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; computed jump at 140A40D52: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404404F0",
+   "callers": [
+    "1404386D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 49,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1404457C0",
+   "callers": [
+    "1404FA720"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 14044580A",
+    "callee 141B55830: indirect call at 141B5583F"
+   ],
+   "model": null
+  },
+  {
+   "va": "14044E200",
+   "callers": [
+    "1404FA720"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 141B52380: computed jump at 141B52392: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "140451250",
+   "callers": [
+    "1404FA720"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 140451267",
+    "indirect call at 140451273",
+    "callee 140451CD0: callee 141B55730: indirect call at 141B5575B; indirect call at 141B55784"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404587B0",
+   "callers": [
+    "14062E240",
+    "14052A820",
+    "1405DC350"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 11,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1404C8E00",
+   "callers": [
+    "140978E70"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "1404C8EA0",
+   "callers": [
+    "1405CE930",
+    "14057D3A0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 24,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1404F4AE0",
+   "callers": [
+    "1404FE9C0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "computed jump at 1404F4B00: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404F4BE0",
+   "callers": [
+    "1404FE9C0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "1404F52E0",
+   "callers": [
+    "1404FEDC0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14159FCCC: callee 14159FCE0: global store at 14159FD0F; global store at 14159FD1F",
+    "callee 14159FCCC: callee 14159FCE0: global store at 14159FD0F; global store at 14159FD1F",
+    "callee 14159FCCC: callee 14159FCE0: global store at 14159FD0F; global store at 14159FD1F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404F6700",
+   "callers": [
+    "1404FEDC0",
+    "1406486D0",
+    "14052A820"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 7,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1404F6720",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "1404F7AD0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 45,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1404F7BA0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "1404F8350",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 1404F8753",
+    "callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070",
+    "callee 14044E200: callee 141B52380: computed jump at 141B52392: switch case bodies not enumerated",
+    "callee 140451250: indirect call at 140451267; indirect call at 140451273"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404F87D0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 61,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1404F88D0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404F8C70",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140596C30: callee 140599E90: callee 14063FBC0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F",
+    "callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404F9DC0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14051D9E0: callee 14051B8B0: callee 140509890: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 14051B8B0: callee 140509890: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F",
+    "callee 14051D9E0: callee 14051B8B0: callee 140509890: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 14051B8B0: callee 140509890: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F",
+    "callee 14051D9E0: callee 14051B8B0: callee 140509890: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 14051B8B0: callee 140509890: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404FA720",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14044E200: callee 141B52380: computed jump at 141B52392: switch case bodies not enumerated",
+    "callee 140451250: indirect call at 140451267; indirect call at 140451273",
+    "callee 1404457C0: indirect call at 14044580A; callee 141B55830: indirect call at 141B5583F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404FA840",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14044E200: callee 141B52380: computed jump at 141B52392: switch case bodies not enumerated",
+    "callee 140451250: indirect call at 140451267; indirect call at 140451273",
+    "callee 1404457C0: indirect call at 14044580A; callee 141B55830: indirect call at 141B5583F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404FAD30",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 283,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1404FB2A0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 1404FB380: callee 1404F0E50: computed jump at 1404F174F: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404FB380",
+   "callers": [
+    "1404FB2A0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 1404F0E50: computed jump at 1404F174F: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404FB780",
+   "callers": [
+    "1404FB2A0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "1404FBB70",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A40C10: computed jump at 140A40C29: switch case bodies not enumerated",
+    "computed jump at 1404FBBD3: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404FBCA0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 1404FC005",
+    "callee 140A655A0: computed jump at 140A655C3: switch case bodies not enumerated",
+    "callee 14044E200: callee 141B52380: computed jump at 141B52392: switch case bodies not enumerated",
+    "callee 140451250: indirect call at 140451267; indirect call at 140451273"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404FC4D0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 136,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1404FC720",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 1404FCC84",
+    "indirect call at 1404FCC90",
+    "indirect call at 1404FCFDF",
+    "callee 141B52380: computed jump at 141B52392: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404FD4B0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 1404FD77E",
+    "indirect call at 1404FD78A",
+    "indirect call at 1404FD927",
+    "indirect call at 1404FD970"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404FE9C0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 1404F4AE0: computed jump at 1404F4B00: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404FEDC0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A58550: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 1415A1714: import slot 14252FDE0 has no name in the image",
+    "callee 1404F52E0: callee 14159FCCC: callee 14159FCE0: global store at 14159FD0F; global store at 14159FD1F; callee 14159FCCC: callee 14159FCE0: global store at 14159FD0F; global store at 14159FD1F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1404FF8B0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "140500200",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "140500A00",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140596C30: callee 140599E90: callee 14063FBC0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F",
+    "callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "140500B90",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14159FB70: indirect call at 14159FBCF; indirect call at 14159FBD8",
+    "callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070"
+   ],
+   "model": null
+  },
+  {
+   "va": "140501260",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 1405013B1",
+    "indirect call at 1405013BD",
+    "indirect call at 140502148",
+    "callee 14042AA70: callee 141B55730: indirect call at 141B5575B; indirect call at 141B55784"
+   ],
+   "model": null
+  },
+  {
+   "va": "140502190",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 1405027A0: callee 140A58450: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A58350: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 1415A1714: import slot 14252FDE0 has no name in the image",
+    "computed jump at 1405025BB: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405058C0",
+   "callers": [
+    "140504D20"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 140505B0C",
+    "indirect call at 140505B18",
+    "indirect call at 140505BA3",
+    "callee 14047A4A0: callee 141B55730: indirect call at 141B5575B; indirect call at 141B55784"
+   ],
+   "model": null
+  },
+  {
+   "va": "140505CA0",
+   "callers": [
+    "140504D20"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 140505D78",
+    "indirect call at 140505D86",
+    "indirect call at 140505F4E",
+    "indirect call at 140505FD6"
+   ],
+   "model": null
+  },
+  {
+   "va": "140507740",
+   "callers": [
+    "140A539F0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 11,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140509170",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "140509890",
+   "callers": [
+    "14051B8B0",
+    "1404386D0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070",
+    "callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070"
+   ],
+   "model": null
+  },
+  {
+   "va": "140510C10",
+   "callers": [
+    "14052A190"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 18,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14051B3E0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14051B3F0",
+   "callers": [
+    "14051CF70"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 14159F3E0"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "14159F3E0"
+    ]
+   }
+  },
+  {
+   "va": "14051C840",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 7,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14051D9E0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14051B8B0: callee 140509890: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F",
+    "callee 14051B8B0: callee 140509890: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F",
+    "callee 1405EC600: callee 140A0C3E0: indirect call at 140A0C427; callee 1405FA7C0: computed jump at 1405FA7FE: switch case bodies not enumerated",
+    "callee 1405EC600: callee 140A0C3E0: indirect call at 140A0C427; callee 1405FA7C0: computed jump at 1405FA7FE: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "14051E350",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A40CA0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; computed jump at 140A40D52: switch case bodies not enumerated",
+    "callee 140A40CA0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; computed jump at 140A40D52: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "14051E910",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14051E970: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 1408C9DF0: computed jump at 1408C8FFC: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "140520930",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A0C3E0: indirect call at 140A0C427"
+   ],
+   "model": null
+  },
+  {
+   "va": "140525530",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 140525774",
+    "indirect call at 1405257FF",
+    "indirect call at 1405258A7",
+    "callee 140600E40: callee 140A4F520: computed jump at 140A4F667: switch case bodies not enumerated (closure incomplete); callee 140A4F520: computed jump at 140A4F667: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "140526430",
+   "callers": [
+    "14052A820"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "1405296B0",
+   "callers": [
+    "140529490"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "14052C440",
+   "callers": [
+    "14052A820"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 49,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140535C60",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140534A20: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 1405346E0: callee 140531490: callee 140529D30: computed jump at 140529D62: switch case bodies not enumerated (closure incomplete); callee 140A41CC0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 140531810: callee 140529D30: computed jump at 140529D62: switch case bodies not enumerated (closure incomplete); callee 140529D30: computed jump at 140529D62: switch case bodies not enumerated",
+    "callee 140628400: callee 140623750: callee 1406216A0: callee 140A58550: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140623750: callee 1406216A0: callee 140A58550: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 1415A1714: import slot 14252FDE0 has no name in the image",
+    "callee 140635AB0: callee 1406350C0: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F",
+    "callee 1406377F0: global store at 140637716; global store at 1406377CF"
+   ],
+   "model": null
+  },
+  {
+   "va": "140537AC0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140537BF0: global store at 140537C4E; callee 14159F8B0: indirect call at 14159F8C0; import slot 14252F6E8 has no name in the image",
+    "callee 140537BF0: global store at 140537C4E; callee 14159F8B0: indirect call at 14159F8C0; import slot 14252F6E8 has no name in the image",
+    "callee 140537BF0: global store at 140537C4E; callee 14159F8B0: indirect call at 14159F8C0; import slot 14252F6E8 has no name in the image",
+    "callee 140537BF0: global store at 140537C4E; callee 14159F8B0: indirect call at 14159F8C0; import slot 14252F6E8 has no name in the image"
+   ],
+   "model": null
+  },
+  {
+   "va": "140538050",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 1405387A0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F",
+    "callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "140539ED0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 365,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14053A820",
+   "callers": [
+    "14053B110"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 33,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14053A8A0",
+   "callers": [
+    "14053B110"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 1,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14053AA90",
+   "callers": [
+    "14053B110"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 141,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14053ACE0",
+   "callers": [
+    "14053B110"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 1,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14053AE60",
+   "callers": [
+    "14053B110"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 163,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14053B110",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 14159F3E0"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "14159F3E0"
+    ]
+   }
+  },
+  {
+   "va": "14053B260",
+   "callers": [
+    "14053B110"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 14159F3E0"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "14159F3E0"
+    ]
+   }
+  },
+  {
+   "va": "14053B3B0",
+   "callers": [
+    "14053B110"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 30,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14053B420",
+   "callers": [
+    "14053B110"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 14159F3E0"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "14159F3E0"
+    ]
+   }
+  },
+  {
+   "va": "14053B860",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 49,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14053C6E0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14053C890: callee 1415A1720: import slot 14252FD98 has no name in the image (qword ptr [rip + 0xf8e672]); callee 14063EA30: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "140579840",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 140579A62",
+    "indirect call at 140579A76",
+    "indirect call at 140579AA3",
+    "indirect call at 140579B5D"
+   ],
+   "model": null
+  },
+  {
+   "va": "140579BF0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14057A3E0: indirect call at 14057A45E"
+   ],
+   "model": null
+  },
+  {
+   "va": "140579E10",
+   "callers": [
+    "14057A3E0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 14159F3E0"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "14159F3E0"
+    ]
+   }
+  },
+  {
+   "va": "14057AC20",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 55,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14057B6B0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 229,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14057B750",
+   "callers": [
+    "14057BA50"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 47,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14057B820",
+   "callers": [
+    "14057BA50"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 125,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14057BA50",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 165,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14057BBB0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 110,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14057C190",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 14057C89E",
+    "callee 14042A7B0: indirect call at 14042A7C7; indirect call at 14042A7D3",
+    "callee 141B55830: indirect call at 141B5583F"
+   ],
+   "model": null
+  },
+  {
+   "va": "14057D240",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 14057CF40: callee 140A41CC0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 140A41CC0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "14057E850",
+   "callers": [
+    "14057D3A0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 56,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14057ECA0",
+   "callers": [
+    "14057D3A0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "14057F0F0",
+   "callers": [
+    "14057D3A0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 75,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14057F230",
+   "callers": [
+    "14057D3A0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 95,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14057F3D0",
+   "callers": [
+    "14057D3A0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 113,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14057F590",
+   "callers": [
+    "14057D3A0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 35,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140580630",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "140581980",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 49,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140593BD0",
+   "callers": [
+    "1405A6DE0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 80,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140596560",
+   "callers": [
+    "1405A6DE0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 250,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140596C30",
+   "callers": [
+    "1404F8C70",
+    "1405DC350"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140599E90: callee 14063FBC0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405976D0",
+   "callers": [
+    "1405A6DE0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 294,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140599D90",
+   "callers": [
+    "1404F8C70"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 62,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1405ACC60",
+   "callers": [
+    "1405AD720"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140471A10: indirect call at 140471A5A; callee 141B55830: indirect call at 141B5583F",
+    "callee 140227930: callee 1403FB2E0: call depth > 10"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405AD120",
+   "callers": [
+    "140504D20"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 1405AD382",
+    "indirect call at 1405AD38E",
+    "indirect call at 1405AD408",
+    "callee 14047A4A0: callee 141B55730: indirect call at 141B5575B; indirect call at 141B55784"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405AD720",
+   "callers": [
+    "140504D20"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 1405ADA8A",
+    "indirect call at 1405ADA96",
+    "indirect call at 1405ADBB1",
+    "callee 141B55730: indirect call at 141B5575B; indirect call at 141B55784"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405B1740",
+   "callers": [
+    "140504D20"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 1405B1CEF",
+    "indirect call at 1405B1CFB",
+    "indirect call at 1405B1E2C",
+    "indirect call at 1405B1FD9"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405CB830",
+   "callers": [
+    "140975710"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 1405C8070: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F",
+    "callee 1405C8070: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405CC1A0",
+   "callers": [
+    "1405CE4F0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 48,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1405CC250",
+   "callers": [
+    "1405CE4F0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 89,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1405CD5E0",
+   "callers": [
+    "1405CE930"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 97,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1405CDA40",
+   "callers": [
+    "1405CE4F0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "1405CDBD0",
+   "callers": [
+    "1405CE4F0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405CDF30",
+   "callers": [
+    "1405CE4F0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 137,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1405CE150",
+   "callers": [
+    "1405CE4F0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405CE4E0",
+   "callers": [
+    "1405CE4F0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 3,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1405CE930",
+   "callers": [
+    "1405CE4F0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F",
+    "callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405CF310",
+   "callers": [
+    "1405CE4F0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405D05A0",
+   "callers": [
+    "1405CE4F0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 81,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1405D06C0",
+   "callers": [
+    "1406486D0",
+    "1405E4460"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 15,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1405D0700",
+   "callers": [
+    "1405DC350"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 1405DE950: callee 1405D2710: callee 1405E1F60: callee 1405E1B20: computed jump at 1405E1B43: switch case bodies not enumerated (closure incomplete); callee 140596C30: callee 140599E90: callee 14063FBC0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; computed jump at 1405DECC9: switch case bodies not enumerated",
+    "callee 1405E1670: computed jump at 1405E1752: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405D2710",
+   "callers": [
+    "1405DE950"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 1405E1F60: callee 1405E1B20: computed jump at 1405E1B43: switch case bodies not enumerated (closure incomplete); callee 140596C30: callee 140599E90: callee 14063FBC0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405DACE0",
+   "callers": [
+    "1405DC350",
+    "1405E4460"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 199,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1405DC350",
+   "callers": [
+    "1405E4460"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 1405E1B20: computed jump at 1405E1B43: switch case bodies not enumerated",
+    "callee 1405E3250: callee 140643A30: callee 140A72FB0: computed jump at 140A73022: switch case bodies not enumerated",
+    "callee 1405DE950: callee 1405D2710: callee 1405E1F60: callee 1405E1B20: computed jump at 1405E1B43: switch case bodies not enumerated (closure incomplete); callee 140596C30: callee 140599E90: callee 14063FBC0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; computed jump at 1405DECC9: switch case bodies not enumerated",
+    "callee 1405E1670: computed jump at 1405E1752: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405DE950",
+   "callers": [
+    "1405DC350"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 1405D2710: callee 1405E1F60: callee 1405E1B20: computed jump at 1405E1B43: switch case bodies not enumerated (closure incomplete); callee 140596C30: callee 140599E90: callee 14063FBC0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F",
+    "computed jump at 1405DECC9: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405DFE20",
+   "callers": [
+    "1405DC350"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 7,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1405E15C0",
+   "callers": [
+    "1405E4460"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 37,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1405E1670",
+   "callers": [
+    "1405DC350"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "computed jump at 1405E1752: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405E1B20",
+   "callers": [
+    "1405DC350"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "computed jump at 1405E1B43: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405E1B80",
+   "callers": [
+    "1405DC350"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 216,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1405E2C90",
+   "callers": [
+    "1405DC350"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "1405E3250",
+   "callers": [
+    "1405DC350"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140643A30: callee 140A72FB0: computed jump at 140A73022: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "1405E6A10",
+   "callers": [
+    "1405E4460"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 1405DE950: callee 1405D2710: callee 1405E1F60: callee 1405E1B20: computed jump at 1405E1B43: switch case bodies not enumerated (closure incomplete); callee 140596C30: callee 140599E90: callee 14063FBC0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; computed jump at 1405DECC9: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "140600DD0",
+   "callers": [
+    "1405AD720"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140622490",
+   "callers": [
+    "14052A820"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "14062FF60",
+   "callers": [
+    "14062E240"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 59,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140630780",
+   "callers": [
+    "14062E240"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 1406405C0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "140630BA0",
+   "callers": [
+    "14062E240"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 1406405C0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F",
+    "callee 1406405C0: callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "140630D50",
+   "callers": [
+    "14062E240"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 71,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140638FB0",
+   "callers": [
+    "140639100"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 81,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14063F760",
+   "callers": [
+    "1405CCD50"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "1406486D0",
+   "callers": [
+    "14064DE60"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "140649DA0",
+   "callers": [
+    "14064DE60"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 360,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14064E4B0",
+   "callers": [
+    "14064DE60"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "140653BA0",
+   "callers": [
+    "14065DAB0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 108,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140654DE0",
+   "callers": [
+    "1406486D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "140655660",
+   "callers": [
+    "1406486D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "14067A0D0",
+   "callers": [
+    "140975710"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 80,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14067A570",
+   "callers": [
+    "140975710"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 14159F3E0,1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "14159F3E0",
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "14069AE40",
+   "callers": [
+    "14097CD00"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "14069AF80",
+   "callers": [
+    "14097CD00"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "14069B130",
+   "callers": [
+    "14097CD00"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "14069CD40",
+   "callers": [
+    "1405A6DE0",
+    "1406486D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "1408C9DF0",
+   "callers": [
+    "140509A40"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "computed jump at 1408C8FFC: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "140974690",
+   "callers": [
+    "140975710"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140656270: callee 14159FB70: indirect call at 14159FBCF; indirect call at 14159FBD8; callee 14159EFF8: indirect call at 14159F039; callee 1415A01DC: import slot 142530868 has no name in the image"
+   ],
+   "model": null
+  },
+  {
+   "va": "14097F910",
+   "callers": [
+    "14097CD00"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "140A0C3E0",
+   "callers": [
+    "1404F6C30",
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 140A0C427"
+   ],
+   "model": null
+  },
+  {
+   "va": "140A3C050",
+   "callers": [
+    "140509A40"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070"
+   ],
+   "model": null
+  },
+  {
+   "va": "140A3C8F0",
+   "callers": [
+    "14051B8B0",
+    "1404386D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 13,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A3E3B0",
+   "callers": [
+    "140510D30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 14159F3E0"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "14159F3E0"
+    ]
+   }
+  },
+  {
+   "va": "140A3E8A0",
+   "callers": [
+    "140509A40"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A3E8C0",
+   "callers": [
+    "1405AD720"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 9,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A40240",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 24,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A408C0",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 184,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A40FD0",
+   "callers": [
+    "1404F47A0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A41CC0",
+   "callers": [
+    "14052A190"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 140A79640: callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F; callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "140A42210",
+   "callers": [
+    "1405DC350"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 7,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A42480",
+   "callers": [
+    "1404FE9C0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A42570",
+   "callers": [
+    "1404FE9C0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A428D0",
+   "callers": [
+    "1404FE9C0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 4,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A42A70",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 57,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A42BA0",
+   "callers": [
+    "1404FEDC0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 3,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A489A0",
+   "callers": [
+    "1405055E0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 9,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A50620",
+   "callers": [
+    "140978E70"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "140A54FE0",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 8,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A55000",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 12,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A55050",
+   "callers": [
+    "1404386D0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F"
+   ],
+   "model": null
+  },
+  {
+   "va": "140A555A0",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 7,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A555C0",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 3,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A555D0",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 42,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A57040",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 76,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A57140",
+   "callers": [
+    "1404405D0",
+    "1404386D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 5,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A571B0",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 7,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A571E0",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 6,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A58550",
+   "callers": [
+    "1404FEDC0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 1415A1714: import slot 14252FDE0 has no name in the image",
+    "callee 1415A1714: import slot 14252FDE0 has no name in the image",
+    "callee 1415A1714: import slot 14252FDE0 has no name in the image"
+   ],
+   "model": null
+  },
+  {
+   "va": "140A62D90",
+   "callers": [
+    "1405DC350"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 50,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A63680",
+   "callers": [
+    "1405DC350"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 114,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A63880",
+   "callers": [
+    "14052A190"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 12,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A638C0",
+   "callers": [
+    "1404F8C70"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 36,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A65580",
+   "callers": [
+    "1404FA720"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 13,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A67010",
+   "callers": [
+    "1404FA720"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 46,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A6A010",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A6A020",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 140A6A0E9",
+    "callee 1403CF8B0: indirect call at 1403CF8EF",
+    "callee 14041B930: callee 141B55730: indirect call at 141B5575B; indirect call at 141B55784",
+    "callee 141B55850: indirect call at 141B55892; indirect call at 141B558C2"
+   ],
+   "model": null
+  },
+  {
+   "va": "140A6A1F0",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A6A200",
+   "callers": [
+    "1404405D0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 140A6A2D1",
+    "callee 1403CF8B0: indirect call at 1403CF8EF",
+    "callee 14041B930: callee 141B55730: indirect call at 141B5575B; indirect call at 141B55784",
+    "callee 141B55850: indirect call at 141B55892; indirect call at 141B558C2"
+   ],
+   "model": null
+  },
+  {
+   "va": "140A6CBD0",
+   "callers": [
+    "140510D30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 18,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A6E5E0",
+   "callers": [
+    "140503430"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 10,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A71480",
+   "callers": [
+    "14052A820"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 6,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A73E20",
+   "callers": [
+    "140510D30",
+    "140504D20"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A73E30",
+   "callers": [
+    "140504D20"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A73E40",
+   "callers": [
+    "1405055E0",
+    "140504D20"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 7,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A73F50",
+   "callers": [
+    "140504D20"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A73F60",
+   "callers": [
+    "140504D20"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 3,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A73FC0",
+   "callers": [
+    "140504D20"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A73FE0",
+   "callers": [
+    "140504D20"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 10,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A74160",
+   "callers": [
+    "14097FCE0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A760E0",
+   "callers": [
+    "14065DAB0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real-closure",
+   "why": [
+    "closure calls stubs 1415A1780"
+   ],
+   "model": {
+    "executes": "image bytes; stubs below",
+    "stub_refs": [
+     "1415A1780"
+    ]
+   }
+  },
+  {
+   "va": "140A76240",
+   "callers": [
+    "14065DAB0",
+    "1405CE930",
+    "1404F8C70",
+    "14057D3A0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 12,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A76270",
+   "callers": [
+    "14051CF70"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 19,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A79640",
+   "callers": [
+    "14051B8B0",
+    "1405CE930",
+    "1404F8C70"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F",
+    "callee 141E53540: indirect call at 141E535F9; indirect call at 141E5362F",
+    "callee 140A79440: callee 140A79240: indirect call at 140A790B5; callee 140A79B90: callee 140A793A0: indirect call at 140A793D4; callee 140227920: callee 1403FB240: callee 14159F8B0: indirect call at 14159F8C0; import slot 14252F6E8 has no name in the image (qword ptr [rip + 0xf8fdd1]); callee 1403FB8A0: global store at 1403FB8A9; callee 1403FB610: global store at 1403FB622; global store at 1403FB67B; callee 140227930: callee 1403FB2E0: call depth > 10",
+    "callee 140A79240: indirect call at 140A790B5; callee 140A79B90: callee 140A793A0: indirect call at 140A793D4; callee 140227920: callee 1403FB240: callee 14159F8B0: indirect call at 14159F8C0; import slot 14252F6E8 has no name in the image (qword ptr [rip + 0xf8fdd1]); callee 1403FB8A0: global store at 1403FB8A9; callee 1403FB610: global store at 1403FB622; global store at 1403FB67B"
+   ],
+   "model": null
+  },
+  {
+   "va": "140A7D450",
+   "callers": [
+    "140509A40"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 16,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A7DC90",
+   "callers": [
+    "140509A40"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 11,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A7DCB0",
+   "callers": [
+    "140509A40"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 11,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A7F0F0",
+   "callers": [
+    "140509A40"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 37,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A7F330",
+   "callers": [
+    "140509A40"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 141E55D60: callee 141E552D0: computed jump at 141E552FE: switch case bodies not enumerated (closure incomplete); callee 141E554B0: computed jump at 141E554DB: switch case bodies not enumerated",
+    "callee 141E55D60: callee 141E552D0: computed jump at 141E552FE: switch case bodies not enumerated (closure incomplete); callee 141E554B0: computed jump at 141E554DB: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "140A7F360",
+   "callers": [
+    "140509A40"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 3,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A7F370",
+   "callers": [
+    "140509A40"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 141E55E70: callee 141E552D0: computed jump at 141E552FE: switch case bodies not enumerated (closure incomplete); callee 141E56120: callee 141E552D0: computed jump at 141E552FE: switch case bodies not enumerated",
+    "callee 141E55E70: callee 141E552D0: computed jump at 141E552FE: switch case bodies not enumerated (closure incomplete); callee 141E56120: callee 141E552D0: computed jump at 141E552FE: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "140A7F3B0",
+   "callers": [
+    "140509A40"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 141E55F20: callee 141E552D0: computed jump at 141E552FE: switch case bodies not enumerated (closure incomplete); callee 141E554B0: computed jump at 141E554DB: switch case bodies not enumerated",
+    "callee 141E55F20: callee 141E552D0: computed jump at 141E552FE: switch case bodies not enumerated (closure incomplete); callee 141E554B0: computed jump at 141E554DB: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "140A7F3E0",
+   "callers": [
+    "140509A40"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "callee 141E55FB0: callee 141E55B30: callee 141E55A10: callee 141E554B0: computed jump at 141E554DB: switch case bodies not enumerated (closure incomplete); computed jump at 141E55A40: switch case bodies not enumerated (closure incomplete); callee 141E55C30: computed jump at 141E55C58: switch case bodies not enumerated (closure incomplete); callee 141E55C30: computed jump at 141E55C58: switch case bodies not enumerated",
+    "callee 141E55FB0: callee 141E55B30: callee 141E55A10: callee 141E554B0: computed jump at 141E554DB: switch case bodies not enumerated (closure incomplete); computed jump at 141E55A40: switch case bodies not enumerated (closure incomplete); callee 141E55C30: computed jump at 141E55C58: switch case bodies not enumerated (closure incomplete); callee 141E55C30: computed jump at 141E55C58: switch case bodies not enumerated"
+   ],
+   "model": null
+  },
+  {
+   "va": "140A84E30",
+   "callers": [
+    "1404F6C30",
+    "14057A3E0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 57,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140A90D80",
+   "callers": [
+    "14065C2A0",
+    "1406486D0",
+    "1405DC350"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 76,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "140CA1A50",
+   "callers": [
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14102CAD0",
+   "callers": [
+    "140504D20"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14143C670",
+   "callers": [
+    "140504D20"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 10,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "14159F3E0",
+   "callers": [
+    "14097FCE0",
+    "14053B420",
+    "140510D30",
+    "14065C2A0",
+    "1405CE4F0",
+    "140687310",
+    "14051B8B0",
+    "1405CE930",
+    "1404F6C30",
+    "1404F8C70",
+    "1405AD720"
+   ],
+   "used_by_closure": true,
+   "kind": "engine-noop",
+   "why": [
+    "Ghidra name __security_check_cookie at 0x14159F3E0",
+    "docs/re table row 0x14159F3E0 | __security_check_cookie | engine"
+   ],
+   "model": {
+    "op": "__security_check_cookie",
+    "effect": "none on the success path (validates the stack cookie, returns)"
+   }
+  },
+  {
+   "va": "1415A1780",
+   "callers": [
+    "140A57650",
+    "1404F47A0",
+    "14064DC50",
+    "140529490",
+    "1405055E0",
+    "140A539F0",
+    "14097FFF0",
+    "1405A6DE0",
+    "140639100",
+    "14065DAB0",
+    "14064DE60",
+    "140654E60",
+    "140975710",
+    "1404FEDC0",
+    "14062E240",
+    "140503430",
+    "1406486D0",
+    "1404F8C70",
+    "14052A820",
+    "1405DC350",
+    "1405AD720"
+   ],
+   "used_by_closure": true,
+   "kind": "return-input",
+   "why": [
+    "thunk jmp [0x1425301F0] = sqrt: docs/re/pes-re-carrier-helpers.md table",
+    "docs/re/pes-re-lane-core.md O3"
+   ],
+   "model": {
+    "op": "sqrtf",
+    "arg": "xmm0",
+    "ret": "xmm0",
+    "enc": "f32",
+    "exact": "IEEE sqrt is correctly rounded: C++ std::sqrt(float) gives the same bits"
+   }
+  },
+  {
+   "va": "1415A17CE",
+   "callers": [
+    "14080EBA0"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "thunk to the logf/powf import (docs: 'logf/powf are the imports 0x1415a17c8/0x1415a17ce'); result bits come from the C runtime, outside the image"
+   ],
+   "model": null
+  },
+  {
+   "va": "141863350",
+   "callers": [
+    "1405CE4F0",
+    "1404F6C30"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "141B55730",
+   "callers": [
+    "140504D20",
+    "1405AD720"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 141B5575B",
+    "indirect call at 141B55784",
+    "indirect call at 141B5579C",
+    "indirect call at 141B557BB"
+   ],
+   "model": null
+  },
+  {
+   "va": "141B55830",
+   "callers": [
+    "140504D20",
+    "1405AD720"
+   ],
+   "used_by_closure": false,
+   "kind": "unmodellable",
+   "why": [
+    "indirect call at 141B5583F"
+   ],
+   "model": null
+  },
+  {
+   "va": "1423E7FD0",
+   "callers": [
+    "1404F6C30",
+    "1404FB2A0"
+   ],
+   "used_by_closure": false,
+   "kind": "run-real",
+   "why": [
+    "leaf: no call, no indirect site, no global store"
+   ],
+   "model": {
+    "executes": "image bytes (no stub)",
+    "instructions": 2,
+    "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  }
+ ]
+}
