@@ -38,8 +38,13 @@ def parse_off(s):
     return False, int(s, 16)
 
 
+def off_hex(v):
+    """Signed offset as text run.py parses: '0x10', or '-0x10' (a regions_init key is 'REGION+off')."""
+    return "0x%X" % v if v >= 0 else "-0x%X" % -v
+
+
 def objname(root, path):
-    return root + "".join(".%X" % int(p, 16) for p in path)
+    return root + "".join(".%X" % parse_off(p)[1] for p in path)
 
 
 def intervals(fields, want_written):
@@ -120,24 +125,31 @@ def build(fn, index):
         if not g["path"]:
             continue
         parent = objname(g["root"], g["path"][:-1])
-        last = g["path"][-1]
+        last = parse_off(g["path"][-1])[1]
         if g["root"] == "IMG" and len(g["path"]) == 1:
-            patch_addrs["0x%X" % int(last, 16)] = key
+            patch_addrs["0x%X" % last] = key
         else:
-            if int(last, 16) == 0xE1EE:  # element of global pointer table: every registry slot -> this object
+            if last == 0xE1EE:  # element of global pointer table: every registry slot -> this object
                 for slot in range(REGISTRY_SLOTS):
                     regions_init["%s+0x%X" % (parent, 8 * slot)] = key
             else:
-                regions_init["%s+0x%X" % (parent, int(last, 16))] = key
-    for i, key in enumerate(names):
+                regions_init["%s+%s" % (parent, off_hex(last))] = key
+    base = REGION_BASE
+    for key in names:
         g = groups[key]
-        top = 0
+        top, low = 0, 0
         for f in g["fields"]:
             ind, off = parse_off(f["off"])
             w = max(f["w"]) if f["w"] else 8
             top = max(top, off + w)
+            low = min(low, off)
+        pad = (-low + 0xFFF) & ~0xFFF  # zero-filled room below the object for negative field offsets
+        if pad:
+            regions[key + ".pad"] = {"base": "0x%X" % base, "size": "0x%X" % pad}
+            base += pad
         size = max(0x200000, ((top + 0x40) + 0xFFF) & ~0xFFF)  # 2 MB: lane blocks reach +0x180698
-        regions[key] = {"base": "0x%X" % (REGION_BASE + i * REGION_STRIDE), "size": "0x%X" % size}
+        regions[key] = {"base": "0x%X" % base, "size": "0x%X" % size}
+        base += max(REGION_STRIDE, size)  # a larger region moves the next base past its end (no overlap)
 
     inputs, schema, outputs = {}, {}, {}
     for key in names:
@@ -145,7 +157,7 @@ def build(fn, index):
         for off, w, kind in intervals(g["fields"], False):
             for poff, enc, suffix in pieces_in(off, w, kind, "input"):
                 nm = "%s_%X%s" % (key.replace(".", "_"), poff, suffix)
-                inputs[nm] = {"region": key, "offset": "0x%X" % poff, "enc": enc}
+                inputs[nm] = {"region": key, "offset": off_hex(poff), "enc": enc}
                 if enc == "f32":
                     schema[nm] = {"kind": "f32", "lo": -50.0, "hi": 50.0, "domain": DOMAIN_F32}
                 else:
@@ -153,7 +165,7 @@ def build(fn, index):
         for off, w, kind in intervals(g["fields"], True):
             for poff, enc, suffix in pieces_in(off, w, kind, "output"):
                 nm = "w_%s_%X%s" % (key.replace(".", "_"), poff, suffix)
-                outputs[nm] = {"region": key, "offset": "0x%X" % poff, "enc": enc}
+                outputs[nm] = {"region": key, "offset": off_hex(poff), "enc": enc}
 
     args = {}
     roots_used = {g["root"] for k, g in groups.items() if not g["path"] and g["root"] != "IMG"}

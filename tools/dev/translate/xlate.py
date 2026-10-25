@@ -287,6 +287,8 @@ def parse_mem(inner):
     nums = []
     ok = True
     for p in parts:
+        if p.split("*")[0] in ("riz", "eiz"):  # zero-index pseudo register (alignment padding) adds nothing
+            continue
         mm = re.fullmatch(r"([a-z][a-z0-9]*)\*0x([0-9a-f]+)", p)
         if mm and mm.group(1) in REGSET:
             index, scale = mm.group(1), int(mm.group(2), 16)
@@ -469,7 +471,7 @@ class Emitter:
     def emit_alu(self, mnem, ops):
         """Integer ALU. Returns [str] or None to fall through."""
         m = mnem.upper()
-        if m == "MOV":
+        if m in ("MOV", "MOVABS"):
             return self.do_mov(ops, 0)
         if m in ("MOVSX", "MOVSXD"):
             return self.do_mov(ops, "sx")
@@ -486,6 +488,10 @@ class Emitter:
             return self.do_unary(m, ops)
         if m in ("SHL", "SHR", "SAR"):
             return self.do_shift(m, ops)
+        if m in ("ROR", "ROL"):
+            return self.do_rotate(m, ops)
+        if m in ("XADD", "CMPXCHG"):
+            return self.do_xadd(m, ops)
         if m in ("IMUL", "MUL"):
             return self.do_mul(m, ops)
         if m in ("BT", "BTC", "BTR", "BTS"):
@@ -769,6 +775,161 @@ class Emitter:
         out.append("}")
         return out
 
+    def do_rotate(self, m, ops):
+        dst = ops[0]
+        w = self.op_width(dst)
+        mm = {8: "0xFF", 16: "0xFFFF", 32: "0xFFFFFFFF",
+              64: "0xFFFFFFFFFFFFFFFF"}[w]
+        a = self.val_of(dst, w)
+        c = self.val_of(ops[1], 8) if len(ops) > 1 else "1ULL"
+        # Count masked to 5 bits (6 for 64-bit), then taken modulo the width.
+        cmask = 63 if w == 64 else 31
+        if m == "ROR":
+            rot = "(((_a >> _k) | (_a << (%d - _k))) & %sULL)" % (w, mm)
+        else:
+            rot = "(((_a << _k) | (_a >> (%d - _k))) & %sULL)" % (w, mm)
+        out = ["{ uint64_t _a = (uint64_t)(%s) & %sULL, _n = (uint64_t)(%s) & %dULL;"
+               % (a, mm, c, cmask),
+               "  uint64_t _k = _n %% %d;" % w,
+               "  uint64_t _r = _k ? %s : _a;" % rot]
+        msb = "((_r >> %d) & 1)" % (w - 1)
+        if m == "ROR":
+            out.append("  if (_n) { s.cf = %s != 0;" % msb)
+            out.append("    if (_n == 1) s.of = (%s ^ ((_r >> %d) & 1)) != 0; }"
+                       % (msb, w - 2))
+        else:
+            out.append("  if (_n) { s.cf = (_r & 1) != 0;")
+            out.append("    if (_n == 1) s.of = (%s ^ (_r & 1)) != 0; }" % msb)
+        if "[" in dst:
+            out.append("  " + self.mem_store(dst[dst.find("["):], "_r", w, None))
+        else:
+            out.append("  " + reg_write(dst, "_r"))
+        out.append("}")
+        return out
+
+    def do_xadd(self, m, ops):
+        # LOCK is dropped by emit_function (single-threaded harness).
+        dst, src = ops[0], ops[1]
+        w = self.op_width(dst, src)
+        mm = {8: "0xFF", 16: "0xFFFF", 32: "0xFFFFFFFF",
+              64: "0xFFFFFFFFFFFFFFFF"}[w]
+        d, sv = self.val_of(dst, w), self.val_of(src, w)
+        msb = w - 1
+        if m == "XADD":
+            # tmp = dst + src; src = old dst; dst = tmp. Flags as ADD.
+            out = ["{ uint64_t _a = (uint64_t)(%s) & %sULL, _b = (uint64_t)(%s) & %sULL;"
+                   % (d, mm, sv, mm),
+                   "  uint64_t _r = (_a + _b) & %sULL;" % mm,
+                   "  s.zf = (_r == 0); s.sf = ((_r >> %d) & 1) != 0;" % msb,
+                   "  s.cf = _r < _a; s.of = ((((~(_a ^ _b)) & (_a ^ _r)) >> %d) & 1) != 0;" % msb,
+                   "  " + reg_write(src, "_a")]
+            if "[" in dst:
+                out.append("  " + self.mem_store(dst[dst.find("["):], "_r", w, None))
+            else:
+                out.append("  " + reg_write(dst, "_r"))
+            out.append("}")
+            return out
+        # CMPXCHG: flags as CMP(accumulator, dst); equal: dst = src, else accumulator = dst.
+        acc = {8: "al", 16: "ax", 32: "eax", 64: "rax"}[w]
+        out = ["{ uint64_t _a = (uint64_t)(%s) & %sULL, _d = (uint64_t)(%s) & %sULL, _s = (uint64_t)(%s) & %sULL;"
+               % (self.val_of(acc, w), mm, d, mm, sv, mm),
+               "  uint64_t _r = (_a - _d) & %sULL;" % mm,
+               "  s.zf = (_r == 0); s.sf = ((_r >> %d) & 1) != 0;" % msb,
+               "  s.cf = _a < _d; s.of = ((((_a ^ _d) & (_a ^ _r)) >> %d) & 1) != 0;" % msb,
+               "  if (_r == 0) {"]
+        if "[" in dst:
+            out.append("    " + self.mem_store(dst[dst.find("["):], "_s", w, None))
+        else:
+            out.append("    " + reg_write(dst, "_s"))
+        out.append("  } else { " + reg_write(acc, "_d") + " } }")
+        return out
+
+    def src128(self, op):
+        """C u128 of an xmm or 128-bit memory source operand."""
+        o = op.strip().lower()
+        if o.startswith("xmm") and "[" not in o:
+            y = int(o[3:])
+            return ("((unsigned __int128)s.xmm[%d][0] | "
+                    "((unsigned __int128)s.xmm[%d][1] << 64))" % (y, y))
+        return "(%s)" % self.mem_val(op[op.find("["):], 128, None)
+
+    def sd_src(self, op):
+        """C u64 bits of a scalar double source: xmm lane 0 or a 64-bit memory operand."""
+        o = op.strip().lower()
+        if o.startswith("xmm") and "[" not in o:
+            return "s.xmm[%d][0]" % int(o[3:])
+        return "(uint64_t)(%s)" % self.mem_val(op[op.find("["):], 64, None)
+
+    def do_packed(self, m, ops):
+        """Packed 32-bit-lane SSE on the 128-bit value (PesState::lane_u32 / put_u32)."""
+        dst = ops[0].strip().lower()
+        if not (dst.startswith("xmm") and "[" not in dst):
+            return ["/*UNHANDLED %s %s*/(void)0;" % (m, ops)]
+        x = int(dst[3:])
+        d = ("((unsigned __int128)s.xmm[%d][0] | "
+             "((unsigned __int128)s.xmm[%d][1] << 64))" % (x, x))
+        if m == "PSRLDQ":
+            n = imm_val(ops[1]) & 0xFF
+            o = "0" if n >= 16 else "(_d >> %d)" % (8 * n)
+            return ["{ unsigned __int128 _d = %s, _o = %s; "
+                    "s.xmm[%d][0] = (uint64_t)_o; s.xmm[%d][1] = (uint64_t)(_o >> 64); }"
+                    % (d, o, x, x)]
+        if m in ("ADDPS", "SUBPS", "MULPS", "DIVPS"):
+            op = {"ADDPS": "+", "SUBPS": "-", "MULPS": "*", "DIVPS": "/"}[m]
+            ex = ["PesState::bits(PesState::lane_f32(_d, %d) %s PesState::lane_f32(_s, %d))"
+                  % (i, op, i) for i in range(4)]
+        elif m in ("PADDD", "PSUBD"):
+            op = "+" if m == "PADDD" else "-"
+            ex = ["PesState::lane_u32(_d, %d) %s PesState::lane_u32(_s, %d)" % (i, op, i)
+                  for i in range(4)]
+        elif m == "PCMPEQD":
+            ex = ["(PesState::lane_u32(_d, %d) == PesState::lane_u32(_s, %d) ? 0xFFFFFFFFu : 0u)"
+                  % (i, i) for i in range(4)]
+        elif m == "PSHUFD":
+            imm = imm_val(ops[2]) & 0xFF
+            ex = ["PesState::lane_u32(_s, %d)" % ((imm >> (2 * i)) & 3) for i in range(4)]
+        elif m == "SHUFPS":
+            imm = imm_val(ops[2]) & 0xFF
+            pick = [("_d", imm & 3), ("_d", (imm >> 2) & 3),
+                    ("_s", (imm >> 4) & 3), ("_s", (imm >> 6) & 3)]
+            ex = ["PesState::lane_u32(%s, %d)" % p for p in pick]
+        elif m == "UNPCKLPS":
+            ex = ["PesState::lane_u32(%s, %d)" % p
+                  for p in [("_d", 0), ("_s", 0), ("_d", 1), ("_s", 1)]]
+        else:  # UNPCKHPS
+            ex = ["PesState::lane_u32(%s, %d)" % p
+                  for p in [("_d", 2), ("_s", 2), ("_d", 3), ("_s", 3)]]
+        body = " ".join("_o = PesState::put_u32(_o, %d, %s);" % (i, e)
+                        for i, e in enumerate(ex))
+        return ["{ unsigned __int128 _d = %s, _s = %s, _o = 0; %s "
+                "s.xmm[%d][0] = (uint64_t)_o; s.xmm[%d][1] = (uint64_t)(_o >> 64); }"
+                % (d, self.src128(ops[1]), body, x, x)]
+
+    def do_sd_arith(self, m, ops):
+        dst = ops[0].strip().lower()
+        if not (dst.startswith("xmm") and "[" not in dst):
+            return ["/*UNHANDLED %s %s*/(void)0;" % (m, ops)]
+        x = int(dst[3:])
+        op = {"ADDSD": "+", "SUBSD": "-", "MULSD": "*", "DIVSD": "/"}[m]
+        return ["s.set_x_f64(%d, s.x_f64(%d) %s PesState::f64(%s));"
+                % (x, x, op, self.sd_src(ops[1]))]
+
+    def do_comisd(self, ops):
+        x = int(ops[0].strip().lower()[3:])
+        return ["s.cmp_sd(s.x_f64(%d), PesState::f64(%s));" % (x, self.sd_src(ops[1]))]
+
+    def do_cvt_sd(self, m, ops):
+        dst, src = ops[0], ops[1]
+        if m == "CVTTSD2SI":
+            fn = "PesState::cvtt_i32" if self.op_width(dst) == 32 else "PesState::cvtt_i64"
+            return [reg_write(dst, "(uint64_t)%s(PesState::f64(%s))" % (fn, self.sd_src(src)))]
+        # CVTSI2SD: lane 0 becomes the double, upper lane kept.
+        sw = self.op_width(src)
+        v = self.val_of(src, sw, sx=True)
+        if "[" in src and sw < 64:
+            v = sext(v, sw)
+        return ["s.set_x_f64(%d, (double)(int64_t)(%s));" % (int(dst.strip().lower()[3:]), v)]
+
     def do_mul(self, m, ops):
         if m == "MUL" and len(ops) == 1:
             # unsigned: EDX:EAX = EAX * op (32-bit) or RDX:RAX (64-bit)
@@ -909,17 +1070,25 @@ class Emitter:
         if m in ("CVTTSS2SI", "CVTSI2SS", "CVTSS2SI", "CVTSS2SD",
                  "CVTSD2SS"):
             return self.do_cvt1(m, ops)
-        if m in ("MOVAPS", "MOVUPS", "MOVAPD", "MOVUPD", "MOVDQ", "MOVDQU",
+        if m in ("MOVAPS", "MOVUPS", "MOVAPD", "MOVUPD", "MOVDQA", "MOVDQ", "MOVDQU",
                  "MOVQ"):
             return self.do_mov128v(ops)
         if m in ("ANDPS", "ORPS", "XORPS", "ANDPD", "ORPD", "XORPD",
+                 "PXOR", "PAND", "POR", "PANDN",
                  "ANDNPS", "ANDNPD"):
             return self.do_bit128(m, ops)
         if m in ("CVTPS2PD", "CVTPD2PS", "CVTDQ2PS", "CVTPS2DQ",
                  "CVTPD2DQ", "CVTDQ2PD"):
             return self.do_cvtv(m, ops)
-        if m in ("SHUFPS", "UNPCKLPS", "UNPCKHPS", "BLENDVPS"):
-            return ["/*UNHANDLED-VEC %s %s*/(void)0;" % (m, ops)]
+        if m in ("ADDPS", "SUBPS", "MULPS", "DIVPS", "PADDD", "PSUBD", "PCMPEQD",
+                 "PSHUFD", "PSRLDQ", "SHUFPS", "UNPCKLPS", "UNPCKHPS"):
+            return self.do_packed(m, ops)
+        if m in ("ADDSD", "SUBSD", "MULSD", "DIVSD"):
+            return self.do_sd_arith(m, ops)
+        if m in ("COMISD", "UCOMISD"):
+            return self.do_comisd(ops)
+        if m in ("CVTTSD2SI", "CVTSI2SD"):
+            return self.do_cvt_sd(m, ops)
         return None
 
     def x_lane(self, op):
@@ -1079,9 +1248,9 @@ class Emitter:
         x = int(d[3:])
         s = ops[1].strip().lower()
         if s.startswith("xmm") and "[" not in s and int(s[3:]) == x:
-            if m in ("XORPS", "XORPD"):
+            if m in ("XORPS", "XORPD", "PXOR"):
                 return ["s.xmm[%d][0] = 0; s.xmm[%d][1] = 0;" % (x, x)]
-            if m in ("ORPS", "ORPD", "ANDPS", "ANDPD"):
+            if m in ("ORPS", "ORPD", "ANDPS", "ANDPD", "POR", "PAND"):
                 return ["(void)0;  // %s self-reg identity" % m]
         if s.startswith("xmm") and "[" not in s:
             y = int(s[3:])
@@ -1090,14 +1259,14 @@ class Emitter:
         else:
             inner = ops[1][ops[1].find("["):]
             e = "(%s)" % self.mem_val(inner, 128, None)
-        op = {"ANDPS": "&", "ANDPD": "&", "ORPS": "|", "ORPD": "|",
-              "XORPS": "^", "XORPD": "^"}[m]
-        if m in ("ANDNPS", "ANDNPD"):
+        op = {"ANDPS": "&", "ANDPD": "&", "PAND": "&", "ORPS": "|", "ORPD": "|", "POR": "|",
+              "XORPS": "^", "XORPD": "^", "PXOR": "^", "ANDNPS": "&", "ANDNPD": "&", "PANDN": "&"}[m]
+        if m in ("ANDNPS", "ANDNPD", "PANDN"):
             e = "(~((unsigned __int128)s.xmm[%d][0] | " \
                 "((unsigned __int128)s.xmm[%d][1] << 64)) & %s)" % (x, x,
                                                                      e)
             op = "&"
-            cur = ("((unsigned __int128)0)")
+            cur = "(~(unsigned __int128)0)"
         else:
             cur = ("((unsigned __int128)s.xmm[%d][0] | "
                    "((unsigned __int128)s.xmm[%d][1] << 64))") % (x, x)
@@ -1539,11 +1708,13 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
         if addr in labels:
             body.append("L_%X:;" % addr)
         m = mnem.upper()
+        if m.startswith("LOCK "):
+            m = m[5:]  # single-threaded harness: LOCK changes atomicity only
         out = None
-        if m in ("MOV", "MOVSX", "MOVSXD", "MOVZX", "LEA", "XCHG", "ADD",
+        if m in ("MOV", "MOVABS", "MOVSX", "MOVSXD", "MOVZX", "LEA", "XCHG", "ADD",
                  "SUB", "CMP", "TEST", "AND", "OR", "XOR", "ADC", "SBB",
                  "INC", "DEC", "NEG", "NOT", "SHL", "SHR", "SAR", "IMUL",
-                 "MUL", "BT", "BTC", "BTR", "BTS", "CDQE", "CDQ", "CQO",
+                 "ROR", "ROL", "XADD", "CMPXCHG",
                  "CWD", "CBW", "CWDE", "PUSH", "POP", "LEAVE", "NOP"):
             out = em.emit_alu(m, ops)
         elif m in ("MOVSS", "MOVSD", "MOVD", "ADDSS", "SUBSS", "MULSS",
@@ -1551,7 +1722,11 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
                    "CVTTSS2SI", "CVTSI2SS", "CVTSS2SI", "CVTSS2SD",
                    "CVTSD2SS", "MOVAPS", "MOVUPS", "MOVAPD", "MOVUPD",
                    "ANDPS", "ORPS", "XORPS", "ANDPD", "ORPD", "XORPD",
-                   "ANDNPS", "ANDNPD", "CVTPS2PD", "CVTPD2PS", "CVTDQ2PS",
+                   "PXOR", "PAND", "POR", "PANDN", "MOVDQA", "MOVDQU",
+                   "ADDPS", "SUBPS", "MULPS", "DIVPS", "PADDD", "PSUBD", "PCMPEQD",
+                   "PSHUFD", "PSRLDQ", "SHUFPS", "UNPCKLPS", "UNPCKHPS",
+                   "ADDSD", "SUBSD", "MULSD", "DIVSD", "COMISD", "UCOMISD",
+                   "CVTTSD2SI", "CVTSI2SD",
                    "CVTPS2DQ", "CVTPD2DQ", "CVTDQ2PD"):
             out = em.emit_sse(m, ops)
         elif m in CCMAP or m in ("RET", "CALL", "JMP"):
