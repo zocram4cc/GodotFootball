@@ -1,7 +1,7 @@
 """Spec generator CLI: python3 -m specgen (run from tools/dev/diffharness).
 
-  select    --subsystem TAG --write-set FILE
-            the ledger's pure rows of TAG, closed over their pure callees
+  select    --subsystem TAG [TAG ...] --write-set FILE
+            the ledger's pure rows of the TAGs, closed over their pure callees (one union; each row carries subsystem and role)
   generate  --set FILE --mode pilot|impure --image IMG --out-dir DIR [--pilot-set FILE]
             one spec per VA of a set file, read from the image
 
@@ -27,9 +27,9 @@ def ledger_callees(uni, va):
 
 
 def select(args):
-    vas = sets.pure_closure(args.subsystem)
-    sets.write_set(args.write_set, [(va, sets.DEFAULT_STATUS) for va in vas])
-    print("selected", len(vas), "pure rows of", args.subsystem, "closed over pure callees ->", args.write_set)
+    rows = sets.closure_rows(args.subsystem)
+    sets.write_set(args.write_set, rows)
+    print("selected", len(rows), "rows of", ", ".join(args.subsystem), "closed over pure callees ->", args.write_set)
 
 
 def generate(args):
@@ -77,7 +77,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="python3 -m specgen", description="Spec generator for the differential harness.")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sel = sub.add_parser("select", help="write a set file from the ledger's pure rows")
-    sel.add_argument("--subsystem", required=True)
+    sel.add_argument("--subsystem", required=True, nargs="+")
     sel.add_argument("--write-set", required=True)
     sel.set_defaults(run=select)
     gen = sub.add_parser("generate", help="write one spec per VA of a set file")

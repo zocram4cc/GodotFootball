@@ -3,12 +3,13 @@
 
 Usage:
   driver.py --image IMG --out-dir BUILD [--spec-dir DIR] [--only 0xVA ...]
-            [--count N] [--asm-dir DIR] [--cxx CXX] [--timeout S] [--record FILE] [--check]
+            [--count N] [--asm-dir DIR] [--cxx CXX] [--timeout S] [--record FILE] [--set FILE] [--check]
 
 Defaults: --spec-dir tools/dev/diffharness/specs/pilot (committed Map specs);
 asm comes from --asm-dir bridge cache when given, else capstone decodes the
 user's image at build time (no bridge needed).
 --record FILE: a full run (no --only) writes its results there; --check re-runs the diffed VAs FILE lists and never writes it.
+--set FILE: a generator set file (specgen sets/*.txt); each result gets the subsystem and role of its row.
 
 Steps per function (deterministic order, sorted VAs):
   1. xlate.translate_one lifts the asm to build-tree C++ (pes_fn_<va>.cpp).
@@ -94,6 +95,16 @@ def load_spec(spec_dir, va):
         if os.path.exists(p):
             return json.load(open(p)), p
     return None, None
+
+def read_attribution(path):
+    """{VA: (subsystem, role)} from a generator set file's third and fourth columns (`select` writes them)."""
+    out = {}
+    with open(path, encoding="utf8") as f:
+        for line in f:
+            parts = line.split("#")[0].rstrip("\n").split("\t")
+            if len(parts) >= 4 and parts[0].strip():
+                out["0x%X" % int(parts[0].strip(), 16)] = (parts[2].strip(), parts[3].strip())
+    return out
 
 
 def asm_for(asm_dir, va):
@@ -743,6 +754,8 @@ def main():
                          "Never writes the repo results.json (the gate's pilot test).")
     ap.add_argument("--record", default=None,
                     help="committed results JSON. A full run writes it; --check re-runs its diffed VAs and never writes it.")
+    ap.add_argument("--set", default=None,
+                    help="a generator set file (specgen sets/*.txt): its subsystem and role columns are recorded on each result")
     args = ap.parse_args()
     if args.check and not args.record:
         ap.error("--check re-runs the VAs that --record lists as diffed")
@@ -787,6 +800,10 @@ def main():
             r["va"], r["translated"], r["diffed"], r["cases"],
             r["failure_class"], r["note"][:100]))
 
+    attrib = read_attribution(args.set) if args.set else {}
+    for r in results:
+        if r["va"] in attrib:
+            r["subsystem"], r["role"] = attrib[r["va"]]
     # results.json: build copy always; the committed repo copy only from a full run (a subset or a check run
     # must never overwrite the record of the whole set). Sort by VA.
     results.sort(key=lambda r: r["va"])
