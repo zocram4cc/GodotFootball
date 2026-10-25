@@ -17,7 +17,7 @@ def ident(name):
     return name.replace(".", "_").replace("-", "_")
 
 
-def gen(spec, va, callees, seed=None):
+def gen(spec, va, callees, seed=None, bank=None):
     sp = json.load(open(spec)) if isinstance(spec, str) else spec
     V = va[2:]
     regions = sp.get("regions") or {}
@@ -47,16 +47,25 @@ def gen(spec, va, callees, seed=None):
     L.append('static const uint64_t stack_size = %sULL;' % stack["size"])
     # seed.py artifact (live state): region bytes copied into the per-case
     # segments below, before the args and linkage writes (run.py applies the
-    # same bytes before the case inputs).
-    seeded = {r["name"]: r for r in (seed or {}).get("regions") or []}
-    for name in rnames:
-        if name not in seeded:
-            continue
-        r = seeded[name]
-        blob = bytes.fromhex(r["hex"])
-        if int(r["off"]) + len(blob) > int(regions[name]["size"], 16):
-            raise ValueError("seed for %s exceeds its region" % name)
-        L.append('static const uint8_t seed_%s[] = {%s};' % (ids[name], ",".join(str(b) for b in blob)))
+    # same bytes before the case inputs). A bank (run.py --seed-bank) holds one
+    # artifact per instance; each case copies the instance its corpus line names
+    # ("inst", 0 when unbanked). The segments are fresh per case, so unseeded
+    # regions are zero, as in run.py's bank mode.
+    def seed_bytes(art):
+        seeded = {r["name"]: r for r in (art or {}).get("regions") or []}
+        out = {}
+        for name in rnames:
+            if name in seeded:
+                r = seeded[name]
+                blob = bytes.fromhex(r["hex"])
+                if int(r["off"]) + len(blob) > int(regions[name]["size"], 16):
+                    raise ValueError("seed for %s exceeds its region" % name)
+                out[name] = (int(r["off"]), blob)
+        return out
+    seeded_k = [seed_bytes(a) for a in (([seed]) if bank is None else list(bank))]
+    for k, sb in enumerate(seeded_k):
+        for name, (off, blob) in sb.items():
+            L.append('static const uint8_t seed_%s_%d[] = {%s};' % (ids[name], k, ",".join(str(b) for b in blob)))
     L.append('int main(int argc, char** argv) {')
     L.append('  if (argc < 3) return 2;')
     L.append('  FILE* f = fopen(argv[1], "r"); if (!f) return 2;')
@@ -76,9 +85,12 @@ def gen(spec, va, callees, seed=None):
     for name in rnames:
         L.append('    s.mem.segs.push_back({base_%s, std::vector<uint8_t>(size_%s, 0)});' % (ids[name], ids[name]))
     L.append('    s.mem.segs.push_back({stack_base, std::vector<uint8_t>(stack_size, 0)});')
-    for i, name in enumerate(rnames):
-        if name in seeded:
-            L.append('    std::memcpy(s.mem.segs[%d].bytes.data() + %d, seed_%s, sizeof seed_%s);' % (i, int(seeded[name]["off"]), ids[name], ids[name]))
+    for k, sb in enumerate(seeded_k):
+        L.append('    if (jl.inst == %d) {' % k)
+        for i, name in enumerate(rnames):
+            if name in sb:
+                L.append('      std::memcpy(s.mem.segs[%d].bytes.data() + %d, seed_%s_%d, sizeof seed_%s_%d);' % (i, sb[name][0], ids[name], k, ids[name], k))
+        L.append('    }')
     L.append('    const uint64_t stack_top = stack_base + stack_size - 0x100ULL;')
     L.append('    s.gpr[4] = stack_top - 8; s.wr(s.gpr[4], 0ULL, 8);')
     # args
