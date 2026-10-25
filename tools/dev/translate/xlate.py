@@ -1329,8 +1329,11 @@ def capstone_decode(image_path, va):
     # target still lies ahead. Stop at the first RET with nothing pending.
     pending = set()
     for ins in md.disasm(bytes(code), va):
-        out.append((ins.address, ins.mnemonic.upper(),
-                    split_ops(ins.op_str)))
+        mn = ins.mnemonic.upper()
+        if mn == "MOVABS":
+            # capstone prints MOVABS for MOV r64,imm64; Ghidra prints MOV.
+            mn = "MOV"
+        out.append((ins.address, mn, split_ops(ins.op_str)))
         m = ins.mnemonic.lower()
         # cc_of covers every Jcc alias (capstone prints JAE where the
         # bridge prints JNC for opcode 0x73, etc.).
