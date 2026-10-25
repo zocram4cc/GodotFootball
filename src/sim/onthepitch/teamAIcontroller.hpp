@@ -192,7 +192,7 @@ public:
 
   // PES's team sheet (docs/re/pes-re-tactics.md 1): the sliders and toggles
   // the AI reads, from the team's tactics with the install's sheet defaults.
-  const pes::TeamSheet& GetTeamSheet() const { return teamSheet; }
+  const pes::TeamSheet& GetTeamSheet() const { return teamRecord.sheet; }
   // PES's role arrays (pesroles.hpp): B holds each slot's role class, the value every class
   // reader uses; A is the stamina-sub class. Setup and the tick's head and tail write them.
   int RoleClassOfSlot(int slot) const;
@@ -338,7 +338,7 @@ protected:
 
   Formations::Shape formationShape;
   TeamInstructions::State instructions;
-  pes::TeamSheet teamSheet;
+  pes::PesTeamRecord teamRecord;  // T: the team record; its sheet S is teamRecord.sheet (T+0x8e08)
   pes::roles::SideRoles roles;
   // Block B's fold picks of this tick (pesmentality.hpp FoldPicks), PES path only. Nothing reads them yet:
   // the readers of PES's planObj+0x7CD4 are not decoded.
