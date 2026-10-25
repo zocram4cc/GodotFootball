@@ -216,12 +216,15 @@ def iter_switch_tables(img, only_sites=None):
                     bound = int(m.group(1), 16)
             if base is None or rtab is None or bound is None or bound > 0xFFF:
                 continue
-            if not (CODE_LO <= base < CODE_HI and RDATA_LO <= rtab < RDATA_HI):
+            # Tables may live in .rdata (absolute RVAs) or in .text beside the
+            # code (relative RVAs added to the image base). The per-case
+            # target check below keeps code-resident reads sane.
+            if not (CODE_LO <= base < CODE_HI and CODE_LO <= rtab < RDATA_HI):
                 continue
             if mmap is None:
                 span = bound + 1
             else:
-                if not (RDATA_LO <= mmap < RDATA_HI):
+                if not (CODE_LO <= mmap < RDATA_HI):
                     continue
                 span = max(bytearray(rd(img, mmap, bound + 1))) + 1
             if span > 0x1000:
