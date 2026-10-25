@@ -1,0 +1,252 @@
+0x14042D470	stand-in
+0x140439E50	stand-in
+0x140439EF0	ported
+0x140439F50	ported
+0x140439F90	ported
+0x140439FE0	stand-in
+0x14043A020	ported
+0x14043A0A0	stand-in
+0x140456EA0	leaf accessor
+0x1404583B0	ported
+0x140458740	ported
+0x14046F230	ported
+0x14046F260	ported
+0x140470D60	stand-in
+0x140479470	ported
+0x140481B00	stand-in
+0x1404A53E0	ported
+0x1404AB8E0	ported
+0x1404BCAD0	ported
+0x1404C8DC0	ported
+0x1404C8E60	ported
+0x1404F4AB0	ported
+0x1404F5F10	ported
+0x1404F61E0	ported
+0x1404F6680	ported
+0x1405008E0	ported
+0x140501160	ported
+0x140529330	ported
+0x140529430	decoded
+0x140581CE0	stand-in
+0x140591A10	stand-in
+0x1405969B0	ported
+0x1405A0D20	stand-in
+0x1405A4790	ported
+0x1405A4830	ported
+0x1405AAF00	stand-in
+0x1405AEF10	ported
+0x1405BB170	ported
+0x1405CCD00	ported
+0x1405CD050	decoded
+0x1405CD0F0	decoded
+0x1405CD320	decoded
+0x1405CD540	ported
+0x1405CD780	ported
+0x1405CFC80	ported
+0x1405CFFE0	ported
+0x1405DFC70	decoded
+0x1405DFE40	decoded
+0x1405E0010	decoded
+0x1405E0C60	ported
+0x1405EBCA0	ported
+0x1405FC860	ported
+0x14061E7C0	stand-in
+0x14062C400	decoded
+0x140632320	ported
+0x140632850	ported
+0x140632BC0	ported
+0x140639600	ported
+0x14063A3A0	ported
+0x14063A420	stand-in
+0x14063C9F0	ported
+0x14063F230	ported
+0x14063F490	stand-in
+0x14063FA70	ported
+0x14063FDC0	ported
+0x140653480	ported
+0x140682320	ported
+0x140687820	ported
+0x140687FB0	ported
+0x140688300	ported
+0x1408C5000	ported
+0x1408C5020	ported
+0x1408C5030	ported
+0x1408C5060	ported
+0x1408C5080	ported
+0x1408C50A0	ported
+0x1408C50E0	ported
+0x1408C51B0	ported
+0x1408C51F0	ported
+0x1408C524A	leaf accessor
+0x1408C5254	leaf accessor
+0x1408C525E	leaf accessor
+0x1408C5268	leaf accessor
+0x1408C5272	leaf accessor
+0x1408C527C	leaf accessor
+0x1408C5286	leaf accessor
+0x1408C5290	leaf accessor
+0x1408C52E0	ported
+0x1408C5900	stand-in
+0x1408C6430	ported
+0x1408C7550	undecoded
+0x1408C75C0	leaf accessor
+0x1408CB0B0	ported
+0x1409FA0B0	ported
+0x1409FBCE0	ported
+0x140A3AE30	leaf accessor
+0x140A3AEE0	decoded
+0x140A3AF30	leaf accessor
+0x140A3AF60	decoded
+0x140A3AF90	decoded
+0x140A3B000	decoded
+0x140A3B110	decoded
+0x140A3B320	ported
+0x140A3B520	ported
+0x140A3C950	ported
+0x140A3C9B0	ported
+0x140A3D4F0	ported
+0x140A3E150	ported
+0x140A3E190	stand-in
+0x140A3E5D0	ported
+0x140A3E7D0	ported
+0x140A3E840	ported
+0x140A3E880	ported
+0x140A3FE50	ported
+0x140A40000	ported
+0x140A40050	ported
+0x140A40110	decoded
+0x140A401C0	ported
+0x140A401F0	ported
+0x140A40200	ported
+0x140A40820	ported
+0x140A40BD0	ported
+0x140A41190	ported
+0x140A41B30	ported
+0x140A41BE0	ported
+0x140A422C0	stand-in
+0x140A42430	ported
+0x140A42580	stand-in
+0x140A42590	ported
+0x140A425A0	ported
+0x140A42880	ported
+0x140A42940	ported
+0x140A429A0	ported
+0x140A431E0	ported
+0x140A48910	stand-in
+0x140A489D0	ported
+0x140A489F0	stand-in
+0x140A48A10	stand-in
+0x140A48A30	stand-in
+0x140A4C4E0	decoded
+0x140A4C720	ported
+0x140A4C8E0	stand-in
+0x140A4C930	decoded
+0x140A4C9A0	decoded
+0x140A4DB20	stand-in
+0x140A4E3F0	ported
+0x140A4E720	stand-in
+0x140A4E7C0	ported
+0x140A4EAF0	stand-in
+0x140A4EDF0	ported
+0x140A4F1E0	decoded
+0x140A4F210	ported
+0x140A4F230	ported
+0x140A4F720	ported
+0x140A4FBC0	ported
+0x140A4FEA0	ported
+0x140A50250	decoded
+0x140A51320	ported
+0x140A51D50	stand-in
+0x140A532F0	decoded
+0x140A533A0	decoded
+0x140A53DA0	stand-in
+0x140A53DF0	ported
+0x140A53F90	stand-in
+0x140A55CF0	ported
+0x140A55D40	ported
+0x140A55EF0	decoded
+0x140A57710	ported
+0x140A57720	ported
+0x140A57730	ported
+0x140A57800	stand-in
+0x140A580A0	stand-in
+0x140A58320	ported
+0x140A602B0	ported
+0x140A60300	stand-in
+0x140A60340	ported
+0x140A603C0	ported
+0x140A60500	ported
+0x140A60530	ported
+0x140A606C0	ported
+0x140A60A90	leaf accessor
+0x140A61CF0	ported
+0x140A61F40	decoded
+0x140A62140	ported
+0x140A62180	ported
+0x140A62610	ported
+0x140A62690	ported
+0x140A627E0	stand-in
+0x140A62850	stand-in
+0x140A62960	stand-in
+0x140A62EA0	ported
+0x140A62F20	decoded
+0x140A62FE0	ported
+0x140A63020	ported
+0x140A63830	undecoded
+0x140A63950	stand-in
+0x140A64030	stand-in
+0x140A64410	ported
+0x140A66FF0	ported
+0x140A6BD60	ported
+0x140A6C6D0	ported
+0x140A6C990	ported
+0x140A6CC20	decoded
+0x140A6CE00	ported
+0x140A6CEF0	ported
+0x140A6CF70	stand-in
+0x140A6DE20	decoded
+0x140A6DF00	decoded
+0x140A6E150	ported
+0x140A6E1C0	ported
+0x140A6E1E0	leaf accessor
+0x140A6E320	ported
+0x140A6E340	ported
+0x140A6E3F0	ported
+0x140A6E450	ported
+0x140A6E540	ported
+0x140A6E6B0	ported
+0x140A71260	stand-in
+0x140A714A0	ported
+0x140A714C0	ported
+0x140A714E0	ported
+0x140A71500	ported
+0x140A71520	ported
+0x140A71990	ported
+0x140A72E70	stand-in
+0x140A74EC0	ported
+0x140A75BE0	ported
+0x140A76070	ported
+0x140A85AA0	ported
+0x140A8F7C0	ported
+0x140A8F890	ported
+0x140A8FF10	ported
+0x140A91120	ported
+0x140A924E0	ported
+0x140A92530	ported
+0x140A92950	stand-in
+0x140A92B90	ported
+0x140A92C80	stand-in
+0x140A92D40	stand-in
+0x140A92DC0	stand-in
+0x14124DAD0	leaf accessor
+0x14149A470	leaf accessor
+0x14149F4F0	leaf accessor
+0x141B59E20	leaf accessor
+0x141B92460	leaf accessor
+0x141E532D0	leaf accessor
+0x141E532E0	leaf accessor
+0x141E5CA20	undecoded
+0x141E5D4C0	undecoded
+0x141E5DE80	leaf accessor
+0x141F9C3B0	leaf accessor
+0x1421B7D40	leaf accessor

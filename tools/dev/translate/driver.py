@@ -3,11 +3,12 @@
 
 Usage:
   driver.py --image IMG --out-dir BUILD [--spec-dir DIR] [--only 0xVA ...]
-            [--count N] [--asm-dir DIR] [--cxx CXX] [--timeout S]
+            [--count N] [--asm-dir DIR] [--cxx CXX] [--timeout S] [--record FILE] [--check]
 
 Defaults: --spec-dir tools/dev/diffharness/specs/pilot (committed Map specs);
 asm comes from --asm-dir bridge cache when given, else capstone decodes the
 user's image at build time (no bridge needed).
+--record FILE: a full run (no --only) writes its results there; --check re-runs the diffed VAs FILE lists and never writes it.
 
 Steps per function (deterministic order, sorted VAs):
   1. xlate.translate_one lifts the asm to build-tree C++ (pes_fn_<va>.cpp).
@@ -728,13 +729,16 @@ def main():
     ap.add_argument("--check", action="store_true",
                     help="re-run every VA results.json records as diffed; exit 1 if any no longer diffs bit-exact. "
                          "Never writes the repo results.json (the gate's pilot test).")
+    ap.add_argument("--record", default=None,
+                    help="committed results JSON. A full run writes it; --check re-runs its diffed VAs and never writes it.")
     args = ap.parse_args()
-    pilot_json = os.path.join(REPO, "tools", "dev", "translate", "results.json")
+    if args.check and not args.record:
+        ap.error("--check re-runs the VAs that --record lists as diffed")
     if args.check:
-        args.only = [r["va"] for r in json.load(open(pilot_json))["results"] if r["diffed"]]
-    is_pilot = os.path.abspath(args.spec_dir) == os.path.abspath(DEF_SPEC_DIR)
-    repo_json = os.path.join(REPO, "tools", "dev", "translate",
-                             "results.json" if is_pilot else "results_impure.json")
+        args.only = [r["va"] for r in json.load(open(args.record))["results"] if r["diffed"]]
+        if not args.only:
+            print("driver --check: nothing recorded as diffed")
+            return 0
 
     specs = sorted(f for f in os.listdir(args.spec_dir)
                    if f.endswith(".json"))
@@ -781,11 +785,11 @@ def main():
                "note": ("%s results. diffed = bit-exact vs the unicorn harness. "
                         "'provisional' in a note means the spec reads writable image "
                         "globals at on-disk values. 'stubs' lists the callees that "
-                        "stubs.json models." % ("Pilot" if is_pilot else "Impure-sample"))}
+                        "stubs.json models." % os.path.basename(os.path.normpath(args.spec_dir)))}
     build_json = os.path.join(args.out_dir, "results.json")
     json.dump(payload, open(build_json, "w"), indent=1, sort_keys=True)
-    if not args.only:
-        json.dump(payload, open(repo_json, "w"), indent=1, sort_keys=True)
+    if args.record and not args.only and not args.check:
+        json.dump(payload, open(args.record, "w"), indent=1, sort_keys=True)
     att = sum(1 for _ in results)
     tra = sum(1 for r in results if r["translated"])
     dif = sum(1 for r in results if r["diffed"])

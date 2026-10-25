@@ -9,8 +9,16 @@
 add_test(NAME diff_pilot_recorded
   COMMAND bash -c "[ -n \"$PES_EXE\" ] && [ -f \"$PES_EXE\" ] && [ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
---out-dir '${CMAKE_BINARY_DIR}/pilot-check'")
+--out-dir '${CMAKE_BINARY_DIR}/pilot-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results.json'")
 set_tests_properties(diff_pilot_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 2400)
+
+# diff_cutscene_recorded: the same check for the cutscene set (specs/cutscene; results_cutscene.json records its diffed VAs).
+add_test(NAME diff_cutscene_recorded
+  COMMAND bash -c "[ -n \"$PES_EXE\" ] && [ -f \"$PES_EXE\" ] && [ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
+--spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/cutscene' \
+--out-dir '${CMAKE_BINARY_DIR}/cutscene-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_cutscene.json'")
+set_tests_properties(diff_cutscene_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 2400)
 
 # Image check: the user's dump must be the image the pilot specs were authored
 # against. verify_image.py hashes the stable sections (image_hashes.json) and

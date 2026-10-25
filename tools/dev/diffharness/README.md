@@ -38,3 +38,23 @@ Usage (normally via ctest `diff_gen_<fn>` + `tests/diff/`, which call
 `GF_DIFF_PYTHON` defaults to `python3`; without unicorn the generator skips
 cleanly (ctest 77), as it does without `PES_EXE`. The landing gate passes
 its `GF_DIFF_PYTHON`/`PES_EXE` through to ctest.
+
+## specgen: the spec generator
+
+`specgen/` writes one spec per VA from the image (`PES_EXE`, the unpacked executable). Its output is scratch until it
+is copied into `specs/`.
+
+    cd tools/dev/diffharness
+    python3 -m specgen select --subsystem cutscene --write-set specgen/sets/cutscene.txt
+    python3 -m specgen generate --set specgen/sets/pilot.txt --mode pilot --image "$PES_EXE" --out-dir DIR
+    python3 -m specgen generate --set specgen/sets/impure.txt --mode impure \
+        --pilot-set specgen/sets/pilot.txt --image "$PES_EXE" --out-dir DIR
+
+- `sets/`: VA lists, one per line (`VA<TAB>status`). Order is part of the spec: the seed is 1000 + position.
+- `analyze.py`: the record-field walker over the image's bytes (capstone). `spec.py`: the pilot-mode builder.
+- `classify.py`, `impure.py`: impure mode's out-of-set callees, stub references and harness class.
+- `rules.py`: each hand fix the committed specs carry, with its provenance: case-varied `.data` inputs, the
+  return-register audit, G record accessors laid out from the accessor code, blanket E1EE slots removed, and dangling
+  `regions_init` entries dropped.
+- `sets.py`: VA sets, and the ledger's pure closure (`tools/dev/ledger.py`, `pure_rows`).
+- Not generated yet: the G+0x180 table relink (`14065C2A0`, `140978E70`). Those two specs stay hand-kept.
