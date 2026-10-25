@@ -75,6 +75,15 @@ offset = VA - 0x140000000), not a decryption of the file on disk. It becomes one
 - a committed SHA-256 of the read-only and code sections (a hash, not PES bytes), so the gate can check a user's dump
   is the image the specs were authored against.
 
+## Owner ruling 24-10-26: GF's state takes PES's record layout; the end state is PES itself
+
+Record functions (a PES record pointer in a register, fields at PES offsets) are the bulk of the work. GF's PES-path state
+is laid out exactly as PES lays out its records (team T, player slots, MI, MA, then the rest), record by record, so
+translated functions read GF's own memory and switching over is mechanical. No marshalling shims.
+
+The end state of this engine: **no sign of GF is left; what remains is a clean, modifiable reproduction of PES 2021.**
+GF code is scaffolding to be replaced, never a constraint on the reproduction.
+
 ## Constraints (unchanged)
 
 - No PES-derived bytes committed; everything regenerates from the user's PES21 by script.
