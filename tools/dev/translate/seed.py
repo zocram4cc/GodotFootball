@@ -90,7 +90,10 @@ def chain_of(rname):
             return None  # not a G slot (an image address or a shared sentinel)
         return "IMG", [int(p, 16) for p in parts[2:]]
     if parts[0][:1] == "A" and parts[0][1:].isdigit():
-        return parts[0], [int(p, 16) for p in parts[1:]]
+        try:
+            return parts[0], [int(p, 16) for p in parts[1:]]
+        except ValueError:
+            return None  # a non-offset suffix (A0.6D50.pad: zero-filled room, not a chain)
     return None
 
 

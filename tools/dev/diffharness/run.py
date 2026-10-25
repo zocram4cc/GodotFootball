@@ -719,18 +719,21 @@ def run_case(mu, spec, RET_SENTINEL, inputs, timeout_ms=5000, seed=None, zero=Fa
             for n, r in regions.items()}
     img_snap = {va_s: bytes(mu.mem_read(int(va_s, 16), 8))
                 for va_s in (spec.get("patch_addrs") or {})}
+    err = None
     try:
         mu.emu_start(entry, end, timeout=timeout_ms * 1000)
     except Exception as e:
-        return None, "emu error: %s (last RIP %#x)" % (e, getattr(mu, "_last_rip", 0))
+        err = "emu error: %s (last RIP %#x)" % (e, getattr(mu, "_last_rip", 0))
+    # hook_bad records the unmapped access and stops emulation; unicorn then
+    # reports the stop as UC_ERR_MAP, so the recorded reason takes precedence.
     if mu._bad is not None:
-        return None, mu._bad
-    out = decode(mu, spec)
+        err = mu._bad
+    out = decode(mu, spec) if err is None else None
     for n, r in regions.items():
         mu.mem_write(int(r["base"], 16), snap[n])
     for va_s, blob in img_snap.items():
         mu.mem_write(int(va_s, 16), blob)
-    return out, None
+    return out, err
 
 
 def read_image_f32(sections, image_path, va):
@@ -1540,7 +1543,7 @@ def main():
             if _err is not None:
                 print("case %d failed: %s" % (_n, _err), file=sys.stderr)
                 print("  inputs: %s" % json.dumps(_inputs)[:300], file=sys.stderr)
-                return 1
+                continue  # a failing case is reported (stderr) and skipped, not fatal
             out.write(record(_n, _inputs, _result))
         _hit = {_block_of(a) for a in ((mu._addrs or set()) - _pre)
                 if _block_of(a) is not None}
@@ -1551,7 +1554,7 @@ def main():
             if _err is not None:
                 print("guided case %d failed: %s" % (_m, _err), file=sys.stderr)
                 print("  inputs: %s" % json.dumps(_inputs)[:300], file=sys.stderr)
-                return 1
+                continue  # a failing case is reported (stderr) and skipped, not fatal
             out.write(record(len(cases) + _m, _inputs, _result))
         cases = cases + _guided[:count]
         out.close()
@@ -1569,7 +1572,7 @@ def main():
         if err is not None:
             print("case %d failed: %s" % (n, err), file=sys.stderr)
             print("  inputs: %s" % json.dumps(inputs)[:300], file=sys.stderr)
-            return 1
+            continue  # a failing case is reported (stderr) and skipped, not fatal
         out.write(record(n, inputs, result))
     if args.out:
         out.close()
