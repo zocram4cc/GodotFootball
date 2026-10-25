@@ -1,0 +1,507 @@
+{
+ "note": "Impure-sample results. diffed = bit-exact vs the unicorn harness. 'provisional' in a note means the spec reads writable image globals at on-disk values. 'stubs' lists the callees that stubs.json models.",
+ "results": [
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 14043A350: callee 14043DBA0: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (clo",
+   "stubs": [],
+   "translated": false,
+   "va": "0x1404386D0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 1404362D0: callee 14043A350: callee 14043DBA0: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies n",
+   "stubs": [],
+   "translated": false,
+   "va": "0x1404405D0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x1404F47A0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 1404F8350: indirect call qword ptr [rax + 8] at 1404F8753; callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursi",
+   "stubs": [],
+   "translated": false,
+   "va": "0x1404F6C30"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 140596C30: callee 140599E90: callee 14063FBC0: callee 140A79640: callee 141E53540: indirect call qword ptr [rsp + 0x98] at 141E535F9; indirect call qword ptr [rsp + 0x98] at 141E5362F; callee 141E53540: indirect cal",
+   "stubs": [],
+   "translated": false,
+   "va": "0x1404F8C70"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 1404457C0: indirect call qword ptr [r10 + 0x88] at 14044580A; callee 141B55830: indirect call qword ptr [rdx + 0x38] at 141B5583F; call 14044E200: callee 141B52380: computed jump at 141B52392: switch case bodies not",
+   "stubs": [],
+   "translated": false,
+   "va": "0x1404FA720"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 1404FB380: callee 1404F0E50: computed jump at 1404F174F: switch case bodies not enumerated (closure incomplete)",
+   "stubs": [],
+   "translated": false,
+   "va": "0x1404FB2A0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 1404F4AE0: computed jump at 1404F4B00: switch case bodies not enumerated (closure incomplete)",
+   "stubs": [],
+   "translated": false,
+   "va": "0x1404FE9C0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 1404F52E0: callee 14159FCCC: callee 14159FCE0: global store qword ptr [rip + 0x2166c32], r at 14159FD0F; global store qword ptr [rip + 0x2166bc2], r at 14159FD1F; callee 14159FCCC: callee 14159FCE0: global store qwo",
+   "stubs": [],
+   "translated": false,
+   "va": "0x1404FEDC0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x140503430"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call qword ptr [rdx + 0x10] at 140504DD1; call qword ptr [rdx + 8] at 140504DDF; call qword ptr [r10 + 0x88] at 140504F9C; call qword ptr [rax + 0x10] at 140505094; call qword ptr [rdx + 8] at 1405050A2; call qword ptr [",
+   "stubs": [],
+   "translated": false,
+   "va": "0x140504D20"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x1405055E0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 1408C9DF0: computed jump at 1408C8FFC: switch case bodies not enumerated (closure incomplete); call 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf",
+   "stubs": [],
+   "translated": false,
+   "va": "0x140509A40"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3af73)",
+   "stubs": [
+    "0x14159F3E0"
+   ],
+   "translated": true,
+   "va": "0x140510D30"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 140509890: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A3C050: callee 1",
+   "stubs": [],
+   "translated": false,
+   "va": "0x14051B8B0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14051b43e)",
+   "stubs": [
+    "0x14159F3E0"
+   ],
+   "translated": true,
+   "va": "0x14051CF70"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x140529490"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 140A41CC0: callee 140A79640: callee 141E53540: indirect call qword ptr [rsp + 0x98] at 141E535F9; indirect call qword ptr [rsp + 0x98] at 141E5362F; callee 141E53540: indirect call qword ptr [rsp + 0x98] at 141E535F",
+   "stubs": [],
+   "translated": false,
+   "va": "0x14052A190"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14052ac8d)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x14052A820"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x14159F3E0"
+   ],
+   "translated": true,
+   "va": "0x14053B110"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14053b486)",
+   "stubs": [
+    "0x14159F3E0"
+   ],
+   "translated": true,
+   "va": "0x14053B420"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call qword ptr [r9 + 0x20] at 14057A45E",
+   "stubs": [],
+   "translated": false,
+   "va": "0x14057A3E0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [],
+   "translated": true,
+   "va": "0x14057BA50"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x14057D3A0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x1405A6DE0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call qword ptr [rax + 0x10] at 1405ADA8A; call qword ptr [rdx + 8] at 1405ADA96; call qword ptr [r10 + 0x88] at 1405ADBB1; call 1405ACC60: callee 140471A10: indirect call qword ptr [r10 + 0x88] at 140471A5A; callee 141B5",
+   "stubs": [],
+   "translated": false,
+   "va": "0x1405AD720"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14063f7b6)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x1405CCD50"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 1405CDBD0: callee 140A79640: callee 141E53540: indirect call qword ptr [rsp + 0x98] at 141E535F9; indirect call qword ptr [rsp + 0x98] at 141E5362F; callee 141E53540: indirect call qword ptr [rsp + 0x98] at 141E535F",
+   "stubs": [],
+   "translated": false,
+   "va": "0x1405CE4F0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 140A79640: callee 141E53540: indirect call qword ptr [rsp + 0x98] at 141E535F9; indirect call qword ptr [rsp + 0x98] at 141E5362F; callee 141E53540: indirect call qword ptr [rsp + 0x98] at 141E535F9; indirect call q",
+   "stubs": [],
+   "translated": false,
+   "va": "0x1405CE930"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 140596C30: callee 140599E90: callee 14063FBC0: callee 140A79640: callee 141E53540: indirect call qword ptr [rsp + 0x98] at 141E535F9; indirect call qword ptr [rsp + 0x98] at 141E5362F; callee 141E53540: indirect cal",
+   "stubs": [],
+   "translated": false,
+   "va": "0x1405DC350"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 1405D2710: callee 1405E1F60: callee 1405E1B20: computed jump at 1405E1B43: switch case bodies not enumerated (closure incomplete); callee 140596C30: callee 140599E90: callee 14063FBC0: callee 140A79640: callee 141E5",
+   "stubs": [],
+   "translated": false,
+   "va": "0x1405DE950"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call qword ptr [r10 + rax*8 + 0x344 at 1405E458D; call qword ptr [r10 + rax*8 + 0x344 at 1405E4597; call qword ptr [r10 + rax*8 + 0x344 at 1405E45A5; call 1405DC350: callee 1405E1B20: computed jump at 1405E1B43: switch c",
+   "stubs": [],
+   "translated": false,
+   "va": "0x1405E4460"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call qword ptr [rsi] at 140601302",
+   "stubs": [],
+   "translated": false,
+   "va": "0x140601110"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 140630780: callee 1406405C0: callee 140A79640: callee 141E53540: indirect call qword ptr [rsp + 0x98] at 141E535F9; indirect call qword ptr [rsp + 0x98] at 141E5362F; callee 141E53540: indirect call qword ptr [rsp +",
+   "stubs": [],
+   "translated": false,
+   "va": "0x14062E240"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14063913d)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x140639100"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x1406486D0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14064dcc3)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x14064DC50"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a58320)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x14064DE60"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x140654E60"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14065c2fe)",
+   "stubs": [
+    "0x14159F3E0"
+   ],
+   "translated": true,
+   "va": "0x14065C2A0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x14065DAB0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14068744d)",
+   "stubs": [
+    "0x14159F3E0"
+   ],
+   "translated": true,
+   "va": "0x140687310"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 1415A17CE: thunk to the logf/powf import (docs: 'logf/powf are the imports 0x1415a17c8/0x1415a17ce'); result bits come from the C runtime, outside the image",
+   "stubs": [],
+   "translated": false,
+   "va": "0x14080EBA0"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "unmodellable callee",
+   "note": "call 1405CB830: callee 1405C8070: callee 141E53540: indirect call qword ptr [rsp + 0x98] at 141E535F9; indirect call qword ptr [rsp + 0x98] at 141E5362F; callee 1405C8070: callee 141E53540: indirect call qword ptr [rsp +",
+   "stubs": [],
+   "translated": false,
+   "va": "0x140975710"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140978f3d)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x140978E70"
+  },
+  {
+   "cases": 64,
+   "diffed": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: KeyError: 'IMG.1436F3DC8'",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x14097CD00"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x14159F3E0"
+   ],
+   "translated": true,
+   "va": "0x14097FCE0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x14097FFF0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x140A539F0"
+  },
+  {
+   "cases": 64,
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x1415A1780"
+   ],
+   "translated": true,
+   "va": "0x140A57650"
+  }
+ ]
+}

@@ -1173,16 +1173,10 @@ class Emitter:
                         % ops[0].strip()]
             tgt = "0x%X" % imm_val(ops[0])
             stub = (ctx.get("stubs") or {}).get(tgt)
-            if stub is not None:
-                # Spec-stubbed callee (out-of-set/live): mirror run.py's
-                # stub semantics as a fixed return. Pilot specs use
-                # "return" (RAX = value); "return_xmm0" also handled.
-                v = stub.get("value", 0)
-                vv = int(v, 16) if isinstance(v, str) else int(v)
-                if stub.get("do", "return") == "return_xmm0":
-                    return ["{ uint32_t _b = 0x%08XU; s.set_x_f32(0, "
-                            "PesState::f32(_b)); }" % (vv & 0xFFFFFFFF)]
-                return ["s.gpr[0] = 0x%XULL;" % (vv & 0xFFFFFFFFFFFFFFFF)]
+            if stub is not None and stub.get("do") != "unmodellable":
+                # Stubbed callee: its modelled effect on the caller (stubs.py),
+                # then the call returns, as the harness pops the return.
+                return stub_lines(stub["do"])
             if tgt in self.pilot:
                 self.siblings.add(tgt)
                 fn = "pes_fn_%s" % tgt[2:]
@@ -1199,6 +1193,9 @@ class Emitter:
                 addrs = ctx.get("addrs", set())
                 if not addrs or imm_val(o) in addrs:
                     return ["goto L_%X;" % imm_val(o)]
+                stub = (ctx.get("stubs") or {}).get(tgt)
+                if stub is not None and stub.get("do") != "unmodellable":
+                    return stub_lines(stub["do"]) + ["return;"]
                 if tgt in self.pilot:
                     self.siblings.add(tgt)
                     return ["{ pes_fn_%s(s); return; }" % tgt[2:]]
@@ -1503,6 +1500,15 @@ def prepass(lines, img):
             jmpreg[addr] = {"table": None, "tail": None}
     return labels, jmpreg
 
+def stub_lines(do):
+    """C++ for one stubbed callee's modelled effect (names: stubs.py DO)."""
+    if do == "sqrt_xmm0":
+        return ["s.set_x_f32(0, pes_model_sqrtf(s.x_f32(0)));"]
+    if do == "noop":
+        return ["/* stub: engine-noop, no effect on the success path */"]
+    raise ValueError("stub_lines: no model for %r" % (do,))
+
+
 def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
     addrs = {a for a, _, _ in lines}
     ctx = {"jmpreg": jmpreg, "addrs": addrs, "stubs": stubs or {}}
@@ -1603,6 +1609,7 @@ def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
             "// Build tree only; never committed.",
             '#include "pes_state.hpp"',
             '#include "pes_cond.inl"',
+            '#include "pes_stubs.hpp"',
             ""]
     head.extend(const_decls(em))
     head.extend(ro_decls(em))

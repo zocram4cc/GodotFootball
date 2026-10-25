@@ -37,7 +37,8 @@ import shutil
 import sys
 
 FAILURE_CLASSES = ("engine call", "live state", "GPU", "translator bug",
-                   "struct map gap", "harness cannot run")
+                   "struct map gap", "harness cannot run",
+                   "stub model wrong", "unmodellable callee")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
@@ -48,6 +49,8 @@ DEF_SPEC_DIR = os.path.join(REPO, "tools", "dev", "diffharness",
 VENV_PY = os.environ.get("GF_DIFF_PYTHON", sys.executable)
 
 sys.path.insert(0, HERE)
+import stubs as stub_table
+STUB_TABLE = stub_table.load()
 
 
 def eprint(*a):
@@ -85,24 +88,24 @@ def asm_for(asm_dir, va):
     return ""
 
 
+UNMODELLED = re.compile(r"unmodelled (?:read|write) at (0x[0-9a-fA-F]+)")
+IMAGE_BASE = 0x140000000
+
+
 def fault_class(spec, err):
-    """Classify a run.py corpus failure from its stderr + spec precheck."""
-    pre = spec.get("precheck", {}) if spec else {}
-    m = re.search(r"(unmodelled (?:read|write)|Invalid memory mapping)[^\n]*"
-                  r"(0x[0-9a-fA-F]+)?", err)
-    addr = int(m.group(2), 16) if m and m.group(2) else None
-    live = pre.get("live_data_reads") or pre.get("live_data_writes")
-    if addr is not None and addr >= 0x140000000:
-        # Fault inside the image: a global (or its chase target) the spec
-        # does not model -> live state.
-        return "live state", "harness fault at image VA %#x: %s" % (
-            addr, (m.group(0) if m else "")[:160])
-    if live:
-        live_s = "[%s]" % (", ".join("'%s'" % str(v) for v in live)
-                           if isinstance(live, list) else live)
-        return "live state", "spec reads/writes live globals %s" % live_s
-    tag = (m.group(0) if m else err[-200:]).replace("\n", " ")
-    return "struct map gap", "spec closure gap: %s" % tag[:220]
+    """Classify a run.py corpus failure. live state: the faulting address lies in
+    the image (an image global, or a chase target read from it). Otherwise the
+    spec's synthetic closure is incomplete (struct map gap): a zero or unmapped
+    pointer read from a region the spec does not populate."""
+    m = UNMODELLED.search(err)
+    if m and int(m.group(1), 16) >= IMAGE_BASE:
+        return "live state", "harness fault at image VA %s" % m.group(1)
+    failed = re.search(r"failed: ([^\n]*)", err)
+    lines = [ln for ln in err.strip().splitlines() if ln.strip()]
+    # A raised exception ends stderr with its one-line form; never a traceback
+    # (its frames carry machine paths).
+    detail = failed.group(1) if failed else (lines[-1] if lines else "run.py failed")
+    return "struct map gap", "spec closure gap: %s" % detail[:220]
 
 
 def diff_python():
@@ -115,24 +118,51 @@ def translate_one(va, asm_text, image, pilot, stubs=None):
     return xlate.translate_one(image, asm_text, va, pilot, stubs=stubs)
 
 
+def stubmap_of(spec):
+    """{callee VA: stubs.json entry} for the spec's stub_refs (shared with run.py)."""
+    out = {}
+    for ref in spec.get("stub_refs") or []:
+        entry = STUB_TABLE.get(int(ref, 16))
+        if entry is None:
+            raise SystemExit("stub_refs %s has no stubs.json entry" % ref)
+        out["0x%X" % int(ref, 16)] = entry
+    return out
+
+
+def blocked_reason(spec):
+    """Why the function cannot be run at all: its harness class, or an unmodellable stub_refs entry."""
+    harness = spec.get("harness") or {}
+    if str(harness.get("harness_class", "")).startswith("harness cannot run"):
+        return "; ".join(harness.get("blockers") or ["harness cannot run"])
+    for ref in spec.get("stub_refs") or []:
+        entry = STUB_TABLE.get(int(ref, 16))
+        if entry is not None and entry["do"] == "unmodellable":
+            return "stub %s: %s" % (ref, entry["why"])
+    return None
+
+
 def run_one(va, args, pilot):
     """Full pipeline for one function. Returns a result dict."""
     import diffmain
     res = {"va": va, "translated": False, "diffed": False, "cases": 0,
-           "failure_class": None, "note": ""}
+           "failure_class": None, "note": "", "stubs": []}
     spec, spec_path = load_spec(args.spec_dir, va)
     if spec is None:
         res["failure_class"] = "struct map gap"
         res["note"] = "no spec in %s" % args.spec_dir
         return res
     res["cases"] = spec.get("count", 0)
+    reason = blocked_reason(spec)
+    if reason is not None:
+        res["failure_class"] = "unmodellable callee"
+        res["note"] = reason[:220]
+        return res
     gen = os.path.join(args.out_dir, "gen")
     os.makedirs(gen, exist_ok=True)
     tag = va[2:]
-    # 1. translate (spec stubs, if any, become fixed returns in the TU)
-    stubmap = {}
-    for _s in (spec.get("stubs") or {}).values():
-        stubmap["0x" + _s["va"][2:].upper()] = _s
+    # 1. translate: stubs.json models for the spec's stub_refs (stubs.py)
+    stubmap = stubmap_of(spec)
+    res["stubs"] = sorted(stubmap)
     try:
         asm_text = asm_for(args.asm_dir, va)
         src, _ = translate_one(va, asm_text, args.image, pilot,
@@ -183,10 +213,10 @@ def build_and_diff(va, spec, args, pilot, nlines):
     import diffmain
     gen = os.path.join(args.out_dir, "gen")
     tag = va[2:]
+    stubmap = stubmap_of(spec)
+    # The build declares only callees it links: pilot-universe members that are not stubbed.
     callees = ["0x" + c.upper() for c in (spec.get("precheck", {}) or {}).get("calls", [])]
-    stubmap = {}
-    for _s in (spec.get("stubs") or {}).values():
-        stubmap["0x" + _s["va"][2:].upper()] = _s
+    callees = [c for c in callees if c in pilot and c not in stubmap]
     # translate callees too (their TUs must exist to link). Closure is
     # transitive: a callee's own callees must also link (e.g. 140A53DA0
     # -> 140439EF0). Edges come from each spec's precheck calls.
@@ -274,7 +304,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
     with open(main_p, "w") as f:
         f.write(main_src)
     # support headers into the build tree (committed tools, copied)
-    for h in ("pes_state.hpp", "pes_cond.inl", "diffparse.hpp"):
+    for h in ("pes_state.hpp", "pes_cond.inl", "diffparse.hpp", "pes_stubs.hpp"):
         hp = os.path.join(gen, h)
         if not os.path.exists(hp):
             with open(os.path.join(HERE, h), "rb") as fi, \
@@ -335,9 +365,12 @@ def main():
                     help="re-run every VA results.json records as diffed; exit 1 if any no longer diffs bit-exact. "
                          "Never writes the repo results.json (the gate's pilot test).")
     args = ap.parse_args()
-    repo_json = os.path.join(REPO, "tools", "dev", "translate", "results.json")
+    pilot_json = os.path.join(REPO, "tools", "dev", "translate", "results.json")
     if args.check:
-        args.only = [r["va"] for r in json.load(open(repo_json))["results"] if r["diffed"]]
+        args.only = [r["va"] for r in json.load(open(pilot_json))["results"] if r["diffed"]]
+    is_pilot = os.path.abspath(args.spec_dir) == os.path.abspath(DEF_SPEC_DIR)
+    repo_json = os.path.join(REPO, "tools", "dev", "translate",
+                             "results.json" if is_pilot else "results_impure.json")
 
     specs = sorted(f for f in os.listdir(args.spec_dir)
                    if f.endswith(".json"))
@@ -345,7 +378,10 @@ def main():
     # filters which functions get results, not the callee universe.
     # Otherwise callees outside --only would mistranslate as out-of-set
     # stubs and every --only diff with calls would spuriously mismatch.
-    pilot = {"0x" + f[:-5].upper() for f in specs}
+    pilot = {"0x" + f[:-5].upper() for f in os.listdir(DEF_SPEC_DIR) if f.endswith(".json")}
+    pilot |= {"0x" + f[:-5].upper() for f in specs}
+    # run-real closure callees (stubs.json) are translated like pilot members
+    pilot |= {"0x%X" % va for va, entry in STUB_TABLE.items() if entry["do"] is None}
     if args.only:
         want = {v.lower().replace("0x", "") for v in args.only}
         specs = [f for f in specs if f[:-5].lower() in want]
@@ -378,10 +414,10 @@ def main():
     # must never overwrite the record of the whole set). Sort by VA.
     results.sort(key=lambda r: r["va"])
     payload = {"results": results,
-               "note": "Pilot translation results. diffed = bit-exact vs "
-                       "the unicorn harness. 'provisional' in a note means "
-                       "the spec reads writable image globals at on-disk "
-                       "values."}
+               "note": ("%s results. diffed = bit-exact vs the unicorn harness. "
+                        "'provisional' in a note means the spec reads writable image "
+                        "globals at on-disk values. 'stubs' lists the callees that "
+                        "stubs.json models." % ("Pilot" if is_pilot else "Impure-sample"))}
     build_json = os.path.join(args.out_dir, "results.json")
     json.dump(payload, open(build_json, "w"), indent=1, sort_keys=True)
     if not args.only:

@@ -1,0 +1,1193 @@
+{
+ "name": "impure_1405DE950",
+ "va": "0x1405DE950",
+ "entry": "0x1405DE950",
+ "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (fixclosure.py): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
+ "status": "impure-sample",
+ "subsystem": "impure-sample",
+ "stack": {
+  "base": "0x10000000",
+  "size": "0x20000"
+ },
+ "regions": {
+  "A1": {
+   "base": "0x20000000",
+   "size": "0x200000"
+  },
+  "A2": {
+   "base": "0x20400000",
+   "size": "0x200000"
+  },
+  "A3": {
+   "base": "0x20800000",
+   "size": "0x200000"
+  },
+  "A3.0": {
+   "base": "0x20C00000",
+   "size": "0x200000"
+  },
+  "A3.8": {
+   "base": "0x21000000",
+   "size": "0x200000"
+  },
+  "A3.10": {
+   "base": "0x21400000",
+   "size": "0x200000"
+  },
+  "A3.20": {
+   "base": "0x21800000",
+   "size": "0x200000"
+  },
+  "A3.28": {
+   "base": "0x21C00000",
+   "size": "0x200000"
+  },
+  "A3.F8": {
+   "base": "0x22000000",
+   "size": "0x200000"
+  },
+  "A3.F8.18": {
+   "base": "0x22400000",
+   "size": "0x200000"
+  },
+  "A3.F8.E0": {
+   "base": "0x22800000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8": {
+   "base": "0x22C00000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.270": {
+   "base": "0x23000000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.1928": {
+   "base": "0x23400000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.1978": {
+   "base": "0x23800000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.19C8": {
+   "base": "0x23C00000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.1DD8": {
+   "base": "0x24000000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.E1EE": {
+   "base": "0x24400000",
+   "size": "0x200000"
+  }
+ },
+ "args": {
+  "rdx": "A1",
+  "r8": "A2",
+  "r9": "A3"
+ },
+ "regions_init": {
+  "A3+0x0": "A3.0",
+  "A3+0x8": "A3.8",
+  "A3+0x10": "A3.10",
+  "A3+0x20": "A3.20",
+  "A3+0x28": "A3.28",
+  "A3+0xF8": "A3.F8",
+  "A3.F8+0x18": "A3.F8.18",
+  "A3.F8+0xE0": "A3.F8.E0",
+  "IMG.1436F3DC8+0x1928": "IMG.1436F3DC8.1928",
+  "IMG.1436F3DC8+0x1978": "IMG.1436F3DC8.1978",
+  "IMG.1436F3DC8+0x19C8": "IMG.1436F3DC8.19C8",
+  "IMG.1436F3DC8+0x1DD8": "IMG.1436F3DC8.1DD8",
+  "IMG.1436F3DC8+0x270": "IMG.1436F3DC8.270",
+  "IMG.1436F3DC8+0x19F0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1A18": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1A40": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1A68": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1A90": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1AB8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1AE0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1B08": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1B30": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1B58": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1B80": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1BA8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1BD0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1BF8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1C20": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1C48": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1C70": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1C98": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1CC0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1CE8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1D10": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1D38": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1D60": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1D88": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1DB0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1E00": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1E28": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1E50": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1E78": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1EA0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1EC8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1EF0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1F18": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1F40": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1F68": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1F90": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1FB8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1FE0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2008": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2030": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2058": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2080": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x20A8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x20D0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x20F8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2120": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2148": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2170": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2198": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x21C0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1950": "IMG.1436F3DC8.E1EE"
+ },
+ "patch_addrs": {
+  "0x1436F3DC8": "IMG.1436F3DC8"
+ },
+ "inputs": {
+  "A1_0": {
+   "region": "A1",
+   "offset": "0x0",
+   "enc": "u64"
+  },
+  "A1_8": {
+   "region": "A1",
+   "offset": "0x8",
+   "enc": "f32"
+  },
+  "A2_40C": {
+   "region": "A2",
+   "offset": "0x40C",
+   "enc": "u32"
+  },
+  "A2_730": {
+   "region": "A2",
+   "offset": "0x730",
+   "enc": "u64"
+  },
+  "A2_738": {
+   "region": "A2",
+   "offset": "0x738",
+   "enc": "u32"
+  },
+  "A3_110": {
+   "region": "A3",
+   "offset": "0x110",
+   "enc": "u32"
+  },
+  "A3_0_0": {
+   "region": "A3.0",
+   "offset": "0x0",
+   "enc": "f32"
+  },
+  "A3_0_4": {
+   "region": "A3.0",
+   "offset": "0x4",
+   "enc": "f32"
+  },
+  "A3_0_18": {
+   "region": "A3.0",
+   "offset": "0x18",
+   "enc": "f32"
+  },
+  "A3_0_1C": {
+   "region": "A3.0",
+   "offset": "0x1C",
+   "enc": "f32"
+  },
+  "A3_8_4": {
+   "region": "A3.8",
+   "offset": "0x4",
+   "enc": "f32"
+  },
+  "A3_10_250": {
+   "region": "A3.10",
+   "offset": "0x250",
+   "enc": "f32"
+  },
+  "A3_10_254": {
+   "region": "A3.10",
+   "offset": "0x254",
+   "enc": "u8"
+  },
+  "A3_10_8E08": {
+   "region": "A3.10",
+   "offset": "0x8E08",
+   "enc": "u32"
+  },
+  "A3_10_A2A0": {
+   "region": "A3.10",
+   "offset": "0xA2A0",
+   "enc": "u32"
+  },
+  "A3_20_40": {
+   "region": "A3.20",
+   "offset": "0x40",
+   "enc": "f32"
+  },
+  "A3_20_44": {
+   "region": "A3.20",
+   "offset": "0x44",
+   "enc": "f32"
+  },
+  "A3_28_116C": {
+   "region": "A3.28",
+   "offset": "0x116C",
+   "enc": "u32"
+  },
+  "A3_28_1554": {
+   "region": "A3.28",
+   "offset": "0x1554",
+   "enc": "u32"
+  },
+  "A3_F8_18_44": {
+   "region": "A3.F8.18",
+   "offset": "0x44",
+   "enc": "f32"
+  },
+  "A3_F8_18_2482C": {
+   "region": "A3.F8.18",
+   "offset": "0x2482C",
+   "enc": "u64"
+  },
+  "A3_F8_18_24834": {
+   "region": "A3.F8.18",
+   "offset": "0x24834",
+   "enc": "u32"
+  },
+  "A3_F8_18_25CF8": {
+   "region": "A3.F8.18",
+   "offset": "0x25CF8",
+   "enc": "u32"
+  },
+  "A3_F8_18_25D38": {
+   "region": "A3.F8.18",
+   "offset": "0x25D38",
+   "enc": "u32"
+  },
+  "A3_F8_18_2601C": {
+   "region": "A3.F8.18",
+   "offset": "0x2601C",
+   "enc": "u32"
+  },
+  "A3_F8_E0_1908": {
+   "region": "A3.F8.E0",
+   "offset": "0x1908",
+   "enc": "u32"
+  },
+  "A3_F8_E0_1924": {
+   "region": "A3.F8.E0",
+   "offset": "0x1924",
+   "enc": "u64"
+  },
+  "A3_F8_E0_3208": {
+   "region": "A3.F8.E0",
+   "offset": "0x3208",
+   "enc": "u32"
+  },
+  "A3_F8_E0_320C": {
+   "region": "A3.F8.E0",
+   "offset": "0x320C",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_0": {
+   "region": "IMG.1436F3DC8",
+   "offset": "0x0",
+   "enc": "u64"
+  },
+  "IMG_1436F3DC8_270_116C": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x116C",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_11D4": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x11D4",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_173C": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x173C",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_1928_78": {
+   "region": "IMG.1436F3DC8.1928",
+   "offset": "0x78",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_1928_254": {
+   "region": "IMG.1436F3DC8.1928",
+   "offset": "0x254",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_1928_8E08": {
+   "region": "IMG.1436F3DC8.1928",
+   "offset": "0x8E08",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_1978_0": {
+   "region": "IMG.1436F3DC8.1978",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_1978_4": {
+   "region": "IMG.1436F3DC8.1978",
+   "offset": "0x4",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_19C8_1A_b0": {
+   "region": "IMG.1436F3DC8.19C8",
+   "offset": "0x1A",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_19C8_1B_b1": {
+   "region": "IMG.1436F3DC8.19C8",
+   "offset": "0x1B",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_19C8_1C_b0": {
+   "region": "IMG.1436F3DC8.19C8",
+   "offset": "0x1C",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_19C8_1D_b1": {
+   "region": "IMG.1436F3DC8.19C8",
+   "offset": "0x1D",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_19C8_40": {
+   "region": "IMG.1436F3DC8.19C8",
+   "offset": "0x40",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_19C8_124": {
+   "region": "IMG.1436F3DC8.19C8",
+   "offset": "0x124",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_1DD8_554": {
+   "region": "IMG.1436F3DC8.1DD8",
+   "offset": "0x554",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_1DD8_558": {
+   "region": "IMG.1436F3DC8.1DD8",
+   "offset": "0x558",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_1DD8_55C": {
+   "region": "IMG.1436F3DC8.1DD8",
+   "offset": "0x55C",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_1DD8_560": {
+   "region": "IMG.1436F3DC8.1DD8",
+   "offset": "0x560",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_1DD8_564": {
+   "region": "IMG.1436F3DC8.1DD8",
+   "offset": "0x564",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_1DD8_574": {
+   "region": "IMG.1436F3DC8.1DD8",
+   "offset": "0x574",
+   "enc": "u64"
+  },
+  "IMG_1436F3DC8_1DD8_57C": {
+   "region": "IMG.1436F3DC8.1DD8",
+   "offset": "0x57C",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_1DD8_5B0": {
+   "region": "IMG.1436F3DC8.1DD8",
+   "offset": "0x5B0",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_E1EE_0": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_E1EE_4": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x4",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_E1EE_1A_b0": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x1A",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_E1EE_1B_b1": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x1B",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_E1EE_1C_b0": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x1C",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_E1EE_1D_b1": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x1D",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_E1EE_40": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x40",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_E1EE_78": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x78",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_E1EE_124": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x124",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_E1EE_254": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x254",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_E1EE_554": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x554",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_E1EE_558": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x558",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_E1EE_55C": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x55C",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_E1EE_560": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x560",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_E1EE_564": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x564",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_E1EE_574": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x574",
+   "enc": "u64"
+  },
+  "IMG_1436F3DC8_E1EE_57C": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x57C",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_E1EE_5B0": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x5B0",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_E1EE_8E08": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x8E08",
+   "enc": "u32"
+  },
+  "stk0": {
+   "stack_offset": "0x20",
+   "enc": "u64"
+  },
+  "stk1": {
+   "stack_offset": "0x28",
+   "enc": "u64"
+  },
+  "stk3": {
+   "stack_offset": "0x38",
+   "enc": "u32"
+  },
+  "stk4": {
+   "stack_offset": "0x40",
+   "enc": "u64"
+  },
+  "stk5": {
+   "stack_offset": "0x48",
+   "enc": "u32"
+  },
+  "stk6": {
+   "stack_offset": "0x50",
+   "enc": "u8"
+  },
+  "stk7": {
+   "stack_offset": "0x58",
+   "enc": "u32"
+  },
+  "stk8": {
+   "stack_offset": "0x60",
+   "enc": "u8"
+  },
+  "stk9": {
+   "stack_offset": "0x68",
+   "enc": "u8"
+  }
+ },
+ "input_schema": {
+  "A1_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_8": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A2_40C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_730": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_738": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_110": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_0_0": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A3_0_4": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A3_0_18": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A3_0_1C": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A3_8_4": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A3_10_250": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A3_10_254": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_10_8E08": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_10_A2A0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_20_40": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A3_20_44": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A3_28_116C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_28_1554": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_F8_18_44": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A3_F8_18_2482C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_F8_18_24834": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_F8_18_25CF8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_F8_18_25D38": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_F8_18_2601C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_F8_E0_1908": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_F8_E0_1924": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_F8_E0_3208": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A3_F8_E0_320C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_116C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_11D4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_173C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_1928_78": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_1928_254": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_1928_8E08": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_1978_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_1978_4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_19C8_1A_b0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_19C8_1B_b1": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_19C8_1C_b0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_19C8_1D_b1": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_19C8_40": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_19C8_124": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_1DD8_554": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_1DD8_558": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_1DD8_55C": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_1DD8_560": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_1DD8_564": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_1DD8_574": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_1DD8_57C": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_1DD8_5B0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_1A_b0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_1B_b1": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_1C_b0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_1D_b1": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_40": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_78": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_124": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_E1EE_254": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_554": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_E1EE_558": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_55C": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_E1EE_560": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_564": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_E1EE_574": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_57C": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_E1EE_5B0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_8E08": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "stk0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "stk1": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "stk3": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "stk4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "stk5": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "stk6": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "stk7": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "stk8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "stk9": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  }
+ },
+ "outputs": {
+  "w_A1_0_d0": {
+   "region": "A1",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "w_A1_4_d1": {
+   "region": "A1",
+   "offset": "0x4",
+   "enc": "u32"
+  },
+  "w_A1_8": {
+   "region": "A1",
+   "offset": "0x8",
+   "enc": "f32"
+  },
+  "ret_rax": {
+   "reg": "rax"
+  }
+ },
+ "ret_note": "rax (pointer-valued return)",
+ "seed": 1042,
+ "count": 64,
+ "precheck": {
+  "indirect_calls": [],
+  "tailjumps": [
+   "tailjump@140A502DE",
+   "tailjump@140A57802"
+  ],
+  "unresolved_mem": 16,
+  "live_data_reads": [
+   "IMG"
+  ],
+  "live_data_writes": [],
+  "rdata_constant_reads": [
+   "IMG"
+  ],
+  "stack_args": {
+   "0": [
+    8
+   ],
+   "1": [
+    8
+   ],
+   "3": [
+    4
+   ],
+   "4": [
+    8
+   ],
+   "5": [
+    4
+   ],
+   "6": [
+    1
+   ],
+   "7": [
+    4
+   ],
+   "8": [
+    1
+   ],
+   "9": [
+    1
+   ]
+  },
+  "calls": [
+   "140439E50",
+   "14043A0A0",
+   "1405DFC70",
+   "1405DFE40",
+   "1405E0010",
+   "1405E0C60",
+   "1408C5030",
+   "1408C52E0",
+   "140A3AF90",
+   "140A3B320",
+   "140A3E7D0",
+   "140A48910",
+   "140A489D0",
+   "140A48A10",
+   "140A48A30",
+   "140A50250",
+   "140A57800",
+   "140A60500",
+   "140A62180",
+   "140A627E0",
+   "140A63950",
+   "140A6C6D0",
+   "140A8F7C0",
+   "140A92C80",
+   "140A92D40",
+   "140A92DC0",
+   "141B59E20",
+   "141E532D0"
+  ],
+  "flags": [
+   "callee-outside-set@1405D2710",
+   "tailjump@140A502DE",
+   "tailjump@140A57802",
+   "unresolved-mem@1405DEA16",
+   "unresolved-mem@1405DEA4C",
+   "unresolved-mem@1405DEA68",
+   "unresolved-mem@1405DEABE",
+   "unresolved-mem@1405DEAC3",
+   "unresolved-mem@1405DEAD1",
+   "unresolved-mem@1405DEB28",
+   "unresolved-mem@1405DEB36",
+   "unresolved-mem@1405DECD1",
+   "unresolved-mem@1405DECDC",
+   "unresolved-mem@1405DEE0F",
+   "unresolved-mem@1405DEE66",
+   "unresolved-mem@1405E0CA1",
+   "unresolved-mem@1405E104A",
+   "unresolved-mem@1408C5051",
+   "unresolved-mem@1408C5303"
+  ],
+  "stub_refs": [
+   "14159F3E0",
+   "1415A1780"
+  ]
+ },
+ "stub_refs": [
+  "14159F3E0",
+  "1415A1780"
+ ],
+ "harness": {
+  "harness_class": "harness cannot run",
+  "blockers": [
+   "call 1405D2710: callee 1405E1F60: callee 1405E1B20: computed jump at 1405E1B43: switch case bodies not enumerated (closure incomplete); callee 140596C30: callee 140599E90: callee 14063FBC0: callee 140A79640: callee 141E53540: indirect call qword ptr [rsp + 0x98] at 141E535F9; indirect call qword ptr [rsp + 0x98] at 141E5362F; callee 141E53540: indirect call qword ptr [rsp + 0x98] at 141E535F9; indirect call qword ptr [rsp + 0x98] at 141E5362F"
+  ],
+  "out_of_set_callees": [
+   {
+    "va": "1405D2710",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": [
+     "14159F3E0",
+     "1415A1780"
+    ]
+   }
+  ],
+  "indirect_sites": [],
+  "switch_jumps": [
+   "1405DECC9"
+  ]
+ },
+ "closure_fix": {
+  "accessors": [
+   "140A48910",
+   "140A48A10",
+   "140A48A30"
+  ],
+  "removed_blanket_E1EE_slots": 234,
+  "child_links": 5,
+  "accessor_slots": 54,
+  "rule": "fixclosure.py: child links + accessor layout from image bytes"
+ }
+}
