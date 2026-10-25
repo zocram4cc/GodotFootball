@@ -369,9 +369,44 @@ def install_hooks(mu, spec, RET_SENTINEL):
     stubs = {int(s["va"], 16): (name, s) for name, s in (spec.get("stubs") or {}).items()}
     mu._draws = []
     mu._bad = None
+    # --trace-calls: record (indirect site -> entered target) pairs. The
+    # hook sees each entered RIP; when the previous RIP was an indirect
+    # call/jump, the entered RIP is its runtime target (no operand
+    # evaluation: the bytes already computed it). Stubbed callees pop
+    # their return in-hook, so the fallthrough after them never records.
+    mu._trace = {} if getattr(mu, "_trace_on", False) else None
+    mu._prev = [None, 0]
+
+    def _is_indirect_site(uc, va):
+        try:
+            blob = bytes(uc.mem_read(va, 8))
+        except Exception:
+            return False
+        # Skip legacy/REX prefixes (vtable calls carry REX: 41 FF 51 20).
+        i = 0
+        while i < len(blob) and (blob[i] in (0x66, 0x67, 0xF0, 0xF2,
+               0xF3, 0x2E, 0x3E, 0x26, 0x64, 0x65, 0x36) or
+               0x40 <= blob[i] <= 0x4F):
+            i += 1
+        if i + 1 >= len(blob) or blob[i] != 0xFF:
+            return False
+        # FF /2 CALL, FF /4 JMP (group-5 indirect branch, any modrm).
+        return (blob[i + 1] >> 3) & 7 in (2, 4)
 
     def hook_code(uc, address, size, data):
         uc._last_rip = address
+        if uc._trace is not None:
+            prev, psz = uc._prev
+            # Entered address after an indirect call/jump is its runtime
+            # target — including a switch case that falls through (target
+            # == site + size). Only the stub-return transition (prev is a
+            # stub entry, whose model pops the return in-hook) is skipped.
+            if prev is not None and prev not in stubs and \
+                    _is_indirect_site(uc, prev):
+                uc._trace.setdefault("0x%X" % prev, {}).setdefault(
+                    "0x%X" % address, 0)
+                uc._trace["0x%X" % prev]["0x%X" % address] += 1
+            uc._prev = [address, size]
         if address == RET_SENTINEL:
             uc.emu_stop()
             return
@@ -544,6 +579,7 @@ def run_case(mu, spec, RET_SENTINEL, inputs, timeout_ms=5000):
             mu.reg_write(reg_const(reg), int(val, 0) if isinstance(val, str) else val)
     set_inputs(mu, spec, inputs)
     mu._draws = []
+    mu._prev = [None, 0]
     mu._bad = None
     mu._getters = []
     mu._teamw = []
@@ -738,6 +774,9 @@ def main():
     ap.add_argument("--check-spec", action="store_true")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--count", type=int, default=300)
+    ap.add_argument("--trace-calls", default=None,
+                    help="write {site: {target: count}} for harness-reached "
+                    "indirect calls/jumps (coverage of the dispatch table)")
     args = ap.parse_args()
     spec = resolve_stubs(load_spec(args.spec))
     kind = image_kind(args.exe)
@@ -753,6 +792,7 @@ def main():
             print("spec error: %s" % e, file=sys.stderr)
         return 1
     mu, RET = build_emu(spec, args.exe, sections)
+    mu._trace_on = args.trace_calls is not None
     install_hooks(mu, spec, RET)
     seed = args.seed if args.seed != 1 or "seed" not in spec else spec["seed"]
     count = args.count if args.count != 300 or "count" not in spec else spec["count"]
@@ -767,6 +807,9 @@ def main():
         out.write(json.dumps({"va": spec["va"], "in": inputs, "out": result}) + "\n")
     if args.out:
         out.close()
+    if args.trace_calls is not None:
+        with open(args.trace_calls, "w") as tf:
+            json.dump(mu._trace or {}, tf, indent=1, sort_keys=True)
     print("%d cases -> %s" % (len(cases), args.out or "stdout"))
     return 0
 
