@@ -527,6 +527,12 @@ def install_hooks(mu, spec, RET_SENTINEL):
             dst = uc.reg_read(reg_const("rcx")) + int(stub["offset"], 16)
             val = uc.reg_read(reg_const("edx")) & 0xFFFFFFFF
             uc.mem_write(dst, struct.pack("<I", val))
+        elif kind == "abort":
+            # Tamper trap (stubs.json abort-trap): reaching it means the
+            # tamper path fired. Loud failure, never a silent model.
+            uc._bad = "abort trap %s reached" % name
+            uc.emu_stop()
+            return
         elif kind == "noop":
             # engine-noop (stubs.json): no effect on the success path; the
             # call is dropped, registers untouched, the return is popped below.

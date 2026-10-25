@@ -100,6 +100,10 @@ def fault_class(spec, err):
     m = UNMODELLED.search(err)
     if m and int(m.group(1), 16) >= IMAGE_BASE:
         return "live state", "harness fault at image VA %s" % m.group(1)
+    if "abort trap" in err:
+        # The tamper path fired on some case: genuinely unrunnable input.
+        return "unmodellable callee", \
+            "abort trap reached: %s" % err.strip().splitlines()[-1][:200]
     failed = re.search(r"failed: ([^\n]*)", err)
     lines = [ln for ln in err.strip().splitlines() if ln.strip()]
     # A raised exception ends stderr with its one-line form; never a traceback
@@ -127,6 +131,13 @@ def stubmap_of(spec):
             raise SystemExit("stub_refs %s has no stubs.json entry" % ref)
         out["0x%X" % int(ref, 16)] = entry
     return out
+
+
+# Abort traps model in every build (a mid-closure CALL to one must be loud,
+# never OUT-OF-SET zero). Merged at each translate call, never recorded in
+# res["stubs"] (build-wide, not a spec input).
+ABORTMAP = {"0x%X" % va: entry for va, entry in STUB_TABLE.items()
+            if entry["do"] == "abort"}
 def _why_texts(why):
     if why is None:
         return []
@@ -231,8 +242,14 @@ def runnable_extra(spec, image, depth_cap=25):
                 else:
                     blocked[c] = "call outside code range"
                 continue
-            if e["do"] is None or (e["do"] == "unmodellable" and
-                                   _why_dispatchable(e.get("why"))):
+            if e["do"] == "abort":
+                # Modelled by the stub (ABORTMAP), never translated: the
+                # thunk body is one indirect jump the translator cannot see
+                # through, while the stub is loud on both sides.
+                continue
+            if e["do"] is None or \
+                    (e["do"] == "unmodellable" and
+                     _why_dispatchable(e.get("why"))):
                 stack.append((c, depth + 1, chain + [c]))
             else:
                 blocked[c] = "; ".join(_why_texts(e.get("why")) or [e["do"]])[:200]
@@ -240,17 +257,27 @@ def runnable_extra(spec, image, depth_cap=25):
 
 
 def _blocker_dispatchable(text):
-    """A harness blocker the runtime dispatch mechanism now handles: any
-    indirect call (emitted as a table lookup) or computed jump (emitted as
-    a native switch). Import slots with no name stay unmodellable: their
-    target is a CRT/engine import outside the image."""
+    """A harness blocker the build now handles: any indirect call (a table
+    lookup) or computed jump (a native switch). Abort-trap import slots
+    stay loud on both sides (harness error, C++ abort()), so a corpus
+    behind one proves the path unreached. Recursion and bounded depth are
+    attempted: both languages recurse, and corpus success is the proof.
+    Other import slots and global stores stay unmodellable."""
     t = text.strip()
+    if "import slot" in t:
+        # Bare slot reasons ("callee T: import slot V ...") as well as site
+        # phrasings: only abort traps proceed (loud on both sides).
+        m = re.search(r"import slot ([0-9A-Fa-f]+)", t)
+        return m is not None and \
+            int(m.group(1), 16) in stub_table.ABORT_SLOTS
     # Own-function sites are phrased "call <mem> at <site>" (the ImpureMap
     # precheck wording); closure sites "indirect call <mem> at <site>".
     if t.startswith("indirect call ") or t.startswith("call qword ptr ") \
             or t.startswith("call rsi"):
-        return "import slot" not in t
+        return True
     if t.startswith("computed jump at "):
+        return True
+    if t.startswith("recursion through ") or t.startswith("call depth"):
         return True
     return False
 
@@ -295,9 +322,11 @@ def run_one(va, args, pilot):
         res["failure_class"] = "unmodellable callee"
         res["note"] = reason[:220]
         return res
-    gen = os.path.join(args.out_dir, "gen")
-    os.makedirs(gen, exist_ok=True)
     tag = va[2:]
+    # Per-VA build dir: parallel builds share nothing (parallel runs with
+    # overlapping closures raced on shared TUs and the dispatch header).
+    gen = os.path.join(args.out_dir, "gen", tag)
+    os.makedirs(gen, exist_ok=True)
     # 1. translate: stubs.json models for the spec's stub_refs (stubs.py).
     # Runnable out-of-set callees join this build's universe so the CALL
     # emitter links them instead of zeroing rax (OUT-OF-SET).
@@ -307,7 +336,7 @@ def run_one(va, args, pilot):
     try:
         asm_text = asm_for(args.asm_dir, va)
         src, _ = translate_one(va, asm_text, args.image, build_pilot,
-                               stubs=stubmap)
+                               stubs={**stubmap, **ABORTMAP})
         if src is None:
             res["failure_class"] = "translator bug"
             res["note"] = "xlate: no instructions"
@@ -358,8 +387,8 @@ def build_and_diff(va, spec, args, pilot, nlines):
     (ok, note, failure_class). Callee list comes from the spec precheck
     (committed), so the build needs no analysis scratch."""
     import diffmain
-    gen = os.path.join(args.out_dir, "gen")
     tag = va[2:]
+    gen = os.path.join(args.out_dir, "gen", tag)
     stubmap = stubmap_of(spec)
     # Runnable out-of-set callees (dispatchable switches/indirects): the
     # build translates them and calls them for real, like the harness runs
@@ -419,7 +448,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
             asp, _ = load_spec(args.spec_dir, cv)
             try:
                 csrc, _ = translate_one(cv, asm_for(args.asm_dir, cv),
-                                        args.image, build_pilot, stubs=stubmap)
+                                        args.image, build_pilot, stubs={**stubmap, **ABORTMAP})
                 if csrc is None:
                     return False, "callee %s: no instructions" % cv, \
                         "translator bug"
@@ -454,7 +483,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
         asp, _ = load_spec(args.spec_dir, cv)
         try:
             csrc, _ = translate_one(cv, asm_for(args.asm_dir, cv),
-                                    args.image, pilot, stubs=stubmap)
+                                    args.image, build_pilot, stubs={**stubmap, **ABORTMAP})
             if csrc is None:
                 return False, "callee %s: no instructions" % cv, \
                     "translator bug"
@@ -578,7 +607,7 @@ def finish_one(va, args, pilot):
     if res["translated"]:
         try:
             addrs = json.load(open(os.path.join(
-                args.out_dir, "gen", "addrs_%s.json" % va[2:])))
+                args.out_dir, "gen", va[2:], "addrs_%s.json" % va[2:])))
         except (OSError, ValueError):
             addrs = []
         spec, _ = load_spec(args.spec_dir, va)

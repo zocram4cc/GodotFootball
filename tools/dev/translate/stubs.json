@@ -5,7 +5,8 @@
   "engine-noop": "CRT/engine call with no effect on the success path",
   "run-real": "pure: the harness executes the image bytes; the C++ build must translate it too",
   "run-real-closure": "executes image bytes; its closure calls the listed stubs",
-  "unmodellable": "blocked: see why"
+  "unmodellable": "blocked: see why",
+  "abort-trap": "tamper trap (not a real import): loud abort on both sides when reached; a corpus behind one proves the path unreached"
  },
  "stubs": [
   {
@@ -3614,6 +3615,23 @@
     "executes": "image bytes (no stub)",
     "instructions": 2,
     "c_build": "pure: the C++ build must translate this VA too (pilot extension)"
+   }
+  },
+  {
+   "va": "1415A1714",
+   "callers": [
+    "140A3C050",
+    "140A58550",
+    "140A58350",
+    "140A58450"
+   ],
+   "used_by_closure": true,
+   "kind": "abort-trap",
+   "why": [
+    "thunk jmp [0x14252FDE0]: tamper-path trap (docs/ports/pes-port-TeamT2.md:43); tools/dev/ledger/indirect.py KNOWN_SLOTS names 0x14252FDE0 'abort'"
+   ],
+   "model": {
+    "op": "abort"
    }
   }
  ]

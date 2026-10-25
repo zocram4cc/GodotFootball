@@ -18,15 +18,22 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT = os.path.join(HERE, "stubs.json")
 
+# IAT slots whose target aborts when reached (tamper traps, not real
+# imports). A call through one is loud on both sides (harness error,
+# C++ abort()); a corpus behind one proves the path unreached.
+# Names from tools/dev/ledger/indirect.py KNOWN_SLOTS.
+ABORT_SLOTS = {0x14252FDE0: "abort"}
+
 # kind -> {model.op: do}; None is the op-independent default for the kind.
 DO_BY_KIND = {
     "return-input": {"sqrtf": "sqrt_xmm0"},
     "engine-noop": {None: "noop"},
+    "abort-trap": {"abort": "abort"},
     "run-real": {None: None},
     "run-real-closure": {None: None},
     "unmodellable": {None: "unmodellable"},
 }
-KNOWN_DO = {"sqrt_xmm0", "noop", "unmodellable", None}
+KNOWN_DO = {"sqrt_xmm0", "noop", "abort", "unmodellable", None}
 
 
 def load(path=DEFAULT):

@@ -1523,6 +1523,9 @@ def stub_lines(do):
         return ["s.set_x_f32(0, pes_model_sqrtf(s.x_f32(0)));"]
     if do == "noop":
         return ["/* stub: engine-noop, no effect on the success path */"]
+    if do == "abort":
+        # Tamper trap: reaching it aborts, exactly as the harness errors.
+        return ["abort();"]
     raise ValueError("stub_lines: no model for %r" % (do,))
 
 
@@ -1628,6 +1631,7 @@ def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
             '#include "pes_dispatch.hpp"',
             '#include "pes_cond.inl"',
             '#include "pes_stubs.hpp"',
+            '#include <cstdlib>',
             ""]
     head.extend(const_decls(em))
     head.extend(ro_decls(em))
