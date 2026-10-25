@@ -363,10 +363,11 @@ def run_one(va, args, pilot):
     trace = os.path.join(gen, "trace_%s.json" % tag)
     addrs = os.path.join(gen, "addrs_%s.json" % tag)
     count = ["--count", str(args.count)] if args.count else []
+    seed_args = ["--seed-state", args.seed_state] if args.seed_state else []
     rc, _, err = sh([diff_python(), RUN_PY, "--exe", args.image,
                      "--spec", spec_path, "--out", corpus,
                      "--trace-calls", trace,
-                     "--trace-addrs", addrs] + count,
+                     "--trace-addrs", addrs] + count + seed_args,
                     timeout=args.timeout)
     if rc != 0:
         cls, note = fault_class(spec, err or "run.py rc=%d" % rc)
@@ -510,7 +511,12 @@ def build_and_diff(va, spec, args, pilot, nlines):
                 seen.add(dep)
                 need.append(dep)
                 pending.append(dep)
-    main_src = diffmain.gen(spec, va, callees)
+    seed_art = None
+    if args.seed_state:
+        seed_path_ = os.path.join(args.seed_state, tag + ".seed.json")
+        if os.path.exists(seed_path_):
+            seed_art = json.load(open(seed_path_))
+    main_src = diffmain.gen(spec, va, callees, seed_art)
     main_p = os.path.join(gen, "diff_%s.cpp" % tag)
     with open(main_p, "w") as f:
         f.write(main_src)
@@ -726,6 +732,8 @@ def main():
     ap.add_argument("--cxx", default="g++")
     ap.add_argument("--timeout", type=int, default=600)
     ap.add_argument("--jobs", type=int, default=2)
+    ap.add_argument("--seed-state", default=None,
+                    help="dir of seed.py artifacts (<VA>.seed.json): the corpus and the diff main apply them")
     ap.add_argument("--check", action="store_true",
                     help="re-run every VA results.json records as diffed; exit 1 if any no longer diffs bit-exact. "
                          "Never writes the repo results.json (the gate's pilot test).")
