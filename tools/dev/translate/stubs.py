@@ -29,11 +29,13 @@ DO_BY_KIND = {
     "return-input": {"sqrtf": "sqrt_xmm0"},
     "engine-noop": {None: "noop"},
     "abort-trap": {"abort": "abort"},
+    "libm": {"logf": "logf_xmm0", "powf": "powf_xmm0"},
     "run-real": {None: None},
     "run-real-closure": {None: None},
     "unmodellable": {None: "unmodellable"},
 }
-KNOWN_DO = {"sqrt_xmm0", "noop", "abort", "unmodellable", None}
+KNOWN_DO = {"sqrt_xmm0", "noop", "abort", "logf_xmm0", "powf_xmm0",
+            "unmodellable", None}
 
 
 def load(path=DEFAULT):

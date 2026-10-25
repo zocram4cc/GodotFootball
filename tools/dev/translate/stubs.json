@@ -6,7 +6,8 @@
   "run-real": "pure: the harness executes the image bytes; the C++ build must translate it too",
   "run-real-closure": "executes image bytes; its closure calls the listed stubs",
   "unmodellable": "blocked: see why",
-  "abort-trap": "tamper trap (not a real import): loud abort on both sides when reached; a corpus behind one proves the path unreached"
+  "abort-trap": "tamper trap (not a real import): loud abort on both sides when reached; a corpus behind one proves the path unreached",
+  "libm": "host-CRT float function (logf/powf): C++ libm must give the same bits; the diff judges per case, and the note records the dependence"
  },
  "stubs": [
   {
@@ -3548,11 +3549,17 @@
     "14080EBA0"
    ],
    "used_by_closure": false,
-   "kind": "unmodellable",
+   "kind": "libm",
    "why": [
-    "thunk to the logf/powf import (docs: 'logf/powf are the imports 0x1415a17c8/0x1415a17ce'); result bits come from the C runtime, outside the image"
+    "thunk jmp [0x142530290] (bytes at 1415A17CE: FF25BCEAF800); slot = powf per indirect.py KNOWN_SLOTS; two-xmm call shape powf(base,exp)->xmm0, verified by the diff, not by ABI proof"
    ],
-   "model": null
+   "model": {
+    "op": "powf",
+    "arg": "xmm0,xmm1",
+    "ret": "xmm0",
+    "enc": "f32",
+    "caveat": "host libm; valid only where the diff passes"
+   }
   },
   {
    "va": "141863350",

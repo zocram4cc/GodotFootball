@@ -3,27 +3,586 @@
  "results": [
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x1403815F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403FB410": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 15
+    },
+    "0x1403FB5B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x1403FB860": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x1404386D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 239
+    },
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14043E620": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14043FB60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 29
+    },
+    "0x14043FD10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 117
+    },
+    "0x1404404F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 14
+    },
+    "0x140509890": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 29
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3C050": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x140A3C070": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3C8F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A3E150": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E8A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A55050": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 56
+    },
+    "0x140A57140": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A66FF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6BD00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A6BD60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A6E320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x1415A1708": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 89
+    },
+    "0x1415A1720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 85
+    },
+    "0x1415A17F2": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 50
+    },
+    "0x1415A1938": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 23
+    },
+    "0x1415A1A68": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x1415A1BB0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 15
+    },
+    "0x1415A1E4C": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1415A1EF4": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1415A1F2C": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x1415A1F54": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x1415A1F7C": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x1415A1FA4": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x1415A204C": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x1415A20A4": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x1415A2100": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E53540": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 36
+    },
+    "0x141F9C3B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141FED090": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x142293C38": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 16
+    }
+   },
    "diffed": false,
-   "failure_class": "unmodellable callee",
-   "note": "call 14043A350: callee 14043DBA0: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (clo",
-   "stubs": [],
-   "translated": false,
+   "failure_class": "struct map gap",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14043a57b)",
+   "stubs": [
+    "0x14159F3E0",
+    "0x1415A1780"
+   ],
+   "translated": true,
    "va": "0x1404386D0"
   },
   {
    "cases": 64,
-   "coverage": {},
-   "diffed": false,
-   "failure_class": "unmodellable callee",
-   "note": "call 1404362D0: callee 14043A350: callee 14043DBA0: callee 14043B9D0: computed jump at 14043BBA9: switch case bodies not enumerated (closure incomplete); callee 14043B9D0: computed jump at 14043BBA9: switch case bodies n",
-   "stubs": [],
-   "translated": false,
+   "coverage": {
+    "0x1403815F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403CF8B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1403FB710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403FB730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14041B930": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x1404386D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 239
+    },
+    "0x14043E620": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14043EC70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 243
+    },
+    "0x1404404F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 14
+    },
+    "0x1404405D0": {
+     "fraction": 0.0721,
+     "reached": 8,
+     "total": 111
+    },
+    "0x140A0C3E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A3B040": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 18
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3B370": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A3C8F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E570": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x140A3E8E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A54FE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A55000": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A555A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A555C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A555D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140A57040": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x140A57140": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A571B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A571E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A62610": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A62690": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A62E90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A62EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A66FF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6A010": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A6A020": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 31
+    },
+    "0x140A6A1F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A6A200": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 28
+    },
+    "0x140A6E320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141B55730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x141B55850": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 21
+    },
+    "0x141B55F40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E5D4C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141F9C3B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1421B7D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x14159F3E0",
+    "0x1415A1780"
+   ],
+   "translated": true,
    "va": "0x1404405D0"
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x1404F47A0": {
+     "fraction": 0.35,
+     "reached": 7,
+     "total": 20
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A40FD0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A60300": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62FE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -38,14 +597,300 @@
    "coverage": {},
    "diffed": false,
    "failure_class": "unmodellable callee",
-   "note": "call 1404F8350: indirect call qword ptr [rax + 8] at 1404F8753; callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursi",
+   "note": "call 1404FEDC0: callee 140A58550: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6",
    "stubs": [],
    "translated": false,
    "va": "0x1404F6C30"
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140439EF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x1404567E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x140481B00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x1404F8C70": {
+     "fraction": 0.0106,
+     "reached": 3,
+     "total": 284
+    },
+    "0x1405969B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 49
+    },
+    "0x140596C30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 145
+    },
+    "0x140597FF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 56
+    },
+    "0x140599D90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 19
+    },
+    "0x140599E90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 21
+    },
+    "0x1405A0D20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 23
+    },
+    "0x1405A4790": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1405A4830": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 18
+    },
+    "0x14061E7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1406405C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 105
+    },
+    "0x14069CD40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 31
+    },
+    "0x140A3AF90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A3B110": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A4C9A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A4DB20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4F1E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A50250": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A580A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A58320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62610": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A62EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A63020": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A638C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A64030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A6E320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6E6B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A71260": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A714A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A71990": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A76210": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A76240": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A900E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A90D80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141B59E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -58,7 +903,108 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x1403FB710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403FB730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403FF430": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x1403FF490": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x1404457C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x14044E200": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140451250": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140451CD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x1404FA720": {
+     "fraction": 0.1364,
+     "reached": 3,
+     "total": 22
+    },
+    "0x140A55CF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 54
+    },
+    "0x140A65580": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A67010": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140A6E6B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14149A470": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14149F4F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141B52380": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x141B55730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x141B55830": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141B55850": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 21
+    },
+    "0x141B55F40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -68,7 +1014,143 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140439EF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x1404BCAD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x1404F0E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1004
+    },
+    "0x1404FB2A0": {
+     "fraction": 0.375,
+     "reached": 6,
+     "total": 16
+    },
+    "0x1404FB380": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 67
+    },
+    "0x1404FB780": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 68
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3C950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A431E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A57710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60A90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A6CF70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A76240": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A8FF10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1423E7FD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -81,13 +1163,180 @@
   {
    "cases": 64,
    "coverage": {
-    "0x1404F4B00": [
-     "0x1404F4B02"
-    ]
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14044E020": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x14046F230": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x14046F260": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x1404C8E60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x1404C8EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x1404F4AE0": {
+     "fraction": 0.3333,
+     "reached": 4,
+     "total": 12
+    },
+    "0x1404F4BE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 90
+    },
+    "0x1404FE9C0": {
+     "fraction": 0.1448,
+     "reached": 32,
+     "total": 221
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3C950": {
+     "fraction": 0.75,
+     "reached": 3,
+     "total": 4
+    },
+    "0x140A3E190": {
+     "fraction": 0.2,
+     "reached": 2,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A3E880": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A42480": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x140A42570": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x140A428D0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4F1E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A57720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.2222,
+     "reached": 2,
+     "total": 9
+    },
+    "0x140A62EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A6E340": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6E5E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A71520": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532E0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
    },
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: w_A0_6D50_254 want 255 got 0 case 9: w_A0_6D50_254 want 255 got 0 <build>/gen/corp_1404FE9C0.jsonl: 64 cases, 64 mismatch",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -106,7 +1355,143 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140439FE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140479470": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140481B00": {
+     "fraction": 0.4,
+     "reached": 4,
+     "total": 10
+    },
+    "0x1404A53E0": {
+     "fraction": 0.5385,
+     "reached": 7,
+     "total": 13
+    },
+    "0x140503430": {
+     "fraction": 0.5127,
+     "reached": 121,
+     "total": 236
+    },
+    "0x140A3E190": {
+     "fraction": 0.2,
+     "reached": 2,
+     "total": 10
+    },
+    "0x140A48910": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A55D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 48
+    },
+    "0x140A57720": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x140A57730": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A6C6D0": {
+     "fraction": 1.0,
+     "reached": 6,
+     "total": 6
+    },
+    "0x140A6E1C0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A6E5E0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A71520": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A8F7C0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A91120": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.9091,
+     "reached": 10,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.4545,
+     "reached": 5,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 1.0,
+     "reached": 10,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x141E532E0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x141F9C3B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -118,7 +1503,223 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x1403FB710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403FB730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14043C410": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x14047A4A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x1405043F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 101
+    },
+    "0x140504D20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 84
+    },
+    "0x140505CA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 150
+    },
+    "0x1405AD120": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 45
+    },
+    "0x1405AD720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 73
+    },
+    "0x1405B1740": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 198
+    },
+    "0x140600DD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A3AEE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A3B000": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E150": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E8C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A60530": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A60590": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A606E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62610": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A62690": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A62EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A638C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A71500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A73E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A73E30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A73E40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A73F50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A73F60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A73FC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A73FE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92530": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x14102CAD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14143C670": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141B55730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x141B55830": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141B55850": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 21
+    },
+    "0x141B55F40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1421B7D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": false,
    "failure_class": "struct map gap",
    "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140504dd1)",
@@ -131,7 +1732,28 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x1405055E0": {
+     "fraction": 0.8485,
+     "reached": 28,
+     "total": 33
+    },
+    "0x140A489A0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A73E40": {
+     "fraction": 1.0,
+     "reached": 4,
+     "total": 4
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -143,17 +1765,169 @@
   },
   {
    "cases": 64,
-   "coverage": {},
-   "diffed": false,
-   "failure_class": "unmodellable callee",
-   "note": "call 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070",
+   "coverage": {
+    "0x140509A40": {
+     "fraction": 0.0448,
+     "reached": 3,
+     "total": 67
+    },
+    "0x1408C9DF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A3C050": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x140A3C070": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3E8A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A6BD00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A6BD60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A7D450": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A7DC90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A7DCB0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A7F0F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A7F330": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A7F360": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A7F370": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A7F3B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A7F3E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [],
-   "translated": false,
+   "translated": true,
    "va": "0x140509A40"
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x14042D5E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140510D30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 55
+    },
+    "0x140A3AF60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E3B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 28
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A60520": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A6CBD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A6CC60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A6CD70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A73E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141794410": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": false,
    "failure_class": "struct map gap",
    "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3af73)",
@@ -165,17 +1939,176 @@
   },
   {
    "cases": 64,
-   "coverage": {},
-   "diffed": false,
-   "failure_class": "unmodellable callee",
-   "note": "call 140509890: callee 140A3C050: callee 140A3C070: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 140A3C070: recursion through 140A3C070; callee 140A3C050: callee 1",
-   "stubs": [],
-   "translated": false,
+   "coverage": {
+    "0x140509890": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 29
+    },
+    "0x14051B8B0": {
+     "fraction": 0.0583,
+     "reached": 7,
+     "total": 120
+    },
+    "0x1408C5060": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A3B000": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A3B110": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A3C050": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x140A3C070": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3C8F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A3E150": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3E8A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A532F0": {
+     "fraction": 0.3333,
+     "reached": 3,
+     "total": 9
+    },
+    "0x140A533A0": {
+     "fraction": 0.3,
+     "reached": 3,
+     "total": 10
+    },
+    "0x140A55CF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 54
+    },
+    "0x140A63950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A64030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A6BD00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A6BD60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A6CC20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14124DAD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14149A470": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14149F4F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x14159F3E0"
+   ],
+   "translated": true,
    "va": "0x14051B8B0"
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x14051B3F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x14051CF70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 20
+    },
+    "0x1408C50E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x140A41BE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A422C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 17
+    },
+    "0x140A76270": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": false,
    "failure_class": "struct map gap",
    "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14051b43e)",
@@ -187,7 +2120,88 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.8462,
+     "reached": 11,
+     "total": 13
+    },
+    "0x14043A0A0": {
+     "fraction": 0.6154,
+     "reached": 8,
+     "total": 13
+    },
+    "0x140529490": {
+     "fraction": 0.1739,
+     "reached": 8,
+     "total": 46
+    },
+    "0x1405296B0": {
+     "fraction": 0.7727,
+     "reached": 68,
+     "total": 88
+    },
+    "0x1408C5030": {
+     "fraction": 1.0,
+     "reached": 6,
+     "total": 6
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62180": {
+     "fraction": 0.8333,
+     "reached": 5,
+     "total": 6
+    },
+    "0x140A627E0": {
+     "fraction": 0.2222,
+     "reached": 2,
+     "total": 9
+    },
+    "0x140A92D40": {
+     "fraction": 0.7273,
+     "reached": 8,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 1.0,
+     "reached": 10,
+     "total": 10
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -199,10 +2213,86 @@
   },
   {
    "cases": 64,
-   "coverage": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "diff: 64 cases, 64 mismatch case 8: ret_eax want 21000000 got 0 case 9: ret_eax want 21000000 got 0 <build>/gen/corp_14052A190.jsonl: 64 cases, 64 mismatch",
+   "coverage": {
+    "0x140510B50": {
+     "fraction": 0.3,
+     "reached": 3,
+     "total": 10
+    },
+    "0x140510C10": {
+     "fraction": 0.8,
+     "reached": 4,
+     "total": 5
+    },
+    "0x140510C40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x14052A190": {
+     "fraction": 0.3333,
+     "reached": 12,
+     "total": 36
+    },
+    "0x140A3E150": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A41CC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 75
+    },
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A532F0": {
+     "fraction": 0.3333,
+     "reached": 3,
+     "total": 9
+    },
+    "0x140A533A0": {
+     "fraction": 0.3,
+     "reached": 3,
+     "total": 10
+    },
+    "0x140A62780": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x140A63880": {
+     "fraction": 0.75,
+     "reached": 3,
+     "total": 4
+    },
+    "0x140A63950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A6CC20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A72E70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 23
+    }
+   },
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -211,7 +2301,138 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x1404587B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1404F6700": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140526430": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 74
+    },
+    "0x14052A820": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 363
+    },
+    "0x14052C440": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140622490": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 47
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A3E900": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A62960": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x140A62EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A63950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A6E320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A71480": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": false,
    "failure_class": "struct map gap",
    "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14052ac8d)",
@@ -223,7 +2444,153 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439EF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x1404C8E60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x14053A5A0": {
+     "fraction": 0.3611,
+     "reached": 13,
+     "total": 36
+    },
+    "0x14053A820": {
+     "fraction": 0.8333,
+     "reached": 5,
+     "total": 6
+    },
+    "0x14053A8A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14053AA90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 32
+    },
+    "0x14053ACE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14053AE60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 31
+    },
+    "0x14053B110": {
+     "fraction": 0.2593,
+     "reached": 7,
+     "total": 27
+    },
+    "0x14053B260": {
+     "fraction": 0.3077,
+     "reached": 4,
+     "total": 13
+    },
+    "0x14053B3B0": {
+     "fraction": 0.3,
+     "reached": 3,
+     "total": 10
+    },
+    "0x14053B420": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 40
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A40200": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A40820": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A42940": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x140A429A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A42A40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48910": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A85AA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -235,7 +2602,73 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439EF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x14053B420": {
+     "fraction": 0.2,
+     "reached": 8,
+     "total": 40
+    },
+    "0x140A40200": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A429A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A85AA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -247,7 +2680,38 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140579E10": {
+     "fraction": 1.0,
+     "reached": 5,
+     "total": 5
+    },
+    "0x14057A3E0": {
+     "fraction": 0.2857,
+     "reached": 4,
+     "total": 14
+    },
+    "0x140A40200": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A40820": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A84E30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A85AA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -259,7 +2723,93 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x14044E020": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x14057B750": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x14057B820": {
+     "fraction": 0.1,
+     "reached": 3,
+     "total": 30
+    },
+    "0x14057BA50": {
+     "fraction": 0.5455,
+     "reached": 6,
+     "total": 11
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A40200": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A40820": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A42940": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x140A42A40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A60300": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62FE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A71500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A85AA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -269,7 +2819,298 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140439EF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140439F50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140439FE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x14043A020": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14044E020": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140458740": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x14046F230": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x14046F260": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x1404C8EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140510C40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x14057D3A0": {
+     "fraction": 0.0517,
+     "reached": 3,
+     "total": 58
+    },
+    "0x14057E850": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x14057ECA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 55
+    },
+    "0x14057F0F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 15
+    },
+    "0x14057F230": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 21
+    },
+    "0x14057F3D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 23
+    },
+    "0x14057F590": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140642670": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 28
+    },
+    "0x140654E60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 104
+    },
+    "0x140655660": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E150": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A401C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A4C8E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 17
+    },
+    "0x140A4C9A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A4DB20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A532F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A533A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A53DA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A57720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62610": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A62690": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A62780": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x140A62EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A63880": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A6CC20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A6CF70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A75740": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 56
+    },
+    "0x140A76240": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x14124DAD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -281,7 +3122,203 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140439EF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x14043A020": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140458740": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x1404C8DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x140591D70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 61
+    },
+    "0x140593BD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 24
+    },
+    "0x140596560": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 77
+    },
+    "0x1405976D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 75
+    },
+    "0x140599D90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 19
+    },
+    "0x14059FC10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 21
+    },
+    "0x1405A6DE0": {
+     "fraction": 0.0387,
+     "reached": 6,
+     "total": 155
+    },
+    "0x1405AC500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x1405AC610": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x14069CD40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 31
+    },
+    "0x140A3B110": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A4F210": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A544D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A64030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A76240": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A90BE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A928C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A92950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -293,17 +3330,152 @@
   },
   {
    "cases": 64,
-   "coverage": {},
-   "diffed": false,
-   "failure_class": "unmodellable callee",
-   "note": "call 1405ACC60: callee 140471A10: indirect call qword ptr [r10 + 0x88] at 140471A5A; callee 141B55830: indirect call qword ptr [rdx + 0x38] at 141B5583F; callee 140227930: callee 1403FB2E0: call depth > 10",
-   "stubs": [],
-   "translated": false,
+   "coverage": {
+    "0x140227930": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403FB710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1403FB730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140471A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1405ACC60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x1405AD720": {
+     "fraction": 0.3425,
+     "reached": 25,
+     "total": 73
+    },
+    "0x140600DD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A3AEE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A3B000": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A3B320": {
+     "fraction": 0.8,
+     "reached": 8,
+     "total": 10
+    },
+    "0x140A3E190": {
+     "fraction": 0.8,
+     "reached": 8,
+     "total": 10
+    },
+    "0x140A3E8C0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A60530": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A62EA0": {
+     "fraction": 1.0,
+     "reached": 6,
+     "total": 6
+    },
+    "0x141B55730": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x141B55830": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141B55850": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 21
+    },
+    "0x141B55F40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "stubs": [
+    "0x14159F3E0",
+    "0x1415A1780"
+   ],
+   "translated": true,
    "va": "0x1405AD720"
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x1405CCD50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 25
+    },
+    "0x1405CD540": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 17
+    },
+    "0x14063F490": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 43
+    },
+    "0x14063F760": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 51
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
    "diffed": false,
    "failure_class": "struct map gap",
    "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14063f7b6)",
@@ -315,7 +3487,288 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x1404C8EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x1405CC1A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x1405CC250": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 29
+    },
+    "0x1405CC390": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 49
+    },
+    "0x1405CC6F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 81
+    },
+    "0x1405CCC80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x1405CCD00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x1405CCD50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 25
+    },
+    "0x1405CCF40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 14
+    },
+    "0x1405CD050": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x1405CD0F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 24
+    },
+    "0x1405CD220": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 15
+    },
+    "0x1405CD320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 20
+    },
+    "0x1405CD460": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x1405CD540": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 17
+    },
+    "0x1405CD5E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 20
+    },
+    "0x1405CD780": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x1405CD7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 20
+    },
+    "0x1405CDA40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 28
+    },
+    "0x1405CDBD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 53
+    },
+    "0x1405CDF30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 32
+    },
+    "0x1405CE150": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 57
+    },
+    "0x1405CE4E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1405CE4F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 88
+    },
+    "0x1405CE930": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 130
+    },
+    "0x1405CF310": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 146
+    },
+    "0x1405CFC80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 68
+    },
+    "0x1405CFFE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 90
+    },
+    "0x1405D05A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 27
+    },
+    "0x14063F490": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 43
+    },
+    "0x14063F760": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 51
+    },
+    "0x14063FA70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 17
+    },
+    "0x1408C5900": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A401C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C6E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A4C720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A4F210": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60530": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A62E40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x140A63950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A64410": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 58
+    },
+    "0x140A714C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A714E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A71500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A76240": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141863350": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141F9C3B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": false,
    "failure_class": "struct map gap",
    "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405cd11e)",
@@ -328,7 +3781,43 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x1404C8EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x1405CD5E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 20
+    },
+    "0x1405CE930": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 130
+    },
+    "0x1408C5900": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A64410": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 58
+    },
+    "0x140A76240": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
    "diffed": false,
    "failure_class": "struct map gap",
    "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405ce9b1)",
@@ -340,7 +3829,333 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140456EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1404587B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140481B00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x1405A4790": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1405A4830": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 18
+    },
+    "0x1405DACE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 49
+    },
+    "0x1405DC350": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 561
+    },
+    "0x1405DE950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 56
+    },
+    "0x1405DFC70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 27
+    },
+    "0x1405DFE20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1405DFE40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 16
+    },
+    "0x1405E0010": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x1405E0C40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1405E0C60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 70
+    },
+    "0x1405E1B80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 45
+    },
+    "0x1405E2C90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 99
+    },
+    "0x1405E3250": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 21
+    },
+    "0x140643A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 81
+    },
+    "0x1408C5030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1408C52E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3AF90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A3B110": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A3B2A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A41B30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x140A41B80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x140A42210": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C4E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A4C720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A4E250": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 17
+    },
+    "0x140A4E3F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 36
+    },
+    "0x140A4F210": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A50250": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A580A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62180": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A62440": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 35
+    },
+    "0x140A62610": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A62690": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A62D90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 14
+    },
+    "0x140A63680": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 31
+    },
+    "0x140A63950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A64030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A64410": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 58
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A714E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A72FB0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 56
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A900E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A90D80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141B59E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": false,
    "failure_class": "struct map gap",
    "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3b123)",
@@ -353,7 +4168,213 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x1405969B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 49
+    },
+    "0x140596C30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 145
+    },
+    "0x1405A4790": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1405A4830": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 18
+    },
+    "0x1405D2710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 53
+    },
+    "0x1405DC330": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1405DE950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 56
+    },
+    "0x1405DFC70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 27
+    },
+    "0x1405DFE40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 16
+    },
+    "0x1405E0010": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x1405E0C60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 70
+    },
+    "0x1405E1B20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x1405E1F60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 178
+    },
+    "0x1408C5030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1408C52E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3AF90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A50250": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A580A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62180": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A63950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A90FD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141B59E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": false,
    "failure_class": "struct map gap",
    "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405dea4c)",
@@ -367,13 +4388,340 @@
   {
    "cases": 64,
    "coverage": {
-    "0x1405E45A5": [
-     "0x1405D60B0"
-    ]
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140456EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1404587B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140507740": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140596C30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 145
+    },
+    "0x1405984D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 60
+    },
+    "0x1405A4790": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1405A4830": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 18
+    },
+    "0x1405D06C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x1405D2710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 53
+    },
+    "0x1405DACE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 49
+    },
+    "0x1405DC330": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1405DC350": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 561
+    },
+    "0x1405DE950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 56
+    },
+    "0x1405DFC70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 27
+    },
+    "0x1405DFE20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1405DFE40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 16
+    },
+    "0x1405E0010": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 22
+    },
+    "0x1405E0C40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1405E0C60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 70
+    },
+    "0x1405E15C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 19
+    },
+    "0x1405E1B20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x1405E1B80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 45
+    },
+    "0x1405E1F60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 178
+    },
+    "0x1405E4460": {
+     "fraction": 0.0563,
+     "reached": 9,
+     "total": 160
+    },
+    "0x1405E6A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 38
+    },
+    "0x1408C5030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x1408C52E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3AF90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A3B110": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A3B2A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A42210": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4F210": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A50250": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A580A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62180": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A62610": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A62690": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A62850": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 20
+    },
+    "0x140A62D90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 14
+    },
+    "0x140A63680": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 31
+    },
+    "0x140A63950": {
+     "fraction": 0.375,
+     "reached": 3,
+     "total": 8
+    },
+    "0x140A64030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A64410": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 58
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A900E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A90D80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A90FD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141B59E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
    },
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "compile: <build>/gen/pes_fn_1405DC350.cpp:697:25: error: label \u2018L_1405DE72E\u2019 used but not defined | <build>/gen/pes_fn_1405DC350.cpp:1014:25: error: label \u2018L_1405DE828\u2019 used but not defined | <build>/gen/pes_fn_1405DC350.cpp:1041:26: error: label \u2018L_1405DE763\u2019 used but not defined | <build>/gen/pes_fn_1405DC350.cpp:1487:25: error: label \u2018L_1405DE70C\u2019 used but not defined | <build>/gen/pes_fn_1405DC350.cpp:",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -383,17 +4731,199 @@
   },
   {
    "cases": 64,
-   "coverage": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "compile: pes_fn_140601110.cpp:(.text+0x2604): undefined reference to `pes_fn_140A62180(PesState&)' | /usr/bin/ld: pes_fn_140601110.cpp:(.text+0x2713): undefined reference to `pes_fn_1404587B0(PesState&)' | /usr/bin/ld: pes_fn_140601110.cpp:(.text+0x2732): undefined reference to `pes_fn_14062FF60(PesState&)' | /usr/bin/ld: pes_fn_140601110.cpp:(.text+0x2771): undefined reference to `pes_fn_1408C5030(PesStat",
+   "coverage": {
+    "0x140601110": {
+     "fraction": 0.3117,
+     "reached": 24,
+     "total": 77
+    },
+    "0x140A3AF90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A489D0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x141B59E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [],
    "translated": true,
    "va": "0x140601110"
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140439EF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x1404567E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x1404587B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140481B00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x14061E7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x14062E240": {
+     "fraction": 0.1342,
+     "reached": 20,
+     "total": 149
+    },
+    "0x14062FF60": {
+     "fraction": 0.6667,
+     "reached": 8,
+     "total": 12
+    },
+    "0x140630780": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140630BA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 23
+    },
+    "0x140630D50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 19
+    },
+    "0x1406405C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 105
+    },
+    "0x14069CD40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 31
+    },
+    "0x1408C5030": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A4DB20": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62180": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A63950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A71260": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A714A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x141E5D4C0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -406,7 +4936,138 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140638FB0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 21
+    },
+    "0x140639100": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 70
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A57710": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A57720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62610": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A62690": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A6CF70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6E3F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A75BE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 7
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": false,
    "failure_class": "struct map gap",
    "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14063913d)",
@@ -418,7 +5079,163 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140439EF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140439F90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x14043A020": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14043C430": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x140458740": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x1404F6700": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1405BB170": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x1405D06C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x1406486D0": {
+     "fraction": 0.0069,
+     "reached": 2,
+     "total": 290
+    },
+    "0x140654DE0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140654E60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 104
+    },
+    "0x140655660": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x14069CD40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 31
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A71260": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A714E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A75740": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 56
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A900E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A90D80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A92950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -430,7 +5247,48 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14064DC50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 40
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    }
+   },
    "diffed": false,
    "failure_class": "struct map gap",
    "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14064dcc3)",
@@ -442,7 +5300,158 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439EF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140439F90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x14043A020": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14043C430": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x140458740": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x1404F6700": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1405BB170": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x1405D06C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x1406486D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 290
+    },
+    "0x1406496C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 39
+    },
+    "0x140649DA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 101
+    },
+    "0x14064DE60": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 116
+    },
+    "0x14064E4B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 548
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A71260": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A714E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A900E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A90D80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A928C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A92950": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": false,
    "failure_class": "struct map gap",
    "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a58320)",
@@ -454,7 +5463,63 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.6154,
+     "reached": 8,
+     "total": 13
+    },
+    "0x14043A0A0": {
+     "fraction": 0.7692,
+     "reached": 10,
+     "total": 13
+    },
+    "0x140654E60": {
+     "fraction": 0.6635,
+     "reached": 69,
+     "total": 104
+    },
+    "0x140A48910": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.8333,
+     "reached": 5,
+     "total": 6
+    },
+    "0x140A8F7C0": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.8182,
+     "reached": 9,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.7273,
+     "reached": 8,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 1.0,
+     "reached": 10,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -466,7 +5531,48 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14065C2A0": {
+     "fraction": 0.0579,
+     "reached": 7,
+     "total": 121
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A900E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A90D80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -478,7 +5584,118 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140439EF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x1404C8DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x140653BA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 27
+    },
+    "0x14065DAB0": {
+     "fraction": 0.2095,
+     "reached": 22,
+     "total": 105
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A4F1E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A58320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6C6D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A6E6B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A760E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140A76210": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A76240": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -490,7 +5707,23 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140687310": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 77
+    },
+    "0x1408C5900": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A4C720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": false,
    "failure_class": "struct map gap",
    "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14068744d)",
@@ -522,7 +5755,158 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439F90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140479470": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x1404C8E00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140978E70": {
+     "fraction": 0.0778,
+     "reached": 13,
+     "total": 167
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A50620": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 135
+    },
+    "0x140A518F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 60
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A62780": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A6E3F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A71260": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A714A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A900E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A90D30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A90D80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14234E8E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x1423E7FD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -534,7 +5918,73 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x14043B8B0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x14044E0D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x14097BF80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 158
+    },
+    "0x14097CD00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 20
+    },
+    "0x14097F910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 25
+    },
+    "0x14097FA30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 39
+    },
+    "0x140A489F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6DE20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 14
+    },
+    "0x140A6DF70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x14124DAD0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": false,
    "failure_class": "struct map gap",
    "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14097f93d)",
@@ -546,7 +5996,38 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439EF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x14097FCE0": {
+     "fraction": 0.14,
+     "reached": 7,
+     "total": 50
+    },
+    "0x140A74160": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -558,7 +6039,83 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140439EF0": {
+     "fraction": 0.5556,
+     "reached": 5,
+     "total": 9
+    },
+    "0x14043A0A0": {
+     "fraction": 0.6923,
+     "reached": 9,
+     "total": 13
+    },
+    "0x140456EA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140481B00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x14097FFF0": {
+     "fraction": 0.0614,
+     "reached": 18,
+     "total": 293
+    },
+    "0x140A48A10": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A4C4E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A4C720": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x140A4E3F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 36
+    },
+    "0x140A4E720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 12
+    },
+    "0x140A53DA0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A92D40": {
+     "fraction": 0.4545,
+     "reached": 5,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.6,
+     "reached": 6,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -570,7 +6127,68 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x14043A0A0": {
+     "fraction": 0.4615,
+     "reached": 6,
+     "total": 13
+    },
+    "0x140507740": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A539F0": {
+     "fraction": 0.6923,
+     "reached": 36,
+     "total": 52
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A92D40": {
+     "fraction": 0.7273,
+     "reached": 8,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.9,
+     "reached": 9,
+     "total": 10
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
@@ -582,7 +6200,23 @@
   },
   {
    "cases": 64,
-   "coverage": {},
+   "coverage": {
+    "0x140A57650": {
+     "fraction": 0.5714,
+     "reached": 4,
+     "total": 7
+    },
+    "0x140A6CF70": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
    "diffed": true,
    "failure_class": null,
    "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
