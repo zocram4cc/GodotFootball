@@ -908,6 +908,21 @@ class Emitter:
         elif m == "CVTTPS2DQ":
             ex = ["(uint32_t)PesState::cvtt_i32((double)PesState::lane_f32(_s, %d))" % i
                   for i in range(4)]
+        elif m in ("MINPS", "MAXPS"):
+            op = "<" if m == "MINPS" else ">"
+            ex = ["PesState::bits(PesState::lane_f32(_d, %d) %s PesState::lane_f32(_s, %d) ? "
+                  "PesState::lane_f32(_d, %d) : PesState::lane_f32(_s, %d))" % (i, op, i, i, i)
+                  for i in range(4)]
+        elif m == "HADDPS":
+            ex = ["PesState::bits(PesState::lane_f32(_d, 0) + PesState::lane_f32(_d, 1))",
+                  "PesState::bits(PesState::lane_f32(_d, 2) + PesState::lane_f32(_d, 3))",
+                  "PesState::bits(PesState::lane_f32(_s, 0) + PesState::lane_f32(_s, 1))",
+                  "PesState::bits(PesState::lane_f32(_s, 2) + PesState::lane_f32(_s, 3))"]
+        elif m in ("SQRTPS", "RCPPS", "RSQRTPS"):
+            # Unary, per lane of the source: IEEE single precision (the diff harness checks the bits).
+            f = {"SQRTPS": "__builtin_sqrtf(%s)", "RCPPS": "1.0f / %s",
+                 "RSQRTPS": "1.0f / __builtin_sqrtf(%s)"}[m]
+            ex = ["PesState::bits(%s)" % (f % ("PesState::lane_f32(_s, %d)" % i)) for i in range(4)]
         else:  # UNPCKHPS
             ex = ["PesState::lane_u32(%s, %d)" % p
                   for p in [("_d", 2), ("_s", 2), ("_d", 3), ("_s", 3)]]
@@ -916,6 +931,88 @@ class Emitter:
         return ["{ unsigned __int128 _d = %s, _s = %s, _o = 0; %s "
                 "s.xmm[%d][0] = (uint64_t)_o; s.xmm[%d][1] = (uint64_t)(_o >> 64); }"
                 % (d, self.src128(ops[1]), body, x, x)]
+
+    def do_div(self, m, ops):
+        """DIV / IDIV of 8, 16, 32 or 64 bits. The dividend is AX, DX:AX, EDX:EAX or RDX:RAX; the quotient and the
+        remainder go to AL and AH, AX and DX, EAX and EDX, RAX and RDX (32-bit results zero-extend). Flags are
+        undefined. A zero divisor or a quotient that does not fit traps (#DE): the harness never reaches one."""
+        o = ops[0]
+        w = self.op_width(o)
+        div = self.val_of(o, w)
+        mask = {8: "0xFFULL", 16: "0xFFFFULL", 32: "0xFFFFFFFFULL",
+                64: "0xFFFFFFFFFFFFFFFFULL"}[w]
+        if m == "DIV":
+            num = {8: "(unsigned __int128)(s.gpr[0] & 0xFFFFULL)",
+                   16: "(((unsigned __int128)(s.gpr[2] & 0xFFFFULL) << 16) | (s.gpr[0] & 0xFFFFULL))",
+                   32: "(((unsigned __int128)(s.gpr[2] & 0xFFFFFFFFULL) << 32) | (s.gpr[0] & 0xFFFFFFFFULL))",
+                   64: "(((unsigned __int128)s.gpr[2] << 64) | s.gpr[0])"}[w]
+            head = "unsigned __int128 _n = %s, _d = (uint64_t)(%s) & %s;" % (num, div, mask)
+            body = ("if (_d == 0) __builtin_trap(); "
+                    "unsigned __int128 _q = _n / _d, _r = _n %% _d; "
+                    "if ((_q >> %d) != 0) __builtin_trap();" % w)
+        else:
+            num = {8: "(__int128)(int16_t)(uint16_t)(s.gpr[0] & 0xFFFFULL)",
+                   16: "(__int128)(int32_t)(uint32_t)(((uint32_t)(s.gpr[2] & 0xFFFFULL) << 16) | "
+                       "(uint32_t)(s.gpr[0] & 0xFFFFULL))",
+                   32: "(__int128)(int64_t)(((uint64_t)(uint32_t)s.gpr[2] << 32) | (uint32_t)s.gpr[0])",
+                   64: "(__int128)(((unsigned __int128)s.gpr[2] << 64) | s.gpr[0])"}[w]
+            ity = {8: "int8_t", 16: "int16_t", 32: "int32_t", 64: "int64_t"}[w]
+            head = "__int128 _n = %s, _d = (__int128)(%s)((uint64_t)(%s));" % (num, ity, div)
+            body = ("if (_d == 0) __builtin_trap(); "
+                    "if (_d == -1 && _n == (__int128)((unsigned __int128)1 << 127)) __builtin_trap(); "
+                    "__int128 _q = _n / _d, _r = _n %% _d; "
+                    "if (_q < -((__int128)1 << %d) || _q >= ((__int128)1 << %d)) __builtin_trap();"
+                    % (w - 1, w - 1))
+        write = {8: "s.gpr[0] = (s.gpr[0] & ~0xFFFFULL) | ((uint64_t)_q & 0xFFULL) | (((uint64_t)_r & 0xFFULL) << 8);",
+                 16: "s.gpr[0] = (s.gpr[0] & ~0xFFFFULL) | ((uint64_t)_q & 0xFFFFULL); "
+                     "s.gpr[2] = (s.gpr[2] & ~0xFFFFULL) | ((uint64_t)_r & 0xFFFFULL);",
+                 32: "s.gpr[0] = (uint64_t)(uint32_t)_q; s.gpr[2] = (uint64_t)(uint32_t)_r;",
+                 64: "s.gpr[0] = (uint64_t)_q; s.gpr[2] = (uint64_t)_r;"}[w]
+        return ["{ %s %s %s }" % (head, body, write)]
+
+    def do_string(self, m, rep):
+        """STOS and MOVS, REP-prefixed or single. The direction flag is clear (the ABI): RDI and RSI step up by the
+        element size. A REP count runs in RCX and leaves it at zero. Flags are untouched."""
+        n = {"B": 1, "W": 2, "D": 4, "Q": 8}[m[-1]]
+        if m.startswith("STOS"):
+            val = {1: "0xFFULL", 2: "0xFFFFULL", 4: "0xFFFFFFFFULL", 8: "0xFFFFFFFFFFFFFFFFULL"}[n]
+            step = "s.wr(s.gpr[7], s.gpr[0] & %s, %d); s.gpr[7] += %d;" % (val, n, n)
+        else:
+            step = "s.wr(s.gpr[7], s.rd(s.gpr[6], %d), %d); s.gpr[6] += %d; s.gpr[7] += %d;" % (n, n, n, n)
+        if rep:
+            return ["{ uint64_t _c = s.gpr[1]; while (_c != 0) { %s --_c; } s.gpr[1] = 0; }" % step]
+        return ["{ %s }" % step]
+
+    def do_qword(self, m, ops):
+        """Qword lanes of an xmm pair (MOVHLPS, MOVLHPS, PUNPCKLQDQ, PUNPCKHQDQ, PADDQ); lane 0 is the low qword."""
+        d, s = ops[0].strip().lower(), ops[1].strip().lower()
+        if not (d.startswith("xmm") and "[" not in d and s.startswith("xmm") and "[" not in s):
+            return ["/*UNHANDLED %s %s*/(void)0;" % (m, ops)]
+        x, y = int(d[3:]), int(s[3:])
+        if m == "MOVHLPS":
+            return ["s.xmm[%d][0] = s.xmm[%d][1];" % (x, y)]
+        if m in ("MOVLHPS", "PUNPCKLQDQ"):
+            return ["s.xmm[%d][1] = s.xmm[%d][0];" % (x, y)]
+        if m == "PUNPCKHQDQ":
+            return ["{ uint64_t _dh = s.xmm[%d][1], _sh = s.xmm[%d][1]; s.xmm[%d][0] = _dh; s.xmm[%d][1] = _sh; }"
+                    % (x, y, x, x)]
+        return ["{ uint64_t _s0 = s.xmm[%d][0], _s1 = s.xmm[%d][1]; s.xmm[%d][0] += _s0; s.xmm[%d][1] += _s1; }"
+                % (y, y, x, x)]
+
+    def do_movq_gpr(self, ops):
+        """MOVQ between a 64-bit GPR and an xmm register; a GPR loaded into xmm zeroes the upper qword."""
+        d, s = ops[0].strip().lower(), ops[1].strip().lower()
+        if d.startswith("xmm"):
+            x = int(d[3:])
+            return ["s.xmm[%d][0] = %s; s.xmm[%d][1] = 0;" % (x, reg_read(s), x)]
+        return [reg_write(d, "s.xmm[%d][0]" % int(s[3:]))]
+
+    def do_cmpss(self, ops):
+        """CMPNLTSS (CMPSS predicate 5): lane 0 becomes all ones when dst is not less than src, NaN included."""
+        x = int(ops[0].strip().lower()[3:])
+        return ["{ float _a = %s, _b = %s; uint32_t _m = !(_a < _b) ? 0xFFFFFFFFu : 0u; "
+                "s.xmm[%d][0] = (s.xmm[%d][0] & 0xFFFFFFFF00000000ULL) | _m; }"
+                % (self.x_lane(ops[0]), self.x_lane(ops[1]), x, x)]
 
     def do_sd_arith(self, m, ops):
         dst = ops[0].strip().lower()
@@ -1082,6 +1179,8 @@ class Emitter:
         if m in ("CVTTSS2SI", "CVTSI2SS", "CVTSS2SI", "CVTSS2SD",
                  "CVTSD2SS"):
             return self.do_cvt1(m, ops)
+        if m == "MOVQ" and (ops[0].strip().lower() in GPR or ops[1].strip().lower() in GPR):
+            return self.do_movq_gpr(ops)
         if m in ("MOVAPS", "MOVUPS", "MOVAPD", "MOVUPD", "MOVDQA", "MOVDQ", "MOVDQU",
                  "MOVQ"):
             return self.do_mov128v(ops)
@@ -1094,7 +1193,8 @@ class Emitter:
             return self.do_cvtv(m, ops)
         if m in ("ADDPS", "SUBPS", "MULPS", "DIVPS", "PADDD", "PSUBD", "PCMPEQD",
                  "PSHUFD", "PSRLDQ", "SHUFPS", "UNPCKLPS", "UNPCKHPS", "PSLLD", "PSRLD",
-                 "PUNPCKLDQ", "PUNPCKHDQ", "CVTTPS2DQ"):
+                 "PUNPCKLDQ", "PUNPCKHDQ", "CVTTPS2DQ", "MINPS", "MAXPS", "HADDPS",
+                 "SQRTPS", "RCPPS", "RSQRTPS"):
             return self.do_packed(m, ops)
         if m in ("ADDSD", "SUBSD", "MULSD", "DIVSD"):
             return self.do_sd_arith(m, ops)
@@ -1102,6 +1202,10 @@ class Emitter:
             return self.do_comisd(ops)
         if m in ("CVTTSD2SI", "CVTSI2SD"):
             return self.do_cvt_sd(m, ops)
+        if m in ("MOVHLPS", "MOVLHPS", "PUNPCKLQDQ", "PUNPCKHQDQ", "PADDQ"):
+            return self.do_qword(m, ops)
+        if m == "CMPNLTSS":
+            return self.do_cmpss(ops)
         return None
 
     def x_lane(self, op):
@@ -1429,6 +1533,9 @@ class Emitter:
                 fn = "pes_fn_%s" % tgt[2:]
                 return ["{ %s(s); return; }" % fn]
             return ["/*UNRESOLVED JMP %s*/return;" % o]
+        if m == "LOOP":
+            # LOOP rel8 (64-bit mode): RCX counts down, and the jump is taken while RCX != 0; flags are untouched.
+            return ["s.gpr[1] -= 1; if (s.gpr[1] != 0) goto L_%X;" % imm_val(ops[0])]
         cc = cc_of(m)
         if cc:
             return ["if (s.cond(\"%s\")) goto L_%X;" % (cc,
@@ -1605,6 +1712,10 @@ def prepass(lines, img):
             t = imm_val(ops[0])
             if t in addrs:
                 labels.add(t)
+        elif m == "LOOP" and ops and is_imm(ops[0]):
+            t = imm_val(ops[0])
+            if t in addrs:
+                labels.add(t)
     for addr, mnem, ops in lines:
         if mnem.upper() != "JMP" or not ops or is_imm(ops[0].strip()):
             continue
@@ -1743,9 +1854,18 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
                    "PSLLD", "PSRLD", "PUNPCKLDQ", "PUNPCKHDQ", "CVTTPS2DQ",
                    "ADDSD", "SUBSD", "MULSD", "DIVSD", "COMISD", "UCOMISD",
                    "CVTTSD2SI", "CVTSI2SD",
-                   "CVTPS2DQ", "CVTPD2DQ", "CVTDQ2PD"):
+                   "CVTPS2DQ", "CVTPD2DQ", "CVTDQ2PD", "MOVQ", "MOVHLPS", "MOVLHPS",
+                   "PUNPCKLQDQ", "PUNPCKHQDQ", "PADDQ", "MINPS", "MAXPS", "HADDPS",
+                   "SQRTPS", "RCPPS", "RSQRTPS", "CMPNLTSS"):
             out = em.emit_sse(m, ops)
-        elif m in CCMAP or m in ("RET", "CALL", "JMP"):
+        elif m.startswith("REP ") and m[4:] in ("STOSB", "STOSW", "STOSD", "STOSQ",
+                                                  "MOVSB", "MOVSW", "MOVSD", "MOVSQ"):
+            out = em.do_string(m[4:], rep=True)
+        elif m in ("STOSB", "STOSW", "STOSD", "STOSQ", "MOVSB", "MOVSW", "MOVSQ"):
+            out = em.do_string(m, rep=False)
+        elif m in ("DIV", "IDIV"):
+            out = em.do_div(m, ops)
+        elif m in CCMAP or m in ("RET", "CALL", "JMP", "LOOP"):
             out = em.emit_branch(m, ops, addr, ctx)
         elif m.startswith("SET") or m.startswith("CMOV"):
             out = em.emit_set_cmov(m, ops)

@@ -46,11 +46,16 @@ is copied into `specs/`.
 
     cd tools/dev/diffharness
     python3 -m specgen select --subsystem cutscene --write-set specgen/sets/cutscene.txt
+    python3 -m specgen select --subsystem replay camera crowd HUD audio --write-set specgen/sets/presentation.txt
     python3 -m specgen generate --set specgen/sets/pilot.txt --mode pilot --image "$PES_EXE" --out-dir DIR
     python3 -m specgen generate --set specgen/sets/impure.txt --mode impure \
         --pilot-set specgen/sets/pilot.txt --image "$PES_EXE" --out-dir DIR
 
 - `sets/`: VA lists, one per line (`VA<TAB>status`). Order is part of the spec: the seed is 1000 + position.
+- `sets/presentation.txt`: the replay, camera, crowd, HUD and audio pure rows as one union (594 seeds and 45 callees).
+  The fourth column is the role (seed or callee), the third the subsystem that reaches the row first; the driver's
+  `--set` records both on each result. Match commentary is out (owner ruling 25-10-26): no RTTI or string evidence
+  places commentary code in these rows, and its class and speech-bank loaders lie outside the walked universe.
 - `analyze.py`: the record-field walker over the image's bytes (capstone). `spec.py`: the pilot-mode builder.
 - `classify.py`, `impure.py`: impure mode's out-of-set callees, stub references and harness class.
 - `rules.py`: each hand fix the committed specs carry, with its provenance: case-varied `.data` inputs, the

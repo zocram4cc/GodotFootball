@@ -3,12 +3,13 @@
 
 Usage:
   driver.py --image IMG --out-dir BUILD [--spec-dir DIR] [--only 0xVA ...]
-            [--count N] [--asm-dir DIR] [--cxx CXX] [--timeout S] [--record FILE] [--check]
+            [--count N] [--asm-dir DIR] [--cxx CXX] [--timeout S] [--record FILE] [--set FILE] [--check]
 
 Defaults: --spec-dir tools/dev/diffharness/specs/pilot (committed Map specs);
 asm comes from --asm-dir bridge cache when given, else capstone decodes the
 user's image at build time (no bridge needed).
 --record FILE: a full run (no --only) writes its results there; --check re-runs the diffed VAs FILE lists and never writes it.
+--set FILE: a generator set file (specgen sets/*.txt); each result gets the subsystem and role of its row.
 
 Steps per function (deterministic order, sorted VAs):
   1. xlate.translate_one lifts the asm to build-tree C++ (pes_fn_<va>.cpp).
