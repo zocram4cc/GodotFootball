@@ -39,42 +39,43 @@ void pes_fn_140A91120(PesState& s) {
   s.set_x_f32(5, (float)((s.x_f32(5)) + (s.x_f32(0))));
   s.set_x_f32(0, k_c14259BDC4_f);
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(5)));
-  if (s.cond("be")) goto L_140A91184;
-  { uint64_t _r = ((uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))) ^ (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0)))) & 0xFFULL;
-    s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
-    s.cf = false; s.of = false;
-    s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)(_r));
+  if (s.cond("be")) {
+    s.set_x_f32(0, s.rdf(((s.gpr[9]) + (0x4ULL))));
+    s.xmm[2][0] = s.xmm[3][0]; s.xmm[2][1] = s.xmm[3][1];
+    s.set_x_f32(2, (float)((s.x_f32(2)) * ((s.rdf(((s.gpr[9])))))));
+    s.xmm[1][0] = 0; s.xmm[1][1] = 0;
+    s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)((1ULL)));
+    s.set_x_f32(3, (float)((s.x_f32(3)) * ((s.rdf(((s.gpr[4])))))));
+    s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(1))));
+    s.set_x_f32(3, (float)((s.x_f32(3)) + (s.x_f32(1))));
+    s.set_x_f32(2, (float)((s.x_f32(2)) + (s.x_f32(0))));
+    s.xmm[0][0] = s.xmm[4][0]; s.xmm[0][1] = s.xmm[4][1];
+    s.set_x_f32(0, (float)((s.x_f32(0)) * ((s.rdf(((s.gpr[9]) + (0x8ULL)))))));
+    s.set_x_f32(4, (float)((s.x_f32(4)) * ((s.rdf(((s.gpr[4]) + (0x8ULL)))))));
+    s.set_x_f32(2, (float)((s.x_f32(2)) + (s.x_f32(0))));
+    s.set_x_f32(3, (float)((s.x_f32(3)) + (s.x_f32(4))));
+    s.set_x_f32(2, (float)((s.x_f32(2)) - (s.x_f32(3))));
+    s.set_x_f32(2, (float)((s.x_f32(2)) / (s.x_f32(5))));
+    s.wrf(((s.gpr[1])), s.x_f32(2));
+    { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((40ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
+      s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
+      s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));
+      s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
+      s.gpr[4] = (uint64_t)(_r);
+    }
+    return;
+  } else {
+    { uint64_t _r = ((uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))) ^ (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0)))) & 0xFFULL;
+      s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
+      s.cf = false; s.of = false;
+      s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)(_r));
+    }
+    { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((40ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
+      s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
+      s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));
+      s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
+      s.gpr[4] = (uint64_t)(_r);
+    }
+    return;
   }
-  { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((40ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
-    s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
-    s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));
-    s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
-    s.gpr[4] = (uint64_t)(_r);
-  }
-  return;
-  L_140A91184:;
-  s.set_x_f32(0, s.rdf(((s.gpr[9]) + (0x4ULL))));
-  s.xmm[2][0] = s.xmm[3][0]; s.xmm[2][1] = s.xmm[3][1];
-  s.set_x_f32(2, (float)((s.x_f32(2)) * ((s.rdf(((s.gpr[9])))))));
-  s.xmm[1][0] = 0; s.xmm[1][1] = 0;
-  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)((1ULL)));
-  s.set_x_f32(3, (float)((s.x_f32(3)) * ((s.rdf(((s.gpr[4])))))));
-  s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(1))));
-  s.set_x_f32(3, (float)((s.x_f32(3)) + (s.x_f32(1))));
-  s.set_x_f32(2, (float)((s.x_f32(2)) + (s.x_f32(0))));
-  s.xmm[0][0] = s.xmm[4][0]; s.xmm[0][1] = s.xmm[4][1];
-  s.set_x_f32(0, (float)((s.x_f32(0)) * ((s.rdf(((s.gpr[9]) + (0x8ULL)))))));
-  s.set_x_f32(4, (float)((s.x_f32(4)) * ((s.rdf(((s.gpr[4]) + (0x8ULL)))))));
-  s.set_x_f32(2, (float)((s.x_f32(2)) + (s.x_f32(0))));
-  s.set_x_f32(3, (float)((s.x_f32(3)) + (s.x_f32(4))));
-  s.set_x_f32(2, (float)((s.x_f32(2)) - (s.x_f32(3))));
-  s.set_x_f32(2, (float)((s.x_f32(2)) / (s.x_f32(5))));
-  s.wrf(((s.gpr[1])), s.x_f32(2));
-  { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((40ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
-    s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
-    s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));
-    s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
-    s.gpr[4] = (uint64_t)(_r);
-  }
-  return;
 }

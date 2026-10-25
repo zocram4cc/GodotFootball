@@ -16,13 +16,13 @@ void pes_fn_14088D830(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = (_a & 0xFFULL) < (_b & 0xFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }
-  if (s.cond("z")) goto L_14088D843;
-  s.wr(((s.gpr[0]) + ((s.gpr[1])*1ULL) + (0x11ULL)), (uint64_t)(((uint64_t)(uint8_t)(s.gpr[8] >> 0))), 1);
-  { uint64_t _r = ((uint64_t)(s.rd(((s.gpr[1]) + (0x10ULL)), 1)) & (uint64_t)((248ULL))) & 0xFFULL;
-    s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
-    s.cf = false; s.of = false;
-    s.wr(((s.gpr[1]) + (0x10ULL)), (uint64_t)(_r), 1);
+  if (!s.cond("z")) {
+    s.wr(((s.gpr[0]) + ((s.gpr[1])*1ULL) + (0x11ULL)), (uint64_t)(((uint64_t)(uint8_t)(s.gpr[8] >> 0))), 1);
+    { uint64_t _r = ((uint64_t)(s.rd(((s.gpr[1]) + (0x10ULL)), 1)) & (uint64_t)((248ULL))) & 0xFFULL;
+      s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
+      s.cf = false; s.of = false;
+      s.wr(((s.gpr[1]) + (0x10ULL)), (uint64_t)(_r), 1);
+    }
   }
-  L_14088D843:;
   return;
 }

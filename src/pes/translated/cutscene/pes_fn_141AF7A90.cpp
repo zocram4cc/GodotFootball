@@ -18,10 +18,10 @@ void pes_fn_141AF7A90(PesState& s) {
   { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
-  if (s.cond("z")) goto L_141AF7AAD;
-  s.set_x_f32(1, (float)((s.x_f32(1)) * ((k_c1425A266C_f))));
-  s.gpr[0] = (uint64_t)(s.rd(((s.gpr[0]) + (0x10ULL)), 8));
-  s.wrf(((s.gpr[0]) + (0x44ULL)), s.x_f32(1));
-  L_141AF7AAD:;
+  if (!s.cond("z")) {
+    s.set_x_f32(1, (float)((s.x_f32(1)) * ((k_c1425A266C_f))));
+    s.gpr[0] = (uint64_t)(s.rd(((s.gpr[0]) + (0x10ULL)), 8));
+    s.wrf(((s.gpr[0]) + (0x44ULL)), s.x_f32(1));
+  }
   return;
 }

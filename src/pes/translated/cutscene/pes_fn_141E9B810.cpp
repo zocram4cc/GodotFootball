@@ -15,9 +15,10 @@ void pes_fn_141E9B810(PesState& s) {
   { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
-  if (s.cond("z")) goto L_141E9B821;
-  s.gpr[0] = (uint64_t)(s.rd(((s.gpr[0]) + (0x8ULL)), 8));
-  return;
-  L_141E9B821:;
-  return;
+  if (s.cond("z")) {
+    return;
+  } else {
+    s.gpr[0] = (uint64_t)(s.rd(((s.gpr[0]) + (0x8ULL)), 8));
+    return;
+  }
 }

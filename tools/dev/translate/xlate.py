@@ -22,6 +22,7 @@ import os
 import re
 import struct
 import sys
+import flow
 
 BASE = 0x140000000
 
@@ -1959,7 +1960,12 @@ def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
             head.append("void pes_fn_%s(PesState& s);" % sib[2:])
     for (tva, n), blob in sorted(em.consts.items()):
         pass
-    src = head + ["", "void pes_fn_%s(PesState& s) {" % va[2:]] + ["  " + b for b in out] + ["}"]
+    # Structured control flow where the CFG allows it (flow.py). Loops and unmodelled forms keep their gotos.
+    flat = [l for b in out for l in b.split("\n")]
+    body = flow.structure_lines(["  " + l for l in flat])
+    if body is None:
+        body = ["  " + l for l in flat]
+    src = head + ["", "void pes_fn_%s(PesState& s) {" % va[2:]] + body + ["}"]
     return src, []
 
 

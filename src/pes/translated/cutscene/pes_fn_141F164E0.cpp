@@ -15,10 +15,11 @@ void pes_fn_141F164E0(PesState& s) {
   s.xmm[0][0] = s.xmm[2][0]; s.xmm[0][1] = s.xmm[2][1];
   s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(1))));
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(2)));
-  if (s.cond("c")) goto L_141F164F5;
-  s.wrf(((s.gpr[1]) + (0x18ULL)), s.x_f32(2));
-  return;
-  L_141F164F5:;
-  s.wrf(((s.gpr[1]) + (0x18ULL)), s.x_f32(1));
-  return;
+  if (s.cond("c")) {
+    s.wrf(((s.gpr[1]) + (0x18ULL)), s.x_f32(1));
+    return;
+  } else {
+    s.wrf(((s.gpr[1]) + (0x18ULL)), s.x_f32(2));
+    return;
+  }
 }

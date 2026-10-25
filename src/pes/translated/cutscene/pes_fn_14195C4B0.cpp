@@ -35,27 +35,33 @@ void pes_fn_14195C4B0(PesState& s) {
   s.xmm[0][0] = s.xmm[1][0]; s.xmm[0][1] = s.xmm[1][1];
   s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(3))));
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(5)));
-  if (s.cond("c")) goto L_14195C4D0;
-  s.xmm[2][0] = s.xmm[1][0]; s.xmm[2][1] = s.xmm[1][1];
-  goto L_14195C4D3;
-  L_14195C4D0:;
-  s.xmm[2][0] = s.xmm[3][0]; s.xmm[2][1] = s.xmm[3][1];
-  L_14195C4D3:;
+  if (s.cond("c")) {
+    s.xmm[2][0] = s.xmm[3][0]; s.xmm[2][1] = s.xmm[3][1];
+  } else {
+    s.xmm[2][0] = s.xmm[1][0]; s.xmm[2][1] = s.xmm[1][1];
+  }
   s.set_x_f32(0, k_c1425CA310_f);
   s.set_x_f32(4, k_c142598580_f);
   s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(2))));
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(5)));
-  if (s.cond("c")) goto L_14195C509;
-  s.cmp_ss((float)(s.x_f32(4)), (float)(s.x_f32(2)));
-  if (s.cond("be")) goto L_14195C509;
-  s.set_x_f32(1, (float)((s.x_f32(1)) - (s.x_f32(3))));
-  s.set_x_f32(1, (float)((s.x_f32(1)) / ((k_c142588214_f))));
-  s.set_x_f32(1, (float)((s.x_f32(1)) - ((k_c14256AE1C_f))));
-  s.xmm[0][0] = s.xmm[1][0]; s.xmm[0][1] = s.xmm[1][1];
-  return;
-  L_14195C509:;
-  s.set_x_f32(1, (float)((s.x_f32(1)) - (s.x_f32(4))));
-  s.set_x_f32(1, (float)((s.x_f32(1)) / ((k_c14259BE2C_f))));
-  s.xmm[0][0] = s.xmm[1][0]; s.xmm[0][1] = s.xmm[1][1];
-  return;
+  if (s.cond("c")) {
+    s.set_x_f32(1, (float)((s.x_f32(1)) - (s.x_f32(4))));
+    s.set_x_f32(1, (float)((s.x_f32(1)) / ((k_c14259BE2C_f))));
+    s.xmm[0][0] = s.xmm[1][0]; s.xmm[0][1] = s.xmm[1][1];
+    return;
+  } else {
+    s.cmp_ss((float)(s.x_f32(4)), (float)(s.x_f32(2)));
+    if (s.cond("be")) {
+      s.set_x_f32(1, (float)((s.x_f32(1)) - (s.x_f32(4))));
+      s.set_x_f32(1, (float)((s.x_f32(1)) / ((k_c14259BE2C_f))));
+      s.xmm[0][0] = s.xmm[1][0]; s.xmm[0][1] = s.xmm[1][1];
+      return;
+    } else {
+      s.set_x_f32(1, (float)((s.x_f32(1)) - (s.x_f32(3))));
+      s.set_x_f32(1, (float)((s.x_f32(1)) / ((k_c142588214_f))));
+      s.set_x_f32(1, (float)((s.x_f32(1)) - ((k_c14256AE1C_f))));
+      s.xmm[0][0] = s.xmm[1][0]; s.xmm[0][1] = s.xmm[1][1];
+      return;
+    }
+  }
 }

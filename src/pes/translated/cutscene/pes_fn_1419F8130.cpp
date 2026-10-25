@@ -20,10 +20,11 @@ void pes_fn_1419F8130(PesState& s) {
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint8_t)(s.gpr[2] >> 0))) & (uint64_t)(((uint64_t)(uint8_t)(s.gpr[2] >> 0)))) & 0xFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = false; s.of = false; }
-  if (s.cond("z")) goto L_1419F815A;
-  s.wrf(((s.gpr[1]) + (0x54ULL)), s.x_f32(3));
-  return;
-  L_1419F815A:;
-  s.wr(((s.gpr[1]) + (0x54ULL)), (uint64_t)((0ULL)), 4);
-  return;
+  if (s.cond("z")) {
+    s.wr(((s.gpr[1]) + (0x54ULL)), (uint64_t)((0ULL)), 4);
+    return;
+  } else {
+    s.wrf(((s.gpr[1]) + (0x54ULL)), s.x_f32(3));
+    return;
+  }
 }

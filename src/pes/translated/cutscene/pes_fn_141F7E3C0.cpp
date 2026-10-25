@@ -15,19 +15,20 @@ void pes_fn_141F7E3C0(PesState& s) {
   { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
-  if (s.cond("nz")) goto L_141F7E3CA;
-  return;
-  L_141F7E3CA:;
-  { unsigned __int128 _v = s.rd128(((s.gpr[0]) + (0x10ULL))); s.xmm[0][0] = (uint64_t)_v; s.xmm[0][1] = (uint64_t)(_v >> 64); }
-  s.wr128(((s.gpr[2])), ((unsigned __int128)s.xmm[0][1] << 64) | s.xmm[0][0]);
-  { unsigned __int128 _v = s.rd128(((s.gpr[0]) + (0x20ULL))); s.xmm[1][0] = (uint64_t)_v; s.xmm[1][1] = (uint64_t)(_v >> 64); }
-  s.wr128(((s.gpr[2]) + (0x10ULL)), ((unsigned __int128)s.xmm[1][1] << 64) | s.xmm[1][0]);
-  { unsigned __int128 _v = s.rd128(((s.gpr[0]) + (0x30ULL))); s.xmm[0][0] = (uint64_t)_v; s.xmm[0][1] = (uint64_t)(_v >> 64); }
-  s.wr128(((s.gpr[2]) + (0x20ULL)), ((unsigned __int128)s.xmm[0][1] << 64) | s.xmm[0][0]);
-  { unsigned __int128 _v = s.rd128(((s.gpr[0]) + (0x40ULL))); s.xmm[1][0] = (uint64_t)_v; s.xmm[1][1] = (uint64_t)(_v >> 64); }
-  s.wr128(((s.gpr[2]) + (0x30ULL)), ((unsigned __int128)s.xmm[1][1] << 64) | s.xmm[1][0]);
-  s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0]) + (0x50ULL)), 4));
-  s.wr(((s.gpr[2]) + (0x40ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
-  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)((1ULL)));
-  return;
+  if (s.cond("nz")) {
+    { unsigned __int128 _v = s.rd128(((s.gpr[0]) + (0x10ULL))); s.xmm[0][0] = (uint64_t)_v; s.xmm[0][1] = (uint64_t)(_v >> 64); }
+    s.wr128(((s.gpr[2])), ((unsigned __int128)s.xmm[0][1] << 64) | s.xmm[0][0]);
+    { unsigned __int128 _v = s.rd128(((s.gpr[0]) + (0x20ULL))); s.xmm[1][0] = (uint64_t)_v; s.xmm[1][1] = (uint64_t)(_v >> 64); }
+    s.wr128(((s.gpr[2]) + (0x10ULL)), ((unsigned __int128)s.xmm[1][1] << 64) | s.xmm[1][0]);
+    { unsigned __int128 _v = s.rd128(((s.gpr[0]) + (0x30ULL))); s.xmm[0][0] = (uint64_t)_v; s.xmm[0][1] = (uint64_t)(_v >> 64); }
+    s.wr128(((s.gpr[2]) + (0x20ULL)), ((unsigned __int128)s.xmm[0][1] << 64) | s.xmm[0][0]);
+    { unsigned __int128 _v = s.rd128(((s.gpr[0]) + (0x40ULL))); s.xmm[1][0] = (uint64_t)_v; s.xmm[1][1] = (uint64_t)(_v >> 64); }
+    s.wr128(((s.gpr[2]) + (0x30ULL)), ((unsigned __int128)s.xmm[1][1] << 64) | s.xmm[1][0]);
+    s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0]) + (0x50ULL)), 4));
+    s.wr(((s.gpr[2]) + (0x40ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
+    s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)((1ULL)));
+    return;
+  } else {
+    return;
+  }
 }

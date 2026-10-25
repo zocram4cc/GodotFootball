@@ -21,14 +21,15 @@ void pes_fn_142043A00(PesState& s) {
   { uint64_t _r = ((uint64_t)(s.gpr[9]) & (uint64_t)(s.gpr[9])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
-  if (s.cond("z")) goto L_142043A19;
-  s.gpr[9] = (uint64_t)(s.rd(((s.gpr[9])), 8));
-  { uint64_t _r = ((uint64_t)(s.gpr[9]) & (uint64_t)(s.gpr[9])) & 0xFFFFFFFFFFFFFFFFULL;
-    s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
-    s.cf = false; s.of = false; }
-  if (s.cond("z")) goto L_142043A19;
-  s.gpr[0] = (uint64_t)(s.rd(((s.gpr[9])), 8));
-  L_142043A19:;
+  if (!s.cond("z")) {
+    s.gpr[9] = (uint64_t)(s.rd(((s.gpr[9])), 8));
+    { uint64_t _r = ((uint64_t)(s.gpr[9]) & (uint64_t)(s.gpr[9])) & 0xFFFFFFFFFFFFFFFFULL;
+      s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
+      s.cf = false; s.of = false; }
+    if (!s.cond("z")) {
+      s.gpr[0] = (uint64_t)(s.rd(((s.gpr[9])), 8));
+    }
+  }
   s.gpr[1] = (uint64_t)(s.rd(((s.gpr[1]) + (0x10ULL)), 8));
   { uint64_t _a = (uint64_t)(s.gpr[1]), _b = (uint64_t)(s.gpr[8]), _r = (_a - _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
@@ -42,15 +43,16 @@ void pes_fn_142043A00(PesState& s) {
   { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
-  if (s.cond("z")) goto L_142043A3E;
-  s.gpr[0] = (uint64_t)(s.rd(((s.gpr[0])), 8));
-  { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
-    s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
-    s.cf = false; s.of = false; }
-  if (s.cond("z")) goto L_142043A3E;
-  s.gpr[0] = (uint64_t)(s.rd(((s.gpr[0])), 8));
-  s.wr(((s.gpr[2])), (uint64_t)(s.gpr[0]), 8);
-  L_142043A3E:;
+  if (!s.cond("z")) {
+    s.gpr[0] = (uint64_t)(s.rd(((s.gpr[0])), 8));
+    { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
+      s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
+      s.cf = false; s.of = false; }
+    if (!s.cond("z")) {
+      s.gpr[0] = (uint64_t)(s.rd(((s.gpr[0])), 8));
+      s.wr(((s.gpr[2])), (uint64_t)(s.gpr[0]), 8);
+    }
+  }
   s.gpr[0] = (uint64_t)(s.gpr[2]);
   return;
 }

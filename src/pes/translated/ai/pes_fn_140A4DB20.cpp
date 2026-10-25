@@ -17,8 +17,8 @@ void pes_fn_140A4DB20(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = (_a & 0xFFULL) < (_b & 0xFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }
-  if (s.cond("nz")) goto L_140A4DB34;
-  s.wr(((s.gpr[1])), (uint64_t)((1119092736ULL)), 4);
-  L_140A4DB34:;
+  if (!s.cond("nz")) {
+    s.wr(((s.gpr[1])), (uint64_t)((1119092736ULL)), 4);
+  }
   return;
 }

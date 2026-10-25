@@ -17,8 +17,8 @@ void pes_fn_140A7DB90(PesState& s) {
     s.cf = (_a & 0xFFULL) < (_b & 0xFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }
   s.gpr[0] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0)));
-  if (s.cond("c")) goto L_140A7DBA0;
-  s.gpr[0] = (uint64_t)(uint32_t)((4ULL));
-  L_140A7DBA0:;
+  if (!s.cond("c")) {
+    s.gpr[0] = (uint64_t)(uint32_t)((4ULL));
+  }
   return;
 }

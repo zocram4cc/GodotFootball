@@ -15,10 +15,10 @@ void pes_fn_1408CC6B0(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
-  if (s.cond("ge")) goto L_1408CC6C2;
-  s.gpr[0] = (uint64_t)((((int64_t)(((uint64_t)(((uint64_t)(uint32_t)s.gpr[2])) << 32))) >> 32));
-  s.wr(((s.gpr[0]) + ((s.gpr[1])*1ULL) + (0x8ULL)), (uint64_t)((1ULL)), 1);
-  s.wr(((s.gpr[1]) + ((s.gpr[0])*4ULL) + (0x10ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[8])), 4);
-  L_1408CC6C2:;
+  if (!s.cond("ge")) {
+    s.gpr[0] = (uint64_t)((((int64_t)(((uint64_t)(((uint64_t)(uint32_t)s.gpr[2])) << 32))) >> 32));
+    s.wr(((s.gpr[0]) + ((s.gpr[1])*1ULL) + (0x8ULL)), (uint64_t)((1ULL)), 1);
+    s.wr(((s.gpr[1]) + ((s.gpr[0])*4ULL) + (0x10ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[8])), 4);
+  }
   return;
 }

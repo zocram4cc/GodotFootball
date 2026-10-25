@@ -16,9 +16,9 @@ void pes_fn_141F5CA70(PesState& s) {
   { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
-  if (s.cond("z")) goto L_141F5CA94;
-  s.set_x_f32(1, (float)((s.x_f32(1)) * ((s.rdf(((s.gpr[0]) + (0xAACULL)))))));
-  s.wrf(((s.gpr[0]) + (0xAA8ULL)), s.x_f32(1));
-  L_141F5CA94:;
+  if (!s.cond("z")) {
+    s.set_x_f32(1, (float)((s.x_f32(1)) * ((s.rdf(((s.gpr[0]) + (0xAACULL)))))));
+    s.wrf(((s.gpr[0]) + (0xAA8ULL)), s.x_f32(1));
+  }
   return;
 }

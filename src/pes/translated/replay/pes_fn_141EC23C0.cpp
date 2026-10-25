@@ -15,10 +15,10 @@ void pes_fn_141EC23C0(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
-  if (s.cond("ge")) goto L_141EC23D0;
-  s.gpr[0] = (uint64_t)(s.rd(((s.gpr[8])), 8));
-  s.gpr[2] = (uint64_t)((((int64_t)(((uint64_t)(((uint64_t)(uint32_t)s.gpr[2])) << 32))) >> 32));
-  s.wr(((s.gpr[1]) + ((s.gpr[2])*8ULL) + (0x38ULL)), (uint64_t)(s.gpr[0]), 8);
-  L_141EC23D0:;
+  if (!s.cond("ge")) {
+    s.gpr[0] = (uint64_t)(s.rd(((s.gpr[8])), 8));
+    s.gpr[2] = (uint64_t)((((int64_t)(((uint64_t)(((uint64_t)(uint32_t)s.gpr[2])) << 32))) >> 32));
+    s.wr(((s.gpr[1]) + ((s.gpr[2])*8ULL) + (0x38ULL)), (uint64_t)(s.gpr[0]), 8);
+  }
   return;
 }

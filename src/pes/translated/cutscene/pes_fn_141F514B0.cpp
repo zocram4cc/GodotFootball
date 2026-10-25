@@ -14,8 +14,8 @@ void pes_fn_141F514B0(PesState& s) {
   s.gpr[2] = (uint64_t)(uint32_t)(s.rd(((s.gpr[1]) + (0x3CULL)), 1));
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[1]) + (0x34ULL)), 4));
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), _b = (uint64_t)(((uint64_t)(uint32_t)s.gpr[2])) & 31;   s.cf = ((_a >> _b) & 1);   uint64_t _r = _a; }
-  if (s.cond("c")) goto L_141F514C0;
-  s.wr(((s.gpr[1]) + (0x3CULL)), (uint64_t)((0ULL)), 1);
-  L_141F514C0:;
+  if (!s.cond("c")) {
+    s.wr(((s.gpr[1]) + (0x3CULL)), (uint64_t)((0ULL)), 1);
+  }
   return;
 }

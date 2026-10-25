@@ -16,13 +16,13 @@ void pes_fn_141F4D050(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
-  if (s.cond("a")) goto L_141F4D063;
-  { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), _r = (_a + 1) & 0xFFFFFFFFULL;
-    s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
-    s.of = (_a == 0xFFFFFFFFULL);
-    s.gpr[0] = (uint64_t)(uint32_t)(_r);
+  if (!s.cond("a")) {
+    { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), _r = (_a + 1) & 0xFFFFFFFFULL;
+      s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
+      s.of = (_a == 0xFFFFFFFFULL);
+      s.gpr[0] = (uint64_t)(uint32_t)(_r);
+    }
+    s.wr(0x14352A3C0ULL, (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
   }
-  s.wr(0x14352A3C0ULL, (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
-  L_141F4D063:;
   return;
 }

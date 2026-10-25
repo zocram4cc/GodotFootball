@@ -17,8 +17,8 @@ void pes_fn_141E53520(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   s.gpr[0] = (uint64_t)(uint32_t)(((s.gpr[1]) + (0ULL - 0x16ULL)));
-  if (s.cond("be")) goto L_141E53530;
-  s.gpr[0] = (uint64_t)(uint32_t)((4ULL));
-  L_141E53530:;
+  if (!s.cond("be")) {
+    s.gpr[0] = (uint64_t)(uint32_t)((4ULL));
+  }
   return;
 }

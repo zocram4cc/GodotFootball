@@ -15,9 +15,10 @@ void pes_fn_141EDD3E0(PesState& s) {
   { uint64_t _r = ((uint64_t)(s.gpr[0]) & (uint64_t)(s.gpr[0])) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
-  if (s.cond("nz")) goto L_141EDD3EA;
-  return;
-  L_141EDD3EA:;
-  s.gpr[0] = (uint64_t)(s.rd(((s.gpr[0]) + (0x18ULL)), 8));
-  return;
+  if (s.cond("nz")) {
+    s.gpr[0] = (uint64_t)(s.rd(((s.gpr[0]) + (0x18ULL)), 8));
+    return;
+  } else {
+    return;
+  }
 }

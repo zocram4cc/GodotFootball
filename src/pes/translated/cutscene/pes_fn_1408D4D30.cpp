@@ -34,9 +34,9 @@ void pes_fn_1408D4D30(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = (_a & 0xFFFFFFFFFFFFFFFFULL) < (_b & 0xFFFFFFFFFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 63) & 1; }
-  if (s.cond("c")) goto L_1408D4D68;
-  s.gpr[0] = (uint64_t)(s.rd(((s.gpr[0])), 8));
-  L_1408D4D68:;
+  if (!s.cond("c")) {
+    s.gpr[0] = (uint64_t)(s.rd(((s.gpr[0])), 8));
+  }
   s.wr(((s.gpr[0])), (uint64_t)((0ULL)), 1);
   s.gpr[0] = (uint64_t)(s.gpr[1]);
   { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((24ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;

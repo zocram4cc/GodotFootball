@@ -16,8 +16,8 @@ void pes_fn_140A714E0(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = (_a & 0xFFULL) < (_b & 0xFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }
-  if (s.cond("z")) goto L_140A714F3;
-  s.gpr[0] = (uint64_t)(((s.gpr[1]) + (0x229B4ULL)));
-  L_140A714F3:;
+  if (!s.cond("z")) {
+    s.gpr[0] = (uint64_t)(((s.gpr[1]) + (0x229B4ULL)));
+  }
   return;
 }
