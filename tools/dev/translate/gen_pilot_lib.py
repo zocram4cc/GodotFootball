@@ -48,6 +48,10 @@ def main():
                                    "pes_fn_%s.cpp" % full[2:]), "w") as f:
                 f.write("\n".join(src) + "\n")
             decls.append("void pes_fn_%s(PesState& s);" % full[2:])
+        # Indirect calls in the translated TUs dispatch through this table: the lib's own translated set, so a
+        # target outside it aborts with its address (pes_dispatch_missing), never silently.
+        import gen_dispatch
+        gen_dispatch.write(args.out_dir, args.vas)
         with open(os.path.join(args.out_dir, "pes_pilot.h"), "w") as f:
             f.write("// Generated at build time from the user's image.\n"
                     "#pragma once\nstruct PesState;\n" +
