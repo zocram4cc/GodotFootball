@@ -172,15 +172,6 @@ struct PesTeamRecord {
 static_assert(offsetof(PesTeamRecord, sheet) == kTeamSheetOffset);
 static_assert(sizeof(PesTeamRecord) == kTeamRecordBytes);
 
-// The hand ports of the translated sheet readers: the same arithmetic on the raw sheet bytes. GF runs them when no
-// PES image is configured, and the pilot tests check the translated readers against them.
-namespace sheet_port {
-int Designated(const uint8_t* sheet, int k);
-int Taker(const uint8_t* sheet, int k);
-int Slider(const uint8_t* sheet, int k, int plan);
-int Toggle(const uint8_t* sheet, int k, int plan);
-}  // namespace sheet_port
-
 inline constexpr int kConceptCount = 48;          // FUN_140579e10's ids 0..47
 inline constexpr int kLastAttackingConcept = 0x20;  // ids <= 0x20 run in possession
 inline constexpr int kConceptSideCounter = 0x03;
