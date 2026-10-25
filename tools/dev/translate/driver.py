@@ -40,6 +40,13 @@ FAILURE_CLASSES = ("engine call", "live state", "GPU", "translator bug",
                    "struct map gap", "harness cannot run",
                    "stub model wrong", "unmodellable callee")
 
+# Coverage floor (provisional): a function is `diffed` only when its
+# own-block coverage fraction reaches COVERAGE_FLOOR. Value from the
+# pilot/impure baselines: pilot median 86% (37/216 below 50%), impure
+# median 17% (25/31 below 50%). 0.50 keeps the pilot's proven bulk while
+# forcing the impure sliver upward; revisit once guided generation lands.
+COVERAGE_FLOOR = 0.50
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 RUN_PY = os.path.join(REPO, "tools", "dev", "diffharness", "run.py")
@@ -547,11 +554,66 @@ def build_and_diff(va, spec, args, pilot, nlines):
     return False, "diff: %s" % detail[:240], "translator bug"
 
 
+def dead_blocks(image, va):
+    """{block leader: reason} for blocks unreachable from the entry under
+    any input: abort-trap/error blocks and padding. Excluded from the
+    coverage denominator, each with its reason.
+
+    - abort traps: a block whose first instruction is a CALL into a
+      stubs.json abort entry (tamper/error paths the harness must never
+      take; reaching one is a loud harness failure, not a case).
+    - int3 padding: 0xCC bytes capstone decodes as INT3 (alignment
+      between functions, never a real block).
+    """
+    import xlate
+    try:
+        lines = xlate.capstone_decode(image, int(va, 16))
+    except Exception:
+        return {}
+    if not lines:
+        return {}
+    addrs = [a for a, _, _ in lines]
+    aset = set(addrs)
+    leaders = {addrs[0]}
+    for i, (a, mn, ops) in enumerate(lines):
+        m = mn.upper()
+        tgt = None
+        if (m in xlate.CCMAP or m == "JMP") and ops:
+            try:
+                tgt = int(ops[0].strip(), 16)
+            except ValueError:
+                tgt = None
+        if tgt is not None and tgt in aset:
+            leaders.add(tgt)
+        if m in xlate.CCMAP or m in ("JMP", "CALL", "RET"):
+            if i + 1 < len(addrs):
+                leaders.add(addrs[i + 1])
+    bounds = sorted(leaders)
+    by_addr = {a: (mn, ops) for a, mn, ops in lines}
+    abort_vas = {int(v, 16) if isinstance(v, str) else v
+                 for v, e in STUB_TABLE.items() if e.get("do") == "abort"}
+    out = {}
+    for bi, b in enumerate(bounds):
+        mn, ops = by_addr.get(b, (None, []))
+        if mn == "INT3":
+            out["0x%X" % b] = "int3 padding"
+            continue
+        if mn == "CALL" and ops:
+            try:
+                if int(ops[0].strip(), 16) in abort_vas:
+                    out["0x%X" % b] = "abort-trap block"
+            except ValueError:
+                pass
+    return out
+
+
 def block_coverage(image, vas, executed):
     """{va: (reached, total)} basic-block coverage per function. Blocks
     split the capstone decode at branch boundaries (entry, Jcc/JMP targets,
     fallthroughs after branches); a block counts when any executed address
-    lands in it. Undecodable functions map to None (never counted)."""
+    lands in it. Undecodable functions map to None (never counted).
+    Dead blocks (dead_blocks: abort traps, int3 padding) are excluded from
+    the denominator, each with its reason in the result's dead_blocks."""
     import xlate
     exe = set(int(a, 16) for a in executed)
     out = {}
@@ -581,8 +643,11 @@ def block_coverage(image, vas, executed):
                 if i + 1 < len(addrs):
                     leaders.add(addrs[i + 1])
         bounds = sorted(leaders)
+        dead = {int(k, 16) for k in dead_blocks(image, va)}
+        live = [b for b in bounds if b not in dead]
         reached = 0
-        for bi, b in enumerate(bounds):
+        for b in live:
+            bi = bounds.index(b)
             end = bounds[bi + 1] if bi + 1 < len(bounds) else None
             hit = False
             for a in addrs:
@@ -593,7 +658,7 @@ def block_coverage(image, vas, executed):
                     break
             if hit:
                 reached += 1
-        out[va] = (reached, len(bounds))
+        out[va] = (reached, len(live) or len(bounds))
     return out
 
 def finish_one(va, args, pilot):
@@ -601,9 +666,11 @@ def finish_one(va, args, pilot):
     # Block coverage (recorded for every translated function, never hidden):
     # the fraction of basic blocks the harness cases executed, per function
     # over the translated closure (top + callees the build links). A function
-    # is diffed only with its coverage recorded; low coverage stays visible
-    # in the report instead of passing silently.
+    # is diffed only with its coverage recorded AND at/above COVERAGE_FLOOR;
+    # below-floor bit-exact stays visible as a failure instead of passing
+    # silently. Dead blocks (abort traps, int3) leave the denominator.
     res["coverage"] = {}
+    res["dead_blocks"] = {}
     if res["translated"]:
         try:
             addrs = json.load(open(os.path.join(
@@ -620,6 +687,10 @@ def finish_one(va, args, pilot):
             v: {"reached": r, "total": t,
                 "fraction": round(r / t, 4) if t else 0.0}
             for v, (r, t) in cov.items() if isinstance(cov[v], tuple)}
+        try:
+            res["dead_blocks"] = dead_blocks(args.image, va)
+        except Exception:
+            res["dead_blocks"] = {}
     if res["translated"] and res["failure_class"] is None and \
             res["cases"]:
         spec, _ = load_spec(args.spec_dir, va)
@@ -630,11 +701,18 @@ def finish_one(va, args, pilot):
             res["failure_class"] = "harness cannot run"
             res["note"] = "diff passed but no coverage recorded"
         else:
-            res["diffed"] = ok
-            res["failure_class"] = cls
-            res["note"] = note
+            own = (res["coverage"] or {}).get(va, {})
+            if ok and own and own.get("fraction", 0) < COVERAGE_FLOOR:
+                # Bit-exact on a sliver: proven, but not the function.
+                res["diffed"] = False
+                res["failure_class"] = "harness cannot run"
+                res["note"] = "bit-exact %d cases at own-block %.2f < floor %.2f" % (
+                    res["cases"], own.get("fraction", 0), COVERAGE_FLOOR)
+            else:
+                res["diffed"] = ok
+                res["failure_class"] = cls
+                res["note"] = note
     return res
-
 
 def main():
     ap = argparse.ArgumentParser()
