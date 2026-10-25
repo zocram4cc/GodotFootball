@@ -839,9 +839,14 @@ def _trace_guard_deps(image_path, va, in_addrs, max_ins=400):
     are tracked (SETcc results resolve through their own flag-setter).
     """
     lines = _cap_lines(image_path, va)
+    import sys as _sys2
+    import os as _os2
+    _sys2.path.insert(0, _os2.path.join(_os2.path.dirname(_os2.path.abspath(__file__)),
+                                        "..", "translate"))
+    import xlate as _x2
     out = {}
     for n, (addr, mn, ops) in enumerate(lines):
-        if mn not in _JCC_SIMPLE:
+        if mn not in _x2.CCMAP:
             continue
         # The flag-setter: nearest CMP/TEST above the branch.
         sn = None
@@ -896,9 +901,34 @@ def _trace_guard_deps(image_path, va, in_addrs, max_ins=400):
                                         needs.discard(nd)
                                         needs.add(("mem", mk))
                                 continue
-                # Opaque call: results untracked; memory needs survive
-                # (a call cannot rewrite a synthetic region), reg needs die.
-                needs = {nd for nd in needs if nd[0] == "mem"}
+                # Opaque call: memory needs survive (a call cannot rewrite
+                # a synthetic region); register needs survive only when the
+                # caller set them from entry state below (a MOV from an
+                # entry/dedicated reg later in the slice re-resolves them).
+                # Check the remainder of the slice: a need re-defined from
+                # entry regs or stack survives; anything call-derived dies.
+                keep = {nd for nd in needs if nd[0] == "mem"}
+                for nd in list(needs):
+                    if nd[0] != "reg":
+                        continue
+                    for kk in range(k - 1, max(k - max_ins, -1), -1):
+                        _, smn2, sops2 = lines[kk]
+                        if smn2 in ("MOV", "MOVZX", "MOVSX", "MOVSXD") and sops2 and \
+                                _reg_base(sops2[0]) == nd[1]:
+                            src2 = sops2[-1]
+                            if "[" in src2:
+                                mk2 = _mem_key(src2)
+                                if mk2 is not None and mk2[0] != "rip":
+                                    keep.add(nd)
+                            else:
+                                try:
+                                    int(src2, 0)
+                                except ValueError:
+                                    keep.add(nd)
+                            break
+                        if smn2 in ("CALL", "RET"):
+                            break
+                needs = keep
                 continue
             if kmn == "RET":
                 needs = {nd for nd in needs if nd[0] == "mem"}
@@ -970,16 +1000,27 @@ def _trace_guard_deps(image_path, va, in_addrs, max_ins=400):
                     except ValueError:
                         needs.add(("reg", _reg_base(kops[-1])))
                 continue
-        # Resolve surviving memory needs to input names by offset match
-        # (offsets are unique per spec; the slice loses the base reg).
+        # Resolve surviving needs: memory by offset match (offsets are
+        # unique per spec; the slice loses the base reg), registers by
+        # spec reg location (scalar_rdx -> rdx at entry; arg regs that a
+        # MOV reads before any write are the entry values).
+        reg_inputs = {}
+        for iname, loc in (getattr(_trace_guard_deps, "_spec_inputs", None) or {}).items():
+            if "reg" in loc:
+                try:
+                    reg_inputs[_reg_base(loc["reg"])] = iname
+                except (ValueError, AttributeError):
+                    pass
         deps = set()
         for nd in needs:
-            if nd[0] != "mem":
-                continue
-            disp = nd[1][3]
-            for iname, (_, roff, _) in (in_addrs or {}).items():
-                if disp == roff:
-                    deps.add(iname)
+            if nd[0] == "mem":
+                disp = nd[1][3]
+                for iname, (_, roff, _) in (in_addrs or {}).items():
+                    if disp == roff:
+                        deps.add(iname)
+            else:
+                if nd[1] in reg_inputs:
+                    deps.add(reg_inputs[nd[1]])
         out[addr] = sorted(deps)
     return out
 
@@ -1030,9 +1071,12 @@ def guided_cases(spec, seed, count, image_path, want_addrs):
     except (OSError, ValueError):
         return []
     try:
+        _trace_guard_deps._spec_inputs = spec.get("inputs") or {}
         deps = _trace_guard_deps(image_path, spec["va"], _input_addrs(spec))
     except (OSError, ValueError):
         deps = {}
+    finally:
+        _trace_guard_deps._spec_inputs = None
     if not guards or not want_addrs:
         return []
     want = {int(w, 16) if isinstance(w, str) else w for w in want_addrs}
@@ -1060,12 +1104,40 @@ def guided_cases(spec, seed, count, image_path, want_addrs):
         if rel is None:
             continue
         sop = None
+        sop_mn = None
         if baddr in bya:
             for k in range(bya[baddr] - 1, max(bya[baddr] - 6, -1), -1):
-                if dlines[k][1] in ("CMP", "TEST"):
+                if dlines[k][1] in ("CMP", "TEST", "UCOMISS", "COMISS"):
                     sop = dlines[k][2]
+                    sop_mn = dlines[k][1]
                     break
         if not sop:
+            continue
+        if sop_mn in ("UCOMISS", "COMISS"):
+            # Float compare: the mem half is the input word; the xmm
+            # half is case-fed or spilled. Steer the mem word to domain
+            # edges and ±1.0 around the xmm half's drawn value.
+            for half in sop[:2]:
+                if "[" not in half:
+                    continue
+                mk = _mem_key(half)
+                full = {v[1]: n for n, v in _input_addrs(spec).items()}
+                hn = full.get(mk[3]) if mk else None
+                if hn is None or schema.get(hn, {}).get("kind") != "f32":
+                    continue
+                lo = schema.get(hn, {}).get("lo", -50.0)
+                hi = schema.get(hn, {}).get("hi", 50.0)
+                for tag, fv in (("lo", lo), ("hi", hi), ("zero", 0.0),
+                                ("one", 1.0), ("neg", -1.0)):
+                    key = (hn, tag)
+                    if key in seen_vals:
+                        continue
+                    seen_vals.add(key)
+                    case = _rand_case(schema, base_rnd)
+                    case[hn] = f32_bits(fv)
+                    out.append(case)
+                    if len(out) >= count:
+                        return out
             continue
         # Solve the setter for each side: the imm half gets imm+deltas,
         # each input half gets domain edges; cases set ALL halves so
@@ -1166,12 +1238,21 @@ def guided_cases(spec, seed, count, image_path, want_addrs):
             if len(out) >= count:
                 return out
     # Mutation pass: edge values at each dependent input for guards the
-    # solver skipped (floats, TEST bits, call-fed values).
+    # solver skipped (floats, TEST bits, call-fed values). Guards with no
+    # traced deps mutate every schema input in turn (round-robin): the
+    # frontier is data-dependent, but edges still flip hidden switches.
     mut_rnd = random.Random(_gseed + 1)
+    mut_names = [n for n, rl in schema.items()
+                 if rl.get("kind") in ("u8", "all_u8", "f32", "choice", "i32")]
+    mut_idx = 0
     for (baddr, tgt, fallthru, mn) in guards:
         if tgt not in want and fallthru not in want:
             continue
-        for name in deps.get(baddr, [])[:1]:
+        got = deps.get(baddr, [])[:1]
+        if not got and mut_names:
+            got = [mut_names[mut_idx % len(mut_names)]]
+            mut_idx += 1
+        for name in got:
             rule = schema.get(name, {})
             kind = rule.get("kind", "u8")
             if kind in ("u8", "all_u8"):
