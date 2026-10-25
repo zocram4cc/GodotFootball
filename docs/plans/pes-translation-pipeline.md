@@ -61,6 +61,13 @@ the translator and the driver, split by file. Main lands everything. Concurrency
 | 30-70% | Fix the top failure classes in the translator and struct map, then re-pilot. |
 | < 30% | Report why with the failure breakdown and propose the alternative. Never fall back to the old method silently. |
 
+## Owner ruling 25-10-26: impure code is judged on the union of captures
+
+A function counts as bit-exact when every case agrees with PES and its own-block coverage, **counted across all
+captured match situations together**, reaches the 50% floor. Each capture (a mid-play snapshot of the running game at a
+different moment: kick-off, open play, set pieces, and so on) adds cases; coverage accumulates over captures. Captures
+are taken mid-play, never at a match's end, where records are already torn down.
+
 ## Owner ruling 25-10-26: the translated code is committed, and readable
 
 - **Commit the translated layer.** Translated C++ and the constants baked into it are committed to the repo. Builds no
