@@ -1,0 +1,613 @@
+{
+ "name": "impure_14051CF70",
+ "va": "0x14051CF70",
+ "entry": "0x14051CF70",
+ "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (fixclosure.py): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
+ "status": "impure-sample",
+ "subsystem": "impure-sample",
+ "stack": {
+  "base": "0x10000000",
+  "size": "0x20000"
+ },
+ "regions": {
+  "A0": {
+   "base": "0x20000000",
+   "size": "0x200000"
+  },
+  "A0.BA8": {
+   "base": "0x20400000",
+   "size": "0x200000"
+  },
+  "A2": {
+   "base": "0x20800000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8": {
+   "base": "0x20C00000",
+   "size": "0x200000"
+  }
+ },
+ "args": {
+  "rcx": "A0",
+  "r8": "A2"
+ },
+ "regions_init": {
+  "A0+0xBA8": "A0.BA8"
+ },
+ "patch_addrs": {
+  "0x1436F3DC8": "IMG.1436F3DC8"
+ },
+ "inputs": {
+  "A0_8": {
+   "region": "A0",
+   "offset": "0x8",
+   "enc": "u32"
+  },
+  "A0_BA8_0": {
+   "region": "A0.BA8",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "A0_BA8_4": {
+   "region": "A0.BA8",
+   "offset": "0x4",
+   "enc": "u8"
+  },
+  "A0_BA8_8": {
+   "region": "A0.BA8",
+   "offset": "0x8",
+   "enc": "u64"
+  },
+  "A0_BA8_10": {
+   "region": "A0.BA8",
+   "offset": "0x10",
+   "enc": "u64"
+  },
+  "A0_BA8_108": {
+   "region": "A0.BA8",
+   "offset": "0x108",
+   "enc": "u8"
+  },
+  "A0_BA8_109": {
+   "region": "A0.BA8",
+   "offset": "0x109",
+   "enc": "u64"
+  },
+  "A0_BA8_111": {
+   "region": "A0.BA8",
+   "offset": "0x111",
+   "enc": "u64"
+  },
+  "A0_BA8_119": {
+   "region": "A0.BA8",
+   "offset": "0x119",
+   "enc": "u32"
+  },
+  "A0_BA8_3F0": {
+   "region": "A0.BA8",
+   "offset": "0x3F0",
+   "enc": "u32"
+  },
+  "A0_BA8_3F4": {
+   "region": "A0.BA8",
+   "offset": "0x3F4",
+   "enc": "u8"
+  },
+  "A0_BA8_3F5_b0": {
+   "region": "A0.BA8",
+   "offset": "0x3F5",
+   "enc": "u8"
+  },
+  "A0_BA8_3F6_b1": {
+   "region": "A0.BA8",
+   "offset": "0x3F6",
+   "enc": "u8"
+  },
+  "A0_BA8_3F7": {
+   "region": "A0.BA8",
+   "offset": "0x3F7",
+   "enc": "u8"
+  },
+  "A0_BA8_538": {
+   "region": "A0.BA8",
+   "offset": "0x538",
+   "enc": "u32"
+  },
+  "A0_BA8_548": {
+   "region": "A0.BA8",
+   "offset": "0x548",
+   "enc": "u64"
+  },
+  "A0_BA8_550": {
+   "region": "A0.BA8",
+   "offset": "0x550",
+   "enc": "u32"
+  },
+  "A0_BA8_3A9C": {
+   "region": "A0.BA8",
+   "offset": "0x3A9C",
+   "enc": "u64"
+  },
+  "A0_BA8_3AA4": {
+   "region": "A0.BA8",
+   "offset": "0x3AA4",
+   "enc": "f32"
+  },
+  "A0_BA8_3FB8": {
+   "region": "A0.BA8",
+   "offset": "0x3FB8",
+   "enc": "u32"
+  },
+  "A0_BA8_7D8C": {
+   "region": "A0.BA8",
+   "offset": "0x7D8C",
+   "enc": "u32"
+  },
+  "A0_BA8_7D90": {
+   "region": "A0.BA8",
+   "offset": "0x7D90",
+   "enc": "u32"
+  },
+  "A0_BA8_7D98": {
+   "region": "A0.BA8",
+   "offset": "0x7D98",
+   "enc": "u8"
+  },
+  "A2_255": {
+   "region": "A2",
+   "offset": "0x255",
+   "enc": "u8"
+  },
+  "A2_8E08": {
+   "region": "A2",
+   "offset": "0x8E08",
+   "enc": "u32"
+  },
+  "A2_9124": {
+   "region": "A2",
+   "offset": "0x9124",
+   "enc": "f32"
+  },
+  "A2_9128": {
+   "region": "A2",
+   "offset": "0x9128",
+   "enc": "f32"
+  },
+  "A2_912C": {
+   "region": "A2",
+   "offset": "0x912C",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_2AA8": {
+   "region": "IMG.1436F3DC8",
+   "offset": "0x2AA8",
+   "enc": "u64"
+  },
+  "scalar_rdx": {
+   "reg": "rdx",
+   "enc": "u32"
+  },
+  "scalar_r9": {
+   "reg": "r9",
+   "enc": "u32"
+  }
+ },
+ "input_schema": {
+  "A0_8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_10": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_108": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_109": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_111": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_119": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_3F0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_3F4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_3F5_b0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_3F6_b1": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_3F7": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_538": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_548": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_550": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_3A9C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_3AA4": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A0_BA8_3FB8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_7D8C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_7D90": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_BA8_7D98": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_255": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_8E08": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A2_9124": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A2_9128": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A2_912C": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_2AA8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_rdx": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_r9": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  }
+ },
+ "outputs": {
+  "w_A0_8": {
+   "region": "A0",
+   "offset": "0x8",
+   "enc": "u32"
+  },
+  "w_A0_BA8_0": {
+   "region": "A0.BA8",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "w_A0_BA8_4": {
+   "region": "A0.BA8",
+   "offset": "0x4",
+   "enc": "u8"
+  },
+  "w_A0_BA8_8_d0": {
+   "region": "A0.BA8",
+   "offset": "0x8",
+   "enc": "u32"
+  },
+  "w_A0_BA8_C_d1": {
+   "region": "A0.BA8",
+   "offset": "0xC",
+   "enc": "u32"
+  },
+  "w_A0_BA8_10_d0": {
+   "region": "A0.BA8",
+   "offset": "0x10",
+   "enc": "u32"
+  },
+  "w_A0_BA8_14_d1": {
+   "region": "A0.BA8",
+   "offset": "0x14",
+   "enc": "u32"
+  },
+  "w_A0_BA8_108": {
+   "region": "A0.BA8",
+   "offset": "0x108",
+   "enc": "u8"
+  },
+  "w_A0_BA8_109_d0": {
+   "region": "A0.BA8",
+   "offset": "0x109",
+   "enc": "u32"
+  },
+  "w_A0_BA8_10D_d1": {
+   "region": "A0.BA8",
+   "offset": "0x10D",
+   "enc": "u32"
+  },
+  "w_A0_BA8_111_d0": {
+   "region": "A0.BA8",
+   "offset": "0x111",
+   "enc": "u32"
+  },
+  "w_A0_BA8_115_d1": {
+   "region": "A0.BA8",
+   "offset": "0x115",
+   "enc": "u32"
+  },
+  "w_A0_BA8_119": {
+   "region": "A0.BA8",
+   "offset": "0x119",
+   "enc": "u32"
+  },
+  "w_A0_BA8_3F0": {
+   "region": "A0.BA8",
+   "offset": "0x3F0",
+   "enc": "u32"
+  },
+  "w_A0_BA8_3F4": {
+   "region": "A0.BA8",
+   "offset": "0x3F4",
+   "enc": "u8"
+  },
+  "w_A0_BA8_3F5_b0": {
+   "region": "A0.BA8",
+   "offset": "0x3F5",
+   "enc": "u8"
+  },
+  "w_A0_BA8_3F6_b1": {
+   "region": "A0.BA8",
+   "offset": "0x3F6",
+   "enc": "u8"
+  },
+  "w_A0_BA8_3F7": {
+   "region": "A0.BA8",
+   "offset": "0x3F7",
+   "enc": "u8"
+  },
+  "w_A0_BA8_538": {
+   "region": "A0.BA8",
+   "offset": "0x538",
+   "enc": "u32"
+  },
+  "w_A0_BA8_548_d0": {
+   "region": "A0.BA8",
+   "offset": "0x548",
+   "enc": "u32"
+  },
+  "w_A0_BA8_54C_d1": {
+   "region": "A0.BA8",
+   "offset": "0x54C",
+   "enc": "u32"
+  },
+  "w_A0_BA8_550": {
+   "region": "A0.BA8",
+   "offset": "0x550",
+   "enc": "u32"
+  },
+  "w_A0_BA8_3A9C": {
+   "region": "A0.BA8",
+   "offset": "0x3A9C",
+   "enc": "f32"
+  },
+  "w_A0_BA8_3AA0": {
+   "region": "A0.BA8",
+   "offset": "0x3AA0",
+   "enc": "f32"
+  },
+  "w_A0_BA8_3AA4": {
+   "region": "A0.BA8",
+   "offset": "0x3AA4",
+   "enc": "f32"
+  },
+  "w_A0_BA8_3FB8": {
+   "region": "A0.BA8",
+   "offset": "0x3FB8",
+   "enc": "u32"
+  },
+  "w_A0_BA8_7D8C": {
+   "region": "A0.BA8",
+   "offset": "0x7D8C",
+   "enc": "u32"
+  },
+  "w_A0_BA8_7D90": {
+   "region": "A0.BA8",
+   "offset": "0x7D90",
+   "enc": "u32"
+  },
+  "w_A0_BA8_7D98": {
+   "region": "A0.BA8",
+   "offset": "0x7D98",
+   "enc": "u8"
+  },
+  "ret_rax": {
+   "reg": "rax"
+  }
+ },
+ "ret_note": "rax (pointer-valued return)",
+ "seed": 1034,
+ "count": 64,
+ "precheck": {
+  "indirect_calls": [],
+  "tailjumps": [],
+  "unresolved_mem": 22,
+  "live_data_reads": [
+   "IMG"
+  ],
+  "live_data_writes": [],
+  "rdata_constant_reads": [],
+  "stack_args": {},
+  "calls": [
+   "1408C50E0",
+   "140A41BE0",
+   "140A422C0",
+   "140A76270"
+  ],
+  "flags": [
+   "callee-outside-set@14051B3F0",
+   "unresolved-mem@14051CFFC",
+   "unresolved-mem@140A42301",
+   "unresolved-mem@140A42311",
+   "unresolved-mem@140A4231E",
+   "unresolved-mem@140A42331",
+   "unresolved-mem@140A42334",
+   "unresolved-mem@140A42336",
+   "unresolved-mem@140A4233A",
+   "unresolved-mem@140A4233D",
+   "unresolved-mem@140A42341",
+   "unresolved-mem@140A42354",
+   "unresolved-mem@140A42356",
+   "unresolved-mem@140A42359",
+   "unresolved-mem@140A4235C",
+   "unresolved-mem@140A42360",
+   "unresolved-mem@140A42363",
+   "unresolved-mem@140A4237B",
+   "unresolved-mem@140A42386",
+   "unresolved-mem@140A4238C",
+   "unresolved-mem@140A423A8",
+   "unresolved-mem@140A423B2",
+   "unresolved-mem@140A423B7"
+  ],
+  "stub_refs": [
+   "14159F3E0"
+  ]
+ },
+ "stub_refs": [
+  "14159F3E0"
+ ],
+ "harness": {
+  "harness_class": "runnable with stubs",
+  "blockers": [],
+  "out_of_set_callees": [
+   {
+    "va": "14051B3F0",
+    "how": "call",
+    "cls": "stub",
+    "stubs": [
+     "14159F3E0"
+    ]
+   },
+   {
+    "va": "140A76270",
+    "how": "call",
+    "cls": "run-real",
+    "stubs": []
+   }
+  ],
+  "indirect_sites": [],
+  "switch_jumps": []
+ },
+ "closure_fix": {
+  "accessors": [],
+  "removed_blanket_E1EE_slots": 0,
+  "child_links": 0,
+  "accessor_slots": 0,
+  "rule": "fixclosure.py: child links + accessor layout from image bytes"
+ }
+}

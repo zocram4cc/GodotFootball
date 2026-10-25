@@ -101,8 +101,11 @@ def fault_class(spec, err):
     if m and int(m.group(1), 16) >= IMAGE_BASE:
         return "live state", "harness fault at image VA %s" % m.group(1)
     failed = re.search(r"failed: ([^\n]*)", err)
-    return "struct map gap", "spec closure gap: %s" % (
-        failed.group(1) if failed else err.strip()[-200:])[:220]
+    lines = [ln for ln in err.strip().splitlines() if ln.strip()]
+    # A raised exception ends stderr with its one-line form; never a traceback
+    # (its frames carry machine paths).
+    detail = failed.group(1) if failed else (lines[-1] if lines else "run.py failed")
+    return "struct map gap", "spec closure gap: %s" % detail[:220]
 
 
 def diff_python():

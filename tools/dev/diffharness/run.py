@@ -762,7 +762,7 @@ def main():
         result, err = run_case(mu, spec, RET, inputs)
         if err is not None:
             print("case %d failed: %s" % (n, err), file=sys.stderr)
-            print("  inputs: %s" % json.dumps(inputs), file=sys.stderr)
+            print("  inputs: %s" % json.dumps(inputs)[:300], file=sys.stderr)
             return 1
         out.write(json.dumps({"va": spec["va"], "in": inputs, "out": result}) + "\n")
     if args.out:
