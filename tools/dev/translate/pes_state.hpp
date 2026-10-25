@@ -20,7 +20,15 @@ struct PesMem {
   // persist across cases as in the harness. Null means no image view.
   uint8_t* flat = nullptr;
   uint64_t flat_base = 0, flat_size = 0;
+  // A host window onto GF's own memory (no copy): translated code addresses [base, base + size) by VA and
+  // reads or writes the bytes in place. `ro` is read-only (writes are dropped); `rw` is writable.
+  struct Window { uint64_t base = 0, size = 0; const uint8_t* ro = nullptr; uint8_t* rw = nullptr; };
+  Window window;
+  bool window_hit(uint64_t addr, unsigned n) const {
+    return (window.ro || window.rw) && window.base <= addr && addr + n <= window.base + window.size;
+  }
   const uint8_t* find(uint64_t addr, unsigned n) const {
+    if (window_hit(addr, n)) return (window.rw ? window.rw : window.ro) + (addr - window.base);
     for (const auto& r : img) {
       if (r.va <= addr && addr + n <= r.va + r.bytes.size())
         return r.bytes.data() + (addr - r.va);
@@ -34,6 +42,7 @@ struct PesMem {
     return nullptr;
   }
   uint8_t* wfind(uint64_t addr, unsigned n) {
+    if (window_hit(addr, n)) return window.rw ? window.rw + (addr - window.base) : nullptr;
     for (auto& s : segs) {
       if (s.base <= addr && addr + n <= s.base + s.bytes.size())
         return s.bytes.data() + (addr - s.base);
