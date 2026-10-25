@@ -1,5 +1,5 @@
 {
- "note": "Impure-sample results. diffed = bit-exact vs the unicorn harness. 'provisional' in a note means the spec reads writable image globals at on-disk values. 'stubs' lists the callees that stubs.json models.",
+ "note": "impure results. diffed = bit-exact vs the unicorn harness. 'provisional' in a note means the spec reads writable image globals at on-disk values. 'stubs' lists the callees that stubs.json models.",
  "results": [
   {
    "cases": 64,
@@ -4978,16 +4978,16 @@
    "va": "0x14062E240"
   },
   {
-   "cases": 64,
+   "cases": 96,
    "coverage": {
     "0x140638FB0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 14,
      "total": 21
     },
     "0x140639100": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8714,
+     "reached": 61,
      "total": 70
     },
     "0x140A3B320": {
@@ -4996,8 +4996,8 @@
      "total": 10
     },
     "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2,
+     "reached": 2,
      "total": 10
     },
     "0x140A3E7D0": {
@@ -5006,8 +5006,8 @@
      "total": 9
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A489D0": {
@@ -5016,33 +5016,33 @@
      "total": 3
     },
     "0x140A489F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A57710": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A57720": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A57800": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A60500": {
@@ -5051,70 +5051,70 @@
      "total": 1
     },
     "0x140A62610": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5455,
+     "reached": 6,
      "total": 11
     },
     "0x140A62690": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 4,
      "total": 5
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2222,
+     "reached": 2,
      "total": 9
     },
     "0x140A6C6D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5,
+     "reached": 3,
      "total": 6
     },
     "0x140A6CF70": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A6E3F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A75BE0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5714,
+     "reached": 4,
      "total": 7
     },
     "0x140A8F7C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A92C80": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8182,
+     "reached": 9,
      "total": 11
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4545,
+     "reached": 5,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9,
+     "reached": 9,
      "total": 10
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14063913d)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "96 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -5503,7 +5503,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a58320)",
+   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14065e44d)",
    "stubs": [
     "0x1415A1780"
    ],

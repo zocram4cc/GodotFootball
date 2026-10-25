@@ -1,5 +1,5 @@
 {
- "note": "Pilot results. diffed = bit-exact vs the unicorn harness. 'provisional' in a note means the spec reads writable image globals at on-disk values. 'stubs' lists the callees that stubs.json models.",
+ "note": "pilot results. diffed = bit-exact vs the unicorn harness. 'provisional' in a note means the spec reads writable image globals at on-disk values. 'stubs' lists the callees that stubs.json models.",
  "results": [
   {
    "cases": 64,

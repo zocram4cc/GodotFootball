@@ -2,7 +2,7 @@
  "name": "impure_140687310",
  "va": "0x140687310",
  "entry": "0x140687310",
- "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (fixclosure.py): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
+ "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (rules.closure_fix): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
  "status": "impure-sample",
  "subsystem": "impure-sample",
  "stack": {
@@ -315,6 +315,6 @@
   "removed_blanket_E1EE_slots": 0,
   "child_links": 0,
   "accessor_slots": 0,
-  "rule": "fixclosure.py: child links + accessor layout from image bytes"
+  "rule": "rules.closure_fix: child links + accessor layout from image bytes"
  }
 }

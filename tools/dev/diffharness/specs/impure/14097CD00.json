@@ -1,165 +1,122 @@
 {
+ "name": "impure_14097CD00",
+ "va": "0x14097CD00",
+ "entry": "0x14097CD00",
+ "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (rules.closure_fix): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
+ "status": "impure-sample",
+ "subsystem": "impure-sample",
+ "stack": {
+  "base": "0x10000000",
+  "size": "0x20000"
+ },
+ "regions": {
+  "A0": {
+   "base": "0x20000000",
+   "size": "0x200000"
+  }
+ },
  "args": {
   "rcx": "A0"
  },
- "closure_fix": {
-  "accessor_slots": 54,
-  "accessors": [
-   "140A48910",
-   "140A48A10",
-   "140A48A30"
-  ],
-  "child_links": 0,
-  "removed_blanket_E1EE_slots": 0,
-  "rule": "fixclosure.py: child links + accessor layout from image bytes"
- },
- "count": 64,
- "entry": "0x14097CD00",
- "harness": {
-  "blockers": [],
-  "harness_class": "runnable with stubs",
-  "indirect_sites": [],
-  "out_of_set_callees": [
-   {
-    "cls": "stub",
-    "how": "call",
-    "stubs": [
-     "1415A1780"
-    ],
-    "va": "14069AE40"
-   },
-   {
-    "cls": "stub",
-    "how": "call",
-    "stubs": [
-     "1415A1780"
-    ],
-    "va": "14069AF80"
-   },
-   {
-    "cls": "stub",
-    "how": "call",
-    "stubs": [
-     "1415A1780"
-    ],
-    "va": "14069B130"
-   },
-   {
-    "cls": "stub",
-    "how": "call",
-    "stubs": [
-     "1415A1780"
-    ],
-    "va": "14097F910"
-   }
-  ],
-  "switch_jumps": []
+ "regions_init": {},
+ "patch_addrs": {},
+ "inputs": {
+  "A0_38": {
+   "region": "A0",
+   "offset": "0x38",
+   "enc": "u64"
+  },
+  "scalar_rdx": {
+   "reg": "rdx",
+   "enc": "u32"
+  },
+  "scalar_r8": {
+   "reg": "r8",
+   "enc": "u32"
+  },
+  "scalar_r9": {
+   "reg": "r9",
+   "enc": "u32"
+  },
+  "scalar_xmm0": {
+   "reg": "xmm0",
+   "enc": "f32"
+  },
+  "scalar_xmm2": {
+   "reg": "xmm2",
+   "enc": "f32"
+  },
+  "stk0": {
+   "stack_offset": "0x20",
+   "enc": "u8"
+  },
+  "stk1": {
+   "stack_offset": "0x28",
+   "enc": "u32"
+  }
  },
  "input_schema": {
   "A0_38": {
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
-   "hi": 255,
    "kind": "u8",
-   "lo": 0
-  },
-  "scalar_r8": {
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "lo": 0,
    "hi": 255,
-   "kind": "u8",
-   "lo": 0
-  },
-  "scalar_r9": {
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
-   "hi": 255,
-   "kind": "u8",
-   "lo": 0
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
   "scalar_rdx": {
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
-   "hi": 255,
    "kind": "u8",
-   "lo": 0
-  },
-  "scalar_xmm0": {
-   "domain": "generic f32 -50..50 (no doc range)",
-   "hi": 50.0,
-   "kind": "f32",
-   "lo": -50.0
-  },
-  "scalar_xmm2": {
-   "domain": "generic f32 -50..50 (no doc range)",
-   "hi": 50.0,
-   "kind": "f32",
-   "lo": -50.0
-  },
-  "stk0": {
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "lo": 0,
    "hi": 255,
-   "kind": "u8",
-   "lo": 0
-  },
-  "stk1": {
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
-   "hi": 255,
-   "kind": "u8",
-   "lo": 0
-  }
- },
- "inputs": {
-  "A0_38": {
-   "enc": "u64",
-   "offset": "0x38",
-   "region": "A0"
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
   "scalar_r8": {
-   "enc": "u32",
-   "reg": "r8"
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
   "scalar_r9": {
-   "enc": "u32",
-   "reg": "r9"
-  },
-  "scalar_rdx": {
-   "enc": "u32",
-   "reg": "rdx"
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
   "scalar_xmm0": {
-   "enc": "f32",
-   "reg": "xmm0"
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
   },
   "scalar_xmm2": {
-   "enc": "f32",
-   "reg": "xmm2"
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
   },
   "stk0": {
-   "enc": "u8",
-   "stack_offset": "0x20"
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   },
   "stk1": {
-   "enc": "u32",
-   "stack_offset": "0x28"
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
   }
  },
- "name": "impure_14097CD00",
- "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (fixclosure.py): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
  "outputs": {
   "ret_eax": {
    "reg": "eax"
   }
  },
- "patch_addrs": {},
+ "ret_note": "eax (integer/bool return; upper bits unchecked)",
+ "seed": 1037,
+ "count": 64,
  "precheck": {
-  "calls": [
-   "140A92C80",
-   "141E532D0"
-  ],
-  "flags": [
-   "callee-outside-set@14069AE40",
-   "callee-outside-set@14069AF80",
-   "callee-outside-set@14069B130",
-   "callee-outside-set@14097F910"
-  ],
   "indirect_calls": [],
+  "tailjumps": [],
+  "unresolved_mem": 0,
   "live_data_reads": [
    "IMG"
   ],
@@ -175,29 +132,73 @@
     4
    ]
   },
+  "calls": [
+   "140A92C80",
+   "141E532D0"
+  ],
+  "flags": [
+   "callee-outside-set@14069AE40",
+   "callee-outside-set@14069AF80",
+   "callee-outside-set@14069B130",
+   "callee-outside-set@14097F910"
+  ],
   "stub_refs": [
    "1415A1780"
-  ],
-  "tailjumps": [],
-  "unresolved_mem": 0
+  ]
  },
- "regions": {
-  "A0": {
-   "base": "0x20000000",
-   "size": "0x200000"
-  }
- },
- "regions_init": {},
- "ret_note": "eax (integer/bool return; upper bits unchecked)",
- "seed": 1037,
- "stack": {
-  "base": "0x10000000",
-  "size": "0x20000"
- },
- "status": "impure-sample",
  "stub_refs": [
   "1415A1780"
  ],
- "subsystem": "impure-sample",
- "va": "0x14097CD00"
+ "harness": {
+  "harness_class": "runnable with stubs",
+  "blockers": [],
+  "out_of_set_callees": [
+   {
+    "va": "14069AE40",
+    "how": "call",
+    "cls": "stub",
+    "stubs": [
+     "1415A1780"
+    ]
+   },
+   {
+    "va": "14069AF80",
+    "how": "call",
+    "cls": "stub",
+    "stubs": [
+     "1415A1780"
+    ]
+   },
+   {
+    "va": "14069B130",
+    "how": "call",
+    "cls": "stub",
+    "stubs": [
+     "1415A1780"
+    ]
+   },
+   {
+    "va": "14097F910",
+    "how": "call",
+    "cls": "stub",
+    "stubs": [
+     "1415A1780"
+    ]
+   }
+  ],
+  "indirect_sites": [],
+  "switch_jumps": []
+ },
+ "closure_fix": {
+  "accessors": [
+   "140A48910",
+   "140A489F0",
+   "140A48A10",
+   "140A48A30"
+  ],
+  "removed_blanket_E1EE_slots": 0,
+  "child_links": 0,
+  "accessor_slots": 76,
+  "rule": "rules.closure_fix: child links + accessor layout from image bytes"
+ }
 }
