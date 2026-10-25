@@ -42,7 +42,21 @@ def main():
     if mi == 0:
         print("MI is null (no match step); retry later")
         return 2
-    print("G=%#x MI=%#x" % (g, mi))
+    # G's own bytes: the seed builder's primary input. Size 0x2e58: the
+    # emulated G from snapshot.py is the same class (docs/re/pes-re-impure-state.md).
+    G_SIZE = 0x2E58
+    gblob = None
+    try:
+        mem.seek(g)
+        gblob = mem.read(G_SIZE)
+        if len(gblob) != G_SIZE:
+            gblob = None
+    except Exception:
+        pass
+    if gblob is not None:
+        with open(os.path.join(out, "g.bin"), "wb") as w:
+            w.write(gblob)
+    print("G=%#x MI=%#x G blob %s" % (g, mi, "ok" if gblob else "MISSING"), flush=True)
 
     for line in maps:
         f = line.split()
@@ -74,7 +88,8 @@ def main():
             index.append(entry)
 
     index.sort(key=lambda e: e["va"])
-    meta = {"pid": pid, "g": g, "mi": mi, "total_bytes": total,
+    meta = {"pid": pid, "g": g, "mi": mi, "g_blob": bool(gblob),
+            "total_bytes": total,
             "n_mappings": len(maps), "n_unreadable": nbad, "mappings": index}
     json.dump(meta, open(os.path.join(out, "live.json"), "w"))
     print("captured %d MB in %d mappings (%d failed)" % (total >> 20,
