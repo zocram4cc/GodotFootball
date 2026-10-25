@@ -1,13 +1,858 @@
 {
- "name": "impure_140978E70",
- "va": "0x140978E70",
+ "args": {
+  "r8": "A2",
+  "rcx": "A0",
+  "rdx": "A1"
+ },
+ "closure_fix": {
+  "accessor_slots": 54,
+  "accessors": [
+   "140A48910",
+   "140A48A10",
+   "140A48A30"
+  ],
+  "child_links": 2,
+  "removed_blanket_E1EE_slots": 234,
+  "rule": "fixclosure.py: child links + accessor layout from image bytes"
+ },
+ "count": 64,
  "entry": "0x140978E70",
- "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (fixclosure.py): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
- "status": "impure-sample",
- "subsystem": "impure-sample",
- "stack": {
-  "base": "0x10000000",
-  "size": "0x20000"
+ "harness": {
+  "blockers": [],
+  "harness_class": "runnable with stubs",
+  "indirect_sites": [],
+  "out_of_set_callees": [
+   {
+    "cls": "stub",
+    "how": "call",
+    "stubs": [
+     "1415A1780"
+    ],
+    "va": "1404C8E00"
+   },
+   {
+    "cls": "stub",
+    "how": "call",
+    "stubs": [
+     "1415A1780"
+    ],
+    "va": "140A50620"
+   }
+  ],
+  "switch_jumps": []
+ },
+ "input_schema": {
+  "A0_20": {
+   "domain": "generic f32 -50..50 (no doc range)",
+   "hi": 50.0,
+   "kind": "f32",
+   "lo": -50.0
+  },
+  "A0_24": {
+   "domain": "generic f32 -50..50 (no doc range)",
+   "hi": 50.0,
+   "kind": "f32",
+   "lo": -50.0
+  },
+  "A0_28": {
+   "domain": "generic f32 -50..50 (no doc range)",
+   "hi": 50.0,
+   "kind": "f32",
+   "lo": -50.0
+  },
+  "A1_38_18": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "A1_4": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "A2_3C": {
+   "domain": "generic f32 -50..50 (no doc range)",
+   "hi": 50.0,
+   "kind": "f32",
+   "lo": -50.0
+  },
+  "A2_40": {
+   "domain": "generic f32 -50..50 (no doc range)",
+   "hi": 50.0,
+   "kind": "f32",
+   "lo": -50.0
+  },
+  "A2_44": {
+   "domain": "generic f32 -50..50 (no doc range)",
+   "hi": 50.0,
+   "kind": "f32",
+   "lo": -50.0
+  },
+  "A2_5EC": {
+   "domain": "generic f32 -50..50 (no doc range)",
+   "hi": 50.0,
+   "kind": "f32",
+   "lo": -50.0
+  },
+  "A2_5F0": {
+   "domain": "generic f32 -50..50 (no doc range)",
+   "hi": 50.0,
+   "kind": "f32",
+   "lo": -50.0
+  },
+  "A2_736": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "A2_738": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "IMG_1436F3DC8_0": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "IMG_1436F3DC8_1928_254": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "IMG_1436F3DC8_270_133F": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "IMG_1436F3DC8_40": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "IMG_1436F3DC8_E1EE_254": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_00_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_00_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_01_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_01_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_02_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_02_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_03_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_03_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_04_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_04_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_05_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_05_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_06_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_06_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_07_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_07_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_08_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_08_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_09_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_09_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_10_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_10_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_11_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_11_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_12_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_12_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_13_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_13_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_14_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_14_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_15_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_15_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_16_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_16_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_17_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_17_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_18_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_18_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_19_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_19_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_20_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_20_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_21_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_21_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_22_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_22_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_23_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_23_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_24_flag": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "T180_24_key": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  },
+  "scalar_r9": {
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)",
+   "hi": 255,
+   "kind": "u8",
+   "lo": 0
+  }
+ },
+ "inputs": {
+  "A0_20": {
+   "enc": "f32",
+   "offset": "0x20",
+   "region": "A0"
+  },
+  "A0_24": {
+   "enc": "f32",
+   "offset": "0x24",
+   "region": "A0"
+  },
+  "A0_28": {
+   "enc": "f32",
+   "offset": "0x28",
+   "region": "A0"
+  },
+  "A1_38_18": {
+   "enc": "u64",
+   "offset": "0x18",
+   "region": "A1.38"
+  },
+  "A1_4": {
+   "enc": "u32",
+   "offset": "0x4",
+   "region": "A1"
+  },
+  "A2_3C": {
+   "enc": "f32",
+   "offset": "0x3C",
+   "region": "A2"
+  },
+  "A2_40": {
+   "enc": "f32",
+   "offset": "0x40",
+   "region": "A2"
+  },
+  "A2_44": {
+   "enc": "f32",
+   "offset": "0x44",
+   "region": "A2"
+  },
+  "A2_5EC": {
+   "enc": "f32",
+   "offset": "0x5EC",
+   "region": "A2"
+  },
+  "A2_5F0": {
+   "enc": "f32",
+   "offset": "0x5F0",
+   "region": "A2"
+  },
+  "A2_736": {
+   "enc": "u8",
+   "offset": "0x736",
+   "region": "A2"
+  },
+  "A2_738": {
+   "enc": "u8",
+   "offset": "0x738",
+   "region": "A2"
+  },
+  "IMG_1436F3DC8_0": {
+   "enc": "u64",
+   "offset": "0x0",
+   "region": "IMG.1436F3DC8"
+  },
+  "IMG_1436F3DC8_1928_254": {
+   "enc": "u8",
+   "offset": "0x254",
+   "region": "IMG.1436F3DC8.1928"
+  },
+  "IMG_1436F3DC8_270_133F": {
+   "enc": "u8",
+   "offset": "0x133F",
+   "region": "IMG.1436F3DC8.270"
+  },
+  "IMG_1436F3DC8_40": {
+   "enc": "u64",
+   "offset": "0x40",
+   "region": "IMG.1436F3DC8"
+  },
+  "IMG_1436F3DC8_E1EE_254": {
+   "enc": "u8",
+   "offset": "0x254",
+   "region": "IMG.1436F3DC8.E1EE"
+  },
+  "T180_00_flag": {
+   "enc": "u8",
+   "offset": "0xD",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_00_key": {
+   "enc": "u32",
+   "offset": "0x20",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_01_flag": {
+   "enc": "u8",
+   "offset": "0x81",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_01_key": {
+   "enc": "u32",
+   "offset": "0x94",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_02_flag": {
+   "enc": "u8",
+   "offset": "0xF5",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_02_key": {
+   "enc": "u32",
+   "offset": "0x108",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_03_flag": {
+   "enc": "u8",
+   "offset": "0x169",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_03_key": {
+   "enc": "u32",
+   "offset": "0x17C",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_04_flag": {
+   "enc": "u8",
+   "offset": "0x1DD",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_04_key": {
+   "enc": "u32",
+   "offset": "0x1F0",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_05_flag": {
+   "enc": "u8",
+   "offset": "0x251",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_05_key": {
+   "enc": "u32",
+   "offset": "0x264",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_06_flag": {
+   "enc": "u8",
+   "offset": "0x2C5",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_06_key": {
+   "enc": "u32",
+   "offset": "0x2D8",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_07_flag": {
+   "enc": "u8",
+   "offset": "0x339",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_07_key": {
+   "enc": "u32",
+   "offset": "0x34C",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_08_flag": {
+   "enc": "u8",
+   "offset": "0x3AD",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_08_key": {
+   "enc": "u32",
+   "offset": "0x3C0",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_09_flag": {
+   "enc": "u8",
+   "offset": "0x421",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_09_key": {
+   "enc": "u32",
+   "offset": "0x434",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_10_flag": {
+   "enc": "u8",
+   "offset": "0x495",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_10_key": {
+   "enc": "u32",
+   "offset": "0x4A8",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_11_flag": {
+   "enc": "u8",
+   "offset": "0x509",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_11_key": {
+   "enc": "u32",
+   "offset": "0x51C",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_12_flag": {
+   "enc": "u8",
+   "offset": "0x57D",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_12_key": {
+   "enc": "u32",
+   "offset": "0x590",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_13_flag": {
+   "enc": "u8",
+   "offset": "0x5F1",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_13_key": {
+   "enc": "u32",
+   "offset": "0x604",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_14_flag": {
+   "enc": "u8",
+   "offset": "0x665",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_14_key": {
+   "enc": "u32",
+   "offset": "0x678",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_15_flag": {
+   "enc": "u8",
+   "offset": "0x6D9",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_15_key": {
+   "enc": "u32",
+   "offset": "0x6EC",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_16_flag": {
+   "enc": "u8",
+   "offset": "0x74D",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_16_key": {
+   "enc": "u32",
+   "offset": "0x760",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_17_flag": {
+   "enc": "u8",
+   "offset": "0x7C1",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_17_key": {
+   "enc": "u32",
+   "offset": "0x7D4",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_18_flag": {
+   "enc": "u8",
+   "offset": "0x835",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_18_key": {
+   "enc": "u32",
+   "offset": "0x848",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_19_flag": {
+   "enc": "u8",
+   "offset": "0x8A9",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_19_key": {
+   "enc": "u32",
+   "offset": "0x8BC",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_20_flag": {
+   "enc": "u8",
+   "offset": "0x91D",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_20_key": {
+   "enc": "u32",
+   "offset": "0x930",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_21_flag": {
+   "enc": "u8",
+   "offset": "0x991",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_21_key": {
+   "enc": "u32",
+   "offset": "0x9A4",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_22_flag": {
+   "enc": "u8",
+   "offset": "0xA05",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_22_key": {
+   "enc": "u32",
+   "offset": "0xA18",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_23_flag": {
+   "enc": "u8",
+   "offset": "0xA79",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_23_key": {
+   "enc": "u32",
+   "offset": "0xA8C",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_24_flag": {
+   "enc": "u8",
+   "offset": "0xAED",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "T180_24_key": {
+   "enc": "u32",
+   "offset": "0xB00",
+   "region": "IMG.1436F3DC8.180"
+  },
+  "scalar_r9": {
+   "enc": "u32",
+   "reg": "r9"
+  }
+ },
+ "name": "impure_140978E70",
+ "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (fixclosure.py): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed. IndirectResolve fix: G+0x180 relinked as table (stride 0x74, 25 entries; keys +0x20, flags +0xD), scalar input replaced.",
+ "outputs": {
+  "ret_rax": {
+   "reg": "rax"
+  },
+  "w_A0_20": {
+   "enc": "f32",
+   "offset": "0x20",
+   "region": "A0"
+  },
+  "w_A0_24": {
+   "enc": "f32",
+   "offset": "0x24",
+   "region": "A0"
+  },
+  "w_A0_28": {
+   "enc": "f32",
+   "offset": "0x28",
+   "region": "A0"
+  }
+ },
+ "patch_addrs": {
+  "0x1436F3DC8": "IMG.1436F3DC8"
+ },
+ "precheck": {
+  "calls": [
+   "140479470",
+   "140A48A30",
+   "140A57800",
+   "140A8F7C0",
+   "140A92C80"
+  ],
+  "flags": [
+   "callee-outside-set@1404C8E00",
+   "callee-outside-set@140A50620",
+   "tailjump@140A57802",
+   "unresolved-mem@140479490",
+   "unresolved-mem@1404794B0",
+   "unresolved-mem@140978F3D",
+   "unresolved-mem@140978FF5",
+   "unresolved-mem@140979109",
+   "unresolved-mem@140979112",
+   "unresolved-mem@14097911C"
+  ],
+  "indirect_calls": [],
+  "live_data_reads": [
+   "IMG"
+  ],
+  "live_data_writes": [],
+  "rdata_constant_reads": [
+   "IMG"
+  ],
+  "stack_args": {},
+  "stub_refs": [
+   "1415A1780"
+  ],
+  "tailjumps": [
+   "tailjump@140A57802"
+  ],
+  "unresolved_mem": 7
  },
  "regions": {
   "A0": {
@@ -30,12 +875,16 @@
    "base": "0x21000000",
    "size": "0x200000"
   },
-  "IMG.1436F3DC8.270": {
-   "base": "0x21400000",
-   "size": "0x200000"
+  "IMG.1436F3DC8.180": {
+   "base": "0x21E00000",
+   "size": "0x1000"
   },
   "IMG.1436F3DC8.1928": {
    "base": "0x21800000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.270": {
+   "base": "0x21400000",
    "size": "0x200000"
   },
   "IMG.1436F3DC8.E1EE": {
@@ -43,15 +892,11 @@
    "size": "0x200000"
   }
  },
- "args": {
-  "rcx": "A0",
-  "rdx": "A1",
-  "r8": "A2"
- },
  "regions_init": {
   "A1+0x38": "A1.38",
+  "IMG.1436F3DC8+0x180": "IMG.1436F3DC8.180",
   "IMG.1436F3DC8+0x1928": "IMG.1436F3DC8.1928",
-  "IMG.1436F3DC8+0x270": "IMG.1436F3DC8.270",
+  "IMG.1436F3DC8+0x1950": "IMG.1436F3DC8.E1EE",
   "IMG.1436F3DC8+0x19C8": "IMG.1436F3DC8.E1EE",
   "IMG.1436F3DC8+0x19F0": "IMG.1436F3DC8.E1EE",
   "IMG.1436F3DC8+0x1A18": "IMG.1436F3DC8.E1EE",
@@ -104,319 +949,18 @@
   "IMG.1436F3DC8+0x2170": "IMG.1436F3DC8.E1EE",
   "IMG.1436F3DC8+0x2198": "IMG.1436F3DC8.E1EE",
   "IMG.1436F3DC8+0x21C0": "IMG.1436F3DC8.E1EE",
-  "IMG.1436F3DC8+0x1950": "IMG.1436F3DC8.E1EE"
- },
- "patch_addrs": {
-  "0x1436F3DC8": "IMG.1436F3DC8"
- },
- "inputs": {
-  "A0_20": {
-   "region": "A0",
-   "offset": "0x20",
-   "enc": "f32"
-  },
-  "A0_24": {
-   "region": "A0",
-   "offset": "0x24",
-   "enc": "f32"
-  },
-  "A0_28": {
-   "region": "A0",
-   "offset": "0x28",
-   "enc": "f32"
-  },
-  "A1_4": {
-   "region": "A1",
-   "offset": "0x4",
-   "enc": "u32"
-  },
-  "A1_38_18": {
-   "region": "A1.38",
-   "offset": "0x18",
-   "enc": "u64"
-  },
-  "A2_3C": {
-   "region": "A2",
-   "offset": "0x3C",
-   "enc": "f32"
-  },
-  "A2_40": {
-   "region": "A2",
-   "offset": "0x40",
-   "enc": "f32"
-  },
-  "A2_44": {
-   "region": "A2",
-   "offset": "0x44",
-   "enc": "f32"
-  },
-  "A2_5EC": {
-   "region": "A2",
-   "offset": "0x5EC",
-   "enc": "f32"
-  },
-  "A2_5F0": {
-   "region": "A2",
-   "offset": "0x5F0",
-   "enc": "f32"
-  },
-  "A2_736": {
-   "region": "A2",
-   "offset": "0x736",
-   "enc": "u8"
-  },
-  "A2_738": {
-   "region": "A2",
-   "offset": "0x738",
-   "enc": "u8"
-  },
-  "IMG_1436F3DC8_0": {
-   "region": "IMG.1436F3DC8",
-   "offset": "0x0",
-   "enc": "u64"
-  },
-  "IMG_1436F3DC8_40": {
-   "region": "IMG.1436F3DC8",
-   "offset": "0x40",
-   "enc": "u64"
-  },
-  "IMG_1436F3DC8_180": {
-   "region": "IMG.1436F3DC8",
-   "offset": "0x180",
-   "enc": "u64"
-  },
-  "IMG_1436F3DC8_270_133F": {
-   "region": "IMG.1436F3DC8.270",
-   "offset": "0x133F",
-   "enc": "u8"
-  },
-  "IMG_1436F3DC8_1928_254": {
-   "region": "IMG.1436F3DC8.1928",
-   "offset": "0x254",
-   "enc": "u8"
-  },
-  "IMG_1436F3DC8_E1EE_254": {
-   "region": "IMG.1436F3DC8.E1EE",
-   "offset": "0x254",
-   "enc": "u8"
-  },
-  "scalar_r9": {
-   "reg": "r9",
-   "enc": "u32"
-  }
- },
- "input_schema": {
-  "A0_20": {
-   "kind": "f32",
-   "lo": -50.0,
-   "hi": 50.0,
-   "domain": "generic f32 -50..50 (no doc range)"
-  },
-  "A0_24": {
-   "kind": "f32",
-   "lo": -50.0,
-   "hi": 50.0,
-   "domain": "generic f32 -50..50 (no doc range)"
-  },
-  "A0_28": {
-   "kind": "f32",
-   "lo": -50.0,
-   "hi": 50.0,
-   "domain": "generic f32 -50..50 (no doc range)"
-  },
-  "A1_4": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  },
-  "A1_38_18": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  },
-  "A2_3C": {
-   "kind": "f32",
-   "lo": -50.0,
-   "hi": 50.0,
-   "domain": "generic f32 -50..50 (no doc range)"
-  },
-  "A2_40": {
-   "kind": "f32",
-   "lo": -50.0,
-   "hi": 50.0,
-   "domain": "generic f32 -50..50 (no doc range)"
-  },
-  "A2_44": {
-   "kind": "f32",
-   "lo": -50.0,
-   "hi": 50.0,
-   "domain": "generic f32 -50..50 (no doc range)"
-  },
-  "A2_5EC": {
-   "kind": "f32",
-   "lo": -50.0,
-   "hi": 50.0,
-   "domain": "generic f32 -50..50 (no doc range)"
-  },
-  "A2_5F0": {
-   "kind": "f32",
-   "lo": -50.0,
-   "hi": 50.0,
-   "domain": "generic f32 -50..50 (no doc range)"
-  },
-  "A2_736": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  },
-  "A2_738": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  },
-  "IMG_1436F3DC8_0": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  },
-  "IMG_1436F3DC8_40": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  },
-  "IMG_1436F3DC8_180": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  },
-  "IMG_1436F3DC8_270_133F": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  },
-  "IMG_1436F3DC8_1928_254": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  },
-  "IMG_1436F3DC8_E1EE_254": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  },
-  "scalar_r9": {
-   "kind": "u8",
-   "lo": 0,
-   "hi": 255,
-   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
-  }
- },
- "outputs": {
-  "w_A0_20": {
-   "region": "A0",
-   "offset": "0x20",
-   "enc": "f32"
-  },
-  "w_A0_24": {
-   "region": "A0",
-   "offset": "0x24",
-   "enc": "f32"
-  },
-  "w_A0_28": {
-   "region": "A0",
-   "offset": "0x28",
-   "enc": "f32"
-  },
-  "ret_rax": {
-   "reg": "rax"
-  }
+  "IMG.1436F3DC8+0x270": "IMG.1436F3DC8.270"
  },
  "ret_note": "rax (pointer-valued return)",
  "seed": 1038,
- "count": 64,
- "precheck": {
-  "indirect_calls": [],
-  "tailjumps": [
-   "tailjump@140A57802"
-  ],
-  "unresolved_mem": 7,
-  "live_data_reads": [
-   "IMG"
-  ],
-  "live_data_writes": [],
-  "rdata_constant_reads": [
-   "IMG"
-  ],
-  "stack_args": {},
-  "calls": [
-   "140479470",
-   "140A48A30",
-   "140A57800",
-   "140A8F7C0",
-   "140A92C80"
-  ],
-  "flags": [
-   "callee-outside-set@1404C8E00",
-   "callee-outside-set@140A50620",
-   "tailjump@140A57802",
-   "unresolved-mem@140479490",
-   "unresolved-mem@1404794B0",
-   "unresolved-mem@140978F3D",
-   "unresolved-mem@140978FF5",
-   "unresolved-mem@140979109",
-   "unresolved-mem@140979112",
-   "unresolved-mem@14097911C"
-  ],
-  "stub_refs": [
-   "1415A1780"
-  ]
+ "stack": {
+  "base": "0x10000000",
+  "size": "0x20000"
  },
+ "status": "impure-sample",
  "stub_refs": [
   "1415A1780"
  ],
- "harness": {
-  "harness_class": "runnable with stubs",
-  "blockers": [],
-  "out_of_set_callees": [
-   {
-    "va": "1404C8E00",
-    "how": "call",
-    "cls": "stub",
-    "stubs": [
-     "1415A1780"
-    ]
-   },
-   {
-    "va": "140A50620",
-    "how": "call",
-    "cls": "stub",
-    "stubs": [
-     "1415A1780"
-    ]
-   }
-  ],
-  "indirect_sites": [],
-  "switch_jumps": []
- },
- "closure_fix": {
-  "accessors": [
-   "140A48910",
-   "140A48A10",
-   "140A48A30"
-  ],
-  "removed_blanket_E1EE_slots": 234,
-  "child_links": 2,
-  "accessor_slots": 54,
-  "rule": "fixclosure.py: child links + accessor layout from image bytes"
- }
+ "subsystem": "impure-sample",
+ "va": "0x140978E70"
 }

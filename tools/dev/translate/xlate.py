@@ -1166,11 +1166,20 @@ class Emitter:
             return ["return;"]
         if m == "CALL":
             if not is_imm(ops[0].strip()):
-                # Indirect call (vtable / register / memory): an engine
-                # boundary, not pure computation. Emit a zero return and
-                # let the driver class it; never crash the translator.
-                return ["/*INDIRECT CALL %s: engine boundary*/ s.gpr[0] = 0;"
-                        % ops[0].strip()]
+                # Indirect call (vtable / register / memory): emit the exact
+                # address computation the bytes compute, then look the target
+                # up in the generated dispatch table (pes_dispatch.hpp). A
+                # target missing from the table fails loudly
+                # (PES_DISPATCH_UNTRANSLATED), never silently.
+                if "[" in ops[0]:
+                    tgt = self.mem_val(ops[0][ops[0].find("["):], 64, None)
+                else:
+                    tgt = reg_read(ops[0].strip())
+                return ["{ uint64_t _t = (uint64_t)(%s); PesDispatch _d = pes_dispatch_lookup(_t);"
+                        % tgt,
+                        "  if (_d.fn == 0) pes_dispatch_missing(_t);",
+                        "  s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);",
+                        "  s.gpr[4] += 8; }"]
             tgt = "0x%X" % imm_val(ops[0])
             stub = (ctx.get("stubs") or {}).get(tgt)
             if stub is not None and stub.get("do") != "unmodellable":
@@ -1217,6 +1226,12 @@ class Emitter:
                 seen = {}
                 for i, w in cases:
                     tgt = info["base"] + w
+                    # Only local labels become cases: a target outside
+                    # this body is mis-decoded table data (or another
+                    # function), never a goto we define. Its indices fall
+                    # to default, exactly as the harness faults on them.
+                    if tgt not in self.labels:
+                        continue
                     if tgt not in seen:
                         seen[tgt] = []
                     seen[tgt].append(i)
@@ -1608,6 +1623,7 @@ def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
             "// Constants baked from the user's image at build time (VA-cited).",
             "// Build tree only; never committed.",
             '#include "pes_state.hpp"',
+            '#include "pes_dispatch.hpp"',
             '#include "pes_cond.inl"',
             '#include "pes_stubs.hpp"',
             ""]

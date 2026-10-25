@@ -56,7 +56,7 @@ if(DEFINED ENV{PES_EXE} AND NOT "$ENV{PES_EXE}" STREQUAL "")
       --out-dir ${CMAKE_BINARY_DIR}/pilot-lib
       --vas ${PILOT_CUTOVER_VAS}
       --spec-dir ${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/pilot
-    DEPENDS ${CMAKE_SOURCE_DIR}/tools/dev/translate/xlate.py
+    DEPENDS ${CMAKE_SOURCE_DIR}/tools/dev/translate/xlate.py ${CMAKE_SOURCE_DIR}/tools/dev/translate/gen_dispatch.py ${CMAKE_SOURCE_DIR}/tools/dev/translate/gen_pilot_lib.py
     COMMENT "Generating pilot cutover TUs")
   add_custom_target(pilot_lib_gen DEPENDS
     ${CMAKE_BINARY_DIR}/pilot-lib/pes_pilot.h)

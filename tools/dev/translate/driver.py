@@ -129,16 +129,38 @@ def stubmap_of(spec):
     return out
 
 
+def _blocker_dispatchable(text):
+    """A harness blocker the runtime dispatch mechanism now handles: any
+    indirect call (emitted as a table lookup) or computed jump (emitted as
+    a native switch). Import slots with no name stay unmodellable: their
+    target is a CRT/engine import outside the image."""
+    t = text.strip()
+    # Own-function sites are phrased "call <mem> at <site>" (the ImpureMap
+    # precheck wording); closure sites "indirect call <mem> at <site>".
+    if t.startswith("indirect call ") or t.startswith("call qword ptr ") \
+            or t.startswith("call rsi"):
+        return "import slot" not in t
+    if t.startswith("computed jump at "):
+        return True
+    return False
+
+
 def blocked_reason(spec):
     """Why the function cannot be run at all: its harness class, or an unmodellable stub_refs entry."""
     harness = spec.get("harness") or {}
     if str(harness.get("harness_class", "")).startswith("harness cannot run"):
-        return "; ".join(harness.get("blockers") or ["harness cannot run"])
-    for ref in spec.get("stub_refs") or []:
-        entry = STUB_TABLE.get(int(ref, 16))
-        if entry is not None and entry["do"] == "unmodellable":
-            return "stub %s: %s" % (ref, entry["why"])
-    return None
+        raw = harness.get("blockers") or ["harness cannot run"]
+        # Dispatchable blockers (indirect calls, switch jumps) no longer
+        # block: the translator emits a runtime lookup / native switch.
+        # A blocker chain ("call A: callee B: indirect ...") blocks only
+        # when some link is not dispatchable.
+        live = [b for b in raw
+                if not all(_blocker_dispatchable(p) for p in
+                           re.split(r";?\s*(?:call|callee) [0-9A-Fa-f]+:\s*",
+                                    b) if p.strip())]
+        if live:
+            return "; ".join(live)[:440]
+        return None
 
 
 def run_one(va, args, pilot):
@@ -178,11 +200,14 @@ def run_one(va, args, pilot):
     with open(os.path.join(gen, "pes_fn_%s.cpp" % tag), "w") as f:
         f.write("\n".join(src) + "\n")
     res["translated"] = True
-    # 2. corpus (harness over the user's image)
+    # 2. corpus (harness over the user's image) + harness-reached
+    # indirect targets (the driver's callee closure for dispatch).
     corpus = os.path.join(gen, "corp_%s.jsonl" % tag)
+    trace = os.path.join(gen, "trace_%s.json" % tag)
     count = ["--count", str(args.count)] if args.count else []
     rc, _, err = sh([diff_python(), RUN_PY, "--exe", args.image,
-                     "--spec", spec_path, "--out", corpus] + count,
+                     "--spec", spec_path, "--out", corpus,
+                     "--trace-calls", trace] + count,
                     timeout=args.timeout)
     if rc != 0:
         cls, note = fault_class(spec, err or "run.py rc=%d" % rc)
@@ -239,6 +264,22 @@ def build_and_diff(va, spec, args, pilot, nlines):
                 seen.add(c)
                 need.append(c)
                 queue.append(c)
+    # Harness-reached indirect targets: unicorn executes the real bytes,
+    # so the trace holds exactly the dispatch targets the cases reach.
+    # Each reached target joins the closure (translated + table entry).
+    # A reached target outside CODE (e.g. an import thunk) stays a loud
+    # PES_DISPATCH_UNTRANSLATED abort, never a silent stub.
+    reached = {}
+    try:
+        reached = json.load(open(os.path.join(gen, "trace_%s.json" % tag)))
+    except (OSError, ValueError):
+        reached = {}
+    for site, tgts in (reached or {}).items():
+        for t in tgts:
+            ti = int(t, 16)
+            if 0x140001000 <= ti < 0x14252E800 and t not in seen:
+                seen.add(t)
+                need.append(t)
     for cvi, cv in enumerate(need):
         p = os.path.join(gen, "pes_fn_%s.cpp" % cv[2:])
         if not os.path.exists(p):
@@ -304,12 +345,18 @@ def build_and_diff(va, spec, args, pilot, nlines):
     with open(main_p, "w") as f:
         f.write(main_src)
     # support headers into the build tree (committed tools, copied)
-    for h in ("pes_state.hpp", "pes_cond.inl", "diffparse.hpp", "pes_stubs.hpp"):
+    for h in ("pes_state.hpp", "pes_cond.inl", "diffparse.hpp",
+              "pes_stubs.hpp", "pes_dispatch.hpp"):
         hp = os.path.join(gen, h)
         if not os.path.exists(hp):
             with open(os.path.join(HERE, h), "rb") as fi, \
                     open(hp, "wb") as fo:
                 fo.write(fi.read())
+    # Dispatch table: every translated TU in this build. Generated, no hand
+    # edits (gen_dispatch.py).
+    import subprocess as _sp
+    _sp.run([sys.executable, os.path.join(HERE, "gen_dispatch.py"),
+             "--out", gen, "--vas"] + sorted(need), check=True)
     bin_p = os.path.join(gen, "d_%s" % tag)
     objs = [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need]
     rc, _, err = sh([args.cxx, "-std=c++20", "-O1", "-I", gen, "-o", bin_p,
@@ -340,6 +387,17 @@ def build_and_diff(va, spec, args, pilot, nlines):
 
 def finish_one(va, args, pilot):
     res = run_one(va, args, pilot)
+    # Coverage (recorded, never counted as diffed): harness-reached
+    # indirect sites and their fan-out. A function whose closure reaches
+    # code the cases never execute is never recorded as bit-exact on
+    # partial coverage: the sites the cases missed stay visible here.
+    try:
+        trace = json.load(open(os.path.join(
+            args.out_dir, "gen", "trace_%s.json" % va[2:])))
+    except (OSError, ValueError):
+        trace = {}
+    res["coverage"] = {site: sorted(tgts) for site, tgts in
+                       (trace or {}).items()}
     if res["translated"] and res["failure_class"] is None and \
             res["cases"]:
         spec, _ = load_spec(args.spec_dir, va)
