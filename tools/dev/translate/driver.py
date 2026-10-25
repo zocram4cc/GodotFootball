@@ -200,11 +200,14 @@ def run_one(va, args, pilot):
     with open(os.path.join(gen, "pes_fn_%s.cpp" % tag), "w") as f:
         f.write("\n".join(src) + "\n")
     res["translated"] = True
-    # 2. corpus (harness over the user's image)
+    # 2. corpus (harness over the user's image) + harness-reached
+    # indirect targets (the driver's callee closure for dispatch).
     corpus = os.path.join(gen, "corp_%s.jsonl" % tag)
+    trace = os.path.join(gen, "trace_%s.json" % tag)
     count = ["--count", str(args.count)] if args.count else []
     rc, _, err = sh([diff_python(), RUN_PY, "--exe", args.image,
-                     "--spec", spec_path, "--out", corpus] + count,
+                     "--spec", spec_path, "--out", corpus,
+                     "--trace-calls", trace] + count,
                     timeout=args.timeout)
     if rc != 0:
         cls, note = fault_class(spec, err or "run.py rc=%d" % rc)
@@ -261,6 +264,22 @@ def build_and_diff(va, spec, args, pilot, nlines):
                 seen.add(c)
                 need.append(c)
                 queue.append(c)
+    # Harness-reached indirect targets: unicorn executes the real bytes,
+    # so the trace holds exactly the dispatch targets the cases reach.
+    # Each reached target joins the closure (translated + table entry).
+    # A reached target outside CODE (e.g. an import thunk) stays a loud
+    # PES_DISPATCH_UNTRANSLATED abort, never a silent stub.
+    reached = {}
+    try:
+        reached = json.load(open(os.path.join(gen, "trace_%s.json" % tag)))
+    except (OSError, ValueError):
+        reached = {}
+    for site, tgts in (reached or {}).items():
+        for t in tgts:
+            ti = int(t, 16)
+            if 0x140001000 <= ti < 0x14252E800 and t not in seen:
+                seen.add(t)
+                need.append(t)
     for cvi, cv in enumerate(need):
         p = os.path.join(gen, "pes_fn_%s.cpp" % cv[2:])
         if not os.path.exists(p):
@@ -368,6 +387,17 @@ def build_and_diff(va, spec, args, pilot, nlines):
 
 def finish_one(va, args, pilot):
     res = run_one(va, args, pilot)
+    # Coverage (recorded, never counted as diffed): harness-reached
+    # indirect sites and their fan-out. A function whose closure reaches
+    # code the cases never execute is never recorded as bit-exact on
+    # partial coverage: the sites the cases missed stay visible here.
+    try:
+        trace = json.load(open(os.path.join(
+            args.out_dir, "gen", "trace_%s.json" % va[2:])))
+    except (OSError, ValueError):
+        trace = {}
+    res["coverage"] = {site: sorted(tgts) for site, tgts in
+                       (trace or {}).items()}
     if res["translated"] and res["failure_class"] is None and \
             res["cases"]:
         spec, _ = load_spec(args.spec_dir, va)

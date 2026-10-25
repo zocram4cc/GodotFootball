@@ -1226,6 +1226,12 @@ class Emitter:
                 seen = {}
                 for i, w in cases:
                     tgt = info["base"] + w
+                    # Only local labels become cases: a target outside
+                    # this body is mis-decoded table data (or another
+                    # function), never a goto we define. Its indices fall
+                    # to default, exactly as the harness faults on them.
+                    if tgt not in self.labels:
+                        continue
                     if tgt not in seen:
                         seen[tgt] = []
                     seen[tgt].append(i)
