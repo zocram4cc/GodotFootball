@@ -1210,6 +1210,24 @@ class Emitter:
                 if tgt in self.pilot:
                     self.siblings.add(tgt)
                     return ["{ pes_fn_%s(s); return; }" % tgt[2:]]
+                stub = (ctx.get("stubs") or {}).get(tgt)
+                if stub is not None:
+                    # Tail JMP to a stubbed callee (e.g. 140A57650 tail-JMP
+                    # to the sqrt thunk 0x1415A1780): apply the stub model
+                    # then return, mirroring the CALL path above plus the
+                    # tail-call return the harness performs at the stub.
+                    do = stub.get("do", "return")
+                    if do == "sqrtf":
+                        return ["{ s.set_x_f32(0, ::sqrtf(s.x_f32(0))); "
+                                "return; }"]
+                    if do == "engine-noop":
+                        return ["(void)0;  // %s: success-path no-op; return;" % tgt]
+                    v = stub.get("value", 0)
+                    vv = int(v, 16) if isinstance(v, str) else int(v)
+                    if do == "return_xmm0":
+                        return ["{ uint32_t _b = 0x%08XU; s.set_x_f32(0, "
+                                "PesState::f32(_b)); return; }" % (vv & 0xFFFFFFFF)]
+                    return ["{ s.gpr[0] = 0x%XULL; return; }" % (vv & 0xFFFFFFFFFFFFFFFF)]
                 return ["/*OUT-OF-RANGE JMP %s*/return;" % tgt]
             # JMP reg: switch dispatch (resolved in prepass) or tailjump
             info = ctx.get("jmpreg", {}).get(addr)
