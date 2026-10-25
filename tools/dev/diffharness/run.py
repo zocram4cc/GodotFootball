@@ -125,7 +125,47 @@ def read_va_live(uc, va, n):
 
 def load_spec(path):
     with open(path) as f:
-        return json.load(f)
+        spec = json.load(f)
+    return inject_impure_stubs(spec)
+
+
+def inject_impure_stubs(spec):
+    """Resolve an impure spec's stub_refs into the inline stubs dict.
+
+    Impure specs carry stub_refs (VA list into the ImpureMap stubs.json
+    contract) instead of inline stubs. The contract maps to run.py stub
+    entries here (sqrtf/engine-noop below); copied to scratch and read
+    from $IMP_STUBS, never committed. Pilot specs keep their own inline
+    stubs untouched.
+    """
+    if spec.get("stubs") or not spec.get("stub_refs"):
+        return spec
+    import os
+    path = os.environ.get("IMP_STUBS", "")
+    try:
+        contract = json.load(open(path)) if path else {}
+    except OSError:
+        return spec
+    entries = contract.get("stubs", contract) if isinstance(
+        contract, dict) else contract
+    by_va = {}
+    for e in entries if isinstance(entries, list) else []:
+        by_va["0x" + e["va"].upper().replace("0X", "")] = e
+    stubs = dict(spec.get("stubs") or {})
+    for ref in spec["stub_refs"]:
+        key = "0x" + ref.upper()
+        e = by_va.get(key)
+        if e is None:
+            continue
+        kind = e.get("kind")
+        if kind == "return-input":
+            # sqrt thunk 0x1415A1780: model op is sqrtf(xmm0) -> xmm0.
+            stubs["impure_" + ref.lower()] = {"va": key, "do": "sqrtf"}
+        elif kind == "engine-noop":
+            stubs["impure_" + ref.lower()] = {"va": key, "do": "engine-noop"}
+    spec = dict(spec)
+    spec["stubs"] = stubs
+    return spec
 
 
 def check_spec(spec, sections, image_path):
@@ -445,6 +485,20 @@ def install_hooks(mu, spec, RET_SENTINEL):
             (v,) = struct.unpack("<i", uc.mem_read(addr, 4))
             uc.mem_write(addr, struct.pack("<i", v + 1))
             uc.reg_write(UC_X86_REG_RAX, v & 0xFFFFFFFFFFFFFFFF)
+        elif kind == "sqrtf":
+            # Impure stub 0x1415A1780 (thunk jmp [0x1425301F0]; libc sqrt):
+            # XMM0 = sqrt(XMM0 lane 0, float). IEEE sqrt is correctly
+            # rounded, so float32 math.sqrt matches bit for bit.
+            import math
+            raw = uc.reg_read(reg_const("xmm0")) & 0xFFFFFFFF
+            f = struct.unpack("<f", struct.pack("<I", raw))[0]
+            r = math.sqrt(f) if f >= 0 else float("nan")
+            uc.reg_write(reg_const("xmm0"),
+                         struct.unpack("<Q", struct.pack("<f", r) + b"\0\0\0\0")[0])
+        elif kind == "engine-noop":
+            # Impure stub 0x14159F3E0 (__security_check_cookie): success
+            # path validates the cookie and returns with no output effect.
+            pass
         elif kind == "store_edx_at_rcx_off":
             # FUN_1408C7710: [RCX+off] = EDX (the provider store).
             dst = uc.reg_read(reg_const("rcx")) + int(stub["offset"], 16)

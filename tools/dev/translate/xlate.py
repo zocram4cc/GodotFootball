@@ -1175,11 +1175,19 @@ class Emitter:
             stub = (ctx.get("stubs") or {}).get(tgt)
             if stub is not None:
                 # Spec-stubbed callee (out-of-set/live): mirror run.py's
-                # stub semantics as a fixed return. Pilot specs use
-                # "return" (RAX = value); "return_xmm0" also handled.
+                # stub semantics. Pilot specs use "return" (RAX = value)
+                # and "return_xmm0". Impure specs add "sqrtf" (XMM0 =
+                # sqrt(XMM0 lane 0); IEEE-exact: <cmath> sqrtf matches the
+                # image's libc sqrt bit for bit) and "engine-noop"
+                # (__security_check_cookie: success path, no effect).
+                do = stub.get("do", "return")
+                if do == "sqrtf":
+                    return ["s.set_x_f32(0, ::sqrtf(s.x_f32(0)));"]
+                if do == "engine-noop":
+                    return ["(void)0;  // %s: success-path no-op" % tgt]
                 v = stub.get("value", 0)
                 vv = int(v, 16) if isinstance(v, str) else int(v)
-                if stub.get("do", "return") == "return_xmm0":
+                if do == "return_xmm0":
                     return ["{ uint32_t _b = 0x%08XU; s.set_x_f32(0, "
                             "PesState::f32(_b)); }" % (vv & 0xFFFFFFFF)]
                 return ["s.gpr[0] = 0x%XULL;" % (vv & 0xFFFFFFFFFFFFFFFF)]
@@ -1603,6 +1611,7 @@ def translate_one(image_path, asm_text, va, pilot, capstone_fallback=True,
             "// Build tree only; never committed.",
             '#include "pes_state.hpp"',
             '#include "pes_cond.inl"',
+            '#include <cmath>',
             ""]
     head.extend(const_decls(em))
     head.extend(ro_decls(em))

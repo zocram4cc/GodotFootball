@@ -109,6 +109,53 @@ def diff_python():
     return os.environ.get("GF_DIFF_PYTHON") or \
         (VENV_PY if os.path.exists(VENV_PY) else sys.executable)
 
+_IMPURE_STUBS = None
+
+
+def impure_stubmap(spec):
+    """Stubs for one spec, keyed like xlate/run.py expect ("0xVA" -> entry).
+
+    Pilot shape first: the spec's own inline stubs dict. Else the impure
+    shape: stub_refs (VA list) resolved through the shared impure contract
+    file (IMP_STUBS / --impure-stubs; the ImpureMap stubs.json contract,
+    copied to scratch, never committed). Unknown ref -> {} entry missing,
+    which the translator emits as a zero-return OUT-OF-SET call.
+    """
+    inline = spec.get("stubs") or {}
+    if inline:
+        return {"0x" + _s["va"][2:].upper(): _s for _s in inline.values()}
+    refs = spec.get("stub_refs") or []
+    if not refs:
+        return {}
+    global _IMPURE_STUBS
+    if _IMPURE_STUBS is None:
+        path = os.environ.get("IMP_STUBS", "") or getattr(
+            impure_stubmap, "path", "")
+        try:
+            contract = json.load(open(path)) if path else {}
+        except OSError:
+            contract = {}
+        entries = contract.get("stubs", contract) if isinstance(
+            contract, dict) else contract
+        _IMPURE_STUBS = {}
+        for e in entries if isinstance(entries, list) else []:
+            # Contract VAs are bare ("1415A1780"); key as "0x"-prefixed.
+            _IMPURE_STUBS["0x" + e["va"].upper().replace("0X", "")] = \
+                impure_entry(e)
+    return {"0x" + v.upper(): _IMPURE_STUBS["0x" + v.upper()]
+            for v in refs if "0x" + v.upper() in _IMPURE_STUBS}
+
+def impure_entry(e):
+    """Map one ImpureMap contract entry to a run.py/xlate stub entry."""
+    kind = e.get("kind")
+    va = "0x" + e["va"].upper().replace("0X", "")
+    if kind == "engine-noop":
+        return {"va": va, "do": "engine-noop"}
+    if kind == "return-input":
+        # sqrt thunk 0x1415A1780: model op is sqrtf(xmm0) -> xmm0.
+        return {"va": va, "do": "sqrtf"}
+    return {"va": va, "do": "return", "value": 0}
+
 
 def translate_one(va, asm_text, image, pilot, stubs=None):
     import xlate
@@ -129,10 +176,9 @@ def run_one(va, args, pilot):
     gen = os.path.join(args.out_dir, "gen")
     os.makedirs(gen, exist_ok=True)
     tag = va[2:]
-    # 1. translate (spec stubs, if any, become fixed returns in the TU)
-    stubmap = {}
-    for _s in (spec.get("stubs") or {}).values():
-        stubmap["0x" + _s["va"][2:].upper()] = _s
+    # 1. translate: inline spec stubs (pilot shape), else impure stub_refs
+    # resolved through the shared contract file (never committed).
+    stubmap = impure_stubmap(spec)
     try:
         asm_text = asm_for(args.asm_dir, va)
         src, _ = translate_one(va, asm_text, args.image, pilot,
@@ -184,9 +230,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
     gen = os.path.join(args.out_dir, "gen")
     tag = va[2:]
     callees = ["0x" + c.upper() for c in (spec.get("precheck", {}) or {}).get("calls", [])]
-    stubmap = {}
-    for _s in (spec.get("stubs") or {}).values():
-        stubmap["0x" + _s["va"][2:].upper()] = _s
+    stubmap = impure_stubmap(spec)
     # translate callees too (their TUs must exist to link). Closure is
     # transitive: a callee's own callees must also link (e.g. 140A53DA0
     # -> 140439EF0). Edges come from each spec's precheck calls.
@@ -326,6 +370,9 @@ def main():
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--spec-dir", default=DEF_SPEC_DIR)
     ap.add_argument("--asm-dir", default=None)
+    ap.add_argument("--impure-stubs", default="",
+                    help="ImpureMap stubs.json contract (stub_refs resolution); "
+                         "also read from $IMP_STUBS. Never committed.")
     ap.add_argument("--only", nargs="*", default=None)
     ap.add_argument("--count", type=int, default=None)
     ap.add_argument("--cxx", default="g++")
@@ -336,6 +383,16 @@ def main():
                          "Never writes the repo results.json (the gate's pilot test).")
     args = ap.parse_args()
     repo_json = os.path.join(REPO, "tools", "dev", "translate", "results.json")
+    impure = os.path.abspath(args.spec_dir) != os.path.abspath(DEF_SPEC_DIR)
+    if impure:
+        # Second set: impure specs. Pilot's 216 stay bit-exact via --check
+        # (gate); results land in results_impure.json, never results.json.
+        repo_json = os.path.join(REPO, "tools", "dev", "translate",
+                                 "results_impure.json")
+    if args.impure_stubs:
+        impure_stubmap.path = args.impure_stubs
+    elif os.environ.get("IMP_STUBS"):
+        impure_stubmap.path = os.environ["IMP_STUBS"]
     if args.check:
         args.only = [r["va"] for r in json.load(open(repo_json))["results"] if r["diffed"]]
 
@@ -377,8 +434,10 @@ def main():
     # results.json: build copy always; the committed repo copy only from a full run (a subset or a check run
     # must never overwrite the record of the whole set). Sort by VA.
     results.sort(key=lambda r: r["va"])
+    note = ("Impure translation results (stub-supported run). " if impure
+            else "Pilot translation results.")
     payload = {"results": results,
-               "note": "Pilot translation results. diffed = bit-exact vs "
+               "note": note + " diffed = bit-exact vs "
                        "the unicorn harness. 'provisional' in a note means "
                        "the spec reads writable image globals at on-disk "
                        "values."}
