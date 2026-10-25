@@ -9,10 +9,8 @@
 #include "onthepitch/pesroles.hpp"
 #include "onthepitch/pescarrier.hpp"
 
-#ifdef PES_PILOT_AVAILABLE
-#include "pes/pespilot.hpp"
+#include "pes/translated/translated.hpp"
 #include "pes_state.hpp"
-#endif
 
 namespace pes::offball {
 namespace {
@@ -35,7 +33,6 @@ constexpr float kNearK_m = 10.0f;
 constexpr float kWideDz_m = 43.0f;           // step 13: |P.z - ball.z| > 43
 // Lanes (FUN_140a71990): z_k = F1 - 2 - 2k, k = 0..32.
 constexpr int kLaneCount = 33;
-constexpr float kLaneSpacing_m = 2.0f;
 // Blocked-lane weight w: 1 within 55 deg of T.dir, linear to 0 at 88 (59ba60 pre-pass).
 constexpr float kBlockFullAngle_deg = 55.0f;
 constexpr float kBlockZeroAngle_deg = 88.0f;
@@ -120,19 +117,13 @@ float Ramp(float v, float a, float b) {
 }
 
 float LaneZ(int k) {
-#ifdef PES_PILOT_AVAILABLE
-  // Cut over to the translated 0x140A71990 (bit-exact on the harness):
-  // XMM0 = XMM0 - 2 - 2*sext(DL). Entry XMM0 = F1 (field half width),
-  // DL = lane k. Same arithmetic as below in both modes (same F1 from
-  // the VFS winner, same 2.0 m spacing), so GF mode is unchanged.
+  // The translated 0x140A71990 (bit-exact on the harness): XMM0 = XMM0 - 2 - 2*sext(DL).
+  // Entry XMM0 = F1 (field half width), DL = lane k.
   PesState s;
   s.set_x_f32(0, pesFieldHalfWidth);
   s.gpr[2] = static_cast<uint64_t>(static_cast<uint8_t>(k));
   ::pes_fn_140A71990(s);
   return s.x_f32(0);
-#else
-  return pesFieldHalfWidth - kLaneSpacing_m - kLaneSpacing_m * k;
-#endif
 }
 
 bool ReadF(const PeImage& exe, uint64_t va, float* out, bool* ok) {

@@ -53,12 +53,23 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 RUN_PY = os.path.join(REPO, "tools", "dev", "diffharness", "run.py")
 DEF_SPEC_DIR = os.path.join(REPO, "tools", "dev", "diffharness",
                             "specs", "pilot")
+# The committed translated layer: the runtime headers the generated code includes.
+TRANSLATED_DIR = os.path.join(REPO, "src", "pes", "translated")
 # The harness Python (unicorn + capstone), the same variable the gate and tests/diff use.
 VENV_PY = os.environ.get("GF_DIFF_PYTHON", sys.executable)
 
 sys.path.insert(0, HERE)
 import stubs as stub_table
 STUB_TABLE = stub_table.load()
+
+
+def universe_of(spec_dir):
+    """The call-closed universe a run over spec_dir translates into: the pilot's specs, the run's specs, and the run-real closure (stubs.json)."""
+    pilot = {"0x" + f[:-5].upper() for f in os.listdir(DEF_SPEC_DIR) if f.endswith(".json")}
+    pilot |= {"0x" + f[:-5].upper() for f in os.listdir(spec_dir) if f.endswith(".json")}
+    # run-real closure callees (stubs.json) are translated like pilot members
+    pilot |= {"0x%X" % va for va, entry in STUB_TABLE.items() if entry["do"] is None}
+    return pilot
 
 
 def eprint(*a):
@@ -514,12 +525,13 @@ def build_and_diff(va, spec, args, pilot, nlines):
     main_p = os.path.join(gen, "diff_%s.cpp" % tag)
     with open(main_p, "w") as f:
         f.write(main_src)
-    # support headers into the build tree (committed tools, copied)
+    # support headers into the build tree: the committed runtime headers, plus the harness's diffparse.hpp
     for h in ("pes_state.hpp", "pes_cond.inl", "diffparse.hpp",
               "pes_stubs.hpp", "pes_dispatch.hpp"):
         hp = os.path.join(gen, h)
         if not os.path.exists(hp):
-            with open(os.path.join(HERE, h), "rb") as fi, \
+            src = os.path.join(HERE if h == "diffparse.hpp" else TRANSLATED_DIR, h)
+            with open(src, "rb") as fi, \
                     open(hp, "wb") as fo:
                 fo.write(fi.read())
     # Dispatch table: every translated TU in this build. Generated, no hand
@@ -746,10 +758,7 @@ def main():
     # filters which functions get results, not the callee universe.
     # Otherwise callees outside --only would mistranslate as out-of-set
     # stubs and every --only diff with calls would spuriously mismatch.
-    pilot = {"0x" + f[:-5].upper() for f in os.listdir(DEF_SPEC_DIR) if f.endswith(".json")}
-    pilot |= {"0x" + f[:-5].upper() for f in specs}
-    # run-real closure callees (stubs.json) are translated like pilot members
-    pilot |= {"0x%X" % va for va, entry in STUB_TABLE.items() if entry["do"] is None}
+    pilot = universe_of(args.spec_dir)
     if args.only:
         want = {v.lower().replace("0x", "") for v in args.only}
         specs = [f for f in specs if f[:-5].lower() in want]
