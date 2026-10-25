@@ -61,6 +61,14 @@ the translator and the driver, split by file. Main lands everything. Concurrency
 | 30-70% | Fix the top failure classes in the translator and struct map, then re-pilot. |
 | < 30% | Report why with the failure breakdown and propose the alternative. Never fall back to the old method silently. |
 
+## Owner ruling 25-10-26: priorities within scope
+
+- **Out:** match commentary (the commentator audio system).
+- **Menus** (in-match and pre-match): nice-to-have; a reimplementation from PES's own data (layouts, strings, tables)
+  is acceptable instead of translating the menu code.
+- **Priority:** presentation and cutscenes (replay, broadcast cameras, cutscenes, crowd, scoreboard and overlays,
+  audio cues other than commentary), alongside the gameplay core.
+
 ## Owner ruling 24-10-26: ship translated code; the harness stays the oracle
 
 PES 2021 is off sale with no forward path for its mods; reading the user's own running copy for interoperability is in
