@@ -84,6 +84,16 @@ def load_spec(spec_dir, va):
             return json.load(open(p)), p
     return None, None
 
+def read_attribution(path):
+    """{VA: (subsystem, role)} from a generator set file's third and fourth columns (`select` writes them)."""
+    out = {}
+    with open(path, encoding="utf8") as f:
+        for line in f:
+            parts = line.split("#")[0].rstrip("\n").split("\t")
+            if len(parts) >= 4 and parts[0].strip():
+                out["0x%X" % int(parts[0].strip(), 16)] = (parts[2].strip(), parts[3].strip())
+    return out
+
 
 def asm_for(asm_dir, va):
     if not asm_dir:
@@ -731,6 +741,8 @@ def main():
                          "Never writes the repo results.json (the gate's pilot test).")
     ap.add_argument("--record", default=None,
                     help="committed results JSON. A full run writes it; --check re-runs its diffed VAs and never writes it.")
+    ap.add_argument("--set", default=None,
+                    help="a generator set file (specgen sets/*.txt): its subsystem and role columns are recorded on each result")
     args = ap.parse_args()
     if args.check and not args.record:
         ap.error("--check re-runs the VAs that --record lists as diffed")
@@ -778,6 +790,10 @@ def main():
             r["va"], r["translated"], r["diffed"], r["cases"],
             r["failure_class"], r["note"][:100]))
 
+    attrib = read_attribution(args.set) if args.set else {}
+    for r in results:
+        if r["va"] in attrib:
+            r["subsystem"], r["role"] = attrib[r["va"]]
     # results.json: build copy always; the committed repo copy only from a full run (a subset or a check run
     # must never overwrite the record of the whole set). Sort by VA.
     results.sort(key=lambda r: r["va"])

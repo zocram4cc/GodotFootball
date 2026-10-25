@@ -1,7 +1,7 @@
 """VA sets for the spec generator: committed set files, and the ledger's pure rows closed over their callees.
 
 A set file has one function per line: the VA, a tab, then its status (optional; default stand-in). Order is kept,
-because a spec's seed is 1000 + its position in the set.
+because a spec's seed is 1000 + its position in the set. `select` adds a subsystem and a role (seed or callee) column; readers ignore them.
 """
 import json
 import os
@@ -44,16 +44,19 @@ def read_set(path):
 
 
 def write_set(path, rows):
+    """Rows are (VA, status) or (VA, status, subsystem, role)."""
     with open(path, "w", encoding="utf8") as f:
-        for va, status in rows:
-            f.write("%s\t%s\n" % (va, status))
+        for row in rows:
+            f.write("\t".join(row) + "\n")
 
 
-def pure_closure(subsystem, path=UNIVERSE):
-    """The subsystem's rows that the ledger's pure rule accepts, closed over their pure callees.
+def closure_rows(subsystems, path=UNIVERSE):
+    """The union of the subsystems' pure closures, as (VA, status, subsystem, role) rows.
 
-    Seeds come first in VA order, callees after them in discovery order. The pure rule already makes every callee of
-    a pure row pure, so the closure only adds rows the rule has judged.
+    A seed is a pure row tagged with one of the subsystems; its closure adds the pure rows reached through the
+    callee edges. Seeds come first (subsystems in the order given, VA order within each), callees follow in
+    discovery order. Each row takes the subsystem of the seed that reaches it first, so every row has one
+    subsystem. With one subsystem this is the cutscene set's closure.
     """
     sys.path.insert(0, os.path.join(REPO, "tools", "dev"))
     import ledger  # tools/dev/ledger.py: the pure rule (pure_rows)
@@ -61,13 +64,18 @@ def pure_closure(subsystem, path=UNIVERSE):
     raw = json.load(open(path, encoding="utf8"))["functions"]
     rows = {norm(k): f for k, f in raw.items()}
     pure = {norm(k) for k in ledger.pure_rows(raw)}
-    seeds = sorted(va for va in pure if rows[va].get("subsystem") == subsystem)
-    seen, queue, out = set(seeds), list(seeds), []
-    while queue:
-        va = queue.pop(0)
-        out.append(va)
+    owner, role, order = {}, {}, []
+    for s in subsystems:
+        for va in sorted(va for va in pure if rows[va].get("subsystem") == s):
+            if va not in owner:
+                owner[va], role[va] = s, "seed"
+                order.append(va)
+    i = 0
+    while i < len(order):  # FIFO over the discovered rows
+        va = order[i]
+        i += 1
         for c in sorted(norm(k) for k in (rows[va].get("callees") or {})):
-            if c in pure and c not in seen:
-                seen.add(c)
-                queue.append(c)
-    return out
+            if c in pure and c not in owner:
+                owner[c], role[c] = owner[va], "callee"
+                order.append(c)
+    return [(va, DEFAULT_STATUS, owner[va], role[va]) for va in order]
