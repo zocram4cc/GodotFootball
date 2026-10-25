@@ -41,9 +41,9 @@ SheetBytes RandomSheet(std::mt19937& rng) {
 uint32_t RunSheetReader(void (*fn)(PesState&), SheetBytes& sheet, uint64_t k, uint64_t plan) {
   PesState s;
   s.gpr[1] = kSheetWindowVa;
-  s.gpr[2] = k;
-  s.gpr[8] = plan;
-  s.mem.window = {kSheetWindowVa, kSheetBytes, sheet.data(), false};
+  s.gpr[2] = static_cast<uint32_t>(k);  // an int argument in edx zero-extends into rdx
+  s.gpr[8] = static_cast<uint32_t>(plan);
+  s.mem.window = {kSheetWindowVa, kSheetBytes, sheet.data(), nullptr};
   fn(s);
   return static_cast<uint32_t>(s.gpr[0]);
 }

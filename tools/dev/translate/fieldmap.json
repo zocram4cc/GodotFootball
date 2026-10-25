@@ -5803,7 +5803,7 @@
      ],
      "kind": "int",
      "rw": "r",
-     "gf": null,
+     "gf": "teamRecord.sheet.Plan() (sheet S+0x0, PesTeamRecord; the plan word TeamSheet::Plan reads)",
      "cite": null,
      "functions": 4
     },
@@ -5815,7 +5815,7 @@
      ],
      "kind": "int",
      "rw": "r",
-     "gf": null,
+     "gf": "teamRecord.sheet.Taker(k) (sheet S+0x1454+4k; TeamSheet::Taker, pesteamconcepts.hpp)",
      "cite": null,
      "functions": 1
     },

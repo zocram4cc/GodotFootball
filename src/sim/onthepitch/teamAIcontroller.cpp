@@ -55,21 +55,21 @@ TeamAIController::TeamAIController(Team* team) : team(team) {
   // the install's sheet-ctor defaults (FUN_1408c5390).
   {
     const Properties& t = team->GetTeamData()->GetTactics().userProperties;
-    teamSheet = pes::DefaultTeamSheet(match->GetPesTeamConceptConstants());
+    teamRecord.sheet = pes::DefaultTeamSheet(match->GetPesTeamConceptConstants());
     const auto real = [&t](const char* key, int current) {
       return static_cast<int>(t.GetReal(key, current));
     };
-    teamSheet.SetSlider(pes::kSliderSupportRange,
-                        real("support_range", teamSheet.Slider(pes::kSliderSupportRange)));
-    teamSheet.SetSlider(pes::kSliderDefensiveLine,
-                        real("defensive_line", teamSheet.Slider(pes::kSliderDefensiveLine)));
-    teamSheet.SetSlider(pes::kSliderCompactness,
-                        real("compactness", teamSheet.Slider(pes::kSliderCompactness)));
+    teamRecord.sheet.SetSlider(pes::kSliderSupportRange,
+                               real("support_range", teamRecord.sheet.Slider(pes::kSliderSupportRange)));
+    teamRecord.sheet.SetSlider(pes::kSliderDefensiveLine,
+                               real("defensive_line", teamRecord.sheet.Slider(pes::kSliderDefensiveLine)));
+    teamRecord.sheet.SetSlider(pes::kSliderCompactness,
+                               real("compactness", teamRecord.sheet.Slider(pes::kSliderCompactness)));
     static const char* kToggleKeys[pes::kSheetToggleCount] = {
         "attacking_style", "build_up",        "attacking_area", "positioning",
         "defensive_style", "containment_area", "pressuring"};
     for (int k = 0; k < pes::kSheetToggleCount; ++k)
-      teamSheet.SetToggle(k, real(kToggleKeys[k], teamSheet.Toggle(k)));
+      teamRecord.sheet.SetToggle(k, real(kToggleKeys[k], teamRecord.sheet.Toggle(k)));
   }
 
   depth = 0.45f;
@@ -488,15 +488,15 @@ void TeamAIController::CalculateDefensiveShape() {
   // The team sheet's own bytes (tactics 1, 4): Defensive Style, Defensive Line,
   // Compactness, and Pressuring = Conservative, which gives the marker 2 m more
   // room (FUN_140623750).
-  const int style = teamSheet.Toggle(pes::kDefensiveStyle);
-  const float lineSlider = static_cast<float>(teamSheet.Slider(pes::kSliderDefensiveLine));
-  const float compactSlider = static_cast<float>(teamSheet.Slider(pes::kSliderCompactness));
+  const int style = teamRecord.sheet.Toggle(pes::kDefensiveStyle);
+  const float lineSlider = static_cast<float>(teamRecord.sheet.Slider(pes::kSliderDefensiveLine));
+  const float compactSlider = static_cast<float>(teamRecord.sheet.Slider(pes::kSliderCompactness));
 
   defensiveStyle = style;
   defensiveAttackLevel = attackLevel;
   defensiveLineSlider = lineSlider;
   defensiveCompactSlider = compactSlider;
-  defensivePressing = teamSheet.Toggle(pes::kPressuring) == 1;
+  defensivePressing = teamRecord.sheet.Toggle(pes::kPressuring) == 1;
 
   // PES's defence-row dispatch (FUN_1405EC600 @ 0x1405ECC21): the possession flag picks block B (67B640),
   // which runs the fold pick on the PES path. Block A's forward pull (682770) is not ported yet (F2-F4), so
@@ -1962,7 +1962,7 @@ void TeamAIController::PrepareSetPiece(e_SetPiece setPiece, int takerTeamID) {
       in.penaltyHalfZ_m = SetPieceLaws::kAreaHalfWidth;
       // ponytail: PES's tactics import writes the designated roster values (S+0x143c, T+0xa244).
       // GF's sheet keeps the install's default (DefaultTeamSheet) until that import is ported.
-      in.designated = {teamSheet.Designated(0), teamSheet.Designated(1), teamSheet.Designated(2)};
+      in.designated = {teamRecord.sheet.Designated(0), teamRecord.sheet.Designated(1), teamRecord.sheet.Designated(2)};
       // ponytail: PES's MI+0x116c == 3, the restart phase that reuses the published kicker, has no
       // GF field, so that step stays off.
       const int pick = pes::FreeKickTaker(candidates, in, spk);
@@ -2206,7 +2206,7 @@ void TeamAIController::RunConcepts() {
     // One attacking concept at a time: every PES concept's slot 6
     // (interruptible) is the false stub 0x141863350.
     if (attacking && runningAttack >= 0 && runningAttack != id) continue;
-    if (!pes::ConceptGate(id, teamSheet)) {
+    if (!pes::ConceptGate(id, teamRecord.sheet)) {
       StopConcept(id);
       continue;
     }
@@ -2283,7 +2283,7 @@ pes::SideCounterInput TeamAIController::CounterInput(std::vector<Player*>* men) 
   for (Player* o : opponents)
     if (o->GetFormationEntry().role != e_PlayerRole_GK && std::fabs(o->GetPosition().coords[1]) <= pitchHalfH)
       in.opponents.push_back(o->GetPosition());
-  in.attackingArea = teamSheet.Toggle(pes::kAttackingArea);
+  in.attackingArea = teamRecord.sheet.Toggle(pes::kAttackingArea);
   team->GetActivePlayers(*men);
   for (Player* p : *men) {
     pes::CounterMan m;
@@ -2646,7 +2646,7 @@ void TeamAIController::PesSecondPresserTick() {
 
   // Step 9: the aggressive flag A. The press point stands in as the ball (FUN_14063FDC0 is OPEN); the frontline
   // style is the defensive-style toggle (FUN_140a62180(ctx, side, 4)).
-  bool aggressive = teamSheet.Toggle(pes::kDefensiveStyle) == 0 && sign * ball.coords[0] > 0.0f;
+  bool aggressive = teamRecord.sheet.Toggle(pes::kDefensiveStyle) == 0 && sign * ball.coords[0] > 0.0f;
   aggressive = aggressive || (sign * ball.coords[0] < c.evalThetaBase_m - pesPenaltyAreaLineX &&
                               std::fabs(ball.coords[1]) < pesPenaltyAreaHalfWidth);
 
@@ -3225,8 +3225,8 @@ void TeamAIController::ProcessDesignatedSupporter(Player* carrier) {
   const float bearing = std::atan2(toMate.coords[1], toMate.coords[0] * s) * 180.0f / pi;
   ob::SupportDistanceInput in;
   // Support Range and Build Up from the team sheet (tactics 4.1).
-  in.supportRange = teamSheet.Slider(pes::kSliderSupportRange);
-  in.buildUpLong = teamSheet.Toggle(pes::kBuildUp) == 0;
+  in.supportRange = teamRecord.sheet.Slider(pes::kSliderSupportRange);
+  in.buildUpLong = teamRecord.sheet.Toggle(pes::kBuildUp) == 0;
   const Vector3 ball = match->GetBall()->Predict(0);
   in.ballX = s * ball.coords[0];
   in.ballZ = ball.coords[1];
@@ -3245,9 +3245,9 @@ void TeamAIController::SetUpRoleArrays() {
     const e_PlayerRole formation = team->GetTeamData()->GetFormationEntry(slot).role;
     const int role = pes::roles::RegisteredRoleOf(formation);
     for (int phase = 0; phase < pes::kSheetPhases; ++phase)
-      teamSheet.SetRegisteredRole(slot, role, phase);
+      teamRecord.sheet.SetRegisteredRole(slot, role, phase);
   }
-  pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamSheet,
+  pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamRecord.sheet,
                              pes::mentality::RoleLevel(
                                  team->GetID() == 0,
                                  pes::mentality::RolePlayState(match->IsInPlay(), match->IsInSetPiece()),
@@ -3268,9 +3268,9 @@ void TeamAIController::WriteRoleArrays(bool head) {
       pes::mentality::RolePlayState(match->IsInPlay(), match->IsInSetPiece()), match->PesRestartKind());
   for (int slot = 0; slot < pes::roles::kSideSlots; ++slot) {
     const e_PlayerRole role = team->GetAllPlayers()[slot]->GetDynamicFormationEntry().role;
-    teamSheet.SetRegisteredRole(slot, pes::roles::RegisteredRoleOf(role), level);
+    teamRecord.sheet.SetRegisteredRole(slot, pes::roles::RegisteredRoleOf(role), level);
   }
-  pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamSheet,
+  pes::roles::WriteSideRoles(match->GetPesTeamConceptConstants().roleClassOfRegistered, teamRecord.sheet,
                              level, &roles);
   // ponytail: `level` is the role level, the matrix row of WriteSideRoles. WriteSlotPoints takes the sheet phase
   // (FUN_1404F5F10: f = 2 - (F != 0), 0 when MI+0x116C != 1 && MI+0x1554 == 1; 0x1404F5F38-4A). They coincide on every
@@ -3294,7 +3294,7 @@ void TeamAIController::WriteSlotPoints(int phase) {
   const pes::formation::SheetConstants* sheet = match->GetPesSheetConstants();
   assert(tables && sheet);  // the PES loop is built with the install's tables (gfsim_run loads them)
   const auto plan = tables->PlanOf(static_cast<uint32_t>(team->GetTeamData()->GetDatabaseID()),
-                                   teamSheet.Plan());
+                                   teamRecord.sheet.Plan());
   assert(plan);  // every team has a tactics record for each plan (Tactics.bin: two per team)
   slotPoints = pes::formation::SlotPointRows(*plan, phase, pesFieldHalfLength, pesFieldHalfWidth,
                                              sheet->grid, sheet->keeper);
@@ -3315,14 +3315,14 @@ void TeamAIController::UpdatePesSheetPlan() {
   const int playState = pes::PlayStateFor(match->IsInPlay(), buffer.active,
                                           buffer.prepared || buffer.started);
   if (playState == pes::kPlayStateStopped && kRestartGate8D) {
-    teamSheet.SetPlan(pes::StoppagePlan2(teamSheet.Plan(), kSetupWordNonZero));
+    teamRecord.sheet.SetPlan(pes::StoppagePlan2(teamRecord.sheet.Plan(), kSetupWordNonZero));
     return;
   }
   // The in-play mode table (l.272-289): the mode word +0xBCC picks the plan (§2). +0xBCC's writer
   // is OPEN, so the word is −1 (keep, PES's < 0 arm) until the decider first runs, then the
   // strategy the decider just moved (S2). The table reads the word, never the strategy direct.
-  teamSheet.SetPlan(pes::formation::InPlayPlan(pes::SelectorMode(teamTick.deciderRan, strategy.strategy),
-                                               teamTick.b8a3, teamSheet.Plan()));
+  teamRecord.sheet.SetPlan(pes::formation::InPlayPlan(pes::SelectorMode(teamTick.deciderRan, strategy.strategy),
+                                                     teamTick.b8a3, teamRecord.sheet.Plan()));
 }
 
 int TeamAIController::RoleClassOfSlot(int slot) const {
@@ -3596,7 +3596,7 @@ void TeamAIController::ProcessRunManager(Player* carrier) {
   // 5ab990). ponytail: those gates are undecoded, so no swap happens; the
   // cap simply holds.
   const uint32_t slotMask = ob::AttackSlotMask(world, team->GetID(), level);
-  const bool buildUpLong = teamSheet.Toggle(pes::kBuildUp) == 0;
+  const bool buildUpLong = teamRecord.sheet.Toggle(pes::kBuildUp) == 0;
   // FUN_1405938a0, the Chance mask's team head. The raw calls it once per
   // FUN_140606cd0, before that function's own loop over the 11 slots
   // (OBS mask.c:86, loop at mask.c:197-204), so its verdict is shared by every

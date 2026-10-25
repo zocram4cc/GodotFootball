@@ -44,11 +44,15 @@ target_link_libraries(pesrig PUBLIC pesfmt)
 # only on the PES path. Gated at configure time on PES_EXE: without the
 # image there is no pespilot target and PES_PILOT_AVAILABLE stays unset, so
 # GF call sites take the hand-port fallback and GF mode is untouched.
-set(PILOT_CUTOVER_VAS 140A71990)
+set(PILOT_CUTOVER_VAS 140A71990 1408C5030 1408C5060 1408C5080 1408C52E0)
 if(DEFINED ENV{PES_EXE} AND NOT "$ENV{PES_EXE}" STREQUAL "")
   add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/pilot-lib/pes_pilot.h
            ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_140A71990.cpp
+           ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_1408C5030.cpp
+           ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_1408C5060.cpp
+           ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_1408C5080.cpp
+           ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_1408C52E0.cpp
     COMMAND ${CMAKE_COMMAND} -E env
       "PILOT_IMAGE=$ENV{PES_EXE}"
       python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/gen_pilot_lib.py
@@ -61,7 +65,11 @@ if(DEFINED ENV{PES_EXE} AND NOT "$ENV{PES_EXE}" STREQUAL "")
   add_custom_target(pilot_lib_gen DEPENDS
     ${CMAKE_BINARY_DIR}/pilot-lib/pes_pilot.h)
   add_library(pespilot STATIC
-    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_140A71990.cpp)
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_140A71990.cpp
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_1408C5030.cpp
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_1408C5060.cpp
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_1408C5080.cpp
+    ${CMAKE_BINARY_DIR}/pilot-lib/pes_fn_1408C52E0.cpp)
   add_dependencies(pespilot pilot_lib_gen)
   target_include_directories(pespilot PUBLIC
     ${CMAKE_SOURCE_DIR}/tools/dev/translate ${CMAKE_BINARY_DIR}/pilot-lib)

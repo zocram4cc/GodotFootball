@@ -14,6 +14,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -153,6 +154,32 @@ class TeamSheet {
   void WriteU16(int offset, uint16_t value);
   std::array<uint8_t, kSheetBytes> bytes_{};
 };
+
+// PES's team record T (one per side). GF carries its team sheet S = T+0x8e08 in PES's byte layout (see TeamSheet).
+// The rest is zero-initialised reserved space that no GF path reads. Size: the furthest T read in the pilot specs
+// (T+0xc134, a u32, ends at 0xc138; fieldmap.json T).
+inline constexpr std::size_t kTeamSheetOffset = 0x8E08;
+inline constexpr std::size_t kTeamRecordBytes = 0xC138;
+// The VA the translated sheet readers address S through: a GF-side window outside PES's image
+// (0x140000000 and up), mapped onto the sheet's bytes in place (PesMem::window).
+inline constexpr uint64_t kSheetWindowVa = 0x2000000000ULL;
+
+struct PesTeamRecord {
+  std::array<uint8_t, kTeamSheetOffset> reserved_before_sheet{};  // T+0x0 .. T+0x8e08
+  TeamSheet sheet;                                                // S at T+0x8e08
+  std::array<uint8_t, kTeamRecordBytes - kTeamSheetOffset - kSheetBytes> reserved_after_sheet{};
+};
+static_assert(offsetof(PesTeamRecord, sheet) == kTeamSheetOffset);
+static_assert(sizeof(PesTeamRecord) == kTeamRecordBytes);
+
+// The hand ports of the translated sheet readers: the same arithmetic on the raw sheet bytes. GF runs them when no
+// PES image is configured, and the pilot tests check the translated readers against them.
+namespace sheet_port {
+int Designated(const uint8_t* sheet, int k);
+int Taker(const uint8_t* sheet, int k);
+int Slider(const uint8_t* sheet, int k, int plan);
+int Toggle(const uint8_t* sheet, int k, int plan);
+}  // namespace sheet_port
 
 inline constexpr int kConceptCount = 48;          // FUN_140579e10's ids 0..47
 inline constexpr int kLastAttackingConcept = 0x20;  // ids <= 0x20 run in possession

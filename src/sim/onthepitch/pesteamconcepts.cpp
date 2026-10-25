@@ -11,6 +11,10 @@
 #include "gametypes.hpp"
 #include "pes/uniform.hpp"
 #include "onthepitch/pesroles.hpp"
+#ifdef PES_PILOT_AVAILABLE
+#include "pes/pespilot.hpp"
+#include "pes_state.hpp"
+#endif
 
 namespace pes {
 namespace {
@@ -450,6 +454,66 @@ constexpr int kInstrArgument = 0xe;  // stores the argument at +0x2c
 
 // --- the sheet image ---------------------------------------------------------
 
+namespace {
+
+#ifdef PES_PILOT_AVAILABLE
+// A translated sheet reader runs on S in place: rcx = S's window VA, rdx = k, r8 = plan (PES's argument registers).
+// The readers only read, so the window is read-only.
+uint32_t RunSheetReader(void (*fn)(PesState&), const uint8_t* sheet, uint64_t k, uint64_t plan) {
+  PesState s;
+  s.gpr[1] = kSheetWindowVa;
+  s.gpr[2] = static_cast<uint32_t>(k);  // an int argument in edx zero-extends into rdx
+  s.gpr[8] = static_cast<uint32_t>(plan);
+  s.mem.window.base = kSheetWindowVa;
+  s.mem.window.size = kSheetBytes;
+  s.mem.window.ro = sheet;
+  fn(s);
+  return static_cast<uint32_t>(s.gpr[0]);
+}
+#endif
+
+}  // namespace
+
+namespace sheet_port {
+namespace {
+// The plan a reader uses: kCurrentPlan reads the current plan word at S+0 (TeamSheet::ResolvePlan).
+int PlanOf(const uint8_t* sheet, int plan) {
+  if (plan != kCurrentPlan) return plan;
+  uint32_t v = 0;
+  std::memcpy(&v, sheet + kSheetPlanOffset, sizeof v);
+  return static_cast<int>(v);
+}
+uint32_t WordAt(const uint8_t* sheet, int offset) {
+  uint32_t v = 0;
+  std::memcpy(&v, sheet + offset, sizeof v);
+  return v;
+}
+}  // namespace
+
+int Designated(const uint8_t* sheet, int k) {  // FUN_1408c5080: none when refused
+  if (k < 0 || k >= kSheetDesignated) return kSheetNone;
+  return static_cast<int>(WordAt(sheet, kSheetDesignatedOffset + 4 * k));
+}
+
+int Taker(const uint8_t* sheet, int k) {  // FUN_1408c5060: refuses k > 2 only; k < 0 reads S+0x1454+4k as PES does
+  if (k >= kSheetTakers || static_cast<int>(kSheetTakerOffset) + 4 * k < 0) return kSheetNone;  // stays in S
+  return static_cast<int>(WordAt(sheet, kSheetTakerOffset + 4 * k));
+}
+
+int Slider(const uint8_t* sheet, int k, int plan) {  // FUN_1408c52e0: 0 when refused
+  plan = PlanOf(sheet, plan);
+  if (!ValidPlan(plan) || k < 0 || k >= kSheetSliders) return 0;
+  return sheet[kSheetSliderOffset + kSheetSliders * plan + k];
+}
+
+int Toggle(const uint8_t* sheet, int k, int plan) {  // FUN_1408c5030: 0 when refused
+  plan = PlanOf(sheet, plan);
+  if (!ValidPlan(plan) || k < 0 || k >= kSheetToggleCount) return 0;
+  return sheet[kSheetToggleOffset + kSheetToggleCount * plan + k];
+}
+
+}  // namespace sheet_port
+
 int TeamSheet::ResolvePlan(int plan) const { return plan == kCurrentPlan ? Plan() : plan; }
 
 uint32_t TeamSheet::ReadU32(int offset) const {
@@ -479,9 +543,12 @@ void TeamSheet::SetPlan(int plan) {  // FUN_1408c5e20
 }
 
 int TeamSheet::Slider(int k, int plan) const {  // FUN_1408c52e0: 0 when refused
-  plan = ResolvePlan(plan);
-  if (!ValidPlan(plan) || k < 0 || k >= kSheetSliders) return 0;
-  return bytes_[kSheetSliderOffset + kSheetSliders * plan + k];
+#ifdef PES_PILOT_AVAILABLE
+  return static_cast<int>(RunSheetReader(&::pes_fn_1408C52E0, bytes_.data(), static_cast<uint64_t>(k),
+                                         static_cast<uint64_t>(plan)));
+#else
+  return sheet_port::Slider(bytes_.data(), k, plan);
+#endif
 }
 
 void TeamSheet::SetSlider(int k, int value, int plan) {  // FUN_1408c5df0
@@ -491,9 +558,12 @@ void TeamSheet::SetSlider(int k, int value, int plan) {  // FUN_1408c5df0
 }
 
 int TeamSheet::Toggle(int k, int plan) const {  // FUN_1408c5030: 0 when refused
-  plan = ResolvePlan(plan);
-  if (!ValidPlan(plan) || k < 0 || k >= kSheetToggleCount) return 0;
-  return bytes_[kSheetToggleOffset + kSheetToggleCount * plan + k];
+#ifdef PES_PILOT_AVAILABLE
+  return static_cast<int>(RunSheetReader(&::pes_fn_1408C5030, bytes_.data(), static_cast<uint64_t>(k),
+                                         static_cast<uint64_t>(plan)));
+#else
+  return sheet_port::Toggle(bytes_.data(), k, plan);
+#endif
 }
 
 void TeamSheet::SetToggle(int k, int value, int plan) {  // FUN_1408c5c70
@@ -594,8 +664,11 @@ void TeamSheet::SetCaptain(int roster) {  // FUN_1408c5c50
 }
 
 int TeamSheet::Designated(int k) const {  // FUN_1408c5080: none when refused
-  if (k < 0 || k >= kSheetDesignated) return kSheetNone;
-  return static_cast<int>(ReadU32(kSheetDesignatedOffset + 4 * k));
+#ifdef PES_PILOT_AVAILABLE
+  return static_cast<int>(RunSheetReader(&::pes_fn_1408C5080, bytes_.data(), static_cast<uint64_t>(k), 0));
+#else
+  return sheet_port::Designated(bytes_.data(), k);
+#endif
 }
 
 void TeamSheet::SetDesignated(int k, int roster) {  // FUN_1408c5cf0
@@ -604,8 +677,11 @@ void TeamSheet::SetDesignated(int k, int roster) {  // FUN_1408c5cf0
 }
 
 int TeamSheet::Taker(int k) const {  // FUN_1408c5060: none when refused
-  if (k < 0 || k >= kSheetTakers) return kSheetNone;
-  return static_cast<int>(ReadU32(kSheetTakerOffset + 4 * k));
+#ifdef PES_PILOT_AVAILABLE
+  return static_cast<int>(RunSheetReader(&::pes_fn_1408C5060, bytes_.data(), static_cast<uint64_t>(k), 0));
+#else
+  return sheet_port::Taker(bytes_.data(), k);
+#endif
 }
 
 void TeamSheet::SetTaker(int k, int roster) {  // FUN_1408c5cb0
