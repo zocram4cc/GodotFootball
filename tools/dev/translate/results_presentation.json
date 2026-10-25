@@ -6995,9 +6995,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "translator bug",
-   "note": "compile: <build>/gen/14149F5E0/pes_fn_14149F625.cpp:18:26: error: label \u2018L_14149F622\u2019 used but not defined",
+   "diffed": true,
+   "failure_class": null,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
    "role": "seed",
    "stubs": [],
    "subsystem": "camera",
@@ -7876,8 +7876,8 @@
     "0x141B5378F": "int3 padding"
    },
    "diffed": false,
-   "failure_class": "translator bug",
-   "note": "compile: <build>/gen/141B50460/pes_fn_141B50460.cpp:5334:42: error: label \u2018L_141B52693\u2019 used but not defined | <build>/gen/141B50460/pes_fn_141B50460.cpp:5338:42: error: label \u2018L_141B5269B\u2019 used but not defined | <build>/gen/141B50460/pes_fn_141B50460.cpp:5340:42: error: label \u2018L_141B5269F\u2019 used but not defined | <build>/gen/141B50460/pes_fn_141B50460.cpp:5342:42: error: label \u2018L_141B526A3\u2019 used but not de",
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 64 cases at own-block 0.00 < floor 0.50",
    "role": "seed",
    "stubs": [],
    "subsystem": "replay",

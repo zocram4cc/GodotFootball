@@ -1535,11 +1535,17 @@ class Emitter:
             return ["/*UNRESOLVED JMP %s*/return;" % o]
         if m == "LOOP":
             # LOOP rel8 (64-bit mode): RCX counts down, and the jump is taken while RCX != 0; flags are untouched.
-            return ["s.gpr[1] -= 1; if (s.gpr[1] != 0) goto L_%X;" % imm_val(ops[0])]
+            tgt = imm_val(ops[0])
+            if ctx.get("addrs") and tgt not in ctx["addrs"]:
+                return ["__builtin_trap(); /* LOOP target is not an instruction of this body */"]
+            return ["s.gpr[1] -= 1; if (s.gpr[1] != 0) goto L_%X;" % tgt]
         cc = cc_of(m)
         if cc:
-            return ["if (s.cond(\"%s\")) goto L_%X;" % (cc,
-                                                        imm_val(ops[0]))]
+            tgt = imm_val(ops[0])
+            if ctx.get("addrs") and tgt not in ctx["addrs"]:
+                # No label exists for a target outside the decoded body: trap when taken, never an undefined goto.
+                return ["if (s.cond(\"%s\")) __builtin_trap();" % cc]
+            return ["if (s.cond(\"%s\")) goto L_%X;" % (cc, tgt)]
         return None
 
     def emit_set_cmov(self, mnem, ops):
