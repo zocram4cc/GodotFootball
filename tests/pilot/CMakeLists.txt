@@ -20,3 +20,12 @@ add_test(NAME diff_image_verify
   COMMAND bash -c "[ -n \"$PES_EXE\" ] && [ -f \"$PES_EXE\" ] || exit 77; \
 python3 '${CMAKE_SOURCE_DIR}/tools/pes21_import/verify_image.py' --image \"$PES_EXE\"")
 set_tests_properties(diff_image_verify PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600)
+
+# Team sheet readers: each translated reader agrees with its hand port on the same random sheet bytes (the
+# window maps S onto the bytes in place). Skipped (the TU gets no PES_PILOT_AVAILABLE) when no image is configured.
+add_executable(pes_team_sheet_test pes_team_sheet_test.cpp)
+target_link_libraries(pes_team_sheet_test PRIVATE gfsim pesfmt GTest::gtest_main)
+if(TARGET pespilot)
+  target_link_libraries(pes_team_sheet_test PRIVATE pespilot)
+endif()
+gtest_discover_tests(pes_team_sheet_test)
