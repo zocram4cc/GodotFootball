@@ -584,9 +584,14 @@ def main():
                          "deduplicated by content")
     ap.add_argument("--budget", type=int, default=INSTR_BUDGET,
                     help="instructions per H step (deterministic guard)")
-    ap.add_argument("--root", choices=("frame", "h"), default="frame",
-                    help="frame: the pump's per-frame method (vtable slot 4) on the pump object; h: the match "
-                         "step H, the leaf entry earlier runs used")
+    ap.add_argument("--root", choices=("h", "entry", "frame"), default="h",
+                    help="h (default): the match step H, the leaf entry the H-step runs use; entry: any function "
+                         "(--entry VA) called once per frame with explicit registers (--reg name=value), on the "
+                         "snapshot's live objects; frame (PARKED, docs/re/pes-re-liveroster.md): the pump's per-frame "
+                         "method, which needs producer threads a snapshot cannot run")
+    ap.add_argument("--entry", default=None, help="--root entry: the function VA to call each frame")
+    ap.add_argument("--reg", action="append", default=[],
+                    help="--root entry: a register at entry, name=value (repeatable; value hex or decimal)")
     ap.add_argument("--pump", default="0x12F19C0", help="the pump object (its vtable is checked)")
     ap.add_argument("--frame-dt", type=float, default=FRAME_DT_US,
                     help="xmm1 at the pump's Frame: the frame delta in microseconds")
@@ -682,10 +687,18 @@ def main():
     g_ptr = struct.unpack("<Q", bytes(uc.mem_read(H_GLOBAL, 8)))[0]
     h_obj = g_ptr
     root_va, root_regs, root_xmm = H_STEP, {"rcx": h_obj}, None
+    if a.root == "entry":
+        if lazy is None or not a.entry:
+            ap.error("--root entry needs --snapshot and --entry")
+        root_va = int(a.entry, 16)
+        root_regs = {k.strip(): int(v.strip(), 0) for k, v in (r.split("=", 1) for r in a.reg)}
+        for k in root_regs:  # rn.reg_const raises on a name the emulator does not know
+            rn.reg_const(k)
     if a.root == "frame":
         if lazy is None:
             ap.error("--root frame needs --snapshot")
         root_va, root_regs, root_xmm = frame_root(uc, lazy, int(a.pump, 16), a.frame_dt)
+
     stop = None
     for f in range(a.frames):
         read = mem_reader(uc)
