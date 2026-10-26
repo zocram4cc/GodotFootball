@@ -71,7 +71,9 @@ static inline const char* parse_val(const char* p, JVal& v) {
     return end ? end : p;
   }
   v.t = JVal::NUM;
-  v.n = strtoll(p, &end, 0);
+  // PES's 64-bit values >= 2^63 are unsigned decimals (-1 is 18446744073709551615): strtoll saturates them to INT64_MAX.
+  // Keep the two's-complement bit pattern (a negative input "-74" wraps the same way), so every compare sees PES's bits.
+  v.n = (int64_t)strtoull(p, &end, 0);
   return end ? end : p;
 }
 
