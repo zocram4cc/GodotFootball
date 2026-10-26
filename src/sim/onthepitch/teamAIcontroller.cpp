@@ -3448,8 +3448,8 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       f.roleClass = ctl->RoleClassOfSlot(match->GetTeam(t)->FormationSlotOf(pl));
       f.styleWord = pes::style::StyleWord(pl->GetPlayerData()->GetPlayingStyle());
       // ponytail: PES's writer of the record's +1 byte (lane-units2 S12) is not decoded; the keeper class stands in for it.
-      // The byte sits in the slot's anime record (pesworldrecord.hpp), and the run world reads it back from there.
-      const int recordSlot = t * ob::kSlots + static_cast<int>(i);
+      // The byte sits in the player's anime record (pesworldrecord.hpp), keyed by his PES slot (his squad place).
+      const int recordSlot = match->PesSlotOf(pl);
       match->PesWorldOf().SetAnimeClass(
           recordSlot, static_cast<uint8_t>(f.roleClass == pes::roles::kKeeperClass ? ob::kHalvedReachRecordByte : 0));
       f.recordByte1 = match->PesWorldOf().AnimeClass(recordSlot);
