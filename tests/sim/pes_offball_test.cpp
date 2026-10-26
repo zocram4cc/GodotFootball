@@ -16,6 +16,16 @@ namespace {
 
 using namespace pes::offball;
 
+// The PES records the test players point at: one world for the test binary. Bind zeroes a player's man record.
+pes::PesWorld& Records() {
+  static pes::PesWorld world;
+  return world;
+}
+void Bind(PlayerFacts& f, int slot) {
+  f.man = Records().Block(slot) + pes::kManRecordOffset;
+  std::memset(f.man, 0, pes::kManRecordBytes);
+}
+
 // The rows the run world reads. In production they are the team AIs' (BuildRunWorld); a test owns them here.
 // Each call rebuilds the storage from the run world's positions, and a test calls it before it reads.
 void BuildNearest(RunWorld& w) {
@@ -24,7 +34,7 @@ void BuildNearest(RunWorld& w) {
     pes::RowPlayers lanes{};
     for (int lane = 0; lane < pes::lane::kSlots; ++lane) {
       const int id = lane < kSlots ? t * kSlots + lane : (1 - t) * kSlots + (lane - kSlots);
-      lanes[lane] = pes::RowPlayer{w.p[id].pos.x, w.p[id].pos.z, w.p[id].active};
+      lanes[lane] = pes::RowPlayer{w.p[id].pos().x, w.p[id].pos().z, w.p[id].active};
     }
     pes::BuildScoreRows(lanes, pes::ScoreRowConstants{}, 0xFF, rows[t], /*pesPath=*/true);
     w.nearestRows[t] = &rows[t];
@@ -213,17 +223,18 @@ RunWorld Running() {
   RunWorld w;
   for (int i = 0; i < 2 * kSlots; ++i) {
     w.p[i].active = true;
+    Bind(w.p[i], i);
     w.p[i].roleClass = 4;
-    w.p[i].pos = {i < kSlots ? -20.0f : 40.0f, -30.0f + 3.0f * (i % kSlots)};
-    w.p[i].aim = w.p[i].pos;
-    w.p[i].slotPoint = w.p[i].pos;
-    w.p[i].facing = i < kSlots ? 90.0f : 270.0f;
+    w.p[i].SetPos({i < kSlots ? -20.0f : 40.0f, -30.0f + 3.0f * (i % kSlots)});
+    w.p[i].aim = w.p[i].pos();
+    w.p[i].slotPoint = w.p[i].pos();
+    w.p[i].SetFacing(i < kSlots ? 90.0f : 270.0f);
   }
   w.carrier = 0;
   w.receiver = {0, -1};
-  w.p[0].pos = w.ball = {0.0f, 0.0f};
+  w.p[0].SetPos(w.ball = {0.0f, 0.0f});
   PlayerFacts& r = w.p[kRunner];
-  r.pos = {10.0f, 0.0f};
+  r.SetPos({10.0f, 0.0f});
   r.aim = {25.0f, 0.0f};
   r.state = kChance;
   r.t = 30.0f;
@@ -242,7 +253,7 @@ TEST(OffBallMask, AttackSlotsOpenToAllUntilEnoughAttackersAreForward) {
   EXPECT_EQ(AttackSlotMask(w, 0, 4), (1u << kSlots) - 1);
   // Level 2 needs 4 attackers ahead of the ball band; only the runner is.
   EXPECT_EQ(AttackSlotMask(w, 0, 2), (1u << kSlots) - 1);
-  for (int i = 7; i < kSlots; ++i) w.p[i].pos = {12.0f, -10.0f + 5.0f * i - 35.0f};
+  for (int i = 7; i < kSlots; ++i) w.p[i].SetPos({12.0f, -10.0f + 5.0f * i - 35.0f});
   const uint32_t m = AttackSlotMask(w, 0, 2);
   EXPECT_TRUE((m >> 9) & 1u);  // forwards always, and they count toward the 4
   EXPECT_TRUE((m >> 10) & 1u);
@@ -259,7 +270,8 @@ TEST(OffBallMask, AttackSlotsOpenToAllUntilEnoughAttackersAreForward) {
 void Place(RunWorld& w, int id, Vec2f pos, int roleClass) {
   PlayerFacts& f = w.p[id];
   f.active = true;
-  f.pos = f.aim = f.slotPoint = pos;
+  Bind(f, id);
+  f.SetPos(f.aim = f.slotPoint = pos);
   f.roleClass = roleClass;
 }
 RunWorld QuotaWorld(Vec2f ball) {
@@ -391,7 +403,7 @@ TEST(OffBallMask, ADefensiveMidfielderIsClassThreeAndIsReachGated) {
   w.p[kRunner].state = kBasePosition;
   w.p[kRunner].t = 1e9f;
   w.lineX[1] = 45.0f;                // the runner stays onside
-  w.p[kRunner].pos = {30.0f, 0.0f};  // 30 m ahead of the ball: past the 15 m reach
+  w.p[kRunner].SetPos({30.0f, 0.0f});  // 30 m ahead of the ball: past the 15 m reach
   // A DMF is class 3, below the reach gate's 4 (run2.c:557-572): he takes the reach path.
   w.p[kRunner].roleClass = 3;
   EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
@@ -407,7 +419,7 @@ TEST(OffBallMask, ACentralMidfielderIsClassFourAndIsSkippedAtAttackLevelZero) {
   RunWorld w = Running();
   w.p[kRunner].state = kBasePosition;
   w.p[kRunner].t = 1e9f;
-  w.p[kRunner].pos = {10.0f, 0.0f};
+  w.p[kRunner].SetPos({10.0f, 0.0f});
   w.p[kRunner].aim = {20.0f, 0.0f};
   w.lineX[1] = 25.0f;
   w.carrier = 0;
@@ -424,9 +436,9 @@ TEST(OffBallMask, ARightMidfielderAndAnAttackingMidfielderAreScoredNotAdmitted) 
   RunWorld w = Running();
   // Four attackers ahead of the ball band (ids 1..4; the runner is id 3), so the mask is
   // selective at attack level 2 (need 4).
-  w.p[1].pos = {10.0f, -6.0f};
-  w.p[2].pos = {10.0f, -3.0f};
-  w.p[4].pos = {10.0f, 3.0f};
+  w.p[1].SetPos({10.0f, -6.0f});
+  w.p[2].SetPos({10.0f, -3.0f});
+  w.p[4].SetPos({10.0f, 3.0f});
   w.p[8].roleClass = 6;   // AMF
   w.p[9].roleClass = 5;   // RMF
   w.p[10].roleClass = 7;  // SS: admitted outright
@@ -442,7 +454,7 @@ TEST(OffBallMask, ADefenderNeedsTheReachAForwardDoesNot) {
   w.p[kRunner].state = kBasePosition;
   w.p[kRunner].t = 1e9f;
   w.lineX[1] = 45.0f;                // the runner stays onside
-  w.p[kRunner].pos = {30.0f, 0.0f};  // 30 m ahead of the ball: past 15 m
+  w.p[kRunner].SetPos({30.0f, 0.0f});  // 30 m ahead of the ball: past 15 m
   w.p[kRunner].roleClass = 1;         // CB
   EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   w.p[kRunner].roleClass = 9;        // CF: no reach path
@@ -451,12 +463,12 @@ TEST(OffBallMask, ADefenderNeedsTheReachAForwardDoesNot) {
   w.lineX[1] = 45.0f;
   EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~(1u << kRunner), 2, false, 50.0f, true));
-  w.p[kRunner].pos = {30.0f, 43.0f};  // |dz| > 42
+  w.p[kRunner].SetPos({30.0f, 43.0f});  // |dz| > 42
   EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
-  w.p[kRunner].pos = {12.0f, 0.0f};
+  w.p[kRunner].SetPos({12.0f, 0.0f});
   w.p[kRunner].roleClass = 1;
   EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
-  w.p[kRunner].pos = {19.0f, 0.0f};  // 19 m: past 15, inside Long Pass's 21
+  w.p[kRunner].SetPos({19.0f, 0.0f});  // 19 m: past 15, inside Long Pass's 21
   EXPECT_FALSE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, true, 50.0f, true));
 }
@@ -470,7 +482,7 @@ TEST(OffBallMask, ALeftBackReachesOnlyWithTheDefensiveFullBackStyleOnPesLoop) {
   w.p[kRunner].state = kBasePosition;
   w.p[kRunner].t = 1e9f;
   w.lineX[1] = 45.0f;
-  w.p[kRunner].pos = {30.0f, 0.0f};  // 30 m ahead: past the 15 m reach
+  w.p[kRunner].SetPos({30.0f, 0.0f});  // 30 m ahead: past the 15 m reach
   w.p[kRunner].roleClass = 2;        // SB
   EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));  // stand-in, off pes_loop
 
@@ -494,8 +506,8 @@ TEST(OffBallMask, NoChanceRunsFromOwnHalfUntilFourSecondsOfPossession) {
   RunWorld w = Running();
   w.p[kRunner].state = kBasePosition;
   w.p[kRunner].roleClass = 9;
-  w.p[0].pos = w.ball = {-5.0f, 0.0f};
-  w.p[kRunner].pos = {5.0f, 0.0f};
+  w.p[0].SetPos(w.ball = {-5.0f, 0.0f});
+  w.p[kRunner].SetPos({5.0f, 0.0f});
   EXPECT_TRUE(TeamChanceMayRun(w, 0));
   // With the shared verdict the slot itself is a candidate.
   EXPECT_TRUE(ChanceMaskBit(k, w, kRunner, ~0u, 2, false, 50.0f, true));
@@ -506,7 +518,7 @@ TEST(OffBallMask, NoChanceRunsFromOwnHalfUntilFourSecondsOfPossession) {
   // his own gates say.
   EXPECT_EQ(kMaskTeamMayNotRun,
             ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, false));
-  w.p[0].vel = {5.0f, 0.0f};  // the carrier runs forward, nobody near: free
+  w.p[0].SetVel({5.0f, 0.0f});  // the carrier runs forward, nobody near: free
   EXPECT_TRUE(TeamChanceMayRun(w, 0));
 }
 
@@ -576,8 +588,8 @@ TEST(OffBallStop, OnlyTheRunnerInPassGetIsStoppedByThePassFigure) {
 
 TEST(OffBallStop, ReleasedPastTheLineOrNearTheGoalLine) {
   RunWorld w = Running();
-  w.p[kRunner].pos = {26.0f, 0.0f};  // 1 m past: under 1.5 early, over 0.7 late
-  w.p[0].pos = w.ball = {20.0f, 0.0f};
+  w.p[kRunner].SetPos({26.0f, 0.0f});  // 1 m past: under 1.5 early, over 0.7 late
+  w.p[0].SetPos(w.ball = {20.0f, 0.0f});
   BuildNearest(w);
   EXPECT_FALSE(RunStop(w, kRunner, kChance));
   w.p[kRunner].t = 50.0f;
@@ -585,21 +597,21 @@ TEST(OffBallStop, ReleasedPastTheLineOrNearTheGoalLine) {
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
   w = Running();
   w.lineX[1] = 60.0f;
-  w.p[0].pos = w.ball = {45.0f, 0.0f};
-  w.p[kRunner].pos = {50.0f, 0.0f};
+  w.p[0].SetPos(w.ball = {45.0f, 0.0f});
+  w.p[kRunner].SetPos({50.0f, 0.0f});
   BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
 }
 
 TEST(OffBallStop, FarRunnerStopsUnlessWellBehindTheBall) {
   RunWorld w = Running();
-  w.p[kRunner].pos = {-35.0f, 0.0f};
+  w.p[kRunner].SetPos({-35.0f, 0.0f});
   w.p[kRunner].aim = {-20.0f, 0.0f};
-  w.p[0].pos = w.ball = {10.0f, 0.0f};  // 45 m away, 45 m behind: keep
+  w.p[0].SetPos(w.ball = {10.0f, 0.0f});  // 45 m away, 45 m behind: keep
   BuildNearest(w);
   EXPECT_FALSE(RunStop(w, kRunner, kChance));
-  w.p[kRunner].pos = {10.0f, 0.0f};
-  w.p[0].pos = w.ball = {10.0f, -45.0f};  // 45 m away, level: stop
+  w.p[kRunner].SetPos({10.0f, 0.0f});
+  w.p[0].SetPos(w.ball = {10.0f, -45.0f});  // 45 m away, level: stop
   BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
 }
@@ -640,7 +652,7 @@ TEST(OffBallStop, ADefenderRunsOnlyIfNoCloserDefenderIsRunning) {
   EXPECT_FALSE(RunStop(w, kRunner, kChance));
   w.p[5].roleClass = 1;
   w.p[5].state = kChance;
-  w.p[5].pos = {5.0f, 2.0f};
+  w.p[5].SetPos({5.0f, 2.0f});
   BuildNearest(w);
   EXPECT_TRUE(RunStop(w, kRunner, kChance));
 }
@@ -672,23 +684,23 @@ TEST(OffBallSupport, DistanceGrowsWithSupportRangeAndDeepBall) {
 // tier covers 100/(fps·72) m per frame and a jogger 100/(fps·12.9).
 TEST(OffBallReach, FramesToReachGrowsWithDistanceAndFallsWithSpeed) {
   RunWorld w = Running();
-  w.p[0].pos = {0.0f, 0.0f};
-  w.p[0].facing = 0.0f;               // toward +x, the target's direction
+  w.p[0].SetPos({0.0f, 0.0f});
+  w.p[0].SetFacing(0.0f);               // toward +x, the target's direction
   w.p[0].roleClass = 4;                // a midfielder: no keeper's half scale
-  w.p[0].vel = {0.02f, 0.0f};         // 1.08 km/h-equivalent: standing still
+  w.p[0].SetVel({0.02f, 0.0f});         // 1.08 km/h-equivalent: standing still
   const int near = FramesToReach(w, 0, {10.0f, 0.0f});
   const int far = FramesToReach(w, 0, {30.0f, 0.0f});
   EXPECT_GT(far, near);
   // A faster player reaches the same point sooner.
-  w.p[0].vel = {0.15f, 0.0f};         // 8.1 km/h
+  w.p[0].SetVel({0.15f, 0.0f});         // 8.1 km/h
   EXPECT_LT(FramesToReach(w, 0, {10.0f, 0.0f}), near);
   // Already there and facing it: only the speed-ramped term, and a player at
   // rest below 11 km/h has u = 0, so no frames at all.
-  w.p[0].vel = {0.0f, 0.0f};
+  w.p[0].SetVel({0.0f, 0.0f});
   EXPECT_EQ(FramesToReach(w, 0, {0.0f, 0.0f}), 0);
   // Past the 20 s ceiling FUN_140654e60 falls back to the straight-line jog
   // tier 100/(fps·12.9) m/frame, which needs 154 m of run to reach.
-  w.p[0].vel = {0.02f, 0.0f};
+  w.p[0].SetVel({0.02f, 0.0f});
   const int capped = FramesToReach(w, 0, {200.0f, 0.0f});
   EXPECT_EQ(capped, static_cast<int>(200.0f / (100.0f / (kPesFps * 12.9f))));
 }
@@ -702,12 +714,12 @@ TEST(OffBallStop, AnSBWithAnotherRunnerTwelveMetresAwayIsReleased) {
   r.aiClass = 2;             // SB
   r.state = kChance;
   r.t = kPesFps * 4.0f;      // past every early exemption
-  r.pos = {20.0f, 3.0f};     // 5 m behind the 25 m line, 10 m from the ball
+  r.SetPos({20.0f, 3.0f});     // 5 m behind the 25 m line, 10 m from the ball
   r.aim = {25.0f, 3.0f};
-  w.p[0].pos = w.ball = {10.0f, 3.0f};
+  w.p[0].SetPos(w.ball = {10.0f, 3.0f});
   w.lineX[1] = 25.0f;
   PlayerFacts& m = w.p[5];
-  m.pos = {22.0f, 3.0f};     // 2 m away
+  m.SetPos({22.0f, 3.0f});     // 2 m away
   m.state = kChance;         // on a run
   m.aiClass = 5;
   EXPECT_TRUE(CrowdedMateStop(w, kRunner));
@@ -716,11 +728,11 @@ TEST(OffBallStop, AnSBWithAnotherRunnerTwelveMetresAwayIsReleased) {
   EXPECT_FALSE(CrowdedMateStop(w, kRunner));
   r.aiClass = 2;
   // More than 7 m behind the line: not this leaf.
-  r.pos = {17.0f, 3.0f};
+  r.SetPos({17.0f, 3.0f});
   EXPECT_FALSE(CrowdedMateStop(w, kRunner));
-  r.pos = {20.0f, 3.0f};
+  r.SetPos({20.0f, 3.0f});
   // Too far from the ball: not this leaf.
-  r.pos = {45.0f, 3.0f};
+  r.SetPos({45.0f, 3.0f});
   EXPECT_FALSE(CrowdedMateStop(w, kRunner));
 }
 
@@ -730,18 +742,18 @@ TEST(OffBallStop, ACrowdingMateMustBeRunningAndTwelveMetresAway) {
   r.aiClass = 2;
   r.state = kChance;
   r.t = kPesFps * 4.0f;
-  r.pos = {20.0f, 3.0f};
+  r.SetPos({20.0f, 3.0f});
   r.aim = {25.0f, 3.0f};
-  w.p[0].pos = w.ball = {10.0f, 3.0f};
+  w.p[0].SetPos(w.ball = {10.0f, 3.0f});
   PlayerFacts& m = w.p[5];
-  m.pos = {22.0f, 3.0f};
+  m.SetPos({22.0f, 3.0f});
   m.state = kNothing;       // not running: he cannot crowd
   EXPECT_FALSE(CrowdedMateStop(w, kRunner));
   m.state = kChance;        // running, and inside 12 m
   EXPECT_TRUE(CrowdedMateStop(w, kRunner));
-  m.pos = {40.0f, 3.0f};    // 20 m away
+  m.SetPos({40.0f, 3.0f});    // 20 m away
   EXPECT_FALSE(CrowdedMateStop(w, kRunner));
-  m.pos = {22.0f, 3.0f};
+  m.SetPos({22.0f, 3.0f});
   m.aiClass = 1;            // a class-1 Chance mate: exempt
   m.state = kChance;
   EXPECT_FALSE(CrowdedMateStop(w, kRunner));
@@ -758,18 +770,18 @@ TEST(OffBallStop, TheRunnerIsReleasedWhenHeBeatsTheReceiverToHisPoint) {
   r.aiClass = 5;                 // not 2 (SB) and not 0x13
   r.state = kChance;
   r.t = kPesFps * 5.0f;          // past the 2·fps gate
-  r.pos = {22.0f, 3.0f};         // 3 m behind the 25 m line
+  r.SetPos({22.0f, 3.0f});         // 3 m behind the 25 m line
   r.aim = {25.0f, 3.0f};
-  w.p[0].pos = w.ball = {10.0f, 3.0f};
+  w.p[0].SetPos(w.ball = {10.0f, 3.0f});
   w.lineX[1] = 25.0f;
   // The kick goes to slot 7, not to the runner, and is under way.
   w.receiver[0] = 7;
   w.ev = {true, 1, 3.0f, {10.0f, 3.0f}, 7};
   // An opponent next to the runner (5 m cone) and the receiver, slower, far off.
   PlayerFacts& o = w.p[kSlots + 4];
-  o.pos = {24.0f, 3.0f};
+  o.SetPos({24.0f, 3.0f});
   PlayerFacts& q = w.p[7];
-  q.pos = {-6.0f, 3.0f};           // 16 m from the ball: the 0.28 s lead band
+  q.SetPos({-6.0f, 3.0f});           // 16 m from the ball: the 0.28 s lead band
   r.aim = {22.1f, 3.0f};          // he is already at his own route point
   EXPECT_TRUE(PassToMeStop(w, kRunner));
   // The runner's own target pushed far away: he needs more frames than the
@@ -786,7 +798,7 @@ TEST(OffBallStop, TheRunnerIsReleasedWhenHeBeatsTheReceiverToHisPoint) {
   EXPECT_FALSE(PassToMeStop(w, kRunner));
   w.ev.valid = true;
   // No opponent within 5 m: never a keep.
-  o.pos = {45.0f, 3.0f};
+  o.SetPos({45.0f, 3.0f});
   EXPECT_FALSE(PassToMeStop(w, kRunner));
 }
 
@@ -802,19 +814,19 @@ TEST(OffBallStop, PassToMeStopReleasesInsideTheNearLeadBand) {
   r.aiClass = 5;
   r.state = kChance;
   r.t = kPesFps * 5.0f;
-  r.pos = {22.0f, 3.0f};
-  r.facing = 90.0f;
-  r.aim = r.pos;                 // on his own point: 2 frames, 15 >= 2 + 8
-  w.p[0].pos = w.ball = {10.0f, 3.0f};
+  r.SetPos({22.0f, 3.0f});
+  r.SetFacing(90.0f);
+  r.aim = r.pos();                 // on his own point: 2 frames, 15 >= 2 + 8
+  w.p[0].SetPos(w.ball = {10.0f, 3.0f});
   w.lineX[1] = 25.0f;
   w.receiver[0] = 7;
   w.ev = {true, 1, 3.0f, {10.0f, 3.0f}, 7};
-  w.p[kSlots + 4].pos = {24.0f, 3.0f};
-  w.p[7].pos = {-3.0f, 3.0f};    // 13 m from the ball (169 m²): int(fps·0.28+0.5) = 15
+  w.p[kSlots + 4].SetPos({24.0f, 3.0f});
+  w.p[7].SetPos({-3.0f, 3.0f});    // 13 m from the ball (169 m²): int(fps·0.28+0.5) = 15
   EXPECT_TRUE(PassToMeStop(w, kRunner));
-  w.p[7].pos = {3.0f, 3.0f};     // 7 m from the ball (49 m²): the same 15
+  w.p[7].SetPos({3.0f, 3.0f});     // 7 m from the ball (49 m²): the same 15
   EXPECT_TRUE(PassToMeStop(w, kRunner));
-  w.p[7].pos = {-17.0f, 3.0f};   // 27 m from the ball (729 m²): int(fps·0.38+0.5) = 21
+  w.p[7].SetPos({-17.0f, 3.0f});   // 27 m from the ball (729 m²): int(fps·0.38+0.5) = 21
   EXPECT_TRUE(PassToMeStop(w, kRunner));
 }
 
@@ -824,17 +836,17 @@ TEST(OffBallStop, PassToMeStopKeepsOutsideTheNearLeadBand) {
   r.aiClass = 5;
   r.state = kChance;
   r.t = kPesFps * 5.0f;
-  r.pos = {22.0f, 3.0f};
-  r.facing = 90.0f;
+  r.SetPos({22.0f, 3.0f});
+  r.SetFacing(90.0f);
   r.aim = {22.25f, 3.0f};        // 0.25 m out: 11 frames, 15 < 11 + 8
-  w.p[0].pos = w.ball = {10.0f, 3.0f};
+  w.p[0].SetPos(w.ball = {10.0f, 3.0f});
   w.lineX[1] = 25.0f;
   w.receiver[0] = 7;
   w.ev = {true, 1, 3.0f, {10.0f, 3.0f}, 7};
-  w.p[kSlots + 4].pos = {24.0f, 3.0f};
-  w.p[7].pos = {3.0f, 3.0f};     // 49 m²: the 15-frame band cannot reach him
+  w.p[kSlots + 4].SetPos({24.0f, 3.0f});
+  w.p[7].SetPos({3.0f, 3.0f});     // 49 m²: the 15-frame band cannot reach him
   EXPECT_FALSE(PassToMeStop(w, kRunner));
-  w.p[7].pos = {-17.0f, 3.0f};   // 729 m²: the 21-frame band can
+  w.p[7].SetPos({-17.0f, 3.0f});   // 729 m²: the 21-frame band can
   EXPECT_TRUE(PassToMeStop(w, kRunner));
 }
 
@@ -849,19 +861,19 @@ TEST(OffBallStop, PassToMeStopReleasesInTheFarAndMiddleLeadBands) {
   r.aiClass = 5;
   r.state = kChance;
   r.t = kPesFps * 5.0f;
-  r.pos = {22.0f, 3.0f};
-  r.facing = 90.0f;
+  r.SetPos({22.0f, 3.0f});
+  r.SetFacing(90.0f);
   r.aim = {22.25f, 3.0f};        // 12 frames to his own point
-  w.p[0].pos = w.ball = {10.0f, 3.0f};
+  w.p[0].SetPos(w.ball = {10.0f, 3.0f});
   w.lineX[1] = 25.0f;
   w.receiver[0] = 7;
   w.ev = {true, 1, 3.0f, {10.0f, 3.0f}, 7};
-  w.p[kSlots + 4].pos = {24.0f, 3.0f};
-  w.p[7].pos = {-17.0f, 3.0f};   // 729 m²: int(fps·0.38+0.5) = 21, and 21 >= 20
+  w.p[kSlots + 4].SetPos({24.0f, 3.0f});
+  w.p[7].SetPos({-17.0f, 3.0f});   // 729 m²: int(fps·0.38+0.5) = 21, and 21 >= 20
   EXPECT_TRUE(PassToMeStop(w, kRunner));
-  w.p[7].pos = {-15.0f, 3.0f};   // 625 m²: int(fps·0.35+0.5) = 19, and 19 < 20
+  w.p[7].SetPos({-15.0f, 3.0f});   // 625 m²: int(fps·0.35+0.5) = 19, and 19 < 20
   EXPECT_FALSE(PassToMeStop(w, kRunner));
-  w.p[7].pos = {3.0f, 3.0f};     // 49 m²: the 15-frame near band cannot reach him
+  w.p[7].SetPos({3.0f, 3.0f});     // 49 m²: the 15-frame near band cannot reach him
   EXPECT_FALSE(PassToMeStop(w, kRunner));
 }
 
@@ -874,17 +886,17 @@ TEST(OffBallStop, PassToMeStopFarBandKeepsARunnerTooFarFromHisPoint) {
   r.aiClass = 5;
   r.state = kChance;
   r.t = kPesFps * 5.0f;
-  r.pos = {22.0f, 3.0f};
-  r.facing = 90.0f;
+  r.SetPos({22.0f, 3.0f});
+  r.SetFacing(90.0f);
   r.aim = {22.45f, 3.0f};        // 16 frames to his own point
-  w.p[0].pos = w.ball = {10.0f, 3.0f};
+  w.p[0].SetPos(w.ball = {10.0f, 3.0f});
   w.lineX[1] = 25.0f;
   w.receiver[0] = 7;
   w.ev = {true, 1, 3.0f, {10.0f, 3.0f}, 7};
-  w.p[kSlots + 4].pos = {24.0f, 3.0f};
-  w.p[7].pos = {-17.0f, 3.0f};   // 729 m²: int(fps·0.38+0.5) = 21 < 24
+  w.p[kSlots + 4].SetPos({24.0f, 3.0f});
+  w.p[7].SetPos({-17.0f, 3.0f});   // 729 m²: int(fps·0.38+0.5) = 21 < 24
   EXPECT_FALSE(PassToMeStop(w, kRunner));
-  w.p[7].pos = {3.0f, 3.0f};     // 49 m²: 15 < 24 as well
+  w.p[7].SetPos({3.0f, 3.0f});     // 49 m²: 15 < 24 as well
   EXPECT_FALSE(PassToMeStop(w, kRunner));
 }
 
@@ -894,23 +906,23 @@ TEST(OffBallStop, PassToMeStopNeedsTheRunnerNearTheLine) {
   r.aiClass = 5;
   r.state = kChance;
   r.t = kPesFps * 5.0f;
-  r.pos = {22.0f, 3.0f};
+  r.SetPos({22.0f, 3.0f});
   r.aim = {22.1f, 3.0f};
-  w.p[0].pos = w.ball = {10.0f, 3.0f};
+  w.p[0].SetPos(w.ball = {10.0f, 3.0f});
   w.lineX[1] = 25.0f;
   w.receiver[0] = 7;
   w.ev = {true, 1, 3.0f, {10.0f, 3.0f}, 7};
-  w.p[kSlots + 4].pos = {24.0f, 3.0f};
+  w.p[kSlots + 4].SetPos({24.0f, 3.0f});
   PlayerFacts& q = w.p[7];
-  q.pos = {-6.0f, 3.0f};
+  q.SetPos({-6.0f, 3.0f});
   EXPECT_TRUE(PassToMeStop(w, kRunner));
   // More than 4 m behind the line (a4c9a0 -4): not this keep.
-  r.pos = {19.0f, 3.0f};
+  r.SetPos({19.0f, 3.0f});
   EXPECT_FALSE(PassToMeStop(w, kRunner));
-  r.pos = {22.0f, 3.0f};
+  r.SetPos({22.0f, 3.0f});
   r.aim = {22.1f, 3.0f};
   // More than 1.2 m past the line (a4c9a0 -1.2): not this keep.
-  r.pos = {26.5f, 3.0f};
+  r.SetPos({26.5f, 3.0f});
   EXPECT_FALSE(PassToMeStop(w, kRunner));
 }
 
@@ -925,22 +937,22 @@ TEST(OffBallMask, ASecondLineForwardNeedsTheLinePointInTheAttackingHalf) {
   r.state = kBasePosition;
   r.t = 1e9f;
   r.roleClass = 9;                 // CF: the reach path needs no style bit
-  r.pos = {0.0f, -2.0f};           // on the halfway line, off centre
+  r.SetPos({0.0f, -2.0f});           // on the halfway line, off centre
   r.aim = {4.0f, -2.0f};
-  r.facing = 90.0f;                // the attack direction, +x
+  r.SetFacing(90.0f);                // the attack direction, +x
   w.lineX[1] = 45.0f;
   w.carrier = 0;
   // A teammate further up the pitch makes this runner the second line.
-  w.p[9].pos = {40.0f, 6.0f};
-  w.p[10].pos = {41.0f, -6.0f};
-  w.p[8].pos = {39.0f, 10.0f};
+  w.p[9].SetPos({40.0f, 6.0f});
+  w.p[10].SetPos({41.0f, -6.0f});
+  w.p[8].SetPos({39.0f, 10.0f});
   // The ball-line point beside the runner, 6 m to his goal side and 2 m into
   // the attacking half: the bearing from it to him is inside the 45 deg window
   // of his facing, and inside 20 m.
-  w.p[0].pos = w.ball = {2.0f, -8.0f};
+  w.p[0].SetPos(w.ball = {2.0f, -8.0f});
   EXPECT_TRUE(RankAngleOk(w, kRunner, 4));
   // The same line point 2 m into the defending half: the sub-test rejects him.
-  w.p[0].pos = w.ball = {-2.0f, -8.0f};
+  w.p[0].SetPos(w.ball = {-2.0f, -8.0f});
   EXPECT_FALSE(RankAngleOk(w, kRunner, 4));
 }
 
@@ -950,40 +962,40 @@ TEST(OffBallMask, TheAngleSubTestOnlyRunsForAForwardOnTheSecondLine) {
   r.state = kBasePosition;
   r.t = 1e9f;
   r.roleClass = 9;                 // CF
-  r.pos = {0.0f, -2.0f};
+  r.SetPos({0.0f, -2.0f});
   r.aim = {4.0f, -2.0f};
-  r.facing = 90.0f;
-  w.p[0].pos = w.ball = {2.0f, -8.0f};   // 6 m to his side, in the window
+  r.SetFacing(90.0f);
+  w.p[0].SetPos(w.ball = {2.0f, -8.0f});   // 6 m to his side, in the window
   w.lineX[1] = 45.0f;
   w.carrier = 0;
-  w.p[9].pos = {40.0f, 6.0f};
-  w.p[10].pos = {41.0f, -6.0f};
-  w.p[8].pos = {39.0f, 10.0f};
+  w.p[9].SetPos({40.0f, 6.0f});
+  w.p[10].SetPos({41.0f, -6.0f});
+  w.p[8].SetPos({39.0f, 10.0f});
   EXPECT_TRUE(RankAngleOk(w, kRunner, 4));
   // An AMF with three attackers ahead: classes 4 and up take no reach path,
   // so the sub-test is not entered at all and the line point's half does not
   // matter. (With four ahead the OR gate would let every rank in.)
   r.roleClass = 6;
-  w.p[8].pos = {-20.0f, -14.0f};
-  w.p[9].pos = {-20.0f, -17.0f};
-  w.p[10].pos = {-20.0f, -20.0f};
-  w.p[0].pos = w.ball = {-2.0f, -8.0f};
+  w.p[8].SetPos({-20.0f, -14.0f});
+  w.p[9].SetPos({-20.0f, -17.0f});
+  w.p[10].SetPos({-20.0f, -20.0f});
+  w.p[0].SetPos(w.ball = {-2.0f, -8.0f});
   EXPECT_TRUE(RankAngleOk(w, kRunner, 4));
   r.roleClass = 9;
   // A CF on the first line: the rank gate is not entered, so no veto.
-  for (int i = 0; i < kSlots; ++i) w.p[i].pos.x = -20.0f;
-  r.pos = {0.0f, -2.0f};
+  for (int i = 0; i < kSlots; ++i) w.p[i].SetPos({-20.0f, w.p[i].pos().z});
+  r.SetPos({0.0f, -2.0f});
   EXPECT_TRUE(RankAngleOk(w, kRunner, 4));
   // Back on the second line, 26 m from the ball-line point: past the 20 m
   // window, so the sub-test rejects him wherever the line point sits.
-  w.p[9].pos = {40.0f, 6.0f};
-  w.p[10].pos = {41.0f, -6.0f};
-  w.p[8].pos = {39.0f, 10.0f};
-  w.p[0].pos = w.ball = {0.0f, -28.0f};
+  w.p[9].SetPos({40.0f, 6.0f});
+  w.p[10].SetPos({41.0f, -6.0f});
+  w.p[8].SetPos({39.0f, 10.0f});
+  w.p[0].SetPos(w.ball = {0.0f, -28.0f});
   EXPECT_FALSE(RankAngleOk(w, kRunner, 4));
   // An opponent inside the 80 deg cone about the attack direction lets him
   // through even then.
-  w.p[kSlots + 3].pos = {2.0f, -2.0f};
+  w.p[kSlots + 3].SetPos({2.0f, -2.0f});
   EXPECT_TRUE(RankAngleOk(w, kRunner, 4));
 }
 
@@ -995,24 +1007,24 @@ TEST(OffBallMask, TheAngleSubTestNeedsTheSecondLineNotJustAForward) {
   r.state = kBasePosition;
   r.t = 1e9f;
   r.roleClass = 9;                 // CF
-  r.pos = {0.0f, -2.0f};
+  r.SetPos({0.0f, -2.0f});
   r.aim = {4.0f, -2.0f};
-  r.facing = 90.0f;
-  w.p[0].pos = w.ball = {-2.0f, -8.0f};   // the veto condition
+  r.SetFacing(90.0f);
+  w.p[0].SetPos(w.ball = {-2.0f, -8.0f});   // the veto condition
   w.lineX[1] = 45.0f;
   w.carrier = 0;
   // Three teammates ahead of the ball band, and this runner behind them all:
   // he is the second line, so the sub-test runs.
-  w.p[9].pos = {40.0f, 6.0f};
-  w.p[10].pos = {41.0f, -6.0f};
-  w.p[8].pos = {39.0f, 10.0f};
+  w.p[9].SetPos({40.0f, 6.0f});
+  w.p[10].SetPos({41.0f, -6.0f});
+  w.p[8].SetPos({39.0f, 10.0f});
   for (int i = 0; i < kSlots; ++i)
-    if (i != 8 && i != 9 && i != 10 && i != kRunner) w.p[i].pos = {-20.0f, -30.0f + 3.0f * i};
+    if (i != 8 && i != 9 && i != 10 && i != kRunner) w.p[i].SetPos({-20.0f, -30.0f + 3.0f * i});
   EXPECT_FALSE(RankAngleOk(w, kRunner, 4));
   // Now the runner is the first line: the sub-test does not run.
-  w.p[9].pos = {-20.0f, 6.0f};
-  w.p[10].pos = {-20.0f, -6.0f};
-  w.p[8].pos = {-20.0f, 10.0f};
+  w.p[9].SetPos({-20.0f, 6.0f});
+  w.p[10].SetPos({-20.0f, -6.0f});
+  w.p[8].SetPos({-20.0f, 10.0f});
   EXPECT_TRUE(RankAngleOk(w, kRunner, 4));
 }
 
@@ -1022,20 +1034,20 @@ TEST(OffBallMask, TheAngleSubTestFacingWindowIsFortyFiveDegrees) {
   r.state = kBasePosition;
   r.t = 1e9f;
   r.roleClass = 9;                 // CF
-  r.pos = {0.0f, -2.0f};
+  r.SetPos({0.0f, -2.0f});
   r.aim = {4.0f, -2.0f};
-  w.p[9].pos = {40.0f, 6.0f};
-  w.p[10].pos = {41.0f, -6.0f};
-  w.p[8].pos = {39.0f, 10.0f};
-  w.p[0].pos = w.ball = {-2.0f, -8.0f};
+  w.p[9].SetPos({40.0f, 6.0f});
+  w.p[10].SetPos({41.0f, -6.0f});
+  w.p[8].SetPos({39.0f, 10.0f});
+  w.p[0].SetPos(w.ball = {-2.0f, -8.0f});
   w.lineX[1] = 45.0f;
   w.carrier = 0;
   // Facing 60 deg off the bearing to him: outside the 45 deg window, so the
   // sub-test lets him through even with the line point behind.
-  r.facing = 131.6f;
+  r.SetFacing(131.6f);
   EXPECT_TRUE(RankAngleOk(w, kRunner, 4));
   // Facing 18 deg off it (68.4): inside the window, so the veto applies.
-  r.facing = 50.0f;
+  r.SetFacing(50.0f);
   EXPECT_FALSE(RankAngleOk(w, kRunner, 4));
 }
 
@@ -1045,24 +1057,24 @@ TEST(OffBallMask, TheAngleSubTestWindowIsTwentyMetres) {
   r.state = kBasePosition;
   r.t = 1e9f;
   r.roleClass = 9;                 // CF
-  r.pos = {0.0f, -2.0f};
+  r.SetPos({0.0f, -2.0f});
   r.aim = {4.0f, -2.0f};
-  r.facing = 90.0f;
-  w.p[9].pos = {40.0f, 6.0f};
-  w.p[10].pos = {41.0f, -6.0f};
-  w.p[8].pos = {39.0f, 10.0f};
-  w.p[7].pos = {38.0f, 14.0f};
+  r.SetFacing(90.0f);
+  w.p[9].SetPos({40.0f, 6.0f});
+  w.p[10].SetPos({41.0f, -6.0f});
+  w.p[8].SetPos({39.0f, 10.0f});
+  w.p[7].SetPos({38.0f, 14.0f});
   w.lineX[1] = 45.0f;
   w.carrier = 0;
   // 26.7 m from the line point (712 m2, past the 400 m2 window) with the point
   // in the attacking half, so only the window can reject him.
-  w.p[0].pos = w.ball = {6.0f, -28.0f};
+  w.p[0].SetPos(w.ball = {6.0f, -28.0f});
   EXPECT_FALSE(RankAngleOk(w, kRunner, 4));
   // Inside it, 6 m to his side (40 m2): the half test passes and he is fine.
-  w.p[0].pos = w.ball = {2.0f, -8.0f};
+  w.p[0].SetPos(w.ball = {2.0f, -8.0f});
   EXPECT_TRUE(RankAngleOk(w, kRunner, 4));
   // 12 m out (144 m2), still inside 400 m2 but past a 100 m2 window.
-  w.p[0].pos = w.ball = {6.0f, -14.0f};
+  w.p[0].SetPos(w.ball = {6.0f, -14.0f});
   EXPECT_TRUE(RankAngleOk(w, kRunner, 4));
 }
 
@@ -1075,9 +1087,9 @@ TEST(OffBallMaskTrace, TheClassifierNamesTheRejectingGate) {
   r.state = kBasePosition;
   r.t = 1e9f;
   r.roleClass = 9;
-  r.pos = {10.0f, 0.0f};
+  r.SetPos({10.0f, 0.0f});
   r.aim = {20.0f, 0.0f};
-  w.p[0].pos = w.ball = {0.0f, 0.0f};
+  w.p[0].SetPos(w.ball = {0.0f, 0.0f});
   w.lineX[1] = 25.0f;
   w.carrier = 0;
   // A clean candidate: no gate rejects him.
@@ -1088,7 +1100,7 @@ TEST(OffBallMaskTrace, TheClassifierNamesTheRejectingGate) {
   // team-may-run's 25 m but past the tail's 49 m2 (7 m) rejects him.
   w.carrier = -1;
   w.receiver[0] = 1;
-  w.p[1].pos = {10.0f, 2.0f};   // 104 m2 from the ball, 10.2 m away
+  w.p[1].SetPos({10.0f, 2.0f});   // 104 m2 from the ball, 10.2 m away
   EXPECT_EQ(kMaskGeneric, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   // The tail's !Valid(q) disjunct is dead in the walk order: with no carrier
   // FUN_140593290 already needs a valid focus player, and with a carrier the
@@ -1098,12 +1110,12 @@ TEST(OffBallMaskTrace, TheClassifierNamesTheRejectingGate) {
   w.carrier = -1;
   w.receiver[0] = -1;
   EXPECT_EQ(kMaskTeamMayNotRun, TeamChanceMayRunReject(w, 0));
-  w.p[0].pos = w.ball = {0.0f, 0.0f};
+  w.p[0].SetPos(w.ball = {0.0f, 0.0f});
   // Restored: the clean candidate the test starts on.
-  w.p[0].pos = w.ball = {0.0f, 0.0f};
+  w.p[0].SetPos(w.ball = {0.0f, 0.0f});
   w.carrier = 0;
   w.receiver[0] = 1;
-  w.p[1].pos = {11.0f, 0.0f};
+  w.p[1].SetPos({11.0f, 0.0f});
 
   // The rank/state gate: a running slot may only come from PULL_AWAY.
   r.state = kChance;
@@ -1130,43 +1142,43 @@ TEST(OffBallMaskTrace, TheClassifierNamesTheRejectingGate) {
   EXPECT_EQ(kMaskRankOrState, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   r.state = kBasePosition;
   // 593430's line test: already past the opponents' line.
-  w.p[kRunner].pos = {26.0f, 0.0f};
+  w.p[kRunner].SetPos({26.0f, 0.0f});
   EXPECT_EQ(kMaskOnTheLine, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
-  w.p[kRunner].pos = {10.0f, 0.0f};
+  w.p[kRunner].SetPos({10.0f, 0.0f});
   // The slot mask.
   EXPECT_EQ(kMaskSlotMask, ChanceMaskReject(k, w, kRunner, 0u, 2, false, 50.0f, true));
   // The depth limit: past F8 (41.56 m), with the line pushed far enough ahead
   // that the line test does not fire first.
   w.lineX[1] = 60.0f;
-  w.p[kRunner].pos = {44.0f, 0.0f};
+  w.p[kRunner].SetPos({44.0f, 0.0f});
   EXPECT_EQ(kMaskDepth, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   w.lineX[1] = 25.0f;
-  w.p[kRunner].pos = {10.0f, 0.0f};
+  w.p[kRunner].SetPos({10.0f, 0.0f});
   // The attack level's class skip: level 0 skips classes 0..4.
   r.roleClass = 2;  // a full back
   EXPECT_EQ(kMaskAttackLevel, ChanceMaskReject(k, w, kRunner, ~0u, 0, false, 50.0f, true));
   r.roleClass = 9;
   // |dz| past 42 m.
-  w.p[kRunner].pos = {10.0f, 43.0f};
+  w.p[kRunner].SetPos({10.0f, 43.0f});
   EXPECT_EQ(kMaskDz, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   // Inside the box zone (past F6 - 3, within F5 + 1.5 of the centre) an
   // opponent within 6.5 m is required; z = 8 keeps the default defenders' z
   // ladder (steps of 3 from -30) clear of him and stays inside F5 + 1.5.
-  w.p[kRunner].pos = {40.0f, 8.0f};
+  w.p[kRunner].SetPos({40.0f, 8.0f});
   w.lineX[1] = 60.0f;
   EXPECT_EQ(kMaskBoxZone, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   // The goal-area gate (s·x > F4) sits behind the box-zone gate, so it is only
   // reached once the opponent is there: with one beside a runner at x = 48 the
   // box zone lets him through and the goal-area gate stops him.
-  w.p[kSlots + 4].pos = {42.0f, 8.0f};
-  w.p[kRunner].pos = {48.0f, 8.0f};
+  w.p[kSlots + 4].SetPos({42.0f, 8.0f});
+  w.p[kRunner].SetPos({48.0f, 8.0f});
   EXPECT_EQ(kMaskGoalArea, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   w.lineX[1] = 25.0f;
-  w.p[kRunner].pos = {10.0f, 0.0f};
+  w.p[kRunner].SetPos({10.0f, 0.0f});
   // FUN_140596240: a runner of class < 3 may not run when a teammate of a
   // lower class is already running and no further from the ball than him.
   w.p[5].roleClass = 1;   // a CB
-  w.p[5].pos = {9.0f, 0.0f};
+  w.p[5].SetPos({9.0f, 0.0f});
   w.p[5].state = kChance;
   r.roleClass = 2;
   EXPECT_EQ(kMaskRoleClass, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
@@ -1179,9 +1191,9 @@ TEST(OffBallMaskTrace, TheClassifierNamesTheRejectingGate) {
   // forward-facing focus player, the team may not start Chance runs.
   w.carrier = -1;
   w.receiver[0] = 1;
-  w.p[1].pos = {11.0f, 0.0f};
+  w.p[1].SetPos({11.0f, 0.0f});
   w.possessionAge[0] = 100.0f;
-  w.p[1].vel = {0.0f, 0.0f};
+  w.p[1].SetVel({0.0f, 0.0f});
   EXPECT_EQ(kMaskTeamMayNotRun, TeamChanceMayRunReject(w, 0));
   // Old possession (or a free forward-facing focus player) opens it, and then
   // the generic tail - no carrier and a receiver far from the ball - is what
@@ -1199,10 +1211,10 @@ TEST(OffBallMaskTrace, TheClassifierNamesTheReachRejection) {
   PlayerFacts& r = w.p[kRunner];
   r.state = kBasePosition;
   r.t = 1e9f;
-  r.pos = {30.0f, 0.0f};          // 30 m ahead of the ball
+  r.SetPos({30.0f, 0.0f});          // 30 m ahead of the ball
   r.aim = {40.0f, 0.0f};
   r.roleClass = 1;                 // a CB: the reach path applies
-  w.p[0].pos = w.ball = {0.0f, 0.0f};
+  w.p[0].SetPos(w.ball = {0.0f, 0.0f});
   w.lineX[1] = 45.0f;             // keeps him onside
   w.carrier = 0;
   EXPECT_EQ(kMaskReach, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
@@ -1210,7 +1222,7 @@ TEST(OffBallMaskTrace, TheClassifierNamesTheReachRejection) {
   EXPECT_EQ(kMaskPass, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   // A CB at 19 m: past the 15 m base, inside Build Up Long's 21 m.
   r.roleClass = 1;
-  r.pos = {19.0f, 0.0f};
+  r.SetPos({19.0f, 0.0f});
   EXPECT_EQ(kMaskReach, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
   EXPECT_EQ(kMaskPass, ChanceMaskReject(k, w, kRunner, ~0u, 2, true, 50.0f, true));
 }
@@ -1227,9 +1239,9 @@ TEST(OffBallMaskTrace, TheRerunBlockIsASecondLineGateNotAChanceOne) {
   r.state = kBasePosition;
   r.t = 1e9f;
   r.roleClass = 9;
-  r.pos = {10.0f, 0.0f};
+  r.SetPos({10.0f, 0.0f});
   r.aim = {20.0f, 0.0f};
-  w.p[0].pos = w.ball = {0.0f, 0.0f};
+  w.p[0].SetPos(w.ball = {0.0f, 0.0f});
   w.lineX[1] = 25.0f;
   w.carrier = 0;
   EXPECT_EQ(kMaskPass, ChanceMaskReject(k, w, kRunner, ~0u, 2, false, 50.0f, true));
@@ -1282,9 +1294,9 @@ TEST(OffBallMaskTrace, TheTeamHeadIsSharedByEverySlot) {
   r.state = kBasePosition;
   r.t = 1e9f;
   r.roleClass = 9;
-  r.pos = {10.0f, 0.0f};
+  r.SetPos({10.0f, 0.0f});
   r.aim = {20.0f, 0.0f};
-  w.p[0].pos = w.ball = {0.0f, 0.0f};
+  w.p[0].SetPos(w.ball = {0.0f, 0.0f});
   w.lineX[1] = 25.0f;
   w.carrier = 0;
   const uint32_t all = ~0u;
@@ -1309,7 +1321,7 @@ TEST(OffBallMaskTrace, TheTeamHeadIsSharedByEverySlot) {
   w.possession = {true, false};
   w.carrier = -1;
   w.receiver[0] = 2;
-  w.p[2].pos = {40.0f, 0.0f};
+  w.p[2].SetPos({40.0f, 0.0f});
   EXPECT_FALSE(TeamChanceMayRun(w, 0));
   EXPECT_EQ(kMaskTeamMayNotRun, TeamChanceMayRunReject(w, 0));
   // The end band (0x142588210 = 10 m): a ball deep in the attacking third but
@@ -1317,10 +1329,10 @@ TEST(OffBallMaskTrace, TheTeamHeadIsSharedByEverySlot) {
   w.carrier = 0;
   w.receiver[0] = 0;
   w.possessionAge[0] = 1e6f;
-  w.p[0].pos = w.ball = {45.0f, 25.0f};   // past F0 - 10 and beyond F7
+  w.p[0].SetPos(w.ball = {45.0f, 25.0f});   // past F0 - 10 and beyond F7
   EXPECT_FALSE(TeamChanceMayRun(w, 0));
   EXPECT_EQ(kMaskTeamMayNotRun, TeamChanceMayRunReject(w, 0));
-  w.p[0].pos = w.ball = {45.0f, 15.0f};   // inside the box width: allowed
+  w.p[0].SetPos(w.ball = {45.0f, 15.0f});   // inside the box width: allowed
   EXPECT_TRUE(TeamChanceMayRun(w, 0));
   EXPECT_EQ(kMaskPass, TeamChanceMayRunReject(w, 0));
 }
@@ -1335,9 +1347,9 @@ TEST(OffBallMaskTrace, TheCarrierGateDoesNotAlsoVetoTheFallbackPlayer) {
   r.state = kBasePosition;
   r.t = 1e9f;
   r.roleClass = 9;
-  r.pos = {10.0f, 0.0f};
+  r.SetPos({10.0f, 0.0f});
   r.aim = {20.0f, 0.0f};
-  w.p[0].pos = w.ball = {0.0f, 0.0f};
+  w.p[0].SetPos(w.ball = {0.0f, 0.0f});
   w.lineX[1] = 25.0f;
   // With a valid carrier, only that carrier is vetoed: the fallback player
   // (w.receiver, which BuildRunWorld sets to the last toucher when nobody holds)
@@ -1368,7 +1380,7 @@ TEST(OffBallCorridor, APassToMeInsideHalfASecondIsSeenButNotDecidable) {
   r.state = kBasePosition;
   r.t = 1e9f;
   r.roleClass = 9;
-  r.pos = {10.0f, 0.0f};
+  r.SetPos({10.0f, 0.0f});
   r.aim = {20.0f, 0.0f};
   // No event at all: no lock.
   EXPECT_EQ(kPassToMeNo, PassToMeLock(w, kRunner));
@@ -1399,16 +1411,17 @@ RunWorld Spread() {
   RunWorld w;
   for (int i = 0; i < 2 * kSlots; ++i) {
     w.p[i].active = true;
-    w.p[i].pos = {50.0f, 50.0f + static_cast<float>(i)};
+    Bind(w.p[i], i);
+    w.p[i].SetPos({50.0f, 50.0f + static_cast<float>(i)});
   }
-  w.p[0].pos = {0.0f, 0.0f};
+  w.p[0].SetPos({0.0f, 0.0f});
   return w;
 }
 
 TEST(NearestList, OpponentsAreSortedNearestFirst) {
   RunWorld w = Spread();
   const float d[kSlots] = {7.0f, 3.0f, 10.0f, 1.0f, 5.0f, 9.0f, 2.0f, 8.0f, 4.0f, 6.0f, 11.0f};
-  for (int s = 0; s < kSlots; ++s) w.p[kSlots + s].pos = {0.0f, d[s]};
+  for (int s = 0; s < kSlots; ++s) w.p[kSlots + s].SetPos({0.0f, d[s]});
   BuildNearest(w);
   const std::vector<int> want{14, 17, 12, 19, 15, 20, 11, 18, 16, 13, 21};
   std::vector<int> got;
@@ -1420,10 +1433,10 @@ TEST(NearestList, OpponentsAreSortedNearestFirst) {
 
 TEST(NearestList, EqualDistancesKeepSlotOrder) {
   RunWorld w = Spread();
-  for (int s = 0; s < kSlots; ++s) w.p[kSlots + s].pos = {0.0f, 10.0f + static_cast<float>(s)};
-  w.p[kSlots + 2].pos = {0.0f, 4.0f};
-  w.p[kSlots + 7].pos = {-4.0f, 0.0f};
-  w.p[kSlots + 9].pos = {0.0f, -4.0f};
+  for (int s = 0; s < kSlots; ++s) w.p[kSlots + s].SetPos({0.0f, 10.0f + static_cast<float>(s)});
+  w.p[kSlots + 2].SetPos({0.0f, 4.0f});
+  w.p[kSlots + 7].SetPos({-4.0f, 0.0f});
+  w.p[kSlots + 9].SetPos({0.0f, -4.0f});
   BuildNearest(w);
   const std::vector<int> want{13, 18, 20, 11, 12, 14, 15, 16, 17, 19, 21};
   std::vector<int> got;
@@ -1457,8 +1470,8 @@ TEST(NearestList, RanksGiveTheSlotWithinItsTeamsListAndAbsentForInactive) {
 
 TEST(NearestList, ATeamOneOwnerListsTeamZeroAsOpponents) {
   RunWorld w = Spread();
-  w.p[kSlots + 3].pos = {0.0f, 0.0f};
-  for (int s = 0; s < kSlots; ++s) w.p[s].pos = {0.0f, 13.0f - static_cast<float>(s)};
+  w.p[kSlots + 3].SetPos({0.0f, 0.0f});
+  for (int s = 0; s < kSlots; ++s) w.p[s].SetPos({0.0f, 13.0f - static_cast<float>(s)});
   BuildNearest(w);
   const std::vector<int> want{10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
   std::vector<int> got;
@@ -1560,15 +1573,18 @@ TEST(OffBallStyleRunDepth, RolesFiveAndSixWaitForTheUndecodedTeamByte) {
 // below 4.5 m. So the arm is unreachable; these scenes check the gates that stop it.
 RunWorld TrapScene(float trapLine_m, Vec2f designated) {
   RunWorld w;
-  for (int i = 0; i < 2 * kSlots; ++i) w.p[i].active = true;
-  w.p[0].pos = {1.0f, 0.0f};
+  for (int i = 0; i < 2 * kSlots; ++i) {
+    w.p[i].active = true;
+    Bind(w.p[i], i);
+  }
+  w.p[0].SetPos({1.0f, 0.0f});
   static const float kFarZ[] = {-30.0f, -25.0f, -20.0f, -15.0f, -10.0f, -5.0f, 0.0f, 5.0f, 10.0f, 15.0f};
-  for (int k = 1; k < kSlots; ++k) w.p[k].pos = {-50.0f, kFarZ[k - 1]};
-  w.p[kSlots].pos = {2.0f, 0.0f};
-  w.p[kSlots].facing = 270.0f;
-  w.p[kSlots + 1].pos = designated;
+  for (int k = 1; k < kSlots; ++k) w.p[k].SetPos({-50.0f, kFarZ[k - 1]});
+  w.p[kSlots].SetPos({2.0f, 0.0f});
+  w.p[kSlots].SetFacing(270.0f);
+  w.p[kSlots + 1].SetPos(designated);
   static const float kBackZ[] = {-20.0f, -15.0f, -10.0f, -5.0f, 0.0f, 5.0f, 10.0f, 15.0f, 20.0f};
-  for (int k = 2; k < kSlots; ++k) w.p[kSlots + k].pos = {12.0f, kBackZ[k - 2]};
+  for (int k = 2; k < kSlots; ++k) w.p[kSlots + k].SetPos({12.0f, kBackZ[k - 2]});
   w.carrier = kSlots;
   w.lineX = {trapLine_m, 0.0f};
   BuildNearest(w);

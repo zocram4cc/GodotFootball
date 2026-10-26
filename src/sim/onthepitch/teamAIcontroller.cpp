@@ -221,8 +221,8 @@ void TeamAIController::TickMarkTable() {
   const pes::offball::PlayerFacts& hf = w.p[holder];
   facts.holderIsKeeper = hf.goalie;
   facts.sign = w.s[team->GetID()];
-  facts.holderX = hf.pos.x;
-  facts.holderZ = hf.pos.z;
+  facts.holderX = hf.pos().x;
+  facts.holderZ = hf.pos().z;
   facts.goalAreaHalfWidth_m = pesGoalAreaHalfWidth;  // FieldInfo F[5], readers doc section 4
   int out = 0;
   for (const pes::offball::NearOpponent& near : pes::offball::NearestTeamBlock(w, holder, facts.side)) {
@@ -232,16 +232,16 @@ void TeamAIController::TickMarkTable() {
     dst.id = near.id;
     dst.d2 = near.d2;
     dst.actionWord = cf.passGet ? 1 : 0x3F;
-    dst.posX = cf.pos.x;
-    dst.posZ = cf.pos.z;
+    dst.posX = cf.pos().x;
+    dst.posZ = cf.pos().z;
     dst.pairToTarget =
         pes::offball::RowBearing(w, near.id, facts.side * pes::marktable::kSlots + markTableState.markSlot);
     dst.pairToHolder = pes::offball::RowBearing(w, near.id, holder);
-    dst.head = cf.facing;
+    dst.head = cf.facing();
   }
   for (int i = 0; i < pes::offball::kSlots; ++i) {
     const pes::offball::PlayerFacts& mf = w.p[(holder / pes::offball::kSlots) * pes::offball::kSlots + i];
-    facts.gateMates[i] = {mf.pos.x, mf.pos.z};
+    facts.gateMates[i] = {mf.pos().x, mf.pos().z};
   }
   pes::marktable::BuildMarkTable(&markTableState, facts, match->GetPesMarkTableConstants());
 }
@@ -3442,14 +3442,21 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       f.active = true;
       f.goalie = pl->GetFormationEntry().role == e_PlayerRole_GK;
       f.passGet = pl == passGetReceiver;
-      f.pos = Flat(pl->GetPosition());
-      f.vel = Flat(pl->GetMovement());
-      f.facing = pesDeg(pl->GetDirectionVec());
+      const Vector3 pos = pl->GetPosition();
+      const Vector3 mov = pl->GetMovement();
+      // The man record is keyed by PES's slot (his squad place): the block the translated accessors read.
+      const int recordSlot = match->PesSlotOf(pl);
+      f.man = match->PesWorldOf().ManRecord(recordSlot);
+      f.SetPos(Flat(pos));
+      f.SetVel(Flat(mov));
+      f.SetFacing(pesDeg(pl->GetDirectionVec()));
+      // PES's man record holds the height too (+0x560, +0x578 m per frame). GF's coords[2] is the height (INF).
+      pes::StoreF32(f.man, pes::kManPosYOffset, pos.coords[2]);
+      pes::StoreF32(f.man, pes::kManVelYOffset, mov.coords[2] / ob::kPesFps);
       f.roleClass = ctl->RoleClassOfSlot(match->GetTeam(t)->FormationSlotOf(pl));
       f.styleWord = pes::style::StyleWord(pl->GetPlayerData()->GetPlayingStyle());
       // ponytail: PES's writer of the record's +1 byte (lane-units2 S12) is not decoded; the keeper class stands in for it.
       // The byte sits in the player's anime record (pesworldrecord.hpp), keyed by his PES slot (his squad place).
-      const int recordSlot = match->PesSlotOf(pl);
       match->PesWorldOf().SetAnimeClass(
           recordSlot, static_cast<uint8_t>(f.roleClass == pes::roles::kKeeperClass ? ob::kHalvedReachRecordByte : 0));
       f.recordByte1 = match->PesWorldOf().AnimeClass(recordSlot);

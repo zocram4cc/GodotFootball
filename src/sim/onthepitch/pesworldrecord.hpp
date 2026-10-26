@@ -10,6 +10,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 
 namespace pes {
@@ -73,7 +74,9 @@ inline constexpr std::size_t kSlotRecordOffset = 0x10F0;
 inline constexpr std::size_t kAnimeClassOffset = 0x1;  // u8 class byte; 0x140654E60 halves its reach term on 3
 
 // Man record (its bound is the slot record's start, +0x10F0).
+inline constexpr std::size_t kManFacingOffset = 0x554;      // f32, body facing in degrees (INF: GF's bearing unit)
 inline constexpr std::size_t kManPosXOffset = 0x55C;        // f32, PES x
+inline constexpr std::size_t kManPosYOffset = 0x560;        // f32, PES y (height; GF coords[2], INF)
 inline constexpr std::size_t kManPosZOffset = 0x564;        // f32, PES z (GF y)
 inline constexpr std::size_t kManVelXOffset = 0x574;        // f32, m per frame
 inline constexpr std::size_t kManVelYOffset = 0x578;        // f32
@@ -82,6 +85,8 @@ inline constexpr std::size_t kManActionOffset = 0x5D0;      // s32 action word
 inline constexpr std::size_t kManActionPrevOffset = 0x5D4;  // s32
 inline constexpr std::size_t kManTouchingOffset = 0x661;    // u8 bool
 inline constexpr std::size_t kManRepeatOffset = 0x6B8;      // s32 repeat count
+// The man record's bound: the slot record starts after it (pes-re-player-record.md 1.3).
+inline constexpr std::size_t kManRecordBytes = kSlotRecordOffset - kManRecordOffset;
 
 // Slot record (its bound is the next block, +0x3F40).
 inline constexpr std::size_t kSlotLoOffset = 0x1A;          // u16
@@ -97,6 +102,16 @@ static_assert(kSlotRecordOffset + kSlotCounterBOffset + sizeof(int32_t) <= kPlay
 struct PesPlayerBlock {
   std::array<uint8_t, kPlayerBlockBytes> bytes{};
 };
+
+// A PES record's f32 field, `offset` bytes from the record's start (the offsets above are from the man record's start).
+inline float LoadF32(const uint8_t* record, std::size_t offset) {
+  float value;
+  std::memcpy(&value, record + offset, sizeof value);
+  return value;
+}
+inline void StoreF32(uint8_t* record, std::size_t offset, float value) {
+  std::memcpy(record + offset, &value, sizeof value);
+}
 
 // The whole window: G's header, then the blocks. Heap-owned by PesWorld, so the bytes never move.
 struct PesWorldImage {
