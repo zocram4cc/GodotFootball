@@ -447,6 +447,7 @@ def run_one(va, args, pilot):
         # Empty corpus: the function never reaches its end under the
         # harness (e.g. tail-jump live chase). Nothing to diff.
         res["failure_class"] = "harness cannot run"
+        res["cases"] = 0
         res["note"] = "corpus empty (0 cases)"
         return res
     res["cases"] = nlines
