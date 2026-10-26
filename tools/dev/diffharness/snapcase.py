@@ -80,7 +80,7 @@ class Replayer:
     starts from its recorded registers and return address."""
 
     def __init__(self, spec, sm, models, blocked):
-        from unicorn import Uc, UC_ARCH_X86, UC_MODE_64, UC_HOOK_CODE, UC_HOOK_MEM_WRITE
+        from unicorn import Uc, UC_ARCH_X86, UC_MODE_64, UC_HOOK_CODE, UC_HOOK_MEM_READ, UC_HOOK_MEM_WRITE
         self.spec = spec
         self.uc = uc = Uc(UC_ARCH_X86, UC_MODE_64)
         uc._addrs_on = True
@@ -99,6 +99,18 @@ class Replayer:
         self.md.detail = True
         self._rsp = xc.UC_X86_REG_RSP
         uc._call_pushes = 0
+        uc._call_slots = set()
+        uc._ret_slot_reads = 0
+        uc.hook_add(UC_HOOK_MEM_READ, self._on_read)
+
+    def _on_read(self, u, access, addr, size, value, data):
+        """A read of a return-address slot the translation does not push (normalised above). The only
+        legitimate read is the callee's own RET; any other is a function reading its return address,
+        which the normalisation could hide. Counted in the case (retread)."""
+        if addr in u._call_slots:
+            ins = next(self.md.disasm(bytes(u.mem_read(u._last_rip, 16)), u._last_rip), None)
+            if ins is None or ins.mnemonic != "ret":
+                u._ret_slot_reads += 1
 
     def _on_write(self, u, access, addr, size, value, data):
         """A written byte run. The translator's CALL does not push the return address: a call to a
@@ -113,6 +125,7 @@ class Replayer:
                     return
                 v = 0
                 u._call_pushes += 1
+                u._call_slots.add(addr)
         u._writes.append((addr, size, v))
 
     def run(self, rec):
@@ -127,6 +140,7 @@ class Replayer:
         for k in lazy.import_calls:
             lazy.import_calls[k] = 0
         uc._writes, uc._addrs, uc._trace, uc._prev = [], set(), {}, [None, 0]
+        uc._call_slots, uc._ret_slot_reads = set(), 0
         uc._bad, uc._last_rip = None, 0
         gpr = dict(zip(GPR_NAMES, rec[:16]))
         rsp, ret = gpr["rsp"], rec[48]
@@ -159,7 +173,7 @@ class Replayer:
                     for addr, size, val in uc._writes for i in range(size))
         return {"rax": "%016x" % uc.reg_read(xc.UC_X86_REG_RAX),
                 "xmm0": "%032x" % uc.reg_read(xc.UC_X86_REG_XMM0), "w": w,
-                "addrs": set(uc._addrs), "trace": uc._trace}, None
+                "addrs": set(uc._addrs), "trace": uc._trace, "retread": uc._ret_slot_reads}, None
 
 
 def run_dir(spec_path, snap_dir, calls_path, out_dir, blocked=()):
@@ -190,7 +204,7 @@ def run_dir(spec_path, snap_dir, calls_path, out_dir, blocked=()):
                 trace.setdefault(site, {})
                 trace[site][t] = trace[site].get(t, 0) + c
         corpus.write(json.dumps({"case": i, "ok": True, "rax": res["rax"], "xmm0": res["xmm0"],
-                                 "w": res["w"]}) + "\n")
+                                 "w": res["w"], "retread": res["retread"]}) + "\n")
         ok_f.write(CALL_REC.pack(*rec))
     corpus.close()
     ok_f.close()
