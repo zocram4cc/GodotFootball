@@ -405,6 +405,7 @@ def install_hooks(mu, spec, RET_SENTINEL):
     # their return in-hook, so the fallthrough after them never records.
     mu._trace = {} if getattr(mu, "_trace_on", False) else None
     mu._prev = [None, 0]
+    mu._icount = 0  # the code hook below counts every executed instruction (budgets, valid_icounts)
     # --trace-addrs: every executed instruction address (union over cases),
     # for basic-block coverage in the driver. Stub entries record too (their
     # in-hook return pops the call, so no stub body pollutes the set).

@@ -117,6 +117,8 @@ class Replayer:
         self.uc = uc = Uc(UC_ARCH_X86, UC_MODE_64)
         uc._addrs_on = True
         uc._trace_on = True
+        trace = os.path.dirname(os.path.dirname(pool_path))  # the trace dir: pool/pages.bin's parent
+        self.teb = int(json.load(open(os.path.join(trace, "record.json")))["teb"], 16)
         self.lazy = ft.LazyMap(sm, models)
         self.lazy.attach(uc)
         rn.install_hooks(uc, spec, 0)  # stubs and abort traps as the harness runs them
@@ -171,7 +173,7 @@ class Replayer:
         for va, off in pages:  # the call-time memory, over the snapshot's own pages
             uc.mem_map(va, PAGE)
             uc.mem_write(va, os.pread(self.pool, PAGE, off))
-        uc.reg_write(xc.UC_X86_REG_GS_BASE, ft.TEB_BASE)
+        uc.reg_write(xc.UC_X86_REG_GS_BASE, self.teb)
         lazy.refused = None
         for k in lazy.import_calls:
             lazy.import_calls[k] = 0

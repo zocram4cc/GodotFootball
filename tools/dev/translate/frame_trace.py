@@ -17,6 +17,7 @@ Usage: GF_DIFF_PYTHON=<venv python> PES_EXE=<pes_full.bin> python3 frame_trace.p
        [--frames N] [--cap N] [--budget INSTR]
 """
 import argparse
+import collections
 import hashlib
 import json
 import os
@@ -80,7 +81,8 @@ IMPORT_STUBS = os.path.join(HERE, "import_stubs.json")
 def load_import_models(path=IMPORT_STUBS):
     """{(module file name, export name): stub code} from import_stubs.json. "return": mov rax,
     imm64; ret (the export returns value, no other effect). "memcpy": Win64 memcpy(dst, src, n)
-    returns dst and copies n bytes forward (rep movsb; rdi and rsi are saved, as the ABI requires)."""
+    returns dst and copies n bytes forward (rep movsb; rdi and rsi are saved, as the ABI requires). "qpc":
+    BOOL QueryPerformanceCounter(LARGE_INTEGER *count): stores value at *rcx and returns TRUE."""
     models = {}
     for e in json.load(open(path))["imports"]:
         if e["do"] == "return":
@@ -88,6 +90,15 @@ def load_import_models(path=IMPORT_STUBS):
             code = b"\x48\xB8" + struct.pack("<Q", value) + b"\xC3"  # mov rax, imm64; ret
         elif e["do"] == "memcpy":
             code = bytes.fromhex("48 89 C8 57 56 48 89 C7 48 89 D6 4C 89 C1 F3 A4 5E 5F C3")
+        elif e["do"] == "qpc":
+            value = int(str(e["value"]), 0) & ((1 << 64) - 1)
+            code = b"\x48\xBA" + struct.pack("<Q", value) + b"\x48\x89\x11" + b"\xB8\x01\x00\x00\x00\xC3"
+        elif e["do"] == "tls_get":
+            # TlsGetValue(index): TEB.TlsSlots[index] for index < 64 (x64 TEB +0x1480), else NULL here.
+            code = bytes.fromhex("83 F9 40 73 0A 65 48 8B 04 CD 80 14 00 00 C3 31 C0 C3")
+        elif e["do"] == "tls_set":
+            # TlsSetValue(index, value): TEB.TlsSlots[index] = value for index < 64; returns TRUE, else FALSE.
+            code = bytes.fromhex("83 F9 40 73 0F 65 48 89 14 CD 80 14 00 00 B8 01 00 00 00 C3 31 C0 C3")
         else:
             raise SystemExit("import_stubs.json: unknown do %r for %s!%s"
                              % (e["do"], e["module"], e["export"]))
@@ -214,19 +225,42 @@ class LazyMap:
         uc.emu_stop()
 
 
-TEB_BASE = 0x7FF00000  # the replay's thread environment block (GS base); outside every snapshot mapping
+def main_teb(sm):
+    """The game's main thread's TEB in a snapshot. NT_TIB.Self (+0x30) holds the TEB's own address, so a
+    page whose +0x30 equals its VA is a TEB. ClientId (+0x40 process, +0x48 thread) carries Wine's ids: the
+    process is the one most TEBs share, and its main thread is the lowest thread id (Wine numbers the first
+    thread process + 4: process 32, thread 36). Returns (TEB VA, thread id)."""
+    teebs = []
+    for m in sm.maps:
+        if m["device"] or m["deferred"] or "r" not in m["perm"]:
+            continue
+        for off in range(0, m["size"], PAGE):
+            va = m["va"] + off
+            if va in sm.holes:
+                continue
+            b = os.pread(sm.fd, 0x50, m["off"] + off)
+            if len(b) < 0x50 or struct.unpack_from("<Q", b, 0x30)[0] != va:
+                continue
+            pid, tid = struct.unpack_from("<QQ", b, 0x40)
+            if tid:
+                teebs.append((va, pid, tid))
+    if not teebs:
+        raise SystemExit("no TEB (NT_TIB self-pointer) in the snapshot")
+    pid = collections.Counter(p for _, p, _ in teebs).most_common(1)[0][0]
+    va, _, tid = min((t for t in teebs if t[1] == pid), key=lambda t: t[2])
+    return va, tid
 
 
-def map_teb(uc, stack_top):
-    """Model the TEB the game's gs-relative reads expect (NT_TIB). StackBase is the emulated stack
-    top; StackLimit is 0, so the stack-probe prologue takes its no-probe path (no guard pages here).
-    Self (+0x30) is the TEB itself. Other TEB fields are zero: a read of one is a stop."""
+def map_teb(uc, lazy, teb, stack_top):
+    """The game's own TEB, as a snapshot page (its TLS slots and ThreadLocalStoragePointer are the game's),
+    with the GS base set to it. StackBase is the emulated stack top and StackLimit is 0: the replay's stack
+    is the emulator's, and a zero limit keeps the stack-probe prologue on its no-probe path (no guard pages)."""
     from unicorn.x86_const import UC_X86_REG_GS_BASE
-    assert not any(m["va"] <= TEB_BASE < m["va"] + m["size"] for m in uc._lazy.sm.maps)
-    uc.mem_map(TEB_BASE, PAGE)
-    uc.mem_write(TEB_BASE + 0x08, struct.pack("<Q", stack_top))
-    uc.mem_write(TEB_BASE + 0x30, struct.pack("<Q", TEB_BASE))
-    uc.reg_write(UC_X86_REG_GS_BASE, TEB_BASE)
+    if not lazy.ensure(teb, PAGE):
+        raise SystemExit("TEB %#x is not readable in the snapshot" % teb)
+    uc.mem_write(teb + 0x08, struct.pack("<Q", stack_top))
+    uc.mem_write(teb + 0x10, struct.pack("<Q", 0))
+    uc.reg_write(UC_X86_REG_GS_BASE, teb)
 
 
 def map_capture(uc, cap_dir):
@@ -277,12 +311,12 @@ class CallDelta:
     Output, in the trace directory: pool/pages.bin holds each distinct page once (4 KiB, in pool index order);
     deltas.jsonl holds each distinct delta once as {"id", "pages": [[va, pool index], ...]}, and
     deltas.idx.jsonl maps its id to its byte offset there."""
-    FIXED = frozenset(range(STACK_BASE, STACK_BASE + STACK_SIZE, PAGE)) | {TEB_BASE}
 
-    def __init__(self, uc, sm, lazy, out):
+    def __init__(self, uc, sm, lazy, out, teb):
         from unicorn import UC_HOOK_MEM_WRITE
         assert rn.stack_top({}) == STACK_BASE + STACK_SIZE - 0x100
         self.uc, self.sm, self.lazy = uc, sm, lazy
+        self.fixed = frozenset(range(STACK_BASE, STACK_BASE + STACK_SIZE, PAGE)) | {teb}
         self.pending = set()   # page-aligned addresses written since the last entry
         self.diff = {}         # page -> pool index, for pages that differ from their baseline
         self.pool_of = {}      # sha256 digest -> pool index
@@ -317,7 +351,7 @@ class CallDelta:
 
     def _update(self):
         for page in self.pending:
-            if page in self.FIXED or page in self.lazy.import_pages:
+            if page in self.fixed or page in self.lazy.import_pages:
                 continue
             data = self._page(page)
             base = self.sm.read(page, PAGE) if self.sm.page_ok(page) else None
@@ -331,7 +365,7 @@ class CallDelta:
         """The id of the delta at this instant; its record is written on first sight."""
         self._update()
         pages = dict(self.diff)
-        for page in self.FIXED:
+        for page in self.fixed:
             data = self._page(page)
             if data is not None:
                 pages[page] = self._pool(data)
@@ -444,7 +478,25 @@ def stack_images(uc, rsp, n=256):
     return [v for v in vals if IMAGE_LO <= v < IMAGE_HI]
 
 
-def run_entry(uc, entry, regs, ret, budget):
+PUMP_VT = 0x142AC1D38        # the pump's vtable (pes-re-pump.md §0); checked against the object at run time
+PUMP_FRAME_SLOT = 4          # vtable slot 4 (+0x20) = 0x141B3D8E0: Frame(rcx=pump, xmm1=frame dt), CONFIRMED
+FRAME_DT_US = 17544.0        # the frame interval, microseconds: records spaced 17544 us = one frame (pes-re-advance.md), INF
+
+
+def frame_root(uc, lazy, pump, dt):
+    """The per-frame root: the pump's Frame method on the pump object. The pump is the frame entry (pes-re-pump.md,
+    pes-re-advance.md): its dispatch reaches H's step and the team ticks, and the rest of the frame. Returns
+    (entry, regs, xmm) for run_entry."""
+    if not lazy.ensure(pump, 8) or not lazy.ensure(PUMP_VT, 0x40):
+        raise SystemExit("the pump object %#x is not readable in the snapshot" % pump)
+    vt = struct.unpack("<Q", bytes(uc.mem_read(pump, 8)))[0]
+    if vt != PUMP_VT:
+        raise SystemExit("object %#x has vtable %#x, not the pump's %#x" % (pump, vt, PUMP_VT))
+    entry = struct.unpack("<Q", bytes(uc.mem_read(PUMP_VT + 8 * PUMP_FRAME_SLOT, 8)))[0]
+    return entry, {"rcx": pump}, {1: dt}
+
+
+def run_entry(uc, entry, regs, ret, budget, xmm=None):
     """One call of the function at entry under the Windows x64 convention, to the ret sentinel."""
     from unicorn.x86_const import UC_X86_REG_RSP
     rsp = rn.stack_top({}) - 8
@@ -455,6 +507,8 @@ def run_entry(uc, entry, regs, ret, budget):
         uc.reg_write(getattr(xc, "UC_X86_REG_" + reg.upper()), 0)
     for reg, val in regs.items():
         uc.reg_write(rn.reg_const(reg), val)
+    for n, val in (xmm or {}).items():  # a double argument in xmm<n> (its low lane)
+        uc.reg_write(xc.UC_X86_REG_XMM0 + n, struct.unpack("<Q", struct.pack("<d", val))[0])
     uc._bad = None
     err = None
     try:
@@ -530,6 +584,12 @@ def main():
                          "deduplicated by content")
     ap.add_argument("--budget", type=int, default=INSTR_BUDGET,
                     help="instructions per H step (deterministic guard)")
+    ap.add_argument("--root", choices=("frame", "h"), default="frame",
+                    help="frame: the pump's per-frame method (vtable slot 4) on the pump object; h: the match "
+                         "step H, the leaf entry earlier runs used")
+    ap.add_argument("--pump", default="0x12F19C0", help="the pump object (its vtable is checked)")
+    ap.add_argument("--frame-dt", type=float, default=FRAME_DT_US,
+                    help="xmm1 at the pump's Frame: the frame delta in microseconds")
     ap.add_argument("--trace-addrs", action="store_true",
                     help="record every executed instruction address (diagnostic; slower)")
     a = ap.parse_args()
@@ -543,13 +603,15 @@ def main():
     if rn.image_kind(a.image) != "flat":
         ap.error("the frame trace needs the flat unpacked image (pes_full.bin)")
     cdelta = None  # the snapshot run's CallDelta; a capture run has none
+    teb = teb_tid = None  # the snapshot's game TEB, set below
     if a.snapshot:
         sm = fs.SnapMem(a.snapshot)
         uc, ret = rn.build_emu({"regions": {}}, a.image, [])
         lazy = LazyMap(sm, load_import_models())
         lazy.attach(uc)
-        map_teb(uc, rn.stack_top({}))
-        cdelta = CallDelta(uc, sm, lazy, a.out)
+        teb, teb_tid = main_teb(sm)
+        map_teb(uc, lazy, teb, rn.stack_top({}))
+        cdelta = CallDelta(uc, sm, lazy, a.out, teb)
         if not lazy.ensure(H_GLOBAL, 8):
             raise SystemExit("H global is not readable in the snapshot")
         anc = sm.index["post"]
@@ -619,6 +681,11 @@ def main():
 
     g_ptr = struct.unpack("<Q", bytes(uc.mem_read(H_GLOBAL, 8)))[0]
     h_obj = g_ptr
+    root_va, root_regs, root_xmm = H_STEP, {"rcx": h_obj}, None
+    if a.root == "frame":
+        if lazy is None:
+            ap.error("--root frame needs --snapshot")
+        root_va, root_regs, root_xmm = frame_root(uc, lazy, int(a.pump, 16), a.frame_dt)
     stop = None
     for f in range(a.frames):
         read = mem_reader(uc)
@@ -631,7 +698,7 @@ def main():
             counters["per_early"] += 1
         tick0, calls0 = counters["tick"], sum(calls.values())
         t_s = time.time()
-        err = run_entry(uc, H_STEP, {"rcx": h_obj}, ret, a.budget)
+        err = run_entry(uc, root_va, root_regs, ret, a.budget, root_xmm)
         frame_log.append({"frame": f, "H": hex(h_obj), "MI": hex(mi), "per": per,
                           "ticks": counters["tick"] - tick0,
                           "impure_calls": sum(calls.values()) - calls0,
@@ -665,6 +732,9 @@ def main():
               "executed_leaders": {t: len(s) for t, s in hit.items() if s},
               "banks_written": banks_written, "frames": frame_log,
               "secs_total": round(time.time() - t0, 2)}
+    record["teb"] = hex(teb) if teb else None
+    record["teb_tid"] = teb_tid
+    record["root"] = {"kind": a.root, "entry": hex(root_va)}
     if cdelta is not None:
         record["deltas"] = cdelta.close()
     if lazy is not None:

@@ -72,17 +72,21 @@ def build_closure(va, spec, args, pilot, reached):
         v = todo.pop(0)
         path = os.path.join(gen, "pes_fn_%s.cpp" % v[2:])
         if os.path.exists(path):
-            continue
-        try:
-            src, _ = drv.translate_one(v, drv.asm_for(args.asm_dir, v), args.image, build_pilot,
-                                       stubs={**stubmap, **drv.ABORTMAP})
-        except Exception as e:  # noqa: BLE001 - recorded, not raised
-            return need, "translate %s: %r" % (v, e)[:220]
-        if src is None:
-            return need, "translate %s: no instructions" % v
-        with open(path, "w") as f:
-            f.write("\n".join(src) + "\n")
-        for m in re.finditer(r"pes_fn_([0-9A-Fa-f]+)\(", "\n".join(src)):
+            # An earlier run's translation: its callees still join the link set, so scan its text.
+            with open(path) as f:
+                text = f.read()
+        else:
+            try:
+                src, _ = drv.translate_one(v, drv.asm_for(args.asm_dir, v), args.image, build_pilot,
+                                           stubs={**stubmap, **drv.ABORTMAP})
+            except Exception as e:  # noqa: BLE001 - recorded, not raised
+                return need, "translate %s: %r" % (v, e)[:220]
+            if src is None:
+                return need, "translate %s: no instructions" % v
+            text = "\n".join(src) + "\n"
+            with open(path, "w") as f:
+                f.write(text)
+        for m in re.finditer(r"pes_fn_([0-9A-Fa-f]+)\(", text):
             dep = "0x" + m.group(1).upper()
             if dep != v and dep in build_pilot and dep not in seen:
                 seen.add(dep)
@@ -225,6 +229,14 @@ def run_one(va, args, pilot, pairs):
     return res
 
 
+def norm_tag(s):
+    """A VA as the bare upper-case hex tag the rest of the tool keys on: '0x1404f6c30' -> '1404F6C30'."""
+    s = s.strip()
+    if s[:2].lower() == "0x":
+        s = s[2:]
+    return s.upper()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--image", required=True)
@@ -243,7 +255,7 @@ def main():
     pairs = [tuple(s.split("=", 1)) for s in args.snapshot]
     pilot = drv.universe_of(args.spec_dir)
     if args.only:
-        tags = [v.upper() for v in args.only]
+        tags = [norm_tag(v) for v in args.only]
     else:
         tags = set()
         for _, tdir in pairs:
@@ -253,7 +265,7 @@ def main():
         tags = sorted(tags)
     results = []
     for tg in tags:
-        va = tg if tg.startswith("0x") else "0x" + tg
+        va = "0x" + tg
         r = run_one(va, args, pilot, pairs)
         results.append(r)
         print("%s calls=%d replayed=%d mismatches=%d own_block=%s floor=%s %s" % (
