@@ -1,0 +1,130 @@
+{
+ "conflicts": [],
+ "sites": 242,
+ "specs": 50,
+ "typed": {
+  "1404F47A0": {
+   "A0": {
+    "class": "team",
+    "how": "seed: RealCases INF (team child slots / argmap team-field, man-field)",
+    "sites": []
+   }
+  },
+  "1404F6C30": {
+   "A0": {
+    "class": "team",
+    "how": "seed: RealCases INF (team child slots / argmap team-field, man-field)",
+    "sites": []
+   }
+  },
+  "1404F8C70": {
+   "A0": {
+    "class": "team",
+    "how": "seed: RealCases INF (team child slots / argmap team-field, man-field)",
+    "sites": []
+   }
+  },
+  "1404FA720": {
+   "A0": {
+    "class": "team",
+    "how": "seed: RealCases INF (team child slots / argmap team-field, man-field)",
+    "sites": []
+   }
+  },
+  "1404FB2A0": {
+   "A0": {
+    "class": "team",
+    "how": "pass of 1404F6C30.A0 at 1404F7846",
+    "sites": [
+     "1404F7846"
+    ]
+   }
+  },
+  "1404FE9C0": {
+   "A0": {
+    "class": "team",
+    "how": "pass of 1404F6C30.A0 at 1404F6D60",
+    "sites": [
+     "1404F6D60"
+    ]
+   }
+  },
+  "1404FEDC0": {
+   "A0": {
+    "class": "team",
+    "how": "pass of 1404F6C30.A0 at 1404F6DA5",
+    "sites": [
+     "1404F6DA5"
+    ]
+   }
+  },
+  "140503430": {
+   "A1": {
+    "class": "team",
+    "how": "pass of 1404FEDC0.A0 at 140502B57",
+    "sites": [
+     "140502B57"
+    ]
+   }
+  },
+  "14057BA50": {
+   "A0": {
+    "class": "team",
+    "how": "pass of 1404F6C30.A0 at 1404F7998",
+    "sites": [
+     "1404F7998"
+    ]
+   }
+  },
+  "1406486D0": {
+   "A0": {
+    "class": "man",
+    "how": "pass of 14064DE60.A0 at 14064E43F",
+    "sites": [
+     "14064E43F"
+    ]
+   }
+  },
+  "14064DC50": {
+   "A0": {
+    "class": "man",
+    "how": "pass of 14064DE60.A0 at 14065426D",
+    "sites": [
+     "14065426D"
+    ]
+   }
+  },
+  "14064DE60": {
+   "A0": {
+    "class": "man",
+    "how": "seed: RealCases INF (team child slots / argmap team-field, man-field)",
+    "sites": []
+   }
+  },
+  "140654E60": {
+   "A3": {
+    "class": "man",
+    "how": "pass of 14064DE60.A0 at 1406507F9",
+    "sites": [
+     "1406507F9"
+    ]
+   }
+  },
+  "14065C2A0": {
+   "A0": {
+    "class": "man",
+    "how": "pass of 14064DE60.A0 at 14065283E",
+    "sites": [
+     "14065283E"
+    ]
+   }
+  },
+  "140978E70": {
+   "A0": {
+    "class": "man",
+    "how": "seed: RealCases INF (team child slots / argmap team-field, man-field)",
+    "sites": []
+   }
+  }
+ }
+}
