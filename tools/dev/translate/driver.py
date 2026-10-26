@@ -347,11 +347,19 @@ def blocked_reason(spec):
         return None
 
 
+def nonreturn_of(stdout):
+    """The cases run.py dropped because PES did not return (its stdout's nonreturn=N line)."""
+    m = re.search(r"^nonreturn=(\d+)$", stdout or "", re.M)
+    if m is None:
+        raise SystemExit("driver: run.py printed no nonreturn= count")
+    return int(m.group(1))
+
+
 def run_one(va, args, pilot):
     """Full pipeline for one function. Returns a result dict."""
     import diffmain
     res = {"va": va, "translated": False, "diffed": False, "cases": 0,
-           "failure_class": None, "note": "", "stubs": []}
+           "failure_class": None, "note": "", "stubs": [], "nonreturn": 0}
     spec, spec_path = load_spec(args.spec_dir, va)
     if spec is None:
         res["failure_class"] = "struct map gap"
@@ -396,11 +404,12 @@ def run_one(va, args, pilot):
     trace = os.path.join(gen, "trace_%s.json" % tag)
     addrs = os.path.join(gen, "addrs_%s.json" % tag)
     count = ["--count", str(args.count)] if args.count else []
-    rc, _, err = sh([diff_python(), RUN_PY, "--exe", args.image,
+    rc, out, err = sh([diff_python(), RUN_PY, "--exe", args.image,
                      "--spec", spec_path, "--out", corpus,
                      "--trace-calls", trace,
                      "--trace-addrs", addrs] + count,
                     timeout=args.timeout)
+    res["nonreturn"] = nonreturn_of(out) if rc == 0 else 0
     if rc != 0:
         cls, note = fault_class(spec, err or "run.py rc=%d" % rc)
         res["failure_class"] = cls
@@ -747,6 +756,8 @@ def finish_one(va, args, pilot):
                 res["diffed"] = ok
                 res["failure_class"] = cls
                 res["note"] = note
+    if res["nonreturn"]:
+        res["note"] = "%s; %d case(s) dropped: PES did not return" % (res["note"], res["nonreturn"])
     return res
 
 def main():

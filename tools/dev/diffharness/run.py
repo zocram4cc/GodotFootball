@@ -566,6 +566,16 @@ def install_hooks(mu, spec, RET_SENTINEL):
     mu.hook_add(UC_HOOK_MEM_WRITE_UNMAPPED, hook_bad, "w")
 
 
+NONRETURN = "PES did not return before the case timeout"
+
+def write_nonreturn(out_path, dropped_inputs):
+    """Keep the inputs PES did not return on beside the corpus, never dropped silently; stdout carries the count."""
+    if out_path:
+        with open(out_path + ".nonreturn.json", "w") as f:
+            json.dump(dropped_inputs, f, indent=1)
+    print("nonreturn=%d" % len(dropped_inputs))
+
+
 def run_case(mu, spec, RET_SENTINEL, inputs, timeout_ms=5000):
     from unicorn.x86_const import UC_X86_REG_RIP, UC_X86_REG_RSP
     entry = int(spec.get("entry", spec["va"]), 16)
@@ -627,17 +637,29 @@ def run_case(mu, spec, RET_SENTINEL, inputs, timeout_ms=5000):
             for n, r in regions.items()}
     img_snap = {va_s: bytes(mu.mem_read(int(va_s, 16), 8))
                 for va_s in (spec.get("patch_addrs") or {})}
+    # A run that does not return is rolled back out of the coverage and call traces: only returning cases count.
+    pre_addrs = set(mu._addrs) if mu._addrs is not None else None
+    pre_trace = {k: dict(v) for k, v in mu._trace.items()} if mu._trace is not None else None
     try:
         mu.emu_start(entry, end, timeout=timeout_ms * 1000)
     except Exception as e:
         return None, "emu error: %s (last RIP %#x)" % (e, getattr(mu, "_last_rip", 0))
     if mu._bad is not None:
         return None, mu._bad
-    out = decode(mu, spec)
+    # unicorn stops silently when the timeout expires. A run that never reached its return did not return under PES
+    # either (the function loops on these inputs), so its registers are no oracle output.
+    returned = mu.reg_read(UC_X86_REG_RIP) in (end, RET_SENTINEL)
+    out = decode(mu, spec) if returned else None
     for n, r in regions.items():
         mu.mem_write(int(r["base"], 16), snap[n])
     for va_s, blob in img_snap.items():
         mu.mem_write(int(va_s, 16), blob)
+    if not returned:
+        if pre_addrs is not None:
+            mu._addrs.clear()
+            mu._addrs.update(pre_addrs)
+        mu._trace = pre_trace
+        return None, NONRETURN
     return out, None
 
 
@@ -1403,8 +1425,13 @@ def main():
             return None
         _pre = set(mu._addrs or set()) if mu._addrs is not None else set()
         out = open(args.out, "w")
+        dropped_inputs = []
         for _n, _inputs in enumerate(cases):
             _result, _err = run_case(mu, spec, RET, _inputs)
+            if _err == NONRETURN:
+                dropped_inputs.append(_inputs)
+                print("case %d dropped: PES did not return" % _n, file=sys.stderr)
+                continue
             if _err is not None:
                 print("case %d failed: %s" % (_n, _err), file=sys.stderr)
                 print("  inputs: %s" % json.dumps(_inputs)[:300], file=sys.stderr)
@@ -1416,6 +1443,10 @@ def main():
         _guided = guided_cases(spec, seed, count, args.exe, _want)
         for _m, _inputs in enumerate(_guided[:count]):
             _result, _err = run_case(mu, spec, RET, _inputs)
+            if _err == NONRETURN:
+                dropped_inputs.append(_inputs)
+                print("guided case %d dropped: PES did not return" % _m, file=sys.stderr)
+                continue
             if _err is not None:
                 print("guided case %d failed: %s" % (_m, _err), file=sys.stderr)
                 print("  inputs: %s" % json.dumps(_inputs)[:300], file=sys.stderr)
@@ -1429,11 +1460,17 @@ def main():
         if args.trace_addrs is not None:
             with open(args.trace_addrs, "w") as tf:
                 json.dump(sorted("0x%X" % a for a in (mu._addrs or set())), tf)
+        write_nonreturn(args.out, dropped_inputs)
         print("%d cases (%d guided) -> %s" % (len(cases), len(_guided[:count]), args.out or "stdout"))
         return 0
     out = open(args.out, "w") if args.out else sys.stdout
+    dropped_inputs = []
     for n, inputs in enumerate(cases):
         result, err = run_case(mu, spec, RET, inputs)
+        if err == NONRETURN:
+            dropped_inputs.append(inputs)
+            print("case %d dropped: PES did not return" % n, file=sys.stderr)
+            continue
         if err is not None:
             print("case %d failed: %s" % (n, err), file=sys.stderr)
             print("  inputs: %s" % json.dumps(inputs)[:300], file=sys.stderr)
@@ -1447,6 +1484,7 @@ def main():
     if args.trace_addrs is not None:
         with open(args.trace_addrs, "w") as tf:
             json.dump(sorted("0x%X" % a for a in (mu._addrs or set())), tf)
+    write_nonreturn(args.out, dropped_inputs)
     print("%d cases -> %s" % (len(cases), args.out or "stdout"))
     return 0
 
