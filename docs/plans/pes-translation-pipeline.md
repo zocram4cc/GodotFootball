@@ -61,6 +61,38 @@ the translator and the driver, split by file. Main lands everything. Concurrency
 | 30-70% | Fix the top failure classes in the translator and struct map, then re-pilot. |
 | < 30% | Report why with the failure breakdown and propose the alternative. Never fall back to the old method silently. |
 
+## Owner direction 26-10-26: cutscenes lean hybrid
+
+Cutscenes lean towards a hybrid: PES's scene-selection and direction logic is translated and proven, and Godot is
+driven from PES's own scene data for loading and rendering. Caveat from the owner: the earlier attempt in the
+predecessor repo tried data-driven PES cutscenes at length with no real success for some scenes, especially fouls and
+offsides; the new attempt must first learn why, and translate whatever logic those scenes decide in code.
+
+What that attempt found (its handovers and `docs/PES_CUTSCENE_ARCHAEOLOGY.md` in the predecessor repo): goals,
+entrances, substitutions, half/full time, penalties and results worked data-driven (`.fdc` stagings, `.canm` cameras,
+`table_*.bin` director state machines). Fouls and offsides failed because they are **not in the data**: PES ships two
+foul cameras (one card-hold shot for 5 of 7 foul subpools that have none) and **no offside camera in any generation**,
+with offside actor records at the origin. In PES those scenes are the live broadcast camera plus the replay system,
+with the official's placement, the sanction-to-scene choice and the restart timing decided in code. So for this port:
+- **translated and proven:** the director state machines' selection, the broadcast camera, the replay sequencing,
+  sanction-to-scene choice, official placement and restart timing (the code paths behind fouls and offsides);
+- **driven from PES data through Godot:** authored stagings and camera tracks (hard cuts sampled per cut), actor
+  clips, scene length from the last actor's clip, clock synced to the match clock.
+
+## Owner ruling 26-10-26 (latest): correctness is I/O bit-exact on real calls; coverage is a confidence measure
+
+**What matters is gameplay outcome, code readability and a faithful recreation.**
+
+- A function, pure or impure, is **proven** when every case it is run on is input/output bit-exact: the same return
+  value and every written byte, from the same inputs and memory. That holds whatever its coverage.
+- Own-block coverage is **recorded and reported** per function and per subsystem, but **never gates** a function out of
+  the record or the committed layer. The 50% floor is dropped everywhere (driver, records, `gen_translated.py`, gate
+  tests).
+- Real-call cases (snapshots plus call-time deltas) are preferred over synthetic ones. Coverage is raised over time with
+  more snapshots, and low-coverage functions are reported so they get attention.
+
+This supersedes the 50% coverage floor and the "union of captures" rule below.
+
 ## Owner ruling 26-10-26: impure code is translated now; emulation continues in parallel
 
 Impure code is translated and committed under **tracked coverage**: a function counts when every case it runs is
