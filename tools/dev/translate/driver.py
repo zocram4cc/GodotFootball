@@ -217,7 +217,7 @@ def _why_dispatchable(why):
     return True
 
 
-EXTRA_CAP = 1000  # runnable_extra's cap on the out-of-set closure (was 60: 0x140A0C3E0's closure exceeded it)
+EXTRA_CAP = 1100  # one budget over every seed's out-of-set walk. Measured 26-10-26: the 1404F6C30 walk (cap 100000) is 1042 functions; 1404F6720's own direct-call closure is 29. At 1000 the walk ran out and blocked 1404F6720 by budget.
 
 
 def runnable_extra(spec, image, depth_cap=25):
