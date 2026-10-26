@@ -21,6 +21,10 @@ import sys
 
 PAGE = 0x1000
 IMAGE_CHUNK = 1 << 24  # bytes per read when streaming the image (16 MiB)
+# Per-case emulation budget in instructions (deterministic; a wall-clock timeout varied with machine load). 50 M, as
+# the frame-loop runner uses per step (frame_trace.py); a case past it is PES not returning, never an output.
+# Provisional: raise it if a recorded function legitimately needs more (--check would show the loss).
+CASE_INSN_BUDGET = 50_000_000
 
 
 def align_up(x, a=PAGE):
@@ -281,6 +285,20 @@ def build_emu(spec, image_path, sections):
     RET_SENTINEL = 0xDEAD0000
     mu.mem_map(RET_SENTINEL & ~(PAGE - 1), PAGE)
     return mu, RET_SENTINEL
+
+
+def apply_seed(mu, spec, seed_artifact):
+    """Fill the spec regions with real object bytes (a seed.py artifact)
+    before the per-case inputs: the seed is the base state (real vtables,
+    class bytes, init flags, MI); the inputs and spec linkage are applied
+    on top, so the per-case variations still win exactly as in the zero run."""
+    regions = spec.get("regions") or {}
+    for r in seed_artifact.get("regions") or []:
+        rname = r.get("name")
+        if rname not in regions:
+            continue
+        base = int(regions[rname]["base"], 16)
+        mu.mem_write(base + int(r.get("off", 0)), bytes.fromhex(r["hex"]))
 
 
 def stack_top(spec):
@@ -566,7 +584,78 @@ def install_hooks(mu, spec, RET_SENTINEL):
     mu.hook_add(UC_HOOK_MEM_WRITE_UNMAPPED, hook_bad, "w")
 
 
-def run_case(mu, spec, RET_SENTINEL, inputs, timeout_ms=5000):
+# Real-instance cases (seed.py --bank-classes banks): a field that an instance
+# holds takes the instance's real value, not the spec's draw.
+_FIELD_SIZE = {"u8": 1, "u32": 4, "i32": 4, "f32": 4}
+
+
+def real_region_bytes(art, rname, off, size):
+    """Bytes [off, off+size) of region rname in seed artifact art, or None when
+    the instance does not hold that field (region not seeded, or outside its window)."""
+    for r in art.get("regions") or []:
+        if r.get("name") != rname:
+            continue
+        lo = int(r.get("off", 0))
+        if off < lo or off + size > lo + int(r["size"]):
+            return None
+        return bytes.fromhex(r["hex"])[off - lo:off - lo + size]
+    return None
+
+
+def real_value(art, loc):
+    """The value instance art holds at input location loc, or None."""
+    enc = loc.get("enc", "u32")
+    if "region" not in loc or enc not in _FIELD_SIZE:
+        return None
+    blob = real_region_bytes(art, loc["region"], int(loc["offset"], 16), _FIELD_SIZE[enc])
+    return None if blob is None else decode_blob(blob, enc)
+
+
+def nearby_value(real, enc, rnd):
+    """A value near a real one: +-5% for f32 (a 0.0 field moves by 0.05), +-1 or
+    +-2 for integers, kept inside the encoding's range."""
+    if enc == "f32":
+        f = real["f"]
+        step = 0.05 * abs(f) if f else 0.05
+        return f32_bits(f + rnd.choice((-1.0, 1.0)) * step)
+    lo, hi = {"u8": (0, 0xFF), "u32": (0, 0xFFFFFFFF), "i32": (-0x80000000, 0x7FFFFFFF)}[enc]
+    return min(max(real + rnd.choice((-2, -1, 1, 2)), lo), hi)
+
+
+def bank_case(spec, bank, n, inputs, seed, perturb):
+    """Real-instance case n -> (inputs, instance artifact). Case n runs instance
+    n % N. A field the instance holds takes its real value (mode 0), a nearby one
+    (1), the same field of instance n+1 (2), or the spec's own draw (3). perturb
+    picks the mode per (seed, case, field), deterministically; without it every
+    held field is real. A field no instance holds keeps its draw."""
+    import random
+    k = n % len(bank)
+    art = bank[k]
+    labels = set(spec.get("labels") or [])
+    out = dict(inputs)
+    for name, value in inputs.items():
+        loc = (spec.get("inputs") or {}).get(name)
+        if name in labels or loc is None:
+            continue
+        real = real_value(art, loc)
+        if real is None:
+            continue
+        rnd = random.Random("%s:%d:%s" % (seed, n, name))
+        mode = rnd.randrange(4) if perturb else 0
+        if mode == 0:
+            out[name] = real
+        elif mode == 1:
+            out[name] = nearby_value(real, loc.get("enc", "u32"), rnd)
+        elif mode == 2:
+            other = real_value(bank[(k + 1) % len(bank)], loc)
+            out[name] = real if other is None else other
+        else:
+            out[name] = value
+    return out, art
+
+
+
+def run_case(mu, spec, RET_SENTINEL, inputs, timeout_ms=5000, seed=None, zero=False):
     from unicorn.x86_const import UC_X86_REG_RIP, UC_X86_REG_RSP
     entry = int(spec.get("entry", spec["va"]), 16)
     end = int(spec.get("end", "0x0"), 16) if spec.get("end") else RET_SENTINEL
@@ -589,6 +678,13 @@ def run_case(mu, spec, RET_SENTINEL, inputs, timeout_ms=5000):
             mu.reg_write(reg_const(reg), stack_top(spec))
         else:
             mu.reg_write(reg_const(reg), int(val, 0) if isinstance(val, str) else val)
+    if zero:
+        # Real-instance cases: every region starts from zero, so bytes an
+        # earlier instance seeded cannot leak into this case.
+        for r in (spec.get("regions") or {}).values():
+            mu.mem_write(int(r["base"], 16), bytes(int(r["size"], 16)))
+    if seed is not None:
+        apply_seed(mu, spec, seed)
     set_inputs(mu, spec, inputs)
     mu._draws = []
     mu._prev = [None, 0]
@@ -627,18 +723,26 @@ def run_case(mu, spec, RET_SENTINEL, inputs, timeout_ms=5000):
             for n, r in regions.items()}
     img_snap = {va_s: bytes(mu.mem_read(int(va_s, 16), 8))
                 for va_s in (spec.get("patch_addrs") or {})}
+    err = None
     try:
-        mu.emu_start(entry, end, timeout=timeout_ms * 1000)
+        # An instruction budget, not a wall-clock timeout: a timeout cuts a case at a load-dependent point and the
+        # registers it leaves were recorded as PES's output (the gate failed 0x14008CE00 only under load).
+        mu.emu_start(entry, end, count=CASE_INSN_BUDGET)
     except Exception as e:
-        return None, "emu error: %s (last RIP %#x)" % (e, getattr(mu, "_last_rip", 0))
+        err = "emu error: %s (last RIP %#x)" % (e, getattr(mu, "_last_rip", 0))
+    # A case that hasn't reached its return within the budget is not an output: PES did not return on it.
+    if err is None and mu.reg_read(UC_X86_REG_RIP) not in (end, RET_SENTINEL):
+        err = "did not return within %d instructions (RIP %#x)" % (CASE_INSN_BUDGET, mu.reg_read(UC_X86_REG_RIP))
+    # hook_bad records the unmapped access and stops emulation; unicorn then
+    # reports the stop as UC_ERR_MAP, so the recorded reason takes precedence.
     if mu._bad is not None:
-        return None, mu._bad
-    out = decode(mu, spec)
+        err = mu._bad
+    out = decode(mu, spec) if err is None else None
     for n, r in regions.items():
         mu.mem_write(int(r["base"], 16), snap[n])
     for va_s, blob in img_snap.items():
         mu.mem_write(int(va_s, 16), blob)
-    return out, None
+    return out, err
 
 
 def read_image_f32(sections, image_path, va):
@@ -1338,6 +1442,16 @@ def main():
     ap.add_argument("--out")
     ap.add_argument("--check-spec", action="store_true")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--seed-state", default=None,
+                    help="dir of per-spec seed artifacts (seed.py: "
+                         "<name>.seed.json): real object bytes filling the "
+                         "spec regions before the per-case inputs")
+    ap.add_argument("--seed-bank", default=None,
+                    help="dir of per-spec instance banks (seed.py --bank-classes: "
+                         "<name>.bank.json): case n runs instance n %% N with its real values")
+    ap.add_argument("--perturb", action="store_true",
+                    help="with --seed-bank: per (case, field) keep the real value, or take a "
+                         "nearby one, the same field of another instance, or the spec's draw")
     ap.add_argument("--count", type=int, default=300)
     ap.add_argument("--trace-calls", default=None,
                     help="write {site: {target: count}} for harness-reached "
@@ -1366,6 +1480,36 @@ def main():
     seed = args.seed if args.seed != 1 or "seed" not in spec else spec["seed"]
     count = args.count if args.count != 300 or "count" not in spec else spec["count"]
     cases = gen_inputs(spec, seed, count, (sections, args.exe))
+    seed_art = None
+    if args.seed_state:
+        _sp = os.path.join(args.seed_state,
+                           os.path.basename(args.spec)[:-5] + ".seed.json")
+        if os.path.exists(_sp):
+            seed_art = json.load(open(_sp))
+        else:
+            print("seed-state: no %s (continuing unseeded)" % os.path.basename(_sp),
+                  file=sys.stderr)
+    bank = None
+    if args.seed_bank:
+        _bk = os.path.join(args.seed_bank, os.path.basename(args.spec)[:-5] + ".bank.json")
+        if not os.path.exists(_bk):
+            sys.exit("seed-bank: no %s" % _bk)  # a missing bank must not run unseeded
+        bank = json.load(open(_bk))["instances"]
+
+    def run_n(n, inputs):
+        """Case n -> (inputs used, result, error). Bank mode: instance n % N's real values."""
+        if bank is None:
+            result, err = run_case(mu, spec, RET, inputs, seed=seed_art)
+            return inputs, result, err
+        used, art = bank_case(spec, bank, n, inputs, seed, args.perturb)
+        result, err = run_case(mu, spec, RET, used, seed=art, zero=True)
+        return used, result, err
+
+    def record(n, inputs, result):
+        rec = {"va": spec["va"], "in": inputs, "out": result}
+        if bank is not None:
+            rec["inst"] = n % len(bank)
+        return json.dumps(rec) + "\n"
     # Coverage-guided second round: base cases run first (streamed, so a
     # corpus is never held twice); unreached block leaders then steer
     # guided extras (same seed, appended, deterministic).
@@ -1404,23 +1548,23 @@ def main():
         _pre = set(mu._addrs or set()) if mu._addrs is not None else set()
         out = open(args.out, "w")
         for _n, _inputs in enumerate(cases):
-            _result, _err = run_case(mu, spec, RET, _inputs)
+            _inputs, _result, _err = run_n(_n, _inputs)
             if _err is not None:
                 print("case %d failed: %s" % (_n, _err), file=sys.stderr)
                 print("  inputs: %s" % json.dumps(_inputs)[:300], file=sys.stderr)
-                return 1
-            out.write(json.dumps({"va": spec["va"], "in": _inputs, "out": _result}) + "\n")
+                continue  # a failing case is reported (stderr) and skipped, not fatal
+            out.write(record(_n, _inputs, _result))
         _hit = {_block_of(a) for a in ((mu._addrs or set()) - _pre)
                 if _block_of(a) is not None}
         _want = {_b for _bi, _b in enumerate(_bounds) if _bi not in _hit}
         _guided = guided_cases(spec, seed, count, args.exe, _want)
         for _m, _inputs in enumerate(_guided[:count]):
-            _result, _err = run_case(mu, spec, RET, _inputs)
+            _inputs, _result, _err = run_n(len(cases) + _m, _inputs)
             if _err is not None:
                 print("guided case %d failed: %s" % (_m, _err), file=sys.stderr)
                 print("  inputs: %s" % json.dumps(_inputs)[:300], file=sys.stderr)
-                return 1
-            out.write(json.dumps({"va": spec["va"], "in": _inputs, "out": _result}) + "\n")
+                continue  # a failing case is reported (stderr) and skipped, not fatal
+            out.write(record(len(cases) + _m, _inputs, _result))
         cases = cases + _guided[:count]
         out.close()
         if args.trace_calls is not None:
@@ -1433,12 +1577,12 @@ def main():
         return 0
     out = open(args.out, "w") if args.out else sys.stdout
     for n, inputs in enumerate(cases):
-        result, err = run_case(mu, spec, RET, inputs)
+        inputs, result, err = run_n(n, inputs)
         if err is not None:
             print("case %d failed: %s" % (n, err), file=sys.stderr)
             print("  inputs: %s" % json.dumps(inputs)[:300], file=sys.stderr)
-            return 1
-        out.write(json.dumps({"va": spec["va"], "in": inputs, "out": result}) + "\n")
+            continue  # a failing case is reported (stderr) and skipped, not fatal
+        out.write(record(n, inputs, result))
     if args.out:
         out.close()
     if args.trace_calls is not None:
