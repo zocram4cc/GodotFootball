@@ -37,7 +37,8 @@ import gen_dispatch  # noqa: E402
 ROOT = os.path.join(driver.REPO, "src", "pes", "translated")
 # (committed results file, spec subdirectory of tools/dev/diffharness/specs).
 SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
-        ("results_cutscene.json", "cutscene"), ("results_presentation.json", "presentation"))
+        ("results_cutscene.json", "cutscene"), ("results_presentation.json", "presentation"),
+        ("results_core.json", "core"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
 CLOSURE = "closure"
@@ -91,29 +92,39 @@ def build(image):
             sub_of[va] = subsystem_of(spec, name)
     for va, _, diffed, fc in recs:
         status.setdefault(va, "bit-exact" if diffed else (fc or "not diffed"))
-    members, conflicts = {}, []
+    # Each recorded function's closure (itself plus the callees it links), translated once.
+    texts, closure_of, conflicts = {}, {}, []
     for va, name in bit:
         _, stubs, universe = context(name, va, image)
         queue, seen = [va], {va}
         while queue:
             cur = queue.pop(0)
             text = translate(cur, image, stubs, universe)
-            if cur in members:
-                if members[cur]["raw"] != text:
-                    conflicts.append("%s translates differently under %s" % (cur, name))
-            else:
-                members[cur] = {"raw": text, "recorded": cur in bit_vas,
-                                "sub": sub_of.get(cur, CLOSURE), "status": status.get(cur, "no record")}
+            if cur in texts and texts[cur] != text:
+                conflicts.append("%s translates differently under %s" % (cur, name))
+            texts.setdefault(cur, text)
             for c in CALLEE.findall(text):
                 cv = "0x" + c.upper()
                 if cv != cur and cv in universe and cv not in seen:
                     seen.add(cv)
                     queue.append(cv)
+        closure_of[va] = seen
     if conflicts:
         raise SystemExit("gen_translated: %d conflicts, first: %s" % (len(conflicts), conflicts[0]))
-    worst = sorted(v for v, m in members.items() if not m["recorded"] and m["status"] == "translator bug")
-    if worst:
-        raise SystemExit("gen_translated: closure members with a recorded translator bug: %s" % " ".join(worst))
+    # Never ship a callee the harness recorded as mistranslated: a recorded function whose closure reaches one is left
+    # out of the layer (listed), though its own diff passed, since its cases never took the callee's bad path.
+    bad = {v for v in texts if v not in bit_vas and status.get(v) == "translator bug"}
+    held = sorted(va for va, _ in bit if closure_of[va] & bad)
+    for va in held:
+        print("gen_translated: held out %s: its closure reaches a mistranslated callee (%s)"
+              % (va, " ".join(sorted(closure_of[va] & bad))))
+    members = {}
+    for va, _ in bit:
+        if va in held:
+            continue
+        for cur in closure_of[va]:
+            members.setdefault(cur, {"raw": texts[cur], "recorded": cur in bit_vas,
+                                     "sub": sub_of.get(cur, CLOSURE), "status": status.get(cur, "no record")})
     for cur, m in members.items():
         for c in CALLEE.findall(m["raw"]):
             if "0x" + c.upper() not in members and "0x" + c.upper() != cur:
