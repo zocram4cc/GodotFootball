@@ -1234,14 +1234,13 @@ class Emitter:
             # int<->lane0 bit transfer
             if d.startswith("xmm") and "[" not in d:
                 x = int(d[3:])
+                # MOVD xmm, r/m32 zero-extends to 128 bits (SDM): bits 32-127 are cleared.
                 if s in GPR or s in SUB:
-                    return ["s.xmm[%d][0] = (s.xmm[%d][0] & "
-                            "0xFFFFFFFF00000000ULL) | ((uint64_t)(uint32_t)"
-                            "(%s));" % (x, x, reg_read(s))]
+                    return ["s.xmm[%d][0] = (uint64_t)(uint32_t)(%s); s.xmm[%d][1] = 0;"
+                            % (x, reg_read(s), x)]
                 inner = src[src.find("["):]
-                return ["{ uint32_t _b = (uint32_t)%s; s.xmm[%d][0] = "
-                        "(s.xmm[%d][0] & 0xFFFFFFFF00000000ULL) | _b; }"
-                        % (self.mem_val(inner, 32, None), x, x)]
+                return ["s.xmm[%d][0] = (uint64_t)(uint32_t)(%s); s.xmm[%d][1] = 0;"
+                        % (x, self.mem_val(inner, 32, None), x)]
             v = self.val_of(src, 32)
             if "[" in dst:
                 return [self.mem_store(dst[dst.find("["):], v, 32, None)]
@@ -1267,8 +1266,9 @@ class Emitter:
                 return ["s.set_x_f32(%d, s.x_f32(%d));"
                         % (x, int(s[3:]))]
             inner = src[src.find("["):]
-            return ["s.set_x_f32(%d, %s);"
-                    % (x, self.mem_val(inner, 32, "f32"))]
+            # A memory source zeroes bits 32-127 (SDM: MOVSS xmm, m32); a register source keeps them.
+            return ["s.set_x_f32(%d, %s); s.xmm[%d][0] &= 0xFFFFFFFFull; s.xmm[%d][1] = 0;"
+                    % (x, self.mem_val(inner, 32, "f32"), x, x)]
         inner = dst[dst.find("["):]
         return ["s.wrf(%s, s.x_f32(%d));"
                 % (self.addr_expr(parse_mem(inner[1:-1])), int(s[3:]))]

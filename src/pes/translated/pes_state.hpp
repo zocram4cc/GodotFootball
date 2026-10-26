@@ -22,7 +22,11 @@ struct SnapView {
   int fd = -1;
   std::vector<Run> runs;              // sorted by va
   mutable std::vector<Block> blocks;  // sorted by va, disjoint
+  mutable std::vector<Block> over;  // the call's delta pages (4 KiB each, sorted by va): set per call, read before the runs
   uint8_t* at(uint64_t addr) const {
+    uint64_t pg = addr & ~uint64_t(0xFFF);
+    auto ob = std::lower_bound(over.begin(), over.end(), pg, [](const Block& b, uint64_t a) { return b.va < a; });
+    if (ob != over.end() && ob->va == pg) return ob->bytes.data() + (addr - pg);
     auto by_va = [](uint64_t a, const Block& b) { return a < b.va; };
     auto it = std::upper_bound(blocks.begin(), blocks.end(), addr, by_va);
     if (it != blocks.begin()) {

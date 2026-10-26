@@ -217,6 +217,9 @@ def _why_dispatchable(why):
     return True
 
 
+EXTRA_CAP = 1000  # runnable_extra's cap on the out-of-set closure (was 60: 0x140A0C3E0's closure exceeded it)
+
+
 def runnable_extra(spec, image, depth_cap=25):
     """Out-of-set direct callees the build can translate and call for
     real: stubs.json run-real kinds plus unmodellable entries whose whole
@@ -255,7 +258,6 @@ def runnable_extra(spec, image, depth_cap=25):
                     pass
         return out
     stack = [(v, 0, [v]) for v in seeds]
-    EXTRA_CAP = 60
     while stack:
         if len(extra) + len(stack) > EXTRA_CAP:
             for v, _, _ in stack:

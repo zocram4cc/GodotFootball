@@ -197,7 +197,7 @@ def run_one(va, args, pilot, pairs):
             reached.setdefault(site, {})
             for t in tgts:
                 reached[site][t] = 1
-        runs.append((label, snap, out_s, corpus))
+        runs.append((label, snap, out_s, corpus, tdir))
     res["excluded"] = res["calls"] - res["replayed"]
     if res["replayed"] == 0:
         res["note"] = "no replayable call (0 cases)"
@@ -207,10 +207,11 @@ def run_one(va, args, pilot, pairs):
         res["note"] = err
         return res
     res["translated"] = True
-    for label, snap, out_s, corpus in runs:
+    for label, snap, out_s, corpus, tdir in runs:
         trans = os.path.join(out_s, "translated.jsonl")
         rc, out, err = drv.sh([bin_p, os.path.join(out_s, "ok_calls.bin"), os.path.join(snap, "mem.bin"),
-                               os.path.join(out_s, "maps.txt"), trans], timeout=args.timeout)
+                               os.path.join(out_s, "maps.txt"), trans, os.path.join(out_s, "ok_delta.bin"),
+                               os.path.join(tdir, "pool", "pages.bin")], timeout=args.timeout)
         if rc != 0:
             res["mismatches"].append({"snapshot": label, "case": None, "fields": ["run"],
                                       "note": "diff main rc=%d: %s" % (rc, (err or out)[-200:])})

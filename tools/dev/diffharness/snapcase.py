@@ -1,10 +1,10 @@
 """Snapshot replay of traced calls (run.py --snapshot-dir): the harness side of the snapshot diff.
 
 Each record is one traced call (frame_trace.py's entry_record: 16 GPRs, 16 XMM registers, and the
-return address at [rsp]). Every call starts from pristine snapshot memory: one unicorn engine is
-reused for the run, and between calls every mapped page is unmapped and copied again from mem.bin on
-first touch (full_snapshot.SnapMem through frame_trace.LazyMap), so the process never holds the whole
-snapshot and no call sees another call's writes. The call runs from its entry to its recorded return
+return address at [rsp]). Each call starts from the snapshot's own pages (full_snapshot.SnapMem through
+frame_trace.LazyMap, copied on first touch), with its call-time delta mapped over them (load_deltas): the pages
+the emulated run had changed, plus its stack and TEB. One unicorn engine is reused for the run; between calls
+every mapped page is unmapped, so no call sees another call's writes. The call runs from its entry to its recorded return
 address. Recorded per call: rax, the full xmm0, and every byte the call writes (address and value, in
 order). A call that leaves the model is excluded, with its reason: an abort trap, a hole or unmapped
 access, an OS import model (the translator has no import call), an untranslated (blocked) callee
@@ -14,6 +14,7 @@ Outputs in the out dir:
   corpus.jsonl  one line per record: {"case", "ok": true, "rax", "xmm0", "w"} or {"case", "ok": false, "reason"}
                 w is the written bytes as hex: per byte, 16 hex digits of address then 2 of value.
   ok_calls.bin  the replayable records, in order (the translated diff main's input).
+  ok_delta.bin  per replayable call, its delta: u64 page count, then per page u64 VA and u64 pool byte offset.
   maps.txt      the snapshot's readable runs (the translated side's pages).
   addrs.json    executed instruction addresses, union over the ok calls (own-block coverage).
   trace.json    indirect call sites and their entered targets, union over the ok calls (the closure).
@@ -34,6 +35,7 @@ CALL_REC = struct.Struct("<49Q")  # 16 GPRs, 16 XMM (lo, hi), the return address
 GPR_NAMES = ("rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi",
              "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15")
 INSTR_BUDGET = 2_000_000  # per call: a deterministic runaway guard (an overrun is excluded)
+PAGE = 0x1000
 
 
 def load_calls(path):
@@ -41,6 +43,35 @@ def load_calls(path):
     with open(path, "rb") as f:
         data = f.read()
     return [CALL_REC.unpack_from(data, i * CALL_REC.size) for i in range(len(data) // CALL_REC.size)]
+
+
+def trace_dir(calls_path):
+    return os.path.dirname(os.path.dirname(os.path.abspath(calls_path)))
+
+
+def load_deltas(calls_path):
+    """The call-time delta of each record of a calls file, as [(page VA, pool byte offset), ...]: the
+    calls/<VA>.delta sidecar names each record's delta id, and deltas.jsonl (frame_trace.py CallDelta)
+    holds it. A page the list does not name is the snapshot's (or unmapped)."""
+    trace = trace_dir(calls_path)
+    with open(os.path.splitext(calls_path)[0] + ".delta") as f:
+        ids = [ln.strip() for ln in f]
+    if len(ids) != os.path.getsize(calls_path) // CALL_REC.size:
+        raise ValueError("%s: %d delta ids for the calls file" % (calls_path, len(ids)))
+    need = set(ids)
+    at = {}
+    with open(os.path.join(trace, "deltas.idx.jsonl")) as f:
+        for ln in f:
+            did, off = json.loads(ln)
+            if did in need:
+                at[did] = off
+    lists = {}
+    with open(os.path.join(trace, "deltas.jsonl"), "rb") as f:
+        for did, off in at.items():
+            f.seek(off)
+            lists[did] = [(va, idx * PAGE) for va, idx in json.loads(f.readline())["pages"]]
+    return [lists[d] for d in ids]
+
 
 
 def write_maps(snap_dir, path):
@@ -79,9 +110,10 @@ class Replayer:
     installed once; a call resets the per-call state, unmaps every page the last call mapped, and
     starts from its recorded registers and return address."""
 
-    def __init__(self, spec, sm, models, blocked):
+    def __init__(self, spec, sm, models, blocked, pool_path):
         from unicorn import Uc, UC_ARCH_X86, UC_MODE_64, UC_HOOK_CODE, UC_HOOK_MEM_READ, UC_HOOK_MEM_WRITE
         self.spec = spec
+        self.pool = os.open(pool_path, os.O_RDONLY)  # the trace's pool: the call-time pages
         self.uc = uc = Uc(UC_ARCH_X86, UC_MODE_64)
         uc._addrs_on = True
         uc._trace_on = True
@@ -128,7 +160,7 @@ class Replayer:
                 u._call_slots.add(addr)
         u._writes.append((addr, size, v))
 
-    def run(self, rec):
+    def run(self, rec, pages):
         """One call from its record. Returns (result, reason): result is None when the call is excluded
         (reason says why); otherwise a dict with rax, xmm0, w (see the module doc), addrs and trace."""
         import unicorn.x86_const as xc
@@ -136,6 +168,10 @@ class Replayer:
         uc, lazy = self.uc, self.lazy
         for begin, end, _perm in list(uc.mem_regions()):
             uc.mem_unmap(begin, end - begin + 1)
+        for va, off in pages:  # the call-time memory, over the snapshot's own pages
+            uc.mem_map(va, PAGE)
+            uc.mem_write(va, os.pread(self.pool, PAGE, off))
+        uc.reg_write(xc.UC_X86_REG_GS_BASE, ft.TEB_BASE)
         lazy.refused = None
         for k in lazy.import_calls:
             lazy.import_calls[k] = 0
@@ -183,15 +219,18 @@ def run_dir(spec_path, snap_dir, calls_path, out_dir, blocked=()):
     sm = fs.SnapMem(snap_dir)
     models = ft.load_import_models()
     recs = load_calls(calls_path)
+    deltas = load_deltas(calls_path)
     os.makedirs(out_dir, exist_ok=True)
     write_maps(snap_dir, os.path.join(out_dir, "maps.txt"))
-    rep = Replayer(spec, sm, models, [int(v, 16) for v in blocked])
+    pool = os.path.join(trace_dir(calls_path), "pool", "pages.bin")
+    rep = Replayer(spec, sm, models, [int(v, 16) for v in blocked], pool)
     corpus = open(os.path.join(out_dir, "corpus.jsonl"), "w")
     ok_f = open(os.path.join(out_dir, "ok_calls.bin"), "wb")
+    ok_d = open(os.path.join(out_dir, "ok_delta.bin"), "wb")
     addrs, trace, reasons = set(), {}, {}
     n_ok = 0
     for i, rec in enumerate(recs):
-        res, reason = rep.run(rec)
+        res, reason = rep.run(rec, deltas[i])
         if res is None:
             key = reason.split(":")[0].split(" (")[0]
             reasons[key] = reasons.get(key, 0) + 1
@@ -206,8 +245,10 @@ def run_dir(spec_path, snap_dir, calls_path, out_dir, blocked=()):
         corpus.write(json.dumps({"case": i, "ok": True, "rax": res["rax"], "xmm0": res["xmm0"],
                                  "w": res["w"], "retread": res["retread"]}) + "\n")
         ok_f.write(CALL_REC.pack(*rec))
+        ok_d.write(struct.pack("<Q", len(deltas[i])) + b"".join(struct.pack("<QQ", va, off) for va, off in deltas[i]))
     corpus.close()
     ok_f.close()
+    ok_d.close()
     with open(os.path.join(out_dir, "addrs.json"), "w") as f:
         json.dump(sorted("0x%X" % a for a in addrs), f)
     with open(os.path.join(out_dir, "trace.json"), "w") as f:

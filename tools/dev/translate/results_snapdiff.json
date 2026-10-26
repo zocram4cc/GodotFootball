@@ -1,0 +1,5434 @@
+{
+ "note": "snapshot-backed diff of traced calls with call-time deltas (snapdiff.py, CallDelta): seven snapshots, 50 impure functions. floor = bit-exact on every replayed call and own-block coverage >= 0.50. Mismatch values are omitted (PES-derived); cases and fields are kept. The driver record results_impure.json is not overwritten (gen_translated.py reads its diffed and failure_class fields).",
+ "floor_count": 9,
+ "results": [
+  {
+   "va": "0x1404386D0",
+   "calls": 300,
+   "replayed": 300,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap2-142339": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap3-142654": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap1-162213": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap2-162511": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap3-163043": {
+     "calls": 50,
+     "replayed": 50
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 9,
+    "total": 238,
+    "fraction": 0.0378
+   },
+   "floor": false,
+   "note": "",
+   "blocked_callees": [
+    "0x140A79640"
+   ],
+   "mismatches": []
+  },
+  {
+   "va": "0x1404405D0",
+   "calls": 350,
+   "replayed": 350,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap2-142339": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap3-142654": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap1-162213": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap2-162511": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap3-163043": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap4-163107": {
+     "calls": 50,
+     "replayed": 50
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 32,
+    "total": 111,
+    "fraction": 0.2883
+   },
+   "floor": false,
+   "note": "",
+   "blocked_callees": [
+    "0x140A79640"
+   ],
+   "mismatches": [
+    {
+     "snapshot": "snap1-142012",
+     "case": 0,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 1,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 2,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 3,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 4,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 5,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 6,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 7,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 8,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 9,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 10,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 11,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 12,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 13,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 14,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 15,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 16,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 17,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 18,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 19,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 20,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 21,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 22,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 23,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 24,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 25,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 26,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 27,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 28,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 29,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 30,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 31,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 32,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 33,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 34,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 35,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 36,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 37,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 38,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 39,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 40,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 41,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 42,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 43,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 44,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 45,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 46,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 47,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 48,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 49,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 0,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 1,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 2,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 3,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 4,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 5,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 6,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 7,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 8,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 9,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 10,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 11,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 12,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 13,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 14,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 15,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 16,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 17,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 18,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 19,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 20,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 21,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 22,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 23,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 24,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 25,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 26,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 27,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 28,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 29,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 30,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 31,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 32,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 33,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 34,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 35,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 36,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 37,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 38,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 39,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 40,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 41,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 42,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 43,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 44,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 45,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 46,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 47,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 48,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 49,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 0,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 1,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 2,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 3,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 4,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 5,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 6,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 7,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 8,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 9,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 10,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 11,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 12,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 13,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 14,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 15,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 16,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 17,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 18,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 19,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 20,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 21,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 22,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 23,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 24,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 25,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 26,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 27,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 28,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 29,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 30,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 31,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 32,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 33,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 34,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 35,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 36,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 37,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 38,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 39,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 40,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 41,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 42,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 43,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 44,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 45,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 46,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 47,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 48,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap1-162213",
+     "case": 49,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 0,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 1,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 2,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 3,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 4,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 5,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 6,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 7,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 8,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 9,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 10,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 11,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 12,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 13,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 14,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 15,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 16,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 17,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 18,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 19,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 20,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 21,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 22,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 23,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 24,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 25,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 26,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 27,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 28,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 29,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 30,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 31,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 32,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 33,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 34,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 35,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 36,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 37,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 38,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 39,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 40,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 41,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 42,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 43,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 44,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 45,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 46,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 47,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 48,
+     "fields": [
+      "xmm0"
+     ]
+    },
+    {
+     "snapshot": "snap2-162511",
+     "case": 49,
+     "fields": [
+      "xmm0"
+     ]
+    }
+   ]
+  },
+  {
+   "va": "0x1404F47A0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x1404F6C30",
+   "calls": 700,
+   "replayed": 0,
+   "excluded": 700,
+   "reasons": {
+    "unmodellable callee 0x1404f6720 entered": 700
+   },
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 0
+    }
+   },
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [
+    "0x140421F40",
+    "0x1404F6720",
+    "0x1404F7AD0",
+    "0x1404F7BA0",
+    "0x1404F8350",
+    "0x1404F87D0",
+    "0x1404F88D0",
+    "0x1404F8C70",
+    "0x1404F9DC0",
+    "0x1404FA720",
+    "0x1404FA840",
+    "0x1404FAD30",
+    "0x1404FB2A0",
+    "0x1404FBB70",
+    "0x1404FBCA0",
+    "0x1404FC4D0",
+    "0x1404FD080",
+    "0x1404FD450",
+    "0x140A425B0",
+    "0x140A425C0",
+    "0x140A425D0",
+    "0x140A79640"
+   ],
+   "mismatches": []
+  },
+  {
+   "va": "0x1404F8C70",
+   "calls": 700,
+   "replayed": 400,
+   "excluded": 300,
+   "reasons": {
+    "unmodellable callee 0x140a79640 entered": 300
+   },
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 3,
+    "total": 284,
+    "fraction": 0.0106
+   },
+   "floor": false,
+   "note": "",
+   "blocked_callees": [
+    "0x140A79640"
+   ],
+   "mismatches": []
+  },
+  {
+   "va": "0x1404FA720",
+   "calls": 700,
+   "replayed": 700,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 2,
+    "total": 22,
+    "fraction": 0.0909
+   },
+   "floor": false,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x1404FB2A0",
+   "calls": 700,
+   "replayed": 700,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 10,
+    "total": 16,
+    "fraction": 0.625
+   },
+   "floor": true,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x1404FE9C0",
+   "calls": 700,
+   "replayed": 700,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 30,
+    "total": 220,
+    "fraction": 0.1364
+   },
+   "floor": false,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x1404FEDC0",
+   "calls": 700,
+   "replayed": 700,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 94,
+    "total": 135,
+    "fraction": 0.6963
+   },
+   "floor": true,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x140503430",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x140504D20",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x1405055E0",
+   "calls": 100,
+   "replayed": 100,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-162213": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap3-163043": {
+     "calls": 50,
+     "replayed": 50
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 28,
+    "total": 33,
+    "fraction": 0.8485
+   },
+   "floor": true,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x140509A40",
+   "calls": 650,
+   "replayed": 650,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 50,
+     "replayed": 50
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 4,
+    "total": 67,
+    "fraction": 0.0597
+   },
+   "floor": false,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x140510D30",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14051B8B0",
+   "calls": 400,
+   "replayed": 400,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 6,
+    "total": 120,
+    "fraction": 0.05
+   },
+   "floor": false,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14051CF70",
+   "calls": 300,
+   "replayed": 300,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 18,
+    "total": 20,
+    "fraction": 0.9
+   },
+   "floor": true,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x140529490",
+   "calls": 3000,
+   "replayed": 3000,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 850,
+     "replayed": 850
+    },
+    "snap2-142339": {
+     "calls": 1150,
+     "replayed": 1150
+    },
+    "snap3-142654": {
+     "calls": 650,
+     "replayed": 650
+    },
+    "snap4-163107": {
+     "calls": 350,
+     "replayed": 350
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 39,
+    "total": 46,
+    "fraction": 0.8478
+   },
+   "floor": true,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14052A190",
+   "calls": 2451,
+   "replayed": 2451,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 350,
+     "replayed": 350
+    },
+    "snap2-142339": {
+     "calls": 1200,
+     "replayed": 1200
+    },
+    "snap3-142654": {
+     "calls": 450,
+     "replayed": 450
+    },
+    "snap4-163107": {
+     "calls": 451,
+     "replayed": 451
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 14,
+    "total": 36,
+    "fraction": 0.3889
+   },
+   "floor": false,
+   "note": "",
+   "blocked_callees": [
+    "0x140A79640"
+   ],
+   "mismatches": []
+  },
+  {
+   "va": "0x14052A820",
+   "calls": 1547,
+   "replayed": 1547,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap2-142339": {
+     "calls": 950,
+     "replayed": 950
+    },
+    "snap3-142654": {
+     "calls": 450,
+     "replayed": 450
+    },
+    "snap4-163107": {
+     "calls": 147,
+     "replayed": 147
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 230,
+    "total": 363,
+    "fraction": 0.6336
+   },
+   "floor": true,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14053B110",
+   "calls": 700,
+   "replayed": 700,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 7,
+    "total": 27,
+    "fraction": 0.2593
+   },
+   "floor": false,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14053B420",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14057A3E0",
+   "calls": 10350,
+   "replayed": 10350,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 3350,
+     "replayed": 3350
+    },
+    "snap2-142339": {
+     "calls": 3650,
+     "replayed": 3650
+    },
+    "snap3-142654": {
+     "calls": 3350,
+     "replayed": 3350
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 4,
+    "total": 14,
+    "fraction": 0.2857
+   },
+   "floor": false,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14057BA50",
+   "calls": 700,
+   "replayed": 700,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 6,
+    "total": 11,
+    "fraction": 0.5455
+   },
+   "floor": true,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14057D3A0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x1405A6DE0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x1405AD720",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x1405CCD50",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x1405CE4F0",
+   "calls": 350,
+   "replayed": 0,
+   "excluded": 350,
+   "reasons": {
+    "unmodellable callee 0x140a79640 entered": 350
+   },
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 50,
+     "replayed": 0
+    },
+    "snap2-142339": {
+     "calls": 50,
+     "replayed": 0
+    },
+    "snap3-142654": {
+     "calls": 50,
+     "replayed": 0
+    },
+    "snap1-162213": {
+     "calls": 50,
+     "replayed": 0
+    },
+    "snap2-162511": {
+     "calls": 50,
+     "replayed": 0
+    },
+    "snap3-163043": {
+     "calls": 50,
+     "replayed": 0
+    },
+    "snap4-163107": {
+     "calls": 50,
+     "replayed": 0
+    }
+   },
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [
+    "0x140A79640"
+   ],
+   "mismatches": []
+  },
+  {
+   "va": "0x1405CE930",
+   "calls": 300,
+   "replayed": 300,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 113,
+    "total": 130,
+    "fraction": 0.8692
+   },
+   "floor": false,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": [
+    {
+     "snapshot": "snap1-142012",
+     "case": 0,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 1,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 2,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 3,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 4,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 5,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 6,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 7,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 8,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 9,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 10,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 11,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 12,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 13,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 14,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 15,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 16,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 17,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 18,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 19,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 20,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 21,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 22,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 23,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 24,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 25,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 26,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 27,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 28,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 29,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 30,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 31,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 32,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 33,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 34,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 35,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 36,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 37,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 38,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 39,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 40,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 41,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 42,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 43,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 44,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 45,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 46,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 47,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 48,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 49,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 50,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 51,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 52,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 53,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 54,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 55,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 56,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 57,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 58,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 59,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 60,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 61,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 62,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 63,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 64,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 65,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 66,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 67,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 68,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 69,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 70,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 71,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 72,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 73,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 74,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 75,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 76,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 77,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 78,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 79,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 80,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 81,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 82,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 83,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 84,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 85,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 86,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 87,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 88,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 89,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 90,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 91,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 92,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 93,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 94,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 95,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 96,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 97,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 98,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap1-142012",
+     "case": 99,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 0,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 1,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 2,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 3,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 4,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 5,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 6,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 7,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 8,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 9,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 10,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 11,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 12,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 13,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 14,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 15,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 16,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 17,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 18,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 19,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 20,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 21,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 22,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 23,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 24,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 25,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 26,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 27,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 28,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 29,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 30,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 31,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 32,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 33,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 34,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 35,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 36,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 37,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 38,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 39,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 40,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 41,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 42,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 43,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 44,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 45,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 46,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 47,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 48,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 49,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 50,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 51,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 52,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 53,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 54,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 55,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 56,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 57,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 58,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 59,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 60,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 61,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 62,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 63,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 64,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 65,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 66,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 67,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 68,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 69,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 70,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 71,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 72,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 73,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 74,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 75,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 76,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 77,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 78,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 79,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 80,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 81,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 82,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 83,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 84,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 85,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 86,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 87,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 88,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 89,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 90,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 91,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 92,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 93,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 94,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 95,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 96,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 97,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 98,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap2-142339",
+     "case": 99,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 0,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 1,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 2,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 3,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 4,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 5,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 6,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 7,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 8,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 9,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 10,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 11,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 12,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 13,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 14,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 15,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 16,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 17,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 18,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 19,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 20,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 21,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 22,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 23,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 24,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 25,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 26,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 27,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 28,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 29,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 30,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 31,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 32,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 33,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 34,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 35,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 36,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 37,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 38,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 39,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 40,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 41,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 42,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 43,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 44,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 45,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 46,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 47,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 48,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 49,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 50,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 51,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 52,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 53,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 54,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 55,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 56,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 57,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 58,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 59,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 60,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 61,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 62,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 63,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 64,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 65,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 66,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 67,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 68,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 69,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 70,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 71,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 72,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 73,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 74,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 75,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 76,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 77,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 78,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 79,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 80,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 81,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 82,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 83,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 84,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 85,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 86,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 87,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 88,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 89,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 90,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 91,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 92,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 93,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 94,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 95,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 96,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 97,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 98,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    },
+    {
+     "snapshot": "snap3-142654",
+     "case": 99,
+     "fields": [
+      "rax",
+      "xmm0",
+      "w"
+     ]
+    }
+   ]
+  },
+  {
+   "va": "0x1405DC350",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [
+    "0x140A79640"
+   ],
+   "mismatches": []
+  },
+  {
+   "va": "0x1405DE950",
+   "calls": 100,
+   "replayed": 100,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 32,
+    "total": 56,
+    "fraction": 0.5714
+   },
+   "floor": true,
+   "note": "",
+   "blocked_callees": [
+    "0x140A79640"
+   ],
+   "mismatches": []
+  },
+  {
+   "va": "0x1405E4460",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [
+    "0x140A79640"
+   ],
+   "mismatches": []
+  },
+  {
+   "va": "0x140601110",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14062E240",
+   "calls": 100,
+   "replayed": 100,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 69,
+    "total": 148,
+    "fraction": 0.4662
+   },
+   "floor": false,
+   "note": "",
+   "blocked_callees": [
+    "0x140A79640"
+   ],
+   "mismatches": []
+  },
+  {
+   "va": "0x140639100",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x1406486D0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14064DC50",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14064DE60",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x140654E60",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14065C2A0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14065DAB0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x140687310",
+   "calls": 3400,
+   "replayed": 3400,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 450,
+     "replayed": 450
+    },
+    "snap2-142339": {
+     "calls": 400,
+     "replayed": 400
+    },
+    "snap3-142654": {
+     "calls": 550,
+     "replayed": 550
+    },
+    "snap1-162213": {
+     "calls": 500,
+     "replayed": 500
+    },
+    "snap2-162511": {
+     "calls": 500,
+     "replayed": 500
+    },
+    "snap3-163043": {
+     "calls": 450,
+     "replayed": 450
+    },
+    "snap4-163107": {
+     "calls": 550,
+     "replayed": 550
+    }
+   },
+   "translated": true,
+   "own_block": {
+    "reached": 72,
+    "total": 77,
+    "fraction": 0.9351
+   },
+   "floor": true,
+   "note": "",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14080EBA0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x140975710",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x140978E70",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14097CD00",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14097FCE0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x14097FFF0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x140A539F0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  },
+  {
+   "va": "0x140A57650",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "translated": false,
+   "own_block": null,
+   "floor": false,
+   "note": "no replayable call (0 cases)",
+   "blocked_callees": [],
+   "mismatches": []
+  }
+ ]
+}

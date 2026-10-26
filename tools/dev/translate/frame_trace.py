@@ -11,7 +11,7 @@ seed.build_live_seed + patch_live_ptrs snapshot the regions the spec declares fr
 memory at that instant. Reservoir sampling keeps --cap instances per spec, on disk (one slot file
 each, streamed into <VA>.bank.jsonl: the driver's --seed-bank format). Own-block coverage: each
 function's executed live block leaders (driver.block_bounds), written to executed/<VA>.json.
-Output: banks/, executed/ and record.json.
+Output: banks/, executed/ and record.json. With --snapshot, calls/<VA>.bin (entry states) and calls/<VA>.delta (each record's call-time delta id), with pool/ and deltas.jsonl, deltas.idx.jsonl (CallDelta).
 
 Usage: GF_DIFF_PYTHON=<venv python> PES_EXE=<pes_full.bin> python3 frame_trace.py --capture DIR --out DIR
        [--frames N] [--cap N] [--budget INSTR]
@@ -52,6 +52,7 @@ INSTR_BUDGET = 50_000_000    # instructions per H step: a deterministic runaway 
 
 BLOCK = 0x40000             # snapshot bytes mapped per fault (256 KiB, clipped to the mapping)
 PES_EXE = "PES2021.exe"     # the game image's mapping name: the one module a run may execute
+STACK_BASE, STACK_SIZE = 0x10000000, 0x20000  # build_emu's default stack; rn.stack_top({}) is its top - 0x100
 
 
 def mem_reader(uc):
@@ -110,6 +111,7 @@ class LazyMap:
         self.faults = 0
         self.pages = 0
         self.import_calls = {}
+        self.import_pages = set()  # pages mapped as import models: a replay maps them on fetch
 
     def attach(self, uc):
         from unicorn import UC_HOOK_MEM_FETCH_UNMAPPED, UC_HOOK_INTR
@@ -176,6 +178,7 @@ class LazyMap:
     def _map_import_page(self, uc, page, mod, entries):
         from unicorn import UC_HOOK_CODE
         uc.mem_map(page, PAGE)
+        self.import_pages.add(page)
         uc.mem_write(page, b"\xcc" * PAGE)  # int3: an export without a model stops the run
         for entry, name in entries:
             code = self.models.get((mod.lower(), name))
@@ -259,6 +262,91 @@ def map_capture(uc, cap_dir):
         uc.mem_write(meta["g"], f.read())
     return meta, {"pages": len(need), "mapped_fresh": len(fresh), "runs": len(runs),
                   "mappings": len(items)}
+
+
+class CallDelta:
+    """The emulated run's memory as a delta from the snapshot, at each impure call's entry: the call-time
+    state that a pristine-snapshot replay does not have.
+
+    Baseline: what a replay maps before it applies a delta, i.e. the snapshot's page, or nothing for a page
+    outside the snapshot. The delta is every page the run has written (unicorn's write hook, and Python-side
+    mem_write: stub models, LazyMap, map_teb) whose content differs from its baseline, plus the stack and TEB
+    pages in full (their initial contents are the emulator's, not the snapshot's). Import-model pages are left
+    out: a replay maps them on fetch, with their call counters.
+
+    Output, in the trace directory: pool/pages.bin holds each distinct page once (4 KiB, in pool index order);
+    deltas.jsonl holds each distinct delta once as {"id", "pages": [[va, pool index], ...]}, and
+    deltas.idx.jsonl maps its id to its byte offset there."""
+    FIXED = frozenset(range(STACK_BASE, STACK_BASE + STACK_SIZE, PAGE)) | {TEB_BASE}
+
+    def __init__(self, uc, sm, lazy, out):
+        from unicorn import UC_HOOK_MEM_WRITE
+        assert rn.stack_top({}) == STACK_BASE + STACK_SIZE - 0x100
+        self.uc, self.sm, self.lazy = uc, sm, lazy
+        self.pending = set()   # page-aligned addresses written since the last entry
+        self.diff = {}         # page -> pool index, for pages that differ from their baseline
+        self.pool_of = {}      # sha256 digest -> pool index
+        os.makedirs(os.path.join(out, "pool"), exist_ok=True)
+        self.pool_f = open(os.path.join(out, "pool", "pages.bin"), "wb")
+        self.deltas_f = open(os.path.join(out, "deltas.jsonl"), "wb")
+        self.index_f = open(os.path.join(out, "deltas.idx.jsonl"), "w")
+        self.written = set()
+        uc.hook_add(UC_HOOK_MEM_WRITE, lambda u, acc, addr, size, val, data: self._mark(addr, size))
+        emu_write = uc.mem_write
+
+        def mem_write(address, data):
+            self._mark(address, len(data))
+            return emu_write(address, data)
+        uc.mem_write = mem_write
+
+    def _mark(self, addr, n):
+        self.pending.update(range(addr & ~(PAGE - 1), addr + n, PAGE))
+
+    def _page(self, page):
+        try:
+            return bytes(self.uc.mem_read(page, PAGE))
+        except Exception:
+            return None
+
+    def _pool(self, data):
+        key = hashlib.sha256(data).digest()
+        if key not in self.pool_of:
+            self.pool_of[key] = len(self.pool_of)
+            self.pool_f.write(data)
+        return self.pool_of[key]
+
+    def _update(self):
+        for page in self.pending:
+            if page in self.FIXED or page in self.lazy.import_pages:
+                continue
+            data = self._page(page)
+            base = self.sm.read(page, PAGE) if self.sm.page_ok(page) else None
+            if data is None or data == base:
+                self.diff.pop(page, None)
+            else:
+                self.diff[page] = self._pool(data)
+        self.pending.clear()
+
+    def delta(self):
+        """The id of the delta at this instant; its record is written on first sight."""
+        self._update()
+        pages = dict(self.diff)
+        for page in self.FIXED:
+            data = self._page(page)
+            if data is not None:
+                pages[page] = self._pool(data)
+        listing = [[page, pages[page]] for page in sorted(pages)]
+        did = hashlib.sha256(json.dumps(listing).encode()).hexdigest()
+        if did not in self.written:
+            self.written.add(did)
+            self.index_f.write(json.dumps([did, self.deltas_f.tell()]) + "\n")
+            self.deltas_f.write((json.dumps({"id": did, "pages": listing}) + "\n").encode())
+        return did
+
+    def close(self):
+        for f in (self.pool_f, self.deltas_f, self.index_f):
+            f.close()
+        return {"distinct": len(self.written), "pool_pages": len(self.pool_of)}
 
 
 def load_impure(spec_dir):
@@ -454,12 +542,14 @@ def main():
     sections = rn.flat_sections(a.image)
     if rn.image_kind(a.image) != "flat":
         ap.error("the frame trace needs the flat unpacked image (pes_full.bin)")
+    cdelta = None  # the snapshot run's CallDelta; a capture run has none
     if a.snapshot:
         sm = fs.SnapMem(a.snapshot)
         uc, ret = rn.build_emu({"regions": {}}, a.image, [])
         lazy = LazyMap(sm, load_import_models())
         lazy.attach(uc)
         map_teb(uc, rn.stack_top({}))
+        cdelta = CallDelta(uc, sm, lazy, a.out)
         if not lazy.ensure(H_GLOBAL, 8):
             raise SystemExit("H global is not readable in the snapshot")
         anc = sm.index["post"]
@@ -489,7 +579,7 @@ def main():
     uc.hook_add(UC_HOOK_CODE, tick_hook, None, begin=TEAM_TICK, end=TEAM_TICK)
 
     os.makedirs(os.path.join(a.out, "calls"), exist_ok=True)
-    seen_calls, call_files = {}, {}
+    seen_calls, call_files, call_delta_files = {}, {}, {}
     for tag, spec in impure.items():
         va = int(spec["va"], 16)
         args = {reg: root for reg, root in (spec.get("args") or {}).items()}
@@ -498,6 +588,7 @@ def main():
         calls[tag] = 0
         seen_calls[tag] = set()
         call_files[tag] = open(os.path.join(a.out, "calls", tag + ".bin"), "wb")
+        call_delta_files[tag] = open(os.path.join(a.out, "calls", tag + ".delta"), "w")
 
         def on_entry(uc_, address, size, data, tag=tag, spec=spec, args=args):
             calls[tag] += 1
@@ -506,10 +597,12 @@ def main():
             call_roots = {names[r]: v for r, v in regs.items()}
             scal = scalars_at_entry(uc_, spec)
             banks[tag].offer(lambda: with_scalars(snapshot(uc_, spec, call_roots), scal))
+            did = cdelta.delta() if cdelta is not None else ""
             rec = entry_record(uc_)
-            if rec not in seen_calls[tag]:
-                seen_calls[tag].add(rec)
+            if (rec, did) not in seen_calls[tag]:
+                seen_calls[tag].add((rec, did))
                 call_files[tag].write(rec)
+                call_delta_files[tag].write(did + "\n")
 
         uc.hook_add(UC_HOOK_CODE, on_entry, None, begin=va, end=va)
         # Own-block coverage: the live leaders of this function's own blocks. The range is the
@@ -572,6 +665,8 @@ def main():
               "executed_leaders": {t: len(s) for t, s in hit.items() if s},
               "banks_written": banks_written, "frames": frame_log,
               "secs_total": round(time.time() - t0, 2)}
+    if cdelta is not None:
+        record["deltas"] = cdelta.close()
     if lazy is not None:
         record["lazy"] = {"faults": lazy.faults, "pages": lazy.pages, "refused": lazy.refused,
                           "import_calls": lazy.import_calls}

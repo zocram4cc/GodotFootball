@@ -207,7 +207,7 @@ def gen(spec, va, callees):
 
 def gen_snap(va, callees):
     """The snapshot diff main for one function. argv: ok_calls.bin (the replayable calls of one
-    snapshot, snapcase.py), mem.bin, maps.txt (its readable runs), out.jsonl. Each call starts from
+    snapshot, snapcase.py), mem.bin, maps.txt (its readable runs), out.jsonl, ok_delta.bin (each call's delta pages) and pool/pages.bin (their bytes). Each call starts from
     its recorded registers over the snapshot's own pages (SnapView, copied on first touch and dropped
     per call), with its return address at [rsp]. One output line per call in the harness corpus's
     format: rax, the full xmm0, and every byte written (address and value, in order)."""
@@ -228,9 +228,16 @@ def gen_snap(va, callees):
     L.append('// One traced call (snapcase.py CALL_REC): 16 GPRs, 16 XMM (lo, hi), the return address.')
     L.append('struct CallRec { uint64_t v[49]; };')
     L.append('int main(int argc, char** argv) {')
-    L.append('  if (argc < 5) return 2;')
+    L.append('  if (argc < 7) return 2;')
     L.append('  int mfd = open(argv[2], O_RDONLY); if (mfd < 0) return 2;')
     L.append('  SnapView snap; snap.fd = mfd;')
+    L.append('  int pfd = open(argv[6], O_RDONLY); if (pfd < 0) return 2;')
+    L.append('  struct stat dst; if (stat(argv[5], &dst) != 0) return 2;')
+    L.append('  std::vector<uint64_t> dwords(dst.st_size / 8);')
+    L.append('  FILE* df = fopen(argv[5], "rb"); if (!df) return 2;')
+    L.append('  if (!dwords.empty() && fread(dwords.data(), 8, dwords.size(), df) != dwords.size()) return 2;')
+    L.append('  fclose(df);')
+    L.append('  size_t dpos = 0;')
     L.append('  FILE* mp = fopen(argv[3], "r"); if (!mp) return 2;')
     L.append('  unsigned long long rva, rsize, roff;')
     L.append('  while (fscanf(mp, "%llx %llx %llx", &rva, &rsize, &roff) == 3)')
@@ -244,6 +251,14 @@ def gen_snap(va, callees):
     L.append('  fclose(cf);')
     L.append('  FILE* out = fopen(argv[4], "w"); if (!out) return 2;')
     L.append('  for (size_t i = 0; i < n; ++i) {')
+    L.append('    snap.over.clear();')
+    L.append('    uint64_t np = dwords[dpos++];')
+    L.append('    for (uint64_t k = 0; k < np; ++k) {')
+    L.append('      uint64_t va = dwords[dpos], off = dwords[dpos + 1]; dpos += 2;')
+    L.append('      SnapView::Block b{va, std::vector<uint8_t>(4096)};')
+    L.append('      if (pread(pfd, b.bytes.data(), 4096, (off_t)off) != 4096) return 2;')
+    L.append('      snap.over.push_back(std::move(b));')
+    L.append('    }')
     L.append('    const uint64_t* r = recs[i].v;')
     L.append('    PesState s;')
     L.append('    s.mem.snap = &snap;')
