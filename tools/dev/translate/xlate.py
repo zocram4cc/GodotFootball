@@ -1042,17 +1042,24 @@ class Emitter:
 
     def do_mul(self, m, ops):
         if m == "MUL" and len(ops) == 1:
-            # unsigned: EDX:EAX = EAX * op (32-bit) or RDX:RAX (64-bit)
+            # unsigned: AL*r8->AX, AX*r16->DX:AX, EAX*r32->EDX:EAX, RAX*r64->RDX:RAX. A 32-bit
+            # destination zero-extends RAX and RDX (SDM); the 8- and 16-bit forms keep the other bits.
             o = ops[0]
             w = self.op_width(o)
             b = self.val_of(o, w)
-            if w <= 32:
-                return ["{ uint64_t _p = (uint64_t)(uint32_t)s.gpr[0] * "
-                        "(uint64_t)(uint32_t)(%s);" % b,
-                        "  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFF00000000ULL) | "
-                        "(_p & 0xFFFFFFFFULL);",
-                        "  s.gpr[2] = (s.gpr[2] & 0xFFFFFFFF00000000ULL) | "
-                        "((_p >> 32) & 0xFFFFFFFFULL);",
+            if w == 8:
+                return ["{ uint64_t _p = (uint64_t)(uint8_t)s.gpr[0] * (uint64_t)(uint8_t)(%s);" % b,
+                        "  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFF0000ULL) | (_p & 0xFFFFULL);",
+                        "  s.cf = s.of = ((_p >> 8) != 0); }"]
+            if w == 16:
+                return ["{ uint64_t _p = (uint64_t)(uint16_t)s.gpr[0] * (uint64_t)(uint16_t)(%s);" % b,
+                        "  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFF0000ULL) | (_p & 0xFFFFULL);",
+                        "  s.gpr[2] = (s.gpr[2] & 0xFFFFFFFFFFFF0000ULL) | ((_p >> 16) & 0xFFFFULL);",
+                        "  s.cf = s.of = ((_p >> 16) != 0); }"]
+            if w == 32:
+                return ["{ uint64_t _p = (uint64_t)(uint32_t)s.gpr[0] * (uint64_t)(uint32_t)(%s);" % b,
+                        "  s.gpr[0] = (uint64_t)(uint32_t)_p;",
+                        "  s.gpr[2] = (uint64_t)(uint32_t)(_p >> 32);",
                         "  s.cf = s.of = ((_p >> 32) != 0); }"]
             return ["{ unsigned __int128 _p = (unsigned __int128)s.gpr[0] * "
                     "(uint64_t)(%s);" % b,
@@ -1060,22 +1067,27 @@ class Emitter:
                     "(uint64_t)(_p >> 64);",
                     "  s.cf = s.of = ((_p >> 64) != 0); }"]
         if m == "IMUL" and len(ops) == 1:
+            # signed: the same widths and writes; CF = OF = the product does not fit the low part (SDM).
             o = ops[0]
             w = self.op_width(o)
             b = self.val_of(o, w)
-            if w <= 32:
-                return ["{ int64_t _p = (int64_t)(int32_t)s.gpr[0] * "
-                        "(int64_t)(int32_t)(%s);" % b,
-                        "  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFF00000000ULL) | "
-                        "(_p & 0xFFFFFFFFULL);",
-                        "  s.gpr[2] = (s.gpr[2] & 0xFFFFFFFF00000000ULL) | "
-                        "((_p >> 32) & 0xFFFFFFFFULL);",
-                        "  s.cf = s.of = false; }"]
-            return ["{ __int128 _p = (__int128)(int64_t)s.gpr[0] * "
-                    "(int64_t)(%s);" % b,
-                    "  s.gpr[0] = (uint64_t)_p; s.gpr[2] = "
-                    "(uint64_t)(_p >> 64);",
-                    "  s.cf = s.of = false; }"]
+            if w == 8:
+                return ["{ int16_t _p = (int16_t)((int8_t)s.gpr[0]) * (int16_t)((int8_t)(%s));" % b,
+                        "  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFF0000ULL) | ((uint16_t)_p);",
+                        "  s.cf = s.of = ((int16_t)(int8_t)_p != _p); }"]
+            if w == 16:
+                return ["{ int32_t _p = (int32_t)((int16_t)s.gpr[0]) * (int32_t)((int16_t)(%s));" % b,
+                        "  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFF0000ULL) | ((uint16_t)_p);",
+                        "  s.gpr[2] = (s.gpr[2] & 0xFFFFFFFFFFFF0000ULL) | ((uint16_t)((uint32_t)_p >> 16));",
+                        "  s.cf = s.of = ((int32_t)(int16_t)_p != _p); }"]
+            if w == 32:
+                return ["{ int64_t _p = (int64_t)((int32_t)s.gpr[0]) * (int64_t)((int32_t)(%s));" % b,
+                        "  s.gpr[0] = (uint64_t)(uint32_t)_p;",
+                        "  s.gpr[2] = (uint64_t)(uint32_t)((uint64_t)_p >> 32);",
+                        "  s.cf = s.of = ((int64_t)(int32_t)_p != _p); }"]
+            return ["{ __int128 _p = (__int128)(int64_t)s.gpr[0] * (int64_t)(%s);" % b,
+                    "  s.gpr[0] = (uint64_t)_p; s.gpr[2] = (uint64_t)(_p >> 64);",
+                    "  s.cf = s.of = ((int64_t)(uint64_t)_p != _p); }"]
         if m == "IMUL" and len(ops) == 3:
             dst = ops[0]
             w = self.op_width(dst)
@@ -1253,8 +1265,9 @@ class Emitter:
                     return ["s.xmm[%d][0] = s.xmm[%d][0];"
                             % (x, int(s[3:]))]
                 inner = src[src.find("["):]
-                return ["s.xmm[%d][0] = %s;" % (x, self.mem_val(inner, 64,
-                                                                None))]
+                # A memory source zeroes bits 64-127 (SDM: MOVSD xmm, m64); a register source keeps them.
+                return ["s.xmm[%d][0] = %s; s.xmm[%d][1] = 0;"
+                        % (x, self.mem_val(inner, 64, None), x)]
             inner = dst[dst.find("["):]
             x = int(s[3:])
             return ["s.wr(%s, s.xmm[%d][0], 8);"
@@ -1478,7 +1491,7 @@ class Emitter:
                 fn = "pes_fn_%s" % tgt[2:]
                 return ["{ s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); %s(s); "
                         "s.gpr[4] += 8; }" % fn]
-            return ["/*OUT-OF-SET CALL %s*/ s.gpr[0] = 0;" % tgt]
+            return ["/*OUT-OF-SET CALL %s*/ pes_dispatch_missing(0x%X);" % (tgt, imm_val(ops[0]))]
         if m == "JMP":
             o = ops[0].strip()
             if is_imm(o):

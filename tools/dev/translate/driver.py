@@ -229,6 +229,7 @@ def runnable_extra(spec, image, depth_cap=25):
     import xlate
     harness = spec.get("harness") or {}
     seeds = []
+    unseeded = {}  # unmodellable out-of-set callees the build cannot run: named, not dropped
     for e in harness.get("out_of_set_callees") or []:
         if (e.get("how") or "call") != "call":
             continue
@@ -238,11 +239,13 @@ def runnable_extra(spec, image, depth_cap=25):
             continue
         if entry["do"] is None:
             seeds.append(va)  # run-real: image bytes execute either way
-        elif entry["do"] == "unmodellable" and \
-                _why_dispatchable(entry.get("why")):
-            seeds.append(va)
+        elif entry["do"] == "unmodellable":
+            if _why_dispatchable(entry.get("why")):
+                seeds.append(va)
+            else:
+                unseeded[va] = "unmodellable: %s" % (entry.get("why") or "")[:200]
     extra = []
-    blocked = {}
+    blocked = dict(unseeded)  # a case that enters a blocked callee is excluded by run.py, never run silently
     seen = set()
     def direct_calls(va):
         try:
