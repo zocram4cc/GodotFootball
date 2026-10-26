@@ -39,6 +39,26 @@ Usage (normally via ctest `diff_gen_<fn>` + `tests/diff/`, which call
 cleanly (ctest 77), as it does without `PES_EXE`. The landing gate passes
 its `GF_DIFF_PYTHON`/`PES_EXE` through to ctest.
 
+## Real-instance cases (seed banks)
+
+A bank holds one seed per live instance of an argument class. Case n then runs on instance n % N, with that instance's
+real bytes in its regions.
+
+    python3 tools/dev/translate/seed.py --live LIVE --spec-dir specs/impure --out BANKS --bank-classes CLASSES.json
+    python3 tools/dev/diffharness/run.py --exe "$PES_EXE" --spec specs/impure/1404F8C70.json --out corp.jsonl \
+        --seed-bank BANKS [--perturb]
+
+- `CLASSES.json` maps a lower-case spec name to the class of its A0 root: `team` (T[0], T[1]), `man`, `anime`, `slot`
+  (the 22 on-pitch records), or `none` (G only). The classes are INF: the argmap where it names one, otherwise A0
+  chains through the team child slots +0x6D48/+0x6D50.
+- An input that names a field an instance holds takes that instance's real value. With `--perturb`, each (case, field)
+  is deterministically one of: real, nearby (±1 or ±2 for integers, ±5% for f32), the same field of instance n+1, or
+  the spec's own draw. A field no instance holds keeps its draw.
+- Regions are zeroed before each banked case, so one instance's bytes never leak into the next.
+- A failing case (an access through a value no region covers) is logged on stderr as `case N failed: unmodelled read at
+  0x...` and skipped. The corpus holds the passing cases, and each record carries `inst`.
+- The translated side reads `inst` per record: `translate/driver.py --seed-bank BANKS [--perturb]`.
+
 ## specgen: the spec generator
 
 `specgen/` writes one spec per VA from the image (`PES_EXE`, the unpacked executable). Its output is scratch until it
