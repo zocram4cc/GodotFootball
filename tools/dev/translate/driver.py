@@ -107,6 +107,17 @@ def read_attribution(path):
     return out
 
 
+def recorded_elsewhere(record):
+    """0x-prefixed VAs that a committed results*.json other than `record` already records, with any verdict."""
+    own = os.path.abspath(record) if record else None
+    out = set()
+    for name in os.listdir(HERE):
+        path = os.path.abspath(os.path.join(HERE, name))
+        if name.startswith("results") and name.endswith(".json") and path != own:
+            out |= {"0x%X" % int(r["va"], 16) for r in json.load(open(path))["results"]}
+    return out
+
+
 def asm_for(asm_dir, va):
     if not asm_dir:
         return ""
@@ -336,11 +347,34 @@ def blocked_reason(spec):
         return None
 
 
+def summary_of(stdout):
+    """run.py's stdout summary line: valid, requested, nonreturn, failed, capped, icount_max."""
+    m = re.search(r"^summary valid=(\d+) requested=(\d+) nonreturn=(\d+) failed=(\d+) capped=(\d+) icount_max=(\d+)$",
+                  stdout or "", re.M)
+    if m is None:
+        raise SystemExit("driver: run.py printed no summary line")
+    keys = ("valid", "requested", "nonreturn", "failed", "capped", "icount_max")
+    return dict(zip(keys, (int(v) for v in m.groups())))
+
+
+def skip_note(res):
+    """What the corpus is made of, in the note: valid cases against the requested count, and what was skipped."""
+    parts = ["%d valid of %d requested" % (res["cases"], res["requested"])]
+    if res["nonreturn"]:
+        parts.append("%d non-returning skipped" % res["nonreturn"])
+    if res["failed"]:
+        parts.append("%d failed skipped" % res["failed"])
+    if res["capped"]:
+        parts.append("capped after %d non-returning: %d case(s) not generated" % (res["nonreturn"], res["capped"]))
+    return "; ".join(parts)
+
+
 def run_one(va, args, pilot):
     """Full pipeline for one function. Returns a result dict."""
     import diffmain
     res = {"va": va, "translated": False, "diffed": False, "cases": 0,
-           "failure_class": None, "note": "", "stubs": []}
+           "failure_class": None, "note": "", "stubs": [], "nonreturn": 0, "failed": 0, "capped": 0,
+           "requested": 0, "icount_max": 0}
     spec, spec_path = load_spec(args.spec_dir, va)
     if spec is None:
         res["failure_class"] = "struct map gap"
@@ -388,11 +422,15 @@ def run_one(va, args, pilot):
     seed_args = (["--seed-state", args.seed_state] if args.seed_state else []) \
         + (["--seed-bank", args.seed_bank] if args.seed_bank else []) \
         + (["--perturb"] if args.perturb else [])
-    rc, _, err = sh([diff_python(), RUN_PY, "--exe", args.image,
+    rc, out, err = sh([diff_python(), RUN_PY, "--exe", args.image,
                      "--spec", spec_path, "--out", corpus,
                      "--trace-calls", trace,
                      "--trace-addrs", addrs] + count + seed_args,
                     timeout=args.timeout)
+    summ = summary_of(out) if rc == 0 else None
+    if summ is not None:
+        res.update(nonreturn=summ["nonreturn"], failed=summ["failed"], capped=summ["capped"],
+                   requested=summ["requested"], icount_max=summ["icount_max"])
     if rc != 0:
         cls, note = fault_class(spec, err or "run.py rc=%d" % rc)
         res["failure_class"] = cls
@@ -409,9 +447,15 @@ def run_one(va, args, pilot):
         # Empty corpus: the function never reaches its end under the
         # harness (e.g. tail-jump live chase). Nothing to diff.
         res["failure_class"] = "harness cannot run"
+        res["cases"] = 0
         res["note"] = "corpus empty (0 cases)"
         return res
     res["cases"] = nlines
+    if summ is not None and 2 * nlines < summ["requested"]:
+        # Half the requested cases must be valid for a verdict: a skipped case is no output, so a function whose cases
+        # mostly do not return has no oracle here.
+        res["failure_class"] = "harness cannot run"
+        return res
     return res
 
 
@@ -747,6 +791,8 @@ def finish_one(va, args, pilot):
                 res["diffed"] = ok
                 res["failure_class"] = cls
                 res["note"] = note
+    if res["requested"]:
+        res["note"] = ("%s; " % res["note"] if res["note"] else "") + skip_note(res)
     return res
 
 def main():
@@ -776,6 +822,9 @@ def main():
                     help="committed results JSON. A full run writes it; --check re-runs its diffed VAs and never writes it.")
     ap.add_argument("--set", default=None,
                     help="a generator set file (specgen sets/*.txt): its subsystem and role columns are recorded on each result")
+    ap.add_argument("--exclude-recorded", action="store_true",
+                    help="attempt and record only the specs that no other committed results*.json records. The rest "
+                         "stay in the spec dir: they are the callee universe, and their own sets own their records.")
     args = ap.parse_args()
     if args.check and not args.record:
         ap.error("--check re-runs the VAs that --record lists as diffed")
@@ -787,6 +836,9 @@ def main():
 
     specs = sorted(f for f in os.listdir(args.spec_dir)
                    if f.endswith(".json"))
+    if args.exclude_recorded:
+        elsewhere = recorded_elsewhere(args.record)
+        specs = [f for f in specs if "0x" + f[:-5].upper() not in elsewhere]
     # The pilot (call-closed universe) always spans ALL specs; --only
     # filters which functions get results, not the callee universe.
     # Otherwise callees outside --only would mistranslate as out-of-set
