@@ -102,4 +102,28 @@ TEST(WorldRecords, FieldsSitAtTheirPesOffsetsFromTheRecordTheAccessorReturns) {
   EXPECT_EQ(s.rd(slot + kSlotCounterAOffset, 4), slotCounterA);
 }
 
+// The contact flag is the man record's byte at +0x661, reached through the man table entry of its slot. Setting one
+// slot's flag leaves the others alone, and the translated man accessor reads the same byte at PES's offset.
+TEST(WorldRecords, TouchingIsTheManRecordsByteOfItsSlot) {
+  auto world = std::make_unique<PesWorld>();
+  for (int slot = 0; slot < kSlotCount; ++slot) world->BindSlot(slot);
+  world->SetTouching(kTestSlot, true);
+  EXPECT_TRUE(world->Touching(kTestSlot));
+  EXPECT_FALSE(world->Touching(kTestSlot - 1));
+  PesState s = MappedState(*world);
+  EXPECT_EQ(s.rd(RunAccessor(&pes_fn_140A48A10, *world, kTestSlot) + kManTouchingOffset, 1), 1u);
+  world->SetTouching(kTestSlot, false);
+  EXPECT_FALSE(world->Touching(kTestSlot));
+}
+
+// The anime class byte is the anime record's +0x1: the class GF writes is the byte the translated accessor reads.
+TEST(WorldRecords, AnimeClassIsTheAnimeRecordsPlusOneByte) {
+  auto world = std::make_unique<PesWorld>();
+  world->BindSlot(kTestSlot);
+  world->SetAnimeClass(kTestSlot, 3);
+  EXPECT_EQ(world->AnimeClass(kTestSlot), 3);
+  PesState s = MappedState(*world);
+  EXPECT_EQ(s.rd(RunAccessor(&pes_fn_140A48910, *world, kTestSlot) + kAnimeClassOffset, 1), 3u);
+}
+
 }  // namespace

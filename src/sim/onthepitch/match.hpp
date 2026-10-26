@@ -31,6 +31,7 @@ class PlayerData;
 #include "officials.hpp"
 #include "pesstoppage.hpp"
 #include "peskickerror.hpp"
+#include "pesworldrecord.hpp"
 #include "pesdodge.hpp"
 #include "pestackle.hpp"
 #include "pesoffball.hpp"
@@ -172,6 +173,10 @@ public:
   Player* GetPesActorPlayer(const pes::ActorKey& key);
   // The store key of a player: his side and his squad index.
   pes::ActorKey PesActorKeyOf(const Player* player);
+  // The PES slot (side * 11 + squad place) of an on-pitch player: the table entries and block holding his records.
+  int PesSlotOf(const Player* player);
+  // PES's G tables and per-player blocks (pesworldrecord.hpp), owned by the match for the whole match.
+  pes::PesWorld& PesWorldOf() { return *pesWorld; }
   // Seconds since a store record's frame, on PES's game-speed frames.
   float GetPesEventAge_s(int eventFrame) const;
   int GetLastTouchTeamID(e_TouchType touchType) const { return lastTouchTeamIDs[touchType]; }
@@ -517,7 +522,6 @@ protected:
     int selfBone = pes::kBoneChest, oppBone = pes::kBoneChest;
     float contactHeight_m = 0.0f;
     float lastTouch_s = -1.0f;    // pl+0x658
-    bool touching = false;        // pl+0x661
     int gauge = 0;                // ap+0x2820
     float jostleContact_s = 0.0f;  // human+0x2f
     bool jostleOpening = false;   // the jostle's first (guard_back) clip
@@ -531,6 +535,7 @@ protected:
   bool TripFromContact(Player* victim, Player* other, int tripType);
   void ReportContact(Player* victim, Player* fouler, bool staggered, bool fell);
   std::map<int, PesContactState> pesContact;
+  std::unique_ptr<pes::PesWorld> pesWorld;
   std::map<Animation*, int> pesRiseUpFrame;  // fall clip -> the body's lowest frame
   void CheckBallCollisions();
   // Poses every body for this tick (GF's put phase, run in-line).

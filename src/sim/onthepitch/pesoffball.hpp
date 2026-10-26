@@ -195,8 +195,7 @@ struct PlayerFacts {
   int marker = -1;       // FUN_140a62850: the opponent marking him
   int aiClass = 0;       // FUN_140a580a0 (T+0xc0), the AI class the state tests read
   int runCooldown = 0;   // M+0x17b4 A[s]: PES frames left before the slot may run again
-  // Record +1 byte (FUN_140A48910(G,id)+1): FramesToReach halves on kHalvedReachRecordByte.
-  // GF has no such byte: BuildRunWorld stands in the keeper, as the old position-0 test did.
+  // Record +1 byte (FUN_140A48910(G,id)+1), read from the slot's anime record (PesWorld::AnimeClass) by BuildRunWorld.
   int recordByte1 = 0;
 };
 

@@ -190,6 +190,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES contact constants missing: read them from the install with "
         "pes::LoadContactConstants into MatchSetup::pesContactConstants");
   pesContactConstants = *setup.pesContactConstants;
+  // PES's G tables and the per-player blocks GF owns beside them (pesworldrecord.hpp). The contact pass keeps its flags
+  // in the man records. ponytail: PES's block allocator is OPEN (pes-re-player-record.md OPEN-1); this array stands in.
+  // ponytail: the side tables name team records, which join the window with S5/S7; until then they stay null.
+  pesWorld = std::make_unique<pes::PesWorld>();
+  for (int slot = 0; slot < pes::kSlotCount; ++slot) pesWorld->BindSlot(slot);
   // PES 2021's event routing table and detector constants (docs/re/pes-re-gaps-a2.md). Required:
   // the event stage routes every record through the table.
   if (setup.pesEventRingTable == nullptr || setup.pesEventConstants == nullptr)
@@ -1757,6 +1762,8 @@ void Match::ProcessPesContacts(const std::vector<Player*>& players) {
   constexpr float kTick_s = kTick_ms / 1000.0f;
   const float now = GetSimTime_ms() / 1000.0f;
   const Vector3 ball = GetBall()->Predict(0);
+  // A slot's contact flag, read back from the man record (+0x661) through the man table, for this tick's contact pass.
+  auto touchingOf = [this](const Player* p) { return PesWorldOf().Touching(PesSlotOf(p)); };
 
   std::vector<Parts> parts;
   parts.reserve(players.size());
@@ -1808,7 +1815,7 @@ void Match::ProcessPesContacts(const std::vector<Player*>& players) {
       }
     }
     if (best <= 0.0f && now - st.lastTouch_s > kTouchMemory_s) st.partner = -1;
-    st.touching = best > 0.0f;
+    PesWorldOf().SetTouching(PesSlotOf(self), best > 0.0f);
   }
 
   auto byId = [&players](int id) -> std::pair<Player*, size_t> {
@@ -1824,7 +1831,7 @@ void Match::ProcessPesContacts(const std::vector<Player*>& players) {
     Player* self = players[i];
     PesContactState& st = pesContact[self->GetID()];
     auto [partner, pj] = byId(st.partner);
-    if (st.action == pes::ContactAction::kJostle && partner && st.touching) {
+    if (st.action == pes::ContactAction::kJostle && partner && touchingOf(self)) {
       PesContactState& ps = pesContact[partner->GetID()];
       if (IsStaggerOrFallAction(ps.action)) st.jostleContact_s = 0.0f;
       else st.jostleContact_s += kTick_s;
@@ -1835,7 +1842,7 @@ void Match::ProcessPesContacts(const std::vector<Player*>& players) {
       st.jostleOpening = false;
     }
     if (st.action == pes::ContactAction::kDribble && partner) {
-      st.contested_s = st.touching ? st.contested_s + kTick_s : 0.0f;
+      st.contested_s = touchingOf(self) ? st.contested_s + kTick_s : 0.0f;
       const bool pushing = st.pushAwayStart_s >= 0.0f &&
                            (now - st.pushAwayStart_s) * k.framesPerSecondRef < k.pushAwayTo_frames;
       pes::PushAwayInput pin;
@@ -1860,7 +1867,7 @@ void Match::ProcessPesContacts(const std::vector<Player*>& players) {
   for (Player* self : players) {
     PesContactState& st = pesContact[self->GetID()];
     auto [partner, pj] = byId(st.partner);
-    if (partner && st.touching && st.action == pes::ContactAction::kDribble &&
+    if (partner && touchingOf(self) && st.action == pes::ContactAction::kDribble &&
         pesContact[partner->GetID()].action == pes::ContactAction::kJostle)
       st.inJostle = true;
     else
@@ -1883,7 +1890,7 @@ void Match::ProcessPesContacts(const std::vector<Player*>& players) {
 
     // Balance gauge (FUN_1406f9b70) against the touching partner.
     pes::BalanceGaugeInput gin;
-    if (partner && st.touching) {
+    if (partner && touchingOf(self)) {
       const Vector3 toPartner = (partner->GetPosition() - self->GetPosition()).Get2D().GetNormalized(
           self->GetDirectionVec());
       const PesContactState& ps = pesContact[partner->GetID()];

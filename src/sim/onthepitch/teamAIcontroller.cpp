@@ -3447,9 +3447,12 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       f.facing = pesDeg(pl->GetDirectionVec());
       f.roleClass = ctl->RoleClassOfSlot(match->GetTeam(t)->FormationSlotOf(pl));
       f.styleWord = pes::style::StyleWord(pl->GetPlayerData()->GetPlayingStyle());
-      // ponytail: PES's record +1 byte (FramesToReach's halving test) has no GF field; the keeper
-      // stands in for it until the record is read.
-      f.recordByte1 = f.roleClass == pes::roles::kKeeperClass ? ob::kHalvedReachRecordByte : 0;
+      // ponytail: PES's writer of the record's +1 byte (lane-units2 S12) is not decoded; the keeper class stands in for it.
+      // The byte sits in the slot's anime record (pesworldrecord.hpp), and the run world reads it back from there.
+      const int recordSlot = t * ob::kSlots + static_cast<int>(i);
+      match->PesWorldOf().SetAnimeClass(
+          recordSlot, static_cast<uint8_t>(f.roleClass == pes::roles::kKeeperClass ? ob::kHalvedReachRecordByte : 0));
+      f.recordByte1 = match->PesWorldOf().AnimeClass(recordSlot);
       // ponytail: FUN_140a580a0's AI class (player +0xc0, a copy of +0x40) is
       // PES's AI behaviour class, which GF does not carry. The role class is
       // the closest analogue: the class the AI treats the player as.
