@@ -1644,14 +1644,20 @@ TEST(OffBallRecord, FactsReadTheirManRecord) {
   EXPECT_FLOAT_EQ(f.facing(), 90.0f);
 }
 
-// A player with no record reads zeros.
-TEST(OffBallRecord, WithoutARecordTheKinematicsReadZero) {
+// A player with no record holds none: there is no shared zero record for an unbound read to land in. Every on-pitch
+// slot is bound at match start, so an unbound read is an error (a debug assert; compiled out in Release).
+TEST(OffBallRecord, UnboundFactsHoldNoRecord) {
   const PlayerFacts none;
-  EXPECT_EQ(none.pos().x, 0.0f);
-  EXPECT_EQ(none.pos().z, 0.0f);
-  EXPECT_EQ(none.vel().x, 0.0f);
-  EXPECT_EQ(none.facing(), 0.0f);
+  EXPECT_EQ(none.man, nullptr);
 }
+
+#ifndef NDEBUG
+TEST(OffBallRecordDeath, UnboundFactsReadAsserts) {
+  const PlayerFacts none;
+  EXPECT_DEATH((void)none.pos(), "");
+}
+#endif
+
 
 // The setters write PES's units: velocity in m per frame, so 5.4 m/s at 54 frames a second is 0.1 m a frame.
 TEST(OffBallRecord, SettersWriteTheManRecordInPesUnits) {
