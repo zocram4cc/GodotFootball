@@ -1,105 +1,97 @@
-# Captures: mid-play capture tool, argument typing, union impure measurement (26-10-26)
+# Captures: canonical union impure measurement over complete captures (26-10-26, final)
 
-Branch `Captures` (worktree `<workdrive>/gf-Captures`, base `origin/main` 1cbe5ac5, `origin/RealCases` 6a7a1ee merged). Pushed: `6355753c` (merge), `49159c16`, `780e62d4`, `dff5515c` (head, `ls-remote` confirmed). Scratch data (captures, seed banks, driver outputs, logs) is PES-derived and stays in `<workdrive>/gf-Captures-scratch/`; nothing of it is committed.
+Branch `Captures`. Head `3084a4cd` (ls-remote confirmed). Lineage: `6355753c` (merge RealCases), `49159c16`, `780e62d4`, `dff5515c`, `f5a42e32` (17-capture union), `57d4f1aa` (OpenPlay: `.pdata`-based argument typing, merged ff), `0b0919e1` (17-capture union re-measured on the 8 supported roots), `3084a4cd` (canonical 9-capture union + order-independent banks). Scratch data (captures, banks, driver outputs, logs) is PES-derived and stays in `<workdrive>/gf-Captures-scratch/` and `<workdrive>/gf-FrameTrace-scratch/`; nothing of it is committed.
 
-## Status
+## Done
 
-- Done: targeted capture tool with object-level gates; 5 accepted mid-play captures; argument-root typing (15 slots over 15 specs, evidence committed); union seed banks; a full driver run over the 50 impure specs with the union banks; `results_impure.json` committed, with no previously bit-exact spec lost.
-- Not done: open-play captures (none accepted; see §1); per-capture coverage (not measured; see §3); typing for 35 specs (§2).
+1. **Owner audit incorporated.** Main audited every capture from its bytes (`main_audit.py`): my `captures_i` set (14 accepted, 8 open play) is **incomplete** — team record 1 holds 28,672 of 49,464 bytes, and most slot records are patched or uncaptured (1 to 4 of 22). The 17-capture union therefore ran open-play cases without most per-player state; "open play doesn't help" was not established from it. The match is over; no more captures are possible.
+2. **Canonical union: 9 complete, consistent captures** (audit verdict `consistent`: both teams whole, 22/22 slot records captured, MI in G ok):
 
-## 1. Captures
+   | capture | dir | play | restart | frame |
+   |---|---|---|---|---|
+   | f01 | `gf-FrameTrace-scratch/cap1/f01-open-p3-play1-fr30490` | 1 | 0 | 30490 |
+   | f1323 | `…/cap1/f1323-open-p1-play1-fr13724` | 1 | 0 | 13724 |
+   | f1559 | `…/cap1/f1559-open-p1-play1-fr19044` | 1 | 0 | 19044 |
+   | f501 | `…/cap1/f501-open-p3-play1-fr43009` | 1 | 0 | 43009 |
+   | t002 | `captures_e/t002-start-p3-f37279` | 1 | 0 | 37279 |
+   | t025 | `captures_e/t025-restart4-p3-f39484` | 3 | 4 corner | 39484 |
+   | t028 | `captures_e/t028-restart2-p3-f40208` | 2 | 2 throw-in | 40208 |
+   | t033 | `captures_e/t033-restart3-p3-f42494` | 2 | 3 goal kick | 42494 |
+   | t037 | `captures_e/t037-open-p3-f45451` | 1 | 0 | 45451 |
 
-**Tool.** `tools/dev/translate/capture_midplay.py` (read-only: `sudo -n` `pread` of `/proc/53052/mem`; no write, pause, signal or attach). It reads the spec-walked graph only: G (0x2E58), the image globals the specs root at, the on-pitch records (2 teams, 22 anime, 22 man, 22 slot), MI, MA, and each named chain node. A capture is 7 to 30 MB, about 50 to 170 ms, and about 1.7k preads. A whole-process snapshot is 3.8 GB, so I did not use it.
+   So the canonical union does include a throw-in (t028) and a goal kick (t033). Restart kinds per `docs/re/pes-re-A5Judge.md` line 40. `captures_e/t029` (MI differs) and all `captures_f/g/h/i` are excluded.
+3. **Order-independence fix.** `seed.py bank_multi` sorted its `--live` dirs by path internally (`3084a4cd`). The per-case instance binding `n % N` made the bank depend on CLI capture order: an unsorted order gave floor 13 for the same 8 roots (OpenPlay's observation, reproduced). Verified: a deliberately shuffled `--live` list now produces byte-identical banks.
+4. **Union measurement, full run.** 618 s, rc 0, 8 supported roots, `--seed-bank --perturb`. `results_impure.json` committed from that run; `--check` (192 s): all 15 recorded-diffed still diff bit-exact.
+5. **Per-capture coverage measured** — nine single-capture full runs (the owner's "per-capture" ask), §3.
 
-**Model (owner, via Main).** MI (G+0x270) and the team slots (G+0x1928, G+0x1950) are published per match step and cleared between steps. The objects persist: the MI object was `0x1BC04608` and G was `0x2C0C3390` across every match in this session (CONFIRMED, `capture.log`). The tool therefore remembers the G-slot values seen in step windows, reads the objects at those addresses, and patches the zero slots of the G blob from memory. Each capture lists its `patched_slots` (34 to 36 per capture) in `live.json`.
+## Results (own-block coverage of the entry VA)
 
-**Gates.** (a) MI and both team objects keep the same vtable (first 8 bytes) across the snapshot. (b) The MI frame counter (MI+0x1198) advances by at most 2 across the snapshot. (c) The G blob is not torn (MI and team slots present, from the epoch).
+| measure | main | 17-capture record* (stale, `f5a42e32`/`0b0919e1`) | **union9 (9 complete captures)** |
+|---|---|---|---|
+| specs with coverage | 46 | 46 | 46 |
+| bit-exact (every case) | 8 | 16 | **15** |
+| floor: coverage ≥ 0.50 | 9 | 17 | 16 |
+| **owner's floor: ≥ 0.50 and bit-exact** | 8 | 16 | **15** |
+| median own coverage | 0.067 | 0.299 | 0.299 |
+| mean own coverage | 0.218 | 0.357 | 0.355 |
 
-**Evidence on the gates (CONFIRMED from logs).**
-- A 16-byte header compare rejected every open-play snapshot (`headers_same=False`). I narrowed it to the vtable, which is the identity check Main specified. The open-play frame gate is unverified: the earlier build (`captures_e`) saw frame deltas of 3 to 10 on its reads, and the vtable-gated build saw no open-play state before the game froze.
-- `t011-restart4-p1-f23874` (first accept, an earlier build) was torn: its G blob had null MI and team slots. It was retracted.
-- The frame counter sat at 57365 from about 10:53:51 to at least 10:56:11, in a kick-off-type state (play 2, restart 1, reason 3, per 10). The game was not advancing, so every capture was gated out. You reported "currently on penalties"; the game was frozen after the shoot-out. I cannot see the screen, so this is INFERENCE.
+`*` measured on `captures_i` (incomplete per the audit) and `captures_f` stoppages; kept here as the comparison against the earlier committed record.
 
-**Accepted captures used in the union (all mid-play stoppages).**
+- **Versus the stale record:** 1405AD720 drops 0.5068 to 0.4658 — **bit-exact on all 118 cases in every capture, but below the 0.50 floor** (recorded as `harness cannot run` / "bit-exact 118 cases at own-block 0.47 < floor 0.50", which is how the driver marks below-floor bit-exact, `driver.py` line 740). No other function lost bit-exact. Nothing gained.
+- **14051CF70** is at floor (0.700 in every capture) with an empty corpus: runs no cases at all.
+- **14064DE60:** 0.0517, below floor, 111 cases (was `translator bug` on the 17-capture record; on the complete captures the note is below-floor bit-exact, not a diff failure).
+- Single-snapshot comparison (RealCases, cited): floor 16 (G seed) and 13 (real plus perturb); median 0.207 and 0.272.
 
-| label | per / play / restart / reason / side | situation (documented, see below) | frame delta | MB |
-|---|---|---|---|---|
-| `captures_f/t034-restart6-p9-f49264` | 9 / 3 / 6 / 9 / 0 | penalty shoot-out kick (INF from docs) | 2 | 9.3 |
-| `captures_f/t037-restart1-p9-f49682` | 9 / 2 / 1 / 3 / 1 | kick-off-type stoppage | 2 | 8.2 |
-| `captures_f/t041-restart0-p9-f51349` | 9 / 2 / 0 / 0 / 2 | restart kind 0 in a stoppage (unclassified) | 2 | 7.9 |
-| `captures_f/t046-restart1-p10-f57363` | 10 / 2 / 1 / 3 / 0 | kick-off-type stoppage | 2 | 7.5 |
-| `captures_g/t001-stop1-p10-f57365` | same as t046, 2 frames later | duplicate moment | 0 | 7.5 |
+## 3. Per-capture coverage (own-block fraction of the entry VA)
 
-Excluded from the union, not mid-play: `captures_f/t030` (per 8, restart 7, reason 1) and `t031` (per 9, restart 7, reason 1). These are period-end stoppages.
+| VA | f01 | f1323 | f1559 | f501 | t002 | t025 | t028 | t033 | t037 | union9 | status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1404F8C70 | .704 | .704 | .620 | .627 | .553 | .563 | .574 | .574 | .518 | .627 | exact |
+| 1404FB2A0 | .750 | .750 | .750 | .750 | .625 | .750 | .625 | .625 | .625 | .750 | exact |
+| 140503430 | .581 | .593 | .606 | .606 | .610 | .606 | .614 | .610 | .606 | .602 | exact |
+| 1405055E0 | .849 | .849 | .849 | .849 | .849 | .849 | .849 | .849 | .849 | .849 | exact |
+| 140510D30 | .291 | .291 | .291 | .291 | .291 | .873 | .764 | .873 | .291 | .818 | exact |
+| 14051CF70 | .700 | .700 | .700 | .700 | .700 | .700 | .700 | .700 | .700 | .700 | corpus empty |
+| 140529490 | .717 | .717 | .717 | .717 | .717 | .717 | .717 | .717 | .717 | .717 | exact |
+| 14052A190 | .417 | .417 | .417 | .389 | .389 | .750 | .639 | .722 | .389 | .750 | exact |
+| 14052A820 | .576 | .576 | .545 | .573 | .532 | .529 | .576 | .576 | .532 | .529 | exact |
+| 14053B110 | .296 | .296 | .296 | .296 | .259 | .630 | .296 | .630 | .259 | .630 | exact |
+| 14057BA50 | .545 | .545 | .545 | .545 | .545 | .545 | .545 | .545 | .545 | .545 | exact |
+| 1405AD720 | .466 | .466 | .466 | .466 | .466 | .466 | .466 | .466 | .466 | .466 | **below floor, bit-exact all 118 cases** |
+| 140639100 | .829 | .843 | .829 | .843 | .829 | .829 | .829 | .829 | .829 | .829 | exact |
+| 140654E60 | .721 | .788 | .721 | .760 | .760 | .760 | .760 | .712 | .721 | .779 | exact |
+| 14065DAB0 | .486 | .581 | .495 | .486 | .486 | .486 | .486 | .486 | .571 | .571 | exact |
+| 140A539F0 | .692 | .692 | .827 | .827 | .692 | .827 | .827 | .827 | .692 | .692 | exact |
+| 140A57650 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | exact |
 
-**Situation mapping.** Restart kinds: 1 kick-off, 2 throw-in, 3 goal kick, 4 corner, 5 free kick, 6 penalty, 7 period end. Stop reasons: 1 period end, 3 goal or kick-off, 4 ball out, 5 foul or offside, 9 shoot-out, 10 abandon. Sources: `docs/re/pes-re-A5Judge.md` (table at line 40, J7 "penalty shoot-out kick: restart 6, reason 9"); `docs/re/pes-re-foul-choreography.md` §85 (INF(hi)). Period map `FUN_140a74d00` 1→0, 3→1, 5→2, 7→3, 9→4 (`pes-re-foul-choreography.md` §87), so per 9 is the shoot-out period. Period 10 is not in that map (OPEN). The probe at 10:52:56 to 10:52:58 (CONFIRMED live read, pread only) showed per 9, play 3, restart 6, reason 9, which then went to open play (play 1).
+Per-capture bit-exact counts: f01 10, f1323 12, f1559 11, f501 10, t002 11, t025 14, t028 13, t033 14, t037 12. Note the G-only (untyped) specs — 1405055E0, 14051CF70, 140529490, 14057BA50 — show identical coverage in every capture: their single G instance per capture is the same region layout, so they contribute no union growth. The capture-to-case variation is entirely in the typed-root (team/man) bindings.
 
-**Read times.** Every capture and state change is time-stamped in `captures_*/capture.log` (wall clock, `+s` from start). Probe: `probe_now.py`, 10:52:56 to 10:52:58.
+## 2. Argument roots
 
-**Open play: not captured.** Every open-play attempt was rejected (`headers_same=False` under the 16-byte gate; then the frozen frame under the vtable gate). The watcher (`captures_h`) is stopped; its only accept is the t001 duplicate.
+My original pass typed 15 root slots over 15 specs using the nearest spec VA as the enclosing function. OpenPlay's stricter `argroots.py` (on `origin/OpenPlay` `57d4f1aa`, merged ff into this branch) resolves each call site through the image's own `.pdata` unwind table and withdrew 7 of the 15: 1404FB2A0.A0, 140503430.A1, 14057BA50.A0, 1406486D0.A0, 14064DC50.A0, 140654E60.A3, 14065C2A0.A0 (at each site the argument register is a stack reload or a value outside any argument). The supported file types **8 of 97 roots**: 6 seeds (1404F47A0, 1404F6C30, 1404F8C70, 1404FA720 team; 14064DE60, 140978E70 man) plus 1404FE9C0 and 1404FEDC0 (team, through the typed root of 1404F6C30). Evidence: `impure_roots_evidence.json` (58 sites dropped at `.pdata` bounds; 0 conflicts). The committed record is measured on these 8 roots.
 
-## 2. Argument roots (item 3): typed with evidence, partial
+## 4. Method notes
 
-`tools/dev/translate/argroots.py` (committed) scans the unpacked image for direct E8/E9 call sites into each impure VA: 242 sites over 50 specs (CONFIRMED, byte scan). It labels the argument registers rcx, rdx, r8, r9 at each site from the 40 instructions before the call (capstone), and propagates through 64-bit pass-throughs of the enclosing spec's own entry alias. The accessor classes come from `docs/re/pes-re-player-record.md` §1.1: `0x140A48A30` team, `0x140A489D0` side, `0x140A48910` anime, `0x140A48A10` man, `0x140A489F0` slot (CONFIRMED by the accessor VAs and their row bases). Conflicts: 0.
+- **Team header gate.** Team record `+0x0` is a per-frame counter (OpenPlay probe: ~46 changes/s). The 8-byte team header gate is therefore a counter-change gate, not a vtable check; MI's header stays in the gate.
+- **Bank.** `seed.py --cap 24` over 9 captures gives 3 instances per capture for typed roots (34 instances for the team-rooted specs, 27 for man — the man table has fewer live rows per capture); untyped specs get 1 G-only instance per capture (9).
+- **The `captures_i` captures remain available** in scratch (14 accepted, 0 rejected, 1.15 MB, 113 to 125 preads, 1.5 to 6 ms each) but are not part of the canonical union.
 
-Typed (15 root slots over 15 specs; `impure_roots.json`, evidence in `impure_roots_evidence.json`):
-- Seed classes from RealCases (INF, not re-derived here): A0 of 1404F47A0, 1404F6C30, 1404F8C70, 1404FA720 = team; A0 of 14064DE60, 140978E70 = man.
-- Accessor result or pass-through: A0 of 1404FB2A0, 1404FE9C0, 1404FEDC0, 14057BA50 = team (pass of 1404F6C30.A0, `mov rcx, rdi`); A1 of 140503430 = team (pass of 1404FEDC0.A0, `mov rdx, rdi`); A0 of 1406486D0, 14064DC50, 14065C2A0 = man (pass of 14064DE60.A0); A3 of 140654E60 = man (pass of 14064DE60.A0, `mov r9, rbx`).
+## 5. Not done / open
 
-Not typed (35 specs): the call sites are in functions outside the impure set, or the register holds a field of an unknown record (e.g. `fld:r14+0x460`). The approximation "enclosing function = nearest spec VA below the site, within 0x8000" is recorded in the evidence.
+1. **1405AD720 just under floor.** 0.4658 in every capture (bit-exact on all 118 cases each). A small coverage gain — one more block reachable, or a capture that exercises the missing branch — would push it over 0.50 and make the floor 16.
+2. **14051CF70 corpus empty** at 0.700 coverage. No cases run at all in any capture.
+3. **14064DE60** at 0.0517 (111 cases, below-floor bit-exact). Was `translator bug` on the incomplete 17-capture record.
+4. **~33 specs unrunnable** (`harness cannot run` / `unmodellable callee`).
+5. **Typing for the remaining roots** (89 of 97 untyped). OpenPlay is continuing on their branch; their stricter analysis is the base.
 
-## 3. Union measurement (item 4)
+## 6. Reproduce
 
-**Banks.** `seed.py --live` over the 5 captures, `--bank-classes impure_roots.json`, `--cap 24`: 5 instances per capture for each spec (25 total). The seed now resolves `IMG.<X>` roots from image global X's value (the regions in the specs, e.g. `IMG.1437F4808.0`, were previously zero). Smoke test before the full run: `driver.py --seed-bank ... --perturb --only 1405055E0 1404F8C70`: 2 of 2 bit-exact (82 and 128 cases).
+- Canonical banks: `python3 tools/dev/translate/seed.py --live <the 9 capture dirs, any order> --spec-dir tools/dev/diffharness/specs/impure --bank-classes tools/dev/translate/impure_roots.json --out <dir> --cap 24` (dirs are sorted internally).
+- Driver: `env PES_EXE=<pes_full.bin> GF_DIFF_PYTHON=<venv python> python3 tools/dev/translate/driver.py --image <pes_full.bin> --out-dir <dir> --spec-dir tools/dev/diffharness/specs/impure --seed-bank <banks> --perturb --record tools/dev/translate/results_impure.json --jobs 2 --timeout 900`; then the same with `--check`. Per-capture: repeat with `--live` as a single dir and no `--record`.
+- Capture (match is over; tool kept): `sudo -n python3 tools/dev/translate/capture_midplay.py --out <scratch>/captures_x --max-caps 14 --open-every 30 --frame-max 2 --rows 4 --dur 900`.
 
-**Run.** `driver.py --image pes_full.bin --seed-bank banks_union --perturb --record results_impure.json --jobs 2 --timeout 900`, 513 s wall, rc 0. Attempted 50, translated 46, diffed 13. Record: `tools/dev/translate/results_impure.json` (committed). The four specs not translated are "unmodellable callee": 1404F6C30, 1404FEDC0, 14080EBA0, 140975710.
+Tests: none new (harness tooling, not engine code). The gate was not run (agents do not run it). Verification: full run rc 0, `--check` 15/15, bank order-independence byte-identity check, owner-audit re-run of all 33 capture dirs.
 
-**Results (own-block coverage of the spec's entry VA, from the record).**
-
-| measure | main (1cbe5ac5 record) | union (5 captures, real + perturb) |
-|---|---|---|
-| specs with coverage | 46 | 46 |
-| bit-exact specs (every case) | 8 | 13 |
-| floor: coverage ≥ 0.50 | 9 | 14 |
-| owner's floor: ≥ 0.50 AND bit-exact | 8 | **13** |
-| median own coverage | 0.067 | 0.288 |
-| mean own coverage | 0.218 | 0.336 |
-
-No previously bit-exact spec was lost (the eight on main still diff).
-
-**Single-snapshot comparison (RealCases, cited, not re-run here).** Floor ≥ 0.50 over 50 specs: g (G seed) 16, p (real + perturb) 13. Median: g 0.207, p 0.272. Like-for-like (both real + perturb): p 13 floor / median 0.272 versus the union's 14 / 0.288. The union lifts the floor by one and the median by 0.016. That is essentially flat, not a floor lift. The union has no open-play state (§1), and only 15 specs are typed, so the union adds little over one snapshot.
-
-**Caveats.**
-- 33 of the 46 specs with coverage show `harness cannot run` (translated side not diffed). The RealCases F3 pattern (small integers read as pointers) is the likely cause, not checked here. 14051CF70 is at the floor (0.70) but does not diff.
-- Coverage fell for some specs against main: 14065DAB0 0.771 → 0.533, 1404FE9C0 0.214 → 0.146, 14097FCE0 0.204 → 0.143, 140978E70 0.090 → 0.078. The main record was unseeded; I did not investigate the drops.
-- The vtable gate does not compare class bytes. The objects' identity rests on the vtable alone.
-
-## 4. Unfinished (numbered)
-
-1. Open-play captures: none. Needs the game to resume (frame advancing). Then re-run `capture_midplay.py --settle 1e9 --max-caps 30` (per-event stoppage triggers, open play every 15 s), re-build the banks over all accepted captures, and re-run the driver to update the record.
-2. Per-capture coverage: not measured. One driver run per single-capture bank (about 8.5 min each for 50 specs); take `coverage[va].fraction` per run.
-3. Typing for the 35 untyped specs (§2).
-4. `harness cannot run` on 33 specs: the unmodelled-read failures are not addressed here.
-5. The duplicate kick-off (t046 and captures_g/t001) should be dropped from future banks.
-6. Penalty shoot-out kicks (restart 6, reason 9) are captured by the per-event stoppage trigger. Further shoot-out kicks will arrive during any future shoot-out, with no code change.
-
-## 5. Reproduce
-
-- Capture: `sudo -n python3 tools/dev/translate/capture_midplay.py --out <scratch>/captures_x --settle 1e9 --max-caps 30 --dur 3600` (`--settle 1e9` turns off the match and period triggers; a `FORCE` file in the output dir captures the current state once).
-- Typing: `PES_EXE=<pes_full.bin> python3 tools/dev/translate/argroots.py`.
-- Banks: `python3 tools/dev/translate/seed.py --live <dirs> --spec-dir tools/dev/diffharness/specs/impure --bank-classes tools/dev/translate/impure_roots.json --out <dir> --cap 24`.
-- Driver: `env PES_EXE=<pes_full.bin> GF_DIFF_PYTHON=<venv python> python3 tools/dev/translate/driver.py --image <pes_full.bin> --out-dir <dir> --spec-dir tools/dev/diffharness/specs/impure --seed-bank <banks> --perturb --record tools/dev/translate/results_impure.json --jobs 2 --timeout 900`.
-
-Tests: none new. The tooling is a harness tool, not engine code. The driver smoke above is the only verification run; the gate was not run (agents do not run the gate).
-
-
-## Main's reading of the union record
-
-Of the 50 impure functions, 38 are bit-exact on every case they ran (13 at the floor, 25 below it at a median
-own-block coverage of 14%); 8 have an empty corpus; 4 have an unmodellable callee. So where impure code runs, the
-translation agrees with PES (38 of the 42 that ran any case). The open problem is purely reaching the code: the five
-stoppage captures did not lift the floor (13 vs 13 single-snapshot). Open play, where most match logic runs, is still
-uncaptured.
 
 ## Main's audit of every capture (26-10-26)
 
@@ -117,3 +109,11 @@ G's MI pointer against the capture's MI, MI's play state against the label, both
 **The 17-capture union's open-play captures lacked most per-player state**, so "open play doesn't lift impure
 coverage" is not established. The union is being re-run over the 9 complete captures (`captures_e` minus t029, and
 FrameTrace's 4).
+
+## Main's reading of the canonical union (9 complete captures)
+
+Floor 15/50 (median 0.30), the same as before: complete open-play captures don't lift impure coverage. The per-capture
+runs show why: specs whose arguments are untyped run against G only, and G is a single instance per capture, so their
+coverage is identical in every capture; all of the union's growth comes from the 8 typed argument roots. The lever is
+binding real arguments (the 89 untyped roots), which static typing can't do and the frame-loop trace can, once a capture
+includes the asset registry (`docs/ports/pes-port-Emulate.md`).
