@@ -204,7 +204,11 @@ def run_one(va, args, pilot, pairs):
         runs.append((label, snap, out_s, corpus, tdir))
     res["excluded"] = res["calls"] - res["replayed"]
     if res["replayed"] == 0:
-        res["note"] = "no replayable call (0 cases)"
+        # Every case excluded: the reasons are the answer, so they go in the note (never silent).
+        top = sorted(res["reasons"].items(), key=lambda kv: -kv[1])
+        res["note"] = "NO REPLAYABLE CASE: %d of %d excluded; reasons: %s; blocked callees: %s" % (
+            res["excluded"], res["calls"], "; ".join("%s x%d" % kv for kv in top) or "none recorded",
+            ",".join(res.get("blocked_callees") or []) or "none")
         return res
     bin_p, err = build_binary(va, spec, args, pilot, reached)
     if err:
@@ -270,7 +274,7 @@ def main():
         results.append(r)
         print("%s calls=%d replayed=%d mismatches=%d own_block=%s floor=%s %s" % (
             r["va"], r["calls"], r["replayed"], len(r["mismatches"]),
-            r["own_block"] and r["own_block"]["fraction"], r["floor"], r["note"][:120]), flush=True)
+            r["own_block"] and r["own_block"]["fraction"], r["floor"], r["note"][:400]), flush=True)
     floor = sum(1 for r in results if r["floor"])
     doc = {"note": "snapshot-backed diff of traced calls (snapdiff.py): each traced call replayed from its "
                    "snapshot's own memory on the harness and the translated side; floor = bit-exact on every "
