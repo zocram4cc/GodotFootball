@@ -100,3 +100,20 @@ own-block coverage of 14%); 8 have an empty corpus; 4 have an unmodellable calle
 translation agrees with PES (38 of the 42 that ran any case). The open problem is purely reaching the code: the five
 stoppage captures did not lift the floor (13 vs 13 single-snapshot). Open play, where most match logic runs, is still
 uncaptured.
+
+## Main's audit of every capture (26-10-26)
+
+Main re-checked all 33 captures from their bytes (`main_audit.py` in the Captures scratch), not from their metadata:
+G's MI pointer against the capture's MI, MI's play state against the label, both team records captured whole
+(0xC138), and the per-player slot table.
+
+| Set | Captures | Consistent and complete | Defect |
+|---|---|---|---|
+| `captures_e` | 6 | 5 (2 open play, 3 stoppages) | t029: G's MI pointer differs from the captured MI |
+| `captures_f/g/h` (shoot-out, periods 8-10) | 8 | play state and teams consistent | only 1 of 22 slot records set: shoot-out moments, not match play |
+| `captures_i` (the 8 open play + 6 stoppages in the 17-capture union) | 14 | **0** | team 1 only 28,672 of 49,464 bytes captured; 18-21 of 22 slot records unset or uncaptured |
+| FrameTrace `cap1` | 4 | **4, all open play**, H object captured | none |
+
+**The 17-capture union's open-play captures lacked most per-player state**, so "open play doesn't lift impure
+coverage" is not established. The union is being re-run over the 9 complete captures (`captures_e` minus t029, and
+FrameTrace's 4).
