@@ -7,9 +7,10 @@ and reads instance k with `bank[k]`, so memory stays at one instance however lar
 The legacy `<tag>.bank.json` (`{"roots", "instances"}`, seed.py) is only read by `merge`.
 
 Usage:
-  bankstore.py merge OUT_DIR SRC_DIR [SRC_DIR ...]   union of every spec's bank over the sources
+  bankstore.py merge OUT_DIR SRC_DIR [SRC_DIR ...]   union over the sources, deduplicated by content
   bankstore.py --selftest
 """
+import hashlib
 import json
 import os
 import shutil
@@ -59,22 +60,26 @@ def _roots_of(path):
         return json.load(f).get("roots", {})
 
 
-def _instances(path):
-    """The instances of one source bank, jsonl (streamed) or legacy json (loaded whole)."""
+def _open_source(path):
+    """One source bank as an indexable sequence of instances: jsonl (read on demand) or legacy json (loaded whole)."""
     if path.endswith(".bank.jsonl"):
-        bank = Bank(path)
-        for k in range(len(bank)):
-            yield bank[k]
-        return
+        return Bank(path)
     with open(path) as f:
-        doc = json.load(f)
-    yield from doc["instances"]
+        return json.load(f)["instances"]
+
+
+def digest(art):
+    """Content identity of one instance: the sha256 of its canonical JSON."""
+    return hashlib.sha256(json.dumps(art, sort_keys=True).encode()).hexdigest()
 
 
 def merge(out_dir, src_dirs):
     """Union of every spec's bank over src_dirs, written to out_dir as <tag>.bank.jsonl.
-    Roots: the first source's roots, extended by any root key a later source adds.
-    Returns {tag: {source file: instance count}}."""
+
+    Instances are deduplicated by content and written in digest order, so the merged bank depends
+    only on the set of instances, never on the order of src_dirs. Roots: the union of every
+    source's roots; a root bound to two different values is an error.
+    Returns {tag: {"read": {source file: instance count}, "kept": distinct instance count}}."""
     os.makedirs(out_dir, exist_ok=True)
     tags = sorted({f.split(".bank.")[0] for d in src_dirs for f in os.listdir(d)
                    if ".bank.json" in f})
@@ -82,21 +87,27 @@ def merge(out_dir, src_dirs):
     for tag in tags:
         srcs = [os.path.join(d, f) for d in src_dirs for f in (tag + ".bank.jsonl", tag + ".bank.json")
                 if os.path.exists(os.path.join(d, f))]
-        roots, counts = {}, {}
+        roots, read, where = {}, {}, {}
         for p in srcs:
-            for k, v in _roots_of(p).items():
-                roots.setdefault(k, v)
+            for k, v in sorted(_roots_of(p).items()):
+                if roots.setdefault(k, v) != v:
+                    raise SystemExit("merge %s: root %s bound to %r and %r" % (tag, k, roots[k], v))
+        for p in srcs:
+            src = _open_source(p)
+            read[os.path.basename(p)] = len(src)
+            for k in range(len(src)):
+                where.setdefault(digest(src[k]), (p, k))
+        opened = {}
 
-        def chain(srcs=srcs, counts=counts):
-            for p in srcs:
-                n = 0
-                for art in _instances(p):
-                    n += 1
-                    yield art
-                counts[os.path.basename(p)] = n
+        def chain():
+            for dg in sorted(where):
+                p, k = where[dg]
+                if p not in opened:
+                    opened[p] = _open_source(p)
+                yield opened[p][k]
 
-        write_bank(os.path.join(out_dir, tag + ".bank.jsonl"), roots, chain())
-        report[tag] = counts
+        write_bank(os.path.join(out_dir, tag + ".bank.jsonl"), dict(sorted(roots.items())), chain())
+        report[tag] = {"read": read, "kept": len(where)}
     return report
 
 
@@ -119,9 +130,18 @@ def _selftest():
         out = os.path.join(d, "out")
         report = merge(out, [d])
         m = Bank(os.path.join(out, "t.bank.jsonl"))
-        assert len(m) == 7, len(m)
+        assert len(m) == 5, len(m)  # the legacy json repeats two instances: deduplicated
         assert m.roots == {"A0": "team", "A1": "man"}, m.roots
-        assert report["t"] == {"t.bank.jsonl": 5, "t.bank.json": 2}, report
+        assert report["t"] == {"read": {"t.bank.jsonl": 5, "t.bank.json": 2}, "kept": 5}, report
+        # The merged bank does not depend on the order of the source directories.
+        d2 = os.path.join(d, "second")
+        os.makedirs(d2)
+        shutil.copy(os.path.join(d, "t.bank.json"), d2)
+        merge(os.path.join(d, "ab"), [d, d2])
+        merge(os.path.join(d, "ba"), [d2, d])
+        with open(os.path.join(d, "ab", "t.bank.jsonl"), "rb") as fa, \
+                open(os.path.join(d, "ba", "t.bank.jsonl"), "rb") as fb:
+            assert fa.read() == fb.read()
         print("bankstore selftest ok")
     finally:
         shutil.rmtree(d, ignore_errors=True)

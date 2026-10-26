@@ -65,6 +65,9 @@ import stubs as stub_table
 import bankstore
 STUB_TABLE = stub_table.load()
 
+# Abort traps (stubs.json abort-trap): reaching one ends a case as a PES abort, never an output.
+ABORT_VAS = frozenset(va for va, e in STUB_TABLE.items() if e["do"] == "abort")
+
 
 def universe_of(spec_dir):
     """The call-closed universe a run over spec_dir translates into: the pilot's specs, the run's specs, and the run-real closure (stubs.json)."""
@@ -178,10 +181,30 @@ def _why_texts(why):
     return list(why)
 
 
+_LINK = re.compile(r";?\s*(?:call|callee) [0-9A-Fa-f]+:\s*")
+_CALL_TOKEN = re.compile(r"(?:call|callee) ([0-9A-Fa-f]+):\s*")
+
+
+def _cut_at_abort(chain):
+    """A blocker chain up to its first abort-trap callee. Reaching a trap ends the case as a PES
+    abort (never an output), so the links below the trap are not on any diffed path."""
+    for m in _CALL_TOKEN.finditer(chain):
+        if int(m.group(1), 16) in ABORT_VAS:
+            return chain[:m.start()]
+    return chain
+
+
+def _chain_dispatchable(chain):
+    """Every link of one blocker chain is dispatchable (see _blocker_dispatchable), below its trap."""
+    parts = [p for p in _LINK.split(_cut_at_abort(chain)) if p.strip()]
+    return all(_blocker_dispatchable(p) for p in parts)
+
+
 def _why_dispatchable(why):
     """A stubs.json why-chain the build can run: every link an indirect
-    call or computed jump (runtime dispatch / native switch). Import
-    slots, global stores, recursion and depth stay unmodellable."""
+    call or computed jump (runtime dispatch / native switch), or a call
+    chain that ends in an abort trap. Import slots, global stores,
+    recursion and depth stay unmodellable."""
     texts = _why_texts(why)
     if not texts:
         return True
@@ -189,13 +212,7 @@ def _why_dispatchable(why):
         chains = [c for c in
                   re.split(r";\s*(?=call [0-9A-Fa-f]+:)", t) if c.strip()]
         for c in chains or [t]:
-            parts = [p for p in
-                     re.split(r";?\s*(?:call|callee) [0-9A-Fa-f]+:\s*", c)
-                     if p.strip()]
-            if not parts:
-                # A bare reason ("recursion", "call depth > 10").
-                return False
-            if not all(_blocker_dispatchable(p) for p in parts):
+            if not _chain_dispatchable(c):
                 return False
     return True
 
@@ -328,10 +345,7 @@ def blocked_reason(spec):
             chains = [c for c in
                       re.split(r";\s*(?=call [0-9A-Fa-f]+:)", b) if c.strip()]
             for c in chains or [b]:
-                links = [p for p in
-                         re.split(r";?\s*(?:call|callee) [0-9A-Fa-f]+:\s*", c)
-                         if p.strip()]
-                if not all(_blocker_dispatchable(p) for p in links):
+                if not _chain_dispatchable(c):
                     live.append(c.strip()[:440])
         if live:
             return "; ".join(live)[:440]
@@ -342,7 +356,7 @@ def run_one(va, args, pilot):
     """Full pipeline for one function. Returns a result dict."""
     import diffmain
     res = {"va": va, "translated": False, "diffed": False, "cases": 0,
-           "failure_class": None, "note": "", "stubs": []}
+           "failure_class": None, "note": "", "stubs": [], "aborted": 0}
     spec, spec_path = load_spec(args.spec_dir, va)
     if spec is None:
         res["failure_class"] = "struct map gap"
@@ -386,14 +400,17 @@ def run_one(va, args, pilot):
     corpus = os.path.join(gen, "corp_%s.jsonl" % tag)
     trace = os.path.join(gen, "trace_%s.json" % tag)
     addrs = os.path.join(gen, "addrs_%s.json" % tag)
-    count = ["--count", str(args.count)] if args.count else []
+    aborts = os.path.join(gen, "aborts_%s.jsonl" % tag)
+    # Traced cases: run.py takes its case count from the bank (one case per instance).
+    count = [] if args.traced_cases else (["--count", str(args.count)] if args.count else [])
     seed_args = (["--seed-state", args.seed_state] if args.seed_state else []) \
         + (["--seed-bank", args.seed_bank] if args.seed_bank else []) \
-        + (["--perturb"] if args.perturb else [])
+        + (["--perturb"] if args.perturb else []) \
+        + (["--traced-cases"] if args.traced_cases else [])
     rc, _, err = sh([diff_python(), RUN_PY, "--exe", args.image,
                      "--spec", spec_path, "--out", corpus,
                      "--trace-calls", trace,
-                     "--trace-addrs", addrs] + count + seed_args,
+                     "--trace-addrs", addrs, "--aborts", aborts] + count + seed_args,
                     timeout=args.timeout)
     if rc != 0:
         cls, note = fault_class(spec, err or "run.py rc=%d" % rc)
@@ -407,6 +424,9 @@ def run_one(va, args, pilot):
                 nlines += 1
     except OSError:
         pass
+    if os.path.exists(aborts):
+        with open(aborts) as f:
+            res["aborted"] = sum(1 for _ in f)
     if nlines == 0:
         # Empty corpus: the function never reaches its end under the
         # harness (e.g. tail-jump live chase). Nothing to diff.
@@ -779,6 +799,10 @@ def main():
                          "bankstore.merge): run.py and the diff main run case n on instance n %% N")
     ap.add_argument("--perturb", action="store_true",
                     help="with --seed-bank: run.py perturbs the real values per (case, field)")
+    ap.add_argument("--traced-cases", action="store_true",
+                    help="with --seed-bank: every bank instance is one case (every traced call, "
+                         "deduplicated), replayed with its real values; no perturbation, no random "
+                         "or guided cases")
     ap.add_argument("--check", action="store_true",
                     help="re-run every VA results.json records as diffed; exit 1 if any no longer diffs bit-exact. "
                          "Never writes the repo results.json (the gate's pilot test).")
@@ -787,6 +811,8 @@ def main():
     ap.add_argument("--set", default=None,
                     help="a generator set file (specgen sets/*.txt): its subsystem and role columns are recorded on each result")
     args = ap.parse_args()
+    if args.traced_cases and (not args.seed_bank or args.perturb):
+        ap.error("--traced-cases replays a --seed-bank with real values: give --seed-bank, not --perturb")
     if args.check and not args.record:
         ap.error("--check re-runs the VAs that --record lists as diffed")
     if args.check:
@@ -826,10 +852,9 @@ def main():
             results.append(
                 finish_one("0x" + f[:-5].upper(), args, pilot))
     for r in results:
-        print("%s translated=%s diffed=%s cases=%s class=%s %s" % (
-            r["va"], r["translated"], r["diffed"], r["cases"],
+        print("%s translated=%s diffed=%s cases=%s aborted=%s class=%s %s" % (
+            r["va"], r["translated"], r["diffed"], r["cases"], r.get("aborted", 0),
             r["failure_class"], r["note"][:100]))
-
     attrib = read_attribution(args.set) if args.set else {}
     for r in results:
         if r["va"] in attrib:

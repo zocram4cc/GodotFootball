@@ -154,6 +154,11 @@ def resolve_stubs(spec):
         if entry["do"] is None:
             raise SystemExit("stub_refs %s is run-real, not a stub" % ref)
         stubs["stub_" + ref] = {"va": entry["va"], "do": entry["do"]}
+    # Abort traps are installed in every spec: a case that reaches one is a PES abort (recorded
+    # and excluded), whichever callee closure reaches it.
+    for entry in table.values():
+        if entry["do"] == "abort":
+            stubs.setdefault("stub_" + entry["va"][2:], {"va": entry["va"], "do": "abort"})
     spec["stubs"] = stubs
     return spec
 
@@ -656,6 +661,17 @@ def bank_case(spec, bank, n, inputs, seed, perturb):
         else:
             out[name] = value
     return out, art
+
+
+def unheld_inputs(spec, art, inputs):
+    """Input names the instance does not hold: a traced case must replay every input it read."""
+    labels = set(spec.get("labels") or [])
+    out = []
+    for name in inputs:
+        loc = (spec.get("inputs") or {}).get(name)
+        if name not in labels and loc is not None and real_value(art, loc) is None:
+            out.append(name)
+    return out
 
 
 
@@ -1452,6 +1468,11 @@ def main():
                     help="with --seed-bank: per (case, field) keep the real value, or take a "
                          "nearby one, the same field of another instance, or the spec's draw")
     ap.add_argument("--count", type=int, default=300)
+    ap.add_argument("--traced-cases", action="store_true",
+                    help="with --seed-bank: every instance is one case (the traced calls), replayed "
+                         "with its real values; no random or guided cases")
+    ap.add_argument("--aborts", default=None,
+                    help="write each case that reaches an abort trap (a PES abort) as a JSON line")
     ap.add_argument("--trace-calls", default=None,
                     help="write {site: {target: count}} for harness-reached "
                     "indirect calls/jumps (coverage of the dispatch table)")
@@ -1495,6 +1516,13 @@ def main():
             sys.exit("seed-bank: no %s" % _bk)  # a missing bank must not run unseeded
         import bankstore  # streamed: one instance is read per case, never the whole bank
         bank = bankstore.Bank(_bk)
+    traced = args.traced_cases
+    if traced:
+        if bank is None:
+            sys.exit("--traced-cases needs --seed-bank")
+        base = gen_inputs(spec, seed, 1, (sections, args.exe))[0]
+        cases = [dict(base) for _ in range(len(bank))]
+        count = len(bank)
 
     def run_n(n, inputs):
         """Case n -> (inputs used, result, error). Bank mode: instance n % N's real values."""
@@ -1502,6 +1530,11 @@ def main():
             result, err = run_case(mu, spec, RET, inputs, seed=seed_art)
             return inputs, result, err
         used, art = bank_case(spec, bank, n, inputs, seed, args.perturb)
+        if traced:
+            unheld = unheld_inputs(spec, art, used)
+            if unheld:
+                return used, None, "unheld input %s: instance %d does not hold it" % (
+                    unheld[0], n % len(bank))
         result, err = run_case(mu, spec, RET, used, seed=art, zero=True)
         return used, result, err
 
@@ -1510,10 +1543,21 @@ def main():
         if bank is not None:
             rec["inst"] = n % len(bank)
         return json.dumps(rec) + "\n"
+    aborts_out = open(args.aborts, "w") if args.aborts else None
+
+    def note_failure(n, err, inputs):
+        """A failed case is skipped (stderr); an abort trap is a PES abort, recorded in --aborts."""
+        if err.startswith("abort trap "):
+            if aborts_out is not None:
+                aborts_out.write(json.dumps({"inst": n % len(bank) if bank else n, "abort": err}) + "\n")
+            print("case %d aborted: %s" % (n, err), file=sys.stderr)
+            return
+        print("case %d failed: %s" % (n, err), file=sys.stderr)
+        print("  inputs: %s" % json.dumps(inputs)[:300], file=sys.stderr)
     # Coverage-guided second round: base cases run first (streamed, so a
     # corpus is never held twice); unreached block leaders then steer
     # guided extras (same seed, appended, deterministic).
-    guided_on = image_kind(args.exe) == "flat" and count and args.out
+    guided_on = image_kind(args.exe) == "flat" and count and args.out and not args.traced_cases
     if guided_on:
         import sys as _sys
         import os as _os
@@ -1550,8 +1594,7 @@ def main():
         for _n, _inputs in enumerate(cases):
             _inputs, _result, _err = run_n(_n, _inputs)
             if _err is not None:
-                print("case %d failed: %s" % (_n, _err), file=sys.stderr)
-                print("  inputs: %s" % json.dumps(_inputs)[:300], file=sys.stderr)
+                note_failure(_n, _err, _inputs)
                 continue  # a failing case is reported (stderr) and skipped, not fatal
             out.write(record(_n, _inputs, _result))
         _hit = {_block_of(a) for a in ((mu._addrs or set()) - _pre)
@@ -1561,12 +1604,13 @@ def main():
         for _m, _inputs in enumerate(_guided[:count]):
             _inputs, _result, _err = run_n(len(cases) + _m, _inputs)
             if _err is not None:
-                print("guided case %d failed: %s" % (_m, _err), file=sys.stderr)
-                print("  inputs: %s" % json.dumps(_inputs)[:300], file=sys.stderr)
+                note_failure(len(cases) + _m, _err, _inputs)
                 continue  # a failing case is reported (stderr) and skipped, not fatal
             out.write(record(len(cases) + _m, _inputs, _result))
         cases = cases + _guided[:count]
         out.close()
+        if aborts_out is not None:
+            aborts_out.close()
         if args.trace_calls is not None:
             with open(args.trace_calls, "w") as tf:
                 json.dump(mu._trace or {}, tf, indent=1, sort_keys=True)
@@ -1576,22 +1620,32 @@ def main():
         print("%d cases (%d guided) -> %s" % (len(cases), len(_guided[:count]), args.out or "stdout"))
         return 0
     out = open(args.out, "w") if args.out else sys.stdout
+    kept_addrs = set() if mu._addrs is not None else None
+    written = 0
     for n, inputs in enumerate(cases):
+        if mu._addrs is not None:
+            mu._addrs = set()  # this case's addresses: kept only if the case is written
         inputs, result, err = run_n(n, inputs)
         if err is not None:
-            print("case %d failed: %s" % (n, err), file=sys.stderr)
-            print("  inputs: %s" % json.dumps(inputs)[:300], file=sys.stderr)
+            note_failure(n, err, inputs)
             continue  # a failing case is reported (stderr) and skipped, not fatal
+        if kept_addrs is not None:
+            kept_addrs |= mu._addrs
         out.write(record(n, inputs, result))
+        written += 1
+    if kept_addrs is not None:
+        mu._addrs = kept_addrs
     if args.out:
         out.close()
+    if aborts_out is not None:
+        aborts_out.close()
     if args.trace_calls is not None:
         with open(args.trace_calls, "w") as tf:
             json.dump(mu._trace or {}, tf, indent=1, sort_keys=True)
     if args.trace_addrs is not None:
         with open(args.trace_addrs, "w") as tf:
             json.dump(sorted("0x%X" % a for a in (mu._addrs or set())), tf)
-    print("%d cases -> %s" % (len(cases), args.out or "stdout"))
+    print("%d of %d cases written -> %s" % (written, len(cases), args.out or "stdout"))
     return 0
 
 

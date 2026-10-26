@@ -17,6 +17,7 @@ Usage: GF_DIFF_PYTHON=<venv python> PES_EXE=<pes_full.bin> python3 frame_trace.p
        [--frames N] [--cap N] [--budget INSTR]
 """
 import argparse
+import hashlib
 import json
 import os
 import random
@@ -282,9 +283,10 @@ def stubs_for_run(image_root_stubs):
 
 
 class Bank:
-    """Reservoir of seed artifacts for one spec: at most cap instances, uniform over the calls.
-    The kept instances live on disk, one slot file each (rewritten in place), so memory holds
-    one instance at a time however large --cap is."""
+    """Seed artifacts for one spec: a reservoir of at most cap instances, uniform over the calls,
+    or, with cap 0, every distinct call (one instance per content digest). The kept instances
+    live on disk, one slot file each (rewritten in place for the reservoir), so memory holds one
+    instance at a time however large --cap is."""
 
     def __init__(self, cap, tag, slot_dir):
         self.cap, self.n, self.slots = cap, 0, 0
@@ -292,12 +294,24 @@ class Bank:
         shutil.rmtree(slot_dir, ignore_errors=True)
         os.makedirs(slot_dir)
         self.rng = random.Random("frametrace:" + tag)
+        self.seen = set()  # cap 0: content digests of the kept instances
 
     def _path(self, i):
         return os.path.join(self.dir, "slot%d.json" % i)
 
     def offer(self, make):
         self.n += 1
+        if self.cap == 0:
+            art = make()
+            dg = hashlib.sha256(json.dumps(art, sort_keys=True).encode()).hexdigest()
+            if dg in self.seen:
+                return
+            self.seen.add(dg)
+            i = self.slots
+            self.slots += 1
+            with open(self._path(i), "w") as f:
+                json.dump(art, f)
+            return
         if self.slots < self.cap:
             i = self.slots
             self.slots += 1
@@ -379,7 +393,9 @@ def main():
     ap.add_argument("--image", default=os.environ.get("PES_EXE"))
     ap.add_argument("--spec-dir", default=os.path.join(DIFF, "specs", "impure"))
     ap.add_argument("--frames", type=int, default=50)
-    ap.add_argument("--cap", type=int, default=32, help="instances kept per spec (reservoir)")
+    ap.add_argument("--cap", type=int, default=32,
+                    help="instances kept per spec (reservoir); 0 keeps every distinct call, "
+                         "deduplicated by content")
     ap.add_argument("--budget", type=int, default=INSTR_BUDGET,
                     help="instructions per H step (deterministic guard)")
     ap.add_argument("--trace-addrs", action="store_true",
