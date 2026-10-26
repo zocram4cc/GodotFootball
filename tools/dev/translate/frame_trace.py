@@ -29,6 +29,7 @@ sys.path.insert(0, DIFF)
 import run as rn  # noqa: E402  (diffharness emulator core: maps, stubs, stack)
 import seed  # noqa: E402
 import stubs as stub_table  # noqa: E402
+import unicorn.x86_const as xc  # noqa: E402
 
 PAGE = 0x1000
 H_GLOBAL = 0x1436F3F98      # H = *(H_GLOBAL), the team-tick owner
@@ -138,6 +139,19 @@ def snapshot(uc, spec, roots):
     return seed.artifact_of(spec, regions)
 
 
+IMAGE_LO, IMAGE_HI = 0x140000000, 0x15B97C000
+STOP_REGS = ("rcx", "rdx", "rbx", "rsi", "rdi", "rbp", "r12", "r13", "r14", "r15")
+
+
+def stack_images(uc, rsp, n=256):
+    """Image addresses among the n qwords at rsp (the return addresses of the live call chain)."""
+    try:
+        vals = struct.unpack("<%dQ" % n, bytes(uc.mem_read(rsp, 8 * n)))
+    except Exception:  # the stack's mapping ends before n qwords
+        return []
+    return [v for v in vals if IMAGE_LO <= v < IMAGE_HI]
+
+
 def run_entry(uc, entry, regs, ret, budget):
     """One call of the function at entry under the Windows x64 convention, to the ret sentinel."""
     from unicorn.x86_const import UC_X86_REG_RSP
@@ -161,6 +175,8 @@ def run_entry(uc, entry, regs, ret, budget):
         # A silent stop (budget spent) is a failure, never a clean frame.
         err = "did not return: RIP %#x after %d-instruction budget" % (
             uc.reg_read(xc.UC_X86_REG_RIP), budget)
+    if err:  # diagnostic: the image return addresses on the stack, i.e. the call chain to the stop
+        uc._rets = stack_images(uc, uc.reg_read(UC_X86_REG_RSP))
     return err
 
 
@@ -241,7 +257,9 @@ def main():
                           "impure_calls": sum(calls.values()) - calls0,
                           "secs": round(time.time() - t_s, 3), "err": err})
         if err:
-            stop = {"frame": f, "err": err, "last_rip": hex(getattr(uc, "_last_rip", 0))}
+            stop = {"frame": f, "err": err, "last_rip": hex(getattr(uc, "_last_rip", 0)),
+                    "rets": [hex(v) for v in getattr(uc, "_rets", [])],
+                    "regs": {r: hex(uc.reg_read(getattr(xc, "UC_X86_REG_" + r.upper()))) for r in STOP_REGS}}
             break
 
     banks_written = []

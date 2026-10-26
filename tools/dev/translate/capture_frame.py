@@ -40,14 +40,17 @@ DEEP_WIN = 0x1000           # window for an object reached by pointer following
 MAX_OBJS = 1500             # pointer-followed objects per capture (the capture must fit ~2 frames)
 MAX_BYTES = 32 << 20
 STACK_LO = 0x7F0000000000   # user-space stacks and up: never heap objects
+REG_GLOBAL = 0x1437F4808    # the registry (image .data): *REG_GLOBAL is its slot table
+REG_SLOTS = 0xEA            # the table's slot count (0x141E5DE80 returns 234)
 
 
-def heap_ptrs(buf):
-    """Distinct 8-aligned qwords in buf that look like heap or data pointers (not image, not stack)."""
-    n = len(buf) // 8
-    if n == 0:
+def heap_ptrs(bufs):
+    """Distinct 8-aligned qwords in the buffers that look like heap or data pointers (not image,
+    not stack). One numpy pass over all buffers: a per-span call costs ~0.1 s per round."""
+    parts = [np.frombuffer(buf, dtype="<u8", count=len(buf) // 8) for buf in bufs if len(buf) >= 8]
+    if not parts:
         return set()
-    a = np.frombuffer(buf, dtype="<u8", count=n)
+    a = np.concatenate(parts)
     m = a[(a >= 0x10000) & (a < STACK_LO)]
     m = m[(m < cm.IMAGE_BASE) | (m >= cm.IMAGE_END)]
     return set(np.unique(m).tolist())
@@ -70,6 +73,40 @@ def covered(index, v):
     return i >= 0 and maxhi[i] > v
 
 
+def registry_spans(proc):
+    """The registry the tick looks up first (0x141E5CA20): obj = *REG_GLOBAL, table = *obj, and
+    E = table[k] for each slot. Each non-null E is read whole and its +8 field is followed
+    (the tick reads [E+8]). Returns (spans, reg), reg = {obj, table, slots}; table 0 if unreadable."""
+    obj = proc.u64(REG_GLOBAL)
+    table = proc.u64(obj) if obj and not cm.image(obj) else 0
+    tb = proc.span(table, 8 * REG_SLOTS) if table and not cm.image(table) else b""
+    if len(tb) < 8 * REG_SLOTS:
+        return [], {"obj": obj, "table": 0, "slots": []}
+    slots = struct.unpack_from("<%dQ" % REG_SLOTS, tb)
+    spans = [(obj, proc.span(obj, DEEP_WIN)), (table, tb)]
+    for E in sorted(set(slots)):
+        if E and not cm.image(E):
+            spans.append((E, proc.span(E, DEEP_WIN)))
+            x = proc.u64(E + 8)
+            if x and not cm.image(x):
+                spans.append((x, proc.span(x, DEEP_WIN)))
+    return spans, {"obj": obj, "table": table, "slots": list(slots)}
+
+
+def registry_head(proc):
+    """The registry's identity for the consistency gate, read live: (obj, table bytes, {E: E's
+    first 16 bytes}). E's first 16 bytes are its header and its +8 field. None when unreadable."""
+    obj = proc.u64(REG_GLOBAL)
+    table = proc.u64(obj) if obj and not cm.image(obj) else 0
+    tb = proc.span(table, 8 * REG_SLOTS) if table and not cm.image(table) else b""
+    if len(tb) < 8 * REG_SLOTS:
+        return None
+    slots = struct.unpack_from("<%dQ" % REG_SLOTS, tb)
+    heads = {E: proc.read(E, 16) for E in set(slots) if E and not cm.image(E)}
+    return obj, table, tb, heads
+
+
+
 def gather(proc, G, gblob, ep, img_needs, class_needs):
     """capture_midplay's gather, plus the whole-object roots of the team tick (H, M, MI, MA,
     teams, 22 rows of each player table) and the typed class chains of every row."""
@@ -84,9 +121,11 @@ def gather(proc, G, gblob, ep, img_needs, class_needs):
         obj = cm.walk(proc, roots[X], offs, G, gblob)
         if obj and not cm.image(obj) and obj != G:
             spans.append((obj, proc.span(obj, max(need, DEEP_WIN))))
-    for X in (H_GLOBAL, M_GLOBAL):
+    for X in (H_GLOBAL, M_GLOBAL, REG_GLOBAL):
         pg = X & ~(cm.PAGE - 1)
         spans.append((pg, proc.span(pg, cm.PAGE)))
+    reg_spans, reg = registry_spans(proc)
+    spans += reg_spans
     mi = struct.unpack_from("<Q", gblob, cm.MI_OFF)[0]
     teams = [struct.unpack_from("<Q", gblob, cm.team_off(s))[0] for s in (0, 1)]
     rows = {c: [struct.unpack_from("<Q", gblob, cm.row_off(c, k))[0]
@@ -109,7 +148,7 @@ def gather(proc, G, gblob, ep, img_needs, class_needs):
                 obj = cm.walk(proc, r, offs) if r else None
                 if obj and not cm.image(obj):
                     spans.append((obj, proc.span(obj, max(need, DEEP_WIN))))
-    return spans, {"H": H, "M": M, "MA": blk + 8 if blk else 0, "mi": mi, "teams": teams}
+    return spans, {"H": H, "M": M, "MA": blk + 8 if blk else 0, "mi": mi, "teams": teams, "reg": reg}
 
 
 def expand(proc, spans, depth, stats):
@@ -118,9 +157,7 @@ def expand(proc, spans, depth, stats):
     fresh = list(spans)
     for _ in range(depth):
         index = cover_index(spans)
-        cands = set()
-        for _, buf in fresh:
-            cands |= heap_ptrs(buf)
+        cands = heap_ptrs(buf for _, buf in fresh)
         new = []
         for v in sorted(cands):
             if covered(index, v):
@@ -140,7 +177,8 @@ def expand(proc, spans, depth, stats):
     return spans
 
 
-def capture(proc, G, ep, img_needs, class_needs, out_root, label, log, situation, frame_max, depth):
+def capture(proc, G, ep, img_needs, class_needs, out_root, label, log, situation, frame_max, depth,
+            named_roots=()):
     """One capture. Kept only if MI's header and H's vtable are unchanged across the reads, the
     G slots naming MI and both teams are unchanged, and the MI frame counter advanced by at most
     frame_max."""
@@ -149,6 +187,7 @@ def capture(proc, G, ep, img_needs, class_needs, out_root, label, log, situation
     H = proc.u64(H_GLOBAL) or ep.img.get(H_GLOBAL, 0)
     hdr0 = (proc.read(mi, 8), proc.read(H, 8) if H else None)
     f0 = proc.i32(mi + 0x1198)
+    reg0 = registry_head(proc)
     pre = cm.read_state(proc, mi)
     r0, t0 = proc.reads, time.time()
     log("CAPTURE start %s situation=%s" % (label, situation))
@@ -160,8 +199,11 @@ def capture(proc, G, ep, img_needs, class_needs, out_root, label, log, situation
     spans, info = gather(proc, G, gblob, ep, img_needs, class_needs)
     stats = {"objs": 0, "bytes": 0, "rounds": 0}
     spans = expand(proc, spans, depth, stats)
+    for va, nbytes in named_roots:  # live objects named by a stop, read after expansion
+        spans.append((va, proc.span(va, nbytes)))
     t1 = time.time()
     hdr1 = (proc.read(mi, 8), proc.read(H, 8) if H else None)
+    reg1 = registry_head(proc)
     f1 = proc.i32(mi + 0x1198)
     post = cm.read_state(proc, mi)
     # G's slots are published per match step and cleared between steps: each must read 0 or
@@ -170,10 +212,11 @@ def capture(proc, G, ep, img_needs, class_needs, out_root, label, log, situation
                      [(cm.MI_OFF, mi), (cm.team_off(0), tm[0]), (cm.team_off(1), tm[1])])
     df = f1 - f0
     ok_hdr = (all(hdr0) and hdr0 == hdr1 and hdr1[1] == struct.pack("<Q", H_VTABLE))
-    ok_frame = 0 <= df <= frame_max
-    if not (ok_hdr and ok_frame and slots_same):
-        log("REJECT %s headers_same=%s slots_same=%s frame_delta=%d objs=%d secs=%.4f" % (
-            label, ok_hdr, slots_same, df, stats["objs"], t1 - t0))
+    ok_reg = reg0 is not None and reg0 == reg1
+    ok_frame = 1 <= df <= frame_max  # 0: the game is not stepping (a stale match state), not live
+    if not (ok_hdr and ok_frame and slots_same and ok_reg):
+        log("REJECT %s headers_same=%s registry_same=%s slots_same=%s frame_delta=%d objs=%d secs=%.4f" % (
+            label, ok_hdr, ok_reg, slots_same, df, stats["objs"], t1 - t0))
         return False
     merged = cm.merge(spans)
     total = sum(len(b) for _, b in merged)
@@ -182,7 +225,8 @@ def capture(proc, G, ep, img_needs, class_needs, out_root, label, log, situation
             "patched_slots": ["0x%X" % o for o in patched], "label": label,
             "situation": situation, "pre": pre, "post": post,
             "frame_pre": f0, "frame_post": f1, "frame_delta": df, "headers_same": ok_hdr,
-            "bfs": stats, "reads": proc.reads - r0, "secs_read": t1 - t0}
+            "bfs": stats, "reads": proc.reads - r0, "secs_read": t1 - t0, "registry": info["reg"],
+            "named_roots": ["0x%X:0x%X" % (va, n) for va, n in named_roots]}
     out_dir = os.path.join(out_root, label)
     cm.write_capture(out_dir, meta, merged, gblob)
     cm.own(out_dir)
@@ -193,6 +237,7 @@ def capture(proc, G, ep, img_needs, class_needs, out_root, label, log, situation
 
 
 def main():
+    global DEEP_WIN, MAX_OBJS
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     ap.add_argument("--spec-dir", default=cm.DEFAULT_SPECS)
@@ -203,7 +248,16 @@ def main():
     ap.add_argument("--open-every", type=float, default=20)
     ap.add_argument("--frame-max", type=int, default=2)
     ap.add_argument("--depth", type=int, default=2)
+    ap.add_argument("--deep-win", type=lambda s: int(s, 0), default=DEEP_WIN,
+                    help="bytes read per pointer-followed object (reads cost the frame window)")
+    ap.add_argument("--max-objs", type=int, default=MAX_OBJS,
+                    help="pointer-followed objects per capture (each costs one read)")
+    ap.add_argument("--root", action="append", default=[], metavar="VA:BYTES",
+                    help="named root: bytes read at VA after expansion (repeatable; a live object)")
     a = ap.parse_args()
+    DEEP_WIN = a.deep_win
+    MAX_OBJS = a.max_objs
+    named_roots = [(int(r.split(":")[0], 0), int(r.split(":")[1], 0)) for r in a.root]
     os.makedirs(a.out, exist_ok=True)
     logf = open(os.path.join(a.out, "capture.log"), "a", buffering=1)
     cm.own(a.out)
@@ -272,7 +326,7 @@ def main():
             last_try = now
             label = "f%02d-%s-p%d-play%d-fr%d" % (tries, wanted, st["per"], st["play"], st["frame"])
             if capture(proc, G, ep, img_needs, class_needs, a.out, label, log,
-                       dict(st, trigger=wanted), a.frame_max, a.depth):
+                       dict(st, trigger=wanted), a.frame_max, a.depth, named_roots):
                 caps += 1
                 last_open = now
         time.sleep(cm.POLL)
