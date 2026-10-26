@@ -751,18 +751,20 @@ class Emitter:
               64: "0xFFFFFFFFFFFFFFFF"}[w]
         a = self.val_of(dst, w)
         c = self.val_of(ops[1], 8) if len(ops) > 1 else "1ULL"
+        # x86 masks a count to 5 bits (6 for 64-bit operands). A byte or word shifted by 8 to 31 is zeroed (SHL, SHR) or
+        # sign-filled (SAR), so the count is never reduced to the operand width.
         if m == "SHL":
-            r = "((_a << (_c & %d)) & %sULL)" % (w - 1 if w < 64 else 63,
+            r = "((_a << (_c & %d)) & %sULL)" % (0x1F if w < 64 else 0x3F,
                                                  mm)
         elif m == "SHR":
             r = "((_a & %sULL) >> (_c & %d))" % (mm,
-                                                 w - 1 if w < 64 else 63)
+                                                 0x1F if w < 64 else 0x3F)
         else:
             # SAR: sign-extend the w-bit value to 64 first (arithmetic
             # shift of the signed value), then shift right arithmetically.
             r = "((uint64_t)((((int64_t)((uint64_t)(_a) << %d)) >> %d) >> " \
                 "(_c & %d)) & %sULL)" % (64 - w, 64 - w,
-                                         w - 1 if w < 64 else 63, mm)
+                                         0x1F if w < 64 else 0x3F, mm)
         out = ["{ uint64_t _a = (uint64_t)(%s), _c = (uint64_t)(%s) & 0xFF;"
                % (a, c),
                "  uint64_t _r = %s;" % r,
@@ -924,6 +926,15 @@ class Emitter:
             f = {"SQRTPS": "__builtin_sqrtf(%s)", "RCPPS": "1.0f / %s",
                  "RSQRTPS": "1.0f / __builtin_sqrtf(%s)"}[m]
             ex = ["PesState::bits(%s)" % (f % ("PesState::lane_f32(_s, %d)" % i)) for i in range(4)]
+        elif m in ("CMPEQPS", "CMPLTPS", "CMPLEPS", "CMPUNORDPS", "CMPNEQPS", "CMPNLTPS", "CMPNLEPS", "CMPORDPS"):
+            # CMPccPS: a lane becomes all ones when the predicate holds on its two floats; NaN follows the SDM table.
+            pred = {"CMPEQPS": "{a} == {b}", "CMPLTPS": "{a} < {b}", "CMPLEPS": "{a} <= {b}",
+                    "CMPUNORDPS": "__builtin_isnan({a}) || __builtin_isnan({b})",
+                    "CMPNEQPS": "!({a} == {b})", "CMPNLTPS": "!({a} < {b})", "CMPNLEPS": "!({a} <= {b})",
+                    "CMPORDPS": "!__builtin_isnan({a}) && !__builtin_isnan({b})"}[m]
+            ex = ["((%s) ? 0xFFFFFFFFu : 0u)" % pred.format(a="PesState::lane_f32(_d, %d)" % i,
+                                                          b="PesState::lane_f32(_s, %d)" % i)
+                  for i in range(4)]
         else:  # UNPCKHPS
             ex = ["PesState::lane_u32(%s, %d)" % p
                   for p in [("_d", 2), ("_s", 2), ("_d", 3), ("_s", 3)]]
@@ -1195,7 +1206,8 @@ class Emitter:
         if m in ("ADDPS", "SUBPS", "MULPS", "DIVPS", "PADDD", "PSUBD", "PCMPEQD",
                  "PSHUFD", "PSRLDQ", "SHUFPS", "UNPCKLPS", "UNPCKHPS", "PSLLD", "PSRLD",
                  "PUNPCKLDQ", "PUNPCKHDQ", "CVTTPS2DQ", "MINPS", "MAXPS", "HADDPS",
-                 "SQRTPS", "RCPPS", "RSQRTPS"):
+                 "SQRTPS", "RCPPS", "RSQRTPS", "CMPEQPS", "CMPLTPS", "CMPLEPS", "CMPUNORDPS",
+                 "CMPNEQPS", "CMPNLTPS", "CMPNLEPS", "CMPORDPS"):
             return self.do_packed(m, ops)
         if m in ("ADDSD", "SUBSD", "MULSD", "DIVSD"):
             return self.do_sd_arith(m, ops)
@@ -1863,7 +1875,8 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
                    "CVTTSD2SI", "CVTSI2SD",
                    "CVTPS2DQ", "CVTPD2DQ", "CVTDQ2PD", "MOVQ", "MOVHLPS", "MOVLHPS",
                    "PUNPCKLQDQ", "PUNPCKHQDQ", "PADDQ", "MINPS", "MAXPS", "HADDPS",
-                   "SQRTPS", "RCPPS", "RSQRTPS", "CMPNLTSS"):
+                  "SQRTPS", "RCPPS", "RSQRTPS", "CMPNLTSS", "CMPEQPS", "CMPLTPS", "CMPLEPS",
+                  "CMPUNORDPS", "CMPNEQPS", "CMPNLTPS", "CMPNLEPS", "CMPORDPS"):
             out = em.emit_sse(m, ops)
         elif m.startswith("REP ") and m[4:] in ("STOSB", "STOSW", "STOSD", "STOSQ",
                                                   "MOVSB", "MOVSW", "MOVSD", "MOVSQ"):
