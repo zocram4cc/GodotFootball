@@ -14,6 +14,7 @@
 #include "pes/vfs.hpp"
 #include "pes_match_constants.hpp"
 #include "rig/rig.hpp"
+#include "onthepitch/pesworldrecord.hpp"
 #include "simcontext.hpp"
 #include "utils/database.hpp"
 
@@ -94,5 +95,32 @@ TEST(PesTickOrder, SwitchOnRunsTheBallAndEventsBeforeTheReferee) {
   for (int tick = 0; tick < 3; ++tick) {
     match->Process();
     EXPECT_EQ(match->TickStages(), pesOrder) << "tick " << tick;
+  }
+}
+
+// PES's movement records hold the tick's start state through the whole tick: a tick's writer runs before the team
+// stage, so every reader in it (the S1 rows, the mark table, the run world) sees the start positions. GF wrote the
+// records on each run frame instead, after one side had already moved, so a tick where the second side built found
+// the first side's records one move behind. RED on that per-build writer.
+TEST(PesTickOrder, MovementRecordsHoldTheTicksStartPositions) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  for (int warm = 0; warm < 300; ++warm) match->Process();  // into play, where the players move every tick
+  for (int tick = 0; tick < 4; ++tick) {
+    std::vector<std::pair<int, Vector3>> start;  // (PES slot, position at the tick's start)
+    for (int t = 0; t < 2; ++t) {
+      std::vector<Player*> all;
+      match->GetTeam(t)->GetAllPlayers(all);
+      for (Player* p : all)
+        if (p->IsActive()) start.emplace_back(match->PesSlotOf(p), p->GetPosition());
+    }
+    ASSERT_FALSE(start.empty());
+    match->Process();
+    for (const auto& [slot, pos] : start) {
+      const uint8_t* man = match->PesWorldOf().ManRecord(slot);
+      EXPECT_FLOAT_EQ(pes::LoadF32(man, pes::kManPosXOffset), pos.coords[0]) << "tick " << tick << " slot " << slot;
+      EXPECT_FLOAT_EQ(pes::LoadF32(man, pes::kManPosZOffset), pos.coords[1]) << "tick " << tick << " slot " << slot;
+    }
   }
 }
