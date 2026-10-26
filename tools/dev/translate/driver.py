@@ -347,19 +347,34 @@ def blocked_reason(spec):
         return None
 
 
-def nonreturn_of(stdout):
-    """The cases run.py dropped because PES did not return (its stdout's nonreturn=N line)."""
-    m = re.search(r"^nonreturn=(\d+)$", stdout or "", re.M)
+def summary_of(stdout):
+    """run.py's stdout summary line: valid, requested, nonreturn, failed, capped, icount_max."""
+    m = re.search(r"^summary valid=(\d+) requested=(\d+) nonreturn=(\d+) failed=(\d+) capped=(\d+) icount_max=(\d+)$",
+                  stdout or "", re.M)
     if m is None:
-        raise SystemExit("driver: run.py printed no nonreturn= count")
-    return int(m.group(1))
+        raise SystemExit("driver: run.py printed no summary line")
+    keys = ("valid", "requested", "nonreturn", "failed", "capped", "icount_max")
+    return dict(zip(keys, (int(v) for v in m.groups())))
+
+
+def skip_note(res):
+    """What the corpus is made of, in the note: valid cases against the requested count, and what was skipped."""
+    parts = ["%d valid of %d requested" % (res["cases"], res["requested"])]
+    if res["nonreturn"]:
+        parts.append("%d non-returning skipped" % res["nonreturn"])
+    if res["failed"]:
+        parts.append("%d failed skipped" % res["failed"])
+    if res["capped"]:
+        parts.append("capped after %d non-returning: %d case(s) not generated" % (res["nonreturn"], res["capped"]))
+    return "; ".join(parts)
 
 
 def run_one(va, args, pilot):
     """Full pipeline for one function. Returns a result dict."""
     import diffmain
     res = {"va": va, "translated": False, "diffed": False, "cases": 0,
-           "failure_class": None, "note": "", "stubs": [], "nonreturn": 0}
+           "failure_class": None, "note": "", "stubs": [], "nonreturn": 0, "failed": 0, "capped": 0,
+           "requested": 0, "icount_max": 0}
     spec, spec_path = load_spec(args.spec_dir, va)
     if spec is None:
         res["failure_class"] = "struct map gap"
@@ -412,7 +427,10 @@ def run_one(va, args, pilot):
                      "--trace-calls", trace,
                      "--trace-addrs", addrs] + count + seed_args,
                     timeout=args.timeout)
-    res["nonreturn"] = nonreturn_of(out) if rc == 0 else 0
+    summ = summary_of(out) if rc == 0 else None
+    if summ is not None:
+        res.update(nonreturn=summ["nonreturn"], failed=summ["failed"], capped=summ["capped"],
+                   requested=summ["requested"], icount_max=summ["icount_max"])
     if rc != 0:
         cls, note = fault_class(spec, err or "run.py rc=%d" % rc)
         res["failure_class"] = cls
@@ -432,6 +450,11 @@ def run_one(va, args, pilot):
         res["note"] = "corpus empty (0 cases)"
         return res
     res["cases"] = nlines
+    if summ is not None and 2 * nlines < summ["requested"]:
+        # Half the requested cases must be valid for a verdict: a skipped case is no output, so a function whose cases
+        # mostly do not return has no oracle here.
+        res["failure_class"] = "harness cannot run"
+        return res
     return res
 
 
@@ -767,8 +790,8 @@ def finish_one(va, args, pilot):
                 res["diffed"] = ok
                 res["failure_class"] = cls
                 res["note"] = note
-    if res["nonreturn"]:
-        res["note"] = "%s; %d case(s) dropped: PES did not return" % (res["note"], res["nonreturn"])
+    if res["requested"]:
+        res["note"] = ("%s; " % res["note"] if res["note"] else "") + skip_note(res)
     return res
 
 def main():

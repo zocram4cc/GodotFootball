@@ -21,10 +21,14 @@ import sys
 
 PAGE = 0x1000
 IMAGE_CHUNK = 1 << 24  # bytes per read when streaming the image (16 MiB)
-# Per-case emulation budget in instructions (deterministic; a wall-clock timeout varied with machine load). 50 M, as
-# the frame-loop runner uses per step (frame_trace.py); a case past it is PES not returning, never an output.
-# Provisional: raise it if a recorded function legitimately needs more (--check would show the loss).
-CASE_INSN_BUDGET = 50_000_000
+# Per-case emulation budget in instructions (deterministic; a wall-clock timeout varied with machine load). A case still
+# running past it is PES not returning. Measured: the largest valid case of the recorded sets (pilot 252, cutscene 833,
+# presentation 639, core 2570 specs, run.py valid_icounts, 26-10-26) is 2,377,688 instructions, VA 0x1405628D0 (core).
+# The budget is 4x that. Pilot, cutscene and presentation ran every case; core ran under the non-return cap (9 functions
+# capped, so their later cases were not measured).
+CASE_INSN_BUDGET = 4 * 2_377_688
+# A function gets at most this many non-returning cases; after the last one it generates no further cases.
+NONRETURN_CAP = 3
 
 
 def align_up(x, a=PAGE):
@@ -417,6 +421,7 @@ def install_hooks(mu, spec, RET_SENTINEL):
 
     def hook_code(uc, address, size, data):
         uc._last_rip = address
+        uc._icount += 1
         if uc._addrs is not None:
             uc._addrs.add(address)
         if uc._trace is not None:
@@ -586,12 +591,18 @@ def install_hooks(mu, spec, RET_SENTINEL):
 
 NONRETURN = "PES did not return within the instruction budget"
 
-def write_nonreturn(out_path, dropped_inputs):
-    """Keep the inputs PES did not return on beside the corpus, never dropped silently; stdout carries the count."""
+def write_meta(out_path, requested, stats, skipped, valid_icounts):
+    """The corpus's account beside it, never silent: what was valid, what was skipped and why, and the instruction count
+    of every valid case. stdout carries the summary line the driver records."""
     if out_path:
-        with open(out_path + ".nonreturn.json", "w") as f:
-            json.dump(dropped_inputs, f, indent=1)
-    print("nonreturn=%d" % len(dropped_inputs))
+        meta = {"requested": requested, "valid": len(valid_icounts), "nonreturn": stats["nonreturn"],
+                "failed": stats["failed"], "capped": stats["capped"], "valid_icounts": valid_icounts,
+                "skipped": skipped}
+        with open(out_path + ".meta.json", "w") as f:
+            json.dump(meta, f, indent=1)
+    print("summary valid=%d requested=%d nonreturn=%d failed=%d capped=%d icount_max=%d" % (
+        len(valid_icounts), requested, stats["nonreturn"], stats["failed"], stats["capped"],
+        max(valid_icounts) if valid_icounts else 0))
 
 
 # Real-instance cases (seed.py --bank-classes banks): a field that an instance
@@ -737,18 +748,19 @@ def run_case(mu, spec, RET_SENTINEL, inputs, seed=None, zero=False):
     pre_addrs = set(mu._addrs) if mu._addrs is not None else None
     pre_trace = {k: dict(v) for k, v in mu._trace.items()} if mu._trace is not None else None
     err = None
+    mu._icount = 0
     try:
         # An instruction budget, not a wall-clock timeout: a timeout cuts a case at a load-dependent point and the
         # registers it leaves were recorded as PES's output (the gate failed 0x14008CE00 only under load).
         mu.emu_start(entry, end, count=CASE_INSN_BUDGET)
     except Exception as e:
         err = "emu error: %s (last RIP %#x)" % (e, getattr(mu, "_last_rip", 0))
-    # A case that does not return within the instruction budget is not an output: PES did not return on it. It is dropped
-    # and counted (see the loops), never recorded.
+    mu._last_icount = mu._icount
+    # A case that does not return within the instruction budget is not an output: PES did not return on it.
     if err is None and mu.reg_read(UC_X86_REG_RIP) not in (end, RET_SENTINEL):
         err = NONRETURN
-    # hook_bad records the unmapped access and stops emulation; unicorn then
-    # reports the stop as UC_ERR_MAP, so the recorded reason takes precedence.
+    # hook_bad records the unmapped access and stops emulation; unicorn then reports the stop as UC_ERR_MAP, so the
+    # recorded reason takes precedence.
     if mu._bad is not None:
         err = mu._bad
     out = decode(mu, spec) if err is None else None
@@ -756,8 +768,8 @@ def run_case(mu, spec, RET_SENTINEL, inputs, seed=None, zero=False):
         mu.mem_write(int(r["base"], 16), snap[n])
     for va_s, blob in img_snap.items():
         mu.mem_write(int(va_s, 16), blob)
-    # PES did not return: the case is rolled back out of the coverage and call traces, so only returning cases count.
-    if err == NONRETURN:
+    # A skipped case (non-returning or failed) contributes nothing: its coverage and call traces are rolled back.
+    if err is not None:
         if pre_addrs is not None:
             mu._addrs.clear()
             mu._addrs.update(pre_addrs)
@@ -1473,6 +1485,8 @@ def main():
                     help="with --seed-bank: per (case, field) keep the real value, or take a "
                          "nearby one, the same field of another instance, or the spec's draw")
     ap.add_argument("--count", type=int, default=300)
+    ap.add_argument("--nonreturn-cap", type=int, default=NONRETURN_CAP,
+                    help="non-returning cases after which a function generates no further cases (0: no cap, measurement only)")
     ap.add_argument("--trace-calls", default=None,
                     help="write {site: {target: count}} for harness-reached "
                     "indirect calls/jumps (coverage of the dispatch table)")
@@ -1530,6 +1544,28 @@ def main():
         if bank is not None:
             rec["inst"] = n % len(bank)
         return json.dumps(rec) + "\n"
+
+    # Every skipped case (non-returning or failed) contributes nothing: run_case rolled its coverage and call traces back.
+    # After the cap's last non-returning case the function generates no further cases; the count of those is kept.
+    stats = {"nonreturn": 0, "failed": 0, "capped": 0}
+    skipped = []
+    valid_icounts = []
+
+    def run_round(planned, index0, out):
+        for i, planned_inputs in enumerate(planned):
+            if args.nonreturn_cap and stats["nonreturn"] >= args.nonreturn_cap:
+                stats["capped"] += len(planned) - i
+                return
+            n = index0 + i
+            used, result, err = run_n(n, planned_inputs)
+            if err is not None:
+                kind = "nonreturn" if err == NONRETURN else "failed"
+                stats[kind] += 1
+                skipped.append({"kind": kind, "index": n, "error": err, "inputs": used})
+                print("case %d %s: %s" % (n, kind, err), file=sys.stderr)
+                continue
+            valid_icounts.append(mu._last_icount)
+            out.write(record(n, used, result))
     # Coverage-guided second round: base cases run first (streamed, so a
     # corpus is never held twice); unreached block leaders then steer
     # guided extras (same seed, appended, deterministic).
@@ -1567,33 +1603,12 @@ def main():
             return None
         _pre = set(mu._addrs or set()) if mu._addrs is not None else set()
         out = open(args.out, "w")
-        dropped_inputs = []
-        for _n, _inputs in enumerate(cases):
-            _inputs, _result, _err = run_n(_n, _inputs)
-            if _err == NONRETURN:
-                dropped_inputs.append(_inputs)
-                print("case %d dropped: PES did not return" % _n, file=sys.stderr)
-                continue
-            if _err is not None:
-                print("case %d failed: %s" % (_n, _err), file=sys.stderr)
-                print("  inputs: %s" % json.dumps(_inputs)[:300], file=sys.stderr)
-                continue  # a failing case is reported (stderr) and skipped, not fatal
-            out.write(record(_n, _inputs, _result))
+        run_round(cases, 0, out)
         _hit = {_block_of(a) for a in ((mu._addrs or set()) - _pre)
                 if _block_of(a) is not None}
         _want = {_b for _bi, _b in enumerate(_bounds) if _bi not in _hit}
         _guided = guided_cases(spec, seed, count, args.exe, _want)
-        for _m, _inputs in enumerate(_guided[:count]):
-            _inputs, _result, _err = run_n(len(cases) + _m, _inputs)
-            if _err == NONRETURN:
-                dropped_inputs.append(_inputs)
-                print("guided case %d dropped: PES did not return" % _m, file=sys.stderr)
-                continue
-            if _err is not None:
-                print("guided case %d failed: %s" % (_m, _err), file=sys.stderr)
-                print("  inputs: %s" % json.dumps(_inputs)[:300], file=sys.stderr)
-                continue  # a failing case is reported (stderr) and skipped, not fatal
-            out.write(record(len(cases) + _m, _inputs, _result))
+        run_round(_guided[:count], len(cases), out)
         cases = cases + _guided[:count]
         out.close()
         if args.trace_calls is not None:
@@ -1602,22 +1617,10 @@ def main():
         if args.trace_addrs is not None:
             with open(args.trace_addrs, "w") as tf:
                 json.dump(sorted("0x%X" % a for a in (mu._addrs or set())), tf)
-        write_nonreturn(args.out, dropped_inputs)
-        print("%d cases (%d guided) -> %s" % (len(cases), len(_guided[:count]), args.out or "stdout"))
+        write_meta(args.out, count, stats, skipped, valid_icounts)
         return 0
     out = open(args.out, "w") if args.out else sys.stdout
-    dropped_inputs = []
-    for n, inputs in enumerate(cases):
-        inputs, result, err = run_n(n, inputs)
-        if err == NONRETURN:
-            dropped_inputs.append(inputs)
-            print("case %d dropped: PES did not return" % n, file=sys.stderr)
-            continue
-        if err is not None:
-            print("case %d failed: %s" % (n, err), file=sys.stderr)
-            print("  inputs: %s" % json.dumps(inputs)[:300], file=sys.stderr)
-            continue  # a failing case is reported (stderr) and skipped, not fatal
-        out.write(record(n, inputs, result))
+    run_round(cases, 0, out)
     if args.out:
         out.close()
     if args.trace_calls is not None:
@@ -1626,8 +1629,7 @@ def main():
     if args.trace_addrs is not None:
         with open(args.trace_addrs, "w") as tf:
             json.dump(sorted("0x%X" % a for a in (mu._addrs or set())), tf)
-    write_nonreturn(args.out, dropped_inputs)
-    print("%d cases -> %s" % (len(cases), args.out or "stdout"))
+    write_meta(args.out, count, stats, skipped, valid_icounts)
     return 0
 
 
