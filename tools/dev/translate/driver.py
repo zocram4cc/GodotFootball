@@ -60,7 +60,9 @@ TRANSLATED_DIR = os.path.join(REPO, "src", "pes", "translated")
 VENV_PY = os.environ.get("GF_DIFF_PYTHON", sys.executable)
 
 sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(REPO, "tools", "dev", "diffharness"))
 import stubs as stub_table
+import bankstore
 STUB_TABLE = stub_table.load()
 
 
@@ -540,10 +542,13 @@ def build_and_diff(va, spec, args, pilot, nlines):
         seed_path_ = os.path.join(args.seed_state, tag + ".seed.json")
         if os.path.exists(seed_path_):
             seed_art = json.load(open(seed_path_))
-    bank = None
+    instances = [seed_art]
     if args.seed_bank:
-        bank = json.load(open(os.path.join(args.seed_bank, tag + ".bank.json")))["instances"]
-    main_src = diffmain.gen(spec, va, callees, seed_art, bank)
+        # Streamed: write_instances reads one bank instance at a time.
+        instances = bankstore.Bank(os.path.join(args.seed_bank, tag + ".bank.jsonl"))
+    inst_p = os.path.join(gen, "inst_%s.bin" % tag)
+    diffmain.write_instances(spec, instances, inst_p)
+    main_src = diffmain.gen(spec, va, callees)
     main_p = os.path.join(gen, "diff_%s.cpp" % tag)
     with open(main_p, "w") as f:
         f.write(main_src)
@@ -574,7 +579,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
         return False, "compile: %s" % " | ".join(lines)[:400], \
             "translator bug"
     corpus = os.path.join(gen, "corp_%s.jsonl" % tag)
-    rc, out, err = sh([bin_p, corpus, args.image], timeout=args.timeout)
+    rc, out, err = sh([bin_p, corpus, args.image, inst_p], timeout=args.timeout)
     m = re.search(r"(\d+) cases, (\d+) mismatch", out)
     if rc == 0 and m and int(m.group(2)) == 0:
         note = "%d cases bit-exact" % int(m.group(1))
@@ -642,44 +647,50 @@ def dead_blocks(image, va):
     return out
 
 
-def block_coverage(image, vas, executed):
-    """{va: (reached, total)} basic-block coverage per function. Blocks
-    split the capstone decode at branch boundaries (entry, Jcc/JMP targets,
-    fallthroughs after branches); a block counts when any executed address
-    lands in it. Undecodable functions map to None (never counted).
-    Dead blocks (dead_blocks: abort traps, int3 padding) are excluded from
-    the denominator, each with its reason in the result's dead_blocks."""
+def block_bounds(image, va):
+    """Basic-block layout of one function: (addrs, bounds, live), or None when undecodable.
+    addrs: the capstone decode. bounds: every leader (entry, Jcc/JMP targets, fallthroughs
+    after branches). live: the leaders that are not dead (dead_blocks: abort traps, int3)."""
     import xlate
+    try:
+        lines = xlate.capstone_decode(image, int(va, 16))
+    except Exception:
+        return None
+    if not lines:
+        return None
+    addrs = [a for a, _, _ in lines]
+    aset = set(addrs)
+    leaders = {addrs[0]}
+    for i, (a, mn, ops) in enumerate(lines):
+        m = mn.upper()
+        tgt = None
+        if (m in xlate.CCMAP or m == "JMP") and ops:
+            try:
+                tgt = int(ops[0].strip(), 16)
+            except ValueError:
+                tgt = None
+        if tgt is not None and tgt in aset:
+            leaders.add(tgt)
+        if m in xlate.CCMAP or m in ("JMP", "CALL", "RET"):
+            if i + 1 < len(addrs):
+                leaders.add(addrs[i + 1])
+    bounds = sorted(leaders)
+    dead = {int(k, 16) for k in dead_blocks(image, va)}
+    return addrs, bounds, [b for b in bounds if b not in dead]
+
+
+def block_coverage(image, vas, executed):
+    """{va: (reached, total)} basic-block coverage per function. A block counts when any
+    executed address lands in it (block_bounds gives the blocks). Undecodable functions map
+    to None (never counted). Dead blocks leave the denominator."""
     exe = set(int(a, 16) for a in executed)
     out = {}
     for va in vas:
-        try:
-            lines = xlate.capstone_decode(image, int(va, 16))
-        except Exception:
+        lay = block_bounds(image, va)
+        if lay is None:
             out[va] = None
             continue
-        if not lines:
-            out[va] = None
-            continue
-        addrs = [a for a, _, _ in lines]
-        aset = set(addrs)
-        leaders = {addrs[0]}
-        for i, (a, mn, ops) in enumerate(lines):
-            m = mn.upper()
-            tgt = None
-            if (m in xlate.CCMAP or m == "JMP") and ops:
-                try:
-                    tgt = int(ops[0].strip(), 16)
-                except ValueError:
-                    tgt = None
-            if tgt is not None and tgt in aset:
-                leaders.add(tgt)
-            if m in xlate.CCMAP or m in ("JMP", "CALL", "RET"):
-                if i + 1 < len(addrs):
-                    leaders.add(addrs[i + 1])
-        bounds = sorted(leaders)
-        dead = {int(k, 16) for k in dead_blocks(image, va)}
-        live = [b for b in bounds if b not in dead]
+        addrs, bounds, live = lay
         reached = 0
         for b in live:
             bi = bounds.index(b)
@@ -695,6 +706,7 @@ def block_coverage(image, vas, executed):
                 reached += 1
         out[va] = (reached, len(live) or len(bounds))
     return out
+
 
 def finish_one(va, args, pilot):
     res = run_one(va, args, pilot)
@@ -763,8 +775,8 @@ def main():
     ap.add_argument("--seed-state", default=None,
                     help="dir of seed.py artifacts (<VA>.seed.json): the corpus and the diff main apply them")
     ap.add_argument("--seed-bank", default=None,
-                    help="dir of per-spec instance banks (<VA>.bank.json, seed.py --bank-classes): "
-                         "run.py and the diff main run case n on instance n %% N")
+                    help="dir of per-spec instance banks (bankstore.py: <VA>.bank.jsonl, see "
+                         "bankstore.merge): run.py and the diff main run case n on instance n %% N")
     ap.add_argument("--perturb", action="store_true",
                     help="with --seed-bank: run.py perturbs the real values per (case, field)")
     ap.add_argument("--check", action="store_true",

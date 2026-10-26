@@ -1446,8 +1446,8 @@ def main():
                          "<name>.seed.json): real object bytes filling the "
                          "spec regions before the per-case inputs")
     ap.add_argument("--seed-bank", default=None,
-                    help="dir of per-spec instance banks (seed.py --bank-classes: "
-                         "<name>.bank.json): case n runs instance n %% N with its real values")
+                    help="dir of per-spec instance banks (bankstore.py: "
+                         "<name>.bank.jsonl): case n runs instance n %% N with its real values")
     ap.add_argument("--perturb", action="store_true",
                     help="with --seed-bank: per (case, field) keep the real value, or take a "
                          "nearby one, the same field of another instance, or the spec's draw")
@@ -1490,10 +1490,11 @@ def main():
                   file=sys.stderr)
     bank = None
     if args.seed_bank:
-        _bk = os.path.join(args.seed_bank, os.path.basename(args.spec)[:-5] + ".bank.json")
+        _bk = os.path.join(args.seed_bank, os.path.basename(args.spec)[:-5] + ".bank.jsonl")
         if not os.path.exists(_bk):
             sys.exit("seed-bank: no %s" % _bk)  # a missing bank must not run unseeded
-        bank = json.load(open(_bk))["instances"]
+        import bankstore  # streamed: one instance is read per case, never the whole bank
+        bank = bankstore.Bank(_bk)
 
     def run_n(n, inputs):
         """Case n -> (inputs used, result, error). Bank mode: instance n % N's real values."""

@@ -2,7 +2,7 @@
  "note": "impure results. diffed = bit-exact vs the unicorn harness. 'provisional' in a note means the spec reads writable image globals at on-disk values. 'stubs' lists the callees that stubs.json models.",
  "results": [
   {
-   "cases": 126,
+   "cases": 255,
    "coverage": {
     "0x1403815F0": {
      "fraction": 0.0,
@@ -25,8 +25,8 @@
      "total": 5
     },
     "0x1404386D0": {
-     "fraction": 0.0924,
-     "reached": 22,
+     "fraction": 0.0882,
+     "reached": 21,
      "total": 238
     },
     "0x140439E50": {
@@ -285,7 +285,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 126 cases at own-block 0.09 < floor 0.50",
+   "note": "bit-exact 255 cases at own-block 0.09 < floor 0.50",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -294,7 +294,7 @@
    "va": "0x1404386D0"
   },
   {
-   "cases": 128,
+   "cases": 256,
    "coverage": {
     "0x1403815F0": {
      "fraction": 0.0,
@@ -535,7 +535,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 128 cases at own-block 0.07 < floor 0.50",
+   "note": "bit-exact 256 cases at own-block 0.07 < floor 0.50",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -544,7 +544,7 @@
    "va": "0x1404405D0"
   },
   {
-   "cases": 82,
+   "cases": 146,
    "coverage": {
     "0x1404F47A0": {
      "fraction": 0.4,
@@ -590,7 +590,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 82 cases at own-block 0.40 < floor 0.50",
+   "note": "bit-exact 146 cases at own-block 0.40 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -609,7 +609,7 @@
    "va": "0x1404F6C30"
   },
   {
-   "cases": 126,
+   "cases": 256,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -637,8 +637,8 @@
      "total": 10
     },
     "0x1404F8C70": {
-     "fraction": 0.5775,
-     "reached": 164,
+     "fraction": 0.5634,
+     "reached": 160,
      "total": 284
     },
     "0x1405969B0": {
@@ -672,13 +672,13 @@
      "total": 23
     },
     "0x1405A4790": {
-     "fraction": 0.3333,
-     "reached": 2,
+     "fraction": 0.5,
+     "reached": 3,
      "total": 6
     },
     "0x1405A4830": {
-     "fraction": 0.8889,
-     "reached": 16,
+     "fraction": 0.9444,
+     "reached": 17,
      "total": 18
     },
     "0x14061E7C0": {
@@ -900,7 +900,7 @@
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "126 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "256 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -909,7 +909,7 @@
    "va": "0x1404F8C70"
   },
   {
-   "cases": 88,
+   "cases": 154,
    "coverage": {
     "0x1403FB710": {
      "fraction": 0.0,
@@ -957,8 +957,8 @@
      "total": 22
     },
     "0x140A55CF0": {
-     "fraction": 0.1569,
-     "reached": 8,
+     "fraction": 0.1176,
+     "reached": 6,
      "total": 51
     },
     "0x140A65580": {
@@ -1015,13 +1015,13 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 88 cases at own-block 0.27 < floor 0.50",
+   "note": "bit-exact 154 cases at own-block 0.27 < floor 0.50",
    "stubs": [],
    "translated": true,
    "va": "0x1404FA720"
   },
   {
-   "cases": 28,
+   "cases": 97,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -1162,7 +1162,7 @@
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "28 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "97 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -1170,31 +1170,31 @@
    "va": "0x1404FB2A0"
   },
   {
-   "cases": 128,
+   "cases": 256,
    "coverage": {
     "0x14043A0A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4615,
+     "reached": 6,
      "total": 13
     },
     "0x14044E020": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 4,
      "total": 5
     },
     "0x14046F230": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 2,
      "total": 2
     },
     "0x14046F260": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3846,
+     "reached": 5,
      "total": 13
     },
     "0x1404C8E60": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 4,
      "total": 5
     },
     "0x1404C8EA0": {
@@ -1208,18 +1208,18 @@
      "total": 12
     },
     "0x1404F4BE0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5889,
+     "reached": 53,
      "total": 90
     },
     "0x1404FE9C0": {
-     "fraction": 0.1591,
-     "reached": 35,
+     "fraction": 0.2818,
+     "reached": 62,
      "total": 220
     },
     "0x140A3B320": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 8,
      "total": 10
     },
     "0x140A3C950": {
@@ -1233,13 +1233,13 @@
      "total": 10
     },
     "0x140A3E7D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5556,
+     "reached": 5,
      "total": 9
     },
     "0x140A3E880": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A42480": {
@@ -1258,13 +1258,13 @@
      "total": 1
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A489D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A489F0": {
@@ -1278,23 +1278,23 @@
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A4F1E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A57720": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A57800": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A60500": {
@@ -1303,23 +1303,23 @@
      "total": 1
     },
     "0x140A627E0": {
-     "fraction": 0.2222,
-     "reached": 2,
+     "fraction": 1.0,
+     "reached": 9,
      "total": 9
     },
     "0x140A62EA0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3333,
+     "reached": 2,
      "total": 6
     },
     "0x140A6E340": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A6E5E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A71520": {
@@ -1348,7 +1348,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 128 cases at own-block 0.16 < floor 0.50",
+   "note": "bit-exact 256 cases at own-block 0.28 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -1367,7 +1367,7 @@
    "va": "0x1404FEDC0"
   },
   {
-   "cases": 128,
+   "cases": 256,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -1395,8 +1395,8 @@
      "total": 13
     },
     "0x140503430": {
-     "fraction": 0.6102,
-     "reached": 144,
+     "fraction": 0.6483,
+     "reached": 153,
      "total": 236
     },
     "0x140A3E190": {
@@ -1445,8 +1445,8 @@
      "total": 1
     },
     "0x140A6C6D0": {
-     "fraction": 0.8333,
-     "reached": 5,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     },
     "0x140A6E1C0": {
@@ -1508,7 +1508,7 @@
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "128 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "256 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -1746,7 +1746,7 @@
    "va": "0x140504D20"
   },
   {
-   "cases": 82,
+   "cases": 146,
    "coverage": {
     "0x1405055E0": {
      "fraction": 0.8485,
@@ -1772,7 +1772,7 @@
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "82 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "146 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -1780,11 +1780,11 @@
    "va": "0x1405055E0"
   },
   {
-   "cases": 104,
+   "cases": 165,
    "coverage": {
     "0x140509A40": {
-     "fraction": 0.0448,
-     "reached": 3,
+     "fraction": 0.0597,
+     "reached": 4,
      "total": 67
     },
     "0x1408C9DF0": {
@@ -1866,13 +1866,13 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 104 cases at own-block 0.04 < floor 0.50",
+   "note": "bit-exact 165 cases at own-block 0.06 < floor 0.50",
    "stubs": [],
    "translated": true,
    "va": "0x140509A40"
   },
   {
-   "cases": 86,
+   "cases": 139,
    "coverage": {
     "0x14042D5E0": {
      "fraction": 1.0,
@@ -1880,8 +1880,8 @@
      "total": 1
     },
     "0x140510D30": {
-     "fraction": 0.8545,
-     "reached": 47,
+     "fraction": 0.8909,
+     "reached": 49,
      "total": 55
     },
     "0x140A3AF60": {
@@ -1948,7 +1948,7 @@
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "86 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "139 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -1956,7 +1956,7 @@
    "va": "0x140510D30"
   },
   {
-   "cases": 128,
+   "cases": 256,
    "coverage": {
     "0x140509890": {
      "fraction": 0.0,
@@ -1964,8 +1964,8 @@
      "total": 29
     },
     "0x14051B8B0": {
-     "fraction": 0.0583,
-     "reached": 7,
+     "fraction": 0.0667,
+     "reached": 8,
      "total": 120
     },
     "0x1408C5060": {
@@ -2087,7 +2087,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 128 cases at own-block 0.06 < floor 0.50",
+   "note": "bit-exact 256 cases at own-block 0.07 < floor 0.50",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -2139,7 +2139,7 @@
    "va": "0x14051CF70"
   },
   {
-   "cases": 104,
+   "cases": 168,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.8462,
@@ -2152,13 +2152,13 @@
      "total": 13
     },
     "0x140529490": {
-     "fraction": 0.6957,
-     "reached": 32,
+     "fraction": 0.6739,
+     "reached": 31,
      "total": 46
     },
     "0x1405296B0": {
-     "fraction": 0.8068,
-     "reached": 71,
+     "fraction": 0.7955,
+     "reached": 70,
      "total": 88
     },
     "0x1408C5030": {
@@ -2225,7 +2225,7 @@
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "104 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "168 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -2233,11 +2233,11 @@
    "va": "0x140529490"
   },
   {
-   "cases": 109,
+   "cases": 173,
    "coverage": {
     "0x140510B50": {
-     "fraction": 1.0,
-     "reached": 10,
+     "fraction": 0.8,
+     "reached": 8,
      "total": 10
     },
     "0x140510C10": {
@@ -2246,8 +2246,8 @@
      "total": 5
     },
     "0x140510C40": {
-     "fraction": 0.5833,
-     "reached": 7,
+     "fraction": 0.0,
+     "reached": 0,
      "total": 12
     },
     "0x14052A190": {
@@ -2276,8 +2276,8 @@
      "total": 3
     },
     "0x140A532F0": {
-     "fraction": 0.5556,
-     "reached": 5,
+     "fraction": 0.7778,
+     "reached": 7,
      "total": 9
     },
     "0x140A533A0": {
@@ -2286,8 +2286,8 @@
      "total": 10
     },
     "0x140A62780": {
-     "fraction": 1.0,
-     "reached": 2,
+     "fraction": 0.0,
+     "reached": 0,
      "total": 2
     },
     "0x140A63880": {
@@ -2314,7 +2314,7 @@
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "109 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "173 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -2322,11 +2322,11 @@
    "va": "0x14052A190"
   },
   {
-   "cases": 105,
+   "cases": 204,
    "coverage": {
     "0x140439E50": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6154,
+     "reached": 8,
      "total": 13
     },
     "0x14043A0A0": {
@@ -2345,23 +2345,23 @@
      "total": 3
     },
     "0x140526430": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7973,
+     "reached": 59,
      "total": 74
     },
     "0x14052A820": {
-     "fraction": 0.5785,
-     "reached": 210,
+     "fraction": 0.6639,
+     "reached": 241,
      "total": 363
     },
     "0x14052C440": {
-     "fraction": 0.8462,
-     "reached": 11,
+     "fraction": 1.0,
+     "reached": 13,
      "total": 13
     },
     "0x140622490": {
-     "fraction": 0.2553,
-     "reached": 12,
+     "fraction": 0.5106,
+     "reached": 24,
      "total": 47
     },
     "0x140A3B320": {
@@ -2385,8 +2385,8 @@
      "total": 3
     },
     "0x140A489D0": {
-     "fraction": 0.6667,
-     "reached": 2,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A10": {
@@ -2420,13 +2420,13 @@
      "total": 6
     },
     "0x140A63950": {
-     "fraction": 0.375,
-     "reached": 3,
+     "fraction": 0.875,
+     "reached": 7,
      "total": 8
     },
     "0x140A6E320": {
-     "fraction": 0.6667,
-     "reached": 2,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A71480": {
@@ -2435,8 +2435,8 @@
      "total": 3
     },
     "0x140A92D40": {
-     "fraction": 0.7273,
-     "reached": 8,
+     "fraction": 1.0,
+     "reached": 11,
      "total": 11
     },
     "0x140A92DC0": {
@@ -2458,7 +2458,7 @@
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "105 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "204 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -2466,7 +2466,7 @@
    "va": "0x14052A820"
   },
   {
-   "cases": 84,
+   "cases": 175,
    "coverage": {
     "0x140439EF0": {
      "fraction": 0.0,
@@ -2479,8 +2479,8 @@
      "total": 5
     },
     "0x14053A5A0": {
-     "fraction": 0.4,
-     "reached": 14,
+     "fraction": 0.4571,
+     "reached": 16,
      "total": 35
     },
     "0x14053A820": {
@@ -2509,8 +2509,8 @@
      "total": 31
     },
     "0x14053B110": {
-     "fraction": 0.6296,
-     "reached": 17,
+     "fraction": 0.2963,
+     "reached": 8,
      "total": 27
     },
     "0x14053B260": {
@@ -2519,8 +2519,8 @@
      "total": 13
     },
     "0x14053B3B0": {
-     "fraction": 0.9,
-     "reached": 9,
+     "fraction": 0.5,
+     "reached": 5,
      "total": 10
     },
     "0x14053B420": {
@@ -2615,9 +2615,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": true,
-   "failure_class": null,
-   "note": "84 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "diffed": false,
+   "failure_class": "harness cannot run",
+   "note": "bit-exact 175 cases at own-block 0.30 < floor 0.50",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -2625,7 +2625,7 @@
    "va": "0x14053B110"
   },
   {
-   "cases": 110,
+   "cases": 174,
    "coverage": {
     "0x140439EF0": {
      "fraction": 0.0,
@@ -2696,7 +2696,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 110 cases at own-block 0.33 < floor 0.50",
+   "note": "bit-exact 174 cases at own-block 0.33 < floor 0.50",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -2704,7 +2704,7 @@
    "va": "0x14053B420"
   },
   {
-   "cases": 76,
+   "cases": 137,
    "coverage": {
     "0x140579E10": {
      "fraction": 1.0,
@@ -2712,8 +2712,8 @@
      "total": 5
     },
     "0x14057A3E0": {
-     "fraction": 0.2857,
-     "reached": 4,
+     "fraction": 0.3571,
+     "reached": 5,
      "total": 14
     },
     "0x140A40200": {
@@ -2740,7 +2740,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 76 cases at own-block 0.29 < floor 0.50",
+   "note": "bit-exact 137 cases at own-block 0.36 < floor 0.50",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -2748,7 +2748,7 @@
    "va": "0x14057A3E0"
   },
   {
-   "cases": 70,
+   "cases": 134,
    "coverage": {
     "0x14044E020": {
      "fraction": 0.0,
@@ -2761,8 +2761,8 @@
      "total": 6
     },
     "0x14057B820": {
-     "fraction": 0.1,
-     "reached": 3,
+     "fraction": 0.1333,
+     "reached": 4,
      "total": 30
     },
     "0x14057BA50": {
@@ -2839,13 +2839,13 @@
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "70 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "134 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [],
    "translated": true,
    "va": "0x14057BA50"
   },
   {
-   "cases": 124,
+   "cases": 188,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -3141,7 +3141,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 124 cases at own-block 0.17 < floor 0.50",
+   "note": "bit-exact 188 cases at own-block 0.17 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -3149,7 +3149,7 @@
    "va": "0x14057D3A0"
   },
   {
-   "cases": 128,
+   "cases": 256,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -3353,7 +3353,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 128 cases at own-block 0.04 < floor 0.50",
+   "note": "bit-exact 256 cases at own-block 0.04 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -3361,7 +3361,7 @@
    "va": "0x1405A6DE0"
   },
   {
-   "cases": 113,
+   "cases": 161,
    "coverage": {
     "0x140227930": {
      "fraction": 0.0,
@@ -3389,8 +3389,8 @@
      "total": 5
     },
     "0x1405AD720": {
-     "fraction": 0.5068,
-     "reached": 37,
+     "fraction": 0.5205,
+     "reached": 38,
      "total": 73
     },
     "0x140600DD0": {
@@ -3399,8 +3399,8 @@
      "total": 1
     },
     "0x140A3AEE0": {
-     "fraction": 0.5556,
-     "reached": 5,
+     "fraction": 0.7778,
+     "reached": 7,
      "total": 9
     },
     "0x140A3B000": {
@@ -3439,8 +3439,8 @@
      "total": 3
     },
     "0x140A60530": {
-     "fraction": 0.75,
-     "reached": 3,
+     "fraction": 1.0,
+     "reached": 4,
      "total": 4
     },
     "0x140A62EA0": {
@@ -3472,7 +3472,7 @@
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "113 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "161 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -3520,7 +3520,7 @@
    "va": "0x1405CCD50"
   },
   {
-   "cases": 3,
+   "cases": 9,
    "coverage": {
     "0x1404C8EA0": {
      "fraction": 0.0,
@@ -3528,8 +3528,8 @@
      "total": 8
     },
     "0x1405CC1A0": {
-     "fraction": 0.9231,
-     "reached": 12,
+     "fraction": 1.0,
+     "reached": 13,
      "total": 13
     },
     "0x1405CC250": {
@@ -3573,8 +3573,8 @@
      "total": 11
     },
     "0x1405CD0F0": {
-     "fraction": 0.0833,
-     "reached": 2,
+     "fraction": 0.1667,
+     "reached": 4,
      "total": 24
     },
     "0x1405CD220": {
@@ -3588,13 +3588,13 @@
      "total": 20
     },
     "0x1405CD460": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8571,
+     "reached": 6,
      "total": 7
     },
     "0x1405CD540": {
-     "fraction": 0.4706,
-     "reached": 8,
+     "fraction": 0.8824,
+     "reached": 15,
      "total": 17
     },
     "0x1405CD5E0": {
@@ -3628,8 +3628,8 @@
      "total": 32
     },
     "0x1405CE150": {
-     "fraction": 0.7544,
-     "reached": 43,
+     "fraction": 0.8246,
+     "reached": 47,
      "total": 57
     },
     "0x1405CE4E0": {
@@ -3638,8 +3638,8 @@
      "total": 1
     },
     "0x1405CE4F0": {
-     "fraction": 0.3182,
-     "reached": 28,
+     "fraction": 0.3295,
+     "reached": 29,
      "total": 88
     },
     "0x1405CE930": {
@@ -3648,8 +3648,8 @@
      "total": 130
     },
     "0x1405CF310": {
-     "fraction": 0.0342,
-     "reached": 5,
+     "fraction": 0.0479,
+     "reached": 7,
      "total": 146
     },
     "0x1405CFC80": {
@@ -3678,8 +3678,8 @@
      "total": 51
     },
     "0x14063FA70": {
-     "fraction": 0.3529,
-     "reached": 6,
+     "fraction": 0.2353,
+     "reached": 4,
      "total": 17
     },
     "0x1408C5900": {
@@ -3713,8 +3713,8 @@
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A4C6E0": {
@@ -3753,13 +3753,13 @@
      "total": 7
     },
     "0x140A63950": {
-     "fraction": 0.75,
-     "reached": 6,
+     "fraction": 1.0,
+     "reached": 8,
      "total": 8
     },
     "0x140A64410": {
-     "fraction": 0.1228,
-     "reached": 7,
+     "fraction": 0.3509,
+     "reached": 20,
      "total": 57
     },
     "0x140A714C0": {
@@ -3806,7 +3806,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 3 cases at own-block 0.32 < floor 0.50",
+   "note": "bit-exact 9 cases at own-block 0.33 < floor 0.50",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -3815,7 +3815,7 @@
    "va": "0x1405CE4F0"
   },
   {
-   "cases": 64,
+   "cases": 4,
    "coverage": {
     "0x1404C8EA0": {
      "fraction": 0.0,
@@ -3828,8 +3828,8 @@
      "total": 20
     },
     "0x1405CE930": {
-     "fraction": 0.0077,
-     "reached": 1,
+     "fraction": 0.2923,
+     "reached": 38,
      "total": 130
     },
     "0x1408C5900": {
@@ -3856,7 +3856,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 4 cases at own-block 0.29 < floor 0.50",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -3864,7 +3864,7 @@
    "va": "0x1405CE930"
   },
   {
-   "cases": 127,
+   "cases": 255,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.6154,
@@ -4177,8 +4177,8 @@
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.2,
-     "reached": 2,
+     "fraction": 0.8,
+     "reached": 8,
      "total": 10
     },
     "0x141B59E20": {
@@ -4195,7 +4195,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 127 cases at own-block 0.07 < floor 0.50",
+   "note": "bit-exact 255 cases at own-block 0.07 < floor 0.50",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -4424,7 +4424,7 @@
    "va": "0x1405DE950"
   },
   {
-   "cases": 127,
+   "cases": 255,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -4760,7 +4760,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 127 cases at own-block 0.08 < floor 0.50",
+   "note": "bit-exact 255 cases at own-block 0.08 < floor 0.50",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -4769,7 +4769,7 @@
    "va": "0x1405E4460"
   },
   {
-   "cases": 113,
+   "cases": 177,
    "coverage": {
     "0x140601110": {
      "fraction": 0.3117,
@@ -4795,13 +4795,13 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 113 cases at own-block 0.31 < floor 0.50",
+   "note": "bit-exact 177 cases at own-block 0.31 < floor 0.50",
    "stubs": [],
    "translated": true,
    "va": "0x140601110"
   },
   {
-   "cases": 100,
+   "cases": 120,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -4844,8 +4844,8 @@
      "total": 148
     },
     "0x14062FF60": {
-     "fraction": 0.6667,
-     "reached": 8,
+     "fraction": 1.0,
+     "reached": 12,
      "total": 12
     },
     "0x140630780": {
@@ -4969,7 +4969,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 100 cases at own-block 0.14 < floor 0.50",
+   "note": "bit-exact 120 cases at own-block 0.14 < floor 0.50",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -4978,16 +4978,16 @@
    "va": "0x14062E240"
   },
   {
-   "cases": 101,
+   "cases": 159,
    "coverage": {
     "0x140638FB0": {
-     "fraction": 0.6667,
-     "reached": 14,
+     "fraction": 0.7143,
+     "reached": 15,
      "total": 21
     },
     "0x140639100": {
-     "fraction": 0.8286,
-     "reached": 58,
+     "fraction": 0.8714,
+     "reached": 61,
      "total": 70
     },
     "0x140A3B320": {
@@ -5066,8 +5066,8 @@
      "total": 9
     },
     "0x140A6C6D0": {
-     "fraction": 0.5,
-     "reached": 3,
+     "fraction": 0.8333,
+     "reached": 5,
      "total": 6
     },
     "0x140A6CF70": {
@@ -5096,13 +5096,13 @@
      "total": 11
     },
     "0x140A92D40": {
-     "fraction": 0.4545,
-     "reached": 5,
+     "fraction": 0.6364,
+     "reached": 7,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.9,
-     "reached": 9,
+     "fraction": 1.0,
+     "reached": 10,
      "total": 10
     },
     "0x141E532D0": {
@@ -5114,7 +5114,7 @@
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "101 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "159 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -5122,7 +5122,7 @@
    "va": "0x140639100"
   },
   {
-   "cases": 128,
+   "cases": 251,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -5130,8 +5130,8 @@
      "total": 13
     },
     "0x140439EF0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 6,
      "total": 9
     },
     "0x140439F90": {
@@ -5145,8 +5145,8 @@
      "total": 9
     },
     "0x14043A0A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4615,
+     "reached": 6,
      "total": 13
     },
     "0x14043C430": {
@@ -5175,8 +5175,8 @@
      "total": 5
     },
     "0x1406486D0": {
-     "fraction": 0.0069,
-     "reached": 2,
+     "fraction": 0.0934,
+     "reached": 27,
      "total": 289
     },
     "0x140654DE0": {
@@ -5205,18 +5205,18 @@
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A4C720": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A6C6D0": {
@@ -5265,13 +5265,13 @@
      "total": 11
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5455,
+     "reached": 6,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6,
+     "reached": 6,
      "total": 10
     },
     "0x141E532D0": {
@@ -5285,7 +5285,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 128 cases at own-block 0.01 < floor 0.50",
+   "note": "bit-exact 251 cases at own-block 0.09 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -5347,7 +5347,7 @@
    "va": "0x14064DC50"
   },
   {
-   "cases": 86,
+   "cases": 174,
    "coverage": {
     "0x140439EF0": {
      "fraction": 0.0,
@@ -5375,8 +5375,8 @@
      "total": 2
     },
     "0x140458740": {
-     "fraction": 0.9,
-     "reached": 9,
+     "fraction": 1.0,
+     "reached": 10,
      "total": 10
     },
     "0x1404F6700": {
@@ -5405,8 +5405,8 @@
      "total": 39
     },
     "0x140649DA0": {
-     "fraction": 0.2178,
-     "reached": 22,
+     "fraction": 0.2574,
+     "reached": 26,
      "total": 101
     },
     "0x14064DE60": {
@@ -5503,7 +5503,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "translator bug",
-   "note": "diff: 86 cases, 1 mismatch case 49: ret_rax want 3FFEFB14 got 22000000 <build>/gen/14064DE60/corp_14064DE60.jsonl: 86 cases, 1 mismatch",
+   "note": "diff: 174 cases, 1 mismatch case 49: ret_rax want 3EEDB136 got 22000000 <build>/gen/14064DE60/corp_14064DE60.jsonl: 174 cases, 1 mismatch",
    "stubs": [
     "0x1415A1780"
    ],
@@ -5511,11 +5511,11 @@
    "va": "0x14064DE60"
   },
   {
-   "cases": 112,
+   "cases": 176,
    "coverage": {
     "0x140439E50": {
-     "fraction": 0.8462,
-     "reached": 11,
+     "fraction": 0.7692,
+     "reached": 10,
      "total": 13
     },
     "0x14043A0A0": {
@@ -5549,8 +5549,8 @@
      "total": 3
     },
     "0x140A92C80": {
-     "fraction": 1.0,
-     "reached": 11,
+     "fraction": 0.9091,
+     "reached": 10,
      "total": 11
     },
     "0x140A92D40": {
@@ -5572,7 +5572,7 @@
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "112 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "176 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -5580,26 +5580,26 @@
    "va": "0x140654E60"
   },
   {
-   "cases": 128,
+   "cases": 256,
    "coverage": {
     "0x14043A0A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8462,
+     "reached": 11,
      "total": 13
     },
     "0x14065C2A0": {
-     "fraction": 0.0583,
-     "reached": 7,
+     "fraction": 0.2,
+     "reached": 24,
      "total": 120
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A8F7C0": {
@@ -5628,7 +5628,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 128 cases at own-block 0.06 < floor 0.50",
+   "note": "bit-exact 256 cases at own-block 0.20 < floor 0.50",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -5636,11 +5636,11 @@
    "va": "0x14065C2A0"
   },
   {
-   "cases": 128,
+   "cases": 217,
    "coverage": {
     "0x140439E50": {
-     "fraction": 0.5385,
-     "reached": 7,
+     "fraction": 0.0,
+     "reached": 0,
      "total": 13
     },
     "0x140439EF0": {
@@ -5659,13 +5659,13 @@
      "total": 2
     },
     "0x140653BA0": {
-     "fraction": 0.8519,
-     "reached": 23,
+     "fraction": 0.0,
+     "reached": 0,
      "total": 27
     },
     "0x14065DAB0": {
-     "fraction": 0.6381,
-     "reached": 67,
+     "fraction": 0.5333,
+     "reached": 56,
      "total": 105
     },
     "0x140A48910": {
@@ -5704,23 +5704,23 @@
      "total": 6
     },
     "0x140A6E6B0": {
-     "fraction": 1.0,
-     "reached": 1,
+     "fraction": 0.0,
+     "reached": 0,
      "total": 1
     },
     "0x140A760E0": {
-     "fraction": 0.8462,
-     "reached": 11,
+     "fraction": 0.0,
+     "reached": 0,
      "total": 13
     },
     "0x140A76210": {
-     "fraction": 0.6667,
-     "reached": 2,
+     "fraction": 0.0,
+     "reached": 0,
      "total": 3
     },
     "0x140A76240": {
-     "fraction": 0.6667,
-     "reached": 2,
+     "fraction": 0.0,
+     "reached": 0,
      "total": 3
     },
     "0x140A8F7C0": {
@@ -5734,25 +5734,25 @@
      "total": 11
     },
     "0x140A92D40": {
-     "fraction": 0.7273,
-     "reached": 8,
+     "fraction": 0.6364,
+     "reached": 7,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 1.0,
-     "reached": 10,
+     "fraction": 0.9,
+     "reached": 9,
      "total": 10
     },
     "0x141E532D0": {
-     "fraction": 1.0,
-     "reached": 1,
+     "fraction": 0.0,
+     "reached": 0,
      "total": 1
     }
    },
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "128 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "217 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -5811,7 +5811,7 @@
    "va": "0x140975710"
   },
   {
-   "cases": 128,
+   "cases": 256,
    "coverage": {
     "0x140439F90": {
      "fraction": 0.0,
@@ -5969,7 +5969,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 128 cases at own-block 0.08 < floor 0.50",
+   "note": "bit-exact 256 cases at own-block 0.08 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -6056,7 +6056,7 @@
    "va": "0x14097CD00"
   },
   {
-   "cases": 99,
+   "cases": 163,
    "coverage": {
     "0x140439EF0": {
      "fraction": 0.0,
@@ -6094,7 +6094,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 99 cases at own-block 0.14 < floor 0.50",
+   "note": "bit-exact 163 cases at own-block 0.14 < floor 0.50",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -6102,7 +6102,7 @@
    "va": "0x14097FCE0"
   },
   {
-   "cases": 120,
+   "cases": 198,
    "coverage": {
     "0x140439EF0": {
      "fraction": 0.6667,
@@ -6186,7 +6186,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 120 cases at own-block 0.11 < floor 0.50",
+   "note": "bit-exact 198 cases at own-block 0.11 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -6194,7 +6194,7 @@
    "va": "0x14097FFF0"
   },
   {
-   "cases": 101,
+   "cases": 165,
    "coverage": {
     "0x14043A0A0": {
      "fraction": 0.4615,
@@ -6217,8 +6217,8 @@
      "total": 9
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A489D0": {
@@ -6232,8 +6232,8 @@
      "total": 3
     },
     "0x140A539F0": {
-     "fraction": 0.6923,
-     "reached": 36,
+     "fraction": 0.8462,
+     "reached": 44,
      "total": 52
     },
     "0x140A60500": {
@@ -6260,7 +6260,7 @@
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "101 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "165 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -6268,7 +6268,7 @@
    "va": "0x140A539F0"
   },
   {
-   "cases": 69,
+   "cases": 133,
    "coverage": {
     "0x140A57650": {
      "fraction": 1.0,
@@ -6289,7 +6289,7 @@
    "dead_blocks": {},
    "diffed": true,
    "failure_class": null,
-   "note": "69 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "note": "133 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],

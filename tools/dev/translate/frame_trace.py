@@ -8,8 +8,10 @@ once per frame. The step calls the team tick FUN_1404F6C30 for each side. Callee
 image bytes, with stubs.json's models stubbed (unmodellable entries are not stubbed: their bytes
 run). At each entry of the 50 impure functions, the spec's argument registers are the roots, and
 seed.build_live_seed + patch_live_ptrs snapshot the regions the spec declares from the emulated
-memory at that instant. Reservoir sampling keeps --cap instances per spec. Output: <VA>.bank.json
-per reached spec (the driver's --seed-bank format) and record.json.
+memory at that instant. Reservoir sampling keeps --cap instances per spec, on disk (one slot file
+each, streamed into <VA>.bank.jsonl: the driver's --seed-bank format). Own-block coverage: each
+function's executed live block leaders (driver.block_bounds), written to executed/<VA>.json.
+Output: banks/, executed/ and record.json.
 
 Usage: GF_DIFF_PYTHON=<venv python> PES_EXE=<pes_full.bin> python3 frame_trace.py --capture DIR --out DIR
        [--frames N] [--cap N] [--budget INSTR]
@@ -18,6 +20,7 @@ import argparse
 import json
 import os
 import random
+import shutil
 import struct
 import sys
 import time
@@ -28,6 +31,8 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, DIFF)
 import run as rn  # noqa: E402  (diffharness emulator core: maps, stubs, stack)
 import seed  # noqa: E402
+import bankstore  # noqa: E402
+import driver as drv  # noqa: E402
 import stubs as stub_table  # noqa: E402
 import unicorn.x86_const as xc  # noqa: E402
 import full_snapshot as fs  # noqa: E402
@@ -277,20 +282,40 @@ def stubs_for_run(image_root_stubs):
 
 
 class Bank:
-    """Reservoir of seed artifacts for one spec: at most cap instances, uniform over the calls."""
+    """Reservoir of seed artifacts for one spec: at most cap instances, uniform over the calls.
+    The kept instances live on disk, one slot file each (rewritten in place), so memory holds
+    one instance at a time however large --cap is."""
 
-    def __init__(self, cap, tag):
-        self.cap, self.n, self.items = cap, 0, []
+    def __init__(self, cap, tag, slot_dir):
+        self.cap, self.n, self.slots = cap, 0, 0
+        self.dir = slot_dir
+        shutil.rmtree(slot_dir, ignore_errors=True)
+        os.makedirs(slot_dir)
         self.rng = random.Random("frametrace:" + tag)
+
+    def _path(self, i):
+        return os.path.join(self.dir, "slot%d.json" % i)
 
     def offer(self, make):
         self.n += 1
-        if len(self.items) < self.cap:
-            self.items.append(make())
-            return
-        j = self.rng.randrange(self.n)
-        if j < self.cap:
-            self.items[j] = make()
+        if self.slots < self.cap:
+            i = self.slots
+            self.slots += 1
+        else:
+            i = self.rng.randrange(self.n)
+            if i >= self.cap:
+                return
+        with open(self._path(i), "w") as f:
+            json.dump(make(), f)
+
+    def artifacts(self):
+        """The kept instances in slot order; each slot file is read, then removed."""
+        for i in range(self.slots):
+            with open(self._path(i)) as f:
+                art = json.load(f)
+            os.remove(self._path(i))
+            yield art
+        os.rmdir(self.dir)
 
 
 def snapshot(uc, spec, roots):
@@ -394,7 +419,7 @@ def main():
 
     from unicorn import UC_HOOK_CODE
     impure = load_impure(a.spec_dir)
-    banks, calls, roots = {}, {}, {}
+    banks, calls, roots, hit = {}, {}, {}, {}
     frame_log = []
     counters = {"tick": 0, "per_early": 0}
 
@@ -407,7 +432,7 @@ def main():
         va = int(spec["va"], 16)
         args = {reg: root for reg, root in (spec.get("args") or {}).items()}
         roots[tag] = {root: "frametrace" for root in args.values()}
-        banks[tag] = Bank(a.cap, tag)
+        banks[tag] = Bank(a.cap, tag, os.path.join(a.out, "slots", tag))
         calls[tag] = 0
 
         def on_entry(uc_, address, size, data, tag=tag, spec=spec, args=args):
@@ -418,6 +443,17 @@ def main():
             banks[tag].offer(lambda: snapshot(uc_, spec, call_roots))
 
         uc.hook_add(UC_HOOK_CODE, on_entry, None, begin=va, end=va)
+        # Own-block coverage: the live leaders of this function's own blocks. The range is the
+        # function's own decode, so a callee's blocks are never counted for it.
+        lay = drv.block_bounds(a.image, spec["va"])
+        if lay is not None:
+            own_addrs, _, live = lay
+            hit[tag] = set()
+
+            def on_leader(uc_, address, size, data, tag=tag, leaders=frozenset(live)):
+                if address in leaders:
+                    hit[tag].add(address)
+            uc.hook_add(UC_HOOK_CODE, on_leader, None, begin=min(own_addrs), end=max(own_addrs))
 
     g_ptr = struct.unpack("<Q", bytes(uc.mem_read(H_GLOBAL, 8)))[0]
     h_obj = g_ptr
@@ -446,14 +482,15 @@ def main():
 
     banks_written = []
     for tag, bank in banks.items():
-        if bank.items:
-            out = os.path.join(a.out, "banks", tag + ".bank.json")
-            with open(out, "w") as f:  # streamed per instance: one document would not fit the cap
-                f.write('{"roots": %s, "instances": [' % json.dumps(roots[tag]))
-                for i, inst in enumerate(bank.items):
-                    f.write(("," if i else "") + json.dumps(inst))
-                f.write("]}")
+        if bank.n:
+            bankstore.write_bank(os.path.join(a.out, "banks", tag + ".bank.jsonl"), roots[tag],
+                                 bank.artifacts())
             banks_written.append(tag)
+    os.makedirs(os.path.join(a.out, "executed"), exist_ok=True)
+    for tag, leaders in hit.items():
+        if leaders:
+            with open(os.path.join(a.out, "executed", tag + ".json"), "w") as f:
+                json.dump(["0x%X" % x for x in sorted(leaders)], f)
     label_src = a.capture or a.snapshot
     record = {"capture": label_src, "label": os.path.basename(label_src.rstrip("/")),
               "meta": {k: meta.get(k) for k in ("g", "mi", "teams", "h", "m", "ma", "frame_delta")},
@@ -463,6 +500,7 @@ def main():
               "stop": stop, "impure_calls": calls,
               "impure_reached": sorted(t for t, n in calls.items() if n),
               "instances": {t: banks[t].n for t in banks if banks[t].n},
+              "executed_leaders": {t: len(s) for t, s in hit.items() if s},
               "banks_written": banks_written, "frames": frame_log,
               "secs_total": round(time.time() - t0, 2)}
     if lazy is not None:
