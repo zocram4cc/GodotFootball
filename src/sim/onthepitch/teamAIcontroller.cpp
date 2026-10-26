@@ -3442,6 +3442,8 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       f.active = true;
       f.goalie = pl->GetFormationEntry().role == e_PlayerRole_GK;
       f.passGet = pl == passGetReceiver;
+      // ponytail: PES's per-tick writer of man +0x554, +0x55C..+0x564 and +0x574..+0x57C (tick movement, not decoded;
+      // docs/re/pes-re-player-record.md 2.2) is not translated. GF's movement stands in for it, once per build.
       const Vector3 pos = pl->GetPosition();
       const Vector3 mov = pl->GetMovement();
       // The man record is keyed by PES's slot (his squad place): the block the translated accessors read.
