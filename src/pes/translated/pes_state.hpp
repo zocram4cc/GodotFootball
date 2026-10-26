@@ -163,6 +163,9 @@ static inline uint64_t ro_rd(const uint8_t* t, uint64_t len, uint64_t off,
 
 struct PesState {
   uint64_t gpr[16] = {};
+  // The GS segment base (the thread environment block). gs:-relative operands read at gs_base + disp. The caller sets
+  // it: the snapshot diff main from the same TEB the harness maps; the game's runtime sets the thread's TEB.
+  uint64_t gs_base = 0;
   // XMM as raw u128: u64[2]; lane views reinterpreted per op.
   uint64_t xmm[16][2] = {};
   bool zf = false, pf = false, cf = false, sf = false, of = false;

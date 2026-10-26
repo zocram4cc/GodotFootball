@@ -211,6 +211,7 @@ def gen_snap(va, callees):
     its recorded registers over the snapshot's own pages (SnapView, copied on first touch and dropped
     per call), with its return address at [rsp]. One output line per call in the harness corpus's
     format: rax, the full xmm0, and every byte written (address and value, in order)."""
+    from frame_trace import TEB_BASE  # the GS base the snapshot harness sets (the same constant, not a copy)
     V = va[2:]
     fns = sorted({V} | {c[2:] for c in callees})
     L = []
@@ -262,6 +263,7 @@ def gen_snap(va, callees):
     L.append('    const uint64_t* r = recs[i].v;')
     L.append('    PesState s;')
     L.append('    s.mem.snap = &snap;')
+    L.append('    s.gs_base = 0x%XULL;  // the harness sets GS to the same TEB (frame_trace.TEB_BASE)' % TEB_BASE)
     L.append('    for (int g = 0; g < 16; ++g) s.gpr[g] = r[g];')
     L.append('    for (int x = 0; x < 16; ++x) { s.xmm[x][0] = r[16 + 2 * x]; s.xmm[x][1] = r[17 + 2 * x]; }')
     L.append('    s.wr(r[4], r[48], 8);  // the recorded return address, before the write log starts')

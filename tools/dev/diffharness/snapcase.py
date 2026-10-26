@@ -116,6 +116,7 @@ class Replayer:
         self.pool = os.open(pool_path, os.O_RDONLY)  # the trace's pool: the call-time pages
         self.uc = uc = Uc(UC_ARCH_X86, UC_MODE_64)
         uc._addrs_on = True
+        uc._icount = 0  # run.py's shared code hook counts instructions (its valid-icount stats)
         uc._trace_on = True
         self.lazy = ft.LazyMap(sm, models)
         self.lazy.attach(uc)
@@ -198,8 +199,8 @@ class Replayer:
             err = uc._bad
         elif lazy.refused is not None:
             err = lazy.refused
-        elif sum(lazy.import_calls.values()):
-            err = "OS import model run: %s" % ",".join(k for k, v in lazy.import_calls.items() if v)
+        # A modelled OS export runs its import model (import_stubs.json: the contract the translator
+        # implements too, import_call_lines in xlate.py). An unmodelled export is int3 and refused above.
         elif err is None and (uc.reg_read(xc.UC_X86_REG_RIP) != ret or
                               uc.reg_read(xc.UC_X86_REG_RSP) != rsp + 8):
             err = "did not return to %#x (budget or a stray transfer)" % ret

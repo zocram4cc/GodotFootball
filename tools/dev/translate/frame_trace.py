@@ -564,6 +564,7 @@ def main():
     table = stub_table.load()
     spec_stubs = stubs_for_run(table)
     uc._addrs_on = a.trace_addrs
+    uc._icount = 0  # run.py's shared code hook counts instructions (its valid-icount stats)
     rn.install_hooks(uc, spec_stubs, ret)
     stubbed = len(spec_stubs["stubs"])
 
