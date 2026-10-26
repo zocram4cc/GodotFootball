@@ -824,6 +824,9 @@ void Match::ProcessBallStage() {
 
 void Match::Process() {
   tickStages.clear();
+  // PES's movement records hold this tick's start state, so every reader in the tick (the S1 rows, the mark table, the
+  // run world) sees it: the writer runs before any of them.
+  if (pesLoop) WritePesMovementRecords(*this);
   // RandomInfo is republished before anything reads it this logic frame. Report 3.15: the
   // callback 0x14041e2b0 runs the update 0x140435b30 whenever the producer exists (its body is
   // decoded from raw bytes; the frame it is called on is NOT VERIFIED).

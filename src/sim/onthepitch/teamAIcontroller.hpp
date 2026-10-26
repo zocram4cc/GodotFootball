@@ -454,4 +454,9 @@ protected:
   std::vector<TacticalOpponentInfo> tacticalOpponentInfo;
 };
 
+class Match;
+// PES's movement records (man +0x55C..+0x57C) for every active player, written at the start of the tick on the PES
+// path: Match::Process calls it before any reader. GF mode writes them per run build (BuildRunWorld) instead.
+void WritePesMovementRecords(Match& match);
+
 #endif

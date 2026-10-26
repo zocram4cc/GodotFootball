@@ -3399,6 +3399,45 @@ std::vector<Player*> TeamAIController::PesBoxMen(int boxCount) {
 // GF never swaps B. The writer of that pair removes this stand-in.
 void TeamAIController::RequestRoleSwap(int a, int b) { roleSwap = std::make_pair(a, b); }
 
+namespace {
+
+// PES's yaw of a ground vector in degrees, [0, 360); 0 for a zero vector. The man record's facing word (+0x554).
+float PesYawDeg(const Vector3& v) {
+  return (v.coords[0] == 0.0f && v.coords[1] == 0.0f)
+             ? 0.0f
+             : std::fmod(std::atan2(v.coords[0], v.coords[1]) * 180.0f / pi + 360.0f, 360.0f);
+}
+
+// The movement fields of a player's man record: position from GF's coordinates (x = coords[0], z = coords[1] = PES z,
+// coords[2] = height), velocity in m per PES frame (GF m/s over kPesFps), facing in degrees.
+void WriteManMovement(Player& pl, uint8_t* man) {
+  const Vector3 pos = pl.GetPosition();
+  const Vector3 mov = pl.GetMovement();
+  pes::StoreF32(man, pes::kManPosXOffset, pos.coords[0]);
+  pes::StoreF32(man, pes::kManPosZOffset, pos.coords[1]);
+  // PES's man record holds the height too (+0x560, +0x578 m per frame). GF's coords[2] is the height (INF).
+  pes::StoreF32(man, pes::kManPosYOffset, pos.coords[2]);
+  pes::StoreF32(man, pes::kManVelXOffset, mov.coords[0] / ob::kPesFps);
+  pes::StoreF32(man, pes::kManVelZOffset, mov.coords[1] / ob::kPesFps);
+  pes::StoreF32(man, pes::kManVelYOffset, mov.coords[2] / ob::kPesFps);
+  pes::StoreF32(man, pes::kManFacingOffset, PesYawDeg(pl.GetDirectionVec()));
+}
+
+}  // namespace
+
+// Every active player's movement record at the tick's start (Match::Process, PES mode). The cap is BuildRunWorld's: at
+// most kSlots active players a side, in roster order.
+void WritePesMovementRecords(Match& match) {
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      WriteManMovement(*p, match.PesWorldOf().ManRecord(match.PesSlotOf(p.get())));
+    }
+  }
+}
+
 // The world as the run code reads it (pesoffball.hpp RunWorld), global ids
 // team·11 + slot over each team's active players in roster order.
 pes::offball::RunWorld TeamAIController::BuildRunWorld(
@@ -3411,11 +3450,6 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
   if (match->PesLoop()) w.styleCompat = match->GetPesOffBallConstants().styleCompat;
   w.pesPath = match->PesLoop();
   w.openPlay = match->IsInPlay() && !match->IsInSetPiece();
-  auto pesDeg = [](const Vector3& v) {
-    return (v.coords[0] == 0.0f && v.coords[1] == 0.0f)
-               ? 0.0f
-               : std::fmod(std::atan2(v.coords[0], v.coords[1]) * 180.0f / pi + 360.0f, 360.0f);
-  };
   for (int t = 0; t < 2; ++t) {
     Team* tm = match->GetTeam(t);
     for (const auto& p : tm->GetAllPlayers())
@@ -3442,19 +3476,12 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       f.active = true;
       f.goalie = pl->GetFormationEntry().role == e_PlayerRole_GK;
       f.passGet = pl == passGetReceiver;
-      // ponytail: PES's per-tick writer of man +0x554, +0x55C..+0x564 and +0x574..+0x57C (tick movement, not decoded;
-      // docs/re/pes-re-player-record.md 2.2) is not translated. GF's movement stands in for it, once per build.
-      const Vector3 pos = pl->GetPosition();
-      const Vector3 mov = pl->GetMovement();
+      // ponytail: GF mode keeps a stand-in for PES's per-tick movement writer (not decoded; docs/re/pes-re-player-record.md
+      // 2.2): GF's movement is written here, once per build. PES mode writes it at the tick's start instead.
       // The man record is keyed by PES's slot (his squad place): the block the translated accessors read.
       const int recordSlot = match->PesSlotOf(pl);
       f.man = match->PesWorldOf().ManRecord(recordSlot);
-      f.SetPos(Flat(pos));
-      f.SetVel(Flat(mov));
-      f.SetFacing(pesDeg(pl->GetDirectionVec()));
-      // PES's man record holds the height too (+0x560, +0x578 m per frame). GF's coords[2] is the height (INF).
-      pes::StoreF32(f.man, pes::kManPosYOffset, pos.coords[2]);
-      pes::StoreF32(f.man, pes::kManVelYOffset, mov.coords[2] / ob::kPesFps);
+      if (!match->PesLoop()) WriteManMovement(*pl, f.man);
       f.roleClass = ctl->RoleClassOfSlot(match->GetTeam(t)->FormationSlotOf(pl));
       f.styleWord = pes::style::StyleWord(pl->GetPlayerData()->GetPlayingStyle());
       // ponytail: PES's writer of the record's +1 byte (lane-units2 S12) is not decoded; the keeper class stands in for it.
