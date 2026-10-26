@@ -203,3 +203,64 @@ def gen(spec, va, callees):
     L.append('}')
     # Every mismatching field is printed (the report lists each case), not the first ten.
     return ("\n".join(L) + "\n").replace("if (bad < 10)", "if (true)")
+
+
+def gen_snap(va, callees):
+    """The snapshot diff main for one function. argv: ok_calls.bin (the replayable calls of one
+    snapshot, snapcase.py), mem.bin, maps.txt (its readable runs), out.jsonl. Each call starts from
+    its recorded registers over the snapshot's own pages (SnapView, copied on first touch and dropped
+    per call), with its return address at [rsp]. One output line per call in the harness corpus's
+    format: rax, the full xmm0, and every byte written (address and value, in order)."""
+    V = va[2:]
+    fns = sorted({V} | {c[2:] for c in callees})
+    L = []
+    L.append('// Generated snapshot diff main for %s (build tree only).' % va)
+    L.append('#include "pes_state.hpp"')
+    L.append('#include "pes_cond.inl"')
+    L.append('#include <cstdint>')
+    L.append('#include <cstdio>')
+    L.append('#include <fcntl.h>')
+    L.append('#include <sys/stat.h>')
+    L.append('#include <unistd.h>')
+    L.append('#include <vector>')
+    for f in fns:
+        L.append('void pes_fn_%s(PesState& s);' % f)
+    L.append('// One traced call (snapcase.py CALL_REC): 16 GPRs, 16 XMM (lo, hi), the return address.')
+    L.append('struct CallRec { uint64_t v[49]; };')
+    L.append('int main(int argc, char** argv) {')
+    L.append('  if (argc < 5) return 2;')
+    L.append('  int mfd = open(argv[2], O_RDONLY); if (mfd < 0) return 2;')
+    L.append('  SnapView snap; snap.fd = mfd;')
+    L.append('  FILE* mp = fopen(argv[3], "r"); if (!mp) return 2;')
+    L.append('  unsigned long long rva, rsize, roff;')
+    L.append('  while (fscanf(mp, "%llx %llx %llx", &rva, &rsize, &roff) == 3)')
+    L.append('    snap.runs.push_back({rva, rsize, roff});')
+    L.append('  fclose(mp);')
+    L.append('  struct stat st; if (stat(argv[1], &st) != 0) return 2;')
+    L.append('  size_t n = (size_t)st.st_size / sizeof(CallRec);')
+    L.append('  std::vector<CallRec> recs(n);')
+    L.append('  FILE* cf = fopen(argv[1], "rb"); if (!cf) return 2;')
+    L.append('  if (n && fread(recs.data(), sizeof(CallRec), n, cf) != n) return 2;')
+    L.append('  fclose(cf);')
+    L.append('  FILE* out = fopen(argv[4], "w"); if (!out) return 2;')
+    L.append('  for (size_t i = 0; i < n; ++i) {')
+    L.append('    const uint64_t* r = recs[i].v;')
+    L.append('    PesState s;')
+    L.append('    s.mem.snap = &snap;')
+    L.append('    for (int g = 0; g < 16; ++g) s.gpr[g] = r[g];')
+    L.append('    for (int x = 0; x < 16; ++x) { s.xmm[x][0] = r[16 + 2 * x]; s.xmm[x][1] = r[17 + 2 * x]; }')
+    L.append('    s.wr(r[4], r[48], 8);  // the recorded return address, before the write log starts')
+    L.append('    std::vector<std::pair<uint64_t, uint8_t>> log;')
+    L.append('    s.mem.wlog = &log;')
+    L.append('    pes_fn_%s(s);' % V)
+    L.append(r'    fprintf(out, "{\"case\": %zu, \"ok\": true, \"rax\": \"%016llx\", \"xmm0\": \"%016llx%016llx\", \"w\": \"",')
+    L.append(r'            i, (unsigned long long)s.gpr[0], (unsigned long long)s.xmm[0][1], (unsigned long long)s.xmm[0][0]);')
+    L.append('    for (const auto& w : log) fprintf(out, "%016llx%02x", (unsigned long long)w.first, (unsigned)w.second);')
+    L.append(r'    fprintf(out, "\"}\n");')
+    L.append('    snap.reset();')
+    L.append('  }')
+    L.append('  fclose(out);')
+    L.append('  printf("%s: %zu calls\\n", argv[1], n);')
+    L.append('  return 0;')
+    L.append('}')
+    return "\n".join(L) + "\n"

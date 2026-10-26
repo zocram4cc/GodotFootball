@@ -434,7 +434,7 @@ def install_hooks(mu, spec, RET_SENTINEL):
                     "0x%X" % address, 0)
                 uc._trace["0x%X" % prev]["0x%X" % address] += 1
             uc._prev = [address, size]
-        if address == RET_SENTINEL:
+        if address == getattr(uc, "_ret_sentinel", RET_SENTINEL):  # snapshot replay sets it per call
             uc.emu_stop()
             return
         hit = stubs.get(address)
@@ -1474,7 +1474,7 @@ def gen_inputs(spec, seed, count, image=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--exe", required=True)
+    ap.add_argument("--exe", default=None)
     ap.add_argument("--spec", required=True)
     ap.add_argument("--out")
     ap.add_argument("--check-spec", action="store_true")
@@ -1501,7 +1501,23 @@ def main():
     ap.add_argument("--trace-addrs", default=None,
                     help="write the sorted list of executed instruction "
                     "addresses (union over cases) for block coverage")
+    ap.add_argument("--snapshot-dir", default=None,
+                    help="replay the traced calls of --calls over this snapshot (snapcase.py): memory "
+                         "is the snapshot's own, copied on first touch; outputs go to --out-dir")
+    ap.add_argument("--calls", default=None, help="a calls file (frame_trace.py calls/<VA>.bin)")
+    ap.add_argument("--out-dir", default=None, help="with --snapshot-dir: the output directory")
+    ap.add_argument("--blocked", default=None,
+                    help="with --snapshot-dir: a JSON list of untranslated callee VAs; a case that enters one is excluded")
     args = ap.parse_args()
+    if args.snapshot_dir:
+        if not (args.calls and args.out_dir):
+            ap.error("--snapshot-dir needs --calls and --out-dir")
+        import snapcase
+        blocked = json.load(open(args.blocked)) if args.blocked else []
+        snapcase.run_dir(args.spec, args.snapshot_dir, args.calls, args.out_dir, blocked)
+        return 0
+    if args.exe is None:
+        ap.error("--exe is required unless --snapshot-dir")
     spec = resolve_stubs(load_spec(args.spec))
     kind = image_kind(args.exe)
     sections = flat_sections(args.exe) if kind == "flat" else parse_pe_sections(args.exe)

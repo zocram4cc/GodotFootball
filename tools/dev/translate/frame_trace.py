@@ -407,6 +407,27 @@ def with_scalars(art, scalars):
     return art
 
 
+CALL_REC = struct.Struct("<49Q")  # 16 GPRs, 16 XMM (lo, hi), the return address at [rsp]
+
+
+def entry_record(uc):
+    """One call's full entry state: all 16 GPRs, all 16 XMM registers and the return address at
+    [rsp]. The snapshot replay (run.py --snapshot-calls, the diff main's snapshot mode) starts each
+    call from these registers over the snapshot's own memory; nothing else is recorded."""
+    import unicorn.x86_const as xc
+    names = ("rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi",
+             "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15")
+    gprs = [uc.reg_read(getattr(xc, "UC_X86_REG_" + r.upper())) for r in names]
+    xmm = []
+    for i in range(16):
+        v = uc.reg_read(xc.UC_X86_REG_XMM0 + i)
+        if isinstance(v, (bytes, bytearray)):
+            v = int.from_bytes(v, "little")
+        xmm += [v & 0xFFFFFFFFFFFFFFFF, v >> 64]
+    ret = struct.unpack("<Q", bytes(uc.mem_read(gprs[4], 8)))[0]
+    return CALL_REC.pack(*gprs, *xmm, ret)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--capture", default=None, help="a capture_frame.py directory (walked capture)")
@@ -467,12 +488,16 @@ def main():
 
     uc.hook_add(UC_HOOK_CODE, tick_hook, None, begin=TEAM_TICK, end=TEAM_TICK)
 
+    os.makedirs(os.path.join(a.out, "calls"), exist_ok=True)
+    seen_calls, call_files = {}, {}
     for tag, spec in impure.items():
         va = int(spec["va"], 16)
         args = {reg: root for reg, root in (spec.get("args") or {}).items()}
         roots[tag] = {root: "frametrace" for root in args.values()}
         banks[tag] = Bank(a.cap, tag, os.path.join(a.out, "slots", tag))
         calls[tag] = 0
+        seen_calls[tag] = set()
+        call_files[tag] = open(os.path.join(a.out, "calls", tag + ".bin"), "wb")
 
         def on_entry(uc_, address, size, data, tag=tag, spec=spec, args=args):
             calls[tag] += 1
@@ -481,6 +506,10 @@ def main():
             call_roots = {names[r]: v for r, v in regs.items()}
             scal = scalars_at_entry(uc_, spec)
             banks[tag].offer(lambda: with_scalars(snapshot(uc_, spec, call_roots), scal))
+            rec = entry_record(uc_)
+            if rec not in seen_calls[tag]:
+                seen_calls[tag].add(rec)
+                call_files[tag].write(rec)
 
         uc.hook_add(UC_HOOK_CODE, on_entry, None, begin=va, end=va)
         # Own-block coverage: the live leaders of this function's own blocks. The range is the

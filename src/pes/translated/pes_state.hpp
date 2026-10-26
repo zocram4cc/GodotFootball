@@ -7,6 +7,44 @@
 #include <cstdint>
 #include <cstring>
 #include <vector>
+#include <algorithm>
+#include <unistd.h>
+#include <utility>
+
+// Snapshot pages for the diff main's snapshot mode. A run is a readable VA range of the snapshot
+// with its file offset in mem.bin (maps.txt). A page is copied in 256 KiB blocks on first touch;
+// reset() drops the blocks, so every case starts from pristine snapshot memory and the process
+// never maps the whole snapshot. Holes and unmapped addresses have no block (at() returns null).
+struct SnapView {
+  struct Run { uint64_t va, size, off; };
+  struct Block { uint64_t va; std::vector<uint8_t> bytes; };
+  static constexpr uint64_t kBlock = 0x40000;
+  int fd = -1;
+  std::vector<Run> runs;              // sorted by va
+  mutable std::vector<Block> blocks;  // sorted by va, disjoint
+  uint8_t* at(uint64_t addr) const {
+    auto by_va = [](uint64_t a, const Block& b) { return a < b.va; };
+    auto it = std::upper_bound(blocks.begin(), blocks.end(), addr, by_va);
+    if (it != blocks.begin()) {
+      --it;
+      if (addr < it->va + it->bytes.size()) return it->bytes.data() + (addr - it->va);
+    }
+    auto r = std::upper_bound(runs.begin(), runs.end(), addr,
+                              [](uint64_t a, const Run& x) { return a < x.va; });
+    if (r == runs.begin()) return nullptr;
+    --r;
+    if (addr >= r->va + r->size) return nullptr;
+    uint64_t lo = std::max(r->va, addr & ~(kBlock - 1));
+    uint64_t hi = std::min(r->va + r->size, lo + kBlock);
+    Block nb{lo, std::vector<uint8_t>(hi - lo)};
+    if (pread(fd, nb.bytes.data(), hi - lo, (off_t)(r->off + (lo - r->va))) != (ssize_t)(hi - lo))
+      return nullptr;
+    auto pos = std::upper_bound(blocks.begin(), blocks.end(), lo, by_va);
+    pos = blocks.insert(pos, std::move(nb));
+    return pos->bytes.data() + (addr - lo);
+  }
+  void reset() const { blocks.clear(); }
+};
 
 struct PesMem {
   // Image bytes baked at build time: sorted (va, bytes) runs.
@@ -20,6 +58,14 @@ struct PesMem {
   // persist across cases as in the harness. Null means no image view.
   uint8_t* flat = nullptr;
   uint64_t flat_base = 0, flat_size = 0;
+  // Snapshot mode (the diff main's snapshot replay): memory is the snapshot's pages (SnapView); null
+  // otherwise. The write log (the diff main) records every byte a store writes, in order; null otherwise.
+  SnapView* snap = nullptr;
+  std::vector<std::pair<uint64_t, uint8_t>>* wlog = nullptr;
+  void log_bytes(uint64_t addr, uint64_t v, unsigned n) {
+    if (wlog)
+      for (unsigned i = 0; i < n; ++i) wlog->push_back({addr + i, (uint8_t)(v >> (8 * i))});
+  }
   // A host window onto GF's own memory (no copy): translated code addresses [base, base + size) by VA and
   // reads or writes the bytes in place. `ro` is read-only (writes are dropped); `rw` is writable.
   struct Window { uint64_t base = 0, size = 0; const uint8_t* ro = nullptr; uint8_t* rw = nullptr; };
@@ -52,31 +98,52 @@ struct PesMem {
     return nullptr;
   }
   uint64_t rd(uint64_t addr, unsigned n) const {
+    if (snap) {
+      uint64_t v = 0;
+      for (unsigned i = 0; i < n; ++i)
+        if (const uint8_t* b = snap->at(addr + i)) v |= (uint64_t)*b << (8 * i);
+      return v;
+    }
     const uint8_t* p = find(addr, n);
     uint64_t v = 0;
     if (p) std::memcpy(&v, p, n);
     return v;
   }
   void wr(uint64_t addr, uint64_t v, unsigned n) {
-    if (uint8_t* p = wfind(addr, n)) std::memcpy(p, &v, n);
+    if (snap) {
+      for (unsigned i = 0; i < n; ++i)
+        if (uint8_t* b = snap->at(addr + i)) {
+          *b = (uint8_t)(v >> (8 * i));
+          log_bytes(addr + i, v >> (8 * i), 1);
+        }
+      return;
+    }
+    if (uint8_t* p = wfind(addr, n)) {
+      std::memcpy(p, &v, n);
+      log_bytes(addr, v, n);
+    }
   }
   float rdf(uint64_t addr) const {
-    float f = 0;
-    const uint8_t* p = find(addr, 4);
-    if (p) std::memcpy(&f, p, 4);
+    uint32_t b = (uint32_t)rd(addr, 4);
+    float f;
+    std::memcpy(&f, &b, 4);
     return f;
   }
   void wrf(uint64_t addr, float f) {
-    if (uint8_t* p = wfind(addr, 4)) std::memcpy(p, &f, 4);
+    uint32_t b;
+    std::memcpy(&b, &f, 4);
+    wr(addr, b, 4);
   }
   double rdd(uint64_t addr) const {
-    double d = 0;
-    const uint8_t* p = find(addr, 8);
-    if (p) std::memcpy(&d, p, 8);
+    uint64_t u = rd(addr, 8);
+    double d;
+    std::memcpy(&d, &u, 8);
     return d;
   }
   void wrd(uint64_t addr, double d) {
-    if (uint8_t* p = wfind(addr, 8)) std::memcpy(p, &d, 8);
+    uint64_t u;
+    std::memcpy(&u, &d, 8);
+    wr(addr, u, 8);
   }
 };
 
