@@ -30,6 +30,7 @@ import run as rn  # noqa: E402  (diffharness emulator core: maps, stubs, stack)
 import seed  # noqa: E402
 import stubs as stub_table  # noqa: E402
 import unicorn.x86_const as xc  # noqa: E402
+import full_snapshot as fs  # noqa: E402
 
 PAGE = 0x1000
 H_GLOBAL = 0x1436F3F98      # H = *(H_GLOBAL), the team-tick owner
@@ -43,16 +44,180 @@ INSTR_BUDGET = 50_000_000    # instructions per H step: a deterministic runaway 
                              # timeout: unicorn returns from a timed-out emu_start with no error.
 
 
+BLOCK = 0x40000             # snapshot bytes mapped per fault (256 KiB, clipped to the mapping)
+PES_EXE = "PES2021.exe"     # the game image's mapping name: the one module a run may execute
+
+
 def mem_reader(uc):
-    """addr, n -> bytes of the emulated memory at that instant, or None when unmapped."""
+    """addr, n -> bytes of the emulated memory at that instant, or None when unmapped. In a
+    snapshot run an unmapped range is first mapped from the snapshot (LazyMap.ensure)."""
     def read(addr, n):
         if not (0 < addr < (1 << 47)) or n <= 0:
             return None
         try:
             return bytes(uc.mem_read(addr, n))
         except Exception:
+            ensure = getattr(uc, "_ensure", None)
+            if ensure is None or not ensure(addr, n):
+                return None
+        try:
+            return bytes(uc.mem_read(addr, n))
+        except Exception:
             return None
     return read
+
+
+IMPORT_STUBS = os.path.join(HERE, "import_stubs.json")
+
+
+def load_import_models(path=IMPORT_STUBS):
+    """{(module file name, export name): stub code} from import_stubs.json. "return": mov rax,
+    imm64; ret (the export returns value, no other effect). "memcpy": Win64 memcpy(dst, src, n)
+    returns dst and copies n bytes forward (rep movsb; rdi and rsi are saved, as the ABI requires)."""
+    models = {}
+    for e in json.load(open(path))["imports"]:
+        if e["do"] == "return":
+            value = int(str(e["value"]), 0) & ((1 << 64) - 1)
+            code = b"\x48\xB8" + struct.pack("<Q", value) + b"\xC3"  # mov rax, imm64; ret
+        elif e["do"] == "memcpy":
+            code = bytes.fromhex("48 89 C8 57 56 48 89 C7 48 89 D6 4C 89 C1 F3 A4 5E 5F C3")
+        else:
+            raise SystemExit("import_stubs.json: unknown do %r for %s!%s"
+                             % (e["do"], e["module"], e["export"]))
+        models[(e["module"].lower(), e["export"])] = code
+    return models
+
+
+class LazyMap:
+    """A snapshot run's memory. Pages are mapped into unicorn on first touch, from the snapshot
+    (full_snapshot.SnapMem: the whole process is never loaded). A fault maps the unmapped readable
+    pages of its BLOCK. A hole (unreadable page) stays unmapped: touching it stops the run. The game
+    image maps from the snapshot. A loaded OS module (a DLL) maps as import stubs, and only at an
+    export entry: a modelled export runs its model (import_stubs.json); any other export is int3 and
+    stops the run, named. Any other DLL address is refused."""
+
+    def __init__(self, sm, models):
+        self.sm = sm
+        self.models = models
+        self.uc = None
+        self.refused = None
+        self.faults = 0
+        self.pages = 0
+        self.import_calls = {}
+
+    def attach(self, uc):
+        from unicorn import UC_HOOK_MEM_FETCH_UNMAPPED, UC_HOOK_INTR
+        self.uc = uc
+        uc._lazy = self
+        uc._ensure = self.ensure
+        uc.hook_add(UC_HOOK_MEM_FETCH_UNMAPPED, self._fetch)
+        uc.hook_add(UC_HOOK_INTR, self._intr)
+
+    def _mapped(self, page):
+        try:
+            self.uc.mem_read(page, 1)
+            return True
+        except Exception:
+            return False
+
+    def _map_block(self, addr):
+        m = self.sm.mapping_of(addr)
+        base = addr & ~(BLOCK - 1)
+        lo, hi = max(base, m["va"]), min(base + BLOCK, m["va"] + m["size"])
+        runs = []
+        for p in range(lo, hi, PAGE):
+            if not self.sm.page_ok(p) or self._mapped(p):
+                continue
+            if runs and runs[-1][1] == p:
+                runs[-1][1] = p + PAGE
+            else:
+                runs.append([p, p + PAGE])
+        for s, e in runs:
+            self.uc.mem_map(s, e - s)
+            self.uc.mem_write(s, self.sm.read(s, e - s))
+            self.pages += (e - s) // PAGE
+        self.faults += 1
+
+    def handle(self, addr):
+        """An unmapped data access: map its block if it is a snapshot page (the hook returns True)."""
+        if not self.sm.page_ok(addr & ~(PAGE - 1)):
+            return False
+        self._map_block(addr)
+        return True
+
+    def ensure(self, addr, n):
+        """Map every page under [addr, addr+n). False when one is a hole or outside the snapshot."""
+        try:
+            p = addr & ~(PAGE - 1)
+            while p < addr + n:
+                if not self._mapped(p) and not self.handle(p):
+                    return False
+                p += PAGE
+            return True
+        except Exception:
+            return False
+
+    def _refuse(self, uc, why):
+        self.refused = why
+        uc._bad = why
+        return False
+
+    def _counter(self, key):
+        def count(uc, address, size, data):
+            self.import_calls[key] += 1
+        return count
+
+    def _map_import_page(self, uc, page, mod, entries):
+        from unicorn import UC_HOOK_CODE
+        uc.mem_map(page, PAGE)
+        uc.mem_write(page, b"\xcc" * PAGE)  # int3: an export without a model stops the run
+        for entry, name in entries:
+            code = self.models.get((mod.lower(), name))
+            if code is None or not page <= entry < page + PAGE:
+                continue
+            uc.mem_write(entry, code)
+            key = "%s!%s" % (mod, name)
+            self.import_calls.setdefault(key, 0)
+            uc.hook_add(UC_HOOK_CODE, self._counter(key), None, begin=entry, end=entry)
+        self.faults += 1
+        self.pages += 1
+
+    def _fetch(self, uc, access, addr, size, value, data):
+        """A fetch from an unmapped page (see the class doc)."""
+        m = self.sm.mapping_of(addr)
+        page = addr & ~(PAGE - 1)
+        if m is None or not self.sm.page_ok(page):
+            return self._refuse(uc, "fetch from unmapped or unreadable snapshot memory at %#x" % addr)
+        if not m["name"] or m["name"].endswith(PES_EXE):
+            return self.handle(addr)
+        mod, entries = self.sm.entries_of(addr)
+        if not any(entry == addr for entry, _ in entries):
+            return self._refuse(uc, "fetch inside %s at %#x, not an export entry" % (mod, addr))
+        self._map_import_page(uc, page, mod, entries)
+        return True
+
+    def _intr(self, uc, intno, data):
+        from unicorn.x86_const import UC_X86_REG_RIP
+        rip = uc.reg_read(UC_X86_REG_RIP)
+        mod, name, _ = self.sm.export_of(rip)
+        what = "%s!%s" % (mod, name) if name else "interrupt %d" % intno
+        self._refuse(uc, "unmodelled OS export %s at %#x: needs an import model" % (what, rip))
+        uc.emu_stop()
+
+
+TEB_BASE = 0x7FF00000  # the replay's thread environment block (GS base); outside every snapshot mapping
+
+
+def map_teb(uc, stack_top):
+    """Model the TEB the game's gs-relative reads expect (NT_TIB). StackBase is the emulated stack
+    top; StackLimit is 0, so the stack-probe prologue takes its no-probe path (no guard pages here).
+    Self (+0x30) is the TEB itself. Other TEB fields are zero: a read of one is a stop."""
+    from unicorn.x86_const import UC_X86_REG_GS_BASE
+    assert not any(m["va"] <= TEB_BASE < m["va"] + m["size"] for m in uc._lazy.sm.maps)
+    uc.mem_map(TEB_BASE, PAGE)
+    uc.mem_write(TEB_BASE + 0x08, struct.pack("<Q", stack_top))
+    uc.mem_write(TEB_BASE + 0x30, struct.pack("<Q", TEB_BASE))
+    uc.reg_write(UC_X86_REG_GS_BASE, TEB_BASE)
 
 
 def map_capture(uc, cap_dir):
@@ -182,7 +347,9 @@ def run_entry(uc, entry, regs, ret, budget):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--capture", required=True)
+    ap.add_argument("--capture", default=None, help="a capture_frame.py directory (walked capture)")
+    ap.add_argument("--snapshot", default=None,
+                    help="a full_snapshot.py directory (whole process, mapped lazily)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--image", default=os.environ.get("PES_EXE"))
     ap.add_argument("--spec-dir", default=os.path.join(DIFF, "specs", "impure"))
@@ -195,13 +362,28 @@ def main():
     a = ap.parse_args()
     if not a.image:
         ap.error("--image or PES_EXE")
+    if bool(a.capture) == bool(a.snapshot):
+        ap.error("give exactly one of --capture or --snapshot")
     os.makedirs(os.path.join(a.out, "banks"), exist_ok=True)
     t0 = time.time()
     sections = rn.flat_sections(a.image)
     if rn.image_kind(a.image) != "flat":
         ap.error("the frame trace needs the flat unpacked image (pes_full.bin)")
-    uc, ret = rn.build_emu({"regions": {}}, a.image, sections)
-    meta, mapped = map_capture(uc, a.capture)
+    if a.snapshot:
+        sm = fs.SnapMem(a.snapshot)
+        uc, ret = rn.build_emu({"regions": {}}, a.image, [])
+        lazy = LazyMap(sm, load_import_models())
+        lazy.attach(uc)
+        map_teb(uc, rn.stack_top({}))
+        if not lazy.ensure(H_GLOBAL, 8):
+            raise SystemExit("H global is not readable in the snapshot")
+        anc = sm.index["post"]
+        meta = {"g": anc["G"], "mi": anc["MI"]}
+        mapped = {"mode": "lazy snapshot", "maps": len(sm.maps), "holes": len(sm.holes)}
+    else:
+        lazy = None
+        uc, ret = rn.build_emu({"regions": {}}, a.image, sections)
+        meta, mapped = map_capture(uc, a.capture)
     t_map = time.time() - t0
 
     table = stub_table.load()
@@ -266,9 +448,14 @@ def main():
     for tag, bank in banks.items():
         if bank.items:
             out = os.path.join(a.out, "banks", tag + ".bank.json")
-            json.dump({"roots": roots[tag], "instances": bank.items}, open(out, "w"))
+            with open(out, "w") as f:  # streamed per instance: one document would not fit the cap
+                f.write('{"roots": %s, "instances": [' % json.dumps(roots[tag]))
+                for i, inst in enumerate(bank.items):
+                    f.write(("," if i else "") + json.dumps(inst))
+                f.write("]}")
             banks_written.append(tag)
-    record = {"capture": a.capture, "label": os.path.basename(a.capture.rstrip("/")),
+    label_src = a.capture or a.snapshot
+    record = {"capture": label_src, "label": os.path.basename(label_src.rstrip("/")),
               "meta": {k: meta.get(k) for k in ("g", "mi", "teams", "h", "m", "ma", "frame_delta")},
               "mapped": mapped, "stubbed_callees": stubbed, "map_secs": round(t_map, 2),
               "frames_requested": a.frames, "frames_ran": len(frame_log),
@@ -278,6 +465,9 @@ def main():
               "instances": {t: banks[t].n for t in banks if banks[t].n},
               "banks_written": banks_written, "frames": frame_log,
               "secs_total": round(time.time() - t0, 2)}
+    if lazy is not None:
+        record["lazy"] = {"faults": lazy.faults, "pages": lazy.pages, "refused": lazy.refused,
+                          "import_calls": lazy.import_calls}
     if a.trace_addrs and getattr(uc, "_addrs", None) is not None:
         with open(os.path.join(a.out, "addrs.txt"), "w") as f:
             f.write("\n".join("%X" % x for x in sorted(uc._addrs)) + "\n")

@@ -570,8 +570,16 @@ def install_hooks(mu, spec, RET_SENTINEL):
         uc.reg_write(UC_X86_REG_RIP, ret)
 
     def hook_bad(uc, access, address, size, value, data):
-        uc._bad = ("unmodelled %s at %#x (size %d): no region or global covers it; "
-                   "extend the spec" % ("read" if data == "r" else "write", address, size))
+        kind = "read" if data == "r" else "write"
+        lazy = getattr(uc, "_lazy", None)  # snapshot run: map the page, or stop at a hole
+        if lazy is not None:
+            if lazy.handle(address):
+                return True
+            uc._bad = ("unmapped %s at %#x (size %d): a snapshot hole or outside the process"
+                       % (kind, address, size))
+        else:
+            uc._bad = ("unmodelled %s at %#x (size %d): no region or global covers it; "
+                       "extend the spec" % (kind, address, size))
         uc.emu_stop()
         return True
 
