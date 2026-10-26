@@ -197,8 +197,12 @@ Expected share runnable with the §2 stubs + `gen_dispatch.py` runtime dispatch:
 (top D causes: `site:dll-import` in 1,678 fns, `boundary:rtti` in 1,279, `unwalked` in
 1,012, `outside-universe` in 751, callbacks in 216). Real calls from a cutscene-time
 snapshot move D-functions the way CallDelta moved the impure sample (74 → 5,950/6,450
-replayable on snapshot 1); coverage floor 50% over the union of captures (owner ruling
-25-10-26).
+replayable on snapshot 1). Proven rule (owner ruling 26-10-26, supersedes the 50% floor
+and the union-of-captures rule): a function is PROVEN when every case it runs is
+input/output bit-exact (return value and every written byte, from the same inputs and
+memory), whatever its coverage. Coverage is recorded and reported per function and per
+subsystem as a confidence measure, never a gate. Prefer real-call cases (snapshots +
+call-time deltas); report proven counts plus coverage and list low-coverage functions.
 
 Order: (1) Tier A by size (cheapest 20 listed: `1400EC040` 9 insns … `141010000` 124);
 (2) Tier B by size (thunks first: `140227930`, `1419F4CF0/1419F4DA0/1419F4EE0/1419F6A30/
