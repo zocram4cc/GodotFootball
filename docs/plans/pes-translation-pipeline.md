@@ -61,6 +61,27 @@ the translator and the driver, split by file. Main lands everything. Concurrency
 | 30-70% | Fix the top failure classes in the translator and struct map, then re-pilot. |
 | < 30% | Report why with the failure breakdown and propose the alternative. Never fall back to the old method silently. |
 
+## Owner ruling 26-10-26 (latest): correctness is I/O bit-exact on real calls; coverage is a confidence measure
+
+**What matters is gameplay outcome, code readability and a faithful recreation.**
+
+- A function, pure or impure, is **proven** when every case it is run on is input/output bit-exact: the same return
+  value and every written byte, from the same inputs and memory. That holds whatever its coverage.
+- Own-block coverage is **recorded and reported** per function and per subsystem, but **never gates** a function out of
+  the record or the committed layer. The 50% floor is dropped everywhere (driver, records, `gen_translated.py`, gate
+  tests).
+- Real-call cases (snapshots plus call-time deltas) are preferred over synthetic ones. Coverage is raised over time with
+  more snapshots, and low-coverage functions are reported so they get attention.
+
+This supersedes the 50% coverage floor and the "union of captures" rule below.
+
+## Owner ruling 26-10-26: impure code is translated now; emulation continues in parallel
+
+Impure code is translated and committed under **tracked coverage**: a function counts when every case it runs is
+bit-exact against PES, with its coverage over the union of captures reported (not gated) and raised over time. In
+parallel, one RE agent works on running PES's own match loop in the emulator from complete captures, so functions are
+exercised as the game calls them; as coverage rises, functions move to the gated record.
+
 ## Owner ruling 25-10-26: impure code is judged on the union of captures
 
 A function counts as bit-exact when every case agrees with PES and its own-block coverage, **counted across all

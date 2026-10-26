@@ -106,3 +106,8 @@ The 50 impure entries are hooked (`frame_trace.py`, unchanged design). Across th
 - Tests: none new (harness tooling). The gate was not run (Main gates).
 - Mutations: none run beyond the timeout experiment: `--timeout 100000` (6 of 6 identical, all frame-0 faults) versus the default (both outcomes seen).
 - Commit: `d8bd482d` (`tools/dev/translate/frame_trace.py` only; `extern/godot-cpp` symlink not staged). `ls-remote` confirms `refs/heads/Emulate` at `d8bd482d`.
+
+
+## Main's note
+
+`run.py`'s `emu_start` passes `timeout_ms * 1000`, which is correct (microseconds), and since the oracle fix (`1e3e664d`, PureRollout) a case that doesn't return is dropped and counted, never recorded. Its budget is still wall-clock (5 s), so a heavily loaded machine can drop cases; an instruction budget, as here, would make that deterministic (queued).

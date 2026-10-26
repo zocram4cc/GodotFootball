@@ -21,6 +21,10 @@ import sys
 
 PAGE = 0x1000
 IMAGE_CHUNK = 1 << 24  # bytes per read when streaming the image (16 MiB)
+# Per-case emulation budget in instructions (deterministic; a wall-clock timeout varied with machine load). 50 M, as
+# the frame-loop runner uses per step (frame_trace.py); a case past it is PES not returning, never an output.
+# Provisional: raise it if a recorded function legitimately needs more (--check would show the loss).
+CASE_INSN_BUDGET = 50_000_000
 
 
 def align_up(x, a=PAGE):
@@ -767,9 +771,14 @@ def run_case(mu, spec, RET_SENTINEL, inputs, timeout_ms=5000, seed=None, zero=Fa
                 for va_s in (spec.get("patch_addrs") or {})}
     err = None
     try:
-        mu.emu_start(entry, end, timeout=timeout_ms * 1000)
+        # An instruction budget, not a wall-clock timeout: a timeout cuts a case at a load-dependent point and the
+        # registers it leaves were recorded as PES's output (the gate failed 0x14008CE00 only under load).
+        mu.emu_start(entry, end, count=CASE_INSN_BUDGET)
     except Exception as e:
         err = "emu error: %s (last RIP %#x)" % (e, getattr(mu, "_last_rip", 0))
+    # A case that hasn't reached its return within the budget is not an output: PES did not return on it.
+    if err is None and mu.reg_read(UC_X86_REG_RIP) not in (end, RET_SENTINEL):
+        err = "did not return within %d instructions (RIP %#x)" % (CASE_INSN_BUDGET, mu.reg_read(UC_X86_REG_RIP))
     # hook_bad records the unmapped access and stops emulation; unicorn then
     # reports the stop as UC_ERR_MAP, so the recorded reason takes precedence.
     if mu._bad is not None:

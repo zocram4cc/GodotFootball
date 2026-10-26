@@ -795,7 +795,9 @@ def main():
     ap.add_argument("--only", nargs="*", default=None)
     ap.add_argument("--count", type=int, default=None)
     ap.add_argument("--cxx", default="g++")
-    ap.add_argument("--timeout", type=int, default=600)
+    # Wall-clock safety net per subprocess only; results are decided by run.py's instruction budget, so this must stay
+    # far above a loaded machine's runtime (600 s killed run.py at load average 46).
+    ap.add_argument("--timeout", type=int, default=3600)
     ap.add_argument("--jobs", type=int, default=2)
     ap.add_argument("--seed-state", default=None,
                     help="dir of seed.py artifacts (<VA>.seed.json): the corpus and the diff main apply them")

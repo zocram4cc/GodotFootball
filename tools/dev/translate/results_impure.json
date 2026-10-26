@@ -2,8 +2,7 @@
  "note": "impure results. diffed = bit-exact vs the unicorn harness. 'provisional' in a note means the spec reads writable image globals at on-disk values. 'stubs' lists the callees that stubs.json models.",
  "results": [
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 126,
    "coverage": {
     "0x1403815F0": {
      "fraction": 0.0,
@@ -26,8 +25,8 @@
      "total": 5
     },
     "0x1404386D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0924,
+     "reached": 22,
      "total": 238
     },
     "0x140439E50": {
@@ -136,8 +135,8 @@
      "total": 6
     },
     "0x140A66FF0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A6BD00": {
@@ -286,7 +285,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 126 cases at own-block 0.09 < floor 0.50",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -295,8 +294,7 @@
    "va": "0x1404386D0"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 128,
    "coverage": {
     "0x1403815F0": {
      "fraction": 0.0,
@@ -344,8 +342,8 @@
      "total": 14
     },
     "0x1404405D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0721,
+     "reached": 8,
      "total": 111
     },
     "0x140A0C3E0": {
@@ -537,7 +535,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 128 cases at own-block 0.07 < floor 0.50",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -546,12 +544,11 @@
    "va": "0x1404405D0"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 82,
    "coverage": {
     "0x1404F47A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4,
+     "reached": 8,
      "total": 20
     },
     "0x140A3E7D0": {
@@ -560,8 +557,8 @@
      "total": 9
     },
     "0x140A40FD0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A489D0": {
@@ -593,7 +590,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 82 cases at own-block 0.40 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -601,20 +598,18 @@
    "va": "0x1404F47A0"
   },
   {
-   "aborted": 0,
    "cases": 64,
    "coverage": {},
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "unmodellable callee",
-   "note": "call 140537AC0: callee 140537BF0: global store dword ptr [rip + 0x31ba44c], 0 at 140537C4E; callee 14159F8B0: indirect call qword ptr [rip + 0xf8fa7a] at 14159F8C0; import slot 14252F6E8 has no name in the image (qword p",
+   "note": "call 1404FEDC0: callee 140A58550: callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6]); callee 1415A1714: import slot 14252FDE0 has no name in the image (qword ptr [rip + 0xf8e6c6",
    "stubs": [],
    "translated": false,
    "va": "0x1404F6C30"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 126,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -642,8 +637,8 @@
      "total": 10
     },
     "0x1404F8C70": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6268,
+     "reached": 178,
      "total": 284
     },
     "0x1405969B0": {
@@ -662,8 +657,8 @@
      "total": 56
     },
     "0x140599D90": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7368,
+     "reached": 14,
      "total": 19
     },
     "0x140599E90": {
@@ -677,13 +672,13 @@
      "total": 23
     },
     "0x1405A4790": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5,
+     "reached": 3,
      "total": 6
     },
     "0x1405A4830": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8889,
+     "reached": 16,
      "total": 18
     },
     "0x14061E7C0": {
@@ -737,23 +732,23 @@
      "total": 3
     },
     "0x140A489F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A4C720": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A4C9A0": {
@@ -777,13 +772,13 @@
      "total": 12
     },
     "0x140A580A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A58320": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A60500": {
@@ -792,13 +787,13 @@
      "total": 1
     },
     "0x140A62610": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9091,
+     "reached": 10,
      "total": 11
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2222,
+     "reached": 2,
      "total": 9
     },
     "0x140A62EA0": {
@@ -807,13 +802,13 @@
      "total": 6
     },
     "0x140A63020": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 11,
      "total": 11
     },
     "0x140A638C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8889,
+     "reached": 8,
      "total": 9
     },
     "0x140A64030": {
@@ -842,8 +837,8 @@
      "total": 3
     },
     "0x140A71990": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A76210": {
@@ -852,8 +847,8 @@
      "total": 3
     },
     "0x140A76240": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A8F7C0": {
@@ -877,13 +872,13 @@
      "total": 11
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7273,
+     "reached": 8,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 10,
      "total": 10
     },
     "0x141B59E20": {
@@ -903,9 +898,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "126 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -914,8 +909,7 @@
    "va": "0x1404F8C70"
   },
   {
-   "aborted": 0,
-   "cases": 700,
+   "cases": 89,
    "coverage": {
     "0x1403FB710": {
      "fraction": 0.0,
@@ -958,13 +952,13 @@
      "total": 11
     },
     "0x1404FA720": {
-     "fraction": 0.0909,
-     "reached": 2,
+     "fraction": 0.2727,
+     "reached": 6,
      "total": 22
     },
     "0x140A55CF0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1569,
+     "reached": 8,
      "total": 51
     },
     "0x140A65580": {
@@ -983,13 +977,13 @@
      "total": 1
     },
     "0x14149A470": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x14149F4F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x141B52380": {
@@ -1021,14 +1015,13 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 700 cases at own-block 0.09 < floor 0.50",
+   "note": "bit-exact 89 cases at own-block 0.27 < floor 0.50",
    "stubs": [],
    "translated": true,
    "va": "0x1404FA720"
   },
   {
-   "aborted": 0,
-   "cases": 300,
+   "cases": 35,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -1051,18 +1044,18 @@
      "total": 1004
     },
     "0x1404FB2A0": {
-     "fraction": 0.3125,
-     "reached": 5,
+     "fraction": 0.75,
+     "reached": 12,
      "total": 16
     },
     "0x1404FB380": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0149,
+     "reached": 1,
      "total": 67
     },
     "0x1404FB780": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0147,
+     "reached": 1,
      "total": 68
     },
     "0x140A3B320": {
@@ -1081,8 +1074,8 @@
      "total": 9
     },
     "0x140A431E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3636,
+     "reached": 4,
      "total": 11
     },
     "0x140A48910": {
@@ -1161,15 +1154,15 @@
      "total": 1
     },
     "0x1423E7FD0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 300 cases at own-block 0.31 < floor 0.50",
+   "diffed": true,
+   "failure_class": null,
+   "note": "35 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -1177,8 +1170,7 @@
    "va": "0x1404FB2A0"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 128,
    "coverage": {
     "0x14043A0A0": {
      "fraction": 0.0,
@@ -1211,8 +1203,8 @@
      "total": 8
     },
     "0x1404F4AE0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5,
+     "reached": 6,
      "total": 12
     },
     "0x1404F4BE0": {
@@ -1221,8 +1213,8 @@
      "total": 90
     },
     "0x1404FE9C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1455,
+     "reached": 32,
      "total": 220
     },
     "0x140A3B320": {
@@ -1231,13 +1223,13 @@
      "total": 10
     },
     "0x140A3C950": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 3,
      "total": 4
     },
     "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2,
+     "reached": 2,
      "total": 10
     },
     "0x140A3E7D0": {
@@ -1251,18 +1243,18 @@
      "total": 1
     },
     "0x140A42480": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A42570": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A428D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A48910": {
@@ -1311,8 +1303,8 @@
      "total": 1
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2222,
+     "reached": 2,
      "total": 9
     },
     "0x140A62EA0": {
@@ -1331,8 +1323,8 @@
      "total": 3
     },
     "0x140A71520": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A92D40": {
@@ -1346,8 +1338,8 @@
      "total": 10
     },
     "0x141E532E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
@@ -1356,7 +1348,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 128 cases at own-block 0.15 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -1364,274 +1356,18 @@
    "va": "0x1404FE9C0"
   },
   {
-   "aborted": 0,
    "cases": 64,
-   "coverage": {
-    "0x140439E50": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 13
-    },
-    "0x140439EF0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 9
-    },
-    "0x14043A0A0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 13
-    },
-    "0x14044E020": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 5
-    },
-    "0x1404F52E0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 241
-    },
-    "0x1404F6140": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 10
-    },
-    "0x1404F6700": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 3
-    },
-    "0x1404FEDC0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 135
-    },
-    "0x14069CD40": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 31
-    },
-    "0x1408C5030": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 6
-    },
-    "0x1408C50E0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 7
-    },
-    "0x1408C51F0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 17
-    },
-    "0x1408C5920": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 64
-    },
-    "0x140A3AEE0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 9
-    },
-    "0x140A3B140": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 12
-    },
-    "0x140A3B320": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 10
-    },
-    "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 10
-    },
-    "0x140A3E7D0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 9
-    },
-    "0x140A40200": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 5
-    },
-    "0x140A40820": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 3
-    },
-    "0x140A40FE0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
-    },
-    "0x140A42590": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
-    },
-    "0x140A425A0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
-    },
-    "0x140A42BA0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
-    },
-    "0x140A489D0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 3
-    },
-    "0x140A489F0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 3
-    },
-    "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 3
-    },
-    "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 3
-    },
-    "0x140A4F1E0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 3
-    },
-    "0x140A53DA0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 8
-    },
-    "0x140A53EB0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 15
-    },
-    "0x140A57720": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
-    },
-    "0x140A57800": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
-    },
-    "0x140A58550": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 9
-    },
-    "0x140A5BAE0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 6
-    },
-    "0x140A60500": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
-    },
-    "0x140A62180": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 6
-    },
-    "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 9
-    },
-    "0x140A62960": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 7
-    },
-    "0x140A6C6D0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 6
-    },
-    "0x140A6CF70": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 3
-    },
-    "0x140A85AA0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 10
-    },
-    "0x140A8F7C0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 3
-    },
-    "0x140A92530": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 3
-    },
-    "0x140A92C80": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 11
-    },
-    "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 11
-    },
-    "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 10
-    },
-    "0x14124DAD0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
-    },
-    "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
-    },
-    "0x141E532E0": {
-     "fraction": 0.0,
-     "reached": 0,
-     "total": 1
-    }
-   },
+   "coverage": {},
    "dead_blocks": {},
    "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
-   "stubs": [
-    "0x14159F3E0",
-    "0x1415A1780"
-   ],
-   "translated": true,
+   "failure_class": "unmodellable callee",
+   "note": "call 1404F52E0: callee 14159FCCC: callee 14159FCE0: global store qword ptr [rip + 0x2166c32], r at 14159FD0F; global store qword ptr [rip + 0x2166bc2], r at 14159FD1F; callee 14159FCCC: callee 14159FCE0: global store qwo",
+   "stubs": [],
+   "translated": false,
    "va": "0x1404FEDC0"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 128,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -1649,43 +1385,43 @@
      "total": 8
     },
     "0x140481B00": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7,
+     "reached": 7,
      "total": 10
     },
     "0x1404A53E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6923,
+     "reached": 9,
      "total": 13
     },
     "0x140503430": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6017,
+     "reached": 142,
      "total": 236
     },
     "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2,
+     "reached": 2,
      "total": 10
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A489F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A55D40": {
@@ -1694,13 +1430,13 @@
      "total": 46
     },
     "0x140A57720": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A57730": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A57800": {
@@ -1709,58 +1445,58 @@
      "total": 1
     },
     "0x140A6C6D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     },
     "0x140A6E1C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A6E5E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A71520": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A8F7C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A91120": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A92C80": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 11,
      "total": 11
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9091,
+     "reached": 10,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 10,
      "total": 10
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x141E532E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x141F9C3B0": {
@@ -1770,9 +1506,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "128 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -1780,7 +1516,6 @@
    "va": "0x140503430"
   },
   {
-   "aborted": 0,
    "cases": 64,
    "coverage": {
     "0x1403FB710": {
@@ -1809,8 +1544,8 @@
      "total": 101
     },
     "0x140504D20": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3333,
+     "reached": 28,
      "total": 84
     },
     "0x140505CA0": {
@@ -1879,8 +1614,8 @@
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A60530": {
@@ -1924,28 +1659,28 @@
      "total": 3
     },
     "0x140A73E20": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A73E30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A73E40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 3,
      "total": 4
     },
     "0x140A73F50": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A73F60": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A73FC0": {
@@ -1964,13 +1699,13 @@
      "total": 3
     },
     "0x14102CAD0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x14143C670": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x141B55730": {
@@ -1979,8 +1714,8 @@
      "total": 22
     },
     "0x141B55830": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x141B55850": {
@@ -1989,13 +1724,13 @@
      "total": 20
     },
     "0x141B55F40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x1421B7D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
@@ -2011,34 +1746,33 @@
    "va": "0x140504D20"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 82,
    "coverage": {
     "0x1405055E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8485,
+     "reached": 28,
      "total": 33
     },
     "0x140A489A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A73E40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 4,
      "total": 4
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "82 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -2046,12 +1780,11 @@
    "va": "0x1405055E0"
   },
   {
-   "aborted": 0,
-   "cases": 601,
+   "cases": 104,
    "coverage": {
     "0x140509A40": {
-     "fraction": 0.0597,
-     "reached": 4,
+     "fraction": 0.0448,
+     "reached": 3,
      "total": 67
     },
     "0x1408C9DF0": {
@@ -2133,90 +1866,89 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 601 cases at own-block 0.06 < floor 0.50",
+   "note": "bit-exact 104 cases at own-block 0.04 < floor 0.50",
    "stubs": [],
    "translated": true,
    "va": "0x140509A40"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 81,
    "coverage": {
     "0x14042D5E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140510D30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8182,
+     "reached": 45,
      "total": 55
     },
     "0x140A3AF60": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 4,
      "total": 5
     },
     "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2,
+     "reached": 2,
      "total": 10
     },
     "0x140A3E3B0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7857,
+     "reached": 22,
      "total": 28
     },
     "0x140A489D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A60520": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A6CBD0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A6CC60": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A6CD70": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 5,
      "total": 5
     },
     "0x140A73E20": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x141794410": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x141E532E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "81 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -2224,8 +1956,7 @@
    "va": "0x140510D30"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 128,
    "coverage": {
     "0x140509890": {
      "fraction": 0.0,
@@ -2233,8 +1964,8 @@
      "total": 29
     },
     "0x14051B8B0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0583,
+     "reached": 7,
      "total": 120
     },
     "0x1408C5060": {
@@ -2293,13 +2024,13 @@
      "total": 3
     },
     "0x140A532F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3333,
+     "reached": 3,
      "total": 9
     },
     "0x140A533A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4,
+     "reached": 4,
      "total": 10
     },
     "0x140A55CF0": {
@@ -2356,7 +2087,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 128 cases at own-block 0.06 < floor 0.50",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -2364,22 +2095,21 @@
    "va": "0x14051B8B0"
   },
   {
-   "aborted": 0,
    "cases": 64,
    "coverage": {
     "0x14051B3F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5,
+     "reached": 1,
      "total": 2
     },
     "0x14051CF70": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7,
+     "reached": 14,
      "total": 20
     },
     "0x1408C50E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 7,
      "total": 7
     },
     "0x140A41BE0": {
@@ -2393,8 +2123,8 @@
      "total": 17
     },
     "0x140A76270": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
@@ -2409,32 +2139,31 @@
    "va": "0x14051CF70"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 104,
    "coverage": {
     "0x140439E50": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8462,
+     "reached": 11,
      "total": 13
     },
     "0x14043A0A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6923,
+     "reached": 9,
      "total": 13
     },
     "0x140529490": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7174,
+     "reached": 33,
      "total": 46
     },
     "0x1405296B0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8068,
+     "reached": 71,
      "total": 88
     },
     "0x1408C5030": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     },
     "0x140A3B320": {
@@ -2448,8 +2177,8 @@
      "total": 9
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A489D0": {
@@ -2458,13 +2187,13 @@
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A60500": {
@@ -2473,30 +2202,30 @@
      "total": 1
     },
     "0x140A62180": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8333,
+     "reached": 5,
      "total": 6
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2222,
+     "reached": 2,
      "total": 9
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9091,
+     "reached": 10,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 10,
      "total": 10
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "104 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -2504,27 +2233,26 @@
    "va": "0x140529490"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 109,
    "coverage": {
     "0x140510B50": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 10,
      "total": 10
     },
     "0x140510C10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 4,
      "total": 5
     },
     "0x140510C40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 8,
      "total": 12
     },
     "0x14052A190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 27,
      "total": 36
     },
     "0x140A3E150": {
@@ -2533,43 +2261,43 @@
      "total": 6
     },
     "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2,
+     "reached": 2,
      "total": 10
     },
     "0x140A41CC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3733,
+     "reached": 28,
      "total": 75
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A532F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 9,
      "total": 9
     },
     "0x140A533A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3,
+     "reached": 3,
      "total": 10
     },
     "0x140A62780": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 2,
      "total": 2
     },
     "0x140A63880": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 4,
      "total": 4
     },
     "0x140A63950": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 6,
      "total": 8
     },
     "0x140A6CC20": {
@@ -2584,9 +2312,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "109 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -2594,8 +2322,7 @@
    "va": "0x14052A190"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 105,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -2603,18 +2330,18 @@
      "total": 13
     },
     "0x14043A0A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4615,
+     "reached": 6,
      "total": 13
     },
     "0x1404587B0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x1404F6700": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140526430": {
@@ -2623,18 +2350,18 @@
      "total": 74
     },
     "0x14052A820": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5289,
+     "reached": 192,
      "total": 363
     },
     "0x14052C440": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8462,
+     "reached": 11,
      "total": 13
     },
     "0x140622490": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2553,
+     "reached": 12,
      "total": 47
     },
     "0x140A3B320": {
@@ -2648,90 +2375,90 @@
      "total": 9
     },
     "0x140A3E900": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 4,
      "total": 5
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A489D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A60500": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2222,
+     "reached": 2,
      "total": 9
     },
     "0x140A62960": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 7,
      "total": 7
     },
     "0x140A62EA0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3333,
+     "reached": 2,
      "total": 6
     },
     "0x140A63950": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 6,
      "total": 8
     },
     "0x140A6E320": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A71480": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7273,
+     "reached": 8,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 10,
      "total": 10
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x141E532E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "105 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -2739,8 +2466,7 @@
    "va": "0x14052A820"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 84,
    "coverage": {
     "0x140439EF0": {
      "fraction": 0.0,
@@ -2753,13 +2479,13 @@
      "total": 5
     },
     "0x14053A5A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3429,
+     "reached": 12,
      "total": 35
     },
     "0x14053A820": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8333,
+     "reached": 5,
      "total": 6
     },
     "0x14053A8A0": {
@@ -2783,18 +2509,18 @@
      "total": 31
     },
     "0x14053B110": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6296,
+     "reached": 17,
      "total": 27
     },
     "0x14053B260": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3077,
+     "reached": 4,
      "total": 13
     },
     "0x14053B3B0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9,
+     "reached": 9,
      "total": 10
     },
     "0x14053B420": {
@@ -2833,8 +2559,8 @@
      "total": 3
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A489F0": {
@@ -2848,8 +2574,8 @@
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A57800": {
@@ -2889,9 +2615,9 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "84 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -2899,8 +2625,7 @@
    "va": "0x14053B110"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 110,
    "coverage": {
     "0x140439EF0": {
      "fraction": 0.0,
@@ -2908,8 +2633,8 @@
      "total": 9
     },
     "0x14053B420": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.325,
+     "reached": 13,
      "total": 40
     },
     "0x140A40200": {
@@ -2923,13 +2648,13 @@
      "total": 3
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A489F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A10": {
@@ -2963,15 +2688,15 @@
      "total": 10
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 110 cases at own-block 0.33 < floor 0.50",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -2979,12 +2704,11 @@
    "va": "0x14053B420"
   },
   {
-   "aborted": 0,
-   "cases": 10350,
+   "cases": 76,
    "coverage": {
     "0x140579E10": {
-     "fraction": 0.8,
-     "reached": 4,
+     "fraction": 1.0,
+     "reached": 5,
      "total": 5
     },
     "0x14057A3E0": {
@@ -3016,7 +2740,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "bit-exact 10350 cases at own-block 0.29 < floor 0.50",
+   "note": "bit-exact 76 cases at own-block 0.29 < floor 0.50",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -3024,8 +2748,7 @@
    "va": "0x14057A3E0"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 70,
    "coverage": {
     "0x14044E020": {
      "fraction": 0.0,
@@ -3038,13 +2761,13 @@
      "total": 6
     },
     "0x14057B820": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1,
+     "reached": 3,
      "total": 30
     },
     "0x14057BA50": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5455,
+     "reached": 6,
      "total": 11
     },
     "0x140A3E7D0": {
@@ -3083,8 +2806,8 @@
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A60300": {
@@ -3114,16 +2837,15 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "70 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [],
    "translated": true,
    "va": "0x14057BA50"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 124,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -3186,8 +2908,8 @@
      "total": 12
     },
     "0x14057D3A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1724,
+     "reached": 10,
      "total": 58
     },
     "0x14057E850": {
@@ -3216,8 +2938,8 @@
      "total": 23
     },
     "0x14057F590": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3333,
+     "reached": 3,
      "total": 9
     },
     "0x140642670": {
@@ -3236,8 +2958,8 @@
      "total": 8
     },
     "0x140A3B320": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9,
+     "reached": 9,
      "total": 10
     },
     "0x140A3E150": {
@@ -3246,13 +2968,13 @@
      "total": 6
     },
     "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2,
+     "reached": 2,
      "total": 10
     },
     "0x140A3E7D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5556,
+     "reached": 5,
      "total": 9
     },
     "0x140A401C0": {
@@ -3266,8 +2988,8 @@
      "total": 3
     },
     "0x140A489D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A489F0": {
@@ -3351,8 +3073,8 @@
      "total": 2
     },
     "0x140A62EA0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8333,
+     "reached": 5,
      "total": 6
     },
     "0x140A63880": {
@@ -3419,7 +3141,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 124 cases at own-block 0.17 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -3427,8 +3149,7 @@
    "va": "0x14057D3A0"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 128,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -3491,8 +3212,8 @@
      "total": 21
     },
     "0x1405A6DE0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0392,
+     "reached": 6,
      "total": 153
     },
     "0x1405AC500": {
@@ -3632,7 +3353,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 128 cases at own-block 0.04 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -3640,8 +3361,7 @@
    "va": "0x1405A6DE0"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 118,
    "coverage": {
     "0x140227930": {
      "fraction": 0.0,
@@ -3669,8 +3389,8 @@
      "total": 5
     },
     "0x1405AD720": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4658,
+     "reached": 34,
      "total": 73
     },
     "0x140600DD0": {
@@ -3679,8 +3399,8 @@
      "total": 1
     },
     "0x140A3AEE0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5556,
+     "reached": 5,
      "total": 9
     },
     "0x140A3B000": {
@@ -3689,23 +3409,23 @@
      "total": 9
     },
     "0x140A3B320": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9,
+     "reached": 9,
      "total": 10
     },
     "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 8,
      "total": 10
     },
     "0x140A3E8C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A489D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A10": {
@@ -3714,18 +3434,18 @@
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A60530": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 3,
      "total": 4
     },
     "0x140A62EA0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     },
     "0x141B55730": {
@@ -3752,7 +3472,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 118 cases at own-block 0.47 < floor 0.50",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -3761,17 +3481,16 @@
    "va": "0x1405AD720"
   },
   {
-   "aborted": 0,
    "cases": 64,
    "coverage": {
     "0x1405CCD50": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4,
+     "reached": 10,
      "total": 25
     },
     "0x1405CD540": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9412,
+     "reached": 16,
      "total": 17
     },
     "0x14063F490": {
@@ -3780,13 +3499,13 @@
      "total": 43
     },
     "0x14063F760": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.098,
+     "reached": 5,
      "total": 51
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     }
    },
@@ -3801,8 +3520,7 @@
    "va": "0x1405CCD50"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 3,
    "coverage": {
     "0x1404C8EA0": {
      "fraction": 0.0,
@@ -3810,8 +3528,8 @@
      "total": 8
     },
     "0x1405CC1A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9231,
+     "reached": 12,
      "total": 13
     },
     "0x1405CC250": {
@@ -3855,8 +3573,8 @@
      "total": 11
     },
     "0x1405CD0F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0833,
+     "reached": 2,
      "total": 24
     },
     "0x1405CD220": {
@@ -3875,8 +3593,8 @@
      "total": 7
     },
     "0x1405CD540": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4706,
+     "reached": 8,
      "total": 17
     },
     "0x1405CD5E0": {
@@ -3910,8 +3628,8 @@
      "total": 32
     },
     "0x1405CE150": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7544,
+     "reached": 43,
      "total": 57
     },
     "0x1405CE4E0": {
@@ -3920,8 +3638,8 @@
      "total": 1
     },
     "0x1405CE4F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3182,
+     "reached": 28,
      "total": 88
     },
     "0x1405CE930": {
@@ -3930,8 +3648,8 @@
      "total": 130
     },
     "0x1405CF310": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0342,
+     "reached": 5,
      "total": 146
     },
     "0x1405CFC80": {
@@ -3940,8 +3658,8 @@
      "total": 68
     },
     "0x1405CFFE0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1333,
+     "reached": 12,
      "total": 90
     },
     "0x1405D05A0": {
@@ -3960,8 +3678,8 @@
      "total": 51
     },
     "0x14063FA70": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3529,
+     "reached": 6,
      "total": 17
     },
     "0x1408C5900": {
@@ -3975,8 +3693,8 @@
      "total": 10
     },
     "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2,
+     "reached": 2,
      "total": 10
     },
     "0x140A3E7D0": {
@@ -4035,13 +3753,13 @@
      "total": 7
     },
     "0x140A63950": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 6,
      "total": 8
     },
     "0x140A64410": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1228,
+     "reached": 7,
      "total": 57
     },
     "0x140A714C0": {
@@ -4065,8 +3783,8 @@
      "total": 3
     },
     "0x141863350": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x141E532D0": {
@@ -4088,7 +3806,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 3 cases at own-block 0.32 < floor 0.50",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -4097,7 +3815,6 @@
    "va": "0x1405CE4F0"
   },
   {
-   "aborted": 0,
    "cases": 64,
    "coverage": {
     "0x1404C8EA0": {
@@ -4111,8 +3828,8 @@
      "total": 20
     },
     "0x1405CE930": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0077,
+     "reached": 1,
      "total": 130
     },
     "0x1408C5900": {
@@ -4147,12 +3864,11 @@
    "va": "0x1405CE930"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 127,
    "coverage": {
     "0x140439E50": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6154,
+     "reached": 8,
      "total": 13
     },
     "0x14043A0A0": {
@@ -4191,8 +3907,8 @@
      "total": 49
     },
     "0x1405DC350": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0695,
+     "reached": 39,
      "total": 561
     },
     "0x1405DE950": {
@@ -4201,8 +3917,8 @@
      "total": 56
     },
     "0x1405DFC70": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7407,
+     "reached": 20,
      "total": 27
     },
     "0x1405DFE20": {
@@ -4211,13 +3927,13 @@
      "total": 3
     },
     "0x1405DFE40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.875,
+     "reached": 14,
      "total": 16
     },
     "0x1405E0010": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8182,
+     "reached": 18,
      "total": 22
     },
     "0x1405E0C40": {
@@ -4261,18 +3977,18 @@
      "total": 6
     },
     "0x140A3AF90": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8333,
+     "reached": 10,
      "total": 12
     },
     "0x140A3B110": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 4,
      "total": 5
     },
     "0x140A3B2A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 9,
      "total": 12
     },
     "0x140A3B320": {
@@ -4301,13 +4017,13 @@
      "total": 3
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A489D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A489F0": {
@@ -4316,13 +4032,13 @@
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A4C4E0": {
@@ -4351,8 +4067,8 @@
      "total": 3
     },
     "0x140A50250": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 8,
      "total": 12
     },
     "0x140A57800": {
@@ -4381,23 +4097,23 @@
      "total": 34
     },
     "0x140A62610": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9091,
+     "reached": 10,
      "total": 11
     },
     "0x140A62690": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 5,
      "total": 5
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2222,
+     "reached": 2,
      "total": 9
     },
     "0x140A62D90": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7143,
+     "reached": 10,
      "total": 14
     },
     "0x140A63680": {
@@ -4406,13 +4122,13 @@
      "total": 31
     },
     "0x140A63950": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 6,
      "total": 8
     },
     "0x140A64030": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 6,
      "total": 8
     },
     "0x140A64410": {
@@ -4421,8 +4137,8 @@
      "total": 57
     },
     "0x140A6C6D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5,
+     "reached": 3,
      "total": 6
     },
     "0x140A714E0": {
@@ -4456,30 +4172,30 @@
      "total": 11
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7273,
+     "reached": 8,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 8,
      "total": 10
     },
     "0x141B59E20": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 127 cases at own-block 0.07 < floor 0.50",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -4488,7 +4204,6 @@
    "va": "0x1405DC350"
   },
   {
-   "aborted": 0,
    "cases": 64,
    "coverage": {
     "0x140439E50": {
@@ -4532,8 +4247,8 @@
      "total": 3
     },
     "0x1405DE950": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1071,
+     "reached": 6,
      "total": 56
     },
     "0x1405DFC70": {
@@ -4542,8 +4257,8 @@
      "total": 27
     },
     "0x1405DFE40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 16,
      "total": 16
     },
     "0x1405E0010": {
@@ -4607,13 +4322,13 @@
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A4C720": {
@@ -4647,8 +4362,8 @@
      "total": 6
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2222,
+     "reached": 2,
      "total": 9
     },
     "0x140A63950": {
@@ -4657,13 +4372,13 @@
      "total": 8
     },
     "0x140A6C6D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     },
     "0x140A8F7C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A90FD0": {
@@ -4672,8 +4387,8 @@
      "total": 9
     },
     "0x140A92C80": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9091,
+     "reached": 10,
      "total": 11
     },
     "0x140A92D40": {
@@ -4692,8 +4407,8 @@
      "total": 1
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
@@ -4709,8 +4424,7 @@
    "va": "0x1405DE950"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 127,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -4798,13 +4512,13 @@
      "total": 3
     },
     "0x1405DFE40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.875,
+     "reached": 14,
      "total": 16
     },
     "0x1405E0010": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3636,
+     "reached": 8,
      "total": 22
     },
     "0x1405E0C40": {
@@ -4838,8 +4552,8 @@
      "total": 178
     },
     "0x1405E4460": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0813,
+     "reached": 13,
      "total": 160
     },
     "0x1405E6A10": {
@@ -4903,13 +4617,13 @@
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A4F210": {
@@ -4953,8 +4667,8 @@
      "total": 5
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2222,
+     "reached": 2,
      "total": 9
     },
     "0x140A62850": {
@@ -4973,8 +4687,8 @@
      "total": 31
     },
     "0x140A63950": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 6,
      "total": 8
     },
     "0x140A64030": {
@@ -4988,8 +4702,8 @@
      "total": 57
     },
     "0x140A6C6D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5,
+     "reached": 3,
      "total": 6
     },
     "0x140A8F7C0": {
@@ -5033,8 +4747,8 @@
      "total": 1
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x141E532E0": {
@@ -5046,7 +4760,7 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 127 cases at own-block 0.08 < floor 0.50",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -5055,12 +4769,11 @@
    "va": "0x1405E4460"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 113,
    "coverage": {
     "0x140601110": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3117,
+     "reached": 24,
      "total": 77
     },
     "0x140A3AF90": {
@@ -5069,8 +4782,8 @@
      "total": 12
     },
     "0x140A489D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x141B59E20": {
@@ -5082,14 +4795,13 @@
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 113 cases at own-block 0.31 < floor 0.50",
    "stubs": [],
    "translated": true,
    "va": "0x140601110"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 99,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -5127,13 +4839,13 @@
      "total": 6
     },
     "0x14062E240": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1419,
+     "reached": 21,
      "total": 148
     },
     "0x14062FF60": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 8,
      "total": 12
     },
     "0x140630780": {
@@ -5192,13 +4904,13 @@
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A4DB20": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A60500": {
@@ -5242,13 +4954,13 @@
      "total": 10
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x141E5D4C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     }
    },
@@ -5257,7 +4969,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 99 cases at own-block 0.14 < floor 0.50",
    "stubs": [
     "0x14159F3E0",
     "0x1415A1780"
@@ -5266,17 +4978,16 @@
    "va": "0x14062E240"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 101,
    "coverage": {
     "0x140638FB0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 14,
      "total": 21
     },
     "0x140639100": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8286,
+     "reached": 58,
      "total": 70
     },
     "0x140A3B320": {
@@ -5285,8 +4996,8 @@
      "total": 10
     },
     "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2,
+     "reached": 2,
      "total": 10
     },
     "0x140A3E7D0": {
@@ -5295,8 +5006,8 @@
      "total": 9
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A489D0": {
@@ -5305,33 +5016,33 @@
      "total": 3
     },
     "0x140A489F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A57710": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A57720": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A57800": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A60500": {
@@ -5340,70 +5051,70 @@
      "total": 1
     },
     "0x140A62610": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9091,
+     "reached": 10,
      "total": 11
     },
     "0x140A62690": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 5,
      "total": 5
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2222,
+     "reached": 2,
      "total": 9
     },
     "0x140A6C6D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5,
+     "reached": 3,
      "total": 6
     },
     "0x140A6CF70": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A6E3F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A75BE0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7143,
+     "reached": 5,
      "total": 7
     },
     "0x140A8F7C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A92C80": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8182,
+     "reached": 9,
      "total": 11
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4545,
+     "reached": 5,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9,
+     "reached": 9,
      "total": 10
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "101 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -5411,8 +5122,7 @@
    "va": "0x140639100"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 128,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -5465,8 +5175,8 @@
      "total": 5
     },
     "0x1406486D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0069,
+     "reached": 2,
      "total": 289
     },
     "0x140654DE0": {
@@ -5575,7 +5285,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 128 cases at own-block 0.01 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -5583,7 +5293,6 @@
    "va": "0x1406486D0"
   },
   {
-   "aborted": 0,
    "cases": 64,
    "coverage": {
     "0x14043A0A0": {
@@ -5592,18 +5301,18 @@
      "total": 13
     },
     "0x14064DC50": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.175,
+     "reached": 7,
      "total": 40
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A4C720": {
@@ -5612,8 +5321,8 @@
      "total": 1
     },
     "0x140A57800": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A92D40": {
@@ -5638,8 +5347,7 @@
    "va": "0x14064DC50"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 111,
    "coverage": {
     "0x140439EF0": {
      "fraction": 0.0,
@@ -5657,8 +5365,8 @@
      "total": 9
     },
     "0x14043A0A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7692,
+     "reached": 10,
      "total": 13
     },
     "0x14043C430": {
@@ -5667,8 +5375,8 @@
      "total": 2
     },
     "0x140458740": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9,
+     "reached": 9,
      "total": 10
     },
     "0x1404F6700": {
@@ -5697,18 +5405,18 @@
      "total": 39
     },
     "0x140649DA0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0198,
+     "reached": 2,
      "total": 101
     },
     "0x14064DE60": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0517,
+     "reached": 6,
      "total": 116
     },
     "0x14064E4B0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0839,
+     "reached": 46,
      "total": 548
     },
     "0x140A48910": {
@@ -5717,13 +5425,13 @@
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A4C720": {
@@ -5732,8 +5440,8 @@
      "total": 1
     },
     "0x140A6C6D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     },
     "0x140A71260": {
@@ -5747,8 +5455,8 @@
      "total": 3
     },
     "0x140A8F7C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A900E0": {
@@ -5772,30 +5480,30 @@
      "total": 13
     },
     "0x140A92C80": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9091,
+     "reached": 10,
      "total": 11
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9091,
+     "reached": 10,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 10,
      "total": 10
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 111 cases at own-block 0.05 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -5803,69 +5511,68 @@
    "va": "0x14064DE60"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 112,
    "coverage": {
     "0x140439E50": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6154,
+     "reached": 8,
      "total": 13
     },
     "0x14043A0A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7692,
+     "reached": 10,
      "total": 13
     },
     "0x140654E60": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7788,
+     "reached": 81,
      "total": 104
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A6C6D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     },
     "0x140A8F7C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A92C80": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 11,
      "total": 11
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9091,
+     "reached": 10,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 10,
      "total": 10
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "112 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -5873,8 +5580,7 @@
    "va": "0x140654E60"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 128,
    "coverage": {
     "0x14043A0A0": {
      "fraction": 0.0,
@@ -5882,8 +5588,8 @@
      "total": 13
     },
     "0x14065C2A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0583,
+     "reached": 7,
      "total": 120
     },
     "0x140A48A10": {
@@ -5922,7 +5628,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 128 cases at own-block 0.06 < floor 0.50",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -5930,12 +5636,11 @@
    "va": "0x14065C2A0"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 128,
    "coverage": {
     "0x140439E50": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5385,
+     "reached": 7,
      "total": 13
     },
     "0x140439EF0": {
@@ -5944,8 +5649,8 @@
      "total": 9
     },
     "0x14043A0A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5385,
+     "reached": 7,
      "total": 13
     },
     "0x1404C8DC0": {
@@ -5954,13 +5659,13 @@
      "total": 2
     },
     "0x140653BA0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8148,
+     "reached": 22,
      "total": 27
     },
     "0x14065DAB0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5714,
+     "reached": 60,
      "total": 105
     },
     "0x140A48910": {
@@ -5974,18 +5679,18 @@
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A4F1E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A58320": {
@@ -5999,23 +5704,23 @@
      "total": 6
     },
     "0x140A6E6B0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A760E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8462,
+     "reached": 11,
      "total": 13
     },
     "0x140A76210": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A76240": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A8F7C0": {
@@ -6029,25 +5734,25 @@
      "total": 11
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4545,
+     "reached": 5,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6,
+     "reached": 6,
      "total": 10
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "128 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -6055,12 +5760,11 @@
    "va": "0x14065DAB0"
   },
   {
-   "aborted": 0,
    "cases": 64,
    "coverage": {
     "0x140687310": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1299,
+     "reached": 10,
      "total": 77
     },
     "0x1408C5900": {
@@ -6085,7 +5789,6 @@
    "va": "0x140687310"
   },
   {
-   "aborted": 0,
    "cases": 64,
    "coverage": {},
    "dead_blocks": {},
@@ -6097,7 +5800,6 @@
    "va": "0x14080EBA0"
   },
   {
-   "aborted": 0,
    "cases": 64,
    "coverage": {},
    "dead_blocks": {},
@@ -6109,8 +5811,7 @@
    "va": "0x140975710"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 128,
    "coverage": {
     "0x140439F90": {
      "fraction": 0.0,
@@ -6133,8 +5834,8 @@
      "total": 6
     },
     "0x140978E70": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0783,
+     "reached": 13,
      "total": 166
     },
     "0x140A3B320": {
@@ -6163,8 +5864,8 @@
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A50620": {
@@ -6268,7 +5969,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 128 cases at own-block 0.08 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -6276,7 +5977,6 @@
    "va": "0x140978E70"
   },
   {
-   "aborted": 0,
    "cases": 64,
    "coverage": {
     "0x14043B8B0": {
@@ -6295,13 +5995,13 @@
      "total": 158
     },
     "0x14097CD00": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.05,
+     "reached": 1,
      "total": 20
     },
     "0x14097F910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.04,
+     "reached": 1,
      "total": 25
     },
     "0x14097FA30": {
@@ -6356,8 +6056,7 @@
    "va": "0x14097CD00"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 99,
    "coverage": {
     "0x140439EF0": {
      "fraction": 0.0,
@@ -6370,8 +6069,8 @@
      "total": 13
     },
     "0x14097FCE0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1429,
+     "reached": 7,
      "total": 49
     },
     "0x140A74160": {
@@ -6395,7 +6094,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 99 cases at own-block 0.14 < floor 0.50",
    "stubs": [
     "0x14159F3E0"
    ],
@@ -6403,17 +6102,16 @@
    "va": "0x14097FCE0"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 122,
    "coverage": {
     "0x140439EF0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 6,
      "total": 9
     },
     "0x14043A0A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7692,
+     "reached": 10,
      "total": 13
     },
     "0x140456EA0": {
@@ -6427,18 +6125,18 @@
      "total": 10
     },
     "0x14097FFF0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1134,
+     "reached": 33,
      "total": 291
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A4C4E0": {
@@ -6447,18 +6145,18 @@
      "total": 10
     },
     "0x140A4C720": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A4E3F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0556,
+     "reached": 2,
      "total": 36
     },
     "0x140A4E720": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5,
+     "reached": 6,
      "total": 12
     },
     "0x140A53DA0": {
@@ -6467,18 +6165,18 @@
      "total": 8
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7273,
+     "reached": 8,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 10,
      "total": 10
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
@@ -6488,7 +6186,7 @@
    },
    "diffed": false,
    "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "note": "bit-exact 122 cases at own-block 0.11 < floor 0.50",
    "stubs": [
     "0x1415A1780"
    ],
@@ -6496,17 +6194,16 @@
    "va": "0x14097FFF0"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 101,
    "coverage": {
     "0x14043A0A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4615,
+     "reached": 6,
      "total": 13
     },
     "0x140507740": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A3B320": {
@@ -6530,13 +6227,13 @@
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A539F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6923,
+     "reached": 36,
      "total": 52
     },
     "0x140A60500": {
@@ -6550,20 +6247,20 @@
      "total": 9
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7273,
+     "reached": 8,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 10,
      "total": 10
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "101 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
@@ -6571,29 +6268,28 @@
    "va": "0x140A539F0"
   },
   {
-   "aborted": 0,
-   "cases": 64,
+   "cases": 69,
    "coverage": {
     "0x140A57650": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 7,
      "total": 7
     },
     "0x140A6CF70": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "corpus empty (0 cases)",
+   "diffed": true,
+   "failure_class": null,
+   "note": "69 cases bit-exact; provisional (live-state globals at on-disk values)",
    "stubs": [
     "0x1415A1780"
    ],
