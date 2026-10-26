@@ -29,6 +29,16 @@ add_test(NAME diff_presentation_recorded
 --out-dir '${CMAKE_BINARY_DIR}/presentation-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_presentation.json'")
 set_tests_properties(diff_presentation_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 2400)
 
+# diff_core_recorded: the same check for the core set (specs/core; results_core.json records its diffed VAs, each with the
+# subsystem and role of its row). specs/core also holds the callees another set records: they are the callee universe,
+# and their records stay in their own sets (driver --exclude-recorded).
+add_test(NAME diff_core_recorded
+  COMMAND bash -c "[ -n \"$PES_EXE\" ] && [ -f \"$PES_EXE\" ] && [ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
+--spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/core' \
+--out-dir '${CMAKE_BINARY_DIR}/core-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_core.json'")
+set_tests_properties(diff_core_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 7200)
+
 # Image check: the user's dump must be the image the pilot specs were authored
 # against. verify_image.py hashes the stable sections (image_hashes.json) and
 # fails naming any section that differs. Skips (77) without PES_EXE, and the

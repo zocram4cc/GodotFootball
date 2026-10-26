@@ -107,6 +107,17 @@ def read_attribution(path):
     return out
 
 
+def recorded_elsewhere(record):
+    """0x-prefixed VAs that a committed results*.json other than `record` already records, with any verdict."""
+    own = os.path.abspath(record) if record else None
+    out = set()
+    for name in os.listdir(HERE):
+        path = os.path.abspath(os.path.join(HERE, name))
+        if name.startswith("results") and name.endswith(".json") and path != own:
+            out |= {"0x%X" % int(r["va"], 16) for r in json.load(open(path))["results"]}
+    return out
+
+
 def asm_for(asm_dir, va):
     if not asm_dir:
         return ""
@@ -756,6 +767,9 @@ def main():
                     help="committed results JSON. A full run writes it; --check re-runs its diffed VAs and never writes it.")
     ap.add_argument("--set", default=None,
                     help="a generator set file (specgen sets/*.txt): its subsystem and role columns are recorded on each result")
+    ap.add_argument("--exclude-recorded", action="store_true",
+                    help="attempt and record only the specs that no other committed results*.json records. The rest "
+                         "stay in the spec dir: they are the callee universe, and their own sets own their records.")
     args = ap.parse_args()
     if args.check and not args.record:
         ap.error("--check re-runs the VAs that --record lists as diffed")
@@ -767,6 +781,9 @@ def main():
 
     specs = sorted(f for f in os.listdir(args.spec_dir)
                    if f.endswith(".json"))
+    if args.exclude_recorded:
+        elsewhere = recorded_elsewhere(args.record)
+        specs = [f for f in specs if "0x" + f[:-5].upper() not in elsewhere]
     # The pilot (call-closed universe) always spans ALL specs; --only
     # filters which functions get results, not the callee universe.
     # Otherwise callees outside --only would mistranslate as out-of-set
