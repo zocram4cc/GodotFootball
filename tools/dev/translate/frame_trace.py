@@ -384,6 +384,29 @@ def run_entry(uc, entry, regs, ret, budget):
     return err
 
 
+def scalars_at_entry(uc, spec):
+    """The register and stack inputs of one call, read at its entry: the instance's "scalars", so a
+    traced replay sets every input the call received. A stack slot sits above the return address
+    (rsp + 8 + stack_offset). XMM inputs are not recorded (the replay leaves them unheld)."""
+    rsp = uc.reg_read(rn.reg_const("rsp"))
+    read = mem_reader(uc)
+    out = {}
+    for name, loc in (spec.get("inputs") or {}).items():
+        if "reg" in loc and not str(loc["reg"]).startswith("xmm"):
+            out[name] = uc.reg_read(rn.reg_const(loc["reg"]))
+        elif "stack_offset" in loc:
+            blob = read(rsp + 8 + int(str(loc["stack_offset"]), 0), 8)
+            if blob:
+                out[name] = struct.unpack("<Q", blob)[0]
+    return out
+
+
+def with_scalars(art, scalars):
+    """The seed artifact with its entry scalars attached (artifact key "scalars")."""
+    art["scalars"] = scalars
+    return art
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--capture", default=None, help="a capture_frame.py directory (walked capture)")
@@ -456,7 +479,8 @@ def main():
             regs = {reg: uc_.reg_read(rn.reg_const(reg)) for reg in args}
             names = {reg: root for reg, root in args.items()}
             call_roots = {names[r]: v for r, v in regs.items()}
-            banks[tag].offer(lambda: snapshot(uc_, spec, call_roots))
+            scal = scalars_at_entry(uc_, spec)
+            banks[tag].offer(lambda: with_scalars(snapshot(uc_, spec, call_roots), scal))
 
         uc.hook_add(UC_HOOK_CODE, on_entry, None, begin=va, end=va)
         # Own-block coverage: the live leaders of this function's own blocks. The range is the

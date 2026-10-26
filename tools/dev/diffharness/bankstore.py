@@ -89,9 +89,10 @@ def merge(out_dir, src_dirs):
                 if os.path.exists(os.path.join(d, f))]
         roots, read, where = {}, {}, {}
         for p in srcs:
-            for k, v in sorted(_roots_of(p).items()):
-                if roots.setdefault(k, v) != v:
-                    raise SystemExit("merge %s: root %s bound to %r and %r" % (tag, k, roots[k], v))
+            for k, v in _roots_of(p).items():
+                # Root kinds (team/man/...) are metadata for the live seed; the driver never reads
+                # them. A key bound to two kinds keeps the smaller, so the merge ignores source order.
+                roots[k] = min(roots.get(k, v), v)
         for p in srcs:
             src = _open_source(p)
             read[os.path.basename(p)] = len(src)

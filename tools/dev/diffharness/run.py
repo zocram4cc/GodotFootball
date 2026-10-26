@@ -251,6 +251,8 @@ def decode_blob(blob, enc):
     if enc == "f32":
         bits = struct.unpack("<I", blob[:4])[0]
         return {"bits": "0x%08X" % bits, "f": struct.unpack("<f", blob[:4])[0]}
+    if enc == "u64":
+        return struct.unpack("<Q", blob[:8])[0]
     raise ValueError("unknown enc %s" % enc)
 
 
@@ -595,7 +597,7 @@ def install_hooks(mu, spec, RET_SENTINEL):
 
 # Real-instance cases (seed.py --bank-classes banks): a field that an instance
 # holds takes the instance's real value, not the spec's draw.
-_FIELD_SIZE = {"u8": 1, "u32": 4, "i32": 4, "f32": 4}
+_FIELD_SIZE = {"u8": 1, "u32": 4, "i32": 4, "f32": 4, "u64": 8}
 
 
 def real_region_bytes(art, rname, off, size):
@@ -631,6 +633,26 @@ def nearby_value(real, enc, rnd):
     return min(max(real + rnd.choice((-2, -1, 1, 2)), lo), hi)
 
 
+def held_value(art, name, loc):
+    """The real value instance art holds for input name at loc, or None. A region field is read from
+    the instance's bytes. A register or stack argument is the value recorded at the call's entry
+    (artifact key "scalars"): a register in full, a stack slot masked to its size. XMM is not held."""
+    if "region" in loc:
+        return real_value(art, loc)
+    enc = loc.get("enc", "u32")
+    if enc not in _FIELD_SIZE or str(loc.get("reg", "")).startswith("xmm"):
+        return None
+    raw = (art.get("scalars") or {}).get(name)
+    if raw is None:
+        return None
+    if "reg" in loc:
+        return raw
+    if "stack_offset" in loc:
+        n = _FIELD_SIZE[enc]
+        return decode_blob((raw & ((1 << (8 * n)) - 1)).to_bytes(n, "little"), enc)
+    return None
+
+
 def bank_case(spec, bank, n, inputs, seed, perturb):
     """Real-instance case n -> (inputs, instance artifact). Case n runs instance
     n % N. A field the instance holds takes its real value (mode 0), a nearby one
@@ -646,7 +668,7 @@ def bank_case(spec, bank, n, inputs, seed, perturb):
         loc = (spec.get("inputs") or {}).get(name)
         if name in labels or loc is None:
             continue
-        real = real_value(art, loc)
+        real = held_value(art, name, loc)
         if real is None:
             continue
         rnd = random.Random("%s:%d:%s" % (seed, n, name))
@@ -669,7 +691,7 @@ def unheld_inputs(spec, art, inputs):
     out = []
     for name in inputs:
         loc = (spec.get("inputs") or {}).get(name)
-        if name not in labels and loc is not None and real_value(art, loc) is None:
+        if name not in labels and loc is not None and held_value(art, name, loc) is None:
             out.append(name)
     return out
 

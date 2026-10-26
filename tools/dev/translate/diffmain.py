@@ -201,4 +201,5 @@ def gen(spec, va, callees):
     L.append('  fclose(f);')
     L.append('  return bad != 0;')
     L.append('}')
-    return "\n".join(L) + "\n"
+    # Every mismatching field is printed (the report lists each case), not the first ten.
+    return ("\n".join(L) + "\n").replace("if (bad < 10)", "if (true)")
