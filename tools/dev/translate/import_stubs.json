@@ -1,0 +1,33 @@
+{
+  "contract": "OS import models for frame_trace.py --snapshot. A snapshot run maps a loaded OS module's export entries on first call: an export listed here runs its model (its code is written at the entry); any other export is int3 and stops the run with its name. do values: return (mov rax, imm64; ret: the export returns value and has no other effect); memcpy (Win64 memcpy(dst, src, n): returns dst, copies n bytes forward). Keyed by module file name and export name. Each entry carries the evidence for its model; a wrong model is a divergence, not a default.",
+  "imports": [
+    {
+      "module": "ntdll.dll",
+      "export": "RtlEnterCriticalSection",
+      "do": "return",
+      "value": 0,
+      "why": [
+        "Called as the thunk at 0x1403FF444: call [0x14252F340]; xor eax,eax; add rsp,0x28; ret. The thunk discards the value, so the callee only has to return.",
+        "Model assumption: the replay runs one thread and never waits on the lock; a lock held by another thread at the snapshot instant is not represented."
+      ]
+    },
+    {
+      "module": "ntdll.dll",
+      "export": "RtlLeaveCriticalSection",
+      "do": "return",
+      "value": 0,
+      "why": [
+        "Pair of RtlEnterCriticalSection; no waiters are modelled (see above)."
+      ]
+    },
+    {
+      "module": "msvcrt.dll",
+      "export": "memcpy",
+      "do": "memcpy",
+      "why": [
+        "Win64 memcpy(void *dst, const void *src, size_t n): rcx, rdx, r8; returns dst in rax.",
+        "Model assumption: non-overlapping source and destination (the memcpy contract); forward rep movsb."
+      ]
+    }
+  ]
+}

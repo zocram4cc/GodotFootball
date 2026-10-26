@@ -1,0 +1,1317 @@
+{
+ "note": "snapshot-backed diff of traced calls (snapdiff.py), RealFix branch: each traced call replayed from its snapshot's own memory on the harness and the translated side. Verdict per function: bit-exact on every replayed call (proven) and own-block coverage (floor = proven and coverage >= 0.5; coverage is a confidence measure, not a gate per Main's ruling). Mismatch values omitted (PES-derived).",
+ "floor_count": 9,
+ "results": [
+  {
+   "va": "0x1404386D0",
+   "calls": 300,
+   "replayed": 300,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap2-142339": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap3-142654": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap1-162213": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap2-162511": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap3-163043": {
+     "calls": 50,
+     "replayed": 50
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 9,
+    "total": 238,
+    "fraction": 0.0378
+   },
+   "floor": false,
+   "blocked_callees": [
+    "0x140A79640"
+   ]
+  },
+  {
+   "va": "0x1404405D0",
+   "calls": 350,
+   "replayed": 350,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap2-142339": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap3-142654": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap1-162213": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap2-162511": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap3-163043": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap4-163107": {
+     "calls": 50,
+     "replayed": 50
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 32,
+    "total": 111,
+    "fraction": 0.2883
+   },
+   "floor": false,
+   "blocked_callees": [
+    "0x140A79640"
+   ]
+  },
+  {
+   "va": "0x1404F47A0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x1404F6C30",
+   "calls": 700,
+   "replayed": 0,
+   "excluded": 700,
+   "reasons": {
+    "unmodellable callee 0x140a79640 entered": 700
+   },
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 0
+    }
+   },
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": [
+    "0x140537AC0",
+    "0x14053C6E0",
+    "0x140A79640"
+   ]
+  },
+  {
+   "va": "0x1404F8C70",
+   "calls": 700,
+   "replayed": 400,
+   "excluded": 300,
+   "reasons": {
+    "unmodellable callee 0x140a79640 entered": 300
+   },
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 3,
+    "total": 284,
+    "fraction": 0.0106
+   },
+   "floor": false,
+   "blocked_callees": [
+    "0x140A79640"
+   ]
+  },
+  {
+   "va": "0x1404FA720",
+   "calls": 700,
+   "replayed": 700,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 2,
+    "total": 22,
+    "fraction": 0.0909
+   },
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x1404FB2A0",
+   "calls": 700,
+   "replayed": 700,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 10,
+    "total": 16,
+    "fraction": 0.625
+   },
+   "floor": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x1404FE9C0",
+   "calls": 700,
+   "replayed": 700,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 30,
+    "total": 220,
+    "fraction": 0.1364
+   },
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x1404FEDC0",
+   "calls": 700,
+   "replayed": 700,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 94,
+    "total": 135,
+    "fraction": 0.6963
+   },
+   "floor": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x140503430",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x140504D20",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x1405055E0",
+   "calls": 100,
+   "replayed": 100,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-162213": {
+     "calls": 50,
+     "replayed": 50
+    },
+    "snap3-163043": {
+     "calls": 50,
+     "replayed": 50
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 28,
+    "total": 33,
+    "fraction": 0.8485
+   },
+   "floor": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x140509A40",
+   "calls": 650,
+   "replayed": 650,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 50,
+     "replayed": 50
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 4,
+    "total": 67,
+    "fraction": 0.0597
+   },
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x140510D30",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14051B8B0",
+   "calls": 400,
+   "replayed": 400,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 6,
+    "total": 120,
+    "fraction": 0.05
+   },
+   "floor": false,
+   "blocked_callees": [
+    "0x140A79640"
+   ]
+  },
+  {
+   "va": "0x14051CF70",
+   "calls": 300,
+   "replayed": 300,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 18,
+    "total": 20,
+    "fraction": 0.9
+   },
+   "floor": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x140529490",
+   "calls": 3000,
+   "replayed": 3000,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 850,
+     "replayed": 850
+    },
+    "snap2-142339": {
+     "calls": 1150,
+     "replayed": 1150
+    },
+    "snap3-142654": {
+     "calls": 650,
+     "replayed": 650
+    },
+    "snap4-163107": {
+     "calls": 350,
+     "replayed": 350
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 39,
+    "total": 46,
+    "fraction": 0.8478
+   },
+   "floor": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14052A190",
+   "calls": 2451,
+   "replayed": 2451,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 350,
+     "replayed": 350
+    },
+    "snap2-142339": {
+     "calls": 1200,
+     "replayed": 1200
+    },
+    "snap3-142654": {
+     "calls": 450,
+     "replayed": 450
+    },
+    "snap4-163107": {
+     "calls": 451,
+     "replayed": 451
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 14,
+    "total": 36,
+    "fraction": 0.3889
+   },
+   "floor": false,
+   "blocked_callees": [
+    "0x140A79640"
+   ]
+  },
+  {
+   "va": "0x14052A820",
+   "calls": 1547,
+   "replayed": 1547,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap2-142339": {
+     "calls": 950,
+     "replayed": 950
+    },
+    "snap3-142654": {
+     "calls": 450,
+     "replayed": 450
+    },
+    "snap4-163107": {
+     "calls": 147,
+     "replayed": 147
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 230,
+    "total": 363,
+    "fraction": 0.6336
+   },
+   "floor": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14053B110",
+   "calls": 700,
+   "replayed": 700,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 7,
+    "total": 27,
+    "fraction": 0.2593
+   },
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14053B420",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14057A3E0",
+   "calls": 10350,
+   "replayed": 10350,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 3350,
+     "replayed": 3350
+    },
+    "snap2-142339": {
+     "calls": 3650,
+     "replayed": 3650
+    },
+    "snap3-142654": {
+     "calls": 3350,
+     "replayed": 3350
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 4,
+    "total": 14,
+    "fraction": 0.2857
+   },
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14057BA50",
+   "calls": 700,
+   "replayed": 700,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap1-162213": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap2-162511": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap3-163043": {
+     "calls": 100,
+     "replayed": 100
+    },
+    "snap4-163107": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 6,
+    "total": 11,
+    "fraction": 0.5455
+   },
+   "floor": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14057D3A0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x1405A6DE0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x1405AD720",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x1405CCD50",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x1405CE4F0",
+   "calls": 350,
+   "replayed": 0,
+   "excluded": 350,
+   "reasons": {
+    "unmodellable callee 0x140a79640 entered": 350
+   },
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 50,
+     "replayed": 0
+    },
+    "snap2-142339": {
+     "calls": 50,
+     "replayed": 0
+    },
+    "snap3-142654": {
+     "calls": 50,
+     "replayed": 0
+    },
+    "snap1-162213": {
+     "calls": 50,
+     "replayed": 0
+    },
+    "snap2-162511": {
+     "calls": 50,
+     "replayed": 0
+    },
+    "snap3-163043": {
+     "calls": 50,
+     "replayed": 0
+    },
+    "snap4-163107": {
+     "calls": 50,
+     "replayed": 0
+    }
+   },
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": [
+    "0x140A79640"
+   ]
+  },
+  {
+   "va": "0x1405CE930",
+   "calls": 300,
+   "replayed": 0,
+   "excluded": 300,
+   "reasons": {
+    "unmodellable callee 0x140a79640 entered": 300
+   },
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap2-142339": {
+     "calls": 100,
+     "replayed": 0
+    },
+    "snap3-142654": {
+     "calls": 100,
+     "replayed": 0
+    }
+   },
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": [
+    "0x140A79640"
+   ]
+  },
+  {
+   "va": "0x1405DC350",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": [
+    "0x140A79640"
+   ]
+  },
+  {
+   "va": "0x1405DE950",
+   "calls": 100,
+   "replayed": 100,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 32,
+    "total": 56,
+    "fraction": 0.5714
+   },
+   "floor": true,
+   "blocked_callees": [
+    "0x140A79640"
+   ]
+  },
+  {
+   "va": "0x1405E4460",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": [
+    "0x140A79640"
+   ]
+  },
+  {
+   "va": "0x140601110",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14062E240",
+   "calls": 100,
+   "replayed": 100,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 100,
+     "replayed": 100
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 69,
+    "total": 148,
+    "fraction": 0.4662
+   },
+   "floor": false,
+   "blocked_callees": [
+    "0x140A79640"
+   ]
+  },
+  {
+   "va": "0x140639100",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x1406486D0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14064DC50",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14064DE60",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x140654E60",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14065C2A0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14065DAB0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x140687310",
+   "calls": 3400,
+   "replayed": 3400,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "snap1-142012": {
+     "calls": 450,
+     "replayed": 450
+    },
+    "snap2-142339": {
+     "calls": 400,
+     "replayed": 400
+    },
+    "snap3-142654": {
+     "calls": 550,
+     "replayed": 550
+    },
+    "snap1-162213": {
+     "calls": 500,
+     "replayed": 500
+    },
+    "snap2-162511": {
+     "calls": 500,
+     "replayed": 500
+    },
+    "snap3-163043": {
+     "calls": 450,
+     "replayed": 450
+    },
+    "snap4-163107": {
+     "calls": 550,
+     "replayed": 550
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 72,
+    "total": 77,
+    "fraction": 0.9351
+   },
+   "floor": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14080EBA0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x140975710",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": [
+    "0x140974690"
+   ]
+  },
+  {
+   "va": "0x140978E70",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14097CD00",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14097FCE0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14097FFF0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x140A539F0",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x140A57650",
+   "calls": 0,
+   "replayed": 0,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {},
+   "mismatches": [],
+   "translated": false,
+   "note": "no replayable call (0 cases)",
+   "own_block": null,
+   "floor": false,
+   "blocked_callees": []
+  }
+ ]
+}

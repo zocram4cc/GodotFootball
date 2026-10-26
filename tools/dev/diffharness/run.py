@@ -162,6 +162,11 @@ def resolve_stubs(spec):
         if entry["do"] is None:
             raise SystemExit("stub_refs %s is run-real, not a stub" % ref)
         stubs["stub_" + ref] = {"va": entry["va"], "do": entry["do"]}
+    # Abort traps are installed in every spec: a case that reaches one is a PES abort (recorded
+    # and excluded), whichever callee closure reaches it.
+    for entry in table.values():
+        if entry["do"] == "abort":
+            stubs.setdefault("stub_" + entry["va"][2:], {"va": entry["va"], "do": "abort"})
     spec["stubs"] = stubs
     return spec
 
@@ -254,6 +259,8 @@ def decode_blob(blob, enc):
     if enc == "f32":
         bits = struct.unpack("<I", blob[:4])[0]
         return {"bits": "0x%08X" % bits, "f": struct.unpack("<f", blob[:4])[0]}
+    if enc == "u64":
+        return struct.unpack("<Q", blob[:8])[0]
     raise ValueError("unknown enc %s" % enc)
 
 
@@ -436,7 +443,7 @@ def install_hooks(mu, spec, RET_SENTINEL):
                     "0x%X" % address, 0)
                 uc._trace["0x%X" % prev]["0x%X" % address] += 1
             uc._prev = [address, size]
-        if address == RET_SENTINEL:
+        if address == getattr(uc, "_ret_sentinel", RET_SENTINEL):  # snapshot replay sets it per call
             uc.emu_stop()
             return
         hit = stubs.get(address)
@@ -579,8 +586,16 @@ def install_hooks(mu, spec, RET_SENTINEL):
         uc.reg_write(UC_X86_REG_RIP, ret)
 
     def hook_bad(uc, access, address, size, value, data):
-        uc._bad = ("unmodelled %s at %#x (size %d): no region or global covers it; "
-                   "extend the spec" % ("read" if data == "r" else "write", address, size))
+        kind = "read" if data == "r" else "write"
+        lazy = getattr(uc, "_lazy", None)  # snapshot run: map the page, or stop at a hole
+        if lazy is not None:
+            if lazy.handle(address):
+                return True
+            uc._bad = ("unmapped %s at %#x (size %d): a snapshot hole or outside the process"
+                       % (kind, address, size))
+        else:
+            uc._bad = ("unmodelled %s at %#x (size %d): no region or global covers it; "
+                       "extend the spec" % (kind, address, size))
         uc.emu_stop()
         return True
 
@@ -607,7 +622,7 @@ def write_meta(out_path, requested, stats, skipped, valid_icounts):
 
 # Real-instance cases (seed.py --bank-classes banks): a field that an instance
 # holds takes the instance's real value, not the spec's draw.
-_FIELD_SIZE = {"u8": 1, "u32": 4, "i32": 4, "f32": 4}
+_FIELD_SIZE = {"u8": 1, "u32": 4, "i32": 4, "f32": 4, "u64": 8}
 
 
 def real_region_bytes(art, rname, off, size):
@@ -643,6 +658,26 @@ def nearby_value(real, enc, rnd):
     return min(max(real + rnd.choice((-2, -1, 1, 2)), lo), hi)
 
 
+def held_value(art, name, loc):
+    """The real value instance art holds for input name at loc, or None. A region field is read from
+    the instance's bytes. A register or stack argument is the value recorded at the call's entry
+    (artifact key "scalars"): a register in full, a stack slot masked to its size. XMM is not held."""
+    if "region" in loc:
+        return real_value(art, loc)
+    enc = loc.get("enc", "u32")
+    if enc not in _FIELD_SIZE or str(loc.get("reg", "")).startswith("xmm"):
+        return None
+    raw = (art.get("scalars") or {}).get(name)
+    if raw is None:
+        return None
+    if "reg" in loc:
+        return raw
+    if "stack_offset" in loc:
+        n = _FIELD_SIZE[enc]
+        return decode_blob((raw & ((1 << (8 * n)) - 1)).to_bytes(n, "little"), enc)
+    return None
+
+
 def bank_case(spec, bank, n, inputs, seed, perturb):
     """Real-instance case n -> (inputs, instance artifact). Case n runs instance
     n % N. A field the instance holds takes its real value (mode 0), a nearby one
@@ -658,7 +693,7 @@ def bank_case(spec, bank, n, inputs, seed, perturb):
         loc = (spec.get("inputs") or {}).get(name)
         if name in labels or loc is None:
             continue
-        real = real_value(art, loc)
+        real = held_value(art, name, loc)
         if real is None:
             continue
         rnd = random.Random("%s:%d:%s" % (seed, n, name))
@@ -673,6 +708,17 @@ def bank_case(spec, bank, n, inputs, seed, perturb):
         else:
             out[name] = value
     return out, art
+
+
+def unheld_inputs(spec, art, inputs):
+    """Input names the instance does not hold: a traced case must replay every input it read."""
+    labels = set(spec.get("labels") or [])
+    out = []
+    for name in inputs:
+        loc = (spec.get("inputs") or {}).get(name)
+        if name not in labels and loc is not None and held_value(art, name, loc) is None:
+            out.append(name)
+    return out
 
 
 
@@ -1469,7 +1515,7 @@ def gen_inputs(spec, seed, count, image=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--exe", required=True)
+    ap.add_argument("--exe", default=None)
     ap.add_argument("--spec", required=True)
     ap.add_argument("--out")
     ap.add_argument("--check-spec", action="store_true")
@@ -1479,21 +1525,42 @@ def main():
                          "<name>.seed.json): real object bytes filling the "
                          "spec regions before the per-case inputs")
     ap.add_argument("--seed-bank", default=None,
-                    help="dir of per-spec instance banks (seed.py --bank-classes: "
-                         "<name>.bank.json): case n runs instance n %% N with its real values")
+                    help="dir of per-spec instance banks (bankstore.py: "
+                         "<name>.bank.jsonl): case n runs instance n %% N with its real values")
     ap.add_argument("--perturb", action="store_true",
                     help="with --seed-bank: per (case, field) keep the real value, or take a "
                          "nearby one, the same field of another instance, or the spec's draw")
     ap.add_argument("--count", type=int, default=300)
     ap.add_argument("--nonreturn-cap", type=int, default=NONRETURN_CAP,
                     help="non-returning cases after which a function generates no further cases (0: no cap, measurement only)")
+    ap.add_argument("--traced-cases", action="store_true",
+                    help="with --seed-bank: every instance is one case (the traced calls), replayed "
+                         "with its real values; no random or guided cases")
+    ap.add_argument("--aborts", default=None,
+                    help="write each case that reaches an abort trap (a PES abort) as a JSON line")
     ap.add_argument("--trace-calls", default=None,
                     help="write {site: {target: count}} for harness-reached "
                     "indirect calls/jumps (coverage of the dispatch table)")
     ap.add_argument("--trace-addrs", default=None,
                     help="write the sorted list of executed instruction "
                     "addresses (union over cases) for block coverage")
+    ap.add_argument("--snapshot-dir", default=None,
+                    help="replay the traced calls of --calls over this snapshot (snapcase.py): memory "
+                         "is the snapshot's own, copied on first touch; outputs go to --out-dir")
+    ap.add_argument("--calls", default=None, help="a calls file (frame_trace.py calls/<VA>.bin)")
+    ap.add_argument("--out-dir", default=None, help="with --snapshot-dir: the output directory")
+    ap.add_argument("--blocked", default=None,
+                    help="with --snapshot-dir: a JSON list of untranslated callee VAs; a case that enters one is excluded")
     args = ap.parse_args()
+    if args.snapshot_dir:
+        if not (args.calls and args.out_dir):
+            ap.error("--snapshot-dir needs --calls and --out-dir")
+        import snapcase
+        blocked = json.load(open(args.blocked)) if args.blocked else []
+        snapcase.run_dir(args.spec, args.snapshot_dir, args.calls, args.out_dir, blocked)
+        return 0
+    if args.exe is None:
+        ap.error("--exe is required unless --snapshot-dir")
     spec = resolve_stubs(load_spec(args.spec))
     kind = image_kind(args.exe)
     sections = flat_sections(args.exe) if kind == "flat" else parse_pe_sections(args.exe)
@@ -1525,10 +1592,18 @@ def main():
                   file=sys.stderr)
     bank = None
     if args.seed_bank:
-        _bk = os.path.join(args.seed_bank, os.path.basename(args.spec)[:-5] + ".bank.json")
+        _bk = os.path.join(args.seed_bank, os.path.basename(args.spec)[:-5] + ".bank.jsonl")
         if not os.path.exists(_bk):
             sys.exit("seed-bank: no %s" % _bk)  # a missing bank must not run unseeded
-        bank = json.load(open(_bk))["instances"]
+        import bankstore  # streamed: one instance is read per case, never the whole bank
+        bank = bankstore.Bank(_bk)
+    traced = args.traced_cases
+    if traced:
+        if bank is None:
+            sys.exit("--traced-cases needs --seed-bank")
+        base = gen_inputs(spec, seed, 1, (sections, args.exe))[0]
+        cases = [dict(base) for _ in range(len(bank))]
+        count = len(bank)
 
     def run_n(n, inputs):
         """Case n -> (inputs used, result, error). Bank mode: instance n % N's real values."""
@@ -1536,6 +1611,11 @@ def main():
             result, err = run_case(mu, spec, RET, inputs, seed=seed_art)
             return inputs, result, err
         used, art = bank_case(spec, bank, n, inputs, seed, args.perturb)
+        if traced:
+            unheld = unheld_inputs(spec, art, used)
+            if unheld:
+                return used, None, "unheld input %s: instance %d does not hold it" % (
+                    unheld[0], n % len(bank))
         result, err = run_case(mu, spec, RET, used, seed=art, zero=True)
         return used, result, err
 
@@ -1544,6 +1624,7 @@ def main():
         if bank is not None:
             rec["inst"] = n % len(bank)
         return json.dumps(rec) + "\n"
+    aborts_out = open(args.aborts, "w") if args.aborts else None
 
     # Every skipped case (non-returning or failed) contributes nothing: run_case rolled its coverage and call traces back.
     # After the cap's last non-returning case the function generates no further cases; the count of those is kept.
@@ -1563,13 +1644,15 @@ def main():
                 stats[kind] += 1
                 skipped.append({"kind": kind, "index": n, "error": err, "inputs": used})
                 print("case %d %s: %s" % (n, kind, err), file=sys.stderr)
+                if err.startswith("abort trap ") and aborts_out is not None:
+                    aborts_out.write(json.dumps({"inst": n % len(bank) if bank else n, "abort": err}) + "\n")
                 continue
             valid_icounts.append(mu._last_icount)
             out.write(record(n, used, result))
     # Coverage-guided second round: base cases run first (streamed, so a
     # corpus is never held twice); unreached block leaders then steer
     # guided extras (same seed, appended, deterministic).
-    guided_on = image_kind(args.exe) == "flat" and count and args.out
+    guided_on = image_kind(args.exe) == "flat" and count and args.out and not args.traced_cases
     if guided_on:
         import sys as _sys
         import os as _os
@@ -1611,6 +1694,8 @@ def main():
         run_round(_guided[:count], len(cases), out)
         cases = cases + _guided[:count]
         out.close()
+        if aborts_out is not None:
+            aborts_out.close()
         if args.trace_calls is not None:
             with open(args.trace_calls, "w") as tf:
                 json.dump(mu._trace or {}, tf, indent=1, sort_keys=True)
@@ -1623,6 +1708,8 @@ def main():
     run_round(cases, 0, out)
     if args.out:
         out.close()
+    if aborts_out is not None:
+        aborts_out.close()
     if args.trace_calls is not None:
         with open(args.trace_calls, "w") as tf:
             json.dump(mu._trace or {}, tf, indent=1, sort_keys=True)

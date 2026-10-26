@@ -3640,6 +3640,20 @@
    "model": {
     "op": "abort"
    }
+  },
+  {
+   "va": "14159FCCC",
+   "callers": [
+    "1404F52E0"
+   ],
+   "used_by_closure": true,
+   "kind": "abort-trap",
+   "why": [
+    "fast-fail reporter: 14159FCCC (MOV ECX,8; CALL 14159FCE0) -> 14159FCE0 writes the crash-report globals at 14159FD0F/14159FD1F, stores 0xC0000409 at 14159FD34, then INT 0x29 (__fastfail) or 14159FBC4; reached from 1404F52E0 cold blocks via JMP 1404F580D, JAE 1404F5911, JAE 1404F5CF0 (after RET at 1404F5D92); the global stores are part of this fatal path, not a function output"
+   ],
+   "model": {
+    "op": "abort"
+   }
   }
  ]
 }
