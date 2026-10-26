@@ -126,4 +126,15 @@ TEST(WorldRecords, AnimeClassIsTheAnimeRecordsPlusOneByte) {
   EXPECT_EQ(s.rd(RunAccessor(&pes_fn_140A48910, *world, kTestSlot) + kAnimeClassOffset, 1), 3u);
 }
 
+// PES's table accessors answer the first entry past their count (*(G+base)). GF's readers of the same tables must
+// answer the same: a slot index past the count gives entry 0's anime class and contact flag, not an exception.
+TEST(WorldRecords, AnimeAndManReadersPastTheirCountAnswerTheFirstEntry) {
+  PesWorld world;
+  for (int slot = 0; slot < kSlotCount; ++slot) world.BindSlot(slot);
+  world.SetAnimeClass(0, 7);
+  world.SetTouching(0, true);
+  EXPECT_EQ(world.AnimeClass(kAnimeCount), 7);
+  EXPECT_TRUE(world.Touching(kManCount));
+}
+
 }  // namespace

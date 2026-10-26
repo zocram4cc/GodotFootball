@@ -137,20 +137,18 @@ class PesWorld {
     SetEntry(WorldTable::kSlot, slot, SlotVa(slot));
   }
 
-  // GF's reader of a table: the host bytes of the record its entry names, or null when it names none inside the window.
-  uint8_t* Record(WorldTable table, int index) {
-    const uint64_t va = Entry(table, index).record;
-    if (va < kWorldWindowVa || va >= kWorldWindowVa + kWorldBytes) return nullptr;
-    return Bytes() + (va - kWorldWindowVa);
-  }
+  // The record a slot's table entry names, as PES's accessor answers it: the translated 0x140A48910 (anime) and
+  // 0x140A48A10 (man), run on the window. Null when the answer lies outside the window.
+  uint8_t* AnimeRecord(int slot);
+  uint8_t* ManRecord(int slot);
 
-  // The contact flag: the man record's byte at +0x661, reached through the man table entry of the slot (bound).
-  bool Touching(int slot) { return Record(WorldTable::kMan, slot)[kManTouchingOffset] != 0; }
-  void SetTouching(int slot, bool touching) { Record(WorldTable::kMan, slot)[kManTouchingOffset] = touching ? 1 : 0; }
+  // The contact flag: the man record's byte at +0x661.
+  bool Touching(int slot) { return ManRecord(slot)[kManTouchingOffset] != 0; }
+  void SetTouching(int slot, bool touching) { ManRecord(slot)[kManTouchingOffset] = touching ? 1 : 0; }
 
-  // The anime class byte: the anime record's +0x1, reached through the anime table entry of the slot (bound).
-  uint8_t AnimeClass(int slot) { return Record(WorldTable::kAnime, slot)[kAnimeClassOffset]; }
-  void SetAnimeClass(int slot, uint8_t value) { Record(WorldTable::kAnime, slot)[kAnimeClassOffset] = value; }
+  // The anime class byte: the anime record's +0x1.
+  uint8_t AnimeClass(int slot) { return AnimeRecord(slot)[kAnimeClassOffset]; }
+  void SetAnimeClass(int slot, uint8_t value) { AnimeRecord(slot)[kAnimeClassOffset] = value; }
 
  private:
   PesTableEntry& Entry(WorldTable table, int index) {
