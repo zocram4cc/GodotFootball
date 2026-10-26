@@ -42,13 +42,6 @@ FAILURE_CLASSES = ("engine call", "live state", "GPU", "translator bug",
                    "struct map gap", "harness cannot run",
                    "stub model wrong", "unmodellable callee")
 
-# Coverage floor (provisional): a function is `diffed` only when its
-# own-block coverage fraction reaches COVERAGE_FLOOR. Value from the
-# pilot/impure baselines: pilot median 86% (37/216 below 50%), impure
-# median 17% (25/31 below 50%). 0.50 keeps the pilot's proven bulk while
-# forcing the impure sliver upward; revisit once guided generation lands.
-COVERAGE_FLOOR = 0.50
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 RUN_PY = os.path.join(REPO, "tools", "dev", "diffharness", "run.py")
@@ -742,12 +735,10 @@ def block_coverage(image, vas, executed):
 
 def finish_one(va, args, pilot):
     res = run_one(va, args, pilot)
-    # Block coverage (recorded for every translated function, never hidden):
-    # the fraction of basic blocks the harness cases executed, per function
-    # over the translated closure (top + callees the build links). A function
-    # is diffed only with its coverage recorded AND at/above COVERAGE_FLOOR;
-    # below-floor bit-exact stays visible as a failure instead of passing
-    # silently. Dead blocks (abort traps, int3) leave the denominator.
+    # Block coverage (recorded for every translated function, never hidden): the fraction of basic blocks the harness
+    # cases executed, per function over the translated closure (top + callees the build links). It is a confidence
+    # measure, reported per function and subsystem, never a gate (owner ruling 26-10-26: proven = every case I/O
+    # bit-exact). Dead blocks (abort traps, int3) leave the denominator.
     res["coverage"] = {}
     res["dead_blocks"] = {}
     if res["translated"]:
@@ -774,23 +765,12 @@ def finish_one(va, args, pilot):
             res["cases"]:
         spec, _ = load_spec(args.spec_dir, va)
         ok, note, cls = build_and_diff(va, spec, args, pilot, res["cases"])
-        if ok and not res["coverage"]:
-            # Never record bit-exact without coverage behind it.
-            res["diffed"] = False
-            res["failure_class"] = "harness cannot run"
-            res["note"] = "diff passed but no coverage recorded"
-        else:
-            own = (res["coverage"] or {}).get(va, {})
-            if ok and own and own.get("fraction", 0) < COVERAGE_FLOOR:
-                # Bit-exact on a sliver: proven, but not the function.
-                res["diffed"] = False
-                res["failure_class"] = "harness cannot run"
-                res["note"] = "bit-exact %d cases at own-block %.2f < floor %.2f" % (
-                    res["cases"], own.get("fraction", 0), COVERAGE_FLOOR)
-            else:
-                res["diffed"] = ok
-                res["failure_class"] = cls
-                res["note"] = note
+        res["diffed"] = ok
+        res["failure_class"] = cls
+        res["note"] = note
+        own = (res["coverage"] or {}).get(va, {})
+        if ok:
+            res["note"] += ("; own-block coverage %.2f" % own["fraction"]) if own else "; coverage not recorded"
     if res["requested"]:
         res["note"] = ("%s; " % res["note"] if res["note"] else "") + skip_note(res)
     return res
