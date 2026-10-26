@@ -1,0 +1,90 @@
+spec	arg	reg	unknown_sites	shapes	first_site	containing_fn	last_writer_at_first_site
+1404386D0	A0	rcx	1	{"lea": 1}	140440C2A	14044090C	lea rcx, [rsp + 0x28]
+1404386D0	A1	rdx	1	{"lea": 1}	140440C2A	14044090C	lea rdx, [rsp + 0x98]
+1404405D0	A0	rcx	1	{"field load": 1}	14041EE57	14041ED22	mov rcx, qword ptr [r14 + 0x460]
+1404405D0	A2	r8	1	{"lea": 1}	14041EE57	14041ED22	lea r8, [rsp + 0x20]
+1404F6C30	A2	r8	1	{"field load": 1}	14041EDD7	14041ED22	mov r8, qword ptr [rbx]
+1404FB2A0	A0	rcx	1	{"copy of register": 1}	1404F7846	1404F6C30	mov rcx, rdi
+140503430	A0	rcx	1	{"copy of register": 1}	140502B57	140502A3D	mov rcx, r13
+140503430	A1	rdx	1	{"copy of register": 1}	140502B57	140502A3D	mov rdx, rdi
+140503430	A2	r8	1	{"lea": 1}	140502B57	140502A3D	lea r8, [rsp + 0x50]
+140503430	A3	r9	1	{"lea": 1}	140502B57	140502A3D	lea r9, [rsp + 0x68]
+140504D20	A0	rcx	1	{"copy of register": 1}	140506AB9	140506A87	mov rcx, rbx
+140504D20	A1	rdx	1	{"copy of register": 1}	140506AB9	140506A87	mov rdx, rdi
+1405055E0	A1	rdx	1	{"copy of register": 1}	140506B0F	140506A87	mov rdx, rdi
+1405055E0	A2	r8	1	{"lea": 1}	140506B0F	140506A87	lea r8, [rsp + 0x20]
+140509A40	A0	rcx	3	{"copy of register": 2, "stack reload": 1}	1405EC2C0	1405EC21A	mov rcx, r15
+140510D30	A0	rcx	1	{"no site": 1}	0	0	
+140510D30	A1	rdx	2	{"copy of register": 1, "field load": 1}	140505952	14050590A	mov rdx, r15
+14051B8B0	A0	rcx	2	{"copy of register": 2}	14051DD16	14051DD10	mov rcx, rbx
+14051B8B0	A1	rdx	2	{"copy of register": 2}	14051DD16	14051DD10	mov rdx, r14
+14051CF70	A0	rcx	2	{"copy of register": 2}	14051DACC	14051DA13	mov rcx, rbx
+14051CF70	A2	r8	2	{"copy of register": 2}	14051DACC	14051DA13	mov r8, r13
+140529490	A0	rcx	3	{"copy of register": 1, "stack reload": 2}	140532BBA	140532841	mov rcx, qword ptr [rsp + 0x40]
+14052A190	A0	rcx	2	{"copy of register": 2}	14052FA9F	14052F9AE	mov rcx, rbx
+14052A820	A0	rcx	7	{"copy of register": 7}	1405270AA	140526A14	mov rcx, r13
+14052A820	A1	rdx	7	{"copy of register": 4, "stack reload": 3}	1405270AA	140526A14	mov rdx, qword ptr [rsp + 0x138]
+14053B110	A0	rcx	1	{"lea": 1}	1404F783E	1404F6C30	lea rcx, [rdi + 0x6ba8]
+14053B110	A3	r9	1	{"field load": 1}	1404F783E	1404F6C30	mov r9, qword ptr [rdi + 0x6d50]
+14053B420	A0	rcx	1	{"no site": 1}	0	0	
+14053B420	A1	rdx	1	{"no site": 1}	0	0	
+14057A3E0	A2	r8	3	{"copy of register": 3}	140579AFE	1405799A3	mov r8, rbp
+14057BA50	A0	rcx	1	{"copy of register": 1}	1404F7998	1404F6C30	mov rcx, rdi
+14057D3A0	A0	rcx	1	{"no site": 1}	0	0	
+1405A6DE0	A0	rcx	2	{"copy of register": 2}	14059CC01	14059BCBC	mov rcx, r12
+1405A6DE0	A2	r8	2	{"lea": 2}	14059CC01	14059BCBC	lea r8, [rsp + 0x50]
+1405AD720	A0	rcx	1	{"copy of register": 1}	14050500B	140504D20	mov rcx, r13
+1405AD720	A1	rdx	1	{"copy of register": 1}	14050500B	140504D20	mov rdx, rbx
+1405CCD50	A0	rcx	1	{"copy of register": 1}	1405CE3CC	1405CE381	mov rcx, r13
+1405CCD50	A1	rdx	1	{"copy of register": 1}	1405CE3CC	1405CE381	mov rdx, rdi
+1405CE4F0	A0	rcx	1	{"lea": 1}	140682065	140681FF0	lea rcx, [rbx + 0x50]
+1405CE4F0	A1	rdx	1	{"lea": 1}	140682065	140681FF0	lea rdx, [rsp + 0x40]
+1405CE930	A0	rcx	1	{"no site": 1}	0	0	
+1405CE930	A1	rdx	1	{"no site": 1}	0	0	
+1405DC350	A0	rcx	4	{"copy of register": 4}	1405DB3D9	1405DB356	mov rcx, rdi
+1405DC350	A1	rdx	4	{"copy of register": 1, "field load": 3}	1405DB3D9	1405DB356	mov rdx, qword ptr [rbp + 0x5f]
+1405DC350	A2	r8	4	{"copy of register": 4}	1405DB3D9	1405DB356	mov r8, r15
+1405DC350	A3	r9	4	{"copy of register": 4}	1405DB3D9	1405DB356	mov r9, rbx
+1405DE950	A1	rdx	3	{"lea": 3}	1405D07F4	1405D0700	lea rdx, [rbp - 0x49]
+1405DE950	A2	r8	3	{"copy of register": 1, "field load": 2}	1405D07F4	1405D0700	mov r8, qword ptr [rbp + 0x4f]
+1405DE950	A3	r9	1	{"copy of register": 1}	1405DCA94	1405DC4D6	mov r9, r12
+1405E4460	A0	rcx	1	{"copy of register": 1}	1405DB2FF	1405DB18E	mov rcx, rdi
+1405E4460	A1	rdx	1	{"field load": 1}	1405DB2FF	1405DB18E	mov rdx, qword ptr [rbp + 0x5f]
+1405E4460	A2	r8	1	{"copy of register": 1}	1405DB2FF	1405DB18E	mov r8, r15
+1405E4460	A3	r9	1	{"copy of register": 1}	1405DB2FF	1405DB18E	mov r9, rbx
+140601110	A0	rcx	1	{"no site": 1}	0	0	
+14062E240	A0	rcx	1	{"no site": 1}	0	0	
+14062E240	A1	rdx	1	{"no site": 1}	0	0	
+14062E240	A2	r8	1	{"no site": 1}	0	0	
+140639100	A0	rcx	4	{"lea": 4}	140697644	1406975A2	lea rcx, [rbp - 0x59]
+140639100	A1	rdx	4	{"copy of register": 1, "field load": 3}	140697644	1406975A2	mov rdx, r15
+140639100	A2	r8	4	{"lea": 4}	140697644	1406975A2	lea r8, [rbp + 0x67]
+1406486D0	A0	rcx	2	{"copy of register": 2}	14064E43F	14064E3F9	mov rcx, rsi
+1406486D0	A1	rdx	2	{"copy of register": 2}	14064E43F	14064E3F9	mov rdx, r13
+14064DC50	A0	rcx	2	{"copy of register": 2}	14065426D	140653FC0	mov rcx, rsi
+14064DE60	A1	rdx	2	{"lea": 2}	1405C934E	1405C81ED	lea rdx, [rbp + 0x120]
+140654E60	A2	r8	7	{"copy of register": 5, "lea": 2}	14064C888	14064B630	mov r8, r13
+140654E60	A3	r9	9	{"copy of register": 5, "lea": 4}	14064C888	14064B630	mov r9, rsi
+14065C2A0	A2	r8	1	{"stack reload": 1}	1406520C5	140651430	mov r8, qword ptr [rsp + 0x70]
+14065C2A0	A0	rcx	1	{"copy of register": 1}	1406520C5	140651430	mov rcx, r12
+14065C2A0	A1	rdx	2	{"copy of register": 2}	1406520C5	140651430	mov rdx, r14
+14065DAB0	A0	rcx	2	{"copy of register": 1, "stack reload": 1}	14064FDFB	14064FDCA	mov rcx, rbx
+140687310	A0	rcx	2	{"copy of register": 2}	140686A4B	140686190	mov rcx, r11
+140687310	A1	rdx	2	{"copy of register": 2}	140686A4B	140686190	mov rdx, r10
+140687310	A3	r9	2	{"copy of register": 1, "stack reload": 1}	140686A4B	140686190	mov r9, qword ptr [rsp + 0x78]
+14080EBA0	A0	rcx	7	{"lea": 7}	14081512B	140814640	lea rcx, [rsp + 0x40]
+14080EBA0	A1	rdx	7	{"computed": 2, "copy of register": 5}	14081512B	140814640	mov rdx, rax
+140975710	A0	rcx	1	{"copy of register": 1}	14097665B	140976522	mov rcx, r13
+140975710	A1	rdx	1	{"copy of register": 1}	14097665B	140976522	mov rdx, r15
+140975710	A2	r8	1	{"lea": 1}	14097665B	140976522	lea r8, [rsp + 0x64]
+140975710	A3	r9	1	{"lea": 1}	14097665B	140976522	lea r9, [rsp + 0x70]
+140978E70	A2	r8	1	{"no site": 1}	0	0	
+140978E70	A1	rdx	1	{"no site": 1}	0	0	
+14097CD00	A0	rcx	1	{"copy of register": 1}	14097B798	14097B77B	mov rcx, rdi
+14097FCE0	A0	rcx	1	{"no site": 1}	0	0	
+14097FCE0	A2	r8	1	{"lea": 1}	14097F2D3	14097E310	lea r8, [rsp + 0x58]
+14097FCE0	A3	r9	1	{"no site": 1}	0	0	
+14097FFF0	A0	rcx	1	{"copy of register": 1}	14097C3BF	14097C240	mov rcx, rdi
+14097FFF0	A2	r8	1	{"copy of register": 1}	14097C3BF	14097C240	mov r8, rsi
+140A539F0	A0	rcx	3	{"copy of register": 1, "field load": 1, "stack reload": 1}	1404FC16F	1404FC10F	mov rcx, rsi
+140A57650	A0	rcx	132	{"copy of register": 80, "field load": 41, "stack reload": 11}	140506F39	140506E5A	mov rcx, r12
