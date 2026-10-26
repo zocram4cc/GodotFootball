@@ -187,6 +187,7 @@ def merge(spans):
 def read_snapshot(proc, needs):
     """Read the capture into memory. Returns (G, mi, teams, merged spans, insts, blk)."""
     G, mi, teams = anchors(proc)
+    gblob = proc.span(G, G_SIZE) if G else b""  # first: the torn check reads it
     arg_win = max([v for (r, _), v in needs.items() if r is None] or [PAGE])
     spans = []
     # image globals and the chain objects under them
@@ -223,7 +224,6 @@ def read_snapshot(proc, needs):
     for X in (H_GLOBAL, M_GLOBAL):
         pg = X & ~(PAGE - 1)
         spans.append((pg, proc.span(pg, PAGE)))
-    gblob = proc.span(G, G_SIZE) if G else b""
     return G, mi, teams, merge(spans), insts, blk, gblob, arg_win
 
 
@@ -266,6 +266,11 @@ def capture(proc, needs, out_root, label, log, situation):
     r0, t0 = proc.reads, time.time()
     log("CAPTURE start %s situation=%s" % (label, situation))
     G, mi, teams, merged, insts, blk, gblob, arg_win = read_snapshot(proc, needs)
+    blob_ok = len(gblob) >= G_SIZE and struct.unpack_from("<Q", gblob, MI_OFF)[0] and all(
+        struct.unpack_from("<Q", gblob, (s + seed.TEAM_SLOT) * seed.STRIDE)[0] for s in (0, 1))
+    if not blob_ok:  # the G blob was read inside a match gap: torn, not a mid-play state
+        log("REJECT %s torn: G blob has null MI or team slots" % label)
+        return False
     t1 = time.time()
     G1, mi1, teams1 = anchors(proc)
     post = read_state(proc, mi1) if mi1 else {}

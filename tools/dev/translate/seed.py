@@ -327,6 +327,7 @@ if __name__ == "__main__":
         p.error("one of --live / --emulated")
     os.makedirs(args.out, exist_ok=True)
     classes = json.load(open(args.bank_classes)) if args.bank_classes else None
+    classes_lc = {k.lower(): v for k, v in (classes or {}).items()}
     if classes is not None and not args.live:
         p.error("--bank-classes needs --live")
     for f in sorted(os.listdir(args.spec_dir)):
@@ -336,7 +337,7 @@ if __name__ == "__main__":
             continue
         spec = json.load(open(os.path.join(args.spec_dir, f)))
         if classes is not None:
-            rootcls = rootclass_map(classes.get(f[:-5].lower(), {}))
+            rootcls = rootclass_map(classes_lc.get(f[:-5].lower(), {}))
             bank = bank_multi(spec, args.live, rootcls, args.page, args.cap)
             json.dump({"roots": rootcls, "instances": bank},
                       open(os.path.join(args.out, f[:-5] + ".bank.json"), "w"))
