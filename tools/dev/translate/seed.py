@@ -286,11 +286,14 @@ def bank_multi(spec, live_dirs, rootcls, page=0x1000, cap=24):
     """Per-case instance bank over one or more live captures (live only). rootcls maps
     argument roots to classes. Instance k of a capture binds each root r to the
     (k mod n_r)-th record of its class in that capture. The bank concatenates the
-    captures, at most ceil(cap / captures) instances each, so the union stays bounded.
-    A spec with no bindable root gets one G-only seed per capture."""
+    captures sorted by path: the per-case instance binding n % N is load-bearing,
+    so the bank must not depend on the CLI order of --live. At most ceil(cap /
+    captures) instances per capture, so the union stays bounded. A spec with no
+    bindable root gets one G-only seed per capture."""
     bank = []
-    per = -(-cap // len(live_dirs))
-    for d in live_dirs:
+    dirs = sorted(os.path.normpath(d) for d in live_dirs)
+    per = -(-cap // len(dirs))
+    for d in dirs:
         meta, index = load_live(d)
         read = make_reader(index)
         gbytes = open(d + "/g.bin", "rb").read() if meta.get("g_blob") else b""
