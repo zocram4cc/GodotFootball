@@ -61,6 +61,13 @@ the translator and the driver, split by file. Main lands everything. Concurrency
 | 30-70% | Fix the top failure classes in the translator and struct map, then re-pilot. |
 | < 30% | Report why with the failure breakdown and propose the alternative. Never fall back to the old method silently. |
 
+## Owner direction 26-10-26: cutscenes lean hybrid
+
+Cutscenes lean towards a hybrid: PES's scene-selection and direction logic is translated and proven, and Godot is
+driven from PES's own scene data for loading and rendering. Caveat from the owner: the earlier attempt in the
+predecessor repo tried data-driven PES cutscenes at length with no real success for some scenes, especially fouls and
+offsides; the new attempt must first learn why, and translate whatever logic those scenes decide in code.
+
 ## Owner ruling 26-10-26 (latest): correctness is I/O bit-exact on real calls; coverage is a confidence measure
 
 **What matters is gameplay outcome, code readability and a faithful recreation.**
