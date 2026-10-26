@@ -28,10 +28,37 @@ uint8_t* InWindow(uint8_t* world, uint64_t va) {
   return world + (va - kWorldWindowVa);
 }
 
+// PES's bearing 0x140439EF0 on the window: rcx = from, rdx = to, the heading in xmm0 (coincident reads 0, else the fold
+// of atan2(to.x - from.x, to.z - from.z)). The points are read in place; the stack is the scratch's.
+float RunBearing(uint8_t* world, uint64_t fromVa, uint64_t toVa) {
+  PesState s;
+  s.mem.window.base = kWorldWindowVa;
+  s.mem.window.size = kWorldBytes;
+  s.mem.window.rw = world;
+  s.gpr[1] = fromVa;
+  s.gpr[2] = toVa;
+  s.gpr[4] = kScratchVa + kScratchBytes;
+  ::pes_fn_140439EF0(s);
+  return s.x_f32(0);
+}
+
 }  // namespace
 
 uint8_t* PesWorld::AnimeRecord(int slot) { return InWindow(Bytes(), Answer(&::pes_fn_140A48910, Bytes(), slot)); }
 
 uint8_t* PesWorld::ManRecord(int slot) { return InWindow(Bytes(), Answer(&::pes_fn_140A48A10, Bytes(), slot)); }
+
+float PesWorld::Bearing(const uint8_t* from, const uint8_t* to) {
+  return RunBearing(Bytes(), VaOf(from) + kManPosXOffset, VaOf(to) + kManPosXOffset);
+}
+
+float PesWorld::BearingOfPoints(float fromX, float fromZ, float toX, float toZ) {
+  uint8_t* points = Bytes() + (kScratchVa - kWorldWindowVa);
+  StoreF32(points, kPointXOffset, fromX);
+  StoreF32(points, kPointZOffset, fromZ);
+  StoreF32(points, kPointBytes + kPointXOffset, toX);
+  StoreF32(points, kPointBytes + kPointZOffset, toZ);
+  return RunBearing(Bytes(), kScratchVa, kScratchVa + kPointBytes);
+}
 
 }  // namespace pes

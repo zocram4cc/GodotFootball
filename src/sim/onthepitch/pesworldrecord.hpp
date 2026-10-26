@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -113,12 +114,25 @@ inline void StoreF32(uint8_t* record, std::size_t offset, float value) {
   std::memcpy(record + offset, &value, sizeof value);
 }
 
+// The translated bearing's scratch: the image's tail, past the last block (kScratchVa). The translated code runs on its
+// stack, which grows down from the end (the atan2 polynomial spills to rsp+0x20), and BearingOfPoints writes its two
+// points there. A ground point is laid out as the translated code reads it: x at +0, z at +kPointZOffset.
+inline constexpr std::size_t kScratchBytes = 256;
+inline constexpr uint64_t kScratchVa =
+    kWorldWindowVa + kWorldHeaderBytes + static_cast<uint64_t>(kSlotCount) * kPlayerBlockBytes;
+inline constexpr std::size_t kPointXOffset = 0;
+inline constexpr std::size_t kPointZOffset = 8;
+inline constexpr std::size_t kPointBytes = 16;
+static_assert(kManPosZOffset - kManPosXOffset == kPointZOffset, "a man record's position is laid out as a point");
+
 // The whole window: G's header, then the blocks. Heap-owned by PesWorld, so the bytes never move.
 struct PesWorldImage {
   PesWorldTables tables;
   std::array<PesPlayerBlock, kSlotCount> blocks{};
+  std::array<uint8_t, kScratchBytes> scratch{};  // the translated bearing's points and stack (kScratchVa)
 };
 static_assert(offsetof(PesWorldImage, blocks) == kWorldHeaderBytes);
+static_assert(offsetof(PesWorldImage, scratch) == kScratchVa - kWorldWindowVa);
 
 inline constexpr std::size_t kWorldBytes = sizeof(PesWorldImage);
 
@@ -164,6 +178,17 @@ class PesWorld {
   // The anime class byte: the anime record's +0x1.
   uint8_t AnimeClass(int slot) { return AnimeRecord(slot)[kAnimeClassOffset]; }
   void SetAnimeClass(int slot, uint8_t value) { AnimeRecord(slot)[kAnimeClassOffset] = value; }
+
+  // PES's bearing 0x140439EF0 run in place on the window: the heading in [0, 360) from man record `from` to man record
+  // `to`, over their ground positions. Coincident records read 0.
+  float Bearing(const uint8_t* from, const uint8_t* to);
+  // The same bearing over two ground points that are not records (a goal centre), copied into the scratch first.
+  float BearingOfPoints(float fromX, float fromZ, float toX, float toZ);
+  // The window address of a man record of this world (the pointer ManRecord answers), as the translated code sees it.
+  uint64_t VaOf(const uint8_t* record) {
+    assert(record >= Bytes() && record < Bytes() + kWorldBytes);
+    return kWorldWindowVa + static_cast<uint64_t>(record - Bytes());
+  }
 
  private:
   PesTableEntry& Entry(WorldTable table, int index) {

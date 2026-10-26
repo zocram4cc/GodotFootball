@@ -34,9 +34,10 @@ void BuildNearest(RunWorld& w) {
     pes::RowPlayers lanes{};
     for (int lane = 0; lane < pes::lane::kSlots; ++lane) {
       const int id = lane < kSlots ? t * kSlots + lane : (1 - t) * kSlots + (lane - kSlots);
-      lanes[lane] = pes::RowPlayer{w.p[id].pos().x, w.p[id].pos().z, w.p[id].active};
+      const PlayerFacts& f = w.p[id];
+      if (f.active) lanes[lane] = pes::RowPlayer{f.pos().x, f.pos().z, true, f.man};
     }
-    pes::BuildScoreRows(lanes, pes::ScoreRowConstants{}, 0xFF, rows[t], /*pesPath=*/true);
+    pes::BuildScoreRows(lanes, pes::ScoreRowConstants{}, 0xFF, rows[t], /*pesPath=*/true, Records());
     w.nearestRows[t] = &rows[t];
   }
 }

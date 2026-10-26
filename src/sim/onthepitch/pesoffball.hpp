@@ -23,6 +23,7 @@
 // Coordinates: x along the pitch, z across it (GF's coords[1]); `s` is the
 // attacking team's sign (+1 attacks +x). Angles are degrees.
 
+#include <cassert>
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -177,9 +178,6 @@ std::optional<Vec2f> ChanceLaneTarget(const OffBallConstants& k, const LaneSearc
 // FUN_140654E60 halves the last reach term when the record's +1 byte (FUN_140A48910(G,id)+1) is 3.
 inline constexpr int kHalvedReachRecordByte = 3;
 
-// The record a player with none reads: zeros, as his facts were before he had a record.
-inline std::array<uint8_t, pes::kManRecordBytes> kNoManRecord{};
-
 // One player as the run code reads him. Angles are PES bearings
 // (atan2(dx, dz) in degrees, [0, 360): 90 = +x).
 struct PlayerFacts {
@@ -187,23 +185,29 @@ struct PlayerFacts {
   bool goalie = false;
   bool humanControlled = false;
   bool passGet = false;  // PES action 5 (PASS_GET, player+0x5d0): Team::PassGetReceiver() is him
-  // His PES man record (pesworldrecord.hpp) holds his position, velocity and facing; no record reads zeros.
-  uint8_t* man = kNoManRecord.data();
-  Vec2f pos() const { return {pes::LoadF32(man, pes::kManPosXOffset), pes::LoadF32(man, pes::kManPosZOffset)}; }
+  // His PES man record (pesworldrecord.hpp) holds his position, velocity and facing. Bound at match start: an unbound read
+  // is an error (asserted in debug), never a shared zero record.
+  uint8_t* man = nullptr;
+  // The man record, asserted bound (see man above).
+  uint8_t* Rec() const {
+    assert(man != nullptr && "PlayerFacts read before its man record is bound");
+    return man;
+  }
+  Vec2f pos() const { return {pes::LoadF32(Rec(), pes::kManPosXOffset), pes::LoadF32(Rec(), pes::kManPosZOffset)}; }
   // m/s: the record holds m per frame.
   Vec2f vel() const {
-    return {pes::LoadF32(man, pes::kManVelXOffset) * kPesFps, pes::LoadF32(man, pes::kManVelZOffset) * kPesFps};
+    return {pes::LoadF32(Rec(), pes::kManVelXOffset) * kPesFps, pes::LoadF32(Rec(), pes::kManVelZOffset) * kPesFps};
   }
-  float facing() const { return pes::LoadF32(man, pes::kManFacingOffset); }  // degrees, body facing
+  float facing() const { return pes::LoadF32(Rec(), pes::kManFacingOffset); }  // degrees, body facing
   void SetPos(Vec2f p) {
-    pes::StoreF32(man, pes::kManPosXOffset, p.x);
-    pes::StoreF32(man, pes::kManPosZOffset, p.z);
+    pes::StoreF32(Rec(), pes::kManPosXOffset, p.x);
+    pes::StoreF32(Rec(), pes::kManPosZOffset, p.z);
   }
   void SetVel(Vec2f v) {  // m/s in, m per frame stored
-    pes::StoreF32(man, pes::kManVelXOffset, v.x / kPesFps);
-    pes::StoreF32(man, pes::kManVelZOffset, v.z / kPesFps);
+    pes::StoreF32(Rec(), pes::kManVelXOffset, v.x / kPesFps);
+    pes::StoreF32(Rec(), pes::kManVelZOffset, v.z / kPesFps);
   }
-  void SetFacing(float degrees) { pes::StoreF32(man, pes::kManFacingOffset, degrees); }
+  void SetFacing(float degrees) { pes::StoreF32(Rec(), pes::kManFacingOffset, degrees); }
   int state = kNothing;  // T+0xa2a0
   float t = 0.0f;        // PES frames in the state (ring T+0xa2cc)
   // The slot's class in PES's B array (pesroles.hpp): GK0 CB1 SB2 DMF3 CMF4 SMF5 AMF6 SS7 WF8 CF9.

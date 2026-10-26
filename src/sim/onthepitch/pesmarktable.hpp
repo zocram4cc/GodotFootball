@@ -14,6 +14,7 @@
 namespace pes {
 
 class PeImage;
+class PesWorld;
 
 namespace marktable {
 
@@ -53,8 +54,7 @@ struct Candidate {
   int id = -1;
   float d2 = 0.0f;
   int actionWord = 0;  // cand pl+0x5D0: admit iff 1 or 0x3F (0x1404F6484-492; writer FUN_140A6CA10)
-  float posX = 0.0f;  // cand pl+0x55C (FUN_140A4C720's candX, 0x1404F6469/6F read pair)
-  float posZ = 0.0f;  // cand pl+0x564 (cone live-bearing origin)
+  uint8_t* man = nullptr;  // cand's man record: his ground position, and the cone's live bearing runs over it
   float pairToTarget = 0.0f;
   float pairToHolder = 0.0f;
   // The candidate's facing word [cand+0x554] (0x1404F6498 MOVSS into XMM7): the subtrahend of both wrap tests
@@ -69,12 +69,12 @@ struct Facts {
   int holder = kNoSlot;        // FUN_140A627E0, else MA+0x2483C (0x1404F623B-255)
   bool holderIsKeeper = false;  // FUN_140A6E320(holderClass) != 0 (0x1404F626D)
   float sign = 1.0f;           // [T+0x254] side sign (0x1404F6316)
-  float holderX = 0.0f;        // holder pl+0x55C (0x1404F6348 MULSS)
-  float holderZ = 0.0f;        // holder pl+0x564 (cone live-bearing origin)
+  uint8_t* holderMan = nullptr;  // holder pl's man record (+0x55C, +0x564; 0x1404F6348 MULSS reads x)
   float goalAreaHalfWidth_m = 0.0f;  // FieldInfo F[5] (0x1404F633C-343 reads [[G+0x2AA8]+0x18])
-  // The holder-side mates for the FUN_140A4EAF0 count gate (0x1404F656C-59F): ground-plane
-  // positions; the gate counts mates within 12 m agreeing with u = P[cand][holder] to 32 deg.
-  std::array<std::array<float, 2>, kSlots> gateMates{};
+  // The holder-side mates' man records for the FUN_140A4EAF0 count gate (0x1404F656C-59F); null for a slot with no
+  // record. The gate counts mates within 12 m agreeing with u = P[cand][holder] to 32 deg.
+  std::array<uint8_t*, kSlots> gateMan{};
+  pes::PesWorld* world = nullptr;  // the translated bearing runs on this world, where the records live
   // --- The two remaining open inputs (ponytail sites below): caller-supplied until decoded ---
   // ponytail: FUN_140A53DA0/53DF0 cone test (0x1404F6567: strict annulus + half-cone; T7a args 90/12/0).
   // ponytail: FUN_140A4EAF0/4E7C0 count gate <= (cone != 0) (0x1404F659D-59F; 12.0 radius, 32 deg band).
@@ -97,15 +97,15 @@ inline float InnerQuirk() {
 // on the ground plane (0x140A53E20/26/2D + 0x140A53E2F/38/3F JBE: touching either
 // radius FAILS), then |wrap180(live - headArg)| < 0.5 * coneDeg where live is the
 // bearing from the candidate to the holder (FUN_140439EF0).
-// candPos/holderPos are ground-plane (x, z); headArg is P[cand][holder]; inner is
+// cand and holder are their man records (ground plane x, z); headArg is P[cand][holder]; inner is
 // T7a's stack word (InnerQuirk() at the BuildMarkTable call site).
-bool ConePasses(float candX, float candZ, float holderX, float holderZ, float headArg,
-                float inner, const Constants& k);
+bool ConePasses(const uint8_t* cand, const uint8_t* holder, float headArg, float inner, const Constants& k,
+                PesWorld& world);
 
 // The count gate (FUN_140A4EAF0 -> FUN_140A4E7C0): counts the holder-side mates within
 // 12 m of the holder whose bearing-from-holder agrees with u = P[cand][holder] to within
 // 32.0 (64.0 / 2.0). T7a commits iff count <= (cone != 0).
-int CountGate(float holderX, float holderZ, float u, const Facts& facts, const Constants& k);
+int CountGate(const uint8_t* holder, float u, const Facts& facts, const Constants& k, PesWorld& world);
 
 // Step 35 (FUN_1404F61E0): zero the mask, gate on tgt/holder, walk the 11 candidates, commit
 // mark[id % 11] = 1 up to three. Pure; the caller's Facts carry the open predicates.

@@ -167,25 +167,28 @@ void TeamAIController::TickScoreRows() {
   // The lane space of the team's carrier controller: its own active players at 0..10 and the
   // opponents at 11..21, each side in squad order (ElizaController's fillSide).
   pes::RowPlayers players{};
+  pes::PesWorld& world = match->PesWorldOf();
+  const bool pesPath = match->PesLoop();
   const auto fillSide = [&](Team* side, int base) {
     std::vector<Player*> squad;
     side->GetActivePlayers(squad);
     for (int j = 0; j < pes::lane::kSideSize && j < static_cast<int>(squad.size()); ++j) {
+      uint8_t* man = world.ManRecord(match->PesSlotOf(squad[j]));
+      // The PES path reads the men's records, written at the tick's start; GF mode reads the live positions.
       const Vector3 pos = squad[j]->GetPosition();
-      players[base + j] = pes::RowPlayer{pos.coords[0], pos.coords[1], true};
+      const float x = pesPath ? pes::LoadF32(man, pes::kManPosXOffset) : pos.coords[0];
+      const float z = pesPath ? pes::LoadF32(man, pes::kManPosZOffset) : pos.coords[1];
+      players[base + j] = pes::RowPlayer{x, z, true, man};
     }
   };
   fillSide(team, 0);
   fillSide(match->GetTeam(1 - team->GetID()), pes::lane::kSideSize);
-  const pes::CarrierConstants& carrier = match->GetPesCarrierConstants();
-  const pes::ScoreRowConstants k{pesFieldHalfLength, pesFieldHalfWidth, carrier.s1RadToDeg,
-                                 carrier.s1TwoPi};
+  const pes::ScoreRowConstants k{pesFieldHalfLength, pesFieldHalfWidth};
   // PES's writer writes nothing until a stoppage latches it: the flag is the stage's (pesscorerows.hpp,
   // FUN_140457070's argument; Match::Process). A match opens stopped (inPlay starts false), so its first
   // tick latches the writer. A seam that starts play with no stoppage (Match::StartPlay) would leave the
   // rows unwritten until one came, so until the writer is latched every tick is its full refresh.
-  scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay() || !scoreRows_.Latched(),
-                  match->PesLoop());
+  scoreRows_.Tick(players, k, match->GetSimFrame(), !match->IsInPlay() || !scoreRows_.Latched(), pesPath, world);
 }
 
 void TeamAIController::TickMarkTable() {
@@ -221,8 +224,8 @@ void TeamAIController::TickMarkTable() {
   const pes::offball::PlayerFacts& hf = w.p[holder];
   facts.holderIsKeeper = hf.goalie;
   facts.sign = w.s[team->GetID()];
-  facts.holderX = hf.pos().x;
-  facts.holderZ = hf.pos().z;
+  facts.holderMan = hf.man;
+  facts.world = &match->PesWorldOf();
   facts.goalAreaHalfWidth_m = pesGoalAreaHalfWidth;  // FieldInfo F[5], readers doc section 4
   int out = 0;
   for (const pes::offball::NearOpponent& near : pes::offball::NearestTeamBlock(w, holder, facts.side)) {
@@ -232,8 +235,7 @@ void TeamAIController::TickMarkTable() {
     dst.id = near.id;
     dst.d2 = near.d2;
     dst.actionWord = cf.passGet ? 1 : 0x3F;
-    dst.posX = cf.pos().x;
-    dst.posZ = cf.pos().z;
+    dst.man = cf.man;
     dst.pairToTarget =
         pes::offball::RowBearing(w, near.id, facts.side * pes::marktable::kSlots + markTableState.markSlot);
     dst.pairToHolder = pes::offball::RowBearing(w, near.id, holder);
@@ -241,7 +243,7 @@ void TeamAIController::TickMarkTable() {
   }
   for (int i = 0; i < pes::offball::kSlots; ++i) {
     const pes::offball::PlayerFacts& mf = w.p[(holder / pes::offball::kSlots) * pes::offball::kSlots + i];
-    facts.gateMates[i] = {mf.pos().x, mf.pos().z};
+    facts.gateMan[i] = mf.man;
   }
   pes::marktable::BuildMarkTable(&markTableState, facts, match->GetPesMarkTableConstants());
 }

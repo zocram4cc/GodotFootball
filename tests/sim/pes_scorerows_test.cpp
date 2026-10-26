@@ -77,8 +77,8 @@ TEST(ScoreRows, BearingsAreAboutEachGoalCentreInDegreesFoldedToZeroTo360) {
   const pes::ScoreRows& r = w.Rows();
   EXPECT_NEAR(r.angle[0][0], 90.0f, kBearingTol_deg);        // atan2(62.5, 0)
   EXPECT_NEAR(r.angle[1][0], 270.0f, kBearingTol_deg);       // atan2(-42.5, 0), folded
-  EXPECT_NEAR(r.angle[0][2], 79.215702f, kBearingTol_deg);   // atan2(52.5, 10)
-  EXPECT_NEAR(r.angle[1][2], 280.784298f, kBearingTol_deg);  // 360 + atan2(-52.5, 10)
+  EXPECT_NEAR(r.angle[0][2], 79.218506f, kBearingTol_deg);   // PES's bearing (0x140439EF0); libm atan2 gives 79.215702
+  EXPECT_NEAR(r.angle[1][2], 280.781494f, kBearingTol_deg);  // 360 + PES's bearing of (-52.5, 10); libm gives 280.784298
 }
 
 // The goal angles are PES's bearing from the goal centre to the man, bit for bit.
