@@ -12,7 +12,7 @@ memory at that instant. Reservoir sampling keeps --cap instances per spec. Outpu
 per reached spec (the driver's --seed-bank format) and record.json.
 
 Usage: GF_DIFF_PYTHON=<venv python> PES_EXE=<pes_full.bin> python3 frame_trace.py --capture DIR --out DIR
-       [--frames N] [--cap N] [--timeout S]
+       [--frames N] [--cap N] [--budget INSTR]
 """
 import argparse
 import json
@@ -38,6 +38,8 @@ MI_OFF, PER_OFF = 0x270, 0x1168
 G_SIZE = 0x2E58
 PER_EARLY_RETURN = 0xA      # H returns at once when MI+0x1168 == 0xa (pes-re-teamtick.md H.b)
 REGS_RESET = ("rbx", "rbp", "rax", "r10", "r11", "r12", "r13", "r14", "r15")
+INSTR_BUDGET = 50_000_000    # instructions per H step: a deterministic runaway guard. No wall-clock
+                             # timeout: unicorn returns from a timed-out emu_start with no error.
 
 
 def mem_reader(uc):
@@ -136,7 +138,7 @@ def snapshot(uc, spec, roots):
     return seed.artifact_of(spec, regions)
 
 
-def run_entry(uc, entry, regs, ret, timeout_ms):
+def run_entry(uc, entry, regs, ret, budget):
     """One call of the function at entry under the Windows x64 convention, to the ret sentinel."""
     from unicorn.x86_const import UC_X86_REG_RSP
     rsp = rn.stack_top({}) - 8
@@ -150,11 +152,15 @@ def run_entry(uc, entry, regs, ret, timeout_ms):
     uc._bad = None
     err = None
     try:
-        uc.emu_start(entry, ret, timeout=timeout_ms * 1000)
+        uc.emu_start(entry, ret, count=budget)
     except Exception as e:  # unicorn raises on a fault; the hooks record the reason
         err = "emu error: %s (last RIP %#x)" % (e, getattr(uc, "_last_rip", 0))
     if uc._bad is not None:
         err = uc._bad
+    elif err is None and uc.reg_read(xc.UC_X86_REG_RIP) != ret:
+        # A silent stop (budget spent) is a failure, never a clean frame.
+        err = "did not return: RIP %#x after %d-instruction budget" % (
+            uc.reg_read(xc.UC_X86_REG_RIP), budget)
     return err
 
 
@@ -166,7 +172,8 @@ def main():
     ap.add_argument("--spec-dir", default=os.path.join(DIFF, "specs", "impure"))
     ap.add_argument("--frames", type=int, default=50)
     ap.add_argument("--cap", type=int, default=32, help="instances kept per spec (reservoir)")
-    ap.add_argument("--timeout", type=int, default=120, help="seconds per step")
+    ap.add_argument("--budget", type=int, default=INSTR_BUDGET,
+                    help="instructions per H step (deterministic guard)")
     ap.add_argument("--trace-addrs", action="store_true",
                     help="record every executed instruction address (diagnostic; slower)")
     a = ap.parse_args()
@@ -228,7 +235,7 @@ def main():
             counters["per_early"] += 1
         tick0, calls0 = counters["tick"], sum(calls.values())
         t_s = time.time()
-        err = run_entry(uc, H_STEP, {"rcx": h_obj}, ret, a.timeout)
+        err = run_entry(uc, H_STEP, {"rcx": h_obj}, ret, a.budget)
         frame_log.append({"frame": f, "H": hex(h_obj), "MI": hex(mi), "per": per,
                           "ticks": counters["tick"] - tick0,
                           "impure_calls": sum(calls.values()) - calls0,
