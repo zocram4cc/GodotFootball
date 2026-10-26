@@ -61,6 +61,13 @@ the translator and the driver, split by file. Main lands everything. Concurrency
 | 30-70% | Fix the top failure classes in the translator and struct map, then re-pilot. |
 | < 30% | Report why with the failure breakdown and propose the alternative. Never fall back to the old method silently. |
 
+## Owner ruling 26-10-26: impure code is translated now; emulation continues in parallel
+
+Impure code is translated and committed under **tracked coverage**: a function counts when every case it runs is
+bit-exact against PES, with its coverage over the union of captures reported (not gated) and raised over time. In
+parallel, one RE agent works on running PES's own match loop in the emulator from complete captures, so functions are
+exercised as the game calls them; as coverage rises, functions move to the gated record.
+
 ## Owner ruling 25-10-26: impure code is judged on the union of captures
 
 A function counts as bit-exact when every case agrees with PES and its own-block coverage, **counted across all

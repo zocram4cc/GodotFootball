@@ -182,7 +182,12 @@ def build(fn, index):
             nm = "scalar_%s" % x
             inputs[nm] = {"reg": x, "enc": "f32"}
             schema[nm] = {"kind": "f32", "lo": -50.0, "hi": 50.0, "domain": DOMAIN_F32}
+    # Stack slots the harness maps: run.py maps 0x100 bytes above stack_top
+    # (stack_top = base + size - 0x100). Slots past them are not arguments.
+    arg_area_end = 0x100
     for k, widths in fn["stack_args"].items():
+        if 0x20 + 8 * int(k) + 8 > arg_area_end:
+            continue  # analyzer rsp artifact, not an argument (1404F6C30: k=5095 -> +0x9F58)
         w = max(int(x) for x in widths)
         enc = {1: "u8", 2: "u8", 4: "u32", 8: "u64", 16: "u64"}.get(w, "u64")
         nm = "stk%s" % k

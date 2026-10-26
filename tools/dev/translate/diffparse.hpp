@@ -20,6 +20,7 @@ struct JVal {
 
 struct JLine {
   std::map<std::string, JVal> in, out;
+  long long inst = 0;  // bank instance this case ran on (run.py --seed-bank); 0 when unbanked
 };
 
 // Parse one flat-ish line: finds "in":{...} and "out":{...} top objects,
@@ -105,6 +106,10 @@ static inline bool parse_line(const char* line, JLine& jl) {
   const char* pin = strstr(line, "\"in\"");
   const char* pout = strstr(line, "\"out\"");
   if (!pin || !pout) return false;
+  if (const char* pi = strstr(line, "\"inst\":")) {  // written by run.py for banked cases
+    for (pi += 7; *pi == ' '; ++pi) {}
+    for (; *pi >= '0' && *pi <= '9'; ++pi) jl.inst = jl.inst * 10 + (*pi - '0');
+  }
   pin = strchr(pin + 4, '{');
   pout = strchr(pout + 5, '{');
   if (!pin || !pout) return false;
