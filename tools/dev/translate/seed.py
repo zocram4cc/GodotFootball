@@ -34,8 +34,9 @@ side (diffmain.py) BEFORE the per-case inputs:
 Seed JSON (written next to the corpus by run.py):
   {"g_base": "0x...", "regions": [{"name", "base", "off", "size", "hex"}...]}
 
-Bank JSON (--bank-classes): {"class": team|anime|man|slot|none, "instances": [seed JSON...]}.
-Instance k binds A0 to the k-th live record of that class; run.py case n uses instance n % N.
+Bank JSON (--bank-classes): {"roots": {"A0": team|anime|man|slot, ...}, "instances": [seed JSON...]}.
+Instance k binds each root to the (k mod n)-th live record of its class in each capture;
+run.py case n uses instance n % N.
 """
 import json
 import os
@@ -82,13 +83,13 @@ STRIDE = 0x28
 
 def chain_of(rname):
     """(root, offsets) a region shadows, or None. 'IMG.1436F3DC8.180' ->
-    ('IMG', [0x180]) (G-rooted); 'A0.6D48.E0' -> ('A0', [0x6D48, 0xE0])
+    ('IMG', [0x180]) (G-rooted); 'IMG.1437F4808.0' -> ('IMG:1437F4808', [0x0]) (rooted
+    at the value of that image global); 'A0.6D48.E0' -> ('A0', [0x6D48, 0xE0])
     (argument-rooted, bound by arg_roots)."""
     parts = rname.split(".")
     if parts[0] == "IMG":
-        if int(parts[1], 16) != GVA:
-            return None  # not a G slot (an image address or a shared sentinel)
-        return "IMG", [int(p, 16) for p in parts[2:]]
+        X = int(parts[1], 16)
+        return ("IMG" if X == GVA else "IMG:%X" % X), [int(p, 16) for p in parts[2:]]
     if parts[0][:1] == "A" and parts[0][1:].isdigit():
         try:
             return parts[0], [int(p, 16) for p in parts[1:]]
@@ -156,7 +157,13 @@ def build_live_seed(spec, meta, read, gbytes, roots=None, page=0x1000):
         if chain is None:
             continue
         root, offs = chain
-        start = meta["g"] if root == "IMG" else roots.get(root)
+        if root == "IMG":
+            start = meta["g"]
+        elif root.startswith("IMG:"):  # image global X: its value is the object
+            raw = read(int(root[4:], 16), 8)
+            start = struct.unpack("<Q", raw)[0] if raw and len(raw) == 8 else None
+        else:
+            start = roots.get(root)
         if start is None:
             continue  # unbound argument root
         addr = walk(read, gbytes, meta["g"], start, offs)
@@ -270,29 +277,39 @@ def instance_roots(read, gbytes, g, cls):
     return [c for c in cands if c]
 
 
-def bank_for_spec(spec, live_dir, cls, page=0x1000):
-    """Per-case instance bank (live only): entry k is the seed artifact with A0
-    bound to instance k of class cls. With no live instance (or class none) the
-    bank is the single G-only seed."""
-    meta, index = load_live(live_dir)
-    read = make_reader(index)
-    gbytes = open(live_dir + "/g.bin", "rb").read() if meta.get("g_blob") else b""
+def rootclass_map(v):
+    """A bank spec's classes: a class name binds A0; a dict binds each named root."""
+    return {"A0": v} if isinstance(v, str) else dict(v)
+
+
+def bank_multi(spec, live_dirs, rootcls, page=0x1000, cap=24):
+    """Per-case instance bank over one or more live captures (live only). rootcls maps
+    argument roots to classes. Instance k of a capture binds each root r to the
+    (k mod n_r)-th record of its class in that capture. The bank concatenates the
+    captures, at most ceil(cap / captures) instances each, so the union stays bounded.
+    A spec with no bindable root gets one G-only seed per capture."""
     bank = []
-    for a0 in instance_roots(read, gbytes, meta["g"], cls) or [None]:
-        seed, live = build_live_seed(spec, meta, read, gbytes,
-                                     {"A0": a0} if a0 else {}, page)
-        patch_live_ptrs(spec, seed, live, meta, read)
-        bank.append(artifact_of(spec, seed))
+    per = -(-cap // len(live_dirs))
+    for d in live_dirs:
+        meta, index = load_live(d)
+        read = make_reader(index)
+        gbytes = open(d + "/g.bin", "rb").read() if meta.get("g_blob") else b""
+        cands = {r: instance_roots(read, gbytes, meta["g"], c) for r, c in rootcls.items()}
+        cands = {r: v for r, v in cands.items() if v}
+        n = min(per, max((len(v) for v in cands.values()), default=1))
+        for k in range(n):
+            roots = {r: v[k % len(v)] for r, v in cands.items()}
+            seed, live = build_live_seed(spec, meta, read, gbytes, roots, page)
+            patch_live_ptrs(spec, seed, live, meta, read)
+            bank.append(artifact_of(spec, seed))
     return bank
 
 
 
 if __name__ == "__main__":
-    import os
-    import sys
-    ap = argparse = __import__("argparse")
+    import argparse
     p = argparse.ArgumentParser()
-    p.add_argument("--live", help="a live_snapshot.py output dir")
+    p.add_argument("--live", nargs="+", help="live_snapshot.py / capture_midplay.py output dir(s)")
     p.add_argument("--emulated", help="a snapshot.py output dir")
     p.add_argument("--spec-dir", required=True)
     p.add_argument("--out", required=True, help="seed dir (build tree only)")
@@ -301,15 +318,16 @@ if __name__ == "__main__":
     p.add_argument("--team", type=int, default=None,
                    help="bind the A0 argument root to team record T[N] (live only)")
     p.add_argument("--bank-classes", default=None,
-                   help="JSON {spec name (lower-case): team|anime|man|slot|none}: write "
-                        "<name>.bank.json (per-case instances, live only) instead of <name>.seed.json")
+                   help="JSON {spec name (lower-case): class or {root: class}}, class in "
+                        "team|anime|man|slot: write <name>.bank.json over every --live dir "
+                        "(per-case instances, live only) instead of <name>.seed.json")
+    p.add_argument("--cap", type=int, default=24, help="bank instances per spec, all captures")
     args = p.parse_args()
     if not args.live and not args.emulated:
         p.error("one of --live / --emulated")
     os.makedirs(args.out, exist_ok=True)
-    live_dir = args.live or None
     classes = json.load(open(args.bank_classes)) if args.bank_classes else None
-    if classes is not None and live_dir is None:
+    if classes is not None and not args.live:
         p.error("--bank-classes needs --live")
     for f in sorted(os.listdir(args.spec_dir)):
         if not f.endswith(".json"):
@@ -318,12 +336,13 @@ if __name__ == "__main__":
             continue
         spec = json.load(open(os.path.join(args.spec_dir, f)))
         if classes is not None:
-            cls = classes.get(f[:-5].lower(), "none")
-            bank = bank_for_spec(spec, live_dir, cls, args.page)
-            json.dump({"class": cls, "instances": bank},
+            rootcls = rootclass_map(classes.get(f[:-5].lower(), {}))
+            bank = bank_multi(spec, args.live, rootcls, args.page, args.cap)
+            json.dump({"roots": rootcls, "instances": bank},
                       open(os.path.join(args.out, f[:-5] + ".bank.json"), "w"))
-            print("%s: class %s, %d instances" % (f[:-5], cls, len(bank)))
+            print("%s: roots %s, %d instances" % (f[:-5], rootcls or "none", len(bank)))
             continue
-        a = seed_for_spec(spec, live_dir, args.emulated, args.page, args.team)
+        a = seed_for_spec(spec, args.live[0] if args.live else None, args.emulated,
+                          args.page, args.team)
         json.dump(a, open(os.path.join(args.out, f[:-5] + ".seed.json"), "w"))
         print("%s: %d regions seeded" % (f[:-5], len(a["regions"])))
