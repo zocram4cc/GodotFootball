@@ -68,6 +68,17 @@ driven from PES's own scene data for loading and rendering. Caveat from the owne
 predecessor repo tried data-driven PES cutscenes at length with no real success for some scenes, especially fouls and
 offsides; the new attempt must first learn why, and translate whatever logic those scenes decide in code.
 
+What that attempt found (its handovers and `docs/PES_CUTSCENE_ARCHAEOLOGY.md` in the predecessor repo): goals,
+entrances, substitutions, half/full time, penalties and results worked data-driven (`.fdc` stagings, `.canm` cameras,
+`table_*.bin` director state machines). Fouls and offsides failed because they are **not in the data**: PES ships two
+foul cameras (one card-hold shot for 5 of 7 foul subpools that have none) and **no offside camera in any generation**,
+with offside actor records at the origin. In PES those scenes are the live broadcast camera plus the replay system,
+with the official's placement, the sanction-to-scene choice and the restart timing decided in code. So for this port:
+- **translated and proven:** the director state machines' selection, the broadcast camera, the replay sequencing,
+  sanction-to-scene choice, official placement and restart timing (the code paths behind fouls and offsides);
+- **driven from PES data through Godot:** authored stagings and camera tracks (hard cuts sampled per cut), actor
+  clips, scene length from the last actor's clip, clock synced to the match clock.
+
 ## Owner ruling 26-10-26 (latest): correctness is I/O bit-exact on real calls; coverage is a confidence measure
 
 **What matters is gameplay outcome, code readability and a faithful recreation.**
