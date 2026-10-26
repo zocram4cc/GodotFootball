@@ -10,6 +10,7 @@
 
 #include "gametypes.hpp"
 #include "onthepitch/pesoffball.hpp"
+#include "onthepitch/pesworldrecord.hpp"
 
 namespace {
 
@@ -1607,6 +1608,50 @@ TEST(NearestTeamBlock, TheMarkingSideBlockIsThatSidesListWhoeverHolds) {
   EXPECT_EQ(opponents[0].id, 11);
   EXPECT_EQ(opponents[1].id, 12);
   EXPECT_EQ(pes::offball::NearestOpponents(w, 2).size(), opponents.size());
+}
+
+// PES's man record holds the run code's kinematics (pesworldrecord.hpp): position in m (+0x55C, +0x564), velocity in
+// m per frame (+0x574, +0x57C) and facing in degrees (+0x554). A fact reads them in place; its velocity is in m/s.
+TEST(OffBallRecord, FactsReadTheirManRecord) {
+  pes::PesWorld world;
+  PlayerFacts f;
+  f.man = world.Block(4) + pes::kManRecordOffset;
+  pes::StoreF32(f.man, pes::kManPosXOffset, 12.5f);
+  pes::StoreF32(f.man, pes::kManPosZOffset, -7.0f);
+  pes::StoreF32(f.man, pes::kManVelXOffset, 0.25f);
+  pes::StoreF32(f.man, pes::kManVelZOffset, -0.5f);
+  pes::StoreF32(f.man, pes::kManFacingOffset, 90.0f);
+  EXPECT_FLOAT_EQ(f.pos().x, 12.5f);
+  EXPECT_FLOAT_EQ(f.pos().z, -7.0f);
+  EXPECT_FLOAT_EQ(f.vel().x, 0.25f * kPesFps);
+  EXPECT_FLOAT_EQ(f.vel().z, -0.5f * kPesFps);
+  EXPECT_FLOAT_EQ(f.facing(), 90.0f);
+}
+
+// A player with no record reads zeros.
+TEST(OffBallRecord, WithoutARecordTheKinematicsReadZero) {
+  const PlayerFacts none;
+  EXPECT_EQ(none.pos().x, 0.0f);
+  EXPECT_EQ(none.pos().z, 0.0f);
+  EXPECT_EQ(none.vel().x, 0.0f);
+  EXPECT_EQ(none.facing(), 0.0f);
+}
+
+// The setters write PES's units: velocity in m per frame, so 5.4 m/s at 54 frames a second is 0.1 m a frame.
+TEST(OffBallRecord, SettersWriteTheManRecordInPesUnits) {
+  pes::PesWorld world;
+  PlayerFacts f;
+  f.man = world.Block(4) + pes::kManRecordOffset;
+  f.SetPos({3.0f, 4.0f});
+  f.SetVel({5.4f, -2.7f});
+  f.SetFacing(270.0f);
+  EXPECT_FLOAT_EQ(pes::LoadF32(f.man, pes::kManPosXOffset), 3.0f);
+  EXPECT_FLOAT_EQ(pes::LoadF32(f.man, pes::kManPosZOffset), 4.0f);
+  EXPECT_NEAR(pes::LoadF32(f.man, pes::kManVelXOffset), 0.1f, 1e-6f);
+  EXPECT_NEAR(pes::LoadF32(f.man, pes::kManVelZOffset), -0.05f, 1e-6f);
+  EXPECT_FLOAT_EQ(pes::LoadF32(f.man, pes::kManFacingOffset), 270.0f);
+  EXPECT_NEAR(f.vel().x, 5.4f, 1e-4f);
+  EXPECT_NEAR(f.vel().z, -2.7f, 1e-4f);
 }
 
 }  // namespace
