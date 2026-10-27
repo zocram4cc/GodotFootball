@@ -193,3 +193,10 @@ target_link_libraries(pes_condition_loader_test PRIVATE pesfmt GTest::gtest_main
 gtest_discover_tests(pes_condition_loader_test)
 add_test(NAME parity_metrics_test
   COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/parity_metrics_test.py)
+
+# Recorded-call emulator entry (frame_trace.run_recorded): synthetic snapshots, emulated with unicorn in the
+# harness Python. Without GF_DIFF_PYTHON the test skips (77).
+add_test(NAME translate_recorded_call_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_recorded_call.py'")
+set_tests_properties(translate_recorded_call_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)

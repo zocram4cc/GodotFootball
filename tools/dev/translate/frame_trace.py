@@ -15,6 +15,9 @@ Output: banks/, executed/ and record.json. With --snapshot, calls/<VA>.bin (entr
 
 Usage: GF_DIFF_PYTHON=<venv python> PES_EXE=<pes_full.bin> python3 frame_trace.py --capture DIR --out DIR
        [--frames N] [--cap N] [--budget INSTR]
+Recorded call: python3 frame_trace.py recorded SNAP_DIR [--hooks CFG] [--budget N] emulates one rendezvous
+snapshot's recorded call (run_recorded): its captured GPRs, XMM, RFLAGS, MXCSR, GS base, entry and stack, over
+the snapshot's memory; --hooks gives the bytes a hook patch displaced. Exit 1 when the call did not return cleanly.
 """
 import argparse
 import collections
@@ -570,6 +573,119 @@ def entry_record(uc):
     return CALL_REC.pack(*gprs, *xmm, ret)
 
 
+GPR_ORDER = ("rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi",
+             "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15")
+# A rendezvous hook's entry patch (rv.dll): jmp [rip+0], FF 25 with rel32 0; its 8-byte target follows.
+HOOK_PATCH_HEAD = bytes.fromhex("ff25" + "00000000")
+
+
+def load_recorded_call(snap_dir):
+    """A rendezvous snapshot's recorded call: call.bin (the CALL_REC layout of entry_record, taken at the
+    entry) with the entry metadata in index.json "rv". Returns the entry VA, the 16 GPRs by name (rsp is the
+    caller's rsp at the entry), the 16 XMM values as 128-bit ints, the return address (at [rsp]), the game's
+    TEB, RFLAGS and MXCSR."""
+    with open(os.path.join(snap_dir, "index.json")) as f:
+        meta = json.load(f)["rv"]
+    with open(os.path.join(snap_dir, "call.bin"), "rb") as f:
+        raw = f.read()
+    if len(raw) != CALL_REC.size:
+        raise SystemExit("call.bin is %d bytes, want %d" % (len(raw), CALL_REC.size))
+    vals = CALL_REC.unpack(raw)
+    return {"entry": meta["entry_va"], "gpr": dict(zip(GPR_ORDER, vals[:16])),
+            "xmm": [vals[16 + 2 * i] | (vals[17 + 2 * i] << 64) for i in range(16)],
+            "ret": vals[48], "teb": meta["teb"], "flags": meta["flags"], "mxcsr": meta["mxcsr"]}
+
+
+def hook_bytes(cfg_path):
+    """{entry VA: original bytes} of an rv.dll config (`hook NAME VA LEN FIRST EVERY HEX`): the bytes a
+    rendezvous hook displaced at its entry. A replay runs them in place of the hook's patch."""
+    out = {}
+    with open(cfg_path) as f:
+        for line in f:
+            p = line.split()
+            if len(p) == 7 and p[0] == "hook":
+                out[int(p[2], 16)] = bytes.fromhex(p[6])
+    return out
+
+
+def _xmm_int(uc, n):
+    import unicorn.x86_const as xc
+    v = uc.reg_read(xc.UC_X86_REG_XMM0 + n)
+    return int.from_bytes(v, "little") if isinstance(v, (bytes, bytearray)) else v
+
+
+def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET):
+    """One recorded call (load_recorded_call) emulated from its captured entry, with its captured GPRs, XMM,
+    RFLAGS, MXCSR and GS base, over the snapshot's own memory. The stack and the return address are the
+    snapshot's, so the call returns to the caller's address with the caller's rsp. orig maps an entry VA to
+    the bytes a rendezvous hook displaced there (hook_bytes), which replace the patch the snapshot holds.
+    Returns (unicorn, error): error is None when the call returned to its recorded return address with rsp
+    balanced, else the reason it did not."""
+    import unicorn.x86_const as xc
+    from unicorn import (Uc, UC_ARCH_X86, UC_MODE_64, UC_HOOK_MEM_READ_UNMAPPED,
+                         UC_HOOK_MEM_WRITE_UNMAPPED)
+    sm = fs.SnapMem(snap_dir)
+    call = load_recorded_call(snap_dir)
+    gpr, entry, ret, teb = call["gpr"], call["entry"], call["ret"], call["teb"]
+    rsp = gpr["rsp"]
+    uc = Uc(UC_ARCH_X86, UC_MODE_64)
+    lazy = LazyMap(sm, {})
+    lazy.attach(uc)
+    uc.hook_add(UC_HOOK_MEM_READ_UNMAPPED | UC_HOOK_MEM_WRITE_UNMAPPED,
+                lambda u, access, addr, size, value, data: lazy.handle(addr))
+    if not lazy.ensure(entry, 1):
+        return uc, "entry %#x is not in the snapshot" % entry
+    if not lazy.ensure(rsp, 8):
+        return uc, "stack at rsp %#x is not in the snapshot" % rsp
+    if not lazy.ensure(teb, PAGE):
+        return uc, "TEB %#x is not in the snapshot" % teb
+    if struct.unpack("<Q", bytes(uc.mem_read(rsp, 8)))[0] != ret:
+        return uc, "the record's return address differs from the snapshot at rsp"
+    if entry not in (orig or {}) and bytes(uc.mem_read(entry, len(HOOK_PATCH_HEAD))) == HOOK_PATCH_HEAD:
+        return uc, ("entry %#x starts with jmp [rip+0], a rendezvous hook patch: give its displaced bytes "
+                    "(the hook config), or the replay would run the hook" % entry)
+    if entry in (orig or {}):
+        uc.mem_write(entry, orig[entry])
+    for name in GPR_ORDER:
+        uc.reg_write(getattr(xc, "UC_X86_REG_" + name.upper()), gpr[name])
+    for i, v in enumerate(call["xmm"]):
+        uc.reg_write(xc.UC_X86_REG_XMM0 + i, v)
+    uc.reg_write(xc.UC_X86_REG_EFLAGS, call["flags"])
+    uc.reg_write(xc.UC_X86_REG_MXCSR, call["mxcsr"])
+    uc.reg_write(xc.UC_X86_REG_GS_BASE, teb)
+    err = None
+    try:
+        uc.emu_start(entry, ret, count=budget)
+    except Exception as e:  # unicorn raises on a fault; the lazy map records a refusal
+        err = "emu error: %s (rip %#x)" % (e, uc.reg_read(xc.UC_X86_REG_RIP))
+    rip = uc.reg_read(xc.UC_X86_REG_RIP)
+    if lazy.refused:
+        err = lazy.refused
+    elif err is None and rip != ret:
+        err = "did not return: rip %#x after %d-instruction budget" % (rip, budget)
+    elif err is None and uc.reg_read(xc.UC_X86_REG_RSP) != rsp + 8:
+        err = "stack not balanced: rsp %#x, want %#x" % (uc.reg_read(xc.UC_X86_REG_RSP), rsp + 8)
+    return uc, err
+
+
+def recorded_main(argv):
+    """`frame_trace.py recorded SNAP_DIR [--hooks CFG] [--budget N]`: emulate the snapshot's recorded call and
+    print RAX, XMM0 (low lane as a double), rip and rsp as JSON. Exit 1 when the call did not return cleanly."""
+    import unicorn.x86_const as xc
+    ap = argparse.ArgumentParser(prog="frame_trace.py recorded")
+    ap.add_argument("snap")
+    ap.add_argument("--hooks", default=None, help="rv.dll config: its displaced bytes replace the hook patches")
+    ap.add_argument("--budget", type=int, default=INSTR_BUDGET)
+    a = ap.parse_args(argv)
+    orig = hook_bytes(a.hooks) if a.hooks else None
+    uc, err = run_recorded(a.snap, orig=orig, budget=a.budget)
+    xmm0 = struct.unpack("<d", struct.pack("<Q", _xmm_int(uc, 0) & ((1 << 64) - 1)))[0]
+    print(json.dumps({"rax": hex(uc.reg_read(xc.UC_X86_REG_RAX)), "xmm0_lo_double": xmm0,
+                      "rip": hex(uc.reg_read(xc.UC_X86_REG_RIP)),
+                      "rsp": hex(uc.reg_read(xc.UC_X86_REG_RSP)), "err": err}))
+    return 0 if err is None else 1
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--capture", default=None, help="a capture_frame.py directory (walked capture)")
@@ -763,4 +879,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "recorded":
+        sys.exit(recorded_main(sys.argv[2:]))
     sys.exit(main())
