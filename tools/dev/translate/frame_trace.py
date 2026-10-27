@@ -315,7 +315,7 @@ class CallDelta:
     deltas.jsonl holds each distinct delta once as {"id", "pages": [[va, pool index], ...]}, and
     deltas.idx.jsonl maps its id to its byte offset there."""
 
-    def __init__(self, uc, sm, lazy, out, teb):
+    def __init__(self, uc, sm, lazy, out, teb, patches=None):
         from unicorn import UC_HOOK_MEM_WRITE
         assert rn.stack_top({}) == STACK_BASE + STACK_SIZE - 0x100
         self.uc, self.sm, self.lazy = uc, sm, lazy
@@ -323,6 +323,8 @@ class CallDelta:
         self.pending = set()   # page-aligned addresses written since the last entry
         self.diff = {}         # page -> pool index, for pages that differ from their baseline
         self.pool_of = {}      # sha256 digest -> pool index
+        self.patches = patches or {}  # hook entry -> the original code it displaced (the baseline's overlay)
+        self.touched = set()          # every page the run wrote (own_writes)
         os.makedirs(os.path.join(out, "pool"), exist_ok=True)
         self.pool_f = open(os.path.join(out, "pool", "pages.bin"), "wb")
         self.deltas_f = open(os.path.join(out, "deltas.jsonl"), "wb")
@@ -337,13 +339,27 @@ class CallDelta:
         uc.mem_write = mem_write
 
     def _mark(self, addr, n):
-        self.pending.update(range(addr & ~(PAGE - 1), addr + n, PAGE))
+        pages = range(addr & ~(PAGE - 1), addr + n, PAGE)
+        self.pending.update(pages)
+        self.touched.update(pages)
 
     def _page(self, page):
         try:
             return bytes(self.uc.mem_read(page, PAGE))
         except Exception:
             return None
+
+    def _base(self, page):
+        """A page's baseline: the snapshot's bytes with each rendezvous hook entry restored to the original code it
+        displaced (the image the run starts from), or None outside the snapshot."""
+        if not self.sm.page_ok(page):
+            return None
+        base = bytearray(self.sm.read(page, PAGE))
+        for va, code in self.patches.items():
+            for i, byte in enumerate(code):
+                if page <= va + i < page + PAGE:
+                    base[va + i - page] = byte
+        return bytes(base)
 
     def _pool(self, data):
         key = hashlib.sha256(data).digest()
@@ -357,7 +373,7 @@ class CallDelta:
             if page in self.fixed or page in self.lazy.import_pages:
                 continue
             data = self._page(page)
-            base = self.sm.read(page, PAGE) if self.sm.page_ok(page) else None
+            base = self._base(page)
             if data is None or data == base:
                 self.diff.pop(page, None)
             else:
@@ -379,6 +395,30 @@ class CallDelta:
             self.index_f.write(json.dumps([did, self.deltas_f.tell()]) + "\n")
             self.deltas_f.write((json.dumps({"id": did, "pages": listing}) + "\n").encode())
         return did
+
+    def own_writes(self):
+        """Per page, the (start, end) byte runs that differ now from the baseline: every byte this run wrote, over
+        each page it touched (the stack and TEB included, import-model pages excluded)."""
+        out = {}
+        for page in sorted(self.touched):
+            if page in self.lazy.import_pages:
+                continue
+            cur, base = self._page(page), self._base(page)
+            if cur is None or base is None:
+                continue
+            runs, start = [], None
+            for i in range(PAGE):
+                if cur[i] != base[i]:
+                    if start is None:
+                        start = i
+                elif start is not None:
+                    runs.append((start, i))
+                    start = None
+            if start is not None:
+                runs.append((start, PAGE))
+            if runs:
+                out[page] = runs
+        return out
 
     def close(self):
         for f in (self.pool_f, self.deltas_f, self.index_f):
@@ -614,11 +654,14 @@ def _xmm_int(uc, n):
     return int.from_bytes(v, "little") if isinstance(v, (bytes, bytearray)) else v
 
 
-def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET):
+def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None):
     """One recorded call (load_recorded_call) emulated from its captured entry, with its captured GPRs, XMM,
     RFLAGS, MXCSR and GS base, over the snapshot's own memory. The stack and the return address are the
     snapshot's, so the call returns to the caller's address with the caller's rsp. orig maps an entry VA to
-    the bytes a rendezvous hook displaced there (hook_bytes), which replace the patch the snapshot holds.
+    the bytes a rendezvous hook displaced there (hook_bytes); every such entry is restored before the run, so no
+    callee runs a hook patch. trace (None, or {out, impure, stubs}) instruments the run as a snapdiff trace: the
+    import models and stub models, the call-time delta (its baseline is the restored image), and each impure
+    spec's entry records (trace_entries). It is filled with cdelta, counts and files for finish_trace.
     Returns (unicorn, error): error is None when the call returned to its recorded return address with rsp
     balanced, else the reason it did not."""
     import unicorn.x86_const as xc
@@ -629,10 +672,13 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET):
     gpr, entry, ret, teb = call["gpr"], call["entry"], call["ret"], call["teb"]
     rsp = gpr["rsp"]
     uc = Uc(UC_ARCH_X86, UC_MODE_64)
-    lazy = LazyMap(sm, {})
+    lazy = LazyMap(sm, load_import_models() if trace is not None else {})
     lazy.attach(uc)
     uc.hook_add(UC_HOOK_MEM_READ_UNMAPPED | UC_HOOK_MEM_WRITE_UNMAPPED,
                 lambda u, access, addr, size, value, data: lazy.handle(addr))
+    if trace is not None:
+        uc._ret_sentinel = ret  # the recorded return address ends each call (run.py install_hooks)
+        rn.install_hooks(uc, trace["stubs"], ret)
     if not lazy.ensure(entry, 1):
         return uc, "entry %#x is not in the snapshot" % entry
     if not lazy.ensure(rsp, 8):
@@ -644,8 +690,13 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET):
     if entry not in (orig or {}) and bytes(uc.mem_read(entry, len(HOOK_PATCH_HEAD))) == HOOK_PATCH_HEAD:
         return uc, ("entry %#x starts with jmp [rip+0], a rendezvous hook patch: give its displaced bytes "
                     "(the hook config), or the replay would run the hook" % entry)
-    if entry in (orig or {}):
-        uc.mem_write(entry, orig[entry])
+    for va, code in sorted((orig or {}).items()):
+        if not lazy.ensure(va, len(code)):
+            return uc, "hook entry %#x is not in the snapshot" % va
+        uc.mem_write(va, code)
+    if trace is not None:
+        trace["cdelta"] = CallDelta(uc, sm, lazy, trace["out"], teb, patches=orig)
+        trace["counts"], trace["files"] = trace_entries(uc, trace["impure"], trace["cdelta"], trace["out"])
     for name in GPR_ORDER:
         uc.reg_write(getattr(xc, "UC_X86_REG_" + name.upper()), gpr[name])
     for i, v in enumerate(call["xmm"]):
@@ -668,21 +719,75 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET):
     return uc, err
 
 
+def trace_entries(uc, impure, cdelta, out):
+    """frame_trace main's on_entry for a recorded run, without its banks: each impure spec's entry writes its
+    call (entry_record) and the call-time delta id to out/calls/<tag>.bin and <tag>.delta, once per distinct
+    (record, delta). Returns ({tag: entries seen}, [open files]); finish_trace closes the files."""
+    from unicorn import UC_HOOK_CODE
+    os.makedirs(os.path.join(out, "calls"), exist_ok=True)
+    counts, files = {}, []
+    for tag, spec in impure.items():
+        va = int(spec["va"], 16)
+        bin_f = open(os.path.join(out, "calls", tag + ".bin"), "wb")
+        delta_f = open(os.path.join(out, "calls", tag + ".delta"), "w")
+        files += [bin_f, delta_f]
+        seen = set()
+        counts[tag] = 0
+
+        def on_entry(uc_, address, size, data, tag=tag, bin_f=bin_f, delta_f=delta_f, seen=seen):
+            counts[tag] += 1
+            did = cdelta.delta()
+            rec = entry_record(uc_)
+            if (rec, did) not in seen:
+                seen.add((rec, did))
+                bin_f.write(rec)
+                delta_f.write(did + "\n")
+        uc.hook_add(UC_HOOK_CODE, on_entry, None, begin=va, end=va)
+    return counts, files
+
+
+def finish_trace(trace):
+    """Close a trace and write out/written.json: the byte runs the recorded call itself wrote, per page (the
+    baseline is the restored image). Returns the summary printed by recorded_main."""
+    for f in trace["files"]:
+        f.close()
+    cdelta = trace["cdelta"]
+    written = cdelta.own_writes()
+    runs = {"0x%X" % page: [list(r) for r in rs] for page, rs in sorted(written.items())}
+    with open(os.path.join(trace["out"], "written.json"), "w") as f:
+        json.dump(runs, f, indent=1)
+    return {"calls": {t: n for t, n in trace["counts"].items() if n},
+            "written_pages": len(written), "written_bytes": sum(e - s for rs in written.values() for s, e in rs),
+            "delta": cdelta.close()}
+
+
 def recorded_main(argv):
-    """`frame_trace.py recorded SNAP_DIR [--hooks CFG] [--budget N]`: emulate the snapshot's recorded call and
-    print RAX, XMM0 (low lane as a double), rip and rsp as JSON. Exit 1 when the call did not return cleanly."""
+    """`frame_trace.py recorded SNAP_DIR [--hooks CFG] [--budget N] [--out DIR [--spec-dir D]]`: emulate the
+    snapshot's recorded call and print RAX, XMM0 (low lane as a double), rip and rsp as JSON. With --out the run
+    is a snapdiff trace (run_recorded trace): the callees of every impure spec are recorded under DIR/calls, and
+    the call's own written bytes go to DIR/written.json. Exit 1 when the call did not return cleanly."""
     import unicorn.x86_const as xc
     ap = argparse.ArgumentParser(prog="frame_trace.py recorded")
     ap.add_argument("snap")
     ap.add_argument("--hooks", default=None, help="rv.dll config: its displaced bytes replace the hook patches")
     ap.add_argument("--budget", type=int, default=INSTR_BUDGET)
+    ap.add_argument("--out", default=None, help="trace directory: record the callees and deltas (needs --hooks)")
+    ap.add_argument("--spec-dir", default=os.path.join(DIFF, "specs", "impure"))
     a = ap.parse_args(argv)
+    if a.out and not a.hooks:
+        ap.error("--out needs --hooks: every hook entry must run its original bytes in the trace")
     orig = hook_bytes(a.hooks) if a.hooks else None
-    uc, err = run_recorded(a.snap, orig=orig, budget=a.budget)
+    trace = None
+    if a.out:
+        trace = {"out": a.out, "impure": load_impure(a.spec_dir), "stubs": stubs_for_run(stub_table.load())}
+    uc, err = run_recorded(a.snap, orig=orig, budget=a.budget, trace=trace)
     xmm0 = struct.unpack("<d", struct.pack("<Q", _xmm_int(uc, 0) & ((1 << 64) - 1)))[0]
-    print(json.dumps({"rax": hex(uc.reg_read(xc.UC_X86_REG_RAX)), "xmm0_lo_double": xmm0,
-                      "rip": hex(uc.reg_read(xc.UC_X86_REG_RIP)),
-                      "rsp": hex(uc.reg_read(xc.UC_X86_REG_RSP)), "err": err}))
+    result = {"rax": hex(uc.reg_read(xc.UC_X86_REG_RAX)), "xmm0_lo_double": xmm0,
+              "rip": hex(uc.reg_read(xc.UC_X86_REG_RIP)),
+              "rsp": hex(uc.reg_read(xc.UC_X86_REG_RSP)), "err": err}
+    if trace is not None:
+        result["trace"] = finish_trace(trace)
+    print(json.dumps(result))
     return 0 if err is None else 1
 
 

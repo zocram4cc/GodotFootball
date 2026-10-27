@@ -182,6 +182,20 @@ class RecordedCall(unittest.TestCase):
             f.write("# comment\nhook f 0x400000 14 0 0 " + "00" * 14 + "\n")
         self.assertEqual(ft.hook_bytes(cfg), {CODE: bytes(14)})
 
+    def test_trace_records_the_entry_and_the_calls_own_writes(self):
+        # mov [rdx], rcx ; ret, with rcx=5 and rdx one qword below rsp. The trace records the entry once under
+        # calls/<tag>.bin, and the only byte the call wrote is the low byte of that qword.
+        make_snapshot(self.d, bytes.fromhex("48890a") + RET_OP, regs={"rcx": 5, "rdx": RSP - 0x40})
+        out = os.path.join(self.tmp.name, "trace")
+        trace = {"out": out, "impure": {"400000": {"va": hex(CODE)}}, "stubs": {}}
+        uc, err = ft.run_recorded(self.d, budget=10_000, trace=trace)
+        self.assertIsNone(err)
+        summary = ft.finish_trace(trace)
+        self.assertEqual(summary["calls"], {"400000": 1})
+        self.assertEqual(os.path.getsize(os.path.join(out, "calls", "400000.bin")), ft.CALL_REC.size)
+        with open(os.path.join(out, "written.json")) as f:
+            self.assertEqual(json.load(f), {hex(STACK): [[RSP - 0x40 - STACK, RSP - 0x40 - STACK + 1]]})
+
 
 if __name__ == "__main__":
     unittest.main()
