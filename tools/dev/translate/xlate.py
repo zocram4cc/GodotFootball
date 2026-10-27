@@ -17,6 +17,7 @@ table + switch statement. Deterministic: sorted labels/tables, %a floats.
 Usage: translate.py --image IMG --asm FILE --va 0xVA --out OUT.cpp
          [--pilot VA ...] [--header OUT.h]
 """
+import json
 import argparse
 import os
 import re
@@ -279,8 +280,13 @@ def lea_const(em, breg, ia):
 
 def parse_mem(inner):
     # Split on + and - (but not on a leading sign or 0x digits). "rdi - 8"
-    # -> ["rdi", "-8"]; "rcx+rax*4-0x10" works the same.
-    tmp = re.sub(r"\s*-\s*", "+-", inner.strip().lower())
+    # -> ["rdi", "-8"]; "rcx+rax*4-0x10" works the same. A segment prefix ("gs:0x58", from "gs:[0x58]" by
+    # split_ops) is the thread block's base: it is kept as seg and added to the address, never an absolute VA.
+    text = inner.strip().lower()
+    seg = None
+    if text.startswith("gs:"):
+        seg, text = "gs", text[3:]
+    tmp = re.sub(r"\s*-\s*", "+-", text)
     parts = [p.strip() for p in tmp.split("+") if p.strip() != ""]
     base = None
     index = None
@@ -314,9 +320,66 @@ def parse_mem(inner):
     if not ok:
         return None
     disp = sum(nums)
-    absolute = nums[0] if (base is None and index is None and nums) else None
+    absolute = nums[0] if (base is None and index is None and nums and seg is None) else None
     return {"base": base, "index": index, "scale": scale, "disp": disp,
-            "absolute": absolute}
+            "absolute": absolute, "seg": seg}
+
+# Named import slots (import_slots.py -> import_slots.json) and their models (import_stubs.json, the contract
+# the snapshot harness runs). A CALL through a slot with a model is that model's effect, as the OS export has it.
+IMPORT_SLOT_OP = re.compile(r"^(?:qword\s+ptr\s+)?\[\s*(0x[0-9a-f]+)\s*\]$")
+_IMPORT_TABLES = None
+
+
+def _import_tables():
+    global _IMPORT_TABLES
+    if _IMPORT_TABLES is None:
+        here = os.path.dirname(os.path.abspath(__file__))
+        slots = json.load(open(os.path.join(here, "import_slots.json")))["slots"]
+        models = {}
+        for e in json.load(open(os.path.join(here, "import_stubs.json")))["imports"]:
+            models[(e["module"].lower(), e["export"])] = e
+        _IMPORT_TABLES = (slots, models)
+    return _IMPORT_TABLES
+
+
+def absolute_slot(op):
+    """The slot VA of an absolute memory operand (qword ptr [0x...]), or None."""
+    m = IMPORT_SLOT_OP.match(op.strip().lower())
+    return int(m.group(1), 16) if m else None
+
+
+def import_model_lines(op, jump):
+    """C++ for a CALL (jump=False) or JMP (jump=True) through an absolute slot that names a modelled export, or
+    None (not a named import). The model runs exactly as the harness runs it. A call pushes its return address
+    (0, as an indirect call records) and the model returns to it. A jump has no return address of its own: the
+    model's ret returns to the caller, so the translated function returns after it."""
+    slot_va = absolute_slot(op)
+    if slot_va is None:
+        return None
+    slots, models = _import_tables()
+    slot = slots.get("0x%X" % slot_va)
+    if not slot or slot.get("kind") != "export":
+        return None
+    e = models.get((slot["module"].lower(), slot["export"]))
+    if e is None:
+        return None
+    push_ret = "" if jump else "s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8);"
+    pop_ret = "" if jump else " s.gpr[4] += 8;"
+    if e["do"] == "return":
+        value = int(str(e["value"]), 0) & 0xFFFFFFFFFFFFFFFF
+        return ["{ " + push_ret + " s.gpr[0] = %dULL;%s }" % (value, pop_ret)]
+    if e["do"] == "memcpy":
+        # Win64 memcpy(rcx=dst, rdx=src, r8=n): push rdi, push rsi, rep movsb (byte writes, forward), rax=dst,
+        # rcx=0; the pops restore rsi and rdi (16 bytes of stack), then the ret (8 more) for a call.
+        return ["{ " + push_ret +
+                " s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[7], 8);"
+                " s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[6], 8);"
+                " uint64_t _dst = s.gpr[1], _src = s.gpr[2], _n = s.gpr[8];"
+                " for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, s.rd(_src + _i, 1), 1);"
+                " s.gpr[0] = _dst; s.gpr[1] = 0;"
+                " s.gpr[4] += 16;%s }" % pop_ret]
+    raise SystemExit("import_stubs.json: no translator model for do=%r (%s!%s)"
+                     % (e["do"], slot["module"], slot["export"]))
 
 
 class Emitter:
@@ -342,6 +405,8 @@ class Emitter:
 
     def addr_expr(self, mp):
         terms = []
+        if mp.get("seg") == "gs":
+            terms.append("s.gs_base")  # the thread block: a per-thread base the caller sets (PesState::gs_base)
         if mp["base"] is not None:
             terms.append("(%s)" % reg_read(mp["base"]))
         if mp["index"] is not None:
@@ -356,7 +421,7 @@ class Emitter:
         """A register-indexed read of a read-only image table whose base is a
         LEA constant and whose index a guard bounds: bake the window the guard
         admits (build-time bytes, VA-cited). None when any part is unknown."""
-        if self.cur is None or width == 128:
+        if self.cur is None or width == 128 or mp.get("seg"):  # a segment-relative read is never a baked table
             return None
         base = lea_const(self, PARENT.get(mp["base"], mp["base"]), self.cur)
         count = bounded_index(self, PARENT.get(mp["index"], mp["index"]),
@@ -495,6 +560,8 @@ class Emitter:
             return self.do_xadd(m, ops)
         if m in ("IMUL", "MUL"):
             return self.do_mul(m, ops)
+        if m in ("BSF", "BSR"):
+            return self.do_bitscan(m, ops)
         if m in ("BT", "BTC", "BTR", "BTS"):
             return self.do_bit(m, ops)
         if m in ("CDQE", "CDQ", "CQO", "CWD", "CBW", "CWDE"):
@@ -1050,6 +1117,16 @@ class Emitter:
         if "[" in src and sw < 64:
             v = sext(v, sw)
         return ["s.set_x_f64(%d, (double)(int64_t)(%s));" % (int(dst.strip().lower()[3:]), v)]
+    def do_bitscan(self, m, ops):
+        """BSF / BSR r, r/m (16, 32 or 64 bits). ZF = (source == 0). A zero source leaves the destination
+        unchanged (SDM: undefined; the hardware and the harness both keep it). Otherwise the destination
+        gets the index of the lowest (BSF) or highest (BSR) set bit."""
+        dst, src = ops[0], ops[1]
+        w = self.op_width(dst)
+        mask = {16: "0xFFFFULL", 32: "0xFFFFFFFFULL", 64: "0xFFFFFFFFFFFFFFFFULL"}[w]
+        idx = "__builtin_ctzll(_s)" if m == "BSF" else "(63 - __builtin_clzll(_s))"
+        return ["{ uint64_t _s = (uint64_t)(%s) & %s; s.zf = (_s == 0);" % (self.val_of(src, w), mask),
+                "  if (_s) { %s } }" % reg_write(dst, "(uint64_t)(%s)" % idx)]
 
     def do_mul(self, m, ops):
         if m == "MUL" and len(ops) == 1:
@@ -1478,6 +1555,11 @@ class Emitter:
             return ["return;"]
         if m == "CALL":
             if not is_imm(ops[0].strip()):
+                # A call through a named import slot (import_slots.json) runs the slot's model
+                # (import_stubs.json), as the snapshot harness runs it: the export is modelled, not translated.
+                model = import_model_lines(ops[0], jump=False)
+                if model is not None:
+                    return model
                 # Indirect call (vtable / register / memory): emit the exact
                 # address computation the bytes compute, then look the target
                 # up in the generated dispatch table (pes_dispatch.hpp). A
@@ -1506,6 +1588,18 @@ class Emitter:
             return ["/*OUT-OF-SET CALL %s*/ pes_dispatch_missing(0x%X);" % (tgt, imm_val(ops[0]))]
         if m == "JMP":
             o = ops[0].strip()
+            if absolute_slot(o) is not None:
+                # JMP through an absolute slot: a named export runs its model, then the function returns. Any other
+                # slot (an image function's address, as the snapshot holds it) is a tail jump to the target the slot
+                # holds now, looked up in the dispatch table like an indirect CALL; an untranslated target aborts.
+                model = import_model_lines(o, jump=True)
+                if model is not None:
+                    return model + ["return;"]
+                tgt_expr = self.mem_val(o[o.find("["):], 64, None)
+                return ["{ uint64_t _t = (uint64_t)(%s); PesDispatch _d = pes_dispatch_lookup(_t);" % tgt_expr,
+                        "  if (_d.fn == 0) pes_dispatch_missing(_t);",
+                        "  _d.fn(s); }",
+                        "return;"]
             if is_imm(o):
                 # In-range target: local goto. Out-of-range target: it is a
                 # tail call to a sibling (the pilot set is call-closed);
@@ -1611,7 +1705,9 @@ def split_ops(s):
         else:
             cur += ch
     parts.append(cur.strip())
-    return parts
+    # A segment prefix sits outside the brackets in the disassembly ("gs:[0x58]"); callers take the operand from its
+    # "[" on, so the prefix moves inside: "[gs:0x58]". parse_mem reads it there.
+    return [p.replace("gs:[", "[gs:") for p in parts]
 
 
 def parse_lines(text):
@@ -1870,7 +1966,7 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
         if m in ("MOV", "MOVABS", "MOVSX", "MOVSXD", "MOVZX", "LEA", "XCHG", "ADD",
                  "SUB", "CMP", "TEST", "AND", "OR", "XOR", "ADC", "SBB",
                  "INC", "DEC", "NEG", "NOT", "SHL", "SHR", "SAR", "IMUL",
-                 "ROR", "ROL", "XADD", "CMPXCHG",
+                 "ROR", "ROL", "XADD", "CMPXCHG", "BSF", "BSR",
                  "MUL", "BT", "BTC", "BTR", "BTS", "CDQE", "CDQ", "CQO",
                  "CWD", "CBW", "CWDE", "PUSH", "POP", "LEAVE", "NOP"):
             out = em.emit_alu(m, ops)
@@ -1896,6 +1992,9 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
             out = em.do_string(m[4:], rep=True)
         elif m in ("STOSB", "STOSW", "STOSD", "STOSQ", "MOVSB", "MOVSW", "MOVSQ"):
             out = em.do_string(m, rep=False)
+        elif m == "INT3":
+            # A trap: the harness stops (and excludes) any case that reaches one, so reaching it here is a loud abort.
+            out = ["__builtin_trap();"]
         elif m in ("DIV", "IDIV"):
             out = em.do_div(m, ops)
         elif m in CCMAP or m in ("RET", "CALL", "JMP", "LOOP"):
