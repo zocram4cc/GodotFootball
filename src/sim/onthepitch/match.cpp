@@ -935,7 +935,10 @@ void Match::Process() {
   // one-second gate), every other player holds his shape, and the pitch
   // stands still while the half runs out. Under a stalemate the ball therefore
   // goes to whoever can actually reach it, across BOTH teams.
-  if (GetBallRetainer() == 0 && stalemateRecovery != GameplayTuning::StalemateRecovery::none) {
+  // PES never needs the breaker over a restart the referee has armed: the referee releases that restart itself, and
+  // the hold is a stoppage PES does not stall on. GF mode keeps the breaker over every stoppage.
+  const bool armedRestart = pesLoop && GetRefereeBuffer().active;
+  if (GetBallRetainer() == 0 && stalemateRecovery != GameplayTuning::StalemateRecovery::none && !armedRestart) {
     Player* closest = nullptr;
     int closestTime_ms = 0;
     for (int side = 0; side < 2; side++) {

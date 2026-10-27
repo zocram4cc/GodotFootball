@@ -450,12 +450,16 @@ void ElizaController::RequestCommand(PlayerCommandQueue& commandQueue) {
           // check if this player is away from opponents, before throwing ball to him
           Player* closestOpp = AI_GetClosestPlayer(match->GetTeam(abs(team->GetID() - 1)),
                                                    targetPlayer->GetPosition(), 0);
+          // PES's holder clock, not GF's possession clock: MA+0x2601C persists on a loose ball (pes-re-first-touch 5.1),
+          // and GF's clock restarts with every reach flicker, so a man beside a static ball never reached the bias.
+          const double heldBallMs = match->PesLoop() && match->GetPesHolder() == CastPlayer()
+                                        ? match->GetActualTime_ms() - match->GetPesHolderSince_ms()
+                                        : CastPlayer()->GetPossessionDuration_ms();
           if (closestOpp) {
             if (((closestOpp->GetPosition() + closestOpp->GetMovement() * 0.1f) -
                  targetPlayer->GetPosition())
                         .GetLength() > 10.0f ||
-                CastPlayer()->GetPossessionDuration_ms() >
-                    4000) {  // last touch bias is maximum so he won't hold forever
+                heldBallMs > 4000) {  // last touch bias is maximum so he won't hold forever
               actionCommand.touchInfo.forcedTargetPlayer = targetPlayer;
             } else {
               doCommand = false;
