@@ -10,14 +10,23 @@
 -- enabled: it is the loader.
 -- The sample rate and timeout are the owner's decision; the timeout here is the DLL's wait for a release.
 
-local ffi = require('ffi')
-ffi.cdef[[ int rv_init(const char *cfg_path, const char *run_dir, uint32_t timeout_ms); ]]
+-- sider's sandbox has no `require`: LuaJIT's ffi is the global `ffi` when luajit.ext.enabled = 1 (sider's own
+-- modules use it that way, e.g. cpkdump.lua).
+local ffi = ffi
 
 local m = {}
 
-local TIMEOUT_MS = 5000
+-- 60 s: a capture takes as long as it needs (owner, 27-10-26; the bot tolerates the pause with
+-- RIGBOT_ALLOW_FROZEN_FRAMES). The game is SIGSTOPped while memory is read, so the snapshot is consistent even if
+-- this expires; it only bounds how long a missing watcher can park the hooked thread.
+local TIMEOUT_MS = 60000
 
 function m.init(ctx)
+    if not ffi then
+        log("rendezvous: LuaJIT ffi is not available (luajit.ext.enabled = 1 in sider.ini); not installed")
+        return
+    end
+    ffi.cdef[[ int rv_init(const char *cfg_path, const char *run_dir, uint32_t timeout_ms); ]]
     local dir = ctx.sider_dir .. "rendezvous\\"   -- ctx.sider_dir ends with a path separator
     local cfg = dir .. "hooks.cfg"
     local f = io.open(cfg, "r")
@@ -26,8 +35,10 @@ function m.init(ctx)
         return
     end
     f:close()
-    local lib = ffi.load(dir .. "rv.dll")
-    local n = lib.rv_init(cfg, dir .. "run\\", TIMEOUT_MS)
+    -- Held on the module for the process's life: a collected ffi.load handle calls FreeLibrary, and the hooks call
+    -- into the DLL (rv_init also pins it; this is the second guard).
+    m.lib = ffi.load(dir .. "rv.dll")
+    local n = m.lib.rv_init(cfg, dir .. "run\\", TIMEOUT_MS)
     log(string.format("rendezvous: %d hook(s) installed from %s", n, cfg))
 end
 
