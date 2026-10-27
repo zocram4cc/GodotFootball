@@ -277,9 +277,8 @@ TEST(PesRestartDelay, AThrowInIsCarriedToItsSpotAndReleasedThere) {
 // reached the PES mover, so the ball lay until the restart watch gave up. The bound is GF's
 // stalemate clock, the only time GF gives a dead ball in play before it forces the issue. PES's
 // own pickup time is not decoded, so this is a ponytail bound, not a PES number.
-// Re-enabled on FirstTouchPort: the loose-ball pickup lands here (PRESS chase
-// + HitData touch frame + latch step 4b). Red until then.
 // DISABLED 22-10-26 (owner decision, batch-3 landing): red on the merged tree main 9c5cc89 + FirstTouchPort fca173c; main's earlier disable restored (the far-chase defect: a loose ball at rest in play beyond the press gate). Re-enable when FarChasePress lands the press coordinator.
+// Still red on Cutover7 (27-10-26): seed 7, five minutes, a loose episode of 369 ticks; seed 3, 640 (bound 270). A near designated man's ActionPress command is issued but not realised: the forced man jitters at 1-3 km/h.
 TEST(PesRestartDelay, DISABLED_ALooseDeadBallInPlayIsReachedAndPlayed) {
   constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
   constexpr unsigned long kBoundTicks = static_cast<unsigned long>(
@@ -287,7 +286,7 @@ TEST(PesRestartDelay, DISABLED_ALooseDeadBallInPlayIsReachedAndPlayed) {
   bool inEpisode = false;
   unsigned long episodeTicks = 0, longestTicks = 0;
   int episodes = 0;
-  RunMatchWithinTheBound(true, MINUTES, [&](Match& match) {
+  RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
     const bool loose = match.IsInPlay() && !match.IsInSetPiece() && !match.GetBallRetainer() &&
                        match.GetBall()->GetMovement().GetLength() <= kRestSpeed_ms;
     if (!loose) {
@@ -1013,14 +1012,15 @@ TEST(PesRestartDelay, ALoosePresserInTheTrapWindowPlaysThatRowsClip) {
 }
 
 // A throw-in carrier who has picked the ball up walks to his carry spot and stands there, ready to lift it (PES's
-// SeamlessThrowin phase 4, docs/re/pes-re-throwin-choreography.md 3.2). Seed 7's five-minute match picked a walker's ball
-// up at 130 s, 4.6 m short of the spot, and the carrier never arrived: the stoppage ran past its bound.
+// SeamlessThrowin phase 4, docs/re/pes-re-throwin-choreography.md 3.2). Seed 3's twenty-minute match (SEAMLESS_SEED) has its
+// first walker at tick 2461 (the path-A census). Seed 7 has no seamless throw-in within five minutes (LONG_MINUTES), so this
+// test must not run there.
 TEST(PesRestartDelay, ACarriedThrowInReachesItsSpot) {
   // The carry is a few seconds of one-handed running. A carrier four or five metres from his spot is there within this.
   constexpr unsigned long kCarryBoundTicks = 5ul * Match::kFramesPerSecond;
   std::optional<unsigned long> pickupTick;
   bool arrived = false;
-  RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
+  RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker) return;
     const TeamAIController* c = match.GetTeam(b.teamID)->GetController();
@@ -1028,11 +1028,11 @@ TEST(PesRestartDelay, ACarriedThrowInReachesItsSpot) {
     // The arrival and the release land on one tick (PES's release follows the lift), so the arrival is read whatever the
     // referee's started flag says.
     if (pickupTick && c->PieceTakerArrived()) arrived = true;
-  }, kMaxSimTicks,
+  }, kSeamlessSearchTicks,
   [&](Match& match) {
     return arrived || (pickupTick && static_cast<unsigned long>(match.GetSimFrame()) - *pickupTick > kCarryBoundTicks);
   },
-  SEED, false);
+  SEAMLESS_SEED, false);
   EXPECT_TRUE(pickupTick.has_value()) << "no throw-in carrier picked the ball up";
   EXPECT_TRUE(arrived) << "the carrier did not reach his spot within " << kCarryBoundTicks << " ticks of the pickup";
 }
@@ -1040,7 +1040,7 @@ TEST(PesRestartDelay, ACarriedThrowInReachesItsSpot) {
 // A throw-in carrier stands at the pickup clip's contact offset from the ball, not within a hand reach. PES's pickup clip 0xCF5
 // puts the ball at its contact frame at the clip's offset from the taker's root, and the root warps onto the ball less that
 // offset (docs/re/pes-re-throwin-choreography.md 3.2, phase 1). So on the tick he first holds the ball, his root stands that
-// offset's length from where the ball lay. Seed 7's five-minute walker held the ball 4.0 m from where it had lain: the root gate
+// offset's length from where the ball lay. Before the root gate was fixed (seed 7, five minutes, 66d5d18e), the walker held the ball 4.0 m from where it had lain: the root gate
 // (AdvancePieceWalk) was the fault, and the 0.80 m hand reach this test used before was a stand-in.
 TEST(PesRestartDelay, AThrowInCarrierStandsAtThePickupClipsContactOffset) {
   // A test tolerance, not a PES value: the ball may roll a few centimetres before the contact frame.
@@ -1049,7 +1049,7 @@ TEST(PesRestartDelay, AThrowInCarrierStandsAtThePickupClipsContactOffset) {
   std::optional<float> contactOffset;  // the pickup clip's contact offset, horizontal, from the clip the gate reads
   Vector3 looseBall;
   bool haveLooseBall = false;
-  RunMatchWithinTheBound(true, LONG_MINUTES, [&](Match& match) {
+  RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
     const RefereeBuffer& b = match.GetRefereeBuffer();
     if (!b.active || b.desiredSetPiece != e_SetPiece_ThrowIn || !b.taker || b.started) return;
     const TeamAIController* c = match.GetTeam(b.teamID)->GetController();
@@ -1069,7 +1069,7 @@ TEST(PesRestartDelay, AThrowInCarrierStandsAtThePickupClipsContactOffset) {
         contactOffset = std::sqrt(offset.x * offset.x + offset.z * offset.z);
       }
     }
-  }, kMaxSimTicks, [&](Match&) { return pickupReach.has_value(); }, SEED, false);
+  }, kSeamlessSearchTicks, [&](Match&) { return pickupReach.has_value(); }, SEAMLESS_SEED, false);
   EXPECT_TRUE(pickupReach.has_value()) << "no throw-in carrier picked the ball up";
   EXPECT_TRUE(contactOffset.has_value()) << "the pickup clip 0xCF5 has no hit record";
   if (pickupReach && contactOffset)
