@@ -185,7 +185,10 @@ TEST(PesRestartSequencer, EachRestartIsReleasedOnItsMeasuredFrame) {
   EXPECT_FALSE(pes::MayRelease(e_SetPiece_GoalKick, 100000, true));
   EXPECT_FALSE(pes::MayRelease(e_SetPiece_Penalty, 53, false));
   EXPECT_TRUE(pes::MayRelease(e_SetPiece_Penalty, 54, false));
-  EXPECT_TRUE(pes::MayRelease(e_SetPiece_KickOff, 0, false));
+  // PES releases a kick-off 134 frames after its set-play ready point (MI+0x116C = 3 to play 1: 134 in 4 of 4 live
+  // kick-offs, docs/re/pes-re-live-flow.md; pes-re-kickoff-trigger.md, arm to release 132-134).
+  EXPECT_FALSE(pes::MayRelease(e_SetPiece_KickOff, 133, false)) << "a kick-off is released before PES's 134 frames";
+  EXPECT_TRUE(pes::MayRelease(e_SetPiece_KickOff, 134, false)) << "a kick-off is not released at PES's 134 frames";
 }
 
 // A throw-in has no frame count: its taker's arrival releases it, however long he took. A timer

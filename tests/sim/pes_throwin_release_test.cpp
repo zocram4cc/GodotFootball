@@ -29,7 +29,7 @@
 namespace {
 
 constexpr int HOME_TEAM = 1, AWAY_TEAM = 2;
-constexpr unsigned int kSeed = 7;
+constexpr unsigned int kSeed = 3;
 constexpr int kMinutes = 2;
 // The release key's horizontal length is checked to this tolerance (m): the key is measured against the root the hold used.
 constexpr float kKeyTolerance_m = 0.05f;
@@ -81,6 +81,15 @@ void RunMatch(const std::function<void(Match&)>& onTick) {
 }
 
 }  // namespace
+
+// The match reads the install's player database (common/etc/pesdb/Player.bin), as gfsim_run does. Without it the match
+// runs on stand-in form, stronger-foot and injury values, so this harness would not play the match gfsim plays.
+TEST(PesThrowInRelease, TheMatchIsBuiltWithTheInstallsPlayerDatabase) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  MatchSetup setup;
+  pestest::FillMissingPesConstants(&setup);
+  EXPECT_NE(setup.pesPlayerDatabase, nullptr) << "the install's Player.bin is not loaded into the match";
+}
 
 // PES's carry release (FUN_140792E10, carry branch, docs/re/pes-re-throwin-choreography.md 4.2): the short run row while the
 // taker is within the install's release distance of the throw's target, the mid row beyond it. The threshold is read from the

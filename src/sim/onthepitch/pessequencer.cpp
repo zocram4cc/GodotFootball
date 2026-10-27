@@ -22,6 +22,7 @@ namespace {
 constexpr int kCornerReleaseFrames = 365;    // live 365-379; DOC 189 not reproduced
 constexpr int kFreeKickReleaseFrames = 355;  // live 355-356; DOC 162 not reproduced
 constexpr int kPenaltyReleaseFrames = 54;    // DOC fps*1 (setpiece 12); not observed live
+constexpr int kKickOffReleaseFrames = 134;    // live ready to release 134 in 4 of 4 (LiveFlow); pes-re-kickoff-trigger.md 132-134
 
 float Sign(float v) { return v < 0.0f ? -1.0f : 1.0f; }
 
@@ -78,8 +79,10 @@ int ReleaseFrames(e_SetPiece kind) {
       return kFreeKickReleaseFrames;
     case e_SetPiece_Penalty:
       return kPenaltyReleaseFrames;
+    case e_SetPiece_KickOff:
+      return kKickOffReleaseFrames;
     default:
-      return 0;  // kick-off and goal kick: no clock (the receiver's ball test, or the goal kick's ladder; pesgoalkick.hpp)
+      return 0;  // no clock: the goal kick's ladder releases it (pesgoalkick.hpp)
   }
 }
 
