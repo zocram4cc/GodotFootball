@@ -650,7 +650,10 @@ def real_value(art, loc):
 
 def nearby_value(real, enc, rnd):
     """A value near a real one: +-5% for f32 (a 0.0 field moves by 0.05), +-1 or
-    +-2 for integers, kept inside the encoding's range."""
+    +-2 for integers, kept inside the encoding's range. A u64 is a pointer or handle in every spec that holds
+    one: a nearby pointer is no real state, so it keeps its real value."""
+    if enc == "u64":
+        return real
     if enc == "f32":
         f = real["f"]
         step = 0.05 * abs(f) if f else 0.05

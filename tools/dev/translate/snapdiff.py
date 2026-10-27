@@ -37,7 +37,16 @@ def build_closure(va, spec, args, pilot, reached):
     gen = os.path.join(args.out_dir, "gen", tag)
     os.makedirs(gen, exist_ok=True)
     stubmap = drv.stubmap_of(spec)
+    # Every image address the replay executed as an indirect site or target is a root: an indirect-only thunk
+    # (reached through a table, never by a direct CALL) is a function the harness runs, so the build translates it.
+    targets = {"0x%X" % int(t, 16) for tgts in reached.values() for t in tgts} | set(reached)
+    # The harness runs each replayed indirect target's image bytes (no stub entry), and so do the walks of
+    # their direct callees: the build closes over those too, or a plain callee is an out-of-set abort.
+    reached_seed = {"harness": {"out_of_set_callees": [
+        {"va": t, "how": "call"} for t in sorted(targets) if CODE_LO <= int(t, 16) < CODE_HI]}}
     extra, _ = drv.runnable_extra(spec, args.image)
+    walked, _ = drv.runnable_extra(reached_seed, args.image)
+    extra = list(extra) + [v for v in walked if v not in extra]
     build_pilot = set(pilot) | set(extra)
     cache = {va: spec}
 
@@ -66,16 +75,13 @@ def build_closure(va, spec, args, pilot, reached):
                 seen.add(c)
                 need.append(c)
                 queue.append(c)
-    # Translate every needed function; the sibling references its text names join the closure too.
-    todo = list(need)
-    while todo:
-        v = todo.pop(0)
-        path = os.path.join(gen, "pes_fn_%s.cpp" % v[2:])
-        if os.path.exists(path):
-            # An earlier run's translation: its callees still join the link set, so scan its text.
-            with open(path) as f:
-                text = f.read()
-        else:
+    # Translate the closure to a fixpoint. A tail jump to plain code outside the build is an OUT-OF-RANGE JMP the
+    # translator would leave as a silent return; it joins the build as a direct callee, and every function is then
+    # translated against the final universe. A pass that adds nothing is the fixpoint.
+    while True:
+        before = len(need)
+        missing = set()
+        for v in list(need):
             try:
                 src, _ = drv.translate_one(v, drv.asm_for(args.asm_dir, v), args.image, build_pilot,
                                            stubs={**stubmap, **drv.ABORTMAP})
@@ -83,16 +89,28 @@ def build_closure(va, spec, args, pilot, reached):
                 return need, "translate %s: %r" % (v, e)[:220]
             if src is None:
                 return need, "translate %s: no instructions" % v
-            text = "\n".join(src) + "\n"
-            with open(path, "w") as f:
-                f.write(text)
-        for m in re.finditer(r"pes_fn_([0-9A-Fa-f]+)\(", text):
-            dep = "0x" + m.group(1).upper()
-            if dep != v and dep in build_pilot and dep not in seen:
-                seen.add(dep)
-                need.append(dep)
-                todo.append(dep)
-    return need, None
+            text = "\n".join(src)
+            with open(os.path.join(gen, "pes_fn_%s.cpp" % v[2:]), "w") as f:
+                f.write(text + "\n")
+            for m in re.finditer(r"pes_fn_([0-9A-Fa-f]+)\(", text):
+                dep = "0x" + m.group(1).upper()
+                if dep != v and dep in build_pilot and dep not in seen:
+                    seen.add(dep)
+                    need.append(dep)
+            # A tail jump or a direct call to plain image code (no stub entry) is run by the harness as image bytes:
+            # the build translates it too. A call to a stubbed or blocked callee is excluded by the harness, not added.
+            for m in re.finditer(r"OUT-OF-(?:RANGE JMP|SET CALL) 0x([0-9A-Fa-f]+)", text):
+                t = "0x" + m.group(1).upper()
+                if CODE_LO <= int(t, 16) < CODE_HI and t not in build_pilot and int(t, 16) not in drv.STUB_TABLE:
+                    missing.add(t)
+        if missing:
+            build_pilot |= missing
+        for t in sorted(missing):
+            if t not in seen:
+                seen.add(t)
+                need.append(t)
+        if len(need) == before and not missing:
+            return need, None
 
 
 def build_binary(va, spec, args, pilot, reached):

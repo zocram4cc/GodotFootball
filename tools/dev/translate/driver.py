@@ -240,6 +240,9 @@ def runnable_extra(spec, image, depth_cap=25):
         va = "0x" + str(e.get("va", "")).upper().replace("0X", "")
         entry = STUB_TABLE.get(int(va, 16))
         if entry is None:
+            # No stubs.json entry: the harness runs the callee's image bytes (run.py), so the build must too.
+            if 0x140001000 <= int(va, 16) < 0x14252E800:
+                seeds.append(va)
             continue
         if entry["do"] is None:
             seeds.append(va)  # run-real: image bytes execute either way
