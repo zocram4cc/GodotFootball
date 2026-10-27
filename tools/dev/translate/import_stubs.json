@@ -1,5 +1,5 @@
 {
-  "contract": "OS import models for frame_trace.py --snapshot. A snapshot run maps a loaded OS module's export entries on first call: an export listed here runs its model (its code is written at the entry); any other export is int3 and stops the run with its name. do values: return (mov rax, imm64; ret: the export returns value and has no other effect); memcpy (Win64 memcpy(dst, src, n): returns dst, copies n bytes forward); qpc (QueryPerformanceCounter: stores value at *rcx, returns TRUE); tls_get / tls_set (TlsGetValue / TlsSetValue on the thread's own TEB slots). Keyed by module file name and export name. Each entry carries the evidence for its model; a wrong model is a divergence, not a default.",
+  "contract": "OS import models for frame_trace.py --snapshot and xlate.py. A snapshot run maps a loaded OS module's export entries on first call: an export listed here runs its model (its code is written at the entry); any other export is int3 and stops the run with its name. do values: return (mov rax, imm64; ret: the export returns value and has no other effect); memcpy (Win64 memcpy(dst, src, n): returns dst, copies n bytes forward); qpc (QueryPerformanceCounter: stores value at *rcx, returns TRUE); tls_get / tls_set (TlsGetValue / TlsSetValue on the thread's own TEB slots); tebread (returns the DWORD at gs:[offset], zero-extended: GetLastError). Keyed by module file name and export name. Each entry carries the evidence for its model; a wrong model is a divergence, not a default.",
   "imports": [
     {
       "module": "ntdll.dll",
@@ -76,6 +76,26 @@
       "why": [
         "Windows x64 semantics: TlsSetValue(index, value) stores TEB.TlsSlots[index] for index < 64 and returns TRUE; indices >= 64 return FALSE (not modelled).",
         "The store is into the replay's own copy of the TEB page; it is part of the call-time delta, as any write."
+      ]
+    },
+    {
+      "module": "kernel32.dll",
+      "export": "GetLastError",
+      "do": "tebread",
+      "offset": "0x68",
+      "why": [
+        "Named by the recorded cutscene-create call (proc/seq008: unmodelled import kernelbase.dll!GetLastError at 0x6FFFFF3A9151). The slot 0x14252F328 is kernel32.dll!GetLastError (import_slots.json); kernel32 forwards it to kernelbase.",
+        "Windows x64 semantics: GetLastError returns the DWORD TEB.LastErrorValue. [INF] offset +0x68 is the standard x64 TEB layout (ClientId.Thread at +0x48 is confirmed for this snapshot in pes-re-import-slots.md); not read from a Windows header here.",
+        "Model assumption: no OS call in the replay sets the last error; the value is the snapshot's TEB (read from the replayed thread's own TEB, as TlsGetValue is)."
+      ]
+    },
+    {
+      "module": "kernelbase.dll",
+      "export": "GetLastError",
+      "do": "tebread",
+      "offset": "0x68",
+      "why": [
+        "The export the replay's loaded module resolves to (proc/seq008). Same model as kernel32.dll!GetLastError, which the translator keys on (the slot's module)."
       ]
     }
   ]

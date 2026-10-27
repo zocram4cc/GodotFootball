@@ -102,6 +102,9 @@ def load_import_models(path=IMPORT_STUBS):
         elif e["do"] == "tls_set":
             # TlsSetValue(index, value): TEB.TlsSlots[index] = value for index < 64; returns TRUE, else FALSE.
             code = bytes.fromhex("83 F9 40 73 0F 65 48 89 14 CD 80 14 00 00 B8 01 00 00 00 C3 31 C0 C3")
+        elif e["do"] == "tebread":
+            # GetLastError(): mov eax, gs:[offset] (TEB.LastErrorValue at x64 TEB +0x68), zero-extended; ret.
+            code = bytes.fromhex("65 8B 04 25") + struct.pack("<I", int(str(e["offset"]), 0)) + b"\xC3"
         else:
             raise SystemExit("import_stubs.json: unknown do %r for %s!%s"
                              % (e["do"], e["module"], e["export"]))

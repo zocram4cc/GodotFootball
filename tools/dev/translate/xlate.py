@@ -378,6 +378,23 @@ def import_model_lines(op, jump):
                 " for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, s.rd(_src + _i, 1), 1);"
                 " s.gpr[0] = _dst; s.gpr[1] = 0;"
                 " s.gpr[4] += 16;%s }" % pop_ret]
+    if e["do"] == "qpc":
+        # BOOL QueryPerformanceCounter(LARGE_INTEGER *count): stores the import_stubs value at *rcx, returns TRUE.
+        value = int(str(e["value"]), 0) & 0xFFFFFFFFFFFFFFFF
+        return ["{ " + push_ret + (" s.wr(s.gpr[1], %dULL, 8); s.gpr[0] = 1;%s }" % (value, pop_ret))]
+    if e["do"] == "tebread":
+        # DWORD read from the thread block at gs:[offset], zero-extended into rax (GetLastError: TEB.LastErrorValue).
+        off = int(str(e["offset"]), 0)
+        return ["{ " + push_ret + (" s.gpr[0] = (uint64_t)s.rd(s.gs_base + %dULL, 4);%s }" % (off, pop_ret))]
+    if e["do"] == "tls_get":
+        # TlsGetValue(index): TEB.TlsSlots[index] for index < 64 (x64 TEB +0x1480), else NULL.
+        return ["{ " + push_ret + " uint64_t _i = (uint32_t)s.gpr[1];"
+                " s.gpr[0] = _i < 64 ? s.rd(s.gs_base + 0x1480ULL + _i * 8, 8) : 0ULL;%s }" % pop_ret]
+    if e["do"] == "tls_set":
+        # TlsSetValue(index, value): TEB.TlsSlots[index] = value for index < 64; returns TRUE, else FALSE.
+        return ["{ " + push_ret + " uint64_t _i = (uint32_t)s.gpr[1];"
+                " if (_i < 64) s.wr(s.gs_base + 0x1480ULL + _i * 8, s.gpr[2], 8);"
+                " s.gpr[0] = _i < 64 ? 1ULL : 0ULL;%s }" % pop_ret]
     raise SystemExit("import_stubs.json: no translator model for do=%r (%s!%s)"
                      % (e["do"], slot["module"], slot["export"]))
 
@@ -1620,31 +1637,17 @@ class Emitter:
             if info and info.get("table") is not None:
                 tva = info["table"]
                 words = info["words"]
-                cases = sorted(set((i, w) for i, w in enumerate(words)))
                 self.tables[tva] = {"words": words,
                                     "base": info["base"]}
-                # Dispatch on the TABLE INDEX (the CDQE'd reg feeding the
-                # [base + idx*4] load), not the post-ADD target reg (which
-                # holds base+table[idx] by the time JMP runs).
-                idx = reg_read(info.get("index", ops[0]))
-                lines = ["{ uint32_t _i = (uint32_t)(%s); switch (_i) {"
-                         % idx]
-                seen = {}
-                for i, w in cases:
+                # Dispatch on the TABLE ENTRY, not the index: the table load overwrites the index register, so at
+                # JMP time the register holds base + table[idx]. Its entry is that register minus base; each distinct
+                # entry that is a local label becomes a case. Any other entry falls to default.
+                lines = ["{ uint32_t _i = (uint32_t)(%s - 0x%XULL); switch (_i) {"
+                         % (reg_read(ops[0]), info["base"])]
+                for w in sorted(set(words)):
                     tgt = info["base"] + w
-                    # Only local labels become cases: a target outside
-                    # this body is mis-decoded table data (or another
-                    # function), never a goto we define. Its indices fall
-                    # to default, exactly as the harness faults on them.
-                    if tgt not in self.labels:
-                        continue
-                    if tgt not in seen:
-                        seen[tgt] = []
-                    seen[tgt].append(i)
-                for tgt in sorted(seen):
-                    for i in sorted(seen[tgt]):
-                        lines.append("  case %d:;" % i)
-                    lines.append("    goto L_%X;" % tgt)
+                    if tgt in self.labels:
+                        lines.append("  case %uU: goto L_%X;" % (w, tgt))
                 lines.append("  default: goto L_%X;" % info["default"])
                 lines.append("  } }")
                 return lines
@@ -1852,7 +1855,6 @@ def prepass(lines, img):
         i = pos[addr]
         base = None
         tdisp = None
-        tidx = None
         count = None
         default = None
         same = lambda o: PARENT.get(o.strip().lower(),
@@ -1871,7 +1873,6 @@ def prepass(lines, img):
                 mp = parse_mem(inner)
                 if mp and mp["scale"] == 4 and mp["index"] is not None:
                     tdisp = mp["disp"]
-                    tidx = mp["index"]
                     break
         baseva = None
         basep = PARENT.get(base, base) if base is not None else None
@@ -1928,7 +1929,7 @@ def prepass(lines, img):
                 raw = img.read(tva, count * 4)
                 words = list(struct.unpack("<%dI" % count, raw))
             jmpreg[addr] = {"table": tva, "words": words, "base": baseva,
-                            "default": default, "index": tidx or "eax"}
+                            "default": default}
             for w in words:
                 if baseva + w in addrs:
                     labels.add(baseva + w)
