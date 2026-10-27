@@ -118,9 +118,11 @@ void ScheduleStop(Referee* referee, unsigned long stopTime_ms, bool downed, int 
                                             k, downed, holdKind);
     b.prepareTime = t.prepareAt_ms;
     b.startTime = t.armedAt_ms;
+    b.readyDelay_ms = t.readyAt_ms - t.prepareAt_ms;
   } else {
     b.prepareTime = FoulSequence::RestartPrepareAt_ms(stopTime_ms, k, downed, holdKind);
     b.startTime = FoulSequence::RestartTakeAt_ms(stopTime_ms, k, downed, holdKind);
+    b.readyDelay_ms = 0;
   }
 }
 
@@ -130,6 +132,7 @@ Referee::Referee(Match* match) : match(match) {
   buffer.stopTime = 0;
   buffer.holdTime = 0;
   buffer.prepareTime = 0;
+  buffer.readyDelay_ms = 0;
   buffer.startTime = buffer.prepareTime + 2000;
   buffer.restartPos = Vector3(0, 0, 0);
   buffer.taker = nullptr;
@@ -240,7 +243,12 @@ bool ReleasesRestart(Match* match, const RefereeBuffer& buffer) {
   }
   TeamAIController* controller = match->GetTeam(buffer.teamID)->GetController();
   if (buffer.desiredSetPiece == e_SetPiece_GoalKick) return controller->StepGoalKickLadder();
-  return pes::MayRelease(buffer.desiredSetPiece, framesSinceArmed, controller->PieceTakerArrived());
+  // PES counts a timed gate from the set-play ready point (MI+0x116c = 3), not from the armed point: the fade-in and
+  // the tail come between the two. Before the ready point no gate has opened.
+  const unsigned long now_ms = match->GetActualTime_ms();
+  const unsigned long readyAt_ms = buffer.prepareTime + buffer.readyDelay_ms;
+  const int framesSinceReady = now_ms < readyAt_ms ? -1 : static_cast<int>((now_ms - readyAt_ms) / Match::kTick_ms);
+  return pes::MayRelease(buffer.desiredSetPiece, framesSinceReady, controller->PieceTakerArrived());
 }
 
 }  // namespace
@@ -284,6 +292,7 @@ void Referee::Process() {
         // (SetPieceLaws::kHalfTimeCutscene_ms is also what SetMatchPhase gives
         // the cutscene, so the two cannot drift apart).
         buffer.prepareTime = SetPieceLaws::HalfTimePrepareAt_ms(match->GetActualTime_ms());
+        buffer.readyDelay_ms = 0;
         buffer.startTime = SetPieceLaws::HalfTimeTakeAt_ms(match->GetActualTime_ms());
         buffer.restartPos = Vector3(0);
         buffer.active = true;
@@ -349,6 +358,7 @@ void Referee::Process() {
           // replay has fired. GoalSequence owns both timings for that reason;
           // the six seconds this used to wait killed the goal replay outright.
           buffer.prepareTime = GoalSequence::RestartPrepareAt_ms(match->GetActualTime_ms());
+          buffer.readyDelay_ms = 0;
           buffer.startTime = GoalSequence::RestartKickOffAt_ms(match->GetActualTime_ms());
           buffer.restartPos = Vector3(0, 0, 0);
           buffer.teamID = abs(match->GetLastGoalTeamID() - 1);
@@ -489,6 +499,7 @@ void Referee::Process() {
           buffer.teamID = abs(lastTouchTeam->GetID() - 1);
           buffer.stopTime = match->GetActualTime_ms();
           buffer.prepareTime = match->GetActualTime_ms() + 500;
+          buffer.readyDelay_ms = 0;
           buffer.startTime = buffer.prepareTime + 1000;
           // One decision, in one tested place. It used to be spelled out inline
           // here, which is precisely why nothing could check it: this is the

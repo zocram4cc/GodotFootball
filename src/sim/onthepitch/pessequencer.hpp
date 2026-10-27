@@ -54,6 +54,7 @@ std::vector<Beat> BuildProgramme(e_SetPiece kind);
 
 struct Timing {
   unsigned long prepareAt_ms = 0;  // the wipe has run: the taker may be placed
+  unsigned long readyAt_ms = 0;    // the set-play ready state (MI+0x116c = 3): after the UI and the teleport window
   unsigned long armedAt_ms = 0;    // the programme has reached the armed step
 };
 

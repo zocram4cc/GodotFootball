@@ -114,6 +114,7 @@ Timing RunProgramme(const std::vector<Beat>& beats, unsigned long stopTime_ms,
         timing.prepareAt_ms = at_ms;
         break;
       case Beat::UiAndTeleport:
+        timing.readyAt_ms = at_ms + FoulSequence::ReadyDelay_ms();
         at_ms += FoulSequence::Tail_ms();
         break;
       case Beat::FadeHalf:

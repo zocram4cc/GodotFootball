@@ -210,6 +210,22 @@ TEST(PesRestartSequencer, ACornerRunsTheWholeStoppageBracketToItsArming) {
   EXPECT_EQ(corner.armedAt_ms, FoulSequence::RestartTakeAt_ms(kStop_ms, k, false, 5));
 }
 
+// PES's set-play ready state (MI+0x116c = 3) is written when step 0x15 starts: after the stop stamp, the UI window and
+// the 0x14 teleport window, and before the fade-in and the tail (docs/re/pes-re-setpiece-choreography.md 1.2, 9.4). The
+// timed release gate is counted from that point, not from the armed point.
+TEST(PesRestartSequencer, TheSetPlayReadyPointComesAfterTheTeleportWindowAndBeforeTheFadeIn) {
+  const Install& install = InstallConstants();
+  if (!install.stoppage) GTEST_SKIP() << "PES21_ROOT not set";
+  const pes::StoppageConstants& k = *install.stoppage;
+
+  const pes::Timing corner = pes::RunProgramme(pes::BuildProgramme(e_SetPiece_Corner), kStop_ms, k, false, 5);
+  EXPECT_EQ(corner.readyAt_ms - corner.prepareAt_ms,
+            FoulSequence::kStopStamp_ms + FoulSequence::kUiFrames_ms + FoulSequence::kTeleportWindow_ms);
+  // The 0x15 placement-finish window (20 frames) runs after the ready point, then the fade-in and the tail.
+  EXPECT_EQ(corner.armedAt_ms - corner.readyAt_ms,
+            FoulSequence::kTeleportWindow_ms + Ms(k.fadeIn_s) + Ms(k.restartTail_s));
+}
+
 // The goal kick and the throw-in fade in on the half-second fade (0xd), the corner on the full
 // second (0xe). Both prepare on the same wipe as the corner.
 TEST(PesRestartSequencer, AGoalKickAndAThrowInArmOnTheHalfSecondFade) {

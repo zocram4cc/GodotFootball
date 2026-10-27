@@ -148,13 +148,19 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
   std::map<int, int> armed;
   RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
     const RefereeBuffer& b = match.GetRefereeBuffer();
+    if (b.active && b.prepared && !b.started) {
+      // The set-play ready state (MI+0x116c = 3) turns on at the ready point, after the teleport window, not at the wipe.
+      const unsigned long now = match.GetActualTime_ms();
+      EXPECT_EQ(b.ReadyForTake(now), now >= b.prepareTime + b.readyDelay_ms) << "set piece " << b.desiredSetPiece;
+    }
     if (b.active && b.started && !(lastRelease && *lastRelease == b.stopTime)) {
       lastRelease = b.stopTime;
-      // The timed taker is released on the first frame at or past the PES gate, give or take the tick the referee
-      // checks it on. A goal kick has no clock: AGoalKickIsReleasedOnThePesLadder checks its ladder frame.
+      // The timed taker is released on the first frame at or past the PES gate, counted from the set-play ready point
+      // (MI+0x116c = 3), not from the armed point: the fade-in and the tail come between the two. A goal kick has no
+      // clock: AGoalKickIsReleasedOnThePesLadder checks its ladder frame.
       const int gate = pes::ReleaseFrames(b.desiredSetPiece);
-      const int frames =
-          static_cast<int>((match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
+      const unsigned long ready_ms = b.prepareTime + b.readyDelay_ms;
+      const int frames = static_cast<int>((match.GetActualTime_ms() - ready_ms) / Match::kTick_ms);
       if (gate > 0) {
         EXPECT_GE(frames, gate) << "released early for set piece " << b.desiredSetPiece;
         EXPECT_LE(frames, gate + 2) << "released late for set piece " << b.desiredSetPiece;
