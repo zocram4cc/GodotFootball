@@ -12,7 +12,7 @@ Prior docs: `pes-re-cutscenes.md` (formats, selection, replays), `pes-re-cutscen
 (manager/slot layout), `pes-re-scene-birth.md` (birth snapshots), `pes-re-restart-step.md`
 (restart-step container), `pes-re-A5Judge.md` (Flow chain). This doc adds the role map of the
 impure set, the data-vs-code split with file paths, the manager-birth chain + catch result,
-and the Flow provenance.
+the Flow provenance, and the foul/offside mechanism map (§6).
 
 ---
 
@@ -302,7 +302,64 @@ match objects, so one more qword read does it). The referee-vtable emulation is 
 longer needed for *provenance*; it would only be needed to watch the Flow *state
 machine* execute, which is a different (playback) question.
 
-## 6. Open items
+## 6. Fouls and offsides: who does what, data vs code, what's already reachable
+
+For the owner's decision on stoppage choreography. "Group" = the role-map group of
+§2. "In the 3,095" = member of the impure set; "reached" = in the 32-function real-call
+replay set (`pes-re-scene-birth.md` §2-3: 32 reached, 17 PROVEN) or exercised live
+(frame-level captures / sim test). Most of this section is DOC: `pes-re-foul-choreography.md`
+(all § cited), `pes-re-A5Judge.md`, `pes-re-offside.md`, `pes-re-officials-pick.md`,
+`pes-re-restart-step.md`, `pes-re-setpiece-referee.md`. New work this session: group
+mapping (this doc's `role_*.json`) and the reachability column; the underlying claims
+carry their docs' OBS/CONFIRMED evidence.
+
+### 6.1 Per mechanism
+
+| mechanism | function(s) (VA) | class / owner | group | data it reads | decided in code | reached via real calls? |
+|---|---|---|---|---|---|---|
+| **Foul judgment** (when to whistle, card level) | Judge `Flow+0x908`, update `0x14050b490`; pending `0x14050ee40`; advantage/commit state machine in `FUN_1404a56c0`; whistle writer `0x14050e770` | `match::ai::Judge` (free, not FixDemo) | not in 3,095 (match subsystem) | none (no RNG, no tuning file) | contact gate, 1–4 levels, advantage window, card level 1–4 | NOT in the 32; static-only |
+| **Offside detection + judge** | rule `0x140a7b7a0`, update `0x1404621d0`, line `0x14045cf30`, AI readers `0x14045e0d0/0x14050f580/0x142117c30`; judge call `0x1405b6490/0x1405b6660` | free match functions (ANALYZE component) | not in 3,095 | none — nine `.rdata` floats (margins 0.15/0.06/0.10, tol 0.30, bands 1.0/4.0 m) read from the exe at runtime | line = min(0, 2nd-rearmost defender surface, ball); categories 0–3 by distance band | NOT in the 32; detection rule itself verified live (~220 logged evaluations, 0 contradict — `pes-re-offside.md`) |
+| **(a) Sanction → scene selection** | `0x140480910` → decision tree `0x14047f170`; request `0x14047feb0`; step 5 `0x140446960`, late-card step 6 `0x140446520`, offside step 0xb `0x140447690` | free functions under the event-builder subtree | **group 1** (in the 3,095: `140480910`, `14047f170`) | `table_foul.bin` (33 scenes 0x20001..20021, cut-group ids, variant weights 0x43xx) — the *content*; the choice of PK / INJURY / PINCH / EXCITE / WARN / CMN / NONE(0x20022) is the code decision tree (card colour, booking count, pinch zone, goal diff, period) | code picks one of 30 outcomes (29 scene ids + no-scene); data only prescribes what each scene contains | NOT in the 32 (match-side, Flow-gated; `14044c880` real-call attempt stopped on `rcx=0` — scene-birth §2). Static: decompile + raw bytes, disasm-verified |
+| **(a) Scene → variant** | variant pick `0x141f4fda0` (cache `mgr+0x30`), matcher `0x141f4b1d0`, condition evaluator `0x141f4d2f0` (2,081 insns) | free, FixDemo DB subtree | group 1 (all three in the 3,095) | T1 variant rows: weighted cumulative-% keys, category-parity keys, stadium fallback | the roll (31-bit LCG) and matcher semantics | **YES — `141f4fda0` in the 32 and PROVEN bit-exact** (150/150 calls replayed); matcher/evaluator reached but cache-hot on the steady-state path |
+| **(b) Referee + assistant placement during stoppage** | involvement `0x140a3a690` (foul: same half ∧ same touchline ∧ \|spot.z−a.z\| < 14 m; offside: half of the offence); at-stop action `RefereeActionOutofPlay` (vt `0x142642738`) slot 6 `0x140a3a930` (approach until 4 m, then JUDGE), slot 18 `0x140a3a870` (one gesture per stop: 1 restart / 2 foul / 3 offside); at-restart command `RefereeActionBasePosition` (vt `0x142642558`) Update `0x140a39a80`; linesman look-at `0x140a38f20` (2nd-last defender in play; offence spot when stopped) | `referee@match` action classes; entities `RefereeChief`/`RefereeLinesman` built by `0x140a35a00` from the setup-time pick (`pes-re-officials-pick.md`: one uniform draw of a 25/35-id pool, global xorshift128 — *which official* is data-pool + RNG; *where they go at the stop* is code) | not in 3,095 (match referee subsystem) | none (thresholds are code: 4 m, 14 m, 45° angle, pitch-third `halfWidth/3` = 11.35 m) | all of it: who is involved, approach distance, flag angle (near/middle/far from the offence z vs the pitch thirds), one-signal latch, indirect arm held until first touch | NOT in the 32; static-only |
+| **(b) Card-scene actor placement** | slot build `0x141f5f330` → foul branch `0x141f5fa90` (slot mask OR of T1 `b0` bits: 1 = carded, 2–5 mates, 11–14 opponents, 22 referee); official model `0x141f58440` via `0x141f577b0`; match-player displacement `0x14047d7f0` (clear a 10 m disc, push to 7 m) | FixDemoMatch creation | group 1 (`141f5f330/141f5fa90/141f577b0/141f58440` all in the 3,095) | per-variant Human records: slot, position (x, z), rotY, gani, times — every authored cut (78 foul `.fdc`, decoded 100%) | the slot→match-player remap (OPEN, INF rec: slot 1 = fouler, 2–5 nearest mates, 11–14 nearest opponents) | `141f5f330` reached at birth (in the 32 set's +8), replayed; `141f57840`/`141f36200` CREATE/LOAD, not in the 32 |
+| **(c) Broadcast camera + replay during the stoppage** | **none** — no fixdemo scene, no replay, no `CameraOffside` selection in any foul/offside programme (foul-choreo §5.3.6: the `CameraOffside@match` vt 0x142bd3df8 and `OffsideReplay` string exist but selection not traced; foul §9.8: "replay between whistle and restart: none") | — | — | the scene camera (cards) is authored per cut in the `.fdc` (DmCamera records, `targetKind 6`, `targetNo [22,1]`/`[1,22]`; referee 2.0–7.4 m from the carded player) | the stoppage presentation = hold + 0.1 s wipe (type 4) + 1.0 s fade-in only; in-play broadcast camera (`InplayCamera`, `pes-re-stadium-camera.md` §4) parks dead-ball | NOT in the 32; absence CONFIRMED by every programme read + live captures |
+| **(d) Restart hold and release** | step program `Flow+0x878` (30 × int32), index `+0x8f0`, runner `0x14044c880`, driver `0x140445e90` (Flow = `*(MatchControl+0x38)`, §5), frame sync `0x140422030` | `match::MatchControl` + Flow (free, match side) | not in 3,095 (ledger subsystem "restart"; `140422030/140446960/140447690/140444060` are in the ledger under it) | `freekick.o` `suspendTime` 3.0 s (the CPU FK taker's wait after armed — the one data constant in the hold); scene start gate distances 5.0 m / 2.0 m / 4.0 m are code floats | the whole programme: foul hold 5.0 s no-scene (table `0x14259ce60`) / gate + scene; ball-out 2.5 s (table `0x14259ce54`); offside base also 2.5 s (the 3.0 s immediate @0x140447a25 is overwritten per frame unless a player is down); +2.5 s player down (→ 5.0/5.5 s); wipe 5 fr, teleport 20+20 fr, fade-in 59 fr, tail 2 fr (+16 caption), armed = 117 fr after teleport start; late card = next stop within 16 game-minutes (step 6, `FOUL_CMN_CARD_Y_B`, max(2.5 s, 340 ticks)); taker release gates per restart (kick-off receiver test; throw-in ≈81+receiver; corner 189; FK 162; PK 54 — A5Judge §4.7, live-measured where noted) | NOT in the 32 (Flow-gated; the one real-call attempt stopped on `rcx=0`). Live: per-step frame counts captured (FoulChoreographyRE-2 `steps.py` over `live.jsonl`/`seq*.jsonl`); GF sim re-implements it and is tested |
+
+### 6.2 Data vs code, fouls/offsides specifically
+
+- **Data:** the 33 foul scenes and their 78 cut files (`common/demo/fixdemo/foul/cut_data/*.fdc`):
+  variant weights, actor slot/position/rotY/gani per cut, card/note/pen prop tick ranges on
+  slot 22 (1/60 s), per-variant `maxTime`. Decoded 100% (`FoulChoreographyRE/table_foul.json`,
+  `fdc_decoded.json` — in scratch, not repo). The Animetable rows 179–193 (referee `judge_*`)
+  and 213–238 (linesman `assistant_*`) are animation data with the clip names fully decoded.
+- **Code:** everything that decides *whether* a scene plays at all (the decision tree of
+  `0x14047f170` — foul kind, card colour/count, pinch, EXCITE-once, injured), *who* is
+  placed where (referee approach, assistant involvement + flag angle, slot remap), and the
+  entire restart timing (the step programme). The offside line, its categories, and the
+  AI offside flags are pure code (nine exe floats, no file).
+- So for stoppages the split is **sharper than for celebrations**: the scene *content* is
+  data, but the sanction→scene map, the placement, and the hold are all code. Godot must
+  translate the decision tree + step programme (≈ group 1 + the restart subsystem), and can
+  load the 78 `.fdc` + tables directly for the card scenes. Offside has **no scene content
+  at all** — it is entirely code (flag, arm, 2.5/3.0 s hold, wipe).
+
+### 6.3 Already reachable via real calls (what the 32 covers here)
+
+- **In the 32 (demo-engine EXEC side of a card scene):** `141f4fda0` variant pick
+  (PROVEN bit-exact, 150/150), the step-expansion/slot-state/DB family, and at birth
+  `141f5f330` slot build + the matcher `141f4b1d0`. The scene side is replayable today.
+- **Not in the 32 (match side):** the foul selector `140480910/14047f170`, the restart
+  programme `14044c880`/driver/step handlers, the judge, the offside rule, the official
+  placement. The single real-call attempt at `14044c880` stopped on `rcx=0` (Flow unknown
+  at the time — now §5: one qword read of a live `MatchControl+0x38` unblocks it).
+- **Already exercised live/sim (not the 32-set, but observed on real calls):** per-step
+  frame counts across whole stoppages (foul-choreo §9.6: stop → armed 407 fr, armed → FK
+  164 fr), the 272-frame no-scene foul hold, the 138–140-frame offside-class holds, and
+  the stoppage timings ported into GF are tested in `tests/sim/pes_stoppage_timing_test.cpp`
+  (throw-in/FK/corner/PK stops at the measured durations, seed 1000).
+
+## 7. Open items
 
 1. **Live manager + owning-pointer capture** — needs the bot in-match. Catcher finished
    32 scans / 0 births / 0 pauses (true negative, no match running); it stays armed in
@@ -313,8 +370,18 @@ machine* execute, which is a different (playback) question.
 3. The 497 rows under neither seed subtree: mostly demo-engine internals (load tasks,
    data bodies) reached via the RTTI vtable roots; no role assigned beyond groups 2/3.
    Not needed for the owner's translate-vs-reimplement decision.
+4. **Stoppage camera**: the `CameraOffside@match` (vt 0x142bd3df8) / `CameraReplay`
+   selection was never traced; the CONFIRMED "no scene, no replay" covers the step
+   programmes read, but the dead-ball pose of the in-play camera itself (its switch to
+   the parked position) is not in any doc. Settled by reading the `InplayCamera`
+   dead-ball branch (`0x14087f280`, `pes-re-stadium-camera.md` §4.3) or one live
+   stoppage sample.
+5. **Foul slot → match-player remap** (foul-choreo §7.1): the code binds slots 1/2-5/
+   11-14 to literal (side, idx) pairs, not to the carded player; the remap is not found.
+   INF recommendation in §6.1; a live card-scene capture (needs the bot in a match)
+   settles it.
 
-## 7. Files (scratch only, never committed)
+## 8. Files (scratch only, never committed)
 
 - `<workdrive>/gf-CutsceneRoles-scratch/impure_set.json` — the 3,095 VA list.
 - `role_{select,parse,asset,render,other}.json` — per-group rows (va, name, size,
