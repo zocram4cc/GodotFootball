@@ -19,7 +19,7 @@ void pes_fn_14089DC60(PesState& s) {
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(0)));
   if (!s.cond("a")) {
     s.xmm[0][0] = s.xmm[2][0]; s.xmm[0][1] = s.xmm[2][1];
-    s.set_x_f32(0, (float)(((s.x_f32(0)) >= (s.x_f32(1))) ? (s.x_f32(0)) : (s.x_f32(1))));
+    s.set_x_f32(0, (float)(((s.x_f32(0)) > (s.x_f32(1))) ? (s.x_f32(0)) : (s.x_f32(1))));
   }
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(2)));
   s.wrf(((s.gpr[1]) + (0x1910ULL)), s.x_f32(0));

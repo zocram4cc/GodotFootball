@@ -47,11 +47,11 @@ void pes_fn_14089CD80(PesState& s) {
     s.wr128(((s.gpr[4]) + (0x30ULL)), ((unsigned __int128)s.xmm[8][1] << 64) | s.xmm[8][0]);
     if (!s.cond("a")) {
       s.set_x_f32(1, k_c14259BE20_f); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
-      s.set_x_f32(1, (float)(((s.x_f32(1)) >= (s.x_f32(0))) ? (s.x_f32(1)) : (s.x_f32(0))));
+      s.set_x_f32(1, (float)(((s.x_f32(1)) > (s.x_f32(0))) ? (s.x_f32(1)) : (s.x_f32(0))));
     }
     s.set_x_f32(7, k_c142565600_f); s.xmm[7][0] &= 0xFFFFFFFFull; s.xmm[7][1] = 0;
     s.set_x_f32(8, s.rdf(((s.gpr[1]) + (0x1BBCULL)))); s.xmm[8][0] &= 0xFFFFFFFFull; s.xmm[8][1] = 0;
-    s.set_x_f32(6, (float)(((s.x_f32(6)) >= (s.x_f32(7))) ? (s.x_f32(6)) : (s.x_f32(7))));
+    s.set_x_f32(6, (float)(((s.x_f32(6)) > (s.x_f32(7))) ? (s.x_f32(6)) : (s.x_f32(7))));
     s.set_x_f32(8, (float)((s.x_f32(8)) - ((s.rdf(((s.gpr[1]) + (0x1C20ULL)))))));
     s.set_x_f32(8, (float)((s.x_f32(8)) / (s.x_f32(6))));
     s.cmp_ss((float)(s.x_f32(8)), (float)(s.x_f32(9)));
@@ -62,8 +62,8 @@ void pes_fn_14089CD80(PesState& s) {
         s.cf = false; s.of = false;
         s.wr(((s.gpr[3]) + (0x18F3ULL)), (uint64_t)(_r), 1);
       }
-      s.set_x_f32(6, (float)(((s.x_f32(6)) >= (s.x_f32(7))) ? (s.x_f32(6)) : (s.x_f32(7))));
-      s.set_x_f32(6, (float)(((s.x_f32(6)) >= (s.x_f32(9))) ? (s.x_f32(6)) : (s.x_f32(9))));
+      s.set_x_f32(6, (float)(((s.x_f32(6)) > (s.x_f32(7))) ? (s.x_f32(6)) : (s.x_f32(7))));
+      s.set_x_f32(6, (float)(((s.x_f32(6)) > (s.x_f32(9))) ? (s.x_f32(6)) : (s.x_f32(9))));
       s.wrf(((s.gpr[3]) + (0x1930ULL)), s.x_f32(6));
     } else {
       s.set_x_f32(7, k_c14256AE1C_f); s.xmm[7][0] &= 0xFFFFFFFFull; s.xmm[7][1] = 0;
@@ -77,7 +77,7 @@ void pes_fn_14089CD80(PesState& s) {
       if (s.cond("c")) {
         s.set_x_f32(7, (float)((s.x_f32(7)) - (s.x_f32(8))));
         s.set_x_f32(7, (float)((s.x_f32(7)) * (s.x_f32(6))));
-        s.set_x_f32(7, (float)(((s.x_f32(7)) >= (s.x_f32(9))) ? (s.x_f32(7)) : (s.x_f32(9))));
+        s.set_x_f32(7, (float)(((s.x_f32(7)) > (s.x_f32(9))) ? (s.x_f32(7)) : (s.x_f32(9))));
         s.wrf(((s.gpr[3]) + (0x1930ULL)), s.x_f32(7));
       } else {
         s.wr(((s.gpr[3]) + (0x18E4ULL)), (uint64_t)((0ULL)), 4);

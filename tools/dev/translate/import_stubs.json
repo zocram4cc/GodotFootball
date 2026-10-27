@@ -97,6 +97,46 @@
       "why": [
         "The export the replay's loaded module resolves to (proc/seq008). Same model as kernel32.dll!GetLastError, which the translator keys on (the slot's module)."
       ]
+    },
+    {
+      "module": "ntdll.dll",
+      "export": "RtlAcquireSRWLockShared",
+      "do": "srw_acquire_shared",
+      "code_hex": "8b 01 66 85 c0 75 0b 89 c2 81 01 00 00 01 00 8b 09 c3 cc",
+      "why": [
+        "Wine ntdll RtlAcquireSRWLockShared (file offset 0x1d380, read from the prefix's ntdll.dll): the fast path is taken when the low word of the lock dword is zero; it adds 0x10000 (the shared count, high word) by lock cmpxchg, and returns with eax = old value, edx = old value, ecx = new value. The slow path (exclusive or waiting bits set) calls RtlWaitOnAddress, which a single-thread replay cannot model: the code here is int3, so such a case is excluded, never replayed wrong.",
+        "Model assumption: the replay is single-threaded, so the cmpxchg always succeeds (no contention). The captures seq013 and seq023 are the only callers in the replay set."
+      ]
+    },
+    {
+      "module": "ntdll.dll",
+      "export": "RtlReleaseSRWLockShared",
+      "do": "srw_release_shared",
+      "code_hex": "8b 01 a8 01 75 19 89 c2 c1 ea 10 85 d2 74 10 ff ca 41 89 c0 41 81 e8 00 00 01 00 44 89 01 c3 cc",
+      "why": [
+        "Wine ntdll RtlReleaseSRWLockShared (file offset 0x38360): the fast path is taken when the exclusive bit (bit 0) is clear and the shared count (high word) is nonzero; it stores lock - 0x10000 and returns with eax = old value, edx = count - 1, r8d = new value. Any other case (exclusive bit set, no shared holders: the waiter-wake path) is int3 here, excluded, never replayed wrong.",
+        "Model assumption: single-threaded replay, uncontended release."
+      ]
+    },
+    {
+      "module": "kernelbase.dll",
+      "export": "FlsGetValue",
+      "do": "fls_get",
+      "code_hex": "89 c8 8d 49 ff 81 f9 ee 0f 00 00 77 5f 65 48 8b 0c 25 30 00 00 00 4c 8b 91 c8 17 00 00 4d 85 d2 74 4a 83 f8 0f 76 1e 41 b8 10 00 00 00 31 c9 83 c1 01 44 29 c0 41 b8 10 00 00 00 41 d3 e0 44 39 c0 73 ec eb 02 31 c9 49 8b 4c ca 10 48 85 c9 74 07 83 c0 01 48 8b 0c c1 48 89 c8 65 48 8b 14 25 30 00 00 00 c7 42 68 00 00 00 00 c3 65 48 8b 14 25 30 00 00 00 c7 42 68 57 00 00 00 31 c0 c3",
+      "why": [
+        "Wine kernelbase FlsGetValue (file offset 0x218a0) calls ntdll RtlFlsGetValue(index, &value) and returns value with TEB+0x68 (LastErrorValue) = 0; on failure it sets TEB+0x68 = RtlNtStatusToDosError(status) and returns 0. Wine ntdll RtlFlsGetValue (file offset 0x29540) reads the FLS vector from TEB+0x17C8 (gs:[0x30] is the TEB self pointer), rejects index-1 > 0xFEE or a null vector with STATUS_INVALID_PARAMETER (0xC000000D), and walks blocks of 16<<k slots: value = block[k][rem+1] (0 when the block is null). The code here is that walk, inlined; the failure path writes 87 (ERROR_INVALID_PARAMETER) to TEB+0x68 [INF: the standard STATUS_INVALID_PARAMETER -> ERROR_INVALID_PARAMETER mapping; RtlNtStatusToDosError itself is not disassembled here].",
+        "Model assumption: the replay's TEB and FLS vector are the snapshot's own (the TEB and FlsData pages are read from the snapshot). The 0x17C8 offset is read from the Wine ntdll code, not from a Windows header."
+      ]
+    },
+    {
+      "module": "ntdll.dll",
+      "export": "RtlSetLastWin32Error",
+      "do": "setlasterror",
+      "code_hex": "65 48 8b 04 25 30 00 00 00 89 48 68 c3",
+      "why": [
+        "Wine ntdll RtlSetLastWin32Error (file offset 0x39cb0, read from the prefix's ntdll.dll): mov rax, gs:[0x30]; mov [rax+0x68], ecx; ret. It stores the DWORD in TEB.LastErrorValue (TEB+0x68, the same slot as GetLastError) and returns nothing. rax is left as the TEB self pointer.",
+        "Reached from the recorded cutscene-create call (seq008) through the FlsGetValue failure path's SetLastError."
+      ]
     }
   ]
 }

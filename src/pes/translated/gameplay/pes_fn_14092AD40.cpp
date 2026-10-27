@@ -102,7 +102,7 @@ void pes_fn_14092AD40(PesState& s) {
   goto L_14092AE46;
   L_14092AE3F:;
   s.xmm[0][0] = 0; s.xmm[0][1] = 0;
-  s.set_x_f32(0, (float)(((s.x_f32(0)) >= (s.x_f32(1))) ? (s.x_f32(0)) : (s.x_f32(1))));
+  s.set_x_f32(0, (float)(((s.x_f32(0)) > (s.x_f32(1))) ? (s.x_f32(0)) : (s.x_f32(1))));
   L_14092AE46:;
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[6])), _b = (uint64_t)(((uint64_t)(uint32_t)s.gpr[3])), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);

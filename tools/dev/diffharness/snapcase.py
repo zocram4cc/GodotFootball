@@ -96,6 +96,18 @@ def write_maps(snap_dir, path):
     return path
 
 
+# GF_LOCKSTEP_OUT record: the PC, then the pre-instruction state (gpr in encoding order, xmm lo/hi), 392 bytes. The
+# translated lockstep build writes the same layout (translate/lockstep_trace.h). Read only by the lockstep comparison.
+LOCK_GPRS = ("rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15")
+
+
+def _lockstep_rec(u, a):
+    import unicorn.x86_const as xc
+    g = [u.reg_read(getattr(xc, "UC_X86_REG_" + n.upper())) for n in LOCK_GPRS]
+    x = [int(u.reg_read(xc.UC_X86_REG_XMM0 + i)).to_bytes(16, "little") for i in range(16)]
+    return struct.pack("<Q16Q", a, *g) + b"".join(x)
+
+
 def _entered(va):
     """A code hook that ends the call when it enters va (an untranslated callee of the build)."""
     def hook(uc, address, size, data):
@@ -128,6 +140,12 @@ class Replayer:
         uc._writes = []
         uc.hook_add(UC_HOOK_MEM_WRITE, self._on_write)
         self.stub_vas = {int(s["va"], 16) for s in (spec.get("stubs") or {}).values()}
+        # GF_LOCKSTEP_OUT: each executed PES instruction (stub entries excluded), 8 bytes each, for the lockstep
+        # check against a GF_XLATE_TRACE build (snapdiff.py). Off unless the env var is set.
+        self._lockstep = os.environ.get("GF_LOCKSTEP_OUT")
+        uc._pcs = []
+        if self._lockstep:
+            uc.hook_add(UC_HOOK_CODE, lambda u, a, s, d: u._pcs.append(_lockstep_rec(u, a)) if a not in self.stub_vas else None)
         import capstone
         import unicorn.x86_const as xc
         self.md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
@@ -181,6 +199,7 @@ class Replayer:
         uc._writes, uc._addrs, uc._trace, uc._prev = [], set(), {}, [None, 0]
         uc._call_slots, uc._ret_slot_reads = set(), 0
         uc._bad, uc._last_rip = None, 0
+        uc._pcs = []
         gpr = dict(zip(GPR_NAMES, rec[:16]))
         rsp, ret = gpr["rsp"], rec[48]
         uc._ret_sentinel = ret
@@ -197,6 +216,9 @@ class Replayer:
             uc.emu_start(entry, ret, count=INSTR_BUDGET)
         except UcError as e:
             err = "emu error: %s (last RIP %#x)" % (e, uc._last_rip)
+        if self._lockstep:
+            with open(self._lockstep, "ab") as f:
+                f.write(b"".join(uc._pcs))
         if uc._bad is not None:
             err = uc._bad
         elif lazy.refused is not None:

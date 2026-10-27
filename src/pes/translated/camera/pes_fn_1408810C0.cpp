@@ -53,7 +53,7 @@ void pes_fn_1408810C0(PesState& s) {
       s.set_x_f32(2, (float)((s.x_f32(2)) * (s.x_f32(0))));
     }
     { unsigned __int128 _v = (((unsigned __int128)s.xmm[2][0] | ((unsigned __int128)s.xmm[2][1] << 64))) ^ (((k_c1425656D0))); s.xmm[2][0] = (uint64_t)_v; s.xmm[2][1] = (uint64_t)(_v >> 64); }
-    s.set_x_f32(2, (float)(((s.x_f32(2)) >= (s.x_f32(1))) ? (s.x_f32(2)) : (s.x_f32(1))));
+    s.set_x_f32(2, (float)(((s.x_f32(2)) > (s.x_f32(1))) ? (s.x_f32(2)) : (s.x_f32(1))));
     s.set_x_f32(2, (float)((s.x_f32(2)) + (s.x_f32(5))));
     s.xmm[0][0] = s.xmm[2][0]; s.xmm[0][1] = s.xmm[2][1];
     return;
@@ -65,7 +65,7 @@ void pes_fn_1408810C0(PesState& s) {
       s.set_x_f32(3, (float)((s.x_f32(3)) / (s.x_f32(0))));
       s.set_x_f32(2, (float)((s.x_f32(2)) * (s.x_f32(3))));
     }
-    s.set_x_f32(2, (float)(((s.x_f32(2)) <= (s.x_f32(1))) ? (s.x_f32(2)) : (s.x_f32(1))));
+    s.set_x_f32(2, (float)(((s.x_f32(2)) < (s.x_f32(1))) ? (s.x_f32(2)) : (s.x_f32(1))));
     s.set_x_f32(2, (float)((s.x_f32(2)) + (s.x_f32(5))));
     s.xmm[0][0] = s.xmm[2][0]; s.xmm[0][1] = s.xmm[2][1];
     return;

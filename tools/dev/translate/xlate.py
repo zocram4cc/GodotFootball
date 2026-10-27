@@ -395,6 +395,46 @@ def import_model_lines(op, jump):
         return ["{ " + push_ret + " uint64_t _i = (uint32_t)s.gpr[1];"
                 " if (_i < 64) s.wr(s.gs_base + 0x1480ULL + _i * 8, s.gpr[2], 8);"
                 " s.gpr[0] = _i < 64 ? 1ULL : 0ULL;%s }" % pop_ret]
+    # The three Wine models below mirror the hand-encoded code in import_stubs.json (code_hex) register for register:
+    # the harness runs that code, so every register and byte the model leaves must match here (snapdiff compares them).
+    if e["do"] == "srw_acquire_shared":
+        # RtlAcquireSRWLockShared(rcx=lock): fast path only; [lock] += 0x10000; rax = rdx = old; rcx = new. The slow path
+        # (exclusive or waiting bits) is int3 in the harness, so reaching it here is a trap, never a wrong value.
+        return ["{ " + push_ret + " uint32_t _v = (uint32_t)s.rd(s.gpr[1], 4);"
+                " if ((_v & 0xFFFFu) != 0) __builtin_trap();"
+                " uint32_t _n = _v + 0x10000u; s.wr(s.gpr[1], (uint64_t)_n, 4);"
+                " s.gpr[0] = _v; s.gpr[2] = _v; s.gpr[1] = _n;%s }" % pop_ret]
+    if e["do"] == "srw_release_shared":
+        # RtlReleaseSRWLockShared(rcx=lock): fast path only; [lock] -= 0x10000 when bit 0 is clear and the shared count
+        # is nonzero; rax = old; rdx = count - 1; r8 = new; rcx unchanged. Any other case is int3 in the harness: a trap.
+        return ["{ " + push_ret + " uint32_t _v = (uint32_t)s.rd(s.gpr[1], 4);"
+                " if ((_v & 1u) != 0 || (_v >> 16) == 0) __builtin_trap();"
+                " uint32_t _n = _v - 0x10000u; s.wr(s.gpr[1], (uint64_t)_n, 4);"
+                " s.gpr[0] = _v; s.gpr[2] = (uint64_t)((_v >> 16) - 1u); s.gpr[8] = _n;%s }" % pop_ret]
+    if e["do"] == "fls_get":
+        # FlsGetValue(ecx=index): the inlined Wine walk. index-1 > 0xFEE or a null FLS vector (TEB+0x17C8) is the failure
+        # path (TEB+0x68 = 87, rax = 0); else the block walk (16<<k slots per block), value = block[k][rem+1] (0 for a null
+        # block), TEB+0x68 = 0. Registers follow the machine code: rax, rcx, rdx, r8, r10 as the harness leaves them.
+        return ["{ " + push_ret +
+                " uint32_t _ix = (uint32_t)s.gpr[1]; s.gpr[0] = _ix;"
+                " uint32_t _m1 = _ix - 1u; s.gpr[1] = _m1;"
+                " bool _inv = _m1 > 0xFEEu; uint64_t _self = 0, _fls = 0; uint32_t _k = 0, _e = _ix, _ax = _ix;"
+                " if (!_inv) { _self = s.rd(s.gs_base + 0x30ULL, 8); s.gpr[1] = _self; _fls = s.rd(_self + 0x17C8ULL, 8);"
+                "   s.gpr[10] = _fls; _inv = (_fls == 0); }"
+                " if (!_inv && _ix > 0xFu) { uint64_t _r8 = 0x10u;"
+                "   do { _k += 1; _e -= (uint32_t)_r8; _r8 = (uint32_t)(0x10u << (_k & 31u)); } while (_e >= (uint32_t)_r8);"
+                "   s.gpr[8] = _r8; s.gpr[1] = _k; _ax = _e; }"
+                " else if (!_inv) { s.gpr[1] = 0; }"
+                " if (!_inv) { s.gpr[0] = _ax;"
+                "   uint64_t _blk = s.rd(_fls + 0x10ULL + (uint64_t)s.gpr[1] * 8ULL, 8); s.gpr[1] = _blk;"
+                "   if (_blk != 0) { _ax += 1u; s.gpr[0] = _ax; s.gpr[1] = s.rd(_blk + (uint64_t)_ax * 8ULL, 8); }"
+                "   s.gpr[0] = s.gpr[1]; s.gpr[2] = _self; s.wr(_self + 0x68ULL, 0, 4); }"
+                " else { _self = s.rd(s.gs_base + 0x30ULL, 8); s.gpr[2] = _self; s.wr(_self + 0x68ULL, 87, 4); s.gpr[0] = 0; }"
+                "%s }" % pop_ret]
+    if e["do"] == "setlasterror":
+        # RtlSetLastWin32Error(ecx): TEB.LastErrorValue (gs:[0x30]+0x68) = ecx; rax = the TEB self pointer (the machine code).
+        return ["{ " + push_ret + " uint64_t _self = s.rd(s.gs_base + 0x30ULL, 8); s.gpr[0] = _self;"
+                " s.wr(_self + 0x68ULL, s.gpr[1] & 0xFFFFFFFFULL, 4);%s }" % pop_ret]
     raise SystemExit("import_stubs.json: no translator model for do=%r (%s!%s)"
                      % (e["do"], slot["module"], slot["export"]))
 
@@ -1406,11 +1446,11 @@ class Emitter:
         if op:
             return ["s.set_x_f32(%d, (float)((%s) %s (%s)));" % (x, a, op,
                                                                   b)]
+        # Intel MAXSS/MINSS: the destination is kept only when dst > src (MAXSS) or dst < src (MINSS). Equal values
+        # (-0.0 and +0.0 compare equal) and NaN take the SOURCE. 1408A40F0: maxss of -0.0 with +0.0 returned -0.0.
         if m == "MAXSS":
-            return ["s.set_x_f32(%d, (float)(((%s) >= (%s)) ? (%s) : (%s)));"
-                    % (x, a, b, a, b)]
-        return ["s.set_x_f32(%d, (float)(((%s) <= (%s)) ? (%s) : (%s)));"
-                % (x, a, b, a, b)]
+            return ["s.set_x_f32(%d, (float)(((%s) > (%s)) ? (%s) : (%s)));" % (x, a, b, a, b)]
+        return ["s.set_x_f32(%d, (float)(((%s) < (%s)) ? (%s) : (%s)));" % (x, a, b, a, b)]
 
     def do_comiss(self, ops):
         return ["s.cmp_ss((float)(%s), (float)(%s));"
@@ -1655,7 +1695,9 @@ class Emitter:
             if tgt:
                 fn = "pes_fn_%s" % tgt[2:]
                 return ["{ %s(s); return; }" % fn]
-            return ["/*UNRESOLVED JMP %s*/return;" % o]
+            # Loud, like an untaken out-of-body Jcc: a jump the prepass could not resolve trapped when reached, never a
+            # silent return (the silent return hid a switch dispatch in 141F5F330 until lockstep found it).
+            return ["__builtin_trap(); /* UNRESOLVED JMP %s */" % o]
         if m == "LOOP":
             # LOOP rel8 (64-bit mode): RCX counts down, and the jump is taken while RCX != 0; flags are untouched.
             tgt = imm_val(ops[0])
@@ -1876,18 +1918,20 @@ def prepass(lines, img):
                     break
         baseva = None
         basep = PARENT.get(base, base) if base is not None else None
-        for j in range(i - 1, max(-1, i - 20), -1):
+        # The base is the nearest write to its register, however far back: a switch's `lea base,[image]` can sit past
+        # any fixed window. 141F5F330 -> 141F5FC00: the LEA is 21 instructions above its JMP, the old window was 20, so
+        # the JMP went UNRESOLVED and the translation returned where PES dispatched to a case.
+        for j in range(i - 1, -1, -1):
             mn2, ops2 = byaddr[order[j]]
-            if mn2.upper() == "LEA" and len(ops2) == 2 and \
-                    basep is not None and \
-                    PARENT.get(ops2[0].strip().lower(),
-                               ops2[0].strip().lower()) == basep and \
-                    "[" in ops2[1]:
+            if basep is None or mn2.upper() in ("CMP", "TEST") or not ops2 or \
+                    PARENT.get(ops2[0].strip().lower(), ops2[0].strip().lower()) != basep:
+                continue
+            if mn2.upper() == "LEA" and len(ops2) == 2 and "[" in ops2[1]:
                 inner = ops2[1][ops2[1].find("[") + 1:ops2[1].rfind("]")]
                 mp = parse_mem(inner)
                 if mp and mp["absolute"] is not None:
                     baseva = mp["absolute"]
-                    break
+            break
         for j in range(i - 1, max(-1, i - 20), -1):
             mn2, ops2 = byaddr[order[j]]
             if mn2.upper() == "JA" and ops2 and is_imm(ops2[0]):
@@ -1954,12 +1998,15 @@ def stub_lines(do):
 def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
     addrs = {a for a, _, _ in lines}
     ctx = {"jmpreg": jmpreg, "addrs": addrs, "stubs": stubs or {}}
+    trace_pc = bool(os.environ.get("GF_XLATE_TRACE"))  # lockstep: one GF_TRACE_PC per instruction (snapdiff build only)
     body = []
     em.lines, em.labels, em.guards = lines, labels, find_guards(lines)
     for idx, (addr, mnem, ops) in enumerate(lines):
         em.cur = idx
         if addr in labels:
             body.append("L_%X:;" % addr)
+        if trace_pc:
+            body.append("GF_TRACE_PC(0x%X, s);" % addr)
         m = mnem.upper()
         if m.startswith("LOCK "):
             m = m[5:]  # single-threaded harness: LOCK changes atomicity only

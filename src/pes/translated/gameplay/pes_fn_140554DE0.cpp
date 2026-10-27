@@ -139,7 +139,7 @@ void pes_fn_140554DE0(PesState& s) {
   { uint32_t _lo = PesState::bits((float)s.x_f64(0)), _hi = PesState::bits((float)([&](){ double _d; uint64_t _u = s.xmm[0][1]; memcpy(&_d, &_u, 8); return _d; }()));
     s.xmm[1][0] = ((uint64_t)_hi << 32) | _lo; s.xmm[1][1] = 0; }
   s.set_x_f32(1, (float)((s.x_f32(1)) + ((k_c14258C264_f))));
-  s.set_x_f32(2, (float)(((s.x_f32(2)) >= (s.x_f32(1))) ? (s.x_f32(2)) : (s.x_f32(1))));
+  s.set_x_f32(2, (float)(((s.x_f32(2)) > (s.x_f32(1))) ? (s.x_f32(2)) : (s.x_f32(1))));
   L_140554EEC:;
   s.set_x_f32(1, s.rdf(((s.gpr[6]) + ((s.gpr[7])*4ULL) + (0x4B54ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   { double _lo = (double)PesState::f32((uint32_t)s.xmm[1][0]), _hi = (double)PesState::f32((uint32_t)(s.xmm[1][0] >> 32)); uint64_t _u0, _u1;

@@ -88,7 +88,10 @@ def load_import_models(path=IMPORT_STUBS):
     BOOL QueryPerformanceCounter(LARGE_INTEGER *count): stores value at *rcx and returns TRUE."""
     models = {}
     for e in json.load(open(path))["imports"]:
-        if e["do"] == "return":
+        if e.get("code_hex"):
+            # Hand-encoded Wine model (import_stubs.json "code_hex"): the code the harness runs at the export entry.
+            code = bytes.fromhex(e["code_hex"])
+        elif e["do"] == "return":
             value = int(str(e["value"]), 0) & ((1 << 64) - 1)
             code = b"\x48\xB8" + struct.pack("<Q", value) + b"\xC3"  # mov rax, imm64; ret
         elif e["do"] == "memcpy":

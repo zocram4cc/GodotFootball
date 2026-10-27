@@ -87,7 +87,7 @@ void pes_fn_14056BBA0(PesState& s) {
     s.xmm[3][0] = ((uint64_t)_hi << 32) | _lo; s.xmm[3][1] = 0; }
   s.xmm[1][0] = s.xmm[3][0]; s.xmm[1][1] = s.xmm[3][1];
   s.xmm[0][0] = s.xmm[3][0]; s.xmm[0][1] = s.xmm[3][1];
-  s.set_x_f32(1, (float)(((s.x_f32(1)) <= ((k_c14259BE1C_f))) ? (s.x_f32(1)) : ((k_c14259BE1C_f))));
+  s.set_x_f32(1, (float)(((s.x_f32(1)) < ((k_c14259BE1C_f))) ? (s.x_f32(1)) : ((k_c14259BE1C_f))));
   s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(1))));
   s.cmp_ss((float)(s.x_f32(2)), (float)(s.x_f32(0)));
   if (s.cond("be")) goto L_14056BC52;

@@ -59,7 +59,7 @@ void pes_fn_1421396E0(PesState& s) {
   goto L_14213975B;
   L_142139752:;
   s.xmm[8][0] = 0; s.xmm[8][1] = 0;
-  s.set_x_f32(8, (float)(((s.x_f32(8)) >= (s.x_f32(0))) ? (s.x_f32(8)) : (s.x_f32(0))));
+  s.set_x_f32(8, (float)(((s.x_f32(8)) > (s.x_f32(0))) ? (s.x_f32(8)) : (s.x_f32(0))));
   L_14213975B:;
   s.set_x_f32(11, s.rdf(((s.gpr[8]) + (0x4ULL)))); s.xmm[11][0] &= 0xFFFFFFFFull; s.xmm[11][1] = 0;
   s.gpr[0] = (uint64_t)(uint32_t)(([](float _f){ if (__builtin_isnan(_f) || _f >= 2147483648.0f || _f < -2147483648.0f) return (int32_t)INT32_MIN; return (int32_t)_f; }(s.x_f32(8))));
@@ -74,7 +74,7 @@ void pes_fn_1421396E0(PesState& s) {
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(9)));
   if (s.cond("a")) goto L_142139792;
   s.xmm[9][0] = 0; s.xmm[9][1] = 0;
-  s.set_x_f32(9, (float)(((s.x_f32(9)) >= (s.x_f32(0))) ? (s.x_f32(9)) : (s.x_f32(0))));
+  s.set_x_f32(9, (float)(((s.x_f32(9)) > (s.x_f32(0))) ? (s.x_f32(9)) : (s.x_f32(0))));
   L_142139792:;
   s.set_x_f32(10, s.rdf(((s.gpr[1]) + (0x5C8ULL)))); s.xmm[10][0] &= 0xFFFFFFFFull; s.xmm[10][1] = 0;
   s.xmm[1][0] = s.xmm[13][0]; s.xmm[1][1] = s.xmm[13][1];
@@ -114,8 +114,8 @@ void pes_fn_1421396E0(PesState& s) {
   s.cmp_ss((float)(s.x_f32(0)), (float)((k_c14256AE1C_f)));
   if (s.cond("c")) goto L_14213995D;
   s.xmm[1][0] = s.xmm[8][0]; s.xmm[1][1] = s.xmm[8][1];
-  s.set_x_f32(8, (float)(((s.x_f32(8)) >= (s.x_f32(9))) ? (s.x_f32(8)) : (s.x_f32(9))));
-  s.set_x_f32(1, (float)(((s.x_f32(1)) <= (s.x_f32(9))) ? (s.x_f32(1)) : (s.x_f32(9))));
+  s.set_x_f32(8, (float)(((s.x_f32(8)) > (s.x_f32(9))) ? (s.x_f32(8)) : (s.x_f32(9))));
+  s.set_x_f32(1, (float)(((s.x_f32(1)) < (s.x_f32(9))) ? (s.x_f32(1)) : (s.x_f32(9))));
   s.gpr[1] = (uint64_t)(uint32_t)(([](float _f){ if (__builtin_isnan(_f) || _f >= 2147483648.0f || _f < -2147483648.0f) return (int32_t)INT32_MIN; return (int32_t)_f; }(s.x_f32(8))));
   s.gpr[0] = (uint64_t)(uint32_t)(([](float _f){ if (__builtin_isnan(_f) || _f >= 2147483648.0f || _f < -2147483648.0f) return (int32_t)INT32_MIN; return (int32_t)_f; }(s.x_f32(1))));
   s.xmm[0][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0])); s.xmm[0][1] = 0;

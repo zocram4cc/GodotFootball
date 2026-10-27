@@ -202,7 +202,7 @@ void pes_fn_140875170(PesState& s) {
   s.set_x_f32(9, (float)((s.x_f32(9)) * (s.x_f32(7))));
   s.set_x_f32(6, (float)((s.x_f32(6)) * (s.x_f32(1))));
   s.set_x_f32(9, (float)((s.x_f32(9)) * (s.x_f32(1))));
-  s.set_x_f32(1, (float)(((s.x_f32(1)) >= ((k_c14256AE1C_f))) ? (s.x_f32(1)) : ((k_c14256AE1C_f))));
+  s.set_x_f32(1, (float)(((s.x_f32(1)) > ((k_c14256AE1C_f))) ? (s.x_f32(1)) : ((k_c14256AE1C_f))));
   s.set_x_f32(12, (float)((s.x_f32(12)) / (s.x_f32(1))));
   s.set_x_f32(11, (float)((s.x_f32(11)) / (s.x_f32(1))));
   s.set_x_f32(10, (float)((s.x_f32(10)) / (s.x_f32(1))));

@@ -133,7 +133,8 @@ def build_binary(va, spec, args, pilot, reached):
                    + sorted(need), check=True)
     bin_p = os.path.join(gen, "snapdiff_%s" % tag)
     objs = [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need]
-    rc, _, err = drv.sh([args.cxx, "-std=c++20", "-O1", "-I", gen, "-o", bin_p, main_p] + objs, timeout=300)
+    trace = ["-include", os.path.join(HERE, "lockstep_trace.h")] if os.environ.get("GF_XLATE_TRACE") else []
+    rc, _, err = drv.sh([args.cxx, "-std=c++20", "-O1", "-I", gen] + trace + ["-o", bin_p, main_p] + objs, timeout=300)
     if rc != 0:
         lines = [ln.replace(args.out_dir, "<build>") for ln in err.splitlines()
                  if "error" in ln or "undefined reference" in ln][:6]
