@@ -960,33 +960,19 @@ void pes_fn_1405DC350(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 9:;
-      goto L_1405DCBFA;
-    case 2:;
-    case 3:;
-    case 5:;
-      goto L_1405DCD7B;
-    case 7:;
-      goto L_1405DCF0C;
-    case 8:;
-      goto L_1405DD0B0;
-    case 11:;
-      goto L_1405DD296;
-    case 13:;
-      goto L_1405DD395;
-    case 6:;
-      goto L_1405DD635;
-    case 12:;
-      goto L_1405DDB05;
-    case 4:;
-      goto L_1405DDC6B;
-    case 10:;
-      goto L_1405DDD04;
-    case 0:;
-      goto L_1405DDDDA;
-    case 1:;
-      goto L_1405DDE42;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 6147066U: goto L_1405DCBFA;
+    case 6147451U: goto L_1405DCD7B;
+    case 6147852U: goto L_1405DCF0C;
+    case 6148272U: goto L_1405DD0B0;
+    case 6148758U: goto L_1405DD296;
+    case 6149013U: goto L_1405DD395;
+    case 6149685U: goto L_1405DD635;
+    case 6150917U: goto L_1405DDB05;
+    case 6151275U: goto L_1405DDC6B;
+    case 6151428U: goto L_1405DDD04;
+    case 6151642U: goto L_1405DDDDA;
+    case 6151746U: goto L_1405DDE42;
     default: goto L_1405DCD7B;
     } }
   L_1405DCBFA:;
@@ -2660,30 +2646,12 @@ void pes_fn_1405DC350(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 13:;
-    case 14:;
-      goto L_1405DE111;
-    case 12:;
-    case 17:;
-      goto L_1405DE162;
-    case 15:;
-      goto L_1405DE185;
-    case 0:;
-    case 1:;
-      goto L_1405DE18E;
-    case 2:;
-    case 3:;
-    case 4:;
-    case 5:;
-    case 6:;
-    case 7:;
-    case 8:;
-    case 9:;
-    case 10:;
-    case 11:;
-    case 16:;
-      goto L_1405DE1EE;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 6152465U: goto L_1405DE111;
+    case 6152546U: goto L_1405DE162;
+    case 6152581U: goto L_1405DE185;
+    case 6152590U: goto L_1405DE18E;
+    case 6152686U: goto L_1405DE1EE;
     default: goto L_1405DE1EE;
     } }
   L_1405DE111:;
@@ -2946,26 +2914,10 @@ void pes_fn_1405DC350(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 0:;
-    case 9:;
-    case 10:;
-    case 11:;
-    case 12:;
-    case 13:;
-      goto L_1405DE3E6;
-    case 8:;
-    case 14:;
-    case 15:;
-      goto L_1405DE416;
-    case 1:;
-    case 2:;
-    case 3:;
-    case 4:;
-    case 5:;
-    case 6:;
-    case 7:;
-      goto L_1405DE41C;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 6153190U: goto L_1405DE3E6;
+    case 6153238U: goto L_1405DE416;
+    case 6153244U: goto L_1405DE41C;
     default: goto L_1405DE41C;
     } }
   L_1405DE3E6:;
@@ -3153,7 +3105,7 @@ void pes_fn_1405DC350(PesState& s) {
   s.xmm[0][0] = s.xmm[6][0]; s.xmm[0][1] = s.xmm[6][1];
   s.xmm[6][0] = s.xmm[7][0]; s.xmm[6][1] = s.xmm[7][1];
   s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(9))));
-  s.set_x_f32(6, (float)(((s.x_f32(6)) >= (s.x_f32(0))) ? (s.x_f32(6)) : (s.x_f32(0))));
+  s.set_x_f32(6, (float)(((s.x_f32(6)) > (s.x_f32(0))) ? (s.x_f32(6)) : (s.x_f32(0))));
   L_1405DE5FA:;
   s.gpr[2] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[15]));
   s.gpr[1] = (uint64_t)(s.gpr[14]);

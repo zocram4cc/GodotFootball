@@ -89,9 +89,16 @@ void pes_fn_14063FA70(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  /*UNRESOLVED JMP rcx*/return;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 6552297U: goto L_14063FAE9;
+    case 6552304U: goto L_14063FAF0;
+    case 6552311U: goto L_14063FAF7;
+    default: goto L_14063FAF7;
+    } }
+  L_14063FAE9:;
   s.gpr[0] = (uint64_t)(uint32_t)((1ULL));
   goto L_14063FAF9;
+  L_14063FAF0:;
   s.gpr[0] = (uint64_t)(uint32_t)((2ULL));
   goto L_14063FAF9;
   L_14063FAF7:;

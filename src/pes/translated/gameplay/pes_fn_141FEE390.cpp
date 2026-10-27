@@ -4167,19 +4167,13 @@ void pes_fn_141FEE390(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 0:;
-      goto L_141FF024B;
-    case 1:;
-      goto L_141FF0258;
-    case 2:;
-      goto L_141FF0268;
-    case 3:;
-      goto L_141FF0278;
-    case 4:;
-      goto L_141FF0288;
-    case 5:;
-      goto L_141FF0298;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 33489483U: goto L_141FF024B;
+    case 33489496U: goto L_141FF0258;
+    case 33489512U: goto L_141FF0268;
+    case 33489528U: goto L_141FF0278;
+    case 33489544U: goto L_141FF0288;
+    case 33489560U: goto L_141FF0298;
     default: goto L_141FF0298;
     } }
   L_141FF024B:;
@@ -15173,19 +15167,13 @@ void pes_fn_141FEE390(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 0:;
-      goto L_141FF5125;
-    case 1:;
-      goto L_141FF512A;
-    case 2:;
-      goto L_141FF513F;
-    case 3:;
-      goto L_141FF5144;
-    case 4:;
-      goto L_141FF5149;
-    case 5:;
-      goto L_141FF5166;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 33509669U: goto L_141FF5125;
+    case 33509674U: goto L_141FF512A;
+    case 33509695U: goto L_141FF513F;
+    case 33509700U: goto L_141FF5144;
+    case 33509705U: goto L_141FF5149;
+    case 33509734U: goto L_141FF5166;
     default: goto L_141FF5169;
     } }
   L_141FF5125:;

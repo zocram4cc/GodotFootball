@@ -299,7 +299,7 @@ void pes_fn_140A50620(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = (_a & 0xFFULL) < (_b & 0xFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }
-  s.set_x_f32(14, (float)(((s.x_f32(14)) >= (s.x_f32(15))) ? (s.x_f32(14)) : (s.x_f32(15))));
+  s.set_x_f32(14, (float)(((s.x_f32(14)) > (s.x_f32(15))) ? (s.x_f32(14)) : (s.x_f32(15))));
   s.xmm[8][0] = s.xmm[0][0]; s.xmm[8][1] = s.xmm[0][1];
   s.xmm[6][0] = s.xmm[7][0]; s.xmm[6][1] = s.xmm[7][1];
   s.set_x_f32(0, k_c14258C260_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;

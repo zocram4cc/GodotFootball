@@ -15,7 +15,7 @@ void pes_fn_14088C540(PesState& s);
 
 void pes_fn_14088C540(PesState& s) {
   s.set_x_f32(0, k_c142588200_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
-  s.set_x_f32(0, (float)(((s.x_f32(0)) >= (s.x_f32(1))) ? (s.x_f32(0)) : (s.x_f32(1))));
+  s.set_x_f32(0, (float)(((s.x_f32(0)) > (s.x_f32(1))) ? (s.x_f32(0)) : (s.x_f32(1))));
   s.wrf(((s.gpr[1]) + (0x30ULL)), s.x_f32(0));
   return;
 }

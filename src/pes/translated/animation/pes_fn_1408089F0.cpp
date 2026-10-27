@@ -44,33 +44,20 @@ void pes_fn_1408089F0(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 4:;
-      goto L_140808A35;
-    case 7:;
-      goto L_140808A3D;
-    case 10:;
-      goto L_140808A45;
-    case 9:;
-      goto L_140808A4D;
-    case 11:;
-      goto L_140808A55;
-    case 8:;
-      goto L_140808A5D;
-    case 2:;
-      goto L_140808A65;
-    case 5:;
-      goto L_140808A6D;
-    case 0:;
-      goto L_140808A75;
-    case 6:;
-      goto L_140808A7D;
-    case 3:;
-      goto L_140808A85;
-    case 1:;
-      goto L_140808A8D;
-    case 12:;
-      goto L_140808AFA;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 8423989U: goto L_140808A35;
+    case 8423997U: goto L_140808A3D;
+    case 8424005U: goto L_140808A45;
+    case 8424013U: goto L_140808A4D;
+    case 8424021U: goto L_140808A55;
+    case 8424029U: goto L_140808A5D;
+    case 8424037U: goto L_140808A65;
+    case 8424045U: goto L_140808A6D;
+    case 8424053U: goto L_140808A75;
+    case 8424061U: goto L_140808A7D;
+    case 8424069U: goto L_140808A85;
+    case 8424077U: goto L_140808A8D;
+    case 8424186U: goto L_140808AFA;
     default: goto L_140808AFA;
     } }
   L_140808A35:;
@@ -161,19 +148,13 @@ void pes_fn_1408089F0(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[0] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 1:;
-      goto L_140808AAD;
-    case 3:;
-      goto L_140808AD5;
-    case 4:;
-      goto L_140808ADD;
-    case 2:;
-      goto L_140808AE5;
-    case 0:;
-      goto L_140808AED;
-    case 5:;
-      goto L_140808AF5;
+  { uint32_t _i = (uint32_t)(s.gpr[0] - 0x140000000ULL); switch (_i) {
+    case 8424109U: goto L_140808AAD;
+    case 8424149U: goto L_140808AD5;
+    case 8424157U: goto L_140808ADD;
+    case 8424165U: goto L_140808AE5;
+    case 8424173U: goto L_140808AED;
+    case 8424181U: goto L_140808AF5;
     default: goto L_140808AFA;
     } }
   L_140808AD5:;

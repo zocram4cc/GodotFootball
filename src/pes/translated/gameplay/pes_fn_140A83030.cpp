@@ -110,7 +110,7 @@ void pes_fn_140A83030(PesState& s) {
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(5)));
   if (s.cond("c")) goto L_140A83120;
   s.set_x_f32(1, (float)((s.x_f32(1)) - (s.x_f32(5))));
-  s.set_x_f32(0, (float)(((s.x_f32(0)) <= (s.x_f32(1))) ? (s.x_f32(0)) : (s.x_f32(1))));
+  s.set_x_f32(0, (float)(((s.x_f32(0)) < (s.x_f32(1))) ? (s.x_f32(0)) : (s.x_f32(1))));
   s.set_x_f32(0, (float)((s.x_f32(0)) + (s.x_f32(4))));
   s.xmm[4][0] = s.xmm[0][0]; s.xmm[4][1] = s.xmm[0][1];
   L_140A83120:;

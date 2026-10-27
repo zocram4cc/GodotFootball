@@ -27,36 +27,16 @@ void pes_fn_141F3B5B0(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[8] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 0:;
-      goto L_141F3B5D4;
-    case 1:;
-    case 2:;
-    case 3:;
-    case 4:;
-    case 5:;
-      goto L_141F3B5D8;
-    case 6:;
-      goto L_141F3B5DF;
-    case 7:;
-      goto L_141F3B5E6;
-    case 8:;
-      goto L_141F3B5ED;
-    case 9:;
-      goto L_141F3B5F4;
-    case 10:;
-    case 11:;
-    case 12:;
-      goto L_141F3B5FB;
-    case 13:;
-    case 14:;
-    case 15:;
-    case 16:;
-    case 17:;
-    case 18:;
-      goto L_141F3B602;
-    case 19:;
-      goto L_141F3B609;
+  { uint32_t _i = (uint32_t)(s.gpr[8] - 0x140000000ULL); switch (_i) {
+    case 32749012U: goto L_141F3B5D4;
+    case 32749016U: goto L_141F3B5D8;
+    case 32749023U: goto L_141F3B5DF;
+    case 32749030U: goto L_141F3B5E6;
+    case 32749037U: goto L_141F3B5ED;
+    case 32749044U: goto L_141F3B5F4;
+    case 32749051U: goto L_141F3B5FB;
+    case 32749058U: goto L_141F3B602;
+    case 32749065U: goto L_141F3B609;
     default: goto L_141F3B632;
     } }
   L_141F3B5D4:;

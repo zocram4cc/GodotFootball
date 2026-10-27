@@ -157,7 +157,7 @@ void pes_fn_1405FE700(PesState& s) {
   }
   s.wr(((s.gpr[4]) + (0xC0ULL)), (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))), 1);
   s.set_x_f32(9, (float)((s.x_f32(9)) + (s.x_f32(0))));
-  s.set_x_f32(0, (float)(((s.x_f32(0)) >= (s.x_f32(10))) ? (s.x_f32(0)) : (s.x_f32(10))));
+  s.set_x_f32(0, (float)(((s.x_f32(0)) > (s.x_f32(10))) ? (s.x_f32(0)) : (s.x_f32(10))));
   s.xmm[10][0] = s.xmm[0][0]; s.xmm[10][1] = s.xmm[0][1];
   goto L_1405FE81F;
   L_1405FE817:;
@@ -248,7 +248,7 @@ void pes_fn_1405FE700(PesState& s) {
     s.xmm[1][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[1][1] = ((uint64_t)_l3 << 32) | _l2; }
   s.cmp_ss((float)(s.x_f32(6)), (float)(s.x_f32(1)));
   s.xmm[0][0] = s.xmm[1][0]; s.xmm[0][1] = s.xmm[1][1];
-  s.set_x_f32(0, (float)(((s.x_f32(0)) >= (s.x_f32(8))) ? (s.x_f32(0)) : (s.x_f32(8))));
+  s.set_x_f32(0, (float)(((s.x_f32(0)) > (s.x_f32(8))) ? (s.x_f32(0)) : (s.x_f32(8))));
   s.xmm[8][0] = s.xmm[0][0]; s.xmm[8][1] = s.xmm[0][1];
   if (s.cond("be")) goto L_1405FE945;
   { uint64_t _a = (uint64_t)(s.rd(((s.gpr[6]) + ((s.gpr[5])*1ULL) + (0x308ULL)), 1)), _b = (uint64_t)((0ULL)), _r = (_a - _b) & 0xFFULL;

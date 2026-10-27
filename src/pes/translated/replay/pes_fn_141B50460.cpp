@@ -4463,7 +4463,7 @@ void pes_fn_141B50460(PesState& s) {
   return;
   L_141B52122:;
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[1])), 8));
-  /*UNRESOLVED JMP qword ptr [rax + 0x28]*/return;
+  __builtin_trap(); /* UNRESOLVED JMP qword ptr [rax + 0x28] */
   __builtin_trap();
   __builtin_trap();
   __builtin_trap();
@@ -4614,7 +4614,7 @@ void pes_fn_141B50460(PesState& s) {
   __builtin_trap();
   s.gpr[1] = (uint64_t)(s.rd(((s.gpr[1]) + (0x40ULL)), 8));
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[1])), 8));
-  /*UNRESOLVED JMP qword ptr [rax + 0x10]*/return;
+  __builtin_trap(); /* UNRESOLVED JMP qword ptr [rax + 0x10] */
   __builtin_trap();
   __builtin_trap();
   __builtin_trap();
@@ -4727,7 +4727,7 @@ void pes_fn_141B50460(PesState& s) {
   return;
   L_141B522C2:;
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[1])), 8));
-  /*UNRESOLVED JMP qword ptr [rax + 0x40]*/return;
+  __builtin_trap(); /* UNRESOLVED JMP qword ptr [rax + 0x40] */
   __builtin_trap();
   __builtin_trap();
   __builtin_trap();
@@ -4791,7 +4791,7 @@ void pes_fn_141B50460(PesState& s) {
   return;
   L_141B5232F:;
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[1])), 8));
-  /*UNRESOLVED JMP qword ptr [rax + 0x50]*/return;
+  __builtin_trap(); /* UNRESOLVED JMP qword ptr [rax + 0x50] */
   __builtin_trap();
   __builtin_trap();
   __builtin_trap();
@@ -4844,7 +4844,7 @@ void pes_fn_141B50460(PesState& s) {
   return;
   L_141B5238F:;
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[1])), 8));
-  /*UNRESOLVED JMP qword ptr [rax + 0x68]*/return;
+  __builtin_trap(); /* UNRESOLVED JMP qword ptr [rax + 0x68] */
   __builtin_trap();
   __builtin_trap();
   __builtin_trap();
@@ -5061,7 +5061,7 @@ void pes_fn_141B50460(PesState& s) {
   return;
   L_141B524D2:;
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[1])), 8));
-  /*UNRESOLVED JMP qword ptr [rax + 0x18]*/return;
+  __builtin_trap(); /* UNRESOLVED JMP qword ptr [rax + 0x18] */
   __builtin_trap();
   __builtin_trap();
   __builtin_trap();
@@ -5176,7 +5176,14 @@ void pes_fn_141B50460(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[2] = (uint64_t)(_r);
   }
-  /*UNRESOLVED JMP rdx*/return;
+  { uint32_t _i = (uint32_t)(s.gpr[2] - 0x140000000ULL); switch (_i) {
+    case 28648884U: goto L_141B525B4;
+    case 28648898U: goto L_141B525C2;
+    case 28648914U: goto L_141B525D2;
+    case 28648930U: goto L_141B525E2;
+    default: goto L_141B525F0;
+    } }
+  L_141B525B4:;
   s.gpr[1] = (uint64_t)(uint32_t)(s.rd(((s.gpr[4]) + (0x20ULL)), 4));
   { uint64_t _a = (uint64_t)(s.rd(((s.gpr[7])), 4)), _b = (uint64_t)(((uint64_t)(uint32_t)s.gpr[1])), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
@@ -5190,6 +5197,7 @@ void pes_fn_141B50460(PesState& s) {
   }
   s.wr(((s.gpr[7])), (uint64_t)(((uint64_t)(uint32_t)s.gpr[1])), 4);
   goto L_141B525F0;
+  L_141B525C2:;
   s.gpr[1] = (uint64_t)(uint32_t)(s.rd(((s.gpr[4]) + (0x20ULL)), 4));
   { uint64_t _a = (uint64_t)(s.rd(((s.gpr[7]) + (0x4ULL)), 4)), _b = (uint64_t)(((uint64_t)(uint32_t)s.gpr[1])), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
@@ -5203,6 +5211,7 @@ void pes_fn_141B50460(PesState& s) {
   }
   s.wr(((s.gpr[7]) + (0x4ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[1])), 4);
   goto L_141B525F0;
+  L_141B525D2:;
   s.gpr[1] = (uint64_t)(uint32_t)(s.rd(((s.gpr[4]) + (0x20ULL)), 4));
   { uint64_t _a = (uint64_t)(s.rd(((s.gpr[7]) + (0x8ULL)), 4)), _b = (uint64_t)(((uint64_t)(uint32_t)s.gpr[1])), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
@@ -5216,6 +5225,7 @@ void pes_fn_141B50460(PesState& s) {
   }
   s.wr(((s.gpr[7]) + (0x8ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[1])), 4);
   goto L_141B525F0;
+  L_141B525E2:;
   s.gpr[1] = (uint64_t)(uint32_t)(s.rd(((s.gpr[4]) + (0x20ULL)), 4));
   { uint64_t _a = (uint64_t)(s.rd(((s.gpr[7]) + (0xCULL)), 4)), _b = (uint64_t)(((uint64_t)(uint32_t)s.gpr[1])), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
@@ -5758,49 +5768,28 @@ void pes_fn_141B50460(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 2:;
-      goto L_141B52878;
-    case 1:;
-      goto L_141B5287C;
-    case 13:;
-      goto L_141B52883;
-    case 19:;
-      goto L_141B5288A;
-    case 8:;
-      goto L_141B52891;
-    case 7:;
-      goto L_141B52898;
-    case 15:;
-      goto L_141B5289F;
-    case 12:;
-      goto L_141B528A6;
-    case 18:;
-      goto L_141B528AD;
-    case 4:;
-      goto L_141B528B4;
-    case 14:;
-      goto L_141B528BB;
-    case 11:;
-      goto L_141B528C2;
-    case 3:;
-      goto L_141B528C9;
-    case 6:;
-      goto L_141B528D0;
-    case 9:;
-      goto L_141B528D7;
-    case 5:;
-      goto L_141B528DE;
-    case 10:;
-      goto L_141B528E7;
-    case 17:;
-      goto L_141B528F0;
-    case 16:;
-      goto L_141B528F5;
-    case 0:;
-      goto L_141B5292D;
-    case 20:;
-      goto L_141B5293F;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 28649592U: goto L_141B52878;
+    case 28649596U: goto L_141B5287C;
+    case 28649603U: goto L_141B52883;
+    case 28649610U: goto L_141B5288A;
+    case 28649617U: goto L_141B52891;
+    case 28649624U: goto L_141B52898;
+    case 28649631U: goto L_141B5289F;
+    case 28649638U: goto L_141B528A6;
+    case 28649645U: goto L_141B528AD;
+    case 28649652U: goto L_141B528B4;
+    case 28649659U: goto L_141B528BB;
+    case 28649666U: goto L_141B528C2;
+    case 28649673U: goto L_141B528C9;
+    case 28649680U: goto L_141B528D0;
+    case 28649687U: goto L_141B528D7;
+    case 28649694U: goto L_141B528DE;
+    case 28649703U: goto L_141B528E7;
+    case 28649712U: goto L_141B528F0;
+    case 28649717U: goto L_141B528F5;
+    case 28649773U: goto L_141B5292D;
+    case 28649791U: goto L_141B5293F;
     default: goto L_141B5293F;
     } }
   L_141B52878:;
@@ -6287,7 +6276,7 @@ void pes_fn_141B50460(PesState& s) {
     s.cf = false; s.of = false; }
   if (s.cond("z")) goto L_141B52A75;
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[1])), 8));
-  /*UNRESOLVED JMP qword ptr [rax + 0x60]*/return;
+  __builtin_trap(); /* UNRESOLVED JMP qword ptr [rax + 0x60] */
   L_141B52A75:;
   return;
   __builtin_trap();

@@ -93,7 +93,7 @@ void pes_fn_141F7F700(PesState& s) {
         s.cmp_ss((float)(s.x_f32(6)), (float)(s.x_f32(0)));
         if (!s.cond("a")) {
           s.set_x_f32(6, k_c14256AE1C_f); s.xmm[6][0] &= 0xFFFFFFFFull; s.xmm[6][1] = 0;
-          s.set_x_f32(6, (float)(((s.x_f32(6)) <= (s.x_f32(0))) ? (s.x_f32(6)) : (s.x_f32(0))));
+          s.set_x_f32(6, (float)(((s.x_f32(6)) < (s.x_f32(0))) ? (s.x_f32(6)) : (s.x_f32(0))));
         }
         s.wrf(((s.gpr[1]) + (0x98ULL)), s.x_f32(6));
       }
@@ -166,7 +166,7 @@ void pes_fn_141F7F700(PesState& s) {
           s.cmp_ss((float)(s.x_f32(6)), (float)(s.x_f32(0)));
           if (!s.cond("a")) {
             s.set_x_f32(6, k_c14256AE1C_f); s.xmm[6][0] &= 0xFFFFFFFFull; s.xmm[6][1] = 0;
-            s.set_x_f32(6, (float)(((s.x_f32(6)) <= (s.x_f32(0))) ? (s.x_f32(6)) : (s.x_f32(0))));
+            s.set_x_f32(6, (float)(((s.x_f32(6)) < (s.x_f32(0))) ? (s.x_f32(6)) : (s.x_f32(0))));
           }
           s.wrf(((s.gpr[1]) + (0x98ULL)), s.x_f32(6));
         }
@@ -239,7 +239,7 @@ void pes_fn_141F7F700(PesState& s) {
             s.cmp_ss((float)(s.x_f32(6)), (float)(s.x_f32(0)));
             if (!s.cond("a")) {
               s.set_x_f32(6, k_c14256AE1C_f); s.xmm[6][0] &= 0xFFFFFFFFull; s.xmm[6][1] = 0;
-              s.set_x_f32(6, (float)(((s.x_f32(6)) <= (s.x_f32(0))) ? (s.x_f32(6)) : (s.x_f32(0))));
+              s.set_x_f32(6, (float)(((s.x_f32(6)) < (s.x_f32(0))) ? (s.x_f32(6)) : (s.x_f32(0))));
             }
             s.wrf(((s.gpr[1]) + (0x98ULL)), s.x_f32(6));
           }
@@ -312,7 +312,7 @@ void pes_fn_141F7F700(PesState& s) {
               s.cmp_ss((float)(s.x_f32(6)), (float)(s.x_f32(0)));
               if (!s.cond("a")) {
                 s.set_x_f32(6, k_c14256AE1C_f); s.xmm[6][0] &= 0xFFFFFFFFull; s.xmm[6][1] = 0;
-                s.set_x_f32(6, (float)(((s.x_f32(6)) <= (s.x_f32(0))) ? (s.x_f32(6)) : (s.x_f32(0))));
+                s.set_x_f32(6, (float)(((s.x_f32(6)) < (s.x_f32(0))) ? (s.x_f32(6)) : (s.x_f32(0))));
               }
               s.wrf(((s.gpr[1]) + (0x98ULL)), s.x_f32(6));
             }

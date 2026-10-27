@@ -343,7 +343,7 @@ void pes_fn_14059B180(PesState& s) {
   s.cmp_ss((float)(s.x_f32(3)), (float)(s.x_f32(1)));
   s.set_x_f32(2, k_c14256AE1C_f); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   s.xmm[4][0] = s.xmm[1][0]; s.xmm[4][1] = s.xmm[1][1];
-  s.set_x_f32(4, (float)(((s.x_f32(4)) <= (s.x_f32(3))) ? (s.x_f32(4)) : (s.x_f32(3))));
+  s.set_x_f32(4, (float)(((s.x_f32(4)) < (s.x_f32(3))) ? (s.x_f32(4)) : (s.x_f32(3))));
   s.xmm[0][0] = s.xmm[4][0]; s.xmm[0][1] = s.xmm[4][1];
   s.set_x_f32(0, (float)((s.x_f32(0)) + ((k_c14259BDEC_f))));
   if (s.cond("c")) goto L_14059B4CF;

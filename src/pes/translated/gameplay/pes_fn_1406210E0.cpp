@@ -520,10 +520,10 @@ void pes_fn_1406210E0(PesState& s) {
   s.set_x_f32(2, (float)((s.x_f32(2)) * ((k_c14259BDCC_f))));
   L_140621513:;
   s.set_x_f32(0, s.rdf(((s.gpr[6])))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
-  s.set_x_f32(1, (float)(((s.x_f32(1)) >= (s.x_f32(2))) ? (s.x_f32(1)) : (s.x_f32(2))));
+  s.set_x_f32(1, (float)(((s.x_f32(1)) > (s.x_f32(2))) ? (s.x_f32(1)) : (s.x_f32(2))));
   { unsigned __int128 _v = s.rd128(((s.gpr[4]) + (0x30ULL))); s.xmm[6][0] = (uint64_t)_v; s.xmm[6][1] = (uint64_t)(_v >> 64); }
   s.set_x_f32(1, (float)((s.x_f32(1)) * ((k_c14253EE30_f))));
-  s.set_x_f32(0, (float)(((s.x_f32(0)) >= (s.x_f32(1))) ? (s.x_f32(0)) : (s.x_f32(1))));
+  s.set_x_f32(0, (float)(((s.x_f32(0)) > (s.x_f32(1))) ? (s.x_f32(0)) : (s.x_f32(1))));
   s.wrf(((s.gpr[6])), s.x_f32(0));
   L_140621530:;
   s.gpr[3] = (uint64_t)(s.rd(((s.gpr[4]) + (0x58ULL)), 8));

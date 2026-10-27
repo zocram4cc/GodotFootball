@@ -41,27 +41,16 @@ void pes_fn_140A1EF00(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[2] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 0:;
-      goto L_140A1EF30;
-    case 1:;
-      goto L_140A1EF40;
-    case 2:;
-      goto L_140A1EF5E;
-    case 3:;
-      goto L_140A1EF6E;
-    case 5:;
-      goto L_140A1EF8C;
-    case 6:;
-      goto L_140A1EFAA;
-    case 7:;
-      goto L_140A1EFBA;
-    case 8:;
-    case 9:;
-    case 10:;
-      goto L_140A1EFD8;
-    case 4:;
-      goto L_140A1F02A;
+  { uint32_t _i = (uint32_t)(s.gpr[2] - 0x140000000ULL); switch (_i) {
+    case 10612528U: goto L_140A1EF30;
+    case 10612544U: goto L_140A1EF40;
+    case 10612574U: goto L_140A1EF5E;
+    case 10612590U: goto L_140A1EF6E;
+    case 10612620U: goto L_140A1EF8C;
+    case 10612650U: goto L_140A1EFAA;
+    case 10612666U: goto L_140A1EFBA;
+    case 10612696U: goto L_140A1EFD8;
+    case 10612778U: goto L_140A1F02A;
     default: goto L_140A1F02C;
     } }
   L_140A1EF30:;

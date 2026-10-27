@@ -1958,9 +1958,12 @@ def prepass(lines, img):
                     inner = ops2[1][ops2[1].find("[") + 1:
                                     ops2[1].rfind("]")]
                     mp = parse_mem(inner)
+                    # The byte map is [table base + idx]: its base register must be the one the LEA loaded,
+                    # else an unrelated scale-1 load (e.g. [rcx+rax-1]) reads as a map below the image.
                     if mp and mp["base"] is not None and \
                             mp["scale"] == 1 and \
-                            mp["absolute"] is None:
+                            mp["absolute"] is None and \
+                            PARENT.get(mp["base"].lower(), mp["base"].lower()) == basep:
                         bmap = baseva + mp["disp"]
                         break
             if bmap is not None:

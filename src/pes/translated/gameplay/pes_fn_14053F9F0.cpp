@@ -134,7 +134,7 @@ void pes_fn_14053F9F0(PesState& s) {
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(2)));
   if (s.cond("a")) goto L_14053FB80;
   s.xmm[2][0] = s.xmm[0][0]; s.xmm[2][1] = s.xmm[0][1];
-  s.set_x_f32(2, (float)(((s.x_f32(2)) >= (s.x_f32(1))) ? (s.x_f32(2)) : (s.x_f32(1))));
+  s.set_x_f32(2, (float)(((s.x_f32(2)) > (s.x_f32(1))) ? (s.x_f32(2)) : (s.x_f32(1))));
   L_14053FB80:;
   s.set_x_f32(2, (float)((s.x_f32(2)) * (s.x_f32(5))));
   s.xmm[4][0] = s.xmm[11][0]; s.xmm[4][1] = s.xmm[11][1];
@@ -152,7 +152,7 @@ void pes_fn_14053F9F0(PesState& s) {
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(3)));
   if (s.cond("a")) goto L_14053FBBD;
   s.xmm[3][0] = s.xmm[6][0]; s.xmm[3][1] = s.xmm[6][1];
-  s.set_x_f32(3, (float)(((s.x_f32(3)) >= (s.x_f32(0))) ? (s.x_f32(3)) : (s.x_f32(0))));
+  s.set_x_f32(3, (float)(((s.x_f32(3)) > (s.x_f32(0))) ? (s.x_f32(3)) : (s.x_f32(0))));
   L_14053FBBD:;
   s.xmm[8][0] = s.xmm[2][0]; s.xmm[8][1] = s.xmm[2][1];
   s.xmm[6][0] = s.xmm[3][0]; s.xmm[6][1] = s.xmm[3][1];
@@ -177,7 +177,7 @@ void pes_fn_14053F9F0(PesState& s) {
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(2)));
   if (s.cond("a")) goto L_14053FC1B;
   s.xmm[2][0] = s.xmm[0][0]; s.xmm[2][1] = s.xmm[0][1];
-  s.set_x_f32(2, (float)(((s.x_f32(2)) >= (s.x_f32(1))) ? (s.x_f32(2)) : (s.x_f32(1))));
+  s.set_x_f32(2, (float)(((s.x_f32(2)) > (s.x_f32(1))) ? (s.x_f32(2)) : (s.x_f32(1))));
   L_14053FC1B:;
   s.cmp_ss((float)(s.x_f32(2)), (float)(s.x_f32(15)));
   if (s.cond("p")) goto L_14053FCEE;
@@ -201,7 +201,7 @@ void pes_fn_14053F9F0(PesState& s) {
   { unsigned __int128 _v = (((unsigned __int128)s.xmm[0][0] | ((unsigned __int128)s.xmm[0][1] << 64))) & (((k_c142565D30))); s.xmm[0][0] = (uint64_t)_v; s.xmm[0][1] = (uint64_t)(_v >> 64); }
   { uint32_t _lo = PesState::bits((float)s.x_f64(0)), _hi = PesState::bits((float)([&](){ double _d; uint64_t _u = s.xmm[0][1]; memcpy(&_d, &_u, 8); return _d; }()));
     s.xmm[1][0] = ((uint64_t)_hi << 32) | _lo; s.xmm[1][1] = 0; }
-  s.set_x_f32(4, (float)(((s.x_f32(4)) <= (s.x_f32(1))) ? (s.x_f32(4)) : (s.x_f32(1))));
+  s.set_x_f32(4, (float)(((s.x_f32(4)) < (s.x_f32(1))) ? (s.x_f32(4)) : (s.x_f32(1))));
   s.cmp_ss((float)(s.x_f32(11)), (float)(s.x_f32(4)));
   if (s.cond("a")) goto L_14053FCEE;
   L_14053FC73:;

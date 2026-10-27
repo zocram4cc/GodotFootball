@@ -8,9 +8,6 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
-// image constant @ 0x14252F388 (8 bytes)
-static constexpr uint64_t k_c14252F388_q = 0x00006FFFFF9E1060ULL;
-static constexpr double k_c14252F388_d = 6.0841860147477e-310; // 6.0841860147477e-310
 
 void pes_fn_1415A204C(PesState& s);
 void pes_fn_1415A1A68(PesState& s);
@@ -71,10 +68,7 @@ void pes_fn_1415A204C(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("nz")) goto L_1415A209D;
-  { uint64_t _t = (uint64_t)(k_c14252F388_q); PesDispatch _d = pes_dispatch_lookup(_t);
-    if (_d.fn == 0) pes_dispatch_missing(_t);
-    s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); _d.fn(s);
-    s.gpr[4] += 8; }
+  { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); s.gpr[0] = 36ULL; s.gpr[4] += 8; }
   s.wr(((s.gpr[3]) + (0x28ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
   L_1415A209D:;
   { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((32ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;

@@ -185,7 +185,7 @@ void pes_fn_14068DBA0(PesState& s) {
   { unsigned __int128 _v = (((unsigned __int128)s.xmm[1][0] | ((unsigned __int128)s.xmm[1][1] << 64))) & ((s.xmm[6][0] | ((unsigned __int128)s.xmm[6][1] << 64))); s.xmm[1][0] = (uint64_t)_v; s.xmm[1][1] = (uint64_t)(_v >> 64); }
   { uint32_t _lo = PesState::bits((float)s.x_f64(1)), _hi = PesState::bits((float)([&](){ double _d; uint64_t _u = s.xmm[1][1]; memcpy(&_d, &_u, 8); return _d; }()));
     s.xmm[1][0] = ((uint64_t)_hi << 32) | _lo; s.xmm[1][1] = 0; }
-  s.set_x_f32(9, (float)(((s.x_f32(9)) <= (s.x_f32(1))) ? (s.x_f32(9)) : (s.x_f32(1))));
+  s.set_x_f32(9, (float)(((s.x_f32(9)) < (s.x_f32(1))) ? (s.x_f32(9)) : (s.x_f32(1))));
   s.cmp_ss((float)(s.x_f32(2)), (float)(s.x_f32(9)));
   if (s.cond("be")) goto L_14068DDDD;
   s.xmm[1][0] = s.xmm[7][0]; s.xmm[1][1] = s.xmm[7][1];

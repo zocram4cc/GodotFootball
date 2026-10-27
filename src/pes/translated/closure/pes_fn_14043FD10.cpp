@@ -207,7 +207,7 @@ void pes_fn_14043FD10(PesState& s) {
   s.set_x_f32(0, (float)((s.x_f32(0)) + (s.x_f32(1))));
   s.set_x_f32(0, pes_model_sqrtf(s.x_f32(0)));
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[14]) + (0x8ULL)), 8));
-  s.set_x_f32(0, (float)(((s.x_f32(0)) <= (s.x_f32(10))) ? (s.x_f32(0)) : (s.x_f32(10))));
+  s.set_x_f32(0, (float)(((s.x_f32(0)) < (s.x_f32(10))) ? (s.x_f32(0)) : (s.x_f32(10))));
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[7])), _b = (uint64_t)((24ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
