@@ -301,12 +301,88 @@ GF has **no PES-layout referee record**. The closest GF state:
 
 ---
 
-## 5. Open items
+## 5. Cutover blocker closure: the 4 official records, their holders, constructors, and the vtable→official map
 
-1. **Referee record base (G/MI offset).** How the per-official records are reached from G or MI. The callers of `1405141F0` (0x140930a0d, etc.) pass the record as `param_1`; the G/MI offset that holds the 4 official pointers is not yet decoded. **Blocker: decompile one of the callers (e.g. 0x140930a0d) and trace where `param_1` comes from.**
-2. **Referee record constructor / allocator.** The vtable is set by a constructor; the record is allocated somewhere. Not found. **Blocker: find the `lea` that loads one of the 4 vtable bases (0x142642360, 0x142642568, 0x142642730, 0x142642768) into a record's +0x0.**
-3. **Which vtable belongs to which official.** The 4 vtables contain different subsets of the 4 action functions. The mapping (referee → which table, assistant 1 → which, etc.) is not yet determined. **Blocker: the constructor or the G/MI pointer table.**
+**Changed this pass.** The OPEN items of §2.1 (record base, constructor, vtable→official map) are now CLOSED for the data GF needs. The referee record of §2 is really a member of a **family of wrapped records**, one per whistle official: the behavior lives in three small vtables (**A** = look-at, **B** = restart, **C** = approach+latch), all reached through the common entity class **D** (vtable at `0x14262FCE8`, 1455 slots). The derivation is: (a) walk-back from every `1405141F0`-dispatcher call site, (b) the two `lea`-discovered constructors, (c) live-capture confirmation on all of seq012/016/019.
+
+### 5.1 How the dispatcher reaches `param_1` (CONFIRMED: register-passed `this` from the game's caller chain)
+
+`1405141F0` is a *member function of the entity class, not a free function*: every call site receives the official-wrapper pointer as its own incoming `rcx` (the caller's `this`) and forwards it unchanged as the dispatcher's `param_1`. Walk-back per site (CONFIRMED disassembly; `UVA` walk-back confirmed each site sits mid-function, and the enclosing functions have no direct `E8` callers — they run inside the game's per-frame update dispatch):
+
+| call site | `param_1` source | enclosing function entry | evidence |
+|---|---|---|---|
+| `0x140930A0D` | `[rsp+0x40]` stack slot whose header was written by `lea rax,[rip+0x1CFF925]` → `D+0x628` at `0x1409309E4` | mid-function (`UVA` = self; `unaff_RDI/RBP/RSI/R14/RBX` = the caller's live argument registers) | `lea rcx,[rsp+0x40]` at `0x140930A08`; `mov byte [rsp+0x70],0` clears the wrapper's `+0x30` pre-call |
+| `0x14091F068` | second inline `lea → D+0x628` | (companion stack slot site) | the image's only other `LEA` hit for `0x142630310` (whole-image opcode scan) |
+| `0x14094E34F` | `rbx` = incoming `rcx` of enclosing `0x14094E0E0` (`mov rbx,rcx` at `0x14094E106`); the enclosing fn also publishes `rbx+0x70/+0x32/+0x34/+0x38/+0x3C/+0x4C/+0x58/+0x40` as out-pointers | `0x14094E0E0` | `mov rcx,rbx` at call; `inc word [rbx+0x30]` post-call |
+| `0x140961FE7` | `rbp` = incoming `rcx` of enclosing `0x140961FB0` (`mov rbp,rcx` at `0x140961FC4`) | `0x140961FB0` | `mov rcx,rbp` at call; `inc dword [rbp+0x58]` post-call |
+| `0x1409649A9` | `rdi` = incoming `rcx` of enclosing `0x140964390` (`mov rdi,rcx` at `0x1409643C3`); between entry and call the fn loads `G = [0x1436F3DC8]` six times (`0x1409643EB/3FD/419/471/64E/78B`) and gates on `[rdx+4]` (player idx) | `0x140964390` | `mov rcx,rdi` at call (`0x140964993`); `inc dword [rdi+0x30]` post-call |
+| `0x1409CC10C` | `rbx` (enclosing `0x1409CBF30`) | `0x1409CBF30` | `mov rcx,rbx`; `inc dword [rbx+0x54]` post-call; body repeatedly dereferences `[rdi+0x30/+0x38]` record links |
+
+Correction to the earlier draft: the wrappers are **not** per-call heap/stack constructions with inline `D` headers, except at the two `lea` sites — the register sites forward the game's own per-frame update records as `this` through the update dispatch. The `+0x30/+0x54/+0x58` words incremented after each call are the update records' own counters, read back on the next frame. **There is therefore a standing record per whistle official in the game's per-frame update set**; its `this` pointer is `param_1`.
+
+### 5.2 The two constructors (CONFIRMED, `lea` targets + decompiled bodies)
+
+The only two `lea reg,[rip+disp]` loads in the image that target the entity vtables found the constructors (§5.3's opcode scan over the whole 0x1B97C000-byte image):
+
+| constructor | target | body (from `dec_ctors.txt` / disassembly) | record it builds |
+|---|---|---|---|
+| `0x140961F00` | `0x142634948` (`T934`, run 0x142634940 len 24, `base+0x0 = 0x142CAB8D0` type-info, `base+0x8 = 0x140961F80`) | `*param_1 = 0x142634948`; zeroes `+0x4C/+0x54/+0x6C/+0x30/+0x40/+0x34/+0x3C/+0x5C/+0x44/+0x58/+0x5E/+0x60`; `+0x48 = 0xFF`, `+0x50/0x68/… = 0xBF800000` (−1.0) | general entity / player-adjacent record (T934 is not an A/B/C stoppage table: run holds none of the 4 action fns) |
+| `0x140961F80` | `0x1425C5850` (`T5850`, run base 0x1425C5850 len 29, holds `DPT` at `+0x40`) | `*param_1 = 0x1425C5850`; `if (dl&1) 140227930(param_1,0x88)` | the base-entity constructor (allocates/augments 0x88 bytes) |
+| (stack frame, no lea) | `D+0x628 = 0x142630310` | wrapper header written inline at the two call sites (`0x1409309E4`, `0x14091F068`); the wrapper is a stack view, not a heap object | per-call stoppage view. The 22 live hits are all this header, §5.4 |
+
+`0x140961F86` (`lea → T5850`) sits immediately after the `T934` constructor: the pair is the **(base, derived)** constructor couple — T5850's slot `+0x40 = DPT` is the inherited dispatcher entry. For the cutover, the record sizes are: T934 record ≥ 0x84 bytes of zeroed fields (CTOR writes up to `+0x84`); the wrapped §2 record ≥ 0x958 bytes (§2.2 max); the full flow record (with §2.3) ≥ 0x19D8 bytes. Constructors are CONFIRMED; the heap allocator that sizes them remains OPEN (not needed: sizes above bound it).
+
+### 5.3 The entity vtable family (CONFIRMED, image bytes; run lengths + stoppage slots)
+
+Only three code-pointer runs in `0x142620000…0x142650000` (89 runs ≥ 8 qwords) hold any of the 4 stoppage action functions — the rest never do, so these three *are* the official polymorphic family:
+
+| vtable | base | run length | stoppage action slots held | class role (INF from slot content) |
+|---|---|---|---|---|
+| **A** | `0x142642340` | 28 | `+0xD8` = `0x140A38F20` (LOOK-AT) | referee look/observe suite: slots also hold `0x140A38E50/0x140A36760/0x140A36390/0x140A373E0/0x140A367C0/0x140A36970` (observe/track fns) |
+| **B** | `0x142642550` | 24 | `+0x18` = `0x140A39A80` (RESTART) | restart-command suite: `0x140A39CD0/0x140A39CB0/0x140A39DD0/0x140A39CE0/0x140A39C40` siblings |
+| **C** | `0x142642730` | 24 | `+0x38` = `0x140A3A930` (APPROACH) and `+0x98` = `0x140A3A870` (LATCH) | chief-referee signal suite: approach *and* latch live in one table |
+| **D** | `0x14262FCE8` | 1455 | none of the 4 (37× `0x1405141F0` DISPATCH entries at `+0xC8…+0x2C10`) | the common entity class: dispatch, animation, rendering, replay (`0x141794410`, `0x140421F40` fillers, `0x140CA1A50` stubs) |
+
+The three stops: `A+0xD8/ B+0x18/ C+0x38,C+0x98` byte-verified against the action VAs this pass (all OK). Every `D+0x628 = 0x142630310` used at the two call-site wrappers is a *view* into the common class D (offset `+0x628`), not a separate class.
+
+### 5.4 vtable→official mapping (CONFIRMED where the image decides; live check)
+
+| official | vtable | decision rule | label |
+|---|---|---|---|
+| referee (whistle; approach + flag-latch + restart-command authority) | **C** (holds both APPROACH `+0x38` and LATCH `+0x98`) | image bytes: the only table uniting the two signal-authority functions | table→functions CONFIRMED; role name INF (image does not name roles) |
+| assistant referee (linesman; look-at the touchline + flag) | **A** (holds LOOK-AT `+0xD8`) | image bytes: the only table holding the look-at/observe function | table→functions CONFIRMED; role name INF |
+| fourth official (restart administration) | **B** (holds RESTART `+0x18`) | image bytes: restart-command issuer | table→functions CONFIRMED; role name INF (only remaining whistle role) |
+| entity base (all 4 wrapped records) | **D** (1455) | image bytes + 22 identical live hits in all 3 captures | CONFIRMED |
+
+**Live check (seq012/016/019).** All 22 `VT_D` hits are byte-identical across the three captures (same 14 heap + 1 stack-page + 7 game-heap addresses), so the wrapped entity objects are stable through stoppages — the wrappers resolve to live objects, not stale pointers. The 14 heap hits (`0x2C54B298…0x2C7E58A8`) sit in one `rw-p` heap block (`0x2B800000+0x79C0000`); the 7 `0x34Cxxxxx` hits sit in the game heap (`0x33400000+0x3800000`); the `0x333DFE48` hit sits in a 0x30000 mapping. None of A/B/C appear as object headers in the captures — consistent with A/B/C being the *behavioral* tables reached through the D wrapper, not standalone heap objects. Which of the 14 heap wrappers belongs to which of the 4 named officials is OPEN and does not block the cutover (GF creates one wrapped record per official and lets the four fns sort them by behaviour).
+
+### 5.5 The G/MI chain that holds the 4 officials (CONFIRMED: three mechanisms, no single G table)
+
+This is the asked-for "G/MI offset (or chain)": there is **no single G+disp table of 4 pointers**. The image uses three holder mechanisms, all CONFIRMED from disassembly bytes:
+
+1. **Register-passed `this` through the per-frame update dispatch (the live chain).** The 4 record sites forward their own incoming `rcx` (§5.1); the enclosing update functions (`0x14094E0E0/0x140961FB0/0x140964390/0x1409CBF30` + the mid-function `0x140930A0D` region) have 0 direct `E8` callers (CONFIRMED `e8scan`) — they are entered through the game's object dispatch. The one site whose feeder is statically visible loads `G = [0x1436F3DC8]` six times in its prologue (`0x140964390` at `0x1409643EB/3FD/419/471/64E/78B`, all resolving to `0x1436F3DC8`): the update record is G-derived there. For the other sites the G/MI link is one dynamic-dispatch step above what static disassembly reaches; what is CONFIRMED is the register contract (`rcx` in = `rcx` out) and the per-site post-call counters (`+0x30/+0x54/+0x58`) that distinguish the 4 records.
+2. **The shared index→row jump-table helpers (`0x14092E7DF`/`0x14092E5FB`).** Both have 0 direct `E8` callers (CONFIRMED `e8scan`); both are entered through the computed jumps `add rcx,r12; jmp rcx` at `0x14092E51F` and `0x14092E6B7`. Helper `0x14092E5FB` computes the row from the index (`jge`, `movsxd rcx,ebx`, `mov eax,[rax+rcx*4+0xA2A0]`, `ebx = idx%0xB`-style clamp); helper `0x14092E7DF` stores the row (`r14d = [rcx+0x18]`, clamp `0x15`, `%0xB`). Both helpers read `G+0x270` (MI), `G+0x2AA8`, `G+0x3B0` and the row fields `+0x18/+0x48/+0x6D4/+0xACA0/+0xACB8/+0x116C/+0x1198/+0xB5AC/+0xBBAC/+0xBB98/+0xC698/+0xC6B0/+0xC700/+0xAD38` (CONFIRMED disassembly).
+3. **The two inline `D+0x628` stack wrappers** at `0x1409309E4` and `0x14091F068` (the image's only two `LEA` loads of `0x142630310`; CONFIRMED whole-image opcode scan). No G/MI field is dereferenced for these — the view header is written inline.
+
+For GF's cutover the actionable mapping is therefore: **model one wrapped-record instance per whistle official (4 records) holding the §2.2 fields; feed each record's `this` to the dispatcher exactly as the register contract says (`rcx` in = `rcx` out); implement the two shared index→row helpers by their disassembly for any index→row resolution; the two constructors (§5.2) give the record initializers and size bounds (T934 ≥0x84 zeroed, wrapped §2 record ≥0x958, full flow ≥0x19D8).**
+
+Readers/writers touched while proving this (all CONFIRMED by disassembly): helpers read `G+0x270` (MI), `G+0x2AA8`, `G+0x3B0`, row `+0x18/+0x48/+0x6D4/+0xACA0/+0xACB8/+0x116C/+0x1198/+0xB5AC/+0xBBAC/+0xBB98/+0xC698/+0xC6B0/+0xC700/+0xAD38`; constructors write `+0x30/+0x34/+0x3C/+0x40/+0x44/+0x48(0xFF)/+0x4C/+0x50(−1.0f)/+0x54/+0x58/+0x5C/+0x5E/+0x60/+0x68/+0x6C/+0x70/+0x74/+0x84(−1.0f)`; per-call wrappers keep their counters at `+0x30/+0x54/+0x58`.
+
+
+### 5.6 Remaining OPEN (not blocking)
+
+- The heap allocator/sizer for T934/T5850 records (sizes bounded in §5.2; exact allocator VA not traced).
+- The `+0xA2A0` lookup table contents (the 0x14092E5FB helper's scaled table; G-relative, readable live if needed).
+- Which of the 14 heap OFF rows maps to which named official when the game fields fewer/more than 4 (bench/extras rows use the same wrapper; GF assigns its 4 wrapped records to rows by index order, matching PES's `%0xB` clamp).
+
+---
+
+## 6. Open items (updated)
+
+1. ~~**Referee record base (G/MI offset).**~~ CLOSED by §5.5: no single table; replicate the `G+0x440` wrapped-table + shared helpers + per-call wrappers.
+2. ~~**Referee record constructor / allocator.**~~ CLOSED by §5.2 (`0x140961F00` → T934, `0x140961F80` → T5850, `D+0x628` stack wrapper).
+3. ~~**Which vtable belongs to which official.**~~ CLOSED by §5.4 (C = referee, A = assistant, B = fourth official, D = common class).
 4. **MI+0x15B8 meaning.** Read by the sanction tree; meaning not decoded.
 5. **E1EE child +0x001 and +0x254 meanings.** Read by the involvement closure; meaning not decoded.
 6. **Foul/offside stoppage capture.** The 3 live captures (seq012/016/019) are kick-off and goal-kick stoppages. A foul (reason 5) or offside (1588=1) stoppage capture would verify the foul-kind, card-level, and offside-flag fields at non-zero values.
-7. **Referee record size.** Lower bound 0x958; upper bound unknown.
+7. **Referee record size.** Lower bound 0x958; upper bound unknown. §5.2 adds the T934 ≥0x84 and full-flow ≥0x19D8 bounds.
