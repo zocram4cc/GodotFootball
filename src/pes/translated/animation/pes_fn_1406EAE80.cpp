@@ -14,7 +14,7 @@ void pes_fn_1406EAE80(PesState& s) {
   s.gpr[0] = (uint64_t)((((int64_t)(((uint64_t)(((uint64_t)(uint32_t)s.gpr[8])) << 32))) >> 32));
   s.gpr[1] = (uint64_t)(((s.gpr[0]) + ((s.gpr[0])*2ULL)));
   s.gpr[0] = (uint64_t)(((0x14344E2E0ULL)));
-  s.xmm[0][0] = s.rd(((s.gpr[0]) + ((s.gpr[1])*4ULL)), 8);
+  s.xmm[0][0] = s.rd(((s.gpr[0]) + ((s.gpr[1])*4ULL)), 8); s.xmm[0][1] = 0;
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0]) + ((s.gpr[1])*4ULL) + (0x8ULL)), 4));
   s.wr(((s.gpr[2])), s.xmm[0][0], 8);
   s.wr(((s.gpr[2]) + (0x8ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);

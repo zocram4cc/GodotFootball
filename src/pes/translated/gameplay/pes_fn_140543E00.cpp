@@ -79,8 +79,8 @@ void pes_fn_140543E00(PesState& s) {
   L_140543E47:;
   s.gpr[8] = (uint64_t)(s.gpr[9]);
   L_140543E4A:;
-  s.set_x_f32(1, s.rdf(((s.gpr[8]) + ((s.gpr[5])*4ULL) + (0x16A8ULL))));
-  s.set_x_f32(0, s.rdf(((s.gpr[0]) + (0x558ULL))));
+  s.set_x_f32(1, s.rdf(((s.gpr[8]) + ((s.gpr[5])*4ULL) + (0x16A8ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
+  s.set_x_f32(0, s.rdf(((s.gpr[0]) + (0x558ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_14043A0A0(s); s.gpr[4] += 8; }
   s.xmm[1][0] = 0; s.xmm[1][1] = 0;
   s.set_x_f64(1, (double)(s.x_f32(0)));
@@ -117,7 +117,7 @@ void pes_fn_140543E00(PesState& s) {
   s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)((1ULL)));
   goto L_140543F1D;
   L_140543EB5:;
-  s.set_x_f32(2, k_c14258C264_f);
+  s.set_x_f32(2, k_c14258C264_f); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[9])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[9]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false;
@@ -133,13 +133,13 @@ void pes_fn_140543E00(PesState& s) {
   s.gpr[2] = (uint64_t)(uint32_t)(s.rd(((s.gpr[6]) + (0x8ULL)), 4));
   s.gpr[1] = (uint64_t)(s.rd(0x1436F3DC8ULL, 8));
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A48A30(s); s.gpr[4] += 8; }
-  s.set_x_f32(3, k_c14256AE30_f);
+  s.set_x_f32(3, k_c14256AE30_f); s.xmm[3][0] &= 0xFFFFFFFFull; s.xmm[3][1] = 0;
   s.xmm[0][0] = 0; s.xmm[0][1] = 0;
   s.gpr[1] = (uint64_t)(s.rd(((s.gpr[6])), 8));
   s.gpr[2] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[7]));
   s.wrf(((s.gpr[4]) + (0x38ULL)), s.x_f32(0));
-  s.set_x_f32(0, k_c142588210_f);
-  s.set_x_f32(2, s.rdf(((s.gpr[0]) + (0x250ULL))));
+  s.set_x_f32(0, k_c142588210_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
+  s.set_x_f32(2, s.rdf(((s.gpr[0]) + (0x250ULL)))); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   s.wr(((s.gpr[4]) + (0x30ULL)), (uint64_t)((1ULL)), 1);
   s.wr(((s.gpr[4]) + (0x28ULL)), (uint64_t)((0ULL)), 1);
   s.wrf(((s.gpr[4]) + (0x20ULL)), s.x_f32(0));

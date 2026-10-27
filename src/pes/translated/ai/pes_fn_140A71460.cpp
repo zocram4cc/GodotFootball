@@ -16,10 +16,10 @@ void pes_fn_140A71460(PesState& s) {
     s.cf = (_a & 0xFFULL) < (_b & 0xFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }
   if (s.cond("nz")) {
-    s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x228DCULL))));
+    s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x228DCULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     return;
   } else {
-    s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x228E4ULL))));
+    s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x228E4ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     return;
   }
 }

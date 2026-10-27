@@ -60,7 +60,7 @@ void pes_fn_141F3FB90(PesState& s) {
     s.cf = (_a & 0xFFFFULL) < (_b & 0xFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 15) & 1; }
   if (s.cond("nz")) goto L_141F3FC0E;
-  s.set_x_f32(0, s.rdf(((s.gpr[11]) + ((s.gpr[1])*1ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[11]) + ((s.gpr[1])*1ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.cmp_ss((float)(s.x_f32(0)), (float)((s.rdf(((s.gpr[1]))))));
   if (s.cond("p")) goto L_141F3FC0E;
   if (s.cond("nz")) goto L_141F3FC0E;

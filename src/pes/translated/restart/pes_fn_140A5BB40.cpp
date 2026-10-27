@@ -45,7 +45,7 @@ void pes_fn_140A5BB40(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("a")) goto L_140A5BB9C;
-  s.xmm[0][0] = s.rd(((s.gpr[0])), 8);
+  s.xmm[0][0] = s.rd(((s.gpr[0])), 8); s.xmm[0][1] = 0;
   s.gpr[1] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0]) + (0x8ULL)), 4));
   s.wr(((s.gpr[0]) + (0ULL - 0x9CULL)), s.xmm[0][0], 8);
   s.wr(((s.gpr[0]) + (0ULL - 0x94ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[1])), 4);

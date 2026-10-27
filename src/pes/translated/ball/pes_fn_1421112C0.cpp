@@ -226,9 +226,9 @@ void pes_fn_1421112C0(PesState& s) {
   L_14211148F:;
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[6]) + (0x20ULL)), 8));
   s.gpr[1] = (uint64_t)(s.rd(((s.gpr[6])), 8));
-  s.set_x_f32(0, s.rdf(((s.gpr[5]) + (0x18ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[5]) + (0x18ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.set_x_f32(0, (float)((s.x_f32(0)) - ((k_c14258C264_f))));
-  s.set_x_f32(1, s.rdf(((s.gpr[0]) + (0x40ULL))));
+  s.set_x_f32(1, s.rdf(((s.gpr[0]) + (0x40ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   s.set_x_f32(1, (float)((s.x_f32(1)) * ((s.rdf(((s.gpr[1]) + (0x14ULL)))))));
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(1)));
   if (s.cond("be")) goto L_1421114BF;

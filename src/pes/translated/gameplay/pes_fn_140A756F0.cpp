@@ -37,7 +37,7 @@ void pes_fn_140A756F0(PesState& s) {
         s.gpr[1] = (uint64_t)(_r);
       }
       s.gpr[0] = (uint64_t)(((0x1434A2E14ULL)));
-      s.set_x_f32(0, s.rdf(((s.gpr[0]) + ((s.gpr[1])*8ULL))));
+      s.set_x_f32(0, s.rdf(((s.gpr[0]) + ((s.gpr[1])*8ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
       return;
     }
   }

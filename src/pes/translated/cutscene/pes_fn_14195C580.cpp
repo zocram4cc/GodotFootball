@@ -33,13 +33,13 @@ void pes_fn_14195C580(PesState& s) {
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[2]));
   s.xmm[2][0] = s.xmm[0][0]; s.xmm[2][1] = s.xmm[0][1];
   s.xmm[3][0] = 0; s.xmm[3][1] = 0;
-  s.set_x_f32(0, k_c142A83540_f);
+  s.set_x_f32(0, k_c142A83540_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.set_x_f32(1, (float)((s.x_f32(1)) - (s.x_f32(0))));
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(3)));
   if (s.cond("nc")) goto L_14195C5A4;
   s.xmm[2][0] = s.xmm[0][0]; s.xmm[2][1] = s.xmm[0][1];
   L_14195C5A4:;
-  s.set_x_f32(1, k_c142A83544_f);
+  s.set_x_f32(1, k_c142A83544_f); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   s.xmm[0][0] = s.xmm[1][0]; s.xmm[0][1] = s.xmm[1][1];
   s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(2))));
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(3)));
@@ -49,7 +49,7 @@ void pes_fn_14195C580(PesState& s) {
   s.gpr[1] = (uint64_t)(uint32_t)((1ULL));
   s.gpr[0] = (uint64_t)(((0x142A82910ULL)));
   L_14195C5C7:;
-  s.set_x_f32(1, s.rdf(((s.gpr[0]))));
+  s.set_x_f32(1, s.rdf(((s.gpr[0])))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(2)));
   if (s.cond("a")) goto L_14195C5E3;
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[1])), _r = (_a + 1) & 0xFFFFFFFFULL;
@@ -140,7 +140,7 @@ void pes_fn_14195C580(PesState& s) {
   if (s.cond("nc")) goto L_14195C6A9;
   s.xmm[1][0] = s.xmm[5][0]; s.xmm[1][1] = s.xmm[5][1];
   L_14195C6A9:;
-  s.set_x_f32(2, k_c14256AE1C_f);
+  s.set_x_f32(2, k_c14256AE1C_f); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   s.cmp_ss((float)(s.x_f32(4)), (float)(s.x_f32(7)));
   { unsigned __int128 _v = s.rd128(((s.gpr[4]))); s.xmm[7][0] = (uint64_t)_v; s.xmm[7][1] = (uint64_t)(_v >> 64); }
   if (s.cond("be")) goto L_14195C6CC;
@@ -154,7 +154,7 @@ void pes_fn_14195C580(PesState& s) {
   s.set_x_f32(5, (float)((s.x_f32(5)) - (s.x_f32(4))));
   s.set_x_f32(1, (float)((s.x_f32(1)) / (s.x_f32(5))));
   L_14195C6D8:;
-  s.set_x_f32(4, k_c142588218_f);
+  s.set_x_f32(4, k_c142588218_f); s.xmm[4][0] &= 0xFFFFFFFFull; s.xmm[4][1] = 0;
   s.xmm[0][0] = s.xmm[1][0]; s.xmm[0][1] = s.xmm[1][1];
   { unsigned __int128 _v = s.rd128(((s.gpr[4]) + (0x10ULL))); s.xmm[6][0] = (uint64_t)_v; s.xmm[6][1] = (uint64_t)(_v >> 64); }
   s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(4))));

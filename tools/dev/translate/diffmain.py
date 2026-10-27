@@ -6,6 +6,7 @@ for bit. Memory setup mirrors run.py set_inputs + regions_init/patch_addrs.
 Floats compare by IEEE bits.
 """
 import json
+import struct
 
 GPR = {"rcx": 1, "rdx": 2, "r8": 8, "r9": 9, "rax": 0, "rbx": 3,
        "rbp": 5, "rsp": 4, "eax": 0, "ebx": 3, "r8d": 8, "edx": 2,
@@ -17,7 +18,35 @@ def ident(name):
     return name.replace(".", "_").replace("-", "_")
 
 
-def gen(spec, va, callees, seed=None, bank=None):
+def write_instances(spec, instances, path):
+    """Writes the diff main's instance file (inst_apply reads it at run time): u64 n, then n u64
+    offsets of the instance records, then each instance's records in spec region order.
+    A record is {u64 off, u64 len, len bytes}; len 0 leaves the region unseeded. instances: a
+    sequence of seed artifacts (a Bank, a list, or [None] for one unseeded instance)."""
+    sp = json.load(open(spec)) if isinstance(spec, str) else spec
+    regions = sp.get("regions") or {}
+    rnames = list(regions.keys())
+    n = len(instances)
+    offs = []
+    with open(path, "wb") as f:
+        f.write(struct.pack("<Q", n) + bytes(8 * n))
+        for k in range(n):
+            offs.append(f.tell())
+            seeded = {r["name"]: r for r in (instances[k] or {}).get("regions") or []}
+            for name in rnames:
+                if name not in seeded:
+                    f.write(struct.pack("<QQ", 0, 0))
+                    continue
+                r = seeded[name]
+                blob = bytes.fromhex(r["hex"])
+                off = int(r["off"])
+                if off + len(blob) > int(regions[name]["size"], 16):
+                    raise ValueError("seed for %s exceeds its region" % name)
+                f.write(struct.pack("<QQ", off, len(blob)) + blob)
+        f.seek(8)
+        f.write(struct.pack("<%dQ" % n, *offs))
+
+def gen(spec, va, callees):
     sp = json.load(open(spec)) if isinstance(spec, str) else spec
     V = va[2:]
     regions = sp.get("regions") or {}
@@ -35,6 +64,7 @@ def gen(spec, va, callees, seed=None, bank=None):
     L.append('#include <sys/mman.h>')
     L.append('#include <sys/stat.h>')
     L.append('#include <unistd.h>')
+    L.append('#include <vector>')
     fns = sorted({V} | {c[2:] for c in callees})
     for f in fns:
         L.append('void pes_fn_%s(PesState& s);' % f)
@@ -45,31 +75,41 @@ def gen(spec, va, callees, seed=None, bank=None):
     stack = sp.get("stack", {"base": "0x10000000", "size": "0x20000"})
     L.append('static const uint64_t stack_base = %sULL;' % stack["base"])
     L.append('static const uint64_t stack_size = %sULL;' % stack["size"])
-    # seed.py artifact (live state): region bytes copied into the per-case
-    # segments below, before the args and linkage writes (run.py applies the
-    # same bytes before the case inputs). A bank (run.py --seed-bank) holds one
-    # artifact per instance; each case copies the instance its corpus line names
-    # ("inst", 0 when unbanked). The segments are fresh per case, so unseeded
-    # regions are zero, as in run.py's bank mode.
-    def seed_bytes(art):
-        seeded = {r["name"]: r for r in (art or {}).get("regions") or []}
-        out = {}
-        for name in rnames:
-            if name in seeded:
-                r = seeded[name]
-                blob = bytes.fromhex(r["hex"])
-                if int(r["off"]) + len(blob) > int(regions[name]["size"], 16):
-                    raise ValueError("seed for %s exceeds its region" % name)
-                out[name] = (int(r["off"]), blob)
-        return out
-    seeded_k = [seed_bytes(a) for a in (([seed]) if bank is None else list(bank))]
-    for k, sb in enumerate(seeded_k):
-        for name, (off, blob) in sb.items():
-            L.append('static const uint8_t seed_%s_%d[] = {%s};' % (ids[name], k, ",".join(str(b) for b in blob)))
+    # Instance records are read at run time from argv[3] (write_instances): a bank is too big to
+    # compile in. The segments are fresh per case, so unseeded regions stay zero, as in run.py.
+    L.append('struct InstFile { int fd = -1; uint64_t n = 0; std::vector<uint64_t> off; };')
+    L.append('static bool read_full(int fd, void* buf, size_t n, uint64_t pos) {')
+    L.append('  uint8_t* p = (uint8_t*)buf;')
+    L.append('  while (n) { ssize_t r = pread(fd, p, n, (off_t)pos); if (r <= 0) return false; p += r; pos += (uint64_t)r; n -= (size_t)r; }')
+    L.append('  return true;')
+    L.append('}')
+    L.append('static bool inst_open(const char* path, InstFile& f) {')
+    L.append('  f.fd = open(path, O_RDONLY); if (f.fd < 0) return false;')
+    L.append('  if (!read_full(f.fd, &f.n, 8, 0)) return false;')
+    L.append('  f.off.resize((size_t)f.n);')
+    L.append('  return f.n == 0 || read_full(f.fd, f.off.data(), 8 * (size_t)f.n, 8);')
+    L.append('}')
+    L.append('static bool inst_apply(const InstFile& f, uint64_t k, PesState& s) {')
+    L.append('  if (k >= f.n) return false;')
+    L.append('  uint64_t pos = f.off[(size_t)k];')
+    L.append('  for (size_t i = 0; i < %d; ++i) {' % len(rnames))
+    L.append('    uint64_t hdr[2];')
+    L.append('    if (!read_full(f.fd, hdr, 16, pos)) return false;')
+    L.append('    pos += 16;')
+    L.append('    if (hdr[1] == 0) continue;')
+    L.append('    if (hdr[0] + hdr[1] > s.mem.segs[i].bytes.size()) return false;')
+    L.append('    std::vector<uint8_t> b((size_t)hdr[1]);')
+    L.append('    if (!read_full(f.fd, b.data(), b.size(), pos)) return false;')
+    L.append('    pos += hdr[1];')
+    L.append('    std::memcpy(s.mem.segs[i].bytes.data() + hdr[0], b.data(), b.size());')
+    L.append('  }')
+    L.append('  return true;')
+    L.append('}')
     L.append('int main(int argc, char** argv) {')
-    L.append('  if (argc < 3) return 2;')
+    L.append('  if (argc < 4) return 2;')
     L.append('  FILE* f = fopen(argv[1], "r"); if (!f) return 2;')
     L.append('  int ifd = open(argv[2], O_RDONLY); if (ifd < 0) return 2;')
+    L.append('  InstFile ins; if (!inst_open(argv[3], ins)) return 2;')
     L.append('  struct stat ist; if (fstat(ifd, &ist) != 0) return 2;')
     L.append('  // The image is mapped the way run.py maps a flat dump (file offset = VA - 0x140000000),')
     L.append('  // copy-on-write, so writes persist across cases exactly as in the harness mapping.')
@@ -85,12 +125,7 @@ def gen(spec, va, callees, seed=None, bank=None):
     for name in rnames:
         L.append('    s.mem.segs.push_back({base_%s, std::vector<uint8_t>(size_%s, 0)});' % (ids[name], ids[name]))
     L.append('    s.mem.segs.push_back({stack_base, std::vector<uint8_t>(stack_size, 0)});')
-    for k, sb in enumerate(seeded_k):
-        L.append('    if (jl.inst == %d) {' % k)
-        for i, name in enumerate(rnames):
-            if name in sb:
-                L.append('      std::memcpy(s.mem.segs[%d].bytes.data() + %d, seed_%s_%d, sizeof seed_%s_%d);' % (i, sb[name][0], ids[name], k, ids[name], k))
-        L.append('    }')
+    L.append('    if (!inst_apply(ins, (uint64_t)jl.inst, s)) { printf("instance %d unreadable\\n", (int)jl.inst); return 2; }')
     L.append('    const uint64_t stack_top = stack_base + stack_size - 0x100ULL;')
     L.append('    s.gpr[4] = stack_top - 8; s.wr(s.gpr[4], 0ULL, 8);')
     # args
@@ -165,5 +200,84 @@ def gen(spec, va, callees, seed=None, bank=None):
     L.append('  printf("%s: %ld cases, %ld mismatch\\n", argv[1], nc, bad);')
     L.append('  fclose(f);')
     L.append('  return bad != 0;')
+    L.append('}')
+    # Every mismatching field is printed (the report lists each case), not the first ten.
+    return ("\n".join(L) + "\n").replace("if (bad < 10)", "if (true)")
+
+
+def gen_snap(va, callees):
+    """The snapshot diff main for one function. argv: ok_calls.bin (the replayable calls of one
+    snapshot, snapcase.py), mem.bin, maps.txt (its readable runs), out.jsonl, ok_delta.bin (each call's delta pages) and pool/pages.bin (their bytes). Each call starts from
+    its recorded registers over the snapshot's own pages (SnapView, copied on first touch and dropped
+    per call), with its return address at [rsp]. One output line per call in the harness corpus's
+    format: rax, the full xmm0, and every byte written (address and value, in order)."""
+    from frame_trace import TEB_BASE  # the GS base the snapshot harness sets (the same constant, not a copy)
+    V = va[2:]
+    fns = sorted({V} | {c[2:] for c in callees})
+    L = []
+    L.append('// Generated snapshot diff main for %s (build tree only).' % va)
+    L.append('#include "pes_state.hpp"')
+    L.append('#include "pes_cond.inl"')
+    L.append('#include <cstdint>')
+    L.append('#include <cstdio>')
+    L.append('#include <fcntl.h>')
+    L.append('#include <sys/stat.h>')
+    L.append('#include <unistd.h>')
+    L.append('#include <vector>')
+    for f in fns:
+        L.append('void pes_fn_%s(PesState& s);' % f)
+    L.append('// One traced call (snapcase.py CALL_REC): 16 GPRs, 16 XMM (lo, hi), the return address.')
+    L.append('struct CallRec { uint64_t v[49]; };')
+    L.append('int main(int argc, char** argv) {')
+    L.append('  if (argc < 7) return 2;')
+    L.append('  int mfd = open(argv[2], O_RDONLY); if (mfd < 0) return 2;')
+    L.append('  SnapView snap; snap.fd = mfd;')
+    L.append('  int pfd = open(argv[6], O_RDONLY); if (pfd < 0) return 2;')
+    L.append('  struct stat dst; if (stat(argv[5], &dst) != 0) return 2;')
+    L.append('  std::vector<uint64_t> dwords(dst.st_size / 8);')
+    L.append('  FILE* df = fopen(argv[5], "rb"); if (!df) return 2;')
+    L.append('  if (!dwords.empty() && fread(dwords.data(), 8, dwords.size(), df) != dwords.size()) return 2;')
+    L.append('  fclose(df);')
+    L.append('  size_t dpos = 0;')
+    L.append('  FILE* mp = fopen(argv[3], "r"); if (!mp) return 2;')
+    L.append('  unsigned long long rva, rsize, roff;')
+    L.append('  while (fscanf(mp, "%llx %llx %llx", &rva, &rsize, &roff) == 3)')
+    L.append('    snap.runs.push_back({rva, rsize, roff});')
+    L.append('  fclose(mp);')
+    L.append('  struct stat st; if (stat(argv[1], &st) != 0) return 2;')
+    L.append('  size_t n = (size_t)st.st_size / sizeof(CallRec);')
+    L.append('  std::vector<CallRec> recs(n);')
+    L.append('  FILE* cf = fopen(argv[1], "rb"); if (!cf) return 2;')
+    L.append('  if (n && fread(recs.data(), sizeof(CallRec), n, cf) != n) return 2;')
+    L.append('  fclose(cf);')
+    L.append('  FILE* out = fopen(argv[4], "w"); if (!out) return 2;')
+    L.append('  for (size_t i = 0; i < n; ++i) {')
+    L.append('    snap.over.clear();')
+    L.append('    uint64_t np = dwords[dpos++];')
+    L.append('    for (uint64_t k = 0; k < np; ++k) {')
+    L.append('      uint64_t va = dwords[dpos], off = dwords[dpos + 1]; dpos += 2;')
+    L.append('      SnapView::Block b{va, std::vector<uint8_t>(4096)};')
+    L.append('      if (pread(pfd, b.bytes.data(), 4096, (off_t)off) != 4096) return 2;')
+    L.append('      snap.over.push_back(std::move(b));')
+    L.append('    }')
+    L.append('    const uint64_t* r = recs[i].v;')
+    L.append('    PesState s;')
+    L.append('    s.mem.snap = &snap;')
+    L.append('    s.gs_base = 0x%XULL;  // the harness sets GS to the same TEB (frame_trace.TEB_BASE)' % TEB_BASE)
+    L.append('    for (int g = 0; g < 16; ++g) s.gpr[g] = r[g];')
+    L.append('    for (int x = 0; x < 16; ++x) { s.xmm[x][0] = r[16 + 2 * x]; s.xmm[x][1] = r[17 + 2 * x]; }')
+    L.append('    s.wr(r[4], r[48], 8);  // the recorded return address, before the write log starts')
+    L.append('    std::vector<std::pair<uint64_t, uint8_t>> log;')
+    L.append('    s.mem.wlog = &log;')
+    L.append('    pes_fn_%s(s);' % V)
+    L.append(r'    fprintf(out, "{\"case\": %zu, \"ok\": true, \"rax\": \"%016llx\", \"xmm0\": \"%016llx%016llx\", \"w\": \"",')
+    L.append(r'            i, (unsigned long long)s.gpr[0], (unsigned long long)s.xmm[0][1], (unsigned long long)s.xmm[0][0]);')
+    L.append('    for (const auto& w : log) fprintf(out, "%016llx%02x", (unsigned long long)w.first, (unsigned)w.second);')
+    L.append(r'    fprintf(out, "\"}\n");')
+    L.append('    snap.reset();')
+    L.append('  }')
+    L.append('  fclose(out);')
+    L.append('  printf("%s: %zu calls\\n", argv[1], n);')
+    L.append('  return 0;')
     L.append('}')
     return "\n".join(L) + "\n"

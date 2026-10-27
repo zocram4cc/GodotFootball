@@ -153,7 +153,7 @@ void pes_fn_1405C0F00(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = false; s.of = false; }
   if (s.cond("z")) goto L_1405C103B;
-  s.set_x_f32(2, k_c14259BE84_f);
+  s.set_x_f32(2, k_c14259BE84_f); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   s.gpr[2] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[7]));
   s.gpr[1] = (uint64_t)(s.gpr[15]);
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A4C9A0(s); s.gpr[4] += 8; }

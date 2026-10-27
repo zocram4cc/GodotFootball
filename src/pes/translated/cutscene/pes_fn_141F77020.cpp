@@ -52,7 +52,7 @@ void pes_fn_141F77020(PesState& s) {
   s.wr(((s.gpr[8]) + (0x30ULL)), (uint64_t)(s.gpr[0]), 8);
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[9]) + (0x38ULL)), 4));
   s.wr(((s.gpr[8]) + (0x38ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
-  s.xmm[0][0] = s.rd(((s.gpr[2]) + (0x1C4ULL)), 8);
+  s.xmm[0][0] = s.rd(((s.gpr[2]) + (0x1C4ULL)), 8); s.xmm[0][1] = 0;
   s.wr(((s.gpr[1]) + (0x1C4ULL)), s.xmm[0][0], 8);
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[2]) + (0x1CCULL)), 4));
   s.wr(((s.gpr[1]) + (0x1CCULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);

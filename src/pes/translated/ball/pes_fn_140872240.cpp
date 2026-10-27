@@ -53,7 +53,7 @@ void pes_fn_140872240(PesState& s) {
     s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[9]) + (0x8ULL)), 4));
     s.wr(((s.gpr[2]) + (0x8ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
   }
-  s.set_x_f32(0, k_c142598958_f);
+  s.set_x_f32(0, k_c142598958_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.cmp_ss((float)(s.x_f32(0)), (float)((s.rdf(((s.gpr[1]) + (0x68ULL))))));
   if (!s.cond("be")) {
     s.wr(((s.gpr[1]) + (0x68ULL)), (uint64_t)((1037997755ULL)), 4);

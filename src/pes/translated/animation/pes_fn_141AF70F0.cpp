@@ -31,7 +31,7 @@ void pes_fn_141AF70F0(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
   if (!s.cond("z")) {
-    s.set_x_f32(0, k_c14256AE1C_f);
+    s.set_x_f32(0, k_c14256AE1C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     s.cmp_ss((float)(s.x_f32(6)), (float)(s.x_f32(0)));
     if (s.cond("be")) {
       s.xmm[1][0] = 0; s.xmm[1][1] = 0;

@@ -11,7 +11,7 @@
 void pes_fn_14063C660(PesState& s);
 
 void pes_fn_14063C660(PesState& s) {
-  s.set_x_f32(0, s.rdf(((s.gpr[2]) + (0x8ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[2]) + (0x8ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[2])), 4));
   s.wrf(((s.gpr[1]) + (0x4ULL)), s.x_f32(0));
   s.wr(((s.gpr[1])), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);

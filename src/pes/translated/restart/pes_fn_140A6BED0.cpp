@@ -21,10 +21,10 @@ void pes_fn_140A6BED0(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = false; s.of = false; }
   if (s.cond("nz")) {
-    s.set_x_f32(0, k_c142647C64_f);
+    s.set_x_f32(0, k_c142647C64_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     return;
   } else {
-    s.set_x_f32(0, k_c142647C68_f);
+    s.set_x_f32(0, k_c142647C68_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     return;
   }
 }

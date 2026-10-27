@@ -1,0 +1,1540 @@
+{
+ "note": "Named import slots: each absolute CALL/JMP qword ptr [slot] the universe reaches, named by the export its snapshot value resolves to (import_slots.py). kind export = an OS export; anything else is not an import and keeps the dispatch path.",
+ "slots": {
+  "0x14252F008": {
+   "export": "ReportEventW",
+   "kind": "export",
+   "module": "advapi32.dll"
+  },
+  "0x14252F010": {
+   "export": "CryptAcquireContextW",
+   "kind": "export",
+   "module": "advapi32.dll"
+  },
+  "0x14252F018": {
+   "export": "CryptReleaseContext",
+   "kind": "export",
+   "module": "advapi32.dll"
+  },
+  "0x14252F020": {
+   "export": "RegisterEventSourceW",
+   "kind": "export",
+   "module": "advapi32.dll"
+  },
+  "0x14252F028": {
+   "export": "DeregisterEventSource",
+   "kind": "export",
+   "module": "advapi32.dll"
+  },
+  "0x14252F030": {
+   "export": "CryptAcquireContextA",
+   "kind": "export",
+   "module": "advapi32.dll"
+  },
+  "0x14252F058": {
+   "export": "CryptGenRandom",
+   "kind": "export",
+   "module": "advapi32.dll"
+  },
+  "0x14252F0F0": {
+   "export": "DirectSoundCaptureCreate8",
+   "kind": "export",
+   "module": "dsound.dll"
+  },
+  "0x14252F100": {
+   "export": "DirectSoundCreate8",
+   "kind": "export",
+   "module": "dsound.dll"
+  },
+  "0x14252F150": {
+   "export": "GetAdaptersAddresses",
+   "kind": "export",
+   "module": "iphlpapi.dll"
+  },
+  "0x14252F158": {
+   "export": "GetAdaptersInfo",
+   "kind": "export",
+   "module": "iphlpapi.dll"
+  },
+  "0x14252F160": {
+   "export": "ConvertInterfaceLuidToGuid",
+   "kind": "export",
+   "module": "iphlpapi.dll"
+  },
+  "0x14252F168": {
+   "export": "GetIfEntry",
+   "kind": "export",
+   "module": "iphlpapi.dll"
+  },
+  "0x14252F170": {
+   "export": "GetIpAddrTable",
+   "kind": "export",
+   "module": "iphlpapi.dll"
+  },
+  "0x14252F178": {
+   "export": "GetIpForwardTable",
+   "kind": "export",
+   "module": "iphlpapi.dll"
+  },
+  "0x14252F180": {
+   "export": "GetBestInterface",
+   "kind": "export",
+   "module": "iphlpapi.dll"
+  },
+  "0x14252F188": {
+   "export": "FreeMibTable",
+   "kind": "export",
+   "module": "iphlpapi.dll"
+  },
+  "0x14252F190": {
+   "export": "CreateSortedAddressPairs",
+   "kind": "export",
+   "module": "iphlpapi.dll"
+  },
+  "0x14252F1A0": {
+   "export": "ReleaseSemaphore",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F1A8": {
+   "export": "CreateMutexW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F1B0": {
+   "export": "SignalObjectAndWait",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F1B8": {
+   "export": "CreateSemaphoreW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F1C0": {
+   "export": "SwitchToThread",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F1C8": {
+   "export": "GetModuleHandleW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F1D0": {
+   "export": "GetTickCount",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F1D8": {
+   "export": "RtlTryEnterCriticalSection",
+   "kind": "export",
+   "module": "ntdll.dll"
+  },
+  "0x14252F1E0": {
+   "export": "CreateDirectoryW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F1E8": {
+   "export": "GetFileAttributesW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F218": {
+   "export": "GetVersionExW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F260": {
+   "export": "SystemTimeToTzSpecificLocalTime",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F270": {
+   "export": "CreateEventW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F278": {
+   "export": "GlobalFree",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F280": {
+   "export": "CreateFileW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F288": {
+   "export": "DeleteFileW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F290": {
+   "export": "FindClose",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F298": {
+   "export": "FindFirstFileW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F2A0": {
+   "export": "FindNextFileW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F2A8": {
+   "export": "GetDiskFreeSpaceW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F2B0": {
+   "export": "GetDiskFreeSpaceExW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F2B8": {
+   "export": "GetFileSizeEx",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F2C0": {
+   "export": "SetFileAttributesW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F2C8": {
+   "export": "WriteFile",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F2D0": {
+   "export": "CreateFileMappingW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F2D8": {
+   "export": "MapViewOfFile",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F2E0": {
+   "export": "UnmapViewOfFile",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F2F0": {
+   "export": "MoveFileExW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F2F8": {
+   "export": "GetFileSize",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F308": {
+   "export": "CreateFileA",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F320": {
+   "export": "SetFilePointer",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F328": {
+   "export": "GetLastError",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F330": {
+   "export": "GetCurrentDirectoryW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F338": {
+   "export": "RtlInitializeCriticalSection",
+   "kind": "export",
+   "module": "ntdll.dll"
+  },
+  "0x14252F340": {
+   "export": "RtlEnterCriticalSection",
+   "kind": "export",
+   "module": "ntdll.dll"
+  },
+  "0x14252F368": {
+   "export": "RtlDeleteCriticalSection",
+   "kind": "export",
+   "module": "ntdll.dll"
+  },
+  "0x14252F370": {
+   "export": "SetThreadAffinityMask",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F378": {
+   "export": "ResumeThread",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F380": {
+   "export": "SetThreadPriority",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F388": {
+   "export": "GetCurrentThreadId",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F390": {
+   "export": "Sleep",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F398": {
+   "export": "WideCharToMultiByte",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F3A0": {
+   "export": "MultiByteToWideChar",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F3A8": {
+   "export": "ReleaseMutex",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F3B0": {
+   "export": "GetSystemDirectoryA",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F3C8": {
+   "export": "GetCurrentProcessId",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F3E0": {
+   "export": "ReadFile",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F3F0": {
+   "export": "CreateEventA",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F3F8": {
+   "export": "WaitForSingleObject",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F400": {
+   "export": "ResetEvent",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F408": {
+   "export": "SetEvent",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F410": {
+   "export": "CloseHandle",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F418": {
+   "export": "GetLocalTime",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F428": {
+   "export": "QueryPerformanceFrequency",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F430": {
+   "export": "QueryPerformanceCounter",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F438": {
+   "export": "GetTempPathW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F440": {
+   "export": "InitializeCriticalSectionAndSpinCount",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F448": {
+   "export": "FormatMessageA",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F490": {
+   "export": "LoadLibraryA",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F498": {
+   "export": "GetProcAddress",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F4A8": {
+   "export": "FreeLibrary",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F4B0": {
+   "export": "GetSystemInfo",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F4B8": {
+   "export": "TlsSetValue",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F4E8": {
+   "export": "ConvertThreadToFiber",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F4F8": {
+   "export": "CreateFiber",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F500": {
+   "export": "DeleteFiber",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F508": {
+   "export": "SwitchToFiber",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F510": {
+   "export": "GetFileType",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F520": {
+   "export": "RemoveDirectoryW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F528": {
+   "export": "ExitProcess",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F540": {
+   "export": "GetModuleFileNameW",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F558": {
+   "export": "SetHandleInformation",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F560": {
+   "export": "GetHandleInformation",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F578": {
+   "export": "GetStdHandle",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F5C0": {
+   "export": "RtlWakeAllConditionVariable",
+   "kind": "export",
+   "module": "ntdll.dll"
+  },
+  "0x14252F5C8": {
+   "export": "RtlWakeConditionVariable",
+   "kind": "export",
+   "module": "ntdll.dll"
+  },
+  "0x14252F5D0": {
+   "export": "SleepConditionVariableCS",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F5F0": {
+   "export": "GetCurrentThread",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F610": {
+   "export": "GetProcessAffinityMask",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F6A8": {
+   "export": "TlsGetValue",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F6B0": {
+   "export": "TlsAlloc",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F6B8": {
+   "export": "SetLastError",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F6C8": {
+   "export": "VirtualQuery",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F6D0": {
+   "export": "VirtualFree",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F6D8": {
+   "export": "VirtualAlloc",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F6E0": {
+   "export": "GetCurrentProcess",
+   "kind": "export",
+   "module": "kernel32.dll"
+  },
+  "0x14252F6E8": {
+   "export": "RtlLeaveCriticalSection",
+   "kind": "export",
+   "module": "ntdll.dll"
+  },
+  "0x14252F730": {
+   "kind": "unmapped"
+  },
+  "0x14252F738": {
+   "kind": "unmapped"
+  },
+  "0x14252F740": {
+   "kind": "unmapped"
+  },
+  "0x14252F750": {
+   "kind": "unmapped"
+  },
+  "0x14252F758": {
+   "kind": "unmapped"
+  },
+  "0x14252F760": {
+   "kind": "unmapped"
+  },
+  "0x14252F768": {
+   "kind": "unmapped"
+  },
+  "0x14252F770": {
+   "kind": "unmapped"
+  },
+  "0x14252F778": {
+   "kind": "unmapped"
+  },
+  "0x14252F780": {
+   "kind": "unmapped"
+  },
+  "0x14252F798": {
+   "kind": "unmapped"
+  },
+  "0x14252F7A0": {
+   "kind": "unmapped"
+  },
+  "0x14252F7A8": {
+   "kind": "unmapped"
+  },
+  "0x14252F7B0": {
+   "kind": "unmapped"
+  },
+  "0x14252F7B8": {
+   "kind": "unmapped"
+  },
+  "0x14252F7C0": {
+   "kind": "unmapped"
+  },
+  "0x14252F7C8": {
+   "kind": "unmapped"
+  },
+  "0x14252F7D0": {
+   "kind": "unmapped"
+  },
+  "0x14252F7D8": {
+   "kind": "unmapped"
+  },
+  "0x14252F7E0": {
+   "kind": "unmapped"
+  },
+  "0x14252F7E8": {
+   "kind": "unmapped"
+  },
+  "0x14252F800": {
+   "kind": "unmapped"
+  },
+  "0x14252F808": {
+   "kind": "unmapped"
+  },
+  "0x14252F810": {
+   "kind": "unmapped"
+  },
+  "0x14252F818": {
+   "kind": "unmapped"
+  },
+  "0x14252F820": {
+   "kind": "unmapped"
+  },
+  "0x14252F828": {
+   "kind": "unmapped"
+  },
+  "0x14252F830": {
+   "kind": "unmapped"
+  },
+  "0x14252F838": {
+   "kind": "unmapped"
+  },
+  "0x14252F840": {
+   "kind": "unmapped"
+  },
+  "0x14252F848": {
+   "kind": "unmapped"
+  },
+  "0x14252F850": {
+   "kind": "unmapped"
+  },
+  "0x14252F858": {
+   "kind": "unmapped"
+  },
+  "0x14252F860": {
+   "kind": "unmapped"
+  },
+  "0x14252F868": {
+   "kind": "unmapped"
+  },
+  "0x14252F870": {
+   "kind": "unmapped"
+  },
+  "0x14252F878": {
+   "kind": "unmapped"
+  },
+  "0x14252F880": {
+   "kind": "unmapped"
+  },
+  "0x14252F888": {
+   "kind": "unmapped"
+  },
+  "0x14252F890": {
+   "kind": "unmapped"
+  },
+  "0x14252F898": {
+   "kind": "unmapped"
+  },
+  "0x14252F8A0": {
+   "kind": "unmapped"
+  },
+  "0x14252F8A8": {
+   "kind": "unmapped"
+  },
+  "0x14252F8B0": {
+   "kind": "unmapped"
+  },
+  "0x14252F8B8": {
+   "kind": "unmapped"
+  },
+  "0x14252F8C0": {
+   "kind": "unmapped"
+  },
+  "0x14252F8D8": {
+   "kind": "unmapped"
+  },
+  "0x14252F8E0": {
+   "kind": "unmapped"
+  },
+  "0x14252F8E8": {
+   "kind": "unmapped"
+  },
+  "0x14252F8F8": {
+   "kind": "unmapped"
+  },
+  "0x14252F908": {
+   "kind": "unmapped"
+  },
+  "0x14252F910": {
+   "kind": "unmapped"
+  },
+  "0x14252F918": {
+   "kind": "unmapped"
+  },
+  "0x14252F928": {
+   "kind": "unmapped"
+  },
+  "0x14252F930": {
+   "kind": "unmapped"
+  },
+  "0x14252F938": {
+   "kind": "unmapped"
+  },
+  "0x14252F940": {
+   "kind": "unmapped"
+  },
+  "0x14252F948": {
+   "kind": "unmapped"
+  },
+  "0x14252F958": {
+   "kind": "unmapped"
+  },
+  "0x14252F960": {
+   "kind": "unmapped"
+  },
+  "0x14252F968": {
+   "kind": "unmapped"
+  },
+  "0x14252F970": {
+   "kind": "unmapped"
+  },
+  "0x14252F978": {
+   "kind": "unmapped"
+  },
+  "0x14252F988": {
+   "kind": "unmapped"
+  },
+  "0x14252F990": {
+   "kind": "unmapped"
+  },
+  "0x14252F9B0": {
+   "kind": "unmapped"
+  },
+  "0x14252F9B8": {
+   "kind": "unmapped"
+  },
+  "0x14252F9E8": {
+   "kind": "unmapped"
+  },
+  "0x14252F9F0": {
+   "kind": "unmapped"
+  },
+  "0x14252F9F8": {
+   "kind": "unmapped"
+  },
+  "0x14252FA08": {
+   "kind": "unmapped"
+  },
+  "0x14252FA10": {
+   "kind": "unmapped"
+  },
+  "0x14252FA28": {
+   "kind": "unmapped"
+  },
+  "0x14252FA30": {
+   "kind": "unmapped"
+  },
+  "0x14252FA38": {
+   "kind": "unmapped"
+  },
+  "0x14252FA40": {
+   "kind": "unmapped"
+  },
+  "0x14252FA48": {
+   "kind": "unmapped"
+  },
+  "0x14252FA50": {
+   "kind": "unmapped"
+  },
+  "0x14252FA58": {
+   "kind": "unmapped"
+  },
+  "0x14252FA60": {
+   "kind": "unmapped"
+  },
+  "0x14252FAB0": {
+   "kind": "unmapped"
+  },
+  "0x14252FAC8": {
+   "kind": "unmapped"
+  },
+  "0x14252FB08": {
+   "kind": "unmapped"
+  },
+  "0x14252FB28": {
+   "export": "SHGetSpecialFolderPathW",
+   "kind": "export",
+   "module": "shell32.dll"
+  },
+  "0x14252FB30": {
+   "export": "SHGetFolderPathW",
+   "kind": "export",
+   "module": "shell32.dll"
+  },
+  "0x14252FB58": {
+   "export": "GetProcessWindowStation",
+   "kind": "export",
+   "module": "user32.dll"
+  },
+  "0x14252FC30": {
+   "export": "GetUserObjectInformationW",
+   "kind": "export",
+   "module": "user32.dll"
+  },
+  "0x14252FC78": {
+   "export": "MessageBoxA",
+   "kind": "export",
+   "module": "user32.dll"
+  },
+  "0x14252FC80": {
+   "export": "MessageBoxW",
+   "kind": "export",
+   "module": "user32.dll"
+  },
+  "0x14252FD48": {
+   "kind": "unmapped"
+  },
+  "0x14252FD50": {
+   "kind": "unmapped"
+  },
+  "0x14252FD58": {
+   "kind": "unmapped"
+  },
+  "0x14252FD60": {
+   "kind": "unmapped"
+  },
+  "0x14252FD68": {
+   "kind": "unmapped"
+  },
+  "0x14252FD70": {
+   "export": "memcpy",
+   "kind": "export",
+   "module": "msvcrt.dll"
+  },
+  "0x14252FD80": {
+   "kind": "unmapped"
+  },
+  "0x14252FD88": {
+   "kind": "unmapped"
+  },
+  "0x14252FD90": {
+   "kind": "unmapped"
+  },
+  "0x14252FD98": {
+   "kind": "unmapped"
+  },
+  "0x14252FDA0": {
+   "kind": "unmapped"
+  },
+  "0x14252FDA8": {
+   "kind": "unmapped"
+  },
+  "0x14252FDC8": {
+   "kind": "unmapped"
+  },
+  "0x14252FDD0": {
+   "kind": "unmapped"
+  },
+  "0x14252FDE0": {
+   "kind": "unmapped"
+  },
+  "0x14252FDF0": {
+   "export": "WinHttpCheckPlatform",
+   "kind": "export",
+   "module": "winhttp.dll"
+  },
+  "0x14252FDF8": {
+   "export": "WinHttpSetTimeouts",
+   "kind": "export",
+   "module": "winhttp.dll"
+  },
+  "0x14252FE08": {
+   "export": "WinHttpReadData",
+   "kind": "export",
+   "module": "winhttp.dll"
+  },
+  "0x14252FE10": {
+   "export": "WinHttpConnect",
+   "kind": "export",
+   "module": "winhttp.dll"
+  },
+  "0x14252FE18": {
+   "export": "WinHttpGetIEProxyConfigForCurrentUser",
+   "kind": "export",
+   "module": "winhttp.dll"
+  },
+  "0x14252FE20": {
+   "export": "WinHttpAddRequestHeaders",
+   "kind": "export",
+   "module": "winhttp.dll"
+  },
+  "0x14252FE28": {
+   "export": "WinHttpQueryDataAvailable",
+   "kind": "export",
+   "module": "winhttp.dll"
+  },
+  "0x14252FE30": {
+   "export": "WinHttpQueryHeaders",
+   "kind": "export",
+   "module": "winhttp.dll"
+  },
+  "0x14252FE40": {
+   "export": "WinHttpSendRequest",
+   "kind": "export",
+   "module": "winhttp.dll"
+  },
+  "0x14252FE48": {
+   "export": "WinHttpSetStatusCallback",
+   "kind": "export",
+   "module": "winhttp.dll"
+  },
+  "0x14252FE50": {
+   "export": "WinHttpCrackUrl",
+   "kind": "export",
+   "module": "winhttp.dll"
+  },
+  "0x14252FE58": {
+   "export": "WinHttpOpen",
+   "kind": "export",
+   "module": "winhttp.dll"
+  },
+  "0x14252FE60": {
+   "export": "WinHttpCloseHandle",
+   "kind": "export",
+   "module": "winhttp.dll"
+  },
+  "0x14252FE68": {
+   "export": "WinHttpOpenRequest",
+   "kind": "export",
+   "module": "winhttp.dll"
+  },
+  "0x14252FE88": {
+   "export": "timeGetTime",
+   "kind": "export",
+   "module": "winmm.dll"
+  },
+  "0x14252FE90": {
+   "export": "timeGetSystemTime",
+   "kind": "export",
+   "module": "winmm.dll"
+  },
+  "0x14252FEA0": {
+   "export": "getnameinfo",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FEA8": {
+   "export": "htonl",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FEB0": {
+   "export": "freeaddrinfo",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FEE0": {
+   "export": "WSASetLastError",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FEE8": {
+   "export": "WSAGetLastError",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FEF0": {
+   "export": "ntohl",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FEF8": {
+   "export": "setsockopt",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF00": {
+   "export": "ioctlsocket",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF08": {
+   "export": "getsockopt",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF10": {
+   "export": "bind",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF18": {
+   "export": "connect",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF20": {
+   "export": "select",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF30": {
+   "export": "listen",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF38": {
+   "export": "accept",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF40": {
+   "export": "recv",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF48": {
+   "export": "closesocket",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF68": {
+   "export": "getpeername",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF70": {
+   "export": "getsockname",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF78": {
+   "export": "socket",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF80": {
+   "export": "getaddrinfo",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF88": {
+   "export": "ntohs",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FF90": {
+   "export": "htons",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FFB0": {
+   "export": "InetNtopW",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FFB8": {
+   "export": "InetPtonW",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FFC0": {
+   "export": "WSAAddressToStringW",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FFC8": {
+   "export": "WSAIoctl",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FFE0": {
+   "export": "WSAEventSelect",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FFF0": {
+   "export": "WSACreateEvent",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x14252FFF8": {
+   "export": "WSACloseEvent",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x142530000": {
+   "export": "sendto",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x142530008": {
+   "export": "send",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x142530010": {
+   "export": "recvfrom",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x142530018": {
+   "export": "inet_addr",
+   "kind": "export",
+   "module": "ws2_32.dll"
+  },
+  "0x142530048": {
+   "kind": "unmapped"
+  },
+  "0x142530050": {
+   "kind": "unmapped"
+  },
+  "0x142530058": {
+   "kind": "unmapped"
+  },
+  "0x142530078": {
+   "kind": "unmapped"
+  },
+  "0x142530080": {
+   "kind": "unmapped"
+  },
+  "0x142530088": {
+   "kind": "unmapped"
+  },
+  "0x142530098": {
+   "kind": "unmapped"
+  },
+  "0x1425300A0": {
+   "kind": "unmapped"
+  },
+  "0x1425300A8": {
+   "kind": "unmapped"
+  },
+  "0x1425300B0": {
+   "kind": "unmapped"
+  },
+  "0x1425300C8": {
+   "kind": "unmapped"
+  },
+  "0x1425300D8": {
+   "kind": "unmapped"
+  },
+  "0x1425300F0": {
+   "kind": "unmapped"
+  },
+  "0x1425300F8": {
+   "kind": "unmapped"
+  },
+  "0x142530108": {
+   "kind": "unmapped"
+  },
+  "0x142530110": {
+   "kind": "unmapped"
+  },
+  "0x142530118": {
+   "kind": "unmapped"
+  },
+  "0x142530158": {
+   "kind": "unmapped"
+  },
+  "0x142530160": {
+   "kind": "unmapped"
+  },
+  "0x142530190": {
+   "kind": "unmapped"
+  },
+  "0x142530198": {
+   "kind": "unmapped"
+  },
+  "0x1425301B0": {
+   "kind": "unmapped"
+  },
+  "0x1425301B8": {
+   "kind": "unmapped"
+  },
+  "0x1425301C0": {
+   "kind": "unmapped"
+  },
+  "0x1425301C8": {
+   "kind": "unmapped"
+  },
+  "0x1425301D0": {
+   "kind": "unmapped"
+  },
+  "0x1425301D8": {
+   "kind": "unmapped"
+  },
+  "0x1425301E0": {
+   "kind": "unmapped"
+  },
+  "0x1425301F0": {
+   "kind": "unmapped"
+  },
+  "0x1425301F8": {
+   "kind": "unmapped"
+  },
+  "0x142530208": {
+   "kind": "unmapped"
+  },
+  "0x142530218": {
+   "kind": "unmapped"
+  },
+  "0x142530228": {
+   "kind": "unmapped"
+  },
+  "0x142530230": {
+   "kind": "unmapped"
+  },
+  "0x142530238": {
+   "kind": "unmapped"
+  },
+  "0x142530240": {
+   "kind": "unmapped"
+  },
+  "0x142530248": {
+   "kind": "unmapped"
+  },
+  "0x142530258": {
+   "kind": "unmapped"
+  },
+  "0x142530260": {
+   "kind": "unmapped"
+  },
+  "0x142530278": {
+   "kind": "unmapped"
+  },
+  "0x142530290": {
+   "kind": "unmapped"
+  },
+  "0x1425302A8": {
+   "kind": "unmapped"
+  },
+  "0x1425302B8": {
+   "kind": "unmapped"
+  },
+  "0x1425302D8": {
+   "kind": "unmapped"
+  },
+  "0x1425302E0": {
+   "kind": "unmapped"
+  },
+  "0x142530308": {
+   "kind": "unmapped"
+  },
+  "0x142530368": {
+   "kind": "unmapped"
+  },
+  "0x142530378": {
+   "kind": "unmapped"
+  },
+  "0x142530380": {
+   "kind": "unmapped"
+  },
+  "0x1425303A8": {
+   "kind": "unmapped"
+  },
+  "0x1425303E8": {
+   "kind": "unmapped"
+  },
+  "0x1425303F8": {
+   "kind": "unmapped"
+  },
+  "0x142530410": {
+   "kind": "unmapped"
+  },
+  "0x142530418": {
+   "kind": "unmapped"
+  },
+  "0x142530428": {
+   "kind": "unmapped"
+  },
+  "0x142530438": {
+   "kind": "unmapped"
+  },
+  "0x1425304B0": {
+   "kind": "unmapped"
+  },
+  "0x1425304D0": {
+   "kind": "unmapped"
+  },
+  "0x1425304D8": {
+   "kind": "unmapped"
+  },
+  "0x1425304F8": {
+   "kind": "unmapped"
+  },
+  "0x142530518": {
+   "kind": "unmapped"
+  },
+  "0x142530538": {
+   "kind": "unmapped"
+  },
+  "0x142530550": {
+   "kind": "unmapped"
+  },
+  "0x142530560": {
+   "kind": "unmapped"
+  },
+  "0x142530570": {
+   "kind": "unmapped"
+  },
+  "0x142530588": {
+   "kind": "unmapped"
+  },
+  "0x142530590": {
+   "kind": "unmapped"
+  },
+  "0x1425305A0": {
+   "kind": "unmapped"
+  },
+  "0x1425305A8": {
+   "kind": "unmapped"
+  },
+  "0x1425305B0": {
+   "kind": "unmapped"
+  },
+  "0x1425305B8": {
+   "kind": "unmapped"
+  },
+  "0x1425305C0": {
+   "kind": "unmapped"
+  },
+  "0x1425305C8": {
+   "kind": "unmapped"
+  },
+  "0x1425305D8": {
+   "kind": "unmapped"
+  },
+  "0x142530610": {
+   "kind": "unmapped"
+  },
+  "0x142530618": {
+   "kind": "unmapped"
+  },
+  "0x142530628": {
+   "kind": "unmapped"
+  },
+  "0x142530630": {
+   "kind": "unmapped"
+  },
+  "0x142530638": {
+   "kind": "unmapped"
+  },
+  "0x142530640": {
+   "kind": "unmapped"
+  },
+  "0x142530648": {
+   "kind": "unmapped"
+  },
+  "0x142530650": {
+   "kind": "unmapped"
+  },
+  "0x142530658": {
+   "kind": "unmapped"
+  },
+  "0x142530660": {
+   "kind": "unmapped"
+  },
+  "0x142530678": {
+   "kind": "unmapped"
+  },
+  "0x142530698": {
+   "kind": "unmapped"
+  },
+  "0x1425306D0": {
+   "kind": "unmapped"
+  },
+  "0x1425306D8": {
+   "kind": "unmapped"
+  },
+  "0x1425306E8": {
+   "kind": "unmapped"
+  },
+  "0x1425306F0": {
+   "kind": "unmapped"
+  },
+  "0x1425306F8": {
+   "kind": "unmapped"
+  },
+  "0x142530700": {
+   "kind": "unmapped"
+  },
+  "0x1425307D8": {
+   "export": "SteamAPI_IsSteamRunning",
+   "kind": "export",
+   "module": "steam_api64.dll"
+  },
+  "0x142530818": {
+   "export": "SteamInternal_ContextInit",
+   "kind": "export",
+   "module": "steam_api64.dll"
+  },
+  "0x142530840": {
+   "export": "WlanFreeMemory",
+   "kind": "export",
+   "module": "wlanapi.dll"
+  },
+  "0x142530848": {
+   "export": "WlanQueryInterface",
+   "kind": "export",
+   "module": "wlanapi.dll"
+  },
+  "0x142530858": {
+   "export": "WlanOpenHandle",
+   "kind": "export",
+   "module": "wlanapi.dll"
+  },
+  "0x1425969C8": {
+   "kind": "image-code"
+  },
+  "0x142596A88": {
+   "kind": "image-code"
+  },
+  "0x142596DA8": {
+   "kind": "image-code"
+  },
+  "0x142597568": {
+   "kind": "image-code"
+  },
+  "0x14259CE00": {
+   "kind": "image-code"
+  },
+  "0x1425A5060": {
+   "kind": "image-code"
+  },
+  "0x1425C50D0": {
+   "kind": "image-code"
+  },
+  "0x142608820": {
+   "kind": "image-code"
+  },
+  "0x142896810": {
+   "kind": "image-code"
+  },
+  "0x14289B8B8": {
+   "kind": "image-code"
+  },
+  "0x14289B8F0": {
+   "kind": "image-code"
+  },
+  "0x1435161A0": {
+   "kind": "image-code"
+  },
+  "0x143516830": {
+   "kind": "image-code"
+  },
+  "0x14372CA20": {
+   "kind": "image-code"
+  },
+  "0x14372CA28": {
+   "kind": "image-code"
+  },
+  "0x14372CA30": {
+   "kind": "image-code"
+  },
+  "0x14372CEE8": {
+   "kind": "image-code"
+  },
+  "0x14372CEF0": {
+   "kind": "image-code"
+  },
+  "0x14372CEF8": {
+   "kind": "image-code"
+  },
+  "0x14372D1A8": {
+   "kind": "image-code"
+  },
+  "0x14372D1B0": {
+   "kind": "image-code"
+  },
+  "0x14372D1B8": {
+   "kind": "image-code"
+  },
+  "0x14372D1C0": {
+   "kind": "image-code"
+  },
+  "0x14372D1C8": {
+   "kind": "image-code"
+  },
+  "0x14372D1D0": {
+   "kind": "image-code"
+  },
+  "0x14372D1D8": {
+   "kind": "image-code"
+  },
+  "0x14372D1E0": {
+   "kind": "image-code"
+  },
+  "0x14372D1E8": {
+   "kind": "image-code"
+  },
+  "0x14372D1F0": {
+   "kind": "image-code"
+  },
+  "0x14372D1F8": {
+   "kind": "image-code"
+  },
+  "0x14372D200": {
+   "kind": "image-code"
+  },
+  "0x14372D208": {
+   "kind": "image-code"
+  },
+  "0x14372D210": {
+   "kind": "image-code"
+  },
+  "0x14372D218": {
+   "kind": "image-code"
+  },
+  "0x14372D230": {
+   "kind": "image-code"
+  },
+  "0x14372D290": {
+   "kind": "image-code"
+  },
+  "0x14372D2B8": {
+   "kind": "image-code"
+  },
+  "0x14372D5F0": {
+   "kind": "image-code"
+  },
+  "0x14372D5F8": {
+   "kind": "image-code"
+  },
+  "0x14372D600": {
+   "kind": "image-code"
+  },
+  "0x14372DE98": {
+   "kind": "image-code"
+  },
+  "0x14372DEA8": {
+   "kind": "image-code"
+  },
+  "0x1437BF7C0": {
+   "kind": "null"
+  },
+  "0x1437BFD30": {
+   "kind": "null"
+  },
+  "0x1437BFD38": {
+   "kind": "null"
+  },
+  "0x143AA0F20": {
+   "kind": "null"
+  }
+ }
+}

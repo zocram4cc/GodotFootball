@@ -44,11 +44,11 @@ void pes_fn_140702680(PesState& s) {
   }
   s.wr128(((s.gpr[0]) + (0ULL - 0x38ULL)), ((unsigned __int128)s.xmm[6][1] << 64) | s.xmm[6][0]);
   s.gpr[3] = (uint64_t)(((s.gpr[1]) + (0x64ULL)));
-  s.set_x_f32(6, s.rdf(((s.gpr[4]) + (0xE0ULL))));
+  s.set_x_f32(6, s.rdf(((s.gpr[4]) + (0xE0ULL)))); s.xmm[6][0] &= 0xFFFFFFFFull; s.xmm[6][1] = 0;
   s.gpr[14] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[9]));
   s.wr128(((s.gpr[0]) + (0ULL - 0x48ULL)), ((unsigned __int128)s.xmm[7][1] << 64) | s.xmm[7][0]);
   s.gpr[15] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[2]));
-  s.set_x_f32(7, k_c14259858C_f);
+  s.set_x_f32(7, k_c14259858C_f); s.xmm[7][0] &= 0xFFFFFFFFull; s.xmm[7][1] = 0;
   s.gpr[6] = (uint64_t)(uint32_t)((3ULL));
   s.wr128(((s.gpr[0]) + (0ULL - 0x58ULL)), ((unsigned __int128)s.xmm[8][1] << 64) | s.xmm[8][0]);
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[13])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[13]))) & 0xFFFFFFFFULL;
@@ -57,10 +57,10 @@ void pes_fn_140702680(PesState& s) {
     s.gpr[13] = (uint64_t)(uint32_t)(_r);
   }
   s.wr128(((s.gpr[0]) + (0ULL - 0x68ULL)), ((unsigned __int128)s.xmm[9][1] << 64) | s.xmm[9][0]);
-  s.set_x_f32(9, k_c14256AE34_f);
+  s.set_x_f32(9, k_c14256AE34_f); s.xmm[9][0] &= 0xFFFFFFFFull; s.xmm[9][1] = 0;
   s.wr128(((s.gpr[0]) + (0ULL - 0x78ULL)), ((unsigned __int128)s.xmm[10][1] << 64) | s.xmm[10][0]);
   s.gpr[0] = (uint64_t)(((0x1425E4D60ULL)));
-  s.set_x_f32(10, k_c142598590_f);
+  s.set_x_f32(10, k_c142598590_f); s.xmm[10][0] &= 0xFFFFFFFFull; s.xmm[10][1] = 0;
   s.wr128(((s.gpr[4]) + (0x30ULL)), ((unsigned __int128)s.xmm[11][1] << 64) | s.xmm[11][0]);
   s.xmm[11][0] = 0; s.xmm[11][1] = 0;
   s.gpr[5] = (uint64_t)((((int64_t)(((uint64_t)(((uint64_t)(uint32_t)s.gpr[8])) << 32))) >> 32));
@@ -68,7 +68,7 @@ void pes_fn_140702680(PesState& s) {
   (void)0;
   (void)0;
   L_140702710:;
-  s.set_x_f32(8, s.rdf(((s.gpr[0]) + ((s.gpr[5])*4ULL))));
+  s.set_x_f32(8, s.rdf(((s.gpr[0]) + ((s.gpr[5])*4ULL)))); s.xmm[8][0] &= 0xFFFFFFFFull; s.xmm[8][1] = 0;
   s.wrf(((s.gpr[3]) + (0x24ULL)), s.x_f32(6));
   s.wrf(((s.gpr[3]) + (0x28ULL)), s.x_f32(6));
   s.wr(((s.gpr[3]) + (0x1CULL)), (uint64_t)((17ULL)), 4);
