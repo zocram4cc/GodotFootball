@@ -857,8 +857,8 @@ def main():
     if args.check:
         args.only = [r["va"] for r in json.load(open(args.record))["results"] if r["diffed"]]
         if not args.only:
-            print("driver --check: nothing recorded as diffed")
-            return 0
+            print("driver --check: nothing recorded as diffed; an empty check is not a pass")
+            return 1
 
     specs = sorted(f for f in os.listdir(args.spec_dir)
                    if f.endswith(".json"))
@@ -918,6 +918,12 @@ def main():
     dif = sum(1 for r in results if r["diffed"])
     print("driver: attempted %d translated %d diffed %d -> %s"
           % (att, tra, dif, build_json))
+    if args.check:
+        absent = [v for v in args.only if v.upper() not in {r["va"].upper() for r in results}]
+        if absent:
+            print("driver --check: %d recorded-diffed VAs have no spec in --spec-dir %s: %s"
+                  % (len(absent), args.spec_dir, " ".join(absent)))
+            return 1
     if args.check:
         lost = [r["va"] for r in results if not r["diffed"]]
         if lost:

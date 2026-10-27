@@ -39,6 +39,15 @@ add_test(NAME diff_core_recorded
 --out-dir '${CMAKE_BINARY_DIR}/core-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_core.json'")
 set_tests_properties(diff_core_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 7200)
 
+# diff_impure_recorded: the same check for the impure set (specs/impure; results_impure.json records its diffed VAs).
+# Without it the impure record was never re-checked: the driver's default spec dir (specs/pilot) held none of its VAs.
+add_test(NAME diff_impure_recorded
+  COMMAND bash -c "[ -n \"$PES_EXE\" ] && [ -f \"$PES_EXE\" ] && [ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
+--spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/impure' \
+--out-dir '${CMAKE_BINARY_DIR}/impure-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_impure.json'")
+set_tests_properties(diff_impure_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 3600)
+
 # Image check: the user's dump must be the image the pilot specs were authored
 # against. verify_image.py hashes the stable sections (image_hashes.json) and
 # fails naming any section that differs. Skips (77) without PES_EXE, and the
