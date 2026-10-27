@@ -552,8 +552,10 @@ int ConeAt(const RunWorld& w, int sel, Vec2f pos, float center, float width, flo
 // a4e250: an opponent within r.
 bool OppNear(const RunWorld& w, int id, float r) {
   const int o = (TeamOf(id) ^ 1) * kSlots;
+  // An empty slot (a player off the pitch, or a side short of eleven) has no man record to read: only active opponents count,
+  // as in the other slot loops above.
   for (int i = o; i < o + kSlots; ++i)
-    if (Dist2(w.p[i].pos(), w.p[id].pos()) < r * r) return true;
+    if (w.p[i].active && Dist2(w.p[i].pos(), w.p[id].pos()) < r * r) return true;
   return false;
 }
 // a53da0: player j within (minD, maxD) of pt and within ang/2 of dir from it.
