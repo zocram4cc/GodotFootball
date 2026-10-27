@@ -58,6 +58,13 @@ pes::ActorKey Match::PesActorKeyOf(const Player* player) {
   return pes::NoActorKey();
 }
 
+// A player's PES slot: his side's squad place (0..10) after side 0's. A substitute takes the place of the man he replaces
+// (team.cpp swaps them), so an on-pitch player's place stays inside its side. The run world indexes its runners the same way.
+int Match::PesSlotOf(const Player* player) {
+  const pes::ActorKey key = PesActorKeyOf(player);
+  return static_cast<int>(key.team) * pes::kSlotsPerSide + static_cast<int>(key.slot);
+}
+
 Player* Match::GetPesActorPlayer(const pes::ActorKey& key) {
   if (!key.Valid()) return nullptr;
   const auto& squad = GetTeam(static_cast<int>(key.team))->GetAllPlayers();

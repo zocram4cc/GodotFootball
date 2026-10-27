@@ -373,8 +373,6 @@ std::optional<CarrierConstants> LoadCarrierConstants(const PeImage& exe, std::st
       {0x14259222c, &k.intoSpaceGain_m},   {0x14259be1c, &k.intoSpaceSpeedScale},
   };
   for (const auto& r : intoSpace) ok &= ReadVa(exe, r.first, r.second, error);
-  const std::pair<uint64_t, float*> s1Rows[] = {{0x14259be40, &k.s1RadToDeg}, {0x1425795e4, &k.s1TwoPi}};
-  for (const auto& r : s1Rows) ok &= ReadVa(exe, r.first, r.second, error);
   k.bsBoxSkipCount = 2.0f;  // `cmp [lVar15+0xb48],2`: an instruction shape, not a float
   k.bsAngleClass = 4.0f;    // `cmp [recB],4`: an instruction shape, not a float
   uint32_t lane1 = 0;

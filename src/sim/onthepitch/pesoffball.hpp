@@ -23,6 +23,7 @@
 // Coordinates: x along the pitch, z across it (GF's coords[1]); `s` is the
 // attacking team's sign (+1 attacks +x). Angles are degrees.
 
+#include <cassert>
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -34,6 +35,7 @@
 #include "pes/vfs.hpp"
 #include "pesstyle.hpp"
 #include "pesscorerows.hpp"
+#include "pesworldrecord.hpp"
 
 namespace pes::offball {
 
@@ -183,8 +185,29 @@ struct PlayerFacts {
   bool goalie = false;
   bool humanControlled = false;
   bool passGet = false;  // PES action 5 (PASS_GET, player+0x5d0): Team::PassGetReceiver() is him
-  Vec2f pos, vel;        // m, m/s
-  float facing = 0.0f;   // +0x554, body facing
+  // His PES man record (pesworldrecord.hpp) holds his position, velocity and facing. Bound at match start: an unbound read
+  // is an error (asserted in debug), never a shared zero record.
+  uint8_t* man = nullptr;
+  // The man record, asserted bound (see man above).
+  uint8_t* Rec() const {
+    assert(man != nullptr && "PlayerFacts read before its man record is bound");
+    return man;
+  }
+  Vec2f pos() const { return {pes::LoadF32(Rec(), pes::kManPosXOffset), pes::LoadF32(Rec(), pes::kManPosZOffset)}; }
+  // m/s: the record holds m per frame.
+  Vec2f vel() const {
+    return {pes::LoadF32(Rec(), pes::kManVelXOffset) * kPesFps, pes::LoadF32(Rec(), pes::kManVelZOffset) * kPesFps};
+  }
+  float facing() const { return pes::LoadF32(Rec(), pes::kManFacingOffset); }  // degrees, body facing
+  void SetPos(Vec2f p) {
+    pes::StoreF32(Rec(), pes::kManPosXOffset, p.x);
+    pes::StoreF32(Rec(), pes::kManPosZOffset, p.z);
+  }
+  void SetVel(Vec2f v) {  // m/s in, m per frame stored
+    pes::StoreF32(Rec(), pes::kManVelXOffset, v.x / kPesFps);
+    pes::StoreF32(Rec(), pes::kManVelZOffset, v.z / kPesFps);
+  }
+  void SetFacing(float degrees) { pes::StoreF32(Rec(), pes::kManFacingOffset, degrees); }
   int state = kNothing;  // T+0xa2a0
   float t = 0.0f;        // PES frames in the state (ring T+0xa2cc)
   // The slot's class in PES's B array (pesroles.hpp): GK0 CB1 SB2 DMF3 CMF4 SMF5 AMF6 SS7 WF8 CF9.
@@ -195,8 +218,7 @@ struct PlayerFacts {
   int marker = -1;       // FUN_140a62850: the opponent marking him
   int aiClass = 0;       // FUN_140a580a0 (T+0xc0), the AI class the state tests read
   int runCooldown = 0;   // M+0x17b4 A[s]: PES frames left before the slot may run again
-  // Record +1 byte (FUN_140A48910(G,id)+1): FramesToReach halves on kHalvedReachRecordByte.
-  // GF has no such byte: BuildRunWorld stands in the keeper, as the old position-0 test did.
+  // Record +1 byte (FUN_140A48910(G,id)+1), read from the slot's anime record (PesWorld::AnimeClass) by BuildRunWorld.
   int recordByte1 = 0;
 };
 

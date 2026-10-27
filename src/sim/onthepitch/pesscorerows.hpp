@@ -10,6 +10,10 @@
 #include <array>
 #include <cstdint>
 
+namespace pes {
+class PesWorld;
+}  // namespace pes
+
 // The lane core's slot space. The row writer owns the layout; peslane.hpp includes it for these names.
 namespace pes::lane {
 inline constexpr int kSlots = 22;     // both sides
@@ -19,19 +23,19 @@ inline constexpr int kNoSlot = 0xFF;  // PES's "no slot" result
 
 namespace pes {
 
-// The pitch marks and the angle constants the writer reads.
+// The pitch marks the writer reads.
 struct ScoreRowConstants {
   float goalX_m = 0.0f;   // xg: the goal-centre x, pitch mark G+0x2AA8+0 (gametypes pesFieldHalfLength)
   float goalY_m = 0.0f;   // yg: pitch mark +4 (gametypes pesFieldHalfWidth)
-  float radToDeg = 0.0f;  // 0x14259BE40: the bearing scale, 180/pi
-  float twoPi = 0.0f;     // 0x1425795E4: 2 pi, folds a negative bearing into [0, 2 pi)
 };
 
-// The player fields the writer reads: x (+0x55C), z (+0x564) and the on-pitch flag (MI+0x1748).
+// The player fields the writer reads: x (+0x55C), z (+0x564), the on-pitch flag (MI+0x1748), and his man record (the
+// pair table's bearings run over it).
 struct RowPlayer {
   float x = 0.0f;
   float z = 0.0f;
   bool onPitch = false;
+  uint8_t* man = nullptr;  // his man record (pesworldrecord.hpp): the pair table's bearings run over it on the PES path
 };
 using RowPlayers = std::array<RowPlayer, lane::kSlots>;
 
@@ -94,8 +98,8 @@ const SortedRow& GateRowForSign(const ScoreRows& rows, int k);
 // The writer's body for the blocks `mask` selects. The NearestList is rebuilt on every call.
 // `pesPath` gates the pair-bearing table (FUN_140439FE0 family): GF mode keeps
 // its old rows exactly (all zeroes there).
-void BuildScoreRows(const RowPlayers& players, const ScoreRowConstants& k, uint8_t mask,
-                    ScoreRows& rows, bool pesPath);
+void BuildScoreRows(const RowPlayers& players, const ScoreRowConstants& k, uint8_t mask, ScoreRows& rows,
+                    bool pesPath, PesWorld& world);
 
 // The writer as the team tick drives it: the TA+0x11 latch and the frame rotation.
 class ScoreRowWriter {
@@ -105,8 +109,8 @@ class ScoreRowWriter {
   // (MI+0x1198 & 3 onto 0x01, 0x02, 0x24, 0x10), and nothing is written until the latch is set.
   // `pesPath` gates the pair-bearing table: a PES-only read (FUN_140439FE0 family), so GF mode
   // keeps its old rows exactly (all zeroes there).
-  void Tick(const RowPlayers& players, const ScoreRowConstants& k, unsigned long frame,
-            bool fullRefresh, bool pesPath);
+  void Tick(const RowPlayers& players, const ScoreRowConstants& k, unsigned long frame, bool fullRefresh,
+            bool pesPath, PesWorld& world);
   const ScoreRows& Rows() const { return rows_; }
   bool Latched() const { return latched_; }
 

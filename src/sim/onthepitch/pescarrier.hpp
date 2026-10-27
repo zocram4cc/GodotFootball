@@ -193,9 +193,6 @@ struct CarrierConstants {
   float curveShotStatGain = 0.0f;   // 10, 0x142588210
   float curveShotFloor = 0.0f;      // 5, `mov eax, 5` at 0x14211b106
   float curveShotCap = 0.0f;        // 70, `cmp ebx, 0x46` at 0x14211b0fa
-  // --- the S1 score rows (pesscorerows.hpp) ---
-  float s1RadToDeg = 0.0f;  // 180/pi, 0x14259BE40: the writer's bearing scale
-  float s1TwoPi = 0.0f;     // 2 pi, 0x1425795E4: the writer's bearing fold
   // --- the Intention ratchet (report 5, 0x1421197b0) and the image manager ---
   float intentionClose_deg = 0.0f;  // 100, 0x14253ee30
   float intentionLead_m = 0.0f;     // 10, 0x142588210
