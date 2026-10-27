@@ -17,6 +17,7 @@ table + switch statement. Deterministic: sorted labels/tables, %a floats.
 Usage: translate.py --image IMG --asm FILE --va 0xVA --out OUT.cpp
          [--pilot VA ...] [--header OUT.h]
 """
+import json
 import argparse
 import os
 import re
@@ -279,8 +280,13 @@ def lea_const(em, breg, ia):
 
 def parse_mem(inner):
     # Split on + and - (but not on a leading sign or 0x digits). "rdi - 8"
-    # -> ["rdi", "-8"]; "rcx+rax*4-0x10" works the same.
-    tmp = re.sub(r"\s*-\s*", "+-", inner.strip().lower())
+    # -> ["rdi", "-8"]; "rcx+rax*4-0x10" works the same. A segment prefix ("gs:0x58", from "gs:[0x58]" by
+    # split_ops) is the thread block's base: it is kept as seg and added to the address, never an absolute VA.
+    text = inner.strip().lower()
+    seg = None
+    if text.startswith("gs:"):
+        seg, text = "gs", text[3:]
+    tmp = re.sub(r"\s*-\s*", "+-", text)
     parts = [p.strip() for p in tmp.split("+") if p.strip() != ""]
     base = None
     index = None
@@ -314,9 +320,123 @@ def parse_mem(inner):
     if not ok:
         return None
     disp = sum(nums)
-    absolute = nums[0] if (base is None and index is None and nums) else None
+    absolute = nums[0] if (base is None and index is None and nums and seg is None) else None
     return {"base": base, "index": index, "scale": scale, "disp": disp,
-            "absolute": absolute}
+            "absolute": absolute, "seg": seg}
+
+# Named import slots (import_slots.py -> import_slots.json) and their models (import_stubs.json, the contract
+# the snapshot harness runs). A CALL through a slot with a model is that model's effect, as the OS export has it.
+IMPORT_SLOT_OP = re.compile(r"^(?:qword\s+ptr\s+)?\[\s*(0x[0-9a-f]+)\s*\]$")
+_IMPORT_TABLES = None
+
+
+def _import_tables():
+    global _IMPORT_TABLES
+    if _IMPORT_TABLES is None:
+        here = os.path.dirname(os.path.abspath(__file__))
+        slots = json.load(open(os.path.join(here, "import_slots.json")))["slots"]
+        models = {}
+        for e in json.load(open(os.path.join(here, "import_stubs.json")))["imports"]:
+            models[(e["module"].lower(), e["export"])] = e
+        _IMPORT_TABLES = (slots, models)
+    return _IMPORT_TABLES
+
+
+def absolute_slot(op):
+    """The slot VA of an absolute memory operand (qword ptr [0x...]), or None."""
+    m = IMPORT_SLOT_OP.match(op.strip().lower())
+    return int(m.group(1), 16) if m else None
+
+
+def import_model_lines(op, jump):
+    """C++ for a CALL (jump=False) or JMP (jump=True) through an absolute slot that names a modelled export, or
+    None (not a named import). The model runs exactly as the harness runs it. A call pushes its return address
+    (0, as an indirect call records) and the model returns to it. A jump has no return address of its own: the
+    model's ret returns to the caller, so the translated function returns after it."""
+    slot_va = absolute_slot(op)
+    if slot_va is None:
+        return None
+    slots, models = _import_tables()
+    slot = slots.get("0x%X" % slot_va)
+    if not slot or slot.get("kind") != "export":
+        return None
+    e = models.get((slot["module"].lower(), slot["export"]))
+    if e is None:
+        return None
+    push_ret = "" if jump else "s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8);"
+    pop_ret = "" if jump else " s.gpr[4] += 8;"
+    if e["do"] == "return":
+        value = int(str(e["value"]), 0) & 0xFFFFFFFFFFFFFFFF
+        return ["{ " + push_ret + " s.gpr[0] = %dULL;%s }" % (value, pop_ret)]
+    if e["do"] == "memcpy":
+        # Win64 memcpy(rcx=dst, rdx=src, r8=n): push rdi, push rsi, rep movsb (byte writes, forward), rax=dst,
+        # rcx=0; the pops restore rsi and rdi (16 bytes of stack), then the ret (8 more) for a call.
+        return ["{ " + push_ret +
+                " s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[7], 8);"
+                " s.gpr[4] -= 8; s.wr(s.gpr[4], s.gpr[6], 8);"
+                " uint64_t _dst = s.gpr[1], _src = s.gpr[2], _n = s.gpr[8];"
+                " for (uint64_t _i = 0; _i < _n; ++_i) s.wr(_dst + _i, s.rd(_src + _i, 1), 1);"
+                " s.gpr[0] = _dst; s.gpr[1] = 0;"
+                " s.gpr[4] += 16;%s }" % pop_ret]
+    if e["do"] == "qpc":
+        # BOOL QueryPerformanceCounter(LARGE_INTEGER *count): stores the import_stubs value at *rcx, returns TRUE.
+        value = int(str(e["value"]), 0) & 0xFFFFFFFFFFFFFFFF
+        return ["{ " + push_ret + (" s.wr(s.gpr[1], %dULL, 8); s.gpr[0] = 1;%s }" % (value, pop_ret))]
+    if e["do"] == "tebread":
+        # DWORD read from the thread block at gs:[offset], zero-extended into rax (GetLastError: TEB.LastErrorValue).
+        off = int(str(e["offset"]), 0)
+        return ["{ " + push_ret + (" s.gpr[0] = (uint64_t)s.rd(s.gs_base + %dULL, 4);%s }" % (off, pop_ret))]
+    if e["do"] == "tls_get":
+        # TlsGetValue(index): TEB.TlsSlots[index] for index < 64 (x64 TEB +0x1480), else NULL.
+        return ["{ " + push_ret + " uint64_t _i = (uint32_t)s.gpr[1];"
+                " s.gpr[0] = _i < 64 ? s.rd(s.gs_base + 0x1480ULL + _i * 8, 8) : 0ULL;%s }" % pop_ret]
+    if e["do"] == "tls_set":
+        # TlsSetValue(index, value): TEB.TlsSlots[index] = value for index < 64; returns TRUE, else FALSE.
+        return ["{ " + push_ret + " uint64_t _i = (uint32_t)s.gpr[1];"
+                " if (_i < 64) s.wr(s.gs_base + 0x1480ULL + _i * 8, s.gpr[2], 8);"
+                " s.gpr[0] = _i < 64 ? 1ULL : 0ULL;%s }" % pop_ret]
+    # The three Wine models below mirror the hand-encoded code in import_stubs.json (code_hex) register for register:
+    # the harness runs that code, so every register and byte the model leaves must match here (snapdiff compares them).
+    if e["do"] == "srw_acquire_shared":
+        # RtlAcquireSRWLockShared(rcx=lock): fast path only; [lock] += 0x10000; rax = rdx = old; rcx = new. The slow path
+        # (exclusive or waiting bits) is int3 in the harness, so reaching it here is a trap, never a wrong value.
+        return ["{ " + push_ret + " uint32_t _v = (uint32_t)s.rd(s.gpr[1], 4);"
+                " if ((_v & 0xFFFFu) != 0) __builtin_trap();"
+                " uint32_t _n = _v + 0x10000u; s.wr(s.gpr[1], (uint64_t)_n, 4);"
+                " s.gpr[0] = _v; s.gpr[2] = _v; s.gpr[1] = _n;%s }" % pop_ret]
+    if e["do"] == "srw_release_shared":
+        # RtlReleaseSRWLockShared(rcx=lock): fast path only; [lock] -= 0x10000 when bit 0 is clear and the shared count
+        # is nonzero; rax = old; rdx = count - 1; r8 = new; rcx unchanged. Any other case is int3 in the harness: a trap.
+        return ["{ " + push_ret + " uint32_t _v = (uint32_t)s.rd(s.gpr[1], 4);"
+                " if ((_v & 1u) != 0 || (_v >> 16) == 0) __builtin_trap();"
+                " uint32_t _n = _v - 0x10000u; s.wr(s.gpr[1], (uint64_t)_n, 4);"
+                " s.gpr[0] = _v; s.gpr[2] = (uint64_t)((_v >> 16) - 1u); s.gpr[8] = _n;%s }" % pop_ret]
+    if e["do"] == "fls_get":
+        # FlsGetValue(ecx=index): the inlined Wine walk. index-1 > 0xFEE or a null FLS vector (TEB+0x17C8) is the failure
+        # path (TEB+0x68 = 87, rax = 0); else the block walk (16<<k slots per block), value = block[k][rem+1] (0 for a null
+        # block), TEB+0x68 = 0. Registers follow the machine code: rax, rcx, rdx, r8, r10 as the harness leaves them.
+        return ["{ " + push_ret +
+                " uint32_t _ix = (uint32_t)s.gpr[1]; s.gpr[0] = _ix;"
+                " uint32_t _m1 = _ix - 1u; s.gpr[1] = _m1;"
+                " bool _inv = _m1 > 0xFEEu; uint64_t _self = 0, _fls = 0; uint32_t _k = 0, _e = _ix, _ax = _ix;"
+                " if (!_inv) { _self = s.rd(s.gs_base + 0x30ULL, 8); s.gpr[1] = _self; _fls = s.rd(_self + 0x17C8ULL, 8);"
+                "   s.gpr[10] = _fls; _inv = (_fls == 0); }"
+                " if (!_inv && _ix > 0xFu) { uint64_t _r8 = 0x10u;"
+                "   do { _k += 1; _e -= (uint32_t)_r8; _r8 = (uint32_t)(0x10u << (_k & 31u)); } while (_e >= (uint32_t)_r8);"
+                "   s.gpr[8] = _r8; s.gpr[1] = _k; _ax = _e; }"
+                " else if (!_inv) { s.gpr[1] = 0; }"
+                " if (!_inv) { s.gpr[0] = _ax;"
+                "   uint64_t _blk = s.rd(_fls + 0x10ULL + (uint64_t)s.gpr[1] * 8ULL, 8); s.gpr[1] = _blk;"
+                "   if (_blk != 0) { _ax += 1u; s.gpr[0] = _ax; s.gpr[1] = s.rd(_blk + (uint64_t)_ax * 8ULL, 8); }"
+                "   s.gpr[0] = s.gpr[1]; s.gpr[2] = _self; s.wr(_self + 0x68ULL, 0, 4); }"
+                " else { _self = s.rd(s.gs_base + 0x30ULL, 8); s.gpr[2] = _self; s.wr(_self + 0x68ULL, 87, 4); s.gpr[0] = 0; }"
+                "%s }" % pop_ret]
+    if e["do"] == "setlasterror":
+        # RtlSetLastWin32Error(ecx): TEB.LastErrorValue (gs:[0x30]+0x68) = ecx; rax = the TEB self pointer (the machine code).
+        return ["{ " + push_ret + " uint64_t _self = s.rd(s.gs_base + 0x30ULL, 8); s.gpr[0] = _self;"
+                " s.wr(_self + 0x68ULL, s.gpr[1] & 0xFFFFFFFFULL, 4);%s }" % pop_ret]
+    raise SystemExit("import_stubs.json: no translator model for do=%r (%s!%s)"
+                     % (e["do"], slot["module"], slot["export"]))
 
 
 class Emitter:
@@ -342,6 +462,8 @@ class Emitter:
 
     def addr_expr(self, mp):
         terms = []
+        if mp.get("seg") == "gs":
+            terms.append("s.gs_base")  # the thread block: a per-thread base the caller sets (PesState::gs_base)
         if mp["base"] is not None:
             terms.append("(%s)" % reg_read(mp["base"]))
         if mp["index"] is not None:
@@ -356,7 +478,7 @@ class Emitter:
         """A register-indexed read of a read-only image table whose base is a
         LEA constant and whose index a guard bounds: bake the window the guard
         admits (build-time bytes, VA-cited). None when any part is unknown."""
-        if self.cur is None or width == 128:
+        if self.cur is None or width == 128 or mp.get("seg"):  # a segment-relative read is never a baked table
             return None
         base = lea_const(self, PARENT.get(mp["base"], mp["base"]), self.cur)
         count = bounded_index(self, PARENT.get(mp["index"], mp["index"]),
@@ -495,6 +617,8 @@ class Emitter:
             return self.do_xadd(m, ops)
         if m in ("IMUL", "MUL"):
             return self.do_mul(m, ops)
+        if m in ("BSF", "BSR"):
+            return self.do_bitscan(m, ops)
         if m in ("BT", "BTC", "BTR", "BTS"):
             return self.do_bit(m, ops)
         if m in ("CDQE", "CDQ", "CQO", "CWD", "CBW", "CWDE"):
@@ -1050,20 +1174,37 @@ class Emitter:
         if "[" in src and sw < 64:
             v = sext(v, sw)
         return ["s.set_x_f64(%d, (double)(int64_t)(%s));" % (int(dst.strip().lower()[3:]), v)]
+    def do_bitscan(self, m, ops):
+        """BSF / BSR r, r/m (16, 32 or 64 bits). ZF = (source == 0). A zero source leaves the destination
+        unchanged (SDM: undefined; the hardware and the harness both keep it). Otherwise the destination
+        gets the index of the lowest (BSF) or highest (BSR) set bit."""
+        dst, src = ops[0], ops[1]
+        w = self.op_width(dst)
+        mask = {16: "0xFFFFULL", 32: "0xFFFFFFFFULL", 64: "0xFFFFFFFFFFFFFFFFULL"}[w]
+        idx = "__builtin_ctzll(_s)" if m == "BSF" else "(63 - __builtin_clzll(_s))"
+        return ["{ uint64_t _s = (uint64_t)(%s) & %s; s.zf = (_s == 0);" % (self.val_of(src, w), mask),
+                "  if (_s) { %s } }" % reg_write(dst, "(uint64_t)(%s)" % idx)]
 
     def do_mul(self, m, ops):
         if m == "MUL" and len(ops) == 1:
-            # unsigned: EDX:EAX = EAX * op (32-bit) or RDX:RAX (64-bit)
+            # unsigned: AL*r8->AX, AX*r16->DX:AX, EAX*r32->EDX:EAX, RAX*r64->RDX:RAX. A 32-bit
+            # destination zero-extends RAX and RDX (SDM); the 8- and 16-bit forms keep the other bits.
             o = ops[0]
             w = self.op_width(o)
             b = self.val_of(o, w)
-            if w <= 32:
-                return ["{ uint64_t _p = (uint64_t)(uint32_t)s.gpr[0] * "
-                        "(uint64_t)(uint32_t)(%s);" % b,
-                        "  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFF00000000ULL) | "
-                        "(_p & 0xFFFFFFFFULL);",
-                        "  s.gpr[2] = (s.gpr[2] & 0xFFFFFFFF00000000ULL) | "
-                        "((_p >> 32) & 0xFFFFFFFFULL);",
+            if w == 8:
+                return ["{ uint64_t _p = (uint64_t)(uint8_t)s.gpr[0] * (uint64_t)(uint8_t)(%s);" % b,
+                        "  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFF0000ULL) | (_p & 0xFFFFULL);",
+                        "  s.cf = s.of = ((_p >> 8) != 0); }"]
+            if w == 16:
+                return ["{ uint64_t _p = (uint64_t)(uint16_t)s.gpr[0] * (uint64_t)(uint16_t)(%s);" % b,
+                        "  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFF0000ULL) | (_p & 0xFFFFULL);",
+                        "  s.gpr[2] = (s.gpr[2] & 0xFFFFFFFFFFFF0000ULL) | ((_p >> 16) & 0xFFFFULL);",
+                        "  s.cf = s.of = ((_p >> 16) != 0); }"]
+            if w == 32:
+                return ["{ uint64_t _p = (uint64_t)(uint32_t)s.gpr[0] * (uint64_t)(uint32_t)(%s);" % b,
+                        "  s.gpr[0] = (uint64_t)(uint32_t)_p;",
+                        "  s.gpr[2] = (uint64_t)(uint32_t)(_p >> 32);",
                         "  s.cf = s.of = ((_p >> 32) != 0); }"]
             return ["{ unsigned __int128 _p = (unsigned __int128)s.gpr[0] * "
                     "(uint64_t)(%s);" % b,
@@ -1071,22 +1212,27 @@ class Emitter:
                     "(uint64_t)(_p >> 64);",
                     "  s.cf = s.of = ((_p >> 64) != 0); }"]
         if m == "IMUL" and len(ops) == 1:
+            # signed: the same widths and writes; CF = OF = the product does not fit the low part (SDM).
             o = ops[0]
             w = self.op_width(o)
             b = self.val_of(o, w)
-            if w <= 32:
-                return ["{ int64_t _p = (int64_t)(int32_t)s.gpr[0] * "
-                        "(int64_t)(int32_t)(%s);" % b,
-                        "  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFF00000000ULL) | "
-                        "(_p & 0xFFFFFFFFULL);",
-                        "  s.gpr[2] = (s.gpr[2] & 0xFFFFFFFF00000000ULL) | "
-                        "((_p >> 32) & 0xFFFFFFFFULL);",
-                        "  s.cf = s.of = false; }"]
-            return ["{ __int128 _p = (__int128)(int64_t)s.gpr[0] * "
-                    "(int64_t)(%s);" % b,
-                    "  s.gpr[0] = (uint64_t)_p; s.gpr[2] = "
-                    "(uint64_t)(_p >> 64);",
-                    "  s.cf = s.of = false; }"]
+            if w == 8:
+                return ["{ int16_t _p = (int16_t)((int8_t)s.gpr[0]) * (int16_t)((int8_t)(%s));" % b,
+                        "  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFF0000ULL) | ((uint16_t)_p);",
+                        "  s.cf = s.of = ((int16_t)(int8_t)_p != _p); }"]
+            if w == 16:
+                return ["{ int32_t _p = (int32_t)((int16_t)s.gpr[0]) * (int32_t)((int16_t)(%s));" % b,
+                        "  s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFF0000ULL) | ((uint16_t)_p);",
+                        "  s.gpr[2] = (s.gpr[2] & 0xFFFFFFFFFFFF0000ULL) | ((uint16_t)((uint32_t)_p >> 16));",
+                        "  s.cf = s.of = ((int32_t)(int16_t)_p != _p); }"]
+            if w == 32:
+                return ["{ int64_t _p = (int64_t)((int32_t)s.gpr[0]) * (int64_t)((int32_t)(%s));" % b,
+                        "  s.gpr[0] = (uint64_t)(uint32_t)_p;",
+                        "  s.gpr[2] = (uint64_t)(uint32_t)((uint64_t)_p >> 32);",
+                        "  s.cf = s.of = ((int64_t)(int32_t)_p != _p); }"]
+            return ["{ __int128 _p = (__int128)(int64_t)s.gpr[0] * (int64_t)(%s);" % b,
+                    "  s.gpr[0] = (uint64_t)_p; s.gpr[2] = (uint64_t)(_p >> 64);",
+                    "  s.cf = s.of = ((int64_t)(uint64_t)_p != _p); }"]
         if m == "IMUL" and len(ops) == 3:
             dst = ops[0]
             w = self.op_width(dst)
@@ -1246,14 +1392,13 @@ class Emitter:
             # int<->lane0 bit transfer
             if d.startswith("xmm") and "[" not in d:
                 x = int(d[3:])
+                # MOVD xmm, r/m32 zero-extends to 128 bits (SDM): bits 32-127 are cleared.
                 if s in GPR or s in SUB:
-                    return ["s.xmm[%d][0] = (s.xmm[%d][0] & "
-                            "0xFFFFFFFF00000000ULL) | ((uint64_t)(uint32_t)"
-                            "(%s));" % (x, x, reg_read(s))]
+                    return ["s.xmm[%d][0] = (uint64_t)(uint32_t)(%s); s.xmm[%d][1] = 0;"
+                            % (x, reg_read(s), x)]
                 inner = src[src.find("["):]
-                return ["{ uint32_t _b = (uint32_t)%s; s.xmm[%d][0] = "
-                        "(s.xmm[%d][0] & 0xFFFFFFFF00000000ULL) | _b; }"
-                        % (self.mem_val(inner, 32, None), x, x)]
+                return ["s.xmm[%d][0] = (uint64_t)(uint32_t)(%s); s.xmm[%d][1] = 0;"
+                        % (x, self.mem_val(inner, 32, None), x)]
             v = self.val_of(src, 32)
             if "[" in dst:
                 return [self.mem_store(dst[dst.find("["):], v, 32, None)]
@@ -1266,8 +1411,9 @@ class Emitter:
                     return ["s.xmm[%d][0] = s.xmm[%d][0];"
                             % (x, int(s[3:]))]
                 inner = src[src.find("["):]
-                return ["s.xmm[%d][0] = %s;" % (x, self.mem_val(inner, 64,
-                                                                None))]
+                # A memory source zeroes bits 64-127 (SDM: MOVSD xmm, m64); a register source keeps them.
+                return ["s.xmm[%d][0] = %s; s.xmm[%d][1] = 0;"
+                        % (x, self.mem_val(inner, 64, None), x)]
             inner = dst[dst.find("["):]
             x = int(s[3:])
             return ["s.wr(%s, s.xmm[%d][0], 8);"
@@ -1279,8 +1425,9 @@ class Emitter:
                 return ["s.set_x_f32(%d, s.x_f32(%d));"
                         % (x, int(s[3:]))]
             inner = src[src.find("["):]
-            return ["s.set_x_f32(%d, %s);"
-                    % (x, self.mem_val(inner, 32, "f32"))]
+            # A memory source zeroes bits 32-127 (SDM: MOVSS xmm, m32); a register source keeps them.
+            return ["s.set_x_f32(%d, %s); s.xmm[%d][0] &= 0xFFFFFFFFull; s.xmm[%d][1] = 0;"
+                    % (x, self.mem_val(inner, 32, "f32"), x, x)]
         inner = dst[dst.find("["):]
         return ["s.wrf(%s, s.x_f32(%d));"
                 % (self.addr_expr(parse_mem(inner[1:-1])), int(s[3:]))]
@@ -1299,11 +1446,11 @@ class Emitter:
         if op:
             return ["s.set_x_f32(%d, (float)((%s) %s (%s)));" % (x, a, op,
                                                                   b)]
+        # Intel MAXSS/MINSS: the destination is kept only when dst > src (MAXSS) or dst < src (MINSS). Equal values
+        # (-0.0 and +0.0 compare equal) and NaN take the SOURCE. 1408A40F0: maxss of -0.0 with +0.0 returned -0.0.
         if m == "MAXSS":
-            return ["s.set_x_f32(%d, (float)(((%s) >= (%s)) ? (%s) : (%s)));"
-                    % (x, a, b, a, b)]
-        return ["s.set_x_f32(%d, (float)(((%s) <= (%s)) ? (%s) : (%s)));"
-                % (x, a, b, a, b)]
+            return ["s.set_x_f32(%d, (float)(((%s) > (%s)) ? (%s) : (%s)));" % (x, a, b, a, b)]
+        return ["s.set_x_f32(%d, (float)(((%s) < (%s)) ? (%s) : (%s)));" % (x, a, b, a, b)]
 
     def do_comiss(self, ops):
         return ["s.cmp_ss((float)(%s), (float)(%s));"
@@ -1465,6 +1612,11 @@ class Emitter:
             return ["return;"]
         if m == "CALL":
             if not is_imm(ops[0].strip()):
+                # A call through a named import slot (import_slots.json) runs the slot's model
+                # (import_stubs.json), as the snapshot harness runs it: the export is modelled, not translated.
+                model = import_model_lines(ops[0], jump=False)
+                if model is not None:
+                    return model
                 # Indirect call (vtable / register / memory): emit the exact
                 # address computation the bytes compute, then look the target
                 # up in the generated dispatch table (pes_dispatch.hpp). A
@@ -1490,9 +1642,21 @@ class Emitter:
                 fn = "pes_fn_%s" % tgt[2:]
                 return ["{ s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); %s(s); "
                         "s.gpr[4] += 8; }" % fn]
-            return ["/*OUT-OF-SET CALL %s*/ s.gpr[0] = 0;" % tgt]
+            return ["/*OUT-OF-SET CALL %s*/ pes_dispatch_missing(0x%X);" % (tgt, imm_val(ops[0]))]
         if m == "JMP":
             o = ops[0].strip()
+            if absolute_slot(o) is not None:
+                # JMP through an absolute slot: a named export runs its model, then the function returns. Any other
+                # slot (an image function's address, as the snapshot holds it) is a tail jump to the target the slot
+                # holds now, looked up in the dispatch table like an indirect CALL; an untranslated target aborts.
+                model = import_model_lines(o, jump=True)
+                if model is not None:
+                    return model + ["return;"]
+                tgt_expr = self.mem_val(o[o.find("["):], 64, None)
+                return ["{ uint64_t _t = (uint64_t)(%s); PesDispatch _d = pes_dispatch_lookup(_t);" % tgt_expr,
+                        "  if (_d.fn == 0) pes_dispatch_missing(_t);",
+                        "  _d.fn(s); }",
+                        "return;"]
             if is_imm(o):
                 # In-range target: local goto. Out-of-range target: it is a
                 # tail call to a sibling (the pilot set is call-closed);
@@ -1513,31 +1677,17 @@ class Emitter:
             if info and info.get("table") is not None:
                 tva = info["table"]
                 words = info["words"]
-                cases = sorted(set((i, w) for i, w in enumerate(words)))
                 self.tables[tva] = {"words": words,
                                     "base": info["base"]}
-                # Dispatch on the TABLE INDEX (the CDQE'd reg feeding the
-                # [base + idx*4] load), not the post-ADD target reg (which
-                # holds base+table[idx] by the time JMP runs).
-                idx = reg_read(info.get("index", ops[0]))
-                lines = ["{ uint32_t _i = (uint32_t)(%s); switch (_i) {"
-                         % idx]
-                seen = {}
-                for i, w in cases:
+                # Dispatch on the TABLE ENTRY, not the index: the table load overwrites the index register, so at
+                # JMP time the register holds base + table[idx]. Its entry is that register minus base; each distinct
+                # entry that is a local label becomes a case. Any other entry falls to default.
+                lines = ["{ uint32_t _i = (uint32_t)(%s - 0x%XULL); switch (_i) {"
+                         % (reg_read(ops[0]), info["base"])]
+                for w in sorted(set(words)):
                     tgt = info["base"] + w
-                    # Only local labels become cases: a target outside
-                    # this body is mis-decoded table data (or another
-                    # function), never a goto we define. Its indices fall
-                    # to default, exactly as the harness faults on them.
-                    if tgt not in self.labels:
-                        continue
-                    if tgt not in seen:
-                        seen[tgt] = []
-                    seen[tgt].append(i)
-                for tgt in sorted(seen):
-                    for i in sorted(seen[tgt]):
-                        lines.append("  case %d:;" % i)
-                    lines.append("    goto L_%X;" % tgt)
+                    if tgt in self.labels:
+                        lines.append("  case %uU: goto L_%X;" % (w, tgt))
                 lines.append("  default: goto L_%X;" % info["default"])
                 lines.append("  } }")
                 return lines
@@ -1545,7 +1695,9 @@ class Emitter:
             if tgt:
                 fn = "pes_fn_%s" % tgt[2:]
                 return ["{ %s(s); return; }" % fn]
-            return ["/*UNRESOLVED JMP %s*/return;" % o]
+            # Loud, like an untaken out-of-body Jcc: a jump the prepass could not resolve trapped when reached, never a
+            # silent return (the silent return hid a switch dispatch in 141F5F330 until lockstep found it).
+            return ["__builtin_trap(); /* UNRESOLVED JMP %s */" % o]
         if m == "LOOP":
             # LOOP rel8 (64-bit mode): RCX counts down, and the jump is taken while RCX != 0; flags are untouched.
             tgt = imm_val(ops[0])
@@ -1598,7 +1750,9 @@ def split_ops(s):
         else:
             cur += ch
     parts.append(cur.strip())
-    return parts
+    # A segment prefix sits outside the brackets in the disassembly ("gs:[0x58]"); callers take the operand from its
+    # "[" on, so the prefix moves inside: "[gs:0x58]". parse_mem reads it there.
+    return [p.replace("gs:[", "[gs:") for p in parts]
 
 
 def parse_lines(text):
@@ -1743,7 +1897,6 @@ def prepass(lines, img):
         i = pos[addr]
         base = None
         tdisp = None
-        tidx = None
         count = None
         default = None
         same = lambda o: PARENT.get(o.strip().lower(),
@@ -1762,22 +1915,23 @@ def prepass(lines, img):
                 mp = parse_mem(inner)
                 if mp and mp["scale"] == 4 and mp["index"] is not None:
                     tdisp = mp["disp"]
-                    tidx = mp["index"]
                     break
         baseva = None
         basep = PARENT.get(base, base) if base is not None else None
-        for j in range(i - 1, max(-1, i - 20), -1):
+        # The base is the nearest write to its register, however far back: a switch's `lea base,[image]` can sit past
+        # any fixed window. 141F5F330 -> 141F5FC00: the LEA is 21 instructions above its JMP, the old window was 20, so
+        # the JMP went UNRESOLVED and the translation returned where PES dispatched to a case.
+        for j in range(i - 1, -1, -1):
             mn2, ops2 = byaddr[order[j]]
-            if mn2.upper() == "LEA" and len(ops2) == 2 and \
-                    basep is not None and \
-                    PARENT.get(ops2[0].strip().lower(),
-                               ops2[0].strip().lower()) == basep and \
-                    "[" in ops2[1]:
+            if basep is None or mn2.upper() in ("CMP", "TEST") or not ops2 or \
+                    PARENT.get(ops2[0].strip().lower(), ops2[0].strip().lower()) != basep:
+                continue
+            if mn2.upper() == "LEA" and len(ops2) == 2 and "[" in ops2[1]:
                 inner = ops2[1][ops2[1].find("[") + 1:ops2[1].rfind("]")]
                 mp = parse_mem(inner)
                 if mp and mp["absolute"] is not None:
                     baseva = mp["absolute"]
-                    break
+            break
         for j in range(i - 1, max(-1, i - 20), -1):
             mn2, ops2 = byaddr[order[j]]
             if mn2.upper() == "JA" and ops2 and is_imm(ops2[0]):
@@ -1804,9 +1958,12 @@ def prepass(lines, img):
                     inner = ops2[1][ops2[1].find("[") + 1:
                                     ops2[1].rfind("]")]
                     mp = parse_mem(inner)
+                    # The byte map is [table base + idx]: its base register must be the one the LEA loaded,
+                    # else an unrelated scale-1 load (e.g. [rcx+rax-1]) reads as a map below the image.
                     if mp and mp["base"] is not None and \
                             mp["scale"] == 1 and \
-                            mp["absolute"] is None:
+                            mp["absolute"] is None and \
+                            PARENT.get(mp["base"].lower(), mp["base"].lower()) == basep:
                         bmap = baseva + mp["disp"]
                         break
             if bmap is not None:
@@ -1819,7 +1976,7 @@ def prepass(lines, img):
                 raw = img.read(tva, count * 4)
                 words = list(struct.unpack("<%dI" % count, raw))
             jmpreg[addr] = {"table": tva, "words": words, "base": baseva,
-                            "default": default, "index": tidx or "eax"}
+                            "default": default}
             for w in words:
                 if baseva + w in addrs:
                     labels.add(baseva + w)
@@ -1844,12 +2001,15 @@ def stub_lines(do):
 def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
     addrs = {a for a, _, _ in lines}
     ctx = {"jmpreg": jmpreg, "addrs": addrs, "stubs": stubs or {}}
+    trace_pc = bool(os.environ.get("GF_XLATE_TRACE"))  # lockstep: one GF_TRACE_PC per instruction (snapdiff build only)
     body = []
     em.lines, em.labels, em.guards = lines, labels, find_guards(lines)
     for idx, (addr, mnem, ops) in enumerate(lines):
         em.cur = idx
         if addr in labels:
             body.append("L_%X:;" % addr)
+        if trace_pc:
+            body.append("GF_TRACE_PC(0x%X, s);" % addr)
         m = mnem.upper()
         if m.startswith("LOCK "):
             m = m[5:]  # single-threaded harness: LOCK changes atomicity only
@@ -1857,7 +2017,7 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
         if m in ("MOV", "MOVABS", "MOVSX", "MOVSXD", "MOVZX", "LEA", "XCHG", "ADD",
                  "SUB", "CMP", "TEST", "AND", "OR", "XOR", "ADC", "SBB",
                  "INC", "DEC", "NEG", "NOT", "SHL", "SHR", "SAR", "IMUL",
-                 "ROR", "ROL", "XADD", "CMPXCHG",
+                 "ROR", "ROL", "XADD", "CMPXCHG", "BSF", "BSR",
                  "MUL", "BT", "BTC", "BTR", "BTS", "CDQE", "CDQ", "CQO",
                  "CWD", "CBW", "CWDE", "PUSH", "POP", "LEAVE", "NOP"):
             out = em.emit_alu(m, ops)
@@ -1883,6 +2043,9 @@ def emit_function(em, va, lines, labels, jmpreg, pilot, stubs=None):
             out = em.do_string(m[4:], rep=True)
         elif m in ("STOSB", "STOSW", "STOSD", "STOSQ", "MOVSB", "MOVSW", "MOVSQ"):
             out = em.do_string(m, rep=False)
+        elif m == "INT3":
+            # A trap: the harness stops (and excludes) any case that reaches one, so reaching it here is a loud abort.
+            out = ["__builtin_trap();"]
         elif m in ("DIV", "IDIV"):
             out = em.do_div(m, ops)
         elif m in CCMAP or m in ("RET", "CALL", "JMP", "LOOP"):

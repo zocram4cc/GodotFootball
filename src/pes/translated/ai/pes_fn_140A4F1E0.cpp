@@ -17,9 +17,9 @@ static constexpr float k_c1425C7BA8_f = -28.0f; // -28.0
 void pes_fn_140A4F1E0(PesState& s);
 
 void pes_fn_140A4F1E0(PesState& s) {
-  s.set_x_f32(0, k_c1425C7BA8_f);
+  s.set_x_f32(0, k_c1425C7BA8_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.gpr[0] = (uint64_t)(uint32_t)((((int64_t)(((uint64_t)(((uint64_t)(uint8_t)(s.gpr[2] >> 0))) << 56))) >> 56));
-  s.xmm[1][0] = (s.xmm[1][0] & 0xFFFFFFFF00000000ULL) | ((uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0])));
+  s.xmm[1][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0])); s.xmm[1][1] = 0;
   { uint32_t _l0 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][0] >> 0)), _l1 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][0] >> 32)), _l2 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][1] >> 0)), _l3 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][1] >> 32));
     s.xmm[1][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[1][1] = ((uint64_t)_l3 << 32) | _l2; }
   s.set_x_f32(1, (float)((s.x_f32(1)) * ((s.rdf(((s.gpr[1])))))));

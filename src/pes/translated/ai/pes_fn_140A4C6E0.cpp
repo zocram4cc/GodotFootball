@@ -17,7 +17,7 @@ void pes_fn_140A4C6E0(PesState& s) {
     s.cf = false; s.of = false;
     s.gpr[9] = (s.gpr[9] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)(_r));
   }
-  s.xmm[1][0] = (s.xmm[1][0] & 0xFFFFFFFF00000000ULL) | ((uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0])));
+  s.xmm[1][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0])); s.xmm[1][1] = 0;
   { uint32_t _l0 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][0] >> 0)), _l1 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][0] >> 32)), _l2 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][1] >> 0)), _l3 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][1] >> 32));
     s.xmm[1][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[1][1] = ((uint64_t)_l3 << 32) | _l2; }
   s.gpr[0] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[9] >> 0)));

@@ -19,10 +19,10 @@ void pes_fn_1403E8870(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFFFFFFFFFULL) < (_b & 0xFFFFFFFFFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 63) & 1; }
   if (s.cond("nz")) {
-    s.xmm[0][0] = s.rd(0x1436EDE60ULL, 8);
+    s.xmm[0][0] = s.rd(0x1436EDE60ULL, 8); s.xmm[0][1] = 0;
     return;
   } else {
-    s.xmm[0][0] = k_c14257AB60_q;
+    s.xmm[0][0] = k_c14257AB60_q; s.xmm[0][1] = 0;
     return;
   }
 }

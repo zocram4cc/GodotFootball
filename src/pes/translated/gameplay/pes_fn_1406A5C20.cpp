@@ -22,7 +22,7 @@ void pes_fn_1406A5C20(PesState& s) {
       s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
       s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
     if (!s.cond("nz")) {
-      s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x4ULL))));
+      s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x4ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
       s.set_x_f32(0, (float)((s.x_f32(0)) / ((s.rdf(((s.gpr[2]) + (0x4ULL)))))));
       s.wrf(((s.gpr[1]) + (0x4ULL)), s.x_f32(0));
     }

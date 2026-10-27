@@ -20,9 +20,9 @@ void pes_fn_14046F230(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[4] = (uint64_t)(_r);
   }
-  s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x8ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x8ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.xmm[2][0] = 0; s.xmm[2][1] = 0;
-  s.set_x_f32(3, s.rdf(((s.gpr[1]))));
+  s.set_x_f32(3, s.rdf(((s.gpr[1])))); s.xmm[3][0] &= 0xFFFFFFFFull; s.xmm[3][1] = 0;
   s.xmm[1][0] = 0; s.xmm[1][1] = 0;
   s.gpr[1] = (uint64_t)(s.gpr[2]);
   s.wrf(((s.gpr[4]) + (0x20ULL)), s.x_f32(0));

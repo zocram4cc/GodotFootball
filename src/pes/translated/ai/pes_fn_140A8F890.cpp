@@ -11,8 +11,8 @@
 void pes_fn_140A8F890(PesState& s);
 
 void pes_fn_140A8F890(PesState& s) {
-  s.set_x_f32(1, s.rdf(((s.gpr[1]))));
-  s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x8ULL))));
+  s.set_x_f32(1, s.rdf(((s.gpr[1])))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
+  s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x8ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.set_x_f32(0, (float)((s.x_f32(0)) - ((s.rdf(((s.gpr[2]) + (0x8ULL)))))));
   s.set_x_f32(1, (float)((s.x_f32(1)) - ((s.rdf(((s.gpr[2])))))));
   s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(0))));

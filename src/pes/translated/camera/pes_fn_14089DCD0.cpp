@@ -17,17 +17,17 @@ static constexpr float k_c14256AE30_f = 120.0f; // 120.0
 void pes_fn_14089DCD0(PesState& s);
 
 void pes_fn_14089DCD0(PesState& s) {
-  s.set_x_f32(4, k_c14256AE30_f);
+  s.set_x_f32(4, k_c14256AE30_f); s.xmm[4][0] &= 0xFFFFFFFFull; s.xmm[4][1] = 0;
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(4)));
   if (!s.cond("a")) {
     s.xmm[4][0] = 0; s.xmm[4][1] = 0;
-    s.set_x_f32(4, (float)(((s.x_f32(4)) >= (s.x_f32(1))) ? (s.x_f32(4)) : (s.x_f32(1))));
+    s.set_x_f32(4, (float)(((s.x_f32(4)) > (s.x_f32(1))) ? (s.x_f32(4)) : (s.x_f32(1))));
   }
-  s.set_x_f32(0, k_c14256AE1C_f);
+  s.set_x_f32(0, k_c14256AE1C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.cmp_ss((float)(s.x_f32(3)), (float)(s.x_f32(0)));
   if (!s.cond("a")) {
     s.xmm[0][0] = 0; s.xmm[0][1] = 0;
-    s.set_x_f32(0, (float)(((s.x_f32(0)) >= (s.x_f32(3))) ? (s.x_f32(0)) : (s.x_f32(3))));
+    s.set_x_f32(0, (float)(((s.x_f32(0)) > (s.x_f32(3))) ? (s.x_f32(0)) : (s.x_f32(3))));
   }
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
@@ -36,7 +36,7 @@ void pes_fn_14089DCD0(PesState& s) {
   }
   s.wrf(((s.gpr[1]) + (0x1908ULL)), s.x_f32(0));
   s.wrf(((s.gpr[1]) + (0x1904ULL)), s.x_f32(0));
-  s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x1934ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x1934ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(4)));
   s.wr(((s.gpr[1]) + (0x1924ULL)), (uint64_t)(s.gpr[0]), 8);
   s.wrf(((s.gpr[1]) + (0x18F8ULL)), s.x_f32(4));
@@ -46,7 +46,7 @@ void pes_fn_14089DCD0(PesState& s) {
   if (!s.cond("be")) {
     s.wrf(((s.gpr[1]) + (0x1934ULL)), s.x_f32(4));
   }
-  s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x1938ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x1938ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(4)));
   if (!s.cond("be")) {
     s.wrf(((s.gpr[1]) + (0x1938ULL)), s.x_f32(4));

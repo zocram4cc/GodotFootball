@@ -12,7 +12,7 @@ void pes_fn_1406E6A40(PesState& s);
 void pes_fn_140A6D400(PesState& s);
 
 void pes_fn_1406E6A40(PesState& s) {
-  s.set_x_f32(1, s.rdf(((s.gpr[1]) + (0x3B18ULL))));
+  s.set_x_f32(1, s.rdf(((s.gpr[1]) + (0x3B18ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   s.gpr[1] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[2]));
   { pes_fn_140A6D400(s); return; }
 }

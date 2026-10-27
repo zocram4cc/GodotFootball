@@ -20,7 +20,7 @@ void pes_fn_141EB9560(PesState& s) {
       s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
       s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
     if (!s.cond("nc")) {
-      s.set_x_f32(0, s.rdf(((s.gpr[4]) + (0x28ULL))));
+      s.set_x_f32(0, s.rdf(((s.gpr[4]) + (0x28ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
       s.gpr[0] = (uint64_t)((((int64_t)(((uint64_t)(((uint64_t)(uint32_t)s.gpr[2])) << 32))) >> 32));
       s.wr(((s.gpr[0]) + ((s.gpr[1])*1ULL) + (0xB1ULL)), (uint64_t)(((uint64_t)(uint8_t)(s.gpr[8] >> 0))), 1);
       s.wrf(((s.gpr[1]) + ((s.gpr[0])*4ULL) + (0xB8ULL)), s.x_f32(3));

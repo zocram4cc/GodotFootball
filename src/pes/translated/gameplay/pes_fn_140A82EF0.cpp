@@ -13,11 +13,11 @@ void pes_fn_140A82EF0(PesState& s);
 void pes_fn_140A82EF0(PesState& s) {
   { unsigned __int128 _v = s.rd128(((s.gpr[1]) + (0x18ULL))); s.xmm[0][0] = (uint64_t)_v; s.xmm[0][1] = (uint64_t)(_v >> 64); }
   s.wr128(((s.gpr[1]) + (0x30ULL)), ((unsigned __int128)s.xmm[0][1] << 64) | s.xmm[0][0]);
-  s.xmm[1][0] = s.rd(((s.gpr[1]) + (0x28ULL)), 8);
+  s.xmm[1][0] = s.rd(((s.gpr[1]) + (0x28ULL)), 8); s.xmm[1][1] = 0;
   s.wr(((s.gpr[1]) + (0x40ULL)), s.xmm[1][0], 8);
   { unsigned __int128 _v = s.rd128(((s.gpr[2]))); s.xmm[0][0] = (uint64_t)_v; s.xmm[0][1] = (uint64_t)(_v >> 64); }
   s.wr128(((s.gpr[1]) + (0x18ULL)), ((unsigned __int128)s.xmm[0][1] << 64) | s.xmm[0][0]);
-  s.xmm[1][0] = s.rd(((s.gpr[2]) + (0x10ULL)), 8);
+  s.xmm[1][0] = s.rd(((s.gpr[2]) + (0x10ULL)), 8); s.xmm[1][1] = 0;
   s.wr(((s.gpr[1]) + (0x28ULL)), s.xmm[1][0], 8);
   return;
 }

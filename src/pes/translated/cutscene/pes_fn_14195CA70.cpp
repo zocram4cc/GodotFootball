@@ -45,13 +45,13 @@ void pes_fn_14195CA70(PesState& s) {
     s.xmm[3][0] = 0; s.xmm[3][1] = 0;
     s.cmp_ss((float)(s.x_f32(3)), (float)(s.x_f32(0)));
     if (s.cond("be")) {
-      s.set_x_f32(1, k_c142A83538_f);
+      s.set_x_f32(1, k_c142A83538_f); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
     } else {
-      s.set_x_f32(1, k_c142A8353C_f);
+      s.set_x_f32(1, k_c142A8353C_f); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
     }
-    s.set_x_f32(2, k_c14256AE1C_f);
+    s.set_x_f32(2, k_c14256AE1C_f); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
     s.set_x_f32(1, (float)((s.x_f32(1)) * (s.x_f32(0))));
-    s.set_x_f32(0, s.rdf(((s.gpr[3]) + (0x30ULL))));
+    s.set_x_f32(0, s.rdf(((s.gpr[3]) + (0x30ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     s.cmp_ss((float)(s.x_f32(3)), (float)(s.x_f32(0)));
     s.set_x_f32(1, (float)((s.x_f32(1)) + (s.x_f32(2))));
     if (s.cond("be")) {
@@ -80,7 +80,7 @@ void pes_fn_14195CA70(PesState& s) {
       return;
     }
   } else {
-    s.set_x_f32(0, k_c14256AE1C_f);
+    s.set_x_f32(0, k_c14256AE1C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((32ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
       s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
       s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));

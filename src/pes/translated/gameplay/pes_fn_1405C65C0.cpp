@@ -17,13 +17,13 @@ void pes_fn_1405C65C0(PesState& s) {
   s.xmm[4][0] = s.xmm[1][0]; s.xmm[4][1] = s.xmm[1][1];
   s.cmp_ss((float)(s.x_f32(4)), (float)(s.x_f32(0)));
   if (s.cond("nc")) {
-    s.set_x_f32(0, k_c14256AE1C_f);
+    s.set_x_f32(0, k_c14256AE1C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     return;
   } else {
-    s.set_x_f32(1, s.rdf(((s.gpr[4]) + (0x28ULL))));
+    s.set_x_f32(1, s.rdf(((s.gpr[4]) + (0x28ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
     s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(1)));
     if (s.cond("nc")) {
-      s.set_x_f32(0, k_c14256AE1C_f);
+      s.set_x_f32(0, k_c14256AE1C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
       return;
     } else {
       s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(2)));
@@ -39,7 +39,7 @@ void pes_fn_1405C65C0(PesState& s) {
               s.set_x_f32(0, (float)((s.x_f32(0)) / (s.x_f32(1))));
               return;
             } else {
-              s.set_x_f32(0, k_c14256AE1C_f);
+              s.set_x_f32(0, k_c14256AE1C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
               return;
             }
           } else {
@@ -49,7 +49,7 @@ void pes_fn_1405C65C0(PesState& s) {
         } else {
           s.cmp_ss((float)(s.x_f32(4)), (float)(s.x_f32(0)));
           if (s.cond("nc")) {
-            s.set_x_f32(0, k_c14256AE1C_f);
+            s.set_x_f32(0, k_c14256AE1C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
             return;
           } else {
             s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(2))));
@@ -75,7 +75,7 @@ void pes_fn_1405C65C0(PesState& s) {
                 s.set_x_f32(0, (float)((s.x_f32(0)) / (s.x_f32(1))));
                 return;
               } else {
-                s.set_x_f32(0, k_c14256AE1C_f);
+                s.set_x_f32(0, k_c14256AE1C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
                 return;
               }
             } else {
@@ -85,7 +85,7 @@ void pes_fn_1405C65C0(PesState& s) {
           } else {
             s.cmp_ss((float)(s.x_f32(4)), (float)(s.x_f32(0)));
             if (s.cond("nc")) {
-              s.set_x_f32(0, k_c14256AE1C_f);
+              s.set_x_f32(0, k_c14256AE1C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
               return;
             } else {
               s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(2))));

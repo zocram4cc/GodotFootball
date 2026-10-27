@@ -158,9 +158,9 @@ void pes_fn_140A62850(PesState& s) {
     s.gpr[0] = (uint64_t)(uint32_t)(_r);
   }
   goto L_140A628FB;
-  /*UNHANDLED INT3 */(void)0;
-  /*UNHANDLED INT3 */(void)0;
-  /*UNHANDLED INT3 */(void)0;
+  __builtin_trap();
+  __builtin_trap();
+  __builtin_trap();
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false;

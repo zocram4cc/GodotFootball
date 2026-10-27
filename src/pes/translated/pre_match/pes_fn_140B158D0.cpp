@@ -736,7 +736,7 @@ void pes_fn_140B158D0(PesState& s) {
   s.wr128(((s.gpr[3]) + (0x5B0ULL)), ((unsigned __int128)s.xmm[1][1] << 64) | s.xmm[1][0]);
   { unsigned __int128 _v = s.rd128(((s.gpr[7]) + (0x5C0ULL))); s.xmm[0][0] = (uint64_t)_v; s.xmm[0][1] = (uint64_t)(_v >> 64); }
   s.wr128(((s.gpr[3]) + (0x5C0ULL)), ((unsigned __int128)s.xmm[0][1] << 64) | s.xmm[0][0]);
-  s.xmm[1][0] = s.rd(((s.gpr[7]) + (0x5D0ULL)), 8);
+  s.xmm[1][0] = s.rd(((s.gpr[7]) + (0x5D0ULL)), 8); s.xmm[1][1] = 0;
   s.wr(((s.gpr[3]) + (0x5D0ULL)), s.xmm[1][0], 8);
   { unsigned __int128 _v = s.rd128(((s.gpr[7]) + (0x5D8ULL))); s.xmm[0][0] = (uint64_t)_v; s.xmm[0][1] = (uint64_t)(_v >> 64); }
   s.wr128(((s.gpr[3]) + (0x5D8ULL)), ((unsigned __int128)s.xmm[0][1] << 64) | s.xmm[0][0]);

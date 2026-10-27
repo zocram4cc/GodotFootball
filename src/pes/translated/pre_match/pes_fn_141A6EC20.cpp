@@ -11,6 +11,6 @@
 void pes_fn_141A6EC20(PesState& s);
 
 void pes_fn_141A6EC20(PesState& s) {
-  s.set_x_f32(0, s.rdf(((s.gpr[1]))));
+  s.set_x_f32(0, s.rdf(((s.gpr[1])))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   return;
 }

@@ -63,7 +63,7 @@ void pes_fn_14049BCF0(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[3] = (uint64_t)(_r);
   }
-  s.xmm[0][0] = s.rd(((s.gpr[3]) + (0x68ULL)), 8);
+  s.xmm[0][0] = s.rd(((s.gpr[3]) + (0x68ULL)), 8); s.xmm[0][1] = 0;
   s.wr(((s.gpr[4]) + (0x20ULL)), s.xmm[0][0], 8);
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[3]) + (0x70ULL)), 4));
   s.wr(((s.gpr[4]) + (0x28ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);

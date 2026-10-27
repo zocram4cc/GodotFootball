@@ -20,7 +20,7 @@ void pes_fn_1415FB180(PesState& s) {
     s.cf = false; s.of = false;
     s.gpr[10] = (uint64_t)(uint32_t)(_r);
   }
-  s.set_x_f32(1, k_c14258B550_f);
+  s.set_x_f32(1, k_c14258B550_f); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   s.gpr[9] = (uint64_t)(uint32_t)((255ULL));
   s.xmm[0][0] = s.xmm[2][0]; s.xmm[0][1] = s.xmm[2][1];
   s.gpr[1] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[10]));

@@ -31,7 +31,7 @@ void pes_fn_140A91E60(PesState& s) {
   }
   s.wr128(((s.gpr[4]) + (0x70ULL)), ((unsigned __int128)s.xmm[6][1] << 64) | s.xmm[6][0]);
   s.gpr[3] = (uint64_t)(s.gpr[1]);
-  s.set_x_f32(6, s.rdf(((s.gpr[4]) + (0xB0ULL))));
+  s.set_x_f32(6, s.rdf(((s.gpr[4]) + (0xB0ULL)))); s.xmm[6][0] &= 0xFFFFFFFFull; s.xmm[6][1] = 0;
   s.set_x_f32(6, (float)((s.x_f32(6)) * ((k_c14259BE40_f))));
   s.wr128(((s.gpr[4]) + (0x60ULL)), ((unsigned __int128)s.xmm[7][1] << 64) | s.xmm[7][0]);
   s.xmm[7][0] = s.xmm[1][0]; s.xmm[7][1] = s.xmm[1][1];
@@ -39,7 +39,7 @@ void pes_fn_140A91E60(PesState& s) {
   s.wr128(((s.gpr[4]) + (0x40ULL)), ((unsigned __int128)s.xmm[9][1] << 64) | s.xmm[9][0]);
   s.xmm[0][0] = s.xmm[6][0]; s.xmm[0][1] = s.xmm[6][1];
   s.set_x_f32(0, (float)((s.x_f32(0)) + ((k_c14259BE5C_f))));
-  s.set_x_f32(9, k_c14256AE1C_f);
+  s.set_x_f32(9, k_c14256AE1C_f); s.xmm[9][0] &= 0xFFFFFFFFull; s.xmm[9][1] = 0;
   s.wr128(((s.gpr[4]) + (0x30ULL)), ((unsigned __int128)s.xmm[10][1] << 64) | s.xmm[10][0]);
   s.xmm[1][0] = s.xmm[9][0]; s.xmm[1][1] = s.xmm[9][1];
   s.wr128(((s.gpr[4]) + (0x20ULL)), ((unsigned __int128)s.xmm[11][1] << 64) | s.xmm[11][0]);
