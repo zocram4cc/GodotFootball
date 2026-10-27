@@ -11,6 +11,6 @@
 void pes_fn_142139AA0(PesState& s);
 
 void pes_fn_142139AA0(PesState& s) {
-  s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0xACULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0xACULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   return;
 }

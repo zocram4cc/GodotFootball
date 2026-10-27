@@ -35,7 +35,7 @@ void pes_fn_1406AFF30(PesState& s) {
   s.gpr[3] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[1]));
   s.xmm[6][0] = s.xmm[1][0]; s.xmm[6][1] = s.xmm[1][1];
   if (s.cond("c")) goto L_1406AFF50;
-  s.set_x_f32(6, k_c14256AE1C_f);
+  s.set_x_f32(6, k_c14256AE1C_f); s.xmm[6][0] &= 0xFFFFFFFFull; s.xmm[6][1] = 0;
   L_1406AFF50:;
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(2)));
   if (s.cond("c")) goto L_1406AFF5D;
@@ -43,7 +43,7 @@ void pes_fn_1406AFF30(PesState& s) {
   s.xmm[2][0] = s.xmm[0][0]; s.xmm[2][1] = s.xmm[0][1];
   L_1406AFF5D:;
   s.set_x_f32(2, (float)((s.x_f32(2)) / ((k_c14259A764_f))));
-  s.xmm[0][0] = (s.xmm[0][0] & 0xFFFFFFFF00000000ULL) | ((uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[3])));
+  s.xmm[0][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[3])); s.xmm[0][1] = 0;
   { uint32_t _l0 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][0] >> 0)), _l1 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][0] >> 32)), _l2 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][1] >> 0)), _l3 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][1] >> 32));
     s.xmm[0][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[0][1] = ((uint64_t)_l3 << 32) | _l2; }
   s.set_x_f32(0, (float)((s.x_f32(0)) + (s.x_f32(0))));

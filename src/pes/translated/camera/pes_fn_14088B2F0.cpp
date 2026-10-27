@@ -17,7 +17,7 @@ static constexpr float k_c14259BDEC_f = 6.0f; // 6.0
 void pes_fn_14088B2F0(PesState& s);
 
 void pes_fn_14088B2F0(PesState& s) {
-  s.set_x_f32(0, s.rdf(((s.gpr[4]) + (0x28ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[4]) + (0x28ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.xmm[5][0] = s.xmm[3][0]; s.xmm[5][1] = s.xmm[3][1];
   s.xmm[4][0] = s.xmm[2][0]; s.xmm[4][1] = s.xmm[2][1];
   s.wrf(((s.gpr[1]) + (0xCULL)), s.x_f32(1));

@@ -24,8 +24,8 @@ void pes_fn_1404AD0E0(PesState& s) {
   s.gpr[3] = (uint64_t)(s.rd(((s.gpr[1]) + (0x8ULL)), 8));
   s.gpr[1] = (uint64_t)(s.rd(((s.gpr[0]) + (0x20ULL)), 8));
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A57720(s); s.gpr[4] += 8; }
-  s.set_x_f32(0, s.rdf(((s.gpr[0]))));
-  s.set_x_f32(1, s.rdf(((s.gpr[0]) + (0x8ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[0])))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
+  s.set_x_f32(1, s.rdf(((s.gpr[0]) + (0x8ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(0))));
   s.set_x_f32(1, (float)((s.x_f32(1)) * (s.x_f32(1))));
   s.set_x_f32(1, (float)((s.x_f32(1)) + (s.x_f32(0))));

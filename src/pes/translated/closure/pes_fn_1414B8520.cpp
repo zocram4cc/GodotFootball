@@ -32,7 +32,7 @@ void pes_fn_1414B8520(PesState& s) {
   s.gpr[0] = (uint64_t)((5621864860559101445ULL));
   { __int128 _p = (__int128)(int64_t)s.gpr[0] * (int64_t)(s.gpr[2]);
     s.gpr[0] = (uint64_t)_p; s.gpr[2] = (uint64_t)(_p >> 64);
-    s.cf = s.of = false; }
+    s.cf = s.of = ((int64_t)(uint64_t)_p != _p); }
   s.gpr[5] = (uint64_t)(s.gpr[1]);
   s.gpr[7] = (uint64_t)(s.gpr[2]);
   { uint64_t _a = (uint64_t)(s.gpr[7]), _c = (uint64_t)((9ULL)) & 0xFF;

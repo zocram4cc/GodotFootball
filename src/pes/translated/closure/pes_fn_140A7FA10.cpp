@@ -174,7 +174,7 @@ void pes_fn_140A7FA10(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("nc")) goto L_140A7FA3B;
   goto L_140A7FA64;
-  /*UNHANDLED INT3 */(void)0;
+  __builtin_trap();
   s.wr(((s.gpr[4]) + (0x8ULL)), (uint64_t)(s.gpr[3]), 8);
   s.wr(((s.gpr[4]) + (0x10ULL)), (uint64_t)(s.gpr[6]), 8);
   s.gpr[4] -= 8;
@@ -186,7 +186,7 @@ void pes_fn_140A7FA10(PesState& s) {
     s.gpr[4] = (uint64_t)(_r);
   }
   s.gpr[3] = (uint64_t)(s.gpr[1]);
-  /*OUT-OF-SET CALL 0x140A80B70*/ s.gpr[0] = 0;
+  /*OUT-OF-SET CALL 0x140A80B70*/ pes_dispatch_missing(0x140A80B70);
   s.wr(((s.gpr[3]) + (0x5CA0ULL)), (uint64_t)((4278190086ULL)), 4);
   s.gpr[2] = (uint64_t)(((s.gpr[3]) + (0x5CB4ULL)));
   s.wr(((s.gpr[3]) + (0x5CA4ULL)), (uint64_t)((0ULL)), 1);

@@ -25,21 +25,10 @@ void pes_fn_14022A880(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[2] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 0:;
-    case 1:;
-    case 2:;
-    case 3:;
-    case 4:;
-    case 5:;
-    case 6:;
-    case 7:;
-    case 10:;
-      goto L_14022A89C;
-    case 8:;
-      goto L_14022A8A1;
-    case 9:;
-      goto L_14022A8A8;
+  { uint32_t _i = (uint32_t)(s.gpr[2] - 0x140000000ULL); switch (_i) {
+    case 2271388U: goto L_14022A89C;
+    case 2271393U: goto L_14022A8A1;
+    case 2271400U: goto L_14022A8A8;
     default: goto L_14022A8AF;
     } }
   L_14022A89C:;

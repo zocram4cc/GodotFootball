@@ -44,19 +44,19 @@ void pes_fn_140A90D80(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 7) & 1);
     s.cf = false; s.of = false; }
   if (s.cond("z")) goto L_140A90EA2;
-  s.set_x_f32(2, s.rdf(((s.gpr[7]))));
-  s.set_x_f32(5, s.rdf(((s.gpr[14]) + (0x8ULL))));
+  s.set_x_f32(2, s.rdf(((s.gpr[7])))); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
+  s.set_x_f32(5, s.rdf(((s.gpr[14]) + (0x8ULL)))); s.xmm[5][0] &= 0xFFFFFFFFull; s.xmm[5][1] = 0;
   s.set_x_f32(2, (float)((s.x_f32(2)) - ((s.rdf(((s.gpr[6])))))));
-  s.set_x_f32(3, s.rdf(((s.gpr[7]) + (0x8ULL))));
+  s.set_x_f32(3, s.rdf(((s.gpr[7]) + (0x8ULL)))); s.xmm[3][0] &= 0xFFFFFFFFull; s.xmm[3][1] = 0;
   s.set_x_f32(3, (float)((s.x_f32(3)) - ((s.rdf(((s.gpr[6]) + (0x8ULL)))))));
   s.wr128(((s.gpr[4]) + (0x50ULL)), ((unsigned __int128)s.xmm[6][1] << 64) | s.xmm[6][0]);
-  s.set_x_f32(6, s.rdf(((s.gpr[14]))));
+  s.set_x_f32(6, s.rdf(((s.gpr[14])))); s.xmm[6][0] &= 0xFFFFFFFFull; s.xmm[6][1] = 0;
   s.wr128(((s.gpr[4]) + (0x40ULL)), ((unsigned __int128)s.xmm[7][1] << 64) | s.xmm[7][0]);
   s.xmm[4][0] = s.xmm[2][0]; s.xmm[4][1] = s.xmm[2][1];
-  s.set_x_f32(7, s.rdf(((s.gpr[5]))));
+  s.set_x_f32(7, s.rdf(((s.gpr[5])))); s.xmm[7][0] &= 0xFFFFFFFFull; s.xmm[7][1] = 0;
   s.wr128(((s.gpr[4]) + (0x30ULL)), ((unsigned __int128)s.xmm[8][1] << 64) | s.xmm[8][0]);
   s.set_x_f32(6, (float)((s.x_f32(6)) - (s.x_f32(7))));
-  s.set_x_f32(8, s.rdf(((s.gpr[5]) + (0x8ULL))));
+  s.set_x_f32(8, s.rdf(((s.gpr[5]) + (0x8ULL)))); s.xmm[8][0] &= 0xFFFFFFFFull; s.xmm[8][1] = 0;
   s.set_x_f32(5, (float)((s.x_f32(5)) - (s.x_f32(8))));
   s.xmm[0][0] = s.xmm[6][0]; s.xmm[0][1] = s.xmm[6][1];
   s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(3))));
@@ -68,7 +68,7 @@ void pes_fn_140A90D80(PesState& s) {
   { unsigned __int128 _v = (((unsigned __int128)s.xmm[0][0] | ((unsigned __int128)s.xmm[0][1] << 64))) & (((k_c142565D30))); s.xmm[0][0] = (uint64_t)_v; s.xmm[0][1] = (uint64_t)(_v >> 64); }
   { uint32_t _lo = PesState::bits((float)s.x_f64(0)), _hi = PesState::bits((float)([&](){ double _d; uint64_t _u = s.xmm[0][1]; memcpy(&_d, &_u, 8); return _d; }()));
     s.xmm[1][0] = ((uint64_t)_hi << 32) | _lo; s.xmm[1][1] = 0; }
-  s.set_x_f32(0, k_c14259BDC4_f);
+  s.set_x_f32(0, k_c14259BDC4_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(1)));
   if (s.cond("be")) goto L_140A90E39;
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0))) ^ (uint64_t)(((uint64_t)(uint8_t)(s.gpr[0] >> 0)))) & 0xFFULL;
@@ -80,7 +80,7 @@ void pes_fn_140A90D80(PesState& s) {
   L_140A90E39:;
   s.set_x_f32(7, (float)((s.x_f32(7)) - ((s.rdf(((s.gpr[6])))))));
   s.set_x_f32(8, (float)((s.x_f32(8)) - ((s.rdf(((s.gpr[6]) + (0x8ULL)))))));
-  s.set_x_f32(1, s.rdf(((s.gpr[7]) + (0x4ULL))));
+  s.set_x_f32(1, s.rdf(((s.gpr[7]) + (0x4ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   s.gpr[0] = (uint64_t)(((s.gpr[4]) + (0x20ULL)));
   s.set_x_f32(1, (float)((s.x_f32(1)) - ((s.rdf(((s.gpr[6]) + (0x4ULL)))))));
   s.set_x_f32(5, (float)((s.x_f32(5)) * (s.x_f32(7))));

@@ -32,23 +32,13 @@ void pes_fn_1420BDF50(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 0:;
-    case 1:;
-      goto L_1420BDF6E;
-    case 2:;
-    case 3:;
-      goto L_1420BDF74;
-    case 4:;
-    case 5:;
-      goto L_1420BDF7A;
-    case 6:;
-      goto L_1420BDF80;
-    case 7:;
-    case 9:;
-      goto L_1420BDF86;
-    case 8:;
-      goto L_1420BDF98;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 34332526U: goto L_1420BDF6E;
+    case 34332532U: goto L_1420BDF74;
+    case 34332538U: goto L_1420BDF7A;
+    case 34332544U: goto L_1420BDF80;
+    case 34332550U: goto L_1420BDF86;
+    case 34332568U: goto L_1420BDF98;
     default: goto L_1420BDF98;
     } }
   L_1420BDF6E:;

@@ -62,19 +62,19 @@ void pes_fn_140638FB0(PesState& s) {
   s.gpr[2] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[3]));
   s.gpr[6] = (uint64_t)(s.gpr[0]);
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A48A10(s); s.gpr[4] += 8; }
-  s.set_x_f32(8, s.rdf(((s.gpr[6]) + (0x124ULL))));
+  s.set_x_f32(8, s.rdf(((s.gpr[6]) + (0x124ULL)))); s.xmm[8][0] &= 0xFFFFFFFFull; s.xmm[8][1] = 0;
   s.gpr[3] = (uint64_t)(s.gpr[0]);
-  s.set_x_f32(6, s.rdf(((s.gpr[0]) + (0x554ULL))));
+  s.set_x_f32(6, s.rdf(((s.gpr[0]) + (0x554ULL)))); s.xmm[6][0] &= 0xFFFFFFFFull; s.xmm[6][1] = 0;
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_141E532D0(s); s.gpr[4] += 8; }
-  s.set_x_f32(2, k_c14259BDD0_f);
+  s.set_x_f32(2, k_c14259BDD0_f); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   s.gpr[2] = (uint64_t)(((s.gpr[4]) + (0x20ULL)));
   s.set_x_f32(2, (float)((s.x_f32(2)) / (s.x_f32(0))));
   s.gpr[1] = (uint64_t)(s.gpr[3]);
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A6C6D0(s); s.gpr[4] += 8; }
   s.xmm[7][0] = 0; s.xmm[7][1] = 0;
-  s.set_x_f32(1, s.rdf(((s.gpr[0]) + (0x8ULL))));
+  s.set_x_f32(1, s.rdf(((s.gpr[0]) + (0x8ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(7)));
-  s.set_x_f32(0, s.rdf(((s.gpr[0]))));
+  s.set_x_f32(0, s.rdf(((s.gpr[0])))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   if (s.cond("p")) goto L_140639041;
   if (s.cond("nz")) goto L_140639041;
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(7)));
@@ -83,7 +83,7 @@ void pes_fn_140638FB0(PesState& s) {
   L_140639041:;
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A92D40(s); s.gpr[4] += 8; }
   L_140639046:;
-  s.xmm[2][0] = k_c142565D30_q;
+  s.xmm[2][0] = k_c142565D30_q; s.xmm[2][1] = 0;
   s.xmm[1][0] = s.xmm[8][0]; s.xmm[1][1] = s.xmm[8][1];
   s.set_x_f32(1, (float)((s.x_f32(1)) - (s.x_f32(6))));
   { double _lo = (double)PesState::f32((uint32_t)s.xmm[1][0]), _hi = (double)PesState::f32((uint32_t)(s.xmm[1][0] >> 32)); uint64_t _u0, _u1;
@@ -96,10 +96,10 @@ void pes_fn_140638FB0(PesState& s) {
   if (s.cond("be")) goto L_14063908C;
   s.cmp_ss((float)(s.x_f32(7)), (float)(s.x_f32(1)));
   if (s.cond("be")) goto L_140639078;
-  s.set_x_f32(0, k_c142588218_f);
+  s.set_x_f32(0, k_c142588218_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   goto L_140639080;
   L_140639078:;
-  s.set_x_f32(0, k_c14256AE1C_f);
+  s.set_x_f32(0, k_c14256AE1C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   L_140639080:;
   s.set_x_f32(0, (float)((s.x_f32(0)) * ((k_c14259858C_f))));
   s.set_x_f32(1, (float)((s.x_f32(1)) - (s.x_f32(0))));
@@ -123,11 +123,11 @@ void pes_fn_140638FB0(PesState& s) {
     s.cf = false; s.of = false; }
   if (s.cond("z")) goto L_1406390D7;
   s.gpr[0] = (uint64_t)(uint32_t)(((uint64_t)(uint16_t)s.gpr[0]));
-  s.xmm[1][0] = (s.xmm[1][0] & 0xFFFFFFFF00000000ULL) | ((uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0])));
+  s.xmm[1][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0])); s.xmm[1][1] = 0;
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[6]) + (0x1AULL)), 2));
   { uint32_t _l0 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][0] >> 0)), _l1 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][0] >> 32)), _l2 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][1] >> 0)), _l3 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[1][1] >> 32));
     s.xmm[1][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[1][1] = ((uint64_t)_l3 << 32) | _l2; }
-  s.xmm[0][0] = (s.xmm[0][0] & 0xFFFFFFFF00000000ULL) | ((uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0])));
+  s.xmm[0][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0])); s.xmm[0][1] = 0;
   s.set_x_f32(1, (float)((s.x_f32(1)) * ((k_c142592228_f))));
   { uint32_t _l0 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][0] >> 0)), _l1 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][0] >> 32)), _l2 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][1] >> 0)), _l3 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][1] >> 32));
     s.xmm[0][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[0][1] = ((uint64_t)_l3 << 32) | _l2; }

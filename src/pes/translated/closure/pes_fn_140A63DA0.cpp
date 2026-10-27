@@ -65,15 +65,11 @@ void pes_fn_140A63DA0(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 1:;
-      goto L_140A63E04;
-    case 2:;
-      goto L_140A63E32;
-    case 0:;
-      goto L_140A63EBF;
-    case 3:;
-      goto L_140A63ED9;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 10894852U: goto L_140A63E04;
+    case 10894898U: goto L_140A63E32;
+    case 10895039U: goto L_140A63EBF;
+    case 10895065U: goto L_140A63ED9;
     default: goto L_140A63ED9;
     } }
   L_140A63E04:;
@@ -113,7 +109,7 @@ void pes_fn_140A63DA0(PesState& s) {
   goto L_140A63EEE;
   L_140A63E32:;
   s.gpr[0] = (uint64_t)(s.rd(0x1436F3DC8ULL, 8));
-  s.set_x_f32(0, k_c14256AE1C_f);
+  s.set_x_f32(0, k_c14256AE1C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.gpr[1] = (uint64_t)(s.rd(((s.gpr[0]) + (0x40ULL)), 8));
   s.cmp_ss((float)(s.x_f32(0)), (float)((s.rdf(((s.gpr[1]) + (0x4ULL))))));
   if (s.cond("be")) goto L_140A63EEE;

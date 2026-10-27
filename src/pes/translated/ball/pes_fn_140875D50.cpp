@@ -29,7 +29,7 @@ void pes_fn_140875D50(PesState& s) {
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[8]) + (0x8ULL)), 4));
   s.wr(((s.gpr[9]) + (0x8ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
   L_140875D76:;
-  s.set_x_f32(0, s.rdf(((s.gpr[2]) + (0x4ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[2]) + (0x4ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.gpr[2] = (uint64_t)(uint32_t)((3ULL));
   s.cmp_ss((float)(s.x_f32(0)), (float)((k_c14256AE1C_f)));
   s.gpr[9] = (uint64_t)(s.rd(((s.gpr[1]) + (0x8ULL)), 8));

@@ -22,7 +22,7 @@ void pes_fn_141F61180(PesState& s) {
   s.gpr[9] = (uint64_t)(uint32_t)(((uint64_t)(uint8_t)(s.gpr[2] >> 0)));
   { __int128 _p = (__int128)(int64_t)s.gpr[0] * (int64_t)(s.gpr[8]);
     s.gpr[0] = (uint64_t)_p; s.gpr[2] = (uint64_t)(_p >> 64);
-    s.cf = s.of = false; }
+    s.cf = s.of = ((int64_t)(uint64_t)_p != _p); }
   { uint64_t _a = (uint64_t)(s.gpr[2]), _b = (uint64_t)(s.gpr[8]), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));

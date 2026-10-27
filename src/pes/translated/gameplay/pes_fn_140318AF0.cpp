@@ -41,7 +41,7 @@ void pes_fn_140318AF0(PesState& s) {
   if (!s.cond("ns")) {
     s.set_x_f64(0, s.x_f64(0) + PesState::f64((uint64_t)(k_c14253EE40_q)));
   }
-  s.xmm[1][0] = k_c14253EE38_q;
+  s.xmm[1][0] = k_c14253EE38_q; s.xmm[1][1] = 0;
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[1])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[1]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false;

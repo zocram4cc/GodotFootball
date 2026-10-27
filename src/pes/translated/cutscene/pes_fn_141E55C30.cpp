@@ -39,11 +39,9 @@ void pes_fn_141E55C30(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 0:;
-      goto L_141E55C5A;
-    case 1:;
-      goto L_141E55C5C;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 31808602U: goto L_141E55C5A;
+    case 31808604U: goto L_141E55C5C;
     default: goto L_141E55C5C;
     } }
   L_141E55C5A:;

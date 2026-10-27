@@ -32,7 +32,7 @@ void pes_fn_1408D6530(PesState& s) {
   (void)0;
   (void)0;
   L_1408D6550:;
-  s.set_x_f32(2, s.rdf(((s.gpr[7]) + (0x70ULL))));
+  s.set_x_f32(2, s.rdf(((s.gpr[7]) + (0x70ULL)))); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   s.gpr[2] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[3]));
   s.gpr[1] = (uint64_t)(s.rd(((s.gpr[7]) + (0x38ULL)), 8));
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_141AFF7B0(s); s.gpr[4] += 8; }

@@ -11,13 +11,13 @@
 void pes_fn_140A8F8B0(PesState& s);
 
 void pes_fn_140A8F8B0(PesState& s) {
-  s.set_x_f32(0, s.rdf(((s.gpr[8]))));
+  s.set_x_f32(0, s.rdf(((s.gpr[8])))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.gpr[0] = (uint64_t)(s.gpr[2]);
   s.set_x_f32(0, (float)((s.x_f32(0)) * ((s.rdf(((s.gpr[1])))))));
-  s.set_x_f32(1, s.rdf(((s.gpr[8]) + (0x4ULL))));
+  s.set_x_f32(1, s.rdf(((s.gpr[8]) + (0x4ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   s.set_x_f32(1, (float)((s.x_f32(1)) * ((s.rdf(((s.gpr[1]) + (0x4ULL)))))));
   s.wrf(((s.gpr[2])), s.x_f32(0));
-  s.set_x_f32(0, s.rdf(((s.gpr[8]) + (0x8ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[8]) + (0x8ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.set_x_f32(0, (float)((s.x_f32(0)) * ((s.rdf(((s.gpr[1]) + (0x8ULL)))))));
   s.wrf(((s.gpr[2]) + (0x4ULL)), s.x_f32(1));
   s.wrf(((s.gpr[2]) + (0x8ULL)), s.x_f32(0));

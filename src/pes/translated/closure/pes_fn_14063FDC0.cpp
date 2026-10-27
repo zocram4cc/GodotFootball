@@ -75,8 +75,8 @@ void pes_fn_14063FDC0(PesState& s) {
   s.gpr[1] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0]));
   s.gpr[0] = (uint64_t)(uint32_t)((3435973837ULL));
   { uint64_t _p = (uint64_t)(uint32_t)s.gpr[0] * (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[1]));
-    s.gpr[0] = (s.gpr[0] & 0xFFFFFFFF00000000ULL) | (_p & 0xFFFFFFFFULL);
-    s.gpr[2] = (s.gpr[2] & 0xFFFFFFFF00000000ULL) | ((_p >> 32) & 0xFFFFFFFFULL);
+    s.gpr[0] = (uint64_t)(uint32_t)_p;
+    s.gpr[2] = (uint64_t)(uint32_t)(_p >> 32);
     s.cf = s.of = ((_p >> 32) != 0); }
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[7]) + (0x1AULL)), 2));
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[2])), _c = (uint64_t)((3ULL)) & 0xFF;
@@ -95,7 +95,7 @@ void pes_fn_14063FDC0(PesState& s) {
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A57800(s); s.gpr[4] += 8; }
   s.gpr[2] = (uint64_t)(((s.gpr[7]) + (0x11CULL)));
   s.gpr[1] = (uint64_t)(((s.gpr[4]) + (0x20ULL)));
-  s.xmm[0][0] = s.rd(((s.gpr[0])), 8);
+  s.xmm[0][0] = s.rd(((s.gpr[0])), 8); s.xmm[0][1] = 0;
   s.wr(((s.gpr[4]) + (0x20ULL)), s.xmm[0][0], 8);
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0]) + (0x8ULL)), 4));
   s.wr(((s.gpr[4]) + (0x28ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
@@ -104,15 +104,15 @@ void pes_fn_14063FDC0(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("nz")) goto L_14063FE87;
-  s.set_x_f32(2, k_c142591140_f);
+  s.set_x_f32(2, k_c142591140_f); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A8F7C0(s); s.gpr[4] += 8; }
-  s.xmm[0][0] = s.rd(((s.gpr[4]) + (0x20ULL)), 8);
+  s.xmm[0][0] = s.rd(((s.gpr[4]) + (0x20ULL)), 8); s.xmm[0][1] = 0;
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[4]) + (0x28ULL)), 4));
   goto L_14063FF1C;
   L_14063FE87:;
-  s.set_x_f32(2, k_c142588210_f);
+  s.set_x_f32(2, k_c142588210_f); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A8F7C0(s); s.gpr[4] += 8; }
-  s.xmm[0][0] = s.rd(((s.gpr[4]) + (0x20ULL)), 8);
+  s.xmm[0][0] = s.rd(((s.gpr[4]) + (0x20ULL)), 8); s.xmm[0][1] = 0;
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[4]) + (0x28ULL)), 4));
   goto L_14063FF1C;
   L_14063FEA0:;
@@ -138,7 +138,7 @@ void pes_fn_14063FDC0(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("z")) goto L_14063FED4;
   L_14063FEC4:;
-  s.xmm[0][0] = s.rd(((s.gpr[7]) + (0x2482CULL)), 8);
+  s.xmm[0][0] = s.rd(((s.gpr[7]) + (0x2482CULL)), 8); s.xmm[0][1] = 0;
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[7]) + (0x24834ULL)), 4));
   goto L_14063FF1C;
   L_14063FED4:;
@@ -151,7 +151,7 @@ void pes_fn_14063FDC0(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1;
     s.gpr[1] = (uint64_t)(uint32_t)(_r);
   }
-  s.xmm[0][0] = (s.xmm[0][0] & 0xFFFFFFFF00000000ULL) | ((uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[1])));
+  s.xmm[0][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[1])); s.xmm[0][1] = 0;
   { uint32_t _l0 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][0] >> 0)), _l1 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][0] >> 32)), _l2 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][1] >> 0)), _l3 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][1] >> 32));
     s.xmm[0][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[0][1] = ((uint64_t)_l3 << 32) | _l2; }
   { double _lo = (double)PesState::f32((uint32_t)s.xmm[0][0]), _hi = (double)PesState::f32((uint32_t)(s.xmm[0][0] >> 32)); uint64_t _u0, _u1;
@@ -167,7 +167,7 @@ void pes_fn_14063FDC0(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("g")) goto L_14063FEC4;
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[2]) + (0x40ULL)), 8));
-  s.xmm[0][0] = s.rd(((s.gpr[0]) + (0x27A0ULL)), 8);
+  s.xmm[0][0] = s.rd(((s.gpr[0]) + (0x27A0ULL)), 8); s.xmm[0][1] = 0;
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[0]) + (0x27A8ULL)), 4));
   L_14063FF1C:;
   s.gpr[7] = (uint64_t)(s.rd(((s.gpr[4]) + (0x48ULL)), 8));

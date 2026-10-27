@@ -27,17 +27,9 @@ void pes_fn_1408D0280(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 0:;
-    case 1:;
-    case 2:;
-    case 3:;
-      goto L_1408D029B;
-    case 4:;
-    case 5:;
-    case 6:;
-    case 7:;
-      goto L_1408D02A1;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 9241243U: goto L_1408D029B;
+    case 9241249U: goto L_1408D02A1;
     default: goto L_1408D02A7;
     } }
   L_1408D029B:;

@@ -70,9 +70,9 @@ void pes_fn_14002A970(PesState& s) {
   s.wr(((s.gpr[4]) + (0x20ULL)), (uint64_t)(s.gpr[0]), 8);
   { unsigned __int128 _d = ((unsigned __int128)s.xmm[2][0] | ((unsigned __int128)s.xmm[2][1] << 64)), _s = ((unsigned __int128)s.xmm[1][0] | ((unsigned __int128)s.xmm[1][1] << 64)), _o = 0; _o = PesState::put_u32(_o, 0, PesState::bits(PesState::lane_f32(_d, 0) + PesState::lane_f32(_s, 0))); _o = PesState::put_u32(_o, 1, PesState::bits(PesState::lane_f32(_d, 1) + PesState::lane_f32(_s, 1))); _o = PesState::put_u32(_o, 2, PesState::bits(PesState::lane_f32(_d, 2) + PesState::lane_f32(_s, 2))); _o = PesState::put_u32(_o, 3, PesState::bits(PesState::lane_f32(_d, 3) + PesState::lane_f32(_s, 3))); s.xmm[2][0] = (uint64_t)_o; s.xmm[2][1] = (uint64_t)(_o >> 64); }
   s.wr(((s.gpr[4]) + (0x28ULL)), (uint64_t)(s.gpr[0]), 8);
-  s.set_x_f32(1, s.rdf(((s.gpr[4]) + (0x80ULL))));
-  s.set_x_f32(0, s.rdf(((s.gpr[4]) + (0x88ULL))));
-  s.set_x_f32(13, s.rdf(((s.gpr[4]) + (0x2CULL))));
+  s.set_x_f32(1, s.rdf(((s.gpr[4]) + (0x80ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
+  s.set_x_f32(0, s.rdf(((s.gpr[4]) + (0x88ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
+  s.set_x_f32(13, s.rdf(((s.gpr[4]) + (0x2CULL)))); s.xmm[13][0] &= 0xFFFFFFFFull; s.xmm[13][1] = 0;
   s.wrf(((s.gpr[4]) + (0x20ULL)), s.x_f32(3));
   { unsigned __int128 _d = ((unsigned __int128)s.xmm[3][0] | ((unsigned __int128)s.xmm[3][1] << 64)), _s = ((unsigned __int128)s.xmm[0][0] | ((unsigned __int128)s.xmm[0][1] << 64)), _o = 0; _o = PesState::put_u32(_o, 0, PesState::lane_u32(_d, 0)); _o = PesState::put_u32(_o, 1, PesState::lane_u32(_s, 0)); _o = PesState::put_u32(_o, 2, PesState::lane_u32(_d, 1)); _o = PesState::put_u32(_o, 3, PesState::lane_u32(_s, 1)); s.xmm[3][0] = (uint64_t)_o; s.xmm[3][1] = (uint64_t)(_o >> 64); }
   { unsigned __int128 _d = ((unsigned __int128)s.xmm[1][0] | ((unsigned __int128)s.xmm[1][1] << 64)), _s = ((unsigned __int128)s.xmm[13][0] | ((unsigned __int128)s.xmm[13][1] << 64)), _o = 0; _o = PesState::put_u32(_o, 0, PesState::lane_u32(_d, 0)); _o = PesState::put_u32(_o, 1, PesState::lane_u32(_s, 0)); _o = PesState::put_u32(_o, 2, PesState::lane_u32(_d, 1)); _o = PesState::put_u32(_o, 3, PesState::lane_u32(_s, 1)); s.xmm[1][0] = (uint64_t)_o; s.xmm[1][1] = (uint64_t)(_o >> 64); }

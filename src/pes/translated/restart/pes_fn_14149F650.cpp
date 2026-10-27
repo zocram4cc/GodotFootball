@@ -32,11 +32,9 @@ void pes_fn_14149F650(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 0:;
-      goto L_14149F679;
-    case 1:;
-      goto L_14149F67C;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 21624441U: goto L_14149F679;
+    case 21624444U: goto L_14149F67C;
     default: goto L_14149F67C;
     } }
   L_14149F679:;
