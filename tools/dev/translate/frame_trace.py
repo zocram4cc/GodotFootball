@@ -686,6 +686,7 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None):
             return uc, "hook entry %#x is not in the snapshot" % va
     if trace is not None:
         trace["cdelta"] = CallDelta(uc, sm, lazy, trace["out"], teb)
+        trace["teb"], trace["entry"] = teb, entry
         trace["counts"], trace["kept"] = trace_entries(uc, trace["impure"], trace["cdelta"])
     for name in GPR_ORDER:
         uc.reg_write(getattr(xc, "UC_X86_REG_" + name.upper()), gpr[name])
@@ -749,9 +750,22 @@ def finish_trace(trace):
     runs = {"0x%X" % page: [list(r) for r in rs] for page, rs in sorted(written.items())}
     with open(os.path.join(out, "written.json"), "w") as f:
         json.dump(runs, f, indent=1)
+    with open(os.path.join(out, "record.json"), "w") as f:  # snapcase reads the TEB from here
+        json.dump({"teb": hex(trace["teb"]), "entry": hex(trace["entry"]), "root": "recorded"}, f, indent=1)
     return {"calls": {t: n for t, n in trace["counts"].items() if n},
             "written_pages": len(written), "written_bytes": sum(e - s for rs in written.values() for s, e in rs),
             "delta": cdelta.close()}
+
+
+def trace_teb(trace_dir, sm):
+    """The GS base a trace's calls run with: the TEB its record.json names (a rendezvous call runs on its own
+    thread's TEB), else the snapshot's main thread TEB (main_teb), for a trace that records none."""
+    rec = os.path.join(trace_dir, "record.json")
+    if os.path.exists(rec):
+        teb = json.load(open(rec)).get("teb")
+        if teb:
+            return int(teb, 16)
+    return main_teb(sm)[0]
 
 
 def recorded_main(argv):

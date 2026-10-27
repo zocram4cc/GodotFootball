@@ -119,7 +119,7 @@ class Replayer:
         uc._icount = 0  # run.py's shared code hook counts instructions (its valid-icount stats)
         uc._trace_on = True
         trace = os.path.dirname(os.path.dirname(pool_path))  # the trace dir: pool/pages.bin's parent
-        self.teb = int(json.load(open(os.path.join(trace, "record.json")))["teb"], 16)
+        self.teb = ft.trace_teb(trace, sm)
         self.lazy = ft.LazyMap(sm, models)
         self.lazy.attach(uc)
         rn.install_hooks(uc, spec, 0)  # stubs and abort traps as the harness runs them

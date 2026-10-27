@@ -25,6 +25,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import driver as drv  # noqa: E402
 import diffmain  # noqa: E402
+import frame_trace as ft  # noqa: E402
+import full_snapshot as fs  # noqa: E402
 
 FLOOR_COVERAGE = 0.50
 CODE_LO, CODE_HI = 0x140001000, 0x14252E800  # the translated universe's image range (driver.build_and_diff)
@@ -236,9 +238,10 @@ def run_one(va, args, pilot, pairs):
     res["translated"] = True
     for label, snap, out_s, corpus, tdir in runs:
         trans = os.path.join(out_s, "translated.jsonl")
+        teb = hex(ft.trace_teb(tdir, fs.SnapMem(snap)))  # the GS base of each run: the trace's TEB, or the snapshot's
         rc, out, err = drv.sh([bin_p, os.path.join(out_s, "ok_calls.bin"), os.path.join(snap, "mem.bin"),
                                os.path.join(out_s, "maps.txt"), trans, os.path.join(out_s, "ok_delta.bin"),
-                               os.path.join(tdir, "pool", "pages.bin")], timeout=args.timeout)
+                               os.path.join(tdir, "pool", "pages.bin"), teb], timeout=args.timeout)
         if rc != 0:
             res["mismatches"].append({"snapshot": label, "case": None, "fields": ["run"],
                                       "note": "diff main rc=%d: %s" % (rc, (err or out)[-200:])})
