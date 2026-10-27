@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <cstdlib>
 #include <memory>
 #include <optional>
@@ -123,4 +124,46 @@ TEST(PesTickOrder, MovementRecordsHoldTheTicksStartPositions) {
       EXPECT_FLOAT_EQ(pes::LoadF32(man, pes::kManPosZOffset), pos.coords[1]) << "tick " << tick << " slot " << slot;
     }
   }
+}
+
+// A restart's placement is a teleport the referee stage makes (PrepareSetPiece's ResetPosition on the set-piece men),
+// after the tick's writer has run at the head of the tick. The readers of the team stage (the S1 rows, the mark table,
+// the run world) must see the placed men where they stand, so a placed man's record must match his position once the
+// tick is done, up to one tick's movement. RED while the writer runs before the referee: the record keeps the
+// pre-placement spot.
+TEST(PesTickOrder, RestartPlacementsReachTheRecordsTheSameTick) {
+  Properties config;
+  config.SetBool("pes_loop", true);
+  REQUIRE_PES_MATCH(config);
+  constexpr int kMaxTicks = 6000;         // the first restart placement of this seed falls well inside this
+  constexpr size_t kPlacedMen = 5;        // a placement moves a side's men at once, not one man (a warp moves one)
+  constexpr float kPlacedJump_m = 3.0f;   // a tick of play moves a sprinter 0.17 m, so 3 m in one tick is a placement
+  constexpr float kMaxTickMove_m = 0.5f;  // the record may trail a man by one tick of movement, no more
+  for (int tick = 0; tick < kMaxTicks; ++tick) {
+    std::vector<std::pair<int, Player*>> men;  // (PES slot, active player)
+    std::vector<Vector3> before;
+    for (int t = 0; t < 2; ++t) {
+      std::vector<Player*> all;
+      match->GetTeam(t)->GetAllPlayers(all);
+      for (Player* p : all)
+        if (p->IsActive()) {
+          men.emplace_back(match->PesSlotOf(p), p);
+          before.push_back(p->GetPosition());
+        }
+    }
+    match->Process();
+    std::vector<size_t> placed;
+    for (size_t i = 0; i < men.size(); ++i)
+      if ((men[i].second->GetPosition() - before[i]).GetLength() >= kPlacedJump_m) placed.push_back(i);
+    if (placed.size() < kPlacedMen) continue;
+    for (size_t i : placed) {
+      const Vector3 now = men[i].second->GetPosition();
+      const uint8_t* man = match->PesWorldOf().ManRecord(men[i].first);
+      const float dx = pes::LoadF32(man, pes::kManPosXOffset) - now.coords[0];
+      const float dz = pes::LoadF32(man, pes::kManPosZOffset) - now.coords[1];
+      EXPECT_LT(std::sqrt(dx * dx + dz * dz), kMaxTickMove_m) << "tick " << tick << " slot " << men[i].first;
+    }
+    return;  // the first placement is the one under test
+  }
+  FAIL() << "no restart placement within " << kMaxTicks << " ticks: the scenario did not run";
 }
