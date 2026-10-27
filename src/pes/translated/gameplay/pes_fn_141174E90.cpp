@@ -36,7 +36,7 @@ void pes_fn_141174E90(PesState& s) {
   { unsigned __int128 _v = (((unsigned __int128)s.xmm[2][0] | ((unsigned __int128)s.xmm[2][1] << 64))) & ((s.xmm[5][0] | ((unsigned __int128)s.xmm[5][1] << 64))); s.xmm[2][0] = (uint64_t)_v; s.xmm[2][1] = (uint64_t)(_v >> 64); }
   { uint32_t _lo = PesState::bits((float)s.x_f64(2)), _hi = PesState::bits((float)([&](){ double _d; uint64_t _u = s.xmm[2][1]; memcpy(&_d, &_u, 8); return _d; }()));
     s.xmm[3][0] = ((uint64_t)_hi << 32) | _lo; s.xmm[3][1] = 0; }
-  s.set_x_f32(4, (float)(((s.x_f32(4)) >= (s.x_f32(3))) ? (s.x_f32(4)) : (s.x_f32(3))));
+  s.set_x_f32(4, (float)(((s.x_f32(4)) > (s.x_f32(3))) ? (s.x_f32(4)) : (s.x_f32(3))));
   s.cmp_ss((float)(s.x_f32(4)), (float)(s.x_f32(1)));
   if (s.cond("p")) goto L_141174ECD;
   if (s.cond("z")) goto L_141174EE0;

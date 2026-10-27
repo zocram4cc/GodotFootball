@@ -27,7 +27,7 @@ void pes_fn_142139650(PesState& s) {
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(4)));
   if (s.cond("a")) goto L_142139677;
   s.xmm[4][0] = 0; s.xmm[4][1] = 0;
-  s.set_x_f32(4, (float)(((s.x_f32(4)) >= (s.x_f32(1))) ? (s.x_f32(4)) : (s.x_f32(1))));
+  s.set_x_f32(4, (float)(((s.x_f32(4)) > (s.x_f32(1))) ? (s.x_f32(4)) : (s.x_f32(1))));
   L_142139677:;
   s.gpr[0] = (uint64_t)(uint32_t)(([](float _f){ if (__builtin_isnan(_f) || _f >= 2147483648.0f || _f < -2147483648.0f) return (int32_t)INT32_MIN; return (int32_t)_f; }(s.x_f32(4))));
   s.xmm[0][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[0])); s.xmm[0][1] = 0;

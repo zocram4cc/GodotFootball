@@ -93,8 +93,8 @@ void pes_fn_140A513A0(PesState& s) {
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A48A10(s); s.gpr[4] += 8; }
   s.set_x_f32(1, s.rdf(((s.gpr[0]) + (0x55CULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   s.xmm[0][0] = s.xmm[1][0]; s.xmm[0][1] = s.xmm[1][1];
-  s.set_x_f32(1, (float)(((s.x_f32(1)) <= (s.x_f32(6))) ? (s.x_f32(1)) : (s.x_f32(6))));
-  s.set_x_f32(0, (float)(((s.x_f32(0)) >= (s.x_f32(7))) ? (s.x_f32(0)) : (s.x_f32(7))));
+  s.set_x_f32(1, (float)(((s.x_f32(1)) < (s.x_f32(6))) ? (s.x_f32(1)) : (s.x_f32(6))));
+  s.set_x_f32(0, (float)(((s.x_f32(0)) > (s.x_f32(7))) ? (s.x_f32(0)) : (s.x_f32(7))));
   s.xmm[6][0] = s.xmm[1][0]; s.xmm[6][1] = s.xmm[1][1];
   s.xmm[7][0] = s.xmm[0][0]; s.xmm[7][1] = s.xmm[0][1];
   L_140A51454:;

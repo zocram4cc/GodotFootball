@@ -31,7 +31,7 @@ void pes_fn_140A6CD00(PesState& s) {
   goto L_140A6CD31;
   L_140A6CD2A:;
   s.xmm[2][0] = s.xmm[0][0]; s.xmm[2][1] = s.xmm[0][1];
-  s.set_x_f32(2, (float)(((s.x_f32(2)) >= (s.x_f32(3))) ? (s.x_f32(2)) : (s.x_f32(3))));
+  s.set_x_f32(2, (float)(((s.x_f32(2)) > (s.x_f32(3))) ? (s.x_f32(2)) : (s.x_f32(3))));
   L_140A6CD31:;
   s.gpr[0] = (uint64_t)(uint32_t)(([](float _f){ if (__builtin_isnan(_f) || _f >= 2147483648.0f || _f < -2147483648.0f) return (int32_t)INT32_MIN; return (int32_t)_f; }(s.x_f32(2))));
   s.wr(((s.gpr[1])), (uint64_t)(((uint64_t)(uint16_t)s.gpr[0])), 2);
@@ -43,7 +43,7 @@ void pes_fn_140A6CD00(PesState& s) {
   s.wr(((s.gpr[1]) + (0x2ULL)), (uint64_t)(((uint64_t)(uint16_t)s.gpr[0])), 2);
   return;
   L_140A6CD4F:;
-  s.set_x_f32(0, (float)(((s.x_f32(0)) >= (s.x_f32(3))) ? (s.x_f32(0)) : (s.x_f32(3))));
+  s.set_x_f32(0, (float)(((s.x_f32(0)) > (s.x_f32(3))) ? (s.x_f32(0)) : (s.x_f32(3))));
   s.gpr[0] = (uint64_t)(uint32_t)(([](float _f){ if (__builtin_isnan(_f) || _f >= 2147483648.0f || _f < -2147483648.0f) return (int32_t)INT32_MIN; return (int32_t)_f; }(s.x_f32(0))));
   s.wr(((s.gpr[1]) + (0x2ULL)), (uint64_t)(((uint64_t)(uint16_t)s.gpr[0])), 2);
   return;

@@ -92,7 +92,7 @@ void pes_fn_1408A0C60(PesState& s) {
   s.set_x_f32(4, (float)((s.x_f32(4)) - ((s.rdf(((s.gpr[1])))))));
   { unsigned __int128 _v = s.rd128(((s.gpr[4]) + (0x10ULL))); s.xmm[6][0] = (uint64_t)_v; s.xmm[6][1] = (uint64_t)(_v >> 64); }
   { unsigned __int128 _v = s.rd128(((s.gpr[4]))); s.xmm[7][0] = (uint64_t)_v; s.xmm[7][1] = (uint64_t)(_v >> 64); }
-  s.set_x_f32(3, (float)(((s.x_f32(3)) <= (s.x_f32(5))) ? (s.x_f32(3)) : (s.x_f32(5))));
+  s.set_x_f32(3, (float)(((s.x_f32(3)) < (s.x_f32(5))) ? (s.x_f32(3)) : (s.x_f32(5))));
   s.set_x_f32(3, (float)((s.x_f32(3)) * (s.x_f32(4))));
   s.set_x_f32(3, (float)((s.x_f32(3)) + ((s.rdf(((s.gpr[1])))))));
   s.wrf(((s.gpr[1])), s.x_f32(3));

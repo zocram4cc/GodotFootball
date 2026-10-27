@@ -81,7 +81,7 @@ void pes_fn_1419A4D20(PesState& s) {
   { uint32_t _l0 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][0] >> 0)), _l1 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][0] >> 32)), _l2 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][1] >> 0)), _l3 = PesState::bits((float)(int32_t)(uint32_t)(s.xmm[0][1] >> 32));
     s.xmm[0][0] = ((uint64_t)_l1 << 32) | _l0; s.xmm[0][1] = ((uint64_t)_l3 << 32) | _l2; }
   s.set_x_f32(0, (float)((s.x_f32(0)) * ((k_c142A03190_f))));
-  s.set_x_f32(3, (float)(((s.x_f32(3)) <= (s.x_f32(0))) ? (s.x_f32(3)) : (s.x_f32(0))));
+  s.set_x_f32(3, (float)(((s.x_f32(3)) < (s.x_f32(0))) ? (s.x_f32(3)) : (s.x_f32(0))));
   s.xmm[0][0] = s.xmm[3][0]; s.xmm[0][1] = s.xmm[3][1];
   s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(7))));
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(2)));

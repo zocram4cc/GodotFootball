@@ -28,7 +28,7 @@ void pes_fn_14089D4B0(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  s.set_x_f32(0, (float)(((s.x_f32(0)) >= (s.x_f32(2))) ? (s.x_f32(0)) : (s.x_f32(2))));
+  s.set_x_f32(0, (float)(((s.x_f32(0)) > (s.x_f32(2))) ? (s.x_f32(0)) : (s.x_f32(2))));
   s.gpr[2] = (uint64_t)(((s.gpr[1]) + (0xCULL)));
   { uint64_t _a = (uint64_t)(s.gpr[2]), _b = (uint64_t)(s.gpr[0]), _r = (_a - _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);

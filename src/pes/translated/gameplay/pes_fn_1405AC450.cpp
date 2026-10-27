@@ -99,12 +99,9 @@ void pes_fn_1405AC450(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 0:;
-      goto L_1405AC4CC;
-    case 1:;
-    case 2:;
-      goto L_1405AC4CF;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 5948620U: goto L_1405AC4CC;
+    case 5948623U: goto L_1405AC4CF;
     default: goto L_1405AC4CF;
     } }
   L_1405AC4CC:;

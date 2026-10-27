@@ -101,30 +101,17 @@ void pes_fn_140A59F90(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[0] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[1]); switch (_i) {
-    case 0:;
-      goto L_140A5A032;
-    case 1:;
-      goto L_140A5A036;
-    case 2:;
-    case 3:;
-      goto L_140A5A03D;
-    case 4:;
-      goto L_140A5A044;
-    case 5:;
-      goto L_140A5A04B;
-    case 6:;
-    case 7:;
-      goto L_140A5A052;
-    case 8:;
-      goto L_140A5A059;
-    case 9:;
-    case 10:;
-      goto L_140A5A060;
-    case 11:;
-      goto L_140A5A067;
-    case 12:;
-      goto L_140A5A06E;
+  { uint32_t _i = (uint32_t)(s.gpr[0] - 0x140000000ULL); switch (_i) {
+    case 10854450U: goto L_140A5A032;
+    case 10854454U: goto L_140A5A036;
+    case 10854461U: goto L_140A5A03D;
+    case 10854468U: goto L_140A5A044;
+    case 10854475U: goto L_140A5A04B;
+    case 10854482U: goto L_140A5A052;
+    case 10854489U: goto L_140A5A059;
+    case 10854496U: goto L_140A5A060;
+    case 10854503U: goto L_140A5A067;
+    case 10854510U: goto L_140A5A06E;
     default: goto L_140A5A073;
     } }
   L_140A5A032:;
@@ -271,30 +258,17 @@ void pes_fn_140A59F90(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[0] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[1]); switch (_i) {
-    case 0:;
-      goto L_140A5A180;
-    case 1:;
-      goto L_140A5A184;
-    case 2:;
-    case 3:;
-      goto L_140A5A18B;
-    case 4:;
-      goto L_140A5A192;
-    case 5:;
-      goto L_140A5A199;
-    case 6:;
-    case 7:;
-      goto L_140A5A1A0;
-    case 8:;
-      goto L_140A5A1A7;
-    case 9:;
-    case 10:;
-      goto L_140A5A1AE;
-    case 11:;
-      goto L_140A5A1B5;
-    case 12:;
-      goto L_140A5A1BC;
+  { uint32_t _i = (uint32_t)(s.gpr[0] - 0x140000000ULL); switch (_i) {
+    case 10854784U: goto L_140A5A180;
+    case 10854788U: goto L_140A5A184;
+    case 10854795U: goto L_140A5A18B;
+    case 10854802U: goto L_140A5A192;
+    case 10854809U: goto L_140A5A199;
+    case 10854816U: goto L_140A5A1A0;
+    case 10854823U: goto L_140A5A1A7;
+    case 10854830U: goto L_140A5A1AE;
+    case 10854837U: goto L_140A5A1B5;
+    case 10854844U: goto L_140A5A1BC;
     default: goto L_140A5A1C1;
     } }
   L_140A5A180:;

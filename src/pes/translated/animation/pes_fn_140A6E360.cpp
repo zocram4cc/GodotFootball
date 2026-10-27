@@ -38,11 +38,9 @@ void pes_fn_140A6E360(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 0:;
-      goto L_140A6E38F;
-    case 1:;
-      goto L_140A6E391;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 10937231U: goto L_140A6E38F;
+    case 10937233U: goto L_140A6E391;
     default: goto L_140A6E391;
     } }
   L_140A6E38F:;

@@ -52,19 +52,10 @@ void pes_fn_1405CD540(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 2:;
-    case 3:;
-    case 4:;
-    case 5:;
-      goto L_1405CD588;
-    case 6:;
-    case 7:;
-    case 8:;
-      goto L_1405CD58F;
-    case 0:;
-    case 1:;
-      goto L_1405CD596;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 6083976U: goto L_1405CD588;
+    case 6083983U: goto L_1405CD58F;
+    case 6083990U: goto L_1405CD596;
     default: goto L_1405CD596;
     } }
   L_1405CD588:;
