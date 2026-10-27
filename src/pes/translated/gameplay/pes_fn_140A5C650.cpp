@@ -11,6 +11,6 @@
 void pes_fn_140A5C650(PesState& s);
 
 void pes_fn_140A5C650(PesState& s) {
-  s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x44ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[1]) + (0x44ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   return;
 }

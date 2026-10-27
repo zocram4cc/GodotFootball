@@ -11,7 +11,7 @@
 void pes_fn_14149A4C0(PesState& s);
 
 void pes_fn_14149A4C0(PesState& s) {
-  s.set_x_f32(1, s.rdf(((s.gpr[1]) + (0x14ULL))));
+  s.set_x_f32(1, s.rdf(((s.gpr[1]) + (0x14ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   s.xmm[0][0] = 0; s.xmm[0][1] = 0;
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(0)));
   if (s.cond("p")) {

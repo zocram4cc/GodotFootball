@@ -45,7 +45,7 @@ void pes_fn_140875FD0(PesState& s) {
     if (s.cond("nz")) {
       return;
     } else {
-      s.set_x_f32(1, s.rdf(((s.gpr[8]) + (0x4ULL))));
+      s.set_x_f32(1, s.rdf(((s.gpr[8]) + (0x4ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
       s.xmm[0][0] = 0; s.xmm[0][1] = 0;
       s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(0)));
       if (s.cond("c")) {

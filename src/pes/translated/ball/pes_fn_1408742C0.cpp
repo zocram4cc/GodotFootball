@@ -20,12 +20,12 @@ void pes_fn_1408742C0(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 7) & 1; }
   s.gpr[2] = (uint64_t)(s.gpr[1]);
   if (!s.cond("nz")) {
-    s.set_x_f32(0, s.rdf(((s.gpr[8]) + (0xCULL))));
-    s.set_x_f32(1, s.rdf(((s.gpr[8]) + (0x14ULL))));
+    s.set_x_f32(0, s.rdf(((s.gpr[8]) + (0xCULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
+    s.set_x_f32(1, s.rdf(((s.gpr[8]) + (0x14ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
     s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(0))));
     s.set_x_f32(1, (float)((s.x_f32(1)) * (s.x_f32(1))));
     s.set_x_f32(1, (float)((s.x_f32(1)) + (s.x_f32(0))));
-    s.set_x_f32(0, k_c142608C08_f);
+    s.set_x_f32(0, k_c142608C08_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(1)));
     if (!s.cond("be")) {
       s.gpr[1] = (uint64_t)(s.rd(((s.gpr[1]) + (0x8ULL)), 8));

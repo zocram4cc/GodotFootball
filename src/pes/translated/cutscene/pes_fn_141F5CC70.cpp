@@ -51,7 +51,7 @@ void pes_fn_141F5CC70(PesState& s) {
     s.set_x_f32(0, (float)(((int64_t)(s.gpr[1]))));
     s.wrf(((s.gpr[3]) + (0xF4ULL)), s.x_f32(0));
   }
-  s.set_x_f32(0, s.rdf(((s.gpr[3]) + (0xF0ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[3]) + (0xF0ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.wrf(((s.gpr[3]) + (0x10CULL)), s.x_f32(0));
   s.wrf(((s.gpr[3]) + (0x108ULL)), s.x_f32(0));
   { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((32ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;

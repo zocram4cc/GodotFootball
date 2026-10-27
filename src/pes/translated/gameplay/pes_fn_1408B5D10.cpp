@@ -14,6 +14,6 @@ static constexpr float k_c14256AE1C_f = 1.0f; // 1.0
 void pes_fn_1408B5D10(PesState& s);
 
 void pes_fn_1408B5D10(PesState& s) {
-  s.set_x_f32(0, k_c14256AE1C_f);
+  s.set_x_f32(0, k_c14256AE1C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   return;
 }

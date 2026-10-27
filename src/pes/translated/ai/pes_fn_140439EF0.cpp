@@ -24,11 +24,11 @@ void pes_fn_140439EF0(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[4] = (uint64_t)(_r);
   }
-  s.set_x_f32(1, s.rdf(((s.gpr[2]) + (0x8ULL))));
-  s.set_x_f32(3, s.rdf(((s.gpr[1]) + (0x8ULL))));
+  s.set_x_f32(1, s.rdf(((s.gpr[2]) + (0x8ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
+  s.set_x_f32(3, s.rdf(((s.gpr[1]) + (0x8ULL)))); s.xmm[3][0] &= 0xFFFFFFFFull; s.xmm[3][1] = 0;
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(3)));
-  s.set_x_f32(0, s.rdf(((s.gpr[2]))));
-  s.set_x_f32(2, s.rdf(((s.gpr[1]))));
+  s.set_x_f32(0, s.rdf(((s.gpr[2])))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
+  s.set_x_f32(2, s.rdf(((s.gpr[1])))); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   if (s.cond("p")) {
     s.set_x_f32(1, (float)((s.x_f32(1)) - (s.x_f32(3))));
     s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(2))));

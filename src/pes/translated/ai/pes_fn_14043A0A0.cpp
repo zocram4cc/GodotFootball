@@ -25,7 +25,7 @@ static constexpr float k_c14259858C_f = 360.0f; // 360.0
 void pes_fn_14043A0A0(PesState& s);
 
 void pes_fn_14043A0A0(PesState& s) {
-  s.set_x_f32(2, k_c14259858C_f);
+  s.set_x_f32(2, k_c14259858C_f); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   s.xmm[3][0] = 0; s.xmm[3][1] = 0;
   s.cmp_ss((float)(s.x_f32(3)), (float)(s.x_f32(0)));
   if (s.cond("be")) goto L_14043A0B6;
@@ -55,13 +55,13 @@ void pes_fn_14043A0A0(PesState& s) {
   if (s.cond("be")) goto L_14043A11B;
   s.cmp_ss((float)(s.x_f32(3)), (float)(s.x_f32(1)));
   if (s.cond("be")) goto L_14043A10B;
-  s.set_x_f32(0, k_c142588218_f);
+  s.set_x_f32(0, k_c142588218_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(2))));
   s.set_x_f32(1, (float)((s.x_f32(1)) - (s.x_f32(0))));
   s.xmm[0][0] = s.xmm[1][0]; s.xmm[0][1] = s.xmm[1][1];
   return;
   L_14043A10B:;
-  s.set_x_f32(0, k_c14256AE1C_f);
+  s.set_x_f32(0, k_c14256AE1C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(2))));
   s.set_x_f32(1, (float)((s.x_f32(1)) - (s.x_f32(0))));
   L_14043A11B:;

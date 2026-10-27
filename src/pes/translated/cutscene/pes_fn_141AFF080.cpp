@@ -38,7 +38,7 @@ void pes_fn_141AFF080(PesState& s) {
         return;
       } else {
         s.gpr[0] = (uint64_t)(s.rd(((s.gpr[8]) + (0x160ULL)), 8));
-        s.set_x_f32(0, s.rdf(((s.gpr[0]) + ((s.gpr[9])*4ULL))));
+        s.set_x_f32(0, s.rdf(((s.gpr[0]) + ((s.gpr[9])*4ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
         return;
       }
     }

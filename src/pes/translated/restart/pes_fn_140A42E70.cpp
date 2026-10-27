@@ -20,8 +20,8 @@ void pes_fn_140A42E70(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
   if (s.cond("nz")) {
-    s.set_x_f32(4, s.rdf(((s.gpr[8]) + (0x18ULL))));
-    s.set_x_f32(1, s.rdf(((s.gpr[2]))));
+    s.set_x_f32(4, s.rdf(((s.gpr[8]) + (0x18ULL)))); s.xmm[4][0] &= 0xFFFFFFFFull; s.xmm[4][1] = 0;
+    s.set_x_f32(1, s.rdf(((s.gpr[2])))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
     s.xmm[0][0] = s.xmm[4][0]; s.xmm[0][1] = s.xmm[4][1];
     s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(3))));
     s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(0)));
@@ -33,7 +33,7 @@ void pes_fn_140A42E70(PesState& s) {
       }
       return;
     } else {
-      s.set_x_f32(0, s.rdf(((s.gpr[8]))));
+      s.set_x_f32(0, s.rdf(((s.gpr[8])))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
       s.set_x_f32(0, (float)((s.x_f32(0)) - ((k_c14259BE20_f))));
       s.set_x_f32(0, (float)((s.x_f32(0)) + (s.x_f32(3))));
       s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(1)));
@@ -45,8 +45,8 @@ void pes_fn_140A42E70(PesState& s) {
         }
         return;
       } else {
-        s.set_x_f32(5, s.rdf(((s.gpr[8]) + (0x14ULL))));
-        s.set_x_f32(2, s.rdf(((s.gpr[2]) + (0x8ULL))));
+        s.set_x_f32(5, s.rdf(((s.gpr[8]) + (0x14ULL)))); s.xmm[5][0] &= 0xFFFFFFFFull; s.xmm[5][1] = 0;
+        s.set_x_f32(2, s.rdf(((s.gpr[2]) + (0x8ULL)))); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
         s.xmm[0][0] = s.xmm[5][0]; s.xmm[0][1] = s.xmm[5][1];
         s.set_x_f32(0, (float)((s.x_f32(0)) - (s.x_f32(3))));
         s.cmp_ss((float)(s.x_f32(2)), (float)(s.x_f32(0)));
@@ -83,7 +83,7 @@ void pes_fn_140A42E70(PesState& s) {
                 s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)((1ULL)));
                 return;
               } else {
-                s.set_x_f32(0, s.rdf(((s.gpr[8]) + (0x1CULL))));
+                s.set_x_f32(0, s.rdf(((s.gpr[8]) + (0x1CULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
                 s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(2)));
                 if (s.cond("be")) {
                   s.gpr[0] = (s.gpr[0] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)((1ULL)));

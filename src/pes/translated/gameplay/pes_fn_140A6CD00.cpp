@@ -20,10 +20,10 @@ static constexpr float k_c142648170_f = -32768.0f; // -32768.0
 void pes_fn_140A6CD00(PesState& s);
 
 void pes_fn_140A6CD00(PesState& s) {
-  s.set_x_f32(3, s.rdf(((s.gpr[2]))));
-  s.set_x_f32(4, k_c14259BE10_f);
-  s.set_x_f32(1, k_c14257234C_f);
-  s.set_x_f32(0, k_c142648170_f);
+  s.set_x_f32(3, s.rdf(((s.gpr[2])))); s.xmm[3][0] &= 0xFFFFFFFFull; s.xmm[3][1] = 0;
+  s.set_x_f32(4, k_c14259BE10_f); s.xmm[4][0] &= 0xFFFFFFFFull; s.xmm[4][1] = 0;
+  s.set_x_f32(1, k_c14257234C_f); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
+  s.set_x_f32(0, k_c142648170_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.set_x_f32(3, (float)((s.x_f32(3)) * (s.x_f32(4))));
   s.cmp_ss((float)(s.x_f32(3)), (float)(s.x_f32(1)));
   if (s.cond("be")) goto L_140A6CD2A;
@@ -35,7 +35,7 @@ void pes_fn_140A6CD00(PesState& s) {
   L_140A6CD31:;
   s.gpr[0] = (uint64_t)(uint32_t)(([](float _f){ if (__builtin_isnan(_f) || _f >= 2147483648.0f || _f < -2147483648.0f) return (int32_t)INT32_MIN; return (int32_t)_f; }(s.x_f32(2))));
   s.wr(((s.gpr[1])), (uint64_t)(((uint64_t)(uint16_t)s.gpr[0])), 2);
-  s.set_x_f32(3, s.rdf(((s.gpr[2]) + (0x8ULL))));
+  s.set_x_f32(3, s.rdf(((s.gpr[2]) + (0x8ULL)))); s.xmm[3][0] &= 0xFFFFFFFFull; s.xmm[3][1] = 0;
   s.set_x_f32(3, (float)((s.x_f32(3)) * (s.x_f32(4))));
   s.cmp_ss((float)(s.x_f32(3)), (float)(s.x_f32(1)));
   if (s.cond("be")) goto L_140A6CD4F;

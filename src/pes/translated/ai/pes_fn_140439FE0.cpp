@@ -18,7 +18,7 @@ void pes_fn_140439FE0(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("ge")) {
     s.gpr[0] = (uint64_t)((((int64_t)(((uint64_t)(((uint64_t)(uint32_t)s.gpr[8])) << 32))) >> 32));
-    s.set_x_f32(0, s.rdf(((s.gpr[9]) + ((s.gpr[0])*4ULL) + (0x16A8ULL))));
+    s.set_x_f32(0, s.rdf(((s.gpr[9]) + ((s.gpr[0])*4ULL) + (0x16A8ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     return;
   } else {
     s.gpr[0] = (uint64_t)((((int64_t)(((uint64_t)(((uint64_t)(uint32_t)s.gpr[2])) << 32))) >> 32));
@@ -30,7 +30,7 @@ void pes_fn_140439FE0(PesState& s) {
       s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
       s.gpr[1] = (uint64_t)(_r);
     }
-    s.set_x_f32(0, s.rdf(((s.gpr[1]) + ((s.gpr[0])*4ULL) + (0x16A8ULL))));
+    s.set_x_f32(0, s.rdf(((s.gpr[1]) + ((s.gpr[0])*4ULL) + (0x16A8ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     return;
   }
 }

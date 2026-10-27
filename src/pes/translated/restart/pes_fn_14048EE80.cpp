@@ -110,7 +110,7 @@ void pes_fn_14048EE80(PesState& s) {
   if (s.cond("c")) goto L_14048EF00;
   goto L_14048F00D;
   L_14048EF20:;
-  s.xmm[0][0] = s.rd(((s.gpr[7]) + (0x68ULL)), 8);
+  s.xmm[0][0] = s.rd(((s.gpr[7]) + (0x68ULL)), 8); s.xmm[0][1] = 0;
   s.gpr[1] = (uint64_t)(s.gpr[5]);
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[7]) + (0x70ULL)), 4));
   s.wr(((s.gpr[4]) + (0x20ULL)), s.xmm[0][0], 8);

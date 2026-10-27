@@ -52,16 +52,16 @@ void pes_fn_1420BE3D0(PesState& s) {
     default: goto L_1420BE40F;
     } }
   L_1420BE3EB:;
-  s.set_x_f32(0, k_c1425C7FA0_f);
+  s.set_x_f32(0, k_c1425C7FA0_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   return;
   L_1420BE3F4:;
-  s.set_x_f32(0, k_c1425CCC40_f);
+  s.set_x_f32(0, k_c1425CCC40_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   return;
   L_1420BE3FD:;
-  s.set_x_f32(0, k_c1425C48C0_f);
+  s.set_x_f32(0, k_c1425C48C0_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   return;
   L_1420BE406:;
-  s.set_x_f32(0, k_c14259BE88_f);
+  s.set_x_f32(0, k_c14259BE88_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   return;
   L_1420BE40F:;
   s.xmm[0][0] = 0; s.xmm[0][1] = 0;

@@ -12,7 +12,7 @@ void pes_fn_140A00B70(PesState& s);
 
 void pes_fn_140A00B70(PesState& s) {
   s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[1]) + (0x20ULL)), 4));
-  s.xmm[0][0] = s.rd(((s.gpr[1]) + (0x18ULL)), 8);
+  s.xmm[0][0] = s.rd(((s.gpr[1]) + (0x18ULL)), 8); s.xmm[0][1] = 0;
   s.wr(((s.gpr[2])), s.xmm[0][0], 8);
   s.wr(((s.gpr[2]) + (0x8ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);
   s.gpr[0] = (uint64_t)(s.gpr[2]);

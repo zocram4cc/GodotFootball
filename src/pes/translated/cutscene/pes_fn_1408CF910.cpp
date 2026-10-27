@@ -46,7 +46,7 @@ void pes_fn_1408CF910(PesState& s) {
   s.gpr[14] = (uint64_t)(((s.gpr[1]) + (0x40ULL)));
   s.wr(((s.gpr[0]) + (0ULL - 0x18ULL)), (uint64_t)(s.gpr[15]), 8);
   s.wr128(((s.gpr[0]) + (0ULL - 0x28ULL)), ((unsigned __int128)s.xmm[6][1] << 64) | s.xmm[6][0]);
-  s.set_x_f32(6, k_c14256AE1C_f);
+  s.set_x_f32(6, k_c14256AE1C_f); s.xmm[6][0] &= 0xFFFFFFFFull; s.xmm[6][1] = 0;
   s.wr(((s.gpr[1]) + (0x3CULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[2])), 4);
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[6])), _b = (uint64_t)((8ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);

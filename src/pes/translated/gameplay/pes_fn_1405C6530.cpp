@@ -27,7 +27,7 @@ void pes_fn_1405C6530(PesState& s) {
       return;
     }
   } else {
-    s.set_x_f32(0, k_c14256AE1C_f);
+    s.set_x_f32(0, k_c14256AE1C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     return;
   }
 }

@@ -26,7 +26,7 @@ void pes_fn_1422FF988(PesState& s) {
   if (!s.cond("c")) {
     s.xmm[2][0] = s.xmm[3][0]; s.xmm[2][1] = s.xmm[3][1];
   }
-  s.set_x_f32(0, k_c142598580_f);
+  s.set_x_f32(0, k_c142598580_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.cmp_ss((float)(s.x_f32(3)), (float)(s.x_f32(0)));
   if (!s.cond("c")) {
     s.xmm[3][0] = s.xmm[0][0]; s.xmm[3][1] = s.xmm[0][1];

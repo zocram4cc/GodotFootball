@@ -37,7 +37,7 @@ void pes_fn_14239D210(PesState& s) {
   s.gpr[0] = (uint64_t)(((s.gpr[9]) + (0x6CULL)));
   (void)0;
   L_14239D230:;
-  s.set_x_f32(0, s.rdf(((s.gpr[0]))));
+  s.set_x_f32(0, s.rdf(((s.gpr[0])))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(1)));
   if (s.cond("a")) goto L_14239D243;
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[1])), _r = (_a + 1) & 0xFFFFFFFFULL;
