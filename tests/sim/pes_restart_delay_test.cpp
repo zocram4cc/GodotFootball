@@ -277,8 +277,11 @@ TEST(PesRestartDelay, AThrowInIsCarriedToItsSpotAndReleasedThere) {
 // reached the PES mover, so the ball lay until the restart watch gave up. The bound is GF's
 // stalemate clock, the only time GF gives a dead ball in play before it forces the issue. PES's
 // own pickup time is not decoded, so this is a ponytail bound, not a PES number.
-// DISABLED 22-10-26 (owner decision, batch-3 landing): red on the merged tree main 9c5cc89 + FirstTouchPort fca173c; main's earlier disable restored (the far-chase defect: a loose ball at rest in play beyond the press gate). Re-enable when FarChasePress lands the press coordinator.
-// Still red on Cutover7 (27-10-26): seed 7, five minutes, a loose episode of 369 ticks; seed 3, 640 (bound 270). A near designated man's ActionPress command is issued but not realised: the forced man jitters at 1-3 km/h.
+// DISABLED on LooseBall. Red on Cutover 1472df11, measured: seed 7 lay 369 ticks, seed 3 640 (bound 270). Per-tick trace (seed 7,
+// ticks 27278-27646): the presser's MOVESTEP cycles IDLE -> GOTO_RUN -> RUN_LOOP -> IDLE every 8 ticks. RUN_LOOP's rate for the
+// 12.6 km/h press command (SpeedToRate, 0.18) is under its keep rate 0.3 (DAT_142590D98), so the IDLE requester fires, and
+// ACCELERATE refuses any command class but 3 (EnterAccelerate arm 1). Rejected: press speed unquantised (477 ticks), cmd+0x5c5
+// set (376 ticks). Re-enable once the press command's class and cmd+0x5c5 writer are decoded (open).
 TEST(PesRestartDelay, DISABLED_ALooseDeadBallInPlayIsReachedAndPlayed) {
   constexpr float kRestSpeed_ms = GameplayTuning::kStalemateBallSpeed_ms;
   constexpr unsigned long kBoundTicks = static_cast<unsigned long>(
