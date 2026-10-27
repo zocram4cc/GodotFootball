@@ -215,11 +215,12 @@ class Replayer:
                 "addrs": set(uc._addrs), "trace": uc._trace, "retread": uc._ret_slot_reads}, None
 
 
-def run_dir(spec_path, snap_dir, calls_path, out_dir, blocked=()):
+def run_dir(spec_path, snap_dir, calls_path, out_dir, blocked=(), restore=None):
     """Replay every record of one calls file over one snapshot; write the outputs of the module doc.
-    blocked: VAs of untranslated callees (driver.runnable_extra); a call that enters one is excluded."""
+    blocked: VAs of untranslated callees (driver.runnable_extra); a call that enters one is excluded.
+    restore: {VA: code} of rendezvous hook patches (frame_trace.hook_bytes), read as the code they displaced."""
     spec = rn.resolve_stubs(json.load(open(spec_path)))
-    sm = fs.SnapMem(snap_dir)
+    sm = fs.SnapMem(snap_dir, restore=restore)
     models = ft.load_import_models()
     recs = load_calls(calls_path)
     deltas = load_deltas(calls_path)

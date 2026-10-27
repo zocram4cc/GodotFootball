@@ -199,8 +199,9 @@ def run_one(va, args, pilot, pairs):
         if not os.path.exists(calls) or os.path.getsize(calls) == 0:
             continue
         out_s = os.path.join(gen, "snap_" + label)
+        extra = ["--hooks", args.hooks] if args.hooks else []
         rc, out, err = drv.sh([drv.diff_python(), drv.RUN_PY, "--spec", spec_path, "--snapshot-dir", snap,
-                               "--calls", calls, "--out-dir", out_s, "--blocked", blocked_json],
+                               "--calls", calls, "--out-dir", out_s, "--blocked", blocked_json] + extra,
                               timeout=args.timeout)
         if rc != 0:
             res["note"] = "harness failed on %s: %s" % (label, (err or out).strip()[-200:])
@@ -271,6 +272,8 @@ def main():
     ap.add_argument("--cxx", default="g++")
     ap.add_argument("--timeout", type=int, default=3600)
     ap.add_argument("--results", default=None)
+    ap.add_argument("--hooks", default=None,
+                    help="rv.dll config (rendezvous captures): each hook entry replays as the code it displaced")
     ap.add_argument("--block-entry", action="append", default=[],
                     help="an extra VA a replayed case must not enter (proves an init path unreached)")
     args = ap.parse_args()

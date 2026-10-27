@@ -315,7 +315,7 @@ class CallDelta:
     deltas.jsonl holds each distinct delta once as {"id", "pages": [[va, pool index], ...]}, and
     deltas.idx.jsonl maps its id to its byte offset there."""
 
-    def __init__(self, uc, sm, lazy, out, teb, patches=None):
+    def __init__(self, uc, sm, lazy, out, teb):
         from unicorn import UC_HOOK_MEM_WRITE
         assert rn.stack_top({}) == STACK_BASE + STACK_SIZE - 0x100
         self.uc, self.sm, self.lazy = uc, sm, lazy
@@ -323,7 +323,6 @@ class CallDelta:
         self.pending = set()   # page-aligned addresses written since the last entry
         self.diff = {}         # page -> pool index, for pages that differ from their baseline
         self.pool_of = {}      # sha256 digest -> pool index
-        self.patches = patches or {}  # hook entry -> the original code it displaced (the baseline's overlay)
         self.touched = set()          # every page the run wrote (own_writes)
         os.makedirs(os.path.join(out, "pool"), exist_ok=True)
         self.pool_f = open(os.path.join(out, "pool", "pages.bin"), "wb")
@@ -350,16 +349,8 @@ class CallDelta:
             return None
 
     def _base(self, page):
-        """A page's baseline: the snapshot's bytes with each rendezvous hook entry restored to the original code it
-        displaced (the image the run starts from), or None outside the snapshot."""
-        if not self.sm.page_ok(page):
-            return None
-        base = bytearray(self.sm.read(page, PAGE))
-        for va, code in self.patches.items():
-            for i, byte in enumerate(code):
-                if page <= va + i < page + PAGE:
-                    base[va + i - page] = byte
-        return bytes(base)
+        """A page's baseline: the snapshot's bytes (a restored hook entry reads as its original code, see SnapMem)."""
+        return self.sm.read(page, PAGE) if self.sm.page_ok(page) else None
 
     def _pool(self, data):
         key = hashlib.sha256(data).digest()
@@ -667,7 +658,7 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None):
     import unicorn.x86_const as xc
     from unicorn import (Uc, UC_ARCH_X86, UC_MODE_64, UC_HOOK_MEM_READ_UNMAPPED,
                          UC_HOOK_MEM_WRITE_UNMAPPED)
-    sm = fs.SnapMem(snap_dir)
+    sm = fs.SnapMem(snap_dir, restore=orig)
     call = load_recorded_call(snap_dir)
     gpr, entry, ret, teb = call["gpr"], call["entry"], call["ret"], call["teb"]
     rsp = gpr["rsp"]
@@ -693,10 +684,9 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None):
     for va, code in sorted((orig or {}).items()):
         if not lazy.ensure(va, len(code)):
             return uc, "hook entry %#x is not in the snapshot" % va
-        uc.mem_write(va, code)
     if trace is not None:
-        trace["cdelta"] = CallDelta(uc, sm, lazy, trace["out"], teb, patches=orig)
-        trace["counts"], trace["files"] = trace_entries(uc, trace["impure"], trace["cdelta"], trace["out"])
+        trace["cdelta"] = CallDelta(uc, sm, lazy, trace["out"], teb)
+        trace["counts"], trace["kept"] = trace_entries(uc, trace["impure"], trace["cdelta"])
     for name in GPR_ORDER:
         uc.reg_write(getattr(xc, "UC_X86_REG_" + name.upper()), gpr[name])
     for i, v in enumerate(call["xmm"]):
@@ -719,42 +709,45 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None):
     return uc, err
 
 
-def trace_entries(uc, impure, cdelta, out):
-    """frame_trace main's on_entry for a recorded run, without its banks: each impure spec's entry writes its
-    call (entry_record) and the call-time delta id to out/calls/<tag>.bin and <tag>.delta, once per distinct
-    (record, delta). Returns ({tag: entries seen}, [open files]); finish_trace closes the files."""
+def trace_entries(uc, impure, cdelta):
+    """frame_trace main's on_entry for a recorded run, without its banks: each impure spec's entry takes its call
+    (entry_record) and the call-time delta id, once per distinct (record, delta). Returns ({tag: entries}, kept):
+    kept[tag] = (records, delta-id lines, the seen set) for every tag entered. Held in memory and written by
+    finish_trace, so a spec set of thousands opens no file per spec."""
     from unicorn import UC_HOOK_CODE
-    os.makedirs(os.path.join(out, "calls"), exist_ok=True)
-    counts, files = {}, []
+    counts, kept = {}, {}
     for tag, spec in impure.items():
         va = int(spec["va"], 16)
-        bin_f = open(os.path.join(out, "calls", tag + ".bin"), "wb")
-        delta_f = open(os.path.join(out, "calls", tag + ".delta"), "w")
-        files += [bin_f, delta_f]
-        seen = set()
         counts[tag] = 0
 
-        def on_entry(uc_, address, size, data, tag=tag, bin_f=bin_f, delta_f=delta_f, seen=seen):
+        def on_entry(uc_, address, size, data, tag=tag):
             counts[tag] += 1
             did = cdelta.delta()
             rec = entry_record(uc_)
+            recs, dids, seen = kept.setdefault(tag, ([], [], set()))
             if (rec, did) not in seen:
                 seen.add((rec, did))
-                bin_f.write(rec)
-                delta_f.write(did + "\n")
+                recs.append(rec)
+                dids.append(did + "\n")
         uc.hook_add(UC_HOOK_CODE, on_entry, None, begin=va, end=va)
-    return counts, files
+    return counts, kept
 
 
 def finish_trace(trace):
-    """Close a trace and write out/written.json: the byte runs the recorded call itself wrote, per page (the
-    baseline is the restored image). Returns the summary printed by recorded_main."""
-    for f in trace["files"]:
-        f.close()
+    """Write a trace: out/calls/<tag>.bin and <tag>.delta for each tag entered, and out/written.json, the byte runs
+    the recorded call itself wrote, per page (the baseline is the restored image). Returns the summary that
+    recorded_main prints."""
+    out = trace["out"]
+    os.makedirs(os.path.join(out, "calls"), exist_ok=True)
+    for tag, (recs, dids, _) in trace["kept"].items():
+        with open(os.path.join(out, "calls", tag + ".bin"), "wb") as f:
+            f.write(b"".join(recs))
+        with open(os.path.join(out, "calls", tag + ".delta"), "w") as f:
+            f.write("".join(dids))
     cdelta = trace["cdelta"]
     written = cdelta.own_writes()
     runs = {"0x%X" % page: [list(r) for r in rs] for page, rs in sorted(written.items())}
-    with open(os.path.join(trace["out"], "written.json"), "w") as f:
+    with open(os.path.join(out, "written.json"), "w") as f:
         json.dump(runs, f, indent=1)
     return {"calls": {t: n for t, n in trace["counts"].items() if n},
             "written_pages": len(written), "written_bytes": sum(e - s for rs in written.values() for s, e in rs),

@@ -1555,13 +1555,17 @@ def main():
     ap.add_argument("--out-dir", default=None, help="with --snapshot-dir: the output directory")
     ap.add_argument("--blocked", default=None,
                     help="with --snapshot-dir: a JSON list of untranslated callee VAs; a case that enters one is excluded")
+    ap.add_argument("--hooks", default=None,
+                    help="with --snapshot-dir: an rv.dll config; each hook entry replays as the code it displaced")
     args = ap.parse_args()
     if args.snapshot_dir:
         if not (args.calls and args.out_dir):
             ap.error("--snapshot-dir needs --calls and --out-dir")
         import snapcase
+        import frame_trace as ft
         blocked = json.load(open(args.blocked)) if args.blocked else []
-        snapcase.run_dir(args.spec, args.snapshot_dir, args.calls, args.out_dir, blocked)
+        snapcase.run_dir(args.spec, args.snapshot_dir, args.calls, args.out_dir, blocked,
+                         restore=ft.hook_bytes(args.hooks) if args.hooks else None)
         return 0
     if args.exe is None:
         ap.error("--exe is required unless --snapshot-dir")
