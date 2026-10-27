@@ -27,6 +27,7 @@
 #include "onthepitch/peskeeper.hpp"
 #include "onthepitch/pesstamina.hpp"
 #include "onthepitch/pesstoppage.hpp"
+#include "onthepitch/pessequencer.hpp"
 #include "onthepitch/pesrandom.hpp"
 #include "onthepitch/pesclock.hpp"
 #include "pes/exe.hpp"
@@ -361,24 +362,33 @@ TEST(PesStoppageTiming, AMeasuredStopRunsPesBracketNotFifteenSeconds) {
   REQUIRE_RIG();
   const auto stops = MeasureStops(SHORT_MATCH_MINUTES);
   ASSERT_FALSE(stops.empty()) << "no stop was staged in a live match";
-  // The two brackets this port produces, with PES's late-card ceremony (9.5:
-  // the step-6 scene, 3.0 s) on top where a card is due. Everything else is a
-  // stop that GF's old 15 s schedule would have called a stoppage.
+  // The two brackets this port produces, with PES's late-card step (9.5: max(2.5 s, the 340-tick scene)) on top where
+  // a card is due. Everything else is a stop that GF's old 15 s schedule would have called a stoppage.
   constexpr unsigned long kOutOfPlayTake_ms = 4830;  // hold 2.5 + wipe/tele/fade/tail
   constexpr unsigned long kFoulTake_ms = 7330;       // hold 5.0 + the same
-  constexpr unsigned long kLateCardOnScreen_ms = 3000;
+  constexpr unsigned long kOutOfPlayHold_ms = 2500;  // table[5] = 2.5 s (pes-re-A5Judge.md 233, 0x14259ce54)
+  // A late card's step replaces the out-of-play hold, so it adds its own length over that hold (9.5).
+  const unsigned long kLateCardExtra_ms = pes::LateCardStep_ms(kOutOfPlayHold_ms) - kOutOfPlayHold_ms;
   int measured = 0;
   for (const Stop& s : stops) {
     // A kick-off is not a stop this report times: PES's bracket is the foul and
     // out-of-play stops, and a goal's celebration beats (which hold the kick-off
     // back) are the next plan's business. Everything else the whistle stops is.
     // Kind 7 (the period end) schedules exactly like a kick-off (gametypes.hpp, pes-re-plan-selector.md §4).
+    // A goal kick is released by PES's ladder (pesgoalkick.hpp, sub_142136F00) once the out-of-play bracket has armed it:
+    // its three-second first wait and the ladder's windows come on top (GF 10.33 s, identical before the card change).
+    // pes_goal_kick_test owns that timing; here the take must not come before the bracket.
+    if (s.kind == e_SetPiece_GoalKick) {
+      EXPECT_GE(s.take - s.stop, kOutOfPlayTake_ms)
+          << "goal kick at " << s.stop << " was taken before PES's out-of-play bracket";
+      continue;
+    }
     if (s.kind == e_SetPiece_KickOff || s.kind == e_SetPiece_PeriodEnd) continue;
     const unsigned long takeDelay = s.take - s.stop;
     ++measured;
     std::fprintf(stderr, "[stoppage] kind %d stop %lu take %lu ms\n", (int)s.kind, s.stop, takeDelay);
-    // PES's whole stop is 7.54 s (407 frames) with no scene; a late card adds
-    // its own 3.0 s scene on top. GF's old schedule put the restart 15 s out.
+    // PES's whole stop is 7.54 s (407 frames) with no scene; a late card's step is max(2.5 s, 340 ticks) (9.5). GF's old
+    // schedule put the restart 15 s out.
     // A player down adds PES's +2.5 s to the hold (9.2); with the stamina model
     // in, knocks happen, so every bracket may carry it.
     const unsigned long downed_ms =
@@ -386,24 +396,26 @@ TEST(PesStoppageTiming, AMeasuredStopRunsPesBracketNotFifteenSeconds) {
     bool pesBracket = false;
     for (unsigned long base : {kOutOfPlayTake_ms, kFoulTake_ms})
       for (unsigned long down : {0ul, downed_ms})
-        for (unsigned long card : {0ul, kLateCardOnScreen_ms})
+        for (unsigned long card : {0ul, kLateCardExtra_ms})
           pesBracket |= takeDelay == base + down + card;
     EXPECT_TRUE(pesBracket)
         << "stop at " << s.stop << " (set piece " << (int)s.kind << ") ran " << takeDelay
         << " ms to the take, which is neither PES's out-of-play bracket ("
         << kOutOfPlayTake_ms << "), its foul bracket (" << kFoulTake_ms
         << "), with or without a downed player (+2.5 s) and the late-card ceremony ("
-        << kFoulTake_ms + kLateCardOnScreen_ms << ")";
+        << kFoulTake_ms + kLateCardExtra_ms << ")";
   }
   EXPECT_GT(measured, 0) << "no foul or out-of-play stop was staged in a live match";
 }
 
-// The late-card window: the card is on screen 3.0 s into the stop, not six
-// seconds after the whistle as GF had it. That is a behaviour of the referee's
-// own path, checked through the constants the report maps onto it (9.5/9.8).
-TEST(PesStoppageTiming, LateCardIsOnScreenThreeSecondsIntoTheStop) {
-  const auto k = Synthetic();
-  constexpr unsigned long kCardOnScreen_ms = 3000;
-  EXPECT_LT(kCardOnScreen_ms, FoulSequence::HoldEndsAt_ms(0, k, false, kFoulHoldKind));
-  EXPECT_NEAR(k.sceneGate_s * 1000.0f, kCardOnScreen_ms, 1.0);
+// PES's late card (docs/re/pes-re-foul-choreography.md 9.5, 9.8): the card prop REF_CARD_Y shows 40 ticks into the 60 fps
+// scene, and step 6 runs max(2.5 s, the 340-tick scene FOUL_CMN_CARD_Y_B), which is longer than the 2.5 s hold.
+TEST(PesStoppageTiming, LateCardShowsAtSceneTickFortyAndRunsTheLongerOfTheHoldAndTheScene) {
+  constexpr unsigned long kSceneFps = 60;            // the cut's frame rate (9.8)
+  constexpr unsigned long kCardPropTick = 40;        // REF_CARD_Y starts 40 ticks into the scene (9.8)
+  constexpr unsigned long kSceneTicks = 340;         // foul_cmn_card_y02 = FOUL_CMN_CARD_Y_B (9.5)
+  constexpr unsigned long kOutOfPlayHold_ms = 2500;  // table[5] = 2.5 s (pes-re-A5Judge.md 233)
+  EXPECT_EQ(pes::LateCardOnScreenAt_ms(10000), 10000 + kCardPropTick * 1000 / kSceneFps);
+  EXPECT_EQ(pes::LateCardStep_ms(kOutOfPlayHold_ms), kSceneTicks * 1000 / kSceneFps);
+  EXPECT_EQ(pes::LateCardStep_ms(7000), 7000ul);
 }

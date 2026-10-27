@@ -58,10 +58,15 @@ constexpr int kPesNoPerfTier = 0;
 // the real flag if a downed-player state is ever modelled.
 const float kPesDownedInjuryLevel = 0.01f;
 
-// PES's late card (docs/re/pes-re-foul-choreography.md 9.5/9.8): the card
-// prop's own start tick `REF_CARD_Y/R` on the scene, 5..411 ticks into the cut
-// at 60 fps, most variants 40. Rounded to the 3.0 s the report gives.
-constexpr unsigned long kPesCardOnScreen_ms = 3000;
+// GF's stand-in for a card's on-screen time, 3.0 s from the stop: the switch-off path's late card and a card shown with
+// the foul. PES's late card is pes::LateCardOnScreenAt_ms (pessequencer.hpp, 9.5). ponytail: the direct-card scene
+// (pes-re-foul-choreography.md 9.8, gate + intro + REF_CARD start) replaces the foul-card stand-in.
+constexpr unsigned long kGfCardOnScreen_ms = 3000;
+
+// When a deferred (late) card shows: PES's card prop on the PES path, the GF stand-in on the switch-off path.
+unsigned long DeferredCardOnScreenAt_ms(bool pesLoop, unsigned long stopTime_ms) {
+  return pesLoop ? pes::LateCardOnScreenAt_ms(stopTime_ms) : stopTime_ms + kGfCardOnScreen_ms;
+}
 
 // The late-card window PES opens (9.5): a pending card is dropped unless the
 // next ball-out or offside comes within `MI+0x1690 ∈ 7..0x13` game-minutes.
@@ -550,10 +555,9 @@ void Referee::Process() {
 
     if (!match->IsInPlay() && !match->IsInSetPiece() && buffer.active == true) {
       // Play has stopped: settle any bookings owed from advantages played.
-      // PES's late-card step (9.5) runs the card scene from the stop, with a
-      // 2.5 s timeout, so the booking is issued at 3000 ms rather than 300.
-      if (CardBook::HasPending(cardBook) && buffer.stopTime + kPesCardOnScreen_ms <=
-                                                 match->GetActualTime_ms())
+      // PES's late card is issued once its card prop shows (9.5): tick 40 of the step on the PES path, 3.0 s on switch-off.
+      if (CardBook::HasPending(cardBook) &&
+          DeferredCardOnScreenAt_ms(match->PesLoop(), buffer.stopTime) <= match->GetActualTime_ms())
         IssueDeferredCards();
 
       if (!buffer.prepared && buffer.prepareTime <= match->GetActualTime_ms()) {
@@ -762,28 +766,33 @@ void Referee::IssueDeferredCards() {
     match->GetMatchData()->AddEvent(
         card.foulType == 3 ? MatchData::Event::RedCard : MatchData::Event::YellowCard,
         card.player->GetTeamID(), match->GetMatchMinute(), playerName);
-    // PES's late card (9.5): step 6 starts the card scene on its second frame
-    // (no referee-approach gate), the step runs max(2.5 s, the 340-tick scene
-    // FOUL_CMN_CARD_Y_B), and the card prop REF_CARD_Y shows at 40 ticks in.
-    // This engine holds the ceremony at 3.0 s, which is also the window the
-    // card is on screen for, measured from the stop rather than the second.
+    // PES's late card (9.5): step 6 starts the card scene on its second frame (no referee-approach gate), and the card
+    // prop REF_CARD_Y shows 40 ticks in (pes::LateCardOnScreenAt_ms).
+    const unsigned long shownAt_ms = DeferredCardOnScreenAt_ms(match->PesLoop(), buffer.stopTime);
     if (card.foulType == 2)
-      card.player->GiveYellowCard(buffer.stopTime + kPesCardOnScreen_ms);
+      card.player->GiveYellowCard(shownAt_ms);
     else if (card.foulType == 3)
-      card.player->GiveRedCard(buffer.stopTime + kPesCardOnScreen_ms);
+      card.player->GiveRedCard(shownAt_ms);
     if (Verbose())
       printf("referee: deferred card issued (type %i)\n", card.foulType);
     anyCardShown = true;
   }
 
   if (anyCardShown) {
-    // The ceremony the booking scene stands for: PES's step-6 timeout. The
-    // restart the stop already armed is pushed out by this much, and PES's own
-    // 340-tick scene sits inside it (5.6 s of cut + 0.5 s of fades), so 3.0 s
-    // is the card being on screen, not the whole scene.
-    buffer.holdTime = buffer.prepareTime;
-    buffer.prepareTime += kPesCardOnScreen_ms;
-    buffer.startTime = buffer.prepareTime + 2000;
+    if (match->PesLoop()) {
+      // PES's step 6 replaces the out-of-play hold: it runs max(2.5 s, the 340-tick scene) (9.5). The armed restart moves
+      // by the difference, so its ready point and take keep their place in the programme.
+      const unsigned long holdBase_ms =
+          FoulSequence::HoldEndsAt_ms(0, GetStoppageConstants(), false, kPesHoldOutOfPlay);
+      const unsigned long shift_ms = pes::LateCardStep_ms(holdBase_ms) - holdBase_ms;
+      buffer.prepareTime += shift_ms;
+      buffer.startTime += shift_ms;
+    } else {
+      // The switch-off path's GF stand-in, unchanged: 3.0 s on top of the armed restart.
+      buffer.holdTime = buffer.prepareTime;
+      buffer.prepareTime += kGfCardOnScreen_ms;
+      buffer.startTime = buffer.prepareTime + 2000;
+    }
     // Delayed, so both stages come round again - as they did when these were exact
     // time comparisons.
     buffer.prepared = false;
@@ -1199,14 +1208,12 @@ bool Referee::CheckFoul(bool heldWhistle) {
     buffer.active = true;
         buffer.prepared = false;
         buffer.started = false;
-    // PES's late card (9.5): the card prop's own start tick `REF_CARD_Y/R`,
-    // 5..411 ticks into the cut at 60 fps - most variants about 30, and the
-    // card on screen for the 3.0 s the whole step's timeout is. The old six
-    // seconds was GF's own guess ("need to find out proper moment").
+    // A card shown with the foul itself: PES's foul-scene card start (pes-re-foul-choreography.md 9.8) is not ported, so
+    // the GF stand-in holds the card on screen for kGfCardOnScreen_ms.
     if (foul.foulType == 2)
-      foul.foulPlayer->GiveYellowCard(buffer.stopTime + kPesCardOnScreen_ms);
+      foul.foulPlayer->GiveYellowCard(buffer.stopTime + kGfCardOnScreen_ms);
     if (foul.foulType == 3)
-      foul.foulPlayer->GiveRedCard(buffer.stopTime + kPesCardOnScreen_ms);
+      foul.foulPlayer->GiveRedCard(buffer.stopTime + kGfCardOnScreen_ms);
 
     // The statistic counts whistles, not collisions: it used to be incremented
     // by the collision producer before the referee had decided anything.

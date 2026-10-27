@@ -30,6 +30,11 @@ unsigned long ToMs(float seconds) {
   return static_cast<unsigned long>(std::lround(seconds * 1000.0f));
 }
 
+// PES's late card (9.5, 9.8): the scene FOUL_CMN_CARD_Y_B is 340 ticks at 60 fps, and its REF_CARD_Y prop starts 40 ticks
+// in. The decode gives both; ponytail: read the scene length from foul_cmn_card_y02 once the scene table is loaded.
+constexpr unsigned long kSceneFps = 60;
+constexpr unsigned long kLateCardSceneTicks = 340;
+constexpr unsigned long kLateCardPropTick = 40;
 }  // namespace
 
 e_SetPiece EndLineRestart(int lastTouchSide, float ballX) {
@@ -133,6 +138,15 @@ Timing RunProgramme(const std::vector<Beat>& beats, unsigned long stopTime_ms,
   }
   timing.armedAt_ms = at_ms;
   return timing;
+}
+
+unsigned long LateCardStep_ms(unsigned long holdBase_ms) {
+  const unsigned long scene_ms = kLateCardSceneTicks * 1000 / kSceneFps;
+  return std::max(holdBase_ms, scene_ms);
+}
+
+unsigned long LateCardOnScreenAt_ms(unsigned long stopTime_ms) {
+  return stopTime_ms + kLateCardPropTick * 1000 / kSceneFps;
 }
 
 }  // namespace pes

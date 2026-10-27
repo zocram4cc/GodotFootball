@@ -63,4 +63,10 @@ struct Timing {
 Timing RunProgramme(const std::vector<Beat>& beats, unsigned long stopTime_ms,
                     const StoppageConstants& k, bool downed, int holdKind);
 
+// PES's late card (docs/re/pes-re-foul-choreography.md 9.5, 9.8): step 6 runs max(2.5 s, the 340-tick scene
+// FOUL_CMN_CARD_Y_B at 60 fps), replacing the out-of-play hold `holdBase_ms`. The card prop REF_CARD_Y shows 40 ticks
+// into that scene.
+unsigned long LateCardStep_ms(unsigned long holdBase_ms);
+unsigned long LateCardOnScreenAt_ms(unsigned long stopTime_ms);
+
 }  // namespace pes
