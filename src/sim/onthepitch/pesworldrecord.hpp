@@ -14,6 +14,8 @@
 #include <cstring>
 #include <memory>
 
+#include "pesclock.hpp"
+
 namespace pes {
 
 // Where the translated code addresses G and its blocks (PesMem::window). Above PES's image and the team sheet window.
@@ -21,6 +23,14 @@ inline constexpr uint64_t kWorldWindowVa = 0x2000100000ULL;
 
 // G's header blob (pes-re-player-record.md 0 and 1.1). The per-player blocks follow it in the window.
 inline constexpr std::size_t kWorldHeaderBytes = 0x2E58;
+
+// G's pointer to the match-info block: the translated stoppage functions read MI = *(G+0x270) (pes-re-ref-record.md 1.1).
+inline constexpr std::size_t kMatchInfoPtrOffset = 0x270;
+
+// The match-info block MI at PES's offsets (pes-re-ref-record.md 1.2). Its bytes run from MI+0x0 past the last field a
+// translated stoppage function reads (MI+0x15B8, a byte), rounded up to 0x40. The period record is at MI+0x1168.
+inline constexpr std::size_t kMatchInfoBytes = 0x15C0;
+inline constexpr std::size_t kMatchInfoPeriodOffset = 0x1168;
 
 // A table entry: the record's VA, then PES bytes this layout does not name. The accessors step 0x28 per index.
 inline constexpr std::size_t kTableEntryBytes = 0x28;
@@ -49,7 +59,9 @@ static_assert(sizeof(PesTableEntry) == kTableEntryBytes);
 
 // G's header as its tables sit in it. Bytes no accessor reads are reserved space.
 struct PesWorldTables {
-  std::array<uint8_t, kSideTableAOffset> reserved_head{};              // G+0x0 .. G+0x1928
+  std::array<uint8_t, kMatchInfoPtrOffset> reserved_head{};  // G+0x0 .. G+0x270
+  uint64_t match = 0;                                         // G+0x270: the VA of the match-info block (MatchInfoVa)
+  std::array<uint8_t, kSideTableAOffset - kMatchInfoPtrOffset - sizeof(uint64_t)> reserved_mid{};  // G+0x278 .. G+0x1928
   std::array<PesTableEntry, kSideCount> sideA{};                      // G+0x1928 (0x140A48A30)
   std::array<PesTableEntry, kSideCount> sideB{};                      // G+0x1978 (0x140A489D0)
   std::array<PesTableEntry, kAnimeCount> anime{};                     // G+0x19C8 (0x140A48910)
@@ -64,6 +76,7 @@ static_assert(offsetof(PesWorldTables, anime) == kAnimeTableOffset);
 static_assert(offsetof(PesWorldTables, man) == kManTableOffset);
 static_assert(offsetof(PesWorldTables, slot) == kSlotTableOffset);
 static_assert(sizeof(PesWorldTables) == kWorldHeaderBytes);
+static_assert(offsetof(PesWorldTables, match) == kMatchInfoPtrOffset);
 
 // One block per on-pitch slot, PES's stride (pes-re-player-record.md 1.2-1.3): the anime record at +0x0, the man record
 // at +0x32C, the slot record at +0x10F0. The field offsets below are from each record's own start.
@@ -118,27 +131,40 @@ inline void StoreF32(uint8_t* record, std::size_t offset, float value) {
 // stack, which grows down from the end (the atan2 polynomial spills to rsp+0x20), and BearingOfPoints writes its two
 // points there. A ground point is laid out as the translated code reads it: x at +0, z at +kPointZOffset.
 inline constexpr std::size_t kScratchBytes = 256;
-inline constexpr uint64_t kScratchVa =
-    kWorldWindowVa + kWorldHeaderBytes + static_cast<uint64_t>(kSlotCount) * kPlayerBlockBytes;
+// The match-info block sits after G's header and the player blocks, and before the scratch.
+inline constexpr std::size_t kMatchInfoOffset =
+    kWorldHeaderBytes + static_cast<std::size_t>(kSlotCount) * kPlayerBlockBytes;
+inline constexpr uint64_t kScratchVa = kWorldWindowVa + kMatchInfoOffset + kMatchInfoBytes;
 inline constexpr std::size_t kPointXOffset = 0;
 inline constexpr std::size_t kPointZOffset = 8;
 inline constexpr std::size_t kPointBytes = 16;
 static_assert(kManPosZOffset - kManPosXOffset == kPointZOffset, "a man record's position is laid out as a point");
 
+// The match-info block (PES's MI): the period record the clock writes in place (pesclock.hpp), at its PES offset.
+struct PesMatchInfo {
+  std::array<uint8_t, kMatchInfoPeriodOffset> reserved_head{};  // MI+0x0 .. MI+0x1168: no GF writer yet
+  PeriodRecord period{};                                        // MI+0x1168: PES's period record
+  std::array<uint8_t, kMatchInfoBytes - kMatchInfoPeriodOffset - sizeof(PeriodRecord)> reserved_tail{};
+};
+static_assert(offsetof(PesMatchInfo, period) == kMatchInfoPeriodOffset);
+static_assert(sizeof(PesMatchInfo) == kMatchInfoBytes);
+
 // The whole window: G's header, then the blocks. Heap-owned by PesWorld, so the bytes never move.
 struct PesWorldImage {
   PesWorldTables tables;
   std::array<PesPlayerBlock, kSlotCount> blocks{};
+  PesMatchInfo match{};  // MI: the match-info block (MatchInfoVa)
   std::array<uint8_t, kScratchBytes> scratch{};  // the translated bearing's points and stack (kScratchVa)
 };
 static_assert(offsetof(PesWorldImage, blocks) == kWorldHeaderBytes);
+static_assert(offsetof(PesWorldImage, match) == kMatchInfoOffset);
 static_assert(offsetof(PesWorldImage, scratch) == kScratchVa - kWorldWindowVa);
 
 inline constexpr std::size_t kWorldBytes = sizeof(PesWorldImage);
 
 class PesWorld {
  public:
-  PesWorld() : image_(std::make_unique<PesWorldImage>()) {}
+  PesWorld() : image_(std::make_unique<PesWorldImage>()) { image_->tables.match = MatchInfoVa(); }
   PesWorld(const PesWorld&) = delete;
   PesWorld& operator=(const PesWorld&) = delete;
 
@@ -149,6 +175,12 @@ class PesWorld {
   static constexpr uint64_t BlockVa(int slot) {
     return kWorldWindowVa + kWorldHeaderBytes + static_cast<uint64_t>(slot) * kPlayerBlockBytes;
   }
+
+  // The VA of the match-info block: G+0x270 names it.
+  static constexpr uint64_t MatchInfoVa() { return kWorldWindowVa + kMatchInfoOffset; }
+  // The clock's period record, in the match-info block: PesClock writes it in place.
+  PeriodRecord& Period() { return image_->match.period; }
+
   static constexpr uint64_t AnimeVa(int slot) { return BlockVa(slot); }
   static constexpr uint64_t ManVa(int slot) { return BlockVa(slot) + kManRecordOffset; }
   static constexpr uint64_t SlotVa(int slot) { return BlockVa(slot) + kSlotRecordOffset; }

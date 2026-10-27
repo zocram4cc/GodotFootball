@@ -104,7 +104,9 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   // The match-time setting, clamped to the menu's range (E58, A6Writers 6).
   const float matchMinutes =
       std::clamp(matchDurationMinutes, kMinimumMatchDurationMinutes, kMaximumMatchDurationMinutes);
-  pesClock = std::make_unique<pes::PesClock>(*pesClockConstants, matchMinutes);
+  // PES's world window (pesworldrecord.hpp) exists before the clock: the match-info block holds the clock's period record.
+  pesWorld = std::make_unique<pes::PesWorld>();
+  pesClock = std::make_unique<pes::PesClock>(*pesClockConstants, matchMinutes, pesWorld->Period());
 
   // PES 2021's ball physics (docs/re/pes-re-ball-contact.md): every constant
   // comes from the install - the `ball.o` record of constant_match.bin and the
@@ -193,7 +195,6 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   // PES's G tables and the per-player blocks GF owns beside them (pesworldrecord.hpp). The contact pass keeps its flags
   // in the man records. ponytail: PES's block allocator is OPEN (pes-re-player-record.md OPEN-1); this array stands in.
   // ponytail: the side tables name team records, which join the window with S5/S7; until then they stay null.
-  pesWorld = std::make_unique<pes::PesWorld>();
   for (int slot = 0; slot < pes::kSlotCount; ++slot) pesWorld->BindSlot(slot);
   // PES 2021's event routing table and detector constants (docs/re/pes-re-gaps-a2.md). Required:
   // the event stage routes every record through the table.
