@@ -31,7 +31,8 @@ Snapshots and the hook config contain PES bytes: they stay outside the repo.
 
 1. **Build** (needs `x86_64-w64-mingw32-gcc`):
    `sh tools/dev/rendezvous/build.sh OUT` and check the pin:
-   `WINEPREFIX=<any prefix> wine OUT/rv_pin_test.exe 'Z:\...\OUT\rv.dll' <empty.cfg> <run dir>\` exits 0.
+   run `OUT/rv_pin_test.exe` under Wine with three arguments (the Windows paths of `OUT/rv.dll`, an empty
+   config file and a run directory ending in a backslash); it exits 0 when the DLL stays mapped.
 2. **Plan the hooks** against your dump: add targets to `TARGETS` in `hook_plan.py`, then
    `python3 tools/dev/rendezvous/hook_plan.py $PES_EXE PLAN_DIR`. Every target must print `PASS` and
    `plan.json` must list no `real_branches_into_window`. Set the sample rate per line in
