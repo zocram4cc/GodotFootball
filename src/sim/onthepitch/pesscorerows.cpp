@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include "onthepitch/pesworldrecord.hpp"
 
 namespace pes {
 
@@ -20,13 +21,6 @@ constexpr uint8_t kRotation[4] = {0x01, 0x02, 0x24, 0x10};
 // Slots 0..10 are the first team and 11..21 the second (the writer's `j >= 11` split).
 int TeamOf(int slot) { return slot >= lane::kSideSize ? 1 : 0; }
 
-// FUN_140A92D40 (atan2 of a over b) folded to [0, 2 pi) by 0x1425795E4, scaled to degrees by
-// 0x14259BE40. The writer calls it with the zero-denominator and quadrant folds of atan2.
-float BearingDeg(float a, float b, const ScoreRowConstants& k) {
-  float theta = std::atan2(a, b);
-  if (theta < 0.0f) theta += k.twoPi;
-  return theta * k.radToDeg;
-}
 
 }  // namespace
 
@@ -68,8 +62,8 @@ int SortedRow::Nearest(int side) const {
   return count_[side] > 0 ? entry_[side][0].id : lane::kNoSlot;
 }
 
-void BuildScoreRows(const RowPlayers& p, const ScoreRowConstants& k, uint8_t mask,
-                    ScoreRows& rows, bool pesPath) {
+void BuildScoreRows(const RowPlayers& p, const ScoreRowConstants& k, uint8_t mask, ScoreRows& rows, bool pesPath,
+                    PesWorld& world) {
   // The score, list and angle blocks of each goal: side 0 measures from (-xg, 0), side 1 from
   // (+xg, 0). Each is written only when its mask bit is set.
   for (int side = 0; side < 2; ++side) {
@@ -88,7 +82,7 @@ void BuildScoreRows(const RowPlayers& p, const ScoreRowConstants& k, uint8_t mas
       list.Add(i, std::fabs(dx));
       // A slot exactly on the goal centre has bearing 0 (the writer's zero case).
       if (!(p[i].z == 0.0f && p[i].x == centre))
-        rows.angle[side][i] = BearingDeg(p[i].x - centre, p[i].z, k);
+        rows.angle[side][i] = world.BearingOfPoints(centre, 0.0f, p[i].x, p[i].z);
     }
     score.Seal();
     list.Seal();
@@ -121,7 +115,7 @@ void BuildScoreRows(const RowPlayers& p, const ScoreRowConstants& k, uint8_t mas
         const float dx = p[a].x - p[b].x;
         const float dz = p[a].z - p[b].z;
         if (dx == 0.0f && dz == 0.0f) continue;  // coincident: the row stays 0
-        rows.bearing[a][b] = BearingDeg(dx, dz, k);
+        rows.bearing[a][b] = world.Bearing(p[b].man, p[a].man);
       }
     }
   }
@@ -142,12 +136,12 @@ void BuildScoreRows(const RowPlayers& p, const ScoreRowConstants& k, uint8_t mas
   }
 }
 
-void ScoreRowWriter::Tick(const RowPlayers& players, const ScoreRowConstants& k,
-                          unsigned long frame, bool fullRefresh, bool pesPath) {
+void ScoreRowWriter::Tick(const RowPlayers& players, const ScoreRowConstants& k, unsigned long frame, bool fullRefresh,
+                          bool pesPath, PesWorld& world) {
   if (fullRefresh) latched_ = true;  // FUN_140457070's flag branch sets TA+0x11
   if (!latched_) return;             // and the call returns early while TA+0x11 is 0
   const uint8_t mask = fullRefresh ? kMaskAll : kRotation[frame & 3u];
-  BuildScoreRows(players, k, mask, rows_, pesPath);
+  BuildScoreRows(players, k, mask, rows_, pesPath, world);
 }
 
 // The selectors of the S1 rows by attack sign (see the header): FUN_140A714C0 and FUN_140A714A0.
