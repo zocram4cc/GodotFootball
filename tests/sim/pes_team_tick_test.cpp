@@ -5,6 +5,7 @@
 
 #include "onthepitch/pesteamtick.hpp"
 #include "onthepitch/pesrunslots.hpp"
+#include "onthepitch/pesworldrecord.hpp"
 
 namespace {
 
@@ -275,14 +276,22 @@ TEST(PesTeamTick, MarkBuildCommitsMarkedCandidate) {
   facts.side = 0;
   facts.holder = 5;
   facts.sign = 1.0f;
-  facts.holderX = 14.6984631f;
-  facts.holderZ = 1.7101007f;
+  // The holder's ground position is his man record's (+0x55C, +0x564): x = 14.698 m, z = 1.710 m.
+  pes::PesWorld world;
+  world.BindSlot(5);
+  pes::StoreF32(world.ManRecord(5), pes::kManPosXOffset, 14.6984631f);
+  pes::StoreF32(world.ManRecord(5), pes::kManPosZOffset, 1.7101007f);
+  facts.holderMan = world.ManRecord(5);
   facts.goalAreaHalfWidth_m = 9.16f;
   pes::marktable::Candidate c;
   c.id = 7;
   c.d2 = 100.0f;
   c.actionWord = 1;
-  c.posX = 10.0f;
+  // His ground position is his man record's (+0x55C, +0x564): x = 10 m, z = 0.
+  world.BindSlot(7);
+  pes::StoreF32(world.ManRecord(7), pes::kManPosXOffset, 10.0f);
+  facts.world = &world;
+  c.man = world.ManRecord(7);
   c.pairToTarget = 10.0f;
   c.pairToHolder = 70.0f;
   facts.candidates[0] = c;
