@@ -29,10 +29,13 @@ pes::KickErrorConstants Synthetic() {
   k.nearOpp_m = 1; k.farOpp_m = 2; k.dWeight = 1.5f;
   k.normalDiv = std::sqrt(-2.0f * std::log(1.0f / 512.0f)); k.normalCentre = 50;
   k.normalTabScale = 1.0f / 4096.0f; k.normalNegTwo = -2; k.normalTabSteps = 512;
-  k.normalDraw = 1000; k.fullTurn_deg = 360; k.quarterTurn_deg = 90;
+  k.normalDraw = 1000; k.fullTurn_deg = 360; k.quarterTurn_deg = 90; k.halfTurn_deg = 180;
   for (int i = 1; i < pes::kNormalTableSize; ++i)
     k.logTable[i] = -std::log(512.0f / static_cast<float>(i)) * 4096.0f;
   k.logTable[0] = k.logTable[1];
+  // The quarter-wave table: entry i is sin(i * 90 / 512 degrees), entry 512 is sin 90.
+  for (int i = 0; i < pes::kNormalTableSize; ++i)
+    k.sinTable[i] = std::sin(static_cast<float>(i) * 90.0f / 512.0f * 3.14159265f / 180.0f);
   return k;
 }
 
@@ -173,6 +176,18 @@ TEST(PesKickError, ApplyTurnsLiftsAndScales) {
   EXPECT_NEAR(w[2], 5.0f / std::sqrt(2.0f), 1e-4);
 }
 
+TEST(PesKickError, SinTableIsDegreesScaledByAmpAndWrapped) {
+  // 0x140a92c80: sin in degrees from the quarter-wave table, times amp. An angle
+  // at or past one lap wraps once; past 180 the sine flips sign.
+  const auto k = Synthetic();
+  EXPECT_FLOAT_EQ(pes::SinTableDeg(k, 90, 1), 1.0f);
+  EXPECT_NEAR(pes::SinTableDeg(k, 30, 1), 0.5f, 1e-3);
+  EXPECT_NEAR(pes::SinTableDeg(k, 30, 3), 1.5f, 3e-3);
+  EXPECT_NEAR(pes::SinTableDeg(k, 210, 1), -0.5f, 1e-3);
+  EXPECT_NEAR(pes::SinTableDeg(k, -150, 1), -0.5f, 1e-3);
+  EXPECT_NEAR(pes::SinTableDeg(k, 390, 1), 0.5f, 1e-3);
+}
+
 TEST(PesKickErrorInstall, LoadsFromTheExe) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
@@ -187,6 +202,7 @@ TEST(PesKickErrorInstall, LoadsFromTheExe) {
               k->qTopBase, 1e-5);
   // The table is -ln(512/i) in 2^-12 units, and the divisor is its far end.
   EXPECT_FLOAT_EQ(k->logTable[512], 0.0f);
+  EXPECT_FLOAT_EQ(k->sinTable[512], 1.0f);
   EXPECT_NEAR(k->logTable[256] * k->normalTabScale, -std::log(2.0f), 1e-3);
   EXPECT_NEAR(std::sqrt(k->normalNegTwo * k->logTable[1] * k->normalTabScale), k->normalDiv,
               1e-3);
