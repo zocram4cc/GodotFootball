@@ -259,10 +259,8 @@
    "callee-outside-set@140A7F370",
    "callee-outside-set@140A7F3B0",
    "callee-outside-set@140A7F3E0"
-  ],
-  "stub_refs": []
+  ]
  },
- "stub_refs": [],
  "harness": {
   "harness_class": "harness cannot run",
   "blockers": [

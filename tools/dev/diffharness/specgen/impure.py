@@ -40,8 +40,7 @@ def harness_fields(va, callees):
     else:
         harness_class = "runnable (closure real)"
     return {"harness_class": harness_class, "blockers": blockers, "out_of_set_callees": rows,
-            "indirect_sites": indirect, "switch_jumps": list(C.SWITCH_NOTES.get(va, [])),
-            "stub_refs": sorted("%X" % s for s in stub_refs)}
+            "indirect_sites": indirect, "switch_jumps": list(C.SWITCH_NOTES.get(va, []))}
 
 
 def mark(spec, fields):
@@ -50,6 +49,4 @@ def mark(spec, fields):
     spec["note"] = NOTE
     spec["status"] = "impure-sample"
     spec["subsystem"] = "impure-sample"
-    spec["stub_refs"] = fields["stub_refs"]
     spec["harness"] = {k: fields[k] for k in HARNESS_FIELDS}
-    spec["precheck"]["stub_refs"] = fields["stub_refs"]
