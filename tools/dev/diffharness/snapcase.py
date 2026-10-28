@@ -126,7 +126,7 @@ class Replayer:
         from unicorn import Uc, UC_ARCH_X86, UC_MODE_64, UC_HOOK_CODE, UC_HOOK_MEM_READ, UC_HOOK_MEM_WRITE
         self.spec = spec
         self.pool = os.open(pool_path, os.O_RDONLY)  # the trace's pool: the call-time pages
-        self.uc = uc = rn.new_x86_64()
+        self.uc = uc = Uc(UC_ARCH_X86, UC_MODE_64)
         uc._addrs_on = True
         uc._icount = 0  # run.py's shared code hook counts instructions (its valid-icount stats)
         uc._trace_on = True
