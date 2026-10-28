@@ -144,6 +144,7 @@ Referee::Referee(Match* match) : match(match) {
   // historical thresholds.
 
   foul.foulPlayer = nullptr;
+  foul.foulVictim = nullptr;
   foul.foulType = 0;
   foul.advantage = false;
   foul.foulTime = 0;
