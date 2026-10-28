@@ -10109,5 +10109,2811 @@
     }
    }
   }
+ },
+ "recordmap": {
+  "contract": "RecordMap v1 (tools/dev/translate/recordmap.py analyze + merge; live pins from recordmap_pin.py). Record identity = (chain top level, analyzer object root). size_lower_bound is the largest read/written offset+width; the true allocation size is OPEN unless stated.",
+  "pins": {
+   "E0 ring count (E0+0x1900) in 0..8 (saturating ring of 8)": {
+    "pass": 6,
+    "fail": 0
+   },
+   "E0 ring head (E0+0x1904) in 0..7": {
+    "pass": 6,
+    "fail": 0
+   },
+   "G anime table 0..20: consecutive entries differ by one block (0x3F40)": {
+    "pass": 12,
+    "fail": 0
+   },
+   "G anime table entries from 21 on (irregular: value, delta from entry 0)": {
+    "pass": 0,
+    "fail": 0
+   },
+   "G man table entry k = anime entry k + 0x32C (k < 21)": {
+    "pass": 12,
+    "fail": 0
+   },
+   "G slot table entries from 20 on (irregular: value minus anime entry)": {
+    "pass": 0,
+    "fail": 0
+   },
+   "G slot table entry k = anime entry k + 0x10F0 (k < 20)": {
+    "pass": 12,
+    "fail": 0
+   },
+   "G+0x180 table readable at [id] (stride 0x74, bytes to +0x6E)": {
+    "pass": 6,
+    "fail": 0
+   },
+   "G+0x180[id] bytes +0x6B,+0x6D": {
+    "pass": 0,
+    "fail": 0
+   },
+   "G+0x40 carrier record pointer readable (to +0x2954)": {
+    "pass": 6,
+    "fail": 0
+   },
+   "G+0x40 pointee +0 u32 and unit+0 record (equal?)": {
+    "pass": 0,
+    "fail": 0
+   },
+   "GLOBAL_G holds a readable G object": {
+    "pass": 12,
+    "fail": 0
+   },
+   "P (rcx) is the anime record of an anime-table slot (block start)": {
+    "pass": 0,
+    "fail": 12
+   },
+   "P inside a G-table record (table, slot, P-record)": {
+    "pass": 0,
+    "fail": 0
+   },
+   "P readable to +0x32E8 (kick fields reach 0x32E4)": {
+    "pass": 12,
+    "fail": 0
+   },
+   "P vs G anime table (nearest entry, signed delta)": {
+    "pass": 0,
+    "fail": 0
+   },
+   "P+0x2752 s16 in [-1,150] (kick table index)": {
+    "pass": 12,
+    "fail": 0
+   },
+   "P+0x2758 f32 finite (kick scatter)": {
+    "pass": 12,
+    "fail": 0
+   },
+   "P+0x2764 f32 finite (kick scatter)": {
+    "pass": 12,
+    "fail": 0
+   },
+   "P+0x2768 f32 finite (kick scatter)": {
+    "pass": 12,
+    "fail": 0
+   },
+   "P+0x281c f32 finite (kick scatter)": {
+    "pass": 12,
+    "fail": 0
+   },
+   "P+0x2bc8 f32 finite (kick scatter)": {
+    "pass": 12,
+    "fail": 0
+   },
+   "P+0x2bd0 f32 finite (kick scatter)": {
+    "pass": 12,
+    "fail": 0
+   },
+   "P+0x2bf8 f32 finite (kick scatter)": {
+    "pass": 12,
+    "fail": 0
+   },
+   "P+0x32E4 int readable": {
+    "pass": 12,
+    "fail": 0
+   },
+   "P+0xAB8 is an image-resident interface object": {
+    "pass": 12,
+    "fail": 0
+   },
+   "[P+0xAB8] vtable in PES image": {
+    "pass": 12,
+    "fail": 0
+   },
+   "angle edx carrier id in 0..21": {
+    "pass": 6,
+    "fail": 0
+   },
+   "angle r8b side in 0..1": {
+    "pass": 6,
+    "fail": 0
+   },
+   "carrier record (+0 u32 = id) is a G table entry at [id]": {
+    "pass": 0,
+    "fail": 0
+   },
+   "carrier record +0 u32 is a carrier id in 0..21": {
+    "pass": 5,
+    "fail": 0
+   },
+   "carrier record is the G table entry [id] of some table": {
+    "pass": 0,
+    "fail": 5
+   },
+   "ctx+0x18 readable to +0x2601C+4 (A0.18 extent)": {
+    "pass": 6,
+    "fail": 0
+   },
+   "ctx+0xE0 readable to +0x180698+4 (A0.E0 extent)": {
+    "pass": 6,
+    "fail": 0
+   },
+   "imageA+0x31C1 danger byte is 0 or 1": {
+    "pass": 5,
+    "fail": 0
+   },
+   "interface object readable to +0x30": {
+    "pass": 12,
+    "fail": 0
+   },
+   "unit+0 (carrier record) is a readable pointer": {
+    "pass": 5,
+    "fail": 0
+   },
+   "unit+0x28 (imageA) is a readable pointer": {
+    "pass": 5,
+    "fail": 0
+   },
+   "unit+8 (ctx) is a readable pointer": {
+    "pass": 5,
+    "fail": 0
+   }
+  },
+  "records": [
+   {
+    "identity": "kick.P (kicker ap; rcx of 0x14083CC30)",
+    "chain": "KICK",
+    "top": "0x14083CC30",
+    "obj": "A0",
+    "size_lower_bound": 13032,
+    "fields": [
+     {
+      "off": "0x20",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xAB8",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xAC0",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xAE4",
+      "widths": [
+       2
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xB1C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xBE4",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2458",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2459",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2460",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x247C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2480",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2484",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2488",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2752",
+      "widths": [
+       2
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2754",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2755",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2756",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2758",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2764",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2768",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x281C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2BC8",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2BD0",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2BF8",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2D14",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x32E4",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "IDX+0x32D8",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "REFUTED as a G block start (0/12 captures); fields readable to +0x32E8; +0xAB8 interface object image-resident (12/12)"
+   },
+   {
+    "identity": "G anime table entry (block start, G+0x19C8)",
+    "chain": "KICK",
+    "top": "0x14083CC30",
+    "obj": "IMG.1436F3DC8.19C8",
+    "size_lower_bound": 45,
+    "fields": [
+     {
+      "off": "0x1",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2C",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "CONFIRMED entries 0..20: one 0x3F40 block each (12/12); 21+ irregular"
+   },
+   {
+    "identity": "G man table entry (block start + 0x32C, G+0x1DD8)",
+    "chain": "KICK",
+    "top": "0x14083CC30",
+    "obj": "IMG.1436F3DC8.1DD8",
+    "size_lower_bound": 1628,
+    "fields": [
+     {
+      "off": "0x610",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x63C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x658",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "CONFIRMED anime+0x32C for entries 0..20 (12/12)"
+   },
+   {
+    "identity": "G slot table entry (block start + 0x10F0, G+0x25F8)",
+    "chain": "KICK",
+    "top": "0x14083CC30",
+    "obj": "IMG.1436F3DC8.25F8",
+    "size_lower_bound": 184,
+    "fields": [
+     {
+      "off": "0x98",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xB0",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "CONFIRMED anime+0x10F0 for entries 0..19 (12/12); 20+ irregular"
+   },
+   {
+    "identity": "G+0x180 carrier table entry (stride 0x74)",
+    "chain": "KICK",
+    "top": "0x14083CC30",
+    "obj": "IMG.1436F3DC8.180",
+    "size_lower_bound": 110,
+    "fields": [
+     {
+      "off": "0x6B",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x6D",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "table readable at [id]*0x74+0x6E (6/6); field semantics OPEN"
+   },
+   {
+    "identity": "G+0x40 carrier record",
+    "chain": "CLEAR",
+    "top": "0x142108630",
+    "obj": "IMG.1436F3DC8.40",
+    "size_lower_bound": 10580,
+    "fields": [
+     {
+      "off": "0x4",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x34",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x3C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x4C",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x80",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2770",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2774",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2778",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2920",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2948",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x294C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2950",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "readable to +0x2954 (6/6); not the Clear unit's carrier (not equal)"
+   },
+   {
+    "identity": "MI (G+0x270)",
+    "chain": "SANCTION",
+    "top": "0x14047F170",
+    "obj": "IMG.1436F3DC8.270",
+    "size_lower_bound": 5561,
+    "fields": [
+     {
+      "off": "0x1168",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1174",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1178",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1180",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1184",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1554",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x155C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1564",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x158C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1590",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1594",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x15B8",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "IDX+0x1188",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "NOT PINNED: no sanction/foul capture in live2/pid407792 or live2/pid161465"
+   },
+   {
+    "identity": "ctx = corridor-angle A0 = Clear unit+8 = sanction A1",
+    "chain": "CLEAR",
+    "top": "0x142108630",
+    "obj": "A0",
+    "size_lower_bound": 232,
+    "fields": [
+     {
+      "off": "0x18",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": true
+     },
+     {
+      "off": "0xE0",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": true
+     }
+    ],
+    "pin": "extents readable (6/6); identity A0=A1=unit+8 INF (same +0x18/+0xE0 pair read by both chains)"
+   },
+   {
+    "identity": "E0 ring (ctx+0xE0)",
+    "chain": "CLEAR",
+    "top": "0x142108630",
+    "obj": "A0.E0",
+    "size_lower_bound": 1574644,
+    "fields": [
+     {
+      "off": "0x0",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x14",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x24",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x41",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x64",
+      "widths": [
+       2
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x66",
+      "widths": [
+       2
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x68",
+      "widths": [
+       2
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x6A",
+      "widths": [
+       2
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x6C",
+      "widths": [
+       2
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x6E",
+      "widths": [
+       2
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1900",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1904",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1908",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1920",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1924",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x3208",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x320C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xFA50",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1C258",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1C260",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1C26C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1C57C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x271F0",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x271F4",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x180698",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1806A8",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1806C5",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1806E8",
+      "widths": [
+       2
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1806EA",
+      "widths": [
+       2
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1806EC",
+      "widths": [
+       2
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1806EE",
+      "widths": [
+       2
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1806F0",
+      "widths": [
+       2
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1806F2",
+      "widths": [
+       2
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "CONFIRMED count (E0+0x1900) in 0..8 and head (E0+0x1904) in 0..7 (6/6, count saturates at 8)"
+   },
+   {
+    "identity": "ctx+0x18 object",
+    "chain": "CLEAR",
+    "top": "0x142108630",
+    "obj": "A0.18",
+    "size_lower_bound": 155680,
+    "fields": [
+     {
+      "off": "0x229B4",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x22B9C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2482C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x24830",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x24834",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2601C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "IDX+0x228F0",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "IDX+0x22A7C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "IDX+0x22AD8",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "IDX+0x22C64",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "IDX+0x23F7C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "readable to +0x2601C+4 (6/6)"
+   },
+   {
+    "identity": "Clear unit (r8 of 0x142109EB0)",
+    "chain": "CLEAR",
+    "top": "0x142109EB0",
+    "obj": "A2",
+    "size_lower_bound": 48,
+    "fields": [
+     {
+      "off": "0x0",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": true
+     },
+     {
+      "off": "0x8",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": true
+     },
+     {
+      "off": "0x28",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": true
+     }
+    ],
+    "pin": "CONFIRMED +0 carrier ptr, +8 ctx ptr, +0x28 imageA ptr readable (5/5)"
+   },
+   {
+    "identity": "carrier record (unit+0)",
+    "chain": "CLEAR",
+    "top": "0x142109EB0",
+    "obj": "A2.0",
+    "size_lower_bound": 4,
+    "fields": [
+     {
+      "off": "0x0",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "CONFIRMED +0 u32 carrier id in 0..21 (5/5); NOT a G table entry (0/5)"
+   },
+   {
+    "identity": "imageA (unit+0x28)",
+    "chain": "CLEAR",
+    "top": "0x142109EB0",
+    "obj": "A2.28",
+    "size_lower_bound": 12738,
+    "fields": [
+     {
+      "off": "0x31C1",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "CONFIRMED +0x31C1 danger byte in {0,1} (5/5)"
+   },
+   {
+    "identity": "sanction A1 (0x14047F170 arg 2)",
+    "chain": "SANCTION",
+    "top": "0x14047F170",
+    "obj": "A1",
+    "size_lower_bound": 232,
+    "fields": [
+     {
+      "off": "0x18",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": true
+     },
+     {
+      "off": "0xE0",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": true
+     }
+    ],
+    "pin": "NOT PINNED: no sanction capture"
+   },
+   {
+    "identity": "sanction A1+0xE0 E0 ring",
+    "chain": "SANCTION",
+    "top": "0x14047F170",
+    "obj": "A1.E0",
+    "size_lower_bound": 6408,
+    "fields": [
+     {
+      "off": "0x0",
+      "widths": [
+       4,
+       16
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int",
+       "vec"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x10",
+      "widths": [
+       16
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "vec"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x20",
+      "widths": [
+       16
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "vec"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x30",
+      "widths": [
+       16
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "vec"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x40",
+      "widths": [
+       16
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "vec"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x42",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x50",
+      "widths": [
+       16
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "vec"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x60",
+      "widths": [
+       16
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "vec"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x70",
+      "widths": [
+       16
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "vec"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x80",
+      "widths": [
+       16
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "vec"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x90",
+      "widths": [
+       16
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "vec"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1900",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1904",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "NOT PINNED: no sanction capture (ring domain pinned via ctx+0xE0)"
+   },
+   {
+    "identity": "sanction A1+0x18 object",
+    "chain": "SANCTION",
+    "top": "0x14047F170",
+    "obj": "A1.18",
+    "size_lower_bound": 0,
+    "fields": [
+     {
+      "off": "IDX+0x24A0C",
+      "widths": [
+       16
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "vec"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "IDX+0x24A1C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "NOT PINNED: no sanction capture"
+   },
+   {
+    "identity": "trap action (A0 of 0x14079AFD0, commit)",
+    "chain": "TRAP",
+    "top": "0x14079AFD0",
+    "obj": "A0",
+    "size_lower_bound": 135,
+    "fields": [
+     {
+      "off": "0x0",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x8",
+      "widths": [
+       2
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xA",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xB",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xC",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xD",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x10",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x14",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x18",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x19",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1A",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1C",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x20",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x24",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x25",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x26",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x28",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2C",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x30",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x38",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x39",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x3A",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x3B",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x3C",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x44",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x48",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x4C",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x54",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x58",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x5C",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x60",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x64",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x68",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x69",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x6A",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x85",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x86",
+      "widths": [
+       1
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "NOT PINNED: no trap hook in hooks.cfg"
+   },
+   {
+    "identity": "trap anime (A1 of 0x14079AFD0, commit)",
+    "chain": "TRAP",
+    "top": "0x14079AFD0",
+    "obj": "A1",
+    "size_lower_bound": 15132,
+    "fields": [
+     {
+      "off": "0x8",
+      "widths": [
+       4,
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32",
+       "f64"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xC",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x10",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32",
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x14",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x18",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1C",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x20",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xA08",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": true
+     },
+     {
+      "off": "0xAB8",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xAC0",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xB08",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x2458",
+      "widths": [
+       1
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x3B18",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "IDX+0x2FC",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "f64"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "IDX+0x304",
+      "widths": [
+       4
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "IDX+0x2168",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "NOT PINNED: no trap hook in hooks.cfg"
+   },
+   {
+    "identity": "trap query (A0 of 0x14084DF20)",
+    "chain": "TRAP",
+    "top": "0x14084DF20",
+    "obj": "A0",
+    "size_lower_bound": 216,
+    "fields": [
+     {
+      "off": "0x0",
+      "widths": [
+       8
+      ],
+      "read": true,
+      "written": false,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x8",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xC",
+      "widths": [
+       2
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x1C",
+      "widths": [
+       8
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x24",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x30",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x4C",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x64",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x68",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x6C",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x70",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x74",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x78",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x80",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x84",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x88",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x90",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "int"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x98",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0x9C",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xA0",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xA4",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     },
+     {
+      "off": "0xD4",
+      "widths": [
+       4
+      ],
+      "read": false,
+      "written": true,
+      "kinds": [
+       "f32"
+      ],
+      "ptr": false
+     }
+    ],
+    "pin": "NOT PINNED: no trap hook in hooks.cfg"
+   }
+  ]
  }
 }
