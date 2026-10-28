@@ -45,6 +45,12 @@ TARGETS = [
     ("ref_restart_cmd_A39A80", 0x140A39A80, "restart command"),
     ("linesman_lookat_A38F20", 0x140A38F20, "linesman look-at"),
     ("restart_driver_445E90", 0x140445E90, "restart step-programme driver"),
+    # Kick scatter and press command: real-call cases (docs/ports/pes-port-KickInputs.md, docs/re/pes-re-press-live.md).
+    # Not hookable, so reached through the scatter entry: the quality 0x1408413C0 (rip-relative operand in the window)
+    # and the scatter body at 0x1408398D5 (a call in the window).
+    ("kick_scatter_83CC30", 0x14083CC30, "kick scatter entry"),
+    ("kick_postscale_8414A0", 0x1408414A0, "kick quality post-scales"),
+    ("press_cmd_writer_A85A70", 0x140A85A70, "press command words writer (class, useClassRate, kmh)"),
 ]
 
 
