@@ -31,7 +31,7 @@ void pes_fn_141F7B700(PesState& s) {
   s.wrf(((s.gpr[1]) + (0x160ULL)), s.x_f32(2));
   s.cmp_ss((float)(s.x_f32(0)), (float)(s.x_f32(2)));
   if (s.cond("be")) {
-    s.set_x_f32(0, k_c14259858C_f);
+    s.set_x_f32(0, k_c14259858C_f); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     s.cmp_ss((float)(s.x_f32(2)), (float)(s.x_f32(0)));
     if (!s.cond("c")) {
       s.set_x_f32(2, (float)((s.x_f32(2)) - (s.x_f32(0))));

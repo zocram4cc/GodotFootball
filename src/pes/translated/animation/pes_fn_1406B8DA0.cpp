@@ -23,7 +23,7 @@ static constexpr float k_c1425DDFFC_f = -180.0f; // -180.0
 void pes_fn_1406B8DA0(PesState& s);
 
 void pes_fn_1406B8DA0(PesState& s) {
-  s.set_x_f32(1, k_c1425DDFFC_f);
+  s.set_x_f32(1, k_c1425DDFFC_f); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(0)));
   if (s.cond("be")) {
     s.cmp_ss((float)(s.x_f32(0)), (float)((k_c142598580_f)));

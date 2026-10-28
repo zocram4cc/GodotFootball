@@ -33,7 +33,7 @@ void pes_fn_14086C100(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
-  s.set_x_f32(0, s.rdf(((s.gpr[0]) + (0x240ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[0]) + (0x240ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   if (s.cond("nz")) {
     s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[7]) + (0xDCULL)), 4));
     s.wr(((s.gpr[3])), (uint64_t)(((uint64_t)(uint32_t)s.gpr[0])), 4);

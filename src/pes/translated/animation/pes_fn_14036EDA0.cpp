@@ -53,6 +53,6 @@ void pes_fn_14036EDA0(PesState& s) {
     s.cf = (_a & 0xFFFFULL) < (_b & 0xFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 15) & 1; }
   if (s.cond("nz")) goto L_14036EDC8;
-  s.set_x_f32(0, s.rdf(((s.gpr[8]) + (0xCULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[8]) + (0xCULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   return;
 }

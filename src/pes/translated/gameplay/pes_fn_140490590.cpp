@@ -14,7 +14,7 @@ static constexpr float k_c14258B550_f = 255.0f; // 255.0
 void pes_fn_140490590(PesState& s);
 
 void pes_fn_140490590(PesState& s) {
-  s.set_x_f32(5, k_c14258B550_f);
+  s.set_x_f32(5, k_c14258B550_f); s.xmm[5][0] &= 0xFFFFFFFFull; s.xmm[5][1] = 0;
   s.xmm[4][0] = 0; s.xmm[4][1] = 0;
   s.set_x_f32(1, (float)((s.x_f32(1)) * (s.x_f32(5))));
   s.xmm[0][0] = s.xmm[5][0]; s.xmm[0][1] = s.xmm[5][1];
@@ -55,7 +55,7 @@ void pes_fn_140490590(PesState& s) {
   L_1404905FC:;
   s.xmm[3][0] = s.xmm[5][0]; s.xmm[3][1] = s.xmm[5][1];
   L_1404905FF:;
-  s.set_x_f32(1, s.rdf(((s.gpr[4]) + (0x28ULL))));
+  s.set_x_f32(1, s.rdf(((s.gpr[4]) + (0x28ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   s.xmm[0][0] = s.xmm[5][0]; s.xmm[0][1] = s.xmm[5][1];
   s.set_x_f32(1, (float)((s.x_f32(1)) * (s.x_f32(5))));
   s.gpr[2] = (uint64_t)(([](float _f){ if (__builtin_isnan(_f) || _f >= 9.223372036854776e18f || _f < -9.223372036854776e18f) return (int64_t)INT64_MIN; return (int64_t)_f; }(s.x_f32(3))));

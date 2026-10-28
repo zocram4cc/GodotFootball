@@ -12,7 +12,7 @@ void pes_fn_14089DB50(PesState& s);
 
 void pes_fn_14089DB50(PesState& s) {
   s.xmm[0][0] = 0; s.xmm[0][1] = 0;
-  s.set_x_f32(0, (float)(((s.x_f32(0)) >= (s.x_f32(1))) ? (s.x_f32(0)) : (s.x_f32(1))));
+  s.set_x_f32(0, (float)(((s.x_f32(0)) > (s.x_f32(1))) ? (s.x_f32(0)) : (s.x_f32(1))));
   s.wrf(((s.gpr[1]) + (0x18ULL)), s.x_f32(0));
   s.set_x_f32(0, (float)((s.x_f32(0)) / ((s.rdf(((s.gpr[1]) + (0x14ULL)))))));
   s.wrf(((s.gpr[1]) + (0x1CULL)), s.x_f32(0));

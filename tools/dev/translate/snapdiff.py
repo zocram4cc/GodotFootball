@@ -25,6 +25,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import driver as drv  # noqa: E402
 import diffmain  # noqa: E402
+import frame_trace as ft  # noqa: E402
+import full_snapshot as fs  # noqa: E402
 
 FLOOR_COVERAGE = 0.50
 CODE_LO, CODE_HI = 0x140001000, 0x14252E800  # the translated universe's image range (driver.build_and_diff)
@@ -131,7 +133,8 @@ def build_binary(va, spec, args, pilot, reached):
                    + sorted(need), check=True)
     bin_p = os.path.join(gen, "snapdiff_%s" % tag)
     objs = [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need]
-    rc, _, err = drv.sh([args.cxx, "-std=c++20", "-O1", "-I", gen, "-o", bin_p, main_p] + objs, timeout=300)
+    trace = ["-include", os.path.join(HERE, "lockstep_trace.h")] if os.environ.get("GF_XLATE_TRACE") else []
+    rc, _, err = drv.sh([args.cxx, "-std=c++20", "-O1", "-I", gen] + trace + ["-o", bin_p, main_p] + objs, timeout=300)
     if rc != 0:
         lines = [ln.replace(args.out_dir, "<build>") for ln in err.splitlines()
                  if "error" in ln or "undefined reference" in ln][:6]
@@ -199,8 +202,9 @@ def run_one(va, args, pilot, pairs):
         if not os.path.exists(calls) or os.path.getsize(calls) == 0:
             continue
         out_s = os.path.join(gen, "snap_" + label)
+        extra = ["--hooks", args.hooks] if args.hooks else []
         rc, out, err = drv.sh([drv.diff_python(), drv.RUN_PY, "--spec", spec_path, "--snapshot-dir", snap,
-                               "--calls", calls, "--out-dir", out_s, "--blocked", blocked_json],
+                               "--calls", calls, "--out-dir", out_s, "--blocked", blocked_json] + extra,
                               timeout=args.timeout)
         if rc != 0:
             res["note"] = "harness failed on %s: %s" % (label, (err or out).strip()[-200:])
@@ -222,7 +226,11 @@ def run_one(va, args, pilot, pairs):
         runs.append((label, snap, out_s, corpus, tdir))
     res["excluded"] = res["calls"] - res["replayed"]
     if res["replayed"] == 0:
-        res["note"] = "no replayable call (0 cases)"
+        # Every case excluded: the reasons are the answer, so they go in the note (never silent).
+        top = sorted(res["reasons"].items(), key=lambda kv: -kv[1])
+        res["note"] = "NO REPLAYABLE CASE: %d of %d excluded; reasons: %s; blocked callees: %s" % (
+            res["excluded"], res["calls"], "; ".join("%s x%d" % kv for kv in top) or "none recorded",
+            ",".join(res.get("blocked_callees") or []) or "none")
         return res
     bin_p, err = build_binary(va, spec, args, pilot, reached)
     if err:
@@ -231,9 +239,10 @@ def run_one(va, args, pilot, pairs):
     res["translated"] = True
     for label, snap, out_s, corpus, tdir in runs:
         trans = os.path.join(out_s, "translated.jsonl")
+        teb = hex(ft.trace_teb(tdir, fs.SnapMem(snap)))  # the GS base of each run: the trace's TEB, or the snapshot's
         rc, out, err = drv.sh([bin_p, os.path.join(out_s, "ok_calls.bin"), os.path.join(snap, "mem.bin"),
                                os.path.join(out_s, "maps.txt"), trans, os.path.join(out_s, "ok_delta.bin"),
-                               os.path.join(tdir, "pool", "pages.bin")], timeout=args.timeout)
+                               os.path.join(tdir, "pool", "pages.bin"), teb], timeout=args.timeout)
         if rc != 0:
             res["mismatches"].append({"snapshot": label, "case": None, "fields": ["run"],
                                       "note": "diff main rc=%d: %s" % (rc, (err or out)[-200:])})
@@ -245,6 +254,14 @@ def run_one(va, args, pilot, pairs):
     frac = res["own_block"]["fraction"] if res["own_block"] else 0.0
     res["floor"] = not res["mismatches"] and res["replayed"] > 0 and frac >= FLOOR_COVERAGE
     return res
+
+
+def norm_tag(s):
+    """A VA as the bare upper-case hex tag the rest of the tool keys on: '0x1404f6c30' -> '1404F6C30'."""
+    s = s.strip()
+    if s[:2].lower() == "0x":
+        s = s[2:]
+    return s.upper()
 
 
 def main():
@@ -259,13 +276,15 @@ def main():
     ap.add_argument("--cxx", default="g++")
     ap.add_argument("--timeout", type=int, default=3600)
     ap.add_argument("--results", default=None)
+    ap.add_argument("--hooks", default=None,
+                    help="rv.dll config (rendezvous captures): each hook entry replays as the code it displaced")
     ap.add_argument("--block-entry", action="append", default=[],
                     help="an extra VA a replayed case must not enter (proves an init path unreached)")
     args = ap.parse_args()
     pairs = [tuple(s.split("=", 1)) for s in args.snapshot]
     pilot = drv.universe_of(args.spec_dir)
     if args.only:
-        tags = [v.upper() for v in args.only]
+        tags = [norm_tag(v) for v in args.only]
     else:
         tags = set()
         for _, tdir in pairs:
@@ -275,12 +294,12 @@ def main():
         tags = sorted(tags)
     results = []
     for tg in tags:
-        va = tg if tg.startswith("0x") else "0x" + tg
+        va = "0x" + tg
         r = run_one(va, args, pilot, pairs)
         results.append(r)
         print("%s calls=%d replayed=%d mismatches=%d own_block=%s floor=%s %s" % (
             r["va"], r["calls"], r["replayed"], len(r["mismatches"]),
-            r["own_block"] and r["own_block"]["fraction"], r["floor"], r["note"][:120]), flush=True)
+            r["own_block"] and r["own_block"]["fraction"], r["floor"], r["note"][:400]), flush=True)
     floor = sum(1 for r in results if r["floor"])
     doc = {"note": "snapshot-backed diff of traced calls (snapdiff.py): each traced call replayed from its "
                    "snapshot's own memory on the harness and the translated side; floor = bit-exact on every "

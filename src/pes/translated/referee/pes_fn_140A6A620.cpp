@@ -31,11 +31,11 @@ void pes_fn_140A6A620(PesState& s) {
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
     s.cf = false; s.of = false; }
   if (!s.cond("z")) {
-    s.set_x_f32(0, s.rdf(((s.gpr[2]) + (0x18ULL))));
+    s.set_x_f32(0, s.rdf(((s.gpr[2]) + (0x18ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     s.set_x_f32(0, (float)((s.x_f32(0)) + ((k_c1425656C0_f))));
     s.set_x_f32(0, (float)((s.x_f32(0)) * ((k_c142588218_f))));
     s.wrf(((s.gpr[1])), s.x_f32(0));
-    s.set_x_f32(0, s.rdf(((s.gpr[2]) + (0x1CULL))));
+    s.set_x_f32(0, s.rdf(((s.gpr[2]) + (0x1CULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
     s.set_x_f32(0, (float)((s.x_f32(0)) - ((k_c14259222C_f))));
     s.wrf(((s.gpr[1]) + (0x8ULL)), s.x_f32(0));
   }

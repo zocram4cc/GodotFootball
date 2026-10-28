@@ -99,7 +99,7 @@ void pes_fn_140A82340(PesState& s) {
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 31) & 1; }
   if (s.cond("c")) goto L_140A823EB;
-  s.set_x_f32(0, s.rdf(((s.gpr[7]) + (0ULL - 0x80ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[7]) + (0ULL - 0x80ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.cmp_ss((float)(s.x_f32(0)), (float)((s.rdf(((s.gpr[7]) + (0ULL - 0x88ULL))))));
   if (s.cond("be")) goto L_140A823EB;
   s.wr(((s.gpr[3]) + (0ULL - 0x8ULL)), (uint64_t)((2ULL)), 8);

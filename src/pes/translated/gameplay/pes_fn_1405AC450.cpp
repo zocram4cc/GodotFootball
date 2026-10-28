@@ -41,8 +41,8 @@ void pes_fn_1405AC450(PesState& s) {
   if (s.cond("a")) goto L_1405AC499;
   s.gpr[0] = (uint64_t)(uint32_t)((3123612579ULL));
   { uint64_t _p = (uint64_t)(uint32_t)s.gpr[0] * (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[1]));
-    s.gpr[0] = (s.gpr[0] & 0xFFFFFFFF00000000ULL) | (_p & 0xFFFFFFFFULL);
-    s.gpr[2] = (s.gpr[2] & 0xFFFFFFFF00000000ULL) | ((_p >> 32) & 0xFFFFFFFFULL);
+    s.gpr[0] = (uint64_t)(uint32_t)_p;
+    s.gpr[2] = (uint64_t)(uint32_t)(_p >> 32);
     s.cf = s.of = ((_p >> 32) != 0); }
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[2])), _c = (uint64_t)((3ULL)) & 0xFF;
     uint64_t _r = ((_a & 0xFFFFFFFFULL) >> (_c & 31));
@@ -99,12 +99,9 @@ void pes_fn_1405AC450(PesState& s) {
     s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[1] = (uint64_t)(_r);
   }
-  { uint32_t _i = (uint32_t)(s.gpr[0]); switch (_i) {
-    case 0:;
-      goto L_1405AC4CC;
-    case 1:;
-    case 2:;
-      goto L_1405AC4CF;
+  { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
+    case 5948620U: goto L_1405AC4CC;
+    case 5948623U: goto L_1405AC4CF;
     default: goto L_1405AC4CF;
     } }
   L_1405AC4CC:;

@@ -387,7 +387,7 @@ void pes_fn_1405997F0(PesState& s) {
   s.cmp_ss((float)(s.x_f32(7)), (float)(s.x_f32(6)));
   if (s.cond("a")) goto L_140599BA8;
   s.xmm[6][0] = s.xmm[10][0]; s.xmm[6][1] = s.xmm[10][1];
-  s.set_x_f32(6, (float)(((s.x_f32(6)) >= (s.x_f32(7))) ? (s.x_f32(6)) : (s.x_f32(7))));
+  s.set_x_f32(6, (float)(((s.x_f32(6)) > (s.x_f32(7))) ? (s.x_f32(6)) : (s.x_f32(7))));
   L_140599BA8:;
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[5])), _b = (uint64_t)((40ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);

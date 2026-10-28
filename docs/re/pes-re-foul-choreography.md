@@ -522,7 +522,7 @@ sub1 (per frame): FUN_14047c2d0(Flow, skip, 0), case 0:
       demo    → returns 0 (unless skip); step then runs FUN_14047eb00 (start gate) and sets Flow+0x868 = 0
 sub2: demo == null → step done
 ```
-- **No scene: 5.0 s** (`0x14259ce60` table index 1, OBS raw `0x40a00000`) = 271 frames + 2 sub-state frames.
+- **No scene: 5.0 s** (`0x14259ce64` table index 1; the base `0x14259ce60` is index 0 = 8.0, corrected by StoppageFlow4; OBS raw `0x40a00000`) = 271 frames + 2 sub-state frames.
   Live: FK at fr 14286, step 5 = **272 frames** (OBS). Static, except the `FUN_14044e460` overrides in 9.3.
 - **Scene: start gate + scene**, the 5.0 s is unused (zeroed while the demo exists; after the demo clears, the hold
   is 0 → 1 frame). Live: 619 and 746 frames (two scene fouls).
@@ -661,7 +661,7 @@ cmd 9, `+0x34` 0, latch `+0x38` 0, indirect `+0x39` 0.
 |---|---|---|---|
 | whistle hold | ⌊0.8·gs + 0.5⌋ frames, offside gs/2 (duels §3) | static + DelayWhistle | `pes::JudgeConstants::whistleHold_s` (already ported, referee.cpp:798) |
 | stop stamp (step 3) | 2 frames | static | `buffer.stopTime` |
-| foul hold, no scene | table[1] @0x14259ce60 = 5.0 s | static (9.3 overrides) | `FoulSequence::kWarningCutscene_ms` (6000 → 5.0 s; rename: it is a hold, not a cutscene) |
+| foul hold, no scene | table[1] @0x14259ce64 = 5.0 s | static (9.3 overrides) | `FoulSequence::kWarningCutscene_ms` (6000 → 5.0 s; rename: it is a hold, not a cutscene) |
 | scene start gate | fps·3/env+0x5c, open at fps remaining; referee ≤ 5.0 m @0x14259222c; EXCITE 2.0 m @0x142565604 | dynamic 2.0–3.0 s (5–6 s injury) | new offset inside `FoulSequence::CutsceneLength_ms` (card) |
 | card scene | Σ fdc `maxTime` + 0.5 s fades | dynamic (variant roll) | `FoulSequence::kCardCutscene_ms` → per-scene from the fdc |
 | card on screen | gate + intro (240 ticks for `_Y_`) + `REF_CARD_Y/R` start tick (5–411 /60 s) | dynamic | `GiveYellowCard/GiveRedCard(now + 6000)` (referee.cpp:853/857) |
@@ -709,7 +709,7 @@ Every timing in 9.8 is read from the user's own PES2021.exe at runtime by
 
 | PES timing (9.8) | value | where it lives now |
 |---|---|---|
-| foul hold, no scene | table[1] @0x14259ce60 | `holdKind1_s`; the 5.0 s in `ScheduleStop(..., kPesHoldFoul)` |
+| foul hold, no scene | table[1] @0x14259ce64 | `holdKind1_s`; the 5.0 s in `ScheduleStop(..., kPesHoldFoul)` |
 | out-of-play hold (corner/goal kick/throw-in/offside) | table[5] @0x14259ce54 | `holdKind5_s`; `kPesHoldOutOfPlay` |
 | offside 3.0 s (`MI+0x1588==1`) | imm @0x140447a25 | `offsideHold_s`, opcode-checked; not used: GF never routes an offside through a stop kind (9.9.2) |
 | player down | +2.5 s @0x14259bde4 | `downedPlayerExtra_s`, gated on `kPesDownedInjuryLevel` |

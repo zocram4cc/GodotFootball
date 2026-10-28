@@ -13,7 +13,7 @@ void pes_fn_1423DCA90(PesState& s);
 void pes_fn_1423DCA90(PesState& s) {
   s.gpr[2] = (uint64_t)(uint32_t)(s.rd(((s.gpr[1]) + (0x120ULL)), 4));
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[1]) + (0xE8ULL)), 8));
-  s.set_x_f32(0, s.rdf(((s.gpr[0]) + ((s.gpr[2])*4ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[0]) + ((s.gpr[2])*4ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.gpr[0] = (uint64_t)(uint32_t)(((s.gpr[2]) + (0x1ULL)));
   { uint64_t _a = (uint64_t)(s.rd(((s.gpr[1]) + (0x90ULL)), 4)), _r = (_a + 1) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);

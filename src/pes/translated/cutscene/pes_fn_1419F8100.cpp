@@ -11,7 +11,7 @@
 void pes_fn_1419F8100(PesState& s);
 
 void pes_fn_1419F8100(PesState& s) {
-  s.xmm[0][0] = s.rd(((s.gpr[2])), 8);
+  s.xmm[0][0] = s.rd(((s.gpr[2])), 8); s.xmm[0][1] = 0;
   s.wr(((s.gpr[1]) + (0xD0ULL)), s.xmm[0][0], 8);
   return;
 }

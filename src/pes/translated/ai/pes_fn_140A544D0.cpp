@@ -25,10 +25,10 @@ void pes_fn_140A544D0(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[4] = (uint64_t)(_r);
   }
-  s.set_x_f32(0, s.rdf(((s.gpr[2]))));
+  s.set_x_f32(0, s.rdf(((s.gpr[2])))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   s.xmm[5][0] = 0; s.xmm[5][1] = 0;
   s.set_x_f32(3, (float)((s.x_f32(3)) + ((s.rdf(((s.gpr[1]) + (0x4ULL)))))));
-  s.set_x_f32(4, k_c14256AE1C_f);
+  s.set_x_f32(4, k_c14256AE1C_f); s.xmm[4][0] &= 0xFFFFFFFFull; s.xmm[4][1] = 0;
   { double _lo = (double)PesState::f32((uint32_t)s.xmm[0][0]), _hi = (double)PesState::f32((uint32_t)(s.xmm[0][0] >> 32)); uint64_t _u0, _u1;
     memcpy(&_u0, &_lo, 8); memcpy(&_u1, &_hi, 8);
     s.xmm[0][0] = _u0; s.xmm[0][1] = _u1; }
@@ -36,7 +36,7 @@ void pes_fn_140A544D0(PesState& s) {
   s.xmm[6][0] = s.xmm[2][0]; s.xmm[6][1] = s.xmm[2][1];
   { unsigned __int128 _v = (((unsigned __int128)s.xmm[0][0] | ((unsigned __int128)s.xmm[0][1] << 64))) & (((k_c142565D30))); s.xmm[0][0] = (uint64_t)_v; s.xmm[0][1] = (uint64_t)(_v >> 64); }
   s.set_x_f32(6, (float)((s.x_f32(6)) + ((s.rdf(((s.gpr[1])))))));
-  s.set_x_f32(2, k_c142588218_f);
+  s.set_x_f32(2, k_c142588218_f); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   { uint32_t _lo = PesState::bits((float)s.x_f64(0)), _hi = PesState::bits((float)([&](){ double _d; uint64_t _u = s.xmm[0][1]; memcpy(&_d, &_u, 8); return _d; }()));
     s.xmm[1][0] = ((uint64_t)_hi << 32) | _lo; s.xmm[1][1] = 0; }
   s.cmp_ss((float)(s.x_f32(1)), (float)(s.x_f32(6)));
@@ -51,7 +51,7 @@ void pes_fn_140A544D0(PesState& s) {
   s.set_x_f32(0, (float)((s.x_f32(0)) * (s.x_f32(6))));
   s.wrf(((s.gpr[2])), s.x_f32(0));
   L_140A54523:;
-  s.set_x_f32(1, s.rdf(((s.gpr[2]) + (0x8ULL))));
+  s.set_x_f32(1, s.rdf(((s.gpr[2]) + (0x8ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   { double _lo = (double)PesState::f32((uint32_t)s.xmm[1][0]), _hi = (double)PesState::f32((uint32_t)(s.xmm[1][0] >> 32)); uint64_t _u0, _u1;
     memcpy(&_u0, &_lo, 8); memcpy(&_u1, &_hi, 8);
     s.xmm[0][0] = _u0; s.xmm[0][1] = _u1; }

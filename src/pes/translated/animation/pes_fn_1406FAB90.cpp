@@ -14,6 +14,6 @@ void pes_fn_1406FAB90(PesState& s) {
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[1]) + (0xA08ULL)), 8));
   s.gpr[1] = (uint64_t)(s.rd(((s.gpr[0]) + (0x118ULL)), 8));
   s.gpr[0] = (uint64_t)(s.rd(((s.gpr[1]) + (0xB8ULL)), 8));
-  s.set_x_f32(0, s.rdf(((s.gpr[0]) + (0xD0ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[0]) + (0xD0ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   return;
 }

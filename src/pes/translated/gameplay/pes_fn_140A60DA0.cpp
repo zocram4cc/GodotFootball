@@ -59,6 +59,6 @@ void pes_fn_140A60DA0(PesState& s) {
   if (s.cond("z")) goto L_140A60DD1;
   s.gpr[0] = (uint64_t)((((int64_t)(((uint64_t)(((uint64_t)(uint32_t)s.gpr[9])) << 32))) >> 32));
   s.gpr[1] = (uint64_t)((uint64_t)((__int128)(int64_t)(s.gpr[0]) * (int64_t)((1404ULL))));
-  s.set_x_f32(0, s.rdf(((s.gpr[1]) + ((s.gpr[10])*1ULL) + (0x24ULL))));
+  s.set_x_f32(0, s.rdf(((s.gpr[1]) + ((s.gpr[10])*1ULL) + (0x24ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
   return;
 }

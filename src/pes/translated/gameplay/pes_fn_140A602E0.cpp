@@ -13,10 +13,10 @@ void pes_fn_140A602E0(PesState& s);
 void pes_fn_140A602E0(PesState& s) {
   s.gpr[8] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[2]));
   s.gpr[0] = (uint64_t)(uint32_t)((1374389535ULL));
-  { int64_t _p = (int64_t)(int32_t)s.gpr[0] * (int64_t)(int32_t)(s.rd(((s.gpr[1])), 4));
-    s.gpr[0] = (s.gpr[0] & 0xFFFFFFFF00000000ULL) | (_p & 0xFFFFFFFFULL);
-    s.gpr[2] = (s.gpr[2] & 0xFFFFFFFF00000000ULL) | ((_p >> 32) & 0xFFFFFFFFULL);
-    s.cf = s.of = false; }
+  { int64_t _p = (int64_t)((int32_t)s.gpr[0]) * (int64_t)((int32_t)(s.rd(((s.gpr[1])), 4)));
+    s.gpr[0] = (uint64_t)(uint32_t)_p;
+    s.gpr[2] = (uint64_t)(uint32_t)((uint64_t)_p >> 32);
+    s.cf = s.of = ((int64_t)(int32_t)_p != _p); }
   { uint64_t _a = (uint64_t)(((uint64_t)(uint32_t)s.gpr[2])), _c = (uint64_t)((5ULL)) & 0xFF;
     uint64_t _r = ((uint64_t)((((int64_t)((uint64_t)(_a) << 32)) >> 32) >> (_c & 31)) & 0xFFFFFFFFULL);
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);

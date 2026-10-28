@@ -163,12 +163,12 @@ void pes_fn_1415184E0(PesState& s) {
   s.gpr[1] = (uint64_t)(s.gpr[6]);
   { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140FC7ED0(s); s.gpr[4] += 8; }
   goto L_1415185B2;
-  /*UNHANDLED INT3 */(void)0;
-  /*UNHANDLED INT3 */(void)0;
-  /*UNHANDLED INT3 */(void)0;
-  /*UNHANDLED INT3 */(void)0;
-  /*UNHANDLED INT3 */(void)0;
-  /*UNHANDLED INT3 */(void)0;
-  /*UNHANDLED INT3 */(void)0;
+  __builtin_trap();
+  __builtin_trap();
+  __builtin_trap();
+  __builtin_trap();
+  __builtin_trap();
+  __builtin_trap();
+  __builtin_trap();
   /*OUT-OF-RANGE JMP 0x144ADC120*/return;
 }

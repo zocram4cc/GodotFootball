@@ -125,7 +125,7 @@ void pes_fn_1404AFAF0(PesState& s) {
     s.gpr[2] = (uint64_t)(s.rd(((s.gpr[2]) + (0x260ULL)), 8));
     s.gpr[3] = (uint64_t)(uint32_t)((((int64_t)(((uint64_t)(s.rd(((s.gpr[2]) + (0x254ULL)), 1)) << 56))) >> 56));
     { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A57800(s); s.gpr[4] += 8; }
-    s.xmm[1][0] = (s.xmm[1][0] & 0xFFFFFFFF00000000ULL) | ((uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[3])));
+    s.xmm[1][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[3])); s.xmm[1][1] = 0;
     { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[14])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[14]))) & 0xFFFFFFFFULL;
       s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
       s.cf = false; s.of = false;
@@ -209,7 +209,7 @@ void pes_fn_1404AFAF0(PesState& s) {
       s.gpr[2] = (uint64_t)(s.rd(((s.gpr[2]) + (0x260ULL)), 8));
       s.gpr[3] = (uint64_t)(uint32_t)((((int64_t)(((uint64_t)(s.rd(((s.gpr[2]) + (0x254ULL)), 1)) << 56))) >> 56));
       { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A57800(s); s.gpr[4] += 8; }
-      s.xmm[1][0] = (s.xmm[1][0] & 0xFFFFFFFF00000000ULL) | ((uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[3])));
+      s.xmm[1][0] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[3])); s.xmm[1][1] = 0;
       { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[14])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[14]))) & 0xFFFFFFFFULL;
         s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
         s.cf = false; s.of = false;

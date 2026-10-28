@@ -89,7 +89,7 @@ void pes_fn_141443EB0(PesState& s) {
         }
         return;
       } else {
-        s.set_x_f32(0, s.rdf(((s.gpr[7]) + (0x24FA8ULL))));
+        s.set_x_f32(0, s.rdf(((s.gpr[7]) + (0x24FA8ULL)))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
         s.cmp_ss((float)(s.x_f32(0)), (float)((k_c14259BE0C_f)));
         if (s.cond("be")) {
           { uint64_t _a = (uint64_t)(s.rd(((s.gpr[0])), 4)), _b = (uint64_t)((5ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;

@@ -75,6 +75,15 @@ def translate(va, image, stubs, universe):
         raise SystemExit("gen_translated: %s does not translate" % va)
     return "\n".join(src) + "\n"
 
+# Markers the translator emits where a callee is outside the set's universe (not the runtime-dispatch fallback,
+# which every indirect call carries).
+GAP_MARKERS = ("/*OUT-OF-SET CALL ", "OUT-OF-RANGE JMP")
+
+
+def has_gap(text):
+    return any(m in text for m in GAP_MARKERS)
+
+
 
 def subsystem_of(spec, name):
     return (spec.get("subsystem") or name).lower().replace(" ", "_").replace("-", "_")
@@ -100,8 +109,16 @@ def build(image):
         while queue:
             cur = queue.pop(0)
             text = translate(cur, image, stubs, universe)
-            if cur in texts and texts[cur] != text:
-                conflicts.append("%s translates differently under %s" % (cur, name))
+            old = texts.get(cur)
+            if old is not None and old != text:
+                # Sets translate under their own universes: a callee one set lacks becomes a gap there (a missing
+                # dispatch, an out-of-range jump that returns). The layer keeps the variant without gaps, which some
+                # set proved; two variants that differ otherwise, or both with gaps, are a real conflict.
+                old_gap, new_gap = has_gap(old), has_gap(text)
+                if old_gap and not new_gap:
+                    texts[cur] = text
+                elif old_gap == new_gap:
+                    conflicts.append("%s translates differently under %s" % (cur, name))
             texts.setdefault(cur, text)
             for c in CALLEE.findall(text):
                 cv = "0x" + c.upper()

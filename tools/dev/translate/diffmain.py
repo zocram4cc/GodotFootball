@@ -207,11 +207,11 @@ def gen(spec, va, callees):
 
 def gen_snap(va, callees):
     """The snapshot diff main for one function. argv: ok_calls.bin (the replayable calls of one
-    snapshot, snapcase.py), mem.bin, maps.txt (its readable runs), out.jsonl, ok_delta.bin (each call's delta pages) and pool/pages.bin (their bytes). Each call starts from
-    its recorded registers over the snapshot's own pages (SnapView, copied on first touch and dropped
-    per call), with its return address at [rsp]. One output line per call in the harness corpus's
+    snapshot, snapcase.py), mem.bin, maps.txt (its readable runs), out.jsonl, ok_delta.bin (each call's delta pages),
+    pool/pages.bin (their bytes) and the snapshot's TEB (hex, record.json "teb"): the GS base each call runs with.
+    Each call starts from its recorded registers over the snapshot's own pages (SnapView, copied on first touch and
+    dropped per call), with its return address at [rsp]. One output line per call in the harness corpus's
     format: rax, the full xmm0, and every byte written (address and value, in order)."""
-    from frame_trace import TEB_BASE  # the GS base the snapshot harness sets (the same constant, not a copy)
     V = va[2:]
     fns = sorted({V} | {c[2:] for c in callees})
     L = []
@@ -220,6 +220,7 @@ def gen_snap(va, callees):
     L.append('#include "pes_cond.inl"')
     L.append('#include <cstdint>')
     L.append('#include <cstdio>')
+    L.append('#include <cstdlib>')
     L.append('#include <fcntl.h>')
     L.append('#include <sys/stat.h>')
     L.append('#include <unistd.h>')
@@ -229,7 +230,7 @@ def gen_snap(va, callees):
     L.append('// One traced call (snapcase.py CALL_REC): 16 GPRs, 16 XMM (lo, hi), the return address.')
     L.append('struct CallRec { uint64_t v[49]; };')
     L.append('int main(int argc, char** argv) {')
-    L.append('  if (argc < 7) return 2;')
+    L.append('  if (argc < 8) return 2;')
     L.append('  int mfd = open(argv[2], O_RDONLY); if (mfd < 0) return 2;')
     L.append('  SnapView snap; snap.fd = mfd;')
     L.append('  int pfd = open(argv[6], O_RDONLY); if (pfd < 0) return 2;')
@@ -263,7 +264,7 @@ def gen_snap(va, callees):
     L.append('    const uint64_t* r = recs[i].v;')
     L.append('    PesState s;')
     L.append('    s.mem.snap = &snap;')
-    L.append('    s.gs_base = 0x%XULL;  // the harness sets GS to the same TEB (frame_trace.TEB_BASE)' % TEB_BASE)
+    L.append('    s.gs_base = strtoull(argv[7], nullptr, 16);  // the snapshot TEB (record.json "teb"), per run')
     L.append('    for (int g = 0; g < 16; ++g) s.gpr[g] = r[g];')
     L.append('    for (int x = 0; x < 16; ++x) { s.xmm[x][0] = r[16 + 2 * x]; s.xmm[x][1] = r[17 + 2 * x]; }')
     L.append('    s.wr(r[4], r[48], 8);  // the recorded return address, before the write log starts')

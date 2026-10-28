@@ -14,12 +14,12 @@ static constexpr float k_c1425656D0_f = -0.0f; // -0.0
 void pes_fn_141F7A4A0(PesState& s);
 
 void pes_fn_141F7A4A0(PesState& s) {
-  s.set_x_f32(3, s.rdf(((s.gpr[2]) + (0x8ULL))));
+  s.set_x_f32(3, s.rdf(((s.gpr[2]) + (0x8ULL)))); s.xmm[3][0] &= 0xFFFFFFFFull; s.xmm[3][1] = 0;
   s.gpr[0] = (uint64_t)(s.gpr[1]);
-  s.set_x_f32(1, s.rdf(((s.gpr[2]) + (0x4ULL))));
-  s.set_x_f32(0, s.rdf(((s.gpr[2]))));
-  s.set_x_f32(4, s.rdf(((s.gpr[2]) + (0xCULL))));
-  s.set_x_f32(2, k_c1425656D0_f);
+  s.set_x_f32(1, s.rdf(((s.gpr[2]) + (0x4ULL)))); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
+  s.set_x_f32(0, s.rdf(((s.gpr[2])))); s.xmm[0][0] &= 0xFFFFFFFFull; s.xmm[0][1] = 0;
+  s.set_x_f32(4, s.rdf(((s.gpr[2]) + (0xCULL)))); s.xmm[4][0] &= 0xFFFFFFFFull; s.xmm[4][1] = 0;
+  s.set_x_f32(2, k_c1425656D0_f); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   { unsigned __int128 _v = (((unsigned __int128)s.xmm[3][0] | ((unsigned __int128)s.xmm[3][1] << 64))) ^ ((s.xmm[2][0] | ((unsigned __int128)s.xmm[2][1] << 64))); s.xmm[3][0] = (uint64_t)_v; s.xmm[3][1] = (uint64_t)(_v >> 64); }
   s.wrf(((s.gpr[1]) + (0xCULL)), s.x_f32(4));
   { unsigned __int128 _v = (((unsigned __int128)s.xmm[1][0] | ((unsigned __int128)s.xmm[1][1] << 64))) ^ ((s.xmm[2][0] | ((unsigned __int128)s.xmm[2][1] << 64))); s.xmm[1][0] = (uint64_t)_v; s.xmm[1][1] = (uint64_t)(_v >> 64); }

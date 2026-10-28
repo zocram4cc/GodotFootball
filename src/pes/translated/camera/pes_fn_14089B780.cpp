@@ -30,7 +30,7 @@ void pes_fn_14089B780(PesState& s) {
     s.of = (((_a ^ _b) & (_a ^ _r)) >> 63) & 1;
     s.gpr[4] = (uint64_t)(_r);
   }
-  s.set_x_f32(1, k_c1425656D0_f);
+  s.set_x_f32(1, k_c1425656D0_f); s.xmm[1][0] &= 0xFFFFFFFFull; s.xmm[1][1] = 0;
   { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = false; s.of = false;
@@ -47,7 +47,7 @@ void pes_fn_14089B780(PesState& s) {
   s.wr(((s.gpr[1]) + (0x1990ULL)), (uint64_t)(s.gpr[0]), 8);
   s.wr(((s.gpr[1]) + (0x1980ULL)), (uint64_t)(s.gpr[0]), 8);
   s.wr(((s.gpr[1]) + (0x1998ULL)), (uint64_t)(s.gpr[0]), 8);
-  s.set_x_f32(2, s.rdf(((s.gpr[1]) + (0x18E4ULL))));
+  s.set_x_f32(2, s.rdf(((s.gpr[1]) + (0x18E4ULL)))); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   s.cmp_ss((float)(s.x_f32(2)), (float)(s.x_f32(0)));
   if (s.cond("be")) goto L_14089B7E7;
   s.xmm[3][0] = s.xmm[2][0]; s.xmm[3][1] = s.xmm[2][1];
@@ -56,7 +56,7 @@ void pes_fn_14089B780(PesState& s) {
   s.cmp_ss((float)(s.x_f32(2)), (float)(s.x_f32(0)));
   if (s.cond("p")) goto L_14089B7F8;
   if (s.cond("nz")) goto L_14089B7F8;
-  s.set_x_f32(3, s.rdf(((s.gpr[1]) + (0x18E0ULL))));
+  s.set_x_f32(3, s.rdf(((s.gpr[1]) + (0x18E0ULL)))); s.xmm[3][0] &= 0xFFFFFFFFull; s.xmm[3][1] = 0;
   goto L_14089B7FE;
   L_14089B7F8:;
   s.xmm[3][0] = s.xmm[2][0]; s.xmm[3][1] = s.xmm[2][1];
@@ -68,7 +68,7 @@ void pes_fn_14089B780(PesState& s) {
   s.cmp_ss((float)(s.x_f32(2)), (float)(s.x_f32(0)));
   if (s.cond("p")) goto L_14089B818;
   if (s.cond("nz")) goto L_14089B818;
-  s.set_x_f32(2, s.rdf(((s.gpr[1]) + (0x18E0ULL))));
+  s.set_x_f32(2, s.rdf(((s.gpr[1]) + (0x18E0ULL)))); s.xmm[2][0] &= 0xFFFFFFFFull; s.xmm[2][1] = 0;
   goto L_14089B81B;
   L_14089B818:;
   { unsigned __int128 _v = (((unsigned __int128)s.xmm[2][0] | ((unsigned __int128)s.xmm[2][1] << 64))) ^ ((s.xmm[1][0] | ((unsigned __int128)s.xmm[1][1] << 64))); s.xmm[2][0] = (uint64_t)_v; s.xmm[2][1] = (uint64_t)(_v >> 64); }

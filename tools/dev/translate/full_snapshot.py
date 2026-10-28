@@ -188,7 +188,7 @@ def run_jobs(pid, out_fd, mappings, sel, chunk, threads, holes):
 class SnapMem:
     """Read-only view of a snapshot directory: mappings from index.json, bytes from mem.bin."""
 
-    def __init__(self, snap_dir):
+    def __init__(self, snap_dir, restore=None):
         idx = json.load(open(os.path.join(snap_dir, "index.json")))
         self.index = idx
         self.maps = idx["mappings"]
@@ -198,6 +198,7 @@ class SnapMem:
         self.holes = set()
         for va, n in idx["holes"]:
             self.holes.update(range(va & ~(PAGE - 1), va + n, PAGE))
+        self.restore = dict(restore or {})  # rendezvous hook entry VA -> the original code it displaced
 
     def mapping_of(self, va):
         i = bisect.bisect_right(self.starts, va) - 1
@@ -210,7 +211,8 @@ class SnapMem:
         return m is not None and page not in self.holes
 
     def read(self, va, n):
-        """Bytes at [va, va+n) if every page is a readable snapshot page, else None."""
+        """Bytes at [va, va+n) if every page is a readable snapshot page, else None. A restore entry (a rendezvous
+        hook patch in the snapshot) reads as the original code it displaced."""
         if n <= 0:
             return None
         p = va & ~(PAGE - 1)
@@ -221,7 +223,12 @@ class SnapMem:
         m = self.mapping_of(va)
         if va + n > m["va"] + m["size"]:  # one mapping only: file offsets are per mapping
             return None
-        return os.pread(self.fd, n, m["off"] + (va - m["va"]))
+        data = bytearray(os.pread(self.fd, n, m["off"] + (va - m["va"])))
+        for rva, code in self.restore.items():
+            for i, b in enumerate(code):
+                if va <= rva + i < va + n:
+                    data[rva + i - va] = b
+        return bytes(data)
 
     def u64(self, va):
         b = self.read(va, 8)
