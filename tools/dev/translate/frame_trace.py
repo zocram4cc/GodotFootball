@@ -669,7 +669,7 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=N
     call = load_recorded_call(snap_dir)
     gpr, entry, ret, teb = call["gpr"], call["entry"], call["ret"], call["teb"]
     rsp = gpr["rsp"]
-    uc = Uc(UC_ARCH_X86, UC_MODE_64)
+    uc = rn.new_x86_64()
     lazy = LazyMap(sm, load_import_models() if trace is not None else {})
     lazy.attach(uc)
     uc.hook_add(UC_HOOK_MEM_READ_UNMAPPED | UC_HOOK_MEM_WRITE_UNMAPPED,
