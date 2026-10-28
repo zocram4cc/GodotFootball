@@ -38,8 +38,11 @@ float HalfNormal(const KickErrorConstants& k, int n) {
 // (scatter 6) keys on the PES kick kind (ap+0x2752, 151-row table 0x14344e380: class byte 13, subclass byte 12),
 // the first-time/volley flags (ap+0x2756, ap+0x2764), the body turn (ap+0xbe4 - ap+0x247c), the AI bit (ap+0x2460
 // bit 29) and the motion descriptor F1/F2 (0x1406b0250 over the motion table, a runtime singleton at 0x1436f23c0).
-// ponytail: GF has none of these fields (the kind bridge is open, docs/re/pes-re-kick-scatter-inputs.md Unresolved 1):
-// Q = 1 until the bridge lands. Remove when GF kicks carry a PES kind and motion id.
+// ponytail: GF has none of these fields. PES's writers of the kick kind (ap+0x2752: W1 0x1406EB6D6 sets -1, W2 0x1406F6B6B,
+// W3 0x140719DCF, W4 0x14071BB69, W5 0x140724F26, W6 0x140725FFF) and of the window (ap+0x2764: W1 0x1406EB6FC = 720.0f) are
+// CONFIRMED in docs/re/pes-re-record-ids.md §1; GF has no kick kind to write. Oracle (tools/dev/rendezvous/kick_replay.py):
+// PES's Q is the x of soft-min call 1 on each kick (0.88 kind 42, 0.86 kind 97, 0.8966 kind 57, 0.716 kind 14);
+// Q = 1 stays until GF produces a PES kick kind. Remove when GF kicks carry a PES kind and motion id.
 constexpr float kSituationNotPorted = 1.0f;
 
 // The install's quarter-wave sine table (513 floats at 0x142655950), read at load and mapped into the translated sine.

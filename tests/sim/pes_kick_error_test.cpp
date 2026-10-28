@@ -6,6 +6,8 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <fstream>
+#include <sstream>
 #include <string>
 
 #include "onthepitch/peskickerror.hpp"
@@ -196,6 +198,30 @@ TEST(PesKickError, SinTableIsTheSineAtItsKnots) {
     const float deg = static_cast<float>(i) * (90.0f / 512.0f);
     EXPECT_NEAR(pes::SinTableDeg(k, deg, 1.0f), std::sin(deg * kPiRad), 1e-5) << "knot " << i;
   }
+}
+
+// The soft minimum on PES's own arguments. tools/dev/rendezvous/kick_replay.py replays each kick_scatter capture and
+// writes one row per FUN_1408413c0 call (four factors, PES's result). The rows are PES-derived: they live in scratch and
+// reach the test through PES_KICK_SOFTMIN_TSV. A TSV with no rows fails: an empty oracle is not a pass.
+TEST(PesKickErrorOracle, SoftMinOnPesArgumentsGivesPesResult) {
+  const char* path = std::getenv("PES_KICK_SOFTMIN_TSV");
+  if (!path) GTEST_SKIP() << "PES_KICK_SOFTMIN_TSV not set";
+  std::ifstream in(path);
+  ASSERT_TRUE(in) << path;
+  std::string line;
+  std::getline(in, line);  // header: seq, call, a, b, c, d, out
+  int rows = 0;
+  while (std::getline(in, line)) {
+    std::istringstream row(line);
+    std::string seq;
+    int call = 0;
+    float a = 0, b = 0, c = 0, d = 0, want = 0;
+    row >> seq >> call >> a >> b >> c >> d >> want;
+    ASSERT_FALSE(row.fail()) << line;
+    EXPECT_EQ(pes::SoftMin4(a, b, c, d), want) << seq << " call " << call;
+    ++rows;
+  }
+  EXPECT_GT(rows, 0);
 }
 
 TEST(PesKickErrorInstall, LoadsFromTheExe) {

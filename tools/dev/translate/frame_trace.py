@@ -651,7 +651,8 @@ def _xmm_int(uc, n):
     return int.from_bytes(v, "little") if isinstance(v, (bytes, bytearray)) else v
 
 
-def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=None, on_write=None):
+def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=None, on_write=None,
+                 models=None):
     """One recorded call (load_recorded_call) emulated from its captured entry, with its captured GPRs, XMM,
     RFLAGS, MXCSR and GS base, over the snapshot's own memory. The stack and the return address are the
     snapshot's, so the call returns to the caller's address with the caller's rsp. orig maps an entry VA to
@@ -670,7 +671,7 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=N
     gpr, entry, ret, teb = call["gpr"], call["entry"], call["ret"], call["teb"]
     rsp = gpr["rsp"]
     uc = rn.new_x86_64()
-    lazy = LazyMap(sm, load_import_models() if trace is not None else {})
+    lazy = LazyMap(sm, models if models is not None else (load_import_models() if trace is not None else {}))
     lazy.attach(uc)
     uc.hook_add(UC_HOOK_MEM_READ_UNMAPPED | UC_HOOK_MEM_WRITE_UNMAPPED,
                 lambda u, access, addr, size, value, data: lazy.handle(addr))
