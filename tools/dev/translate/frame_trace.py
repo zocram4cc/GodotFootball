@@ -55,6 +55,7 @@ INSTR_BUDGET = 50_000_000    # instructions per H step: a deterministic runaway 
 
 
 BLOCK = 0x40000             # snapshot bytes mapped per fault (256 KiB, clipped to the mapping)
+PES_EXE = "PES2021.exe"  # the game image's mapping name: identifies the image when a slim capture dropped its header
 STACK_BASE, STACK_SIZE = 0x10000000, 0x20000  # build_emu's default stack; rn.stack_top({}) is its top - 0x100
 
 
@@ -222,7 +223,8 @@ class LazyMap:
         if not self.sm.page_ok(page):
             return self._refuse(uc, self.unmapped_reason(addr) or ("fetch from unmapped or unreadable snapshot memory at %#x" % addr))
         base = self.sm.module_base(addr)
-        if base == fs.IMAGE_BASE:
+        m = self.sm.mapping_of(addr)
+        if base == fs.IMAGE_BASE or (base is None and m is not None and m["name"].endswith(PES_EXE)):  # a slim capture drops the header
             return self.handle(addr)
         if base is None:
             return self._refuse(uc, "fetch from code outside every PE module of the snapshot at %#x" % addr)
@@ -697,6 +699,8 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=N
         return uc, ("entry %#x starts with jmp [rip+0], a rendezvous hook patch: give its displaced bytes "
                     "(the hook config), or the replay would run the hook" % entry)
     for va, code in sorted((orig or {}).items()):
+        if sm.page_dropped(va):  # a slim capture's dropped page: a call that enters this hook is refused when it runs
+            continue
         if not lazy.ensure(va, len(code)):
             return uc, "hook entry %#x is not in the snapshot" % va
     if trace is not None:
@@ -811,7 +815,7 @@ def recorded_main(argv):
     result = {"rax": hex(uc.reg_read(xc.UC_X86_REG_RAX)), "xmm0_lo_double": xmm0,
               "rip": hex(uc.reg_read(xc.UC_X86_REG_RIP)),
               "rsp": hex(uc.reg_read(xc.UC_X86_REG_RSP)), "err": err}
-    if trace is not None:
+    if trace is not None and "kept" in trace:  # a run refused before its trace was set up has no calls to write
         result["trace"] = finish_trace(trace)
     print(json.dumps(result))
     return 0 if err is None else 1
