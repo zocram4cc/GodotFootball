@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <utility>
 
 namespace pes {
@@ -92,10 +93,19 @@ float KickQuality(const KickErrorConstants& k, float s) {
 }
 
 float SoftMin4(float a, float b, float c, float d) {
+  // FUN_1408413c0: qsort descending (comparator 0x14083cc10 is -1 when a > b),
+  // then fold from x = 1.0 once per factor: x = (max*min + min) * 0.5 with
+  // min/max of (x, v). The 1.0 is 0x14256ae1c, the 0.5 is 0x142565600.
+  constexpr float kFoldStart = 1.0f;
+  constexpr float kFoldHalf = 0.5f;
   float v[4] = {a, b, c, d};
-  std::sort(v, v + 4);
-  float x = v[0];
-  for (int i = 1; i < 4; ++i) x = std::min(x, v[i]) * (std::max(x, v[i]) + 1.0f) * 0.5f;
+  std::sort(v, v + 4, std::greater<float>());
+  float x = kFoldStart;
+  for (const float f : v) {
+    const float lo = std::min(x, f);
+    const float hi = std::max(x, f);
+    x = (hi * lo + lo) * kFoldHalf;
+  }
   return x;
 }
 

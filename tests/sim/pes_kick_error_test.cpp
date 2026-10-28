@@ -60,6 +60,25 @@ TEST(PesKickError, SoftMinLeansToTheWorstFactor) {
   EXPECT_FLOAT_EQ(pes::SoftMin4(1, 0.5f, 0.5f, 1), 0.375f);
 }
 
+TEST(PesKickError, SoftMinFoldsTheSortedFactorsFromOne) {
+  // FUN_1408413c0 qsorts the four factors descending (comparator 0x14083cc10 is
+  // -1 when a > b), then folds from 1.0: x = min(x,v) * (max(x,v) + 1) / 2,
+  // once per factor. Hand-folded for {1.0, 0.9, 0.5, 0.2}: 0.9, 0.475, 0.1475.
+  EXPECT_FLOAT_EQ(pes::SoftMin4(1.0f, 0.9f, 0.5f, 0.2f), 0.1475f);
+  // Order of the arguments does not matter: the sort fixes it.
+  EXPECT_FLOAT_EQ(pes::SoftMin4(0.2f, 1.0f, 0.9f, 0.5f), 0.1475f);
+}
+
+TEST(PesKickError, AmpSoftMinFoldsThreeNonUnitFactorsInPesOrder) {
+  // a = 0.5 gives A = 0.75a + 0.25 = 0.625. The yaw amp soft-min takes
+  // {I = 0.9, A = 0.625, F = 1, R = 0.6}; the descending fold from 1.0 gives
+  // q4 = 0.475 (1 -> 0.9 -> 0.59375 -> 0.475).
+  const auto k = Synthetic();
+  const auto s = pes::BuildScatter(k, 0.5f, 0.9f, 0.6f);
+  const float q4 = 0.475f;
+  EXPECT_NEAR(s.yaw.amp, (1.0f - q4) * (1.0f - q4) * 4.25f + 0.75f, 1e-4);
+}
+
 TEST(PesKickError, PerfectKickHasNoSpreadAndAPoorKickerAWideOne) {
   const auto k = Synthetic();
   const auto good = pes::BuildScatter(k, 1.0f, 1.0f, 1.0f);

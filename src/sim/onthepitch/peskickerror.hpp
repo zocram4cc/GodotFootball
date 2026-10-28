@@ -91,8 +91,8 @@ std::optional<KickErrorConstants> LoadKickErrorConstants(const PeImage& exe, std
 // any skill bonuses already added).
 float KickQuality(const KickErrorConstants& k, float stat);
 
-// FUN_1408413c0: sort the four, then fold x = min*(max+1)/2 - a soft minimum
-// that leans to the worst factor.
+// FUN_1408413c0: the four factors sorted descending, then folded from 1.0 by
+// x = min(x,v) * (max(x,v) + 1) / 2, once per factor: a soft minimum that leans to the worst.
 float SoftMin4(float a, float b, float c, float d);
 
 // Normal(rng, amp, 0) 0x140a92590: an int in 0..99 around 50.
