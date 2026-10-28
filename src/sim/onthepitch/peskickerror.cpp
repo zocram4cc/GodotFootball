@@ -66,11 +66,14 @@ std::optional<KickErrorConstants> LoadKickErrorConstants(const PeImage& exe, std
       {0x14259be34, &k.normalCentre},   {0x1426550dc, &k.normalTabScale},
       {0x14259a768, &k.normalNegTwo},   {0x1426550e8, &k.normalTabSteps},
       {0x14256ae34, &k.normalDraw},     {0x14259858c, &k.fullTurn_deg},
-      {0x14259be5c, &k.quarterTurn_deg}};
+      {0x14259be5c, &k.quarterTurn_deg}, {0x142598580, &k.halfTurn_deg}};
   for (auto [va, out] : rdata)
     ok &= exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out));
   constexpr uint64_t LOG_TABLE_VA = 0x1426548c0;
   ok &= exe.ReadVa(LOG_TABLE_VA, sizeof k.logTable, reinterpret_cast<uint8_t*>(k.logTable.data()));
+  constexpr uint64_t SIN_TABLE_VA = 0x142655950;
+  ok &= exe.ReadVa(SIN_TABLE_VA, sizeof k.sinTable,
+                   reinterpret_cast<uint8_t*>(k.sinTable.data()));
   if (!ok) {
     *error = "kick error constant: .rdata unreadable";
     return std::nullopt;
@@ -109,10 +112,34 @@ float SoftMin4(float a, float b, float c, float d) {
   return x;
 }
 
+// 0x140a92c80: sin of `deg` in degrees, times `amp`, from the quarter-wave table with linear
+// interpolation. An angle below 0 gains one lap; one at or past a lap loses one; past 180 the
+// sine flips sign. Off the table (index outside 0..511) it returns sign*amp.
+float SinTableDeg(const KickErrorConstants& k, float deg, float amp) {
+  float x = deg;
+  if (x > 0.0f) {
+    if (x >= k.fullTurn_deg) x -= k.fullTurn_deg;
+  } else {
+    x += k.fullTurn_deg;
+  }
+  float sign = 1.0f;
+  if (x >= k.halfTurn_deg) {
+    sign = -1.0f;
+    x -= k.halfTurn_deg;
+  }
+  if (x >= k.quarterTurn_deg) x = k.halfTurn_deg - x;
+  const float t = x / k.quarterTurn_deg * k.normalTabSteps;
+  // cvttss2si truncates, so (-1, 512) is the range that indexes 0..511.
+  if (!(t > -1.0f && t < 512.0f)) return sign * amp;
+  const int idx = static_cast<int>(t);
+  const float frac = t - static_cast<float>(idx);
+  const float v = (1.0f - frac) * k.sinTable[idx] + frac * k.sinTable[idx + 1];
+  return v * (sign * amp);
+}
+
 int Normal(Random& rng, const KickErrorConstants& k, float amp) {
   constexpr uint32_t kDrawModulus = 1000;  // 0x10624dd3 >> 6 and imul 0x3e8
   constexpr int kLast = 99;                // cmp eax, 0x63 ; jbe
-  const float deg2rad = 3.14159265f / (k.fullTurn_deg * 0.5f);
   // Both offered angles rejected: PES jumps back to redraw the pair
   // (0x140a9275f), so this loops until one lands.
   for (;;) {
@@ -129,9 +156,7 @@ int Normal(Random& rng, const KickErrorConstants& k, float amp) {
     // table's far end is `amp` (scatter 2).
     const float g = std::sqrt(v * k.normalTabScale * k.normalNegTwo) * amp / k.normalDiv;
     for (int attempt = 0; attempt < 2; ++attempt) {
-      // ponytail: std::sin for 0x140a92c80's 512-step table; <0.2% off.
-      const float a =
-          std::sin((angle + (attempt != 1 ? k.quarterTurn_deg : 0.0f)) * deg2rad);
+      const float a = SinTableDeg(k, angle + (attempt != 1 ? k.quarterTurn_deg : 0.0f), 1.0f);
       const float x = (1.0f + a * g) * k.normalCentre;
       const int res = static_cast<int>((x < 0.0f ? -k.half : k.half) + x);
       if (res >= 0 && res <= kLast) return res;
