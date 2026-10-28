@@ -6,7 +6,7 @@ full snapshot with the captured call (full_snapshot_rv.rv_take: STOP, read, CONT
 Every file it writes (snapshots, logs, the release files in the game dir) is chowned to the owner of the run dir,
 so nothing root-owned is left. Stops after --max snapshots or when the disk falls under --min-free-gib.
 """
-import argparse, glob, json, os, shutil, subprocess, sys, time
+import argparse, glob, json, os, shutil, signal, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import full_snapshot_rv as fs  # noqa: E402
@@ -79,6 +79,11 @@ def main():
                 time.sleep(1)
                 continue
             say("PES pid %d" % pid)
+            # Only the watcher stops the game; a watcher killed mid-snapshot (no finally on SIGKILL) leaves it stopped
+            # (28-10-26: frozen ~30 min). Resume it on attach.
+            if "T (stopped)" in open("/proc/%d/status" % pid).read():
+                os.kill(pid, signal.SIGCONT)
+                say("PES pid %d was stopped (a previous watcher died mid-snapshot): resumed" % pid)
             clear_run()
             seen.clear()
             launch = os.path.join(a.out, "pid%d" % pid)
