@@ -55,7 +55,6 @@ INSTR_BUDGET = 50_000_000    # instructions per H step: a deterministic runaway 
 
 
 BLOCK = 0x40000             # snapshot bytes mapped per fault (256 KiB, clipped to the mapping)
-PES_EXE = "PES2021.exe"     # the game image's mapping name: the one module a run may execute
 STACK_BASE, STACK_SIZE = 0x10000000, 0x20000  # build_emu's default stack; rn.stack_top({}) is its top - 0x100
 
 
@@ -190,6 +189,10 @@ class LazyMap:
         uc._bad = why
         return False
 
+    def unmapped_reason(self, addr):
+        """The named exclusion for an access to a page a slim capture dropped; None for any other page."""
+        return "case excluded: page not captured at %#x" % addr if self.sm.page_dropped(addr) else None
+
     def _counter(self, key):
         def count(uc, address, size, data):
             self.import_calls[key] += 1
@@ -212,16 +215,20 @@ class LazyMap:
         self.pages += 1
 
     def _fetch(self, uc, access, addr, size, value, data):
-        """A fetch from an unmapped page (see the class doc)."""
-        m = self.sm.mapping_of(addr)
+        """A fetch from an unmapped page (see the class doc). The game image maps from the snapshot. A DLL's code is
+        reachable only at its export entries: a modelled one runs its model, any other stops the run. Code that no PE
+        header covers is refused: it is not the game's."""
         page = addr & ~(PAGE - 1)
-        if m is None or not self.sm.page_ok(page):
-            return self._refuse(uc, "fetch from unmapped or unreadable snapshot memory at %#x" % addr)
-        if not m["name"] or m["name"].endswith(PES_EXE):
+        if not self.sm.page_ok(page):
+            return self._refuse(uc, self.unmapped_reason(addr) or ("fetch from unmapped or unreadable snapshot memory at %#x" % addr))
+        base = self.sm.module_base(addr)
+        if base == fs.IMAGE_BASE:
             return self.handle(addr)
+        if base is None:
+            return self._refuse(uc, "fetch from code outside every PE module of the snapshot at %#x" % addr)
         mod, entries = self.sm.entries_of(addr)
         if not any(entry == addr for entry, _ in entries):
-            return self._refuse(uc, "fetch inside %s at %#x, not an export entry" % (mod, addr))
+            return self._refuse(uc, "fetch inside %s at %#x, not an export entry" % (mod or "an unnamed module", addr))
         self._map_import_page(uc, page, mod, entries)
         return True
 
@@ -673,7 +680,8 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=N
     lazy = LazyMap(sm, load_import_models() if trace is not None else {})
     lazy.attach(uc)
     uc.hook_add(UC_HOOK_MEM_READ_UNMAPPED | UC_HOOK_MEM_WRITE_UNMAPPED,
-                lambda u, access, addr, size, value, data: lazy.handle(addr))
+                lambda u, access, addr, size, value, data: lazy.handle(addr) or lazy._refuse(
+                    u, lazy.unmapped_reason(addr) or ("unmapped data at %#x (size %d): a snapshot hole or outside the process" % (addr, size))))
     if trace is not None:
         uc._ret_sentinel = ret  # the recorded return address ends each call (run.py install_hooks)
         rn.install_hooks(uc, trace["stubs"], ret)

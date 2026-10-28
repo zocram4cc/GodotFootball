@@ -64,7 +64,7 @@ def classify(sm, slot, modules):
     if not hit:
         return {"kind": "unmapped"}
     base, mod = hit[0]
-    names = [nm for rva, nm in sm._parse_exports(base) if rva == v - base]
+    names = [nm for rva, nm in sm._exports_of(base)[1] if rva == v - base]
     if not names:
         return {"kind": "no-exact-export", "module": mod}
     return {"kind": "export", "module": mod, "export": names[0]}

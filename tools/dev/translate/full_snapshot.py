@@ -185,8 +185,30 @@ def run_jobs(pid, out_fd, mappings, sel, chunk, threads, holes):
     holes.extend(local_holes)
 
 
+IMAGE_BASE = 0x140000000  # the game image's load base; pes_full.bin's file offset is VA - IMAGE_BASE
+
+
+def _data_extents(fd):
+    """[start, end) byte ranges of the file that hold allocated data. A slim capture (rendezvous/slim.py) leaves the
+    pages it dropped as holes; a full capture writes every page, so its only holes are the index holes."""
+    size = os.fstat(fd).st_size
+    out, pos = [], 0
+    while pos < size:
+        try:
+            start = os.lseek(fd, pos, os.SEEK_DATA)
+        except OSError:  # ENXIO: no data at or after pos
+            break
+        pos = os.lseek(fd, start, os.SEEK_HOLE)
+        out.append((start, pos))
+    return out
+
+
 class SnapMem:
-    """Read-only view of a snapshot directory: mappings from index.json, bytes from mem.bin."""
+    """Read-only view of a snapshot directory: mappings from index.json, bytes from mem.bin.
+
+    A page that a slim capture dropped is a hole of mem.bin. It is never read as zeros: page_ok is False and read
+    returns None, so the replay refuses the case (page_dropped names it). Index holes are unreadable at capture.
+    """
 
     def __init__(self, snap_dir, restore=None):
         idx = json.load(open(os.path.join(snap_dir, "index.json")))
@@ -194,7 +216,10 @@ class SnapMem:
         self.maps = idx["mappings"]
         self.starts = [m["va"] for m in self.maps]
         self.fd = os.open(os.path.join(snap_dir, "mem.bin"), os.O_RDONLY)
+        self._data = _data_extents(self.fd)
+        self._data_starts = [s for s, _ in self._data]
         self._exports = {}
+        self._mz = None  # sorted 'MZ' mapping VAs (module_base), read on first use
         self.holes = set()
         for va, n in idx["holes"]:
             self.holes.update(range(va & ~(PAGE - 1), va + n, PAGE))
@@ -206,9 +231,21 @@ class SnapMem:
             return self.maps[i]
         return None
 
-    def page_ok(self, page):
+    def _captured(self, fpage):
+        """True when mem.bin holds the whole page at file offset fpage (it is not a hole)."""
+        i = bisect.bisect_right(self._data_starts, fpage) - 1
+        return i >= 0 and fpage + PAGE <= self._data[i][1]
+
+    def page_dropped(self, va):
+        """True when va's page is mapped and not an index hole, but a slim capture dropped its bytes."""
+        page = va & ~(PAGE - 1)
         m = self.mapping_of(page)
-        return m is not None and page not in self.holes
+        return m is not None and page not in self.holes and not self._captured(m["off"] + page - m["va"])
+
+    def page_ok(self, page):
+        page &= ~(PAGE - 1)
+        m = self.mapping_of(page)
+        return m is not None and page not in self.holes and self._captured(m["off"] + page - m["va"])
 
     def read(self, va, n):
         """Bytes at [va, va+n) if every page is a readable snapshot page, else None. A restore entry (a rendezvous
@@ -251,19 +288,40 @@ class SnapMem:
             out += b
         return out.decode("ascii", "replace")
 
-    def export_of(self, va):
-        """(module file name, export name or None, offset from it) for a code address in a loaded
-        PE module of the snapshot: the nearest named export at or below va."""
-        m = self.mapping_of(va)
-        if m is None or not m["name"]:
-            return None, None, None
-        mod = os.path.basename(m["name"])
-        base = min(x["va"] for x in self.maps if x["name"] == m["name"])
-        if self.u16(base) != 0x5A4D:  # 'MZ'
-            return mod, None, None
+    def module_base(self, va):
+        """Load base of the PE module whose image holds va, or None. A PE's sections map unnamed (only its header page
+        is named), so a mapping name cannot identify a module: the module is the nearest preceding 'MZ' mapping whose
+        SizeOfImage covers va."""
+        if self._mz is None:
+            self._mz = sorted(m["va"] for m in self.maps if self.read(m["va"], 2) == b"MZ")
+        i = bisect.bisect_right(self._mz, va) - 1
+        if i < 0:
+            return None
+        base = self._mz[i]
+        return base if va < base + self._size_of_image(base) else None
+
+    def _size_of_image(self, base):
+        """SizeOfImage of the PE at base; 0 when its headers are not captured or it is not a PE."""
+        e = self.read(base + 0x3C, 4)
+        pe = struct.unpack("<I", e)[0] if e else 0
+        if not pe or self.read(base + pe, 4) != b"PE\0\0":
+            return 0
+        size = self.read(base + pe + 80, 4)  # OptionalHeader.SizeOfImage
+        return struct.unpack("<I", size)[0] if size else 0
+
+    def _exports_of(self, base):
+        """(module file name, sorted [(rva, name)]) of the PE at base, read from its mapped headers (cached)."""
         if base not in self._exports:
             self._exports[base] = self._parse_exports(base)
-        exports = self._exports[base]
+        return self._exports[base]
+
+    def export_of(self, va):
+        """(module file name, export name or None, offset from it) for a code address in a loaded PE module of the
+        snapshot: the nearest named export at or below va."""
+        base = self.module_base(va)
+        if base is None:
+            return None, None, None
+        mod, exports = self._exports_of(base)
         i = bisect.bisect_right(exports, (va - base, "\uffff")) - 1
         if i < 0:
             return mod, None, None
@@ -271,36 +329,39 @@ class SnapMem:
         return mod, name, va - base - rva
 
     def _parse_exports(self, base):
-        """Sorted (rva, name) of a PE module's named exports, from its in-memory headers."""
+        """(module file name, sorted [(rva, name)]) of a PE module's named exports, from its in-memory headers. The file
+        name is the export directory's Name (the module names itself there); without one it is the mapping's name."""
         def rd(off, n):
             return self.read(base + off, n) or b""
         e_lfanew = struct.unpack("<I", rd(0x3C, 4).ljust(4, b"\0"))[0]
         dd0 = struct.unpack("<I", rd(e_lfanew + 24 + 112, 4).ljust(4, b"\0"))[0]
         ed = rd(dd0, 40) if dd0 else b""
         if len(ed) < 40:
-            return []
+            return self._mapping_name(base), []
+        mod = self.cstr(base + struct.unpack_from("<I", ed, 12)[0]) or self._mapping_name(base)
         n_funcs, n_names, f_rva, n_rva, o_rva = struct.unpack_from("<IIIII", ed, 20)
         names, ords, funcs = rd(n_rva, 4 * n_names), rd(o_rva, 2 * n_names), rd(f_rva, 4 * n_funcs)
+        if len(names) < 4 * n_names or len(ords) < 2 * n_names or len(funcs) < 4 * n_funcs:
+            return mod, []  # the export tables are not captured: no entry is named
         out = []
         for i in range(n_names):
             name_rva = struct.unpack_from("<I", names, 4 * i)[0]
             ordinal = struct.unpack_from("<H", ords, 2 * i)[0]
             fn_rva = struct.unpack_from("<I", funcs, 4 * ordinal)[0]
             out.append((fn_rva, self.cstr(base + name_rva)))
-        return sorted(out)
+        return mod, sorted(out)
+
+    def _mapping_name(self, base):
+        m = self.mapping_of(base)
+        return os.path.basename(m["name"]) if m and m["name"] else ""
 
     def entries_of(self, va):
-        """(module file name, [(entry VA, export name)]) of the PE module holding va; [] if none."""
-        m = self.mapping_of(va)
-        if m is None or not m["name"]:
+        """(module file name, [(entry VA, export name)]) of the PE module holding va; (None, []) outside a PE."""
+        base = self.module_base(va)
+        if base is None:
             return None, []
-        mod = os.path.basename(m["name"])
-        base = min(x["va"] for x in self.maps if x["name"] == m["name"])
-        if self.u16(base) != 0x5A4D:  # 'MZ'
-            return mod, []
-        if base not in self._exports:
-            self._exports[base] = self._parse_exports(base)
-        return mod, [(base + rva, nm) for rva, nm in self._exports[base]]
+        mod, exports = self._exports_of(base)
+        return mod, [(base + rva, nm) for rva, nm in exports]
 
 
 def anchors_from_dump(snap_dir):

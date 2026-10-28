@@ -18,6 +18,7 @@ from capstone import Cs, CS_ARCH_X86, CS_MODE_64
 from capstone.x86 import X86_OP_MEM, X86_OP_IMM
 
 from . import analyze as AN
+from . import sets
 
 WINDOW = 0x10000
 LOWER = 0x2000
@@ -169,20 +170,44 @@ def direct_calls(va):
     return [i.operands[0].imm for i in body(va) if i.mnemonic == "call" and i.operands[0].type == X86_OP_IMM]
 
 
+_LEDGER = None  # the ledger's universe rows (sets.load_universe), read on first use
+
+
+def ledger_callees(f):
+    """f's direct, tail and table callees from the ledger's walk, or None when the ledger does not walk f. The
+    ledger decodes a function's jump tables (its switch case bodies); body() does not, so over body() alone a
+    switch function's closure is missing its case bodies' calls."""
+    global _LEDGER
+    if _LEDGER is None:
+        _LEDGER = sets.load_universe()
+    row = _LEDGER.get("0x%X" % f)
+    if row is None or not row.get("walked"):
+        return None
+    return [int(t, 16) for t, how in row["callees"].items() if how in ("direct", "tail", "table")]
+
+
+def closure_edges(f):
+    """The call and jump targets a closure walk follows from f: the ledger's edges where the ledger walks f, else
+    f's direct branches from body() (not into its own instructions)."""
+    edges = ledger_callees(f)
+    if edges is not None:
+        return edges
+    own = {i.address for i in body(f)}
+    return [i.operands[0].imm for i in body(f)
+            if i.mnemonic in ("call", "jmp") and i.operands and i.operands[0].type == X86_OP_IMM
+            and i.operands[0].imm not in own]
+
+
 def reach_stubs(va):
     """({stub VA: (kind, model, why)}, functions walked): every named model reached from va over direct CALL and
-    JMP targets. classify() stops at a pilot callee, but a pilot member of a hook closure is built into the same
-    binary and calls the same stubs, so a root's stub_refs must cover it too. Named models end the walk (their
-    bodies are not run); every other callee, pilot or not, is walked."""
+    JMP targets (closure_edges). classify() stops at a pilot callee, but a pilot member of a hook closure is built
+    into the same binary and calls the same stubs, so a root's stub_refs must cover it too. Named models end the walk
+    (their bodies are not run); every other callee, pilot or not, is walked."""
     stubs, seen, work = {}, {va}, [va]
     while work:
         f = work.pop()
-        own = {i.address for i in body(f)}
-        for i in body(f):
-            if i.mnemonic not in ("call", "jmp") or not i.operands or i.operands[0].type != X86_OP_IMM:
-                continue
-            t = i.operands[0].imm
-            if t in own or t in seen:
+        for t in closure_edges(f):
+            if t in seen:
                 continue
             seen.add(t)
             if t in STUB:
