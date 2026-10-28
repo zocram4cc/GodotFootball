@@ -194,8 +194,11 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   pesContactConstants = *setup.pesContactConstants;
   // PES's G tables and the per-player blocks GF owns beside them (pesworldrecord.hpp). The contact pass keeps its flags
   // in the man records. ponytail: PES's block allocator is OPEN (pes-re-player-record.md OPEN-1); this array stands in.
-  // ponytail: the side tables name team records, which join the window with S5/S7; until then they stay null.
+  // The side tables name the side records (pesworldrecord.hpp SideVa, bound by PesWorld's constructor); the attack
+  // signs are written each tick by Referee::PublishPesStoppage. The officials' anime and man entries are bound here.
   for (int slot = 0; slot < pes::kSlotCount; ++slot) pesWorld->BindSlot(slot);
+  for (int official = 0; official < pes::kOfficialCount; ++official)
+    pesWorld->BindOfficial(pes::kRefereeOfficialIndex + official);
   // PES 2021's event routing table and detector constants (docs/re/pes-re-gaps-a2.md). Required:
   // the event stage routes every record through the table.
   if (setup.pesEventRingTable == nullptr || setup.pesEventConstants == nullptr)

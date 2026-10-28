@@ -174,6 +174,10 @@ add_executable(pes_match_info_test pes_match_info_test.cpp)
 target_link_libraries(pes_match_info_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_match_info_test)
 
+add_executable(pes_involvement_test pes_involvement_test.cpp)
+target_link_libraries(pes_involvement_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_involvement_test)
+
 add_executable(pes_setpiece_taker_test pes_setpiece_taker_test.cpp)
 target_link_libraries(pes_setpiece_taker_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_setpiece_taker_test)
