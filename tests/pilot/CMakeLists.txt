@@ -37,7 +37,9 @@ add_test(NAME diff_core_recorded
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/core' \
 --out-dir '${CMAKE_BINARY_DIR}/core-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_core.json'")
-set_tests_properties(diff_core_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 7200)
+# The check replays all 2,253 recorded core functions: about 2.5 h on a loaded machine (EndClear2, 28-10-26), past the
+# old 2 h cap when the gate shares the machine with agents.
+set_tests_properties(diff_core_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 14400)
 
 # diff_impure_recorded: the same check for the impure set (specs/impure; results_impure.json records its diffed VAs).
 # Without it the impure record was never re-checked: the driver's default spec dir (specs/pilot) held none of its VAs.
