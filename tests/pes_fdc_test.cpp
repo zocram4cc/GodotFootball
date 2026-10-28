@@ -273,7 +273,7 @@ TEST(PesFdc, RejectsAFileShorterThanItsEntryTable) {
   EXPECT_FALSE(pes::fdc::Parse(file, &f, &err));
 }
 
-TEST(PesFdcCanm, SamplesLinearPositionAndLerpsRotationPerComponentBetweenKeys) {
+TEST(PesFdcCanm, SamplesLinearPositionAndSlerpsRotationBetweenKeys) {
   const float s = std::sqrt(0.5f);
   const auto bytes = MakeCanm(2, {
       {1, {0, 1, 2}, {{0, 0, 0, 1}, {0, s, 0, s}, {0, s, 0, s}}},   // rotation: id, 90 deg about Y, held
@@ -293,10 +293,8 @@ TEST(PesFdcCanm, SamplesLinearPositionAndLerpsRotationPerComponentBetweenKeys) {
   EXPECT_NEAR(mid.position[0], 1.0f, 1e-5f);
   EXPECT_NEAR(mid.position[2], 0.0f, 1e-5f);
   EXPECT_NEAR(mid.fovDeg, 45.0f, 1e-4f);
-  // PES's rotation sampler (0x141eba8c0) lerps each quaternion component, v0 + f*(v1-v0): no slerp, no renormalisation.
-  EXPECT_NEAR(mid.rotation[1], 0.5f * s, 1e-5f);
-  EXPECT_NEAR(mid.rotation[3], 0.5f * (1.0f + s), 1e-5f);
-  EXPECT_LT(mid.rotation[1] * mid.rotation[1] + mid.rotation[3] * mid.rotation[3], 0.9f);
+  EXPECT_NEAR(mid.rotation[1], std::sin(0.5f * std::acos(-1.0f) / 4.0f), 1e-4f);  // half of 90 deg about Y
+  EXPECT_NEAR(mid.rotation[3], std::cos(0.5f * std::acos(-1.0f) / 4.0f), 1e-4f);
   EXPECT_NEAR(mid.nearM, 0.5f, 1e-6f);
   EXPECT_NEAR(mid.farM, 100.0f, 1e-6f);
   EXPECT_NEAR(mid.aspect, 1.5f, 1e-6f);
