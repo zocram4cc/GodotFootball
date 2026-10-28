@@ -1,0 +1,424 @@
+{
+ "name": "impure_141F41CE0",
+ "va": "0x141F41CE0",
+ "entry": "0x141F41CE0",
+ "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (rules.closure_fix): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
+ "status": "impure-sample",
+ "subsystem": "impure-sample",
+ "stack": {
+  "base": "0x10000000",
+  "size": "0x20000"
+ },
+ "regions": {
+  "A0": {
+   "base": "0x20000000",
+   "size": "0x200000"
+  },
+  "A1": {
+   "base": "0x20400000",
+   "size": "0x200000"
+  },
+  "A1.150": {
+   "base": "0x20800000",
+   "size": "0x200000"
+  },
+  "A1.158": {
+   "base": "0x20C00000",
+   "size": "0x200000"
+  }
+ },
+ "args": {
+  "rcx": "A0",
+  "rdx": "A1"
+ },
+ "regions_init": {
+  "A1+0x150": "A1.150",
+  "A1+0x158": "A1.158"
+ },
+ "patch_addrs": {},
+ "inputs": {
+  "A0_ABC": {
+   "region": "A0",
+   "offset": "0xABC",
+   "enc": "u32"
+  },
+  "A1_C": {
+   "region": "A1",
+   "offset": "0xC",
+   "enc": "u32"
+  },
+  "A1_160": {
+   "region": "A1",
+   "offset": "0x160",
+   "enc": "u64"
+  },
+  "A1_150_0": {
+   "region": "A1.150",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "A1_158_0": {
+   "region": "A1.158",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "scalar_r8": {
+   "reg": "r8",
+   "enc": "u32"
+  },
+  "scalar_r9": {
+   "reg": "r9",
+   "enc": "u32"
+  },
+  "scalar_xmm0": {
+   "reg": "xmm0",
+   "enc": "f32"
+  }
+ },
+ "input_schema": {
+  "A0_ABC": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_160": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_150_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_158_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_r8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_r9": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_xmm0": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  }
+ },
+ "outputs": {
+  "w_A1_158_0": {
+   "region": "A1.158",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "ret_rax": {
+   "reg": "rax"
+  }
+ },
+ "ret_note": "rax (pointer-valued return)",
+ "seed": 1003,
+ "count": 64,
+ "precheck": {
+  "indirect_calls": [
+   "indirect-call@141F41EFE",
+   "indirect-call@141F41F0C"
+  ],
+  "tailjumps": [
+   "tailjump@141F4EBE5",
+   "tailjump@141F4EC7B",
+   "tailjump@141F4EC9F",
+   "tailjump@141F4ECC3",
+   "tailjump@141F4ECE7",
+   "tailjump@141F4ED0B",
+   "tailjump@141F4ED2F",
+   "tailjump@141F4ED82",
+   "tailjump@141F4EDA7",
+   "tailjump@141F4EDCB",
+   "tailjump@141F4EDEF",
+   "tailjump@141F4EE16",
+   "tailjump@141F4EE7C",
+   "tailjump@141F4EEA3",
+   "tailjump@141F4EECA",
+   "tailjump@141F4EEF1",
+   "tailjump@141F4EF18",
+   "tailjump@141F4EFC1",
+   "tailjump@141F4EFE8",
+   "tailjump@141F4F00F",
+   "tailjump@141F4F0D7"
+  ],
+  "unresolved_mem": 148,
+  "live_data_reads": [
+   "IMG"
+  ],
+  "live_data_writes": [
+   "IMG"
+  ],
+  "rdata_constant_reads": [
+   "IMG"
+  ],
+  "stack_args": {},
+  "calls": [
+   "140A924E0",
+   "141E55E30",
+   "141F4D2F0",
+   "141F7A100"
+  ],
+  "flags": [
+   "callee-outside-set@1403FB5B0",
+   "callee-outside-set@14047BB10",
+   "callee-outside-set@14047BE40",
+   "callee-outside-set@141F4D0F0",
+   "callee-outside-set@141F4FF10",
+   "callee-outside-set@141F500D0",
+   "callee-outside-set@141F50450",
+   "indirect-call@141F41EFE",
+   "indirect-call@141F41F0C",
+   "tailjump@141F4EBE5",
+   "tailjump@141F4EC7B",
+   "tailjump@141F4EC9F",
+   "tailjump@141F4ECC3",
+   "tailjump@141F4ECE7",
+   "tailjump@141F4ED0B",
+   "tailjump@141F4ED2F",
+   "tailjump@141F4ED82",
+   "tailjump@141F4EDA7",
+   "tailjump@141F4EDCB",
+   "tailjump@141F4EDEF",
+   "tailjump@141F4EE16",
+   "tailjump@141F4EE7C",
+   "tailjump@141F4EEA3",
+   "tailjump@141F4EECA",
+   "tailjump@141F4EEF1",
+   "tailjump@141F4EF18",
+   "tailjump@141F4EFC1",
+   "tailjump@141F4EFE8",
+   "tailjump@141F4F00F",
+   "tailjump@141F4F0D7",
+   "unresolved-mem@141F41D88",
+   "unresolved-mem@141F4D3C7",
+   "unresolved-mem@141F4D3E1",
+   "unresolved-mem@141F4D3EA",
+   "unresolved-mem@141F4D3F6",
+   "unresolved-mem@141F4D409",
+   "unresolved-mem@141F4D411",
+   "unresolved-mem@141F4D41E",
+   "unresolved-mem@141F4D4AB",
+   "unresolved-mem@141F4D50C",
+   "unresolved-mem@141F4D51B",
+   "unresolved-mem@141F4D534",
+   "unresolved-mem@141F4D5CC",
+   "unresolved-mem@141F4D5FF",
+   "unresolved-mem@141F4D61F",
+   "unresolved-mem@141F4D65E",
+   "unresolved-mem@141F4D691",
+   "unresolved-mem@141F4D6B1",
+   "unresolved-mem@141F4D782",
+   "unresolved-mem@141F4D79B",
+   "unresolved-mem@141F4D7B7",
+   "unresolved-mem@141F4D7D0",
+   "unresolved-mem@141F4D7EC",
+   "unresolved-mem@141F4D865",
+   "unresolved-mem@141F4D881",
+   "unresolved-mem@141F4D8B7",
+   "unresolved-mem@141F4D8D3",
+   "unresolved-mem@141F4D90D",
+   "unresolved-mem@141F4DD41",
+   "unresolved-mem@141F4DD4E",
+   "unresolved-mem@141F4DDB5",
+   "unresolved-mem@141F4DDBE",
+   "unresolved-mem@141F4DDF9",
+   "unresolved-mem@141F4DE2E",
+   "unresolved-mem@141F4DE67",
+   "unresolved-mem@141F4DE96",
+   "unresolved-mem@141F4E020",
+   "unresolved-mem@141F4E02D",
+   "unresolved-mem@141F4E069",
+   "unresolved-mem@141F4E094",
+   "unresolved-mem@141F4E0F6",
+   "unresolved-mem@141F4E108",
+   "unresolved-mem@141F4E12D",
+   "unresolved-mem@141F4E164",
+   "unresolved-mem@141F4E189",
+   "unresolved-mem@141F4E1BB",
+   "unresolved-mem@141F4E1D9",
+   "unresolved-mem@141F4E26F",
+   "unresolved-mem@141F4E28B",
+   "unresolved-mem@141F4E2A7",
+   "unresolved-mem@141F4E2C3",
+   "unresolved-mem@141F4E2DF",
+   "unresolved-mem@141F4E2FB",
+   "unresolved-mem@141F4E31E",
+   "unresolved-mem@141F4E356",
+   "unresolved-mem@141F4E364",
+   "unresolved-mem@141F4E372",
+   "unresolved-mem@141F4E388",
+   "unresolved-mem@141F4E3D7",
+   "unresolved-mem@141F4E4A5",
+   "unresolved-mem@141F4E4C1",
+   "unresolved-mem@141F4E4DD",
+   "unresolved-mem@141F4E4F9",
+   "unresolved-mem@141F4E515",
+   "unresolved-mem@141F4E531",
+   "unresolved-mem@141F4E57A",
+   "unresolved-mem@141F4E596",
+   "unresolved-mem@141F4E5C7",
+   "unresolved-mem@141F4E5D4",
+   "unresolved-mem@141F4E610",
+   "unresolved-mem@141F4E645",
+   "unresolved-mem@141F4E666",
+   "unresolved-mem@141F4E6C5",
+   "unresolved-mem@141F4E6E6",
+   "unresolved-mem@141F4E74B",
+   "unresolved-mem@141F4E759",
+   "unresolved-mem@141F4E776",
+   "unresolved-mem@141F4E784",
+   "unresolved-mem@141F4E7A1",
+   "unresolved-mem@141F4E7AF",
+   "unresolved-mem@141F4E7CC",
+   "unresolved-mem@141F4E7DA",
+   "unresolved-mem@141F4E7F7",
+   "unresolved-mem@141F4E805",
+   "unresolved-mem@141F4E822",
+   "unresolved-mem@141F4E830",
+   "unresolved-mem@141F4E893",
+   "unresolved-mem@141F4E89E",
+   "unresolved-mem@141F4E8DE",
+   "unresolved-mem@141F4E8F0",
+   "unresolved-mem@141F4E941",
+   "unresolved-mem@141F4E95C",
+   "unresolved-mem@141F4E979",
+   "unresolved-mem@141F4E993",
+   "unresolved-mem@141F4E9B0",
+   "unresolved-mem@141F4E9CA",
+   "unresolved-mem@141F4E9E7",
+   "unresolved-mem@141F4EA01",
+   "unresolved-mem@141F4EA1E",
+   "unresolved-mem@141F4EA38",
+   "unresolved-mem@141F4EA55",
+   "unresolved-mem@141F4EA6D",
+   "unresolved-mem@141F4EA91",
+   "unresolved-mem@141F4EB4F",
+   "unresolved-mem@141F4EB81",
+   "unresolved-mem@141F4EB88",
+   "unresolved-mem@141F4EBA0",
+   "unresolved-mem@141F4EF57",
+   "unresolved-mem@141F4F01E",
+   "unresolved-mem@141F4F0E6",
+   "unresolved-mem@141F4F135",
+   "unresolved-mem@141F4F187",
+   "unresolved-mem@141F4F1CF",
+   "unresolved-mem@141F4F1DD",
+   "unresolved-mem@141F4F1FA",
+   "unresolved-mem@141F4F208",
+   "unresolved-mem@141F4F225",
+   "unresolved-mem@141F4F233",
+   "unresolved-mem@141F4F250",
+   "unresolved-mem@141F4F25E",
+   "unresolved-mem@141F4F27B",
+   "unresolved-mem@141F4F289",
+   "unresolved-mem@141F4F2A6",
+   "unresolved-mem@141F4F2B4",
+   "unresolved-mem@141F4F2FE",
+   "unresolved-mem@141F4F308",
+   "unresolved-mem@141F4F317",
+   "unresolved-mem@141F4F3A7",
+   "unresolved-mem@141F4F3B0",
+   "unresolved-mem@141F4F417",
+   "unresolved-mem@141F4F420",
+   "unresolved-mem@141F4F487",
+   "unresolved-mem@141F4F490",
+   "unresolved-mem@141F4F4F7",
+   "unresolved-mem@141F4F500",
+   "unresolved-mem@141F4F567",
+   "unresolved-mem@141F4F570",
+   "unresolved-mem@141F4F61A",
+   "unresolved-mem@141F4F669",
+   "unresolved-mem@141F4F6BB",
+   "unresolved-mem@141F4F70D",
+   "unresolved-mem@141F4F716",
+   "unresolved-mem@141F4F77D",
+   "unresolved-mem@141F4F7F5",
+   "unresolved-mem@141F4F811",
+   "unresolved-mem@141F4F859",
+   "unresolved-mem@141F4F8AB",
+   "unresolved-mem@141F4F8FD"
+  ],
+  "stub_refs": [
+   "14159F3E0"
+  ]
+ },
+ "stub_refs": [
+  "14159F3E0"
+ ],
+ "harness": {
+  "harness_class": "harness cannot run",
+  "blockers": [
+   "call qword ptr [rip + 0x5edb24] at 141F41EFE",
+   "call qword ptr [rip + 0x5edb16] at 141F41F0C",
+   "call 1403FB5B0: indirect call qword ptr [rax + 8] at 1403FB501; indirect call qword ptr [rax + 0x30] at 1403FB548",
+   "call 14047BB10: callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F; callee 1403FB5B0: indirect call qword ptr [rax + 8] at 1403FB501; indirect call qword ptr [rax + 0x30] at 1403FB548",
+   "call 141F4D2F0: callee 141F4D0F0: callee 14047BCA0: indirect call qword ptr [rip + 0x20b3d3e] at 14047BCE4; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F; callee 14047BCA0: indirect call qword ptr [rip + 0x20b3d3e] at 14047BCE4; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F; callee 141F4D0F0: callee 14047BCA0: indirect call qword ptr [rip + 0x20b3d3e] at 14047BCE4; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F; callee 14047BCA0: indirect call qword ptr [rip + 0x20b3d3e] at 14047BCE4; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F",
+   "call 141F500D0: global store qword ptr [rip + 0x18a5c33], r at 141F50116; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F"
+  ],
+  "out_of_set_callees": [
+   {
+    "va": "1403FB5B0",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": []
+   },
+   {
+    "va": "14047BB10",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": []
+   },
+   {
+    "va": "141F4D2F0",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": []
+   },
+   {
+    "va": "141F500D0",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": [
+     "14159F3E0"
+    ]
+   }
+  ],
+  "indirect_sites": [
+   "call qword ptr [rip + 0x5edb24] at 141F41EFE",
+   "call qword ptr [rip + 0x5edb16] at 141F41F0C"
+  ],
+  "switch_jumps": []
+ },
+ "closure_fix": {
+  "accessors": [],
+  "removed_blanket_E1EE_slots": 0,
+  "child_links": 0,
+  "accessor_slots": 0,
+  "rule": "rules.closure_fix: child links + accessor layout from image bytes"
+ }
+}
