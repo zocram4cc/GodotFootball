@@ -337,7 +337,7 @@
   }
  },
  "ret_note": "eax (integer/bool return; upper bits unchecked)",
- "seed": 10888552,
+ "seed": 3708,
  "count": 64,
  "precheck": {
   "indirect_calls": [],

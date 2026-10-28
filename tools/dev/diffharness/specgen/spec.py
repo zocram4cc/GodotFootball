@@ -247,8 +247,8 @@ def build(fn):
 
 
 def seed_of(va):
-    """Spec seed: 1000 + the VA's offset from the image base. Order-independent: the same VA gets the same seed in
-    every set file, so regenerating under another set order (closure.py, a reordered set) cannot change its cases."""
+    """Seed of a NEW spec: 1000 + the VA's offset from the image base, independent of set order. A recorded spec keeps
+    its committed seed: a changed seed changes its cases (pes-port-SpecGen2 §4)."""
     return 1000 + int(va, 16) - AN.BASE
 
 
