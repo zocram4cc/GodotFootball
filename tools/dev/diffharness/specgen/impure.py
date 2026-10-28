@@ -22,15 +22,17 @@ def harness_fields(va, callees):
     """Classify va's out-of-set callees (VAs) and derive its harness class."""
     C.classify(va)  # fills SWITCH_NOTES for this body
     indirect = indirect_sites(va)
-    rows, stub_refs, blockers = [], set(), list(indirect)
+    rows, blockers = [], list(indirect)
     for t in sorted(set(callees)):
         if t in C.PILOT_SIZE:
             continue
         c = C.classify(t)
-        stub_refs |= set(c["stubs"])
         if c["cls"] == "unmodellable":
             blockers.append("call %X: %s" % (t, "; ".join(c["reasons"][:2])))
         rows.append({"va": "%X" % t, "how": "call", "cls": c["cls"], "stubs": sorted("%X" % s for s in c["stubs"])})
+    # Every stub model the closure reaches, not only the direct callees': the build translates the whole closure
+    # against this one stub map, so a callee's callee, or a pilot member, that calls a model needs it here.
+    stub_refs = set(C.reach_stubs(va)[0])
     if blockers:
         harness_class = "harness cannot run"
     elif stub_refs:
