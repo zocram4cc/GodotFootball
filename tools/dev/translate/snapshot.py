@@ -28,6 +28,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from diffharness.run import align_up, flat_sections  # noqa: E402
+import diffharness.run as rn  # noqa: E402
 
 from unicorn import Uc, UC_ARCH_X86, UC_MODE_64                   # noqa: E402
 from unicorn import UC_HOOK_CODE, UC_HOOK_MEM_READ_UNMAPPED, \
@@ -174,8 +175,7 @@ class SnapshotBuilder:
 
     # -- build ------------------------------------------------------------
     def build_emu(self):
-        from unicorn import Uc, UC_ARCH_X86, UC_MODE_64
-        mu = Uc(UC_ARCH_X86, UC_MODE_64)
+        mu = rn.new_x86_64()
         # a one-byte RET we use as the top-level return address (loop guard)
         self.RET_VA = 0x60010000
         mu.mem_map(self.RET_VA & ~0xFFF, 0x1000)

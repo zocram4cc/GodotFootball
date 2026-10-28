@@ -4,6 +4,8 @@
 # Usage: PES21_ROOT=<PES 2021 install root> tools/dev/gate.sh [build-dir]
 #   GATE_JOBS (default 4) sets ctest -j; the suite's floor is its longest test (the 20-min restart
 #   test, ~14 min), so more jobs only help while cores are free. Logs go under <build-dir>/gate.*.
+#   GF_IMPURE_BANKS (the capture bank) is required with GF_DIFF_PYTHON: impure records whose corpus is the bank
+#   refuse to run without it (diff_impure_recorded).
 #   The suite and the smokes run under the shared sim lock, so concurrent gates queue instead of
 #   oversubscribing the machine.
 set -euo pipefail
@@ -47,7 +49,8 @@ fi
 flock "$lock.1" flock "$lock" bash -c "
   $(declare -f smoke); repo='$repo'; build='$build'; PES21_ROOT='$PES21_ROOT'
   smoke off & smoke pesloop --pes-loop &
-  env PES21_ROOT='$PES21_ROOT' PES21_EDIT_SAVE='$save' GF_DIFF_PYTHON='${GF_DIFF_PYTHON:-}' PES_EXE='${PES_EXE:-}' nice -n 19 \
+  env PES21_ROOT='$PES21_ROOT' PES21_EDIT_SAVE='$save' GF_DIFF_PYTHON='${GF_DIFF_PYTHON:-}' PES_EXE='${PES_EXE:-}' \
+    GF_IMPURE_BANKS='${GF_IMPURE_BANKS:-}' nice -n 19 \
     ctest --test-dir '$build' -j $jobs --timeout 2400 > '$build/gate.ctest.log' 2>&1
   echo \"ctest rc=\$?\"
   wait"
