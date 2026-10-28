@@ -170,3 +170,27 @@ def classify(va, stack=()):
 
 def direct_calls(va):
     return [i.operands[0].imm for i in body(va) if i.mnemonic == "call" and i.operands[0].type == X86_OP_IMM]
+
+
+def reach_stubs(va):
+    """({stub VA: (kind, model, why)}, functions walked): every named model reached from va over direct CALL and
+    JMP targets. classify() stops at a pilot callee, but a pilot member of a hook closure is built into the same
+    binary and calls the same stubs, so a root's stub_refs must cover it too. Named models end the walk (their
+    bodies are not run); every other callee, pilot or not, is walked."""
+    stubs, seen, work = {}, {va}, [va]
+    while work:
+        f = work.pop()
+        own = {i.address for i in body(f)}
+        for i in body(f):
+            if i.mnemonic not in ("call", "jmp") or not i.operands or i.operands[0].type != X86_OP_IMM:
+                continue
+            t = i.operands[0].imm
+            if t in own or t in seen:
+                continue
+            seen.add(t)
+            if t in STUB:
+                if STUB[t][0] == "stub":
+                    stubs[t] = STUB[t]
+                continue
+            work.append(t)
+    return stubs, len(seen)

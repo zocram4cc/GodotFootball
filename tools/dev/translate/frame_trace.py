@@ -651,7 +651,7 @@ def _xmm_int(uc, n):
     return int.from_bytes(v, "little") if isinstance(v, (bytes, bytearray)) else v
 
 
-def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None):
+def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None, on_code=None, on_write=None):
     """One recorded call (load_recorded_call) emulated from its captured entry, with its captured GPRs, XMM,
     RFLAGS, MXCSR and GS base, over the snapshot's own memory. The stack and the return address are the
     snapshot's, so the call returns to the caller's address with the caller's rsp. orig maps an entry VA to
@@ -660,15 +660,16 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None):
     import models and stub models, the call-time delta (its baseline is the restored image), and each impure
     spec's entry records (trace_entries). It is filled with cdelta, counts and files for finish_trace.
     Returns (unicorn, error): error is None when the call returned to its recorded return address with rsp
-    balanced, else the reason it did not."""
+    balanced, else the reason it did not. on_code / on_write (optional unicorn callbacks) observe every executed
+    instruction and every memory write of the call; they attach before the run and stay attached for the caller."""
     import unicorn.x86_const as xc
     from unicorn import (Uc, UC_ARCH_X86, UC_MODE_64, UC_HOOK_MEM_READ_UNMAPPED,
-                         UC_HOOK_MEM_WRITE_UNMAPPED)
+                         UC_HOOK_MEM_WRITE_UNMAPPED, UC_HOOK_CODE, UC_HOOK_MEM_WRITE)
     sm = fs.SnapMem(snap_dir, restore=orig)
     call = load_recorded_call(snap_dir)
     gpr, entry, ret, teb = call["gpr"], call["entry"], call["ret"], call["teb"]
     rsp = gpr["rsp"]
-    uc = Uc(UC_ARCH_X86, UC_MODE_64)
+    uc = rn.new_x86_64()
     lazy = LazyMap(sm, load_import_models() if trace is not None else {})
     lazy.attach(uc)
     uc.hook_add(UC_HOOK_MEM_READ_UNMAPPED | UC_HOOK_MEM_WRITE_UNMAPPED,
@@ -701,6 +702,10 @@ def run_recorded(snap_dir, orig=None, budget=INSTR_BUDGET, trace=None):
     uc.reg_write(xc.UC_X86_REG_EFLAGS, call["flags"])
     uc.reg_write(xc.UC_X86_REG_MXCSR, call["mxcsr"])
     uc.reg_write(xc.UC_X86_REG_GS_BASE, teb)
+    if on_code is not None:
+        uc.hook_add(UC_HOOK_CODE, on_code)
+    if on_write is not None:
+        uc.hook_add(UC_HOOK_MEM_WRITE, on_write)
     err = None
     try:
         uc.emu_start(entry, ret, count=budget)

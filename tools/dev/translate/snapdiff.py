@@ -7,14 +7,15 @@ calls/<VA>.bin, one per snapshot) is replayed from the snapshot itself, twice:
     the snapshot's pages copied on first touch, the call's recorded registers and return address;
   - the translated function runs in a diff main (diffmain.gen_snap) over the same snapshot pages.
 Each replayed call's rax, full xmm0 and every written byte must match. Own-block coverage is
-measured over the replayed calls (the union over snapshots). Floor: bit-exact on every replayed
-call, and own-block coverage >= 0.5. Calls that leave the model are excluded with their reason.
+measured over the replayed calls (the union over snapshots) and recorded, not gated. Proven: the closure
+built, every replayed call bit-exact, and no call excluded. Calls that leave the model are excluded with their reason.
 
 Usage: snapdiff.py --image PES_EXE --out-dir BUILD --snapshot SNAPDIR=TRACEDIR [--snapshot ...]
                    [--only 0xVA ...] [--results FILE]
   SNAPDIR is a full_snapshot.py snapshot; TRACEDIR the frame_trace.py output that traced it.
 """
 import argparse
+import concurrent.futures
 import json
 import os
 import re
@@ -28,7 +29,7 @@ import diffmain  # noqa: E402
 import frame_trace as ft  # noqa: E402
 import full_snapshot as fs  # noqa: E402
 
-FLOOR_COVERAGE = 0.50
+JOBS = max(1, min(4, os.cpu_count() or 1))  # translation units compiled at once per closure
 CODE_LO, CODE_HI = 0x140001000, 0x14252E800  # the translated universe's image range (driver.build_and_diff)
 
 
@@ -131,13 +132,31 @@ def build_binary(va, spec, args, pilot, reached):
     subprocess.run([sys.executable, os.path.join(HERE, "gen_dispatch.py"), "--out", gen, "--vas"]
                    + sorted(need), check=True)
     bin_p = os.path.join(gen, "snapdiff_%s" % tag)
-    objs = [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need]
+    srcs = [main_p] + [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need]
     trace = ["-include", os.path.join(HERE, "lockstep_trace.h")] if os.environ.get("GF_XLATE_TRACE") else []
-    rc, _, err = drv.sh([args.cxx, "-std=c++20", "-O1", "-I", gen] + trace + ["-o", bin_p, main_p] + objs, timeout=300)
+
+    def compile_one(src):
+        obj = src[:-4] + ".o"
+        rc, _, err = drv.sh([args.cxx, "-std=c++20", "-O1", "-I", gen] + trace + ["-c", "-o", obj, src],
+                            timeout=600)
+        return obj, rc, err
+
+    # One translation unit per process, JOBS at a time. A closure of ~1500 functions in one g++ run outlasts
+    # its timeout and the note came back blank (140446390): the errors are per unit, and a timeout is named.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=JOBS) as pool:
+        built = list(pool.map(compile_one, srcs))
+    bad = [b for b in built if b[1] != 0]
+    if bad:
+        _, rc_, err_ = bad[0]
+        lines = [ln.replace(args.out_dir, "<build>") for ln in err_.splitlines()
+                 if "error" in ln or "undefined reference" in ln or "timeout" in ln][:6]
+        return None, "compile (%d of %d units failed, rc %d): %s" % (
+            len(bad), len(built), rc_, " | ".join(lines)[:400] or err_[-200:])
+    rc, _, err = drv.sh([args.cxx, "-o", bin_p] + [obj for obj, _, _ in built], timeout=600)
     if rc != 0:
         lines = [ln.replace(args.out_dir, "<build>") for ln in err.splitlines()
-                 if "error" in ln or "undefined reference" in ln][:6]
-        return None, "compile: %s" % " | ".join(lines)[:400]
+                 if "error" in ln or "undefined reference" in ln or "timeout" in ln][:6]
+        return None, "link (rc %d): %s" % (rc, " | ".join(lines)[:400] or err[-200:])
     return bin_p, None
 
 
@@ -175,7 +194,7 @@ def compare(label, corpus_rows, trans_path, mismatches):
 def run_one(va, args, pilot, pairs):
     tag = va[2:]
     res = {"va": va, "calls": 0, "replayed": 0, "excluded": 0, "reasons": {}, "snapshots": {},
-           "mismatches": [], "translated": False, "note": "", "own_block": None, "floor": False}
+           "mismatches": [], "translated": False, "note": "", "own_block": None, "proven": False}
     spec, spec_path = drv.load_spec(args.spec_dir, va)
     if spec is None:
         res["note"] = "no spec"
@@ -233,6 +252,10 @@ def run_one(va, args, pilot, pairs):
         return res
     bin_p, err = build_binary(va, spec, args, pilot, reached)
     if err:
+        # A closure that did not build compares nothing: its replays are unverified, never passed.
+        res["unverified"] = res["replayed"]
+        res["replayed"] = 0
+        res["excluded"] = res["calls"]
         res["note"] = err
         return res
     res["translated"] = True
@@ -250,8 +273,8 @@ def run_one(va, args, pilot, pairs):
     cov = drv.block_coverage(args.image, [va], sorted(addrs)).get(va)
     if cov is not None and cov[1]:
         res["own_block"] = {"reached": cov[0], "total": cov[1], "fraction": round(cov[0] / cov[1], 4)}
-    frac = res["own_block"]["fraction"] if res["own_block"] else 0.0
-    res["floor"] = not res["mismatches"] and res["replayed"] > 0 and frac >= FLOOR_COVERAGE
+    res["proven"] = (bool(res["translated"]) and not res["mismatches"] and res["replayed"] > 0
+                     and res["excluded"] == 0)
     return res
 
 
@@ -296,18 +319,18 @@ def main():
         va = "0x" + tg
         r = run_one(va, args, pilot, pairs)
         results.append(r)
-        print("%s calls=%d replayed=%d mismatches=%d own_block=%s floor=%s %s" % (
+        print("%s calls=%d replayed=%d mismatches=%d own_block=%s proven=%s %s" % (
             r["va"], r["calls"], r["replayed"], len(r["mismatches"]),
-            r["own_block"] and r["own_block"]["fraction"], r["floor"], r["note"][:400]), flush=True)
-    floor = sum(1 for r in results if r["floor"])
+            r["own_block"] and r["own_block"]["fraction"], r["proven"], r["note"][:400]), flush=True)
+    proven = sum(1 for r in results if r["proven"])
     doc = {"note": "snapshot-backed diff of traced calls (snapdiff.py): each traced call replayed from its "
-                   "snapshot's own memory on the harness and the translated side; floor = bit-exact on every "
-                   "replayed call and own-block coverage >= 0.5 over the replayed calls.",
-           "floor_count": floor, "results": results}
+                   "snapshot's own memory on the harness and the translated side; proven = the closure built, "
+                   "every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated.",
+           "proven_count": proven, "results": results}
     if args.results:
         with open(args.results, "w") as f:
             json.dump(doc, f, indent=1)
-    print("floor %d of %d reached" % (floor, len(results)), flush=True)
+    print("proven %d of %d" % (proven, len(results)), flush=True)
 
 
 if __name__ == "__main__":

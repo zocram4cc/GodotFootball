@@ -261,9 +261,18 @@ def f32_bits(value):
     return {"bits": "0x%08X" % bits, "f": float(value)}
 
 
-def build_emu(spec, image_path, sections):
+def new_x86_64():
+    """The harness emulator: unicorn x86-64 with the Broadwell CPU model. The default model rejects SSE4.1
+    (pmovsxbd, pmulld: INVALID instruction), which PES's code uses. Every emulator in the harness is made here."""
     from unicorn import Uc, UC_ARCH_X86, UC_MODE_64
-    mu = Uc(UC_ARCH_X86, UC_MODE_64)
+    from unicorn.x86_const import UC_CPU_X86_BROADWELL
+    uc = Uc(UC_ARCH_X86, UC_MODE_64)
+    uc.ctl_set_cpu_model(UC_CPU_X86_BROADWELL)
+    return uc
+
+
+def build_emu(spec, image_path, sections):
+    mu = new_x86_64()
     filesize = os.path.getsize(image_path)
     with open(image_path, "rb") as f:
         for va, size, raw in sections:
