@@ -203,14 +203,70 @@ def _data_extents(fd):
     return out
 
 
+# Pages whose live bytes differ from the image file, measured: RVA 0x2647000 (VA 0x142647000, r--p) differs in 8 bytes
+# (live a5d46853a5d46853 at 0x142647C64, file 00f0524700341E48), the same in eight full captures of one launch. Its
+# cause is OPEN; it is never served, so a slim replay refuses a read of it. Guard: scratch verify_served.py over full captures.
+UNSERVABLE_RVA = frozenset({0x2647000})
+
+
+class PeImage:
+    """The game image as a file (pes_full.bin: the unpacked image, file offset = VA - IMAGE_BASE). A slim capture drops
+    pages; the file supplies the ones that are code or read-only data. Never served: a writable section (the game writes
+    it) and the import address table (the loader writes it with that launch's DLL addresses)."""
+
+    def __init__(self, path):
+        self.fd = os.open(path, os.O_RDONLY)
+        head = os.pread(self.fd, PAGE, 0)
+        e = struct.unpack_from("<I", head, 0x3C)[0]
+        if head[e:e + 4] != b"PE\0\0":
+            raise SystemExit("%s: not a PE image" % path)
+        nsec, = struct.unpack_from("<H", head, e + 6)
+        opt_size, = struct.unpack_from("<H", head, e + 20)
+        opt = e + 24
+        base, = struct.unpack_from("<Q", head, opt + 24)
+        if base != IMAGE_BASE:
+            raise SystemExit("%s: image base %#x, not %#x" % (path, base, IMAGE_BASE))
+        self.size_of_image, = struct.unpack_from("<I", head, opt + 56)
+        self.size_of_headers, = struct.unpack_from("<I", head, opt + 60)
+        self.iat = struct.unpack_from("<II", head, opt + 112 + 12 * 8)  # data directory 12: the import address table
+        self.sections = []  # (first page RVA, end page RVA, characteristics) per section
+        for i in range(nsec):
+            s = opt + opt_size + 40 * i
+            vsize, va = struct.unpack_from("<II", head, s + 8)
+            ch, = struct.unpack_from("<I", head, s + 36)
+            self.sections.append((va, va + ((max(vsize, 1) + PAGE - 1) & ~(PAGE - 1)), ch))
+
+    def servable(self, rva):
+        """True when the file's page at rva is the page a live capture holds: a header page, or a page of a section that
+        is not writable, outside the import address table."""
+        page = rva & ~(PAGE - 1)
+        if page in UNSERVABLE_RVA:
+            return False
+        if page < self.size_of_headers:
+            return True
+        iat_va, iat_size = self.iat
+        if iat_size and page < iat_va + iat_size and iat_va < page + PAGE:
+            return False
+        for lo, hi, ch in self.sections:
+            if lo <= page < hi:
+                return not (ch & 0x80000000)
+        return False
+
+    def read(self, rva, n):
+        return os.pread(self.fd, n, rva)
+
+
 class SnapMem:
     """Read-only view of a snapshot directory: mappings from index.json, bytes from mem.bin.
 
-    A page that a slim capture dropped is a hole of mem.bin. It is never read as zeros: page_ok is False and read
-    returns None, so the replay refuses the case (page_dropped names it). Index holes are unreadable at capture.
+    A page that a slim capture dropped is a hole of mem.bin. It is never read as zeros. A dropped page the game image
+    file serves (PeImage.servable: code or read-only data, not the import table) reads from that file; any other
+    dropped page makes page_ok False and read returns None, so the replay refuses the case (page_dropped names it).
+    image: the game image file (default: PES_EXE); "" for none. Index holes are unreadable at capture.
     """
 
-    def __init__(self, snap_dir, restore=None):
+    def __init__(self, snap_dir, restore=None, image=None):
+        path = image if image is not None else os.environ.get("PES_EXE")
         idx = json.load(open(os.path.join(snap_dir, "index.json")))
         self.index = idx
         self.maps = idx["mappings"]
@@ -219,11 +275,17 @@ class SnapMem:
         self._data = _data_extents(self.fd)
         self._data_starts = [s for s, _ in self._data]
         self._exports = {}
-        self._mz = None  # sorted 'MZ' mapping VAs (module_base), read on first use
+        self._mz = None  # sorted 'MZ' mapping VAs (module_bases), scanned on first use
         self.holes = set()
         for va, n in idx["holes"]:
             self.holes.update(range(va & ~(PAGE - 1), va + n, PAGE))
         self.restore = dict(restore or {})  # rendezvous hook entry VA -> the original code it displaced
+        self.image = PeImage(path) if path else None
+        if self.image is not None and self.page_ok(IMAGE_BASE):
+            cap = self._size_of_image(IMAGE_BASE)
+            if cap and cap != self.image.size_of_image:
+                raise SystemExit("%s is not this capture's game image: SizeOfImage %#x, capture %#x"
+                                 % (path, self.image.size_of_image, cap))
 
     def mapping_of(self, va):
         i = bisect.bisect_right(self.starts, va) - 1
@@ -236,31 +298,48 @@ class SnapMem:
         i = bisect.bisect_right(self._data_starts, fpage) - 1
         return i >= 0 and fpage + PAGE <= self._data[i][1]
 
-    def page_dropped(self, va):
-        """True when va's page is mapped and not an index hole, but a slim capture dropped its bytes."""
-        page = va & ~(PAGE - 1)
-        m = self.mapping_of(page)
-        return m is not None and page not in self.holes and not self._captured(m["off"] + page - m["va"])
-
-    def page_ok(self, page):
-        page &= ~(PAGE - 1)
+    def _captured_page(self, page):
+        """True when page is mapped, not an index hole, and mem.bin holds its bytes (a slim capture did not drop it)."""
         m = self.mapping_of(page)
         return m is not None and page not in self.holes and self._captured(m["off"] + page - m["va"])
 
+    def _served(self, page):
+        """True when page is mapped, dropped by a slim capture, and the game image file holds its bytes: a page of a
+        mapping that is not writable in the live process (a writable one may have been written), that PeImage.servable."""
+        m = self.mapping_of(page)
+        return (self.image is not None and IMAGE_BASE <= page < IMAGE_BASE + self.image.size_of_image
+                and m is not None and "w" not in m["perm"] and page not in self.holes and self.image.servable(page - IMAGE_BASE))
+
+    def page_dropped(self, va):
+        """True when va's page is mapped and not an index hole, but a slim capture dropped its bytes and no image serves them."""
+        page = va & ~(PAGE - 1)
+        return self.mapping_of(page) is not None and page not in self.holes and not self._captured_page(page) and not self._served(page)
+
+    def page_ok(self, page):
+        page &= ~(PAGE - 1)
+        return self._captured_page(page) or self._served(page)
+
     def read(self, va, n):
-        """Bytes at [va, va+n) if every page is a readable snapshot page, else None. A restore entry (a rendezvous
-        hook patch in the snapshot) reads as the original code it displaced."""
+        """Bytes at [va, va+n) if every page is readable (captured, or served from the image file), else None. The range
+        lies in one mapping: file offsets are per mapping. A restore entry (a rendezvous hook patch in the snapshot) reads
+        as the original code it displaced."""
         if n <= 0:
             return None
-        p = va & ~(PAGE - 1)
-        while p < va + n:
-            if not self.page_ok(p):
-                return None
-            p += PAGE
         m = self.mapping_of(va)
-        if va + n > m["va"] + m["size"]:  # one mapping only: file offsets are per mapping
+        if m is None or va + n > m["va"] + m["size"]:  # one mapping only: file offsets are per mapping
             return None
-        data = bytearray(os.pread(self.fd, n, m["off"] + (va - m["va"])))
+        data = bytearray()
+        cur, end = va, va + n
+        while cur < end:
+            page = cur & ~(PAGE - 1)
+            stop = min(end, page + PAGE)
+            if self._captured_page(page):
+                data += os.pread(self.fd, stop - cur, m["off"] + (cur - m["va"]))
+            elif self._served(page):
+                data += self.image.read(cur - IMAGE_BASE, stop - cur)
+            else:
+                return None
+            cur = stop
         for rva, code in self.restore.items():
             for i, b in enumerate(code):
                 if va <= rva + i < va + n:
@@ -288,16 +367,23 @@ class SnapMem:
             out += b
         return out.decode("ascii", "replace")
 
-    def module_base(self, va):
-        """Load base of the PE module whose image holds va, or None. A PE's sections map unnamed (only its header page
-        is named), so a mapping name cannot identify a module: the module is the nearest preceding 'MZ' mapping whose
-        SizeOfImage covers va."""
+    def module_bases(self):
+        """VAs of the snapshot's mappings that begin with a PE header ('MZ'), sorted; scanned on first use."""
         if self._mz is None:
             self._mz = sorted(m["va"] for m in self.maps if self.read(m["va"], 2) == b"MZ")
-        i = bisect.bisect_right(self._mz, va) - 1
+        return self._mz
+
+    def module_base(self, va):
+        """Load base of the PE module whose image holds va, or None. The game image (IMAGE_BASE) is identified by its
+        image file, so a slim capture that dropped its header still names it. Any other PE's sections map unnamed (only
+        its header page is named), so it is the nearest preceding 'MZ' mapping whose SizeOfImage covers va."""
+        if self.image is not None and IMAGE_BASE <= va < IMAGE_BASE + self.image.size_of_image:
+            return IMAGE_BASE
+        mz = self.module_bases()
+        i = bisect.bisect_right(mz, va) - 1
         if i < 0:
             return None
-        base = self._mz[i]
+        base = mz[i]
         return base if va < base + self._size_of_image(base) else None
 
     def _size_of_image(self, base):

@@ -55,7 +55,6 @@ INSTR_BUDGET = 50_000_000    # instructions per H step: a deterministic runaway 
 
 
 BLOCK = 0x40000             # snapshot bytes mapped per fault (256 KiB, clipped to the mapping)
-PES_EXE = "PES2021.exe"  # the game image's mapping name: identifies the image when a slim capture dropped its header
 STACK_BASE, STACK_SIZE = 0x10000000, 0x20000  # build_emu's default stack; rn.stack_top({}) is its top - 0x100
 
 
@@ -223,8 +222,7 @@ class LazyMap:
         if not self.sm.page_ok(page):
             return self._refuse(uc, self.unmapped_reason(addr) or ("fetch from unmapped or unreadable snapshot memory at %#x" % addr))
         base = self.sm.module_base(addr)
-        m = self.sm.mapping_of(addr)
-        if base == fs.IMAGE_BASE or (base is None and m is not None and m["name"].endswith(PES_EXE)):  # a slim capture drops the header
+        if base == fs.IMAGE_BASE:  # the game image: identified by its file, so a slim capture that dropped its header still runs it
             return self.handle(addr)
         if base is None:
             return self._refuse(uc, "fetch from code outside every PE module of the snapshot at %#x" % addr)

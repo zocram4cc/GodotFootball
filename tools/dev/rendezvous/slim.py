@@ -8,7 +8,8 @@ that is older than --min-age seconds (the watcher writes new ones). watch.log an
 Per capture:
   1. Replay its recorded call (frame_trace.py recorded --hooks --out --spec-dir) with every pread of its mem.bin
      logged (4 KiB file pages). That set is the replay's read set; the replay must return cleanly.
-  2. Keep = the read set plus one page either side. Write a sparse mem.bin of the same size holding only the kept
+  2. Keep = the read set plus the identity pages (identity_reads: every mapping's first page and each PE's header and
+     export tables; a replay that only runs a module's code never reads them), plus one page either side. Write a sparse mem.bin of the same size holding only the kept
      pages (a hole reads as zeros; offsets and size are unchanged, so every loader reads it as before).
   3. Replay the slim capture (same path). Verified only if it reads no page outside the kept set, returns cleanly,
      and its output directory and stdout are byte-identical to step 1. Then the full mem.bin is deleted. Any other
@@ -27,6 +28,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "translate"))
 import frame_trace as ft  # noqa: E402
+import full_snapshot as fs  # noqa: E402
 
 PAGE = 0x1000
 SCRATCH = "/mnt/Extra4/gf-Rendezvous-scratch"
@@ -94,6 +96,29 @@ def kept_pages(touched, size):
     return keep
 
 
+def identity_reads(cap):
+    """File pages of cap's mem.bin that naming its modules reads: every mapping's first page (the 'MZ' scan), and each
+    PE's header and export tables. A replay that runs only a module's code never reads these, so a slim built from the
+    replay alone drops them, and the slimmed module names nothing."""
+    global _touch
+    sm = fs.SnapMem(cap)
+    touched = set()
+    _touch = touched
+    os.pread = _logged_pread
+    try:
+        for base in sm.module_bases():
+            sm.entries_of(base)
+    finally:
+        os.pread = _orig_pread
+        _touch = None
+    return touched
+
+
+def keep_for(cap, touched, size):
+    """The pages a slim of cap keeps: the replay's read set and the identity pages, each with a neighbour."""
+    return kept_pages(set(touched) | identity_reads(cap), size)
+
+
 def sparse_copy(src, dst, keep):
     """A file of src's size holding only the kept pages (the rest is a hole that reads as zeros)."""
     size = os.path.getsize(src)
@@ -116,7 +141,7 @@ def trim(cap, hooks, spec_dir, work):
     out1, clean1, t1 = replay(cap, os.path.join(w, "full"), hooks, spec_dir)
     if not clean1:
         return "kept full: recorded replay did not return cleanly", before, before
-    keep = kept_pages(t1, os.path.getsize(mem))
+    keep = keep_for(cap, t1, os.path.getsize(mem))
     sparse_copy(mem, slim_tmp, keep)
     os.replace(mem, full_aside)
     os.replace(slim_tmp, mem)
