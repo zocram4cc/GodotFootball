@@ -23,6 +23,10 @@ add_executable(pes_animetable_test pes_animetable_test.cpp)
 target_link_libraries(pes_animetable_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_animetable_test)
 
+add_executable(pes_fdc_test pes_fdc_test.cpp)
+target_link_libraries(pes_fdc_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_fdc_test)
+
 add_executable(pes_mbinfo_test pes_mbinfo_test.cpp)
 target_link_libraries(pes_mbinfo_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_mbinfo_test)

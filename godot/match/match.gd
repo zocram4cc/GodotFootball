@@ -39,6 +39,8 @@ var _accumulator := 0.0
 var _lastAlpha := 1.0
 var _camera: Camera3D
 var _broadcast: PesBroadcastCamera
+var _cutscene: PesCutsceneCamera
+var _cut_t := 0.0
 var _fixed_pose := false
 
 
@@ -92,6 +94,12 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	_broadcast.reset(sim.ball_position())
+	# Debug entry: --fdc-cut <VFS path of a .fdc> [--fdc-camera N] plays that cut's camera track.
+	if args.has("fdc-cut"):
+		_cutscene = PesCutsceneCamera.new()
+		if _cutscene.load(library, String(args["fdc-cut"]), int(args.get("fdc-camera", 0))) != OK:
+			get_tree().quit(1)
+			return
 	ball = PesModelBuilder.new().build_model(library, BALL_PACK_FORMAT % int(args.get("ball", DEFAULT_BALL_ID)), "")
 	if ball == null:
 		push_error("ball model missing")
@@ -146,6 +154,10 @@ func _place(delta: float) -> void:
 		if motion != null and _skeletons[i] != null:
 			motion.update(i, _skeletons[i], sim.player_clip(i), delta)
 	if _fixed_pose:
+		return
+	if _cutscene != null:
+		_cut_t += delta
+		_cutscene.update(_camera, _cut_t)
 		return
 	if args.has("follow"):
 		var p: Vector3 = players[int(args["follow"])].global_position
