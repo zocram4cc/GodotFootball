@@ -43,6 +43,10 @@ add_executable(pes_clip_pose_test pes_clip_pose_test.cpp)
 target_link_libraries(pes_clip_pose_test PRIVATE pesrig GTest::gtest_main)
 gtest_discover_tests(pes_clip_pose_test)
 
+add_executable(pes_angle_oracle_test pes_angle_oracle_test.cpp)
+target_link_libraries(pes_angle_oracle_test PRIVATE pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_angle_oracle_test)
+
 # Godot-side checks run the real extension headless; 77 = skipped (no PES21_ROOT).
 add_test(NAME godot_character_test
   COMMAND ${CMAKE_SOURCE_DIR}/tools/godot.sh --headless --path ${CMAKE_SOURCE_DIR}/godot -s res://tests/test_character.gd)
