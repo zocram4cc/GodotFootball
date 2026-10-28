@@ -604,23 +604,30 @@ TEST(PesRestartDelay, AGoalKickIsReleasedOnThePesLadder) {
   constexpr long kForcedFrame = 110;  // the forced kick on ladder frame 109, read one tick later
   std::optional<unsigned long> checkedStop;
   int goalKicks = 0;
-  // The goal kicks of seed 7's twenty-minute match, wherever the trajectory puts them; three exercise both ladder modes.
+  // Three goal kicks exercise both ladder modes. The goal kicks move with every change to the match before them (the
+  // PES kick-quality fold, KickSoftMin, left seed 7's twenty minutes with none), so the test searches matches in turn,
+  // like the ceremony throw-in and natural-goal tests.
   constexpr int kGoalKicksChecked = 3;
-  RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
-    const RefereeBuffer& b = match.GetRefereeBuffer();
-    if (!b.active || !b.started || b.desiredSetPiece != e_SetPiece_GoalKick || !b.taker) return;
-    if (checkedStop && *checkedStop == b.stopTime) return;
-    checkedStop = b.stopTime;
-    goalKicks++;
-    // The mode comes from the ladder's own answer: a receiver is a lofted pass, none a kick into space.
-    const bool withReceiver = match.GetTeam(b.teamID)->GetController()->GoalKickReceiver() != nullptr;
-    const long expected = withReceiver ? kLoftedFrame : kForcedFrame;
-    const long framesFromArmed =
-        std::lround(static_cast<double>(match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
-    EXPECT_EQ(framesFromArmed, expected)
-        << (withReceiver ? "lofted" : "forced") << " goal kick released off its ladder frame";
-  }, kTwentyMinuteMaxSimTicks, [&](const Match&) { return goalKicks >= kGoalKicksChecked; }, SEED, false);
-  EXPECT_GT(goalKicks, 0) << "no goal kick was released";
+  const unsigned int kGoalKickSeeds[] = {SEED, 3u, 5u, 11u, 13u};
+  for (const unsigned int seed : kGoalKickSeeds) {
+    if (goalKicks >= kGoalKicksChecked) break;
+    checkedStop.reset();
+    RunMatchWithinTheBound(true, TWENTY_MINUTES, [&](Match& match) {
+      const RefereeBuffer& b = match.GetRefereeBuffer();
+      if (!b.active || !b.started || b.desiredSetPiece != e_SetPiece_GoalKick || !b.taker) return;
+      if (checkedStop && *checkedStop == b.stopTime) return;
+      checkedStop = b.stopTime;
+      goalKicks++;
+      // The mode comes from the ladder's own answer: a receiver is a lofted pass, none a kick into space.
+      const bool withReceiver = match.GetTeam(b.teamID)->GetController()->GoalKickReceiver() != nullptr;
+      const long expected = withReceiver ? kLoftedFrame : kForcedFrame;
+      const long framesFromArmed =
+          std::lround(static_cast<double>(match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
+      EXPECT_EQ(framesFromArmed, expected)
+          << (withReceiver ? "lofted" : "forced") << " goal kick released off its ladder frame (seed " << seed << ")";
+    }, kTwentyMinuteMaxSimTicks, [&](const Match&) { return goalKicks >= kGoalKicksChecked; }, seed, false);
+  }
+  EXPECT_GT(goalKicks, 0) << "no goal kick was released in any searched match";
 }
 
 // A mover whose PES clip reaches its last frame must go on. On seed 57 a presser (team 0, id 4) held zero speed in
