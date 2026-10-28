@@ -1,123 +1,75 @@
-# pes-port-SpecGen: one spec generator, the reproduction check, and the cutscene rollout (25-10-26)
+# SpecGen: closures from the image in one command; the EndClear chain does not land yet (28-10-26)
 
-Branch `SpecGen`, head `defa161` (ls-remote confirmed). Commits: `0014bdd` (generator, WIP), `d2a17ae` (switched specs and
-recorded results), `defa161` (merge of origin/main `4be8794`, batch Z). Gate not run (Main gates). All runs: scratch in
-`<workdrive>/gf-SpecGen-scratch`, `ulimit -v 2000000`, unicorn 2.1.0, capstone 5.0.7, image `pes_full.bin`, `--jobs 2`.
+Branch `SpecGen`, worktree `<workdrive>/gf-SpecGen`. Remote head `d14dc42b` (`git ls-remote origin SpecGen` confirmed). Commits:
+- `34d11748`: merge of `origin/EndClear` (`83022c25`) into SpecGen. Brings the EndClear records (diffed false, "harness cannot run"), their specs in `specs/core` (142109EB0, 142108630, 14063A290, 14063A490), `results_endclear_*.json`, RecordMap files. The old SpecGen head `c418423a` was an ancestor of main; reset with `-B`, nothing lost.
+- `d14dc42b`: `tools/dev/translate/closure.py` (new), `gen_translated.py` (refusal lists every conflict), `tools/dev/diffharness/README.md` (command and status).
 
-## Result
+Tags: CONFIRMED = read in tool output this session; INF = inference; OPEN = not settled.
 
-- **Generator in the repo:** `tools/dev/diffharness/specgen/`, run as `python3 -m specgen select|generate` from
-  `tools/dev/diffharness`. It replaces the two scratch pipelines (`<workdrive>/gf-Pilot-scratch/map`, `<workdrive>/gf-Impure-scratch`);
-  nothing in it refers to a machine path.
-- **Pilot (252):** the regenerated specs give the same 183 bit-exact functions as the committed specs. Nothing lost, nothing gained.
-- **Impure (50):** 7 bit-exact committed, 8 regenerated (`0x140639100` gained, none lost).
-- **Cutscene (751 pure seeds + 82 pure callees = 833):** 830 translated, 509 bit-exact at the 50% floor.
-  751 seeds: 447 bit-exact (59.5%). Decision rule (plan, 30-70% band): fix the top failure classes in the translator and
-  struct map, then re-pilot. Not a roll-out yet.
+## 0. Verdict
 
-## Reproduction check (CONFIRMED: driver runs)
+- The tooling part is done and pushed: one command takes root VAs and makes their closure regenerable from the image (no bridge): universe rows, pilot specs, set file. CONFIRMED by a 86-member run.
+- The EndClear chain does **not** land. Flipping the five records and regenerating fails on a stub-policy conflict, not on missing closure. The conflict is a policy decision (§3), not a tooling bug I can settle by code alone within this ticket. OPEN.
+- Committed state is green: `gen_translated.py --check` on SpecGen `d14dc42b` (= merged main + EndClear records, no flips, layer untouched) reports `3953 functions (3674 recorded bit-exact, 279 closure) regenerate byte-identical`, rc=0. CONFIRMED.
+- `driver.py --check` for core: NOT verified on a valid state (§4).
 
-| set | committed specs, full run | regenerated specs, full run | same bit-exact set | spec content (committed vs regenerated) |
-|---|---|---|---|---|
-| pilot, 252 | 252 translated, 183 diffed | 252 translated, 183 diffed | yes, no loss | 247 identical except `note` text; 5 differ only in the `domain` string of one case-varied input |
-| impure, 50 | 46 translated, 7 diffed | 46 translated, 8 diffed | 7 kept, `0x140639100` gained | see classes below |
+## 1. What `closure.py` does (commit d14dc42b)
 
-Classes of difference, impure (50):
-1. `note` and `closure_fix.rule` text (all 48 regenerated): the note names `rules.closure_fix`, not `fixclosure.py`.
-2. Fifth G accessor `0x140A489F0` (base 0xF3, count 22; bb2c491 applied it to one spec only): 19 specs reach it and gain
-   its 22 slots in `closure_fix`. In 17 the slots enter `regions_init` (E1EE declared). In 2 (`1404FB2A0`, `14097CD00`)
-   they are dangling (E1EE undeclared) and are dropped, so their `regions_init` is unchanged.
-3. Not generated: the G+0x180 table relink (`14065C2A0`, `140978E70`, `IndirectResolve`). These two keep their
-   committed hand-made specs. Their regenerated versions change class from `harness cannot run` to `struct map gap`; both are
-   not bit-exact either way.
-4. `14053B420`: the fifth accessor is listed in a different order only. Its content is unchanged.
+`python3 tools/dev/translate/closure.py --image IMG --spec-set core --tag endclear --subsystem AI 0x142109EB0 0x142108630 0x14063A290 0x14063A490 0x14063D2F0`
+1. Walks direct callees (CALL rel32, tail JMP to a `.pdata` function start) from each root. A callee's row comes from `tools/dev/ledger/universe.json` when present (bridge crawl kept as is); otherwise it is decoded from the image with capstone, bounded by `.pdata` (the exception directory at optional-header entry 3, read from the flat dump). No Ghidra bridge.
+2. Adds the missing rows to `universe.json` (keys `%08X`, same schema, `meta.closures[tag]` records the roots and count).
+3. Writes `specgen/sets/closure-<tag>.txt` (seed order), runs `specgen` pilot mode in-process, and writes each member's spec into `specs/<spec-set>/` **only if none is committed**; committed specs are kept and their difference from the generator output is printed (`--regenerate` overwrites).
+4. Idempotent; `--dry-run` lists the closure; `--roots-file`.
 
-Pilot differences are all text: `note` (generator provenance) and the `domain` strings of `G_14351AE54` (3 specs),
-`G_143704E38` (1) and `G_14351AE50` (1). Inputs, regions, outputs (5484011 audit), `live_data_reads` and `patch_addrs`
-match the committed specs in all 252 specs.
+Measured on the five EndClear roots: closure 86 members; 3 rows added (142109EB0, 142108630, 14063A290; 83 already in the universe); 12 specs in `specs/core` did not exist before (140477130, 14063DC10, 140A6CF30, 140470D00, 140A3E940, 140A57650, 14042D470, 1404F6700, 14063A420, 14063C9F0, 14159F3E0, 1415A1780). 74 committed core specs differ from the generator output: 72 by `seed` (seed = 1000 + position in the set file, so a different closure order changes it), 5 EndClear roots by hand-authored `regions`, `inputs`, `outputs`, `regions_init`, `stub_refs` (their specs were written by scratch wrappers outside the repo). Kept, not overwritten (§5).
 
-Switch decision: pilot specs switched (regenerated, same results). Impure specs switched except the two in item 3 (8 ≥ 7,
-no loss). `results.json` and `results_impure.json` re-recorded from full runs of the switched dirs.
+## 2. Red (oracle), CONFIRMED
 
-## Hand fixes carried as rules (`rules.py`, provenance in each docstring)
+- On the merged state with the five EndClear records flipped to `diffed: true` in `results_core.json` (scratch edit, not committed), `gen_translated.py --image pes_full.bin` (6 min) fails:
+  `gen_translated: 2 conflicts, first: 0x142108630 translates differently under core` rc=1.
+  Log: `<workdrive>/gf-SpecGen-scratch/red/gen-red-final.log`.
+- Note: main has no EndClear records, so the oracle was run on main + EndClear (the state the flips need).
 
-- `case_varied_globals` (pilot mode, 95f986f): five named functions read `.data` globals as case-varied inputs.
-- `audit_outputs` (pilot mode, 5484011): every return register written is checked (`translate/spec_outputs.py`).
-- `closure_fix` (impure mode, bb2c491, fixclosure.py): G record accessors laid out from the accessor's code.
-  Base, count and fallback are read from bytes (`cmp edx,n / add rax,base / mov rax,[rcx+fb]`); the shape is checked,
-  and an unexpected shape raises. The blanket 234 E1EE slots on G are removed. G child links are restored (CONFIRMED,
-  disassembly of `140A489A0`, `140A489F0`, `140A48A30`).
-- `drop_dangling` (impure mode, bb2c491): `regions_init` entries naming undeclared regions are dropped.
-- Negative indexed offsets (`IDX+0x-…`) parse (gen/gen_specs.py fix; needed for `impure`).
-- Seeds: `1000 + position` in the set file. Set files (`sets/*.txt`) keep the source order.
+## 3. Why green is not reached, CONFIRMED (root cause)
 
-## Cutscene rollout (driver full run, recorded in `tools/dev/translate/results_cutscene.json`)
+With the closure specs in `specs/core` and the five flips:
+- 7 conflicts: 0x14069CD40, 0x140A760E0, 0x142108630, 0x140477130, 0x14063A490, 0x14063DC10, 0x140A57650 (`<workdrive>/gf-SpecGen-scratch/green/write2.log`).
+- Without flips (closure specs only): 2 conflicts, 0x14069CD40 and 0x140A760E0 (`write3.log`).
+- Variant dump (`<workdrive>/gf-SpecGen-scratch/diag/collect.log`): each conflict is two gap-free translations that differ only in how a callee is emitted:
+  - `1415A1780` (sqrt): `s.set_x_f32(0, pes_model_sqrtf(...))` (a stub model) in one variant, `pes_fn_1415A1780(s)` (translated body) in the other;
+  - `14159F3E0`: `/* stub: engine-noop */` in one, `pes_fn_14159F3E0(s)` in the other.
+- Which variant each record uses is set by the record's own `stub_refs`. The snapdiff builds of 142108630, 14063A290 and 14063A490 (`gf-EndClear-scratch/sd5/gen/`) use the stubbed variant (5 and 3 grep hits for `pes_model_sqrtf`/`engine-noop`, 0 translated callees). 142109EB0's spec has no `stub_refs`, so its closure translates both as real calls. Its snapdiff build is not in scratch, so its stub usage is unknown (OPEN).
+- The layer keeps one variant per VA, so the generator refuses. Two records of one set (and the impure set) disagree on the stub model of the same callee.
+- `stubs.json` has no entry for 1415A1780, 14159F3E0, 140477130 or 14063DC10, so `stub_refs` is only a spec-level choice today.
 
-| set | attempted | translated | bit-exact at floor | bit-exact below floor | own-block coverage median (quartiles) |
-|---|---|---|---|---|---|
-| 751 cutscene seeds | 751 | 748 | 447 | 48 | 0.89 (0.00 / 0.89 / 1.00) |
-| 82 pure callees | 82 | 82 | 62 | 7 | 1.00 (0.65 / 1.00 / 1.00) |
-| all 833 | 833 | 830 | 509 | 55 | 0.90 (0.00 / 0.90 / 1.00) |
+## 4. Other checks
 
-Seeds are the ledger's `pure_rows` with subsystem `cutscene`: 751 (the brief's count). Callees are the closure over pure
-callees: AI 25, in-match menu 16, restart 9, pre-match 7, ball 6, gameplay 4, other 15.
+- `driver.py --check` (core): started on the state with the 12 extra specs; killed when they were removed from the tree mid-run, so it is not a valid result. Analysis (INF, not run): transitive `precheck.calls` over the 2253 core diffed non-snapdiff records reaches none of the 12 new VAs, so their unicorn results should not change. The gate's `diff_core_recorded` must run on Main's merge to confirm.
+- No test binaries built or run in this session beyond the generator and driver. No mutation runs (no engine code changed).
+- Driver change for snapdiff-proven records (skip in `--check`, since they have no unicorn corpus) was written and then reverted as unused. It is needed when the five flips land (§6, item 2).
 
-Coverage distribution, 830 translated functions:
+## 5. Decisions taken
 
-| own-block coverage | bit-exact at floor | not bit-exact |
-|---|---|---|
-| < 25% | 0 | 226 |
-| 25-50% | 0 | 42 |
-| 50-75% | 79 | 7 |
-| >= 75% | 430 | 46 |
+- Committed specs are kept by default (a closure run never changes a record's seed, regions or stub refs). `--regenerate` changes them; it would move 72 core records' seeds.
+- The five EndClear records are not flipped on this branch. A flip needs the stub decision (§6, item 1); flipping now would break the gate.
+- The bridge-free crawl is capstone + `.pdata` only; it does not do the bridge's boundary rules (RTTI engine namespaces, library symbols), so a root that reaches engine code would pull in its whole direct-call closure. `MAX_MEMBERS = 4000` guards it.
+- Indirect calls are not followed (the translator's runtime-dispatch fallback covers them). Answered CutsceneHybrid2 (141F41CE0, 141F4FDA0 blocked on indirect vtable calls at 1403FB47E/1403FB49F: not a closure gap; 1403FB410's stub model is the same open policy).
 
-Failures by class (324 not bit-exact):
+## 6. Open items (numbered)
 
-| class | count | examples (VA) | what the note says |
-|---|---|---|---|
-| struct map gap | 209 | 0x14000B250, 0x140012F50, 0x14001A6C0 (UC_ERR_MAP); 0x1402A51C0, 0x1402A51E0, 0x1403FB710 | 206 unicorn "Invalid memory mapping" faults; 1 region overlap (0x1414BB950, generator region size); 1 CPU exception (0x14175850F); 1 harness ValueError on a negative pointer-path element (0x141F79FF0) |
-| translator bug | 60 | 51 bit mismatches: 0x140001750 (`w_A0_10_d0`), 0x140003710 (`w_A0_30_d0`), 0x140004400 (`w_A0_0`), 0x140004DC0 (`w_A1_3C`), 0x14002A970 (`ret_xmm0`); 6 timeouts after 600 s: 0x1408D10B0, 0x1408D1410, 0x141F4C880; 3 translate TypeErrors (not translated): 0x140005530, 0x1400DB970, 0x140104DA0 | mismatch = output differs at the named case |
-| harness cannot run | 55 | 0x14000AEF0, 0x140019030, 0x140020910 | bit-exact but own-block coverage below the 50% floor |
+1. **Stub policy (blocks the EndClear chain).** Pick one: (a) a callee has one stub model across the layer, taken from one table (stubs.json), with `stub_refs` derived from it; the five records' stubs then need re-proof, or (b) keep per-record stubs and let each set's closure use its own variant (gen would emit per-set copies). Owner/Main decision.
+2. Land the five flips with `"proof": "snapdiff"` and their replay counts (14063D2F0 12/12; 142109EB0 5/5 danger-0 arm only; 142108630, 14063A290, 14063A490 6/6 each), plus the driver `--check` skip for them. Then run `closure.py` and `gen_translated.py`; then `--check`.
+3. Regenerate the 74 kept core specs or keep them (decide; affects seeds).
+4. Run `diff_core_recorded` on the merge (not run here, §4).
+5. Missing universe rows for 142109EB0, 142108630, 14063A290 come from the closure run (not committed yet, by design, since the run needs item 1).
 
-Not produced by the driver: engine call, live state, GPU. The fault classifier put every fault in synthetic space
-(struct map gap). Whether any of the 206 map faults are reads of image `.data` (live state) is not diagnosed (INF).
+## 7. Commands
 
-## Requests spent per stage (approximate; about 115 tool calls in total)
-
-- Orientation (brief, AGENTS, plan, docs, scratch scripts, data checks): ~38
-- Generator build (driver `--record`, package modules, consolidation, set files): ~30
-- Reproduction (diffs, scoping the case-varied rule, the negative-offset fix, accessor analysis): ~17
-- Cutscene (select, generate, runs, summaries, failure tables): ~9
-- Gate, README, commits, merge of origin/main, merged pilot check, push, this report: ~18
-
-## Verification run (all scratch output unless noted)
-
-- Baseline pilot (committed specs): 252/252 translated, 183 diffed (matches the committed record).
-- Regenerated pilot: 183 diffed, same set. Impure committed 7, regenerated 8. Cutscene full run: 833/830/509.
-- Recorded full runs in the repo: pilot 252/252/183, impure 50/46/8, cutscene 833/830/509.
-- `driver.py --check` pilot: 183/183 bit-exact (before the merge and after it, rc 0).
-- `driver.py --check` cutscene: 509/509 bit-exact (rc 0; run before the merge).
-- The merge brought batch Z changes: `fieldmap.json` (`gf` strings, never read by the translator), `pes_state.hpp`
-  (the window path, inactive unless set), and a new team-sheet test. The merged pilot check is green.
-- PII: no machine paths in source or specs (grep). `.pyc` caches were removed before staging.
-- Gate counts: `diff_pilot_recorded` = driver `--check` (183). New `diff_cutscene_recorded` (509).
-
-## Open items
-
-1. The G+0x180 table relink is not generated. `14065C2A0` and `140978E70` stay hand-made (both not bit-exact).
-2. Cutscene specs use pilot mode, which keeps the blanket E1EE slots on G. The accessor layout and blanket removal
-   exist only in impure mode. Their effect on the 206 map faults is untested (INF).
-3. The five case-varied inputs' `domain` strings differ in text from the committed ones.
-4. Generator bugs seen in the cutscene set: `0x1414BB950` (regions A0 and A1 overlap: a region's size comes from its
-   field offsets, and a large one passes the 4 MB stride) and `0x141F79FF0` (`objname` in `spec.py` parses a negative
-   pointer-path element with `int(p, 16)`; only indexed offsets were fixed).
-5. Not diagnosed: the 206 map faults, the 3 translate TypeErrors, the 6 timeouts, and `0x14175850F` (UC_ERR_EXCEPTION).
-6. `stubs.json` and the impure sample's quota logic (`pick.py`, `emit.py`) are not regenerated. The impure VA list is
-   committed in `sets/impure.txt` (picks order).
-7. The decision rule puts cutscene in the 30-70% band (59.5%). Next: fix the top classes (map faults, mismatches) and re-pilot.
-8. Live PES reads were not used. The specs take their values from the image only.
+- Closure: `"$GF_DIFF_PYTHON" tools/dev/translate/closure.py --image "$PES_EXE" --spec-set core --tag endclear --subsystem AI 0x142109EB0 0x142108630 0x14063A290 0x14063A490 0x14063D2F0`
+- Regenerate: `"$GF_DIFF_PYTHON" tools/dev/translate/gen_translated.py --image "$PES_EXE"` (writes `src/pes/translated`); drift: `... --check`.
+- Scratch: `<workdrive>/gf-SpecGen-scratch/` (red, green, diag, check-core logs). Nothing written to `<workdrive>/GodotFootball`.
 
 
-## Main at landing
+## Main's ruling (28-10-26): one global stub table
 
-`results_cutscene.json` was left uncommitted although `diff_cutscene_recorded` reads it; Main committed it from SpecGen's full run (`c418423`). Batch AA gate: 2033/2033, `diff_pilot_recorded` and `diff_cutscene_recorded` both passed.
+A callee is either always a model or always its translated body, in every set: CRT and engine routines (`sqrtf` 0x1415A1780, `__security_check_cookie` 0x14159F3E0, imports) are always models; PES's own functions are always translated. One translation per function follows, which the layer requires.
