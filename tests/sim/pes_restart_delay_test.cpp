@@ -56,9 +56,9 @@ constexpr int TWENTY_MINUTES = 20;
 // moves that throw-in (the role arrays put it past 30000 ticks), so the tests follow it through the whole twenty-minute
 // match and stop when its stoppage ends.
 constexpr unsigned int SEAMLESS_SEED = 3;
-// Seed 7's first throw-in on the twenty-minute match is a placed (ceremony) throw-in: prepared at tick 14428 and released
-// at 14521 (docs/ports/pes-port-ThrowInTaker.md). The windowed tests run just past it.
-constexpr unsigned long kFirstThrowInWindowTicks = 15000;
+// Seed 7's first touchline out on the twenty-minute match stops at tick 15577 on the R1 tree (StoppageFlow5 probe, ball
+// (-7.36, 34.44)). The old 14428 throw-in left the window when the foul hold was fixed. The windowed tests run past its release.
+constexpr unsigned long kFirstThrowInWindowTicks = 16500;
 // The same 30-minute cap as the other whole-match tests, counted in the 54 Hz logic
 // frames the sim ticks in.
 constexpr unsigned long kMaxSimTicks = 30ul * 60ul * Match::kFramesPerSecond;
