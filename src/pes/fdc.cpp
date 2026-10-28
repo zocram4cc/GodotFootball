@@ -1,7 +1,6 @@
 #include "pes/fdc.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <cstring>
 
 namespace pes::fdc {
@@ -108,31 +107,6 @@ std::array<float, 4> Channel(const Canm& c, size_t idx, float f) {
   const auto& ch = c.channels[idx];
   const KeyPair p = Locate(ch.frames, f);
   return Lerp4(ch.values[p.lo], ch.values[p.hi], p.t);
-}
-
-std::array<float, 4> Normalize(std::array<float, 4> q) {
-  const float n = std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
-  if (n > 0) {
-    for (float& v : q) v /= n;
-  }
-  return q;
-}
-
-// Shortest-arc slerp; nlerp when the keys are nearly equal (the sin of the angle vanishes).
-std::array<float, 4> Slerp(std::array<float, 4> a, std::array<float, 4> b, float t) {
-  float d = 0;
-  for (size_t i = 0; i < 4; ++i) d += a[i] * b[i];
-  if (d < 0) {
-    for (float& v : b) v = -v;
-    d = -d;
-  }
-  if (d > 0.9995f) return Normalize(Lerp4(a, b, t));
-  const float th = std::acos(d);
-  const float s = std::sin(th);
-  const float w0 = std::sin((1.0f - t) * th) / s, w1 = std::sin(t * th) / s;
-  std::array<float, 4> o{};
-  for (size_t i = 0; i < 4; ++i) o[i] = a[i] * w0 + b[i] * w1;
-  return Normalize(o);
 }
 
 }  // namespace
@@ -338,9 +312,8 @@ CameraSample SampleCanm(const Canm& c, float frame) {
   s.nearM = Channel(c, 3, frame)[0];
   s.farM = Channel(c, 4, frame)[0];
   s.aspect = Channel(c, 5, frame)[0];
-  const auto& rot = c.channels[0];
-  const KeyPair p = Locate(rot.frames, frame);
-  s.rotation = Slerp(rot.values[p.lo], rot.values[p.hi], p.t);
+  // PES 0x141eba8c0 lerps each quaternion component (v0 + f*(v1-v0)): no slerp, no renormalisation.
+  s.rotation = Channel(c, 0, frame);
   return s;
 }
 
