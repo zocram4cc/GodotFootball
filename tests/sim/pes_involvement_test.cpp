@@ -1,8 +1,9 @@
 // PES's officials' involvement (0x140A3A690, PesWorld::Involved) run on the world window. A stop is written into the
 // match-info block as PES reads it, and the answer is whether an official is involved in it. PES's label helper
 // 0x141E53520 gives an official index minus 22 when that is 0..2 and 4 otherwise (replay/pes_fn_141E53520.cpp), so:
-// the referee (22) is involved in a stop whatever the distance, and an assistant (23, 24) is involved when he is on the
-// spot's half and touchline and within 14 m of it (impure_sample/pes_fn_140A3A690.cpp, the stopped branch).
+// the referee (22) is involved in a stop whatever the distance. An assistant (23, 24) is involved when he is on the spot's
+// half (same X sign) and within 14 m of the spot across the touchline (|spot z - his z| < 14, same Z sign): PES's stopped
+// branch compares the Z offset only, so distance along the goal line is not an input (impure_sample/pes_fn_140A3A500.cpp).
 
 #include <gtest/gtest.h>
 
@@ -63,10 +64,24 @@ TEST(OfficialInvolvement, AnAssistantFiveMetresFromAFoulOnHisHalfIsInvolved) {
   EXPECT_TRUE(world.Involved(kAssistantOfficialIndex));
 }
 
-TEST(OfficialInvolvement, AnAssistantThirtyFiveMetresFromAFoulIsNotInvolved) {
+TEST(OfficialInvolvement, AnAssistantThirtyFiveMetresDownTheLineIsStillInvolved) {
   PesWorld world;
   StageFoulStop(world, -40.0f, 5.0f);
   PlaceOfficial(world, kAssistantOfficialIndex, -5.0f, 5.0f);
+  EXPECT_TRUE(world.Involved(kAssistantOfficialIndex));
+}
+
+TEST(OfficialInvolvement, AnAssistantThirteenMetresAcrossTheTouchlineIsInvolved) {
+  PesWorld world;
+  StageFoulStop(world, -40.0f, 5.0f);
+  PlaceOfficial(world, kAssistantOfficialIndex, -40.0f, 18.0f);
+  EXPECT_TRUE(world.Involved(kAssistantOfficialIndex));
+}
+
+TEST(OfficialInvolvement, AnAssistantFifteenMetresAcrossTheTouchlineIsNotInvolved) {
+  PesWorld world;
+  StageFoulStop(world, -40.0f, 5.0f);
+  PlaceOfficial(world, kAssistantOfficialIndex, -40.0f, 20.0f);
   EXPECT_FALSE(world.Involved(kAssistantOfficialIndex));
 }
 
