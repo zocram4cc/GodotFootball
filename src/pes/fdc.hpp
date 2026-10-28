@@ -106,9 +106,8 @@ struct CameraSample {
   float nearM = 0, farM = 0, aspect = 0;
 };
 
-// The pose at a (possibly fractional) frame, frame = seconds * 30 (PES's CANM key scale, 0x142591140).
-// Every channel, rotation included, is a per-component lerp between the bracketing keys (PES 0x141eba8c0):
-// no slerp and no renormalisation. Frames before the first key or after the last hold the end value.
+// The pose at a (possibly fractional) frame: position and fov linear, rotation slerped (the sign
+// flipped to the short arc). Frames before the first key or after the last hold the end value.
 CameraSample SampleCanm(const Canm& c, float frame);
 
 }  // namespace pes::fdc
