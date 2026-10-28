@@ -22,7 +22,7 @@
   }
  },
  "ret_note": "no rax write before ret: xmm0 (float) or void",
- "seed": 1882,
+ "seed": 4099160,
  "count": 64,
  "precheck": {
   "indirect_calls": [],

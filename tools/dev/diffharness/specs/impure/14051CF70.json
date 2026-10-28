@@ -531,7 +531,7 @@
   }
  },
  "ret_note": "rax (pointer-valued return)",
- "seed": 1034,
+ "seed": 5362520,
  "count": 64,
  "precheck": {
   "indirect_calls": [],
@@ -573,14 +573,8 @@
    "unresolved-mem@140A423A8",
    "unresolved-mem@140A423B2",
    "unresolved-mem@140A423B7"
-  ],
-  "stub_refs": [
-   "14159F3E0"
   ]
  },
- "stub_refs": [
-  "14159F3E0"
- ],
  "harness": {
   "harness_class": "runnable with stubs",
   "blockers": [],

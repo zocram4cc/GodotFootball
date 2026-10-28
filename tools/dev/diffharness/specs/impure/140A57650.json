@@ -116,7 +116,7 @@
   }
  },
  "ret_note": "no rax write before ret: xmm0 (float) or void",
- "seed": 1000,
+ "seed": 10844728,
  "count": 64,
  "precheck": {
   "indirect_calls": [],
@@ -137,14 +137,8 @@
   "flags": [
    "callee-outside-set@1415A1780",
    "tailjump@140A5770B"
-  ],
-  "stub_refs": [
-   "1415A1780"
   ]
  },
- "stub_refs": [
-  "1415A1780"
- ],
  "harness": {
   "harness_class": "runnable with stubs",
   "blockers": [],

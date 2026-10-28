@@ -11,6 +11,8 @@ become u32 pairs; 16-byte fields become two u64 inputs (outputs: four u32).
 """
 import collections
 
+from . import analyze as AN
+
 REGION_BASE = 0x20000000
 REGION_STRIDE = 0x400000
 DOMAIN_INT = "generic u8 range 0..255 (no doc range; width-typed)"
@@ -98,7 +100,7 @@ def pieces_in(off, w, kind, mode):
     return [(off + i, "u8", "_x%d" % i) for i in range(w)]
 
 
-def build(fn, index):
+def build(fn):
     fields = fn["fields"]
     groups = collections.OrderedDict()
     for f in fields:
@@ -227,7 +229,7 @@ def build(fn, index):
         "input_schema": schema,
         "outputs": outputs,
         "ret_note": ret_note,
-        "seed": 1000 + index,
+        "seed": seed_of(fn["va"]),
         "count": COUNT,
         "precheck": {
             "indirect_calls": [x for x in fn["flags"] if x.startswith("indirect-call")],
@@ -244,6 +246,12 @@ def build(fn, index):
     return spec
 
 
+def seed_of(va):
+    """Spec seed: 1000 + the VA's offset from the image base. Order-independent: the same VA gets the same seed in
+    every set file, so regenerating under another set order (closure.py, a reordered set) cannot change its cases."""
+    return 1000 + int(va, 16) - AN.BASE
+
+
 def build_all(analysis_rows):
-    """One spec per analysis row, in set order; seed = 1000 + position (the committed convention)."""
-    return [build(fn, i) for i, fn in enumerate(analysis_rows)]
+    """One spec per analysis row, in set order."""
+    return [build(fn) for fn in analysis_rows]

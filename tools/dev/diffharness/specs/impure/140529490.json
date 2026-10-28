@@ -247,7 +247,7 @@
   }
  },
  "ret_note": "rax (pointer-valued return)",
- "seed": 1005,
+ "seed": 5412984,
  "count": 64,
  "precheck": {
   "indirect_calls": [],
@@ -271,14 +271,8 @@
    "callee-outside-set@1405296B0",
    "callee-outside-set@1415A1780",
    "unresolved-mem@1408C5051"
-  ],
-  "stub_refs": [
-   "1415A1780"
   ]
  },
- "stub_refs": [
-  "1415A1780"
- ],
  "harness": {
   "harness_class": "runnable with stubs",
   "blockers": [],

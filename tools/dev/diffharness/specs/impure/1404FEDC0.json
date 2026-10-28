@@ -801,7 +801,7 @@
   }
  },
  "ret_note": "no rax write before ret: xmm0 (float) or void",
- "seed": 1021,
+ "seed": 5239208,
  "count": 64,
  "precheck": {
   "indirect_calls": [],
@@ -841,16 +841,8 @@
    "unresolved-mem@1404FF0E3",
    "unresolved-mem@1404FF6C7",
    "unresolved-mem@1408C5051"
-  ],
-  "stub_refs": [
-   "14159F3E0",
-   "1415A1780"
   ]
  },
- "stub_refs": [
-  "14159F3E0",
-  "1415A1780"
- ],
  "harness": {
   "harness_class": "harness cannot run",
   "blockers": [

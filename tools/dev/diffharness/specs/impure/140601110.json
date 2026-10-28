@@ -261,7 +261,7 @@
   }
  },
  "ret_note": "rax (pointer-valued return)",
- "seed": 1046,
+ "seed": 6296824,
  "count": 64,
  "precheck": {
   "indirect_calls": [
@@ -288,10 +288,8 @@
    "unresolved-mem@14060122F",
    "unresolved-mem@140601257",
    "unresolved-mem@140601283"
-  ],
-  "stub_refs": []
+  ]
  },
- "stub_refs": [],
  "harness": {
   "harness_class": "harness cannot run",
   "blockers": [

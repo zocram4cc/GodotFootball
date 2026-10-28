@@ -375,7 +375,7 @@
   }
  },
  "ret_note": "eax (integer/bool return; upper bits unchecked)",
- "seed": 1009,
+ "seed": 10829272,
  "count": 64,
  "precheck": {
   "indirect_calls": [],
@@ -409,14 +409,8 @@
   "flags": [
    "callee-outside-set@1415A1780",
    "unresolved-mem@140A53AB4"
-  ],
-  "stub_refs": [
-   "1415A1780"
   ]
  },
- "stub_refs": [
-  "1415A1780"
- ],
  "harness": {
   "harness_class": "runnable with stubs",
   "blockers": [],

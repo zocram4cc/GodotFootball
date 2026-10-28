@@ -846,9 +846,6 @@
    "IMG"
   ],
   "stack_args": {},
-  "stub_refs": [
-   "1415A1780"
-  ],
   "tailjumps": [
    "tailjump@140A57802"
   ],
@@ -952,15 +949,12 @@
   "IMG.1436F3DC8+0x270": "IMG.1436F3DC8.270"
  },
  "ret_note": "rax (pointer-valued return)",
- "seed": 1038,
+ "seed": 9933400,
  "stack": {
   "base": "0x10000000",
   "size": "0x20000"
  },
  "status": "impure-sample",
- "stub_refs": [
-  "1415A1780"
- ],
  "subsystem": "impure-sample",
  "va": "0x140978E70"
 }

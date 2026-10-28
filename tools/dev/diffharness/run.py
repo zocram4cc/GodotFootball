@@ -147,26 +147,15 @@ def sqrt_f32_bits(b):
 
 
 def resolve_stubs(spec):
-    """Add the stubs.json model of every callee in stub_refs to spec["stubs"].
-    The table is shared with the translator (translate/stubs.py)."""
+    """Install every stubs.json model in spec["stubs"]: the one table the translator reads too (translate/stubs.py).
+    The choice is the table's, never the spec's: a legacy stub_refs field may only name modelled callees."""
     sys.path.insert(0, TRANSLATE_DIR)
     import stubs as stub_table
     table = stub_table.load()
+    stub_table.check_spec_refs(spec, table, spec.get("name") or "spec")
     stubs = dict(spec.get("stubs") or {})
-    for ref in sorted(set(spec.get("stub_refs") or [])):
-        entry = table.get(int(ref, 16))
-        if entry is None:
-            raise SystemExit("stub %s: no entry in stubs.json" % ref)
-        if entry["do"] == "unmodellable":
-            raise SystemExit("unmodellable callee %s: %s" % (ref, entry["why"]))
-        if entry["do"] is None:
-            raise SystemExit("stub_refs %s is run-real, not a stub" % ref)
-        stubs["stub_" + ref] = {"va": entry["va"], "do": entry["do"]}
-    # Abort traps are installed in every spec: a case that reaches one is a PES abort (recorded
-    # and excluded), whichever callee closure reaches it.
-    for entry in table.values():
-        if entry["do"] == "abort":
-            stubs.setdefault("stub_" + entry["va"][2:], {"va": entry["va"], "do": "abort"})
+    for va, entry in stub_table.models(table).items():
+        stubs["stub_%X" % va] = {"va": entry["va"], "do": entry["do"]}
     spec["stubs"] = stubs
     return spec
 

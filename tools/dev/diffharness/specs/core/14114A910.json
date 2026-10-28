@@ -21,7 +21,7 @@
   }
  },
  "ret_note": "rax (pointer-valued return)",
- "seed": 3437,
+ "seed": 18132216,
  "count": 64,
  "precheck": {
   "indirect_calls": [],

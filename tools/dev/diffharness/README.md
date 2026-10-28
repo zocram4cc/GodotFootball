@@ -71,7 +71,8 @@ is copied into `specs/`.
     python3 -m specgen generate --set specgen/sets/impure.txt --mode impure \
         --pilot-set specgen/sets/pilot.txt --image "$PES_EXE" --out-dir DIR
 
-- `sets/`: VA lists, one per line (`VA<TAB>status`). Order is part of the spec: the seed is 1000 + position.
+- `sets/`: VA lists, one per line (`VA<TAB>status`). Order is not part of the spec: a spec's seed is 1000 + the VA's
+  offset from the image base (`specgen/spec.py` `seed_of`), so set order and closures cannot change a record's cases.
 - `sets/presentation.txt`: the replay, camera, crowd, HUD and audio pure rows as one union (594 seeds and 45 callees).
   The fourth column is the role (seed or callee), the third the subsystem that reaches the row first; the driver's
   `--set` records both on each result. Match commentary is out (owner ruling 25-10-26): no RTTI or string evidence
@@ -99,13 +100,13 @@ pilot-mode spec per member, from the standard generator, into `specs/<SPEC-SET>/
 Run it from the repo root. Roots that are already in the universe keep their rows and subsystems; `--subsystem` names
 the subsystem of the rows it adds.
 
-Status (28-10-26): this command does not yet close the EndClear roots. With their closure in `specs/core`, the core
-universe translates `14069CD40` and `140A760E0` differently from the impure records' universe, and `gen_translated`
-refuses with a conflict. Cause: records of one set carry different stub models (`stub_refs`) for the same callee, and
-the layer keeps one variant. A policy decision on stub models is needed before the chain can land.
+Stub choice (one table, ruling 28-10-26): `tools/dev/translate/stubs.json` decides every callee for every spec set. A
+callee the table models (`stubs.py` `MODEL_DOS`: `sqrt_xmm0`, `noop`, `abort`) is always its model; any other callee is
+its translated body or blocked. No spec carries a stub choice: the per-spec `stub_refs` field is gone, and a legacy
+`stub_refs` entry that does not name a model is an error when the spec loads. The closure never makes a model a member.
 
 `--dry-run` lists the closure and writes nothing; `--roots-file FILE` takes one VA per line. The records that use the
 closure are the spec set's own (`results_<set>.json`); the closure only supplies their callee universe. A committed spec is
 kept as it is: only a member with no spec in the set gets one (the seeds and regions of a committed spec are its record's
-input). `--regenerate` rewrites every member's spec from the generator, which changes the seeds of the set's other records.
+input). `--regenerate` rewrites every member's spec from the generator (its regions and inputs, not its seed: seeds come from the VA).
 `GF_CLOSURE_TMP` picks the scratch directory for the spec generation.

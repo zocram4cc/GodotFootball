@@ -244,7 +244,7 @@
   }
  },
  "ret_note": "eax (integer/bool return; upper bits unchecked)",
- "seed": 1015,
+ "seed": 6846200,
  "count": 64,
  "precheck": {
   "indirect_calls": [],
@@ -286,14 +286,8 @@
    "unresolved-mem@14068761E",
    "unresolved-mem@140687702",
    "unresolved-mem@1408C590A"
-  ],
-  "stub_refs": [
-   "14159F3E0"
   ]
  },
- "stub_refs": [
-  "14159F3E0"
- ],
  "harness": {
   "harness_class": "runnable with stubs",
   "blockers": [],

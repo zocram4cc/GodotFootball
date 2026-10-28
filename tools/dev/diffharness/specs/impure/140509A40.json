@@ -231,7 +231,7 @@
   }
  },
  "ret_note": "eax (integer/bool return; upper bits unchecked)",
- "seed": 1039,
+ "seed": 5283368,
  "count": 64,
  "precheck": {
   "indirect_calls": [],
@@ -259,10 +259,8 @@
    "callee-outside-set@140A7F370",
    "callee-outside-set@140A7F3B0",
    "callee-outside-set@140A7F3E0"
-  ],
-  "stub_refs": []
+  ]
  },
- "stub_refs": [],
  "harness": {
   "harness_class": "harness cannot run",
   "blockers": [

@@ -64,7 +64,7 @@ def context(name, va, image):
     spec, _ = driver.load_spec(sdir, va)
     if spec is None:
         raise SystemExit("gen_translated: no spec for %s in %s" % (va, name))
-    stubs = {**driver.stubmap_of(spec), **driver.ABORTMAP}
+    stubs = driver.MODEL_MAP
     universe = driver.universe_of(sdir) | set(driver.runnable_extra(spec, image)[0])
     return spec, stubs, universe
 

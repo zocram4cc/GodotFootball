@@ -38,6 +38,9 @@ sys.path.insert(0, DIFFH)
 from specgen import sets as SETS  # noqa: E402
 from specgen.__main__ import generate as specgen_generate  # noqa: E402
 
+import stubs as stub_table  # noqa: E402  (the one stub table: a model is never a closure member)
+MODEL_VAS = set(stub_table.models(stub_table.load()))
+
 IMAGE_BASE = 0x140000000
 DIRECT_KINDS = ("direct", "tail")  # the callee kinds the translator links as pes_fn_ calls
 MAX_MEMBERS = 4000
@@ -113,6 +116,8 @@ def crawl(roots, universe, pdata, tag):
         if va in seen:
             continue
         seen.add(va)
+        if va in MODEL_VAS:
+            continue  # the table models it (CRT, engine, import thunk): never a member, never walked
         if len(members) >= MAX_MEMBERS:
             raise SystemExit("closure: more than %d members (a root reaches the whole engine); stop it" % MAX_MEMBERS)
         key = "%08X" % va
