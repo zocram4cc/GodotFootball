@@ -43511,6 +43511,57 @@
   {
    "aborted": 0,
    "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x14063A290": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x14063A490": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 222
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 64,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 64 failed skipped",
+   "requested": 64,
+   "stubs": [],
+   "translated": true,
+   "va": "0x14063A290"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 64,
+   "coverage": {
+    "0x14063A370": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 5,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
+   "stubs": [],
+   "translated": true,
+   "va": "0x14063A370"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x14063A3B0": {
@@ -43532,6 +43583,29 @@
    "subsystem": "ball",
    "translated": true,
    "va": "0x14063A3B0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x14063A490": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 222
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 128,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 128 failed skipped",
+   "requested": 64,
+   "stubs": [],
+   "translated": true,
+   "va": "0x14063A490"
   },
   {
    "aborted": 0,
@@ -43637,6 +43711,34 @@
    "subsystem": "ball",
    "translated": true,
    "va": "0x14063C4B0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 57,
+   "coverage": {
+    "0x14063A370": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x14063C560": {
+     "fraction": 1.0,
+     "reached": 4,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 7,
+   "failure_class": null,
+   "icount_max": 38,
+   "nonreturn": 0,
+   "note": "57 cases bit-exact; own-block coverage 1.00; 57 valid of 64 requested; 7 failed skipped",
+   "requested": 64,
+   "stubs": [],
+   "translated": true,
+   "va": "0x14063C560"
   },
   {
    "aborted": 0,
@@ -94810,6 +94912,97 @@
    "subsystem": "ball",
    "translated": true,
    "va": "0x1421085B0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x14063A290": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x14063A370": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14063A490": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 222
+    },
+    "0x14063C560": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x142108630": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 366
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 128,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 128 failed skipped",
+   "requested": 64,
+   "stubs": [],
+   "translated": true,
+   "va": "0x142108630"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 2,
+   "coverage": {
+    "0x14063A290": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x14063A370": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14063A490": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 222
+    },
+    "0x14063C560": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x142108630": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 366
+    },
+    "0x142109EB0": {
+     "fraction": 0.5,
+     "reached": 2,
+     "total": 4
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 67,
+   "failure_class": "harness cannot run",
+   "icount_max": 10,
+   "nonreturn": 0,
+   "note": "2 valid of 64 requested; 67 failed skipped",
+   "requested": 64,
+   "stubs": [],
+   "translated": true,
+   "va": "0x142109EB0"
   },
   {
    "aborted": 0,
