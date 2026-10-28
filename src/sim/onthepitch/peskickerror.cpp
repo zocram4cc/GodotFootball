@@ -1,4 +1,6 @@
 #include "peskickerror.hpp"
+#include "pes/translated/translated.hpp"
+#include "pes_state.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -37,6 +39,9 @@ float HalfNormal(const KickErrorConstants& k, int n) {
 // ponytail: neutral 1.0 here; port when animations carry PES kick kinds.
 constexpr float kSituationNotPorted = 1.0f;
 
+// The install's quarter-wave sine table (513 floats at 0x142655950), read at load and mapped into the translated sine.
+constexpr uint64_t kSinTableVa = 0x142655950;
+
 }  // namespace
 
 std::optional<KickErrorConstants> LoadKickErrorConstants(const PeImage& exe, std::string* error) {
@@ -66,14 +71,12 @@ std::optional<KickErrorConstants> LoadKickErrorConstants(const PeImage& exe, std
       {0x14259be34, &k.normalCentre},   {0x1426550dc, &k.normalTabScale},
       {0x14259a768, &k.normalNegTwo},   {0x1426550e8, &k.normalTabSteps},
       {0x14256ae34, &k.normalDraw},     {0x14259858c, &k.fullTurn_deg},
-      {0x14259be5c, &k.quarterTurn_deg}, {0x142598580, &k.halfTurn_deg}};
+      {0x14259be5c, &k.quarterTurn_deg}};
   for (auto [va, out] : rdata)
     ok &= exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out));
   constexpr uint64_t LOG_TABLE_VA = 0x1426548c0;
   ok &= exe.ReadVa(LOG_TABLE_VA, sizeof k.logTable, reinterpret_cast<uint8_t*>(k.logTable.data()));
-  constexpr uint64_t SIN_TABLE_VA = 0x142655950;
-  ok &= exe.ReadVa(SIN_TABLE_VA, sizeof k.sinTable,
-                   reinterpret_cast<uint8_t*>(k.sinTable.data()));
+  ok &= exe.ReadVa(kSinTableVa, sizeof k.sinTable, reinterpret_cast<uint8_t*>(k.sinTable.data()));
   if (!ok) {
     *error = "kick error constant: .rdata unreadable";
     return std::nullopt;
@@ -112,29 +115,17 @@ float SoftMin4(float a, float b, float c, float d) {
   return x;
 }
 
-// 0x140a92c80: sin of `deg` in degrees, times `amp`, from the quarter-wave table with linear
-// interpolation. An angle below 0 gains one lap; one at or past a lap loses one; past 180 the
-// sine flips sign. Off the table (index outside 0..511) it returns sign*amp.
+// 0x140a92c80: sin of `deg` in degrees, times `amp`. Runs PES's own translated function
+// (ball/pes_fn_140A92C80.cpp: xmm0 = deg, xmm1 = amp, result in xmm0). The translated code reads
+// the quarter-wave table through its memory view, so the install's table is mapped as that window.
 float SinTableDeg(const KickErrorConstants& k, float deg, float amp) {
-  float x = deg;
-  if (x > 0.0f) {
-    if (x >= k.fullTurn_deg) x -= k.fullTurn_deg;
-  } else {
-    x += k.fullTurn_deg;
-  }
-  float sign = 1.0f;
-  if (x >= k.halfTurn_deg) {
-    sign = -1.0f;
-    x -= k.halfTurn_deg;
-  }
-  if (x >= k.quarterTurn_deg) x = k.halfTurn_deg - x;
-  const float t = x / k.quarterTurn_deg * k.normalTabSteps;
-  // cvttss2si truncates, so (-1, 512) is the range that indexes 0..511.
-  if (!(t > -1.0f && t < 512.0f)) return sign * amp;
-  const int idx = static_cast<int>(t);
-  const float frac = t - static_cast<float>(idx);
-  const float v = (1.0f - frac) * k.sinTable[idx] + frac * k.sinTable[idx + 1];
-  return v * (sign * amp);
+  PesState s;
+  s.mem.window = {kSinTableVa, sizeof k.sinTable, reinterpret_cast<const uint8_t*>(k.sinTable.data()),
+                  nullptr};
+  s.set_x_f32(0, deg);
+  s.set_x_f32(1, amp);
+  ::pes_fn_140A92C80(s);
+  return s.x_f32(0);
 }
 
 int Normal(Random& rng, const KickErrorConstants& k, float amp) {

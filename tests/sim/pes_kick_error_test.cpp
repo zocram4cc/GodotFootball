@@ -29,7 +29,7 @@ pes::KickErrorConstants Synthetic() {
   k.nearOpp_m = 1; k.farOpp_m = 2; k.dWeight = 1.5f;
   k.normalDiv = std::sqrt(-2.0f * std::log(1.0f / 512.0f)); k.normalCentre = 50;
   k.normalTabScale = 1.0f / 4096.0f; k.normalNegTwo = -2; k.normalTabSteps = 512;
-  k.normalDraw = 1000; k.fullTurn_deg = 360; k.quarterTurn_deg = 90; k.halfTurn_deg = 180;
+  k.normalDraw = 1000; k.fullTurn_deg = 360; k.quarterTurn_deg = 90;
   for (int i = 1; i < pes::kNormalTableSize; ++i)
     k.logTable[i] = -std::log(512.0f / static_cast<float>(i)) * 4096.0f;
   k.logTable[0] = k.logTable[1];
@@ -177,8 +177,8 @@ TEST(PesKickError, ApplyTurnsLiftsAndScales) {
 }
 
 TEST(PesKickError, SinTableIsDegreesScaledByAmpAndWrapped) {
-  // 0x140a92c80: sin in degrees from the quarter-wave table, times amp. An angle
-  // at or past one lap wraps once; past 180 the sine flips sign.
+  // 0x140a92c80: sin in degrees, times amp. An angle at or past one lap wraps once;
+  // past 180 the sine flips sign. Runs PES's translated code over the table.
   const auto k = Synthetic();
   EXPECT_FLOAT_EQ(pes::SinTableDeg(k, 90, 1), 1.0f);
   EXPECT_NEAR(pes::SinTableDeg(k, 30, 1), 0.5f, 1e-3);
@@ -188,13 +188,13 @@ TEST(PesKickError, SinTableIsDegreesScaledByAmpAndWrapped) {
   EXPECT_NEAR(pes::SinTableDeg(k, 390, 1), 0.5f, 1e-3);
 }
 
-TEST(PesKickError, SinTableIsExactAtItsKnots) {
-  // Knot i sits at 90 * i / 512 degrees, which float holds exactly, and the next
-  // entry's weight is zero there: the lookup returns the table entry itself.
+TEST(PesKickError, SinTableIsTheSineAtItsKnots) {
+  // Knot i sits at 90 * i / 512 degrees; the table holds sin there to float precision.
   const auto k = Synthetic();
+  const double kPiRad = std::acos(-1.0) / 180.0;
   for (int i = 0; i < pes::kNormalTableSize - 1; i += 37) {
-    const float deg = static_cast<float>(i) * (k.quarterTurn_deg / 512.0f);
-    EXPECT_EQ(pes::SinTableDeg(k, deg, 1.0f), k.sinTable[i]) << "knot " << i;
+    const float deg = static_cast<float>(i) * (90.0f / 512.0f);
+    EXPECT_NEAR(pes::SinTableDeg(k, deg, 1.0f), std::sin(deg * kPiRad), 1e-5) << "knot " << i;
   }
 }
 
@@ -213,6 +213,7 @@ TEST(PesKickErrorInstall, LoadsFromTheExe) {
   // The table is -ln(512/i) in 2^-12 units, and the divisor is its far end.
   EXPECT_FLOAT_EQ(k->logTable[512], 0.0f);
   EXPECT_FLOAT_EQ(k->sinTable[512], 1.0f);
+  EXPECT_FLOAT_EQ(pes::SinTableDeg(*k, 90.0f, 1.0f), 1.0f);
   EXPECT_NEAR(k->logTable[256] * k->normalTabScale, -std::log(2.0f), 1e-3);
   EXPECT_NEAR(std::sqrt(k->normalNegTwo * k->logTable[1] * k->normalTabScale), k->normalDiv,
               1e-3);

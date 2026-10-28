@@ -79,9 +79,8 @@ struct KickErrorConstants {
   float normalDraw = 0.0f;      // 1000 @0x14256ae34
   float fullTurn_deg = 0.0f;    // 360 @0x14259858c
   float quarterTurn_deg = 0.0f; // 90  @0x14259be5c
-  float halfTurn_deg = 0.0f;    // 180 @0x142598580
   std::array<float, kNormalTableSize> logTable{};  // 0x1426548c0, raw: -ln(512/i)*4096
-  std::array<float, kNormalTableSize> sinTable{};  // 0x142655950: sin(i*90/512 deg), 513 entries
+  std::array<float, kNormalTableSize> sinTable{};  // 0x142655950: sin(i*90/512 deg), 513 entries, read at load
 
   // --- Penalty aim scatter (FUN_1406b4000, FUN_1406e3210; pespenaltyscatter.*) ---
   PenaltyScatterConstants penaltyScatter{};
@@ -99,7 +98,8 @@ float SoftMin4(float a, float b, float c, float d);
 
 // Normal(rng, amp, 0) 0x140a92590: an int in 0..99 around 50.
 int Normal(Random& rng, const KickErrorConstants& k, float amp);
-// 0x140a92c80: sin of `deg` in degrees, times `amp`, from the quarter-wave sine table.
+// 0x140a92c80: sin of `deg` in degrees, times `amp`, PES's translated sine (ball/pes_fn_140A92C80) over the
+// install's quarter-wave table `k.sinTable`.
 float SinTableDeg(const KickErrorConstants& k, float deg, float amp);
 
 // The launch-power penalty I (rsp+0x58). Pass: launch speed and elevation
