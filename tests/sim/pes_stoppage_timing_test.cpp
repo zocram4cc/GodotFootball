@@ -297,6 +297,9 @@ TEST(PesStoppageInstall, LoadsFromTheExe) {
   ASSERT_TRUE(k) << err;
   // A foul holds longer than an out-of-play stop (5.0 vs 2.5 s).
   EXPECT_GT(k->holdKind1_s, k->holdKind5_s);
+  // table[1], the ordinary foul hold: 5.0 s with no scene (pes-re-foul-choreography.md 9.2). FUN_14044e460 reads lane 1
+  // of the 16-byte vector at 0x14259ce60 for index 1, which is VA 0x14259ce64 (lane 0, at 0x14259ce60, is 8.0).
+  EXPECT_NEAR(k->holdKind1_s, 5.0f, 1e-5);
   // A player down costs the same again: PES's +2.5 s is the table[5] value.
   EXPECT_NEAR(k->downedPlayerExtra_s, k->holdKind5_s, 1e-5);
   // The wipe is the shortest beat and the fade-in the longest of the tail.
