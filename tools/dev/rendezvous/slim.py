@@ -29,7 +29,6 @@ sys.path.insert(0, os.path.join(HERE, "..", "translate"))
 import frame_trace as ft  # noqa: E402
 
 PAGE = 0x1000
-SCRATCH = "/mnt/Extra4/gf-Rendezvous-scratch"
 DEFAULT_SPECS = os.path.join(HERE, "..", "diffharness", "specs", "impure")
 _orig_pread = os.pread
 _touch = None  # file pages of mem.bin read by the current replay (None: not recording)
@@ -135,10 +134,10 @@ def trim(cap, hooks, spec_dir, work):
     return "kept full: " + reason, before, before
 
 
-def default_captures(min_age):
+def default_captures(scratch, min_age):
     now, out = time.time(), []
     for d in ("live", "live2"):
-        root = os.path.join(SCRATCH, d)
+        root = os.path.join(scratch, d)
         for name in sorted(os.listdir(root)):
             p = os.path.join(root, name)
             if not (name.startswith("seq") and os.path.isdir(p)):
@@ -155,11 +154,15 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("captures", nargs="*")
     ap.add_argument("--hooks", required=True, help="the rv.dll hook config the captures were taken with")
+    ap.add_argument("--scratch", help="the capture root holding live/ and live2/ (default when no captures are named)")
     ap.add_argument("--spec-dir", default=DEFAULT_SPECS)
     ap.add_argument("--min-age", type=float, default=600.0)
-    ap.add_argument("--work", default=os.path.join(SCRATCH, "slim-work"))
+    ap.add_argument("--work", help="scratch dir for replay outputs (default: SCRATCH/slim-work)")
     args = ap.parse_args()
-    caps = args.captures or default_captures(args.min_age)
+    if not args.captures and not args.scratch:
+        ap.error("name the captures or give --scratch")
+    caps = args.captures or default_captures(args.scratch, args.min_age)
+    args.work = args.work or os.path.join(args.scratch or os.path.dirname(caps[0].rstrip("/")), "slim-work")
     os.makedirs(args.work, exist_ok=True)
     tot_before = tot_after = 0
     for cap in caps:
