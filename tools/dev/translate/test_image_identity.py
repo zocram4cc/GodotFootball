@@ -88,7 +88,7 @@ def main():
         code = IB + PAGE
         checks = [
             ("captured code page reads its bytes", lambda: sm.read(code, 8) == image[PAGE:PAGE + 8]),
-            ("header page dropped by the slim is refused, not zeros", lambda: sm.read(IB, 8) is None),
+            ("dropped header page is read-only, so the image serves it (its MZ)", lambda: sm.read(IB, 2) == b"MZ"),
             ("code address is in the image, with the header dropped", lambda: sm.module_base(code) == IB),
             ("dropped read-only page is served from the image", lambda: sm.read(ro_page, 16) == image[2 * PAGE:2 * PAGE + 16]),
             ("dropped read-only page is served, not dropped", lambda: sm.page_ok(ro_page) and not sm.page_dropped(ro_page)),
