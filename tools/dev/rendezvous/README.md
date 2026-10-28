@@ -55,3 +55,12 @@ Snapshots and the hook config contain PES bytes: they stay outside the repo.
 Pauses take about 1-7 s each on a 4 GB process. The DLL releases the thread on its own after the module's
 `TIMEOUT_MS` (60 s) if no watcher answers; the watcher aborts a read that passes its 60 s pause cap and
 releases the game at once.
+
+**Slim a capture** (after a replay has proven it): `python3 tools/dev/rendezvous/slim.py --hooks <run>/hooks.cfg`
+(default: every seq dir of `live/` and `live2/` older than 10 minutes; or pass the seq dirs). It replays each capture's
+recorded call, logs every `mem.bin` page read, and rewrites `mem.bin` as a sparse file of the same size and offsets that
+keeps only those pages plus one page either side. The slim copy is replayed again and must read only kept pages and
+return byte-identical output before the full file is deleted; otherwise the full capture is restored and reported.
+Run it when a capture's hook has no open replay question. Caveat: the full file is deleted after verification, so a
+later replay that reads a page outside the kept set cannot run on that capture. Keep the replay's `--out` trace as the
+record of what the capture proved.
