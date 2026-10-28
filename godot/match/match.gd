@@ -94,10 +94,10 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	_broadcast.reset(sim.ball_position())
-	# Debug entry: --fdc-cut <VFS path of a .fdc> [--fdc-camera N] plays that cut's camera track.
-	if args.has("fdc-cut"):
+	# Debug entry: --fdc-scene <hex FixDemo scene id, e.g. 0x20009> [--fdc-camera N] plays that scene's camera track.
+	if args.has("fdc-scene"):
 		_cutscene = PesCutsceneCamera.new()
-		if _cutscene.load(library, String(args["fdc-cut"]), int(args.get("fdc-camera", 0))) != OK:
+		if _cutscene.load_scene(library, String(args["fdc-scene"]).hex_to_int(), int(args.get("fdc-camera", 0))) != OK:
 			get_tree().quit(1)
 			return
 	ball = PesModelBuilder.new().build_model(library, BALL_PACK_FORMAT % int(args.get("ball", DEFAULT_BALL_ID)), "")

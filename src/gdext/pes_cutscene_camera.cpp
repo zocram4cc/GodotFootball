@@ -1,4 +1,5 @@
 #include "gdext/pes_cutscene_camera.hpp"
+#include "pes/fixdemo_table.hpp"
 
 #include <godot_cpp/variant/basis.hpp>
 #include <godot_cpp/variant/quaternion.hpp>
@@ -20,7 +21,7 @@ constexpr float kMinNearM = 0.1f;
 
 }  // namespace
 
-Error PesCutsceneCamera::load(const Ref<PesLibrary>& library, const String& vfs_path, int camera_index) {
+Error PesCutsceneCamera::load_file(const Ref<PesLibrary>& library, const String& vfs_path, int camera_index) {
   if (!library.is_valid()) return ERR_UNCONFIGURED;
   const auto& vfs = library->vfs();
   std::string err;
@@ -62,6 +63,33 @@ Error PesCutsceneCamera::load(const Ref<PesLibrary>& library, const String& vfs_
   return OK;
 }
 
+Error PesCutsceneCamera::load_scene(const Ref<PesLibrary>& library, int scene_id, int camera_index) {
+  if (!library.is_valid()) return ERR_UNCONFIGURED;
+  const auto& vfs = library->vfs();
+  std::string err;
+  const int category = scene_id >> 16;
+  auto tableBytes = vfs.Read(pes::FixDemoTablePath(category), &err);
+  if (!tableBytes) {
+    UtilityFunctions::push_error(String("PesCutsceneCamera: cannot read the scene table: ") + err.c_str());
+    return ERR_FILE_NOT_FOUND;
+  }
+  auto table = pes::DecodeFixDemoTable(*tableBytes, category, &err);
+  if (!table) {
+    UtilityFunctions::push_error(String("PesCutsceneCamera: cannot decode the scene table: ") + err.c_str());
+    return ERR_PARSE_ERROR;
+  }
+  const std::vector<std::string> paths = pes::FixDemoSceneFdcPaths(*table, uint32_t(scene_id), &err);
+  for (const std::string& path : paths) {
+    if (!vfs.Exists(path)) continue;
+    if (load_file(library, String(path.c_str()), camera_index) == OK) {
+      UtilityFunctions::print(String("PesCutsceneCamera: scene camera from ") + path.c_str());
+      return OK;
+    }
+  }
+  UtilityFunctions::push_error(String("PesCutsceneCamera: no cut layer of the scene has the requested camera: ") + err.c_str());
+  return ERR_FILE_NOT_FOUND;
+}
+
 double PesCutsceneCamera::duration_s() const {
   if (!canm_ || canm_->frameRate == 0) return 0.0;
   return double(canm_->frameCount) / double(canm_->frameRate);
@@ -83,7 +111,7 @@ void PesCutsceneCamera::update(Camera3D* camera, double t_s) {
 }
 
 void PesCutsceneCamera::_bind_methods() {
-  ClassDB::bind_method(D_METHOD("load", "library", "vfs_path", "camera_index"), &PesCutsceneCamera::load);
+  ClassDB::bind_method(D_METHOD("load_scene", "library", "scene_id", "camera_index"), &PesCutsceneCamera::load_scene);
   ClassDB::bind_method(D_METHOD("duration_s"), &PesCutsceneCamera::duration_s);
   ClassDB::bind_method(D_METHOD("update", "camera", "t_s"), &PesCutsceneCamera::update);
 }

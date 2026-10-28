@@ -18,8 +18,9 @@ class PesCutsceneCamera : public RefCounted {
   GDCLASS(PesCutsceneCamera, RefCounted)
 
  public:
-  // Opens vfs_path (a common/demo/fixdemo/... .fdc) and takes its camera record camera_index.
-  Error load(const Ref<PesLibrary>& library, const String& vfs_path, int camera_index);
+  // Opens the camera_index-th camera of the first .fdc layer of a FixDemo scene that has one. scene_id is
+  // (category << 16) | index, e.g. 0x20009 (pes/fixdemo_table.hpp: FixDemoSceneFdcPaths).
+  Error load_scene(const Ref<PesLibrary>& library, int scene_id, int camera_index);
   // Length of the clip in seconds, from its frame count and frame rate.
   double duration_s() const;
   // Poses camera for t_s seconds after the cut block's zero. Before the record's start and after the
@@ -30,6 +31,9 @@ class PesCutsceneCamera : public RefCounted {
   static void _bind_methods();
 
  private:
+  // Opens vfs_path (a common/demo/fixdemo/... .fdc) and takes its camera record camera_index.
+  Error load_file(const Ref<PesLibrary>& library, const String& vfs_path, int camera_index);
+
   std::optional<pes::fdc::Canm> canm_;
   float startTicks_ = 0.0f;
   float nearOverride_ = 0.0f, farOverride_ = 0.0f;  // the record's clip planes (override the clip's)
