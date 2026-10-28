@@ -54,6 +54,9 @@ TARGETS = [
     # The carrier's Clear unit and its corridor angle (docs/ports/pes-port-EndClear2.md).
     ("carrier_clear_2109EB0", 0x142109EB0, "carrier Clear unit (kind 1)"),
     ("clear_angle_2108630", 0x142108630, "clear corridor angle"),
+    # The Trap action's kind-0 control-touch chain (docs/re/pes-re-trap-kind0.md, docs/ports/pes-port-RecordMap.md).
+    ("trap_kind0_79A470", 0x14079A470, "Trap action kind-0 control touch"),
+    ("trap_commit_79AFD0", 0x14079AFD0, "Trap clip commit step"),
 ]
 
 
