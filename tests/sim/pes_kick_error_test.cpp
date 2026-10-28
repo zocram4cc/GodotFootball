@@ -33,6 +33,9 @@ pes::KickErrorConstants Synthetic() {
   for (int i = 1; i < pes::kNormalTableSize; ++i)
     k.logTable[i] = -std::log(512.0f / static_cast<float>(i)) * 4096.0f;
   k.logTable[0] = k.logTable[1];
+  // The quarter-wave table: entry i is sin(i * 90 / 512 degrees), entry 512 is sin 90.
+  for (int i = 0; i < pes::kNormalTableSize; ++i)
+    k.sinTable[i] = std::sin(static_cast<float>(i) * 90.0f / 512.0f * 3.14159265f / 180.0f);
   return k;
 }
 
@@ -58,6 +61,25 @@ TEST(PesKickError, SoftMinLeansToTheWorstFactor) {
   EXPECT_FLOAT_EQ(pes::SoftMin4(1, 1, 1, 1), 1.0f);
   EXPECT_FLOAT_EQ(pes::SoftMin4(1, 0.5f, 1, 1), 0.5f);
   EXPECT_FLOAT_EQ(pes::SoftMin4(1, 0.5f, 0.5f, 1), 0.375f);
+}
+
+TEST(PesKickError, SoftMinFoldsTheSortedFactorsFromOne) {
+  // FUN_1408413c0 qsorts the four factors descending (comparator 0x14083cc10 is
+  // -1 when a > b), then folds from 1.0: x = min(x,v) * (max(x,v) + 1) / 2,
+  // once per factor. Hand-folded for {1.0, 0.9, 0.5, 0.2}: 0.9, 0.475, 0.1475.
+  EXPECT_FLOAT_EQ(pes::SoftMin4(1.0f, 0.9f, 0.5f, 0.2f), 0.1475f);
+  // Order of the arguments does not matter: the sort fixes it.
+  EXPECT_FLOAT_EQ(pes::SoftMin4(0.2f, 1.0f, 0.9f, 0.5f), 0.1475f);
+}
+
+TEST(PesKickError, AmpSoftMinFoldsThreeNonUnitFactorsInPesOrder) {
+  // a = 0.5 gives A = 0.75a + 0.25 = 0.625. The yaw amp soft-min takes
+  // {I = 0.9, A = 0.625, F = 1, R = 0.6}; the descending fold from 1.0 gives
+  // q4 = 0.475 (1 -> 0.9 -> 0.59375 -> 0.475).
+  const auto k = Synthetic();
+  const auto s = pes::BuildScatter(k, 0.5f, 0.9f, 0.6f);
+  const float q4 = 0.475f;
+  EXPECT_NEAR(s.yaw.amp, (1.0f - q4) * (1.0f - q4) * 4.25f + 0.75f, 1e-4);
 }
 
 TEST(PesKickError, PerfectKickHasNoSpreadAndAPoorKickerAWideOne) {
@@ -154,6 +176,28 @@ TEST(PesKickError, ApplyTurnsLiftsAndScales) {
   EXPECT_NEAR(w[2], 5.0f / std::sqrt(2.0f), 1e-4);
 }
 
+TEST(PesKickError, SinTableIsDegreesScaledByAmpAndWrapped) {
+  // 0x140a92c80: sin in degrees, times amp. An angle at or past one lap wraps once;
+  // past 180 the sine flips sign. Runs PES's translated code over the table.
+  const auto k = Synthetic();
+  EXPECT_FLOAT_EQ(pes::SinTableDeg(k, 90, 1), 1.0f);
+  EXPECT_NEAR(pes::SinTableDeg(k, 30, 1), 0.5f, 1e-3);
+  EXPECT_NEAR(pes::SinTableDeg(k, 30, 3), 1.5f, 3e-3);
+  EXPECT_NEAR(pes::SinTableDeg(k, 210, 1), -0.5f, 1e-3);
+  EXPECT_NEAR(pes::SinTableDeg(k, -150, 1), -0.5f, 1e-3);
+  EXPECT_NEAR(pes::SinTableDeg(k, 390, 1), 0.5f, 1e-3);
+}
+
+TEST(PesKickError, SinTableIsTheSineAtItsKnots) {
+  // Knot i sits at 90 * i / 512 degrees; the table holds sin there to float precision.
+  const auto k = Synthetic();
+  const double kPiRad = std::acos(-1.0) / 180.0;
+  for (int i = 0; i < pes::kNormalTableSize - 1; i += 37) {
+    const float deg = static_cast<float>(i) * (90.0f / 512.0f);
+    EXPECT_NEAR(pes::SinTableDeg(k, deg, 1.0f), std::sin(deg * kPiRad), 1e-5) << "knot " << i;
+  }
+}
+
 TEST(PesKickErrorInstall, LoadsFromTheExe) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
@@ -168,6 +212,8 @@ TEST(PesKickErrorInstall, LoadsFromTheExe) {
               k->qTopBase, 1e-5);
   // The table is -ln(512/i) in 2^-12 units, and the divisor is its far end.
   EXPECT_FLOAT_EQ(k->logTable[512], 0.0f);
+  EXPECT_FLOAT_EQ(k->sinTable[512], 1.0f);
+  EXPECT_FLOAT_EQ(pes::SinTableDeg(*k, 90.0f, 1.0f), 1.0f);
   EXPECT_NEAR(k->logTable[256] * k->normalTabScale, -std::log(2.0f), 1e-3);
   EXPECT_NEAR(std::sqrt(k->normalNegTwo * k->logTable[1] * k->normalTabScale), k->normalDiv,
               1e-3);
