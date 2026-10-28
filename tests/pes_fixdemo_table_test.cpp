@@ -143,3 +143,23 @@ TEST(FixDemoTable, InstallTablesDecodeExactlyAndCutsStayInCategory) {
     }
   }
 }
+
+TEST(FixDemoTable, SceneCutPathsAreUnderTheCategoryCutDataAndMountedInTheInstall) {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
+  pes::PesVfs vfs;
+  std::string err;
+  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+  // Scene 0x20009 is FOUL_PINCH_CARD_Y (category 2, foul; pes-re-cutscenes.md §2.3): its steps name .fdc layers.
+  auto bytes = vfs.Read(pes::FixDemoTablePath(2), &err);
+  ASSERT_TRUE(bytes) << err;
+  auto table = pes::DecodeFixDemoTable(*bytes, 2, &err);
+  ASSERT_TRUE(table) << err;
+  const std::vector<std::string> paths = pes::FixDemoSceneFdcPaths(*table, 0x20009, &err);
+  ASSERT_FALSE(paths.empty()) << err;
+  for (const std::string& p : paths) {
+    EXPECT_EQ(p.rfind("common/demo/fixdemo/foul/cut_data/", 0), 0u) << p;
+    EXPECT_TRUE(vfs.Exists(p)) << p;
+  }
+  EXPECT_TRUE(pes::FixDemoSceneFdcPaths(*table, 0x2FFFF, &err).empty());
+}
