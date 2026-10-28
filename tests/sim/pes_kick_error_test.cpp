@@ -188,6 +188,16 @@ TEST(PesKickError, SinTableIsDegreesScaledByAmpAndWrapped) {
   EXPECT_NEAR(pes::SinTableDeg(k, 390, 1), 0.5f, 1e-3);
 }
 
+TEST(PesKickError, SinTableIsExactAtItsKnots) {
+  // Knot i sits at 90 * i / 512 degrees, which float holds exactly, and the next
+  // entry's weight is zero there: the lookup returns the table entry itself.
+  const auto k = Synthetic();
+  for (int i = 0; i < pes::kNormalTableSize - 1; i += 37) {
+    const float deg = static_cast<float>(i) * (k.quarterTurn_deg / 512.0f);
+    EXPECT_EQ(pes::SinTableDeg(k, deg, 1.0f), k.sinTable[i]) << "knot " << i;
+  }
+}
+
 TEST(PesKickErrorInstall, LoadsFromTheExe) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) GTEST_SKIP() << "PES21_ROOT not set";
