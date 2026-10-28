@@ -71,8 +71,9 @@ is copied into `specs/`.
     python3 -m specgen generate --set specgen/sets/impure.txt --mode impure \
         --pilot-set specgen/sets/pilot.txt --image "$PES_EXE" --out-dir DIR
 
-- `sets/`: VA lists, one per line (`VA<TAB>status`). Order is not part of the spec: a spec's seed is 1000 + the VA's
-  offset from the image base (`specgen/spec.py` `seed_of`), so set order and closures cannot change a record's cases.
+- `sets/`: VA lists, one per line (`VA<TAB>status`). A recorded spec keeps its `seed` (part of its record's input).
+  A new spec's seed is 1000 + the VA's offset from the image base (`specgen/spec.py` `seed_of`), so set order does not
+  change it. Regenerating a recorded spec with that rule changes its cases and flips recorded verdicts (see pes-port-SpecGen2).
 - `sets/presentation.txt`: the replay, camera, crowd, HUD and audio pure rows as one union (594 seeds and 45 callees).
   The fourth column is the role (seed or callee), the third the subsystem that reaches the row first; the driver's
   `--set` records both on each result. Match commentary is out (owner ruling 25-10-26): no RTTI or string evidence

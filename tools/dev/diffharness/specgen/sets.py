@@ -1,8 +1,8 @@
 """VA sets for the spec generator: committed set files, and the ledger's pure rows closed over their callees.
 
 A set file has one function per line: the VA, a tab, then its status (optional; default stand-in). Order is kept for
-readability only: a spec's seed is 1000 + its VA's offset from the image base (`spec.seed_of`). `select` adds a subsystem
-and a role (seed or callee) column; readers ignore them.
+readability only. A recorded spec keeps its seed; a new spec's seed is 1000 + its VA's offset (`spec.seed_of`).
+`select` adds a subsystem and a role (seed or callee) column; readers ignore them.
 """
 import json
 import os
