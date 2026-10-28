@@ -230,7 +230,7 @@ Runner `FUN_14044c880` (CONFIRMED `d_0x14044c880.c`): executes `step = Flow[0x87
 
 | name | VA | value | use |
 |---|---|---|---|
-| hold table `FUN_14044e460` | `0x14259ce60` (idx 1), `0x14259ce54` (idx 5) | 5.0 s, 2.5 s (table also 8.0, 3.0, 0, 7.0, 0 by index) | foul hold / out-of-play hold |
+| hold table `FUN_14044e460` | `0x14259ce64` (idx 1; table base `0x14259ce60` is idx 0 = 8.0, corrected by StoppageFlow4), `0x14259ce54` (idx 5) | 5.0 s, 2.5 s (table also 8.0, 3.0, 0, 7.0, 0 by index) | foul hold / out-of-play hold |
 | player-down extra | `0x14259bde4` | +2.5 s | sub3 of 0x0b |
 | offside immediate | `0x140447a25` | 3.0 s (overwritten unless downed) | 0x0b base |
 | wipe | `0x142588200` | 0.1 s → 5 frames | steps 0x10, 0x11 |

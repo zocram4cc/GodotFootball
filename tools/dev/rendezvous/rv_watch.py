@@ -40,11 +40,23 @@ def main():
     for f in (log, pauses):
         os.chown(f.name, uid, gid)
     say = lambda m: log.write("%s %s\n" % (time.strftime("%H:%M:%S"), m))
-    pid, seen, taken = None, set(glob.glob(os.path.join(a.run, "capture_*.txt"))), 0
+    # The DLL numbers captures from 1 on every game start and proceeds as soon as release_<seq> exists, so a previous
+    # run's files would release new calls unsnapshotted: move them aside whenever a new PES process appears.
+    def clear_run():
+        stale = [f for p in ("capture_*.txt", "release_*", "done_*") for f in glob.glob(os.path.join(a.run, p))]
+        if stale:
+            dest = os.path.join(a.out, time.strftime("stale_run_%Y%m%d_%H%M%S"))
+            os.makedirs(dest, exist_ok=True)
+            for f in stale:
+                shutil.move(f, dest)
+            chown_tree(dest, uid, gid)
+            say("moved %d stale run files to %s" % (len(stale), dest))
+
+    pid, seen, taken = None, set(), 0
     # 60 s: a capture takes as long as it needs (owner, 27-10-26); the bot runs with RIGBOT_ALLOW_FROZEN_FRAMES so a
     # stopped game no longer fails its run. The cap only guards a hung read: past it the game is released at once.
     args = argparse.Namespace(max_pause=60.0, threads=4, chunk_mib=64)
-    say("watching %s (ignoring %d old captures, pause cap %.1f s)" % (a.run, len(seen), args.max_pause))
+    say("watching %s (pause cap %.1f s)" % (a.run, args.max_pause))
     while taken < a.max:
         if pid is None or not os.path.exists("/proc/%d" % pid):
             pid = pes_pid()
@@ -52,6 +64,8 @@ def main():
                 time.sleep(1)
                 continue
             say("PES pid %d" % pid)
+            clear_run()
+            seen.clear()
         for f in sorted(glob.glob(os.path.join(a.run, "capture_*.txt"))):
             if f in seen:
                 continue
