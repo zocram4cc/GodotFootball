@@ -1,5 +1,5 @@
 {
- "note": "impure results. diffed = bit-exact vs the unicorn harness. 'provisional' in a note means the spec reads writable image globals at on-disk values. 'stubs' lists the callees that stubs.json models.",
+ "note": "impure results. diffed = bit-exact vs the unicorn harness. 'corpus' says which corpus the VA was measured with: 'bank' = its capture bank (driver --seed-bank, banks_union9l), absent = the harness's random corpus. 'provisional' in a note means the spec reads writable image globals at on-disk values. 'stubs' lists the callees that stubs.json models.",
  "results": [
   {
    "aborted": 0,
@@ -707,6 +707,7 @@
     "0x1415A1780"
    ],
    "translated": true,
+   "corpus": "bank",
    "va": "0x1404386D0"
   },
   {

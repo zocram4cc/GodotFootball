@@ -45,6 +45,15 @@ FAILURE_CLASSES = ("engine call", "live state", "GPU", "translator bug",
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 RUN_PY = os.path.join(REPO, "tools", "dev", "diffharness", "run.py")
+
+
+def seed_bank_for(args, va):
+    """The capture bank va's corpus draws from. --check gives each recorded VA its own corpus: a result whose record
+    says corpus "bank" replays args.seed_bank; every other result replays the harness's random corpus (no bank)."""
+    if not args.seed_bank:
+        return None
+    bank_vas = getattr(args, "bank_vas", None)
+    return args.seed_bank if bank_vas is None or va.upper() in bank_vas else None
 DEF_SPEC_DIR = os.path.join(REPO, "tools", "dev", "diffharness",
                             "specs", "pilot")
 # The committed translated layer: the runtime headers the generated code includes.
@@ -438,8 +447,9 @@ def run_one(va, args, pilot):
     aborts = os.path.join(gen, "aborts_%s.jsonl" % tag)
     # Traced cases: run.py takes its case count from the bank (one case per instance).
     count = [] if args.traced_cases else (["--count", str(args.count)] if args.count else [])
+    bank = seed_bank_for(args, va)
     seed_args = (["--seed-state", args.seed_state] if args.seed_state else []) \
-        + (["--seed-bank", args.seed_bank] if args.seed_bank else []) \
+        + (["--seed-bank", bank] if bank else []) \
         + (["--perturb"] if args.perturb else []) \
         + (["--traced-cases"] if args.traced_cases else [])
     rc, out, err = sh([diff_python(), RUN_PY, "--exe", args.image,
@@ -608,9 +618,10 @@ def build_and_diff(va, spec, args, pilot, nlines):
         if os.path.exists(seed_path_):
             seed_art = json.load(open(seed_path_))
     instances = [seed_art]
-    if args.seed_bank:
+    bank = seed_bank_for(args, va)
+    if bank:
         # Streamed: write_instances reads one bank instance at a time.
-        instances = bankstore.Bank(os.path.join(args.seed_bank, tag + ".bank.jsonl"))
+        instances = bankstore.Bank(os.path.join(bank, tag + ".bank.jsonl"))
     inst_p = os.path.join(gen, "inst_%s.bin" % tag)
     diffmain.write_instances(spec, instances, inst_p)
     main_src = diffmain.gen(spec, va, callees)
@@ -855,7 +866,13 @@ def main():
     if args.check and not args.record:
         ap.error("--check re-runs the VAs that --record lists as diffed")
     if args.check:
-        args.only = [r["va"] for r in json.load(open(args.record))["results"] if r["diffed"]]
+        recs = json.load(open(args.record))["results"]
+        args.only = [r["va"] for r in recs if r["diffed"]]
+        # Corpus provenance (results JSON): a result recorded with corpus "bank" replays its capture bank; the others
+        # replay the harness's random corpus. A bank result without --seed-bank is refused, never run without its bank.
+        args.bank_vas = {r["va"].upper() for r in recs if r["diffed"] and r.get("corpus") == "bank"}
+        if args.bank_vas and not args.seed_bank:
+            ap.error("--check: %s record corpus 'bank': give --seed-bank" % " ".join(sorted(args.bank_vas)))
         if not args.only:
             print("driver --check: nothing recorded as diffed; an empty check is not a pass")
             return 1

@@ -41,11 +41,17 @@ set_tests_properties(diff_core_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 7
 
 # diff_impure_recorded: the same check for the impure set (specs/impure; results_impure.json records its diffed VAs).
 # Without it the impure record was never re-checked: the driver's default spec dir (specs/pilot) held none of its VAs.
+# The impure record names each VA's corpus (results_impure.json "corpus"). 1404386D0's pointer and handle fields take the
+# generator's generic 0..255 domain, so its random corpus dereferences small addresses; its recorded corpus is its capture
+# bank, which is PES-derived and never committed. GF_IMPURE_BANKS names the bank directory (<VA>.bank.jsonl); without it
+# that VA fails (it is not run without its bank), so the check is red, never skipped.
 add_test(NAME diff_impure_recorded
   COMMAND bash -c "[ -n \"$PES_EXE\" ] && [ -f \"$PES_EXE\" ] && [ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+BANK=(); [ -n \"$GF_IMPURE_BANKS\" ] && BANK=(--seed-bank \"$GF_IMPURE_BANKS\"); \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/driver.py' --check --image \"$PES_EXE\" \
 --spec-dir '${CMAKE_SOURCE_DIR}/tools/dev/diffharness/specs/impure' \
---out-dir '${CMAKE_BINARY_DIR}/impure-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_impure.json'")
+--out-dir '${CMAKE_BINARY_DIR}/impure-check' --record '${CMAKE_SOURCE_DIR}/tools/dev/translate/results_impure.json' \
+\"\${BANK[@]}\"")
 set_tests_properties(diff_impure_recorded PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 3600)
 
 # Image check: the user's dump must be the image the pilot specs were authored
