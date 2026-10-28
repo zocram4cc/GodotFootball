@@ -30,6 +30,8 @@ def main():
     ap.add_argument("--out", required=True, help="where snapshots go (PES-derived: never commit)")
     ap.add_argument("--max", type=int, default=40)
     ap.add_argument("--min-free-gib", type=int, default=150)
+    ap.add_argument("--per-hook-max", type=int, default=0,
+                    help="snapshots per hook per game launch; past it calls are released unsnapshotted (0: no cap)")
     a = ap.parse_args()
     st = os.stat(a.run)
     uid, gid = st.st_uid, st.st_gid
@@ -52,7 +54,20 @@ def main():
             chown_tree(dest, uid, gid)
             say("moved %d stale run files to %s" % (len(stale), dest))
 
-    pid, seen, taken = None, set(), 0
+    def release(cap, why):
+        open(os.path.join(a.run, "release_%d" % cap["seq"]), "w").close()
+        say("seq%d %s released without snapshot: %s" % (cap["seq"], cap["hook"], why))
+
+    # Each launch gets its own folder: the DLL's seq numbers restart at 1, so a shared folder would overwrite the last
+    # launch's captures (28-10-26: seq001-080 of one launch lost that way).
+    def launch_counts(launch):
+        counts = {}
+        for idx in glob.glob(os.path.join(launch, "seq*", "index.json")):
+            hook = json.load(open(idx)).get("rv", {}).get("hook")
+            counts[hook] = counts.get(hook, 0) + 1
+        return counts
+
+    pid, seen, taken, launch, per_hook = None, set(), 0, None, {}
     # 60 s: a capture takes as long as it needs (owner, 27-10-26); the bot runs with RIGBOT_ALLOW_FROZEN_FRAMES so a
     # stopped game no longer fails its run. The cap only guards a hung read: past it the game is released at once.
     args = argparse.Namespace(max_pause=60.0, threads=4, chunk_mib=64)
@@ -66,21 +81,29 @@ def main():
             say("PES pid %d" % pid)
             clear_run()
             seen.clear()
+            launch = os.path.join(a.out, "pid%d" % pid)
+            os.makedirs(launch, exist_ok=True)
+            os.chown(launch, uid, gid)
+            per_hook = launch_counts(launch)
         for f in sorted(glob.glob(os.path.join(a.run, "capture_*.txt"))):
             if f in seen:
                 continue
             seen.add(f)
             cap = fs.rv_parse_capture(f)
             if shutil.disk_usage(a.out).free < a.min_free_gib << 30:
-                open(os.path.join(a.run, "release_%d" % cap["seq"]), "w").close()
-                say("seq%d %s released without snapshot: disk under %d GiB" % (cap["seq"], cap["hook"], a.min_free_gib))
+                release(cap, "disk under %d GiB" % a.min_free_gib)
                 continue
-            snap = fs.rv_take(pid, a.run, a.out, cap, args, say, pauses)
+            if a.per_hook_max and per_hook.get(cap["hook"], 0) >= a.per_hook_max:
+                release(cap, "per-hook cap %d reached" % a.per_hook_max)
+                continue
+            snap = fs.rv_take(pid, a.run, launch, cap, args, say, pauses)
             for p in glob.glob(os.path.join(a.run, "release_*")):
                 os.chown(p, uid, gid)
-            d = os.path.join(a.out, "seq%03d" % cap["seq"])
+            d = os.path.join(launch, "seq%03d" % cap["seq"])
             if os.path.isdir(d):
                 chown_tree(d, uid, gid)
+            if snap is not None:
+                per_hook[cap["hook"]] = per_hook.get(cap["hook"], 0) + 1
             taken += snap is not None
             say("seq%d %s calls=%d -> %s" % (cap["seq"], cap["hook"], cap["calls"], "ok" if snap else "aborted"))
         time.sleep(0.0005)
