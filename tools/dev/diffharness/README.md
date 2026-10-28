@@ -83,3 +83,29 @@ is copied into `specs/`.
   `regions_init` entries dropped.
 - `sets.py`: VA sets, and the ledger's pure closure (`tools/dev/ledger.py`, `pure_rows`).
 - Not generated yet: the G+0x180 table relink (`14065C2A0`, `140978E70`). Those two specs stay hand-kept.
+
+## Closures from the image: one command, no bridge
+
+`tools/dev/translate/closure.py` makes a function closure regenerable. Given root VAs it walks their direct callees
+(CALL rel32, tail JMP to a `.pdata` function start), writes a universe row for each function the ledger does not
+have (decoded with capstone from the image), writes the set file `specgen/sets/closure-<TAG>.txt`, and writes one
+pilot-mode spec per member, from the standard generator, into `specs/<SPEC-SET>/`. Pure, idempotent, no bridge:
+
+    export GF_DIFF_PYTHON=python-with-capstone-and-unicorn PES_EXE=/path/to/pes_full.bin
+    "$GF_DIFF_PYTHON" tools/dev/translate/closure.py --image "$PES_EXE" --spec-set core --tag endclear --subsystem AI \
+        0x142109EB0 0x142108630 0x14063A290 0x14063A490 0x14063D2F0
+    "$GF_DIFF_PYTHON" tools/dev/translate/gen_translated.py --image "$PES_EXE"          # regenerate the layer
+    "$GF_DIFF_PYTHON" tools/dev/translate/gen_translated.py --image "$PES_EXE" --check  # drift check
+Run it from the repo root. Roots that are already in the universe keep their rows and subsystems; `--subsystem` names
+the subsystem of the rows it adds.
+
+Status (28-10-26): this command does not yet close the EndClear roots. With their closure in `specs/core`, the core
+universe translates `14069CD40` and `140A760E0` differently from the impure records' universe, and `gen_translated`
+refuses with a conflict. Cause: records of one set carry different stub models (`stub_refs`) for the same callee, and
+the layer keeps one variant. A policy decision on stub models is needed before the chain can land.
+
+`--dry-run` lists the closure and writes nothing; `--roots-file FILE` takes one VA per line. The records that use the
+closure are the spec set's own (`results_<set>.json`); the closure only supplies their callee universe. A committed spec is
+kept as it is: only a member with no spec in the set gets one (the seeds and regions of a committed spec are its record's
+input). `--regenerate` rewrites every member's spec from the generator, which changes the seeds of the set's other records.
+`GF_CLOSURE_TMP` picks the scratch directory for the spec generation.
