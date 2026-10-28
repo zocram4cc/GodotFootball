@@ -24,6 +24,7 @@
 //   - everything else: the exe's .rdata (PeImage::ReadVa) or an instruction
 //     immediate with its opcode checked.
 
+#include <array>
 #include <optional>
 #include <string>
 #include <functional>
@@ -51,6 +52,10 @@ struct ActionRow {
 inline constexpr uint8_t kTrapActionRow = 7;
 
 struct ReceiveConstants {
+  // --- the 0x5D kick branch (reaction entry 3, FUN_1409fbba0), exe .rdata ---
+  float kickMaxBallHeight_m = 0.0f;  // 0x1425a9bd4: the ball's height at 10 ticks
+  float kickSpeedNumerator = 0.0f;   // 0x14263e398: 38 km/h as 38000 m/h
+  float kickSpeedDivisor = 0.0f;     // 0x142598590: seconds per hour (3600)
   // --- trap.o (VFS); the store offsets FUN_1409fa720/1409fbce0 read ---
   float lockDefence_s = 0.0f;         // +0x1b4 defence: loose ball
   float lockDefenceKeep_s = 0.0f;     // +0x1b8 defenceKeep: someone else holds it
@@ -209,21 +214,36 @@ Point2 ReceivingPoint(const ReceiveConstants& c, const std::vector<Point2>& ball
 
 FirstTouch ChooseFirstTouch(const ReceiveConstants& c, const FirstTouchInput& in, float fps);
 
-// --- Designated owner (first-touch §7.2 gate 4c) ---
+// --- Designated owner (MA+0x2600C: FUN_140457070's ring-0 scan d_a.c:1248-1283; gate 4c d_b.c:91) ---
 
-// What the owner rule reads: the restart taker while a restart is held, and the newest ball
-// event's actor with whether he still holds the ball.
-struct OwnerInput {
-  ActorKey restartTaker;  // invalid when no restart is held
-  ActorKey newestActor;   // invalid when the store has no newest event
-  bool newestActorHoldsBall = false;
+// One ring-0 entry as the scan reads it: the action kind (payload+0), the tag word (payload+0x1C) and the
+// actor key (payload+4 team, payload+8 slot). An empty slot is the default entry, which owns nobody.
+struct Ring0Entry {
+  uint32_t kind = 0;
+  uint32_t tag = 0;
+  ActorKey actor;
 };
+inline constexpr size_t kRing0ScanCount = 9;  // NewestOrRing0(0..8)
 
-// PES's reaction-3 refusal of the designated owner (MA+0x2600C == me): he never traps through
-// entry 3. ponytail: FUN_140457070's ring-0 scan is not decoded. Stand-in: the restart taker while
-// a restart is held, else the newest touch's actor while he still holds the ball. A loose ball has
-// no owner, so a chaser of one is not refused.
-bool RefusedAsDesignatedOwner(const OwnerInput& in, const ActorKey& me);
+// The owner the scan writes to MA+0x2600C, or NoActorKey() when none. ring[n] = NewestOrRing0(n).
+// period9: the match period is 9 (the shoot-out), where the first kind-5 record names the owner.
+// previous: MA+0x2600C before the scan; the scan stops at the first record whose owner differs from it.
+ActorKey DesignatedOwnerScan(const std::array<Ring0Entry, kRing0ScanCount>& ring, bool period9,
+                             const ActorKey& previous);
+
+// Gate 4c (FUN_1409fa520, d_b.c:91): the designated owner never traps through reaction entry 3.
+bool RefusedAsDesignatedOwner(const ActorKey& designatedOwner, const ActorKey& me);
+
+// --- Kick branch 0x5D (reaction entry 3, d_a.c:610-662) ---
+
+// FUN_1409fbb40: the anime action gate. hasAction: the anime action pointer (param_1+0x28) is set. A held AI
+// stage (non-zero) decides alone, admitting only stage 5; otherwise the action byte with bit 7 masked is 0x4A.
+bool KickBranchActionGate(bool hasAction, uint8_t actionByte, int aiStage);
+
+// FUN_1409fbba0: the ball's height at 10 ticks is at most kickMaxBallHeight_m, and the 2D difference of the
+// player's and the ball's samples is strictly under kickSpeedNumerator / (fps * kickSpeedDivisor).
+bool KickBranchBallGate(const ReceiveConstants& c, float ballHeightAt10_m, Point2 playerSample,
+                        Point2 ballSample, float fps);
 
 // PES's carrier after one frame's ball contact (MA+0x2601C, FUN_140457070; first-touch §5.1). PES takes
 // the carrier from the newest valid K=8 key, which a touch pushes. GF stand-in: a control touch (trap or

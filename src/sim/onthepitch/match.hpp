@@ -233,6 +233,10 @@ public:
   // It is carried apart from ballRetainer, which is GF's own loose-ball predicate and clears on the possession
   // flicker (humanoid.cpp's retain block). The only writer is RecomputePesHolder below - no public setter.
   Player* GetPesHolder() const { return pesHolder; }
+  // PES's designated owner MA+0x2600C (FUN_140457070's ring-0 scan), recomputed each PES tick by
+  // RecomputePesDesignatedOwner. Gate 4c reads it; NoActorKey() when the scan names nobody.
+  pes::ActorKey GetPesDesignatedOwner() const { return pesDesignatedOwner; }
+  void RecomputePesDesignatedOwner();
   // How long the current holder has held the ball: the tick he became PES's holder (RecomputePesHolder).
   double GetPesHolderSince_ms() const { return pesHolderSince_ms; }
   // The newest ring-1 touch key's actor, W1's input: pushed by a touch that keeps the ball with the man and by
@@ -655,6 +659,7 @@ protected:
   // PES's holder MA+0x2601C, its ring-1 key, and the restart-step gate: see GetPesHolder / RecomputePesHolder.
   Player* pesHolder = nullptr;
   Player* pesKeyActor = nullptr;
+  pes::ActorKey pesDesignatedOwner = pes::NoActorKey();
   Player* pesHolderSeen = nullptr;  // the holder the clock below was last started for
   double pesHolderSince_ms = 0;     // when that holder took the ball (Match::actualTime_ms)
   uint8_t pesRestartStep = 0;
