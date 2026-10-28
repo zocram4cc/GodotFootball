@@ -151,6 +151,9 @@ void pes_fn_1406B6EE0(PesState& s) {
   }
   { uint32_t _i = (uint32_t)(s.gpr[1] - 0x140000000ULL); switch (_i) {
     case 7041051U: goto L_1406B701B;
+    case 7041056U: goto L_1406B7020;
+    case 7041105U: goto L_1406B7051;
+    case 7041153U: goto L_1406B7081;
     default: goto L_1406B7081;
     } }
   L_1406B701B:;
@@ -160,6 +163,7 @@ void pes_fn_1406B6EE0(PesState& s) {
     s.gpr[7] = (s.gpr[7] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)(_r));
   }
   goto L_1406B7084;
+  L_1406B7020:;
   { uint64_t _a = (uint64_t)(s.rd(((s.gpr[3]) + (0x7CULL)), 4)), _b = (uint64_t)((1ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);
@@ -184,6 +188,7 @@ void pes_fn_1406B6EE0(PesState& s) {
     s.gpr[7] = (s.gpr[7] & 0xFFFFFFFFFFFFFF00ULL) | ((uint64_t)(uint8_t)(_r));
   }
   goto L_1406B7084;
+  L_1406B7051:;
   { uint64_t _a = (uint64_t)(s.rd(((s.gpr[3]) + (0x7CULL)), 4)), _b = (uint64_t)((1ULL)), _r = (_a - _b) & 0xFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 31) & 1);
     s.cf = (_a & 0xFFFFFFFFULL) < (_b & 0xFFFFFFFFULL);

@@ -1,5 +1,5 @@
 // PES 2021's mark table (team-tick step 35, FUN_1404F61E0): the 11-byte opponent mask
-// T+0xB7EC[11]. Pure behaviour tests with synthetic candidates; no install needed except
+// T+0xB7EC[11]. Pure behaviour tests with synthetic men; no install needed except
 // the constants check. MarkGateRE's four open inputs arrive as Facts booleans.
 #include <gtest/gtest.h>
 
@@ -9,6 +9,7 @@
 #include <string>
 
 #include "onthepitch/pesmarktable.hpp"
+#include "onthepitch/pesworldrecord.hpp"
 #include "pes/exe.hpp"
 #include <memory>
 #include <vector>
@@ -40,6 +41,22 @@ using pes::marktable::Constants;
 using pes::marktable::Facts;
 using pes::marktable::MarkState;
 
+// The men's records the mark table reads: one world for the file, each man placed by slot. Slot 5 is the holder, slot 7
+// the candidate, slots 12 and up the holder-side mates.
+pes::PesWorld& World() {
+  static pes::PesWorld world;
+  return world;
+}
+
+// Places a man at (x, z) in his record and returns the record.
+uint8_t* Man(int slot, float x, float z) {
+  World().BindSlot(slot);
+  uint8_t* man = World().ManRecord(slot);
+  pes::StoreF32(man, pes::kManPosXOffset, x);
+  pes::StoreF32(man, pes::kManPosZOffset, z);
+  return man;
+}
+
 Constants TestConstants() {
   Constants k;
   k.rampBase = 7.0f;
@@ -61,18 +78,17 @@ Constants TestConstants() {
 // bearings that clear the 105/80 wrap gates. The ramp wind puts the cone at 0.5 - 15.
 Facts PassingFacts() {
   Facts f;
+  f.world = &World();
   f.side = 0;
   f.holder = 5;
   f.sign = 1.0f;
-  f.holderX = 14.6984631f;  // bearing(cand -> holder) = 70 deg, agreeing with pairToHolder
-  f.holderZ = 1.7101007f;
+  f.holderMan = Man(5, 14.6984631f, 1.7101007f);  // bearing(cand -> holder) = 70 deg, agreeing with pairToHolder
   f.goalAreaHalfWidth_m = 9.16f;  // F[5]: lo = 9.16 - 7 = 2.16, ramp (0 - 2.16 + 3)/3 > 1 -> cone = 1 - 15
   Candidate c;
   c.id = 7;
   c.d2 = 100.0f;
   c.actionWord = 1;
-  c.posX = 10.0f;  // side line at cone + holderX = 0.70 < 10 passes
-  c.posZ = 0.0f;
+  c.man = Man(7, 10.0f, 0.0f);  // side line at cone + holderX = 0.70 < 10 passes
   // Facing 0 (the wrap tests' subtrahend): |10 - 0| = 10 <= 105, |70 - 0| = 70 <= 80, floor |70 + 14| = 84 >= 80.
   c.pairToTarget = 10.0f;
   c.pairToHolder = 70.0f;
@@ -164,8 +180,7 @@ TEST(MarkTable, MarksIdModElevenUpToThree) {
     f.candidates[i].id = i + 1;
     f.candidates[i].d2 = 100.0f;
     f.candidates[i].actionWord = 1;
-    f.candidates[i].posX = 10.0f;
-    f.candidates[i].posZ = 0.0f;
+    f.candidates[i].man = Man(6 + i, 10.0f, 0.0f);
     f.candidates[i].pairToTarget = 10.0f;
     f.candidates[i].pairToHolder = 70.0f;
     f.candidates[i].head = 0.0f;
@@ -209,6 +224,7 @@ TEST(MarkTable, FarCandidateHardExits) {
   f.candidates[1].id = 2;
   f.candidates[1].d2 = 100.0f;
   f.candidates[1].actionWord = 1;
+  f.candidates[1].man = Man(8, 10.0f, 0.0f);
   f.candidates[1].pairToTarget = 10.0f;
   f.candidates[1].pairToHolder = 70.0f;
   f.candidates[1].head = 0.0f;
@@ -236,11 +252,11 @@ TEST(MarkTable, SideGateRejectsFarSide) {
   MarkState s;
   s.markSlot = 3;
   Facts f = PassingFacts();
-  f.candidates[0].posX = 0.0f;
+  f.candidates[0].man = Man(7, 0.0f, 0.0f);
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[7], 0);
   f = PassingFacts();
-  f.candidates[0].posX = 10.0f;
+  f.candidates[0].man = Man(7, 10.0f, 0.0f);
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[7], 1);
   // Edge note: exactly on the line is |cone| >= 14 m from the holder, outside the 12 m
@@ -269,7 +285,7 @@ TEST(MarkTable, ConeAllowsOneMateInside) {
   MarkState s;
   s.markSlot = 3;
   Facts f = PassingFacts();
-  f.gateMates[0] = {19.3969269f, 3.4202013f};
+  f.gateMan[0] = Man(12, 19.3969269f, 3.4202013f);
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[7], 1);
 }
@@ -283,9 +299,8 @@ TEST(MarkTable, ConeRejectsOutside) {
   // Exactly 12 m from the holder (f32 d2 == 144.0): the JBE arm fails the touch.
   // live = 120 agrees with pairToHolder = 120, so only the annulus rejects.
   // With the agreeing mate (count = 1) and coneHit = false, 1 > 0 rejects.
-  f.gateMates[0] = {19.0285912f, -0.7898993f};
-  f.candidates[0].posX = 4.3061590f;
-  f.candidates[0].posZ = 7.7101007f;
+  f.gateMan[0] = Man(12, 19.0285912f, -0.7898993f);
+  f.candidates[0].man = Man(7, 4.3061590f, 7.7101007f);
   f.candidates[0].d2 = 100.0f;
   f.candidates[0].pairToHolder = 120.0f;
   f.candidates[0].head = 100.0f;  // the facing word agrees with the pairs: 10 and 120 clear 105 and 80 around it
@@ -300,9 +315,8 @@ TEST(MarkTable, CountBandEdgeCounts) {
   MarkState s;
   s.markSlot = 3;
   Facts f = PassingFacts();
-  f.gateMates[0] = {17.0458202f, -2.7046375f};
-  f.candidates[0].posX = 4.3061590f;
-  f.candidates[0].posZ = 7.7101007f;
+  f.gateMan[0] = Man(12, 17.0458202f, -2.7046375f);
+  f.candidates[0].man = Man(7, 4.3061590f, 7.7101007f);
   f.candidates[0].d2 = 100.0f;
   f.candidates[0].pairToHolder = 120.0f;
   f.candidates[0].head = 100.0f;  // the facing word agrees with the pairs (see ConeRejectsOutside)
@@ -316,8 +330,8 @@ TEST(MarkTable, CountGateRejectsCrowd) {
   MarkState s;
   s.markSlot = 3;
   Facts f = PassingFacts();
-  f.gateMates[0] = {14.6984631f + 5.0f, 1.7101007f};
-  f.gateMates[1] = {19.3969262f, 3.4202014f};
+  f.gateMan[0] = Man(12, 14.6984631f + 5.0f, 1.7101007f);
+  f.gateMan[1] = Man(13, 19.3969262f, 3.4202014f);
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[7], 0);
 }
@@ -344,8 +358,7 @@ TEST(MarkTable, RampMidPinsConeValue) {
   MarkState s;
   s.markSlot = 3;
   Facts f = PassingFacts();
-  f.holderX = 7.16f;
-  f.holderZ = 1.71f;
+  f.holderMan = Man(5, 7.16f, 1.71f);
   pes::marktable::BuildMarkTable(&s, f, k);
   EXPECT_EQ(s.mark[7], 1);
 }

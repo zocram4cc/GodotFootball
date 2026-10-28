@@ -63,6 +63,11 @@ add_executable(pes_team_sheet_test pes_team_sheet_test.cpp)
 target_link_libraries(pes_team_sheet_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_team_sheet_test)
 
+# World record tables: the translated table accessors read G's entries and a slot's block fields in place.
+add_executable(pes_world_test pes_world_test.cpp)
+target_link_libraries(pes_world_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_world_test)
+
 # Drift: regenerating every committed translated function from the image must reproduce the committed files.
 # Hand-refined functions are skipped by the check (their bit-exact proof is the harness check above).
 add_test(NAME diff_translated_drift

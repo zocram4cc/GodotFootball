@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "pes/exe.hpp"
+#include "onthepitch/pesworldrecord.hpp"
 
 namespace pes {
 namespace marktable {
@@ -55,36 +56,31 @@ float ConeHead(float sign, float holderX, float goalAreaHalfWidth_m, const Const
   return ramp - k.coneOffset;
 }
 
-// Bearing (a -> b) in [0, 360): FUN_140439FE0's rule over FUN_140A92D40. Coincident reads 0.0.
-// ponytail: std::atan2 stands in for PES's atan2 polynomial 0x140A92D40 (lane-core O3).
-float PairBearing(float ax, float az, float bx, float bz) {
-  if (ax == bx && az == bz) return 0.0f;
-  float r = std::atan2(bx - ax, bz - az) * 57.295776f;
-  if (r < 0.0f) r += 360.0f;
-  return r;
-}
 }  // namespace
 
-bool ConePasses(float candX, float candZ, float holderX, float holderZ, float headArg,
-                float inner, const Constants& k) {
-  const float dx = holderX - candX;
-  const float dz = holderZ - candZ;
+bool ConePasses(const uint8_t* cand, const uint8_t* holder, float headArg, float inner, const Constants& k,
+                PesWorld& world) {
+  const float dx = pes::LoadF32(holder, pes::kManPosXOffset) - pes::LoadF32(cand, pes::kManPosXOffset);
+  const float dz = pes::LoadF32(holder, pes::kManPosZOffset) - pes::LoadF32(cand, pes::kManPosZOffset);
   const float d2 = dx * dx + dz * dz;
   if (d2 >= k.coneLen * k.coneLen) return false;  // 0x140A53E20/26/2D JBE
   if (d2 <= inner * inner) return false;          // 0x140A53E2F/38/3F JBE
-  const float live = PairBearing(candX, candZ, holderX, holderZ);
+  const float live = world.Bearing(cand, holder);  // 0x140439EF0: the bearing from the candidate to the holder
   return std::fabs(Wrap180(live - headArg)) < k.half * k.coneDeg;  // 0x140A53E81 CMOVA
 }
 
-int CountGate(float holderX, float holderZ, float u, const Facts& facts, const Constants& k) {
+int CountGate(const uint8_t* holder, float u, const Facts& facts, const Constants& k, PesWorld& world) {
+  const float holderX = pes::LoadF32(holder, pes::kManPosXOffset);
+  const float holderZ = pes::LoadF32(holder, pes::kManPosZOffset);
   const float radius2 = k.gateRadius * k.gateRadius;
   const float band = k.gateFrac / k.gateWidth;
   int count = 0;
-  for (int i = 0; i < kSlots; ++i) {
-    const float dx = facts.gateMates[i][0] - holderX;
-    const float dz = facts.gateMates[i][1] - holderZ;
+  for (const uint8_t* mate : facts.gateMan) {
+    if (mate == nullptr) continue;  // no record: that slot counts for nothing
+    const float dx = pes::LoadF32(mate, pes::kManPosXOffset) - holderX;
+    const float dz = pes::LoadF32(mate, pes::kManPosZOffset) - holderZ;
     if (dx * dx + dz * dz >= radius2) continue;  // 0x140A4E9D5/9D8 JNC: touching fails
-    const float b = PairBearing(holderX, holderZ, facts.gateMates[i][0], facts.gateMates[i][1]);
+    const float b = world.Bearing(holder, mate);  // the bearing from the holder to the mate
     if (std::fabs(Wrap180(b - u)) <= band) ++count;  // 0x140A4EA42/45 JA: touching counts
   }
   return count;
@@ -131,7 +127,8 @@ void BuildMarkTable(MarkState* state, const Facts& facts, const Constants& k) {
   if (facts.holder < 0 || facts.holder > kLastSlot) return;
   if (facts.holderIsKeeper) return;
   if (facts.holder == tgt) return;
-  const float cone = ConeHead(facts.sign, facts.holderX, facts.goalAreaHalfWidth_m, k);
+  const float holderX = pes::LoadF32(facts.holderMan, pes::kManPosXOffset);
+  const float cone = ConeHead(facts.sign, holderX, facts.goalAreaHalfWidth_m, k);
   int marks = 0;
   for (const Candidate& cand : facts.candidates) {
     if (cand.id < 0 || cand.id > kLastSlot) continue;  // 0x1404F6400 JA skip
@@ -139,17 +136,18 @@ void BuildMarkTable(MarkState* state, const Facts& facts, const Constants& k) {
     if (cand.id == tgt) continue;                      // 0x1404F6411 JZ skip
     if (cand.d2 > k.ceilD2) return;  // 0x1404F6439/43D JA: hard exit, not continue
     // FUN_140A4C720(holderX, candX, sign, cone): (sign*cone + holderX)*sign < sign*candX.
-    if ((facts.sign * cone + facts.holderX) * facts.sign >= facts.sign * cand.posX) continue;
+    const float candX = pes::LoadF32(cand.man, pes::kManPosXOffset);
+    if ((facts.sign * cone + holderX) * facts.sign >= facts.sign * candX) continue;
     if (cand.actionWord != 1 && cand.actionWord != 0x3F) continue;  // 0x1404F6484-492
     // Wrap tests (0x1404F64D9 cap 105, 0x1404F650D side 80, 0x1404F6532 floor 80).
     // The subtrahend is the facing word: FUN_14043A0A0(a, b) = wrap180(b - a) with a = facing (0x1404F64C5, 0x1404F64F9).
     if (std::fabs(Wrap180(cand.pairToTarget - cand.head)) > k.wrapCap) continue;    // 0x1404F64D9 JA
     if (std::fabs(Wrap180(cand.pairToHolder - cand.head)) > k.wrapSide) continue;   // 0x1404F650D JA
     if (k.wrapSide > std::fabs(Wrap180(cand.pairToHolder - cone))) continue;
-    const bool coneHit = ConePasses(cand.posX, cand.posZ, facts.holderX, facts.holderZ,
-                                    cand.pairToHolder, InnerQuirk(), k);  // 0x1404F6567 TEST AL,AL
+    const bool coneHit = ConePasses(cand.man, facts.holderMan, cand.pairToHolder, InnerQuirk(), k,
+                                    *facts.world);  // 0x1404F6567 TEST AL,AL
     // 0x1404F6595 CMOVNZ + 0x1404F659D CMP AL,BL: count <= (cone != 0).
-    if (CountGate(facts.holderX, facts.holderZ, cand.pairToHolder, facts, k) >
+    if (CountGate(facts.holderMan, cand.pairToHolder, facts, k, *facts.world) >
         (coneHit ? 1 : 0))
       continue;
     state->mark[cand.id % kFold] = 1;  // 0x1404F65CF

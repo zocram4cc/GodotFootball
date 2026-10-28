@@ -2,6 +2,8 @@
  "note": "pilot results. diffed = bit-exact vs the unicorn harness. 'provisional' in a note means the spec reads writable image globals at on-disk values. 'stubs' lists the callees that stubs.json models.",
  "results": [
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x14042D470": {
@@ -17,13 +19,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 13,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14042D470"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 84,
    "coverage": {
     "0x140439E50": {
@@ -44,13 +52,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "84 cases bit-exact",
+   "icount_max": 77,
+   "nonreturn": 0,
+   "note": "84 cases bit-exact; own-block coverage 0.62; 84 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140439E50"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 76,
    "coverage": {
     "0x140439EF0": {
@@ -71,13 +85,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "76 cases bit-exact",
+   "icount_max": 67,
+   "nonreturn": 0,
+   "note": "76 cases bit-exact; own-block coverage 0.67; 76 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140439EF0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 70,
    "coverage": {
     "0x140439F50": {
@@ -88,13 +108,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "70 cases bit-exact",
+   "icount_max": 9,
+   "nonreturn": 0,
+   "note": "70 cases bit-exact; own-block coverage 0.60; 70 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140439F50"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x140439F90": {
@@ -110,13 +136,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "72 cases bit-exact",
+   "icount_max": 19,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.67; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140439F90"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140439FE0": {
@@ -127,13 +159,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 9,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140439FE0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x14043A020": {
@@ -144,13 +182,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "72 cases bit-exact",
+   "icount_max": 23,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.78; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14043A020"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x14043A0A0": {
@@ -161,13 +205,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "72 cases bit-exact",
+   "icount_max": 24,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.85; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14043A0A0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 69,
    "coverage": {
     "0x140456EA0": {
@@ -178,13 +228,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "69 cases bit-exact",
+   "icount_max": 7,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; own-block coverage 1.00; 69 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140456EA0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x1404583B0": {
@@ -194,14 +250,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 72 cases at own-block 0.33 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 12,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.33; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1404583B0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 74,
    "coverage": {
     "0x140458740": {
@@ -237,13 +299,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "74 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 196,
+   "nonreturn": 0,
+   "note": "74 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.90; 74 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140458740"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x14046F230": {
@@ -269,13 +337,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 90,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14046F230"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 78,
    "coverage": {
     "0x14046F260": {
@@ -296,13 +370,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "78 cases bit-exact",
+   "icount_max": 76,
+   "nonreturn": 0,
+   "note": "78 cases bit-exact; own-block coverage 0.62; 78 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14046F260"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 68,
    "coverage": {
     "0x140470D60": {
@@ -313,30 +393,42 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "68 cases bit-exact",
+   "icount_max": 19,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; own-block coverage 0.90; 68 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140470D60"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 63,
    "coverage": {
     "0x140479470": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.25,
+     "reached": 2,
      "total": 8
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140479490)",
+   "diffed": true,
+   "failed": 8,
+   "failure_class": null,
+   "icount_max": 6,
+   "nonreturn": 0,
+   "note": "63 cases bit-exact; own-block coverage 0.25; 63 valid of 64 requested; 8 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140479470"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x140481B00": {
@@ -347,13 +439,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "72 cases bit-exact",
+   "icount_max": 24,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.80; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140481B00"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 80,
    "coverage": {
     "0x1404A53E0": {
@@ -374,13 +472,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "80 cases bit-exact",
+   "icount_max": 75,
+   "nonreturn": 0,
+   "note": "80 cases bit-exact; own-block coverage 0.77; 80 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1404A53E0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140439E50": {
@@ -406,13 +510,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 88,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1404AB8E0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 68,
    "coverage": {
     "0x1404BCAD0": {
@@ -428,13 +538,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 115,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.86; 68 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1404BCAD0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1404C8DC0": {
@@ -450,13 +566,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 13,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1404C8DC0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1404C8E60": {
@@ -467,13 +589,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 15,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1404C8E60"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1404F4AB0": {
@@ -484,13 +612,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 8,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1404F4AB0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1404F5F10": {
@@ -521,13 +655,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 1128,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1404F5F10"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 121,
    "coverage": {
     "0x140439E50": {
@@ -662,14 +802,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 121 cases at own-block 0.12 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 44,
+   "nonreturn": 0,
+   "note": "121 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.12; 121 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1404F61E0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 71,
    "coverage": {
     "0x1404F6680": {
@@ -685,13 +831,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "71 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 28,
+   "nonreturn": 0,
+   "note": "71 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 71 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1404F6680"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 105,
    "coverage": {
     "0x1405008E0": {
@@ -711,51 +863,63 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 105 cases at own-block 0.31 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 24,
+   "nonreturn": 0,
+   "note": "105 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.31; 105 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405008E0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 91,
    "coverage": {
     "0x140501160": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2143,
+     "reached": 3,
      "total": 14
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14050117b)",
+   "diffed": true,
+   "failed": 2,
+   "failure_class": null,
+   "icount_max": 23,
+   "nonreturn": 0,
+   "note": "91 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.21; 91 valid of 64 requested; 2 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140501160"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 62,
    "coverage": {
     "0x140529330": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9167,
+     "reached": 11,
      "total": 12
     },
     "0x140529430": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5714,
+     "reached": 4,
      "total": 7
     },
     "0x14062C400": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1304,
+     "reached": 3,
      "total": 23
     },
     "0x140A3B320": {
@@ -764,8 +928,8 @@
      "total": 10
     },
     "0x140A3E150": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5,
+     "reached": 3,
      "total": 6
     },
     "0x140A489D0": {
@@ -779,8 +943,8 @@
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A62850": {
@@ -794,8 +958,8 @@
      "total": 6
     },
     "0x140A63950": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 6,
      "total": 8
     },
     "0x140A6CC20": {
@@ -810,14 +974,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140529381)",
+   "diffed": true,
+   "failed": 2,
+   "failure_class": null,
+   "icount_max": 174,
+   "nonreturn": 0,
+   "note": "62 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.92; 62 valid of 64 requested; 2 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140529330"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 82,
    "coverage": {
     "0x140529430": {
@@ -833,13 +1003,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "82 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 19,
+   "nonreturn": 0,
+   "note": "82 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.57; 82 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140529430"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 68,
    "coverage": {
     "0x140581CE0": {
@@ -850,13 +1026,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "68 cases bit-exact",
+   "icount_max": 19,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; own-block coverage 0.90; 68 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140581CE0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140591A10": {
@@ -872,13 +1054,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 109,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140591A10"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 111,
    "coverage": {
     "0x1405969B0": {
@@ -930,24 +1118,30 @@
    "dead_blocks": {
     "0x140596A9E": "int3 padding"
    },
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 111 cases at own-block 0.27 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 60,
+   "nonreturn": 0,
+   "note": "111 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.27; 111 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405969B0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 81,
    "coverage": {
     "0x1405A0D20": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4783,
+     "reached": 11,
      "total": 23
     },
     "0x140A3B110": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 4,
      "total": 5
     },
     "0x140A3B320": {
@@ -956,13 +1150,13 @@
      "total": 10
     },
     "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2,
+     "reached": 2,
      "total": 10
     },
     "0x140A489D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A10": {
@@ -971,8 +1165,8 @@
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A4F1E0": {
@@ -986,8 +1180,8 @@
      "total": 6
     },
     "0x140A64030": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.875,
+     "reached": 7,
      "total": 8
     },
     "0x141E532E0": {
@@ -997,14 +1191,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a6405c)",
+   "diffed": true,
+   "failed": 4,
+   "failure_class": null,
+   "icount_max": 109,
+   "nonreturn": 0,
+   "note": "81 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.48; 81 valid of 64 requested; 4 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405A0D20"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1405A4790": {
@@ -1015,55 +1215,67 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 13,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.83; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405A4790"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 63,
    "coverage": {
     "0x1405A4790": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 4,
      "total": 6
     },
     "0x1405A4830": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 18,
      "total": 18
     },
     "0x140A489F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A580A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405a48ab)",
+   "diffed": true,
+   "failed": 6,
+   "failure_class": null,
+   "icount_max": 90,
+   "nonreturn": 0,
+   "note": "63 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 63 valid of 64 requested; 6 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405A4830"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 108,
    "coverage": {
     "0x14043A0A0": {
@@ -1148,14 +1360,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 108 cases at own-block 0.05 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 14,
+   "nonreturn": 0,
+   "note": "108 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.05; 108 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405AAF00"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x1405AEF10": {
@@ -1165,14 +1383,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 72 cases at own-block 0.40 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 9,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.40; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405AEF10"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x1405BB170": {
@@ -1183,14 +1407,20 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "72 cases bit-exact",
+   "icount_max": 20,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.78; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405BB170"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
    "coverage": {
     "0x1405CCD00": {
      "fraction": 0.0,
@@ -1200,14 +1430,20 @@
    },
    "dead_blocks": {},
    "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405ccd3f)",
+   "failed": 69,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 69 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405CCD00"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
    "coverage": {
     "0x1405CD050": {
      "fraction": 0.0,
@@ -1217,14 +1453,20 @@
    },
    "dead_blocks": {},
    "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405cd083)",
+   "failed": 71,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 71 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405CD050"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
    "coverage": {
     "0x1405CD050": {
      "fraction": 0.0,
@@ -1249,14 +1491,20 @@
    },
    "dead_blocks": {},
    "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405cd11e)",
+   "failed": 87,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 87 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405CD0F0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
    "coverage": {
     "0x1405CD320": {
      "fraction": 0.0,
@@ -1281,13 +1529,19 @@
    },
    "dead_blocks": {},
    "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405cd369)",
+   "failed": 88,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 88 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405CD320"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 68,
    "coverage": {
     "0x1405CD540": {
@@ -1298,13 +1552,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 18,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.59; 68 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405CD540"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x1405CD780": {
@@ -1320,14 +1580,20 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "72 cases bit-exact",
+   "icount_max": 9,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.60; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405CD780"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
    "coverage": {
     "0x1405CCD00": {
      "fraction": 0.0,
@@ -1392,14 +1658,20 @@
    },
    "dead_blocks": {},
    "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405cd369)",
+   "failed": 128,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 128 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405CFC80"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 127,
    "coverage": {
     "0x1405CD050": {
      "fraction": 0.0,
@@ -1412,8 +1684,8 @@
      "total": 24
     },
     "0x1405CFFE0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0667,
+     "reached": 6,
      "total": 90
     },
     "0x14063FA70": {
@@ -1427,8 +1699,8 @@
      "total": 3
     },
     "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2,
+     "reached": 2,
      "total": 10
     },
     "0x140A401C0": {
@@ -1458,76 +1730,88 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405d016b)",
+   "diffed": true,
+   "failed": 1,
+   "failure_class": null,
+   "icount_max": 233,
+   "nonreturn": 0,
+   "note": "127 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.07; 127 valid of 64 requested; 1 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405CFFE0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 90,
    "coverage": {
     "0x1405DFC70": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7037,
+     "reached": 19,
      "total": 27
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A6C6D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     },
     "0x140A8F7C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A92C80": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8182,
+     "reached": 9,
      "total": 11
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6364,
+     "reached": 7,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 10,
      "total": 10
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405dfcbf)",
+   "diffed": true,
+   "failed": 8,
+   "failure_class": null,
+   "icount_max": 269,
+   "nonreturn": 0,
+   "note": "90 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.70; 90 valid of 64 requested; 8 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405DFC70"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1405DFE40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 16,
      "total": 16
     },
     "0x140A3B320": {
@@ -1546,8 +1830,8 @@
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A60500": {
@@ -1556,40 +1840,46 @@
      "total": 1
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2222,
+     "reached": 2,
      "total": 9
     },
     "0x140A6C6D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8333,
+     "reached": 5,
      "total": 6
     },
     "0x140A8F7C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A92C80": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8182,
+     "reached": 9,
      "total": 11
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405dfe89)",
+   "diffed": true,
+   "failed": 5,
+   "failure_class": null,
+   "icount_max": 228,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested; 5 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405DFE40"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 83,
    "coverage": {
     "0x140439E50": {
@@ -1699,15 +1989,21 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 83 cases at own-block 0.41 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 47,
+   "nonreturn": 0,
+   "note": "83 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.41; 83 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405E0010"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 126,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -1715,8 +2011,8 @@
      "total": 13
     },
     "0x14043A0A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8462,
+     "reached": 11,
      "total": 13
     },
     "0x1405DFC70": {
@@ -1730,23 +2026,23 @@
      "total": 16
     },
     "0x1405E0010": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4091,
+     "reached": 9,
      "total": 22
     },
     "0x1405E0C60": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7714,
+     "reached": 54,
      "total": 70
     },
     "0x1408C5030": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 4,
      "total": 6
     },
     "0x1408C52E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     },
     "0x140A3AF90": {
@@ -1780,8 +2076,8 @@
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A50250": {
@@ -1790,8 +2086,8 @@
      "total": 12
     },
     "0x140A57800": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A60500": {
@@ -1800,13 +2096,13 @@
      "total": 1
     },
     "0x140A62180": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2222,
+     "reached": 2,
      "total": 9
     },
     "0x140A6C6D0": {
@@ -1846,15 +2142,21 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1408c5036)",
+   "diffed": true,
+   "failed": 2,
+   "failure_class": null,
+   "icount_max": 377,
+   "nonreturn": 0,
+   "note": "126 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.77; 126 valid of 64 requested; 2 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405E0C60"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 85,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -1887,8 +2189,8 @@
      "total": 70
     },
     "0x1405EBCA0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1667,
+     "reached": 4,
      "total": 24
     },
     "0x1408C5030": {
@@ -2003,14 +2305,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1405ebec3)",
+   "diffed": true,
+   "failed": 4,
+   "failure_class": null,
+   "icount_max": 26,
+   "nonreturn": 0,
+   "note": "85 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.17; 85 valid of 64 requested; 4 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405EBCA0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 128,
    "coverage": {
     "0x1405FC860": {
@@ -2075,14 +2383,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 128 cases at own-block 0.29 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 647,
+   "nonreturn": 0,
+   "note": "128 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.29; 128 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1405FC860"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x14061E7C0": {
@@ -2098,13 +2412,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 25,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14061E7C0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 95,
    "coverage": {
     "0x14062C400": {
@@ -2159,14 +2479,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 95 cases at own-block 0.13 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 28,
+   "nonreturn": 0,
+   "note": "95 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.13; 95 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14062C400"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 80,
    "coverage": {
     "0x140439E50": {
@@ -2246,34 +2572,40 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 80 cases at own-block 0.24 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 102,
+   "nonreturn": 0,
+   "note": "80 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.24; 80 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140632320"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 84,
    "coverage": {
     "0x140632850": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3077,
+     "reached": 8,
      "total": 26
     },
     "0x1408C5030": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A4DB20": {
@@ -2287,30 +2619,36 @@
      "total": 8
     },
     "0x140A62180": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     },
     "0x140A62960": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8571,
+     "reached": 6,
      "total": 7
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14063288d)",
+   "diffed": true,
+   "failed": 7,
+   "failure_class": null,
+   "icount_max": 170,
+   "nonreturn": 0,
+   "note": "84 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.31; 84 valid of 64 requested; 7 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140632850"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 72,
    "coverage": {
     "0x140632BC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6154,
+     "reached": 8,
      "total": 13
     },
     "0x140A3B320": {
@@ -2334,8 +2672,8 @@
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A60500": {
@@ -2344,72 +2682,84 @@
      "total": 1
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2222,
+     "reached": 2,
      "total": 9
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140632c2a)",
+   "diffed": true,
+   "failed": 8,
+   "failure_class": null,
+   "icount_max": 43,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.62; 72 valid of 64 requested; 8 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140632BC0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 90,
    "coverage": {
     "0x140439E50": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6154,
+     "reached": 8,
      "total": 13
     },
     "0x140639600": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8611,
+     "reached": 31,
      "total": 36
     },
     "0x140A41190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 5,
      "total": 5
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A4DB20": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A92D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7273,
+     "reached": 8,
      "total": 11
     },
     "0x140A92DC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 10,
      "total": 10
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140439e56)",
+   "diffed": true,
+   "failed": 13,
+   "failure_class": null,
+   "icount_max": 283,
+   "nonreturn": 0,
+   "note": "90 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.86; 90 valid of 64 requested; 13 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140639600"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x14063A3A0": {
@@ -2420,46 +2770,58 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 4,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14063A3A0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 68,
    "coverage": {
     "0x14063A420": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     },
     "0x1408C5030": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 4,
      "total": 6
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A62180": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8333,
+     "reached": 5,
      "total": 6
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1408c5036)",
+   "diffed": true,
+   "failed": 1,
+   "failure_class": null,
+   "icount_max": 122,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 68 valid of 64 requested; 1 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14063A420"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 99,
    "coverage": {
     "0x140470D60": {
      "fraction": 0.0,
@@ -2472,102 +2834,108 @@
      "total": 5
     },
     "0x14063A420": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     },
     "0x14063C9F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6852,
+     "reached": 37,
      "total": 54
     },
     "0x1408C5030": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 4,
      "total": 6
     },
     "0x1408C75C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A3AE30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A3AF30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A40BD0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 3,
      "total": 4
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A489D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A489F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A602B0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A62180": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8333,
+     "reached": 5,
      "total": 6
     },
     "0x140A6E150": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x14124DAD0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x141B59E20": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {
     "0x14063CCE1": "int3 padding"
    },
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3ae38)",
+   "diffed": true,
+   "failed": 8,
+   "failure_class": null,
+   "icount_max": 407,
+   "nonreturn": 0,
+   "note": "99 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.69; 99 valid of 64 requested; 8 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14063C9F0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x14063F230": {
@@ -2583,57 +2951,75 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "72 cases bit-exact",
+   "icount_max": 39,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.50; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14063F230"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 77,
    "coverage": {
     "0x14063F490": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9535,
+     "reached": 41,
      "total": 43
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14063f4f3)",
+   "diffed": true,
+   "failed": 3,
+   "failure_class": null,
+   "icount_max": 112,
+   "nonreturn": 0,
+   "note": "77 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.95; 77 valid of 64 requested; 3 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14063F490"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 73,
    "coverage": {
     "0x14063FA70": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2353,
+     "reached": 4,
      "total": 17
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14063fab4)",
+   "diffed": true,
+   "failed": 3,
+   "failure_class": null,
+   "icount_max": 94,
+   "nonreturn": 0,
+   "note": "73 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.24; 73 valid of 64 requested; 3 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14063FA70"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 68,
    "coverage": {
     "0x14063FDC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.5909,
+     "reached": 13,
      "total": 22
     },
     "0x140A3B320": {
@@ -2642,8 +3028,8 @@
      "total": 10
     },
     "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2,
+     "reached": 2,
      "total": 10
     },
     "0x140A3E7D0": {
@@ -2652,8 +3038,8 @@
      "total": 9
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A489D0": {
@@ -2672,13 +3058,13 @@
      "total": 1
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2222,
+     "reached": 2,
      "total": 9
     },
     "0x140A6E340": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A8F7C0": {
@@ -2698,19 +3084,25 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x14063fe0d)",
+   "diffed": true,
+   "failed": 14,
+   "failure_class": null,
+   "icount_max": 73,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.59; 68 valid of 64 requested; 14 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14063FDC0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 66,
    "coverage": {
     "0x140653480": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 12,
      "total": 16
     },
     "0x140A48910": {
@@ -2719,26 +3111,32 @@
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1406534a6)",
+   "diffed": true,
+   "failed": 7,
+   "failure_class": null,
+   "icount_max": 44,
+   "nonreturn": 0,
+   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.75; 66 valid of 64 requested; 7 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140653480"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
    "coverage": {
     "0x140682320": {
      "fraction": 0.0,
@@ -2758,13 +3156,19 @@
    },
    "dead_blocks": {},
    "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1406823b7)",
+   "failed": 86,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 86 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140682320"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 100,
    "coverage": {
     "0x140687820": {
@@ -2780,13 +3184,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "100 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 185,
+   "nonreturn": 0,
+   "note": "100 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.60; 100 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140687820"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 100,
    "coverage": {
     "0x14063FDC0": {
@@ -2882,13 +3292,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "100 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 565,
+   "nonreturn": 0,
+   "note": "100 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.96; 100 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140687FB0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 128,
    "coverage": {
     "0x14063F230": {
@@ -2973,14 +3389,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 128 cases at own-block 0.37 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 255,
+   "nonreturn": 0,
+   "note": "128 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.37; 128 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140688300"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C5000": {
@@ -2991,13 +3413,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C5000"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C5020": {
@@ -3008,13 +3436,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C5020"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 69,
    "coverage": {
     "0x1408C5030": {
@@ -3025,13 +3459,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "69 cases bit-exact",
+   "icount_max": 8,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; own-block coverage 0.83; 69 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C5030"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C5060": {
@@ -3042,13 +3482,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 5,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C5060"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C5080": {
@@ -3059,13 +3505,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 5,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C5080"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 74,
    "coverage": {
     "0x1408C50A0": {
@@ -3076,13 +3528,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "74 cases bit-exact",
+   "icount_max": 9,
+   "nonreturn": 0,
+   "note": "74 cases bit-exact; own-block coverage 0.67; 74 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C50A0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 84,
    "coverage": {
     "0x1408C50E0": {
@@ -3093,13 +3551,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "84 cases bit-exact",
+   "icount_max": 9,
+   "nonreturn": 0,
+   "note": "84 cases bit-exact; own-block coverage 0.57; 84 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C50E0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 79,
    "coverage": {
     "0x1408C51B0": {
@@ -3110,13 +3574,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "79 cases bit-exact",
+   "icount_max": 11,
+   "nonreturn": 0,
+   "note": "79 cases bit-exact; own-block coverage 0.71; 79 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C51B0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 74,
    "coverage": {
     "0x1408C51F0": {
@@ -3126,14 +3596,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 74 cases at own-block 0.41 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 17,
+   "nonreturn": 0,
+   "note": "74 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.41; 74 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C51F0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C524A": {
@@ -3144,13 +3620,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 3,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C524A"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C5254": {
@@ -3161,13 +3643,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 3,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C5254"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C525E": {
@@ -3178,13 +3666,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 3,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C525E"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C5268": {
@@ -3195,13 +3689,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 3,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C5268"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C5272": {
@@ -3212,13 +3712,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 3,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C5272"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C527C": {
@@ -3229,13 +3735,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 3,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C527C"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C5286": {
@@ -3246,13 +3758,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 3,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C5286"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C5290": {
@@ -3263,13 +3781,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 3,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C5290"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 69,
    "coverage": {
     "0x1408C52E0": {
@@ -3280,13 +3804,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "69 cases bit-exact",
+   "icount_max": 12,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; own-block coverage 1.00; 69 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C52E0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C5900": {
@@ -3297,13 +3827,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 5,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C5900"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 74,
    "coverage": {
     "0x1408C6430": {
@@ -3314,13 +3850,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "74 cases bit-exact",
+   "icount_max": 9,
+   "nonreturn": 0,
+   "note": "74 cases bit-exact; own-block coverage 0.67; 74 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C6430"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 69,
    "coverage": {
     "0x1408C7550": {
@@ -3331,13 +3873,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "69 cases bit-exact",
+   "icount_max": 6,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; own-block coverage 0.75; 69 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C7550"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C75C0": {
@@ -3348,13 +3896,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 5,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408C75C0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 66,
    "coverage": {
     "0x1408CB0B0": {
@@ -3365,14 +3919,20 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "66 cases bit-exact",
+   "icount_max": 12,
+   "nonreturn": 0,
+   "note": "66 cases bit-exact; own-block coverage 0.75; 66 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1408CB0B0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 111,
    "coverage": {
     "0x14043A020": {
      "fraction": 0.0,
@@ -3390,8 +3950,8 @@
      "total": 13
     },
     "0x1409FA0B0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3818,
+     "reached": 21,
      "total": 55
     },
     "0x140A3B320": {
@@ -3400,8 +3960,8 @@
      "total": 10
     },
     "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2,
+     "reached": 2,
      "total": 10
     },
     "0x140A3E880": {
@@ -3410,8 +3970,8 @@
      "total": 1
     },
     "0x140A48910": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A489D0": {
@@ -3420,13 +3980,13 @@
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A55D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2391,
+     "reached": 11,
      "total": 46
     },
     "0x140A57720": {
@@ -3455,8 +4015,8 @@
      "total": 3
     },
     "0x140A75BE0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.7143,
+     "reached": 5,
      "total": 7
     },
     "0x140A8F7C0": {
@@ -3485,8 +4045,8 @@
      "total": 1
     },
     "0x141E532E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x141F9C3B0": {
@@ -3496,14 +4056,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x1409fa1aa)",
+   "diffed": true,
+   "failed": 11,
+   "failure_class": null,
+   "icount_max": 125,
+   "nonreturn": 0,
+   "note": "111 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.38; 111 valid of 64 requested; 11 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1409FA0B0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 108,
    "coverage": {
     "0x1404583B0": {
@@ -3618,14 +4184,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 108 cases at own-block 0.11 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 49,
+   "nonreturn": 0,
+   "note": "108 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.11; 108 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1409FBCE0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A3AE30": {
@@ -3636,13 +4208,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 5,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3AE30"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 77,
    "coverage": {
     "0x140A3AEE0": {
@@ -3653,13 +4231,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "77 cases bit-exact",
+   "icount_max": 20,
+   "nonreturn": 0,
+   "note": "77 cases bit-exact; own-block coverage 1.00; 77 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3AEE0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A3AF30": {
@@ -3670,13 +4254,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 8,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3AF30"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A3AF60": {
@@ -3687,13 +4277,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 11,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3AF60"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 85,
    "coverage": {
     "0x140A3AF90": {
@@ -3704,13 +4300,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "85 cases bit-exact",
+   "icount_max": 28,
+   "nonreturn": 0,
+   "note": "85 cases bit-exact; own-block coverage 0.83; 85 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3AF90"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 68,
    "coverage": {
     "0x140A3B000": {
@@ -3721,13 +4323,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "68 cases bit-exact",
+   "icount_max": 368,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; own-block coverage 0.89; 68 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3B000"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A3B110": {
@@ -3738,13 +4346,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 11,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3B110"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 73,
    "coverage": {
     "0x140A3B320": {
@@ -3755,13 +4369,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "73 cases bit-exact",
+   "icount_max": 368,
+   "nonreturn": 0,
+   "note": "73 cases bit-exact; own-block coverage 0.90; 73 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3B320"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 66,
    "coverage": {
     "0x140A3B520": {
@@ -3771,14 +4391,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 66 cases at own-block 0.33 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 9,
+   "nonreturn": 0,
+   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.33; 66 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3B520"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 74,
    "coverage": {
     "0x140A3C950": {
@@ -3789,13 +4415,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "74 cases bit-exact",
+   "icount_max": 6,
+   "nonreturn": 0,
+   "note": "74 cases bit-exact; own-block coverage 0.50; 74 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3C950"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x140A3C9B0": {
@@ -3806,13 +4438,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "72 cases bit-exact",
+   "icount_max": 269,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.86; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3C9B0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A3D4F0": {
@@ -3823,13 +4461,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 3,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3D4F0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 69,
    "coverage": {
     "0x140A3E150": {
@@ -3840,30 +4484,42 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "69 cases bit-exact",
+   "icount_max": 9,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; own-block coverage 0.50; 69 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3E150"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 61,
    "coverage": {
     "0x140A3E190": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 10,
      "total": 10
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3e1c6)",
+   "diffed": true,
+   "failed": 8,
+   "failure_class": null,
+   "icount_max": 15,
+   "nonreturn": 0,
+   "note": "61 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 61 valid of 64 requested; 8 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3E190"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 82,
    "coverage": {
     "0x140A3E5D0": {
@@ -3874,52 +4530,70 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "82 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 5351,
+   "nonreturn": 0,
+   "note": "82 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.93; 82 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3E5D0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 53,
    "coverage": {
     "0x140A3E7D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 9,
      "total": 9
     },
     "0x140A60500": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3e80c)",
+   "diffed": true,
+   "failed": 11,
+   "failure_class": null,
+   "icount_max": 21,
+   "nonreturn": 0,
+   "note": "53 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 53 valid of 64 requested; 11 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3E7D0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 52,
    "coverage": {
     "0x140A3E840": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 8,
      "total": 8
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3e871)",
+   "diffed": true,
+   "failed": 12,
+   "failure_class": null,
+   "icount_max": 14,
+   "nonreturn": 0,
+   "note": "52 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 52 valid of 64 requested; 12 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3E840"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A3E880": {
@@ -3930,13 +4604,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3E880"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A3FE50": {
@@ -3947,13 +4627,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 6,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A3FE50"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A40000": {
@@ -3974,13 +4660,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 100,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A40000"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A40050": {
@@ -3991,13 +4683,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 11,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A40050"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 74,
    "coverage": {
     "0x140A40050": {
@@ -4013,13 +4711,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "74 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 41,
+   "nonreturn": 0,
+   "note": "74 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.60; 74 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A40110"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A401C0": {
@@ -4030,13 +4734,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 9,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A401C0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A401F0": {
@@ -4047,13 +4757,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 4,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A401F0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A40200": {
@@ -4064,13 +4780,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 18,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A40200"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A40200": {
@@ -4091,13 +4813,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 59,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A40820"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A40BD0": {
@@ -4113,13 +4841,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 22,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 0.75; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A40BD0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A41190": {
@@ -4130,13 +4864,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 34,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A41190"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 69,
    "coverage": {
     "0x140A41B30": {
@@ -4147,13 +4887,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "69 cases bit-exact",
+   "icount_max": 62,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; own-block coverage 0.86; 69 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A41B30"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x140A41BE0": {
@@ -4164,13 +4910,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "72 cases bit-exact",
+   "icount_max": 6,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 1.00; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A41BE0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A422C0": {
@@ -4181,13 +4933,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 80,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A422C0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C6430": {
@@ -4203,13 +4961,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 25,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A42430"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A42580": {
@@ -4220,13 +4984,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A42580"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A42590": {
@@ -4237,13 +5007,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 3,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A42590"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A425A0": {
@@ -4254,13 +5030,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 3,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A425A0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1408C6430": {
@@ -4276,13 +5058,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 19,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A42880"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A40200": {
@@ -4298,13 +5086,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 57,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A42940"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A40200": {
@@ -4325,13 +5119,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 65,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A429A0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 73,
    "coverage": {
     "0x140A431E0": {
@@ -4346,14 +5146,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 73 cases at own-block 0.36 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 13,
+   "nonreturn": 0,
+   "note": "73 cases bit-exact; own-block coverage 0.36; 73 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A431E0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A48910": {
@@ -4364,13 +5170,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 7,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A48910"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 69,
    "coverage": {
     "0x140A489D0": {
@@ -4381,13 +5193,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "69 cases bit-exact",
+   "icount_max": 7,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; own-block coverage 1.00; 69 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A489D0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A489F0": {
@@ -4398,13 +5216,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 7,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A489F0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A48A10": {
@@ -4415,13 +5239,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 7,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A48A10"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A48A30": {
@@ -4432,13 +5262,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 7,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A48A30"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x140A4C4E0": {
@@ -4449,13 +5285,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "72 cases bit-exact",
+   "icount_max": 18,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.80; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4C4E0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A4C720": {
@@ -4466,86 +5308,110 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 14,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4C720"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 81,
    "coverage": {
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A4C8E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.25,
+     "reached": 4,
      "total": 16
     }
    },
    "dead_blocks": {
     "0x140A4C92E": "int3 padding"
    },
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a4c95f)",
+   "diffed": true,
+   "failed": 1,
+   "failure_class": null,
+   "icount_max": 23,
+   "nonreturn": 0,
+   "note": "81 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.25; 81 valid of 64 requested; 1 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4C8E0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 69,
    "coverage": {
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A4C930": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.9091,
+     "reached": 10,
      "total": 11
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a4c95f)",
+   "diffed": true,
+   "failed": 4,
+   "failure_class": null,
+   "icount_max": 32,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.91; 69 valid of 64 requested; 4 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4C930"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 59,
    "coverage": {
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A4C9A0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a4c9f8)",
+   "diffed": true,
+   "failed": 5,
+   "failure_class": null,
+   "icount_max": 58,
+   "nonreturn": 0,
+   "note": "59 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 59 valid of 64 requested; 5 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4C9A0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A4DB20": {
@@ -4556,13 +5422,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 6,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4DB20"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 120,
    "coverage": {
     "0x140456EA0": {
@@ -4607,14 +5479,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 120 cases at own-block 0.42 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 322,
+   "nonreturn": 0,
+   "note": "120 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.42; 120 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4E3F0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 68,
    "coverage": {
     "0x140456EA0": {
@@ -4665,14 +5543,20 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 60,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.83; 68 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4E720"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 106,
    "coverage": {
     "0x140481B00": {
      "fraction": 0.0,
@@ -4695,8 +5579,8 @@
      "total": 10
     },
     "0x140A4E7C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0571,
+     "reached": 2,
      "total": 35
     },
     "0x140A6C6D0": {
@@ -4731,15 +5615,21 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a6c6d6)",
+   "diffed": true,
+   "failed": 11,
+   "failure_class": null,
+   "icount_max": 11,
+   "nonreturn": 0,
+   "note": "106 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.06; 106 valid of 64 requested; 11 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4E7C0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 62,
    "coverage": {
     "0x140481B00": {
      "fraction": 0.0,
@@ -4762,13 +5652,13 @@
      "total": 10
     },
     "0x140A4E7C0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.0571,
+     "reached": 2,
      "total": 35
     },
     "0x140A4EAF0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8333,
+     "reached": 10,
      "total": 12
     },
     "0x140A6C6D0": {
@@ -4803,14 +5693,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a6c6d6)",
+   "diffed": true,
+   "failed": 6,
+   "failure_class": null,
+   "icount_max": 37,
+   "nonreturn": 0,
+   "note": "62 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.83; 62 valid of 64 requested; 6 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4EAF0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 69,
    "coverage": {
     "0x140A4EDF0": {
@@ -4821,13 +5717,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "69 cases bit-exact",
+   "icount_max": 14,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; own-block coverage 0.86; 69 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4EDF0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A4F1E0": {
@@ -4838,13 +5740,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 11,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4F1E0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 69,
    "coverage": {
     "0x140A4F210": {
@@ -4855,13 +5763,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "69 cases bit-exact",
+   "icount_max": 6,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; own-block coverage 1.00; 69 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4F210"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 81,
    "coverage": {
     "0x140A3B320": {
@@ -4912,14 +5826,20 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "81 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 727,
+   "nonreturn": 0,
+   "note": "81 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.77; 81 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4F230"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 76,
    "coverage": {
     "0x140A48A10": {
      "fraction": 0.0,
@@ -4927,8 +5847,8 @@
      "total": 3
     },
     "0x140A4F720": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4167,
+     "reached": 5,
      "total": 12
     },
     "0x140A6C6D0": {
@@ -4953,14 +5873,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a6c6d6)",
+   "diffed": true,
+   "failed": 3,
+   "failure_class": null,
+   "icount_max": 101,
+   "nonreturn": 0,
+   "note": "76 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.42; 76 valid of 64 requested; 3 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4F720"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 105,
    "coverage": {
     "0x140481B00": {
@@ -5015,14 +5941,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 105 cases at own-block 0.29 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 215,
+   "nonreturn": 0,
+   "note": "105 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.29; 105 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4FBC0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 68,
    "coverage": {
     "0x140481B00": {
@@ -5083,13 +6015,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 370,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.86; 68 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A4FEA0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 66,
    "coverage": {
     "0x140A3AF90": {
@@ -5140,13 +6078,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 41,
+   "nonreturn": 0,
+   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.67; 66 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A50250"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 66,
    "coverage": {
     "0x140A3B320": {
@@ -5187,14 +6131,20 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 97,
+   "nonreturn": 0,
+   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.83; 66 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A51320"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 103,
    "coverage": {
     "0x140439E50": {
      "fraction": 0.0,
@@ -5227,18 +6177,18 @@
      "total": 3
     },
     "0x140A48A10": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A51D50": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1161,
+     "reached": 39,
      "total": 336
     },
     "0x140A60500": {
@@ -5247,18 +6197,18 @@
      "total": 1
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.2222,
+     "reached": 2,
      "total": 9
     },
     "0x140A6CF70": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A74EC0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.3333,
+     "reached": 2,
      "total": 6
     },
     "0x140A92D40": {
@@ -5272,25 +6222,31 @@
      "total": 10
     },
     "0x141E532D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x141E532E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a51e37)",
+   "diffed": true,
+   "failed": 25,
+   "failure_class": null,
+   "icount_max": 442,
+   "nonreturn": 0,
+   "note": "103 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.12; 103 valid of 64 requested; 25 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A51D50"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 80,
    "coverage": {
     "0x140A48A30": {
@@ -5305,14 +6261,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 80 cases at own-block 0.33 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 8,
+   "nonreturn": 0,
+   "note": "80 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.33; 80 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A532F0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 79,
    "coverage": {
     "0x140A3E150": {
@@ -5343,14 +6305,20 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "79 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 27,
+   "nonreturn": 0,
+   "note": "79 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.60; 79 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A533A0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
    "coverage": {
     "0x140A48A10": {
      "fraction": 0.0,
@@ -5367,13 +6335,19 @@
     "0x140A53DE8": "int3 padding"
    },
    "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a53df6)",
+   "failed": 70,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 70 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A53DA0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x140439EF0": {
@@ -5403,14 +6377,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 72 cases at own-block 0.33 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 21,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.33; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A53DF0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 82,
    "coverage": {
     "0x140A3B320": {
@@ -5450,29 +6430,35 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 82 cases at own-block 0.40 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 88,
+   "nonreturn": 0,
+   "note": "82 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.40; 82 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A53F90"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 73,
    "coverage": {
     "0x140A55CF0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.1176,
+     "reached": 6,
      "total": 51
     },
     "0x14149A470": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x14149F4F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
@@ -5481,14 +6467,20 @@
     "0x140A55DF8": "int3 padding",
     "0x140A55EE3": "int3 padding"
    },
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a55f20)",
+   "diffed": true,
+   "failed": 1,
+   "failure_class": null,
+   "icount_max": 32,
+   "nonreturn": 0,
+   "note": "73 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.12; 73 valid of 64 requested; 1 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A55CF0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 83,
    "coverage": {
     "0x140A55D40": {
@@ -5506,14 +6498,20 @@
     "0x140A55DF8": "int3 padding",
     "0x140A55EE3": "int3 padding"
    },
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 83 cases at own-block 0.28 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 550,
+   "nonreturn": 0,
+   "note": "83 cases bit-exact; own-block coverage 0.28; 83 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A55D40"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 79,
    "coverage": {
     "0x140A55EF0": {
@@ -5524,13 +6522,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "79 cases bit-exact",
+   "icount_max": 436,
+   "nonreturn": 0,
+   "note": "79 cases bit-exact; own-block coverage 0.91; 79 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A55EF0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A57710": {
@@ -5541,13 +6545,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A57710"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A57720": {
@@ -5558,13 +6568,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A57720"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A57730": {
@@ -5575,13 +6591,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A57730"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A57800": {
@@ -5592,13 +6614,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 9,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A57800"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A580A0": {
@@ -5609,13 +6637,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A580A0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 69,
    "coverage": {
     "0x140A58320": {
@@ -5626,13 +6660,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "69 cases bit-exact",
+   "icount_max": 5,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; own-block coverage 1.00; 69 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A58320"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A602B0": {
@@ -5643,13 +6683,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 10,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A602B0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x140A60300": {
@@ -5660,13 +6706,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "72 cases bit-exact",
+   "icount_max": 8,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.75; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A60300"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A60340": {
@@ -5677,13 +6729,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 7,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A60340"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 75,
    "coverage": {
     "0x140A603C0": {
@@ -5694,13 +6752,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "75 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 56,
+   "nonreturn": 0,
+   "note": "75 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.83; 75 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A603C0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A60500": {
@@ -5711,13 +6775,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 4,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A60500"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 77,
    "coverage": {
     "0x140A60530": {
@@ -5728,13 +6798,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "77 cases bit-exact",
+   "icount_max": 6,
+   "nonreturn": 0,
+   "note": "77 cases bit-exact; own-block coverage 1.00; 77 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A60530"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A606C0": {
@@ -5745,13 +6821,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A606C0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A60A90": {
@@ -5762,13 +6844,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A60A90"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A48A30": {
@@ -5784,122 +6872,140 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 113,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A61CF0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 81,
    "coverage": {
     "0x1408C51B0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 7,
      "total": 7
     },
     "0x1408C7550": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.75,
+     "reached": 3,
      "total": 4
     },
     "0x140A3AF60": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 4,
      "total": 5
     },
     "0x140A489D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A61F40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 22,
      "total": 33
     },
     "0x141B59E20": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x1421B7D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3af73)",
+   "diffed": true,
+   "failed": 3,
+   "failure_class": null,
+   "icount_max": 123,
+   "nonreturn": 0,
+   "note": "81 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.67; 81 valid of 64 requested; 3 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A61F40"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 55,
    "coverage": {
     "0x1408C51B0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 7,
      "total": 7
     },
     "0x1408C7550": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 4,
      "total": 4
     },
     "0x140A3AF60": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 4,
      "total": 5
     },
     "0x140A489D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A61F40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 22,
      "total": 33
     },
     "0x140A62140": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x141B59E20": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x1421B7D40": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3af73)",
+   "diffed": true,
+   "failed": 9,
+   "failure_class": null,
+   "icount_max": 257,
+   "nonreturn": 0,
+   "note": "55 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 55 valid of 64 requested; 9 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A62140"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 66,
    "coverage": {
     "0x1408C5030": {
@@ -5920,30 +7026,42 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 11,
+   "nonreturn": 0,
+   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.50; 66 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A62180"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 72,
    "coverage": {
     "0x140A62610": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.4545,
+     "reached": 5,
      "total": 11
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a6263a)",
+   "diffed": true,
+   "failed": 1,
+   "failure_class": null,
+   "icount_max": 100,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.45; 72 valid of 64 requested; 1 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A62610"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 66,
    "coverage": {
     "0x140A48A30": {
@@ -5964,50 +7082,62 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 123,
+   "nonreturn": 0,
+   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.80; 66 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A62690"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 59,
    "coverage": {
     "0x140A3B320": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 8,
      "total": 10
     },
     "0x140A3E7D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 9,
      "total": 9
     },
     "0x140A489D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A60500": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     },
     "0x140A627E0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 9,
      "total": 9
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3e80c)",
+   "diffed": true,
+   "failed": 10,
+   "failure_class": null,
+   "icount_max": 74,
+   "nonreturn": 0,
+   "note": "59 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 59 valid of 64 requested; 10 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A627E0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 77,
    "coverage": {
     "0x140A48A30": {
@@ -6025,35 +7155,47 @@
     "0x140A6291D": "int3 padding"
    },
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "77 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 228,
+   "nonreturn": 0,
+   "note": "77 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.53; 77 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A62850"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 67,
    "coverage": {
     "0x140A48A30": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A62960": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8571,
+     "reached": 6,
      "total": 7
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a62989)",
+   "diffed": true,
+   "failed": 2,
+   "failure_class": null,
+   "icount_max": 116,
+   "nonreturn": 0,
+   "note": "67 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.86; 67 valid of 64 requested; 2 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A62960"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 66,
    "coverage": {
     "0x140A3B320": {
@@ -6074,13 +7216,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 18,
+   "nonreturn": 0,
+   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.67; 66 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A62EA0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 71,
    "coverage": {
     "0x140A3AEE0": {
@@ -6106,35 +7254,47 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "71 cases bit-exact",
+   "icount_max": 41,
+   "nonreturn": 0,
+   "note": "71 cases bit-exact; own-block coverage 0.62; 71 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A62F20"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 58,
    "coverage": {
     "0x140A489D0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.6667,
+     "reached": 2,
      "total": 3
     },
     "0x140A62FE0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 6,
      "total": 6
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a3aef4)",
+   "diffed": true,
+   "failed": 6,
+   "failure_class": null,
+   "icount_max": 37,
+   "nonreturn": 0,
+   "note": "58 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 58 valid of 64 requested; 6 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A62FE0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 74,
    "coverage": {
     "0x140A48A30": {
@@ -6150,13 +7310,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "74 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 34,
+   "nonreturn": 0,
+   "note": "74 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.91; 74 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A63020"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 66,
    "coverage": {
     "0x140A3B320": {
@@ -6177,13 +7343,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 20,
+   "nonreturn": 0,
+   "note": "66 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.67; 66 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A63830"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 82,
    "coverage": {
     "0x140A63950": {
@@ -6193,14 +7365,20 @@
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 82 cases at own-block 0.38 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 7,
+   "nonreturn": 0,
+   "note": "82 cases bit-exact; own-block coverage 0.38; 82 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A63950"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 68,
    "coverage": {
     "0x140A3B110": {
@@ -6216,13 +7394,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "68 cases bit-exact",
+   "icount_max": 46,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; own-block coverage 0.88; 68 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A64030"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 112,
    "coverage": {
     "0x140A48A30": {
@@ -6239,14 +7423,20 @@
    "dead_blocks": {
     "0x140A6467D": "int3 padding"
    },
-   "diffed": false,
-   "failure_class": "harness cannot run",
-   "note": "bit-exact 112 cases at own-block 0.14 < floor 0.50",
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 55,
+   "nonreturn": 0,
+   "note": "112 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.14; 112 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A64410"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A66FF0": {
@@ -6257,13 +7447,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 6,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A66FF0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A6BD60": {
@@ -6274,13 +7470,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 9,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6BD60"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 73,
    "coverage": {
     "0x140A6C6D0": {
@@ -6301,13 +7503,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "73 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 120,
+   "nonreturn": 0,
+   "note": "73 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.83; 73 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6C6D0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 73,
    "coverage": {
     "0x140A6C990": {
@@ -6318,13 +7526,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "73 cases bit-exact",
+   "icount_max": 16,
+   "nonreturn": 0,
+   "note": "73 cases bit-exact; own-block coverage 0.80; 73 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6C990"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A6CC20": {
@@ -6335,13 +7549,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 13,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6CC20"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A6CE00": {
@@ -6352,13 +7572,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 5,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6CE00"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A6CEF0": {
@@ -6369,13 +7595,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 5,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6CEF0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A6CF70": {
@@ -6386,13 +7618,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 7,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6CF70"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 74,
    "coverage": {
     "0x140A6DE20": {
@@ -6403,40 +7641,52 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "74 cases bit-exact",
+   "icount_max": 32,
+   "nonreturn": 0,
+   "note": "74 cases bit-exact; own-block coverage 0.71; 74 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6DE20"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 57,
    "coverage": {
     "0x140A489F0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 3,
      "total": 3
     },
     "0x140A6DF00": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 5,
      "total": 5
     },
     "0x14124DAD0": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x140a6df33)",
+   "diffed": true,
+   "failed": 7,
+   "failure_class": null,
+   "icount_max": 78,
+   "nonreturn": 0,
+   "note": "57 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 57 valid of 64 requested; 7 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6DF00"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A6E150": {
@@ -6447,13 +7697,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 8,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6E150"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A6E1C0": {
@@ -6464,13 +7720,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 8,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6E1C0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A6E1E0": {
@@ -6481,13 +7743,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 7,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6E1E0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A6E320": {
@@ -6498,13 +7766,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 7,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6E320"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A6E340": {
@@ -6515,13 +7789,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 7,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6E340"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A6E3F0": {
@@ -6532,13 +7812,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 7,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6E3F0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A6E450": {
@@ -6549,13 +7835,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 8,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6E450"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A6E540": {
@@ -6566,13 +7858,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 8,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6E540"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A6E6B0": {
@@ -6583,13 +7881,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A6E6B0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A71260": {
@@ -6600,13 +7904,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 5,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A71260"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A714A0": {
@@ -6617,13 +7927,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 5,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A714A0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A714C0": {
@@ -6634,13 +7950,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 5,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A714C0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A714E0": {
@@ -6651,13 +7973,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 5,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A714E0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A71500": {
@@ -6668,13 +7996,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 5,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A71500"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 69,
    "coverage": {
     "0x140A71520": {
@@ -6685,13 +8019,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "69 cases bit-exact",
+   "icount_max": 4,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; own-block coverage 1.00; 69 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A71520"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A71990": {
@@ -6702,13 +8042,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 7,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A71990"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A72E70": {
@@ -6719,13 +8065,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 63,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A72E70"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 79,
    "coverage": {
     "0x140A3E150": {
@@ -6741,13 +8093,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "79 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 23,
+   "nonreturn": 0,
+   "note": "79 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.67; 79 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A74EC0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 68,
    "coverage": {
     "0x140A75BE0": {
@@ -6758,13 +8116,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "68 cases bit-exact",
+   "icount_max": 13,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; own-block coverage 0.71; 68 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A75BE0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 69,
    "coverage": {
     "0x140A76070": {
@@ -6775,13 +8139,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "69 cases bit-exact",
+   "icount_max": 10,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; own-block coverage 0.67; 69 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A76070"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 69,
    "coverage": {
     "0x140A85AA0": {
@@ -6792,13 +8162,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "69 cases bit-exact",
+   "icount_max": 16,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; own-block coverage 0.80; 69 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A85AA0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A8F7C0": {
@@ -6814,13 +8190,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 97,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A8F7C0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A8F890": {
@@ -6831,13 +8213,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 8,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A8F890"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 68,
    "coverage": {
     "0x1404BCAD0": {
@@ -6858,13 +8246,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 150,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.86; 68 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A8FF10"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 68,
    "coverage": {
     "0x140A91120": {
@@ -6875,13 +8269,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "68 cases bit-exact",
+   "icount_max": 24,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; own-block coverage 0.67; 68 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A91120"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x140A924E0": {
@@ -6892,13 +8292,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 16,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A924E0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 69,
    "coverage": {
     "0x140A92530": {
@@ -6909,13 +8315,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "69 cases bit-exact",
+   "icount_max": 23,
+   "nonreturn": 0,
+   "note": "69 cases bit-exact; own-block coverage 1.00; 69 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A92530"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 68,
    "coverage": {
     "0x14043A0A0": {
@@ -6931,13 +8343,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "68 cases bit-exact",
+   "icount_max": 54,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; own-block coverage 0.85; 68 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A92950"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x140A92B90": {
@@ -6948,13 +8366,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "72 cases bit-exact",
+   "icount_max": 21,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; own-block coverage 0.56; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A92B90"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 72,
    "coverage": {
     "0x140A92C80": {
@@ -6965,13 +8389,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "72 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 39,
+   "nonreturn": 0,
+   "note": "72 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.82; 72 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A92C80"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 68,
    "coverage": {
     "0x140A92D40": {
@@ -6987,13 +8417,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "68 cases bit-exact",
+   "icount_max": 49,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; own-block coverage 0.73; 68 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A92D40"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 68,
    "coverage": {
     "0x140A92DC0": {
@@ -7004,13 +8440,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "68 cases bit-exact",
+   "icount_max": 32,
+   "nonreturn": 0,
+   "note": "68 cases bit-exact; own-block coverage 1.00; 68 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x140A92DC0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x14124DAD0": {
@@ -7021,13 +8463,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14124DAD0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x14149A470": {
@@ -7038,13 +8486,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14149A470"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x14149F4F0": {
@@ -7055,13 +8509,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 8,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x14149F4F0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x141B59E20": {
@@ -7072,13 +8532,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x141B59E20"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x141B92460": {
@@ -7089,13 +8555,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x141B92460"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x141E532D0": {
@@ -7106,13 +8578,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x141E532D0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x141E532E0": {
@@ -7123,35 +8601,47 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x141E532E0"
   },
   {
-   "cases": 64,
+   "aborted": 0,
+   "capped": 0,
+   "cases": 63,
    "coverage": {
     "0x141E5CA20": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 0.8,
+     "reached": 4,
      "total": 5
     },
     "0x141E5DE80": {
-     "fraction": 0.0,
-     "reached": 0,
+     "fraction": 1.0,
+     "reached": 1,
      "total": 1
     }
    },
    "dead_blocks": {},
-   "diffed": false,
-   "failure_class": "struct map gap",
-   "note": "spec closure gap: emu error: Invalid memory mapping (UC_ERR_MAP) (last RIP 0x141e5ca52)",
+   "diffed": true,
+   "failed": 1,
+   "failure_class": null,
+   "icount_max": 19,
+   "nonreturn": 0,
+   "note": "63 cases bit-exact; own-block coverage 0.80; 63 valid of 64 requested; 1 failed skipped",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x141E5CA20"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x141E5D4C0": {
@@ -7162,13 +8652,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values)",
+   "icount_max": 23,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.67; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x141E5D4C0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x141E5DE80": {
@@ -7179,13 +8675,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x141E5DE80"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x141F9C3B0": {
@@ -7196,13 +8698,19 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x141F9C3B0"
   },
   {
+   "aborted": 0,
+   "capped": 0,
    "cases": 64,
    "coverage": {
     "0x1421B7D40": {
@@ -7213,8 +8721,12 @@
    },
    "dead_blocks": {},
    "diffed": true,
+   "failed": 0,
    "failure_class": null,
-   "note": "64 cases bit-exact",
+   "icount_max": 2,
+   "nonreturn": 0,
+   "note": "64 cases bit-exact; own-block coverage 1.00; 64 valid of 64 requested",
+   "requested": 64,
    "stubs": [],
    "translated": true,
    "va": "0x1421B7D40"

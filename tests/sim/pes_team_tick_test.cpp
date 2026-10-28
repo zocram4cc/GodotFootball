@@ -5,8 +5,18 @@
 
 #include "onthepitch/pesteamtick.hpp"
 #include "onthepitch/pesrunslots.hpp"
+#include "onthepitch/pesworldrecord.hpp"
 
 namespace {
+// A man placed at (x, z) in his record of `world`: the mark table reads positions from the records, not from Facts.
+uint8_t* ManAt(pes::PesWorld& world, int slot, float x, float z) {
+  world.BindSlot(slot);
+  uint8_t* man = world.ManRecord(slot);
+  pes::StoreF32(man, pes::kManPosXOffset, x);
+  pes::StoreF32(man, pes::kManPosZOffset, z);
+  return man;
+}
+
 
 // A1: the inline rule at 0x1404F6E1C-58: B8A2 = (L >= 4), B8A3 = (L <= 0).
 TEST(PesTeamTick, Level3SetsFullAttack) {
@@ -275,14 +285,15 @@ TEST(PesTeamTick, MarkBuildCommitsMarkedCandidate) {
   facts.side = 0;
   facts.holder = 5;
   facts.sign = 1.0f;
-  facts.holderX = 14.6984631f;
-  facts.holderZ = 1.7101007f;
+  pes::PesWorld world;
+  facts.world = &world;
+  facts.holderMan = ManAt(world, 5, 14.6984631f, 1.7101007f);
   facts.goalAreaHalfWidth_m = 9.16f;
   pes::marktable::Candidate c;
   c.id = 7;
   c.d2 = 100.0f;
   c.actionWord = 1;
-  c.posX = 10.0f;
+  c.man = ManAt(world, 7, 10.0f, 0.0f);
   c.pairToTarget = 10.0f;
   c.pairToHolder = 70.0f;
   facts.candidates[0] = c;
