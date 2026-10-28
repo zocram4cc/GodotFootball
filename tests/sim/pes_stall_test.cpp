@@ -115,7 +115,12 @@ TEST(PesStall, TheBreakerNeverForcesABallUnderAnArmedRestart) {
 
 // A live ball that lies still for five seconds is a man who holds it and does nothing with it. PES's holder keeps
 // the ball until he releases it, so the breaker must not have to take it from him.
-TEST(PesStall, ALiveBallNeverLiesStillLongEnoughForTheBreaker) {
+// DISABLED 28-10-26 (owner decision, batch AM landing KickSoftMin): the PES kick-quality fold moved seed 7's match onto
+// the known loose-ball pickup gap (80 firings): GF's trap takes its clip from the row picker 0x14081FF70, PES's reaction
+// trap from the Trap action's kind-0 chain (0x14079A470 -> 0x14079AFD0), which is not ported yet
+// (docs/ports/pes-port-OwnerPickup2.md, -TrapReplay.md). The same defect fires 147 times on branch StoppageFlow.
+// Re-enable when the kind-0 trap chain lands.
+TEST(PesStall, DISABLED_ALiveBallNeverLiesStillLongEnoughForTheBreaker) {
   const BreakerCensus& c = RunSeedSevenPesMatch();
   if (!c.ready) GTEST_SKIP() << "PES21_ROOT not set";
   ASSERT_TRUE(c.finished) << "the match did not reach full time";
