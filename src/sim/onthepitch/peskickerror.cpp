@@ -35,8 +35,11 @@ float HalfNormal(const KickErrorConstants& k, int n) {
 }
 
 // The situation product Q and the motion-descriptor factors F1/F2
-// (scatter 6) key on PES kick kinds and motion ids this engine does not have.
-// ponytail: neutral 1.0 here; port when animations carry PES kick kinds.
+// (scatter 6) keys on the PES kick kind (ap+0x2752, 151-row table 0x14344e380: class byte 13, subclass byte 12),
+// the first-time/volley flags (ap+0x2756, ap+0x2764), the body turn (ap+0xbe4 - ap+0x247c), the AI bit (ap+0x2460
+// bit 29) and the motion descriptor F1/F2 (0x1406b0250 over the motion table, a runtime singleton at 0x1436f23c0).
+// ponytail: GF has none of these fields (the kind bridge is open, docs/re/pes-re-kick-scatter-inputs.md Unresolved 1):
+// Q = 1 until the bridge lands. Remove when GF kicks carry a PES kind and motion id.
 constexpr float kSituationNotPorted = 1.0f;
 
 // The install's quarter-wave sine table (513 floats at 0x142655950), read at load and mapped into the translated sine.
@@ -181,11 +184,15 @@ float PressureFactor(const KickErrorConstants& k, float contactSelf, float conta
   // 0x14043b8b0's distance ramp: 1 inside a metre, 0 at two.
   const float distRamp = oppDistance_m <= k.nearOpp_m ? 1.0f : k.farOpp_m - oppDistance_m;
   const float edge = Ramp(contactSelf - contactOpp, k.contactLo, k.contactHi, k.contactSpan);
-  // ponytail: the opponent's frame-counter ramp (byte+0x2c, 0x14083ecda) is
-  // taken as 1 - "just arrived"; GF tracks no such counter.
+  // ponytail: xmm8 (contact-byte factor, 0x14083ecc9..0x14083ed32; KickDecode (d)): obj = 0x140a48910(FUN_1406ea340(kicker));
+  // byte[obj+1]==0x48 gives 1.0 (0x14083ecd4); else B = byte[obj+0x2c] maps to t = 1 for B <= 9, 0 for B >= 54, else
+  // (54-B)/45 (9 = 54/6 by the magic divide, 54 = int 0x14351AE50 set to 0x36 by 0x141e532f0). The angRamp is xmm7:
+  // clamp((err+20)/40)*0.4, err = byte[obj2+0x28] - byte[r13+0x28] (0x14083ed40..ed87). GF has no anime or player
+  // record for either: xmm8 is 1.0 here and the xmm7 angRamp is omitted.
   const float d = (k.dBase - k.rWeight * edge) * distRamp;
-  // ponytail: the running term (1-0.5a)*1.3*FUN_140723320 is 0 - that
-  // function is a nearby-player threat sum over the 0x14344ef78 weights, not ported.
+  // ponytail: FUN_140723320 (run term, 3-pass running max of 0.1*sum; weights 0x14344ef78..0x14344ef94 and
+  // 0x14344ef98/9c/a0 = -0.0029828, 2.7572925, 8.7184591; case affine from byte[r15+1]-8 via table 0x14072394c)
+  // needs the kicker's contact vector and the state id of PES's player record. GF has neither: run = 0.
   return 1.0f - k.rWeight * (k.dWeight * d);
 }
 
