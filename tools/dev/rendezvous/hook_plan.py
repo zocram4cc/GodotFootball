@@ -45,6 +45,18 @@ TARGETS = [
     ("ref_restart_cmd_A39A80", 0x140A39A80, "restart command"),
     ("linesman_lookat_A38F20", 0x140A38F20, "linesman look-at"),
     ("restart_driver_445E90", 0x140445E90, "restart step-programme driver"),
+    # Kick scatter and press command: real-call cases (docs/ports/pes-port-KickInputs.md, docs/re/pes-re-press-live.md).
+    # Not hookable, so reached through the scatter entry: the quality 0x1408413C0 (rip-relative operand in the window)
+    # and the scatter body at 0x1408398D5 (a call in the window).
+    ("kick_scatter_83CC30", 0x14083CC30, "kick scatter entry"),
+    ("kick_postscale_8414A0", 0x1408414A0, "kick quality post-scales"),
+    ("press_cmd_writer_A85A70", 0x140A85A70, "press command words writer (class, useClassRate, kmh)"),
+    # The carrier's Clear unit and its corridor angle (docs/ports/pes-port-EndClear2.md).
+    ("carrier_clear_2109EB0", 0x142109EB0, "carrier Clear unit (kind 1)"),
+    ("clear_angle_2108630", 0x142108630, "clear corridor angle"),
+    # The Trap action's kind-0 control-touch chain (docs/re/pes-re-trap-kind0.md, docs/ports/pes-port-RecordMap.md).
+    ("trap_kind0_79A470", 0x14079A470, "Trap action kind-0 control touch"),
+    ("trap_commit_79AFD0", 0x14079AFD0, "Trap clip commit step"),
 ]
 
 
