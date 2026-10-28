@@ -1,3 +1,5 @@
+> **Correction (Main, 28-10-26; see `docs/ports/pes-port-FdcCamera3.md`):** item 1 is wrong on two points: `0x141EBA8C0` is a generic anime time-track sampler (u16 keys at +0x2a/+0x2c, values +0x2e/+0x30, each /30, one float per active key plus fade weights), not a per-component quaternion lerp; and the 0.001 / 0.05 constants in `0x141F7E510` are clip-end time bounds, not near/far clamps. The camera pose consumer is still undecoded.
+
 # Open decodes: CANM camera sampler, function 0x5D, sanction inputs
 
 Read-only RE. Image `<local>/ghidra-projects/scratch/Unpacker/pes_full.bin` (offset = VA − 0x140000000). Ghidra GUI bridge down → headless `dec.sh` + capstone on the image + operand-VA constants script-read. Scratch: `<workdrive>/gf-OpenDecodes-scratch/`. Labels: **CONFIRMED** = dec.sh decompile or image read this pass; **INF** = inference, reason given; **OPEN** = blocker named.
