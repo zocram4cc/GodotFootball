@@ -145,6 +145,10 @@ add_executable(pes_camera_test pes_camera_test.cpp)
 target_link_libraries(pes_camera_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_camera_test)
 
+add_executable(pes_fixdemo_table_test pes_fixdemo_table_test.cpp)
+target_link_libraries(pes_fixdemo_table_test PRIVATE pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_fixdemo_table_test)
+
 add_executable(pes_fox2_test pes_fox2_test.cpp)
 target_link_libraries(pes_fox2_test PRIVATE pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_fox2_test)
