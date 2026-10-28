@@ -332,6 +332,9 @@ address given.
 |`pes-re-trap-pick.md`|TRAP clip picker 0x14081FF70 (dispatcher path, not the +0x68 slot); touch frame from HitData bits 13..20; the designated owner (MA+0x2600C) is refused TRAP and takes a slow ball through the 0x5D kick branch (height <= 0.2174 m at 10 ticks, |dv| < 38 km/h)|
 |`pes-re-kick-scatter-inputs.md`|Kick-scatter inputs decoded: situation product Q (12 inputs, GF kind map), run term R, F1/F2, angRamp, the 7-tier post-scales of 0x1408414A0, yaw redraw, shot pitch; two affines TENTATIVE|
 |`pes-re-sanction-switch.md`|Sanction tree 0x14047F170 split into decision vs presentation callees; the builder 0x140480910 writes A1's card table, which the next foul reads (stub must keep that write); A1 = the ANALYZE object; scene id spec for the Godot hybrid layer; 20-row oracle from real foul stops|
+|`pes-re-record-layouts-chains.md`|Per-record field tables for the kick, trap, Clear and sanction chains with the field-to-GF-source work list (RecordMap)|
+|`pes-re-record-ids.md`|Record identities: kicker `ap` = heap player object (vtable 0x1425E34D8) with six kick-field writers; Clear carrier = heap record; G+0x180 stride 0x74 (two IMUL sites, live lattice); anime +0x1A/+0x1C belong to the anime record, not GF's slot|
+|`pes-re-fdc-format.md`|The FixDemo cutscene .fdc format: container, record classes (Cut, Env, Timing, Effect, Human, Object, Camera, Function), field layouts, from the parser over the install|
 |`pes-re-player-ai.md`|ball-carrier think units, off-ball runs, team plans and pressing, keepers, attribute/style inputs, AI tables|
 |`pes-re-tactics-clock.md`|the match clock as a u32 percentage of minutes x 1920, the stoppage formula, the period state machine, and how GF differs|
 |`pes-re-clock-record.md`|the real match clock: plain f32 seconds at `*(G+0x2c0)+0xa0`; the old percentage clock model is the stamina tank; `match_time` scales stamina; a freeze is a 4-byte float store; GF's `pesclock.*` mapping|

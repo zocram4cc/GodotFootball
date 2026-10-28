@@ -1,5 +1,7 @@
 
 
+> **Corrections (Main, 28-10-26, checked against the image; see `docs/ports/pes-port-SanctionSwitch.md`):** (1) the builder `0x140480910` has no store at A1+0x6C and the tree's input spec has no A1+0x6C key: the claim below that a no-op builder stub would change the next foul's decision through A1's card table is **wrong**; (2) the tree's HUD callee is `0x140A73E20` (direct call in `0x14047F170`), not `0x140473E20`; (3) `dl` of `0x140A3A690` on a foul stop is `MI+0x1588 == 1`, not the foul-kind dword; (4) `oracle.txt` holds inputs only (14 rows), no outputs.
+
 # PES 2021 sanction switch decode — final report (archived by Main from the agent's final message)
 
 Read-only RE. Image `<local>/ghidra-projects/scratch/Unpacker/pes_full.bin` (offset = VA − 0x140000000). **Ghidra bridge DOWN the whole pass** → capstone on the image + `.pdata` bounds + existing rendezvous snapshots (no new captures, no writes to PES). Scratch: `<workdrive>/gf-SanctionDecode-scratch/` — `tree.asm` (full 2771 B disasm of 0x14047F170), `no_pdata.asm` (non-`.pdata` callees), `oracle.py`/`oracle.txt` (capture table, 20 rows), `consts.py`/`consts.txt` (script-read constants), `img.py`, `memlib.py`, `scan.py`, `funcs.pkl`. Labels: CONFIRMED = disassembly/`.pdata`/snapshot this pass; INF = inference, reason given; OPEN = blocker named.

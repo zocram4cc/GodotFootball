@@ -51,6 +51,12 @@ TARGETS = [
     ("kick_scatter_83CC30", 0x14083CC30, "kick scatter entry"),
     ("kick_postscale_8414A0", 0x1408414A0, "kick quality post-scales"),
     ("press_cmd_writer_A85A70", 0x140A85A70, "press command words writer (class, useClassRate, kmh)"),
+    # The carrier's Clear unit and its corridor angle (docs/ports/pes-port-EndClear2.md).
+    ("carrier_clear_2109EB0", 0x142109EB0, "carrier Clear unit (kind 1)"),
+    ("clear_angle_2108630", 0x142108630, "clear corridor angle"),
+    # The Trap action's kind-0 control-touch chain (docs/re/pes-re-trap-kind0.md, docs/ports/pes-port-RecordMap.md).
+    ("trap_kind0_79A470", 0x14079A470, "Trap action kind-0 control touch"),
+    ("trap_commit_79AFD0", 0x14079AFD0, "Trap clip commit step"),
 ]
 
 
