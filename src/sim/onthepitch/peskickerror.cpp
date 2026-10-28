@@ -177,8 +177,10 @@ float PassLaunchPenalty(const KickErrorConstants& k, float a, float speed_mps, f
 }
 
 float ShotLaunchPenalty(const KickErrorConstants& k, float power) {
-  // ponytail: the 0.02*g pitch-sin term is left out (its upper bound sits in
-  // an untraced register); it moves I by at most 0.02.
+  // ponytail: the -0.02*g pitch term (0x14083dd17..dd27; 0.02 at 0x1425c4894, 0.25 at 0x142592228)
+  // is left out. g = SinTableDeg(90*x, xmm12) with x = 0.25*(xmm14-xmm1)
+  // when xmm14 < xmm7, else xmm12. xmm14, xmm7, xmm1 are set before 0x14083da40 and are
+  // not traced. Moves I by at most 0.02.
   return 1.0f - k.shootPowerWeight * Ramp(power, k.powerLo, 1.0f, k.powerSpan);
 }
 
