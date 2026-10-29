@@ -61,6 +61,23 @@ constexpr uint32_t kStandInG1 = 0;
 // `s.rd(0x140000000 + ...)` sequences of pes_fn_141F4D2F0 and pes_fn_141F50450). One run covers them; read from the install.
 constexpr uint64_t kImageTablesVa = 0x141F4F900, kImageTablesBytes = 0x1200;
 
+// The goal anchor's world (docs/ports/pes-port-CutAnchor.md §2; the reads of the 7 captured calls, byte by byte): the world
+// object G behind [0x1436F3DC8] with the match info MI (G+0x270), the field info (G+0x2AA8), and the man record (G+0x1DD8) and
+// run object (G+0x21E8) of each pitch slot, 0x28-byte table entries whose first qword is the record's address.
+constexpr uint64_t kWorldSlotVa = 0x1436F3DC8, kWorldSlotPageVa = 0x1436F3000, kWorldSlotPageBytes = 0x1000;
+constexpr uint64_t kFpsVa = 0x14351AE54;        // inside the environment globals segment
+constexpr uint64_t kFullTurnVa = 0x14259858C;   // 360.0f: the writer 0x14047D280's wrap constant (read from the install)
+constexpr uint64_t kAnchorWorldBytes = 0x2E58, kMatchInfoBytes = 0x1600, kManBytes = 0x700, kRunBytes = 0x40, kA0Bytes = 0x40;
+constexpr uint64_t kWorldMatchInfo = 0x270, kWorldFieldInfo = 0x2AA8, kWorldManTable = 0x1DD8, kWorldRunTable = 0x21E8;
+constexpr uint64_t kWorldTableStride = 0x28;
+constexpr unsigned kPitchSlots = 22;  // 2 sides * 11
+constexpr uint64_t kMiSlotMode = 0x1588, kMiSlot = 0x1590;  // MI+0x1588 == 1: the scorer's slot is MI+0x1590 (0x140474F00)
+constexpr uint64_t kManFacing = 0x554, kManPos = 0x55C, kManVel = 0x574, kManMoveMode = 0x5B0, kRunTarget = 0x18;
+constexpr uint64_t kA0SceneId = 8, kA0Radius = 0xC;
+constexpr uint64_t kAnchorOutVa = kScratchVa + 0x100, kAnchorOutRotY = 0x10;  // pos (3 f32) then rotY, inside the scratch segment
+constexpr uint64_t kDbSceneRows = 0x448, kDbSceneRowsEnd = 0x450;  // a std::vector's begin/end: the goal scene rows (0x140A7CBA0)
+constexpr uint64_t kSceneRowBytes = 0x3C, kSceneRowFloats = 8, kSceneRowTail = 0x38;
+
 }  // namespace
 
 struct FixDemoSelector::Impl {
@@ -68,13 +85,17 @@ struct FixDemoSelector::Impl {
   std::unique_ptr<PesHeap> heap = std::make_unique<PesHeap>();
   PesState s;
   uint64_t ctx = 0, db = 0;
+  uint64_t world = 0, matchInfo = 0, fieldInfo = 0, a0 = 0;
+  std::array<uint64_t, kPitchSlots> man{}, run{};
+  float fullTurnDeg = 0;
   std::map<uint32_t, uint32_t> cache;  // cut id -> row
 
-  Impl(std::map<int, FixDemoTable> t, std::vector<uint8_t> imageTables) : tables(std::move(t)) {
+  Impl(std::map<int, FixDemoTable> t, std::vector<uint8_t> imageTables, float fullTurn) : tables(std::move(t)), fullTurnDeg(fullTurn) {
     heap->Attach(s);
     s.mem.img.push_back({kImageTablesVa, std::move(imageTables)});
     for (auto [va, bytes] : {std::pair<uint64_t, uint64_t>{kStackVa, kStackBytes}, {kScratchVa, kScratchBytes},
-                             {kStaticsVa, kStaticsBytes}, {kEnvGlobalsVa, kEnvGlobalsBytes}, {kDbPageVa, kDbPageBytes}})
+                             {kStaticsVa, kStaticsBytes}, {kEnvGlobalsVa, kEnvGlobalsBytes}, {kDbPageVa, kDbPageBytes},
+                             {kWorldSlotPageVa, kWorldSlotPageBytes}})
       s.mem.segs.push_back({va, std::vector<uint8_t>(bytes)});
     s.gpr[4] = kStackVa + kStackBytes - 0x100;
     ctx = heap->Alloc(kCtxBytes, 0x10);
@@ -83,6 +104,8 @@ struct FixDemoSelector::Impl {
     // Environment globals at their image values.
     s.wr(kG1sVa, kStandInFixtureWord, 2);
     s.wr(kG1Va, kStandInG1, 4);
+    BuildWorld();
+    BuildSceneRows();
     // Empty pick histories: PES's static initialisers leave each std::map as a sentinel node (left = parent = right = self,
     // colour black, isnil) and empty vectors; the history objects are 0x40 bytes with the map's head pointer at +0.
     for (unsigned c = 0; c < kCategories; ++c) {
@@ -123,6 +146,89 @@ struct FixDemoSelector::Impl {
       s.wr(base + kDbGroupCountOff, table.cutGroups.size(), 4);
       s.wr(base + kDbRowsOff, rows, 8);
     }
+  }
+
+  uint64_t Zalloc(uint64_t bytes) {
+    const uint64_t va = heap->Alloc(bytes, 0x10);
+    for (uint64_t off = 0; off < bytes; off += 8) s.wr(va + off, 0, 8);
+    return va;
+  }
+
+  void BuildWorld() {
+    world = Zalloc(kAnchorWorldBytes);
+    s.wr(kWorldSlotVa, world, 8);
+    matchInfo = Zalloc(kMatchInfoBytes);
+    fieldInfo = Zalloc(8);
+    a0 = Zalloc(kA0Bytes);
+    s.wr(world + kWorldMatchInfo, matchInfo, 8);
+    s.wr(world + kWorldFieldInfo, fieldInfo, 8);
+    for (unsigned slot = 0; slot < kPitchSlots; ++slot) {
+      man[slot] = Zalloc(kManBytes);
+      run[slot] = Zalloc(kRunBytes);
+      s.wr(world + kWorldManTable + slot * kWorldTableStride, man[slot], 8);
+      s.wr(world + kWorldRunTable + slot * kWorldTableStride, run[slot], 8);
+    }
+  }
+
+  // The goal scene rows (table stream order, laid out as PES's DB holds them): u8 x5 at +0, f32 x12 at +8, u8 x4 at +0x38.
+  void BuildSceneRows() {
+    const auto goal = tables.find(kFixDemoGoal);
+    if (goal == tables.end() || goal->second.goalSceneRows.empty()) return;
+    const auto& rows = goal->second.goalSceneRows;
+    const uint64_t base = Zalloc(rows.size() * kSceneRowBytes);
+    for (size_t i = 0; i < rows.size(); ++i) {
+      const uint64_t r = base + i * kSceneRowBytes;
+      for (size_t k = 0; k < rows[i].head.size(); ++k) s.wr(r + k, rows[i].head[k], 1);
+      for (size_t k = 0; k < rows[i].floats.size(); ++k) s.wrf(r + kSceneRowFloats + 4 * k, rows[i].floats[k]);
+      for (size_t k = 0; k < rows[i].tail.size(); ++k) s.wr(r + kSceneRowTail + k, rows[i].tail[k], 1);
+    }
+    s.wr(db + kDbSceneRows, base, 8);
+    s.wr(db + kDbSceneRowsEnd, base + rows.size() * kSceneRowBytes, 8);
+  }
+
+  std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& f) {
+    const auto goal = tables.find(kFixDemoGoal);
+    const uint32_t index = (f.sceneId & 0xFFFF) - 1;
+    if (goal == tables.end() || (f.sceneId >> 16) != static_cast<uint32_t>(kFixDemoGoal) ||
+        index >= goal->second.goalSceneRows.size() || f.scorerSlot >= kPitchSlots)
+      return std::nullopt;
+    s.wr(matchInfo + kMiSlotMode, 1, 4);
+    s.wr(matchInfo + kMiSlot, f.scorerSlot, 4);
+    s.wrf(fieldInfo, f.halfLength);
+    s.wrf(fieldInfo + 4, f.halfWidth);
+    s.wrf(kFpsVa, f.fps);
+    const uint64_t m = man[f.scorerSlot], r = run[f.scorerSlot];
+    s.wrf(m + kManFacing, f.facing);
+    s.wr(m + kManMoveMode, f.moveMode, 4);
+    for (unsigned i = 0; i < 3; ++i) {
+      s.wrf(m + kManPos + 4 * i, f.pos[i]);
+      s.wrf(m + kManVel + 4 * i, f.vel[i]);
+      s.wrf(r + kRunTarget + 4 * i, f.target[i]);
+    }
+    s.wr(a0 + kA0SceneId, f.sceneId, 4);
+    s.wrf(a0 + kA0Radius, f.radius);
+    // 0x140474F00(A0, arg2 (not read), &pos, &rotY)
+    s.gpr[1] = a0;
+    s.gpr[2] = 0;
+    s.gpr[8] = kAnchorOutVa;
+    s.gpr[9] = kAnchorOutVa + kAnchorOutRotY;
+    Call(&pes_fn_140474F00);
+    GoalAnchor out;
+    for (unsigned i = 0; i < 3; ++i) out.pos[i] = s.rdf(kAnchorOutVa + 4 * i);
+    float rot = s.rdf(kAnchorOutVa + kAnchorOutRotY);
+    // The writer 0x14047D280 (kind-1 arm) wraps rotY once by [0x14259858C]: 0 <= r ? (r < t ? r : r - t) : r + t.
+    if (0.0f <= rot) {
+      if (rot >= fullTurnDeg) rot -= fullTurnDeg;
+    } else {
+      rot += fullTurnDeg;
+    }
+    out.rotYDeg = rot;
+    // 0x140478FF0(A0, arg2 (not read)): the scene row's test of the scorer's spot.
+    s.gpr[1] = a0;
+    s.gpr[2] = 0;
+    Call(&pes_fn_140478FF0);
+    out.flip = (s.gpr[0] & 0xFF) != 0;
+    return out;
   }
 
   // A translated function is entered as the dispatch enters it: a return address pushed.
@@ -172,7 +278,15 @@ std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTa
     if (error) *error = "the image does not map the FixDemo evaluator's switch tables";
     return nullptr;
   }
-  return std::unique_ptr<FixDemoSelector>(new FixDemoSelector(std::make_unique<Impl>(std::move(tables), std::move(image))));
+  uint8_t turn[sizeof(float)];
+  float fullTurn;
+  if (!exe.ReadVa(kFullTurnVa, sizeof turn, turn)) {
+    if (error) *error = "the image does not map the scene writer's turn constant";
+    return nullptr;
+  }
+  std::memcpy(&fullTurn, turn, sizeof fullTurn);
+  return std::unique_ptr<FixDemoSelector>(
+      new FixDemoSelector(std::make_unique<Impl>(std::move(tables), std::move(image), fullTurn)));
 }
 
 FixDemoSelector::FixDemoSelector(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
@@ -239,6 +353,8 @@ std::optional<FixDemoRequest> FixDemoSelector::Request(uint32_t sceneId) {
   }
   return req;
 }
+
+std::optional<GoalAnchor> FixDemoSelector::PlaceGoal(const GoalAnchorFacts& facts) { return impl_->PlaceGoal(facts); }
 
 void FixDemoSelector::EndScene(uint32_t sceneId) {
   // 0x141F58FC0: `uVar1 != 0x60001 && 10 < uVar1 - 0x40011` (unsigned) guards the call 0x141F4D070(cat = uVar1 >> 16 & 0xFF).

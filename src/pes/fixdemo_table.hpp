@@ -54,6 +54,15 @@ struct FixDemoGoalPlayerScene {
   uint32_t sceneId = 0;
 };
 
+// A goal scene's placement row, one per scene (table stream order: 5 u8, 12 f32, 4 u8). PES lays it out in the DB as
+// 0x3C bytes: the u8s at +0, the floats at +8, the tail at +0x38 (the bytes between are compiler padding). The anchor
+// 0x140474F00 reads bytes +2/+3/+4 (x, z and rotation modes) and floats; the event-position builder 0x140476C50 switches on +0.
+struct FixDemoSceneRow {
+  std::array<uint8_t, 5> head{};
+  std::array<float, 12> floats{};
+  std::array<uint8_t, 4> tail{};
+};
+
 struct FixDemoTable {
   int version = 0;
   std::vector<FixDemoCutGroup> cutGroups;
@@ -61,6 +70,7 @@ struct FixDemoTable {
   // Goal category only (empty otherwise): edit-scene ids and the playerId -> scene pairs.
   std::vector<uint32_t> goalEditScenes;
   std::vector<FixDemoGoalPlayerScene> goalPlayerScenes;
+  std::vector<FixDemoSceneRow> goalSceneRows;  // one per scene, in scene order
 };
 
 // The VFS path of a cut layer a variant names: the category's cut_data folder + the name. Empty for an unknown category.

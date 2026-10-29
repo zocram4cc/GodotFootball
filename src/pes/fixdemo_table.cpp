@@ -176,9 +176,11 @@ std::optional<FixDemoTable> DecodeFixDemoTable(const std::vector<uint8_t>& bytes
       }
     }
     for (size_t i = 0; i < sceneSlices.size(); ++i) {
-      for (int k = 0; k < 5; ++k) r.u8();
-      for (int k = 0; k < 12; ++k) r.f();
-      for (int k = 0; k < 4; ++k) r.u8();
+      FixDemoSceneRow row;
+      for (uint8_t& b : row.head) b = r.u8();
+      for (float& f : row.floats) f = r.f();
+      for (uint8_t& b : row.tail) b = r.u8();
+      t.goalSceneRows.push_back(row);
     }
     if (!atEnd()) {
       const uint16_t ng = r.u16();

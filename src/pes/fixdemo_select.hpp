@@ -63,6 +63,28 @@ struct FixDemoRequest {
   std::vector<FixDemoStepRequest> steps;  // up to the scene's terminating cut 0
 };
 
+// What GF knows about a goal, in PES's units and axes (PES x, y up, z): the inputs of the scene anchor 0x140474F00 (the
+// placement of the scorer's celebration camera) as it reads them, with the PES site of each.
+struct GoalAnchorFacts {
+  uint32_t sceneId = 0;            // A0+8: the goal scene (category 3); picks the scene row at DB+0x448
+  uint32_t scorerSlot = 0;         // MI+0x1590, read when MI+0x1588 == 1: side * 11 + the scorer's index in the side (< 22)
+  std::array<float, 3> pos{};      // the scorer's man record +0x55C: metres
+  std::array<float, 3> vel{};      // +0x574: metres per PES frame
+  float facing = 0;                // +0x554: body facing, degrees (read instead of the velocity when moveMode == 1)
+  uint32_t moveMode = 0;           // +0x5B0
+  float halfLength = 0, halfWidth = 0;  // the field info G+0x2AA8 (+0, +4): the pitch's half sizes, metres
+  float fps = 0;                   // 0x14351AE54: PES frames per second (the rotation's speed scale divides by it)
+  std::array<float, 3> target{};   // the scorer's run object +0x18 (0x140A489A0): where the scorer runs after the goal
+  float radius = 0;                // A0+0xC: the scene's run radius (0x140474CF0); the anchor stays this far from the target
+};
+
+// The scene anchor: the writer 0x14047D280's result for a kind-1 goal, scene+0x110..+0x120.
+struct GoalAnchor {
+  std::array<float, 3> pos{};
+  float rotYDeg = 0;  // wrapped into [0, 360)
+  bool flip = false;  // 0x140478FF0
+};
+
 class PeImage;
 
 class FixDemoSelector {
@@ -94,6 +116,11 @@ class FixDemoSelector {
   // 0x141F4D070), except for 0x60001 and 0x40011..0x4001B. ponytail: 0x141F58FC0 also ages the pick history through
   // 0x141F52D20/0x141F52D80, neither in the committed layer; until they are, a history node keeps its last pick range.
   void EndScene(uint32_t sceneId);
+
+  // The goal scene's anchor (writer 0x14047D280's kind-1 arm over the translated calc 0x140474F00, the wrap into [0, 360) with
+  // [0x14259858C], and the flip 0x140478FF0), run on the arena: the scene row is the goal table's, laid into the DB at
+  // +0x448/+0x450. Nullopt when the table has no row for the scene or the slot is not a pitch slot.
+  std::optional<GoalAnchor> PlaceGoal(const GoalAnchorFacts& facts);
 
   // Puts back one pick-history node recorded from a live PES, the way 0x141F4FFF0 creates it: key = (group start + range
   // start) * 0x100 + column, the node's two range words, and its used-block byte vector with the vector's capacity. For tests
