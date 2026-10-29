@@ -1287508,6 +1287508,14 @@
  "meta": {
   "bridge": "http://127.0.0.1:8080",
   "closures": {
+   "cardlevel": {
+    "members": 84,
+    "roots": [
+     "0x1405B7470",
+     "0x14050D6A0",
+     "0x143F546F0"
+    ]
+   },
    "endclear": {
     "members": 84,
     "roots": [
