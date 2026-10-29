@@ -107,7 +107,10 @@ void pes_fn_141B55850(PesState& s) {
     s.gpr[4] = (uint64_t)(_r);
   }
   s.gpr[3] = (uint64_t)(s.rd(s.gpr[4], 8)); s.gpr[4] += 8;
-  __builtin_trap(); /* UNRESOLVED JMP qword ptr [rax + 0x78] */
+  { uint64_t _t = (uint64_t)(s.rd(((s.gpr[0]) + (0x78ULL)), 8)); PesDispatch _d = pes_dispatch_lookup(_t);
+    if (_d.fn == 0) pes_dispatch_missing(_t);
+    _d.fn(s); }
+  return;
   L_141B558DC:;
   { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((32ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
     s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);

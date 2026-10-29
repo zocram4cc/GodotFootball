@@ -18,17 +18,9 @@ void pes_fn_141B52380(PesState& s) {
     s.cf = false; s.of = false; }
   if (s.cond("nz")) {
     s.gpr[0] = (uint64_t)(s.rd(((s.gpr[1])), 8));
-    __builtin_trap(); /* UNRESOLVED JMP qword ptr [rax + 0x68] */
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
+    { uint64_t _t = (uint64_t)(s.rd(((s.gpr[0]) + (0x68ULL)), 8)); PesDispatch _d = pes_dispatch_lookup(_t);
+      if (_d.fn == 0) pes_dispatch_missing(_t);
+      _d.fn(s); }
     return;
   } else {
     { uint64_t _r = ((uint64_t)(((uint64_t)(uint32_t)s.gpr[0])) ^ (uint64_t)(((uint64_t)(uint32_t)s.gpr[0]))) & 0xFFFFFFFFULL;
