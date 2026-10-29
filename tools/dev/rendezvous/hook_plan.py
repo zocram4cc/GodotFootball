@@ -71,6 +71,8 @@ TARGETS = [
     ("carrier_walk_210F110", 0x14210F110, "carrier unit walk (forced clear)"),
     # The danger writer's input pressure record (MatchInfo4): built right before 0x140699960 runs.
     ("pressure_build_69A500", 0x14069A500, "pressure record builder feeding the danger writer"),
+    # FixDemo scene start (CutsceneCam): reads scene+0x110..0x120 and the step kind; goal/foul cut offsets.
+    ("fixdemo_scene_start_141F5CD00", 0x141F5CD00, "FixDemo scene start (cut offset per scene)"),
 ]
 
 
