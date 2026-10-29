@@ -15,6 +15,7 @@ unsigned long ToMs(float seconds) {
 }  // namespace
 
 unsigned long Tail_ms() { return kStopStamp_ms + kUiFrames_ms + kTeleport_ms; }
+unsigned long ReadyDelay_ms() { return kStopStamp_ms + kUiFrames_ms + kTeleportWindow_ms; }
 
 unsigned long HoldEndsAt_ms(unsigned long stopTime_ms, const pes::StoppageConstants& sf,
                            bool downed, int holdKind) {

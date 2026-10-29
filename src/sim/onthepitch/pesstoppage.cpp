@@ -10,7 +10,7 @@ namespace {
 // table words are the FUN_14044e460 entries for the kinds that matter here:
 // its stack array starts at 0x14259ce60 (`movaps xmm0, [rip+0x214e9e4]`
 // @0x14044e475 writes the first half to rsp+0x20) and the kind indexes it.
-constexpr uint64_t HOLD_KIND1_VA = 0x14259ce60;      // 5.0
+constexpr uint64_t HOLD_KIND1_VA = 0x14259ce64;      // 5.0: table[1], lane 1 of the vector at 0x14259ce60 (FUN_14044e460: movss [rsp+rbp*4+0x20])
 constexpr uint64_t HOLD_KIND5_VA = 0x14259ce54;      // 2.5
 constexpr uint64_t DOWNED_EXTRA_VA = 0x14259bde4;    // 2.5
 constexpr uint64_t WIPE_VA = 0x142588200;            // 0.1

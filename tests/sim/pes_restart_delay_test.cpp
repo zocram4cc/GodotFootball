@@ -56,9 +56,9 @@ constexpr int TWENTY_MINUTES = 20;
 // moves that throw-in (the role arrays put it past 30000 ticks), so the tests follow it through the whole twenty-minute
 // match and stop when its stoppage ends.
 constexpr unsigned int SEAMLESS_SEED = 3;
-// Seed 7's first throw-in on the twenty-minute match is a placed (ceremony) throw-in: prepared at tick 14428 and released
-// at 14521 (docs/ports/pes-port-ThrowInTaker.md). The windowed tests run just past it.
-constexpr unsigned long kFirstThrowInWindowTicks = 15000;
+// Seed 7's first touchline out on the twenty-minute match stops at tick 15577 on the R1 tree (StoppageFlow5 probe, ball
+// (-7.36, 34.44)). The old 14428 throw-in left the window when the foul hold was fixed. The windowed tests run past its release.
+constexpr unsigned long kFirstThrowInWindowTicks = 16500;
 // The same 30-minute cap as the other whole-match tests, counted in the 54 Hz logic
 // frames the sim ticks in.
 constexpr unsigned long kMaxSimTicks = 30ul * 60ul * Match::kFramesPerSecond;
@@ -155,12 +155,19 @@ TEST(PesRestartDelay, PesLoopRestartsAreArmedAtTheirPesSpotsSidesAndReleaseFrame
         true, TWENTY_MINUTES,
         [&](Match& match) {
           const RefereeBuffer& b = match.GetRefereeBuffer();
+          if (b.active && b.prepared && !b.started) {
+            // The set-play ready state (MI+0x116c = 3) turns on at the ready point, after the teleport window, not at the wipe.
+            const unsigned long now = match.GetActualTime_ms();
+            EXPECT_EQ(b.ReadyForTake(now), now >= b.prepareTime + b.readyDelay_ms) << "set piece " << b.desiredSetPiece;
+          }
           if (b.active && b.started && !(lastRelease && *lastRelease == b.stopTime)) {
             lastRelease = b.stopTime;
-            // The timed taker is released on the first frame at or past the PES gate, give or take the tick the referee
-            // checks it on. A goal kick has no clock: AGoalKickIsReleasedOnThePesLadder checks its ladder frame.
+            // The timed taker is released on the first frame at or past the PES gate, counted from the set-play ready point
+            // (MI+0x116c = 3), not from the armed point: the fade-in and the tail come between the two. A goal kick has no
+            // clock: AGoalKickIsReleasedOnThePesLadder checks its ladder frame.
             const int gate = pes::ReleaseFrames(b.desiredSetPiece);
-            const int frames = static_cast<int>((match.GetActualTime_ms() - b.startTime) / Match::kTick_ms);
+            const unsigned long ready_ms = b.prepareTime + b.readyDelay_ms;
+            const int frames = static_cast<int>((match.GetActualTime_ms() - ready_ms) / Match::kTick_ms);
             if (gate > 0) {
               EXPECT_GE(frames, gate) << "released early for set piece " << b.desiredSetPiece;
               EXPECT_LE(frames, gate + 2) << "released late for set piece " << b.desiredSetPiece;

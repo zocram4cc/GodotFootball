@@ -320,7 +320,8 @@ class MoveHostAdapter final : public pes::MoveHost {
     // PES MI+0x116c (pes-re-A5Judge.md): an awarded restart (buffer active) that is prepared or started is set-play ready (3);
     // any other stop is 2, and open play is 1.
     const auto& buf = match_.GetReferee()->GetBuffer();
-    return pes::PlayStateFor(match_.IsInPlay(), buf.active, buf.prepared || buf.started);
+    const bool ready = buf.ReadyForTake(match_.GetActualTime_ms()) || buf.started;
+    return pes::PlayStateFor(match_.IsInPlay(), buf.active, ready);
   }
   bool IsReplay() const override { return false; }
   // The handoff (FUN_1406b8340's tail): the issued clip plays on the body. A SetMotion plays its own

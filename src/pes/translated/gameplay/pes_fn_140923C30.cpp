@@ -11,7 +11,6 @@
 void pes_fn_140923C30(PesState& s);
 void pes_fn_140A48910(PesState& s);
 void pes_fn_140A48A10(PesState& s);
-void pes_fn_140A48A30(PesState& s);
 
 void pes_fn_140923C30(PesState& s) {
   s.wr(((s.gpr[4]) + (0x8ULL)), (uint64_t)(s.gpr[3]), 8);

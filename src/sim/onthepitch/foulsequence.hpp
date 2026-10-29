@@ -51,9 +51,14 @@ constexpr unsigned long kStopStamp_ms = 40;
 constexpr unsigned long kUiFrames_ms = 200;
 // The teleport pair (0x14 + 0x15, 9.4): 20 + 20 frames, static.
 constexpr unsigned long kTeleport_ms = 740;
+// The 0x14 window of that pair (20 frames). PES writes the set-play ready state when 0x15 starts, after this window
+// (docs/re/pes-re-setpiece-choreography.md 1.2).
+constexpr unsigned long kTeleportWindow_ms = kTeleport_ms / 2;
 
 // The beats between the wipe and the fade-in: the stop stamp, the UI window and the teleport.
 unsigned long Tail_ms();
+// The beats from the prepare to the set-play ready state: the stop stamp, the UI window and the 0x14 window.
+unsigned long ReadyDelay_ms();
 
 // When the players are released from the hold, before the wipe hides the cut.
 // The hold is table[1] for a foul, table[5] for an out-of-play stop, plus

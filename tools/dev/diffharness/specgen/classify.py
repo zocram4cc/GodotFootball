@@ -1,8 +1,9 @@
 """Out-of-set callee classifier for the impure specs (capstone; image bytes read through analyze.py).
 
 body(va): control-flow walk from the entry (fall-through, conditional and near unconditional branches) until
-every path ends in ret or a tail jump. A branch target more than WINDOW bytes past the entry is not followed:
-a tail call into a function within WINDOW bytes after the entry is over-included (ceiling, not observed).
+every path ends in ret or a tail jump. A branch target is followed only inside the function's extent
+(pdata.Pdata.ranges_of: its .pdata range plus its chained chunks, or a leaf's bytes to the next .pdata entry); a
+jump out of it is a tail call, a callee for classify(). An address that is no function boundary has no body.
 
 Classes (per callee, recursive over direct calls and tail jumps):
   pilot        in the pilot set (translated and proven; already in the harness and the C++ build)
@@ -24,10 +25,10 @@ from . import sets
 
 # The one stub table (tools/dev/translate/stubs.py, stubs.json) decides the models; the generator reads it too.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "translate"))
+import pdata as _pdata  # noqa: E402  (function extents: the one .pdata reader)
 import stubs as _stubs  # noqa: E402
 
-WINDOW = 0x10000
-LOWER = 0x2000
+_PDATA = {}  # the analyzer's image handle -> its Pdata
 PILOT_SIZE = {}  # VA -> size of the pilot set (see configure)
 md = Cs(CS_ARCH_X86, CS_MODE_64)
 md.detail = True
@@ -43,8 +44,22 @@ def rd(va, n):
     return AN.rd(va, n)
 
 
+def _extent(va):
+    """The ranges of the function at va (None if va is no function boundary), over the image the analyzer is bound to."""
+    if id(AN.fh) not in _PDATA:
+        _PDATA[id(AN.fh)] = _pdata.Pdata(AN.fh)
+    return _PDATA[id(AN.fh)].ranges_of(va)
+
+
 def body(va):
-    """instructions reachable from va, sorted by address (see module doc for the window rule)."""
+    """instructions reachable from va inside its extent, sorted by address (see module doc)."""
+    ranges = _extent(va)
+    if ranges is None:
+        return []
+
+    def inside(t):
+        return any(b <= t < e for b, e in ranges)
+
     seen = {}
     work = [va]
     while work:
@@ -59,12 +74,12 @@ def body(va):
                 break
             op0 = ins.operands[0] if ins.operands else None
             if mn == "jmp":
-                if op0 is not None and op0.type == X86_OP_IMM and va - LOWER <= op0.imm < va + WINDOW and op0.imm not in seen:
+                if op0 is not None and op0.type == X86_OP_IMM and inside(op0.imm) and op0.imm not in seen:
                     work.append(op0.imm)
                 break
             if mn.startswith("j") and op0 is not None and op0.type == X86_OP_IMM:
                 t = op0.imm
-                if va - LOWER <= t < va + WINDOW and t not in seen:
+                if inside(t) and t not in seen:
                     work.append(t)
             a = ins.address + ins.size
     return [seen[k] for k in sorted(seen)]

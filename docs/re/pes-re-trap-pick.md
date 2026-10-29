@@ -8,6 +8,8 @@ Read-only RE. Scratch: `<workdrive>/gf-TrapPick-scratch/`. Tags: **CONFIRMED** =
 
 **CONFIRMED: the vtable target of `+0x68` is NOT the picker `FUN_14081FF70`.** It is the **Trap action's `+0x68` slot** at `0x1407999F0` (thunk to `FUN_1407A01C0`).
 
+**Correction (28-10-26, TrapClipPort, dec.sh + image bytes).** `0x1407999F0` is `E9 CB 67 00 00` = `jmp 0x1407A01C0` (CONFIRMED). `FUN_1407A01C0` sends kind ≤ 0 straight to `FUN_14079A470`; it does not call `FUN_140799DB0`. `FUN_14079FBC0` returns a bool refusal test (a teammate race), not a clip. The clip is chosen by the candidate search and commit steps decoded in `docs/re/pes-re-trap-kind0.md`.
+
 **Vtable chain (CONFIRMED, image read):**
 
 | Step | VA | What |
@@ -34,7 +36,7 @@ Read-only RE. Scratch: `<workdrive>/gf-TrapPick-scratch/`. Tags: **CONFIRMED** =
 **The picker's role in the TRAP path:** The dispatcher `FUN_140769FE0` (action state `0x38` = TRAP, `uStack_288._4_2_ == 0` = first frame) calls `FUN_14081FF70(param_3, &uStack_278, 7, &uStack_288)` with action class 7 (TRAP). The picker returns a clip ID from the row table `DAT_14348DAC0`. The dispatcher then commits the clip via `FUN_1406B03D0` (hit-frame lookup) and `FUN_1406B0ED0` (motion object). This is a **separate path** from the `+0x68` vtable call.
 
 **Two clip-selection paths for TRAP (CONFIRMED):**
-1. **`+0x68` vtable slot** (`FUN_1407A01C0` → `FUN_140799DB0` → `FUN_140799440` → `FUN_14079FBC0`): clip search per-tick during Trap action execution. Uses the motion object's clip table (`FUN_1406B0ED0`), not the row table.
+1. **`+0x68` vtable slot** (`0x1407999F0` jmp `FUN_1407A01C0`; kind ≤ 0 → `FUN_14079A470`): clip search during Trap action execution, via the motion-table candidate search (`FUN_14079AFD0` → `FUN_140857250`; fallback `FUN_140857220` → `FUN_140858B90` → `FUN_1408586A0` → `FUN_14085B900` → `FUN_140858260`). The row table is not used on this path. See `docs/re/pes-re-trap-kind0.md`.
 2. **Row-table picker** (`FUN_14081FF70`): called from the dispatcher `FUN_140769FE0` at trap initiation. Uses the row table `DAT_14348DAC0` with the TRAP rows (0x547–0x549, 0x57D, 0x57F).
 
 Both produce a clip ID. The `+0x68` path runs during the Trap action's execution (per-tick clip update); the picker path runs once at initiation to select the initial clip.
@@ -192,4 +194,4 @@ Additionally, the designated owner can take the ball through the **PASS_GET → 
 1. **0x5D clip family:** The 0x5D kick branch's clip family is not decoded (INF: ground-control or clearance clip). The clip ID and its HitData record need to be read from the image.
 2. **Lateral sign of TRAP rows:** The rows with `x > 0` (0x57D, 0x57F) need the right/left sign of `x`, which the hit data do not fix. The central ground row (0x547) is symmetric in `x`, so the ground case does not depend on it. (`pes-re-trap-windows.md` §5)
 3. **Live `MA+0x2600C` read:** Not performed this session. The poller chain is known but a loose-ball scenario with the designated owner in range was not captured.
-4. **`FUN_14079FBC0` (clip search):** The per-tick clip search in the `+0x68` path is not fully decoded. It searches the motion object's clip table, not the row table. Its exact selection criteria are OPEN.
+4. **Kind-0 clip search:** decoded in `docs/re/pes-re-trap-kind0.md`. `FUN_14079FBC0` is the teammate race refusal, not the clip search.
