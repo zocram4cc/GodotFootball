@@ -30,6 +30,7 @@ BASE = pdata.IMAGE_BASE
 A, T, B, C = BASE + 0x1000, BASE + 0x1010, BASE + 0x1020, BASE + 0x1100
 MID_B = B + 1  # inside B's first instruction
 LEAF = BASE + 0x1180  # a pdata-less function that follows jump-table data
+SWITCH_SITE, SWITCH_CASE = BASE + 0x1191, BASE + 0x1193  # a pdata-less function `nop ; jmp rcx ; [case] ret`
 INT3 = b"\xcc"
 
 
@@ -51,6 +52,7 @@ def build_image(path):
     img[0x1100] = 0xC3
     img[0x1170:0x1180] = bytes(range(0x80, 0x90))  # jump-table data, then a leaf with no .pdata entry
     img[0x1180] = 0xC3
+    img[0x1190:0x1194] = bytes.fromhex("90ffe1c3")
     with open(path, "wb") as f:
         f.write(img)
 
@@ -141,6 +143,19 @@ class ClosureWalk(unittest.TestCase):
     def test_an_indirect_target_inside_an_instruction_is_an_error(self):
         need, err = self.run_closure(T, {"0x%X" % A: {"0x%X" % MID_B: 1}})
         self.assertIn("not a function boundary", err or "")
+
+    def test_a_register_jump_in_a_leaf_is_a_switch_not_a_function(self):
+        # The leaf has no .pdata entry, so site and case both look like function starts (0x140848B40 and 0x140848B6E
+        # inside the leaf 0x140848AF0, whose `jmp rcx` is a switch). Neither is a root.
+        need, err = self.run_closure(T, {"0x%X" % SWITCH_SITE: {"0x%X" % SWITCH_CASE: 1}})
+        self.assertIsNone(err)
+        self.assertNotIn("0x%X" % SWITCH_SITE, need)
+        self.assertNotIn("0x%X" % SWITCH_CASE, need)
+
+    def test_a_register_jump_to_another_function_is_still_a_root(self):
+        need, err = self.run_closure(A, {"0x%X" % SWITCH_SITE: {"0x%X" % T: 1}})
+        self.assertIsNone(err)
+        self.assertIn("0x%X" % T, need)
 
 
 class NothingCompiled(unittest.TestCase):
