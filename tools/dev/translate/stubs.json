@@ -9,6 +9,17 @@
   "abort-trap": "tamper trap (not a real import): loud abort on both sides when reached; a corpus behind one proves the path unreached",
   "libm": "host-CRT float function (logf/powf): C++ libm must give the same bits; the diff judges per case, and the note records the dependence"
  },
+ "native_services_contract": "PES VAs the production dispatch table (pes_dispatch_gen.hpp, gen_translated.py) sends to a GF-native implementation pes_native_<op> (pes_native.cpp) instead of a translated body: va, op, why. Not stubs: stubs.load() and the harness never see them (the harness runs PES's bytes for these VAs). The PES allocator 0x1403FB410 reads its pool object from the table at [0x1436EF2C8] and calls vtable +0x10 (alloc), the free path 0x1403FB5B0 vtable +8, and 0x1403FB860 vtable +0x50; the live pool objects' vtables are 0x14258E390 (heap) and 0x142AC0090 (forwarder to pool 1), CONFIRMED by script over pid1694737/seq009 (docs/ports/pes-port-NativeSeam.md).",
+ "native_services": [
+  {"va": "1403FBC10", "op": "heap_alloc", "why": ["heap vtable 0x14258E390 +0x10: alloc(this, size, align) -> ptr or 0"]},
+  {"va": "1403FBCB0", "op": "heap_free", "why": ["heap vtable 0x14258E390 +0x08: free(this, ptr) -> 1"]},
+  {"va": "1403FBD00", "op": "heap_owns", "why": ["heap vtable 0x14258E390 +0x30: owns(this, ptr); returns 1 for the live pools (flags +0x48 bit 0 clear)"]},
+  {"va": "1403FBEB0", "op": "heap_trim", "why": ["heap vtable 0x14258E390 +0x50: trim(this, pad); releases free pages to the OS, no GF effect"]},
+  {"va": "141B34CB0", "op": "heap_alloc", "why": ["forwarder vtable 0x142AC0090 +0x10: pool 1's alloc, same contract"]},
+  {"va": "141B34D80", "op": "heap_free", "why": ["forwarder vtable 0x142AC0090 +0x08: pool 1's free, same contract"]},
+  {"va": "141B34C30", "op": "heap_owns", "why": ["forwarder vtable 0x142AC0090 +0x30: pool 1's owns, same contract"]},
+  {"va": "141B34DB0", "op": "heap_trim", "why": ["forwarder vtable 0x142AC0090 +0x50: pool 1's trim, same contract"]}
+ ],
  "stubs": [
   {
    "va": "140421F40",

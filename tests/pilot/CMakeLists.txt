@@ -76,6 +76,12 @@ add_executable(pes_world_test pes_world_test.cpp)
 target_link_libraries(pes_world_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_world_test)
 
+# Native heap seam: translated code that allocates (the FixDemo evaluator, vector growth) runs on GF memory through PES's
+# own allocator table, whose vtable targets dispatch to PesHeap (stubs.json native_services).
+add_executable(pes_native_heap_test pes_native_heap_test.cpp)
+target_link_libraries(pes_native_heap_test PRIVATE pestranslated GTest::gtest_main)
+gtest_discover_tests(pes_native_heap_test)
+
 # Drift: regenerating every committed translated function from the image must reproduce the committed files.
 # Hand-refined functions are skipped by the check (their bit-exact proof is the harness check above).
 add_test(NAME diff_translated_drift

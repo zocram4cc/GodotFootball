@@ -169,7 +169,7 @@ def layer_files(members):
             "#pragma once",
             "struct PesState;"]
     files["translated.hpp"] = "\n".join(head + ["void pes_fn_%s(PesState& s);" % va[2:] for va in vas]) + "\n"
-    files["pes_dispatch_gen.hpp"] = gen_dispatch.text(vas)
+    files["pes_dispatch_gen.hpp"] = gen_dispatch.text(vas, gen_dispatch.natives())
     return files
 
 

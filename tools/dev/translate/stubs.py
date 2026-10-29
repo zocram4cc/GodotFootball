@@ -81,3 +81,23 @@ def check_spec_refs(spec, table, where):
         if e is None or e["do"] not in MODEL_DOS:
             got = "no entry" if e is None else "do=%s" % e["do"]
             raise SystemExit("%s: stub_refs %s disagrees with stubs.json (%s)" % (where, ref, got))
+
+
+# The ops a native service may name: each is a GF-native C++ implementation pes_native_<op> (pes_native.cpp).
+KNOWN_NATIVE_OPS = frozenset({"heap_alloc", "heap_free", "heap_owns", "heap_trim"})
+
+
+def natives(path=DEFAULT):
+    """{VA (int): op} for the stubs.json "native_services": PES VAs the production dispatch table sends to a GF-native
+    implementation. They are not in load()'s table: the harness never sees them and runs PES's bytes there."""
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    out = {}
+    for e in data.get("native_services", []):
+        va = int(e["va"], 16)
+        if va in out or va in load(path):
+            raise SystemExit("stubs.json: native service %s is duplicated or also a stub" % e["va"])
+        if e["op"] not in KNOWN_NATIVE_OPS:
+            raise SystemExit("stubs.json: native service %s: unknown op %r" % (e["va"], e["op"]))
+        out[va] = e["op"]
+    return out

@@ -265,12 +265,17 @@ def runnable_extra(spec, image, depth_cap=80):
         except Exception:
             return None
         out = []
+        addrs = {a for a, _, _ in lines}
         for _, mn, ops in lines:
-            if mn == "CALL" and ops and "[" not in ops[0]:
+            # A CALL, or a JMP past the function's own body (a tail call: xlate emits `pes_fn_X(s); return;` when X is in
+            # the universe and a silent `return` when it is not), to a plain address.
+            if mn in ("CALL", "JMP") and ops and "[" not in ops[0]:
                 try:
-                    out.append("0x%X" % int(ops[0].strip(), 16))
+                    t = int(ops[0].strip(), 16)
                 except ValueError:
-                    pass
+                    continue
+                if mn == "CALL" or t not in addrs:
+                    out.append("0x%X" % t)
         return out
     stack = [(v, 0, [v]) for v in seeds]
     while stack:
