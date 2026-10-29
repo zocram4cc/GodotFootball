@@ -25,10 +25,11 @@ find_package(ZLIB REQUIRED)
 add_library(pesfmt STATIC
   src/pes/strcode.cpp src/pes/cpk.cpp src/pes/fpk.cpp src/pes/vfs.cpp src/pes/ask.cpp src/pes/skl.cpp
   src/pes/ftex.cpp src/pes/fmdl.cpp src/pes/pack_rules.cpp src/pes/mtar.cpp src/pes/gani.cpp src/pes/clips.cpp
-  src/pes/formation.cpp src/pes/fixdemo_table.cpp
+  src/pes/formation.cpp src/pes/fdc.cpp src/pes/fixdemo_table.cpp
   src/pes/anim_names.cpp src/pes/uniform.cpp src/pes/editsave.cpp src/pes/playerdb.cpp src/pes/condition.cpp src/pes/exe.cpp src/pes/handseq.cpp src/pes/marking.cpp src/pes/locomotion.cpp src/pes/animetable.cpp src/pes/mbinfo.cpp src/pes/camera.cpp src/pes/fox2.cpp src/pes/stadium.cpp src/pes/lighting.cpp src/pes/movestep.cpp src/pes/movestep_common.cpp src/pes/movestep_bundle.cpp src/pes/movestep_run.cpp src/pes/movestep_group_a.cpp src/pes/movestep_step.cpp src/pes/movestep_turn.cpp src/pes/effects.cpp src/pes/derivation.cpp)
 target_include_directories(pesfmt PUBLIC src)
-target_link_libraries(pesfmt PUBLIC ZLIB::ZLIB)
+# fdc.cpp takes the cut offset's sine from the translated 0x140A92C80 (the static library pulls in only that object).
+target_link_libraries(pesfmt PUBLIC ZLIB::ZLIB pestranslated)
 
 # The dispatcher port's cross-group seams and the shared helpers the full dispatcher links. The
 # per-group test targets deliberately keep their probe stubs, so this library is not folded into
@@ -52,7 +53,7 @@ set_target_properties(pesfmt_dump PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BI
 
 add_library(godotfootball SHARED
   src/gdext/register_types.cpp src/gdext/pes_library.cpp src/gdext/pes_texture.cpp src/gdext/pes_character.cpp
-  src/gdext/pes_animation.cpp src/gdext/pes_marking.cpp src/gdext/gf_match.cpp src/gdext/pes_motion.cpp src/gdext/pes_broadcast_camera.cpp src/gdext/pes_mesh.cpp src/gdext/pes_model.cpp src/gdext/pes_lighting.cpp src/gdext/pes_effects.cpp)
+  src/gdext/pes_animation.cpp src/gdext/pes_marking.cpp src/gdext/gf_match.cpp src/gdext/pes_motion.cpp src/gdext/pes_broadcast_camera.cpp src/gdext/pes_cutscene_camera.cpp src/gdext/pes_mesh.cpp src/gdext/pes_model.cpp src/gdext/pes_lighting.cpp src/gdext/pes_effects.cpp)
 # pesfmt's movestep_run.cpp calls LocomotionStyle from pesmovestepcore (see gfsim_run below). The
 # shared library links without complaint when that symbol is missing, and Godot then refuses to
 # load the extension, so name pesmovestepcore after pesfmt here too.

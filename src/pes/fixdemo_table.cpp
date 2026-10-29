@@ -66,6 +66,32 @@ std::string FixDemoTablePath(int category) {
   return std::string("common/demo/fixdemo/") + kCategoryNames[category] + "/table_" + kCategoryNames[category] + ".bin";
 }
 
+std::vector<std::string> FixDemoSceneFdcPaths(const FixDemoTable& table, uint32_t sceneId, std::string* error) {
+  const FixDemoScene* scene = nullptr;
+  for (const FixDemoScene& s : table.scenes) {
+    if (s.id == sceneId) scene = &s;
+  }
+  if (!scene) {
+    if (error) *error = "scene not in table";
+    return {};
+  }
+  const std::string tablePath = FixDemoTablePath(static_cast<int>(sceneId >> 16));
+  if (tablePath.empty()) {
+    if (error) *error = "scene category out of range";
+    return {};
+  }
+  const std::string cutData = tablePath.substr(0, tablePath.rfind('/')) + "/cut_data/";
+  std::vector<std::string> out;
+  for (const FixDemoStep& step : scene->steps) {
+    if (step.cut == 0) break;
+    for (const FixDemoCutGroup& group : table.cutGroups) {
+      if (group.id != step.cut || group.rows.empty()) continue;
+      for (const std::string& name : group.rows.front().fdc) out.push_back(cutData + name);
+    }
+  }
+  return out;
+}
+
 std::optional<FixDemoTable> DecodeFixDemoTable(const std::vector<uint8_t>& bytes, int category, std::string* error) {
   auto fail = [error](const char* why) -> std::optional<FixDemoTable> {
     if (error) *error = why;
