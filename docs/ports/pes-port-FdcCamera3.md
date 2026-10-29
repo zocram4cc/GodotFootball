@@ -1,3 +1,5 @@
+> **Note (Main, 29-10-26):** the refutation below concerned `FixDemoHuman`, not the camera. The PES camera's rotation IS a shortest-arc slerp (`docs/re/pes-re-camera-pose.md`), so keeping GF's slerp was right; see that report for the remaining differences.
+
 # PES cutscene camera sampler: decode check, reverted port, build, no frame pair (FdcCamera3, 28-10-26)
 
 Branch `FdcCamera` at `bb355b4a` (`git ls-remote origin FdcCamera` = `bb355b4a`). Worktree `<workdrive>/gf-FdcCamera`. Labels: CONFIRMED = decompile, image read or test output with VA; INF = inference, reason given; OPEN = blocker named.

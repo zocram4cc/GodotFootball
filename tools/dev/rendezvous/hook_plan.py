@@ -57,6 +57,11 @@ TARGETS = [
     # The Trap action's kind-0 control-touch chain (docs/re/pes-re-trap-kind0.md, docs/ports/pes-port-RecordMap.md).
     ("trap_kind0_79A470", 0x14079A470, "Trap action kind-0 control touch"),
     ("trap_commit_79AFD0", 0x14079AFD0, "Trap clip commit step"),
+    # Clear chain inputs and the cutscene camera's cut offset (docs/ports/pes-port-MatchInfo.md, -FdcCamera4.md).
+    ("clear_helper_63A490", 0x14063A490, "Clear chain helper"),
+    ("danger_writer_699960", 0x140699960, "carrier danger flag writer"),
+    ("danger_builder_2119390", 0x142119390, "imageA builder that stores the danger byte"),
+    ("cut_offset_1F39CC0", 0x141F39CC0, "cutscene player: cut offset and the played camera key"),
 ]
 
 
