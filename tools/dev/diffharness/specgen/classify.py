@@ -13,11 +13,18 @@ Computed jumps (jmp reg / jmp [table]) are recorded in SWITCH_NOTES, not blocker
 the harness faults if a target is unmapped.
 """
 import collections
+import os
+import sys
 
 from capstone import Cs, CS_ARCH_X86, CS_MODE_64
 from capstone.x86 import X86_OP_MEM, X86_OP_IMM
 
 from . import analyze as AN
+from . import sets
+
+# The one stub table (tools/dev/translate/stubs.py, stubs.json) decides the models; the generator reads it too.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "translate"))
+import stubs as _stubs  # noqa: E402
 
 WINDOW = 0x10000
 LOWER = 0x2000
@@ -78,20 +85,17 @@ def op_global_write(i):
     return op.type == X86_OP_MEM and is_rip(i, op) and i.mnemonic not in ("lea", "nop", "cmp", "test", "call", "jmp")
 
 
-# Named models. Each cites where the name comes from. Anything not listed is classified from bytes.
-STUB = {
-    0x1415A1780: ("stub", "return-input", {"op": "sqrtf", "arg": "xmm0", "ret": "xmm0", "enc": "f32",
-                  "exact": "IEEE sqrt is correctly rounded: C++ std::sqrt(float) gives the same bits"},
-                  ["thunk jmp [0x1425301F0] = sqrt: docs/re/pes-re-carrier-helpers.md table (FUN_1415A1780 = sqrt)",
-                   "docs/re/pes-re-lane-core.md O3 (sqrt import 0x1415A1780, jump via _DAT_1425301F0)"]),
-    0x14159F3E0: ("stub", "engine-noop", {"op": "__security_check_cookie", "effect": "none on the success path (validates the stack cookie, returns)"},
-                  ["Ghidra name __security_check_cookie at 0x14159F3E0 (get_function_by_address)",
-                   "docs/re table row 0x14159F3E0 | __security_check_cookie | engine"]),
-    0x1415A17C8: ("unmodellable", None, None,
-                  ["thunk to the logf/powf import (docs: 'logf/powf are the imports 0x1415a17c8/0x1415a17ce'); result bits come from the C runtime, outside the image"]),
-    0x1415A17CE: ("unmodellable", None, None,
-                  ["thunk to the logf/powf import (docs: 'logf/powf are the imports 0x1415a17c8/0x1415a17ce'); result bits come from the C runtime, outside the image"]),
-}
+# A callee the table models (MODEL_DOS) is class stub; any other table entry with a do (libm, unmodellable) is blocked
+# by name. Anything not listed is classified from bytes.
+STUB = {}
+for _va, _e in _stubs.load().items():
+    if _e["do"] in _stubs.MODEL_DOS:
+        STUB[_va] = ("stub", _e["kind"], {"op": _e["do"]}, [_e["why"]])
+    elif _e["do"] is not None:
+        STUB[_va] = ("unmodellable", None, None, [_e["why"] or "stubs.json: no model"])
+# Not in stubs.json: blocked by its thunk bytes (the logf/powf import pair; its neighbour 0x1415A17CE is in the table).
+STUB[0x1415A17C8] = ("unmodellable", None, None,
+                     ["thunk to the logf/powf import (docs: 'logf/powf are the imports 0x1415a17c8/0x1415a17ce'); result bits come from the C runtime, outside the image"])
 
 MEMO = {}
 RUNREAL_SIZE = {}
@@ -169,20 +173,44 @@ def direct_calls(va):
     return [i.operands[0].imm for i in body(va) if i.mnemonic == "call" and i.operands[0].type == X86_OP_IMM]
 
 
+_LEDGER = None  # the ledger's universe rows (sets.load_universe), read on first use
+
+
+def ledger_callees(f):
+    """f's direct, tail and table callees from the ledger's walk, or None when the ledger does not walk f. The
+    ledger decodes a function's jump tables (its switch case bodies); body() does not, so over body() alone a
+    switch function's closure is missing its case bodies' calls."""
+    global _LEDGER
+    if _LEDGER is None:
+        _LEDGER = sets.load_universe()
+    row = _LEDGER.get("0x%X" % f)
+    if row is None or not row.get("walked"):
+        return None
+    return [int(t, 16) for t, how in row["callees"].items() if how in ("direct", "tail", "table")]
+
+
+def closure_edges(f):
+    """The call and jump targets a closure walk follows from f: the ledger's edges where the ledger walks f, else
+    f's direct branches from body() (not into its own instructions)."""
+    edges = ledger_callees(f)
+    if edges is not None:
+        return edges
+    own = {i.address for i in body(f)}
+    return [i.operands[0].imm for i in body(f)
+            if i.mnemonic in ("call", "jmp") and i.operands and i.operands[0].type == X86_OP_IMM
+            and i.operands[0].imm not in own]
+
+
 def reach_stubs(va):
     """({stub VA: (kind, model, why)}, functions walked): every named model reached from va over direct CALL and
-    JMP targets. classify() stops at a pilot callee, but a pilot member of a hook closure is built into the same
-    binary and calls the same stubs, so a root's stub_refs must cover it too. Named models end the walk (their
-    bodies are not run); every other callee, pilot or not, is walked."""
+    JMP targets (closure_edges). classify() stops at a pilot callee, but a pilot member of a hook closure is built
+    into the same binary and calls the same stubs, so a root's stub_refs must cover it too. Named models end the walk
+    (their bodies are not run); every other callee, pilot or not, is walked."""
     stubs, seen, work = {}, {va}, [va]
     while work:
         f = work.pop()
-        own = {i.address for i in body(f)}
-        for i in body(f):
-            if i.mnemonic not in ("call", "jmp") or not i.operands or i.operands[0].type != X86_OP_IMM:
-                continue
-            t = i.operands[0].imm
-            if t in own or t in seen:
+        for t in closure_edges(f):
+            if t in seen:
                 continue
             seen.add(t)
             if t in STUB:

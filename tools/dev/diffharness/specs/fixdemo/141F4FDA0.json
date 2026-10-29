@@ -1,0 +1,922 @@
+{
+ "name": "impure_141F4FDA0",
+ "va": "0x141F4FDA0",
+ "entry": "0x141F4FDA0",
+ "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (rules.closure_fix): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
+ "status": "impure-sample",
+ "subsystem": "impure-sample",
+ "stack": {
+  "base": "0x10000000",
+  "size": "0x20000"
+ },
+ "regions": {
+  "A0": {
+   "base": "0x20000000",
+   "size": "0x200000"
+  },
+  "A0.30": {
+   "base": "0x20400000",
+   "size": "0x200000"
+  },
+  "A0.30.8": {
+   "base": "0x20800000",
+   "size": "0x200000"
+  },
+  "A0.30.8.0": {
+   "base": "0x20C00000",
+   "size": "0x200000"
+  },
+  "A0.30.8.10": {
+   "base": "0x21000000",
+   "size": "0x200000"
+  }
+ },
+ "args": {
+  "rcx": "A0"
+ },
+ "regions_init": {
+  "A0+0x30": "A0.30",
+  "A0.30+0x8": "A0.30.8",
+  "A0.30.8+0x0": "A0.30.8.0",
+  "A0.30.8+0x10": "A0.30.8.10"
+ },
+ "patch_addrs": {},
+ "inputs": {
+  "A0_50": {
+   "region": "A0",
+   "offset": "0x50",
+   "enc": "u32"
+  },
+  "A0_54": {
+   "region": "A0",
+   "offset": "0x54",
+   "enc": "u32"
+  },
+  "A0_58": {
+   "region": "A0",
+   "offset": "0x58",
+   "enc": "u32"
+  },
+  "A0_64": {
+   "region": "A0",
+   "offset": "0x64",
+   "enc": "u32"
+  },
+  "A0_70": {
+   "region": "A0",
+   "offset": "0x70",
+   "enc": "u32"
+  },
+  "A0_13C": {
+   "region": "A0",
+   "offset": "0x13C",
+   "enc": "u8"
+  },
+  "A0_1F2": {
+   "region": "A0",
+   "offset": "0x1F2",
+   "enc": "u8"
+  },
+  "A0_1F3": {
+   "region": "A0",
+   "offset": "0x1F3",
+   "enc": "u8"
+  },
+  "A0_2910": {
+   "region": "A0",
+   "offset": "0x2910",
+   "enc": "u8"
+  },
+  "A0_2914": {
+   "region": "A0",
+   "offset": "0x2914",
+   "enc": "u32"
+  },
+  "A0_2924": {
+   "region": "A0",
+   "offset": "0x2924",
+   "enc": "u32"
+  },
+  "A0_2A22": {
+   "region": "A0",
+   "offset": "0x2A22",
+   "enc": "u8"
+  },
+  "A0_2A23": {
+   "region": "A0",
+   "offset": "0x2A23",
+   "enc": "u8"
+  },
+  "A0_5140": {
+   "region": "A0",
+   "offset": "0x5140",
+   "enc": "u8"
+  },
+  "A0_5144": {
+   "region": "A0",
+   "offset": "0x5144",
+   "enc": "u32"
+  },
+  "A0_5154": {
+   "region": "A0",
+   "offset": "0x5154",
+   "enc": "u32"
+  },
+  "A0_515C": {
+   "region": "A0",
+   "offset": "0x515C",
+   "enc": "u32"
+  },
+  "A0_5160": {
+   "region": "A0",
+   "offset": "0x5160",
+   "enc": "u32"
+  },
+  "A0_5164": {
+   "region": "A0",
+   "offset": "0x5164",
+   "enc": "u32"
+  },
+  "A0_5168": {
+   "region": "A0",
+   "offset": "0x5168",
+   "enc": "u32"
+  },
+  "A0_5170": {
+   "region": "A0",
+   "offset": "0x5170",
+   "enc": "u32"
+  },
+  "A0_5174": {
+   "region": "A0",
+   "offset": "0x5174",
+   "enc": "u32"
+  },
+  "A0_5178": {
+   "region": "A0",
+   "offset": "0x5178",
+   "enc": "u8"
+  },
+  "A0_5179": {
+   "region": "A0",
+   "offset": "0x5179",
+   "enc": "u8"
+  },
+  "A0_5184_b0": {
+   "region": "A0",
+   "offset": "0x5184",
+   "enc": "u8"
+  },
+  "A0_5185_b1": {
+   "region": "A0",
+   "offset": "0x5185",
+   "enc": "u8"
+  },
+  "A0_5188": {
+   "region": "A0",
+   "offset": "0x5188",
+   "enc": "u32"
+  },
+  "A0_51F8": {
+   "region": "A0",
+   "offset": "0x51F8",
+   "enc": "u32"
+  },
+  "A0_51FC": {
+   "region": "A0",
+   "offset": "0x51FC",
+   "enc": "u8"
+  },
+  "A0_51FD": {
+   "region": "A0",
+   "offset": "0x51FD",
+   "enc": "u8"
+  },
+  "A0_5200": {
+   "region": "A0",
+   "offset": "0x5200",
+   "enc": "u8"
+  },
+  "A0_5204": {
+   "region": "A0",
+   "offset": "0x5204",
+   "enc": "u32"
+  },
+  "A0_5208": {
+   "region": "A0",
+   "offset": "0x5208",
+   "enc": "f32"
+  },
+  "A0_5210": {
+   "region": "A0",
+   "offset": "0x5210",
+   "enc": "f32"
+  },
+  "A0_5214": {
+   "region": "A0",
+   "offset": "0x5214",
+   "enc": "u32"
+  },
+  "A0_5218": {
+   "region": "A0",
+   "offset": "0x5218",
+   "enc": "u8"
+  },
+  "A0_5219": {
+   "region": "A0",
+   "offset": "0x5219",
+   "enc": "u8"
+  },
+  "A0_521A": {
+   "region": "A0",
+   "offset": "0x521A",
+   "enc": "u8"
+  },
+  "A0_521B": {
+   "region": "A0",
+   "offset": "0x521B",
+   "enc": "u8"
+  },
+  "A0_521C": {
+   "region": "A0",
+   "offset": "0x521C",
+   "enc": "u8"
+  },
+  "A0_521D": {
+   "region": "A0",
+   "offset": "0x521D",
+   "enc": "u8"
+  },
+  "A0_521E": {
+   "region": "A0",
+   "offset": "0x521E",
+   "enc": "u8"
+  },
+  "A0_521F": {
+   "region": "A0",
+   "offset": "0x521F",
+   "enc": "u8"
+  },
+  "A0_5220": {
+   "region": "A0",
+   "offset": "0x5220",
+   "enc": "u8"
+  },
+  "A0_5221": {
+   "region": "A0",
+   "offset": "0x5221",
+   "enc": "u8"
+  },
+  "A0_5222": {
+   "region": "A0",
+   "offset": "0x5222",
+   "enc": "u8"
+  },
+  "A0_5223": {
+   "region": "A0",
+   "offset": "0x5223",
+   "enc": "u8"
+  },
+  "A0_5224": {
+   "region": "A0",
+   "offset": "0x5224",
+   "enc": "u8"
+  },
+  "A0_5225": {
+   "region": "A0",
+   "offset": "0x5225",
+   "enc": "u8"
+  },
+  "A0_5228": {
+   "region": "A0",
+   "offset": "0x5228",
+   "enc": "u32"
+  },
+  "A0_30_1C": {
+   "region": "A0.30",
+   "offset": "0x1C",
+   "enc": "u32"
+  },
+  "A0_30_20": {
+   "region": "A0.30",
+   "offset": "0x20",
+   "enc": "u32"
+  },
+  "A0_30_8_19": {
+   "region": "A0.30.8",
+   "offset": "0x19",
+   "enc": "u8"
+  },
+  "A0_30_8_1C": {
+   "region": "A0.30.8",
+   "offset": "0x1C",
+   "enc": "u32"
+  },
+  "A0_30_8_20": {
+   "region": "A0.30.8",
+   "offset": "0x20",
+   "enc": "u32"
+  },
+  "A0_30_8_0_19": {
+   "region": "A0.30.8.0",
+   "offset": "0x19",
+   "enc": "u8"
+  },
+  "A0_30_8_10_19": {
+   "region": "A0.30.8.10",
+   "offset": "0x19",
+   "enc": "u8"
+  },
+  "scalar_rdx": {
+   "reg": "rdx",
+   "enc": "u32"
+  },
+  "scalar_r8": {
+   "reg": "r8",
+   "enc": "u32"
+  },
+  "scalar_r9": {
+   "reg": "r9",
+   "enc": "u32"
+  }
+ },
+ "input_schema": {
+  "A0_50": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_54": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_58": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_64": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_70": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_13C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_1F2": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_1F3": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_2910": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_2914": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_2924": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_2A22": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_2A23": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5140": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5144": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5154": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_515C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5160": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5164": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5168": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5170": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5174": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5178": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5179": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5184_b0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5185_b1": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5188": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_51F8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_51FC": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_51FD": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5200": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5204": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5208": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A0_5210": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "A0_5214": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5218": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5219": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_521A": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_521B": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_521C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_521D": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_521E": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_521F": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5220": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5221": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5222": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5223": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5224": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5225": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_5228": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_30_1C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_30_20": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_30_8_19": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_30_8_1C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_30_8_20": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_30_8_0_19": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_30_8_10_19": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_rdx": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_r8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_r9": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  }
+ },
+ "outputs": {
+  "w_A0_30_20": {
+   "region": "A0.30",
+   "offset": "0x20",
+   "enc": "u32"
+  },
+  "w_A0_30_8_20": {
+   "region": "A0.30.8",
+   "offset": "0x20",
+   "enc": "u32"
+  },
+  "ret_eax": {
+   "reg": "eax"
+  }
+ },
+ "ret_note": "eax (integer/bool return; upper bits unchecked)",
+ "seed": 1000,
+ "count": 64,
+ "precheck": {
+  "indirect_calls": [],
+  "tailjumps": [
+   "tailjump@141F4EBE5",
+   "tailjump@141F4EC7B",
+   "tailjump@141F4EC9F",
+   "tailjump@141F4ECC3",
+   "tailjump@141F4ECE7",
+   "tailjump@141F4ED0B",
+   "tailjump@141F4ED2F",
+   "tailjump@141F4ED82",
+   "tailjump@141F4EDA7",
+   "tailjump@141F4EDCB",
+   "tailjump@141F4EDEF",
+   "tailjump@141F4EE16",
+   "tailjump@141F4EE7C",
+   "tailjump@141F4EEA3",
+   "tailjump@141F4EECA",
+   "tailjump@141F4EEF1",
+   "tailjump@141F4EF18",
+   "tailjump@141F4EFC1",
+   "tailjump@141F4EFE8",
+   "tailjump@141F4F00F",
+   "tailjump@141F4F0D7"
+  ],
+  "unresolved_mem": 68,
+  "live_data_reads": [
+   "IMG"
+  ],
+  "live_data_writes": [
+   "IMG"
+  ],
+  "rdata_constant_reads": [
+   "IMG"
+  ],
+  "stack_args": {},
+  "calls": [
+   "140A7CB40",
+   "140A924E0",
+   "141E55E30",
+   "141F4B1D0",
+   "141F4D2F0",
+   "141F7A100"
+  ],
+  "flags": [
+   "callee-outside-set@1403FB5B0",
+   "callee-outside-set@14047BE40",
+   "callee-outside-set@140A7CC00",
+   "callee-outside-set@141056DF0",
+   "callee-outside-set@141056F40",
+   "callee-outside-set@14125A080",
+   "callee-outside-set@141F4D0F0",
+   "callee-outside-set@141F4FF10",
+   "callee-outside-set@141F4FFF0",
+   "callee-outside-set@141F50450",
+   "callee-outside-set@141F533D0",
+   "tailjump@141F4EBE5",
+   "tailjump@141F4EC7B",
+   "tailjump@141F4EC9F",
+   "tailjump@141F4ECC3",
+   "tailjump@141F4ECE7",
+   "tailjump@141F4ED0B",
+   "tailjump@141F4ED2F",
+   "tailjump@141F4ED82",
+   "tailjump@141F4EDA7",
+   "tailjump@141F4EDCB",
+   "tailjump@141F4EDEF",
+   "tailjump@141F4EE16",
+   "tailjump@141F4EE7C",
+   "tailjump@141F4EEA3",
+   "tailjump@141F4EECA",
+   "tailjump@141F4EEF1",
+   "tailjump@141F4EF18",
+   "tailjump@141F4EFC1",
+   "tailjump@141F4EFE8",
+   "tailjump@141F4F00F",
+   "tailjump@141F4F0D7",
+   "unresolved-mem@140A7CB4D",
+   "unresolved-mem@140A7CB5D",
+   "unresolved-mem@140A7CB68",
+   "unresolved-mem@140A7CB73",
+   "unresolved-mem@140A7CB81",
+   "unresolved-mem@140A7CB88",
+   "unresolved-mem@141F4B24B",
+   "unresolved-mem@141F4B286",
+   "unresolved-mem@141F4B2B7",
+   "unresolved-mem@141F4B2D7",
+   "unresolved-mem@141F4B2DB",
+   "unresolved-mem@141F4B325",
+   "unresolved-mem@141F4B328",
+   "unresolved-mem@141F4B384",
+   "unresolved-mem@141F4B3D0",
+   "unresolved-mem@141F4B3D4",
+   "unresolved-mem@141F4B3EF",
+   "unresolved-mem@141F4B3F3",
+   "unresolved-mem@141F4B3FF",
+   "unresolved-mem@141F4B403",
+   "unresolved-mem@141F4B46E",
+   "unresolved-mem@141F4B470",
+   "unresolved-mem@141F4B473",
+   "unresolved-mem@141F4B477",
+   "unresolved-mem@141F4B4A9",
+   "unresolved-mem@141F4B4AC",
+   "unresolved-mem@141F4B511",
+   "unresolved-mem@141F4B544",
+   "unresolved-mem@141F4B561",
+   "unresolved-mem@141F4B56A",
+   "unresolved-mem@141F4B585",
+   "unresolved-mem@141F4B587",
+   "unresolved-mem@141F4B58E",
+   "unresolved-mem@141F4B592",
+   "unresolved-mem@141F4B5A1",
+   "unresolved-mem@141F4B5A4",
+   "unresolved-mem@141F4B5B1",
+   "unresolved-mem@141F4B5E7",
+   "unresolved-mem@141F4B5ED",
+   "unresolved-mem@141F4B629",
+   "unresolved-mem@141F4B632",
+   "unresolved-mem@141F4B63D",
+   "unresolved-mem@141F4D409",
+   "unresolved-mem@141F4D41E",
+   "unresolved-mem@141F4D4AB",
+   "unresolved-mem@141F4E108",
+   "unresolved-mem@141F4E1D9",
+   "unresolved-mem@141F4E372",
+   "unresolved-mem@141F4E388",
+   "unresolved-mem@141F4E759",
+   "unresolved-mem@141F4E784",
+   "unresolved-mem@141F4E7AF",
+   "unresolved-mem@141F4E7DA",
+   "unresolved-mem@141F4E805",
+   "unresolved-mem@141F4E830",
+   "unresolved-mem@141F4E95C",
+   "unresolved-mem@141F4E993",
+   "unresolved-mem@141F4E9CA",
+   "unresolved-mem@141F4EA01",
+   "unresolved-mem@141F4EA38",
+   "unresolved-mem@141F4EA6D",
+   "unresolved-mem@141F4EBA0",
+   "unresolved-mem@141F4F1DD",
+   "unresolved-mem@141F4F208",
+   "unresolved-mem@141F4F233",
+   "unresolved-mem@141F4F25E",
+   "unresolved-mem@141F4F289",
+   "unresolved-mem@141F4F2B4"
+  ],
+  "stub_refs": []
+ },
+ "stub_refs": [],
+ "harness": {
+  "harness_class": "harness cannot run",
+  "blockers": [
+   "call 140A7CC00: global store qword ptr [rip + 0x2c7836b], r at 140A7CC46; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F",
+   "call 141056DF0: callee 140EBF370: callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F",
+   "call 141056F40: callee 141EE5B60: indirect call qword ptr [rip + 0x649e85] at 141EE5B9D; callee 1403FB5B0: indirect call qword ptr [rax + 8] at 1403FB501; indirect call qword ptr [rax + 0x30] at 1403FB548; callee 141EE5B60: indirect call qword ptr [rip + 0x649e85] at 141EE5B9D; callee 1403FB5B0: indirect call qword ptr [rax + 8] at 1403FB501; indirect call qword ptr [rax + 0x30] at 1403FB548",
+   "call 141F4B1D0: callee 141F4D2F0: callee 141F4D0F0: callee 14047BCA0: indirect call qword ptr [rip + 0x20b3d3e] at 14047BCE4; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F; callee 14047BCA0: indirect call qword ptr [rip + 0x20b3d3e] at 14047BCE4; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F; callee 141F4D0F0: callee 14047BCA0: indirect call qword ptr [rip + 0x20b3d3e] at 14047BCE4; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F; callee 14047BCA0: indirect call qword ptr [rip + 0x20b3d3e] at 14047BCE4; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F; callee 141F4FFF0: callee 141F4C6D0: callee 141F4BFC0: callee 141F52E90: callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F; callee 141F4C300: callee 141F4C030: indirect call qword ptr [rip + 0x5e3983] at 141F4C09F; callee 1403FB5B0: indirect call qword ptr [rax + 8] at 1403FB501; indirect call qword ptr [rax + 0x30] at 1403FB548; callee 141F4C030: indirect call qword ptr [rip + 0x5e3983] at 141F4C09F; callee 1403FB5B0: indirect call qword ptr [rax + 8] at 1403FB501; indirect call qword ptr [rax + 0x30] at 1403FB548; callee 141F53270: indirect call qword ptr [rip + 0x5dc76e] at 141F532B4; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F"
+  ],
+  "out_of_set_callees": [
+   {
+    "va": "140A7CB40",
+    "how": "call",
+    "cls": "run-real",
+    "stubs": []
+   },
+   {
+    "va": "140A7CC00",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": []
+   },
+   {
+    "va": "141056DF0",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": []
+   },
+   {
+    "va": "141056F40",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": []
+   },
+   {
+    "va": "141F4B1D0",
+    "how": "call",
+    "cls": "unmodellable",
+    "stubs": []
+   }
+  ],
+  "indirect_sites": [],
+  "switch_jumps": []
+ },
+ "closure_fix": {
+  "accessors": [],
+  "removed_blanket_E1EE_slots": 0,
+  "child_links": 0,
+  "accessor_slots": 0,
+  "rule": "rules.closure_fix: child links + accessor layout from image bytes"
+ }
+}

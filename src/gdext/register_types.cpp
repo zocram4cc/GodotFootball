@@ -7,6 +7,7 @@
 #include "gdext/gf_match.hpp"
 #include "gdext/pes_animation.hpp"
 #include "gdext/pes_broadcast_camera.hpp"
+#include "gdext/pes_cutscene_camera.hpp"
 #include "gdext/pes_character.hpp"
 #include "gdext/pes_effects.hpp"
 #include "gdext/pes_library.hpp"
@@ -35,6 +36,7 @@ static void initialize_module(ModuleInitializationLevel level) {
   GDREGISTER_CLASS(GfMatch);
   GDREGISTER_CLASS(PesMotionPlayer);
   GDREGISTER_CLASS(PesBroadcastCamera);
+  GDREGISTER_CLASS(PesCutsceneCamera);
   GDREGISTER_CLASS(PesModelBuilder);
   GDREGISTER_CLASS(PesLighting);
   GDREGISTER_CLASS(PesEffects);

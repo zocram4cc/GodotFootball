@@ -39,7 +39,6 @@ def build_closure(va, spec, args, pilot, reached):
     tag = va[2:]
     gen = os.path.join(args.out_dir, "gen", tag)
     os.makedirs(gen, exist_ok=True)
-    stubmap = drv.stubmap_of(spec)
     # Every image address the replay executed as an indirect site or target is a root: an indirect-only thunk
     # (reached through a table, never by a direct CALL) is a function the harness runs, so the build translates it.
     targets = {"0x%X" % int(t, 16) for tgts in reached.values() for t in tgts} | set(reached)
@@ -74,7 +73,7 @@ def build_closure(va, spec, args, pilot, reached):
     while queue:
         cur = queue.pop(0)
         for c in calls_of(cur):
-            if c in build_pilot and c not in seen and c not in stubmap:
+            if c in build_pilot and c not in seen and c not in drv.MODEL_MAP:
                 seen.add(c)
                 need.append(c)
                 queue.append(c)
@@ -87,7 +86,7 @@ def build_closure(va, spec, args, pilot, reached):
         for v in list(need):
             try:
                 src, _ = drv.translate_one(v, drv.asm_for(args.asm_dir, v), args.image, build_pilot,
-                                           stubs={**stubmap, **drv.ABORTMAP})
+                                           stubs=drv.MODEL_MAP)
             except Exception as e:  # noqa: BLE001 - recorded, not raised
                 return need, "translate %s: %r" % (v, e)[:220]
             if src is None:
@@ -202,7 +201,7 @@ def run_one(va, args, pilot, pairs):
         return res
     blocked_note = drv.blocked_reason(spec)
     extra_now, blocked_callees = drv.runnable_extra(spec, args.image)
-    stub_vas = set(drv.stubmap_of(spec))
+    stub_vas = set(drv.MODEL_MAP)
     blocked_callees = {v: r for v, r in blocked_callees.items() if v not in stub_vas}
     res["blocked_callees"] = sorted(blocked_callees)
     if blocked_note is not None:

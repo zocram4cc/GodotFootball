@@ -885,9 +885,6 @@
    "IMG"
   ],
   "stack_args": {},
-  "stub_refs": [
-   "14159F3E0"
-  ],
   "tailjumps": [],
   "unresolved_mem": 8
  },
@@ -968,9 +965,6 @@
   "size": "0x20000"
  },
  "status": "impure-sample",
- "stub_refs": [
-  "14159F3E0"
- ],
  "subsystem": "impure-sample",
  "va": "0x14065C2A0"
 }

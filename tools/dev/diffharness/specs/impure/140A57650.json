@@ -137,14 +137,8 @@
   "flags": [
    "callee-outside-set@1415A1780",
    "tailjump@140A5770B"
-  ],
-  "stub_refs": [
-   "1415A1780"
   ]
  },
- "stub_refs": [
-  "1415A1780"
- ],
  "harness": {
   "harness_class": "runnable with stubs",
   "blockers": [],
