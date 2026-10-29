@@ -187,4 +187,43 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
   return out;
 }
 
+namespace {
+
+// [va, va + n) as the exe maps it into `out`: a section's raw bytes where they cover it, zeros where nothing does (the gap
+// between two sections, a section's uninitialised tail). Halves a range the exe cannot serve in one read, so a section edge costs
+// a few more reads, not a read per byte.
+void ReadMapped(const PeImage& exe, uint64_t va, std::size_t n, uint8_t* out) {
+  constexpr std::size_t kAtom = 0x200;  // the PE file alignment: no section edge falls inside it
+  if (n == 0 || exe.ReadVa(va, n, out)) return;
+  if (n <= kAtom) {
+    std::memset(out, 0, n);
+    return;
+  }
+  const std::size_t half = (n / 2 + kAtom - 1) / kAtom * kAtom;
+  ReadMapped(exe, va, half, out);
+  ReadMapped(exe, va + half, n - half, out + half);
+}
+
+}  // namespace
+
+std::optional<PesTrapSource> LoadTrapSource(const PeImage& exe, const PesVfs& vfs, std::string* error) {
+  PesTrapSource source;
+  auto actor = LoadActorConstants(exe, error);
+  if (!actor) return std::nullopt;
+  source.actor = *actor;
+  auto loader = BuildTrapLoaderData(exe, vfs, error);
+  if (!loader) return std::nullopt;
+  source.loader = std::move(*loader);
+  source.image.resize(kTrapImageHiVa - kTrapImageLoVa);
+  ReadMapped(exe, kTrapImageLoVa, source.image.size(), source.image.data());
+  return source;
+}
+
+PesTrapMemory::PesTrapMemory(const PesTrapSource& source) : image_(source.image) {
+  ext_.image = image_.data();
+  ext_.imageBase = kTrapImageLoVa;
+  ext_.imageBytes = image_.size();
+  source.loader.AddTo(ext_);
+}
+
 }  // namespace pes

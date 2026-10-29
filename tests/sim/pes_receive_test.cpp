@@ -414,39 +414,6 @@ TEST(PesReceiveInstall, TheTrapRowsAreTheInstallsActionSevenWindows) {
   }
 }
 
-// The trap picker's clip frame is forward = -z (pes::TrapBallClipPoint). The action-7 hit records put the contact in front
-// of the root at z < 0: clip 0x547's first hit is (0, 11.6, -10) cm and clip 0x57D's (45, 191, -50) cm, and each row's
-// window holds its own contact. So a ground ball half a metre straight ahead is trapped by the ground row (0x547), and a
-// ball as far behind is not trapped at all.
-TEST(PesReceiveInstall, AGroundBallAheadIsTrappedByTheGroundRowAndOneBehindIsNot) {
-  const char* root = std::getenv("PES21_ROOT");
-  if (!root) GTEST_SKIP() << "PES21_ROOT not set";
-  std::string err;
-  auto exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
-  ASSERT_TRUE(exe.has_value()) << err;
-  pes::PesVfs vfs;
-  ASSERT_TRUE(vfs.Mount(root, &err)) << err;
-  auto k = pes::LoadReceiveConstants(*exe, vfs, &err);
-  ASSERT_TRUE(k.has_value()) << err;
-  // Each row's first hit record in cm, from the install's HitData (Mbinfo::Hits): the contact the window must hold.
-  const auto hitCm = [](int clip) -> pes::ClipPoint {
-    switch (clip) {
-      case 1351: return {0.0f, 11.6f, -10.0f};
-      case 1352: return {0.0f, 191.0f, -50.0f};
-      case 1353: return {0.0f, 236.0f, -50.0f};
-      case 1405: return {45.0f, 191.0f, -50.0f};
-      case 1407: return {45.0f, 236.0f, -50.0f};
-      default: return {};
-    }
-  };
-  constexpr float kStationaryBallHeight_m = 0.109f;  // the stalled ball's height in the trace (y of the clip point)
-  const pes::ClipPoint ahead =
-      pes::TrapBallClipPoint(1.0f, 0.0f, 0.5f, 0.0f, kStationaryBallHeight_m, pes::kPlayerClipScale);
-  EXPECT_EQ(pes::PickTrapClip(*k, ahead, hitCm), std::optional<int>(1351));
-  const pes::ClipPoint behind =
-      pes::TrapBallClipPoint(1.0f, 0.0f, -0.5f, 0.0f, kStationaryBallHeight_m, pes::kPlayerClipScale);
-  EXPECT_FALSE(pes::PickTrapClip(*k, behind, hitCm).has_value());
-}
 
 }  // namespace
 
@@ -620,46 +587,41 @@ TEST(PesReceiveCarrier, StandingOnTheBallWithoutATouchMakesNoCarrier) {
   EXPECT_EQ(pes::CarrierFromTouch(false, true), pes::CarrierChange::kNone);
 }
 
-// The trap picker (FUN_14081ff70 for action 7): a row admits the ball inside its clip-space window (x strictly
-// between xb and xe, z strictly between zb and ze); the lowest priority wins, then the nearest hit; a hit higher
-// than the ball by more than the height tolerance refuses its row. The rows and hits here are synthetic: the
-// tests state the rule, not PES's numbers.
-TEST(PesReceivePicker, TheBallInsideARowsWindowGetsThatRowsClip) {
-  pes::ReceiveConstants k{};
-  k.trapRows = {pes::ActionRow{10, pes::kTrapActionRow, 1, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f}};
-  const auto hit = [](int) { return pes::ClipPoint{}; };
-  auto inside = pes::PickTrapClip(k, {0.1f, 0.0f, 0.0f}, hit);
-  ASSERT_TRUE(inside.has_value());
-  EXPECT_EQ(*inside, 10);
-  EXPECT_FALSE(pes::PickTrapClip(k, {0.6f, 0.0f, 0.0f}, hit).has_value());  // beyond xe
-  EXPECT_FALSE(pes::PickTrapClip(k, {0.1f, 0.0f, 0.5f}, hit).has_value());  // the z edge is outside
+// The Trap action's request (pes-re-trap-inputs.md 3.1): the control touch is dispatcher kind 0 with touch kind 0, the planned
+// touch kind 4 with touch kind 3; the heading rides in word 0.
+TEST(PesTrapRequest, AControlTouchIsKindZeroAndCarriesItsHeadingInWordZero) {
+  const pes::FirstTouch touch{pes::TouchKind::kControl, 10.0f, 1.0f};
+  const pes::PesTrapRequest r = pes::TrapRequestFor(touch, 123.5f);
+  float heading;
+  std::memcpy(&heading, r.bytes.data() + pes::kReqWord0Offset, sizeof heading);
+  EXPECT_EQ(heading, 123.5f);
+  EXPECT_EQ(pes::LoadU32(r.bytes.data(), pes::kReqWord1Offset), pes::kTrapTouchControl);
+  EXPECT_EQ(static_cast<int32_t>(pes::LoadU32(r.bytes.data(), pes::kReqKindOffset)), pes::kTrapKindControl);
+  EXPECT_EQ(pes::LoadU32(r.bytes.data(), pes::kReqWord3Offset), 0u);
 }
 
-TEST(PesReceivePicker, TheLowestPriorityRowWinsThenTheNearestHit) {
-  pes::ReceiveConstants k{};
-  k.trapRows = {
-      pes::ActionRow{10, pes::kTrapActionRow, 1, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
-      pes::ActionRow{11, pes::kTrapActionRow, 0, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
-      pes::ActionRow{12, pes::kTrapActionRow, 0, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
-  };
-  const auto hit = [](int clip) {  // hits in cm
-    return clip == 12 ? pes::ClipPoint{100.0f, 0.0f, 0.0f} : pes::ClipPoint{20.0f, 0.0f, 0.0f};
-  };
-  auto r = pes::PickTrapClip(k, {0.1f, 0.0f, 0.0f}, hit);
-  ASSERT_TRUE(r.has_value());
-  EXPECT_EQ(*r, 11);  // 11 and 12 share priority 0, and 11's hit is nearer; row 10 has the worse priority
+TEST(PesTrapRequest, APlannedTouchIsTheDirectionalKind) {
+  const pes::FirstTouch touch{pes::TouchKind::kDirectional, 10.0f, 5.0f};
+  const pes::PesTrapRequest r = pes::TrapRequestFor(touch, 0.0f);
+  EXPECT_EQ(pes::LoadU32(r.bytes.data(), pes::kReqWord1Offset), pes::kTrapTouchPlanned);
+  EXPECT_EQ(static_cast<int32_t>(pes::LoadU32(r.bytes.data(), pes::kReqKindOffset)), pes::kTrapKindDirectional);
 }
 
-TEST(PesReceivePicker, AHitHigherThanTheBallRefusesItsRow) {
-  pes::ReceiveConstants k{};
-  k.trapRows = {
-      pes::ActionRow{20, pes::kTrapActionRow, 0, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
-      pes::ActionRow{21, pes::kTrapActionRow, 1, 0, 0, -0.5f, -0.5f, 0.5f, 0.5f},
-  };
-  const auto hit = [](int clip) {  // y is the height, in cm
-    return clip == 20 ? pes::ClipPoint{0.0f, 100.0f, 0.0f} : pes::ClipPoint{0.0f, 0.0f, 0.0f};
-  };
-  auto r = pes::PickTrapClip(k, {0.1f, 0.0f, 0.0f}, hit);
-  ASSERT_TRUE(r.has_value());
-  EXPECT_EQ(*r, 21);  // row 20 has the better priority but its hit is a metre above the ball
+// FUN_1409F8640's retry: only a kind-4 request refused with 3, 7 or 8 (not 4) while plan byte +0x35 is clear.
+TEST(PesTrapRequest, OnlyAKindFourRefusalInThreeSevenEightIsRetriedAsControl) {
+  for (uint32_t refusal : {3u, 7u, 8u}) EXPECT_TRUE(pes::RetryTrapAsControl(pes::kTrapKindDirectional, refusal, 0)) << refusal;
+  for (uint32_t refusal : {0u, 1u, 2u, 4u, 5u, 6u, 9u})
+    EXPECT_FALSE(pes::RetryTrapAsControl(pes::kTrapKindDirectional, refusal, 0)) << refusal;
+  EXPECT_FALSE(pes::RetryTrapAsControl(pes::kTrapKindControl, 3, 0)) << "a kind-0 refusal is final";
+  EXPECT_FALSE(pes::RetryTrapAsControl(pes::kTrapKindDirectional, 3, 1)) << "plan byte +0x35 set";
+}
+
+// A call that commits a plan leaves the clip in the Trap action object's u16 at +8 (P+0xC80), nowhere else.
+TEST(PesTrapRequest, TheCommittedClipIsTheActionObjectsWordAtPlusEight) {
+  std::array<uint8_t, pes::kTrapPBytes> p{};
+  const uint16_t clip = 0xB86;
+  std::memcpy(p.data() + pes::kPActionOffset + 8, &clip, sizeof clip);
+  p[pes::kPActionOffset + 10] = 0xFF;  // the bytes beside it are not the clip
+  p[pes::kPActionOffset + 7] = 0xFF;
+  EXPECT_EQ(pes::CommittedTrapClip(p.data()), 0xB86);
 }

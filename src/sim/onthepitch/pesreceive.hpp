@@ -32,6 +32,7 @@
 
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
+#include "onthepitch/pestrapworld.hpp"
 #include "onthepitch/pesevents.hpp"
 
 namespace pes {
@@ -263,29 +264,24 @@ CarrierChange CarrierAfterContact(bool controlTouch, bool toucherHoldsBall, bool
 // when TA+0x11 is set; that flag's caller is not traced.
 CarrierChange CarrierFromTouch(bool touchedThisTick, bool toucherHoldsBall);
 
-// The trap picker's ball point, in the player's clip space (metres, PES's Fox frame): x lateral (sign not yet decoded),
-// y height, z backward. A trap clip's contact lies at z < 0 in front of the root in its own hit records (pes-re-trap-
-// windows.md section 9), so forward is -z. The clips' hit points are in cm (HitData records, pes/mbinfo.hpp).
-struct ClipPoint {
-  float x = 0.0f, y = 0.0f, z = 0.0f;
-};
+// --- The Trap action's request (docs/re/pes-re-trap-inputs.md 3.1; producer FUN_1409F8A50, caller FUN_1409F8640) ---
 
-// The hit records' cm to metres (0x14256AE18: FUN_14081ff70's picker scales the hit by it).
-inline constexpr float kHitCmToMetres = 0.01f;
-// A trap row's height tolerance: a clip's hit may sit at most this far above the ball (S1Watch, pes-re-trap-windows
-// §3: 1.15 * (T2 - T1), T1 = 0.335 and T2 = 0.56).
-inline constexpr float kTrapHeightTolerance_m = 0.25875f;
-// The anime's per-player scale (P+0x3b18), 1.0 in PES's constructor; GF keeps no per-player scale.
-inline constexpr float kPlayerClipScale = 1.0f;
+// The dispatcher's kind (request word 2, R[1]): kinds <= 0 run the kind-0 chain 0x14079A470, the only one translated; kind 4 runs
+// 0x14079B3D0, which is not. The touch kind (word 1, R[0]) is the trap type: 0 the plain control, 3 a planned touch (the
+// captured calls carry 3 and 4).
+// ponytail: the planned touch's R[1] (4) and R[0] (3) come from cmd+0x5c, whose writer GF has no source for; kind 4 is the kind
+// PES retries as 0 and 0x14079B3D0 is not translated, so a planned touch takes that retry (RetryTrapAsControl) at once.
+inline constexpr int32_t kTrapKindControl = 0;
+inline constexpr int32_t kTrapKindDirectional = 4;
+inline constexpr uint32_t kTrapTouchControl = 0;
+inline constexpr uint32_t kTrapTouchPlanned = 3;
 
-// FUN_14081ff70 for a trap (action 7): the rows whose window holds the ball are candidates; the lowest priority
-// wins, then the nearest hit. A row whose hit sits more than the height tolerance above the ball is refused. The
-// candidate-key gate is open: GF's caller has no PES request keys yet (a stand-in). hitCm gives a clip's first hit
-// record in cm. Nothing is picked when no row's window holds the ball.
-std::optional<int> PickTrapClip(const ReceiveConstants& k, const ClipPoint& ball,
-                                const std::function<ClipPoint(int clip)>& hitCm);
+// The request PES's producer builds for a first touch: word 0 the touch heading (PES yaw, degrees), word 1 the touch kind, word 2
+// the dispatcher's kind, word 3 zero. ponytail: the plan flag bytes (R+0x34, +0x36, +0x37, +0x38, +0x3A: forced kind 4, no
+// direction, open-body touch...) have no GF source and stay 0; the producer's writers of them remove this.
+PesTrapRequest TrapRequestFor(const FirstTouch& touch, float headingYaw_deg);
 
-// The trap picker's ball point for a ball at (aheadX, aheadY) from a player facing (facingX, facingY), at height_m: the
-// ball's lateral and forward components on the body's axes, in the clip frame of ClipPoint. scale is kPlayerClipScale.
-ClipPoint TrapBallClipPoint(float facingX, float facingY, float aheadX, float aheadY, float height_m, float scale);
+// FUN_1409F8640's retry: when the anime refuses with a status in {3, 7, 8} (out[0]) a kind-4 request is made once more as kind 0,
+// if plan byte +0x35 is clear.
+bool RetryTrapAsControl(int32_t kind, uint32_t refusal, uint8_t planByte35);
 }  // namespace pes

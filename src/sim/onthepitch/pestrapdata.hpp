@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "onthepitch/pestrapactor.hpp"
 #include "onthepitch/pestrapworld.hpp"
 #include "pes/exe.hpp"
 #include "pes/vfs.hpp"
@@ -71,5 +72,34 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
 // Whether byte `offset` of the constant::Trap runtime object is built: the vtable word and every store of the slot-2 loader
 // FUN_141E67B70. The other bytes of the object (past +0x1D5) are not built.
 bool TrapRuntimeByteIsBuilt(std::size_t offset);
+
+// The exe's data sections the chain reads (vtables, constant tables, image globals): .rdata (0x14252F000) up to .impdata
+// (0x143D14000), where the code section starts. The translated chain never reads code bytes (it runs as C++), and the loader
+// data sit in the segment above. The oracle (tests/pes_trap_oracle_test.cpp) runs 24 captured calls on exactly this slice.
+inline constexpr uint64_t kTrapImageLoVa = 0x14252F000ULL;
+inline constexpr uint64_t kTrapImageHiVa = 0x143D14000ULL;
+
+// Everything the trap chain needs from the install, built once from it (like the other Load*Constants): the image slice, the
+// actor constants P is made from, and the loader data.
+struct PesTrapSource {
+  std::vector<uint8_t> image;  // [kTrapImageLoVa, kTrapImageHiVa) as mapped
+  PesActorConstants actor;
+  PesTrapLoaderData loader;
+};
+std::optional<PesTrapSource> LoadTrapSource(const PeImage& exe, const PesVfs& vfs, std::string* error);
+
+// One match's memory for the chain: a private copy of the source's image slice (the chain writes image globals) and of the
+// loader segment, built once per match. PesWorld::RunTrapKind0 lends the externals to each call without copying them.
+class PesTrapMemory {
+ public:
+  explicit PesTrapMemory(const PesTrapSource& source);
+  PesTrapMemory(const PesTrapMemory&) = delete;
+  PesTrapMemory& operator=(const PesTrapMemory&) = delete;
+  PesTrapExternals& Externals() { return ext_; }
+
+ private:
+  std::vector<uint8_t> image_;
+  PesTrapExternals ext_;
+};
 
 }  // namespace pes

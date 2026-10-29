@@ -13,6 +13,7 @@
 #include <optional>
 #include <string>
 
+#include "pes/exe.hpp"
 #include "onthepitch/pesstamina.hpp"
 #include "onthepitch/pesworldrecord.hpp"
 #include "pes/physique.hpp"
@@ -20,6 +21,11 @@
 namespace pes {
 
 inline constexpr std::size_t kLocomotionPhases = 0x18;  // P+0x245C below this indexes the class table (0x1406D8C59)
+
+// PES's anime action id for MOVE (P+0xAC8; names read from 0x1434A5470: 2 MOVE, 3 STEP_MOVE, 7 TRAP) and the "no motion"
+// sentinel of P+0x2810 (0xBE5, FUN_1406EB670; also the Animetable's row count).
+inline constexpr uint8_t kAnimeActionMove = 2;
+inline constexpr uint16_t kPNoMotion = 0xBE5;
 
 // What the actor's fields are made from, in PES's units. `speedByte` is the Speed ability byte (slot record +0x97, 40..99).
 struct PesActorFacts {
@@ -38,12 +44,17 @@ struct PesActorFacts {
   StaminaState stamina;        // slot record: tank cur/max, breath reserve
 };
 
-// ponytail: the one PES input with no GF source, as captured bytes. It names the PES site that removes it:
-//  velocityRing: P+0x2FC, six 3-vectors read by 0x141EB50B0 (idx >= 2); its writer is OPEN (the action issuer 0x1406F0F70
-//    or a per-tick write; docs/ports/pes-port-TrapOpen2.md).
+// ponytail: the one PES input with no GF source. It names the PES site that removes it:
+//  velocityRing: P+0x2FC, six 3-vectors (12 bytes each) read by 0x141EB50B0 (idx >= 2: entry min(idx / 10, 5)); its writer is
+//    OPEN (the action issuer 0x1406F0F70 or a per-tick write; docs/ports/pes-port-TrapOpen2.md 6). The oracle fills it from the
+//    capture; a match fills each entry with the player's present velocity (the decoded entry is the predicted displacement
+//    over 10 (k + 1) ticks divided by 10 (k + 1): the same vector when the prediction holds the velocity, which drops PES's
+//    braking prediction, INF from two snapshots of one player).
 // (G and its chain at P+0xA08 are derived from the facts: pes::PhysiqueG; P+0x3AC0 names the side's AI context in the window.)
+inline constexpr std::size_t kVelocityRingEntries = 6;
+inline constexpr std::size_t kVelocityRingEntryBytes = 12;
 struct PesActorOpenInputs {
-  std::array<uint8_t, 12> velocityRing{};
+  std::array<uint8_t, kVelocityRingEntries * kVelocityRingEntryBytes> velocityRing{};
 };
 
 // The image's bytes P is made from.
@@ -57,9 +68,9 @@ struct PesActorConstants {
   float heightDivisor = 0.0f;     // 0x142598580: P+0x3B18 = height_cm / 180 (0x1406EB231)
 };
 
-// Reads the constants from the flat image (base 0x140000000). Empty with `*error` set when an opcode check fails or a
-// read leaves the image.
-std::optional<PesActorConstants> LoadActorConstants(const uint8_t* image, uint64_t imageBytes, std::string* error);
+// Reads the constants from the install's exe, each behind the opcode of the instruction that names it. Empty with `*error` set
+// when an opcode check fails or a read leaves the image.
+std::optional<PesActorConstants> LoadActorConstants(const PeImage& exe, std::string* error);
 
 // P+0xB08 (FUN_1406D8BF0): the locomotion class from the phase, the root speed and the phase-1 test.
 uint8_t LocomotionClass(const PesActorConstants& c, const PesActorFacts& f, const uint8_t* p);

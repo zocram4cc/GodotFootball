@@ -36,13 +36,8 @@ constexpr uint8_t kClassTableOpcode[] = {0x0F, 0xB6, 0x84, 0x8F};
 constexpr std::size_t kClassTableStride = 4;
 
 struct ImageView {
-  const uint8_t* flat;
-  uint64_t bytes;
-  bool Read(uint64_t va, std::size_t n, void* out) const {
-    if (flat == nullptr || va < kImageBaseVa || va - kImageBaseVa + n > bytes) return false;
-    std::memcpy(out, flat + (va - kImageBaseVa), n);
-    return true;
-  }
+  const PeImage& exe;
+  bool Read(uint64_t va, std::size_t n, void* out) const { return exe.ReadVa(va, n, static_cast<uint8_t*>(out)); }
   bool OpcodeAt(uint64_t va, const uint8_t* opcode, std::size_t n) const {
     uint8_t got[16];
     return n <= sizeof got && Read(va, n, got) && std::memcmp(got, opcode, n) == 0;
@@ -64,8 +59,8 @@ struct ImageView {
 
 }  // namespace
 
-std::optional<PesActorConstants> LoadActorConstants(const uint8_t* image, uint64_t imageBytes, std::string* error) {
-  const ImageView img{image, imageBytes};
+std::optional<PesActorConstants> LoadActorConstants(const PeImage& exe, std::string* error) {
+  const ImageView img{exe};
   PesActorConstants c;
   float again = 0.0f;
   const uint64_t vt0 = img.Target(kVtable0Site), vt1 = img.Target(kVtable1Site);
@@ -108,7 +103,7 @@ uint8_t LocomotionClass(const PesActorConstants& c, const PesActorFacts& f, cons
 
 void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInputs& open, const PesActorConstants& c,
                  const StaminaConstants& stamina, const PhysiqueConstants& physique) {
-  uint8_t* p = world.P();
+  uint8_t* p = world.P(f.slot);
   const uint8_t* man = world.ManRecord(f.slot);
   // P's position, previous position and heading are the man record's (CONFIRMED 6/6, pes-re-trap-inputs.md 1.2).
   std::memcpy(p + kPPosOffset, man + kManPosXOffset, 12);
@@ -134,10 +129,10 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   // rate ceiling reads the same G (FUN_1406F99F0 via FUN_141AF3180).
   const float g = PhysiqueG(physique, {f.heightCm, f.legSlider, false});
   StoreF32(p, kPGOffset, g);
-  const uint64_t chainA = PesWorld::PhysiqueAVa(), chainB = PesWorld::PhysiqueBVa();
+  const uint64_t chainA = PesWorld::PhysiqueAVa(f.slot), chainB = PesWorld::PhysiqueBVa(f.slot);
   std::memcpy(p + kPScalePtrOffset, &chainA, sizeof chainA);
-  std::memcpy(world.PhysiqueA() + kPhysiqueNextOffset, &chainB, sizeof chainB);
-  StoreF32(world.PhysiqueB(), kPhysiqueGOffset, g);
+  std::memcpy(world.PhysiqueA(f.slot) + kPhysiqueNextOffset, &chainB, sizeof chainB);
+  StoreF32(world.PhysiqueB(f.slot), kPhysiqueGOffset, g);
   StoreF32(p, kPF377CScaleOffset, MoveTopRate(stamina, f.speedByte, f.stamina, g));  // FUN_1406F99F0 (0x1406F9B4C)
   std::memcpy(p + kPVelocityOffset, open.velocityRing.data(), open.velocityRing.size());
   const uint64_t ctx = PesWorld::CtxVa(f.side);  // P+0x3AC0 = PM+0x7E0: the side's AI context (+0x18 MA, +0xE0 E)

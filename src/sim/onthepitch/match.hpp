@@ -286,6 +286,10 @@ public:
   // PES 2021's stamina model (docs/re/pes-re-stamina-drain.md): its constants,
   // read from the install's exe, required like the clock's and the ball's.
   const pes::StaminaConstants& GetPesStaminaConstants() const { return *pesStaminaConstants; }
+  // PES's Trap action chain (pestrapdata.hpp): the actor constants P is made from, and the match's own copy of the image slice and
+  // loader data the chain runs on, built once at construction.
+  const pes::PesActorConstants& GetPesActorConstants() const { return pesActorConstants; }
+  pes::PesTrapExternals& PesTrapExternalsOf() { return pesTrapMemory->Externals(); }
   // PES 2021's injury tier (0 C, 1 B, 2 A), stronger foot, Form and condition byte for a player: his Player.bin
   // record in the install's database, by his database id (docs/re/pes-re-matchlogic.md 1.2). A player with no record
   // takes the named fallback.
@@ -715,6 +719,8 @@ protected:
   pes::marktable::Constants pesMarkTableConstants{};
   std::unique_ptr<pes::PesClock> pesClock;
   std::unique_ptr<pes::StaminaConstants> pesStaminaConstants;
+  pes::PesActorConstants pesActorConstants{};
+  std::unique_ptr<pes::PesTrapMemory> pesTrapMemory;
   std::optional<pes::PlayerDatabase> pesPlayerDatabase;
   std::optional<pes::formation::FormationTables> pesFormations;
   std::optional<pes::formation::SheetConstants> pesSheetConstants;

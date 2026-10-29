@@ -22,12 +22,15 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <cstring>
 #include <map>
 #include <utility>
 
 #include "../data/playerskills.hpp"
 #include "../data/playingstyles.hpp"
 #include "pes/movestep.hpp"
+#include "pesmovestep.hpp"
+#include "pestrapactor.hpp"
 #include "pessetpieceteam.hpp"
 #include "pessequencer.hpp"
 #include "pes/mbinfo.hpp"
@@ -3460,6 +3463,9 @@ float PesYawDeg(const Vector3& v) {
 void WriteManMovement(Player& pl, uint8_t* man) {
   const Vector3 pos = pl.GetPosition();
   const Vector3 mov = pl.GetMovement();
+  // The previous position (+0x568) is last tick's: the record still holds it until the new one is written below (P+0x14 is a
+  // copy of it).
+  std::memcpy(man + pes::kManPrevPosXOffset, man + pes::kManPosXOffset, 3 * sizeof(float));
   pes::StoreF32(man, pes::kManPosXOffset, pos.coords[0]);
   pes::StoreF32(man, pes::kManPosZOffset, pos.coords[1]);
   // PES's man record holds the height too (+0x560, +0x578 m per frame). GF's coords[2] is the height (INF).
@@ -3468,6 +3474,37 @@ void WriteManMovement(Player& pl, uint8_t* man) {
   pes::StoreF32(man, pes::kManVelZOffset, mov.coords[1] / ob::kPesFps);
   pes::StoreF32(man, pes::kManVelYOffset, mov.coords[2] / ob::kPesFps);
   pes::StoreF32(man, pes::kManFacingOffset, PesYawDeg(pl.GetDirectionVec()));
+}
+
+// The facts P's fields are made from (pestrapactor.hpp), read from the player's own state.
+pes::PesActorFacts TrapFactsOf(Player& pl, int slot) {
+  pes::PesActorFacts f;
+  f.slot = slot;
+  f.side = slot / pes::kSlotsPerSide;
+  f.heightCm = pesmovestep::PhysiqueHeightCmOf(pl);
+  const pes::MoveStepRecord& rec = pl.GetMoveStep();
+  f.phase = static_cast<uint8_t>(rec.state);  // P+0x245C is the MOVESTEP record's state
+  // ponytail: GF has no PES action id for the body (P+0xAC8; MOVESTEP's AnimeState answers 2 for movement-like functions too).
+  // The receiving man is in MOVE (2) or STEP_MOVE (3) when entry 3 fires (the six kind-0 captures show both with the same
+  // phases), and nothing in GF tells them apart, so MOVE stands in for the pair and the previous pair. A body action that has an
+  // id replaces this.
+  f.action = f.sub = f.prevAction = f.prevSub = pes::kAnimeActionMove;
+  // P+0xAE0: the PES motion number of the clip the humanoid plays; the AI's own clip has none, so the no-motion sentinel.
+  const int motion = pesmovestep::CurrentMotionOf(pl);
+  f.motion = motion < 0 ? pes::kPNoMotion : static_cast<uint16_t>(motion);
+  f.kickApproach = 0;  // the kick approach (adjuster A) is never armed in GF
+  // P+0x277C / +0x2780: the first dwell's elapsed and limit, MOVESTEP's carried words req[0x1a] / req[0x1b].
+  const auto carried = [&rec](int word) {
+    float v;
+    std::memcpy(&v, &rec.carried[word - pes::moveword::kRecordStampA], sizeof v);
+    return v;
+  };
+  f.word277C = carried(pes::moveword::kDwellElapsed);
+  f.word2780 = carried(pes::moveword::kDwellLimit);
+  f.speedByte = pesmovestep::SpeedByteOf(pl);
+  f.legSlider = 0.0f;  // ponytail: FUN_141AD98B0 has no GF source (the same stand-in as PesMovestepHost::PhysiqueG)
+  f.stamina = pl.GetStamina();
+  return f;
 }
 
 }  // namespace
@@ -3481,6 +3518,27 @@ void WritePesMovementRecords(Match& match) {
       if (!p->IsActive() || written == ob::kSlots) continue;
       ++written;
       WriteManMovement(*p, match.PesWorldOf().ManRecord(match.PesSlotOf(p.get())));
+    }
+  }
+}
+
+// Every active player's P at the tick's start, after the movement records it is made from (Match::Process, PES mode).
+// ponytail: SBn, the squad-order record of table B (G+0x1978, read by FUN_140A3B320 in 9 of 24 captured calls), has no decoded
+// writer and no GF source: table B stays unbound, so its reads answer zero. FUN_140A3B320's table-B writer removes this.
+void WritePesTrapActors(Match& match) {
+  for (int t = 0; t < 2; ++t) {
+    int written = 0;
+    for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
+      if (!p->IsActive() || written == ob::kSlots) continue;
+      ++written;
+      const int slot = match.PesSlotOf(p.get());
+      pes::PesActorOpenInputs open;
+      const uint8_t* man = match.PesWorldOf().ManRecord(slot);
+      for (std::size_t k = 0; k < pes::kVelocityRingEntries; ++k)
+        std::memcpy(open.velocityRing.data() + k * pes::kVelocityRingEntryBytes, man + pes::kManVelXOffset,
+                    pes::kVelocityRingEntryBytes);
+      pes::WriteActorP(match.PesWorldOf(), TrapFactsOf(*p, slot), open, match.GetPesActorConstants(),
+                       match.GetPesStaminaConstants(), match.GetPesMoveStepConstants().physique);
     }
   }
 }

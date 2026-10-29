@@ -9,6 +9,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstring>
 #include <cstdint>
 #include <vector>
 
@@ -96,6 +97,15 @@ struct PesTrapImage {
   std::array<uint8_t, kPhysiqueObjectBytes> physiqueB{};
 };
 
+// The clip a successful call commits: the Trap action object's u16 at +8 (P+0xC80), a motion number of the Animetable
+// (docs/re/pes-re-trap-inputs.md 3.2; `out[0]` is a refusal status and nothing else). `p` is the actor's P.
+inline constexpr std::size_t kActionClipOffset = 0x8;
+inline uint16_t CommittedTrapClip(const uint8_t* p) {
+  uint16_t clip;
+  std::memcpy(&clip, p + kPActionOffset + kActionClipOffset, sizeof clip);
+  return clip;
+}
+
 // What the chain reads that GF does not hold as state yet (each a stand-in naming the PES site that removes it): the install's
 // image (the vtables' bytes), the loader data the chain's vtable calls and registry lookups reach (the constant registry
 // 0x1437F4808, the anime-table manager 0x1436F2378 and 0x1436F23C0, the motion table 0x1406B20E0's records), as bytes at
@@ -105,9 +115,10 @@ struct PesTrapSegment {
   std::vector<uint8_t> bytes;
 };
 struct PesTrapExternals {
-  uint8_t* image = nullptr;  // the image from base 0x140000000, writable, caller-owned (translated code writes globals)
+  uint8_t* image = nullptr;  // the image's bytes from imageBase, writable, caller-owned (translated code writes globals)
+  uint64_t imageBase = 0x140000000ULL;  // the VA of image[0]: a slice of the exe's data sections, or the whole flat image
   uint64_t imageBytes = 0;
-  std::vector<PesTrapSegment> segments;
+  std::vector<PesTrapSegment> segments;  // lent to a call (PesWorld::RunTrapKind0 moves them in and back)
   std::vector<std::pair<uint64_t, uint64_t>> globals;  // (image VA, 8-byte value)
   std::vector<std::pair<uint64_t, uint8_t>>* writeLog = nullptr;  // every byte the call writes, in order (tests)
 };

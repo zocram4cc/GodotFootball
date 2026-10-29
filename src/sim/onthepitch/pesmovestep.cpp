@@ -263,7 +263,7 @@ class MoveHostAdapter final : public pes::MoveHost {
   // /100 as a float, so rounding restores the block's value.
   // ponytail: the leg-length slider (block+0x30: appearance nibble 0x11:0, FUN_141AD98B0) has no GF source; 0 is neutral.
   float PhysiqueG() const override {
-    return pes::PhysiqueG(c_.physique, {std::round(player_.GetStat("physical_height") * 100.0f), 0.0f, false});
+    return pes::PhysiqueG(c_.physique, {pesmovestep::PhysiqueHeightCmOf(player_), 0.0f, false});
   }
   float TicksPerSecond() const override { return static_cast<float>(Match::kFramesPerSecond); }
   int MatchTick() const override { return match_.GetPesFrame(); }
@@ -576,12 +576,10 @@ void ProcessMoveStep(Player& player, Match& match) {
   req.SetU(pes::moveword::kParamState, kSingleClip);  // PES's init: a single clip (req[0x37] == 0x11)
   // FUN_1406f99f0's store (P+0x377c): the TopRate ceiling at the record's G, once per match tick.
   // ponytail: the Speed byte (0x27) = clamp(trunc(base[0x27] * A1..A5), 40, 99), written by FUN_14092AF10
-  // (docs/re/pes-re-speed-inputs.md). Its base row has no GF source yet, so physical_velocity stands in for it.
-  constexpr float kStatPerUnit = 100.0f;  // GF stores PES's 40..99 as 0.40..0.99
+  // (docs/re/pes-re-speed-inputs.md). Its base row has no GF source yet, so physical_velocity stands in for it (SpeedByteOf).
   pes::StoreRateCeiling(rec, host.MatchTick(),
-                        pes::MoveTopRate(match.GetPesStaminaConstants(),
-                                         player.GetStat("physical_velocity") * kStatPerUnit,
-                                         player.GetStamina(), host.PhysiqueG()));
+                        pes::MoveTopRate(match.GetPesStaminaConstants(), SpeedByteOf(player), player.GetStamina(),
+                                         host.PhysiqueG()));
 
   const pes::MoveState stateAtEntry = rec.state;
   pes::movestep::RampsBeforeDispatch(host, req);
@@ -626,6 +624,17 @@ std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue) {
     if (!IsBallActionFunction(command.desiredFunctionType)) return command;
   }
   return std::nullopt;
+}
+
+}  // namespace pesmovestep
+
+namespace pesmovestep {
+
+float PhysiqueHeightCmOf(const Player& player) { return std::round(player.GetStat("physical_height") * 100.0f); }
+
+float SpeedByteOf(const Player& player) {
+  constexpr float kStatPerUnit = 100.0f;  // GF stores PES's 40..99 as 0.40..0.99
+  return player.GetStat("physical_velocity") * kStatPerUnit;
 }
 
 }  // namespace pesmovestep

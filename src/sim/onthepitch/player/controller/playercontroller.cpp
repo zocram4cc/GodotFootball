@@ -18,6 +18,7 @@
 
 #include "playercontroller.hpp"
 
+#include <cstring>
 #include <cmath>
 
 #include "simcontext.hpp"
@@ -396,13 +397,11 @@ bool PlayerController::_ReceiveCandidate() {
   } else if (hasPossession) {
     return false;
   }
-  // Who goes: the PASS_GET receiver / the team's designated man
-  // (Team::PassGetReceiver feeds the designation). On the PES path the
-  // loose-ball presser traps too: he is the chaser, and the designation may
-  // name another man. PES's entry 3 is not gated by the chase state at all.
-  const bool presser = match->PesLoop() && team->GetController()->IsLoosePresser(player);
-  if (match->GetDesignatedPossessionPlayer() != player &&
-      team->GetDesignatedTeamPossessionPlayer() != player && !presser)
+  // GF mode: who goes is the PASS_GET receiver / the team's designated man (Team::PassGetReceiver feeds the designation).
+  // The PES path has no such gate: entry 3 is not gated by designation or chase state (pes-re-first-touch.md 7.2); the Trap
+  // chain's own race refusal (0x14079A470 -> 0x140799440) is what stops a man the ball is not for.
+  if (!match->PesLoop() && match->GetDesignatedPossessionPlayer() != player &&
+      team->GetDesignatedTeamPossessionPlayer() != player)
     return false;
 
   // FUN_1409fa720: the re-touch lockout, over the store's newest event and the one before it.
@@ -495,25 +494,39 @@ void PlayerController::_TrapCommand(PlayerCommandQueue& commandQueue) {
   command.desiredLookAt = CastPlayer()->GetPosition() + CastPlayer()->GetMovement() * 0.3f +
                           command.desiredDirection * 10.0f;
   if (match->PesLoop()) {
-    // PES picks the trap clip by window (FUN_14081ff70 over the action-7 rows): the ball, in the presser's clip space
-    // (metres), must lie in a row's window, or there is no trap. The command names the clip by family and motion
-    // number, as the dodge and tackle commands do, so the clip the window picked is the clip that plays.
-    const Vector3 dir = CastPlayer()->GetDirectionVec();
-    const Vector3 ballPos = match->GetBall()->Predict(0);
-    const Vector3 at = ballPos - CastPlayer()->GetPosition();
-    const pes::ClipPoint ball = pes::TrapBallClipPoint(dir.coords[0], dir.coords[1], at.coords[0], at.coords[1],
-                                                       ballPos.coords[2], pes::kPlayerClipScale);
-    const auto hitCm = [this](int clip) {
-      const auto& hits = match->GetPesMbinfo().Hits(clip);
-      return hits.empty() ? pes::ClipPoint{} : pes::ClipPoint{hits[0].ballX, hits[0].ballY, hits[0].ballZ};
-    };
-    const std::optional<int> clip = pes::PickTrapClip(k, ball, hitCm);
-    if (!clip) return;
+    // PES's reaction trap (FUN_1409F8640): the first touch becomes a request, and the Trap action's kind-0 chain
+    // (0x14079A470, translated) runs on this man's P in the world window, which WritePesTrapActors wrote from his state this
+    // tick. A call that commits a plan leaves the clip in the action object (u16 +8, CommittedTrapClip); a refusal is no trap.
+    constexpr float kQuarterTurn_deg = 90.0f, kFullTurn_deg = 360.0f;
+    // GF's heading is atan2(y, x); PES's yaw (the man record's facing, a bearing from the +z axis) is atan2(x, y).
+    const float yaw_deg = std::fmod(kQuarterTurn_deg - touch.heading_deg + kFullTurn_deg, kFullTurn_deg);
+    pes::PesTrapRequest request = pes::TrapRequestFor(touch, yaw_deg);
+    const int slot = match->PesSlotOf(CastPlayer());
+    pes::PesWorld& world = match->PesWorldOf();
+    // ponytail: the dispatcher's kind-4 chain (0x14079B3D0) is not translated, so a planned touch cannot run as kind 4: it is
+    // given the refusal status the retry rule acts on (3, in its set {3, 7, 8}) and takes PES's own retry as kind 0. The chain
+    // that refuses or commits as kind 4 removes this.
+    constexpr uint32_t kKindFourUntranslated = 3;
+    pes::PesTrapResult result{false, kKindFourUntranslated};
+    int32_t kind;
+    std::memcpy(&kind, request.bytes.data() + pes::kReqKindOffset, sizeof kind);
+    if (kind != pes::kTrapKindDirectional) result = world.RunTrapKind0(slot, request, match->PesTrapExternalsOf());
+    constexpr uint8_t kPlanByte35 = 0;  // the plan byte +0x35 has no GF source (TrapRequestFor)
+    if (!result.issued && pes::RetryTrapAsControl(kind, result.out, kPlanByte35)) {
+      const int32_t control = pes::kTrapKindControl;
+      std::memcpy(request.bytes.data() + pes::kReqKindOffset, &control, sizeof control);
+      result = world.RunTrapKind0(slot, request, match->PesTrapExternalsOf());
+    }
+    if (!result.issued) return;
+    const int clip = pes::CommittedTrapClip(world.P(slot));
+    // The clip plays only if the match loaded it (pesclips.cpp's trap family); the action's own tick, which plays any
+    // committed motion with PES's touch frame, is not ported (docs/ports/pes-port-TrapCutover.md, open item 1).
+    if (!match->GetAnimCollection()->HasSpecial(static_cast<int>(pes::PesClipFamily::kTrap), clip)) return;
     command.desiredFunctionType = e_FunctionType_Special;
     command.useSpecialVar1 = true;
     command.specialVar1 = static_cast<int>(pes::PesClipFamily::kTrap);
     command.useSpecialVar2 = true;
-    command.specialVar2 = *clip;
+    command.specialVar2 = clip;
   }
   commandQueue.push_back(command);
 }

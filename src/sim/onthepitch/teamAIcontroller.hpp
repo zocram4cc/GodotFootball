@@ -460,5 +460,8 @@ class Match;
 // PES's movement records (man +0x55C..+0x57C) for every active player, written at the start of the tick on the PES
 // path: Match::Process calls it before any reader. GF mode writes them per run build (BuildRunWorld) instead.
 void WritePesMovementRecords(Match& match);
+// Every active player's P (PES's AnimePlayer, pestrapactor.hpp) from his state, written right after the movement records: the
+// Trap chain's actor objects, one per player. Match::Process calls it on the PES path.
+void WritePesTrapActors(Match& match);
 
 #endif

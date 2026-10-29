@@ -177,6 +177,7 @@ struct Derivation {
 };
 const Derivation* g_derivation = nullptr;
 const pes::PesTrapLoaderData* g_loader = nullptr;  // built once per process (PES builds it once per match)
+const pes::PesTrapSource* g_source = nullptr;      // the install's image slice, actor constants and loader data
 
 float F32(uint32_t bits) {
   float f;
@@ -250,6 +251,7 @@ struct Built {
   std::unique_ptr<pes::PesWorld> world = std::make_unique<pes::PesWorld>();
   pes::PesTrapRequest request;
   pes::PesTrapExternals ext;
+  int slot = 0;  // the actor's slot (his P in the window)
 };
 
 // The heap objects the chain reads that GF holds as state (or names as inputs), from the manifest's "N name rel len" lines. An
@@ -308,6 +310,7 @@ void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b)
   // its bytes is copied from the capture.
   pes::PesActorFacts facts = FactsOf(o);
   facts.side = facts.slot / pes::kSlotsPerSide;
+  b.slot = facts.slot;
   CopyActorMan(o, g, w, facts.slot);
   pes::WriteActorP(w, facts, OpenOf(o), g_derivation->actor, g_derivation->stamina, g_derivation->physique);
   // The request, as the dispatcher 0x1407A01C0 took it (kind 0): its words are the chain's stack arguments in the capture.
@@ -363,12 +366,10 @@ class TrapOracle : public ::testing::Test {
     std::sort(dirs_.begin(), dirs_.end());
     ASSERT_FALSE(dirs_.empty()) << "no oracle directory under " << dir;
     exe_ = exe;
-    // The image's constants the derivation reads (the chain itself reads the same image through RunTrapKind0).
+    // The install's trap data: the actor constants P is made from, the image slice and the loader data, built once per process
+    // (PES builds the loader once per match). The chain itself is run on the flat image below and, in the match-memory test, on
+    // the slice.
     std::string err;
-    Image image;
-    ASSERT_TRUE(image.Open(exe_)) << exe_;
-    const auto actor = pes::LoadActorConstants(image.bytes, image.size, &err);
-    ASSERT_TRUE(actor.has_value()) << err;
     const char* root = std::getenv("PES21_ROOT");  // (PES_EXE is the flat image; PeImage reads the install's file)
     if (root == nullptr || *root == '\0') GTEST_SKIP() << "PES21_ROOT unset";
     const auto pe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
@@ -377,14 +378,14 @@ class TrapOracle : public ::testing::Test {
     ASSERT_TRUE(stamina.has_value()) << err;
     const auto physique = pes::LoadPhysiqueConstants(*pe, &err);
     ASSERT_TRUE(physique.has_value()) << err;
-    derivation_ = Derivation{*actor, *stamina, *physique};
-    g_derivation = &derivation_;
-    // The loader data is built once per process (PES builds it once per match), from the install's VFS.
     pes::PesVfs vfs;
     ASSERT_TRUE(vfs.Mount(root, &err)) << err;
-    static const auto loader = pes::BuildTrapLoaderData(*pe, vfs, &err);
-    ASSERT_TRUE(loader.has_value()) << err;
-    g_loader = &*loader;
+    static const auto source = pes::LoadTrapSource(*pe, vfs, &err);
+    ASSERT_TRUE(source.has_value()) << err;
+    g_source = &*source;
+    g_loader = &source->loader;
+    derivation_ = Derivation{source->actor, *stamina, *physique};
+    g_derivation = &derivation_;
   }
   std::vector<std::string> dirs_;
   std::string exe_;
@@ -414,13 +415,13 @@ RunOut RunCall(const Oracle& o, const std::string& exe, const std::function<void
   std::vector<std::pair<uint64_t, uint8_t>> log;
   b.ext.writeLog = &log;
   RunOut out;
-  out.result = b.world->RunTrapKind0(b.request, b.ext);
+  out.result = b.world->RunTrapKind0(b.slot, b.request, b.ext);
   char buf[24];
   for (const auto& wr : log) {
     // Window addresses differ from the capture's: the written values, in order, are what the path leaves.
     std::snprintf(buf, sizeof buf, "%02x", static_cast<unsigned>(wr.second));
     out.writes += buf;
-    const uint64_t pva = pes::PesWorld::PVa();
+    const uint64_t pva = pes::PesWorld::PVa(b.slot);
     if (wr.first >= pva + kActionLo && wr.first < pva + kActionHi)
       out.action[static_cast<uint32_t>(wr.first - pva - kActionLo)] = wr.second;
   }
@@ -493,12 +494,12 @@ TEST_F(TrapOracle, DerivedPEqualsPesPOnEveryDerivedField) {
     for (const DerivedField& f : fields) {
       uint8_t want[16];
       for (size_t i = 0; i < f.bytes; ++i) want[i] = static_cast<uint8_t>(Read(o, p + f.offset + i, 1));
-      EXPECT_EQ(std::memcmp(b.world->P() + f.offset, want, f.bytes), 0) << dir << ": " << f.name;
+      EXPECT_EQ(std::memcmp(b.world->P(b.slot) + f.offset, want, f.bytes), 0) << dir << ": " << f.name;
     }
     // The slot-record pointer is a window address: it names the actor's own slot record at the captured offset.
     const int slot = static_cast<int>(Read(o, p + pes::kPByte2458Offset, 1));
     uint64_t derived;
-    std::memcpy(&derived, b.world->P() + pes::kPSlotPtrOffset, sizeof derived);
+    std::memcpy(&derived, b.world->P(b.slot) + pes::kPSlotPtrOffset, sizeof derived);
     EXPECT_EQ(derived, pes::PesWorld::SlotVa(slot) + pes::kSlotPPtrTargetOffset) << dir;
     EXPECT_EQ(Read(o, p + pes::kPSlotPtrOffset, 8), CapturedBase(o, g, "slot", slot) + pes::kSlotPPtrTargetOffset) << dir;
   }
@@ -535,7 +536,7 @@ TEST_F(TrapOracle, DerivedGEqualsPesChainGOnEveryCapture) {
     const uint64_t capturedChain = Read(o, Read(o, p + pes::kPScalePtrOffset, 8) + pes::kPhysiqueNextOffset, 8);
     const uint32_t want = static_cast<uint32_t>(Read(o, capturedChain + pes::kPhysiqueGOffset, 4));
     uint32_t got;
-    std::memcpy(&got, b.world->PhysiqueB() + pes::kPhysiqueGOffset, sizeof got);
+    std::memcpy(&got, b.world->PhysiqueB(b.slot) + pes::kPhysiqueGOffset, sizeof got);
     EXPECT_EQ(got, want) << dir << ": G of " << FactsOf(o).heightCm << " cm";
   }
 }
@@ -591,7 +592,7 @@ TEST_F(TrapOracle, WriteActorPStoresEachFactInItsOwnField) {
   f.side = 1;
   const pes::PesActorConstants& c = g_derivation->actor;
   pes::WriteActorP(*world, f, open, c, g_derivation->stamina, g_derivation->physique);
-  const uint8_t* p = world->P();
+  const uint8_t* p = world->P(f.slot);
   const auto u64 = [p](size_t off) {
     uint64_t v;
     std::memcpy(&v, p + off, sizeof v);
@@ -616,11 +617,11 @@ TEST_F(TrapOracle, WriteActorPStoresEachFactInItsOwnField) {
   EXPECT_EQ(u64(pes::kPSlotPtrOffset), pes::PesWorld::SlotVa(7) + pes::kSlotPPtrTargetOffset);
   // The physique chain is derived: P+0xA08 -> A, A+0xF0 -> B, B+0xC0 = G of the facts (190 cm, neutral slider); P+0xA00 holds it too.
   const float g = pes::PhysiqueG(g_derivation->physique, {190.0f, 0.0f, false});
-  EXPECT_EQ(u64(pes::kPScalePtrOffset), pes::PesWorld::PhysiqueAVa());
+  EXPECT_EQ(u64(pes::kPScalePtrOffset), pes::PesWorld::PhysiqueAVa(f.slot));
   uint64_t next;
-  std::memcpy(&next, world->PhysiqueA() + pes::kPhysiqueNextOffset, sizeof next);
-  EXPECT_EQ(next, pes::PesWorld::PhysiqueBVa());
-  EXPECT_EQ(pes::LoadF32(world->PhysiqueB(), pes::kPhysiqueGOffset), g);
+  std::memcpy(&next, world->PhysiqueA(f.slot) + pes::kPhysiqueNextOffset, sizeof next);
+  EXPECT_EQ(next, pes::PesWorld::PhysiqueBVa(f.slot));
+  EXPECT_EQ(pes::LoadF32(world->PhysiqueB(f.slot), pes::kPhysiqueGOffset), g);
   EXPECT_EQ(pes::LoadF32(p, pes::kPGOffset), g);
   EXPECT_EQ(u64(pes::kPPtr3AC0Offset), pes::PesWorld::CtxVa(1));  // P+0x3AC0 names the side the fact gives (1)
   EXPECT_EQ(std::memcmp(p + pes::kPVelocityOffset, open.velocityRing.data(), open.velocityRing.size()), 0);
@@ -692,15 +693,15 @@ TEST_F(TrapOracle, EachWindowBindingChangesTheCall) {
     uint8_t flip = 0x01;  // the lowest bit by default: a larger flip can turn a byte into one PES's own code rejects
   };
   const std::vector<Binding> bindings = {
-      {"P position x", [](Built& b, const Indices&) { return b.world->P() + pes::kPPosOffset; }},
-      {"P next position z", [](Built& b, const Indices&) { return b.world->P() + pes::kPNextPosOffset + 8; }},
-      {"P heading", [](Built& b, const Indices&) { return b.world->P() + pes::kPHeadingOffset; }},
-      {"P velocity x", [](Built& b, const Indices&) { return b.world->P() + pes::kPVelocityOffset; }},
-      {"P byte 0xAC9", [](Built& b, const Indices&) { return b.world->P() + pes::kPByteAC9Offset; }},
-      {"P word 0xAE0", [](Built& b, const Indices&) { return b.world->P() + pes::kPWordAE0Offset; }},
+      {"P position x", [](Built& b, const Indices&) { return b.world->P(b.slot) + pes::kPPosOffset; }},
+      {"P next position z", [](Built& b, const Indices&) { return b.world->P(b.slot) + pes::kPNextPosOffset + 8; }},
+      {"P heading", [](Built& b, const Indices&) { return b.world->P(b.slot) + pes::kPHeadingOffset; }},
+      {"P velocity x", [](Built& b, const Indices&) { return b.world->P(b.slot) + pes::kPVelocityOffset; }},
+      {"P byte 0xAC9", [](Built& b, const Indices&) { return b.world->P(b.slot) + pes::kPByteAC9Offset; }},
+      {"P word 0xAE0", [](Built& b, const Indices&) { return b.world->P(b.slot) + pes::kPWordAE0Offset; }},
       // (P+0x2458 is a state byte the chain validates: any value but the captured one reaches a trap in 0x140A58550 (a PES
       // abort), so it cannot be flipped and is not claimed here.)
-      {"P scale 0x3B18", [](Built& b, const Indices&) { return b.world->P() + pes::kPF3B18Offset; }},
+      {"P scale 0x3B18", [](Built& b, const Indices&) { return b.world->P(b.slot) + pes::kPF3B18Offset; }},
       {"ball sample 0 x", [](Built& b, const Indices&) { return b.world->BallRecord() + pes::kBallSamplesOffset; }},
       {"ball sample 3 height",
        [](Built& b, const Indices&) { return b.world->BallRecord() + pes::kBallSamplesOffset + 3 * pes::kBallSampleStride + 4; }},
@@ -736,3 +737,35 @@ TEST_F(TrapOracle, EachWindowBindingChangesTheCall) {
 }
 
 }  // namespace
+
+// The match runs the chain on its own memory: a private copy of the install's image slice (not the flat image) and of the loader
+// data (PesTrapMemory, built once). On every capture that memory gives the flat image's output, and the two issued captures
+// commit PES's clip: seq4469 0xB86 (Animetable cell of row 0x520), seq23906 0xA41 (rows 0x7E1..0x7FA).
+TEST_F(TrapOracle, TheMatchsOwnMemoryCommitsPesClipOnTheIssuedCaptures) {
+  const std::map<std::string, uint16_t> committed = {{"seq4469", 0xB86}, {"seq23906", 0xA41}};
+  int checked = 0;
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    const RunOut flat = RunCall(o, exe_);
+    Image image;
+    ASSERT_TRUE(image.Open(exe_));
+    Built b;
+    Build(o, image.bytes, image.size, b);
+    pes::PesTrapMemory memory(*g_source);
+    pes::PesTrapExternals& ext = memory.Externals();
+    for (const pes::PesTrapSegment& seg : b.ext.segments)  // the captured table-B squad records (SBn), not the loader
+      if (seg.va != g_source->loader.segment.va) ext.segments.push_back(seg);
+    const pes::PesTrapResult r = b.world->RunTrapKind0(b.slot, b.request, ext);
+    EXPECT_EQ(r.issued, flat.result.issued) << dir;
+    EXPECT_EQ(r.out, flat.result.out) << dir;
+    if (!r.issued) continue;
+    const uint16_t clip = pes::CommittedTrapClip(b.world->P(b.slot));
+    for (const auto& [name, want] : committed)
+      if (dir.find(name) != std::string::npos) {
+        EXPECT_EQ(clip, want) << dir;
+        ++checked;
+      }
+  }
+  EXPECT_EQ(checked, static_cast<int>(committed.size())) << "both issued captures must be in the oracle set";
+}

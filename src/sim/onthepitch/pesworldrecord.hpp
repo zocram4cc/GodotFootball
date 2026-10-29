@@ -332,7 +332,7 @@ inline constexpr std::size_t kMaOffset = kCtxOffset + static_cast<std::size_t>(k
 inline constexpr std::size_t kEventsOffset = kMaOffset + static_cast<std::size_t>(kSideCount) * kMaBytes;
 inline constexpr std::size_t kClearUnitOffset = kEventsOffset + sizeof(EventStoreImage);
 inline constexpr std::size_t kTrapOffset = kClearUnitOffset + static_cast<std::size_t>(kSideCount) * sizeof(PesClearUnitBlock);
-inline constexpr std::size_t kScratchOffset = kTrapOffset + sizeof(PesTrapImage);
+inline constexpr std::size_t kScratchOffset = kTrapOffset + static_cast<std::size_t>(kSlotCount) * sizeof(PesTrapImage);
 inline constexpr std::size_t kStackOffset = kScratchOffset + kScratchBytes;
 inline constexpr uint64_t kScratchVa = kWorldWindowVa + kScratchOffset;
 inline constexpr uint64_t kStackVa = kWorldWindowVa + kStackOffset;
@@ -363,7 +363,7 @@ struct PesWorldImage {
   std::array<PesMaRecord, kSideCount> ma{};    // each side's AI record
   EventStoreImage events{};                    // E: the event store, PES's offsets (pesevents.hpp)
   std::array<PesClearUnitBlock, kSideCount> clearUnit{};  // each side's carrier unit, its carrier record, answer and imageA
-  PesTrapImage trap{};                                    // P, the Trap action's owner (pestrapworld.hpp)
+  std::array<PesTrapImage, kSlotCount> trap{};            // each player's P, the Trap action's owner (pestrapworld.hpp)
   std::array<uint8_t, kScratchBytes> scratch{};  // the translated bearing's points (kScratchVa)
   std::array<uint8_t, kStackBytes> stack{};      // the translated stoppage functions' stack (kStackVa)
 };
@@ -445,18 +445,20 @@ class PesWorld {
     float angle_deg = 0.0f;
   };
   ClearAnswer RunClearUnit(int side, uint32_t carrierSlot);
-  // P, the trap chain's actor object (kPActionOffset is its action). Its window VA is rdx of the chain.
-  static constexpr uint64_t PVa() { return kWorldWindowVa + kTrapOffset; }
-  uint8_t* P() { return image_->trap.p.data(); }
+  // A player's P, the trap chain's actor object (kPActionOffset is its action; PES allocates one per player, so the action's
+  // state persists per player). Its window VA is rdx of the chain.
+  static constexpr uint64_t PVa(int slot) { return kWorldWindowVa + kTrapOffset + static_cast<uint64_t>(slot) * sizeof(PesTrapImage); }
+  uint8_t* P(int slot) { return image_->trap[slot].p.data(); }
   // The physique chain's two objects (P+0xA08 -> A, A+0xF0 -> B, B+0xC0 = G), written by WriteActorP.
-  static constexpr uint64_t PhysiqueAVa() { return PVa() + kTrapPBytes; }
-  static constexpr uint64_t PhysiqueBVa() { return PhysiqueAVa() + kPhysiqueObjectBytes; }
-  uint8_t* PhysiqueA() { return image_->trap.physiqueA.data(); }
-  uint8_t* PhysiqueB() { return image_->trap.physiqueB.data(); }
-  // PES's Trap action's kind-0 chain 0x14079A470 on the window, as the action's +0x68 dispatcher (0x1407A01C0) calls it for
-  // kind <= 0: the dispatcher's two action stores, its frame (the request's first word, the out word, the stack arguments), then the
-  // chain. `ext` carries what GF does not hold as state yet (pestrapworld.hpp).
-  PesTrapResult RunTrapKind0(const PesTrapRequest& request, const PesTrapExternals& ext);
+  static constexpr uint64_t PhysiqueAVa(int slot) { return PVa(slot) + kTrapPBytes; }
+  static constexpr uint64_t PhysiqueBVa(int slot) { return PhysiqueAVa(slot) + kPhysiqueObjectBytes; }
+  uint8_t* PhysiqueA(int slot) { return image_->trap[slot].physiqueA.data(); }
+  uint8_t* PhysiqueB(int slot) { return image_->trap[slot].physiqueB.data(); }
+  // PES's Trap action's kind-0 chain 0x14079A470 on the window for `slot`'s P, as the action's +0x68 dispatcher (0x1407A01C0)
+  // calls it for kind <= 0: the dispatcher's two action stores, its frame (the request's first word, the out word, the stack
+  // arguments), then the chain. `ext` carries what GF does not hold as state yet (pestrapworld.hpp); its segments are lent to
+  // the call (moved in and back), so the loader data is never copied.
+  PesTrapResult RunTrapKind0(int slot, const PesTrapRequest& request, PesTrapExternals& ext);
   // MA's ball copy (x, height, z) and carrier id.
   void SetMaBall(int side, float x, float height, float z) {
     StoreF32(Ma(side), kMaBallOffset, x);

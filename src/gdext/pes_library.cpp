@@ -197,6 +197,12 @@ Error PesLibrary::open(const String& root) {
     UtilityFunctions::push_error("PES21 mark table constants unavailable: ", ToGd(err));
     return ERR_PARSE_ERROR;
   }
+  // PES 2021's Trap action chain: the image slice, the actor constants and the loader data (pestrapdata.hpp).
+  if (exe) trapSource_ = pes::LoadTrapSource(*exe, vfs_, &err);
+  if (!trapSource_) {
+    UtilityFunctions::push_error("PES21 trap data unavailable: ", ToGd(err));
+    return ERR_PARSE_ERROR;
+  }
   if (exe) stoppageConstants_ = pes::LoadStoppageConstants(*exe, &err);
   if (!stoppageConstants_) {
     UtilityFunctions::push_error("PES21 stoppage constants unavailable: ", ToGd(err));

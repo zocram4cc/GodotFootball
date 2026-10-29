@@ -44,5 +44,9 @@ std::optional<PlayerCommand> MovementDecision(const PlayerCommandQueue& queue);
 int CommandIdFor(const PlayerCommand* cmd);
 // PES's move kind (cmd[0x16], req[0]) for a player's move: the near keeper kind (4) for a keeper, else the mid kind (0).
 int MoveKindFor(bool keeper);
+// The physique block's height in whole cm (PM+0x30; GF's physical_height is that /100, so rounding restores it).
+float PhysiqueHeightCmOf(const Player& player);
+// The Speed ability byte (slot record +0x97, 40..99). ponytail: no GF source for PES's base row; physical_velocity stands in.
+float SpeedByteOf(const Player& player);
 
 }  // namespace pesmovestep

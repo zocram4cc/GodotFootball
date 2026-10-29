@@ -209,39 +209,21 @@ bool RetouchAllowed(const ReceiveConstants& c, const LockoutInput& in, float eve
   return ageFrames >= static_cast<long>(fps * RetouchLockout_s(c, in));
 }
 
-std::optional<int> PickTrapClip(const ReceiveConstants& k, const ClipPoint& ball,
-                                const std::function<ClipPoint(int clip)>& hitCm) {
-  std::optional<int> best;
-  uint8_t bestPrio = 0;
-  float bestDist = 0.0f;
-  for (const ActionRow& row : k.trapRows) {
-    if (!(ball.x > row.xb && ball.x < row.xe)) continue;  // x strictly inside the window
-    if (!(ball.z > row.zb && ball.z < row.ze)) continue;  // z strictly inside the window
-    const ClipPoint cm = hitCm(row.clip);
-    const ClipPoint hit{cm.x * kHitCmToMetres, cm.y * kHitCmToMetres, cm.z * kHitCmToMetres};
-    if (hit.y - ball.y > kTrapHeightTolerance_m) continue;  // the hit sits too high above the ball
-    const float dx = ball.x - hit.x, dy = ball.y - hit.y, dz = ball.z - hit.z;
-    const float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
-    if (!best || row.prio < bestPrio || (row.prio == bestPrio && dist < bestDist)) {
-      best = row.clip;
-      bestPrio = row.prio;
-      bestDist = dist;
-    }
-  }
-  return best;
+PesTrapRequest TrapRequestFor(const FirstTouch& touch, float headingYaw_deg) {
+  PesTrapRequest r;
+  const bool directional = touch.kind == TouchKind::kDirectional;
+  const auto put32 = [&r](std::size_t off, uint32_t v) { std::memcpy(r.bytes.data() + off, &v, sizeof v); };
+  std::memcpy(r.bytes.data() + kReqWord0Offset, &headingYaw_deg, sizeof headingYaw_deg);  // R[8]: the touch heading
+  put32(kReqWord1Offset, directional ? kTrapTouchPlanned : kTrapTouchControl);            // R[0]: the touch kind
+  put32(kReqKindOffset, directional ? kTrapKindDirectional : kTrapKindControl);           // R[1]: the dispatcher's kind
+  // word 3 is param_5 clamped to >= 0: 0 in all 24 captured calls (stack arg +0x38). The plan flag bytes stay 0.
+  return r;
 }
 
-ClipPoint TrapBallClipPoint(float facingX, float facingY, float aheadX, float aheadY, float height_m, float scale) {
-  const float len = std::hypot(facingX, facingY);
-  const float fx = len > 0.0f ? facingX / len : 1.0f;
-  const float fy = len > 0.0f ? facingY / len : 0.0f;
-  const float forward = fx * aheadX + fy * aheadY;
-  const float lateral = -fy * aheadX + fx * aheadY;
-  // The clip frame's forward is -z (pes-re-trap-windows.md section 9). Every action-7 row's first hit lies in its window
-  // at z < 0 in front of the root: clip 0x547 at (0, 11.6, -10) cm, clip 0x57D at (45, 191, -50) cm. The picker's point is
-  // built by FUN_140769FE0, which rotates the ball by the body record through FUN_1404BCAD0; which record the trap path
-  // rotates by is not traced. Lateral x: sign OPEN (only rows 0x57D and 0x57F depend on it).
-  return ClipPoint{lateral / scale, height_m / scale, -forward / scale};
+bool RetryTrapAsControl(int32_t kind, uint32_t refusal, uint8_t planByte35) {
+  // FUN_1409F8640: `(refusal - 3) & ~5 == 0 && refusal != 4` is {3, 7, 8}; kind 4 and plan byte +0x35 clear.
+  const bool inSet = refusal == 3 || refusal == 7 || refusal == 8;
+  return inSet && kind == kTrapKindDirectional && planByte35 == 0;
 }
 
 bool ShotRunsThrough(const ReceiveConstants& c, const ShotThroughInput& in) {

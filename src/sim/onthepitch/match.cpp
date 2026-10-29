@@ -278,6 +278,13 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
         "PES stamina constants missing: read them from the install with "
         "pes::LoadStaminaConstants into MatchSetup::pesStaminaConstants");
   pesStaminaConstants = std::make_unique<pes::StaminaConstants>(*setup.pesStaminaConstants);
+  // PES's Trap action chain: the match's own copy of the install's image slice and loader data, built once here (the chain
+  // writes image globals, so two matches never share them); WriteTrapActors writes every player's P from his state each tick.
+  if (setup.pesTrapSource == nullptr)
+    throw std::runtime_error(
+        "PES trap data missing: read them from the install with pes::LoadTrapSource into MatchSetup::pesTrapSource");
+  pesActorConstants = setup.pesTrapSource->actor;
+  pesTrapMemory = std::make_unique<pes::PesTrapMemory>(*setup.pesTrapSource);
   if (setup.pesPlayerDatabase) pesPlayerDatabase = *setup.pesPlayerDatabase;
   if (setup.pesFormations) pesFormations = *setup.pesFormations;
   if (setup.pesSheetConstants) pesSheetConstants = *setup.pesSheetConstants;
@@ -879,7 +886,10 @@ void Match::Process() {
   // the men of a restart (PrepareSetPiece's ResetPosition, ResetSituation), so the writer runs after it and before the
   // first reader (the holder recompute, the S1 rows, the mark table, the run world). The ball and event stages and the
   // referee read no records, so nothing before this point needs them.
-  if (pesLoop) WritePesMovementRecords(*this);
+  if (pesLoop) {
+    WritePesMovementRecords(*this);
+    WritePesTrapActors(*this);
+  }
 
   if (pesLoop) {
     // W1's recompute runs off the restart step each tick, before anything reads the holder. ponytail:

@@ -333,6 +333,9 @@ int main(int argc, char** argv) {
   // PES 2021's mark table (team-tick step 35, FUN_1404F61E0, T7a).
   auto markTableConstants = pes::marktable::LoadMarkTableConstants(*exe, &err);
   if (!markTableConstants) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+  // PES 2021's Trap action chain: the image slice, the actor constants and the loader data (pestrapdata.hpp).
+  auto trapSource = pes::LoadTrapSource(*exe, vfs, &err);
+  if (!trapSource) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
 
   blunted::Database db;
   if (!db.LoadSqlScript(dbSql)) return std::fprintf(stderr, "cannot load %s\n", dbSql.c_str()), 1;
@@ -379,6 +382,7 @@ int main(int argc, char** argv) {
   setup.pesOffBallConstants = &*offBallConstants;
   setup.pesMoveStepConstants = &*moveStepConstants;
   setup.pesMarkTableConstants = &*markTableConstants;
+  setup.pesTrapSource = &*trapSource;
 
   Match match(new MatchData(home, away), setup, config);  // Match owns the MatchData
   // A stalled restart freezes the match clock (it only moves while play is on and no
