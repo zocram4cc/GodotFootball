@@ -35,13 +35,6 @@ struct Celebration {
 
 std::vector<Celebration> Parse(const std::string& text);
 
-// -> an index into `set`, or -1 when there is nothing to choose from.
-//
-// `assigned` is a player's own celebration, by name, so the same man celebrates the
-// same way twice. Without one the seed decides, and only from the filmed set: drawing
-// an unfilmed celebration at random would leave the goal with no camerawork at all.
-int Choose(const std::vector<Celebration>& set, const std::string& assigned, int seed);
-
 // Where the scorer runs before he performs.
 //
 // He used to be sent to the corner itself - Vector3(pitchHalfW * xSide, pitchHalfH *
@@ -65,16 +58,6 @@ constexpr unsigned long kApproachCap_ms = 2800;
 constexpr float kArrivalRadius_m = 2.0f;
 
 bool HasArrived(float distanceToTarget_m, unsigned long waited_ms);
-
-// The seed for a scorer's draw: his own database id, so his celebration is his and
-// stays his. The seed used to be the score and the scoring side, which at 0-0 gave
-// every scorer in the match the same performance and left forty imported ones unseen.
-int SeedFor(int databaseID);
-
-// Which angle to use. `attackingSide` is the side of the pitch being attacked (-1 or
-// +1): the camera to take is the one looking back up the pitch the scorer is running
-// into, so his crowd is behind him rather than the half he came from.
-std::string PickCamera(const Celebration& celebration, int attackingSide, int seed);
 
 // The two halves of a celebration: PES authors an intro and a loop the scorer holds
 // until it is over.

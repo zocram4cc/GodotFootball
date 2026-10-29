@@ -41,6 +41,7 @@ var _camera: Camera3D
 var _broadcast: PesBroadcastCamera
 var _cutscene: PesCutsceneCamera
 var _cut_t := 0.0
+var _cutscene_scene := 0  # the FixDemo scene a goal or foul stop requested; 0 for the --fdc-file debug track
 var _fixed_pose := false
 
 
@@ -71,6 +72,8 @@ func _ready() -> void:
 			int(args.get("minutes", DEFAULT_MINUTES)), args.has("pes-loop")) != OK:
 		get_tree().quit(1)
 		return
+	# The ctx words the FixDemo conditions read from the environment (stadium, time of day, weather).
+	sim.set_cutscene_environment(_stadium_id(), int(args.get("time-zone", 0)), int(args.get("weather", 0)))
 	motion = PesMotionPlayer.new()
 	if motion.load(library) != OK:
 		motion = null  # bodies keep the bind pose; the match still plays
@@ -94,18 +97,13 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	_broadcast.reset(sim.ball_position())
-	# Debug entry: --fdc-scene <hex FixDemo scene id, e.g. 0x20009> | --fdc-file <VFS path of one .fdc>, with
-	# [--fdc-camera N] [--fdc-t0 SECONDS], plays that camera track; the player clock starts at t0 seconds (the
-	# record's startCutTime is on that clock).
-	if args.has("fdc-scene") or args.has("fdc-file"):
+	# Debug entry: --fdc-file <VFS path of one .fdc>, with [--fdc-camera N] [--fdc-t0 SECONDS], plays that camera
+	# track; the player clock starts at t0 seconds (the record's startCutTime is on that clock). A goal or foul stop
+	# of the match plays the camera of the variant PES's selection picks (_poll_cutscene), not this entry.
+	if args.has("fdc-file"):
 		_cutscene = PesCutsceneCamera.new()
 		_cut_t = float(args.get("fdc-t0", 0.0))
-		var err: int
-		if args.has("fdc-file"):
-			err = _cutscene.load_file(library, String(args["fdc-file"]), int(args.get("fdc-camera", 0)))
-		else:
-			err = _cutscene.load_scene(library, String(args["fdc-scene"]).hex_to_int(), int(args.get("fdc-camera", 0)))
-		if err != OK:
+		if _cutscene.load_file(library, String(args["fdc-file"]), int(args.get("fdc-camera", 0))) != OK:
 			get_tree().quit(1)
 			return
 	ball = PesModelBuilder.new().build_model(library, BALL_PACK_FORMAT % int(args.get("ball", DEFAULT_BALL_ID)), "")
@@ -125,6 +123,7 @@ func _process(delta: float) -> void:
 	var ticks := 0
 	while _accumulator >= TICK_S and ticks < MAX_TICKS_PER_FRAME and not sim.is_over():
 		sim.step()
+		_poll_cutscene()
 		_accumulator -= TICK_S
 		ticks += 1
 	# Milestone A1: the sim steps one PES logic frame (1/54 s), which is not the
@@ -132,6 +131,23 @@ func _process(delta: float) -> void:
 	# two logic frames by the leftover fraction of the tick that has elapsed.
 	_interpolate(clampf(_accumulator / TICK_S, 0.0, 1.0))
 	_place(delta)
+
+
+
+# A goal or a foul stop made GF's FixDemo request (PES's evaluator and matcher on GF's arena): play the first layer that
+# has a camera, at the requested camera index. The scene ends when its clip does (0x141F58FC0 -> cutscene_finished).
+func _poll_cutscene() -> void:
+	var req: Dictionary = sim.take_cutscene()
+	if req.is_empty() or args.has("no-cutscene"):
+		return
+	for step: Dictionary in req["steps"]:
+		var cam := PesCutsceneCamera.new()
+		if cam.load_layers(library, int(req["category"]), step["fdc"], int(args.get("fdc-camera", 0))) == OK:
+			_cutscene = cam
+			_cut_t = float(args.get("fdc-t0", 0.0))
+			_cutscene_scene = int(req["scene"])
+			print("cutscene scene 0x%x cut 0x%x row %d layers %s" % [_cutscene_scene, int(step["cut"]), int(step["row"]), step["fdc"]])
+			return
 
 
 func _interpolate(alpha: float) -> void:
@@ -165,8 +181,13 @@ func _place(delta: float) -> void:
 		return
 	if _cutscene != null:
 		_cut_t += delta
-		_cutscene.update(_camera, _cut_t)
-		return
+		if _cutscene_scene != 0 and _cut_t >= _cutscene.duration_s():
+			sim.cutscene_finished(_cutscene_scene)  # the scene's list ended: PES advances its category rotation
+			_cutscene = null
+			_cutscene_scene = 0
+		else:
+			_cutscene.update(_camera, _cut_t)
+			return
 	if args.has("follow"):
 		var p: Vector3 = players[int(args["follow"])].global_position
 		_camera.look_at_from_position(p + FOLLOW_OFFSET, p + Vector3.UP * FOLLOW_TARGET_HEIGHT_M)

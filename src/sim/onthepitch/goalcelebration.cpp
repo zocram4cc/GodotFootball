@@ -68,47 +68,6 @@ bool HasArrived(float distanceToTarget_m, unsigned long waited_ms) {
   return distanceToTarget_m <= kArrivalRadius_m || waited_ms >= kApproachCap_ms;
 }
 
-int SeedFor(int databaseID) {
-  // A cheap avalanche so neighbouring ids do not land on neighbouring celebrations:
-  // squad numbers are consecutive, and consecutive draws would give a whole back four
-  // the same three performances.
-  unsigned int x = static_cast<unsigned int>(databaseID) * 2654435761u;
-  x ^= x >> 15;
-  x ^= x >> 13;
-  return static_cast<int>(x & 0x7fffffffu);
-}
-
-int Choose(const std::vector<Celebration>& set, const std::string& assigned, int seed) {
-  if (set.empty()) return -1;
-
-  if (!assigned.empty()) {
-    for (size_t i = 0; i < set.size(); i++)
-      if (set[i].name == assigned) return (int)i;
-    // Assigned something we do not ship: fall through to the draw rather than
-    // refusing to celebrate.
-  }
-
-  std::vector<int> filmed;
-  for (size_t i = 0; i < set.size(); i++)
-    if (!set[i].cameras.empty()) filmed.push_back((int)i);
-  if (filmed.empty()) return (int)(((unsigned)seed) % set.size());
-  return filmed[((unsigned)seed) % filmed.size()];
-}
-
-std::string PickCamera(const Celebration& celebration, int attackingSide, int seed) {
-  if (celebration.cameras.empty()) return "";
-  if (celebration.cameras.size() == 1) return celebration.cameras[0];
-
-  // PES names them _Z_fromL and _Z_fromR; take the one on the side being attacked.
-  const char* wanted = attackingSide >= 0 ? "_Z_fromR" : "_Z_fromL";
-  for (const std::string& camera : celebration.cameras) {
-    const size_t at = camera.rfind(wanted);
-    if (at != std::string::npos && at + std::string(wanted).size() == camera.size())
-      return camera;
-  }
-  return celebration.cameras[((unsigned)seed) % celebration.cameras.size()];
-}
-
 Phase_e Phase(unsigned long elapsed_ms, unsigned long introHold_ms) {
   return elapsed_ms >= introHold_ms ? e_Loop : e_Intro;
 }
