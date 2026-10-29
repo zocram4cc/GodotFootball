@@ -4,7 +4,8 @@
 rendezvous/slim.py drops every page a replay did not read, so the image's header page is often gone and its code and
 read-only pages with it. The image's load base and SizeOfImage come from the image file (PES_EXE: pes_full.bin), not
 from the capture: an image-range address is the image's, and its code and read-only pages (not the import address
-table) are read from the image file when the capture dropped them. Writable pages are never served from the file.
+table) are read from the image file when the capture dropped them. Writable pages are never served from the file,
+except those of `.impdata` (the relocated game code, rwx in the process) that are not in IMPDATA_VOLATILE_RVA.
 Exit 0 green, 1 red, 77 skip (the file system keeps no holes in a sparse file).
 """
 import json
@@ -20,10 +21,13 @@ import full_snapshot as fs  # noqa: E402
 
 PAGE = 0x1000
 IB = fs.IMAGE_BASE
-# image layout (RVA): 0 header, 1 code (.trace), 2 read-only data, 3 read-only data holding the IAT, 4 writable data
+# image layout (RVA): 0 header, 1 code (.trace), 2 read-only data, 3 read-only data holding the IAT, 4 writable data,
+# 5 and 6 .impdata (rwx in the process; page 6 is volatile)
 SECTIONS = [(0x1000, 0x1000, b".trace\0\0\0", 0x60000020), (0x2000, 0x1000, b".rdata\0\0", 0x40000040),
-            (0x3000, 0x1000, b".idata\0\0", 0x40000040), (0x4000, 0x1000, b".data\0\0\0", 0xC0000020)]
-SIZE_OF_IMAGE = 0x5000
+            (0x3000, 0x1000, b".idata\0\0", 0x40000040), (0x4000, 0x1000, b".data\0\0\0", 0xC0000020),
+            (0x5000, 0x2000, b".impdata", 0xE0000020)]
+SIZE_OF_IMAGE = 0x7000
+VOLATILE_PAGE = 0x6000
 IAT = (0x3000, 0x40)
 
 
@@ -54,14 +58,17 @@ def make_image(path):
 
 
 def make_slim_snapshot(d, image):
-    """A slim capture: the image's header page and rdata/IAT/data pages are dropped; the code page is kept."""
+    """A slim capture: the image's header page and rdata/IAT/data/.impdata pages are dropped; the code page is kept.
+    The image is one read-only mapping up to .impdata, which is a separate rwx mapping (as in the process)."""
     with open(os.path.join(d, "mem.bin"), "wb") as f:
         f.truncate(SIZE_OF_IMAGE)
         f.seek(PAGE)
         f.write(image[PAGE:2 * PAGE])
-    mapping = {"va": IB, "size": SIZE_OF_IMAGE, "perm": "r--p", "name": "", "off": 0, "deferred": False, "device": False}
+    mapping = {"va": IB, "size": 0x5000, "perm": "r--p", "name": "", "off": 0, "deferred": False, "device": False}
+    impdata = {"va": IB + 0x5000, "size": 0x2000, "perm": "rwxp", "name": "", "off": 0x5000, "deferred": False,
+               "device": False}
     with open(os.path.join(d, "index.json"), "w") as f:
-        json.dump({"mappings": [mapping], "holes": []}, f)
+        json.dump({"mappings": [mapping, impdata], "holes": []}, f)
 
 
 def has_hole(path):
@@ -81,11 +88,14 @@ def main():
         if not has_hole(os.path.join(d, "mem.bin")):
             print("SKIP: this file system keeps no holes in a sparse file")
             return 77
+        fs.IMPDATA_VOLATILE_RVA = frozenset({VOLATILE_PAGE})  # the synthetic image's volatile page, not the game's
         sm = fs.SnapMem(d, image=image_path)
         ro_page = IB + 2 * PAGE
         iat_page = IB + IAT[0]
         writable_page = IB + 4 * PAGE
         code = IB + PAGE
+        impdata_page = IB + 0x5000
+        volatile_page = IB + VOLATILE_PAGE
         checks = [
             ("captured code page reads its bytes", lambda: sm.read(code, 8) == image[PAGE:PAGE + 8]),
             ("dropped header page is read-only, so the image serves it (its MZ)", lambda: sm.read(IB, 2) == b"MZ"),
@@ -97,6 +107,11 @@ def main():
             ("no image: dropped read-only page is named as not captured",
              lambda: fs.SnapMem(d, image="").page_dropped(ro_page) and fs.SnapMem(d, image="").read(ro_page, 8) is None),
             ("no image: header-dropped image address is not a module", lambda: fs.SnapMem(d, image="").module_base(code) is None),
+            ("dropped .impdata page (rwx in the process) is served from the image",
+             lambda: sm.read(impdata_page, 16) == image[0x5000:0x5010] and not sm.page_dropped(impdata_page)),
+            ("a read ending at the volatile page's edge is served; one crossing into it is refused",
+             lambda: sm.read(impdata_page + PAGE - 8, 16) is None and sm.read(impdata_page + PAGE - 8, 8) == image[0x5FF8:0x6000]),
+            ("volatile .impdata page is never served", lambda: sm.read(volatile_page, 8) is None and sm.page_dropped(volatile_page)),
         ]
 
         def check(fn):

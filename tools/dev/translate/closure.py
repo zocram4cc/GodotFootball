@@ -42,8 +42,10 @@ import stubs as stub_table  # noqa: E402  (the one stub table: a model is never 
 MODEL_VAS = set(stub_table.models(stub_table.load()))
 
 IMAGE_BASE = 0x140000000
+IMPDATA_LO = 0x143D14000  # protected area: relocated game code, no bridge body (tools/dev/ledger/universe.py)
 DIRECT_KINDS = ("direct", "tail")  # the callee kinds the translator links as pes_fn_ calls
 MAX_MEMBERS = 4000
+LEAF_MAX_INSNS = 4000  # a no-.pdata function in the protected area longer than this is not taken as a leaf
 
 
 def hexva(s):
@@ -68,6 +70,7 @@ class Pdata:
             begin, end, _unwind = struct.unpack("<III", self._read(IMAGE_BASE + exc_rva + i, 12))
             self.ends.setdefault(IMAGE_BASE + begin, IMAGE_BASE + end)
         self.starts = sorted(self.ends)
+        self._why = {}  # va -> why _leaf_end refused it
         self.md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         self.md.detail = True
 
@@ -76,8 +79,44 @@ class Pdata:
         return self.img.read(n)
 
     def end_of(self, va):
-        """The end of the .pdata function that starts at va (None if va is not a function start)."""
-        return self.ends.get(va)
+        """The end of the function that starts at va: its .pdata entry, else (protected area only) the end of the
+        clean no-unwind-info leaf that starts there. None if va is neither (see refusal)."""
+        end = self.ends.get(va)
+        if end is None and va >= IMPDATA_LO:
+            end = self._leaf_end(va)
+        return end
+
+    def refusal(self, va):
+        """Why va has no usable extent: names the protected-area class (DOC pes-re-protection.md §1.4)."""
+        if va < IMPDATA_LO:
+            return "is not a .pdata function start"
+        return "is in the protected area, has no .pdata entry and is not a clean leaf: %s" % self._why.get(va, "unreadable")
+
+    def _leaf_end(self, va):
+        """Linear decode of a no-.pdata function in the protected area: ends at the first RET or JMP that no earlier
+        branch of the body jumps past. Refuses (None, reason in self._why) a VM entry (PUSHFQ first), an opaque
+        return (XCHG [rsp],r; RET: the mutated class), undecodable bytes, or a body past LEAF_MAX_INSNS."""
+        reach, a, n = va, va, 0
+        prev = None
+        while n < LEAF_MAX_INSNS:
+            ins = next(self.md.disasm(self._read(a, 15), a), None)
+            if ins is None:
+                self._why[va] = "undecodable bytes at 0x%X" % a
+                return None
+            if n == 0 and ins.mnemonic == "pushfq":
+                self._why[va] = "Denuvo VM entry (PUSHFQ first)"
+                return None
+            if ins.mnemonic == "ret" and prev is not None and prev.mnemonic == "xchg" and "[rsp]" in prev.op_str:
+                self._why[va] = "opaque return (XCHG [rsp],r; RET): mutated body"
+                return None
+            n, a, prev = n + 1, a + ins.size, ins
+            imm = ins.operands[0].type == X86_OP_IMM if ins.operands else False
+            if imm and ins.mnemonic.startswith("j") and va <= ins.operands[0].imm < va + 0x10000:
+                reach = max(reach, ins.operands[0].imm)
+            if ins.mnemonic == "ret" and a > reach or ins.mnemonic == "jmp" and a > reach:
+                return a
+        self._why[va] = "no end within %d instructions" % LEAF_MAX_INSNS
+        return None
 
     def decode_row(self, va, tag):
         """A universe row for the function at va, decoded from the image; None if va is not a .pdata start."""
@@ -95,14 +134,15 @@ class Pdata:
                     callees.setdefault(ops[0].imm, "direct")
                 else:
                     indirect.append({"site": "%X" % ins.address, "text": ("%s %s" % (ins.mnemonic, ins.op_str))[:80]})
-            elif ins.mnemonic == "jmp" and imm and not va <= ops[0].imm < end and ops[0].imm in self.ends:
+            elif ins.mnemonic == "jmp" and imm and not va <= ops[0].imm < end and self.end_of(ops[0].imm) is not None:
                 callees.setdefault(ops[0].imm, "tail")
         callees = {t: k for t, k in callees.items() if t != va}
         return {"name": "FUN_%08x" % va, "size": len(insns), "subsystem": tag, "how": "closure",
                 "roots": [tag], "path": [], "walked": True, "boundary": None,
-                "leaf": not callees and not indirect, "source": "pdata", "scope": "in",
+                "leaf": not callees and not indirect, "source": "pdata" if va in self.ends else "image-leaf",
+                "scope": "in",
                 "callees": {"%08X" % t: k for t, k in sorted(callees.items())},
-                "indirect": indirect, "tables": 0, "vtables": [], "protected": False, "error": "",
+                "indirect": indirect, "tables": 0, "vtables": [], "protected": va >= IMPDATA_LO, "error": "",
                 "unresolved": False, "overspill": None}
 
 
@@ -121,11 +161,11 @@ def crawl(roots, universe, pdata, tag):
         if len(members) >= MAX_MEMBERS:
             raise SystemExit("closure: more than %d members (a root reaches the whole engine); stop it" % MAX_MEMBERS)
         key = "%08X" % va
-        if key not in universe:
+        if key not in universe or universe[key].get("unresolved") and va >= IMPDATA_LO:
+            # a protected-area row the bridge could not read (size 0, no callees) is no row: decode it from the image
             row = pdata.decode_row(va, tag)
             if row is None:
-                raise SystemExit("closure: %s is called but is not a .pdata function start, and has no universe row"
-                                 % hexva(key))
+                raise SystemExit("closure: %s is called, %s, and has no universe row" % (hexva(key), pdata.refusal(va)))
             universe[key] = row
             added.append(key)
         members.append(va)
