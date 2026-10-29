@@ -107,7 +107,7 @@ uint8_t LocomotionClass(const PesActorConstants& c, const PesActorFacts& f, cons
 }
 
 void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInputs& open, const PesActorConstants& c,
-                 const StaminaConstants& stamina) {
+                 const StaminaConstants& stamina, const PhysiqueConstants& physique) {
   uint8_t* p = world.P();
   const uint8_t* man = world.ManRecord(f.slot);
   // P's position, previous position and heading are the man record's (CONFIRMED 6/6, pes-re-trap-inputs.md 1.2).
@@ -130,10 +130,18 @@ void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInpu
   const uint64_t slotPtr = PesWorld::SlotVa(f.slot) + kSlotPPtrTargetOffset;  // FUN_140925470: slot record + 0x15C0
   std::memcpy(p + kPSlotPtrOffset, &slotPtr, sizeof slotPtr);
   StoreF32(p, kPF3B18Offset, f.heightCm / c.heightDivisor);  // FUN_1406EB210 (0x1406EB23E)
-  StoreF32(p, kPF377CScaleOffset, MoveTopRate(stamina, f.speedByte, f.stamina, open.g));  // FUN_1406F99F0 (0x1406F9B4C)
+  // FUN_141EB5810's root-bone arm: G stored at P+0xA00 and pushed into the chain *(*(P+0xA08)+0xF0)+0xC0 (FUN_141AF4EB0); the
+  // rate ceiling reads the same G (FUN_1406F99F0 via FUN_141AF3180).
+  const float g = PhysiqueG(physique, {f.heightCm, f.legSlider, false});
+  StoreF32(p, kPGOffset, g);
+  const uint64_t chainA = PesWorld::PhysiqueAVa(), chainB = PesWorld::PhysiqueBVa();
+  std::memcpy(p + kPScalePtrOffset, &chainA, sizeof chainA);
+  std::memcpy(world.PhysiqueA() + kPhysiqueNextOffset, &chainB, sizeof chainB);
+  StoreF32(world.PhysiqueB(), kPhysiqueGOffset, g);
+  StoreF32(p, kPF377CScaleOffset, MoveTopRate(stamina, f.speedByte, f.stamina, g));  // FUN_1406F99F0 (0x1406F9B4C)
   std::memcpy(p + kPVelocityOffset, open.velocityRing.data(), open.velocityRing.size());
-  std::memcpy(p + kPScalePtrOffset, &open.physiquePtr, sizeof open.physiquePtr);
-  std::memcpy(p + kPPtr3AC0Offset, &open.analyzePtr, sizeof open.analyzePtr);
+  const uint64_t ctx = PesWorld::CtxVa(f.side);  // P+0x3AC0 = PM+0x7E0: the side's AI context (+0x18 MA, +0xE0 E)
+  std::memcpy(p + kPPtr3AC0Offset, &ctx, sizeof ctx);
 }
 
 }  // namespace pes

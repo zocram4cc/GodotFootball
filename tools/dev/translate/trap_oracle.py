@@ -25,6 +25,7 @@ import mmap
 import collections
 import os
 import shutil
+import struct
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -117,7 +118,7 @@ def find_player(snap, p):
             if (at - m["off"]) % 8 == 0 and int.from_bytes(snap.read(pm, 8) or bytes(8), "little") == PM_VTABLE:
                 return pm
             at = mm.find(pat, at + 1, m["off"] + m["size"])
-    sys.exit("no match::Player points at P %#x" % p)
+    return None  # a slim capture drops the player object's page
 
 
 def actor_facts(snap, p, g):
@@ -128,7 +129,17 @@ def actor_facts(snap, p, g):
     slot = snap.read(p + 0x2458, 1)[0]
     rec = u64(g + 0x25F8 + 0x28 * slot)
     pm = find_player(snap, p)
-    return ["A\theight_bits\t%#x" % int.from_bytes(snap.read(pm + 0x30, 4), "little"),
+    if pm is not None:
+        height_bits = int.from_bytes(snap.read(pm + 0x30, 4), "little")
+    else:
+        # a slim capture has no PM: the height is the whole-cm value whose /180 is the P+0x3B18 the call reads (FUN_1406EB210)
+        f32 = lambda v: struct.unpack("<f", struct.pack("<f", v))[0]
+        scale = struct.unpack("<f", snap.read(p + 0x3B18, 4))[0]
+        cm = float(round(scale * 180))
+        if f32(cm / 180.0) != scale:
+            sys.exit("P+0x3B18 = %r is not a whole-cm height / 180" % scale)
+        height_bits = struct.unpack("<I", struct.pack("<f", cm))[0]
+    return ["A\theight_bits\t%#x" % height_bits,
             "A\tstamina_cur\t%d" % checked_int(snap, rec + 0xC8),
             "A\tstamina_max\t%d" % checked_int(snap, rec + 0xE8),
             "A\tbreath\t%d" % checked_int(snap, rec + 0x108),
@@ -169,6 +180,18 @@ def main():
     for off in range(0, 0x80, 8):
         lines.append("R\tstk%#x\t%#x" % (off, u64(regs["rsp"] + off)))
     rsp = regs["rsp"]
+    # The heap objects the chain reaches from P and G that GF holds as state (or names as inputs): "N name rel len" lines, rel
+    # from the object's start. An (P+0x3AC0) and what it points to: MA (+0x18) and the event store E (+0xE0); the physique chain
+    # GX (P+0xA08) -> GY (GX+0xF0); the table-B squad records SBn (G+0x1978+0x28n). Everything else outside the window stays "H".
+    an, gx = u64(regs["rdx"] + 0x3AC0), u64(regs["rdx"] + 0xA08)
+    heap = [("An", an, 0x100), ("MA", u64(an + 0x18), 0x26040), ("E", u64(an + 0xE0), 0x180760), ("GX", gx, 0x100),
+            ("GY", u64(gx + 0xF0), 0xD0)] + [("SB%d" % s, u64(g + 0x1978 + 0x28 * s), 0x30) for s in range(2)]
+
+    def named(a):
+        for name, base, size in heap:
+            if base and base <= a < base + size:
+                return (name, base)
+        return None
     for lo, hi in ranges(b for b in live if b < IMG_LO or b >= IMG_HI):
         if rsp <= lo < rsp + STACK_SPAN:
             lines.append("S\t%#x\t%d" % (lo - rsp, hi - lo))
@@ -182,7 +205,11 @@ def main():
                     if t and t[0] != "P":
                         lines.append("F\t%#x\t%s\t%d\t%#x" % (a - regs["rdx"], t[0], t[1], t[2]))
         else:
-            lines.append("H\t%#x\t%d" % (lo, hi - lo))
+            n = named(lo)
+            if n is not None and named(hi - 1) == n:
+                lines.append("N\t%s\t%#x\t%d" % (n[0], lo - n[1], hi - lo))
+            else:
+                lines.append("H\t%#x\t%d" % (lo, hi - lo))
     # the writable image globals the chain reads: only those whose live value is not the file's are state (pointers to heap
     # objects, and G); the others are the image's own bytes, which the translated code already has
     for lo, hi in ranges(b for b in live if IMG_GLOBALS <= b < IMG_HI):

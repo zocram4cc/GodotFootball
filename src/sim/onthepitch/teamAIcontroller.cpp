@@ -206,6 +206,21 @@ void TeamAIController::WriteMaRecord() {
   world.SetMaBall(side, ball[0], ball[1], ball[2]);
   const Player* holder = match->GetPesHolder();
   world.SetMaCarrier(side, holder != nullptr ? static_cast<uint32_t>(match->PesSlotOf(holder)) : pes::kMaNoCarrier);
+  // MA+0x2601C (FUN_140457070's holder store, 0x14045725A) and the NearestList (MA+0x22E4C + 200 slot, FUN_14045B420): the cells
+  // the Trap chain reads through P+0x3AC0 (docs/ports/pes-port-TrapOpen2.md). The holder's slot is the match's (0xFF: none).
+  world.SetMaHolder(side, holder != nullptr ? static_cast<uint32_t>(match->PesSlotOf(holder)) : 0xFFu);
+  for (int slot = 0; slot < pes::lane::kSlots; ++slot) {
+    const pes::SortedRow& row = scoreRows_.Rows().nearest[slot];
+    for (int teamSide = 0; teamSide < 2; ++teamSide) {
+      for (int rank = 0; rank < pes::kMaListEntries; ++rank) {
+        if (rank < row.Count(teamSide))
+          world.SetMaNearestEntry(side, slot, teamSide, rank, static_cast<uint32_t>(row.Entry(teamSide, rank).id),
+                                  row.Entry(teamSide, rank).value);
+        else
+          world.ClearMaNearestEntry(side, slot, teamSide, rank);
+      }
+    }
+  }
   const pes::ScoreRows& rows = scoreRows_.Rows();
   for (int list = 0; list < 2; ++list) {
     for (int teamSide = 0; teamSide < 2; ++teamSide) {

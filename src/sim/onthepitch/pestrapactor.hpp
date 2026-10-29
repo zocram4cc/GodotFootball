@@ -15,6 +15,7 @@
 
 #include "onthepitch/pesstamina.hpp"
 #include "onthepitch/pesworldrecord.hpp"
+#include "pes/physique.hpp"
 
 namespace pes {
 
@@ -31,20 +32,18 @@ struct PesActorFacts {
   float word277C = 0.0f;       // P+0x277C and +0x2780: the phase-1 test of the class writer (writers OPEN)
   float word2780 = 0.0f;
   float speedByte = 0.0f;      // slot record +0x97
+  float legSlider = 0.0f;      // physique block +0x30 (PM+0x7B4), -1..1. ponytail: no GF source (appearance nibble 0x11:0,
+                               // FUN_141AD98B0); 0 is neutral
+  int side = 0;                // the actor's side: P+0x3AC0 is that side's AI context (the window's ctx record)
   StaminaState stamina;        // slot record: tank cur/max, breath reserve
 };
 
-// ponytail: PES inputs with no GF source, as captured bytes. Each names the PES site that removes it:
+// ponytail: the one PES input with no GF source, as captured bytes. It names the PES site that removes it:
 //  velocityRing: P+0x2FC, six 3-vectors read by 0x141EB50B0 (idx >= 2); its writer is OPEN (the action issuer 0x1406F0F70
-//    or a per-tick write; pes-re-trap-inputs.md 1.3).
-//  physiquePtr, g: P+0xA08 and the scale *(*(P+0xA08)+0xF0)+0xC0 (FUN_141AF3180); the writer is FUN_141EB5810 from the body's
-//    root_main joint scale, OPEN (pes-re-trap-inputs.md 1.4). `g` also feeds the rate ceiling P+0x377C.
-//  analyzePtr: P+0x3AC0, PM+0x7E0, a match::registry::AnalyzeInfoRef whose referents the chain reads; GF has no such object.
+//    or a per-tick write; docs/ports/pes-port-TrapOpen2.md).
+// (G and its chain at P+0xA08 are derived from the facts: pes::PhysiqueG; P+0x3AC0 names the side's AI context in the window.)
 struct PesActorOpenInputs {
   std::array<uint8_t, 12> velocityRing{};
-  uint64_t physiquePtr = 0;
-  float g = 1.0f;
-  uint64_t analyzePtr = 0;
 };
 
 // The image's bytes P is made from.
@@ -69,6 +68,6 @@ uint8_t LocomotionClass(const PesActorConstants& c, const PesActorFacts& f, cons
 // slot, phase, action ids, motion, class, physique scale, slot-record pointer, kick-approach state, the rate ceiling
 // (S1b, FUN_1406F99F0) and the interface vtables; then the open inputs.
 void WriteActorP(PesWorld& world, const PesActorFacts& f, const PesActorOpenInputs& open, const PesActorConstants& c,
-                 const StaminaConstants& stamina);
+                 const StaminaConstants& stamina, const PhysiqueConstants& physique);
 
 }  // namespace pes

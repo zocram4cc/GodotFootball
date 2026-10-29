@@ -441,6 +441,34 @@ TEST(PesA1Sim, TheTeamAisRecordMaIsWrittenEachTickFromTheBallAndTheRows) {
   EXPECT_GT(checked, 0) << "the rows list somebody";
 }
 
+// The cells the Trap chain reads through P+0x3AC0 are written too: the holder's slot at MA+0x2601C and every player's NearestList
+// block (MA+0x22E4C + 200 slot, a team's 11 entries at +0x58 per team: slot id u32, value f32), from the score rows.
+TEST(PesA1Sim, TheTeamAisRecordMaCarriesTheHolderAndTheNearestList) {
+  REQUIRE_PES_MATCH();
+  match->StartPlay();
+  for (int i = 0; i < 4; ++i) match->Process();
+  pes::PesWorld& world = match->PesWorldOf();
+  const Player* holder = match->GetPesHolder();
+  int checked = 0;
+  for (int side = 0; side < 2; ++side) {
+    const uint8_t* ma = world.Ma(side);
+    EXPECT_EQ(pes::LoadU32(ma, pes::kMaHolderOffset), holder != nullptr ? static_cast<uint32_t>(match->PesSlotOf(holder)) : 0xFFu);
+    const pes::ScoreRows& rows = match->GetTeam(side)->GetController()->Rows();
+    for (int slot = 0; slot < pes::lane::kSlots; ++slot) {
+      for (int team = 0; team < 2; ++team) {
+        const uint8_t* block = ma + pes::kMaNearestOffset + static_cast<std::size_t>(slot) * pes::kMaNearestBlockBytes +
+                               static_cast<std::size_t>(team) * pes::kMaListTeamStride;
+        for (int rank = 0; rank < rows.nearest[slot].Count(team); ++rank) {
+          EXPECT_EQ(pes::LoadU32(block, rank * 8), static_cast<uint32_t>(rows.nearest[slot].Entry(team, rank).id));
+          EXPECT_FLOAT_EQ(pes::LoadF32(block, rank * 8 + 4), rows.nearest[slot].Entry(team, rank).value);
+          ++checked;
+        }
+      }
+    }
+  }
+  EXPECT_GT(checked, 0) << "the nearest lists list somebody";
+}
+
 // The Clear unit 0x142109EB0 runs on the window: nothing is stored while the danger byte (imageA+0x31C1) is clear; with it
 // set the unit stores its answer type 5 and a corridor angle over the window's records.
 TEST(PesA1Sim, TheClearUnitRunsOnTheWindowAndAnswersOnlyOnTheDangerByte) {

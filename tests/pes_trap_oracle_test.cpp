@@ -40,7 +40,10 @@
 #include "onthepitch/pesstamina.hpp"
 #include "onthepitch/pestrapactor.hpp"
 #include "onthepitch/pesworldrecord.hpp"
+#include "onthepitch/pestrapdata.hpp"
 #include "pes/exe.hpp"
+#include "pes/physique.hpp"
+#include "pes/vfs.hpp"
 #include "pes_state.hpp"
 
 namespace {
@@ -170,8 +173,10 @@ uint64_t CapturedBase(const Oracle& o, uint64_t g, const std::string& kind, int 
 struct Derivation {
   pes::PesActorConstants actor;
   pes::StaminaConstants stamina;
+  pes::PhysiqueConstants physique;
 };
 const Derivation* g_derivation = nullptr;
+const pes::PesTrapLoaderData* g_loader = nullptr;  // built once per process (PES builds it once per match)
 
 float F32(uint32_t bits) {
   float f;
@@ -179,6 +184,26 @@ float F32(uint32_t bits) {
   return f;
 }
 uint32_t Bits(const std::string& s) { return static_cast<uint32_t>(std::strtoull(s.c_str(), nullptr, 0)); }
+
+// The captured G (*(*(P+0xA08)+0xF0)+0xC0): the one value of the physique chain the capture holds.
+float CapturedG(const Oracle& o) {
+  const uint64_t gx = Read(o, o.regs.at("rdx") + pes::kPScalePtrOffset, 8);
+  return F32(static_cast<uint32_t>(Read(o, Read(o, gx + pes::kPhysiqueNextOffset, 8) + pes::kPhysiqueGOffset, 4)));
+}
+
+// The leg-length slider (physique block +0x30; the appearance nibble 0x11:0 decodes to 2n/14 - 1, 15 = 0, FUN_141AD98B0) is
+// not in a slim capture (the player object is not): it is the NAMED oracle input recovered from PES's own G, the one of the
+// sixteen decoded values whose scale at the actor's height is bit-equal to the captured G (0 when none: the G tests then fail).
+// GF has no slider source (pestrapactor.hpp). Known capture: pid2670420/seq043, 191 cm, G = 1.0412 = slider -1.
+float RecoverLegSlider(const Oracle& o, float heightCm) {
+  const float want = CapturedG(o);
+  float candidates[16];
+  for (int n = 0; n < 15; ++n) candidates[n] = (2.0f * static_cast<float>(n)) / 14.0f - 1.0f;
+  candidates[15] = 0.0f;
+  for (const float slider : candidates)
+    if (pes::PhysiqueG(g_derivation->physique, {heightCm, slider, false}) == want) return slider;
+  return 0.0f;
+}
 
 // The facts GF holds as state, as the capture's player had them: P's own bytes for the slot, phase, action ids, motion and
 // kick-approach word (what GF's MoveStep and action state map to), the height and the stamina from the "A" lines.
@@ -196,6 +221,7 @@ pes::PesActorFacts FactsOf(const Oracle& o) {
   f.word277C = F32(static_cast<uint32_t>(Read(o, p + pes::kPWord277COffset, 4)));
   f.word2780 = F32(static_cast<uint32_t>(Read(o, p + pes::kPWord277COffset + 4, 4)));
   f.heightCm = F32(Bits(o.actor.at("height_bits")));
+  f.legSlider = RecoverLegSlider(o, f.heightCm);
   f.speedByte = static_cast<float>(std::atoi(o.actor.at("speed_byte").c_str()));
   f.stamina.cur = std::atoi(o.actor.at("stamina_cur").c_str());
   f.stamina.max = std::atoi(o.actor.at("stamina_max").c_str());
@@ -209,9 +235,6 @@ pes::PesActorOpenInputs OpenOf(const Oracle& o) {
   pes::PesActorOpenInputs open;
   for (size_t i = 0; i < open.velocityRing.size(); ++i)
     open.velocityRing[i] = static_cast<uint8_t>(Read(o, p + pes::kPVelocityOffset + i, 1));
-  open.physiquePtr = Read(o, p + pes::kPScalePtrOffset, 8);
-  open.g = F32(Bits(o.actor.at("g_bits")));
-  open.analyzePtr = Read(o, p + pes::kPPtr3AC0Offset, 8);
   return open;
 }
 
@@ -229,6 +252,36 @@ struct Built {
   pes::PesTrapExternals ext;
 };
 
+// The heap objects the chain reads that GF holds as state (or names as inputs), from the manifest's "N name rel len" lines. An
+// and the physique chain are derived (WriteActorP); MA and the event store E go into the window's records of the actor's side
+// at the captured offsets; the squad record of table B (SBn) is bound to a captured segment at its own VA.
+void CopyNamed(const Oracle& o, uint64_t g, Built& b, const std::vector<std::string>& line, int side) {
+  const std::string& name = line[1];
+  const size_t rel = std::strtoul(line[2].c_str(), nullptr, 16), len = std::strtoul(line[3].c_str(), nullptr, 10);
+  const uint64_t an = Read(o, o.regs.at("rdx") + pes::kPPtr3AC0Offset, 8);
+  uint8_t* dst = nullptr;
+  uint64_t base = 0;
+  if (name == "MA") {
+    dst = b.world->Ma(side);
+    base = Read(o, an + pes::kCtxMaOffset, 8);
+  } else if (name == "E") {
+    dst = reinterpret_cast<uint8_t*>(&b.world->EventImage());
+    base = Read(o, an + pes::kCtxEventsOffset, 8);
+  } else if (name.rfind("SB", 0) == 0) {
+    const int s = name[2] - '0';
+    const uint64_t record = Read(o, g + pes::kSideTableBOffset + pes::kTableEntryBytes * static_cast<size_t>(s), 8);
+    b.world->SetEntry(pes::WorldTable::kSideB, s, record);
+    pes::PesTrapSegment seg;
+    seg.va = record + rel;
+    for (size_t i = 0; i < len; ++i) seg.bytes.push_back(static_cast<uint8_t>(Read(o, seg.va + i, 1)));
+    b.ext.segments.push_back(std::move(seg));
+    return;
+  } else {
+    return;  // An, GX, GY: derived
+  }
+  for (size_t i = 0; i < len; ++i) dst[rel + i] = static_cast<uint8_t>(Read(o, base + rel + i, 1));
+}
+
 void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b) {
   pes::PesWorld& w = *b.world;
   const uint64_t g = Read(o, kImageG, 8);
@@ -239,6 +292,7 @@ void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b)
     w.SetEntry(pes::WorldTable::kSideB, t, pes::PesWorld::SideVa(t));
   }
   const uint64_t rdx = o.regs.at("rdx");
+  const int side = static_cast<int>(Read(o, rdx + pes::kPByte2458Offset, 1)) / pes::kSlotsPerSide;
   for (const auto& line : o.manifest) {
     if (line[0] == "T") {
       uint8_t* dst = RecordOf(w, line[1], std::atoi(line[2].c_str()));
@@ -246,22 +300,16 @@ void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b)
       const uint64_t base = CapturedBase(o, g, line[1], std::atoi(line[2].c_str()));
       const size_t rel = std::strtoul(line[3].c_str(), nullptr, 16), len = std::strtoul(line[4].c_str(), nullptr, 10);
       for (size_t i = 0; i < len; ++i) dst[rel + i] = static_cast<uint8_t>(Read(o, base + rel + i, 1));
-    } else if (line[0] == "H") {
-      pes::PesTrapSegment seg;
-      seg.va = std::strtoull(line[1].c_str(), nullptr, 16);
-      for (size_t i = 0, n = std::strtoul(line[2].c_str(), nullptr, 10); i < n; ++i)
-        seg.bytes.push_back(static_cast<uint8_t>(Read(o, seg.va + i, 1)));
-      b.ext.segments.push_back(std::move(seg));
-    } else if (line[0] == "I") {
-      const uint64_t va = std::strtoull(line[1].c_str(), nullptr, 16);
-      if (va != kImageG) b.ext.globals.push_back({va, Read(o, va, 8)});
+    } else if (line[0] == "N") {
+      CopyNamed(o, g, b, line, side);
     }
   }
   // P is derived from the facts GF holds (pestrapactor.hpp), the actor's man record bytes and the named open inputs; none of
   // its bytes is copied from the capture.
-  const pes::PesActorFacts facts = FactsOf(o);
+  pes::PesActorFacts facts = FactsOf(o);
+  facts.side = facts.slot / pes::kSlotsPerSide;
   CopyActorMan(o, g, w, facts.slot);
-  pes::WriteActorP(w, facts, OpenOf(o), g_derivation->actor, g_derivation->stamina);
+  pes::WriteActorP(w, facts, OpenOf(o), g_derivation->actor, g_derivation->stamina, g_derivation->physique);
   // The request, as the dispatcher 0x1407A01C0 took it (kind 0): its words are the chain's stack arguments in the capture.
   const uint64_t rsp = o.regs.at("rsp"), action = rdx + pes::kPActionOffset;
   uint8_t* req = b.request.bytes.data();
@@ -278,6 +326,7 @@ void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b)
   put(pes::kReqByte21Offset, Read(o, action + pes::kActionByte3EOffset, 1), 1);
   b.ext.image = const_cast<uint8_t*>(image);
   b.ext.imageBytes = imageBytes;
+  g_loader->AddTo(b.ext);  // the loader data (motion table, Animetable, registry, trap.o): built from the install, never copied from the capture
 }
 
 struct Image {
@@ -326,8 +375,16 @@ class TrapOracle : public ::testing::Test {
     ASSERT_TRUE(pe.has_value()) << err;
     const auto stamina = pes::LoadStaminaConstants(*pe, &err);
     ASSERT_TRUE(stamina.has_value()) << err;
-    derivation_ = Derivation{*actor, *stamina};
+    const auto physique = pes::LoadPhysiqueConstants(*pe, &err);
+    ASSERT_TRUE(physique.has_value()) << err;
+    derivation_ = Derivation{*actor, *stamina, *physique};
     g_derivation = &derivation_;
+    // The loader data is built once per process (PES builds it once per match), from the install's VFS.
+    pes::PesVfs vfs;
+    ASSERT_TRUE(vfs.Mount(root, &err)) << err;
+    static const auto loader = pes::BuildTrapLoaderData(*pe, vfs, &err);
+    ASSERT_TRUE(loader.has_value()) << err;
+    g_loader = &*loader;
   }
   std::vector<std::string> dirs_;
   std::string exe_;
@@ -454,10 +511,32 @@ TEST_F(TrapOracle, RateCeilingEqualsPesBitForBit) {
     Oracle o;
     ASSERT_TRUE(Load(dir, o)) << dir;
     const pes::PesActorFacts f = FactsOf(o);
-    const float got = pes::MoveTopRate(g_derivation->stamina, f.speedByte, f.stamina, OpenOf(o).g);
+    const float g = pes::PhysiqueG(g_derivation->physique, {f.heightCm, f.legSlider, false});
+    const float got = pes::MoveTopRate(g_derivation->stamina, f.speedByte, f.stamina, g);
     uint32_t gotBits;
     std::memcpy(&gotBits, &got, sizeof gotBits);
     EXPECT_EQ(gotBits, static_cast<uint32_t>(Read(o, o.regs.at("rdx") + pes::kPF377CScaleOffset, 4))) << dir;
+  }
+}
+
+// G, as the chain reads it (*(*(P+0xA08)+0xF0)+0xC0, FUN_141AF3180): the window's chain, derived from the actor's height by
+// pes::PhysiqueG, holds the very float PES's chain held in the capture, on every capture. (The captures are slim: the player
+// object is not in them, so the height is P+0x3B18 * 180; tests/pes_physique_test.cpp holds the port to PES's stored G on every
+// player of the full captures, with the real block.)
+TEST_F(TrapOracle, DerivedGEqualsPesChainGOnEveryCapture) {
+  Image image;
+  ASSERT_TRUE(image.Open(exe_));
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    Built b;
+    Build(o, image.bytes, image.size, b);
+    const uint64_t p = o.regs.at("rdx");
+    const uint64_t capturedChain = Read(o, Read(o, p + pes::kPScalePtrOffset, 8) + pes::kPhysiqueNextOffset, 8);
+    const uint32_t want = static_cast<uint32_t>(Read(o, capturedChain + pes::kPhysiqueGOffset, 4));
+    uint32_t got;
+    std::memcpy(&got, b.world->PhysiqueB() + pes::kPhysiqueGOffset, sizeof got);
+    EXPECT_EQ(got, want) << dir << ": G of " << FactsOf(o).heightCm << " cm";
   }
 }
 
@@ -509,9 +588,9 @@ TEST_F(TrapOracle, WriteActorPStoresEachFactInItsOwnField) {
   pes::StoreF32(man, pes::kManFacingOffset, 90.0f);
   pes::PesActorOpenInputs open;
   for (size_t i = 0; i < open.velocityRing.size(); ++i) open.velocityRing[i] = static_cast<uint8_t>(0x10 + i);
-  open.physiquePtr = 0x1111, open.analyzePtr = 0x2222;
+  f.side = 1;
   const pes::PesActorConstants& c = g_derivation->actor;
-  pes::WriteActorP(*world, f, open, c, g_derivation->stamina);
+  pes::WriteActorP(*world, f, open, c, g_derivation->stamina, g_derivation->physique);
   const uint8_t* p = world->P();
   const auto u64 = [p](size_t off) {
     uint64_t v;
@@ -535,8 +614,15 @@ TEST_F(TrapOracle, WriteActorPStoresEachFactInItsOwnField) {
   EXPECT_EQ(u64(pes::kPInterfaceVtable0Offset), c.interfaceVtable[0]);
   EXPECT_EQ(u64(pes::kPInterfaceVtable1Offset), c.interfaceVtable[1]);
   EXPECT_EQ(u64(pes::kPSlotPtrOffset), pes::PesWorld::SlotVa(7) + pes::kSlotPPtrTargetOffset);
-  EXPECT_EQ(u64(pes::kPScalePtrOffset), 0x1111u);
-  EXPECT_EQ(u64(pes::kPPtr3AC0Offset), 0x2222u);
+  // The physique chain is derived: P+0xA08 -> A, A+0xF0 -> B, B+0xC0 = G of the facts (190 cm, neutral slider); P+0xA00 holds it too.
+  const float g = pes::PhysiqueG(g_derivation->physique, {190.0f, 0.0f, false});
+  EXPECT_EQ(u64(pes::kPScalePtrOffset), pes::PesWorld::PhysiqueAVa());
+  uint64_t next;
+  std::memcpy(&next, world->PhysiqueA() + pes::kPhysiqueNextOffset, sizeof next);
+  EXPECT_EQ(next, pes::PesWorld::PhysiqueBVa());
+  EXPECT_EQ(pes::LoadF32(world->PhysiqueB(), pes::kPhysiqueGOffset), g);
+  EXPECT_EQ(pes::LoadF32(p, pes::kPGOffset), g);
+  EXPECT_EQ(u64(pes::kPPtr3AC0Offset), pes::PesWorld::CtxVa(1));  // P+0x3AC0 names the side the fact gives (1)
   EXPECT_EQ(std::memcmp(p + pes::kPVelocityOffset, open.velocityRing.data(), open.velocityRing.size()), 0);
 }
 
@@ -597,7 +683,8 @@ Indices IndicesOf(const Oracle& o) {
 // Every binding of the call's inputs the window holds is one byte of its records; flipping it must change the call's path (the
 // result or the bytes the chain writes) in at least one capture, or the binding is not read and is not claimed. Not claimed
 // (no remaining capture's call changes with them): P+0xB08, P+0x377C, the play state MI+0x116C, the pitch F0, the anime class
-// byte, ball+0x4, man B's facing and +0x5B0; the removed captures (seq4310, 4329, 4351, 4402) read some of them.
+// byte, ball+0x4, man B's facing and +0x5B0, and the holder MA+0x2601C (read in 20 of 24 captures, but flipping its low bit changes
+// no capture's path); the removed captures (seq4310, 4329, 4351, 4402) read some of them.
 TEST_F(TrapOracle, EachWindowBindingChangesTheCall) {
   struct Binding {
     const char* name;
@@ -624,6 +711,14 @@ TEST_F(TrapOracle, EachWindowBindingChangesTheCall) {
       {"slot +0x9B", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0x9B; }},
       {"slot +0xC8", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0xC8; }},
       {"slot +0x104", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0x104; }},
+      {"E newest event kind",
+       [](Built& b, const Indices&) { return reinterpret_cast<uint8_t*>(&b.world->EventImage()) + pes::kEventNewestOffset; }},
+      {"E newest event side",
+       [](Built& b, const Indices&) { return reinterpret_cast<uint8_t*>(&b.world->EventImage()) + pes::kEventNewestOffset + 4; }},
+      {"E newest event slot",
+       [](Built& b, const Indices&) { return reinterpret_cast<uint8_t*>(&b.world->EventImage()) + pes::kEventNewestOffset + 8; }},
+      {"E newest event tick",
+       [](Built& b, const Indices&) { return reinterpret_cast<uint8_t*>(&b.world->EventImage()) + pes::kEventNewestOffset + 0x10; }},
   };
   std::map<std::string, int> changed;
   for (const std::string& dir : dirs_) {

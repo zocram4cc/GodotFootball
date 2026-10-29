@@ -26,7 +26,7 @@ add_library(pesfmt STATIC
   src/pes/strcode.cpp src/pes/cpk.cpp src/pes/fpk.cpp src/pes/vfs.cpp src/pes/ask.cpp src/pes/skl.cpp
   src/pes/ftex.cpp src/pes/fmdl.cpp src/pes/pack_rules.cpp src/pes/mtar.cpp src/pes/gani.cpp src/pes/clips.cpp
   src/pes/formation.cpp
-  src/pes/anim_names.cpp src/pes/uniform.cpp src/pes/editsave.cpp src/pes/playerdb.cpp src/pes/condition.cpp src/pes/exe.cpp src/pes/handseq.cpp src/pes/marking.cpp src/pes/locomotion.cpp src/pes/animetable.cpp src/pes/mbinfo.cpp src/pes/camera.cpp src/pes/fox2.cpp src/pes/stadium.cpp src/pes/lighting.cpp src/pes/movestep.cpp src/pes/movestep_common.cpp src/pes/movestep_bundle.cpp src/pes/movestep_run.cpp src/pes/movestep_group_a.cpp src/pes/movestep_step.cpp src/pes/movestep_turn.cpp src/pes/effects.cpp src/pes/derivation.cpp)
+  src/pes/anim_names.cpp src/pes/uniform.cpp src/pes/editsave.cpp src/pes/playerdb.cpp src/pes/condition.cpp src/pes/exe.cpp src/pes/handseq.cpp src/pes/marking.cpp src/pes/locomotion.cpp src/pes/animetable.cpp src/pes/mbinfo.cpp src/pes/camera.cpp src/pes/fox2.cpp src/pes/stadium.cpp src/pes/lighting.cpp src/pes/movestep.cpp src/pes/movestep_common.cpp src/pes/movestep_bundle.cpp src/pes/movestep_run.cpp src/pes/movestep_group_a.cpp src/pes/movestep_step.cpp src/pes/movestep_turn.cpp src/pes/effects.cpp src/pes/derivation.cpp src/pes/physique.cpp)
 target_include_directories(pesfmt PUBLIC src)
 target_link_libraries(pesfmt PUBLIC ZLIB::ZLIB)
 

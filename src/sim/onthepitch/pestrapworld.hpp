@@ -82,9 +82,18 @@ inline constexpr std::size_t kFrameArg13Offset = 0x68;
 inline constexpr std::size_t kFrameRequestCopyOffset = 0xA8;  // the dispatcher's copy of request word 0 (r9)
 inline constexpr std::size_t kFrameOutWordOffset = 0x228;     // the out word: a refusal status, or the selected candidate's key
 
-// The window's trap member: P.
+// The physique chain P+0xA08 reaches (FUN_141AF3180: *(*(P+0xA08)+0xF0)+0xC0 is G): two small heap objects in PES, here one
+// after P in the window. Their other bytes are not read by the chain.
+inline constexpr std::size_t kPhysiqueObjectBytes = 0x100;
+inline constexpr std::size_t kPhysiqueNextOffset = 0xF0;  // object A +0xF0: the VA of object B
+inline constexpr std::size_t kPhysiqueGOffset = 0xC0;     // object B +0xC0: G (f32)
+inline constexpr std::size_t kPGOffset = 0xA00;           // P+0xA00: the clamped G FUN_141EB5810 stores beside the chain's copy
+
+// The window's trap member: P, then the physique chain's two objects.
 struct PesTrapImage {
   std::array<uint8_t, kTrapPBytes> p{};
+  std::array<uint8_t, kPhysiqueObjectBytes> physiqueA{};
+  std::array<uint8_t, kPhysiqueObjectBytes> physiqueB{};
 };
 
 // What the chain reads that GF does not hold as state yet (each a stand-in naming the PES site that removes it): the install's

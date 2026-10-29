@@ -258,7 +258,13 @@ class MoveHostAdapter final : public pes::MoveHost {
   float CurrentSpeedKmh() const override {
     return player_.GetMovement().GetLength() * c_.run.speed3600;
   }
-  float PhysiqueG() const override { return 1.0f; }  // ponytail: FUN_141af3180 of P+0xa08.
+  // FUN_141af3180(P+0xa08): G = the root bone's body scale from the physique block (pes::PhysiqueG, FUN_141EB5810's arm).
+  // PES's block height is a whole number of cm (the 22 scanned players of seq4046: 175..199); GF's physical_height is that
+  // /100 as a float, so rounding restores the block's value.
+  // ponytail: the leg-length slider (block+0x30: appearance nibble 0x11:0, FUN_141AD98B0) has no GF source; 0 is neutral.
+  float PhysiqueG() const override {
+    return pes::PhysiqueG(c_.physique, {std::round(player_.GetStat("physical_height") * 100.0f), 0.0f, false});
+  }
   float TicksPerSecond() const override { return static_cast<float>(Match::kFramesPerSecond); }
   int MatchTick() const override { return match_.GetPesFrame(); }
   int RecentStamp(int index) const override {

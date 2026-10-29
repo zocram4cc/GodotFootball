@@ -280,7 +280,10 @@ inline constexpr std::size_t kMaListTeamStride = 0x58;
 inline constexpr int kMaListEntries = 11;
 inline constexpr std::size_t kMaBallOffset = 0x2482C;       // f32 x, +4 height, +8 z
 inline constexpr std::size_t kMaCarrierIdOffset = 0x2483C;  // u32
-inline constexpr std::size_t kMaBytes = 0x24900;
+inline constexpr std::size_t kMaHolderOffset = 0x2601C;    // u32: the holder's slot (0xFF none); FUN_140A627E0 param 0 reads it
+inline constexpr std::size_t kMaNearestOffset = 0x22E4C;   // the NearestList: 200 bytes per player slot (pesscorerows.hpp)
+inline constexpr std::size_t kMaNearestBlockBytes = 200;
+inline constexpr std::size_t kMaBytes = 0x26040;  // grown from 0x24900: the trap chain reads MA+0x22E4C.. and the holder MA+0x2601C
 // No carrier in MA+0x2483C (INF: PES's no-holder word is not decoded; the readers gate on id < 0x16).
 inline constexpr uint32_t kMaNoCarrier = 0xFFFFFFFFu;
 struct PesMaRecord {
@@ -445,6 +448,11 @@ class PesWorld {
   // P, the trap chain's actor object (kPActionOffset is its action). Its window VA is rdx of the chain.
   static constexpr uint64_t PVa() { return kWorldWindowVa + kTrapOffset; }
   uint8_t* P() { return image_->trap.p.data(); }
+  // The physique chain's two objects (P+0xA08 -> A, A+0xF0 -> B, B+0xC0 = G), written by WriteActorP.
+  static constexpr uint64_t PhysiqueAVa() { return PVa() + kTrapPBytes; }
+  static constexpr uint64_t PhysiqueBVa() { return PhysiqueAVa() + kPhysiqueObjectBytes; }
+  uint8_t* PhysiqueA() { return image_->trap.physiqueA.data(); }
+  uint8_t* PhysiqueB() { return image_->trap.physiqueB.data(); }
   // PES's Trap action's kind-0 chain 0x14079A470 on the window, as the action's +0x68 dispatcher (0x1407A01C0) calls it for
   // kind <= 0: the dispatcher's two action stores, its frame (the request's first word, the out word, the stack arguments), then the
   // chain. `ext` carries what GF does not hold as state yet (pestrapworld.hpp).
@@ -456,6 +464,20 @@ class PesWorld {
     StoreF32(Ma(side), kMaBallOffset + 8, z);
   }
   void SetMaCarrier(int side, uint32_t id) { StoreU32(Ma(side), kMaCarrierIdOffset, id); }
+  // MA+0x2601C, the holder's slot (0xFF none), and entry `rank` of team `team`'s list in player `slot`'s NearestList block:
+  // the listed id, then its value (a rank the list does not fill is the 0xFF fill).
+  void SetMaHolder(int side, uint32_t slot) { StoreU32(Ma(side), kMaHolderOffset, slot); }
+  void SetMaNearestEntry(int side, int slot, int team, int rank, uint32_t id, float value) {
+    uint8_t* entry = Ma(side) + kMaNearestOffset + static_cast<std::size_t>(slot) * kMaNearestBlockBytes +
+                     static_cast<std::size_t>(team) * kMaListTeamStride + static_cast<std::size_t>(rank) * 8;
+    StoreU32(entry, 0, id);
+    StoreF32(entry, 4, value);
+  }
+  void ClearMaNearestEntry(int side, int slot, int team, int rank) {
+    std::memset(Ma(side) + kMaNearestOffset + static_cast<std::size_t>(slot) * kMaNearestBlockBytes +
+                    static_cast<std::size_t>(team) * kMaListTeamStride + static_cast<std::size_t>(rank) * 8,
+                0xFF, 8);
+  }
   // Entry `rank` of team `team`'s list in MA list block `list` (0 or 1): the slot id, then the value.
   void SetMaListEntry(int side, int list, int team, int rank, uint32_t id, float value) {
     uint8_t* entry = Ma(side) + (list == 0 ? kMaLaneListAOffset : kMaLaneListBOffset) +
