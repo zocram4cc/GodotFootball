@@ -94,9 +94,11 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	_broadcast.reset(sim.ball_position())
-	# Debug entry: --fdc-scene <hex FixDemo scene id, e.g. 0x20009> [--fdc-camera N] plays that scene's camera track.
+	# Debug entry: --fdc-scene <hex FixDemo scene id, e.g. 0x20009> [--fdc-camera N] [--fdc-t0 SECONDS] plays that
+	# scene's camera track; the player clock starts at t0 seconds (the record's startCutTime is on that clock).
 	if args.has("fdc-scene"):
 		_cutscene = PesCutsceneCamera.new()
+		_cut_t = float(args.get("fdc-t0", 0.0))
 		if _cutscene.load_scene(library, String(args["fdc-scene"]).hex_to_int(), int(args.get("fdc-camera", 0))) != OK:
 			get_tree().quit(1)
 			return

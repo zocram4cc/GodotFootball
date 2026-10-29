@@ -596,7 +596,7 @@ TEST(PesFdcRender, WidescreenFixKeepsTheSixteenByNineHorizontalFovOnlyBelowThatA
   EXPECT_EQ(pes::fdc::RenderCameraParams(*k, pose, CameraRecord{}, k->wideAspect * 1.2f, true).fovRad, 0.8f);  // wider
 }
 
-// The worked example of docs/re/pes-re-camera-pose.md §3 (script example.py, float32 throughout):
+// The worked example of docs/re/pes-re-camera-pose.md §3 (tools/dev/cutscene/camera_pose_example.py, float32):
 // ent_001_view_st000_cam2.fdc, camera record 0 (key 20, start 540 ticks, cam0021.canm), the cut offset
 // taken as zero. eye, forward (= -R*z), up (= R*y), fov (radians), clip frame.
 struct WorkedRow {
