@@ -883,11 +883,16 @@ def main():
     ap.add_argument("--exclude-recorded", action="store_true",
                     help="attempt and record only the specs that no other committed results*.json records. The rest "
                          "stay in the spec dir: they are the callee universe, and their own sets own their records.")
+    ap.add_argument("--select", default=None,
+                    help="with --check: a select_recorded.py JSON ({results file: [VA...]}); re-run only the recorded VAs it "
+                         "lists for --record's file (the fast gate). An empty selection passes: nothing it can break changed.")
     args = ap.parse_args()
     if args.traced_cases and (not args.seed_bank or args.perturb):
         ap.error("--traced-cases replays a --seed-bank with real values: give --seed-bank, not --perturb")
     if args.check and not args.record:
         ap.error("--check re-runs the VAs that --record lists as diffed")
+    if args.select and not args.check:
+        ap.error("--select narrows a --check run")
     if args.check:
         recs = json.load(open(args.record))["results"]
         # A record with proof snapdiff was proven from real calls (snapdiff.py, not this harness): not re-run here.
@@ -897,6 +902,12 @@ def main():
         args.bank_vas = {r["va"].upper() for r in recs if r["diffed"] and r.get("corpus") == "bank"}
         if args.bank_vas and not args.seed_bank:
             ap.error("--check: %s record corpus 'bank': give --seed-bank" % " ".join(sorted(args.bank_vas)))
+        if args.select:
+            picked = {v.upper() for v in json.load(open(args.select)).get(os.path.basename(args.record), [])}
+            args.only = [v for v in args.only if v.upper() in picked]
+            if not args.only:
+                print("driver --check: no recorded function of %s selected; nothing to re-check" % args.record)
+                return 0
         if not args.only:
             print("driver --check: nothing recorded as diffed; an empty check is not a pass")
             return 1
