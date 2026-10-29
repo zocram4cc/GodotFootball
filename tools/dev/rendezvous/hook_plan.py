@@ -67,6 +67,10 @@ TARGETS = [
     # The ctx setter 0x141F51630 is not hookable (a je at +3 falls inside the patch window).
     ("fixdemo_ctx_init_141F514D0", 0x141F514D0, "FixDemo ctx init"),
     ("goal_pick_140477400", 0x140477400, "goal cutscene pool pick"),
+    # The carrier's unit walk: the forced-clear decision is inline here (docs/ports/pes-port-MatchInfo3.md).
+    ("carrier_walk_210F110", 0x14210F110, "carrier unit walk (forced clear)"),
+    # The danger writer's input pressure record (MatchInfo4): built right before 0x140699960 runs.
+    ("pressure_build_69A500", 0x14069A500, "pressure record builder feeding the danger writer"),
 ]
 
 
