@@ -28,7 +28,8 @@ import xlate  # noqa: E402
 
 BASE = pdata.IMAGE_BASE
 A, T, B, C = BASE + 0x1000, BASE + 0x1010, BASE + 0x1020, BASE + 0x1100
-MID_T = T + 2  # inside T's first instruction
+MID_B = B + 1  # inside B's first instruction
+LEAF = BASE + 0x1180  # a pdata-less function that follows jump-table data
 INT3 = b"\xcc"
 
 
@@ -48,6 +49,8 @@ def build_image(path):
     img[0x1010:0x1010 + len(thunk)] = thunk
     img[0x1020:0x1024] = bytes.fromhex("4889d8c3")
     img[0x1100] = 0xC3
+    img[0x1170:0x1180] = bytes(range(0x80, 0x90))  # jump-table data, then a leaf with no .pdata entry
+    img[0x1180] = 0xC3
     with open(path, "wb") as f:
         f.write(img)
 
@@ -81,9 +84,10 @@ class ClosureWalk(unittest.TestCase):
         with open(self.image, "rb") as f:
             p = pdata.Pdata(f)
             self.assertTrue(p.is_boundary(A))
-            self.assertTrue(p.is_boundary(T))  # no .pdata entry, after int3 padding
-            self.assertFalse(p.is_boundary(MID_T))  # inside an instruction, outside every .pdata function
-            self.assertFalse(p.is_boundary(B + 1))  # inside a .pdata function
+            self.assertTrue(p.is_boundary(T))  # no .pdata entry
+            self.assertTrue(p.is_boundary(LEAF))  # no .pdata entry, and the bytes before it are table data, not int3
+            self.assertFalse(p.is_boundary(MID_B))  # inside an instruction of a .pdata function
+            self.assertFalse(p.is_boundary(B + 2))  # inside a .pdata function
             self.assertIsNone(p.end_of(T))
 
     def walk_args(self):
@@ -112,9 +116,9 @@ class ClosureWalk(unittest.TestCase):
         return need, err
 
     def test_walk_refuses_an_address_inside_an_instruction(self):
-        need, err = self.run_closure(MID_T)
+        need, err = self.run_closure(MID_B)
         self.assertIn("not a function boundary", err or "")
-        self.assertNotIn("0x%X" % MID_T, need)
+        self.assertNotIn("0x%X" % MID_B, need)
 
     def test_walk_admits_a_real_function_boundary(self):
         need, err = self.run_closure(T)
@@ -135,7 +139,7 @@ class ClosureWalk(unittest.TestCase):
         self.assertNotIn("0x%X" % (B + 2), need)
 
     def test_an_indirect_target_inside_an_instruction_is_an_error(self):
-        need, err = self.run_closure(T, {"0x%X" % A: {"0x%X" % MID_T: 1}})
+        need, err = self.run_closure(T, {"0x%X" % A: {"0x%X" % MID_B: 1}})
         self.assertIn("not a function boundary", err or "")
 
 

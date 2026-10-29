@@ -3,14 +3,13 @@
 
 The one place the tools learn where a function ends without the Ghidra bridge. A function with no .pdata entry (a
 leaf or a thunk: x64 needs no unwind data for a frameless function) still has a start; its end is the next .pdata start
-at most. A decode or a closure walk never crosses into the next .pdata function, and never admits an address that is
-not a function boundary (an address inside a .pdata function other than its start, or one not preceded by int3 padding).
+at most. A decode or a closure walk never crosses into the next .pdata function, and never admits an address inside a
+.pdata function other than its start (a label or the middle of an instruction) as a function.
 """
 import bisect
 import struct
 
 IMAGE_BASE = 0x140000000
-INT3 = 0xCC
 
 
 class Pdata:
@@ -55,11 +54,7 @@ class Pdata:
         return self.starts[i] if i >= 0 and va < self.ends[self.starts[i]] else None
 
     def is_boundary(self, va):
-        """True if va can start a function: a .pdata start, or an address outside every .pdata function that follows
-        int3 padding (a leaf or a thunk). Anything else (inside a function, or mid-instruction) is not a callee."""
-        if va in self.ends:
-            return True
-        if va <= IMAGE_BASE or self.inside(va):
-            return False
-        before = self.read(va - 1, 1)
-        return bool(before) and before[0] == INT3
+        """True if va can start a function: a .pdata start, or an address outside every .pdata function (a leaf or a
+        thunk has no entry; 0x140849D70 follows a jump table, not int3 padding). An address inside a .pdata function
+        other than its start is a label or mid-instruction: never a callee."""
+        return va in self.ends or (va > IMAGE_BASE and not self.inside(va))
