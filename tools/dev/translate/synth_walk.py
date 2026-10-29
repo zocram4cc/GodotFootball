@@ -3,17 +3,20 @@
 
 No live walk call reached the Clear block 0x14210F4F2: the Clear unit 0x142109EB0 (kind 1) answers type 5 only while the
 danger byte imageA+0x31C1 is set AND its unit is enabled that frame (0x142111610), and the walk runs only for a carrier
-that decides (BP+0x18 & 0x10). So this tool takes a danger_builder_2119390 capture (a real call of the unit step
-0x142110D30), runs PES's own bytes from the builder's return on (the unit step's remaining builders and the answer list
-0x142110370) until the walk's entry, patches the kind-1 answer record to type 5 (the Clear unit's output, layout
-EndClear.md §1) and writes that state in rendezvous format (index.json, call.bin, a sparse-copied mem.bin overwritten with
-the emulated pages). frame_trace.py recorded / snapdiff.py replay it like a live capture.
+that decides (BP+0x18 & 0x10). So this tool takes a capture of a real call that runs inside the unit step 0x142110D30 before
+the answer list 0x142110370 and the walk: a danger_builder_2119390 capture (the builder's return) or a carrier_clear_2109EB0
+capture (the Clear unit's return). It runs PES's own bytes from that call's return until the walk's entry and writes that
+state in rendezvous format (index.json, call.bin, a sparse-copied mem.bin overwritten with the emulated pages).
+frame_trace.py recorded / snapdiff.py replay it like a live capture. The source must be a FULL capture: a slimmed one holds
+only the pages its own call read, and the forward run faults on the rest.
 
-SYNTHETIC, label it as such wherever it is cited: everything the walk reads is PES's state except the kind-1 record's type
-word, and the libm calls of the forward run (cosf, sinf, ...) use Python float32 models, not Wine's ucrtbase, so the lane
-lists the forward run builds can differ from a live run's in the last ulp. The walk itself calls no libm.
+--patch-clear (a danger_builder source, where the Clear unit never ran): the kind-1 answer record is set to type 5, the Clear
+unit's output (layout EndClear.md §1). SYNTHETIC, label it as such wherever it is cited: everything the walk reads is PES's
+state except that type word. A carrier_clear source needs no patch (the unit wrote the record) and is real state. In both, the
+libm calls of the forward run (cosf, sinf, ...) use Python float32 models, not Wine's ucrtbase, so lane lists the forward run
+builds can differ from a live run's in the last ulp. The walk itself calls no libm.
 
-Usage: PES_EXE=<pes_full.bin> python3 synth_walk.py DANGER_CAPTURE_DIR OUT_DIR [--hooks hooks.cfg]   (harness Python: unicorn)
+Usage: PES_EXE=<pes_full.bin> python3 synth_walk.py CAPTURE_DIR OUT_DIR [--hooks hooks.cfg] [--patch-clear]   (harness Python: unicorn)
 """
 import argparse
 import json
@@ -44,6 +47,7 @@ LIBM1 = {"sinf": math.sin, "cosf": math.cos, "tanf": math.tan, "atanf": math.ata
          "logf": math.log, "expf": math.exp, "floorf": math.floor, "ceilf": math.ceil}
 LIBM2 = {"atan2f": math.atan2, "powf": math.pow, "fmodf": math.fmod}
 NOOP1 = ("SetEvent", "ResetEvent", "EnterCriticalSection", "LeaveCriticalSection")  # return TRUE; the replay is one thread
+ZERO1 = ("_crt_atexit", "atexit", "_onexit")  # a function-local static's registration: return 0 (success), run nothing
 
 
 def f32(bits):
@@ -74,9 +78,9 @@ def patch_imports():
     def intr(self, uc, intno, data):
         rip = uc.reg_read(xc.UC_X86_REG_RIP)
         _, name, _ = self.sm.export_of(rip)
-        if name in LIBM1 or name in LIBM2 or name in NOOP1:
-            if name in NOOP1:
-                uc.reg_write(xc.UC_X86_REG_RAX, 1)
+        if name in LIBM1 or name in LIBM2 or name in NOOP1 or name in ZERO1:
+            if name in NOOP1 or name in ZERO1:
+                uc.reg_write(xc.UC_X86_REG_RAX, 1 if name in NOOP1 else 0)
             else:
                 a, b = f32(xmm_low(uc, 0)), f32(xmm_low(uc, 1))
                 try:
@@ -99,6 +103,9 @@ def main():
     ap.add_argument("out")
     ap.add_argument("--hooks", default=None, help="rv.dll config (its displaced bytes replace the hook patches)")
     ap.add_argument("--budget", type=int, default=20_000_000)
+    ap.add_argument("--patch-clear", action="store_true",
+                    help="write type 5 into the kind-1 answer record (a danger_builder source: the Clear unit never ran); "
+                         "off for a carrier_clear_2109EB0 source, whose unit wrote the record itself")
     a = ap.parse_args()
     patch_imports()
     orig = ft.hook_bytes(a.hooks) if a.hooks else None
@@ -115,7 +122,8 @@ def main():
     def on_code(u, address, size, data):
         if address == WALK:
             bp = u.reg_read(xc.UC_X86_REG_RCX)
-            u.mem_write(bp + ANSWER_LIST + ANSWER_RECORD + ANSWER_STRIDE * KIND_CLEAR, struct.pack("<I", TYPE_CLEAR))
+            if a.patch_clear:
+                u.mem_write(bp + ANSWER_LIST + ANSWER_RECORD + ANSWER_STRIDE * KIND_CLEAR, struct.pack("<I", TYPE_CLEAR))
             reached.append(True)
             u.emu_stop()
 
