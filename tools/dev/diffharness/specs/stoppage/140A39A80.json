@@ -1,0 +1,892 @@
+{
+ "name": "impure_140A39A80",
+ "va": "0x140A39A80",
+ "entry": "0x140A39A80",
+ "note": "impure-sample spec (ImpureMap). Generated from the image by the pilot analyzer/generator; out-of-set callees, their stub models and blockers are in harness and stubs.json. Closure fix (rules.closure_fix): G child links restored; accessor slots from the image bytes; blanket E1EE slots removed.",
+ "status": "impure-sample",
+ "subsystem": "impure-sample",
+ "stack": {
+  "base": "0x10000000",
+  "size": "0x20000"
+ },
+ "regions": {
+  "A0": {
+   "base": "0x20000000",
+   "size": "0x200000"
+  },
+  "A1": {
+   "base": "0x20400000",
+   "size": "0x200000"
+  },
+  "A1.38": {
+   "base": "0x20800000",
+   "size": "0x200000"
+  },
+  "A1.38.E0": {
+   "base": "0x20C00000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8": {
+   "base": "0x21000000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.40": {
+   "base": "0x21400000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.270": {
+   "base": "0x21800000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.1928": {
+   "base": "0x21C00000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.19C8": {
+   "base": "0x22000000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.1DD8": {
+   "base": "0x22400000",
+   "size": "0x200000"
+  },
+  "IMG.1436F3DC8.E1EE": {
+   "base": "0x22800000",
+   "size": "0x200000"
+  }
+ },
+ "args": {
+  "rcx": "A0",
+  "rdx": "A1"
+ },
+ "regions_init": {
+  "A1+0x38": "A1.38",
+  "A1.38+0xE0": "A1.38.E0",
+  "IMG.1436F3DC8+0x1928": "IMG.1436F3DC8.1928",
+  "IMG.1436F3DC8+0x19C8": "IMG.1436F3DC8.19C8",
+  "IMG.1436F3DC8+0x1DD8": "IMG.1436F3DC8.1DD8",
+  "IMG.1436F3DC8+0x40": "IMG.1436F3DC8.40",
+  "IMG.1436F3DC8+0x270": "IMG.1436F3DC8.270",
+  "IMG.1436F3DC8+0x21E8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2210": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2238": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2260": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2288": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x22B0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x22D8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2300": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2328": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2350": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2378": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x23A0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x23C8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x23F0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2418": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2440": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2468": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2490": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x24B8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x24E0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2508": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2530": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2558": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2580": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x25A8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x25D0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1E00": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1E28": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1E50": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1E78": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1EA0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1EC8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1EF0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1F18": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1F40": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1F68": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1F90": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1FB8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1FE0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2008": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2030": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2058": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2080": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x20A8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x20D0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x20F8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2120": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2148": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2170": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2198": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x21C0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x19F0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1A18": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1A40": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1A68": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1A90": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1AB8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1AE0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1B08": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1B30": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1B58": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1B80": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1BA8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1BD0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1BF8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1C20": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1C48": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1C70": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1C98": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1CC0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1CE8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1D10": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1D38": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1D60": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1D88": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1DB0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x25F8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2620": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2648": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2670": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2698": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x26C0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x26E8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2710": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2738": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2760": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2788": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x27B0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x27D8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2800": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2828": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2850": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2878": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x28A0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x28C8": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x28F0": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2918": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x2940": "IMG.1436F3DC8.E1EE",
+  "IMG.1436F3DC8+0x1950": "IMG.1436F3DC8.E1EE"
+ },
+ "patch_addrs": {
+  "0x1436F3DC8": "IMG.1436F3DC8"
+ },
+ "inputs": {
+  "A0_30": {
+   "region": "A0",
+   "offset": "0x30",
+   "enc": "u32"
+  },
+  "A0_34": {
+   "region": "A0",
+   "offset": "0x34",
+   "enc": "u32"
+  },
+  "A0_38": {
+   "region": "A0",
+   "offset": "0x38",
+   "enc": "u8"
+  },
+  "A0_39": {
+   "region": "A0",
+   "offset": "0x39",
+   "enc": "u8"
+  },
+  "A1_4": {
+   "region": "A1",
+   "offset": "0x4",
+   "enc": "u32"
+  },
+  "A1_38_E0_0": {
+   "region": "A1.38.E0",
+   "offset": "0x0",
+   "enc": "u32"
+  },
+  "A1_38_E0_30": {
+   "region": "A1.38.E0",
+   "offset": "0x30",
+   "enc": "u32"
+  },
+  "A1_38_E0_1900": {
+   "region": "A1.38.E0",
+   "offset": "0x1900",
+   "enc": "u32"
+  },
+  "A1_38_E0_1904": {
+   "region": "A1.38.E0",
+   "offset": "0x1904",
+   "enc": "u32"
+  },
+  "A1_38_E0_1806B4": {
+   "region": "A1.38.E0",
+   "offset": "0x1806B4",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_0": {
+   "region": "IMG.1436F3DC8",
+   "offset": "0x0",
+   "enc": "u64"
+  },
+  "IMG_1436F3DC8_40_2770": {
+   "region": "IMG.1436F3DC8.40",
+   "offset": "0x2770",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_40_2778": {
+   "region": "IMG.1436F3DC8.40",
+   "offset": "0x2778",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_40_2948": {
+   "region": "IMG.1436F3DC8.40",
+   "offset": "0x2948",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_40_2950": {
+   "region": "IMG.1436F3DC8.40",
+   "offset": "0x2950",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_270_116C": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x116C",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_1198": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1198",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_11B2": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x11B2",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_270_1544": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1544",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_1548": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1548",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_154C": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x154C",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_1550": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1550",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_1554": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1554",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_1558": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1558",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_155C": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x155C",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_270_1564": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1564",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_270_1574": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1574",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_1588": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x1588",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_270_158C": {
+   "region": "IMG.1436F3DC8.270",
+   "offset": "0x158C",
+   "enc": "u32"
+  },
+  "IMG_1436F3DC8_1928_254": {
+   "region": "IMG.1436F3DC8.1928",
+   "offset": "0x254",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_19C8_1": {
+   "region": "IMG.1436F3DC8.19C8",
+   "offset": "0x1",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_1DD8_55C": {
+   "region": "IMG.1436F3DC8.1DD8",
+   "offset": "0x55C",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_1DD8_564": {
+   "region": "IMG.1436F3DC8.1DD8",
+   "offset": "0x564",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_E1EE_1": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x1",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_E1EE_254": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x254",
+   "enc": "u8"
+  },
+  "IMG_1436F3DC8_E1EE_55C": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x55C",
+   "enc": "f32"
+  },
+  "IMG_1436F3DC8_E1EE_564": {
+   "region": "IMG.1436F3DC8.E1EE",
+   "offset": "0x564",
+   "enc": "f32"
+  },
+  "scalar_r8": {
+   "reg": "r8",
+   "enc": "u32"
+  },
+  "scalar_r9": {
+   "reg": "r9",
+   "enc": "u32"
+  },
+  "stk0": {
+   "stack_offset": "0x20",
+   "enc": "u64"
+  },
+  "stk1": {
+   "stack_offset": "0x28",
+   "enc": "u64"
+  },
+  "stk2": {
+   "stack_offset": "0x30",
+   "enc": "u64"
+  }
+ },
+ "input_schema": {
+  "A0_30": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_34": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_38": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A0_39": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_38_E0_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_38_E0_30": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "A1_38_E0_1900": {
+   "kind": "choice",
+   "values": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "domain": "ring count 0..8 (pes-re-record-layouts.md \u00a71)"
+  },
+  "A1_38_E0_1904": {
+   "kind": "choice",
+   "values": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "domain": "ring head 0..7 mod 8 (pes-re-record-layouts.md \u00a71)"
+  },
+  "A1_38_E0_1806B4": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_40_2770": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_40_2778": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_40_2948": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_40_2950": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_270_116C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_1198": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_11B2": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_1544": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_1548": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_154C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_1550": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_1554": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_1558": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_155C": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_270_1564": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_270_1574": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_1588": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_270_158C": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_1928_254": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_19C8_1": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_1DD8_55C": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_1DD8_564": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_E1EE_1": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_254": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "IMG_1436F3DC8_E1EE_55C": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "IMG_1436F3DC8_E1EE_564": {
+   "kind": "f32",
+   "lo": -50.0,
+   "hi": 50.0,
+   "domain": "generic f32 -50..50 (no doc range)"
+  },
+  "scalar_r8": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "scalar_r9": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "stk0": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "stk1": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  },
+  "stk2": {
+   "kind": "u8",
+   "lo": 0,
+   "hi": 255,
+   "domain": "generic u8 range 0..255 (no doc range; width-typed)"
+  }
+ },
+ "outputs": {
+  "w_A0_30": {
+   "region": "A0",
+   "offset": "0x30",
+   "enc": "u32"
+  },
+  "w_A0_34": {
+   "region": "A0",
+   "offset": "0x34",
+   "enc": "u32"
+  },
+  "w_A0_38": {
+   "region": "A0",
+   "offset": "0x38",
+   "enc": "u8"
+  },
+  "w_A0_39": {
+   "region": "A0",
+   "offset": "0x39",
+   "enc": "u8"
+  },
+  "ret_eax": {
+   "reg": "eax"
+  }
+ },
+ "ret_note": "eax (integer/bool return; upper bits unchecked)",
+ "seed": 1007,
+ "count": 64,
+ "precheck": {
+  "indirect_calls": [],
+  "tailjumps": [
+   "tailjump@140A3A083",
+   "tailjump@140A3A08B",
+   "tailjump@140A3A0DC",
+   "tailjump@140A3A10B",
+   "tailjump@140A3A157",
+   "tailjump@140A3A15C",
+   "tailjump@140A3A15E",
+   "tailjump@140A3A16C",
+   "tailjump@140A57802"
+  ],
+  "unresolved_mem": 109,
+  "live_data_reads": [
+   "IMG"
+  ],
+  "live_data_writes": [],
+  "rdata_constant_reads": [
+   "IMG"
+  ],
+  "stack_args": {
+   "0": [
+    4,
+    8
+   ],
+   "1": [
+    4,
+    8
+   ],
+   "2": [
+    8
+   ]
+  },
+  "calls": [
+   "140439E50",
+   "140439EF0",
+   "14043A0A0",
+   "1404A53E0",
+   "140A3A500",
+   "140A3A690",
+   "140A3B320",
+   "140A3E190",
+   "140A3E880",
+   "140A48910",
+   "140A48A10",
+   "140A48A30",
+   "140A57720",
+   "140A57800",
+   "140A63940",
+   "140A6CF70",
+   "140A6E3F0",
+   "140A71520",
+   "140A92D40",
+   "140A92DC0",
+   "141E532D0",
+   "141E53520"
+  ],
+  "flags": [
+   "callee-outside-set@14043B870",
+   "callee-outside-set@1405141F0",
+   "callee-outside-set@140518E20",
+   "callee-outside-set@1408C7510",
+   "callee-outside-set@1408C75E0",
+   "callee-outside-set@141084130",
+   "callee-outside-set@1415A1780",
+   "last-not-ret@140A39A80",
+   "last-not-ret@140A3A500",
+   "last-not-ret@140A3A690",
+   "recursion-cut@140A3A500",
+   "recursion-cut@140A3A690",
+   "tailjump@140A3A083",
+   "tailjump@140A3A08B",
+   "tailjump@140A3A0DC",
+   "tailjump@140A3A10B",
+   "tailjump@140A3A157",
+   "tailjump@140A3A15C",
+   "tailjump@140A3A15E",
+   "tailjump@140A3A16C",
+   "tailjump@140A57802",
+   "unresolved-mem@140439E56",
+   "unresolved-mem@140439E5F",
+   "unresolved-mem@140439E67",
+   "unresolved-mem@140439E6C",
+   "unresolved-mem@140439EF4",
+   "unresolved-mem@140439F01",
+   "unresolved-mem@140A39C46",
+   "unresolved-mem@140A39CB0",
+   "unresolved-mem@140A39CB4",
+   "unresolved-mem@140A39CBA",
+   "unresolved-mem@140A39CBE",
+   "unresolved-mem@140A39CD0",
+   "unresolved-mem@140A39CD8",
+   "unresolved-mem@140A39D33",
+   "unresolved-mem@140A39D39",
+   "unresolved-mem@140A39D45",
+   "unresolved-mem@140A39D4D",
+   "unresolved-mem@140A39D90",
+   "unresolved-mem@140A39D96",
+   "unresolved-mem@140A39D9C",
+   "unresolved-mem@140A39DA2",
+   "unresolved-mem@140A39DA5",
+   "unresolved-mem@140A39DAB",
+   "unresolved-mem@140A39E0C",
+   "unresolved-mem@140A39E14",
+   "unresolved-mem@140A39E1B",
+   "unresolved-mem@140A39E22",
+   "unresolved-mem@140A39E3F",
+   "unresolved-mem@140A39E73",
+   "unresolved-mem@140A39E83",
+   "unresolved-mem@140A39E88",
+   "unresolved-mem@140A39EC6",
+   "unresolved-mem@140A39EF4",
+   "unresolved-mem@140A39F68",
+   "unresolved-mem@140A39FEF",
+   "unresolved-mem@140A39FF3",
+   "unresolved-mem@140A3A076",
+   "unresolved-mem@140A3A07C",
+   "unresolved-mem@140A3A088",
+   "unresolved-mem@140A3A0F3",
+   "unresolved-mem@140A3A159",
+   "unresolved-mem@140A3A16E",
+   "unresolved-mem@140A3A174",
+   "unresolved-mem@140A3A8AB",
+   "unresolved-mem@140A3A8B7",
+   "unresolved-mem@140A3A8FE",
+   "unresolved-mem@140A3A90B",
+   "unresolved-mem@140A3A956",
+   "unresolved-mem@140A3A964",
+   "unresolved-mem@140A3A982",
+   "unresolved-mem@140A3A98E",
+   "unresolved-mem@140A3A9AD",
+   "unresolved-mem@140A3A9BF",
+   "unresolved-mem@140A3A9FC",
+   "unresolved-mem@140A3AA01",
+   "unresolved-mem@140A3AA23",
+   "unresolved-mem@140A3AA46",
+   "unresolved-mem@140A3AA4A",
+   "unresolved-mem@140A3AA54",
+   "unresolved-mem@140A3AA61",
+   "unresolved-mem@140A3AA92",
+   "unresolved-mem@140A3AA95",
+   "unresolved-mem@140A3AA99",
+   "unresolved-mem@140A3AA9D",
+   "unresolved-mem@140A3AAA1",
+   "unresolved-mem@140A3AAB3",
+   "unresolved-mem@140A3AACA",
+   "unresolved-mem@140A3AACD",
+   "unresolved-mem@140A3AAD1",
+   "unresolved-mem@140A3AAD5",
+   "unresolved-mem@140A3AAD9",
+   "unresolved-mem@140A3AB10",
+   "unresolved-mem@140A3AB17",
+   "unresolved-mem@140A3AB1B",
+   "unresolved-mem@140A3AB1F",
+   "unresolved-mem@140A3AB23",
+   "unresolved-mem@140A3AB27",
+   "unresolved-mem@140A3AB2B",
+   "unresolved-mem@140A3AB32",
+   "unresolved-mem@140A3AB3B",
+   "unresolved-mem@140A3AB42",
+   "unresolved-mem@140A3AB46",
+   "unresolved-mem@140A3AB4A",
+   "unresolved-mem@140A3AB4E",
+   "unresolved-mem@140A3AB55",
+   "unresolved-mem@140A3AB5E",
+   "unresolved-mem@140A3AB79",
+   "unresolved-mem@140A3AB84",
+   "unresolved-mem@140A3ABA0",
+   "unresolved-mem@140A3ABA9",
+   "unresolved-mem@140A3ABAD",
+   "unresolved-mem@140A3ABB1",
+   "unresolved-mem@140A3ABB8",
+   "unresolved-mem@140A3ABC1",
+   "unresolved-mem@140A3ABCF",
+   "unresolved-mem@140A3ABF5",
+   "unresolved-mem@140A3ABFC",
+   "unresolved-mem@140A3AC04",
+   "unresolved-mem@140A3AC5B",
+   "unresolved-mem@140A3AC93",
+   "unresolved-mem@140A3ACB1",
+   "unresolved-mem@140A3ACBA",
+   "unresolved-mem@140A3ACED",
+   "unresolved-mem@140A3ACF4",
+   "unresolved-mem@140A3ACFB",
+   "unresolved-mem@140A3B335",
+   "unresolved-mem@140A3B35C",
+   "unresolved-mem@140A71525",
+   "unresolved-mem@140A7152E"
+  ],
+  "stub_refs": []
+ },
+ "stub_refs": [],
+ "harness": {
+  "harness_class": "runnable (closure real)",
+  "blockers": [],
+  "out_of_set_callees": [],
+  "indirect_sites": [],
+  "switch_jumps": []
+ },
+ "closure_fix": {
+  "accessors": [
+   "140A48910",
+   "140A489A0",
+   "140A489F0",
+   "140A48A10",
+   "140A48A30"
+  ],
+  "removed_blanket_E1EE_slots": 234,
+  "child_links": 5,
+  "accessor_slots": 102,
+  "rule": "rules.closure_fix: child links + accessor layout from image bytes"
+ }
+}

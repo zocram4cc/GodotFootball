@@ -194,8 +194,9 @@ void ClockDisplay(float totalSeconds, int* minute_db_pitch, int* second);
 // The match clock: one period record per period, advanced by the logic tick.
 class PesClock {
  public:
-  // matchMinutes is the match-time setting, E58: the menu's duration, 5 to 90 minutes.
-  explicit PesClock(const PesClockConstants& constants, float matchMinutes);
+  // matchMinutes is the match-time setting, E58: the menu's duration, 5 to 90 minutes. periodRecord is the match-info
+  // block's period record (pesworldrecord.hpp): the clock writes it in place, so it is not a copy.
+  explicit PesClock(const PesClockConstants& constants, float matchMinutes, PeriodRecord& periodRecord);
 
   // Starts the period's own record: the PES period number, stamp 0, F 0, no LIMIT.
   void SetPhase(e_MatchPhase phase);
@@ -241,7 +242,7 @@ class PesClock {
   e_AddedTimePhase AddedPhase() const;
   PesClockConstants constants;
   e_MatchPhase phase = e_MatchPhase_PreMatch;
-  PeriodRecord record;
+  PeriodRecord& record;  // the match-info block's period record (pesworldrecord.hpp), written in place
   bool frozen = false;
   bool addedTimeAnnounced = false;
   float elapsedSeconds = 0.0f;

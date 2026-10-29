@@ -77,6 +77,9 @@ public:
   virtual ~Referee();
 
   void Process();
+  // Writes this referee's stoppage state into the match-info block at PES's offsets (pesworldrecord.hpp kMi*), for the
+  // translated stoppage functions. Runs at the end of every Process().
+  void PublishPesStoppage();
 
   void PrepareSetPiece(e_SetPiece setPiece);
 

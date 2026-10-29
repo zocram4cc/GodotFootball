@@ -62,11 +62,11 @@ void RefereeController::GetForceField(std::vector<ForceSpot>& forceField) {
 void RefereeController::RequestCommand(PlayerCommandQueue& commandQueue) {
   switch (CastPlayer()->GetOfficialType()) {
     case e_OfficialType_Referee:
+      // PES's judge (0x140A3A930) walks the referee to the fouler while PES's involvement (0x140A3A690, pes-re-ref-record.md
+      // 1.5) holds him in the stop. GF's card-level test and its five-second prepare window are gone with it.
       if (match->GetReferee()->GetBuffer().active == true &&
-          (match->GetReferee()->GetCurrentFoulType() == 2 ||
-           match->GetReferee()->GetCurrentFoulType() == 3) &&
-          match->GetReferee()->GetBuffer().prepareTime >
-              match->GetActualTime_ms() + 5000) {  // FOUL, walk towards offender
+          match->GetReferee()->GetCurrentFoulPlayer() != nullptr &&
+          match->PesWorldOf().Involved(pes::kRefereeOfficialIndex)) {  // FOUL, walk towards offender
 
         // PES 2021 (docs/re/pes-re-foul-choreography.md 9.7): the referee's
         // foul action walks (action 2 = approach) until he is within 4.0 m of

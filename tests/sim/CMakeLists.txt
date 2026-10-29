@@ -170,6 +170,14 @@ target_link_libraries(pes_stall_test PRIVATE gfsim pesfmt GTest::gtest_main)
 target_compile_definitions(pes_stall_test PRIVATE GF_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_discover_tests(pes_stall_test PROPERTIES TIMEOUT 1800)
 
+add_executable(pes_match_info_test pes_match_info_test.cpp)
+target_link_libraries(pes_match_info_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_match_info_test)
+
+add_executable(pes_involvement_test pes_involvement_test.cpp)
+target_link_libraries(pes_involvement_test PRIVATE gfsim pesfmt GTest::gtest_main)
+gtest_discover_tests(pes_involvement_test)
+
 add_executable(pes_setpiece_taker_test pes_setpiece_taker_test.cpp)
 target_link_libraries(pes_setpiece_taker_test PRIVATE gfsim pesfmt GTest::gtest_main)
 gtest_discover_tests(pes_setpiece_taker_test)
