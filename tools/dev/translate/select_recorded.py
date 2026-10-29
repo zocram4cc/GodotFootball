@@ -7,7 +7,9 @@ callees its diff build compiled (transitively), and each file calls them as pes_
 selected when
   - its own generated file, a closure member's generated file, or the spec of either changed since the base, or
   - its record in results*.json is new or changed since the base, or
-  - the translator, the harness or the runtime headers the generated code includes changed (GLOBAL: everything).
+  - the harness (run.py, the stub table), or the runtime headers the generated code includes, changed (GLOBAL: everything).
+A translator edit (xlate.py, flow.py) is not GLOBAL: what it changes shows as a diff of the generated files, and the drift
+check (a ctest test of the same gate) fails if the committed layer is not what the translator now produces.
 Calls through the indirect-dispatch table are not edges: a change to a dispatch-only target selects nothing here; the
 full tier re-checks everything. So does a driver.py edit: it orchestrates the diff but does not shape its output.
 
@@ -28,9 +30,10 @@ LAYER = "src/pes/translated"
 # The committed records a ctest diff_*_recorded test re-checks (tests/pilot/CMakeLists.txt).
 SETS = ("results.json", "results_cutscene.json", "results_presentation.json", "results_core.json",
         "results_impure.json")
-# Changes that can move any function's proof: the translator, the harness, the runtime headers the generated code includes.
+# Changes that can move any function's proof without changing a generated file: the harness and the runtime headers the
+# generated code includes.
 GLOBAL = frozenset("tools/dev/translate/" + n for n in (
-    "xlate.py", "flow.py", "stubs.py", "stubs.json", "diffmain.py", "diffparse.hpp", "fieldmap.json")) | frozenset(
+    "stubs.py", "stubs.json", "diffmain.py", "diffparse.hpp")) | frozenset(
     "tools/dev/diffharness/" + n for n in ("run.py", "bankstore.py", "snapcase.py")) | frozenset(
     LAYER + "/" + n for n in ("pes_state.hpp", "pes_stubs.hpp", "pes_cond.inl", "pes_dispatch.hpp"))
 FN_FILE = re.compile(r"^%s/[^/]+/pes_fn_([0-9A-Fa-f]+)\.cpp$" % LAYER)

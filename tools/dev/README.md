@@ -42,9 +42,10 @@ A recorded function is selected when
    committed layer: every `pes_fn_<VA>.cpp` calls its callees as `pes_fn_<VA>(`, and `gen_translated.py` commits exactly the
    callees each record's diff build compiled; or
 2. its record in `results*.json` is new or changed; or
-3. the translator, the harness or the runtime headers changed (`xlate.py`, `flow.py`, `stubs.py`, `stubs.json`, `diffmain.py`,
-   `diffparse.hpp`, `fieldmap.json`, `diffharness/{run,bankstore,snapcase}.py`, `pes_state.hpp`, `pes_stubs.hpp`,
-   `pes_cond.inl`, `pes_dispatch.hpp`): everything is selected.
+3. the harness or the runtime headers changed (`stubs.py`, `stubs.json`, `diffmain.py`, `diffparse.hpp`,
+   `diffharness/{run,bankstore,snapcase}.py`, `pes_state.hpp`, `pes_stubs.hpp`, `pes_cond.inl`, `pes_dispatch.hpp`): everything
+   is selected. A translator edit (`xlate.py`, `flow.py`) is not in the list: what it changes shows as a diff of the generated
+   files (item 1), and `diff_translated_drift`, in the same gate, fails if the committed layer is not what it now produces.
 
 The gate writes the selection to `<build>/gate.select.json` and exports it as `GF_RECORDED_SELECT`; each `diff_*_recorded` test
 then runs `driver.py --check --select`. With no selection for a set the test passes at once ("nothing to re-check"). Without

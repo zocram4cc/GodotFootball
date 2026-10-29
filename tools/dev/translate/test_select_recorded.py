@@ -67,8 +67,8 @@ class Synthetic(unittest.TestCase):
     def test_a_changed_spec_selects_its_function(self):
         self.assertEqual(self.pick(["tools/dev/diffharness/specs/core/140000400.json"]), ["0x140000400"])
 
-    def test_a_translator_or_runtime_header_change_selects_everything(self):
-        for p in ("tools/dev/translate/xlate.py", "src/pes/translated/pes_state.hpp", "tools/dev/diffharness/run.py"):
+    def test_a_harness_or_runtime_header_change_selects_everything(self):
+        for p in ("tools/dev/translate/stubs.json", "src/pes/translated/pes_state.hpp", "tools/dev/diffharness/run.py"):
             self.assertEqual(self.pick([p]), ["0x140000100", "0x140000400"], p)
 
     def test_a_new_or_changed_record_is_selected(self):
