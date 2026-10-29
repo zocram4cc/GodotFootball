@@ -51,6 +51,7 @@ Error PesCutsceneCamera::load_file(const Ref<PesLibrary>& library, const String&
     return ERR_PARSE_ERROR;
   }
   canm_ = std::move(canm);
+  if (cutHolder_.cuts.empty()) cutHolder_.cuts = file.cuts;  // load_layers may have taken them from the base layer
   record_ = cam;
   k_ = *library->cutscene_camera_constants();
   return OK;
@@ -60,6 +61,18 @@ Error PesCutsceneCamera::load_layers(const Ref<PesLibrary>& library, int categor
                                      int camera_index) {
   if (!library.is_valid()) return ERR_UNCONFIGURED;
   const auto& vfs = library->vfs();
+  // The player's cut map is filled from every layer of the variant; the first layer that has a Cut record supplies the
+  // one that starts (the base layer: the camera layers carry cameras only). ponytail: PES merges the layers' maps in
+  // its own load order (0x141F36200 callers); first-with-a-cut is the observed shape of the goal variants.
+  cutHolder_.cuts.clear();
+  for (int i = 0; i < names.size() && cutHolder_.cuts.empty(); ++i) {
+    const std::string path = pes::FixDemoCutDataPath(category, names[i].utf8().get_data());
+    if (path.empty() || !vfs.Exists(path)) continue;
+    std::string err;
+    auto bytes = vfs.Read(path, &err);
+    pes::fdc::File layer;
+    if (bytes && pes::fdc::Parse(*bytes, &layer, &err)) cutHolder_.cuts = layer.cuts;
+  }
   for (int i = 0; i < names.size(); ++i) {
     const std::string path = pes::FixDemoCutDataPath(category, names[i].utf8().get_data());
     if (path.empty() || !vfs.Exists(path)) continue;
@@ -82,7 +95,8 @@ void PesCutsceneCamera::update(Camera3D* camera, double t_s) {
   // supplies a target. Replace it with that player's value when it is ported (the entrance records have rate 0).
   const pes::fdc::PoseConstants& k = *k_;
   const float clock = float(t_s) * k.sixty;
-  const pes::fdc::CameraPose pose = pes::fdc::EvaluateCameraPose(k, *canm_, record_, clock, cutOffset_, 0.0f);
+  const pes::fdc::CameraPose pose = pes::fdc::EvaluateCameraPose(k, *canm_, record_, clock,
+                                                                 pes::fdc::CutStartOffset(cutHolder_, stageDefault_), 0.0f);
   const Viewport* vp = camera->get_viewport();
   const Vector2 size = vp ? vp->get_visible_rect().size : Vector2(1, 1);
   const pes::fdc::RenderCamera r = pes::fdc::RenderCameraParams(k, pose, record_, float(size.x / size.y), widescreenFix_);
@@ -102,7 +116,7 @@ void PesCutsceneCamera::_bind_methods() {
   ClassDB::bind_method(D_METHOD("duration_s"), &PesCutsceneCamera::duration_s);
   ClassDB::bind_method(D_METHOD("update", "camera", "t_s"), &PesCutsceneCamera::update);
   ClassDB::bind_method(D_METHOD("set_widescreen_fix", "on"), &PesCutsceneCamera::set_widescreen_fix);
-  ClassDB::bind_method(D_METHOD("set_cut_offset", "pos", "rot_y_deg", "flip"), &PesCutsceneCamera::set_cut_offset);
+  ClassDB::bind_method(D_METHOD("set_stage_default", "pos", "rot_y_deg", "flip"), &PesCutsceneCamera::set_stage_default);
 }
 
 }  // namespace godot

@@ -312,10 +312,10 @@ bool File::HasRecordType(uint8_t type) const {
 }
 
 CutOffset CutStartOffset(const File& file, const CutOffset& stageDefault) {
-  const CutRecord* first = nullptr;  // 0x141F2E0DB..: lower_bound(0) over the cut map
+  const CutRecord* first = nullptr;  // 0x141F2DD80, before 0x141F2E115: lower_bound(0) over the cut map (player+0xAE8)
   for (const CutRecord& c : file.cuts)
     if (c.id >= 0 && (!first || c.id < first->id)) first = &c;
-  if (!first || !first->useOffset) return stageDefault;  // 0x141F2E14F.. the +0x49 flag test
+  if (!first || !first->useOffset) return stageDefault;  // the map node's +0x49 flag test (decompile; asm VA not read)
   CutOffset o;
   o.pos = first->offsetPos;
   o.rotYDeg = first->offsetRotYDeg;
