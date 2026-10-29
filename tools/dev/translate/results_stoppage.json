@@ -1,0 +1,689 @@
+{
+ "note": "stoppage results. diffed = bit-exact vs the unicorn harness. 'provisional' in a note means the spec reads writable image globals at on-disk values. 'stubs' lists the callees that stubs.json models.",
+ "results": [
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 64,
+   "coverage": {},
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 0,
+   "failure_class": "unmodellable callee",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "call 141B4B560: indirect call qword ptr [rax + 0x20] at 141B4B596; callee 1415A1708: import slot 14252FD70 has no name in the image (qword ptr [rip + 0xf8e662])",
+   "requested": 0,
+   "stubs": [],
+   "translated": false,
+   "va": "0x140445E90"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 64,
+   "coverage": {},
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 0,
+   "failure_class": "unmodellable callee",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "call 140449390: callee 141B4B560: indirect call qword ptr [rax + 0x20] at 141B4B596; callee 1415A1708: import slot 14252FD70 has no name in the image (qword ptr [rip + 0xf8e662]); call 1404494E0: callee 141B4B560: indire",
+   "requested": 0,
+   "stubs": [],
+   "translated": false,
+   "va": "0x14044C880"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 128,
+   "coverage": {
+    "0x14042D5E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x14047F170": {
+     "fraction": 0.067,
+     "reached": 13,
+     "total": 194
+    },
+    "0x1408C9DF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A3AF90": {
+     "fraction": 0.4167,
+     "reached": 5,
+     "total": 12
+    },
+    "0x140A3B520": {
+     "fraction": 0.3333,
+     "reached": 2,
+     "total": 6
+    },
+    "0x140A3C050": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 2
+    },
+    "0x140A3C070": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 5
+    },
+    "0x140A3E150": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 6
+    },
+    "0x140A3E8A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A489D0": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6BD00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A6BD80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A73E20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A74D00": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A7F0F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A7F580": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A80CF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A80D10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 29
+    },
+    "0x140A80EF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A81040": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A81230": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 20
+    },
+    "0x1414DAB90": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141794410": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 93,
+   "nonreturn": 0,
+   "note": "128 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.07; 128 valid of 64 requested",
+   "requested": 64,
+   "stubs": [
+    "0x14159F3E0"
+   ],
+   "translated": true,
+   "va": "0x14047F170"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 64,
+   "coverage": {},
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 0,
+   "failure_class": "unmodellable callee",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "call 14047C500: callee 141F500D0: global store qword ptr [rip + 0x18a5c33], r at 141F50116; callee 1403FB410: indirect call qword ptr [rax + 0x10] at 1403FB47E; indirect call qword ptr [rax + 0x10] at 1403FB49F; callee 1",
+   "requested": 0,
+   "stubs": [],
+   "translated": false,
+   "va": "0x140480910"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x140A38F20": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 48
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E7D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A489D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A60500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A627E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x140A69DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6E320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A8F7C0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92C80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x141E53520": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x1421B7D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 128,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 128 failed skipped",
+   "requested": 64,
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A38F20"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x140439E50": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140439EF0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 9
+    },
+    "0x14043A0A0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x1404A53E0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 13
+    },
+    "0x140A39A80": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 39
+    },
+    "0x140A3A500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 35
+    },
+    "0x140A3A690": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 40
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E190": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A3E880": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A57720": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A57800": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x140A63940": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 4
+    },
+    "0x140A6CF70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6E3F0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A71520": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A92D40": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 11
+    },
+    "0x140A92DC0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E53520": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 128,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 128 failed skipped",
+   "requested": 64,
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A39A80"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 101,
+   "coverage": {
+    "0x140A3A500": {
+     "fraction": 0.5429,
+     "reached": 19,
+     "total": 35
+    },
+    "0x140A3A690": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 40
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6CF70": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x141E532D0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x141E53520": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 75,
+   "nonreturn": 0,
+   "note": "101 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.54; 101 valid of 64 requested",
+   "requested": 64,
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A3A500"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 128,
+   "coverage": {
+    "0x140A3A500": {
+     "fraction": 0.6857,
+     "reached": 24,
+     "total": 35
+    },
+    "0x140A3A690": {
+     "fraction": 0.325,
+     "reached": 13,
+     "total": 40
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A48910": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6CF70": {
+     "fraction": 0.6667,
+     "reached": 2,
+     "total": 3
+    },
+    "0x141E532D0": {
+     "fraction": 1.0,
+     "reached": 1,
+     "total": 1
+    },
+    "0x141E53520": {
+     "fraction": 1.0,
+     "reached": 3,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 162,
+   "nonreturn": 0,
+   "note": "128 cases bit-exact; provisional (live-state globals at on-disk values); own-block coverage 0.33; 128 valid of 64 requested",
+   "requested": 64,
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A3A690"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x140A3A500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 35
+    },
+    "0x140A3A690": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 40
+    },
+    "0x140A3A870": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 8
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6CF70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E53520": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 82,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 82 failed skipped",
+   "requested": 64,
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A3A870"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x140A3A500": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 35
+    },
+    "0x140A3A690": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 40
+    },
+    "0x140A3A930": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 23
+    },
+    "0x140A3B320": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 10
+    },
+    "0x140A48910": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A10": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A48A30": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x140A6CF70": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    },
+    "0x141E532D0": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 1
+    },
+    "0x141E53520": {
+     "fraction": 0.0,
+     "reached": 0,
+     "total": 3
+    }
+   },
+   "dead_blocks": {},
+   "diffed": false,
+   "failed": 128,
+   "failure_class": "harness cannot run",
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "corpus empty (0 cases); 0 valid of 64 requested; 128 failed skipped",
+   "requested": 64,
+   "stubs": [],
+   "translated": true,
+   "va": "0x140A3A930"
+  }
+ ]
+}

@@ -2761,6 +2761,13 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // state 0x140a6e300 and box pressure are not decoded to GF state, so they stay off.
   [[maybe_unused]] const int dribbleSub = pes::DribbleSubKind(chooser, false, carrier);
 
+  // imageA+0x31C1, the danger flag the carrier units read: PES's unit builder 0x142119390 stores it from 0x140699960.
+  // ponytail: neither is translated (0x140699960's closure is 108 functions over lane and team records GF does not hold);
+  // the carrier's own-third pressure stands in, written to the window byte the translated Clear unit tests. Replace this
+  // one site with the translated writer; the Long, BackSpace and Safety units read the byte back.
+  pes::PesWorld& pesWorld = match->PesWorldOf();
+  const int sideIndex = team->GetID();
+  pesWorld.SetClearDanger(sideIndex, attackSign * carrierPos.coords[0] < -pitchHalfW / 3.0f && carrierPressureClass == 0);
   pes::PassAnswer pass;
   if (rethink) pass = passAnswer();
   // The Long unit (kind 9, 0x14212AD40) answers on the rethink too: owned or
@@ -2769,10 +2776,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   if (rethink && (carrierImage.id == pes::kPlanLong || carrierImage.id == pes::kPlanBasic)) {
     pes::LongUnitInput longIn;
     longIn.owned = CastPlayer()->GetPossessionDuration_ms() > 0;
-    // ponytail: the danger flag (imageA+0x31C1, 0x140699960) is not ported;
-    // the carrier's own-third pressure stands in for it.
-    longIn.danger = attackSign * carrierPos.coords[0] < -pitchHalfW / 3.0f &&
-                    carrierPressureClass == 0;
+    longIn.danger = pesWorld.ClearDanger(sideIndex);  // imageA+0x31C1, written above
     longIn.ballHeight_m = ballHeight;
     longIn.plan = carrierImage.id;
     // ponytail: the plan target (+0xCC) and its validity (0x1421240B0) are
@@ -2945,10 +2949,7 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
                                                         carrierVel.coords[1]);
     const float carrierKmh = carrierVel.GetLength() * carrier.kmhPerMs;
     const float ballKmh = ballMove.GetLength() * carrier.kmhPerMs;
-    // ponytail: imageA+0x31C1 (danger, 0x140699960) is not ported; the carrier's own-third pressure
-    // stands in, as the Long unit does.
-    const bool danger =
-        attackSign * carrierPos.coords[0] < -pitchHalfW / 3.0f && carrierPressureClass == 0;
+    const bool danger = pesWorld.ClearDanger(sideIndex);  // imageA+0x31C1, written above
     // ponytail: the lane heading is the angle table 0x140A71260 + 180 (writer undecoded, helpers §5);
     // the carrier's facing stands in, as GoalFront does.
     const float laneHeading = WrapDeg(facingTheta + 180.0f);
@@ -3306,9 +3307,15 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   toGlobalId(safetyPass);
   toGlobalId(oneTwoPass);
   toGlobalId(directHighPass);
+  // The Clear unit (kind 1, 0x142109EB0): PES's own function run on the world window. It answers only while imageA+0x31C1
+  // (the danger flag written above) is set, and then runs the corridor angle 0x142108630 over the window's records.
+  pes::CarrierAnswer clearAnswer;
+  const pes::PesWorld::ClearAnswer cleared =
+      pesWorld.RunClearUnit(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())));
+  if (cleared.type == static_cast<uint32_t>(pes::kAnswerClear)) clearAnswer = {pes::kAnswerClear, 0, cleared.angle_deg};
   const std::vector<pes::UnitSlot> table =
       pes::FillUnitTable(pes::BuildUnitList(list), shotAnswer, pass, longPass, crossPass,
-                         goalFrontPass, backSpacePass, safetyPass, oneTwoPass, directHighPass);
+                         goalFrontPass, backSpacePass, safetyPass, oneTwoPass, directHighPass, clearAnswer);
   pes::WalkContext walk;
   // The restart mode: 3 in a set piece, 1 in play, 2 stopped (report 5, MI+0x116C).
   walk.restartMode = match->IsInSetPiece() ? 3 : (match->IsInPlay() ? 1 : 2);
@@ -3346,6 +3353,11 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   else if (won.kind == 6) addPass(safetyPass);
   else if (won.kind == 10) addPass(oneTwoPass);
   else if (won.kind == 11) addPass(directHighPass);
+  else if (won.kind == 1) {
+    // The Clear unit's own answer: the corridor angle (PES bearing, window coordinates: z is GF's y) is the direction.
+    const float heading = won.answer.angle_deg / degreesPerRadian;
+    _AddClearance(commandQueue, Vector3(std::sin(heading), std::cos(heading), 0.0f));
+  }
 }
 
 void ElizaController::_AddPass(std::vector<PlayerCommand>& commandQueue, Player* target,
@@ -3390,7 +3402,10 @@ void ElizaController::_AddPanicPass(std::vector<PlayerCommand>& commandQueue,
                         e_FunctionType_HighPass, opponentPlayerImages, 1.0f);
   }
   const Vector3 panicDir = laneDirs[GameplayTuning::GetSafestPanicLane(laneOdds)];
+  _AddClearance(commandQueue, panicDir);
+}
 
+void ElizaController::_AddClearance(std::vector<PlayerCommand>& commandQueue, const Vector3& panicDir) {
   PlayerCommand command;
   command.useDesiredMovement = false;
   command.useDesiredLookAt = false;

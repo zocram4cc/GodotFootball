@@ -1,0 +1,51 @@
+{
+ "0x140A38F20": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 346,
+  "subsystem": "referee"
+ },
+ "0x140A39A80": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 434,
+  "subsystem": "referee"
+ },
+ "0x140A3A500": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 398,
+  "subsystem": "referee"
+ },
+ "0x140A3A690": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 468,
+  "subsystem": "referee"
+ },
+ "0x140A3A870": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 179,
+  "subsystem": "referee"
+ },
+ "0x140A3A930": {
+  "callees": {},
+  "how": "pdata",
+  "scope": "in",
+  "size": 338,
+  "subsystem": "referee"
+ },
+ "0x141E53520": {
+  "callees": {},
+  "how": "pdata-next-start",
+  "scope": "in",
+  "size": 32,
+  "subsystem": "ai"
+ }
+}

@@ -74,11 +74,6 @@ bool ContestBallPredicate(const ContestInput& in);
 // The latch's value for `in.team` at this frame; the caller stores it.
 bool TeamPossessionLatch(const PossessionLatchInput& in);
 
-// PES's logic frame at `ms` real milliseconds: the logic steps `gs` times per real second
-// (one 1/54 s step per frame), so the frame is floor(ms * gs / 1000). MI+0x1198 counts those
-// steps (docs/re/pes-re-clock-live.md section 3: about 57 per wall second in play).
-int PesFrameOf(uint64_t ms, int gs);
-
 }  // namespace pes
 
 #endif

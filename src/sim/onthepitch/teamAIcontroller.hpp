@@ -162,6 +162,8 @@ public:
   // either side's team tick, so a mark table reads this frame's rows of the other side too.
   const pes::ScoreRows& Rows() const { return scoreRows_.Rows(); }
   void TickScoreRows();
+  // The side's AI record MA in the world window: the lane lists, the ball copy and the holder (TickScoreRows calls it).
+  void WriteMaRecord();
   pes::ScoreRowWriter scoreRows_;
   // PES 2021's mark table (team-tick step 35, FUN_1404F61E0, T7a `0x1404F76B1`):
   // rebuild markTableState from the run world each team tick on the PES path.

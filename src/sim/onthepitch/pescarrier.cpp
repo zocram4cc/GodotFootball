@@ -1113,7 +1113,6 @@ float PlanHeadingDeg(int mode, float carrierX, float carrierZ, float attackSign,
 // PES's list order is the table order the list builder writes (0x1421112c0); the walk reads it.
 namespace {
 
-constexpr int kAnswerClear = 5;    // type 5: the clear (0x142109eb0)
 constexpr int kAnswerRequest = 7;  // type 7: the pass to a requester (RespondRequest)
 
 const UnitSlot* FindSlot(const std::vector<UnitSlot>& table, int kind) {
@@ -2418,12 +2417,14 @@ std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnsw
                                     const PassAnswer& fwd, const PassAnswer& lng,
                                     const PassAnswer& cross, const PassAnswer& goalFront,
                                     const PassAnswer& backSpace, const PassAnswer& safety,
-                                    const PassAnswer& oneTwo, const PassAnswer& directHigh) {
+                                    const PassAnswer& oneTwo, const PassAnswer& directHigh,
+                                    const CarrierAnswer& clear) {
   std::vector<UnitSlot> table;
   for (const int kind : kinds) {
     UnitSlot slot;
     slot.kind = kind;
     if (kind == 0 && shotAnswer) slot.answer = {kAnswerShoot, 1};
+    if (kind == 1) slot.answer = clear;
     if (kind == 4 && fwd.index >= 0) slot.answer = {kAnswerPass, fwd.kind};
     if (kind == 9 && lng.index >= 0) slot.answer = {kAnswerPass, lng.kind};
     if (kind == 7 && cross.index >= 0) slot.answer = {kAnswerPass, cross.kind};

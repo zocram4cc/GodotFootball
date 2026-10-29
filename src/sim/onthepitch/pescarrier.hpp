@@ -816,13 +816,15 @@ void AdvanceImageSelection(CarrierImageSelection& sel, CancelFn cancel, AdmitFn 
 // --- the answer record, the unit table and the arbitration walk (report 5, 6; MainEval f, h, i) ---
 
 // The answer type a unit or the default writes (the 0x1C-byte record, report 6).
-enum CarrierAnswerType { kAnswerNone = 0, kAnswerShoot = 1, kAnswerPass = 2, kAnswerDribble = 3 };
+// kAnswerClear is the Clear unit's type word (0x142109EB0 stores 5 at answer+0).
+enum CarrierAnswerType { kAnswerNone = 0, kAnswerShoot = 1, kAnswerPass = 2, kAnswerDribble = 3, kAnswerClear = 5 };
 
 // What a unit answers: its type and sub-kind (a pass's PassKind, a shot's sub-kind a, a dribble's
 // DribbleSub). PES has no reachable Keep (sub 2): see report §15, the chooser returns only 4-6.
 struct CarrierAnswer {
   int type = kAnswerNone;
   int sub = 0;
+  float angle_deg = 0.0f;  // the Clear unit's corridor angle (answer+8, 0x142109EB0); 0 for every other kind
   bool operator==(const CarrierAnswer&) const = default;
 };
 
@@ -861,16 +863,17 @@ struct UnitListInput {
 std::vector<int> BuildUnitList(const UnitListInput& in);
 
 // The table fill: one slot per listed kind, in list order. Kind 0 takes the
-// shot answer, 4 the PassForward answer, 9 the Long answer, 7 the Cross
-// answer, 2 the GoalFront answer, 3 the BackSpace answer, 6 the Safety answer, 10 the OneTwo answer
-// and 11 the DirectHighBall answer; every other kind answers nothing here.
+// shot answer, 1 the Clear unit's answer (the translated 0x142109EB0 run on the world window), 4 the PassForward answer,
+// 9 the Long answer, 7 the Cross answer, 2 the GoalFront answer, 3 the BackSpace answer, 6 the Safety answer, 10 the
+// OneTwo answer and 11 the DirectHighBall answer; every other kind answers nothing here.
 std::vector<UnitSlot> FillUnitTable(const std::vector<int>& kinds, bool shotAnswer,
                                     const PassAnswer& fwd, const PassAnswer& lng,
                                     const PassAnswer& cross, const PassAnswer& goalFront,
                                     const PassAnswer& backSpace,
                                     const PassAnswer& safety = PassAnswer{},
                                     const PassAnswer& oneTwo = PassAnswer{},
-                                    const PassAnswer& directHigh = PassAnswer{});
+                                    const PassAnswer& directHigh = PassAnswer{},
+                                    const CarrierAnswer& clear = CarrierAnswer{});
 
 // A lane unit's answer names a lane slot (own team 0..10, opponents 11..21, each side in its active-list order); the
 // pass command takes a global player id, so the answer converts through the two active lists. -1 when the slot

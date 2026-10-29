@@ -16,6 +16,7 @@
 #include "pessequencer.hpp"
 #include "goalsequence.hpp"
 #include "match.hpp"
+#include "pescarrier.hpp"
 #include "officials.hpp"
 #include "player/playerofficial.hpp"
 #include "matchprogression.hpp"
@@ -152,6 +153,7 @@ Referee::Referee(Match* match) : match(match) {
   // historical thresholds.
 
   foul.foulPlayer = nullptr;
+  foul.foulVictim = nullptr;
   foul.foulType = 0;
   foul.advantage = false;
   foul.foulTime = 0;
@@ -753,6 +755,64 @@ void Referee::Process() {
 
   if (afterSetPieceRelaxTime_ms > 0)
     afterSetPieceRelaxTime_ms -= 10;
+  PublishPesStoppage();
+}
+
+// PES's restart kind and stop reason for a set piece (pes-re-ref-record.md 1.2): kinds 1 kick-off .. 7 period end, and a
+// stop is 1 period end, 3 kick-off, 5 foul or offside (a free kick or penalty), else 4 ball out.
+static uint32_t PesRestartKind(e_SetPiece setPiece) {
+  switch (setPiece) {
+    case e_SetPiece_KickOff: return 1;
+    case e_SetPiece_ThrowIn: return 2;
+    case e_SetPiece_GoalKick: return 3;
+    case e_SetPiece_Corner: return 4;
+    case e_SetPiece_FreeKick: return 5;
+    case e_SetPiece_Penalty: return 6;
+    case e_SetPiece_PeriodEnd: return 7;
+    case e_SetPiece_None: default: return 0;
+  }
+}
+
+static uint32_t PesStopReason(e_SetPiece setPiece) {
+  switch (setPiece) {
+    case e_SetPiece_PeriodEnd: return 1;
+    case e_SetPiece_KickOff: return 3;
+    case e_SetPiece_FreeKick: case e_SetPiece_Penalty: return 5;
+    case e_SetPiece_GoalKick: case e_SetPiece_Corner: case e_SetPiece_ThrowIn: return 4;
+    case e_SetPiece_None: default: return 0;
+  }
+}
+
+// ponytail: a mirror of buffer and foul into the match-info block. The GF copies move into the block at their writers
+// (docs/ports/pes-port-FoulOffside2.md section 5, item 4); until then this is the only writer of the stoppage words.
+void Referee::PublishPesStoppage() {
+  pes::PesWorld& world = match->PesWorldOf();
+  uint8_t* mi = world.MatchInfo();
+  const bool restart = buffer.active;
+  const bool freeKickOrPenalty =
+      restart && (buffer.desiredSetPiece == e_SetPiece_FreeKick || buffer.desiredSetPiece == e_SetPiece_Penalty);
+  // A free kick or penalty is a direct foul (2) when a foul is on the books, else an offside (1).
+  const bool foulOnBooks = foul.foulType != 0 && foul.foulPlayer != nullptr;
+  const uint32_t cardLevel = foul.foulType == 1 ? 1u : foul.foulType == 2 ? 3u : foul.foulType == 3 ? 4u : 0u;
+  pes::StoreU32(mi, pes::kMiRestartKindOffset, restart ? PesRestartKind(buffer.desiredSetPiece) : 0u);
+  pes::StoreU32(mi, pes::kMiRestartSideOffset, static_cast<uint32_t>(buffer.teamID));
+  pes::StoreF32(mi, pes::kMiSpotXOffset, buffer.restartPos.coords[0]);
+  pes::StoreF32(mi, pes::kMiSpotZOffset, buffer.restartPos.coords[1]);
+  pes::StoreU32(mi, pes::kMiStopReasonOffset, restart ? PesStopReason(buffer.desiredSetPiece) : 0u);
+  pes::StoreU32(mi, pes::kMiFoulKindOffset, freeKickOrPenalty ? (foulOnBooks ? 2u : 1u) : 0u);
+  pes::StoreU32(mi, pes::kMiCardLevelOffset, cardLevel);
+  pes::StoreU32(mi, pes::kMiFoulerOffset,
+                foul.foulPlayer ? static_cast<uint32_t>(match->PesSlotOf(foul.foulPlayer)) : static_cast<uint32_t>(pes::kMiNoSlot));
+  pes::StoreU32(mi, pes::kMiVictimOffset,
+                foul.foulVictim ? static_cast<uint32_t>(match->PesSlotOf(foul.foulVictim)) : static_cast<uint32_t>(pes::kMiNoSlot));
+  pes::StoreU32(mi, pes::kMiOffsideFlagOffset, offsidePlayers.empty() ? 0u : 1u);
+  mi[pes::kMiRestartArmedOffset] = buffer.prepared ? 1 : 0;
+  // The side records' attack sign (T+0x254) and attack angle (T+0x250; PES's 0x1404FEBD0 stores the angle the sign picks).
+  for (int team = 0; team < pes::kSideCount; ++team) {
+    const float sign = static_cast<float>(-match->GetTeam(team)->GetSide());
+    world.SetAttackSign(team, static_cast<int>(sign));
+    world.SetAttackAngle(team, pes::AttackAngleDeg(sign));
+  }
 }
 
 void Referee::IssueDeferredCards() {

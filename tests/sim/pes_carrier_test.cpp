@@ -1209,6 +1209,35 @@ TEST(PesCarrierTable, KindThreeCarriesOnlyTheBackSpaceAnswer) {
   EXPECT_EQ(silent[0].answer.type, pes::kAnswerNone);
 }
 
+// Kind 1 is the Clear unit's slot: it takes the unit's answer (type 5 and the corridor angle) and nothing else's.
+TEST(PesCarrierTable, KindOneCarriesTheClearUnitsAnswerAndItsAngle) {
+  pes::PassAnswer none;
+  pes::CarrierAnswer clear{pes::kAnswerClear, 0, 123.5f};
+  const std::vector<pes::UnitSlot> table =
+      pes::FillUnitTable({0, 1, 4}, false, none, none, none, none, none, none, none, none, clear);
+  EXPECT_EQ(table[0].answer.type, pes::kAnswerNone) << "kind 0 has no shot answer";
+  EXPECT_EQ(table[1].answer.type, pes::kAnswerClear);
+  EXPECT_FLOAT_EQ(table[1].answer.angle_deg, 123.5f);
+  EXPECT_EQ(table[2].answer.type, pes::kAnswerNone) << "the clear answer reaches kind 1 only";
+  const std::vector<pes::UnitSlot> silent = pes::FillUnitTable({1}, false, none, none, none, none, none);
+  EXPECT_EQ(silent[0].answer.type, pes::kAnswerNone) << "no unit answer, no clear";
+}
+
+// The walk keeps a clear only when rule 7 lets it: a pass kind that answers replaces it unless the forced-clear test holds.
+TEST(PesCarrierTable, ARulesSevenClearGivesWayToAnAnsweringPassUnlessForced) {
+  pes::PassAnswer none, fwd;
+  fwd.index = 4;
+  fwd.kind = pes::kPassShort;
+  const pes::CarrierAnswer clear{pes::kAnswerClear, 0, 10.0f};
+  const std::vector<pes::UnitSlot> table = pes::FillUnitTable({1, 4}, false, fwd, none, none, none, none, none, none, none, clear);
+  EXPECT_EQ(pes::WalkCarrierUnits(table, pes::WalkContext{}).kind, 4) << "the pass replaces the clear";
+  pes::WalkContext forced;
+  forced.forcedClear = true;
+  const pes::UnitSlot won = pes::WalkCarrierUnits(table, forced);
+  EXPECT_EQ(won.kind, 1);
+  EXPECT_FLOAT_EQ(won.answer.angle_deg, 10.0f);
+}
+
 // --- the Dribble sub-kind chooser (report 2.1, 0x14212f1c0) and its dispatch (0x14212fe70) ---
 
 namespace {

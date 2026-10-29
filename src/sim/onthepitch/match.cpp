@@ -105,7 +105,9 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   // The match-time setting, clamped to the menu's range (E58, A6Writers 6).
   const float matchMinutes =
       std::clamp(matchDurationMinutes, kMinimumMatchDurationMinutes, kMaximumMatchDurationMinutes);
-  pesClock = std::make_unique<pes::PesClock>(*pesClockConstants, matchMinutes);
+  // PES's world window (pesworldrecord.hpp) exists before the clock: the match-info block holds the clock's period record.
+  pesWorld = std::make_unique<pes::PesWorld>();
+  pesClock = std::make_unique<pes::PesClock>(*pesClockConstants, matchMinutes, pesWorld->Period());
 
   // PES 2021's ball physics (docs/re/pes-re-ball-contact.md): every constant
   // comes from the install - the `ball.o` record of constant_match.bin and the
@@ -193,9 +195,18 @@ Match::Match(MatchData* matchData, const MatchSetup& setup, const Properties& co
   pesContactConstants = *setup.pesContactConstants;
   // PES's G tables and the per-player blocks GF owns beside them (pesworldrecord.hpp). The contact pass keeps its flags
   // in the man records. ponytail: PES's block allocator is OPEN (pes-re-player-record.md OPEN-1); this array stands in.
-  // ponytail: the side tables name team records, which join the window with S5/S7; until then they stay null.
-  pesWorld = std::make_unique<pes::PesWorld>();
+  // The side tables name the side records (pesworldrecord.hpp SideVa, bound by PesWorld's constructor); the attack
+  // signs are written each tick by Referee::PublishPesStoppage. The officials' anime and man entries are bound here.
   for (int slot = 0; slot < pes::kSlotCount; ++slot) pesWorld->BindSlot(slot);
+  for (int official = 0; official < pes::kOfficialCount; ++official)
+    pesWorld->BindOfficial(pes::kRefereeOfficialIndex + official);
+  // The pitch record F (G+0x2AA8's target), F[k] at +4k, from GF's field constants (gametypes.hpp, pes-re-fieldinfo.md). PES
+  // fills it from its stadium's FieldInfo; GF's pitch is fixed, so this is the one write.
+  const float pitchFields[pes::kPitchFieldCount] = {
+      pesFieldHalfLength, pesFieldHalfWidth, pesGoalInnerHalfWidth, pesGoalInnerHeight, pesGoalAreaLineX, pesGoalAreaHalfWidth,
+      pesPenaltyAreaLineX, pesPenaltyAreaHalfWidth, pesPenaltySpotX, pesNetHeight, pesFieldF10, pesFieldF11, pesFieldF12,
+      pesNetRoofBackX, pesNetFloorBackX, pesCrossbarThickness, pesPostThickness, pesCircleRadius};
+  for (int k = 0; k < pes::kPitchFieldCount; ++k) pesWorld->SetPitchField(k, pitchFields[k]);
   // PES 2021's event routing table and detector constants (docs/re/pes-re-gaps-a2.md). Required:
   // the event stage routes every record through the table.
   if (setup.pesEventRingTable == nullptr || setup.pesEventConstants == nullptr)
@@ -507,9 +518,7 @@ void Match::AdvanceMatchFrames(uint32_t frames) {
   if (pesLoop) pesClock->AccrueStoppageLimit(frames);
 }
 
-int Match::GetPesFrame() const {
-  return pes::PesFrameOf(actualTime_ms, static_cast<int>(GetPesClockConstants().gameSpeed));
-}
+int Match::GetPesFrame() const { return static_cast<int>(pesWorld->MatchFrame()); }
 
 int Match::PesRestartKind() const {
   return referee ? pes::RestartKindOf(referee->GetBuffer().desiredSetPiece) : 0;
@@ -528,7 +537,7 @@ void Match::ResetSituation(const Vector3& focusPos) {
     lastTouchTeamIDs[i] = -1;
   }
   lastTouchTeamID = -1;
-  pesEvents.Reset();
+  pesWorld->Events().Reset();
   pesDetectors = PesDetectorState{};
   lastGoalScorer = 0;
   bestPossessionTeamID = -1;
@@ -1016,6 +1025,8 @@ void Match::Process() {
   // PES's period clock (pes_loop) runs every frame: SetFrozen holds it in a stoppage, where PES's
   // stoppage writer adds F and LIMIT (FUN_14044CE80 step 4). The off path keeps its in-play gate.
   if (pesLoop || (IsInPlay() && !IsInSetPiece())) AdvanceMatchFrames(1);
+  // MI+0x1198, the logic-frame counter, counts one per tick (PES 0x140A128E4: inc dword [MI+0x1198]).
+  pesWorld->AdvanceMatchFrame();
   actualTime_ms += kTick_ms;
   if (IsGoalScored())
     goalScoredTimer += kTick_ms;
