@@ -77,10 +77,7 @@ TARGETS = [
     ("cut_anchor_calc_474F00", 0x140474F00, "goal scene anchor from the scorer's position"),
     ("cut_anchor_write_47D280", 0x14047D280, "goal scene anchor writer (scene+0x110..0x120)"),
     # The foul judge's level decision (docs/re/pes-re-duels-fouls.md 2.2): contact -> points -> level -> pending foul (CardLevel).
-    ("judge_gate_50D6A0", 0x14050D6A0, "judge contact gate (in play, both ids < 22, B played the ball / targeted A)"),
     ("judge_decide_5B7470", 0x1405B7470, "judge level decision: points, thresholds, overrides, builds the pending foul"),
-    ("judge_pending_5B8000", 0x1405B8000, "builds the pending foul record (restart, kind, level, points)"),
-    ("judge_setpending_50EE40", 0x14050EE40, "Judge::SetPending"),
     ("judge_whistle_50E770", 0x14050E770, "whistle writer: JR restart/side/reason/spot/kind/fouler/victim"),
     ("judge_commit_43F546F0", 0x143F546F0, "Judge::Commit (protected): JR+0x38 card level"),
 ]
