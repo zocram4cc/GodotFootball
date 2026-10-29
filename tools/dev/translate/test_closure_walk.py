@@ -89,7 +89,7 @@ class ClosureWalk(unittest.TestCase):
     def walk_args(self):
         return types.SimpleNamespace(out_dir=self.dir.name, image=self.image, asm_dir=None, spec_dir=self.dir.name)
 
-    def run_closure(self, jmp_target):
+    def run_closure(self, jmp_target, reached=None):
         """build_closure over a root whose translation tail-jumps to jmp_target (the translator is a stub)."""
         src = ["void pes_fn_%X(PesState& s) {" % A, "  // OUT-OF-RANGE JMP 0x%X" % jmp_target, "}"]
         real = (snapdiff.drv.translate_one, snapdiff.drv.runnable_extra, snapdiff.drv.load_spec, snapdiff.drv.asm_for)
@@ -100,11 +100,13 @@ class ClosureWalk(unittest.TestCase):
             return (src if v == "0x%X" % A else ["void pes_fn_x(PesState& s) {}"]), []
 
         snapdiff.drv.translate_one = fake_translate
-        snapdiff.drv.runnable_extra = lambda spec, image, depth_cap=80: ([], {})
+        # The real one returns the seed's buildable callees (and what they reach): here, the seed's own entries.
+        snapdiff.drv.runnable_extra = lambda spec, image, depth_cap=80: (
+            [c["va"] for c in spec.get("harness", {}).get("out_of_set_callees", [])], {})
         snapdiff.drv.load_spec = lambda d, v: (None, None)
         snapdiff.drv.asm_for = lambda d, v: ""
         try:
-            need, err = snapdiff.build_closure("0x%X" % A, {}, self.walk_args(), {"0x%X" % A}, {})
+            need, err = snapdiff.build_closure("0x%X" % A, {}, self.walk_args(), {"0x%X" % A}, reached or {})
         finally:
             snapdiff.drv.translate_one, snapdiff.drv.runnable_extra, snapdiff.drv.load_spec, snapdiff.drv.asm_for = real
         return need, err
@@ -118,6 +120,17 @@ class ClosureWalk(unittest.TestCase):
         need, err = self.run_closure(T)
         self.assertIsNone(err)
         self.assertIn("0x%X" % T, need)
+
+    def test_an_indirect_site_inside_a_function_is_no_root(self):
+        # The harness traces call sites; B+1 is a site inside B, so the function holding it is the root, not the site.
+        need, err = self.run_closure(T, {"0x%X" % (B + 1): {"0x%X" % C: 1}})
+        self.assertIsNone(err)
+        self.assertNotIn("0x%X" % (B + 1), need)
+        self.assertIn("0x%X" % C, need)
+
+    def test_an_indirect_target_inside_an_instruction_is_an_error(self):
+        need, err = self.run_closure(T, {"0x%X" % A: {"0x%X" % MID_T: 1}})
+        self.assertIn("not a function boundary", err or "")
 
 
 class NothingCompiled(unittest.TestCase):

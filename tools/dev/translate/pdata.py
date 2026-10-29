@@ -54,4 +54,7 @@ class Pdata:
         int3 padding (a leaf or a thunk). Anything else (inside a function, or mid-instruction) is not a callee."""
         if va in self.ends:
             return True
-        return not self.inside(va) and self.read(va - 1, 1)[0] == INT3
+        if va <= IMAGE_BASE or self.inside(va):
+            return False
+        before = self.read(va - 1, 1)
+        return bool(before) and before[0] == INT3

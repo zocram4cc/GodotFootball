@@ -50,9 +50,15 @@ def build_closure(va, spec, args, pilot, reached):
     tag = va[2:]
     gen = os.path.join(args.out_dir, "gen", tag)
     os.makedirs(gen, exist_ok=True)
-    # Every image address the replay executed as an indirect site or target is a root: an indirect-only thunk
-    # (reached through a table, never by a direct CALL) is a function the harness runs, so the build translates it.
-    targets = {"0x%X" % int(t, 16) for tgts in reached.values() for t in tgts} | set(reached)
+    # Every image address the replay executed as an indirect target is a root, and so is an indirect site that starts a
+    # function (an indirect-only thunk, reached through a table and never by a direct CALL, is a function the harness
+    # runs). A site inside a function is no root: the function holding it is already in the closure, and translating
+    # from mid-function decodes garbage (0x140864175 is a `call [rdx]` inside 0x140864084).
+    targets = {"0x%X" % int(t, 16) for tgts in reached.values() for t in tgts}
+    for t in sorted(targets):
+        if CODE_LO <= int(t, 16) < CODE_HI and not boundary(args.image, int(t, 16)):
+            return [va], "closure walk: indirect target %s is not a function boundary" % t
+    targets |= {s for s in reached if boundary(args.image, int(s, 16))}
     # The harness runs each replayed indirect target's image bytes (no stub entry), and so do the walks of
     # their direct callees: the build closes over those too, or a plain callee is an out-of-set abort.
     reached_seed = {"harness": {"out_of_set_callees": [
