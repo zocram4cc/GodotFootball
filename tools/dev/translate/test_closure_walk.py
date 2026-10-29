@@ -159,6 +159,10 @@ class ClosureWalk(unittest.TestCase):
         self.assertIsNone(err)
         self.assertIn("0x%X" % T, need)
 
+    def test_driver_roots_leave_a_target_outside_the_code_range_to_the_dispatch_abort(self):
+        roots, err = driver.reached_roots(self.image, {"0x%X" % A: {"0x%X" % (driver.CODE_HI + 0x100): 1}})
+        self.assertEqual((roots, err), ([], None))
+
     # The diff build (driver.build_and_diff) shares the rule: 0x140A61F40's `jmp reg` switch at 0x140A61FF8 traces case
     # 0x140A62047, a label inside it that is no function start (the build failed `callee 0x140A62047: no instructions`).
     def test_driver_roots_skip_a_switch_case_in_its_own_function(self):
