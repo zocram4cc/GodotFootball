@@ -10,7 +10,6 @@
 
 
 void pes_fn_140A3C070(PesState& s);
-void pes_fn_140A6BD00(PesState& s);
 
 void pes_fn_140A3C070(PesState& s) {
   s.gpr[4] -= 8;
@@ -164,44 +163,6 @@ void pes_fn_140A3C070(PesState& s) {
     }
     abort();
     __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    __builtin_trap();
-    s.wr(((s.gpr[4]) + (0x18ULL)), (uint64_t)(s.gpr[3]), 8);
-    s.gpr[4] -= 8;
-    s.wr(s.gpr[4], (uint64_t)(s.gpr[7]), 8);
-    { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((32ULL)), _r = (_a - _b) & 0xFFFFFFFFFFFFFFFFULL;
-      s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
-      s.cf = ((_a & 0xFFFFFFFFFFFFFFFFULL) < (_b & 0xFFFFFFFFFFFFFFFFULL));
-      s.of = (((_a ^ _b) & (_a ^ _r)) >> 63) & 1;
-      s.gpr[4] = (uint64_t)(_r);
-    }
-    s.gpr[3] = (uint64_t)(((s.gpr[1]) + (0x1168ULL)));
-    s.gpr[7] = (uint64_t)(uint32_t)(s.rd(((s.gpr[3])), 4));
-    s.gpr[1] = (uint64_t)(s.gpr[3]);
-    { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A3C070(s); s.gpr[4] += 8; }
-    s.set_x_f32(0, (float)((s.x_f32(0)) + ((s.rdf(((s.gpr[3]) + (0xCULL)))))));
-    s.gpr[9] = (uint64_t)(((s.gpr[4]) + (0x38ULL)));
-    s.gpr[2] = (uint64_t)(uint32_t)(((uint64_t)(uint32_t)s.gpr[7]));
-    s.gpr[8] = (uint64_t)(((s.gpr[4]) + (0x30ULL)));
-    { s.gpr[4] -= 8; s.wr(s.gpr[4], 0ULL, 8); pes_fn_140A6BD00(s); s.gpr[4] += 8; }
-    s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[4]) + (0x30ULL)), 4));
-    s.gpr[3] = (uint64_t)(s.rd(((s.gpr[4]) + (0x40ULL)), 8));
-    { uint64_t _a = (uint64_t)(s.gpr[4]), _b = (uint64_t)((32ULL)), _r = (_a + _b) & 0xFFFFFFFFFFFFFFFFULL;
-      s.zf = (_r == 0); s.sf = ((_r >> 63) & 1);
-      s.cf = (_r < (_a & 0xFFFFFFFFFFFFFFFFULL));
-      s.of = (((_a ^ ~_b) & (_a ^ _r)) >> 63) & 1;
-      s.gpr[4] = (uint64_t)(_r);
-    }
-    s.gpr[7] = (uint64_t)(s.rd(s.gpr[4], 8)); s.gpr[4] += 8;
     return;
   } else {
     s.gpr[0] = (uint64_t)(uint32_t)(s.rd(((s.gpr[4]) + (0x40ULL)), 4));
