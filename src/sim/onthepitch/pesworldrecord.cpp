@@ -75,6 +75,47 @@ PesWorld::ClearAnswer PesWorld::RunClearUnit(int side, uint32_t carrierSlot) {
   return answer;
 }
 
+PesTrapResult PesWorld::RunTrapKind0(const PesTrapRequest& request, const PesTrapExternals& ext) {
+  PesState s = NewCall(Bytes());
+  s.mem.flat = ext.image;
+  s.mem.flat_base = kImageBaseVa;
+  s.mem.flat_size = ext.imageBytes;
+  for (const PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  for (const auto& [va, value] : ext.globals) s.mem.wr(va, value, 8);
+
+  // The dispatcher 0x1407A01C0 (kind <= 0): two bytes of the request go into the action, the first word of the request is
+  // copied to the dispatcher's frame (r9), and the chain takes the other fields as stack arguments (6th: the out word's pointer).
+  const uint64_t entry = kStackVa + kStackBytes - kTrapFrameBytes;  // rsp at the chain's entry: the return address slot
+  const uint64_t action = PVa() + kPActionOffset;
+  const auto word = [&request](std::size_t off) { return LoadU32(request.bytes.data(), off); };
+  const auto byte = [&request](std::size_t off) { return static_cast<uint64_t>(request.bytes[off]); };
+  s.wr(action + kActionByte3DOffset, byte(kReqByte1DOffset), 1);
+  s.wr(action + kActionByte3EOffset, byte(kReqByte21Offset), 1);
+  s.wr(entry, 0, 8);
+  s.wr(entry + kFrameRequestCopyOffset, word(kReqWord0Offset), 4);
+  s.wr(entry + kFrameArg5Offset, word(kReqWord1Offset), 4);
+  s.wr(entry + kFrameOutPtrOffset, entry + kFrameOutWordOffset, 8);
+  s.wr(entry + kFrameArg7Offset, word(kReqWord3Offset), 4);
+  s.wr(entry + kFrameArg8Offset, 0, 4);
+  s.wr(entry + kFrameArg9Offset, byte(kReqByte1EOffset), 1);
+  s.wr(entry + kFrameArg10Offset, byte(kReqByte1FOffset), 1);
+  s.wr(entry + kFrameArg11Offset, byte(kReqByte20Offset), 1);
+  s.wr(entry + kFrameArg12Offset, byte(kReqByte22Offset), 1);
+  s.wr(entry + kFrameArg13Offset, byte(kReqFlagAOffset), 1);
+  s.wr(entry + kFrameOutWordOffset, 0, 4);
+  s.gpr[4] = entry;
+  s.gpr[1] = action;                          // rcx: the Trap action
+  s.gpr[2] = PVa();                           // rdx: P
+  s.gpr[8] = BallVa();                        // r8: the ball record
+  s.gpr[9] = entry + kFrameRequestCopyOffset; // r9: the dispatcher's copy of the request
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_14079A470(s);
+  PesTrapResult result;
+  result.issued = (s.gpr[0] & 0xFF) != 0;
+  result.out = static_cast<uint32_t>(s.mem.rd(entry + kFrameOutWordOffset, 4));
+  return result;
+}
+
 uint8_t* PesWorld::AnimeRecord(int slot) { return InWindow(Bytes(), Answer(&::pes_fn_140A48910, Bytes(), slot)); }
 
 uint8_t* PesWorld::ManRecord(int slot) { return InWindow(Bytes(), Answer(&::pes_fn_140A48A10, Bytes(), slot)); }

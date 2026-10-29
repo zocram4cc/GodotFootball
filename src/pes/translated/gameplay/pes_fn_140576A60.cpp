@@ -411,19 +411,4 @@ void pes_fn_140576A60(PesState& s) {
   L_140576F28:;
   s.gpr[14] = (uint64_t)(s.rd(((s.gpr[4]) + (0x1A0ULL)), 8));
   goto L_140576E62;
-  __builtin_trap();
-  __builtin_trap();
-  __builtin_trap();
-  __builtin_trap();
-  __builtin_trap();
-  __builtin_trap();
-  __builtin_trap();
-  __builtin_trap();
-  __builtin_trap();
-  __builtin_trap();
-  __builtin_trap();
-  s.wr(((s.gpr[1]) + (0x18ULL)), (uint64_t)(((uint64_t)(uint32_t)s.gpr[2])), 4);
-  s.wr(((s.gpr[1]) + (0x1CULL)), (uint64_t)((255ULL)), 4);
-  s.wr(((s.gpr[1]) + (0x20ULL)), (uint64_t)((255ULL)), 8);
-  return;
 }

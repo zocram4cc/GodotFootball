@@ -23,9 +23,9 @@
 namespace pes {
 
 struct StoppageConstants {
-  // FUN_14044e460's hold table (9.3), a stack array built from two
-  // `movaps` reads at 0x14259ce60. Index = the "kind" the caller passes.
-  float holdKind1_s = 0.0f;  // table[1] @0x14259ce60 = 5.0: the ordinary foul hold
+  // FUN_14044e460's hold table (9.3): a stack array built from two 16-byte vectors at 0x14259ce50 and 0x14259ce60.
+  // The kind indexes it as [rsp+idx*4+0x20] (movss at 0x14044e56b), so table[1] is lane 1 of the 0x14259ce60 vector.
+  float holdKind1_s = 0.0f;  // table[1] @0x14259ce64 = 5.0 (lane 1; lane 0 at 0x14259ce60 is table[0] = 8.0): the ordinary foul hold
   float holdKind5_s = 0.0f;  // table[5] @0x14259ce54 = 2.5: every 0xb out-of-play hold
   // 0x14259bde4 (9.3): added to the 0xb hold while a player is down.
   float downedPlayerExtra_s = 0.0f;

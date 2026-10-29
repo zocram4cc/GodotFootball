@@ -58,6 +58,19 @@ def records():
     return out
 
 
+def closure_members(va):
+    """The functions a snapdiff-proven record built beyond its direct callees (closure_file: the indirect targets its
+    replays reached, vtable methods that no direct CALL names), so the layer holds what the proof ran. A record without
+    the field has none."""
+    for fname, _ in SETS:
+        with open(os.path.join(HERE, fname)) as f:
+            for r in json.load(f)["results"]:
+                if r["va"] == va and r.get("closure_file"):
+                    with open(os.path.join(HERE, r["closure_file"])) as g:
+                        return set(json.load(g)["members"])
+    return set()
+
+
 def context(name, va, image):
     """Spec, stub map and universe that a diff run of va in set name translates under."""
     sdir = spec_dir(name)
@@ -105,7 +118,9 @@ def build(image):
     texts, closure_of, conflicts = {}, {}, []
     for va, name in bit:
         _, stubs, universe = context(name, va, image)
-        queue, seen = [va], {va}
+        members = closure_members(va)
+        universe = universe | members
+        queue, seen = [va] + sorted(members - {va}), {va} | members
         while queue:
             cur = queue.pop(0)
             text = translate(cur, image, stubs, universe)

@@ -385,19 +385,14 @@ bool PlayerController::_ReceiveCandidate() {
       (match->GetBall()->Predict(0).Get2D() - player->GetPosition().Get2D()).GetLength();
   if (!pes::WithinBallDistanceTable(k, ballDistance * ballDistance)) return false;
   if (match->GetBallRetainer() != 0) return false;
-  // PES's reaction entry 3 (FUN_1409f8220) refuses the designated owner (first-touch §7.2 gate
-  // 4c): the restart taker while a restart is held, else the newest touch's actor while he still
-  // holds the ball. GF's possession gate is not a PES gate (same doc §8), so on the PES path a
-  // chaser of a loose ball may trap it. The GF path keeps its gate, so switch-off is unchanged.
+  // PES's reaction entry 3 refuses the designated owner (gate 4c, d_b.c:91: MA+0x2600C == me). The restart taker
+  // is refused while a restart is held. ponytail: gate 4d's per-phase restart ids (MI+0x11C8/+0x11CC) are not
+  // ported; the armed buffer's taker stands in for them.
   if (match->PesLoop()) {
-    pes::OwnerInput owner;
+    const pes::ActorKey me = match->PesActorKeyOf(CastPlayer());
     const RefereeBuffer& buffer = match->GetRefereeBuffer();
-    if (buffer.active && buffer.taker) owner.restartTaker = match->PesActorKeyOf(buffer.taker);
-    const pes::NewestEventView newest = pes::NewestEvent(match->GetPesEvents());
-    Player* newestMan = match->GetPesActorPlayer(newest.actor);
-    owner.newestActor = newest.actor;
-    owner.newestActorHoldsBall = newestMan && newestMan->HasPossession();
-    if (pes::RefusedAsDesignatedOwner(owner, match->PesActorKeyOf(CastPlayer()))) return false;
+    if (buffer.active && buffer.taker && match->PesActorKeyOf(buffer.taker) == me) return false;
+    if (pes::RefusedAsDesignatedOwner(match->GetPesDesignatedOwner(), me)) return false;
   } else if (hasPossession) {
     return false;
   }
