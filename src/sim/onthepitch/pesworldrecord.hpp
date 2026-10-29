@@ -18,6 +18,7 @@
 #include "pesclock.hpp"
 #include "pesevents.hpp"
 #include "pestrapworld.hpp"
+#include "pesimagetables.hpp"
 #include "pes_native.hpp"
 
 struct PesState;  // the translated layer's call state (pes_state.hpp)
@@ -484,6 +485,9 @@ class PesWorld {
   // byte 0x31C1 from the pressure builder 0x14069A500 and the writer 0x140699960 (its tail rule may set it too). Allocates
   // through PES's allocator on this world's PesHeap. `ext` carries bytes outside the window (tests); returns the danger byte.
   bool RunDangerBuilder(int side, const PesDangerExternals& ext = {});
+  // The install's own table bytes (pesimagetables.hpp) every window run reads at register-held image addresses. Required before
+  // RunDangerBuilder in a real match: without them PES's anime-class gate and sine table read zeros.
+  void BindImageTables(const PesImageTables& tables) { imageTables_ = tables; }
   // Runs the Clear unit 0x142109EB0 on the window for `carrierSlot` of `side`: the answer type (5 when the danger byte is
   // set, else 0: the unit stores nothing) and the corridor angle it stored (degrees, 0.0 when none).
   struct ClearAnswer {
@@ -628,6 +632,7 @@ class PesWorld {
 
   std::unique_ptr<PesWorldImage> image_;
   std::unique_ptr<PesHeap> heap_;  // PES's allocator on GF memory, made by the first RunDangerBuilder; the BP lists live in it
+  PesImageTables imageTables_;     // the install's table bytes the window runs read at register-held addresses (BindImageTables)
 };
 
 }  // namespace pes

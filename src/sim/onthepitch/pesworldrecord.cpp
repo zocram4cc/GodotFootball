@@ -111,6 +111,7 @@ bool PesWorld::RunDangerBuilder(int side, const PesDangerExternals& ext) {
   if (!heap_) heap_ = std::make_unique<PesHeap>();
   PesState s = NewCall(Bytes());
   heap_->Attach(s);
+  for (const PesTrapSegment& seg : imageTables_.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
   for (const PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
   // The call frame of 0x142110D30's call: the return address, then (past the 0x20 shadow) the fifth argument (the carrier
   // team's record, unused by the builder) and the sixth (BP+0x18, the refresh flags).

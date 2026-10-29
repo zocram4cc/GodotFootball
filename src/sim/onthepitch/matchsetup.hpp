@@ -53,6 +53,7 @@ struct Rig;
 #include "pesmarktable.hpp"
 #include "pesstrategy.hpp"
 #include "pesteamconcepts.hpp"
+#include "pesimagetables.hpp"
 #include "pessubs.hpp"
 // PES 2021's MOVESTEP machine (docs/re/pes-re-anim-select.md): the install constants its handlers read.
 #include "pes/movestep_bundle.hpp"
@@ -193,6 +194,10 @@ struct MatchSetup {
   // image constants, read from the install's exe. Required: the build's every
   // number lives in the image.
   const pes::marktable::Constants* pesMarkTableConstants = nullptr;
+  // The install's own table bytes the translated window runs read at register-held image addresses (pesimagetables.hpp:
+  // the anime class table, the quarter sine table, the frame-rate cells), read from the install's exe. Required: the danger
+  // builder's lane lists differ from PES's without them.
+  const pes::PesImageTables* pesImageTables = nullptr;
 };
 
 #endif

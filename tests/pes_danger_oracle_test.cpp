@@ -83,11 +83,25 @@ struct Built {
   int side = 0;
 };
 
+// The install's table bytes, read once from PES21_ROOT's PES2021.exe as GF's loaders do (the oracle fixture skips without it).
+const pes::PesImageTables& InstallTables() {
+  static const pes::PesImageTables tables = [] {
+    std::string error;
+    auto exe = pes::PeImage::Open(std::string(std::getenv("PES21_ROOT")) + "/PES2021.exe", &error);
+    EXPECT_TRUE(exe) << error;
+    auto loaded = exe ? pes::LoadPesImageTables(*exe, &error) : std::nullopt;
+    EXPECT_TRUE(loaded) << error;
+    return loaded ? *loaded : pes::PesImageTables{};
+  }();
+  return tables;
+}
+
 // `osBytes`: also hand the call the capture's bytes outside the window (the allocator's and the thread block's words the PES
 // run read); GF's production run has none of them.
 void Build(const Oracle& o, Built& b, bool osBytes = true) {
   pes::PesWorld& w = *b.world;
   BindWorld(w);
+  w.BindImageTables(InstallTables());
   const uint64_t g = Read(o, kImageG, 8);
   b.side = static_cast<int>(Read(o, o.regs.at("r8") + pes::kUnitSideOffset, 4));
   for (const auto& line : o.manifest) {
@@ -129,6 +143,7 @@ class DangerOracle : public ::testing::Test {
   void SetUp() override {
     const char* dir = std::getenv("GF_PES_DANGER_ORACLE");
     if (dir == nullptr || *dir == '\0') GTEST_SKIP() << "GF_PES_DANGER_ORACLE unset (PES-derived captures, not committed)";
+    if (std::getenv("PES21_ROOT") == nullptr) GTEST_SKIP() << "PES21_ROOT unset (the install's tables are bound from its exe)";
     for (const auto& e : std::filesystem::directory_iterator(dir))
       if (std::filesystem::exists(e.path() / "manifest.tsv")) dirs_.push_back(e.path().string());
     std::sort(dirs_.begin(), dirs_.end());
@@ -159,12 +174,11 @@ TEST_F(DangerOracle, EveryCapturedCallOnGfsWindowLeavesPesDangerFlag) {
   EXPECT_GT(dangerOne, 0) << "the oracle set must hold a call PES answers danger 1 for (seq6161), or the test proves only 0";
 }
 
-// OPEN (MatchInfo5 7.1): the pressure record's lane lists 0x14069A500 builds (imageA+0x2124..0x31C0) equal PES's on eight of the ten
-// captures; on seq4046 and seq4891 the (slot id, f32) entries of the sorted lane lists differ (467 bytes), though the danger flag
-// is equal on all ten and the same captures replay bit-exact on the snapshot's own memory (snapdiff). So an input of the lists
-// the window does not bind yet (the manifest's live-in set holds no other record) is the blocker. Run with
-// --gtest_also_run_disabled_tests; the forced clear (rule 7) reads these lists.
-TEST_F(DangerOracle, DISABLED_EveryCapturedCallLeavesPesPressureLaneRecords) {
+// The builder's every write into imageA below the danger byte (the list kinds at +0xB6C, the corridor tables, the pressure record's
+// lane lists at +0x2124..0x31C0) equals what PES's own bytes wrote on the same capture. MatchInfo6: before the install's tables were
+// bound (pesimagetables.hpp) the lane lists differed on seq4046 and seq4891 (467 bytes: man 2's anime class gate read the table's
+// zeros) and every capture's list kinds differed (the frame-rate cell read 0, so the predictions did not move).
+TEST_F(DangerOracle, EveryCapturedCallLeavesPesImageARecords) {
   for (const std::string& dir : dirs_) {
     Oracle o;
     ASSERT_TRUE(Load(dir, o)) << dir;
@@ -174,7 +188,9 @@ TEST_F(DangerOracle, DISABLED_EveryCapturedCallLeavesPesPressureLaneRecords) {
     const uint64_t imageA = o.regs.at("rcx");
     b.world->RunDangerBuilder(b.side, b.ext);
     const uint8_t* gf = b.world->Carrier(b.side) + pes::kBpImageAOffset;
-    for (const auto& [addr, want] : ReferenceWrites(o, imageA + pes::kImageAPressureOffset, imageA + pes::kImageADangerOffset))
+    const auto writes = ReferenceWrites(o, imageA, imageA + pes::kImageADangerOffset);
+    EXPECT_GT(writes.size(), 0x2000u) << dir << ": the reference run wrote the lists";
+    for (const auto& [addr, want] : writes)
       EXPECT_EQ(gf[addr - imageA], want) << dir << ": imageA+0x" << std::hex << (addr - imageA);
   }
 }
