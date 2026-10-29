@@ -28,6 +28,10 @@ Error PesCutsceneCamera::load_file(const Ref<PesLibrary>& library, const String&
   }
   if (camera_index < 0 || size_t(camera_index) >= file.cameras.size()) return ERR_INVALID_PARAMETER;
   const pes::fdc::CameraRecord& cam = file.cameras[size_t(camera_index)];
+  // ponytail: a record with an empty anime path is a procedural camera (PES slot +0x50 SetProcedural 0x141F7B630, update
+  // 0x141F7BFE0: frames the record's targetKind/targetNo humans with its zoom stages). That update is not ported, so such a
+  // record has no pose here; the foul cut 0x20007 and the goal cmnCam layers are made of them. Callers fall through to the next layer.
+  if (cam.animePath.empty()) return ERR_DOES_NOT_EXIST;
   const pes::fdc::Resource* res = file.FindResource(cam.animePath);
   if (!res) {
     UtilityFunctions::push_error(String("PesCutsceneCamera: no resource for ") + cam.animePath.c_str());

@@ -146,8 +146,10 @@ func _poll_cutscene() -> void:
 			_cutscene = cam
 			_cut_t = float(args.get("fdc-t0", 0.0))
 			_cutscene_scene = int(req["scene"])
-			print("cutscene scene 0x%x cut 0x%x row %d layers %s" % [_cutscene_scene, int(step["cut"]), int(step["row"]), step["fdc"]])
+			print("frame %d cutscene scene 0x%x cut 0x%x row %d layers %s" % [Engine.get_process_frames(), _cutscene_scene, int(step["cut"]), int(step["row"]), step["fdc"]])
 			return
+	# Every layer's camera records are procedural (empty anime path, PES 0x141F7BFE0, not ported): the broadcast camera stays.
+	print("frame %d cutscene scene 0x%x: no clip camera in its layers, broadcast camera kept (steps %s)" % [Engine.get_process_frames(), int(req["scene"]), req["steps"]])
 
 
 func _interpolate(alpha: float) -> void:
@@ -182,6 +184,7 @@ func _place(delta: float) -> void:
 	if _cutscene != null:
 		_cut_t += delta
 		if _cutscene_scene != 0 and _cut_t >= _cutscene.duration_s():
+			print("frame %d cutscene scene 0x%x ended at %.3f s" % [Engine.get_process_frames(), _cutscene_scene, _cut_t])
 			sim.cutscene_finished(_cutscene_scene)  # the scene's list ended: PES advances its category rotation
 			_cutscene = null
 			_cutscene_scene = 0
