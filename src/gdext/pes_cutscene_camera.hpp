@@ -22,6 +22,8 @@ class PesCutsceneCamera : public RefCounted {
   // Opens the camera_index-th camera of the first .fdc layer of a FixDemo scene that has one. scene_id is
   // (category << 16) | index, e.g. 0x20009 (pes/fixdemo_table.hpp: FixDemoSceneFdcPaths).
   Error load_scene(const Ref<PesLibrary>& library, int scene_id, int camera_index);
+  // Opens vfs_path (a common/demo/fixdemo/... .fdc) and takes its camera record camera_index.
+  Error load_file(const Ref<PesLibrary>& library, const String& vfs_path, int camera_index);
   // Length of the clip in seconds, from its frame count and frame rate.
   double duration_s() const;
   // Poses camera for t_s seconds of the player clock (the record's startCutTime is on the same clock; the
@@ -36,9 +38,6 @@ class PesCutsceneCamera : public RefCounted {
   static void _bind_methods();
 
  private:
-  // Opens vfs_path (a common/demo/fixdemo/... .fdc) and takes its camera record camera_index.
-  Error load_file(const Ref<PesLibrary>& library, const String& vfs_path, int camera_index);
-
   std::optional<pes::fdc::Canm> canm_;
   std::optional<pes::fdc::PoseConstants> k_;
   pes::fdc::CameraRecord record_;

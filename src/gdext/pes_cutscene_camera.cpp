@@ -107,6 +107,7 @@ void PesCutsceneCamera::update(Camera3D* camera, double t_s) {
 
 void PesCutsceneCamera::_bind_methods() {
   ClassDB::bind_method(D_METHOD("load_scene", "library", "scene_id", "camera_index"), &PesCutsceneCamera::load_scene);
+  ClassDB::bind_method(D_METHOD("load_file", "library", "vfs_path", "camera_index"), &PesCutsceneCamera::load_file);
   ClassDB::bind_method(D_METHOD("duration_s"), &PesCutsceneCamera::duration_s);
   ClassDB::bind_method(D_METHOD("update", "camera", "t_s"), &PesCutsceneCamera::update);
   ClassDB::bind_method(D_METHOD("set_widescreen_fix", "on"), &PesCutsceneCamera::set_widescreen_fix);
