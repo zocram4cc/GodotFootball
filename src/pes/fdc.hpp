@@ -128,6 +128,10 @@ struct PoseConstants {
   float renderFarFloor = 0;   // 0x141EAF914: the render far plane is at least this
   float fovMaxRad = 0;        // 0x141EAF60C: the render fov clamp
   float wideAspect = 0;       // 0x141F7B294: the aspect the widescreen fix keeps the fov for
+  float radToDeg = 0;         // 0x140A91E7A: the axis-angle builder turns its radians into degrees
+  float quarterTurnDeg = 0;   // 0x140A91E99: ... and takes the cosine as the sine 90 degrees on
+  float fullTurnDeg = 0;      // 0x141F7B72F: SetCutOffset wraps rotY into [0, this)
+  std::array<float, 513> sinTable{};  // 0x142655950 (lea 0x140A92D04): sin(i * 90 / 512 degrees), the table of 0x140A92C80
 };
 std::optional<PoseConstants> LoadPoseConstants(const PeImage& exe, std::string* err);
 
@@ -143,12 +147,21 @@ CameraSample SampleCanm(const PoseConstants& k, const Canm& c, float frame);
 
 using Mat3 = std::array<std::array<float, 3>, 3>;  // m[row][col], column-vector convention
 
-// FixDemoPlayer's cut offset (player+0xA08..+0xA18, 0x141F7B700): applied when the record asks for it.
+// FixDemoPlayer's cut offset (player+0xA08..+0xA18; FixDemoCamera slot +0x60, 0x141F7B700, which wraps rotY
+// into [0, 360)): applied when the record asks for it (record +0xA6). A rendezvous capture of 0x141F39CC0
+// read it at every record activation of the entrance (six calls, pid 1694737) and it was zero each time
+// (docs/ports/pes-port-FdcCamera5.md); the writers (0x141F2E11C: the caller's position, player+0xACC and
+// +0xAD0, or a map node's +0x4C..+0x5C) need a FixDemo player and are not ported.
 struct CutOffset {
   std::array<float, 3> pos{};
   float rotYDeg = 0;
   bool flip = false;                     // mirror X
 };
+
+// FUN_140A91E60 about the axis (0, 1, 0) for rotYDeg degrees, as FixDemoCamera::Update builds it
+// (0x141F7B8FC): the angle goes degrees -> radians (0x1425A0C48) -> degrees (0x14259BE40), and the sine
+// and cosine come from the table of 0x140A92C80 (translated), not from libm.
+Mat3 RotYMatrix(const PoseConstants& k, float rotYDeg);
 
 // FixDemoCamera::Update's CANM pose (0x141F7B770). Columns of m: 0 = -right, 1 = up, 2 = forward
 // (the camera looks down the quaternion's -Z; 0x142139CAB negates columns 0 and 2).

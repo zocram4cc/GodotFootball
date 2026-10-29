@@ -28,7 +28,8 @@ add_library(pesfmt STATIC
   src/pes/formation.cpp src/pes/fdc.cpp src/pes/fixdemo_table.cpp
   src/pes/anim_names.cpp src/pes/uniform.cpp src/pes/editsave.cpp src/pes/playerdb.cpp src/pes/condition.cpp src/pes/exe.cpp src/pes/handseq.cpp src/pes/marking.cpp src/pes/locomotion.cpp src/pes/animetable.cpp src/pes/mbinfo.cpp src/pes/camera.cpp src/pes/fox2.cpp src/pes/stadium.cpp src/pes/lighting.cpp src/pes/movestep.cpp src/pes/movestep_common.cpp src/pes/movestep_bundle.cpp src/pes/movestep_run.cpp src/pes/movestep_group_a.cpp src/pes/movestep_step.cpp src/pes/movestep_turn.cpp src/pes/effects.cpp src/pes/derivation.cpp)
 target_include_directories(pesfmt PUBLIC src)
-target_link_libraries(pesfmt PUBLIC ZLIB::ZLIB)
+# fdc.cpp takes the cut offset's sine from the translated 0x140A92C80 (the static library pulls in only that object).
+target_link_libraries(pesfmt PUBLIC ZLIB::ZLIB pestranslated)
 
 # The dispatcher port's cross-group seams and the shared helpers the full dispatcher links. The
 # per-group test targets deliberately keep their probe stubs, so this library is not folded into

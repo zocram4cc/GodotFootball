@@ -33,6 +33,15 @@ class PesCutsceneCamera : public RefCounted {
   // (0x141F7B250). ponytail: GF has no such option, so it defaults to off; wire it to that option's GF
   // source when the settings are ported.
   void set_widescreen_fix(bool on) { widescreenFix_ = on; }
+  // The FixDemo player's cut offset (player+0xA08 position, +0xA14 rotY degrees, +0xA18 flip), applied when
+  // the record's use-cut-offset byte (+0xA6) is set. The default is the value a rendezvous capture of
+  // 0x141F39CC0 read at every record activation of the entrance cut: zero. ponytail: GF has no FixDemo
+  // player, so nothing writes a non-zero offset; its writer is 0x141F2E11C (docs/ports/pes-port-FdcCamera5.md).
+  void set_cut_offset(const Vector3& pos, double rot_y_deg, bool flip) {
+    cutOffset_.pos = {float(pos.x), float(pos.y), float(pos.z)};
+    cutOffset_.rotYDeg = float(rot_y_deg);
+    cutOffset_.flip = flip;
+  }
 
  protected:
   static void _bind_methods();
@@ -41,6 +50,7 @@ class PesCutsceneCamera : public RefCounted {
   std::optional<pes::fdc::Canm> canm_;
   std::optional<pes::fdc::PoseConstants> k_;
   pes::fdc::CameraRecord record_;
+  pes::fdc::CutOffset cutOffset_;
   bool widescreenFix_ = false;
 };
 

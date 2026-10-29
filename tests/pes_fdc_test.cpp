@@ -816,6 +816,23 @@ TEST(PesFdcCutOffset, RotYTurnsTheEyeByTheAngleAboutWorldY) {
   }
 }
 
+TEST(PesFdcCutOffset, RotYIsWrappedOnceIntoZeroToThreeSixtyBeforeItTurnsTheShot) {
+  NEED_CONSTANTS(k);
+  // FixDemoCamera slot +0x60 (0x141F7B700): rotY < 0 gets +360, rotY >= 360 gets -360, once.
+  const Canm c = HeldClip({0, 0, 0, 1}, {1, 0, 0, 1});
+  CameraRecord rec;
+  rec.useCutOffset = 1;
+  auto eyeAt = [&](float deg) {
+    pes::fdc::CutOffset off;
+    off.rotYDeg = deg;
+    return pes::fdc::EvaluateCameraPose(*k, c, rec, 0.0f, off, 0.0f).eye;
+  };
+  EXPECT_EQ(eyeAt(-90.0f), eyeAt(270.0f));
+  EXPECT_EQ(eyeAt(450.0f), eyeAt(90.0f));
+  EXPECT_EQ(eyeAt(360.0f), eyeAt(0.0f));
+  EXPECT_NE(eyeAt(-90.0f), eyeAt(90.0f));
+}
+
 // ---------------------------------------------------------------------------------------------------
 // The live camera of the entrance (rendezvous capture 008 of the cut_offset hook 0x141F39CC0, taken the
 // frame ent_001_order_st000_cam0001 replaced ent_001_view_st000_cam0000 at clock 180 ticks). At the call
@@ -883,12 +900,19 @@ TEST(PesFdcLiveEntrance, ViewCam0RenderParametersAtThePreviousClockMatchTheLiveB
   EXPECT_EQ(p.eye, eye);
   EXPECT_EQ(r.fovRad, Bits(0x3f6d643a));
   EXPECT_EQ(r.nearM, 0.5f);
-  EXPECT_EQ(r.farM, 400.0f);
+  // Block [0xE] is Update's far, the record's own (400). The renderer then floors it at 4000 (0x141EAF91C).
+  EXPECT_EQ(e->rec.farClip, 400.0f);
+  EXPECT_EQ(r.farM, std::max(k->renderFarFloor, e->rec.farClip));
   // Up and target go through PES's yaw/pitch/roll round trip, which GF does not emulate (INF): rounding only.
   const auto f = p.forward();
+  float worstUp = 0, worstTarget = 0;
   for (size_t i = 0; i < 3; ++i) {
     SCOPED_TRACE(i);
+    worstUp = std::max(worstUp, std::fabs(p.up()[i] - up[i]));
+    worstTarget = std::max(worstTarget, std::fabs(eye[i] + dist * f[i] - target[i]));
     EXPECT_NEAR(p.up()[i], up[i], 2e-5f);
     EXPECT_NEAR(eye[i] + dist * f[i], target[i], 2e-4f);
   }
+  std::cout << "[live entrance] worst |up - live| " << worstUp << ", worst |eye + dist*forward - live target| " << worstTarget
+            << "\n";
 }

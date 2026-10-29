@@ -86,12 +86,11 @@ double PesCutsceneCamera::duration_s() const {
 
 void PesCutsceneCamera::update(Camera3D* camera, double t_s) {
   if (!canm_ || !k_ || !camera) return;
-  // ponytail: no player object here, so the cut offset (player+0xA08..+0xA18, OPEN 2 of
-  // pes-re-camera-pose.md) is zero and a record's height correction (target height from 0x141F7E3C0) is 0.
-  // Replace both with the FixDemo player's values when that player is ported.
+  // ponytail: a record's height correction (target height from 0x141F7E3C0) is 0 here: no FixDemo player
+  // supplies a target. Replace it with that player's value when it is ported (the entrance records have rate 0).
   const pes::fdc::PoseConstants& k = *k_;
   const float clock = float(t_s) * k.sixty;
-  const pes::fdc::CameraPose pose = pes::fdc::EvaluateCameraPose(k, *canm_, record_, clock, pes::fdc::CutOffset{}, 0.0f);
+  const pes::fdc::CameraPose pose = pes::fdc::EvaluateCameraPose(k, *canm_, record_, clock, cutOffset_, 0.0f);
   const Viewport* vp = camera->get_viewport();
   const Vector2 size = vp ? vp->get_visible_rect().size : Vector2(1, 1);
   const pes::fdc::RenderCamera r = pes::fdc::RenderCameraParams(k, pose, record_, float(size.x / size.y), widescreenFix_);
@@ -111,6 +110,7 @@ void PesCutsceneCamera::_bind_methods() {
   ClassDB::bind_method(D_METHOD("duration_s"), &PesCutsceneCamera::duration_s);
   ClassDB::bind_method(D_METHOD("update", "camera", "t_s"), &PesCutsceneCamera::update);
   ClassDB::bind_method(D_METHOD("set_widescreen_fix", "on"), &PesCutsceneCamera::set_widescreen_fix);
+  ClassDB::bind_method(D_METHOD("set_cut_offset", "pos", "rot_y_deg", "flip"), &PesCutsceneCamera::set_cut_offset);
 }
 
 }  // namespace godot

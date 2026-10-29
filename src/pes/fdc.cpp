@@ -5,6 +5,9 @@
 #include <cstdio>
 #include <cstring>
 
+#include "pes/translated/translated.hpp"
+#include "pes_state.hpp"
+
 namespace pes::fdc {
 namespace {
 
@@ -12,6 +15,7 @@ constexpr size_t kNameWindow = 512;  // the name read at nameOffset is at most t
 constexpr char kVfsPrefix[] = "cpk_dat/";
 constexpr char kFixDemoDir[] = "common/demo/fixdemo/";
 constexpr uint8_t kCanmMagic[4] = {0x01, 0x00, 0x01, 0xff};
+constexpr uint64_t kSinTableVa = 0x142655950;  // the table 0x140A92C80 indexes (lea at 0x140A92D04)
 
 uint32_t Le32(const uint8_t* p) {
   return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
@@ -107,6 +111,9 @@ constexpr ConstSite kConstSites[] = {
     {&PoseConstants::renderFarFloor, 0x141EAF914, 0xF3, 0x10, 0x1425CB498},
     {&PoseConstants::fovMaxRad, 0x141EAF60C, 0xF3, 0x10, 0x142B672C8},
     {&PoseConstants::wideAspect, 0x141F7B294, 0xF3, 0x10, 0x142609394},
+    {&PoseConstants::radToDeg, 0x140A91E7A, 0xF3, 0x59, 0x14259BE40},
+    {&PoseConstants::quarterTurnDeg, 0x140A91E99, 0xF3, 0x58, 0x14259BE5C},
+    {&PoseConstants::fullTurnDeg, 0x141F7B72F, 0xF3, 0x58, 0x14259858C},
 };
 
 bool ReadConstSite(const PeImage& exe, const ConstSite& s, float* out, std::string* err) {
@@ -202,15 +209,15 @@ Mat3 CameraMatrix(const PoseConstants& k, const std::array<float, 4>& q) {
   return m;
 }
 
-// FUN_140A91E60 about the axis (0, 1, 0), the matrix FixDemoCamera::Update builds for the cut offset's
-// rotY. ponytail: PES takes sin/cos from a 512-entry table in degrees (0x140A92C80, not decoded); libm
-// here. Replace when that table is read from the image.
-Mat3 AxisYMatrix(const PoseConstants& k, float angleRad) {
-  const float c = float(std::cos(double(angleRad))), s = float(std::sin(double(angleRad)));
-  const float x = 0.0f, y = k.one, z = 0.0f, omc = k.one - c;
-  return {{{x * x * omc + c, x * y * omc - s * z, x * z * omc + s * y},
-           {x * y * omc + s * z, y * y * omc + c, y * z * omc - s * x},
-           {x * z * omc - s * y, y * z * omc + s * x, z * z * omc + c}}};
+// 0x140A92C80 (translated, ball/pes_fn_140A92C80): sin of `deg` degrees times the amplitude in xmm1, by
+// linear interpolation in the 513-entry quarter-wave table of `k`.
+float SinTableDeg(const PoseConstants& k, float deg, float amp) {
+  PesState s;
+  s.mem.window = {kSinTableVa, sizeof k.sinTable, reinterpret_cast<const uint8_t*>(k.sinTable.data()), nullptr};
+  s.set_x_f32(0, deg);
+  s.set_x_f32(1, amp);
+  ::pes_fn_140A92C80(s);
+  return s.x_f32(0);
 }
 
 // FUN_140A91810: out = a * b, each element summed in the order k = 0, 1, 2.
@@ -248,7 +255,28 @@ std::optional<PoseConstants> LoadPoseConstants(const PeImage& exe, std::string* 
   PoseConstants k;
   for (const ConstSite& s : kConstSites)
     if (!ReadConstSite(exe, s, &(k.*s.field), err)) return std::nullopt;
+  // 0x140A92D04 `lea rdx, [rip + disp]` (48 8D 15) names the table 0x140A92C80 indexes; 513 floats.
+  constexpr uint64_t kLea = 0x140A92D04;
+  uint8_t lea[7] = {};
+  int32_t disp = 0;
+  const bool ok = exe.ReadVa(kLea, sizeof lea, lea) && lea[0] == 0x48 && lea[1] == 0x8D && lea[2] == 0x15 &&
+                  (std::memcpy(&disp, lea + 3, 4), kLea + sizeof lea + int64_t(disp) == kSinTableVa) &&
+                  exe.ReadVa(kSinTableVa, sizeof k.sinTable, reinterpret_cast<uint8_t*>(k.sinTable.data()));
+  if (!ok) {
+    if (err) *err = "camera pose constants: the sine table of 0x140A92C80 is unreadable or moved";
+    return std::nullopt;
+  }
   return k;
+}
+
+// FUN_140A91E60, axis (0, 1, 0): the element order of the builder's stores (x*x*omc + c, ...).
+Mat3 RotYMatrix(const PoseConstants& k, float rotYDeg) {
+  const float deg = (rotYDeg * k.degToRad) * k.radToDeg;
+  const float c = SinTableDeg(k, deg + k.quarterTurnDeg, k.one), s = SinTableDeg(k, deg, k.one);
+  const float x = 0.0f, y = k.one, z = 0.0f, omc = k.one - c;
+  return {{{x * x * omc + c, x * y * omc - s * z, x * z * omc + s * y},
+           {x * y * omc + s * z, y * y * omc + c, y * z * omc - s * x},
+           {x * z * omc - s * y, y * z * omc + s * x, z * z * omc + c}}};
 }
 
 uint32_t NominalSize(uint8_t type) {
@@ -501,7 +529,12 @@ CameraPose EvaluateCameraPose(const PoseConstants& k, const Canm& c, const Camer
   p.m = CameraMatrix(k, s.rotation);
   p.eye = s.position;
   p.eye[1] = p.eye[1] + heightOffsetM;  // 0x141F7B866
-  const CutOffset off = rec.useCutOffset != 0 ? playerOffset : CutOffset{};
+  CutOffset off = rec.useCutOffset != 0 ? playerOffset : CutOffset{};
+  // SetCutOffset (0x141F7B700) keeps rotY wrapped once into [0, 360).
+  if (off.rotYDeg < 0.0f)
+    off.rotYDeg = off.rotYDeg + k.fullTurnDeg;
+  else if (off.rotYDeg >= k.fullTurnDeg)
+    off.rotYDeg = off.rotYDeg - k.fullTurnDeg;
   if (off.flip) {  // 0x141F7B87D: m01, m02, m10, m20 and x times -1
     p.m[0][1] *= k.minusOne;
     p.m[0][2] *= k.minusOne;
@@ -510,7 +543,7 @@ CameraPose EvaluateCameraPose(const PoseConstants& k, const Canm& c, const Camer
     p.eye[0] *= k.minusOne;
   }
   if (off.rotYDeg != 0.0f) {  // 0x141F7B8FC: Ry * M and Ry * p
-    const Mat3 ry = AxisYMatrix(k, off.rotYDeg * k.degToRad);
+    const Mat3 ry = RotYMatrix(k, off.rotYDeg);
     p.m = Mul(ry, p.m);
     p.eye = Mul(ry, p.eye);
   }
