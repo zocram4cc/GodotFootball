@@ -73,5 +73,15 @@ struct GuardedWordResult {
 // 64 over e0, e1, e2, e3 in that order.
 GuardedWordResult ReadGuardedWord(const GuardedWordSet& set);
 
+// The ring index PES stores with a word (FUN_140A592C0 0x140A592C0, FUN_140A595C0 0x140A595C0, FUN_140A58F60 0x140A58F60): the
+// FNV-1a 32 of the clock dword at KUSER_SHARED_DATA+8 (`_DAT_7ffe0008`), bytes LSB first. It only selects which of the four ring
+// words holds the word; a reader takes `ring[index & 3]`.
+uint32_t GuardedIndexOf(uint32_t clockDword);
+
+// The store those three setters share: the hash is FNV-1a 64 over the word's four bytes, the ring word at `index & 3` is the word
+// encoded under the set's own key (the inverse of ReadGuardedWord: w_i = (e_i ^ (K_i * 63)) - K_i), and `index` is stored. The key
+// (`f`) and the other three ring words are left as they were. A set so stored reads back as `word`.
+void StoreGuardedWord(GuardedWordSet* set, uint32_t word, uint32_t index);
+
 }  // namespace attrs
 }  // namespace pes

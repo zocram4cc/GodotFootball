@@ -504,6 +504,8 @@ class PesWorld {
 
   // Host bytes of a slot's block (its anime record starts at its first byte).
   uint8_t* Block(int slot) { return image_->blocks[slot].bytes.data(); }
+  // Host bytes of a slot's slot record (SlotVa's block bytes).
+  uint8_t* SlotRecord(int slot) { return Block(slot) + kSlotRecordOffset; }
 
   // Writes one table entry: the record VA it names.
   void SetEntry(WorldTable table, int index, uint64_t recordVa) { Entry(table, index).record = recordVa; }

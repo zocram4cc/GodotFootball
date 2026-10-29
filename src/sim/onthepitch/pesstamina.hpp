@@ -190,6 +190,25 @@ float MoveTopRate(const StaminaConstants& k, float speedByte, const StaminaState
 int BreakBonus(const StaminaConstants& k, const StaminaState& s, int period, int fitness,
                float matchLengthFactor);
 
+// The slot record's three hash-checked integers (docs/re/pes-re-stamina-drain.md 1), each a `pes::attrs::GuardedWordSet` (0x20 bytes)
+// at its offset from the slot record's start: the tank `cur` (reader 0x140A58350, setter 0x140A592C0), the tank `max` (0x140A58450,
+// 0x140A595C0) and the breath reserve (0x140A580B0, 0x140A58F60). PES's own readers (the reserve percent 0x140A581C0 and the
+// tank percent 0x140A58550, which the trap chain calls) abort the process on a cell whose hash does not match.
+inline constexpr std::size_t kSlotStaminaCurOffset = 0xC8;
+inline constexpr std::size_t kSlotStaminaMaxOffset = 0xE8;
+inline constexpr std::size_t kSlotBreathOffset = 0x108;
+inline constexpr std::size_t kSlotStaminaDirtyOffset = 0x61;  // u8 the cur setter sets to 1 (0x140A592C0)
+
+// The three setters' writes for one player's state, in the order PES applies them (max, cur, breath): `max` as 0x140A595C0 stores
+// it; `cur` as 0x140A592C0 (a `cur` above `max` is replaced by the max cell, and the dirty byte is set); `breath` as 0x140A58F60 (a
+// `breath` above the cap, BreathCap of the percent the cells now give, is replaced by the cap). `clockDword` is the dword PES hashes
+// for the ring index (`_DAT_7ffe0008`, KUSER_SHARED_DATA+8).
+// ponytail: PES's cells carry a per-cell key (the `+8` word) that its record initializer 0x140A57B00 derives from the cell's address;
+// the captures' keys are not that (the record is built elsewhere and moved), so GF keeps the key its record holds (0 in a fresh
+// window: the ring then stores the bytes plainly) and the clock dword has no GF source: the caller passes the match's tick. Neither
+// changes any value a PES reader decodes.
+void WriteSlotStamina(uint8_t* slotRecord, const StaminaConstants& k, const StaminaState& s, uint32_t clockDword);
+
 // The severity of one contact (report 6.1). `victimSpeed_kmh`,
 // `attackerSpeed_kmh`, `approachAngle_deg` and the attacker-state flags are
 // PES's own; `rng` is the injury object's generator.

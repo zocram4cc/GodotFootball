@@ -3539,6 +3539,11 @@ void WritePesTrapActors(Match& match) {
                     pes::kVelocityRingEntryBytes);
       pes::WriteActorP(match.PesWorldOf(), TrapFactsOf(*p, slot), open, match.GetPesActorConstants(),
                        match.GetPesStaminaConstants(), match.GetPesMoveStepConstants().physique);
+      // The slot record's hash-checked stamina cells (+0xC8 / +0xE8 / +0x108): PES's own readers on the chain's path abort on a
+      // cell whose hash does not match (0x140A58550). The ring index's clock dword has no GF source: the match's clock stands in
+      // (WriteSlotStamina's ponytail).
+      pes::WriteSlotStamina(match.PesWorldOf().SlotRecord(slot), match.GetPesStaminaConstants(), p->GetStamina(),
+                            static_cast<uint32_t>(match.GetActualTime_ms()));
     }
   }
 }

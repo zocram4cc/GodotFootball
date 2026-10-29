@@ -6,6 +6,9 @@
 #include <cstdio>
 #include <initializer_list>
 #include <utility>
+#include <cstring>
+
+#include "pesattrs.hpp"
 
 namespace pes {
 namespace {
@@ -629,6 +632,34 @@ int RecordContact(const StaminaConstants& k, StaminaState* s, int resistance, bo
     s->injuryLevel = 3;
   }
   return sev;
+}
+
+void WriteSlotStamina(uint8_t* slotRecord, const StaminaConstants& k, const StaminaState& s, uint32_t clockDword) {
+  const uint32_t index = attrs::GuardedIndexOf(clockDword);
+  const auto load = [slotRecord](std::size_t at) {
+    attrs::GuardedWordSet cell;
+    static_assert(sizeof(cell) == 0x20, "a guarded word set is the 0x20-byte cell PES lays out");
+    std::memcpy(&cell, slotRecord + at, sizeof cell);
+    return cell;
+  };
+  const auto store = [slotRecord](std::size_t at, const attrs::GuardedWordSet& cell) {
+    std::memcpy(slotRecord + at, &cell, sizeof cell);
+  };
+  const auto put = [&](std::size_t at, uint32_t word) {
+    attrs::GuardedWordSet cell = load(at);
+    attrs::StoreGuardedWord(&cell, word, index);
+    store(at, cell);
+  };
+  put(kSlotStaminaMaxOffset, static_cast<uint32_t>(s.max));  // 0x140A595C0
+  put(kSlotStaminaCurOffset, static_cast<uint32_t>(s.cur));  // 0x140A592C0
+  if (static_cast<uint32_t>(s.max) < static_cast<uint32_t>(s.cur)) store(kSlotStaminaCurOffset, load(kSlotStaminaMaxOffset));
+  slotRecord[kSlotStaminaDirtyOffset] = 1;
+  put(kSlotBreathOffset, static_cast<uint32_t>(s.breath));  // 0x140A58F60
+  // The cap is PES's of the percent the cells give: cur / max read back (cur clamped to max above).
+  StaminaState cells = s;
+  cells.cur = std::min(s.cur, s.max);
+  const uint32_t cap = static_cast<uint32_t>(BreathCap(k, cells));
+  if (cap < static_cast<uint32_t>(s.breath)) put(kSlotBreathOffset, cap);
 }
 
 }  // namespace pes

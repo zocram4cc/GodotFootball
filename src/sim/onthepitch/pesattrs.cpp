@@ -129,5 +129,27 @@ GuardedWordResult ReadGuardedWord(const GuardedWordSet& set) {
   return result;
 }
 
+uint32_t GuardedIndexOf(uint32_t clockDword) {
+  // 0x84222325 is the low half of the 64-bit basis: PES hashes the dword in 32-bit arithmetic.
+  uint32_t h = static_cast<uint32_t>(kFnvBasis);
+  for (uint32_t i = 0; i < 4; ++i) h = (h ^ ((clockDword >> (8 * i)) & 0xffu)) * static_cast<uint32_t>(kFnvPrime);
+  return h;
+}
+
+void StoreGuardedWord(GuardedWordSet* set, uint32_t word, uint32_t index) {
+  const uint32_t base = static_cast<uint32_t>(set->f) * kKeystreamScale;
+  uint32_t ring = 0;
+  uint64_t h = kFnvBasis;
+  for (uint32_t i = 0; i < 4; ++i) {
+    const uint32_t e = (word >> (8 * i)) & 0xffu;
+    const uint32_t key = ((base + kKeystreamStep * i) >> (8 * i)) & 0xffu;
+    ring |= (((e ^ (key * kMixMultiplier)) - key) & 0xffu) << (8 * i);
+    h = (h ^ e) * kFnvPrime;
+  }
+  set->hash = h;
+  set->index = index;
+  set->ring[index & 3u] = ring;
+}
+
 }  // namespace attrs
 }  // namespace pes
