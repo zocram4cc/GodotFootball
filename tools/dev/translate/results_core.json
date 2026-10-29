@@ -19358,19 +19358,19 @@
    "failure_class": null,
    "icount_max": 21,
    "nonreturn": 0,
-   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-CardLevel2: judge_whistle_50E770 captures live2 pid2670420 seq028, seq7444, seq7535, seq7699; pid91171 seq028, seq308; restarts 1 kick-off, 2 throw-in, 4 corner, 5 free kick); own-block coverage 0.5072; the unicorn harness corpus (5 valid of 64) is superseded",
+   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-CardLevel2: judge_whistle_50E770 captures live2 pid2670420 seq028, seq7444, seq7535, seq7699; pid91171 seq028, seq308; pid132854 seq028, seq804, seq866, seq1161, seq1328, seq1493, seq2126, seq2673, seq2939; restart kinds 1 kick-off, 2 throw-in, 3 goal kick, 4 corner, 5 free kick); own-block coverage 0.5072; the unicorn harness corpus (5 valid of 64) is superseded",
    "proof": "snapdiff",
-   "requested": 6,
+   "requested": 15,
    "role": "seed",
    "snapdiff": {
-    "calls": 6,
+    "calls": 15,
     "mismatches": 0,
     "own_block": {
      "reached": 35,
      "total": 69,
      "fraction": 0.5072
     },
-    "replayed": 6,
+    "replayed": 15,
     "source": "tools/dev/translate/results_judge.json"
    },
    "stubs": [],

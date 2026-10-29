@@ -1,5 +1,5 @@
 {
- "note": "snapshot-backed diff of the judge's traced calls (snapdiff.py): each real call replayed from its snapshot's own memory on the harness and the translated side; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated. Captures: live2 pid2670420 (decide seq7473, commit seq7443, whistle seq028 seq7444 seq7535 seq7699) and pid91171 (decide seq316, whistle seq028 seq308).",
+ "note": "snapshot-backed diff of the judge's traced calls (snapdiff.py): each real call replayed from its snapshot's own memory on the harness and the translated side; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated. Captures: live2 pid2670420 (decide seq7473, commit seq7443, whistle seq028 seq7444 seq7535 seq7699), pid91171 (decide seq316, whistle seq028 seq308) and pid132854 (whistle seq028 seq804 seq866 seq1161 seq1328 seq1493 seq2126 seq2673 seq2939).",
  "proven_count": 3,
  "results": [
   {
@@ -54,8 +54,8 @@
   },
   {
    "va": "0x14050E770",
-   "calls": 6,
-   "replayed": 6,
+   "calls": 15,
+   "replayed": 15,
    "excluded": 0,
    "reasons": {},
    "snapshots": {
@@ -80,6 +80,42 @@
      "replayed": 1
     },
     "b_seq308": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "c_seq028": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "c_seq1161": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "c_seq1328": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "c_seq1493": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "c_seq2126": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "c_seq2673": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "c_seq2939": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "c_seq804": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "c_seq866": {
      "calls": 1,
      "replayed": 1
     }
