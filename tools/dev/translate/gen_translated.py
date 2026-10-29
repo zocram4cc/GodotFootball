@@ -38,7 +38,7 @@ ROOT = os.path.join(driver.REPO, "src", "pes", "translated")
 # (committed results file, spec subdirectory of tools/dev/diffharness/specs).
 SETS = (("results.json", "pilot"), ("results_impure.json", "impure"),
         ("results_cutscene.json", "cutscene"), ("results_presentation.json", "presentation"),
-        ("results_core.json", "core"))
+        ("results_core.json", "core"), ("results_fixdemo.json", "fixdemo"))
 CALLEE = re.compile(r"pes_fn_([0-9A-Fa-f]+)\(")
 HAND_REFINED = "hand-refined"
 CLOSURE = "closure"
