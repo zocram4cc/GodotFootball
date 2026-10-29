@@ -1287508,6 +1287508,13 @@
  "meta": {
   "bridge": "http://127.0.0.1:8080",
   "closures": {
+   "cutanchor": {
+    "members": 175,
+    "roots": [
+     "0x140474F00",
+     "0x14047D280"
+    ]
+   },
    "endclear": {
     "members": 84,
     "roots": [

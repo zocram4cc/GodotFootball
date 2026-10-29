@@ -98342,6 +98342,76 @@
    "subsystem": "pre-match",
    "translated": true,
    "va": "0x1423D32A0"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x140474F00": {
+     "fraction": 0.4022,
+     "reached": 72,
+     "total": 179
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 128,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-CutAnchor.md); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 64,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.4022,
+     "reached": 72,
+     "total": 179
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_snapdiff_cutanchor.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140474F00"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 0,
+   "coverage": {
+    "0x14047D280": {
+     "fraction": 0.2927,
+     "reached": 12,
+     "total": 41
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 128,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-CutAnchor.md); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 64,
+   "snapdiff": {
+    "calls": 1,
+    "mismatches": 0,
+    "own_block": {
+     "fraction": 0.2927,
+     "reached": 12,
+     "total": 41
+    },
+    "replayed": 1,
+    "source": "tools/dev/translate/results_snapdiff_cutanchor.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14047D280"
   }
  ]
 }

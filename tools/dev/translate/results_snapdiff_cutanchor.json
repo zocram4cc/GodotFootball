@@ -1,0 +1,53 @@
+{
+ "note": "snapshot-backed diff of traced calls (snapdiff.py): each traced call replayed from its snapshot's own memory on the harness and the translated side; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated.",
+ "proven_count": 2,
+ "results": [
+  {
+   "va": "0x140474F00",
+   "calls": 1,
+   "replayed": 1,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "pid2621613_seq1532": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 72,
+    "total": 179,
+    "fraction": 0.4022
+   },
+   "proven": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14047D280",
+   "calls": 1,
+   "replayed": 1,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "pid2621613_seq1531": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 12,
+    "total": 41,
+    "fraction": 0.2927
+   },
+   "proven": true,
+   "blocked_callees": []
+  }
+ ],
+ "captures": "live2/pid2621613/seq1531 (cut_anchor_write_47D280) and seq1532 (cut_anchor_calc_474F00); replay with frame_trace.py recorded + snapdiff.py --hooks hooks.cfg --spec-dir specs/core (tools/dev/cutscene/replay_verdicts.py)"
+}
