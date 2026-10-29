@@ -28,3 +28,14 @@ GF reads the user's own running copy for interoperability: the format of the
 dump (flat, offset = VA − 0x140000000) is GF's, and the hashes pin the image
 the pilot specs were authored against. No PES bytes ship in this repo;
 everything PES-derived regenerates from the user's install by script.
+
+## `.impdata`: code at 0x143D14000..0x15B952000 is in the image
+
+The dump carries the whole `.impdata` section (the protector's section, which holds 2,273 relocated game functions
+reached through `jmp rel32` thunks in `.trace`). It is plain code, byte-identical in `PES2021.exe`, the dump and every
+full capture except a few state words (31 pages in all). The Ghidra bridge's program ends at 0x143D13FFF, so the
+bridge cannot decompile it (`thunk_EXT_FUN_144...`); the image can be decoded, and `closure.py` does so (a function
+with no `.pdata` entry gets its extent from a linear decode; a VM entry or opaque-return body is refused by name).
+A slim capture drops these pages; `full_snapshot.py` serves them from the image except `IMPDATA_VOLATILE_RVA`, the
+31 pages that differ in any full capture. After a new dump or build, regenerate that constant:
+`python3 tools/pes21_import/volatile_pages.py --image $PES_EXE FULL_CAPTURE_DIR [FULL_CAPTURE_DIR ...]`.
