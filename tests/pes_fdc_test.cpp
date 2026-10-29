@@ -300,9 +300,10 @@ const PoseConstants* Constants() {
   if (!k) GTEST_SKIP() << "PES21_ROOT not set or PES2021.exe pose constants unreadable"
 
 // A clip with the given rotation and position channels; fov/near/far/aspect are one held key each.
-Canm Clip(uint32_t length, const std::vector<uint16_t>& rotFrames, const std::vector<std::vector<float>>& rot,
-          const std::vector<uint16_t>& posFrames, const std::vector<std::vector<float>>& pos, bool posNoTimes = false) {
-  const auto bytes = MakeCanm(length, {
+std::vector<uint8_t> ClipBytes(uint32_t length, const std::vector<uint16_t>& rotFrames,
+                               const std::vector<std::vector<float>>& rot, const std::vector<uint16_t>& posFrames,
+                               const std::vector<std::vector<float>>& pos, bool posNoTimes = false) {
+  return MakeCanm(length, {
       {1, rotFrames, rot},
       {4, posFrames, pos, posNoTimes},
       {8, {0}, {{40}}},
@@ -310,9 +311,13 @@ Canm Clip(uint32_t length, const std::vector<uint16_t>& rotFrames, const std::ve
       {8, {0}, {{100}}},
       {8, {0}, {{1.5f}}},
   });
+}
+
+Canm Clip(uint32_t length, const std::vector<uint16_t>& rotFrames, const std::vector<std::vector<float>>& rot,
+          const std::vector<uint16_t>& posFrames, const std::vector<std::vector<float>>& pos, bool posNoTimes = false) {
   Canm c;
   std::string err;
-  EXPECT_TRUE(pes::fdc::ParseCanm(bytes, &c, &err)) << err;
+  EXPECT_TRUE(pes::fdc::ParseCanm(ClipBytes(length, rotFrames, rot, posFrames, pos, posNoTimes), &c, &err)) << err;
   return c;
 }
 
@@ -323,7 +328,7 @@ float Norm4(const std::array<float, 4>& q) { return std::sqrt(q[0] * q[0] + q[1]
 }  // namespace
 
 TEST(PesFdcCanm, ReadsLengthAndTheFpsOnlyWhenTheHeaderFlagsIt) {
-  auto bytes = MakeCanm(7, {});
+  auto bytes = ClipBytes(7, {0}, {{0, 0, 0, 1}}, {0}, {{0, 0, 0, 1}});
   Canm c;
   std::string err;
   ASSERT_TRUE(pes::fdc::ParseCanm(bytes, &c, &err)) << err;
