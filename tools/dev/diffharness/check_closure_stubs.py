@@ -17,7 +17,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from specgen import analyze as AN  # noqa: E402
 from specgen import classify as C  # noqa: E402
-from specgen import impure as I  # noqa: E402
 from specgen import sets  # noqa: E402
 
 CASES = [
