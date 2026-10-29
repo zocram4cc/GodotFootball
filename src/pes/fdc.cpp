@@ -78,6 +78,19 @@ TimingRecord DecodeTiming(const uint8_t* r, size_t n) {
   return t;
 }
 
+CutRecord DecodeCut(const uint8_t* r, size_t n) {
+  auto u32 = [&](size_t off) { return off + 4 <= n ? Le32(r + off) : 0u; };
+  auto f32 = [&](size_t off) { return off + 4 <= n ? LeF32(r + off) : 0.0f; };
+  auto u8 = [&](size_t off) { return off < n ? r[off] : uint8_t(0); };
+  CutRecord c;
+  c.id = int32_t(u32(0x00));
+  c.useOffset = u8(0x19) != 0;
+  for (size_t i = 0; i < 3; ++i) c.offsetPos[i] = f32(0x1c + 4 * i);
+  c.offsetRotYDeg = f32(0x28);
+  c.offsetFlipX = u8(0x2c) != 0;
+  return c;
+}
+
 std::string StripVfsPrefix(const std::string& s) {
   constexpr size_t kLen = sizeof(kVfsPrefix) - 1;
   return s.rfind(kVfsPrefix, 0) == 0 ? s.substr(kLen) : s;
@@ -298,6 +311,18 @@ bool File::HasRecordType(uint8_t type) const {
   return std::find(recordTypes.begin(), recordTypes.end(), type) != recordTypes.end();
 }
 
+CutOffset CutStartOffset(const File& file, const CutOffset& stageDefault) {
+  const CutRecord* first = nullptr;  // 0x141F2E0DB..: lower_bound(0) over the cut map
+  for (const CutRecord& c : file.cuts)
+    if (c.id >= 0 && (!first || c.id < first->id)) first = &c;
+  if (!first || !first->useOffset) return stageDefault;  // 0x141F2E14F.. the +0x49 flag test
+  CutOffset o;
+  o.pos = first->offsetPos;
+  o.rotYDeg = first->offsetRotYDeg;
+  o.flip = first->offsetFlipX;
+  return o;
+}
+
 const Resource* File::FindResource(const std::string& path) const {
   const std::string want = StripVfsPrefix(path);
   for (const Resource& r : resources)
@@ -381,6 +406,7 @@ bool Parse(const std::vector<uint8_t>& b, File* out, std::string* err) {
     if (NominalSize(t) == 0) return fail("record with unknown type " + std::to_string(int(t)));
     out->recordTypes.push_back(t);
     const uint8_t* r = b.data() + base + off;
+    if (t == kCut) out->cuts.push_back(DecodeCut(r, size));
     if (t == kCamera) out->cameras.push_back(DecodeCamera(r, size));
     if (t == kTiming) out->timings.push_back(DecodeTiming(r, size));
   }

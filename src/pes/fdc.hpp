@@ -61,6 +61,16 @@ struct TimingRecord {
   std::string actionName;                // +0x1c char[64]: e.g. demo_goal_level3
 };
 
+// Type 0, 64 bytes: the placement fields the player reads at cut start (0x141F2E11C..: the map node's +0x49 =
+// record +0x19, +0x4C = +0x1C, +0x58 = +0x28, +0x5C = +0x2C; the node base is record - 0x30).
+struct CutRecord {
+  int32_t id = 0;                        // +0x00: the player's cut map key
+  bool useOffset = false;                // +0x19
+  std::array<float, 3> offsetPos{};      // +0x1C
+  float offsetRotYDeg = 0;               // +0x28
+  bool offsetFlipX = false;              // +0x2C
+};
+
 struct Coverage {
   size_t gapBytes = 0;                   // unclaimed, non-padding bytes
   size_t padBytes = 0;                   // zero bytes in the block's pool tail, unreferenced
@@ -73,6 +83,7 @@ struct File {
   std::vector<Resource> resources;       // entries 1..n-1
   std::vector<uint8_t> recordTypes;      // one per cut-block record, table order
   std::vector<CameraRecord> cameras;     // type 6, table order
+  std::vector<CutRecord> cuts;           // type 0, table order
   std::vector<TimingRecord> timings;     // type 2, table order
   Coverage coverage;
 
@@ -156,6 +167,12 @@ struct CutOffset {
   float rotYDeg = 0;
   bool flip = false;                     // mirror X
 };
+
+// The player's cut offset after cut start (0x141F2DD80 at 0x141F2E115..0x141F2E1B0): the stage default
+// (+0xAC0..+0xAD0), replaced whole by the first cut's own offset (the smallest id >= 0 of the file's cuts:
+// the player map's lower_bound on key 0) when that cut's offset flag is set. The rotY wrap into [0, 360) the
+// writer applies is not repeated here: RotYMatrix (0x140A92C80) wraps its input the same way.
+CutOffset CutStartOffset(const File& file, const CutOffset& stageDefault);
 
 // FUN_140A91E60 about the axis (0, 1, 0) for rotYDeg degrees, as FixDemoCamera::Update builds it
 // (0x141F7B8FC): the angle goes degrees -> radians (0x1425A0C48) -> degrees (0x14259BE40), and the sine
