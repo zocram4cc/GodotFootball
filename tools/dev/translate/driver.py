@@ -70,6 +70,9 @@ STUB_TABLE = stub_table.load()
 # Abort traps (stubs.json abort-trap): reaching one ends a case as a PES abort, never an output.
 ABORT_VAS = frozenset(va for va, e in STUB_TABLE.items() if e["do"] == "abort")
 
+# The image range the translated universe covers: plain code a build may translate (PES .trace section).
+CODE_LO, CODE_HI = 0x140001000, 0x14252E800
+
 # The one stub choice for every spec set (stubs.json, do in MODEL_DOS): a callee here is its model, in every set.
 MODEL_MAP = {"0x%X" % va: e for va, e in stub_table.models(STUB_TABLE).items()}
 
@@ -223,6 +226,31 @@ def _why_dispatchable(why):
             if not _chain_dispatchable(c):
                 return False
     return True
+
+
+def reached_roots(image, reached):
+    """(roots, error) for a harness trace {indirect site: {target: count}}: the in-code targets that start a function,
+    sorted. A target is no root when it lies in the same function as a `jmp reg` site (a switch case, a label of the
+    function holding the site: 0x140A62047 inside 0x140A61F40; translating from it decodes nothing); a site inside a
+    function is no root either. Any other in-code target that is not a function boundary is an error naming it.
+    The one rule the diff builds (build_and_diff) and the snapshot builds (snapdiff) share."""
+    import xlate
+    pd = xlate.pdata_of(image)
+    roots = set()
+    for site, tgts in reached.items():
+        sv = int(site, 16)
+        reg_jmp = pd.indirect_kind(sv) == "jmp reg"
+        for t in tgts:
+            tv = int(t, 16)
+            if not CODE_LO <= tv < CODE_HI:
+                continue
+            if reg_jmp and pd.same_body(sv, tv):
+                continue
+            if pd.is_boundary(tv):
+                roots.add("0x%X" % tv)
+            elif pd.containing(tv) != pd.containing(sv):
+                return [], "closure walk: indirect target %s (from site %s) is not a function boundary" % (t, site)
+    return sorted(roots), None
 
 
 # ponytail: one budget over every seed's out-of-set walk; a walk over it blocks every unseen seed, leaves included. Upgrade: a budget per seed. Measured 28-10-26 (uncapped walks): 445E90 = 1871 functions, 44C880 = 1865 (depth 80); at 1100 both were refused by budget, and depth 25 blocked 33 functions of 44C880's walk.
@@ -540,12 +568,13 @@ def build_and_diff(va, spec, args, pilot, nlines):
         reached = json.load(open(os.path.join(gen, "trace_%s.json" % tag)))
     except (OSError, ValueError):
         reached = {}
-    for site, tgts in (reached or {}).items():
-        for t in tgts:
-            ti = int(t, 16)
-            if 0x140001000 <= ti < 0x14252E800 and t not in seen:
-                seen.add(t)
-                need.append(t)
+    roots, bad = reached_roots(args.image, reached or {})
+    if bad:
+        return False, bad, "translator bug"
+    for t in roots:
+        if t not in seen:
+            seen.add(t)
+            need.append(t)
     for cvi, cv in enumerate(need):
         p = os.path.join(gen, "pes_fn_%s.cpp" % cv[2:])
         if not os.path.exists(p):

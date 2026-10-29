@@ -27,21 +27,13 @@ sys.path.insert(0, HERE)
 import driver as drv  # noqa: E402
 import diffmain  # noqa: E402
 import frame_trace as ft  # noqa: E402
-import pdata  # noqa: E402
+import xlate  # noqa: E402
 import full_snapshot as fs  # noqa: E402
 
 JOBS = max(1, min(4, os.cpu_count() or 1))  # translation units compiled at once per closure
 CODE_LO, CODE_HI = 0x140001000, 0x14252E800  # the translated universe's image range (driver.build_and_diff)
 
 
-_PDATA = {}
-
-
-def boundary_map(image):
-    """The image's own Pdata (function extents, boundaries, indirect-branch kinds), opened once."""
-    if image not in _PDATA:
-        _PDATA[image] = pdata.Pdata(open(image, "rb"))  # kept open: indirect_kind and decode read the image
-    return _PDATA[image]
 
 
 def build_closure(va, spec, args, pilot, reached):
@@ -58,21 +50,12 @@ def build_closure(va, spec, args, pilot, reached):
     # switch dispatch, never a function start, and its targets in the same body are cases even where no .pdata entry
     # says where the leaf ends (0x140848B40 and its case 0x140848B6E, inside the leaf 0x140848AF0). Any other target
     # that is not a function boundary fails the closure.
-    pd = boundary_map(args.image)
-    roots = set()
-    for site, tgts in reached.items():
-        sv = int(site, 16)
-        reg_jmp = pd.indirect_kind(sv) == "jmp reg"
-        for t in tgts:
-            tv = int(t, 16)
-            if reg_jmp and pd.same_body(sv, tv):
-                continue
-            if not CODE_LO <= tv < CODE_HI or pd.is_boundary(tv):
-                roots.add("0x%X" % tv)
-            elif pd.containing(tv) != pd.containing(sv):
-                return [va], "closure walk: indirect target %s (from site %s) is not a function boundary" % (t, site)
-    targets = roots | {s for s in reached
-                       if pd.is_boundary(int(s, 16)) and pd.indirect_kind(int(s, 16)) != "jmp reg"}
+    pd = xlate.pdata_of(args.image)
+    roots, bad = drv.reached_roots(args.image, reached)
+    if bad:
+        return [va], bad
+    targets = set(roots) | {s for s in reached
+                            if pd.is_boundary(int(s, 16)) and pd.indirect_kind(int(s, 16)) != "jmp reg"}
     # The harness runs each replayed indirect target's image bytes (no stub entry), and so do the walks of
     # their direct callees: the build closes over those too, or a plain callee is an out-of-set abort.
     reached_seed = {"harness": {"out_of_set_callees": [
