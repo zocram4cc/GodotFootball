@@ -11,8 +11,7 @@
 #include "../data/playerskills.hpp"
 #include "simcontext.hpp"
 #include "AIsupport/AIfunctions.hpp"
-#include <cstring>
-#include "teamAIcontroller.hpp"
+#include "foulseverity.hpp"
 #include "foulsequence.hpp"
 #include "pessequencer.hpp"
 #include "goalsequence.hpp"
@@ -795,7 +794,8 @@ void Referee::PublishPesStoppage() {
   mi[pes::kMiRestartArmedOffset] = buffer.prepared ? 1 : 0;
   const Vector3 ball = match->GetBall()->Predict(0);
   world.SetBall(ball.coords[0], ball.coords[1]);
-  StagePesField();
+  for (int team = 0; team < pes::kSideCount; ++team)
+    world.SetAttackSign(team, static_cast<int>(-match->GetTeam(team)->GetSide()));
 }
 
 // PES's foul sanction (0x14047F170), decided once on the first tick of a foul stop (pes-re-sanction-caller.md 1: step 5,
@@ -804,7 +804,7 @@ void Referee::PublishPesStoppage() {
 void Referee::DecideSanction() {
   sanctionDue = false;
   pes::PesWorld& world = match->PesWorldOf();
-  StagePesField();
+  world.SetFieldInfo(static_cast<float>(pitchHalfW + lineHalfW), static_cast<float>(pitchHalfH + lineHalfW));
   for (int team = 0; team < pes::kSideCount; ++team) {
     std::vector<Player*> onPitch;
     match->GetTeam(team)->GetActivePlayers(onPitch);
@@ -1092,94 +1092,49 @@ void Referee::CommitPendingOffside() {
   pendingOffside.player = nullptr;
 }
 
-// PES's contact action id for GF's action class (the kAction* ids the judge compares, pesworldrecord.hpp); 0 is no action
-// the judge scores.
-static uint8_t PesActionId(pes::ContactAction action) {
-  switch (action) {
-    case pes::ContactAction::kSlide: return pes::kActionSlide;
-    case pes::ContactAction::kTackle: return pes::kActionTackle;
-    case pes::ContactAction::kBlock: return pes::kActionBlock;
-    case pes::ContactAction::kJostle: return pes::kActionJostle;
-    case pes::ContactAction::kStagger: return pes::kActionStagger;
-    case pes::ContactAction::kFall: return pes::kActionFall;
-    default: return 0;
-  }
-}
+int Referee::JudgeContact(Player* tripee, Player* tripper, pes::JudgeAction action,
+                          bool victimFell, bool targeted) {
+  // PES 2021's foul decision (docs/re/pes-re-duels-fouls.md 2): points from the
+  // approach angle, the closing speed and the challenge, then thresholds. The
+  // victim attacks the goal at x = -side * pitchHalfW.
+  const pes::JudgeConstants& k = match->GetPesJudgeConstants();
+  const Vector3 a = tripee->GetPosition(), b = tripper->GetPosition();
+  const float attackDirSign = -tripee->GetTeam()->GetSide();
+  constexpr float RAD_TO_DEG = 180.0f / static_cast<float>(M_PI);
+  constexpr float HALF_TURN_DEG = 180.0f;
+  const auto angleBetween = [](const Vector3& u, const Vector3& v) {
+    return std::acos(clamp(u.GetNormalized(0).GetDotProduct(v.GetNormalized(0)), -1.0f, 1.0f)) *
+           RAD_TO_DEG;
+  };
 
-// PES 2021's foul decision for one contact (docs/re/pes-re-duels-fouls.md 2, docs/ports/pes-port-CardLevel2.md): PES's
-// 0x1405B7470 runs on the window over the records GF stages here, and the pending foul it builds gives the level. The
-// victim attacks the goal at x = -side * pitchHalfW.
-int Referee::JudgeContact(Player* tripee, Player* tripper, pes::ContactAction foulerAction, bool victimStaggered,
-                          bool victimFell, bool targeted, bool playedBall) {
-  pes::PesWorld& world = match->PesWorldOf();
-  const int a = match->PesSlotOf(tripee), b = match->PesSlotOf(tripper);
-  StagePesField();
-  pes::StoreU32(world.MatchInfo(), pes::kMiFrameOffset, static_cast<uint32_t>(match->GetPesFrame()));
-  for (int team = 0; team < pes::kSideCount; ++team)
-    // ponytail: the match-analysis floats at A1's block +0x40 / +0x54 (the DOGSO line of each team, 0x1405B7390) have no
-    // decoded PES writer; GF's offside line of the team stands in. Remove with that writer.
-    world.SetTeamLine(team, AI_GetOffsideLine(match, match->GetMentalImage(0), team));
-  WritePesManMovement(*tripee, world.ManRecord(a));
-  WritePesManMovement(*tripper, world.ManRecord(b));
+  pes::JudgeContact c;
+  c.action = action;
+  // 180 = B came in along A's own facing, i.e. from directly behind.
+  // P_angle's theta is ai(B)+0x12a0, B's approach angle to A, only when B was
+  // targeting A; otherwise 0 (report 2.3).
+  c.approachAngle_deg =
+      targeted ? HALF_TURN_DEG - angleBetween(a - b, tripee->GetDirectionVec()) : 0.0f;
+  c.slideOffLine_deg = angleBetween(tripper->GetDirectionVec(), a - b);
+  c.headingsDelta_deg = angleBetween(tripee->GetDirectionVec(), tripper->GetDirectionVec());
+  c.relativeSpeed_mps = (tripee->GetMovement() - tripper->GetMovement()).GetLength();
+  c.victimFell = victimFell;
+  const float boxHalfWidth = pesPenaltyAreaHalfWidth;  // FieldInfo F7
+  c.dogso = FoulSeverity::DeniesObviousChance(
+      attackDirSign, a.coords[0], a.coords[1],
+      AI_GetOffsideLine(match, match->GetMentalImage(0), tripper->GetTeam()->GetID()),
+      boxHalfWidth);
+  // The spot moves spotBias towards A's own goal and the touchline, so a
+  // contact on the box line is judged outside (FUN_1405b6870).
+  const float spotX = a.coords[0] - attackDirSign * k.spotBias_m;
+  const float spotY = a.coords[1] + (a.coords[1] < 0 ? -k.spotBias_m : k.spotBias_m);
+  c.inAttackingBox =
+      fabs(spotY) < boxHalfWidth && spotX * attackDirSign > pesPenaltyAreaLineX;
 
-  // The anime records carry GF's keeper-class stand-in in the action byte: stage over them and put them back.
-  constexpr std::size_t kStagedBytes = pes::kAnimeTackleKindOffset + 4;
-  uint8_t* animeA = world.Block(a);
-  uint8_t* animeB = world.Block(b);
-  uint8_t savedA[kStagedBytes], savedB[kStagedBytes];
-  std::memcpy(savedA, animeA, kStagedBytes);
-  std::memcpy(savedB, animeB, kStagedBytes);
-  std::memset(animeA, 0, kStagedBytes);
-  std::memset(animeB, 0, kStagedBytes);
-  // A: down or staggering. ponytail: the flag word's bit 30 (a staggering victim at full weight) and bit 29 (the forced
-  // "face" card) have no GF source; PES's animation writer of the flag word (+8) removes both.
-  animeA[pes::kAnimeActionOffset] = victimFell ? pes::kActionFall : victimStaggered ? pes::kActionStagger : 0;
-  // B: his action, and whether it played the ball (0x140A63DA0: a challenge with bit 15, any other action with bit 16).
-  // ponytail: GF takes "played the ball" as "B is the ball's last toucher" (Match::ReportContact); the tackle sub-kind
-  // (+0x44) and the kick phase (+0x3C) have no GF source, so a tackle scores as the general sub-kind. PES's clip writer of
-  // +0x44 removes it.
-  const uint8_t bAction = PesActionId(foulerAction);
-  animeB[pes::kAnimeActionOffset] = bAction;
-  const bool challenge = bAction >= pes::kActionSlide && bAction <= pes::kActionBlock;
-  if (playedBall) {
-    uint64_t flags = uint64_t{1} << (challenge ? pes::kFlagPlayedBall : pes::kFlagChallenge);
-    std::memcpy(animeB + pes::kAnimeFlagsOffset, &flags, sizeof flags);
-  }
-
-  // B's slot record: the man he targets and how he comes at him (0x1405B6870, P_angle's theta). 180 = from directly behind.
-  // ponytail: B's intent flag (+0x134), the fair-challenge flag (+0x148C) and the predicted point (+0x1480..) have no GF
-  // source: intent and fair stay clear and the point is the victim's own (the AI's reaction-table writer removes them).
-  constexpr float kHalfTurn_deg = 180.0f;
-  const Vector3 pa = tripee->GetPosition(), pb = tripper->GetPosition();
-  const float cosine = (pa - pb).GetNormalized(0).GetDotProduct(tripee->GetDirectionVec().GetNormalized(0));
-  uint8_t* slotB = world.SlotRecord(b);
-  std::memset(slotB + pes::kSlotIntentOffset, 0, 1);
-  std::memset(slotB + pes::kSlotFairOffset, 0, 1);
-  pes::StoreF32(slotB, pes::kSlotApproachAngleOffset,
-                targeted ? kHalfTurn_deg - std::acos(clamp(cosine, -1.0f, 1.0f)) * 180.0f / static_cast<float>(M_PI) : 0.0f);
-  pes::StoreU32(slotB, pes::kSlotTargetValidOffset, targeted ? 1u : 0u);
-  pes::StoreU32(slotB, pes::kSlotTargetIdOffset, targeted ? static_cast<uint32_t>(a) : 0xFFFFFFFFu);
-  pes::StoreU32(slotB, pes::kSlotForceTargetOffset, targeted ? static_cast<uint32_t>(a) : 0xFFFFFFFFu);
-  pes::StoreF32(slotB, pes::kSlotTargetPointOffset, pa.coords[0]);
-  pes::StoreF32(slotB, pes::kSlotTargetPointOffset + 4, pa.coords[2]);
-  pes::StoreF32(slotB, pes::kSlotTargetPointOffset + 8, pa.coords[1]);
-
-  const pes::PesWorld::JudgeVerdict verdict = world.DecideJudge(a, b);
-  std::memcpy(animeA, savedA, kStagedBytes);
-  std::memcpy(animeB, savedB, kStagedBytes);
-  if (Verbose() && verdict.pending)
-    printf("referee: judge points %u level %u\n", verdict.points, verdict.level);
   // PES level 1 foul, 2 foul + warning, 3 yellow, 4 red: kept whole (RecordFoul), the tree reads it.
-  return verdict.pending ? static_cast<int>(verdict.level) : 0;
-}
-
-// The pitch records the judge and the sanction tree read: the field info (pitch half sizes plus the line half-width) and
-// each team's attack sign.
-void Referee::StagePesField() {
-  pes::PesWorld& world = match->PesWorldOf();
-  world.SetFieldInfo(static_cast<float>(pitchHalfW + lineHalfW), static_cast<float>(pitchHalfH + lineHalfW));
-  for (int team = 0; team < pes::kSideCount; ++team)
-    world.SetAttackSign(team, static_cast<int>(-match->GetTeam(team)->GetSide()));
+  const int level = pes::JudgeLevel(c, k);
+  if (Verbose() && level > 0)
+    printf("referee: judge points %i level %i\n", pes::JudgePoints(c, k), level);
+  return level;
 }
 
 float Referee::NearestToBall_m(Team* team) const {
@@ -1220,8 +1175,13 @@ void Referee::ContactEvent(Player* victim, Player* fouler, pes::ContactAction fo
   // The Judge's gate FUN_14050d6a0 (docs/re/pes-re-duels-fouls.md 2.2): B has
   // played the ball, or B was targeting A, or A is staggering / down.
   if (!(foulerPlayedBall || foulerTargetedVictim || victimStaggered || victimFell)) return;
-  const int level =
-      JudgeContact(victim, fouler, foulerAction, victimStaggered, victimFell, foulerTargetedVictim, foulerPlayedBall);
+  const pes::JudgeAction action = slide ? pes::JudgeAction::Slide
+                                  : foulerAction == pes::ContactAction::kTackle
+                                      ? pes::JudgeAction::Tackle
+                                  : foulerAction == pes::ContactAction::kJostle
+                                      ? pes::JudgeAction::Jostle
+                                      : pes::JudgeAction::Other;
+  const int level = JudgeContact(victim, fouler, action, victimFell, foulerTargetedVictim);
   if (level > 0) RecordFoul(victim, fouler, level);
 }
 

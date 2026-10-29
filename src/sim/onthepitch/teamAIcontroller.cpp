@@ -3409,11 +3409,10 @@ float PesYawDeg(const Vector3& v) {
              ? 0.0f
              : std::fmod(std::atan2(v.coords[0], v.coords[1]) * 180.0f / pi + 360.0f, 360.0f);
 }
-}  // namespace
 
 // The movement fields of a player's man record: position from GF's coordinates (x = coords[0], z = coords[1] = PES z,
 // coords[2] = height), velocity in m per PES frame (GF m/s over kPesFps), facing in degrees.
-void WritePesManMovement(Player& pl, uint8_t* man) {
+void WriteManMovement(Player& pl, uint8_t* man) {
   const Vector3 pos = pl.GetPosition();
   const Vector3 mov = pl.GetMovement();
   pes::StoreF32(man, pes::kManPosXOffset, pos.coords[0]);
@@ -3426,6 +3425,8 @@ void WritePesManMovement(Player& pl, uint8_t* man) {
   pes::StoreF32(man, pes::kManFacingOffset, PesYawDeg(pl.GetDirectionVec()));
 }
 
+}  // namespace
+
 // Every active player's movement record at the tick's start (Match::Process, PES mode). The cap is BuildRunWorld's: at
 // most kSlots active players a side, in roster order.
 void WritePesMovementRecords(Match& match) {
@@ -3434,7 +3435,7 @@ void WritePesMovementRecords(Match& match) {
     for (const auto& p : match.GetTeam(t)->GetAllPlayers()) {
       if (!p->IsActive() || written == ob::kSlots) continue;
       ++written;
-      WritePesManMovement(*p, match.PesWorldOf().ManRecord(match.PesSlotOf(p.get())));
+      WriteManMovement(*p, match.PesWorldOf().ManRecord(match.PesSlotOf(p.get())));
     }
   }
 }
@@ -3482,7 +3483,7 @@ pes::offball::RunWorld TeamAIController::BuildRunWorld(
       // The man record is keyed by PES's slot (his squad place): the block the translated accessors read.
       const int recordSlot = match->PesSlotOf(pl);
       f.man = match->PesWorldOf().ManRecord(recordSlot);
-      if (!match->PesLoop()) WritePesManMovement(*pl, f.man);
+      if (!match->PesLoop()) WriteManMovement(*pl, f.man);
       f.roleClass = ctl->RoleClassOfSlot(match->GetTeam(t)->FormationSlotOf(pl));
       f.styleWord = pes::style::StyleWord(pl->GetPlayerData()->GetPlayingStyle());
       // ponytail: PES's writer of the record's +1 byte (lane-units2 S12) is not decoded; the keeper class stands in for it.

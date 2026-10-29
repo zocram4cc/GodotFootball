@@ -81,13 +81,6 @@ void PesWorld::BindSanction() {
   const uint64_t events = SanctionVa(offsetof(PesSanctionImage, events));
   std::memcpy(z.analyze.data() + kAnalyzeBlockPtrOffset, &block, sizeof block);
   std::memcpy(z.analyze.data() + kAnalyzeEventsPtrOffset, &events, sizeof events);
-  // The judge's ctx cell names A1, its +0x3C0 names JR: 0x1405B7470 reads the cell as **(judge+0x3B8).
-  const uint64_t analyze = SanctionVa(offsetof(PesSanctionImage, analyze));
-  std::memcpy(z.judgeCtx.data(), &analyze, sizeof analyze);
-  const uint64_t ctx = SanctionVa(offsetof(PesSanctionImage, judgeCtx));
-  const uint64_t result = SanctionVa(offsetof(PesSanctionImage, judgeResult));
-  std::memcpy(z.judge.data() + kJudgeCtxPtrOffset, &ctx, sizeof ctx);
-  std::memcpy(z.judge.data() + kJudgeResultPtrOffset, &result, sizeof result);
 }
 
 void PesWorld::SetFieldInfo(float halfLength_m, float halfWidth_m) {
@@ -127,28 +120,6 @@ uint32_t PesWorld::DecideSanction() {
   ::pes_fn_14047F170(s);
   StoreU32(image_->sanction.request.data(), kRequestSceneOffset, static_cast<uint32_t>(s.gpr[0]));  // eax
   return static_cast<uint32_t>(s.gpr[0]);
-}
-
-PesWorld::JudgeVerdict PesWorld::DecideJudge(int victim, int fouler) {
-  uint8_t* judge = image_->sanction.judge.data();
-  judge[kJudgePendingOffset] = 0;
-  PesState s = NewCall(Bytes());
-  s.gpr[1] = SanctionVa(offsetof(PesSanctionImage, judge));  // rcx = the judge
-  s.gpr[2] = static_cast<uint32_t>(victim);                  // edx = A
-  s.gpr[8] = static_cast<uint32_t>(fouler);                  // r8d = B
-  ::pes_fn_1405B7470(s);
-  JudgeVerdict verdict;
-  verdict.pending = judge[kJudgePendingOffset] != 0;
-  if (!verdict.pending) return verdict;
-  verdict.level = LoadU32(judge, kJudgeLevelOffset);
-  verdict.points = judge[kJudgePointsOffset];
-  verdict.restart = LoadU32(judge, kJudgeRestartOffset);
-  verdict.type = judge[kJudgeTypeOffset];
-  return verdict;
-}
-
-void PesWorld::SetTeamLine(int team, float x) {
-  StoreF32(image_->sanction.analyzeBlock.data(), kAnalyzeTeamLineOffset[team], x);
 }
 
 float PesWorld::Bearing(const uint8_t* from, const uint8_t* to) {
