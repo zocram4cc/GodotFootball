@@ -17,6 +17,7 @@
 
 #include "pesclock.hpp"
 #include "pesevents.hpp"
+#include "pestrapworld.hpp"
 
 struct PesState;  // the translated layer's call state (pes_state.hpp)
 
@@ -56,7 +57,7 @@ inline constexpr std::size_t kMatchInfoPtrOffset = 0x270;
 
 // The match-info block MI at PES's offsets (pes-re-ref-record.md 1.2). Its bytes run from MI+0x0 past the last field a
 // translated stoppage function reads (MI+0x15B8, a byte), rounded up to 0x40. The period record is at MI+0x1168.
-inline constexpr std::size_t kMatchInfoBytes = 0x15C0;
+inline constexpr std::size_t kMatchInfoBytes = 0x1760;  // grown from 0x15C0: the trap chain reads MI+0x1748..0x175D
 inline constexpr std::size_t kMatchInfoPeriodOffset = 0x1168;
 
 // The stoppage fields GF writes into MI at their writers (pes-re-ref-record.md 1.2; the values are PES's, the names are
@@ -326,7 +327,8 @@ inline constexpr std::size_t kCtxOffset = kFrameRandomOffset + kFrameRandomBytes
 inline constexpr std::size_t kMaOffset = kCtxOffset + static_cast<std::size_t>(kSideCount) * kCtxBytes;
 inline constexpr std::size_t kEventsOffset = kMaOffset + static_cast<std::size_t>(kSideCount) * kMaBytes;
 inline constexpr std::size_t kClearUnitOffset = kEventsOffset + sizeof(EventStoreImage);
-inline constexpr std::size_t kScratchOffset = kClearUnitOffset + static_cast<std::size_t>(kSideCount) * sizeof(PesClearUnitBlock);
+inline constexpr std::size_t kTrapOffset = kClearUnitOffset + static_cast<std::size_t>(kSideCount) * sizeof(PesClearUnitBlock);
+inline constexpr std::size_t kScratchOffset = kTrapOffset + sizeof(PesTrapImage);
 inline constexpr std::size_t kStackOffset = kScratchOffset + kScratchBytes;
 inline constexpr uint64_t kScratchVa = kWorldWindowVa + kScratchOffset;
 inline constexpr uint64_t kStackVa = kWorldWindowVa + kStackOffset;
@@ -357,6 +359,7 @@ struct PesWorldImage {
   std::array<PesMaRecord, kSideCount> ma{};    // each side's AI record
   EventStoreImage events{};                    // E: the event store, PES's offsets (pesevents.hpp)
   std::array<PesClearUnitBlock, kSideCount> clearUnit{};  // each side's carrier unit, its carrier record, answer and imageA
+  PesTrapImage trap{};                                    // P, the Trap action's owner (pestrapworld.hpp)
   std::array<uint8_t, kScratchBytes> scratch{};  // the translated bearing's points (kScratchVa)
   std::array<uint8_t, kStackBytes> stack{};      // the translated stoppage functions' stack (kStackVa)
 };
@@ -370,6 +373,7 @@ static_assert(offsetof(PesWorldImage, ctx) == kCtxOffset);
 static_assert(offsetof(PesWorldImage, ma) == kMaOffset);
 static_assert(offsetof(PesWorldImage, events) == kEventsOffset);
 static_assert(offsetof(PesWorldImage, clearUnit) == kClearUnitOffset);
+static_assert(offsetof(PesWorldImage, trap) == kTrapOffset);
 static_assert(offsetof(PesWorldImage, scratch) == kScratchOffset);
 static_assert(offsetof(PesWorldImage, stack) == kStackOffset);
 
@@ -437,6 +441,13 @@ class PesWorld {
     float angle_deg = 0.0f;
   };
   ClearAnswer RunClearUnit(int side, uint32_t carrierSlot);
+  // P, the trap chain's actor object (kPActionOffset is its action). Its window VA is rdx of the chain.
+  static constexpr uint64_t PVa() { return kWorldWindowVa + kTrapOffset; }
+  uint8_t* P() { return image_->trap.p.data(); }
+  // PES's Trap action's kind-0 chain 0x14079A470 on the window, as the action's +0x68 dispatcher (0x1407A01C0) calls it for
+  // kind <= 0: the dispatcher's two action stores, its frame (the request's first word, the out word, the stack arguments), then the
+  // chain. `ext` carries what GF does not hold as state yet (pestrapworld.hpp).
+  PesTrapResult RunTrapKind0(const PesTrapRequest& request, const PesTrapExternals& ext);
   // MA's ball copy (x, height, z) and carrier id.
   void SetMaBall(int side, float x, float height, float z) {
     StoreF32(Ma(side), kMaBallOffset, x);
