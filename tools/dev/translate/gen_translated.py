@@ -65,7 +65,8 @@ def context(name, va, image):
     if spec is None:
         raise SystemExit("gen_translated: no spec for %s in %s" % (va, name))
     stubs = driver.MODEL_MAP
-    universe = driver.universe_of(sdir) | set(driver.runnable_extra(spec, image)[0])
+    base = driver.universe_of(sdir)
+    universe = base | set(driver.runnable_extra(spec, image, universe=base)[0])
     return spec, stubs, universe
 
 
@@ -82,6 +83,20 @@ GAP_MARKERS = ("/*OUT-OF-SET CALL ", "OUT-OF-RANGE JMP")
 
 def has_gap(text):
     return any(m in text for m in GAP_MARKERS)
+
+
+TAIL_GAP = re.compile(r"OUT-OF-RANGE JMP (0x[0-9A-Fa-f]+)")
+
+
+def silent_tail_sites(members):
+    """Refuse a layer holding a tail jump into the image's code that the layer does not translate: PES continues there,
+    the layer only aborts (xlate emits pes_dispatch_missing), and the closure walk should have pulled the target in.
+    A target outside the code range is dead decode noise (a jmp after a ret into no image address) and stays an abort."""
+    bad = ["%s: jmp %s" % (va, t) for va, m in sorted(members.items()) for t in TAIL_GAP.findall(m["raw"])
+           if driver.CODE_LO <= int(t, 16) < driver.CODE_HI]
+    if bad:
+        raise SystemExit("gen_translated: %d tail jump(s) into code the layer does not hold:\n  %s"
+                         % (len(bad), "\n  ".join(bad[:30])))
 
 
 
@@ -147,6 +162,7 @@ def build(image):
         for c in CALLEE.findall(m["raw"]):
             if "0x" + c.upper() not in members and "0x" + c.upper() != cur:
                 raise SystemExit("gen_translated: %s calls %s, which is not committed" % (cur, c))
+    silent_tail_sites(members)
     return members
 
 
