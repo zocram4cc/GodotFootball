@@ -11,7 +11,6 @@
 #include "../data/playerskills.hpp"
 #include "simcontext.hpp"
 #include "AIsupport/AIfunctions.hpp"
-#include <cstring>
 #include "teamAIcontroller.hpp"
 #include "foulsequence.hpp"
 #include "pessequencer.hpp"
@@ -1122,51 +1121,28 @@ int Referee::JudgeContact(Player* tripee, Player* tripper, pes::ContactAction fo
   WritePesManMovement(*tripee, world.ManRecord(a));
   WritePesManMovement(*tripper, world.ManRecord(b));
 
-  // The anime records carry GF's keeper-class stand-in in the action byte: stage over them and put them back.
-  constexpr std::size_t kStagedBytes = pes::kAnimeTackleKindOffset + 4;
-  uint8_t* animeA = world.Block(a);
-  uint8_t* animeB = world.Block(b);
-  uint8_t savedA[kStagedBytes], savedB[kStagedBytes];
-  std::memcpy(savedA, animeA, kStagedBytes);
-  std::memcpy(savedB, animeB, kStagedBytes);
-  std::memset(animeA, 0, kStagedBytes);
-  std::memset(animeB, 0, kStagedBytes);
-  // A: down or staggering. ponytail: the flag word's bit 30 (a staggering victim at full weight) and bit 29 (the forced
-  // "face" card) have no GF source; PES's animation writer of the flag word (+8) removes both.
-  animeA[pes::kAnimeActionOffset] = victimFell ? pes::kActionFall : victimStaggered ? pes::kActionStagger : 0;
-  // B: his action, and whether it played the ball (0x140A63DA0: a challenge with bit 15, any other action with bit 16).
-  // ponytail: GF takes "played the ball" as "B is the ball's last toucher" (Match::ReportContact); the tackle sub-kind
-  // (+0x44) and the kick phase (+0x3C) have no GF source, so a tackle scores as the general sub-kind. PES's clip writer of
-  // +0x44 removes it.
-  const uint8_t bAction = PesActionId(foulerAction);
-  animeB[pes::kAnimeActionOffset] = bAction;
-  const bool challenge = bAction >= pes::kActionSlide && bAction <= pes::kActionBlock;
-  if (playedBall) {
-    uint64_t flags = uint64_t{1} << (challenge ? pes::kFlagPlayedBall : pes::kFlagChallenge);
-    std::memcpy(animeB + pes::kAnimeFlagsOffset, &flags, sizeof flags);
-  }
-
-  // B's slot record: the man he targets and how he comes at him (0x1405B6870, P_angle's theta). 180 = from directly behind.
-  // ponytail: B's intent flag (+0x134), the fair-challenge flag (+0x148C) and the predicted point (+0x1480..) have no GF
-  // source: intent and fair stay clear and the point is the victim's own (the AI's reaction-table writer removes them).
-  constexpr float kHalfTurn_deg = 180.0f;
+  // The facts the window stages (PesWorld::ContactFacts).
+  // ponytail: GF takes "played the ball" as "B is the ball's last toucher" (Match::ReportContact), and has no source for
+  // A's flag 29 (the forced "face" card) and flag 30, B's deliberate-foul flag (+0x134, written by PES's pad-table scan,
+  // so never set for a CPU player), the fair-challenge flag (+0x148C), the tackle sub-kind (+0x44) and the predicted point
+  // (+0x1480..: the victim's own stands in). PES's animation writer of the flag word and the AI's reaction-table writer
+  // remove them.
+  constexpr float kHalfTurn_deg = 180.0f;  // theta: 180 = B comes from directly behind A (0x1405B6870)
   const Vector3 pa = tripee->GetPosition(), pb = tripper->GetPosition();
   const float cosine = (pa - pb).GetNormalized(0).GetDotProduct(tripee->GetDirectionVec().GetNormalized(0));
-  uint8_t* slotB = world.SlotRecord(b);
-  std::memset(slotB + pes::kSlotIntentOffset, 0, 1);
-  std::memset(slotB + pes::kSlotFairOffset, 0, 1);
-  pes::StoreF32(slotB, pes::kSlotApproachAngleOffset,
-                targeted ? kHalfTurn_deg - std::acos(clamp(cosine, -1.0f, 1.0f)) * 180.0f / static_cast<float>(M_PI) : 0.0f);
-  pes::StoreU32(slotB, pes::kSlotTargetValidOffset, targeted ? 1u : 0u);
-  pes::StoreU32(slotB, pes::kSlotTargetIdOffset, targeted ? static_cast<uint32_t>(a) : 0xFFFFFFFFu);
-  pes::StoreU32(slotB, pes::kSlotForceTargetOffset, targeted ? static_cast<uint32_t>(a) : 0xFFFFFFFFu);
-  pes::StoreF32(slotB, pes::kSlotTargetPointOffset, pa.coords[0]);
-  pes::StoreF32(slotB, pes::kSlotTargetPointOffset + 4, pa.coords[2]);
-  pes::StoreF32(slotB, pes::kSlotTargetPointOffset + 8, pa.coords[1]);
-
-  const pes::PesWorld::JudgeVerdict verdict = world.DecideJudge(a, b);
-  std::memcpy(animeA, savedA, kStagedBytes);
-  std::memcpy(animeB, savedB, kStagedBytes);
+  pes::PesWorld::ContactFacts facts;
+  facts.victim = a;
+  facts.fouler = b;
+  facts.foulerAction = PesActionId(foulerAction);
+  facts.victimFell = victimFell;
+  facts.victimStaggered = victimStaggered;
+  facts.playedBall = playedBall;
+  facts.targeted = targeted;
+  facts.approachAngle_deg = kHalfTurn_deg - std::acos(clamp(cosine, -1.0f, 1.0f)) * 180.0f / static_cast<float>(M_PI);
+  facts.targetX = pa.coords[0];
+  facts.targetY = pa.coords[2];
+  facts.targetZ = pa.coords[1];
+  const pes::PesWorld::JudgeVerdict verdict = world.DecideContact(facts);
   if (Verbose() && verdict.pending)
     printf("referee: judge points %u level %u\n", verdict.points, verdict.level);
   // PES level 1 foul, 2 foul + warning, 3 yellow, 4 red: kept whole (RecordFoul), the tree reads it.

@@ -438,6 +438,24 @@ class PesWorld {
   uint8_t* SlotRecord(int slot) { return Block(slot) + kSlotRecordOffset; }
   // The team line the judge's DOGSO test reads (A1's block +0x40 / +0x54, 0x1405B7390): x in metres.
   void SetTeamLine(int team, float x);
+  // What the judge reads about one contact besides the man records' positions and the match-info frame: the facts GF's
+  // referee hands over (the records' PES offsets are the kAnime* and kSlot* constants).
+  struct ContactFacts {
+    int victim = 0;                  // A's slot
+    int fouler = 0;                  // B's slot
+    uint8_t foulerAction = 0;        // B's action id (kAction*), 0 when it is none the judge scores
+    bool victimFell = false;         // A's action is FALL_DOWN
+    bool victimStaggered = false;    // A's action is STAGGER
+    bool victimFace = false;         // A's flag 29: the forced card outside the box
+    bool playedBall = false;         // B has played the ball (a challenge: flag 15; any other action: flag 16)
+    bool targeted = false;           // B is aimed at A (ai(B)+0x1474, +0x1478, +0x14A0)
+    float approachAngle_deg = 0.0f;  // B's approach angle to A, 180 from directly behind (ai(B)+0x12A0)
+    bool intent = false;             // B's deliberate-foul flag (ai(B)+0x134)
+    float targetX = 0.0f, targetY = 0.0f, targetZ = 0.0f;  // where B is going (ai(B)+0x1480): PES x, height, z
+  };
+  // Stages the facts in the victim's and the fouler's records, runs the judge and puts the anime records back (the action
+  // byte there also carries the keeper-class stand-in the run code reads).
+  JudgeVerdict DecideContact(const ContactFacts& facts);
 
   static constexpr uint64_t AnimeVa(int slot) { return BlockVa(slot); }
   static constexpr uint64_t ManVa(int slot) { return BlockVa(slot) + kManRecordOffset; }

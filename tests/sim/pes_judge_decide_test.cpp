@@ -1,4 +1,4 @@
-// PES's foul judge (0x1405B7470, PesWorld::DecideJudge) run on the world window: a contact is staged in PES's records
+// PES's foul judge (0x1405B7470, PesWorld::DecideContact) run on the world window: a contact is staged in PES's records
 // (the victim's and the fouler's anime records, the fouler's slot record, the man records, the ball, the match-info
 // frame and the period record) and the answer is the pending foul the judge builds.
 // Every case follows the decompile of 0x1405B7470 and its helpers (docs/re/pes-re-duels-fouls.md 2.5) and is one the
@@ -8,7 +8,6 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
-#include <cstring>
 
 #include "onthepitch/pesclock.hpp"
 #include "onthepitch/pesworldrecord.hpp"
@@ -19,11 +18,11 @@ using namespace pes;
 
 constexpr uint32_t kLevelYellow = 3;
 constexpr uint32_t kFirstHalfPeriod = 1;
-constexpr uint32_t kLateFrame = 5000;       // far past the one-third-second window since any ball event
-constexpr float kHalfLength_m = 52.56f;     // pitch + line half-width, as in the sanction test
+constexpr uint32_t kLateFrame = 5000;    // far past the one-third-second window since any ball event
+constexpr float kHalfLength_m = 52.56f;  // pitch + line half-width, as in the sanction test
 constexpr float kHalfWidth_m = 34.06f;
-constexpr int kVictim = 12;                 // team 1 attacks +x
-constexpr int kFouler = 3;                  // team 0 attacks -x
+constexpr int kVictim = 12;  // team 1 attacks +x
+constexpr int kFouler = 3;   // team 0 attacks -x
 
 struct Staged {
   PesWorld world;
@@ -47,37 +46,32 @@ struct Staged {
     StoreF32(man, kManPosXOffset, x);
     StoreF32(man, kManPosZOffset, z);
   }
-  uint8_t* Anime(int slot) { return world.Block(slot); }
-  void SetFlag(int slot, int bit) {
-    uint64_t flags = 0;
-    std::memcpy(&flags, Anime(slot) + kAnimeFlagsOffset, sizeof flags);
-    flags |= uint64_t{1} << bit;
-    std::memcpy(Anime(slot) + kAnimeFlagsOffset, &flags, sizeof flags);
+
+  // A tackle on a man who went down, the fouler having played the ball unless `played` is false.
+  static PesWorld::ContactFacts Tackle(bool played = true) {
+    PesWorld::ContactFacts facts;
+    facts.victim = kVictim;
+    facts.fouler = kFouler;
+    facts.foulerAction = kActionTackle;
+    facts.victimFell = true;
+    facts.playedBall = played;
+    return facts;
   }
-  // The fouler tackles and has played the ball (0x140A63DA0: a challenge with the played-ball flag).
-  void CleanTackle() {
-    Anime(kFouler)[kAnimeActionOffset] = kActionTackle;
-    SetFlag(kFouler, kFlagPlayedBall);
-  }
-  void VictimFalls() { Anime(kVictim)[kAnimeActionOffset] = kActionFall; }
-  PesWorld::JudgeVerdict Decide() { return world.DecideJudge(kVictim, kFouler); }
 };
 
 // 0x1405B7470 step 2 (docs 2.5): a fouler who did not play the ball is a foul only when his contact is aimed at the victim
 // (ai(B)+0x14A0 == A, the FORCE foul). A tackle on a man who went down, with the ball nowhere near the tackler, is no foul.
 TEST(JudgeDecide, ATackleThatNeverPlayedTheBallAndIsNotAimedAtTheManIsNoFoul) {
   Staged s;
-  s.Anime(kFouler)[kAnimeActionOffset] = kActionTackle;  // no played-ball flag
-  s.VictimFalls();
-  EXPECT_FALSE(s.Decide().pending);
+  EXPECT_FALSE(s.world.DecideContact(Staged::Tackle(false)).pending);
 }
 
 // Step 1: the victim's face flag (bit 29) outside the box is a forced yellow, whatever the contact scores.
 TEST(JudgeDecide, TheFaceFlagOutsideTheBoxIsAYellow) {
   Staged s;
-  s.CleanTackle();
-  s.SetFlag(kVictim, kFlagFace);
-  const PesWorld::JudgeVerdict v = s.Decide();
+  PesWorld::ContactFacts facts = Staged::Tackle();
+  facts.victimFace = true;
+  const PesWorld::JudgeVerdict v = s.world.DecideContact(facts);
   ASSERT_TRUE(v.pending);
   EXPECT_EQ(v.level, kLevelYellow);
 }
@@ -86,10 +80,9 @@ TEST(JudgeDecide, TheFaceFlagOutsideTheBoxIsAYellow) {
 // and the ball away from him, is at least a yellow however few points the contact scored.
 TEST(JudgeDecide, AProfessionalFoulIsAtLeastAYellow) {
   Staged s;
-  s.CleanTackle();
-  s.VictimFalls();
-  s.world.SlotRecord(kFouler)[kSlotIntentOffset] = 1;
-  const PesWorld::JudgeVerdict v = s.Decide();
+  PesWorld::ContactFacts facts = Staged::Tackle();
+  facts.intent = true;
+  const PesWorld::JudgeVerdict v = s.world.DecideContact(facts);
   ASSERT_TRUE(v.pending);
   EXPECT_GE(v.level, kLevelYellow);
 }
@@ -97,11 +90,19 @@ TEST(JudgeDecide, AProfessionalFoulIsAtLeastAYellow) {
 // The same contact without the intent flag is below a yellow: the minimum is the intent's own doing.
 TEST(JudgeDecide, TheSameTackleWithoutIntentIsBelowAYellow) {
   Staged s;
-  s.CleanTackle();
-  s.VictimFalls();
-  const PesWorld::JudgeVerdict v = s.Decide();
+  const PesWorld::JudgeVerdict v = s.world.DecideContact(Staged::Tackle());
   ASSERT_TRUE(v.pending);
   EXPECT_LT(v.level, kLevelYellow);
+}
+
+// The anime records' action byte also carries GF's keeper-class stand-in (SetAnimeClass): a decision puts it back.
+TEST(JudgeDecide, TheStagedActionBytesAreRestored) {
+  Staged s;
+  s.world.SetAnimeClass(kFouler, 3);
+  s.world.SetAnimeClass(kVictim, 0);
+  s.world.DecideContact(Staged::Tackle());
+  EXPECT_EQ(s.world.AnimeClass(kFouler), 3);
+  EXPECT_EQ(s.world.AnimeClass(kVictim), 0);
 }
 
 }  // namespace
