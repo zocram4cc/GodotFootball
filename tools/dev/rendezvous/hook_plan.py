@@ -73,6 +73,9 @@ TARGETS = [
     ("pressure_build_69A500", 0x14069A500, "pressure record builder feeding the danger writer"),
     # FixDemo scene start (CutsceneCam): reads scene+0x110..0x120 and the step kind; goal/foul cut offsets.
     ("fixdemo_scene_start_141F5CD00", 0x141F5CD00, "FixDemo scene start (cut offset per scene)"),
+    # Goal cutscene anchor (CutsceneCam): scorer position clamped to the pitch, then written to scene+0x110..0x120.
+    ("cut_anchor_calc_474F00", 0x140474F00, "goal scene anchor from the scorer's position"),
+    ("cut_anchor_write_47D280", 0x14047D280, "goal scene anchor writer (scene+0x110..0x120)"),
 ]
 
 
