@@ -1,11 +1,11 @@
 {
  "note": "snapshot-backed diff of traced calls (snapdiff.py): each traced call replayed from its snapshot's own memory on the harness and the translated side; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated.",
- "proven_count": 1,
+ "proven_count": 2,
  "results": [
   {
    "va": "0x140699960",
-   "calls": 4,
-   "replayed": 4,
+   "calls": 10,
+   "replayed": 10,
    "excluded": 0,
    "reasons": {},
    "snapshots": {
@@ -24,15 +24,82 @@
     "seq496": {
      "calls": 1,
      "replayed": 1
+    },
+    "seq4048": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq5316": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq5771": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq6464": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq6755": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq7080": {
+     "calls": 1,
+     "replayed": 1
     }
    },
    "mismatches": [],
    "translated": true,
    "note": "",
    "own_block": {
-    "reached": 76,
+    "reached": 130,
     "total": 177,
-    "fraction": 0.4294
+    "fraction": 0.7345
+   },
+   "proven": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14069A500",
+   "calls": 6,
+   "replayed": 6,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "seq4047": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq5315": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq5770": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq6463": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq6754": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq7079": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 95,
+    "total": 99,
+    "fraction": 0.9596
    },
    "proven": true,
    "blocked_callees": []

@@ -98417,11 +98417,11 @@
   {
    "aborted": 0,
    "capped": 0,
-   "cases": 4,
+   "cases": 10,
    "coverage": {
     "0x140699960": {
-     "fraction": 0.4294,
-     "reached": 76,
+     "fraction": 0.7345,
+     "reached": 130,
      "total": 177
     }
    },
@@ -98431,18 +98431,18 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-MatchInfo4.md; danger_writer_699960 captures live2 pid1792161 seq16185, seq16457 and pid1965411 seq034, seq496); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-MatchInfo4.md; danger_writer_699960 captures: live2 pid1792161 seq16185, seq16457; pid1965411 seq034, seq496; pid1981120 seq4048, 5316, 5771, 6464, 6755, 7080); the unicorn harness has no corpus for it, so driver --check does not re-run it",
    "proof": "snapdiff",
-   "requested": 4,
+   "requested": 10,
    "snapdiff": {
-    "calls": 4,
+    "calls": 10,
     "mismatches": 0,
     "own_block": {
-     "reached": 76,
+     "reached": 130,
      "total": 177,
-     "fraction": 0.4294
+     "fraction": 0.7345
     },
-    "replayed": 4,
+    "replayed": 10,
     "source": "tools/dev/translate/results_danger.json"
    },
    "stubs": [],
