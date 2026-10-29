@@ -64,7 +64,7 @@ def context(name, va, image):
     spec, _ = driver.load_spec(sdir, va)
     if spec is None:
         raise SystemExit("gen_translated: no spec for %s in %s" % (va, name))
-    stubs = {**driver.stubmap_of(spec), **driver.ABORTMAP}
+    stubs = driver.MODEL_MAP
     universe = driver.universe_of(sdir) | set(driver.runnable_extra(spec, image)[0])
     return spec, stubs, universe
 
@@ -118,7 +118,8 @@ def build(image):
                 if old_gap and not new_gap:
                     texts[cur] = text
                 elif old_gap == new_gap:
-                    conflicts.append("%s translates differently under %s" % (cur, name))
+                    conflicts.append("%s translates differently under %s (gap: layer %s, this set %s; first set %s)"
+                                     % (cur, name, old_gap, new_gap, sub_of.get(cur, "closure")))
             texts.setdefault(cur, text)
             for c in CALLEE.findall(text):
                 cv = "0x" + c.upper()
@@ -127,7 +128,7 @@ def build(image):
                     queue.append(cv)
         closure_of[va] = seen
     if conflicts:
-        raise SystemExit("gen_translated: %d conflicts, first: %s" % (len(conflicts), conflicts[0]))
+        raise SystemExit("gen_translated: %d conflicts:\n  %s" % (len(conflicts), "\n  ".join(conflicts[:30])))
     # Never ship a callee the harness recorded as mistranslated: a recorded function whose closure reaches one is left
     # out of the layer (listed), though its own diff passed, since its cases never took the callee's bad path.
     bad = {v for v in texts if v not in bit_vas and status.get(v) == "translator bug"}

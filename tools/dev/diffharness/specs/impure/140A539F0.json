@@ -409,14 +409,8 @@
   "flags": [
    "callee-outside-set@1415A1780",
    "unresolved-mem@140A53AB4"
-  ],
-  "stub_refs": [
-   "1415A1780"
   ]
  },
- "stub_refs": [
-  "1415A1780"
- ],
  "harness": {
   "harness_class": "runnable with stubs",
   "blockers": [],

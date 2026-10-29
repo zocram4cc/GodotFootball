@@ -70,6 +70,9 @@ STUB_TABLE = stub_table.load()
 # Abort traps (stubs.json abort-trap): reaching one ends a case as a PES abort, never an output.
 ABORT_VAS = frozenset(va for va, e in STUB_TABLE.items() if e["do"] == "abort")
 
+# The one stub choice for every spec set (stubs.json, do in MODEL_DOS): a callee here is its model, in every set.
+MODEL_MAP = {"0x%X" % va: e for va, e in stub_table.models(STUB_TABLE).items()}
+
 
 def universe_of(spec_dir):
     """The call-closed universe a run over spec_dir translates into: the pilot's specs, the run's specs, and the run-real closure (stubs.json)."""
@@ -77,6 +80,10 @@ def universe_of(spec_dir):
     pilot |= {"0x" + f[:-5].upper() for f in os.listdir(spec_dir) if f.endswith(".json")}
     # run-real closure callees (stubs.json) are translated like pilot members
     pilot |= {"0x%X" % va for va, entry in STUB_TABLE.items() if entry["do"] is None}
+    clash = {"0x%X" % va for va in stub_table.models(STUB_TABLE)} & pilot
+    if clash:
+        raise SystemExit("universe: %s is a model (stubs.json) and also a spec: a callee is one or the other"
+                         % sorted(clash))
     return pilot
 
 
@@ -100,7 +107,9 @@ def load_spec(spec_dir, va):
                  va[2:].lower() + ".json"):
         p = os.path.join(spec_dir, cand)
         if os.path.exists(p):
-            return json.load(open(p)), p
+            spec = json.load(open(p))
+            stub_table.check_spec_refs(spec, STUB_TABLE, p)
+            return spec, p
     return None, None
 
 def read_attribution(path):
@@ -170,22 +179,8 @@ def translate_one(va, asm_text, image, pilot, stubs=None):
     return xlate.translate_one(image, asm_text, va, pilot, stubs=stubs)
 
 
-def stubmap_of(spec):
-    """{callee VA: stubs.json entry} for the spec's stub_refs (shared with run.py)."""
-    out = {}
-    for ref in spec.get("stub_refs") or []:
-        entry = STUB_TABLE.get(int(ref, 16))
-        if entry is None:
-            raise SystemExit("stub_refs %s has no stubs.json entry" % ref)
-        out["0x%X" % int(ref, 16)] = entry
-    return out
-
-
-# Abort traps model in every build (a mid-closure CALL to one must be loud,
-# never OUT-OF-SET zero). Merged at each translate call, never recorded in
-# res["stubs"] (build-wide, not a spec input).
-ABORTMAP = {"0x%X" % va: entry for va, entry in STUB_TABLE.items()
-            if entry["do"] == "abort"}
+# Every build models MODEL_MAP (abort traps included: a mid-closure CALL to one must be loud, never OUT-OF-SET zero).
+# No spec chooses a stub: stub_refs are validated in load_spec and never read here.
 def _why_texts(why):
     if why is None:
         return []
@@ -312,8 +307,8 @@ def runnable_extra(spec, image, depth_cap=25):
                 else:
                     blocked[c] = "call outside code range"
                 continue
-            if e["do"] == "abort":
-                # Modelled by the stub (ABORTMAP), never translated: the
+            if e["do"] in stub_table.MODEL_DOS:
+                # Modelled by the stub (MODEL_MAP), never translated: the
                 # thunk body is one indirect jump the translator cannot see
                 # through, while the stub is loud on both sides.
                 continue
@@ -353,7 +348,7 @@ def _blocker_dispatchable(text):
 
 
 def blocked_reason(spec):
-    """Why the function cannot be run at all: its harness class, or an unmodellable stub_refs entry."""
+    """Why the function cannot be run at all: its harness class, or an unmodellable callee."""
     harness = spec.get("harness") or {}
     if str(harness.get("harness_class", "")).startswith("harness cannot run"):
         raw = harness.get("blockers") or ["harness cannot run"]
@@ -417,16 +412,15 @@ def run_one(va, args, pilot):
     # overlapping closures raced on shared TUs and the dispatch header).
     gen = os.path.join(args.out_dir, "gen", tag)
     os.makedirs(gen, exist_ok=True)
-    # 1. translate: stubs.json models for the spec's stub_refs (stubs.py).
+    # 1. translate: the stubs.json models (MODEL_MAP, one table for every spec set).
     # Runnable out-of-set callees join this build's universe so the CALL
     # emitter links them instead of zeroing rax (OUT-OF-SET).
-    stubmap = stubmap_of(spec)
-    res["stubs"] = sorted(stubmap)
+    res["stubs"] = sorted(MODEL_MAP)
     build_pilot = set(pilot) | set(runnable_extra(spec, args.image)[0])
     try:
         asm_text = asm_for(args.asm_dir, va)
         src, _ = translate_one(va, asm_text, args.image, build_pilot,
-                               stubs={**stubmap, **ABORTMAP})
+                               stubs=MODEL_MAP)
         if src is None:
             res["failure_class"] = "translator bug"
             res["note"] = "xlate: no instructions"
@@ -499,7 +493,6 @@ def build_and_diff(va, spec, args, pilot, nlines):
     import diffmain
     tag = va[2:]
     gen = os.path.join(args.out_dir, "gen", tag)
-    stubmap = stubmap_of(spec)
     # Runnable out-of-set callees (dispatchable switches/indirects): the
     # build translates them and calls them for real, like the harness runs
     # their image bytes. They join the in-set universe for this build only,
@@ -508,7 +501,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
     build_pilot = set(pilot) | set(extra)
     # The build declares only callees it links: pilot-universe members that are not stubbed.
     callees = ["0x" + c.upper() for c in (spec.get("precheck", {}) or {}).get("calls", [])]
-    callees = [c for c in callees if c in build_pilot and c not in stubmap]
+    callees = [c for c in callees if c in build_pilot and c not in MODEL_MAP]
     callees += [c for c in extra if c not in callees]
     # translate callees too (their TUs must exist to link). Closure is
     # transitive: a callee's own callees must also link (e.g. 140A53DA0
@@ -558,7 +551,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
             asp, _ = load_spec(args.spec_dir, cv)
             try:
                 csrc, _ = translate_one(cv, asm_for(args.asm_dir, cv),
-                                        args.image, build_pilot, stubs={**stubmap, **ABORTMAP})
+                                        args.image, build_pilot, stubs=MODEL_MAP)
                 if csrc is None:
                     return False, "callee %s: no instructions" % cv, \
                         "translator bug"
@@ -593,7 +586,7 @@ def build_and_diff(va, spec, args, pilot, nlines):
         asp, _ = load_spec(args.spec_dir, cv)
         try:
             csrc, _ = translate_one(cv, asm_for(args.asm_dir, cv),
-                                    args.image, build_pilot, stubs={**stubmap, **ABORTMAP})
+                                    args.image, build_pilot, stubs=MODEL_MAP)
             if csrc is None:
                 return False, "callee %s: no instructions" % cv, \
                     "translator bug"
@@ -867,7 +860,8 @@ def main():
         ap.error("--check re-runs the VAs that --record lists as diffed")
     if args.check:
         recs = json.load(open(args.record))["results"]
-        args.only = [r["va"] for r in recs if r["diffed"]]
+        # A record with proof snapdiff was proven from real calls (snapdiff.py, not this harness): not re-run here.
+        args.only = [r["va"] for r in recs if r["diffed"] and r.get("proof") != "snapdiff"]
         # Corpus provenance (results JSON): a result recorded with corpus "bank" replays its capture bank; the others
         # replay the harness's random corpus. A bank result without --seed-bank is refused, never run without its bank.
         args.bank_vas = {r["va"].upper() for r in recs if r["diffed"] and r.get("corpus") == "bank"}
