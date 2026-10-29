@@ -380,7 +380,7 @@ class TrapOracle : public ::testing::Test {
     ASSERT_TRUE(physique.has_value()) << err;
     pes::PesVfs vfs;
     ASSERT_TRUE(vfs.Mount(root, &err)) << err;
-    static const auto source = pes::LoadTrapSource(*pe, vfs, &err);
+    static const auto source = pes::LoadTrapSource(*pe, vfs, exe, &err);
     ASSERT_TRUE(source.has_value()) << err;
     g_source = &*source;
     g_loader = &source->loader;

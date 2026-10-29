@@ -1,6 +1,13 @@
 #include "onthepitch/pestrapdata.hpp"
 
 #include <array>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <stdexcept>
+#include <fstream>
 #include <cstring>
 
 #include "onthepitch/pesdefenderdecisions.hpp"
@@ -187,26 +194,8 @@ std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const P
   return out;
 }
 
-namespace {
-
-// [va, va + n) as the exe maps it into `out`: a section's raw bytes where they cover it, zeros where nothing does (the gap
-// between two sections, a section's uninitialised tail). Halves a range the exe cannot serve in one read, so a section edge costs
-// a few more reads, not a read per byte.
-void ReadMapped(const PeImage& exe, uint64_t va, std::size_t n, uint8_t* out) {
-  constexpr std::size_t kAtom = 0x200;  // the PE file alignment: no section edge falls inside it
-  if (n == 0 || exe.ReadVa(va, n, out)) return;
-  if (n <= kAtom) {
-    std::memset(out, 0, n);
-    return;
-  }
-  const std::size_t half = (n / 2 + kAtom - 1) / kAtom * kAtom;
-  ReadMapped(exe, va, half, out);
-  ReadMapped(exe, va + half, n - half, out + half);
-}
-
-}  // namespace
-
-std::optional<PesTrapSource> LoadTrapSource(const PeImage& exe, const PesVfs& vfs, std::string* error) {
+std::optional<PesTrapSource> LoadTrapSource(const PeImage& exe, const PesVfs& vfs, const std::string& imagePath,
+                                            std::string* error) {
   PesTrapSource source;
   auto actor = LoadActorConstants(exe, error);
   if (!actor) return std::nullopt;
@@ -214,16 +203,27 @@ std::optional<PesTrapSource> LoadTrapSource(const PeImage& exe, const PesVfs& vf
   auto loader = BuildTrapLoaderData(exe, vfs, error);
   if (!loader) return std::nullopt;
   source.loader = std::move(*loader);
-  source.image.resize(kTrapImageHiVa - kTrapImageLoVa);
-  ReadMapped(exe, kTrapImageLoVa, source.image.size(), source.image.data());
+  struct stat st;
+  if (::stat(imagePath.c_str(), &st) != 0 || st.st_size <= 0) {
+    *error = "trap: cannot read the image " + imagePath + " (the memory dump of the running game, PES_EXE)";
+    return std::nullopt;
+  }
+  source.imagePath = imagePath;
+  source.imageBytes = static_cast<uint64_t>(st.st_size);
   return source;
 }
 
-PesTrapMemory::PesTrapMemory(const PesTrapSource& source) : image_(source.image) {
-  ext_.image = image_.data();
-  ext_.imageBase = kTrapImageLoVa;
-  ext_.imageBytes = image_.size();
+PesTrapMemory::PesTrapMemory(const PesTrapSource& source) {
+  const int fd = ::open(source.imagePath.c_str(), O_RDONLY);
+  void* map = fd < 0 ? MAP_FAILED : ::mmap(nullptr, source.imageBytes, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+  if (fd >= 0) ::close(fd);
+  if (map == MAP_FAILED) throw std::runtime_error("trap: cannot map the image " + source.imagePath);
+  ext_.image = static_cast<uint8_t*>(map);
+  ext_.imageBase = kImageBaseVa;
+  ext_.imageBytes = source.imageBytes;
   source.loader.AddTo(ext_);
 }
+
+PesTrapMemory::~PesTrapMemory() { ::munmap(ext_.image, ext_.imageBytes); }
 
 }  // namespace pes

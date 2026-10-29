@@ -587,6 +587,12 @@ TEST(PesReceiveCarrier, StandingOnTheBallWithoutATouchMakesNoCarrier) {
   EXPECT_EQ(pes::CarrierFromTouch(false, true), pes::CarrierChange::kNone);
 }
 
+uint32_t RequestWord(const pes::PesTrapRequest& r, std::size_t off) {
+  uint32_t v;
+  std::memcpy(&v, r.bytes.data() + off, sizeof v);
+  return v;
+}
+
 // The Trap action's request (pes-re-trap-inputs.md 3.1): the control touch is dispatcher kind 0 with touch kind 0, the planned
 // touch kind 4 with touch kind 3; the heading rides in word 0.
 TEST(PesTrapRequest, AControlTouchIsKindZeroAndCarriesItsHeadingInWordZero) {
@@ -595,16 +601,16 @@ TEST(PesTrapRequest, AControlTouchIsKindZeroAndCarriesItsHeadingInWordZero) {
   float heading;
   std::memcpy(&heading, r.bytes.data() + pes::kReqWord0Offset, sizeof heading);
   EXPECT_EQ(heading, 123.5f);
-  EXPECT_EQ(pes::LoadU32(r.bytes.data(), pes::kReqWord1Offset), pes::kTrapTouchControl);
-  EXPECT_EQ(static_cast<int32_t>(pes::LoadU32(r.bytes.data(), pes::kReqKindOffset)), pes::kTrapKindControl);
-  EXPECT_EQ(pes::LoadU32(r.bytes.data(), pes::kReqWord3Offset), 0u);
+  EXPECT_EQ(RequestWord(r, pes::kReqWord1Offset), pes::kTrapTouchControl);
+  EXPECT_EQ(static_cast<int32_t>(RequestWord(r, pes::kReqKindOffset)), pes::kTrapKindControl);
+  EXPECT_EQ(RequestWord(r, pes::kReqWord3Offset), 0u);
 }
 
 TEST(PesTrapRequest, APlannedTouchIsTheDirectionalKind) {
   const pes::FirstTouch touch{pes::TouchKind::kDirectional, 10.0f, 5.0f};
   const pes::PesTrapRequest r = pes::TrapRequestFor(touch, 0.0f);
-  EXPECT_EQ(pes::LoadU32(r.bytes.data(), pes::kReqWord1Offset), pes::kTrapTouchPlanned);
-  EXPECT_EQ(static_cast<int32_t>(pes::LoadU32(r.bytes.data(), pes::kReqKindOffset)), pes::kTrapKindDirectional);
+  EXPECT_EQ(RequestWord(r, pes::kReqWord1Offset), pes::kTrapTouchPlanned);
+  EXPECT_EQ(static_cast<int32_t>(RequestWord(r, pes::kReqKindOffset)), pes::kTrapKindDirectional);
 }
 
 // FUN_1409F8640's retry: only a kind-4 request refused with 3, 7 or 8 (not 4) while plan byte +0x35 is clear.

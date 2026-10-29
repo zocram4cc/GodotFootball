@@ -121,7 +121,9 @@ inline const PesMatchConstants& SharedPesMatchConstants() {
   c.markTable = pes::marktable::LoadMarkTableConstants(*exe, &err);
   if (mounted) c.formationTables = pes::formation::FormationTables::Load(vfs, &err);
   if (mounted) c.playerDatabase = pes::PlayerDatabase::Load(vfs, &err);
-  if (mounted) c.trap = pes::LoadTrapSource(*exe, vfs, &err);
+  // The chain's image slice is the game's memory dump (PES_EXE); without it the trap source stays empty and the caller skips.
+  if (const char* image = std::getenv("PES_EXE"); mounted && image != nullptr && *image != '\0')
+    c.trap = pes::LoadTrapSource(*exe, vfs, image, &err);
   c.sheetConstants = pes::formation::ReadSheetConstants(*exe, &err);
   return c;
 }
