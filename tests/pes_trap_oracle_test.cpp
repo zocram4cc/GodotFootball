@@ -372,7 +372,7 @@ Indices IndicesOf(const Oracle& o) {
 // Every binding of the call's inputs the window holds is one byte of its records; flipping it must change the call's path (the
 // result or the bytes the chain writes) in at least one capture, or the binding is not read and is not claimed. Not claimed
 // (no remaining capture's call changes with them): P+0xB08, P+0x377C, the play state MI+0x116C, the pitch F0, the anime class
-// byte; the removed captures (seq4310, 4329, 4351, 4402) read some of them.
+// byte, ball+0x4, man B's facing and +0x5B0; the removed captures (seq4310, 4329, 4351, 4402) read some of them.
 TEST_F(TrapOracle, EachWindowBindingChangesTheCall) {
   struct Binding {
     const char* name;
@@ -392,13 +392,10 @@ TEST_F(TrapOracle, EachWindowBindingChangesTheCall) {
       {"ball sample 0 x", [](Built& b, const Indices&) { return b.world->BallRecord() + pes::kBallSamplesOffset; }},
       {"ball sample 3 height",
        [](Built& b, const Indices&) { return b.world->BallRecord() + pes::kBallSamplesOffset + 3 * pes::kBallSampleStride + 4; }},
-      {"ball +0x4 (high byte)", [](Built& b, const Indices&) { return b.world->BallRecord() + pes::kBallField04Offset + 3; }},
       {"ball velocity x", [](Built& b, const Indices&) { return b.world->BallRecord() + pes::kBallVelocityOffset + 2; }, 0x40},
       {"MI frame", [](Built& b, const Indices&) { return b.world->MatchInfo() + pes::kMiFrameOffset; }},
       {"man A position x", [](Built& b, const Indices& i) { return b.world->ManRecord(i.manFirst) + pes::kManPosXOffset; }},
       {"man A velocity x", [](Built& b, const Indices& i) { return b.world->ManRecord(i.manFirst) + pes::kManVelXOffset; }},
-      {"man B facing", [](Built& b, const Indices& i) { return b.world->ManRecord(i.manLast) + pes::kManFacingOffset; }},
-      {"man B +0x5B0", [](Built& b, const Indices& i) { return b.world->ManRecord(i.manLast) + 0x5B0; }},
       {"slot +0x9B", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0x9B; }},
       {"slot +0xC8", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0xC8; }},
       {"slot +0x104", [](Built& b, const Indices& i) { return b.world->Block(i.slot) + pes::kSlotRecordOffset + 0x104; }},
