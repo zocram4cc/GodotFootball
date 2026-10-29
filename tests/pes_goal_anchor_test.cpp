@@ -6,14 +6,16 @@
 // from the snapshot at the call (the scorer's man record, run object, field info, the goal's scene id and radius, the scene
 // row) and what PES's own bytes answered (the writer's scene+0x110..+0x120 after emulating the call). Values are pinned by
 // that script, as floats' bits. The cases cover the scene row's modes (1,1,1) and (3,1,0), a push by the run radius, and
-// both signs of x and z. Not covered by any capture (PES never answered them): the scorer's facing branch (moveMode 1) and
-// a true flip; they are tested as relations below.
+// both signs of x and z. Not answered by any capture: a true flip. The scorer's facing, velocity and move word are read by the
+// calc, but no captured goal and none of the install's row kinds tried (explore: 8 rows x facing/velocity/move-word variants)
+// changes the anchor with them, so no test can pin their wiring.
 //
 //   A pid2621613 seq1532  B pid132854 seq2152  C seq2962  D seq3783  E seq4195  F seq4721  G seq5566
 
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <map>
@@ -169,49 +171,55 @@ TEST(GoalAnchor, DoesNotDependOnTheScorersSlot) {
   }
 }
 
-// moveMode 1 reads the facing for the anchor's rotation, any other mode the velocity (0x140A6C6D0): PES's mode chooses the
-// source, so changing the unused one changes nothing.
-TEST(GoalAnchor, RotationFollowsTheFacingOnlyInMoveMode1) {
+// The anchor follows where the scorer stands, and the run radius pushes it away from the run target (PES: the anchor closer to
+// the target than the radius is moved out to it, along the bearing, before the pull-in from the pitch edge).
+TEST(GoalAnchor, FollowsTheScorerAndIsPushedOutByTheRunRadius) {
   std::string why;
   const auto exe = OpenExe(&why);
   if (!exe) GTEST_SKIP() << why;
-  Case c = kCases[0];
+  const Case& c = kCases[0];
   auto sel = MakeFor(*exe, c);
   pes::GoalAnchorFacts f = FactsOf(c);
-  auto rot = [&](uint32_t mode, float facing, std::array<float, 3> vel) {
-    f.moveMode = mode;
-    f.facing = facing;
-    f.vel = vel;
-    const auto got = sel->PlaceGoal(f);
-    EXPECT_TRUE(got);
-    return got ? got->rotYDeg : -1.0f;
+  const auto distanceToTarget = [&](const pes::GoalAnchor& a) {
+    return std::hypot(a.pos[0] - f.target[0], a.pos[2] - f.target[2]);
   };
-  const std::array<float, 3> east{0.1f, 0, 0}, north{0, 0, 0.1f};
-  EXPECT_NE(rot(1, 90.0f, east), rot(1, 270.0f, east)) << "facing is read in mode 1";
-  EXPECT_EQ(rot(1, 90.0f, east), rot(1, 90.0f, north)) << "velocity is not read in mode 1";
-  EXPECT_NE(rot(3, 90.0f, east), rot(3, 90.0f, north)) << "velocity is read otherwise";
-  EXPECT_EQ(rot(3, 90.0f, east), rot(3, 270.0f, east)) << "facing is not read otherwise";
+  f.radius = 0.0f;
+  const auto base = sel->PlaceGoal(f);
+  ASSERT_TRUE(base);
+  f.radius = 40.0f;
+  const auto pushed = sel->PlaceGoal(f);
+  ASSERT_TRUE(pushed);
+  EXPECT_GT(distanceToTarget(*pushed), distanceToTarget(*base)) << "the radius is read";
+  f.radius = 0.0f;
+  f.pos[2] += 3.0f;
+  const auto moved = sel->PlaceGoal(f);
+  ASSERT_TRUE(moved);
+  EXPECT_NE(moved->pos, base->pos) << "the scorer's position is read";
 }
 
-// Every anchor lies in [0, 360) whatever way the scorer faces or runs (the writer's wrap).
+// The writer's wrap: a scene row of rotation kind 2 adds its float +0x28 (row float 8) to the anchor's rotation, so a row can
+// push it out of [0, 360); the writer brings it back by one turn. Relation to the same row without the offset.
 TEST(GoalAnchor, RotationIsWrappedIntoOneTurn) {
   std::string why;
   const auto exe = OpenExe(&why);
   if (!exe) GTEST_SKIP() << why;
-  Case c = kCases[3];
-  auto sel = MakeFor(*exe, c);
-  pes::GoalAnchorFacts f = FactsOf(c);
-  for (float facing = -720.0f; facing <= 720.0f; facing += 37.0f) {
-    for (float vx : {-0.1f, 0.0f, 0.1f}) {
-      f.moveMode = 1;
-      f.facing = facing;
-      f.vel = {vx, 0, 0.05f};
-      const auto got = sel->PlaceGoal(f);
-      ASSERT_TRUE(got);
-      EXPECT_GE(got->rotYDeg, 0.0f) << facing;
-      EXPECT_LT(got->rotYDeg, 360.0f) << facing;
-    }
-  }
+  const Case& c = kCases[0];
+  const auto rotWith = [&](float offset) {
+    pes::FixDemoTable t;
+    t.goalSceneRows.resize(c.sceneId & 0xFFFF);
+    t.goalSceneRows.back().head = {0, 0, 1, 1, 2};
+    t.goalSceneRows.back().floats[8] = offset;
+    std::string err;
+    auto sel = pes::FixDemoSelector::Create({{pes::kFixDemoGoal, t}}, *exe, &err);
+    const auto got = sel ? sel->PlaceGoal(FactsOf(c)) : std::nullopt;
+    EXPECT_TRUE(got) << err;
+    return got ? got->rotYDeg : -1.0f;
+  };
+  const float base = rotWith(0.0f);
+  ASSERT_GE(base, 0.0f);
+  EXPECT_NEAR(rotWith(30.0f), base + 30.0f, 1e-3) << "inside the turn: unchanged";
+  EXPECT_NEAR(rotWith(400.0f), base + 400.0f - 360.0f, 1e-3) << "past 360 loses a turn";
+  EXPECT_NEAR(rotWith(-200.0f), base - 200.0f + 360.0f, 1e-3) << "below 0 gains a turn";
 }
 
 // A scene the table has no row for, or a slot off the pitch, has no anchor.

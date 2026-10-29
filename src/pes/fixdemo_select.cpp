@@ -67,6 +67,9 @@ constexpr uint64_t kImageTablesVa = 0x141F4F900, kImageTablesBytes = 0x1200;
 constexpr uint64_t kWorldSlotVa = 0x1436F3DC8, kWorldSlotPageVa = 0x1436F3000, kWorldSlotPageBytes = 0x1000;
 constexpr uint64_t kFpsVa = 0x14351AE54;        // inside the environment globals segment
 constexpr uint64_t kFullTurnVa = 0x14259858C;   // 360.0f: the writer 0x14047D280's wrap constant (read from the install)
+// The table PES's math routines read through memory (0x140A92C80's sin/cos: the 513-entry quarter wave at 0x142655950, its
+// 512.0 scale at 0x1426550E8, and the atan polynomial's pi/4 at 0x142656158), as one run read from the install.
+constexpr uint64_t kMathTablesVa = 0x1426550E0, kMathTablesBytes = 0x1080;
 constexpr uint64_t kAnchorWorldBytes = 0x2E58, kMatchInfoBytes = 0x1600, kManBytes = 0x700, kRunBytes = 0x40, kA0Bytes = 0x40;
 constexpr uint64_t kWorldMatchInfo = 0x270, kWorldFieldInfo = 0x2AA8, kWorldManTable = 0x1DD8, kWorldRunTable = 0x21E8;
 constexpr uint64_t kWorldTableStride = 0x28;
@@ -90,9 +93,11 @@ struct FixDemoSelector::Impl {
   float fullTurnDeg = 0;
   std::map<uint32_t, uint32_t> cache;  // cut id -> row
 
-  Impl(std::map<int, FixDemoTable> t, std::vector<uint8_t> imageTables, float fullTurn) : tables(std::move(t)), fullTurnDeg(fullTurn) {
+  Impl(std::map<int, FixDemoTable> t, std::vector<uint8_t> imageTables, std::vector<uint8_t> mathTables, float fullTurn)
+      : tables(std::move(t)), fullTurnDeg(fullTurn) {
     heap->Attach(s);
     s.mem.img.push_back({kImageTablesVa, std::move(imageTables)});
+    s.mem.img.push_back({kMathTablesVa, std::move(mathTables)});
     for (auto [va, bytes] : {std::pair<uint64_t, uint64_t>{kStackVa, kStackBytes}, {kScratchVa, kScratchBytes},
                              {kStaticsVa, kStaticsBytes}, {kEnvGlobalsVa, kEnvGlobalsBytes}, {kDbPageVa, kDbPageBytes},
                              {kWorldSlotPageVa, kWorldSlotPageBytes}})
@@ -278,6 +283,11 @@ std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTa
     if (error) *error = "the image does not map the FixDemo evaluator's switch tables";
     return nullptr;
   }
+  std::vector<uint8_t> math(kMathTablesBytes);
+  if (!exe.ReadVa(kMathTablesVa, math.size(), math.data())) {
+    if (error) *error = "the image does not map the math routines' tables";
+    return nullptr;
+  }
   uint8_t turn[sizeof(float)];
   float fullTurn;
   if (!exe.ReadVa(kFullTurnVa, sizeof turn, turn)) {
@@ -286,7 +296,7 @@ std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTa
   }
   std::memcpy(&fullTurn, turn, sizeof fullTurn);
   return std::unique_ptr<FixDemoSelector>(
-      new FixDemoSelector(std::make_unique<Impl>(std::move(tables), std::move(image), fullTurn)));
+      new FixDemoSelector(std::make_unique<Impl>(std::move(tables), std::move(image), std::move(math), fullTurn)));
 }
 
 FixDemoSelector::FixDemoSelector(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}

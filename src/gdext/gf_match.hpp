@@ -58,7 +58,8 @@ class GfMatch : public RefCounted {
   // The FixDemo environment words of the ctx (stadium id, time of day, weather); call after start().
   void set_cutscene_environment(int stadium, int time_of_day, int weather);
   // The cutscene PES's selection makes for the goal or foul stop GF just played, then cleared: {scene, category, steps:
-  // [{cut, row, fdc: PackedStringArray}]}. Empty when none is pending.
+  // [{cut, row, fdc: PackedStringArray}], anchor: {pos: Vector3, rot_y: degrees, flip: bool}} (anchor: goals only, the
+  // placement PES's scene anchor gives the scene's player: PesCutsceneCamera.set_stage_default). Empty when none is pending.
   Dictionary take_cutscene();
   // The render side finished the scene (0x141F58FC0): the category's rotation word advances.
   void cutscene_finished(int scene_id);
@@ -69,6 +70,7 @@ class GfMatch : public RefCounted {
  private:
   void RefreshPlayers();
   void PollCutscenes();
+  std::optional<pes::GoalAnchor> PlaceGoalScene(uint32_t sceneId, const Vector3& event);
   Ref<PesLibrary> library_;  // keeps the rig the match points at alive
   std::unique_ptr<blunted::Database> db_;
   std::unique_ptr<Match> match_;
@@ -84,6 +86,7 @@ class GfMatch : public RefCounted {
   std::unique_ptr<pes::Random> goalRng_;
   pes::FixDemoFacts cutsceneEnvironment_;
   std::optional<pes::FixDemoRequest> pendingCutscene_;
+  std::optional<pes::GoalAnchor> pendingAnchor_;  // the goal request's scene anchor (PES's stage default of the first step)
   int lastScore_[2] = {0, 0};
   unsigned long lastFoulStop_ms_ = 0;
   bool foulStopSeen_ = false;

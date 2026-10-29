@@ -3,9 +3,14 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
+#include <algorithm>
+
+#include <godot_cpp/core/math.hpp>
 #include "data/matchdata.hpp"
 #include "gametypes.hpp"
 #include "onthepitch/match.hpp"
+#include "onthepitch/pesdesignation.hpp"
+#include "onthepitch/pesoffball.hpp"
 #include "onthepitch/matchsetup.hpp"
 #include "onthepitch/pesgoalscene.hpp"
 #include "onthepitch/referee.hpp"
@@ -210,6 +215,15 @@ constexpr uint32_t kOrdinaryFoulScene = 0x20008;
 // ponytail: the goal level (goal ctx [0]) and stage gate of the generic pick 0x140477400 come from a goal context GF does not
 // have (pesgoalscene.hpp); an ordinary goal is level 0.
 constexpr pes::GoalSceneRule kGoalRule{0, false};
+// ponytail: the anchor's three inputs GF does not have. (1) The scene's run radius A0+0xC: PES writes it at 0x140478190
+// (`param_1[3] = 0x140474CF0(A0, cut list)`: the sum of 0x141F5EC60 over the scene's cuts of kinds 5, 7, 0xB, 0xC, 0xD, built by
+// 0x140477BC0); neither is in the committed layer, so no push (radius 0, PES's own answer when the scorer is outside it).
+// (2) The scorer's run target (run object +0x18) = the event position A0+0x30, which 0x140476C50 builds from the scene row's
+// kind byte (the corner-side celebration spot of the captured goals); until it is translated the target is the goal's event
+// position GF already feeds the ctx (the ball). (3) The scorer's move word man+0x5B0 (PES's per-frame man update), which picks
+// velocity or facing for the rotation: GF has no such word; 0 is what two captured goals held (the velocity's heading).
+constexpr float kSceneRunRadius = 0.0f;
+constexpr uint32_t kScorerMoveMode = 0;
 
 void GfMatch::set_cutscene_environment(int stadium, int time_of_day, int weather) {
   cutsceneEnvironment_.stadium = uint32_t(stadium);
@@ -249,6 +263,7 @@ void GfMatch::PollCutscenes() {
     facts.eventZ = ball.z;
     fixdemo_->BeginEvent(facts);
     pendingCutscene_ = fixdemo_->Request(*scene);
+    pendingAnchor_ = PlaceGoalScene(*scene, ball);
   } else if (foul) {
     foulStopSeen_ = true;
     lastFoulStop_ms_ = stop.stopTime;
@@ -258,7 +273,37 @@ void GfMatch::PollCutscenes() {
     facts.eventZ = at.z;
     fixdemo_->BeginEvent(facts);
     pendingCutscene_ = fixdemo_->Request(kOrdinaryFoulScene);
+    pendingAnchor_.reset();
   }
+}
+
+// The goal scene's anchor (the scorer's celebration spot PES places the cut's player at: writer 0x14047D280 over the calc
+// 0x140474F00) from GF's goal: the scorer's pose, the side and squad index, the pitch and PES's tick rate. The scorer is
+// the last touch of the scoring team (Match::GetLastGoalScorer), as the goal celebration finds him.
+std::optional<pes::GoalAnchor> GfMatch::PlaceGoalScene(uint32_t sceneId, const Vector3& event) {
+  Player* scorer = match_->GetLastGoalScorer();
+  const auto at = std::find(players_.begin(), players_.end(), scorer);
+  if (!scorer || at == players_.end()) return std::nullopt;
+  const size_t index = size_t(at - players_.begin());
+  const int side = teamOf_[index];
+  int place = 0;  // the scorer's index among his side's players
+  for (size_t k = 0; k < index; ++k) place += teamOf_[k] == side;
+  const Vector3 pos = ToFox(scorer->GetPosition());
+  const Vector3 vel = ToFox(scorer->GetMovement()) / TICK_S / pes::offball::kPesFps;  // metres per PES frame
+  const Vector3 dir = ToFox(scorer->GetBodyDirectionVec());
+  pes::GoalAnchorFacts f;
+  f.sceneId = sceneId;
+  f.scorerSlot = uint32_t(side * pes::designation::kSideSlots + place);
+  f.pos = {pos.x, pos.y, pos.z};
+  f.vel = {vel.x, vel.y, vel.z};
+  f.facing = float(Math::fposmod(Math::rad_to_deg(Math::atan2(dir.x, dir.z)), 360.0));  // PES's bearing: atan2(dx, dz)
+  f.moveMode = kScorerMoveMode;
+  f.halfLength = pesFieldHalfLength;
+  f.halfWidth = pesFieldHalfWidth;
+  f.fps = pes::offball::kPesFps;
+  f.target = {event.x, event.y, event.z};
+  f.radius = kSceneRunRadius;
+  return fixdemo_->PlaceGoal(f);
 }
 
 Dictionary GfMatch::take_cutscene() {
@@ -277,7 +322,15 @@ Dictionary GfMatch::take_cutscene() {
   out["scene"] = int(pendingCutscene_->sceneId);
   out["category"] = int(pendingCutscene_->sceneId >> 16);
   out["steps"] = steps;
+  if (pendingAnchor_) {
+    Dictionary anchor;
+    anchor["pos"] = Vector3(pendingAnchor_->pos[0], pendingAnchor_->pos[1], pendingAnchor_->pos[2]);
+    anchor["rot_y"] = double(pendingAnchor_->rotYDeg);
+    anchor["flip"] = pendingAnchor_->flip;
+    out["anchor"] = anchor;
+  }
   pendingCutscene_.reset();
+  pendingAnchor_.reset();
   return out;
 }
 

@@ -143,6 +143,12 @@ func _poll_cutscene() -> void:
 	for step: Dictionary in req["steps"]:
 		var cam := PesCutsceneCamera.new()
 		if cam.load_layers(library, int(req["category"]), step["fdc"], int(args.get("fdc-camera", 0))) == OK:
+			# ponytail: PES's scene start 0x141F5CD00 gives each step its own stage default by the step's placement mode
+			# (+0x10: 1 = the anchor, 2 = the scene's waypoint map at scene+0x60); the first playable step takes the anchor.
+			if req.has("anchor"):
+				var anchor: Dictionary = req["anchor"]
+				cam.set_stage_default(anchor["pos"], anchor["rot_y"], anchor["flip"])
+				print("frame %d goal anchor pos %s rotY %.2f flip %s" % [Engine.get_process_frames(), anchor["pos"], anchor["rot_y"], anchor["flip"]])
 			_cutscene = cam
 			_cut_t = float(args.get("fdc-t0", 0.0))
 			_cutscene_scene = int(req["scene"])
