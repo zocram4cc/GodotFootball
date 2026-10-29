@@ -850,7 +850,7 @@ struct LiveEntrance {
   CameraRecord rec;
 };
 
-std::optional<LiveEntrance> LoadEntranceViewCam0() {
+std::optional<LiveEntrance> LoadEntranceRecord(const std::string& clipName) {
   const char* root = std::getenv("PES21_ROOT");
   if (!root) return std::nullopt;
   pes::PesVfs vfs;
@@ -864,8 +864,10 @@ std::optional<LiveEntrance> LoadEntranceViewCam0() {
   if (!bytes) return std::nullopt;
   LiveEntrance e;
   if (!pes::fdc::Parse(*bytes, &e.file, &err)) return std::nullopt;
+  bool found = false;
   for (const CameraRecord& r : e.file.cameras)
-    if (r.key == 0 && r.animePath.find("ent_001_view_st000_cam0000") != std::string::npos) e.rec = r;
+    if (r.animePath.find(clipName) != std::string::npos) e.rec = r, found = true;
+  if (!found) return std::nullopt;
   const pes::fdc::Resource* res = e.file.FindResource(e.rec.animePath);
   if (!res || res->external) return std::nullopt;
   if (!pes::fdc::ParseCanm(res->data, &e.clip, &err)) return std::nullopt;
@@ -876,7 +878,7 @@ std::optional<LiveEntrance> LoadEntranceViewCam0() {
 
 TEST(PesFdcLiveEntrance, ViewCam0PoseAtTheCaptureClockHasTheLiveCamerasPositionAndFov) {
   NEED_CONSTANTS(k);
-  auto e = LoadEntranceViewCam0();
+  auto e = LoadEntranceRecord("ent_001_view_st000_cam0000");
   if (!e) GTEST_SKIP() << "the install has no ent_001_view_st000_cam1.fdc";
   const float clock = Bits(0x43340016);  // player+0x80 at the capture, 180.00034 ticks
   const auto p = pes::fdc::EvaluateCameraPose(*k, e->clip, e->rec, clock, {}, 0.0f);
@@ -887,7 +889,7 @@ TEST(PesFdcLiveEntrance, ViewCam0PoseAtTheCaptureClockHasTheLiveCamerasPositionA
 
 TEST(PesFdcLiveEntrance, ViewCam0RenderParametersAtThePreviousClockMatchTheLiveBlock) {
   NEED_CONSTANTS(k);
-  auto e = LoadEntranceViewCam0();
+  auto e = LoadEntranceRecord("ent_001_view_st000_cam0000");
   if (!e) GTEST_SKIP() << "the install has no ent_001_view_st000_cam1.fdc";
   const float prev = Bits(0x4332e3a4);  // c - dt, dt = player+0x6C = 1.1111145 ticks
   const auto p = pes::fdc::EvaluateCameraPose(*k, e->clip, e->rec, prev, {}, 0.0f);
@@ -915,4 +917,28 @@ TEST(PesFdcLiveEntrance, ViewCam0RenderParametersAtThePreviousClockMatchTheLiveB
   }
   std::cout << "[live entrance] worst |up - live| " << worstUp << ", worst |eye + dist*forward - live target| " << worstTarget
             << "\n";
+}
+
+// The same player's last pose of the entrance: capture 009 (hook 0x141F41CE0) was taken after the cut had
+// ended (the player clock read 534 ticks, 8.9 s, and no longer advanced; its camera was released), so the
+// render block 0x1437F4A40 still holds ent_001_order_st000_cam0001's last Update, at that clock.
+TEST(PesFdcLiveEntrance, OrderCam1AtTheCutsLastClockMatchesTheLiveBlock) {
+  NEED_CONSTANTS(k);
+  auto e = LoadEntranceRecord("ent_001_order_st000_cam0001");
+  if (!e) GTEST_SKIP() << "the install has no ent_001_view_st000_cam1.fdc";
+  const float clock = 534.0f;  // player+0x80 at capture 009
+  const auto p = pes::fdc::EvaluateCameraPose(*k, e->clip, e->rec, clock, {}, 0.0f);
+  EXPECT_EQ(p.frame, 177.0f) << "(534 - 180) ticks at 30 fps; the clip is 180 frames long";
+  const std::array<float, 3> eye{Bits(0xc2900000), Bits(0x41400000), Bits(0x00000000)};
+  const std::array<float, 3> up{Bits(0x3e0beaac), Bits(0x3f7d9958), Bits(0xb1cd37a2)};
+  const std::array<float, 3> target{Bits(0xc1e656b0), Bits(0x40c14a50), Bits(0xb5fd7e1e)};
+  const float dist = Bits(0x422e778d);
+  EXPECT_EQ(p.eye, eye);
+  EXPECT_EQ(p.fovRad, Bits(0x3f7fab6f));
+  const auto f = p.forward();
+  for (size_t i = 0; i < 3; ++i) {
+    SCOPED_TRACE(i);
+    EXPECT_NEAR(p.up()[i], up[i], 2e-5f);
+    EXPECT_NEAR(eye[i] + dist * f[i], target[i], 2e-4f);
+  }
 }
