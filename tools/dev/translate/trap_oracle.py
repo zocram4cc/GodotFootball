@@ -13,6 +13,9 @@ manifest.tsv, one record per line, tab separated:
   I   va   len                        a live range in the image's writable globals whose value differs from the file
   F   rel  kind idx trel              a pointer cell in P that points into another window record
   S   off  len                        a live range of the caller's stack, relative to the entry rsp
+  A   name value                      an actor fact GF holds as state, read from the capture: height_bits (PM+0x30), stamina_cur/
+                                      stamina_max/breath (the slot record's hash-checked integers), speed_byte (slot +0x97), g_bits
+                                      (the physique scale G, a named oracle input)
 
 Usage: PES_EXE=<pes_full.bin> python3 trap_oracle.py SNAP CASE_DIR TRACE_DIR HOOKS OUT_DIR   (harness Python: unicorn)
   CASE_DIR  = snapdiff's <out>/gen/14079A470/snap_<label> (corpus.jsonl, maps.txt, ok_calls.bin, ok_delta.bin)

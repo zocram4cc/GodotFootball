@@ -1,14 +1,18 @@
 // PES's Trap action chain (the kind-0 control touch 0x14079A470 and its 340-function closure, translated) run on GF's own
-// window, from captured calls. Each capture's inputs are rebuilt in a pes::PesWorld at PES's offsets: P through its named
-// fields (pestrapworld.hpp), the ball, match-info, slot, man and anime records through the window's records, the caller's frame
-// and request through RunTrapKind0. What GF holds no state for yet (the install's image, the constant registry and the anime
-// manager, the motion table's records) comes from the capture as bytes at their VAs (PesTrapExternals). The result must equal
-// PES's: the issued flag and the out word. Each named binding is then changed by one byte and the call's path must change.
+// window, from captured calls. Each capture's inputs are rebuilt in a pes::PesWorld at PES's offsets: the ball, match-info, slot,
+// man and anime records through the window's records, the caller's frame and request through RunTrapKind0, and P derived from
+// GF's state by pes::WriteActorP (pestrapactor.hpp: the actor's man record, slot, height, stamina, phase and action ids; none
+// of P's bytes is copied from the capture except the named open inputs P+0x2FC, the G chain at +0xA08 and +0x3AC0). What GF
+// holds no state for yet (the install's image, the constant registry and the anime manager, the motion table's records, the
+// heap behind the open pointers) comes from the capture as bytes at their VAs (PesTrapExternals). The result must equal PES's:
+// the issued flag, the out word and every byte written to the Trap action object (P+0xC80..+0xCDF, the clip at action+0x8
+// among them). Each named binding is then changed by one byte and the call's path must change; P derived from the facts must
+// equal the captured P field by field; the rate ceiling P+0x377C must equal PES's bit for bit.
 //
 // GF_PES_TRAP_ORACLE names a directory of per-capture directories (PES-derived, never committed), each made by
 // tools/dev/translate/trap_oracle.py: mem.bin (a link to the capture), maps.txt, ok_calls.bin, ok_delta.bin, pages.bin, teb.txt,
-// corpus.jsonl (the PES reference row) and manifest.tsv (the call's live-in set). PES_EXE names the unpacked image. Without
-// either, skip.
+// corpus.jsonl (the PES reference row) and manifest.tsv (the call's live-in set and the "A" actor facts). PES_EXE names the
+// unpacked flat image, PES21_ROOT the install (PeImage reads PES2021.exe for the stamina constants). Without any, skip.
 
 #include <gtest/gtest.h>
 
@@ -486,6 +490,54 @@ TEST_F(TrapOracle, LocomotionClassBranches) {
   EXPECT_EQ(classOf(), table1);
   f.word2780 = 0.5f;
   EXPECT_EQ(classOf(), table1);
+}
+
+// Every fact lands in its own field of P. The captures have action id == sub id (and the previous pair equal too), so only
+// distinct values tell those bytes apart; position, previous position and heading come from the man record's own fields.
+TEST_F(TrapOracle, WriteActorPStoresEachFactInItsOwnField) {
+  auto world = std::make_unique<pes::PesWorld>();
+  for (int k = 0; k < pes::kSlotCount; ++k) world->BindSlot(k);
+  pes::PesActorFacts f;
+  f.slot = 7, f.phase = 5, f.action = 3, f.sub = 5, f.prevAction = 2, f.prevSub = 4;
+  f.motion = 0x0B86, f.kickApproach = 2, f.heightCm = 190.0f, f.speedByte = 77.0f;
+  uint8_t* man = world->ManRecord(f.slot);
+  const float pos[3] = {1.0f, 2.0f, 3.0f}, prev[3] = {4.0f, 5.0f, 6.0f};
+  for (int i = 0; i < 3; ++i) {
+    pes::StoreF32(man, pes::kManPosXOffset + 4 * i, pos[i]);
+    pes::StoreF32(man, pes::kManPrevPosXOffset + 4 * i, prev[i]);
+  }
+  pes::StoreF32(man, pes::kManFacingOffset, 90.0f);
+  pes::PesActorOpenInputs open;
+  for (size_t i = 0; i < open.velocityRing.size(); ++i) open.velocityRing[i] = static_cast<uint8_t>(0x10 + i);
+  open.physiquePtr = 0x1111, open.analyzePtr = 0x2222;
+  const pes::PesActorConstants& c = g_derivation->actor;
+  pes::WriteActorP(*world, f, open, c, g_derivation->stamina);
+  const uint8_t* p = world->P();
+  const auto u64 = [p](size_t off) {
+    uint64_t v;
+    std::memcpy(&v, p + off, sizeof v);
+    return v;
+  };
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_EQ(pes::LoadF32(p, pes::kPPosOffset + 4 * i), pos[i]) << i;
+    EXPECT_EQ(pes::LoadF32(p, pes::kPNextPosOffset + 4 * i), prev[i]) << i;
+  }
+  EXPECT_EQ(pes::LoadF32(p, pes::kPHeadingOffset), 90.0f);
+  EXPECT_EQ(p[pes::kPByte2458Offset], 7);
+  EXPECT_EQ(p[pes::kPPhaseOffset], 5);
+  EXPECT_EQ(p[pes::kPByteAC8Offset], 3);
+  EXPECT_EQ(p[pes::kPByteAC9Offset], 5);
+  EXPECT_EQ(p[pes::kPPrevActionOffset], 2);
+  EXPECT_EQ(p[pes::kPPrevActionOffset + 1], 4);
+  EXPECT_EQ(p[pes::kPWordAE0Offset] | p[pes::kPWordAE0Offset + 1] << 8, 0x0B86);
+  EXPECT_EQ(pes::LoadU32(p, pes::kPWord430Offset), 2u);
+  EXPECT_EQ(pes::LoadF32(p, pes::kPF3B18Offset), 190.0f / c.heightDivisor);
+  EXPECT_EQ(u64(pes::kPInterfaceVtable0Offset), c.interfaceVtable[0]);
+  EXPECT_EQ(u64(pes::kPInterfaceVtable1Offset), c.interfaceVtable[1]);
+  EXPECT_EQ(u64(pes::kPSlotPtrOffset), pes::PesWorld::SlotVa(7) + pes::kSlotPPtrTargetOffset);
+  EXPECT_EQ(u64(pes::kPScalePtrOffset), 0x1111u);
+  EXPECT_EQ(u64(pes::kPPtr3AC0Offset), 0x2222u);
+  EXPECT_EQ(std::memcmp(p + pes::kPVelocityOffset, open.velocityRing.data(), open.velocityRing.size()), 0);
 }
 
 // A flipped byte can send PES's own code to one of its aborts (a trap in a validating helper): that is a change of the call's

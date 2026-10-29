@@ -332,11 +332,8 @@ TEST(PesStamina, BreathPenaltyReadsThePercentageNotTheRawReserve) {
   EXPECT_EQ(pes::BreathPenalty(k, s), 10);
 }
 
-// The reserve's top-speed cap (docs/re/pes-re-dash-reserve.md 3.1): a drained
-// reserve takes up to 20 Speed points off the animation rate cap, and the cap
-// reaches the pitch through the rate -> speed table. The table here is a
-// made-up monotone one: the test pins the relations, not PES's knots.
-TEST(PesStamina, DrainedReserveCapsTopSpeedAndAboveTwentyPercentItDoesNot) {
+// A made-up monotone rate table and ramp: the tests pin relations, not PES's knots.
+pes::StaminaConstants TopRateConstants() {
   pes::StaminaConstants k = Pes();
   k.topRateGLo = 0.9f;
   k.topRateGHi = 1.1f;
@@ -350,6 +347,15 @@ TEST(PesStamina, DrainedReserveCapsTopSpeedAndAboveTwentyPercentItDoesNot) {
   k.topRateSpeed_mps[0] = 3.0f, k.topRateValue[0] = 0.3f;
   k.topRateSpeed_mps[1] = 6.0f, k.topRateValue[1] = 0.7f;
   k.topRateSpeed_mps[2] = 9.0f, k.topRateValue[2] = 1.0f;
+  return k;
+}
+
+// The reserve's top-speed cap (docs/re/pes-re-dash-reserve.md 3.1): a drained
+// reserve takes up to 20 Speed points off the animation rate cap, and the cap
+// reaches the pitch through the rate -> speed table. The table here is a
+// made-up monotone one: the test pins the relations, not PES's knots.
+TEST(PesStamina, DrainedReserveCapsTopSpeedAndAboveTwentyPercentItDoesNot) {
+  const pes::StaminaConstants k = TopRateConstants();
   pes::StaminaState s;
   pes::InitStamina(k, 80, 2, 1, F10, 100, &s);
   const int cap = pes::BreathCap(k, s);
@@ -366,6 +372,28 @@ TEST(PesStamina, DrainedReserveCapsTopSpeedAndAboveTwentyPercentItDoesNot) {
   EXPECT_LT(empty, half);
   // The rate term is q^2, so the same 20 points cost a fast player more.
   EXPECT_LT(empty, pes::ReserveTopSpeedFactor(k, s, slow));
+}
+
+// FUN_1406f99f0's reserve term (0x1406F9AC0..0x1406F9AFE; decompile only: every captured ceiling has a full reserve). The
+// share takes up to 20 points off the Speed byte before q, so a drained reserve at Speed s equals a full one at s - 20 x share;
+// FUN_140a581c0's percentage is read as a byte, so 260 % acts as 4 %.
+TEST(PesStamina, MoveTopRateTakesTheReserveShareOffTheSpeedByte) {
+  const pes::StaminaConstants k = TopRateConstants();
+  pes::StaminaState full;
+  pes::InitStamina(k, 80, 2, 1, F10, 100, &full);
+  const int cap = pes::BreathCap(k, full);
+  const float g = 1.0f, speed = 99.0f;
+  const auto withBreath = [&](int breath) {
+    pes::StaminaState s = full;
+    s.breath = breath;
+    return pes::MoveTopRate(k, speed, s, g);
+  };
+  const auto fullAt = [&](float byte) { return pes::MoveTopRate(k, byte, full, g); };
+  EXPECT_EQ(withBreath(cap * 20 / 100), fullAt(99.0f));  // at 20 %: no share
+  EXPECT_EQ(withBreath(cap * 10 / 100), fullAt(89.0f));  // 10 %: half the 20 points
+  EXPECT_EQ(withBreath(0), fullAt(79.0f));               // empty: all 20
+  EXPECT_EQ(withBreath(cap * 260 / 100), fullAt(83.0f)); // 260 % reads as the byte 4: share 0.8
+  EXPECT_LT(withBreath(0), withBreath(cap));
 }
 
 // --- the injury roll (report 6) ---
