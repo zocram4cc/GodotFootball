@@ -33,7 +33,10 @@
 #include <utility>
 #include <vector>
 
+#include "onthepitch/pesstamina.hpp"
+#include "onthepitch/pestrapactor.hpp"
 #include "onthepitch/pesworldrecord.hpp"
+#include "pes/exe.hpp"
 #include "pes_state.hpp"
 
 namespace {
@@ -52,6 +55,7 @@ struct Oracle {
   std::string row;  // corpus.jsonl's one reference row
   std::map<std::string, uint64_t> regs;
   std::vector<std::vector<std::string>> manifest;
+  std::map<std::string, std::string> actor;  // the "A" lines: facts GF holds as state, read from the capture
 };
 
 std::vector<uint8_t> Slurp(const std::string& path) {
@@ -80,6 +84,7 @@ bool Load(const std::string& dir, Oracle& o) {
     for (std::string col; std::getline(ss, col, '\t');) cols.push_back(col);
     if (cols.empty() || cols[0][0] == '#') continue;
     if (cols[0] == "R") o.regs[cols[1]] = std::strtoull(cols[2].c_str(), nullptr, 16);
+    if (cols[0] == "A") o.actor[cols[1]] = cols[2];
     o.manifest.push_back(cols);
   }
   return !o.row.empty() && !o.manifest.empty();
@@ -157,23 +162,61 @@ uint64_t CapturedBase(const Oracle& o, uint64_t g, const std::string& kind, int 
   return 0;
 }
 
-// P's named fields (pestrapworld.hpp): the only bytes of P the window takes from the capture.
-struct PField {
-  const char* name;
-  size_t offset, bytes;
+// What PES's image gives the actor's derivation (the translated trap chain reads the same image): loaded once.
+struct Derivation {
+  pes::PesActorConstants actor;
+  pes::StaminaConstants stamina;
 };
-const std::vector<PField>& PFields() {
-  static const std::vector<PField> fields = {
-      {"position", pes::kPPosOffset, 12},        {"next position", pes::kPNextPosOffset, 12},
-      {"heading", pes::kPHeadingOffset, 4},      {"velocity", pes::kPVelocityOffset, 12},
-      {"word 0x430", pes::kPWord430Offset, 4},   {"scale pointer", pes::kPScalePtrOffset, 8},
-      {"interface vtable 0", pes::kPInterfaceVtable0Offset, 8}, {"interface vtable 1", pes::kPInterfaceVtable1Offset, 8},
-      {"byte 0xAC8", pes::kPByteAC8Offset, 1},   {"byte 0xAC9", pes::kPByteAC9Offset, 1},
-      {"word 0xAE0", pes::kPWordAE0Offset, 2},   {"byte 0xB08", pes::kPByteB08Offset, 1},
-      {"byte 0x2458", pes::kPByte2458Offset, 1}, {"scale 0x377C", pes::kPF377CScaleOffset, 4},
-      {"pointer 0x3AC0", pes::kPPtr3AC0Offset, 8}, {"scale 0x3B18", pes::kPF3B18Offset, 4},
-  };
-  return fields;
+const Derivation* g_derivation = nullptr;
+
+float F32(uint32_t bits) {
+  float f;
+  std::memcpy(&f, &bits, sizeof f);
+  return f;
+}
+uint32_t Bits(const std::string& s) { return static_cast<uint32_t>(std::strtoull(s.c_str(), nullptr, 0)); }
+
+// The facts GF holds as state, as the capture's player had them: P's own bytes for the slot, phase, action ids, motion and
+// kick-approach word (what GF's MoveStep and action state map to), the height and the stamina from the "A" lines.
+pes::PesActorFacts FactsOf(const Oracle& o) {
+  const uint64_t p = o.regs.at("rdx");
+  pes::PesActorFacts f;
+  f.slot = static_cast<int>(Read(o, p + pes::kPByte2458Offset, 1));
+  f.phase = static_cast<uint8_t>(Read(o, p + pes::kPPhaseOffset, 1));
+  f.action = static_cast<uint8_t>(Read(o, p + pes::kPByteAC8Offset, 1));
+  f.sub = static_cast<uint8_t>(Read(o, p + pes::kPByteAC9Offset, 1));
+  f.prevAction = static_cast<uint8_t>(Read(o, p + pes::kPPrevActionOffset, 1));
+  f.prevSub = static_cast<uint8_t>(Read(o, p + pes::kPPrevActionOffset + 1, 1));
+  f.motion = static_cast<uint16_t>(Read(o, p + pes::kPWordAE0Offset, 2));
+  f.kickApproach = static_cast<uint32_t>(Read(o, p + pes::kPWord430Offset, 4));
+  f.word277C = F32(static_cast<uint32_t>(Read(o, p + pes::kPWord277COffset, 4)));
+  f.word2780 = F32(static_cast<uint32_t>(Read(o, p + pes::kPWord277COffset + 4, 4)));
+  f.heightCm = F32(Bits(o.actor.at("height_bits")));
+  f.speedByte = static_cast<float>(std::atoi(o.actor.at("speed_byte").c_str()));
+  f.stamina.cur = std::atoi(o.actor.at("stamina_cur").c_str());
+  f.stamina.max = std::atoi(o.actor.at("stamina_max").c_str());
+  f.stamina.breath = std::atoi(o.actor.at("breath").c_str());
+  return f;
+}
+
+// The named oracle inputs (pestrapactor.hpp): captured bytes for what GF has no source for.
+pes::PesActorOpenInputs OpenOf(const Oracle& o) {
+  const uint64_t p = o.regs.at("rdx");
+  pes::PesActorOpenInputs open;
+  for (size_t i = 0; i < open.velocityRing.size(); ++i)
+    open.velocityRing[i] = static_cast<uint8_t>(Read(o, p + pes::kPVelocityOffset + i, 1));
+  open.physiquePtr = Read(o, p + pes::kPScalePtrOffset, 8);
+  open.g = F32(Bits(o.actor.at("g_bits")));
+  open.analyzePtr = Read(o, p + pes::kPPtr3AC0Offset, 8);
+  return open;
+}
+
+// The actor's GF-side movement bytes: the man record's facing, position, previous position and velocity (+0x554..+0x57F),
+// which the chain does not read itself (P is made from them).
+void CopyActorMan(const Oracle& o, uint64_t g, pes::PesWorld& w, int slot) {
+  uint8_t* man = w.ManRecord(slot);
+  const uint64_t base = CapturedBase(o, g, "man", slot);
+  for (size_t i = pes::kManFacingOffset; i < pes::kManVelXOffset + 12; ++i) man[i] = static_cast<uint8_t>(Read(o, base + i, 1));
 }
 
 struct Built {
@@ -210,15 +253,11 @@ void Build(const Oracle& o, const uint8_t* image, uint64_t imageBytes, Built& b)
       if (va != kImageG) b.ext.globals.push_back({va, Read(o, va, 8)});
     }
   }
-  for (const PField& f : PFields())
-    for (size_t i = 0; i < f.bytes; ++i) w.P()[f.offset + i] = static_cast<uint8_t>(Read(o, rdx + f.offset + i, 1));
-  for (const auto& line : o.manifest) {
-    if (line[0] != "F") continue;  // a pointer of P into another window record
-    const uint64_t at = std::strtoull(line[1].c_str(), nullptr, 16);
-    const uint64_t target = (line[2] == "slot" ? pes::PesWorld::SlotVa(std::atoi(line[3].c_str())) : 0) +
-                            std::strtoull(line[4].c_str(), nullptr, 16);
-    std::memcpy(w.P() + at, &target, sizeof target);
-  }
+  // P is derived from the facts GF holds (pestrapactor.hpp), the actor's man record bytes and the named open inputs; none of
+  // its bytes is copied from the capture.
+  const pes::PesActorFacts facts = FactsOf(o);
+  CopyActorMan(o, g, w, facts.slot);
+  pes::WriteActorP(w, facts, OpenOf(o), g_derivation->actor, g_derivation->stamina);
   // The request, as the dispatcher 0x1407A01C0 took it (kind 0): its words are the chain's stack arguments in the capture.
   const uint64_t rsp = o.regs.at("rsp"), action = rdx + pes::kPActionOffset;
   uint8_t* req = b.request.bytes.data();
@@ -271,9 +310,24 @@ class TrapOracle : public ::testing::Test {
     std::sort(dirs_.begin(), dirs_.end());
     ASSERT_FALSE(dirs_.empty()) << "no oracle directory under " << dir;
     exe_ = exe;
+    // The image's constants the derivation reads (the chain itself reads the same image through RunTrapKind0).
+    std::string err;
+    Image image;
+    ASSERT_TRUE(image.Open(exe_)) << exe_;
+    const auto actor = pes::LoadActorConstants(image.bytes, image.size, &err);
+    ASSERT_TRUE(actor.has_value()) << err;
+    const char* root = std::getenv("PES21_ROOT");  // (PES_EXE is the flat image; PeImage reads the install's file)
+    if (root == nullptr || *root == '\0') GTEST_SKIP() << "PES21_ROOT unset";
+    const auto pe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+    ASSERT_TRUE(pe.has_value()) << err;
+    const auto stamina = pes::LoadStaminaConstants(*pe, &err);
+    ASSERT_TRUE(stamina.has_value()) << err;
+    derivation_ = Derivation{*actor, *stamina};
+    g_derivation = &derivation_;
   }
   std::vector<std::string> dirs_;
   std::string exe_;
+  Derivation derivation_;
 };
 
 // The Trap action object's bytes a call writes: P+0xC80..+0xCDF (action +0x8..+0x64), as offset from P+0xC80 to the last
@@ -340,6 +394,98 @@ TEST_F(TrapOracle, EveryCapturedCallOnGfsWindowGivesPesOutput) {
     EXPECT_EQ(got.action, want) << dir << ": the action object's bytes (offset from P+0xC80 -> byte)";
     EXPECT_EQ(want.empty(), !wantIssued) << dir << ": PES's issued flag and its writes to the action object disagree";
   }
+}
+
+// P derived from GF's facts (pestrapactor.hpp) equals the capture's P on every field the derivation owns, field by field. The
+// fields that stay captured are the named open inputs (pestrapactor.hpp PesActorOpenInputs): P+0x2FC, +0xA08 (G), +0x3AC0.
+TEST_F(TrapOracle, DerivedPEqualsPesPOnEveryDerivedField) {
+  struct DerivedField {
+    const char* name;
+    size_t offset, bytes;
+  };
+  const std::vector<DerivedField> fields = {
+      {"position", pes::kPPosOffset, 12},
+      {"previous position", pes::kPNextPosOffset, 12},
+      {"heading", pes::kPHeadingOffset, 4},
+      {"slot", pes::kPByte2458Offset, 1},
+      {"locomotion phase", pes::kPPhaseOffset, 1},
+      {"interface vtable 0", pes::kPInterfaceVtable0Offset, 8},
+      {"interface vtable 1", pes::kPInterfaceVtable1Offset, 8},
+      {"action id", pes::kPByteAC8Offset, 1},
+      {"sub id", pes::kPByteAC9Offset, 1},
+      {"previous action id", pes::kPPrevActionOffset, 1},
+      {"previous sub id", pes::kPPrevActionOffset + 1, 1},
+      {"motion", pes::kPWordAE0Offset, 2},
+      {"kick approach", pes::kPWord430Offset, 4},
+      {"locomotion class", pes::kPByteB08Offset, 1},
+      {"physique scale", pes::kPF3B18Offset, 4},
+      {"rate ceiling", pes::kPF377CScaleOffset, 4},
+  };
+  Image image;
+  ASSERT_TRUE(image.Open(exe_));
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    Built b;
+    Build(o, image.bytes, image.size, b);
+    const uint64_t p = o.regs.at("rdx"), g = Read(o, kImageG, 8);
+    for (const DerivedField& f : fields) {
+      uint8_t want[16];
+      for (size_t i = 0; i < f.bytes; ++i) want[i] = static_cast<uint8_t>(Read(o, p + f.offset + i, 1));
+      EXPECT_EQ(std::memcmp(b.world->P() + f.offset, want, f.bytes), 0) << dir << ": " << f.name;
+    }
+    // The slot-record pointer is a window address: it names the actor's own slot record at the captured offset.
+    const int slot = static_cast<int>(Read(o, p + pes::kPByte2458Offset, 1));
+    uint64_t derived;
+    std::memcpy(&derived, b.world->P() + pes::kPSlotPtrOffset, sizeof derived);
+    EXPECT_EQ(derived, pes::PesWorld::SlotVa(slot) + pes::kSlotPPtrTargetOffset) << dir;
+    EXPECT_EQ(Read(o, p + pes::kPSlotPtrOffset, 8), CapturedBase(o, g, "slot", slot) + pes::kSlotPPtrTargetOffset) << dir;
+  }
+}
+
+// P+0x377C (FUN_1406F99F0): the ceiling GF computes from the captured Speed byte, stamina and G equals PES's stored float bit
+// for bit on every capture. Every capture's reserve is full (percent 100), so the reserve branches are not exercised here.
+TEST_F(TrapOracle, RateCeilingEqualsPesBitForBit) {
+  for (const std::string& dir : dirs_) {
+    Oracle o;
+    ASSERT_TRUE(Load(dir, o)) << dir;
+    const pes::PesActorFacts f = FactsOf(o);
+    const float got = pes::MoveTopRate(g_derivation->stamina, f.speedByte, f.stamina, OpenOf(o).g);
+    uint32_t gotBits;
+    std::memcpy(&gotBits, &got, sizeof gotBits);
+    EXPECT_EQ(gotBits, static_cast<uint32_t>(Read(o, o.regs.at("rdx") + pes::kPF377CScaleOffset, 4))) << dir;
+  }
+}
+
+// P+0xB08's branches that no capture reaches (all six are in the table range, phase != 1; FUN_1406D8BF0, decompile only): the
+// phase-0 test on the root speed, the phase bound, and the phase-1 test. The table branch is confirmed 6/6 above.
+TEST_F(TrapOracle, LocomotionClassBranches) {
+  const pes::PesActorConstants& c = g_derivation->actor;
+  std::array<uint8_t, pes::kTrapPBytes> p{};
+  pes::PesActorFacts f;
+  const auto classOf = [&] { return pes::LocomotionClass(c, f, p.data()); };
+  // Phase 0: class 3 above the standing speed, else 1. One metre a tick is far above it, standing still is below.
+  f.phase = 0;
+  EXPECT_EQ(classOf(), 1);
+  pes::StoreF32(p.data(), pes::kPPosOffset, 1.0f);
+  EXPECT_EQ(classOf(), 3);
+  pes::StoreF32(p.data(), pes::kPPosOffset, 0.0f);
+  pes::StoreF32(p.data(), pes::kPPosOffset + 8, 1.0f);  // the z displacement counts too
+  EXPECT_EQ(classOf(), 3);
+  // A phase at or past the table's bound is class 0.
+  f.phase = static_cast<uint8_t>(pes::kLocomotionPhases);
+  EXPECT_EQ(classOf(), 0);
+  f.phase = 0xFF;
+  EXPECT_EQ(classOf(), 0);
+  // Phase 1 is class 4 only while word 0x2780 exceeds word 0x277C; otherwise its table entry.
+  f.phase = 1;
+  const uint8_t table1 = classOf();
+  f.word2780 = 2.0f, f.word277C = 1.0f;
+  EXPECT_EQ(classOf(), 4);
+  f.word2780 = 1.0f;
+  EXPECT_EQ(classOf(), table1);
+  f.word2780 = 0.5f;
+  EXPECT_EQ(classOf(), table1);
 }
 
 // A flipped byte can send PES's own code to one of its aborts (a trap in a validating helper): that is a change of the call's

@@ -571,10 +571,11 @@ void ProcessMoveStep(Player& player, Match& match) {
   // FUN_1406f99f0's store (P+0x377c): the TopRate ceiling at the record's G, once per match tick.
   // ponytail: the Speed byte (0x27) = clamp(trunc(base[0x27] * A1..A5), 40, 99), written by FUN_14092AF10
   // (docs/re/pes-re-speed-inputs.md). Its base row has no GF source yet, so physical_velocity stands in for it.
+  constexpr float kStatPerUnit = 100.0f;  // GF stores PES's 40..99 as 0.40..0.99
   pes::StoreRateCeiling(rec, host.MatchTick(),
                         pes::MoveTopRate(match.GetPesStaminaConstants(),
-                                         player.GetStat("physical_velocity"), player.GetStamina(),
-                                         host.PhysiqueG()));
+                                         player.GetStat("physical_velocity") * kStatPerUnit,
+                                         player.GetStamina(), host.PhysiqueG()));
 
   const pes::MoveState stateAtEntry = rec.state;
   pes::movestep::RampsBeforeDispatch(host, req);

@@ -89,6 +89,7 @@ struct StaminaConstants {
   // penalty, then the group-80 rate -> m/s table inverted.
   float topRateGLo;        // 0.9166: the physique ramp's floor
   float topRateGHi;        // 1.0833: and its top
+  float topRateGSpan;      // 0.1667: u = (G - lo) / span (0x1425e4a18; a constant, not hi - lo)
   float topRateGDrop;      // 0.085: base = 1 - 0.085 * u
   float topRateStatFloor;  // 20: q = 0 at or below
   float topRateStatCeil;   // 99: q = 1 at or above
@@ -177,10 +178,10 @@ int BreathPenalty(const StaminaConstants& k, const StaminaState& s);
 // it only moves the base rate, and the factor is a ratio of two rates.
 float ReserveTopSpeedFactor(const StaminaConstants& k, const StaminaState& s, float speedStat);
 
-// FUN_1406f99f0's ceiling (P+0x377c): the TopRate value at physique scale G for a Speed stat, with the
-// breath reserve's share taken off, as the drain's penalty takes it. `speedStat01` is GF's 0..1 Speed,
-// scaled to PES's 40..99 range.
-float MoveTopRate(const StaminaConstants& k, float speedStat01, const StaminaState& s, float g);
+// FUN_1406f99f0's ceiling (P+0x377c, 0x1406F9B4C): the TopRate value at physique scale G for a Speed ability byte
+// (PES's 40..99, slot record +0x97), with the breath reserve's share taken off as the drain's penalty takes it. Bit-equal to
+// PES on the six captured ceilings (pes_trap_oracle_test).
+float MoveTopRate(const StaminaConstants& k, float speedByte, const StaminaState& s, float g);
 
 // The half-time / extra-time break bonus (report 3.4), applied once at the
 // whistle. `period` is PES's MI+0x1168: 2 half time, 4 the extra-time break.

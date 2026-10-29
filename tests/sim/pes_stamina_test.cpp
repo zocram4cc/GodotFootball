@@ -340,6 +340,7 @@ TEST(PesStamina, DrainedReserveCapsTopSpeedAndAboveTwentyPercentItDoesNot) {
   pes::StaminaConstants k = Pes();
   k.topRateGLo = 0.9f;
   k.topRateGHi = 1.1f;
+  k.topRateGSpan = 0.2f;
   k.topRateGDrop = 0.1f;
   k.topRateStatFloor = 20.0f;
   k.topRateStatCeil = 99.0f;

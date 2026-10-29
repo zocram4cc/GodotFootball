@@ -160,6 +160,7 @@ inline constexpr std::size_t kManFacingOffset = 0x554;      // f32, body facing 
 inline constexpr std::size_t kManPosXOffset = 0x55C;        // f32, PES x
 inline constexpr std::size_t kManPosYOffset = 0x560;        // f32, PES y (height; GF coords[2], INF)
 inline constexpr std::size_t kManPosZOffset = 0x564;        // f32, PES z (GF y)
+inline constexpr std::size_t kManPrevPosXOffset = 0x568;    // f32 x3, the previous tick's position (x, y, z); P+0x14 copies it
 inline constexpr std::size_t kManVelXOffset = 0x574;        // f32, m per frame
 inline constexpr std::size_t kManVelYOffset = 0x578;        // f32
 inline constexpr std::size_t kManVelZOffset = 0x57C;        // f32

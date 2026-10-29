@@ -56,6 +56,7 @@ constexpr uint64_t INJ_JACKPOT_VA = 0x14259be58;       // 85
 // (docs/re/pes-re-dash-reserve.md 3.1).
 constexpr uint64_t TOP_RATE_G_LO_VA = 0x1425ddf78;      // 0.9166
 constexpr uint64_t TOP_RATE_G_HI_VA = 0x1425ddf80;      // 1.0833
+constexpr uint64_t TOP_RATE_G_SPAN_VA = 0x1425e4a18;    // 0.1667 (FUN_1406eae00's divisor)
 constexpr uint64_t TOP_RATE_G_DROP_VA = 0x1425e4a0c;    // 0.085
 constexpr uint64_t TOP_RATE_STAT_FLOOR_VA = 0x14259be1c;  // 20
 constexpr uint64_t TOP_RATE_STAT_CEIL_VA = 0x1425c48cc;   // 99
@@ -209,6 +210,7 @@ std::optional<StaminaConstants> LoadStaminaConstants(const PeImage& exe, std::st
                            {INJ_JACKPOT_VA, &k.injuryJackpotSev},
                            {TOP_RATE_G_LO_VA, &k.topRateGLo},
                            {TOP_RATE_G_HI_VA, &k.topRateGHi},
+                           {TOP_RATE_G_SPAN_VA, &k.topRateGSpan},
                            {TOP_RATE_G_DROP_VA, &k.topRateGDrop},
                            {TOP_RATE_STAT_FLOOR_VA, &k.topRateStatFloor},
                            {TOP_RATE_STAT_CEIL_VA, &k.topRateStatCeil},
@@ -495,16 +497,18 @@ int BreathPenalty(const StaminaConstants& k, const StaminaState& s) {
 
 namespace {
 
-// FUN_1406f9a2c: the rate cap at physique scale G for a Speed stat (0..99)
-// with `penaltyShare` (0..1) of the reserve's 20 points taken off.
+// FUN_1406f99f0's rate ceiling at physique scale G (FUN_1406eae00) for a Speed ability byte (0..99) with `penaltyShare`
+// (0..1) of the reserve's 20 points taken off. The operations run in PES's order and branches, so the float result is PES's
+// (0x1406EAE00: no clamp between the ramp's ends; 0x1406F9B4C: drop - q*q*drop, not drop * (1 - q*q)).
 float TopRate(const StaminaConstants& k, float speed, float penaltyShare, float g) {
-  const float u = Clamp01((g - k.topRateGLo) / (k.topRateGHi - k.topRateGLo));
-  const float base = 1.0f - k.topRateGDrop * u;
-  const float s = speed - k.topRateStatFloor * penaltyShare;
+  const float base = g <= k.topRateGLo   ? 1.0f - k.topRateGDrop * 0.0f
+                     : k.topRateGHi <= g ? 1.0f - 1.0f * k.topRateGDrop
+                                         : 1.0f - ((g - k.topRateGLo) / k.topRateGSpan) * k.topRateGDrop;
+  const float s = speed - penaltyShare * k.topRateStatFloor;
   const float q = s <= k.topRateStatFloor ? 0.0f
-                  : s >= k.topRateStatCeil ? 1.0f
+                  : k.topRateStatCeil <= s ? 1.0f
                                            : (s - k.topRateStatFloor) / k.topRateStatSpan;
-  return base - k.topRateStatDrop * (1.0f - q * q);
+  return base - (k.topRateStatDrop - q * q * k.topRateStatDrop);
 }
 
 // The group-80 table read backwards: the speed a playback rate produces.
@@ -533,14 +537,14 @@ float ReserveTopSpeedFactor(const StaminaConstants& k, const StaminaState& s, fl
          SpeedForRate(k, TopRate(k, speed, 0.0f, kNeutralPhysiqueScale));
 }
 
-float MoveTopRate(const StaminaConstants& k, float speedStat01, const StaminaState& s, float g) {
-  // The breath reserve below full takes its share off the Speed, as the drain's penalty does.
-  const int bp = BreathPct(k, s);
+float MoveTopRate(const StaminaConstants& k, float speedByte, const StaminaState& s, float g) {
+  // The breath reserve below full takes its share off the Speed, as the drain's penalty does. FUN_140a581c0's answer is read
+  // as a byte at 0x1406F9AC0 (bVar6).
+  const int bp = static_cast<uint8_t>(BreathPct(k, s));
   const float share = bp >= static_cast<int>(k.breathPenaltyFullPct)
                           ? 0.0f
                           : (bp <= 0 ? 1.0f : (bp - k.breathPenaltyFullPct) / k.breathPenaltyDivisor);
-  constexpr float kStatPerUnit = 100.0f;  // GF stores PES's 40..99 as 0.40..0.99
-  return TopRate(k, speedStat01 * kStatPerUnit, share, g);
+  return TopRate(k, speedByte, share, g);
 }
 
 int BreakBonus(const StaminaConstants& k, const StaminaState& s, int period, int fitness,

@@ -18,6 +18,7 @@ Usage: PES_EXE=<pes_full.bin> python3 trap_oracle.py SNAP CASE_DIR TRACE_DIR HOO
   CASE_DIR  = snapdiff's <out>/gen/14079A470/snap_<label> (corpus.jsonl, maps.txt, ok_calls.bin, ok_delta.bin)
   TRACE_DIR = the frame_trace output of the capture (pool/pages.bin)
 """
+import mmap
 import collections
 import os
 import shutil
@@ -81,6 +82,57 @@ def ranges(addrs):
     return out
 
 
+PM_VTABLE = 0x1426329A8   # match::Player's vtable (docs/re/pes-re-trap-inputs.md 1.1): PM+0x7D8 = P, PM+0x30 = height (cm)
+FNV_BASIS, FNV_PRIME, M64 = 0xCBF29CE484222325, 0x100000001B3, (1 << 64) - 1
+
+
+def checked_int(snap, cell):
+    """The hash-checked integer PES keeps at `cell` (FUN_140A581C0's decode, 0x140A581C0..): hash u64 at +0, counter at +8,
+    ring index at +0xC, ring of four u32 at +0x10. Exits when the stored hash does not match: the decode is then wrong."""
+    u32 = lambda a: int.from_bytes(snap.read(a, 4), "little")
+    count, ring = u32(cell + 8) * 3 & 0xFFFFFFFF, u32(cell + 0x10 + 4 * (u32(cell + 0xC) & 3))
+    salt = [count & 0xFF, (count + 4) >> 8 & 0xFF, (count + 8) >> 16 & 0xFF, (count + 12) >> 24 & 0xFF]
+    out = [((ring >> (8 * i)) + salt[i] & 0xFF) ^ (salt[i] * 0x3F & 0xFF) for i in range(4)]
+    h = FNV_BASIS
+    for b in out:
+        h = (h ^ b) * FNV_PRIME & M64
+    if h != int.from_bytes(snap.read(cell, 8), "little"):
+        sys.exit("checked integer at %#x: stored hash differs" % cell)
+    return int.from_bytes(bytes(out), "little")
+
+
+def find_player(snap, p):
+    """PM: the match::Player whose +0x7D8 holds P. The 8-byte pattern is searched in the writable mappings."""
+    pat = p.to_bytes(8, "little")
+    mm = mmap.mmap(snap.fd, 0, prot=mmap.PROT_READ)
+    for m in snap.maps:
+        if "w" not in m["perm"] or m["deferred"]:
+            continue
+        at = mm.find(pat, m["off"], m["off"] + m["size"])
+        while at >= 0:
+            pm = m["va"] + at - m["off"] - 0x7D8
+            if (at - m["off"]) % 8 == 0 and int.from_bytes(snap.read(pm, 8) or bytes(8), "little") == PM_VTABLE:
+                return pm
+            at = mm.find(pat, at + 1, m["off"] + m["size"])
+    sys.exit("no match::Player points at P %#x" % p)
+
+
+def actor_facts(snap, p, g):
+    """A lines: the actor facts GF holds as state, read from the capture (the height from the player object, the stamina
+    tank and breath reserve from the slot record as FUN_140A58550/FUN_140A581C0 decode them, the Speed ability byte
+    +0x97, and G = *(*(P+0xA08)+0xF0)+0xC0, which the oracle keeps as a named input)."""
+    u64 = lambda a: int.from_bytes(snap.read(a, 8), "little")
+    slot = snap.read(p + 0x2458, 1)[0]
+    rec = u64(g + 0x25F8 + 0x28 * slot)
+    pm = find_player(snap, p)
+    return ["A\theight_bits\t%#x" % int.from_bytes(snap.read(pm + 0x30, 4), "little"),
+            "A\tstamina_cur\t%d" % checked_int(snap, rec + 0xC8),
+            "A\tstamina_max\t%d" % checked_int(snap, rec + 0xE8),
+            "A\tbreath\t%d" % checked_int(snap, rec + 0x108),
+            "A\tspeed_byte\t%d" % snap.read(rec + 0x97, 1)[0],
+            "A\tg_bits\t%#x" % int.from_bytes(snap.read(u64(u64(p + 0xA08) + 0xF0) + 0xC0, 4), "little")]
+
+
 def main():
     snap_dir, case_dir, trace_dir, hooks, out_dir = sys.argv[1:6]
     image = open(os.environ["PES_EXE"], "rb").read()
@@ -133,6 +185,7 @@ def main():
     for lo, hi in ranges(b for b in live if IMG_GLOBALS <= b < IMG_HI):
         if snap.read(lo, hi - lo) != image[lo - IMG_LO:hi - IMG_LO]:
             lines.append("I\t%#x\t%d" % (lo, hi - lo))
+    lines += actor_facts(snap, regs["rdx"], g)
     open(os.path.join(out_dir, "manifest.tsv"), "w").write("\n".join(lines) + "\n")
     for name in ("maps.txt", "ok_calls.bin", "ok_delta.bin", "corpus.jsonl"):
         shutil.copy(os.path.join(case_dir, name), os.path.join(out_dir, name))
