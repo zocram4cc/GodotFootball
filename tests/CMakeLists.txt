@@ -214,3 +214,10 @@ add_test(NAME translate_extent_test
   COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_extent.py'")
 set_tests_properties(translate_extent_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
+
+# SETcc to memory stores the condition byte (found by lockstep at 0x14084CE60, trap kind-0 closure): compiles a translated
+# synthetic function and runs it. Needs g++. Without GF_DIFF_PYTHON the test skips (77).
+add_test(NAME translate_setcc_store_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_setcc_store.py'")
+set_tests_properties(translate_setcc_store_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)

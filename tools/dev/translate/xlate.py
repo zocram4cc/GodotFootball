@@ -1730,7 +1730,7 @@ class Emitter:
             e = "(s.cond(\"%s\") ? 1ULL : 0ULL)" % cc
             if d in GPR or d in SUB:
                 return [reg_write(d, e)]
-            return ["/*SET-MEM*/(void)0;"]
+            return [self.mem_store(d[d.find("["):], e, 8, None)]
         if m.startswith("CMOV"):
             cc = cc_of(m)
             d = ops[0]
