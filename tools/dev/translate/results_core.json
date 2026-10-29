@@ -98349,8 +98349,8 @@
    "cases": 0,
    "coverage": {
     "0x140474F00": {
-     "fraction": 0.4022,
-     "reached": 72,
+     "fraction": 0.4581,
+     "reached": 82,
      "total": 179
     }
    },
@@ -98364,14 +98364,14 @@
    "proof": "snapdiff",
    "requested": 64,
    "snapdiff": {
-    "calls": 1,
+    "calls": 7,
     "mismatches": 0,
     "own_block": {
-     "fraction": 0.4022,
-     "reached": 72,
+     "fraction": 0.4581,
+     "reached": 82,
      "total": 179
     },
-    "replayed": 1,
+    "replayed": 7,
     "source": "tools/dev/translate/results_snapdiff_cutanchor.json"
    },
    "stubs": [],
@@ -98399,14 +98399,14 @@
    "proof": "snapdiff",
    "requested": 64,
    "snapdiff": {
-    "calls": 1,
+    "calls": 7,
     "mismatches": 0,
     "own_block": {
      "fraction": 0.2927,
      "reached": 12,
      "total": 41
     },
-    "replayed": 1,
+    "replayed": 7,
     "source": "tools/dev/translate/results_snapdiff_cutanchor.json"
    },
    "stubs": [],

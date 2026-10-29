@@ -4,12 +4,36 @@
  "results": [
   {
    "va": "0x140474F00",
-   "calls": 1,
-   "replayed": 1,
+   "calls": 7,
+   "replayed": 7,
    "excluded": 0,
    "reasons": {},
    "snapshots": {
     "pid2621613_seq1532": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid132854_seq2152": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid132854_seq2962": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid132854_seq3783": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid132854_seq4195": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid132854_seq4721": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid132854_seq5566": {
      "calls": 1,
      "replayed": 1
     }
@@ -18,21 +42,45 @@
    "translated": true,
    "note": "",
    "own_block": {
-    "reached": 72,
+    "reached": 82,
     "total": 179,
-    "fraction": 0.4022
+    "fraction": 0.4581
    },
    "proven": true,
    "blocked_callees": []
   },
   {
    "va": "0x14047D280",
-   "calls": 1,
-   "replayed": 1,
+   "calls": 7,
+   "replayed": 7,
    "excluded": 0,
    "reasons": {},
    "snapshots": {
     "pid2621613_seq1531": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid132854_seq2151": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid132854_seq2961": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid132854_seq3782": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid132854_seq4194": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid132854_seq4720": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "pid132854_seq5565": {
      "calls": 1,
      "replayed": 1
     }
@@ -49,5 +97,5 @@
    "blocked_callees": []
   }
  ],
- "captures": "live2/pid2621613/seq1531 (cut_anchor_write_47D280) and seq1532 (cut_anchor_calc_474F00); replay with frame_trace.py recorded + snapdiff.py --hooks hooks.cfg --spec-dir specs/core (tools/dev/cutscene/replay_verdicts.py)"
+ "captures": "live2/pid2621613/seq1531 (writer), seq1532 (calc); live2/pid132854: calc seq2152 2962 3783 4195 4721 5566, writer seq2151 2961 3782 4194 4720 5565; replayed with tools/dev/cutscene/replay_verdicts.py (frame_trace.py recorded + snapdiff.py --hooks hooks.cfg --spec-dir specs/core). own_block = the best single run's block coverage (not a union)"
 }
