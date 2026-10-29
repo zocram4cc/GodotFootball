@@ -68,4 +68,8 @@ struct PesTrapLoaderData {
 // exe. Null with *error set when a file or an exe check fails.
 std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const PesVfs& vfs, std::string* error);
 
+// Whether byte `offset` of the constant::Trap runtime object is built: the vtable word and every store of the slot-2 loader
+// FUN_141E67B70. The other bytes of the object (past +0x1D5) are not built.
+bool TrapRuntimeByteIsBuilt(std::size_t offset);
+
 }  // namespace pes

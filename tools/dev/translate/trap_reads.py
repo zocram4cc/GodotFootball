@@ -19,7 +19,9 @@ are named by what they belong to, with the value the capture holds. <NAME>.reads
 <NAME>.full.tsv: `anime <hex>` (the whole Animetable buffer), `trap <hex>` (the Trap runtime object, 0x1D8 bytes) and
 `rec motion kind idx hex` for every list entry of kinds 0, 1, 6, 13 of every motion (the raw file record behind the pointer).
 
-Usage: PES_EXE=<pes_full.bin> python3 trap_reads.py HOOKS OUT_DIR CAPTURE_DIR...   (harness Python: unicorn)
+Usage: PES_EXE=<pes_full.bin> python3 trap_reads.py HOOKS OUT_DIR CAPTURE_DIR[:notrap]...   (harness Python: unicorn)
+  :notrap leaves the Trap object out of the .full.tsv: pid1467004 ran with a different constant_player.bin than the install's
+  VFS winner (its trap.o differs from both the stock file and the mod's), and its call reads no loader data.
 Writes OUT_DIR/<pidNNN_seqNNN>.{reads,full}.tsv (PES-derived: never committed).
 """
 import os
@@ -64,7 +66,8 @@ def main():
     hooks, out_dir = sys.argv[1], sys.argv[2]
     os.makedirs(out_dir, exist_ok=True)
     image = open(os.environ["PES_EXE"], "rb").read()
-    for cap in sys.argv[3:]:
+    for arg in sys.argv[3:]:
+        cap, _, option = arg.partition(":")
         name = "_".join(cap.rstrip("/").split("/")[-2:])
         snap = SnapMem(cap)
 
@@ -136,7 +139,9 @@ def main():
         write_reads(os.path.join(out_dir, name + ".reads.tsv"), out)
         # the whole structures, for the full-table comparison (what the chain did not read in this call included)
         with open(os.path.join(out_dir, name + ".full.tsv"), "w") as f:
-            f.write("anime\t%s\ntrap\t%s\n" % (snap.read(buf, ANIMETABLE_BYTES).hex(), snap.read(payload, TRAP_BYTES).hex()))
+            f.write("anime\t%s\n" % snap.read(buf, ANIMETABLE_BYTES).hex())
+            if option != "notrap":
+                f.write("trap\t%s\n" % snap.read(payload, TRAP_BYTES).hex())
             for kind in (0, 1, 6, 13):
                 for m in range(MOTION_SLOTS):
                     rec = base + m * MOTION_BYTES

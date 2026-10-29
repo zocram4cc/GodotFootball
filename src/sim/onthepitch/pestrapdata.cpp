@@ -97,6 +97,13 @@ bool BuildTrapObject(const std::vector<uint8_t>& blob, uint8_t* object, std::str
 
 }  // namespace
 
+bool TrapRuntimeByteIsBuilt(std::size_t offset) {
+  if (offset < sizeof(uint64_t)) return true;  // the vtable word
+  for (const TrapField& f : kTrapFields)
+    if (offset >= f.dst && offset < std::size_t(f.dst) + f.bytes) return true;
+  return false;
+}
+
 std::optional<PesTrapLoaderData> BuildTrapLoaderData(const PeImage& exe, const PesVfs& vfs, std::string* error) {
   // The class is the one the chain's registry entry holds: its slot-2 loader is the function the field table was read from.
   const auto loader = exe.ReadU64(kTrapVtableVa + kVtableLoaderSlotOffset);
