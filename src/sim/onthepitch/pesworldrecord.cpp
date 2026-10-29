@@ -77,6 +77,36 @@ PesWorld::ClearAnswer PesWorld::RunClearUnit(int side, uint32_t carrierSlot) {
   return answer;
 }
 
+void PesWorld::SetCarrierInputs(int side, uint32_t slot, bool owned) {
+  uint8_t* bp = Carrier(side);
+  uint8_t* unit = bp + kBpUnitInfoOffset;
+  uint8_t* state = bp + kBpStateOffset;
+  const uint8_t* sideRecord = image_->sides[side].bytes.data();
+  const float sign = static_cast<float>(static_cast<int8_t>(sideRecord[kSideAttackSignOffset]));
+  const uint8_t* man = ManRecord(static_cast<int>(slot));
+  // CONFIRMED on the ten captures: unit info +0 = slot, +4 = slot % 11, +8 = side, +0x10 = the side's attack heading (90 or
+  // 270), +0x14 = its sign, +0x18 = the man record's (x, y, z) at +0x55C, +0x24 = that times the sign; state +0x40 = the MA
+  // ball copy (seq6161 exact, seq4046 one frame earlier), +0x6C = owned.
+  StoreU32(unit, kUnitSlotOffset, slot);
+  StoreU32(unit, kUnitSlotInTeamOffset, slot % kSlotsPerSide);
+  StoreU32(unit, kUnitSideOffset, static_cast<uint32_t>(side));
+  StoreF32(unit, kUnitHeadingOffset, LoadF32(sideRecord, kSideAttackAngleOffset));
+  StoreF32(unit, kUnitSignOffset, sign);
+  for (std::size_t axis = 0; axis < 3; ++axis) {
+    const float p = man != nullptr ? LoadF32(man, kManPosXOffset + axis * sizeof(float)) : 0.0f;
+    StoreF32(unit, kUnitPositionOffset + axis * sizeof(float), p);
+    StoreF32(unit, kUnitSignedPositionOffset + axis * sizeof(float), p * sign);
+    StoreF32(state, kStateBallOffset + axis * sizeof(float), LoadF32(Ma(side), kMaBallOffset + axis * sizeof(float)));
+  }
+  state[kStateOwnedOffset] = owned ? 1 : 0;
+  // ponytail: the unit info's u32 at +0xC (equals the slot in team for side 0, differs on side 1: 8, 5, 7, 10 in the captures)
+  // and +0x30..+0x34, the state's other fields (+0x38 .. +0x3C, +0x44, +0x48, +0x08 after the ball copy), BP+0x64, BP+0xE5/+0xE6
+  // are written by the unit updater 0x14092C9F0 -> 0x1421019D0 / 0x142117370 (undecoded); the slot in team stands in for +0xC
+  // and the rest keep their last value (zero before the first call). The builder's flags are all refresh bits (0x1F in all ten).
+  StoreU32(unit, kUnitMarkOffset, slot % kSlotsPerSide);
+  StoreU32(bp, kBpFlagsOffset, kBpRefreshAll);
+}
+
 bool PesWorld::RunDangerBuilder(int side, const PesDangerExternals& ext) {
   if (!heap_) heap_ = std::make_unique<PesHeap>();
   PesState s = NewCall(Bytes());

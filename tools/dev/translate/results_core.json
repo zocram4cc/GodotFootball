@@ -98488,6 +98488,7 @@
    "aborted": 0,
    "capped": 0,
    "cases": 10,
+   "closure_file": "closure_danger.json",
    "coverage": {
     "0x142119390": {
      "fraction": 0.6275,

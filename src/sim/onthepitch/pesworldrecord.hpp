@@ -326,6 +326,8 @@ inline constexpr std::size_t kUnitCtxOffset = 0x8;
 inline constexpr std::size_t kUnitImageAOffset = 0x28;
 inline constexpr std::size_t kAnswerAngleOffset = 0x8;
 inline constexpr std::size_t kAnswerBytes = 0x10;
+inline constexpr std::size_t kUnitMarkOffset = 0xC;  // u32: undecoded (ponytail at SetCarrierInputs)
+inline constexpr uint32_t kBpRefreshAll = 0x1F;      // BP+0x18 in all ten captures
 // The builder's call frame (0x142110D30's call): the return address at rsp, the 5th and 6th arguments past the 0x20 shadow.
 inline constexpr std::size_t kDangerArg5Offset = 0x28;
 inline constexpr std::size_t kDangerArg6Offset = 0x30;
@@ -462,6 +464,11 @@ class PesWorld {
   EventStoreImage& EventImage() { return image_->events; }
   // E as the store's own view: every event the match routes lands in the window.
   EventStore Events() { return EventStore(image_->events); }
+  // Writes the carrier block inputs the builder reads from the window's own records: the unit info (the slot, its place in the
+  // team, the side, the side record's attack heading and sign, the man record's ground position and that times the sign) and the
+  // state (the MA ball copy and `owned`), and BP+0x18 = all refresh bits. What the unit updater 0x1421019D0 (via 0x14092C9F0)
+  // also writes and is not decoded here stays as it was (ponytail notes at the definition).
+  void SetCarrierInputs(int side, uint32_t slot, bool owned);
   // A side's carrier block BP (kBp* offsets) and the Clear unit object beside it (the unit's r8).
   static constexpr uint64_t CarrierVa(int side) {
     return kWorldWindowVa + kCarrierOffset + static_cast<uint64_t>(side) * sizeof(PesCarrierBlock);

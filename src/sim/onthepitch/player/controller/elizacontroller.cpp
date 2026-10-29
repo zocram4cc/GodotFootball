@@ -2761,13 +2761,15 @@ void ElizaController::GetOnTheBallCommands(std::vector<PlayerCommand>& commandQu
   // state 0x140a6e300 and box pressure are not decoded to GF state, so they stay off.
   [[maybe_unused]] const int dribbleSub = pes::DribbleSubKind(chooser, false, carrier);
 
-  // imageA+0x31C1, the danger flag the carrier units read: PES's unit builder 0x142119390 stores it from 0x140699960.
-  // ponytail: neither is translated (0x140699960's closure is 108 functions over lane and team records GF does not hold);
-  // the carrier's own-third pressure stands in, written to the window byte the translated Clear unit tests. Replace this
-  // one site with the translated writer; the Long, BackSpace and Safety units read the byte back.
+  // imageA+0x31C1, the danger flag the carrier units read: PES's unit builder 0x142119390 (translated, proven on ten real
+  // calls) stores it from the pressure builder 0x14069A500 and the writer 0x140699960, on the side's carrier block BP in the
+  // window. Its inputs are the window's own records (man, ball, MA lists, side, events); SetCarrierInputs writes the carrier's
+  // unit info and state from them. The Long, BackSpace and Safety units read the byte back (ClearDanger).
   pes::PesWorld& pesWorld = match->PesWorldOf();
   const int sideIndex = team->GetID();
-  pesWorld.SetClearDanger(sideIndex, attackSign * carrierPos.coords[0] < -pitchHalfW / 3.0f && carrierPressureClass == 0);
+  pesWorld.SetCarrierInputs(sideIndex, static_cast<uint32_t>(match->PesSlotOf(CastPlayer())),
+                            CastPlayer()->GetPossessionDuration_ms() > 0);
+  pesWorld.RunDangerBuilder(sideIndex);
   pes::PassAnswer pass;
   if (rethink) pass = passAnswer();
   // The Long unit (kind 9, 0x14212AD40) answers on the rethink too: owned or

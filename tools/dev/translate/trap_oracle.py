@@ -34,9 +34,9 @@ IMG_LO, IMG_GLOBALS, IMG_HI = 0x140000000, 0x143000000, 0x143800000  # code and 
 REGS = ("rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15")
 G_CELL = 0x1436F3DC8  # the image global that holds G
 # The records the window holds: (kind, table offset in G or None, entry stride, count, record bytes). The sizes are the window's.
-TABLES = (("side", 0x1928, 0x28, 2, 0x260), ("anime", 0x19C8, 0x28, 26, 0x32C), ("man", 0x1DD8, 0x28, 26, 0xDC4),
+TABLES = (("side", 0x1928, 0x28, 2, 0x4C30), ("anime", 0x19C8, 0x28, 26, 0x32C), ("man", 0x1DD8, 0x28, 26, 0xDC4),
           ("slot", 0x25F8, 0x28, 22, 0x2E50))
-POINTERS = (("B", 0x40, 0x2960), ("MI", 0x270, 0x1760), ("fr", 0x360, 0x10), ("pitch", 0x2AA8, 0x48))
+POINTERS = (("B", 0x40, 0x2960), ("MI", 0x270, 0x1770), ("fr", 0x360, 0x10), ("pitch", 0x2AA8, 0x48))
 P_BYTES = 0x3B40
 STACK_SPAN = 0x300  # the entry frame: rsp .. rsp + STACK_SPAN is the caller's call frame
 
