@@ -36,6 +36,8 @@ constexpr int kMinutes = 2;
 constexpr unsigned int kThrowInSeeds[] = {kSeed, 3u, 13u, 11u};
 // The release key's horizontal length is checked to this tolerance (m): the key is measured against the root the hold used.
 constexpr float kKeyTolerance_m = 0.05f;
+// The ball's radius (m): Ball::ResetSituation seats its centre this far above the point it is given (ball.cpp).
+constexpr float kBallRadius_m = 0.11f;
 
 // The install's set-piece taker constants, read as the match reads them. The caller has checked PES21_ROOT.
 void LoadTakerConstants(pes::SetPieceTakerConstants* out) {
@@ -98,27 +100,84 @@ TEST(PesThrowInRelease, ACarriedThrowUsesTheShortRowUpToThePesDistanceAndTheMidR
   EXPECT_EQ(pes::ThrowInCarryReleaseRow(reach_m + 0.01f, reach_m), pes::kThrowInReleaseRunMid);
 }
 
-// PES releases a throw-in from behind the line: the release holds the ball at the hand's key offset, inside the touchline,
-// until the release (pes-re-throwin-choreography.md 4.2, 5.3). So when the throw's touch ends the set piece, the ball lies
-// inside the line. Counted over the first searched two-minute match with a throw-in.
+// PES releases a carried throw-in from behind the line: the release holds the ball at the hand's key offset, inside the
+// touchline, until the release (pes-re-throwin-choreography.md 4.2, 5.3). So when the throw's touch ends the set piece, the
+// ball lies inside the line. Counted over the first searched two-minute match with a carried throw-in. A ceremony taker
+// (path B) is not counted: PES places him so the release key's ball is over the restart spot, 0.25 m outside the line
+// (3.3, 4.1), so his ball is outside by design (ACeremonyThrowInIsReleasedFromTheHandOverTheSpot covers him). Counting him
+// failed seed 7 once the kick scatter took PES's situation factor Q and its two minutes reached a ceremony throw-in.
 TEST(PesThrowInRelease, AThrowInIsReleasedFromInsideTheLine) {
   if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
   int releases = 0, outside = 0;
   for (const unsigned int seed : kThrowInSeeds) {
     if (releases > 0) break;
-    bool throwInTaking = false;
+    bool throwInTaking = false, carrying = false;
     RunMatch(seed, [&](Match& match) {
       const RefereeBuffer& b = match.GetRefereeBuffer();
-      if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn) throwInTaking = true;
+      if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn) {
+        if (!throwInTaking) carrying = match.GetTeam(b.teamID)->GetController()->IsCarryingBall();
+        throwInTaking = true;
+      }
       if (throwInTaking && !match.IsInSetPiece()) {
         throwInTaking = false;
+        if (!carrying) return;
         releases++;
         if (std::fabs(match.GetBall()->Predict(0).coords[1]) > pesFieldHalfWidth) outside++;
       }
     });
   }
-  EXPECT_GT(releases, 0) << "no throw-in was released in any searched two-minute match";
+  EXPECT_GT(releases, 0) << "no carried throw-in was released in any searched two-minute match";
   EXPECT_EQ(outside, 0) << outside << " of " << releases << " released throw-ins lay outside the touchline at the touch";
+}
+
+// A ceremony taker's ball is in his hand when he releases (pes-re-throwin-choreography.md 3.1, 3.3: PES places him with the
+// ball so the release key's ball is over the spot; 4.2: the throw is released from the hand, 1.8 m up, never from the
+// ground). The hold of a tick places the ball from the root the previous tick ended with, so the check pairs the last held
+// ball with that root: its height is the key's height and its horizontal distance from the root the key's (clip 0xcfa's
+// second record, the one SetKick reads for the stand point).
+TEST(PesThrowInRelease, ACeremonyThrowInIsReleasedFromTheHandOverTheSpot) {
+  if (!std::getenv("PES21_ROOT")) GTEST_SKIP() << "PES21_ROOT not set";
+  constexpr int kThrowInKeyMotion = 0xcfa;
+  int ceremony = 0, mismatched = 0;
+  float worstHeight_m = 0.0f, worstReach_m = 0.0f;
+  for (const unsigned int seed : kThrowInSeeds) {
+    if (ceremony > 0) break;
+    bool throwInTaking = false, placed = false;
+    Vector3 heldBall, heldRoot, rootEndingLastTick;
+    RunMatch(seed, [&](Match& match) {
+      const RefereeBuffer& b = match.GetRefereeBuffer();
+      if (match.IsInSetPiece() && b.started && b.desiredSetPiece == e_SetPiece_ThrowIn && !throwInTaking) {
+        throwInTaking = true;
+        placed = match.GetTeam(b.teamID)->GetController()->IsPieceTakerHeld(b.taker);
+        rootEndingLastTick = b.taker->GetPosition();
+      }
+      if (throwInTaking && match.IsInSetPiece()) {
+        heldBall = match.GetBall()->Predict(0);
+        heldRoot = rootEndingLastTick;
+        rootEndingLastTick = b.taker->GetPosition();
+        return;
+      }
+      if (!throwInTaking) return;
+      throwInTaking = false;
+      if (!placed) return;
+      ceremony++;
+      const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
+      ASSERT_GT(hits.size(), 1u);
+      const pes::GoalKickConstants g = pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants());
+      const pes::Vec3 key = pes::ClipOffsetMetres(pes::Vec3(hits[1].ballX, hits[1].ballY, hits[1].ballZ), 1.0f, false, g);
+      const float dx = heldBall.coords[0] - heldRoot.coords[0], dy = heldBall.coords[1] - heldRoot.coords[1];
+      // Ball::ResetSituation seats the ball's centre one radius above the point it is given, so the held centre is the key's
+      // height plus that radius; a ball left on the ground is 1.7 m from it either way.
+      const float heightGap_m = std::fabs(heldBall.coords[2] - key.y - kBallRadius_m);
+      const float reachGap_m = std::fabs(std::sqrt(dx * dx + dy * dy) - std::hypot(key.x, key.z));
+      worstHeight_m = std::max(worstHeight_m, heightGap_m);
+      worstReach_m = std::max(worstReach_m, reachGap_m);
+      if (heightGap_m > kKeyTolerance_m || reachGap_m > kKeyTolerance_m) mismatched++;
+    });
+  }
+  EXPECT_GT(ceremony, 0) << "no ceremony throw-in was released in any searched two-minute match";
+  EXPECT_EQ(mismatched, 0) << mismatched << " of " << ceremony << " ceremony releases were not at the key (worst height gap "
+                           << worstHeight_m << " m, reach gap " << worstReach_m << " m)";
 }
 
 // A carried throw-in's ball is held at its release row's key offset from the taker's root until the touch. The hold of a

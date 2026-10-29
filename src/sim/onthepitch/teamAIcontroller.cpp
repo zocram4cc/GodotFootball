@@ -1378,21 +1378,45 @@ Player* TeamAIController::ThrowInTargetMate(Player* thrower) const {
   return inside;
 }
 
+namespace {
+
+// PES's throw-in key clip (ThrowinLoop's SetKick and release clip, 0x140794280, docs/re/pes-re-throwin-choreography.md 4.1): the
+// release key's ball offset from the body is clip 0xcfa's second record (FUN_1406E8CC0 at index 1).
+// ponytail: the body scale (PES's player +0x3B18) is taken as 1.
+constexpr int kThrowInKeyMotion = 0xcfa;
+pes::Vec3 ThrowInKeyOffset(Match& match) {
+  const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
+  const pes::HitRecord key = hits.size() > 1 ? hits[1] : pes::HitRecord();
+  return pes::ClipOffsetMetres(pes::Vec3(key.ballX, key.ballY, key.ballZ), 1.0f, false,
+                               pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants()));
+}
+
+}  // namespace
+
 void TeamAIController::PinBallAtRelease() {
-  if (!IsCarryingBall()) return;
-  // PES chooses the carry's release row as the take starts, from the distance to the throw's target (FUN_140792E10, throwin 4.2).
-  if (pieceReleaseRow == 0) {
-    Player* mate = ThrowInTargetMate(taker);
-    const Vector3 to = mate ? mate->GetPosition() : taker->GetPosition();
-    pieceReleaseRow = pes::ThrowInCarryReleaseRow((taker->GetPosition().Get2D() - to.Get2D()).GetLength(),
-                                                  match->GetPesSetPieceTakerConstants().throwInReleaseShort_m);
+  // A carrier holds the ball at his release row's key; a placed (ceremony) taker holds it at his SetKick key, the point the
+  // stand puts over the spot (3.3). PES places him with the ball (3.1), so it is in his hand from the take, never on the ground.
+  const bool carried = IsCarryingBall();
+  const bool placed = pieceHeld && setPieceType == e_SetPiece_ThrowIn && taker != nullptr;
+  if (!carried && !placed) return;
+  pes::Vec3 offset;
+  if (carried) {
+    // PES chooses the carry's release row as the take starts, from the distance to the throw's target (FUN_140792E10, throwin 4.2).
+    if (pieceReleaseRow == 0) {
+      Player* mate = ThrowInTargetMate(taker);
+      const Vector3 to = mate ? mate->GetPosition() : taker->GetPosition();
+      pieceReleaseRow = pes::ThrowInCarryReleaseRow((taker->GetPosition().Get2D() - to.Get2D()).GetLength(),
+                                                    match->GetPesSetPieceTakerConstants().throwInReleaseShort_m);
+    }
+    constexpr float kPhysique = 1.0f;  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0, as the pickup does
+    constexpr bool kMirror = false;    // ponytail: the 000 column; PES's column is the angle class of the throw (FUN_1406de990)
+    const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(pieceReleaseRow);
+    const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
+    const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
+    offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
+  } else {
+    offset = ThrowInKeyOffset(*match);
   }
-  constexpr float kPhysique = 1.0f;  // ponytail: the physique (PES's player +0x3B18) is taken as 1.0, as the pickup does
-  constexpr bool kMirror = false;    // ponytail: the 000 column; PES's column is the angle class of the throw (FUN_1406de990)
-  const std::vector<pes::HitRecord>& hits = match->GetPesMbinfo().Hits(pieceReleaseRow);
-  const pes::HitRecord hit = hits.empty() ? pes::HitRecord() : hits.front();
-  const pes::GoalKickConstants k = pes::GoalKickConstantsFrom(match->GetPesSetPieceTakerConstants());
-  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(hit.ballX, hit.ballY, hit.ballZ), kPhysique, kMirror, k);
   const Vector3 pos = taker->GetPosition();
   const Vector3 facing = taker->GetDirectionVec();
   const float heading = pes::FacingHeadingDeg(pes::Vec3(facing.coords[0], facing.coords[1], facing.coords[2]));
@@ -1428,14 +1452,9 @@ int CeremonyRoleClass(e_PlayerRole role) {
 }
 
 // A placed throw-in taker's stand point (PES's ThrowinLoop SetKick, 0x140794280, docs/re/pes-re-throwin-choreography.md 4.1):
-// the release key's ball offset from clip 0xcfa's second record (FUN_1406E8CC0 at index 1), its horizontal length outside
-// the touchline over the restart point. ponytail: the body scale (PES's player +0x3B18) is taken as 1.
-constexpr int kThrowInKeyMotion = 0xcfa;
+// the release key's horizontal length outside the touchline over the restart point.
 float ThrowInStandLength_m(Match& match) {
-  const std::vector<pes::HitRecord>& hits = match.GetPesMbinfo().Hits(kThrowInKeyMotion);
-  const pes::HitRecord key = hits.size() > 1 ? hits[1] : pes::HitRecord();
-  const pes::Vec3 offset = pes::ClipOffsetMetres(pes::Vec3(key.ballX, key.ballY, key.ballZ), 1.0f, false,
-                                                 pes::GoalKickConstantsFrom(match.GetPesSetPieceTakerConstants()));
+  const pes::Vec3 offset = ThrowInKeyOffset(match);
   return std::hypot(offset.x, offset.z);
 }
 
