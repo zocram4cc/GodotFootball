@@ -1,0 +1,99 @@
+{
+ "note": "snapshot-backed diff of the judge's traced calls (snapdiff.py): each real call replayed from its snapshot's own memory on the harness and the translated side; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated. Captures: live2 pid2670420 (decide seq7473, commit seq7443, whistle seq028 seq7444 seq7535 seq7699) and pid91171 (decide seq316, whistle seq028 seq308).",
+ "proven_count": 3,
+ "results": [
+  {
+   "va": "0x1405B7470",
+   "calls": 2,
+   "replayed": 2,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "a_seq7473": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "b_seq316": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 39,
+    "total": 200,
+    "fraction": 0.195
+   },
+   "proven": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x143F546F0",
+   "calls": 1,
+   "replayed": 1,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "a_seq7443": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 19,
+    "total": 27,
+    "fraction": 0.7037
+   },
+   "proven": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14050E770",
+   "calls": 6,
+   "replayed": 6,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "a_seq028": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "a_seq7444": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "a_seq7535": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "a_seq7699": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "b_seq028": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "b_seq308": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 35,
+    "total": 69,
+    "fraction": 0.5072
+   },
+   "proven": true,
+   "blocked_callees": []
+  }
+ ]
+}
