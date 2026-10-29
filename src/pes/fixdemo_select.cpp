@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstring>
 
+#include "pes/exe.hpp"
 #include "pes_native.hpp"
 #include "translated.hpp"
 
@@ -55,6 +56,11 @@ constexpr uint8_t kStandInTeamByte = 23;
 // G1s/G1 at their image values (0xFFFF / 0): condition 0x03 then answers only 0x300 (docs Appendix A, 0x03).
 constexpr uint32_t kStandInG1 = 0;
 
+// The switch tables the translated evaluator and 0x141F50450 read out of PES's code: byte index tables at 0x141F4F9E0,
+// 0x141F5092C, 0x141F50A0C and dword offset tables at 0x141F4F948, 0x141F4FAAC, 0x141F4FC14, 0x141F508B0, 0x141F509DC (the
+// `s.rd(0x140000000 + ...)` sequences of pes_fn_141F4D2F0 and pes_fn_141F50450). One run covers them; read from the install.
+constexpr uint64_t kImageTablesVa = 0x141F4F900, kImageTablesBytes = 0x1200;
+
 }  // namespace
 
 struct FixDemoSelector::Impl {
@@ -64,8 +70,9 @@ struct FixDemoSelector::Impl {
   uint64_t ctx = 0, db = 0;
   std::map<uint32_t, uint32_t> cache;  // cut id -> row
 
-  explicit Impl(std::map<int, FixDemoTable> t) : tables(std::move(t)) {
+  Impl(std::map<int, FixDemoTable> t, std::vector<uint8_t> imageTables) : tables(std::move(t)) {
     heap->Attach(s);
+    s.mem.img.push_back({kImageTablesVa, std::move(imageTables)});
     for (auto [va, bytes] : {std::pair<uint64_t, uint64_t>{kStackVa, kStackBytes}, {kScratchVa, kScratchBytes},
                              {kStaticsVa, kStaticsBytes}, {kEnvGlobalsVa, kEnvGlobalsBytes}, {kDbPageVa, kDbPageBytes}})
       s.mem.segs.push_back({va, std::vector<uint8_t>(bytes)});
@@ -158,7 +165,17 @@ struct FixDemoSelector::Impl {
   }
 };
 
-FixDemoSelector::FixDemoSelector(std::map<int, FixDemoTable> tables) : impl_(std::make_unique<Impl>(std::move(tables))) {}
+std::unique_ptr<FixDemoSelector> FixDemoSelector::Create(std::map<int, FixDemoTable> tables, const PeImage& exe,
+                                                         std::string* error) {
+  std::vector<uint8_t> image(kImageTablesBytes);
+  if (!exe.ReadVa(kImageTablesVa, image.size(), image.data())) {
+    if (error) *error = "the image does not map the FixDemo evaluator's switch tables";
+    return nullptr;
+  }
+  return std::unique_ptr<FixDemoSelector>(new FixDemoSelector(std::make_unique<Impl>(std::move(tables), std::move(image))));
+}
+
+FixDemoSelector::FixDemoSelector(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
 FixDemoSelector::~FixDemoSelector() = default;
 
 PesState& FixDemoSelector::State() { return impl_->s; }

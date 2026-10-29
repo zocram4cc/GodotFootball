@@ -2,6 +2,7 @@
 
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/ref_counted.hpp>
+#include <godot_cpp/variant/packed_string_array.hpp>
 #include <optional>
 
 #include "gdext/pes_library.hpp"
@@ -19,9 +20,9 @@ class PesCutsceneCamera : public RefCounted {
   GDCLASS(PesCutsceneCamera, RefCounted)
 
  public:
-  // Opens the camera_index-th camera of the first .fdc layer of a FixDemo scene that has one. scene_id is
-  // (category << 16) | index, e.g. 0x20009 (pes/fixdemo_table.hpp: FixDemoSceneFdcPaths).
-  Error load_scene(const Ref<PesLibrary>& library, int scene_id, int camera_index);
+  // Opens the camera_index-th camera of the first of the named cut layers (a variant's .fdc names under the category's
+  // cut_data folder, in the order the FixDemo request lists them) that has one.
+  Error load_layers(const Ref<PesLibrary>& library, int category, const PackedStringArray& names, int camera_index);
   // Opens vfs_path (a common/demo/fixdemo/... .fdc) and takes its camera record camera_index.
   Error load_file(const Ref<PesLibrary>& library, const String& vfs_path, int camera_index);
   // Length of the clip in seconds, from its frame count and frame rate.

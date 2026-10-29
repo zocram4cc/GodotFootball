@@ -3,9 +3,13 @@
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "gdext/pes_library.hpp"
+#include "onthepitch/pesrandom.hpp"
+#include "pes/fixdemo_select.hpp"
+#include "pes/fixdemo_table.hpp"
 
 class Match;
 class Player;
@@ -51,11 +55,20 @@ class GfMatch : public RefCounted {
   double field_half_width() const;   // to the touchline's outer edge (PES FieldInfo +0x08)
   double field_half_length() const;  // to the goal line's outer edge (PES FieldInfo +0x04)
 
+  // The FixDemo environment words of the ctx (stadium id, time of day, weather); call after start().
+  void set_cutscene_environment(int stadium, int time_of_day, int weather);
+  // The cutscene PES's selection makes for the goal or foul stop GF just played, then cleared: {scene, category, steps:
+  // [{cut, row, fdc: PackedStringArray}]}. Empty when none is pending.
+  Dictionary take_cutscene();
+  // The render side finished the scene (0x141F58FC0): the category's rotation word advances.
+  void cutscene_finished(int scene_id);
+
  protected:
   static void _bind_methods();
 
  private:
   void RefreshPlayers();
+  void PollCutscenes();
   Ref<PesLibrary> library_;  // keeps the rig the match points at alive
   std::unique_ptr<blunted::Database> db_;
   std::unique_ptr<Match> match_;
@@ -65,6 +78,15 @@ class GfMatch : public RefCounted {
   std::vector<blunted::Vector3> previousPlayers_;
   blunted::Vector3 previousBall_;
   bool previousValid_ = false;
+  // PES's FixDemo selection on GF memory, fed by the goal and foul stops the poll sees.
+  std::unique_ptr<pes::FixDemoSelector> fixdemo_;
+  std::optional<pes::FixDemoTable> goalTable_;
+  std::unique_ptr<pes::Random> goalRng_;
+  pes::FixDemoFacts cutsceneEnvironment_;
+  std::optional<pes::FixDemoRequest> pendingCutscene_;
+  int lastScore_[2] = {0, 0};
+  unsigned long lastFoulStop_ms_ = 0;
+  bool foulStopSeen_ = false;
 };
 
 }  // namespace godot

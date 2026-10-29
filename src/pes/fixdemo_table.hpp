@@ -63,10 +63,9 @@ struct FixDemoTable {
   std::vector<FixDemoGoalPlayerScene> goalPlayerScenes;
 };
 
-// The .fdc VFS paths a scene plays: for each step up to its terminating cut 0, the first variant's layers under the
-// category's cut_data folder, in step order. The first variant is taken without evaluating its condition keys (a
-// debug choice, not PES's selection). Empty with *error set when the scene is not in the table.
-std::vector<std::string> FixDemoSceneFdcPaths(const FixDemoTable& table, uint32_t sceneId, std::string* error);
+// The VFS path of a cut layer a variant names: the category's cut_data folder + the name. Empty for an unknown category.
+// (Which variant plays is the matcher's choice: FixDemoSelector, pes/fixdemo_select.hpp.)
+std::string FixDemoCutDataPath(int category, const std::string& fdcName);
 
 // Decodes one table_<cat>.bin. `category` is 1..9 (ent..mode). Returns nullopt with *error on any inconsistency.
 std::optional<FixDemoTable> DecodeFixDemoTable(const std::vector<uint8_t>& bytes, int category, std::string* error);

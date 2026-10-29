@@ -63,10 +63,14 @@ struct FixDemoRequest {
   std::vector<FixDemoStepRequest> steps;  // up to the scene's terminating cut 0
 };
 
+class PeImage;
+
 class FixDemoSelector {
  public:
-  // `tables`: the decoded table of every category the selector may be asked about (key = category).
-  explicit FixDemoSelector(std::map<int, FixDemoTable> tables);
+  // `tables`: the decoded table of every category the selector may be asked about (key = category). `exe`: the install's
+  // PES2021.exe; the evaluator's switch tables live in PES's code (0x141F4F948.. and 0x141F508B0.., read by the translated
+  // `jmp` sequences) and are mapped from it. Null with *error when the image does not map them.
+  static std::unique_ptr<FixDemoSelector> Create(std::map<int, FixDemoTable> tables, const PeImage& exe, std::string* error);
   ~FixDemoSelector();
   FixDemoSelector(const FixDemoSelector&) = delete;
   FixDemoSelector& operator=(const FixDemoSelector&) = delete;
@@ -103,6 +107,7 @@ class FixDemoSelector {
 
  private:
   struct Impl;
+  explicit FixDemoSelector(std::unique_ptr<Impl> impl);
   std::unique_ptr<Impl> impl_;
 };
 

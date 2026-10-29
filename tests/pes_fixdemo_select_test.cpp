@@ -19,11 +19,15 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "pes/exe.hpp"
 #include "pes/fixdemo_select.hpp"
 #include "pes/vfs.hpp"
+#include "translated.hpp"
 
 namespace {
 
@@ -48,6 +52,10 @@ struct Event {
   std::vector<HistoryNode> history;
   std::vector<std::pair<uint32_t, uint32_t>> picks;              // cut group id, PES's row, in PES's call order
   uint32_t rngSeedAfter, rngPhaseAfter;
+  // Raw draws of the match RNG (0x141F7A150) PES made before the first pick: its scene loader draws too (callers 0x141F55110,
+  // 0x141F2DD80, 0x141F3D600, ...), which GF has no consumer for. The count is what the captured RNG words imply (the LCG step
+  // count from the state before to the state after, minus the 0x43 picks); the test applies them.
+  int rawDrawsBefore = 0;
 };
 
 pes::FixDemoFacts Facts(uint32_t stadium, uint32_t subject, float x, float y, float z, uint32_t evSide, uint8_t evSlot,
@@ -74,47 +82,77 @@ const std::vector<Event>& Events() {
       {"B goal celebration + run", Facts(0x31, 0, F(3260824944u), 0, F(1101438824), 0, 0, 0),
        {10, 7, 10, 7, 15, 5, 12, 10, 1, 1, 11}, 0x39CDABE1, 0x235, {}, {{0x30005, 1}, {0x30103, 6}}, 0x39CDABE1, 0x235},
       {"D foul warning", Facts(0x31, 0, 0, 0, 0, 0, 255, 0), {10, 7, 10, 8, 15, 5, 12, 10, 1, 1, 11}, 0x3D35A763, 0x26, {},
-       {{0x20007, 0}}, 0x0466C975, 0xE7},
+       {{0x20007, 0}}, 0x0466C975, 0xE7, 1},
       {"E goal celebration + run", Facts(0x31, 0, 0, 0, 0, 0, 0, 1), {10, 7, 11, 8, 15, 5, 12, 10, 1, 1, 11}, 0x0466C975, 0xE7,
        {}, {{0x30037, 0}, {0x30104, 9}}, 0x0466C975, 0xE7},
   };
   return events;
 }
 
-// The FixDemo tables through the mounted VFS (the winner of any mod is the one the game read). Empty = skip.
-std::map<int, pes::FixDemoTable> LoadTables(std::string* why) {
+// The install: FixDemo tables through the mounted VFS (the winner of any mod is the one the game read) and the exe whose
+// code tables the evaluator reads. `why` set = skip.
+struct Install {
   std::map<int, pes::FixDemoTable> tables;
+  std::optional<pes::PeImage> exe;
+  std::string why;
+};
+
+Install LoadInstall() {
+  Install in;
   const char* root = std::getenv("PES21_ROOT");
   if (!root) {
-    *why = "PES21_ROOT not set";
-    return tables;
+    in.why = "PES21_ROOT not set";
+    return in;
   }
   pes::PesVfs vfs;
   std::string err;
   if (!vfs.Mount(root, &err)) {
-    *why = err;
-    return tables;
+    in.why = err;
+    return in;
+  }
+  in.exe = pes::PeImage::Open(std::string(root) + "/PES2021.exe", &err);
+  if (!in.exe) {
+    in.why = err;
+    return in;
   }
   for (int cat : {pes::kFixDemoFoul, pes::kFixDemoGoal}) {
     auto bytes = vfs.Read(pes::FixDemoTablePath(cat), &err);
     auto table = bytes ? pes::DecodeFixDemoTable(*bytes, cat, &err) : std::nullopt;
     if (!table) {
-      *why = err;
-      return {};
+      in.why = err;
+      return in;
     }
-    tables[cat] = *table;
+    in.tables[cat] = *table;
   }
-  return tables;
+  return in;
 }
 
-// The captured run's tables: every cut an event picks must name the group and variant count PES's pick was made over.
-bool TablesMatchTheCapturedRun(const std::map<int, pes::FixDemoTable>& tables, const Event& e) {
+// The captured run's tables: every cut an event picks must name a group with the variant PES's pick was made over.
+bool TablesMatchTheCapturedRun(const Install& in, const Event& e) {
   for (const auto& [cut, row] : e.picks) {
-    const auto t = tables.find(static_cast<int>(cut >> 16));
+    const auto t = in.tables.find(static_cast<int>(cut >> 16));
     const uint32_t g = (cut & 0xFFFF) - 1;
-    if (t == tables.end() || g >= t->second.cutGroups.size() || row >= t->second.cutGroups[g].rows.size()) return false;
+    if (t == in.tables.end() || g >= t->second.cutGroups.size() || row >= t->second.cutGroups[g].rows.size()) return false;
   }
   return true;
+}
+
+std::unique_ptr<pes::FixDemoSelector> Make(const Install& in) {
+  std::string err;
+  auto sel = pes::FixDemoSelector::Create(in.tables, *in.exe, &err);
+  EXPECT_TRUE(sel) << err;
+  return sel;
+}
+
+// One raw draw of the match RNG, as PES's scene loader makes it: 0x141F7A150(rng, 0x10).
+void RawDraw(pes::FixDemoSelector& sel) {
+  PesState& s = sel.State();
+  s.gpr[1] = pes::kFixDemoMatchRngVa;
+  s.gpr[2] = 0x10;
+  s.gpr[4] -= 8;
+  s.wr(s.gpr[4], 0, 8);
+  pes_fn_141F7A150(s);
+  s.gpr[4] += 8;
 }
 
 // The state PES held before the event, on a fresh selector, then the event's facts.
@@ -125,42 +163,43 @@ void Prepare(pes::FixDemoSelector& sel, const Event& e) {
   s.wr(pes::kFixDemoMatchRngVa + 0x20, e.rngPhase, 4);
   for (const HistoryNode& n : e.history) sel.RestoreHistoryNode(n.category, n.key, 0, 0, n.used, n.capacity);
   sel.BeginEvent(e.facts);
+  for (int i = 0; i < e.rawDrawsBefore; ++i) RawDraw(sel);
 }
 
 TEST(FixDemoSelect, GfPicksEqualPesForTheCapturedEventsAndLeaveTheRngWherePesLeftIt) {
-  std::string why;
-  const auto tables = LoadTables(&why);
-  if (tables.empty()) GTEST_SKIP() << why;
+  const Install in = LoadInstall();
+  if (!in.why.empty()) GTEST_SKIP() << in.why;
   for (const Event& e : Events()) {
-    if (!TablesMatchTheCapturedRun(tables, e)) GTEST_SKIP() << "install tables differ from the captured run: " << e.name;
-    pes::FixDemoSelector sel(tables);
-    Prepare(sel, e);
+    if (!TablesMatchTheCapturedRun(in, e)) GTEST_SKIP() << "install tables differ from the captured run: " << e.name;
+    auto sel = Make(in);
+    ASSERT_TRUE(sel);
+    Prepare(*sel, e);
     for (const auto& [cut, row] : e.picks) {
-      const auto got = sel.PickRow(cut);
+      const auto got = sel->PickRow(cut);
       ASSERT_TRUE(got.has_value()) << e.name << " cut " << std::hex << cut;
       EXPECT_EQ(*got, row) << e.name << " cut " << std::hex << cut;
     }
-    EXPECT_EQ(sel.State().rd(pes::kFixDemoMatchRngVa + 0x10, 4), e.rngSeedAfter) << e.name;
-    EXPECT_EQ(sel.State().rd(pes::kFixDemoMatchRngVa + 0x20, 4), e.rngPhaseAfter) << e.name;
+    EXPECT_EQ(sel->State().rd(pes::kFixDemoMatchRngVa + 0x10, 4), e.rngSeedAfter) << e.name;
+    EXPECT_EQ(sel->State().rd(pes::kFixDemoMatchRngVa + 0x20, 4), e.rngPhaseAfter) << e.name;
   }
 }
 
 // The scene request is the list expansion over the picks: the foul scene 0x20008 plays cut 0x20007 and its variant's layers.
 TEST(FixDemoSelect, TheFoulSceneRequestNamesTheLayersOfThePickedVariant) {
-  std::string why;
-  const auto tables = LoadTables(&why);
-  if (tables.empty()) GTEST_SKIP() << why;
+  const Install in = LoadInstall();
+  if (!in.why.empty()) GTEST_SKIP() << in.why;
   const Event& e = Events()[2];  // D
-  if (!TablesMatchTheCapturedRun(tables, e)) GTEST_SKIP() << "install tables differ from the captured run";
-  pes::FixDemoSelector sel(tables);
-  Prepare(sel, e);
-  const auto req = sel.Request(0x20008);
+  if (!TablesMatchTheCapturedRun(in, e)) GTEST_SKIP() << "install tables differ from the captured run";
+  auto sel = Make(in);
+  ASSERT_TRUE(sel);
+  Prepare(*sel, e);
+  const auto req = sel->Request(0x20008);
   ASSERT_TRUE(req.has_value());
-  const pes::FixDemoScene& scene = tables.at(pes::kFixDemoFoul).scenes[0x20008 - 0x20001];
+  const pes::FixDemoScene& scene = in.tables.at(pes::kFixDemoFoul).scenes[0x20008 - 0x20001];
   ASSERT_EQ(req->steps.size(), 1u);
   EXPECT_EQ(req->steps[0].cutId, scene.steps[0].cut);
   EXPECT_EQ(req->steps[0].row, 0u);
-  const auto& group = tables.at(pes::kFixDemoFoul).cutGroups[(scene.steps[0].cut & 0xFFFF) - 1];
+  const auto& group = in.tables.at(pes::kFixDemoFoul).cutGroups[(scene.steps[0].cut & 0xFFFF) - 1];
   EXPECT_EQ(req->steps[0].fdc, group.rows[0].fdc);
   EXPECT_FALSE(req->steps[0].fdc.empty());
 }
@@ -168,70 +207,70 @@ TEST(FixDemoSelect, TheFoulSceneRequestNamesTheLayersOfThePickedVariant) {
 // The pick is cached per event (0x141F4FDA0's map): a second ask answers the first pick and draws nothing; a new event
 // clears it.
 TEST(FixDemoSelect, APickIsCachedForTheEventAndAFreshEventDrawsAgain) {
-  std::string why;
-  const auto tables = LoadTables(&why);
-  if (tables.empty()) GTEST_SKIP() << why;
+  const Install in = LoadInstall();
+  if (!in.why.empty()) GTEST_SKIP() << in.why;
   const Event& e = Events()[2];
-  if (!TablesMatchTheCapturedRun(tables, e)) GTEST_SKIP() << "install tables differ from the captured run";
-  pes::FixDemoSelector sel(tables);
-  Prepare(sel, e);
-  const uint32_t first = *sel.PickRow(0x20007);
-  const uint64_t rngAfterFirst = sel.State().rd(pes::kFixDemoMatchRngVa + 0x10, 4);
-  EXPECT_EQ(*sel.PickRow(0x20007), first);
-  EXPECT_EQ(sel.State().rd(pes::kFixDemoMatchRngVa + 0x10, 4), rngAfterFirst);
-  sel.BeginEvent(e.facts);
-  (void)sel.PickRow(0x20007);
-  EXPECT_NE(sel.State().rd(pes::kFixDemoMatchRngVa + 0x10, 4), rngAfterFirst);  // a new event draws again
+  if (!TablesMatchTheCapturedRun(in, e)) GTEST_SKIP() << "install tables differ from the captured run";
+  auto sel = Make(in);
+  ASSERT_TRUE(sel);
+  Prepare(*sel, e);
+  const uint32_t first = *sel->PickRow(0x20007);
+  const uint64_t rngAfterFirst = sel->State().rd(pes::kFixDemoMatchRngVa + 0x10, 4);
+  EXPECT_EQ(*sel->PickRow(0x20007), first);
+  EXPECT_EQ(sel->State().rd(pes::kFixDemoMatchRngVa + 0x10, 4), rngAfterFirst);
+  sel->BeginEvent(e.facts);
+  (void)sel->PickRow(0x20007);
+  EXPECT_NE(sel->State().rd(pes::kFixDemoMatchRngVa + 0x10, 4), rngAfterFirst);  // a new event draws again
 }
 
 // A group that does not exist is PES's 0 (no row): nullopt, no draw.
 TEST(FixDemoSelect, AnUnknownCutGroupHasNoPick) {
-  std::string why;
-  const auto tables = LoadTables(&why);
-  if (tables.empty()) GTEST_SKIP() << why;
-  pes::FixDemoSelector sel(tables);
-  sel.BeginEvent({});
-  EXPECT_FALSE(sel.PickRow(0x2FFFF).has_value());
-  EXPECT_FALSE(sel.PickRow(0x20000).has_value());  // index (0 - 1) wraps past the count
+  const Install in = LoadInstall();
+  if (!in.why.empty()) GTEST_SKIP() << in.why;
+  auto sel = Make(in);
+  ASSERT_TRUE(sel);
+  sel->BeginEvent({});
+  EXPECT_FALSE(sel->PickRow(0x2FFFF).has_value());
+  EXPECT_FALSE(sel->PickRow(0x20000).has_value());  // index (0 - 1) wraps past the count
 }
 
 // The seeding is a function of PES's two seeds (0x141F51FD0, 0x141F52060): same seeds, same words; the words the table
 // holds are draws below 16; another match seed gives another match RNG.
 TEST(FixDemoSelect, SeedingIsAFunctionOfTheSeedsAndFillsTheCategoryTableBelowSixteen) {
-  std::string why;
-  const auto tables = LoadTables(&why);
-  if (tables.empty()) GTEST_SKIP() << why;
-  pes::FixDemoSelector a(tables), b(tables), c(tables);
-  a.Seed(1234, 5678);
-  b.Seed(1234, 5678);
-  c.Seed(1234, 5679);
+  const Install in = LoadInstall();
+  if (!in.why.empty()) GTEST_SKIP() << in.why;
+  auto a = Make(in), b = Make(in), c = Make(in);
+  ASSERT_TRUE(a && b && c);
+  a->Seed(1234, 5678);
+  b->Seed(1234, 5678);
+  c->Seed(1234, 5679);
   const auto word = [](pes::FixDemoSelector& s, uint64_t va) { return s.State().rd(va, 4); };
   for (uint32_t i = 0; i < pes::kFixDemoCategoryTableWords; ++i) {
-    EXPECT_EQ(word(a, pes::kFixDemoCategoryTableVa + i * 4), word(b, pes::kFixDemoCategoryTableVa + i * 4));
-    EXPECT_LT(word(a, pes::kFixDemoCategoryTableVa + i * 4), 16u);
+    EXPECT_EQ(word(*a, pes::kFixDemoCategoryTableVa + i * 4), word(*b, pes::kFixDemoCategoryTableVa + i * 4));
+    EXPECT_LT(word(*a, pes::kFixDemoCategoryTableVa + i * 4), 16u);
   }
-  EXPECT_EQ(word(a, pes::kFixDemoMatchRngVa + 0x10), word(b, pes::kFixDemoMatchRngVa + 0x10));
-  EXPECT_NE(word(a, pes::kFixDemoMatchRngVa + 0x10), word(c, pes::kFixDemoMatchRngVa + 0x10));
+  EXPECT_EQ(word(*a, pes::kFixDemoMatchRngVa + 0x10), word(*b, pes::kFixDemoMatchRngVa + 0x10));
+  EXPECT_NE(word(*a, pes::kFixDemoMatchRngVa + 0x10), word(*c, pes::kFixDemoMatchRngVa + 0x10));
 }
 
 // A finished scene advances its category's rotation word, except 0x60001 and 0x40011..0x4001B (0x141F58FC0).
 TEST(FixDemoSelect, AFinishedSceneAdvancesItsCategoryRotationExceptThePesExemptions) {
-  std::string why;
-  const auto tables = LoadTables(&why);
-  if (tables.empty()) GTEST_SKIP() << why;
-  pes::FixDemoSelector sel(tables);
-  const auto word = [&](int cat) { return sel.State().rd(pes::kFixDemoCategoryTableVa + cat * 4, 4); };
-  sel.EndScene(0x20008);
+  const Install in = LoadInstall();
+  if (!in.why.empty()) GTEST_SKIP() << in.why;
+  auto sel = Make(in);
+  ASSERT_TRUE(sel);
+  const auto word = [&](int cat) { return sel->State().rd(pes::kFixDemoCategoryTableVa + cat * 4, 4); };
+  sel->EndScene(0x20008);
   EXPECT_EQ(word(2), 1u);
-  sel.EndScene(0x30005);
+  sel->EndScene(0x30005);
   EXPECT_EQ(word(3), 1u);
-  sel.EndScene(0x60001);
+  sel->EndScene(0x60001);
   EXPECT_EQ(word(6), 0u);
-  sel.EndScene(0x40011);
-  sel.EndScene(0x4001B);
+  sel->EndScene(0x40011);
+  sel->EndScene(0x4001B);
   EXPECT_EQ(word(4), 0u);
-  sel.EndScene(0x40010);
-  sel.EndScene(0x4001C);
+  sel->EndScene(0x40010);
+  sel->EndScene(0x4001C);
   EXPECT_EQ(word(4), 2u);
 }
 

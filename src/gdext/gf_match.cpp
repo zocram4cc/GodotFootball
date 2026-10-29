@@ -7,6 +7,8 @@
 #include "gametypes.hpp"
 #include "onthepitch/match.hpp"
 #include "onthepitch/matchsetup.hpp"
+#include "onthepitch/pesgoalscene.hpp"
+#include "onthepitch/referee.hpp"
 #include "onthepitch/player/player.hpp"
 #include "simcontext.hpp"
 #include "utils/database.hpp"
@@ -48,6 +50,10 @@ void GfMatch::_bind_methods() {
   ClassDB::bind_method(D_METHOD("score", "team"), &GfMatch::score);
   ClassDB::bind_method(D_METHOD("field_half_width"), &GfMatch::field_half_width);
   ClassDB::bind_method(D_METHOD("field_half_length"), &GfMatch::field_half_length);
+  ClassDB::bind_method(D_METHOD("set_cutscene_environment", "stadium", "time_of_day", "weather"),
+                       &GfMatch::set_cutscene_environment);
+  ClassDB::bind_method(D_METHOD("take_cutscene"), &GfMatch::take_cutscene);
+  ClassDB::bind_method(D_METHOD("cutscene_finished", "scene_id"), &GfMatch::cutscene_finished);
 }
 
 Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const String& anims_dir, int home,
@@ -108,6 +114,38 @@ Error GfMatch::start(const Ref<PesLibrary>& library, const String& db_sql, const
   Properties config;
   config.SetBool("pes_loop", pes_loop);  // the tick-order switch (SW)
   match_ = std::make_unique<Match>(new MatchData(home, away), setup, config);  // owns the MatchData
+  // PES's FixDemo selection (foul and goal tables) on GF's arena. Without the install's tables there is no cutscene.
+  fixdemo_.reset();
+  goalTable_.reset();
+  pendingCutscene_.reset();
+  lastScore_[0] = lastScore_[1] = 0;
+  foulStopSeen_ = false;
+  std::map<int, pes::FixDemoTable> tables;
+  for (int category : {pes::kFixDemoFoul, pes::kFixDemoGoal}) {
+    std::string err;
+    auto bytes = library->vfs().Read(pes::FixDemoTablePath(category), &err);
+    auto table = bytes ? pes::DecodeFixDemoTable(*bytes, category, &err) : std::nullopt;
+    if (!table) {
+      UtilityFunctions::push_warning(String("GfMatch: no FixDemo table for category ") + String::num_int64(category) + ": " +
+                                     err.c_str());
+      tables.clear();
+      break;
+    }
+    tables[category] = std::move(*table);
+  }
+  if (!tables.empty() && library->rng_constants() && library->exe()) {
+    goalTable_ = tables.at(pes::kFixDemoGoal);
+    std::string err;
+    fixdemo_ = pes::FixDemoSelector::Create(std::move(tables), *library->exe(), &err);
+    if (!fixdemo_) UtilityFunctions::push_warning(String("GfMatch: FixDemo selection unavailable: ") + err.c_str());
+  }
+  if (fixdemo_) {
+    // ponytail: PES seeds both Random1000 sets from its clock modulo 10000 (0x141B34AD0 in the ctx constructor 0x141F4C950)
+    // and the goal object's generator from its own constructor; GF derives all from the match seed.
+    fixdemo_->Seed(unsigned(seed) % 10000u, (unsigned(seed) / 10000u) % 10000u);
+    goalRng_ = std::make_unique<pes::Random>(*library->rng_constants());
+    for (int slot = 0; slot < 3; ++slot) goalRng_->SetSeed(slot, unsigned(seed) + unsigned(slot));
+  }
   RefreshPlayers();
   return OK;
 }
@@ -161,6 +199,90 @@ void GfMatch::step() {
   previousValid_ = true;
   match_->Process();
   RefreshPlayers();  // substitutions change the active set
+  PollCutscenes();
+}
+
+// ponytail: PES's sanction tree 0x14047F170 returns the foul scene id from the foul record (kind, fouler, period, injury and
+// excite flags: docs/re/pes-re-sanction-switch.md); it is proven (snapdiff 14/14) but not in the committed layer and GF's foul
+// state does not feed its inputs. 0x20008 (FOUL_WARN_CARD_N) is the id every ordinary foul stop of the live captures returned
+// (live2 seq090, case 0). Card, injury and penalty stops play it too until the tree is translated.
+constexpr uint32_t kOrdinaryFoulScene = 0x20008;
+// ponytail: the goal level (goal ctx [0]) and stage gate of the generic pick 0x140477400 come from a goal context GF does not
+// have (pesgoalscene.hpp); an ordinary goal is level 0.
+constexpr pes::GoalSceneRule kGoalRule{0, false};
+
+void GfMatch::set_cutscene_environment(int stadium, int time_of_day, int weather) {
+  cutsceneEnvironment_.stadium = uint32_t(stadium);
+  cutsceneEnvironment_.timeOfDay = uint32_t(time_of_day);
+  cutsceneEnvironment_.weather = uint32_t(weather);
+}
+
+void GfMatch::PollCutscenes() {
+  if (!fixdemo_ || !goalRng_ || !goalTable_) return;
+  pes::FixDemoFacts facts = cutsceneEnvironment_;
+  switch (match_->GetMatchPhase()) {  // 0x141F51630's switch on the period, as GF's phases
+    case e_MatchPhase_2ndHalf: facts.matchPhase = 1; break;
+    case e_MatchPhase_1stExtraTime: facts.matchPhase = 2; break;
+    case e_MatchPhase_2ndExtraTime: facts.matchPhase = 3; break;
+    case e_MatchPhase_Penalties: facts.matchPhase = 4; break;
+    default: facts.matchPhase = 0; break;
+  }
+  facts.playersHome = facts.playersAway = 0;
+  for (int t : teamOf_) ++(t == 0 ? facts.playersHome : facts.playersAway);
+  facts.goalDiff = match_->GetScore(0) - match_->GetScore(1);
+  const int scores[2] = {match_->GetScore(0), match_->GetScore(1)};
+  const bool scored = scores[0] + scores[1] > lastScore_[0] + lastScore_[1];
+  const int scorer = scores[0] > lastScore_[0] ? 0 : 1;
+  lastScore_[0] = scores[0];
+  lastScore_[1] = scores[1];
+  const RefereeBuffer& stop = match_->GetRefereeBuffer();
+  const bool foul = stop.active && (stop.desiredSetPiece == e_SetPiece_FreeKick || stop.desiredSetPiece == e_SetPiece_Penalty) &&
+                    (!foulStopSeen_ || stop.stopTime != lastFoulStop_ms_);
+  if (scored) {
+    // The goal scene: PES's generic pick (pesgoalscene), then the variant of each of its cuts.
+    const auto scene = pes::PickGoalScene(*goalTable_, kGoalRule, *goalRng_);
+    if (!scene) return;
+    const Vector3 ball = ToFox(match_->GetBall()->Predict(0));
+    facts.subjectSide = uint32_t(scorer);
+    facts.eventX = ball.x;
+    facts.eventY = ball.y;
+    facts.eventZ = ball.z;
+    fixdemo_->BeginEvent(facts);
+    pendingCutscene_ = fixdemo_->Request(*scene);
+  } else if (foul) {
+    foulStopSeen_ = true;
+    lastFoulStop_ms_ = stop.stopTime;
+    const Vector3 at = ToFox(stop.restartPos);
+    facts.eventX = at.x;
+    facts.eventY = at.y;
+    facts.eventZ = at.z;
+    fixdemo_->BeginEvent(facts);
+    pendingCutscene_ = fixdemo_->Request(kOrdinaryFoulScene);
+  }
+}
+
+Dictionary GfMatch::take_cutscene() {
+  Dictionary out;
+  if (!pendingCutscene_) return out;
+  Array steps;
+  for (const pes::FixDemoStepRequest& step : pendingCutscene_->steps) {
+    Dictionary d;
+    d["cut"] = int(step.cutId);
+    d["row"] = int(step.row);
+    PackedStringArray fdc;
+    for (const std::string& name : step.fdc) fdc.push_back(String(name.c_str()));
+    d["fdc"] = fdc;
+    steps.push_back(d);
+  }
+  out["scene"] = int(pendingCutscene_->sceneId);
+  out["category"] = int(pendingCutscene_->sceneId >> 16);
+  out["steps"] = steps;
+  pendingCutscene_.reset();
+  return out;
+}
+
+void GfMatch::cutscene_finished(int scene_id) {
+  if (fixdemo_) fixdemo_->EndScene(uint32_t(scene_id));
 }
 
 bool GfMatch::is_over() const { return !match_ || match_->IsGameOver(); }
