@@ -53,12 +53,18 @@ def build_closure(va, spec, args, pilot, reached):
     # Every image address the replay executed as an indirect target is a root, and so is an indirect site that starts a
     # function (an indirect-only thunk, reached through a table and never by a direct CALL, is a function the harness
     # runs). A site inside a function is no root: the function holding it is already in the closure, and translating
-    # from mid-function decodes garbage (0x140864175 is a `call [rdx]` inside 0x140864084).
-    targets = {"0x%X" % int(t, 16) for tgts in reached.values() for t in tgts}
-    for t in sorted(targets):
-        if CODE_LO <= int(t, 16) < CODE_HI and not boundary(args.image, int(t, 16)):
-            return [va], "closure walk: indirect target %s is not a function boundary" % t
-    targets |= {s for s in reached if boundary(args.image, int(s, 16))}
+    # from mid-function decodes garbage (0x140864175 is a `call [rdx]` inside 0x140864084). Nor is a target that lies in
+    # the same function as its site: a `jmp reg` switch case (0x1406EA953, inside 0x1406EA840). Any other target that
+    # is not a function boundary fails the closure.
+    roots = set()
+    for site, tgts in reached.items():
+        for t in tgts:
+            tv = int(t, 16)
+            if not CODE_LO <= tv < CODE_HI or boundary(args.image, tv):
+                roots.add("0x%X" % tv)
+            elif _PDATA[args.image].containing(tv) != _PDATA[args.image].containing(int(site, 16)):
+                return [va], "closure walk: indirect target %s (from site %s) is not a function boundary" % (t, site)
+    targets = roots | {s for s in reached if boundary(args.image, int(s, 16))}
     # The harness runs each replayed indirect target's image bytes (no stub entry), and so do the walks of
     # their direct callees: the build closes over those too, or a plain callee is an out-of-set abort.
     reached_seed = {"harness": {"out_of_set_callees": [
@@ -81,7 +87,7 @@ def build_closure(va, spec, args, pilot, reached):
             seen.add(c)
             need.append(c)
             queue.append(c)
-    targets = {"0x%X" % int(t, 16) for tgts in reached.values() for t in tgts}
+    targets = roots  # the filtered indirect targets and function-start sites: a switch case is no root
     for t in sorted(targets):
         if CODE_LO <= int(t, 16) < CODE_HI and t not in seen:
             seen.add(t)

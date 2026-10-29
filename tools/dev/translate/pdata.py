@@ -49,6 +49,11 @@ class Pdata:
         i = bisect.bisect_right(self.starts, va) - 1
         return i >= 0 and self.starts[i] < va < self.ends[self.starts[i]]
 
+    def containing(self, va):
+        """The start of the .pdata function holding va (None if none does)."""
+        i = bisect.bisect_right(self.starts, va) - 1
+        return self.starts[i] if i >= 0 and va < self.ends[self.starts[i]] else None
+
     def is_boundary(self, va):
         """True if va can start a function: a .pdata start, or an address outside every .pdata function that follows
         int3 padding (a leaf or a thunk). Anything else (inside a function, or mid-instruction) is not a callee."""

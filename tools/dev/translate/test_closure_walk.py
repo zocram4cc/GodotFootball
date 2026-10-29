@@ -128,6 +128,12 @@ class ClosureWalk(unittest.TestCase):
         self.assertNotIn("0x%X" % (B + 1), need)
         self.assertIn("0x%X" % C, need)
 
+    def test_a_switch_case_in_its_own_function_is_no_root_and_no_error(self):
+        # `jmp reg` inside B to B+2: the harness traces it as an indirect branch, but it is a case label, not a callee.
+        need, err = self.run_closure(T, {"0x%X" % (B + 1): {"0x%X" % (B + 2): 1}})
+        self.assertIsNone(err)
+        self.assertNotIn("0x%X" % (B + 2), need)
+
     def test_an_indirect_target_inside_an_instruction_is_an_error(self):
         need, err = self.run_closure(T, {"0x%X" % A: {"0x%X" % MID_T: 1}})
         self.assertIn("not a function boundary", err or "")
