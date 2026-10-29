@@ -412,9 +412,13 @@ TEST(PesA1Sim, TheTeamAisRecordMaIsWrittenEachTickFromTheBallAndTheRows) {
   REQUIRE_PES_MATCH();
   match->StartPlay();
   for (int i = 0; i < 3; ++i) match->Process();
+  // A resting ball at a point whose height and lateral differ, so a swapped pair reads differently (GF: x, y = PES z, z = height).
+  match->GetBall()->SetPosition(Vector3(3.0f, 0.5f, 0.11f));
+  match->Process();
   pes::PesWorld& world = match->PesWorldOf();
   float ball[3];
   world.BallSample(0, ball);
+  ASSERT_NE(ball[1], ball[2]) << "the ball's height and lateral must differ for the copy's order to be tested";
   int checked = 0;
   for (int side = 0; side < 2; ++side) {
     const uint8_t* ma = world.Ma(side);
