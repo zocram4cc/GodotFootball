@@ -53,6 +53,13 @@ AnimetableCell Animetable::Cell(int row, int col) const {
   return {m - 1, bool(v >> l.mirrorShift & 1)};
 }
 
+AnimetableCell Animetable::BufferCell(int row, int col) const {
+  const auto& l = layout_;
+  if (row < 0 || row >= l.rows || col < 0 || col >= l.cols) return {};
+  const uint32_t v = cells_[size_t(row) * l.cols + col];
+  return {int(v & l.motionMask) - 1, bool(v >> l.mirrorShift & 1)};
+}
+
 int Animetable::Column(int row, float angle) const {
   const auto& l = layout_;
   int best = l.defaultCol;
