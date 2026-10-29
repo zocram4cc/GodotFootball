@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -14,7 +15,9 @@
 #include <vector>
 
 #include "pes/fdc.hpp"
+#include "pes/translated/translated.hpp"
 #include "pes/vfs.hpp"
+#include "pes_state.hpp"
 
 namespace {
 
@@ -751,4 +754,141 @@ TEST(PesFdcInstall, EveryEmbeddedCameraStreamIsAWellFormedUnitRotationStream) {
   std::cout << "[fdc canm install] embedded streams " << streams << " bad " << bad << "\n";
   EXPECT_GT(streams, 0u);
   EXPECT_EQ(bad, 0u);
+}
+
+// ---------------------------------------------------------------------------------------------------
+// The cut offset's rotY (FixDemoCamera::Update 0x141F7B8FC): the axis-angle builder 0x140A91E60 takes its
+// sine and cosine from PES's 512-step degree table (0x140A92C80), not from libm.
+
+namespace {
+
+constexpr uint64_t kScratchBase = 0x60000000;
+
+// The translated builder 0x140A91E60 about the axis (x, y, z), the angle in radians, run on the install's
+// sine table; the 3x3 it stores (rows 0x10 apart).
+pes::fdc::Mat3 TranslatedBuilder(const PoseConstants& k, float x, float y, float z, float angleRad) {
+  PesState s;
+  s.mem.window = {0x142655950, sizeof k.sinTable, reinterpret_cast<const uint8_t*>(k.sinTable.data()), nullptr};
+  s.mem.segs.push_back({kScratchBase, std::vector<uint8_t>(0x1000)});
+  const uint64_t out = kScratchBase, top = kScratchBase + 0x800;
+  s.gpr[1] = out;
+  s.gpr[4] = top;
+  s.set_x_f32(1, x);
+  s.set_x_f32(2, y);
+  s.set_x_f32(3, z);
+  s.wrf(top + 0x28, angleRad);  // the fifth argument slot: [entry rsp + 0x28] = [rsp + 0xB0] after the prologue
+  ::pes_fn_140A91E60(s);
+  pes::fdc::Mat3 m{};
+  for (size_t r = 0; r < 3; ++r)
+    for (size_t c = 0; c < 3; ++c) m[r][c] = s.rdf(out + 0x10 * r + 4 * c);
+  return m;
+}
+
+}  // namespace
+
+TEST(PesFdcCutOffset, RotYMatrixIsTheTranslatedBuildersBitForBit) {
+  NEED_CONSTANTS(k);
+  // Degrees across the quadrants, off-table values (the table has 512 steps per quarter turn) and a
+  // negative angle; each goes through PES's own deg -> rad multiply before the builder's rad -> deg.
+  for (float deg : {1.0f, 30.6f, 40.3f, 89.9f, 123.4f, 179.0f, 271.0f, 359.9f, -45.0f, -200.5f}) {
+    SCOPED_TRACE(deg);
+    const pes::fdc::Mat3 want = TranslatedBuilder(*k, 0.0f, k->one, 0.0f, deg * k->degToRad);
+    const pes::fdc::Mat3 got = pes::fdc::RotYMatrix(*k, deg);
+    for (size_t r = 0; r < 3; ++r)
+      for (size_t c = 0; c < 3; ++c) EXPECT_EQ(got[r][c], want[r][c]) << "m[" << r << "][" << c << "]";
+  }
+}
+
+TEST(PesFdcCutOffset, RotYTurnsTheEyeByTheAngleAboutWorldY) {
+  NEED_CONSTANTS(k);
+  // Relation, not a pinned table: a unit eye on +X turned by a degrees lands at (cos a, 0, -sin a).
+  const Canm c = HeldClip({0, 0, 0, 1}, {1, 0, 0, 1});
+  CameraRecord rec;
+  rec.useCutOffset = 1;
+  for (float deg : {17.0f, 123.4f, 250.0f}) {
+    SCOPED_TRACE(deg);
+    pes::fdc::CutOffset off;
+    off.rotYDeg = deg;
+    const auto p = pes::fdc::EvaluateCameraPose(*k, c, rec, 0.0f, off, 0.0f);
+    const double a = double(deg) * M_PI / 180.0;
+    EXPECT_NEAR(p.eye[0], std::cos(a), 2e-5);
+    EXPECT_NEAR(p.eye[2], -std::sin(a), 2e-5);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------
+// The live camera of the entrance (rendezvous capture 008 of the cut_offset hook 0x141F39CC0, taken the
+// frame ent_001_order_st000_cam0001 replaced ent_001_view_st000_cam0000 at clock 180 ticks). At the call
+// the FixDemo player's camera holds cam0000 evaluated at the capture clock c (SetTime has run, Update has
+// not), and the render parameter block 0x1437F4A40 holds the previous Update's result, at c - dt
+// (dt = player+0x6C: the 54 Hz step). The cut offset read at the same call is zero (player+0xA08..+0xA18).
+
+namespace {
+
+float Bits(uint32_t u) { return std::bit_cast<float>(u); }
+
+struct LiveEntrance {
+  File file;
+  Canm clip;
+  CameraRecord rec;
+};
+
+std::optional<LiveEntrance> LoadEntranceViewCam0() {
+  const char* root = std::getenv("PES21_ROOT");
+  if (!root) return std::nullopt;
+  pes::PesVfs vfs;
+  std::string err;
+  if (!vfs.Mount(root, &err)) return std::nullopt;
+  std::string path;
+  for (const auto& p : pes::fdc::ListCutFiles(vfs))
+    if (pes::PesVfs::Fold(p).find("ent_001_view_st000_cam1.fdc") != std::string::npos) path = p;
+  if (path.empty()) return std::nullopt;
+  auto bytes = vfs.Read(path, &err);
+  if (!bytes) return std::nullopt;
+  LiveEntrance e;
+  if (!pes::fdc::Parse(*bytes, &e.file, &err)) return std::nullopt;
+  for (const CameraRecord& r : e.file.cameras)
+    if (r.key == 0 && r.animePath.find("ent_001_view_st000_cam0000") != std::string::npos) e.rec = r;
+  const pes::fdc::Resource* res = e.file.FindResource(e.rec.animePath);
+  if (!res || res->external) return std::nullopt;
+  if (!pes::fdc::ParseCanm(res->data, &e.clip, &err)) return std::nullopt;
+  return e;
+}
+
+}  // namespace
+
+TEST(PesFdcLiveEntrance, ViewCam0PoseAtTheCaptureClockHasTheLiveCamerasPositionAndFov) {
+  NEED_CONSTANTS(k);
+  auto e = LoadEntranceViewCam0();
+  if (!e) GTEST_SKIP() << "the install has no ent_001_view_st000_cam1.fdc";
+  const float clock = Bits(0x43340016);  // player+0x80 at the capture, 180.00034 ticks
+  const auto p = pes::fdc::EvaluateCameraPose(*k, e->clip, e->rec, clock, {}, 0.0f);
+  // The camera's pose block (cam+0x168): position and fov at the capture clock, before Update.
+  EXPECT_EQ(p.eye, (std::array<float, 3>{Bits(0x42554c33), Bits(0x3ebd4ef4), Bits(0x420e8a04)}));
+  EXPECT_EQ(p.fovRad, Bits(0x3f6d643a));
+}
+
+TEST(PesFdcLiveEntrance, ViewCam0RenderParametersAtThePreviousClockMatchTheLiveBlock) {
+  NEED_CONSTANTS(k);
+  auto e = LoadEntranceViewCam0();
+  if (!e) GTEST_SKIP() << "the install has no ent_001_view_st000_cam1.fdc";
+  const float prev = Bits(0x4332e3a4);  // c - dt, dt = player+0x6C = 1.1111145 ticks
+  const auto p = pes::fdc::EvaluateCameraPose(*k, e->clip, e->rec, prev, {}, 0.0f);
+  const auto r = pes::fdc::RenderCameraParams(*k, p, e->rec, k->wideAspect, false);
+  // Block 0x1437F4A40: [3..5] eye, [6..8] up, [0..2] target, [0xC] fov, [0xD] near, [0xE] far.
+  const std::array<float, 3> eye{Bits(0x42554db3), Bits(0x3ebd48d0), Bits(0x420e8ab2)};
+  const std::array<float, 3> up{Bits(0x3e0161e4), Bits(0x3f79472b), Bits(0x3e41eacd)};
+  const std::array<float, 3> target{Bits(0x41ceb4e4), Bits(0x4123c9a2), Bits(0x404f5400)};
+  const float dist = Bits(0x422e778d);  // pose block +0x30: the target's distance along the view direction
+  EXPECT_EQ(p.eye, eye);
+  EXPECT_EQ(r.fovRad, Bits(0x3f6d643a));
+  EXPECT_EQ(r.nearM, 0.5f);
+  EXPECT_EQ(r.farM, 400.0f);
+  // Up and target go through PES's yaw/pitch/roll round trip, which GF does not emulate (INF): rounding only.
+  const auto f = p.forward();
+  for (size_t i = 0; i < 3; ++i) {
+    SCOPED_TRACE(i);
+    EXPECT_NEAR(p.up()[i], up[i], 2e-5f);
+    EXPECT_NEAR(eye[i] + dist * f[i], target[i], 2e-4f);
+  }
 }
