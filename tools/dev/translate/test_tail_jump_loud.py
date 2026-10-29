@@ -25,6 +25,7 @@ BASE = 0x140000000
 # The tail targets lie past FN's decode window: a nearer forward jmp is read as a local jump (dead code after it).
 FN = 0x140001000
 TAIL, TAIL2 = FN + xlate.DECODE_WINDOW + 0x1000, FN + 2 * xlate.DECODE_WINDOW + 0x1000
+CALLEE = TAIL2 + 0x100
 
 
 def rel32(op, at, target):
@@ -32,11 +33,13 @@ def rel32(op, at, target):
 
 
 class Image:
-    """FN: xor eax,eax; jmp TAIL.  TAIL: xor ecx,ecx; jmp TAIL2.  TAIL2: xor edx,edx; ret.  Sized for DECODE_WINDOW."""
+    """FN: xor eax,eax; jmp .+2 (local); call CALLEE; jmp TAIL.  TAIL: xor ecx,ecx; jmp TAIL2.  TAIL2: xor edx,edx; ret.
+    CALLEE (an out-of-universe call, the spec's out_of_set_callees decide it, not the tail walk): ret."""
 
     def __enter__(self):
-        buf = bytearray(TAIL2 - BASE + xlate.DECODE_WINDOW)
-        code = {FN: b"\x31\xC0" + rel32(0xE9, FN + 2, TAIL), TAIL: b"\x31\xC9" + rel32(0xE9, TAIL + 2, TAIL2),
+        buf = bytearray(CALLEE - BASE + xlate.DECODE_WINDOW)
+        code = {FN: b"\x31\xC0\xEB\x00" + rel32(0xE8, FN + 4, CALLEE) + rel32(0xE9, FN + 9, TAIL),
+                TAIL: b"\x31\xC9" + rel32(0xE9, TAIL + 2, TAIL2), CALLEE: b"\xC3",
                 TAIL2: b"\x31\xD2\xC3"}
         for va, b in code.items():
             buf[va - BASE:va - BASE + len(b)] = b
@@ -65,7 +68,7 @@ class TailJumpLoud(unittest.TestCase):
         with Image() as img:
             text = translate(img, [FN, TAIL])
         self.assertIn("{ pes_fn_%X(s); return; }" % TAIL, text)
-        self.assertNotIn("pes_dispatch_missing", text)
+        self.assertNotIn("pes_dispatch_missing(0x%X)" % TAIL, text)  # (the out-of-universe CALLEE stays an abort)
 
     def test_closure_walk_pulls_in_the_tail_chain_of_the_spec_function(self):
         spec = {"va": "0x%X" % FN, "harness": {}}
@@ -81,6 +84,12 @@ class TailJumpLoud(unittest.TestCase):
         with Image() as img:
             extra, _ = driver.runnable_extra(spec, img, universe={"0x%X" % v for v in (FN, TAIL, TAIL2)})
         self.assertEqual(extra, [])
+
+    def test_a_universe_members_own_tail_target_is_pulled_in_too(self):
+        spec = {"va": "0x%X" % FN, "harness": {}}
+        with Image() as img:
+            extra, _ = driver.runnable_extra(spec, img, universe={"0x%X" % v for v in (FN, TAIL)})
+        self.assertEqual(extra, ["0x%X" % TAIL2])
 
     def test_layer_check_names_an_in_code_untranslated_tail_site(self):
         members = {"0x%X" % FN: {"raw": "x\n  /*OUT-OF-RANGE JMP 0x%X*/ pes_dispatch_missing(0x%X);\n" % (TAIL, TAIL)}}
