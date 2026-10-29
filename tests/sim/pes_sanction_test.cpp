@@ -120,7 +120,8 @@ TEST(SanctionTree, ARedPlaysTheRedSceneAndABookedPlayersRedAnother) {
 TEST(SanctionTree, TheAnswerIsStoredInTheRequest) {
   PesWorld world;
   Stage(world, {3, 15, 9, 1, 4.8629f, 4.2794f, 0});
-  EXPECT_EQ(world.DecideSanction(), world.SanctionScene());
+  const uint32_t answer = world.DecideSanction();
+  EXPECT_EQ(answer, world.SanctionScene());
 }
 
 }  // namespace

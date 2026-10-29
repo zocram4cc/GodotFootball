@@ -312,8 +312,9 @@ static_assert(offsetof(PesWorldImage, ball) == kBallOffset);
 static_assert(offsetof(PesWorldImage, scratch) == kScratchOffset);
 static_assert(offsetof(PesWorldImage, stack) == kStackOffset);
 static_assert(offsetof(PesWorldImage, sanction) == kSanctionOffset);
-static_assert(offsetof(PesWorldImage, sanction) + offsetof(PesSanctionImage, events) + kEventStoreBytes == sizeof(PesWorldImage),
-              "E is the window's last member: the tree's counter tables past it read zero");
+static_assert(sizeof(PesWorldImage) - (offsetof(PesWorldImage, sanction) + offsetof(PesSanctionImage, events) + kEventStoreBytes) <
+                  alignof(PesWorldImage),
+              "E is the window's last member (tail padding aside): the tree's counter tables past it read zero");
 
 inline constexpr std::size_t kWorldBytes = sizeof(PesWorldImage);
 
