@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#define RV_MAX_HOOKS 32
+#define RV_MAX_HOOKS 64            /* the code pool holds RV_POOL_BYTES / RV_BLOCK_BYTES = 256 blocks */
 #define RV_POOL_BYTES 0x10000
 #define RV_BLOCK_BYTES 256
 #define RV_SLOT_OFF 0xF8           /* block offset of the &rv_common slot */
@@ -411,8 +411,12 @@ __declspec(dllexport) int rv_init(const char *cfg_path, const char *run_dir, uin
             continue;
         exp[0] = 0;
         nf = sscanf(line, "%15s %47s %llx %u %llu %llu %599s", kw, name, &va, &len, &first, &every, exp);
-        if (nf < 6 || strcmp(kw, "hook") != 0 || g_nhooks >= RV_MAX_HOOKS)
+        if (nf < 6 || strcmp(kw, "hook") != 0)
             continue;
+        if (g_nhooks >= RV_MAX_HOOKS) {
+            rv_log("SKIPPED %s: more than %d hooks in the config\n", name, RV_MAX_HOOKS);
+            continue;
+        }
         rv_hook_t *h = &g_hooks[g_nhooks];
         memset(h, 0, sizeof *h);
         strncpy(h->name, name, sizeof h->name - 1);
