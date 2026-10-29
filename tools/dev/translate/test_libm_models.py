@@ -6,7 +6,7 @@ Three things, on the real C++ model (pes_stubs.hpp, built by g++) and the harnes
      results, which is the contract of the ucrtbase PES calls.
   2. The C++ and Python models agree on every input: the translator and the harness model one function.
   3. When PES_UCRT_SNAP names a full snapshot of the running game (else skipped), its ucrtbase logf/powf machine
-     skipped), its logf/powf machine code is run in unicorn on the same inputs: special values are bit-identical, an
+     code is run in unicorn on the same inputs: special values are bit-identical, an
      ordinary argument is within one ulp, and the count of one-ulp differences is printed (the documented gap).
 Usage: [PES_UCRT_SNAP=<snapshot dir>] GF_DIFF_PYTHON=<venv python> python3 test_libm_models.py
 """
