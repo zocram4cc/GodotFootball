@@ -17,6 +17,8 @@ The one place the tools learn what a function is without the Ghidra bridge. A .p
   that only a jump from another range reaches (a cold chunk jumping back into the hot part) is decoded from the target.
 """
 import bisect
+import json
+import os
 import struct
 
 IMAGE_BASE = 0x140000000
@@ -27,6 +29,18 @@ UNW_FLAG_CHAININFO = 0x20  # flag 4 in the high five bits of the UNWIND_INFO's f
 # (the next entry is then another function), so it is no fall-through either: ponytail: a continuation entered after a
 # call ends its range is not joined; the replay of a function that loses code is the check (driver / snapdiff).
 NO_FALL = ("ret", "jmp", "call", "ud2", "int3", "hlt", "nop")
+KNOWN = None  # function starts known from the ledger (known_starts); a test sets frozenset() to use none
+LEDGER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ledger", "universe.json")
+
+
+def known_starts():
+    """The VAs the ledger universe knows as functions (Ghidra's list, the specs, every recorded function). An entry
+    among them heads a function even when the entry before it falls into it: 113 of them are such (0x1400167D0)."""
+    global KNOWN
+    if KNOWN is None:
+        with open(LEDGER, encoding="utf8") as f:
+            KNOWN = frozenset(int(k, 16) for k in json.load(f)["functions"])
+    return KNOWN
 
 
 class Pdata:
@@ -94,7 +108,7 @@ class Pdata:
         else None."""
         if b not in self._fall:
             nxt = self.entries[b]
-            self._fall[b] = nxt if nxt in self.ends and self._falls_off(b) else None
+            self._fall[b] = nxt if nxt in self.ends and nxt not in known_starts() and self._falls_off(b) else None
         return self._fall[b]
 
     def _falls_off(self, b):

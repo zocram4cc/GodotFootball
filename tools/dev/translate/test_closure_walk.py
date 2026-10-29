@@ -21,8 +21,9 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import closure  # noqa: E402
 import pdata  # noqa: E402
+pdata.KNOWN = frozenset()  # the synthetic images use no ledger
+import closure  # noqa: E402
 import snapdiff  # noqa: E402
 import xlate  # noqa: E402
 

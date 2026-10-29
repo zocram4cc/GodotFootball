@@ -45,7 +45,7 @@ def build_image(path):
     entries = [(0x1200, 0x1218, root_u), (0x1230, 0x1235, c1_u), (0x1235, 0x123A, c2_u), (0x1300, 0x1304, root_u),
                (0x1400, 0x1405, root_u), (0x1405, 0x140B, root_u), (0x1440, 0x1445, root_u), (0x1445, 0x1446, root_u),
                (0x1460, 0x1462, root_u), (0x1462, 0x1463, root_u), (0x1480, 0x1486, root_u), (0x14A0, 0x14A6, root_u),
-               (0x14C0, 0x14C5, root_u), (0x14E0, 0x14E1, root_u)]
+               (0x14C0, 0x14C5, root_u), (0x14E0, 0x14E1, root_u), (0x1500, 0x150A, root_u), (0x11520, 0x11521, root_u)]
     struct.pack_into("<II", img, 0x98 + 112 + 24, 0x400, 12 * len(entries))
     for i, e in enumerate(entries):
         struct.pack_into("<III", img, 0x400 + 12 * i, *e)
@@ -68,6 +68,8 @@ def build_image(path):
     img[0x14A0:0x14A6] = bytes.fromhex("b805000000c3")  # mov eax,5 ; ret: an unchained entry only the `je` reaches
     img[0x14C0:0x14C5] = b"\xe9" + struct.pack("<i", 0x14E0 - 0x14C5)  # jmp 0x14e0: a tail call
     img[0x14E0] = 0xC3
+    img[0x1500:0x150A] = bytes.fromhex("4885c0" "0f84") + struct.pack("<i", 0x11520 - 0x1509) + b"\xc3"  # je far ; ret
+    img[0x11520] = 0xC3
     with open(path, "wb") as f:
         f.write(img)
 
@@ -79,6 +81,7 @@ def addrs(lines):
 class SyntheticExtent(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        pdata.KNOWN = frozenset()  # the synthetic image uses no ledger
         cls.dir = tempfile.TemporaryDirectory()
         cls.image = os.path.join(cls.dir.name, "img.bin")
         build_image(cls.image)
@@ -158,11 +161,17 @@ class SyntheticExtent(unittest.TestCase):
         self.assertEqual([m for _, m, _ in xlate.capstone_decode(self.image, T2)], ["JMP"])
         self.assertTrue(self.p.is_boundary(Z))
 
+    def test_an_entry_a_conditional_jump_reaches_far_away_is_not_absorbed(self):
+        W, Far = BASE + 0x1500, BASE + 0x11520
+        self.assertEqual(self.p.extent(W), [(W, W + 10)])
+        self.assertTrue(self.p.is_boundary(Far))
+
 
 @unittest.skipUnless(REAL, "PES_EXE not set")
 class RealExtent(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        pdata.KNOWN = None  # the ledger's function starts (tools/dev/ledger/universe.json)
         cls.f = open(REAL, "rb")
         cls.p = pdata.Pdata(cls.f)
 
@@ -214,6 +223,18 @@ class RealExtent(unittest.TestCase):
         self.assertFalse(self.p.is_boundary(0x140005639))
         lines = self.decode(va)
         self.assertIn(0x14000566F, addrs(lines))  # the target of its first `jle`, in the last entry
+
+    def test_0x14008C980_absorbs_the_entries_its_conditional_jumps_reach_as_disjoint_ranges(self):
+        # `je 0x14008C9EA` reaches the entry [0x14008C9EA, 0x14008CA6E), `jle 0x14008CA7D` one inside the joined run.
+        va = 0x14008C980
+        self.assertEqual(self.p.extent(va), [(va, 0x14008CA90)])
+        self.assertIn(0x14008C9EA, addrs(self.decode(va)))
+
+    def test_a_function_the_entry_before_it_falls_into_stays_a_function_when_the_ledger_knows_it(self):
+        # 0x140016690 falls into 0x1400167D0 (the code before it ends in a conditional jump), but the ledger lists
+        # 0x1400167D0 as a function (a recorded one, called at its entry): it is no continuation.
+        self.assertTrue(self.p.is_boundary(0x1400167D0))
+        self.assertEqual(self.p.extent(0x1400167D0)[0][0], 0x1400167D0)
 
 
 if __name__ == "__main__":
