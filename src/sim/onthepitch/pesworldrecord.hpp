@@ -52,6 +52,7 @@ inline constexpr std::size_t kMiSpotXOffset = 0x155C;          // f32: the resta
 inline constexpr std::size_t kMiSpotZOffset = 0x1564;          // f32: the restart spot z (m)
 inline constexpr std::size_t kMiStopReasonOffset = 0x1574;     // u32: 1 period end, 3 kick-off, 4 ball out, 5 foul or offside
 inline constexpr std::size_t kMiFoulKindOffset = 0x1588;       // u32: 1 offside, 2 direct foul, 3 indirect
+inline constexpr uint32_t kFoulKindDirect = 2;                  // MI+0x1588 and the foul event's +0x18: a direct foul
 inline constexpr std::size_t kMiCardLevelOffset = 0x158C;      // u32: 0 none, 1 foul, 2 foul + warning, 3 yellow, 4 red
 inline constexpr std::size_t kMiFoulerOffset = 0x1590;         // u32: the fouler's slot (0..21, 0xFF none)
 inline constexpr std::size_t kMiVictimOffset = 0x1594;         // u32: the victim's slot (0..21, 0xFF none)
@@ -71,6 +72,11 @@ inline constexpr int kSideCount = 2;
 inline constexpr int kAnimeCount = 26;
 inline constexpr int kManCount = 26;
 inline constexpr int kSlotCount = 22;
+// G's two pointers the sanction tree 0x14047F170 reads past the tables (docs/ports/pes-port-FoulSanction.md 2): the field
+// info (two f32: the pitch's half length and half width, line half-width included, in metres) and the competition rules
+// object read by the card-history reader 0x140A81230 (null here: GF has no aggregate-tie object, 0x140A80D10 answers 0).
+inline constexpr std::size_t kFieldInfoPtrOffset = 0x2AA8;
+inline constexpr std::size_t kCompetitionPtrOffset = 0x2AD0;
 inline constexpr int kSlotsPerSide = 11;  // a side's squad places 0..10 (pesdesignation.hpp kSideSlots)
 static_assert(kSlotCount == 2 * kSlotsPerSide);
 
@@ -103,7 +109,11 @@ struct PesWorldTables {
   std::array<PesTableEntry, kManCount> man{};                         // G+0x1DD8 (0x140A48A10)
   std::array<PesTableEntry, kAnimeCount> reserved_run{};              // G+0x21E8: no accessor reads it
   std::array<PesTableEntry, kSlotCount> slot{};                       // G+0x25F8 (0x140A489F0)
-  std::array<uint8_t, kWorldHeaderBytes - kSlotTableOffset - kSlotCount * kTableEntryBytes> reserved_tail{};
+  std::array<uint8_t, kFieldInfoPtrOffset - kSlotTableOffset - kSlotCount * kTableEntryBytes> reserved_run2{};  // G+0x2968 .. G+0x2AA8
+  uint64_t fieldInfo = 0;                                                                                       // G+0x2AA8: the field info
+  std::array<uint8_t, kCompetitionPtrOffset - kFieldInfoPtrOffset - sizeof(uint64_t)> reserved_field{};          // G+0x2AB0 .. G+0x2AD0
+  uint64_t competition = 0;                                                                                     // G+0x2AD0: the competition object (null)
+  std::array<uint8_t, kWorldHeaderBytes - kCompetitionPtrOffset - sizeof(uint64_t)> reserved_tail{};            // G+0x2AD8 .. G+0x2E58
 };
 static_assert(offsetof(PesWorldTables, ball) == kBallPtrOffset);
 static_assert(offsetof(PesWorldTables, match) == kMatchInfoPtrOffset);
@@ -112,6 +122,8 @@ static_assert(offsetof(PesWorldTables, sideB) == kSideTableBOffset);
 static_assert(offsetof(PesWorldTables, anime) == kAnimeTableOffset);
 static_assert(offsetof(PesWorldTables, man) == kManTableOffset);
 static_assert(offsetof(PesWorldTables, slot) == kSlotTableOffset);
+static_assert(offsetof(PesWorldTables, fieldInfo) == kFieldInfoPtrOffset);
+static_assert(offsetof(PesWorldTables, competition) == kCompetitionPtrOffset);
 static_assert(sizeof(PesWorldTables) == kWorldHeaderBytes);
 
 // One block per on-pitch slot or official, PES's stride (pes-re-player-record.md 1.2-1.3): the anime record at +0x0, the
@@ -213,6 +225,66 @@ inline constexpr std::size_t kStackOffset = kScratchOffset + kScratchBytes;
 inline constexpr uint64_t kScratchVa = kWorldWindowVa + kScratchOffset;
 inline constexpr uint64_t kStackVa = kWorldWindowVa + kStackOffset;
 
+// ---- The sanction tree's records: PES's 0x14047F170 reads them in place (docs/ports/pes-port-FoulSanction.md 2). ----
+// A0, the request (Flow+0x6D8): the tree's answer, the scene id, is stored at +0 by the builder 0x140480910; the tree
+// reads the played-scene counter at +0xD (0 on the stop's first decision).
+inline constexpr std::size_t kRequestBytes = 0x40;
+inline constexpr std::size_t kRequestSceneOffset = 0x0;   // u32
+inline constexpr std::size_t kRequestPlayedOffset = 0xD;  // u8
+// A1, the ANALYZE object (owner+0x228): its +0x18 names a block whose +0x24A0C holds two 0x14-byte per-side records
+// (0x14042D5E0 reads one; its dword +8 == 3 is read at 0x14047F70D), its +0xE0 names the event store E.
+inline constexpr std::size_t kAnalyzeBytes = 0x100;
+inline constexpr std::size_t kAnalyzeBlockPtrOffset = 0x18;
+inline constexpr std::size_t kAnalyzeEventsPtrOffset = 0xE0;
+inline constexpr std::size_t kAnalyzeSideRecordsOffset = 0x24A0C;
+inline constexpr std::size_t kAnalyzeSideRecordBytes = 0x14;
+inline constexpr std::size_t kAnalyzeBlockBytes = kAnalyzeSideRecordsOffset + kSideCount * kAnalyzeSideRecordBytes;
+// E, the event store: ten rings of eight 0x320-byte records at E + ring * 0x1908, the count at +0x1900 and the head at
+// +0x1904 (0x140A3E150 reads them; 0x140A3DAC0 writes them). Ring 4 holds the foul events (the tree reads the newest).
+// E is the window's last member: the card-count tables the card-history reader 0x140A80D10 reads at E+0x750D0 and
+// E+0xCE720 lie past the window's end and answer zero (a ponytail: PES's writer of those counters is not decoded;
+// until it is, the leading-team late-foul scenes never fire).
+inline constexpr std::size_t kEventRingStride = 0x1908;
+inline constexpr std::size_t kEventRecordBytes = 0x320;
+inline constexpr std::size_t kEventFoulRing = 4;
+inline constexpr std::size_t kEventStoreBytes = (kEventFoulRing + 1) * kEventRingStride;
+// The foul event record at PES's offsets (docs/ports/pes-port-FoulSanction.md 2.2, read from seven foul captures).
+inline constexpr uint32_t kFoulEventKind = 0x1E;            // +0x00: the routing kind of a foul event (30 in every record)
+inline constexpr std::size_t kFoulEventKindOffset = 0x00;
+inline constexpr std::size_t kFoulEventFrame1Offset = 0x04;  // u32: the played frame
+inline constexpr std::size_t kFoulEventFrame2Offset = 0x08;  // u32: the played frame (equal to +4 in every capture)
+inline constexpr std::size_t kFoulEventPeriodOffset = 0x10;  // u32: the period state (MI+0x1168)
+inline constexpr std::size_t kFoulEventFoulKindOffset = 0x18;  // u32: 2 direct, 3 indirect (the tree's iStack_340)
+inline constexpr std::size_t kFoulEventCardOffset = 0x1C;      // u32: the card level (= MI+0x158C in every capture)
+inline constexpr std::size_t kFoulEventSideOffset = 0x28;      // u32: the fouling side's restart side (= MI+0x1558)
+inline constexpr std::size_t kFoulEventInjuredOffset = 0x42;   // u8: the injury veto the tree reads at 0x14047F364
+// The field info G+0x2AA8 names: two f32.
+inline constexpr std::size_t kFieldInfoBytes = 8;
+inline constexpr std::size_t kFieldInfoHalfLengthOffset = 0;
+inline constexpr std::size_t kFieldInfoHalfWidthOffset = 4;
+// The per-side team info (G+0x1978 table, 0x140A489D0): +0 the side, +4 a u32 per squad place naming his record, the
+// records from +0xA8 at stride 0x128 (0x140A3AF90). A record's +0 is his yellow-card count, his id is the u32 at +0x34
+// (0x140A3B520 reads it as present while the image global 0x14351AE34 is 0, which it is in every capture).
+inline constexpr std::size_t kTeamInfoSideOffset = 0x0;
+inline constexpr std::size_t kTeamInfoPlaceMapOffset = 0x4;
+inline constexpr std::size_t kTeamInfoRecordsOffset = 0xA8;
+inline constexpr std::size_t kTeamInfoRecordBytes = 0x128;
+inline constexpr int kTeamInfoRecordCount = 0x28;
+inline constexpr std::size_t kTeamInfoBytes = kTeamInfoRecordsOffset + kTeamInfoRecordCount * kTeamInfoRecordBytes;
+inline constexpr std::size_t kTeamInfoYellowsOffset = 0x0;  // u8, counting the card being decided
+inline constexpr std::size_t kTeamInfoIdOffset = 0x34;      // u32, nonzero for a player on the pitch
+
+struct PesSanctionImage {
+  std::array<uint8_t, kRequestBytes> request{};
+  std::array<uint8_t, kAnalyzeBytes> analyze{};
+  std::array<uint8_t, kAnalyzeBlockBytes> analyzeBlock{};
+  std::array<uint8_t, kFieldInfoBytes> fieldInfo{};
+  std::array<std::array<uint8_t, kTeamInfoBytes>, kSideCount> teamInfo{};
+  std::array<uint8_t, kEventRecordBytes> foulSource{};  // the record 0x140A3DAC0 copies into the ring
+  std::array<uint8_t, kEventStoreBytes> events{};       // E: last, so the counter tables past it read zero
+};
+inline constexpr std::size_t kSanctionOffset = kStackOffset + kStackBytes;
+
 // The match-info block (PES's MI): the period record the clock writes in place (pesclock.hpp), at its PES offset.
 struct PesMatchInfo {
   std::array<uint8_t, kMatchInfoPeriodOffset> reserved_head{};  // MI+0x0 .. MI+0x1168: no GF writer yet
@@ -231,6 +303,7 @@ struct PesWorldImage {
   PesBallRecord ball{};
   std::array<uint8_t, kScratchBytes> scratch{};  // the translated bearing's points (kScratchVa)
   std::array<uint8_t, kStackBytes> stack{};      // the translated stoppage functions' stack (kStackVa)
+  PesSanctionImage sanction{};                   // the sanction tree's records (kSanctionOffset): E is the window's last bytes
 };
 static_assert(offsetof(PesWorldImage, blocks) == kWorldHeaderBytes);
 static_assert(offsetof(PesWorldImage, match) == kMatchInfoOffset);
@@ -238,6 +311,9 @@ static_assert(offsetof(PesWorldImage, sides) == kSidesOffset);
 static_assert(offsetof(PesWorldImage, ball) == kBallOffset);
 static_assert(offsetof(PesWorldImage, scratch) == kScratchOffset);
 static_assert(offsetof(PesWorldImage, stack) == kStackOffset);
+static_assert(offsetof(PesWorldImage, sanction) == kSanctionOffset);
+static_assert(offsetof(PesWorldImage, sanction) + offsetof(PesSanctionImage, events) + kEventStoreBytes == sizeof(PesWorldImage),
+              "E is the window's last member: the tree's counter tables past it read zero");
 
 inline constexpr std::size_t kWorldBytes = sizeof(PesWorldImage);
 
@@ -247,6 +323,7 @@ class PesWorld {
     image_->tables.ball = BallVa();
     image_->tables.match = MatchInfoVa();
     for (int team = 0; team < kSideCount; ++team) SetEntry(WorldTable::kSideA, team, SideVa(team));
+    BindSanction();
   }
   PesWorld(const PesWorld&) = delete;
   PesWorld& operator=(const PesWorld&) = delete;
@@ -265,10 +342,31 @@ class PesWorld {
     return kWorldWindowVa + kSidesOffset + static_cast<uint64_t>(side) * kSideRecordBytes;
   }
   static constexpr uint64_t BallVa() { return kWorldWindowVa + kBallOffset; }
+  static constexpr uint64_t SanctionVa(std::size_t member) { return kWorldWindowVa + kSanctionOffset + member; }
   // The clock's period record, in the match-info block: PesClock writes it in place.
   PeriodRecord& Period() { return image_->match.period; }
   // The match-info block's bytes, at PES's offsets (the kMi* constants).
   uint8_t* MatchInfo() { return reinterpret_cast<uint8_t*>(&image_->match); }
+
+  // ---- PES's sanction tree 0x14047F170 on the window (docs/ports/pes-port-FoulSanction.md). ----
+  // The pitch's half length and half width in metres, line half-width included (the field info G+0x2AA8 names).
+  void SetFieldInfo(float halfLength_m, float halfWidth_m);
+  // A slot's team-info record: his id (nonzero: on the pitch) and his yellow-card count, the card being decided included.
+  void SetPlayerInfo(int slot, uint32_t id, int yellows);
+  // The foul event the judge pushes into E's ring 4 (0x140A3DAC0 runs on the window), at the offsets the tree reads.
+  struct FoulEvent {
+    uint32_t periodState = 0;  // MI+0x1168
+    uint32_t foulKind = 0;   // 2 direct, 3 indirect
+    uint32_t cardLevel = 0;  // 1 foul, 2 foul + warning, 3 yellow, 4 red
+    uint32_t side = 0;       // the restart side
+    bool injured = false;
+  };
+  void PushFoulEvent(const FoulEvent& event);
+  // Runs the tree on the stop the match-info block, the foul ring and the team info hold; the scene id it returns is stored
+  // in the request at +0 (as the builder does) and answered. 0x20022 is PES's "no scene".
+  uint32_t DecideSanction();
+  uint32_t SanctionScene() { return LoadU32(image_->sanction.request.data(), kRequestSceneOffset); }
+  void SetScenePlayed(uint8_t count) { image_->sanction.request[kRequestPlayedOffset] = count; }
 
   static constexpr uint64_t AnimeVa(int slot) { return BlockVa(slot); }
   static constexpr uint64_t ManVa(int slot) { return BlockVa(slot) + kManRecordOffset; }
@@ -331,6 +429,8 @@ class PesWorld {
   }
 
  private:
+  // Points G's field info, the side-B team info, A1 and its blocks at the sanction image (the ctor).
+  void BindSanction();
   PesTableEntry& Entry(WorldTable table, int index) {
     switch (table) {
       case WorldTable::kSideA: return image_->tables.sideA.at(index);

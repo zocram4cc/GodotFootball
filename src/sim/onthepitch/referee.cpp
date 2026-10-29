@@ -740,6 +740,7 @@ void Referee::Process() {
   if (afterSetPieceRelaxTime_ms > 0)
     afterSetPieceRelaxTime_ms -= 10;
   PublishPesStoppage();
+  if (sanctionDue) DecideSanction();
 }
 
 // PES's restart kind and stop reason for a set piece (pes-re-ref-record.md 1.2): kinds 1 kick-off .. 7 period end, and a
@@ -777,7 +778,7 @@ void Referee::PublishPesStoppage() {
       restart && (buffer.desiredSetPiece == e_SetPiece_FreeKick || buffer.desiredSetPiece == e_SetPiece_Penalty);
   // A free kick or penalty is a direct foul (2) when a foul is on the books, else an offside (1).
   const bool foulOnBooks = foul.foulType != 0 && foul.foulPlayer != nullptr;
-  const uint32_t cardLevel = foul.foulType == 1 ? 1u : foul.foulType == 2 ? 3u : foul.foulType == 3 ? 4u : 0u;
+  const uint32_t cardLevel = foul.foulType != 0 ? static_cast<uint32_t>(foul.level) : 0u;
   pes::StoreU32(mi, pes::kMiRestartKindOffset, restart ? PesRestartKind(buffer.desiredSetPiece) : 0u);
   pes::StoreU32(mi, pes::kMiRestartSideOffset, static_cast<uint32_t>(buffer.teamID));
   pes::StoreF32(mi, pes::kMiSpotXOffset, buffer.restartPos.coords[0]);
@@ -795,6 +796,36 @@ void Referee::PublishPesStoppage() {
   world.SetBall(ball.coords[0], ball.coords[1]);
   for (int team = 0; team < pes::kSideCount; ++team)
     world.SetAttackSign(team, static_cast<int>(-match->GetTeam(team)->GetSide()));
+}
+
+// PES's foul sanction (0x14047F170), decided once on the first tick of a foul stop (pes-re-sanction-caller.md 1: step 5,
+// sub-state 0). The tree reads the foul event ring's newest record, each player's booking count (the card being decided
+// included: the fouler's GiveYellowCard / GiveRedCard ran at the whistle), the field info and the match-info block.
+void Referee::DecideSanction() {
+  sanctionDue = false;
+  pes::PesWorld& world = match->PesWorldOf();
+  world.SetFieldInfo(static_cast<float>(pitchHalfW + lineHalfW), static_cast<float>(pitchHalfH + lineHalfW));
+  for (int team = 0; team < pes::kSideCount; ++team) {
+    std::vector<Player*> onPitch;
+    match->GetTeam(team)->GetActivePlayers(onPitch);
+    for (Player* p : onPitch) {
+      const int slot = match->PesSlotOf(p);
+      // GF's cards: 1 yellow, 2 two yellows, 3 red, 4 yellow + red. PES's count is the yellows.
+      const int cards = p->GetCards();
+      const int yellows = cards == 3 ? 0 : cards == 4 ? 1 : cards;
+      // ponytail: the id only has to be nonzero (0x140A3B520 reads the u32 at +0x34 as "present"); PES stores the
+      // player's database id there, written by its squad loader (not decoded). Remove with that writer.
+      world.SetPlayerInfo(slot, static_cast<uint32_t>(slot) + 1, yellows);
+    }
+  }
+  pes::PesWorld::FoulEvent event;
+  event.periodState = world.Period().period;
+  event.foulKind = pes::kFoulKindDirect;
+  event.cardLevel = static_cast<uint32_t>(foul.level);
+  event.side = static_cast<uint32_t>(buffer.teamID);
+  world.PushFoulEvent(event);
+  sanctionScene = world.DecideSanction();
+  ++sanctionSerial;
 }
 
 void Referee::IssueDeferredCards() {
@@ -1099,13 +1130,11 @@ int Referee::JudgeContact(Player* tripee, Player* tripper, pes::JudgeAction acti
   c.inAttackingBox =
       fabs(spotY) < boxHalfWidth && spotX * attackDirSign > pesPenaltyAreaLineX;
 
-  // PES level 1 foul, 2 foul + warning, 3 yellow, 4 red; this engine's foul
-  // types are 1 foul, 2 yellow, 3 red.
+  // PES level 1 foul, 2 foul + warning, 3 yellow, 4 red: kept whole (RecordFoul), the tree reads it.
   const int level = pes::JudgeLevel(c, k);
-  constexpr int FOUL_TYPE_FOR_LEVEL[] = {0, 1, 1, 2, 3};
   if (Verbose() && level > 0)
     printf("referee: judge points %i level %i\n", pes::JudgePoints(c, k), level);
-  return FOUL_TYPE_FOR_LEVEL[level];
+  return level;
 }
 
 float Referee::NearestToBall_m(Team* team) const {
@@ -1116,8 +1145,11 @@ float Referee::NearestToBall_m(Team* team) const {
   return best;
 }
 
-void Referee::RecordFoul(Player* tripee, Player* tripper, int foulType) {
-  foul.foulType = foulType;
+void Referee::RecordFoul(Player* tripee, Player* tripper, int level) {
+  // The card the player is given on this engine's ladder; PES's level stays in foul.level (a warning, 2, gives no card).
+  constexpr int FOUL_TYPE_FOR_LEVEL[] = {0, 1, 1, 2, 3};
+  foul.level = level;
+  foul.foulType = FOUL_TYPE_FOR_LEVEL[level];
   foul.advantage = false;
   foul.advantageDecided = false;
   foul.advantageRemaining_s = 0.0f;
@@ -1149,8 +1181,8 @@ void Referee::ContactEvent(Player* victim, Player* fouler, pes::ContactAction fo
                                   : foulerAction == pes::ContactAction::kJostle
                                       ? pes::JudgeAction::Jostle
                                       : pes::JudgeAction::Other;
-  const int foulType = JudgeContact(victim, fouler, action, victimFell, foulerTargetedVictim);
-  if (foulType > 0) RecordFoul(victim, fouler, foulType);
+  const int level = JudgeContact(victim, fouler, action, victimFell, foulerTargetedVictim);
+  if (level > 0) RecordFoul(victim, fouler, level);
 }
 
 void Referee::CancelSetPiece() {
@@ -1184,8 +1216,7 @@ bool Referee::CheckFoul(bool heldWhistle) {
     if (!foul.advantage) {
       if (!foul.advantageDecided && pes::InAdvantageDecisionWindow(since_s, k)) {
         foul.advantageDecided = true;
-        constexpr int LEVEL_FOR_FOUL_TYPE[] = {0, 1, 3, 4};
-        if (pes::ShouldPlayAdvantage(LEVEL_FOR_FOUL_TYPE[foul.foulType], penalty,
+        if (pes::ShouldPlayAdvantage(foul.level, penalty,
                                      foul.foulPlayer->GetCards() > 0, NearestToBall_m(fouled),
                                      NearestToBall_m(fouling))) {
           foul.advantage = true;
@@ -1271,6 +1302,7 @@ bool Referee::CheckFoul(bool heldWhistle) {
       printf("referee: foul (type %i)%s\n", foul.foulType, penalty ? " penalty" : "");
 
     foul.hasBeenProcessed = true;
+    sanctionDue = true;
 
     return true;
   }
