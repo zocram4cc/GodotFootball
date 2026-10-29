@@ -23,7 +23,6 @@ import argparse
 import json
 import os
 import shutil
-import struct
 import sys
 import tempfile
 
@@ -41,7 +40,7 @@ from specgen.__main__ import generate as specgen_generate  # noqa: E402
 import stubs as stub_table  # noqa: E402  (the one stub table: a model is never a closure member)
 MODEL_VAS = set(stub_table.models(stub_table.load()))
 
-IMAGE_BASE = 0x140000000
+from pdata import Pdata  # noqa: E402
 DIRECT_KINDS = ("direct", "tail")  # the callee kinds the translator links as pes_fn_ calls
 MAX_MEMBERS = 4000
 
@@ -50,42 +49,41 @@ def hexva(s):
     return "0x%X" % int(s, 16)
 
 
-class Pdata:
-    """Function starts and ends from the image's .pdata (the exception directory's RUNTIME_FUNCTION table)."""
+class ClosurePdata(Pdata):
+    """The .pdata map plus a capstone decoder for the universe rows of functions the bridge never saw."""
 
     def __init__(self, img):
-        self.img = img
-        img.seek(0x3C)
-        lfa = struct.unpack("<I", img.read(4))[0]
-        img.seek(lfa)
-        if img.read(4) != b"PE\0\0":
-            raise SystemExit("closure: not a PE image")
-        _, nsec, _, _, _, optsz, _ = struct.unpack("<HHIIIHH", img.read(20))
-        opt = img.read(optsz)
-        exc_rva, exc_size = struct.unpack_from("<II", opt, 112 + 8 * 3)
-        self.ends = {}
-        for i in range(0, exc_size - 11, 12):
-            begin, end, _unwind = struct.unpack("<III", self._read(IMAGE_BASE + exc_rva + i, 12))
-            self.ends.setdefault(IMAGE_BASE + begin, IMAGE_BASE + end)
-        self.starts = sorted(self.ends)
+        super().__init__(img)
         self.md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         self.md.detail = True
 
-    def _read(self, va, n):
-        self.img.seek(va - IMAGE_BASE)
-        return self.img.read(n)
-
-    def end_of(self, va):
-        """The end of the .pdata function that starts at va (None if va is not a function start)."""
-        return self.ends.get(va)
+    def body(self, va):
+        """The decoded instructions of the function at va (None if va is not a function boundary), and its end.
+        A .pdata function is exactly its range. A leaf or thunk with no .pdata entry (x64 needs none) ends at its
+        first ret or tail jump out of its window with no forward branch still pending, never past the next .pdata start."""
+        end = self.end_of(va)
+        if end is not None:
+            return list(self.md.disasm(self.read(va, end - va), va)), end
+        if not self.is_boundary(va):
+            return None, None
+        limit = self.next_start(va)
+        insns, pending = [], va
+        for ins in self.md.disasm(self.read(va, limit - va), va):
+            insns.append(ins)
+            ops = ins.operands
+            imm = ops[0].imm if ops and ops[0].type == X86_OP_IMM else None
+            if imm is not None and ins.mnemonic.startswith("j") and va <= imm < limit:
+                pending = max(pending, imm)
+            leaves = ins.mnemonic == "ret" or (ins.mnemonic == "jmp" and imm is not None and not va <= imm < limit)
+            if leaves and ins.address + ins.size > pending:
+                break
+        return insns, insns[-1].address + insns[-1].size
 
     def decode_row(self, va, tag):
-        """A universe row for the function at va, decoded from the image; None if va is not a .pdata start."""
-        end = self.end_of(va)
-        if end is None:
+        """A universe row for the function at va, decoded from the image; None if va is not a function boundary."""
+        insns, end = self.body(va)
+        if insns is None:
             return None
-        code = self._read(va, end - va)
-        insns = list(self.md.disasm(code, va))
         callees, indirect = {}, []
         for ins in insns:
             ops = ins.operands
@@ -95,7 +93,7 @@ class Pdata:
                     callees.setdefault(ops[0].imm, "direct")
                 else:
                     indirect.append({"site": "%X" % ins.address, "text": ("%s %s" % (ins.mnemonic, ins.op_str))[:80]})
-            elif ins.mnemonic == "jmp" and imm and not va <= ops[0].imm < end and ops[0].imm in self.ends:
+            elif ins.mnemonic == "jmp" and imm and not va <= ops[0].imm < end and self.is_boundary(ops[0].imm):
                 callees.setdefault(ops[0].imm, "tail")
         callees = {t: k for t, k in callees.items() if t != va}
         return {"name": "FUN_%08x" % va, "size": len(insns), "subsystem": tag, "how": "closure",
@@ -166,7 +164,7 @@ def main(argv=None):
     doc = load_universe()
     universe = doc["functions"]
     with open(args.image, "rb") as img:
-        pdata = Pdata(img)
+        pdata = ClosurePdata(img)
         # Pre-existing rows keep their subsystem (the layer's directory); new rows take --subsystem, else the tag.
         members, added = crawl(roots, universe, pdata, args.subsystem or args.tag)
     rows = [("%08X" % va, SETS.DEFAULT_STATUS, universe["%08X" % va]["subsystem"], "seed" if va in roots else "callee")

@@ -200,3 +200,10 @@ add_test(NAME translate_recorded_call_test
   COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_recorded_call.py'")
 set_tests_properties(translate_recorded_call_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
+# Closure walk (xlate.capstone_decode bound, pdata.is_boundary, snapdiff's nothing-compiled exit): synthetic image,
+# harness Python (capstone). Without GF_DIFF_PYTHON the test skips (77).
+add_test(NAME translate_closure_walk_test
+  COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
+\"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_closure_walk.py'")
+set_tests_properties(translate_closure_walk_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)

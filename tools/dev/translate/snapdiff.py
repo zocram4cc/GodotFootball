@@ -27,10 +27,21 @@ sys.path.insert(0, HERE)
 import driver as drv  # noqa: E402
 import diffmain  # noqa: E402
 import frame_trace as ft  # noqa: E402
+import pdata  # noqa: E402
 import full_snapshot as fs  # noqa: E402
 
 JOBS = max(1, min(4, os.cpu_count() or 1))  # translation units compiled at once per closure
 CODE_LO, CODE_HI = 0x140001000, 0x14252E800  # the translated universe's image range (driver.build_and_diff)
+
+
+_PDATA = {}
+
+
+def boundary(image, va):
+    """True if va can start a function (pdata.Pdata.is_boundary), over the image's own .pdata."""
+    if image not in _PDATA:
+        _PDATA[image] = pdata.Pdata(open(image, "rb"))  # kept open: is_boundary reads the byte before va
+    return _PDATA[image].is_boundary(va)
 
 
 def build_closure(va, spec, args, pilot, reached):
@@ -104,6 +115,10 @@ def build_closure(va, spec, args, pilot, reached):
             for m in re.finditer(r"OUT-OF-(?:RANGE JMP|SET CALL) 0x([0-9A-Fa-f]+)", text):
                 t = "0x" + m.group(1).upper()
                 if CODE_LO <= int(t, 16) < CODE_HI and t not in build_pilot and int(t, 16) not in drv.STUB_TABLE:
+                    if not boundary(args.image, int(t, 16)):
+                        # An address inside a function or an instruction is no callee: the build never translates it,
+                        # and the closure is reported as not built rather than compared without it.
+                        return need, "closure walk: %s (from %s) is not a function boundary" % (t, v)
                     missing.add(t)
         if missing:
             build_pilot |= missing
@@ -331,6 +346,12 @@ def main():
         with open(args.results, "w") as f:
             json.dump(doc, f, indent=1)
     print("proven %d of %d" % (proven, len(results)), flush=True)
+    # A verdict with nothing compiled compared nothing: that is an error exit, never a pass.
+    nothing = [r["va"] for r in results if not r["translated"]]
+    if nothing:
+        print("ERROR: nothing compiled for %s (no replay was compared with a translated body)" % ", ".join(nothing),
+              file=sys.stderr, flush=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

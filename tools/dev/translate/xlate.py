@@ -1768,10 +1768,31 @@ def parse_lines(text):
 
 DECODE_WINDOW = 0x10000  # bytes decoded per function (1405DC350 spans > 0x2000)
 
+_PDATA = {}
+
+
+def decode_window(image_path, va):
+    """The bytes a function at va may span. A function with a .pdata entry gets the full window (hot and cold parts
+    are separate entries that branch to each other). A leaf or thunk with none (x64 needs no unwind data for a
+    frameless function) ends before the next .pdata function: 140A4D340 is `mov r9d,0xf9; xor r8d,r8d; jmp 140A54910`,
+    and a forward tail jump inside the window kept the decode running through the code after it (7,691 instructions,
+    and a `jmp` to 140A4EC7F, an address inside an instruction)."""
+    from pdata import Pdata
+    if image_path not in _PDATA:
+        with open(image_path, "rb") as f:
+            _PDATA[image_path] = Pdata(f)
+    p = _PDATA[image_path]
+    nxt = p.next_start(va)
+    if va in p.ends or nxt is None:
+        return DECODE_WINDOW
+    return min(DECODE_WINDOW, nxt - va)
+
+
 def capstone_decode(image_path, va):
     from capstone import Cs, CS_ARCH_X86, CS_MODE_64
     img = Image(image_path)
-    code = img.read(va, DECODE_WINDOW)
+    window = decode_window(image_path, va)
+    code = img.read(va, window)
     md = Cs(CS_ARCH_X86, CS_MODE_64)
     md.detail = False
     out = []
@@ -1808,9 +1829,9 @@ def capstone_decode(image_path, va):
             # never ends the body here: its targets resolve in prepass.
             try:
                 t = int(ins.op_str.strip().split(",")[0].strip(), 16)
-                if t < va or t >= va + DECODE_WINDOW:
+                if t < va or t >= va + window:
                     pending = {x for x in pending
-                               if va <= x < va + DECODE_WINDOW and x > ins.address}
+                               if va <= x < va + window and x > ins.address}
                     if not pending:
                         break
             except ValueError:
