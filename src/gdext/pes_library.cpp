@@ -87,6 +87,12 @@ Error PesLibrary::open(const String& root) {
     UtilityFunctions::push_error("PES21 stamina constants unavailable: ", ToGd(err));
     return ERR_PARSE_ERROR;
   }
+  // PES's FixDemoCamera pose constants (docs/re/pes-re-camera-pose.md).
+  if (exe) cutsceneCameraConstants_ = pes::fdc::LoadPoseConstants(*exe, &err);
+  if (!cutsceneCameraConstants_) {
+    UtilityFunctions::push_error("PES21 cutscene camera constants unavailable: ", ToGd(err));
+    return ERR_PARSE_ERROR;
+  }
   // PES 2021's player database (docs/re/pes-re-matchlogic.md 1.2): the injury tier and stronger foot of each player.
   playerDatabase_ = pes::PlayerDatabase::Load(vfs_, &err);
   if (!playerDatabase_) {

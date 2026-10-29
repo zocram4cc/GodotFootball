@@ -13,7 +13,8 @@ namespace godot {
 // clip (docs/re/pes-re-cutscenes.md §3.2 type 6); the clip's six channels give the pose per frame.
 // The .fdc is read through the mounted VFS at load time, so a mod that wins the mount is the one
 // played. Fox space is Godot space here (Y up, metres, pitch-centre origin), as PesBroadcastCamera
-// assumes. Time: the record's startCutTime is in 1/60 s ticks (docs/re/pes-re-fdc-format.md §3).
+// assumes. The pose is FixDemoCamera's (docs/re/pes-re-camera-pose.md; src/pes/fdc.hpp): time is the
+// player clock in 1/60 s ticks, near/far come from the record, the CANM's own near/far are ignored.
 class PesCutsceneCamera : public RefCounted {
   GDCLASS(PesCutsceneCamera, RefCounted)
 
@@ -23,9 +24,13 @@ class PesCutsceneCamera : public RefCounted {
   Error load_scene(const Ref<PesLibrary>& library, int scene_id, int camera_index);
   // Length of the clip in seconds, from its frame count and frame rate.
   double duration_s() const;
-  // Poses camera for t_s seconds after the cut block's zero. Before the record's start and after the
-  // clip's last frame the end pose holds.
+  // Poses camera for t_s seconds of the player clock (the record's startCutTime is on the same clock; the
+  // clip is held at its end pose).
   void update(Camera3D* camera, double t_s);
+  // The option byte G(0x141F500D0)+0x522E of PES's fov widening for displays narrower than 16:9
+  // (0x141F7B250). ponytail: GF has no such option, so it defaults to off; wire it to that option's GF
+  // source when the settings are ported.
+  void set_widescreen_fix(bool on) { widescreenFix_ = on; }
 
  protected:
   static void _bind_methods();
@@ -35,8 +40,9 @@ class PesCutsceneCamera : public RefCounted {
   Error load_file(const Ref<PesLibrary>& library, const String& vfs_path, int camera_index);
 
   std::optional<pes::fdc::Canm> canm_;
-  float startTicks_ = 0.0f;
-  float nearOverride_ = 0.0f, farOverride_ = 0.0f;  // the record's clip planes (override the clip's)
+  std::optional<pes::fdc::PoseConstants> k_;
+  pes::fdc::CameraRecord record_;
+  bool widescreenFix_ = false;
 };
 
 }  // namespace godot

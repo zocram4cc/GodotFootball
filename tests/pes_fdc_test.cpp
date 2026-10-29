@@ -409,6 +409,9 @@ TEST(PesFdcSample, EqualKeyTimesUseTheLastOfTheRunAsTheSegmentStart) {
   NEED_CONSTANTS(k);
   const Canm c = Clip(10, {0}, {{0, 0, 0, 1}}, {0, 5, 5, 10}, {{0, 0, 0, 1}, {1, 0, 0, 1}, {2, 0, 0, 1}, {3, 0, 0, 1}});
   EXPECT_EQ(pes::fdc::SampleCanm(*k, c, 5.0f).position[0], 2.0f);
+  // A run at the first key time, sampled before it: the segment starts at the run's last key.
+  const Canm d = Clip(10, {0}, {{0, 0, 0, 1}}, {2, 2, 10}, {{0, 0, 0, 1}, {5, 0, 0, 1}, {8, 0, 0, 1}});
+  EXPECT_EQ(pes::fdc::SampleCanm(*k, d, 1.0f).position[0], 4.625f);  // f = -1/8: f*8 + (1-f)*5
   EXPECT_EQ(pes::fdc::SampleCanm(*k, c, 7.5f).position[0], 2.5f);
 }
 
@@ -435,6 +438,13 @@ TEST(PesFdcPose, ClipFrameIsClockMinusStartPlusAnimeStartTimesFpsOverSixty) {
   EXPECT_EQ(pes::fdc::ClipFrame(*k, c, rec, 100.0f), 6.0f * (30.0f / k->sixty));  // before the start: t = 0
   rec.timeMode = 0;                                                               // the player clock as is
   EXPECT_EQ(pes::fdc::ClipFrame(*k, c, rec, 100.0f), 106.0f * (30.0f / k->sixty));
+  // fps / 60 is formed first, then multiplied by the time (0x141F7B51A, 0x141F7B526): at 24 fps and t = 9
+  // the other order differs in the last bit.
+  Canm c24 = c;
+  c24.fps = 24;
+  rec.animeStartTime = 0.0f;
+  ASSERT_NE(9.0f * (24.0f / k->sixty), 9.0f * 24.0f / k->sixty);
+  EXPECT_EQ(pes::fdc::ClipFrame(*k, c24, rec, 9.0f), 9.0f * (24.0f / k->sixty));
 }
 
 TEST(PesFdcPose, ClipFrameWrapsAtTheLengthOnlyForALoopingRecord) {
@@ -475,6 +485,9 @@ TEST(PesFdcPose, TheMatrixNormalisesAnUnnormalisedQuaternion) {
   const auto big = pes::fdc::EvaluateCameraPose(*k, HeldClip({0, 3 * h, 0, 3 * h}, {0, 0, 0, 1}), CameraRecord{}, 0.0f, {}, 0.0f);
   for (int r = 0; r < 3; ++r)
     for (int col = 0; col < 3; ++col) EXPECT_NEAR(big.m[r][col], unit.m[r][col], 1e-6f);
+  // A unit quaternion for +90 deg about Y turns +Z to +X; the camera looks down -R*z.
+  EXPECT_NEAR(unit.forward()[0], -1.0f, 1e-6f);
+  EXPECT_NEAR(unit.forward()[2], 0.0f, 1e-6f);
 }
 
 TEST(PesFdcPose, HeightOffsetRaisesTheEye) {
@@ -491,18 +504,38 @@ TEST(PesFdcPose, HeightOffsetIsTargetHeightMinusTheReferenceTimesScaleTimesRate)
 
 TEST(PesFdcPose, FlipMirrorsXOfTheEyeAndTheOrientation) {
   NEED_CONSTANTS(k);
-  const float a = 0.3f;  // a yaw, so the forward vector has an x part
-  const Canm c = HeldClip({0, std::sin(a), 0, std::cos(a)}, {4, 2, 3, 1});
+  const Canm c = HeldClip({0.2f, 0.3f, 0.1f, 0.9f}, {4, 2, 3, 1});  // every off-diagonal element is non-zero
   const auto plain = pes::fdc::EvaluateCameraPose(*k, c, CameraRecord{}, 0.0f, {}, 0.0f);
   pes::fdc::CutOffset flip;
   flip.flip = true;
   CameraRecord rec;
   rec.useCutOffset = 1;
   const auto mirrored = pes::fdc::EvaluateCameraPose(*k, c, rec, 0.0f, flip, 0.0f);
-  ASSERT_NE(plain.forward()[0], 0.0f);
+  ASSERT_NE(plain.m[1][2], 0.0f);
   EXPECT_EQ(mirrored.eye, (std::array<float, 3>{-4, 2, 3}));
-  EXPECT_EQ(mirrored.forward(), (std::array<float, 3>{-plain.forward()[0], plain.forward()[1], plain.forward()[2]}));
-  EXPECT_EQ(mirrored.up(), (std::array<float, 3>{-plain.up()[0], plain.up()[1], plain.up()[2]}));
+  for (size_t r = 0; r < 3; ++r)  // S M S with S = diag(-1, 1, 1): m01, m02, m10, m20 change sign
+    for (size_t col = 0; col < 3; ++col)
+      EXPECT_EQ(mirrored.m[r][col], ((r == 0) != (col == 0)) ? -plain.m[r][col] : plain.m[r][col]) << r << col;
+}
+
+TEST(PesFdcPose, RotYIsAWorldRotationNotACameraLocalOne) {
+  NEED_CONSTANTS(k);
+  const float a = 0.3f;  // pitch the camera about X, so a local and a world yaw differ
+  const Canm c = HeldClip({std::sin(a), 0, 0, std::cos(a)}, {0, 0, 0, 1});
+  const auto plain = pes::fdc::EvaluateCameraPose(*k, c, CameraRecord{}, 0.0f, {}, 0.0f);
+  CameraRecord rec;
+  rec.useCutOffset = 1;
+  pes::fdc::CutOffset off;
+  off.rotYDeg = 90.0f;  // Ry(90) * v = (v2, v1, -v0)
+  const auto turned = pes::fdc::EvaluateCameraPose(*k, c, rec, 0.0f, off, 0.0f);
+  const auto f = plain.forward(), u = plain.up();
+  ASSERT_NE(f[1], 0.0f);
+  EXPECT_NEAR(turned.forward()[0], f[2], 1e-6f);
+  EXPECT_NEAR(turned.forward()[1], f[1], 1e-6f);
+  EXPECT_NEAR(turned.forward()[2], -f[0], 1e-6f);
+  EXPECT_NEAR(turned.up()[0], u[2], 1e-6f);
+  EXPECT_NEAR(turned.up()[1], u[1], 1e-6f);
+  EXPECT_NEAR(turned.up()[2], -u[0], 1e-6f);
 }
 
 TEST(PesFdcPose, RotYTurnsTheWholeShotAboutWorldYAndTheOffsetIsAddedAfterFlipAndRotY) {

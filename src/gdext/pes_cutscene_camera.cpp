@@ -1,25 +1,15 @@
 #include "gdext/pes_cutscene_camera.hpp"
 #include "pes/fixdemo_table.hpp"
 
+#include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/variant/basis.hpp>
-#include <godot_cpp/variant/quaternion.hpp>
 #include <godot_cpp/variant/transform3d.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/vector3.hpp>
-
-#include <algorithm>
 #include <string>
 
 namespace godot {
-namespace {
-
-// The record's startCutTime counts 1/60 s ticks (docs/re/pes-re-fdc-format.md §3; the clip is 30 fps,
-// so one frame is two ticks, as the corpus statistic in pes-re-cutscenes.md §3.2 gives).
-constexpr double kTicksPerSecond = 60.0;
-// PES21_CAMERA_TRACE.md §6.4: GF derives shadow depth from the near plane, so sub-10 cm near planes are clamped.
-constexpr float kMinNearM = 0.1f;
-
-}  // namespace
 
 Error PesCutsceneCamera::load_file(const Ref<PesLibrary>& library, const String& vfs_path, int camera_index) {
   if (!library.is_valid()) return ERR_UNCONFIGURED;
@@ -57,9 +47,8 @@ Error PesCutsceneCamera::load_file(const Ref<PesLibrary>& library, const String&
     return ERR_PARSE_ERROR;
   }
   canm_ = std::move(canm);
-  startTicks_ = cam.startTime;
-  nearOverride_ = cam.nearClip;
-  farOverride_ = cam.farClip;
+  record_ = cam;
+  k_ = *library->cutscene_camera_constants();
   return OK;
 }
 
@@ -91,29 +80,36 @@ Error PesCutsceneCamera::load_scene(const Ref<PesLibrary>& library, int scene_id
 }
 
 double PesCutsceneCamera::duration_s() const {
-  if (!canm_ || canm_->frameRate == 0) return 0.0;
-  return double(canm_->frameCount) / double(canm_->frameRate);
+  if (!canm_ || !k_) return 0.0;
+  return double(canm_->length) / double(pes::fdc::ClipFps(*k_, *canm_));
 }
 
 void PesCutsceneCamera::update(Camera3D* camera, double t_s) {
-  if (!canm_ || !camera) return;
-  const double ticksPerFrame = kTicksPerSecond / double(canm_->frameRate);
-  const double frame = std::clamp((t_s * kTicksPerSecond - startTicks_) / ticksPerFrame, 0.0, double(canm_->frameCount));
-  const pes::fdc::CameraSample s = pes::fdc::SampleCanm(*canm_, float(frame));
-  const float near = nearOverride_ > 0.0f ? nearOverride_ : s.nearM;
-  const float far = farOverride_ > 0.0f ? farOverride_ : s.farM;
+  if (!canm_ || !k_ || !camera) return;
+  // ponytail: no player object here, so the cut offset (player+0xA08..+0xA18, OPEN 2 of
+  // pes-re-camera-pose.md) is zero and a record's height correction (target height from 0x141F7E3C0) is 0.
+  // Replace both with the FixDemo player's values when that player is ported.
+  const pes::fdc::PoseConstants& k = *k_;
+  const float clock = float(t_s) * k.sixty;
+  const pes::fdc::CameraPose pose = pes::fdc::EvaluateCameraPose(k, *canm_, record_, clock, pes::fdc::CutOffset{}, 0.0f);
+  const Viewport* vp = camera->get_viewport();
+  const Vector2 size = vp ? vp->get_visible_rect().size : Vector2(1, 1);
+  const pes::fdc::RenderCamera r = pes::fdc::RenderCameraParams(k, pose, record_, float(size.x / size.y), widescreenFix_);
   camera->set_keep_aspect_mode(Camera3D::KEEP_HEIGHT);  // the clip's fov is vertical
-  camera->set_fov(s.fovDeg);
-  camera->set_near(std::max(near, kMinNearM));
-  camera->set_far(far);
-  const Quaternion q(s.rotation[0], s.rotation[1], s.rotation[2], s.rotation[3]);
-  camera->set_global_transform(Transform3D(Basis(q), Vector3(s.position[0], s.position[1], s.position[2])));
+  camera->set_fov(r.fovRad * k.oneEighty / k.pi);
+  camera->set_near(r.nearM);
+  camera->set_far(r.farM);
+  // The pose's columns are (-right, up, forward); Godot's basis is (right, up, -forward).
+  const Basis basis(Vector3(-pose.m[0][0], -pose.m[1][0], -pose.m[2][0]), Vector3(pose.m[0][1], pose.m[1][1], pose.m[2][1]),
+                    Vector3(-pose.m[0][2], -pose.m[1][2], -pose.m[2][2]));
+  camera->set_global_transform(Transform3D(basis, Vector3(pose.eye[0], pose.eye[1], pose.eye[2])));
 }
 
 void PesCutsceneCamera::_bind_methods() {
   ClassDB::bind_method(D_METHOD("load_scene", "library", "scene_id", "camera_index"), &PesCutsceneCamera::load_scene);
   ClassDB::bind_method(D_METHOD("duration_s"), &PesCutsceneCamera::duration_s);
   ClassDB::bind_method(D_METHOD("update", "camera", "t_s"), &PesCutsceneCamera::update);
+  ClassDB::bind_method(D_METHOD("set_widescreen_fix", "on"), &PesCutsceneCamera::set_widescreen_fix);
 }
 
 }  // namespace godot
