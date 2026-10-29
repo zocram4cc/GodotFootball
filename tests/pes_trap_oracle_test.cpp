@@ -282,7 +282,7 @@ struct RunOut {
   }
 };
 
-RunOut Run(const Oracle& o, const std::string& exe, const std::function<void(Built&)>& mutate = {}) {
+RunOut RunCall(const Oracle& o, const std::string& exe, const std::function<void(Built&)>& mutate = {}) {
   Image image;
   EXPECT_TRUE(image.Open(exe));
   Built b;
@@ -306,7 +306,7 @@ TEST_F(TrapOracle, EveryCapturedCallOnGfsWindowGivesPesOutput) {
     Oracle o;
     ASSERT_TRUE(Load(dir, o)) << dir;
     SetOverlay(o);
-    const RunOut got = Run(o, exe_);
+    const RunOut got = RunCall(o, exe_);
     const bool wantIssued = (std::strtoull(Field(o.row, "rax").c_str(), nullptr, 16) & 0xFF) != 0;
     EXPECT_EQ(got.result.issued, wantIssued) << dir;
     EXPECT_EQ(got.result.out, ReferenceOut(o)) << dir;

@@ -813,8 +813,9 @@ void Match::UpdateBallHeatmap() {
 // The shoot-out is period 9 (pes-re-A6Writers.md §5); there the first kind-5 record names the owner.
 void Match::RecomputePesDesignatedOwner() {
   std::array<pes::Ring0Entry, pes::kRing0ScanCount> ring{};
+  const pes::EventStore events = GetPesEvents();  // a view of E in the world window
   for (int n = 0; n < static_cast<int>(pes::kRing0ScanCount); ++n) {
-    const pes::EventRecord* rec = pesEvents.NewestOrRing0(n);
+    const pes::EventRecord* rec = events.NewestOrRing0(n);
     if (!rec) continue;  // an empty slot: the default entry, which owns nobody
     ring[n].kind = rec->ActionKind();
     ring[n].tag = rec->U32(0x30);  // payload+0x1C (d_a.c:1263 reads piVar13[7])
