@@ -1,8 +1,11 @@
 #include "peskickerror.hpp"
+#include "pes/translated/translated.hpp"
+#include "pes_state.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <utility>
 
 namespace pes {
@@ -32,9 +35,15 @@ float HalfNormal(const KickErrorConstants& k, int n) {
 }
 
 // The situation product Q and the motion-descriptor factors F1/F2
-// (scatter 6) key on PES kick kinds and motion ids this engine does not have.
-// ponytail: neutral 1.0 here; port when animations carry PES kick kinds.
+// (scatter 6) keys on the PES kick kind (ap+0x2752, 151-row table 0x14344e380: class byte 13, subclass byte 12),
+// the first-time/volley flags (ap+0x2756, ap+0x2764), the body turn (ap+0xbe4 - ap+0x247c), the AI bit (ap+0x2460
+// bit 29) and the motion descriptor F1/F2 (0x1406b0250 over the motion table, a runtime singleton at 0x1436f23c0).
+// ponytail: GF has none of these fields (the kind bridge is open, docs/re/pes-re-kick-scatter-inputs.md Unresolved 1):
+// Q = 1 until the bridge lands. Remove when GF kicks carry a PES kind and motion id.
 constexpr float kSituationNotPorted = 1.0f;
+
+// The install's quarter-wave sine table (513 floats at 0x142655950), read at load and mapped into the translated sine.
+constexpr uint64_t kSinTableVa = 0x142655950;
 
 }  // namespace
 
@@ -70,6 +79,7 @@ std::optional<KickErrorConstants> LoadKickErrorConstants(const PeImage& exe, std
     ok &= exe.ReadVa(va, sizeof *out, reinterpret_cast<uint8_t*>(out));
   constexpr uint64_t LOG_TABLE_VA = 0x1426548c0;
   ok &= exe.ReadVa(LOG_TABLE_VA, sizeof k.logTable, reinterpret_cast<uint8_t*>(k.logTable.data()));
+  ok &= exe.ReadVa(kSinTableVa, sizeof k.sinTable, reinterpret_cast<uint8_t*>(k.sinTable.data()));
   if (!ok) {
     *error = "kick error constant: .rdata unreadable";
     return std::nullopt;
@@ -92,17 +102,38 @@ float KickQuality(const KickErrorConstants& k, float s) {
 }
 
 float SoftMin4(float a, float b, float c, float d) {
+  // FUN_1408413c0: qsort descending (comparator 0x14083cc10 is -1 when a > b),
+  // then fold from x = 1.0 once per factor: x = (max*min + min) * 0.5 with
+  // min/max of (x, v). The 1.0 is 0x14256ae1c, the 0.5 is 0x142565600.
+  constexpr float kFoldStart = 1.0f;
+  constexpr float kFoldHalf = 0.5f;
   float v[4] = {a, b, c, d};
-  std::sort(v, v + 4);
-  float x = v[0];
-  for (int i = 1; i < 4; ++i) x = std::min(x, v[i]) * (std::max(x, v[i]) + 1.0f) * 0.5f;
+  std::sort(v, v + 4, std::greater<float>());
+  float x = kFoldStart;
+  for (const float f : v) {
+    const float lo = std::min(x, f);
+    const float hi = std::max(x, f);
+    x = (hi * lo + lo) * kFoldHalf;
+  }
   return x;
+}
+
+// 0x140a92c80: sin of `deg` in degrees, times `amp`. Runs PES's own translated function
+// (ball/pes_fn_140A92C80.cpp: xmm0 = deg, xmm1 = amp, result in xmm0). The translated code reads
+// the quarter-wave table through its memory view, so the install's table is mapped as that window.
+float SinTableDeg(const KickErrorConstants& k, float deg, float amp) {
+  PesState s;
+  s.mem.window = {kSinTableVa, sizeof k.sinTable, reinterpret_cast<const uint8_t*>(k.sinTable.data()),
+                  nullptr};
+  s.set_x_f32(0, deg);
+  s.set_x_f32(1, amp);
+  ::pes_fn_140A92C80(s);
+  return s.x_f32(0);
 }
 
 int Normal(Random& rng, const KickErrorConstants& k, float amp) {
   constexpr uint32_t kDrawModulus = 1000;  // 0x10624dd3 >> 6 and imul 0x3e8
   constexpr int kLast = 99;                // cmp eax, 0x63 ; jbe
-  const float deg2rad = 3.14159265f / (k.fullTurn_deg * 0.5f);
   // Both offered angles rejected: PES jumps back to redraw the pair
   // (0x140a9275f), so this loops until one lands.
   for (;;) {
@@ -119,9 +150,7 @@ int Normal(Random& rng, const KickErrorConstants& k, float amp) {
     // table's far end is `amp` (scatter 2).
     const float g = std::sqrt(v * k.normalTabScale * k.normalNegTwo) * amp / k.normalDiv;
     for (int attempt = 0; attempt < 2; ++attempt) {
-      // ponytail: std::sin for 0x140a92c80's 512-step table; <0.2% off.
-      const float a =
-          std::sin((angle + (attempt != 1 ? k.quarterTurn_deg : 0.0f)) * deg2rad);
+      const float a = SinTableDeg(k, angle + (attempt != 1 ? k.quarterTurn_deg : 0.0f), 1.0f);
       const float x = (1.0f + a * g) * k.normalCentre;
       const int res = static_cast<int>((x < 0.0f ? -k.half : k.half) + x);
       if (res >= 0 && res <= kLast) return res;
@@ -142,8 +171,10 @@ float PassLaunchPenalty(const KickErrorConstants& k, float a, float speed_mps, f
 }
 
 float ShotLaunchPenalty(const KickErrorConstants& k, float power) {
-  // ponytail: the 0.02*g pitch-sin term is left out (its upper bound sits in
-  // an untraced register); it moves I by at most 0.02.
+  // ponytail: the -0.02*g pitch term (0x14083dd17..dd27; 0.02 at 0x1425c4894, 0.25 at 0x142592228)
+  // is left out. g = SinTableDeg(90*x, xmm12) with x = 0.25*(xmm14-xmm1)
+  // when xmm14 < xmm7, else xmm12. xmm14, xmm7, xmm1 are set before 0x14083da40 and are
+  // not traced. Moves I by at most 0.02.
   return 1.0f - k.shootPowerWeight * Ramp(power, k.powerLo, 1.0f, k.powerSpan);
 }
 
@@ -153,11 +184,15 @@ float PressureFactor(const KickErrorConstants& k, float contactSelf, float conta
   // 0x14043b8b0's distance ramp: 1 inside a metre, 0 at two.
   const float distRamp = oppDistance_m <= k.nearOpp_m ? 1.0f : k.farOpp_m - oppDistance_m;
   const float edge = Ramp(contactSelf - contactOpp, k.contactLo, k.contactHi, k.contactSpan);
-  // ponytail: the opponent's frame-counter ramp (byte+0x2c, 0x14083ecda) is
-  // taken as 1 - "just arrived"; GF tracks no such counter.
+  // ponytail: xmm8 (contact-byte factor, 0x14083ecc9..0x14083ed32; KickDecode (d)): obj = 0x140a48910(FUN_1406ea340(kicker));
+  // byte[obj+1]==0x48 gives 1.0 (0x14083ecd4); else B = byte[obj+0x2c] maps to t = 1 for B <= 9, 0 for B >= 54, else
+  // (54-B)/45 (9 = 54/6 by the magic divide, 54 = int 0x14351AE50 set to 0x36 by 0x141e532f0). The angRamp is xmm7:
+  // clamp((err+20)/40)*0.4, err = byte[obj2+0x28] - byte[r13+0x28] (0x14083ed40..ed87). GF has no anime or player
+  // record for either: xmm8 is 1.0 here and the xmm7 angRamp is omitted.
   const float d = (k.dBase - k.rWeight * edge) * distRamp;
-  // ponytail: the running term (1-0.5a)*1.3*FUN_140723320 is 0 - that
-  // function is a nearby-player threat sum over the 0x14344ef78 weights, not ported.
+  // ponytail: FUN_140723320 (run term, 3-pass running max of 0.1*sum; weights 0x14344ef78..0x14344ef94 and
+  // 0x14344ef98/9c/a0 = -0.0029828, 2.7572925, 8.7184591; case affine from byte[r15+1]-8 via table 0x14072394c)
+  // needs the kicker's contact vector and the state id of PES's player record. GF has neither: run = 0.
   return 1.0f - k.rWeight * (k.dWeight * d);
 }
 
