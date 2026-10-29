@@ -329,6 +329,60 @@ TEST(PesA1Sim, TheBallIsTheSecondRecordOfTheTrackItWrote) {
   EXPECT_NEAR((ball->GetPositionBuffer() - (start + step)).GetLength(), 0.0f, 1e-3f)
       << "that record is one tick of the ball's own step on, not a 10 ms grid read";
 }
+// The world window's ball record is PES's layout and the ball's own writers fill it (pesworldrecord.hpp): the prediction table
+// at B+0x88 + 0x28*k holds the track in PES's axes (x, height, z), and B+0x2948 the velocity. PES's sampler rebuilds the table
+// every tick (docs/re/pes-re-officials-ball.md 5.3).
+TEST(PesA1Sim, TheBallsTrackAndVelocityAreTheWindowsBallRecord) {
+  REQUIRE_PES_MATCH();
+  Ball* ball = match->GetBall();
+  ASSERT_TRUE(ball);
+  ball->SetPosition(Vector3(3.0f, 0.5f, 0.25f));  // GF: x, y = PES z, z = the height
+  {
+    // Sample 0 is where the ball stands, in PES's axes: x 3, height 0.25, z across 0.5 (read raw, not through the ball).
+    const uint8_t* sample0 = match->PesWorldOf().BallRecord() + pes::kBallSamplesOffset;
+    EXPECT_FLOAT_EQ(pes::LoadF32(sample0, pes::kBallSampleXOffset), 3.0f);
+    EXPECT_FLOAT_EQ(pes::LoadF32(sample0, pes::kBallSampleYOffset), 0.25f) << "PES's y is the height";
+    EXPECT_FLOAT_EQ(pes::LoadF32(sample0, pes::kBallSampleZOffset), 0.5f);
+  }
+  ball->SetMomentum(Vector3(8.0f, 2.0f, 3.0f));
+  ball->Process();
+  ball->Process();
+  const uint8_t* record = match->PesWorldOf().BallRecord();
+  const auto trackAt = [&](unsigned k) {
+    const uint8_t* sample = record + pes::kBallSamplesOffset + k * pes::kBallSampleStride;
+    return Vector3(pes::LoadF32(sample, pes::kBallSampleXOffset), pes::LoadF32(sample, pes::kBallSampleZOffset),
+                   pes::LoadF32(sample, pes::kBallSampleYOffset));
+  };
+  for (const unsigned k : {0u, 1u, 120u, 249u})
+    EXPECT_NEAR((trackAt(k) - ball->TrackSample(k)).GetLength(), 0.0f, 1e-6f) << "sample " << k;
+  EXPECT_GT((trackAt(249) - trackAt(0)).GetLength(), 1.0f) << "the table is the flight, not a repeated position";
+  const Vector3 v = ball->GetMovement();
+  EXPECT_FLOAT_EQ(pes::LoadF32(record, pes::kBallVelocityOffset), v.coords[0]);
+  EXPECT_FLOAT_EQ(pes::LoadF32(record, pes::kBallVelocityOffset + 4), v.coords[2]) << "PES's y is the height";
+  EXPECT_FLOAT_EQ(pes::LoadF32(record, pes::kBallVelocityOffset + 8), v.coords[1]);
+}
+
+// MI+0x1198 counts logic frames, one per tick, and is the frame every reader takes (PES 0x140A128E4).
+TEST(PesA1Sim, TheFrameCounterIsTheMatchInfoWordAndCountsTicks) {
+  REQUIRE_PES_MATCH();
+  const uint32_t before = pes::LoadU32(match->PesWorldOf().MatchInfo(), pes::kMiFrameOffset);
+  for (int i = 0; i < 7; ++i) match->Process();
+  const uint32_t after = pes::LoadU32(match->PesWorldOf().MatchInfo(), pes::kMiFrameOffset);
+  EXPECT_EQ(after, before + 7u);
+  EXPECT_EQ(match->GetPesFrame(), static_cast<int>(after));
+}
+
+// The pitch record F at G+0x2AA8: F[k] at +4k, written once from the field constants.
+TEST(PesA1Sim, ThePitchRecordHoldsTheFieldConstants) {
+  REQUIRE_PES_MATCH();
+  const uint8_t* f = match->PesWorldOf().PitchRecord();
+  EXPECT_FLOAT_EQ(pes::LoadF32(f, 0), pesFieldHalfLength);
+  EXPECT_FLOAT_EQ(pes::LoadF32(f, 4), pesFieldHalfWidth);
+  EXPECT_FLOAT_EQ(pes::LoadF32(f, 5 * 4), pesGoalAreaHalfWidth);
+  EXPECT_FLOAT_EQ(pes::LoadF32(f, 6 * 4), pesPenaltyAreaLineX);
+  EXPECT_FLOAT_EQ(pes::LoadF32(f, 17 * 4), pesCircleRadius);
+}
+
 
 TEST(PesA1Sim, TheAiReadsTheBallsRecordAtItsOwnTime) {
   REQUIRE_PES_MATCH();
