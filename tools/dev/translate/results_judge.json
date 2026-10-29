@@ -4,8 +4,8 @@
  "results": [
   {
    "va": "0x1405B7470",
-   "calls": 2,
-   "replayed": 2,
+   "calls": 3,
+   "replayed": 3,
    "excluded": 0,
    "reasons": {},
    "snapshots": {
@@ -16,15 +16,19 @@
     "b_seq316": {
      "calls": 1,
      "replayed": 1
+    },
+    "c_seq5123": {
+     "calls": 1,
+     "replayed": 1
     }
    },
    "mismatches": [],
    "translated": true,
    "note": "",
    "own_block": {
-    "reached": 39,
+    "reached": 86,
     "total": 200,
-    "fraction": 0.195
+    "fraction": 0.43
    },
    "proven": true,
    "blocked_callees": []
@@ -54,8 +58,8 @@
   },
   {
    "va": "0x14050E770",
-   "calls": 15,
-   "replayed": 15,
+   "calls": 18,
+   "replayed": 18,
    "excluded": 0,
    "reasons": {},
    "snapshots": {
@@ -116,6 +120,18 @@
      "replayed": 1
     },
     "c_seq866": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "c_seq3142": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "c_seq3406": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "c_seq3428": {
      "calls": 1,
      "replayed": 1
     }
