@@ -276,9 +276,15 @@ class TrapOracle : public ::testing::Test {
   std::string exe_;
 };
 
+// The Trap action object's bytes a call writes: P+0xC80..+0xCDF (action +0x8..+0x64), as offset from P+0xC80 to the last
+// byte written. `u16 action+0x8` (offsets 0 and 1) is the committed clip (docs/re/pes-re-trap-inputs.md 3.2).
+constexpr uint64_t kActionLo = 0xC80, kActionHi = 0xCE0;
+using ActionBytes = std::map<uint32_t, uint8_t>;
+
 struct RunOut {
   pes::PesTrapResult result;
   std::string writes;
+  ActionBytes action;
   bool operator==(const RunOut& o) const {
     return result.issued == o.result.issued && result.out == o.result.out && writes == o.writes;
   }
@@ -299,10 +305,28 @@ RunOut RunCall(const Oracle& o, const std::string& exe, const std::function<void
     // Window addresses differ from the capture's: the written values, in order, are what the path leaves.
     std::snprintf(buf, sizeof buf, "%02x", static_cast<unsigned>(wr.second));
     out.writes += buf;
+    const uint64_t pva = pes::PesWorld::PVa();
+    if (wr.first >= pva + kActionLo && wr.first < pva + kActionHi)
+      out.action[static_cast<uint32_t>(wr.first - pva - kActionLo)] = wr.second;
   }
   return out;
 }
 
+// PES's writes to the action object: the last byte the reference log stored at each address of P+0xC80..+0xCDF.
+ActionBytes ReferenceAction(const Oracle& o) {
+  ActionBytes action;
+  const uint64_t p = o.regs.at("rdx"), lo = p + kActionLo, hi = p + kActionHi;
+  const std::string w = Field(o.row, "w");
+  for (size_t at = 0; at + 18 <= w.size(); at += 18) {
+    const uint64_t addr = std::strtoull(w.substr(at, 16).c_str(), nullptr, 16);
+    if (addr >= lo && addr < hi)
+      action[static_cast<uint32_t>(addr - lo)] = static_cast<uint8_t>(std::strtoul(w.substr(at + 16, 2).c_str(), nullptr, 16));
+  }
+  return action;
+}
+
+// The call's result, the bytes it commits to the Trap action object (the clip at action+0x8 among them) and the bytes it
+// leaves alone all equal PES's on every capture. An issued call writes the action object; a refusal writes nothing there.
 TEST_F(TrapOracle, EveryCapturedCallOnGfsWindowGivesPesOutput) {
   for (const std::string& dir : dirs_) {
     Oracle o;
@@ -312,6 +336,9 @@ TEST_F(TrapOracle, EveryCapturedCallOnGfsWindowGivesPesOutput) {
     const bool wantIssued = (std::strtoull(Field(o.row, "rax").c_str(), nullptr, 16) & 0xFF) != 0;
     EXPECT_EQ(got.result.issued, wantIssued) << dir;
     EXPECT_EQ(got.result.out, ReferenceOut(o)) << dir;
+    const ActionBytes want = ReferenceAction(o);
+    EXPECT_EQ(got.action, want) << dir << ": the action object's bytes (offset from P+0xC80 -> byte)";
+    EXPECT_EQ(want.empty(), !wantIssued) << dir << ": PES's issued flag and its writes to the action object disagree";
   }
 }
 

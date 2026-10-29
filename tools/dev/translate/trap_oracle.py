@@ -102,10 +102,13 @@ def main():
     typed = [t for t in typed if t[2]]
 
     def which(a):
+        # PES's records of one kind sit closer than the window's record size (slot 20 and 21 are 0x2B90 apart, the table's
+        # size is 0x2E50): an address belongs to the record that starts last at or before it.
+        best = None
         for kind, idx, base, size in typed:
-            if base <= a < base + size:
-                return kind, idx, a - base
-        return None
+            if base <= a < base + size and (best is None or base > best[3]):
+                best = (kind, idx, a - base, base)
+        return best[:3] if best else None
 
     lines = ["R\t%s\t%#x" % (r, regs[r]) for r in REGS]
     for off in range(0, 0x80, 8):
