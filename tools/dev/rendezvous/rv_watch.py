@@ -38,9 +38,14 @@ def main():
     ap.add_argument("--hook-max", default="",
                     help="comma-separated NAME=N per-hook overrides of --per-hook-max (an agent hunting a rare branch "
                          "needs more calls of one hook without raising every hook's cap)")
+    ap.add_argument("--arm", default="",
+                    help="comma-separated NAME=TRIGGER: calls of NAME are released unsnapshotted until a call of hook "
+                         "TRIGGER has been seen in this launch (e.g. cutscene hooks armed by the goal pick, so the "
+                         "entrance's varying number of calls cannot use up their cap)")
     a = ap.parse_args()
     only = {h for h in a.only.split(",") if h}
     hook_max = {k: int(v) for k, v in (kv.split("=") for kv in a.hook_max.split(",") if kv)}
+    arm = dict(kv.split("=") for kv in a.arm.split(",") if kv)
     st = os.stat(a.run)
     uid, gid = st.st_uid, st.st_gid
     os.makedirs(a.out, exist_ok=True)
@@ -94,6 +99,7 @@ def main():
                 say("PES pid %d was stopped (a previous watcher died mid-snapshot): resumed" % pid)
             clear_run()
             seen.clear()
+            fired = set()
             launch = os.path.join(a.out, "pid%d" % pid)
             os.makedirs(launch, exist_ok=True)
             os.chown(launch, uid, gid)
@@ -103,8 +109,12 @@ def main():
                 continue
             seen.add(f)
             cap = fs.rv_parse_capture(f)
+            fired.add(cap["hook"])
             if only and cap["hook"] not in only:
                 open(os.path.join(a.run, "release_%d" % cap["seq"]), "w").close()  # not logged: frequent by design
+                continue
+            if cap["hook"] in arm and arm[cap["hook"]] not in fired:
+                open(os.path.join(a.run, "release_%d" % cap["seq"]), "w").close()  # not logged: unarmed by design
                 continue
             if shutil.disk_usage(a.out).free < a.min_free_gib << 30:
                 release(cap, "disk under %d GiB" % a.min_free_gib)
