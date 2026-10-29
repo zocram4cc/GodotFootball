@@ -1,0 +1,41 @@
+{
+ "note": "snapshot-backed diff of traced calls (snapdiff.py): each traced call replayed from its snapshot's own memory on the harness and the translated side; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated.",
+ "proven_count": 1,
+ "results": [
+  {
+   "va": "0x140699960",
+   "calls": 4,
+   "replayed": 4,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "seq16185": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq16457": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq034": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq496": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 76,
+    "total": 177,
+    "fraction": 0.4294
+   },
+   "proven": true,
+   "blocked_callees": []
+  }
+ ]
+}
