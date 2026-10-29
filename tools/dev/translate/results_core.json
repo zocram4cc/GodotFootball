@@ -98417,11 +98417,11 @@
   {
    "aborted": 0,
    "capped": 0,
-   "cases": 10,
+   "cases": 20,
    "coverage": {
     "0x140699960": {
-     "fraction": 0.7345,
-     "reached": 130,
+     "fraction": 0.8023,
+     "reached": 142,
      "total": 177
     }
    },
@@ -98431,23 +98431,93 @@
    "failure_class": null,
    "icount_max": 0,
    "nonreturn": 0,
-   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-MatchInfo4.md; danger_writer_699960 captures: live2 pid1792161 seq16185, seq16457; pid1965411 seq034, seq496; pid1981120 seq4048, 5316, 5771, 6464, 6755, 7080); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-MatchInfo5: danger_writer_699960 captures live2 pid1792161 seq16185, seq16457; pid1965411 seq034, seq496; pid1981120 seq4048, 5316, 5771, 6464, 6755, 7080, plus the 10 writer calls inside the builder captures); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 20,
+   "snapdiff": {
+    "calls": 20,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 142,
+     "total": 177,
+     "fraction": 0.8023
+    },
+    "replayed": 20,
+    "source": "tools/dev/translate/results_danger.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x140699960"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 16,
+   "coverage": {
+    "0x14069A500": {
+     "fraction": 0.9697,
+     "reached": 96,
+     "total": 99
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-MatchInfo5: pressure_build_69A500 captures live2 pid1981120 seq4047, 5315, 5770, 6463, 6754, 7079, plus the 10 pressure calls inside the builder captures); the unicorn harness has no corpus for it, so driver --check does not re-run it",
+   "proof": "snapdiff",
+   "requested": 16,
+   "snapdiff": {
+    "calls": 16,
+    "mismatches": 0,
+    "own_block": {
+     "reached": 96,
+     "total": 99,
+     "fraction": 0.9697
+    },
+    "replayed": 16,
+    "source": "tools/dev/translate/results_danger.json"
+   },
+   "stubs": [],
+   "translated": true,
+   "va": "0x14069A500"
+  },
+  {
+   "aborted": 0,
+   "capped": 0,
+   "cases": 10,
+   "coverage": {
+    "0x142119390": {
+     "fraction": 0.6275,
+     "reached": 32,
+     "total": 51
+    }
+   },
+   "dead_blocks": {},
+   "diffed": true,
+   "failed": 0,
+   "failure_class": null,
+   "icount_max": 0,
+   "nonreturn": 0,
+   "note": "proof snapdiff: every real call replayed bit-exact (pes-port-MatchInfo5: danger_builder_2119390 captures live2 pid1792161 seq16184, seq16456; pid1965411 seq033, seq495; pid1981120 seq4046, 4444, 4891, 5314, 5769, 6161; the harness runs PES's own allocator bytes for the 11 allocations per call and the host-libm powf model, both sides alike; one case ends with danger 1); the unicorn harness has no corpus for it, so driver --check does not re-run it",
    "proof": "snapdiff",
    "requested": 10,
    "snapdiff": {
     "calls": 10,
     "mismatches": 0,
     "own_block": {
-     "reached": 130,
-     "total": 177,
-     "fraction": 0.7345
+     "reached": 32,
+     "total": 51,
+     "fraction": 0.6275
     },
     "replayed": 10,
     "source": "tools/dev/translate/results_danger.json"
    },
    "stubs": [],
    "translated": true,
-   "va": "0x140699960"
+   "va": "0x142119390"
   }
  ]
 }

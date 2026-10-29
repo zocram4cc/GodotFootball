@@ -12,12 +12,6 @@
 void pes_fn_140227930(PesState& s);
 void pes_fn_1403FB2E0(PesState& s);
 
-<<<<<<<< HEAD:src/pes/translated/closure/pes_fn_140227930.cpp
 void pes_fn_140227930(PesState& s) {
   { pes_fn_1403FB2E0(s); return; }
-========
-void pes_fn_140A426F0(PesState& s) {
-  /*OUT-OF-RANGE JMP 0x14417E440*/ pes_dispatch_missing(0x14417E440);
-  return;
->>>>>>>> origin/NativeSeam:src/pes/translated/closure/pes_fn_140A426F0.cpp
 }

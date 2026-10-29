@@ -61,18 +61,42 @@ float RunBearing(uint8_t* world, uint64_t fromVa, uint64_t toVa) {
 
 void PesWorld::BindCall(::PesState& call) { Bind(call, Bytes()); }
 
+PesWorld::~PesWorld() = default;
+
 PesWorld::ClearAnswer PesWorld::RunClearUnit(int side, uint32_t carrierSlot) {
-  uint8_t* unit = ClearUnit(side);
-  StoreU32(unit, kClearCarrierOffset, carrierSlot);
-  std::memset(unit + kClearAnswerOffset, 0, 0x10);
+  uint8_t* unit = UnitObject(side);
+  StoreU32(Carrier(side), kBpUnitInfoOffset + kUnitSlotOffset, carrierSlot);
+  std::memset(unit + kUnitObjectBytes, 0, kAnswerBytes);
   PesState s = NewCall(Bytes());
-  s.gpr[2] = ClearUnitVa(side) + kClearAnswerOffset;  // rdx: the answer record
-  s.gpr[8] = ClearUnitVa(side);                       // r8: the unit
+  s.gpr[2] = CarrierVa(side) + kClearAnswerOffset;     // rdx: the answer record
+  s.gpr[8] = CarrierVa(side) + kUnitObjectOffset;      // r8: the unit
   ::pes_fn_142109EB0(s);
   ClearAnswer answer;
-  answer.type = LoadU32(unit, kClearAnswerOffset);
-  answer.angle_deg = LoadF32(unit, kClearAnswerOffset + kAnswerAngleOffset);
+  answer.type = LoadU32(Carrier(side), kClearAnswerOffset);
+  answer.angle_deg = LoadF32(Carrier(side), kClearAnswerOffset + kAnswerAngleOffset);
   return answer;
+}
+
+bool PesWorld::RunDangerBuilder(int side, const PesDangerExternals& ext) {
+  if (!heap_) heap_ = std::make_unique<PesHeap>();
+  PesState s = NewCall(Bytes());
+  heap_->Attach(s);
+  for (const PesTrapSegment& seg : ext.segments) s.mem.segs.push_back(PesMem::Seg{seg.va, seg.bytes});
+  // The call frame of 0x142110D30's call: the return address, then (past the 0x20 shadow) the fifth argument (the carrier
+  // team's record, unused by the builder) and the sixth (BP+0x18, the refresh flags).
+  const uint64_t bp = CarrierVa(side);
+  const uint64_t entry = kStackVa + kStackBytes - kDangerFrameBytes;
+  s.wr(entry, 0, 8);
+  s.wr(entry + kDangerArg5Offset, SideVa(side), 8);
+  s.wr(entry + kDangerArg6Offset, LoadU32(Carrier(side), kBpFlagsOffset), 4);
+  s.gpr[4] = entry;
+  s.gpr[1] = bp + kBpImageAOffset;       // rcx: imageA
+  s.gpr[2] = CtxVa(side);                // rdx: the side's ctx (+0x18 MA, +0xE0 E)
+  s.gpr[8] = bp + kBpUnitInfoOffset;     // r8: the unit info
+  s.gpr[9] = bp + kBpStateOffset;        // r9: the state
+  s.mem.wlog = ext.writeLog;
+  ::pes_fn_142119390(s);
+  return ClearDanger(side);
 }
 
 PesTrapResult PesWorld::RunTrapKind0(const PesTrapRequest& request, const PesTrapExternals& ext) {

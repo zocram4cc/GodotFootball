@@ -1,14 +1,54 @@
 {
  "note": "snapshot-backed diff of traced calls (snapdiff.py): each traced call replayed from its snapshot's own memory on the harness and the translated side; proven = the closure built, every replayed call bit-exact, no call excluded. Own-block coverage is recorded, not gated.",
- "proven_count": 2,
+ "proven_count": 3,
  "results": [
   {
    "va": "0x140699960",
-   "calls": 10,
-   "replayed": 10,
+   "calls": 20,
+   "replayed": 20,
    "excluded": 0,
    "reasons": {},
    "snapshots": {
+    "seq16184": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq16456": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq033": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq495": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4046": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4444": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4891": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq5314": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq5769": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq6161": {
+     "calls": 1,
+     "replayed": 1
+    },
     "seq16185": {
      "calls": 1,
      "replayed": 1
@@ -54,20 +94,60 @@
    "translated": true,
    "note": "",
    "own_block": {
-    "reached": 130,
+    "reached": 142,
     "total": 177,
-    "fraction": 0.7345
+    "fraction": 0.8023
    },
    "proven": true,
    "blocked_callees": []
   },
   {
    "va": "0x14069A500",
-   "calls": 6,
-   "replayed": 6,
+   "calls": 16,
+   "replayed": 16,
    "excluded": 0,
    "reasons": {},
    "snapshots": {
+    "seq16184": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq16456": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq033": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq495": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4046": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4444": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4891": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq5314": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq5769": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq6161": {
+     "calls": 1,
+     "replayed": 1
+    },
     "seq4047": {
      "calls": 1,
      "replayed": 1
@@ -97,9 +177,68 @@
    "translated": true,
    "note": "",
    "own_block": {
-    "reached": 95,
+    "reached": 96,
     "total": 99,
-    "fraction": 0.9596
+    "fraction": 0.9697
+   },
+   "proven": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x142119390",
+   "calls": 10,
+   "replayed": 10,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "seq16184": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq16456": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq033": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq495": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4046": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4444": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq4891": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq5314": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq5769": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq6161": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 32,
+    "total": 51,
+    "fraction": 0.6275
    },
    "proven": true,
    "blocked_callees": []

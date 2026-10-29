@@ -4111,6 +4111,4 @@ void pes_fn_141F4D2F0(PesState& s) {
   }
   s.gpr[5] = (uint64_t)(s.rd(s.gpr[4], 8)); s.gpr[4] += 8;
   return;
-  (void)0;
-  __builtin_trap();
 }

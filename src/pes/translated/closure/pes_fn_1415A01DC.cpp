@@ -8,12 +8,6 @@
 #include "pes_stubs.hpp"
 #include <cstdlib>
 
-// image constant @ 0x14252F3C8 (8 bytes)
-static constexpr uint64_t k_c14252F3C8_q = 0x00006FFFFF9E1040ULL;
-static constexpr double k_c14252F3C8_d = 6.0841860147461e-310; // 6.0841860147461e-310
-// image constant @ 0x14252F660 (8 bytes)
-static constexpr uint64_t k_c14252F660_q = 0x00006FFFFF9CECCCULL;
-static constexpr double k_c14252F660_d = 6.0841860110598e-310; // 6.0841860110598e-310
 // image constant @ 0x142530868 (8 bytes)
 static constexpr uint64_t k_c142530868_q = 0x00000001415A02B0ULL;
 static constexpr double k_c142530868_d = 2.6636982424e-314; // 2.6636982424e-314
