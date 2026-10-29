@@ -3,7 +3,8 @@
 
 Synthetic image (no game bytes), VA = base + file offset:
   0x1200 H   .pdata root   test rax,rax ; jne 0x1230 ; ret ; [0x1206] mov eax,2 ; ret     (0x1206 is reached only from the cold chunk)
-  0x120c..   garbage between the parts, with a `jmp 0x1301` (an address inside G)          (the old decode ran through it)
+  0x120c..   inline data in H's own range (a jump table), starting with a `jmp 0x1301` (an address inside G)
+  0x1218..   garbage between the parts                                                       (the old decode ran through it)
   0x1230 C1  chunk of H    mov eax,1                                                       (chained to H)
   0x1235 C2  chunk of C1   jmp 0x1206                                                      (contiguous with C1; chained to C1: a chain of two)
   0x1300 G   .pdata root   mov rax,rbx ; ret
@@ -19,18 +20,19 @@ import sys
 import tempfile
 import unittest
 
-import capstone
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(HERE, "..", "diffharness"))
 import closure  # noqa: E402
 import pdata  # noqa: E402
 import xlate  # noqa: E402
+from specgen import analyze as AN  # noqa: E402
+from specgen import classify as C  # noqa: E402
 
 BASE = pdata.IMAGE_BASE
 H, C1, C2, G = BASE + 0x1200, BASE + 0x1230, BASE + 0x1235, BASE + 0x1300
 H_ISLAND = BASE + 0x1206
-GAP = range(BASE + 0x120C, BASE + 0x1230)
+GAP = range(BASE + 0x120C, BASE + 0x1230)  # data and garbage: decoded by no walk
 REAL = os.environ.get("PES_EXE")
 
 
@@ -40,19 +42,19 @@ def build_image(path):
     img[0x80:0x84] = b"PE\0\0"
     struct.pack_into("<HHIIIHH", img, 0x84, 0x8664, 0, 0, 0, 0, 240, 0)
     root_u, c1_u, c2_u = 0x600, 0x610, 0x630
-    entries = [(0x1200, 0x120C, root_u), (0x1230, 0x1235, c1_u), (0x1235, 0x123A, c2_u), (0x1300, 0x1304, root_u)]
+    entries = [(0x1200, 0x1218, root_u), (0x1230, 0x1235, c1_u), (0x1235, 0x123A, c2_u), (0x1300, 0x1304, root_u)]
     struct.pack_into("<II", img, 0x98 + 112 + 24, 0x400, 12 * len(entries))
     for i, e in enumerate(entries):
         struct.pack_into("<III", img, 0x400 + 12 * i, *e)
     img[root_u:root_u + 4] = bytes([0x01, 0, 0, 0])  # version 1, no flags, no codes
     img[c1_u:c1_u + 4] = bytes([0x21, 0, 0, 0])      # flags 4 = UNW_FLAG_CHAININFO, no codes
-    struct.pack_into("<III", img, c1_u + 4, 0x1200, 0x120C, root_u)   # the parent RUNTIME_FUNCTION follows the codes
+    struct.pack_into("<III", img, c1_u + 4, 0x1200, 0x1218, root_u)   # the parent RUNTIME_FUNCTION follows the codes
     img[c2_u:c2_u + 4] = bytes([0x21, 0, 0, 0])
     struct.pack_into("<III", img, c2_u + 4, 0x1230, 0x1235, c1_u)
     for off in range(0x1000, 0x1400):
         img[off] = 0xCC
     img[0x1200:0x120C] = bytes.fromhex("4885c0" "752b" "c3" "b802000000" "c3")
-    img[0x1210:0x1215] = b"\xe9" + struct.pack("<i", 0x1301 - 0x1215)
+    img[0x120C:0x1211] = b"\xe9" + struct.pack("<i", 0x1301 - 0x1211)
     img[0x1230:0x1235] = bytes.fromhex("b801000000")
     img[0x1235:0x123A] = b"\xe9" + struct.pack("<i", 0x1206 - 0x123A)
     img[0x1300:0x1304] = bytes.fromhex("4889d8c3")
@@ -79,7 +81,7 @@ class SyntheticExtent(unittest.TestCase):
         cls.dir.cleanup()
 
     def test_extent_is_the_range_plus_its_chunks_with_contiguous_parts_joined(self):
-        self.assertEqual(self.p.extent(H), [(H, H + 0xC), (C1, C1 + 0xA)])
+        self.assertEqual(self.p.extent(H), [(H, H + 0x18), (C1, C1 + 0xA)])
         self.assertEqual(self.p.extent(G), [(G, G + 4)])
 
     def test_a_chunk_belongs_to_the_root_it_chains_to_and_is_no_function_start(self):
@@ -110,6 +112,12 @@ class SyntheticExtent(unittest.TestCase):
     def test_the_next_function_is_untouched(self):
         self.assertEqual([m for _, m, _ in xlate.capstone_decode(self.image, G)], ["MOV", "RET"])
 
+    def test_the_classifier_walk_follows_the_chunks_and_stops_at_the_extent(self):
+        AN.open_image(self.image)
+        self.assertEqual([i.address for i in C.body(H)], [H, H + 3, H + 5, H_ISLAND, H + 0xB, C1, C2])
+        self.assertEqual(C.body(C1), [])  # a chunk start is no function: nothing to classify
+        self.assertEqual([i.address for i in C.body(G)], [G, G + 3])
+
 
 @unittest.skipUnless(REAL, "PES_EXE not set")
 class RealExtent(unittest.TestCase):
@@ -136,25 +144,25 @@ class RealExtent(unittest.TestCase):
         self.assertNotIn(0x140850CA6, [int(o[0], 16) for _, m, o in lines
                                        if m.startswith("J") and o and o[0].startswith("0x")])
 
-    def chained(self, va, nchunks):
-        ext = self.p.extent(va)
-        self.assertGreater(len(ext), 1)
-        self.assertEqual(self.p.end_of(va), ext[0][1])
+    def chained(self, va):
+        chunks = sorted(c for c, r in self.p.root.items() if r == va)
+        self.assertTrue(chunks)
+        self.assertGreater(self.p.extent(va)[-1][1], self.p.end_of(va))
         lines = self.decode(va)
         self.assertTrue(all(self.inside(va, a) for a in addrs(lines)))
-        for begin, _ in ext[1:]:
-            self.assertIn(begin, addrs(lines))  # every chunk is decoded from its first byte
-            self.assertEqual(self.p.containing(begin), va)
-            self.assertFalse(self.p.is_boundary(begin))
+        for c in chunks:
+            self.assertIn(c, addrs(lines))  # every chunk is decoded from its first byte
+            self.assertEqual(self.p.containing(c), va)
+            self.assertFalse(self.p.is_boundary(c))
 
     def test_0x140007140_decodes_its_chunks(self):
-        self.chained(0x140007140, 2)
+        self.chained(0x140007140)
 
     def test_0x14001175c_decodes_its_chunks(self):
-        self.chained(0x14001175c, 2)
+        self.chained(0x14001175c)
 
     def test_0x14002CF80_decodes_its_chunks(self):
-        self.chained(0x14002CF80, 2)
+        self.chained(0x14002CF80)
 
 
 if __name__ == "__main__":

@@ -57,33 +57,13 @@ class ClosurePdata(Pdata):
         self.md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         self.md.detail = True
 
-    def body(self, va):
-        """The decoded instructions of the function at va (None if va is not a function boundary), and its end.
-        A .pdata function is exactly its range. A leaf or thunk with no .pdata entry (x64 needs none) ends at its
-        first ret or tail jump out of its window with no forward branch still pending, never past the next .pdata start."""
-        end = self.end_of(va)
-        if end is not None:
-            return list(self.md.disasm(self.read(va, end - va), va)), end
-        if not self.is_boundary(va):
-            return None, None
-        limit = self.next_start(va)
-        insns, pending = [], va
-        for ins in self.md.disasm(self.read(va, limit - va), va):
-            insns.append(ins)
-            ops = ins.operands
-            imm = ops[0].imm if ops and ops[0].type == X86_OP_IMM else None
-            if imm is not None and ins.mnemonic.startswith("j") and va <= imm < limit:
-                pending = max(pending, imm)
-            leaves = ins.mnemonic == "ret" or (ins.mnemonic == "jmp" and imm is not None and not va <= imm < limit)
-            if leaves and ins.address + ins.size > pending:
-                break
-        return insns, insns[-1].address + insns[-1].size
-
     def decode_row(self, va, tag):
-        """A universe row for the function at va, decoded from the image; None if va is not a function boundary."""
-        insns, end = self.body(va)
+        """A universe row for the function at va, decoded from the image (pdata.Pdata.decode: its .pdata range plus its
+        chained chunks, or a leaf's bytes to the next .pdata start); None if va is not a function boundary."""
+        insns = self.decode(self.md, va)
         if insns is None:
             return None
+        ranges = self.ranges_of(va)
         callees, indirect = {}, []
         for ins in insns:
             ops = ins.operands
@@ -93,7 +73,8 @@ class ClosurePdata(Pdata):
                     callees.setdefault(ops[0].imm, "direct")
                 else:
                     indirect.append({"site": "%X" % ins.address, "text": ("%s %s" % (ins.mnemonic, ins.op_str))[:80]})
-            elif ins.mnemonic == "jmp" and imm and not va <= ops[0].imm < end and self.is_boundary(ops[0].imm):
+            elif (ins.mnemonic == "jmp" and imm and not any(b <= ops[0].imm < e for b, e in ranges)
+                  and self.is_boundary(ops[0].imm)):
                 callees.setdefault(ops[0].imm, "tail")
         callees = {t: k for t, k in callees.items() if t != va}
         return {"name": "FUN_%08x" % va, "size": len(insns), "subsystem": tag, "how": "closure",
