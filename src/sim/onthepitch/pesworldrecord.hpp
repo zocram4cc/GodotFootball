@@ -451,12 +451,6 @@ class PesWorld {
     StoreU32(entry, 0, id);
     StoreF32(entry, 4, value);
   }
-  // A rank the list does not fill: the 0xFF fill PES reads there (pesscorerows.hpp SortedRow::ValueOf's note).
-  void ClearMaListEntry(int side, int list, int team, int rank) {
-    uint8_t* entry = Ma(side) + (list == 0 ? kMaLaneListAOffset : kMaLaneListBOffset) +
-                     static_cast<std::size_t>(team) * kMaListTeamStride + static_cast<std::size_t>(rank) * 8;
-    std::memset(entry, 0xFF, 8);
-  }
   // The clock's period record, in the match-info block: PesClock writes it in place.
   PeriodRecord& Period() { return image_->match.period; }
   // The match-info block's bytes, at PES's offsets (the kMi* constants).

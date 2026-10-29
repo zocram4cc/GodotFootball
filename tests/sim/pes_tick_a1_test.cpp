@@ -441,6 +441,24 @@ TEST(PesA1Sim, TheTeamAisRecordMaIsWrittenEachTickFromTheBallAndTheRows) {
   EXPECT_GT(checked, 0) << "the rows list somebody";
 }
 
+// The score rows are views over MA, not a copy of it: a value written into the window's list block (MA+0x229B4) and into a
+// player's nearest block (MA+0x22E4C + 200 slot) is what the team's rows read back. A rows object with a store of its own
+// (the old serialization into MA) reads its own value instead.
+TEST(PesA1Sim, TheScoreRowsAreViewsOverTheWindowsMaBlocks) {
+  REQUIRE_PES_MATCH();
+  match->StartPlay();
+  for (int i = 0; i < 3; ++i) match->Process();
+  pes::PesWorld& world = match->PesWorldOf();
+  const pes::ScoreRows& rows = match->GetTeam(0)->GetController()->Rows();
+  ASSERT_GT(rows.list[0].Count(0), 0);
+  ASSERT_GT(rows.nearest[0].Count(1), 0);
+  world.SetMaListEntry(0, 0, 0, 0, static_cast<uint32_t>(rows.list[0].Entry(0, 0).id), 777.0f);
+  EXPECT_FLOAT_EQ(rows.list[0].Entry(0, 0).value, 777.0f);
+  constexpr std::size_t kNearestBlock = 0x22E4C;  // slot 0's nearest block; team 1's entries follow at +0x58
+  pes::StoreF32(world.Ma(0), kNearestBlock + pes::kMaListTeamStride + 4, 555.0f);
+  EXPECT_FLOAT_EQ(rows.nearest[0].Entry(1, 0).value, 555.0f);
+}
+
 // The Clear unit 0x142109EB0 runs on the window: nothing is stored while the danger byte (imageA+0x31C1) is clear; with it
 // set the unit stores its answer type 5 and a corridor angle over the window's records.
 TEST(PesA1Sim, TheClearUnitRunsOnTheWindowAndAnswersOnlyOnTheDangerByte) {
