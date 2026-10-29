@@ -17,14 +17,18 @@ namespace {
 
 // A call's state over the world window: G's VA in rcx is the caller's job; the image global that holds G is a segment,
 // and the stack is the window's own (kStackVa), so a call never reaches outside GF's bytes.
-PesState NewCall(uint8_t* world) {
-  PesState s;
+void Bind(PesState& s, uint8_t* world) {
   s.mem.window.base = kWorldWindowVa;
   s.mem.window.size = kWorldBytes;
   s.mem.window.rw = world;
   s.mem.segs.push_back(PesMem::Seg{kWorldGlobalVa, std::vector<uint8_t>(sizeof(uint64_t))});
   std::memcpy(s.mem.segs.back().bytes.data(), &kWorldWindowVa, sizeof(uint64_t));
   s.gpr[4] = kStackVa + kStackBytes;
+}
+
+PesState NewCall(uint8_t* world) {
+  PesState s;
+  Bind(s, world);
   return s;
 }
 
@@ -54,6 +58,8 @@ float RunBearing(uint8_t* world, uint64_t fromVa, uint64_t toVa) {
 }
 
 }  // namespace
+
+void PesWorld::BindCall(::PesState& call) { Bind(call, Bytes()); }
 
 uint8_t* PesWorld::AnimeRecord(int slot) { return InWindow(Bytes(), Answer(&::pes_fn_140A48910, Bytes(), slot)); }
 

@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <string>
 #include <utility>
@@ -25,6 +26,7 @@
 
 #include "translated.hpp"
 #include "pes_state.hpp"
+#include "onthepitch/pesworldrecord.hpp"
 
 namespace {
 
@@ -252,6 +254,166 @@ TEST_F(AngleOracle, EachRecordBindingChangesTheResult) {
     const Outcome want = Reference(oracle_, 0);
     const bool changed = got.rax != want.rax || got.xmm0 != want.xmm0 || got.writes != want.writes;
     EXPECT_TRUE(changed) << "flipping " << b.name << " left the result unchanged";
+  }
+}
+
+// ---- The same call on GF's own window ----
+//
+// The records the angle reads through G (the ball record, the pitch record, the frame-random record, the team, man, anime and
+// slot records, MI) are rebuilt in a pes::PesWorld at PES's offsets from the capture, field by field through the window's own
+// accessors and offset constants. Nothing else of G is copied: an unnamed byte stays zero, so a result equal to PES's proves
+// the named set covers this call's path. The objects beside G (the AI context ctx, its record MA at ctx+0x18 and the event store
+// E at ctx+0xE0) are not GF state yet; they are copied in as segments at their captured addresses.
+
+float F32At(const Oracle& o, uint64_t va) {
+  const uint32_t u = static_cast<uint32_t>(Read(o, va, 4));
+  float f;
+  std::memcpy(&f, &u, sizeof f);
+  return f;
+}
+
+void CopySeg(const Oracle& o, PesState& s, uint64_t va, size_t n) {
+  PesMem::Seg seg{va, std::vector<uint8_t>(n)};
+  for (size_t i = 0; i < n; ++i) {
+    const uint8_t* b = o.snap.at(va + i);
+    seg.bytes[i] = b != nullptr ? *b : 0;
+  }
+  s.mem.segs.push_back(std::move(seg));
+}
+
+void BuildWindow(const Oracle& o, pes::PesWorld& w) {
+  const uint64_t g = Read(o, kImageG, 8);
+  const auto entry = [&](size_t table, int i) { return Read(o, g + table + static_cast<size_t>(i) * pes::kTableEntryBytes, 8); };
+  for (int k = 0; k < pes::kSlotCount; ++k) w.BindSlot(k);
+  for (int k = 0; k < pes::kOfficialCount; ++k) w.BindOfficial(pes::kRefereeOfficialIndex + k);
+  for (int k = 0; k < pes::kSlotCount; ++k) {
+    uint8_t* man = w.ManRecord(k);
+    const uint64_t m = entry(pes::kManTableOffset, k);
+    for (const size_t off : {pes::kManFacingOffset, pes::kManPosXOffset, pes::kManPosYOffset, pes::kManPosZOffset,
+                             pes::kManVelXOffset, pes::kManVelYOffset, pes::kManVelZOffset})
+      pes::StoreF32(man, off, F32At(o, m + off));
+    pes::StoreU32(man, pes::kManActionOffset, static_cast<uint32_t>(Read(o, m + pes::kManActionOffset, 4)));
+    uint8_t* anime = w.AnimeRecord(k);
+    const uint64_t a = entry(pes::kAnimeTableOffset, k);
+    anime[pes::kAnimeClassOffset] = static_cast<uint8_t>(Read(o, a + pes::kAnimeClassOffset, 1));
+    pes::StoreF32(anime, pes::kAnimeF11COffset, F32At(o, a + pes::kAnimeF11COffset));
+    uint8_t* slot = w.Block(k) + pes::kSlotRecordOffset;
+    const uint64_t sl = entry(pes::kSlotTableOffset, k);
+    slot[pes::kSlotByteA1Offset] = static_cast<uint8_t>(Read(o, sl + pes::kSlotByteA1Offset, 1));
+    slot[pes::kSlotByteA4Offset] = static_cast<uint8_t>(Read(o, sl + pes::kSlotByteA4Offset, 1));
+  }
+  for (int t = 0; t < pes::kSideCount; ++t) {
+    const uint64_t side = entry(pes::kSideTableAOffset, t);
+    w.SetAttackAngle(t, F32At(o, side + pes::kSideAttackAngleOffset));
+    w.SetAttackSign(t, static_cast<int8_t>(Read(o, side + pes::kSideAttackSignOffset, 1)));
+  }
+  const uint64_t b = Read(o, g + pes::kBallPtrOffset, 8);
+  for (int j = 0; j < pes::kBallSampleCount; ++j) {
+    const uint64_t sample = b + pes::kBallSamplesOffset + static_cast<size_t>(j) * pes::kBallSampleStride;
+    w.SetBallSample(j, F32At(o, sample + pes::kBallSampleXOffset), F32At(o, sample + pes::kBallSampleYOffset),
+                    F32At(o, sample + pes::kBallSampleZOffset));
+  }
+  w.SetBallVelocity(F32At(o, b + pes::kBallVelocityOffset), F32At(o, b + pes::kBallVelocityOffset + 4),
+                    F32At(o, b + pes::kBallVelocityOffset + 8));
+  uint8_t* ball = w.BallRecord();
+  for (const size_t off : {pes::kBallField04Offset, pes::kBallPointXOffset, pes::kBallPointZOffset})
+    pes::StoreF32(ball, off, F32At(o, b + off));
+  for (const size_t off : {pes::kBallHoldOffset})
+    pes::StoreU32(ball, off, static_cast<uint32_t>(Read(o, b + off, 4)));
+  for (const size_t off : {pes::kBallFlag4COffset, pes::kBallFlag80Offset}) ball[off] = static_cast<uint8_t>(Read(o, b + off, 1));
+  const uint64_t mi = Read(o, g + pes::kMatchInfoPtrOffset, 8);
+  pes::StoreU32(w.MatchInfo(), pes::kMiFrameOffset, static_cast<uint32_t>(Read(o, mi + pes::kMiFrameOffset, 4)));
+  w.Period().playState = static_cast<uint32_t>(Read(o, mi + pes::kMatchInfoPeriodOffset + 4, 4));
+  const uint64_t pitch = Read(o, g + pes::kPitchPtrOffset, 8);
+  for (int k = 0; k < pes::kPitchFieldCount; ++k) w.SetPitchField(k, F32At(o, pitch + static_cast<size_t>(k) * 4));
+  const uint64_t fr = Read(o, g + pes::kFrameRandomPtrOffset, 8);
+  for (const size_t off : {pes::kFrameRandomIntOffset, pes::kFrameRandomByteOffset, pes::kFrameRandomUnitOffset})
+    pes::StoreU32(w.FrameRandomRecord(), off, static_cast<uint32_t>(Read(o, fr + off, 4)));
+}
+
+// Runs the translated angle for case 0 on the window; the result is xmm0's low word, and `writes` is the call's write log
+// (its stack stores, which carry every intermediate the angle computed: a record byte on the path changes it even when the
+// final angle does not move).
+struct WindowResult {
+  uint32_t bits = 0;
+  std::string writes;
+  bool operator==(const WindowResult& o) const { return bits == o.bits && writes == o.writes; }
+};
+
+WindowResult RunAngleOnWindow(const Oracle& o, pes::PesWorld& w) {
+  const CallRec& c = o.calls[0];
+  const uint64_t ctx = c.v[kRcx];
+  PesState s;
+  w.BindCall(s);
+  CopySeg(o, s, ctx, 0x100);
+  const uint64_t ma = Read(o, ctx + kCtx18, 8);
+  CopySeg(o, s, ma + 0x22900, 0x400);
+  CopySeg(o, s, ma + 0x24800, 0x50);
+  CopySeg(o, s, Read(o, ctx + kCtxE0, 8) + 0x180698, 0x60);
+  s.gpr[1] = ctx;
+  s.gpr[2] = c.v[2];
+  s.gpr[8] = c.v[8];
+  s.gpr[4] -= 8;
+  s.wr(s.gpr[4], 0, 8);  // a return address slot; the angle's frame sits below it
+  std::vector<std::pair<uint64_t, uint8_t>> log;
+  s.mem.wlog = &log;
+  pes_fn_142108630(s);
+  WindowResult r;
+  r.bits = static_cast<uint32_t>(s.xmm[0][0]);
+  char buf[24];
+  for (const auto& wr : log) {
+    std::snprintf(buf, sizeof buf, "%llx%02x", static_cast<unsigned long long>(wr.first), static_cast<unsigned>(wr.second));
+    r.writes += buf;
+  }
+  return r;
+}
+
+uint32_t ReferenceAngleBits(const Oracle& o) {
+  const std::string x = Field(o.rows[0], "xmm0");
+  return static_cast<uint32_t>(std::strtoul(x.substr(x.size() - 8).c_str(), nullptr, 16));
+}
+
+TEST_F(AngleOracle, TheCapturedSituationOnGfsWindowGivesTheCapturedAngle) {
+  SetOverlay(oracle_, 0, {});
+  pes::PesWorld world;
+  BuildWindow(oracle_, world);
+  EXPECT_EQ(RunAngleOnWindow(oracle_, world).bits, ReferenceAngleBits(oracle_));
+}
+
+TEST_F(AngleOracle, EachWindowRecordBindingChangesTheAngle) {
+  SetOverlay(oracle_, 0, {});
+  const int cid = static_cast<int>(oracle_.calls[0].v[2]);
+  pes::PesWorld base;
+  BuildWindow(oracle_, base);
+  const WindowResult want = RunAngleOnWindow(oracle_, base);
+  ASSERT_EQ(want.bits, ReferenceAngleBits(oracle_));
+  struct Binding {
+    const char* name;
+    std::function<uint8_t*(pes::PesWorld&)> byteOf;
+  };
+  const std::vector<Binding> bindings = {
+      {"ball +0x1C point x", [](pes::PesWorld& w) { return w.BallRecord() + pes::kBallPointXOffset; }},
+      {"ball +0x24 point z", [](pes::PesWorld& w) { return w.BallRecord() + pes::kBallPointZOffset; }},
+      {"ball +0x80 flag", [](pes::PesWorld& w) { return w.BallRecord() + pes::kBallFlag80Offset; }},
+      {"ball sample 0 x", [](pes::PesWorld& w) { return w.BallRecord() + pes::kBallSamplesOffset + pes::kBallSampleXOffset; }},
+      {"ball sample 0 z", [](pes::PesWorld& w) { return w.BallRecord() + pes::kBallSamplesOffset + pes::kBallSampleZOffset; }},
+      {"MI frame", [](pes::PesWorld& w) { return w.MatchInfo() + pes::kMiFrameOffset; }},
+      {"frame-random +8", [](pes::PesWorld& w) { return w.FrameRandomRecord() + pes::kFrameRandomUnitOffset; }},
+      {"pitch F0", [](pes::PesWorld& w) { return w.PitchRecord(); }},
+      {"side 1 attack angle", [](pes::PesWorld& w) { return w.SideRecord(1) + pes::kSideAttackAngleOffset; }},
+      {"carrier man facing", [cid](pes::PesWorld& w) { return w.ManRecord(cid) + pes::kManFacingOffset; }},
+      {"carrier man x", [cid](pes::PesWorld& w) { return w.ManRecord(cid) + pes::kManPosXOffset; }},
+      {"carrier man velocity x", [cid](pes::PesWorld& w) { return w.ManRecord(cid) + pes::kManVelXOffset; }},
+      {"carrier man action", [cid](pes::PesWorld& w) { return w.ManRecord(cid) + pes::kManActionOffset; }},
+      {"carrier anime +0x11C", [cid](pes::PesWorld& w) { return w.AnimeRecord(cid) + pes::kAnimeF11COffset; }},
+      {"carrier slot +0xA1", [cid](pes::PesWorld& w) { return w.Block(cid) + pes::kSlotRecordOffset + pes::kSlotByteA1Offset; }},
+      {"carrier slot +0xA4", [cid](pes::PesWorld& w) { return w.Block(cid) + pes::kSlotRecordOffset + pes::kSlotByteA4Offset; }},
+  };
+  for (const Binding& b : bindings) {
+    pes::PesWorld world;
+    BuildWindow(oracle_, world);
+    *b.byteOf(world) ^= 0xFF;
+    EXPECT_FALSE(RunAngleOnWindow(oracle_, world) == want) << "flipping " << b.name << " left the angle's path unchanged";
   }
 }
 

@@ -16,6 +16,7 @@
 #include "pessequencer.hpp"
 #include "goalsequence.hpp"
 #include "match.hpp"
+#include "pescarrier.hpp"
 #include "officials.hpp"
 #include "player/playerofficial.hpp"
 #include "matchprogression.hpp"
@@ -791,10 +792,12 @@ void Referee::PublishPesStoppage() {
                 foul.foulVictim ? static_cast<uint32_t>(match->PesSlotOf(foul.foulVictim)) : static_cast<uint32_t>(pes::kMiNoSlot));
   pes::StoreU32(mi, pes::kMiOffsideFlagOffset, offsidePlayers.empty() ? 0u : 1u);
   mi[pes::kMiRestartArmedOffset] = buffer.prepared ? 1 : 0;
-  const Vector3 ball = match->GetBall()->Predict(0);
-  world.SetBall(ball.coords[0], ball.coords[1]);
-  for (int team = 0; team < pes::kSideCount; ++team)
-    world.SetAttackSign(team, static_cast<int>(-match->GetTeam(team)->GetSide()));
+  // The side records' attack sign (T+0x254) and attack angle (T+0x250; PES's 0x1404FEBD0 stores the angle the sign picks).
+  for (int team = 0; team < pes::kSideCount; ++team) {
+    const float sign = static_cast<float>(-match->GetTeam(team)->GetSide());
+    world.SetAttackSign(team, static_cast<int>(sign));
+    world.SetAttackAngle(team, pes::AttackAngleDeg(sign));
+  }
 }
 
 void Referee::IssueDeferredCards() {

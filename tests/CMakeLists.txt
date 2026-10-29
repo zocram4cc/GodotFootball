@@ -44,7 +44,7 @@ target_link_libraries(pes_clip_pose_test PRIVATE pesrig GTest::gtest_main)
 gtest_discover_tests(pes_clip_pose_test)
 
 add_executable(pes_angle_oracle_test pes_angle_oracle_test.cpp)
-target_link_libraries(pes_angle_oracle_test PRIVATE pestranslated GTest::gtest_main)
+target_link_libraries(pes_angle_oracle_test PRIVATE gfsim pesfmt pestranslated GTest::gtest_main)
 gtest_discover_tests(pes_angle_oracle_test)
 
 # Godot-side checks run the real extension headless; 77 = skipped (no PES21_ROOT).
