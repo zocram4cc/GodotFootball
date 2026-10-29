@@ -1682,7 +1682,11 @@ class Emitter:
                 if tgt in self.pilot:
                     self.siblings.add(tgt)
                     return ["{ pes_fn_%s(s); return; }" % tgt[2:]]
-                return ["/*OUT-OF-RANGE JMP %s*/return;" % tgt]
+                # Never a silent return: the caller would see a normal return where PES jumped into code the layer
+                # does not hold. The closure walk (driver.runnable_extra) pulls such targets in; one that remains
+                # aborts naming the VA when reached, and gen_translated.silent_tail_sites refuses it at generation.
+                # (The `return;` stays a separate line: it is the basic-block terminator flow.py reads.)
+                return ["/*OUT-OF-RANGE JMP %s*/ pes_dispatch_missing(%s);" % (tgt, tgt), "return;"]
             # JMP reg: switch dispatch (resolved in prepass) or tailjump
             info = ctx.get("jmpreg", {}).get(addr)
             if info and info.get("table") is not None:
@@ -1983,6 +1987,10 @@ def stub_lines(do):
     """C++ for one stubbed callee's modelled effect (names: stubs.py DO)."""
     if do == "sqrt_xmm0":
         return ["s.set_x_f32(0, pes_model_sqrtf(s.x_f32(0)));"]
+    if do == "logf_xmm0":
+        return ["s.set_x_f32(0, pes_model_logf(s.x_f32(0)));"]
+    if do == "powf_xmm0":
+        return ["s.set_x_f32(0, pes_model_powf(s.x_f32(0), s.x_f32(1)));"]
     if do == "noop":
         return ["/* stub: engine-noop, no effect on the success path */"]
     if do == "abort":

@@ -40,6 +40,7 @@
 #include "pes/vfs.hpp"
 #include "pes/playerdb.hpp"
 #include "pes/formation.hpp"
+#include "pes/fdc.hpp"
 #include "rig/rig.hpp"
 
 namespace godot {
@@ -107,6 +108,10 @@ class PesLibrary : public RefCounted {
   // PES 2021's stamina model (docs/re/pes-re-stamina-drain.md).
   const pes::StaminaConstants* stamina_constants() const {
     return staminaConstants_ ? &*staminaConstants_ : nullptr;
+  }
+  // The float constants of PES's FixDemoCamera pose maths (docs/re/pes-re-camera-pose.md), read from the exe.
+  const pes::fdc::PoseConstants* cutscene_camera_constants() const {
+    return cutsceneCameraConstants_ ? &*cutsceneCameraConstants_ : nullptr;
   }
   // PES 2021's formation tables (pesdb Tactics.bin, TacticsFormation.bin) and sheet constants (exe): the inputs of
   // the slot-point rows (docs/re/pes-re-sheet-triple.md). Required by the PES loop's team AI.
@@ -245,6 +250,7 @@ class PesLibrary : public RefCounted {
   std::optional<pes::RngConstants> rngConstants_;
   std::optional<pes::KeeperConstants> keeperConstants_;
   std::optional<pes::StaminaConstants> staminaConstants_;
+  std::optional<pes::fdc::PoseConstants> cutsceneCameraConstants_;
   std::optional<pes::StoppageConstants> stoppageConstants_;
   std::optional<pes::ForfeitConstants> forfeitConstants_;
   std::optional<pes::RestartSpotConstants> restartSpotConstants_;

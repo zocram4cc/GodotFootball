@@ -29,6 +29,7 @@ import diffmain  # noqa: E402
 import frame_trace as ft  # noqa: E402
 import pdata  # noqa: E402
 import full_snapshot as fs  # noqa: E402
+import stubs as stub_table  # noqa: E402
 
 JOBS = max(1, min(4, os.cpu_count() or 1))  # translation units compiled at once per closure
 CODE_LO, CODE_HI = 0x140001000, 0x14252E800  # the translated universe's image range (driver.build_and_diff)
@@ -150,24 +151,34 @@ def build_closure(va, spec, args, pilot, reached):
             return need, None
 
 
-def build_binary(va, spec, args, pilot, reached):
-    """The diff main and the translated closure, compiled. Returns (binary path, error)."""
+def build_binary(va, spec, args, pilot, reached, native=False):
+    """The diff main and the translated closure, compiled. Returns (binary path, error). native: the production
+    dispatch (gen_dispatch --native), GF's PesHeap attached per call, and PES's allocator targets left out of the closure."""
     tag = va[2:]
     gen = os.path.join(args.out_dir, "gen", tag)
     need, err = build_closure(va, spec, args, pilot, reached)
     if err:
         return None, err
     # The committed runtime headers, always refreshed (a stale copy in the build tree would link old code).
-    for h in ("pes_state.hpp", "pes_cond.inl", "pes_stubs.hpp", "pes_dispatch.hpp"):
+    heads = ("pes_state.hpp", "pes_cond.inl", "pes_stubs.hpp", "pes_dispatch.hpp") + (("pes_native.hpp",) if native else ())
+    for h in heads:
         with open(os.path.join(drv.TRANSLATED_DIR, h), "rb") as fi, open(os.path.join(gen, h), "wb") as fo:
             fo.write(fi.read())
-    main_p = os.path.join(gen, "snapdiff_%s.cpp" % tag)
+    if native:
+        need = [c for c in need if c not in {"0x%X" % v for v in stub_table.natives()}]
+        with open(os.path.join(drv.TRANSLATED_DIR, "pes_native.cpp"), "rb") as fi, \
+                open(os.path.join(gen, "pes_native.cpp"), "wb") as fo:
+            fo.write(fi.read())
+    sfx = "_native" if native else ""
+    main_p = os.path.join(gen, "snapdiff_%s%s.cpp" % (tag, sfx))
     with open(main_p, "w") as f:
-        f.write(diffmain.gen_snap(va, [c for c in need if c != va]))
-    subprocess.run([sys.executable, os.path.join(HERE, "gen_dispatch.py"), "--out", gen, "--vas"]
-                   + sorted(need), check=True)
-    bin_p = os.path.join(gen, "snapdiff_%s" % tag)
+        f.write(diffmain.gen_snap(va, [c for c in need if c != va], native=native, vec_arg=args.vec_arg))
+    subprocess.run([sys.executable, os.path.join(HERE, "gen_dispatch.py"), "--out", gen]
+                   + (["--native"] if native else []) + ["--vas"] + sorted(need), check=True)
+    bin_p = os.path.join(gen, "snapdiff_%s%s" % (tag, sfx))
     srcs = [main_p] + [os.path.join(gen, "pes_fn_%s.cpp" % cv[2:]) for cv in need]
+    if native:
+        srcs.append(os.path.join(gen, "pes_native.cpp"))
     trace = ["-include", os.path.join(HERE, "lockstep_trace.h")] if os.environ.get("GF_XLATE_TRACE") else []
 
     def compile_one(src):
@@ -206,6 +217,22 @@ def first_write_diff(a, b):
         if a[i:i + 18] != b[i:i + 18]:
             return i // 18
     return min(len(a), len(b)) // 18
+
+
+def compare_native(label, trans_path, native_path, mismatches):
+    """Compare the native-heap run with the translated run on the same snapshot: rax, xmm0 and the vector output ("vec")
+    must match; the heap's own addresses and bytes are not outputs. Returns the number of cases compared."""
+    want, got = load_rows(trans_path), load_rows(native_path)
+    if len(got) != len(want):
+        mismatches.append({"snapshot": label, "case": None, "fields": ["native count"],
+                           "note": "native run %d of %d" % (len(got), len(want))})
+    for w, g in zip(want, got):
+        fields = [f for f in ("rax", "xmm0", "vec") if w.get(f) != g.get(f)]
+        if fields:
+            mismatches.append({"snapshot": label, "case": w["case"], "fields": ["native " + f for f in fields],
+                               "translated": {f: str(w.get(f))[:120] for f in fields},
+                               "native": {f: str(g.get(f))[:120] for f in fields}})
+    return len(want)
 
 
 def compare(label, corpus_rows, trans_path, mismatches):
@@ -286,6 +313,9 @@ def run_one(va, args, pilot, pairs):
             ",".join(res.get("blocked_callees") or []) or "none")
         return res
     bin_p, err = build_binary(va, spec, args, pilot, reached)
+    nbin_p = None
+    if not err and args.native:
+        nbin_p, err = build_binary(va, spec, args, pilot, reached, native=True)
     if err:
         # A closure that did not build compares nothing: its replays are unverified, never passed.
         res["unverified"] = res["replayed"]
@@ -305,6 +335,17 @@ def run_one(va, args, pilot, pairs):
                                       "note": "diff main rc=%d: %s" % (rc, (err or out)[-200:])})
             continue
         compare(label, corpus, trans, res["mismatches"])
+        if nbin_p:
+            ntrans = os.path.join(out_s, "native.jsonl")
+            rc, out, err = drv.sh([nbin_p, os.path.join(out_s, "ok_calls.bin"), os.path.join(snap, "mem.bin"),
+                                   os.path.join(out_s, "maps.txt"), ntrans, os.path.join(out_s, "ok_delta.bin"),
+                                   os.path.join(tdir, "pool", "pages.bin"), teb], timeout=args.timeout)
+            if rc != 0:
+                res["mismatches"].append({"snapshot": label, "case": None, "fields": ["native run"],
+                                          "note": "native main rc=%d: %s" % (rc, (err or out)[-200:])})
+            else:
+                res["native_compared"] = res.get("native_compared", 0) + compare_native(
+                    label, trans, ntrans, res["mismatches"])
     cov = drv.block_coverage(args.image, [va], sorted(addrs)).get(va)
     if cov is not None and cov[1]:
         res["own_block"] = {"reached": cov[0], "total": cov[1], "fraction": round(cov[0] / cov[1], 4)}
@@ -331,6 +372,11 @@ def main():
                     help="SNAPDIR=TRACEDIR (repeatable): a snapshot and the frame_trace run that traced it")
     ap.add_argument("--only", nargs="*", default=None)
     ap.add_argument("--cxx", default="g++")
+    ap.add_argument("--native", action="store_true",
+                    help="also run each replayed call on GF's native heap (production dispatch) and compare it with the "
+                         "translated run on rax, xmm0 and --vec-arg's vector (pes_native.hpp)")
+    ap.add_argument("--vec-arg", type=int, default=None,
+                    help="GPR index of a std::vector<u32>* argument whose elements each run reports (2 = rdx)")
     ap.add_argument("--timeout", type=int, default=3600)
     ap.add_argument("--results", default=None)
     ap.add_argument("--hooks", default=None,
