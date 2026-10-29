@@ -51,6 +51,7 @@ inline constexpr std::size_t kMiRestartSideOffset = 0x1558;    // u32: the side 
 inline constexpr std::size_t kMiSpotXOffset = 0x155C;          // f32: the restart spot x (m)
 inline constexpr std::size_t kMiSpotZOffset = 0x1564;          // f32: the restart spot z (m)
 inline constexpr std::size_t kMiStopReasonOffset = 0x1574;     // u32: 1 period end, 3 kick-off, 4 ball out, 5 foul or offside
+inline constexpr std::size_t kMiFrameOffset = 0x1198;           // u32: the match frame count (the judge ages ball events by it)
 inline constexpr std::size_t kMiFoulKindOffset = 0x1588;       // u32: 1 offside, 2 direct foul, 3 indirect
 inline constexpr uint32_t kFoulKindDirect = 2;                  // MI+0x1588 and the foul event's +0x18: a direct foul
 inline constexpr std::size_t kMiCardLevelOffset = 0x158C;      // u32: 0 none, 1 foul, 2 foul + warning, 3 yellow, 4 red
@@ -134,6 +135,23 @@ inline constexpr std::size_t kSlotRecordOffset = 0x10F0;
 
 // Anime record (its bound is the man record's start, +0x32C).
 inline constexpr std::size_t kAnimeClassOffset = 0x1;  // u8 class byte; 0x140654E60 halves its reach term on 3
+// The judge (0x1405B7470) compares the same byte with action ids: 0xB/0xC sliding, 0xD tackle, 0xE block, 0x10 stagger,
+// 0x11 fall down, 0x48 jostle (decompile of 0x1405B7470, 0x140A63DA0, 0x140A639A0, 0x1405B6D40).
+inline constexpr std::size_t kAnimeActionOffset = kAnimeClassOffset;
+inline constexpr uint8_t kActionSlide = 0xB;
+inline constexpr uint8_t kActionSlideKeep = 0xC;
+inline constexpr uint8_t kActionTackle = 0xD;
+inline constexpr uint8_t kActionBlock = 0xE;
+inline constexpr uint8_t kActionStagger = 0x10;
+inline constexpr uint8_t kActionFall = 0x11;
+inline constexpr uint8_t kActionJostle = 0x48;
+inline constexpr std::size_t kAnimeFlagsOffset = 0x8;        // u64 flag word
+inline constexpr int kFlagPlayedBall = 15;                    // 0x140A63DA0: a challenge (0xB..0xE) with it set has played the ball
+inline constexpr int kFlagChallenge = 16;                     // 0x140A63DA0 default branch, 0x1405B6D40: the action counts as a tackle
+inline constexpr int kFlagFace = 29;                          // 0x1405B7470: the forced card (level 3) outside the box
+inline constexpr int kFlagStaggerHeld = 30;                   // 0x1405B7470: a victim staggering with it scores at full weight
+inline constexpr std::size_t kAnimeKickPhaseOffset = 0x3C;    // u8
+inline constexpr std::size_t kAnimeTackleKindOffset = 0x44;   // u8: 1 forced card, 2 and 3 scored, 4 not a play on the ball
 
 // Man record (its bound is the slot record's start, +0x10F0).
 inline constexpr std::size_t kManFacingOffset = 0x554;      // f32, body facing in degrees (INF: GF's bearing unit)
@@ -157,6 +175,15 @@ inline constexpr std::size_t kSlotCapOffset = 0x22;         // u16
 inline constexpr std::size_t kSlotAnchorXOffset = 0x1414;   // f32, AI target point x
 inline constexpr std::size_t kSlotCounterAOffset = 0x1430;  // s32 counter A
 inline constexpr std::size_t kSlotCounterBOffset = 0x1438;  // s32 counter B
+// The judge's reads of B's slot record (0x1405B7470, 0x1405B6870): B's intent flag, the approach angle to the man he
+// targets, that target's slot id (+0x1474 nonzero marks it valid) and the point he is going to.
+inline constexpr std::size_t kSlotIntentOffset = 0x134;        // u8: the deliberate-foul intent flag (professional foul)
+inline constexpr std::size_t kSlotApproachAngleOffset = 0x12A0;  // f32, degrees: B's approach angle to his target
+inline constexpr std::size_t kSlotTargetValidOffset = 0x1474;  // u32
+inline constexpr std::size_t kSlotTargetIdOffset = 0x1478;     // u32: the man B targets
+inline constexpr std::size_t kSlotTargetPointOffset = 0x1480;  // 3 x f32: where B is going (x, y, z)
+inline constexpr std::size_t kSlotFairOffset = 0x148C;         // u8: 1 = the challenge is flagged fair
+inline constexpr std::size_t kSlotForceTargetOffset = 0x14A0;  // u32: the man a no-ball contact is aimed at
 
 // The official's per-frame record (the involvement's A0, pes-re-sanction-caller.md 5.2): the official index is a u32 at +4.
 // It sits in the official's block past the slot record's last field, where no accessor reads.
@@ -164,7 +191,7 @@ inline constexpr std::size_t kOfficialFrameOffset = 0x3000;
 inline constexpr std::size_t kOfficialFrameIndexOffset = 0x4;
 
 static_assert(kManRecordOffset + kManRepeatOffset + sizeof(int32_t) <= kSlotRecordOffset);
-static_assert(kSlotRecordOffset + kSlotCounterBOffset + sizeof(int32_t) <= kOfficialFrameOffset);
+static_assert(kSlotRecordOffset + kSlotForceTargetOffset + sizeof(uint32_t) <= kOfficialFrameOffset);
 static_assert(kOfficialFrameOffset + kOfficialFrameIndexOffset + sizeof(uint32_t) <= kPlayerBlockBytes);
 
 struct PesPlayerBlock {
@@ -238,7 +265,12 @@ inline constexpr std::size_t kAnalyzeBlockPtrOffset = 0x18;
 inline constexpr std::size_t kAnalyzeEventsPtrOffset = 0xE0;
 inline constexpr std::size_t kAnalyzeSideRecordsOffset = 0x24A0C;
 inline constexpr std::size_t kAnalyzeSideRecordBytes = 0x14;
-inline constexpr std::size_t kAnalyzeBlockBytes = kAnalyzeSideRecordsOffset + kSideCount * kAnalyzeSideRecordBytes;
+// The judge reads the block's team lines (+0x40, +0x54), two mode bytes (+0x251F8, +0x251F9) and the last-toucher word
+// (+0x2601C): the block reaches past them.
+inline constexpr std::size_t kAnalyzeTeamLineOffset[kSideCount] = {0x40, 0x54};
+inline constexpr std::size_t kAnalyzeBlockReach = 0x26020;
+inline constexpr std::size_t kAnalyzeBlockBytes = kAnalyzeBlockReach;
+static_assert(kAnalyzeSideRecordsOffset + kSideCount * kAnalyzeSideRecordBytes <= kAnalyzeBlockBytes);
 // E, the event store: ten rings of eight 0x320-byte records at E + ring * 0x1908, the count at +0x1900 and the head at
 // +0x1904 (0x140A3E150 reads them; 0x140A3DAC0 writes them). Ring 4 holds the foul events (the tree reads the newest).
 // E is the window's last member: the card-count tables the card-history reader 0x140A80D10 reads at E+0x750D0 and
@@ -274,6 +306,22 @@ inline constexpr std::size_t kTeamInfoBytes = kTeamInfoRecordsOffset + kTeamInfo
 inline constexpr std::size_t kTeamInfoYellowsOffset = 0x0;  // u8, counting the card being decided
 inline constexpr std::size_t kTeamInfoIdOffset = 0x34;      // u32, nonzero for a player on the pitch
 
+// The foul judge (match::ai::Judge, Flow+0x908; docs/re/pes-re-duels-fouls.md 2): 0x1405B7470(judge, A = victim, B = fouler)
+// scores the contact and, past its early exits, builds the pending foul in the judge's own fields through 0x1405B8000 and
+// 0x14050EE40. +0x3B8 names a cell holding A1 (the ANALYZE object), +0x3C0 the judge result JR (MatchControl+0x2910).
+inline constexpr std::size_t kJudgeBytes = 0x3C8;
+inline constexpr std::size_t kJudgeCtxPtrOffset = 0x3B8;
+inline constexpr std::size_t kJudgeResultPtrOffset = 0x3C0;
+inline constexpr std::size_t kJudgeResultBytes = 0x80;
+inline constexpr std::size_t kJudgePendingOffset = 0x08;     // u8: a foul is pending
+inline constexpr std::size_t kJudgeFoulerOffset = 0x14;      // u32: B's slot
+inline constexpr std::size_t kJudgeVictimOffset = 0x18;      // u32: A's slot
+inline constexpr std::size_t kJudgeRestartOffset = 0x24;     // u32: 5 free kick, 6 penalty
+inline constexpr std::size_t kJudgeFoulKindOffset = 0x28;    // u32: 2 direct
+inline constexpr std::size_t kJudgeLevelOffset = 0x2C;       // u32: 1 foul, 2 foul + warning, 3 yellow, 4 red
+inline constexpr std::size_t kJudgePointsOffset = 0x30;      // u8
+inline constexpr std::size_t kJudgeTypeOffset = 0x55;        // u8: the foul type (0 contact, 1 slide .. 8 force)
+
 struct PesSanctionImage {
   std::array<uint8_t, kRequestBytes> request{};
   std::array<uint8_t, kAnalyzeBytes> analyze{};
@@ -281,6 +329,9 @@ struct PesSanctionImage {
   std::array<uint8_t, kFieldInfoBytes> fieldInfo{};
   std::array<std::array<uint8_t, kTeamInfoBytes>, kSideCount> teamInfo{};
   std::array<uint8_t, kEventRecordBytes> foulSource{};  // the record 0x140A3DAC0 copies into the ring
+  std::array<uint8_t, kJudgeBytes> judge{};             // the foul judge
+  std::array<uint8_t, kJudgeResultBytes> judgeResult{};  // JR
+  std::array<uint8_t, sizeof(uint64_t)> judgeCtx{};     // the cell the judge's +0x3B8 names: A1's VA
   std::array<uint8_t, kEventStoreBytes> events{};       // E: last, so the counter tables past it read zero
 };
 inline constexpr std::size_t kSanctionOffset = kStackOffset + kStackBytes;
@@ -368,6 +419,43 @@ class PesWorld {
   uint32_t DecideSanction();
   uint32_t SanctionScene() { return LoadU32(image_->sanction.request.data(), kRequestSceneOffset); }
   void SetScenePlayed(uint8_t count) { image_->sanction.request[kRequestPlayedOffset] = count; }
+
+  // ---- PES's foul judge 0x1405B7470 on the window (docs/ports/pes-port-CardLevel2.md). ----
+  // What one decision built: the pending foul (judge +0x2C level, +0x30 points, +0x24 restart, +0x55 type), none when the
+  // judge left early with no foul.
+  struct JudgeVerdict {
+    bool pending = false;
+    uint32_t level = 0;    // 1 foul, 2 foul + warning, 3 yellow, 4 red
+    uint32_t points = 0;   // the u8 sum P_angle + P_speed + P_action
+    uint32_t restart = 0;  // 5 free kick, 6 penalty (the spot is in the victim's attacking box)
+    uint8_t type = 0;      // the foul type: 0 contact, 1 slide, 2 block, 3 and 4 tackle, 5 kick, 6 keeper, 7 face, 8 force
+  };
+  // Runs 0x1405B7470(judge, victim, fouler) on the staged records. The judge's pending flag is cleared first: GF's referee
+  // hands it one contact at a time (PES keeps the stronger of two pending fouls, judge +8 against +0x30; the hold and
+  // advantage step 0x14050B490 that clears it is not run here).
+  JudgeVerdict DecideJudge(int victim, int fouler);
+  // A slot's slot record (PES's ai(i)), at the kSlot* offsets the judge reads.
+  uint8_t* SlotRecord(int slot) { return Block(slot) + kSlotRecordOffset; }
+  // The team line the judge's DOGSO test reads (A1's block +0x40 / +0x54, 0x1405B7390): x in metres.
+  void SetTeamLine(int team, float x);
+  // What the judge reads about one contact besides the man records' positions and the match-info frame: the facts GF's
+  // referee hands over (the records' PES offsets are the kAnime* and kSlot* constants).
+  struct ContactFacts {
+    int victim = 0;                  // A's slot
+    int fouler = 0;                  // B's slot
+    uint8_t foulerAction = 0;        // B's action id (kAction*), 0 when it is none the judge scores
+    bool victimFell = false;         // A's action is FALL_DOWN
+    bool victimStaggered = false;    // A's action is STAGGER
+    bool victimFace = false;         // A's flag 29: the forced card outside the box
+    bool playedBall = false;         // B has played the ball (a challenge: flag 15; any other action: flag 16)
+    bool targeted = false;           // B is aimed at A (ai(B)+0x1474, +0x1478, +0x14A0)
+    float approachAngle_deg = 0.0f;  // B's approach angle to A, 180 from directly behind (ai(B)+0x12A0)
+    bool intent = false;             // B's deliberate-foul flag (ai(B)+0x134)
+    float targetX = 0.0f, targetY = 0.0f, targetZ = 0.0f;  // where B is going (ai(B)+0x1480): PES x, height, z
+  };
+  // Stages the facts in the victim's and the fouler's records, runs the judge and puts the anime records back (the action
+  // byte there also carries the keeper-class stand-in the run code reads).
+  JudgeVerdict DecideContact(const ContactFacts& facts);
 
   static constexpr uint64_t AnimeVa(int slot) { return BlockVa(slot); }
   static constexpr uint64_t ManVa(int slot) { return BlockVa(slot) + kManRecordOffset; }
