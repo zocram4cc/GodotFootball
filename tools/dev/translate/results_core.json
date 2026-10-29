@@ -57589,6 +57589,7 @@
    "aborted": 0,
    "capped": 0,
    "cases": 0,
+   "closure_file": "closure_trapchain.json",
    "coverage": {
     "0x14079A470": {
      "fraction": 0.6214,
