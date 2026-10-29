@@ -225,10 +225,11 @@ def _why_dispatchable(why):
     return True
 
 
-EXTRA_CAP = 1100  # one budget over every seed's out-of-set walk. Measured 26-10-26: the 1404F6C30 walk (cap 100000) is 1042 functions; 1404F6720's own direct-call closure is 29. At 1000 the walk ran out and blocked 1404F6720 by budget.
+# ponytail: one budget over every seed's out-of-set walk; a walk over it blocks every unseen seed, leaves included. Upgrade: a budget per seed. Measured 28-10-26 (uncapped walks): 445E90 = 1871 functions, 44C880 = 1865 (depth 80); at 1100 both were refused by budget, and depth 25 blocked 33 functions of 44C880's walk.
+EXTRA_CAP = 2000
 
 
-def runnable_extra(spec, image, depth_cap=25):
+def runnable_extra(spec, image, depth_cap=80):
     """Out-of-set direct callees the build can translate and call for
     real: stubs.json run-real kinds plus unmodellable entries whose whole
     why-chain is dispatchable. Transitively closed over direct CALLs
