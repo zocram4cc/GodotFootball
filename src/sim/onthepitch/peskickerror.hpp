@@ -20,6 +20,92 @@ namespace pes {
 inline constexpr int kKickRngSlot = 2;  // Normal 0x140a92590 and 0x1406ebf30 hard-wire slot 2
 inline constexpr int kNormalTableSize = 513;
 
+// The situation factor Q of FUN_14083cc30 (0x14083DF54..0x14083E69C; docs/re/pes-re-kick-kinds.md,
+// pes-re-kick-scatter-inputs.md (a), docs/ports/pes-port-KickQ.md): Base(class, subclass, gate) x G. Every field is
+// the kicker record's own (ap = rcx of the scatter), in PES units. Q needs only the class and subclass of the kick kind
+// (rows of the install's 151-row kind table 0x14344E380) and four gate predicates that are pure functions of the kind.
+struct SituationConstants {
+  // Base: class base, subclass multiplier, gate multiplier.
+  float p90 = 0.0f;       // 0.9   @0x14258c260 class 0 base; subclass 7/0xB; gate multiplier (class 2 and 4); sub-0/1 tail
+  float p88 = 0.0f;       // 0.88  @0x1425ddf70 class 1 base
+  float p86 = 0.0f;       // 0.86  @0x1425eb850 class 2 and 3 base
+  float one = 0.0f;       // 1.0   @0x14256ae1c class 4 base, ramp top
+  float p95 = 0.0f;       // 0.95  @0x1425ab124 subclass 1; gate multiplier (class 0, 1)
+  float p80 = 0.0f;       // 0.8   @0x142572348 subclass 5
+  float p85 = 0.0f;       // 0.85  @0x1425ab120 subclass 6; sub-0/1 tail (first-time)
+  float p70 = 0.0f;       // 0.7   @0x14257a194 subclass 8
+  float p925 = 0.0f;      // 0.925 @0x1425ef9dc gate multiplier (class 3)
+  // G: speed term.
+  float tickRate = 0.0f;  // 54.0  @0x14259d624 (init of slot 0x14351ae54 by 0x141e532f0; getter 0x141e532d0)
+  float sixty = 0.0f;     // 60.0  @0x14259a764 (km/h = tick rate x 60 x 60 / 1000 x m per tick)
+  float thousand = 0.0f;  // 1000.0 @0x14256ae34
+  float stopLow = 0.0f;   // 11.0  @0x14259bdfc speed threshold floor (km/h)
+  float hundred = 0.0f;   // 100.0 @0x14253ee30
+  float fifty = 0.0f;     // 50.0  @0x14259be34 kick-angle ramp start
+  float c0Gain = 0.0f;    // 2.5   @0x14259bde4 class 0 threshold gain
+  float c13Gain = 0.0f;   // 5.0   @0x14259222c class 1, 3 threshold gain
+  float speedTop = 0.0f;  // 28.0  @0x1425a2004
+  float staminaK = 0.0f;  // 0.01  @0x14256ae18
+  float turnLo = 0.0f;    // 45.0  @0x14259be30 body-turn ramp
+  float turnHi = 0.0f;    // 135.0 @0x14259be60
+  float turnDiv = 0.0f;   // 90.0  @0x14259be5c (0x14083DF47 MOVSS XMM15; the ramp's divisor at 0x14083E278 / E354)
+  float lowKnee = 0.0f;   // 22.0  @0x1425c48c0
+  float lowGain = 0.0f;   // 8.5   @0x1425c48b4
+  float topGain = 0.0f;   // 6.0   @0x14259bdec
+  float effK = 0.0f;      // 0.6   @0x14257a190
+  float turnSq = 0.0f;    // 0.3   @0x142590d98 sub 0/1/9/10: 1 - t^2 * 0.3
+  float tenth = 0.0f;     // 0.1   @0x142588200 (uVar14 4/0xD branch)
+  float c2Base = 0.0f;    // 0.05  @0x1425a8a28
+  float c2Gain = 0.0f;    // 0.15  @0x1425c48a0
+  double aGain = 0.0;     // 0.3   @0x14259d5e0 (f64) uVar14 0/2/0xF/0x11 branch
+  double aPlusFirst = 0.0;  // 0.3 @0x14259d5e0 (f64) first-time byte 0
+  double aPlusLater = 0.0;  // 0.2 @0x1425ef868 (f64) first-time byte != 0
+  // G: first-time window (0x14083CDCD..0x14083CF07).
+  float windowLimit = 0.0f;  // 360.0 @0x14259858c (also the heading wrap)
+  float halfTurn = 0.0f;     // 180.0 @0x142598580
+  float negOne = 0.0f;       // -1.0  @0x142588218
+  float turn157 = 0.0f;      // 157.5 @0x1425cca3c
+  float turn130 = 0.0f;      // 130.0 @0x1425a9bf0 class 0, first-time byte 0
+  float turn125 = 0.0f;      // 125.0 @0x1425c5950 class 0, first-time byte != 0
+  float turn120 = 0.0f;      // 120.0 @0x14256ae30 class 1, first-time byte 0
+  float turn115 = 0.0f;      // 115.0 @0x1425c48d4 class 1 (first-time byte != 0) and class 2 (byte 0)
+  float turn110 = 0.0f;      // 110.0 @0x14259d628 class 2, first-time byte != 0
+  float noWindow = 0.0f;     // 720.0: the immediate W1 (0x1406EB6FC) stores in ap+0x2764
+  // The kind table 0x14344E380 (16 B per row, row = kind) and the four gate predicates 0x1407240F0, 0x140724590,
+  // 0x140726610, 0x140726640 evaluated over the kinds from the immediates and tables in their code.
+  static constexpr int kKinds = 151;  // rows 0..0x96
+  std::array<uint8_t, kKinds * 16> kindTable{};
+  std::array<uint8_t, 16> outOfRangeRow{};  // 0x14344E620
+  std::array<uint8_t, kKinds> gateKinds{};  // bit 0: 0x1407240F0, 1: 0x140724590, 2: 0x140726610, 3: 0x140726640
+};
+
+// The kicker-record fields Q reads (ap+offset), the launch vector's horizontal components (param_6 of the scatter)
+// and the kick quality `a` (FUN_14071d760). Distances in metres per PES tick (not per second).
+struct KickSituation {
+  int kind = 0;                // ap+0x2752: row of the kind table, 1..0x96
+  int8_t b2754 = 0;            // ap+0x2754: result[1] of FUN_140829E80
+  int8_t entry2755 = 0;        // ap+0x2755: result[2], the kick-angle bucket (before the motion override)
+  int8_t firstTime = 0;        // ap+0x2756
+  float window = 0.0f;         // ap+0x2764: an angle in degrees; >= 360 means no window
+  bool aiBit = false;          // ap+0x2460 bit 29
+  uint16_t motion = 0;         // the u16 behind vtable+0x18 of the motion object at ap+0xAB8
+  bool touch = false;          // vtable+0x30 of the motion object
+  float velX = 0.0f, velZ = 0.0f;  // ap+0x2480, ap+0x2488
+  float stamina = 0.0f;        // ap+0x281C
+  float heading_deg = 0.0f;    // ap+0x247C
+  float body_deg = 0.0f;       // ap+0xBE4
+  float launchX = 0.0f, launchZ = 0.0f;  // param_6[0], param_6[2] (PES axes: z = -GF y)
+  float quality = 0.0f;        // a
+};
+
+// PES's bearing of (x, z) in degrees [0, 360): FUN_14046F230 over FUN_14046F260 (translated).
+float PesHeadingDeg(float x, float z);
+
+// Base(class, subclass, gate) of the kind. A kind outside 0..0x96 reads the out-of-range row, like PES.
+float KickBase(const SituationConstants& c, const KickSituation& s);
+// Q = Base x G.
+float SituationFactor(const SituationConstants& c, const KickSituation& s);
+
 struct KickErrorConstants {
   // --- FUN_14071d770 quality curve q(S) (accuracy 2, contact 3.3) ---
   float qFloorStat = 0.0f;   // 40.0  @0x14259be2c
@@ -84,6 +170,9 @@ struct KickErrorConstants {
 
   // --- Penalty aim scatter (FUN_1406b4000, FUN_1406e3210; pespenaltyscatter.*) ---
   PenaltyScatterConstants penaltyScatter{};
+
+  // --- Situation factor Q (FUN_14083cc30) ---
+  SituationConstants situation{};
 };
 
 std::optional<KickErrorConstants> LoadKickErrorConstants(const PeImage& exe, std::string* error);
@@ -120,8 +209,9 @@ struct ScatterRecord {
 struct KickScatter {
   ScatterRecord yaw, pitch, speed;
 };
+// `situation` is Q (SituationFactor of the kick); F1/F2 stay a stand-in inside.
 KickScatter BuildScatter(const KickErrorConstants& k, float quality, float launchPenalty,
-                         float pressure);
+                         float pressure, float situation);
 
 struct KickError {
   float yaw_deg = 0.0f;

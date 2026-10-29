@@ -115,13 +115,147 @@ def replay(snap_dir, cfg):
     }
 
 
+# ---- situation factor Q (docs/re/pes-re-kick-kinds.md, docs/ports/pes-port-KickQ.md) -----------------------------
+# One recorded scatter call replayed with optional input patches; every input Q reads and PES's Q (xmm13 at
+# 0x14083E618, where every path of the Q block rejoins) are recorded as exact f32/int bits. A patch writes the field
+# at the instruction that first reads it, so the call sees the changed value and nothing else moves.
+Q_ENTRY = 0x14083CC30
+Q_AP_FIELDS = {   # name: (offset, struct format)
+    "kind": (0x2752, "<h"), "b2754": (0x2754, "<b"), "entry2755": (0x2755, "<b"), "first": (0x2756, "<b"),
+    "window": (0x2764, "<f"), "flags": (0x2460, "<I"), "velX": (0x2480, "<f"), "velZ": (0x2488, "<f"),
+    "stamina": (0x281C, "<f"), "heading": (0x247C, "<f"), "body": (0xBE4, "<f"),
+}
+HK_MOTION, HK_MOTION_GATE, HK_MOTION_DESC = 0x14083CD7D, 0x14083E036, 0x14083E419   # [rax] = the u16 motion id
+HK_VEC, HK_TOUCH, HK_EFF, HK_A, HK_DESC, HK_Q = (0x14083CDCD, 0x14083CE36, 0x14083CF07, 0x14083CF11, 0x14083E42E,
+                                                  0x14083E618)
+Q_COLUMNS = ["kind", "b2754", "entry2755", "first", "window", "flags", "velX", "velZ", "stamina", "heading", "body",
+             "launch0", "launch2", "a", "motion", "touch", "desc", "q"]
+Q_FLOATS = {"window", "velX", "velZ", "stamina", "heading", "body", "launch0", "launch2", "a"}
+
+
+def f32_bits(v):
+    return struct.unpack("<I", struct.pack("<f", v))[0]
+
+
+def q_case(snap_dir, cfg, patch=None):
+    """Replay one capture with `patch` ({field: value}, plus motion, touch, a, launch=(x, y, z)). Returns the
+    inputs Q saw (read after the patch) and PES's Q as f32 bits; desc is the motion-descriptor byte when the
+    in-flight branch (sub 2..12) ran, else None."""
+    patch = dict(patch or {})
+    call = ft.load_recorded_call(snap_dir)
+    ap = call["gpr"]["rcx"]
+    orig = ft.hook_bytes(cfg)
+    rec = {"desc": None, "touch": None}
+
+    def on_code(uc, address, size, data):
+        rd = uc.reg_read
+        if address == Q_ENTRY:
+            for name, (off, fmt) in Q_AP_FIELDS.items():
+                if name in patch:
+                    uc._ensure(ap + off, 8)
+                    uc.mem_write(ap + off, struct.pack(fmt, patch[name]))
+        elif address in (HK_MOTION, HK_MOTION_GATE, HK_MOTION_DESC):
+            if "motion" in patch:
+                uc.mem_write(rd(xc.UC_X86_REG_RAX), struct.pack("<H", patch["motion"]))
+            if address == HK_MOTION:
+                rec["motion"] = struct.unpack("<H", bytes(uc.mem_read(rd(xc.UC_X86_REG_RAX), 2)))[0]
+        elif address == HK_VEC:
+            vec = struct.unpack("<Q", bytes(uc.mem_read(rd(xc.UC_X86_REG_RBP) + 0xC8, 8)))[0]
+            uc._ensure(vec, 12)
+            if "launch" in patch:
+                uc.mem_write(vec, struct.pack("<3f", *patch["launch"]))
+            rec["launch"] = list(struct.unpack("<3f", bytes(uc.mem_read(vec, 12))))
+            for name, (off, fmt) in Q_AP_FIELDS.items():
+                uc._ensure(ap + off, 8)
+                rec[name] = struct.unpack(fmt, bytes(uc.mem_read(ap + off, struct.calcsize(fmt))))[0]
+        elif address == HK_TOUCH:
+            if "touch" in patch:
+                uc.reg_write(xc.UC_X86_REG_RAX, int(patch["touch"]))
+            rec["touch"] = rd(xc.UC_X86_REG_RAX) & 0xFF
+        elif address == HK_EFF:
+            rec["eff2755"] = rd(xc.UC_X86_REG_R14) & 0xFFFFFFFF
+        elif address == HK_A:
+            if "a" in patch:
+                uc.reg_write(xc.UC_X86_REG_XMM0, f32_bits(patch["a"]))
+            rec["a"] = xmm_f32(uc, 0)
+        elif address == HK_DESC:
+            rec["desc"] = rd(xc.UC_X86_REG_RAX) & 0xFFFFFFFF
+        elif address == HK_Q:
+            rec["q"] = f32_bits(xmm_f32(uc, 13))
+
+    uc, err = ft.run_recorded(snap_dir, orig=orig, models=ft.load_import_models(), on_code=on_code)
+    rec["err"] = err
+    return rec
+
+
+def q_row(rec):
+    """One TSV row: ints decimal, floats as the hex of their f32 bits, desc -1 when the in-flight branch did not run."""
+    rec = dict(rec, launch0=rec["launch"][0], launch2=rec["launch"][2])
+    out = []
+    for c in Q_COLUMNS:
+        v = rec.get(c)
+        if c == "desc":
+            v = -1 if v is None else v
+        elif c == "touch":
+            v = 0 if v is None else v   # the window block did not run: the touch state was never read
+        if c == "q":   # already the f32 bits
+            out.append("%08x" % v)
+        else:
+            out.append("%08x" % f32_bits(v) if c in Q_FLOATS else str(v))
+    return "\t".join(out)
+
+
+def q_patches(count, seed):
+    """Deterministic input sweep: every field Q reads takes values on both sides of each threshold it is tested
+    against. The first 150 cases walk every kind of the table with nothing else changed."""
+    import random
+    rng = random.Random(seed)
+    out = [{"kind": k} for k in range(1, 151)] if count else []
+    for _ in range(count):
+        out.append({
+            "kind": rng.randint(1, 150), "b2754": rng.choice([0, 9, 9, 2, 3]),
+            "entry2755": rng.choice([0, 2, 4, 9, 0xD, 0xF, 0x11, 1, 3]), "first": rng.choice([-1, 0, 1, 1]),
+            "window": rng.choice([720.0, rng.uniform(0, 359.9), rng.uniform(0, 359.9)]),
+            "flags": rng.choice([0, 0, 1 << 29]), "velX": rng.uniform(-0.6, 0.6), "velZ": rng.uniform(-0.6, 0.6),
+            "stamina": rng.uniform(0, 100), "heading": rng.uniform(-400, 400), "body": rng.uniform(-200, 600),
+            "launch": (rng.uniform(-30, 30), rng.uniform(0, 8), rng.uniform(-30, 30)),
+            "a": rng.uniform(0, 1), "touch": rng.choice([0, 1]),
+            "motion": rng.choice([0, 0x9F1, 0x9BE, 0xA20, 0xA7D, 0x9B0, 0x9B4, 0xA41, 0xA42, 0xA45, 0x500]),
+        })
+    return out
+
+
+def q_main(a):
+    cfg_patches = q_patches(a.q_count, a.q_seed)
+    with open(a.q, "w") as f:
+        f.write("seq\t" + "\t".join(Q_COLUMNS) + "\n")
+        for snap in a.snaps:
+            seq = os.path.basename(snap.rstrip("/"))
+            for i, p in enumerate([{}] + cfg_patches):   # {} is the capture itself
+                rec = q_case(snap, a.hooks, p)
+                if rec["err"] or "q" not in rec:
+                    print("%s case %d: no Q (%s)" % (seq, i, rec["err"]), flush=True)
+                    continue
+                f.write("%s\t%s\n" % (seq, q_row(rec)))
+                f.flush()
+            print("%s done" % seq, flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--hooks", required=True, help="rv.dll hooks.cfg (its displaced bytes replace the patches)")
-    ap.add_argument("--out", required=True, help="scratch JSON (PES-derived)")
+    ap.add_argument("--out", default=None, help="scratch JSON (PES-derived)")
     ap.add_argument("--tsv", default=None, help="scratch TSV of the soft-min calls: seq, call, a, b, c, d, out")
+    ap.add_argument("--q", default=None, help="scratch TSV of the situation factor Q: each capture, the 150-kind walk "
+                    "and --q-count random input cases, inputs and PES's Q as f32 bits (replaces --out/--tsv)")
+    ap.add_argument("--q-count", type=int, default=250)
+    ap.add_argument("--q-seed", type=int, default=1)
     ap.add_argument("snaps", nargs="+")
     a = ap.parse_args()
+    if a.q:
+        return q_main(a)
+    if not a.out:
+        ap.error("--out or --q is required")
     rows = []
     for snap in a.snaps:
         row = replay(snap, a.hooks)

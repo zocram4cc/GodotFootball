@@ -58,6 +58,45 @@ const char* KickStat(e_FunctionType type, bool header) {
   return "technical_shortpass";
 }
 
+// ponytail: PES picks the kick kind per kick (ap+0x2752, FUN_1408364D0 over FUN_140829E80's geometry tests,
+// docs/re/pes-re-kick-kinds.md 2). GF has no chooser, so each request takes the first candidate of its list (§5):
+// shot (request 10, FUN_1408371A0) 0x69, ground pass (9, FUN_140837670) 0x21, lofted pass (8, FUN_1408360F0) 0x49,
+// and a header the first of the class-3 high-ball family (1..27, FUN_1408272A0) 1. Remove when FUN_1408364D0 is ported.
+constexpr int kPesKindShot = 0x69, kPesKindGroundPass = 0x21, kPesKindLoftedPass = 0x49, kPesKindHeader = 1;
+// ponytail: PES's result[1] / result[2] of FUN_140829E80 (ap+0x2754, ap+0x2755: a kick-angle bucket from
+// FUN_140723DE0) have no GF producer; GF writes their defaults (docs/re/pes-re-kick-kinds.md 3): 0xC and 0x12, which
+// switch every bucket-keyed term off. Remove when FUN_140829E80 is ported.
+constexpr int8_t kPesDefaultB2754 = 0xC, kPesDefaultBucket = 0x12;
+
+// The kicker-record fields Q reads (docs/re/pes-re-kick-kinds.md 3), in PES units: z = -GF y, metres per PES tick.
+// ponytail: ap+0x2756 (first-time byte, FUN_140837FC0), ap+0x2764 (window angle, W1 720.0 = none), ap+0x2460 bit 29 (AI
+// bit, writer OPEN), the motion id behind ap+0xAB8 vtable+0x18 and vtable+0x30 (touch state), and ap+0x281C (stamina
+// accumulator of FUN_1406F6790) have no GF producer: first-time 0, no window, AI bit 0, motion 0, no touch, stamina 0.
+// ap+0x247C (heading) and ap+0xBE4 (body turn) both take GF's direction vectors. Remove each as its PES writer lands.
+pes::KickSituation PesKickSituation(Player* player, const pes::KickErrorConstants& k, const Vector3& launch,
+                                    e_FunctionType type, bool header, float quality) {
+  const pes::SituationConstants& c = k.situation;
+  pes::KickSituation s;
+  s.kind = header ? kPesKindHeader
+                  : type == e_FunctionType_Shot ? kPesKindShot
+                  : type == e_FunctionType_HighPass || type == e_FunctionType_LongPass ? kPesKindLoftedPass
+                                                                                         : kPesKindGroundPass;
+  s.b2754 = kPesDefaultB2754;
+  s.entry2755 = kPesDefaultBucket;
+  s.window = c.noWindow;
+  const Vector3 movement = player->GetMovement();
+  s.velX = movement.coords[0] / c.tickRate;
+  s.velZ = -movement.coords[1] / c.tickRate;
+  const Vector3 facing = player->GetDirectionVec();
+  const Vector3 body = player->GetBodyDirectionVec();
+  s.heading_deg = pes::PesHeadingDeg(facing.coords[0], -facing.coords[1]);
+  s.body_deg = pes::PesHeadingDeg(body.coords[0], -body.coords[1]);
+  s.launchX = launch.coords[0];
+  s.launchZ = -launch.coords[1];
+  s.quality = quality;
+  return s;
+}
+
 // PES's execution error on one kick (docs/re/pes-re-kick-scatter.md): the
 // kick-type quality, the scatter records, then yaw / pitch / speed drawn from
 // slot 2 of the kicker's own generator. `shotPower` is the strike's 0..1
@@ -97,8 +136,10 @@ Vector3 ApplyPesKickError(Match* match, Player* player, const Vector3& launch,
                                 opp->GetPosition().GetDistance(player->GetPosition()))
           : 1.0f;
   // Action bytes 9 (pass) and 10 (shoot) both halve a downward pitch error.
+  const pes::KickSituation situation = PesKickSituation(player, k, launch, type, header, quality);
   const pes::KickError e = pes::DrawKickError(
-      k, player->GetPesRandom(), pes::BuildScatter(k, quality, launchPenalty, pressure), true);
+      k, player->GetPesRandom(),
+      pes::BuildScatter(k, quality, launchPenalty, pressure, pes::SituationFactor(k.situation, situation)), true);
   float v[3] = {launch.coords[0], launch.coords[1], launch.coords[2]};
   pes::ApplyKickError(e, v);
   return Vector3(v[0], v[1], v[2]);
