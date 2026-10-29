@@ -200,3 +200,9 @@ add_test(NAME translate_recorded_call_test
   COMMAND bash -c "[ -n \"$GF_DIFF_PYTHON\" ] || exit 77; \
 \"$GF_DIFF_PYTHON\" '${CMAKE_SOURCE_DIR}/tools/dev/translate/test_recorded_call.py'")
 set_tests_properties(translate_recorded_call_test PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+
+# Fast-gate selector: a mutated closure callee selects its recorded caller, an unrelated change selects nothing.
+# Plain python3 (no harness Python), so it always runs.
+add_test(NAME translate_select_recorded_test
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/dev/translate/test_select_recorded.py)
+set_tests_properties(translate_select_recorded_test PROPERTIES TIMEOUT 120)
