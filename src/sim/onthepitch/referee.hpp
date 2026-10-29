@@ -51,7 +51,7 @@ struct Foul {
   Player* foulPlayer;
   Player* foulVictim;
   int foulType;  // 0: nothing, 1: foul, 2: yellow, 3: red (this engine's ladder; the card the player is given)
-  int level = 0;  // PES's judge level (pesjudge.hpp JudgeLevel): 1 foul, 2 foul + warning, 3 yellow, 4 red
+  int level = 0;  // PES's judge level (PesWorld::DecideJudge, the translated 0x1405B7470): 1 foul, 2 foul + warning, 3 yellow, 4 red
   bool advantage;
   // PES's advantage (docs/re/pes-re-duels-fouls.md 3): decided once, in the
   // last third of the whistle hold, then a clock that runs out or is called back.
@@ -172,10 +172,11 @@ protected:
   // stoppage.
   void IssueDeferredCards();
 
-  // Law 12 DOGSO: escalates a foul on a player who was through on goal.
-  // PES 2021's foul decision for one contact: PES's judge level 0..4.
-  int JudgeContact(Player* tripee, Player* tripper, pes::JudgeAction action, bool victimFell,
-                   bool targeted);
+  // PES 2021's foul decision for one contact: PES's judge level 0..4 (the translated 0x1405B7470 on the world window).
+  int JudgeContact(Player* tripee, Player* tripper, pes::ContactAction foulerAction, bool victimStaggered, bool victimFell,
+                   bool targeted, bool playedBall);
+  // The field info and attack signs the judge and the sanction tree read, written on the world window.
+  void StagePesField();
   void RecordFoul(Player* tripee, Player* tripper, int level);
   // Stages the foul stop's records on the world window (the foul event ring, the booking counts, the field info) and
   // runs PES's sanction tree on them. Called once per foul stop, after PublishPesStoppage wrote the match-info block.
