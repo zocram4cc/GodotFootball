@@ -204,7 +204,7 @@ class Replayer:
         rsp, ret = gpr["rsp"], rec[48]
         uc._ret_sentinel = ret
         if not lazy.ensure(rsp, 8):
-            return None, "stack slot at rsp not in the snapshot"
+            return None, lazy.unmapped_reason(rsp) or "stack slot at rsp not in the snapshot"
         uc.mem_write(rsp, struct.pack("<Q", ret))
         for i, name in enumerate(GPR_NAMES):
             uc.reg_write(getattr(xc, "UC_X86_REG_" + name.upper()), rec[i])
