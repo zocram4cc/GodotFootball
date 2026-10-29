@@ -26,6 +26,7 @@ struct FixDemoCutRow {
 
 struct FixDemoCutGroup {
   uint32_t id = 0;  // (cat << 16) | (index + 1)
+  uint32_t firstRow = 0;  // the group's slice start in the table's row array: the DB's {start, count} pair (0x140A7CB40)
   std::string name;
   std::vector<FixDemoCutRow> rows;  // the variants, in table order
 };

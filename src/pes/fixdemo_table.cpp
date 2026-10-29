@@ -225,6 +225,7 @@ std::optional<FixDemoTable> DecodeFixDemoTable(const std::vector<uint8_t>& bytes
     if (static_cast<size_t>(start) + count > rows.size()) return fail("cut group slice out of range");
     FixDemoCutGroup g;
     g.id = (static_cast<uint32_t>(category) << 16) | static_cast<uint32_t>(gi + 1);
+    g.firstRow = start;
     g.name = groupNames[gi];
     g.rows.assign(rows.begin() + start, rows.begin() + start + count);
     t.cutGroups.push_back(g);
