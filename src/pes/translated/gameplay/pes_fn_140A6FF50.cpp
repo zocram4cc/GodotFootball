@@ -1381,7 +1381,7 @@ void pes_fn_140A6FF50(PesState& s) {
     s.cf = false; s.of = false;
     s.gpr[1] = (uint64_t)(_r);
   }
-  /*OUT-OF-SET CALL 0x14159F3E0*/ pes_dispatch_missing(0x14159F3E0);
+  /* stub: engine-noop, no effect on the success path */
   s.gpr[11] = (uint64_t)(((s.gpr[4]) + (0x298ULL)));
   { unsigned __int128 _v = s.rd128(((s.gpr[11]) + (0ULL - 0x18ULL))); s.xmm[6][0] = (uint64_t)_v; s.xmm[6][1] = (uint64_t)(_v >> 64); }
   { unsigned __int128 _v = s.rd128(((s.gpr[11]) + (0ULL - 0x28ULL))); s.xmm[7][0] = (uint64_t)_v; s.xmm[7][1] = (uint64_t)(_v >> 64); }

@@ -670,14 +670,8 @@
    "callee-outside-set@14159F3E0",
    "unresolved-mem@140A42A02",
    "unresolved-mem@140A42A13"
-  ],
-  "stub_refs": [
-   "14159F3E0"
   ]
  },
- "stub_refs": [
-  "14159F3E0"
- ],
  "harness": {
   "harness_class": "runnable with stubs",
   "blockers": [],

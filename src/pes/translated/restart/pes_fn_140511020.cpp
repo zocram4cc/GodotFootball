@@ -202,7 +202,7 @@ void pes_fn_140511020(PesState& s) {
     s.cf = false; s.of = false;
     s.gpr[1] = (uint64_t)(_r);
   }
-  /*OUT-OF-SET CALL 0x14159F3E0*/ pes_dispatch_missing(0x14159F3E0);
+  /* stub: engine-noop, no effect on the success path */
   s.gpr[11] = (uint64_t)(((s.gpr[4]) + (0x80ULL)));
   s.gpr[3] = (uint64_t)(s.rd(((s.gpr[11]) + (0x18ULL)), 8));
   s.gpr[6] = (uint64_t)(s.rd(((s.gpr[11]) + (0x28ULL)), 8));

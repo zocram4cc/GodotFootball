@@ -9,6 +9,11 @@ implement:
   noop       engine-noop: no effect on the success path; the call is dropped
   None       run-real kinds: the callee executes its image bytes, no stub
   unmodellable  blocked (see why): the function is not run
+  abort      tamper trap: reaching it aborts on both sides
+
+One choice for every spec set (ruling): a callee in MODEL_DOS is always its model, in every spec set; any other
+callee is always its translated body (run-real) or blocked. No spec decides it. A spec's legacy `stub_refs` may
+only name modelled callees (check_spec_refs).
 
 A do value no implementation knows is a loud error, never a silent default.
 """
@@ -58,3 +63,21 @@ def load(path=DEFAULT):
         table[va] = {"va": "0x%X" % va, "do": do, "kind": e["kind"],
                      "why": "; ".join(e.get("why") or [])}
     return table
+
+# The do values the translator and the harness both emit: the one set every spec set models the same way.
+# libm (logf/powf) has no emitter yet, so it stays blocked, as before.
+MODEL_DOS = frozenset({"sqrt_xmm0", "noop", "abort"})
+
+
+def models(table):
+    """{callee VA (int): entry} for every callee the table models (do in MODEL_DOS)."""
+    return {va: e for va, e in table.items() if e["do"] in MODEL_DOS}
+
+
+def check_spec_refs(spec, table, where):
+    """A spec's legacy stub_refs may only name callees the table models; anything else disagrees."""
+    for ref in spec.get("stub_refs") or []:
+        e = table.get(int(ref, 16))
+        if e is None or e["do"] not in MODEL_DOS:
+            got = "no entry" if e is None else "do=%s" % e["do"]
+            raise SystemExit("%s: stub_refs %s disagrees with stubs.json (%s)" % (where, ref, got))

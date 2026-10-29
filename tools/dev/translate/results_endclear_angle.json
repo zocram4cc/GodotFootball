@@ -1,0 +1,158 @@
+{
+ "note": "snapshot-backed diff of traced calls (snapdiff.py): each traced call replayed from its snapshot's own memory on the harness and the translated side; floor = bit-exact on every replayed call and own-block coverage >= 0.5 over the replayed calls.",
+ "floor_count": 4,
+ "results": [
+  {
+   "va": "0x142108630",
+   "calls": 6,
+   "replayed": 6,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "seq021": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq028": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq029": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq032": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq034": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq035": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 187,
+    "total": 366,
+    "fraction": 0.5109
+   },
+   "floor": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14063A290",
+   "calls": 6,
+   "replayed": 6,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "seq021": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq028": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq029": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq032": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq034": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq035": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 2,
+    "total": 2,
+    "fraction": 1.0
+   },
+   "floor": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14063A490",
+   "calls": 6,
+   "replayed": 6,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "seq021": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq028": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq029": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq032": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq034": {
+     "calls": 1,
+     "replayed": 1
+    },
+    "seq035": {
+     "calls": 1,
+     "replayed": 1
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 116,
+    "total": 222,
+    "fraction": 0.5225
+   },
+   "floor": true,
+   "blocked_callees": []
+  },
+  {
+   "va": "0x14063D2F0",
+   "calls": 12,
+   "replayed": 12,
+   "excluded": 0,
+   "reasons": {},
+   "snapshots": {
+    "seq021": {
+     "calls": 12,
+     "replayed": 12
+    }
+   },
+   "mismatches": [],
+   "translated": true,
+   "note": "",
+   "own_block": {
+    "reached": 6,
+    "total": 6,
+    "fraction": 1.0
+   },
+   "floor": true,
+   "blocked_callees": []
+  }
+ ]
+}

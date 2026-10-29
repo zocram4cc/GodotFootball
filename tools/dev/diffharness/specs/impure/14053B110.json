@@ -985,14 +985,8 @@
    "unresolved-mem@140A85B00",
    "unresolved-mem@140A85B03",
    "unresolved-mem@140A85B07"
-  ],
-  "stub_refs": [
-   "14159F3E0"
   ]
  },
- "stub_refs": [
-  "14159F3E0"
- ],
  "harness": {
   "harness_class": "runnable with stubs",
   "blockers": [],

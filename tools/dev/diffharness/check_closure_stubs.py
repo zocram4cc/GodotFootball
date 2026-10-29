@@ -30,12 +30,12 @@ def main():
     pilot = [va for va, _ in sets.read_set(os.path.join(HERE, "specgen", "sets", "pilot.txt"))]
     AN.open_image(args.image)
     C.configure({int(va, 16): uni[va]["size"] for va in pilot})
-    got = set(I.harness_fields(HOOK, [])["stub_refs"])
+    got = {"%X" % s for s in C.reach_stubs(HOOK)[0]}  # every model the closure reaches (the table decides which)
     missing = sorted(WANT - got)
     if missing:
-        print("RED: stub_refs %s, missing %s" % (sorted(got), missing))
+        print("RED: closure models %s, missing %s" % (sorted(got), missing))
         return 1
-    print("GREEN: stub_refs %s" % sorted(got))
+    print("GREEN: closure models %s" % sorted(got))
     return 0
 
 
